@@ -120,11 +120,17 @@ func RunNoteDiagnosticsToProto(notes []runtime.RunNote, model *CachedModel) []*p
 	for _, n := range notes {
 		diag := n.Diagnostic()
 		file, _ := n.Location()
+		var out *pb.Diagnostic
 		if sf := model.document(file); sf != nil {
-			pbDiags = append(pbDiags, DiagnosticToProto(diag, sf))
-			continue
+			out = DiagnosticToProto(diag, sf)
+		} else {
+			out = &pb.Diagnostic{Severity: diag.Severity.String(), Message: diag.Message, Code: diag.Code}
 		}
-		pbDiags = append(pbDiags, &pb.Diagnostic{Severity: diag.Severity.String(), Message: diag.Message, Code: diag.Code})
+		if c, ok := n.(runtime.ChoicePoint); ok {
+			out.Independent = c.Independent
+			out.OrderDependent = append([]string(nil), c.Touches...)
+		}
+		pbDiags = append(pbDiags, out)
 	}
 	return pbDiags
 }

@@ -180,10 +180,10 @@ func TestEventRecorderKeepsTheMostRecentRecords(t *testing.T) {
 		t.Fatalf("records = %d dropped = %d, want the two entries and no line", len(tr.Records()), dropped)
 	}
 	tr.Clear()
-	mark := tr.Mark()
+	mark := tr.mark()
 	tr.RecordStateEntry(at(2, nil), "c", "c", "", false)
 	tr.RecordStateEntry(at(3, nil), "d", "d", "", false)
-	tr.RecordAcceptAt(mark, at(2, nil), 0, "Go", nil)
+	tr.recordAcceptAt(mark, at(2, nil), 0, "Go", nil)
 	states := func() string {
 		var out []string
 		for _, r := range tr.Records() {
@@ -230,7 +230,7 @@ func TestEventRecorderCaptureRestoresTruncation(t *testing.T) {
 	if dropped, upTo := tr.Dropped(); states() != "b c d" || dropped != 1 || upTo != 0 {
 		t.Fatalf("restored: %s dropped %d up to %v, want b c d with one dropped up to t = 0", states(), dropped, upTo)
 	}
-	if tr.Mark() != 4 {
-		t.Fatalf("mark after restore = %d, want 4", tr.Mark())
+	if tr.mark() != 4 {
+		t.Fatalf("mark after restore = %d, want 4", tr.mark())
 	}
 }

@@ -163,6 +163,32 @@ func TestExpressionTreeLowering(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if got := string(r.Notation); !hasBlock(got, tc.want) {
+				t.Errorf("notation lacks %q:\n%s", tc.want, got)
+			}
+		})
+	}
+}
+
+// TestEnglishConstraintCalls checks an English constraint body calling a function
+// by its bare name through the whole migration, beside the tree cases above.
+func TestEnglishConstraintCalls(t *testing.T) {
+	for _, tc := range []struct{ name, body, want string }{
+		{"a trigonometric function", "a = sin(b)", "context.a == TrigFunctions::sin(context.b)"},
+		{"functions of the script table", "abs(a) &lt;= sqrt(b) and floor(a) &lt; max(a, b)", "RealFunctions::abs(context.a) <= RealFunctions::sqrt(context.b) and RealFunctions::floor(context.a) < RealFunctions::max(context.a, context.b)"},
+		{"a power", "a = pow(b, 2)", "context.a == context.b ** 2"},
+		{"the extension library's functions", "a = exp(b) + ln(b) + log(b, 2)", "context.a == OpenSysMLMathFunctions::exp(context.b) + OpenSysMLMathFunctions::ln(context.b) + OpenSysMLMathFunctions::log(context.b, 2)"},
+		{"a dotted name is refused", "a = Math.sin(b)", `the construct "Math.sin(" is outside the translated subset: a call is not English`},
+		{"a name outside the table is refused", "a = sinh(b)", `the construct "sinh(" is outside the translated subset: a call is not English`},
+		{"a name of several words is not a call", "a = sin b", `the name "sin b" resolves to nothing readable`},
+		{"the wrong number of arguments is refused", "a = sin(a, b)", `the call "sin" is not in the translated function table: sin takes 1 argument(s), not 2`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			spec := `<specification xmi:type="uml:OpaqueExpression" xmi:id="_s"><body>` + tc.body + `</body><language>English</language></specification>`
+			r, err := Migrate("english.xmi", []byte(treeModel(spec)))
+			if err != nil {
+				t.Fatal(err)
+			}
 			if got := string(r.Notation); !strings.Contains(got, tc.want) {
 				t.Errorf("notation lacks %q:\n%s", tc.want, got)
 			}
@@ -194,7 +220,7 @@ func TestBlankTreeIsNotationOnly(t *testing.T) {
 			Unmapped, `the types at "a" disagree: the expression is a Real, not the Boolean wanted`},
 		{"an instance value naming a literal is read and type checked",
 			`<specification xmi:type="uml:Expression" xmi:id="_s"><operand xmi:type="uml:InstanceValue" xmi:id="_iv" instance="_on"/></specification>`,
-			Unmapped, `the types at "On" disagree: the expression is a Mode, not the Boolean wanted`},
+			Unmapped, `the types at "On" disagree: the expression is a Model::Mode, not the Boolean wanted`},
 		{"a tree without operands is not blank",
 			`<specification xmi:type="uml:Expression" xmi:id="_s"/>`,
 			Unmapped, "the UML Expression tree has no v2 form"},
@@ -235,7 +261,7 @@ func TestTreeOpaqueLiteralDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "attribute n : ScalarValues::Integer default = 2;"; !strings.Contains(string(r.Notation), want) {
+	if want := "attribute n : ScalarValues::Integer default = 2;"; !hasBlock(string(r.Notation), want) {
 		t.Errorf("notation lacks %q:\n%s", want, r.Notation)
 	}
 }
@@ -250,7 +276,7 @@ func TestTreePlaceholderShadowing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "context.On == Mode::On"; !strings.Contains(string(r.Notation), want) {
+	if want := "context.On == Mode::On"; !hasBlock(string(r.Notation), want) {
 		t.Errorf("notation lacks %q:\n%s", want, r.Notation)
 	}
 }

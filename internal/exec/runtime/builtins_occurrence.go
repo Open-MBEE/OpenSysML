@@ -54,12 +54,12 @@ func occurrenceOf(ec *EvalContext, name, param string, val Value) (*Instance, er
 	id, ok := val.Object()
 	if !ok || ec.ctx.isDataValue(val) {
 		return nil, fmt.Errorf("%w: function %s parameter %q is %s, not an occurrence",
-			ErrNotAnOccurrence, writtenName(name), param, describeOperand(val))
+			errNotAnOccurrence, writtenName(name), param, describeOperand(val))
 	}
 	inst, found := ec.ctx.getInstance(id)
 	if !found {
 		return nil, fmt.Errorf("%w: function %s parameter %q names object #%d, which this context does not hold",
-			ErrNotAnOccurrence, writtenName(name), param, id)
+			errNotAnOccurrence, writtenName(name), param, id)
 	}
 	return inst, nil
 }

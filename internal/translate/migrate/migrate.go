@@ -1,11 +1,23 @@
 // Package migrate writes a SysML v1 model, read from XMI, as SysML v2 textual
 // notation, and reports what each v1 element became.
+//
+// A diagram's symbols become a view's DiagramLayout annotations. The
+// compartments a modeler collapsed on a symbol (its SUPPRESS_* properties, own
+// or inherited from its symbol style) become the Layout's show… switches by
+// the kind their members take in v2: parts → showParts, references →
+// showReferences, properties, values and class attributes → showAttributes,
+// constraints → showConstraints, flow properties → showItems, proxy, full and
+// class ports → showPorts, operations → showActions (compartmentKinds). A kind
+// is hidden when every Cameo compartment the symbol states for it is
+// suppressed; a suppressed compartment with no v2 kind is reported as an
+// unsupported presentation property.
 package migrate
 
 import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -148,6 +160,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		extras:            map[*sysmlv1.Element][]func(){},
 		viewNames:         map[*sysmlv1.Element]map[string]bool{},
 		flows:             map[*sysmlv1.Element][]*sysmlv1.Element{},
+		asFlows:           map[*sysmlv1.Element]bool{},
+		flowNames:         map[*sysmlv1.Element]map[*sysmlv1.Element]string{},
 		outcomes:          map[*sysmlv1.Element]*flowOutcome{},
 		unplaced:          map[*sysmlv1.Element]*placement{},
 		conformed:         map[*sysmlv1.Element][]viewpointConformance{},
@@ -155,7 +169,9 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		concerns:          map[*sysmlv1.Element]*concernInfo{},
 		concernLists:      map[*sysmlv1.Element][]*sysmlv1.Element{},
 		taken:             map[*sysmlv1.Element]map[string]bool{},
+		regionStates:      map[*sysmlv1.Element]string{},
 		takenBy:           map[*sysmlv1.Element]map[string]*sysmlv1.Element{},
+		referenced:        map[*sysmlv1.Element]map[string]bool{},
 		parallel:          map[*sysmlv1.Element]string{},
 		exposed:           map[*sysmlv1.Element]string{},
 		methodOf:          map[*sysmlv1.Element]*sysmlv1.Element{},
@@ -193,6 +209,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		entries:           map[*sysmlv1.Element]*regionEntry{},
 		stateUsed:         map[*sysmlv1.Element]map[string]bool{},
 		nestedIn:          map[*sysmlv1.Element]string{},
+		deferralPlans:     map[*sysmlv1.Element]*deferrals{},
 		vertexNames:       map[*sysmlv1.Element]string{},
 		stateMachinesUsed: map[*sysmlv1.Element]bool{},
 		points:            map[*sysmlv1.Element]pointForm{},
@@ -232,6 +249,11 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		objectives:        map[*sysmlv1.Element]string{},
 		routeKinds:        routeKinds{},
 	}
+	m.privateAliases = map[*sysmlv1.Element]*privateLayoutAlias{}
+	m.privateAliasesByOwner = map[*sysmlv1.Element][]*privateLayoutAlias{}
+	m.privateAliasPlacements = map[privateLayoutPlacement]*privateLayoutAlias{}
+	m.privateAliasOwners = map[*sysmlv1.Element]bool{}
+	m.privateAliasHoles = map[*sysmlv1.Element]bool{}
 	m.w.marker = m.synthesizedNames
 	m.w.standInMarker = m.standInNames
 	m.imageBase, _ = imageBaseURL(opts.ImageBaseURL)
@@ -268,6 +290,9 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m.libraryNameNotes()
 	for _, extra := range m.extras[nil] {
 		extra()
+	}
+	if !m.strict {
+		m.planPrivateLayoutAliases()
 	}
 	m.views(nil)
 	m.flushFlows()
@@ -307,6 +332,8 @@ type flowOutcome struct {
 	pending int
 	written []string
 	notes   []string
+	// target is the qualified name of the first flow written under a name.
+	target string
 }
 
 // extensions accounts for the diagrams and other tool-private content the
@@ -373,6 +400,11 @@ type migration struct {
 	buried map[*sysmlv1.Element]bool
 	// flows lists the item flows each connector realizes.
 	flows map[*sysmlv1.Element][]*sysmlv1.Element
+	// asFlows marks the connectors written as the item flows they realize alone.
+	asFlows map[*sysmlv1.Element]bool
+	// flowNames is the name the flow written for each item flow a connector
+	// realizes takes in the connector's owner; absent when it stays anonymous.
+	flowNames map[*sysmlv1.Element]map[*sysmlv1.Element]string
 	// outcomes accumulates each item flow's result over its realizing connectors.
 	outcomes map[*sysmlv1.Element]*flowOutcome
 	// unplaced records where each Satisfy or Verify was placed, and why not.
@@ -381,12 +413,25 @@ type migration struct {
 	taken map[*sysmlv1.Element]map[string]bool
 	// takenBy is the element each taken name was reserved for; nil for none.
 	takenBy map[*sysmlv1.Element]map[string]*sysmlv1.Element
+	// referenced holds the names a reference written in a body resolves past
+	// it by, by scope: a declaration named so there would capture the reference.
+	referenced map[*sysmlv1.Element]map[string]bool
+	// privateAliases names private members through aliases in their owners' bodies.
+	privateAliases        map[*sysmlv1.Element]*privateLayoutAlias
+	privateAliasesByOwner map[*sysmlv1.Element][]*privateLayoutAlias
+	// privateAliasPlacements records the aliases used by individual view placements.
+	privateAliasPlacements map[privateLayoutPlacement]*privateLayoutAlias
+	// privateAliasOwners records owners that may need deferred alias declarations.
+	privateAliasOwners map[*sysmlv1.Element]bool
+	// privateAliasHoles records owners whose deferred alias hole was added.
+	privateAliasHoles map[*sysmlv1.Element]bool
 	// opened holds the member names of each synthesized declaration being
 	// written, outermost first; a reference written inside them avoids those names.
 	opened []columnNames
-	// parallel names the parallel state each region of an orthogonal state is
-	// written in; a lone region is written inline and has no name of its own.
-	parallel map[*sysmlv1.Element]string
+	// regionStates marks regions written as state usages; orthogonal regions
+	// name their parallel host, while a wrapped single region has no host name.
+	regionStates map[*sysmlv1.Element]string
+	parallel     map[*sysmlv1.Element]string
 	// exposed notes, for each feature reached from outside its owner (through
 	// a connector path, a slot or a redefinition), what reaches it.
 	exposed map[*sysmlv1.Element]string
@@ -569,6 +614,9 @@ type migration struct {
 	// nestedIn names the generated action a state's behavior is written
 	// within, for those the strict deferral encoding nests.
 	nestedIn map[*sysmlv1.Element]string
+	// deferralPlans holds how each state's deferrals are written, planned
+	// once so the names the encoding nests a behavior under are known early.
+	deferralPlans map[*sysmlv1.Element]*deferrals
 	// vertexNames gives the v2 name of every vertex a state machine writes.
 	vertexNames map[*sysmlv1.Element]string
 	// points says how each connection point of a composite state is written.
@@ -673,6 +721,7 @@ func (m *migration) prepare() {
 		m.distinguish(e)
 		m.recordSender(e)
 		if e.Parent == nil {
+			m.nameRootModel(e)
 			m.avoidLibraryRoots(e)
 		}
 		if simulationConfig(e) != nil {
@@ -829,42 +878,48 @@ func (m *migration) prepare() {
 	}
 }
 
-// avoidLibraryRoots renames a top-level declaration named like a standard
-// library root package: a qualified name starting with that name resolves to
-// the library package, which the standard loads first, so a reference into the
+// avoidLibraryRoots renames a root declaration named like a standard library
+// root package: a qualified name starting with that name resolves to the
+// library package, which the standard loads first, so a reference into the
 // written one would fail. The source name is kept for the report and for the
 // LibraryNameAvoided metadata line. It runs for root r after the top level has
 // been distinguished, before anything derives names from the old ones.
 func (m *migration) avoidLibraryRoots(r *sysmlv1.Element) {
-	var decls []*sysmlv1.Element
-	if m.flattened(r) {
-		for _, c := range r.Children {
-			if !ownerWritten(c.Role) {
-				decls = append(decls, c)
-			}
-		}
-	} else if !m.isLibrary(r) {
-		decls = append(decls, r)
+	if m.isLibrary(r) {
+		return
 	}
-	for _, e := range decls {
-		if m.isLibrary(e) {
-			continue
-		}
-		src := m.nameOf(e)
-		if src == "" || !m.libraryPackage(src) {
-			continue
-		}
-		base := src + " Model"
-		if source.IsIdentifier(src) && !source.IsKeyword(src) {
-			base = src + "Model"
-		}
-		fresh := base
-		for i := 2; m.nameTaken(nil, fresh) || m.libraryPackage(fresh); i++ {
-			fresh = fmt.Sprintf("%s %d", base, i)
-		}
-		m.names[e], m.libraryClash[e] = fresh, src
-		m.clashBySource[src] = e
+	src := m.nameOf(r)
+	if src == "" || !m.libraryPackage(src) {
+		return
 	}
+	base := src + " Model"
+	if source.IsIdentifier(src) && !source.IsKeyword(src) {
+		base = src + "Model"
+	}
+	fresh := base
+	for i := 2; m.nameTaken(nil, fresh) || m.libraryPackage(fresh); i++ {
+		fresh = fmt.Sprintf("%s %d", base, i)
+	}
+	m.names[r], m.libraryClash[r] = fresh, src
+	m.clashBySource[src] = r
+}
+
+// nameRootModel names an unnamed root Model after the file it comes from, so
+// the package written for it has a name a reader can place.
+func (m *migration) nameRootModel(r *sysmlv1.Element) {
+	if !isRootModel(r) || r.Name != "" || m.isLibrary(r) {
+		return
+	}
+	src := m.report.Source
+	base := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src))
+	if base == "" || base == "." || base == string(filepath.Separator) {
+		base = "Model"
+	}
+	name := base
+	for i := 2; m.nameTaken(nil, name); i++ {
+		name = fmt.Sprintf("%s%d", base, i)
+	}
+	m.names[r] = name
 }
 
 // libraryNameNotes writes, at the document's top level, one
@@ -968,12 +1023,21 @@ func (m *migration) exposeReached(e *sysmlv1.Element) {
 				}
 			}
 		}
-		if stat, _, _ := m.monteCarloEnd(e); stat == "" && m.nameOf(e) == "" {
-			_, _, _, base, _ := m.connectorForm(e, ends)
+		if stat, _, _ := m.monteCarloEnd(e); stat != "" {
+			return
+		}
+		_, _, kw, base, _ := m.connectorForm(e, ends)
+		if m.flowsAlone(e, ends, kw) {
+			m.asFlows[e] = true
+			m.nameFlows(e, ends, base)
+			return
+		}
+		if m.nameOf(e) == "" {
 			if base = m.edgeName(e, base); base != "" {
 				m.names[e] = m.freshName(e.Parent, base)
 			}
 		}
+		m.nameFlows(e, ends, "")
 	case "InstanceSpecification":
 		for _, slot := range e.Owned("slot") {
 			f := m.model.Ref(slot, "definingFeature")
@@ -1085,21 +1149,16 @@ func (m *migration) foldedInto(e *sysmlv1.Element) bool {
 	return e.Parent != nil && ownerWritten(e.Role) && m.written(e.Parent)
 }
 
-// root writes a top-level element: a Model's members are written at the top
-// level, any other root as a declaration of its own.
+// root writes a top-level element as a declaration of its own: a Model as the
+// package of its name, as the OMG transformation maps it.
 func (m *migration) root(e *sysmlv1.Element) {
-	if m.flattened(e) {
-		m.add(e, Mapped, "", "the root model's members are written at the top level")
-		m.body(e)
-		return
-	}
 	m.member(e)
 }
 
-// flattened reports whether e is a root Model whose members are written at the
-// top level in place of a declaration of its own.
-func (m *migration) flattened(e *sysmlv1.Element) bool {
-	return e.Parent == nil && e.Type == "Model" && !m.isLibrary(e)
+// isRootModel reports whether e is a root Model: the package the document's
+// content is written in.
+func isRootModel(e *sysmlv1.Element) bool {
+	return e.Parent == nil && e.Type == "Model"
 }
 
 // body writes the members of e's body, in document order, then what other
@@ -1217,11 +1276,7 @@ func (m *migration) reserveElementImportAliases() {
 	var walk func(*sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		if e.Role == "elementImport" && e.Attrs["alias"] != "" {
-			owner := e.Parent
-			if owner != nil && owner.Type == "Model" && owner.Parent == nil {
-				owner = nil
-			}
-			m.take(owner, e.Attrs["alias"])
+			m.take(e.Parent, e.Attrs["alias"])
 		}
 		for _, child := range e.Children {
 			walk(child)
@@ -1331,6 +1386,9 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 		name = m.nameFor(e)
 		if note == "" {
 			note = "the anonymous " + e.Type + " is named " + name
+			if isRootModel(e) {
+				note = "the Model has no name; the package is named after the file"
+			}
 		}
 	}
 	if vis := e.Attrs["visibility"]; vis == "private" || vis == "package" || vis == "protected" {
@@ -1354,6 +1412,9 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 	if cat == catSimConfig {
 		m.simulationConfig(e, header, note)
 		return
+	}
+	if isRootModel(e) {
+		note = joinNotes("written as package "+writeName(name), note)
 	}
 	m.add(e, verdict, m.v2Name(e), note)
 	m.classifierBody(e, cat, header)
@@ -1489,10 +1550,10 @@ func (m *migration) general(e, g *sysmlv1.Element, cat category) (ref, note stri
 		return "", "a generalization refers to nothing in the document"
 	}
 	if sv := m.scalarValue(target); sv != "" {
-		return scalarValuesPrefix + sv, ""
+		return m.scalarValueRef(sv, m.scope), ""
 	}
 	if cat == catAttributeDef && m.quantityValueType(target) {
-		return "ScalarValues::Real", "the quantity value type " + qualifiedName(target) + " is written as ScalarValues::Real; its unit is not kept"
+		return m.scalarValueRef("Real", m.scope), "the quantity value type " + qualifiedName(target) + " is written as ScalarValues::Real; its unit is not kept"
 	}
 	if isMonteCarloAnalysis(target) {
 		return "", m.monteCarloGeneralization(e)
@@ -2142,9 +2203,56 @@ func (m *migration) associationAsConnectionDef(e *sysmlv1.Element) bool {
 	case "AssociationClass":
 		return true
 	case "Association":
+		if m.backedProperty(e) != nil {
+			return false
+		}
 		return e.Name != "" || m.actors[e] == nil
 	}
 	return false
+}
+
+// backedProperty is the value property or constraint parameter the anonymous
+// association e only backs (its other end typed by the owner), or nil.
+func (m *migration) backedProperty(e *sysmlv1.Element) *sysmlv1.Element {
+	if e.Type != "Association" || e.Name != "" || len(e.Stereotypes) > 0 {
+		return nil
+	}
+	ends := m.model.Refs(e, "memberEnd")
+	if len(ends) != 2 {
+		return nil
+	}
+	for _, c := range e.Children {
+		if c.Role != "ownedEnd" || !slices.Contains(ends, c) || len(c.Children) > 0 {
+			return nil
+		}
+	}
+	for i, prop := range ends {
+		own := ends[1-i]
+		owner := prop.Parent
+		if prop.Role != "ownedAttribute" || owner == nil || own.Parent != e || m.model.Ref(own, "type") != owner ||
+			toolContent(prop) != "" || !m.written(prop) {
+			continue
+		}
+		t := m.model.Ref(prop, "type")
+		if t == nil || !m.valueType(t) {
+			continue
+		}
+		cat, _ := m.classify(owner)
+		if kw, _, _ := m.featureKeyword(prop, cat); kw == "attribute" {
+			return prop
+		}
+	}
+	return nil
+}
+
+// valueType reports whether t is a type whose instances are values: a library
+// scalar, a value type or an enumeration.
+func (m *migration) valueType(t *sysmlv1.Element) bool {
+	if m.scalarValue(t) != "" {
+		return true
+	}
+	cat, _ := m.classify(t)
+	return cat == catAttributeDef || cat == catEnumDef
 }
 
 // association writes an association or association block as a connection def
@@ -2152,6 +2260,16 @@ func (m *migration) associationAsConnectionDef(e *sysmlv1.Element) bool {
 // planAssociations wrote as its one usage.
 func (m *migration) association(e *sysmlv1.Element) {
 	ends := m.model.Refs(e, "memberEnd")
+	if prop := m.backedProperty(e); prop != nil {
+		backs := "the association only backs " + qualifiedName(prop) + ", which is written as a feature"
+		m.add(e, Skipped, "", backs)
+		for _, end := range ends {
+			if end.Parent == e {
+				m.add(end, Skipped, "", "the end types the owner of "+qualifiedName(prop)+"; "+backs)
+			}
+		}
+		return
+	}
 	name := m.nameOf(e)
 	link := m.actors[e]
 	if e.Name == "" {
@@ -2852,10 +2970,6 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	if e.Type == "Region" && e.Role == "region" {
 		return m.regionWritten(e)
 	}
-	// The root Model is the file itself, so nothing can refer to it.
-	if e.Parent == nil && e.Type == "Model" {
-		return false
-	}
 	if p := e.Parent; p != nil && isBehavior(p) && !m.behaviorWritesMember(p, e) {
 		return false
 	}
@@ -2929,7 +3043,7 @@ func (m *migration) connectorWritten(e *sysmlv1.Element) bool {
 // document, so nothing under it is written either.
 func (m *migration) isBuried(e *sysmlv1.Element) bool {
 	p := e.Parent
-	if p == nil || isTopLevel(p) {
+	if p == nil {
 		return false
 	}
 	if b, ok := m.buried[e]; ok {
@@ -3066,6 +3180,15 @@ func (m *migration) signalAttributes(sig *sysmlv1.Element) []*sysmlv1.Element {
 	return attrs
 }
 
+// scalarValueRef names the ScalarValues type sv from scope, from the global
+// namespace when a member on the way shadows the library package.
+func (m *migration) scalarValueRef(sv string, scope *sysmlv1.Element) string {
+	if m.shadowsLibrary("ScalarValues", scope) {
+		return "$::" + scalarValuesPrefix + sv
+	}
+	return scalarValuesPrefix + sv
+}
+
 // typeRef writes the type of a feature: a ScalarValues type, a reference to a
 // migrated classifier, or nothing with a note when the type is not migrated.
 func (m *migration) typeRef(t, scope *sysmlv1.Element) (string, string) {
@@ -3074,9 +3197,9 @@ func (m *migration) typeRef(t, scope *sysmlv1.Element) (string, string) {
 	}
 	if sv := m.scalarValue(t); sv != "" {
 		if _, std := scalarValues[t.Name]; !std {
-			return scalarValuesPrefix + sv, "the tool's " + t.Name + " datatype is written as " + scalarValuesPrefix + sv
+			return m.scalarValueRef(sv, scope), "the tool's " + t.Name + " datatype is written as " + scalarValuesPrefix + sv
 		}
-		return scalarValuesPrefix + sv, ""
+		return m.scalarValueRef(sv, scope), ""
 	}
 	if t.IsProxy() {
 		return "", "type " + qualifiedName(t) + " lives outside the document and is not written"
@@ -3202,6 +3325,10 @@ func (m *migration) connector(c *sysmlv1.Element) {
 		return
 	}
 	paths, decl, kw, _, note := m.connectorForm(c, segs)
+	if m.asFlows[c] {
+		m.connectorAsFlows(c, segs, paths)
+		return
+	}
 	target := ""
 	if name := m.nameOf(c); name != "" {
 		decl = kw + " " + writeName(name) + " " + decl
@@ -3322,25 +3449,110 @@ func segmentWord(i, n int) string {
 	return "path segment"
 }
 
-// itemFlow writes an item flow realized by a connector as a flow between the
-// flow properties its ends carry for each conveyed classifier, from the end
-// standing for the flow's source to the end standing for its target: the end
-// whose role is it, or, as a tool writes a flow between parts or blocks, whose
-// path names it or a part typed by it.
-func (m *migration) itemFlow(f, c *sysmlv1.Element, segs [][]*sysmlv1.Element, paths []string) {
-	conveyed := m.model.Refs(f, "conveyed")
-	missing := m.dangling(f, "conveyed")
-	if len(conveyed) == 0 {
-		m.flowDone(f, nil, []string{joinNotes("the item flow conveys nothing", missing)})
-		return
+// flowsAlone reports whether connector c is written as the item flows it
+// realizes alone, with no connection of its own: an assembly connector with no
+// name, type, comment or stereotype of its own, whose every item flow is
+// writable, since a flow is itself the connection between the two ports.
+func (m *migration) flowsAlone(c *sysmlv1.Element, segs [][]*sysmlv1.Element, kw string) bool {
+	if kw != "connection" || c.Name != "" || m.model.Ref(c, "type") != nil || len(m.flows[c]) == 0 ||
+		len(c.Owned("ownedComment")) > 0 || len(m.annotated(c)) > 0 {
+		return false
 	}
+	for _, f := range m.flows[c] {
+		if !m.flowWritable(f, c, segs) {
+			return false
+		}
+	}
+	return true
+}
+
+// flowWritable reports whether itemFlow writes every conveyed classifier of f
+// over connector c with nothing to note: the flow's ends tell its direction, both
+// carry a flow property for each conveyed classifier, and each classifier is written.
+func (m *migration) flowWritable(f, c *sysmlv1.Element, segs [][]*sysmlv1.Element) bool {
+	conveyed := m.model.Refs(f, "conveyed")
+	if len(conveyed) == 0 || m.dangling(f, "conveyed") != "" {
+		return false
+	}
+	reversed, note := m.flowDirection(f, c, segs)
+	if note != "" {
+		return false
+	}
+	src, dst := flowEnds(segs, reversed)
+	for _, item := range conveyed {
+		if m.flowProperty(src, item) == nil || m.flowProperty(dst, item) == nil {
+			return false
+		}
+		if typ, _ := m.typeRef(item, c.Parent); typ == "" {
+			return false
+		}
+	}
+	return true
+}
+
+// nameFlows names, in c's owner, the flows written for the item flows connector
+// c realizes: each after its item flow, made distinct among the owner's members;
+// an anonymous one after the connector's ends, as a connection shown by a
+// diagram is named, when base gives that spelling and a diagram shows c. An
+// item flow that is not written takes no name.
+func (m *migration) nameFlows(c *sysmlv1.Element, segs [][]*sysmlv1.Element, base string) {
+	for _, f := range m.flows[c] {
+		if !m.flowWritable(f, c, segs) {
+			continue
+		}
+		name := f.Name
+		if name == "" {
+			if base == "" || !m.shownEdges[c] {
+				continue
+			}
+			name = base
+			m.synthesized[f] = true
+		}
+		if m.flowNames[c] == nil {
+			m.flowNames[c] = map[*sysmlv1.Element]string{}
+		}
+		m.flowNames[c][f] = m.freshName(c.Parent, name)
+	}
+}
+
+// connectorAsFlows writes a connector carrying nothing of its own as the item
+// flows it realizes alone, each the connection between the two ports.
+func (m *migration) connectorAsFlows(c *sysmlv1.Element, segs [][]*sysmlv1.Element, paths []string) {
+	var names []string
+	for _, f := range m.flows[c] {
+		names = append(names, m.itemFlow(f, c, segs, paths)...)
+	}
+	note := "the connector carries nothing of its own, so it is written as its flow"
+	if len(names) > 1 {
+		note += "s"
+	}
+	for i, n := range names {
+		if names[i] = writeName(n); n == "" {
+			names[i] = "(anonymous)"
+		}
+	}
+	m.add(c, Mapped, m.edgeTarget(c), note+" "+strings.Join(names, ", ")+" alone")
+}
+
+// flowEnds are the features at the source and target ends of a flow over the
+// connector ends segs, the second end its source when reversed.
+func flowEnds(segs [][]*sysmlv1.Element, reversed bool) (src, dst *sysmlv1.Element) {
+	if reversed {
+		segs = [][]*sysmlv1.Element{segs[1], segs[0]}
+	}
+	return segs[0][len(segs[0])-1], segs[1][len(segs[1])-1]
+}
+
+// flowDirection tells which end of connector c stands for item flow f's source:
+// the end whose role is it, or, as a tool writes a flow between parts or
+// blocks, whose path names it or a part typed by it; reversed when the second
+// does, a note when neither or both do.
+func (m *migration) flowDirection(f, c *sysmlv1.Element, segs [][]*sysmlv1.Element) (reversed bool, note string) {
 	src := m.model.Ref(f, "informationSource")
 	dst := m.model.Ref(f, "informationTarget")
 	if src == nil || dst == nil {
-		m.flowDone(f, nil, []string{"the item flow's source or target is not in the document"})
-		return
+		return false, "the item flow's source or target is not in the document"
 	}
-	from, to := paths[0], paths[1]
 	owner := c.Parent
 	forward := m.endStandsFor(segs[0], owner, src) && m.endStandsFor(segs[1], owner, dst)
 	reverse := m.endStandsFor(segs[1], owner, src) && m.endStandsFor(segs[0], owner, dst)
@@ -3353,20 +3565,44 @@ func (m *migration) itemFlow(f, c *sysmlv1.Element, segs [][]*sysmlv1.Element, p
 	}
 	switch {
 	case forward && !reverse:
+		return false, ""
 	case reverse && !forward:
-		from, to = paths[1], paths[0]
-		segs = [][]*sysmlv1.Element{segs[1], segs[0]}
+		return true, ""
 	case ambiguous:
-		m.flowDone(f, nil, []string{"the item flow's source and target each stand for both ends of realizing connector " + describe(c) + ", so its direction cannot be told"})
-		return
-	default:
-		m.flowDone(f, nil, []string{"the item flow's source and target are not the ends of realizing connector " + describe(c) + ", nor the parts or blocks on its ends' paths"})
-		return
+		return false, "the item flow's source and target each stand for both ends of realizing connector " + describe(c) + ", so its direction cannot be told"
 	}
-	src, dst = segs[0][len(segs[0])-1], segs[1][len(segs[1])-1]
-	var written, notes []string
+	return false, "the item flow's source and target are not the ends of realizing connector " + describe(c) + ", nor the parts or blocks on its ends' paths"
+}
+
+// itemFlow writes an item flow realized by a connector as a flow between the
+// flow properties its ends carry for each conveyed classifier, from the end
+// standing for the flow's source to the end standing for its target, under the
+// name nameFlows gave it; it returns the names the flows were written under.
+// A connector written as its flows alone has each flow as a member of its own.
+func (m *migration) itemFlow(f, c *sysmlv1.Element, segs [][]*sysmlv1.Element, paths []string) []string {
+	conveyed := m.model.Refs(f, "conveyed")
+	missing := m.dangling(f, "conveyed")
+	if len(conveyed) == 0 {
+		m.flowDone(f, nil, []string{joinNotes("the item flow conveys nothing", missing)})
+		return nil
+	}
+	reversed, note := m.flowDirection(f, c, segs)
+	if note != "" {
+		m.flowDone(f, nil, []string{note})
+		return nil
+	}
+	from, to := paths[0], paths[1]
+	if reversed {
+		from, to = to, from
+	}
+	src, dst := flowEnds(segs, reversed)
+	name := m.flowNames[c][f]
+	var written, names, notes []string
 	if missing != "" {
 		notes = append(notes, missing)
+	}
+	if name != "" && f.Name != "" && name != f.Name {
+		notes = append(notes, "written as "+name+" since a member of "+qualifiedName(c.Parent)+" is also named "+f.Name)
 	}
 	for _, item := range conveyed {
 		sp := m.flowProperty(src, item)
@@ -3380,10 +3616,30 @@ func (m *migration) itemFlow(f, c *sysmlv1.Element, segs [][]*sysmlv1.Element, p
 			m.w.lines(commentLines("item flow of " + item.Name + fromKeyword + from + " to " + to + " not migrated: " + notes[len(notes)-1]))
 			continue
 		}
-		m.w.line("flow of " + m.ref(item, m.scope) + " from " + from + "." + writeName(m.nameOf(sp)) + " to " + to + "." + writeName(m.nameOf(dp)) + ";")
+		decl := "flow"
+		if name != "" {
+			if len(written) > 0 {
+				// A further conveyed classifier is a further flow, named apart.
+				name = m.freshName(c.Parent, name)
+			}
+			decl += " " + writeName(name)
+			m.madeUp(f, writeName(name))
+		}
+		m.w.line(decl + " of " + m.ref(item, m.scope) + " from " + from + "." + writeName(m.nameOf(sp)) + " to " + to + "." + writeName(m.nameOf(dp)) + ";")
+		if o := m.outcomes[f]; name != "" && o.target == "" {
+			o.target = m.placeTarget(m.edgePlaceIn(m.scope, nil, name))
+		}
+		if m.asFlows[c] {
+			place := m.edgePlaceIn(m.scope, nil, name)
+			place.keyword, place.reversed = "flow", reversed
+			m.wroteEdgePlace(c, place)
+			m.wroteEdgePlace(f, place)
+		}
 		written = append(written, item.Name)
+		names = append(names, name)
 	}
 	m.flowDone(f, written, notes)
+	return names
 }
 
 // endStandsFor reports whether a connector end's path stands for el: its role,
@@ -3422,9 +3678,9 @@ func (m *migration) reportFlow(f *sysmlv1.Element, o *flowOutcome) {
 	case len(o.written) == 0:
 		m.unmapped(f, note)
 	case note != "":
-		m.add(f, Approximated, "", "only the flow of "+strings.Join(o.written, ", ")+" is written; "+note)
+		m.add(f, Approximated, o.target, "only the flow of "+strings.Join(o.written, ", ")+" is written; "+note)
 	default:
-		m.add(f, Mapped, "", "")
+		m.add(f, Mapped, o.target, "")
 	}
 }
 
@@ -3825,6 +4081,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 		}
 	}
 	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
+	qualifiedFrom, qualifiedTo := m.qualifiedRef(client, m.scope), m.qualifiedRef(supplier, m.scope)
 	allocationNote := ""
 	if has(d, "Allocate") {
 		if target, ok := m.allocationDef(d, name, client, supplier); ok {
@@ -3876,7 +4133,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 		decl += writeName(name) + fromKeyword
 		m.madeUp(d, writeName(name))
 	}
-	decl += from + " to " + to
+	decl += qualifiedFrom + " to " + qualifiedTo
 	kept := func() { m.stereotypeAnnotationsKept(d, kind) }
 	switch {
 	case has(d, "Refine"):
@@ -4257,7 +4514,7 @@ func (m *migration) commentAbout(c *sysmlv1.Element, about []*sysmlv1.Element, t
 			omitted = append(omitted, describe(a))
 			continue
 		}
-		refs = append(refs, m.ref(a, scope))
+		refs = append(refs, m.qualifiedRef(a, scope))
 	}
 	if len(refs) == 0 {
 		m.w.lines(prefixFirst(commentPrefix, commentLines(text)))

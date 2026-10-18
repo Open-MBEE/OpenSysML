@@ -325,7 +325,12 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 		return nil, statusError(codeInvalidArgument, err.Error())
 	}
 
+	if req.Depth < 0 {
+		return nil, statusError(codeInvalidArgument, (&view.DepthError{Value: fmt.Sprint(req.Depth)}).Error())
+	}
+
 	renderer := view.NewRenderer(cached.typedModel(), cached.resolver, cached.sourceText())
+	renderer.SetDepth(req.Depth)
 	rendering, err := view.RenderNamed(renderer, req.View, func(name string) []*symbols.Symbol {
 		return lookupNamed(cached.Index, name)
 	})
@@ -395,7 +400,7 @@ func marshalRenderView(data view.Data) ([]byte, error) {
 	for _, edge := range data.Edges {
 		item := JRenderEdge{
 			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Label, Kind: edge.Kind.String(), Style: jRenderStyle(edge.Style),
+			Label: edge.Text(), Kind: edge.Kind.String(), Style: jRenderStyle(edge.Style),
 		}
 		for _, point := range edge.Route {
 			item.Route = append(item.Route, JRenderPoint{X: point.X, Y: point.Y})

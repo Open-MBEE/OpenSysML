@@ -10,6 +10,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
+const (
+	errorPrefix = "error: "
+)
+
 func runViewKind(kind runtrace.Kind) view.Kind {
 	if kind == runtrace.KindTimeline {
 		return view.KindTimeline
@@ -51,26 +55,26 @@ func (s *Session) metaRenderRun(args []string) ([]string, bool, error) {
 		formSet = true
 	}
 	if _, err := (&view.Rendering{Kind: runViewKind(kind), Run: true}).WriteWith(form, view.Options{Links: links}); err != nil {
-		return []string{"error: " + err.Error()}, false, nil
+		return []string{errorPrefix + err.Error()}, false, nil
 	}
 	rendering, err := s.runTraceRendering(kind)
 	if errors.Is(err, runtrace.ErrNoTrace) {
 		return []string{"error: the session records no trace; %trace on before the run"}, false, nil
 	}
 	if err != nil {
-		return []string{"error: " + err.Error()}, false, nil
+		return []string{errorPrefix + err.Error()}, false, nil
 	}
 	options := view.Options{Width: s.renderWidth, Links: links}
 	if links.Template != "" {
 		renderer, err := s.viewRenderer()
 		if err != nil {
-			return []string{"error: " + err.Error()}, false, nil
+			return []string{errorPrefix + err.Error()}, false, nil
 		}
 		options.Links.Sites = renderer.Sites(s.sessionLocator())
 	}
 	lines, err := artifactLines(rendering, form, options)
 	if err != nil {
-		return []string{"error: " + err.Error()}, false, nil
+		return []string{errorPrefix + err.Error()}, false, nil
 	}
 	return lines, false, nil
 }

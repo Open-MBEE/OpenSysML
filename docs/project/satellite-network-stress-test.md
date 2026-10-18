@@ -586,7 +586,7 @@ is what exposes them:
   took the 1 600-satellite validation from 30 s to 19 s, and it was 25% of
   the samples before.
 - **Every satisfy assertion walked the whole model for verification cases.**
-  `runtime.(*Context).VerificationsOf` collected the verification cases under
+  `runtime.(*Context).verificationsOf` collected the verification cases under
   the model root on every call, so checking `n` assertions walked `n × the
   model`. `runtime.(*Model).verificationCasesIn` now memoizes the walk per
   scope, in declaration order, for the life of the runtime model. This took
@@ -631,7 +631,7 @@ the interactive band at every operation measured.
   evaluation reaches them.
 - Runtime execution is a mode machine driven to its initial state per
   instantiation, not a long simulation with events. Event throughput is
-  measured separately in `docs/project/execution-performance-2026-09.md`.
+  measured separately in `docs/project/archive/execution-performance-2026-09.md`.
 - Nothing here measures the LSP server end to end over a socket, the gRPC
   service, or rendering a view or document of the constellation.
 

@@ -22,7 +22,6 @@ import org.openmbee.opensysml.syson.export.ProjectExporter;
 import org.openmbee.opensysml.syson.identity.ElementIndex;
 import org.openmbee.opensysml.syson.export.ServiceLibraries;
 import org.assertj.core.api.InstanceOfAssertFactories;
-import org.openmbee.opensysml.syson.run.RunDocument;
 import org.openmbee.opensysml.syson.run.RunDocumentForm;
 import org.openmbee.opensysml.syson.run.RunOperation;
 import org.openmbee.opensysml.syson.run.RunTableRow;
@@ -210,7 +209,7 @@ class RunWithOpenSysMLIntegrationTest {
         assertThat(markdown.ok()).isTrue();
         assertThat(html.document().fileName()).isEqualTo("Observatory-SystemReport.html");
         assertThat(markdown.document().fileName()).isEqualTo("Observatory-Mass.20Appendix.md");
-        assertThat(html.document().content()).contains("href=\"" + RunDocument.fileName("Observatory::'Mass Appendix'", ".html") + "\"");
+        assertThat(html.document().content()).contains("href=\"" + markdown.document().fileName().replace(".md", ".html") + "\"");
         assertThat(markdown.document().content()).contains("](" + html.document().fileName().replace(".html", ".md") + ")");
     }
 

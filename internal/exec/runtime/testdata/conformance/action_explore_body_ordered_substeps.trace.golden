@@ -5,7 +5,7 @@ stmt assign log
     eval literal "b" -> "b"
   eval operator + -> "b"
 enter action node: a
-choice step 3: tokens 2@a, 3@b (unordered; took 3@b first)
+choice step 3: tokens 2@a, 3@b (unordered; took 3@b first; independent)
 step 3: token 2@start, token 3@j
 step 4: token 2@a1, token 3@j
 stmt assign log

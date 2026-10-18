@@ -287,6 +287,72 @@ class ProjectTextExporterTest {
         assertThat(result.index().byQualifiedName("Vocabulary")).isPresent();
     }
 
+    @Test
+    void skipsABundledLibraryCopyFiledUnderSysONsRootNamespace() {
+        ResourceSet set = new ResourceSetImpl();
+        FakeLibraryPackage copy = new FakeLibraryPackage("DocumentQueries");
+        copy.addChild(new FakeElement("DocumentQueries::Query").addChild(new FakeElement("DocumentQueries::Query::result")));
+        copy.addChild(new FakeElement("DocumentQueries::Document"));
+        FakeLibraryPackage own = new FakeLibraryPackage("Vocabulary");
+        FakeElement model = new FakeElement("Observatory");
+        Resource libraries = new ResourceImpl(URI.createURI("sirius:///DocumentQueries.sysml"));
+        libraries.getContents().add(new FakeNamespace().member(copy));
+        Resource project = new ResourceImpl(URI.createURI("sirius:///model.sysml"));
+        project.getContents().add(new FakeNamespace().member(own).member(model));
+        set.getResources().add(libraries);
+        set.getResources().add(project);
+        IEMFEditingContext context = context(set);
+        ElementSerializer serializer = (element, report) -> ElementSerializer.Serialization
+                .of("package " + declared(element).getName() + " {}");
+
+        var result = new ProjectTextExporter(serializer, mock(IIdentityService.class), DOCUMENT_QUERIES).export(context);
+
+        assertThat(result.documents()).singleElement().satisfies(document -> {
+            assertThat(document.name()).contains("model.sysml");
+            assertThat(document.content().orElse("")).isEqualTo("package Vocabulary {}\npackage Observatory {}");
+        });
+        assertThat(result.messages()).singleElement().satisfies(message -> {
+            assertThat(message.level()).isEqualTo(org.eclipse.sirius.components.representations.MessageLevel.INFO);
+            assertThat(message.message()).contains("DocumentQueries").contains("not exported");
+        });
+        assertThat(result.index().byQualifiedName("DocumentQueries")).isEmpty();
+        assertThat(result.index().byQualifiedName("Vocabulary")).isPresent();
+        assertThat(result.ranges()).extracting(range -> range.element()).containsExactly(own, model);
+        assertThat(result.ranges()).extracting(ProjectTextExporterTest::startLine).containsExactly(1, 2);
+    }
+
+    @Test
+    void exportsAnExtendedLibraryCopyFiledUnderSysONsRootNamespaceWithAWarning() {
+        ResourceSet set = new ResourceSetImpl();
+        FakeLibraryPackage copy = new FakeLibraryPackage("DocumentQueries");
+        copy.addChild(new FakeElement("DocumentQueries::Query"));
+        copy.addChild(new FakeElement("DocumentQueries::CustomFilter"));
+        Resource resource = new ResourceImpl(URI.createURI("sirius:///DocumentQueries.sysml"));
+        resource.getContents().add(new FakeNamespace().member(copy));
+        set.getResources().add(resource);
+        IEMFEditingContext context = context(set);
+        ElementSerializer serializer = (element, report) -> ElementSerializer.Serialization
+                .of("library package " + declared(element).getName() + " { calc def CustomFilter; }");
+
+        var result = new ProjectTextExporter(serializer, mock(IIdentityService.class), DOCUMENT_QUERIES).export(context);
+
+        assertThat(result.documents()).singleElement()
+                .satisfies(document -> assertThat(document.content().orElse("")).contains("CustomFilter"));
+        assertThat(result.messages()).singleElement().satisfies(message -> {
+            assertThat(message.level()).isEqualTo(org.eclipse.sirius.components.representations.MessageLevel.WARNING);
+            assertThat(message.message()).contains("CustomFilter").doesNotContain("Query");
+        });
+        assertThat(result.index().byQualifiedName("DocumentQueries")).isPresent();
+        assertThat(result.ranges()).extracting(range -> range.element()).containsExactly(copy);
+    }
+
+    // A root namespace's member reaches the serializer through its owning membership, as SysON prints it.
+    private static org.eclipse.syson.sysml.Element declared(org.eclipse.emf.ecore.EObject root) {
+        return root instanceof org.eclipse.syson.sysml.Relationship relationship
+                ? relationship.getOwnedRelatedElement().get(0)
+                : (org.eclipse.syson.sysml.Element) root;
+    }
+
     private static final org.openmbee.opensysml.syson.export.BundledLibraries DOCUMENT_QUERIES = name ->
             "DocumentQueries".equals(name)
                     ? java.util.Optional.of(java.util.Set.of("Query", "Query::result", "Document", "Document::title", "Paragraph"))

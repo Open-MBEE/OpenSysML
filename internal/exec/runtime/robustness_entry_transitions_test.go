@@ -47,8 +47,8 @@ func testNoEntryTransitionGuardHolds(t *testing.T) {
 		}
 	`
 	_, _, err := instantiateWithLibraries(t, src, "test::Heater")
-	if !errors.Is(err, ErrNoEntryTransitionHolds) {
-		t.Fatalf("expected ErrNoEntryTransitionHolds, got %v", err)
+	if !errors.Is(err, errNoEntryTransitionHolds) {
+		t.Fatalf("expected errNoEntryTransitionHolds, got %v", err)
 	}
 	want := "no entry transition holds: state machine control declares 2 transitions out of its entry action and the guard of none holds"
 	if !strings.Contains(err.Error(), want) {

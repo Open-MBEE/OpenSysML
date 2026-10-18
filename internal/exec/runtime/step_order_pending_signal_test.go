@@ -88,7 +88,7 @@ func TestStepOrderDrawsThePendingSignalAsQueued(t *testing.T) {
 			}
 			for _, final := range report.Finals {
 				steps := slices.DeleteFunc(slices.Clone(final.Witness.Choices), func(ch ChoiceTaken) bool {
-					return ch.Kind != ChoiceStepOrder
+					return ch.Kind != choiceStepOrder
 				})
 				switch {
 				case c.choices == nil && len(steps) != 0:

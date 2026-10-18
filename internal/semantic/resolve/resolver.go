@@ -27,6 +27,12 @@ type supertypeProvider interface {
 	DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol
 }
 
+// supertypeClosureProvider is a supertypeProvider that also memoizes the
+// transitive closure of those edges, breadth first; *semantics.Model is one.
+type supertypeClosureProvider interface {
+	AllSupertypes(sym *symbols.Symbol) []*symbols.Symbol
+}
+
 // invocationResultProvider is the part of the semantic model that reports the
 // result parameter of a function or expression, inherited ones included, and
 // whether calling a declaration evaluates one. *semantics.Model implements it.
@@ -45,6 +51,12 @@ type metaclassProvider interface {
 // maskChecker is the part of the semantic model that reports redefinition
 // masking: which of a type's inheritable members it does not inherit because
 // one of its features redefines them. *semantics.Model implements it.
+// shortNamer knows the naming feature of a feature loaded from a library
+// snapshot (KerML Feature::namingFeature); *semantics.Model is one.
+type shortNamer interface {
+	NamingFeatureOf(sym *symbols.Symbol) *symbols.Symbol
+}
+
 type maskChecker interface {
 	InheritanceMasked(sym, candidate *symbols.Symbol) bool
 	InheritanceMaskedRedefining(sym, candidate *symbols.Symbol) bool
@@ -181,6 +193,10 @@ type Resolver struct {
 	// implicitParams are the anonymous members of a scope that may be named by
 	// an implicit redefinition, collected once per scope: see implicitParameters.
 	implicitParams map[*symbols.Scope][]*symbols.Symbol
+	// derivedNamed are the members of a scope that take their names from a
+	// naming feature and declare no short name, whose effective short name is
+	// therefore that feature's.
+	derivedNamed map[*symbols.Scope][]*symbols.Symbol
 	// importTargets are the namespaces imports resolved to, one per import.
 	// Only a hit is kept (a miss may only mean sibling imports were suspended),
 	// and never one found while a filter condition resolves (InCondition);
@@ -193,6 +209,14 @@ type Resolver struct {
 	// colliding marks the namespaces whose collisions are being computed.
 	collisions map[*symbols.Scope]*importCollisions
 	colliding  map[*symbols.Scope]bool
+	// shared is the collisions memo the batch this resolver analyzes for
+	// shares, nil outside one; captures are the read captures open for the
+	// computations it may settle into shared (see SharedCollisions).
+	shared   *SharedCollisions
+	captures []*readCapture
+	// below memoizes hidesBelow: whether a namespace or one its imports
+	// re-export from hides any imported membership.
+	below map[*symbols.Scope]bool
 	// bringing marks the namespaces one importBrings search has asked, so a
 	// cycle of re-exports is asked once per search.
 	bringing map[*symbols.Scope]bool
@@ -200,6 +224,9 @@ type Resolver struct {
 	// namespaces met on the way that could not be settled: each is computed
 	// once per outermost computation and dropped when it ends.
 	provisional map[*symbols.Scope]*importCollisions
+	// belowCut holds the namespaces whose hidesBelow walk a collision
+	// computation in progress cut; dropped, like provisional, when it ends.
+	belowCut map[*symbols.Scope]bool
 	// collisionCut is set when a collision computation met one in progress,
 	// so what it computed is not memoized.
 	collisionCut bool
@@ -295,9 +322,11 @@ func New(idx *symbols.Index) *Resolver {
 		viewFiltersInProgress: map[*symbols.Scope]bool{},
 		payloads:              map[*symbols.Scope]map[string]*symbols.Symbol{},
 		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
+		derivedNamed:          map[*symbols.Scope][]*symbols.Symbol{},
 		importTargets:         map[*ast.Import]resolution{},
 		collisions:            map[*symbols.Scope]*importCollisions{},
 		colliding:             map[*symbols.Scope]bool{},
+		below:                 map[*symbols.Scope]bool{},
 		bringing:              map[*symbols.Scope]bool{},
 		importVisits:          map[importVisit]bool{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
@@ -653,6 +682,7 @@ func (r *Resolver) ResolveName(scope *symbols.Scope, name string, at ast.Node) (
 		r.report(Diagnostic{
 			Span:    spanOf(at),
 			Message: r.unresolvedMessage(scope, name, at),
+			Code:    CodeUnresolved,
 			Fixes:   r.unresolvedFixes(scope, name, at),
 		})
 	}

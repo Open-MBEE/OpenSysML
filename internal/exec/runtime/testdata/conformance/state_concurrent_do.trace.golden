@@ -1,6 +1,7 @@
 exit: lstart
 enter: lwork
 transition: lstart -> lwork
+choice at t=0.0: next do lwork, dispatch completion rstart 1->rwork (unordered; took do lwork first; order-dependent: seq)
 do: lwork
 stmt action body
 enter action node: state behavior <anonymous>
@@ -13,7 +14,7 @@ enter action node: state behavior <anonymous>
 exit: rstart
 enter: rwork
 transition: rstart -> rwork
-choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first)
+choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first; order-dependent: seq)
 do: lwork
   stmt assign seq
         eval feature seq -> 1
@@ -30,7 +31,7 @@ enter action node: state behavior <anonymous>
       eval operator * -> 120
       eval literal 4 -> 4
     eval operator + -> 124
-choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first)
+choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first; order-dependent: seq)
 do: lwork
   stmt assign seq
         eval feature seq -> 124

@@ -15,7 +15,7 @@ import (
 // features rather than written as constants: a weight of no numeric type is
 // refused before the run, and the checks lowering makes of constants — the
 // range and the sum to 1 — are made of the values read when the decision is
-// reached, each a typed ErrBranchWeights, never a silent renormalization.
+// reached, each a typed errBranchWeights, never a silent renormalization.
 func TestRuntimeRobustnessFeatureWeights(t *testing.T) {
 	t.Run("weight_of_no_numeric_type_is_refused_before_the_run", testFeatureWeightOfNoNumericTypeIsRefusedBeforeTheRun)
 	t.Run("weights_read_must_sum_to_one", testFeatureWeightsReadMustSumToOne)
@@ -70,8 +70,8 @@ func testFeatureWeightsReadMustSumToOne(t *testing.T) {
 		first select then slow { @Probability { p = w; } }
 		action fast; then done;
 		action slow; then done;`, 3)
-	if !errors.Is(err, ErrBranchWeights) || !strings.Contains(err.Error(), "sum to 1.2, not 1.0") {
-		t.Fatalf("error = %v, want ErrBranchWeights naming the sum 1.2", err)
+	if !errors.Is(err, errBranchWeights) || !strings.Contains(err.Error(), "sum to 1.2, not 1.0") {
+		t.Fatalf("error = %v, want errBranchWeights naming the sum 1.2", err)
 	}
 	err = weightedActionError(t, `
 		attribute w : Real = 0.6;
@@ -96,8 +96,8 @@ func testFeatureWeightsReadMustSumToOne(t *testing.T) {
 		action fast; then done;
 		action slow; then done;
 		action steady; then done;`, 3)
-	if !errors.Is(err, ErrBranchWeights) || !strings.Contains(err.Error(), "sum to 1.6, not 1.0") {
-		t.Fatalf("a guarded-out branch still counts in the sum: error = %v, want ErrBranchWeights naming 1.6", err)
+	if !errors.Is(err, errBranchWeights) || !strings.Contains(err.Error(), "sum to 1.6, not 1.0") {
+		t.Fatalf("a guarded-out branch still counts in the sum: error = %v, want errBranchWeights naming 1.6", err)
 	}
 }
 
@@ -115,8 +115,8 @@ func testFeatureWeightReadOutsideTheUnitIntervalIsRefused(t *testing.T) {
 			first select then slow { @Probability { p = 1.0 - w; } }
 			action fast; then done;
 			action slow; then done;`, 3)
-		if !errors.Is(err, ErrBranchWeights) || !strings.Contains(err.Error(), tc.want) {
-			t.Errorf("w = %s: error = %v, want ErrBranchWeights saying %q", tc.w, err, tc.want)
+		if !errors.Is(err, errBranchWeights) || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("w = %s: error = %v, want errBranchWeights saying %q", tc.w, err, tc.want)
 		}
 	}
 }
@@ -172,7 +172,7 @@ func testFeatureWeightReadFromThePerformerIsRefusedOutOfRange(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = ctx.ExecuteActionPerformedBy(route, over, nil)
-	if !errors.Is(err, ErrBranchWeights) || !strings.Contains(err.Error(), "branch 0 weighs 1.5") {
-		t.Fatalf("on Over: error = %v, want ErrBranchWeights naming the weight 1.5", err)
+	if !errors.Is(err, errBranchWeights) || !strings.Contains(err.Error(), "branch 0 weighs 1.5") {
+		t.Fatalf("on Over: error = %v, want errBranchWeights naming the weight 1.5", err)
 	}
 }

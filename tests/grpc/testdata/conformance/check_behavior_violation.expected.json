@@ -1,0 +1,12 @@
+{
+  "rpc": "CheckBehavior",
+  "symbol_id": "Plant::Tank::fill",
+  "performer_symbol_id": "Plant::tank",
+  "check_property": ["Plant::Tank::low"],
+  "check_diverge": ["this.level"],
+  "expected_verdict": "fails",
+  "expected_violations": [
+    {"kind": "property", "property": "Plant::Tank::low", "depth": 3}
+  ],
+  "expected_divergences": {"this.level": ["1", "2"]}
+}

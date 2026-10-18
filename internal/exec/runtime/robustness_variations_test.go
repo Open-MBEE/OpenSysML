@@ -68,12 +68,12 @@ func testVariationReadThroughItsDeclaration(t *testing.T) {
 		{
 			"not_a_variant",
 			`part chosen :> family { attribute :>> cut = 250.0; attribute probe = cut; }`,
-			"test::chosen::probe", ErrNotAVariant,
+			"test::chosen::probe", errNotAVariant,
 		},
 		{
 			"two_variants",
 			`part chosen :> family { attribute :>> cut = (cut::cutIdeal, cut::cutShallow); attribute probe = cut; }`,
-			"test::chosen::probe", ErrMultipleVariants,
+			"test::chosen::probe", errMultipleVariants,
 		},
 		{
 			"unselected",
@@ -84,7 +84,7 @@ func testVariationReadThroughItsDeclaration(t *testing.T) {
 			"qualified_not_a_variant",
 			`part chosen :> family { attribute :>> cut = 250.0; }
 			 attribute probe = chosen::cut;`,
-			"test::probe", ErrNotAVariant,
+			"test::probe", errNotAVariant,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -153,8 +153,8 @@ func testVariationBoundToWhatIsNotAVariant(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := variationFeatureValueInSource(t, fmt.Sprintf(variationFamily, tt.selection), "test::chosen", "cut")
-			if !errors.Is(err, ErrNotAVariant) {
-				t.Errorf("cut = (%v, %v), want ErrNotAVariant", got, err)
+			if !errors.Is(err, errNotAVariant) {
+				t.Errorf("cut = (%v, %v), want errNotAVariant", got, err)
 			}
 		})
 	}
@@ -166,8 +166,8 @@ func testVariationBoundToTwoVariants(t *testing.T) {
 	src := fmt.Sprintf(variationFamily,
 		`part chosen :> family { attribute :>> cut = (cut::cutIdeal, cut::cutShallow); }`)
 	got, err := variationFeatureValueInSource(t, src, "test::chosen", "cut")
-	if !errors.Is(err, ErrMultipleVariants) {
-		t.Fatalf("cut = (%v, %v), want ErrMultipleVariants", got, err)
+	if !errors.Is(err, errMultipleVariants) {
+		t.Fatalf("cut = (%v, %v), want errMultipleVariants", got, err)
 	}
 	for _, name := range []string{"cutIdeal", "cutShallow"} {
 		if !strings.Contains(err.Error(), name) {

@@ -28,7 +28,7 @@ func (h *constraintStmtHost) describe() string { return "constraint body" }
 
 // send refuses the message: sending it is an effect outside the performance.
 func (h *constraintStmtHost) send(*EvalContext, lower.Send) error {
-	return fmt.Errorf("%w: %s: a send addresses the world the constraint judges", ErrConstraintEffect, h.describe())
+	return fmt.Errorf("%w: %s: a send addresses the world the constraint judges", errConstraintEffect, h.describe())
 }
 
 // declaredOutput reports false: a constraint performance declares no output.
@@ -44,7 +44,7 @@ func (h *constraintStmtHost) assignOuter(env *stmtEnv, name string, value Value,
 		return storeBodyValue(h.ctx, h, env, name, value, s)
 	}
 	return fmt.Errorf("%w: %s: the implicit target of an assignment is the constraint's own performance (SysML v2 §7.17.9) and %s is not one of its features",
-		ErrConstraintExternalAssignment, h.describe(), name)
+		errConstraintExternalAssignment, h.describe(), name)
 }
 
 // isParameter reports whether name declares a parameter the body's own scope
@@ -71,26 +71,26 @@ func (h *constraintStmtHost) assignData(env *stmtEnv, name string, value Value, 
 // chain reaches, an effect outside the performance.
 func (h *constraintStmtHost) assignChain(_ *EvalContext, s lower.Assign, _ Value) error {
 	return fmt.Errorf("%w: %s: %s writes a feature of an object outside the constraint's own performance",
-		ErrConstraintEffect, h.describe(), s.Chain.Text)
+		errConstraintEffect, h.describe(), s.Chain.Text)
 }
 
 // assignForeign refuses a qualified target for the same reason a chained one is.
 func (h *constraintStmtHost) assignForeign(_ *EvalContext, s lower.Assign, _ Value) error {
 	return fmt.Errorf("%w: %s: %s::%s writes a feature of an object outside the constraint's own performance",
-		ErrConstraintEffect, h.describe(), s.Owner.Name, s.Target)
+		errConstraintEffect, h.describe(), s.Owner.Name, s.Target)
 }
 
 // acceptReturn refuses a `return`: a verdict is no caller a value returns to.
 func (h *constraintStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s: `return` answers a caller, which a constraint body's verdict has none of",
-		ErrStatementNotExecutable, h.describe())
+		errStatementNotExecutable, h.describe())
 }
 
 // effect refuses what performs on the world outside the performance — an
 // action performed, an accept, a terminate — which a verdict does not perform.
 func (h *constraintStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
 	return fmt.Errorf("%w: %s: the `%s` statement acts outside the constraint's own performance",
-		ErrConstraintEffect, h.describe(), s.Kind)
+		errConstraintEffect, h.describe(), s.Kind)
 }
 
 // performNode runs a nested action of a block in a frame of the body's, as a
@@ -100,7 +100,7 @@ func (h *constraintStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
 func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error) {
 	if _, performs := nestedInvocation(node); performs {
 		return flowNext, fmt.Errorf("%w: %s: performing action %s is an effect outside the constraint's own performance",
-			ErrConstraintEffect, h.describe(), ActionNodeName(node))
+			errConstraintEffect, h.describe(), ActionNodeName(node))
 	}
 	if connectsPins(graph, node) {
 		return flowNext, fmt.Errorf("%s: a binding or flow at a pin of %s in a body is not executable",
@@ -113,7 +113,7 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 		nestedSteps, simple = sub.Graph.StatementList()
 		if !simple {
 			return flowNext, fmt.Errorf("%w: %s: the flow %s states of its own in a body is not executable",
-				ErrStatementNotExecutable, h.describe(), nodeDescription(node))
+				errStatementNotExecutable, h.describe(), nodeDescription(node))
 		}
 		nestedOrder = graph.StatementOrders[node]
 	}
@@ -146,13 +146,13 @@ func (h *constraintStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block)
 		}
 	}
 	return flowNext, fmt.Errorf("%w: %s: the flow a body states in a constraint is not executable",
-		ErrStatementNotExecutable, h.describe())
+		errStatementNotExecutable, h.describe())
 }
 
 // runFlow refuses the stated flow of a constraint body for the same reason.
 func (h *constraintStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	return flowNext, fmt.Errorf("%w: %s: a flow of steps in a body is not executable",
-		ErrStatementNotExecutable, h.describe())
+		errStatementNotExecutable, h.describe())
 }
 
 // performer is the object the constraint is checked on: what the body's names
@@ -176,7 +176,7 @@ func (ctx *Context) runConstraintSteps(steps *BodySteps, features map[string]sco
 		for _, write := range steps.Footprint.Writes {
 			if !write.Local {
 				return frame{}, fmt.Errorf("%w: verdict of %s: constraint body may write %s outside its performance",
-					ErrOrderDependentGuardEffect, ctx.statementOrderGuardLabel, write.String())
+					errOrderDependentGuardEffect, ctx.statementOrderGuardLabel, write.String())
 			}
 		}
 	}
@@ -197,6 +197,12 @@ func (ctx *Context) runConstraintSteps(steps *BodySteps, features map[string]sco
 		return frame{}, err
 	}
 	return engine.env.constraintResult(ctx)
+}
+
+// statementFootprint keeps no footprint: a constraint's body writes nothing a
+// run's value stands on.
+func (h *constraintStmtHost) statementFootprint([]lower.Statement, int) lower.Footprint {
+	return lower.Footprint{}
 }
 
 // statementOrder returns the lowered order when scheduling or precedence needs it.

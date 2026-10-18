@@ -10,26 +10,26 @@ CreateObjectAction	Gate::Cycle::main::Cool::seal::new log	_coolSealNew	-> 'new l
 CreateObjectAction	Gate::Cycle::main::Idle::spin::new log	_idleSpinNew	-> 'new log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML CreateObjectAction)
 
 ## approximated (15)
-StateMachine	Gate::Blink	_blink	-> Gate::Blink	('Warm' names it as its entry action, which a state def cannot be; (_tStopOff) names it as its do action, which a state def cannot be)
-StateMachine	Gate::Cycle	_cycle	-> Gate::Cycle	(the classifier behavior is run by every object of Gate as its usage cycle)
+StateMachine	Gate::Blink	_blink	-> Model::Gate::Blink	('Warm' names it as its entry action, which a state def cannot be; (_tStopOff) names it as its do action, which a state def cannot be)
+StateMachine	Gate::Cycle	_cycle	-> Model::Gate::Cycle	(the classifier behavior is run by every object of Gate as its usage cycle)
 Transition	Gate::Cycle::main::<Transition>	_tStopOff	(its do action Gate::Blink is not run: it is written as a state def)
-Activity	Gate::Cycle::main::<Transition>::effect	_effGoCool	-> Gate::Cycle::unnamed2::effect	(written as the do action of (_tGoCool); none of its 1 action is migrated, so it runs nothing)
-OpaqueBehavior	Gate::Cycle::main::<Transition>::effect	_effGoWarm	-> Gate::Cycle::unnamed3::effect	(the body is kept as a comment: the statement "CALL WARM(count)" is not an assignment of a v2 expression (language Fortran))
-Activity	Gate::Cycle::main::<Transition>::effect	_effColdOff	-> Gate::Cycle::unnamed5::effect	(written as the do action of (_tColdOff); none of its 1 action is migrated, so it runs nothing)
-OpaqueBehavior	Gate::Cycle::main::<Transition>::effect	_effOffIdle	-> Gate::Cycle::unnamed6::effect	(the body is kept as a comment: the statement "CALL RESTART(count)" is not an assignment of a v2 expression (language Fortran))
-Activity	Gate::Cycle::main::Busy::open	_busyEntry	-> Gate::Cycle::Busy::open	(written as the entry action of 'Busy'; none of its 2 actions is migrated, so it runs nothing)
-OpaqueBehavior	Gate::Cycle::main::Busy::poll	_busyDo	-> Gate::Cycle::Busy::poll	(the body is kept as a comment: the statement "CALL POLL(count)" is not an assignment of a v2 expression (language Fortran))
-Activity	Gate::Cycle::main::Cool::seal	_coolExit	-> Gate::Cycle::Cool::seal	(written as the exit action of 'Cool'; none of its 1 action is migrated, so it runs nothing)
-OpaqueBehavior	Gate::Cycle::main::Cool::vent	_coolEntry	-> Gate::Cycle::Cool::vent	(the body is kept as a comment: the statement "CALL VENT(count)" is not an assignment of a v2 expression (language Fortran))
-OpaqueBehavior	Gate::Cycle::main::Idle::flush	_idleExit	-> Gate::Cycle::Idle::flush	(the body is kept as a comment: the statement "CALL FLUSH(count)" is not an assignment of a v2 expression (language Fortran))
-Activity	Gate::Cycle::main::Idle::spin	_idleDo	-> Gate::Cycle::Idle::spin	(written as the do action of 'Idle'; none of its 1 action is migrated, so it runs nothing)
+Activity	Gate::Cycle::main::<Transition>::effect	_effGoCool	-> Model::Gate::Cycle::unnamed2::effect	(written as the do action of (_tGoCool); none of its 1 action is migrated, so it runs nothing)
+OpaqueBehavior	Gate::Cycle::main::<Transition>::effect	_effGoWarm	-> Model::Gate::Cycle::unnamed3::effect	(the body is kept as a textual representation, which is not executed: the statement "CALL WARM(count)" is not an assignment of a v2 expression (language Fortran))
+Activity	Gate::Cycle::main::<Transition>::effect	_effColdOff	-> Model::Gate::Cycle::unnamed5::effect	(written as the do action of (_tColdOff); none of its 1 action is migrated, so it runs nothing)
+OpaqueBehavior	Gate::Cycle::main::<Transition>::effect	_effOffIdle	-> Model::Gate::Cycle::unnamed6::effect	(the body is kept as a textual representation, which is not executed: the statement "CALL RESTART(count)" is not an assignment of a v2 expression (language Fortran))
+Activity	Gate::Cycle::main::Busy::open	_busyEntry	-> Model::Gate::Cycle::Busy::open	(written as the entry action of 'Busy'; none of its 2 actions is migrated, so it runs nothing)
+OpaqueBehavior	Gate::Cycle::main::Busy::poll	_busyDo	-> Model::Gate::Cycle::Busy::poll	(the body is kept as a textual representation, which is not executed: the statement "CALL POLL(count)" is not an assignment of a v2 expression (language Fortran))
+Activity	Gate::Cycle::main::Cool::seal	_coolExit	-> Model::Gate::Cycle::Cool::seal	(written as the exit action of 'Cool'; none of its 1 action is migrated, so it runs nothing)
+OpaqueBehavior	Gate::Cycle::main::Cool::vent	_coolEntry	-> Model::Gate::Cycle::Cool::vent	(the body is kept as a textual representation, which is not executed: the statement "CALL VENT(count)" is not an assignment of a v2 expression (language Fortran))
+OpaqueBehavior	Gate::Cycle::main::Idle::flush	_idleExit	-> Model::Gate::Cycle::Idle::flush	(the body is kept as a textual representation, which is not executed: the statement "CALL FLUSH(count)" is not an assignment of a v2 expression (language Fortran))
+Activity	Gate::Cycle::main::Idle::spin	_idleDo	-> Model::Gate::Cycle::Idle::spin	(written as the do action of 'Idle'; none of its 1 action is migrated, so it runs nothing)
 State	Gate::Cycle::main::Warm	_warm	-> Warm	(its entry action Gate::Blink is not run: it is written as a state def)
-Activity	Gate::Reset	_reset	-> Gate::Reset	(also run as the do action of (_tGoHot); also run as the do action of (_tHotIdle))
+Activity	Gate::Reset	_reset	-> Model::Gate::Reset	(also run as the do action of (_tGoHot); also run as the do action of (_tHotIdle))
 
 ## mapped (39)
 SignalEvent	<SignalEvent>	_goEv	(written where a trigger refers to it, as accept Go)
 SignalEvent	<SignalEvent>	_stopEv	(written where a trigger refers to it, as accept Stop)
-Class	Gate	_gate	-> Gate
+Class	Gate	_gate	-> Model::Gate
 Region	Gate::Blink::main	_blinkMain	(the one region is written as the body of its owner)
 Pseudostate	Gate::Blink::main::<Pseudostate>	_blinkInit	(written as the entry of the region)
 Transition	Gate::Blink::main::<Transition>	_tBlink0
@@ -50,19 +50,19 @@ Trigger	Gate::Cycle::main::<Transition>::<Trigger>	_trGoCool
 Trigger	Gate::Cycle::main::<Transition>::<Trigger>	_trGoWarm
 Trigger	Gate::Cycle::main::<Transition>::<Trigger>	_trGoHot
 Trigger	Gate::Cycle::main::<Transition>::<Trigger>	_trStopOff
-Activity	Gate::Cycle::main::<Transition>::effect	_effGoBusy	-> Gate::Cycle::unnamed::effect	(written as the do action of (_tGoBusy); the activity has no nodes, so the action is empty)
-Activity	Gate::Cycle::main::<Transition>::effect	_effWarmCold	-> Gate::Cycle::unnamed4::effect	(written as the do action of (_tWarmCold); the activity has no nodes, so the action is empty)
+Activity	Gate::Cycle::main::<Transition>::effect	_effGoBusy	-> Model::Gate::Cycle::unnamed::effect	(written as the do action of (_tGoBusy); the activity has no nodes, so the action is empty)
+Activity	Gate::Cycle::main::<Transition>::effect	_effWarmCold	-> Model::Gate::Cycle::unnamed4::effect	(written as the do action of (_tWarmCold); the activity has no nodes, so the action is empty)
 State	Gate::Cycle::main::Busy	_busy	-> Busy
-Activity	Gate::Cycle::main::Busy::close	_busyExit	-> Gate::Cycle::Busy::close	(written as the exit action of 'Busy'; the activity has no nodes, so the action is empty)
+Activity	Gate::Cycle::main::Busy::close	_busyExit	-> Model::Gate::Cycle::Busy::close	(written as the exit action of 'Busy'; the activity has no nodes, so the action is empty)
 State	Gate::Cycle::main::Cold	_cold	-> Cold
 State	Gate::Cycle::main::Cool	_cool	-> Cool
-Activity	Gate::Cycle::main::Cool::wait	_coolDo	-> Gate::Cycle::Cool::wait	(written as the do action of 'Cool'; the activity has no nodes, so the action is empty)
+Activity	Gate::Cycle::main::Cool::wait	_coolDo	-> Model::Gate::Cycle::Cool::wait	(written as the do action of 'Cool'; the activity has no nodes, so the action is empty)
 State	Gate::Cycle::main::Hot	_hot	-> Hot
 State	Gate::Cycle::main::Idle	_idle	-> Idle
-Activity	Gate::Cycle::main::Idle::prime	_idleEntry	-> Gate::Cycle::Idle::prime	(written as the entry action of 'Idle'; the activity has no nodes, so the action is empty)
+Activity	Gate::Cycle::main::Idle::prime	_idleEntry	-> Model::Gate::Cycle::Idle::prime	(written as the entry action of 'Idle'; the activity has no nodes, so the action is empty)
 State	Gate::Cycle::main::Off	_off	-> Off
-Property	Gate::count	_count	-> Gate::count
-Signal	Go	_go	-> Go
-Class	Log	_log	-> Log
-Model	Model	_m	(the root model's members are written at the top level)
-Signal	Stop	_stop	-> Stop
+Property	Gate::count	_count	-> Model::Gate::count
+Signal	Go	_go	-> Model::Go
+Class	Log	_log	-> Model::Log
+Model	Model	_m	-> Model	(written as package Model)
+Signal	Stop	_stop	-> Model::Stop

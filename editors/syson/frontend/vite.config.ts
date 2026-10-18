@@ -7,6 +7,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const peerDependencies = [
   '@apollo/client',
   '@eclipse-sirius/sirius-components-core',
+  '@eclipse-sirius/sirius-components-palette',
   '@eclipse-sirius/sirius-components-trees',
   '@emotion/react',
   '@emotion/styled',
@@ -28,6 +29,10 @@ export default defineConfig({
             '@eclipse-sirius/sirius-components-core': path.resolve(
               root,
               'src/test/sirius-doubles/sirius-components-core.tsx',
+            ),
+            '@eclipse-sirius/sirius-components-palette': path.resolve(
+              root,
+              'src/test/sirius-doubles/sirius-components-palette.tsx',
             ),
             '@eclipse-sirius/sirius-components-trees': path.resolve(
               root,

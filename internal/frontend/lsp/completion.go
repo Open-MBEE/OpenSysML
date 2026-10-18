@@ -121,7 +121,8 @@ func (c *completionItems) add(item protocol.CompletionItem) {
 }
 
 // addSymbol offers a declared element with its real kind, detail and docs, under
-// both names a short-named declaration is referable by (`part def <v> Vehicle`).
+// both names a short-named declaration is referable by (`part def <v> Vehicle`),
+// the short name a redefining feature takes from the redefined one included.
 func (c *completionItems) addSymbol(s *Server, sym *symbols.Symbol) {
 	if sym == nil {
 		return
@@ -135,7 +136,7 @@ func (c *completionItems) addSymbol(s *Server, sym *symbols.Symbol) {
 		item.Documentation = doc
 	}
 	c.add(item)
-	if short := sym.ShortName; short != "" && short != item.Label {
+	if short := s.ws.ShortNameOf(sym); short != "" && short != item.Label {
 		item.Label = short
 		c.add(item)
 	}

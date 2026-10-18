@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag_ibd'></elementID>
+    <geometry>0, 0, 600, 300</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_supply'>
+    <elementID xmi:idref='_p_supply'></elementID>
+    <geometry>20, 120, 100, 60</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_load'>
+    <elementID xmi:idref='_p_load'></elementID>
+    <geometry>260, 20, 100, 60</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_spare'>
+    <elementID xmi:idref='_p_spare'></elementID>
+    <geometry>260, 120, 100, 60</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_aux'>
+    <elementID xmi:idref='_p_aux'></elementID>
+    <geometry>260, 220, 100, 60</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_ctrl'>
+    <elementID xmi:idref='_p_ctrl'></elementID>
+    <geometry>420, 20, 100, 60</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_unit'>
+    <elementID xmi:idref='_p_unit'></elementID>
+    <geometry>420, 220, 100, 60</geometry>
+  </mdElement>
+  <mdElement elementClass='Connector' xmi:id='_sym_c_pwr'>
+    <elementID xmi:idref='_c_pwr'></elementID>
+    <linkFirstEndID xmi:idref='_sym_supply'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_load'></linkSecondEndID>
+    <geometry>120, 140; 190, 140; 190, 50; 260, 50; </geometry>
+  </mdElement>
+  <mdElement elementClass='Connector' xmi:id='_sym_c_bus'>
+    <elementID xmi:idref='_c_bus'></elementID>
+    <linkFirstEndID xmi:idref='_sym_ctrl'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_unit'></linkSecondEndID>
+    <geometry>470, 80; 470, 220; </geometry>
+  </mdElement>
+  <mdElement elementClass='Connector' xmi:id='_sym_c_spare'>
+    <elementID xmi:idref='_c_spare'></elementID>
+    <linkFirstEndID xmi:idref='_sym_supply'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_spare'></linkSecondEndID>
+    <geometry>120, 150; 260, 150; </geometry>
+  </mdElement>
+  <mdElement elementClass='Connector' xmi:id='_sym_c_aux'>
+    <elementID xmi:idref='_c_aux'></elementID>
+    <linkFirstEndID xmi:idref='_sym_supply'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_aux'></linkSecondEndID>
+    <geometry>120, 160; 190, 160; 190, 250; 260, 250; </geometry>
+  </mdElement>
+</mdOwnedViews>

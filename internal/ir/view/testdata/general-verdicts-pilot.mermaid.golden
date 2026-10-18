@@ -24,27 +24,42 @@ config:
 %% GeneralViews::requirementView — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
 %% not represented: 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
 flowchart TD
-  n0["`**MassRequirement**
+  n0["`*«requirement def»*
+**MassRequirement**
 id R1, “The total mass of the vehicle shall not exceed the stated...”`"]
-  n1["`**StoppingRequirement**
+  n1["`*«requirement def»*
+**StoppingRequirement**
 id R2, “The vehicle shall stop within the stated distance.”`"]
-  n2["`**EmergencyStopRequirement**
+  n2["`*«requirement def»*
+**EmergencyStopRequirement**
 id R3`"]
-  n3("`**vehicleMass**
+  n3("`*«requirement»*
+**vehicleMass**
 id R1.1, verdict pass by Cases::light, fail by Cases::heavy`")
-  n4("`**chassisMass**
+  n4("`*«requirement»*
+**chassisMass**
 id R1.2, verdict pass by Cases::chassis`")
-  n5("`**emergencyStop**
+  n5("`*«requirement»*
+**emergencyStop**
 id R3.1, verdict inconclusive by Cases::stop (no verdict bound), error by Cases::brake (division by zero)`")
-  n6["`**LightChassis**`"]
-  n7("`**vehicle**`")
-  n8("`**heavyVehicle**`")
-  n9("`**brake**`")
-  n10["`**MassTest**`"]
-  n11("`**lightMassTest**`")
-  n12("`**heavyMassTest**`")
-  n13["`**StopTest**`"]
-  n14("`**stopTest**`")
+  n6["`*«part def»*
+**LightChassis**`"]
+  n7("`*«part»*
+**vehicle**`")
+  n8("`*«part»*
+**heavyVehicle**`")
+  n9("`*«action»*
+**brake**`")
+  n10["`*«verification def»*
+**MassTest**`"]
+  n11("`*«verification»*
+**lightMassTest**`")
+  n12("`*«verification»*
+**heavyMassTest**`")
+  n13["`*«verification def»*
+**StopTest**`"]
+  n14("`*«verification»*
+**stopTest**`")
   n2 -->|"specialization"| n1
   n3 -.->|"typing"| n0
   n4 -.->|"typing"| n0

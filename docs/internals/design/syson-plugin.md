@@ -676,8 +676,8 @@ Where the code departs from §3–§4, and why.
 - **Documents render through the same export.** `RENDER_DOCUMENT` and `RUN_DOCUMENT_QUERY` reuse
   the exported project and `Model.renderDocument` / `Model.runDocumentQuery`; the result carries
   the rendered Markdown or HTML (the two forms the service renders) with the file name a rendered
-  set gives the document (`RunDocument.fileName` mirrors the service's `DocumentFiles` stem, escape
-  and length rules, pinned by an integration test over linked documents), or the query's columns
+  set gives the document (`RenderDocumentResponse.file_name`, planned by the service's
+  `DocumentFiles`, so links between downloaded documents hold), or the query's columns
   and rows mapped back to project elements. Bindings reuse the
   dialog's name/expression inputs: a qualified name the export or the service resolves binds the
   element, anything else is evaluated and bound as a literal. The frontend shows HTML in a

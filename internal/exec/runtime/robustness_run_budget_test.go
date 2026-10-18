@@ -205,16 +205,16 @@ func testNonTerminatingLoopPerformingAnAction(t *testing.T) {
 // rather than a collection is no collection in any order, so a `for` over it
 // fails with a typed error naming it.
 func testForOverAValueNoExpressionMakesIterable(t *testing.T) {
-	for _, value := range []Value{{Kind: ValExpr}, {Kind: ValInvalid}} {
+	for _, value := range []Value{{Kind: valExpr}, {Kind: ValInvalid}} {
 		elements, err := forElements(value)
 		if err == nil {
-			t.Errorf("forElements(%s) = %v, want a typed error", describeValue(value), elements)
+			t.Errorf("forElements(%s) = %v, want a typed error", DescribeValue(value), elements)
 			continue
 		}
 		if !errors.Is(err, ErrTypeMismatch) {
-			t.Errorf("forElements(%s) failed with %v, want ErrTypeMismatch", describeValue(value), err)
+			t.Errorf("forElements(%s) failed with %v, want ErrTypeMismatch", DescribeValue(value), err)
 		}
-		if !strings.Contains(err.Error(), describeValue(value)) {
+		if !strings.Contains(err.Error(), DescribeValue(value)) {
 			t.Errorf("error does not name the value: %v", err)
 		}
 	}

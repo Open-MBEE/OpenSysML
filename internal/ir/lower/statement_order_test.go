@@ -64,7 +64,7 @@ func class(o *StatementOrder, order []int) string {
 func admitted(o *StatementOrder) [][]int {
 	var out [][]int
 	var perm func(prefix []int, left []int)
-	perm = func(prefix []int, left []int) {
+	perm = func(prefix, left []int) {
 		if len(left) == 0 {
 			out = append(out, prefix)
 			return

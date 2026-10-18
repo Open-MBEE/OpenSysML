@@ -708,7 +708,7 @@ func TestApplyModelEditPinnedToRenderingRejectsNamesakeReplacement(t *testing.T)
 	if !out.Stale || out.Edit != nil || out.Refused != nil {
 		t.Fatalf("result at the rendering's version = %+v, want stale", out)
 	}
-	if got := string(s.ws.Document(docURI.Filename()).Content); got != replaced {
+	if string(s.ws.Document(docURI.Filename()).Content) != replaced {
 		t.Error("server document changed on a stale request")
 	}
 
@@ -744,7 +744,7 @@ func TestApplyModelEditRefusalShapeIsAtomic(t *testing.T) {
 	if r.Operation != 1 || r.Failure != "owner-unknown" || !strings.Contains(r.Message, "Vehicle::Nowhere") {
 		t.Errorf("refusal = %+v", r)
 	}
-	if got := string(s.ws.Document(docURI.Filename()).Content); got != editModel {
+	if string(s.ws.Document(docURI.Filename()).Content) != editModel {
 		t.Error("server document changed on a refused request")
 	}
 }

@@ -148,7 +148,7 @@ public class RunWithOpenSysMLService {
             case RUN_ANALYSIS -> ResultParts.analysis(model.runAnalysis(target,
                     new AnalysisOptions(Optional.ofNullable(input.subject()), arguments(model, input),
                             namedValues(model, input),
-                            options.schedule())), project);
+                            options.schedule(), false)), project);
             case VALIDATE_INSTANCE -> ResultParts.validation(model.validateInstance(target), project);
             case RENDER_DOCUMENT -> ResultParts.document(model.renderDocument(target, input.form().form()), target,
                     input.form(), project);
@@ -315,7 +315,7 @@ public class RunWithOpenSysMLService {
         static ResultParts document(RenderedDocument rendered, String target, RunDocumentForm form,
                 ExportedProject project) {
             ResultParts p = new ResultParts(project);
-            p.document = RunDocument.of(form, rendered.content(), target);
+            p.document = RunDocument.of(form, rendered, target);
             return p;
         }
         static ResultParts table(DocumentQueryResult result, ExportedProject project) {

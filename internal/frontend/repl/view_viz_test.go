@@ -125,13 +125,33 @@ func TestVizMapsTheStylesItDraws(t *testing.T) {
 
 func TestVizNotesThePilotStylesItDoesNotDraw(t *testing.T) {
 	s := vizSession(t)
-	got := run(t, s, "%viz --style ortholine --style LR --style ShowInherited --style ORTHOLINE P::Car")
-	wants(t, got, "tree rendering", "not represented:", "style ORTHOLINE (orthogonal line style) is not drawn", "style SHOWINHERITED (show inherited members) is not drawn")
-	if strings.Count(got, "ORTHOLINE") != 1 {
+	got := run(t, s, "%viz --style comptree --style LR --style ShowInherited --style COMPTREE P::Car")
+	wants(t, got, "tree rendering", "not represented:", "style COMPTREE (show nested ports in a compartment) is not drawn", "style SHOWINHERITED (show inherited members) is not drawn")
+	if strings.Count(got, "COMPTREE") != 1 {
 		t.Errorf("a style given twice is noted once:\n%s", got)
 	}
-	wants(t, run(t, s, "%viz --style polyline mermaid P::Car"), "%% not represented: style POLYLINE (polyline style) is not drawn", "flowchart")
 	wants(t, run(t, s, "%viz --style compmost dot P::Car"), "// not represented: style COMPMOST")
+}
+
+// The pilot's ORTHOLINE and POLYLINE styles route the DOT and PlantUML edges
+// rather than being noted: `splines=ortho|polyline` on the DOT graph and
+// `skinparam linetype ortho|polyline` in PlantUML, in any letter case and
+// given twice once; a form that routes no edge notes the routing, and two
+// routings at once are refused.
+func TestVizDrawsThePilotLineStyles(t *testing.T) {
+	s := vizSession(t)
+	got := run(t, s, "%viz --style ortholine --style ORTHOLINE dot P::Car")
+	wants(t, got, "splines=ortho")
+	if strings.Contains(got, "not represented") {
+		t.Errorf("ORTHOLINE is drawn, not noted:\n%s", got)
+	}
+	wants(t, run(t, s, "%viz --style polyline plantuml P::Car"), "skinparam linetype polyline")
+	wants(t, run(t, s, "%viz --style POLYLINE dot P::Car"), "splines=polyline")
+	if got := run(t, s, "%viz --style ortholine dot P::Car"); !strings.Contains(got, "splines=ortho") || strings.Contains(got, "splines=polyline") {
+		t.Errorf("ORTHOLINE routes orthogonally:\n%s", got)
+	}
+	wants(t, run(t, s, "%viz --style polyline mermaid P::Car"), "%% not represented: lines polyline; mermaid routes no edge itself, the dot and plantuml forms do", "flowchart")
+	wants(t, run(t, s, "%viz --style ortholine --style polyline dot P::Car"), errPrefix+"style POLYLINE asks for polyline lines, but ortho lines were asked for", vizUsage)
 }
 
 func TestVizMisuseShowsUsage(t *testing.T) {

@@ -116,7 +116,7 @@ func TestHeldImageCarriesStagedStreams(t *testing.T) {
 	}
 	run := func(t *testing.T, obj *Instance) *ActionExecutor {
 		t.Helper()
-		behavior, ok := obj.Behavior("run")
+		behavior, ok := obj.behavior("run")
 		if !ok || behavior.Action == nil {
 			t.Fatalf("object #%d performs no run action, behaviors: %v", obj.ID, obj.Behaviors())
 		}
@@ -150,7 +150,7 @@ func TestOutputListenersTakeEachWrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate Streamer: %v", err)
 	}
-	behavior, _ := streamer.Behavior("run")
+	behavior, _ := streamer.behavior("run")
 	exec := behavior.Action
 	var heard []string
 	record := func(tag string) func(string, Value) error {

@@ -123,11 +123,11 @@ note {
 </style>
 skinparam wrapWidth 300
 hide stereotype
-rectangle "**imagingChain**" as n0 <<part>> <<usage>> {
-  rectangle "**camera**" as n1 <<part>> <<usage>> {
+rectangle "<size:10>//«part»//</size>\n**imagingChain**" as n0 <<part>> <<usage>> {
+  rectangle "<size:10>//«part»//</size>\n**camera**" as n1 <<part>> <<usage>> {
     port "output" as n1.0
   }
-  rectangle "**recorder**" as n2 <<part>> <<usage>> {
+  rectangle "<size:10>//«part»//</size>\n**recorder**" as n2 <<part>> <<usage>> {
     port "input" as n2.0
   }
 }
@@ -182,9 +182,9 @@ skinparam wrapWidth 300
 hide stereotype
 left to right direction
 hide empty description
-state "**operatingStates**" as n0 <<state>> <<usage>> {
-  state "**idle**\ninitial" as n1 <<state>> <<usage>>
-  state "**observing**" as n2 <<state>> <<usage>>
+state "<size:10>//«state»//</size>\n**operatingStates**" as n0 <<state>> <<usage>> {
+  state "<size:10>//«state»//</size>\n**idle**\ninitial" as n1 <<state>> <<usage>>
+  state "<size:10>//«state»//</size>\n**observing**" as n2 <<state>> <<usage>>
   [*] --> n1
 }
 n1 --> n2

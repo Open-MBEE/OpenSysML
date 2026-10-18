@@ -194,7 +194,7 @@ func pos(line, col int) toolkit.Position { return toolkit.Position{Line: line, C
 func TestDiagnosticsOfADocumentAndTheWorkspace(t *testing.T) {
 	f := newFixture(t)
 	var res DiagnosticsResult
-	f.ok("diagnostics", map[string]any{"path": "bad.sysml"}, &res)
+	f.ok("workspace_diagnostics", map[string]any{"path": "bad.sysml"}, &res)
 	if res.Errors == 0 || len(res.Diagnostics) == 0 {
 		t.Fatalf("no error for the unresolved name: %+v", res)
 	}
@@ -207,13 +207,13 @@ func TestDiagnosticsOfADocumentAndTheWorkspace(t *testing.T) {
 	}
 
 	var clean DiagnosticsResult
-	res2 := f.ok("diagnostics", map[string]any{"path": "a.sysml"}, &clean)
+	res2 := f.ok("workspace_diagnostics", map[string]any{"path": "a.sysml"}, &clean)
 	if clean.Errors != 0 {
 		t.Errorf("a.sysml has errors: %s", textOf(res2))
 	}
 
 	var all DiagnosticsResult
-	res3 := f.ok("diagnostics", map[string]any{}, &all)
+	res3 := f.ok("workspace_diagnostics", map[string]any{}, &all)
 	if all.Documents != 4 || all.Errors < 1 {
 		t.Errorf("workspace diagnostics = %d documents, %d errors; want 4 and >= 1", all.Documents, all.Errors)
 	}
@@ -224,7 +224,7 @@ func TestDiagnosticsOfADocumentAndTheWorkspace(t *testing.T) {
 
 func TestUnknownPathsAndPositionsOffTheEndFail(t *testing.T) {
 	f := newFixture(t)
-	if msg := f.fails("diagnostics", map[string]any{"path": "missing.sysml"}); !strings.Contains(msg, "missing.sysml") {
+	if msg := f.fails("workspace_diagnostics", map[string]any{"path": "missing.sysml"}); !strings.Contains(msg, "missing.sysml") {
 		t.Errorf("error = %q", msg)
 	}
 	f.fails("hover", map[string]any{"path": "missing.sysml", "position": pos(1, 1)})
@@ -244,7 +244,7 @@ func TestUnknownPathsAndPositionsOffTheEndFail(t *testing.T) {
 	write(t, filepath.Dir(f.root), "outside.sysml", "package Outside;\n")
 	t.Cleanup(func() { _ = os.Remove(outside) })
 	for _, path := range []string{"../outside.sysml", outside} {
-		if msg := f.fails("diagnostics", map[string]any{"path": path}); !strings.Contains(msg, "outside the workspace root") {
+		if msg := f.fails("workspace_diagnostics", map[string]any{"path": path}); !strings.Contains(msg, "outside the workspace root") {
 			t.Errorf("error for %s = %q", path, msg)
 		}
 	}
@@ -252,7 +252,7 @@ func TestUnknownPathsAndPositionsOffTheEndFail(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(f.root, "link.sysml")); err != nil {
 		t.Fatal(err)
 	}
-	if msg := f.fails("diagnostics", map[string]any{"path": "link.sysml"}); !strings.Contains(msg, "outside the workspace root") {
+	if msg := f.fails("workspace_diagnostics", map[string]any{"path": "link.sysml"}); !strings.Contains(msg, "outside the workspace root") {
 		t.Errorf("error for a symlink out of the root = %q", msg)
 	}
 	f.fails("format", map[string]any{"path": "link.sysml", "apply": true})
@@ -422,7 +422,7 @@ func TestRenameAcrossFiles(t *testing.T) {
 		t.Errorf("b.sysml after rename:\n%s", b)
 	}
 	var diags DiagnosticsResult
-	f.ok("diagnostics", map[string]any{}, &diags)
+	f.ok("workspace_diagnostics", map[string]any{}, &diags)
 	for _, d := range diags.Diagnostics {
 		if d.Path != "bad.sysml" {
 			t.Errorf("diagnostic after rename: %+v", d)
@@ -538,7 +538,7 @@ func TestApplyModelEdit(t *testing.T) {
 		t.Errorf("a.sysml after addMember:\n%s", a)
 	}
 	var diags DiagnosticsResult
-	f.ok("diagnostics", map[string]any{"path": "a.sysml"}, &diags)
+	f.ok("workspace_diagnostics", map[string]any{"path": "a.sysml"}, &diags)
 	if diags.Errors != 0 {
 		t.Errorf("errors after the edit: %+v", diags.Diagnostics)
 	}
@@ -612,7 +612,7 @@ func TestOpenUpdateCloseHoldAnUnsavedBuffer(t *testing.T) {
 		t.Fatalf("open = %+v", state)
 	}
 	var diags DiagnosticsResult
-	f.ok("diagnostics", map[string]any{"path": "b.sysml"}, &diags)
+	f.ok("workspace_diagnostics", map[string]any{"path": "b.sysml"}, &diags)
 	if diags.Errors != 1 {
 		t.Errorf("diagnostics of the open buffer = %+v", diags)
 	}
@@ -626,7 +626,7 @@ func TestOpenUpdateCloseHoldAnUnsavedBuffer(t *testing.T) {
 	if state.Version != 2 || len(state.Diagnostics) != 1 || state.Diagnostics[0].Range.Start.Line != 8 {
 		t.Errorf("update = %+v", state)
 	}
-	f.ok("diagnostics", map[string]any{}, &diags)
+	f.ok("workspace_diagnostics", map[string]any{}, &diags)
 	byPath := map[string]int{}
 	for _, d := range diags.Diagnostics {
 		byPath[d.Path]++
@@ -648,7 +648,7 @@ func TestOpenUpdateCloseHoldAnUnsavedBuffer(t *testing.T) {
 	if state.Open || len(state.Diagnostics) != 0 {
 		t.Errorf("close = %+v", state)
 	}
-	f.ok("diagnostics", map[string]any{"path": "b.sysml"}, &diags)
+	f.ok("workspace_diagnostics", map[string]any{"path": "b.sysml"}, &diags)
 	if diags.Errors != 0 {
 		t.Errorf("diagnostics after close = %+v", diags)
 	}
@@ -680,7 +680,7 @@ func TestExternalEditsAreSeenWithoutBeingAnnounced(t *testing.T) {
 		t.Errorf("workspace symbols after an external edit = %+v", ws)
 	}
 	var diags DiagnosticsResult
-	f.ok("diagnostics", map[string]any{"path": "bad.sysml"}, &diags)
+	f.ok("workspace_diagnostics", map[string]any{"path": "bad.sysml"}, &diags)
 	if diags.Errors != 0 {
 		t.Errorf("diagnostics after an external fix = %+v", diags.Diagnostics)
 	}

@@ -1,0 +1,64 @@
+@startuml
+' ParametricViews::amplifierView — interconnection rendering (render asInterconnectionDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+rectangle "<size:10>//«part def»//</size>\n**Amplifier**" as n0 <<part def>> {
+  rectangle "<size:10>//«attribute»//</size>\n**signal**" as n1 <<attribute>> <<usage>>
+  rectangle "<size:10>//«attribute»//</size>\n**gain**" as n2 <<attribute>> <<usage>>
+  rectangle "<size:10>//«attribute»//</size>\n**noise**" as n3 <<attribute>> <<usage>>
+  rectangle "<size:10>//«attribute»//</size>\n**output**" as n4 <<attribute>> <<usage>>
+  rectangle "<size:10>//«constraint»//</size>\n**amplify**" as n5 <<constraint>> <<usage>> {
+    port "input" as n5.0
+    port "gain" as n5.1
+    port "output" as n5.2
+  }
+  rectangle "<size:10>//«constraint»//</size>\n**mix**" as n6 <<constraint>> <<usage>> {
+    port "a" as n6.0
+    port "b" as n6.1
+    port "total" as n6.2
+  }
+}
+n1 -- n5.0
+n2 -- n5.1
+n5.2 -- n6.0
+n3 -- n6.1
+n6.2 -- n4
+@enduml

@@ -41,19 +41,19 @@ note {
 skinparam wrapWidth 300
 hide stereotype
 hide empty description
-state "**Drive**" as n0 <<action def>> [[https://example.test/src/action.sysml#L11]] {
+state "<size:10>//«action def»//</size>\n**Drive**" as n0 <<action def>> [[https://example.test/src/action.sysml#L11]] {
   state "**initial**" as n1 <<start>>
-  state "**provide**" as n2 <<action>> <<usage>> [[https://example.test/src/action.sysml#L16]]
-  state "**monitor**\nown flow" as n3 <<action>> <<usage>> [[https://example.test/src/action.sysml#L20]] {
+  state "<size:10>//«action»//</size>\n**provide**" as n2 <<action>> <<usage>> [[https://example.test/src/action.sysml#L16]]
+  state "<size:10>//«action»//</size>\n**monitor**\nown flow" as n3 <<action>> <<usage>> [[https://example.test/src/action.sysml#L20]] {
     state "**initial**" as n4 <<start>>
-    state "**record**" as n5 <<action>> <<usage>> [[https://example.test/src/action.sysml#L23]]
+    state "<size:10>//«action»//</size>\n**record**" as n5 <<action>> <<usage>> [[https://example.test/src/action.sysml#L23]]
   }
-  state "**tally**" as n6 <<action>> <<usage>> [[https://example.test/src/action.sysml#L29]]
-  state "**split**" as n7 <<fork>>
-  state "**sync**" as n8 <<join>>
+  state "<size:10>//«action»//</size>\n**tally**" as n6 <<action>> <<usage>> [[https://example.test/src/action.sysml#L29]]
+  state "<size:10>//«fork»//</size>\n**split**" as n7 <<fork>>
+  state "<size:10>//«join»//</size>\n**sync**" as n8 <<join>>
   state "**final**" as n9 <<end>>
-  state "**park**" as n10 <<action>> <<usage>> [[https://example.test/src/action.sysml#L36]]
-  state "**check**" as n11 <<choice>>
+  state "<size:10>//«action»//</size>\n**park**" as n10 <<action>> <<usage>> [[https://example.test/src/action.sysml#L36]]
+  state "<size:10>//«decision»//</size>\n**check**" as n11 <<choice>>
 }
 n4 --> n5 : [[https://example.test/src/action.sysml#L24]]
 n1 --> n7 : [[https://example.test/src/action.sysml#L38]]

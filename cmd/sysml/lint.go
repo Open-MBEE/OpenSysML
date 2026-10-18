@@ -1,9 +1,11 @@
 package main
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 // lintList is -disable-lint or -enable-lint as written: the codes of the lints
@@ -23,5 +25,16 @@ func (l *lintList) Set(value string) error {
 		return err
 	}
 	*l = append(*l, codes...)
+	return nil
+}
+
+// pathList is -library-root as written: the directories installed projects are
+// looked for under, separated as PATH is or repeated.
+type pathList []string
+
+func (l *pathList) String() string { return strings.Join(*l, string(filepath.ListSeparator)) }
+
+func (l *pathList) Set(value string) error {
+	*l = append(*l, project.SplitLibraryRoots(value)...)
 	return nil
 }

@@ -87,13 +87,13 @@ classes: {
   pin: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 10 } }
   connection: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 3 } }
 }
-n0: "imagingChain" {
+n0: "«part»\nimagingChain" {
   class: usage
-  n1: "camera" {
+  n1: "«part»\ncamera" {
     class: usage
     "n1.0": "output" { class: pin }
   }
-  n2: "recorder" {
+  n2: "«part»\nrecorder" {
     class: usage
     "n2.0": "input" { class: pin }
   }
@@ -111,11 +111,11 @@ classes: {
   initial: { shape: oval; width: 18; height: 18; style: { fill: black; stroke: black } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
-n0: "operatingStates" {
+n0: "«state»\noperatingStates" {
   class: usage
   n3: "" { class: initial }
-  n1: "idle\ninitial" { class: usage }
-  n2: "observing" { class: usage }
+  n1: "«state»\nidle\ninitial" { class: usage }
+  n2: "«state»\nobserving" { class: usage }
 }
 n0.n3 -> n0.n1: { class: edge }
 n0.n1 -> n0.n2: { class: edge }

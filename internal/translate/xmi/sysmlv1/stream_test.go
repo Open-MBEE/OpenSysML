@@ -224,8 +224,8 @@ func TestReadSymbolsIgnoresMalformedGeometryAndColour(t *testing.T) {
 
 // A symbol MagicDraw marks not visible is read but hidden: a hidden frame does not bound the
 // diagram, a hidden free symbol is not counted, and neither a hidden symbol, one nested in it nor
-// a hidden listed part shows its element, whichever of its visible flag and elementID comes
-// first, while a property's own visible flag is not the symbol's.
+// a hidden part listed under a shape's parts shows its element, whichever of its visible flag
+// and elementID comes first, while a property's own visible flag is not the symbol's.
 func TestReadSymbolsHidden(t *testing.T) {
 	stream := `<mdOwnedViews>
   <mdElement elementClass='DiagramFrame' xmi:id='_frame'>
@@ -285,14 +285,129 @@ func TestReadSymbolsHidden(t *testing.T) {
 		hidden[s.ID] = s.Hidden
 		stands[s.ID] = s.ElementID
 	}
-	if want := map[string]bool{"_frame": true, "_img": false, "_tb": true, "_s1": false, "_s2": true, "_s3": true, "_s4": true}; !reflect.DeepEqual(hidden, want) {
+	if want := map[string]bool{"_frame": true, "_img": false, "_tb": true, "_s1": false, "_s2": true, "_s3": true, "_s4": true,
+		"_p1": false, "_p2": true, "_p3": true, "_p4": false}; !reflect.DeepEqual(hidden, want) {
 		t.Errorf("hidden = %v, want %v", hidden, want)
 	}
-	if want := map[string]string{"_frame": "_diag", "_img": "", "_tb": "", "_s1": "_a", "_s2": "_b", "_s3": "_c", "_s4": "_f"}; !reflect.DeepEqual(stands, want) {
+	if want := map[string]string{"_frame": "_diag", "_img": "", "_tb": "", "_s1": "_a", "_s2": "_b", "_s3": "_c", "_s4": "_f",
+		"_p1": "_d", "_p2": "_e", "_p3": "_g", "_p4": "_h"}; !reflect.DeepEqual(stands, want) {
 		t.Errorf("element ids = %v, want %v", stands, want)
 	}
 	if want := []string{"_a", "_d", "_h"}; !reflect.DeepEqual(syms.shown, want) {
 		t.Errorf("shown = %q, want %q", syms.shown, want)
+	}
+}
+
+// A part shape lists the shapes drawn inside it under its parts, and a state shape its
+// regions, not under its mdOwnedViews: each is a symbol of its own whose parent is the
+// enclosing shape, with its own geometry, ends and nested symbols, so a connector listed
+// there is a path between the symbols its ends name and the enclosing part stays a node.
+func TestReadSymbolsNestedInParts(t *testing.T) {
+	stream := `<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_frame'>
+    <elementID xmi:idref='_diag'/>
+    <geometry>0, 0, 600, 400</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_outer'>
+    <elementID xmi:idref='_engine'/>
+    <geometry>20, 20, 400, 300</geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Port' xmi:id='_outer_port'>
+        <elementID xmi:idref='_fuel_in'/>
+        <geometry>13, 100, 15, 15</geometry>
+      </mdElement>
+    </mdOwnedViews>
+    <parts>
+      <mdElement elementClass='Part' xmi:id='_inner'>
+        <elementID xmi:idref='_piston'/>
+        <properties>
+          <mdElement elementClass='BooleanProperty'><propertyID>SHOW_NAME</propertyID><value xmi:value='true'/></mdElement>
+        </properties>
+        <geometry>100, 100, 120, 60</geometry>
+        <mdOwnedViews>
+          <mdElement elementClass='Port' xmi:id='_inner_port'>
+            <elementID xmi:idref='_piston_in'/>
+            <geometry>93, 120, 15, 15</geometry>
+          </mdElement>
+        </mdOwnedViews>
+      </mdElement>
+      <mdElement elementClass='Connector' xmi:id='_link'>
+        <elementID xmi:idref='_conn'/>
+        <linkFirstEndID xmi:idref='_outer_port'/>
+        <linkSecondEndID xmi:idref='_inner_port'/>
+        <geometry>28, 107; 60, 107; 60, 127; 93, 127; </geometry>
+        <mdOwnedViews>
+          <mdElement elementClass='ConnectorEnd' xmi:id='_link_end'>
+            <elementID xmi:idref='_conn_end'/>
+            <geometry>80, 110, 10, 10</geometry>
+          </mdElement>
+        </mdOwnedViews>
+      </mdElement>
+      <mdElement elementClass='Comment' xmi:id='_note'>
+        <elementID xmi:idref='_comment'/>
+        <geometry>250, 200, 100, 40</geometry>
+      </mdElement>
+    </parts>
+  </mdElement>
+  <mdElement elementClass='State' xmi:id='_state'>
+    <elementID xmi:idref='_running'/>
+    <geometry>450, 20, 120, 80</geometry>
+    <regions>
+      <mdElement elementClass='Region' xmi:id='_state_region'>
+        <elementID xmi:idref='_region'/>
+        <geometry>450, 40, 120, 60</geometry>
+      </mdElement>
+    </regions>
+  </mdElement>
+</mdOwnedViews>`
+	syms, err := readSymbols([]byte(stream), "_diag")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var order []string
+	byID := map[string]*Symbol{}
+	for _, s := range syms.list {
+		order = append(order, s.ID)
+		byID[s.ID] = s
+	}
+	if want := []string{"_frame", "_outer", "_outer_port", "_inner", "_inner_port", "_link", "_link_end", "_note", "_state", "_state_region"}; !reflect.DeepEqual(order, want) {
+		t.Fatalf("symbols = %q, want %q", order, want)
+	}
+	if want := []string{"_engine", "_fuel_in", "_piston", "_piston_in", "_conn", "_conn_end", "_comment", "_running", "_region"}; !reflect.DeepEqual(syms.shown, want) {
+		t.Errorf("shown = %q, want %q", syms.shown, want)
+	}
+	parents := map[string]string{}
+	for id, s := range byID {
+		if s.Parent != nil {
+			parents[id] = s.Parent.ID
+		}
+	}
+	if want := map[string]string{"_outer_port": "_outer", "_inner": "_outer", "_inner_port": "_inner", "_link": "_outer", "_link_end": "_link", "_note": "_outer", "_state_region": "_state"}; !reflect.DeepEqual(parents, want) {
+		t.Errorf("parents = %v, want %v", parents, want)
+	}
+	outer := byID["_outer"]
+	if outer.IsPath() || outer.Ends != [2]string{} || !reflect.DeepEqual(outer.Bounds, &Bounds{20, 20, 400, 300}) {
+		t.Errorf("enclosing part = %+v", outer)
+	}
+	if inner := byID["_inner"]; inner.Class != "Part" || inner.IsPath() || !reflect.DeepEqual(inner.Bounds, &Bounds{100, 100, 120, 60}) || inner.Hidden {
+		t.Errorf("nested part = %+v", inner)
+	}
+	if p := byID["_inner_port"]; !reflect.DeepEqual(p.Bounds, &Bounds{93, 120, 15, 15}) {
+		t.Errorf("nested port = %+v", p)
+	}
+	link := byID["_link"]
+	if !link.IsPath() || link.Ends != [2]string{"_outer_port", "_inner_port"} || link.Bounds != nil ||
+		!reflect.DeepEqual(link.Points, []Point{{28, 107}, {60, 107}, {60, 127}, {93, 127}}) {
+		t.Errorf("nested connector = %+v", link)
+	}
+	if n := byID["_note"]; n.Class != "Comment" || n.IsPath() || n.Bounds == nil {
+		t.Errorf("nested comment = %+v", n)
+	}
+	if r := byID["_state_region"]; r.Class != "Region" || r.ElementID != "_region" || !reflect.DeepEqual(r.Bounds, &Bounds{450, 40, 120, 60}) {
+		t.Errorf("region = %+v", r)
+	}
+	if len(syms.free) != 0 {
+		t.Errorf("free = %v, want none", syms.free)
 	}
 }
 
@@ -659,5 +774,120 @@ func TestReadSymbolsDecodesPastedImages(t *testing.T) {
 	}
 	if want := map[string]int{"ImageShape": 8}; !reflect.DeepEqual(syms.free, want) {
 		t.Errorf("free = %v, want %v", syms.free, want)
+	}
+}
+
+// A symbol's compartment settings come from its own SUPPRESS_* properties and
+// then from its symbol style's property-manager chain; a property with no
+// value is Cameo's default, shown.
+func TestReadSymbolsCompartmentsInheritStyle(t *testing.T) {
+	stream := `<?xml version='1.0' encoding='UTF-8'?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_frame'>
+    <elementID xmi:idref='_diag'/>
+    <geometry>5, 5, 533, 457</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_c1'>
+    <elementID xmi:idref='_block1'/>
+    <symbolStyleID>_byStereotype</symbolStyleID>
+    <properties>
+      <mdElement elementClass='BooleanProperty'>
+        <propertyID>SUPPRESS_PARTS_COMPARTMENT</propertyID>
+      </mdElement>
+      <mdElement elementClass='BooleanProperty'>
+        <propertyID>SUPPRESS_VALUES_COMPARTMENT</propertyID>
+        <value xmi:value='true'/>
+      </mdElement>
+    </properties>
+    <geometry>35, 392, 200, 33</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_c2'>
+    <elementID xmi:idref='_block2'/>
+    <symbolStyleID>_missing</symbolStyleID>
+    <geometry>266, 392, 119, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_c3'>
+    <elementID xmi:idref='_block3'/>
+    <geometry>266, 100, 119, 50</geometry>
+  </mdElement>
+  <symbolStyles>
+    <mdElement elementClass='SimpleStyle'>
+      <mdElement elementClass='PropertyManagerByStereotype'>
+        <propertyManagerID>_byStereotype</propertyManagerID>
+        <parentPropertyManager>_classes</parentPropertyManager>
+        <mdElement elementClass='ColorProperty'>
+          <propertyID>FILL_COLOR</propertyID>
+          <value xmi:value='-1973821'/>
+        </mdElement>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_PARTS_COMPARTMENT</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_CLASS_ATTRIBUTES</propertyID>
+        </mdElement>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SHOW_STEREOTYPES</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+      </mdElement>
+      <mdElement elementClass='ExtendableManager'>
+        <propertyManagerID>_classes</propertyManagerID>
+        <parentPropertyManager>_root</parentPropertyManager>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_CLASS_ATTRIBUTES</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_CLASS_OPERATIONS</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+      </mdElement>
+      <mdElement elementClass='ExtendableManager'>
+        <propertyManagerID>_root</propertyManagerID>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_STRUCTURE</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+      </mdElement>
+    </mdElement>
+  </symbolStyles>
+</mdOwnedViews>`
+	syms, err := readSymbols([]byte(stream), "_diag")
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]*Symbol{}
+	for _, s := range syms.list {
+		byID[s.ID] = s
+	}
+	if len(byID) != 4 {
+		t.Fatalf("read %d symbols, want 4: %v", len(byID), syms.list)
+	}
+	if want := []string{"_block1", "_block2", "_block3"}; !reflect.DeepEqual(syms.shown, want) {
+		t.Errorf("shown = %q, want %q", syms.shown, want)
+	}
+	c1 := byID["_c1"]
+	if c1.StyleID != "_byStereotype" {
+		t.Errorf("style id = %q, want _byStereotype", c1.StyleID)
+	}
+	if c1.Style.Fill != "" {
+		t.Errorf("style colour inherited as %q, want none", c1.Style.Fill)
+	}
+	want := map[string]bool{
+		"SUPPRESS_PARTS_COMPARTMENT":  false, // the symbol's own, unvalued, over the style's true
+		"SUPPRESS_VALUES_COMPARTMENT": true,  // the symbol's own
+		"SUPPRESS_CLASS_ATTRIBUTES":   false, // the style's unvalued over its parent's true
+		"SUPPRESS_CLASS_OPERATIONS":   true,  // the parent manager
+		"SUPPRESS_STRUCTURE":          true,  // the grandparent manager
+	}
+	if !reflect.DeepEqual(c1.Compartments, want) {
+		t.Errorf("compartments = %v, want %v", c1.Compartments, want)
+	}
+	if c2 := byID["_c2"]; c2.Compartments != nil {
+		t.Errorf("compartments of a symbol with an unknown style = %v, want none", c2.Compartments)
+	}
+	if c3 := byID["_c3"]; c3.Compartments != nil || c3.StyleID != "" {
+		t.Errorf("compartments of an unstyled symbol = %v (style %q), want none", c3.Compartments, c3.StyleID)
 	}
 }

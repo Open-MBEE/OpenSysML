@@ -25,3 +25,10 @@ type Diagnostic struct {
 // CodeNameConflict marks a name declared twice in one namespace, counting the
 // members it inherits (SysML 7.6.1, KerML 7.3.2.1).
 const CodeNameConflict = "name-conflict"
+
+// CodeUnresolved marks a name, or a segment of a qualified name, that resolves
+// to no element visible where it is written.
+const CodeUnresolved = "unresolved"
+
+// CodeAmbiguous marks a name several elements answer to with equal standing.
+const CodeAmbiguous = "ambiguous"

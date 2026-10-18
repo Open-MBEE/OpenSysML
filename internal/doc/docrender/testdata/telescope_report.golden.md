@@ -106,13 +106,13 @@ config:
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["`**imagingChain**`"]
+  subgraph n0 ["`*«part»* **imagingChain**`"]
     direction LR
-    subgraph n1 ["`**camera**`"]
+    subgraph n1 ["`*«part»* **camera**`"]
       direction LR
       n1.0["output"]
     end
-    subgraph n2 ["`**recorder**`"]
+    subgraph n2 ["`*«part»* **recorder**`"]
       direction LR
       n2.0["input"]
     end
@@ -157,9 +157,9 @@ config:
 %% state rendering (the diagram states kind "state")
 stateDiagram-v2
   direction LR
-  state "operatingStates" as n0 {
-    state "idle<br>initial" as n1
-    state "observing" as n2
+  state "«state» operatingStates" as n0 {
+    state "«state»<br>idle<br>initial" as n1
+    state "«state»<br>observing" as n2
     [*] --> n1
   }
   n1 --> n2

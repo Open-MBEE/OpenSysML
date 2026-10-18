@@ -23,20 +23,34 @@ config:
 ---
 %% GeneralViews::definitionView — definition rendering (view def GeneralView, filter @Definition or @Usage)
 flowchart TD
-  n0["`**Vehicle**`"]
-  n1["`**Chassis**`"]
-  n2["`**LightChassis**`"]
-  n3["`**Driver**`"]
-  n4["`**Brake**`"]
-  n5("`**vehicle**`")
-  n6("`**heavyVehicle**`")
-  n7("`**brake**`")
-  n8("`**Vehicle::mass**`")
-  n9("`**chassis**`")
-  n10("`**driver**`")
-  n11("`**vehicle::mass**`")
-  n12("`**heavyVehicle::mass**`")
-  n13["`**Engine**`"]
+  n0["`*«part def»*
+**Vehicle**`"]
+  n1["`*«part def»*
+**Chassis**`"]
+  n2["`*«part def»*
+**LightChassis**`"]
+  n3["`*«part def»*
+**Driver**`"]
+  n4["`*«action def»*
+**Brake**`"]
+  n5("`*«part»*
+**vehicle**`")
+  n6("`*«part»*
+**heavyVehicle**`")
+  n7("`*«action»*
+**brake**`")
+  n8("`*«attribute»*
+**Vehicle::mass**`")
+  n9("`*«part»*
+**chassis**`")
+  n10("`*«part»*
+**driver**`")
+  n11("`*«attribute»*
+**vehicle::mass**`")
+  n12("`*«attribute»*
+**heavyVehicle::mass**`")
+  n13["`*«part def»*
+**Engine**`"]
   n2 -->|"specialization"| n1
   n5 -.->|"typing"| n0
   n6 -.->|"typing"| n0

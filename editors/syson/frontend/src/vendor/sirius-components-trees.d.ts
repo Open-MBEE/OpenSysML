@@ -53,4 +53,22 @@ declare module '@eclipse-sirius/sirius-components-trees' {
   export const treeItemContextMenuEntryOverrideExtensionPoint: DataExtensionPoint<
     TreeItemContextMenuOverrideContribution[]
   >;
+
+  export interface TreePaletteContextValue {
+    editingContextId: string;
+    treeId: string;
+    expanded: string[];
+    item: GQLTreeItem | null;
+    readOnly: boolean;
+    selectedTreeItems: string[];
+    selectTreeItems: (selectedTreeItemIds: string[]) => void;
+    onExpandedElementChange: (newExpandedIds: string[], newMaxDepth: number) => void;
+    onDirectEditClick: () => void;
+    expandItem: () => void;
+    onClose: () => void;
+  }
+
+  export const TreePaletteContext: import('react').Context<TreePaletteContextValue>;
+
+  export const TREE_REPRESENTATION_KIND: string;
 }

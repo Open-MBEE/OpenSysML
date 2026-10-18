@@ -1,0 +1,40 @@
+# ParametricViews::placedView — interconnection rendering (render asInterconnectionDiagram)
+# not represented: 6 positioned node(s) and 5 route(s) kept as comments; D2 pins no position, the dot form does
+classes: {
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  pin: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 10 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+# canvas: w=900 h=220
+# layout: n0 x=20 y=40 w=100 h=30
+# layout: n1 x=20 y=100 w=100 h=30
+# layout: n2 x=20 y=160 w=100 h=30
+# layout: n3 x=780 y=40 w=100 h=30
+# layout: n4 x=200 y=20 w=200 h=80
+# layout: n5 x=500 y=20 w=200 h=80
+# route: n0->n4 120,55 200,52
+# route: n1->n4 120,115 200,92
+# route: n4->n5 400,67 500,52
+# route: n2->n5 120,175 500,92
+# route: n5->n3 700,67 780,55
+n0: "«attribute»\nsignal" { class: usage }
+n1: "«attribute»\ngain" { class: usage }
+n2: "«attribute»\nnoise" { class: usage }
+n3: "«attribute»\noutput" { class: usage }
+n4: "«constraint»\namplify" {
+  class: usage
+  "n4.0": "input" { class: pin }
+  "n4.1": "gain" { class: pin }
+  "n4.2": "output" { class: pin }
+}
+n5: "«constraint»\nmix" {
+  class: usage
+  "n5.0": "a" { class: pin }
+  "n5.1": "b" { class: pin }
+  "n5.2": "total" { class: pin }
+}
+n0 -- n4."n4.0": { class: edge }
+n1 -- n4."n4.1": { class: edge }
+n4."n4.2" -- n5."n5.0": { class: edge }
+n2 -- n5."n5.1": { class: edge }
+n5."n5.2" -- n3: { class: edge }

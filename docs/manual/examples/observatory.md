@@ -82,13 +82,13 @@ config:
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["`**imagingChain**`"]
+  subgraph n0 ["`*«part»* **imagingChain**`"]
     direction LR
-    subgraph n1 ["`**camera**`"]
+    subgraph n1 ["`*«part»* **camera**`"]
       direction LR
       n1.0["output"]
     end
-    subgraph n2 ["`**recorder**`"]
+    subgraph n2 ["`*«part»* **recorder**`"]
       direction LR
       n2.0["input"]
     end
@@ -125,23 +125,33 @@ config:
 ---
 %% tree rendering (the diagram states kind "tree")
 flowchart LR
-  n0("`**telescope**`")
-    n1("`**optics**`")
-      n2("`**mass**`")
+  n0("`*«part»*
+**telescope**`")
+    n1("`*«part»*
+**optics**`")
+      n2("`*«attribute»*
+**mass**`")
   n1 --- n2
-      n3("`**zone**`")
+      n3("`*«attribute»*
+**zone**`")
   n1 --- n3
   n0 --- n1
-    n4("`**segmentControl**`")
-      n5("`**mass**`")
+    n4("`*«part»*
+**segmentControl**`")
+      n5("`*«attribute»*
+**mass**`")
   n4 --- n5
-      n6("`**zone**`")
+      n6("`*«attribute»*
+**zone**`")
   n4 --- n6
   n0 --- n4
-    n7("`**mount**`")
-      n8("`**mass**`")
+    n7("`*«part»*
+**mount**`")
+      n8("`*«attribute»*
+**mass**`")
   n7 --- n8
-      n9("`**zone**`")
+      n9("`*«attribute»*
+**zone**`")
   n7 --- n9
   n0 --- n7
 ```

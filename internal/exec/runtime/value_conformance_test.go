@@ -516,8 +516,8 @@ func TestNaNIsOfNoScalarType(t *testing.T) {
 			if err != nil || conforms {
 				t.Errorf("valueConforms(%s, %s) = %v, %v; want false", FormatValue(value), name, conforms, err)
 			}
-			if _, err := ctx.directValueType(scope, value); !errors.Is(err, ErrUndeterminedValueType) {
-				t.Errorf("directValueType(%s) error = %v, want ErrUndeterminedValueType", FormatValue(value), err)
+			if _, err := ctx.directValueType(scope, value); !errors.Is(err, errUndeterminedValueType) {
+				t.Errorf("directValueType(%s) error = %v, want errUndeterminedValueType", FormatValue(value), err)
 			}
 		}
 	}
@@ -535,7 +535,7 @@ func TestNaNIsOfNoScalarType(t *testing.T) {
 			t.Fatalf("directValueType(%s): %v", FormatValue(tc.value), err)
 		}
 		if typ != ctx.librarySymbol(tc.want) {
-			t.Errorf("directValueType(%s) = %s, want %s", FormatValue(tc.value), symbolText(typ), tc.want)
+			t.Errorf("directValueType(%s) = %s, want %s", FormatValue(tc.value), SymbolText(typ), tc.want)
 		}
 	}
 }

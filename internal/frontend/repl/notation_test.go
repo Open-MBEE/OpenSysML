@@ -77,7 +77,7 @@ func TestLoadedSysMLNamespaceWarns(t *testing.T) {
 
 // kermlDeclarationsSrc declares members with keywords only KerML.xtext spells,
 // written so that the text is legal KerML and parses as SysML too.
-const kermlDeclarationsSrc = "package K { class C; feature f; step s; inv { true } connector c from f to s; }\n"
+const kermlDeclarationsSrc = "package K { class C; feature f; step s; inv i { true } connector c from f to s; }\n"
 
 // A snippet loaded from a .kerml file declares with KerML keywords legally, so
 // the buffer must not report them there.

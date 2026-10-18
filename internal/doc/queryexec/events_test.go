@@ -291,23 +291,23 @@ func TestExecuteEventsByKind(t *testing.T) {
 		"time=0.0 [s] path=panel machine=marking name=write order " +
 			"alternatives=mark of object #6 := 1 by token 2+mark of object #6 := 2 by token 3 " +
 			"taken=mark of object #6 := 1 by token 2 " +
-			"text=choice step 4: writes mark of object #6 := 1 by token 2, mark of object #6 := 2 by token 3 (unordered; mark of object #6 := 1 by token 2 stood)",
+			"text=choice step 4: writes mark of object #6 := 1 by token 2, mark of object #6 := 2 by token 3 (unordered; mark of object #6 := 1 by token 2 stood; order-dependent: mark)",
 		"time=0.0 [s] path=panel machine=marking name=token order " +
 			"alternatives=2@low+3@high taken=3@high " +
-			"text=choice step 4: tokens 2@low, 3@high (unordered; took 3@high first)",
+			"text=choice step 4: tokens 2@low, 3@high (unordered; took 3@high first; order-dependent: mark)",
 		"time=0.0 [s] path=lamp1 machine=lp name=entry order " +
 			"alternatives=run(entry)+slow(entry) taken=run(entry) " +
-			"text=choice entering on: next run(entry), slow(entry) (unordered; took run(entry) first)",
+			"text=choice entering on: next run(entry), slow(entry) (unordered; took run(entry) first; independent)",
 		"time=2.0 [s] path=lamp2 machine=lp name=entry order " +
 			"alternatives=run(entry)+slow(entry) taken=run(entry) " +
-			"text=choice entering on: next run(entry), slow(entry) (unordered; took run(entry) first)",
+			"text=choice entering on: next run(entry), slow(entry) (unordered; took run(entry) first; independent)",
 		"time=2.5 [s] path= machine= name=due order " +
 			"alternatives=state machine LampMachine of object #1+state machine LampMachine of object #3 " +
 			"taken=state machine LampMachine of object #3 " +
-			"text=choice at t=2.5: due state machine LampMachine of object #1, state machine LampMachine of object #3 (unordered; ran state machine LampMachine of object #3 first)",
+			"text=choice at t=2.5: due state machine LampMachine of object #1, state machine LampMachine of object #3 (unordered; ran state machine LampMachine of object #3 first; order-dependent: brightness)",
 		"time=2.5 [s] path=lamp2 machine=lp name=exit order " +
 			"alternatives=run(exit)+slow(exit) taken=run(exit) " +
-			"text=choice exiting on: next run(exit), slow(exit) (unordered; took run(exit) first)",
+			"text=choice exiting on: next run(exit), slow(exit) (unordered; took run(exit) first; independent)",
 	}
 	if joinLines(got) != joinLines(want) {
 		t.Fatalf("choices:\n%s\nwant:\n%s", joinLines(got), joinLines(want))

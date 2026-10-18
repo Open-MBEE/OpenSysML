@@ -329,13 +329,13 @@ Checked against the code, not hypothesized:
 
 - **`ExecuteAction` — confirmed.** `ActionExecutor.RunToCompletion` in
   `internal/exec/runtime/action_executor.go` loops on `Step()` moving tokens until the graph
-  finishes or a step budget trips, and `TraceRecorder.RecordActionStep(step, tokens)` already
+  finishes or a step budget trips, and `TraceRecorder.recordActionStep(step, tokens)` already
   records each step with its tokens. `ExecuteActionResponse` returns one map of outputs after all
   of it. A server-streaming `ExecuteAction` emitting per-step token positions would need no new
   runtime work — the events exist and are already recorded.
 - **`ExecuteState` — confirmed.** `ExecuteStateWithEvents` returns `statesVisited` and the final
   context only on completion, while `TraceRecorder` has `RecordStateTransition`,
-  `RecordStateEntry`, `RecordStateExit` and `RecordLoopIteration`. The per-transition sequence a
+  `RecordStateEntry`, `RecordStateExit` and `recordLoopIteration`. The per-transition sequence a
   stream would carry is exactly what is recorded and then discarded.
 - **Interactive execution — the strongest case.** The executor supports breakpoints, suspension
   (`StateSuspended`, `pausedAt`) and waiting. A debugger driven over unary RPCs must poll; over a

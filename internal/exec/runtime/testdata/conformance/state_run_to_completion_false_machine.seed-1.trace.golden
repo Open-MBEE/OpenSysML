@@ -1,4 +1,4 @@
-choice entry at t=0.0: next dispatch accept Go, working(entry) (unordered; took working(entry) first)
+choice entry at t=0.0: next dispatch accept Go, working(entry) (unordered; took working(entry) first; independent)
 enter: step (entry action)
 stmt action body
   stmt assign hits

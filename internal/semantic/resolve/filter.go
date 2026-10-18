@@ -294,7 +294,7 @@ func (r *Resolver) AdmittedTopLevel(doc string, bindings []symbols.RootBinding) 
 // A membership scope hides (KerML 7.2.5.4) is left out: an import brings
 // nothing under a name another import of scope brings a distinct element under.
 func (r *Resolver) ImportedElements(scope *symbols.Scope, imp *ast.Import) []*symbols.Symbol {
-	return r.withoutHiddenMembers(scope, r.importedMembersInto(scope, scope, imp, false))
+	return r.withoutHiddenMembers(scope, r.importedMembersInto(scope, scope, imp, false), true)
 }
 
 // ImportedElementsInto enumerates the elements imp, declared in scope, surfaces
@@ -317,6 +317,26 @@ type enumEdge struct {
 }
 
 func (r *Resolver) importedMembersInto(into, scope *symbols.Scope, imp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
+	if into == nil {
+		into = scope
+	}
+	return r.importedMembersAdmitting(scope, imp, includeUnnamed, func() func(*symbols.Symbol) bool {
+		return r.importAdmitsInto(into, scope, imp)
+	})
+}
+
+// ImportedMembersUnfiltered enumerates the members imp reaches before any
+// element filter is applied — what a filter had to choose from — the unnamed
+// ones too when asked, as ImportedMembersInto lists them.
+func (r *Resolver) ImportedMembersUnfiltered(scope *symbols.Scope, imp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
+	return r.importedMembersAdmitting(scope, imp, includeUnnamed, func() func(*symbols.Symbol) bool {
+		return func(*symbols.Symbol) bool { return true }
+	})
+}
+
+// importedMembersAdmitting enumerates what imp surfaces, admitting members as
+// the predicate admission builds once the target is known.
+func (r *Resolver) importedMembersAdmitting(scope *symbols.Scope, imp *ast.Import, includeUnnamed bool, admission func() func(*symbols.Symbol) bool) []*symbols.Symbol {
 	if scope == nil || imp == nil || imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return nil
 	}
@@ -327,14 +347,11 @@ func (r *Resolver) importedMembersInto(into, scope *symbols.Scope, imp *ast.Impo
 			clear(r.enumMembers)
 		}
 	}()
-	if into == nil {
-		into = scope
-	}
 	target, ok := r.resolveImportTarget(scope, imp)
 	if !ok || target == nil {
 		return nil
 	}
-	admit := r.importAdmitsInto(into, scope, imp)
+	admit := admission()
 	out := newElementList()
 	if imp.Kind == ast.ImportMembership {
 		// `import P::x` surfaces x itself; the recursive form adds its subtree.
@@ -371,6 +388,9 @@ func (r *Resolver) appendNamespaceMembers(out *elementList, scope *symbols.Scope
 // the name is decided here; visibility and element filters are not.
 func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
 	children := newElementList()
+	// Only an imported membership can be hidden (KerML 7.2.5.4): a namespace
+	// whose reachable members are all its own has no collisions to compute.
+	imported := false
 	if target.Scope != nil {
 		if includeUnnamed {
 			target.Scope.ForEachMember(func(sym *symbols.Symbol) bool {
@@ -397,10 +417,11 @@ func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbo
 			for _, sym := range members {
 				children.add(sym)
 			}
+			imported = imported || len(members) > 0
 		}
 	}
 	if r.idx == nil {
-		return r.withoutHiddenMembers(target.Scope, children.elems)
+		return r.withoutHiddenMembers(target.Scope, children.elems, imported)
 	}
 	prefix := r.indexedNameOf(target)
 	var indexed []*symbols.Symbol
@@ -410,13 +431,20 @@ func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbo
 		indexed = r.idx.LookupDirectChildrenFrom(prefix, r.ReferringNamespaceFQN(scope))
 	}
 	for _, sym := range indexed {
+		if !r.admitsUnderName("", r.ReferringNamespaceFQN(scope), prefix+"::"+localNameOf(sym), sym) {
+			continue
+		}
 		// An entry re-exported under target through a namespace that hides it is
 		// no member of target (see withoutHiddenImports).
-		if r.admitsUnderName("", r.ReferringNamespaceFQN(scope), prefix+"::"+localNameOf(sym), sym) && !(r.reexportedUnder(prefix, sym) && r.hiddenOnRoute(target.Scope, sym)) {
-			children.add(sym)
+		if r.reexportedUnder(prefix, sym) {
+			if r.hiddenOnRoute(target.Scope, sym) {
+				continue
+			}
+			imported = true
 		}
+		children.add(sym)
 	}
-	return r.withoutHiddenMembers(target.Scope, children.elems)
+	return r.withoutHiddenMembers(target.Scope, children.elems, imported)
 }
 
 // reexportedUnder reports whether the index entry sym under prefix is a
@@ -444,8 +472,10 @@ func (r *Resolver) indexedNameOf(target *symbols.Symbol) string {
 
 // withoutHiddenMembers drops the imported memberships scope hides (KerML
 // 7.2.5.4): they are no members of it, so no import of it re-exports them.
-func (r *Resolver) withoutHiddenMembers(scope *symbols.Scope, syms []*symbols.Symbol) []*symbols.Symbol {
-	if scope == nil || len(r.importedCollisions(scope).hidden) == 0 {
+// imported reports whether syms holds any membership an import brought; when
+// none does there is nothing to hide, and scope's collisions are left uncomputed.
+func (r *Resolver) withoutHiddenMembers(scope *symbols.Scope, syms []*symbols.Symbol, imported bool) []*symbols.Symbol {
+	if scope == nil || !imported || len(r.importedCollisions(scope).hidden) == 0 {
 		return syms
 	}
 	out := syms[:0:0]
@@ -629,7 +659,7 @@ func (r *Resolver) ImportedBeside(scope *symbols.Scope, name string, sym *symbol
 				}
 				if symbols.SameElement(m, sym) {
 					brought = true
-				} else if slices.Contains(memberNames(m), name) {
+				} else if names := r.memberNames(m); names[0] == name || (names[1] != "" && names[1] == name) {
 					others = append(others, m)
 				}
 			}

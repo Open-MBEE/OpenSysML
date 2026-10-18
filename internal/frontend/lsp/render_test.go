@@ -1399,8 +1399,8 @@ func TestRenderShowsOptionalNotationElements(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
-	if !slices.Equal(plain.Shown, []string{"port-symbols", "compartments"}) {
-		t.Errorf("shown = %v, want the default, port-symbols then compartments", plain.Shown)
+	if !slices.Equal(plain.Shown, []string{"port-symbols", "compartments", "keywords"}) {
+		t.Errorf("shown = %v, want the default, port-symbols, compartments then keywords", plain.Shown)
 	}
 	if strings.Contains(plain.Artifact, `label="wire"`) {
 		t.Errorf("the default drew an edge label:\n%s", plain.Artifact)
@@ -1409,7 +1409,7 @@ func TestRenderShowsOptionalNotationElements(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render show=edge-labels: %v", err)
 	}
-	if !slices.Equal(shown.Shown, []string{"port-symbols", "compartments", "edge-labels"}) {
+	if !slices.Equal(shown.Shown, []string{"port-symbols", "compartments", "edge-labels", "keywords"}) {
 		t.Errorf("shown = %v, want the default and edge-labels", shown.Shown)
 	}
 	if !strings.Contains(shown.Artifact, `label="wire"`) {
@@ -1445,6 +1445,9 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	experimental := res.Capabilities.Experimental.(map[string]any)
 	if advertised, _ := experimental[RenderPortsCapability].([]string); !slices.Equal(advertised, []string{"minimal", "full"}) {
 		t.Fatalf("%s = %#v, want minimal then full", RenderPortsCapability, experimental[RenderPortsCapability])
+	}
+	if advertised, _ := experimental[RenderLinesCapability].([]string); !slices.Equal(advertised, []string{"splines", "ortho", "polyline"}) {
+		t.Fatalf("%s = %#v, want splines, ortho then polyline", RenderLinesCapability, experimental[RenderLinesCapability])
 	}
 	if advertised, _ := experimental[RenderOverlaysCapability].([]string); !slices.Equal(advertised, []string{"verdicts"}) {
 		t.Fatalf("%s = %#v, want verdicts", RenderOverlaysCapability, experimental[RenderOverlaysCapability])
@@ -1487,7 +1490,7 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	if strings.Contains(minimal, "spare") || strings.Contains(minimal, "Signal") {
 		t.Errorf("the default drew an unconnected port or a type:\n%s", minimal)
 	}
-	if got := render(t, "minimal").Artifact; got != minimal {
+	if render(t, "minimal").Artifact != minimal {
 		t.Errorf("ports=minimal differs from the default")
 	}
 	fullResult := render(t, "full")
@@ -1850,5 +1853,103 @@ func TestRenderKeepsActionPinsForEveryPortDisplay(t *testing.T) {
 	if countPorts(minimal.Nodes) != countPorts(full.Nodes) {
 		t.Errorf("action ports count differs by display: default=%d full=%d",
 			countPorts(minimal.Nodes), countPorts(full.Nodes))
+	}
+}
+
+// A render request's `lines` routes the DOT or PlantUML form's edges — ortho
+// or polyline, splines or nothing for the engine's default — and a routing
+// there is none of is refused by name with the three there are.
+func TestRenderLines(t *testing.T) {
+	const ported = `package Demo {
+    port def Signal;
+    part def Sender { port out1 : Signal; }
+    part def Receiver { port in1 : ~Signal; }
+    package Link {
+        part sender : Sender;
+        part receiver : Receiver;
+        interface wire connect sender.out1 to receiver.in1;
+    }
+    view link { expose Demo::Link::*; render Views::asInterconnectionDiagram; }
+}
+`
+	s, docURI := renderServer(t, "ported.sysml", ported)
+	render := func(t *testing.T, form view.Form, lines string) string {
+		t.Helper()
+		raw, err := call(t, s, MethodRender, &RenderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         "Demo::link", Form: string(form), Lines: lines,
+		})
+		if err != nil {
+			t.Fatalf("render lines=%q: %v", lines, err)
+		}
+		var out RenderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode render result: %v", err)
+		}
+		return out.Artifact
+	}
+	if got := render(t, view.FormDot, ""); strings.Contains(got, "splines=") {
+		t.Errorf("the default states a routing:\n%s", got)
+	}
+	if got := render(t, view.FormDot, "splines"); strings.Contains(got, "splines=") {
+		t.Errorf("splines states a routing:\n%s", got)
+	}
+	for _, c := range []struct {
+		form        view.Form
+		lines, want string
+	}{
+		{view.FormDot, "ortho", "splines=ortho"},
+		{view.FormDot, "polyline", "splines=polyline"},
+		{view.FormPlantUML, "ortho", "skinparam linetype ortho\n"},
+		{view.FormPlantUML, "polyline", "skinparam linetype polyline\n"},
+	} {
+		if got := render(t, c.form, c.lines); !strings.Contains(got, c.want) {
+			t.Errorf("%s with lines %s is missing %q:\n%s", c.form, c.lines, c.want, got)
+		}
+	}
+	_, err := call(t, s, MethodRender, &RenderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "Demo::link", Form: string(view.FormDot), Lines: "curved",
+	})
+	want := `unknown line routing "curved"; the routings are splines, ortho, polyline`
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Errorf("err = %v, want it to refuse the routing by name", err)
+	}
+}
+
+// A request's depth bounds how many levels are drawn below each exposed
+// element; a negative one is refused.
+func TestRenderDepthParam(t *testing.T) {
+	s, docURI := renderServer(t, "deep.sysml", `package Deep {
+    private import Views::*;
+    part vehicle {
+        part wheel { part hub { part bearing; } }
+        part engine { part piston; }
+    }
+    view structure { expose vehicle; render asTreeDiagram; }
+}
+`)
+	raw, err := call(t, s, MethodRender, &RenderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "Deep::structure",
+		Form:         string(view.FormText),
+		Depth:        1,
+	})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	var out RenderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.Artifact, "part wheel (nested deeper than 1 level; not shown)") || strings.Contains(out.Artifact, "hub") {
+		t.Errorf("artifact with depth 1:\n%s", out.Artifact)
+	}
+	if _, err := call(t, s, MethodRender, &RenderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "Deep::structure",
+		Depth:        -1,
+	}); err == nil || !strings.Contains(err.Error(), "no non-negative integer") {
+		t.Errorf("depth -1: err = %v, want it refused", err)
 	}
 }

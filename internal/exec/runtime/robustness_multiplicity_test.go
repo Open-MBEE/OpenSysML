@@ -162,8 +162,8 @@ func testFeatureChainThroughAnUnsetFeatureValue(t *testing.T) {
 	if err == nil {
 		t.Fatal("want the unset feature value's error, got a value")
 	}
-	if !errors.Is(err, ErrUninitializedFeatureValue) {
-		t.Errorf("expected ErrUninitializedFeatureValue, got: %v", err)
+	if !errors.Is(err, errUninitializedFeatureValue) {
+		t.Errorf("expected errUninitializedFeatureValue, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "volume") {
 		t.Errorf("error %q does not name the unset feature", err)

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag_ibd'></elementID>
+    <geometry>0, 0, 500, 300</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_engine'>
+    <elementID xmi:idref='_prop_engine'></elementID>
+    <geometry>20, 20, 440, 240</geometry>
+    <parts>
+      <mdElement elementClass='Part' xmi:id='_sym_piston'>
+        <elementID xmi:idref='_prop_piston'></elementID>
+        <geometry>60, 100, 120, 60</geometry>
+      </mdElement>
+      <mdElement elementClass='Part' xmi:id='_sym_sensor'>
+        <elementID xmi:idref='_prop_sensor'></elementID>
+        <geometry>300, 100, 120, 60</geometry>
+      </mdElement>
+      <mdElement elementClass='Connector' xmi:id='_sym_feed'>
+        <elementID xmi:idref='_conn_feed'></elementID>
+        <linkFirstEndID xmi:idref='_sym_piston'></linkFirstEndID>
+        <linkSecondEndID xmi:idref='_sym_sensor'></linkSecondEndID>
+        <geometry>180, 130; 300, 130; </geometry>
+        <mdOwnedViews>
+          <mdElement elementClass='ConnectorEnd' xmi:id='_sym_feed_end_1'>
+            <elementID xmi:idref='_ce_feed_1'></elementID>
+            <geometry>185, 115, 10, 10</geometry>
+          </mdElement>
+          <mdElement elementClass='ConnectorEnd' xmi:id='_sym_feed_end_2'>
+            <elementID xmi:idref='_ce_feed_2'></elementID>
+            <geometry>285, 115, 10, 10</geometry>
+          </mdElement>
+        </mdOwnedViews>
+      </mdElement>
+    </parts>
+  </mdElement>
+</mdOwnedViews>

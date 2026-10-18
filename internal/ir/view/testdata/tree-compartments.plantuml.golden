@@ -1,0 +1,61 @@
+@startuml
+' AmplifierViews::positioned — tree rendering (render asTreeDiagram)
+' not represented: 10 node(s) without a position, drawn as compartment rows of the node above them, and 1 node(s) under them left undrawn
+' not represented: 5 positioned node(s) and 0 route(s) kept as comments; PlantUML pins no position, the dot form does
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+' layout: n0 x=10 y=10 w=240 h=260
+' layout: n5 x=300 y=400 w=120 h=40
+' layout: n6 x=40 y=220 w=100 h=30
+' layout: n12 x=300 y=10 w=120 h=40
+' layout: n13 x=500 y=10 w=100 h=100
+hide circle
+hide empty members
+class "<size:10>//«part def»//</size>\n**Stage**\nattributes\ngain = 15.0\nnoiseFigure = RealFunctions::sqrt(4.0)\nparts\nheatsink\nports\ninput\noutput\nactions\ncalibrate\nconstraints\nbound\nitem defs\nSlot" as n0 <<part def>>
+class "<size:10>//«part»//</size>\n**housing**" as n5 <<part>> <<usage>>
+n0 -- n5
+class "<size:10>//«part»//</size>\n**shield**" as n6 <<part>> <<usage>>
+n0 -- n6
+class "<size:10>//«part def»//</size>\n**Housing**" as n12 <<part def>>
+class "<size:10>//«enum def»//</size>\n**Band**\nenumerations\nlow\nhigh" as n13 <<enum def>>
+n0 *-- "housing" n12
+n0 *-- "shield" n12
+@enduml

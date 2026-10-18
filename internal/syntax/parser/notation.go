@@ -20,36 +20,12 @@ var notationWords = map[string]bool{
 	"shallow":  true,
 }
 
-// sysmlOnlyWords are literals of SysML.xtext that appear in neither
-// KerML.xtext nor KerMLExpressions.xtext: `at` (`SysML.xtext:1480`, an accept
-// trigger), `while` (`:1617`, a loop action), `merge` (`:1666`) and `decide`
-// (`:1672`, control nodes) and the portion modifiers `snapshot`/`timeslice`
-// (`:864`, PortionKind). A word the file's own grammar does not reserve is a
-// name there, so in a `.kerml` file these read as ordinary names.
-var sysmlOnlyWords = map[string]bool{
-	"at":        true,
-	"while":     true,
-	"merge":     true,
-	"decide":    true,
-	"snapshot":  true,
-	"timeslice": true,
-}
-
-// Reserves reports whether keywordID is reserved in a file of the given kind;
-// the SysML-only words are names in KerML.
+// Reserves reports whether keywordID is reserved in a file of the given kind.
+// Xtext reserves a literal within the grammar that declares it, and the two
+// grammars share only KerMLExpressions.xtext, so a word only the other grammar
+// spells is a name here; a source of unknown kind reserves both sets.
 func Reserves(kind source.Kind, keywordID string) bool {
-	return kind != source.KindKerML || !sysmlOnlyWords[keywordID]
-}
-
-// unreserved reclassifies a keyword the file's grammar does not reserve as the
-// name it is, so every position that takes a name accepts it.
-func (p *Parser) unreserved(tok lexer.Token) lexer.Token {
-	if tok.Kind != lexer.Keyword || Reserves(p.src.Kind(), tok.KeywordID) {
-		return tok
-	}
-	tok.Kind = lexer.Identifier
-	tok.KeywordID = ""
-	return tok
+	return kind == source.KindUnknown || source.IsKeywordIn(keywordID, kind)
 }
 
 // notationWordAt returns the notation word n tokens ahead: a keyword's identity,

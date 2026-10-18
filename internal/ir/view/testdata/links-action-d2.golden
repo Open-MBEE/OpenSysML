@@ -10,23 +10,23 @@ classes: {
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   flow: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
 }
-n0: "Drive" {
+n0: "«action def»\nDrive" {
   class: definition
   link: "https://example.test/src/action.sysml#L11"
   n1: "" { class: initial; link: "https://example.test/src/action.sysml#L14" }
-  n2: "provide" { class: usage; link: "https://example.test/src/action.sysml#L16" }
-  n3: "monitor\nown flow" {
+  n2: "«action»\nprovide" { class: usage; link: "https://example.test/src/action.sysml#L16" }
+  n3: "«action»\nmonitor\nown flow" {
     class: usage
     link: "https://example.test/src/action.sysml#L20"
     n4: "" { class: initial; link: "https://example.test/src/action.sysml#L22" }
-    n5: "record" { class: usage; link: "https://example.test/src/action.sysml#L23" }
+    n5: "«action»\nrecord" { class: usage; link: "https://example.test/src/action.sysml#L23" }
   }
-  n6: "tally" { class: usage; link: "https://example.test/src/action.sysml#L29" }
+  n6: "«action»\ntally" { class: usage; link: "https://example.test/src/action.sysml#L29" }
   n7: "" { class: bar; link: "https://example.test/src/action.sysml#L33" }
   n8: "" { class: bar; link: "https://example.test/src/action.sysml#L34" }
   n9: "" { class: final; link: "https://example.test/src/action.sysml#L35" }
-  n10: "park" { class: usage; link: "https://example.test/src/action.sysml#L36" }
-  n11: "check" { class: choice; link: "https://example.test/src/action.sysml#L46" }
+  n10: "«action»\npark" { class: usage; link: "https://example.test/src/action.sysml#L36" }
+  n11: "«decision»\ncheck" { class: choice; link: "https://example.test/src/action.sysml#L46" }
 }
 n0.n3.n4 -> n0.n3.n5: { class: edge; link: "https://example.test/src/action.sysml#L24" }
 n0.n1 -> n0.n7: { class: edge; link: "https://example.test/src/action.sysml#L38" }

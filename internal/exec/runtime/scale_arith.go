@@ -27,7 +27,7 @@ func (ctx *Context) pointOf(q *Quantity) (*CoordinateFrame, bool, error) {
 		return nil, false, nil
 	}
 	scale, ok, err := ctx.scaleOfUnit(q.Unit)
-	if err != nil || !ok || scale == nil || !scale.IsScale() {
+	if err != nil || !ok || scale == nil || !scale.isScale() {
 		return nil, false, err
 	}
 	return scale, true, nil
@@ -51,7 +51,7 @@ func (ctx *Context) describeScale(scale *CoordinateFrame) string {
 
 // pointError refuses what on a point of scale, saying why a point has no such thing.
 func (ctx *Context) pointError(what string, scale *CoordinateFrame, why string) error {
-	return fmt.Errorf("%w: %s on a point of %s: %s", ErrScalePoint, what, ctx.describeScale(scale), why)
+	return fmt.Errorf("%w: %s on a point of %s: %s", errScalePoint, what, ctx.describeScale(scale), why)
 }
 
 // notIntervalError refuses what on a point of a scale that is no interval scale.
@@ -215,7 +215,7 @@ func (ctx *Context) compareQuantities(op ast.OperatorKind, left, right *Quantity
 	case ast.OpGe:
 		return boolValue(c >= 0), nil
 	}
-	return Value{}, fmt.Errorf("%w: '%s' is not an ordering", ErrUnsupportedOperator, op)
+	return Value{}, fmt.Errorf("%w: '%s' is not an ordering", errUnsupportedOperator, op)
 }
 
 // equalQuantities is `==` or `!=` over quantities on the left one's reference;

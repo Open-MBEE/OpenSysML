@@ -33,7 +33,7 @@ func testVerificationBodyThatCannotRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunVerification error = %v, want an error verdict", err)
 	}
-	if result.Verdict.Kind != VerdictError {
+	if result.Verdict.Kind != verdictError {
 		t.Fatalf("verdict = %q, want error", result.Verdict.Kind)
 	}
 	if !strings.Contains(result.Verdict.Detail, "sensor") {
@@ -50,7 +50,7 @@ func testVerificationBodyStepThatFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunVerification error = %v, want an error verdict", err)
 	}
-	if result.Verdict.Kind != VerdictError {
+	if result.Verdict.Kind != verdictError {
 		t.Fatalf("verdict = %q (%s), want error", result.Verdict.Kind, result.Verdict.Detail)
 	}
 	if !strings.Contains(result.Verdict.Detail, "adder") {
@@ -68,7 +68,7 @@ func testVerificationSubcaseThatCannotRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunVerification error = %v, want an error verdict", err)
 	}
-	if result.Verdict.Kind != VerdictError {
+	if result.Verdict.Kind != verdictError {
 		t.Fatalf("verdict = %q (%s), want error", result.Verdict.Kind, result.Verdict.Detail)
 	}
 	for _, want := range []string{"sub", "threshold"} {
@@ -87,8 +87,8 @@ func testVerificationOfASymbolThatIsNotACase(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationRobustnessModel))
 	scope := idx.DocumentRoot("<test>")
 	_, err := ctx.RunVerification(lookupOne(t, idx, "test::Sensor"), AnalysisArgs{}, scope, nil)
-	if !errors.Is(err, ErrNotAVerification) {
-		t.Fatalf("error = %v, want ErrNotAVerification", err)
+	if !errors.Is(err, errNotAVerification) {
+		t.Fatalf("error = %v, want errNotAVerification", err)
 	}
 }
 
@@ -99,8 +99,8 @@ func testVerificationWithAnArgumentTheCaseDoesNotTake(t *testing.T) {
 	scope := idx.DocumentRoot("<test>")
 	args := AnalysisArgs{Named: map[string]Value{"nope": integerValue(1)}}
 	_, err := ctx.RunVerification(lookupOne(t, idx, "test::stepping"), args, scope, nil)
-	if !errors.Is(err, ErrUnknownParameter) {
-		t.Fatalf("error = %v, want ErrUnknownParameter", err)
+	if !errors.Is(err, errUnknownParameter) {
+		t.Fatalf("error = %v, want errUnknownParameter", err)
 	}
 }
 
@@ -140,9 +140,9 @@ func testVerificationObjectiveSubjectLeftUnbound(t *testing.T) {
 	scope := idx.DocumentRoot("<test>")
 	sym := lookupOne(t, idx, "test::checkNothing")
 	_, err := ctx.RunAnalysis(sym, AnalysisArgs{}, scope, nil)
-	var unbound *UnboundSubjectError
+	var unbound *subjectUnboundError
 	if !errors.As(err, &unbound) {
-		t.Fatalf("RunAnalysis error = %v, want an UnboundSubjectError", err)
+		t.Fatalf("RunAnalysis error = %v, want an subjectUnboundError", err)
 	}
 	if unbound.Kind != "verification" || unbound.Element != "test::checkNothing" || unbound.Subject != "lander" {
 		t.Errorf("error names %s %s: %s, want verification test::checkNothing: lander", unbound.Kind, unbound.Element, unbound.Subject)
@@ -151,7 +151,7 @@ func testVerificationObjectiveSubjectLeftUnbound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunVerification error = %v, want an error verdict", err)
 	}
-	if result.Verdict.Kind != VerdictError || result.Verdict.Detail != unbound.Error() {
+	if result.Verdict.Kind != verdictError || result.Verdict.Detail != unbound.Error() {
 		t.Errorf("verdict = %q (%s), want error carrying %q", result.Verdict.Kind, result.Verdict.Detail, unbound.Error())
 	}
 }

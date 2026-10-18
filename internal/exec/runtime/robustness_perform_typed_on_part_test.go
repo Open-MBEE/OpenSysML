@@ -58,8 +58,8 @@ func testPerformTypedOnPartHoldingNoObject(t *testing.T) {
 		"part tel : Telescope[0..1];",
 		performing("perform action pt : Telescope::Point ::> context.tel.point;"),
 	), "test::Station")
-	if !errors.Is(err, ErrPerformerNotObject) || !strings.Contains(err.Error(), "tel.point is performed by [], which is no one object") {
-		t.Fatalf("error = %v, want ErrPerformerNotObject over an empty tel", err)
+	if !errors.Is(err, errPerformerNotObject) || !strings.Contains(err.Error(), "tel.point is performed by [], which is no one object") {
+		t.Fatalf("error = %v, want errPerformerNotObject over an empty tel", err)
 	}
 }
 

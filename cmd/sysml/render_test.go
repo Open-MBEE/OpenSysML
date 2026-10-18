@@ -1219,7 +1219,7 @@ func TestRenderPorts(t *testing.T) {
 }
 
 // -render-show names the optional notation elements a rendering draws besides
-// the port symbols and compartments it draws by default: an edge label is drawn
+// the port symbols, compartments and keywords it draws by default: an edge label is drawn
 // when asked for and not otherwise, a name none has is refused with the names
 // there are, and the option alone is refused.
 func TestRenderShow(t *testing.T) {

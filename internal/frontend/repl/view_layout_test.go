@@ -46,8 +46,8 @@ func TestSubmittedLayoutFindingsAreReported(t *testing.T) {
 	}
 	out := strings.Join(renderDiagnostics(res.Diagnostics, res.Source, res.diagLocation, false), "\n")
 	wants(t, out,
-		"4:9: warning: Route steers part def Plant::Pump, which no rendering draws as an edge",
-		"5:9: error: Canvas annotates part def Plant::Pump, which is no view")
+		"4:9: warning[diagram-layout-unplaced]: Route steers part def Plant::Pump, which no rendering draws as an edge",
+		"5:9: error[diagram-layout-canvas]: Canvas annotates part def Plant::Pump, which is no view")
 }
 
 // A well-formed layout draws no finding, and %render keeps it visible in both

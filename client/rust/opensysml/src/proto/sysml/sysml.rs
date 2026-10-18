@@ -229,6 +229,14 @@ pub struct VerificationVerdict {
     /// a requirement, or when that requirement can be named by no FQN.
     #[prost(string, tag="5")]
     pub requirement_id: ::prost::alloc::string::String,
+    /// Instance the case ran on as its owner, 0 when it ran on no object. A case a
+    /// definition owns runs once per object of that definition, so verdicts of one
+    /// case are told apart by this field; its feature values are in `instances`.
+    #[prost(int64, tag="6")]
+    pub instance_id: i64,
+    /// Type of `instance_id`, as an FQN, for naming the object in a report.
+    #[prost(string, tag="7")]
+    pub instance_type_id: ::prost::alloc::string::String,
 }
 /// VerifyRequirementResponse carries the verdict.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -454,6 +462,102 @@ pub struct RunAnalysisRequest {
     /// asks what "explore" as the schedule asks, and the response answers alike.
     #[prost(string, tag="7")]
     pub engine: ::prost::alloc::string::String,
+    /// Run the case only to the first call of an external tool its ToolExecution
+    /// names and answer what the tool would be given — manifest, executable,
+    /// argv, environment, standard input and reply mapping — in `tool_dry_run`,
+    /// without starting it (`sysml -tool-dry-run`); nothing the run did is kept.
+    /// A run that reaches no tool call reports that in `error`. Refused under an
+    /// explore schedule or engine (INVALID_ARGUMENT).
+    #[prost(bool, tag="8")]
+    pub tool_dry_run: bool,
+}
+/// ToolDryRun is what one external tool call would be given, composed without
+/// starting the process: the preview `sysml -tool-dry-run` prints.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ToolDryRun {
+    /// The ToolExecution-annotated action the call was made for.
+    #[prost(string, tag="1")]
+    pub action: ::prost::alloc::string::String,
+    /// The tool the entry names, the version its manifest declares, the manifest
+    /// file, the executable it resolved to and the protocol it is spoken under.
+    #[prost(string, tag="2")]
+    pub tool: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub version: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub manifest: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub executable: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub protocol: ::prost::alloc::string::String,
+    /// The argv entries after the executable as the invocation block renders
+    /// them; empty for an entry without one.
+    #[prost(string, repeated, tag="7")]
+    pub args: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The environment in NAME=value pairs, sorted; a variable taken from the
+    /// service's own process is spelled "NAME=<from this process>". Empty when
+    /// the entry has no invocation block and inherits the whole environment.
+    #[prost(string, repeated, tag="8")]
+    pub env: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The working directory; empty inherits the service's.
+    #[prost(string, tag="9")]
+    pub cwd: ::prost::alloc::string::String,
+    /// What standard input carries: "json" (the protocol's request object),
+    /// "none", "csv" or "template", and the bytes it would carry.
+    #[prost(string, tag="10")]
+    pub stdin: ::prost::alloc::string::String,
+    #[prost(string, tag="11")]
+    pub stdin_data: ::prost::alloc::string::String,
+    /// The file the block's `inputFile` writes, absent when it has none.
+    #[prost(message, optional, tag="12")]
+    pub input_file: ::core::option::Option<ToolDryRunFile>,
+    /// True when the entry uses {outputDir}.
+    #[prost(bool, tag="13")]
+    pub output_dir: bool,
+    /// The values the call sends the tool and the bindings it expects back.
+    #[prost(message, repeated, tag="14")]
+    pub inputs: ::prost::alloc::vec::Vec<ToolDryRunInput>,
+    #[prost(message, repeated, tag="15")]
+    pub outputs: ::prost::alloc::vec::Vec<ToolDryRunOutput>,
+    /// Where the reply is read: "stdout", or "file:<template>".
+    #[prost(string, tag="16")]
+    pub reply_source: ::prost::alloc::string::String,
+    /// The preview as the CLI prints it, one element per line, the reply mapping
+    /// included.
+    #[prost(string, repeated, tag="17")]
+    pub lines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// ToolDryRunFile is the input file a dry run would write.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ToolDryRunFile {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// "json" or "csv".
+    #[prost(string, tag="2")]
+    pub format: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub data: ::prost::alloc::string::String,
+}
+/// ToolDryRunInput is one value the call sends: the tool variable it is sent
+/// under, the parameter it came from, and the value as the protocol spells it.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ToolDryRunInput {
+    #[prost(string, tag="1")]
+    pub variable: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub parameter: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub value: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub unit: ::prost::alloc::string::String,
+}
+/// ToolDryRunOutput is one binding the call expects back.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ToolDryRunOutput {
+    #[prost(string, tag="1")]
+    pub variable: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub parameter: ::prost::alloc::string::String,
 }
 /// RunAnalysisResponse carries what the case computed and decided.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -510,6 +614,11 @@ pub struct RunAnalysisResponse {
     pub strength: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="13")]
     pub bounds: ::prost::alloc::vec::Vec<Bound>,
+    /// Set when the request asked for a tool dry run and the case reached a tool
+    /// call: what the tool would have been given. The run's outputs, verdicts and
+    /// instances are then empty, nothing of it having been kept.
+    #[prost(message, optional, tag="14")]
+    pub tool_dry_run: ::core::option::Option<ToolDryRun>,
 }
 /// ProbabilityRange is the model-draw probability of an outcome, bounded by the
 /// least and greatest probabilities over schedulers resolving scheduling choices.
@@ -564,7 +673,8 @@ pub struct Outcome {
 /// within the budget was run, and which budget stopped it when not.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ExplorationStatus {
-    /// True when every linearization was run, so `outcomes` is the whole set.
+    /// True when every linearization the library admits was run, so `outcomes`
+    /// is the whole set: no budget was hit and nothing was left unenumerated.
     #[prost(bool, tag="1")]
     pub complete: bool,
     /// How many runs were made.
@@ -586,10 +696,228 @@ pub struct ExplorationStatus {
     /// How many linearizations ended in runtime-error outcomes.
     #[prost(int32, tag="7")]
     pub failed_linearizations: i32,
+    /// The constructs whose unordered alternatives the runs took in one order
+    /// without a choice point, by identifier; `complete` is false while any is
+    /// listed, since fewer orders were run than the library admits.
+    #[prost(string, repeated, tag="8")]
+    pub unenumerated: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// CheckBehaviorRequest searches every schedule of a behavior, as the `sysml`
+/// command's -check-* flags do about `-action`/`-state`.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckBehaviorRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// Exactly one of the two names the behavior searched: an action definition or
+    /// usage, or a state definition or usage.
+    #[prost(string, tag="2")]
+    pub action_symbol_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub state_machine_symbol_id: ::prost::alloc::string::String,
+    /// Inputs bound to the action's parameters before the search.
+    #[prost(map="string, message", tag="4")]
+    pub inputs: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// The object the behavior is performed by, as ExecuteActionRequest names it.
+    #[prost(string, tag="5")]
+    pub performer_symbol_id: ::prost::alloc::string::String,
+    /// Constraints or requirements evaluated at every stable state; one false at a
+    /// state is a violation (-check-property, repeatable).
+    #[prost(string, repeated, tag="6")]
+    pub check_property: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Features whose final value the schedule may decide (-check-diverge): the
+    /// action's own bare, a performed node's as `node.pin`, the performer's as
+    /// `this.<name>`; none names the action's own features and the object's attributes.
+    #[prost(string, repeated, tag="7")]
+    pub check_diverge: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Inputs left free for the symbolic engine to range over (-check-input).
+    #[prost(string, repeated, tag="8")]
+    pub check_input: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Constraints or requirements the symbolic engine assumes (-check-assume).
+    #[prost(string, repeated, tag="9")]
+    pub check_assume: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Whether each violation and divergent value carries its witness file, the
+    /// replay `-schedule replay:<file>` follows (-check-witness).
+    #[prost(bool, tag="10")]
+    pub check_witness: bool,
+    /// Search bounds; 0 leaves each to the engine's default (-check-depth,
+    /// -check-states, -check-unroll). The timeout, in seconds, is the plan's deadline
+    /// and each solver query's limit (-check-timeout); 0 is none.
+    #[prost(int32, tag="11")]
+    pub check_depth: i32,
+    #[prost(int32, tag="12")]
+    pub check_states: i32,
+    #[prost(int32, tag="13")]
+    pub check_unroll: i32,
+    #[prost(double, tag="14")]
+    pub check_timeout: f64,
+    /// The engine that answers: "check" (default), "smt", or an engine ListEngines names.
+    #[prost(string, tag="15")]
+    pub engine: ::prost::alloc::string::String,
+}
+/// CheckWitness is one schedule the interpreter replays: what the run drew and
+/// chose, and the file a replay reads when the request asked for one.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CheckWitness {
+    /// The schedule policy the replay runs under, as -schedule spells it.
+    #[prost(string, tag="1")]
+    pub schedule: ::prost::alloc::string::String,
+    /// The random values the run drew, in the order drawn.
+    #[prost(string, repeated, tag="2")]
+    pub draws: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The choice points the run resolved, in run order, each spelling the
+    /// alternatives and the one taken.
+    #[prost(string, repeated, tag="3")]
+    pub choices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Free inputs the symbolic engine pinned, as `name = value`.
+    #[prost(string, repeated, tag="4")]
+    pub inputs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The witness file: its name as `sysml -check-witness` writes it, and its content.
+    #[prost(string, tag="5")]
+    pub file_name: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub file_content: ::prost::alloc::string::String,
+}
+/// CheckViolation is one schedule that reached a violated property, a deadlock
+/// or a failure.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckViolation {
+    /// "property", "deadlock" or "failure".
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    /// The property violated; empty for a deadlock or a failure.
+    #[prost(string, tag="2")]
+    pub property: ::prost::alloc::string::String,
+    /// The deadlock or the failure as the executor reported it; empty for a property.
+    #[prost(string, tag="3")]
+    pub error: ::prost::alloc::string::String,
+    /// How many moves the witness makes.
+    #[prost(int32, tag="4")]
+    pub depth: i32,
+    /// The probability of the schedules reaching this violation, a lower bound
+    /// when the report's mass_bounded holds.
+    #[prost(double, tag="5")]
+    pub probability: f64,
+    #[prost(message, optional, tag="6")]
+    pub witness: ::core::option::Option<CheckWitness>,
+    /// The violation as the command reports it.
+    #[prost(string, tag="7")]
+    pub text: ::prost::alloc::string::String,
+}
+/// CheckDivergentValue is one final value a feature can end with and a schedule reaching it.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CheckDivergentValue {
+    #[prost(string, tag="1")]
+    pub value: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub witness: ::core::option::Option<CheckWitness>,
+}
+/// CheckDivergence is a feature whose final value the schedule decides.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckDivergence {
+    #[prost(string, tag="1")]
+    pub feature: ::prost::alloc::string::String,
+    /// Every value some complete schedule leaves it with, in canonical order.
+    #[prost(message, repeated, tag="2")]
+    pub values: ::prost::alloc::vec::Vec<CheckDivergentValue>,
+}
+/// CheckFinal is one distinct outcome of the complete schedules.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckFinal {
+    #[prost(string, tag="1")]
+    pub outcome: ::prost::alloc::string::String,
+    #[prost(map="string, string", tag="2")]
+    pub values: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(message, optional, tag="3")]
+    pub witness: ::core::option::Option<CheckWitness>,
+}
+/// CheckSearch is how the check engine's search went.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckSearch {
+    /// Distinct states visited, moves made, and the longest schedule searched.
+    #[prost(int32, tag="1")]
+    pub states: i32,
+    #[prost(int32, tag="2")]
+    pub moves: i32,
+    #[prost(int32, tag="3")]
+    pub max_depth: i32,
+    /// The bounds the search ran into; empty when exhaustive.
+    #[prost(string, repeated, tag="4")]
+    pub bounds_hit: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The simulated time the search stopped the clock at, when it ran to a horizon.
+    #[prost(double, tag="5")]
+    pub horizon: f64,
+    #[prost(bool, tag="6")]
+    pub horizon_set: bool,
+    /// True when the violations' probabilities are lower bounds.
+    #[prost(bool, tag="7")]
+    pub mass_bounded: bool,
+    /// Why the searched runs' coverage is narrower than their schedules.
+    #[prost(string, repeated, tag="8")]
+    pub notes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Why the finals were observed short of quiescence.
+    #[prost(string, repeated, tag="9")]
+    pub scope: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// How the search ended, as `sysml` reports it.
+    #[prost(string, tag="10")]
+    pub status: ::prost::alloc::string::String,
+}
+/// CheckBehaviorResponse is what the search found.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckBehaviorResponse {
+    /// "holds" when every schedule within the bounds was searched clean, "fails"
+    /// on a violation or a divergence, "undecided" when a bound or a refusal
+    /// left schedules unsearched.
+    #[prost(string, tag="1")]
+    pub verdict: ::prost::alloc::string::String,
+    /// The report as the command prints it, one line each.
+    #[prost(string, repeated, tag="2")]
+    pub lines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="3")]
+    pub search: ::core::option::Option<CheckSearch>,
+    #[prost(message, repeated, tag="4")]
+    pub violations: ::prost::alloc::vec::Vec<CheckViolation>,
+    #[prost(message, repeated, tag="5")]
+    pub divergences: ::prost::alloc::vec::Vec<CheckDivergence>,
+    #[prost(message, repeated, tag="6")]
+    pub finals: ::prost::alloc::vec::Vec<CheckFinal>,
+    /// What the symbolic engine asserted and how strongly, when it answered: the
+    /// claim ("holds", "violated", "sensitive", ...), the inputs it ranged over
+    /// and the assumptions it rested on, its witness and, for a sensitivity, the
+    /// contrasting schedule.
+    #[prost(string, tag="7")]
+    pub claim: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="8")]
+    pub free_inputs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="9")]
+    pub assumptions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="10")]
+    pub witness: ::core::option::Option<CheckWitness>,
+    #[prost(message, optional, tag="11")]
+    pub contrast: ::core::option::Option<CheckWitness>,
+    /// The engine that answered, the strength of its evidence and the bounds it ran
+    /// under, as RunAnalysisResponse reports them.
+    #[prost(string, tag="12")]
+    pub engine: ::prost::alloc::string::String,
+    #[prost(string, tag="13")]
+    pub strength: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="14")]
+    pub bounds: ::prost::alloc::vec::Vec<Bound>,
+    /// Why nothing could be decided, when the verdict is undecided.
+    #[prost(string, tag="15")]
+    pub reason: ::prost::alloc::string::String,
+    /// A request refused before any search: the behavior does not resolve, a
+    /// property names no constraint or requirement, an option is misused.
+    #[prost(string, tag="17")]
+    pub error: ::prost::alloc::string::String,
 }
 /// ListEnginesRequest asks for the analysis engines registered in this build.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListEnginesRequest {
+    /// Start each external engine's process once and check its handshake against
+    /// its manifest, reporting the outcome as its status (`sysml -engines -probe`).
+    /// Without it no process is started.
+    #[prost(bool, tag="1")]
+    pub probe: bool,
 }
 /// EngineInfo is one analysis engine: what it answers, how strongly it can, and
 /// whether it can run here.
@@ -788,6 +1116,15 @@ pub struct SymbolResponse {
 pub struct DiagnosticsRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
+    /// Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+    /// undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+    /// rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+    #[prost(string, repeated, tag="2")]
+    pub disable_lint: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+    /// rounded-real-literal. Off unless named; disable_lint wins.
+    #[prost(string, repeated, tag="3")]
+    pub enable_lint: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// DiagnosticsResponse contains diagnostic list
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -853,6 +1190,12 @@ pub struct FeatureValue {
     /// set when evaluation failed; value is unset
     #[prost(string, tag="5")]
     pub error: ::prost::alloc::string::String,
+    /// How many of the run's unresolved choice points — ones whose alternatives
+    /// write what another reads or writes — touch this value: it then stands only
+    /// up to the order the run took, and an explore shows the set. 0 for a value
+    /// nothing order-dependent wrote. Populated under the "order_dependence" capability.
+    #[prost(int32, tag="6")]
+    pub order_dependent: i32,
 }
 /// InstantiateRequest requests instantiation of a part/usage
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -907,6 +1250,31 @@ pub struct ExecuteActionRequest {
     /// the action outside any object.
     #[prost(string, tag="5")]
     pub performer_symbol_id: ::prost::alloc::string::String,
+    /// Simulated time, in seconds, to run the action for (`sysml -advance`): the
+    /// action is started and its clock advanced by this much, running everything
+    /// due on the way; one that has not completed by then reports that in `error`
+    /// with the instant it waits for. Unset runs the action to completion, the
+    /// clock advancing through every wait.
+    #[prost(double, optional, tag="6")]
+    pub advance: ::core::option::Option<f64>,
+    /// The seed the model's own draws — weighted decisions, random functions —
+    /// are taken from (`sysml -seed`); the same seed draws the same run. Unset
+    /// leaves them to the schedule's own seed, so a run that draws under a
+    /// deterministic schedule is refused.
+    #[prost(uint64, optional, tag="7")]
+    pub seed: ::core::option::Option<u64>,
+    /// How the run resolves the draws of RandomFunctions (`sysml -draws`):
+    /// "random" (the default, from `seed`), "min", "max" or "average", which take
+    /// each call's least, greatest or mean value and need no seed. Any other
+    /// spelling is INVALID_ARGUMENT.
+    #[prost(string, tag="8")]
+    pub draws: ::prost::alloc::string::String,
+    /// The step, in seconds, the run's clock ticks by (`sysml -clock-step`): a
+    /// wait comes due at the first multiple of it not before the wait ends. 0, the
+    /// default, is a continuous clock; a negative or non-finite step is
+    /// INVALID_ARGUMENT.
+    #[prost(double, tag="9")]
+    pub clock_step: f64,
 }
 /// ExecuteActionResponse contains action execution results
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -937,9 +1305,14 @@ pub struct ExecuteActionResponse {
     /// under an explore schedule, whose outcomes carry them.
     #[prost(map="string, message", tag="7")]
     pub performer_attributes: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// Output name → how many of the run's unresolved choice points touch it; an
+    /// output nothing order-dependent wrote is absent. Populated under the
+    /// "order_dependence" capability; empty under an explore schedule.
+    #[prost(map="string, int32", tag="8")]
+    pub order_dependent: ::std::collections::HashMap<::prost::alloc::string::String, i32>,
 }
 /// ExecuteStateRequest requests state machine execution
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExecuteStateRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
@@ -966,6 +1339,18 @@ pub struct ExecuteStateRequest {
     /// "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
     #[prost(bool, tag="6")]
     pub trace: bool,
+    /// Simulated time, in seconds, to run the machine for after the events are
+    /// sent (`sysml -advance`); see ExecuteActionRequest.advance. Unset runs the
+    /// machine to quiescence and advances the clock no further.
+    #[prost(double, optional, tag="7")]
+    pub advance: ::core::option::Option<f64>,
+    /// See ExecuteActionRequest.seed, .draws and .clock_step.
+    #[prost(uint64, optional, tag="8")]
+    pub seed: ::core::option::Option<u64>,
+    #[prost(string, tag="9")]
+    pub draws: ::prost::alloc::string::String,
+    #[prost(double, tag="10")]
+    pub clock_step: f64,
 }
 /// ExecuteStateResponse contains state machine execution trace
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -999,6 +1384,11 @@ pub struct ExecuteStateResponse {
     /// How many of the oldest records the service's held-events bound discarded.
     #[prost(int32, tag="9")]
     pub trace_dropped: i32,
+    /// Final-context key → how many of the run's unresolved choice points touch
+    /// it; a value nothing order-dependent wrote is absent. Populated under the
+    /// "order_dependence" capability; empty under an explore schedule.
+    #[prost(map="string, int32", tag="10")]
+    pub order_dependent: ::std::collections::HashMap<::prost::alloc::string::String, i32>,
 }
 /// ConvertRequest asks for a model in another representation. A model_hash
 /// converts the source that parse read, so a file edited since then does not
@@ -2246,6 +2636,15 @@ pub struct Diagnostic {
     /// "syntax", "choice-point", "guard-unevaluable"; empty when none was assigned.
     #[prost(string, tag="4")]
     pub code: ::prost::alloc::string::String,
+    /// On a "choice-point": the features the conflicting alternatives wrote, whose
+    /// values the run holds only up to the order it took; empty when the
+    /// alternatives commute (`independent`) or conflict on nothing a value names.
+    #[prost(string, repeated, tag="5")]
+    pub order_dependent: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// On a "choice-point": the alternatives commute by their footprints, so the
+    /// run's values stand whichever was taken.
+    #[prost(bool, tag="6")]
+    pub independent: bool,
 }
 /// Span represents a source location
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -2901,6 +3300,11 @@ pub struct RenderDocumentResponse {
     pub markdown: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub html: ::prost::alloc::string::String,
+    /// The file a rendered set writes this document to in the requested form
+    /// (-render-documents), which the other documents' links to it name.
+    /// Populated under the render_document_file_name capability.
+    #[prost(string, tag="3")]
+    pub file_name: ::prost::alloc::string::String,
 }
 /// RenderViewRequest names a declared view or targeted pseudo-view to render.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -2919,6 +3323,10 @@ pub struct RenderViewRequest {
     /// "qualifiers", or "all".
     #[prost(string, repeated, tag="4")]
     pub show: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// How many levels of nested elements to draw below each exposed element,
+    /// overriding the depth the view states; 0 draws every level.
+    #[prost(int32, tag="5")]
+    pub depth: i32,
 }
 /// RenderViewResponse carries all machine-readable fields of the rendering.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3125,6 +3533,328 @@ pub struct ExportGraphsResponse {
     /// The subject's qualified name as resolved.
     #[prost(string, tag="3")]
     pub subject: ::prost::alloc::string::String,
+}
+/// ImportDataRequest is the data `sysml -import` sets the feature values of, one
+/// file per -import, applied in order as one edit each.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ImportDataRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// The files, in the order they are applied; each is read as its own format
+    /// and mapping say.
+    #[prost(message, repeated, tag="2")]
+    pub imports: ::prost::alloc::vec::Vec<DataImport>,
+    /// What each row is made into, as -import-as: "values", the default, sets the
+    /// features of the element the row names; nothing else is supported.
+    #[prost(string, tag="3")]
+    pub import_as: ::prost::alloc::string::String,
+    /// Report the values the imports would set, changing nothing; the documents
+    /// and model hash are then unset.
+    #[prost(bool, tag="4")]
+    pub import_dry_run: bool,
+    /// Accept every edited document in documents when the model has several;
+    /// without it, a model of several documents is refused as ApplyEdits refuses it.
+    #[prost(bool, tag="5")]
+    pub accept_documents: bool,
+}
+/// DataImport is one data file: its name, which names the format by extension
+/// and the file in what goes wrong, and its content.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DataImport {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub content: ::prost::alloc::string::String,
+    /// Read the content as csv, tsv, json or jsonl rather than as the name's
+    /// extension says, as -import-format.
+    #[prost(string, tag="3")]
+    pub import_format: ::prost::alloc::string::String,
+    /// The JSON mapping onto elements and features the content is read by, as the
+    /// file -import-map names; empty for the content's own header.
+    #[prost(string, tag="4")]
+    pub import_map: ::prost::alloc::string::String,
+}
+/// ImportDataResponse is what the imports set, and the model they made.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ImportDataResponse {
+    /// One per import, in order; unset when the model refuses an import, with
+    /// error set and nothing changed.
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<ImportedFile>,
+    /// The edited documents, as ApplyEdits answers them; unset on a dry run.
+    #[prost(message, repeated, tag="2")]
+    pub documents: ::prost::alloc::vec::Vec<EditedDocument>,
+    /// The edited content of a one-document model; unset on a dry run.
+    #[prost(string, tag="3")]
+    pub content: ::prost::alloc::string::String,
+    /// The hash of the imported model, parsed and cached; unset on a dry run.
+    #[prost(string, tag="4")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// Why the import was refused, "" when it was made; the model is then unchanged.
+    #[prost(string, tag="5")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="6")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+}
+/// ImportedFile is what one data file set: the values, the elements they were
+/// set on, and each assignment as `sysml -import` lists it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ImportedFile {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(int64, tag="2")]
+    pub values: i64,
+    #[prost(int64, tag="3")]
+    pub elements: i64,
+    #[prost(message, repeated, tag="4")]
+    pub assignments: ::prost::alloc::vec::Vec<ImportedValue>,
+}
+/// ImportedValue is one assignment: the qualified name of the element, the
+/// feature set, the literal it is set to, the qualified name of the inherited
+/// feature redefined to set it ("" when the element declares the feature), where
+/// in the data it came from, and the line `sysml -import` reports it as. A
+/// redefinition made only to reach a nested inherited feature sets no value.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ImportedValue {
+    #[prost(string, tag="1")]
+    pub element: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub feature: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub value: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub redefines: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub r#where: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub description: ::prost::alloc::string::String,
+}
+/// CompareResultsRequest runs the configurations a tool's results sidecar indexes
+/// — the JSON `sysml -migration-results` writes — against the migrated model.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CompareResultsRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// The results sidecar, as JSON.
+    #[prost(string, tag="2")]
+    pub results: ::prost::alloc::string::String,
+    /// The configurations compared, by qualified or simple name, as -action names
+    /// them; every indexed configuration when empty.
+    #[prost(string, repeated, tag="3")]
+    pub actions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The runs made of every configuration when positive, as -runs; else each
+    /// configuration's own numberOfRuns, or one.
+    #[prost(int64, tag="4")]
+    pub runs: i64,
+    /// The seed the runs derive theirs from, as -seed; without one, runs that draw
+    /// at random are refused unless draws fixes them.
+    #[prost(uint64, optional, tag="5")]
+    pub seed: ::core::option::Option<u64>,
+    /// The draw policy replacing every configuration's durationSimulationMode when
+    /// set, as -draws: random, min, max or average.
+    #[prost(string, tag="6")]
+    pub draws: ::prost::alloc::string::String,
+    /// The clock step replacing every configuration's when set, as -clock-step;
+    /// 0 is a continuous clock.
+    #[prost(double, optional, tag="7")]
+    pub clock_step: ::core::option::Option<f64>,
+    /// The stored observables compared, each with the feature of the run that
+    /// answers it, as -observe; without any, every stored observable is read from
+    /// the target's feature of its own name.
+    #[prost(message, repeated, tag="8")]
+    pub observe: ::prost::alloc::vec::Vec<ObservablePair>,
+    #[prost(string, tag="9")]
+    pub engine: ::prost::alloc::string::String,
+}
+/// ObservablePair is a stored observable and the feature of the run that answers
+/// it; an empty feature is the target's feature of the observable's own name.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ObservablePair {
+    #[prost(string, tag="1")]
+    pub stored: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub feature: ::prost::alloc::string::String,
+}
+/// CompareResultsResponse is one comparison per configuration, in the order the
+/// sidecar indexes them.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CompareResultsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub configurations: ::prost::alloc::vec::Vec<ConfigurationComparison>,
+    /// The tool the sidecar records as the source of the results.
+    #[prost(string, tag="2")]
+    pub source: ::prost::alloc::string::String,
+    /// Why nothing was compared, "" when the configurations were run.
+    #[prost(string, tag="3")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="4")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    #[prost(enumeration="FailureReason", tag="5")]
+    pub failure_reason: i32,
+    #[prost(string, tag="6")]
+    pub engine: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub strength: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="8")]
+    pub bounds: ::prost::alloc::vec::Vec<Bound>,
+}
+/// ConfigurationComparison is one configuration's runs beside the tool's results.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ConfigurationComparison {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub name: ::prost::alloc::string::String,
+    /// The migrated behavior the configuration performs, "" when it performs none.
+    #[prost(string, tag="3")]
+    pub behavior: ::prost::alloc::string::String,
+    /// The feature of the configuration the observables are read from.
+    #[prost(string, tag="4")]
+    pub target: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub result_location: ::prost::alloc::string::String,
+    /// holds when runs complete and observables compare; undecided when some do not;
+    /// fails when a run fails; unresolved when the configuration cannot run.
+    #[prost(string, tag="6")]
+    pub status: ::prost::alloc::string::String,
+    /// Why the configuration could not be run, when status is unresolved.
+    #[prost(string, tag="7")]
+    pub unresolved: ::prost::alloc::string::String,
+    /// The runs the tool stored, and over how many snapshots.
+    #[prost(int64, tag="8")]
+    pub stored_runs: i64,
+    #[prost(int64, tag="9")]
+    pub stored_snapshots: i64,
+    /// The runs OpenSysML made and how many completed.
+    #[prost(int64, tag="10")]
+    pub runs: i64,
+    #[prost(int64, tag="11")]
+    pub completed: i64,
+    #[prost(string, tag="12")]
+    pub draws: ::prost::alloc::string::String,
+    /// The seed the runs derived theirs from; unset when the runs drew nothing.
+    #[prost(uint64, optional, tag="13")]
+    pub seed: ::core::option::Option<u64>,
+    #[prost(double, tag="14")]
+    pub clock_step: f64,
+    /// One row per run, as RunSweep tables them.
+    #[prost(message, repeated, tag="15")]
+    pub rows: ::prost::alloc::vec::Vec<SweepRow>,
+    #[prost(message, repeated, tag="16")]
+    pub instances: ::prost::alloc::vec::Vec<Instance>,
+    #[prost(message, repeated, tag="17")]
+    pub observables: ::prost::alloc::vec::Vec<ObservableComparison>,
+    /// The errors failed runs ended in, deduplicated, and the notes on the
+    /// configuration and its runs.
+    #[prost(string, repeated, tag="18")]
+    pub errors: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="19")]
+    pub notes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The comparison as `sysml -compare-results` prints it.
+    #[prost(string, repeated, tag="20")]
+    pub lines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// ObservableComparison is one observable: the tool's distribution beside the
+/// runs' with the relative difference of each statistic, or why they are not
+/// compared.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ObservableComparison {
+    #[prost(string, tag="1")]
+    pub stored: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub feature: ::prost::alloc::string::String,
+    /// The unit the runs' numbers came in, "" for none.
+    #[prost(string, tag="3")]
+    pub unit: ::prost::alloc::string::String,
+    /// The tool's distribution, unset when it stored no number; pooled when it
+    /// was pooled from summaries, so only count and mean are known; unstored
+    /// when the tool stored no result at all to compare against.
+    #[prost(message, optional, tag="4")]
+    pub tool: ::core::option::Option<ComparedDistribution>,
+    #[prost(bool, tag="5")]
+    pub pooled: bool,
+    #[prost(bool, tag="6")]
+    pub unstored: bool,
+    /// The distribution of the completed runs, unset when they are not compared;
+    /// produced is how many runs produced a number for the feature.
+    #[prost(message, optional, tag="7")]
+    pub run: ::core::option::Option<ComparedDistribution>,
+    #[prost(int64, tag="8")]
+    pub produced: i64,
+    /// Whether the runs were made and are reported, false when the tool stored no
+    /// observable of the name or no number for it.
+    #[prost(bool, tag="9")]
+    pub compared: bool,
+    /// The relative difference of each statistic, unset without both
+    /// distributions; a pooled tool distribution compares the mean alone.
+    #[prost(message, optional, tag="10")]
+    pub difference: ::core::option::Option<StatisticDifference>,
+    /// The per-statistic comparison of the Simulation::MonteCarlo case the
+    /// observable is analysed by, unset when none is.
+    #[prost(message, optional, tag="11")]
+    pub declared: ::core::option::Option<CaseStatistics>,
+    #[prost(string, repeated, tag="12")]
+    pub notes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// ComparedDistribution is a distribution of numbers by its statistics; a pooled
+/// one sets count and mean alone.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ComparedDistribution {
+    #[prost(int64, tag="1")]
+    pub count: i64,
+    #[prost(double, tag="2")]
+    pub min: f64,
+    #[prost(double, tag="3")]
+    pub mean: f64,
+    #[prost(double, tag="4")]
+    pub p50: f64,
+    #[prost(double, tag="5")]
+    pub p90: f64,
+    #[prost(double, tag="6")]
+    pub max: f64,
+    #[prost(double, tag="7")]
+    pub deviation: f64,
+}
+/// StatisticDifference is the relative difference of each statistic as a signed
+/// percentage, "" where it is not compared.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StatisticDifference {
+    #[prost(string, tag="1")]
+    pub min: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub mean: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub p50: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub p90: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub max: ::prost::alloc::string::String,
+}
+/// CaseStatistics compares the statistics a Simulation::MonteCarlo case declares
+/// of an observable with the tool's pooled values, one row per statistic.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CaseStatistics {
+    #[prost(string, tag="1")]
+    pub analysis: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub rows: ::prost::alloc::vec::Vec<CaseStatistic>,
+    #[prost(string, repeated, tag="3")]
+    pub notes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// CaseStatistic is one statistic of the case: which, where the case declares
+/// it, the tool's value, the runs' value and their relative difference.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CaseStatistic {
+    #[prost(string, tag="1")]
+    pub statistic: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub of: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub tool: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub run: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub difference: ::prost::alloc::string::String,
 }
 /// FailureReason says what kind of failure an `error` reports, so a client acts
 /// on the kind rather than on the message text.

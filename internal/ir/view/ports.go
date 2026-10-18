@@ -78,7 +78,7 @@ func (k Kind) SupportsPorts() bool { return k == KindInterconnection || k == Kin
 // portView is the ports a form draws of each node under a Ports display, and
 // how it names them: every port, labelled `name : Type`, under PortsFull and
 // for a kind the display does not apply to — the zero portView — and under
-// PortsMinimal those an edge ends at, named alone.
+// PortsMinimal those an edge ends at or the view exposes, named alone.
 type portView struct {
 	// interconnection reports whether the rendering draws interconnection
 	// ports, which text and Mermaid write; action reports an action rendering,
@@ -123,7 +123,7 @@ func (v portView) of(node *Node) []Port {
 	var drawn []Port
 	for _, port := range node.Ports {
 		// Action pins are parameters, not connector ends: minimal mixed views keep them.
-		if v.connected[port.ID] || v.mixed && port.Direction != PortUndirected {
+		if port.Exposed || v.connected[port.ID] || v.mixed && port.Direction != PortUndirected {
 			drawn = append(drawn, port)
 		}
 	}

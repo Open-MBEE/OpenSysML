@@ -9,17 +9,17 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
-// RandomFunctionsFQN names the OpenSysML library of random functions.
-const RandomFunctionsFQN = "RandomFunctions"
+// randomFunctionsFQN names the OpenSysML library of random functions.
+const randomFunctionsFQN = "RandomFunctions"
 
 // registerRandomFunctions registers the OpenSysML RandomFunctions library
 // (internal/workspace/libs/stdlib/OpenSysML Libraries/RandomFunctions.kerml): each call
 // is a draw from the run's modeled stream, recorded for the trace and the witness.
 func registerRandomFunctions() {
-	registerContextFunction(RandomFunctionsFQN+"::uniform", []string{"lo", "hi"}, drawUniform)
-	registerContextFunction(RandomFunctionsFQN+"::uniformInteger", []string{"lo", "hi"}, drawUniformInteger, integerDomain, integerDomain)
-	registerContextFunction(RandomFunctionsFQN+"::triangular", []string{"lo", "mode", "hi"}, drawTriangular)
-	registerContextFunction(RandomFunctionsFQN+"::normal", []string{"mean", "sd"}, drawNormal)
+	registerContextFunction(randomFunctionsFQN+"::uniform", []string{"lo", "hi"}, drawUniform)
+	registerContextFunction(randomFunctionsFQN+"::uniformInteger", []string{"lo", "hi"}, drawUniformInteger, integerDomain, integerDomain)
+	registerContextFunction(randomFunctionsFQN+"::triangular", []string{"lo", "mode", "hi"}, drawTriangular)
+	registerContextFunction(randomFunctionsFQN+"::normal", []string{"mean", "sd"}, drawNormal)
 }
 
 // drawCall spells the call a draw records: the function's own name over its
@@ -43,7 +43,7 @@ func drawUniform(ctx *Context, name string, args []semantics.Value) (semantics.V
 		return semantics.Value{}, err
 	}
 	if lo > hi {
-		return semantics.Value{}, fmt.Errorf("%w: uniform(%s, %s): lo exceeds hi", ErrRandomDomain, formatDrawn(args[0]), formatDrawn(args[1]))
+		return semantics.Value{}, fmt.Errorf("%w: uniform(%s, %s): lo exceeds hi", errRandomDomain, formatDrawn(args[0]), formatDrawn(args[1]))
 	}
 	return ctx.draw(drawCall(name, args), distribution{
 		draw: func(rng *rand.Rand) semantics.Value {
@@ -64,10 +64,10 @@ func drawUniformInteger(ctx *Context, name string, args []semantics.Value) (sema
 	hi, hiSmall := args[1].Int64()
 	if !loSmall || !hiSmall {
 		return semantics.Value{}, fmt.Errorf("%w: uniformInteger(%s, %s): a bound is beyond the 64-bit range a draw spans",
-			ErrRandomDomain, args[0].FormatInt(), args[1].FormatInt())
+			errRandomDomain, args[0].FormatInt(), args[1].FormatInt())
 	}
 	if lo > hi {
-		return semantics.Value{}, fmt.Errorf("%w: uniformInteger(%d, %d): lo exceeds hi", ErrRandomDomain, lo, hi)
+		return semantics.Value{}, fmt.Errorf("%w: uniformInteger(%d, %d): lo exceeds hi", errRandomDomain, lo, hi)
 	}
 	span := unsignedInt(hi) - unsignedInt(lo)
 	return ctx.draw(drawCall(name, args), distribution{
@@ -105,7 +105,7 @@ func drawTriangular(ctx *Context, name string, args []semantics.Value) (semantic
 	}
 	if !(lo <= mode && mode <= hi && lo < hi) {
 		return semantics.Value{}, fmt.Errorf("%w: triangular(%s, %s, %s): needs lo <= mode <= hi with lo < hi",
-			ErrRandomDomain, formatDrawn(args[0]), formatDrawn(args[1]), formatDrawn(args[2]))
+			errRandomDomain, formatDrawn(args[0]), formatDrawn(args[1]), formatDrawn(args[2]))
 	}
 	return ctx.draw(drawCall(name, args), distribution{
 		draw: func(rng *rand.Rand) semantics.Value {
@@ -129,7 +129,7 @@ func drawNormal(ctx *Context, name string, args []semantics.Value) (semantics.Va
 		return semantics.Value{}, err
 	}
 	if sd < 0 {
-		return semantics.Value{}, fmt.Errorf("%w: normal(%s, %s): sd is negative", ErrRandomDomain, formatDrawn(args[0]), formatDrawn(args[1]))
+		return semantics.Value{}, fmt.Errorf("%w: normal(%s, %s): sd is negative", errRandomDomain, formatDrawn(args[0]), formatDrawn(args[1]))
 	}
 	return ctx.draw(drawCall(name, args), distribution{
 		draw: func(rng *rand.Rand) semantics.Value {
@@ -159,7 +159,7 @@ func drawNormal(ctx *Context, name string, args []semantics.Value) (semantics.Va
 func finiteBounds(name string, args []semantics.Value) error {
 	for _, arg := range args {
 		if x := asReal(arg); math.IsInf(x, 0) || math.IsNaN(x) {
-			return fmt.Errorf("%w: %s: %s is not a finite number", ErrRandomDomain, drawCall(name, args), formatDrawn(arg))
+			return fmt.Errorf("%w: %s: %s is not a finite number", errRandomDomain, drawCall(name, args), formatDrawn(arg))
 		}
 	}
 	return nil
@@ -198,5 +198,30 @@ func realWithin(lo, hi float64) func(v semantics.Value) bool {
 func realHalfOpen(lo, hi float64) func(v semantics.Value) bool {
 	return func(v semantics.Value) bool {
 		return v.Kind == semantics.ValReal && lo <= v.Real && (v.Real < hi || v.Real == lo)
+	}
+}
+
+// unsignedInt and signedInt are the two views of one Integer. A sweep counts and
+// steps unsigned, so a range as wide as Integer arithmetic stays exact.
+func unsignedInt(n int64) uint64 {
+	// #nosec G115 -- the two's-complement image is the value meant, not an overflow.
+	return uint64(n)
+}
+
+func signedInt(n uint64) int64 {
+	// #nosec G115 -- the two's-complement image is the value meant, not an overflow.
+	return int64(n)
+}
+
+// drawOffset is a uniform offset from zero to width inclusive, drawn as an
+// Int64N while the width leaves room for it so a wider range costs nothing.
+func drawOffset(source *rand.Rand, width uint64) uint64 {
+	switch {
+	case width < math.MaxInt64:
+		return unsignedInt(source.Int64N(signedInt(width) + 1))
+	case width == math.MaxUint64:
+		return source.Uint64()
+	default:
+		return source.Uint64N(width + 1)
 	}
 }

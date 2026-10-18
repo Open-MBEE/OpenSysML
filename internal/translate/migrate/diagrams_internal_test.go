@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -82,6 +83,193 @@ func diagram(id, name, owner, kind string, shown ...string) string {
 	return b.String()
 }
 
+func TestPrivateLayoutPlacementOutsideOwnerIsUnexposed(t *testing.T) {
+	members := `<packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x" visibility="private" type="_pump" aggregation="composite"/>
+    </packagedElement>`
+	data := diagramModel(members, diagram("_d", "Outside", "_sys", "SysML Block Definition Diagram"),
+		`<sysml:Block xmi:id="_s_a" base_Class="_a"/>`)
+	layout := &mtip.Export{Diagrams: []mtip.Diagram{{
+		ID: "_d",
+		Placements: []mtip.Placement{
+			{ID: "_x", X: 10, Y: 10, Width: 20, Height: 20},
+		},
+		Unsupported: map[string]int{},
+	}}}
+	r, err := MigrateOptions("outside.xmi", []byte(data), Options{Layout: layout, LayoutSource: "outside.layout.xml"})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	if l := r.Report.Layout; l == nil || l.PlacementsWritten != 0 || l.PlacementsUnexposed != 1 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	if strings.Contains(string(r.Notation), "metadata DiagramLayout::Layout about") {
+		t.Errorf("private placement written outside its owner:\n%s", r.Notation)
+	}
+	if !strings.Contains(string(r.Notation), "private part x") || strings.Contains(string(r.Notation), "public part x") {
+		t.Errorf("private feature visibility was not preserved:\n%s", r.Notation)
+	}
+	for _, entry := range r.Report.Entries {
+		if entry.ID == "_d" {
+			if !strings.Contains(entry.Note, "private to") || !strings.Contains(entry.Note, "no name visible in the view denotes it") {
+				t.Errorf("diagram note = %q, want private-member explanation", entry.Note)
+			}
+			return
+		}
+	}
+	t.Fatal("diagram report entry not found")
+}
+
+func TestPrivateLayoutPlacementInEnclosingOwnerKeepsExistingExposure(t *testing.T) {
+	members := `<packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x" visibility="private" type="_pump" aggregation="composite"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B"/>
+    </packagedElement>`
+	data := diagramModel(members, diagram("_d", "Inside", "_b", "SysML Block Definition Diagram", "_x"),
+		`<sysml:Block xmi:id="_s_a" base_Class="_a"/>`,
+		`<sysml:Block xmi:id="_s_b" base_Class="_b"/>`)
+	layout := &mtip.Export{Diagrams: []mtip.Diagram{{
+		ID: "_d",
+		Placements: []mtip.Placement{
+			{ID: "_x", X: 10, Y: 10, Width: 20, Height: 20},
+		},
+		Unsupported: map[string]int{},
+	}}}
+	r, err := MigrateOptions("inside.xmi", []byte(data), Options{Layout: layout, LayoutSource: "inside.layout.xml"})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	if l := r.Report.Layout; l == nil || l.PlacementsWritten != 1 || l.PlacementsUnexposed != 0 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	notation := string(r.Notation)
+	if strings.Contains(notation, "private part x") ||
+		!strings.Contains(notation, "metadata DiagramLayout::Layout about") {
+		t.Errorf("in-scope exposure behavior changed:\n%s", r.Notation)
+	}
+	if strings.Contains(notation, "private alias") {
+		t.Errorf("owner with no shadowed layout target wrote an alias:\n%s", notation)
+	}
+}
+
+func TestPrivateLayoutAliasAvoidsImportedViewName(t *testing.T) {
+	members := `<packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x" visibility="private" type="_pump" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_a_b" name="b" type="_b" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_b_x" name="x"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_taken" name="x (A)"/>`
+	data := diagramModel(members, diagram("_d", "Inside", "_a", "SysML Block Definition Diagram", "_x", "_b_x", "_taken"),
+		`<sysml:Block xmi:id="_s_a" base_Class="_a"/>`,
+		`<sysml:Block xmi:id="_s_b" base_Class="_b"/>`)
+	layout := &mtip.Export{Diagrams: []mtip.Diagram{{
+		ID: "_d",
+		Placements: []mtip.Placement{
+			{ID: "_x", X: 10, Y: 10, Width: 20, Height: 20},
+		},
+		Unsupported: map[string]int{},
+	}}}
+	r, err := MigrateOptions("exposed_alias_name.xmi", []byte(data), Options{Layout: layout, LayoutSource: "exposed_alias_name.layout.xml"})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	notation := string(r.Notation)
+	if !strings.Contains(notation, "expose 'x (A)'") {
+		t.Fatalf("view did not expose the element named 'x (A)':\n%s", notation)
+	}
+	if !strings.Contains(notation, "private alias 'x (A) 2' for x;") {
+		t.Fatalf("private layout alias did not avoid the imported view name:\n%s", notation)
+	}
+}
+
+// A name the owner's body already refers to unqualified (here the type of
+// part c, the top-level block 'x (A)') is not free for an alias: declared in
+// the owner, the alias would capture that reference.
+func TestPrivateLayoutAliasAvoidsNameTheOwnerRefersTo(t *testing.T) {
+	members := `<packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x" visibility="private" type="_pump" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_a_c" name="c" type="_taken" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_b_x" name="x"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_taken" name="x (A)"/>`
+	data := diagramModel(members, diagram("_d", "Inside", "_a", "SysML Block Definition Diagram", "_x", "_b_x"),
+		`<sysml:Block xmi:id="_s_a" base_Class="_a"/>`,
+		`<sysml:Block xmi:id="_s_b" base_Class="_b"/>`,
+		`<sysml:Block xmi:id="_s_taken" base_Class="_taken"/>`)
+	layout := &mtip.Export{Diagrams: []mtip.Diagram{{
+		ID: "_d",
+		Placements: []mtip.Placement{
+			{ID: "_x", X: 10, Y: 10, Width: 20, Height: 20},
+		},
+		Unsupported: map[string]int{},
+	}}}
+	r, err := MigrateOptions("referenced_alias_name.xmi", []byte(data), Options{Layout: layout, LayoutSource: "referenced_alias_name.layout.xml"})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	notation := string(r.Notation)
+	if !strings.Contains(notation, "part c : 'x (A)';") {
+		t.Fatalf("part c is not typed by the top-level block by its simple name:\n%s", notation)
+	}
+	if !strings.Contains(notation, "private alias 'x (A) 2' for x;") || strings.Contains(notation, "private alias 'x (A)' for x;") {
+		t.Fatalf("private layout alias took the name the owner's body refers to:\n%s", notation)
+	}
+	if !strings.Contains(notation, "metadata DiagramLayout::Layout about 'x (A) 2' {") {
+		t.Fatalf("layout placement does not name the alias:\n%s", notation)
+	}
+}
+
+// A view's name written bare from a nested scope is recorded against every
+// scope it resolves past, like any other simple reference, so an alias planned
+// in one of them later cannot capture it.
+func TestViewRefRecordsTheNameItResolvesPast(t *testing.T) {
+	pkg := &sysmlv1.Element{Type: "Package", Name: "P"}
+	owner := &sysmlv1.Element{Type: "Class", Name: "A", Parent: pkg}
+	pkg.Children = []*sysmlv1.Element{owner}
+	m := &migration{referenced: map[*sysmlv1.Element]map[string]bool{}}
+	v := &view{name: "x (A)", host: pkg}
+	if got := m.viewRef(v, owner); got != "'x (A)'" {
+		t.Fatalf("viewRef = %q, want the bare name", got)
+	}
+	if !m.referredPast(owner, "x (A)") || m.referredPast(pkg, "x (A)") {
+		t.Fatalf("referred past A = %t, past P = %t; want true, false", m.referredPast(owner, "x (A)"), m.referredPast(pkg, "x (A)"))
+	}
+	top := &view{name: "Top"}
+	if got := m.viewRef(top, owner); got != "Top" || !m.referredPast(owner, "Top") || !m.referredPast(pkg, "Top") {
+		t.Fatalf("top-level viewRef = %q, referred past A = %t, past P = %t", got, m.referredPast(owner, "Top"), m.referredPast(pkg, "Top"))
+	}
+}
+
+func TestPrivateLayoutAliasHoleIsWrittenInAncestorOwner(t *testing.T) {
+	owner := &sysmlv1.Element{Type: "Class", Name: "A"}
+	target := &sysmlv1.Element{Type: "Property", Name: "x", Parent: owner}
+	m := &migration{
+		w:                     &writer{},
+		strict:                true,
+		scope:                 owner,
+		privateAliasOwners:    map[*sysmlv1.Element]bool{owner: true},
+		privateAliasHoles:     map[*sysmlv1.Element]bool{},
+		privateAliasesByOwner: map[*sysmlv1.Element][]*privateLayoutAlias{owner: {{owner: owner, target: target, name: "x (A)"}}},
+	}
+	m.w.block("part def A", func() {
+		m.w.block("part def B", func() {
+			m.w.line("view Nested;")
+		})
+		m.views(owner)
+	})
+	m.w.fill()
+	notation := m.w.String()
+	viewAt := strings.Index(notation, "view Nested;")
+	aliasAt := strings.Index(notation, "private alias 'x (A)' for x;")
+	if viewAt < 0 || aliasAt < viewAt {
+		t.Fatalf("ancestor owner alias was not deferred until after nested views:\n%s", notation)
+	}
+}
+
 // machineMembers is a state machine Modes (_sm) whose region enters Idle
 // (_idle) and leaves it for Run (_run) on signal Go.
 const machineMembers = `<packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
@@ -113,7 +301,7 @@ func TestDiagramViews(t *testing.T) {
 			[]string{"part def Pump {\n        attribute rate;\n        view 'Pump IBD' {\n            expose rate;\n            render Views::asInterconnectionDiagram;\n        }\n    }"}, Mapped, ""},
 		{"a diagram naming no owner is written where its extension is held",
 			``, diagram("_d", "Loose", "", "Class Diagram", "_pump"),
-			[]string{"view Loose {\n    expose Sys::Pump;\n    render Views::asTreeDiagram;\n}"}, Approximated, "the diagram names no owner; written at the top level"},
+			[]string{"view Loose {\n    expose Sys::Pump;\n    render Views::asTreeDiagram;\n}"}, Approximated, "the diagram names no owner; written in package Model, which holds it"},
 		{"a diagram naming an unknown owner is written where its extension is held",
 			``, diagram("_d", "Lost", "_gone", "Generic Table", "_pump"),
 			[]string{"view Lost {\n    expose Sys::Pump;\n    render Views::asElementTable;\n}"}, Approximated, "ownerOfDiagram _gone resolves to no element"},
@@ -128,7 +316,7 @@ func TestDiagramViews(t *testing.T) {
 			   <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_on" name="on"/>
 			 </packagedElement>`,
 			diagram("_d", "Modes", "_mode", "Generic Table", "_on"),
-			[]string{"view Modes {\n    expose Mode::on;\n    render Views::asElementTable;\n}"}, Approximated, "its owner Enumeration Mode has no v2 body; written at the top level"},
+			[]string{"view Modes {\n    expose Mode::on;\n    render Views::asElementTable;\n}"}, Approximated, "its owner Enumeration Mode has no v2 body; written in package Model"},
 		{"a diagram of a kind the tool made up is textual",
 			``, diagram("_d", "Board", "_sys", "Kanban Board"),
 			[]string{"render Views::asTextualNotation;"}, Approximated, "the diagram shows nothing"},
@@ -144,7 +332,7 @@ func TestDiagramViews(t *testing.T) {
 			 </packagedElement>`,
 			diagram("_d", "Opening", "_opening", "SysML Activity Diagram", "_opening", "_pump"),
 			[]string{"action open {\n        view Opening {\n            expose open;\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n    }"}, Mapped,
-			"its owner Activity Valve::Opening is written as the body of action Valve::open, whose method it is"},
+			"its owner Activity Valve::Opening is written as the body of action Model::Valve::open, whose method it is"},
 		{"a diagram of an opaque behavior that is an operation's method is written in the operation's body",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
 			   <ownedOperation xmi:type="uml:Operation" xmi:id="_shut" name="Shut" method="_shutting"/>
@@ -153,8 +341,8 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Shutting", "_shutting", "SysML Activity Diagram", "_pump"),
-			[]string{"action shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        /* body not migrated"}, Mapped,
-			"its owner OpaqueBehavior Valve::Shutting is written as the body of action Valve::shut, whose method it is"},
+			[]string{"action shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        rep language \"JavaScript\" /* 1;*/"}, Mapped,
+			"its owner OpaqueBehavior Valve::Shutting is written as the body of action Model::Valve::shut, whose method it is"},
 		{"a diagram owned by an action node is written in the body of the node's activity",
 			`<packagedElement xmi:type="uml:Activity" xmi:id="_fill" name="Fill">
 			   <node xmi:type="uml:InitialNode" xmi:id="_f_init"/>
@@ -163,7 +351,7 @@ func TestDiagramViews(t *testing.T) {
 			 </packagedElement>`,
 			diagram("_d", "Pouring", "_pour", "SysML Activity Diagram", "_pour", "_pump"),
 			[]string{"action def Fill {\n    view Pouring : StandardViewDefinitions::ActionFlowView {\n        expose Fill;\n        expose Sys::Pump;\n        render Views::asInterconnectionDiagram;\n    }"}, Approximated,
-			"its owner OpaqueAction Fill::pour has no v2 body; written in action def Fill"},
+			"its owner OpaqueAction Fill::pour has no v2 body; written in action def Model::Fill"},
 		{"a diagram owned by a node of a method activity is written in the operation's body",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
 			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
@@ -175,7 +363,7 @@ func TestDiagramViews(t *testing.T) {
 			 </packagedElement>`,
 			diagram("_d", "Turning", "_turn", "SysML Activity Diagram", "_turn"),
 			[]string{"action open {\n        view Turning : StandardViewDefinitions::ActionFlowView {\n            expose open;\n            render Views::asInterconnectionDiagram;\n        }"}, Approximated,
-			"its owner OpaqueAction Valve::Opening::turn has no v2 body; written in action Valve::open"},
+			"its owner OpaqueAction Valve::Opening::turn has no v2 body; written in action Model::Valve::open"},
 		{"a member of a method behavior is exposed under the operation that holds its body",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
 			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
@@ -208,7 +396,7 @@ func TestDiagramViews(t *testing.T) {
 			 </packagedElement>`,
 			diagram("_d", "Feeding", "_sys", "SysML Block Definition Diagram", "_a_end"),
 			[]string{"connection def Feeds {\n    end pump2 : Sys::Pump;\n    end pump : Sys::Pump;\n    metadata MigrationMetadata::SynthesizedName about pump;\n}", "view Feeding {\n        expose Feeds;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
-		{"a member named like a library package is renamed, so a shown primitive still exposes the library's",
+		{"a member named like a library package shadows it, so a shown primitive exposes the library's from the global namespace",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_svs" name="ScalarValues"/>
 			 <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level">
@@ -217,8 +405,7 @@ func TestDiagramViews(t *testing.T) {
 			 </packagedElement>`,
 			diagram("_d", "Levels", "_tank", "SysML Block Definition Diagram", "_level",
 				"http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"),
-			[]string{"occurrence def ScalarValuesModel;", "view Levels {\n        expose level;\n        expose ScalarValues::Real;\n        render Views::asTreeDiagram;\n    }",
-				`metadata MigrationMetadata::LibraryNameAvoided about ScalarValuesModel { sourceName = "ScalarValues"; }`}, Mapped, ""},
+			[]string{"occurrence def ScalarValues;", "attribute level : $::ScalarValues::Real;", "view Levels {\n        expose level;\n        expose $::ScalarValues::Real;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
 		{"a diagram of a user stereotype is written in its metadata def",
 			`<packagedElement xmi:type="uml:Profile" xmi:id="_marks" name="Marks">
 			   <packagedElement xmi:type="uml:Stereotype" xmi:id="_review" name="Review">
@@ -239,8 +426,8 @@ func TestDiagramViews(t *testing.T) {
 		{"a state machine diagram exposes the state def whose graph it draws, its states drawn by the graph",
 			machineMembers,
 			diagram("_d", "Modes", "_sm", "SysML State Machine Diagram", "_idle", "_run", "_t_go", "_sm_init"),
-			[]string{"state def Modes {\n    view Modes : StandardViewDefinitions::StateTransitionView {\n        expose $::Modes;\n        render Views::asInterconnectionDiagram;\n    }\n    entry; then Idle;\n    state Idle;\n    state Run;\n    transition 'Idle accept Go then Run' first Idle accept Go then Run;\n    metadata MigrationMetadata::SynthesizedName about 'Idle accept Go then Run';\n}"},
-			Mapped, "the view exposes state def Modes, whose graph the rendering draws with the 4 shown nodes and edges of it"},
+			[]string{"state def Modes {\n    view Modes : StandardViewDefinitions::StateTransitionView {\n        expose Model::Modes;\n        render Views::asInterconnectionDiagram;\n    }\n    entry; then Idle;\n    state Idle;\n    state Run;\n    transition 'Idle accept Go then Run' first Idle accept Go then Run;\n    metadata MigrationMetadata::SynthesizedName about 'Idle accept Go then Run';\n}"},
+			Mapped, "the view exposes state def Model::Modes, whose graph the rendering draws with the 4 shown nodes and edges of it"},
 		{"a diagram of a composite state is drawn as the graph of the state def its machine is written as",
 			`<packagedElement xmi:type="uml:StateMachine" xmi:id="_sm" name="Modes">
 			   <region xmi:type="uml:Region" xmi:id="_r">
@@ -252,8 +439,8 @@ func TestDiagramViews(t *testing.T) {
 			   </region>
 			 </packagedElement>`,
 			diagram("_d", "Busy", "_busy", "SysML State Machine Diagram", "_read"),
-			[]string{"state def Modes {\n    view 'Busy 2' : StandardViewDefinitions::StateTransitionView {\n        expose Modes;\n        render Views::asInterconnectionDiagram;\n    }\n    /* the region has no initial pseudostate: nothing enters it */\n    state Busy {\n        /* the region has no initial pseudostate: nothing enters it */\n        state Read;\n    }\n}"},
-			Approximated, "the view exposes state def Modes, whose graph the rendering draws with the 1 shown nodes and edges of it; its owner State Modes::<Region>::Busy has no v2 body; written in state def Modes"},
+			[]string{"state def Modes {\n    view 'Busy 2' : StandardViewDefinitions::StateTransitionView {\n        expose Modes;\n        render Views::asInterconnectionDiagram;\n    }\n    /* the region has no initial pseudostate: nothing enters it */\n    state Busy parallel {\n        state region {\n            /* the region has no initial pseudostate: nothing enters it */\n            state Read;\n        }\n        metadata MigrationMetadata::SynthesizedName about region;\n    }\n}"},
+			Approximated, "the view exposes state def Model::Modes, whose graph the rendering draws with the 1 shown nodes and edges of it; its owner State Modes::<Region>::Busy has no v2 body; written in state def Model::Modes"},
 		{"a state shown by another diagram is exposed as the member its state def declares",
 			machineMembers,
 			diagram("_d", "Vertices", "_sys", "SysML Block Definition Diagram", "_idle", "_sm_init"),
@@ -269,7 +456,7 @@ func TestDiagramViews(t *testing.T) {
 			 </packagedElement>`,
 			diagram("_d", "Modes", "_sm", "SysML State Machine Diagram", "_idle"),
 			[]string{"occurrence def Controller {\n    state def Modes {\n        view Modes : StandardViewDefinitions::StateTransitionView {\n            expose Controller::Modes;\n            render Views::asInterconnectionDiagram;\n        }", "exhibit state modes : Modes;"}, Mapped,
-			"the view exposes state def Controller::Modes, whose graph the rendering draws with the 1 shown nodes and edges of it"},
+			"the view exposes state def Model::Controller::Modes, whose graph the rendering draws with the 1 shown nodes and edges of it"},
 		{"an activity diagram of a package draws no graph",
 			``, diagram("_d", "Flows", "_sys", "SysML Activity Diagram", "_pump"),
 			[]string{"view Flows {\n        expose Pump;\n        render Views::asTextualNotation;\n    }"}, Mapped, ""},
@@ -294,7 +481,7 @@ func TestDiagramViews(t *testing.T) {
 			}
 			got := string(r.Notation)
 			for _, w := range tc.want {
-				if !strings.Contains(got, w) {
+				if !hasBlock(got, w) {
 					t.Errorf("notation lacks %q:\n%s", w, got)
 				}
 			}
@@ -381,7 +568,7 @@ func TestSimulationConfigurationDiagram(t *testing.T) {
 	}
 	got := string(r.Notation)
 	want := "action def Trial {\n    @Simulation::Configuration {\n        runs = 2;\n    }\n    part target :> rig;\n    view Setup {\n        expose Trial;\n        expose Sys::Pump;\n        render Views::asTextualNotation;\n    }\n}"
-	if !strings.Contains(got, want) {
+	if !hasBlock(got, want) {
 		t.Errorf("notation lacks %q:\n%s", want, got)
 	}
 	for _, e := range r.Report.Entries {
@@ -460,7 +647,7 @@ func TestExposeOfUnhostedDiagramFailsPerClient(t *testing.T) {
 	}
 	got := string(r.Notation)
 	for _, w := range []string{"view Overview {\n    expose Pump;\n}", "view Detail {\n    expose Pump;\n}"} {
-		if !strings.Contains(got, w) {
+		if !hasBlock(got, w) {
 			t.Errorf("notation lacks %q:\n%s", w, got)
 		}
 	}

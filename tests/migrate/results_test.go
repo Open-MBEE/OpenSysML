@@ -87,7 +87,7 @@ func TestResultSnapshotsAreIndexedPerConfiguration(t *testing.T) {
 	}
 	got := r.Results.Configurations[0]
 	want := simresults.ConfigurationResults{
-		ID: "_g0", Name: "'Group 0'", Runs: 4, Draws: "average",
+		ID: "_g0", Name: "Model::'Group 0'", Runs: 4, Draws: "average",
 		Target: "target", Behavior: "run", Location: "Results",
 		Observables: []string{"pA", "pB"},
 		Snapshots: []simresults.Snapshot{
@@ -949,7 +949,7 @@ func TestComparisonRunsEachConfigurationBesideItsStoredResults(t *testing.T) {
 	// sure fixes pA at 1.0, which the runs' snapshots record, and pB stays NaN, so pA compares and pB is noted;
 	// average draws need no seed, so the header names none.
 	for _, want := range []string{
-		"compare 'Group 0' — 4 stored run(s) in Results; 4 run(s) by OpenSysML, draws average",
+		"compare Model::'Group 0' — 4 stored run(s) in Results; 4 run(s) by OpenSysML, draws average",
 		"observable | source                | runs | min   | mean  | p50   | p90   | max",
 		"pA         | tool                  | 2    | 1.0   | 1.0   | 1.0   | 1.0   | 1.0",
 		"           | OpenSysML (target.pA) | 4    | 1.0   | 1.0   | 1.0   | 1.0   | 1.0",
@@ -979,7 +979,7 @@ func TestComparisonRunsEachConfigurationBesideItsStoredResults(t *testing.T) {
 	}
 	// A name no configuration bears is refused beside the ones compared, never dropped.
 	mixed := s.CompareResults(r.Results, repl.CompareOptions{Only: []string{"Group 0", "Group 9", "_g0", "Group 10"}})
-	if len(mixed) != 3 || !mixed[0].Holds() || mixed[0].Subject != "compare 'Group 0'" {
+	if len(mixed) != 3 || !mixed[0].Holds() || mixed[0].Subject != "compare Model::'Group 0'" {
 		t.Fatalf("a comparison naming a configuration twice and two unknown = %d verdict(s), want its one table and two refusals: %+v", len(mixed), mixed)
 	}
 	for i, name := range []string{"Group 9", "Group 10"} {

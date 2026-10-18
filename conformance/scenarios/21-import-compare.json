@@ -1,0 +1,377 @@
+{
+  "scenarios": [
+    {
+      "id": "import_data/csv_rows_set_declared_and_inherited_values",
+      "description": "A CSV import sets each row's values, redefining inherited features, and answers the edited model as a new model.",
+      "rpc": "ImportData",
+      "requires_capabilities": [
+        "import_data"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "import_data"
+      },
+      "model": {
+        "fixture": "import.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "imports": [
+          {
+            "name": "fleet.csv",
+            "content": "element,count,label\nV::vehicle,7,fast\nV::car,9,\n"
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "error": "",
+          "files": [
+            {
+              "name": "fleet.csv",
+              "values": 3,
+              "elements": 2,
+              "assignments": [
+                {
+                  "element": "V::vehicle",
+                  "feature": "count",
+                  "value": "7",
+                  "redefines": "V::Vehicle::count",
+                  "description": "V::vehicle::count = 7 (redefines V::Vehicle::count)"
+                },
+                {
+                  "element": "V::vehicle",
+                  "feature": "label",
+                  "value": "\"fast\"",
+                  "redefines": "V::Vehicle::label"
+                },
+                {
+                  "element": "V::car",
+                  "feature": "count",
+                  "value": "9",
+                  "redefines": "",
+                  "description": "V::car::count = 9"
+                }
+              ]
+            }
+          ]
+        },
+        "non_empty": [
+          "model_hash",
+          "content",
+          "files.0.assignments.0.where"
+        ],
+        "counts": {
+          "documents": 1
+        },
+        "contains_all": {
+          "content": [
+            "attribute :>> count = 7;",
+            "attribute :>> label = \"fast\";",
+            "attribute :>> count = 9;"
+          ]
+        }
+      }
+    },
+    {
+      "id": "import_data/format_override_reads_the_content_as_named",
+      "description": "import_format reads the content as that format whatever the name's extension says.",
+      "rpc": "ImportData",
+      "requires_capabilities": [
+        "import_data"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "import_data"
+      },
+      "model": {
+        "fixture": "import.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "imports": [
+          {
+            "name": "fleet.txt",
+            "content": "[{\"element\":\"V::car\",\"label\":\"slow\"}]",
+            "import_format": "json"
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "error": "",
+          "files": [
+            {
+              "name": "fleet.txt",
+              "values": 1,
+              "elements": 1
+            }
+          ]
+        },
+        "contains_all": {
+          "content": [
+            "attribute :>> label = \"slow\";"
+          ]
+        }
+      }
+    },
+    {
+      "id": "import_data/dry_run_reports_without_changing_the_model",
+      "description": "import_dry_run answers the assignments the import would make and leaves the model as it is.",
+      "rpc": "ImportData",
+      "requires_capabilities": [
+        "import_data"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "import_data"
+      },
+      "model": {
+        "fixture": "import.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "import_dry_run": true,
+        "imports": [
+          {
+            "name": "fleet.tsv",
+            "content": "element\tcount\nV::vehicle\t7\n"
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "error": "",
+          "files": [
+            {
+              "name": "fleet.tsv",
+              "values": 1,
+              "elements": 1,
+              "assignments": [
+                {
+                  "description": "V::vehicle::count = 7 (redefines V::Vehicle::count)"
+                }
+              ]
+            }
+          ]
+        },
+        "absent": [
+          "model_hash",
+          "content",
+          "documents"
+        ]
+      }
+    },
+    {
+      "id": "import_data/an_unknown_element_refuses_the_whole_import",
+      "description": "A row naming no element refuses the import in band, and nothing is changed.",
+      "rpc": "ImportData",
+      "requires_capabilities": [
+        "import_data"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "import_data"
+      },
+      "model": {
+        "fixture": "import.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "imports": [
+          {
+            "name": "fleet.csv",
+            "content": "element,count\nV::car,9\nV::Nowhere,1\n"
+          }
+        ]
+      },
+      "expect": {
+        "contains": {
+          "error": "V::Nowhere"
+        },
+        "absent": [
+          "files",
+          "model_hash",
+          "content"
+        ]
+      }
+    },
+    {
+      "id": "import_data/no_imports_is_an_invalid_argument",
+      "description": "A request naming nothing to import is refused as a status, not as an in-band error.",
+      "rpc": "ImportData",
+      "requires_capabilities": [
+        "import_data"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "import_data"
+      },
+      "model": {
+        "fixture": "import.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "imports"
+      }
+    },
+    {
+      "id": "compare_results/stored_runs_are_tabled_beside_the_runs",
+      "description": "Each configuration the results index names is run and its observables compared with the tool's distributions.",
+      "rpc": "CompareResults",
+      "requires_capabilities": [
+        "compare_results"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "compare_results"
+      },
+      "model": {
+        "fixture": "probe.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "seed": 7,
+        "results": "{\"source\":\"probe.xmi\",\"configurations\":[{\"id\":\"_c1\",\"name\":\"Cfg::'Group 1'\",\"runs\":2,\"target\":\"target\",\"behavior\":\"run\",\"resultLocation\":\"Results\",\"observables\":[\"total\"],\"snapshots\":[{\"id\":\"_r1\",\"values\":{\"total\":4.0}},{\"id\":\"_r2\",\"values\":{\"total\":6.0}}]},{\"id\":\"_cn\",\"name\":\"Cfg::Nothing\",\"observables\":[],\"snapshots\":[],\"notes\":[\"migrated without a behavior\"]}]}"
+      },
+      "expect": {
+        "response": {
+          "error": "",
+          "source": "probe.xmi",
+          "configurations": [
+            {
+              "id": "_c1",
+              "name": "Cfg::'Group 1'",
+              "status": "holds",
+              "stored_runs": 2,
+              "runs": 2,
+              "completed": 2,
+              "seed": 7,
+              "observables": [
+                {
+                  "stored": "total",
+                  "feature": "target.total",
+                  "compared": true,
+                  "tool": {
+                    "count": 2,
+                    "min": 4.0,
+                    "mean": 5.0,
+                    "max": 6.0
+                  },
+                  "run": {
+                    "count": 2,
+                    "min": 4.0,
+                    "mean": 4.0,
+                    "max": 4.0
+                  },
+                  "difference": {
+                    "min": "+0.0%",
+                    "mean": "-20.0%",
+                    "max": "-33.3%"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "_cn",
+              "name": "Cfg::Nothing",
+              "status": "unresolved"
+            }
+          ]
+        },
+        "counts": {
+          "configurations.0.rows": 2
+        },
+        "non_empty": [
+          "configurations.0.lines",
+          "configurations.1.unresolved"
+        ]
+      }
+    },
+    {
+      "id": "compare_results/actions_select_configurations_by_name",
+      "description": "actions names the configurations to run; the others are left out of the answer.",
+      "rpc": "CompareResults",
+      "requires_capabilities": [
+        "compare_results"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "compare_results"
+      },
+      "model": {
+        "fixture": "probe.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "actions": ["Group 1"],
+        "runs": 1,
+        "seed": 3,
+        "results": "{\"source\":\"probe.xmi\",\"configurations\":[{\"id\":\"_c1\",\"name\":\"Cfg::'Group 1'\",\"runs\":2,\"target\":\"target\",\"behavior\":\"run\",\"observables\":[\"total\"],\"snapshots\":[{\"id\":\"_r1\",\"values\":{\"total\":4.0}}]},{\"id\":\"_cn\",\"name\":\"Cfg::Nothing\",\"observables\":[],\"snapshots\":[]}]}"
+      },
+      "expect": {
+        "response": {
+          "error": "",
+          "configurations": [
+            {
+              "name": "Cfg::'Group 1'",
+              "status": "holds",
+              "runs": 1,
+              "completed": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "compare_results/malformed_results_are_refused_in_band",
+      "description": "A results index that is not the sidecar's JSON is refused as a status naming the fault, before anything runs.",
+      "rpc": "CompareResults",
+      "requires_capabilities": [
+        "compare_results"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "compare_results"
+      },
+      "model": {
+        "fixture": "probe.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "results": "not json"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "results"
+      }
+    },
+    {
+      "id": "compare_results/negative_runs_is_an_invalid_argument",
+      "description": "A run count below zero is refused as a status before anything runs.",
+      "rpc": "CompareResults",
+      "requires_capabilities": [
+        "compare_results"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "compare_results"
+      },
+      "model": {
+        "fixture": "probe.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "runs": -1,
+        "results": "{\"source\":\"probe.xmi\",\"configurations\":[]}"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "runs"
+      }
+    }
+  ]
+}

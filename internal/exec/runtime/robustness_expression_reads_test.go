@@ -152,7 +152,7 @@ func testUsageReadThroughAPartWithoutAnOutput(t *testing.T) {
 }
 
 // testOperationOfADestroyedObject: an operation invoked on a destroyed object is
-// ErrOccurrenceDestroyed before it runs, even one reading no feature of it.
+// errOccurrenceDestroyed before it runs, even one reading no feature of it.
 func testOperationOfADestroyedObject(t *testing.T) {
 	instantiate, invoke, ctx := lifetimeFixture(t, `
 		package test {
@@ -166,8 +166,8 @@ func testOperationOfADestroyedObject(t *testing.T) {
 	if _, err := invoke("DestroyBeacon", objectValue(beacon)); err != nil {
 		t.Fatalf("destroy(beacon): %v", err)
 	}
-	if _, err := ctx.InvokeOperation(beacon, "ping", nil); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("invoke ping on a destroyed object = %v; want %v", err, ErrOccurrenceDestroyed)
+	if _, err := ctx.invokeOperation(beacon, "ping", nil); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("invoke ping on a destroyed object = %v; want %v", err, errOccurrenceDestroyed)
 	}
 	if sent := len(ctx.PendingMessages()); sent != 0 {
 		t.Errorf("a destroyed object sent %d message(s); want none", sent)
@@ -275,7 +275,7 @@ func testMetadataWithoutTheReflectiveLibrary(t *testing.T) {
 	probe = resolveSymbol(t, probe, "probe").Scope
 	valueOf := func(name string) (Value, error) {
 		decl := resolveSymbol(t, probe, name).Decl.(*ast.Usage)
-		return NewEvalContext(ctx, probe).Eval(decl.Value)
+		return newEvalContext(ctx, probe).Eval(decl.Value)
 	}
 	for range 2 {
 		got, err := valueOf("all")

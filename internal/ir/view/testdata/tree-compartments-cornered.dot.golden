@@ -1,0 +1,11 @@
+// view: AmplifierViews::cornered
+// kind: tree
+// stated: render asTreeDiagram
+// not represented: 10 node(s) without a position, drawn as compartment rows of the node above them, and 1 node(s) under them left undrawn
+// layout: neato -n
+digraph "AmplifierViews::cornered" {
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Stage</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">gain = 15.0<br/>noiseFigure = RealFunctions::sqrt(4.0)</td></tr><hr/><tr><td><font point-size="10">parts</font></td></tr><tr><td align="left">heatsink<br/>housing<br/>shield</td></tr><hr/><tr><td><font point-size="10">ports</font></td></tr><tr><td align="left">input<br/>output</td></tr><hr/><tr><td><font point-size="10">actions</font></td></tr><tr><td align="left">calibrate</td></tr><hr/><tr><td><font point-size="10">constraints</font></td></tr><tr><td align="left">bound</td></tr><hr/><tr><td><font point-size="10">item defs</font></td></tr><tr><td align="left">Slot</td></tr></table>>, pos="180,-172.5!", pin=true, width=4.722222222222222, height=4.513888888888889];
+}

@@ -353,6 +353,58 @@ func opaqueBody(v *sysmlv1.Element) (body, lang string) {
 	return body, lang
 }
 
+type opaqueBodyPair struct {
+	body     string
+	language string
+}
+
+func opaqueBodyPairs(v *sysmlv1.Element) []opaqueBodyPair {
+	bodies := opaqueTexts(v, "body")
+	languages := opaqueTexts(v, "language")
+	n := max(len(bodies), len(languages))
+	pairs := make([]opaqueBodyPair, n)
+	for i := range pairs {
+		if i < len(bodies) {
+			pairs[i].body = bodies[i]
+		}
+		if i < len(languages) {
+			pairs[i].language = languages[i]
+		}
+	}
+	return pairs
+}
+
+func opaqueTexts(v *sysmlv1.Element, role string) []string {
+	owned := v.Owned(role)
+	if len(owned) > 0 {
+		texts := make([]string, len(owned))
+		for i, e := range owned {
+			texts[i] = e.Text
+			if role == "language" {
+				texts[i] = strings.TrimSpace(texts[i])
+			}
+		}
+		return texts
+	}
+	text := v.Attrs[role]
+	if role == "language" {
+		text = strings.TrimSpace(text)
+	}
+	if text != "" {
+		return []string{text}
+	}
+	return nil
+}
+
+func opaqueBodiesEmpty(v *sysmlv1.Element) bool {
+	for _, pair := range opaqueBodyPairs(v) {
+		if strings.TrimSpace(pair.body) != "" {
+			return false
+		}
+	}
+	return true
+}
+
 // reference is one name an expression refers to: the segments of a qualified
 // name, then the members feature chains select from it (chain is true). A
 // chain on a name the expression's own body declares (local) starts from that
@@ -997,20 +1049,12 @@ func chainKind(chain bool) memberKind {
 	return memberAny
 }
 
-// rootMember returns the written top-level element named n: a member of the
-// global namespace, which the document's root Model or Package fills.
+// rootMember returns the written root element named n: a member of the global
+// namespace, which the document's root Models and Packages fill.
 func (m *migration) rootMember(n string) *sysmlv1.Element {
 	for _, root := range m.model.Roots {
-		if root.Type != "Model" {
-			if m.nameOf(root) == n && m.written(root) {
-				return root
-			}
-			continue
-		}
-		for _, c := range root.Children {
-			if m.nameOf(c) == n && m.written(c) {
-				return c
-			}
+		if m.nameOf(root) == n && m.written(root) {
+			return root
 		}
 	}
 	return nil
@@ -1233,4 +1277,11 @@ func commentLines(text string) []string {
 	}
 	out = append(out, " */")
 	return out
+}
+
+func opaqueRepresentationCommentLines(text string) []string {
+	text = strings.ReplaceAll(text, "*/", "* /")
+	text = strings.ReplaceAll(strings.ReplaceAll(text, "\r\n", "\n"), "\r", "\n")
+	comment, _ := source.CommentText(text, "")
+	return strings.Split(comment, "\n")
 }

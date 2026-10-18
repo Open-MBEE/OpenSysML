@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -142,7 +143,14 @@ func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 		port telemetry : Signal;
 		perform action descend : Descend;
 	}
+	part def Rover {
+		part wheels[4] : Vehicle;
+	}
 
+	view structure {
+		expose Rover;
+		expose Vehicle;
+	}
 	view useCases {
 		expose CrewOperation;
 		render asCaseDiagram;
@@ -214,6 +222,23 @@ func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 	}
 	if !perform {
 		t.Errorf("mixed view has no perform reference edge: %+v", mixedView.Edges)
+	}
+
+	// An association end's name, drawn at the type's end, reaches the wire as
+	// the edge's label, the response placing no label; multiplicities are an
+	// optional element, off by default.
+	structure, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
+		ModelHash: parsed.ModelHash, View: "RenderViewKinds::structure",
+	})
+	if err != nil {
+		t.Fatalf("RenderView structure: %v", err)
+	}
+	var wheels bool
+	for _, edge := range structure.Edges {
+		wheels = wheels || edge.Kind == "composition" && edge.Label == "wheels"
+	}
+	if !wheels {
+		t.Errorf("structure view has no composition labelled wheels: %+v", structure.Edges)
 	}
 
 	casePseudo, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
@@ -413,5 +438,79 @@ func TestRenderViewRequiresCapability(t *testing.T) {
 	_, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: "unknown", View: "x"})
 	if connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), CapabilityRenderView) {
 		t.Fatalf("RenderView error = %v, want UNIMPLEMENTED naming %s", err, CapabilityRenderView)
+	}
+}
+
+// A request's depth bounds how many levels are drawn below each exposed
+// element; a negative one is refused as an invalid argument.
+func TestRenderViewDepth(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	parsed, _ := parseContent(t, srv, `package Deep {
+    private import Views::*;
+    part vehicle {
+        part wheel { part hub { part bearing; } }
+        part engine { part piston; }
+    }
+    view structure { expose vehicle; render asTreeDiagram; }
+}
+`)
+	whole, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: parsed.ModelHash, View: "Deep::structure"})
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	bounded, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: parsed.ModelHash, View: "Deep::structure", Depth: 1})
+	if err != nil {
+		t.Fatalf("RenderView depth 1: %v", err)
+	}
+	if len(whole.Nodes) != 6 || len(bounded.Nodes) != 3 {
+		t.Errorf("nodes = %d whole, %d at depth 1; want 6 and 3", len(whole.Nodes), len(bounded.Nodes))
+	}
+	if !strings.Contains(strings.Join(bounded.Notices, "\n"), "2 elements nested deeper than 1 level not shown") {
+		t.Errorf("notices = %v, want the depth noticed", bounded.Notices)
+	}
+	_, err = srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: parsed.ModelHash, View: "Deep::structure", Depth: -1})
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("depth -1: err = %v, want InvalidArgument", err)
+	}
+}
+
+// An interconnection rendering of a bodiless usage shows the parts it has from
+// its definition, each expanded through its own type.
+func TestRenderViewExpandsUsagesThroughTheirTypes(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "runtime-showcase", "mass-rollup.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, _ := parseContent(t, srv, string(content))
+	rendered, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
+		ModelHash: parsed.ModelHash, View: "#interconnection:MassRollup::saturnV", Ports: "minimal", Depth: 3,
+	})
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	children := map[string][]string{}
+	for _, node := range rendered.Nodes {
+		children[node.Parent] = append(children[node.Parent], node.Name)
+	}
+	if roots := children[""]; len(roots) != 1 || roots[0] != "MassRollup::saturnV" {
+		t.Fatalf("roots = %v, want saturnV alone", roots)
+	}
+	root := rendered.Nodes[0]
+	want := []string{"mass", "stage1", "stage2", "stage3", "subcomponents", "totalMass"}
+	if got := slices.Sorted(slices.Values(children[root.Id])); !slices.Equal(got, want) {
+		t.Errorf("saturnV holds %v, want %v", got, want)
+	}
+	for _, node := range rendered.Nodes {
+		if node.Parent != root.Id || !strings.HasPrefix(node.Name, "stage") {
+			continue
+		}
+		for _, name := range []string{"engine1", "engines", "propellantMass", "mass", "totalMass", "subcomponents"} {
+			if !slices.Contains(children[node.Id], name) {
+				t.Errorf("%s lacks %s from its type; holds %v", node.Name, name, children[node.Id])
+			}
+		}
 	}
 }

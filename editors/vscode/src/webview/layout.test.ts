@@ -374,7 +374,7 @@ test("layoutCanvas places unplaced roots in a near-square grid, in order, from t
     (id) => layout.nodes.get(id)!.box,
   );
   // Five nodes take three columns; every unplaced label box is the minimum width
-  // and two lines (name, «part») high.
+  // and two lines («part», name) high.
   assert.deepEqual(
     boxes.map((box) => [box.x, box.y]),
     [
@@ -705,7 +705,7 @@ test("simpleNames reads an escaped quote inside a quoted segment", () => {
 test("labelLines and shapeOf follow the graphical notation", () => {
   assert.deepEqual(
     labelLines(node("a", "tank", { type: "Tank", detail: "[2]" })),
-    ["tank : Tank", "«part»", "[2]"],
+    ["«part»", "tank : Tank", "[2]"],
   );
   assert.deepEqual(
     labelLines(node("a", "Plant::tank", { type: "Tank", detail: "[2]" }), [
@@ -722,7 +722,7 @@ test("labelLines and shapeOf follow the graphical notation", () => {
       }),
       ["keywords", "typings"],
     ),
-    ["'Acquire Image' : Case", "«use case»"],
+    ["«use case»", "'Acquire Image' : Case"],
   );
   assert.deepEqual(
     labelLines(node("a", "P::tank", { type: "Tank", detail: "[2]" }), [
@@ -731,7 +731,7 @@ test("labelLines and shapeOf follow the graphical notation", () => {
       "compartments",
       "qualifiers",
     ]),
-    ["P::tank : Tank", "«part»", "[2]"],
+    ["«part»", "P::tank : Tank", "[2]"],
   );
   assert.deepEqual(labelLines(node("a", "", { kind: "region" })), ["region"]);
   assert.deepEqual(labelLines(node("a", "", { kind: "fork" })), []);

@@ -171,7 +171,7 @@ func TestViewForms(t *testing.T) {
 			}
 			got := string(r.Notation)
 			for _, w := range tc.want {
-				if !strings.Contains(got, w) {
+				if !hasBlock(got, w) {
 					t.Errorf("notation lacks %q:\n%s", w, got)
 				}
 			}
@@ -224,7 +224,7 @@ func TestRootViewPackage(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := string(r.Notation); !strings.Contains(got, tc.want) {
+			if got := string(r.Notation); !hasBlock(got, tc.want) {
 				t.Errorf("notation lacks %q:\n%s", tc.want, got)
 			}
 			for _, e := range r.Report.Entries {

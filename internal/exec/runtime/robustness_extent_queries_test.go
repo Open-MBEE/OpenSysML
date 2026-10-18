@@ -56,15 +56,15 @@ func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
 		want error
 		name string
 	}{
-		{"missing", ErrUnresolvedType, "MissingType"},
+		{"missing", errUnresolvedType, "MissingType"},
 		{"noName", ErrTypeMismatch, "requires the name of a type"},
 		{"ofPackage", ErrTypeMismatch, "Spares is a package"},
 		{"ofQualifiedPackage", ErrTypeMismatch, "P::Spares is a package"},
 		{"ofRelationship", ErrTypeMismatch, "Supply is a dependency"},
 		{"ofComment", ErrTypeMismatch, "Note is a comment"},
-		{"unbounded", ErrUnboundedExtent, "Integer"},
-		{"unboundedString", ErrUnboundedExtent, "String"},
-		{"unboundedStructured", ErrUnboundedExtent, "Point is a data type"},
+		{"unbounded", errUnboundedExtent, "Integer"},
+		{"unboundedString", errUnboundedExtent, "String"},
+		{"unboundedStructured", errUnboundedExtent, "Point is a data type"},
 	} {
 		_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, tc.calc), nil, pkg.Scope)
 		if !errors.Is(err, tc.want) {
@@ -153,8 +153,8 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 		t.Error("spares, a [0..*] usage, denotes objects; want none")
 	}
 	_, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "linkCount"), nil, pkg.Scope)
-	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "link is a port") {
-		t.Errorf("size(all Link) = %v, want %v naming the port link", err, ErrExtentUnavailable)
+	if !errors.Is(err, errExtentUnavailable) || !strings.Contains(err.Error(), "link is a port") {
+		t.Errorf("size(all Link) = %v, want %v naming the port link", err, errExtentUnavailable)
 	}
 	q := resolveSymbol(t, pkg.Scope, "Q")
 	got, err := ctx.InvokeCalc(resolveSymbol(t, q.Scope, "seatCount"), nil, q.Scope)
@@ -170,12 +170,12 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	}
 	r := resolveSymbol(t, root, "R")
 	_, err = ctx.InvokeCalc(resolveSymbol(t, r.Scope, "linkCount"), nil, r.Scope)
-	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "link is a port") {
+	if !errors.Is(err, errExtentUnavailable) || !strings.Contains(err.Error(), "link is a port") {
 		t.Errorf("R: size(all Link) = %v, want the other package's port refused", err)
 	}
 	s := resolveSymbol(t, r.Scope, "S")
 	_, err = ctx.InvokeCalc(resolveSymbol(t, s.Scope, "linkCount"), nil, s.Scope)
-	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "link is a port") {
+	if !errors.Is(err, errExtentUnavailable) || !strings.Contains(err.Error(), "link is a port") {
 		t.Errorf("S: size(all Link) = %v, want the first unreadable usage of the model refused", err)
 	}
 
@@ -209,7 +209,7 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	s = resolveSymbol(t, root, "S")
 	ctx = NewContext(typedModel(model, resolver), 1000)
 	_, err = ctx.InvokeCalc(resolveSymbol(t, s.Scope, "linkCount"), nil, s.Scope)
-	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "links") || !strings.Contains(err.Error(), "port") {
+	if !errors.Is(err, errExtentUnavailable) || !strings.Contains(err.Error(), "links") || !strings.Contains(err.Error(), "port") {
 		t.Errorf("S: size(all Link) = %v, want the nested package's two-port usage refused", err)
 	}
 }
@@ -237,8 +237,8 @@ func testNamespaceCollectionOfUnfixedCount(t *testing.T) {
 	ctx := NewContext(typedModel(model, resolver), 1000)
 	for calc, want := range map[string]string{"wheelCount": "wheels declares [2..?]", "hubCount": "hubs declares [?..?]"} {
 		_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
-		if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), want) {
-			t.Errorf("%s = %v, want %v naming %q", calc, err, ErrExtentUnavailable, want)
+		if !errors.Is(err, errExtentUnavailable) || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s = %v, want %v naming %q", calc, err, errExtentUnavailable, want)
 		}
 	}
 	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
@@ -639,8 +639,8 @@ func testExtentThroughAValueRecursingAndNot(t *testing.T) {
 	pkg := resolveSymbol(t, root, "P")
 	ctx := NewContext(typedModel(model, resolver), 100000)
 	_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
-	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "mixed") || !strings.Contains(err.Error(), "Fork") {
-		t.Fatalf("size(all Wheel) = %v, want ErrExtentUnavailable naming mixed and Fork", err)
+	if !errors.Is(err, errExtentUnavailable) || !strings.Contains(err.Error(), "mixed") || !strings.Contains(err.Error(), "Fork") {
+		t.Fatalf("size(all Wheel) = %v, want errExtentUnavailable naming mixed and Fork", err)
 	}
 	if fv := ctx.instances[1].FeatureValues["mixed"]; fv != nil && fv.Materialized {
 		t.Error("mixed kept materialized after the refusal")

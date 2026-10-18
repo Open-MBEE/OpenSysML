@@ -23,8 +23,20 @@ func TestNegative(t *testing.T) {
 		// FeatureDirection).
 		{"direction_without_feature_action", "package P { action def A { in ; } }"},
 		{"direction_without_feature_part", "package P { part def D { out ; } }"},
+		// A word only KerML.xtext spells is a name in SysML, a body or a leading
+		// multiplicity after it included, so an anonymous KerML declaration is the
+		// syntax error the pinned pilot reports: `inv { x > 0 }` is
+		// `no viable alternative at input '>'`, `connector [1] a to b;`
+		// `no viable alternative at input 'a'`.
+		{"kerml_inv_body_in_sysml", "package P { part def D { attribute x : ScalarValues::Real; inv { x > 0 } } }"},
+		{"kerml_connector_multiplicity_in_sysml", "package P { part def D { part a; part b; connector [1] a to b; } }"},
 		{"empty_requirement", "requirement r { require ; }"},
 		{"empty_expression", "attribute x = ;"},
+		// A KerML-only word is a name in SysML, so an operator after it still
+		// needs its right operand, and `<` opens a comparison rather than a
+		// short name.
+		{"kerml_word_name_missing_operand", "part def R { attribute step : Real; assert constraint { step <= } }"},
+		{"kerml_word_name_unclosed_comparison", "part def R { attribute step : Real; assert constraint { step < } }"},
 		{"numeric_name", "part def 123;"},
 		{"missing_semicolon", "part def Engine"},
 		{"ref_anonymous_unclosed_multiplicity", "package P { ref [1 = x; }"},
@@ -35,7 +47,6 @@ func TestNegative(t *testing.T) {
 		{"visibility_body_without_feature", "part def D { private { } }"},
 		{"visibility_value_without_feature", "part def D { private = x; }"},
 		{"derived_value_without_name", "part def D { derived = x; }"},
-		{"composite_body_without_name", "part def D { composite { } }"},
 		{"end_value_without_name", "part def D { end = x; }"},
 		// `composite` or `portion` closes the feature prefix: no other feature
 		// modifier may follow it (SysML.xtext BasicFeaturePrefix).
@@ -621,10 +632,17 @@ func TestNegativeKerML(t *testing.T) {
 		{"featured_by_trailing_comma", "package P { class A; feature f featured by A, ; }"},
 		{"featured_by_no_terminator", "package P { class A; feature f featured by A }"},
 		{"by_without_featured", "package P { class A; feature f by A; }"},
+		// A SysML-only word is a name in KerML, so an operator after it still
+		// needs its right operand.
+		{"sysml_word_name_missing_operand", "package P { struct S { feature action : Real; inv { action <= } } }"},
+		{"sysml_word_name_unclosed_comparison", "package P { struct S { feature action : Real; inv { action < } } }"},
 
 		// In KerML the word `ordered` names the feature after `composite`, so
 		// a name may not follow it.
 		{"composite_ordered_name", "class C { composite ordered x; }"},
+		// `composite` alone declares no feature (KerML.xtext BasicFeaturePrefix);
+		// SysML.xtext has no such literal, so there `composite { }` names a usage.
+		{"composite_body_without_name", "class C { composite { } }"},
 
 		// A parenthesized end list holds at least two ends and closes
 		// (KerML.xtext:842).

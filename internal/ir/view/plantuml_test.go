@@ -23,6 +23,8 @@ var plantumlGoldenCases = []struct {
 	{"tree-edges", "tree-edges.sysml", "FleetViews::structure", KindTree},
 	{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
 	{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection},
+	{"interconnection-constraints", "interconnection-constraints.sysml", "ParametricViews::amplifierView", KindInterconnection},
+	{"interconnection-constraints-placed", "interconnection-constraints.sysml", "ParametricViews::placedView", KindInterconnection},
 	{"layout", "layout.sysml", "PlantViews::placedView", KindInterconnection},
 	{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 	{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
@@ -170,8 +172,9 @@ func TestPlantUMLTreeIsAClassDiagram(t *testing.T) {
 	for _, want := range []string{
 		"\nhide circle\nhide empty members\n",
 		"class \"<size:10>//«part def»//</size>\\n**Vehicles::Vehicle**\" as n0 <<part def>>\n",
-		"class \"<size:10>//«part»//</size>\\n**engine : Engine**\" as n1 <<part>> <<usage>>\nn0 -- n1\n",
-		"class \"**connect**\" as n3 <<connect>> <<usage>>\nn0 -- n3\n",
+		"class \"<size:10>//«part»//</size>\\n**engine : Engine**\" as n1 <<part>> <<usage>>\n",
+		"\nn0 -- n1\n",
+		"class \"**connect**\" as n5 <<connect>> <<usage>>\nn0 -- n5\n",
 	} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("tree PlantUML lacks %q:\n%s", want, puml)
@@ -188,8 +191,8 @@ func TestPlantUMLInterconnectionNestsRectangles(t *testing.T) {
 		t.Fatalf("PlantUML: %v", err)
 	}
 	for _, want := range []string{
-		"rectangle \"<size:10>//«part def»//</size>\\n**Loop**\" as n0 <<part def>> {\n  rectangle \"<size:10>//«part»//</size>\\n**pump : Pump**\" as n1 <<part>> <<usage>> {\n    port \"outlet\" as n1.0\n  }\n",
-		"\n}\nn1.0 -[thickness=3]- n2.0 : supply\nn1 -[dashed]-> n2 : of Water\n@enduml\n",
+		"rectangle \"<size:10>//«part def»//</size>\\n**Loop**\" as n0 <<part def>> {\n  rectangle \"<size:10>//«part»//</size>\\n**pump : Pump**\" as n1 <<part>> <<usage>> {\n    port \"outlet\" as n1.0\n    rectangle \"<size:10>//«item»//</size>\\n**waterOut : Water**\" as n2 <<item>> <<usage>>\n  }\n",
+		"\n}\nn1.0 -[thickness=3]- n3.0 : supply\nn2 -[dashed]-> n4 : of Water\n@enduml\n",
 	} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("interconnection PlantUML lacks %q:\n%s", want, puml)
@@ -261,7 +264,7 @@ func TestPlantUMLSequenceDiagram(t *testing.T) {
 	}
 	for _, want := range []string{
 		"' not represented: message pending states no source and target; no message is drawn\n",
-		"participant \"<size:10>//«part»//</size>\\n**caller**\" as n0 <<part>> <<usage>>\nparticipant \"<size:10>//«part»//</size>\\n**callee**\" as n1 <<part>> <<usage>>\nn0 -> n0 : echo\nn0 -> n1 : of Ping\n@enduml\n",
+		"participant \"<size:10>//«part»//</size>\\n**caller**\" as n0 <<part>> <<usage>>\nparticipant \"<size:10>//«part»//</size>\\n**callee**\" as n1 <<part>> <<usage>>\nn0 -> n1 : of Ping\nn0 -> n0 : echo\n@enduml\n",
 	} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("sequence PlantUML lacks %q:\n%s", want, puml)
@@ -463,7 +466,7 @@ func TestGoldenPlantUMLPalettes(t *testing.T) {
 			t.Errorf("line %d differs in more than fill:\n%s\n%s", i+1, palette[i], bw[i])
 		}
 	}
-	for _, want := range []string{"as n1 <<part>> <<usage>> #F5D999;line:E69F00 {\n", "as n0 <<part def>> {\n"} {
+	for _, want := range []string{"as n2 <<item>> <<usage>> #BBE1F6;line:56B4E9\n", "as n1 <<part>> <<usage>> {\n", "as n0 <<part def>> {\n"} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("okabe-ito PlantUML lacks %q:\n%s", want, puml)
 		}
@@ -598,8 +601,9 @@ func TestPlantUMLHeaderAndGeometryComments(t *testing.T) {
 
 var (
 	// plantumlArrowLine matches an arrow statement between two aliases, a
-	// port's being its node's dotted with its index.
-	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+) (-\[[a-z=0-9]+\]->?|-->|->|--\|>|\.\.\|>|\.\.>|\*--|o--|\+--|--|\.\.) ([\w.]+)( : .*)?$`)
+	// port's being its node's dotted with its index, an end name quoted at
+	// its end.
+	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+)( "[^"]*")? (-\[[a-z=0-9]+\]->?|-->|->|--\|>|\.\.\|>|\.\.>|\*--|o--|\+--|--|\.\.) ("[^"]*" )?([\w.]+)( : .*)?$`)
 	// plantumlDeclarationLine matches an element declaration with its alias.
 	plantumlDeclarationLine = regexp.MustCompile(`^\s*(class|rectangle|state|participant|port|usecase|actor|note|circle|package) ".*" as ([\w.]+)( <<[^>]+>>)*( #[0-9A-F]{6}(;line:[0-9A-F]{6})?)?( \{)?$`)
 	// dotFillLine and plantumlFillLine pick the fill a node is given in each form.
@@ -660,7 +664,7 @@ func checkPlantUMLSyntax(t *testing.T, puml string) {
 			continue
 		}
 		if m := plantumlArrowLine.FindStringSubmatch(line); m != nil {
-			arrows = append(arrows, arrow{m[1], m[3]})
+			arrows = append(arrows, arrow{m[1], m[5]})
 			continue
 		}
 		switch trimmed := strings.TrimSpace(line); {

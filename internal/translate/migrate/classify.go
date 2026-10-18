@@ -715,7 +715,8 @@ func kindOf(e *sysmlv1.Element) string {
 	return e.Type
 }
 
-// qualifiedName joins the v1 names from below the root model to e.
+// qualifiedName joins the v1 names from below the root Model to e, as the
+// modeling tools spell a qualified name; the Model is named in the row of its own.
 func qualifiedName(e *sysmlv1.Element) string {
 	if e.IsProxy() {
 		if e.QualifiedName != "" {

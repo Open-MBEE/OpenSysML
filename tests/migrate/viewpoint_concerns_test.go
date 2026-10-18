@@ -36,8 +36,8 @@ func TestViewpointConcernMigration(t *testing.T) {
 		" * presentation: dashboard",
 		"frame 'concern 2';",
 		"frame concern 'concern 3' ::> 'concern';",
-		"frame concern 'concern 4' ::> ViewsModel::'concern';",
-		"frame concern 'concern 5' ::> $::'concern';",
+		"frame concern 'concern 4' ::> Views::'concern';",
+		"frame concern 'concern 5' ::> Model::'concern';",
 		"metadata MigrationMetadata::SynthesizedName about reviewer, 'concern 3', 'concern 4', 'concern 5';",
 		"doc /* legacy concern */",
 		"concern 'concern' {",
@@ -59,8 +59,8 @@ func TestViewpointConcernMigration(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	rootConcern := strings.Index(string(r.Notation), "concern 'concern' {\n    doc /* Root concern */")
-	viewsPackage := strings.Index(string(r.Notation), "package ViewsModel {")
+	rootConcern := strings.Index(string(r.Notation), "concern 'concern' {\n        doc /* Root concern */")
+	viewsPackage := strings.Index(string(r.Notation), "package Views {")
 	if rootConcern < 0 || viewsPackage < 0 || rootConcern > viewsPackage {
 		t.Errorf("root-owned concern was not written before its nested package:\n%s", r.Notation)
 	}
@@ -89,7 +89,7 @@ func TestViewpointConcernMigration(t *testing.T) {
 		if start < 0 {
 			return ""
 		}
-		next := strings.Index(notation[start+len(header):], "\n    view ")
+		next := strings.Index(notation[start+len(header):], "\n        view ")
 		if next < 0 {
 			return notation[start:]
 		}
@@ -167,7 +167,7 @@ func TestViewpointConcernMigration(t *testing.T) {
 	idx.ExpandWildcardImports()
 	sem := semantics.NewModel(resolve.New(idx))
 	for _, name := range []string{"Generalized View", "Tagged View", "Conforming View", "Combined View", "Inherited Base", "Inherited Derived", "Inherited Same", "Multiple Bases"} {
-		view := symbolByName(t, idx, "ViewsModel::"+name)
+		view := symbolByName(t, idx, "Model::Views::"+name)
 		sats := sem.SatisfyMembersOf(view)
 		want := 1
 		if name == "Multiple Bases" {
@@ -177,7 +177,7 @@ func TestViewpointConcernMigration(t *testing.T) {
 			t.Errorf("%s inherits %d viewpoint satisfy members, want %d", name, len(sats), want)
 		}
 	}
-	viewpoint := symbolByName(t, idx, "ViewsModel::Review Viewpoint")
+	viewpoint := symbolByName(t, idx, "Model::Views::Review Viewpoint")
 	var viewpointUsage *symbols.Symbol
 	for _, member := range sem.MembersOf(viewpoint) {
 		if usage, ok := member.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageViewpoint {

@@ -116,14 +116,14 @@ func TestMigratedTablesExecute(t *testing.T) {
 	// plus two explicit rows, less the excluded one, sorted by mass descending
 	// with the empty cell last; the classifier column is the instance's type.
 	// A slot bound to an instance (st1's pumps, holding p1) is not a row.
-	pumps := rows(t, s, "Plant::Inventory::'Pump Table Rows'")
+	pumps := rows(t, s, "Model::Plant::Inventory::'Pump Table Rows'")
 	wantInOrder(t, "Pump Table rows", pumps,
 		"returned 4 rows",
-		"Plant::Inventory::r1", `general = Plant::Structure::ReservePump`, `mass = 14`,
-		"Plant::Inventory::p1", `general = Plant::Structure::Pump`, `mass = 12.5`, `flow = 3`,
+		"Model::Plant::Inventory::r1", `general = Model::Plant::Structure::ReservePump`, `mass = 14`,
+		"Model::Plant::Inventory::p1", `general = Model::Plant::Structure::Pump`, `mass = 12.5`, `flow = 3`,
 		"Plant::Spares::s1", `mass = 7`,
 		"Plant::Spares::s2", `mass = ""`)
-	for _, absent := range []string{"Plant::Inventory::v1", "Plant::Inventory::p2", "st1"} {
+	for _, absent := range []string{"Model::Plant::Inventory::v1", "Model::Plant::Inventory::p2", "st1"} {
 		if strings.Contains(pumps, absent) {
 			t.Fatalf("Pump Table lists %s:\n%s", absent, pumps)
 		}
@@ -131,11 +131,11 @@ func TestMigratedTablesExecute(t *testing.T) {
 
 	// Built-in columns are projected before the feature columns, and a
 	// feature column captioned like a built-in property takes the suffixed name.
-	ledger := rows(t, s, "Plant::Inventory::'Pump Ledger Rows'")
+	ledger := rows(t, s, "Model::Plant::Inventory::'Pump Ledger Rows'")
 	wantInOrder(t, "Pump Ledger rows", ledger,
 		"Columns: name, qualifiedName, name 2, mass",
-		"Plant::Inventory::p1", `name = "p1"`, `qualifiedName = "Plant::Inventory::p1"`, `name 2 = "primary"`, `mass = 12.5`,
-		"Plant::Inventory::p2", `name = "p2"`, `qualifiedName = "Plant::Inventory::p2"`, `name 2 = ""`)
+		"Model::Plant::Inventory::p1", `name = "p1"`, `qualifiedName = "Model::Plant::Inventory::p1"`, `name 2 = "primary"`, `mass = 12.5`,
+		"Model::Plant::Inventory::p2", `name = "p2"`, `qualifiedName = "Model::Plant::Inventory::p2"`, `name 2 = ""`)
 
 	// Generic table: every requirement of the scope by name.
 	reqs := rows(t, s, "Plant::Requirements::'Requirement Table Rows'")
@@ -153,7 +153,7 @@ func TestMigratedTablesExecute(t *testing.T) {
 		"Columns: shortName, name, documentation, level, level 2, grade",
 		"FlowRequirement", `shortName = "R-1"`, `name = "FlowRequirement"`,
 		`documentation = "The pump keeps the flow above the minimum."`, `level = 1`, `level 2 = 1`,
-		`grade = ['Plant Profile'::Grade::high, 'Plant Profile'::Grade::low]`)
+		`grade = [Model::'Plant Profile'::Grade::high, Model::'Plant Profile'::Grade::low]`)
 
 	// A saved filter whose column selection cannot be counted is dropped, not
 	// read as every column, so every row stays; an unreadable width or
@@ -175,8 +175,8 @@ func TestMigratedTablesExecute(t *testing.T) {
 	matrix := rows(t, s, "Plant::Requirements::'Satisfaction Matrix Rows'")
 	wantInOrder(t, "Satisfaction Matrix rows", matrix,
 		"Columns: name, Trace, Trace 2",
-		"FlowRequirement", "Trace = Plant::Structure::Pump", "Trace 2 = (none)",
-		"SealRequirement", "Trace = Plant::Structure::Valve",
+		"FlowRequirement", "Trace = Model::Plant::Structure::Pump", "Trace 2 = (none)",
+		"SealRequirement", "Trace = Model::Plant::Structure::Valve",
 		"MassRequirement", "Trace = (none)")
 
 	// Relation map: the requirements one satisfaction hop from the context.
@@ -403,12 +403,12 @@ func TestMetaclassTablesExecute(t *testing.T) {
 	}
 
 	// A whole-model table over Diagram lists every view, the one the model
-	// itself owns — written at the top level — included.
+	// itself owns — written in its package — included.
 	diagrams := rows(t, s, "Tables::'Diagrams Rows'")
 	wantInOrder(t, "Diagrams rows", diagrams,
 		"returned 8 rows",
-		"Row 1: 'Model Overview'\n", "Plant::Views::Overview\n", "Tables::Classifiers\n", "Tables::Diagrams\n",
-		"Tables::Namespaces\n", "Tables::Operations\n", "Tables::'Packageable Elements'\n", "Tables::Types\n")
+		"Row 1: Model::'Model Overview'\n", "Model::Plant::Views::Overview\n", "Model::Tables::Classifiers\n", "Model::Tables::Diagrams\n",
+		"Model::Tables::Namespaces\n", "Model::Tables::Operations\n", "Model::Tables::'Packageable Elements'\n", "Model::Tables::Types\n")
 }
 
 // A criterion that excludes subtypes of its stereotype cannot be told apart
@@ -429,12 +429,12 @@ func TestRelationCriterionSubtypes(t *testing.T) {
 	s := session(t, r)
 	exact := rows(t, s, "Plant::Requirements::'Exact Satisfaction Matrix Rows'")
 	wantInOrder(t, "Exact Satisfaction Matrix rows", exact,
-		"FlowRequirement", "Satisfied by = Plant::Structure::Pump",
-		"SealRequirement", "Satisfied by = Plant::Structure::Valve")
+		"FlowRequirement", "Satisfied by = Model::Plant::Structure::Pump",
+		"SealRequirement", "Satisfied by = Model::Plant::Structure::Valve")
 	wide := rows(t, s, "Plant::Requirements::'Wide Satisfaction Matrix Rows'")
 	wantInOrder(t, "Wide Satisfaction Matrix rows", wide,
-		"FlowRequirement", "Satisfied by = Plant::Structure::Pump", "Derived by = Plant::Requirements::SealRequirement",
-		"SealRequirement", "Satisfied by = Plant::Structure::Valve", "Derived by = (none)")
+		"FlowRequirement", "Satisfied by = Model::Plant::Structure::Pump", "Derived by = Model::Plant::Requirements::SealRequirement",
+		"SealRequirement", "Satisfied by = Model::Plant::Structure::Valve", "Derived by = (none)")
 	reached := rows(t, s, "Plant::Structure::'Valve Requirement Map Rows'")
 	wantInOrder(t, "Valve Requirement Map rows", reached,
 		"returned 1 row", "Plant::Requirements::SealRequirement")
@@ -460,15 +460,15 @@ func TestTopLevelTableIsWritten(t *testing.T) {
 	}
 	wantClean(t, "tables.sysml", r)
 	wantInOrder(t, "top-level table", string(r.Notation),
-		"\nview 'Pump Table' {", "expose 'Pump Table Document';",
-		"\ncalc def 'Pump Table Rows' :> DocumentQueries::Query {",
-		"\npart def 'Pump Table Document' :> DocumentQueries::Document {", "calc rows : 'Pump Table Rows';")
+		"\n    view 'Pump Table' {", "expose 'Pump Table Document';",
+		"\n    calc def 'Pump Table Rows' :> DocumentQueries::Query {",
+		"\n    part def 'Pump Table Document' :> DocumentQueries::Document {", "calc rows : 'Pump Table Rows';")
 	wantNote(t, r, "_tbl_pumps", migrate.Approximated, "written as a Document holding a Table over the query 'Pump Table Rows'")
-	if es := entriesFor(r, "_tbl_pumps"); len(es) == 1 && es[0].Target != "part def 'Pump Table Document'" {
+	if es := entriesFor(r, "_tbl_pumps"); len(es) == 1 && es[0].Target != "part def Model::'Pump Table Document'" {
 		t.Errorf("target = %q", es[0].Target)
 	}
 	wantInOrder(t, "top-level Pump Table rows", rows(t, session(t, r), "'Pump Table Rows'"),
-		"returned 4 rows", "Plant::Inventory::r1", "Plant::Spares::s2")
+		"returned 4 rows", "Model::Plant::Inventory::r1", "Plant::Spares::s2")
 }
 
 // The Document each table becomes renders through the real Markdown and HTML
@@ -476,7 +476,7 @@ func TestTopLevelTableIsWritten(t *testing.T) {
 func TestMigratedTablesRender(t *testing.T) {
 	s := session(t, migrateFixtureFile(t, "tables"))
 
-	md := markdown(t, s, "Plant::Inventory::'Pump Table Document'")
+	md := markdown(t, s, "Model::Plant::Inventory::'Pump Table Document'")
 	wantInOrder(t, "Pump Table Markdown", md,
 		"# Pump Table",
 		"| name | classifier | mass | flow |",
@@ -485,14 +485,14 @@ func TestMigratedTablesRender(t *testing.T) {
 		"| s1 | Pump | 7 |  |",
 		"| s2 | Pump |  |  |")
 
-	page := html(t, s, "Plant::Inventory::'Pump Table Document'")
+	page := html(t, s, "Model::Plant::Inventory::'Pump Table Document'")
 	wantInOrder(t, "Pump Table HTML", page,
 		`<h1 class="sysml-title">Pump Table</h1>`,
-		`data-query="Plant::Inventory::Pump Table Rows"`,
+		`data-query="Model::Plant::Inventory::Pump Table Rows"`,
 		`<th scope="col" data-column="mass">mass</th>`,
-		`data-element="Plant::Inventory::r1"`, `>14</span>`,
-		`data-element="Plant::Inventory::p1"`, `>12.5</span>`,
-		`data-element="Plant::Spares::s2"`)
+		`data-element="Model::Plant::Inventory::r1"`, `>14</span>`,
+		`data-element="Model::Plant::Inventory::p1"`, `>12.5</span>`,
+		`data-element="Model::Plant::Spares::s2"`)
 
 	matrix := markdown(t, s, "Plant::Requirements::'Satisfaction Matrix Document'")
 	wantInOrder(t, "Satisfaction Matrix Markdown", matrix,
@@ -524,11 +524,11 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		`attribute redefines caption = "Fleet Parts";`,
 		`attribute redefines text = "The parts of the fleet, by name.";`,
 		`attribute redefines caption = "Safety Requirements";`,
-		"calc rows : 'Fleet Handbook Safety Requirements Rows';\n                }\n            }",
+		"calc rows : 'Fleet Handbook Safety Requirements Rows';\n                    }\n                }",
 		`attribute redefines caption = "Truck Structure";`,
 		`attribute redefines text = "The truck and what it hauls";`,
 		`attribute redefines caption = "Figure: Inside the truck";`,
-		"ref redefines source = truck.'Truck Internals';\n            }\n        }")
+		"ref redefines source = truck.'Truck Internals';\n                }\n            }")
 	wantLine(t, r.Notation, `DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" })`)
 	if strings.Contains(string(r.Notation), "showCaptions is false") {
 		t.Fatalf("a caption DocGen hides is written:\n%s", r.Notation)
@@ -541,9 +541,9 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"## Introduction",
 		"*Fleet Parts*",
 		"| name | qualifiedName | documentation | Payload | Owner Name | name 2 | Axle Mass |",
-		"| Axle | Fleet::Structure::Axle |  |  | Structure |  |  |",
-		"| Trailer | Fleet::Structure::Trailer | Carries the load. |  | Structure |  |  |",
-		"| Truck | Fleet::Structure::Truck | Hauls one trailer. |  | Structure |  |  |",
+		"| Axle | Model::Fleet::Structure::Axle |  |  | Structure |  |  |",
+		"| Trailer | Model::Fleet::Structure::Trailer | Carries the load. |  | Structure |  |  |",
+		"| Truck | Model::Fleet::Structure::Truck | Hauls one trailer. |  | Structure |  |  |",
 		"The parts of the fleet, by name.",
 		"## Requirements",
 		"Every truck of the fleet satisfies these requirements.",
@@ -575,7 +575,7 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	wantInOrder(t, "Fleet Handbook HTML", page,
 		`<h1 class="sysml-title">Fleet Handbook</h1>`,
 		"Introduction",
-		`data-element="Fleet::Structure::Truck"`, "Hauls one trailer.",
+		`data-element="Model::Fleet::Structure::Truck"`, "Hauls one trailer.",
 		"Requirements",
 		"Every truck of the fleet satisfies these requirements.",
 		"<ol", "Load Limit", "Brake Distance", "Axle Count", "</ol>",
@@ -675,8 +675,8 @@ func TestViewDocumentationOpensItsSection(t *testing.T) {
 	r := migrateFixtureFile(t, "documents")
 	notation := string(r.Notation)
 	for view, target := range map[string]string{
-		"Introduction": "part 'Fleet Documents'::'Fleet Handbook Document'::Introduction::paragraph",
-		"Safety":       "part 'Fleet Documents'::'Fleet Handbook Document'::Requirements::Safety::paragraph",
+		"Introduction": "part Model::'Fleet Documents'::'Fleet Handbook Document'::Introduction::paragraph",
+		"Safety":       "part Model::'Fleet Documents'::'Fleet Handbook Document'::Requirements::Safety::paragraph",
 	} {
 		var paragraphs []migrate.Entry
 		for _, e := range r.Report.Entries {
@@ -704,8 +704,8 @@ func TestViewDocumentationOpensItsSection(t *testing.T) {
 		t.Errorf("the view's documentation comment should have one entry, mapped to the paragraph it opens the section with: %+v", es)
 	}
 	if es := entriesFor(r, "_safety_doc"); len(es) != 1 || es[0].Verdict != migrate.Mapped ||
-		es[0].Target != "part 'Fleet Documents'::'Fleet Handbook Document'::Requirements::Safety::paragraph" ||
-		es[0].Note != "the documentation of the view Fleet Documents::Safety; also written as part 'Fleet Documents'::'Fleet Brief Document'::Safety::paragraph" {
+		es[0].Target != "part Model::'Fleet Documents'::'Fleet Handbook Document'::Requirements::Safety::paragraph" ||
+		es[0].Note != "the documentation of the view Fleet Documents::Safety; also written as part Model::'Fleet Documents'::'Fleet Brief Document'::Safety::paragraph" {
 		t.Errorf("the documentation of a view placed in two documents should keep one entry naming both paragraphs: %+v", es)
 	}
 	wantInOrder(t, "Safety section", notationSection(notation, "Safety"),
@@ -827,7 +827,7 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	// for their own reason.
 	wantInOrder(t, "Shown Blocks query", notation,
 		"calc def 'Yard Handbook Shown Blocks Rows'",
-		`DocumentQueries::Named(qualifiedName = ("Structure::Hook", "Structure::Crane")),`,
+		`DocumentQueries::Named(qualifiedName = ("Yard::Structure::Hook", "Yard::Structure::Crane")),`,
 		`property = "name",`,
 		`properties = ("name", "documentation"))`)
 	for _, note := range []string{
@@ -855,18 +855,18 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	// composite part collects nothing.
 	wantInOrder(t, "Parts queries", notation,
 		"calc def 'Yard Handbook Parts Rows'",
-		`DocumentQueries::Named(qualifiedName = ("Structure::Hook", "Structure::Latch")),`,
+		`DocumentQueries::Named(qualifiedName = ("Yard::Structure::Hook", "Yard::Structure::Latch")),`,
 		"calc def 'Yard Handbook Direct Parts Rows'",
-		`DocumentQueries::Named(qualifiedName = ("Structure::Hook")),`,
+		`DocumentQueries::Named(qualifiedName = ("Yard::Structure::Hook")),`,
 		"calc def 'Yard Handbook Shared Parts Rows'",
-		`DocumentQueries::Named(qualifiedName = ("Structure::Cable")),`)
+		`DocumentQueries::Named(qualifiedName = ("Yard::Structure::Cable")),`)
 	// A type first reached at the depth limit through one root is walked
 	// again when another root reaches it with depth to spare: the gantry's
 	// trolley motor is two steps down, the winch's motor one, so its brake is
 	// within the winch's two.
 	wantInOrder(t, "Drive Parts query", notation,
 		"calc def 'Yard Handbook Drive Parts Rows'",
-		`DocumentQueries::Named(qualifiedName = ("Structure::Trolley", "Structure::Motor", "Structure::Brake")),`)
+		`DocumentQueries::Named(qualifiedName = ("Yard::Structure::Trolley", "Yard::Structure::Motor", "Yard::Structure::Brake")),`)
 	if strings.Contains(notation, `"Structure::Operator"`) {
 		t.Errorf("a plain reference is collected as a composite part:\n%s", notation)
 	}
@@ -876,7 +876,7 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	// Requirement id and text columns read the short name and the doc.
 	wantInOrder(t, "Specification query", notation,
 		"calc def 'Yard Handbook Requirements Specification Table Rows'",
-		`source = DocumentQueries::Named(qualifiedName = ("Needs::Lift", "Needs::Sway")),`,
+		`source = DocumentQueries::Named(qualifiedName = ("Yard::Needs::Lift", "Yard::Needs::Sway")),`,
 		`properties = ("shortName", "name", "documentation"))`)
 	wantNote(t, r, "_st_todo_table", migrate.Unmapped,
 		"the elements it shows pass through «FilterByStereotypes» Yard Viewpoints::To Do Viewpoint::To Do Method::Filter By Stereotypes is not migrated: no v2 metaclass stands for the elements of «TODO_Owner»")
@@ -926,7 +926,7 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	// keeps the anonymous block and its named sibling alike.
 	wantInOrder(t, "Optional Drafts", notation,
 		"calc def 'Yard Handbook Bulleted List Rows'",
-		`DocumentQueries::Named(qualifiedName = ("Drafts::unnamed", "Drafts::Sketchy"))`,
+		`DocumentQueries::Named(qualifiedName = ("Yard::Drafts::unnamed", "Yard::Drafts::Sketchy"))`,
 		"part 'Optional Drafts' : DocumentQueries::Section {",
 		"calc items : 'Yard Handbook Bulleted List Rows';",
 		`attribute redefines caption = "Overview";`,
@@ -1042,7 +1042,7 @@ func TestTableHomonymsAndMalformedTables(t *testing.T) {
 	wantInOrder(t, "Catalog Map rows", rows(t, s, "Shop::'Catalog Map Rows'"),
 		"returned 1 row", "Shop::SeasonalCatalog", `@type = "PartDefinition"`)
 	wantInOrder(t, "Catalog Map Markdown", markdown(t, s, "Shop::'Catalog Map Document'"),
-		"# Catalog Map", "| qualifiedName | @type |", "| Shop::SeasonalCatalog | PartDefinition |")
+		"# Catalog Map", "| qualifiedName | @type |", "| Model::Shop::SeasonalCatalog | PartDefinition |")
 }
 
 // A stereotype filter tells stereotypes apart by the profile that defines
@@ -1076,7 +1076,7 @@ func TestMigratedStereotypeFilters(t *testing.T) {
 	}
 	wantInOrder(t, "Critical Items query", notation,
 		"calc def 'Depot Handbook Critical Items Rows'",
-		`'metadata' = ("Safety Profile::Critical")`)
+		`'metadata' = ("Depot::Safety Profile::Critical")`)
 
 	// The Hose's «Vendor::Critical» is of no profile the document defines, so
 	// whether it is the «Critical» wanted is not known before the query runs.

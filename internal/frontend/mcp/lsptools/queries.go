@@ -170,7 +170,7 @@ type CodeActionsResult struct {
 
 func registerQueries(s *mcp.Server, h *Host) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "diagnostics",
+		Name: "workspace_diagnostics",
 		Description: "Analyze a SysML v2 / KerML document, or the whole workspace, and list the errors, warnings and hints: " +
 			"syntax, unresolved names, type and constraint violations. Positions are 1-based lines and columns.",
 		Annotations: toolkit.ReadOnly("Diagnostics"),

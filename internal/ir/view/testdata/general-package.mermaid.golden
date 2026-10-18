@@ -23,11 +23,16 @@ config:
 ---
 %% GeneralViews::packageView — package rendering (view def GeneralView, filter @Package)
 flowchart TD
-  n0["`**VehicleStructure**`"]
-  n1["`**Powertrain**`"]
-  n2["`**VehicleRequirements**`"]
-  n3["`**VehicleVerification**`"]
-  n4["`**GeneralViews**`"]
+  n0["`*«package»*
+**VehicleStructure**`"]
+  n1["`*«package»*
+**Powertrain**`"]
+  n2["`*«package»*
+**VehicleRequirements**`"]
+  n3["`*«package»*
+**VehicleVerification**`"]
+  n4["`*«package»*
+**GeneralViews**`"]
   n0 --- n1
   n2 -.->|"private import ::*"| n0
   n3 -.->|"private import ::*"| n0

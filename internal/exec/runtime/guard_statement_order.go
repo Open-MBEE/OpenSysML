@@ -11,6 +11,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast/astcodec"
 )
 
+const (
+	doesNotHold = "does not hold"
+)
+
 const guardOrderWherePrefix = "verdict of "
 
 type guardOrderResult struct {
@@ -26,7 +30,7 @@ func (ctx *Context) guardUnderStatementOrders(guard ast.Node, step int, scope *s
 	needsSweep, externalWrite := ctx.guardStatementOrderInfo(guard, scope)
 	if externalWrite != nil {
 		return false, fmt.Errorf("%w: verdict of %s: constraint body may write %s outside its performance",
-			ErrOrderDependentGuardEffect, conditionText(guard), externalWrite.String())
+			errOrderDependentGuardEffect, conditionText(guard), externalWrite.String())
 	}
 	if !needsSweep {
 		return eval()
@@ -69,7 +73,7 @@ func (ctx *Context) guardUnderStatementOrders(guard ast.Node, step int, scope *s
 	label := conditionText(guard)
 	if probeDepth > 0 {
 		return false, fmt.Errorf("%w: verdict of %s depends on the statement orders of %s",
-			ErrOrderDependentPreview, label, body)
+			errOrderDependentPreview, label, body)
 	}
 	alternatives := make([]string, len(ordered))
 	for i, result := range ordered {
@@ -79,12 +83,12 @@ func (ctx *Context) guardUnderStatementOrders(guard ast.Node, step int, scope *s
 		case result.holds:
 			alternatives[i] = "holds"
 		default:
-			alternatives[i] = "does not hold"
+			alternatives[i] = doesNotHold
 		}
 	}
 	where := fmt.Sprintf("%s%s under the statement orders of %s", guardOrderWherePrefix, label, body)
 	choice := ChoicePoint{
-		Kind:         ChoiceGuardOrder,
+		Kind:         choiceGuardOrder,
 		Step:         step,
 		Where:        where,
 		Alternatives: alternatives,
@@ -222,8 +226,8 @@ func conditionExternalWrite(condition Condition) *lower.Place {
 	if condition.Steps != nil {
 		for _, write := range condition.Steps.Footprint.Writes {
 			if !write.Local {
-				copy := write
-				externalWrite = &copy
+				clone := write
+				externalWrite = &clone
 				break
 			}
 		}
@@ -244,7 +248,7 @@ func guardOrderResultKey(holds bool, err error) string {
 	if holds {
 		return "holds"
 	}
-	return "does not hold"
+	return doesNotHold
 }
 
 func guardOrderResults(results map[string]guardOrderResult) []guardOrderResult {
@@ -267,7 +271,7 @@ func guardOrderResultRank(key string) int {
 	switch key {
 	case "holds":
 		return 0
-	case "does not hold":
+	case doesNotHold:
 		return 1
 	default:
 		return 2

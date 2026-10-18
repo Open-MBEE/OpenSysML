@@ -8,18 +8,32 @@ import java.util.Objects;
  *
  * @param form the form it was rendered in
  * @param content the rendered document
+ * @param fileName the file a rendered set ({@code -render-documents}) writes the document to in
+ *     this form, which the other documents' links to it name; empty when the service predates it
  */
-public record RenderedDocument(DocumentForm form, String content) {
+public record RenderedDocument(DocumentForm form, String content, String fileName) {
 
   /**
    * Creates a rendered document.
    *
    * @param form the form, never {@code null}
    * @param content the rendered text, never {@code null}
+   * @param fileName the planned file name, never {@code null}
    */
   public RenderedDocument {
     Objects.requireNonNull(form, "form");
     Objects.requireNonNull(content, "content");
+    Objects.requireNonNull(fileName, "fileName");
+  }
+
+  /**
+   * Creates a rendered document whose planned file name is not known.
+   *
+   * @param form the form, never {@code null}
+   * @param content the rendered text, never {@code null}
+   */
+  public RenderedDocument(DocumentForm form, String content) {
+    this(form, content, "");
   }
 
   /**

@@ -190,7 +190,7 @@ func TestUserBlockSpecializationsClassify(t *testing.T) {
 	for _, want := range []string{
 		"part def Telescope {", "part 'objective' : Lens;", "port 'light in' : iLight;", "@Optics::Segment;",
 		"part def Tripod {", "@Optics::Mount;", "port def iLight {", "constraint def 'Focus Rule' {",
-		"requirement 'Sharp Image' {", "end carried : Telescope;", `'metadata' = ("Optics::Segment")`,
+		"requirement 'Sharp Image' {", "end carried : Telescope;", `'metadata' = ("Model::Optics::Segment")`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("migration lacks %q:\n%s", want, out)

@@ -14,17 +14,15 @@ func TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects(t *testing.T) {
 	notation := string(r.Notation)
 	for _, want := range []string{
 		"succession flow of ScalarValues::Real from produce.y to consume.v;",
-		"succession flow of ScalarValues::Real from produce.y to left.v;\n        succession flow of ScalarValues::Real from produce.y to right.v;",
+		"succession flow of ScalarValues::Real from produce.y to left.v;\nsuccession flow of ScalarValues::Real from produce.y to right.v;",
 		"out ref outputObject2 : ScalarValues::Real = inputObject1;",
 		"out ref outputObject1 : ScalarValues::Real nonunique = (inputObject1, inputObject2);",
 		"succession flow of ScalarValues::Real from pick.outputObject1 to consume.v;",
 		"first produce if on then 'produce.y to consume.v';\n" +
-			"        succession flow 'produce.y to consume.v' of ScalarValues::Real from produce.y to consume.v;",
+			"succession flow 'produce.y to consume.v' of ScalarValues::Real from produce.y to consume.v;",
 		"flow produce.y to feed.v;",
 	} {
-		if !strings.Contains(notation, want) {
-			t.Errorf("notation lacks %q:\n%s", want, notation)
-		}
+		wantLine(t, r.Notation, want)
 	}
 	if strings.Contains(notation, "if true") {
 		t.Errorf("a guard of literal true is written:\n%s", notation)

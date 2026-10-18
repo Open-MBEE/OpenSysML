@@ -10,17 +10,17 @@
 # routes of Association: 2 written
 
 ## approximated (2)
-Association	UI::<Association>	_assoc_console_gui	-> UI::GUIToConsole	(the anonymous Association is written as connection def GUIToConsole; its one usage is the connection gUI to console joining gUI and console)
-Association	UI::<Association>	_assoc_console_panel	-> UI::PanelToConsole	(the anonymous Association is written as connection def PanelToConsole; its one usage is the connection panel to console joining panel and console)
+Association	UI::<Association>	_assoc_console_gui	-> Model::UI::GUIToConsole	(the anonymous Association is written as connection def GUIToConsole; its one usage is the connection gUI to console joining gUI and console)
+Association	UI::<Association>	_assoc_console_panel	-> Model::UI::PanelToConsole	(the anonymous Association is written as connection def PanelToConsole; its one usage is the connection panel to console joining panel and console)
 
 ## mapped (10)
-Model	Model	_m	(the root model's members are written at the top level)
-Package	UI	_pkg_ui	-> UI
-Property	UI::<Association>::<Property>	_ae_console_1	-> UI::GUIToConsole::console
-Property	UI::<Association>::<Property>	_ae_console_2	-> UI::PanelToConsole::console
-«Block» Class	UI::Console	_blk_console	-> UI::Console
-Diagram	UI::Console BDD	_diag_bdd	-> UI::'Console BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; laid out from layout_same_named_usage.layout.xml: 5 of 5 shown elements positioned, 2 of 2 connectors routed)
-Property	UI::Console::GUI	_prop_console_gui	-> UI::Console::GUI
-Property	UI::Console::panel	_prop_console_panel	-> UI::Console::panel
-«Block» Class	UI::GUI	_blk_gui	-> UI::GUI
-«Block» Class	UI::Panel	_blk_panel	-> UI::Panel
+Model	Model	_m	-> Model	(written as package Model)
+Package	UI	_pkg_ui	-> Model::UI
+Property	UI::<Association>::<Property>	_ae_console_1	-> Model::UI::GUIToConsole::console
+Property	UI::<Association>::<Property>	_ae_console_2	-> Model::UI::PanelToConsole::console
+«Block» Class	UI::Console	_blk_console	-> Model::UI::Console
+Diagram	UI::Console BDD	_diag_bdd	-> Model::UI::'Console BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; laid out from layout_same_named_usage.layout.xml: 5 of 5 shown elements positioned, 2 of 2 connectors routed)
+Property	UI::Console::GUI	_prop_console_gui	-> Model::UI::Console::GUI
+Property	UI::Console::panel	_prop_console_panel	-> Model::UI::Console::panel
+«Block» Class	UI::GUI	_blk_gui	-> Model::UI::GUI
+«Block» Class	UI::Panel	_blk_panel	-> Model::UI::Panel
