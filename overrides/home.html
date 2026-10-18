@@ -957,10 +957,19 @@
   // The diagram is drawn by assets/landing/diagram.js, built from editors/vscode/src/landing.
   var root = document.querySelector("[data-osml-schematic]");
   if (!root) return;
-  if (window.osmlMountDiagram) { window.osmlMountDiagram(root); return; }
+  // The hero's node card follows this script, so the diagram mounts once the document is parsed.
+  function mount() {
+    if (!root.isConnected) return;
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", mount, { once: true });
+      return;
+    }
+    window.osmlMountDiagram(root);
+  }
+  if (window.osmlMountDiagram) { mount(); return; }
   var script = document.createElement("script");
   script.src = root.dataset.osmlScript;
-  script.onload = function () { if (root.isConnected) window.osmlMountDiagram(root); };
+  script.onload = mount;
   script.onerror = function () {
     var status = root.querySelector("[data-osml-status]");
     status.textContent = "The diagram's script did not load. Reload the page to try again.";

@@ -1229,7 +1229,7 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
   }
 
   // runRollup instantiates the root and evaluates its rolled-up feature on the engine, then
-  // shows the roll-up climbing the composition; every number drawn is the engine's.
+  // shows the roll-up climbing the composition and reports the vehicle's total last.
   async function runRollup(feature: string): Promise<void> {
     const current = await runnable();
     if (!current) {
@@ -1239,12 +1239,14 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
     const total = await rollup(await engine(), current, feature);
     const ms = Math.max(1, Math.round(performance.now() - started));
     const drawnRoot = target.rootSymbol.slice(target.rootSymbol.lastIndexOf("::") + 2);
-    status(
-      `Instantiate made ${current.parts.size + 1} objects and Evaluate rolled up ${drawnRoot}.${feature} = ${valueText(total)} in ${ms} ms.`,
-      total.kind === "undetermined",
-    );
+    const objects = current.parts.size + 1;
+    status(`Instantiate made ${objects} objects; the roll-up of ${drawnRoot}.${feature} climbs from the engines…`);
     runBtn.textContent = "▶ Run it again";
     await animateRollup(rollupLevels(current), feature);
+    status(
+      `Instantiate made ${objects} objects and Evaluate rolled up ${drawnRoot}.${feature} = ${valueText(total)} in ${ms} ms.`,
+      total.kind === "undetermined",
+    );
   }
 
   let seed: number | undefined;
