@@ -1,6 +1,6 @@
 # Changelog: releases 0.0.4 – 0.8.1
 
-The release sections of [CHANGELOG.md](../../CHANGELOG.md) older than 0.9.0, kept here verbatim
+The release sections of [CHANGELOG.md](../../../CHANGELOG.md) older than 0.9.0, kept here verbatim
 so the live changelog stays short. Only the relative links were rewritten for this directory;
 format and versioning are as the live changelog states.
 
@@ -2716,7 +2716,7 @@ format and versioning are as the live changelog states.
   means what, how a parse diagnostic differs from an in-body `error` and both from a Connect
   `{"code","message"}`, and what `Instantiate`, the behavior calls, `Verify*`, `Query` and
   `RunDocumentQuery` answer — are now on
-  [docs/reference/wire-contract.md](../../docs/reference/wire-contract.md), each with a request and
+  [docs/reference/wire-contract.md](../../../docs/reference/wire-contract.md), each with a request and
   the response captured verbatim from the service, and with a short illustrative decoder in
   each of the four languages that is explicitly not a shipped client.
 
@@ -2779,7 +2779,7 @@ format and versioning are as the live changelog states.
   are reported as not compared rather than diffed forever. The opt-in Flexo harness measures
   the apply against the real stack — an initial load, a revision with a retained-id rename and
   gated deletes, a conflict staged behind the sync's back — and records what read back at the
-  recorded commit ([the report](../../tools/referee/flexo/testdata/identity_apply_expected.txt)).
+  recorded commit ([the report](../../../tools/referee/flexo/testdata/identity_apply_expected.txt)).
 - **Action and state execution has a referee outside the executor.** Six conformance cases —
   a join fed by branches of unequal length, a join fed twice over one succession, a node two
   successions reach, two fork branches writing one feature, the specification's `ChargeBattery`
@@ -2789,7 +2789,7 @@ format and versioning are as the live changelog states.
   `StatePerformances.kerml`, `TransitionPerformances.kerml`) and the Systems Library
   (`Actions.sysml`), not recorded from the executor. The derivation, sentence by sentence, and
   the orderings the library leaves open are in
-  [the semantic oracle record](../../docs/project/behavior-semantic-oracle.md). Three cases state what
+  [the semantic oracle record](../../../docs/project/behavior-semantic-oracle.md). Three cases state what
   the executor does not do yet and are listed as known failures rather than recorded as goldens:
   a join fires on the count of parked tokens instead of one per incoming succession and then
   deadlocks, a node reached over two successions is performed twice, and a merge admits one
@@ -2806,7 +2806,7 @@ format and versioning are as the live changelog states.
   2 whose written notation no longer converts and 77 refused on the first hop, each refusal
   classed by the construct it names. The mapping's reference now states that measurement in place
   of the claim that a second conversion yields the same graph, which held for the fixtures alone
-  ([docs/project/rdf-corpus-roundtrip.md](../../docs/project/rdf-corpus-roundtrip.md)).
+  ([docs/project/rdf-corpus-roundtrip.md](../../../docs/project/rdf-corpus-roundtrip.md)).
 - **The REPL sends a signal into a running machine.** `%send go` and
   `%send Dim(level=3+4) to bulb` put the signal on the runtime's message bus exactly as a
   `send` from an action body would, so a `transition ... accept go then on` is driven from the
@@ -2863,7 +2863,7 @@ format and versioning are as the live changelog states.
   variation among them once a command has read which variant it selected, and of a part nothing
   has read yet the elements it will hold, the parts subsetting it counted before its lower bound,
   so an optional or abstract part is offered only once something subsets it
-  ([reference](../../docs/reference/repl-commands.md#object-references)).
+  ([reference](../../../docs/reference/repl-commands.md#object-references)).
   Names that need quoting are completed as the notation writes them, `'the ra` to `'the rack'` and
   `Q::'the ra` to `Q::'the rack'`, the closing quote typed or not, and every object a command
   reports is spelled that way too, so a name that merely looks like an id or an index (`Demo::'#3'`,
@@ -3839,7 +3839,7 @@ format and versioning are as the live changelog states.
   `TestRoundTripIsLossless` now also writes every
   fixture back from its graph with the source text removed and requires the same graph again, and
   a fixture reproduces each shadowing
-  ([docs/reference/rdf-mapping.md](../../docs/reference/rdf-mapping.md#limitations)).
+  ([docs/reference/rdf-mapping.md](../../../docs/reference/rdf-mapping.md#limitations)).
 
 - **A redefining requirement subject or actor is bound under every name of the feature it
   redefines.** `requirement r : Req { subject renamed :>> truck = loaded; }` used to leave a
@@ -3925,8 +3925,8 @@ format and versioning are as the live changelog states.
   another tool, or stripped — converts as before, and the round-trip tests keep stripping it to
   prove the structural predicates carry the model; each fixture under
   `internal/core/export/testdata/convert` now locks both notations. The
-  [saving guide](../../docs/guide/07-saving-and-rdf.md), the
-  [RDF mapping](../../docs/reference/rdf-mapping.md#source-text) and the round-trip testing skill
+  [saving guide](../../../docs/guide/07-saving-and-rdf.md), the
+  [RDF mapping](../../../docs/reference/rdf-mapping.md#source-text) and the round-trip testing skill
   describe the precedence.
 - **A calc whose `return` declares a result parameter it never binds says so.** In the notation
   `return` introduces a result *parameter* (SysML.xtext ReturnParameterMember), so `return h;`
@@ -4245,9 +4245,9 @@ library extension that any conforming tool already parses and preserves. Identit
 (id shape, scope binding, uniqueness), survives `notation → RDF → notation`, and
 `sysml -sync-diff` computes the change set between a model and a repository graph keyed by that
 identity, so a rename or a retype is an update to the same element. The design is
-[a project record](../../docs/project/element-identity-annotations.md), and the notation has been
+[a project record](../../../docs/project/element-identity-annotations.md), and the notation has been
 submitted to OMG for standardization
-([the issue text and its status](../../docs/project/omg-issues.md)).
+([the issue text and its status](../../../docs/project/omg-issues.md)).
 
 A solver verdict is now the evaluator's verdict. The SMT translation reasons over exact rationals
 while the evaluator computes in IEEE 754 binary64, and the difference is reachable: the exact
@@ -4257,7 +4257,7 @@ evaluator rounds is marked and its exact-real `unsat` reported undecided rather 
 evaluator verdict, and a whole-number quotient divides as an exact ratio rounded once — `5 / 2` is
 `2.5`, as the reference evaluates it. The remaining alternative, an exact-rational evaluator value
 representation, was adjudicated against the pinned pilot and the specification text and
-[declined](../../docs/project/exact-rational-evaluation.md).
+[declined](../../../docs/project/exact-rational-evaluation.md).
 
 The four non-Go clients and the public Go API were each exercised by worked examples over a fully
 capable model — quantities, enumerations, multiplicity, nesting, unvalued features — run by the
@@ -4276,8 +4276,8 @@ name table instead of an O(model) scope walk, the parser's token buffer became a
 (a load allocates 30% fewer objects and holds 16% less live heap), and the `about`-metadata index
 is cached when the library index freezes, restoring the empty-session floor the census flagged.
 The census and an execution-performance measurement are recorded as project records
-([performance census](../../docs/project/archive/performance-census-2026-09.md),
-[execution performance](../../docs/project/archive/execution-performance-2026-09.md)).
+([performance census](../../../docs/project/archive/performance-census-2026-09.md),
+[execution performance](../../../docs/project/archive/execution-performance-2026-09.md)).
 
 No model that validated under 0.4.2 stops validating and no import path moves.
 
@@ -4362,11 +4362,11 @@ No model that validated under 0.4.2 stops validating and no import path moves.
 - **Worked examples for every client, run by the tests.** Runnable examples drive the Node, Java,
   Rust and Go clients over one capable model — parsing, diagnostics, symbol navigation, evaluation
   and instantiation — and each client gains a reference page
-  ([Java](../../docs/reference/java-api.md), [Node](../../docs/reference/node-api.md),
-  [Rust](../../docs/reference/rust-api.md)). The examples were written to find defects and did; the
+  ([Java](../../../docs/reference/java-api.md), [Node](../../../docs/reference/node-api.md),
+  [Rust](../../../docs/reference/rust-api.md)). The examples were written to find defects and did; the
   fixes are below.
 
-- **The implementation models itself.** [`examples/self-model`](../../examples/self-model/README.md) is
+- **The implementation models itself.** [`examples/self-model`](../../../examples/self-model/README.md) is
   the analysis pipeline, surfaces, invariants and views of this implementation written as a SysML
   v2 model across five files whose packages import each other, with a make target rendering its
   diagrams and documents and a test evaluating its invariants and checking its figures against the
@@ -4376,10 +4376,10 @@ No model that validated under 0.4.2 stops validating and no import path moves.
   files declare: `sysml model/*.sysml -render-document Reports::MassReport -o report.md` loads the
   named files as one model.
 
-- **Two design records.** [Exact-rational evaluation](../../docs/project/exact-rational-evaluation.md)
+- **Two design records.** [Exact-rational evaluation](../../../docs/project/exact-rational-evaluation.md)
   adjudicates and declines a `big.Rat`-backed evaluator, with the pinned pilot's verbatim binary64
   answers as evidence and a census showing no marked-rounded query is recoverable by per-term
-  narrowing; [the HTML document backend](../../docs/project/html-document-backend.md) records the agreed
+  narrowing; [the HTML document backend](../../../docs/project/html-document-backend.md) records the agreed
   design for rendering documents as semantic, styleable HTML straight from the document IR —
   proposed, not implemented.
 
@@ -4425,9 +4425,9 @@ No model that validated under 0.4.2 stops validating and no import path moves.
   `%calc`/`%action`/`%state`/`%instantiate` does not rebuild a source, lexer and parser per call.
   Evaluation still runs on every call against the current session state.
 
-- **Two measurement records.** The [September 2026 performance census](../../docs/project/archive/performance-census-2026-09.md)
+- **Two measurement records.** The [September 2026 performance census](../../../docs/project/archive/performance-census-2026-09.md)
   measures week-over-week benchmark movement and whole-binary scaling, and flagged the regressions
-  fixed above; the [execution-performance record](../../docs/project/archive/execution-performance-2026-09.md)
+  fixed above; the [execution-performance record](../../../docs/project/archive/execution-performance-2026-09.md)
   measures evaluation throughput — ~1.5 µs per calc invocation — and names the optimization gaps
   the profiles show.
 
@@ -4457,7 +4457,7 @@ No model that validated under 0.4.2 stops validating and no import path moves.
   `Fib(25)` costs 0.65 µs per calc invocation instead of 1.01 µs and allocates about 160 objects
   per evaluation instead of 971 000. Results, errors, traces and step counts are unchanged; the
   measurements are recorded in the
-  [execution-performance record](../../docs/project/archive/execution-performance-2026-09.md).
+  [execution-performance record](../../../docs/project/archive/execution-performance-2026-09.md).
 
 - **Pure calc bodies compile to a closure fast path.** A calc whose body is one scalar expression
   — Integer, Real and Boolean literals, its own `in` parameters, the arithmetic, comparison,
@@ -4487,7 +4487,7 @@ No model that validated under 0.4.2 stops validating and no import path moves.
   operands alike, which is what the reference evaluator answers; the quotient is computed as an
   exact ratio rounded once to float64, so it agrees with the exact SMT encoding even beyond 2^53,
   where rounding each operand first moves the answer. The library's declared `Natural` return is
-  recorded as a question for OMG in [omg-issues.md](../../docs/project/omg-issues.md).
+  recorded as a question for OMG in [omg-issues.md](../../../docs/project/omg-issues.md).
 
 - **The Java client's package is `org.openmbee.opensysml`**, the DNS-verified namespace every
   future Java artifact belongs under, rather than `io.opensysml`. The client has never been
@@ -4499,7 +4499,7 @@ No model that validated under 0.4.2 stops validating and no import path moves.
   alone, and a directory without a stamp is left alone with a warning.
 
 - **The architecture self-model describes the library snapshot.** The standard library stage in
-  [`examples/self-model`](../../examples/self-model/README.md) now carries the embedded snapshot its
+  [`examples/self-model`](../../../examples/self-model/README.md) now carries the embedded snapshot its
   index is decoded from, the `internal/core/pack` and `internal/core/ast/astcodec` units that
   encode it and the generator that writes it; `LoadLibrary` models the load as an action whose two
   decisions — the digest and format match, then the checksum — choose between decoding the snapshot
@@ -4616,7 +4616,7 @@ as one atomic replacement. Every surface reaches it: `%run-query` and `%render-d
 `-run-query`, `-render-document`, `-doc-form` and `-render-documents` on the command line,
 `RunDocumentQuery` and `RenderDocument` over gRPC and on the public Go API, and
 `opensysml/documents`/`opensysml/renderDocument` in the LSP, behind the VS Code extension's
-`SysML: Render Document`. The [document-generation manual](../../docs/manual/README.md) documents the
+`SysML: Render Document`. The [document-generation manual](../../../docs/manual/README.md) documents the
 pipeline with examples that are rendered by the binary the release ships.
 
 The public Go API stops being a subset of the service: behaviour, verification, search, reporting,
@@ -4705,7 +4705,7 @@ validating and no import path moves.
   editing — refuse a model of several documents rather than picking one.
 
 - **A relay-probe walkthrough for the identity and lifecycle notation:**
-  [`examples/relay-probe-demo`](../../examples/relay-probe-demo/README.md) models one individual probe
+  [`examples/relay-probe-demo`](../../../examples/relay-probe-demo/README.md) models one individual probe
   across its mission phases — event occurrences ordered in time, snapshots and a timeslice of one
   individual, occurrences with multiplicity, a calculation reading a feature across two snapshots,
   a requirement whose bound subject is a snapshot, and a beacon inside a timeslice sending
@@ -4713,13 +4713,13 @@ validating and no import path moves.
   below.
 
 - **A second bomb-disposal walkthrough, written for the notation the first one does not reach:**
-  [`examples/disposal-team-demo`](../../examples/disposal-team-demo/README.md) models the team around
+  [`examples/disposal-team-demo`](../../../examples/disposal-team-demo/README.md) models the team around
   the robot — quantities with units and a payload budget, `select` and `reduce` over the fleet,
   a command crossing the connector the site joins two parts by, a callout occurrence with a
   snapshot and a timeslice, and a requirement, use case, verification case and analysis case over
   the same subject. It was written to find defects, and found the three below.
 
-- **A document-generation manual**, [`docs/manual/`](../../docs/manual/README.md): the concepts, the
+- **A document-generation manual**, [`docs/manual/`](../../../docs/manual/README.md): the concepts, the
   smallest working document end to end, a query cookbook, document authoring, the output forms and
   their determinism, the CLI/REPL/gRPC/Python interfaces, a worked example and troubleshooting. Every
   snippet in it parses and every rendered output shown was produced by the binary this release ships,
@@ -4817,7 +4817,7 @@ validating and no import path moves.
   an end now denotes every element the feature holds (KerML 1.0 §7.3.4.6), so one send delivers
   one message per element, each on that element's own identity — of addressing generally, not
   only the owner-level route. The squad site of
-  [`examples/disposal-team-demo`](../../examples/disposal-team-demo/README.md) shows it.
+  [`examples/disposal-team-demo`](../../../examples/disposal-team-demo/README.md) shows it.
 
 - **Message signals match by semantic identity, not short name.** Two same-named item or signal
   definitions in different packages were conflated, and an accept of a supertype did not take a
@@ -5176,9 +5176,9 @@ byte-identical `-convert sysml` and `-convert ttl` output, before and after.
 
 ### Project
 
-- The release-gate counts on `README.md`, [the roadmap](../../docs/project/roadmap.md),
-  [spec compliance](../../docs/project/spec-compliance.md) and
-  [training examples](../../docs/project/training-examples.md) are recounted together against a real
+- The release-gate counts on `README.md`, [the roadmap](../../../docs/project/roadmap.md),
+  [spec compliance](../../../docs/project/spec-compliance.md) and
+  [training examples](../../../docs/project/training-examples.md) are recounted together against a real
   `go test -race -count=1 -v ./...` run: 8,361 tests and subtests, 380 execution conformance cases,
   118 golden traces, 256 runtime robustness cases, 146 golden ASTs and 261 negative parser subtests.
   The skip list is stated by what each skip wants, since five tests it named as skipping now pass.
@@ -5299,7 +5299,7 @@ expression, looks up a symbol, instantiates a definition and negotiates capabili
   checks the committed stubs are what `buf` generates.
 
 Nothing is published. The build produces a signable, locally-installable artifact with
-sources and javadoc jars, and [releasing.md](../../docs/project/releasing.md) says what a
+sources and javadoc jars, and [releasing.md](../../../docs/project/releasing.md) says what a
 maintainer must obtain — a verified namespace, a GPG key, Central portal tokens — before a
 first upload.
 
@@ -5374,7 +5374,7 @@ the node states that id in `sysml:elementId`. A node is still not a model elemen
 `.ttl` output changes shape accordingly, and every graph regenerates. Reading is
 backward compatible: a graph carrying only the previous compact `sysml:owningNamespace`
 shape still converts unchanged, and that property is still written.
-[reference/rdf-mapping.md](../../docs/reference/rdf-mapping.md) documents the ownership shape.
+[reference/rdf-mapping.md](../../../docs/reference/rdf-mapping.md) documents the ownership shape.
 Loading a graph into a live triplestore and reading it back through the API is still not
 demonstrated, and collection-valued properties still carry no JSON annotation.
 
@@ -5629,7 +5629,7 @@ answers 415, which affects no `fetch`-based client.
 Protobuf is the body encoding to use: a 468 KB `Query` answer costs ~6.5 ms as protobuf and
 ~40 ms as JSON, from `protojson` CPU rather than the 9.7% extra bytes. JSON is the debugging
 affordance, a large JSON response now logs a warning, and
-[reference/service-transports.md](../../docs/reference/service-transports.md) says so where a client
+[reference/service-transports.md](../../../docs/reference/service-transports.md) says so where a client
 author will read it. The conformance suite runs every scenario once per protocol so the second
 surface cannot rot.
 
@@ -6471,7 +6471,7 @@ artifacts they describe really were called that.
   `%view` answers, and an exposed element a rendering cannot draw is reported rather than dropped.
 - The rendering itself is **tool-defined output**: SysML v2 §10.2 leaves rendering to the tool, so
   the notation is what is supported and the artifact is OpenSysML's own — recorded as such in
-  [docs/project/spec-compliance.md](../../docs/project/spec-compliance.md).
+  [docs/project/spec-compliance.md](../../../docs/project/spec-compliance.md).
 - **An element reached twice is exposed and rendered once.** A wildcard or filtered `expose` walks
   the document's own scope tree and the global index, which build a symbol each for one
   declaration, so `expose P::*` and `expose P::**[@T]` used to show an element as many times as it
@@ -6669,7 +6669,7 @@ with a build that has none reporting that rather than a verdict.
   machine's states, substates, regions, `entry`/`do`/`exit`, `defer`, pseudostates and
   transitions. Each category is covered by a `notation → RDF → notation` round trip asserting the
   body comes back byte-identically. The mapping is tabulated in
-  [the RDF mapping](../../docs/reference/rdf-mapping.md) § Behavior; terms the OMG vocabulary has no
+  [the RDF mapping](../../../docs/reference/rdf-mapping.md) § Behavior; terms the OMG vocabulary has no
   counterpart for are named under the `sysx:` extension namespace.
 - **102 of the 120 models under `examples/` now convert to Turtle, up from 71.** The remaining 18
   are refused with the node named, not partly converted: nine successions that do not name both
@@ -6785,7 +6785,7 @@ with a build that has none reporting that rather than a verdict.
   admits usage elements, and a connector usage declares no name — its ends are what make it a
   declaration.
 - The Open-MBEE `DesertKite.sysml` model parses clean as a result. What it still reports is
-  recorded in [spec compliance](../../docs/project/spec-compliance.md) § Structural, Interface and
+  recorded in [spec compliance](../../../docs/project/spec-compliance.md) § Structural, Interface and
   Analysis Notation: the tool-specific `'SysML Standard Diagrams'::gv` namespace, an `OOSEM::MOE`
   reference to a member of `OOSEM::'OOSEM Measures'`, and references to a decision node whose name
   is not registered as a symbol.
@@ -6823,8 +6823,8 @@ with a build that has none reporting that rather than a verdict.
 - The README capability table splits notation save (complete) from RDF conversion
   (experimental), and the guide, CLI and REPL references, Python guide and roadmap say the same.
 - Two example models come with a walkthrough of the commands that exercise them:
-  [`examples/solver-demo.sysml`](../../examples/solver-demo.sysml) for `%check`, `%explain`, `%solve`,
-  `%configure` and `%optimize`, and [`examples/views-demo.sysml`](../../examples/views-demo.sysml) for
+  [`examples/solver-demo.sysml`](../../../examples/solver-demo.sysml) for `%check`, `%explain`, `%solve`,
+  `%configure` and `%optimize`, and [`examples/views-demo.sysml`](../../../examples/views-demo.sysml) for
   `%view` and `%render` across the five rendering kinds and the text, Mermaid and Markdown forms.
 
 ### Release process
@@ -7652,7 +7652,7 @@ are listed here rather than under a heading of their own.
   directions, round-tripping packages, definitions, usages, features, imports,
   connectors, successions (including a `then` written as a body member) and
   satisfy assertions. What the mapping normalizes and what it refuses is
-  documented in [docs/reference/rdf-mapping.md](../../docs/reference/rdf-mapping.md); a refused construct
+  documented in [docs/reference/rdf-mapping.md](../../../docs/reference/rdf-mapping.md); a refused construct
   is reported with its node and position rather than dropped.
 - Removing a document unwinds what its wildcard re-exports contributed, so a
   name a removed file re-exported no longer resolves, and the workspace reuses
@@ -7669,13 +7669,13 @@ are listed here rather than under a heading of their own.
 - Homebrew installation is live: `brew install Open-MBEE/tap/systemica` installs
   both binaries from the published bundle, verified by checksum, and avoids the
   macOS quarantine prompt that a browser download sets. See
-  [packaging/homebrew/README.md](../../packaging/homebrew/README.md).
+  [packaging/homebrew/README.md](../../../packaging/homebrew/README.md).
 - `pysysml` is published to PyPI by CircleCI, on its own `pysysml-v*` tag, from
   one declared version (`python/pysysml/_version.py`) that the packaging
   metadata and `pysysml.__version__` both read — a tag that disagrees with it
   fails the job before anything is uploaded. `python/setup.py` is gone;
   `pyproject.toml` declares the build. See
-  [docs/project/releasing.md](../../docs/project/releasing.md#releasing-opensysml-to-pypi)
+  [docs/project/releasing.md](../../../docs/project/releasing.md#releasing-opensysml-to-pypi)
   (that section, and the package, are named `opensysml` since the rename).
 
 ### Known limitations
@@ -7687,7 +7687,7 @@ are listed here rather than under a heading of their own.
   `entry`/`do`/`exit` (`cannot convert the *ast.RequireMember at <file>:<line>`).
   A requirement stating a condition, and any state machine or action body with
   statements, must be saved as `.sysml`. The full list is in
-  [docs/reference/rdf-mapping.md](../../docs/reference/rdf-mapping.md).
+  [docs/reference/rdf-mapping.md](../../../docs/reference/rdf-mapping.md).
 - The REPL's prompt evaluates in the *last* namespace the session declared. After
   typing a second package, the first package's members and the units its imports
   brought in are reached by qualified name only (`1.0 [SI::m]`, not `1.0 [m]`).
@@ -7702,7 +7702,7 @@ are listed here rather than under a heading of their own.
   shows `diameter = Instance(ID: n)` with `(no features)` under it.
 - The macOS and Windows binaries are unsigned, so a browser download is
   quarantined by Gatekeeper or flagged by SmartScreen. Install with Homebrew or
-  `curl`; see [docs/project/macos-distribution.md](../../docs/project/macos-distribution.md).
+  `curl`; see [docs/project/macos-distribution.md](../../../docs/project/macos-distribution.md).
 
 ## 0.0.4 — 2026-08-10
 
@@ -7721,7 +7721,7 @@ The first tagged release.
 - Tiered validation (syntax → name resolution → typing → constraints), where a
   failing tier suppresses the ones above it rather than reporting noise.
 - Measured spec compliance, rule by rule, in
-  [docs/project/spec-compliance.md](../../docs/project/spec-compliance.md); 98/100 of the OMG
+  [docs/project/spec-compliance.md](../../../docs/project/spec-compliance.md); 98/100 of the OMG
   training corpus parses and analyzes clean, with the two remaining files
   pinned as upstream source bugs.
 
@@ -7776,7 +7776,7 @@ The first tagged release.
   `sysml-grpc-<os>-<arch>` binaries with `.sha256` sidecars, for linux/amd64,
   linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64, with
   `SHA256SUMS.txt` over all of them. macOS and Windows binaries are unsigned —
-  see [docs/project/macos-distribution.md](../../docs/project/macos-distribution.md).
+  see [docs/project/macos-distribution.md](../../../docs/project/macos-distribution.md).
 
 ### Known limitations
 
