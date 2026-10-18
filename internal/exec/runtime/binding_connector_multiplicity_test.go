@@ -10,7 +10,7 @@ import (
 // `binding [1]` identifies one value of each end: an end whose feature may — or
 // must — hold more is only partially bound, and so is the other end, which is
 // some unspecified value of it; reading either through the binding is the typed
-// ErrBindingEnd rather than a whole-binding count check. An end holding a value
+// errBindingEnd rather than a whole-binding count check. An end holding a value
 // of its own keeps it, the binding only relating it to the other end.
 func TestConnectorMultiplicityBoundsLinks(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, `package test {
@@ -36,9 +36,9 @@ func TestConnectorMultiplicityBoundsLinks(t *testing.T) {
 		{"rig.many", "binding [1] bind [0..*] own = [0..*] many"},
 	} {
 		_, err := evalIn(t, ctx, pkg.Scope, tc.expr)
-		var undetermined *UndeterminedBindingError
+		var undetermined *undeterminedBindingError
 		if !errors.As(err, &undetermined) {
-			t.Fatalf("%s = %v, want an UndeterminedBindingError", tc.expr, err)
+			t.Fatalf("%s = %v, want an undeterminedBindingError", tc.expr, err)
 		}
 		if !strings.Contains(err.Error(), tc.binding) {
 			t.Errorf("%s error %q does not name the binding", tc.expr, err.Error())
@@ -143,9 +143,9 @@ func TestConnectorMultiplicityNamesFeature(t *testing.T) {
 
 	// The diagnostic renders the bound's evaluated range, not the feature's name.
 	_, err := evalIn(t, ctx, pkg.Scope, "rig.b")
-	var undetermined *UndeterminedBindingError
+	var undetermined *undeterminedBindingError
 	if !errors.As(err, &undetermined) {
-		t.Fatalf("rig.b = %v, want an UndeterminedBindingError", err)
+		t.Fatalf("rig.b = %v, want an undeterminedBindingError", err)
 	}
 	if !strings.Contains(err.Error(), "binding [1] bind [0..*] a = [0..*] b") {
 		t.Errorf("rig.b error %q does not name the binding", err.Error())

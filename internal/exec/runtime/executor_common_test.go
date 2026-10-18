@@ -20,7 +20,7 @@ func TestToken_Creation(t *testing.T) {
 }
 
 func TestEventQueue_PushPop(t *testing.T) {
-	queue := NewEventQueue()
+	queue := newEventQueue()
 
 	e1 := Event{ID: 1, Timestamp: 5.0}
 	e2 := Event{ID: 2, Timestamp: 2.0}
@@ -56,7 +56,7 @@ func TestEventQueue_PushPop(t *testing.T) {
 }
 
 func TestEventQueue_Peek(t *testing.T) {
-	queue := NewEventQueue()
+	queue := newEventQueue()
 
 	e1 := Event{ID: 1, Timestamp: 5.0}
 	e2 := Event{ID: 2, Timestamp: 2.0}
@@ -75,7 +75,7 @@ func TestEventQueue_Peek(t *testing.T) {
 }
 
 func TestEventQueue_PopEmpty(t *testing.T) {
-	queue := NewEventQueue()
+	queue := newEventQueue()
 
 	// Pop from empty queue should return zero Event (not panic)
 	event := queue.Pop()

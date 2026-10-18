@@ -8,15 +8,15 @@ classes: {
 }
 n0: "«part def»\nToaster" {
   class: definition
-  n1: "«part»\nheating : HeatingSystem" {
+  n1: "«part»\nheating" {
     class: usage
     "n1.0": "durationIn" { class: pin }
   }
-  n2: "«part»\ncontrol : ControlSystem" {
+  n2: "«part»\ncontrol" {
     class: usage
     "n2.0": "durationOut" { class: pin }
   }
-  n3: "«part»\nchassis : Chassis" { class: usage }
+  n3: "«part»\nchassis" { class: usage }
 }
-n0.n2."n2.0" -- n0.n1."n1.0": "durationInterface" { class: connection }
-n0.n2."n2.0" -> n0.n1."n1.0": "of Real" { class: flow }
+n0.n2."n2.0" -- n0.n1."n1.0": { class: connection }
+n0.n2."n2.0" -> n0.n1."n1.0": { class: flow }

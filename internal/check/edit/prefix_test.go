@@ -385,9 +385,9 @@ func TestAddMetadataPrefixWritesInTheUsagePrefixSlot(t *testing.T) {
 		},
 		{
 			name:   "verify",
-			source: "metadata def M;\nrequirement def R;\nrequirement r :> R;\nverification def V { objective o { verify requirement rr :> r; } }\n",
+			source: "metadata def M;\nrequirement def R;\nrequirement r : R;\nverification def V { objective o { verify requirement rr :> r; } }\n",
 			target: "V::o::rr",
-			want:   "metadata def M;\nrequirement def R;\nrequirement r :> R;\nverification def V { objective o { verify #M requirement rr :> r; } }\n",
+			want:   "metadata def M;\nrequirement def R;\nrequirement r : R;\nverification def V { objective o { verify #M requirement rr :> r; } }\n",
 		},
 		{
 			name:   "frame",

@@ -83,7 +83,9 @@ public final class Engine implements AutoCloseable {
       Model model = current.parseSources(request.source().sources(current));
       List<Diagnostic> setup = new ArrayList<>(request.source().exportDiagnostics());
       setup.addAll(model.parseDiagnostics());
-      RunResult result = dispatch(request, model).withLeadingDiagnostics(setup);
+      RunResult result = dispatch(request, model)
+          .withOutcomeNames(request.source()::elementName)
+          .withLeadingDiagnostics(setup);
       return cancellation.requested() ? RunResult.cancelled(request) : result.withElapsed(elapsed(started));
     } catch (RuntimeException exception) {
       if (cancellation.requested()) return RunResult.cancelled(request);
@@ -132,7 +134,7 @@ public final class Engine implements AutoCloseable {
 
   private static RunResult dispatch(RunRequest request, Model model) {
     Duration elapsed = Duration.ZERO;
-    String subject = request.subjectQualifiedName();
+    String subject = request.source().subjectName(request.subjectQualifiedName());
     return switch (request.operation()) {
       case INSTANTIATE -> ResultsMapper.map(request, model.instantiate(subject), elapsed);
       case EXECUTE_ACTION -> ResultsMapper.map(request, model.executeAction(subject), elapsed);
@@ -147,7 +149,7 @@ public final class Engine implements AutoCloseable {
   /** Picks the verification RPC from the symbol's kind so the user need not know it. */
   private static RunResult verify(RunRequest request, Model model) {
     Duration elapsed = Duration.ZERO;
-    String subject = request.subjectQualifiedName();
+    String subject = request.source().subjectName(request.subjectQualifiedName());
     Optional<Symbol> symbol = model.findSymbol(subject);
     String kind = symbol.map(Symbol::kind).orElse("");
     if (kind.startsWith("satisfyRequirement")) {

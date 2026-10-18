@@ -11,7 +11,10 @@ result:
     "openSysmlApplyModelEdit": true, "openSysmlDebug": true,
     "openSysmlCrossDocumentLayout": true, "openSysmlRenderPalette": true,
     "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"],
-    "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"] } } }
+    "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"],
+    "openSysmlRenderLines": ["splines", "ortho", "polyline"],
+    "openSysmlRenderElements": ["parameter-symbols", "port-symbols", "compartments", "edge-labels",
+      "keywords", "multiplicities", "typings", "qualifiers", "all"] } } }
 ```
 
 `openSysmlRender` covers the view-rendering methods, `openSysmlRenderDocument`
@@ -25,7 +28,8 @@ behavior and report where it stands, and `openSysmlRenderPalette` that a
 the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styles its `style`
 draws the DOT or Mermaid form in, the first the default (`openSysmlRenderPorts` lists likewise the port
 displays its `ports` draws an interconnection or mixed rendering's parts with, a server without
-it drawing every port; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
+it drawing every port; `openSysmlRenderLines` the edge routings its `lines` draws the DOT or
+PlantUML form with, a server without it routing every edge as splines; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
 without it drawing none); a server without the former draws the Pilot look
 alone.
 
@@ -78,6 +82,15 @@ mode's verdict. A client that cannot send settings can start the server with
 [the guide](../guide/03-command-line.md#strict-conformance) explains what the mode
 changes.
 
+## Diagnostic codes
+
+Every published diagnostic carries `code`, the stable kebab-case code of the rule that
+reported it (`unresolved`, `name-conflict`, `nonstandard-notation`, …), and a
+`codeDescription` whose `href` opens the [diagnostics reference](diagnostics.md#catalogue) at
+that code's section, so an editor that shows a diagnostic's code as a link lands on its
+meaning, remediation and spec clause. The codes are the ones `sysml -explain` explains and
+the `-json` output carries; `source` stays the reporting pass.
+
 ## Disabled lints (setting)
 
 The [lints](diagnostics.md) the server leaves out of what it publishes are named by a
@@ -104,6 +117,29 @@ read the same way and corresponding to the CLI's `-enable-lint`:
 ```
 
 A lint named by both settings is off.
+
+## Library roots (setting)
+
+The directories installed projects are looked for under, besides the well-known library
+directories of a workspace folder's project (`.sysand/lib`), are named by a list setting,
+`libraryRoots`, read from the same payloads and in the same three shapes as
+`strictConformance`:
+
+```json
+{ "libraryRoots": ["/path/to/store"] }
+{ "sysml": { "libraryRoots": ["vendor/sysml"] } }
+{ "sysml.libraryRoots": [] }
+```
+
+A relative directory is taken from each workspace folder. An installed project under a root
+may be a directory or a project interchange archive (`.kpar`); an archive's model files are
+indexed from the archive, named `<archive>.kpar/<member>`, and a malformed archive is passed
+over. The list replaces the previous
+one; changing it walks the folders again, indexing the projects the new roots hold and
+dropping the sources only the old ones contributed, and republishes the diagnostics of every
+open document. A value that is not a list of strings is ignored. It corresponds to the
+server's `-library-root` flag and `OPENSYSML_LIBRARY_ROOTS`, which set the roots the server
+starts with; see [Working inside a package-manager project](../guide/03-command-line.md#working-inside-a-package-manager-project).
 
 ## Interface records
 
@@ -138,6 +174,8 @@ Renders one view of a document.
 | `palette` | Optional. A palette the `dot`, `mermaid`, `plantuml` and `d2` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
 | `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
 | `ports` | Optional. How much of a part's ports an interconnection or mixed rendering draws: `minimal` (the default), the ports an interconnection edge ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
+| `show` | Optional. The notation elements the SysML v2 notation makes optional that the rendering draws besides the ones its view's rendering shows, each a name the `openSysmlRenderElements` capability lists: `parameter-symbols` (a case's actor, subject and stakeholder parameters and an action's parameter pins on the node's boundary; without them a connection ends at the node itself), `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, or `all`. Port symbols, compartments and keywords are drawn by default; the result's `shown` lists what was drawn. |
+| `depth` | Optional. How many levels of nested elements a tree or interconnection rendering draws below each exposed element, overriding the `depth` attribute the view states, on a server advertising the `openSysmlRenderDepth` capability; absent or `0` leaves the view's own depth in force. An element at the bound keeps its compartment rows and ports and carries the detail `nested deeper than N levels; not shown`; the elements directly below the bound are counted once in `notices`. A negative value is refused. |
 | `overlay` | Optional. `verdicts` runs the verification cases verifying each requirement of a `requirement` rendering and labels and colours the requirement by their verdicts, each node carrying the worst as `verdict` (`pass`, `inconclusive`, `fail`, `error`). Omitted, nothing runs. Refused on another kind, and when unknown. |
 | `linkTemplate` | Optional. Template for source links on diagram elements, with `{file}`, `{line}`, `{col}`, `{qname}` and `{id}` placeholders. `{file}` is the path as loaded. Only on-disk workspace documents are linked; bundled libraries and non-file documents have no source link. |
 
@@ -157,7 +195,8 @@ one of the eight is refused, and the reply names all eight. A
 `palette` that names none of the eight is refused, and the reply names them
 (`unknown palette "rainbow"; the palettes are okabe-ito, …, cividis`). A `style` that is neither is refused likewise
 (`unknown drawing style "sketch"; the styles are pilot, cameo`), and a `ports` that is neither
-display (`unknown port display "all"; the displays are minimal, full`); an `overlay` that is unknown names the overlays there are (`unknown overlay "colours"; the overlays are verdicts`).
+display (`unknown port display "all"; the displays are minimal, full`), and a `show` element that is none
+(`unknown notation element "boxes"; the elements are parameter-symbols, …, all`); an `overlay` that is unknown names the overlays there are (`unknown overlay "colours"; the overlays are verdicts`).
 
 **Pseudo-views.** A document that is still being written usually declares no `view`,
 so a rendering can be requested as if one had been declared:
@@ -232,7 +271,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `ports`, `fromPort`, `toPort` | A node's optional `ports` array contains the port pins drawn on it, each with an `id`, `name`, optional `type` and optional `direction` (`in`, `out`, `inout`; omitted for an undirected port). A request's `ports` display controls which pins appear in interconnection and mixed renderings: `minimal` lists pins reached by an interconnection edge, while `full` lists every pin. An edge's optional `fromPort` and `toPort` are the IDs of its endpoint pins in those arrays. |
 | `rows`, `columns` | A table or matrix rendering's cells, in place of nodes and edges. Matrix rows are relationship sources, columns are targets, and each cell carries its ordered relationship keywords. |
 | `origin` | Where the element was declared, as a document URI, the `range` of the whole declaration and, when the declaration names one, the `selectionRange` of the identifier alone. A client highlights the element whose `range` holds the cursor and navigates to its `selectionRange`, as `textDocument/definition` does. `digest` fingerprints the text the ranges are of, the same for the same text whatever its version: a `setLayout` or `setRoute` of an element another document declares hands it back as its `digest`, with the URI as `declaredIn`, so the target is read in the text it was rendered from or answered `stale`. Every `origin` of one rendering is of the text the rendering was made from, read under one lock, whatever a document holds since. Absent for an element with no locatable declaration: a standard library symbol the index served from its cache, or a step a lowering sequenced without a declaration of its own, carries none rather than a bogus range. |
-| `notices` | What the rendering could not represent, as the text form reports it; includes reasoned notices for refused diagram pictures. |
+| `notices` | What the rendering could not represent, as the text form reports it; includes reasoned notices for refused diagram pictures. A result with no node, no edge and no row always carries at least one notice saying why, the same line the text form ends with: the view exposes nothing; every element it exposes is rejected by its filter, naming the filter as written (`every element the view exposes is rejected by its filter @ActionUsage; the rendering is empty`); what it exposes does not resolve (`the view exposes the members of Nowhere, which does not resolve; …`), or is nothing; nothing it exposes is shown by a rendering of this kind; or the view shows pictures alone. When the document has an error, the first error comes first, in the CLI's words (`<file> did not analyse cleanly; nothing was rendered: <line>:<col>: <message>`), since an element the parser could not read is one no view exposes. A client never shows such a result as an empty drawing. |
 | `fqn` | On a node: the qualified name `opensysml/applyModelEdit` targets the node's declaration by, each name quoted on its own as the notation spells it, so `'x::y'` (one name) and `x::y` (`y` in `x`) are two targets. A node another document of the workspace declares — a part a view of this document exposes, a state a usage inherits from a definition elsewhere — carries it as any node does when the client advertised `openSysmlCrossDocumentLayout`, and `origin.uri` says which document; a layout on it writes there. To a client that did not, such a node carries its `origin` alone. Absent for a node whose declaration is in no document of the workspace — a library element, a step a lowering sequenced — or is reached only through an unnamed one, so a client offers no edit on it. On an edge: the qualified name of the declaring connection, transition, succession, flow, include, or relationship, absent likewise. |
 | `declaredHere` | On a node with an `fqn`: `true` when the requested document declares the node. Only such a node takes `rename`, `delete`, `move`, or a member or connection written into it; a node another workspace document declares carries its `fqn` for `setLayout` and `setRoute` alone, and a client offers it nothing else. A server that does not advertise `openSysmlCrossDocumentLayout` never sends it, and names no other document's nodes either, so a client reads its every `fqn` as the requested document's own. |
 | `notation` | On a node with an `fqn`: the keyword the declaration was written with (`part def`, `port`, `state`), which is the `memberKind` a `move` asks the new owner to admit. |
@@ -363,6 +402,12 @@ document, or names a document whose planning or query execution fails, the
 request fails with the typed error's message (for example `Observatory::Subsystem
 is not a document: one is a part def specializing DocumentQueries::Document`)
 rather than crashing or answering with partial output.
+
+An optional `show` array names the [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements) every
+diagram draws besides those its view's rendering and its diagram block's `show` attribute show —
+`parameter-symbols`, `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`,
+`typings`, `qualifiers`, or `all` — as `-render-show` does; a name none of them has is an
+`InvalidParams` error naming the elements there are.
 
 An optional `linkTemplate` request field applies `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`
 to linkable diagram elements. Only on-disk workspace documents are linked; bundled libraries and

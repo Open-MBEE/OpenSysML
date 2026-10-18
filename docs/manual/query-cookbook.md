@@ -806,7 +806,7 @@ finds that declares no value is an empty cell, and a multi-valued member
 fills the cell with all of its values — more than its multiplicity admits
 fails the column as a direct feature column does. The same path works as a `properties`
 or `property` string (`"stat.runs"`), and `OrderBy` sorts by it. This is how
-an individual's nested usage — an analysis the migrator writes, for instance —
+an instance's nested usage — an analysis the migrator writes, for instance —
 contributes a column:
 
 ```sysml
@@ -814,7 +814,7 @@ analysis def 'Template Group 1 Monte Carlo' {
 	out runs : ScalarValues::Natural;
 	out mean : ScalarValues::Real;
 }
-individual part def 'template Group 11' :> 'Template Group 1' {
+part 'template Group 11' : 'Template Group 1' {
 	analysis 'Monte Carlo' : 'Template Group 1 Monte Carlo' {
 		out :>> runs = 5;
 		out :>> mean = 18.0;
@@ -1351,7 +1351,7 @@ as the last table of its report, [`requirements.md`](examples/requirements.md).
 Sorting by qualified name puts children under their parents but leaves every
 row at the margin. `Tree` arranges the rows as a containment tree instead:
 each row nests under the nearest row containing it — its nearest owner among
-the rows, or the individual whose part it is — in pre-order, at a depth the
+the rows, or the instance whose part it is — in pre-order, at a depth the
 renderers indent by (Markdown with a `↳` marker, HTML with the row's
 `data-depth`; see [hierarchical rows](outputs.md#hierarchical-rows)):
 

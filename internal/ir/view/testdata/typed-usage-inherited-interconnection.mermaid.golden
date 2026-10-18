@@ -1,0 +1,103 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% TypedUsageViews::rocketLinks — interconnection rendering (render asInterconnectionDiagram)
+%% not represented: 4 elements nested deeper than 3 levels not shown
+flowchart LR
+  subgraph n0 ["`*«part»* **rocket**`"]
+    direction LR
+    n0.0["telemetry"]
+    n1("`*«attribute»*
+**mass**`")
+    subgraph n2 ["`*«part»* **stage1**`"]
+      direction LR
+      n2.0["status"]
+      n3("`*«attribute»*
+**propellantMass**`")
+      subgraph n4 ["`*«part»* **engines**`"]
+        direction LR
+        n4_anchor[" "]
+        n5("`*«attribute»*
+**thrust**`")
+        n6("`*«attribute»*
+**mass**`")
+        n7("`*«part»*
+**subcomponents**
+nested deeper than 3 levels; not shown`")
+      end
+      subgraph n8 ["`*«part»* **subcomponents**`"]
+        direction LR
+        n8_anchor[" "]
+        n9("`*«attribute»*
+**mass**`")
+        n10("`*«part»*
+**subcomponents**
+nested deeper than 3 levels; not shown`")
+      end
+      n11("`*«attribute»*
+**mass**`")
+    end
+    subgraph n12 ["`*«part»* **stage2**`"]
+      direction LR
+      n13("`*«attribute»*
+**propellantMass**`")
+      subgraph n14 ["`*«part»* **engines**`"]
+        direction LR
+        n14_anchor[" "]
+        n15("`*«attribute»*
+**thrust**`")
+        n16("`*«attribute»*
+**mass**`")
+        n17("`*«part»*
+**subcomponents**
+nested deeper than 3 levels; not shown`")
+      end
+      subgraph n18 ["`*«part»* **subcomponents**`"]
+        direction LR
+        n18_anchor[" "]
+        n19("`*«attribute»*
+**mass**`")
+        n20("`*«part»*
+**subcomponents**
+nested deeper than 3 levels; not shown`")
+      end
+      n21("`*«attribute»*
+**mass**`")
+    end
+    subgraph n22 ["`*«part»* **subcomponents**`"]
+      direction LR
+      n23("`*«attribute»*
+**mass**`")
+      subgraph n24 ["`*«part»* **subcomponents**`"]
+        direction LR
+        n25("`*«attribute»*
+**mass**`")
+      end
+    end
+  end
+  n2.0 === n0.0
+  n8_anchor === n4_anchor
+  n18_anchor === n14_anchor
+  classDef anchor fill:none,stroke:none
+  class n14_anchor,n18_anchor,n4_anchor,n8_anchor anchor
+  linkStyle 0 stroke-width:3px

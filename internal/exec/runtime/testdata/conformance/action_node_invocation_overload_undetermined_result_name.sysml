@@ -4,7 +4,7 @@ package test {
 	// The two same-named actions the checker leaves tied name their outputs differently:
 	// once the values settle a call, the node holds the pins of the action performed,
 	// and is read as a value by its `out result` — the first candidate's pins count for nothing.
-	package A {
+	package Tags {
 		action def tag {
 			in x : Integer;
 			in y : Real;
@@ -12,9 +12,7 @@ package test {
 			first step;
 			action step { assign mark := 1; }
 		}
-	}
 
-	package B {
 		action def tag {
 			in x : Real;
 			in y : Integer;
@@ -27,8 +25,7 @@ package test {
 	calc def same { in v; v }
 
 	action outer {
-		private import A::*;
-		private import B::*;
+		private import Tags::*;
 		attribute p = same(1.5);
 		attribute q = same(2);
 		out attribute chosen : Integer;

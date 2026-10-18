@@ -113,7 +113,7 @@ func (ctx *Context) bindCheckArgs(sym *symbols.Symbol, kind, element string, mem
 	bound := make(map[string]Value, len(args.Named)+len(args.Positional))
 	for name, value := range args.Named {
 		if !hasCheckParameter(params, name) {
-			return fmt.Errorf("%w: %s has no input parameter %q", ErrUnknownParameter, label, name)
+			return fmt.Errorf("%w: %s has no input parameter %q", errUnknownParameter, label, name)
 		}
 		bound[name] = value
 	}
@@ -124,14 +124,14 @@ func (ctx *Context) bindCheckArgs(sym *symbols.Symbol, kind, element string, mem
 		}
 	}
 	if len(args.Positional) > len(open) {
-		return fmt.Errorf("%w: %s takes %d argument(s), got %d", ErrCalcArity, label, len(open), len(args.Positional))
+		return fmt.Errorf("%w: %s takes %d argument(s), got %d", errCalcArity, label, len(open), len(args.Positional))
 	}
 	for i, value := range args.Positional {
 		bound[open[i].name] = value
 	}
 	for _, param := range params {
 		if _, ok := bound[param.name]; !ok && param.def == nil && !ctx.checkParameterOptional(param) && !ctx.carriesFeature(self, param.name) {
-			return fmt.Errorf("%w: %s parameter %q has no argument and no default", ErrUnboundParameter, label, param.name)
+			return fmt.Errorf("%w: %s parameter %q has no argument and no default", errUnboundParameter, label, param.name)
 		}
 	}
 

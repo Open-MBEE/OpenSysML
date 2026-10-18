@@ -39,6 +39,9 @@ type RenameConflict struct {
 	// Ambiguity is how many elements the reference would name at once, where the
 	// rename would leave it ambiguous rather than reading another element.
 	Ambiguity int
+	// Hidden is set where another import brings Means under NewName beside the
+	// renamed element, so the name would be hidden at the reference (KerML 7.2.5.4).
+	Hidden bool
 }
 
 // Error describes the conflict, naming what the new name would mean.
@@ -52,6 +55,11 @@ func (c *RenameConflict) Error() string {
 		return fmt.Sprintf("%s cannot be renamed to %q: the reference to it in %s"+
 			" would name %d elements at once, so the rename would leave that reference ambiguous",
 			c.Subject, c.NewName, c.Site, c.Ambiguity)
+	}
+	if c.Hidden {
+		return fmt.Sprintf("%s cannot be renamed to %q: the reference to it in %s would read a name"+
+			" two imports bring as distinct elements (%s beside it), hidden there, so the rename"+
+			" would leave that reference unresolved", c.Subject, c.NewName, c.Site, c.Means)
 	}
 	return fmt.Sprintf("%s cannot be renamed to %q: the reference to it in %s"+
 		" would read %s instead, so the rename would change what that reference means",
@@ -95,6 +103,11 @@ func capturedAt(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, 
 	rd := r.ProbeReading(occ.Ref.Spelled(qn))
 	if n, ambiguous := rd.Ambiguity(); ambiguous {
 		return RenameConflict{Ambiguity: n}, true
+	}
+	if len(qn.Parts) == 1 {
+		if other, hidden := r.ImportedBeside(occ.Ref.Scope, newName, sym); hidden {
+			return RenameConflict{Means: symbols.FQNOf(other), Hidden: true}, true
+		}
 	}
 	other, ok := rd.Symbol()
 	if alias, aliased := rd.Alias(occ.Part); aliased {

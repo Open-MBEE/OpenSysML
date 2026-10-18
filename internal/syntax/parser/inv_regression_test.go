@@ -13,7 +13,7 @@ function f {
 }
 `
 
-	sf := source.New("test.sysml", []byte(input))
+	sf := source.New("test.kerml", []byte(input))
 	p := New(sf)
 	root := p.ParseFile()
 

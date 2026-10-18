@@ -132,7 +132,7 @@ func d2Declarations(d2 string) map[string]bool {
 // the root scope, a line from each node to its children, definitions square
 // and usages rounded.
 func TestD2TreeIsFlat(t *testing.T) {
-	d2, err := render(t, "tree.sysml", "VehicleViews::vehicleView").D2()
+	d2, err := render(t, "tree.sysml", "VehicleViews::vehicleView").D2With(fullNotation)
 	if err != nil {
 		t.Fatalf("D2: %v", err)
 	}
@@ -165,13 +165,13 @@ func TestD2TreeIsFlat(t *testing.T) {
 // a flow a dashed arrow.
 func TestD2InterconnectionNestsPorts(t *testing.T) {
 	rendering := render(t, "interconnection.sysml", "PlantViews::loopView")
-	d2, err := rendering.D2()
+	d2, err := rendering.D2With(fullNotation)
 	if err != nil {
 		t.Fatalf("D2: %v", err)
 	}
 	for _, want := range []string{
-		"\nn0: \"«part def»\\nLoop\" {\n  class: definition\n  n1: \"«part»\\npump : Pump\" {\n    class: usage\n    \"n1.0\": \"outlet\" { class: pin }\n  }\n",
-		"\nn0.n1.\"n1.0\" -- n0.n2.\"n2.0\": \"supply\" { class: connection }\n",
+		"\nn0: \"«part def»\\nLoop\" {\n  class: definition\n  n1: \"«part»\\npump : Pump\" {\n    class: usage\n    \"n1.0\": \"outlet\" { class: pin }\n    n2: \"«item»\\nwaterOut : Water\" { class: usage }\n  }\n",
+		"\nn0.n1.\"n1.0\" -- n0.n3.\"n3.0\": \"supply\" { class: connection }\n",
 		"\n  connection: { style: { stroke: \"#181818\"; font-size: 13; font-color: black; stroke-width: 3 } }\n",
 		"\n  pin: { style: { fill: white; stroke: \"#181818\"; stroke-width: 1; font-color: black; font-size: 10 } }\n",
 	} {
@@ -179,14 +179,14 @@ func TestD2InterconnectionNestsPorts(t *testing.T) {
 			t.Errorf("interconnection D2 lacks %q:\n%s", want, d2)
 		}
 	}
-	full, err := rendering.D2With(Options{Ports: PortsFull})
+	full, err := rendering.D2With(Options{Show: AllShown(), Ports: PortsFull})
 	if err != nil {
 		t.Fatalf("D2 full ports: %v", err)
 	}
 	if !strings.Contains(full, "\"n1.0\": \"«port»\\noutlet : FluidPort\" { class: pin }") {
 		t.Errorf("the full display does not name the port's type:\n%s", full)
 	}
-	flows, err := render(t, "action.sysml", "FlowViews::driveView").D2()
+	flows, err := render(t, "action.sysml", "FlowViews::driveView").D2With(fullNotation)
 	if err != nil {
 		t.Fatalf("D2: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestD2InterconnectionNestsPorts(t *testing.T) {
 // A state diagram nests substates as containers, draws a body's start as an
 // initial dot inside it, a region dashed, and transitions by path.
 func TestD2StateDiagram(t *testing.T) {
-	d2, err := render(t, "state.sysml", "MachineViews::vehicleStates").D2()
+	d2, err := render(t, "state.sysml", "MachineViews::vehicleStates").D2With(fullNotation)
 	if err != nil {
 		t.Fatalf("D2: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestD2StateDiagram(t *testing.T) {
 // pins an edge ends at are drawn inside their action and joined by path, the
 // rest noticed.
 func TestD2ActionGlyphsAndPins(t *testing.T) {
-	d2, err := render(t, "action.sysml", "FlowViews::driveView").D2()
+	d2, err := render(t, "action.sysml", "FlowViews::driveView").D2With(fullNotation)
 	if err != nil {
 		t.Fatalf("D2: %v", err)
 	}
@@ -559,7 +559,7 @@ func TestD2EscapesLabels(t *testing.T) {
 		ID: "n0", Kind: "part def", Name: `say "hi" ${x}` + "\nnext",
 		Children: []*Node{{ID: "shape", Kind: "part", Name: "p"}},
 	}}}
-	d2, err := rendering.D2()
+	d2, err := rendering.D2With(fullNotation)
 	if err != nil {
 		t.Fatalf("D2: %v", err)
 	}
@@ -626,7 +626,7 @@ func TestD2StyleNotices(t *testing.T) {
 		},
 	}}, Edges: []Edge{{From: "n1", To: "n2", Kind: EdgeConnection, Style: &Style{Line: "#ff0000", Fill: "#00ff00", FontSize: 200}}},
 		Notes: []Note{{Text: "a note", Anchor: "n1"}}}
-	d2, err := rendering.D2With(Options{Style: StyleCameo})
+	d2, err := rendering.D2With(Options{Show: AllShown(), Style: StyleCameo})
 	if err != nil {
 		t.Fatalf("D2: %v", err)
 	}
@@ -644,7 +644,7 @@ func TestD2StyleNotices(t *testing.T) {
 	}
 	checkD2Syntax(t, d2)
 	checkD2Renders(t, d2)
-	plain, err := rendering.D2()
+	plain, err := rendering.D2With(fullNotation)
 	if err != nil {
 		t.Fatalf("D2: %v", err)
 	}

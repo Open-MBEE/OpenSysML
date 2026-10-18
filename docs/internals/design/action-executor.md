@@ -25,7 +25,7 @@ Guards use the runtime expression evaluator with token data:
 
 ```go
 // Token data: {x: 15, y: 20}
-ec := NewEvalContext(ctx)
+ec := newEvalContext(ctx)
 ec.Push(token.Data)  // Token data becomes evaluation scope
 result, _ := ec.Eval(guardExpression)  // Evaluate guard
 if result.Kind == ValConst && result.Const.Bool {

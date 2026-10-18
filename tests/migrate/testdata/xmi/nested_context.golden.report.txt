@@ -3,20 +3,20 @@
 
 ## approximated (2)
 CallBehaviorAction	Host::Align::Write::set	_callSet	-> set	(the behavior acts on a Host through its parameter context, which is bound to Write::context)
-StateMachine	Sequencer::AO Sequencer	_sm	-> Sequencer::'AO Sequencer'	(the classifier behavior is run by every object of Sequencer as its usage aO Sequencer)
+StateMachine	Sequencer::AO Sequencer	_sm	-> Model::Sequencer::'AO Sequencer'	(the classifier behavior is run by every object of Sequencer as its usage aO Sequencer)
 
 ## mapped (52)
-«Block» Class	Host	_host	-> Host
-Activity	Host::Align	_align	-> Host::align	(written as an action usage of Host, which a call on an object performs, so its body runs on the object and reaches its features)
+«Block» Class	Host	_host	-> Model::Host
+Activity	Host::Align	_align	-> Model::Host::align	(written as an action usage of Host, which a call on an object performs, so its body runs on the object and reaches its features)
 ActivityFinalNode	Host::Align::<ActivityFinalNode>	_af	-> final
 ControlFlow	Host::Align::<ControlFlow>	_ae2
 ControlFlow	Host::Align::<ControlFlow>	_ae3
 InitialNode	Host::Align::<InitialNode>	_ai	-> start
-Activity	Host::Align::Write	_write	-> Host::align::Write	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Host::Align::Write	_write	-> Model::Host::align::Write	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
 ActivityFinalNode	Host::Align::Write::<ActivityFinalNode>	_wf	-> final
 ControlFlow	Host::Align::Write::<ControlFlow>	_we2
 InitialNode	Host::Align::Write::<InitialNode>	_wi	-> start
-Activity	Host::Align::Write::Set	_set	-> Host::align::Write::Set	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Host::Align::Write::Set	_set	-> Model::Host::align::Write::Set	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
 ActivityFinalNode	Host::Align::Write::Set::<ActivityFinalNode>	_sf	-> final
 ControlFlow	Host::Align::Write::Set::<ControlFlow>	_se2
 ControlFlow	Host::Align::Write::Set::<ControlFlow>	_se3
@@ -24,16 +24,16 @@ InitialNode	Host::Align::Write::Set::<InitialNode>	_si2	-> start
 ObjectFlow	Host::Align::Write::Set::<ObjectFlow>	_sof1
 ObjectFlow	Host::Align::Write::Set::<ObjectFlow>	_sof2
 ValueSpecificationAction	Host::Align::Write::Set::one	_one	-> one
-OutputPin	Host::Align::Write::Set::one::result	_oneOut	-> Host::align::Write::Set::one.result
+OutputPin	Host::Align::Write::Set::one::result	_oneOut	-> Model::Host::align::Write::Set::one.result
 ReadStructuralFeatureAction	Host::Align::Write::Set::read sequencer	_readSeq	-> 'read sequencer'
-OutputPin	Host::Align::Write::Set::read sequencer::result	_seqOut	-> Host::align::Write::Set::'read sequencer'.result
+OutputPin	Host::Align::Write::Set::read sequencer::result	_seqOut	-> Model::Host::align::Write::Set::'read sequencer'.result
 AddStructuralFeatureValueAction	Host::Align::Write::Set::set k	_setK	-> 'set k'
-InputPin	Host::Align::Write::Set::set k::object	_setObject	-> Host::align::Write::Set::'set k'.object
-InputPin	Host::Align::Write::Set::set k::value	_setValue	-> Host::align::Write::Set::'set k'.value
+InputPin	Host::Align::Write::Set::set k::object	_setObject	-> Model::Host::align::Write::Set::'set k'.object
+InputPin	Host::Align::Write::Set::set k::value	_setValue	-> Model::Host::align::Write::Set::'set k'.value
 ReadStructuralFeatureAction	Host::Align::observe sequencer	_observe	-> 'observe sequencer'
-OutputPin	Host::Align::observe sequencer::result	_observeOut	-> Host::align::'observe sequencer'.result
+OutputPin	Host::Align::observe sequencer::result	_observeOut	-> Model::Host::align::'observe sequencer'.result
 CallBehaviorAction	Host::Align::write	_callWrite	-> write
-Activity	Host::Direct	_direct	-> Host::direct	(written as an action usage of Host, which a call on an object performs, so its body runs on the object and reaches its features)
+Activity	Host::Direct	_direct	-> Model::Host::direct	(written as an action usage of Host, which a call on an object performs, so its body runs on the object and reaches its features)
 ActivityFinalNode	Host::Direct::<ActivityFinalNode>	_directFinal	-> final
 ActivityPartition	Host::Direct::<ActivityPartition>	_directLane	(the partition represents the context's aO Sequencer, read as this.'aO Sequencer')
 ControlFlow	Host::Direct::<ControlFlow>	_directStep
@@ -41,20 +41,20 @@ ControlFlow	Host::Direct::<ControlFlow>	_directTest	(the JavaScript Rhino body i
 DecisionNode	Host::Direct::<DecisionNode>	_directDecision	-> 'decide'
 InitialNode	Host::Direct::<InitialNode>	_di	-> start
 OpaqueAction	Host::Direct::write state data	_directWrite	-> 'write state data'	(the JavaScript Rhino body is translated to v2; names resolve against the context's aO Sequencer, read as this.'aO Sequencer')
-Activity	Host::Run	_run	-> Host::run	(written as an action usage every object of Host performs from creation, so its body runs on the object and reaches its features)
+Activity	Host::Run	_run	-> Model::Host::run	(written as an action usage every object of Host performs from creation, so its body runs on the object and reaches its features)
 ActivityFinalNode	Host::Run::<ActivityFinalNode>	_rf	-> final
 ControlFlow	Host::Run::<ControlFlow>	_re2
 ControlFlow	Host::Run::<ControlFlow>	_re3
 InitialNode	Host::Run::<InitialNode>	_ri	-> start
 CallBehaviorAction	Host::Run::align	_callAlign	-> align
 CallBehaviorAction	Host::Run::direct	_callDirect	-> direct
-Property	Host::aO Sequencer	_seqPart	-> Host::'aO Sequencer'
-Model	Model	_m	(the root model's members are written at the top level)
-«Block» Class	Rig	_rig	-> Rig
-Property	Rig::h	_hostPart	-> Rig::h
-«Block» Class	Sequencer	_seq	-> Sequencer
+Property	Host::aO Sequencer	_seqPart	-> Model::Host::'aO Sequencer'
+Model	Model	_m	-> Model	(written as package Model)
+«Block» Class	Rig	_rig	-> Model::Rig
+Property	Rig::h	_hostPart	-> Model::Rig::h
+«Block» Class	Sequencer	_seq	-> Model::Sequencer
 Region	Sequencer::AO Sequencer::<Region>	_sr	(the one region is written as the body of its owner)
 Pseudostate	Sequencer::AO Sequencer::<Region>::<Pseudostate>	_si	(written as the entry of the region)
 Transition	Sequencer::AO Sequencer::<Region>::<Transition>	_st
 State	Sequencer::AO Sequencer::<Region>::Idle	_idle	-> Idle
-Property	Sequencer::k	_k	-> Sequencer::k
+Property	Sequencer::k	_k	-> Model::Sequencer::k

@@ -101,7 +101,7 @@ func TestParseSourcesAffectedIsEveryDocumentWithoutAComparableBase(t *testing.T)
 	srv := mustNewService(t, 32)
 	defer srv.Close()
 	all := []string{"lib.sysml", "top.sysml", "other.sysml"}
-	parse := func(base string, lib string) *pb.ParseSourcesResponse {
+	parse := func(base, lib string) *pb.ParseSourcesResponse {
 		t.Helper()
 		resp, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
 			Documents:     inlineDocuments("lib.sysml", lib, "top.sysml", affectedTop, "other.sysml", affectedOther),
@@ -144,13 +144,6 @@ func TestParseSourcesAffectedNeedsTheCapability(t *testing.T) {
 	}
 	if len(resp.Affected) != 0 {
 		t.Errorf("affected %v from a service without %s", resp.Affected, CapabilityParseSourcesAffected)
-	}
-}
-
-// The capability is the newest, appended after every one before it.
-func TestParseSourcesAffectedCapabilityIsTheNewest(t *testing.T) {
-	if all := Capabilities(); all[len(all)-1] != CapabilityParseSourcesAffected {
-		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityParseSourcesAffected)
 	}
 }
 

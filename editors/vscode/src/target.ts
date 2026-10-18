@@ -69,7 +69,8 @@ export function resolveTarget(context: CommandContext, verb: string): Target {
 
 // fileLabel is the last path segment of a URI or path, for messages.
 function fileLabel(uri: string): string {
-  const path = uri.replace(/[?#].*$/, "");
+  const cut = uri.search(/[?#]/);
+  const path = cut < 0 ? uri : uri.slice(0, cut);
   const parts = path.split("/");
-  return decodeURIComponent(parts[parts.length - 1] || uri);
+  return decodeURIComponent(parts.at(-1) || uri);
 }

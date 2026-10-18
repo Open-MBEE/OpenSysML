@@ -471,7 +471,7 @@ func TestFormattingDiffIsCheaperThanFormatting(t *testing.T) {
 }
 
 func BenchmarkFormatEdits(b *testing.B) {
-	content, err := os.ReadFile("../repl/testdata/compile_calcs.sysml")
+	content, err := os.ReadFile("../../../tests/codegen/testdata/compile_calcs.sysml")
 	if err != nil {
 		b.Fatal(err)
 	}

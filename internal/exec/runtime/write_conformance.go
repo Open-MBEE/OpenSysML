@@ -94,7 +94,7 @@ func (ctx *Context) readOnlyRefusal(what func() string, name string, feature *sy
 	if ro.Kind == semantics.Writable {
 		return nil
 	}
-	return fmt.Errorf("%s: %w: %s", what(), ErrReadOnlyFeature, semantics.ReadOnlyViolation(name, feature, ro))
+	return fmt.Errorf("%s: %w: %s", what(), errReadOnlyFeature, semantics.ReadOnlyViolation(name, feature, ro))
 }
 
 // checkAssignable refuses an assignment whose target names a constant or derived
@@ -129,7 +129,7 @@ func (ctx *Context) checkMutable(scope *symbols.Scope, what func() string, name 
 	if !ok || target.readOnly.Kind == semantics.Writable {
 		return nil
 	}
-	return fmt.Errorf("%s: %w: %s", what(), ErrReadOnlyFeature,
+	return fmt.Errorf("%s: %w: %s", what(), errReadOnlyFeature,
 		semantics.ReadOnlyViolation(name, target.feature, target.readOnly))
 }
 
@@ -268,11 +268,11 @@ func (ctx *Context) holdAsReal(value *Value, declared *symbols.Symbol) error {
 		if value.Const.Kind != semantics.ValRational || ctx.model.semantics.PrimTypeOf(declared) != semantics.PrimReal {
 			return nil
 		}
-		real, err := semantics.RealOf(value.Const)
+		realValue, err := semantics.RealOf(value.Const)
 		if err != nil {
 			return fmt.Errorf("%s as a Real: %w", FormatValue(*value), err)
 		}
-		*value = Value{Kind: ValConst, Const: real}
+		*value = Value{Kind: ValConst, Const: realValue}
 	case ValSequence, ValSet:
 		elements := elementsOf(*value)
 		var held []Value
@@ -397,7 +397,7 @@ func (ctx *Context) elementRefusal(scope *symbols.Scope, declared *symbols.Symbo
 	}
 	if refusal == "" {
 		refusal = fmt.Sprintf("cannot write %s (%s) to a feature typed by %s",
-			FormatValue(*element), describeValue(*element), symbolText(declared))
+			FormatValue(*element), DescribeValue(*element), SymbolText(declared))
 	}
 	return refusal, true
 }
@@ -419,7 +419,7 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 			return true, "", nil
 		}
 		return false, fmt.Sprintf("cannot write %s to a feature typed by %s",
-			ctx.describeOpenOperand(*value), symbolText(declared)), nil
+			ctx.describeOpenOperand(*value), SymbolText(declared)), nil
 	case ValQuantity:
 		return ctx.quantityConforms(*value, declared)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
@@ -436,7 +436,7 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 		// value of a narrower type, it is classified by that type too (see classify.go).
 		inst, ok := ctx.instances[id]
 		if !ok || inst == nil || inst.Type == nil {
-			return false, "", fmt.Errorf("%w: instance %d", ErrUndeterminedValueType, id)
+			return false, "", fmt.Errorf("%w: instance %d", errUndeterminedValueType, id)
 		}
 		if how == admitDeclared {
 			return ctx.canClassify(inst, declared), "", nil
@@ -483,7 +483,7 @@ func (ctx *Context) structuredConforms(scope *symbols.Scope, value Value, declar
 		}
 		if scalar := ctx.librarySymbol(scalarValueTypeFQN); scalar != nil && ctx.modelConforms(declared, scalar) {
 			return false, fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it is a %s, which holds one scalar",
-				FormatValue(value), describeValue(value), symbolText(declared), symbolText(scalar)), nil
+				FormatValue(value), DescribeValue(value), SymbolText(declared), SymbolText(scalar)), nil
 		}
 		if refusal := ctx.shapeRefusal(value, declared); refusal != "" {
 			return false, refusal, nil
@@ -495,7 +495,7 @@ func (ctx *Context) structuredConforms(scope *symbols.Scope, value Value, declar
 	switch value.Kind {
 	case ValVectorQuantity:
 		vq := value.VectorQuantity()
-		for i := 0; i < vq.Dimension(); i++ {
+		for i := 0; i < vq.dimension(); i++ {
 			if ok, refusal, err := ctx.quantityConforms(NewQuantityValue(vq.component(i)), declared); !ok || err != nil {
 				return ok, refusal, err
 			}
@@ -518,7 +518,7 @@ func (ctx *Context) shapeRefusal(value Value, declared *symbols.Symbol) string {
 	size, _ := flattenedSize(dims)
 	refuse := func(declares string) string {
 		return fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it declares %s",
-			FormatValue(value), describeValue(value), symbolText(declared), declares)
+			FormatValue(value), DescribeValue(value), SymbolText(declared), declares)
 	}
 	for _, member := range ctx.model.semantics.MembersOfIncludingRedefined(declared) {
 		if !semantics.IsShapeFeature(member) {
@@ -601,10 +601,10 @@ func (ctx *Context) elementsConform(scope *symbols.Scope, value Value, declared 
 	refuse := func(feat EffectiveFeature, mult, got string) string {
 		declares := feat.Name
 		if feat.Type != nil {
-			declares += " : " + symbolText(feat.Type)
+			declares += " : " + SymbolText(feat.Type)
 		}
 		return fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it declares %s%s, got %s",
-			FormatValue(value), describeValue(value), symbolText(declared), declares, mult, got)
+			FormatValue(value), DescribeValue(value), SymbolText(declared), declares, mult, got)
 	}
 	for _, feat := range ctx.FeaturesOf(declared) {
 		if base, ok := ctx.arrayFeatureOf(feat.Symbol); !ok || base != arrayElementsFeature {
@@ -620,7 +620,7 @@ func (ctx *Context) elementsConform(scope *symbols.Scope, value Value, declared 
 			ok, refusal, err := ctx.valueConforms(scope, &elem, feat.Type, how)
 			if err != nil || !ok {
 				if refusal == "" {
-					refusal = refuse(feat, "", fmt.Sprintf("element %s (%s)", FormatValue(elem), describeValue(elem)))
+					refusal = refuse(feat, "", fmt.Sprintf("element %s (%s)", FormatValue(elem), DescribeValue(elem)))
 				}
 				return false, refusal, err
 			}
@@ -637,7 +637,7 @@ func structuredDimensions(value Value) []int64 {
 	case ValVector:
 		return []int64{int64(value.Vector().Dimension())}
 	case ValVectorQuantity:
-		return []int64{int64(value.VectorQuantity().Dimension())}
+		return []int64{int64(value.VectorQuantity().dimension())}
 	case ValTensorQuantity:
 		return value.TensorQuantity().Dimensions
 	}
@@ -689,7 +689,7 @@ func (ctx *Context) quantityConforms(value Value, declared *symbols.Symbol) (boo
 		return true, "", nil
 	}
 	return false, fmt.Sprintf("cannot write %s (%s) to a feature typed by %s (%s)",
-		FormatValue(value), dimensionText(got), symbolText(declared), dimensionText(want)), nil
+		FormatValue(value), dimensionText(got), SymbolText(declared), dimensionText(want)), nil
 }
 
 // dimensionText names a dimension as a message about a mismatch reads it.

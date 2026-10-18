@@ -63,9 +63,9 @@ func TestMermaidSubgraphsRestateDirection(t *testing.T) {
 		options Options
 		flow    string
 	}{
-		{Options{}, "TD"},
-		{Options{Direction: DirectionLeftRight}, "LR"},
-		{Options{Direction: DirectionBottomTop}, "BT"},
+		{Options{Show: AllShown()}, "TD"},
+		{Options{Show: AllShown(), Direction: DirectionLeftRight}, "LR"},
+		{Options{Show: AllShown(), Direction: DirectionBottomTop}, "BT"},
 	} {
 		got := rendering.MermaidWith(tc.options)
 		if !strings.Contains(got, "flowchart "+tc.flow+"\n") {
@@ -84,11 +84,11 @@ func TestMermaidSubgraphsRestateDirection(t *testing.T) {
 		}
 	}
 	interconnection := &Rendering{Kind: KindInterconnection, Roots: rendering.Roots}
-	if got := interconnection.Mermaid(); !strings.Contains(got, "flowchart LR\n  subgraph n0 [\"`*«action def»* **Drive**`\"]\n    direction LR\n") {
+	if got := interconnection.MermaidWith(fullNotation); !strings.Contains(got, "flowchart LR\n  subgraph n0 [\"`*«action def»* **Drive**`\"]\n    direction LR\n") {
 		t.Errorf("interconnection subgraph does not restate LR:\n%s", got)
 	}
 	tree := &Rendering{Kind: KindTree, Roots: rendering.Roots}
-	if got := tree.Mermaid(); !strings.Contains(got, "flowchart TD\n") ||
+	if got := tree.MermaidWith(fullNotation); !strings.Contains(got, "flowchart TD\n") ||
 		strings.Contains(got, "subgraph ") || strings.Contains(got, "direction ") {
 		t.Errorf("tree containment uses subgraphs or nested directions:\n%s", got)
 	}

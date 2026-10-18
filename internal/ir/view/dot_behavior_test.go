@@ -17,7 +17,7 @@ import (
 func cameoBehaviorDOT(t *testing.T, view string) (*Rendering, string) {
 	t.Helper()
 	rendering := render(t, "cameo-behavior.sysml", view)
-	source, err := rendering.DOTWith(Options{Style: StyleCameo})
+	source, err := rendering.DOTWith(Options{Show: AllShown(), Style: StyleCameo})
 	if err != nil {
 		t.Fatalf("DOTWith: %v", err)
 	}
@@ -402,4 +402,40 @@ func TestDOTRoutedEdgesEndAtTheirRoutes(t *testing.T) {
 
 func distance(a, b Point) float64 {
 	return math.Hypot(a.X-b.X, a.Y-b.Y)
+}
+
+// A start or final node no Layout places in a positioned action view takes the
+// free end of its route — the first point of the route leaving the start, the
+// last of the one reaching the final — and, with no route, a place beside the
+// node it leads to or comes from; none is drawn over another node.
+func TestDOTCameoPseudoNodeEnds(t *testing.T) {
+	rendering := render(t, "pseudo-ends.sysml", "ImagingViews::acquireFlow")
+	source, err := rendering.DOTWith(Options{Show: AllShown(), Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOTWith: %v", err)
+	}
+	checkDOTSyntax(t, source)
+	checkGolden(t, "testdata/pseudo-ends.cameo.dot.golden", source)
+	for node, want := range map[string]string{
+		// The routed starts: above the first route point, so their bottom touches it.
+		`"n13"`: `pos="92,262.2!"`,
+		`"n8"`:  `pos="386,225.2!"`,
+		// The unrouted nested start and done: dotEndGap from the action's top and bottom.
+		`"n11"`: `pos="391,107.19999999999999!"`,
+		`"n12"`: `pos="391,19.80000000000001!"`,
+	} {
+		if line := dotLine(source, node); !strings.Contains(line, want) {
+			t.Errorf("%s is not placed at %s:\n%s", node, want, line)
+		}
+	}
+	// The unplaced start keeps its Style, and the notes about the unplaced start
+	// and done are anchored to them.
+	if line := dotLine(source, `"n11"`); !strings.Contains(line, `fillcolor="#C00000"`) {
+		t.Errorf("the styled start is not filled with its Style:\n%s", line)
+	}
+	for _, want := range []string{`"note:0" -> "n11"`, `"note:1" -> "n12"`} {
+		if !strings.Contains(source, want) {
+			t.Errorf("no note anchored as %s in:\n%s", want, source)
+		}
+	}
 }

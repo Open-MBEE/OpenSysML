@@ -9,7 +9,7 @@ import (
 )
 
 // stateActivity answers a chain ending in StateActivity::isActive from the
-// configuration of the machine holding the state (StateExecutor.Activity): one
+// configuration of the machine holding the state (StateExecutor.activity): one
 // the object the operand names its state on exhibits (`b.modes.ready`), else
 // the enclosing machine, else one the object read on exhibits.
 func (ec *EvalContext) stateActivity(n *ast.FeatureChainExpr, base ast.Node, parts []ast.NameSegment) (Value, bool, error) {
@@ -64,7 +64,7 @@ func (ec *EvalContext) exhibitedActivity(inst *Instance, operand ast.Node) (Valu
 // machine holds neither.
 func (ec *EvalContext) activityOf(machine *StateExecutor, operand ast.Node) (Value, bool) {
 	if state, ok := ec.activityState(machine, operand); ok {
-		return boolValue(machine.Activity(state)), true
+		return boolValue(machine.activity(state)), true
 	}
 	if usage, ok := ec.ctx.resolveTarget(ec.scope, operand); ok && machine.performs(usage) {
 		return boolValue(!machine.State().Ended() && len(machine.ActiveStates()) > 0), true

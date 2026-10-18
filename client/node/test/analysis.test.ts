@@ -1,6 +1,9 @@
 // Analysis cases and parameter sweeps against the real service.
 
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { before, test } from "node:test";
 import { InvalidRequestError, WrongKindError, connect } from "../src/node/index.js";
 import { useServiceBinary } from "./support/service.js";
@@ -175,4 +178,31 @@ test("a range of the wrong arity is refused before it is sent", async () => {
   await using connection = await connect();
   const model = await connection.loads(SWEEP);
   await assert.rejects(() => model.runSweep("Sw::Twice", { n: [1n] as never }), InvalidRequestError);
+});
+
+test("a tool dry run previews the tool call instead of running it", async () => {
+  const demo = join(import.meta.dirname, "..", "..", "..", "..", "examples", "external-tool-demo");
+  // The manifest directory must be the test's own: the registry refuses one writable by others.
+  const tools = mkdtempSync(join(tmpdir(), "opensysml-tools-"));
+  for (const name of ["thermal.json", "thermal.py"]) {
+    writeFileSync(join(tools, name), readFileSync(join(demo, "tools", name)), { mode: 0o644 });
+  }
+  const previous = process.env["OPENSYSML_TOOLS"];
+  process.env["OPENSYSML_TOOLS"] = tools;
+  try {
+    await using connection = await connect();
+    const model = await connection.loads(readFileSync(join(demo, "thermal.sysml"), "utf8"));
+    const result = await model.runAnalysis("ThermalDemo::heating", { toolDryRun: true });
+    assert.equal(result.outputs.size, 0);
+    assert.ok(result.toolDryRun, "the result carries the tool preview");
+    assert.equal(result.toolDryRun.tool, "ThermalSolver");
+    assert.equal(result.toolDryRun.version, "1.0");
+    assert.ok(result.toolDryRun.action.includes("Solve"));
+    assert.ok(result.toolDryRun.args.join(" ").includes("--mass 12.5"), result.toolDryRun.args.join(" "));
+    assert.ok(result.toolDryRun.lines.length > 0);
+  } finally {
+    if (previous === undefined) delete process.env["OPENSYSML_TOOLS"];
+    else process.env["OPENSYSML_TOOLS"] = previous;
+    rmSync(tools, { recursive: true, force: true });
+  }
 });

@@ -3,19 +3,24 @@
 	"libraries": true,
 	"outcomes": [
 		{
-			"finalState": "done",
-			"stateVisits": ["init", "active", "done"],
-			"outputs": {
-				"y": {"type": "Integer", "value": 30},
-				"seen": {"type": "Integer", "value": 30}
-			}
+			"error": "eval assignment RHS: type mismatch: operator '+' is not defined for a sequence and an Integer"
 		},
 		{
 			"finalState": "done",
-			"stateVisits": ["init", "active", "done"],
+			"stateVisits": [
+				"init",
+				"active",
+				"done"
+			],
 			"outputs": {
-				"y": {"type": "Integer", "value": 31},
-				"seen": {"type": "Integer", "value": 31}
+				"y": {
+					"type": "Integer",
+					"value": 31
+				},
+				"seen": {
+					"type": "Integer",
+					"value": 31
+				}
 			}
 		}
 	],

@@ -12,15 +12,15 @@ n1: "«part def»\nChassis" { class: definition }
 n2: "«part def»\nLightChassis" { class: definition }
 n3: "«part def»\nDriver" { class: definition }
 n4: "«action def»\nBrake" { class: definition }
-n5: "«part»\nvehicle : Vehicle" { class: usage }
-n6: "«part»\nheavyVehicle : Vehicle" { class: usage }
-n7: "«action»\nbrake : Brake" { class: usage }
-n8: "«attribute»\nmass : Real" { class: usage }
-n9: "«part»\nchassis : Chassis" { class: usage }
-n10: "«part»\ndriver : Driver" { class: usage }
-n11: "«attribute»\nmass" { class: usage }
-n12: "«attribute»\nmass" { class: usage }
-n13: "«part def»\nPowertrain::Engine" { class: definition }
+n5: "«part»\nvehicle" { class: usage }
+n6: "«part»\nheavyVehicle" { class: usage }
+n7: "«action»\nbrake" { class: usage }
+n8: "«attribute»\nVehicle::mass" { class: usage }
+n9: "«part»\nchassis" { class: usage }
+n10: "«part»\ndriver" { class: usage }
+n11: "«attribute»\nvehicle::mass" { class: usage }
+n12: "«attribute»\nheavyVehicle::mass" { class: usage }
+n13: "«part def»\nEngine" { class: definition }
 n2 -> n1: { class: specialization }
 n5 -> n0: { class: typing }
 n6 -> n0: { class: typing }

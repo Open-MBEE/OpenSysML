@@ -71,22 +71,22 @@ func checkPortDrawnOnce(t *testing.T, label, form, portLiteral string) {
 func TestExposedNestedFeaturesAreNoSecondRoots(t *testing.T) {
 	rendering := render(t, "interconnection-exposed.sysml", "FixtureViews::dupIBD")
 	checkSingleDraw(t, rendering)
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkPortDrawnOnce(t, "DOT", dot, `xlabel="pa : P"`)
 	checkPortDrawnOnce(t, "DOT", dot, `xlabel="pb : P"`)
-	cameo, err := rendering.DOTWith(Options{Style: StyleCameo})
+	cameo, err := rendering.DOTWith(Options{Show: AllShown(), Style: StyleCameo})
 	if err != nil {
 		t.Fatalf("DOTWith: %v", err)
 	}
 	checkPortDrawnOnce(t, "cameo DOT", cameo, `xlabel="pa : P"`)
 	checkPortDrawnOnce(t, "cameo DOT", cameo, `xlabel="pb : P"`)
-	mermaid := rendering.Mermaid()
+	mermaid := rendering.MermaidWith(fullNotation)
 	checkPortDrawnOnce(t, "Mermaid", mermaid, "pa : P")
 	checkPortDrawnOnce(t, "Mermaid", mermaid, "pb : P")
-	plantuml, err := rendering.PlantUML()
+	plantuml, err := rendering.PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
@@ -94,15 +94,17 @@ func TestExposedNestedFeaturesAreNoSecondRoots(t *testing.T) {
 	checkPortDrawnOnce(t, "PlantUML", plantuml, "**pb : P**")
 }
 
-// The one node a nested feature is drawn as keeps the geometry its Layout
-// states, positioned where a second root would have carried it.
+// The one node a nested feature is drawn as keeps the place its Layout states,
+// positioned where a second root would have carried it: a port's Layout puts its
+// square on the border of its owner's stated box, level with the Layout's centre,
+// and centred on the Layout when the owner has no stated box.
 func TestExposedNestedFeaturesKeepTheirLayout(t *testing.T) {
 	rendering := render(t, "interconnection-exposed.sysml", "FixtureViews::dupIBD")
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	for _, want := range []string{`xlabel="pa : P", pos="170,-90!"`, `xlabel="pb : P", pos="230,-90!"`} {
+	for _, want := range []string{`xlabel="pa : P", pos="176,-90!"`, `xlabel="pb : P", pos="230,-90!"`} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
 		}
@@ -198,7 +200,7 @@ func TestExposedPackageDoesNotSuppressTheFeatureItHolds(t *testing.T) {
 func TestExposeOrderDoesNotDuplicateNestedFeatures(t *testing.T) {
 	rendering := render(t, "interconnection-exposed.sysml", "FixtureViews::orderedIBD")
 	checkSingleDraw(t, rendering)
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}

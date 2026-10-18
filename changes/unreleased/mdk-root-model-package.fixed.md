@@ -1,0 +1,1 @@
+- The MDK plugin names a migrated project's elements below the package the migration writes its root Model as, so Verify and the other operations find them again and their outcomes still annotate the Cameo elements.

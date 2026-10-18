@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Backing associations: a tool backs a value property's or constraint
+     parameter's type with an anonymous association whose other end it owns,
+     typed by the owner. Such an association is notation only and skipped; the
+     same shape backing a part property is a composition and stays a connection def. -->
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MD_Customization_for_SysML__additional_stereotypes="http://www.magicdraw.com/spec/Customization/180/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <uml:Model xmi:type="uml:Model" xmi:id="_model" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_optics" name="Optics">
+      <!-- A constraint block whose two parameters are each backed by an association. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_gain" name="Gain">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_gainIn" name="input" association="_gainInAssoc">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_gainOut" name="output" association="_gainOutAssoc">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+        </ownedAttribute>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_gainRule" constrainedElement="_gain">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="_gainSpec">
+            <body>output == 2 * input</body>
+            <language>SysML</language>
+          </specification>
+        </ownedRule>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_gainInAssoc" memberEnd="_gainIn _gainInEnd">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_gainInEnd" visibility="private" type="_gain" association="_gainInAssoc"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_gainOutAssoc" memberEnd="_gainOut _gainOutEnd">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_gainOutEnd" visibility="private" type="_gain" association="_gainOutAssoc"/>
+      </packagedElement>
+      <!-- A block whose value property is backed the same way, beside a
+           composition of the same shape to another block. -->
+      <packagedElement xmi:type="uml:DataType" xmi:id="_mass" name="Mass"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_sensor" name="Sensor">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_sensorMass" name="mass" type="_mass" association="_sensorMassAssoc"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_sensorAmp" name="amplifier" type="_amplifier" aggregation="composite" association="_sensorAmpAssoc"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_amplifier" name="Amplifier"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_sensorMassAssoc" memberEnd="_sensorMass _sensorMassEnd">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_sensorMassEnd" visibility="private" type="_sensor" association="_sensorMassAssoc"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_sensorAmpAssoc" memberEnd="_sensorAmp _sensorAmpEnd">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_sensorAmpEnd" visibility="private" type="_sensor" association="_sensorAmpAssoc"/>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+  <sysml:ConstraintBlock xmi:id="_a_gain" base_Class="_gain"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ConstraintParameter xmi:id="_a_gainIn" base_Port="_gainIn"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ConstraintParameter xmi:id="_a_gainOut" base_Port="_gainOut"/>
+  <sysml:ValueType xmi:id="_a_mass" base_DataType="_mass"/>
+  <sysml:Block xmi:id="_a_sensor" base_Class="_sensor"/>
+  <sysml:Block xmi:id="_a_amplifier" base_Class="_amplifier"/>
+  <!-- A block definition diagram showing both associations of Sensor. -->
+  <xmi:Extension extender="Example UML Tool 1.0">
+    <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_bdd" name="Sensors" ownerOfDiagram="_optics">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_sensor</usedElements>
+                  <usedElements>_mass</usedElements>
+                  <usedElements>_amplifier</usedElements>
+                  <usedElements>_sensorMassAssoc</usedElements>
+                  <usedElements>_sensorAmpAssoc</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-backing_associations"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+    </modelExtension>
+  </xmi:Extension>
+</xmi:XMI>

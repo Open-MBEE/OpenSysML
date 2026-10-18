@@ -30,7 +30,7 @@ func TestStdinIsRead(t *testing.T) {
 		model:  unresolvedModel,
 		args:   []string{"-validate", "-"},
 		status: exitUnevaluable,
-		stderr: []string{"<stdin>:1:28: error: unresolved reference: Undefined", "sysml: <stdin> did not analyse cleanly"},
+		stderr: []string{"<stdin>:1:28: error[unresolved]: unresolved reference: Undefined", "sysml: <stdin> did not analyse cleanly"},
 	}, {
 		name:   "a model read from standard input that analyses validates clean",
 		model:  checkModel,

@@ -11,6 +11,7 @@ package Budget {
 		attribute errorCBE : ScalarValues::Real;
 		// A user annotation is model content the tree shows.
 		metadata Approved about errorCBE { by = "review"; }
+		@MigrationMetadata::AppliedStereotype { stereotype = "Block"; tags = "isEncapsulated = true"; }
 		// Layout stated inline is about a picture, not the part.
 		@Layout { x = 21; y = 56; width = 328; height = 108; }
 		metadata Layout about errorReq { x = 24; y = 108; width = 322; height = 14; }

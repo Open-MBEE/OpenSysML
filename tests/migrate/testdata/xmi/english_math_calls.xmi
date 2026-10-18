@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="Signals">
+
+      <!-- An English constraint calling a trigonometric function by its bare name. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_sine" name="Sine Wave">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_sineOut" name="sine_wave">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_sineT" name="t">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_sineRule" constrainedElement="_sine">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="_sineSpec">
+            <body>sine_wave= sin(t)</body>
+            <language>English</language>
+          </specification>
+        </ownedRule>
+      </packagedElement>
+
+      <!-- Functions of the script table and of the extension library, in one body. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_decay" name="Damped Amplitude">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_decayOut" name="amplitude">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_decayX" name="x">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_decayY" name="y">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_decayT" name="t">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_decayRule" constrainedElement="_decay">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="_decaySpec">
+            <body>amplitude = sqrt(pow(x, 2) + pow(y, 2)) * exp(-abs(t)) and floor(t) &lt;= max(x, y)</body>
+            <language>English</language>
+          </specification>
+        </ownedRule>
+      </packagedElement>
+
+      <!-- A dotted call and a wrong number of arguments stay refused; a name of several words is no call. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_clamp" name="Clamp">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_clampOut" name="clamped">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_clampX" name="x">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_clampPhase" name="phase">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_clampDotted" name="dotted" constrainedElement="_clamp">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="_clampDottedSpec">
+            <body>clamped = Math.max(x, 0)</body>
+            <language>English</language>
+          </specification>
+        </ownedRule>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_clampArity" name="arity" constrainedElement="_clamp">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="_clampAritySpec">
+            <body>clamped = sin(x, phase)</body>
+            <language>English</language>
+          </specification>
+        </ownedRule>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_clampWords" name="words" constrainedElement="_clamp">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="_clampWordsSpec">
+            <body>clamped = sin phase</body>
+            <language>English</language>
+          </specification>
+        </ownedRule>
+      </packagedElement>
+
+    </packagedElement>
+  </uml:Model>
+  <sysml:ConstraintBlock xmi:id="_s1" base_Class="_sine"/>
+  <sysml:ConstraintBlock xmi:id="_s2" base_Class="_decay"/>
+  <sysml:ConstraintBlock xmi:id="_s3" base_Class="_clamp"/>
+</xmi:XMI>

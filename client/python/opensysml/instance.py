@@ -145,12 +145,14 @@ class Instance:
 
         raw_features = self.raw_features
         if raw_features:
-            html.append('<table style="border-collapse: collapse; width: 100%; margin-top: 10px;">')
-            html.append('<thead><tr style="background: #f0f0f0;">')
-            html.append('<th style="border: 1px solid #ccc; padding: 5px; text-align: left;">Feature</th>')
-            html.append('<th style="border: 1px solid #ccc; padding: 5px; text-align: left;">Value</th>')
-            html.append('<th style="border: 1px solid #ccc; padding: 5px; text-align: left;">Materialized</th>')
-            html.append('</tr></thead><tbody>')
+            html.extend([
+                '<table style="border-collapse: collapse; width: 100%; margin-top: 10px;">',
+                '<thead><tr style="background: #f0f0f0;">',
+                '<th style="border: 1px solid #ccc; padding: 5px; text-align: left;">Feature</th>',
+                '<th style="border: 1px solid #ccc; padding: 5px; text-align: left;">Value</th>',
+                '<th style="border: 1px solid #ccc; padding: 5px; text-align: left;">Materialized</th>',
+                '</tr></thead><tbody>',
+            ])
 
             for feature_name, pb_value in raw_features.items():
                 html.append('<tr>')
@@ -166,9 +168,11 @@ class Instance:
                 else:
                     value_str = '<em>None</em>'
 
-                html.append(f'<td style="border: 1px solid #ccc; padding: 5px;">{value_str}</td>')
-                html.append(f'<td style="border: 1px solid #ccc; padding: 5px;">{"✓" if pb_value.materialized else ""}</td>')
-                html.append('</tr>')
+                html.extend([
+                    f'<td style="border: 1px solid #ccc; padding: 5px;">{value_str}</td>',
+                    f'<td style="border: 1px solid #ccc; padding: 5px;">{"✓" if pb_value.materialized else ""}</td>',
+                    '</tr>',
+                ])
 
             html.append('</tbody></table>')
         else:

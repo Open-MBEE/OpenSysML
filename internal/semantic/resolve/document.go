@@ -1231,7 +1231,11 @@ func (r *Resolver) resolveRedefinition(scope *symbols.Scope, qn *ast.QualifiedNa
 		}
 	}
 
-	r.Leave()
+	// A semantic query asked before the owner's generals are all decided has
+	// seen too few of them to look elsewhere; the document walk resolves it.
+	if !r.Leave() && r.quiet > 0 {
+		return
+	}
 	if redefines {
 		// A redefinition target the generals lack is looked up from the enclosing
 		// namespace outward; the owning type's own scope is never consulted.
@@ -1802,7 +1806,7 @@ func (r *Resolver) walkMemberChain(scope *symbols.Scope, parentSym *symbols.Symb
 		if r.memberless(parentSym) {
 			msg = "no scope for member lookup in " + parentSym.Name
 		}
-		r.Diagnostics = append(r.Diagnostics, Diagnostic{Span: qn.Parts[0].Span, Message: msg})
+		r.Diagnostics = append(r.Diagnostics, Diagnostic{Span: qn.Parts[0].Span, Message: msg, Code: CodeUnresolved})
 		return nil, false
 	}
 	r.recordPart(qn, 0, cur)
@@ -1814,6 +1818,7 @@ func (r *Resolver) walkMemberChain(scope *symbols.Scope, parentSym *symbols.Symb
 			r.Diagnostics = append(r.Diagnostics, Diagnostic{
 				Span:    qn.Parts[i].Span,
 				Message: "no members in " + cur.Name,
+				Code:    CodeUnresolved,
 			})
 			return nil, false
 		}
@@ -1822,6 +1827,7 @@ func (r *Resolver) walkMemberChain(scope *symbols.Scope, parentSym *symbols.Symb
 			r.Diagnostics = append(r.Diagnostics, Diagnostic{
 				Span:    qn.Parts[i].Span,
 				Message: "unresolved member: " + qn.Parts[i].Text + " in " + cur.Name,
+				Code:    CodeUnresolved,
 			})
 			return nil, false
 		}

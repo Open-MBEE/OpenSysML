@@ -89,6 +89,11 @@ export class Exploration {
   readonly runs: number;
   /** The budgets the exploration ran into; empty when complete. */
   readonly budgetsHit: readonly string[];
+  /**
+   * The constructs whose unordered alternatives the runs took in one order
+   * without a choice point, by identifier; empty when complete.
+   */
+  readonly unenumerated: readonly string[];
   /** The most runs the exploration would make. */
   readonly runsBudget: number;
   /** The most choice points one run would resolve. */
@@ -104,6 +109,7 @@ export class Exploration {
     runsBudget: number;
     depthBudget: number;
     probabilitiesLowerBound?: boolean;
+    unenumerated?: readonly string[];
   }) {
     this.outcomes = init.outcomes;
     this.complete = init.complete;
@@ -112,6 +118,7 @@ export class Exploration {
     this.runsBudget = init.runsBudget;
     this.depthBudget = init.depthBudget;
     this.probabilitiesLowerBound = init.probabilitiesLowerBound ?? false;
+    this.unenumerated = init.unenumerated ?? [];
   }
 
   get length(): number {
@@ -127,10 +134,17 @@ export class Exploration {
     if (this.complete) {
       return `complete (${this.runs} runs)`;
     }
-    const named = this.budgetsHit
-      .map((budget) => `${budget} budget ${budget === "depth" ? this.depthBudget : this.runsBudget}`)
-      .join(" and ");
-    return `incomplete: ${named} hit after ${this.runs} runs; probabilities are lower bounds`;
+    let status = `incomplete after ${this.runs} runs`;
+    if (this.budgetsHit.length > 0) {
+      const named = this.budgetsHit
+        .map((budget) => `${budget} budget ${budget === "depth" ? this.depthBudget : this.runsBudget}`)
+        .join(" and ");
+      status = `incomplete: ${named} hit after ${this.runs} runs`;
+    }
+    if (this.unenumerated.length > 0) {
+      status += `; not enumerated: ${this.unenumerated.join(", ")}`;
+    }
+    return this.probabilitiesLowerBound ? `${status}; probabilities are lower bounds` : status;
   }
 
   /** Raise an {@link ExecutionError} unless every linearization was run. */

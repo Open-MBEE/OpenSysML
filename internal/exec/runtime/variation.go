@@ -12,7 +12,7 @@ import (
 // variantReference is the value a name resolving to a variant evaluates to: the
 // choice itself, which a variation is bound to and compared with.
 func variantReference(sym *symbols.Symbol) Value {
-	return NewVariantValue(sym, 0)
+	return newVariantValue(sym, 0)
 }
 
 // IsVariationFeature reports whether a feature is a variation point, whose feature value
@@ -61,7 +61,7 @@ func (ctx *Context) bindVariation(feat *EffectiveFeature, selection Value, owner
 	case ValVariant:
 	default:
 		if ctx.model.semantics.IsVariationFeature(feat.Symbol) {
-			return Value{}, fmt.Errorf("%w: variation %s is bound to a %s", ErrNotAVariant, name, selection.Kind)
+			return Value{}, fmt.Errorf("%w: variation %s is bound to a %s", errNotAVariant, name, selection.Kind)
 		}
 		return selection, nil
 	}
@@ -69,7 +69,7 @@ func (ctx *Context) bindVariation(feat *EffectiveFeature, selection Value, owner
 	variant := selection.Variant()
 	if !ctx.model.semantics.SelectsVariantOf(feat.Symbol, variant) {
 		return Value{}, fmt.Errorf("%w: %s is not a variant of %s (%s)",
-			ErrNotAVariant, variant.Name, name, ctx.variantSummary(feat.Symbol))
+			errNotAVariant, variant.Name, name, ctx.variantSummary(feat.Symbol))
 	}
 	ctx.selectVariant(variantSelection{owner: owner, variation: name}, variant.Name)
 	return ctx.variantValue(feat.Symbol, variant, owner)
@@ -114,7 +114,7 @@ func (ctx *Context) bindOneVariant(feat *EffectiveFeature, elements []Value, own
 	for _, el := range elements {
 		if el.Kind != ValVariant {
 			return Value{}, fmt.Errorf("%w: variation %s is bound to a collection holding a %s (%s)",
-				ErrNotAVariant, feat.Name, el.Kind, ctx.variantSummary(feat.Symbol))
+				errNotAVariant, feat.Name, el.Kind, ctx.variantSummary(feat.Symbol))
 		}
 		selected = append(selected, el)
 	}
@@ -125,12 +125,12 @@ func (ctx *Context) bindOneVariant(feat *EffectiveFeature, elements []Value, own
 			names = append(names, el.Variant().Name)
 		}
 		return Value{}, fmt.Errorf("%w: variation %s selects %d variants (%s)",
-			ErrMultipleVariants, feat.Name, len(selected), strings.Join(names, ", "))
+			errMultipleVariants, feat.Name, len(selected), strings.Join(names, ", "))
 	case len(selected) == 1:
 		return ctx.bindVariation(feat, selected[0], owner)
 	default:
 		return Value{}, fmt.Errorf("%w: variation %s is bound to a collection naming no variant (%s)",
-			ErrNotAVariant, feat.Name, ctx.variantSummary(feat.Symbol))
+			errNotAVariant, feat.Name, ctx.variantSummary(feat.Symbol))
 	}
 }
 
@@ -139,7 +139,7 @@ func (ctx *Context) bindOneVariant(feat *EffectiveFeature, elements []Value, own
 // the owner that selected it, materialized once for that owner.
 func (ctx *Context) variantValue(variation, variant *symbols.Symbol, owner int64) (Value, error) {
 	if value := semantics.VariantValue(variant); value != nil {
-		ec := NewEvalContext(ctx, DeclScope(variant))
+		ec := newEvalContext(ctx, DeclScope(variant))
 		val, err := ec.Eval(value)
 		if err != nil {
 			return Value{}, fmt.Errorf("variant %s: %w", variant.Name, err)
@@ -149,7 +149,7 @@ func (ctx *Context) variantValue(variation, variant *symbols.Symbol, owner int64
 	key := variantObject{owner: owner, variation: variation, variant: variant}
 	if id, ok := ctx.variantObjects[key]; ok {
 		if _, live := ctx.instances[id]; live {
-			return NewVariantValue(variant, id), nil
+			return newVariantValue(variant, id), nil
 		}
 	}
 	var inst *Instance
@@ -160,7 +160,7 @@ func (ctx *Context) variantValue(variation, variant *symbols.Symbol, owner int64
 	if err != nil {
 		return Value{}, fmt.Errorf("variant %s: %w", variant.Name, err)
 	}
-	return NewVariantValue(variant, inst.ID), nil
+	return newVariantValue(variant, inst.ID), nil
 }
 
 // variantInstance builds the object a selected variant stands for. A variant
@@ -181,7 +181,7 @@ func (ctx *Context) variantInstance(variant *symbols.Symbol, owner int64, keep f
 	ownerInst, ok := ctx.Instance(owner)
 	if !ok {
 		return fmt.Errorf("%w: %s connects features of the object selecting it, and no object selected it",
-			ErrConnectorEnd, variant.Name)
+			errConnectorEnd, variant.Name)
 	}
 	return ctx.materializeConnector(ownerInst, variant, ctx.variantConnectorBase(variant), keep)
 }

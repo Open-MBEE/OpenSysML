@@ -170,7 +170,7 @@ func TestCompletedCompositeWithoutCompletionTransitionStaysActive(t *testing.T) 
 	if exec.State() == StateCompleted {
 		t.Fatalf("the machine completed although busy has no completion transition")
 	}
-	if got := exec.FinalStateName(); got != "done+done" {
+	if got := exec.finalStateName(); got != "done+done" {
 		t.Fatalf("active configuration = %q, want busy completed at done+done", got)
 	}
 
@@ -213,7 +213,7 @@ func TestCompositeCompletesOnceItsDoBehaviorAndItsBodyHaveBothEnded(t *testing.T
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run: %v", err)
 		}
-		if got := exec.FinalStateName(); got != "done" {
+		if got := exec.finalStateName(); got != "done" {
 			t.Fatalf("configuration = %q after go, want s1 at done with its do behavior running", got)
 		}
 		exec.SendSignal("Finish", nil)
@@ -232,7 +232,7 @@ func TestCompositeCompletesOnceItsDoBehaviorAndItsBodyHaveBothEnded(t *testing.T
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run: %v", err)
 		}
-		if got := exec.FinalStateName(); got != "wait" {
+		if got := exec.finalStateName(); got != "wait" {
 			t.Fatalf("configuration = %q after finish, want s1 still at wait", got)
 		}
 		exec.SendSignal("go", nil)

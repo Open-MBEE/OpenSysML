@@ -16,7 +16,7 @@ enter action node: state behavior ops
     eval operator + -> 11
   stmt assign doneA
     eval literal true -> true
-choice step 1: tokens 1@a, 2@b (unordered; took 2@b first)
+choice step 1: tokens 1@a, 2@b (unordered; took 2@b first; order-dependent: total)
 do: active
 enter action node: c
 do: active

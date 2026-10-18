@@ -206,13 +206,19 @@ func (e *Encoding) collectFeatures() error {
 		if scope == nil {
 			scope = graph.Scope
 		}
+		// A hidden inherited feature is keyed by its ShadowedKey; the declaring
+		// scope spells it by name.
+		written := attr.Name
+		if attr.Shadowed && attr.Symbol != nil {
+			written = attr.Symbol.Name
+		}
 		free, released := e.frees(attr)
 		if free {
-			if _, err := e.translator.Variable(attr.Name, scope, "attribute "+attr.Name); err != nil {
+			if _, err := e.translator.Variable(written, scope, "attribute "+attr.Name); err != nil {
 				return noDomain(attr, err)
 			}
 		}
-		v, err := e.variable(attr.Name, scope, "attribute "+attr.Name, nodeLabel(graph.Initial))
+		v, err := e.variable(written, scope, "attribute "+attr.Name, nodeLabel(graph.Initial))
 		if err != nil {
 			return err
 		}
@@ -266,7 +272,7 @@ func (e *Encoding) collectFeatures() error {
 			if edge.Guard == nil {
 				continue
 			}
-			if _, err := e.boolean(edge.Guard, frame.Scope, "guard of "+edgeLabel(e.Flow, i), label); err != nil {
+			if _, err := e.boolean(edge.Guard, frame.DeclScope(edge.Decl), "guard of "+edgeLabel(e.Flow, i), label); err != nil {
 				return err
 			}
 		}

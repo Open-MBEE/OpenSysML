@@ -1,5 +1,5 @@
 stmt assign r
-choice result of calc test::Ord under the statement orders of its body: next 12, 30 (unordered; took 30 first)
+choice result of calc test::Ord under the statement orders of its body: next 12, 30 (unordered; took 30 first; order-dependent)
     enter calc test::Ord
       stmt declare y
         eval literal 1 -> 1

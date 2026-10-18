@@ -8,7 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
-const vizUsage = "usage: %viz [--view=<VIEW>|--view <VIEW>] [--style=<STYLE>...] [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] <name> [<name>...]"
+const vizUsage = "usage: %viz [--view=<VIEW>|--view <VIEW>] [--style=<STYLE>...] [text|mermaid|markdown|dot|plantuml|d2|csv|tsv] [show=<elements>] <name> [<name>...]"
 
 // vizDefaultView is the view that chooses the rendering kind from what the names
 // resolve to; it is the view when --view is absent.
@@ -49,10 +49,28 @@ func vizStyles() []string {
 		out = append(out, string(ports))
 	}
 	out = append(out, vizPilotDefaultStyle, vizPlantUMLCodeStyle)
+	out = append(out, vizLinesStyleNames()...)
 	for _, style := range view.PilotStyles() {
 		out = append(out, string(style))
 	}
 	return out
+}
+
+// vizLinesStyles are the pilot's line styles, each the Lines routing the DOT
+// and PlantUML forms draw it as.
+var vizLinesStyles = map[string]view.Lines{
+	"ORTHOLINE": view.LinesOrtho,
+	"POLYLINE":  view.LinesPolyline,
+}
+
+// vizLinesStyleNames lists the pilot's line styles in alphabetical order.
+func vizLinesStyleNames() []string {
+	names := make([]string, 0, len(vizLinesStyles))
+	for name := range vizLinesStyles {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 const (
@@ -77,7 +95,7 @@ type vizRequest struct {
 }
 
 // parseVizArgs reads %viz's arguments; usage is what to print instead when they
-// do not read. Options and the form are read wherever they stand; an unquoted
+// do not read. Options, show= and the form are read wherever they stand; an unquoted
 // word spelling a form is the form, so an element so named is written with its
 // quotes.
 func parseVizArgs(args []string) (vizRequest, []string) {
@@ -122,6 +140,12 @@ func parseVizArgs(args []string) (vizRequest, []string) {
 			}
 		case strings.HasPrefix(word, "-") && len(word) > 1:
 			return req, vizUsageOf(fmt.Sprintf("unknown option %q; the options are --view and --style", word))
+		case strings.HasPrefix(word, "show="):
+			shown, err := view.ParseShown(strings.TrimPrefix(word, "show="))
+			if err != nil {
+				return req, vizUsageOf(fmt.Sprintf("show= names the optional notation elements to draw, %s; %s", view.ElementNames(), err))
+			}
+			req.opts.Show = req.opts.Show.Union(shown)
 		case slices.Contains(view.Forms(), view.Form(word)):
 			if req.form != "" && req.form != view.Form(word) {
 				if req.formStyle != "" {
@@ -183,6 +207,13 @@ func (req *vizRequest) applyStyle(name string) []string {
 		req.form, req.formStyle = view.FormPlantUML, name
 		return nil
 	}
+	if lines, ok := vizLinesStyles[strings.ToUpper(name)]; ok {
+		if req.opts.Lines != "" && req.opts.Lines != lines {
+			return vizUsageOf(fmt.Sprintf("style %s asks for %s lines, but %s lines were asked for", strings.ToUpper(name), lines, req.opts.Lines))
+		}
+		req.opts.Lines = lines
+		return nil
+	}
 	if style, ok := view.ParsePilotStyle(name); ok {
 		if !slices.Contains(req.notes, style.Notice()) {
 			req.notes = append(req.notes, style.Notice())
@@ -228,7 +259,7 @@ func (s *Session) viz(req vizRequest, fallback ...view.Form) ([]Rendered, error)
 	if len(fallback) == 0 {
 		fallback = []view.Form{view.FormText}
 	}
-	rendering, err := s.renderExposed(req.kind, req.names, "")
+	rendering, err := s.renderExposed(req.kind, req.names, "", 0)
 	if err != nil {
 		return nil, err
 	}

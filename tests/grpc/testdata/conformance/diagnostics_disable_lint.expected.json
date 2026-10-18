@@ -1,0 +1,9 @@
+{
+  "rpc": "GetDiagnostics",
+  "disable_lint": [
+    "undeclared-signal"
+  ],
+  "absent_codes": [
+    "undeclared-signal"
+  ]
+}

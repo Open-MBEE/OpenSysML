@@ -169,7 +169,7 @@ which moves as the clock's `runDue` draws it (`ChoiceDueOrder`): the executor dr
 turn until it has no move left at the instant, then the order is drawn again.
 
 A do step moves one token of the body's flow, and after each move the machine may dispatch or
-move the flow again, a recorded choice (`ChoiceStepOrder`); the fixed policies instead advance
+move the flow again, a recorded choice (`choiceStepOrder`); the fixed policies instead advance
 every steppable token of the flow once a round and dispatch between rounds. That run — the whole
 round, then the dispatch — is one path of the checker's enumeration, so for a machine with a
 looping `do` the checker's outcomes are a superset of the fixed policies'
@@ -203,7 +203,7 @@ At each state the checker enumerates the **enabled moves**:
   executor reports as a `ChoiceDecisionBranch` today, taking the first in declaration order
   under `reverse` and `declared` and a seeded draw under `seed:<n>`.
 - **State machine**: with one event at the head of the queue there is one move. Several events
-  the library leaves unordered at one instant are one move each (`ChoiceDispatchOrder`, drawn in
+  the library leaves unordered at one instant are one move each (`choiceDispatchOrder`, drawn in
   `processNextEvent`): time-trigger events with each other and with the earliest pool event of
   the same timestamp, so a state that reacts differently to `A` then `B` than to `B` then `A` is
   found. Two orders are library-derived and never drawn: completion events keep their precedence
@@ -263,7 +263,7 @@ A run is a **violation** when, in any reached state:
    performance is never a false violation.
 2. A **deadlock**: no enabled move and the behavior is not complete (`ErrActionDeadlock`,
    `ErrAcceptDeadlock` as the executor reports them, but now for every schedule, not one).
-3. A **typed runtime error** a body raises (`ErrBindingConflict`, an unbound feature, a
+3. A **typed runtime error** a body raises (`errBindingConflict`, an unbound feature, a
    budget exhaustion is *not* one — see bounds).
 
 A run is **divergent** when two complete executions end with different values of a feature the
@@ -368,7 +368,7 @@ exploration run only — the ordinary executor path is untouched.
 Reduction alone re-explores a state reached by two inequivalent paths. The checker keeps a
 **visited set** keyed by a canonical hash of the state: token multiset sorted by (node identity,
 frame path), frames in root-first order with values rendered through the same canonical
-formatter the trace recorder uses (`RecordActionStep` sorts by id for the same reason), objects
+formatter the trace recorder uses (`recordActionStep` sorts by id for the same reason), objects
 by materialization path rather than by `Instance.ID`, the event queue in dispatch order. Ids
 handed out by `idSequence` and `nextTokenID` are excluded: two states that differ only in the
 numbers the run happened to assign are one state. The set also remembers the shallowest
@@ -515,7 +515,7 @@ Written before the code, as the behavioral four-layer contract asks:
    hang and never claim exhaustiveness. A timeout test uses a short `-check-timeout`.
 7. **Witness replay.** Every witness the checker writes for the corpus replays to the state it
    claims, through the replay scheduler, and the replayed trace equals the witness.
-8. **Robustness.** The failure modes in `robustness_test.go` (deadlocks, unbound parameters,
+8. **Robustness.** The failure modes in the `robustness_<feature>_test.go` suites (deadlocks, unbound parameters,
    dangling successions) are reported by the checker as violations with a witness, not as
    exploration errors. An `accept` whose matching message needs a `via` port that does not
    resolve is reported as that routing error, on the schedule that reaches it, not as a
@@ -595,7 +595,7 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    token's node, a dispatch, a do step. The moves of "The choice points" for state machines are
    drawn through the same `check` policy: `ChoiceTransition` and the choice pseudostate's
    branches, `ChoiceRegionOrder` over the selected reactions and the do round,
-   `ChoiceDispatchOrder` (new in `choice.go`, drawn in `processNextEvent`) among the events the
+   `choiceDispatchOrder` (new in `choice.go`, drawn in `processNextEvent`) among the events the
    library leaves unordered at one instant, and `ChoiceDueOrder` among the executors due, as the
    clock's `runDue` draws it — the one drawn holding the turn until it has no move at the
    instant. The canonical form spells every executor on the clock in invocation order — an

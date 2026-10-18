@@ -89,16 +89,16 @@ classes: {
 }
 n0: "«part»\nimagingChain" {
   class: usage
-  n1: "«part»\ncamera : Camera" {
+  n1: "«part»\ncamera" {
     class: usage
     "n1.0": "output" { class: pin }
   }
-  n2: "«part»\nrecorder : Recorder" {
+  n2: "«part»\nrecorder" {
     class: usage
     "n2.0": "input" { class: pin }
   }
 }
-n0.n1."n1.0" -- n0.n2."n2.0": "link" { class: connection }
+n0.n1."n1.0" -- n0.n2."n2.0": { class: connection }
 ```
 
 *Observatory states, left to right*
@@ -111,7 +111,7 @@ classes: {
   initial: { shape: oval; width: 18; height: 18; style: { fill: black; stroke: black } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
-n0: "«state»\noperatingStates : ObservatoryStates" {
+n0: "«state»\noperatingStates" {
   class: usage
   n3: "" { class: initial }
   n1: "«state»\nidle\ninitial" { class: usage }

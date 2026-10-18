@@ -1,4 +1,4 @@
-.PHONY: all build extension-libraries-check extension-libraries-sync build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -76,7 +76,7 @@ COVERAGE_PROFILE ?= coverage.txt
 COVERAGE_SHARDS := runtime model export rest migrate
 
 # The commands whose manual pages are generated and shipped, in section 1.
-COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel
+COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
 # sysml-engine, sysml-syntax, sysml-core and sysml-wasm serve JSON RPC surfaces
 # without protobuf. Natively they are built only on request and stay out of
 # `build`, `install`, the release and the manual pages.
@@ -96,23 +96,24 @@ INSTALL ?= install
 
 all: build test python-test ## Build and test everything
 
-build: build-sysml build-lsp build-grpc build-jupyter-kernel ## Build all binaries
+build: build-sysml build-lsp build-grpc build-jupyter-kernel build-mcp ## Build all binaries
 
-build-sysml: ## Build sysml binary
-	@echo "Building sysml..."
+build-sysml: ## Build bin/sysml, the DK build with every feature group
+	@echo "Building sysml (DK)..."
 	@mkdir -p $(BIN_DIR)
 	$(call winres,sysml)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml ./cmd/sysml
 	@echo "✓ Built $(BIN_DIR)/sysml ($(VERSION))"
 
-# The production sysml leaves out the optional and developer-only feature groups
-# (sysml_prod; see cmd/sysml/features.go). Opt-in: nothing builds it by default.
-build-prod: ## Build bin/sysml-prod, sysml without the optional features (-tags sysml_prod)
-	@echo "Building sysml-prod..."
-	@mkdir -p $(BIN_DIR)
+# The RE (Runtime Environment) sysml leaves out the optional and developer-only
+# feature groups (sysml_re; see cmd/sysml/features.go); the DK (Development Kit)
+# build is the default one. Opt-in: nothing builds the RE by default.
+build-re: ## Build bin/re/sysml, the RE build without the optional features (-tags sysml_re)
+	@echo "Building sysml (RE)..."
+	@mkdir -p $(BIN_DIR)/re
 	$(call winres,sysml)
-	$(GO_BUILD) -tags sysml_prod -o $(BIN_DIR)/sysml-prod ./cmd/sysml
-	@echo "✓ Built $(BIN_DIR)/sysml-prod ($(VERSION))"
+	$(GO_BUILD) -tags sysml_re -o $(BIN_DIR)/re/sysml ./cmd/sysml
+	@echo "✓ Built $(BIN_DIR)/re/sysml ($(VERSION))"
 
 build-lsp: ## Build sysml-lsp binary
 	@echo "Building sysml-lsp..."
@@ -135,6 +136,13 @@ build-jupyter-kernel: ## Build sysml-jupyter-kernel binary
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-jupyter-kernel ./cmd/sysml-jupyter-kernel
 	@echo "✓ Built $(BIN_DIR)/sysml-jupyter-kernel ($(VERSION))"
 
+build-mcp: ## Build sysml-mcp binary
+	@echo "Building sysml-mcp..."
+	@mkdir -p $(BIN_DIR)
+	$(call winres,sysml-mcp)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-mcp ./cmd/sysml-mcp
+	@echo "✓ Built $(BIN_DIR)/sysml-mcp ($(VERSION))"
+
 # The JSON commands, natively: each serves its JSON-RPC over stdio. Opt-in:
 # nothing builds, installs or releases them.
 build-engine: ## Build bin/sysml-engine natively (opt-in; not released)
@@ -155,12 +163,14 @@ build-sysml-wasm: ## Build bin/sysml-wasm natively (opt-in; not released)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-wasm ./cmd/sysml-wasm
 	@echo "✓ Built $(BIN_DIR)/sysml-wasm ($(VERSION))"
 
-build-release-wasm: ## Build release bin/wasm/release/sysml-wasm.wasm and wasm_exec.js
+build-release-wasm: ## Build release bin/wasm/release/{sysml-wasm.wasm,sysml-prod.wasm.gz,wasm_exec.js}
 	@echo "Building release WebAssembly assets..."
 	@mkdir -p $(WASM_DIR)/release
 	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -o $(WASM_DIR)/release/sysml-wasm.wasm ./cmd/sysml-wasm
+	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -tags sysml_prod -o $(WASM_DIR)/release/sysml-prod.wasm ./cmd/sysml
+	gzip -9nf $(WASM_DIR)/release/sysml-prod.wasm
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/release/wasm_exec.js
-	@echo "✓ Built $(WASM_DIR)/release/sysml-wasm.wasm and wasm_exec.js ($(VERSION))"
+	@echo "✓ Built $(WASM_DIR)/release/sysml-wasm.wasm, sysml-prod.wasm.gz and wasm_exec.js ($(VERSION))"
 
 build-syntax: ## Build bin/sysml-syntax natively (opt-in; not released)
 	@echo "Building sysml-syntax..."
@@ -191,13 +201,13 @@ build-wasm-js: ## Build bin/wasm/js/*.wasm plus the wasm_exec.js that runs them
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/js/wasm_exec.js
 	@echo "✓ Built $(WASM_DIR)/js ($(VERSION))"
 
-build-wasm-prod: ## Build bin/wasm/{js,wasip1}/sysml-prod.wasm with -tags sysml_prod
-	@echo "Building WebAssembly sysml-prod..."
-	@mkdir -p $(WASM_DIR)/js $(WASM_DIR)/wasip1
-	GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -tags sysml_prod -o $(WASM_DIR)/wasip1/sysml-prod.wasm ./cmd/sysml
-	GOOS=js GOARCH=wasm $(GO_BUILD) -tags sysml_prod -o $(WASM_DIR)/js/sysml-prod.wasm ./cmd/sysml
+build-wasm-re: ## Build bin/wasm/{js,wasip1}/re/sysml.wasm, the RE build, with -tags sysml_re
+	@echo "Building WebAssembly sysml (RE)..."
+	@mkdir -p $(WASM_DIR)/js/re $(WASM_DIR)/wasip1/re
+	GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -tags sysml_re -o $(WASM_DIR)/wasip1/re/sysml.wasm ./cmd/sysml
+	GOOS=js GOARCH=wasm $(GO_BUILD) -tags sysml_re -o $(WASM_DIR)/js/re/sysml.wasm ./cmd/sysml
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/js/wasm_exec.js
-	@echo "✓ Built $(WASM_DIR)/{js,wasip1}/sysml-prod.wasm ($(VERSION))"
+	@echo "✓ Built $(WASM_DIR)/{js,wasip1}/re/sysml.wasm ($(VERSION))"
 
 wasm-check: ## Run the WebAssembly build-and-run gate (needs Node; fails rather than skipping)
 	OPENSYSML_REQUIRE_WASM=1 go test -count=1 -v ./tests/wasm
@@ -219,7 +229,7 @@ man: ## Regenerate the shipped manual pages from each command's description
 
 man-check: ## Verify the shipped pages are current and formatter-clean
 	@echo "Checking the manual pages..."
-	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc ./cmd/sysml-jupyter-kernel
+	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc ./cmd/sysml-jupyter-kernel ./cmd/sysml-mcp
 	@# mandoc is the strictest reader; groff is the one always at hand.
 	@if command -v mandoc >/dev/null 2>&1; then \
 		mandoc -T lint -W warning $(MAN_PAGES) || exit 1; \
@@ -298,6 +308,14 @@ test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|
 	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
 	esac
 	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./...; fi
+
+test-quick: ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export" | "rest migrate")
+	@echo "Running Go tests without race detection, shards $(SHARDS)..."
+	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race, no coverage.
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime model export rest migrate"; exit 1; }
+	pkgs=$$(for shard in $(SHARDS); do scripts/race-shard.sh $$shard || exit 1; done) && \
+	go test -skip '$(RACE_SHARD_SKIP)' -v -timeout 45m $$pkgs
+	case " $(SHARDS) " in *" rest "*) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -timeout 45m ./... ;; esac
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
@@ -392,7 +410,7 @@ clean: ## Remove build artifacts
 	rm -rf $(BIN_DIR)
 	rm -f coverage.txt coverage-python.xml coverage-scripts.xml .coverage-scripts coverage-node.lcov
 	rm -rf $(GO_COUNTER_DIR)
-	rm -f sysml sysml-lsp sysml-grpc sysml-jupyter-kernel
+	rm -f sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
 	rm -f cmd/*/rsrc_windows_*.syso
 	rm -rf $(SITE_DIR)
 	@# Only the default destination; an overridden SELF_MODEL_OUT is the caller's.
@@ -405,6 +423,7 @@ install: build ## Install binaries to $GOPATH/bin
 	$(GO_INSTALL) ./cmd/sysml-lsp
 	$(GO_INSTALL) ./cmd/sysml-grpc
 	$(GO_INSTALL) ./cmd/sysml-jupyter-kernel
+	$(GO_INSTALL) ./cmd/sysml-mcp
 	@echo "✓ Installed"
 
 # What a distribution's package build calls: staged under DESTDIR, into the
@@ -426,12 +445,12 @@ version: ## Show version information
 
 proto: proto-buf python-proto proto-ts proto-rust ## Regenerate all protobuf stubs
 
-# One template, so the Go stubs and the Java client's message classes cannot drift apart.
-# The Java plugin is a remote one, so this needs the Buf Schema Registry.
-proto-buf: ## Regenerate the Go and Java protobuf stubs
-	@echo "Regenerating Go and Java protobuf stubs..."
+# The Java client's message classes are not committed: its Maven build generates them from
+# api/proto/sysml.proto (client/java/opensysml-client/pom.xml).
+proto-buf: ## Regenerate the Go protobuf stubs
+	@echo "Regenerating Go protobuf stubs..."
 	$(BUF) generate api/proto --template api/proto/buf.gen.yaml
-	@echo "✓ Regenerated Go and Java stubs"
+	@echo "✓ Regenerated Go stubs"
 
 python-proto: ## Regenerate Python protobuf stubs
 	@echo "Regenerating Python protobuf stubs..."
@@ -575,11 +594,20 @@ docs-counts: ## Regenerate and verify the committed documentation counts; the te
 	go test -C $(TOOLS_DIR) -count=1 ./census/doccounts ./census/validation ./census/transformation ./referee/diff ./referee/reject
 	@echo "✓ Documentation counts and refereed figures are current"
 
+diagnostics-catalogue: ## Regenerate the diagnostic code catalogue in docs/reference/diagnostics.md from the registry
+	@echo "Writing the diagnostic code catalogue..."
+	go test -count=1 -run TestCatalogueIsCurrent ./internal/check/codes -update
+
+diagnostics-check: ## Verify the diagnostic code catalogue is current
+	@echo "Checking the diagnostic code catalogue..."
+	go test -count=1 -run TestCatalogueIsCurrent ./internal/check/codes
+
 docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time census and test-suite figures
 	$(PYTHON) scripts/check-doc-links.py
 	$(PYTHON) scripts/check-doc-ids.py
 	$(PYTHON) scripts/check-doc-figures.py
 	$(PYTHON) scripts/changelog.py check
+	$(MAKE) diagnostics-check
 	$(PYTHON) scripts/mkdocs_census-test.py
 	$(PYTHON) scripts/mkdocs_suite_figures-test.py
 	$(PYTHON) scripts/griffe_sphinx_roles-test.py
@@ -607,7 +635,7 @@ docs-engine-assets: ## Build the in-browser engine assets into docs/assets
 	@mkdir -p docs/assets
 	GOOS=js GOARCH=wasm $(GO_BUILD) -o docs/assets/sysml-engine.wasm ./cmd/sysml-engine
 	gzip -9f docs/assets/sysml-engine.wasm
-	GOOS=js GOARCH=wasm $(GO_BUILD) -tags sysml_prod -o docs/assets/sysml-repl.wasm ./cmd/sysml
+	GOOS=js GOARCH=wasm $(GO_BUILD) -tags sysml_re -o docs/assets/sysml-repl.wasm ./cmd/sysml
 	gzip -9f docs/assets/sysml-repl.wasm
 	@mkdir -p docs/assets/repl-examples
 	@cp examples/runtime-showcase/*.sysml docs/assets/repl-examples/

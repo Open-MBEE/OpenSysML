@@ -11,7 +11,7 @@ enter action node: loop body of action node iterate
       eval operator * -> 10
     stmt assign v
       eval feature i -> 1
-choice step 2: tokens 3@a, 4@b (unordered; took 4@b first)
+choice step 2: tokens 3@a, 4@b (unordered; took 4@b first; independent)
     stmt assign total
           eval feature total -> 0
           eval chain v -> 1
@@ -27,7 +27,7 @@ enter action node: loop body of action node iterate
       eval operator * -> 20
     stmt assign v
       eval feature i -> 2
-choice step 2: tokens 7@a, 8@b (unordered; took 8@b first)
+choice step 2: tokens 7@a, 8@b (unordered; took 8@b first; independent)
     stmt assign total
           eval feature total -> 11
           eval chain v -> 2

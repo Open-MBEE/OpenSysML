@@ -425,7 +425,7 @@ func checkDeferredSignalsAreKeptAndReplayed(t *testing.T, r *migrate.Result) {
 	wantNote(t, r, "_dBeep", migrate.Approximated, "the order between occurrences of different signals is not kept; UML leaves the order of the event pool open")
 	wantNote(t, r, "_waitDo", migrate.Approximated, "the JavaScript body is written as v2 assignments")
 	wantNote(t, r, "_waitExit", migrate.Approximated, "the JavaScript body is written as v2 assignments")
-	for id, target := range map[string]string{"_waitDo": "Panel::Watch::Waiting::buffer::run", "_waitExit": "Panel::Watch::Waiting::flush::leave"} {
+	for id, target := range map[string]string{"_waitDo": "Model::Panel::Watch::Waiting::buffer::run", "_waitExit": "Model::Panel::Watch::Waiting::flush::leave"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Target != target {
 			t.Errorf("%s is named where the generated action nests it: want %s, got %+v", id, target, es)
 		}
@@ -854,7 +854,7 @@ func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
 	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
 	wantNoLine(t, r.Notation, "defer Door;")
 	for _, line := range []string{
-		"state Busy {",
+		"state Busy parallel {",
 		"item deferred : Door[*] ordered;",
 		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 		"transition first Heating accept Door then Opened;",
@@ -2074,24 +2074,23 @@ const loggingMachine = `
 const loggingApplications = `
   <sysml:Block xmi:id="_s1" base_Class="_logger"/>`
 
-// A state's entry and exit behaviors and the states of its one region are
-// members of one v2 body, so those sharing a name are told apart the way any
-// clashing members are; the region's entry follows the state's own entry action.
+// A state's entry and exit behaviors stay on the owner, and its one region is a
+// nested state whose entry remains inside that region.
 func TestStateBehaviorsSharingANameAreDistinguished(t *testing.T) {
 	r := migrateDocument(t, loggingMachine, loggingApplications)
 	for _, line := range []string{
+		"state On parallel {",
 		"entry action log {",
 		"exit action 'log 2' {",
+		"state region {",
+		"entry; then 'log 3';",
 		"then 'log 3';",
 		"state 'log 3';",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if strings.Contains(string(r.Notation), "entry; then 'log 3'") {
-		t.Errorf("the region's entry is written as a second entry action:\n%s", r.Notation)
-	}
 	wantNote(t, r, "_onExit", migrate.Approximated, "written as v2 assignments")
-	if es := entriesFor(r, "_onExit"); len(es) == 1 && es[0].Target != "Logger::Logging::On::'log 2'" {
+	if es := entriesFor(r, "_onExit"); len(es) == 1 && es[0].Target != "Model::Logger::Logging::On::'log 2'" {
 		t.Errorf("the exit behavior's report target is %q, not the name written", es[0].Target)
 	}
 	if es := entriesFor(r, "_log_s"); len(es) != 1 || es[0].Target != "'log 3'" {
@@ -2381,12 +2380,10 @@ func TestDeferralNotesTransitionsItCannotOutrank(t *testing.T) {
 	}
 }
 
-// A transition the writer names by a route other than a vertex's own name —
-// into a terminate pseudostate, written to done, or into a submachine state
-// through a connection point reference, written to the entry point's state —
-// counts as written for the deferral analysis as any other: an unguarded
-// completion transition of either kind drops the deferral, since the accept
-// loop would never let it fire, and a triggered one takes the signal.
+// A transition to a terminate pseudostate, written as a terminate action, or
+// through a submachine state by a connection point reference counts as written
+// for deferral analysis: an unguarded completion transition drops the deferral,
+// since its accept loop would never let it fire, and a triggered one takes it.
 func TestDeferralCountsTransitionsToUnnamedTargets(t *testing.T) {
 	const terminating = `
     <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
@@ -2405,7 +2402,8 @@ func TestDeferralCountsTransitionsToUnnamedTargets(t *testing.T) {
       </ownedBehavior>
     </packagedElement>`
 	r := migrateDocumentOptions(t, terminating, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{})
-	wantLine(t, r.Notation, "transition first Off then done;")
+	wantLine(t, r.Notation, "action terminated terminate;")
+	wantLine(t, r.Notation, "transition first Off then terminated;")
 	wantNoLine(t, r.Notation, "item deferred : Door[*] ordered;")
 	wantNote(t, r, "_dDoor", migrate.Unmapped, "the completion transition (_tEnd) leaves the state once its do action ends, which the accept loop that would keep Door never lets it, so the deferral is dropped")
 

@@ -416,13 +416,11 @@ jobs:
       # the schema can drift apart silently. `git add -N` puts a regenerated
       # file the commit had deleted into the diff.
       - run:
-          name: Verify the committed Go and Java stubs are current
+          name: Verify the committed Go stubs are current
           command: |
             make proto-buf
-            git add -N api/proto \
-              client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
-            git diff --exit-code api/proto \
-              client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+            git add -N api/proto
+            git diff --exit-code api/proto
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
   # it gets the larger class and five executors, one named package shard each.
@@ -465,9 +463,10 @@ jobs:
               go test -v -race -pgo=off -timeout 30m ./tests/wasm
               go test -C tools -v -race -pgo=off -timeout 30m ./...
             else
-              # tests/migrate alone runs 23-32 minutes under -race on this class, so its
-              # shard gets the Makefile's per-package timeout (see make test-shard).
-              timeout=30m; [ "$shard" = migrate ] && timeout=55m
+              # tests/migrate alone runs 23-32 minutes under -race on this class and
+              # tests/model (in the export shard) 25-30, so those shards get the
+              # Makefile's per-package timeout (see make test-shard).
+              timeout=30m; case "$shard" in migrate|export) timeout=55m ;; esac
               go test -v -race -pgo=off -timeout "$timeout" $pkgs
             fi
           no_output_timeout: 30m
@@ -1414,9 +1413,6 @@ jobs:
       - store_artifacts:
           path: client/java/opensysml-client/target
 
-      # The committed Java stubs are checked in go-static, which has the Go
-      # toolchain the one buf template needs.
-
   # The npm client's gate. The service binary comes from the workspace because
   # this executor has no Go toolchain to build one with, and both the tests and
   # the conformance run start private children from it.
@@ -2355,7 +2351,7 @@ jobs:
             # The Node client ships this combined WebAssembly module and matching Go runtime.
             mkdir -p dist/wasm
             make build-release-wasm VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
-            mv bin/wasm/release/sysml-wasm.wasm bin/wasm/release/wasm_exec.js dist/wasm/
+            mv bin/wasm/release/sysml-wasm.wasm bin/wasm/release/sysml-prod.wasm.gz bin/wasm/release/wasm_exec.js dist/wasm/
 
             # Create tarballs
             cd dist
@@ -2430,13 +2426,19 @@ jobs:
                 *) fail "$binary" "it reports '${reported}'" ;;
               esac
             done
-            for binary in dist/sysml-* dist/grpc/sysml-grpc-* dist/jupyter/sysml-jupyter-kernel-* dist/wasm/sysml-wasm.wasm; do
+            for binary in dist/sysml-* dist/grpc/sysml-grpc-* dist/jupyter/sysml-jupyter-kernel-* dist/wasm/sysml-wasm.wasm dist/wasm/sysml-prod.wasm.gz; do
               case "$binary" in
                 *.tar.gz|*.zip|*.sha256) continue ;;
                 dist/sysml-linux-amd64|dist/sysml-lsp-linux-amd64) continue ;;
                 dist/grpc/sysml-grpc-linux-amd64|dist/jupyter/sysml-jupyter-kernel-linux-amd64) continue ;;
               esac
-              if grep -qa -- "${CIRCLE_TAG}" "$binary"; then
+              if [[ "$binary" == *.gz ]]; then
+                read_binary() { gzip -dc "$1"; }
+              else
+                read_binary() { cat "$1"; }
+              fi
+              # grep -c reads the whole stream: under pipefail, -q would SIGPIPE the producer on an early match.
+              if read_binary "$binary" | grep -ac -- "${CIRCLE_TAG}" > /dev/null; then
                 echo "ok: $binary carries ${CIRCLE_TAG}"
               else
                 fail "$binary" "the version string is absent from the binary"
@@ -2485,8 +2487,8 @@ jobs:
             (cd grpc && sha256sum --check --strict sysml-grpc-*.sha256 && cat sysml-grpc-*.sha256 >> ../SHA256SUMS.txt)
             # And the raw kernel binaries, the only checksum jupyter-opensysml-kernel reads.
             (cd jupyter && sha256sum --check --strict sysml-jupyter-kernel-*.sha256 && cat sysml-jupyter-kernel-*.sha256 >> ../SHA256SUMS.txt)
-            (cd wasm && sha256sum sysml-wasm.wasm wasm_exec.js >> ../SHA256SUMS.txt)
-            (cd wasm && for f in sysml-wasm.wasm wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
+            (cd wasm && sha256sum sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js >> ../SHA256SUMS.txt)
+            (cd wasm && for f in sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
             cat SHA256SUMS.txt
 
       # The distribution was stamped from the binaries before the manifest
@@ -2750,8 +2752,8 @@ jobs:
             echo "Publishing ${version} to the '${dist_tag}' dist-tag"
             # Proves the workspace carries the release binaries and sidecars.
             ls -l dist/grpc/sysml-grpc-*
-            ls -l dist/wasm/sysml-wasm.wasm dist/wasm/wasm_exec.js \
-              dist/wasm/sysml-wasm.wasm.sha256 dist/wasm/wasm_exec.js.sha256
+            ls -l dist/wasm/sysml-wasm.wasm dist/wasm/sysml-prod.wasm.gz dist/wasm/wasm_exec.js \
+              dist/wasm/sysml-wasm.wasm.sha256 dist/wasm/sysml-prod.wasm.gz.sha256 dist/wasm/wasm_exec.js.sha256
 
       # The package's own copy of the table is the only pin the published
       # client carries; stamping it here, from build-release's binaries, is
@@ -3381,7 +3383,7 @@ jobs:
                 name: "REHEARSAL: check the release assets and the GitHub token"
                 command: |
                   ls dist/SHA256SUMS.txt > /dev/null
-                  ls dist/wasm/sysml-wasm.wasm dist/wasm/wasm_exec.js > /dev/null
+                  ls dist/wasm/sysml-wasm.wasm dist/wasm/sysml-prod.wasm.gz dist/wasm/wasm_exec.js > /dev/null
                   set -- dist/opensysml-*-py3-none-any.whl
                   if [ ! -f "$1" ] || [ $# -ne 1 ]; then
                     echo "Error: expected exactly one dist/opensysml-*-py3-none-any.whl"

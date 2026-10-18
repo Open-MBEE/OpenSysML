@@ -9,26 +9,25 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// Lexical classifies keywords, comments and literals, read from the same lexer
-// the parser uses rather than recognized again, in a file of the given kind:
-// the tokens a document carries with no symbol table at all.
+// Lexical classifies keywords, comments and literals, read from the same token
+// stream the parser uses rather than recognized again, in a file of the given
+// kind: the tokens a document carries with no symbol table at all. A word the
+// file's grammar does not reserve reaches here as the name it is, as the parser
+// reads it (parser.Scanner).
 func Lexical(content []byte, kind source.Kind) []Token {
 	if len(content) == 0 {
 		return nil
 	}
-	lx := lexer.New(source.NewWithKind("", content, kind))
+	sc := parser.NewScanner(source.NewWithKind("", content, kind))
 	var out []Token
 	for {
-		tok := lx.Next()
+		tok := sc.Next()
 		if tok.Kind == lexer.EOF {
 			return out
 		}
 		var class Class
 		switch tok.Kind {
 		case lexer.Keyword:
-			if !parser.Reserves(kind, tok.KeywordID) {
-				continue
-			}
 			class = ClassKeyword
 		case lexer.SLNote, lexer.MLNote, lexer.RegularComment:
 			class = ClassComment

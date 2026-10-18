@@ -2,6 +2,7 @@ package queryexec
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
@@ -71,6 +72,15 @@ func (e *executor) derivedFeatureValues(sym *symbols.Symbol, property string) ([
 			return nil, nil
 		}
 		return nil, e.unevaluable(queryplan.Expression{}, property, ElementValue(sym), err)
+	}
+	// A value the model leaves open is absent, as an unbound leaf is, unless it is
+	// open for a parameter no declaration binds.
+	if u := value.Undetermined(); u != nil {
+		if unset := u.Unset(); unset != nil && semantics.IsParameter(unset) {
+			err := fmt.Errorf("feature value %s: %w", property, &runtime.NoValueError{Feature: unset.Name, Symbol: unset})
+			return nil, e.unevaluable(queryplan.Expression{}, property, ElementValue(sym), err)
+		}
+		return nil, nil
 	}
 	return e.cellValues(value, property, ElementValue(sym))
 }

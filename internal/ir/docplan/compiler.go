@@ -1480,6 +1480,10 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
+	showText, showStated, err := c.optionalText(member, "show")
+	if err != nil {
+		return Content{}, err
+	}
 	source, err := c.diagramSource(member)
 	if err != nil {
 		return Content{}, err
@@ -1606,6 +1610,19 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			}
 		}
 		reference.ports = ports
+	}
+	if showStated {
+		shown, err := view.ParseShown(showText)
+		if err != nil || shown == nil {
+			return Content{}, &Error{
+				Kind:     ErrorInvalidShow,
+				Document: c.document,
+				Content:  symbols.FQNOf(member),
+				Actual:   showText,
+				Origin:   member.Origin(),
+			}
+		}
+		reference.shown = shown
 	}
 	if overlayStated {
 		overlay, ok := view.ParseOverlay(overlayText)

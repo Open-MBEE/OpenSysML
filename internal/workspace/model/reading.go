@@ -1,6 +1,8 @@
 package model
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
@@ -49,6 +51,16 @@ func (r *Reading) SourceText() view.SourceText { return r.w.sourceText() }
 
 // Document is the held document name, nil for one the workspace does not hold.
 func (r *Reading) Document(name string) *Document { return r.w.docs[name] }
+
+// Diagnostics is the held document's analysis diagnostics, of the text the
+// reading holds, lints filtered as the workspace is configured.
+func (r *Reading) Diagnostics(name string) []diag.Diagnostic {
+	doc := r.w.docs[name]
+	if doc == nil {
+		return nil
+	}
+	return passes.WithoutLints(r.w.diagnosticsLocked(name, doc), r.w.disabledLints, r.w.enabledLints)
+}
 
 // LineIndex is the held document's line index, nil when the workspace does not hold it.
 func (r *Reading) LineIndex(name string) *source.LineIndex {
@@ -124,13 +136,14 @@ func (r *Reading) DeclaredView(doc, fqn string) *symbols.Symbol {
 
 // RenderView is Workspace.RenderView of the documents as read.
 func (r *Reading) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, error) {
-	return r.w.renderViewLocked(doc, fqn, "", nil)
+	return r.w.renderViewLocked(doc, fqn, "", nil, 0)
 }
 
 // RenderOverlaidView is RenderView with overlay drawn over the rendering, its
-// verdicts answered by verdicts.
-func (r *Reading) RenderOverlaidView(doc, fqn string, overlay view.Overlay, verdicts view.Verdicts) (*view.Rendering, *Snapshot, error) {
-	return r.w.renderViewLocked(doc, fqn, overlay, verdicts)
+// verdicts answered by verdicts, and bounded by depth levels below each exposed
+// element when depth is above 0.
+func (r *Reading) RenderOverlaidView(doc, fqn string, overlay view.Overlay, verdicts view.Verdicts, depth int) (*view.Rendering, *Snapshot, error) {
+	return r.w.renderViewLocked(doc, fqn, overlay, verdicts, depth)
 }
 
 // LinkSites is RenderViewLinked's source sites for a rendering made by this

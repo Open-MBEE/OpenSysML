@@ -23,6 +23,82 @@ import (
 type Subflow struct {
 	Graph *ActionGraph
 	Err   error
+	// Deferred is set, Graph nil, for a typed body nested in its own type: its
+	// flow is lowered once, by Unfold, when a performance of it first starts.
+	Deferred *DeferredSubflow
+}
+
+// DeferredSubflow is a typed action body nested in its own type, lowered when a
+// performance of the node first starts: eagerly, unfolding it would never end.
+type DeferredSubflow struct {
+	owner  *ActionGraph
+	node   *ast.Usage
+	scope  *symbols.Scope
+	target ast.Node
+	graph  *ActionGraph
+	err    error
+	done   bool
+}
+
+// Unfold returns the flow the node's performance runs, lowering a deferred body
+// once (per node, on the outermost flow) so every level of a recursion shares it.
+func (s *Subflow) Unfold() (*ActionGraph, error) {
+	if s.Deferred == nil {
+		return s.Graph, s.Err
+	}
+	return s.Deferred.unfold()
+}
+
+func (d *DeferredSubflow) unfold() (*ActionGraph, error) {
+	if d.done {
+		return d.graph, d.err
+	}
+	d.done = true
+	root := d.owner.rootGraph()
+	if graph, ok := root.unfolded[d.node]; ok {
+		d.graph = graph
+		return graph, nil
+	}
+	ancestors := appendLoweringAncestor(d.owner.lowering, d.target)
+	graph, err := toActionGraphWithTypingAndAncestors(d.node, d.scope, d.owner.resolver, true, ancestors)
+	if err != nil {
+		d.err = err
+		return nil, err
+	}
+	graph.Enclosing, graph.EnclosingNode = d.owner, d.node
+	if root.unfolded == nil {
+		root.unfolded = make(map[ast.Node]*ActionGraph)
+	}
+	root.unfolded[d.node] = graph
+	StartFlow(graph)
+	d.graph = graph
+	return graph, nil
+}
+
+// rootGraph returns the outermost flow enclosing g, itself when none does.
+func (g *ActionGraph) rootGraph() *ActionGraph {
+	root := g
+	for root.Enclosing != nil {
+		root = root.Enclosing
+	}
+	return root
+}
+
+// recordDeferredSubflow records a typed body nested in its own type as a flow
+// lowered when first performed; it is a merged typed body, not an invocation.
+func recordDeferredSubflow(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope, target ast.Node, typed PerformedType) {
+	if graph.Subflows == nil {
+		graph.Subflows = make(map[ast.Node]*Subflow)
+	}
+	graph.Subflows[node] = &Subflow{Deferred: &DeferredSubflow{
+		owner: graph, node: node, scope: scope, target: target,
+	}}
+	if typed.Target != nil {
+		if graph.MergedTypedSubflows == nil {
+			graph.MergedTypedSubflows = make(map[ast.Node]PerformedType)
+		}
+		graph.MergedTypedSubflows[node] = typed
+	}
 }
 
 // PerformsLeafStatements reports whether a nested action node's members are a
@@ -94,8 +170,7 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 		typedTarget = resolveTypedActionTarget(graph.resolver, typedAction)
 		if typedActionTargetIsAncestor(graph, typedTarget) {
 			if typedBodyHasExecutableContent(rawMembers) {
-				recordInvalidSubflow(graph, node, fmt.Errorf("%w: %s",
-					ErrRecursiveActionTyping, ast.SimpleName(typedAction.Target)))
+				recordDeferredSubflow(graph, node, scope, typedTarget, typedAction)
 				return
 			}
 			typedBody = false
@@ -110,7 +185,7 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 			actual := unwrapMembership(member)
 			memberScope := effectiveMemberScope(members, actual, scope)
 			graph.recordDeclaredIn(actual, memberScope)
-			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver))
+			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver, graph.lowering))
 		}
 		if _, _, starts := startedBehavior(node, scope); starts {
 			graph.Bodies[node] = append(graph.Bodies[node], performEffect(node, scope))
@@ -358,10 +433,10 @@ func lowerTerminateNode(
 			actual := unwrapMembership(member)
 			memberScope := effectiveMemberScope(members, actual, scope)
 			graph.recordDeclaredIn(actual, memberScope)
-			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver))
+			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver, graph.lowering))
 		}
 	}
-	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope, graph.resolver))
+	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope, graph.resolver, graph.lowering))
 }
 
 // TerminateUsage returns the terminate a terminate action usage stands for, the last of

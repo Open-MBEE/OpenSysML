@@ -68,8 +68,9 @@ func TestAllocateToARequirementStaysADependency(t *testing.T) {
   <sysml:Allocate xmi:id="_allocate" base_Abstraction="_allocation"/>`)
 	wantLine(t, r.Notation, "requirement Flow;")
 	wantNoLine(t, r.Notation, "allocation def")
-	wantLine(t, r.Notation, "dependency Pump to Flow;")
-	wantNote(t, r, "_allocation", migrate.Approximated, "its end Flow has no enclosing written definition to type an allocation end, so a plain dependency stands for it")
+	wantLine(t, r.Notation, "dependency 'Pump allocated to Flow' from Pump to Flow {")
+	wantLine(t, r.Notation, `stereotype = "Allocate";`)
+	wantNote(t, r, "_allocation", migrate.Approximated, "its end Flow is a feature of a package, which no allocation end can be typed by, so a plain dependency stands for it")
 	wantClean(t, "allocate-to-requirement.sysml", r)
 }
 
@@ -147,6 +148,29 @@ func TestAllocateInOneBodyStaysInPlace(t *testing.T) {
 	}
 }
 
+func TestAllocateBetweenPackageInstancesIsAnAllocate(t *testing.T) {
+	members := `
+    <packagedElement xmi:type="uml:Package" xmi:id="_package" name="Package">
+      <packagedElement xmi:type="uml:Class" xmi:id="_thing" name="Thing"/>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_a" name="a" classifier="_thing"/>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_b" name="b" classifier="_thing"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_allocation" client="_a" supplier="_b"/>
+    </packagedElement>`
+	applications := `<sysml:Block xmi:id="_block" base_Class="_thing"/>
+  <sysml:Allocate xmi:id="_allocate" base_Abstraction="_allocation"/>`
+	r := migrateDocument(t, members, applications)
+	assertStereotypeMigrationValid(t, r)
+	wantLine(t, r.Notation, "part a : Thing;")
+	wantLine(t, r.Notation, "allocate a to b;")
+	if strings.Contains(string(r.Notation), "allocation def") || strings.Contains(string(r.Notation), "dependency ") {
+		t.Errorf("allocation between package-owned instances changed form:\n%s", r.Notation)
+	}
+	es := entriesFor(r, "_allocation")
+	if len(es) != 1 || es[0].Verdict != migrate.Mapped || es[0].Note != "" {
+		t.Errorf("allocation entry = %+v, want Mapped without a note", es)
+	}
+}
+
 func TestAllocateFromPackageFeatureStaysADependency(t *testing.T) {
 	members := `
     <packagedElement xmi:type="uml:Package" xmi:id="_package" name="Package">
@@ -189,14 +213,13 @@ func TestDirectedOperationKeepsItsDirection(t *testing.T) {
 	r := migrateDocument(t, members, applications)
 	assertStereotypeMigrationValid(t, r)
 	for _, line := range []string{
-		"out action 'provided 2' : provided;",
-		"in action 'required 2' : required;",
-		"inout action 'both 2' : both;",
+		"out abstract action provided {",
+		"in abstract action required {",
+		"inout abstract action both {",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantLine(t, r.Notation, "abstract action def plain;")
-	wantLine(t, r.Notation, "action 'plain 2' : plain;")
+	wantLine(t, r.Notation, "abstract action plain;")
 
 	port := migrateDocument(t,
 		`<packagedElement xmi:type="uml:Class" xmi:id="_port" name="Port">

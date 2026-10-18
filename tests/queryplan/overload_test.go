@@ -82,36 +82,35 @@ func dependencyOf(t *testing.T, program *queryplan.Program, query string) string
 	return ""
 }
 
-var importOrders = []string{
-	"private import A::*; private import B::*;",
-	"private import B::*; private import A::*;",
-}
+// generalChains specialize A and B into one chain under Query, in either order, so a
+// query specializing the chain's top inherits both Pick through its single general.
+var generalChains = []struct{ a, b, top string }{{"DocumentQueries::Query", "A", "B"}, {"B", "DocumentQueries::Query", "A"}}
 
 func TestCompileSelectsQueryOverloadByArgumentType(t *testing.T) {
 	const src = `
-		package A { %[1]s calc def Pick :> Query { in source : Element; in depth : Integer; Descendants(source = source, maxDepth = depth) } }
-		package B { %[1]s calc def Pick :> Query { in source : Element; in depth : String; WhereType(source = source, type = depth) } }
+		calc def A :> %[2]s { %[1]s calc def Pick :> Query { in source : Element; in depth : Integer; Descendants(source = source, maxDepth = depth) } }
+		calc def B :> %[3]s { %[1]s calc def Pick :> Query { in source : Element; in depth : String; WhereType(source = source, type = depth) } }
 		package Fixture {
-			%[1]s %[2]s
-			calc def ByDepth :> Query { in s : Element; Pick(source = s, depth = 2) }
-			calc def ByType :> Query { in s : Element; Pick(source = s, depth = "PartUsage") }
+			%[1]s
+			calc def ByDepth :> %[4]s { in s : Element; Pick(source = s, depth = 2) }
+			calc def ByType :> %[4]s { in s : Element; Pick(source = s, depth = "PartUsage") }
 		}
 	`
-	for _, imports := range importOrders {
-		content := fmt.Sprintf(src, overloadImports, imports)
+	for _, chain := range generalChains {
+		content := fmt.Sprintf(src, overloadImports, chain.a, chain.b, chain.top)
 		program, err := compileOverloaded(t, content, "ByDepth")
 		if err != nil {
-			t.Fatalf("%s: ByDepth: %v", imports, err)
+			t.Fatalf("%s: ByDepth: %v", chain, err)
 		}
 		if got := dependencyOf(t, program, "Fixture::ByDepth"); got != "A::Pick" {
-			t.Fatalf("%s: ByDepth calls %s, want A::Pick", imports, got)
+			t.Fatalf("%s: ByDepth calls %s, want A::Pick", chain, got)
 		}
 		program, err = compileOverloaded(t, content, "ByType")
 		if err != nil {
-			t.Fatalf("%s: ByType: %v", imports, err)
+			t.Fatalf("%s: ByType: %v", chain, err)
 		}
 		if got := dependencyOf(t, program, "Fixture::ByType"); got != "B::Pick" {
-			t.Fatalf("%s: ByType calls %s, want B::Pick", imports, got)
+			t.Fatalf("%s: ByType calls %s, want B::Pick", chain, got)
 		}
 	}
 }
@@ -120,11 +119,11 @@ func TestCompileSelectsQueryOverloadByArgumentType(t *testing.T) {
 // untyped, the arguments leave the overloads tied; typed, they select one.
 func TestCompileFollowsTheArgumentTypingInstalledLast(t *testing.T) {
 	const src = `
-		package A { %[1]s calc def Pick :> Query { in source : Element; in depth : Integer; Descendants(source = source, maxDepth = depth) } }
-		package B { %[1]s calc def Pick :> Query { in source : Element; in depth : String; WhereType(source = source, type = depth) } }
+		calc def A :> DocumentQueries::Query { %[1]s calc def Pick :> Query { in source : Element; in depth : Integer; Descendants(source = source, maxDepth = depth) } }
+		calc def B :> A { %[1]s calc def Pick :> Query { in source : Element; in depth : String; WhereType(source = source, type = depth) } }
 		package Fixture {
-			%[1]s private import A::*; private import B::*;
-			calc def ByType :> Query { in s : Element; Pick(source = s, depth = "PartUsage") }
+			%[1]s
+			calc def ByType :> B { in s : Element; Pick(source = s, depth = "PartUsage") }
 		}
 	`
 	m := parseOverloaded(t, fmt.Sprintf(src, overloadImports))
@@ -143,42 +142,42 @@ func TestCompileFollowsTheArgumentTypingInstalledLast(t *testing.T) {
 
 func TestCompileSelectsQueryOverloadByArgumentNames(t *testing.T) {
 	const src = `
-		package A { %[1]s calc def Pick :> Query { in source : Element; OwnedElements(source = source) } }
-		package B { %[1]s calc def Pick :> Query { in source : Element; in depth : Integer; Descendants(source = source, maxDepth = depth) } }
+		calc def A :> %[2]s { %[1]s calc def Pick :> Query { in source : Element; OwnedElements(source = source) } }
+		calc def B :> %[3]s { %[1]s calc def Pick :> Query { in source : Element; in depth : Integer; Descendants(source = source, maxDepth = depth) } }
 		package Fixture {
-			%[1]s %[2]s
-			calc def Deep :> Query { in s : Element; Pick(source = s, depth = 2) }
+			%[1]s
+			calc def Deep :> %[4]s { in s : Element; Pick(source = s, depth = 2) }
 		}
 	`
-	for _, imports := range importOrders {
-		program, err := compileOverloaded(t, fmt.Sprintf(src, overloadImports, imports), "Deep")
+	for _, chain := range generalChains {
+		program, err := compileOverloaded(t, fmt.Sprintf(src, overloadImports, chain.a, chain.b, chain.top), "Deep")
 		if err != nil {
-			t.Fatalf("%s: %v", imports, err)
+			t.Fatalf("%s: %v", chain, err)
 		}
 		if got := dependencyOf(t, program, "Fixture::Deep"); got != "B::Pick" {
-			t.Fatalf("%s: Deep calls %s, want B::Pick", imports, got)
+			t.Fatalf("%s: Deep calls %s, want B::Pick", chain, got)
 		}
 	}
 }
 
 func TestCompileRejectsAmbiguousQueryInvocation(t *testing.T) {
 	const src = `
-		package A { %[1]s calc def Pick :> Query { in source : Element; OwnedElements(source = source) } }
-		package B { %[1]s calc def Pick :> Query { in source : Element; Descendants(source = source, maxDepth = 1) } }
+		calc def A :> %[2]s { %[1]s calc def Pick :> Query { in source : Element; OwnedElements(source = source) } }
+		calc def B :> %[3]s { %[1]s calc def Pick :> Query { in source : Element; Descendants(source = source, maxDepth = 1) } }
 		package Fixture {
-			%[1]s %[2]s
-			calc def Either :> Query { in s : Element; Pick(source = s) }
+			%[1]s
+			calc def Either :> %[4]s { in s : Element; Pick(source = s) }
 		}
 	`
-	for _, imports := range importOrders {
-		_, err := compileOverloaded(t, fmt.Sprintf(src, overloadImports, imports), "Either")
+	for _, chain := range generalChains {
+		_, err := compileOverloaded(t, fmt.Sprintf(src, overloadImports, chain.a, chain.b, chain.top), "Either")
 		var planning *queryplan.Error
 		if !errors.As(err, &planning) || planning.Kind != queryplan.ErrorAmbiguousInvocation {
-			t.Fatalf("%s: error = %v, want %s", imports, err, queryplan.ErrorAmbiguousInvocation)
+			t.Fatalf("%s: error = %v, want %s", chain, err, queryplan.ErrorAmbiguousInvocation)
 		}
 		if !slices.Equal(planning.Path, []string{"A::Pick", "B::Pick"}) &&
 			!slices.Equal(planning.Path, []string{"B::Pick", "A::Pick"}) {
-			t.Fatalf("%s: ambiguous between %v, want A::Pick and B::Pick", imports, planning.Path)
+			t.Fatalf("%s: ambiguous between %v, want A::Pick and B::Pick", chain, planning.Path)
 		}
 	}
 }

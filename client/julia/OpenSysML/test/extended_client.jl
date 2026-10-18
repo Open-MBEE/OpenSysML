@@ -696,6 +696,9 @@ end
                 @test !isempty(rendered_view.edges[1].from_port)
                 @test !isempty(rendered_view.edges[1].to_port)
                 @test all(node -> node.origin !== nothing, rendered_view.nodes)
+                @test "port-symbols" in rendered_view.shown
+                shown_view = render_view(views_model, "RenderViewDemo::connections"; show=["edge-labels"])
+                @test "edge-labels" in shown_view.shown
                 full_view = render_view(views_model, "RenderViewDemo::connections"; ports="full")
                 @test any(port.name == "spare" for node in full_view.nodes for port in node.ports)
                 behavior_model = parse_file(conn, joinpath(FIXTURES, "behavior.sysml"))
@@ -708,6 +711,99 @@ end
                 @test occursin("\"actions\"", graphs.content)
                 @test_throws SymbolNotFoundError export_graphs(behavior_model, "Test::Missing")
                 @test_throws OpenSysMLError export_graphs(behavior_model, "Test")
+                import_model = parse_source(conn, """
+                    package V {
+                        private import ScalarValues::*;
+                        part def Vehicle {
+                            attribute count : Integer default 1;
+                            attribute label : String default "plain";
+                        }
+                        part vehicle : Vehicle;
+                        part car : Vehicle {
+                            attribute :>> count = 2;
+                        }
+                    }
+                    """)
+                imported = import_data(import_model, [
+                    "fleet.csv" => "element,count,label\nV::vehicle,7,fast\nV::car,9,\n",
+                    DataImport("labels.txt", "[{\"element\":\"V::car\",\"label\":\"slow\"}]"; format="json")])
+                @test imported isa ImportResult && applied(imported)
+                @test [f.name for f in imported.files] == ["fleet.csv", "labels.txt"]
+                @test (imported.files[1].values, imported.files[1].elements) == (3, 2)
+                @test [a.description for f in imported.files for a in f.assignments] == [
+                    "V::vehicle::count = 7 (redefines V::Vehicle::count)",
+                    "V::vehicle::label = \"fast\" (redefines V::Vehicle::label)",
+                    "V::car::count = 9",
+                    "V::car::label = \"slow\" (redefines V::Vehicle::label)"]
+                @test imported.files[1].assignments[1].redefines == "V::Vehicle::count"
+                @test !isempty(imported.files[1].assignments[1].location)
+                @test occursin("attribute :>> count = 7;", imported.content)
+                @test length(imported.documents) == 1 && imported.model_hash != import_model.hash
+                dry = import_data(import_model, ["fleet.tsv" => "element\tcount\nV::vehicle\t7\n"]; dry_run=true)
+                @test !applied(dry) && isempty(dry.content) && isempty(dry.documents)
+                @test length(dry.files[1].assignments) == 1
+                @test_throws ExecutionError import_data(import_model,
+                    ["fleet.csv" => "element,count\nV::car,9\nV::Nowhere,1\n"])
+                @test_throws OpenSysMLError import_data(import_model, [])
+                probe_model = parse_source(conn, """
+                    package Cfg {
+                        private import ScalarValues::*;
+                        part def Probe {
+                            attribute total : Real = 1.0;
+                            action steady { first start; then assign total := 4.0; then done; }
+                        }
+                        action def 'Group 1' { part target : Probe; perform action run ::> target.steady; }
+                    }
+                    """)
+                probe_results = """{"source":"probe.xmi","configurations":[
+                    {"id":"_c1","name":"Cfg::'Group 1'","runs":2,"target":"target","behavior":"run","observables":["total"],
+                     "snapshots":[{"id":"_r1","values":{"total":4.0}},{"id":"_r2","values":{"total":6.0}}]},
+                    {"id":"_cn","name":"Cfg::Nothing","observables":[],"snapshots":[]}]}"""
+                compared = compare_results(probe_model, probe_results; seed=7)
+                @test compared isa Comparison && compared.source == "probe.xmi"
+                @test length(compared.configurations) == 2
+                group = compared.configurations[1]
+                @test group.name == "Cfg::'Group 1'" && group.status == "holds"
+                @test (group.runs, group.completed, group.stored_runs) == (2, 2, 2)
+                @test group.seed == UInt64(7) && length(group.rows) == 2
+                @test length(group.observables) == 1
+                total = group.observables[1]
+                @test (total.stored, total.feature, total.compared) == ("total", "target.total", true)
+                @test total.tool.count == 2 && total.tool.mean == 5.0 && total.run.mean == 4.0
+                @test total.difference.mean == "-20.0%"
+                @test !isempty(group.lines)
+                @test compared.configurations[2].status == "unresolved"
+                @test !isempty(compared.configurations[2].unresolved)
+                selected = compare_results(probe_model, probe_results; actions=["Group 1"], runs=1, seed=3)
+                @test length(selected.configurations) == 1 && selected.configurations[1].runs == 1
+                @test_throws ArgumentError compare_results(probe_model, probe_results; runs=-1)
+                @test_throws OpenSysMLError compare_results(probe_model, "not json")
+
+                tank_model = parse_file(conn, joinpath(FIXTURES, "tank.sysml"))
+                checked = check_action(tank_model, "Plant::Tank::fill"; performer="Plant::tank",
+                    properties=["Plant::Tank::low"], diverge=["this.level"], witness=true)
+                @test checked isa CheckResult
+                @test checked.verdict == "fails"
+                @test !holds(checked)
+                @test !isempty(checked.lines)
+                @test checked.search !== nothing
+                @test (checked.search.states, checked.search.moves, checked.search.max_depth) == (11, 10, 6)
+                @test length(checked.violations) == 1
+                @test checked.violations[1].kind == "property"
+                @test checked.violations[1].property == "Plant::Tank::low"
+                @test checked.violations[1].depth == 3
+                @test checked.violations[1].witness !== nothing
+                @test startswith(checked.violations[1].witness.schedule, "replay")
+                @test !isempty(checked.violations[1].witness.file_name)
+                @test length(checked.divergences) == 1
+                @test checked.divergences[1].feature == "this.level"
+                @test [v.value for v in checked.divergences[1].values] == ["1", "2"]
+                @test checked.standing.engine == "check"
+                held = check_action(tank_model, "Plant::Tank::fill"; performer="Plant::tank",
+                    properties=["Plant::Tank::capped"], diverge=["this.capacity"])
+                @test holds(held) && isempty(held.violations) && isempty(held.divergences)
+                @test_throws ExecutionError check_action(tank_model, "Plant::Tank::drain")
+                @test_throws OpenSysMLError check_action(tank_model, "Plant::Tank::fill"; depth=-1)
                 for (view, message) in (
                     ("RenderViewDemo::Missing", "no view named RenderViewDemo::Missing"),
                     ("#interconnection:Nope",
@@ -735,8 +831,8 @@ end
                 @test occursin("part def Vehicle", migrated.content)
                 @test migrated.from_format == "xmi"
                 @test (migrated.report.mapped, migrated.report.approximated,
-                       migrated.report.unmapped, migrated.report.skipped) == (77, 13, 3, 2)
-                @test length(migrated.report.entries) == 95
+                       migrated.report.unmapped, migrated.report.skipped) == (77, 15, 3, 2)
+                @test length(migrated.report.entries) == 97
                 @test length(by_verdict(migrated.report, VERDICT_UNMAPPED)) == 3
                 @test migrated.source_path == abspath(vehicle)
                 inline = migrate_source(conn, read(vehicle), "ttl"; from_format=" XMI ")

@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"maps"
 	"strings"
 	"testing"
 
@@ -80,7 +81,7 @@ package Test {
 	if d.Severity != "info" {
 		t.Errorf("severity = %q, want info", d.Severity)
 	}
-	want := "choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first)"
+	want := "choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first; independent)"
 	if d.Message != want {
 		t.Errorf("message = %q, want %q", d.Message, want)
 	}
@@ -147,7 +148,7 @@ package Test {
 		t.Fatalf("error = %q, want the failing token's error", resp.Error)
 	}
 	choices := choiceDiagnostics(resp.Diagnostics)
-	want := "choice point: step 3: tokens 2@failing, 3@safe (unordered; took 3@safe first)"
+	want := "choice point: step 3: tokens 2@failing, 3@safe (unordered; took 3@safe first; order-dependent: x)"
 	if len(choices) != 1 || choices[0].Message != want || choices[0].Severity != "info" {
 		t.Fatalf("choice diagnostics = %v, want one info %q", choices, want)
 	}
@@ -191,8 +192,8 @@ package An {
 	}
 	choices := choiceDiagnostics(resp.Diagnostics)
 	want := []string{
-		"choice point: step 3: writes r := 11 by token 2, r := 10 by token 3 (unordered; r := 11 by token 2 stood)",
-		"choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first)",
+		"choice point: step 3: writes r := 11 by token 2, r := 10 by token 3 (unordered; r := 11 by token 2 stood; order-dependent: r)",
+		"choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first; order-dependent: r)",
 	}
 	if len(choices) != len(want) {
 		t.Fatalf("choice diagnostics = %v, want %d", resp.Diagnostics, len(want))
@@ -249,7 +250,7 @@ package Test {
 	if len(choices) != 1 {
 		t.Fatalf("choice diagnostics = %v, want one", resp.Diagnostics)
 	}
-	want := "choice point: state idle on accept Go: transitions 1->low, 2->high (unordered; took 1->low)"
+	want := "choice point: state idle on accept Go: transitions 1->low, 2->high (unordered; took 1->low; order-dependent)"
 	if choices[0].Message != want || choices[0].Severity != "info" {
 		t.Errorf("diagnostic = %s %q, want info %q", choices[0].Severity, choices[0].Message, want)
 	}
@@ -307,11 +308,11 @@ package Test {
 		}
 	}
 	execute("", "work,a1,b1,a2,b2",
-		"choice point: entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first)",
-		"choice point: on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)")
+		"choice point: entering work: next a1(entry), b1(entry) (unordered; took a1(entry) first; independent)",
+		"choice point: on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first; order-dependent: last)")
 	execute("seed:1", "work,b1,a1,a2,b2",
-		"choice point: entering work: next a1(entry), b1(entry) (unordered; took b1(entry) first)",
-		"choice point: on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)")
+		"choice point: entering work: next a1(entry), b1(entry) (unordered; took b1(entry) first; independent)",
+		"choice point: on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first; order-dependent: last)")
 }
 
 // A guard the run read only to report a choice and could not evaluate is an
@@ -398,6 +399,79 @@ package Test {
 	for _, d := range resp.Diagnostics {
 		if strings.HasPrefix(d.Message, "guard not evaluable: ") {
 			t.Errorf("the first guard's failure was reported as unevaluable: %q", d.Message)
+		}
+	}
+}
+
+// A value computed from an order-dependent one is reported order-dependent on
+// the same typed field, standing on the same choice points; a value computed
+// from nothing order-dependent is not, and the choice's own diagnostic still
+// names what the choice itself touched.
+func TestExecuteAction_OrderDependentFollowsTheData(t *testing.T) {
+	srv := mustNewService(t, 10)
+
+	content := `
+package Test {
+  action race {
+    attribute x : Integer = 0;
+    attribute y : Integer = 0;
+    attribute z : Integer = 0;
+    first start;
+    fork split;
+    action a { assign x := 1; }
+    action b { assign x := 2; }
+    join sync;
+    action derive { assign y := x + 1; assign z := 5; }
+    done;
+    succession first start then split;
+    succession first split then a;
+    succession first split then b;
+    succession first a then sync;
+    succession first b then sync;
+    succession first sync then derive;
+    succession first derive then done;
+  }
+}
+`
+	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source:      &pb.ParseFileRequest_Content{Content: content},
+		ContentHash: "test-execute-action-order-dependent-follows-data",
+	})
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+	resp, err := srv.ExecuteAction(context.Background(), &pb.ExecuteActionRequest{
+		ModelHash:      parseResp.ModelHash,
+		ActionSymbolId: "Test::race",
+	})
+	if err != nil {
+		t.Fatalf("ExecuteAction failed: %v", err)
+	}
+	if resp.Error != "" {
+		t.Fatalf("error = %q, want none", resp.Error)
+	}
+	if got, want := resp.OrderDependent, map[string]int32{"x": 2, "y": 2}; !maps.Equal(got, want) {
+		t.Errorf("order_dependent = %v, want %v: y was computed from x, z from a literal", got, want)
+	}
+	for _, name := range []string{"x", "y", "z"} {
+		if resp.Outputs[name] == nil {
+			t.Fatalf("output %s missing from %v", name, resp.Outputs)
+		}
+	}
+	choices := choiceDiagnostics(resp.Diagnostics)
+	want := []string{
+		"choice point: step 3: writes x := 1 by token 2, x := 2 by token 3 (unordered; x := 1 by token 2 stood; order-dependent: x)",
+		"choice point: step 3: tokens 2@a, 3@b (unordered; took 3@b first; order-dependent: x)",
+	}
+	if len(choices) != len(want) {
+		t.Fatalf("choice diagnostics = %v, want %d", resp.Diagnostics, len(want))
+	}
+	for i, d := range choices {
+		if d.Message != want[i] {
+			t.Errorf("diagnostic %d = %q, want %q", i, d.Message, want[i])
+		}
+		if d.Independent || len(d.OrderDependent) != 1 || d.OrderDependent[0] != "x" {
+			t.Errorf("diagnostic %d standing = independent %v, order_dependent %v; want x alone: the choice touched x, y was computed from it", i, d.Independent, d.OrderDependent)
 		}
 	}
 }

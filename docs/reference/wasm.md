@@ -4,11 +4,12 @@ OpenSysML is Go, and Go compiles it for two WebAssembly targets. This page says 
 for, how to build and run them, what works in them, and what a WebAssembly host cannot do —
 with the message each limitation answers with, so a refusal is never mistaken for a defect.
 
-Stable releases ship `sysml-wasm.wasm` with its matching `wasm_exec.js`, list
-both in the signed `SHA256SUMS.txt`, and cover them with SLSA provenance.
+Stable releases ship `sysml-wasm.wasm` and `sysml-prod.wasm.gz` (the gzip-compressed
+browser build of the `sysml` REPL) with their matching `wasm_exec.js`, list all three
+in the signed `SHA256SUMS.txt`, and cover them with SLSA provenance.
 Nightly snapshots list the same assets in their cosign-signed checksum
 manifest; like every nightly asset, they have no SLSA provenance. The npm
-package `@openmbee/opensysml-wasm` carries both assets. Other WebAssembly builds
+package `@openmbee/opensysml-wasm` carries all three assets. Other WebAssembly builds
 remain available from source for hosts that run modules rather than executables.
 
 ## Building
@@ -40,11 +41,14 @@ input and output as its WASI build does. They are opt-in as well: `make build` a
 `make install` leave them out of the native executables; the combined JavaScript
 WebAssembly module is published separately.
 
-`make build-wasm-prod` builds a smaller `sysml-prod.wasm` for each target with `-tags sysml_prod`
-(`make build-prod` is the native counterpart). It leaves out SysML v1 migration, repository sync,
-`-compile`, the HTML and PDF document forms, FMU import, profiling and the REPL's `%features …
-json`. A flag of a left-out group is hidden from `-help` and refused with status 2. Each group
-also has a tag of its own (`sysml_nov1`, `sysml_nosync`, `sysml_nocodegen`, `sysml_nodocpdf`,
+The `sysml` command comes in two builds, named after the two halves of the REDK: the **DK**
+(Development Kit) build is the default `sysml` with every feature group, and the **RE** (Runtime
+Environment) build leaves the optional and developer-only groups out. Both builds produce a binary named
+`sysml`; the RE's goes in a `re/` directory (`bin/re/sysml`, `bin/wasm/{js,wasip1}/re/sysml.wasm`),
+and it is the package that carries the RE or DK name. `make build-wasm-re` builds the smaller RE
+`re/sysml.wasm` for each target with `-tags sysml_re` (`make build-re` is the native counterpart). It leaves out SysML v1 migration, repository sync, `-compile`, the HTML and PDF
+document forms, FMU import, profiling and the REPL's `%features … json`. A flag of a left-out
+group is hidden from `-help` and refused with status 2. Each group also has a tag of its own (`sysml_nov1`, `sysml_nosync`, `sysml_nocodegen`, `sysml_nodocpdf`,
 `sysml_nofmi`, `sysml_noprofile`, `sysml_noreplext`).
 
 ## Running a WASI build
@@ -152,6 +156,12 @@ the view kind, stated rendering, notices, canvas, nodes, edges, and, for tabular
 (tables and matrices), columns and rows; its node and edge fields use the same JSON names as
 `opensysml/render`.
 
+`show` is optional: an array naming the [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
+to draw besides those the view's rendering shows (`parameter-symbols`, `port-symbols`,
+`compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, or `all`),
+as `sysml -render-show` does; an unknown name is an invalid-argument error. The response's
+`shown` lists the elements drawn.
+
 The engine has no current-document context, so a pseudo-view must name an element, for
 example `#tree:OpenSysMLStack::stack`. An untargeted `#tree`, `#interconnection` or `#matrix` is
 refused with InvalidArgument and the supported pseudo-view spellings.
@@ -246,15 +256,21 @@ Measured on a `go1.25` `js/wasm` build: 20,601,256 raw bytes, 5,444,030 bytes wi
 The Node and browser client adapter is documented in
 [WebAssembly, without a service](../../client/node/README.md#webassembly-without-a-service).
 Stable and nightly releases include the module and matching runtime; the npm
-package is `@openmbee/opensysml-wasm`.
+package is `@openmbee/opensysml-wasm`. The same assets and package carry
+`sysml-prod.wasm.gz`, the gzip-compressed [`sysml_prod`](#building) browser build of the
+`sysml` REPL (about 13 MB; 54 MB inflated). It is not a JSON-RPC module: a page inflates
+it with `DecompressionStream` and runs it under `wasm_exec.js` with an emulated file
+system and stdin, as the site's REPL page does.
 
 `sysml-wasm` combines the parsing, validation and execution methods of `sysml-core` and
 `sysml-engine` in one WebAssembly module. It serves `ParseSources`, `ParseFile`,
-`GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`
-and `GetServerInfo`. Parsing and symbol facts route through the core; evaluation and
-execution route through the engine. `ParseSources` and `ParseFile` check that both frontends
-produce the same model hash and return the core response, including roots and diagnostics.
-It does not dispatch the engine's `RenderView` call.
+`GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`,
+`RenderView` and `GetServerInfo`. Parsing and symbol facts route through the core;
+evaluation, execution and view rendering route through the engine. `ParseSources` and
+`ParseFile` check that both frontends produce the same model hash and return the core
+response, including roots and diagnostics. `RenderView` answers with [the engine's drawing
+shape](#the-execution-engine), not the protojson `RenderViewResponse` the service returns, so the
+module does not advertise the `render_view` capability a service client would key on.
 
 A hash from either parse method is shared by every method that takes a `modelHash`, including
 `GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction` and `ExecuteState`.

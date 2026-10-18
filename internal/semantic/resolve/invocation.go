@@ -7,6 +7,8 @@ import (
 
 // ResolveInvocationName resolves a called name as ResolveQualified does, except that several
 // declarations under a qualified name denote the first: overload selection picks the one run.
+// Hiding is in force as for any name (KerML 7.2.5.4): a name two imports bring as distinct
+// functions is no member, so the call is unresolved there.
 func (r *Resolver) ResolveInvocationName(scope *symbols.Scope, qn *ast.QualifiedName) (*symbols.Symbol, bool) {
 	if qn == nil {
 		return nil, false
@@ -93,7 +95,8 @@ func (r *Resolver) globalCandidates(scope *symbols.Scope, name string) []*symbol
 		return nil
 	}
 	doc := r.documentOf(scope)
-	cands := r.admittedUnder(doc, r.ReferringNamespaceFQN(scope), name, r.idx.LookupQualified(name))
+	cands := r.withoutHiddenImports(rootOf(scope), name,
+		r.admittedUnder(doc, r.ReferringNamespaceFQN(scope), name, r.idx.LookupQualified(name)))
 	if r.idx.IsLibraryDocument(doc) {
 		return cands
 	}

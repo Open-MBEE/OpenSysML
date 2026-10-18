@@ -5,11 +5,11 @@
 CallBehaviorAction	Library::Recursive Viewpoint::View Body::recursive call	_recursiveCall	-> 'recursive call'	(the behavior acts on a Library::Recursive Viewpoint through its parameter context, which is bound to View::context)
 
 ## mapped (8)
-Package	Library	_library	-> Library
-«Viewpoint» Class	Library::Recursive Viewpoint	_viewpoint	-> Library::'Recursive Viewpoint'
-Operation	Library::Recursive Viewpoint::View	_view	-> Library::'Recursive Viewpoint'::View	(acts on its owner Library::Recursive Viewpoint, which it takes as its parameter context, since its this is the def's own occurrence; its owner's usage view performs it, as a call on an object does)
-Activity	Library::Recursive Viewpoint::View Body	_viewBody	-> Library::'Recursive Viewpoint'::View	(written as the body of the operation Library::Recursive Viewpoint::View, whose method it is)
+Package	Library	_library	-> Model::Library
+«Viewpoint» Class	Library::Recursive Viewpoint	_viewpoint	-> Model::Library::'Recursive Viewpoint'
+Operation	Library::Recursive Viewpoint::View	_view	-> Model::Library::'Recursive Viewpoint'::View	(acts on its owner Library::Recursive Viewpoint, which it takes as its parameter context, since its this is the def's own occurrence; its owner's usage view performs it, as a call on an object does)
+Activity	Library::Recursive Viewpoint::View Body	_viewBody	-> Model::Library::'Recursive Viewpoint'::View	(written as the body of the operation Library::Recursive Viewpoint::View, whose method it is)
 ActivityFinalNode	Library::Recursive Viewpoint::View Body::<ActivityFinalNode>	_finish	-> final
 ControlFlow	Library::Recursive Viewpoint::View Body::<ControlFlow>	_finishFlow
 InitialNode	Library::Recursive Viewpoint::View Body::<InitialNode>	_start	-> start
-Model	Model	_m	(the root model's members are written at the top level)
+Model	Model	_m	-> Model	(written as package Model)

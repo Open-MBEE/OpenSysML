@@ -20,11 +20,17 @@ func kermlLibraryDiags(t *testing.T, src string) []diag.Diagnostic {
 	idx.ExpandWildcardImports()
 	var out []diag.Diagnostic
 	for _, d := range Analyze("<t>.kerml", root, nil, idx) {
-		if (d.Source == "type" || d.Source == "name-resolution") && !importedNameConflict(d) {
+		if (d.Source == "type" || d.Source == "name-resolution") && !overloadSetNameConflict(d) {
 			out = append(out, d)
 		}
 	}
 	return out
+}
+
+// bindingCodes are the codes of the argument-binding rules of calls and constructors.
+var bindingCodes = map[string]bool{
+	"invocation-argument": true,
+	"constructor-expression-no-duplicate-feature-redefinition": true,
 }
 
 // wantMessages checks that diags carry exactly the messages wanted, in order.
@@ -34,8 +40,8 @@ func wantMessages(t *testing.T, diags []diag.Diagnostic, want ...string) {
 		t.Fatalf("expected %d diagnostic(s) %q, got %v", len(want), want, diags)
 	}
 	for i, d := range diags {
-		if d.Code != "type.expr" || !strings.Contains(d.Message, want[i]) {
-			t.Fatalf("expected diagnostic %d to be type.expr %q, got %s %q", i, want[i], d.Code, d.Message)
+		if !bindingCodes[d.Code] || !strings.Contains(d.Message, want[i]) {
+			t.Fatalf("expected diagnostic %d to be a binding finding %q, got %s %q", i, want[i], d.Code, d.Message)
 		}
 	}
 }
@@ -62,7 +68,7 @@ func TestInvocationDuplicateParameterBindingKerML(t *testing.T) {
 		"F(x = t, x = t)", "F(x = t, xs = t)", "F(xs = t, x = t)", "G(x = t, x = t)", "G(F::x = t, x = t)", "G(x = t, y = t, G::y = t)",
 	} {
 		diags := kermlLibraryDiags(t, fmt.Sprintf(model, call))
-		if len(diags) != 1 || diags[0].Code != "type.expr" || !strings.Contains(diags[0].Message, "binds parameter") ||
+		if len(diags) != 1 || diags[0].Code != "invocation-argument" || !strings.Contains(diags[0].Message, "binds parameter") ||
 			!strings.HasSuffix(diags[0].Message, "twice") {
 			t.Errorf("%s: expected one duplicate-binding diagnostic, got %v", call, diags)
 		}
@@ -77,12 +83,12 @@ func TestInvocationDuplicateParameterBindingKerML(t *testing.T) {
 func TestInvocationOverloadSelectedByResolvedParameterName(t *testing.T) {
 	const model = `package P {
 		class T;
-		package A { function f { in x : T; in a : T; return r : T; } }
-		package B { function f { in x : T; in b : T; alias bs for b; return r : T; } }
-		private import A::*;
-		private import B::*;
-		feature t : T;
-		feature v : T = %s;
+		struct A { function f { in x : T; in a : T; return r : T; } }
+		struct B { function f { in x : T; in b : T; alias bs for b; return r : T; } }
+		struct U :> A, B {
+			feature t : T;
+			feature v : T = %s;
+		}
 	}`
 	for _, call := range []string{"f(x = t, B::f::b = t)", "f(x = t, bs = t)", "f(x = t, A::f::a = t)"} {
 		if diags := kermlLibraryDiags(t, fmt.Sprintf(model, call)); len(diags) != 0 {
@@ -104,8 +110,8 @@ func TestInvocationDuplicateParameterBindingThroughUsage(t *testing.T) {
 		attribute v : Integer = %s;
 	}`
 	wantLibraryClean(t, fmt.Sprintf(model, "k(a = 1, b = 2)"))
-	wantLibraryDiag(t, fmt.Sprintf(model, "k(a = 1, alpha = 2)"), "type.expr", `k binds parameter "alpha" twice`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "K(alpha = 1, a = 2)"), "type.expr", `K binds parameter "alpha" twice`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "k(a = 1, alpha = 2)"), "invocation-argument", `k binds parameter "alpha" twice`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "K(alpha = 1, a = 2)"), "invocation-argument", `K binds parameter "alpha" twice`)
 }
 
 // SysML spellings of an invocation are one rule: a calc call, an action usage
@@ -126,9 +132,9 @@ func TestInvocationDuplicateParameterBindingSysML(t *testing.T) {
 	} {
 		wantLibraryClean(t, fmt.Sprintf(model, member))
 	}
-	wantLibraryDiag(t, fmt.Sprintf(model, "perform action pa = A(x = 1, x = 2);"), "type.expr", `A binds parameter "x" twice`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "action a = A(x = 1, x = 2);"), "type.expr", `A binds parameter "x" twice`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "attribute k = K(a = 1, a = 2);"), "type.expr", `K binds parameter "a" twice`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "perform action pa = A(x = 1, x = 2);"), "invocation-argument", `A binds parameter "x" twice`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "action a = A(x = 1, x = 2);"), "invocation-argument", `A binds parameter "x" twice`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "attribute k = K(a = 1, a = 2);"), "invocation-argument", `K binds parameter "a" twice`)
 }
 
 // An invocation heading a feature chain is argument-checked as a bare one is, under
@@ -153,11 +159,11 @@ func TestInvocationHeadingFeatureChain(t *testing.T) {
 	} {
 		wantLibraryClean(t, fmt.Sprintf(model, member))
 	}
-	wantLibraryDiag(t, fmt.Sprintf(model, "attribute v = K(a = 1, alpha = 2).r;"), "type.expr", `K binds parameter "alpha" twice`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "item s = M(n = 1, n = 2).r.inner.inner;"), "type.expr", `M binds parameter "n" twice`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "send M(n = 1, M::n = 2).r.inner to rcv;"), "type.expr", `M binds parameter "n" twice`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "attribute v = K(c = 1).r;"), "type.expr", `K has no parameter named "c"`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "item s = M(1, 2).r.inner;"), "type.expr", `M takes 1 argument(s), found 2`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "attribute v = K(a = 1, alpha = 2).r;"), "invocation-argument", `K binds parameter "alpha" twice`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "item s = M(n = 1, n = 2).r.inner.inner;"), "invocation-argument", `M binds parameter "n" twice`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "send M(n = 1, M::n = 2).r.inner to rcv;"), "invocation-argument", `M binds parameter "n" twice`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "attribute v = K(c = 1).r;"), "invocation-argument", `K has no parameter named "c"`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "item s = M(1, 2).r.inner;"), "invocation-argument", `M takes 1 argument(s), found 2`)
 	for _, member := range []string{
 		"attribute v = K();",
 		"attribute v = K(b = 2);",
@@ -194,7 +200,7 @@ func TestConstructorDuplicateFeatureBindingKerML(t *testing.T) {
 		"new C(x = t, xa = t)", "new C(sn = t, longName = t)", "new C(C::x = t, x = t)",
 	} {
 		diags := kermlLibraryDiags(t, fmt.Sprintf(model, call))
-		if len(diags) != 1 || diags[0].Code != "type.expr" ||
+		if len(diags) != 1 || diags[0].Code != "constructor-expression-no-duplicate-feature-redefinition" ||
 			!strings.Contains(diags[0].Message, "is already bound by an earlier argument") {
 			t.Errorf("%s: expected one duplicate-binding diagnostic, got %v", call, diags)
 		}
@@ -232,17 +238,17 @@ func TestConstructorDuplicateFeatureBindingSysML(t *testing.T) {
 	} {
 		wantLibraryClean(t, fmt.Sprintf(model, member))
 	}
-	wantLibraryDiag(t, fmt.Sprintf(model, "send new Sig(p = 1, p = 2) to rcv;"), "type.expr", `p of Sig is already bound by an earlier argument`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "send (if flag ? new Sig(p = 1, p = 2) else new Sig(p = 1)) to rcv;"), "type.expr", `p of Sig is already bound by an earlier argument`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "send (new Sig(p = 1), new Sig(q = 1, q = 2)) to rcv;"), "type.expr", `q of Sig is already bound by an earlier argument`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "send SendM(new Sig(p = 1, p = 2)) to rcv;"), "type.expr", `p of Sig is already bound by an earlier argument`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "send new Sig(p = 1, p = 2).p to rcv;"), "type.expr", `p of Sig is already bound by an earlier argument`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "send new Sig(p = 1, p = 2).SendM() to rcv;"), "type.expr", `p of Sig is already bound by an earlier argument`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "send new Sig(p = 1, p = 2).inner.inner.p to rcv;"), "type.expr", `p of Sig is already bound by an earlier argument`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "part s : Sub = new Sub(x = 1, x = 2).inner.inner;"), "type.expr", `x of Sub is already bound by an earlier argument`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "send (1, 2).{in i : Integer; new Sig(q = i, q = i)} to rcv;"), "type.expr", `q of Sig is already bound by an earlier argument`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "part s : Sub = new Sub(x = 1, x = 2);"), "type.expr", `x of Sub is already bound by an earlier argument`)
-	wantLibraryDiag(t, fmt.Sprintf(model, "item a : Sig = new Sig(p = 1, Sig::p = 2);"), "type.expr", `p of Sig is already bound by an earlier argument`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "send new Sig(p = 1, p = 2) to rcv;"), "constructor-expression-no-duplicate-feature-redefinition", `p of Sig is already bound by an earlier argument`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "send (if flag ? new Sig(p = 1, p = 2) else new Sig(p = 1)) to rcv;"), "constructor-expression-no-duplicate-feature-redefinition", `p of Sig is already bound by an earlier argument`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "send (new Sig(p = 1), new Sig(q = 1, q = 2)) to rcv;"), "constructor-expression-no-duplicate-feature-redefinition", `q of Sig is already bound by an earlier argument`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "send SendM(new Sig(p = 1, p = 2)) to rcv;"), "constructor-expression-no-duplicate-feature-redefinition", `p of Sig is already bound by an earlier argument`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "send new Sig(p = 1, p = 2).p to rcv;"), "constructor-expression-no-duplicate-feature-redefinition", `p of Sig is already bound by an earlier argument`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "send new Sig(p = 1, p = 2).SendM() to rcv;"), "constructor-expression-no-duplicate-feature-redefinition", `p of Sig is already bound by an earlier argument`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "send new Sig(p = 1, p = 2).inner.inner.p to rcv;"), "constructor-expression-no-duplicate-feature-redefinition", `p of Sig is already bound by an earlier argument`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "part s : Sub = new Sub(x = 1, x = 2).inner.inner;"), "constructor-expression-no-duplicate-feature-redefinition", `x of Sub is already bound by an earlier argument`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "send (1, 2).{in i : Integer; new Sig(q = i, q = i)} to rcv;"), "constructor-expression-no-duplicate-feature-redefinition", `q of Sig is already bound by an earlier argument`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "part s : Sub = new Sub(x = 1, x = 2);"), "constructor-expression-no-duplicate-feature-redefinition", `x of Sub is already bound by an earlier argument`)
+	wantLibraryDiag(t, fmt.Sprintf(model, "item a : Sig = new Sig(p = 1, Sig::p = 2);"), "constructor-expression-no-duplicate-feature-redefinition", `p of Sig is already bound by an earlier argument`)
 }
 
 // An argument binding no `in` parameter of the invoked type — a name that is no
@@ -284,7 +290,7 @@ func TestInvocationParameterRedefinitionKerML(t *testing.T) {
 			continue
 		}
 		d := diags[0]
-		if d.Code != "type.expr" || !strings.HasPrefix(d.Message, msgInvocationParameterRedefinition+": "+want.msg) {
+		if d.Code != "invocation-argument" || !strings.HasPrefix(d.Message, msgInvocationParameterRedefinition+": "+want.msg) {
 			t.Errorf("%s: expected %q, got %s %q", call, want.msg, d.Code, d.Message)
 		}
 		if spanned := strings.TrimSpace(src[d.Span.Offset:d.Span.End()]); spanned != want.at {

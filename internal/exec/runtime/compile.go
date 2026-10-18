@@ -16,10 +16,10 @@ import (
 // to 0 (or false/off/no), leaving every calc to the reference evaluator.
 const CalcCompileEnvVar = "OPENSYSML_CALC_COMPILE"
 
-// CalcCompileFromEnv reports whether the environment leaves the compiled calc
+// calcCompileFromEnv reports whether the environment leaves the compiled calc
 // tier on, which it does unless CalcCompileEnvVar (or its legacy SYSML_ name)
 // switches it off.
-func CalcCompileFromEnv() bool {
+func calcCompileFromEnv() bool {
 	return calcCompileFromValue(envvar.Lookup(CalcCompileEnvVar))
 }
 
@@ -175,7 +175,7 @@ func (c *scalarCheck) held(v scalar, what func() string) (scalar, error) {
 		return v, nil
 	}
 	exact := v.Unpack()
-	real, err := semantics.RealOf(exact)
+	realValue, err := semantics.RealOf(exact)
 	if err != nil {
 		err = fmt.Errorf("%s as a Real: %w", exact.FormatRational(), err)
 		if what != nil {
@@ -183,7 +183,7 @@ func (c *scalarCheck) held(v scalar, what func() string) (scalar, error) {
 		}
 		return scalar{}, err
 	}
-	return realScalar(real.Real), nil
+	return realScalar(realValue.Real), nil
 }
 
 // refuse is the evaluator's verdict on a value accepts declined, so a refusal
@@ -442,7 +442,7 @@ func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) 
 	check.rationalOK = holds(semantics.PrimRational)
 	check.realOK = holds(semantics.PrimReal)
 	check.holdsReal = prim == semantics.PrimReal
-	if c.ctx.positiveScalar(decl.Target.typ) {
+	if c.ctx.PositiveScalar(decl.Target.typ) {
 		check.least = 1
 	}
 	check.settle()

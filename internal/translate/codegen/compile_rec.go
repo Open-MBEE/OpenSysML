@@ -86,11 +86,11 @@ func (fc *funcCompiler) recordFields(r *Record) string {
 				f.def = RealLit{Value: v.Real}
 			case v.Kind == semantics.ValRational && b.t.Elem() == TypeReal:
 				// A Real field holds the Rational default rounded once, as the interpreter does.
-				real, err := semantics.RealOf(v)
+				realValue, err := semantics.RealOf(v)
 				if err != nil {
 					return fmt.Sprintf("the default of %s.%s: %v", r.Short, sf.Name, err)
 				}
-				f.def = RealLit{Value: real.Real}
+				f.def = RealLit{Value: realValue.Real}
 			case v.Kind == semantics.ValBool:
 				f.def = BoolLit{Value: v.Bool}
 			default:

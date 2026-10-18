@@ -26,65 +26,113 @@ flowchart TD
   n0["`*«part def»*
 **Vehicle**`"]
     n1("`*«part»*
-**chassis : Chassis**`")
+**chassis**`")
+      n2("`*«attribute»*
+**mass**`")
+  n1 --- n2
   n0 --- n1
-    n2("`*«part»*
-**wheels : Wheel**`")
-  n0 --- n2
     n3("`*«part»*
-**driver : Driver**`")
+**wheels**`")
   n0 --- n3
-    n4("`*«attribute»*
-**total : Mass**`")
+    n4("`*«part»*
+**driver**`")
   n0 --- n4
-    n5["`*«part def»*
-**Cabin**`"]
+    n5("`*«attribute»*
+**total**`")
   n0 --- n5
-    n6("`*«part»*
-**cabin : Cabin**`")
+    n6["`*«part def»*
+**Cabin**`"]
   n0 --- n6
     n7("`*«part»*
-**radio : Radio**`")
+**cabin**`")
   n0 --- n7
     n8("`*«part»*
-**trailer : Trailer**`")
+**radio**`")
   n0 --- n8
-  n9["`*«part def»*
+    n9("`*«part»*
+**trailer**`")
+  n0 --- n9
+  n10["`*«part def»*
 **SportsCar**`"]
-    n10("`*«part»*
-**chassis : LightChassis**`")
-  n9 --- n10
     n11("`*«part»*
-**spare : Wheel**`")
-  n9 --- n11
-  n12["`*«part def»*
-**Chassis**`"]
-    n13("`*«attribute»*
-**mass : Mass**`")
-  n12 --- n13
-  n14["`*«part def»*
-**LightChassis**`"]
-    n15("`*«attribute»*
+**chassis**`")
+      n12("`*«attribute»*
 **mass**`")
-  n14 --- n15
-  n16["`*«part def»*
+  n11 --- n12
+  n10 --- n11
+    n13("`*«part»*
+**spare**`")
+  n10 --- n13
+    n14("`*«part»*
+**wheels**`")
+  n10 --- n14
+    n15("`*«part»*
+**driver**`")
+  n10 --- n15
+    n16("`*«attribute»*
+**total**`")
+  n10 --- n16
+    n17("`*«part»*
+**cabin**`")
+  n10 --- n17
+    n18("`*«part»*
+**radio**`")
+  n10 --- n18
+    n19("`*«part»*
+**trailer**`")
+  n10 --- n19
+  n20["`*«part def»*
+**Chassis**`"]
+    n21("`*«attribute»*
+**mass**`")
+  n20 --- n21
+  n22["`*«part def»*
+**LightChassis**`"]
+    n23("`*«attribute»*
+**mass**`")
+  n22 --- n23
+  n24["`*«part def»*
 **Wheel**`"]
-  n17["`*«part def»*
+  n25["`*«part def»*
 **Driver**`"]
-  n18["`*«attribute def»*
+  n26["`*«attribute def»*
 **Mass**`"]
-  n19("`*«part»*
-**fleetCar : Vehicle**`")
-  n0 ---|"◆ chassis"| n12
-  n0 ---|"◆ wheels[4]"| n16
-  n0 ---|"◇ driver[0..1]"| n17
-  n0 ---|"◇ total"| n18
-  n9 -->|"specialization"| n0
-  n9 ---|"◆ chassis"| n14
-  n9 ---|"◆ spare"| n16
-  n10 -->|"redefines"| n1
-  n11 -->|"subsets"| n2
-  n12 ---|"◇ mass"| n18
-  n14 -->|"specialization"| n12
-  n15 -->|"redefines"| n13
-  n19 -.->|"typing"| n0
+  n27("`*«part»*
+**fleetCar**`")
+    n28("`*«part»*
+**chassis**`")
+      n29("`*«attribute»*
+**mass**`")
+  n28 --- n29
+  n27 --- n28
+    n30("`*«part»*
+**wheels**`")
+  n27 --- n30
+    n31("`*«part»*
+**driver**`")
+  n27 --- n31
+    n32("`*«attribute»*
+**total**`")
+  n27 --- n32
+    n33("`*«part»*
+**cabin**`")
+  n27 --- n33
+    n34("`*«part»*
+**radio**`")
+  n27 --- n34
+    n35("`*«part»*
+**trailer**`")
+  n27 --- n35
+  n0 ---|"◆ chassis"| n20
+  n0 ---|"◆ wheels"| n24
+  n0 ---|"◇ driver"| n25
+  n0 ---|"◇ total"| n26
+  n10 -->|"specialization"| n0
+  n10 ---|"◆ chassis"| n22
+  n10 ---|"◆ spare"| n24
+  n11 -->|"redefines"| n1
+  n13 -->|"subsets"| n3
+  n20 ---|"◇ mass"| n26
+  n22 -->|"specialization"| n20
+  n23 -->|"redefines"| n21
+  n27 -.->|"typing"| n0

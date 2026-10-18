@@ -1,0 +1,5 @@
+{
+  "type": "satisfy",
+  "evaluate": "test::gentle",
+  "satisfied": true
+}

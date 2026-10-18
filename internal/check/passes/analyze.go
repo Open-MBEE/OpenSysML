@@ -139,6 +139,9 @@ func PrepareBatch(idx *symbols.Index, batch *Batch) {
 	if idx == nil || batch == nil {
 		return
 	}
+	if batch.Collisions == nil {
+		batch.Collisions = resolve.NewSharedCollisions()
+	}
 	linker := resolve.New(idx)
 	model := NewTypedModel(linker)
 	linker.SetModel(model)

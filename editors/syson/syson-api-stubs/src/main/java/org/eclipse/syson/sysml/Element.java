@@ -1,5 +1,6 @@
 package org.eclipse.syson.sysml;
 
+import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.ecore.EModelElement;
 
 public interface Element extends EModelElement {
@@ -14,4 +15,6 @@ public interface Element extends EModelElement {
     boolean isIsLibraryElement();
 
     Element getOwner();
+
+    EList<Relationship> getOwnedRelationship();
 }

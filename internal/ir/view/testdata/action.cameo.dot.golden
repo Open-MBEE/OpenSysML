@@ -23,7 +23,7 @@ digraph "FlowViews::driveView" {
       penwidth=1;
       "n0" [shape=point, style=invis, width=0, height=0, label=""];
       "n1" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
-      "n2" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">fuel</font></td></tr><tr><td colspan="2"><b>provide : Provide</b></td></tr><tr><td port="n2.1" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">torque</font></td></tr></table>>];
+      "n2" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>provide</b>>];
       subgraph "cluster_n3" {
         label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>monitor</b></td></tr><hr/><tr><td align="left">own flow</td></tr></table>>;
         style="rounded,filled";
@@ -32,7 +32,6 @@ digraph "FlowViews::driveView" {
         color="#424242";
         penwidth=1;
         "n3" [shape=point, style=invis, width=0, height=0, label=""];
-        "n3.0" [shape=box, label="", xlabel="reading", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242"];
         "n4" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
         "n5" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>record</b>>];
       }
@@ -47,7 +46,7 @@ digraph "FlowViews::driveView" {
   "n4" -> "n5";
   "n1" -> "n7";
   "n2" -> "n8";
-  "n2":"n2.1" -> "n3.0" [style=dashed];
+  "n2" -> "n3" [style=dashed, lhead="cluster_n3"];
   "n3" -> "n8" [ltail="cluster_n3"];
   "n6" -> "n8";
   "n7" -> "n2";

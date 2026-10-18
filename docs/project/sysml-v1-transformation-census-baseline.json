@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 103
+        "files": 124
       }
     ],
     "counts": {
@@ -100,7 +100,7 @@
       },
       "uml:Actor": {
         "pssm": 0,
-        "fixtures": 8
+        "fixtures": 9
       },
       "uml:AddStructuralFeatureValueAction": {
         "pssm": 525,
@@ -112,7 +112,7 @@
       },
       "uml:Association": {
         "pssm": 4,
-        "fixtures": 15
+        "fixtures": 37
       },
       "uml:BroadcastSignalAction": {
         "pssm": 0,
@@ -140,7 +140,7 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 490
+        "fixtures": 570
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
@@ -156,7 +156,7 @@
       },
       "uml:Constraint": {
         "pssm": 59,
-        "fixtures": 25
+        "fixtures": 32
       },
       "uml:ControlFlow[weight]": {
         "pssm": 0,
@@ -200,7 +200,7 @@
       },
       "uml:InformationFlow": {
         "pssm": 0,
-        "fixtures": 2
+        "fixtures": 7
       },
       "uml:InformationItem": {
         "pssm": 0,
@@ -208,7 +208,7 @@
       },
       "uml:InstanceSpecification": {
         "pssm": 0,
-        "fixtures": 55
+        "fixtures": 56
       },
       "uml:InterfaceRealization": {
         "pssm": 0,
@@ -220,7 +220,7 @@
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 124
+        "fixtures": 125
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -228,7 +228,7 @@
       },
       "uml:OpaqueAction": {
         "pssm": 0,
-        "fixtures": 158
+        "fixtures": 160
       },
       "uml:OpaqueBehavior": {
         "pssm": 0,
@@ -248,7 +248,7 @@
       },
       "uml:Property": {
         "pssm": 25,
-        "fixtures": 475
+        "fixtures": 571
       },
       "uml:Property[qualifier]": {
         "pssm": 0,
@@ -256,7 +256,7 @@
       },
       "uml:Pseudostate": {
         "pssm": 289,
-        "fixtures": 71
+        "fixtures": 78
       },
       "uml:RaiseExceptionAction": {
         "pssm": 0,
@@ -304,7 +304,7 @@
       },
       "uml:Region": {
         "pssm": 248,
-        "fixtures": 54
+        "fixtures": 59
       },
       "uml:RemoveStructuralFeatureValueAction": {
         "pssm": 0,
@@ -336,7 +336,7 @@
       },
       "uml:Stereotype": {
         "pssm": 0,
-        "fixtures": 50
+        "fixtures": 60
       },
       "uml:TestIdentityAction": {
         "pssm": 14,
@@ -356,7 +356,7 @@
       },
       "uml:ValueSpecificationAction": {
         "pssm": 1061,
-        "fixtures": 16
+        "fixtures": 17
       },
       "uml:Variable": {
         "pssm": 0,
@@ -2039,7 +2039,7 @@
         "internal/translate/migrate/migrate.go:association"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
+        "tests/migrate/classify_test.go:TestAnonymousAssociationIsAConnectionDef",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
       "reason": "",
@@ -2116,7 +2116,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2143,7 +2143,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2170,7 +2170,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2197,7 +2197,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2224,7 +2224,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2251,7 +2251,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2278,7 +2278,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2305,7 +2305,7 @@
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept in an `AppliedStereotype` marker on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -3282,7 +3282,7 @@
       "tests": [
         "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "A «Stakeholder» class is written as a part def that types viewpoint stakeholder usages and homed concern stakeholder parameters; the deprecated concern tag remains a comment. candidate erratum: the mapping maps «Stakeholder» to an ItemDefinition, but a v2 stakeholder parameter is a PartUsage (StakeholderMembership::ownedStakeholderParameter), which requires a PartDefinition among its definitions; a PartDefinition is the type that can be used",
+      "reason": "A «Stakeholder» class is written as a part def that types viewpoint stakeholder usages and homed concern stakeholder parameters; the deprecated concern tag remains a tag of an `AppliedStereotype` marker. candidate erratum: the mapping maps «Stakeholder» to an ItemDefinition, but a v2 stakeholder parameter is a PartUsage (StakeholderMembership::ownedStakeholderParameter), which requires a PartDefinition among its definitions; a PartDefinition is the type that can be used",
       "scope": [
         "sysml:Stakeholder"
       ]
@@ -5766,14 +5766,17 @@
         "annotatingElement"
       ],
       "ocl": "sha256:4db026f09f3716d47d639eda7b32fabda8a23238173c7e82a92ab5fbf6206215",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5793,14 +5796,17 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:54657901c121954c1680ad715416dd9707794c50d7f4030ac217fcd743efeeb5",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5820,14 +5826,17 @@
         "value"
       ],
       "ocl": "sha256:374d6139041fea74e9bbabacb7fb542caa2e2ea6efdcdc9adbdc1325926872fa",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5847,14 +5856,17 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:841dc25fd55c9a48a67984526b81453685662d42a2f2d0ae156c97daabd97a1c",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5874,14 +5886,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:2fa20084af57553c7512381a4bc5d03575fa8b4e419b952d54321480815c17cf",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5901,14 +5916,17 @@
         "type"
       ],
       "ocl": "sha256:d1696ebe9c6ccf4df18dc03ab76b267e7ca2b0fdea32e64c46e01efa3a3ac88a",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5928,14 +5946,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:04707285b1e32932084145ce1134c947c3fb4a20e006b5a60eb449ba87a182da",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -5955,14 +5976,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:66db148db5823133b118df30e324b46a841188f4ab9d6679c1c8d8f8fcd114ac",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:appliedStereotype"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/migrate_test.go:TestNoStereotypeIsKeptAsAComment",
+        "tests/migrate/relations_test.go:TestNamedRelationshipsKeepTheirNames"
       ],
-      "reason": "a «Trace» is written as a plain dependency with a `/* «Trace» */` comment, not as a dependency annotated by trace metadata",
+      "reason": "a «Trace» is written as a plain dependency named by its kind (`dependency 'A traces B' from A to B`) annotated by `@MigrationMetadata::AppliedStereotype { stereotype = \"Trace\"; }` (omitted under -strict, where the name alone carries the kind), not by `SysMLv1Library::TraceData`: OMG names SysMLv1Library but does not publish it, and a comment would be drawn as a note on every diagram",
       "scope": [
         "sysml:Trace"
       ]
@@ -6733,15 +6757,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:3f4ba616a89403b7434108f7d6e931f2731f96306a5f6a0966acaa645618a884",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:opaqueAction"
+        "internal/translate/migrate/activity.go:opaqueAction",
+        "internal/translate/migrate/behavior.go:textualReps",
+        "internal/translate/migrate/values.go:opaqueBodyPairs"
       ],
       "tests": [
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation",
+        "tests/migrate/opaque_textual_rep_test.go:TestOpaqueActionTextualRepresentations",
         "tests/migrate/opaque_migration_test.go:TestTranslatedOutputPinsFeedTheirFlows"
       ],
-      "reason": "the body is translated into action statements when its language is read; otherwise the action is a stub keeping its pins (fixtures: 78 of 109 approximated)",
+      "reason": "translated bodies retain executable action statements and each nonempty body/language pair is also written as a textual representation; a body without a language is kept as a comment",
       "scope": [
         "uml:OpaqueAction"
       ]
@@ -7343,7 +7369,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7353,7 +7380,7 @@
         "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector of the caller's block joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the block and chains through it, `action n { in target : Owner; perform action op ::> target.op; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op`, the call's other pins bound to the operation's parameters by position; an operation kept as an `action def` (one a state runs, or whose method acts through ports) is called as `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`; a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; when no object receives the call (no flow feeds the target pin, the target's type has no such operation, a port no connector resolves) an empty step declaring the call's pins stands for it, reported under its own reason, while a call of a def-kept operation stays `action n : Owner::Op;` in the caller's context; the per-call residual: a call on `this` where v1 types `this` as an Alf body activity lacking the operation, which would need a context the v1 model does not give (PSSM: 881 mapped, 51 approximated of 932; of the approximated, 23 calls on such a `this`, 21 with edge notes only, 6 renamed beside a sibling of the same name, 1 whose input pin never holds a value)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7377,7 +7404,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7387,7 +7415,7 @@
         "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector of the caller's block joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the block and chains through it, `action n { in target : Owner; perform action op ::> target.op; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op`, the call's other pins bound to the operation's parameters by position; an operation kept as an `action def` (one a state runs, or whose method acts through ports) is called as `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`; a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; when no object receives the call (no flow feeds the target pin, the target's type has no such operation, a port no connector resolves) an empty step declaring the call's pins stands for it, reported under its own reason, while a call of a def-kept operation stays `action n : Owner::Op;` in the caller's context; the per-call residual: a call on `this` where v1 types `this` as an Alf body activity lacking the operation, which would need a context the v1 model does not give (PSSM: 881 mapped, 51 approximated of 932; of the approximated, 23 calls on such a `this`, 21 with edge notes only, 6 renamed beside a sibling of the same name, 1 whose input pin never holds a value)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7411,7 +7439,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7421,7 +7450,7 @@
         "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector of the caller's block joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the block and chains through it, `action n { in target : Owner; perform action op ::> target.op; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op`, the call's other pins bound to the operation's parameters by position; an operation kept as an `action def` (one a state runs, or whose method acts through ports) is called as `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`; a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; when no object receives the call (no flow feeds the target pin, the target's type has no such operation, a port no connector resolves) an empty step declaring the call's pins stands for it, reported under its own reason, while a call of a def-kept operation stays `action n : Owner::Op;` in the caller's context; the per-call residual: a call on `this` where v1 types `this` as an Alf body activity lacking the operation, which would need a context the v1 model does not give (PSSM: 881 mapped, 51 approximated of 932; of the approximated, 23 calls on such a `this`, 21 with edge notes only, 6 renamed beside a sibling of the same name, 1 whose input pin never holds a value)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7445,7 +7474,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7455,7 +7485,7 @@
         "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector of the caller's block joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the block and chains through it, `action n { in target : Owner; perform action op ::> target.op; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op`, the call's other pins bound to the operation's parameters by position; an operation kept as an `action def` (one a state runs, or whose method acts through ports) is called as `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`; a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; when no object receives the call (no flow feeds the target pin, the target's type has no such operation, a port no connector resolves) an empty step declaring the call's pins stands for it, reported under its own reason, while a call of a def-kept operation stays `action n : Owner::Op;` in the caller's context; the per-call residual: a call on `this` where v1 types `this` as an Alf body activity lacking the operation, which would need a context the v1 model does not give (PSSM: 881 mapped, 51 approximated of 932; of the approximated, 23 calls on such a `this`, 21 with edge notes only, 6 renamed beside a sibling of the same name, 1 whose input pin never holds a value)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7479,7 +7509,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7489,7 +7520,7 @@
         "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector of the caller's block joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the block and chains through it, `action n { in target : Owner; perform action op ::> target.op; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op`, the call's other pins bound to the operation's parameters by position; an operation kept as an `action def` (one a state runs, or whose method acts through ports) is called as `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`; a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; when no object receives the call (no flow feeds the target pin, the target's type has no such operation, a port no connector resolves) an empty step declaring the call's pins stands for it, reported under its own reason, while a call of a def-kept operation stays `action n : Owner::Op;` in the caller's context; the per-call residual: a call on `this` where v1 types `this` as an Alf body activity lacking the operation, which would need a context the v1 model does not give (PSSM: 881 mapped, 51 approximated of 932; of the approximated, 23 calls on such a `this`, 21 with edge notes only, 6 renamed beside a sibling of the same name, 1 whose input pin never holds a value)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7513,7 +7544,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7523,7 +7555,7 @@
         "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector of the caller's block joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the block and chains through it, `action n { in target : Owner; perform action op ::> target.op; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op`, the call's other pins bound to the operation's parameters by position; an operation kept as an `action def` (one a state runs, or whose method acts through ports) is called as `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`; a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; when no object receives the call (no flow feeds the target pin, the target's type has no such operation, a port no connector resolves) an empty step declaring the call's pins stands for it, reported under its own reason, while a call of a def-kept operation stays `action n : Owner::Op;` in the caller's context; the per-call residual: a call on `this` where v1 types `this` as an Alf body activity lacking the operation, which would need a context the v1 model does not give (PSSM: 881 mapped, 51 approximated of 932; of the approximated, 23 calls on such a `this`, 21 with edge notes only, 6 renamed beside a sibling of the same name, 1 whose input pin never holds a value)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7584,7 +7616,8 @@
       "implementation": [
         "internal/translate/migrate/activity.go:callOperation",
         "internal/translate/migrate/activity.go:receiverOf",
-        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/call_target.go:callOnUsageTarget",
         "internal/translate/migrate/call_target.go:targetPin",
         "internal/translate/migrate/call_target.go:targetNote"
       ],
@@ -7594,7 +7627,7 @@
         "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector of the caller's block joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the block and chains through it, `action n { in target : Owner; perform action op ::> target.op; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op`, the call's other pins bound to the operation's parameters by position; an operation kept as an `action def` (one a state runs, or whose method acts through ports) is called as `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`; a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; when no object receives the call (no flow feeds the target pin, the target's type has no such operation, a port no connector resolves) an empty step declaring the call's pins stands for it, reported under its own reason, while a call of a def-kept operation stays `action n : Owner::Op;` in the caller's context; the per-call residual: a call on `this` where v1 types `this` as an Alf body activity lacking the operation, which would need a context the v1 model does not give (PSSM: 881 mapped, 51 approximated of 932; of the approximated, 23 calls on such a `this`, 21 with edge notes only, 6 renamed beside a sibling of the same name, 1 whose input pin never holds a value)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -13616,14 +13649,20 @@
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "status": "deliberate",
       "implementation": [
+        "internal/translate/migrate/usage.go:operationUsageOwner",
+        "internal/translate/migrate/usage.go:usageHeader",
         "internal/translate/migrate/behavior.go:operationBody",
-        "internal/translate/migrate/behavior.go:operationConditions"
+        "internal/translate/migrate/behavior.go:operationConditions",
+        "internal/translate/migrate/behavior.go:operationDirection"
       ],
       "tests": [
         "tests/migrate/reception_test.go:TestReceptionsAcceptAndPerformTheirMethod",
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
+        "tests/migrate/stereotype_metadata_test.go:TestDirectedOperationKeepsItsDirection",
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/operation_state_reference_test.go:TestOperationRunByAStateKeepsItsDef"
       ],
-      "reason": "an operation is written as an `action def <Op>` holding its parameters, pre/postconditions as `assert constraint` and its method as body, which a call performs; not as a perform action usage, which would leave no definition a call action could type",
+      "reason": "OMG's `perform action <op>` on the block is one performance the object itself enacts (`Parts::Part::performedActions`, multiplicity 1), which a caller's `perform ::> target.op` joins instead of invoking afresh with its own arguments; so the operation is written as the block's composite `action <op>` usage holding its parameters, pre/postconditions as `assert constraint` and its method as body, with no `perform` keyword and no synthesized `action def`, and every call chains to it; an operation a state runs, or whose method acts on another block through its ports, keeps an `action def` with a context parameter, as a state def's member reaches no usage of the block",
       "scope": []
     },
     {
@@ -13932,18 +13971,19 @@
         "type"
       ],
       "ocl": "sha256:1dccb46c9bc0a7890050c0106cef1e6cae9e56d81b39d16ac07c1a847e2516a1",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyInstance",
-        "internal/translate/migrate/migrate.go:individualBody",
-        "internal/translate/migrate/migrate.go:valueSlot"
+        "internal/translate/migrate/classify.go:instanceKind",
+        "internal/translate/migrate/migrate.go:instanceHeader"
       ],
       "tests": [
         "tests/migrate/classify_test.go:TestInstanceWithSeveralClassifiers",
         "tests/migrate/classify_test.go:TestInstanceOfUnwritableClassifierIsUnmapped",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/classify_test.go:TestRequirementsAreUsages",
+        "tests/migrate/values_test.go:TestInstanceTakesTheKindOfItsClassifier"
       ],
-      "reason": "an instance specification is written as an `individual part def` specializing its classifiers, its slots as redefining attributes, so its values are defaults a simulation reads; not as a part usage typed by them",
+      "reason": "the instance's usage is typed by every classifier that can type a usage of its kind; a classifier of another kind is noted, and a classifier written as a usage (an actor, a use case, a requirement) is subsetted, since a usage types nothing",
       "scope": []
     },
     {
@@ -13962,17 +14002,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:fd10393457831dbb2a1a86a41ec95f8aa9f79922264c7f47491fbc38b86acecb",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyInstance",
-        "internal/translate/migrate/migrate.go:individualBody",
-        "internal/translate/migrate/migrate.go:instanceConnectionEnd"
+        "internal/translate/migrate/migrate.go:linkHeader",
+        "internal/translate/migrate/migrate.go:linkEnds",
+        "internal/translate/migrate/migrate.go:linkEnd"
       ],
       "tests": [
         "tests/migrate/instance_links_test.go:TestInstanceSpecificationLink",
-        "tests/migrate/instance_links_test.go:TestInstanceSpecificationLinkWithoutConnectionDefinitionIsUnmapped"
+        "tests/migrate/instance_links_test.go:TestInstanceSpecificationLinkOfAnonymousAssociationSpecializesItsConnectionDef"
       ],
-      "reason": "a link is written as an individual connection def specializing its association with its ends redefined by the linked instances' individual defs, matching how instances are written (see InstanceSpecification); the mapping's connection usage would connect part usages the migration does not write; a link of an association written only as its member-end properties is not written; neither the PSSM suite nor the TMT model has a link",
+      "reason": "a link is written as a `connection` usage joining the usages its two end slots name, typed by the `connection def` its association became; an association written only as its member-end properties leaves the connection untyped, which is noted; neither the PSSM suite nor the TMT model has a link",
       "scope": [
         "uml:InstanceSpecification"
       ]
@@ -13997,15 +14038,24 @@
       "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyInstance",
-        "internal/translate/migrate/migrate.go:individualBody",
+        "internal/translate/migrate/classify.go:instanceKind",
+        "internal/translate/migrate/migrate.go:instanceHeader",
+        "internal/translate/migrate/migrate.go:instanceBody",
+        "internal/translate/migrate/migrate.go:slotForm",
+        "internal/translate/migrate/migrate.go:instanceSlot",
         "internal/translate/migrate/migrate.go:valueSlot"
       ],
       "tests": [
         "tests/migrate/classify_test.go:TestInstanceWithSeveralClassifiers",
         "tests/migrate/classify_test.go:TestInstanceOfUnwritableClassifierIsUnmapped",
+        "tests/migrate/classify_test.go:TestRequirementsAreUsages",
+        "tests/migrate/values_test.go:TestInstanceTakesTheKindOfItsClassifier",
+        "tests/migrate/values_test.go:TestPartSlotsRedefineThePartByItsInstance",
+        "tests/migrate/values_test.go:TestInstanceOfValueTypeIsAnAttributeUsage",
+        "tests/migrate/values_test.go:TestInstanceOfActorSubsetsTheUsage",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "an instance specification is written as an `individual part def` specializing its classifiers, its slots as redefining attributes, so its values are defaults a simulation reads; not as a part usage typed by them",
+      "reason": "an instance specification is written as one usage typed by its classifiers with its slots as nested features bound to their values — a `part` usage for a block, as the mapping writes; the usage kind follows the classifier where a part usage would not validate (a `constraint`, `item`, `occurrence`, `port` or `attribute` usage for a constraint block, an item, a plain class, an interface block or a value type), and an instance of an actor, use case or requirement, which are usages once migrated, subsets the classifier's usage instead of being typed by it",
       "scope": []
     },
     {
@@ -14207,14 +14257,20 @@
       "ocl": "sha256:e45096d73b0ad7969fe570662881a6056191bd0320a9553e744706ca9b2f530f",
       "status": "deliberate",
       "implementation": [
+        "internal/translate/migrate/usage.go:operationUsageOwner",
+        "internal/translate/migrate/usage.go:usageHeader",
         "internal/translate/migrate/behavior.go:operationBody",
-        "internal/translate/migrate/behavior.go:operationConditions"
+        "internal/translate/migrate/behavior.go:operationConditions",
+        "internal/translate/migrate/behavior.go:operationDirection"
       ],
       "tests": [
         "tests/migrate/reception_test.go:TestReceptionsAcceptAndPerformTheirMethod",
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
+        "tests/migrate/stereotype_metadata_test.go:TestDirectedOperationKeepsItsDirection",
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/operation_state_reference_test.go:TestOperationRunByAStateKeepsItsDef"
       ],
-      "reason": "an operation is written as an `action def <Op>` holding its parameters, pre/postconditions as `assert constraint` and its method as body, which a call performs; not as a perform action usage, which would leave no definition a call action could type",
+      "reason": "OMG's `perform action <op>` on the block is one performance the object itself enacts (`Parts::Part::performedActions`, multiplicity 1), which a caller's `perform ::> target.op` joins instead of invoking afresh with its own arguments; so the operation is written as the block's composite `action <op>` usage holding its parameters, pre/postconditions as `assert constraint` and its method as body, with no `perform` keyword and no synthesized `action def`, and every call chains to it; an operation a state runs, or whose method acts on another block through its ports, keeps an `action def` with a context parameter, as a state def's member reaches no usage of the block",
       "scope": []
     },
     {
@@ -14969,15 +15025,19 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:b599b3105bd411023d03ef6f65ce83d30b10fbe15d78fd0a6e0f77bdaeb7e2e8",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:event",
-        "internal/translate/migrate/states.go:triggerAccept"
+        "internal/translate/migrate/states.go:triggerAccept",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/opaque_migration_test.go:TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates"
       ],
-      "reason": "an event is not written as an element of its own: the trigger that refers to it is written inline as an accept; an event no trigger refers to is skipped, and a CallEvent is unmapped (PSSM: 8)",
+      "reason": "time and change events are written inline at each referring trigger as `accept after`, `accept at`, or `accept when`, in the trigger's scope; a standalone package-owned calc cannot resolve contextual features (2 of 16 fixture TimeEvents read `tcs.ditSetup`). An event no trigger refers to is skipped; CallEvents remain unmapped",
       "scope": [
         "uml:TimeEvent",
         "uml:ChangeEvent",
@@ -14999,15 +15059,19 @@
         "direction"
       ],
       "ocl": "sha256:5fffed7c1a7497a40c4a426d15855b961fb30ed60601f01f05f85e95503d5b7e",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:event",
-        "internal/translate/migrate/states.go:triggerAccept"
+        "internal/translate/migrate/states.go:triggerAccept",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/opaque_migration_test.go:TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates"
       ],
-      "reason": "an event is not written as an element of its own: the trigger that refers to it is written inline as an accept; an event no trigger refers to is skipped, and a CallEvent is unmapped (PSSM: 8)",
+      "reason": "time and change events are written inline at each referring trigger as `accept after`, `accept at`, or `accept when`, in the trigger's scope; a standalone package-owned calc cannot resolve contextual features (2 of 16 fixture TimeEvents read `tcs.ditSetup`). An event no trigger refers to is skipped; CallEvents remain unmapped",
       "scope": [
         "uml:TimeEvent",
         "uml:ChangeEvent",
@@ -15029,15 +15093,19 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:991063d5d273e68b510443110b1363d49b80f06a2e1e35553b4576b356931519",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:event",
-        "internal/translate/migrate/states.go:triggerAccept"
+        "internal/translate/migrate/states.go:triggerAccept",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/opaque_migration_test.go:TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates"
       ],
-      "reason": "an event is not written as an element of its own: the trigger that refers to it is written inline as an accept; an event no trigger refers to is skipped, and a CallEvent is unmapped (PSSM: 8)",
+      "reason": "time and change events are written inline at each referring trigger as `accept after`, `accept at`, or `accept when`, in the trigger's scope; a standalone package-owned calc cannot resolve contextual features (2 of 16 fixture TimeEvents read `tcs.ditSetup`). An event no trigger refers to is skipped; CallEvents remain unmapped",
       "scope": [
         "uml:TimeEvent",
         "uml:ChangeEvent",
@@ -15661,16 +15729,17 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:f16e0694037266ec5c66a075f58da7f8afe0456eef0e783bbd2230a936c80042",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/behavior.go:opaqueBehaviorBody",
-        "internal/translate/migrate/behavior.go:calcBody"
+        "internal/translate/migrate/behavior.go:calcBody",
+        "internal/translate/migrate/behavior.go:textualReps",
+        "internal/translate/migrate/values.go:opaqueBodyPairs"
       ],
       "tests": [
-        "tests/migrate/opaque_migration_test.go:TestNonScalarFeaturesAndScriptLiterals",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/opaque_textual_rep_test.go:TestOpaqueBehaviorTextualRepresentations"
       ],
-      "reason": "an opaque behavior is written as an action def whose body is the translated statements, or as a calc def when it computes a result; a body that does not translate is kept as a comment (fixtures: 43 of 47 approximated)",
+      "reason": "action and calc definitions retain translated executable statements and each nonempty body/language pair is written as a textual representation; a body without a language is kept as a comment",
       "scope": [
         "uml:OpaqueBehavior"
       ]
@@ -15691,16 +15760,17 @@
         "language"
       ],
       "ocl": "sha256:e32dc2615a865f5c3529771060cf49d5ab93c3febd301780eeba603df6a268ad",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/behavior.go:opaqueBehaviorBody",
-        "internal/translate/migrate/behavior.go:calcBody"
+        "internal/translate/migrate/behavior.go:calcBody",
+        "internal/translate/migrate/behavior.go:textualReps",
+        "internal/translate/migrate/values.go:opaqueBodyPairs"
       ],
       "tests": [
-        "tests/migrate/opaque_migration_test.go:TestNonScalarFeaturesAndScriptLiterals",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/opaque_textual_rep_test.go:TestOpaqueBehaviorTextualRepresentations"
       ],
-      "reason": "an opaque behavior is written as an action def whose body is the translated statements, or as a calc def when it computes a result; a body that does not translate is kept as a comment (fixtures: 43 of 47 approximated)",
+      "reason": "candidate erratum: the mapping pairs body i with language i, so a body with no language is dropped; it is kept as a comment. Each nonempty pair is written as a textual representation, while translated bodies remain executable",
       "scope": [
         "uml:OpaqueBehavior"
       ]
@@ -15720,16 +15790,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:5b8bc31f50e3ce6c8471a11457f4bdb438f88a735e94fcb4fb26714b74ab952c",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/behavior.go:opaqueBehaviorBody",
-        "internal/translate/migrate/behavior.go:calcBody"
+        "internal/translate/migrate/behavior.go:calcBody",
+        "internal/translate/migrate/behavior.go:textualReps",
+        "internal/translate/migrate/values.go:opaqueBodyPairs"
       ],
       "tests": [
-        "tests/migrate/opaque_migration_test.go:TestNonScalarFeaturesAndScriptLiterals",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/opaque_textual_rep_test.go:TestOpaqueBehaviorTextualRepresentations"
       ],
-      "reason": "an opaque behavior is written as an action def whose body is the translated statements, or as a calc def when it computes a result; a body that does not translate is kept as a comment (fixtures: 43 of 47 approximated)",
+      "reason": "action and calc definitions retain translated executable statements and each nonempty body/language pair is written as a textual representation; a body without a language is kept as a comment",
       "scope": [
         "uml:OpaqueBehavior"
       ]
@@ -15800,15 +15871,19 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:2c49efe7744ba67b0a3b6c556c41408b6b79a3045399dfaa7f976d5a64ed7d0d",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:event",
-        "internal/translate/migrate/states.go:triggerAccept"
+        "internal/translate/migrate/states.go:triggerAccept",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/opaque_migration_test.go:TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates"
       ],
-      "reason": "an event is not written as an element of its own: the trigger that refers to it is written inline as an accept; an event no trigger refers to is skipped, and a CallEvent is unmapped (PSSM: 8)",
+      "reason": "time and change events are written inline at each referring trigger as `accept after`, `accept at`, or `accept when`, in the trigger's scope; a standalone package-owned calc cannot resolve contextual features (2 of 16 fixture TimeEvents read `tcs.ditSetup`). An event no trigger refers to is skipped; CallEvents remain unmapped",
       "scope": [
         "uml:TimeEvent",
         "uml:ChangeEvent",
@@ -15830,16 +15905,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:ed59c3e997e910a41221d2ae7ad509599208e3269cf55778fd646296a20c3adc",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -15860,16 +15937,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:d717104fa2d018b0e7149d820c525abdbfc8d533e44bcdf0a50abb4d9520d187",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -15889,16 +15968,18 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:56c5e4333e81634810b0cb75449136029bb93769d1afd78bd0f00930a8200679",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -15918,16 +15999,18 @@
         "chainingFeature"
       ],
       "ocl": "sha256:cea9c905816edf7ec2fa68e9b7f10d39156b10b681dfd9ed33d92c8963155211",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -15947,16 +16030,18 @@
         "chainingFeature"
       ],
       "ocl": "sha256:1f201e33bb28ac3c3e474697a118d1d00e092f4dad268b83dc683568557d2795",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -15976,16 +16061,18 @@
         "type"
       ],
       "ocl": "sha256:65cc81047f3797e5ca3fc0444e0cd064d1d7235ccd236ee77d95751c2b520668",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16005,16 +16092,18 @@
         "value"
       ],
       "ocl": "sha256:ee431ee6fb4a4779777953496d73432438011b0eedb9c84c1c5b2d3a4b01a8d9",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16034,16 +16123,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:1cb76b92a56e4f8a0b138ddbbd0642e3ab6983c638c40f2a86559d21126d5d10",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16063,16 +16154,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:e0a0d993afdc09f0e438f8d2ea07d0c67458e4df37ee1e98188d447319d267f3",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16092,16 +16185,18 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:0c6e80744f1ca172c940f22b094e2364bc6d69582a3b9a15144ce5745c65b318",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16121,16 +16216,18 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:c7df47fe2a9fa31107d518e24f01829668c676e6665e1da8b5ce0e6d06011984",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16150,16 +16247,18 @@
         "type"
       ],
       "ocl": "sha256:99f71aa12ed3dcdd79e31f0037f3245c739c6fe39fa433b88ff6e1399bef9af2",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16179,16 +16278,18 @@
         "value"
       ],
       "ocl": "sha256:e3cb5fd1edea70fa17ec22c62fc20a65c3771e9518391c0e70e197fe5dd315c3",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16208,16 +16309,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:9db5c3e4b5135c8927c6b963e3afd27d821f72ee478bbabec299d65383e0c0ad",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16238,16 +16341,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:a17957f49053c192a111d4e6e4f61ad414db26e0d3a93c03bfb3f6c04376aee9",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16268,16 +16373,18 @@
         "ownedRelatedElement"
       ],
       "ocl": "sha256:270fcbe6db145562d533b5be7d37ffc91751ff4cda63310d7cfeb2db2d600aef",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16298,16 +16405,18 @@
         "direction"
       ],
       "ocl": "sha256:572fc9fa7d11d4c2fe67b9718d79459b8008f7facd82aa998179820d92cf4c6e",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16327,16 +16436,18 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:ef786324ce5947676f2470d703d799b0a8a77a2ecd31995da4eceef5dd030aea",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16356,16 +16467,18 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:dbdb6b7988362cf2e92b97f5a1db7d08b773bf55c27b2277cc5f450b65473841",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16385,16 +16498,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:53783e2be10546a837ddfa5615b62a941a65bda451b78c275a92019aabf3387d",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16414,16 +16529,18 @@
         "referencedFeature"
       ],
       "ocl": "sha256:cbad9ec43d951dfc41eed13556de29f62bd195afc1763a6e3a2c8b03e3252f61",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16444,16 +16561,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:cc4cf1080da81b630e3530b262eb0bc299aba09d95694f62d2d7c3dae91f8e70",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:triggerAccept",
-        "internal/translate/migrate/values.go:valueExpr"
+        "internal/translate/migrate/values.go:valueExpr",
+        "internal/translate/migrate/events.go:instantExpr"
       ],
       "tests": [
-        "tests/migrate/duration_units_test.go:TestDurationWithNoUnitIsInMilliseconds",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/context_test.go:TestRelativeAcceptEventReadsOwnerFeature",
+        "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "a relative time event is written `accept after <duration>` and an absolute one `accept at <instant>` on the simulation clock; a time that is neither a number with a time unit nor an expression is unmapped (fixtures: 2 of 10 time events)",
+      "reason": "the trigger payload reference usage typed `DurationValue` or `TimeInstantValue` is written with its after/at invocation as `accept after <duration>` or `accept at <instant>`; a time event whose `when` is neither an expression nor a number with a time unit remains unmapped because v1 supplies no value",
       "scope": [
         "uml:TimeEvent"
       ]
@@ -16638,14 +16757,16 @@
       "ocl": "sha256:7726b130b0be57088502bd3fe54e900ca36fe5ccb74c2ed4c9f7a80e3720ede0",
       "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/migrate.go:rule"
+        "internal/translate/migrate/migrate.go:rule",
+        "internal/translate/migrate/migrate.go:ruleAsDef"
       ],
       "tests": [
         "tests/migrate/constraint_rule_test.go:TestOwnedRuleIsAsserted",
+        "tests/migrate/constraint_rule_test.go:TestOwnedRuleDefNameAvoidsItsSiblings",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/values_test.go:TestNonBooleanConstraintSpecificationIsNotWritten"
       ],
-      "reason": "the owned rule is written `assert constraint N { expr }` in its context, keeping the rule's name rather than OMG's `assert_N`, since no def is written for it to be distinguished from; a non-Boolean spec stays unmapped",
+      "reason": "the owned rule is written as a constraint def and an asserted usage typed by it, both members of the constrained block; the usage keeps the rule's name rather than OMG's `assert_N` and the def takes the name capitalized (or a fresh one when a member already bears it); a non-Boolean spec stays unmapped",
       "scope": [
         "uml:Constraint"
       ]
@@ -16665,16 +16786,18 @@
         "type"
       ],
       "ocl": "sha256:fd4db7dfc78dee71d4bc4970759862d56ea79c07c151e06000220b4d06f1da98",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/migrate.go:rule"
+        "internal/translate/migrate/migrate.go:rule",
+        "internal/translate/migrate/migrate.go:ruleAsDef"
       ],
       "tests": [
         "tests/migrate/constraint_rule_test.go:TestOwnedRuleIsAsserted",
+        "tests/migrate/constraint_rule_test.go:TestOwnedRuleDefNameAvoidsItsSiblings",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/values_test.go:TestNonBooleanConstraintSpecificationIsNotWritten"
       ],
-      "reason": "no constraint def is written: a def used by exactly one asserted usage adds nothing, so the expression is written in the usage itself",
+      "reason": "the asserted usage is typed by the constraint def written for the rule, `assert constraint N : N';`, binding the def's context parameter to `this` when the specification reads the block's features; a rule of a constraint def or of a behavior, whose parameters no context parameter reaches, stays `assert constraint N { expr }`",
       "scope": [
         "uml:Constraint"
       ]
@@ -16697,14 +16820,16 @@
       "ocl": "sha256:ffb52e84aa7547cd83b8e7ecbc25891bea6462826baffc697e1fff4cce00a888",
       "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/migrate.go:rule"
+        "internal/translate/migrate/migrate.go:rule",
+        "internal/translate/migrate/migrate.go:ruleAsDef"
       ],
       "tests": [
         "tests/migrate/constraint_rule_test.go:TestOwnedRuleIsAsserted",
+        "tests/migrate/constraint_rule_test.go:TestOwnedRuleDefNameAvoidsItsSiblings",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/values_test.go:TestNonBooleanConstraintSpecificationIsNotWritten"
       ],
-      "reason": "the owned rule is written `assert constraint N { expr }` in its context, keeping the rule's name rather than OMG's `assert_N`, since no def is written for it to be distinguished from; a non-Boolean spec stays unmapped",
+      "reason": "the owned rule is written `assert constraint N : N';` typed by its def, keeping the rule's name rather than OMG's `assert_N`; a non-Boolean spec stays unmapped",
       "scope": [
         "uml:Constraint"
       ]
@@ -16724,16 +16849,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:9ccda0864213c15e8892700538b1eb3ac90b7e02a960e6340bb40b3923964e95",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/migrate.go:rule"
+        "internal/translate/migrate/migrate.go:rule",
+        "internal/translate/migrate/migrate.go:ruleAsDef"
       ],
       "tests": [
         "tests/migrate/constraint_rule_test.go:TestOwnedRuleIsAsserted",
+        "tests/migrate/constraint_rule_test.go:TestOwnedRuleDefNameAvoidsItsSiblings",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/values_test.go:TestNonBooleanConstraintSpecificationIsNotWritten"
       ],
-      "reason": "no constraint def is written: a def used by exactly one asserted usage adds nothing, so the expression is written in the usage itself; candidate erratum: the mapping puts the specification in an owned calc feature with a return parameter (ElementFeatureMembership + CommonReturnParameterReferenceUsageMembership) rather than as the def's result expression, so a def written literally would not test the specification",
+      "reason": "the owned rule is written as `constraint def N' { expr }` whose result expression is the specification, the block's features read through an `in ref context` parameter the asserted usage binds to `this`; candidate erratum: the mapping puts the specification in an owned calc feature with a return parameter (ElementFeatureMembership + CommonReturnParameterReferenceUsageMembership) rather than as the def's result expression, so a def written literally would test nothing; the specification is written as the def's result, which the asserted usage typed by it evaluates",
       "scope": [
         "uml:Constraint"
       ]
@@ -17146,12 +17273,15 @@
       "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:informationFlow",
-        "internal/translate/migrate/migrate.go:itemFlow"
+        "internal/translate/migrate/migrate.go:itemFlow",
+        "internal/translate/migrate/migrate.go:flowsAlone",
+        "internal/translate/migrate/migrate.go:connectorAsFlows"
       ],
       "tests": [
-        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
+        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem",
+        "tests/migrate/flow_only_test.go:TestGoldenFlowOnlyConnectors"
       ],
-      "reason": "a flow usage, not a flow def, is written (see the InformationFlow_Mapping erratum), and a usage does not subclassify the realizing association",
+      "reason": "a flow usage, not a flow def, is written (see the InformationFlow_Mapping erratum), and a usage does not subclassify the realizing association; nor does the flow subset the realizing connector's connection as `FlowUsage_Factory` has it: that spelling fails both this validator and the pilot's, so a connector carrying nothing of its own is written as its flows alone and one that carries a name or type of its own keeps its connection as a sibling of the flow",
       "scope": [
         "uml:InformationFlow"
       ]
@@ -17175,13 +17305,16 @@
       "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:informationFlow",
-        "internal/translate/migrate/migrate.go:itemFlow"
+        "internal/translate/migrate/migrate.go:itemFlow",
+        "internal/translate/migrate/migrate.go:flowsAlone",
+        "internal/translate/migrate/migrate.go:connectorAsFlows"
       ],
       "tests": [
         "tests/migrate/relations_test.go:TestItemFlowFollowsSourceAndTargetNotEndOrder",
-        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
+        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem",
+        "tests/migrate/flow_only_test.go:TestGoldenFlowOnlyConnectors"
       ],
-      "reason": "an information flow realized by a connector is written as a flow usage `flow of Item from a to b` on that connector, not as a flow def (see candidate errata); candidate erratum: the mapping creates a FlowDefinition for a v1 information flow between specific sources and targets; a definition has no ends bound to those features, which a FlowUsage would have; an information flow realized only by an association is not migrated (PSSM 0, fixtures 0, TMT 0)",
+      "reason": "an information flow realized by a connector is written as a flow usage `flow f of Item from a to b` on that connector, not as a flow def (see candidate errata); deliberate divergence: the mapping's `FlowUsage_Factory` names the flow after the information flow and makes it subset the realizing connector's connection (`flow f :> c of Item from a to b`), a spelling both this validator and the pilot's reject (a flow with four ends cannot specialize a binary link; a flow connection must be typed by flow connection definitions), so a connector carrying nothing of its own — no name, type, comment or stereotype — whose every item flow is writable is written as its flows alone, each named after its item flow (an anonymous one shown by a diagram after the connector's ends, marked `MigrationMetadata::SynthesizedName`), and takes the diagram route and view exposure the connection would have; a connector with a name or type of its own, or with an item flow that cannot be written, keeps its connection beside its named flows; candidate erratum: the mapping creates a FlowDefinition for a v1 information flow between specific sources and targets; a definition has no ends bound to those features, which a FlowUsage would have; an information flow realized only by an association is not migrated (PSSM 0, fixtures 0, TMT 0)",
       "scope": [
         "uml:InformationFlow"
       ]
@@ -17805,7 +17938,7 @@
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "the root model's members are written at the top level rather than inside a package of the model's name, so a one-model export reads as the v2 model itself; viewpoint metadata is not written",
+      "reason": "the Model is written as the package of its name, as Model_Mapping says; viewpoint metadata is not written",
       "scope": []
     },
     {
@@ -17830,7 +17963,7 @@
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "the root model's members are written at the top level rather than inside a package of the model's name, so a one-model export reads as the v2 model itself; viewpoint metadata is not written",
+      "reason": "the Model is written as the package of its name, as Model_Mapping says; viewpoint metadata is not written",
       "scope": []
     },
     {
@@ -17855,7 +17988,7 @@
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "the root model's members are written at the top level rather than inside a package of the model's name, so a one-model export reads as the v2 model itself; viewpoint metadata is not written",
+      "reason": "the Model is written as the package of its name, as Model_Mapping says; viewpoint metadata is not written",
       "scope": []
     },
     {
@@ -17880,7 +18013,7 @@
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "the root model's members are written at the top level rather than inside a package of the model's name, so a one-model export reads as the v2 model itself; viewpoint metadata is not written",
+      "reason": "the Model is written as the package of its name, as Model_Mapping says; viewpoint metadata is not written",
       "scope": []
     },
     {
@@ -17905,7 +18038,7 @@
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "the root model's members are written at the top level rather than inside a package of the model's name, so a one-model export reads as the v2 model itself; viewpoint metadata is not written",
+      "reason": "the Model is written as the package of its name, as Model_Mapping says; viewpoint metadata is not written",
       "scope": []
     },
     {
@@ -17930,7 +18063,7 @@
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "the root model's members are written at the top level rather than inside a package of the model's name, so a one-model export reads as the v2 model itself; viewpoint metadata is not written",
+      "reason": "the Model is written as the package of its name, as Model_Mapping says; viewpoint metadata is not written",
       "scope": []
     },
     {
@@ -17956,7 +18089,7 @@
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "the root model's members are written at the top level rather than inside a package of the model's name, so a one-model export reads as the v2 model itself; viewpoint metadata is not written",
+      "reason": "the Model is written as the package of its name, as Model_Mapping says; viewpoint metadata is not written",
       "scope": []
     },
     {
@@ -17981,7 +18114,7 @@
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "the root model's members are written at the top level rather than inside a package of the model's name, so a one-model export reads as the v2 model itself; viewpoint metadata is not written",
+      "reason": "the Model is written as the package of its name, as Model_Mapping says; viewpoint metadata is not written",
       "scope": []
     },
     {
@@ -17998,14 +18131,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:7d3fbcc11d01d1d0e070b268a3b3c6c70fd37ec7d5eb6fa5c4f0b35afdb64f90",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/migrate.go:imports"
+        "internal/translate/migrate/migrate.go:root"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/root_model_test.go:TestRootModelWrittenAsPackage"
       ],
-      "reason": "the root model's members are written at the top level rather than inside a package of the model's name, so a one-model export reads as the v2 model itself; viewpoint metadata is not written",
+      "reason": "",
       "scope": []
     },
     {
@@ -19259,16 +19392,19 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:d0135ff9e57bd8d4894be3bbaaf71452667f8b6c799b6e5a6c7dfb8d98384598",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:pseudostateLine",
-        "internal/translate/migrate/states.go:vertex"
+        "internal/translate/migrate/states.go:vertex",
+        "internal/translate/migrate/states.go:vertexBase",
+        "internal/translate/migrate/states.go:target"
       ],
       "tests": [
         "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/terminate_test.go:TestTerminatePseudostateEndsOrthogonalMachine",
+        "tests/migrate/region_wrapper_test.go:TestSingleRegionCompositeStateConnectionPointsStayInRegion"
       ],
-      "reason": "choice and junction are written as state usages with StateMachines metadata, fork and join as nodes, history and terminate partially; a few pseudostates are unmapped (PSSM: 6, fixtures: 5)",
+      "reason": "candidate erratum: the mapping writes every pseudostate other than an initial one as a plain StateUsage, dropping its kind: a choice or junction becomes a state that waits, a fork enters one target and a terminate ends nothing. Choice, junction, and history are written as `#StateMachines::<kind> state`; forks and joins as `fork`/`join` nodes; terminate as `action <name> terminate;`. A transition that crosses directly from an entry point to an exit point without settling in a state remains unmapped (one fixture case)",
       "scope": [
         "uml:Pseudostate"
       ]
@@ -19468,16 +19604,19 @@
         "filter"
       ],
       "ocl": "sha256:abd3cb2bfdfe4cd3c1b36d93405651adfe4ca80da714267f65411cc45e153481",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/states.go:pseudostateLine",
-        "internal/translate/migrate/states.go:vertex"
+        "internal/translate/migrate/states.go:vertex",
+        "internal/translate/migrate/states.go:vertexBase",
+        "internal/translate/migrate/states.go:target"
       ],
       "tests": [
         "tests/migrate/states_test.go:TestStateMachineCrossRegionTransitionsAndPseudostates",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/terminate_test.go:TestTerminatePseudostateEndsOrthogonalMachine",
+        "tests/migrate/region_wrapper_test.go:TestSingleRegionCompositeStateConnectionPointsStayInRegion"
       ],
-      "reason": "choice and junction are written as state usages with StateMachines metadata, fork and join as nodes, history and terminate partially; a few pseudostates are unmapped (PSSM: 6, fixtures: 5)",
+      "reason": "candidate erratum: the mapping writes every pseudostate other than an initial one as a plain StateUsage, dropping its kind: a choice or junction becomes a state that waits, a fork enters one target and a terminate ends nothing. Choice, junction, and history are written as `#StateMachines::<kind> state`; forks and joins as `fork`/`join` nodes; terminate as `action <name> terminate;`. A transition that crosses directly from an entry point to an exit point without settling in a state remains unmapped (one fixture case)",
       "scope": [
         "uml:Pseudostate"
       ]
@@ -19497,15 +19636,24 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:b442f34f152532b9b29b28f5b1ecc2e0886e1f0a17f1377b578c52ceef9350af",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/states.go:region"
+        "internal/translate/migrate/states.go:state",
+        "internal/translate/migrate/states.go:nameRegions",
+        "internal/translate/migrate/states.go:regions",
+        "internal/translate/migrate/states.go:regionWrittenAsState",
+        "internal/translate/migrate/states.go:region",
+        "internal/translate/migrate/names.go:path",
+        "internal/translate/migrate/edges.go:edgePlaceIn"
       ],
       "tests": [
+        "tests/migrate/region_wrapper_test.go:TestSingleRegionCompositeStateIsWrapped",
+        "tests/migrate/region_wrapper_test.go:TestSingleRegionCompositeStateConnectionPointsStayInRegion",
+        "tests/migrate/region_wrapper_test.go:TestStateMachineSingleRegionRemainsFlattened",
         "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards",
         "tests/migrate/empty_region_test.go:TestEmptyRegionsAreNotWritten"
       ],
-      "reason": "the region of a single-region state is flattened into its state rather than written as a state usage; orthogonal regions become the substates of a parallel state; empty regions are not written",
+      "reason": "candidate erratum: for a state machine's only Region the mapping writes a StateUsage in a state definition that is not parallel (`isParallel = region->size() > 1`) and nothing enters it, so it is never entered; its vertices become the state definition's own body. A StateMachine's single Region remains flattened; a composite State's single Region is written as a sub-state of its `parallel` state; orthogonal Regions are parallel sub-states; empty Regions are omitted because an empty parallel sub-state never completes",
       "scope": [
         "uml:Region"
       ]
@@ -19979,15 +20127,18 @@
         "filter"
       ],
       "ocl": "sha256:05dd7d1db91cf8438fafcb92b8b96ad960bd9f858c87bf9d70ff427906c8f1d0",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationAsConnectionDef"
+        "internal/translate/migrate/migrate.go:associationAsConnectionDef",
+        "internal/translate/migrate/usecase.go:planAssociations",
+        "internal/translate/migrate/names.go:associationBase"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten"
+        "tests/migrate/classify_test.go:TestAnonymousAssociationIsAConnectionDef",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "every association, named or not, is a connection def whose one usage is a connection typed by it joining usages of the two end types, hosted by the nearest package holding both; an anonymous one is named after its end types (CarToWheel), the name marked MigrationMetadata::SynthesizedName, and its ends cross the member-end properties where that is sound (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20223,14 +20374,15 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:d3bc8573ac09a66b5eba75b3c0ffd58567f0e3108de388089dfc540c204c9a3b",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "an end is written as an end feature typed by its member end's type; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;`, and a classifier-owned end crosses the property it is written as (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20250,14 +20402,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:7a43ccab9d43b8077d2e8c042a63424b11d5580480bf81f965cda5350bec668b",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "an end is written as an end feature typed by its member end's type; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;`, and a classifier-owned end crosses the property it is written as (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20464,15 +20617,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:d375413e8c7a8f6288aacbc22a577b1edfde5ec792ecc4b1f0cde2dd049630ea",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationAsConnectionDef"
+        "internal/translate/migrate/migrate.go:associationAsConnectionDef",
+        "internal/translate/migrate/usecase.go:planAssociations",
+        "internal/translate/migrate/names.go:associationBase"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten"
+        "tests/migrate/classify_test.go:TestAnonymousAssociationIsAConnectionDef",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "every association, named or not, is a connection def whose one usage is a connection typed by it joining usages of the two end types, hosted by the nearest package holding both; an anonymous one is named after its end types (CarToWheel), the name marked MigrationMetadata::SynthesizedName, and its ends cross the member-end properties where that is sound (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20540,14 +20696,15 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "an end is written as an end feature typed by its member end's type; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;`, and a classifier-owned end crosses the property it is written as (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20568,15 +20725,17 @@
         "declaredName"
       ],
       "ocl": "sha256:1cb19960ae17644127814b6d9b6318ee72d63a89a522de68b26debba4a8452db",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20596,15 +20755,17 @@
         "filter"
       ],
       "ocl": "sha256:2be7311465d10cc7d82d53b8e0a93a12ba5f9ff4f1046a946da18bc6364427cd",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20624,14 +20785,15 @@
         "filter"
       ],
       "ocl": "sha256:eebbf2a35d8a720c4dd9d8833da16c4ea42e1243b82814bfa08fa7601b7548af",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "an end is written as an end feature typed by its member end's type; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;`, and a classifier-owned end crosses the property it is written as (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20675,15 +20837,17 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20703,15 +20867,17 @@
         "filter"
       ],
       "ocl": "sha256:a211d20a3d243a7b221101c4c11c4e1d5346b26f3bef11980d1e7aa7aaccb5f0",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20731,15 +20897,17 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:2844d8ede6e5b37dc972888ed3c043ff33c77b1391c4c841274a8b1c27cd6f92",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20759,15 +20927,17 @@
         "subsettedFeature"
       ],
       "ocl": "sha256:3f00fd722e7fb82f3ee95d2fa09215d9db1fdb8d2623854e4d39b0706750012b",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20788,15 +20958,17 @@
         "filter"
       ],
       "ocl": "sha256:d299e629443d7f291980468e437230e18a2f8d6e62ac109e22057afe7fac311d",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20817,15 +20989,17 @@
         "declaredName"
       ],
       "ocl": "sha256:e34e31df2c22e60ab52ed27c79256e3ad9016ab5707fed7da6e98b0283f9e19a",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:crossedProperty",
         "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound",
         "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def crossing it through the opposite end, `end wheels : Wheel crosses car.wheels;`, the mapping's feature chain; the cross is left out, and the association reported approximated with the reason, where it would be unsound: the opposite end is untyped, the end's type is not written or is written as a usage (an actor), the association is not binary, or the property is not written as a feature of the opposite end's type",
       "scope": [
         "uml:Association"
       ]
@@ -20845,14 +21019,15 @@
         "filter"
       ],
       "ocl": "sha256:f26b5183e76e27482fa8b927433664360bf2d9b9dab083d32119b77fb2f26cec",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "an end is written as an end feature typed by its member end's type; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;`, and a classifier-owned end crosses the property it is written as (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]
@@ -20873,14 +21048,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:2a033629a690b962b2337bf943a0dff4ae6051c1dd871903edf35ee96a3bc0d5",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures",
+        "tests/migrate/anonymous_associations_test.go:TestAnonymousAssociationEndsCrossTheirPropertiesWhereSound"
       ],
-      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
+      "reason": "an end is written as an end feature typed by its member end's type; an end the association owns carries its multiplicity as the cross multiplicity, `end [0..*] ref car : Car;`, and a classifier-owned end crosses the property it is written as (see NonOwnedEnd_Mapping)",
       "scope": [
         "uml:Association"
       ]

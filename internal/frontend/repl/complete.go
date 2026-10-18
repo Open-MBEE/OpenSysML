@@ -17,6 +17,11 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+const (
+	viewFlag  = "--view="
+	styleFlag = "--style="
+)
+
 // completionLimit bounds a completion answer: the library registers tens of
 // thousands of names, and a terminal cannot usefully offer all of them.
 const completionLimit = 200
@@ -155,13 +160,13 @@ func atSecondArgument(head string) bool {
 	return !inUnfinishedName(head) && argumentIndex(head) == 2
 }
 
-// atPaletteArgument reports whether the word being typed is %render's third,
-// fourth or fifth argument after a form that takes a palette: the palette to
-// fill from, the style to draw in or the port display to draw parts with.
+// atPaletteArgument reports whether the word being typed is one of %render's
+// options after a form that takes a palette: the palette to fill from, the
+// style to draw in, the port display to draw parts with or the line routing to
+// draw edges with, in any order.
 func atPaletteArgument(head string) bool {
 	args := typedArgs(head)
-	index := argumentIndex(head)
-	return !inUnfinishedName(head) && index >= 3 && index <= 5 && len(args) > 2 && view.Form(args[2]).TakesPalette()
+	return !inUnfinishedName(head) && argumentIndex(head) >= 3 && len(args) > 2 && view.Form(args[2]).TakesPalette()
 }
 
 // atObjectArgument reports whether the word being typed is an argument the
@@ -735,12 +740,12 @@ func (s *Session) completeViz(head string) Completion {
 		previous = args[argumentIndex(head)-1]
 	}
 	switch {
-	case strings.HasPrefix(word, "--view="):
-		return completion(word, prefixed("--view=", matchingPrefixFold(vizViews(), strings.TrimPrefix(word, "--view="))))
-	case strings.HasPrefix(word, "--style="):
-		return completion(word, prefixed("--style=", matchingPrefixFold(vizStyles(), strings.TrimPrefix(word, "--style="))))
+	case strings.HasPrefix(word, viewFlag):
+		return completion(word, prefixed(viewFlag, matchingPrefixFold(vizViews(), strings.TrimPrefix(word, viewFlag))))
+	case strings.HasPrefix(word, styleFlag):
+		return completion(word, prefixed(styleFlag, matchingPrefixFold(vizStyles(), strings.TrimPrefix(word, styleFlag))))
 	case strings.HasPrefix(word, "-"):
-		return completion(word, matchingPrefix([]string{"--view=", "--style="}, word))
+		return completion(word, matchingPrefix([]string{viewFlag, styleFlag}, word))
 	case previous == "--view":
 		return completion(word, matchingPrefixFold(vizViews(), word))
 	case previous == "--style":
@@ -753,7 +758,7 @@ func (s *Session) completeViz(head string) Completion {
 	// At an empty word the grammar is offered: the forms and the options; a
 	// name is offered once its first character narrows the thousands there are.
 	if name == "" {
-		return completion(name, append(renderForms(), "--view=", "--style="))
+		return completion(name, append(renderForms(), viewFlag, styleFlag))
 	}
 	return completion(name, append(s.nameCompletions(name), matchingPrefix(renderForms(), name)...))
 }

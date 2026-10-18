@@ -1,15 +1,19 @@
-attribute def Key;
-occurrence def A {
-    ref occurrence b : B {
-        attribute memberKey : Key;
+package Model {
+    attribute def Key;
+    occurrence def A {
+        ref occurrence b : B {
+            attribute memberKey : Key;
+        }
     }
-}
-occurrence def B;
-connection def Link {
-    end a : A {
-        attribute ownedKey : Key;
+    occurrence def B;
+    connection def Link {
+        end a : A {
+            attribute ownedKey : Key;
+        }
+        end b : B crosses a.b;
     }
-    end b : B {
-        attribute memberKey : Key;
-    }
+    occurrence a : A;
+    occurrence b : B;
+    connection link : Link connect a to b;
+    metadata MigrationMetadata::SynthesizedName about link;
 }

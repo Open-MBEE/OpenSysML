@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="SEM">
+    <ownedComment xmi:type="uml:Comment" xmi:id="_c" body="Signal electronics model." annotatedElement="_m"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_imaging" name="Imaging Subsystem">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_imagingBsed" name="BSED" type="_bsed" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_imagingGain" name="gain" type="_real"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bind" name="gain = BSED.gain">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindA" role="_imagingGain"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindB" role="_bsedGain" partWithPort="_imagingBsed"/>
+      </ownedConnector>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_bsed" name="BSED">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bsedGain" name="gain" type="_real"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_noise" name="Noise Figure">
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_rule" constrainedElement="_noise">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_spec" body="nf = 10 * log10(f)" language="SysML"/>
+      </ownedRule>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_nf" name="nf" type="_real"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_f" name="f" type="_real"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:DataType" xmi:id="_real" name="Real"/>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_imaging"/>
+  <sysml:Block xmi:id="_s2" base_Class="_bsed"/>
+  <sysml:ConstraintBlock xmi:id="_s3" base_Class="_noise"/>
+  <sysml:ValueType xmi:id="_s4" base_DataType="_real"/>
+  <sysml:BindingConnector xmi:id="_s5" base_Connector="_bind"/>
+  <sysml:ConstraintParameter xmi:id="_s6" base_Port="_nf"/>
+</xmi:XMI>
