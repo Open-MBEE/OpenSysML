@@ -184,8 +184,8 @@ func scratch(source string) (string, func(), error) {
 	}
 	path := filepath.Join(dir, "model.sysml")
 	if err := os.WriteFile(path, []byte(source), 0o600); err != nil {
-		os.RemoveAll(dir)
+		_ = os.RemoveAll(dir)
 		return "", nil, err
 	}
-	return path, func() { os.RemoveAll(dir) }, nil
+	return path, func() { _ = os.RemoveAll(dir) }, nil
 }

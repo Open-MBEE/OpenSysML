@@ -50,7 +50,7 @@ func StartMCP(ctx context.Context, version string) (*MCPArm, error) {
 	}
 	srv, err := mcp.New(ctx, mcp.Config{Root: root, Groups: []mcp.Group{mcp.GroupLSP, mcp.GroupRuntime}, Version: version})
 	if err != nil {
-		os.RemoveAll(root)
+		_ = os.RemoveAll(root)
 		return nil, err
 	}
 	serverT, clientT := sdk.NewInMemoryTransports()
@@ -58,7 +58,7 @@ func StartMCP(ctx context.Context, version string) (*MCPArm, error) {
 	cs, err := sdk.NewClient(&sdk.Implementation{Name: "llm-bench", Version: version}, nil).Connect(ctx, clientT, nil)
 	if err != nil {
 		srv.Close(ctx)
-		os.RemoveAll(root)
+		_ = os.RemoveAll(root)
 		return nil, err
 	}
 	arm := &MCPArm{server: srv, session: cs, root: root}
@@ -148,5 +148,5 @@ func (a *MCPArm) Close(ctx context.Context) {
 	if a.server != nil {
 		a.server.Close(ctx)
 	}
-	os.RemoveAll(a.root)
+	_ = os.RemoveAll(a.root)
 }
