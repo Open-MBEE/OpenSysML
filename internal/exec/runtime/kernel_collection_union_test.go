@@ -46,8 +46,15 @@ func TestKernelCollectionUnionOpenKeepsReceiverPosition(t *testing.T) {
 	if FormatValue(second) != "true" {
 		t.Errorf("hull.timeEnclosedOccurrences#(2) == q1 = %s, want true", FormatValue(second))
 	}
-	closed := mustEvalIn(t, ctx, root, "P::hull.q1.timeEnclosedOccurrences->SequenceFunctions::size()")
-	if u := closed.Undetermined(); u == nil && FormatValue(closed) != "1" {
-		t.Errorf("hull.q1.timeEnclosedOccurrences->size() = %s, want 1 or open", FormatValue(closed))
+	// The port's own read leads with the port, open through `subports [0..*]` or closed.
+	port := mustEvalIn(t, ctx, root, "P::hull.q1.timeEnclosedOccurrences")
+	if u := port.Undetermined(); u != nil && (len(u.knownValues()) != 1 || fewestOf(u.Count()) < 1) {
+		t.Errorf("hull.q1.timeEnclosedOccurrences = %s, want the port known and a count of at least one", FormatValue(port))
+	} else if u == nil && FormatValue(mustEvalIn(t, ctx, root, "P::hull.q1.timeEnclosedOccurrences->SequenceFunctions::size()")) != "1" {
+		t.Errorf("hull.q1.timeEnclosedOccurrences = %s, want the port alone", FormatValue(port))
+	}
+	portFirst := mustEvalIn(t, ctx, root, "P::hull.q1.timeEnclosedOccurrences#(1) == P::hull.q1")
+	if FormatValue(portFirst) != "true" {
+		t.Errorf("hull.q1.timeEnclosedOccurrences#(1) == q1 = %s, want true", FormatValue(portFirst))
 	}
 }
