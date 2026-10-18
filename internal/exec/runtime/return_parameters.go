@@ -239,3 +239,38 @@ func (ctx *Context) verificationVerdictValue(typ *symbols.Symbol, inst *Instance
 	}
 	return undeterminedFeatureValue("the library declares no VerdictKind::"+string(verdict.Kind), feat.Multiplicity, sym), nil
 }
+
+// constraintUsageRead answers a read of a constraint usage declared on inst's type —
+// `constraint c { … }` or `assert constraint c { … }` — as the constraint evaluated on
+// inst, the predicate the object enacts; not ok for any other member.
+func (ec *EvalContext) constraintUsageRead(inst *Instance, name string) (Value, bool, error) {
+	fv, ok := inst.FeatureValues[name]
+	if !ok || fv.Feature == nil || fv.Feature.Symbol == nil || fv.Feature.Symbol.Kind != symbols.SymbolConstraintUsage {
+		return Value{}, false, nil
+	}
+	sym := fv.Feature.Symbol
+	if RequireConstraint(sym) != nil || fv.Materialized || fv.HeldValue().Kind != ValInvalid {
+		return Value{}, false, nil
+	}
+	result, err := ec.ctx.CheckConstraintOn(sym, sym.OwnerScope, inst)
+	if err != nil {
+		if unboundInput(err) {
+			return undeterminedFeatureValue(err.Error(), fv.Feature.Multiplicity, sym), true, nil
+		}
+		var violation *ViolationError
+		if errors.As(err, &violation) {
+			return boolValue(false), true, nil
+		}
+		return Value{}, true, err
+	}
+	return boolValue(result.Holds), true, nil
+}
+
+// constraintResultTail drops a trailing `result` segment of a chain through a
+// constraint usage: the constraint's value is its result parameter's.
+func constraintResultTail(rest []ast.NameSegment) []ast.NameSegment {
+	if len(rest) == 1 && rest[0].Text == "result" {
+		return nil
+	}
+	return rest
+}

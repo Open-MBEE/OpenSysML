@@ -1414,6 +1414,9 @@ func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
 	if _, ok := ec.self.FeatureValues[name]; !ok && !ec.ctx.derivesKernelCollection(ec.self, name) {
 		return Value{}, false, nil
 	}
+	if val, ok, err := ec.constraintUsageRead(ec.self, name); ok {
+		return val, true, err
+	}
 	fv, open, err := ec.memberFeatureValue(ec.self, name)
 	if err != nil {
 		return Value{}, true, err
@@ -1715,6 +1718,12 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 
 // chainFeatureValue continues a chain through the named feature value of inst.
 func (ec *EvalContext) chainFeatureValue(inst *Instance, name string, rest []ast.NameSegment, from string) (Value, error) {
+	if val, ok, err := ec.constraintUsageRead(inst, name); ok {
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(val, constraintResultTail(rest), name)
+	}
 	// Read through the feature value so a derived or composite member is materialized
 	// on demand rather than read as an empty feature value.
 	fv, open, err := ec.memberFeatureValue(inst, name)

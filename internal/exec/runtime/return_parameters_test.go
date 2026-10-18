@@ -15,7 +15,8 @@ import (
 // check surfaces already report for the same element: a package-level usage's
 // `result` is its requirement check, a satisfaction assertion's verdict is the
 // `result` of the requirement bound to the same subject, and a verification
-// usage's `verdict` is the verdict its run produces.
+// usage's `verdict` is the verdict its run produces, and a constraint usage read
+// on its object is the constraint check on that object.
 func TestReturnParameterReadsAgreeWithChecks(t *testing.T) {
 	src, err := os.ReadFile(filepath.Join("testdata", "conformance", "read_return_parameters.sysml"))
 	if err != nil {
@@ -36,6 +37,17 @@ func TestReturnParameterReadsAgreeWithChecks(t *testing.T) {
 		}
 	}
 
+	for _, usage := range []string{"c", "c3"} {
+		sym := oneSymbol(t, idx, "test::P3::"+usage)
+		holds, err := ctx.EvaluateConstraintOn(sym, root, nil)
+		if err != nil && !violationErr(err) {
+			t.Fatalf("EvaluateConstraintOn(%s): %v", usage, err)
+		}
+		read := mustEvalIn(t, ctx, root, "test::p3."+usage)
+		if read.Kind != ValConst || read.Const.Bool != holds {
+			t.Errorf("test::p3.%s = %s, want the constraint check's %v", usage, FormatValue(read), holds)
+		}
+	}
 	satisfied := map[string]bool{}
 	for _, a := range ctx.SatisfyAssertionsIn(oneSymbol(t, idx, "test::Checks").Scope) {
 		holds, err := ctx.EvaluateSatisfaction(a)

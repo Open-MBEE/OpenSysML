@@ -23,6 +23,15 @@ package test {
 	requirement def R10 { subject s : P2; assume constraint { s.m > 0.0 } assume constraint { false } require constraint { false } }
 	requirement def R11 { subject s : P2; require constraint { s.m > 0.0 } require constraint { false } }
 	constraint def C1 { true }
+	part def P3 {
+		attribute m : Real;
+		attribute n : Real = 1.0;
+		constraint c { n > 0.0 }
+		assert constraint c2 { n > 0.0 }
+		constraint c3 { n < 0.0 }
+		constraint cu { m > 0.0 }
+	}
+	part p3 : P3;
 	requirement def R12 { subject s : P2; assume constraint { false } require constraint : C1 { false } }
 	case def Ca1 { subject s : P2; return r : Integer = 1 + 1; }
 	case def Ca2 { subject s : P2; objective obj { require constraint { true } } }
@@ -58,6 +67,13 @@ package test {
 	attribute r10New : Boolean = new R10().result;
 	attribute r11New : Boolean = new R11().result;
 	attribute r12New : Boolean = new R12().result;
+	attribute c3Usage : Boolean = p3.c;
+	attribute c2Usage : Boolean = p3.c2;
+	attribute cResultUsage : Boolean = p3.c.result;
+	attribute c3False : Boolean = p3.c3;
+	attribute cuUnbound : Boolean = p3.cu;
+	attribute c2New : Boolean = new P3().c2;
+	attribute cNew : Boolean = new P3().c;
 	attribute v4New = new V4().verdict;
 	attribute r1Bound : Boolean = r1.result;
 	attribute r1Unbound : Boolean = r1u.result;
