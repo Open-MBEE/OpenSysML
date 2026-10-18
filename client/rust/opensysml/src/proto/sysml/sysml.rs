@@ -3534,6 +3534,328 @@ pub struct ExportGraphsResponse {
     #[prost(string, tag="3")]
     pub subject: ::prost::alloc::string::String,
 }
+/// ImportDataRequest is the data `sysml -import` sets the feature values of, one
+/// file per -import, applied in order as one edit each.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ImportDataRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// The files, in the order they are applied; each is read as its own format
+    /// and mapping say.
+    #[prost(message, repeated, tag="2")]
+    pub imports: ::prost::alloc::vec::Vec<DataImport>,
+    /// What each row is made into, as -import-as: "values", the default, sets the
+    /// features of the element the row names; nothing else is supported.
+    #[prost(string, tag="3")]
+    pub import_as: ::prost::alloc::string::String,
+    /// Report the values the imports would set, changing nothing; the documents
+    /// and model hash are then unset.
+    #[prost(bool, tag="4")]
+    pub import_dry_run: bool,
+    /// Accept every edited document in documents when the model has several;
+    /// without it, a model of several documents is refused as ApplyEdits refuses it.
+    #[prost(bool, tag="5")]
+    pub accept_documents: bool,
+}
+/// DataImport is one data file: its name, which names the format by extension
+/// and the file in what goes wrong, and its content.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DataImport {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub content: ::prost::alloc::string::String,
+    /// Read the content as csv, tsv, json or jsonl rather than as the name's
+    /// extension says, as -import-format.
+    #[prost(string, tag="3")]
+    pub import_format: ::prost::alloc::string::String,
+    /// The JSON mapping onto elements and features the content is read by, as the
+    /// file -import-map names; empty for the content's own header.
+    #[prost(string, tag="4")]
+    pub import_map: ::prost::alloc::string::String,
+}
+/// ImportDataResponse is what the imports set, and the model they made.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ImportDataResponse {
+    /// One per import, in order; unset when the model refuses an import, with
+    /// error set and nothing changed.
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<ImportedFile>,
+    /// The edited documents, as ApplyEdits answers them; unset on a dry run.
+    #[prost(message, repeated, tag="2")]
+    pub documents: ::prost::alloc::vec::Vec<EditedDocument>,
+    /// The edited content of a one-document model; unset on a dry run.
+    #[prost(string, tag="3")]
+    pub content: ::prost::alloc::string::String,
+    /// The hash of the imported model, parsed and cached; unset on a dry run.
+    #[prost(string, tag="4")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// Why the import was refused, "" when it was made; the model is then unchanged.
+    #[prost(string, tag="5")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="6")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+}
+/// ImportedFile is what one data file set: the values, the elements they were
+/// set on, and each assignment as `sysml -import` lists it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ImportedFile {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(int64, tag="2")]
+    pub values: i64,
+    #[prost(int64, tag="3")]
+    pub elements: i64,
+    #[prost(message, repeated, tag="4")]
+    pub assignments: ::prost::alloc::vec::Vec<ImportedValue>,
+}
+/// ImportedValue is one assignment: the qualified name of the element, the
+/// feature set, the literal it is set to, the qualified name of the inherited
+/// feature redefined to set it ("" when the element declares the feature), where
+/// in the data it came from, and the line `sysml -import` reports it as. A
+/// redefinition made only to reach a nested inherited feature sets no value.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ImportedValue {
+    #[prost(string, tag="1")]
+    pub element: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub feature: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub value: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub redefines: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub r#where: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub description: ::prost::alloc::string::String,
+}
+/// CompareResultsRequest runs the configurations a tool's results sidecar indexes
+/// — the JSON `sysml -migration-results` writes — against the migrated model.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CompareResultsRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// The results sidecar, as JSON.
+    #[prost(string, tag="2")]
+    pub results: ::prost::alloc::string::String,
+    /// The configurations compared, by qualified or simple name, as -action names
+    /// them; every indexed configuration when empty.
+    #[prost(string, repeated, tag="3")]
+    pub actions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The runs made of every configuration when positive, as -runs; else each
+    /// configuration's own numberOfRuns, or one.
+    #[prost(int64, tag="4")]
+    pub runs: i64,
+    /// The seed the runs derive theirs from, as -seed; without one, runs that draw
+    /// at random are refused unless draws fixes them.
+    #[prost(uint64, optional, tag="5")]
+    pub seed: ::core::option::Option<u64>,
+    /// The draw policy replacing every configuration's durationSimulationMode when
+    /// set, as -draws: random, min, max or average.
+    #[prost(string, tag="6")]
+    pub draws: ::prost::alloc::string::String,
+    /// The clock step replacing every configuration's when set, as -clock-step;
+    /// 0 is a continuous clock.
+    #[prost(double, optional, tag="7")]
+    pub clock_step: ::core::option::Option<f64>,
+    /// The stored observables compared, each with the feature of the run that
+    /// answers it, as -observe; without any, every stored observable is read from
+    /// the target's feature of its own name.
+    #[prost(message, repeated, tag="8")]
+    pub observe: ::prost::alloc::vec::Vec<ObservablePair>,
+    #[prost(string, tag="9")]
+    pub engine: ::prost::alloc::string::String,
+}
+/// ObservablePair is a stored observable and the feature of the run that answers
+/// it; an empty feature is the target's feature of the observable's own name.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ObservablePair {
+    #[prost(string, tag="1")]
+    pub stored: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub feature: ::prost::alloc::string::String,
+}
+/// CompareResultsResponse is one comparison per configuration, in the order the
+/// sidecar indexes them.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CompareResultsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub configurations: ::prost::alloc::vec::Vec<ConfigurationComparison>,
+    /// The tool the sidecar records as the source of the results.
+    #[prost(string, tag="2")]
+    pub source: ::prost::alloc::string::String,
+    /// Why nothing was compared, "" when the configurations were run.
+    #[prost(string, tag="3")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="4")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    #[prost(enumeration="FailureReason", tag="5")]
+    pub failure_reason: i32,
+    #[prost(string, tag="6")]
+    pub engine: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub strength: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="8")]
+    pub bounds: ::prost::alloc::vec::Vec<Bound>,
+}
+/// ConfigurationComparison is one configuration's runs beside the tool's results.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ConfigurationComparison {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub name: ::prost::alloc::string::String,
+    /// The migrated behavior the configuration performs, "" when it performs none.
+    #[prost(string, tag="3")]
+    pub behavior: ::prost::alloc::string::String,
+    /// The feature of the configuration the observables are read from.
+    #[prost(string, tag="4")]
+    pub target: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub result_location: ::prost::alloc::string::String,
+    /// holds when runs complete and observables compare; undecided when some do not;
+    /// fails when a run fails; unresolved when the configuration cannot run.
+    #[prost(string, tag="6")]
+    pub status: ::prost::alloc::string::String,
+    /// Why the configuration could not be run, when status is unresolved.
+    #[prost(string, tag="7")]
+    pub unresolved: ::prost::alloc::string::String,
+    /// The runs the tool stored, and over how many snapshots.
+    #[prost(int64, tag="8")]
+    pub stored_runs: i64,
+    #[prost(int64, tag="9")]
+    pub stored_snapshots: i64,
+    /// The runs OpenSysML made and how many completed.
+    #[prost(int64, tag="10")]
+    pub runs: i64,
+    #[prost(int64, tag="11")]
+    pub completed: i64,
+    #[prost(string, tag="12")]
+    pub draws: ::prost::alloc::string::String,
+    /// The seed the runs derived theirs from; unset when the runs drew nothing.
+    #[prost(uint64, optional, tag="13")]
+    pub seed: ::core::option::Option<u64>,
+    #[prost(double, tag="14")]
+    pub clock_step: f64,
+    /// One row per run, as RunSweep tables them.
+    #[prost(message, repeated, tag="15")]
+    pub rows: ::prost::alloc::vec::Vec<SweepRow>,
+    #[prost(message, repeated, tag="16")]
+    pub instances: ::prost::alloc::vec::Vec<Instance>,
+    #[prost(message, repeated, tag="17")]
+    pub observables: ::prost::alloc::vec::Vec<ObservableComparison>,
+    /// The errors failed runs ended in, deduplicated, and the notes on the
+    /// configuration and its runs.
+    #[prost(string, repeated, tag="18")]
+    pub errors: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="19")]
+    pub notes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The comparison as `sysml -compare-results` prints it.
+    #[prost(string, repeated, tag="20")]
+    pub lines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// ObservableComparison is one observable: the tool's distribution beside the
+/// runs' with the relative difference of each statistic, or why they are not
+/// compared.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ObservableComparison {
+    #[prost(string, tag="1")]
+    pub stored: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub feature: ::prost::alloc::string::String,
+    /// The unit the runs' numbers came in, "" for none.
+    #[prost(string, tag="3")]
+    pub unit: ::prost::alloc::string::String,
+    /// The tool's distribution, unset when it stored no number; pooled when it
+    /// was pooled from summaries, so only count and mean are known; unstored
+    /// when the tool stored no result at all to compare against.
+    #[prost(message, optional, tag="4")]
+    pub tool: ::core::option::Option<ComparedDistribution>,
+    #[prost(bool, tag="5")]
+    pub pooled: bool,
+    #[prost(bool, tag="6")]
+    pub unstored: bool,
+    /// The distribution of the completed runs, unset when they are not compared;
+    /// produced is how many runs produced a number for the feature.
+    #[prost(message, optional, tag="7")]
+    pub run: ::core::option::Option<ComparedDistribution>,
+    #[prost(int64, tag="8")]
+    pub produced: i64,
+    /// Whether the runs were made and are reported, false when the tool stored no
+    /// observable of the name or no number for it.
+    #[prost(bool, tag="9")]
+    pub compared: bool,
+    /// The relative difference of each statistic, unset without both
+    /// distributions; a pooled tool distribution compares the mean alone.
+    #[prost(message, optional, tag="10")]
+    pub difference: ::core::option::Option<StatisticDifference>,
+    /// The per-statistic comparison of the Simulation::MonteCarlo case the
+    /// observable is analysed by, unset when none is.
+    #[prost(message, optional, tag="11")]
+    pub declared: ::core::option::Option<CaseStatistics>,
+    #[prost(string, repeated, tag="12")]
+    pub notes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// ComparedDistribution is a distribution of numbers by its statistics; a pooled
+/// one sets count and mean alone.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ComparedDistribution {
+    #[prost(int64, tag="1")]
+    pub count: i64,
+    #[prost(double, tag="2")]
+    pub min: f64,
+    #[prost(double, tag="3")]
+    pub mean: f64,
+    #[prost(double, tag="4")]
+    pub p50: f64,
+    #[prost(double, tag="5")]
+    pub p90: f64,
+    #[prost(double, tag="6")]
+    pub max: f64,
+    #[prost(double, tag="7")]
+    pub deviation: f64,
+}
+/// StatisticDifference is the relative difference of each statistic as a signed
+/// percentage, "" where it is not compared.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StatisticDifference {
+    #[prost(string, tag="1")]
+    pub min: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub mean: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub p50: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub p90: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub max: ::prost::alloc::string::String,
+}
+/// CaseStatistics compares the statistics a Simulation::MonteCarlo case declares
+/// of an observable with the tool's pooled values, one row per statistic.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CaseStatistics {
+    #[prost(string, tag="1")]
+    pub analysis: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub rows: ::prost::alloc::vec::Vec<CaseStatistic>,
+    #[prost(string, repeated, tag="3")]
+    pub notes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// CaseStatistic is one statistic of the case: which, where the case declares
+/// it, the tool's value, the runs' value and their relative difference.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CaseStatistic {
+    #[prost(string, tag="1")]
+    pub statistic: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub of: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub tool: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub run: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub difference: ::prost::alloc::string::String,
+}
 /// FailureReason says what kind of failure an `error` reports, so a client acts
 /// on the kind rather than on the message text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

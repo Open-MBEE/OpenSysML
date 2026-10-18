@@ -165,6 +165,16 @@ class SysMLServiceStub:
                 request_serializer=sysml__pb2.ExportGraphsRequest.SerializeToString,
                 response_deserializer=sysml__pb2.ExportGraphsResponse.FromString,
                 _registered_method=True)
+        self.ImportData = channel.unary_unary(
+                '/sysml.SysMLService/ImportData',
+                request_serializer=sysml__pb2.ImportDataRequest.SerializeToString,
+                response_deserializer=sysml__pb2.ImportDataResponse.FromString,
+                _registered_method=True)
+        self.CompareResults = channel.unary_unary(
+                '/sysml.SysMLService/CompareResults',
+                request_serializer=sysml__pb2.CompareResultsRequest.SerializeToString,
+                response_deserializer=sysml__pb2.CompareResultsResponse.FromString,
+                _registered_method=True)
 
 
 class SysMLServiceServicer:
@@ -391,6 +401,26 @@ class SysMLServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ImportData(self, request, context):
+        """Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+        per element, as `sysml -import` does: a feature the element declares has its
+        value set, one it inherits is redefined with the value; a dry run reports the
+        values without changing the model. Reported as the "import_data" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CompareResults(self, request, context):
+        """Run every configuration a SysML v1 tool's results sidecar indexes, as
+        `sysml -compare-results` does, and table the tool's and OpenSysML's min,
+        mean, p50, p90 and max of each observable with their relative difference.
+        Reported as the "compare_results" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_SysMLServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -523,6 +553,16 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     servicer.ExportGraphs,
                     request_deserializer=sysml__pb2.ExportGraphsRequest.FromString,
                     response_serializer=sysml__pb2.ExportGraphsResponse.SerializeToString,
+            ),
+            'ImportData': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImportData,
+                    request_deserializer=sysml__pb2.ImportDataRequest.FromString,
+                    response_serializer=sysml__pb2.ImportDataResponse.SerializeToString,
+            ),
+            'CompareResults': grpc.unary_unary_rpc_method_handler(
+                    servicer.CompareResults,
+                    request_deserializer=sysml__pb2.CompareResultsRequest.FromString,
+                    response_serializer=sysml__pb2.CompareResultsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -1228,6 +1268,60 @@ class SysMLService:
             '/sysml.SysMLService/ExportGraphs',
             sysml__pb2.ExportGraphsRequest.SerializeToString,
             sysml__pb2.ExportGraphsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ImportData(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/ImportData',
+            sysml__pb2.ImportDataRequest.SerializeToString,
+            sysml__pb2.ImportDataResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CompareResults(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/CompareResults',
+            sysml__pb2.CompareResultsRequest.SerializeToString,
+            sysml__pb2.CompareResultsResponse.FromString,
             options,
             channel_credentials,
             insecure,
