@@ -1,6 +1,8 @@
 package sessiontools
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -802,5 +804,40 @@ func TestEveryFileASessionTouchesPassesTheRootGuard(t *testing.T) {
 	must(t, cs, "repl_command", args("line", "%save "+filepath.Join(root, "kept.sysml")), nil)
 	if _, err := os.Stat(filepath.Join(root, "kept.sysml")); err != nil {
 		t.Errorf("%%save inside the root through repl_command did not write: %v", err)
+	}
+}
+
+func TestAProjectArchiveInTheRootLoads(t *testing.T) {
+	root := t.TempDir()
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	for _, m := range [][2]string{
+		{"Probe.sysml", "package Probe { part def P; }\n"},
+		{".project.json", `{"name": "Probe", "version": "1.0.0"}`},
+		{".meta.json", `{"index": {"Probe": "Probe.sysml"}, "created": "2026-01-01T00:00:00Z",
+	"checksum": {"Probe.sysml": {"value": "4044ca78bfbbcdd72b63cd877ad948c20b758dd30cbb4a0bf8c9e0af30c98bda", "algorithm": "SHA256"}}}`},
+	} {
+		f, err := w.Create(m[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.Write([]byte(m[1])); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "probe.kpar"), buf.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cs := connect(t, root)
+	var loaded LoadResult
+	must(t, cs, "session_load", args("paths", []string{"probe.kpar"}), &loaded)
+	if want := []string{filepath.Join(root, "probe.kpar", "Probe.sysml")}; !slices.Equal(loaded.Files, want) {
+		t.Errorf("files = %v, want the archive's member %v", loaded.Files, want)
+	}
+	if loaded.Errors || len(loaded.Diagnostics) != 0 {
+		t.Errorf("loading the archive reported errors: %+v", loaded)
 	}
 }

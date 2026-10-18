@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
@@ -136,9 +137,9 @@ func Under(root, path string) bool {
 const maxLinkHops = 40
 
 // realPath follows the symlinks of the longest existing prefix of path and
-// keeps the rest as written, so a file not yet created is placed as well. A
-// dangling link on the way is followed to where it points, since a write
-// through it lands there.
+// keeps the rest as written, so a file not yet created is placed as well, and
+// so is a member named beneath an archive file. A dangling link on the way is
+// followed to where it points, since a write through it lands there.
 func realPath(path string) (string, error) {
 	return realPathHops(path, 0)
 }
@@ -151,7 +152,7 @@ func realPathHops(path string, hops int) (string, error) {
 			return filepath.Join(real, rest), nil
 		}
 		parent := filepath.Dir(p)
-		if !errors.Is(err, fs.ErrNotExist) || parent == p {
+		if !(errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR)) || parent == p {
 			return "", err
 		}
 		if info, lerr := os.Lstat(p); lerr == nil && info.Mode()&fs.ModeSymlink != 0 {

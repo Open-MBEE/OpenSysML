@@ -240,3 +240,26 @@ func TestUnderJudgesTheSpellingOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestAMemberNamedBeneathAnArchiveFileIsJudgedByTheArchive(t *testing.T) {
+	tr := newTree(t)
+	tr.write(t, filepath.Join(tr.root, "model.kpar"), "not a directory")
+	tr.write(t, filepath.Join(tr.outside, "away.kpar"), "not a directory")
+	tr.link(t, filepath.Join(tr.outside, "away.kpar"), filepath.Join(tr.root, "linked.kpar"))
+	r, err := NewRoot(tr.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	member := filepath.Join("model.kpar", "A.sysml")
+	res, err := r.Resolve(member)
+	if err != nil {
+		t.Fatalf("Resolve(%q) through an archive file in the root: %v", member, err)
+	}
+	if want := filepath.Join(tr.root, member); res.Path != want || res.Real != want {
+		t.Errorf("Resolve(%q) = %+v, want Path and Real %s", member, res, want)
+	}
+	linked := filepath.Join("linked.kpar", "A.sysml")
+	if _, err := r.Resolve(linked); err == nil || !strings.Contains(err.Error(), "leads through a symlink to") {
+		t.Errorf("Resolve(%q) through an archive linked from outside = %v; want a refusal", linked, err)
+	}
+}
