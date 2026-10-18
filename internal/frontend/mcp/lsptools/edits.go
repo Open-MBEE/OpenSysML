@@ -26,7 +26,7 @@ type FileEdits struct {
 type FormatInput struct {
 	Path  string `json:"path" jsonschema:"the document to format, absolute or relative to the workspace root"`
 	Range *Range `json:"range,omitempty" jsonschema:"format only the lines this range touches; omitted, the whole document"`
-	Apply bool   `json:"apply,omitempty" jsonschema:"write the formatted text to the file; false (the default) only returns the edits"`
+	Apply bool   `json:"apply,omitempty" jsonschema:"write the formatted text to the file, replacing it atomically (its mode is kept, other inode metadata is not); false (the default) only returns the edits"`
 }
 
 // FormatResult is the formatting of a document.
@@ -42,7 +42,7 @@ type RenameInput struct {
 	Path     string           `json:"path" jsonschema:"the document, absolute or relative to the workspace root"`
 	Position toolkit.Position `json:"position" jsonschema:"a position on the name to rename (1-based line and column)"`
 	NewName  string           `json:"newName" jsonschema:"the new name"`
-	Apply    bool             `json:"apply,omitempty" jsonschema:"write every affected file; false (the default) only returns the edits"`
+	Apply    bool             `json:"apply,omitempty" jsonschema:"write every affected file, all or none, each replaced atomically (its mode is kept, other inode metadata is not); false (the default) only returns the edits"`
 }
 
 // WorkspaceEditResult is a change spanning documents.
@@ -55,7 +55,7 @@ type WorkspaceEditResult struct {
 type ApplyModelEditInput struct {
 	Path       string                   `json:"path" jsonschema:"the document the operations address, absolute or relative to the workspace root"`
 	Operations []lsp.ModelEditOperation `json:"operations"`
-	Apply      bool                     `json:"apply,omitempty" jsonschema:"write every affected file; false (the default) only returns the edits"`
+	Apply      bool                     `json:"apply,omitempty" jsonschema:"write every affected file, all or none, each replaced atomically (its mode is kept, other inode metadata is not); false (the default) only returns the edits"`
 }
 
 // ModelEditResult is the outcome of apply_model_edit.
