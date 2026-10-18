@@ -895,6 +895,32 @@ func (r *Renderer) declTypings(sym *symbols.Symbol) []string {
 	return names
 }
 
+// typeSource is the declaration whose typing heads sym's box: sym when it declares one,
+// else the nearest feature it redefines that does, since a redefining feature has the
+// types of the feature it redefines (KerML 1.0 §7.3.4.5).
+func (r *Renderer) typeSource(sym *symbols.Symbol) *symbols.Symbol {
+	if declType(sym) != "" {
+		return sym
+	}
+	for _, redefined := range r.model.AllRedefinedFeatures(sym) {
+		if declType(redefined) != "" {
+			return redefined
+		}
+	}
+	return sym
+}
+
+// headType is the type a usage's box is headed with: its declared typing, or the
+// one it inherits from the feature it redefines.
+func (r *Renderer) headType(sym *symbols.Symbol) string {
+	return declType(r.typeSource(sym))
+}
+
+// headTypings are the qualified names of the elements headType resolves to.
+func (r *Renderer) headTypings(sym *symbols.Symbol) []string {
+	return r.declTypings(r.typeSource(sym))
+}
+
 // nodeType is the type a usage lowered into a behavior graph is declared with
 // ("Provide" of `action provide : Provide`), empty for any other node.
 func nodeType(decl ast.Node) string {

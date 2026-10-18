@@ -200,7 +200,7 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, path expansion, depth int
 		name = localName(sym)
 	}
 	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
-		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out),
+		Type: r.headType(sym), Typings: r.headTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out),
 		Style: r.styleOf(w.view, sym, w.out)}
 	if path[sym] {
 		node.Detail = detailWith(node.Detail, "already shown as "+w.node(sym).ID)
