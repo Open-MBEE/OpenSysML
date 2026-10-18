@@ -482,6 +482,13 @@ func (ec *EvalContext) evalClosure(val Value) (Value, error) {
 // its own over the environment the body closes over.
 func (ec *EvalContext) applyBody(val Value, args ...Value) (Value, error) {
 	if val.Kind == ValFunction {
+		// A library function runs no expression of its own, so each application is
+		// one step, as a body's evaluation is; a calc body charges its own.
+		if fn := val.function(); fn != nil && fn.library != nil {
+			if err := ec.ctx.incrementStep(); err != nil {
+				return Value{}, err
+			}
+		}
 		return ec.invokeFunction(val.FunctionName(), val, calcArgs{positional: args})
 	}
 	body, ok := val.expr().(*ast.BodyExpr)
