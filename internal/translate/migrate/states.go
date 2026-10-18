@@ -2336,7 +2336,7 @@ func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header
 	case "OpaqueBehavior", "FunctionBehavior":
 		body, lang := opaqueBody(b)
 		lines, ok, note := m.statements(body, lang, b)
-		empty := !ok && note == "the body is empty" && opaqueBodiesEmpty(b)
+		empty := !ok && note == emptyBodyNote && opaqueBodiesEmpty(b)
 		enclose(header, func() {
 			m.comments(b)
 			m.parameters(b, b)
