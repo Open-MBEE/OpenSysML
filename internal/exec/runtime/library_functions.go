@@ -235,6 +235,8 @@ func registerLibraryFunction(name string, params []string, apply func([]semantic
 func registerOrderedFunction(name string, params []string, apply func([]semantics.Value) (semantics.Value, error), domains ...scalarDomain) {
 	finite := numericScalars(params, pureScalars(apply), domains)
 	registerValueFunction(name, params, len(params), orderedOverUnbounded(finite, strings.HasSuffix(name, "::min")))
+	libraryFunctions[name].scalar = true
+	undeterminedAware[name] = true
 }
 
 // orderedOverUnbounded extends finite, an `abs`, `max` or `min` over numbers, to
