@@ -30,8 +30,8 @@ read	Probe::p1.mq	model	Probe::P1::mq	quantity 2.0 [kg]
 read	Probe::p1.n	model	Probe::P1::n	undetermined <undetermined>
 read	Probe::p1.opt	model	Probe::P1::opt	undetermined <undetermined>
 read	Probe::p1.oq	model	Probe::P1::oq	object:Probe::O1
-read	Probe::p1.other	model	Probe::P1::other	error uninitialized feature value: other
-read	Probe::p1.otherItem	model	Probe::P1::otherItem	error uninitialized feature value: otherItem
+read	Probe::p1.other	model	Probe::P1::other	undetermined <undetermined>
+read	Probe::p1.otherItem	model	Probe::P1::otherItem	undetermined <undetermined>
 read	Probe::p1.others	model	Probe::P1::others	undetermined <undetermined>
 read	Probe::p1.ownedActions	systems	Parts::Part::ownedActions	collection(6) [object:Probe::A1#1, object:Probe::Ca1#2, object:Probe::U1#3, object:Probe::Fl1#4, object:Probe::U1#5, object:Probe::S1#6]
 read	Probe::p1.ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [object:Probe::Pt#1]
@@ -55,7 +55,7 @@ read	Probe::p1.uq	model	Probe::P1::uq	object:Probe::U1
 read	Probe::p1.voids	systems	Items::Item::voids	undetermined <undetermined>
 read	Probe::p1.vpq	model	Probe::P1::vpq	object:Probe::Vp1
 read	Probe::p1.vq	model	Probe::P1::vq	error no value: calc usage vq computes output features (no output feature); read one of them
-read	Probe::p1.vq3	model	Probe::P1::vq3	error uninitialized feature value: vq3
+read	Probe::p1.vq3	model	Probe::P1::vq3	undetermined <undetermined>
 read	Probe::p1.vwq	model	Probe::P1::vwq	object:Probe::Vw1
 object	Probe::p2	object:Probe::p2
 read	Probe::p2.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
@@ -109,7 +109,7 @@ read	Probe::ca1.joins	systems	Actions::Action::joins	empty
 read	Probe::ca1.loops	systems	Actions::Action::loops	empty
 read	Probe::ca1.merges	systems	Actions::Action::merges	empty
 read	Probe::ca1.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
-read	Probe::ca1.s	model	Probe::Ca1::s	error uninitialized feature value: s
+read	Probe::ca1.s	model	Probe::Ca1::s	undetermined <undetermined>
 read	Probe::ca1.self	systemsFRAME	Cases::Case::self	object:Probe::ca1
 read	Probe::ca1.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
 read	Probe::ca1.start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
@@ -139,7 +139,7 @@ read	Probe::u1.loops	systems	Actions::Action::loops	empty
 read	Probe::u1.merges	systems	Actions::Action::merges	empty
 read	Probe::u1.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
 read	Probe::u1.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
-read	Probe::u1.s	model	Probe::U1::s	error uninitialized feature value: s
+read	Probe::u1.s	model	Probe::U1::s	undetermined <undetermined>
 read	Probe::u1.self	systemsFRAME	UseCases::UseCase::self	object:Probe::u1
 read	Probe::u1.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
 read	Probe::u1.start	systemsFRAME	UseCases::UseCase::start	undetermined <undetermined>
@@ -181,7 +181,7 @@ read	Probe::vp1.constraints	systems	Requirements::RequirementCheck::constraints	
 read	Probe::vp1.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
 read	Probe::vp1.self	systemsFRAME	Views::ViewpointCheck::self	object:Probe::vp1
 read	Probe::vp1.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
-read	Probe::vp1.subj	systems	Views::ViewpointCheck::subj	error uninitialized feature value: subj
+read	Probe::vp1.subj	systems	Views::ViewpointCheck::subj	undetermined <undetermined>
 read	Probe::vp1.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 object	Probe::con1	object:Probe::con1
 read	Probe::con1.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
@@ -192,7 +192,7 @@ read	Probe::con1.result	systemsFRAME	Requirements::RequirementConstraintCheck::r
 read	Probe::con1.self	systemsFRAME	Requirements::ConcernCheck::self	object:Probe::con1
 read	Probe::con1.sh	model	Probe::Con1::sh	object:Probe::P2
 read	Probe::con1.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
-read	Probe::con1.subj	systems	Requirements::RequirementCheck::subj	error uninitialized feature value: subj
+read	Probe::con1.subj	systems	Requirements::RequirementCheck::subj	undetermined <undetermined>
 read	Probe::con1.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 object	Probe::rd1	object:Probe::rd1
 read	Probe::rd1.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
@@ -319,7 +319,7 @@ read	Probe::spat.envelopingShapes	systems	Items::Item::envelopingShapes	undeterm
 read	Probe::spat.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
 read	Probe::spat.localClock	domain	SpatialItems::SpatialItem::localClock	object:Time::universalClock
 read	Probe::spat.originPoint	domain	SpatialItems::SpatialItem::originPoint	object:Objects::Point
-read	Probe::spat.originPointConstraint	domain	SpatialItems::SpatialItem::originPointConstraint	error uninitialized feature value: originPointConstraint
+read	Probe::spat.originPointConstraint	domain	SpatialItems::SpatialItem::originPointConstraint	undetermined <undetermined>
 read	Probe::spat.self	systemsFRAME	Items::Item::self	object:Probe::spat
 read	Probe::spat.shape	systems	Items::Item::shape	undetermined <undetermined>
 read	Probe::spat.start	systemsFRAME	Items::Item::start	undetermined <undetermined>
@@ -438,7 +438,7 @@ read	Probe::p1.st.decisionTransitions	systems	Actions::Action::decisionTransitio
 read	Probe::p1.st.decisions	systems	Actions::Action::decisions	empty
 read	Probe::p1.st.doAction	systems	States::StateAction::doAction	object:Actions::Action
 read	Probe::p1.st.done	systemsFRAME	States::StateAction::done	undetermined <undetermined>
-read	Probe::p1.st.entryAction	systems	States::StateAction::entryAction	error uninitialized feature value: entryAction
+read	Probe::p1.st.entryAction	systems	States::StateAction::entryAction	undetermined <undetermined>
 read	Probe::p1.st.exclusiveStates	systems	States::StateAction::exclusiveStates	empty
 read	Probe::p1.st.exitAction	systems	States::StateAction::exitAction	object:Actions::Action
 read	Probe::p1.st.forLoops	systems	Actions::Action::forLoops	empty
@@ -449,7 +449,7 @@ read	Probe::p1.st.isTriggerDuring	systems	States::StateAction::isTriggerDuring	c
 read	Probe::p1.st.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.st.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.st.merges	systems	Actions::Action::merges	empty
-read	Probe::p1.st.on1	model	Probe::S1::on1	error uninitialized feature value: on1
+read	Probe::p1.st.on1	model	Probe::S1::on1	undetermined <undetermined>
 read	Probe::p1.st.self	systemsFRAME	States::StateAction::self	object:Probe::S1
 read	Probe::p1.st.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
 read	Probe::p1.st.start	systemsFRAME	States::StateAction::start	undetermined <undetermined>
@@ -460,8 +460,8 @@ read	Probe::p1.st.substates	systems	States::StateAction::substates	undetermined 
 read	Probe::p1.st.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.st.transitions	systems	Actions::Action::transitions	empty
 read	Probe::p1.st.whileLoops	systems	Actions::Action::whileLoops	empty
-object	Probe::p1.other	error uninitialized feature value: other
-object	Probe::p1.otherItem	error uninitialized feature value: otherItem
+object	Probe::p1.other	undetermined <undetermined>
+object	Probe::p1.otherItem	undetermined <undetermined>
 object	Probe::p1.others	undetermined <undetermined>
 object	Probe::p1.rq	object:Probe::R1
 read	Probe::p1.rq.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
@@ -470,7 +470,7 @@ read	Probe::p1.rq.concerns	systems	Requirements::RequirementCheck::concerns	empt
 read	Probe::p1.rq.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
 read	Probe::p1.rq.lim	model	Probe::R1::lim	constant 5.0
 read	Probe::p1.rq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
-read	Probe::p1.rq.s	model	Probe::R1::s	error uninitialized feature value: s
+read	Probe::p1.rq.s	model	Probe::R1::s	undetermined <undetermined>
 read	Probe::p1.rq.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::R1
 read	Probe::p1.rq.sh	model	Probe::R1::sh	object:Probe::P2
 read	Probe::p1.rq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
@@ -497,7 +497,7 @@ read	Probe::p1.caq.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.caq.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.caq.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.caq.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
-read	Probe::p1.caq.s	model	Probe::Ca1::s	error uninitialized feature value: s
+read	Probe::p1.caq.s	model	Probe::Ca1::s	undetermined <undetermined>
 read	Probe::p1.caq.self	systemsFRAME	Cases::Case::self	object:Probe::Ca1
 read	Probe::p1.caq.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
 read	Probe::p1.caq.start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
@@ -527,7 +527,7 @@ read	Probe::p1.uq.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.uq.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.uq.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
 read	Probe::p1.uq.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
-read	Probe::p1.uq.s	model	Probe::U1::s	error uninitialized feature value: s
+read	Probe::p1.uq.s	model	Probe::U1::s	undetermined <undetermined>
 read	Probe::p1.uq.self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1
 read	Probe::p1.uq.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
 read	Probe::p1.uq.start	systemsFRAME	UseCases::UseCase::start	undetermined <undetermined>
@@ -569,7 +569,7 @@ read	Probe::p1.vpq.constraints	systems	Requirements::RequirementCheck::constrain
 read	Probe::p1.vpq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
 read	Probe::p1.vpq.self	systemsFRAME	Views::ViewpointCheck::self	object:Probe::Vp1
 read	Probe::p1.vpq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
-read	Probe::p1.vpq.subj	systems	Views::ViewpointCheck::subj	error uninitialized feature value: subj
+read	Probe::p1.vpq.subj	systems	Views::ViewpointCheck::subj	undetermined <undetermined>
 read	Probe::p1.vpq.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 object	Probe::p1.conq	object:Probe::Con1
 read	Probe::p1.conq.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
@@ -580,7 +580,7 @@ read	Probe::p1.conq.result	systemsFRAME	Requirements::RequirementConstraintCheck
 read	Probe::p1.conq.self	systemsFRAME	Requirements::ConcernCheck::self	object:Probe::Con1
 read	Probe::p1.conq.sh	model	Probe::Con1::sh	object:Probe::P2
 read	Probe::p1.conq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
-read	Probe::p1.conq.subj	systems	Requirements::RequirementCheck::subj	error uninitialized feature value: subj
+read	Probe::p1.conq.subj	systems	Requirements::RequirementCheck::subj	undetermined <undetermined>
 read	Probe::p1.conq.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 object	Probe::p1.rdq	object:Probe::Rd1
 read	Probe::p1.rdq.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
@@ -633,7 +633,7 @@ read	Probe::p1.ifq.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::p1.ifq.ownedStates	systems	Parts::Part::ownedStates	empty
 read	Probe::p1.ifq.p1	model	Probe::If1::p1	object:Probe::Pt
 read	Probe::p1.ifq.p2	model	Probe::If1::p2	object:Probe::Pt
-read	Probe::p1.ifq.participant	systems	Interfaces::BinaryInterface::participant	error uninitialized feature value: participant
+read	Probe::p1.ifq.participant	systems	Interfaces::BinaryInterface::participant	undetermined <undetermined>
 read	Probe::p1.ifq.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
 read	Probe::p1.ifq.self	systemsFRAME	Parts::Part::self	object:Probe::If1
 read	Probe::p1.ifq.shape	systems	Items::Item::shape	undetermined <undetermined>
@@ -692,7 +692,7 @@ object	Probe::p1.eq	enumeration literal E1::a
 object	Probe::p1.atq	object:Probe::At1
 read	Probe::p1.atq.v	model	Probe::At1::v	undetermined <undetermined>
 object	Probe::p1.mq	quantity 2.0 [kg]
-object	Probe::p1.vq3	error uninitialized feature value: vq3
+object	Probe::p1.vq3	undetermined <undetermined>
 object	Probe::p1.snap	object:Probe::P1::snap
 object	Probe::p1.slice	object:Probe::P1::slice
 object	Probe::p1.ev	object:Probe::P1::ev
@@ -725,7 +725,7 @@ read	Probe::p1.es.decisionTransitions	systems	Actions::Action::decisionTransitio
 read	Probe::p1.es.decisions	systems	Actions::Action::decisions	empty
 read	Probe::p1.es.doAction	systems	States::StateAction::doAction	object:Actions::Action
 read	Probe::p1.es.done	systemsFRAME	States::StateAction::done	undetermined <undetermined>
-read	Probe::p1.es.entryAction	systems	States::StateAction::entryAction	error uninitialized feature value: entryAction
+read	Probe::p1.es.entryAction	systems	States::StateAction::entryAction	undetermined <undetermined>
 read	Probe::p1.es.exclusiveStates	systems	States::StateAction::exclusiveStates	empty
 read	Probe::p1.es.exitAction	systems	States::StateAction::exitAction	object:Actions::Action
 read	Probe::p1.es.forLoops	systems	Actions::Action::forLoops	empty
@@ -736,7 +736,7 @@ read	Probe::p1.es.isTriggerDuring	systems	States::StateAction::isTriggerDuring	c
 read	Probe::p1.es.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.es.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.es.merges	systems	Actions::Action::merges	empty
-read	Probe::p1.es.on1	model	Probe::S1::on1	error uninitialized feature value: on1
+read	Probe::p1.es.on1	model	Probe::S1::on1	undetermined <undetermined>
 read	Probe::p1.es.self	systemsFRAME	States::StateAction::self	object:Probe::S1
 read	Probe::p1.es.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
 read	Probe::p1.es.start	systemsFRAME	States::StateAction::start	undetermined <undetermined>
@@ -754,7 +754,7 @@ read	Probe::p1.sr.concerns	systems	Requirements::RequirementCheck::concerns	empt
 read	Probe::p1.sr.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
 read	Probe::p1.sr.lim	model	Probe::R1::lim	constant 5.0
 read	Probe::p1.sr.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
-read	Probe::p1.sr.s	model	Probe::R1::s	error uninitialized feature value: s
+read	Probe::p1.sr.s	model	Probe::R1::s	undetermined <undetermined>
 read	Probe::p1.sr.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::R1
 read	Probe::p1.sr.sh	model	Probe::R1::sh	object:Probe::P2
 read	Probe::p1.sr.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
@@ -782,7 +782,7 @@ read	Probe::p1.iu.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.iu.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.iu.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
 read	Probe::p1.iu.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
-read	Probe::p1.iu.s	model	Probe::U1::s	error uninitialized feature value: s
+read	Probe::p1.iu.s	model	Probe::U1::s	undetermined <undetermined>
 read	Probe::p1.iu.self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1
 read	Probe::p1.iu.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
 read	Probe::p1.iu.start	systemsFRAME	UseCases::UseCase::start	undetermined <undetermined>
@@ -1320,7 +1320,7 @@ call	CollectionFunctions::head	CollectionFunctions::head(Probe::os)	constant 3	o
 call	CollectionFunctions::tail	CollectionFunctions::tail(Probe::os)	collection(2) [constant 1, constant 2]	ok
 call	CollectionFunctions::last	CollectionFunctions::last(Probe::os)	constant 2	ok
 call	CollectionFunctions::'#'	CollectionFunctions::'#'(Probe::os, 1)	constant 3	ok
-call	CollectionFunctions::'#'	Probe::os#(1)	object:Probe::os	WRONG want 3, got object
+call	CollectionFunctions::'#'	Probe::os#(1)	constant 3	ok
 call	CollectionFunctions::'array#'	CollectionFunctions::'array#'(Probe::arr, (2, 1))	constant 3	ok
 call	CollectionFunctions::'array#'	Probe::arr#(2, 1)	constant 3	ok
 call	ComplexFunctions::rect	ComplexFunctions::rect(1.0, 2.0)	complex number 1.0 + 2.0i	ok
@@ -1372,7 +1372,7 @@ call	ControlFunctions::selectOne	ControlFunctions::selectOne((1, 2, 3), {in x; x
 call	ControlFunctions::reject	(1, 2, 3)->reject{in x; x > 1}	error unresolved reference: reject — did you mean ControlFunctions::reject? To use the bare name, import its package: private import ControlFunctions::*; || with imports: collection(1) [constant 1]	ok
 call	ControlFunctions::reject	ControlFunctions::reject((1, 2, 3), {in x; x > 1})	collection(1) [constant 1]	ok
 call	ControlFunctions::reduce	(1, 2, 3)->reduce{in a; in b; a + b}	error unresolved reference: reduce — did you mean ControlFunctions::reduce? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant 6	ok
-call	ControlFunctions::reduce	(1, 2, 3)->reduce '+'	error unresolved reference: + || with imports: error type mismatch: ControlFunctions::reduce requires a body expression, got function	UNEVALUATED want 6
+call	ControlFunctions::reduce	(1, 2, 3)->reduce '+'	error unresolved reference: + || with imports: constant 6	ok
 call	ControlFunctions::reduce	ControlFunctions::reduce((1, 2, 3), {in a; in b; a + b})	constant 6	ok
 call	ControlFunctions::forAll	(1, 2, 3)->forAll{in x; x > 0}	error unresolved reference: forAll — did you mean ControlFunctions::forAll? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant true	ok
 call	ControlFunctions::forAll	ControlFunctions::forAll((1, 2, 3), {in x; x > 1})	constant false	ok
@@ -1648,18 +1648,18 @@ prefix	inout	requirement R1	inout requirement x : R1;	Probe::d.x => undetermined
 prefix	inout	constraint C1	inout constraint x : C1;	Probe::d.x => undetermined <undetermined>
 prefix	inout	occurrence O1	inout occurrence x : O1;	Probe::d.x => undetermined <undetermined>
 prefix	inout	connection Cn1	inout connection x : Cn1 connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
-prefix	ref (unbound)	attribute Integer	ref attribute x : Integer;	Probe::d.x => error uninitialized feature value: x
-prefix	ref (unbound)	attribute At1	ref attribute x : At1;	Probe::d.x => error uninitialized feature value: x
-prefix	ref (unbound)	enum E1	ref enum x : E1;	Probe::d.x => error uninitialized feature value: x
+prefix	ref (unbound)	attribute Integer	ref attribute x : Integer;	Probe::d.x => undetermined <undetermined>
+prefix	ref (unbound)	attribute At1	ref attribute x : At1;	Probe::d.x => undetermined <undetermined>
+prefix	ref (unbound)	enum E1	ref enum x : E1;	Probe::d.x => undetermined <undetermined>
 prefix	ref (unbound)	calc K1	ref calc x : K1;	Probe::d.x => constant 4
-prefix	ref (unbound)	part P2	ref part x : P2;	Probe::d.x => error uninitialized feature value: x
-prefix	ref (unbound)	item I1	ref item x : I1;	Probe::d.x => error uninitialized feature value: x
-prefix	ref (unbound)	port Pt	ref port x : Pt;	Probe::d.x => error uninitialized feature value: x
-prefix	ref (unbound)	action A1	ref action x : A1;	Probe::d.x => error uninitialized feature value: x
-prefix	ref (unbound)	state S1	ref state x : S1;	Probe::d.x => error uninitialized feature value: x
-prefix	ref (unbound)	requirement R1	ref requirement x : R1;	Probe::d.x => error uninitialized feature value: x
-prefix	ref (unbound)	constraint C1	ref constraint x : C1;	Probe::d.x => error uninitialized feature value: x
-prefix	ref (unbound)	occurrence O1	ref occurrence x : O1;	Probe::d.x => error uninitialized feature value: x
+prefix	ref (unbound)	part P2	ref part x : P2;	Probe::d.x => undetermined <undetermined>
+prefix	ref (unbound)	item I1	ref item x : I1;	Probe::d.x => undetermined <undetermined>
+prefix	ref (unbound)	port Pt	ref port x : Pt;	Probe::d.x => undetermined <undetermined>
+prefix	ref (unbound)	action A1	ref action x : A1;	Probe::d.x => undetermined <undetermined>
+prefix	ref (unbound)	state S1	ref state x : S1;	Probe::d.x => undetermined <undetermined>
+prefix	ref (unbound)	requirement R1	ref requirement x : R1;	Probe::d.x => undetermined <undetermined>
+prefix	ref (unbound)	constraint C1	ref constraint x : C1;	Probe::d.x => undetermined <undetermined>
+prefix	ref (unbound)	occurrence O1	ref occurrence x : O1;	Probe::d.x => undetermined <undetermined>
 prefix	ref (unbound)	connection Cn1	ref connection x : Cn1 connect sub1 to sub2;	Probe::d.x => object:Probe::D::x
 prefix	ref (bound =)	attribute Integer	ref attribute x : Integer = 1;	Probe::d.x => constant 1 ;; Probe::d.x == Probe::d.sub1 => constant false
 prefix	ref (bound =)	enum E1	ref enum x : E1 = E1::a;	Probe::d.x => enumeration literal E1::a ;; Probe::d.x == Probe::d.sub1 => constant false
@@ -1859,16 +1859,16 @@ prefix	:> subsetting	requirement R1	requirement x : R1[0..*]; requirement y : R1
 prefix	:> subsetting	constraint C1	constraint x : C1[0..*]; constraint y : C1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => object:Probe::C1
 prefix	:> subsetting	occurrence O1	occurrence x : O1[0..*]; occurrence y : O1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => object:Probe::O1
 prefix	:> subsetting	connection Cn1	connection x : Cn1[0..*] connect sub1 to sub2; connection y : Cn1 connect sub1 to sub2 :> x;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach ;; Probe::d.y => object:Probe::Cn1
-prefix	::> reference subsetting	attribute Integer	attribute x : Integer; ref attribute y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
-prefix	::> reference subsetting	attribute At1	attribute x : At1; ref attribute y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
-prefix	::> reference subsetting	enum E1	enum x : E1; ref enum y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
+prefix	::> reference subsetting	attribute Integer	attribute x : Integer; ref attribute y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined> ;; Probe::d.y == Probe::d.x => undetermined <undetermined>
+prefix	::> reference subsetting	attribute At1	attribute x : At1; ref attribute y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined> ;; Probe::d.y == Probe::d.x => undetermined <undetermined>
+prefix	::> reference subsetting	enum E1	enum x : E1; ref enum y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined> ;; Probe::d.y == Probe::d.x => undetermined <undetermined>
 prefix	::> reference subsetting	calc K1	calc x : K1; ref calc y ::> x;	Probe::d.x => constant 4 ;; Probe::d.y => constant 4 ;; Probe::d.y == Probe::d.x => constant true
-prefix	::> reference subsetting	part P2	part x : P2; ref part y ::> x;	Probe::d.x => object:Probe::P2 ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
-prefix	::> reference subsetting	item I1	item x : I1; ref item y ::> x;	Probe::d.x => object:Probe::I1 ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
-prefix	::> reference subsetting	port Pt	port x : Pt; ref port y ::> x;	Probe::d.x => object:Probe::Pt ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
-prefix	::> reference subsetting	action A1	action x : A1; ref action y ::> x;	Probe::d.x => object:Probe::A1 ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
-prefix	::> reference subsetting	state S1	state x : S1; ref state y ::> x;	Probe::d.x => object:Probe::S1 ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
-prefix	::> reference subsetting	requirement R1	requirement x : R1; ref requirement y ::> x;	Probe::d.x => object:Probe::R1 ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
-prefix	::> reference subsetting	constraint C1	constraint x : C1; ref constraint y ::> x;	Probe::d.x => object:Probe::C1 ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
-prefix	::> reference subsetting	occurrence O1	occurrence x : O1; ref occurrence y ::> x;	Probe::d.x => object:Probe::O1 ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
-prefix	::> reference subsetting	connection Cn1	connection x : Cn1 connect sub1 to sub2; ref connection y ::> x;	Probe::d.x => object:Probe::Cn1 ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
+prefix	::> reference subsetting	part P2	part x : P2; ref part y ::> x;	Probe::d.x => object:Probe::P2 ;; Probe::d.y => object:Probe::P2 ;; Probe::d.y == Probe::d.x => constant true
+prefix	::> reference subsetting	item I1	item x : I1; ref item y ::> x;	Probe::d.x => object:Probe::I1 ;; Probe::d.y => object:Probe::I1 ;; Probe::d.y == Probe::d.x => constant true
+prefix	::> reference subsetting	port Pt	port x : Pt; ref port y ::> x;	Probe::d.x => object:Probe::Pt ;; Probe::d.y => object:Probe::Pt ;; Probe::d.y == Probe::d.x => constant true
+prefix	::> reference subsetting	action A1	action x : A1; ref action y ::> x;	Probe::d.x => object:Probe::A1 ;; Probe::d.y => object:Probe::A1 ;; Probe::d.y == Probe::d.x => constant true
+prefix	::> reference subsetting	state S1	state x : S1; ref state y ::> x;	Probe::d.x => object:Probe::S1 ;; Probe::d.y => object:Probe::S1 ;; Probe::d.y == Probe::d.x => constant true
+prefix	::> reference subsetting	requirement R1	requirement x : R1; ref requirement y ::> x;	Probe::d.x => object:Probe::R1 ;; Probe::d.y => object:Probe::R1 ;; Probe::d.y == Probe::d.x => constant true
+prefix	::> reference subsetting	constraint C1	constraint x : C1; ref constraint y ::> x;	Probe::d.x => object:Probe::C1 ;; Probe::d.y => object:Probe::C1 ;; Probe::d.y == Probe::d.x => constant true
+prefix	::> reference subsetting	occurrence O1	occurrence x : O1; ref occurrence y ::> x;	Probe::d.x => object:Probe::O1 ;; Probe::d.y => object:Probe::O1 ;; Probe::d.y == Probe::d.x => constant true
+prefix	::> reference subsetting	connection Cn1	connection x : Cn1 connect sub1 to sub2; ref connection y ::> x;	Probe::d.x => object:Probe::Cn1 ;; Probe::d.y => object:Probe::Cn1 ;; Probe::d.y == Probe::d.x => constant true
