@@ -711,6 +711,44 @@ end
                 @test occursin("\"actions\"", graphs.content)
                 @test_throws SymbolNotFoundError export_graphs(behavior_model, "Test::Missing")
                 @test_throws OpenSysMLError export_graphs(behavior_model, "Test")
+                runs_model = parse_source(conn, """
+                    package MC {
+                        private import ScalarValues::*;
+                        private import RandomFunctions::*;
+                        action def Settle { out t : Real; first start; then assign t := uniform(1.0, 5.0); then done; }
+                        part def Probe { attribute t : Real; action settle { first start; then assign t := uniform(1.0, 5.0); then done; } }
+                        individual def probe :> Probe;
+                        analysis def Mc :> Simulation::MonteCarlo {
+                            subject analysed : Probe;
+                            perform action run ::> analysed.settle;
+                            attribute :>> observed : Real = analysed.t;
+                            return Mean : Real = mean;
+                        }
+                        part def P { attribute m : Real = 2.0; }
+                        part p : P;
+                        analysis def Cost { subject s : P; return total : Real = s.m * 3.0; }
+                    }
+                    """)
+                settled = run_runs(runs_model; action="MC::Settle", runs=4, seed=7, observe=["t"])
+                @test settled isa RunsResult && length(settled) == 4 && completed(settled)
+                @test settled.observables == ["t"]
+                @test distribution(settled, "t").numeric && distribution(settled, "t").count == 4
+                @test settled.seed == UInt64(7)
+                sampled = run_runs(runs_model; analysis="MC::Mc", subject="MC::probe", runs=3, seed=1)
+                @test length(sampled) == 3 && isempty(sampled.unconcluded) && haskey(sampled.outputs, "Mean")
+                @test_throws OpenSysMLError run_runs(runs_model; action="MC::Settle", runs=1)
+                @test_throws ExecutionError run_runs(runs_model; action="MC::Nope", runs=1, draws="min")
+                checked_self = self_check(runs_model)
+                @test checked_self isa SelfCheckResult && checked_self.elements > 0 && checked_self.checks > 0
+                @test startswith(checked_self.summary, "Self-model check: ") && !isempty(checked_self.applications)
+                @test_throws ExecutionError self_check(runs_model; packages=["Nope"])
+                recorded = record_run(runs_model, "MC::Cost"; subject="MC::p")
+                @test recorded isa Recording && recorded.run !== nothing
+                @test recorded.package == "Records" && recorded.records == ["Records::Cost_run1"]
+                @test length(recorded.documents) == 1 && !isempty(recorded.model_hash)
+                sampled_record = record_run(runs_model, "MC::Mc"; subject="MC::probe", runs=2, seed=3)
+                @test sampled_record.sample !== nothing && length(sampled_record.records) == 3
+                @test_throws ExecutionError record_run(runs_model, "MC::Nope")
                 import_model = parse_source(conn, """
                     package V {
                         private import ScalarValues::*;

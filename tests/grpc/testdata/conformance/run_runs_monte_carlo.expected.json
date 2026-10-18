@@ -1,0 +1,11 @@
+{
+  "rpc": "RunRuns",
+  "context_symbol_id": "MC::Mc",
+  "subject_symbol_id": "MC::probe",
+  "runs": 3,
+  "seed": 1,
+  "expected_row_count": 3,
+  "expected_observables": [
+    "observed"
+  ]
+}
