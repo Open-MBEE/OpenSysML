@@ -98,6 +98,7 @@ elmt:Chains__V__e
     sysml:owner elmt:Chains__V ;
     sysml:owningRelationship elmt:Chains__V__e_om ;
     sysml:owningMembership elmt:Chains__V__e_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "e" ;
     sysml:type elmt:Chains__V ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -131,6 +132,7 @@ elmt:Chains__v
     sysml:owner elmt:Chains ;
     sysml:owningRelationship elmt:Chains__v_om ;
     sysml:owningMembership elmt:Chains__v_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "v" ;
     sysml:type elmt:Chains__V ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -162,6 +164,7 @@ elmt:Chains__c
     sysml:owner elmt:Chains ;
     sysml:owningRelationship elmt:Chains__c_om ;
     sysml:owningMembership elmt:Chains__c_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "c" ;
     sysml:isChain "true"^^xsd:boolean ;
     sysml:type elmt:Chains__V ;

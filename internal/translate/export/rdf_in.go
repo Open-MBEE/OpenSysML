@@ -1079,6 +1079,15 @@ func classList(iris []string) string {
 // ownerOf returns the element that owns el, or nil when it is a root, reading
 // the element's owning membership, the membership's claim, or a bare owner
 // triple; spellings that disagree are refused rather than one dropped.
+// ownership resolves a usage's owning membership and owner, from the membership
+// side when the graph states the edge there alone.
+func (d *decoder) ownership(subject rdf.Term) (rdf.Term, rdf.Term) {
+	if m, owned := d.owningMembership[subject.Value]; owned {
+		return rdf.IRI(m.iri), rdf.IRI(m.owner)
+	}
+	return graphOwnership(d.graph)(subject)
+}
+
 func (d *decoder) ownerOf(el *element) (*element, error) {
 	subject, what := rdf.IRI(el.iri), fmt.Sprintf("the element <%s>", el.iri)
 	relationship, hasRelationship, err := d.agreedObject(subject, what, "owning relationship", pOwningMembership, pOwningRelationship)
@@ -2223,6 +2232,15 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// modifiers, ahead of them, rather than after them in the keyword's place.
 	isVariant := d.boolOf(el, rdf.SysML+"isVariant") && !d.enumeratedValue(el)
 	variantFirst := keyword == "variant" && isVariant
+	compositeByDefault := usageCompositeByDefault(d.graph, d.metaclass, d.ownership, rdf.IRI(el.iri),
+		d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDirection), d.boolOf(el, rdf.SysML+"isEnd"))
+	// Usage::isReference is derived as not isComposite, so a usage stated
+	// non-composite where its kind is composite was written `ref`.
+	ref := (d.boolOf(el, rdf.SysML+"isReference") || !kerml && d.statedFalse(el, "isComposite") && compositeByDefault) && !variantReference
+	// A usage composite by its kind (SysML.xtext BasicUsagePrefix spells no
+	// `composite`) states the flag without a word, unless `ref` beside it
+	// would deny it; a feature writes the word back.
+	compositeWord := d.boolOf(el, rdf.SysML+"isComposite") && !isPortion && (!compositeByDefault || ref)
 	for _, flag := range []struct {
 		keyword string
 		set     bool
@@ -2235,7 +2253,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// `portion` is composite and stands in for `composite`
 		// (KerML.xtext BasicFeaturePrefix `isComposite ?= 'composite' | isPortion ?= 'portion'`).
 		{"portion", isPortion},
-		{"composite", d.boolOf(el, rdf.SysML+"isComposite") && !isPortion},
+		{"composite", kerml && compositeWord},
 		{constantKeyword(kerml), d.boolOf(el, rdf.SysML+"isConstant")},
 		{"individual", d.boolOf(el, rdf.SysML+"isIndividual")},
 		{"snapshot", portion == "snapshot"},
@@ -2243,7 +2261,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		{"event", event},
 		{"end", d.boolOf(el, rdf.SysML+"isEnd")},
 		// A VariantReference is a reference usage by what it is.
-		{"ref", d.boolOf(el, rdf.SysML+"isReference") && !variantReference},
+		{"ref", ref},
+		// SysML has no `composite` of its own; this grammar reads one closing the prefix, after `ref`.
+		{"composite", !kerml && compositeWord},
 	} {
 		// A keyword such as `snapshot` is both a modifier and a kind keyword;
 		// writing it here as well as below would declare it twice.
@@ -4360,6 +4380,13 @@ func (d *decoder) stringOf(el *element, property string) (string, bool) {
 		return "", false
 	}
 	return value, true
+}
+
+// statedFalse reports a boolean the graph states as false, as against one it
+// leaves unstated.
+func (d *decoder) statedFalse(el *element, local string) bool {
+	value, ok := d.graph.Lexical(rdf.IRI(el.iri), rdf.SysML+local)
+	return ok && (value == "false" || value == "0")
 }
 
 func (d *decoder) boolOf(el *element, property string) bool {

@@ -265,9 +265,13 @@ output references (the `importedMembership` of `import ScalarValues::Real;`) is
 stated as a `sysml:OwningMembership` with its `sysml:memberElement`, marked the
 same way.
 
-So every `@id` an API JSON output references is an element of it. Such an
-element has no owner in the graph, and the document's root namespace does not
-take it (`LibraryReference`).
+Such an element has no owner in the graph, and the document's root namespace
+does not take it (`LibraryReference`). The graph form — Turtle — keeps these
+names. The API element form does not carry them: there an ownerless element is
+a root of the model (the OMG API JSON shape, whose writer never emits library
+elements), so a conformant reader would declare `datatype Real;` anew. A
+library element the element form references is a bare `{"@id": …}` of its
+normative id, which the reader resolves against the bundled library.
 
 Reading a graph back, such an element is a reference into the bundled library,
 not a declaration, and it is not written. A qualified name other than the one
@@ -389,8 +393,21 @@ triples come); a set of classes with no such member is refused, naming the subje
 - `sysml:isUnique` `false` for `nonunique` (`Feature::isUnique`, true when
   absent), the one flag written false. The `sysml:isNonunique` earlier releases
   wrote, which the 20250201 metamodel no longer declares, still reads.
+- `sysml:isComposite`, stated `true` or `false` on every feature and usage
+  (`Feature::isComposite` is authored, not derived, so the OMG API JSON shape
+  always carries it). A KerML feature is composite by its `composite` or
+  `portion` prefix. A SysML usage is composite by what it is unless `ref`
+  (`Usage::isReference` is derived as its negation, SysML.xtext
+  `BasicUsagePrefix`): one of a compositional kind — not an attribute, a
+  reference usage, an event occurrence, a `perform`, `exhibit` or `include`, a
+  binding or succession written as a usage — with no direction, not an `end`,
+  featured by a type that is not an attribute (a usage declared directly in a
+  package, or a variant of a variation definition, has no featuring type), and
+  a port only within a port definition or usage. Reading back, a usage stated
+  non-composite where its kind is composite is written `ref`; an older graph
+  stating no `isComposite` reads as before.
 - Feature flags, written only when true, so an absent flag reads as false:
-  `isAbstract`, `isVariation`, `isVariant`, `isReference`, `isComposite`, `isDerived`,
+  `isAbstract`, `isVariation`, `isVariant`, `isReference`, `isDerived`,
   `isOrdered`, `isEnd`, `isConstant`, `isIndividual`, `isPortion`,
   `isConjugated`, `isAll`, `isAccept`, `isResult`, and `isEvent` for an `event`
   modifier on a usage whose metaclass is not itself `sysml:EventOccurrenceUsage`.
@@ -1118,6 +1135,15 @@ The rules the tree follows:
   `MetadataAccessExpression`, `Expression` for a body. `sysml:operator` names
   an operator expression. Legacy `sysml:argument` and `sysx:argumentIndex` are
   still accepted on import; new graphs use the standard parameter shape.
+- **A `MetadataAccessExpression` owns a `sysml:Membership`** whose
+  `sysml:memberElement` is the element whose metadata it reads (KerML.xtext
+  `MetadataAccessExpression: ownedRelationship += ElementReferenceMember '.'
+  'metadata'`); `sysml:referencedElement` restates it, as the metamodel derives
+  it from that membership (KerML
+  `validateMetadataAccessExpressionReferencedElement`). Reading back, the
+  membership's member is the element read, and a graph stating only
+  `referencedElement`, as earlier releases wrote, still reads; one whose two
+  disagree is refused.
 - **A literal's `sysml:value` is a typed literal** whose lexical form is the
   token the notation spells it with: `"2"^^xsd:integer`, `"1.5"^^xsd:decimal`,
   `"1.5E3"^^xsd:double` (an exponent is outside `xsd:decimal`'s lexical space),
