@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -16,7 +17,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-var updateLanding = flag.Bool("update-landing", false, "rewrite editors/vscode/src/landing/stack.json")
+var updateLanding = flag.Bool("update-landing", false, "rewrite the landing snapshots under editors/vscode/src/landing")
 
 // TestLandingStackModel pins what the landing page reads from
 // docs/assets/opensysml-stack.sysml through sysml-engine: a clean parse, the
@@ -148,7 +149,7 @@ func TestLandingStackModel(t *testing.T) {
 		"ports":     "minimal",
 		"show":      []string{"edge-labels", "typings", "keywords"},
 	}, &diagram)
-	pinLandingFixture(t, parsed.ModelHash, renderBody, instantiateBody)
+	pinLandingFixture(t, "stack.json", "TestLandingStackModel", parsed.ModelHash, renderBody, instantiateBody)
 	if diagram.Kind != "interconnection" {
 		t.Fatalf("landing diagram kind = %q, want interconnection", diagram.Kind)
 	}
@@ -375,7 +376,10 @@ type landingFixture struct {
 	Instances json.RawMessage `json:"instances"`
 }
 
-func pinLandingFixture(t *testing.T, hash string, render, instantiate []byte) {
+// pinLandingFixture pins the snapshot a scene paints before the module loads, under
+// editors/vscode/src/landing/<name>: the ParseSources hash, the RenderView answer and the
+// Instantiate instances exactly as the module sent them. -update-landing rewrites it.
+func pinLandingFixture(t *testing.T, name, test, hash string, render, instantiate []byte) {
 	t.Helper()
 	var response struct {
 		Instances json.RawMessage `json:"instances"`
@@ -388,7 +392,8 @@ func pinLandingFixture(t *testing.T, hash string, render, instantiate []byte) {
 		Render:    json.RawMessage(render),
 		Instances: response.Instances,
 	}
-	path := filepath.Join("..", "..", "editors", "vscode", "src", "landing", "stack.json")
+	path := filepath.Join("..", "..", "editors", "vscode", "src", "landing", name)
+	rerun := fmt.Sprintf("run go test -count=1 ./tests/wasm -run '^%s$' -update-landing", test)
 	if *updateLanding {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatalf("creating landing fixture directory: %v", err)
@@ -405,7 +410,7 @@ func pinLandingFixture(t *testing.T, hash string, render, instantiate []byte) {
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("reading %s: %v; run go test -count=1 ./tests/wasm -run '^TestLandingStackModel$' -update-landing", path, err)
+		t.Fatalf("reading %s: %v; %s", path, err, rerun)
 	}
 	var want landingFixture
 	if err := json.Unmarshal(data, &want); err != nil {
@@ -425,6 +430,6 @@ func pinLandingFixture(t *testing.T, hash string, render, instantiate []byte) {
 		t.Fatalf("decoding fixture Instantiate instances: %v", err)
 	}
 	if fixture.Hash != want.Hash || !reflect.DeepEqual(gotRender, wantRender) || !reflect.DeepEqual(gotInstances, wantInstances) {
-		t.Fatalf("%s is stale; run go test -count=1 ./tests/wasm -run '^TestLandingStackModel$' -update-landing", path)
+		t.Fatalf("%s is stale; %s", path, rerun)
 	}
 }
