@@ -372,3 +372,22 @@ test("renderResult carries a node's Style colours as the fill and border the can
   assert.equal(plain.fill, undefined);
   assert.equal(plain.border, undefined);
 });
+
+test("renderResult states no x and y for a geometry that only folds the node", () => {
+  const result = renderResult(
+    renderedViewFromJson({
+      view: "#interconnection:Demo::Item",
+      kind: "interconnection",
+      nodes: [
+        { id: "n0", kind: "part", name: "Demo::Item" },
+        { id: "n1", kind: "part", name: "folded", parent: "n0", geometry: { collapsed: true, unplaced: true } },
+        { id: "n2", kind: "part", name: "pinned", parent: "n0", geometry: { x: 10, y: 20 } },
+      ],
+    }),
+  );
+  const [, folded, pinned] = result.nodes;
+  assert.equal(folded.collapsed, true);
+  assert.equal(folded.x, undefined);
+  assert.equal(folded.y, undefined);
+  assert.deepEqual([pinned.x, pinned.y], [10, 20]);
+});

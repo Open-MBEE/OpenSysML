@@ -372,6 +372,8 @@ pub struct RenderGeometry {
     pub has_size: bool,
     /// Whether the node is collapsed.
     pub collapsed: bool,
+    /// Whether the layout only folds or hides the node, so x and y carry no position.
+    pub unplaced: bool,
 }
 
 /// Visual properties shared by nodes and edges.
@@ -593,6 +595,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                     height: geometry.height,
                     has_size: geometry.has_size,
                     collapsed: geometry.collapsed,
+                    unplaced: geometry.unplaced,
                 }),
                 style: node.style.map(style),
             })
@@ -695,6 +698,7 @@ mod render_view_tests {
                         height: 4.0,
                         has_size: true,
                         collapsed: true,
+                        unplaced: true,
                     }),
                     style: Some(wire::RenderStyle {
                         fill: "#fff".to_owned(),
@@ -747,6 +751,7 @@ mod render_view_tests {
         assert_eq!(rendered.nodes[0].ports[0].direction, "inout");
         assert_eq!(rendered.nodes[0].origin.as_ref().unwrap().start_line, 4);
         assert!(rendered.nodes[0].geometry.as_ref().unwrap().collapsed);
+        assert!(rendered.nodes[0].geometry.as_ref().unwrap().unplaced);
         assert_eq!(rendered.nodes[0].style.as_ref().unwrap().font_size, 12.0);
         assert!(rendered.nodes[1].origin.is_none());
         assert!(rendered.nodes[1].geometry.is_none());

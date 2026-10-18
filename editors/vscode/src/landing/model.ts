@@ -122,8 +122,7 @@ export function renderResult(view: RenderedView): RenderResult {
     ...(node.geometry === undefined
       ? {}
       : {
-          x: node.geometry.x,
-          y: node.geometry.y,
+          ...(node.geometry.unplaced ? {} : { x: node.geometry.x, y: node.geometry.y }),
           ...(node.geometry.hasSize ? { width: node.geometry.width, height: node.geometry.height } : {}),
           ...(node.geometry.collapsed ? { collapsed: true } : {}),
         }),
