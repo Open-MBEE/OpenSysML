@@ -4658,26 +4658,9 @@ func (m *migration) appliedStereotypes(e *sysmlv1.Element, write bool, kind stri
 			continue
 		}
 		classifying, consumed := m.consumes(s)
-		var tags []string
-		for k, vs := range s.Tags {
-			if classifying && consumed[k] {
-				continue
-			}
-			tags = append(tags, k+" = "+strings.Join(m.tagValues(vs), ", "))
-		}
-		sort.Strings(tags)
+		tags := m.unconsumedTags(s, classifying, consumed)
 		if classifying {
-			// A specialization's own name («Subsystem» :> «Block») is not what classified e, so it is marked.
-			if len(tags) == 0 && s.Name != kind && classifyingStereotypes[s.Name] {
-				continue
-			}
-			kindMarked = kindMarked || s.Name == kind
-			if write && (len(tags) > 0 || !m.strict || s.Name != kind) {
-				m.appliedStereotype(s.Name, "", tags)
-			}
-			if len(tags) > 0 {
-				m.downgrade(e, "«"+s.Name+"» "+strings.Join(tags, "; ")+" has no v2 form")
-			}
+			kindMarked = m.classifyingApplication(e, s, tags, kind, write) || kindMarked
 			continue
 		}
 		outsider := s.Definition == nil && toolProfile(s.Namespace) == "" && !readsTypeModifier(e, s) && !sysmlv1.IsDocGenProfile(s.Namespace)
@@ -4698,9 +4681,43 @@ func (m *migration) appliedStereotypes(e *sysmlv1.Element, write bool, kind stri
 	if kind != "" && !kindMarked && write && !m.strict {
 		m.appliedStereotype(kind, "", nil)
 	}
-	if len(outside) == 0 {
-		return
+	if len(outside) > 0 {
+		m.note(e, outsideProfilesNote(outside, byNamespace, write, m.strict))
 	}
+}
+
+// unconsumedTags words the tag values of s no v2 feature holds, sorted by tag.
+func (m *migration) unconsumedTags(s *sysmlv1.Stereotype, classifying bool, consumed map[string]bool) []string {
+	var tags []string
+	for k, vs := range s.Tags {
+		if classifying && consumed[k] {
+			continue
+		}
+		tags = append(tags, k+" = "+strings.Join(m.tagValues(vs), ", "))
+	}
+	sort.Strings(tags)
+	return tags
+}
+
+// classifyingApplication marks the classifying stereotype s applied to e where
+// e's v2 form does not carry it; it reports whether s names e's kind.
+func (m *migration) classifyingApplication(e *sysmlv1.Element, s *sysmlv1.Stereotype, tags []string, kind string, write bool) bool {
+	// A specialization's own name («Subsystem» :> «Block») is not what classified e, so it is marked.
+	if len(tags) == 0 && s.Name != kind && classifyingStereotypes[s.Name] {
+		return false
+	}
+	if write && (len(tags) > 0 || !m.strict || s.Name != kind) {
+		m.appliedStereotype(s.Name, "", tags)
+	}
+	if len(tags) > 0 {
+		m.downgrade(e, "«"+s.Name+"» "+strings.Join(tags, "; ")+" has no v2 form")
+	}
+	return s.Name == kind
+}
+
+// outsideProfilesNote words the applications from profiles the document does
+// not define, grouped by profile, and what became of them.
+func outsideProfilesNote(outside []string, byNamespace map[string][]string, write, strict bool) string {
 	var parts []string
 	for _, ns := range outside {
 		parts = append(parts, strings.Join(byNamespace[ns], " ")+fromKeyword+ns)
@@ -4709,7 +4726,7 @@ func (m *migration) appliedStereotypes(e *sysmlv1.Element, write bool, kind stri
 	switch {
 	case !write:
 		one, many = one+"is dropped: its element is written as no member of its own", many+"are dropped: their element is written as no member of its own"
-	case m.strict:
+	case strict:
 		one, many = one+"is noted in a comment", many+"are noted in comments"
 	default:
 		one, many = one+"is kept as metadata", many+"are kept as metadata"
@@ -4718,7 +4735,7 @@ func (m *migration) appliedStereotypes(e *sysmlv1.Element, write bool, kind stri
 	if len(outside) > 1 || len(byNamespace[outside[0]]) > 1 {
 		verdict = many
 	}
-	m.note(e, strings.Join(parts, " and ")+verdict)
+	return strings.Join(parts, " and ") + verdict
 }
 
 // appliedStereotype marks the element whose body is open as having carried
