@@ -144,8 +144,10 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 
 // path resolves a path argument against the workspace root and refuses one
 // that leaves it, by its lexical form or through a symlink, so a tool reads
-// and writes only under -root. A path that does not exist yet is checked
-// through its nearest existing ancestor.
+// only under -root. The path handed on has its symlinks resolved, so the
+// service opens the file the check saw, not what a link is later pointed at.
+// A path that does not exist yet is resolved through its nearest existing
+// ancestor.
 func (g *group) path(p string) (string, error) {
 	p = strings.TrimSpace(p)
 	if p == "" {
@@ -162,10 +164,13 @@ func (g *group) path(p string) (string, error) {
 	for {
 		real, err := filepath.EvalSymlinks(probe)
 		if err == nil {
+			if rest, err := filepath.Rel(probe, p); err == nil && rest != "." {
+				real = filepath.Join(real, rest)
+			}
 			if !under(g.realRoot, real) {
 				return "", argumentError("%s resolves to %s, outside the workspace root %s", p, real, g.root)
 			}
-			return p, nil
+			return real, nil
 		}
 		if !errors.Is(err, fs.ErrNotExist) {
 			return "", argumentError("%s: %v", p, err)

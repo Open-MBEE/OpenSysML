@@ -671,8 +671,21 @@ func TestPathsStayUnderTheRoot(t *testing.T) {
 	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "inside.sysml")); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(h.root, "broken.sysml"), []byte("package Broken {"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(h.root, "broken.sysml"), filepath.Join(h.root, "brokenlink.sysml")); err != nil {
+		t.Fatal(err)
+	}
 	var resp pb.ParseSourcesResponse
-	h.ok("parse", map[string]any{"paths": []string{"inside.sysml"}}, &resp)
+	_, out := h.ok("parse", map[string]any{"paths": []string{"inside.sysml", "brokenlink.sysml"}}, &resp)
+	real, err := filepath.EvalSymlinks(filepath.Join(h.root, "broken.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, real) || strings.Contains(out, "brokenlink.sysml") {
+		t.Errorf("the service must be handed the resolved file, not the link:\n%s", out)
+	}
 	if msg := h.fails("parse", map[string]any{"paths": []string{"missing/dir/new.sysml"}}); strings.Contains(msg, "outside") {
 		t.Errorf("a path under the root that does not exist yet is not outside it: %s", msg)
 	}
