@@ -147,6 +147,11 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 			isReferentMembership(d.graph, t.Object) || isReferentMembership(check.graph, t.Object) {
 			continue
 		}
+		// A library reference only names what a normative id stands for; the
+		// element form carries none, so one graph naming it states no more model.
+		if LibraryReference(d.graph, t.Subject) || LibraryReference(check.graph, t.Subject) {
+			continue
+		}
 		// An implied relationship element's ends restate the owner's collapsed
 		// edge, whose disagreement already falls on the target's text.
 		if el, ok := d.byIRI[t.Subject.Value]; ok && el.implied && impliedRelationshipMetaclasses[el.metaclass] {

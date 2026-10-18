@@ -204,6 +204,9 @@ func (m *Model) ExprResultType(scope *symbols.Scope, node ast.Node) *symbols.Sym
 		return m.libSymbol(fqnInteger)
 	case *ast.LiteralReal:
 		return m.libSymbol(fqnReal)
+	case *ast.LiteralInfinity:
+		// KerML checkLiteralInfinitySpecialization: `*` results in a Positive.
+		return m.libSymbol(fqnPositive)
 	case *ast.OperatorExpr:
 		if n.Operator == ast.OpAs {
 			// `x as T` results in T (KerML checkCastExpressionResultSpecialization).

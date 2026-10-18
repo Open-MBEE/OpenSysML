@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1519" height="192" viewBox="0 0 1519 192" font-family="Helvetica, Arial, sans-serif" font-size="12">
+<title>timeline of a run to t = 6</title>
+<desc>the trace of a run to t = 6</desc>
+<rect width="1519" height="192" fill="#ffffff"/>
+<text x="16" y="28" font-weight="bold">timeline of a run to t = 6</text>
+<text x="16" y="44" fill="#666666">not represented: 1 state held for no time is listed in the text form</text>
+<line x1="289" y1="144" x2="1489" y2="144" stroke="#333333"/>
+<line x1="289" y1="144" x2="289" y2="148" stroke="#333333"/>
+<text x="289" y="162" text-anchor="middle" fill="#333333">t = 0</text>
+<line x1="489" y1="144" x2="489" y2="148" stroke="#333333"/>
+<text x="489" y="162" text-anchor="middle" fill="#333333">t = 1</text>
+<line x1="689" y1="144" x2="689" y2="148" stroke="#333333"/>
+<text x="689" y="162" text-anchor="middle" fill="#333333">t = 2</text>
+<line x1="789" y1="144" x2="789" y2="148" stroke="#333333"/>
+<text x="789" y="162" text-anchor="middle" fill="#333333">t = 2.5</text>
+<line x1="889" y1="144" x2="889" y2="148" stroke="#333333"/>
+<text x="889" y="162" text-anchor="middle" fill="#333333">t = 3</text>
+<line x1="1089" y1="144" x2="1089" y2="148" stroke="#333333"/>
+<text x="1089" y="162" text-anchor="middle" fill="#333333">t = 4</text>
+<line x1="1189" y1="144" x2="1189" y2="148" stroke="#333333"/>
+<text x="1189" y="162" text-anchor="middle" fill="#333333">t = 4.5</text>
+<line x1="1289" y1="144" x2="1289" y2="148" stroke="#333333"/>
+<text x="1289" y="162" text-anchor="middle" fill="#333333">t = 5</text>
+<line x1="1489" y1="144" x2="1489" y2="148" stroke="#333333"/>
+<text x="1489" y="162" text-anchor="middle" fill="#333333">t = 6</text>
+<g id="l0">
+<rect x="289" y="68" width="1200" height="28" fill="#f4f6f8"/>
+<text x="16" y="87">RunTimeline::mission.controller.modes</text>
+<g id="l0s0"><title>waiting | charged&#xA;t = 0 to 1</title><rect x="289" y="71" width="200" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="389" y="87" text-anchor="middle">waiting | charged</text></g>
+<g id="l0s1"><title>acknowledged | charged (time, accept Ack)&#xA;t = 1 to 2</title><rect x="489" y="71" width="200" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="589" y="87" text-anchor="middle">acknowledged | charged (t…</text></g>
+<g><title>through sending&#xA;t = 1</title><line x1="489" y1="68" x2="489" y2="96" stroke="#c0392b" stroke-width="2"/></g>
+<g id="l0s2"><title>waiting | charged (time)&#xA;t = 2 to 3</title><rect x="689" y="71" width="200" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="789" y="87" text-anchor="middle">waiting | charged (time)</text></g>
+<g id="l0s3"><title>acknowledged | charged (time, accept Ack)&#xA;t = 3 to 4</title><rect x="889" y="71" width="200" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="989" y="87" text-anchor="middle">acknowledged | charged (t…</text></g>
+<g><title>through sending&#xA;t = 3</title><line x1="889" y1="68" x2="889" y2="96" stroke="#c0392b" stroke-width="2"/></g>
+<g id="l0s4"><title>waiting | charged (time)&#xA;t = 4 to 5</title><rect x="1089" y="71" width="200" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="1189" y="87" text-anchor="middle">waiting | charged (time)</text></g>
+<g id="l0s5"><title>acknowledged | charged (time, accept Ack)&#xA;t = 5 to 6</title><rect x="1289" y="71" width="200" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="1389" y="87" text-anchor="middle">acknowledged | charged (t…</text></g>
+<g><title>through sending&#xA;t = 5</title><line x1="1289" y1="68" x2="1289" y2="96" stroke="#c0392b" stroke-width="2"/></g>
+<g id="l0s6"><title>waiting | charged (time)&#xA;t = 6, held for no time (open at the end of the run)</title><line x1="1489" y1="68" x2="1489" y2="96" stroke="#c0392b" stroke-width="2"/></g>
+<g><title>choice: choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first; independent)&#xA;t = 0</title><path d="M289 77l5 5l-5 5l-5 -5z" fill="#f1c40f" stroke="#7d6608"/></g>
+</g>
+<g id="l1">
+<rect x="289" y="106" width="1200" height="28" fill="#f4f6f8"/>
+<text x="16" y="125">RunTimeline::mission.instrument.modes</text>
+<g id="l1s0"><title>waiting&#xA;t = 0 to 1</title><rect x="289" y="109" width="200" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="389" y="125" text-anchor="middle">waiting</text></g>
+<g id="l1s1"><title>acknowledged (accept Ping)&#xA;t = 1 to 2.5</title><rect x="489" y="109" width="300" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="639" y="125" text-anchor="middle">acknowledged (accept Ping)</text></g>
+<g id="l1s2"><title>waiting (time)&#xA;t = 2.5 to 3</title><rect x="789" y="109" width="100" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="839" y="125" text-anchor="middle">waiting (ti…</text></g>
+<g id="l1s3"><title>acknowledged (accept Ping)&#xA;t = 3 to 4.5</title><rect x="889" y="109" width="300" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="1039" y="125" text-anchor="middle">acknowledged (accept Ping)</text></g>
+<g id="l1s4"><title>waiting (time)&#xA;t = 4.5 to 5</title><rect x="1189" y="109" width="100" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="1239" y="125" text-anchor="middle">waiting (ti…</text></g>
+<g id="l1s5"><title>acknowledged (accept Ping)&#xA;t = 5 to 6 (open at the end of the run)</title><rect x="1289" y="109" width="200" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="1389" y="125" text-anchor="middle">acknowledged (accept Ping)</text></g>
+</g>
+<line id="cursor" x1="1489" y1="63" x2="1489" y2="144" stroke="#c0392b" stroke-width="1.5"></line>
+</svg>

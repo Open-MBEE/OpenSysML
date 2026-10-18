@@ -5,5 +5,12 @@
       "command": ["sysml-lsp", "--stdio"],
       "extensions": [".sysml", ".kerml"]
     }
+  },
+  "mcp": {
+    "sysml": {
+      "type": "local",
+      "command": ["sysml-mcp"],
+      "enabled": true
+    }
   }
 }

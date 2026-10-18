@@ -78,6 +78,7 @@ elmt:Annotated__Safety__level
     sysml:owner elmt:Annotated__Safety ;
     sysml:owningRelationship elmt:Annotated__Safety__level_om ;
     sysml:owningMembership elmt:Annotated__Safety__level_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "level" ;
     sysml:type "Integer" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -111,6 +112,7 @@ elmt:Annotated__Safety__reviewer
     sysml:owner elmt:Annotated__Safety ;
     sysml:owningRelationship elmt:Annotated__Safety__reviewer_om ;
     sysml:owningMembership elmt:Annotated__Safety__reviewer_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "reviewer" ;
     sysml:type "String" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -144,6 +146,7 @@ elmt:Annotated__Safety__isSet
     sysml:owner elmt:Annotated__Safety ;
     sysml:owningRelationship elmt:Annotated__Safety__isSet_om ;
     sysml:owningMembership elmt:Annotated__Safety__isSet_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "isSet" ;
     sysml:type "Boolean" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -177,6 +180,7 @@ elmt:Annotated__Safety__audit
     sysml:owner elmt:Annotated__Safety ;
     sysml:owningRelationship elmt:Annotated__Safety__audit_om ;
     sysml:owningMembership elmt:Annotated__Safety__audit_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "audit" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Annotated__Safety__audit__year ;
@@ -212,6 +216,7 @@ elmt:Annotated__Safety__audit__year
     sysml:owner elmt:Annotated__Safety__audit ;
     sysml:owningRelationship elmt:Annotated__Safety__audit__year_om ;
     sysml:owningMembership elmt:Annotated__Safety__audit__year_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "year" ;
     sysml:type "Integer" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -278,6 +283,7 @@ elmt:Annotated__Car__mass
     sysml:owner elmt:Annotated__Car ;
     sysml:owningRelationship elmt:Annotated__Car__mass_om ;
     sysml:owningMembership elmt:Annotated__Car__mass_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "mass" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -311,6 +317,7 @@ elmt:Annotated__car
     sysml:owner elmt:Annotated ;
     sysml:owningRelationship elmt:Annotated__car_om ;
     sysml:owningMembership elmt:Annotated__car_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "car" ;
     sysml:type elmt:Annotated__Car ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -350,6 +357,7 @@ elmt:Annotated__car__range
     sysml:owner elmt:Annotated__car ;
     sysml:owningRelationship elmt:Annotated__car__range_om ;
     sysml:owningMembership elmt:Annotated__car__range_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "range" ;
     sysml:type "Real" ;
     sysml:value expr:Annotated__car__range_pvalue ;
@@ -377,6 +385,7 @@ expr:Annotated__car__range_pvalue
     a sysml:LiteralRational ;
     sysx:sourceText "500.0" ;
     sysml:elementId "Annotated__car__range_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "500.0"^^xsd:decimal ;
     sysml:owner elmt:Annotated__car__range ;
     sysml:owningRelationship expr:Annotated__car__range_pvalue_om ;
@@ -396,6 +405,7 @@ expr:Annotated__car__range_pvalue_om
 
 elmt:Annotated__car___401
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Annotated::car::@1" ;
     sysx:sourceLine "15"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -443,6 +453,7 @@ elmt:Annotated__car___401__level
     sysml:owner elmt:Annotated__car___401 ;
     sysml:owningRelationship elmt:Annotated__car___401__level_om ;
     sysml:owningMembership elmt:Annotated__car___401__level_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__level ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -471,6 +482,7 @@ expr:Annotated__car___401__level_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "2" ;
     sysml:elementId "Annotated__car___401__level_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "2"^^xsd:integer ;
     sysml:owner elmt:Annotated__car___401__level ;
     sysml:owningRelationship expr:Annotated__car___401__level_pvalue_om ;
@@ -490,6 +502,7 @@ expr:Annotated__car___401__level_pvalue_om
 
 elmt:Annotated__car___402
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Annotated::car::@2" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -542,6 +555,7 @@ elmt:Annotated__car___402___400
     sysml:owner elmt:Annotated__car___402 ;
     sysml:owningRelationship elmt:Annotated__car___402___400_om ;
     sysml:owningMembership elmt:Annotated__car___402___400_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__level ;
     sysml:value expr:Annotated__car___402___400_pvalue ;
@@ -570,6 +584,7 @@ expr:Annotated__car___402___400_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "3" ;
     sysml:elementId "Annotated__car___402___400_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "3"^^xsd:integer ;
     sysml:owner elmt:Annotated__car___402___400 ;
     sysml:owningRelationship expr:Annotated__car___402___400_pvalue_om ;
@@ -600,6 +615,7 @@ elmt:Annotated__car___402__reviewer
     sysml:owner elmt:Annotated__car___402 ;
     sysml:owningRelationship elmt:Annotated__car___402__reviewer_om ;
     sysml:owningMembership elmt:Annotated__car___402__reviewer_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__reviewer ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -629,6 +645,7 @@ expr:Annotated__car___402__reviewer_pvalue
     a sysml:LiteralString ;
     sysx:sourceText "\"ops\"" ;
     sysml:elementId "Annotated__car___402__reviewer_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "ops" ;
     sysml:owner elmt:Annotated__car___402__reviewer ;
     sysml:owningRelationship expr:Annotated__car___402__reviewer_pvalue_om ;
@@ -659,6 +676,7 @@ elmt:Annotated__car___402__isSet
     sysml:owner elmt:Annotated__car___402 ;
     sysml:owningRelationship elmt:Annotated__car___402__isSet_om ;
     sysml:owningMembership elmt:Annotated__car___402__isSet_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__isSet ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -688,6 +706,7 @@ expr:Annotated__car___402__isSet_pvalue
     a sysml:LiteralBoolean ;
     sysx:sourceText "true" ;
     sysml:elementId "Annotated__car___402__isSet_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "true"^^xsd:boolean ;
     sysml:owner elmt:Annotated__car___402__isSet ;
     sysml:owningRelationship expr:Annotated__car___402__isSet_pvalue_om ;
@@ -718,6 +737,7 @@ elmt:Annotated__car___402__audit
     sysml:owner elmt:Annotated__car___402 ;
     sysml:owningRelationship elmt:Annotated__car___402__audit_om ;
     sysml:owningMembership elmt:Annotated__car___402__audit_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__audit ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -758,6 +778,7 @@ elmt:Annotated__car___402__audit__year
     sysml:owner elmt:Annotated__car___402__audit ;
     sysml:owningRelationship elmt:Annotated__car___402__audit__year_om ;
     sysml:owningMembership elmt:Annotated__car___402__audit__year_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__audit__year ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -786,6 +807,7 @@ expr:Annotated__car___402__audit__year_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "2026" ;
     sysml:elementId "Annotated__car___402__audit__year_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "2026"^^xsd:integer ;
     sysml:owner elmt:Annotated__car___402__audit__year ;
     sysml:owningRelationship expr:Annotated__car___402__audit__year_pvalue_om ;
@@ -805,6 +827,7 @@ expr:Annotated__car___402__audit__year_pvalue_om
 
 elmt:Annotated__car__checked
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Annotated::car::checked" ;
     sysx:sourceLine "22"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -837,6 +860,7 @@ elmt:Annotated__car__checked_om
 
 elmt:Annotated__car___404
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Annotated::car::@4" ;
     sysx:sourceLine "23"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -868,6 +892,7 @@ elmt:Annotated__car___404_om
 
 elmt:Annotated___403
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Annotated::@3" ;
     sysx:sourceLine "25"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -922,6 +947,7 @@ elmt:Annotated___403__level
     sysml:owner elmt:Annotated___403 ;
     sysml:owningRelationship elmt:Annotated___403__level_om ;
     sysml:owningMembership elmt:Annotated___403__level_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__level ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -951,6 +977,7 @@ expr:Annotated___403__level_pvalue
     a sysml:FeatureChainExpression ;
     sysx:sourceText "car.range" ;
     sysml:elementId "Annotated___403__level_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Annotated___403__level_pvalue_pa0 ;
     sysml:ownedRelationship expr:Annotated___403__level_pvalue_pin0_om, expr:Annotated___403__level_pvalue_pout_om, expr:Annotated___403__level_pvalue_ptargetFeature ;
     sysml:ownedMembership expr:Annotated___403__level_pvalue_pin0_om, expr:Annotated___403__level_pvalue_pout_om ;
@@ -973,6 +1000,7 @@ expr:Annotated___403__level_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "car" ;
     sysml:elementId "Annotated___403__level_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Annotated__car ;
     sysml:ownedRelationship expr:Annotated___403__level_pvalue_pa0_pout_om, expr:Annotated___403__level_pvalue_pa0_preferent ;
     sysml:ownedMembership expr:Annotated___403__level_pvalue_pa0_pout_om ;
@@ -987,6 +1015,7 @@ expr:Annotated___403__level_pvalue_pa0
 
 expr:Annotated___403__level_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Annotated___403__level_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Annotated___403__level_pvalue_pa0 ;
@@ -1007,6 +1036,7 @@ expr:Annotated___403__level_pvalue_pa0_pout_om
 
 expr:Annotated___403__level_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Annotated___403__level_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Annotated___403__level_pvalue ;
@@ -1041,6 +1071,7 @@ expr:Annotated___403__level_pvalue_pa0_om
 
 expr:Annotated___403__level_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Annotated___403__level_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Annotated___403__level_pvalue ;
@@ -1084,6 +1115,7 @@ elmt:Annotated___403__reviewer
     sysml:owner elmt:Annotated___403 ;
     sysml:owningRelationship elmt:Annotated___403__reviewer_om ;
     sysml:owningMembership elmt:Annotated___403__reviewer_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__reviewer ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -1113,6 +1145,7 @@ expr:Annotated___403__reviewer_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "Car::mass" ;
     sysml:elementId "Annotated___403__reviewer_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Annotated__Car__mass ;
     sysml:ownedRelationship expr:Annotated___403__reviewer_pvalue_pout_om, expr:Annotated___403__reviewer_pvalue_preferent ;
     sysml:ownedMembership expr:Annotated___403__reviewer_pvalue_pout_om ;
@@ -1127,6 +1160,7 @@ expr:Annotated___403__reviewer_pvalue
 
 expr:Annotated___403__reviewer_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Annotated___403__reviewer_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Annotated___403__reviewer_pvalue ;
@@ -1170,6 +1204,7 @@ elmt:Annotated__tagged
     sysml:owner elmt:Annotated ;
     sysml:owningRelationship elmt:Annotated__tagged_om ;
     sysml:owningMembership elmt:Annotated__tagged_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "tagged" ;
     sysml:type elmt:Annotated__Safety ;
     sysml:annotatedElement elmt:Annotated__Car ;
@@ -1202,6 +1237,7 @@ elmt:Annotated___405
     sysml:owner elmt:Annotated ;
     sysml:owningRelationship elmt:Annotated___405_om ;
     sysml:owningMembership elmt:Annotated___405_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:type elmt:Annotated__Safety ;
     sysml:annotatedElement elmt:Annotated__car ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1233,6 +1269,7 @@ elmt:Annotated___406
     sysml:owner elmt:Annotated ;
     sysml:owningRelationship elmt:Annotated___406_om ;
     sysml:owningMembership elmt:Annotated___406_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:type elmt:Annotated__Safety ;
     sysml:annotatedElement elmt:Annotated__Car ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -1270,6 +1307,7 @@ elmt:Annotated___406__level
     sysml:owner elmt:Annotated___406 ;
     sysml:owningRelationship elmt:Annotated___406__level_om ;
     sysml:owningMembership elmt:Annotated___406__level_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__level ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
@@ -1299,6 +1337,7 @@ expr:Annotated___406__level_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "4" ;
     sysml:elementId "Annotated___406__level_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "4"^^xsd:integer ;
     sysml:owner elmt:Annotated___406__level ;
     sysml:owningRelationship expr:Annotated___406__level_pvalue_om ;

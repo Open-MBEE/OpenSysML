@@ -138,6 +138,7 @@ elmt:Chains__IU__pip
     sysml:owner elmt:Chains__IU ;
     sysml:owningRelationship elmt:Chains__IU__pip_om ;
     sysml:owningMembership elmt:Chains__IU__pip_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "pip" ;
     sysml:type elmt:Chains__IP ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -171,6 +172,7 @@ elmt:Chains__ctx
     sysml:owner elmt:Chains ;
     sysml:owningRelationship elmt:Chains__ctx_om ;
     sysml:owningMembership elmt:Chains__ctx_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "ctx" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Chains__ctx__launchVehicle, elmt:Chains__ctx__supplier, elmt:Chains__ctx___402, elmt:Chains__ctx__r ;
@@ -209,6 +211,7 @@ elmt:Chains__ctx__launchVehicle
     sysml:owner elmt:Chains__ctx ;
     sysml:owningRelationship elmt:Chains__ctx__launchVehicle_om ;
     sysml:owningMembership elmt:Chains__ctx__launchVehicle_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "launchVehicle" ;
     sysml:type "Ext::LV" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -242,6 +245,7 @@ elmt:Chains__ctx__supplier
     sysml:owner elmt:Chains__ctx ;
     sysml:owningRelationship elmt:Chains__ctx__supplier_om ;
     sysml:owningMembership elmt:Chains__ctx__supplier_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "supplier" ;
     sysml:type elmt:Chains__IU ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -275,6 +279,7 @@ elmt:Chains__ctx___402
     sysml:owner elmt:Chains__ctx ;
     sysml:owningRelationship elmt:Chains__ctx___402_om ;
     sysml:owningMembership elmt:Chains__ctx___402_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:connectorEnd expr:Chains__ctx___402_pend0, expr:Chains__ctx___402_pend1 ;
     sysml:ownedRelationship expr:Chains__ctx___402_pend0_om, expr:Chains__ctx___402_pend1_om ;
     sysml:ownedMembership expr:Chains__ctx___402_pend0_om, expr:Chains__ctx___402_pend1_om ;
@@ -308,6 +313,7 @@ elmt:Chains__ctx___402_om
 
 expr:Chains__ctx___402_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__ctx___402_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Chains__ctx___402 ;
@@ -331,6 +337,7 @@ expr:Chains__ctx___402_pend0_om
 
 expr:Chains__ctx___402_pend0_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__ctx___402_pend0_pchain" ;
     sysml:ownedFeatureChaining expr:Chains__ctx___402_pend0_pchain_pfc0, expr:Chains__ctx___402_pend0_pchain_pfc1, expr:Chains__ctx___402_pend0_pchain_pfc2 ;
     sysml:ownedRelationship expr:Chains__ctx___402_pend0_pchain_pfc0, expr:Chains__ctx___402_pend0_pchain_pfc1, expr:Chains__ctx___402_pend0_pchain_pfc2 ;
@@ -398,6 +405,7 @@ expr:Chains__ctx___402_pend0_prs
 
 expr:Chains__ctx___402_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__ctx___402_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Chains__ctx___402 ;
@@ -421,6 +429,7 @@ expr:Chains__ctx___402_pend1_om
 
 expr:Chains__ctx___402_pend1_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__ctx___402_pend1_pchain" ;
     sysml:ownedFeatureChaining expr:Chains__ctx___402_pend1_pchain_pfc0, expr:Chains__ctx___402_pend1_pchain_pfc1 ;
     sysml:ownedRelationship expr:Chains__ctx___402_pend1_pchain_pfc0, expr:Chains__ctx___402_pend1_pchain_pfc1 ;
@@ -487,6 +496,7 @@ elmt:Chains__ctx__r
     sysml:owner elmt:Chains__ctx ;
     sysml:owningRelationship elmt:Chains__ctx__r_om ;
     sysml:owningMembership elmt:Chains__ctx__r_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "r" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
@@ -512,6 +522,7 @@ elmt:Chains__ctx__r_om
 
 expr:Chains__ctx__r_pchain0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__ctx__r_pchain0" ;
     sysml:ownedFeatureChaining expr:Chains__ctx__r_pchain0_pfc0, expr:Chains__ctx__r_pchain0_pfc1 ;
     sysml:ownedRelationship expr:Chains__ctx__r_pchain0_pfc0, expr:Chains__ctx__r_pchain0_pfc1 ;

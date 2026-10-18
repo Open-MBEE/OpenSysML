@@ -554,14 +554,26 @@ sysml examples/run-timeline/run-timeline.sysml \
   -render-run sequence=sequence.puml
 ```
 
-The output extension selects text (`.txt`), Mermaid (`.mmd`, `.mermaid`) or PlantUML
-(`.puml`, `.plantuml`); `-render-form` can select a form for another extension. DOT is not
-available for run output. A run rendering cannot be combined with a model or document rendering,
+The output extension selects text (`.txt`), Mermaid (`.mmd`, `.mermaid`), PlantUML
+(`.puml`, `.plantuml`) or SVG (`.svg`); `-render-form` can select a form for another extension,
+and is how the animated SVG is asked for: `-render-form svg-animated`. DOT is not
+available for run output.
+
+The `svg` form is a self-contained drawing that needs no other tool: a timeline is one lane per
+`<object>.<machine>` with each state a labelled bar over a shared time axis, a state held for no
+time a tick, and the notices the Mermaid form prints under the title; a sequence is one lifeline
+per participant with a labelled arrow per message in run order. `svg-animated` is the same
+drawing replaying the run with SMIL animation and no script: a cursor sweeps the timeline while
+the state under it brightens, and a sequence's messages appear in turn with a marker travelling
+along each arrow. The replay lasts one second per step of the run (an instant at which some lane
+changes, or a message) plus one second holding the final state, then loops; a viewer without
+SMIL shows the complete, final picture. See
+[SVG and animation](../project/view-rendering-forms.md#svg-and-animation). A run rendering cannot be combined with a model or document rendering,
 query, schedule exploration or multi-run analysis. Run output cannot be written to standard output
 with `-json`; name a file for each rendering instead. `-render-run` cannot be combined with
 `-compare-results`. `-render-link` links sequence object participants to their type declarations,
-and PlantUML timeline lanes and single-state spans to their declarations. Mermaid gantt and run
-messages are not linked.
+and PlantUML and SVG timeline lanes and single-state spans to their declarations (`<a href>`
+elements in the SVG). Mermaid gantt and run messages are not linked.
 
 ## Listing documents and views
 

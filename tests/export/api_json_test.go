@@ -78,9 +78,17 @@ func TestAPIJSONInverseOverAllFixtures(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ReadAPIJSON: %v\n%s", err, document)
 			}
-			if !sameTriples(tripleSet(graph), tripleSet(reread)) {
-				missing := diffTriples(tripleSet(graph), tripleSet(reread))
-				added := diffTriples(tripleSet(reread), tripleSet(graph))
+			// The element form carries no library references: a reader resolves
+			// a normative id against the library, so their names are not carried.
+			want := tripleSet(graph)
+			for triple := range want {
+				if export.LibraryReference(graph, triple.Subject) {
+					delete(want, triple)
+				}
+			}
+			if !sameTriples(want, tripleSet(reread)) {
+				missing := diffTriples(want, tripleSet(reread))
+				added := diffTriples(tripleSet(reread), want)
 				t.Fatalf("the graph changed through the element form\nmissing: %v\nadded: %v", missing, added)
 			}
 			again, err := export.WriteAPIJSON(reread)

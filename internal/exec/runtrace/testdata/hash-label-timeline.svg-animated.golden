@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="436" height="138" viewBox="0 0 436 138" font-family="Helvetica, Arial, sans-serif" font-size="12">
+<title>timeline of a run to t = 1 (animated)</title>
+<desc>the trace of a run to t = 1</desc>
+<rect width="436" height="138" fill="#ffffff"/>
+<text x="16" y="28" font-weight="bold">timeline of a run to t = 1 (animated)</text>
+<line x1="86" y1="90" x2="406" y2="90" stroke="#333333"/>
+<line x1="86" y1="90" x2="86" y2="94" stroke="#333333"/>
+<text x="86" y="108" text-anchor="middle" fill="#333333">t = 0</text>
+<line x1="406" y1="90" x2="406" y2="94" stroke="#333333"/>
+<text x="406" y="108" text-anchor="middle" fill="#333333">t = 1</text>
+<g id="l0">
+<rect x="86" y="52" width="320" height="28" fill="#f4f6f8"/>
+<text x="16" y="71">#7.modes</text>
+<g id="l0s0"><title>ready&#xA;t = 0 to 1 (open at the end of the run)</title><rect x="86" y="55" width="320" height="22" rx="3" fill="#8fb6e0" stroke="#3b6ea5"></rect><text x="246" y="71" text-anchor="middle">ready</text></g>
+</g>
+<line id="cursor" x1="406" y1="47" x2="406" y2="90" stroke="#c0392b" stroke-width="1.5"><animate attributeName="x1" values="86;406;406" keyTimes="0;0.5;1" dur="2s" repeatCount="indefinite"/><animate attributeName="x2" values="86;406;406" keyTimes="0;0.5;1" dur="2s" repeatCount="indefinite"/></line>
+</svg>

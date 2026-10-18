@@ -142,8 +142,8 @@ func TestDOTFormSupport(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "ask for text, mermaid, dot, plantuml or d2") {
 		t.Errorf("markdown of a tree error = %v, want it to offer dot", err)
 	}
-	_, err = render(t, "tree.sysml", "VehicleViews::vehicleView").Write("svg")
-	if err == nil || !strings.Contains(err.Error(), "text, mermaid, markdown, dot, plantuml, d2, csv and tsv") {
+	_, err = render(t, "tree.sysml", "VehicleViews::vehicleView").Write("png")
+	if err == nil || !strings.Contains(err.Error(), "text, mermaid, markdown, dot, plantuml, d2, csv, tsv, svg and svg-animated") {
 		t.Errorf("unknown form error = %v, want it to list dot", err)
 	}
 }
