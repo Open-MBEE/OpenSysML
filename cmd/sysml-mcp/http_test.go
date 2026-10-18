@@ -62,9 +62,8 @@ func (b *syncBuffer) String() string {
 	return b.buf.String()
 }
 
-// startHTTPServer starts the binary with -http on a free loopback port and
-// the given further flags, and returns once it has logged the address it
-// serves. The process is stopped when the test ends.
+// startHTTPServer starts the binary with -http on a free loopback port over a
+// one-document workspace and reads the bound address from its log.
 func startHTTPServer(t *testing.T, scheme string, args ...string) *httpServer {
 	t.Helper()
 	root := t.TempDir()

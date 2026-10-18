@@ -35,11 +35,8 @@ type HTTPConfig struct {
 	ShutdownTimeout time.Duration
 }
 
-// OriginPolicy decides which browser origins the HTTP transport answers, which
-// is what keeps a page on another site from reaching a server on this machine
-// through a rebound DNS name: a request with no Origin header is admitted, as
-// is one from a loopback origin (localhost, 127.0.0.0/8, ::1) and one from an
-// origin allowed by name; any other is refused.
+// OriginPolicy admits a request with no Origin, a loopback origin or one allowed
+// by name, and refuses any other, so a rebound DNS name is not a way in.
 type OriginPolicy struct {
 	allowed map[string]struct{}
 }
@@ -103,21 +100,16 @@ func (p OriginPolicy) Named(origin string) bool {
 	return named
 }
 
-// The CORS grant a named origin's browser is given: the methods and request
-// headers the Streamable HTTP transport uses, and the response headers it
-// reads.
+// The CORS grant a named origin's browser is given: the transport's methods,
+// request headers and the response headers it reads.
 const (
 	corsAllowMethods  = "GET, POST, DELETE, OPTIONS"
 	corsAllowHeaders  = "Content-Type, Accept, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID, Authorization"
 	corsExposeHeaders = "Mcp-Session-Id, MCP-Protocol-Version"
 )
 
-// Handler refuses requests whose origin the policy does not admit, with 403,
-// and passes the rest to next. An origin admitted by name is also granted
-// cross-origin access: the CORS response headers its browser needs, and an
-// answer to its preflight. A loopback origin is admitted without a grant, so
-// a page served from another port of this machine is not let in by default;
-// its preflight is refused, with the flag that would admit it named.
+// Handler refuses origins the policy does not admit with 403 and grants CORS
+// only to origins admitted by name; a loopback origin is served without a grant.
 func (p OriginPolicy) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
@@ -180,8 +172,7 @@ func isLoopbackAddr(addr net.Addr) bool {
 }
 
 // Handler is the Streamable HTTP transport of this server, mounted at HTTPPath
-// behind the origin policy; every session it opens shares the server's
-// workspace, runtime cache and REPL sessions.
+// behind origins; every request is served by the one SDK server.
 func (s *Server) Handler(origins OriginPolicy) http.Handler {
 	streamable := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return s.sdk }, &sdk.StreamableHTTPOptions{Logger: s.logger})
 	mux := http.NewServeMux()
@@ -190,8 +181,7 @@ func (s *Server) Handler(origins OriginPolicy) http.Handler {
 }
 
 // ServeStreamableHTTP serves clients over cfg.Listener until ctx ends, then
-// stops: the listener closes, the live sessions are closed so their streams
-// end, and the connections are given cfg.ShutdownTimeout to drain.
+// closes the live sessions and drains the connections within the timeout.
 func (s *Server) ServeStreamableHTTP(ctx context.Context, cfg HTTPConfig) error {
 	if (cfg.CertFile == "") != (cfg.KeyFile == "") {
 		return errors.New("a certificate file and a key file are both needed for TLS")

@@ -84,9 +84,8 @@ func printHostList(w io.Writer) {
 	fmt.Fprintf(w, "Usage: %s -print-config HOST [-print-config-command CMD | -http ADDR [-tls-cert FILE -tls-key FILE]]\n", mcpCommand)
 }
 
-// printHostConfig writes the block declaring the server to host name: the URL
-// of a server at ep.url when there is one, else the command ep.command, or
-// this binary's resolved path when that is empty too.
+// printHostConfig writes the block declaring the server (by command or URL) to
+// host name; an unknown name is an error listing the known ones.
 func printHostConfig(w io.Writer, name string, ep endpoint) error {
 	var h *host
 	for i := range hosts {
@@ -106,10 +105,8 @@ func printHostConfig(w io.Writer, name string, ep endpoint) error {
 	return h.render(w, ep)
 }
 
-// serverURL is the URL clients reach a server bound to addr (as httpAddress
-// read it) at, over https when it serves TLS. The unspecified address is
-// reached as localhost from this machine; a remote client substitutes the
-// machine's name.
+// serverURL is where clients reach a server bound to addr: https with TLS, and
+// localhost where addr binds every interface or loopback alone.
 func serverURL(addr string, tls bool) string {
 	host, port, _ := net.SplitHostPort(addr)
 	if ip := net.ParseIP(host); ip != nil && ip.IsUnspecified() {
@@ -219,9 +216,8 @@ func renderVSCode(w io.Writer, ep endpoint) error {
 	})
 }
 
-// serverObject is the common server declaration: a command and its (empty)
-// argument list for a stdio server, or the URL of an HTTP one under the host's
-// key for it, each preceded by the transport type when the host wants one.
+// serverObject is the common server declaration: a command and its arguments,
+// or a URL under key with an optional type.
 func serverObject(ep endpoint, stdioType, httpType, urlKey string) orderedObject {
 	var o orderedObject
 	if ep.url != "" {
@@ -239,9 +235,8 @@ func serverObject(ep endpoint, stdioType, httpType, urlKey string) orderedObject
 	)
 }
 
-// renderCodex writes the [mcp_servers.sysml] table of Codex's config.toml: a
-// command and its arguments, or the url of a Streamable HTTP server. A JSON
-// string is a valid TOML basic string, so the values are quoted as one.
+// renderCodex writes the [mcp_servers.sysml] table of Codex's config.toml:
+// command and args for stdio, url for Streamable HTTP.
 func renderCodex(w io.Writer, ep endpoint) error {
 	if ep.url != "" {
 		quoted, err := json.Marshal(ep.url)

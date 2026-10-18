@@ -19,10 +19,8 @@ type httpOptions struct {
 	keyFile  string
 }
 
-// readHTTPOptions reads the transport flags as a whole: the ones that qualify
-// -http are a usage error without it, as are -stdio beside it, a TLS pair with
-// one half missing, or an origin that is not one. Whether the pair loads is
-// loadTLS's question, asked only when the server is about to serve it.
+// readHTTPOptions validates the transport flags together (qualifiers without
+// -http, -stdio beside it, a half TLS pair, a bad origin); loadTLS loads the pair.
 func readHTTPOptions(o *options) (*httpOptions, error) {
 	if o.http == "" {
 		for _, f := range []struct{ name, value string }{{"-allow-origin", o.allowOrigin}, {"-tls-cert", o.tlsCert}, {"-tls-key", o.tlsKey}} {
@@ -67,9 +65,8 @@ func (h *httpOptions) url() string {
 	return serverURL(h.addr, h.certFile != "")
 }
 
-// httpAddress reads the -http flag into the address to bind: host:port as
-// given, or loopback for a port alone or an address with no host, so that a
-// server is reached from other machines only when its address says so.
+// httpAddress reads -http into the address to bind: host:port as given, or
+// loopback for a port alone or an address with no host.
 func httpAddress(spec string) (string, error) {
 	if _, err := strconv.ParseUint(spec, 10, 16); err == nil {
 		return net.JoinHostPort("localhost", spec), nil

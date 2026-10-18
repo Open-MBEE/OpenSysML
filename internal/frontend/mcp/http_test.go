@@ -111,10 +111,8 @@ func TestOriginPolicyHandler(t *testing.T) {
 	}
 }
 
-// TestOriginPolicyHandlerGrantsCORSByName checks the browser side of the
-// policy: a named origin gets the CORS headers on its responses and a 204 to
-// its preflight, a loopback origin is served without any grant and its
-// preflight is refused, and a request with no origin is passed through as is.
+// TestOriginPolicyHandlerGrantsCORSByName checks that only a named origin gets
+// the CORS headers and a 204 preflight; loopback is served without a grant.
 func TestOriginPolicyHandlerGrantsCORSByName(t *testing.T) {
 	p, _ := ParseOrigins("https://agents.example.org")
 	h := p.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

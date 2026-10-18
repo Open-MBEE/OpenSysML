@@ -153,9 +153,7 @@ func checkCodexTable(t *testing.T, block string, want map[string]any) {
 }
 
 // TestPrintConfigURLBlocks checks that with -http every host's block names the
-// URL of the server instead of a command, in the key and with the type the
-// host reads a Streamable HTTP server from, and that the URL follows the
-// address: loopback for a bare port, https with a TLS pair.
+// server's URL (not a command) under the host's key and type, following the address.
 func TestPrintConfigURLBlocks(t *testing.T) {
 	const testURL = "http://localhost:8765/mcp"
 	noCommand := func(block, path string) {
