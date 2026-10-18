@@ -69,6 +69,10 @@ service SysMLService {
   rpc ValidateInstance(ValidateInstanceRequest) returns (ValidateInstanceResponse);
   rpc EvaluateCalc(EvaluateCalcRequest) returns (EvaluateCalcResponse);
   rpc RunAnalysis(RunAnalysisRequest) returns (RunAnalysisResponse);
+  // CheckBehavior searches every schedule of an action or state machine, as
+  // `sysml -check-property`/`-check-diverge` do: a violated property, a
+  // deadlock, a failure or a divergent feature is witnessed and replayed.
+  rpc CheckBehavior(CheckBehaviorRequest) returns (CheckBehaviorResponse);
 
   // Run one analysis case or calc once per row of a parameter sweep, as the
   // CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
@@ -658,6 +662,153 @@ message ExplorationStatus {
   // without a choice point, by identifier; `complete` is false while any is
   // listed, since fewer orders were run than the library admits.
   repeated string unenumerated = 8;
+}
+
+// CheckBehaviorRequest searches every schedule of a behavior, as the `sysml`
+// command's -check-* flags do about `-action`/`-state`.
+message CheckBehaviorRequest {
+  string model_hash = 1;
+  // Exactly one of the two names the behavior searched: an action definition or
+  // usage, or a state definition or usage.
+  string action_symbol_id = 2;
+  string state_machine_symbol_id = 3;
+  // Inputs bound to the action's parameters before the search.
+  map<string, Value> inputs = 4;
+  // The object the behavior is performed by, as ExecuteActionRequest names it.
+  string performer_symbol_id = 5;
+  // Constraints or requirements evaluated at every stable state; one false at a
+  // state is a violation (-check-property, repeatable).
+  repeated string check_property = 6;
+  // Features whose final value the schedule may decide (-check-diverge): the
+  // action's own bare, a performed node's as `node.pin`, the performer's as
+  // `this.<name>`; none names the action's own features and the object's attributes.
+  repeated string check_diverge = 7;
+  // Inputs left free for the symbolic engine to range over (-check-input).
+  repeated string check_input = 8;
+  // Constraints or requirements the symbolic engine assumes (-check-assume).
+  repeated string check_assume = 9;
+  // Whether each violation and divergent value carries its witness file, the
+  // replay `-schedule replay:<file>` follows (-check-witness).
+  bool check_witness = 10;
+  // Search bounds; 0 leaves each to the engine's default (-check-depth,
+  // -check-states, -check-unroll). The timeout, in seconds, is the plan's deadline
+  // and each solver query's limit (-check-timeout); 0 is none.
+  int32 check_depth = 11;
+  int32 check_states = 12;
+  int32 check_unroll = 13;
+  double check_timeout = 14;
+  // The engine that answers: "check" (default), "smt", or an engine ListEngines names.
+  string engine = 15;
+}
+
+// CheckWitness is one schedule the interpreter replays: what the run drew and
+// chose, and the file a replay reads when the request asked for one.
+message CheckWitness {
+  // The schedule policy the replay runs under, as -schedule spells it.
+  string schedule = 1;
+  // The random values the run drew, in the order drawn.
+  repeated string draws = 2;
+  // The choice points the run resolved, in run order, each spelling the
+  // alternatives and the one taken.
+  repeated string choices = 3;
+  // Free inputs the symbolic engine pinned, as `name = value`.
+  repeated string inputs = 4;
+  // The witness file: its name as `sysml -check-witness` writes it, and its content.
+  string file_name = 5;
+  string file_content = 6;
+}
+
+// CheckViolation is one schedule that reached a violated property, a deadlock
+// or a failure.
+message CheckViolation {
+  // "property", "deadlock" or "failure".
+  string kind = 1;
+  // The property violated; empty for a deadlock or a failure.
+  string property = 2;
+  // The deadlock or the failure as the executor reported it; empty for a property.
+  string error = 3;
+  // How many moves the witness makes.
+  int32 depth = 4;
+  // The probability of the schedules reaching this violation, a lower bound
+  // when the report's mass_bounded holds.
+  double probability = 5;
+  CheckWitness witness = 6;
+  // The violation as the command reports it.
+  string text = 7;
+}
+
+// CheckDivergentValue is one final value a feature can end with and a schedule reaching it.
+message CheckDivergentValue {
+  string value = 1;
+  CheckWitness witness = 2;
+}
+
+// CheckDivergence is a feature whose final value the schedule decides.
+message CheckDivergence {
+  string feature = 1;
+  // Every value some complete schedule leaves it with, in canonical order.
+  repeated CheckDivergentValue values = 2;
+}
+
+// CheckFinal is one distinct outcome of the complete schedules.
+message CheckFinal {
+  string outcome = 1;
+  map<string, string> values = 2;
+  CheckWitness witness = 3;
+}
+
+// CheckSearch is how the check engine's search went.
+message CheckSearch {
+  // Distinct states visited, moves made, and the longest schedule searched.
+  int32 states = 1;
+  int32 moves = 2;
+  int32 max_depth = 3;
+  // The bounds the search ran into; empty when exhaustive.
+  repeated string bounds_hit = 4;
+  // The simulated time the search stopped the clock at, when it ran to a horizon.
+  double horizon = 5;
+  bool horizon_set = 6;
+  // True when the violations' probabilities are lower bounds.
+  bool mass_bounded = 7;
+  // Why the searched runs' coverage is narrower than their schedules.
+  repeated string notes = 8;
+  // Why the finals were observed short of quiescence.
+  repeated string scope = 9;
+  // How the search ended, as `sysml` reports it.
+  string status = 10;
+}
+
+// CheckBehaviorResponse is what the search found.
+message CheckBehaviorResponse {
+  // "holds" when every schedule within the bounds was searched clean, "fails"
+  // on a violation or a divergence, "undecided" when a bound or a refusal
+  // left schedules unsearched.
+  string verdict = 1;
+  // The report as the command prints it, one line each.
+  repeated string lines = 2;
+  CheckSearch search = 3;
+  repeated CheckViolation violations = 4;
+  repeated CheckDivergence divergences = 5;
+  repeated CheckFinal finals = 6;
+  // What the symbolic engine asserted and how strongly, when it answered: the
+  // claim ("holds", "violated", "sensitive", ...), the inputs it ranged over
+  // and the assumptions it rested on, its witness and, for a sensitivity, the
+  // contrasting schedule.
+  string claim = 7;
+  repeated string free_inputs = 8;
+  repeated string assumptions = 9;
+  CheckWitness witness = 10;
+  CheckWitness contrast = 11;
+  // The engine that answered, the strength of its evidence and the bounds it ran
+  // under, as RunAnalysisResponse reports them.
+  string engine = 12;
+  string strength = 13;
+  repeated Bound bounds = 14;
+  // Why nothing could be decided, when the verdict is undecided.
+  string reason = 15;
+  // A request refused before any search: the behavior does not resolve, a
+  // property names no constraint or requirement, an option is misused.
+  string error = 17;
 }
 
 // ListEnginesRequest asks for the analysis engines registered in this build.

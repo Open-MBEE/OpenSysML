@@ -28,6 +28,7 @@ func TestGoldenDOT(t *testing.T) {
 		{"depth-tree-1", "depth-tree.sysml", "DepthViews::depth1", KindTree, false},
 		{"depth-tree-2", "depth-tree.sysml", "DepthViews::depth2", KindTree, false},
 		{"depth-interconnection", "depth-interconnection.sysml", "DepthLinks::links", KindInterconnection, false},
+		{"typed-usage-inherited-interconnection", "typed-usage-inherited.sysml", "TypedUsageViews::rocketLinks", KindInterconnection, false},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection, false},
 		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection, false},
 		{"interconnection-constraints", "interconnection-constraints.sysml", "ParametricViews::amplifierView", KindInterconnection, false},

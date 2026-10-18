@@ -44,7 +44,7 @@ func HorizonAt(t float64) Horizon { return Horizon{at: t, bounded: true} }
 func HorizonInitial() Horizon { return Horizon{initial: true} }
 
 // bound is the instant the horizon stops the clock at, false for none.
-func (h Horizon) bound() (at float64, ok bool) { return h.at, h.bounded }
+func (h Horizon) Bound() (at float64, ok bool) { return h.at, h.bounded }
 
 // reaches reports whether the instant lies within the horizon; no wait ahead
 // lies within an initial one.

@@ -789,6 +789,7 @@ func TestGoldenAssociationEndLayoutLiesOnTheEdge(t *testing.T) {
 	wantDrawn := []string{
 		"part def Model::Blocks::Vehicle at (40, 20) size 120x50",
 		"part engine",
+		"part piston at (55, 200) size 90x30",
 		"part def Model::Blocks::Engine at (40, 160) size 120x90",
 		"part piston at (55, 200) size 90x30",
 	}

@@ -23,6 +23,7 @@ const (
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
 	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
 	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
+	CapabilityCheck                          = sysmlgrpc.CapabilityCheck
 	CapabilityEnumValues                     = sysmlgrpc.CapabilityEnumValues
 	CapabilityEvaluateSubject                = sysmlgrpc.CapabilityEvaluateSubject
 	CapabilitySymbolAttributes               = sysmlgrpc.CapabilitySymbolAttributes

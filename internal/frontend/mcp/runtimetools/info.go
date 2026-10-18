@@ -91,6 +91,7 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityImportAuthoring:                "apply_edits",
 	sysmlgrpc.CapabilityDocumentationAuthoring:         "apply_edits",
 	sysmlgrpc.CapabilityCommentAuthoring:               "apply_edits",
+	sysmlgrpc.CapabilityCheck:                          "check_behavior",
 }
 
 // ListEnginesInput asks for the engines, probed or not.
