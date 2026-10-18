@@ -153,8 +153,14 @@ func (ctx *Context) shapeHoldsValue(typ *symbols.Symbol) bool {
 	if !ctx.model.semantics.ValueHeld(typ) {
 		return true
 	}
+	_, usage := typ.Decl.(*ast.Usage)
 	for _, feat := range features {
-		if !ctx.libraryDeclared(feat.Symbol) && holdsRecordField(feat.Symbol) {
+		if !holdsRecordField(feat.Symbol) {
+			continue
+		}
+		// A library usage's own body (`:>> mRefs default (m, m, m)`) describes the
+		// particular frame it names, as a field the model adds does.
+		if !ctx.libraryDeclared(feat.Symbol) || (usage && feat.OwnerType == typ) {
 			return true
 		}
 	}
