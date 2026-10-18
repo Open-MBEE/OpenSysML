@@ -2166,6 +2166,24 @@ func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self 
 	return exec, nil
 }
 
+// StartActionPerformedBy is CreateActionExecutorWithInputs for an action self may
+// perform already: the performance self runs of it is returned in place of a second,
+// started, with inputs refused and an object performing it several times over
+// reported exactly as a run to completion refuses and reports them (performanceOf),
+// so a bound on how far the run proceeds never changes which performance runs.
+// Reused marks the object's own performance, which the caller does not release.
+func (ctx *Context) StartActionPerformedBy(action *symbols.Symbol, self *Instance, inputs map[string]Value) (exec *ActionExecutor, reused bool, err error) {
+	exec, err = ctx.performanceOf(action, self, inputs)
+	if err != nil {
+		return nil, false, err
+	}
+	if exec != nil {
+		return exec, true, nil
+	}
+	exec, err = ctx.CreateActionExecutorWithInputs(action, self, inputs)
+	return exec, false, err
+}
+
 // CreateStateExecutor creates a state executor without starting execution.
 // For REPL debugging - allows step-by-step execution control.
 func (ctx *Context) CreateStateExecutor(stateMachine *symbols.Symbol) (*StateExecutor, error) {
@@ -2195,4 +2213,25 @@ func (ctx *Context) CreateStateExecutorFor(stateMachine *symbols.Symbol, self *I
 		return nil, err
 	}
 	return exec, nil
+}
+
+// StartStatePerformedBy is CreateStateExecutorFor for a machine self may exhibit
+// already: the machine self exhibits is returned in place of a second performance of
+// it, an object exhibiting it under several usages refused, as a run to quiescence
+// reuses and refuses them (stateRunFor). Reused marks the object's own machine,
+// which the caller does not release.
+func (ctx *Context) StartStatePerformedBy(stateMachine *symbols.Symbol, self *Instance) (exec *StateExecutor, reused bool, err error) {
+	if self != nil {
+		if err := ctx.checkPerformer(self); err != nil {
+			return nil, false, err
+		}
+	}
+	exec, reused, err = ctx.stateRunFor(stateMachine, self, true)
+	if err != nil {
+		if exec != nil && !reused {
+			exec.Release()
+		}
+		return nil, false, err
+	}
+	return exec, reused, nil
 }
