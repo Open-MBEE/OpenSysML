@@ -50,6 +50,9 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        render_view, Graphs, export_graphs, RunDistribution, RunsResult, run_runs, completed,
        distribution, SelfCheckFinding, SelfCheckResult, self_check, holds, Recording, record_run,
        Editor, Body, operations, applied, AppliedEdit,
+       render_view, Graphs, export_graphs, CheckResult, CheckSearch, CheckViolation,
+       CheckDivergence, CheckDivergentValue, CheckFinal, CheckWitness, check_action,
+       check_state_machine, holds, Editor, Body, operations, applied, AppliedEdit,
        EditedDocument, EditResult, edit, apply, apply_edits,
        ActionOutputs, StateRun,
        decode_value, encode_value, resolve_binary, ensure_binary, download_binary,
@@ -73,6 +76,7 @@ include("engines.jl")
 include("verdict.jl")
 include("verification.jl")
 include("document.jl")
+include("check.jl")
 include("conversion.jl")
 include("migration.jl")
 include("authoring.jl")
@@ -106,6 +110,7 @@ for capability in (
     :CAPABILITY_RENDER_DOCUMENT, :CAPABILITY_RENDER_DOCUMENT_HTML, :CAPABILITY_RENDER_VIEW,
     :CAPABILITY_EXPORT_GRAPHS, :CAPABILITY_RUNS, :CAPABILITY_SELF_CHECK, :CAPABILITY_RECORD_RUN,
     :CAPABILITY_ENUM_VALUES,
+    :CAPABILITY_EXPORT_GRAPHS, :CAPABILITY_CHECK, :CAPABILITY_ENUM_VALUES,
     :CAPABILITY_EVALUATE_SUBJECT, :CAPABILITY_SYMBOL_ATTRIBUTES, :CAPABILITY_UNSET_VALUE,
     :CAPABILITY_FEATURE_VALUES, :CAPABILITY_APPLY_EDITS, :CAPABILITY_AUTHORING,
     :CAPABILITY_CONNECTION_AUTHORING, :CAPABILITY_SATISFY_AUTHORING,

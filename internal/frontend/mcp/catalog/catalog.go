@@ -102,6 +102,8 @@ var Tools = []Entry{
 		Summary: "Run an analysis case and record the runs into the model as AnalysisRecords declarations."},
 	{Name: "render_model_view", Group: GroupRuntime, RPCs: []string{"RenderView"}, Flags: []string{"render", "render-ports", "render-show", "render-depth"},
 		Summary: "Render a view as its nodes, edges and compartments."},
+	{Name: "check_behavior", Group: GroupRuntime, RPCs: []string{"CheckBehavior"}, Flags: []string{"check-property", "check-diverge", "check-input", "check-assume", "check-witness", "check-depth", "check-states", "check-unroll", "check-timeout"},
+		Summary: "Search every schedule of an action or state machine for violated properties, deadlocks, failures and divergent values."},
 	{Name: "run_analysis", Group: GroupRuntime, RPCs: []string{"RunAnalysis"}, Flags: []string{"analysis", "engine", "tool-dry-run"},
 		Summary: "Run an analysis case and report its result."},
 	{Name: "run_document_query", Group: GroupRuntime, RPCs: []string{"RunDocumentQuery"}, Flags: []string{"run-query"},
@@ -142,15 +144,6 @@ var RPCsWithoutTools = map[string]string{}
 // it. A flag listed here is an operation the CLI has and the service does not;
 // adding the field or RPC and the tool moves the flag into an entry.
 var Unserved = map[string]string{
-	"check-property":      "no RPC checks every schedule of a behavior",
-	"check-diverge":       "no RPC checks every schedule of a behavior",
-	"check-input":         "no RPC checks every schedule of a behavior",
-	"check-assume":        "no RPC checks every schedule of a behavior",
-	"check-witness":       "no RPC checks every schedule of a behavior",
-	"check-depth":         "no RPC checks every schedule of a behavior",
-	"check-states":        "no RPC checks every schedule of a behavior",
-	"check-unroll":        "no RPC checks every schedule of a behavior",
-	"check-timeout":       "no RPC checks every schedule of a behavior",
 	"import":              "no RPC imports tabular or JSON data into a model",
 	"import-as":           "no RPC imports tabular or JSON data into a model",
 	"import-map":          "no RPC imports tabular or JSON data into a model",
@@ -198,6 +191,8 @@ var CLIOnly = map[string]string{
 	"baseline":             "reads a file on the host and shapes the exit status; a tool answers every diagnostic",
 	"warnings-as-errors":   "exit-status policy of the command; a tool answers each diagnostic with its severity",
 	"output":               "writes a file on the host; a tool answers the content",
+	"bundle":               "archives a project directory on the host",
+	"unbundle":             "writes a project directory on the host",
 	"jobs":                 "host concurrency",
 	"compile":              "drives a native toolchain on the host",
 	"target":               "drives a native toolchain on the host",

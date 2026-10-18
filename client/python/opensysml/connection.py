@@ -59,6 +59,7 @@ from opensysml.capabilities import (
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_VIEW,
+    CAPABILITY_CHECK,
     CAPABILITY_EXPORT_GRAPHS,
     CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE,
@@ -197,6 +198,7 @@ def _add_sequence_message(add, operation_data, depth=0):
         extended = _add_sequence_message(add.else_body.add(), child, depth + 1) or extended
     return extended
 from opensysml.runs import Recording, RecordedDocument, RunDistribution, RunsResult, self_check_result
+from opensysml.check import check_result
 from opensysml.engines import ENGINE_AUTO, EngineInfo, Standing
 from opensysml.verdict import (
     AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, ToolDryRun, Validation,
@@ -1931,6 +1933,53 @@ class Connection:
         ):
             response = self._stub.RenderView(request)
         return render_view_result(response)
+
+    def check_action(self, action_symbol_id, model_hash, inputs=None, performer=None,
+                     properties=(), diverge=(), free_inputs=(), assume=(), witness=False,
+                     depth=0, states=0, unroll=0, timeout=0.0, engine=None):
+        """Search every schedule of an action, as ``sysml -check-property`` does."""
+        return self._check_behavior(action_symbol_id, "", model_hash, inputs, performer, properties,
+                                    diverge, free_inputs, assume, witness, depth, states, unroll,
+                                    timeout, engine)
+
+    def check_state_machine(self, state_machine_symbol_id, model_hash, performer=None,
+                            properties=(), diverge=(), free_inputs=(), assume=(), witness=False,
+                            depth=0, states=0, unroll=0, timeout=0.0, engine=None):
+        """Search every schedule of a state machine, as ``sysml -check-property`` does."""
+        return self._check_behavior("", state_machine_symbol_id, model_hash, None, performer,
+                                    properties, diverge, free_inputs, assume, witness, depth, states,
+                                    unroll, timeout, engine)
+
+    def _check_behavior(self, action_symbol_id, state_machine_symbol_id, model_hash, inputs,
+                        performer, properties, diverge, free_inputs, assume, witness, depth,
+                        states, unroll, timeout, engine):
+        capabilities = [CAPABILITY_CHECK]
+        if performer:
+            capabilities.append(CAPABILITY_PERFORMER)
+        for capability in capabilities:
+            require(self.server_info(), capability, upgrade_remedy(capability))
+        request = sysml_pb2.CheckBehaviorRequest(
+            model_hash=model_hash,
+            action_symbol_id=action_symbol_id,
+            state_machine_symbol_id=state_machine_symbol_id,
+            inputs={name: self._python_to_value(val) for name, val in (inputs or {}).items()},
+            performer_symbol_id=performer or "",
+            check_property=list(properties),
+            check_diverge=list(diverge),
+            check_input=list(free_inputs),
+            check_assume=list(assume),
+            check_witness=bool(witness),
+            check_depth=int(depth),
+            check_states=int(states),
+            check_unroll=int(unroll),
+            check_timeout=float(timeout),
+            engine=engine or "",
+        )
+        with translate_rpc_errors(unimplemented=self._capability_refusal(tuple(capabilities))):
+            response = self._stub.CheckBehavior(request)
+        if response.error:
+            raise ExecutionError(response.error)
+        return check_result(response)
 
     def export_graphs(self, model_hash, subject):
         """Export the lowered graph of an action or state machine as graphs:1 JSON."""

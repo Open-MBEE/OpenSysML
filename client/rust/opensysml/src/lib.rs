@@ -4,6 +4,7 @@
 
 mod binary;
 mod capabilities;
+mod check;
 mod connection;
 mod conversion;
 mod document;
@@ -27,6 +28,10 @@ pub mod wire {
     include!("proto/sysml/sysml.rs");
 }
 
+pub use check::{
+    CheckDivergence, CheckDivergentValue, CheckFinal, CheckOptions, CheckResult, CheckSearch,
+    CheckViolation, CheckWitness,
+};
 pub use connection::Connection;
 pub use domain::{
     Array, BigInteger, Capabilities, Complex, Diagnostic, EnumLiteral, EvalOptions, Evaluation,

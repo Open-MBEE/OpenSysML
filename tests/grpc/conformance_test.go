@@ -102,6 +102,13 @@ type conformanceCase struct {
 	ExpectedPackage     string   `json:"expected_package,omitempty"`
 	ExpectedRecords     []string `json:"expected_records,omitempty"`
 
+	PerformerSymbolID   string              `json:"performer_symbol_id,omitempty"`
+	CheckProperty       []string            `json:"check_property,omitempty"`
+	CheckDiverge        []string            `json:"check_diverge,omitempty"`
+	ExpectedVerdict     string              `json:"expected_verdict,omitempty"`
+	ExpectedViolations  []expectedViolation `json:"expected_violations"`
+	ExpectedDivergences map[string][]string `json:"expected_divergences"`
+
 	// RunDocumentQuery: the symbols Instantiate creates objects of first, in
 	// order, then the query and its bindings.
 	Instantiate     []string          `json:"instantiate,omitempty"`
@@ -305,6 +312,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runSelfCheckCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "RecordRun":
 		runRecordRunCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "CheckBehavior":
+		runCheckBehaviorCase(t, srv, ctx, parseResp.ModelHash, tc)
 	default:
 		t.Fatalf("unknown rpc %q", tc.RPC)
 	}
@@ -919,6 +928,65 @@ func runRecordRunCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 		sym, err := srv.GetSymbol(ctx, &pb.GetSymbolRequest{ModelHash: resp.ModelHash, SymbolId: record})
 		if err != nil || sym.Error != "" {
 			t.Errorf("%s is not in the recorded model: %v %s", record, err, sym.GetError())
+		}
+	}
+}
+
+type expectedViolation struct {
+	Kind     string `json:"kind"`
+	Property string `json:"property"`
+	Depth    int32  `json:"depth"`
+}
+
+func runCheckBehaviorCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+
+	resp, err := srv.CheckBehavior(ctx, &pb.CheckBehaviorRequest{
+		ModelHash:         modelHash,
+		ActionSymbolId:    tc.SymbolID,
+		PerformerSymbolId: tc.PerformerSymbolID,
+		CheckProperty:     tc.CheckProperty,
+		CheckDiverge:      tc.CheckDiverge,
+	})
+	if err != nil {
+		t.Fatalf("CheckBehavior: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		return
+	}
+	if resp.Verdict != tc.ExpectedVerdict {
+		t.Errorf("verdict = %q, want %q; lines %v", resp.Verdict, tc.ExpectedVerdict, resp.Lines)
+	}
+	if len(resp.Lines) == 0 {
+		t.Errorf("the answer carries no report lines")
+	}
+	if len(resp.Violations) != len(tc.ExpectedViolations) {
+		t.Fatalf("violations = %v, want %d", resp.Violations, len(tc.ExpectedViolations))
+	}
+	for i, want := range tc.ExpectedViolations {
+		got := resp.Violations[i]
+		if got.Kind != want.Kind || got.Property != want.Property || got.Depth != want.Depth {
+			t.Errorf("violation %d = %v, want %+v", i, got, want)
+		}
+		if got.Witness == nil || got.Witness.Schedule == "" {
+			t.Errorf("violation %d carries no replay witness", i)
+		}
+	}
+	if len(resp.Divergences) != len(tc.ExpectedDivergences) {
+		t.Fatalf("divergences = %v, want %v", resp.Divergences, tc.ExpectedDivergences)
+	}
+	for _, got := range resp.Divergences {
+		want, ok := tc.ExpectedDivergences[got.Feature]
+		if !ok {
+			t.Errorf("unexpected divergence of %q", got.Feature)
+			continue
+		}
+		var values []string
+		for _, v := range got.Values {
+			values = append(values, v.Value)
+		}
+		if !slices.Equal(values, want) {
+			t.Errorf("%s ends as %v, want %v", got.Feature, values, want)
 		}
 	}
 }

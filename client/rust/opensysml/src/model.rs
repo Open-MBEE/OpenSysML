@@ -141,6 +141,28 @@ impl Model {
             .render_view_bounded(self.hash(), view_name, ports, show, depth)
     }
 
+    /// Search every schedule of an action for a violated property, a deadlock, a
+    /// failure or a divergent value, as `sysml -check-property` does.
+    pub fn check_action(
+        &self,
+        action_id: &str,
+        inputs: &BTreeMap<String, Value>,
+        options: &crate::CheckOptions,
+    ) -> Result<crate::CheckResult, Error> {
+        self.connection
+            .check_action(self.hash(), action_id, inputs, options)
+    }
+
+    /// Search every schedule of a state machine; see [`Model::check_action`].
+    pub fn check_state_machine(
+        &self,
+        state_machine_id: &str,
+        options: &crate::CheckOptions,
+    ) -> Result<crate::CheckResult, Error> {
+        self.connection
+            .check_state_machine(self.hash(), state_machine_id, options)
+    }
+
     /// Export the lowered graph of an action or state machine as `graphs:1` JSON.
     pub fn export_graphs(&self, subject: &str) -> Result<crate::Graphs, Error> {
         self.connection.export_graphs(self.hash(), subject)

@@ -1201,6 +1201,7 @@ rpc ExportGraphs(ExportGraphsRequest) returns (ExportGraphsResponse);
 rpc RunRuns(RunRunsRequest) returns (RunRunsResponse);
 rpc SelfCheck(SelfCheckRequest) returns (SelfCheckResponse);
 rpc RecordRun(RecordRunRequest) returns (RecordRunResponse);
+rpc CheckBehavior(CheckBehaviorRequest) returns (CheckBehaviorResponse);
 ```
 
 **Implementation:** `internal/frontend/grpc/docquery.go` (`Service.RunDocumentQuery`,
@@ -1263,6 +1264,32 @@ of the model's shadows the library's of the same name, but two of the model's
 denote nothing.
 It is advertised by `export_graphs`. Python exposes this as
 `model.export_graphs(subject)`, returning a typed `Graphs`.
+
+`CheckBehavior` searches every schedule of an action or state machine, as
+`sysml -check-property` does, through the same `analysis.Registry.Check` the
+CLI and REPL call. Exactly one of `action_symbol_id` and `state_machine_symbol_id`
+names the behavior; `inputs` and `performer_symbol_id` bind it as `ExecuteAction`
+does. The CLI's flags are the request's fields under the same names:
+`check_property` and `check_assume` name constraints or requirements,
+`check_diverge` features whose final value the schedule may decide
+(`this.<name>` is the performer's), `check_input` the inputs the symbolic engine
+ranges over, `check_witness` asks for each witness's file, and `check_depth`,
+`check_states`, `check_unroll` (counts; 0 is the engine's default) and
+`check_timeout` (seconds; 0 is none) bound the search. A negative bound, a
+non-finite timeout, both or neither behavior named, or an unknown `engine` is
+`INVALID_ARGUMENT`; a behavior, property or performer the model lacks is
+answered in band through `error`, as a run's would be. The answer is the report
+as data, not a string dump: `verdict` (`holds`, `fails`, `undecided`), `lines`
+(the report as the CLI prints it), `search` (states, moves, depth, the bounds
+hit, horizon, scope), each `violations` entry (kind, property or error, depth,
+probability) and each `divergences` value and `finals` outcome with the
+`CheckWitness` that replays it — a `schedule` any run accepts, its draws and
+choices, and the witness file's name and content when asked for — plus the
+symbolic engine's `claim`, `free_inputs`, `assumptions`, `witness` and
+`contrast`, and `engine`/`strength`/`bounds` as every analysis answer carries
+them. It is advertised by `check`. Python exposes this as
+`model.check_action(action, properties=[...], diverge=[...], ...)` and
+`model.check_state_machine(...)`, returning a typed `CheckResult`.
 
 Both run over the model's runtime and the objects it holds. `Instantiate`
 creates an object for the model named by hash and the service keeps it, under

@@ -66,6 +66,10 @@ CAPABILITY_RENDER_VIEW = "render_view"
 #: state machine as the canonical ``graphs:1`` JSON an external engine is sent.
 CAPABILITY_EXPORT_GRAPHS = "export_graphs"
 
+#: The ``CheckBehavior`` RPC, which searches every schedule of a behavior for
+#: violated properties, deadlocks, failures and divergent values.
+CAPABILITY_CHECK = "check"
+
 #: ``form`` on ``RenderDocumentRequest``, which asks ``RenderDocument`` for the
 #: HTML page instead of Markdown. Without it the service would render Markdown
 #: whatever form was asked, so the client refuses to ask for HTML.

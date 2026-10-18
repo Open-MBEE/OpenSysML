@@ -37,6 +37,7 @@ const (
 	SysMLService_ValidateInstance_FullMethodName   = "/sysml.SysMLService/ValidateInstance"
 	SysMLService_EvaluateCalc_FullMethodName       = "/sysml.SysMLService/EvaluateCalc"
 	SysMLService_RunAnalysis_FullMethodName        = "/sysml.SysMLService/RunAnalysis"
+	SysMLService_CheckBehavior_FullMethodName      = "/sysml.SysMLService/CheckBehavior"
 	SysMLService_RunSweep_FullMethodName           = "/sysml.SysMLService/RunSweep"
 	SysMLService_RunRuns_FullMethodName            = "/sysml.SysMLService/RunRuns"
 	SysMLService_SelfCheck_FullMethodName          = "/sysml.SysMLService/SelfCheck"
@@ -107,6 +108,10 @@ type SysMLServiceClient interface {
 	ValidateInstance(ctx context.Context, in *ValidateInstanceRequest, opts ...grpc.CallOption) (*ValidateInstanceResponse, error)
 	EvaluateCalc(ctx context.Context, in *EvaluateCalcRequest, opts ...grpc.CallOption) (*EvaluateCalcResponse, error)
 	RunAnalysis(ctx context.Context, in *RunAnalysisRequest, opts ...grpc.CallOption) (*RunAnalysisResponse, error)
+	// CheckBehavior searches every schedule of an action or state machine, as
+	// `sysml -check-property`/`-check-diverge` do: a violated property, a
+	// deadlock, a failure or a divergent feature is witnessed and replayed.
+	CheckBehavior(ctx context.Context, in *CheckBehaviorRequest, opts ...grpc.CallOption) (*CheckBehaviorResponse, error)
 	// Run one analysis case or calc once per row of a parameter sweep, as the
 	// CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
 	// swept parameter bound to that row's value. Reported as the "verification"
@@ -325,6 +330,15 @@ func (c *sysMLServiceClient) RunAnalysis(ctx context.Context, in *RunAnalysisReq
 	return out, nil
 }
 
+func (c *sysMLServiceClient) CheckBehavior(ctx context.Context, in *CheckBehaviorRequest, opts ...grpc.CallOption) (*CheckBehaviorResponse, error) {
+	out := new(CheckBehaviorResponse)
+	err := c.cc.Invoke(ctx, SysMLService_CheckBehavior_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sysMLServiceClient) RunSweep(ctx context.Context, in *RunSweepRequest, opts ...grpc.CallOption) (*RunSweepResponse, error) {
 	out := new(RunSweepResponse)
 	err := c.cc.Invoke(ctx, SysMLService_RunSweep_FullMethodName, in, out, opts...)
@@ -473,6 +487,10 @@ type SysMLServiceServer interface {
 	ValidateInstance(context.Context, *ValidateInstanceRequest) (*ValidateInstanceResponse, error)
 	EvaluateCalc(context.Context, *EvaluateCalcRequest) (*EvaluateCalcResponse, error)
 	RunAnalysis(context.Context, *RunAnalysisRequest) (*RunAnalysisResponse, error)
+	// CheckBehavior searches every schedule of an action or state machine, as
+	// `sysml -check-property`/`-check-diverge` do: a violated property, a
+	// deadlock, a failure or a divergent feature is witnessed and replayed.
+	CheckBehavior(context.Context, *CheckBehaviorRequest) (*CheckBehaviorResponse, error)
 	// Run one analysis case or calc once per row of a parameter sweep, as the
 	// CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
 	// swept parameter bound to that row's value. Reported as the "verification"
@@ -579,6 +597,9 @@ func (UnimplementedSysMLServiceServer) EvaluateCalc(context.Context, *EvaluateCa
 }
 func (UnimplementedSysMLServiceServer) RunAnalysis(context.Context, *RunAnalysisRequest) (*RunAnalysisResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunAnalysis not implemented")
+}
+func (UnimplementedSysMLServiceServer) CheckBehavior(context.Context, *CheckBehaviorRequest) (*CheckBehaviorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CheckBehavior not implemented")
 }
 func (UnimplementedSysMLServiceServer) RunSweep(context.Context, *RunSweepRequest) (*RunSweepResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunSweep not implemented")
@@ -947,6 +968,24 @@ func _SysMLService_RunAnalysis_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SysMLService_CheckBehavior_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckBehaviorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).CheckBehavior(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_CheckBehavior_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).CheckBehavior(ctx, req.(*CheckBehaviorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SysMLService_RunSweep_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RunSweepRequest)
 	if err := dec(in); err != nil {
@@ -1205,6 +1244,10 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RunAnalysis",
 			Handler:    _SysMLService_RunAnalysis_Handler,
+		},
+		{
+			MethodName: "CheckBehavior",
+			Handler:    _SysMLService_CheckBehavior_Handler,
 		},
 		{
 			MethodName: "RunSweep",

@@ -218,6 +218,13 @@ func (p *inprocess) exportGraphs(
 	return answer(ctx, req, p.svc.ExportGraphs)
 }
 
+func (p *inprocess) checkBehavior(
+	ctx context.Context,
+	req *pb.CheckBehaviorRequest,
+) (*pb.CheckBehaviorResponse, error) {
+	return answer(ctx, req, p.svc.CheckBehavior)
+}
+
 func (p *inprocess) convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error) {
 	return answer(ctx, req, p.svc.Convert)
 }

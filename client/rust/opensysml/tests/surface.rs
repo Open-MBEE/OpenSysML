@@ -794,3 +794,96 @@ fn recording_a_run_and_a_sample_grows_the_model() {
         "{unknown:?}"
     );
 }
+
+#[test]
+fn a_checked_behavior_witnesses_its_violation_and_divergence() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(
+        &connection,
+        include_str!("../../../../conformance/fixtures/tank.sysml"),
+    );
+    let options = opensysml::CheckOptions {
+        properties: vec!["Plant::Tank::low".to_owned()],
+        diverge: vec!["this.level".to_owned()],
+        witness: true,
+        performer: Some("Plant::tank".to_owned()),
+        ..Default::default()
+    };
+    let result = model
+        .check_action("Plant::Tank::fill", &Default::default(), &options)
+        .unwrap();
+    assert_eq!(result.verdict, "fails");
+    assert!(!result.holds());
+    assert!(!result.lines.is_empty());
+    let search = result.search.as_ref().expect("an explicit-state search");
+    assert_eq!((search.states, search.moves, search.max_depth), (11, 10, 6));
+    assert_eq!(result.violations.len(), 1, "{:?}", result.violations);
+    let violation = &result.violations[0];
+    assert_eq!(
+        (
+            violation.kind.as_str(),
+            violation.property.as_str(),
+            violation.depth
+        ),
+        ("property", "Plant::Tank::low", 3)
+    );
+    let witness = violation.witness.as_ref().expect("a witness");
+    assert!(
+        witness.schedule.starts_with("replay"),
+        "{}",
+        witness.schedule
+    );
+    assert!(!witness.file_name.is_empty() && witness.file_content.contains('\n'));
+    assert_eq!(result.divergences.len(), 1);
+    assert_eq!(result.divergences[0].feature, "this.level");
+    let values: Vec<&str> = result.divergences[0]
+        .values
+        .iter()
+        .map(|v| v.value.as_str())
+        .collect();
+    assert_eq!(values, ["1", "2"]);
+    assert_eq!(result.standing.engine, "check");
+
+    let held = model
+        .check_action(
+            "Plant::Tank::fill",
+            &Default::default(),
+            &opensysml::CheckOptions {
+                properties: vec!["Plant::Tank::capped".to_owned()],
+                diverge: vec!["this.capacity".to_owned()],
+                performer: Some("Plant::tank".to_owned()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(held.holds(), "{:?}", held.lines);
+    assert!(held.violations.is_empty() && held.divergences.is_empty());
+
+    let missing = model
+        .check_action(
+            "Plant::Tank::drain",
+            &Default::default(),
+            &Default::default(),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(missing, opensysml::Error::Execution { .. }),
+        "{missing:?}"
+    );
+    let negative = model
+        .check_action(
+            "Plant::Tank::fill",
+            &Default::default(),
+            &opensysml::CheckOptions {
+                depth: -1,
+                ..Default::default()
+            },
+        )
+        .unwrap_err();
+    assert!(
+        matches!(&negative, opensysml::Error::Service { message, .. } if message.contains("check_depth")),
+        "{negative:?}"
+    );
+}

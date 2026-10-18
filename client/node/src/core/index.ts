@@ -73,6 +73,15 @@ export type {
   RenderedView,
 } from "./render-view.js";
 export type { Graphs } from "./graphs.js";
+export type {
+  CheckDivergence,
+  CheckFinal,
+  CheckOptions,
+  CheckResult,
+  CheckSearch,
+  CheckViolation,
+  CheckWitness,
+} from "./check.js";
 export {
   ENGINE_ALL,
   ENGINE_AUTO,

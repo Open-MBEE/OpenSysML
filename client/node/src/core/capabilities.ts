@@ -66,6 +66,9 @@ export const CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html";
 export const CAPABILITY_RENDER_VIEW = "render_view";
 /** The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON. */
 export const CAPABILITY_EXPORT_GRAPHS = "export_graphs";
+
+/** The `CheckBehavior` RPC, searching every schedule of a behavior for violations and divergent values. */
+export const CAPABILITY_CHECK = "check";
 /** What the body of a verification case answered, as `verification_verdicts`. */
 export const CAPABILITY_VERIFICATION_VERDICTS = "verification_verdicts";
 /** `RunAnalysisResponse.evaluations`: each call the run made to a calc held as a value, such as a trade study's evaluation of every alternative. */

@@ -95,6 +95,10 @@ const CapabilityRenderView = "render_view"
 // exports the lowered graph of an action or state machine as `graphs:1` JSON.
 const CapabilityExportGraphs = "export_graphs"
 
+// CapabilityCheck names the CheckBehavior RPC, which searches every schedule of
+// a behavior for violated properties, deadlocks, failures and divergent values.
+const CapabilityCheck = "check"
+
 // CapabilityOSLCQuery names the capability of evaluating OSLC Query text.
 const CapabilityOSLCQuery = "oslc_query"
 
@@ -356,6 +360,7 @@ var capabilities = []string{
 	CapabilityStateTrace,
 	CapabilityRenderView,
 	CapabilityExportGraphs,
+	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
 	CapabilityParseSourcesAffected,

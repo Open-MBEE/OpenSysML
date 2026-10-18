@@ -78,6 +78,8 @@ func (c *pkgClient) dispatch(ctx context.Context, method string, request protore
 		return c.executeAction(ctx, request)
 	case "ExecuteState":
 		return c.executeState(ctx, request)
+	case "CheckBehavior":
+		return c.checkBehavior(ctx, request)
 	case "VerifyConstraint":
 		return c.verifyConstraint(ctx, request)
 	case "VerifyRequirement":
@@ -408,6 +410,17 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 		response.Trace = append(response.Trace, record)
 	}
 	return response, nil
+}
+
+// int32Clamp saturates a count at the int32 bounds rather than wrapping.
+func int32Clamp(n int) int32 {
+	if n > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if n < math.MinInt32 {
+		return math.MinInt32
+	}
+	return int32(n)
 }
 
 func traceDroppedCountToInt32(dropped int) int32 {
@@ -2086,4 +2099,92 @@ func instanceToProto(instance *opensysml.Instance) *pb.Instance {
 		}
 	}
 	return out
+}
+
+func (c *pkgClient) checkBehavior(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.CheckBehaviorRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	inputs := make(map[string]opensysml.Value, len(req.Inputs))
+	for name, value := range req.Inputs {
+		input, converted := valueFromProto(value)
+		if !converted {
+			return nil, errNonNumericVector
+		}
+		inputs[name] = input
+	}
+	opts := []opensysml.CheckOption{
+		opensysml.CheckInputs(inputs), opensysml.CheckPerformer(req.PerformerSymbolId),
+		opensysml.CheckProperties(req.CheckProperty...), opensysml.CheckDiverge(req.CheckDiverge...),
+		opensysml.CheckFreeInputs(req.CheckInput...), opensysml.CheckAssume(req.CheckAssume...),
+		opensysml.CheckBounds(req.CheckDepth, req.CheckStates, req.CheckUnroll, req.CheckTimeout),
+		opensysml.CheckEngine(req.Engine),
+	}
+	if req.CheckWitness {
+		opts = append(opts, opensysml.CheckWitnessFiles())
+	}
+	var check *opensysml.Check
+	var err error
+	switch {
+	case req.StateMachineSymbolId != "":
+		check, err = c.api.CheckStateMachine(ctx, c.model(req.ModelHash), req.StateMachineSymbolId, opts...)
+	default:
+		check, err = c.api.CheckAction(ctx, c.model(req.ModelHash), req.ActionSymbolId, opts...)
+	}
+	var failure *opensysml.FailureError
+	if errors.As(err, &failure) {
+		return &pb.CheckBehaviorResponse{Verdict: "undecided", Error: failure.Message}, nil
+	}
+	if err != nil {
+		return nil, apiError(err)
+	}
+	return checkToProto(check), nil
+}
+
+func checkToProto(check *opensysml.Check) *pb.CheckBehaviorResponse {
+	out := &pb.CheckBehaviorResponse{
+		Verdict:     check.Verdict,
+		Lines:       check.Lines,
+		Claim:       check.Claim,
+		FreeInputs:  check.FreeInputs,
+		Assumptions: check.Assumptions,
+		Witness:     checkWitnessToProto(check.Witness),
+		Contrast:    checkWitnessToProto(check.Contrast),
+		Engine:      check.Standing.Engine,
+		Strength:    check.Standing.Strength,
+		Bounds:      boundsToProto(check.Standing.Bounds),
+		Reason:      check.Reason,
+	}
+	if s := check.Search; s != nil {
+		out.Search = &pb.CheckSearch{
+			States: int32Clamp(s.States), Moves: int32Clamp(s.Moves), MaxDepth: int32Clamp(s.MaxDepth), BoundsHit: s.BoundsHit,
+			Horizon: s.Horizon, HorizonSet: s.HorizonSet, MassBounded: s.MassBounded, Notes: s.Notes, Scope: s.Scope,
+			Status: s.Status,
+		}
+	}
+	for _, v := range check.Violations {
+		out.Violations = append(out.Violations, &pb.CheckViolation{
+			Kind: v.Kind, Property: v.Property, Error: v.Error, Depth: int32Clamp(v.Depth), Probability: v.Probability,
+			Witness: checkWitnessToProto(v.Witness), Text: v.Text,
+		})
+	}
+	for _, d := range check.Divergences {
+		divergence := &pb.CheckDivergence{Feature: d.Feature}
+		for _, value := range d.Values {
+			divergence.Values = append(divergence.Values, &pb.CheckDivergentValue{Value: value.Value, Witness: checkWitnessToProto(value.Witness)})
+		}
+		out.Divergences = append(out.Divergences, divergence)
+	}
+	for _, f := range check.Finals {
+		out.Finals = append(out.Finals, &pb.CheckFinal{Outcome: f.Outcome, Values: f.Values, Witness: checkWitnessToProto(f.Witness)})
+	}
+	return out
+}
+
+func checkWitnessToProto(w *opensysml.CheckWitness) *pb.CheckWitness {
+	if w == nil {
+		return nil
+	}
+	return &pb.CheckWitness{Schedule: w.Schedule, Draws: w.Draws, Choices: w.Choices, Inputs: w.Inputs, FileName: w.FileName, FileContent: w.FileContent}
 }
