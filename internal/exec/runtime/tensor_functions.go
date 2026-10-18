@@ -63,7 +63,7 @@ func readTensor(name, label string, val Value) (tensorOperand, error) {
 	}
 	return tensorOperand{}, fmt.Errorf(
 		"%w: function %s parameter %s requires a TensorQuantityValue (a tensor, vector or scalar quantity), got %s",
-		ErrTypeMismatch, name, label, describeValue(val),
+		ErrTypeMismatch, name, label, DescribeValue(val),
 	)
 }
 
@@ -89,7 +89,7 @@ func (ctx *Context) tensorResult(name string, shape tensorOperand, components []
 		q, ok := asQuantity(component)
 		if !ok {
 			return Value{}, fmt.Errorf("%w: function %s computed %s for a component",
-				ErrTypeMismatch, name, describeValue(component))
+				ErrTypeMismatch, name, DescribeValue(component))
 		}
 		num[i], units[i] = q.Num, q.Unit
 		withUnit = withUnit || component.Kind == ValQuantity
@@ -176,21 +176,21 @@ func (ctx *Context) tensorMRefArg(name, param string, val Value) (*Array, error)
 			inst, ok := ctx.instances[arr.Object]
 			if refSym := ctx.librarySymbol(tensorMRefTypeFQN); !ok || refSym == nil || !ctx.modelConforms(ctx.objectType(inst), refSym) {
 				return nil, fmt.Errorf("%w: function %s parameter %q requires a %s, got %s",
-					ErrTypeMismatch, name, param, tensorMRefTypeFQN, describeValue(val))
+					ErrTypeMismatch, name, param, tensorMRefTypeFQN, DescribeValue(val))
 			}
 		}
 		for i, elem := range arr.Elements {
 			if elem.Kind != ValMeasurementRef || elem.MeasurementRef() == nil {
 				return nil, fmt.Errorf(
 					"%w: function %s parameter %q: mRefs element %d is %s, %s declares mRefs: ScalarMeasurementReference[1..*]",
-					ErrTypeMismatch, name, param, i+1, describeValue(elem), tensorMRefTypeFQN,
+					ErrTypeMismatch, name, param, i+1, DescribeValue(elem), tensorMRefTypeFQN,
 				)
 			}
 		}
 		return arr, nil
 	}
 	return nil, fmt.Errorf("%w: function %s parameter %q requires a %s with its dimensions and mRefs stated, got %s",
-		ErrTypeMismatch, name, param, tensorMRefTypeFQN, describeValue(val))
+		ErrTypeMismatch, name, param, tensorMRefTypeFQN, DescribeValue(val))
 }
 
 // tensorMRefIsBound is `isBound` of a TensorMeasurementReference object: as the
@@ -204,7 +204,7 @@ func (ctx *Context) tensorMRefIsBound(name string, object int64) (bool, error) {
 	if !stated {
 		member, ok := ctx.model.semantics.LookupMember(ctx.objectType(inst), mRefIsBoundFeature)
 		if !ok || member == nil {
-			return false, fmt.Errorf("%w: function %s: %s declares no isBound", ErrNoSuchFeature, name, symbolText(inst.Type))
+			return false, fmt.Errorf("%w: function %s: %s declares no isBound", ErrNoSuchFeature, name, SymbolText(inst.Type))
 		}
 		value := ctx.extractDefaultValue(member)
 		if value == nil {
@@ -212,18 +212,18 @@ func (ctx *Context) tensorMRefIsBound(name string, object int64) (bool, error) {
 		}
 		if value == nil {
 			return false, fmt.Errorf("%w: function %s: %s states no isBound and its type declares no default",
-				errUnevaluableLibraryFunction, name, symbolText(inst.Type))
+				errUnevaluableLibraryFunction, name, SymbolText(inst.Type))
 		}
 		c, ok := ctx.model.semantics.EvalWithin(value, ctx.maxIntegerBits)
 		if !ok {
 			return false, fmt.Errorf("%w: function %s: the default of %s::isBound is not a constant",
-				errUnevaluableLibraryFunction, name, symbolText(inst.Type))
+				errUnevaluableLibraryFunction, name, SymbolText(inst.Type))
 		}
 		elements = []Value{{Kind: ValConst, Const: c}}
 	}
 	if len(elements) != 1 || elements[0].Kind != ValConst || elements[0].Const.Kind != semantics.ValBool {
 		return false, fmt.Errorf("%w: function %s: %s::isBound is %s, %s declares isBound: Boolean[1]",
-			ErrTypeMismatch, name, symbolText(inst.Type), FormatValue(sequenceOf(elements)), tensorMRefTypeFQN)
+			ErrTypeMismatch, name, SymbolText(inst.Type), FormatValue(sequenceOf(elements)), tensorMRefTypeFQN)
 	}
 	return elements[0].Const.Bool, nil
 }

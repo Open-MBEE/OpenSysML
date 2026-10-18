@@ -182,7 +182,7 @@ The engines this note names, each an adapter over code that exists or is designe
 |--------|---------|------|-----------|--------------|
 | `run` | `evaluate`, `sweep` (one row) | the interpreter under a fixed scheduling policy | *observed* | `runtime.Context`, `RunAnalysis`, `CheckConstraintOn`, the evaluator |
 | `explore` | `outcomes`, `holds` (concrete inputs), `sensitive` (from the outcome table) | every linearization within `runs`/`depth` | *proved* over schedules on `complete`; *witnessed* for a violation | `runtime.Explore` |
-| `sweep` | `sweep` | one `run` per row, rows in parallel | *observed* per row | `runtime.RunSweepWith`'s plan and work queue of rows, each row in a context of its own |
+| `sweep` | `sweep` | one `run` per row, rows in parallel | *observed* per row | `sweep.RunSweepWith`'s plan and work queue of rows, each row in a context of its own |
 | `solve` | `satisfiable` and its variants (explain, synthesize, configure, optimize) | an external SMT process | *proved* for `unsat` over the encoded fragment; *witnessed* for a `sat` model the evaluator confirms | `internal/exec/solve`, `SolveReport`; the evaluator's confirmation of a `sat` model is the one addition |
 | `smt` | `holds`, `sensitive`, `outcomes` (as a bounded enumeration) | schedules and free inputs symbolically, within `k` moves | *proved* (with induction), *bounded*, *witnessed* | the [SMT design](smt-model-checking.md) |
 | `check` | `outcomes`, `holds`, deadlock | the executor with snapshots and partial-order reduction | *bounded*; *witnessed* | the [explicit-state design](bounded-model-checking.md) |
@@ -824,7 +824,7 @@ behavior unchanged until stage 4.
    `runs + jobs`; the cancellation bullet under concurrent `all`; the isolation bullet with
    `Jobs` workers per plan; `make man-check`. *Implemented:* `sweep` rows on the work queue.
    `SweepRun` takes the row's context, superseding stage 2's closure over the surface's;
-   `runtime.RunSweepWith(stop, first, target, plan, runs, jobs, fresh, run)` enumerates the
+   `sweep.RunSweepWith(stop, first, target, plan, runs, jobs, fresh, run)` enumerates the
    bindings once, hands rows to `Jobs` workers in plan order, runs the first row in the context
    the bindings were enumerated in and every other in one `fresh(job)` builds, and tables each
    row where the plan puts it, so the table does not depend on `Jobs` and `jobs=1` is the

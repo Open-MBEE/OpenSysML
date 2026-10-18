@@ -52,7 +52,7 @@ func refusedDoStepReplay(t *testing.T, lines string) (*ReplayError, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exec.sendSignal("Stop", nil)
+	exec.SendSignal("Stop", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
 	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) {
@@ -104,7 +104,7 @@ func testStepOrderAtAUnitOfferingNoDraw(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exec.sendSignal("Stop", nil)
+	exec.SendSignal("Stop", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}

@@ -354,7 +354,7 @@ func (ctx *Context) casePerformer(shape *calcShape, args AnalysisArgs, self *Ins
 	if given != nil && (self == nil || !unbound) {
 		if !ctx.modelConforms(given.Type, owner) && len(ctx.carriersUnder([]*Instance{given}, owner)) == 0 {
 			return nil, args, fmt.Errorf("%w: %s is a feature of %s, which object #%d is not an object of",
-				ErrNotCarried, shape.Label, ctx.qualifiedSymbolName(owner), given.ID)
+				ErrNotCarried, shape.Label, ctx.QualifiedName(owner), given.ID)
 		}
 		self, given = given, nil
 	}
@@ -367,7 +367,7 @@ func (ctx *Context) casePerformer(shape *calcShape, args AnalysisArgs, self *Ins
 		if _, err := shape.analysisArgs(args); err != nil {
 			return nil, args, err
 		}
-		return nil, args, fmt.Errorf("%w of %s: none is instantiated", ErrNeedsObject, ctx.qualifiedSymbolName(owner))
+		return nil, args, fmt.Errorf("%w of %s: none is instantiated", ErrNeedsObject, ctx.QualifiedName(owner))
 	}
 	args.Subject = given
 	if given == nil && unbound && reached.instance != nil {
@@ -623,7 +623,7 @@ func (ctx *Context) statedSubjectValue(run *calcRun, name string, subject *symbo
 	if statedAsDefault(stated.decl) {
 		verb = "defaults to"
 	}
-	what := fmt.Sprintf("objective %s: subject %s %s the case's %s (%s)", name, subject.Name, verb, run.shape.memberRole(member), ctx.qualifiedSymbolName(stated.decl.OwnerScope.Owner()))
+	what := fmt.Sprintf("objective %s: subject %s %s the case's %s (%s)", name, subject.Name, verb, run.shape.memberRole(member), ctx.QualifiedName(stated.decl.OwnerScope.Owner()))
 	return value, what, nil
 }
 
@@ -816,7 +816,7 @@ func (ctx *Context) RequireAnalysisCase(sym *symbols.Symbol) error {
 	}
 	if !IsRunnableCaseSymbol(sym) {
 		return fmt.Errorf("%w: %s is %s, not an analysis or verification case definition or usage",
-			ErrNotAnAnalysis, ctx.qualifiedSymbolName(sym), describeDecl(sym.Decl))
+			ErrNotAnAnalysis, ctx.QualifiedName(sym), describeDecl(sym.Decl))
 	}
 	return nil
 }

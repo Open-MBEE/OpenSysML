@@ -143,8 +143,13 @@ func (s *Server) walkWorkspace(folder string, budget int) (paths, unlisted []str
 		seen[path] = true
 	}
 	var deps []string
-	for _, dir := range s.dependencyDirs(folder) {
-		more, failed := walkFolder(dir, -1)
+	for _, used := range s.dependencyProjects(folder) {
+		var more, failed []string
+		if used.IsArchived() {
+			more = used.Files()
+		} else {
+			more, failed = walkFolder(used.Dir, -1)
+		}
 		unlisted = append(unlisted, failed...)
 		for _, path := range more {
 			if !seen[path] {
@@ -166,11 +171,11 @@ func (s *Server) walkWorkspace(folder string, budget int) (paths, unlisted []str
 	return append(paths, deps...), unlisted
 }
 
-// dependencyDirs lists the directories of the installed projects the project
-// at or above folder uses, found under the well-known library directories of
-// the projects above folder and the configured library roots, a relative one
-// taken from folder.
-func (s *Server) dependencyDirs(folder string) []string {
+// dependencyProjects lists the installed projects the project at or above
+// folder uses, found under the well-known library directories of its project
+// and the configured roots, a root given relative to the folder resolved
+// against it; a project may be a directory or an archive.
+func (s *Server) dependencyProjects(folder string) []*project.Interchange {
 	if folder == "" {
 		return nil
 	}
@@ -183,12 +188,7 @@ func (s *Server) dependencyDirs(folder string) []string {
 		roots = append(roots, root)
 	}
 	s.mu.Unlock()
-	around := project.Discovery{Roots: roots}.Around([]string{folder})
-	dirs := make([]string, 0, len(around.Used))
-	for _, used := range around.Used {
-		dirs = append(dirs, used.Dir)
-	}
-	return dirs
+	return project.Discovery{Roots: roots}.Around([]string{folder}).Used
 }
 
 // dependencySources lists the sources the installed projects contributed for
@@ -376,8 +376,7 @@ func (s *Server) changedOnDisk(path string) bool {
 	if !ok {
 		return true
 	}
-	// #nosec G304 -- path comes from the folder the client asked to serve.
-	content, err := os.ReadFile(path)
+	_, content, err := project.ReadFile(path)
 	return err != nil || !bytes.Equal(content, held)
 }
 
@@ -435,6 +434,15 @@ func (s *Server) loadFromDisk(path string) {
 // readFromDisk reads a file's bytes for the workspace, forgetting a file that is
 // gone or too large to serve; it reports whether there is content to record.
 func (s *Server) readFromDisk(path string) ([]byte, bool) {
+	// A member of a project archive is read from the archive, in memory.
+	if _, _, ok := project.SplitMemberPath(path); ok {
+		_, content, err := project.ReadFile(path)
+		if err != nil || len(content) > maxScannedFileSize {
+			s.ws.DeleteOnDisk(path)
+			return nil, false
+		}
+		return content, true
+	}
 	if info, err := os.Stat(path); err == nil && info.Size() > maxScannedFileSize {
 		s.ws.DeleteOnDisk(path)
 		return nil, false
@@ -462,7 +470,7 @@ func (s *Server) DidChangeWatchedFiles(ctx context.Context, params *protocol.Did
 		switch {
 		case model.IsModelSource(name):
 			sources = append(sources, event)
-		case filepath.Base(name) == project.ProjectFile:
+		case filepath.Base(name) == project.ProjectFile, project.IsArchive(name):
 			projects = true
 		}
 	}

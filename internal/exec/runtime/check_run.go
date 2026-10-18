@@ -168,7 +168,7 @@ func (r *invocationRun) park() error {
 func (r *invocationRun) advanceClock() bool {
 	next, ok := r.ctx.clock.NextDue()
 	if !ok || !r.inv.Horizon.reaches(next) {
-		next, ok = r.inv.Horizon.bound()
+		next, ok = r.inv.Horizon.Bound()
 	}
 	if !ok || next <= r.ctx.clock.now {
 		return false

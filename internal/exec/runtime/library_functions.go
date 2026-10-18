@@ -312,7 +312,7 @@ func numericScalars(params []string, apply contextApply, domains []scalarDomain)
 			if arg.Kind != ValConst || !arg.Const.IsNumeric() {
 				return Value{}, fmt.Errorf(
 					"%w: function %s parameter %s requires a numeric value, got %s",
-					ErrTypeMismatch, name, parameterLabel(params, i), describeValue(arg),
+					ErrTypeMismatch, name, parameterLabel(params, i), DescribeValue(arg),
 				)
 			}
 			if i < len(domains) && domains[i] != nil {
@@ -381,7 +381,7 @@ func (ctx *Context) libraryFunctionFor(sym *symbols.Symbol) (*libraryFunction, b
 	if sym == nil || !isCalcSymbol(sym) || !ctx.libraryDeclared(sym) {
 		return nil, false
 	}
-	fn, ok := libraryFunctions[ctx.qualifiedSymbolName(sym)]
+	fn, ok := libraryFunctions[ctx.QualifiedName(sym)]
 	return fn, ok
 }
 
@@ -816,7 +816,7 @@ func asReal(v semantics.Value) float64 {
 func asInteger(v semantics.Value) (semantics.Value, error) {
 	if v.Kind != semantics.ValInt {
 		return semantics.Value{}, fmt.Errorf("%w: requires an Integer argument, got %s", ErrTypeMismatch,
-			describeValue(Value{Kind: ValConst, Const: v}))
+			DescribeValue(Value{Kind: ValConst, Const: v}))
 	}
 	return v, nil
 }
@@ -887,7 +887,7 @@ func (ctx *Context) libraryFeatureValue(sym *symbols.Symbol) (Value, bool, error
 	if sym == nil || !ctx.libraryDeclared(sym) {
 		return Value{}, false, nil
 	}
-	feature, ok := libraryFeatures[ctx.qualifiedSymbolName(sym)]
+	feature, ok := libraryFeatures[ctx.QualifiedName(sym)]
 	if !ok {
 		return Value{}, false, nil
 	}
@@ -928,7 +928,7 @@ func asComplex(name, param string, val Value) (complex128, error) {
 	if !ok {
 		return 0, fmt.Errorf(
 			"%w: function %s parameter %q requires a Complex value, got %s",
-			ErrTypeMismatch, name, param, describeValue(val),
+			ErrTypeMismatch, name, param, DescribeValue(val),
 		)
 	}
 	return z, nil

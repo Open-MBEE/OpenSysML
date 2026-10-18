@@ -3,9 +3,10 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::capabilities::{
-    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT,
-    CAPABILITY_CONVERT_DOCUMENTS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES,
-    CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES,
+    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_CHECK, CAPABILITY_COMPARE_RESULTS,
+    CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT, CAPABILITY_CONVERT_DOCUMENTS,
+    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES,
+    CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA,
     CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY,
     CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_RATIONAL_VALUES,
@@ -14,6 +15,7 @@ use crate::capabilities::{
     CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES,
     CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_ARGUMENTS, CAPABILITY_VERIFICATION_QUESTIONS,
 };
+use crate::check::{CheckOptions, CheckResult};
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
     binding_holds_big_int, binding_holds_rational, binding_rationals_as_reals, bindings_to_wire,
@@ -30,10 +32,11 @@ use crate::migration::{
 };
 use crate::query::{elements_of, Query, QueryElement};
 use crate::results::{
-    analysis_of, calc_of, diagnostics_of, exploration_of, satisfaction_of, single_verdict,
-    sweep_of, validation_of, value_map, ActionRun, AnalysisResult, CalcResult, EngineInfo,
-    Exploration, ExploredResponse, Satisfaction, StateRun, SweepRange, SweepTable, Validation,
-    Verdict, ENGINE_AUTO, ENGINE_EXPLORE, QUESTION_EVALUATE,
+    analysis_of, calc_of, comparison_of, diagnostics_of, exploration_of, import_result_of,
+    satisfaction_of, single_verdict, sweep_of, validation_of, value_map, ActionRun, AnalysisResult,
+    CalcResult, Comparison, EngineInfo, Exploration, ExploredResponse, ImportResult, Satisfaction,
+    StateRun, SweepRange, SweepTable, Validation, Verdict, ENGINE_AUTO, ENGINE_EXPLORE,
+    QUESTION_EVALUATE,
 };
 use crate::sources::{documents_to_wire, SourceDocument};
 use crate::wire;
@@ -66,7 +69,7 @@ pub struct SourcesOptions {
 }
 
 /// How to run an action or state machine.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct RunOptions {
     /// The scheduling policy choice points resolve under; `None` is the service's default.
     /// An exploring schedule (`explore`, `explore:runs=<n>,depth=<d>`) belongs to the
@@ -76,6 +79,15 @@ pub struct RunOptions {
     pub performer: Option<String>,
     /// Return a state's documented execution records.
     pub trace: bool,
+    /// Simulated time, in seconds, to run for (`sysml -advance`); `None` runs to completion.
+    pub advance: Option<f64>,
+    /// The seed the model's own draws are taken from (`sysml -seed`); `None` leaves them to
+    /// the schedule.
+    pub seed: Option<u64>,
+    /// How RandomFunctions draws resolve (`sysml -draws`): `random`, `min`, `max` or `average`.
+    pub draws: Option<String>,
+    /// The step, in seconds, the run's clock ticks by (`sysml -clock-step`); 0 is continuous.
+    pub clock_step: f64,
 }
 
 /// What to ask a verification and of whom.
@@ -106,6 +118,9 @@ pub struct AnalysisOptions {
     pub schedule: Option<String>,
     /// The engine to ask.
     pub engine: Option<String>,
+    /// Run the case only to its first external tool call and answer what the tool would be
+    /// given (`sysml -tool-dry-run`), without starting it.
+    pub tool_dry_run: bool,
 }
 
 /// How to sweep an analysis case or calc.
@@ -435,6 +450,76 @@ impl Connection {
         })
     }
 
+    /// Search every schedule of an action for a violated property, a deadlock, a
+    /// failure or a divergent value, as `sysml -check-property` does.
+    pub fn check_action(
+        &self,
+        model_hash: &str,
+        action_id: &str,
+        inputs: &BTreeMap<String, Value>,
+        options: &CheckOptions,
+    ) -> Result<CheckResult, Error> {
+        self.check_behavior(model_hash, action_id, "", inputs, options)
+    }
+
+    /// Search every schedule of a state machine; see [`Connection::check_action`].
+    pub fn check_state_machine(
+        &self,
+        model_hash: &str,
+        state_machine_id: &str,
+        options: &CheckOptions,
+    ) -> Result<CheckResult, Error> {
+        self.check_behavior(model_hash, "", state_machine_id, &BTreeMap::new(), options)
+    }
+
+    fn check_behavior(
+        &self,
+        model_hash: &str,
+        action_id: &str,
+        state_machine_id: &str,
+        inputs: &BTreeMap<String, Value>,
+        options: &CheckOptions,
+    ) -> Result<CheckResult, Error> {
+        let inputs = self.named_to_wire(inputs)?;
+        let mut capabilities = vec![CAPABILITY_CHECK];
+        if options.performer.as_deref().is_some_and(|p| !p.is_empty()) {
+            capabilities.push(CAPABILITY_PERFORMER);
+        }
+        self.require_all(&capabilities)?;
+        let response: wire::CheckBehaviorResponse = self.gated_rpc(
+            "CheckBehavior",
+            wire::CheckBehaviorRequest {
+                model_hash: model_hash.to_owned(),
+                action_symbol_id: action_id.to_owned(),
+                state_machine_symbol_id: state_machine_id.to_owned(),
+                inputs,
+                performer_symbol_id: options.performer.clone().unwrap_or_default(),
+                check_property: options.properties.clone(),
+                check_diverge: options.diverge.clone(),
+                check_input: options.free_inputs.clone(),
+                check_assume: options.assume.clone(),
+                check_witness: options.witness,
+                check_depth: options.depth,
+                check_states: options.states,
+                check_unroll: options.unroll,
+                check_timeout: options.timeout,
+                engine: options.engine.clone().unwrap_or_default(),
+            },
+            &capabilities,
+        )?;
+        if !response.error.is_empty() {
+            return Err(Error::Execution {
+                message: response.error,
+                reason: FailureReason::Unspecified,
+                diagnostics: Vec::new(),
+                trace: Vec::new(),
+                trace_dropped: 0,
+                final_time: 0.0,
+            });
+        }
+        Ok(CheckResult::from_wire(response))
+    }
+
     /// Export the lowered graph of an action or state machine, and of every
     /// behavior it performs, as the canonical `graphs:1` JSON an external
     /// analysis engine is sent.
@@ -527,11 +612,11 @@ impl Connection {
         model_hash: &str,
         action_id: &str,
         inputs: &BTreeMap<String, Value>,
+        options: &RunOptions,
         schedule: Option<&str>,
-        performer: Option<&str>,
     ) -> Result<wire::ExecuteActionResponse, Error> {
         let inputs = self.named_to_wire(inputs)?;
-        let capabilities = self.run_capabilities(schedule, performer)?;
+        let capabilities = self.run_capabilities(schedule, options.performer.as_deref())?;
         self.gated_rpc(
             "ExecuteAction",
             wire::ExecuteActionRequest {
@@ -539,7 +624,11 @@ impl Connection {
                 action_symbol_id: action_id.to_owned(),
                 inputs,
                 schedule: schedule.unwrap_or_default().to_owned(),
-                performer_symbol_id: performer.unwrap_or_default().to_owned(),
+                performer_symbol_id: options.performer.clone().unwrap_or_default(),
+                advance: options.advance,
+                seed: options.seed,
+                draws: options.draws.clone().unwrap_or_default(),
+                clock_step: options.clock_step,
             },
             &capabilities,
         )
@@ -550,11 +639,11 @@ impl Connection {
         model_hash: &str,
         machine_id: &str,
         events: &[S],
+        options: &RunOptions,
         schedule: Option<&str>,
-        performer: Option<&str>,
         trace: bool,
     ) -> Result<wire::ExecuteStateResponse, Error> {
-        let mut capabilities = self.run_capabilities(schedule, performer)?;
+        let mut capabilities = self.run_capabilities(schedule, options.performer.as_deref())?;
         if trace {
             capabilities.push(CAPABILITY_STATE_TRACE);
         }
@@ -565,8 +654,12 @@ impl Connection {
                 state_machine_symbol_id: machine_id.to_owned(),
                 events: events.iter().map(|e| e.as_ref().to_owned()).collect(),
                 schedule: schedule.unwrap_or_default().to_owned(),
-                performer_symbol_id: performer.unwrap_or_default().to_owned(),
+                performer_symbol_id: options.performer.clone().unwrap_or_default(),
                 trace,
+                advance: options.advance,
+                seed: options.seed,
+                draws: options.draws.clone().unwrap_or_default(),
+                clock_step: options.clock_step,
             },
             &capabilities,
         )
@@ -586,8 +679,8 @@ impl Connection {
             model_hash,
             action_id,
             inputs,
+            options,
             options.schedule.as_deref(),
-            options.performer.as_deref(),
         )?;
         let wire = response.clone();
         let diagnostics = diagnostics_of(&response.diagnostics);
@@ -598,6 +691,7 @@ impl Connection {
                 diagnostics,
                 trace: Vec::new(),
                 trace_dropped: 0,
+                final_time: response.final_time,
             });
         }
         Ok(ActionRun {
@@ -621,13 +715,7 @@ impl Connection {
         Self::refuse_action_trace(options)?;
         let schedule = options.schedule.as_deref().unwrap_or(SCHEDULE_EXPLORE);
         require_exploring(schedule)?;
-        let response = self.run_action(
-            model_hash,
-            action_id,
-            inputs,
-            Some(schedule),
-            options.performer.as_deref(),
-        )?;
+        let response = self.run_action(model_hash, action_id, inputs, options, Some(schedule))?;
         exploration_of(ExploredResponse::Action(Box::new(response)))
     }
 
@@ -653,8 +741,8 @@ impl Connection {
             model_hash,
             machine_id,
             events,
+            options,
             options.schedule.as_deref(),
-            options.performer.as_deref(),
             options.trace,
         )?;
         let wire = response.clone();
@@ -696,8 +784,8 @@ impl Connection {
             model_hash,
             machine_id,
             events,
+            options,
             Some(schedule),
-            options.performer.as_deref(),
             false,
         )?;
         exploration_of(ExploredResponse::State(Box::new(response)))
@@ -705,10 +793,20 @@ impl Connection {
 
     /// The engines the service registers, served or not.
     pub fn list_engines(&self) -> Result<Vec<EngineInfo>, Error> {
+        self.engines(false)
+    }
+
+    /// The engines, each external one started once and checked against its manifest, as
+    /// `sysml -engines -probe` does.
+    pub fn probe_engines(&self) -> Result<Vec<EngineInfo>, Error> {
+        self.engines(true)
+    }
+
+    fn engines(&self, probe: bool) -> Result<Vec<EngineInfo>, Error> {
         self.require_all(&[CAPABILITY_ENGINES])?;
         let response: wire::ListEnginesResponse = self.gated_rpc(
             "ListEngines",
-            wire::ListEnginesRequest {},
+            wire::ListEnginesRequest { probe },
             &[CAPABILITY_ENGINES],
         )?;
         Ok(response.engines.into_iter().map(EngineInfo::from).collect())
@@ -892,6 +990,7 @@ impl Connection {
             named_arguments: self.named_to_wire(&options.named_arguments)?,
             schedule: schedule.unwrap_or_default().to_owned(),
             engine: engine_field(options.engine.as_deref()),
+            tool_dry_run: options.tool_dry_run,
         };
         self.gated_rpc("RunAnalysis", request, &with_values(capabilities))
     }
@@ -978,6 +1077,113 @@ impl Connection {
     }
 }
 
+/// One data file of [`Connection::import_data`].
+#[derive(Clone, Debug, Default)]
+pub struct DataImport {
+    /// The file's name, which names its format by extension.
+    pub name: String,
+    /// The file's text, one row per element.
+    pub content: String,
+    /// Read the content as csv, tsv, json or jsonl rather than as the extension says.
+    pub format: Option<String>,
+    /// The JSON mapping onto elements and features the content is read by.
+    pub map: Option<String>,
+}
+
+/// Options of [`Connection::import_data`].
+#[derive(Clone, Debug, Default)]
+pub struct DataImportOptions {
+    /// Report the values the imports would set, changing nothing.
+    pub dry_run: bool,
+    /// Accept every edited document of a model of several.
+    pub accept_documents: bool,
+}
+
+/// Options of [`Connection::compare_results`]: which configurations, how many
+/// runs, how seeded and what to observe.
+#[derive(Clone, Debug, Default)]
+pub struct CompareOptions {
+    /// The configurations compared, by qualified or simple name; all when empty.
+    pub actions: Vec<String>,
+    /// Runs made of every configuration when positive; else its own numberOfRuns, or one.
+    pub runs: i64,
+    /// The seed the runs derive theirs from.
+    pub seed: Option<u64>,
+    /// The draw policy replacing every configuration's: random, min, max or average.
+    pub draws: Option<String>,
+    /// The clock step replacing every configuration's, in seconds; 0 is continuous.
+    pub clock_step: Option<f64>,
+    /// Stored observables compared, each with the feature of the run that answers it ("" for the default).
+    pub observe: Vec<(String, String)>,
+    /// The engine selection.
+    pub engine: Option<String>,
+}
+
+impl Connection {
+    /// Sets the feature values data files assign, one edit of the model per
+    /// file, as `sysml -import` does.
+    pub fn import_data(
+        &self,
+        model_hash: &str,
+        imports: &[DataImport],
+        options: &DataImportOptions,
+    ) -> Result<ImportResult, Error> {
+        let capabilities = vec![CAPABILITY_IMPORT_DATA];
+        self.require_all(&capabilities)?;
+        let request = wire::ImportDataRequest {
+            model_hash: model_hash.to_owned(),
+            imports: imports
+                .iter()
+                .map(|i| wire::DataImport {
+                    name: i.name.clone(),
+                    content: i.content.clone(),
+                    import_format: i.format.clone().unwrap_or_default(),
+                    import_map: i.map.clone().unwrap_or_default(),
+                })
+                .collect(),
+            import_as: String::new(),
+            import_dry_run: options.dry_run,
+            accept_documents: options.accept_documents,
+        };
+        let response = self.gated_rpc("ImportData", request, &capabilities)?;
+        import_result_of(response)
+    }
+
+    /// Runs the configurations a SysML v1 tool's results sidecar indexes
+    /// against the model and tables the tool's distributions beside the runs',
+    /// as `sysml -compare-results` does.
+    pub fn compare_results(
+        &self,
+        model_hash: &str,
+        results: &str,
+        options: &CompareOptions,
+    ) -> Result<Comparison, Error> {
+        let mut capabilities = vec![CAPABILITY_COMPARE_RESULTS];
+        capabilities.extend(engine_capabilities(options.engine.as_deref()));
+        self.require_all(&capabilities)?;
+        let request = wire::CompareResultsRequest {
+            model_hash: model_hash.to_owned(),
+            results: results.to_owned(),
+            actions: options.actions.clone(),
+            runs: options.runs,
+            seed: options.seed,
+            draws: options.draws.clone().unwrap_or_default(),
+            clock_step: options.clock_step,
+            observe: options
+                .observe
+                .iter()
+                .map(|(stored, feature)| wire::ObservablePair {
+                    stored: stored.clone(),
+                    feature: feature.clone(),
+                })
+                .collect(),
+            engine: engine_field(options.engine.as_deref()),
+        };
+        let response = self.gated_rpc("CompareResults", request, &capabilities)?;
+        comparison_of(response, self.capabilities())
+    }
+}
+
 fn with_values(mut capabilities: Vec<&'static str>) -> Vec<&'static str> {
     capabilities.extend_from_slice(VALUE_CAPABILITIES);
     capabilities
@@ -998,6 +1204,7 @@ fn state_failure(
         diagnostics,
         trace,
         trace_dropped: response.trace_dropped,
+        final_time: response.final_time,
     })
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -412,5 +413,45 @@ func TestRenderViewDepth(t *testing.T) {
 	_, err = srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: parsed.ModelHash, View: "Deep::structure", Depth: -1})
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Errorf("depth -1: err = %v, want InvalidArgument", err)
+	}
+}
+
+// An interconnection rendering of a bodiless usage shows the parts it has from
+// its definition, each expanded through its own type.
+func TestRenderViewExpandsUsagesThroughTheirTypes(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "runtime-showcase", "mass-rollup.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, _ := parseContent(t, srv, string(content))
+	rendered, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
+		ModelHash: parsed.ModelHash, View: "#interconnection:MassRollup::saturnV", Ports: "minimal", Depth: 3,
+	})
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	children := map[string][]string{}
+	for _, node := range rendered.Nodes {
+		children[node.Parent] = append(children[node.Parent], node.Name)
+	}
+	if roots := children[""]; len(roots) != 1 || roots[0] != "MassRollup::saturnV" {
+		t.Fatalf("roots = %v, want saturnV alone", roots)
+	}
+	root := rendered.Nodes[0]
+	want := []string{"mass", "stage1", "stage2", "stage3", "subcomponents", "totalMass"}
+	if got := slices.Sorted(slices.Values(children[root.Id])); !slices.Equal(got, want) {
+		t.Errorf("saturnV holds %v, want %v", got, want)
+	}
+	for _, node := range rendered.Nodes {
+		if node.Parent != root.Id || !strings.HasPrefix(node.Name, "stage") {
+			continue
+		}
+		for _, name := range []string{"engine1", "engines", "propellantMass", "mass", "totalMass", "subcomponents"} {
+			if !slices.Contains(children[node.Id], name) {
+				t.Errorf("%s lacks %s from its type; holds %v", node.Name, name, children[node.Id])
+			}
+		}
 	}
 }

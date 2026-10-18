@@ -65,6 +65,12 @@ CAPABILITY_RENDER_VIEW = "render_view"
 #: The ``ExportGraphs`` RPC, which exports the lowered graph of an action or
 #: state machine as the canonical ``graphs:1`` JSON an external engine is sent.
 CAPABILITY_EXPORT_GRAPHS = "export_graphs"
+CAPABILITY_IMPORT_DATA = "import_data"
+CAPABILITY_COMPARE_RESULTS = "compare_results"
+
+#: The ``CheckBehavior`` RPC, which searches every schedule of a behavior for
+#: violated properties, deadlocks, failures and divergent values.
+CAPABILITY_CHECK = "check"
 
 #: ``form`` on ``RenderDocumentRequest``, which asks ``RenderDocument`` for the
 #: HTML page instead of Markdown. Without it the service would render Markdown

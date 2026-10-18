@@ -1,0 +1,86 @@
+// view: TypedUsageViews::rocketLinks
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// not represented: 4 elements nested deeper than 3 levels not shown
+// layout: dot
+digraph "TypedUsageViews::rocketLinks" {
+  graph [fontname="Helvetica", compound=true];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«part»</i></font><br/><b>rocket</b>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n0.0" [shape=box, label="", xlabel="telemetry", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true];
+    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
+    subgraph "cluster_n2" {
+      label=<<font point-size="10"><i>«part»</i></font><br/><b>stage1</b>>;
+      color=black;
+      penwidth=0.5;
+      "n2" [shape=point, style=invis, width=0, height=0, label=""];
+      "n2.0" [shape=box, label="", xlabel="status", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true];
+      "n3" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>propellantMass</b>>];
+      subgraph "cluster_n4" {
+        label=<<font point-size="10"><i>«part»</i></font><br/><b>engines</b>>;
+        color=black;
+        penwidth=0.5;
+        "n4" [shape=point, style=invis, width=0, height=0, label=""];
+        "n5" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>thrust</b>>];
+        "n6" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
+        "n7" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>subcomponents</b><br/>nested deeper than 3 levels; not shown>];
+      }
+      subgraph "cluster_n8" {
+        label=<<font point-size="10"><i>«part»</i></font><br/><b>subcomponents</b>>;
+        color=black;
+        penwidth=0.5;
+        "n8" [shape=point, style=invis, width=0, height=0, label=""];
+        "n9" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
+        "n10" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>subcomponents</b><br/>nested deeper than 3 levels; not shown>];
+      }
+      "n11" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
+    }
+    subgraph "cluster_n12" {
+      label=<<font point-size="10"><i>«part»</i></font><br/><b>stage2</b>>;
+      color=black;
+      penwidth=0.5;
+      "n12" [shape=point, style=invis, width=0, height=0, label=""];
+      "n13" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>propellantMass</b>>];
+      subgraph "cluster_n14" {
+        label=<<font point-size="10"><i>«part»</i></font><br/><b>engines</b>>;
+        color=black;
+        penwidth=0.5;
+        "n14" [shape=point, style=invis, width=0, height=0, label=""];
+        "n15" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>thrust</b>>];
+        "n16" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
+        "n17" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>subcomponents</b><br/>nested deeper than 3 levels; not shown>];
+      }
+      subgraph "cluster_n18" {
+        label=<<font point-size="10"><i>«part»</i></font><br/><b>subcomponents</b>>;
+        color=black;
+        penwidth=0.5;
+        "n18" [shape=point, style=invis, width=0, height=0, label=""];
+        "n19" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
+        "n20" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>subcomponents</b><br/>nested deeper than 3 levels; not shown>];
+      }
+      "n21" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
+    }
+    subgraph "cluster_n22" {
+      label=<<font point-size="10"><i>«part»</i></font><br/><b>subcomponents</b>>;
+      color=black;
+      penwidth=0.5;
+      "n22" [shape=point, style=invis, width=0, height=0, label=""];
+      "n23" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
+      subgraph "cluster_n24" {
+        label=<<font point-size="10"><i>«part»</i></font><br/><b>subcomponents</b>>;
+        color=black;
+        penwidth=0.5;
+        "n24" [shape=point, style=invis, width=0, height=0, label=""];
+        "n25" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
+      }
+    }
+  }
+  "n2.0" -> "n0.0" [arrowhead=none, penwidth=3];
+  "n8" -> "n4" [arrowhead=none, ltail="cluster_n8", lhead="cluster_n4"];
+  "n18" -> "n14" [arrowhead=none, ltail="cluster_n18", lhead="cluster_n14"];
+}

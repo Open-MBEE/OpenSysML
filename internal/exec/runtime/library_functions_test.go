@@ -260,7 +260,7 @@ func TestOpenSysMLMathFunctionsMatchTheShippedDeclarations(t *testing.T) {
 			continue
 		}
 		declared++
-		fqn := ctx.qualifiedSymbolName(sym)
+		fqn := ctx.QualifiedName(sym)
 		fn, ok := ctx.libraryFunctionFor(sym)
 		if !ok {
 			t.Errorf("%s is declared in %s but has no built-in implementation", fqn, path)
@@ -1290,7 +1290,7 @@ func TestVendoredFunctionsAreAllDispatchable(t *testing.T) {
 					continue
 				}
 				declared++
-				fqn := ctx.qualifiedSymbolName(sym)
+				fqn := ctx.QualifiedName(sym)
 				fn, ok := libraryFunctionByName(fqn)
 				if !ok {
 					if _, isBuiltin := builtins[fqn]; !isBuiltin {

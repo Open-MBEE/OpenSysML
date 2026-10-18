@@ -74,6 +74,15 @@ export type {
 } from "./render-view.js";
 export { renderedViewFromJson } from "./render-view.js";
 export type { Graphs } from "./graphs.js";
+export type {
+  CheckDivergence,
+  CheckFinal,
+  CheckOptions,
+  CheckResult,
+  CheckSearch,
+  CheckViolation,
+  CheckWitness,
+} from "./check.js";
 export {
   ENGINE_ALL,
   ENGINE_AUTO,
@@ -106,8 +115,10 @@ export {
   referrersOf,
 } from "./edit.js";
 export type { EditOperationData, EditTarget } from "./edit.js";
+export type { ToolDryRun } from "./verdict.js";
 export {
   AnalysisResult,
+  toolDryRunOf,
   CalcResult,
   CaseEvaluation,
   KIND_ASSERTION,
@@ -137,6 +148,16 @@ export {
   verificationPassed,
   verdictEvaluated,
   verdictHolds,
+  ImportResult,
+  ImportedFile,
+  ImportedValue,
+  Comparison,
+  ConfigurationComparison,
+  ObservableComparison,
+  ComparedDistribution,
+  type StatisticDifference,
+  type CaseStatistics,
+  type CaseStatistic,
 } from "./verdict.js";
 export type { Verdict } from "./verdict.js";
 export {
@@ -208,6 +229,8 @@ export {
   mismatchReason,
   requireCapability,
   upgradeRemedy,
+  CAPABILITY_IMPORT_DATA,
+  CAPABILITY_COMPARE_RESULTS,
 } from "./capabilities.js";
 export {
   AnalysisRunError,

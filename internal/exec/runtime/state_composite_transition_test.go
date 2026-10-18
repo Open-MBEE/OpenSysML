@@ -24,7 +24,7 @@ func TestCompositeStateHandlesEventItsSubstateDoesNot(t *testing.T) {
 		}
 	}`)
 
-	exec.sendSignal("abort", nil)
+	exec.SendSignal("abort", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestFalseGuardInsideACompositeStateFallsOutward(t *testing.T) {
 		}
 	}`)
 
-	exec.sendSignal("abort", nil)
+	exec.SendSignal("abort", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestTransitionOutOfAnIntermediateCompositeStateKeepsItsOwnerActive(t *testi
 		}
 	}`)
 
-	exec.sendSignal("abort", nil)
+	exec.SendSignal("abort", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -115,8 +115,8 @@ func TestOuterCompositeStateStillHandlesItsEventAfterASubstateMoved(t *testing.T
 		}
 	}`)
 
-	exec.sendSignal("abort", nil)
-	exec.sendSignal("shutdown", nil)
+	exec.SendSignal("abort", nil)
+	exec.SendSignal("shutdown", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestEventNoLevelAcceptsLeavesTheConfigurationAlone(t *testing.T) {
 		}
 	}`)
 
-	exec.sendSignal("unknown", nil)
+	exec.SendSignal("unknown", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestOneEventTakesOneTransitionPerActiveLeaf(t *testing.T) {
 	}`
 
 	exec := stateExecutorForSource(t, "sm", source)
-	exec.sendSignal("e", nil)
+	exec.SendSignal("e", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -183,8 +183,8 @@ func TestOneEventTakesOneTransitionPerActiveLeaf(t *testing.T) {
 	}
 
 	exec = stateExecutorForSource(t, "sm", source)
-	exec.sendSignal("e", nil)
-	exec.sendSignal("e", nil)
+	exec.SendSignal("e", nil)
+	exec.SendSignal("e", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestOneEventTakesACompositesTransitionOnce(t *testing.T) {
 			transition first Working accept restart do assign log := log + 1 then Working;
 		}
 	}`)
-	exec.sendSignal("restart", nil)
+	exec.SendSignal("restart", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -402,7 +402,7 @@ func TestOneRegionsInnerTransitionLeavesAConcurrentRegionsOwnTransition(t *testi
 		}
 	}`)
 
-	exec.sendSignal("e", nil)
+	exec.SendSignal("e", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -456,7 +456,7 @@ func TestOrthogonalMachineCompletesAfterAllRegionFinalStates(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			exec := stateExecutorForSource(t, "Machine", "package test {\n"+tt.body+"\n}")
 
-			exec.sendSignal("First", nil)
+			exec.SendSignal("First", nil)
 			if err := exec.RunToCompletion(); err != nil {
 				t.Fatalf("run after First: %v", err)
 			}
@@ -467,7 +467,7 @@ func TestOrthogonalMachineCompletesAfterAllRegionFinalStates(t *testing.T) {
 				t.Fatalf("exit behavior after First ran %d times, want 0", got)
 			}
 
-			exec.sendSignal("Second", nil)
+			exec.SendSignal("Second", nil)
 			if err := exec.RunToCompletion(); err != nil {
 				t.Fatalf("run after Second: %v", err)
 			}
@@ -478,7 +478,7 @@ func TestOrthogonalMachineCompletesAfterAllRegionFinalStates(t *testing.T) {
 				t.Fatalf("exit behavior ran %d times, want 1", got)
 			}
 
-			exec.sendSignal("Second", nil)
+			exec.SendSignal("Second", nil)
 			if err := exec.RunToCompletion(); err != nil {
 				t.Fatalf("rerun after completion: %v", err)
 			}
@@ -558,8 +558,8 @@ func TestUndeferredEventIsDroppedWhereNoTransitionHandlesIt(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	exec.sendSignal("Ping", nil)
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Ping", nil)
+	exec.SendSignal("Go", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -597,7 +597,7 @@ func TestExitedNestedRegionDoesNotReactToTheSameEvent(t *testing.T) {
 		}
 	}`)
 
-	exec.sendSignal("Ping", nil)
+	exec.SendSignal("Ping", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
