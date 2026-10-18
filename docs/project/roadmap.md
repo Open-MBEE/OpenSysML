@@ -225,12 +225,11 @@ already ran. The procedure and its post-tag verification are in `docs/project/re
 ## R1 — the changelog agrees with the tags (done)
 
 In `docs/project/archive/CHANGELOG-0.0-0.8.md`, the **0.4.3** section holds what `99e02003`
-shipped (#877), its **0.5.0** section
-what `0fdeb11e` shipped (#894), its **0.5.1** section what `d7b3eb45` shipped, its **0.6.0**
-section what `30f103bb9` shipped (#988), its **0.7.0** section what `e0fbfea5b` shipped (#145,
-#154, #159), its **0.8.0** section what `238aed650` shipped (#268, #277), and its **0.9.0** and
-**0.9.1** sections what `ee54ea03e` (#564) and `b9de3b070` (#614) shipped, each dated to its
-tag; **Unreleased** is empty in the file because since #852 a change adds a fragment under
+shipped (#877), its **0.5.0** section what `0fdeb11e` shipped (#894), its **0.5.1** section what
+`d7b3eb45` shipped, its **0.6.0** section what `30f103bb9` shipped (#988), its **0.7.0** section
+what `e0fbfea5b` shipped (#145, #154, #159) and its **0.8.0** section what `238aed650` shipped
+(#268, #277); `CHANGELOG.md`'s **0.9.0** and **0.9.1** sections hold what `ee54ea03e` (#564) and
+`b9de3b070` (#614) shipped, each dated to its tag; its **Unreleased** is empty in the file because since #852 a change adds a fragment under
 `changes/unreleased/` instead, and `python3 scripts/changelog.py release X.Y.Z` folds the
 fragments in at release time (`releasing.md`). The 0.5.0 fold was the first release cut that way
 and every release since followed it; under git-flow the fold rides the `release/x.y.z` pull
