@@ -223,8 +223,8 @@ func TestToolBudgetAndRounds(t *testing.T) {
 	for _, rec := range burstCell.Attempts[0].ToolCalls {
 		if rec.Refused {
 			refused++
-			if !rec.IsError || rec.ResultBytes != 0 {
-				t.Errorf("refused call recorded as served: %+v", rec)
+			if !rec.IsError || rec.ResultBytes == 0 || len(rec.ResultDigest) != 64 || !strings.Contains(rec.Result, "budget") {
+				t.Errorf("refused call lacks the answer the model saw: %+v", rec)
 			}
 		}
 	}

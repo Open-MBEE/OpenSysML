@@ -34,6 +34,7 @@ type Results struct {
 
 // Finish fills the aggregates from the cells.
 func (r *Results) Finish() {
+	r.ModelReported = reportedModels(r.Cells)
 	r.Arms = map[Arm]Aggregate{}
 	byArm := map[Arm][]CellResult{}
 	for _, c := range r.Cells {
@@ -131,4 +132,20 @@ func MarkdownSignificance(r *Results) string {
 		fmt.Fprintf(&b, "| %s | %d | %+.3f | %.2f | %.3f | %d/%d | %.3f |\n", p.Metric, p.Pairs, p.MeanDiff, p.T, p.PT, p.Wins, p.Losses, p.PSign)
 	}
 	return b.String()
+}
+
+// reportedModels lists the distinct model ids the provider returned, sorted.
+func reportedModels(cells []CellResult) string {
+	seen := map[string]bool{}
+	var models []string
+	for _, c := range cells {
+		for _, a := range c.Attempts {
+			if a.Model != "" && !seen[a.Model] {
+				seen[a.Model] = true
+				models = append(models, a.Model)
+			}
+		}
+	}
+	sort.Strings(models)
+	return strings.Join(models, ", ")
 }

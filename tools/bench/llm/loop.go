@@ -205,8 +205,7 @@ func (r *Runner) generate(ctx context.Context, req *Request, round int) (string,
 			if calls < MaxToolCallsPerRound {
 				text, rec = r.MCP.Call(ctx, round, call)
 			} else {
-				text = fmt.Sprintf("tool budget of %d calls per round exhausted; the call was not made", MaxToolCallsPerRound)
-				rec = ToolCallRecord{Round: round, Name: call.Name, Arguments: call.Arguments, IsError: true, Refused: true}
+				text, rec = r.MCP.Refuse(round, call)
 			}
 			calls++
 			attempt.ToolCalls = append(attempt.ToolCalls, rec)

@@ -132,6 +132,20 @@ func (a *MCPArm) Call(ctx context.Context, round int, call ToolCall) (string, To
 		}
 		rec.IsError = res.IsError
 	}
+	rec.answer(text)
+	return text, rec
+}
+
+// Refuse answers a call that exceeded MaxToolCallsPerRound without making it.
+func (a *MCPArm) Refuse(round int, call ToolCall) (string, ToolCallRecord) {
+	rec := ToolCallRecord{Round: round, Name: call.Name, Arguments: call.Arguments, IsError: true, Refused: true}
+	text := fmt.Sprintf("tool budget of %d calls per round exhausted; the call was not made", MaxToolCallsPerRound)
+	rec.answer(text)
+	return text, rec
+}
+
+// answer records the text the model was given: its digest, size and preview.
+func (rec *ToolCallRecord) answer(text string) {
 	sum := sha256.Sum256([]byte(text))
 	rec.ResultDigest = hex.EncodeToString(sum[:])
 	rec.ResultBytes = len(text)
@@ -139,7 +153,6 @@ func (a *MCPArm) Call(ctx context.Context, round int, call ToolCall) (string, To
 	if len(rec.Result) > ResultPreview {
 		rec.Result = rec.Result[:ResultPreview] + "…"
 	}
-	return text, rec
 }
 
 // Close stops the server and removes the scratch root.
