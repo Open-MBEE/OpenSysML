@@ -373,12 +373,12 @@ A language server tells an agent what is wrong with a file; `sysml-mcp` lets the
 is a [Model Context Protocol](https://modelcontextprotocol.io) server that an agent host —
 OpenCode, Claude Code, Cursor, Codex, VS Code's Copilot, Gemini CLI, Devin — starts in the
 project directory and calls as tools. Three groups are served: the language server's workspace
-(`diagnostics`, `hover`, `definition`, `references`, `rename`, `format`, `render_view`, ... over
+(`workspace_diagnostics`, `hover`, `definition`, `references`, `rename`, `format`, `render_view`, ... over
 the documents under the root), the runtime (`parse`, `evaluate`, `instantiate`, `execute_action`,
 `verify_requirement`, `run_analysis`, `convert`, `migrate`, ...) and REPL sessions
 (`session_open`, `session_submit`, `session_run`, the debugger, the solver commands, ...) whose
 model, objects and runs persist across the agent's calls. An agent asked to fix a model runs
-`diagnostics`, edits, runs them again; asked whether a requirement holds, it instantiates the
+`workspace_diagnostics`, edits, runs them again; asked whether a requirement holds, it instantiates the
 part and calls `verify_requirement` instead of reasoning about the arithmetic.
 
 The server speaks the protocol over stdin and stdout, so it is never run at a prompt; the host
