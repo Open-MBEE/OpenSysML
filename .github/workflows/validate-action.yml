@@ -1,5 +1,7 @@
 # The composite action at the repository root, run over examples/ with a sysml built
 # from the tree and, on each runner platform, with the release the install scripts fetch.
+# The release jobs download the published archives, so they run only when the action
+# or the install scripts change; every download they make counts as an install.
 name: Validate action
 
 on:
@@ -21,6 +23,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Changed areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      installer: ${{ steps.installer.outputs.installer }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decide whether the installed release runs
+        id: installer
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          changed=$(git diff --name-only "$(git merge-base "origin/$BASE_REF" HEAD)" HEAD -- \
+            action.yml install.sh install.ps1 .github/workflows/validate-action.yml)
+          if [ -n "$changed" ]; then echo "installer=true"; else echo "installer=false"; fi | tee -a "$GITHUB_OUTPUT"
+
   tree:
     name: From the tree
     runs-on: ubuntu-latest
@@ -101,6 +122,8 @@ jobs:
 
   release:
     name: Installed release (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.installer == 'true'
     strategy:
       fail-fast: false
       matrix:
