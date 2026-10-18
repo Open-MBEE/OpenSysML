@@ -111,6 +111,12 @@ func (d Discovery) Around(paths []string) Projects {
 	}
 	var out Projects
 	for _, dir := range nearest {
+		if IsArchiveFile(dir) {
+			if a, err := openCached(dir); err == nil {
+				out.Enclosing = append(out.Enclosing, a.Project)
+			}
+			continue
+		}
 		if project, err := ReadInterchange(dir); err == nil {
 			out.Enclosing = append(out.Enclosing, project)
 		}
@@ -125,9 +131,9 @@ func (d Discovery) Around(paths []string) Projects {
 	return out
 }
 
-// libraryRoots lists the directories installed projects are looked for under:
-// the configured roots, then the well-known library directories under each
-// project directory; those that exist, each once.
+// libraryRoots lists the roots installed projects are looked for under: the
+// configured roots (a directory or an archive), then the well-known library
+// directories under each project directory; those that exist, each once.
 func (d Discovery) libraryRoots(projectDirs []string) []string {
 	var out []string
 	seen := map[string]bool{}
@@ -137,7 +143,7 @@ func (d Discovery) libraryRoots(projectDirs []string) []string {
 			return
 		}
 		seen[key] = true
-		if info, err := os.Stat(root); err == nil && info.IsDir() {
+		if info, err := os.Stat(root); err == nil && (info.IsDir() || IsArchiveFile(root)) {
 			out = append(out, root)
 		}
 	}
