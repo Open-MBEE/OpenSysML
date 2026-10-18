@@ -100,3 +100,45 @@ func TestSubsetsTransitivelyWalksDeclaredImplicitAndRedefined(t *testing.T) {
 		})
 	}
 }
+
+const kernelCollectionOpenModel = `
+	package test {
+		part def Child;
+		part def Q {
+			part children : Child[1..*];
+		}
+		part q : Q;
+	}
+`
+
+// TestKernelCollectionOpenReadStaysOpen pins that a model-level read of a derived
+// Kernel collection stops where a subsetter's count is open, with the subsetter's
+// fewest as its own, while a read of the object as held fills the subsetter first.
+func TestKernelCollectionOpenReadStaysOpen(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, kernelCollectionOpenModel))
+	matches := idx.LookupQualified("test::q")
+	if len(matches) != 1 {
+		t.Fatalf("test::q: %d matching symbols, want 1", len(matches))
+	}
+	inst, err := ctx.Instantiate(matches[0])
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	fv, open, err := inst.openFeatureValue(ctx, "suboccurrences")
+	if err != nil {
+		t.Fatalf("openFeatureValue(suboccurrences): %v", err)
+	}
+	if fewest := max(int64(len(open.Contributed)), open.AtLeast); !open.Stopped || fewest != 1 {
+		t.Fatalf("open read of suboccurrences = %+v, want stopped at no fewer than 1: children's count is open", *open)
+	}
+	if fv.Materialized {
+		t.Fatalf("open read of suboccurrences reports a materialized value")
+	}
+	held, err := inst.GetFeatureValue(ctx, "suboccurrences")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(suboccurrences): %v", err)
+	}
+	if got := len(elementsOf(held.HeldValue())); got != 1 {
+		t.Fatalf("suboccurrences as held: %d elements, want 1 (children made up to its lower bound)", got)
+	}
+}

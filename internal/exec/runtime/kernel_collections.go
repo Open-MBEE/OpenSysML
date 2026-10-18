@@ -13,12 +13,12 @@ import (
 // directly or through what they redefine, in shape order. The second result reports
 // whether name is such a collection; a name the runtime tracks itself or that is no
 // collection is left to the caller.
-func (ctx *Context) kernelCollectionRead(inst *Instance, name string) (*FeatureValue, bool, error) {
+func (ctx *Context) kernelCollectionRead(inst *Instance, name string, open *openPopulation) (*FeatureValue, bool, error) {
 	sym, ok := ctx.kernelCollection(inst.Type, name)
 	if !ok {
 		return nil, false, nil
 	}
-	fv, err := ctx.kernelCollectionValue(inst, sym)
+	fv, err := ctx.kernelCollectionValue(inst, sym, open)
 	return fv, true, err
 }
 
@@ -59,37 +59,67 @@ func (ctx *Context) kernelCollection(typ *symbols.Symbol, name string) (*symbols
 	return sym, true
 }
 
+// derivesKernelCollection reports whether a read of name on inst, absent from its
+// feature values, is answered by kernelCollectionRead.
+func (ctx *Context) derivesKernelCollection(inst *Instance, name string) bool {
+	if inst == nil {
+		return false
+	}
+	_, ok := ctx.kernelCollection(inst.Type, name)
+	return ok
+}
+
 // kernelCollectionValue is the collection sym holds on inst: the elements of every
 // shape feature subsetting it, each object once unless sym is nonunique. It is
-// derived on each read and stored nowhere, so the shape stays as declared.
-func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol) (*FeatureValue, error) {
+// derived on each read and stored nowhere, so the shape stays as declared. A
+// model-level read (open non-nil) that stops short of making up a subsetter's
+// count leaves the collection open too, certainly holding what every subsetter
+// certainly holds and no fewer than the most any one of them holds.
+func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol, open *openPopulation) (*FeatureValue, error) {
 	feat := ctx.effectiveFeature(sym.Name, sym, inst.Type)
 	var values []Value
 	var seen map[int64]bool
+	stopped, atLeast := false, int64(0)
+	add := func(elements []Value) {
+		if feat.Unique {
+			values, seen = appendUniqueInstances(values, elements, seen)
+		} else {
+			values = append(values, elements...)
+		}
+	}
 	features := ctx.FeaturesOf(inst.Type)
 	for i := range features {
 		shape := &features[i]
 		if shape.Symbol == nil || !ctx.subsetsTransitively(shape.Symbol, inst.Type, sym) {
 			continue
 		}
-		fv, err := inst.GetFeatureValue(ctx, shape.Name)
+		var sub *openPopulation
+		if open != nil {
+			sub = &openPopulation{}
+		}
+		fv, err := inst.getFeatureValue(ctx, shape.Name, sub)
 		if err != nil {
 			return nil, err
+		}
+		if sub != nil && sub.Stopped {
+			stopped = true
+			atLeast = max(atLeast, int64(len(sub.Contributed)), sub.AtLeast, fewestOf(shape.Multiplicity))
+			add(sub.Contributed)
+			continue
 		}
 		held, err := ctx.HeldElements(fv.HeldValue())
 		if err != nil {
 			return nil, err
 		}
-		if feat.Unique {
-			values, seen = appendUniqueInstances(values, held, seen)
-		} else {
-			values = append(values, held...)
-		}
+		add(held)
+	}
+	if stopped {
+		open.Stopped, open.Contributed, open.AtLeast = true, values, atLeast
 	}
 	if err := ctx.chargeElements(int64(len(values))); err != nil {
 		return nil, err
 	}
-	return &FeatureValue{Feature: &feat, Values: ctx.collectionOf(&feat, values), Materialized: true}, nil
+	return &FeatureValue{Feature: &feat, Values: ctx.collectionOf(&feat, values), Materialized: !stopped}, nil
 }
 
 // subsetsTransitively reports whether feature, a member of owner, subsets target

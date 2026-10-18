@@ -5,6 +5,7 @@
   "slots": {
     "p1.suboccurrenceCount": {"type": "Integer", "value": 2},
     "p1.subobjectCount": {"type": "Integer", "value": 2},
+    "p1.bareCount": {"type": "Integer", "value": 2},
     "p1.grandchildCount": {"type": "Integer", "value": 1},
     "p1.suboccurrences": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
     "p1.subobjects": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},

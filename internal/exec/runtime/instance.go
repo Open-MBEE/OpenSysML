@@ -816,7 +816,7 @@ func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopul
 		return nil, err
 	}
 	if _, ok := inst.FeatureValues[name]; !ok {
-		if fv, derived, err := ctx.kernelCollectionRead(inst, name); derived {
+		if fv, derived, err := ctx.kernelCollectionRead(inst, name, open); derived {
 			return fv, err
 		}
 		// Naming no feature value of the object is no materialization of one.

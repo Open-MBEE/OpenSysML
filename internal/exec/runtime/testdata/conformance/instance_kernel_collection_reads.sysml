@@ -9,6 +9,7 @@ package test {
         part pb;
         attribute suboccurrenceCount : Integer = self.suboccurrences->SequenceFunctions::size();
         attribute subobjectCount : Integer = self.subobjects->SequenceFunctions::size();
+        attribute bareCount : Integer = suboccurrences->SequenceFunctions::size();
         attribute grandchildCount : Integer = self.suboccurrences.suboccurrences->SequenceFunctions::size();
     }
     part def Mixed {
