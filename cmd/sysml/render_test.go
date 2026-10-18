@@ -621,9 +621,14 @@ func TestRenderReportsWhatItCouldNotDo(t *testing.T) {
 		stderr: []string{"sysml: "},
 	}, {
 		name:   "a form that is not a form is reported",
+		args:   []string{"-render", "Demo::overview", "-render-form", "png"},
+		status: exitUnevaluable,
+		stderr: []string{"unknown rendering form \"png\"", "text, mermaid, markdown, dot"},
+	}, {
+		name:   "the run-only svg form is refused for a model view with its own forms",
 		args:   []string{"-render", "Demo::overview", "-render-form", "svg"},
 		status: exitUnevaluable,
-		stderr: []string{"unknown rendering form \"svg\"", "text, mermaid, markdown, dot"},
+		stderr: []string{"a tree rendering is not written as svg", "text, mermaid, dot, plantuml or d2"},
 	}, {
 		name:   "a form without a view to render is reported",
 		args:   []string{"-render-form", "text"},
