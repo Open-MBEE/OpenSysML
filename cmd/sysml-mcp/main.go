@@ -72,7 +72,7 @@ func printConfig(opts *options, fs *flag.FlagSet, stdout, stderr io.Writer) int 
 		printHostList(stdout)
 		return exitServed
 	}
-	if err := printHostConfig(stdout, name, opts.configCommand); err != nil {
+	if err := printHostConfig(stdout, name, opts.configCommand, opts.configNpx); err != nil {
 		fmt.Fprintf(stderr, "%s-print-config: %v\n", commandPrefix, err)
 		return exitUnservable
 	}
