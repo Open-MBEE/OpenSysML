@@ -5,7 +5,7 @@ done: undetermined <undetermined>
 enactedPerformances: empty
 immediatePredecessors: empty
 immediateSuccessors: empty
-incomingTransferSort: empty
+incomingTransferSort: undetermined <undetermined>
 incomingTransfers: empty
 incomingTransfersToSelf: undetermined <undetermined>
 innerSpaceDimension: undetermined <undetermined>
@@ -23,7 +23,7 @@ outgoingTransfers: empty
 outgoingTransfersFromSelf: undetermined <undetermined>
 outsideOfOccurrences: empty
 ownedPerformances: empty
-portionOf: empty
+portionOf: collection of 1
 portionOfLife: object (the receiver)
 portions: collection of 1
 predecessors: empty
@@ -38,7 +38,7 @@ spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
 spaceShots: undetermined <undetermined>
-spaceSliceOf: empty
+spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
 spaceTimeEnclosedOccurrences: collection of 1
@@ -54,7 +54,7 @@ that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
 timeEnclosedOccurrences: collection of 1
-timeSliceOf: empty
+timeSliceOf: collection of 1
 timeSlices: collection of 1
 unionsOf: empty
 withoutOccurrences: empty
@@ -66,7 +66,7 @@ done: undetermined <undetermined>
 enactedPerformances: empty
 immediatePredecessors: empty
 immediateSuccessors: empty
-incomingTransferSort: empty
+incomingTransferSort: undetermined <undetermined>
 incomingTransfers: empty
 incomingTransfersToSelf: undetermined <undetermined>
 innerSpaceDimension: undetermined <undetermined>
@@ -84,7 +84,7 @@ outgoingTransfers: empty
 outgoingTransfersFromSelf: undetermined <undetermined>
 outsideOfOccurrences: empty
 ownedPerformances: empty
-portionOf: empty
+portionOf: collection of 1
 portionOfLife: object (the receiver)
 portions: collection of 1
 predecessors: empty
@@ -99,7 +99,7 @@ spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
 spaceShots: undetermined <undetermined>
-spaceSliceOf: empty
+spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
 spaceTimeEnclosedOccurrences: collection of 1
@@ -115,7 +115,7 @@ that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
 timeEnclosedOccurrences: collection of 1
-timeSliceOf: empty
+timeSliceOf: collection of 1
 timeSlices: collection of 1
 unionsOf: empty
 withoutOccurrences: empty
@@ -127,7 +127,7 @@ done: undetermined <undetermined>
 enactedPerformances: empty
 immediatePredecessors: empty
 immediateSuccessors: empty
-incomingTransferSort: empty
+incomingTransferSort: undetermined <undetermined>
 incomingTransfers: empty
 incomingTransfersToSelf: undetermined <undetermined>
 innerSpaceDimension: undetermined <undetermined>
@@ -145,7 +145,7 @@ outgoingTransfers: empty
 outgoingTransfersFromSelf: undetermined <undetermined>
 outsideOfOccurrences: empty
 ownedPerformances: empty
-portionOf: empty
+portionOf: collection of 1
 portionOfLife: object (the receiver)
 portions: collection of 1
 predecessors: empty
@@ -160,7 +160,7 @@ spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
 spaceShots: undetermined <undetermined>
-spaceSliceOf: empty
+spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
 spaceTimeEnclosedOccurrences: collection of 1
@@ -176,7 +176,7 @@ that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
 timeEnclosedOccurrences: collection of 1
-timeSliceOf: empty
+timeSliceOf: collection of 1
 timeSlices: collection of 1
 unionsOf: empty
 withoutOccurrences: empty
@@ -188,7 +188,7 @@ enactedPerformances: empty
 endShot: undetermined <undetermined>
 immediatePredecessors: empty
 immediateSuccessors: empty
-incomingTransferSort: empty
+incomingTransferSort: undetermined <undetermined>
 incomingTransfers: empty
 incomingTransfersToSelf: undetermined <undetermined>
 innerSpaceDimension: undetermined <undetermined>
@@ -207,7 +207,7 @@ outgoingTransfers: empty
 outgoingTransfersFromSelf: undetermined <undetermined>
 outsideOfOccurrences: empty
 ownedPerformances: empty
-portionOf: empty
+portionOf: collection of 1
 portionOfLife: object (the receiver)
 portions: collection of 1
 predecessors: empty
@@ -223,7 +223,7 @@ spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
 spaceShots: undetermined <undetermined>
-spaceSliceOf: empty
+spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
 spaceTimeEnclosedOccurrences: collection of 1
@@ -239,7 +239,7 @@ that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
 timeEnclosedOccurrences: collection of 1
-timeSliceOf: empty
+timeSliceOf: collection of 1
 timeSlices: collection of 1
 unionsOf: empty
 withoutOccurrences: empty
@@ -251,7 +251,7 @@ done: undetermined <undetermined>
 enclosedPerformances: empty
 immediatePredecessors: empty
 immediateSuccessors: empty
-incomingTransferSort: empty
+incomingTransferSort: undetermined <undetermined>
 incomingTransfers: empty
 incomingTransfersToSelf: undetermined <undetermined>
 innerSpaceDimension: undetermined <undetermined>
@@ -270,7 +270,7 @@ outgoingTransfers: empty
 outgoingTransfersFromSelf: undetermined <undetermined>
 outsideOfOccurrences: empty
 performers: empty
-portionOf: empty
+portionOf: collection of 1
 portionOfLife: object (the receiver)
 portions: collection of 1
 predecessors: empty
@@ -286,7 +286,7 @@ spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
 spaceShots: undetermined <undetermined>
-spaceSliceOf: empty
+spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
 spaceTimeEnclosedOccurrences: collection of 1
@@ -302,7 +302,7 @@ this: object (the receiver)
 thisPerformance: object (the receiver)
 timeCoincidentOccurrences: collection of 1
 timeEnclosedOccurrences: collection of 1
-timeSliceOf: empty
+timeSliceOf: collection of 1
 timeSlices: collection of 1
 unionsOf: empty
 withoutOccurrences: empty
@@ -317,7 +317,7 @@ done: undetermined <undetermined>
 enclosedPerformances: empty
 immediatePredecessors: empty
 immediateSuccessors: empty
-incomingTransferSort: empty
+incomingTransferSort: undetermined <undetermined>
 incomingTransfers: empty
 incomingTransfersToSelf: undetermined <undetermined>
 incomingTransitionTrigger: null
@@ -340,7 +340,7 @@ outgoingTransfers: empty
 outgoingTransfersFromSelf: undetermined <undetermined>
 outsideOfOccurrences: empty
 performers: empty
-portionOf: empty
+portionOf: collection of 1
 portionOfLife: object (the receiver)
 portions: collection of 1
 predecessors: empty
@@ -356,7 +356,7 @@ spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
 spaceShots: undetermined <undetermined>
-spaceSliceOf: empty
+spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
 spaceTimeEnclosedOccurrences: collection of 1
@@ -372,7 +372,7 @@ this: object (the receiver)
 thisPerformance: object (the receiver)
 timeCoincidentOccurrences: collection of 1
 timeEnclosedOccurrences: collection of 1
-timeSliceOf: empty
+timeSliceOf: collection of 1
 timeSlices: collection of 1
 unionsOf: empty
 withoutOccurrences: empty
@@ -384,7 +384,7 @@ done: undetermined <undetermined>
 enclosedPerformances: empty
 immediatePredecessors: empty
 immediateSuccessors: empty
-incomingTransferSort: empty
+incomingTransferSort: undetermined <undetermined>
 incomingTransfers: empty
 incomingTransfersToSelf: undetermined <undetermined>
 innerSpaceDimension: undetermined <undetermined>
@@ -403,7 +403,7 @@ outgoingTransfers: empty
 outgoingTransfersFromSelf: undetermined <undetermined>
 outsideOfOccurrences: empty
 performers: empty
-portionOf: empty
+portionOf: collection of 1
 portionOfLife: object (the receiver)
 portions: collection of 1
 predecessors: empty
@@ -419,7 +419,7 @@ spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
 spaceShots: undetermined <undetermined>
-spaceSliceOf: empty
+spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
 spaceTimeEnclosedOccurrences: collection of 1
@@ -434,7 +434,7 @@ this: object (the receiver)
 thisPerformance: object (the receiver)
 timeCoincidentOccurrences: collection of 1
 timeEnclosedOccurrences: collection of 1
-timeSliceOf: empty
+timeSliceOf: collection of 1
 timeSlices: collection of 1
 unionsOf: empty
 withoutOccurrences: empty
@@ -446,7 +446,7 @@ done: undetermined <undetermined>
 enclosedPerformances: empty
 immediatePredecessors: empty
 immediateSuccessors: empty
-incomingTransferSort: empty
+incomingTransferSort: undetermined <undetermined>
 incomingTransfers: empty
 incomingTransfersToSelf: undetermined <undetermined>
 innerSpaceDimension: undetermined <undetermined>
@@ -465,7 +465,7 @@ outgoingTransfers: empty
 outgoingTransfersFromSelf: undetermined <undetermined>
 outsideOfOccurrences: empty
 performers: empty
-portionOf: empty
+portionOf: undetermined <undetermined>
 portionOfLife: undetermined <undetermined>
 portions: undetermined <undetermined>
 predecessors: empty
@@ -481,7 +481,7 @@ spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
 spaceShots: undetermined <undetermined>
-spaceSliceOf: empty
+spaceSliceOf: undetermined <undetermined>
 spaceSlices: undetermined <undetermined>
 spaceTimeCoincidentOccurrences: undetermined <undetermined>
 spaceTimeEnclosedOccurrences: undetermined <undetermined>
@@ -496,7 +496,7 @@ this: undetermined <undetermined>
 thisPerformance: undetermined <undetermined>
 timeCoincidentOccurrences: undetermined <undetermined>
 timeEnclosedOccurrences: undetermined <undetermined>
-timeSliceOf: empty
+timeSliceOf: undetermined <undetermined>
 timeSlices: undetermined <undetermined>
 unionsOf: empty
 withoutOccurrences: empty

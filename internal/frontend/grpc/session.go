@@ -256,6 +256,12 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 	if ss.svc.capabilities.has(CapabilityOrderDependence) {
 		out.OrderDependent = int32(ss.rt.OrderDependent(fv.Feature.Name)) // #nosec G115 -- choice points per run are bounded by the depth budget
 	}
+	// A member read as a whole undetermined value — a Kernel collection the runtime
+	// cannot enumerate — is sent as that value, not as an empty collection.
+	if held := fv.HeldValue(); held.Kind == runtime.ValUndetermined {
+		out.Value = ss.svc.valueToProto(ss.rt, held, ss.cached.Index)
+		return out, nil
+	}
 	if fv.Feature.Scalar() {
 		switch {
 		case !fv.Materialized:

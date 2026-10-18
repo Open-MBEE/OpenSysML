@@ -92,8 +92,11 @@ func (ctx *Context) kernelMemberValue(inst *Instance, sym *symbols.Symbol, feat 
 	if val, ok, err := ctx.trackedKernelValue(inst, sym, feat); ok {
 		return val, err
 	}
-	if val, ok := ctx.kernelDeclaredValue(inst, feat); ok {
+	if val, ok, err := ctx.kernelDeclaredValue(inst, feat); ok {
 		return val, nil
+	} else if err != nil {
+		// A declared value the evaluator cannot run leaves the member open, not empty.
+		return undeterminedFeatureValue(fmt.Sprintf("%s declares a value the evaluator cannot run: %v", sym.Name, err), feat.Multiplicity, sym), nil
 	}
 	if val, ok := ctx.kernelInverseValue(inst, sym, feat); ok {
 		return val, nil
@@ -133,54 +136,64 @@ func (ctx *Context) trackedKernelValue(inst *Instance, sym *symbols.Symbol, feat
 
 // kernelDeclaredValue evaluates the value the library declares for the member —
 // `localClock default universalClock`, `this default self` — on the object through
-// the evaluator; false where it declares none or the evaluator cannot run it.
-func (ctx *Context) kernelDeclaredValue(inst *Instance, feat *EffectiveFeature) (Value, bool) {
+// the evaluator, as a shape feature's default is; false where it declares none,
+// and the error where the evaluator cannot run it.
+func (ctx *Context) kernelDeclaredValue(inst *Instance, feat *EffectiveFeature) (Value, bool, error) {
 	if feat.DefaultValue == nil {
-		return Value{}, false
+		return Value{}, false, nil
 	}
 	val, err := ctx.evalFeatureValueDefault(inst, &FeatureValue{Feature: feat}, feat.Name)
-	if err != nil || val.Kind == ValInvalid {
-		return Value{}, false
+	if err != nil {
+		return Value{}, false, err
 	}
-	return val, true
+	if val.Kind == ValInvalid {
+		return Value{}, false, fmt.Errorf("no value")
+	}
+	return val, true, nil
 }
 
-// kernelInverseValue answers a member declared `inverse of` a composite collection
-// — `superoccurrence inverse of suboccurrences` — through composition: the object
-// holding inst, when the feature it holds inst as subsets that collection, else
-// none. A member inverting no composite collection is left to the multiplicity.
+// kernelInverseValue answers a member declared `inverse of` a collection X from
+// what the runtime knows holds the object in X: the object itself when `self`
+// subsets X (`portionOf inverse of portions`, since `self :> timeSlices :> portions`),
+// and the object holding inst when X is composite and the holding feature subsets
+// it (`superoccurrence inverse of suboccurrences`). A member whose X is composite
+// and holds the object nowhere is null; anything else is left to the multiplicity.
 func (ctx *Context) kernelInverseValue(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, bool) {
-	inverts := false
+	var values []Value
+	composite := false
 	owner, held := inst.Owner()
+	self, hasSelf := ctx.model.semantics.LookupMember(inst.Type, "self")
 	for _, rel := range relationshipsOfKind(sym, ast.RelInverseOf) {
 		target := ctx.model.semantics.RelationshipTarget(sym, rel)
-		if target == nil || !compositeFeature(target) {
+		if target == nil {
 			continue
 		}
-		inverts = true
+		if hasSelf && ctx.kernelSubsets(self, inst.Type, target) {
+			values = append(values, Value{Kind: ValInstance, Instance: inst.ID})
+		}
+		if !compositeFeature(target) {
+			continue
+		}
+		composite = true
 		if owner == nil {
 			continue
 		}
-		holding, ok := owner.FeatureValues[held]
-		if !ok || holding.Feature == nil || holding.Feature.Symbol == nil {
-			continue
+		if holding, ok := owner.FeatureValues[held]; ok && holding.Feature != nil && holding.Feature.Symbol != nil &&
+			ctx.kernelSubsets(holding.Feature.Symbol, owner.Type, target) {
+			values = append(values, Value{Kind: ValInstance, Instance: owner.ID})
 		}
-		if !ctx.kernelSubsets(holding.Feature.Symbol, owner.Type, target) {
-			continue
-		}
-		val := Value{Kind: ValInstance, Instance: owner.ID}
-		if feat.Scalar() {
-			return val, true
-		}
-		return ctx.collectionOf(feat, []Value{val}), true
 	}
-	if !inverts {
-		return Value{}, false
-	}
-	if feat.Scalar() {
+	switch {
+	case len(values) > 0 && feat.Scalar():
+		return values[0], true
+	case len(values) > 0:
+		return ctx.collectionOf(feat, values), true
+	case composite && feat.Scalar():
 		return Value{Kind: ValNull}, true
+	case composite:
+		return ctx.collectionOf(feat, nil), true
 	}
-	return ctx.collectionOf(feat, nil), true
+	return Value{}, false
 }
 
 // compositeFeature reports a feature declared `composite`, whose values an
