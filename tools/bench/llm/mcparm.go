@@ -48,7 +48,7 @@ func StartMCP(ctx context.Context, version string) (*MCPArm, error) {
 	if err != nil {
 		return nil, err
 	}
-	srv, err := mcp.New(ctx, mcp.Config{Root: root, Groups: mcp.AllGroups, Version: version})
+	srv, err := mcp.New(ctx, mcp.Config{Root: root, Groups: []mcp.Group{mcp.GroupLSP, mcp.GroupRuntime}, Version: version})
 	if err != nil {
 		os.RemoveAll(root)
 		return nil, err
