@@ -36,6 +36,8 @@ export interface RenderGeometry {
   height: number;
   hasSize: boolean;
   collapsed: boolean;
+  /** The layout only folds or hides the node: x and y carry no position. */
+  unplaced: boolean;
 }
 
 export interface RenderStyle {
@@ -144,6 +146,7 @@ function geometryOf(geometry: PbRenderGeometry | undefined): RenderGeometry | un
         height: geometry.height,
         hasSize: geometry.hasSize,
         collapsed: geometry.collapsed,
+        unplaced: geometry.unplaced,
       };
 }
 

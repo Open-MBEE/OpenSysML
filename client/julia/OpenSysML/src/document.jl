@@ -73,6 +73,7 @@ struct RenderGeometry
     height::Float64
     has_size::Bool
     collapsed::Bool
+    unplaced::Bool
 end
 
 struct RenderStyle
@@ -347,7 +348,8 @@ function _render_geometry(raw)
     raw isa AbstractDict || return nothing
     RenderGeometry(_render_float(raw, "x"), _render_float(raw, "y"),
         _render_float(raw, "width"), _render_float(raw, "height"),
-        _render_bool(raw, "hasSize"), _render_bool(raw, "collapsed"))
+        _render_bool(raw, "hasSize"), _render_bool(raw, "collapsed"),
+        _render_bool(raw, "unplaced"))
 end
 
 function _render_style(raw)

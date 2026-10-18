@@ -214,3 +214,66 @@ func TestWalkMixedCarriesDepthCuts(t *testing.T) {
 		t.Errorf("notices = %v, want the depth cut noticed", rendering.Notices)
 	}
 }
+
+// A Layout binding only collapsed folds the element without placing it: no
+// form switches to positioned mode, so the siblings stay drawn and nothing is
+// left undrawn for want of a position.
+func TestFoldOnlyLayoutLeavesTheFormToPlace(t *testing.T) {
+	for _, viewName := range []string{"FoldedViews::foldOnly", "FoldedViews::foldOnlyLinks"} {
+		rendering := render(t, "layout-collapsed.sysml", viewName)
+		names := nodeNames(rendering.Roots)
+		for _, drawn := range []string{"wheel", "hub", "engine", "tank"} {
+			if !names[drawn] {
+				t.Errorf("%s does not draw %s; nodes: %v", viewName, drawn, names)
+			}
+		}
+		for _, form := range []Form{FormText, FormMermaid, FormDot, FormPlantUML, FormD2} {
+			artifact, err := rendering.Write(form)
+			if err != nil {
+				t.Fatalf("%s as %s: %v", viewName, form, err)
+			}
+			for _, folded := range []string{"piston", "pump"} {
+				if strings.Contains(artifact, folded) {
+					t.Errorf("%s as %s draws %s under the collapsed engine:\n%s", viewName, form, folded, artifact)
+				}
+			}
+			for _, kept := range []string{"wheel", "tank", "collapsed"} {
+				if !strings.Contains(artifact, kept) {
+					t.Errorf("%s as %s lost %s:\n%s", viewName, form, kept, artifact)
+				}
+			}
+			if strings.Contains(artifact, "without a position") || strings.Contains(artifact, " at (") {
+				t.Errorf("%s as %s treats the fold-only Layout as a place:\n%s", viewName, form, artifact)
+			}
+		}
+	}
+}
+
+// A whitelist selects exactly the marked elements: `expose rover::**[@Shown]`
+// draws each as a root with none of the ancestors between them, and
+// `filter @Shown` on an unmarked root leaves the view empty rather than
+// adding them, since a filter condition only ever prunes.
+func TestWalkWhitelistDrawsTheMarkedElementsAlone(t *testing.T) {
+	picked := render(t, "walk-filter.sysml", "FilteredWalk::picked")
+	roots := map[string]bool{}
+	for _, root := range picked.Roots {
+		roots[root.Name] = true
+	}
+	if len(roots) != 2 || !roots["FilteredWalk::rover::chassis::axle"] || !roots["FilteredWalk::rover::radio"] {
+		t.Errorf("picked roots = %v, want the marked axle and radio", roots)
+	}
+	names := nodeNames(picked.Roots)
+	for _, unmarked := range []string{"FilteredWalk::rover", "chassis", "rx"} {
+		if names[unmarked] {
+			t.Errorf("picked draws %s, which carries no mark; nodes: %v", unmarked, names)
+		}
+	}
+
+	rejected := render(t, "walk-filter.sysml", "FilteredWalk::wholeRejected")
+	if len(rejected.Roots) != 0 {
+		t.Errorf("wholeRejected draws %v, want nothing: the root rover carries no mark", nodeNames(rejected.Roots))
+	}
+	if reason := rejected.EmptyReason(); !strings.Contains(reason, "rejected by its filter @Shown") {
+		t.Errorf("wholeRejected empty reason = %q, want one naming the filter", reason)
+	}
+}

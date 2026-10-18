@@ -59,9 +59,15 @@ public record RenderedView(
   /** One rendered feature on a node's boundary. */
   public record Port(String id, String name, String type, String direction) {}
 
-  /** Position and size of a node. */
+  /** Position and size of a node; an unplaced one only folds or hides it, x and y carrying no position. */
   public record Geometry(
-      double x, double y, double width, double height, boolean hasSize, boolean collapsed) {}
+      double x,
+      double y,
+      double width,
+      double height,
+      boolean hasSize,
+      boolean collapsed,
+      boolean unplaced) {}
 
   /** Visual attributes for a node or edge. */
   public record Style(
@@ -163,7 +169,8 @@ public record RenderedView(
                                     node.getGeometry().getWidth(),
                                     node.getGeometry().getHeight(),
                                     node.getGeometry().getHasSize(),
-                                    node.getGeometry().getCollapsed()))
+                                    node.getGeometry().getCollapsed(),
+                                    node.getGeometry().getUnplaced()))
                             : Optional.empty(),
                         node.hasStyle() ? Optional.of(style(node.getStyle())) : Optional.empty()))
             .toList(),
