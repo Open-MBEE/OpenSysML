@@ -316,8 +316,7 @@ var sweepFunctionPackages = []string{
 }
 
 // TestKernelFunctionLibraryProbesEveryDeclaration fails a concrete Kernel Function Library
-// declaration without a probe, and a probe naming no declaration, so a new function cannot
-// evade the sweep.
+// function without a probe, and a probe naming no function, so a new function cannot evade the sweep.
 func TestKernelFunctionLibraryProbesEveryDeclaration(t *testing.T) {
 	ctx := newLibraryContext(t, libs.NewModelIndex())
 	// A probe quotes an operator name (`BaseFunctions::'=='`); the index names it bare.
@@ -344,9 +343,8 @@ func TestKernelFunctionLibraryProbesEveryDeclaration(t *testing.T) {
 	}
 }
 
-// sweepFunctionDeclaration is the function or predicate the qualified name declares directly
-// in its package: a behavior (`SequenceFunctions::add`) and a nested invariant are not called
-// from an expression.
+// sweepFunctionDeclaration is the function or predicate the name declares directly in its
+// package; a behavior (`SequenceFunctions::add`) or a nested invariant is not called from an expression.
 func sweepFunctionDeclaration(ctx *Context, qualified string) (*symbols.Symbol, bool) {
 	if strings.Count(qualified, "::") != 1 {
 		return nil, false
