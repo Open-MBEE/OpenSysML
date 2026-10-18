@@ -129,7 +129,7 @@ func (g *group) registerConversion(s *mcp.Server) {
 			path.FilePath = resolved
 		}
 		if layout, ok := req.GetLayout().(*pb.MigrateRequest_LayoutPath); ok {
-			resolved, err := g.path(layout.LayoutPath, nameIgnored)
+			resolved, err := g.path(layout.LayoutPath, toolkit.NameIgnored)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -221,9 +221,9 @@ func (g *group) registerConversion(s *mcp.Server) {
 
 // sourceNameRole is what the service reads from a convert or migrate source's
 // name: its format and language, or only its language once fromFormat is given.
-func sourceNameRole(fromFormat string) nameRole {
+func sourceNameRole(fromFormat string) toolkit.NameRole {
 	if fromFormat != "" {
-		return nameLanguage
+		return toolkit.NameLanguage
 	}
-	return nameFormat
+	return toolkit.NameFormat
 }

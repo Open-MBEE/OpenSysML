@@ -135,7 +135,9 @@ func attach(t *testing.T, svc *sysmlgrpc.Service) *harness {
 	}
 	h := &harness{t: t, root: root}
 	server := mcp.NewServer(&mcp.Implementation{Name: "test-server", Version: "0"}, nil)
-	Register(server, svc, root)
+	if err := Register(server, svc, root); err != nil {
+		t.Fatal(err)
+	}
 	serverT, clientT := mcp.NewInMemoryTransports()
 	ctx := context.Background()
 	go func() { _ = server.Run(ctx, serverT) }()

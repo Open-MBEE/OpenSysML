@@ -42,7 +42,7 @@ type Host struct {
 	Server    *lsp.Server
 	Workspace *model.Workspace
 
-	realRoot string // Root with symlinks resolved, which every document must lie under
+	root toolkit.Root // Root as spelled and with its symlinks resolved, which every document must lie under
 
 	// mu holds the workspace for a tool: shared while it reads, exclusive
 	// while it edits, so an edit is computed and written over one revision.
@@ -78,6 +78,10 @@ func (d diskState) same(o diskState) bool {
 // NewHost starts a language server over root and indexes the model documents
 // under it.
 func NewHost(ctx context.Context, root string, ws *model.Workspace, version string) (*Host, error) {
+	r, err := toolkit.NewRoot(root)
+	if err != nil {
+		return nil, err
+	}
 	srv := lsp.NewServer(ws, lsp.WithVersion(version))
 	params := &protocol.InitializeParams{
 		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(root)), Name: root}},
@@ -93,11 +97,7 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 	if err := srv.Initialized(ctx, &protocol.InitializedParams{}); err != nil {
 		return nil, fmt.Errorf("indexing %s: %w", root, err)
 	}
-	h := &Host{Root: root, Server: srv, Workspace: ws, realRoot: root, opened: map[string]diskState{}}
-	if real, err := filepath.EvalSymlinks(root); err == nil {
-		h.realRoot = real
-	}
-	return h, nil
+	return &Host{Root: root, Server: srv, Workspace: ws, root: r, opened: map[string]diskState{}}, nil
 }
 
 // Refresh reconciles the workspace with the root as it is on disk now. An
@@ -135,9 +135,6 @@ func (d docRef) uri() protocol.DocumentURI {
 // the standard library.
 func (h *Host) resolve(path string) (docRef, error) {
 	path = strings.TrimSpace(path)
-	if path == "" {
-		return docRef{}, errors.New("path is required")
-	}
 	if name, ok := strings.CutPrefix(path, stdlibResourcePrefix); ok {
 		name, err := url.PathUnescape(name)
 		if err != nil {
@@ -155,47 +152,11 @@ func (h *Host) resolve(path string) (docRef, error) {
 	if strings.HasPrefix(path, "file://") {
 		path = uri.URI(path).Filename()
 	}
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(h.Root, path)
-	}
-	path = filepath.Clean(path)
-	if !under(h.Root, path) {
-		return docRef{}, fmt.Errorf("%s is outside the workspace root %s", path, h.Root)
-	}
-	if err := h.contained(path); err != nil {
+	res, err := h.root.Resolve(path)
+	if err != nil {
 		return docRef{}, err
 	}
-	return docRef{name: path}, nil
-}
-
-// under reports whether path lies under root, both clean and absolute.
-func under(root, path string) bool {
-	rel, err := filepath.Rel(root, path)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
-// contained checks that path, with symlinks resolved, still lies under the
-// root, so a link inside the workspace cannot reach a file outside it. A path
-// that does not exist yet is checked through its nearest existing ancestor.
-func (h *Host) contained(path string) error {
-	probe := path
-	for {
-		real, err := filepath.EvalSymlinks(probe)
-		if err == nil {
-			if !under(h.realRoot, real) {
-				return fmt.Errorf("%s resolves to %s, outside the workspace root %s", path, real, h.Root)
-			}
-			return nil
-		}
-		if !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", path, err)
-		}
-		parent := filepath.Dir(probe)
-		if parent == probe {
-			return nil
-		}
-		probe = parent
-	}
+	return docRef{name: res.Path}, nil
 }
 
 func (h *Host) resolveLibrary(name string) (docRef, error) {
@@ -255,7 +216,8 @@ func (h *Host) display(u protocol.DocumentURI) string {
 	if ref.library {
 		return stdlibResourceURI(ref.name)
 	}
-	if rel, err := filepath.Rel(h.Root, ref.name); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if toolkit.Under(h.Root, ref.name) {
+		rel, _ := filepath.Rel(h.Root, ref.name)
 		return filepath.ToSlash(rel)
 	}
 	return ref.name
@@ -294,7 +256,7 @@ type pendingWrite struct {
 // change is in flight cannot carry a write outside it. The index, and an open
 // buffer of a written document, then follow the new text.
 func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
-	root, err := os.OpenRoot(h.realRoot)
+	root, err := os.OpenRoot(h.root.Real)
 	if err != nil {
 		return err
 	}
@@ -363,23 +325,11 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 // since a link may have been repointed after the path was resolved. A file not
 // yet on disk lands in its resolved directory.
 func (h *Host) target(name string) (string, error) {
-	if !under(h.Root, name) {
-		return "", fmt.Errorf("%s is outside the workspace root %s", name, h.Root)
-	}
-	real, err := filepath.EvalSymlinks(name)
-	if errors.Is(err, fs.ErrNotExist) {
-		var dir string
-		if dir, err = filepath.EvalSymlinks(filepath.Dir(name)); err == nil {
-			real = filepath.Join(dir, filepath.Base(name))
-		}
-	}
+	res, err := h.root.Resolve(name)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", h.display(uri.File(name)), err)
+		return "", err
 	}
-	if !under(h.realRoot, real) {
-		return "", fmt.Errorf("%s resolves to %s, outside the workspace root %s", h.display(uri.File(name)), real, h.Root)
-	}
-	return filepath.Rel(h.realRoot, real)
+	return filepath.Rel(h.root.Real, res.Real)
 }
 
 // writeFile replaces name, relative to root, with content in one step: the
