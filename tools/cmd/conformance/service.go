@@ -173,19 +173,22 @@ type service struct {
 	// rather than waited out. waitErr is read only after it closes.
 	exited  chan struct{}
 	waitErr error
+	// mcp is how the mcp protocol's client starts sysml-mcp beside the
+	// service; nil until the runner selects that protocol.
+	mcp *mcpSettings
 }
 
-// buildService builds cmd/sysml-grpc, so a run tests the working tree rather
-// than whatever binary happens to be installed.
-func buildService(repoRoot, outDir string) (string, error) {
-	binary := filepath.Join(outDir, "sysml-grpc")
-	// #nosec G204 -- the command is fixed; only the output path varies.
-	cmd := exec.Command("go", "build", "-o", binary, "./cmd/sysml-grpc")
+// buildCommand builds cmd/<name>, so a run tests the working tree rather than
+// whatever binary happens to be installed.
+func buildCommand(repoRoot, outDir, name string) (string, error) {
+	binary := filepath.Join(outDir, name)
+	// #nosec G204 -- the command is fixed; only the output path and the command name vary.
+	cmd := exec.Command("go", "build", "-o", binary, "./cmd/"+name)
 	cmd.Dir = repoRoot
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("building cmd/sysml-grpc: %w", err)
+		return "", fmt.Errorf("building cmd/%s: %w", name, err)
 	}
 	return binary, nil
 }
@@ -259,8 +262,10 @@ func withoutEnvironment(environment []string, name string) []string {
 	return filtered
 }
 
-func (s *service) client(protocol string) (client, error) {
+func (s *service) client(ctx context.Context, protocol string) (client, error) {
 	switch protocol {
+	case "mcp":
+		return startMCP(ctx, s.mcp)
 	case "grpc":
 		return &grpcClient{conn: s.conn}, nil
 	case "connect":
