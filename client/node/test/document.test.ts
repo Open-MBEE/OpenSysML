@@ -58,7 +58,7 @@ test("rendered view decoder preserves wire fields and message presence", () => {
       parent: "",
       ports: [{ id: "n0.0", name: "api", type: "Demo::API", direction: "inout" }],
       origin: { file: "views.sysml", startLine: 4 },
-      geometry: { x: 1, y: 2, width: 3, height: 4, hasSize: true, collapsed: true },
+      geometry: { x: 1, y: 2, width: 3, height: 4, hasSize: true, collapsed: true, unplaced: true },
       style: { fill: "#fff", line: "#000", text: "#111", font: "sans", fontSize: 12, bold: true, italic: true },
     }],
     edges: [{
@@ -85,6 +85,7 @@ test("rendered view decoder preserves wire fields and message presence", () => {
   assert.equal(rendered.nodes[0]?.ports[0]?.direction, "inout");
   assert.equal(rendered.nodes[0]?.origin?.startLine, 4);
   assert.equal(rendered.nodes[0]?.geometry?.collapsed, true);
+  assert.equal(rendered.nodes[0]?.geometry?.unplaced, true);
   assert.equal(rendered.nodes[0]?.style?.fontSize, 12);
   assert.equal(rendered.edges[0]?.fromPort, "n0.0");
   assert.deepEqual(rendered.edges[0]?.route, [{ x: 2, y: 3 }]);

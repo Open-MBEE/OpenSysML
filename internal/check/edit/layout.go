@@ -105,7 +105,7 @@ func (m Model) layoutDocument(i int, op Operation, sym, viewSym *symbols.Symbol)
 func (m Model) layoutBindings(i int, op Operation) ([]MetadataValue, error) {
 	switch op.Annotation {
 	case semantics.LayoutFQN:
-		return layoutValues(op.Layout), nil
+		return m.layoutValues(i, op)
 	case semantics.RouteFQN:
 		return m.routeValues(i, op)
 	case semantics.CanvasFQN:
@@ -116,9 +116,21 @@ func (m Model) layoutBindings(i int, op Operation) ([]MetadataValue, error) {
 	return nil, nil
 }
 
-func layoutValues(l *semantics.Layout) []MetadataValue {
+func (m Model) layoutValues(i int, op Operation) ([]MetadataValue, error) {
+	l := op.Layout
 	if l == nil {
-		return nil
+		return nil, nil
+	}
+	if l.Unplaced {
+		if l.HasSize {
+			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+				Message: fmt.Sprintf("a Layout of %s cannot size its node without placing it", m.label(op))}
+		}
+		if !l.Collapsed {
+			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+				Message: fmt.Sprintf("a Layout of %s places nothing and folds nothing; clear the Layout to drop it", m.label(op))}
+		}
+		return []MetadataValue{{"collapsed", "true"}}, nil
 	}
 	out := []MetadataValue{{"x", realLiteral(l.X)}, {"y", realLiteral(l.Y)}}
 	if l.HasSize {
@@ -127,7 +139,7 @@ func layoutValues(l *semantics.Layout) []MetadataValue {
 	if l.Collapsed {
 		out = append(out, MetadataValue{"collapsed", "true"})
 	}
-	return out
+	return out, nil
 }
 
 func (m Model) routeValues(i int, op Operation) ([]MetadataValue, error) {

@@ -1,0 +1,11 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "ProductPkg::product",
+  "validation": {
+    "verdicts": [
+      {"kind": "satisfaction", "assertion": "satisfy costReq", "status": "violated", "error": "evaluated to false"}
+    ],
+    "valid": false
+  }
+}
