@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -234,8 +235,18 @@ func escapes(root, path string) bool {
 }
 
 // realPath follows the symlinks of the longest existing prefix of path and
-// keeps the rest as written, so a file not yet created is placed as well.
+// keeps the rest as written, so a file not yet created is placed as well. A
+// dangling link on the way is followed to where it points, since a write
+// through it lands there.
 func realPath(path string) (string, error) {
+	return realPathHops(path, 0)
+}
+
+// maxLinkHops bounds the dangling links followed, as the symlink resolvers of
+// the operating systems bound theirs.
+const maxLinkHops = 40
+
+func realPathHops(path string, hops int) (string, error) {
 	rest := ""
 	for p := path; ; {
 		real, err := filepath.EvalSymlinks(p)
@@ -245,6 +256,19 @@ func realPath(path string) (string, error) {
 		parent := filepath.Dir(p)
 		if !errors.Is(err, fs.ErrNotExist) || parent == p {
 			return "", err
+		}
+		if info, lerr := os.Lstat(p); lerr == nil && info.Mode()&fs.ModeSymlink != 0 {
+			if hops >= maxLinkHops {
+				return "", fmt.Errorf("%s: too many links", path)
+			}
+			target, rerr := os.Readlink(p)
+			if rerr != nil {
+				return "", rerr
+			}
+			if !filepath.IsAbs(target) {
+				target = filepath.Join(parent, target)
+			}
+			return realPathHops(filepath.Join(target, rest), hops+1)
 		}
 		rest = filepath.Join(filepath.Base(p), rest)
 		p = parent

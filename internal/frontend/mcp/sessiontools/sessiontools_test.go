@@ -670,6 +670,30 @@ func TestResolveFollowsSymlinksBeforeJudgingTheRoot(t *testing.T) {
 	if got, err := m.Resolve("alias/model.sysml"); err != nil || got != filepath.Join(root, "alias", "model.sysml") {
 		t.Errorf("Resolve(alias/model.sysml) = %q, %v; want a symlink staying inside the root accepted", got, err)
 	}
+
+	// A dangling link is followed to where a write through it would land.
+	if err := os.Symlink(filepath.Join(outside, "missing"), filepath.Join(root, "dangle")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("notyet", filepath.Join(root, "later")); err != nil {
+		t.Fatal(err)
+	}
+	for _, in := range []string{"dangle", "dangle/model.sysml", "dangle/deeper/model.sysml"} {
+		if got, err := m.Resolve(in); err == nil || !strings.Contains(err.Error(), "through a symlink") {
+			t.Errorf("Resolve(%q) = %q, %v; want a dangling link out of the root refused", in, got, err)
+		}
+	}
+	if got, err := m.Resolve("later/model.sysml"); err != nil || got != filepath.Join(root, "later", "model.sysml") {
+		t.Errorf("Resolve(later/model.sysml) = %q, %v; want a dangling link inside the root accepted", got, err)
+	}
+	cs := connect(t, root)
+	must(t, cs, "session_submit", args("text", "package Dangling { part def P; }"), nil)
+	if res := call(t, cs, "session_save", args("path", "dangle/model.sysml", "apply", true), nil); !res.IsError {
+		t.Errorf("session_save through a dangling link out of the root succeeded: %s", errText(res))
+	}
+	if _, err := os.Stat(filepath.Join(outside, "missing", "model.sysml")); !os.IsNotExist(err) {
+		t.Errorf("a save through a dangling link wrote outside the root: %v", err)
+	}
 }
 
 func TestResolveExpandsHomeWhenItLiesUnderTheRoot(t *testing.T) {
