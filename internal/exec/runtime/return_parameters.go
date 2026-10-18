@@ -251,7 +251,7 @@ func (ec *EvalContext) constraintUsageRead(inst *Instance, name string) (Value, 
 		return Value{}, false, nil
 	}
 	sym := fv.Feature.Symbol
-	if len(semantics.OwnedResultExpressions(sym)) == 0 || !fv.Feature.Scalar() || fv.Feature.DefaultValue != nil ||
+	if !semantics.StatesOwnCondition(sym) || !fv.Feature.Scalar() || fv.Feature.DefaultValue != nil ||
 		ec.ctx.libraryDeclared(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) || fv.Materialized || fv.HeldValue().Kind != ValInvalid {
 		return Value{}, false, nil
 	}

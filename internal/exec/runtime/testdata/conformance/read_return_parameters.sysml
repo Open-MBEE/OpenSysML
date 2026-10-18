@@ -30,8 +30,12 @@ package test {
 		assert constraint c2 { n > 0.0 }
 		constraint c3 { n < 0.0 }
 		constraint cu { m > 0.0 }
+		constraint cn { assert constraint { n > 0.0 } }
+		constraint cnf { assert constraint { n < 0.0 } }
 	}
 	part p3 : P3;
+	requirement def R13 { require constraint c { assert constraint { false } } }
+	requirement r13 : R13;
 	requirement def R12 { subject s : P2; assume constraint { false } require constraint : C1 { false } }
 	case def Ca1 { subject s : P2; return r : Integer = 1 + 1; }
 	case def Ca2 { subject s : P2; objective obj { require constraint { true } } }
@@ -74,6 +78,9 @@ package test {
 	attribute cuUnbound : Boolean = p3.cu;
 	attribute c2New : Boolean = new P3().c2;
 	attribute cNew : Boolean = new P3().c;
+	attribute cnNested : Boolean = p3.cn;
+	attribute cnfNested : Boolean = p3.cnf;
+	attribute r13Nested : Boolean = r13.c;
 	attribute v4New = new V4().verdict;
 	attribute r1Bound : Boolean = r1.result;
 	attribute r1Unbound : Boolean = r1u.result;
