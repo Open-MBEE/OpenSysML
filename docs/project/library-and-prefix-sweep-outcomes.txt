@@ -8,22 +8,22 @@ read	Probe::p1.alq	model	Probe::P1::alq	object:Probe::Al1
 read	Probe::p1.anq	model	Probe::P1::anq	error no value: calc usage anq computes output features (no output feature); read one of them
 read	Probe::p1.atq	model	Probe::P1::atq	object:Probe::At1
 read	Probe::p1.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
-read	Probe::p1.caq	model	Probe::P1::caq	ERR_NOSUCHFEATURE object has no such feature: member caq not found in instance
+read	Probe::p1.caq	model	Probe::P1::caq	object:Probe::Ca1
 read	Probe::p1.cargo	model	Probe::P1::cargo	object:Probe::I1
-read	Probe::p1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(3) [object:Probe::R1#1, object:Probe::P1::cq#2, object:Probe::P1::ac#3]
+read	Probe::p1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(6) [object:Probe::R1#1, object:Probe::P1::cq#2, object:Probe::Vp1#3, object:Probe::Con1#4, object:Probe::R1#5, object:Probe::P1::ac#6]
 read	Probe::p1.cnq	model	Probe::P1::cnq	object:Probe::Cn1
-read	Probe::p1.conq	model	Probe::P1::conq	ERR_NOSUCHFEATURE object has no such feature: member conq not found in instance
+read	Probe::p1.conq	model	Probe::P1::conq	object:Probe::Con1
 read	Probe::p1.cq	model	Probe::P1::cq	object:Probe::P1::cq
-read	Probe::p1.done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::p1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::p1.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::p1.eq	model	Probe::P1::eq	ERR_NOSUCHFEATURE object has no such feature: member eq not found in instance
+read	Probe::p1.eq	model	Probe::P1::eq	enumeration literal E1::a
 read	Probe::p1.es	model	Probe::P1::es	object:Probe::S1
 read	Probe::p1.ev	model	Probe::P1::ev	object:Probe::P1::ev
 read	Probe::p1.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
 read	Probe::p1.flq	model	Probe::P1::flq	object:Probe::Fl1
 read	Probe::p1.ifq	model	Probe::P1::ifq	object:Probe::If1
 read	Probe::p1.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
-read	Probe::p1.iu	model	Probe::P1::iu	ERR_NOSUCHFEATURE object has no such feature: member iu not found in instance
+read	Probe::p1.iu	model	Probe::P1::iu	object:Probe::U1
 read	Probe::p1.kq	model	Probe::P1::kq	constant 6.0
 read	Probe::p1.mass	model	Probe::P1::mass	collection(1) [quantity 3.0 [kg]]
 read	Probe::p1.mq	model	Probe::P1::mq	quantity 2.0 [kg]
@@ -33,34 +33,34 @@ read	Probe::p1.oq	model	Probe::P1::oq	object:Probe::O1
 read	Probe::p1.other	model	Probe::P1::other	error uninitialized feature value: other
 read	Probe::p1.otherItem	model	Probe::P1::otherItem	error uninitialized feature value: otherItem
 read	Probe::p1.others	model	Probe::P1::others	undetermined <undetermined>
-read	Probe::p1.ownedActions	systems	Parts::Part::ownedActions	collection(3) [object:Probe::A1#1, object:Probe::Fl1#2, object:Probe::S1#3]
+read	Probe::p1.ownedActions	systems	Parts::Part::ownedActions	collection(6) [object:Probe::A1#1, object:Probe::Ca1#2, object:Probe::U1#3, object:Probe::Fl1#4, object:Probe::U1#5, object:Probe::S1#6]
 read	Probe::p1.ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [object:Probe::Pt#1]
 read	Probe::p1.ownedStates	systems	Parts::Part::ownedStates	collection(1) [object:Probe::S1#1]
 read	Probe::p1.pa	model	Probe::P1::pa	object:Probe::A2
 read	Probe::p1.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
 read	Probe::p1.pt	model	Probe::P1::pt	object:Probe::Pt
-read	Probe::p1.rdq	model	Probe::P1::rdq	ERR_NOSUCHFEATURE object has no such feature: member rdq not found in instance
+read	Probe::p1.rdq	model	Probe::P1::rdq	object:Probe::Rd1
 read	Probe::p1.rq	model	Probe::P1::rq	object:Probe::R1
-read	Probe::p1.self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.self	systemsFRAME	Parts::Part::self	object:Probe::p1
 read	Probe::p1.shape	systems	Items::Item::shape	undetermined <undetermined>
 read	Probe::p1.slice	model	Probe::P1::slice	object:Probe::P1::slice
 read	Probe::p1.snap	model	Probe::P1::snap	object:Probe::P1::snap
-read	Probe::p1.sr	model	Probe::P1::sr	ERR_NOSUCHFEATURE object has no such feature: member sr not found in instance
+read	Probe::p1.sr	model	Probe::P1::sr	object:Probe::R1
 read	Probe::p1.st	model	Probe::P1::st	object:Probe::S1
-read	Probe::p1.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::p1.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::p1.sub	model	Probe::P1::sub	collection(2) [object:Probe::P2#1, object:Probe::P2#2]
-read	Probe::p1.subitems	systems	Items::Item::subitems	collection(6) [object:Probe::I1#1, object:Probe::P2#2, object:Probe::P2#3, object:Probe::Cn1#4, object:Probe::If1#5, object:Probe::Al1#6]
-read	Probe::p1.subparts	systems	Items::Item::subparts	collection(5) [object:Probe::P2#1, object:Probe::P2#2, object:Probe::Cn1#3, object:Probe::If1#4, object:Probe::Al1#5]
-read	Probe::p1.uq	model	Probe::P1::uq	ERR_NOSUCHFEATURE object has no such feature: member uq not found in instance
+read	Probe::p1.subitems	systems	Items::Item::subitems	collection(8) [object:Probe::I1#1, object:Probe::P2#2, object:Probe::P2#3, object:Probe::Vw1#4, object:Probe::Rd1#5, object:Probe::Cn1#6, object:Probe::If1#7, object:Probe::Al1#8]
+read	Probe::p1.subparts	systems	Items::Item::subparts	collection(7) [object:Probe::P2#1, object:Probe::P2#2, object:Probe::Vw1#3, object:Probe::Rd1#4, object:Probe::Cn1#5, object:Probe::If1#6, object:Probe::Al1#7]
+read	Probe::p1.uq	model	Probe::P1::uq	object:Probe::U1
 read	Probe::p1.voids	systems	Items::Item::voids	undetermined <undetermined>
-read	Probe::p1.vpq	model	Probe::P1::vpq	ERR_NOSUCHFEATURE object has no such feature: member vpq not found in instance
+read	Probe::p1.vpq	model	Probe::P1::vpq	object:Probe::Vp1
 read	Probe::p1.vq	model	Probe::P1::vq	error no value: calc usage vq computes output features (no output feature); read one of them
 read	Probe::p1.vq3	model	Probe::P1::vq3	error uninitialized feature value: vq3
-read	Probe::p1.vwq	model	Probe::P1::vwq	ERR_NOSUCHFEATURE object has no such feature: member vwq not found in instance
+read	Probe::p1.vwq	model	Probe::P1::vwq	object:Probe::Vw1
 object	Probe::p2	object:Probe::p2
 read	Probe::p2.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::p2.checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	Probe::p2.done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::p2.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::p2.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::p2.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
 read	Probe::p2.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
@@ -68,21 +68,21 @@ read	Probe::p2.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::p2.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::p2.ownedStates	systems	Parts::Part::ownedStates	empty
 read	Probe::p2.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
-read	Probe::p2.self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p2.self	systemsFRAME	Parts::Part::self	object:Probe::p2
 read	Probe::p2.shape	systems	Items::Item::shape	undetermined <undetermined>
-read	Probe::p2.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::p2.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::p2.subitems	systems	Items::Item::subitems	empty
 read	Probe::p2.subparts	systems	Items::Item::subparts	empty
 read	Probe::p2.voids	systems	Items::Item::voids	undetermined <undetermined>
 object	Probe::i1	object:Probe::i1
 read	Probe::i1.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::i1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	Probe::i1.done	systemsFRAME	Items::Item::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::i1.done	systemsFRAME	Items::Item::done	undetermined <undetermined>
 read	Probe::i1.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::i1.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
-read	Probe::i1.self	systemsFRAME	Items::Item::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::i1.self	systemsFRAME	Items::Item::self	object:Probe::i1
 read	Probe::i1.shape	systems	Items::Item::shape	undetermined <undetermined>
-read	Probe::i1.start	systemsFRAME	Items::Item::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::i1.start	systemsFRAME	Items::Item::start	undetermined <undetermined>
 read	Probe::i1.subitems	systems	Items::Item::subitems	empty
 read	Probe::i1.subparts	systems	Items::Item::subparts	empty
 read	Probe::i1.voids	systems	Items::Item::voids	undetermined <undetermined>
@@ -93,14 +93,125 @@ object	Probe::st	undetermined <undetermined>
 object	Probe::r1	undetermined <undetermined>
 object	Probe::c1	undetermined <undetermined>
 object	Probe::k1	function Probe::k1
-object	Probe::ca1	undetermined <undetermined>
+object	Probe::ca1	object:Probe::ca1
+read	Probe::ca1.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
+read	Probe::ca1.actors	systems	Cases::Case::actors	undetermined <undetermined>
+read	Probe::ca1.assignments	systems	Actions::Action::assignments	empty
+read	Probe::ca1.controls	systems	Actions::Action::controls	empty
+read	Probe::ca1.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
+read	Probe::ca1.decisions	systems	Actions::Action::decisions	empty
+read	Probe::ca1.done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
+read	Probe::ca1.forLoops	systems	Actions::Action::forLoops	empty
+read	Probe::ca1.forks	systems	Actions::Action::forks	empty
+read	Probe::ca1.ifSubactions	systems	Actions::Action::ifSubactions	empty
+read	Probe::ca1.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
+read	Probe::ca1.joins	systems	Actions::Action::joins	empty
+read	Probe::ca1.loops	systems	Actions::Action::loops	empty
+read	Probe::ca1.merges	systems	Actions::Action::merges	empty
+read	Probe::ca1.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::ca1.s	model	Probe::Ca1::s	error uninitialized feature value: s
+read	Probe::ca1.self	systemsFRAME	Cases::Case::self	object:Probe::ca1
+read	Probe::ca1.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::ca1.start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
+read	Probe::ca1.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
+read	Probe::ca1.subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
+read	Probe::ca1.subcases	systems	Cases::Case::subcases	empty
+read	Probe::ca1.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
+read	Probe::ca1.transitions	systems	Actions::Action::transitions	empty
+read	Probe::ca1.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::an1	error no value: calc usage Probe::an1 computes output features (no output feature); read one of them
 object	Probe::v1	error no value: calc usage Probe::v1 computes output features (no output feature); read one of them
-object	Probe::u1	undetermined <undetermined>
-object	Probe::vw1	undetermined <undetermined>
-object	Probe::vp1	undetermined <undetermined>
-object	Probe::con1	undetermined <undetermined>
-object	Probe::rd1	undetermined <undetermined>
+object	Probe::u1	object:Probe::u1
+read	Probe::u1.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
+read	Probe::u1.actors	systems	Cases::Case::actors	undetermined <undetermined>
+read	Probe::u1.assignments	systems	Actions::Action::assignments	empty
+read	Probe::u1.controls	systems	Actions::Action::controls	empty
+read	Probe::u1.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
+read	Probe::u1.decisions	systems	Actions::Action::decisions	empty
+read	Probe::u1.done	systemsFRAME	UseCases::UseCase::done	undetermined <undetermined>
+read	Probe::u1.forLoops	systems	Actions::Action::forLoops	empty
+read	Probe::u1.forks	systems	Actions::Action::forks	empty
+read	Probe::u1.ifSubactions	systems	Actions::Action::ifSubactions	empty
+read	Probe::u1.includedUseCases	systems	UseCases::UseCase::includedUseCases	undetermined <undetermined>
+read	Probe::u1.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
+read	Probe::u1.joins	systems	Actions::Action::joins	empty
+read	Probe::u1.loops	systems	Actions::Action::loops	empty
+read	Probe::u1.merges	systems	Actions::Action::merges	empty
+read	Probe::u1.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
+read	Probe::u1.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::u1.s	model	Probe::U1::s	error uninitialized feature value: s
+read	Probe::u1.self	systemsFRAME	UseCases::UseCase::self	object:Probe::u1
+read	Probe::u1.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::u1.start	systemsFRAME	UseCases::UseCase::start	undetermined <undetermined>
+read	Probe::u1.subUseCases	systems	UseCases::UseCase::subUseCases	empty
+read	Probe::u1.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
+read	Probe::u1.subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
+read	Probe::u1.subcases	systems	Cases::Case::subcases	empty
+read	Probe::u1.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
+read	Probe::u1.transitions	systems	Actions::Action::transitions	empty
+read	Probe::u1.whileLoops	systems	Actions::Action::whileLoops	empty
+read	Probe::u1.who	model	Probe::U1::who	object:Probe::P2
+object	Probe::vw1	object:Probe::vw1
+read	Probe::vw1.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::vw1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::vw1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
+read	Probe::vw1.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
+read	Probe::vw1.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
+read	Probe::vw1.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::vw1.ownedActions	systems	Parts::Part::ownedActions	empty
+read	Probe::vw1.ownedPorts	systems	Parts::Part::ownedPorts	empty
+read	Probe::vw1.ownedStates	systems	Parts::Part::ownedStates	empty
+read	Probe::vw1.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::vw1.self	systemsFRAME	Views::View::self	object:Probe::vw1
+read	Probe::vw1.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::vw1.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
+read	Probe::vw1.subitems	systems	Items::Item::subitems	empty
+read	Probe::vw1.subparts	systems	Items::Item::subparts	empty
+read	Probe::vw1.subviews	systems	Views::View::subviews	undetermined <undetermined>
+read	Probe::vw1.viewRendering	systems	Views::View::viewRendering	undetermined <undetermined>
+read	Probe::vw1.viewpointConformance	systems	Views::View::viewpointConformance	object:Views::View::viewpointConformance
+read	Probe::vw1.viewpointSatisfactions	systems	Views::View::viewpointSatisfactions	undetermined <undetermined>
+read	Probe::vw1.voids	systems	Items::Item::voids	undetermined <undetermined>
+object	Probe::vp1	object:Probe::vp1
+read	Probe::vp1.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
+read	Probe::vp1.assumptions	systems	Requirements::RequirementCheck::assumptions	undetermined <undetermined>
+read	Probe::vp1.con1	model	Probe::Vp1::con1	object:Probe::Con1
+read	Probe::vp1.concerns	systems	Requirements::RequirementCheck::concerns	empty
+read	Probe::vp1.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
+read	Probe::vp1.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::vp1.self	systemsFRAME	Views::ViewpointCheck::self	object:Probe::vp1
+read	Probe::vp1.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
+read	Probe::vp1.subj	systems	Views::ViewpointCheck::subj	error uninitialized feature value: subj
+read	Probe::vp1.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
+object	Probe::con1	object:Probe::con1
+read	Probe::con1.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
+read	Probe::con1.assumptions	systems	Requirements::RequirementCheck::assumptions	undetermined <undetermined>
+read	Probe::con1.concerns	systems	Requirements::RequirementCheck::concerns	empty
+read	Probe::con1.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
+read	Probe::con1.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::con1.self	systemsFRAME	Requirements::ConcernCheck::self	object:Probe::con1
+read	Probe::con1.sh	model	Probe::Con1::sh	object:Probe::P2
+read	Probe::con1.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
+read	Probe::con1.subj	systems	Requirements::RequirementCheck::subj	error uninitialized feature value: subj
+read	Probe::con1.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
+object	Probe::rd1	object:Probe::rd1
+read	Probe::rd1.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::rd1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::rd1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
+read	Probe::rd1.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
+read	Probe::rd1.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
+read	Probe::rd1.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::rd1.ownedActions	systems	Parts::Part::ownedActions	empty
+read	Probe::rd1.ownedPorts	systems	Parts::Part::ownedPorts	empty
+read	Probe::rd1.ownedStates	systems	Parts::Part::ownedStates	empty
+read	Probe::rd1.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::rd1.self	systemsFRAME	Views::Rendering::self	object:Probe::rd1
+read	Probe::rd1.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::rd1.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
+read	Probe::rd1.subitems	systems	Items::Item::subitems	empty
+read	Probe::rd1.subparts	systems	Items::Item::subparts	empty
+read	Probe::rd1.subrenderings	systems	Views::Rendering::subrenderings	undetermined <undetermined>
+read	Probe::rd1.voids	systems	Items::Item::voids	undetermined <undetermined>
 object	Probe::cn1	undetermined <undetermined>
 object	Probe::if1	undetermined <undetermined>
 object	Probe::al1	undetermined <undetermined>
@@ -124,7 +235,7 @@ read	Probe::box.brrv	domain	ShapeItems::CuboidOrTriangularPrism::brrv	error bind
 read	Probe::box.bsle	domain	ShapeItems::CuboidOrTriangularPrism::bsle	error binding end cannot be resolved: box.bsle is bound by `binding [1] bind [0..1] bf.edges = [0..1] bsle`, which makes some value of bsle a value of bf.edges without saying which value of either; the model does not state what bsle holds
 read	Probe::box.bsre	domain	ShapeItems::CuboidOrTriangularPrism::bsre	error binding end cannot be resolved: box.bsre is bound by `binding [1] bind [0..1] bf.edges = [0..1] bsre`, which makes some value of bsre a value of bf.edges without saying which value of either; the model does not state what bsre holds
 read	Probe::box.checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	Probe::box.done	systemsFRAME	Items::Item::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::box.done	systemsFRAME	Items::Item::done	undetermined <undetermined>
 read	Probe::box.edges	domain	ShapeItems::Cuboid::edges	collection(24) [object:ShapeItems::Rectangle::e1#1, object:ShapeItems::Rectangle::e2#2, object:ShapeItems::Rectangle::e3#3, object:ShapeItems::Rectangle::e4#4, object:ShapeItems::Rectangle::e1#5, object:ShapeItems::Rectangle::e2#6, object:ShapeItems::Rectangle::e3#7, object:ShapeItems::Rectangle::e4#8, object:ShapeItems::Rectangle::e1#9, object:ShapeItems::Rectangle::e2#10, object:ShapeItems::Rectangle::e3#11, object:ShapeItems::Rectangle::e4#12, object:ShapeItems::Rectangle::e1#13, object:ShapeItems::Rectangle::e2#14, object:ShapeItems::Rectangle::e3#15, object:ShapeItems::Rectangle::e4#16, object:ShapeItems::Rectangle::e1#17, object:ShapeItems::Rectangle::e2#18, object:ShapeItems::Rectangle::e3#19, object:ShapeItems::Rectangle::e4#20, object:ShapeItems::Rectangle::e1#21, object:ShapeItems::Rectangle::e2#22, object:ShapeItems::Rectangle::e3#23, object:ShapeItems::Rectangle::e4#24]
 read	Probe::box.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::box.faces	domain	ShapeItems::Cuboid::faces	collection(6) [object:ShapeItems::RectangularCuboid::tf#1, object:ShapeItems::RectangularCuboid::bf#2, object:ShapeItems::RectangularCuboid::ff#3, object:ShapeItems::RectangularCuboid::rf#4, object:ShapeItems::RectangularCuboid::slf#5, object:ShapeItems::RectangularCuboid::srf#6]
@@ -136,11 +247,11 @@ read	Probe::box.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
 read	Probe::box.length	model	Probe::box::length	quantity 1.0 [m]
 read	Probe::box.outerSpaceDimension	domain	ShapeItems::Polyhedron::outerSpaceDimension	constant 3
 read	Probe::box.rf	domain	ShapeItems::RectangularCuboid::rf	object:ShapeItems::RectangularCuboid::rf
-read	Probe::box.self	systemsFRAME	Items::Item::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::box.self	systemsFRAME	Items::Item::self	object:Probe::box
 read	Probe::box.shape	systems	Items::Item::shape	undetermined <undetermined>
 read	Probe::box.slf	domain	ShapeItems::RectangularCuboid::slf	object:ShapeItems::RectangularCuboid::slf
 read	Probe::box.srf	domain	ShapeItems::RectangularCuboid::srf	object:ShapeItems::RectangularCuboid::srf
-read	Probe::box.start	systemsFRAME	Items::Item::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::box.start	systemsFRAME	Items::Item::start	undetermined <undetermined>
 read	Probe::box.subitems	systems	Items::Item::subitems	empty
 read	Probe::box.subparts	systems	Items::Item::subparts	empty
 read	Probe::box.tf	domain	ShapeItems::RectangularCuboid::tf	object:ShapeItems::RectangularCuboid::tf
@@ -162,19 +273,19 @@ read	Probe::box.width	model	Probe::box::width	quantity 2.0 [m]
 object	Probe::sph	object:Probe::sph
 read	Probe::sph.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::sph.checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	Probe::sph.done	systemsFRAME	Items::Item::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::sph.done	systemsFRAME	Items::Item::done	undetermined <undetermined>
 read	Probe::sph.edges	domain	ShapeItems::ConicSurface::edges	empty
 read	Probe::sph.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::sph.faces	domain	ShapeItems::Ellipsoid::faces	object:ShapeItems::Ellipsoid::faces
 read	Probe::sph.genus	domain	ShapeItems::ConicSurface::genus	constant 0
 read	Probe::sph.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
 read	Probe::sph.radius	model	Probe::sph::radius	quantity 1.0 [m]
-read	Probe::sph.self	systemsFRAME	Items::Item::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::sph.self	systemsFRAME	Items::Item::self	object:Probe::sph
 read	Probe::sph.semiAxis1	domain	ShapeItems::Sphere::semiAxis1	quantity 1.0 [m]
 read	Probe::sph.semiAxis2	domain	ShapeItems::Sphere::semiAxis2	quantity 1.0 [m]
 read	Probe::sph.semiAxis3	domain	ShapeItems::Sphere::semiAxis3	quantity 1.0 [m]
 read	Probe::sph.shape	systems	Items::Item::shape	undetermined <undetermined>
-read	Probe::sph.start	systemsFRAME	Items::Item::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::sph.start	systemsFRAME	Items::Item::start	undetermined <undetermined>
 read	Probe::sph.subitems	systems	Items::Item::subitems	empty
 read	Probe::sph.subparts	systems	Items::Item::subparts	empty
 read	Probe::sph.vertices	domain	ShapeItems::ConicSurface::vertices	empty
@@ -183,7 +294,7 @@ object	Probe::clk	object:Probe::clk
 read	Probe::clk.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::clk.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::clk.currentTime	domain	Time::Clock::currentTime	quantity 0.0 [s]
-read	Probe::clk.done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::clk.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::clk.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::clk.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
 read	Probe::clk.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
@@ -191,9 +302,9 @@ read	Probe::clk.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::clk.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::clk.ownedStates	systems	Parts::Part::ownedStates	empty
 read	Probe::clk.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
-read	Probe::clk.self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::clk.self	systemsFRAME	Parts::Part::self	object:Probe::clk
 read	Probe::clk.shape	systems	Items::Item::shape	undetermined <undetermined>
-read	Probe::clk.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::clk.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::clk.subitems	systems	Items::Item::subitems	empty
 read	Probe::clk.subparts	systems	Items::Item::subparts	empty
 read	Probe::clk.voids	systems	Items::Item::voids	undetermined <undetermined>
@@ -203,15 +314,15 @@ read	Probe::spat.checkedConstraints	systems	Items::Item::checkedConstraints	empt
 read	Probe::spat.componentItems	domain	SpatialItems::SpatialItem::componentItems	undetermined <undetermined>
 read	Probe::spat.componentParts	domain	SpatialItems::SpatialItem::componentParts	undetermined <undetermined>
 read	Probe::spat.coordinateFrame	domain	SpatialItems::SpatialItem::coordinateFrame	error feature value spat.coordinateFrame: no value for feature universalCartesianSpatial3dCoordinateFrame
-read	Probe::spat.done	systemsFRAME	Items::Item::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::spat.done	systemsFRAME	Items::Item::done	undetermined <undetermined>
 read	Probe::spat.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::spat.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
 read	Probe::spat.localClock	domain	SpatialItems::SpatialItem::localClock	object:Time::universalClock
 read	Probe::spat.originPoint	domain	SpatialItems::SpatialItem::originPoint	object:Objects::Point
 read	Probe::spat.originPointConstraint	domain	SpatialItems::SpatialItem::originPointConstraint	error uninitialized feature value: originPointConstraint
-read	Probe::spat.self	systemsFRAME	Items::Item::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::spat.self	systemsFRAME	Items::Item::self	object:Probe::spat
 read	Probe::spat.shape	systems	Items::Item::shape	undetermined <undetermined>
-read	Probe::spat.start	systemsFRAME	Items::Item::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::spat.start	systemsFRAME	Items::Item::start	undetermined <undetermined>
 read	Probe::spat.subSpatialItems	domain	SpatialItems::SpatialItem::subSpatialItems	undetermined <undetermined>
 read	Probe::spat.subSpatialParts	domain	SpatialItems::SpatialItem::subSpatialParts	undetermined <undetermined>
 read	Probe::spat.subitems	systems	Items::Item::subitems	collection(1) [object:SpatialItems::SpatialItem::componentParts#1]
@@ -220,7 +331,7 @@ read	Probe::spat.voids	systems	Items::Item::voids	undetermined <undetermined>
 object	Probe::sys	object:Probe::sys
 read	Probe::sys.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::sys.checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	Probe::sys.done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::sys.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::sys.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::sys.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
 read	Probe::sys.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
@@ -228,9 +339,9 @@ read	Probe::sys.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::sys.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::sys.ownedStates	systems	Parts::Part::ownedStates	empty
 read	Probe::sys.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
-read	Probe::sys.self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::sys.self	systemsFRAME	Parts::Part::self	object:Probe::sys
 read	Probe::sys.shape	systems	Items::Item::shape	undetermined <undetermined>
-read	Probe::sys.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::sys.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::sys.subitems	systems	Items::Item::subitems	empty
 read	Probe::sys.subparts	systems	Items::Item::subparts	empty
 read	Probe::sys.voids	systems	Items::Item::voids	undetermined <undetermined>
@@ -239,7 +350,7 @@ object	Probe::risk	error unresolved reference: RiskMetadata::RiskLevel::high
 object	Probe::dsub	object:Probe::dsub
 read	Probe::dsub.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::dsub.checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	Probe::dsub.done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::dsub.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::dsub.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::dsub.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
 read	Probe::dsub.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
@@ -247,9 +358,9 @@ read	Probe::dsub.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::dsub.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::dsub.ownedStates	systems	Parts::Part::ownedStates	empty
 read	Probe::dsub.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
-read	Probe::dsub.self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::dsub.self	systemsFRAME	Parts::Part::self	object:Probe::dsub
 read	Probe::dsub.shape	systems	Items::Item::shape	undetermined <undetermined>
-read	Probe::dsub.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::dsub.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::dsub.subitems	systems	Items::Item::subitems	empty
 read	Probe::dsub.subparts	systems	Items::Item::subparts	empty
 read	Probe::dsub.voids	systems	Items::Item::voids	undetermined <undetermined>
@@ -258,7 +369,7 @@ read	Probe::psi.annotatedElement	domain	ParametersOfInterestMetadata::MeasureOfE
 read	Probe::psi.baseType	domain	ParametersOfInterestMetadata::MeasureOfEffectiveness::baseType	metaobject meta(ParametersOfInterestMetadata::measuresOfEffectiveness : SysML::Systems::AttributeUsage)
 read	Probe::psi.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::psi.checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	Probe::psi.done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::psi.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::psi.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::psi.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
 read	Probe::psi.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
@@ -266,9 +377,9 @@ read	Probe::psi.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::psi.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::psi.ownedStates	systems	Parts::Part::ownedStates	empty
 read	Probe::psi.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
-read	Probe::psi.self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::psi.self	systemsFRAME	Parts::Part::self	object:Probe::psi
 read	Probe::psi.shape	systems	Items::Item::shape	undetermined <undetermined>
-read	Probe::psi.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::psi.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::psi.subitems	systems	Items::Item::subitems	empty
 read	Probe::psi.subparts	systems	Items::Item::subparts	empty
 read	Probe::psi.voids	systems	Items::Item::voids	undetermined <undetermined>
@@ -277,12 +388,12 @@ object	Probe::p1.opt	undetermined <undetermined>
 object	Probe::p1.cargo	object:Probe::I1
 read	Probe::p1.cargo.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::p1.cargo.checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	Probe::p1.cargo.done	systemsFRAME	Items::Item::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::p1.cargo.done	systemsFRAME	Items::Item::done	undetermined <undetermined>
 read	Probe::p1.cargo.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::p1.cargo.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
-read	Probe::p1.cargo.self	systemsFRAME	Items::Item::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.cargo.self	systemsFRAME	Items::Item::self	object:Probe::I1
 read	Probe::p1.cargo.shape	systems	Items::Item::shape	undetermined <undetermined>
-read	Probe::p1.cargo.start	systemsFRAME	Items::Item::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::p1.cargo.start	systemsFRAME	Items::Item::start	undetermined <undetermined>
 read	Probe::p1.cargo.subitems	systems	Items::Item::subitems	empty
 read	Probe::p1.cargo.subparts	systems	Items::Item::subparts	empty
 read	Probe::p1.cargo.voids	systems	Items::Item::voids	undetermined <undetermined>
@@ -291,8 +402,8 @@ object	Probe::p1.pt	object:Probe::Pt
 read	Probe::p1.pt.inflow	model	Probe::Pt::inflow	object:Probe::I1
 read	Probe::p1.pt.interfacingPorts	systems	Ports::Port::interfacingPorts	undetermined <undetermined>
 read	Probe::p1.pt.outflow	model	Probe::Pt::outflow	object:Probe::I1
-read	Probe::p1.pt.outgoingTransfersFromSelf	systemsFRAME	Ports::Port::outgoingTransfersFromSelf	ERR_NOSUCHFEATURE object has no such feature: member outgoingTransfersFromSelf not found in instance
-read	Probe::p1.pt.self	systemsFRAME	Ports::Port::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.pt.outgoingTransfersFromSelf	systemsFRAME	Ports::Port::outgoingTransfersFromSelf	undetermined <undetermined>
+read	Probe::p1.pt.self	systemsFRAME	Ports::Port::self	object:Probe::Pt
 read	Probe::p1.pt.subports	systems	Ports::Port::subports	undetermined <undetermined>
 read	Probe::p1.pt.x	model	Probe::Pt::x	undetermined <undetermined>
 object	Probe::p1.act	object:Probe::A1
@@ -301,20 +412,20 @@ read	Probe::p1.act.assignments	systems	Actions::Action::assignments	empty
 read	Probe::p1.act.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.act.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	Probe::p1.act.decisions	systems	Actions::Action::decisions	empty
-read	Probe::p1.act.done	systemsFRAME	Actions::Action::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::p1.act.done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
 read	Probe::p1.act.forLoops	systems	Actions::Action::forLoops	empty
 read	Probe::p1.act.forks	systems	Actions::Action::forks	empty
 read	Probe::p1.act.i	model	Probe::A1::i	undetermined <undetermined>
 read	Probe::p1.act.ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	Probe::p1.act.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	Probe::p1.act.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	Probe::p1.act.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.act.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.act.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.act.nested	model	Probe::A1::nested	object:Probe::A2
 read	Probe::p1.act.o	model	Probe::A1::o	undetermined <undetermined>
-read	Probe::p1.act.self	systemsFRAME	Actions::Action::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.act.self	systemsFRAME	Actions::Action::self	object:Probe::A1
 read	Probe::p1.act.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
-read	Probe::p1.act.start	systemsFRAME	Actions::Action::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::p1.act.start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
 read	Probe::p1.act.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
 read	Probe::p1.act.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.act.transitions	systems	Actions::Action::transitions	empty
@@ -326,22 +437,22 @@ read	Probe::p1.st.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.st.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	Probe::p1.st.decisions	systems	Actions::Action::decisions	empty
 read	Probe::p1.st.doAction	systems	States::StateAction::doAction	object:Actions::Action
-read	Probe::p1.st.done	systemsFRAME	States::StateAction::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::p1.st.done	systemsFRAME	States::StateAction::done	undetermined <undetermined>
 read	Probe::p1.st.entryAction	systems	States::StateAction::entryAction	error uninitialized feature value: entryAction
 read	Probe::p1.st.exclusiveStates	systems	States::StateAction::exclusiveStates	empty
 read	Probe::p1.st.exitAction	systems	States::StateAction::exitAction	object:Actions::Action
 read	Probe::p1.st.forLoops	systems	Actions::Action::forLoops	empty
 read	Probe::p1.st.forks	systems	Actions::Action::forks	empty
 read	Probe::p1.st.ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	Probe::p1.st.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	Probe::p1.st.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	Probe::p1.st.isTriggerDuring	systems	States::StateAction::isTriggerDuring	constant true
 read	Probe::p1.st.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.st.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.st.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.st.on1	model	Probe::S1::on1	error uninitialized feature value: on1
-read	Probe::p1.st.self	systemsFRAME	States::StateAction::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.st.self	systemsFRAME	States::StateAction::self	object:Probe::S1
 read	Probe::p1.st.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
-read	Probe::p1.st.start	systemsFRAME	States::StateAction::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::p1.st.start	systemsFRAME	States::StateAction::start	undetermined <undetermined>
 read	Probe::p1.st.stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	Probe::p1.st.stateTransitions	systems	States::StateAction::stateTransitions	empty
 read	Probe::p1.st.subactions	systems	States::StateAction::subactions	undetermined <undetermined>
@@ -355,33 +466,144 @@ object	Probe::p1.others	undetermined <undetermined>
 object	Probe::p1.rq	object:Probe::R1
 read	Probe::p1.rq.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
 read	Probe::p1.rq.assumptions	systems	Requirements::RequirementCheck::assumptions	undetermined <undetermined>
-read	Probe::p1.rq.concerns	systems	Requirements::RequirementCheck::concerns	ERR_NOSUCHFEATURE object has no such feature: member concerns not found in instance
+read	Probe::p1.rq.concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	Probe::p1.rq.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
 read	Probe::p1.rq.lim	model	Probe::R1::lim	constant 5.0
 read	Probe::p1.rq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
 read	Probe::p1.rq.s	model	Probe::R1::s	error uninitialized feature value: s
-read	Probe::p1.rq.self	systemsFRAME	Requirements::RequirementCheck::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.rq.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::R1
 read	Probe::p1.rq.sh	model	Probe::R1::sh	object:Probe::P2
 read	Probe::p1.rq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
 read	Probe::p1.rq.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 read	Probe::p1.rq.who	model	Probe::R1::who	object:Probe::P2
 object	Probe::p1.cq	object:Probe::P1::cq
-read	Probe::p1.cq.self	systemsFRAME	Constraints::ConstraintCheck::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.cq.self	systemsFRAME	Constraints::ConstraintCheck::self	object:Probe::P1::cq
 read	Probe::p1.cq.x	model	Probe::P1::cq::x	collection(1) [constant 1.0]
 read	Probe::p1.cq.y	model	Probe::P1::cq::y	collection(1) [constant 2.0]
 object	Probe::p1.kq	constant 6.0
-object	Probe::p1.caq	ERR_NOSUCHFEATURE object has no such feature: member caq not found in instance
+object	Probe::p1.caq	object:Probe::Ca1
+read	Probe::p1.caq.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
+read	Probe::p1.caq.actors	systems	Cases::Case::actors	undetermined <undetermined>
+read	Probe::p1.caq.assignments	systems	Actions::Action::assignments	empty
+read	Probe::p1.caq.controls	systems	Actions::Action::controls	empty
+read	Probe::p1.caq.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
+read	Probe::p1.caq.decisions	systems	Actions::Action::decisions	empty
+read	Probe::p1.caq.done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
+read	Probe::p1.caq.forLoops	systems	Actions::Action::forLoops	empty
+read	Probe::p1.caq.forks	systems	Actions::Action::forks	empty
+read	Probe::p1.caq.ifSubactions	systems	Actions::Action::ifSubactions	empty
+read	Probe::p1.caq.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
+read	Probe::p1.caq.joins	systems	Actions::Action::joins	empty
+read	Probe::p1.caq.loops	systems	Actions::Action::loops	empty
+read	Probe::p1.caq.merges	systems	Actions::Action::merges	empty
+read	Probe::p1.caq.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.caq.s	model	Probe::Ca1::s	error uninitialized feature value: s
+read	Probe::p1.caq.self	systemsFRAME	Cases::Case::self	object:Probe::Ca1
+read	Probe::p1.caq.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::p1.caq.start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
+read	Probe::p1.caq.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
+read	Probe::p1.caq.subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
+read	Probe::p1.caq.subcases	systems	Cases::Case::subcases	empty
+read	Probe::p1.caq.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
+read	Probe::p1.caq.transitions	systems	Actions::Action::transitions	empty
+read	Probe::p1.caq.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::p1.anq	error no value: calc usage anq computes output features (no output feature); read one of them
 object	Probe::p1.vq	error no value: calc usage vq computes output features (no output feature); read one of them
-object	Probe::p1.uq	ERR_NOSUCHFEATURE object has no such feature: member uq not found in instance
-object	Probe::p1.vwq	ERR_NOSUCHFEATURE object has no such feature: member vwq not found in instance
-object	Probe::p1.vpq	ERR_NOSUCHFEATURE object has no such feature: member vpq not found in instance
-object	Probe::p1.conq	ERR_NOSUCHFEATURE object has no such feature: member conq not found in instance
-object	Probe::p1.rdq	ERR_NOSUCHFEATURE object has no such feature: member rdq not found in instance
+object	Probe::p1.uq	object:Probe::U1
+read	Probe::p1.uq.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
+read	Probe::p1.uq.actors	systems	Cases::Case::actors	undetermined <undetermined>
+read	Probe::p1.uq.assignments	systems	Actions::Action::assignments	empty
+read	Probe::p1.uq.controls	systems	Actions::Action::controls	empty
+read	Probe::p1.uq.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
+read	Probe::p1.uq.decisions	systems	Actions::Action::decisions	empty
+read	Probe::p1.uq.done	systemsFRAME	UseCases::UseCase::done	undetermined <undetermined>
+read	Probe::p1.uq.forLoops	systems	Actions::Action::forLoops	empty
+read	Probe::p1.uq.forks	systems	Actions::Action::forks	empty
+read	Probe::p1.uq.ifSubactions	systems	Actions::Action::ifSubactions	empty
+read	Probe::p1.uq.includedUseCases	systems	UseCases::UseCase::includedUseCases	undetermined <undetermined>
+read	Probe::p1.uq.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
+read	Probe::p1.uq.joins	systems	Actions::Action::joins	empty
+read	Probe::p1.uq.loops	systems	Actions::Action::loops	empty
+read	Probe::p1.uq.merges	systems	Actions::Action::merges	empty
+read	Probe::p1.uq.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
+read	Probe::p1.uq.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.uq.s	model	Probe::U1::s	error uninitialized feature value: s
+read	Probe::p1.uq.self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1
+read	Probe::p1.uq.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::p1.uq.start	systemsFRAME	UseCases::UseCase::start	undetermined <undetermined>
+read	Probe::p1.uq.subUseCases	systems	UseCases::UseCase::subUseCases	empty
+read	Probe::p1.uq.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
+read	Probe::p1.uq.subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
+read	Probe::p1.uq.subcases	systems	Cases::Case::subcases	empty
+read	Probe::p1.uq.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
+read	Probe::p1.uq.transitions	systems	Actions::Action::transitions	empty
+read	Probe::p1.uq.whileLoops	systems	Actions::Action::whileLoops	empty
+read	Probe::p1.uq.who	model	Probe::U1::who	object:Probe::P2
+object	Probe::p1.vwq	object:Probe::Vw1
+read	Probe::p1.vwq.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::p1.vwq.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::p1.vwq.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
+read	Probe::p1.vwq.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
+read	Probe::p1.vwq.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
+read	Probe::p1.vwq.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::p1.vwq.ownedActions	systems	Parts::Part::ownedActions	empty
+read	Probe::p1.vwq.ownedPorts	systems	Parts::Part::ownedPorts	empty
+read	Probe::p1.vwq.ownedStates	systems	Parts::Part::ownedStates	empty
+read	Probe::p1.vwq.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::p1.vwq.self	systemsFRAME	Views::View::self	object:Probe::Vw1
+read	Probe::p1.vwq.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::p1.vwq.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
+read	Probe::p1.vwq.subitems	systems	Items::Item::subitems	empty
+read	Probe::p1.vwq.subparts	systems	Items::Item::subparts	empty
+read	Probe::p1.vwq.subviews	systems	Views::View::subviews	undetermined <undetermined>
+read	Probe::p1.vwq.viewRendering	systems	Views::View::viewRendering	undetermined <undetermined>
+read	Probe::p1.vwq.viewpointConformance	systems	Views::View::viewpointConformance	object:Views::View::viewpointConformance
+read	Probe::p1.vwq.viewpointSatisfactions	systems	Views::View::viewpointSatisfactions	undetermined <undetermined>
+read	Probe::p1.vwq.voids	systems	Items::Item::voids	undetermined <undetermined>
+object	Probe::p1.vpq	object:Probe::Vp1
+read	Probe::p1.vpq.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
+read	Probe::p1.vpq.assumptions	systems	Requirements::RequirementCheck::assumptions	undetermined <undetermined>
+read	Probe::p1.vpq.con1	model	Probe::Vp1::con1	object:Probe::Con1
+read	Probe::p1.vpq.concerns	systems	Requirements::RequirementCheck::concerns	empty
+read	Probe::p1.vpq.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
+read	Probe::p1.vpq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.vpq.self	systemsFRAME	Views::ViewpointCheck::self	object:Probe::Vp1
+read	Probe::p1.vpq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
+read	Probe::p1.vpq.subj	systems	Views::ViewpointCheck::subj	error uninitialized feature value: subj
+read	Probe::p1.vpq.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
+object	Probe::p1.conq	object:Probe::Con1
+read	Probe::p1.conq.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
+read	Probe::p1.conq.assumptions	systems	Requirements::RequirementCheck::assumptions	undetermined <undetermined>
+read	Probe::p1.conq.concerns	systems	Requirements::RequirementCheck::concerns	empty
+read	Probe::p1.conq.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
+read	Probe::p1.conq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.conq.self	systemsFRAME	Requirements::ConcernCheck::self	object:Probe::Con1
+read	Probe::p1.conq.sh	model	Probe::Con1::sh	object:Probe::P2
+read	Probe::p1.conq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
+read	Probe::p1.conq.subj	systems	Requirements::RequirementCheck::subj	error uninitialized feature value: subj
+read	Probe::p1.conq.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
+object	Probe::p1.rdq	object:Probe::Rd1
+read	Probe::p1.rdq.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::p1.rdq.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::p1.rdq.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
+read	Probe::p1.rdq.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
+read	Probe::p1.rdq.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
+read	Probe::p1.rdq.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::p1.rdq.ownedActions	systems	Parts::Part::ownedActions	empty
+read	Probe::p1.rdq.ownedPorts	systems	Parts::Part::ownedPorts	empty
+read	Probe::p1.rdq.ownedStates	systems	Parts::Part::ownedStates	empty
+read	Probe::p1.rdq.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::p1.rdq.self	systemsFRAME	Views::Rendering::self	object:Probe::Rd1
+read	Probe::p1.rdq.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::p1.rdq.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
+read	Probe::p1.rdq.subitems	systems	Items::Item::subitems	empty
+read	Probe::p1.rdq.subparts	systems	Items::Item::subparts	empty
+read	Probe::p1.rdq.subrenderings	systems	Views::Rendering::subrenderings	undetermined <undetermined>
+read	Probe::p1.rdq.voids	systems	Items::Item::voids	undetermined <undetermined>
 object	Probe::p1.cnq	object:Probe::Cn1
 read	Probe::p1.cnq.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::p1.cnq.checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	Probe::p1.cnq.done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::p1.cnq.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::p1.cnq.e1	model	Probe::Cn1::e1	object:Probe::P2
 read	Probe::p1.cnq.e2	model	Probe::Cn1::e2	object:Probe::P2
 read	Probe::p1.cnq.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
@@ -391,10 +613,10 @@ read	Probe::p1.cnq.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::p1.cnq.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::p1.cnq.ownedStates	systems	Parts::Part::ownedStates	empty
 read	Probe::p1.cnq.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
-read	Probe::p1.cnq.self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.cnq.self	systemsFRAME	Parts::Part::self	object:Probe::Cn1
 read	Probe::p1.cnq.shape	systems	Items::Item::shape	undetermined <undetermined>
 read	Probe::p1.cnq.source	systems	Connections::BinaryConnection::source	object:Probe::P2
-read	Probe::p1.cnq.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::p1.cnq.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::p1.cnq.subitems	systems	Items::Item::subitems	empty
 read	Probe::p1.cnq.subparts	systems	Items::Item::subparts	empty
 read	Probe::p1.cnq.target	systems	Connections::BinaryConnection::target	object:Probe::P2
@@ -402,7 +624,7 @@ read	Probe::p1.cnq.voids	systems	Items::Item::voids	undetermined <undetermined>
 object	Probe::p1.ifq	object:Probe::If1
 read	Probe::p1.ifq.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::p1.ifq.checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	Probe::p1.ifq.done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::p1.ifq.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::p1.ifq.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::p1.ifq.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
 read	Probe::p1.ifq.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
@@ -413,10 +635,10 @@ read	Probe::p1.ifq.p1	model	Probe::If1::p1	object:Probe::Pt
 read	Probe::p1.ifq.p2	model	Probe::If1::p2	object:Probe::Pt
 read	Probe::p1.ifq.participant	systems	Interfaces::BinaryInterface::participant	error uninitialized feature value: participant
 read	Probe::p1.ifq.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
-read	Probe::p1.ifq.self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.ifq.self	systemsFRAME	Parts::Part::self	object:Probe::If1
 read	Probe::p1.ifq.shape	systems	Items::Item::shape	undetermined <undetermined>
 read	Probe::p1.ifq.source	systems	Interfaces::BinaryInterface::source	object:Probe::Pt
-read	Probe::p1.ifq.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::p1.ifq.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::p1.ifq.subitems	systems	Items::Item::subitems	empty
 read	Probe::p1.ifq.subparts	systems	Items::Item::subparts	empty
 read	Probe::p1.ifq.target	systems	Interfaces::BinaryInterface::target	object:Probe::Pt
@@ -426,7 +648,7 @@ read	Probe::p1.alq.a1	model	Probe::Al1::a1	object:Probe::P2
 read	Probe::p1.alq.a2	model	Probe::Al1::a2	object:Probe::P2
 read	Probe::p1.alq.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::p1.alq.checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	Probe::p1.alq.done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::p1.alq.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::p1.alq.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
 read	Probe::p1.alq.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
 read	Probe::p1.alq.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
@@ -434,10 +656,10 @@ read	Probe::p1.alq.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::p1.alq.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::p1.alq.ownedStates	systems	Parts::Part::ownedStates	empty
 read	Probe::p1.alq.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
-read	Probe::p1.alq.self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.alq.self	systemsFRAME	Parts::Part::self	object:Probe::Al1
 read	Probe::p1.alq.shape	systems	Items::Item::shape	undetermined <undetermined>
 read	Probe::p1.alq.source	systems	Allocations::Allocation::source	object:Probe::P2
-read	Probe::p1.alq.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::p1.alq.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::p1.alq.subitems	systems	Items::Item::subitems	empty
 read	Probe::p1.alq.subparts	systems	Items::Item::subparts	empty
 read	Probe::p1.alq.target	systems	Allocations::Allocation::target	object:Probe::P2
@@ -448,25 +670,25 @@ read	Probe::p1.flq.assignments	systems	Actions::Action::assignments	empty
 read	Probe::p1.flq.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.flq.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	Probe::p1.flq.decisions	systems	Actions::Action::decisions	empty
-read	Probe::p1.flq.done	systemsFRAME	Actions::Action::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::p1.flq.done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
 read	Probe::p1.flq.forLoops	systems	Actions::Action::forLoops	empty
 read	Probe::p1.flq.forks	systems	Actions::Action::forks	empty
 read	Probe::p1.flq.ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	Probe::p1.flq.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	Probe::p1.flq.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	Probe::p1.flq.inflow	model	Probe::Fl1::inflow	object:Probe::I1
 read	Probe::p1.flq.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.flq.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.flq.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.flq.payload	systems	Flows::MessageAction::payload	empty
-read	Probe::p1.flq.self	systemsFRAME	Actions::Action::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.flq.self	systemsFRAME	Actions::Action::self	object:Probe::Fl1
 read	Probe::p1.flq.sendSubactions	systems	Actions::Action::sendSubactions	empty
-read	Probe::p1.flq.start	systemsFRAME	Actions::Action::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::p1.flq.start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
 read	Probe::p1.flq.subactions	systems	Actions::Action::subactions	empty
 read	Probe::p1.flq.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.flq.transitions	systems	Actions::Action::transitions	empty
 read	Probe::p1.flq.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::p1.oq	object:Probe::O1
-object	Probe::p1.eq	ERR_NOSUCHFEATURE object has no such feature: member eq not found in instance
+object	Probe::p1.eq	enumeration literal E1::a
 object	Probe::p1.atq	object:Probe::At1
 read	Probe::p1.atq.v	model	Probe::At1::v	undetermined <undetermined>
 object	Probe::p1.mq	quantity 2.0 [kg]
@@ -480,17 +702,17 @@ read	Probe::p1.pa.assignments	systems	Actions::Action::assignments	empty
 read	Probe::p1.pa.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.pa.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	Probe::p1.pa.decisions	systems	Actions::Action::decisions	empty
-read	Probe::p1.pa.done	systemsFRAME	Actions::Action::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::p1.pa.done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
 read	Probe::p1.pa.forLoops	systems	Actions::Action::forLoops	empty
 read	Probe::p1.pa.forks	systems	Actions::Action::forks	empty
 read	Probe::p1.pa.ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	Probe::p1.pa.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	Probe::p1.pa.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	Probe::p1.pa.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.pa.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.pa.merges	systems	Actions::Action::merges	empty
-read	Probe::p1.pa.self	systemsFRAME	Actions::Action::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.pa.self	systemsFRAME	Actions::Action::self	object:Probe::A2
 read	Probe::p1.pa.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
-read	Probe::p1.pa.start	systemsFRAME	Actions::Action::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::p1.pa.start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
 read	Probe::p1.pa.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
 read	Probe::p1.pa.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.pa.transitions	systems	Actions::Action::transitions	empty
@@ -502,22 +724,22 @@ read	Probe::p1.es.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.es.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	Probe::p1.es.decisions	systems	Actions::Action::decisions	empty
 read	Probe::p1.es.doAction	systems	States::StateAction::doAction	object:Actions::Action
-read	Probe::p1.es.done	systemsFRAME	States::StateAction::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	Probe::p1.es.done	systemsFRAME	States::StateAction::done	undetermined <undetermined>
 read	Probe::p1.es.entryAction	systems	States::StateAction::entryAction	error uninitialized feature value: entryAction
 read	Probe::p1.es.exclusiveStates	systems	States::StateAction::exclusiveStates	empty
 read	Probe::p1.es.exitAction	systems	States::StateAction::exitAction	object:Actions::Action
 read	Probe::p1.es.forLoops	systems	Actions::Action::forLoops	empty
 read	Probe::p1.es.forks	systems	Actions::Action::forks	empty
 read	Probe::p1.es.ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	Probe::p1.es.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	Probe::p1.es.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	Probe::p1.es.isTriggerDuring	systems	States::StateAction::isTriggerDuring	constant true
 read	Probe::p1.es.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.es.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.es.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.es.on1	model	Probe::S1::on1	error uninitialized feature value: on1
-read	Probe::p1.es.self	systemsFRAME	States::StateAction::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.es.self	systemsFRAME	States::StateAction::self	object:Probe::S1
 read	Probe::p1.es.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
-read	Probe::p1.es.start	systemsFRAME	States::StateAction::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	Probe::p1.es.start	systemsFRAME	States::StateAction::start	undetermined <undetermined>
 read	Probe::p1.es.stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	Probe::p1.es.stateTransitions	systems	States::StateAction::stateTransitions	empty
 read	Probe::p1.es.subactions	systems	States::StateAction::subactions	undetermined <undetermined>
@@ -525,12 +747,53 @@ read	Probe::p1.es.substates	systems	States::StateAction::substates	undetermined 
 read	Probe::p1.es.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.es.transitions	systems	Actions::Action::transitions	empty
 read	Probe::p1.es.whileLoops	systems	Actions::Action::whileLoops	empty
-object	Probe::p1.sr	ERR_NOSUCHFEATURE object has no such feature: member sr not found in instance
+object	Probe::p1.sr	object:Probe::R1
+read	Probe::p1.sr.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
+read	Probe::p1.sr.assumptions	systems	Requirements::RequirementCheck::assumptions	undetermined <undetermined>
+read	Probe::p1.sr.concerns	systems	Requirements::RequirementCheck::concerns	empty
+read	Probe::p1.sr.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
+read	Probe::p1.sr.lim	model	Probe::R1::lim	constant 5.0
+read	Probe::p1.sr.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.sr.s	model	Probe::R1::s	error uninitialized feature value: s
+read	Probe::p1.sr.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::R1
+read	Probe::p1.sr.sh	model	Probe::R1::sh	object:Probe::P2
+read	Probe::p1.sr.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
+read	Probe::p1.sr.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
+read	Probe::p1.sr.who	model	Probe::R1::who	object:Probe::P2
 object	Probe::p1.ac	object:Probe::P1::ac
-read	Probe::p1.ac.self	systemsFRAME	Constraints::ConstraintCheck::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	Probe::p1.ac.self	systemsFRAME	Constraints::ConstraintCheck::self	object:Probe::P1::ac
 read	Probe::p1.ac.x	model	Probe::P1::ac::x	collection(1) [constant 1.0]
 read	Probe::p1.ac.y	model	Probe::P1::ac::y	collection(1) [constant 2.0]
-object	Probe::p1.iu	ERR_NOSUCHFEATURE object has no such feature: member iu not found in instance
+object	Probe::p1.iu	object:Probe::U1
+read	Probe::p1.iu.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
+read	Probe::p1.iu.actors	systems	Cases::Case::actors	undetermined <undetermined>
+read	Probe::p1.iu.assignments	systems	Actions::Action::assignments	empty
+read	Probe::p1.iu.controls	systems	Actions::Action::controls	empty
+read	Probe::p1.iu.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
+read	Probe::p1.iu.decisions	systems	Actions::Action::decisions	empty
+read	Probe::p1.iu.done	systemsFRAME	UseCases::UseCase::done	undetermined <undetermined>
+read	Probe::p1.iu.forLoops	systems	Actions::Action::forLoops	empty
+read	Probe::p1.iu.forks	systems	Actions::Action::forks	empty
+read	Probe::p1.iu.ifSubactions	systems	Actions::Action::ifSubactions	empty
+read	Probe::p1.iu.includedUseCases	systems	UseCases::UseCase::includedUseCases	undetermined <undetermined>
+read	Probe::p1.iu.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
+read	Probe::p1.iu.joins	systems	Actions::Action::joins	empty
+read	Probe::p1.iu.loops	systems	Actions::Action::loops	empty
+read	Probe::p1.iu.merges	systems	Actions::Action::merges	empty
+read	Probe::p1.iu.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
+read	Probe::p1.iu.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.iu.s	model	Probe::U1::s	error uninitialized feature value: s
+read	Probe::p1.iu.self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1
+read	Probe::p1.iu.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::p1.iu.start	systemsFRAME	UseCases::UseCase::start	undetermined <undetermined>
+read	Probe::p1.iu.subUseCases	systems	UseCases::UseCase::subUseCases	empty
+read	Probe::p1.iu.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
+read	Probe::p1.iu.subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
+read	Probe::p1.iu.subcases	systems	Cases::Case::subcases	empty
+read	Probe::p1.iu.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
+read	Probe::p1.iu.transitions	systems	Actions::Action::transitions	empty
+read	Probe::p1.iu.whileLoops	systems	Actions::Action::whileLoops	empty
+read	Probe::p1.iu.who	model	Probe::U1::who	object:Probe::P2
 object	Probe::p1.mass	collection(1) [quantity 3.0 [kg]]
 object	new Probe::P1()	object:Probe::P1
 read	new Probe::P1().a	model	Probe::P1::a	constant 2.5
@@ -540,22 +803,22 @@ read	new Probe::P1().alq	model	Probe::P1::alq	object:Probe::Al1
 read	new Probe::P1().anq	model	Probe::P1::anq	error no value: calc usage anq computes output features (no output feature); read one of them
 read	new Probe::P1().atq	model	Probe::P1::atq	object:Probe::At1
 read	new Probe::P1().boundingShapes	systems	Items::Item::boundingShapes	empty
-read	new Probe::P1().caq	model	Probe::P1::caq	ERR_NOSUCHFEATURE object has no such feature: member caq not found in instance
+read	new Probe::P1().caq	model	Probe::P1::caq	object:Probe::Ca1
 read	new Probe::P1().cargo	model	Probe::P1::cargo	object:Probe::I1
-read	new Probe::P1().checkedConstraints	systems	Items::Item::checkedConstraints	collection(3) [object:Probe::R1#1, object:Probe::P1::cq#2, object:Probe::P1::ac#3]
+read	new Probe::P1().checkedConstraints	systems	Items::Item::checkedConstraints	collection(6) [object:Probe::R1#1, object:Probe::P1::cq#2, object:Probe::Vp1#3, object:Probe::Con1#4, object:Probe::R1#5, object:Probe::P1::ac#6]
 read	new Probe::P1().cnq	model	Probe::P1::cnq	object:Probe::Cn1
-read	new Probe::P1().conq	model	Probe::P1::conq	ERR_NOSUCHFEATURE object has no such feature: member conq not found in instance
+read	new Probe::P1().conq	model	Probe::P1::conq	object:Probe::Con1
 read	new Probe::P1().cq	model	Probe::P1::cq	object:Probe::P1::cq
-read	new Probe::P1().done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::P1().done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	new Probe::P1().envelopingShapes	systems	Items::Item::envelopingShapes	empty
-read	new Probe::P1().eq	model	Probe::P1::eq	ERR_NOSUCHFEATURE object has no such feature: member eq not found in instance
+read	new Probe::P1().eq	model	Probe::P1::eq	enumeration literal E1::a
 read	new Probe::P1().es	model	Probe::P1::es	object:Probe::S1
 read	new Probe::P1().ev	model	Probe::P1::ev	object:Probe::P1::ev
 read	new Probe::P1().exhibitedStates	systems	Parts::Part::exhibitedStates	empty
 read	new Probe::P1().flq	model	Probe::P1::flq	object:Probe::Fl1
 read	new Probe::P1().ifq	model	Probe::P1::ifq	object:Probe::If1
 read	new Probe::P1().isSolid	systems	Items::Item::isSolid	constant true
-read	new Probe::P1().iu	model	Probe::P1::iu	ERR_NOSUCHFEATURE object has no such feature: member iu not found in instance
+read	new Probe::P1().iu	model	Probe::P1::iu	object:Probe::U1
 read	new Probe::P1().kq	model	Probe::P1::kq	constant 6.0
 read	new Probe::P1().mass	model	Probe::P1::mass	collection(1) [quantity 3.0 [kg]]
 read	new Probe::P1().mq	model	Probe::P1::mq	quantity 2.0 [kg]
@@ -565,34 +828,34 @@ read	new Probe::P1().oq	model	Probe::P1::oq	object:Probe::O1
 read	new Probe::P1().other	model	Probe::P1::other	error uninitialized feature value: other
 read	new Probe::P1().otherItem	model	Probe::P1::otherItem	error uninitialized feature value: otherItem
 read	new Probe::P1().others	model	Probe::P1::others	empty
-read	new Probe::P1().ownedActions	systems	Parts::Part::ownedActions	collection(3) [object:Probe::A1#1, object:Probe::Fl1#2, object:Probe::S1#3]
+read	new Probe::P1().ownedActions	systems	Parts::Part::ownedActions	collection(6) [object:Probe::A1#1, object:Probe::Ca1#2, object:Probe::U1#3, object:Probe::Fl1#4, object:Probe::U1#5, object:Probe::S1#6]
 read	new Probe::P1().ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [object:Probe::Pt#1]
 read	new Probe::P1().ownedStates	systems	Parts::Part::ownedStates	collection(1) [object:Probe::S1#1]
 read	new Probe::P1().pa	model	Probe::P1::pa	object:Probe::A2
 read	new Probe::P1().performedActions	systems	Parts::Part::performedActions	empty
 read	new Probe::P1().pt	model	Probe::P1::pt	object:Probe::Pt
-read	new Probe::P1().rdq	model	Probe::P1::rdq	ERR_NOSUCHFEATURE object has no such feature: member rdq not found in instance
+read	new Probe::P1().rdq	model	Probe::P1::rdq	object:Probe::Rd1
 read	new Probe::P1().rq	model	Probe::P1::rq	object:Probe::R1
-read	new Probe::P1().self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::P1().self	systemsFRAME	Parts::Part::self	object:Probe::P1
 read	new Probe::P1().shape	systems	Items::Item::shape	empty
 read	new Probe::P1().slice	model	Probe::P1::slice	object:Probe::P1::slice
 read	new Probe::P1().snap	model	Probe::P1::snap	object:Probe::P1::snap
-read	new Probe::P1().sr	model	Probe::P1::sr	ERR_NOSUCHFEATURE object has no such feature: member sr not found in instance
+read	new Probe::P1().sr	model	Probe::P1::sr	object:Probe::R1
 read	new Probe::P1().st	model	Probe::P1::st	object:Probe::S1
-read	new Probe::P1().start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::P1().start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	new Probe::P1().sub	model	Probe::P1::sub	collection(2) [object:Probe::P2#1, object:Probe::P2#2]
-read	new Probe::P1().subitems	systems	Items::Item::subitems	collection(6) [object:Probe::I1#1, object:Probe::P2#2, object:Probe::P2#3, object:Probe::Cn1#4, object:Probe::If1#5, object:Probe::Al1#6]
-read	new Probe::P1().subparts	systems	Items::Item::subparts	collection(5) [object:Probe::P2#1, object:Probe::P2#2, object:Probe::Cn1#3, object:Probe::If1#4, object:Probe::Al1#5]
-read	new Probe::P1().uq	model	Probe::P1::uq	ERR_NOSUCHFEATURE object has no such feature: member uq not found in instance
+read	new Probe::P1().subitems	systems	Items::Item::subitems	collection(8) [object:Probe::I1#1, object:Probe::P2#2, object:Probe::P2#3, object:Probe::Vw1#4, object:Probe::Rd1#5, object:Probe::Cn1#6, object:Probe::If1#7, object:Probe::Al1#8]
+read	new Probe::P1().subparts	systems	Items::Item::subparts	collection(7) [object:Probe::P2#1, object:Probe::P2#2, object:Probe::Vw1#3, object:Probe::Rd1#4, object:Probe::Cn1#5, object:Probe::If1#6, object:Probe::Al1#7]
+read	new Probe::P1().uq	model	Probe::P1::uq	object:Probe::U1
 read	new Probe::P1().voids	systems	Items::Item::voids	empty
-read	new Probe::P1().vpq	model	Probe::P1::vpq	ERR_NOSUCHFEATURE object has no such feature: member vpq not found in instance
+read	new Probe::P1().vpq	model	Probe::P1::vpq	object:Probe::Vp1
 read	new Probe::P1().vq	model	Probe::P1::vq	error no value: calc usage vq computes output features (no output feature); read one of them
 read	new Probe::P1().vq3	model	Probe::P1::vq3	error uninitialized feature value: vq3
-read	new Probe::P1().vwq	model	Probe::P1::vwq	ERR_NOSUCHFEATURE object has no such feature: member vwq not found in instance
+read	new Probe::P1().vwq	model	Probe::P1::vwq	object:Probe::Vw1
 object	new Probe::P2()	object:Probe::P2
 read	new Probe::P2().boundingShapes	systems	Items::Item::boundingShapes	empty
 read	new Probe::P2().checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	new Probe::P2().done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::P2().done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	new Probe::P2().envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	new Probe::P2().exhibitedStates	systems	Parts::Part::exhibitedStates	empty
 read	new Probe::P2().isSolid	systems	Items::Item::isSolid	constant true
@@ -600,21 +863,21 @@ read	new Probe::P2().ownedActions	systems	Parts::Part::ownedActions	empty
 read	new Probe::P2().ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	new Probe::P2().ownedStates	systems	Parts::Part::ownedStates	empty
 read	new Probe::P2().performedActions	systems	Parts::Part::performedActions	empty
-read	new Probe::P2().self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::P2().self	systemsFRAME	Parts::Part::self	object:Probe::P2
 read	new Probe::P2().shape	systems	Items::Item::shape	empty
-read	new Probe::P2().start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::P2().start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	new Probe::P2().subitems	systems	Items::Item::subitems	empty
 read	new Probe::P2().subparts	systems	Items::Item::subparts	empty
 read	new Probe::P2().voids	systems	Items::Item::voids	empty
 object	new Probe::I1()	object:Probe::I1
 read	new Probe::I1().boundingShapes	systems	Items::Item::boundingShapes	empty
 read	new Probe::I1().checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	new Probe::I1().done	systemsFRAME	Items::Item::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::I1().done	systemsFRAME	Items::Item::done	undetermined <undetermined>
 read	new Probe::I1().envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	new Probe::I1().isSolid	systems	Items::Item::isSolid	constant true
-read	new Probe::I1().self	systemsFRAME	Items::Item::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::I1().self	systemsFRAME	Items::Item::self	object:Probe::I1
 read	new Probe::I1().shape	systems	Items::Item::shape	empty
-read	new Probe::I1().start	systemsFRAME	Items::Item::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::I1().start	systemsFRAME	Items::Item::start	undetermined <undetermined>
 read	new Probe::I1().subitems	systems	Items::Item::subitems	empty
 read	new Probe::I1().subparts	systems	Items::Item::subparts	empty
 read	new Probe::I1().voids	systems	Items::Item::voids	empty
@@ -623,8 +886,8 @@ object	new Probe::Pt()	object:Probe::Pt
 read	new Probe::Pt().inflow	model	Probe::Pt::inflow	object:Probe::I1
 read	new Probe::Pt().interfacingPorts	systems	Ports::Port::interfacingPorts	empty
 read	new Probe::Pt().outflow	model	Probe::Pt::outflow	object:Probe::I1
-read	new Probe::Pt().outgoingTransfersFromSelf	systemsFRAME	Ports::Port::outgoingTransfersFromSelf	ERR_NOSUCHFEATURE object has no such feature: member outgoingTransfersFromSelf not found in instance
-read	new Probe::Pt().self	systemsFRAME	Ports::Port::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::Pt().outgoingTransfersFromSelf	systemsFRAME	Ports::Port::outgoingTransfersFromSelf	undetermined <undetermined>
+read	new Probe::Pt().self	systemsFRAME	Ports::Port::self	object:Probe::Pt
 read	new Probe::Pt().subports	systems	Ports::Port::subports	empty
 read	new Probe::Pt().x	model	Probe::Pt::x	object:ScalarValues::Integer
 object	new Probe::A1()	object:Probe::A1
@@ -633,20 +896,20 @@ read	new Probe::A1().assignments	systems	Actions::Action::assignments	empty
 read	new Probe::A1().controls	systems	Actions::Action::controls	empty
 read	new Probe::A1().decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	new Probe::A1().decisions	systems	Actions::Action::decisions	empty
-read	new Probe::A1().done	systemsFRAME	Actions::Action::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::A1().done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
 read	new Probe::A1().forLoops	systems	Actions::Action::forLoops	empty
 read	new Probe::A1().forks	systems	Actions::Action::forks	empty
 read	new Probe::A1().i	model	Probe::A1::i	empty
 read	new Probe::A1().ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	new Probe::A1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	new Probe::A1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	new Probe::A1().joins	systems	Actions::Action::joins	empty
 read	new Probe::A1().loops	systems	Actions::Action::loops	empty
 read	new Probe::A1().merges	systems	Actions::Action::merges	empty
 read	new Probe::A1().nested	model	Probe::A1::nested	object:Probe::A2
 read	new Probe::A1().o	model	Probe::A1::o	empty
-read	new Probe::A1().self	systemsFRAME	Actions::Action::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::A1().self	systemsFRAME	Actions::Action::self	object:Probe::A1
 read	new Probe::A1().sendSubactions	systems	Actions::Action::sendSubactions	empty
-read	new Probe::A1().start	systemsFRAME	Actions::Action::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::A1().start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
 read	new Probe::A1().subactions	systems	Actions::Action::subactions	collection(1) [object:Probe::A2#1]
 read	new Probe::A1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::A1().transitions	systems	Actions::Action::transitions	empty
@@ -658,22 +921,22 @@ read	new Probe::S1().controls	systems	Actions::Action::controls	empty
 read	new Probe::S1().decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	new Probe::S1().decisions	systems	Actions::Action::decisions	empty
 read	new Probe::S1().doAction	systems	States::StateAction::doAction	object:Actions::Action
-read	new Probe::S1().done	systemsFRAME	States::StateAction::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::S1().done	systemsFRAME	States::StateAction::done	undetermined <undetermined>
 read	new Probe::S1().entryAction	systems	States::StateAction::entryAction	error uninitialized feature value: entryAction
 read	new Probe::S1().exclusiveStates	systems	States::StateAction::exclusiveStates	empty
 read	new Probe::S1().exitAction	systems	States::StateAction::exitAction	object:Actions::Action
 read	new Probe::S1().forLoops	systems	Actions::Action::forLoops	empty
 read	new Probe::S1().forks	systems	Actions::Action::forks	empty
 read	new Probe::S1().ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	new Probe::S1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	new Probe::S1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	new Probe::S1().isTriggerDuring	systems	States::StateAction::isTriggerDuring	constant true
 read	new Probe::S1().joins	systems	Actions::Action::joins	empty
 read	new Probe::S1().loops	systems	Actions::Action::loops	empty
 read	new Probe::S1().merges	systems	Actions::Action::merges	empty
 read	new Probe::S1().on1	model	Probe::S1::on1	error uninitialized feature value: on1
-read	new Probe::S1().self	systemsFRAME	States::StateAction::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::S1().self	systemsFRAME	States::StateAction::self	object:Probe::S1
 read	new Probe::S1().sendSubactions	systems	Actions::Action::sendSubactions	empty
-read	new Probe::S1().start	systemsFRAME	States::StateAction::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::S1().start	systemsFRAME	States::StateAction::start	undetermined <undetermined>
 read	new Probe::S1().stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	new Probe::S1().stateTransitions	systems	States::StateAction::stateTransitions	empty
 read	new Probe::S1().subactions	systems	States::StateAction::subactions	empty
@@ -684,18 +947,18 @@ read	new Probe::S1().whileLoops	systems	Actions::Action::whileLoops	empty
 object	new Probe::R1()	object:Probe::R1
 read	new Probe::R1().actors	systems	Requirements::RequirementCheck::actors	empty
 read	new Probe::R1().assumptions	systems	Requirements::RequirementCheck::assumptions	empty
-read	new Probe::R1().concerns	systems	Requirements::RequirementCheck::concerns	ERR_NOSUCHFEATURE object has no such feature: member concerns not found in instance
+read	new Probe::R1().concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	new Probe::R1().constraints	systems	Requirements::RequirementCheck::constraints	empty
 read	new Probe::R1().lim	model	Probe::R1::lim	constant 5.0
 read	new Probe::R1().result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
 read	new Probe::R1().s	model	Probe::R1::s	error uninitialized feature value: s
-read	new Probe::R1().self	systemsFRAME	Requirements::RequirementCheck::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::R1().self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::R1
 read	new Probe::R1().sh	model	Probe::R1::sh	object:Probe::P2
 read	new Probe::R1().stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	new Probe::R1().subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 read	new Probe::R1().who	model	Probe::R1::who	object:Probe::P2
 object	new Probe::C1()	object:Probe::C1
-read	new Probe::C1().self	systemsFRAME	Constraints::ConstraintCheck::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::C1().self	systemsFRAME	Constraints::ConstraintCheck::self	object:Probe::C1
 read	new Probe::C1().x	model	Probe::C1::x	empty
 read	new Probe::C1().y	model	Probe::C1::y	empty
 object	new Probe::K1()	object:Probe::K1
@@ -704,17 +967,17 @@ read	new Probe::K1().assignments	systems	Actions::Action::assignments	empty
 read	new Probe::K1().controls	systems	Actions::Action::controls	empty
 read	new Probe::K1().decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	new Probe::K1().decisions	systems	Actions::Action::decisions	empty
-read	new Probe::K1().done	systemsFRAME	Actions::Action::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::K1().done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
 read	new Probe::K1().forLoops	systems	Actions::Action::forLoops	empty
 read	new Probe::K1().forks	systems	Actions::Action::forks	empty
 read	new Probe::K1().ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	new Probe::K1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	new Probe::K1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	new Probe::K1().joins	systems	Actions::Action::joins	empty
 read	new Probe::K1().loops	systems	Actions::Action::loops	empty
 read	new Probe::K1().merges	systems	Actions::Action::merges	empty
 read	new Probe::K1().self	systemsFRAME	Calculations::Calculation::self	error no value: calc usage self computes output features (no output feature); read one of them
 read	new Probe::K1().sendSubactions	systems	Actions::Action::sendSubactions	empty
-read	new Probe::K1().start	systemsFRAME	Actions::Action::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::K1().start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
 read	new Probe::K1().subactions	systems	Actions::Action::subactions	empty
 read	new Probe::K1().subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
 read	new Probe::K1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
@@ -728,22 +991,22 @@ read	new Probe::Ca1().assignments	systems	Actions::Action::assignments	empty
 read	new Probe::Ca1().controls	systems	Actions::Action::controls	empty
 read	new Probe::Ca1().decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	new Probe::Ca1().decisions	systems	Actions::Action::decisions	empty
-read	new Probe::Ca1().done	systemsFRAME	Actions::Action::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::Ca1().done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
 read	new Probe::Ca1().forLoops	systems	Actions::Action::forLoops	empty
 read	new Probe::Ca1().forks	systems	Actions::Action::forks	empty
 read	new Probe::Ca1().ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	new Probe::Ca1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	new Probe::Ca1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	new Probe::Ca1().joins	systems	Actions::Action::joins	empty
 read	new Probe::Ca1().loops	systems	Actions::Action::loops	empty
 read	new Probe::Ca1().merges	systems	Actions::Action::merges	empty
 read	new Probe::Ca1().result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
 read	new Probe::Ca1().s	model	Probe::Ca1::s	error uninitialized feature value: s
-read	new Probe::Ca1().self	systemsFRAME	Cases::Case::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::Ca1().self	systemsFRAME	Cases::Case::self	object:Probe::Ca1
 read	new Probe::Ca1().sendSubactions	systems	Actions::Action::sendSubactions	empty
-read	new Probe::Ca1().start	systemsFRAME	Actions::Action::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::Ca1().start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
 read	new Probe::Ca1().subactions	systems	Actions::Action::subactions	empty
 read	new Probe::Ca1().subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
-read	new Probe::Ca1().subcases	systems	Cases::Case::subcases	ERR_NOSUCHFEATURE object has no such feature: member subcases not found in instance
+read	new Probe::Ca1().subcases	systems	Cases::Case::subcases	empty
 read	new Probe::Ca1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::Ca1().transitions	systems	Actions::Action::transitions	empty
 read	new Probe::Ca1().whileLoops	systems	Actions::Action::whileLoops	empty
@@ -754,11 +1017,11 @@ read	new Probe::An1().assignments	systems	Actions::Action::assignments	empty
 read	new Probe::An1().controls	systems	Actions::Action::controls	empty
 read	new Probe::An1().decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	new Probe::An1().decisions	systems	Actions::Action::decisions	empty
-read	new Probe::An1().done	systemsFRAME	Actions::Action::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::An1().done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
 read	new Probe::An1().forLoops	systems	Actions::Action::forLoops	empty
 read	new Probe::An1().forks	systems	Actions::Action::forks	empty
 read	new Probe::An1().ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	new Probe::An1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	new Probe::An1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	new Probe::An1().joins	systems	Actions::Action::joins	empty
 read	new Probe::An1().loops	systems	Actions::Action::loops	empty
 read	new Probe::An1().merges	systems	Actions::Action::merges	empty
@@ -766,11 +1029,11 @@ read	new Probe::An1().result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE 
 read	new Probe::An1().s	model	Probe::An1::s	error uninitialized feature value: s
 read	new Probe::An1().self	systemsFRAME	AnalysisCases::AnalysisCase::self	error no value: calc usage self computes output features (no output feature); read one of them
 read	new Probe::An1().sendSubactions	systems	Actions::Action::sendSubactions	empty
-read	new Probe::An1().start	systemsFRAME	Actions::Action::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::An1().start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
 read	new Probe::An1().subAnalysisCases	systems	AnalysisCases::AnalysisCase::subAnalysisCases	error no value: calc usage subAnalysisCases computes output features (no output feature); read one of them
 read	new Probe::An1().subactions	systems	Actions::Action::subactions	empty
 read	new Probe::An1().subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
-read	new Probe::An1().subcases	systems	Cases::Case::subcases	ERR_NOSUCHFEATURE object has no such feature: member subcases not found in instance
+read	new Probe::An1().subcases	systems	Cases::Case::subcases	empty
 read	new Probe::An1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::An1().transitions	systems	Actions::Action::transitions	empty
 read	new Probe::An1().whileLoops	systems	Actions::Action::whileLoops	empty
@@ -781,11 +1044,11 @@ read	new Probe::V1().assignments	systems	Actions::Action::assignments	empty
 read	new Probe::V1().controls	systems	Actions::Action::controls	empty
 read	new Probe::V1().decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	new Probe::V1().decisions	systems	Actions::Action::decisions	empty
-read	new Probe::V1().done	systemsFRAME	Actions::Action::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::V1().done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
 read	new Probe::V1().forLoops	systems	Actions::Action::forLoops	empty
 read	new Probe::V1().forks	systems	Actions::Action::forks	empty
 read	new Probe::V1().ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	new Probe::V1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	new Probe::V1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	new Probe::V1().joins	systems	Actions::Action::joins	empty
 read	new Probe::V1().loops	systems	Actions::Action::loops	empty
 read	new Probe::V1().merges	systems	Actions::Action::merges	empty
@@ -794,11 +1057,11 @@ read	new Probe::V1().requirementVerifications	systems	VerificationCases::Verific
 read	new Probe::V1().s	model	Probe::V1::s	error uninitialized feature value: s
 read	new Probe::V1().self	systemsFRAME	VerificationCases::VerificationCase::self	error no value: calc usage self computes output features (no output feature); read one of them
 read	new Probe::V1().sendSubactions	systems	Actions::Action::sendSubactions	empty
-read	new Probe::V1().start	systemsFRAME	Actions::Action::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::V1().start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
 read	new Probe::V1().subVerificationCases	systems	VerificationCases::VerificationCase::subVerificationCases	error no value: calc usage subVerificationCases computes output features (no output feature); read one of them
 read	new Probe::V1().subactions	systems	Actions::Action::subactions	empty
 read	new Probe::V1().subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
-read	new Probe::V1().subcases	systems	Cases::Case::subcases	ERR_NOSUCHFEATURE object has no such feature: member subcases not found in instance
+read	new Probe::V1().subcases	systems	Cases::Case::subcases	empty
 read	new Probe::V1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::V1().transitions	systems	Actions::Action::transitions	empty
 read	new Probe::V1().verdict	systemsFRAME	VerificationCases::VerificationCase::verdict	ERR_NOSUCHFEATURE object has no such feature: member verdict not found in instance
@@ -810,25 +1073,25 @@ read	new Probe::U1().assignments	systems	Actions::Action::assignments	empty
 read	new Probe::U1().controls	systems	Actions::Action::controls	empty
 read	new Probe::U1().decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	new Probe::U1().decisions	systems	Actions::Action::decisions	empty
-read	new Probe::U1().done	systemsFRAME	UseCases::UseCase::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::U1().done	systemsFRAME	UseCases::UseCase::done	undetermined <undetermined>
 read	new Probe::U1().forLoops	systems	Actions::Action::forLoops	empty
 read	new Probe::U1().forks	systems	Actions::Action::forks	empty
 read	new Probe::U1().ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	new Probe::U1().includedUseCases	systems	UseCases::UseCase::includedUseCases	ERR_NOSUCHFEATURE object has no such feature: member includedUseCases not found in instance
-read	new Probe::U1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	new Probe::U1().includedUseCases	systems	UseCases::UseCase::includedUseCases	empty
+read	new Probe::U1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	new Probe::U1().joins	systems	Actions::Action::joins	empty
 read	new Probe::U1().loops	systems	Actions::Action::loops	empty
 read	new Probe::U1().merges	systems	Actions::Action::merges	empty
 read	new Probe::U1().obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
 read	new Probe::U1().result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
 read	new Probe::U1().s	model	Probe::U1::s	error uninitialized feature value: s
-read	new Probe::U1().self	systemsFRAME	UseCases::UseCase::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::U1().self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1
 read	new Probe::U1().sendSubactions	systems	Actions::Action::sendSubactions	empty
-read	new Probe::U1().start	systemsFRAME	UseCases::UseCase::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
-read	new Probe::U1().subUseCases	systems	UseCases::UseCase::subUseCases	ERR_NOSUCHFEATURE object has no such feature: member subUseCases not found in instance
+read	new Probe::U1().start	systemsFRAME	UseCases::UseCase::start	undetermined <undetermined>
+read	new Probe::U1().subUseCases	systems	UseCases::UseCase::subUseCases	empty
 read	new Probe::U1().subactions	systems	Actions::Action::subactions	empty
 read	new Probe::U1().subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
-read	new Probe::U1().subcases	systems	Cases::Case::subcases	ERR_NOSUCHFEATURE object has no such feature: member subcases not found in instance
+read	new Probe::U1().subcases	systems	Cases::Case::subcases	empty
 read	new Probe::U1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::U1().transitions	systems	Actions::Action::transitions	empty
 read	new Probe::U1().whileLoops	systems	Actions::Action::whileLoops	empty
@@ -836,7 +1099,7 @@ read	new Probe::U1().who	model	Probe::U1::who	object:Probe::P2
 object	new Probe::Vw1()	object:Probe::Vw1
 read	new Probe::Vw1().boundingShapes	systems	Items::Item::boundingShapes	empty
 read	new Probe::Vw1().checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	new Probe::Vw1().done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::Vw1().done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	new Probe::Vw1().envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	new Probe::Vw1().exhibitedStates	systems	Parts::Part::exhibitedStates	empty
 read	new Probe::Vw1().isSolid	systems	Items::Item::isSolid	constant true
@@ -844,34 +1107,34 @@ read	new Probe::Vw1().ownedActions	systems	Parts::Part::ownedActions	empty
 read	new Probe::Vw1().ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	new Probe::Vw1().ownedStates	systems	Parts::Part::ownedStates	empty
 read	new Probe::Vw1().performedActions	systems	Parts::Part::performedActions	empty
-read	new Probe::Vw1().self	systemsFRAME	Views::View::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::Vw1().self	systemsFRAME	Views::View::self	object:Probe::Vw1
 read	new Probe::Vw1().shape	systems	Items::Item::shape	empty
-read	new Probe::Vw1().start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::Vw1().start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	new Probe::Vw1().subitems	systems	Items::Item::subitems	empty
 read	new Probe::Vw1().subparts	systems	Items::Item::subparts	empty
-read	new Probe::Vw1().subviews	systems	Views::View::subviews	ERR_NOSUCHFEATURE object has no such feature: member subviews not found in instance
-read	new Probe::Vw1().viewRendering	systems	Views::View::viewRendering	ERR_NOSUCHFEATURE object has no such feature: member viewRendering not found in instance
-read	new Probe::Vw1().viewpointConformance	systems	Views::View::viewpointConformance	ERR_NOSUCHFEATURE object has no such feature: member viewpointConformance not found in instance
-read	new Probe::Vw1().viewpointSatisfactions	systems	Views::View::viewpointSatisfactions	ERR_NOSUCHFEATURE object has no such feature: member viewpointSatisfactions not found in instance
+read	new Probe::Vw1().subviews	systems	Views::View::subviews	empty
+read	new Probe::Vw1().viewRendering	systems	Views::View::viewRendering	empty
+read	new Probe::Vw1().viewpointConformance	systems	Views::View::viewpointConformance	object:Views::View::viewpointConformance
+read	new Probe::Vw1().viewpointSatisfactions	systems	Views::View::viewpointSatisfactions	empty
 read	new Probe::Vw1().voids	systems	Items::Item::voids	empty
 object	new Probe::Vp1()	object:Probe::Vp1
 read	new Probe::Vp1().actors	systems	Requirements::RequirementCheck::actors	empty
 read	new Probe::Vp1().assumptions	systems	Requirements::RequirementCheck::assumptions	empty
-read	new Probe::Vp1().con1	model	Probe::Vp1::con1	ERR_NOSUCHFEATURE object has no such feature: member con1 not found in instance
-read	new Probe::Vp1().concerns	systems	Requirements::RequirementCheck::concerns	ERR_NOSUCHFEATURE object has no such feature: member concerns not found in instance
+read	new Probe::Vp1().con1	model	Probe::Vp1::con1	object:Probe::Con1
+read	new Probe::Vp1().concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	new Probe::Vp1().constraints	systems	Requirements::RequirementCheck::constraints	empty
 read	new Probe::Vp1().result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
-read	new Probe::Vp1().self	systemsFRAME	Views::ViewpointCheck::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::Vp1().self	systemsFRAME	Views::ViewpointCheck::self	object:Probe::Vp1
 read	new Probe::Vp1().stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	new Probe::Vp1().subj	systems	Views::ViewpointCheck::subj	error uninitialized feature value: subj
 read	new Probe::Vp1().subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 object	new Probe::Con1()	object:Probe::Con1
 read	new Probe::Con1().actors	systems	Requirements::RequirementCheck::actors	empty
 read	new Probe::Con1().assumptions	systems	Requirements::RequirementCheck::assumptions	empty
-read	new Probe::Con1().concerns	systems	Requirements::RequirementCheck::concerns	ERR_NOSUCHFEATURE object has no such feature: member concerns not found in instance
+read	new Probe::Con1().concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	new Probe::Con1().constraints	systems	Requirements::RequirementCheck::constraints	empty
 read	new Probe::Con1().result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
-read	new Probe::Con1().self	systemsFRAME	Requirements::ConcernCheck::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::Con1().self	systemsFRAME	Requirements::ConcernCheck::self	object:Probe::Con1
 read	new Probe::Con1().sh	model	Probe::Con1::sh	object:Probe::P2
 read	new Probe::Con1().stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	new Probe::Con1().subj	systems	Requirements::RequirementCheck::subj	error uninitialized feature value: subj
@@ -879,7 +1142,7 @@ read	new Probe::Con1().subrequirements	systems	Requirements::RequirementCheck::s
 object	new Probe::Rd1()	object:Probe::Rd1
 read	new Probe::Rd1().boundingShapes	systems	Items::Item::boundingShapes	empty
 read	new Probe::Rd1().checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	new Probe::Rd1().done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::Rd1().done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	new Probe::Rd1().envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	new Probe::Rd1().exhibitedStates	systems	Parts::Part::exhibitedStates	empty
 read	new Probe::Rd1().isSolid	systems	Items::Item::isSolid	constant true
@@ -887,17 +1150,17 @@ read	new Probe::Rd1().ownedActions	systems	Parts::Part::ownedActions	empty
 read	new Probe::Rd1().ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	new Probe::Rd1().ownedStates	systems	Parts::Part::ownedStates	empty
 read	new Probe::Rd1().performedActions	systems	Parts::Part::performedActions	empty
-read	new Probe::Rd1().self	systemsFRAME	Views::Rendering::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::Rd1().self	systemsFRAME	Views::Rendering::self	object:Probe::Rd1
 read	new Probe::Rd1().shape	systems	Items::Item::shape	empty
-read	new Probe::Rd1().start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::Rd1().start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	new Probe::Rd1().subitems	systems	Items::Item::subitems	empty
 read	new Probe::Rd1().subparts	systems	Items::Item::subparts	empty
-read	new Probe::Rd1().subrenderings	systems	Views::Rendering::subrenderings	ERR_NOSUCHFEATURE object has no such feature: member subrenderings not found in instance
+read	new Probe::Rd1().subrenderings	systems	Views::Rendering::subrenderings	empty
 read	new Probe::Rd1().voids	systems	Items::Item::voids	empty
 object	new Probe::Cn1()	object:Probe::Cn1
 read	new Probe::Cn1().boundingShapes	systems	Items::Item::boundingShapes	empty
 read	new Probe::Cn1().checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	new Probe::Cn1().done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::Cn1().done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	new Probe::Cn1().e1	model	Probe::Cn1::e1	object:Probe::P2
 read	new Probe::Cn1().e2	model	Probe::Cn1::e2	object:Probe::P2
 read	new Probe::Cn1().envelopingShapes	systems	Items::Item::envelopingShapes	empty
@@ -907,10 +1170,10 @@ read	new Probe::Cn1().ownedActions	systems	Parts::Part::ownedActions	empty
 read	new Probe::Cn1().ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	new Probe::Cn1().ownedStates	systems	Parts::Part::ownedStates	empty
 read	new Probe::Cn1().performedActions	systems	Parts::Part::performedActions	empty
-read	new Probe::Cn1().self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::Cn1().self	systemsFRAME	Parts::Part::self	object:Probe::Cn1
 read	new Probe::Cn1().shape	systems	Items::Item::shape	empty
 read	new Probe::Cn1().source	systems	Connections::BinaryConnection::source	object:Probe::P2
-read	new Probe::Cn1().start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::Cn1().start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	new Probe::Cn1().subitems	systems	Items::Item::subitems	empty
 read	new Probe::Cn1().subparts	systems	Items::Item::subparts	empty
 read	new Probe::Cn1().target	systems	Connections::BinaryConnection::target	object:Probe::P2
@@ -918,7 +1181,7 @@ read	new Probe::Cn1().voids	systems	Items::Item::voids	empty
 object	new Probe::If1()	object:Probe::If1
 read	new Probe::If1().boundingShapes	systems	Items::Item::boundingShapes	empty
 read	new Probe::If1().checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	new Probe::If1().done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::If1().done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	new Probe::If1().envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	new Probe::If1().exhibitedStates	systems	Parts::Part::exhibitedStates	empty
 read	new Probe::If1().isSolid	systems	Items::Item::isSolid	constant true
@@ -929,10 +1192,10 @@ read	new Probe::If1().p1	model	Probe::If1::p1	object:Probe::Pt
 read	new Probe::If1().p2	model	Probe::If1::p2	object:Probe::Pt
 read	new Probe::If1().participant	systems	Interfaces::BinaryInterface::participant	error uninitialized feature value: participant
 read	new Probe::If1().performedActions	systems	Parts::Part::performedActions	empty
-read	new Probe::If1().self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::If1().self	systemsFRAME	Parts::Part::self	object:Probe::If1
 read	new Probe::If1().shape	systems	Items::Item::shape	empty
 read	new Probe::If1().source	systems	Interfaces::BinaryInterface::source	object:Probe::Pt
-read	new Probe::If1().start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::If1().start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	new Probe::If1().subitems	systems	Items::Item::subitems	empty
 read	new Probe::If1().subparts	systems	Items::Item::subparts	empty
 read	new Probe::If1().target	systems	Interfaces::BinaryInterface::target	object:Probe::Pt
@@ -942,7 +1205,7 @@ read	new Probe::Al1().a1	model	Probe::Al1::a1	object:Probe::P2
 read	new Probe::Al1().a2	model	Probe::Al1::a2	object:Probe::P2
 read	new Probe::Al1().boundingShapes	systems	Items::Item::boundingShapes	empty
 read	new Probe::Al1().checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	new Probe::Al1().done	systemsFRAME	Parts::Part::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::Al1().done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	new Probe::Al1().envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	new Probe::Al1().exhibitedStates	systems	Parts::Part::exhibitedStates	empty
 read	new Probe::Al1().isSolid	systems	Items::Item::isSolid	constant true
@@ -950,10 +1213,10 @@ read	new Probe::Al1().ownedActions	systems	Parts::Part::ownedActions	empty
 read	new Probe::Al1().ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	new Probe::Al1().ownedStates	systems	Parts::Part::ownedStates	empty
 read	new Probe::Al1().performedActions	systems	Parts::Part::performedActions	empty
-read	new Probe::Al1().self	systemsFRAME	Parts::Part::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::Al1().self	systemsFRAME	Parts::Part::self	object:Probe::Al1
 read	new Probe::Al1().shape	systems	Items::Item::shape	empty
 read	new Probe::Al1().source	systems	Allocations::Allocation::source	object:Probe::P2
-read	new Probe::Al1().start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::Al1().start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	new Probe::Al1().subitems	systems	Items::Item::subitems	empty
 read	new Probe::Al1().subparts	systems	Items::Item::subparts	empty
 read	new Probe::Al1().target	systems	Allocations::Allocation::target	object:Probe::P2
@@ -964,19 +1227,19 @@ read	new Probe::Fl1().assignments	systems	Actions::Action::assignments	empty
 read	new Probe::Fl1().controls	systems	Actions::Action::controls	empty
 read	new Probe::Fl1().decisionTransitions	systems	Actions::Action::decisionTransitions	empty
 read	new Probe::Fl1().decisions	systems	Actions::Action::decisions	empty
-read	new Probe::Fl1().done	systemsFRAME	Actions::Action::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::Fl1().done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
 read	new Probe::Fl1().forLoops	systems	Actions::Action::forLoops	empty
 read	new Probe::Fl1().forks	systems	Actions::Action::forks	empty
 read	new Probe::Fl1().ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	new Probe::Fl1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	ERR_NOSUCHFEATURE object has no such feature: member incomingTransfers not found in instance
+read	new Probe::Fl1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	new Probe::Fl1().inflow	model	Probe::Fl1::inflow	object:Probe::I1
 read	new Probe::Fl1().joins	systems	Actions::Action::joins	empty
 read	new Probe::Fl1().loops	systems	Actions::Action::loops	empty
 read	new Probe::Fl1().merges	systems	Actions::Action::merges	empty
 read	new Probe::Fl1().payload	systems	Flows::MessageAction::payload	empty
-read	new Probe::Fl1().self	systemsFRAME	Actions::Action::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::Fl1().self	systemsFRAME	Actions::Action::self	object:Probe::Fl1
 read	new Probe::Fl1().sendSubactions	systems	Actions::Action::sendSubactions	empty
-read	new Probe::Fl1().start	systemsFRAME	Actions::Action::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::Fl1().start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
 read	new Probe::Fl1().subactions	systems	Actions::Action::subactions	empty
 read	new Probe::Fl1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::Fl1().transitions	systems	Actions::Action::transitions	empty
@@ -988,12 +1251,12 @@ read	new Probe::E1().b	model	Probe::E1::b	ERR_NOSUCHFEATURE object has no such f
 object	new Probe::M1()	object:Probe::M1
 read	new Probe::M1().boundingShapes	systems	Items::Item::boundingShapes	empty
 read	new Probe::M1().checkedConstraints	systems	Items::Item::checkedConstraints	empty
-read	new Probe::M1().done	systemsFRAME	Items::Item::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
+read	new Probe::M1().done	systemsFRAME	Items::Item::done	undetermined <undetermined>
 read	new Probe::M1().envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	new Probe::M1().isSolid	systems	Items::Item::isSolid	constant true
-read	new Probe::M1().self	systemsFRAME	Metadata::MetadataItem::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
+read	new Probe::M1().self	systemsFRAME	Metadata::MetadataItem::self	object:Probe::M1
 read	new Probe::M1().shape	systems	Items::Item::shape	empty
-read	new Probe::M1().start	systemsFRAME	Items::Item::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
+read	new Probe::M1().start	systemsFRAME	Items::Item::start	undetermined <undetermined>
 read	new Probe::M1().subitems	systems	Items::Item::subitems	empty
 read	new Probe::M1().subparts	systems	Items::Item::subparts	empty
 read	new Probe::M1().tag	model	Probe::M1::tag	object:ScalarValues::String
@@ -1025,7 +1288,7 @@ call	BaseFunctions::'hastype'	1 hastype Real	constant false	ok
 call	BaseFunctions::'hastype'	BaseFunctions::'hastype'(1, Integer)	error cannot evaluate definition Integer	UNEVALUATED want true
 call	BaseFunctions::'@'	1 @ Integer	constant true	ok
 call	BaseFunctions::'@'	BaseFunctions::'@'(1, Integer)	error cannot evaluate definition Integer	UNEVALUATED want true
-call	BaseFunctions::'@@'	Probe::Tagged @@ Probe::M	constant false	WRONG want true, got false
+call	BaseFunctions::'@@'	Probe::Tagged @@ Probe::M	constant true	ok
 call	BaseFunctions::'@@'	Probe::P1 @@ Probe::M	constant false	ok
 call	BaseFunctions::'as'	1 as Real	constant 1	ok
 call	BaseFunctions::'as'	BaseFunctions::'as'(1, Real)	error cannot evaluate definition Real	UNEVALUATED want 1
@@ -1335,7 +1598,7 @@ call	VectorFunctions::'+'	VectorFunctions::CartesianVectorOf((1.0, 2.0)) + Vecto
 call	VectorFunctions::scalarVectorMult	VectorFunctions::CartesianVectorOf((1.0, 2.0)) * 2.0	vector ⟨2.0, 4.0⟩	ok
 prefix	(none)	attribute Integer	attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	(none)	attribute At1	attribute x : At1;	Probe::d.x => undetermined <undetermined>
-prefix	(none)	enum E1	enum x : E1;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	(none)	enum E1	enum x : E1;	Probe::d.x => undetermined <undetermined>
 prefix	(none)	calc K1	calc x : K1;	Probe::d.x => constant 4
 prefix	(none)	part P2	part x : P2;	Probe::d.x => object:Probe::P2
 prefix	(none)	item I1	item x : I1;	Probe::d.x => object:Probe::I1
@@ -1348,7 +1611,7 @@ prefix	(none)	occurrence O1	occurrence x : O1;	Probe::d.x => object:Probe::O1
 prefix	(none)	connection Cn1	connection x : Cn1 connect sub1 to sub2;	Probe::d.x => object:Probe::Cn1
 prefix	in	attribute Integer	in attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	in	attribute At1	in attribute x : At1;	Probe::d.x => undetermined <undetermined>
-prefix	in	enum E1	in enum x : E1;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	in	enum E1	in enum x : E1;	Probe::d.x => undetermined <undetermined>
 prefix	in	calc K1	in calc x : K1;	Probe::d.x => constant 4
 prefix	in	part P2	in part x : P2;	Probe::d.x => object:Probe::P2
 prefix	in	item I1	in item x : I1;	Probe::d.x => object:Probe::I1
@@ -1361,7 +1624,7 @@ prefix	in	occurrence O1	in occurrence x : O1;	Probe::d.x => undetermined <undete
 prefix	in	connection Cn1	in connection x : Cn1 connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
 prefix	out	attribute Integer	out attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	out	attribute At1	out attribute x : At1;	Probe::d.x => undetermined <undetermined>
-prefix	out	enum E1	out enum x : E1;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	out	enum E1	out enum x : E1;	Probe::d.x => undetermined <undetermined>
 prefix	out	calc K1	out calc x : K1;	Probe::d.x => constant 4
 prefix	out	part P2	out part x : P2;	Probe::d.x => object:Probe::P2
 prefix	out	item I1	out item x : I1;	Probe::d.x => object:Probe::I1
@@ -1374,7 +1637,7 @@ prefix	out	occurrence O1	out occurrence x : O1;	Probe::d.x => undetermined <unde
 prefix	out	connection Cn1	out connection x : Cn1 connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
 prefix	inout	attribute Integer	inout attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	inout	attribute At1	inout attribute x : At1;	Probe::d.x => undetermined <undetermined>
-prefix	inout	enum E1	inout enum x : E1;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	inout	enum E1	inout enum x : E1;	Probe::d.x => undetermined <undetermined>
 prefix	inout	calc K1	inout calc x : K1;	Probe::d.x => constant 4
 prefix	inout	part P2	inout part x : P2;	Probe::d.x => object:Probe::P2
 prefix	inout	item I1	inout item x : I1;	Probe::d.x => object:Probe::I1
@@ -1387,7 +1650,7 @@ prefix	inout	occurrence O1	inout occurrence x : O1;	Probe::d.x => undetermined <
 prefix	inout	connection Cn1	inout connection x : Cn1 connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
 prefix	ref (unbound)	attribute Integer	ref attribute x : Integer;	Probe::d.x => error uninitialized feature value: x
 prefix	ref (unbound)	attribute At1	ref attribute x : At1;	Probe::d.x => error uninitialized feature value: x
-prefix	ref (unbound)	enum E1	ref enum x : E1;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	ref (unbound)	enum E1	ref enum x : E1;	Probe::d.x => error uninitialized feature value: x
 prefix	ref (unbound)	calc K1	ref calc x : K1;	Probe::d.x => constant 4
 prefix	ref (unbound)	part P2	ref part x : P2;	Probe::d.x => error uninitialized feature value: x
 prefix	ref (unbound)	item I1	ref item x : I1;	Probe::d.x => error uninitialized feature value: x
@@ -1399,7 +1662,7 @@ prefix	ref (unbound)	constraint C1	ref constraint x : C1;	Probe::d.x => error un
 prefix	ref (unbound)	occurrence O1	ref occurrence x : O1;	Probe::d.x => error uninitialized feature value: x
 prefix	ref (unbound)	connection Cn1	ref connection x : Cn1 connect sub1 to sub2;	Probe::d.x => object:Probe::D::x
 prefix	ref (bound =)	attribute Integer	ref attribute x : Integer = 1;	Probe::d.x => constant 1 ;; Probe::d.x == Probe::d.sub1 => constant false
-prefix	ref (bound =)	enum E1	ref enum x : E1 = E1::a;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance ;; Probe::d.x == Probe::d.sub1 => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	ref (bound =)	enum E1	ref enum x : E1 = E1::a;	Probe::d.x => enumeration literal E1::a ;; Probe::d.x == Probe::d.sub1 => constant false
 prefix	ref (bound =)	part P2	ref part x : P2 = sub1;	Probe::d.x => object:Probe::P2 ;; Probe::d.x == Probe::d.sub1 => constant true
 prefix	ref (bound =)	item I1	ref item x : I1 = it1;	Probe::d.x => object:Probe::I1 ;; Probe::d.x == Probe::d.sub1 => constant false
 prefix	ref (bound =)	port Pt	ref port x : Pt = pt1;	Probe::d.x => object:Probe::Pt ;; Probe::d.x == Probe::d.sub1 => constant false
@@ -1410,7 +1673,7 @@ prefix	ref (bound =)	constraint C1	ref constraint x : C1 = cq1;	Probe::d.x => ob
 prefix	ref (bound =)	occurrence O1	ref occurrence x : O1 = oc1;	Probe::d.x => object:Probe::O1 ;; Probe::d.x == Probe::d.sub1 => constant false
 prefix	abstract [0..*]	attribute Integer	abstract attribute x : Integer[0..*];	Probe::d.x => empty
 prefix	abstract [0..*]	attribute At1	abstract attribute x : At1[0..*];	Probe::d.x => empty
-prefix	abstract [0..*]	enum E1	abstract enum x : E1[0..*];	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	abstract [0..*]	enum E1	abstract enum x : E1[0..*];	Probe::d.x => empty
 prefix	abstract [0..*]	calc K1	abstract calc x : K1[0..*];	Probe::d.x => constant 4
 prefix	abstract [0..*]	part P2	abstract part x : P2[0..*];	Probe::d.x => empty
 prefix	abstract [0..*]	item I1	abstract item x : I1[0..*];	Probe::d.x => empty
@@ -1423,7 +1686,7 @@ prefix	abstract [0..*]	occurrence O1	abstract occurrence x : O1[0..*];	Probe::d.
 prefix	abstract [0..*]	connection Cn1	abstract connection x : Cn1[0..*] connect sub1 to sub2;	Probe::d.x => empty
 prefix	abstract [0..*] + subsetter	attribute Integer	abstract attribute x : Integer[0..*]; attribute y : Integer :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
 prefix	abstract [0..*] + subsetter	attribute At1	abstract attribute x : At1[0..*]; attribute y : At1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
-prefix	abstract [0..*] + subsetter	enum E1	abstract enum x : E1[0..*]; enum y : E1 :> x;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance ;; Probe::d.y => ERR_NOSUCHFEATURE object has no such feature: member y not found in instance
+prefix	abstract [0..*] + subsetter	enum E1	abstract enum x : E1[0..*]; enum y : E1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
 prefix	abstract [0..*] + subsetter	calc K1	abstract calc x : K1[0..*]; calc y : K1 :> x;	Probe::d.x => constant 4 ;; Probe::d.y => constant 4
 prefix	abstract [0..*] + subsetter	part P2	abstract part x : P2[0..*]; part y : P2 :> x;	Probe::d.x => collection(1) [object:Probe::P2#1] ;; Probe::d.y => object:Probe::P2
 prefix	abstract [0..*] + subsetter	item I1	abstract item x : I1[0..*]; item y : I1 :> x;	Probe::d.x => collection(1) [object:Probe::I1#1] ;; Probe::d.y => object:Probe::I1
@@ -1436,7 +1699,7 @@ prefix	abstract [0..*] + subsetter	occurrence O1	abstract occurrence x : O1[0..*
 prefix	abstract [0..*] + subsetter	connection Cn1	abstract connection x : Cn1[0..*] connect sub1 to sub2; connection y : Cn1 connect sub1 to sub2 :> x;	Probe::d.x => empty ;; Probe::d.y => object:Probe::Cn1
 prefix	variation	attribute Integer	variation attribute x : Integer { variant attribute va : Integer; variant attribute vb : Integer; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	attribute At1	variation attribute x : At1 { variant attribute va : At1; variant attribute vb : At1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
-prefix	variation	enum E1	variation enum x : E1 { variant enum va : E1; variant enum vb : E1; }	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance ;; Probe::d.x.va => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	variation	enum E1	variation enum x : E1 { variant enum va : E1; variant enum vb : E1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	calc K1	variation calc x : K1 { variant calc va : K1; variant calc vb : K1; }	Probe::d.x => constant 4 ;; Probe::d.x.va => error unknown output: calc Probe::D::x declares no output va (it declares: none)
 prefix	variation	part P2	variation part x : P2 { variant part va : P2; variant part vb : P2; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	item I1	variation item x : I1 { variant item va : I1; variant item vb : I1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
@@ -1449,7 +1712,7 @@ prefix	variation	occurrence O1	variation occurrence x : O1 { variant occurrence 
 prefix	variation	connection Cn1	variation connection x : Cn1 connect sub1 to sub2 { variant connection va : Cn1 connect sub1 to sub2; variant connection vb : Cn1 connect sub1 to sub2; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	constant	attribute Integer	constant attribute x : Integer = 1;	Probe::d.x => constant 1
 prefix	constant	attribute At1	constant attribute x : At1;	Probe::d.x => undetermined <undetermined>
-prefix	constant	enum E1	constant enum x : E1 = E1::a;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	constant	enum E1	constant enum x : E1 = E1::a;	Probe::d.x => enumeration literal E1::a
 prefix	constant	calc K1	constant calc x : K1;	Probe::d.x => constant 4
 prefix	constant	part P2	constant part x : P2 = sub1;	Probe::d.x => object:Probe::P2
 prefix	constant	item I1	constant item x : I1 = it1;	Probe::d.x => object:Probe::I1
@@ -1462,7 +1725,7 @@ prefix	constant	occurrence O1	constant occurrence x : O1 = oc1;	Probe::d.x => ob
 prefix	constant	connection Cn1	constant connection x : Cn1 connect sub1 to sub2;	Probe::d.x => object:Probe::Cn1
 prefix	readonly	attribute Integer	readonly attribute x : Integer = 1;	Probe::d.x => constant 1
 prefix	readonly	attribute At1	readonly attribute x : At1;	Probe::d.x => undetermined <undetermined>
-prefix	readonly	enum E1	readonly enum x : E1 = E1::a;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	readonly	enum E1	readonly enum x : E1 = E1::a;	Probe::d.x => enumeration literal E1::a
 prefix	readonly	calc K1	readonly calc x : K1;	Probe::d.x => constant 4
 prefix	readonly	part P2	readonly part x : P2 = sub1;	Probe::d.x => object:Probe::P2
 prefix	readonly	item I1	readonly item x : I1 = it1;	Probe::d.x => object:Probe::I1
@@ -1475,7 +1738,7 @@ prefix	readonly	occurrence O1	readonly occurrence x : O1 = oc1;	Probe::d.x => ob
 prefix	readonly	connection Cn1	readonly connection x : Cn1 connect sub1 to sub2;	Probe::d.x => object:Probe::Cn1
 prefix	derived	attribute Integer	derived attribute x : Integer = 1;	Probe::d.x => constant 1
 prefix	derived	attribute At1	derived attribute x : At1;	Probe::d.x => undetermined <undetermined>
-prefix	derived	enum E1	derived enum x : E1 = E1::a;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	derived	enum E1	derived enum x : E1 = E1::a;	Probe::d.x => enumeration literal E1::a
 prefix	derived	calc K1	derived calc x : K1;	Probe::d.x => constant 4
 prefix	derived	part P2	derived part x : P2 = sub1;	Probe::d.x => object:Probe::P2
 prefix	derived	item I1	derived item x : I1 = it1;	Probe::d.x => object:Probe::I1
@@ -1488,7 +1751,7 @@ prefix	derived	occurrence O1	derived occurrence x : O1 = oc1;	Probe::d.x => obje
 prefix	derived	connection Cn1	derived connection x : Cn1 connect sub1 to sub2;	Probe::d.x => object:Probe::Cn1
 prefix	end	attribute Integer	end attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	end	attribute At1	end attribute x : At1;	Probe::d.x => undetermined <undetermined>
-prefix	end	enum E1	end enum x : E1;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	end	enum E1	end enum x : E1;	Probe::d.x => undetermined <undetermined>
 prefix	end	calc K1	end calc x : K1;	Probe::d.x => constant 4
 prefix	end	part P2	end part x : P2;	Probe::d.x => object:Probe::P2
 prefix	end	item I1	end item x : I1;	Probe::d.x => object:Probe::I1
@@ -1501,7 +1764,7 @@ prefix	end	occurrence O1	end occurrence x : O1;	Probe::d.x => object:Probe::O1
 prefix	end	connection Cn1	end connection x : Cn1 connect sub1 to sub2;	Probe::d.x => object:Probe::Cn1
 prefix	portion	attribute Integer	portion attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	portion	attribute At1	portion attribute x : At1;	Probe::d.x => undetermined <undetermined>
-prefix	portion	enum E1	portion enum x : E1;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	portion	enum E1	portion enum x : E1;	Probe::d.x => undetermined <undetermined>
 prefix	portion	calc K1	portion calc x : K1;	Probe::d.x => constant 4
 prefix	portion	part P2	portion part x : P2;	Probe::d.x => object:Probe::P2
 prefix	portion	item I1	portion item x : I1;	Probe::d.x => object:Probe::I1
@@ -1514,7 +1777,7 @@ prefix	portion	occurrence O1	portion occurrence x : O1;	Probe::d.x => object:Pro
 prefix	portion	connection Cn1	portion connection x : Cn1 connect sub1 to sub2;	Probe::d.x => object:Probe::Cn1
 prefix	individual	attribute Integer	individual attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	individual	attribute At1	individual attribute x : At1;	Probe::d.x => undetermined <undetermined>
-prefix	individual	enum E1	individual enum x : E1;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	individual	enum E1	individual enum x : E1;	Probe::d.x => undetermined <undetermined>
 prefix	individual	calc K1	individual calc x : K1;	Probe::d.x => constant 4
 prefix	individual	part P2	individual part x : P2;	Probe::d.x => object:Probe::P2
 prefix	individual	item I1	individual item x : I1;	Probe::d.x => object:Probe::I1
@@ -1527,7 +1790,7 @@ prefix	individual	occurrence O1	individual occurrence x : O1;	Probe::d.x => obje
 prefix	individual	connection Cn1	individual connection x : Cn1 connect sub1 to sub2;	Probe::d.x => object:Probe::Cn1
 prefix	[2..4]	attribute Integer	attribute x : Integer[2..4];	Probe::d.x => undetermined <undetermined>
 prefix	[2..4]	attribute At1	attribute x : At1[2..4];	Probe::d.x => undetermined <undetermined>
-prefix	[2..4]	enum E1	enum x : E1[2..4];	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	[2..4]	enum E1	enum x : E1[2..4];	Probe::d.x => undetermined <undetermined>
 prefix	[2..4]	calc K1	calc x : K1[2..4];	Probe::d.x => constant 4
 prefix	[2..4]	part P2	part x : P2[2..4];	Probe::d.x => undetermined <undetermined>
 prefix	[2..4]	item I1	item x : I1[2..4];	Probe::d.x => undetermined <undetermined>
@@ -1544,7 +1807,7 @@ prefix	[*] ordered = (3,1,3)	attribute Integer	attribute x : Integer[*] ordered 
 prefix	[*] nonunique = (3,1,3)	attribute Integer	attribute x : Integer[*] nonunique = (3, 1, 3);	Probe::d.x => collection(3) [constant 3, constant 1, constant 3]
 prefix	[2] = (1,2,3) (too many)	attribute Integer	attribute x : Integer[2] = (1, 2, 3);	Probe::d.x => error feature value d.x: multiplicity violation: 3 value(s) bound to a feature with multiplicity upper bound 2
 prefix	default	attribute Integer	attribute x : Integer default 1;	Probe::d.x => constant 1
-prefix	default	enum E1	enum x : E1 default E1::a;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	default	enum E1	enum x : E1 default E1::a;	Probe::d.x => enumeration literal E1::a
 prefix	default	part P2	part x : P2 default sub1;	Probe::d.x => object:Probe::P2
 prefix	default	item I1	item x : I1 default it1;	Probe::d.x => object:Probe::I1
 prefix	default	port Pt	port x : Pt default pt1;	Probe::d.x => object:Probe::Pt
@@ -1554,7 +1817,7 @@ prefix	default	requirement R1	requirement x : R1 default rq1;	Probe::d.x => obje
 prefix	default	constraint C1	constraint x : C1 default cq1;	Probe::d.x => object:Probe::C1
 prefix	default	occurrence O1	occurrence x : O1 default oc1;	Probe::d.x => object:Probe::O1
 prefix	default + :>> override	attribute Integer	attribute x : Integer default 1;	Probe::d.x => constant 1 ;; Probe::d2.x => constant 2 ;; Probe::d2.x == Probe::d2.sub2 => constant false
-prefix	default + :>> override	enum E1	enum x : E1 default E1::a;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance ;; Probe::d2.x => enumeration literal E1::b ;; Probe::d2.x == Probe::d2.sub2 => constant false
+prefix	default + :>> override	enum E1	enum x : E1 default E1::a;	Probe::d.x => enumeration literal E1::a ;; Probe::d2.x => enumeration literal E1::b ;; Probe::d2.x == Probe::d2.sub2 => constant false
 prefix	default + :>> override	part P2	part x : P2 default sub1;	Probe::d.x => object:Probe::P2 ;; Probe::d2.x => object:Probe::P2 ;; Probe::d2.x == Probe::d2.sub2 => constant true
 prefix	default + :>> override	item I1	item x : I1 default it1;	Probe::d.x => object:Probe::I1 ;; Probe::d2.x => object:Probe::I1 ;; Probe::d2.x == Probe::d2.sub2 => constant false
 prefix	default + :>> override	port Pt	port x : Pt default pt1;	Probe::d.x => object:Probe::Pt ;; Probe::d2.x => object:Probe::Pt ;; Probe::d2.x == Probe::d2.sub2 => constant false
@@ -1564,7 +1827,7 @@ prefix	default + :>> override	requirement R1	requirement x : R1 default rq1;	Pro
 prefix	default + :>> override	constraint C1	constraint x : C1 default cq1;	Probe::d.x => object:Probe::C1 ;; Probe::d2.x => object:Probe::C1 ;; Probe::d2.x == Probe::d2.sub2 => constant false
 prefix	default + :>> override	occurrence O1	occurrence x : O1 default oc1;	Probe::d.x => object:Probe::O1 ;; Probe::d2.x => object:Probe::O1 ;; Probe::d2.x == Probe::d2.sub2 => constant false
 prefix	:= initial	attribute Integer	attribute x : Integer := 1;	Probe::d.x => constant 1
-prefix	:= initial	enum E1	enum x : E1 := E1::a;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	:= initial	enum E1	enum x : E1 := E1::a;	Probe::d.x => enumeration literal E1::a
 prefix	:= initial	part P2	part x : P2 := sub1;	Probe::d.x => object:Probe::P2
 prefix	:= initial	item I1	item x : I1 := it1;	Probe::d.x => object:Probe::I1
 prefix	:= initial	port Pt	port x : Pt := pt1;	Probe::d.x => object:Probe::Pt
@@ -1574,7 +1837,7 @@ prefix	:= initial	requirement R1	requirement x : R1 := rq1;	Probe::d.x => object
 prefix	:= initial	constraint C1	constraint x : C1 := cq1;	Probe::d.x => object:Probe::C1
 prefix	:= initial	occurrence O1	occurrence x : O1 := oc1;	Probe::d.x => object:Probe::O1
 prefix	:>> redefinition masks	attribute Integer	attribute x : Integer = 1;	Probe::d.x => constant 1 ;; Probe::d2.x => constant 2 ;; Probe::d2.x == Probe::d2.sub2 => constant false
-prefix	:>> redefinition masks	enum E1	enum x : E1 = E1::a;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance ;; Probe::d2.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance ;; Probe::d2.x == Probe::d2.sub2 => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	:>> redefinition masks	enum E1	enum x : E1 = E1::a;	Probe::d.x => enumeration literal E1::a ;; Probe::d2.x => enumeration literal E1::b ;; Probe::d2.x == Probe::d2.sub2 => constant false
 prefix	:>> redefinition masks	part P2	part x : P2 = sub1;	Probe::d.x => object:Probe::P2 ;; Probe::d2.x => object:Probe::P2 ;; Probe::d2.x == Probe::d2.sub2 => constant true
 prefix	:>> redefinition masks	item I1	item x : I1 = it1;	Probe::d.x => object:Probe::I1 ;; Probe::d2.x => object:Probe::I1 ;; Probe::d2.x == Probe::d2.sub2 => constant false
 prefix	:>> redefinition masks	port Pt	port x : Pt = pt1;	Probe::d.x => object:Probe::Pt ;; Probe::d2.x => object:Probe::Pt ;; Probe::d2.x == Probe::d2.sub2 => constant false
@@ -1585,7 +1848,7 @@ prefix	:>> redefinition masks	constraint C1	constraint x : C1 = cq1;	Probe::d.x 
 prefix	:>> redefinition masks	occurrence O1	occurrence x : O1 = oc1;	Probe::d.x => object:Probe::O1 ;; Probe::d2.x => object:Probe::O1 ;; Probe::d2.x == Probe::d2.sub2 => constant false
 prefix	:> subsetting	attribute Integer	attribute x : Integer[0..*]; attribute y : Integer :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
 prefix	:> subsetting	attribute At1	attribute x : At1[0..*]; attribute y : At1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
-prefix	:> subsetting	enum E1	enum x : E1[0..*]; enum y : E1 :> x;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance ;; Probe::d.y => ERR_NOSUCHFEATURE object has no such feature: member y not found in instance
+prefix	:> subsetting	enum E1	enum x : E1[0..*]; enum y : E1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
 prefix	:> subsetting	calc K1	calc x : K1[0..*]; calc y : K1 :> x;	Probe::d.x => constant 4 ;; Probe::d.y => constant 4
 prefix	:> subsetting	part P2	part x : P2[0..*]; part y : P2 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => object:Probe::P2
 prefix	:> subsetting	item I1	item x : I1[0..*]; item y : I1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => object:Probe::I1
@@ -1598,7 +1861,7 @@ prefix	:> subsetting	occurrence O1	occurrence x : O1[0..*]; occurrence y : O1 :>
 prefix	:> subsetting	connection Cn1	connection x : Cn1[0..*] connect sub1 to sub2; connection y : Cn1 connect sub1 to sub2 :> x;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach ;; Probe::d.y => object:Probe::Cn1
 prefix	::> reference subsetting	attribute Integer	attribute x : Integer; ref attribute y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
 prefix	::> reference subsetting	attribute At1	attribute x : At1; ref attribute y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
-prefix	::> reference subsetting	enum E1	enum x : E1; ref enum y ::> x;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance ;; Probe::d.y => ERR_NOSUCHFEATURE object has no such feature: member y not found in instance ;; Probe::d.y == Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member y not found in instance
+prefix	::> reference subsetting	enum E1	enum x : E1; ref enum y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
 prefix	::> reference subsetting	calc K1	calc x : K1; ref calc y ::> x;	Probe::d.x => constant 4 ;; Probe::d.y => constant 4 ;; Probe::d.y == Probe::d.x => constant true
 prefix	::> reference subsetting	part P2	part x : P2; ref part y ::> x;	Probe::d.x => object:Probe::P2 ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
 prefix	::> reference subsetting	item I1	item x : I1; ref item y ::> x;	Probe::d.x => object:Probe::I1 ;; Probe::d.y => error uninitialized feature value: y ;; Probe::d.y == Probe::d.x => error uninitialized feature value: y
