@@ -1414,9 +1414,6 @@ func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
 	if _, ok := ec.self.FeatureValues[name]; !ok && !ec.ctx.derivesKernelCollection(ec.self, name) {
 		return Value{}, false, nil
 	}
-	if val, ok, err := ec.constraintUsageRead(ec.self, name); ok {
-		return val, true, err
-	}
 	fv, open, err := ec.memberFeatureValue(ec.self, name)
 	if err != nil {
 		return Value{}, true, err

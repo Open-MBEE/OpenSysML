@@ -242,15 +242,16 @@ func (ctx *Context) verificationVerdictValue(typ *symbols.Symbol, inst *Instance
 
 // constraintUsageRead answers a read of a constraint usage declared on inst's type —
 // `constraint c { … }` or `assert constraint c { … }` — as the constraint evaluated on
-// inst, the predicate the object enacts; not ok for any other member, a library
-// collection of constraint objects included.
+// inst, the predicate the object enacts; not ok for a usage bound to a value, a
+// variation, or a library collection of constraint objects.
 func (ec *EvalContext) constraintUsageRead(inst *Instance, name string) (Value, bool, error) {
 	fv, ok := inst.FeatureValues[name]
 	if !ok || fv.Feature == nil || fv.Feature.Symbol == nil || fv.Feature.Symbol.Kind != symbols.SymbolConstraintUsage {
 		return Value{}, false, nil
 	}
 	sym := fv.Feature.Symbol
-	if !fv.Feature.Scalar() || ec.ctx.libraryDeclared(sym) || RequireConstraint(sym) != nil || fv.Materialized || fv.HeldValue().Kind != ValInvalid {
+	if !fv.Feature.Scalar() || fv.Feature.DefaultValue != nil || ec.ctx.libraryDeclared(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) ||
+		RequireConstraint(sym) != nil || fv.Materialized || fv.HeldValue().Kind != ValInvalid {
 		return Value{}, false, nil
 	}
 	result, err := ec.ctx.CheckConstraintOn(sym, sym.OwnerScope, inst)
