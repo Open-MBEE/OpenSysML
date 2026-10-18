@@ -101,6 +101,15 @@ const actionModel = `package Debug {
 }
 `
 
+const inputsModel = `package Inputs {
+	action def Double {
+		in x : ScalarValues::Integer;
+		out y : ScalarValues::Integer;
+		assign y := x * 2;
+	}
+}
+`
+
 const machineModel = `package Lamps {
 	attribute def Go;
 	state def Lamp {
@@ -426,6 +435,31 @@ func TestSweepTablesEveryRow(t *testing.T) {
 	}
 	if res := call(t, cs, "session_run", args("kind", "dance", "name", "Calcs::Double"), nil); !res.IsError {
 		t.Error("an unknown kind ran")
+	}
+}
+
+func TestRunBindsAnActionsInputsPositionallyOrByName(t *testing.T) {
+	cs := connect(t, t.TempDir())
+	must(t, cs, "session_submit", args("text", inputsModel), nil)
+
+	var v Verdict
+	must(t, cs, "session_run", args("kind", "action", "name", "Inputs::Double", "arguments", []string{"3"}), &v)
+	if v.Status != "holds" || !slices.Contains(v.Values, NamedValue{Name: "y", Value: "6"}) {
+		t.Errorf("positional run = %+v", v)
+	}
+	must(t, cs, "session_run", args("kind", "action", "name", "Inputs::Double", "arguments", []string{"x = 4"}), &v)
+	if v.Status != "holds" || !slices.Contains(v.Values, NamedValue{Name: "y", Value: "8"}) {
+		t.Errorf("named run = %+v", v)
+	}
+	for _, tc := range []struct{ args, wants string }{
+		{"z = 4", `no input parameter "z"`},
+		{"1, 2", "takes 1 input parameter(s), got 2"},
+		{"y = 4", `no input parameter "y"`},
+	} {
+		must(t, cs, "session_run", args("kind", "action", "name", "Inputs::Double", "arguments", strings.Split(tc.args, ", ")), &v)
+		if v.Status != "unresolved" || !strings.Contains(v.Text, tc.wants) {
+			t.Errorf("arguments %q: verdict = %+v, want %q", tc.args, v, tc.wants)
+		}
 	}
 }
 
