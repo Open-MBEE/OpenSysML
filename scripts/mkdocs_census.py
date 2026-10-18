@@ -24,7 +24,7 @@ UNREFEREED = "**No external referee:**"
 STATUS_HEADING = "Status"
 
 # Python-Markdown's tables extension: pipes inside a code span or escaped do not split.
-_CODE_PIPES = re.compile(r"(?:(\\\\)|(\\`+)|(`+)|(\\\|)|(\|))")
+_CODE_PIPES = re.compile(r"\\(?:(\\)|(`+)|(\|))|(`+)|(\|)")
 _END_BORDER = re.compile(r"(?<!\\)(?:\\\\)*\|$")
 _SEPARATOR_CHARS = set("|:- ")
 
@@ -40,11 +40,11 @@ def split_cells(row: str) -> list[str]:
     tic_points: list[tuple[int, int, int]] = []
     for m in _CODE_PIPES.finditer(row):
         if m.group(2):
-            tics.append(len(m.group(2)) - 1)
-            tic_points.append((m.start(2), m.end(2) - 1, 1))
-        elif m.group(3):
-            tics.append(len(m.group(3)))
-            tic_points.append((m.start(3), m.end(3) - 1, 0))
+            tics.append(len(m.group(2)))
+            tic_points.append((m.start(2) - 1, m.end(2) - 1, 1))
+        elif m.group(4):
+            tics.append(len(m.group(4)))
+            tic_points.append((m.start(4), m.end(4) - 1, 0))
         elif m.group(5):
             pipes.append(m.start(5))
     regions: list[tuple[int, int]] = []

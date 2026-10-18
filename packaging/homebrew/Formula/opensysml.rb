@@ -22,6 +22,9 @@ class Opensysml < Formula
   homepage "https://github.com/Open-MBEE/OpenSysML"
   license "Apache-2.0"
 
+  # The MCP server's archive, binary and manual page all carry this name.
+  MCP = "sysml-mcp".freeze
+
   # z3 makes the experimental %check/%explain solver path work out of the box;
   # the solver stays optional at runtime, discovered on PATH or via OPENSYSML_SMT.
   depends_on "z3"
@@ -30,7 +33,7 @@ class Opensysml < Formula
     on_arm do
       url "https://github.com/Open-MBEE/OpenSysML/releases/download/__TAG__/opensysml-darwin-arm64.tar.gz"
       sha256 "__SHA256_DARWIN_ARM64__"
-      resource "sysml-mcp" do
+      resource MCP do
         url "https://github.com/Open-MBEE/OpenSysML/releases/download/__TAG__/sysml-mcp-darwin-arm64.tar.gz"
         sha256 "__SHA256_MCP_DARWIN_ARM64__"
       end
@@ -38,7 +41,7 @@ class Opensysml < Formula
     on_intel do
       url "https://github.com/Open-MBEE/OpenSysML/releases/download/__TAG__/opensysml-darwin-amd64.tar.gz"
       sha256 "__SHA256_DARWIN_AMD64__"
-      resource "sysml-mcp" do
+      resource MCP do
         url "https://github.com/Open-MBEE/OpenSysML/releases/download/__TAG__/sysml-mcp-darwin-amd64.tar.gz"
         sha256 "__SHA256_MCP_DARWIN_AMD64__"
       end
@@ -49,7 +52,7 @@ class Opensysml < Formula
     on_arm do
       url "https://github.com/Open-MBEE/OpenSysML/releases/download/__TAG__/opensysml-linux-arm64.tar.gz"
       sha256 "__SHA256_LINUX_ARM64__"
-      resource "sysml-mcp" do
+      resource MCP do
         url "https://github.com/Open-MBEE/OpenSysML/releases/download/__TAG__/sysml-mcp-linux-arm64.tar.gz"
         sha256 "__SHA256_MCP_LINUX_ARM64__"
       end
@@ -57,7 +60,7 @@ class Opensysml < Formula
     on_intel do
       url "https://github.com/Open-MBEE/OpenSysML/releases/download/__TAG__/opensysml-linux-amd64.tar.gz"
       sha256 "__SHA256_LINUX_AMD64__"
-      resource "sysml-mcp" do
+      resource MCP do
         url "https://github.com/Open-MBEE/OpenSysML/releases/download/__TAG__/sysml-mcp-linux-amd64.tar.gz"
         sha256 "__SHA256_MCP_LINUX_AMD64__"
       end
@@ -69,9 +72,9 @@ class Opensysml < Formula
     man1.install Dir["share/man/man1/*.1"]
     # sysml-mcp is released as its own archive, with its manual page, apart
     # from the bundle.
-    resource("sysml-mcp").stage do
-      bin.install "sysml-mcp"
-      man1.install "share/man/man1/sysml-mcp.1"
+    resource(MCP).stage do
+      bin.install MCP
+      man1.install "share/man/man1/#{MCP}.1"
     end
   end
 
@@ -80,11 +83,11 @@ class Opensysml < Formula
     # is that tag without the leading "v", scanned from the URL.
     assert_match version.to_s, shell_output("#{bin}/sysml --version")
     assert_match version.to_s, shell_output("#{bin}/sysml-lsp --version")
-    assert_match version.to_s, shell_output("#{bin}/sysml-mcp --version")
+    assert_match version.to_s, shell_output("#{bin}/#{MCP} --version")
 
     # The MCP server writes a host's configuration naming its own installed path.
-    assert_match "#{bin}/sysml-mcp", shell_output("#{bin}/sysml-mcp -print-config opencode")
-    assert_path_exists man1/"sysml-mcp.1"
+    assert_match "#{bin}/#{MCP}", shell_output("#{bin}/#{MCP} -print-config opencode")
+    assert_path_exists man1/"#{MCP}.1"
 
     # The manual pages ship in the bundle archive, so `man sysml` works.
     assert_path_exists man1/"sysml.1"
