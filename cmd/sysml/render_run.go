@@ -87,7 +87,7 @@ func runRenderTargetsFromFlags() ([]runRenderTarget, error) {
 				}
 			}
 		} else if !slices.Contains(view.Forms(), form) {
-			return nil, fmt.Errorf("unknown rendering form %q; -render-form takes %s", renderForm, formList())
+			return nil, fmt.Errorf("unknown rendering form %q; -render-form takes %s", renderForm, view.FormNames(view.Forms()))
 		}
 		probe := &view.Rendering{Kind: runRenderViewKind(kind), Run: true}
 		if _, err := probe.WriteWith(form, view.Options{Links: view.Links{Template: renderLink}}); err != nil {

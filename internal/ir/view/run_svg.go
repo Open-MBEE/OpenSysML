@@ -10,9 +10,8 @@ import (
 	"time"
 )
 
-// DefaultAnimationStep is how long the animated SVG form spends on each step of
-// a run — an instant at which a timeline's state changes, a message of a
-// sequence — and on the final state before the replay loops.
+// DefaultAnimationStep is how long the animated SVG form spends on each step of a run
+// (a timeline instant where a state changes, a message) and on the final state.
 const DefaultAnimationStep = time.Second
 
 // svgNamespace is the SVG document namespace, the only reference the form writes.
@@ -37,23 +36,19 @@ const (
 	svgDimOpacity     = 0.25
 )
 
-// svgWriter writes a run rendering as a self-contained SVG document: no
-// script, no style sheet, no reference outside the document but the links
-// asked for, deterministic ids by drawing order.
+// svgWriter writes a run rendering as a self-contained SVG document: no script,
+// no style sheet, no reference outside it but the links asked for, ids by drawing order.
 type svgWriter struct {
 	b        strings.Builder
 	r        *Rendering
 	options  Options
 	animated bool
-	// step is the animation step; total the loop's duration, play the part of
-	// it that replays the run, the rest holding the final state.
+	// step is the animation step; total the loop, play the part of it replaying the run.
 	step, play, total time.Duration
 }
 
-// SVGWith is the rendering as an SVG drawing: a timeline's lanes and state spans
-// on a time axis, or a sequence's lifelines and messages. Animated, the drawing
-// replays the run with SMIL — the base attributes stay the complete, final
-// picture, so a viewer without SMIL shows the whole run.
+// SVGWith is the rendering as an SVG drawing, animated replaying the run with SMIL;
+// the base attributes stay the complete, final picture for a viewer without SMIL.
 func (r *Rendering) SVGWith(options Options, animated bool) string {
 	w := &svgWriter{r: r, options: options, animated: animated, step: options.AnimationStep}
 	if w.step <= 0 {
@@ -123,9 +118,8 @@ func (w *svgWriter) empty() {
 	w.b.WriteString("</svg>\n")
 }
 
-// timeline draws one lane per object machine, its states as bars over a time
-// axis, states held for no time as ticks and notes as diamonds. Animated, a
-// cursor sweeps the axis and the state under it brightens.
+// timeline draws one lane per machine with its state spans over a shared time axis;
+// animated, a cursor sweeps the axis and the state under it brightens.
 func (w *svgWriter) timeline() {
 	r := w.r
 	if len(r.Lanes) == 0 {
@@ -337,9 +331,8 @@ func (w *svgWriter) appearAt(t, until float64, attribute string) {
 		attribute, svgFraction(at), svgDuration(w.total))
 }
 
-// sequence draws the participants as heads over lifelines and the messages
-// between them as arrows, in order down the page. Animated, each arrow appears
-// in turn with a marker travelling along it.
+// sequence draws heads over lifelines and the messages between them as arrows
+// down the page; animated, each arrow appears in turn with a marker travelling it.
 func (w *svgWriter) sequence() {
 	r := w.r
 	if len(r.Roots) == 0 || len(r.Edges) == 0 {
@@ -363,6 +356,12 @@ func (w *svgWriter) sequence() {
 		}
 	}
 	width := svgMargin*2 + column*float64(len(r.Roots))
+	for _, edge := range r.Edges {
+		if edge.From == edge.To {
+			right := svgMargin + column*(float64(index[edge.From])+0.5) + svgSelfLoopWidth + svgCharWidth + svgTextWidth(edge.Label)
+			width = math.Max(width, right+svgMargin)
+		}
+	}
 	width = math.Max(width, svgMargin*2+svgTextWidth(w.title()))
 	for _, notice := range notices {
 		width = math.Max(width, svgMargin*2+svgTextWidth("not represented: "+notice))
@@ -400,14 +399,14 @@ func (w *svgWriter) sequence() {
 		if edge.Label != "" {
 			w.b.WriteString("<title>" + svgText(edge.Label) + "</title>")
 		}
-		var travel [2]float64
+		var travel [][2]float64
 		if edge.From == edge.To {
-			travel = [2]float64{from, from + svgSelfLoopWidth}
+			travel = [][2]float64{{from, y - 6}, {from + svgSelfLoopWidth, y - 6}, {from + svgSelfLoopWidth, y + 6}, {from + 2, y + 6}}
 			fmt.Fprintf(&w.b, "<path d=\"M%s %sh%sv%sh-%s\" fill=\"none\" stroke=\"#333333\" marker-end=\"url(#arrow)\"/>",
 				svgNumber(from), svgNumber(y-6), svgNumber(svgSelfLoopWidth), svgNumber(12), svgNumber(svgSelfLoopWidth-2))
 			fmt.Fprintf(&w.b, "<text x=%q y=%q>%s</text>", svgNumber(from+svgSelfLoopWidth+svgCharWidth), svgNumber(y+svgFontSize/2-1), svgText(edge.Label))
 		} else {
-			travel = [2]float64{from, to}
+			travel = [][2]float64{{from, y}, {to, y}}
 			fmt.Fprintf(&w.b, "<line x1=%q y1=%q x2=%q y2=%q stroke=\"#333333\" marker-end=\"url(#arrow)\"/>",
 				svgNumber(from), svgNumber(y), svgNumber(to), svgNumber(y))
 			fmt.Fprintf(&w.b, "<text x=%q y=%q text-anchor=\"middle\">%s</text>", svgNumber((from+to)/2), svgNumber(y-5), svgText(edge.Label))
@@ -418,23 +417,37 @@ func (w *svgWriter) sequence() {
 				fmt.Fprintf(&w.b, "<animate attributeName=\"opacity\" calcMode=\"discrete\" values=\"0;1\" keyTimes=\"0;%s\" dur=%q repeatCount=\"indefinite\"/>",
 					svgFraction(start), svgDuration(w.total))
 			}
-			fmt.Fprintf(&w.b, "<circle cx=%q cy=%q r=\"4\" fill=\"#c0392b\" opacity=\"0\">", svgNumber(travel[1]), svgNumber(y))
-			if start > 0 {
-				fmt.Fprintf(&w.b, "<animate attributeName=\"cx\" values=\"%s;%s;%s;%s\" keyTimes=\"0;%s;%s;1\" dur=%q repeatCount=\"indefinite\"/>",
-					svgNumber(travel[0]), svgNumber(travel[0]), svgNumber(travel[1]), svgNumber(travel[1]), svgFraction(start), svgFraction(end), svgDuration(w.total))
-				fmt.Fprintf(&w.b, "<animate attributeName=\"opacity\" calcMode=\"discrete\" values=\"0;1;0\" keyTimes=\"0;%s;%s\" dur=%q repeatCount=\"indefinite\"/>",
-					svgFraction(start), svgFraction(end), svgDuration(w.total))
-			} else {
-				fmt.Fprintf(&w.b, "<animate attributeName=\"cx\" values=\"%s;%s;%s\" keyTimes=\"0;%s;1\" dur=%q repeatCount=\"indefinite\"/>",
-					svgNumber(travel[0]), svgNumber(travel[1]), svgNumber(travel[1]), svgFraction(end), svgDuration(w.total))
-				fmt.Fprintf(&w.b, "<animate attributeName=\"opacity\" calcMode=\"discrete\" values=\"1;0\" keyTimes=\"0;%s\" dur=%q repeatCount=\"indefinite\"/>",
-					svgFraction(end), svgDuration(w.total))
-			}
-			w.b.WriteString("</circle>")
+			w.marker(travel, start, end)
 		}
 		w.b.WriteString("</g>\n")
 	}
 	w.b.WriteString("</svg>\n")
+}
+
+// marker is a sequence message's travelling marker: hidden until start, then
+// moving along the arrow's points to end, where it hides again.
+func (w *svgWriter) marker(points [][2]float64, start, end float64) {
+	last := points[len(points)-1]
+	fmt.Fprintf(&w.b, "<circle cx=%q cy=%q r=\"4\" fill=\"#c0392b\" opacity=\"0\">", svgNumber(last[0]), svgNumber(last[1]))
+	var xs, ys, times []string
+	if start > 0 {
+		xs, ys, times = append(xs, svgNumber(points[0][0])), append(ys, svgNumber(points[0][1])), append(times, "0")
+	}
+	for i, p := range points {
+		at := start + (end-start)*float64(i)/float64(len(points)-1)
+		xs, ys, times = append(xs, svgNumber(p[0])), append(ys, svgNumber(p[1])), append(times, svgFraction(at))
+	}
+	xs, ys, times = append(xs, svgNumber(last[0])), append(ys, svgNumber(last[1])), append(times, "1")
+	fmt.Fprintf(&w.b, "<animate attributeName=\"cx\" values=%q keyTimes=%q dur=%q repeatCount=\"indefinite\"/>", strings.Join(xs, ";"), strings.Join(times, ";"), svgDuration(w.total))
+	fmt.Fprintf(&w.b, "<animate attributeName=\"cy\" values=%q keyTimes=%q dur=%q repeatCount=\"indefinite\"/>", strings.Join(ys, ";"), strings.Join(times, ";"), svgDuration(w.total))
+	if start > 0 {
+		fmt.Fprintf(&w.b, "<animate attributeName=\"opacity\" calcMode=\"discrete\" values=\"0;1;0\" keyTimes=\"0;%s;%s\" dur=%q repeatCount=\"indefinite\"/>",
+			svgFraction(start), svgFraction(end), svgDuration(w.total))
+	} else {
+		fmt.Fprintf(&w.b, "<animate attributeName=\"opacity\" calcMode=\"discrete\" values=\"1;0\" keyTimes=\"0;%s\" dur=%q repeatCount=\"indefinite\"/>",
+			svgFraction(end), svgDuration(w.total))
+	}
+	w.b.WriteString("</circle>")
 }
 
 // linked writes what draw writes inside an <a> to the origin's source when

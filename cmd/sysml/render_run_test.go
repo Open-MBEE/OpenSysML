@@ -233,6 +233,7 @@ func TestRenderRunRejectsUnsupportedModesAndForms(t *testing.T) {
 		{"no behavior", []string{"-render-run", "timeline=run.txt"}, "needs -action, -state or -advance"},
 		{"unknown kind", []string{"-state", "Mission::Cycle", "-render-run", "other=run.txt"}, "unknown -render-run kind"},
 		{"unknown extension", []string{"-state", "Mission::Cycle", "-render-run", "timeline=run.png"}, "use -render-form"},
+		{"unknown form names the run forms", []string{"-state", "Mission::Cycle", "-render-run", "timeline=run.svg", "-render-form", "png"}, "svg, svg-animated"},
 		{"dot refused", []string{"-state", "Mission::Cycle", "-render-run", "timeline=run.dot"}, "not written as dot"},
 		{"model rendering conflict", []string{"-state", "Mission::Cycle", "-render-run", "timeline=run.txt", "-render", "Demo::view"}, "cannot be combined with -render"},
 		{"query conflict", []string{"-state", "Mission::Cycle", "-render-run", "timeline=run.txt", "-query", "sysml:name=*"}, "cannot be combined with -query"},

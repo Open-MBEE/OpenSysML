@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="737" height="284" viewBox="0 0 737 284" font-family="Helvetica, Arial, sans-serif" font-size="12">
+<svg xmlns="http://www.w3.org/2000/svg" width="840.5" height="284" viewBox="0 0 840.5 284" font-family="Helvetica, Arial, sans-serif" font-size="12">
 <title>sequence of a run to t = 4</title>
 <desc>the trace of a run to t = 4</desc>
-<rect width="737" height="284" fill="#ffffff"/>
+<rect width="840.5" height="284" fill="#ffffff"/>
 <text x="16" y="28" font-weight="bold">sequence of a run to t = 4</text>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#333333"/></marker></defs>
 <g id="n0">
