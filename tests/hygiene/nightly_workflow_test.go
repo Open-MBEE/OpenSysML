@@ -391,3 +391,44 @@ func TestNightlyNeverRebuildsAPublishedNight(t *testing.T) {
 		t.Error("the release step does not refuse to replace a published night")
 	}
 }
+
+// TestNightlyPublishesTheNpmRunnerWithTheClient checks that a night stamps,
+// builds, proves and publishes @openmbee/sysml-mcp and its five platform
+// packages beside the client's seven: thirteen tarballs, platform packages
+// before the shim that pins them.
+func TestNightlyPublishesTheNpmRunnerWithTheClient(t *testing.T) {
+	workflow, _ := loadNightlyWorkflow(t)
+	publish := nightlyJob(t, workflow, "publish").runSteps()
+	if stepIndex(publish, "git diff --stat", "packaging/npm/sysml-mcp/package.json") < 0 {
+		t.Error("the publish job does not show the stamped packaging/npm/sysml-mcp/package.json")
+	}
+	pack := stepIndex(publish, "npm run platform-packages", "--mcp ../../dist/mcp", "../../packaging/npm/sysml-mcp", "-ne 13")
+	switch {
+	case pack < 0:
+		t.Fatal("the publish job does not build the sysml-mcp platform packages and pack @openmbee/sysml-mcp as the thirteenth tarball")
+	case !strings.Contains(publish[pack].Command, "scripts/npm-mcp-test.sh"):
+		t.Error("the publish job does not prove the packed @openmbee/sysml-mcp serves the protocol")
+	case !strings.Contains(publish[pack].Command, "openmbee-sysml-mcp-${NPM_VERSION}.tgz"):
+		t.Error("the publish job does not check that @openmbee/sysml-mcp pins its platform packages at the snapshot version")
+	}
+
+	npm := nightlyJob(t, workflow, "npm").runSteps()
+	step := stepIndex(npm, "npm publish", `--tag "$NPM_DIST_TAG"`, "-ne 13")
+	if step < 0 {
+		t.Fatal("the npm job does not publish thirteen tarballs")
+	}
+	command := npm[step].Command
+	platforms := strings.Index(command, `openmbee-sysml-mcp-linux-x64-"$NPM_VERSION".tgz`)
+	shim := strings.Index(command, `openmbee-sysml-mcp-"$NPM_VERSION".tgz`)
+	switch {
+	case platforms < 0:
+		t.Error("the npm job does not publish the sysml-mcp platform packages")
+	case shim < 0:
+		t.Error("the npm job does not publish @openmbee/sysml-mcp")
+	case shim < platforms:
+		t.Error("the npm job publishes @openmbee/sysml-mcp before the platform packages it pins")
+	}
+	if stepIndex(npm, "dist-tags.latest", "@openmbee/sysml-mcp") < 0 {
+		t.Error("the npm job does not check, after publishing, that @openmbee/sysml-mcp's latest still names the stable release")
+	}
+}
