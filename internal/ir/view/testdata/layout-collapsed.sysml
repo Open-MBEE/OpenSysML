@@ -49,6 +49,20 @@ package FoldedViews {
 		metadata Layout about vehicle { x = 0; y = 0; collapsed = true; }
 	}
 
+	// A Layout binding only collapsed folds engine without placing it: the form
+	// lays every node out itself, and nothing is left undrawn for want of a place.
+	view foldOnly {
+		expose vehicle;
+		render asTreeDiagram;
+		metadata Layout about vehicle::engine { collapsed = true; }
+	}
+
+	view foldOnlyLinks {
+		expose vehicle;
+		render asInterconnectionDiagram;
+		metadata Layout about vehicle::engine { collapsed = true; }
+	}
+
 	// showParts = false hides the nested parts in the text form as in DOT.
 	view noParts {
 		expose vehicle;

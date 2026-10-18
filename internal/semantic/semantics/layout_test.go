@@ -651,3 +651,41 @@ func TestSymbolDeclaringSearchesEveryDocument(t *testing.T) {
 		t.Fatalf("LayoutOf(nil, off) = %+v, %v", site, ok)
 	}
 }
+
+// A Layout binding only collapsed or a show… switch needs no x and y: it folds
+// or hides without placing. One binding a size, or nothing, still needs a place.
+func TestLayoutFoldOnlyNeedsNoPlace(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part def Engine;
+		part engine : Engine;
+		view folded { expose engine; metadata Layout about engine { collapsed = true; } }
+		view hidden { expose engine; metadata Layout about engine { showAttributes = false; } }
+		view sized { expose engine; metadata Layout about engine { collapsed = true; width = 10; height = 10; } }
+		view bare { expose engine; metadata Layout about engine { } }
+	`)
+	engine := sym(t, p, "engine")
+
+	site, ok := m.LayoutOf(sym(t, p, "folded"), engine)
+	if !ok || site.Layout == nil || len(site.Problems) != 0 {
+		t.Fatalf("LayoutOf(folded, engine) = %+v, %v", site, ok)
+	}
+	if !site.Layout.Unplaced || !site.Layout.Collapsed || site.Layout.HasSize {
+		t.Errorf("fold-only layout = %+v, want unplaced and collapsed", site.Layout)
+	}
+
+	site, ok = m.LayoutOf(sym(t, p, "hidden"), engine)
+	if !ok || site.Layout == nil || len(site.Problems) != 0 {
+		t.Fatalf("LayoutOf(hidden, engine) = %+v, %v", site, ok)
+	}
+	if !site.Layout.Unplaced || !site.Layout.Hidden.Attributes || site.Layout.Collapsed {
+		t.Errorf("hide-only layout = %+v, want unplaced with attributes hidden", site.Layout)
+	}
+
+	for _, name := range []string{"sized", "bare"} {
+		site, ok = m.LayoutOf(sym(t, p, name), engine)
+		if !ok || site.Layout != nil || len(site.Problems) != 1 || site.Problems[0].Message != "Layout binds no x and y to place the element at" {
+			t.Errorf("LayoutOf(%s, engine) = %+v, %v, want the missing-place problem and no Layout", name, site, ok)
+		}
+	}
+}

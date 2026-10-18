@@ -1,4 +1,5 @@
 metadata def Hidden;
+metadata def Shown;
 
 package FilteredWalk {
 	private import Views::*;
@@ -13,12 +14,12 @@ package FilteredWalk {
 		attribute mass;
 		part chassis {
 			attribute length;
-			part axle;
+			#Shown part axle;
 		}
 		#Hidden part telemetry {
 			port tx : Signal;
 		}
-		part radio : Radio;
+		#Shown part radio : Radio;
 		part gps {
 			#Hidden port fix : Signal;
 		}
@@ -41,6 +42,21 @@ package FilteredWalk {
 		expose rover;
 		filter not @Hidden;
 		render asInterconnectionDiagram;
+	}
+
+	// A whitelist: the recursive expose selects the marked elements and nothing
+	// else, each a root of its own; the ancestors between them are not made up.
+	view picked {
+		expose rover::**[@Shown];
+		render asTreeDiagram;
+	}
+
+	// A whitelist stated as a filter rejects the unmarked root, so the view is
+	// empty: a filter prunes, it never adds the ancestors a marked element needs.
+	view wholeRejected {
+		expose rover;
+		filter @Shown;
+		render asTreeDiagram;
 	}
 
 	// A type filter prunes the ports a part has from its definition as well as

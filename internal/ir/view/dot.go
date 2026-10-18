@@ -1218,9 +1218,9 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		if stated || w.symbol(node) {
 			attrs = append(attrs, dotFixedSize)
 		}
-		if g := node.Geometry; g != nil && g.Collapsed {
-			attrs = append(attrs, `comment="collapsed"`)
-		}
+	}
+	if collapsed(node) {
+		attrs = append(attrs, `comment="collapsed"`)
 	}
 	attrs = append(attrs, w.dotLinkAttributes(node.Origin)...)
 	return attrs
