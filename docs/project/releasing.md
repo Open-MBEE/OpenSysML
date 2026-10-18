@@ -419,12 +419,15 @@ one alongside it).
      "import opensysml; print(opensysml.__version__, opensysml.load('examples/state-machine-demo.sysml').diagnostics)"
    ```
 
-2. **Verify the npm upload.** Check the registry sees all seven packages at the
-   version and the right dist-tag:
+2. **Verify the npm upload.** Check the registry sees all thirteen packages at the
+   version and the right dist-tag, and that the npm runner starts the release's
+   server with nothing installed:
 
    ```bash
    npm view @openmbee/opensysml@0.0.5 version dist-tags
    npm view @openmbee/opensysml-wasm@0.0.5 version
+   npm view @openmbee/sysml-mcp@0.0.5 version dist-tags optionalDependencies
+   npx -y @openmbee/sysml-mcp@0.0.5 -version
    ```
 
    Then install it in a temp dir and load a model with `OPENSYSML_BINARY` unset,
