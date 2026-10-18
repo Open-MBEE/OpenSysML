@@ -300,7 +300,11 @@ diagram draw the element with no children in every form (`view/walk.go` `collaps
 `treeNode` and `featureNode`), its ports stay pinned on its border and a connector still ends
 at them, and the tag is kept — `comment="collapsed"` in DOT, ` collapsed` in text,
 `Geometry.Collapsed` in the data. The `show…` switches hide single compartments; the text
-form omits the hidden rows as DOT does (`writeNodeText` skips `hiddenRow`). What a view draws
+form omits the hidden rows as DOT does (`writeNodeText` skips `hiddenRow`). A `Layout` binding
+only `collapsed` or `show…` switches binds no `x` and `y` and places nothing
+(`Layout.Unplaced`): it folds or hides and leaves the place to the tool, so it does not turn the
+drawing into a positioned one. A `Layout` binding a size, one coordinate, or nothing without both `x` and `y` is
+still the `diagram-layout-value` error `Layout binds no x and y to place the element at`. What a view draws
 is also bounded by its filter conditions and its `depth` attribute
 ([limiting what a view draws](view-rendering-forms.md#limiting-what-a-view-draws)).
 
@@ -374,7 +378,7 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
   is `opensysml/applyModelEdit` with `setLayout`, `setRoute`, `setCanvas` and `setStyle`
   ([the LSP reference](../reference/lsp.md)): `metadata Layout about … { x = …; y = …;
   }` into the view body when the operation names a view, inline into the element's own
-  body when it does not, updated in place when one is already stated and removed with
+  body when it does not (`{ collapsed = true; }` alone for a layout given no `x` and `y`), updated in place when one is already stated and removed with
   its line when cleared. Each annotation goes into the workspace document that declares
   what holds it, whichever document the request came from: a view-local `Layout` or
   `Route` and a `Canvas` into the view's document, an inline `Layout` or `Route` into

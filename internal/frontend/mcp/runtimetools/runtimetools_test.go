@@ -570,10 +570,7 @@ func TestQueriesAndRenderings(t *testing.T) {
 		t.Errorf("an empty composite: %s", msg)
 	}
 
-	telescope, err := filepath.Abs(telescopeFixture)
-	if err != nil {
-		t.Fatal(err)
-	}
+	telescope := h.copyIn(telescopeFixture, "telescope.sysml")
 	var rows pb.RunDocumentQueryResponse
 	_, out = h.ok("run_document_query", map[string]any{
 		"paths": []string{telescope}, "queryId": "Observatory::SubsystemTable",
@@ -631,6 +628,104 @@ func TestQueriesAndRenderings(t *testing.T) {
 }
 
 // documentNames are the DocumentQueries::Document specializations of a model.
+// copyIn copies a fixture into the workspace root under name and answers the
+// path a tool argument names it by: the tools read only under the root.
+func (h *harness) copyIn(fixture, name string) string {
+	h.t.Helper()
+	data, err := os.ReadFile(fixture)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(h.root, name), data, 0o600); err != nil {
+		h.t.Fatal(err)
+	}
+	return name
+}
+
+// Paths stay under the workspace root: a path that leaves it, lexically or
+// through a symlink, is refused by every tool that reads a file, and a path
+// under a link that stays inside the root is accepted.
+func TestPathsStayUnderTheRoot(t *testing.T) {
+	h := attach(t, newService(t))
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "secret.sysml"), []byte(demoModel), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for name, args := range map[string]map[string]any{
+		"parse ..":            {"paths": []string{"../" + filepath.Base(outside) + "/secret.sysml"}},
+		"parse absolute":      {"paths": []string{filepath.Join(outside, "secret.sysml")}},
+		"convert filePath":    {"filePath": filepath.Join(outside, "secret.sysml"), "toFormat": "ttl"},
+		"migrate filePath":    {"filePath": filepath.Join(outside, "secret.sysml"), "toFormat": "sysml"},
+		"migrate layoutPath":  {"filePath": "v1.xmi", "layoutPath": filepath.Join(outside, "layout.json"), "toFormat": "sysml"},
+		"run_document_query ": {"paths": []string{filepath.Join(outside, "secret.sysml")}, "queryId": "Q"},
+	} {
+		tool := strings.Fields(name)[0]
+		if msg := h.fails(tool, args); !strings.Contains(msg, "outside the workspace root") {
+			t.Errorf("%s: %s", name, msg)
+		}
+	}
+	if err := os.Symlink(filepath.Join(outside, "secret.sysml"), filepath.Join(h.root, "link.sysml")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if msg := h.fails("parse", map[string]any{"paths": []string{"link.sysml"}}); !strings.Contains(msg, "outside the workspace root") {
+		t.Errorf("a link out of the root: %s", msg)
+	}
+	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "inside.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(h.root, "broken.sysml"), []byte("package Broken {"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(h.root, "broken.sysml"), filepath.Join(h.root, "brokenlink.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	var resp pb.ParseSourcesResponse
+	_, out := h.ok("parse", map[string]any{"paths": []string{"inside.sysml", "brokenlink.sysml"}}, &resp)
+	real, err := filepath.EvalSymlinks(filepath.Join(h.root, "broken.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, real) || strings.Contains(out, "brokenlink.sysml") {
+		t.Errorf("the service must be handed the resolved file, not the link:\n%s", out)
+	}
+	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "alias.kerml")); err != nil {
+		t.Fatal(err)
+	}
+	if msg := h.fails("parse", map[string]any{"paths": []string{"alias.kerml"}}); !strings.Contains(msg, "whose extension names another format") {
+		t.Errorf("a link whose extension differs from its target's: %s", msg)
+	}
+	if err := os.WriteFile(filepath.Join(h.root, "graph.turtle"), []byte("@prefix ex: <http://example.org/> .\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(h.root, "graph.turtle"), filepath.Join(h.root, "graph.ttl")); err != nil {
+		t.Fatal(err)
+	}
+	if res := h.call("convert", map[string]any{"filePath": "graph.ttl", "toFormat": "sysml"}); strings.Contains(text(res), "another format") {
+		t.Errorf(".ttl and .turtle name the same format: %s", text(res))
+	}
+	if res := h.call("parse", map[string]any{"paths": []string{"alias.kerml"}}); !strings.Contains(text(res), "another format") {
+		t.Errorf("a link refused for its format must say so: %s", text(res))
+	}
+	if res := h.call("convert", map[string]any{"filePath": "alias.kerml", "fromFormat": "sysml", "toFormat": "ttl"}); !strings.Contains(text(res), "another format") {
+		t.Errorf("an explicit fromFormat does not choose the language, so the .kerml link is still refused: %s", text(res))
+	}
+	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "input.data")); err != nil {
+		t.Fatal(err)
+	}
+	if res := h.call("convert", map[string]any{"filePath": "input.data", "fromFormat": "sysml", "toFormat": "ttl"}); !strings.Contains(text(res), "another format") {
+		t.Errorf("the parser reads a name with neither model extension as its own kind, so the link is refused even with fromFormat: %s", text(res))
+	}
+	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "copy.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	if res := h.call("convert", map[string]any{"filePath": "copy.sysml", "fromFormat": "sysml", "toFormat": "ttl"}); res.IsError {
+		t.Errorf("a link of the target's kind converts: %s", text(res))
+	}
+	if msg := h.fails("parse", map[string]any{"paths": []string{"missing/dir/new.sysml"}}); strings.Contains(msg, "outside") {
+		t.Errorf("a path under the root that does not exist yet is not outside it: %s", msg)
+	}
+}
+
 func (h *harness) documentNames(path string) []string {
 	h.t.Helper()
 	var query pb.QueryResponse

@@ -897,7 +897,8 @@ final class Rendering {
                           .setWidth(geometry.width())
                           .setHeight(geometry.height())
                           .setHasSize(geometry.hasSize())
-                          .setCollapsed(geometry.collapsed())));
+                          .setCollapsed(geometry.collapsed())
+                          .setUnplaced(geometry.unplaced())));
       node.style().ifPresent(style -> rendered.setStyle(style(style)));
       response.addNodes(rendered);
     }

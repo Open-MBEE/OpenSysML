@@ -47,7 +47,7 @@ usage: install.sh [--version <tag>] [--tools <list>] [--prefix <dir>|--bin-dir <
                   [--os <os> --arch <arch>] [--base-url <url>] [--verify-signature] [--dry-run]
 
 Installs the OpenSysML command-line tools (sysml, sysml-lsp, sysml-grpc,
-sysml-jupyter-kernel) from a GitHub release, checking every download against
+sysml-jupyter-kernel, sysml-mcp) from a GitHub release, checking every download against
 the release's SHA256SUMS.txt.
 
 Options (each has an environment variable, so a piped `sh` can be configured):
@@ -55,7 +55,7 @@ Options (each has an environment variable, so a piped `sh` can be configured):
   --version <tag>      release tag (v0.9.1), `latest` (default) or `nightly`
                        [OPENSYSML_VERSION]
   --tools <list>       comma-separated subset of sysml,sysml-lsp,sysml-grpc,
-                       sysml-jupyter-kernel, or `all` for every tool the chosen
+                       sysml-jupyter-kernel,sysml-mcp, or `all` for every tool the chosen
                        release published (read from its SHA256SUMS.txt);
                        default `sysml,sysml-lsp`             [OPENSYSML_TOOLS]
   --prefix <dir>       install under <dir>/bin and <dir>/share/man/man1; default
@@ -151,15 +151,15 @@ esac
 
 # `all` is resolved against the release's manifest once that is downloaded: a
 # release predating a tool does not have it, and `all` means what it published.
-known_tools="sysml sysml-lsp sysml-grpc sysml-jupyter-kernel"
+known_tools="sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp"
 tool_list=$(printf '%s' "$tools" | tr ',' ' ')
 [ -n "$(printf '%s' "$tool_list" | tr -d ' ')" ] || fail "--tools names nothing to install"
 install_all=false
 for tool in $tool_list; do
 	case "$tool" in
-	sysml | sysml-lsp | sysml-grpc | sysml-jupyter-kernel) ;;
+	sysml | sysml-lsp | sysml-grpc | sysml-jupyter-kernel | sysml-mcp) ;;
 	all) install_all=true ;;
-	*) fail "unknown tool '$tool'; the released tools are sysml, sysml-lsp, sysml-grpc and sysml-jupyter-kernel" ;;
+	*) fail "unknown tool '$tool'; the released tools are sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel and sysml-mcp" ;;
 	esac
 done
 [ "$install_all" = false ] || [ "$(printf '%s\n' "$tool_list" | wc -w)" -eq 1 ] ||
@@ -221,10 +221,14 @@ bundle="opensysml-$platform.tar.gz"
 [ "$target_os" != windows ] || bundle="opensysml-$platform.zip"
 grpc_asset="sysml-grpc-$platform$exe"
 kernel_asset="sysml-jupyter-kernel-$platform$exe"
+# sysml-mcp ships in its own archive, with its manual page, apart from the bundle.
+mcp_asset="sysml-mcp-$platform.tar.gz"
+[ "$target_os" != windows ] || mcp_asset="sysml-mcp-$platform.zip"
 asset_of() { # <tool>: the release asset that carries it
 	case "$1" in
 	sysml-grpc) printf '%s\n' "$grpc_asset" ;;
 	sysml-jupyter-kernel) printf '%s\n' "$kernel_asset" ;;
+	sysml-mcp) printf '%s\n' "$mcp_asset" ;;
 	*) printf '%s\n' "$bundle" ;;
 	esac
 }
@@ -385,11 +389,13 @@ for tool in $tool_list; do
 	sysml | sysml-lsp) want_bundle=true ;;
 	esac
 done
-if [ "$want_bundle" = true ]; then
+if [ "$want_bundle" = true ] || want sysml-mcp; then
+	archive=$bundle
+	[ "$want_bundle" = true ] || archive=$mcp_asset
 	if [ "$target_os" = windows ]; then
-		have unzip || have tar || fail "unzip or tar is needed to extract $bundle"
+		have unzip || have tar || fail "unzip or tar is needed to extract $archive"
 	else
-		have tar || fail "tar is needed to extract $bundle"
+		have tar || fail "tar is needed to extract $archive"
 	fi
 fi
 from_label="  from:     "
@@ -400,6 +406,7 @@ from() { # <url>: one line per asset, the first labelled
 [ "$want_bundle" = false ] || from "$(asset_url "$bundle")"
 ! want sysml-grpc || from "$(asset_url "$grpc_asset")"
 ! want sysml-jupyter-kernel || from "$(asset_url "$kernel_asset")"
+! want sysml-mcp || from "$(asset_url "$mcp_asset")"
 if [ "$dry_run" = true ]; then
 	info "Dry run: nothing installed."
 	exit 0
@@ -412,7 +419,7 @@ info "Downloading..."
 
 verify() { # <asset>: against the manifest
 	expected=$(manifest_digest "$1")
-	[ -n "$expected" ] || fail "SHA256SUMS.txt of $release_name does not list $1; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.10.0"
+	[ -n "$expected" ] || fail "SHA256SUMS.txt of $release_name does not list $1; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.10.0, and sysml-mcp has its own archive only from the release that introduced it"
 	actual=$(sha256_of "$work/$1")
 	[ "$actual" = "$expected" ] || fail "$1 does not match SHA256SUMS.txt (expected $expected, got $actual); the download is corrupt or tampered with"
 	info "  $1 verified"
@@ -430,21 +437,27 @@ if want sysml-jupyter-kernel; then
 	fetch "$kernel_asset"
 	verify "$kernel_asset"
 fi
+if want sysml-mcp; then
+	fetch "$mcp_asset"
+	verify "$mcp_asset"
+fi
 
 # --- install ----------------------------------------------------------------
 
-mkdir -p "$work/bundle"
-if [ "$want_bundle" = true ]; then
+extract() { # <archive> <directory>: the archive's files into the directory
+	mkdir -p "$2"
 	if [ "$target_os" = windows ]; then
 		if have unzip; then
-			unzip -q "$work/$bundle" -d "$work/bundle"
+			unzip -q "$work/$1" -d "$2"
 		else
-			tar -xf "$work/$bundle" -C "$work/bundle"
+			tar -xf "$work/$1" -C "$2"
 		fi
 	else
-		tar -xzf "$work/$bundle" -C "$work/bundle"
+		tar -xzf "$work/$1" -C "$2"
 	fi
-fi
+}
+[ "$want_bundle" = false ] || extract "$bundle" "$work/bundle"
+! want sysml-mcp || extract "$mcp_asset" "$work/mcp"
 
 install_file() { # <source> <destination> <mode>
 	cp "$1" "$2.tmp.$$" && chmod "$3" "$2.tmp.$$" && mv -f "$2.tmp.$$" "$2"
@@ -458,8 +471,14 @@ fi
 
 installed=""
 for tool in $tool_list; do
+	man_page="$work/bundle/share/man/man1/$tool.1"
 	case "$tool" in
 	sysml-grpc | sysml-jupyter-kernel) source="$work/$(asset_of "$tool")" ;;
+	sysml-mcp)
+		source="$work/mcp/$tool$exe"
+		[ -f "$source" ] || fail "$mcp_asset has no $tool$exe"
+		man_page="$work/mcp/share/man/man1/$tool.1"
+		;;
 	*)
 		source="$work/bundle/$tool$exe"
 		[ -f "$source" ] || fail "$bundle has no $tool$exe"
@@ -467,8 +486,8 @@ for tool in $tool_list; do
 	esac
 	install_file "$source" "$bin_dir/$tool$exe" 0755
 	installed="$installed $bin_dir/$tool$exe"
-	if [ -n "$man_dir" ] && [ -f "$work/bundle/share/man/man1/$tool.1" ]; then
-		install_file "$work/bundle/share/man/man1/$tool.1" "$man_dir/$tool.1" 0644
+	if [ -n "$man_dir" ] && [ -f "$man_page" ]; then
+		install_file "$man_page" "$man_dir/$tool.1" 0644
 	fi
 done
 

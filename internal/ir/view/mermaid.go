@@ -463,9 +463,9 @@ func (r *Rendering) writeGeometryComments(b *strings.Builder, prefix string) {
 }
 
 // writeLayoutComments writes the placement of node and of the nodes under it,
-// as comments opened by prefix.
+// as comments opened by prefix; a fold-only Layout writes its collapsed tag alone.
 func writeLayoutComments(b *strings.Builder, prefix string, node *Node) {
-	if g := node.Geometry; g != nil {
+	if g := node.Geometry; g.placed() {
 		fmt.Fprintf(b, "%s layout: %s x=%s y=%s", prefix, node.ID, formatCoord(g.X), formatCoord(g.Y))
 		if g.HasSize {
 			fmt.Fprintf(b, " w=%s h=%s", formatCoord(g.Width), formatCoord(g.Height))
@@ -474,6 +474,8 @@ func writeLayoutComments(b *strings.Builder, prefix string, node *Node) {
 			b.WriteString(" collapsed")
 		}
 		b.WriteString("\n")
+	} else if collapsed(node) {
+		fmt.Fprintf(b, "%s layout: %s collapsed\n", prefix, node.ID)
 	}
 	for _, child := range node.Children {
 		writeLayoutComments(b, prefix, child)

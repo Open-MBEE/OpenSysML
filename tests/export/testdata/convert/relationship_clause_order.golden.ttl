@@ -90,6 +90,7 @@ elmt:ClauseOrder__Quantity__num
     sysml:owner elmt:ClauseOrder__Quantity ;
     sysml:owningRelationship elmt:ClauseOrder__Quantity__num_om ;
     sysml:owningMembership elmt:ClauseOrder__Quantity__num_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "num" ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -158,6 +159,7 @@ elmt:ClauseOrder__Ratio___400
     sysml:owner elmt:ClauseOrder__Ratio ;
     sysml:owningRelationship elmt:ClauseOrder__Ratio___400_om ;
     sysml:owningMembership elmt:ClauseOrder__Ratio___400_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:redefines elmt:ClauseOrder__Quantity__num ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -259,6 +261,7 @@ elmt:ClauseOrder__Mission__context
     sysml:owner elmt:ClauseOrder__Mission ;
     sysml:owningRelationship elmt:ClauseOrder__Mission__context_om ;
     sysml:owningMembership elmt:ClauseOrder__Mission__context_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "context" ;
     sysml:type elmt:ClauseOrder__Ctx ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -292,6 +295,7 @@ elmt:ClauseOrder__Mission__groundSystemAtIngress
     sysml:owner elmt:ClauseOrder__Mission ;
     sysml:owningRelationship elmt:ClauseOrder__Mission__groundSystemAtIngress_om ;
     sysml:owningMembership elmt:ClauseOrder__Mission__groundSystemAtIngress_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "groundSystemAtIngress" ;
     sysx:declaredKeyword "snapshot" ;
     sysml:isPortion "true"^^xsd:boolean ;

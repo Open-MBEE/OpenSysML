@@ -201,14 +201,14 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	if node.Detail != "" && shown.Has(ElementCompartments) {
 		line += " (" + node.Detail + ")"
 	}
-	if g := node.Geometry; g != nil {
+	if g := node.Geometry; g.placed() {
 		line += fmt.Sprintf(" at (%s, %s)", formatCoord(g.X), formatCoord(g.Y))
 		if g.HasSize {
 			line += fmt.Sprintf(" size %s×%s", formatCoord(g.Width), formatCoord(g.Height))
 		}
-		if g.Collapsed {
-			line += " collapsed"
-		}
+	}
+	if collapsed(node) {
+		line += " collapsed"
 	}
 	b.WriteString(line + "\n")
 	if ports.interconnection || ports.action {

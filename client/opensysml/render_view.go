@@ -72,7 +72,8 @@ type RenderEdge struct {
 	Style    *RenderStyle
 }
 
-// RenderGeometry is a node's position and optional size.
+// RenderGeometry is a node's position and optional size; an Unplaced one only
+// folds or hides the node, its X and Y carrying no position.
 type RenderGeometry struct {
 	X         float64
 	Y         float64
@@ -80,6 +81,7 @@ type RenderGeometry struct {
 	Height    float64
 	HasSize   bool
 	Collapsed bool
+	Unplaced  bool
 }
 
 // RenderCanvas is the optional canvas bounds for a view.
@@ -171,7 +173,7 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 		if node.Geometry != nil {
 			converted.Geometry = &RenderGeometry{
 				X: node.Geometry.X, Y: node.Geometry.Y, Width: node.Geometry.Width, Height: node.Geometry.Height,
-				HasSize: node.Geometry.HasSize, Collapsed: node.Geometry.Collapsed,
+				HasSize: node.Geometry.HasSize, Collapsed: node.Geometry.Collapsed, Unplaced: node.Geometry.Unplaced,
 			}
 		}
 		converted.Style = renderStyleFromProto(node.Style)
