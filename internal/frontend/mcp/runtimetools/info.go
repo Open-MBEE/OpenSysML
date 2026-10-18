@@ -68,6 +68,8 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityRenderDocumentHTML:             "render_model_document",
 	sysmlgrpc.CapabilityRenderView:                     "render_model_view",
 	sysmlgrpc.CapabilityExportGraphs:                   "export_graphs",
+	sysmlgrpc.CapabilityImportData:                     "import_data",
+	sysmlgrpc.CapabilityCompareResults:                 "compare_results",
 	sysmlgrpc.CapabilityConvert:                        "convert",
 	sysmlgrpc.CapabilityConvertDocuments:               "convert",
 	sysmlgrpc.CapabilityConvertCompact:                 "convert",
@@ -91,10 +93,13 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityImportAuthoring:                "apply_edits",
 	sysmlgrpc.CapabilityDocumentationAuthoring:         "apply_edits",
 	sysmlgrpc.CapabilityCommentAuthoring:               "apply_edits",
+	sysmlgrpc.CapabilityCheck:                          "check_behavior",
 }
 
-// ListEnginesInput takes no arguments.
-type ListEnginesInput struct{}
+// ListEnginesInput asks for the engines, probed or not.
+type ListEnginesInput struct {
+	Probe bool `json:"probe,omitempty" jsonschema:"start each external engine's process once and check its handshake against its manifest, reporting the outcome as its status (sysml -engines -probe); false starts nothing"`
+}
 
 func (g *group) registerInfo(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
@@ -118,10 +123,11 @@ func (g *group) registerInfo(s *mcp.Server) {
 		Description: "List the analysis engines this build registers (the ListEngines RPC, as the CLI's -engines does): each with the " +
 			"questions it answers (evaluate, outcomes, holds, sensitive, satisfiable, sweep, compute), the strongest evidence it can " +
 			"produce, the bounds it takes, and whether it can run here. The names are what the verification tools' `engine` argument takes; " +
-			"empty there means auto. The result is the ListEnginesResponse as protojson writes it.",
+			"empty there means auto. With `probe` each external engine is started once and checked against its manifest, as " +
+			"`sysml -engines -probe` does. The result is the ListEnginesResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("List engines"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ ListEnginesInput) (*mcp.CallToolResult, Result, error) {
-		resp, err := g.svc.ListEngines(ctx, &pb.ListEnginesRequest{})
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ListEnginesInput) (*mcp.CallToolResult, Result, error) {
+		resp, err := g.svc.ListEngines(ctx, &pb.ListEnginesRequest{Probe: in.Probe})
 		if err != nil {
 			return nil, nil, toolError(err)
 		}

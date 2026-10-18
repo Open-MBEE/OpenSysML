@@ -32,8 +32,9 @@ type stepWrite struct {
 // destWrites is what one step wrote to one destination: each token's last write,
 // in the order the tokens first wrote, and the write that stands.
 type destWrites struct {
-	label   string // the destination as a trace names it: `x`, or `x of object #3`
-	feature string // the feature written, as the write spelled it
+	label   string          // the destination as a trace names it: `x`, or `x of object #3`
+	feature string          // the feature written, as the write spelled it
+	sym     *symbols.Symbol // the feature's declaration, nil when none resolves
 	file    string
 	span    source.Span
 	last    []stepWrite
@@ -87,30 +88,29 @@ func (e *performances) beginTokenStep(id int64) func() {
 
 // noteFrameWrite records a write the running token made to a feature f holds.
 func (e *performances) noteFrameWrite(f *actionFrame, name string, value Value) {
-	file, span := e.ctx.featureLocation(f.scope, name)
+	sym := e.ctx.featureDeclared(f.scope, name)
 	key := f.key(name)
-	e.ctx.noteWrite(writeDest{holder: f, name: key}, key, name, value, file, span)
+	e.ctx.noteWrite(writeDest{holder: f, name: key}, key, name, sym, value)
 }
 
 // noteObjectWrite records a write the running token made to a feature obj holds,
 // under whichever of its names the write spelled.
 func (ctx *Context) noteObjectWrite(obj *Instance, name string, value Value) {
 	dest := writeDest{object: obj, name: name}
-	var file string
-	var span source.Span
+	var sym *symbols.Symbol
 	if fv := obj.FeatureValues[name]; fv != nil {
 		dest = writeDest{object: obj, feature: fv}
-		if fv.Feature != nil && fv.Feature.Symbol != nil {
-			file, span = fv.Feature.Symbol.DocName, fv.Feature.Symbol.DeclSpan
+		if fv.Feature != nil {
+			sym = fv.Feature.Symbol
 		}
 	}
-	ctx.noteWrite(dest, fmt.Sprintf("%s of object #%d", name, obj.ID), name, value, file, span)
+	ctx.noteWrite(dest, fmt.Sprintf("%s of object #%d", name, obj.ID), name, sym, value)
 }
 
 // noteWrite records a write the running token made to dest, labelled as a trace
-// names it and under the feature's name; destinations several tokens wrote are
-// reported once the step ends.
-func (ctx *Context) noteWrite(dest writeDest, label, feature string, value Value, file string, span source.Span) {
+// names it and under the feature's name and declaration; destinations several
+// tokens wrote are reported once the step ends.
+func (ctx *Context) noteWrite(dest writeDest, label, feature string, sym *symbols.Symbol, value Value) {
 	ledger := ctx.stepWrites
 	if ledger == nil || ledger.writer == 0 {
 		return
@@ -118,7 +118,10 @@ func (ctx *Context) noteWrite(dest writeDest, label, feature string, value Value
 	w := stepWrite{token: ledger.writer, value: value}
 	d := ledger.writes[dest]
 	if d == nil {
-		d = &destWrites{label: label, feature: feature, file: file, span: span}
+		d = &destWrites{label: label, feature: feature, sym: sym}
+		if sym != nil {
+			d.file, d.span = sym.DocName, sym.DeclSpan
+		}
 		ledger.writes[dest] = d
 		ledger.order = append(ledger.order, dest)
 	}
@@ -156,22 +159,22 @@ func (l *stepWriteLedger) noteChoices(e *performances) {
 			File:         d.file,
 			Span:         d.span,
 			Touches:      []string{d.feature},
-			touched:      []lower.Place{{Name: d.feature}},
+			touched:      []lower.Place{{Sym: d.sym, Name: d.feature}},
 		})
 	}
 }
 
-// featureLocation locates the declaration of the feature name resolves to in
-// scope, for a diagnostic about a write to it; "" when none resolves.
-func (ctx *Context) featureLocation(scope *symbols.Scope, name string) (string, source.Span) {
+// featureDeclared is the declaration of the feature name resolves to in scope;
+// nil when none resolves.
+func (ctx *Context) featureDeclared(scope *symbols.Scope, name string) *symbols.Symbol {
 	if ctx.model.resolver == nil || scope == nil {
-		return "", source.Span{}
+		return nil
 	}
 	sym, ok := ctx.lookupName(scope, name)
-	if !ok || sym == nil {
-		return "", source.Span{}
+	if !ok {
+		return nil
 	}
-	return sym.DocName, sym.DeclSpan
+	return sym
 }
 
 // stepOrder collects the tokens of one step that could have gone first, in the
@@ -443,7 +446,7 @@ func (e *ActionExecutor) branchWeights(ec *EvalContext, node *ast.DecisionNode, 
 		val = soleElement(val)
 		if val.Kind != ValConst || !val.Const.IsNumeric() {
 			return nil, fmt.Errorf("%w: %s: weight of %s is %s, not a number",
-				errBranchWeights, DecisionPlace(node), branchName(successors, pos), describeValue(val))
+				errBranchWeights, DecisionPlace(node), branchName(successors, pos), DescribeValue(val))
 		}
 		weights[pos] = asReal(val.Const)
 	}

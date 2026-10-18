@@ -369,7 +369,7 @@ func callableDeclarations(t *testing.T, ctx *Context, pkg string) []string {
 				continue
 			}
 			if sym.Name != "" && isCallableDeclaration(sym.Decl) {
-				names = append(names, ctx.qualifiedSymbolName(sym))
+				names = append(names, ctx.QualifiedName(sym))
 			}
 			if sym.Scope != nil && sym.Kind != symbols.SymbolAlias {
 				walk(sym.Scope)

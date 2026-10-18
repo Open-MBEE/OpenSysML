@@ -44,7 +44,7 @@ func HorizonAt(t float64) Horizon { return Horizon{at: t, bounded: true} }
 func HorizonInitial() Horizon { return Horizon{initial: true} }
 
 // bound is the instant the horizon stops the clock at, false for none.
-func (h Horizon) bound() (at float64, ok bool) { return h.at, h.bounded }
+func (h Horizon) Bound() (at float64, ok bool) { return h.at, h.bounded }
 
 // reaches reports whether the instant lies within the horizon; no wait ahead
 // lies within an initial one.
@@ -86,12 +86,12 @@ func (inv *Invocation) started(ctx *Context) error {
 	}
 	for _, exec := range inv.Actions {
 		if exec.ctx != ctx {
-			return fmt.Errorf("%w: action %s runs in another context", errNothingStarted, symbolText(exec.action))
+			return fmt.Errorf("%w: action %s runs in another context", errNothingStarted, SymbolText(exec.action))
 		}
 	}
 	for _, exec := range inv.States {
 		if exec.ctx != ctx {
-			return fmt.Errorf("%w: state machine %s runs in another context", errNothingStarted, symbolText(exec.stateMachine))
+			return fmt.Errorf("%w: state machine %s runs in another context", errNothingStarted, SymbolText(exec.stateMachine))
 		}
 	}
 	return nil
@@ -211,10 +211,10 @@ func (inv *Invocation) names() []string {
 	}
 	names := make([]string, 0, n)
 	for _, exec := range inv.Actions {
-		names = append(names, symbolText(exec.action))
+		names = append(names, SymbolText(exec.action))
 	}
 	for _, exec := range inv.States {
-		names = append(names, symbolText(exec.stateMachine))
+		names = append(names, SymbolText(exec.stateMachine))
 	}
 	return names
 }
@@ -275,7 +275,7 @@ func (inv *Invocation) Outcome() Outcome {
 	default:
 		outcome = ctx.jointOutcome(inv.names(), outcomes)
 	}
-	maps.Copy(outcome.Outputs, inv.performerAttributes())
+	maps.Copy(outcome.Outputs, inv.PerformerAttributes())
 	if inv.leftPending() {
 		outcome.Scope = []ObservationReason{reasonInitialTransitionOnly}
 	}
@@ -304,9 +304,9 @@ func (inv *Invocation) leftPending() bool {
 	return false
 }
 
-// performerAttributes are the attributes the behaviors' performers hold, as an
+// PerformerAttributes are the attributes the behaviors' performers hold, as an
 // outcome reports them: under `this.` for one performer, under its name for several.
-func (inv *Invocation) performerAttributes() map[string]Value {
+func (inv *Invocation) PerformerAttributes() map[string]Value {
 	ctx := inv.Context()
 	held := make(map[string]Value)
 	for _, p := range inv.performerPrefixes() {

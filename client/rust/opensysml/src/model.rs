@@ -139,9 +139,51 @@ impl Model {
             .render_view_bounded(self.hash(), view_name, ports, show, depth)
     }
 
+    /// Search every schedule of an action for a violated property, a deadlock, a
+    /// failure or a divergent value, as `sysml -check-property` does.
+    pub fn check_action(
+        &self,
+        action_id: &str,
+        inputs: &BTreeMap<String, Value>,
+        options: &crate::CheckOptions,
+    ) -> Result<crate::CheckResult, Error> {
+        self.connection
+            .check_action(self.hash(), action_id, inputs, options)
+    }
+
+    /// Search every schedule of a state machine; see [`Model::check_action`].
+    pub fn check_state_machine(
+        &self,
+        state_machine_id: &str,
+        options: &crate::CheckOptions,
+    ) -> Result<crate::CheckResult, Error> {
+        self.connection
+            .check_state_machine(self.hash(), state_machine_id, options)
+    }
+
     /// Export the lowered graph of an action or state machine as `graphs:1` JSON.
     pub fn export_graphs(&self, subject: &str) -> Result<crate::Graphs, Error> {
         self.connection.export_graphs(self.hash(), subject)
+    }
+
+    /// Sets the feature values data files assign into this model.
+    pub fn import_data(
+        &self,
+        imports: &[crate::DataImport],
+        options: &crate::DataImportOptions,
+    ) -> Result<crate::ImportResult, Error> {
+        self.connection.import_data(self.hash(), imports, options)
+    }
+
+    /// Runs the configurations a results sidecar indexes against this model
+    /// and compares the runs with the tool's.
+    pub fn compare_results(
+        &self,
+        results: &str,
+        options: &crate::CompareOptions,
+    ) -> Result<crate::Comparison, Error> {
+        self.connection
+            .compare_results(self.hash(), results, options)
     }
 
     /// The symbol a qualified or short name names; `None` when the model declares none.

@@ -568,6 +568,65 @@ class CaseEvaluation:
         )
 
 
+class ToolDryRun:
+    """The external tool call an analysis would make, previewed without running the tool.
+
+    ``run_analysis(..., tool_dry_run=True)`` stops the case at its first
+    ToolExecution-annotated action and reports what would be launched, as
+    ``sysml -tool-dry-run`` prints it.
+
+    Attributes:
+        action (str): The qualified name of the tool-executing action reached
+        tool (str): The tool the action names
+        version (str): The tool version the manifest declares, if any
+        manifest (str): The manifest file the tool was found in
+        executable (str): The program that would run
+        protocol (str): How the tool is spoken to (``stdio``, ``files``, ...)
+        args (list[str]): The command line the tool would get
+        env (list[str]): Environment entries set for it
+        cwd (str): The working directory it would run in
+        stdin (str): How standard input is fed
+        stdin_data (str): The text written to it
+        input_file (dict or None): The input file written, as ``name``,
+            ``format`` and ``data``; None when the tool reads none
+        output_dir (bool): Whether an output directory would be made
+        inputs (list[dict]): Each value handed over: ``variable``, ``parameter``,
+            ``value`` and ``unit``
+        outputs (list[dict]): Each result read back: ``variable`` and ``parameter``
+        reply_source (str): Where the tool's answer would be read from
+        lines (list[str]): The preview as ``sysml -tool-dry-run`` prints it
+    """
+
+    def __init__(self, proto):
+        self.action = proto.action
+        self.tool = proto.tool
+        self.version = proto.version
+        self.manifest = proto.manifest
+        self.executable = proto.executable
+        self.protocol = proto.protocol
+        self.args = list(proto.args)
+        self.env = list(proto.env)
+        self.cwd = proto.cwd
+        self.stdin = proto.stdin
+        self.stdin_data = proto.stdin_data
+        self.input_file = (
+            {"name": proto.input_file.name, "format": proto.input_file.format,
+             "data": proto.input_file.data}
+            if proto.HasField("input_file") else None
+        )
+        self.output_dir = proto.output_dir
+        self.inputs = [
+            {"variable": i.variable, "parameter": i.parameter, "value": i.value, "unit": i.unit}
+            for i in proto.inputs
+        ]
+        self.outputs = [{"variable": o.variable, "parameter": o.parameter} for o in proto.outputs]
+        self.reply_source = proto.reply_source
+        self.lines = list(proto.lines)
+
+    def __repr__(self):
+        return f"ToolDryRun(action={self.action!r}, tool={self.tool!r}, executable={self.executable!r})"
+
+
 class AnalysisResult:
     """What an analysis case computed and decided.
 
@@ -596,10 +655,13 @@ class AnalysisResult:
         standing (Standing): The engine that ran the case, the strength of its
             evidence and the bounds it ran under; unreported when the service
             predates ``engines``
+        tool_dry_run (ToolDryRun or None): For ``run_analysis(...,
+            tool_dry_run=True)``, the external tool invocation the case would
+            have made, as ``sysml -tool-dry-run`` prints it; None for a run
     """
 
     def __init__(self, outputs, verdicts, instances=None, diagnostics=None, verifications=None,
-                 evaluations=None, standing=None):
+                 evaluations=None, standing=None, tool_dry_run=None):
         self.outputs = dict(outputs or {})
         self.verdicts = list(verdicts or [])
         self.instances = list(instances or [])
@@ -607,6 +669,7 @@ class AnalysisResult:
         self.verifications = list(verifications or [])
         self.evaluations = list(evaluations or [])
         self.standing = standing or Standing()
+        self.tool_dry_run = tool_dry_run
 
     engine = property(lambda self: self.standing.engine, doc="Name of the engine that ran the case.")
     strength = _STRENGTH

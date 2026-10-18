@@ -217,7 +217,7 @@ type CheckReport struct {
 // Status renders how the check ended for a report.
 func (r *CheckReport) Status() string {
 	s := r.Verdict.String()
-	if at, bounded := r.Horizon.bound(); bounded {
+	if at, bounded := r.Horizon.Bound(); bounded {
 		s += " up to t=" + semantics.FormatReal(at)
 	}
 	s += fmt.Sprintf(" (%d states, %d moves, depth %d", r.States, r.Moves, r.MaxDepth)

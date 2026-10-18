@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -197,8 +198,8 @@ type Answer struct {
 
 // SweepAsk is the plan of a sweep and the run of one row of it.
 type SweepAsk struct {
-	Plan runtime.SweepPlan
-	Row  runtime.SweepRun
+	Plan sweep.SweepPlan
+	Row  sweep.SweepRun
 }
 
 // SolveAsk is the queries a satisfiability question puts to a solver, one per

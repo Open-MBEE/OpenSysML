@@ -126,8 +126,15 @@ func (c *w11aUsageChecker) checkReference(sym *symbols.Symbol, u *ast.Usage) {
 		if !ok || target == nil {
 			continue
 		}
+		if target.Kind == symbols.SymbolAlias {
+			if resolved, ok := c.resolver.ResolveAliasTarget(target); ok && resolved != nil {
+				target = resolved
+			}
+		}
+		// A reference subsetting names a feature, so a definition is never the
+		// use case, action or state the member references.
 		kind := w11aFamilyOf(target)
-		if kind == symbols.SymbolUnknown || defKindSpecializes(kind, want.kind) {
+		if target.IsFeature() && (kind == symbols.SymbolUnknown || defKindSpecializes(kind, want.kind)) {
 			if keyword == "include" && target.Kind == symbols.SymbolUseCaseUsage {
 				c.checkIncludedUseCase(sym, target)
 			}

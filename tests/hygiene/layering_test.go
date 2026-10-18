@@ -74,6 +74,7 @@ var packageLayer = map[string]string{
 	"internal/check/edit":            "check",
 
 	"internal/exec/runtime":             "exec",
+	"internal/exec/sweep":               "exec",
 	"internal/exec/runtrace":            "exec",
 	"internal/exec/solve":               "exec",
 	"internal/exec/smt":                 "exec",
@@ -112,6 +113,7 @@ var packageLayer = map[string]string{
 	"internal/doc/docpdf":     "doc",
 
 	"internal/workspace/model":       "workspace",
+	"internal/workspace/dataimport":  "workspace",
 	"internal/workspace/modelrt":     "workspace",
 	"internal/workspace/modeldoc":    "workspace",
 	"internal/semantic/highlight":    "semantic",

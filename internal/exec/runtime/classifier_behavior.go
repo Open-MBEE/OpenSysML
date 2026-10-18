@@ -61,7 +61,7 @@ type ObjectBehavior struct {
 func (b *ObjectBehavior) Describe() string {
 	name := b.Name
 	if name == "" {
-		name = symbolText(b.Symbol)
+		name = SymbolText(b.Symbol)
 	}
 	return fmt.Sprintf("%s %s of object #%d", b.Kind, name, b.Object.ID)
 }
@@ -1272,14 +1272,14 @@ func (ctx *Context) attachOneClassifierBehavior(inst *Instance, decl classifierB
 	case lower.ExhibitedState:
 		exec, err := newStateExecutorForOccurrence(ctx, sym, inst, occurrence)
 		if err != nil {
-			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
+			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
 		for name, value := range arguments {
 			exec.ctx.writeBodyValue(exec.stateCells, exec.stateData, name, value)
 		}
 		if err := exec.initialize(); err != nil {
 			exec.Release()
-			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
+			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
 		behavior.State = exec
 	case lower.PerformedAction:
@@ -1289,10 +1289,10 @@ func (ctx *Context) attachOneClassifierBehavior(inst *Instance, decl classifierB
 		}
 		exec, err := newActionExecutorOfGraph(ctx, decl.member, sym, inst, occurrence, graph)
 		if err != nil {
-			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
+			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
 		if len(arguments) > 0 {
-			exec.setInputs(arguments)
+			exec.SetInputs(arguments)
 		}
 		// An action stating no flow performs no step; the object still performs it,
 		// completed at once, rather than failing to be created.
@@ -1304,7 +1304,7 @@ func (ctx *Context) attachOneClassifierBehavior(inst *Instance, decl classifierB
 			// A performed action that fails to start is returned with the error
 			// for a type-bound start to record; an explicit start fails it.
 			behavior.Action = exec
-			return behavior, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
+			return behavior, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
 		behavior.Action = exec
 	default:
@@ -1491,13 +1491,13 @@ func (ctx *Context) classifierBehaviorChain(decl classifierBehaviorDecl) ([]*sym
 			// A declaration naming nothing that holds a body is not executable:
 			// the type binds a behavior no element states.
 			return nil, fmt.Errorf("%w: %s %s of %s names no behavior body",
-				errUnresolvedClassifierBehavior, decl.behavior.Kind, decl.behavior.Name, symbolText(decl.member))
+				errUnresolvedClassifierBehavior, decl.behavior.Kind, decl.behavior.Name, SymbolText(decl.member))
 		}
 		sym = next
 		chain = append(chain, sym)
 	}
 	return nil, fmt.Errorf("%w: %s %s of %s names itself through %d bindings",
-		errUnresolvedClassifierBehavior, decl.behavior.Kind, decl.behavior.Name, symbolText(decl.member), maxBehaviorBindingDepth)
+		errUnresolvedClassifierBehavior, decl.behavior.Kind, decl.behavior.Name, SymbolText(decl.member), maxBehaviorBindingDepth)
 }
 
 // namedBehavior reports the element a binding declaration names: what it
@@ -1534,7 +1534,7 @@ func (ctx *Context) classifierBehaviorArguments(inst *Instance, decl classifierB
 		value, err := ec.Eval(arg.Value)
 		if err != nil {
 			return nil, fmt.Errorf("%s %s of %s: bind %s: %w",
-				decl.behavior.Kind, decl.behavior.Name, symbolText(inst.Type), arg.Name, err)
+				decl.behavior.Kind, decl.behavior.Name, SymbolText(inst.Type), arg.Name, err)
 		}
 		args[ctx.argumentParameter(scope, arg)] = value
 	}
@@ -1599,7 +1599,7 @@ func assignPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, 
 		return false, nil
 	}
 	if ctx.isClockTime(self, name) {
-		return true, fmt.Errorf("assignment to %s: %w: object #%d (%s)", name, errClockNotAssignable, self.ID, symbolText(self.Type))
+		return true, fmt.Errorf("assignment to %s: %w: object #%d (%s)", name, errClockNotAssignable, self.ID, SymbolText(self.Type))
 	}
 	if _, ok := self.FeatureValues[name]; !ok {
 		return false, nil
@@ -1607,7 +1607,7 @@ func assignPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, 
 	if !namesPerformerFeature(ctx, self, scope, name) {
 		return true, fmt.Errorf("write %s of object #%d: %w: %s is a feature of %s, which the body does not name: "+
 			"pass it as a parameter, or write the body in the declaration that holds it",
-			name, self.ID, errPerformerFeatureNotInScope, name, symbolText(self.Type))
+			name, self.ID, errPerformerFeatureNotInScope, name, SymbolText(self.Type))
 	}
 	if err := self.SetFeatureValue(ctx, name, value); err != nil {
 		return true, fmt.Errorf("write %s of object #%d: %w", name, self.ID, err)
@@ -1667,9 +1667,9 @@ func (ctx *Context) typeHoldsFeature(typeSym, feature *symbols.Symbol) bool {
 	return false
 }
 
-// symbolText names a symbol in diagnostics, falling back to its kind when it is
+// SymbolText names a symbol in diagnostics, falling back to its kind when it is
 // anonymous.
-func symbolText(sym *symbols.Symbol) string {
+func SymbolText(sym *symbols.Symbol) string {
 	if sym == nil {
 		return unknownText
 	}

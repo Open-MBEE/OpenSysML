@@ -67,6 +67,9 @@ type Message struct {
 	// the occurrence `send new T(…)` constructed, or the one an accept built from
 	// Payload; nil until any.
 	Value *Value
+	// dependence is the choice points the payload stood on where it was sent
+	// (order_marks.go), which what an accept binds from it stands on.
+	dependence []int64
 }
 
 // DeliveryKind is what a message's destination resolved to, and so what a
@@ -274,7 +277,7 @@ func IsSignalDefinition(sym *symbols.Symbol) bool {
 // errNotASignal.
 func (ctx *Context) SignalMessage(signal *symbols.Symbol, args map[string]Value, to *Instance) (Message, error) {
 	if !IsSignalDefinition(signal) {
-		return Message{}, fmt.Errorf("%w: %s", errNotASignal, symbolText(signal))
+		return Message{}, fmt.Errorf("%w: %s", errNotASignal, SymbolText(signal))
 	}
 	features := ctx.FeaturesOf(signal)
 	payload := make(map[string]Value, len(args))
@@ -282,10 +285,10 @@ func (ctx *Context) SignalMessage(signal *symbols.Symbol, args map[string]Value,
 		feat := carriedFeature(features, name)
 		if feat == nil {
 			return Message{}, fmt.Errorf("%w: %s carries no feature %q%s",
-				errSignalArgument, symbolText(signal), name, carriedFeaturesNote(features))
+				errSignalArgument, SymbolText(signal), name, carriedFeaturesNote(features))
 		}
 		arg := args[name]
-		what := func() string { return symbolText(signal) + "." + name }
+		what := func() string { return SymbolText(signal) + "." + name }
 		if err := ctx.checkAdmits(feat, what, &arg, admitWritten); err != nil {
 			return Message{}, fmt.Errorf("%w: %w", errSignalArgument, err)
 		}
@@ -1179,6 +1182,7 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 		ctx.abandonCreationSince(mark, attached)
 		return err
 	}
+	msg.dependence = ctx.standingOf(lower.ExpressionFootprint(scope, s.Message), true)
 	receivers, err := ec.valuedReceivers(s)
 	if err != nil {
 		ctx.abandonCreationSince(mark, attached)

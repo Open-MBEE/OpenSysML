@@ -95,13 +95,19 @@ diagnostic counts.
 runtime: Apply workspace edits to a parsed model and answer the edited
 documents (rpc ApplyEdits).
 .TP
+.B compare_results
+runtime: Run the configurations a SysML v1 tool's results index and table the
+tool's distributions beside the runs' (rpc CompareResults, sysml
+\-compare\-results).
+.TP
 .B convert
 runtime: Convert a model between the textual notation, JSON, RDF and XMI (rpc
 Convert, sysml \-convert, sysml \-from, sysml \-id).
 .TP
 .B diagnostics
 runtime: Report every diagnostic of a parsed model, as sysml \-validate does
-(rpc GetDiagnostics, sysml \-validate).
+(rpc GetDiagnostics, sysml \-validate, sysml \-disable\-lint, sysml
+\-enable\-lint).
 .TP
 .B explain_diagnostic
 runtime: Explain a diagnostic code, or list every code with its summary (sysml
@@ -117,7 +123,8 @@ runtime: Evaluate a calculation definition or usage (rpc EvaluateCalc, sysml
 .TP
 .B execute_action
 runtime: Execute an action with bound inputs and report its outputs (rpc
-ExecuteAction, sysml \-action, sysml \-schedule).
+ExecuteAction, sysml \-action, sysml \-schedule, sysml \-advance, sysml
+\-seed, sysml \-draws, sysml \-clock\-step).
 .TP
 .B execute_state
 runtime: Run a state machine over a sequence of events and report the trace
@@ -127,13 +134,18 @@ runtime: Run a state machine over a sequence of events and report the trace
 runtime: Export the lowered action and state graphs of a model (rpc
 ExportGraphs, sysml \-graphs).
 .TP
+.B import_data
+runtime: Set the feature values a CSV, TSV, JSON or JSON Lines file assigns,
+one row per element (rpc ImportData, sysml \-import, sysml \-import\-as, sysml
+\-import\-map, sysml \-import\-format, sysml \-import\-dry\-run).
+.TP
 .B instantiate
 runtime: Instantiate a definition or usage and report the object's feature
 values (rpc Instantiate, sysml \-instantiate).
 .TP
 .B list_engines
 runtime: List the analysis engines and whether each is ready (rpc ListEngines,
-sysml \-engines).
+sysml \-engines, sysml \-probe).
 .TP
 .B migrate
 runtime: Migrate a SysML v1 model to SysML v2 and report what moved (rpc
@@ -156,9 +168,16 @@ runtime: Render a view as its nodes, edges and compartments (rpc RenderView,
 sysml \-render, sysml \-render\-ports, sysml \-render\-show, sysml
 \-render\-depth).
 .TP
+.B check_behavior
+runtime: Search every schedule of an action or state machine for violated
+properties, deadlocks, failures and divergent values (rpc CheckBehavior, sysml
+\-check\-property, sysml \-check\-diverge, sysml \-check\-input, sysml
+\-check\-assume, sysml \-check\-witness, sysml \-check\-depth, sysml
+\-check\-states, sysml \-check\-unroll, sysml \-check\-timeout).
+.TP
 .B run_analysis
 runtime: Run an analysis case and report its result (rpc RunAnalysis, sysml
-\-analysis, sysml \-engine).
+\-analysis, sysml \-engine, sysml \-tool\-dry\-run).
 .TP
 .B run_document_query
 runtime: Run a document query definition and report its rows (rpc
@@ -166,7 +185,7 @@ RunDocumentQuery, sysml \-run\-query).
 .TP
 .B run_sweep
 runtime: Run an analysis case over ranges of its parameters (rpc RunSweep,
-sysml \-sweep).
+sysml \-sweep, sysml \-samples).
 .TP
 .B server_info
 runtime: Report the service version and the capabilities it serves (rpc

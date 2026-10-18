@@ -104,7 +104,7 @@ minutes and must run on an otherwise idle machine, since a profile taken under
 load weights the wrong paths. `-keep DIR` retains the individual profiles and
 logs for inspection with `go tool pprof`. Commit the regenerated files with
 `-pgo=off` versus default before/after figures, taken as the "Profile-guided
-optimization" section of `docs/project/performance-profile-2026-09.md` does.
+optimization" section of `docs/project/archive/performance-profile-2026-09.md` does.
 
 ### Learn one path end to end
 

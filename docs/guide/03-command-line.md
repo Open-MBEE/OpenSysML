@@ -383,6 +383,48 @@ that sends settings can name the directories with the `libraryRoots` list settin
 ([LSP extensions](../reference/lsp.md#library-roots-setting)); see
 [Editors](08-editors.md#working-inside-a-package-manager-project).
 
+### Project interchange archives
+
+KerML 1.0 §10.3 also defines the zipped form of a project directory: a *project interchange
+archive*, extension `.kpar`, holding `.project.json`, a `.meta.json` (the project's index of
+root namespaces to files, its creation time and, usually, a checksum per file) and the model
+files, possibly in subdirectories. The OMG publishes the standard library as one archive per
+library, and a package manager may install a project as an archive rather than unpacking it.
+`sysml` reads an archive wherever it reads a project directory, from memory — nothing is
+extracted — and names its members under the archive's path in diagnostics:
+
+```console
+$ sysml -validate model.sysml vendor/acme-widgets_1.0.0.kpar   # the archive's files, with the model
+$ sysml -library-root /path/to/store -validate proj             # archives under the store are installed projects
+$ OPENSYSML_LIBRARY_PATH=/path/to/kpar sysml -validate model.sysml   # a directory of the OMG library archives in place of the bundled library
+```
+
+A usage in a `.project.json` is answered by an installed archive as by an installed
+directory, matched by the `.project.json` inside it. An archive is checked before anything
+is read from it: both files must be at its top level (an archive of a folder that holds the
+project is reported as such), `name` and `version` must be present, every usage must name a
+`resource`, the index and the checksums must name members, and every checksum whose
+algorithm this build computes is verified. A malformed archive named on the command line is
+refused with the reason; one found under a library root is a warning on its path and the
+load goes on without it.
+
+`-bundle` writes a project directory as an archive and `-unbundle` writes one back:
+
+```console
+$ sysml -bundle proj/.sysand/lib/acme-widgets_1.0.0 -o widgets.kpar
+wrote widgets.kpar (Widgets 1.0.0, 4 files)
+$ sysml -unbundle widgets.kpar -o widgets
+wrote widgets (Widgets 1.0.0, 4 files)
+```
+
+Without `-o` the archive is named `<name>-<version>.kpar` after the project, and the
+directory `<name>-<version>`. The archive's members are sorted and carry a fixed timestamp,
+so bundling the same directory twice gives the same bytes; a `.meta.json` the directory has
+is kept (and its checksums verified), and one it lacks is generated with the index, a SHA256
+checksum per file and a creation time of `SOURCE_DATE_EPOCH` when that is set. Hidden
+directories such as `.git` and `.sysand` stay out of the archive. `-unbundle` writes into a
+new or empty directory only, so an archive never overwrites a file.
+
 ## Running behavior
 
 The debuggers have non-interactive forms that run to completion and report the values they
