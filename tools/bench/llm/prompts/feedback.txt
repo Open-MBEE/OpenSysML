@@ -1,0 +1,5 @@
+The document you wrote did not validate. The compiler reported {{len .Diagnostics}} diagnostic(s):
+
+{{range .Diagnostics}}{{.File}}:{{.Line}}:{{.Column}}: {{.Severity}}[{{.Code}}]: {{.Message}}
+{{end}}
+Repair the document so it validates. Keep everything the task asked for. Output only the complete corrected document: no commentary, no Markdown fences.
