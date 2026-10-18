@@ -2930,7 +2930,9 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 	exec := s.actionExec.executor
 
 	if exec.State().Ended() {
-		return []string{"✓ Action already " + strings.ToLower(exec.State().String())}, namedValues(s.actionExec.contextOf(), exec.Results()), nil
+		out := []string{"✓ Action already " + strings.ToLower(exec.State().String())}
+		out = append(out, renderResults(s.actionExec.contextOf(), exec.Results())...)
+		return out, namedValues(s.actionExec.contextOf(), exec.Results()), nil
 	}
 
 	// Run to completion, or to the first breakpoint hit
