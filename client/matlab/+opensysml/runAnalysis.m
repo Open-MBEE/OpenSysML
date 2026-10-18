@@ -34,19 +34,7 @@ function result = runAnalysis(model, symbolId, varargin)
     if ~isempty(message) && ~hasPartialResult(raw)
         opensysml.internal.raiseFailure(message, fieldOr(raw, 'failureReason', ''), diagnostics);
     end
-    instances = containers.Map('KeyType', 'char', 'ValueType', 'any');
-    if isfield(raw, 'instances')
-        [~, instances] = opensysml.internal.decodeInstances(model.connection, raw.instances);
-    end
-    outputs = opensysml.internal.decodeOutputEntries(fieldOr(raw, 'outputs', {}), ...
-        model.connection, instances);
-    verifications = opensysml.internal.decodeVerificationVerdicts( ...
-        fieldOr(raw, 'verificationVerdicts', {}));
-    verdicts = opensysml.internal.decodeVerdicts(fieldOr(raw, 'verdicts', {}), ...
-        instances, diagnostics, verifications);
-    evaluations = opensysml.internal.decodeEvaluations(fieldOr(raw, 'evaluations', {}), instances);
-    result = opensysml.AnalysisResult(outputs, verdicts, instances, diagnostics, ...
-        verifications, evaluations, opensysml.internal.decodeStanding(raw));
+    result = opensysml.internal.decodeAnalysisResult(model, raw);
     if ~isempty(message)
         opensysml.internal.raise('opensysml:diagnostics:analysisRun', message, ...
             diagnostics, struct('result', result, ...
