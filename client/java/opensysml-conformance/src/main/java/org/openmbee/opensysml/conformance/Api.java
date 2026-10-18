@@ -41,6 +41,11 @@ import org.openmbee.opensysml.Satisfaction;
 import org.openmbee.opensysml.ServiceException;
 import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.StateRun;
+import org.openmbee.opensysml.RecordOptions;
+import org.openmbee.opensysml.Recording;
+import org.openmbee.opensysml.Runs;
+import org.openmbee.opensysml.RunsOptions;
+import org.openmbee.opensysml.SelfCheck;
 import org.openmbee.opensysml.SweepOptions;
 import org.openmbee.opensysml.SweepRange;
 import org.openmbee.opensysml.Symbol;
@@ -82,6 +87,15 @@ import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
 import org.openmbee.opensysml.proto.RenderDocumentRequest;
 import org.openmbee.opensysml.proto.RenderDocumentResponse;
+import org.openmbee.opensysml.CompareOptions;
+import org.openmbee.opensysml.DataImport;
+import org.openmbee.opensysml.proto.CompareResultsRequest;
+import org.openmbee.opensysml.proto.CompareResultsResponse;
+import org.openmbee.opensysml.proto.ImportDataRequest;
+import org.openmbee.opensysml.proto.ImportDataResponse;
+import org.openmbee.opensysml.proto.ObservablePair;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import org.openmbee.opensysml.proto.CheckBehaviorRequest;
 import org.openmbee.opensysml.proto.CheckBehaviorResponse;
 import org.openmbee.opensysml.proto.ExportGraphsRequest;
@@ -92,8 +106,14 @@ import org.openmbee.opensysml.proto.RunAnalysisRequest;
 import org.openmbee.opensysml.proto.RunAnalysisResponse;
 import org.openmbee.opensysml.proto.RunDocumentQueryRequest;
 import org.openmbee.opensysml.proto.RunDocumentQueryResponse;
+import org.openmbee.opensysml.proto.RecordRunRequest;
+import org.openmbee.opensysml.proto.RecordRunResponse;
+import org.openmbee.opensysml.proto.RunRunsRequest;
+import org.openmbee.opensysml.proto.RunRunsResponse;
 import org.openmbee.opensysml.proto.RunSweepRequest;
 import org.openmbee.opensysml.proto.RunSweepResponse;
+import org.openmbee.opensysml.proto.SelfCheckRequest;
+import org.openmbee.opensysml.proto.SelfCheckResponse;
 import org.openmbee.opensysml.proto.ServerInfoRequest;
 import org.openmbee.opensysml.proto.ServerInfoResponse;
 import org.openmbee.opensysml.proto.SymbolResponse;
@@ -112,6 +132,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -142,6 +163,11 @@ final class Api {
   private static final String RPC_RUN_DOCUMENT_QUERY = "RunDocumentQuery";
   private static final String RPC_RENDER_DOCUMENT = "RenderDocument";
   private static final String RPC_EXPORT_GRAPHS = "ExportGraphs";
+  private static final String RPC_RUN_RUNS = "RunRuns";
+  private static final String RPC_SELF_CHECK = "SelfCheck";
+  private static final String RPC_RECORD_RUN = "RecordRun";
+  private static final String RPC_IMPORT_DATA = "ImportData";
+  private static final String RPC_COMPARE_RESULTS = "CompareResults";
   private static final String RPC_CHECK_BEHAVIOR = "CheckBehavior";
   private static final String RPC_RENDER_VIEW = "RenderView";
   private static final String RPC_VALIDATE_INSTANCE = "ValidateInstance";
@@ -177,6 +203,11 @@ final class Api {
           RPC_RENDER_DOCUMENT,
           RPC_RENDER_VIEW,
           RPC_EXPORT_GRAPHS,
+          RPC_RUN_RUNS,
+          RPC_SELF_CHECK,
+          RPC_RECORD_RUN,
+          RPC_IMPORT_DATA,
+          RPC_COMPARE_RESULTS,
           RPC_CHECK_BEHAVIOR);
 
   private final Connection connection;
@@ -226,10 +257,15 @@ final class Api {
       case RPC_MIGRATE -> MigrateRequest.newBuilder();
       case RPC_APPLY_EDITS -> ApplyEditsRequest.newBuilder();
       case RPC_RUN_SWEEP -> RunSweepRequest.newBuilder();
+      case RPC_RUN_RUNS -> RunRunsRequest.newBuilder();
+      case RPC_SELF_CHECK -> SelfCheckRequest.newBuilder();
+      case RPC_RECORD_RUN -> RecordRunRequest.newBuilder();
       case RPC_RUN_DOCUMENT_QUERY -> RunDocumentQueryRequest.newBuilder();
       case RPC_RENDER_DOCUMENT -> RenderDocumentRequest.newBuilder();
       case RPC_RENDER_VIEW -> RenderViewRequest.newBuilder();
       case RPC_EXPORT_GRAPHS -> ExportGraphsRequest.newBuilder();
+      case RPC_IMPORT_DATA -> ImportDataRequest.newBuilder();
+      case RPC_COMPARE_RESULTS -> CompareResultsRequest.newBuilder();
       case RPC_CHECK_BEHAVIOR -> CheckBehaviorRequest.newBuilder();
       default -> throw new IllegalArgumentException("no request type for " + method);
     };
@@ -284,11 +320,16 @@ final class Api {
             case RPC_MIGRATE -> migrate((MigrateRequest) request);
             case RPC_APPLY_EDITS -> applyEdits((ApplyEditsRequest) request);
             case RPC_RUN_SWEEP -> runSweep((RunSweepRequest) request);
+            case RPC_RUN_RUNS -> runRuns((RunRunsRequest) request);
+            case RPC_SELF_CHECK -> selfCheck((SelfCheckRequest) request);
+            case RPC_RECORD_RUN -> recordRun((RecordRunRequest) request);
             case RPC_RUN_DOCUMENT_QUERY ->
                 runDocumentQuery((RunDocumentQueryRequest) request);
             case RPC_RENDER_DOCUMENT -> renderDocument((RenderDocumentRequest) request);
             case RPC_RENDER_VIEW -> renderView((RenderViewRequest) request);
             case RPC_EXPORT_GRAPHS -> exportGraphs((ExportGraphsRequest) request);
+            case RPC_IMPORT_DATA -> importData((ImportDataRequest) request);
+            case RPC_COMPARE_RESULTS -> compareResults((CompareResultsRequest) request);
             case RPC_CHECK_BEHAVIOR -> checkBehavior((CheckBehaviorRequest) request);
             default -> throw new IllegalStateException(method);
           });
@@ -1049,6 +1090,104 @@ final class Api {
     }
   }
 
+  private RunRunsResponse runRuns(RunRunsRequest request) {
+    Model model = engine(connection.model(request.getModelHash()), request.getEngine());
+    RunsOptions options =
+        request.getAnalysisSymbolId().isEmpty()
+            ? RunsOptions.action(request.getActionSymbolId(), request.getRuns())
+            : RunsOptions.analysis(request.getAnalysisSymbolId(), request.getRuns());
+    options =
+        options
+            .withClockStep(request.getClockStep())
+            .withObserve(request.getObserveList().toArray(String[]::new))
+            .withInputs(values(request.getInputsMap()))
+            .withArguments(values(request.getArgumentsList()))
+            .withNamedArguments(values(request.getNamedArgumentsMap()));
+    if (request.hasSeed()) {
+      options = options.withSeed(request.getSeed());
+    }
+    if (!request.getDraws().isEmpty()) {
+      options = options.withDraws(request.getDraws());
+    }
+    if (!request.getPerformerSymbolId().isEmpty()) {
+      options = options.withPerformer(request.getPerformerSymbolId());
+    }
+    if (!request.getSubjectSymbolId().isEmpty()) {
+      options = options.withSubject(request.getSubjectSymbolId());
+    }
+    try {
+      return Rendering.runs(model.runRuns(options));
+    } catch (ModelException e) {
+      return RunRunsResponse.newBuilder()
+          .setError(e.getMessage())
+          .setFailureReason(Rendering.failureReason(e.failureReason()))
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
+  }
+
+  private SelfCheckResponse selfCheck(SelfCheckRequest request) {
+    Model model = connection.model(request.getModelHash());
+    try {
+      return Rendering.selfCheck(model.selfCheck(request.getSelfCheckPackageList()));
+    } catch (ModelException e) {
+      return SelfCheckResponse.newBuilder()
+          .setError(e.getMessage())
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
+  }
+
+  private RecordRunResponse recordRun(RecordRunRequest request) {
+    Model model = engine(connection.model(request.getModelHash()), request.getEngine());
+    RecordOptions options =
+        RecordOptions.defaults()
+            .withArguments(values(request.getArgumentsList()))
+            .withNamedArguments(values(request.getNamedArgumentsMap()));
+    if (!request.getSubjectSymbolId().isEmpty()) {
+      options = options.withSubject(request.getSubjectSymbolId());
+    }
+    if (!request.getRecordInto().isEmpty()) {
+      options = options.into(request.getRecordInto());
+    }
+    if (request.getRuns() > 0 && request.hasSeed()) {
+      options = options.withRuns(request.getRuns(), request.getSeed());
+    } else if (request.getRuns() > 0) {
+      options =
+          new RecordOptions(
+              options.subject(),
+              options.arguments(),
+              options.namedArguments(),
+              options.into(),
+              options.ranges(),
+              request.getRuns(),
+              Optional.empty());
+    }
+    List<SweepRange> ranges = new ArrayList<>(request.getRangesCount());
+    for (org.openmbee.opensysml.proto.SweepRange range : request.getRangesList()) {
+      SweepRange read =
+          SweepRange.of(
+              range.getParameter(), value(range.getStart()), value(range.getEnd()));
+      if (range.hasStep()) {
+        read = read.withStep(value(range.getStep()));
+      }
+      ranges.add(read);
+    }
+    options = options.withRanges(ranges);
+    try {
+      Recording recording = model.recordRun(request.getAnalysisSymbolId(), options);
+      RecordRunResponse.Builder response = Rendering.recording(recording);
+      recording.run().ifPresent(run -> response.setRun(analysis(run)));
+      return response.build();
+    } catch (ModelException e) {
+      return RecordRunResponse.newBuilder()
+          .setError(e.getMessage())
+          .setFailureReason(Rendering.failureReason(e.failureReason()))
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
+  }
+
   private RunDocumentQueryResponse runDocumentQuery(RunDocumentQueryRequest request) {
     Model model = connection.model(request.getModelHash());
     Map<String, List<DocumentValue>> bindings = new LinkedHashMap<>();
@@ -1120,6 +1259,49 @@ final class Api {
         .setVersion(graphs.version())
         .setSubject(graphs.subject())
         .build();
+  }
+
+  private ImportDataResponse importData(ImportDataRequest request) {
+    Model model = connection.model(request.getModelHash());
+    List<DataImport> imports = new ArrayList<>(request.getImportsCount());
+    for (org.openmbee.opensysml.proto.DataImport dataImport : request.getImportsList()) {
+      imports.add(
+          new DataImport(
+              dataImport.getName(),
+              dataImport.getContent(),
+              Optional.of(dataImport.getImportFormat()).filter(Predicate.not(String::isEmpty)),
+              Optional.of(dataImport.getImportMap()).filter(Predicate.not(String::isEmpty))));
+    }
+    try {
+      return model
+          .importData(imports, request.getImportDryRun(), request.getAcceptDocuments())
+          .wire();
+    } catch (ModelException e) {
+      return ImportDataResponse.newBuilder()
+          .setError(e.getMessage())
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
+    }
+  }
+
+  private CompareResultsResponse compareResults(CompareResultsRequest request) {
+    Model model = connection.model(request.getModelHash());
+    List<CompareOptions.ObservablePair> observe = new ArrayList<>(request.getObserveCount());
+    for (ObservablePair pair : request.getObserveList()) {
+      observe.add(new CompareOptions.ObservablePair(pair.getStored(), pair.getFeature()));
+    }
+    CompareOptions options =
+        new CompareOptions(
+            request.getActionsList(),
+            request.getRuns(),
+            request.hasSeed() ? OptionalLong.of(request.getSeed()) : OptionalLong.empty(),
+            Optional.of(request.getDraws()).filter(Predicate.not(String::isEmpty)),
+            request.hasClockStep()
+                ? OptionalDouble.of(request.getClockStep())
+                : OptionalDouble.empty(),
+            observe,
+            Optional.of(request.getEngine()).filter(Predicate.not(String::isEmpty)));
+    return model.compareResults(request.getResults(), options).wire();
   }
 
   private QueryResponse query(QueryRequest request) {

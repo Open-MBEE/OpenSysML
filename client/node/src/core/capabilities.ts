@@ -66,6 +66,8 @@ export const CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html";
 export const CAPABILITY_RENDER_VIEW = "render_view";
 /** The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON. */
 export const CAPABILITY_EXPORT_GRAPHS = "export_graphs";
+export const CAPABILITY_IMPORT_DATA = "import_data";
+export const CAPABILITY_COMPARE_RESULTS = "compare_results";
 
 /** The `CheckBehavior` RPC, searching every schedule of a behavior for violations and divergent values. */
 export const CAPABILITY_CHECK = "check";
@@ -273,3 +275,12 @@ export function capabilityRefusal(
     return new MissingCapabilityError(capability, info, upgradeRemedy(capability));
   };
 }
+
+/** The `RunRuns` RPC: an action or a Monte Carlo case run repeatedly, the runs tabled. */
+export const CAPABILITY_RUNS = "runs";
+
+/** The `SelfCheck` RPC: the reflective SysMLValidation check of every element. */
+export const CAPABILITY_SELF_CHECK = "self_check";
+
+/** The `RecordRun` RPC: runs of an analysis case recorded into the model. */
+export const CAPABILITY_RECORD_RUN = "record_run";

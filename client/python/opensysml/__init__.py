@@ -32,6 +32,11 @@ from opensysml.typefacts import (
     TypeFacts,
 )
 from opensysml.capabilities import (
+    CAPABILITY_RECORD_RUN,
+    CAPABILITY_RUNS,
+    CAPABILITY_SELF_CHECK,
+    CAPABILITY_IMPORT_DATA,
+    CAPABILITY_COMPARE_RESULTS,
     CAPABILITY_CHECK,
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
@@ -49,6 +54,10 @@ from opensysml.values import (
     Undetermined, UnsetType,
     Vector, VectorQuantity,
 )
+from opensysml.importcompare import (
+    CaseStatistic, CaseStatistics, ComparedDistribution, Comparison, ConfigurationComparison,
+    ImportResult, ImportedFile, ImportedValue, ObservableComparison, StatisticDifference,
+)
 from opensysml.verdict import (
     AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, ToolDryRun, Validation,
     Verdict, VerificationVerdict,
@@ -56,6 +65,17 @@ from opensysml.verdict import (
 from opensysml.exploration import Exploration, Outcome
 from opensysml.action_run import ActionOutputs
 from opensysml.engines import Bound, EngineInfo, Standing
+from opensysml.runs import (
+    RecordedDocument,
+    Recording,
+    RunCountedValue,
+    RunDistribution,
+    RunHistogramBin,
+    RunPercentile,
+    RunsResult,
+    SelfCheckFinding,
+    SelfCheckResult,
+)
 from opensysml.query import QueryElement, QueryError
 from opensysml.sources import SourceDocument
 from opensysml.document import (
@@ -88,6 +108,18 @@ from opensysml.errors import (
 from opensysml.metamodel import read_json
 
 __all__ = [
+    "CAPABILITY_RECORD_RUN",
+    "CAPABILITY_RUNS",
+    "CAPABILITY_SELF_CHECK",
+    "RecordedDocument",
+    "Recording",
+    "RunCountedValue",
+    "RunDistribution",
+    "RunHistogramBin",
+    "RunPercentile",
+    "RunsResult",
+    "SelfCheckFinding",
+    "SelfCheckResult",
     "CAPABILITY_CHECK",
     "CheckDivergence",
     "CheckDivergentValue",
@@ -120,6 +152,9 @@ __all__ = [
     "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
     "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
     "Graphs",
+    "CaseStatistic", "CaseStatistics", "ComparedDistribution", "Comparison", "ConfigurationComparison",
+    "ImportResult", "ImportedFile", "ImportedValue", "ObservableComparison", "StatisticDifference",
+    "CAPABILITY_IMPORT_DATA", "CAPABILITY_COMPARE_RESULTS",
     "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
     "ConversionError", "ExecutionError", "FeatureValueError", "MigrationError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",

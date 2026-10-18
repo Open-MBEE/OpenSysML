@@ -47,7 +47,12 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        DocumentRow, DocumentQueryResult, build_document_bindings,
        run_document_query, render_document, RenderedView, RenderNode, RenderPort, RenderEdge,
        RenderGeometry, RenderCanvas, RenderStyle, RenderPoint, RenderRow, RenderNote, RenderSpan,
-       render_view, Graphs, export_graphs, CheckResult, CheckSearch, CheckViolation,
+       render_view, Graphs, export_graphs, RunDistribution, RunsResult, run_runs, completed,
+       distribution, SelfCheckFinding, SelfCheckResult, self_check, Recording, record_run,
+       DataImport, ImportedValue, ImportedFile,
+       ImportResult, import_data, ComparedDistribution, StatisticDifference, CaseStatistic,
+       CaseStatistics, ObservableComparison, ConfigurationComparison, Comparison,
+       compare_results, CheckResult, CheckSearch, CheckViolation,
        CheckDivergence, CheckDivergentValue, CheckFinal, CheckWitness, check_action,
        check_state_machine, holds, Editor, Body, operations, applied, AppliedEdit,
        EditedDocument, EditResult, edit, apply, apply_edits,
@@ -77,6 +82,8 @@ include("check.jl")
 include("conversion.jl")
 include("migration.jl")
 include("authoring.jl")
+include("runs.jl")
+include("importcompare.jl")
 include("exploration.jl")
 
 for operation in (
@@ -104,7 +111,9 @@ for capability in (
     :CAPABILITY_VERIFICATION_QUESTIONS, :CAPABILITY_VERIFICATION_ARGUMENTS, :CAPABILITY_QUERY, :CAPABILITY_OSLC_QUERY,
     :CAPABILITY_DOCUMENT_QUERY,
     :CAPABILITY_RENDER_DOCUMENT, :CAPABILITY_RENDER_DOCUMENT_HTML, :CAPABILITY_RENDER_VIEW,
-    :CAPABILITY_EXPORT_GRAPHS, :CAPABILITY_CHECK, :CAPABILITY_ENUM_VALUES,
+    :CAPABILITY_EXPORT_GRAPHS, :CAPABILITY_RUNS, :CAPABILITY_SELF_CHECK, :CAPABILITY_RECORD_RUN,
+    :CAPABILITY_IMPORT_DATA, :CAPABILITY_COMPARE_RESULTS,
+    :CAPABILITY_CHECK, :CAPABILITY_ENUM_VALUES,
     :CAPABILITY_EVALUATE_SUBJECT, :CAPABILITY_SYMBOL_ATTRIBUTES, :CAPABILITY_UNSET_VALUE,
     :CAPABILITY_FEATURE_VALUES, :CAPABILITY_APPLY_EDITS, :CAPABILITY_AUTHORING,
     :CAPABILITY_CONNECTION_AUTHORING, :CAPABILITY_SATISFY_AUTHORING,

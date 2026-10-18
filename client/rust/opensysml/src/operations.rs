@@ -3,17 +3,18 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::capabilities::{
-    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_CHECK, CAPABILITY_COMPLEX_VALUES,
-    CAPABILITY_CONVERT, CAPABILITY_CONVERT_DOCUMENTS, CAPABILITY_DOCUMENT_QUERY,
-    CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS,
-    CAPABILITY_FUNCTION_VALUES, CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE,
-    CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE,
-    CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY,
-    CAPABILITY_RATIONAL_VALUES, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
-    CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES,
-    CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES,
-    CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_ARGUMENTS,
-    CAPABILITY_VERIFICATION_QUESTIONS,
+    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_CHECK, CAPABILITY_COMPARE_RESULTS,
+    CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT, CAPABILITY_CONVERT_DOCUMENTS,
+    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES,
+    CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA,
+    CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS,
+    CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY,
+    CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_RATIONAL_VALUES,
+    CAPABILITY_RECORD_RUN, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_RUNS, CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK,
+    CAPABILITY_SET_VALUES, CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE,
+    CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION,
+    CAPABILITY_VERIFICATION_ARGUMENTS, CAPABILITY_VERIFICATION_QUESTIONS,
 };
 use crate::check::{CheckOptions, CheckResult};
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
@@ -32,10 +33,11 @@ use crate::migration::{
 };
 use crate::query::{elements_of, Query, QueryElement};
 use crate::results::{
-    analysis_of, calc_of, diagnostics_of, exploration_of, satisfaction_of, single_verdict,
-    sweep_of, validation_of, value_map, ActionRun, AnalysisResult, CalcResult, EngineInfo,
-    Exploration, ExploredResponse, Satisfaction, StateRun, SweepRange, SweepTable, Validation,
-    Verdict, ENGINE_AUTO, ENGINE_EXPLORE, QUESTION_EVALUATE,
+    analysis_of, calc_of, comparison_of, diagnostics_of, exploration_of, import_result_of,
+    recording_of, runs_of, satisfaction_of, self_check_of, single_verdict, sweep_of, validation_of,
+    value_map, ActionRun, AnalysisResult, CalcResult, Comparison, EngineInfo, Exploration,
+    ExploredResponse, ImportResult, Recording, RunsResult, Satisfaction, SelfCheckResult, StateRun,
+    SweepRange, SweepTable, Validation, Verdict, ENGINE_AUTO, ENGINE_EXPLORE, QUESTION_EVALUATE,
 };
 use crate::sources::{documents_to_wire, SourceDocument};
 use crate::wire;
@@ -135,6 +137,58 @@ pub struct SweepOptions {
     pub samples: i64,
     /// Seed the draws are taken from.
     pub seed: u64,
+    /// The engine to ask.
+    pub engine: Option<String>,
+}
+
+/// Options of [`Connection::run_runs`]: what to run, how often and what to observe.
+#[derive(Clone, Debug, Default)]
+pub struct RunsOptions {
+    /// Qualified name of the action to run; give this or `analysis`.
+    pub action: Option<String>,
+    /// Qualified name of the Simulation::MonteCarlo analysis case.
+    pub analysis: Option<String>,
+    /// How many runs to make.
+    pub runs: i64,
+    /// Seed the runs draw from; required unless `draws` fixes them.
+    pub seed: Option<u64>,
+    /// Draw policy: "random" (the default), "min", "max" or "average".
+    pub draws: Option<String>,
+    /// Clock step of each run; 0 keeps the default.
+    pub clock_step: f64,
+    /// The action's features each run reports; none reports every feature and the clock.
+    pub observe: Vec<String>,
+    /// The action's input parameters by name.
+    pub inputs: BTreeMap<String, Value>,
+    /// Qualified name of the part whose object performs the action.
+    pub performer: Option<String>,
+    /// Qualified name of a part or usage to instantiate as the case's subject.
+    pub subject: Option<String>,
+    /// Positional arguments of the case.
+    pub arguments: Vec<Value>,
+    /// Arguments of the case by name.
+    pub named_arguments: BTreeMap<String, Value>,
+    /// The engine to ask.
+    pub engine: Option<String>,
+}
+
+/// Options of [`Connection::record_run`]: how the case runs and where its records go.
+#[derive(Clone, Debug, Default)]
+pub struct RecordOptions {
+    /// Qualified name of a part or usage to instantiate as the subject.
+    pub subject: Option<String>,
+    /// Positional arguments.
+    pub arguments: Vec<Value>,
+    /// Arguments by name.
+    pub named_arguments: BTreeMap<String, Value>,
+    /// Package the records go into; none is a Records package beside the case's own.
+    pub into: Option<String>,
+    /// Ranges to run the case over as a sweep, recording each completed row.
+    pub ranges: Vec<SweepRange>,
+    /// Monte Carlo runs to make and record; 0 runs the case once.
+    pub runs: i64,
+    /// Seed of the sample's draws; required with `runs`.
+    pub seed: Option<u64>,
     /// The engine to ask.
     pub engine: Option<String>,
 }
@@ -1073,6 +1127,203 @@ impl Connection {
         };
         let response = self.gated_rpc("RunSweep", request, &with_values(capabilities))?;
         sweep_of(response, self.capabilities())
+    }
+
+    /// Runs an action, or a Simulation::MonteCarlo case, `options.runs` times,
+    /// each in a context of its own, and tables what the runs observed.
+    pub fn run_runs(&self, model_hash: &str, options: &RunsOptions) -> Result<RunsResult, Error> {
+        let mut capabilities = vec![CAPABILITY_RUNS];
+        if options.performer.is_some() {
+            capabilities.push(CAPABILITY_PERFORMER);
+        }
+        capabilities.extend(engine_capabilities(options.engine.as_deref()));
+        self.require_all(&capabilities)?;
+        let request = wire::RunRunsRequest {
+            model_hash: model_hash.to_owned(),
+            action_symbol_id: options.action.clone().unwrap_or_default(),
+            analysis_symbol_id: options.analysis.clone().unwrap_or_default(),
+            inputs: self.named_to_wire(&options.inputs)?,
+            performer_symbol_id: options.performer.clone().unwrap_or_default(),
+            subject_symbol_id: options.subject.clone().unwrap_or_default(),
+            arguments: self.values_to_wire(&options.arguments)?,
+            named_arguments: self.named_to_wire(&options.named_arguments)?,
+            runs: options.runs,
+            seed: options.seed,
+            draws: options.draws.clone().unwrap_or_default(),
+            clock_step: options.clock_step,
+            observe: options.observe.clone(),
+            engine: engine_field(options.engine.as_deref()),
+        };
+        let response = self.gated_rpc("RunRuns", request, &with_values(capabilities))?;
+        runs_of(response, self.capabilities())
+    }
+
+    /// Applies the SysMLValidation constraints, and those of the rule packages
+    /// named, reflectively to every element of the model.
+    pub fn self_check(
+        &self,
+        model_hash: &str,
+        packages: &[String],
+    ) -> Result<SelfCheckResult, Error> {
+        let capabilities = vec![CAPABILITY_SELF_CHECK];
+        self.require_all(&capabilities)?;
+        let request = wire::SelfCheckRequest {
+            model_hash: model_hash.to_owned(),
+            self_check_package: packages.to_vec(),
+        };
+        let response = self.gated_rpc("SelfCheck", request, &capabilities)?;
+        self_check_of(response)
+    }
+
+    /// Runs an analysis case once, over `options.ranges` or as a Monte Carlo
+    /// sample of `options.runs`, and records the runs into the model.
+    pub fn record_run(
+        &self,
+        model_hash: &str,
+        case_id: &str,
+        options: &RecordOptions,
+    ) -> Result<Recording, Error> {
+        let mut capabilities = vec![CAPABILITY_RECORD_RUN];
+        capabilities.extend(engine_capabilities(options.engine.as_deref()));
+        self.require_all(&capabilities)?;
+        let ranges = options
+            .ranges
+            .iter()
+            .map(|range| {
+                Ok(wire::SweepRange {
+                    parameter: range.parameter.clone(),
+                    start: Some(value_to_wire(&range.start, self.capabilities())?),
+                    end: Some(value_to_wire(&range.end, self.capabilities())?),
+                    step: range
+                        .step
+                        .as_ref()
+                        .map(|step| value_to_wire(step, self.capabilities()))
+                        .transpose()?,
+                })
+            })
+            .collect::<Result<_, Error>>()?;
+        let request = wire::RecordRunRequest {
+            model_hash: model_hash.to_owned(),
+            analysis_symbol_id: case_id.to_owned(),
+            subject_symbol_id: options.subject.clone().unwrap_or_default(),
+            arguments: self.values_to_wire(&options.arguments)?,
+            named_arguments: self.named_to_wire(&options.named_arguments)?,
+            engine: engine_field(options.engine.as_deref()),
+            record_into: options.into.clone().unwrap_or_default(),
+            ranges,
+            runs: options.runs,
+            seed: options.seed,
+            accept_documents: true,
+        };
+        let response = self.gated_rpc("RecordRun", request, &with_values(capabilities))?;
+        recording_of(response, self.capabilities())
+    }
+}
+
+/// One data file of [`Connection::import_data`].
+#[derive(Clone, Debug, Default)]
+pub struct DataImport {
+    /// The file's name, which names its format by extension.
+    pub name: String,
+    /// The file's text, one row per element.
+    pub content: String,
+    /// Read the content as csv, tsv, json or jsonl rather than as the extension says.
+    pub format: Option<String>,
+    /// The JSON mapping onto elements and features the content is read by.
+    pub map: Option<String>,
+}
+
+/// Options of [`Connection::import_data`].
+#[derive(Clone, Debug, Default)]
+pub struct DataImportOptions {
+    /// Report the values the imports would set, changing nothing.
+    pub dry_run: bool,
+    /// Accept every edited document of a model of several.
+    pub accept_documents: bool,
+}
+
+/// Options of [`Connection::compare_results`]: which configurations, how many
+/// runs, how seeded and what to observe.
+#[derive(Clone, Debug, Default)]
+pub struct CompareOptions {
+    /// The configurations compared, by qualified or simple name; all when empty.
+    pub actions: Vec<String>,
+    /// Runs made of every configuration when positive; else its own numberOfRuns, or one.
+    pub runs: i64,
+    /// The seed the runs derive theirs from.
+    pub seed: Option<u64>,
+    /// The draw policy replacing every configuration's: random, min, max or average.
+    pub draws: Option<String>,
+    /// The clock step replacing every configuration's, in seconds; 0 is continuous.
+    pub clock_step: Option<f64>,
+    /// Stored observables compared, each with the feature of the run that answers it ("" for the default).
+    pub observe: Vec<(String, String)>,
+    /// The engine selection.
+    pub engine: Option<String>,
+}
+
+impl Connection {
+    /// Sets the feature values data files assign, one edit of the model per
+    /// file, as `sysml -import` does.
+    pub fn import_data(
+        &self,
+        model_hash: &str,
+        imports: &[DataImport],
+        options: &DataImportOptions,
+    ) -> Result<ImportResult, Error> {
+        let capabilities = vec![CAPABILITY_IMPORT_DATA];
+        self.require_all(&capabilities)?;
+        let request = wire::ImportDataRequest {
+            model_hash: model_hash.to_owned(),
+            imports: imports
+                .iter()
+                .map(|i| wire::DataImport {
+                    name: i.name.clone(),
+                    content: i.content.clone(),
+                    import_format: i.format.clone().unwrap_or_default(),
+                    import_map: i.map.clone().unwrap_or_default(),
+                })
+                .collect(),
+            import_as: String::new(),
+            import_dry_run: options.dry_run,
+            accept_documents: options.accept_documents,
+        };
+        let response = self.gated_rpc("ImportData", request, &capabilities)?;
+        import_result_of(response)
+    }
+
+    /// Runs the configurations a SysML v1 tool's results sidecar indexes
+    /// against the model and tables the tool's distributions beside the runs',
+    /// as `sysml -compare-results` does.
+    pub fn compare_results(
+        &self,
+        model_hash: &str,
+        results: &str,
+        options: &CompareOptions,
+    ) -> Result<Comparison, Error> {
+        let mut capabilities = vec![CAPABILITY_COMPARE_RESULTS];
+        capabilities.extend(engine_capabilities(options.engine.as_deref()));
+        self.require_all(&capabilities)?;
+        let request = wire::CompareResultsRequest {
+            model_hash: model_hash.to_owned(),
+            results: results.to_owned(),
+            actions: options.actions.clone(),
+            runs: options.runs,
+            seed: options.seed,
+            draws: options.draws.clone().unwrap_or_default(),
+            clock_step: options.clock_step,
+            observe: options
+                .observe
+                .iter()
+                .map(|(stored, feature)| wire::ObservablePair {
+                    stored: stored.clone(),
+                    feature: feature.clone(),
+                })
+                .collect(),
+            engine: engine_field(options.engine.as_deref()),
+        };
+        let response = self.gated_rpc("CompareResults", request, &capabilities)?;
+        comparison_of(response, self.capabilities())
     }
 }
 

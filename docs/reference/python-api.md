@@ -61,6 +61,22 @@ connecting to models.
       heading_level: 3
 
 ::: opensysml.CAPABILITY_RENDER_DOCUMENT_FILE_NAME
+
+::: opensysml.CAPABILITY_IMPORT_DATA
+
+::: opensysml.CAPABILITY_COMPARE_RESULTS
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_RUNS
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_SELF_CHECK
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_RECORD_RUN
     options:
       heading_level: 3
 
@@ -606,6 +622,42 @@ Typed outcomes for verification, validation, calculation and analysis.
     options:
       heading_level: 3
 
+::: opensysml.RunsResult
+    options:
+      heading_level: 3
+
+::: opensysml.RunDistribution
+    options:
+      heading_level: 3
+
+::: opensysml.RunPercentile
+    options:
+      heading_level: 3
+
+::: opensysml.RunHistogramBin
+    options:
+      heading_level: 3
+
+::: opensysml.RunCountedValue
+    options:
+      heading_level: 3
+
+::: opensysml.SelfCheckResult
+    options:
+      heading_level: 3
+
+::: opensysml.SelfCheckFinding
+    options:
+      heading_level: 3
+
+::: opensysml.Recording
+    options:
+      heading_level: 3
+
+::: opensysml.RecordedDocument
+    options:
+      heading_level: 3
+
 ::: opensysml.CheckResult
     options:
       heading_level: 3
@@ -763,6 +815,26 @@ Typed query rows, document values, and document and view render results.
       heading_level: 3
 
 ::: opensysml.Graphs
+
+::: opensysml.ImportResult
+
+::: opensysml.ImportedFile
+
+::: opensysml.ImportedValue
+
+::: opensysml.Comparison
+
+::: opensysml.ConfigurationComparison
+
+::: opensysml.ObservableComparison
+
+::: opensysml.ComparedDistribution
+
+::: opensysml.StatisticDifference
+
+::: opensysml.CaseStatistics
+
+::: opensysml.CaseStatistic
     options:
       heading_level: 3
 
