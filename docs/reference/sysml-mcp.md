@@ -189,7 +189,9 @@ environment's setup installs it on `PATH`.
 The server offers three groups, chosen with `-tools lsp,runtime,session` (every group by
 default): `lsp` is the language server's workspace over the documents under the root, `runtime`
 the one-shot service also served by [`sysml-grpc`](service-transports.md) — one tool per RPC,
-with the RPC's request as the arguments and its response as the structured result — and
+with the RPC's request as the arguments and its response as the structured result (the
+[conformance suite](https://github.com/Open-MBEE/OpenSysML/tree/main/conformance) runs through these tools as protocol `mcp`,
+so they answer the scenarios the service does) — and
 `session` persistent REPL sessions, one tool per `%` command. Serving fewer groups keeps the
 catalogue small for an agent that needs only one of them. The catalogue below is the server's
 own `tools/list`, with each tool's description cut to its first sentence; the tool's full
