@@ -689,7 +689,7 @@ func (r *Renderer) placedStart(view, owner *symbols.Symbol, graph *lower.ActionG
 	if !ok {
 		return false
 	}
-	if site.Layout == nil {
+	if site.Layout == nil || site.Layout.Unplaced {
 		r.noteLayoutProblems(site, owner, out)
 		return false
 	}

@@ -561,8 +561,11 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			}
 		}
 		if g := node.Geometry; g != nil {
+			n.Collapsed = g.Collapsed
+		}
+		if g := node.Geometry; g != nil && !g.Unplaced {
 			x, y := g.X, g.Y
-			n.X, n.Y, n.Collapsed = &x, &y, g.Collapsed
+			n.X, n.Y = &x, &y
 			if g.HasSize {
 				w, h := g.Width, g.Height
 				n.Width, n.Height = &w, &h

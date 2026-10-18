@@ -465,7 +465,7 @@ func (r *Rendering) writeGeometryComments(b *strings.Builder, prefix string) {
 // writeLayoutComments writes the placement of node and of the nodes under it,
 // as comments opened by prefix.
 func writeLayoutComments(b *strings.Builder, prefix string, node *Node) {
-	if g := node.Geometry; g != nil {
+	if g := node.Geometry; g.placed() {
 		fmt.Fprintf(b, "%s layout: %s x=%s y=%s", prefix, node.ID, formatCoord(g.X), formatCoord(g.Y))
 		if g.HasSize {
 			fmt.Fprintf(b, " w=%s h=%s", formatCoord(g.Width), formatCoord(g.Height))

@@ -813,9 +813,9 @@ func (w *dotWriter) reboxClusters(node *Node) {
 		return
 	}
 	switch {
-	case node.Geometry != nil && !node.Geometry.HasSize:
+	case node.Geometry.placed() && !node.Geometry.HasSize:
 		w.boxes[node.ID] = w.clusterBox(node)
-	case node.Geometry == nil:
+	case !node.Geometry.placed():
 		if members := w.membersBox(node); members != nil {
 			w.boxes[node.ID] = *members
 		}
@@ -836,9 +836,9 @@ func (w *dotWriter) placeNode(node *Node, ends map[string][]routeEnd, derived *[
 	switch {
 	case w.placement.derived[node.ID]:
 		*derived = append(*derived, node)
-	case node.Geometry != nil && cluster:
+	case node.Geometry.placed() && cluster:
 		w.boxes[node.ID] = w.clusterBox(node)
-	case node.Geometry != nil:
+	case node.Geometry.placed():
 		w.boxes[node.ID] = w.statedBox(node)
 	case cluster && w.membersBox(node) != nil:
 		w.boxes[node.ID] = *w.membersBox(node)

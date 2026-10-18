@@ -116,7 +116,7 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 				Id: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(),
 			})
 		}
-		if node.Geometry != nil {
+		if node.Geometry != nil && !node.Geometry.Unplaced {
 			item.Geometry = &pb.RenderGeometry{
 				X: node.Geometry.X, Y: node.Geometry.Y, Width: node.Geometry.Width, Height: node.Geometry.Height,
 				HasSize: node.Geometry.HasSize, Collapsed: node.Geometry.Collapsed,
