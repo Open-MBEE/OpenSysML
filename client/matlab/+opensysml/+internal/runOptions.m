@@ -5,19 +5,15 @@ function request = runOptions(request, options, label)
 %   ExecuteAction and ExecuteState carry them; an unset one sends nothing.
 
     if ~isempty(options.advance)
-        if ~(isnumeric(options.advance) && isscalar(options.advance) && options.advance >= 0)
+        if ~(isnumeric(options.advance) && isscalar(options.advance) && isfinite(options.advance) ...
+                && options.advance >= 0)
             opensysml.internal.raise('opensysml:argument', ...
-                sprintf('%s advance must be a non-negative number of seconds', label));
+                sprintf('%s advance must be a finite non-negative number of seconds', label));
         end
         request.advance = double(options.advance);
     end
     if ~isempty(options.seed)
-        if ~(isnumeric(options.seed) && isscalar(options.seed) && options.seed >= 0 ...
-                && options.seed == floor(options.seed))
-            opensysml.internal.raise('opensysml:argument', ...
-                sprintf('%s seed must be a non-negative integer', label));
-        end
-        request.seed = sprintf('%d', uint64(options.seed));
+        request.seed = seedText(options.seed, label);
     end
     if ~isempty(options.draws)
         draws = char(options.draws);
@@ -27,9 +23,34 @@ function request = runOptions(request, options, label)
         end
         request.draws = draws;
     end
-    if ~(isnumeric(options.clockStep) && isscalar(options.clockStep) && options.clockStep >= 0)
+    if ~(isnumeric(options.clockStep) && isscalar(options.clockStep) && isfinite(options.clockStep) ...
+            && options.clockStep >= 0)
         opensysml.internal.raise('opensysml:argument', ...
-            sprintf('%s clockStep must be a non-negative number of seconds', label));
+            sprintf('%s clockStep must be a finite non-negative number of seconds', label));
     end
     if options.clockStep > 0, request.clockStep = double(options.clockStep); end
+end
+
+% The seed is a uint64 on the wire, sent as decimal text: a uint64 or non-negative int64
+% is kept exactly; a double must be a finite integer no greater than flintmax, since a
+% larger one may not be the integer the caller meant.
+function text = seedText(value, label)
+    if isa(value, 'uint64') && isscalar(value)
+        text = sprintf('%u', value);
+        return;
+    end
+    if isa(value, 'int64') && isscalar(value) && value >= 0
+        text = sprintf('%u', uint64(value));
+        return;
+    end
+    if ~(isnumeric(value) && ~islogical(value) && isscalar(value) && isfinite(double(value)) && ...
+            double(value) >= 0 && double(value) == fix(double(value)))
+        opensysml.internal.raise('opensysml:argument', ...
+            sprintf('%s seed must be a non-negative integer no larger than a uint64', label));
+    end
+    if double(value) > flintmax
+        opensysml.internal.raise('opensysml:argument', ...
+            sprintf('%s seed values above flintmax must be supplied as uint64', label));
+    end
+    text = sprintf('%u', uint64(value));
 end

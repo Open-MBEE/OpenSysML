@@ -97,6 +97,11 @@ end
     @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); seed=-1)
     @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); draws="most")
     @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); clock_step=-0.5)
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); advance=Inf)
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); clock_step=Inf)
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); seed=2.0^64)
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); seed=1.5)
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); seed=NaN)
 end
 
 @testset "RenderView preserves service not-found messages" begin

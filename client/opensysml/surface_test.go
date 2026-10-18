@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -762,6 +763,12 @@ func TestRenderViewDepthAgainstService(t *testing.T) {
 	}
 	if _, err := client.RenderView(context.Background(), model, "Deep::structure", opensysml.WithDepth(-1)); err == nil {
 		t.Error("RenderView with depth -1 returned no error")
+	}
+	tooDeep := math.MaxInt32
+	tooDeep++
+	var status *opensysml.StatusError
+	if _, err := client.RenderView(context.Background(), model, "Deep::structure", opensysml.WithDepth(tooDeep)); !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Errorf("RenderView with depth %d: err = %v, want CodeInvalidArgument before the request", tooDeep, err)
 	}
 }
 

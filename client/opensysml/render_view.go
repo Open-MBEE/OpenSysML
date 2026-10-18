@@ -2,6 +2,8 @@ package opensysml
 
 import (
 	"context"
+	"fmt"
+	"math"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
@@ -12,7 +14,7 @@ type RenderViewOption func(*renderViewOptions)
 type renderViewOptions struct {
 	ports string
 	show  []string
-	depth int32
+	depth int
 }
 
 // WithFullPorts includes ports whether or not a connector uses them.
@@ -33,7 +35,7 @@ func WithShow(elements ...string) RenderViewOption {
 // element, overriding the view's own depth; zero draws every level the view
 // allows.
 func WithDepth(depth int) RenderViewOption {
-	return func(options *renderViewOptions) { options.depth = int32(depth) }
+	return func(options *renderViewOptions) { options.depth = depth }
 }
 
 // RenderedView is the lossless diagram data returned for a declared or
@@ -165,12 +167,15 @@ func (c *client) RenderView(ctx context.Context, model *Model, viewName string, 
 	for _, opt := range opts {
 		opt(&options)
 	}
+	if options.depth < 0 || options.depth > math.MaxInt32 {
+		return nil, &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf("depth must be between 0 and %d, got %d", math.MaxInt32, options.depth)}
+	}
 	response, err := c.caller.renderView(ctx, &pb.RenderViewRequest{
 		ModelHash: hash,
 		View:      viewName,
 		Ports:     options.ports,
 		Show:      append([]string(nil), options.show...),
-		Depth:     options.depth,
+		Depth:     int32(options.depth),
 	})
 	if err != nil {
 		return nil, err

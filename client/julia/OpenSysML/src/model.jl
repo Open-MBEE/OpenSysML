@@ -378,11 +378,13 @@ const DRAWS = ("random", "min", "max", "average")
 function _run_options!(request::Dict{String,Any}; advance=nothing, seed=nothing, draws=nothing,
                        clock_step::Real=0.0)
     if advance !== nothing
-        advance >= 0 || throw(ArgumentError("advance must be a non-negative number of seconds"))
+        (isfinite(advance) && advance >= 0) ||
+            throw(ArgumentError("advance must be a finite non-negative number of seconds"))
         request["advance"] = Float64(advance)
     end
     if seed !== nothing
-        seed >= 0 || throw(ArgumentError("seed must be a non-negative integer"))
+        (isinteger(seed) && 0 <= seed <= typemax(UInt64)) ||
+            throw(ArgumentError("seed must be a non-negative integer no larger than a UInt64"))
         request["seed"] = string(UInt64(seed))
     end
     if draws !== nothing
@@ -390,7 +392,8 @@ function _run_options!(request::Dict{String,Any}; advance=nothing, seed=nothing,
             throw(ArgumentError("draws must be one of $(join(repr.(DRAWS), ", "))"))
         request["draws"] = String(draws)
     end
-    clock_step >= 0 || throw(ArgumentError("clock_step must be a non-negative number of seconds"))
+    (isfinite(clock_step) && clock_step >= 0) ||
+        throw(ArgumentError("clock_step must be a finite non-negative number of seconds"))
     clock_step == 0 || (request["clockStep"] = Float64(clock_step))
     request
 end
