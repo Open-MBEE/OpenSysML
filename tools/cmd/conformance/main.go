@@ -145,7 +145,10 @@ func runSuite(opts options) error {
 	}
 	defer os.RemoveAll(workDir)
 
-	if opts.binary == "" {
+	// The mcp protocol runs its own server; the service is started only for
+	// the protocols that talk to it.
+	needsService := slices.ContainsFunc(protocols, func(protocol string) bool { return protocol != "mcp" })
+	if needsService && opts.binary == "" {
 		built, err := buildCommand(opts.repoRoot, workDir, "sysml-grpc")
 		if err != nil {
 			return err
@@ -168,7 +171,10 @@ func runSuite(opts options) error {
 		})
 	}
 
-	reportData := &Report{Service: opts.binary}
+	reportData := &Report{}
+	if needsService {
+		reportData.Service = opts.binary
+	}
 	if testsMCP {
 		reportData.MCPServer = opts.mcpBinary
 	}
@@ -180,31 +186,36 @@ func runSuite(opts options) error {
 			UnavailableCapabilities: config.unavailable,
 		}
 		err := func() error {
-			logName := strings.ReplaceAll(config.name, string(os.PathSeparator), "-") + ".log"
-			svc, err := startServiceWithCapabilities(ctx, opts.binary, filepath.Join(workDir, logName),
-				len(scenarios)+16, opts.transport, config.unavailable)
-			if err != nil {
-				return err
-			}
-			defer svc.stop()
-			if testsMCP {
-				svc.mcp = &mcpSettings{
-					binary:      opts.mcpBinary,
-					root:        filepath.Join(opts.dir, "fixtures"),
-					logPath:     filepath.Join(workDir, strings.TrimSuffix(logName, ".log")+"-mcp.log"),
-					cacheSize:   len(scenarios) + 16,
-					unavailable: config.unavailable,
-				}
-			}
-
-			for _, protocol := range protocols {
-				c, err := svc.client(ctx, protocol)
+			logName := strings.ReplaceAll(config.name, string(os.PathSeparator), "-")
+			var svc *service
+			if needsService {
+				started, err := startServiceWithCapabilities(ctx, opts.binary, filepath.Join(workDir, logName+".log"),
+					len(scenarios)+16, opts.transport, config.unavailable)
 				if err != nil {
 					return err
 				}
-				served := svc.binary
+				defer started.stop()
+				svc = started
+			}
+
+			for _, protocol := range protocols {
+				var c client
+				var err error
+				served := opts.binary
 				if protocol == "mcp" {
 					served = opts.mcpBinary
+					c, err = startMCP(ctx, &mcpSettings{
+						binary:      opts.mcpBinary,
+						root:        filepath.Join(opts.dir, "fixtures"),
+						logPath:     filepath.Join(workDir, logName+"-mcp.log"),
+						cacheSize:   len(scenarios) + 16,
+						unavailable: config.unavailable,
+					})
+				} else {
+					c, err = svc.client(protocol)
+				}
+				if err != nil {
+					return err
 				}
 				runner := &runner{
 					service: served, client: c,

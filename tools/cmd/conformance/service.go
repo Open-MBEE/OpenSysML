@@ -173,9 +173,6 @@ type service struct {
 	// rather than waited out. waitErr is read only after it closes.
 	exited  chan struct{}
 	waitErr error
-	// mcp is how the mcp protocol's client starts sysml-mcp beside the
-	// service; nil until the runner selects that protocol.
-	mcp *mcpSettings
 }
 
 // buildCommand builds cmd/<name>, so a run tests the working tree rather than
@@ -262,10 +259,8 @@ func withoutEnvironment(environment []string, name string) []string {
 	return filtered
 }
 
-func (s *service) client(ctx context.Context, protocol string) (client, error) {
+func (s *service) client(protocol string) (client, error) {
 	switch protocol {
-	case "mcp":
-		return startMCP(ctx, s.mcp)
 	case "grpc":
 		return &grpcClient{conn: s.conn}, nil
 	case "connect":

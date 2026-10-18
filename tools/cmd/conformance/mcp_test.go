@@ -142,7 +142,9 @@ func TestParseSourcesArguments(t *testing.T) {
 	request := requestOf(t, "ParseSources", `{"documents":[
 		{"file_path":"`+inside+`"},
 		{"content":"package A;","name":"a.sysml"},
-		{"content":"package B;","language":"kerml"}],
+		{"content":"package B;","language":"kerml"},
+		{"content":"package C;","name":"c.KerML"},
+		{"content":"package D;","name":"d.kerml","language":"kerml"}],
 		"strict_conformance":true,"base_model_hash":"h0"}`)
 	got, err := toolArguments("ParseSources", request, root)
 	if err != nil {
@@ -155,6 +157,10 @@ func TestParseSourcesArguments(t *testing.T) {
 		"sources": []any{
 			map[string]any{"path": "a.sysml", "text": "package A;"},
 			map[string]any{"path": "", "text": "package B;", "language": "kerml"},
+			// The service reads an unlanguaged inline document as SysML whatever
+			// its name, where the tool would infer KerML from it.
+			map[string]any{"path": "c.KerML", "text": "package C;", "language": "sysml"},
+			map[string]any{"path": "d.kerml", "text": "package D;", "language": "kerml"},
 		},
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -293,6 +299,9 @@ func TestSuitePassesThroughMCP(t *testing.T) {
 	if written.MCPServer != binaries["sysml-mcp"] {
 		t.Errorf("report names %q as the MCP server, want %q", written.MCPServer, binaries["sysml-mcp"])
 	}
+	if written.Service != binaries["sysml-grpc"] {
+		t.Errorf("report names %q as the service, want %q", written.Service, binaries["sysml-grpc"])
+	}
 	for _, config := range written.Configurations {
 		outcomes := map[string]map[string]string{}
 		for _, protocol := range config.Protocols {
@@ -310,5 +319,44 @@ func TestSuitePassesThroughMCP(t *testing.T) {
 				t.Errorf("%s: %s is %q over mcp, %q over grpc", config.Name, id, got, outcome)
 			}
 		}
+	}
+}
+
+// TestMCPAloneNeedsNoService runs the suite through sysml-mcp only, with no
+// sysml-grpc to start: the mcp protocol owns its server.
+func TestMCPAloneNeedsNoService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds and starts sysml-mcp")
+	}
+	binary := filepath.Join(t.TempDir(), "sysml-mcp")
+	build := exec.Command("go", gobuild.Args(binary)...)
+	build.Dir = filepath.Join("..", "..", "..", "cmd", "sysml-mcp")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("building sysml-mcp: %v\n%s", err, out)
+	}
+	report := filepath.Join(t.TempDir(), "report.json")
+	err := runSuite(options{
+		dir:       suiteDir,
+		binary:    filepath.Join(t.TempDir(), "no-such-sysml-grpc"),
+		mcpBinary: binary,
+		report:    report,
+		run:       "^server_info/",
+		protocols: "mcp",
+		transport: transportConnect,
+	})
+	if err != nil {
+		t.Fatalf("runSuite: %v", err)
+	}
+	data, err := os.ReadFile(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var written Report
+	if err := json.Unmarshal(data, &written); err != nil {
+		t.Fatalf("the report is not JSON: %v", err)
+	}
+	if written.Passed == 0 || written.Failed != 0 || written.Errored != 0 || written.Service != "" || written.MCPServer != binary {
+		t.Errorf("report: %d passed, %d failed, %d errored, service %q, mcp server %q",
+			written.Passed, written.Failed, written.Errored, written.Service, written.MCPServer)
 	}
 }

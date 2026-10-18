@@ -254,6 +254,11 @@ func parseSourcesArguments(request protoreflect.Message, root string) (map[strin
 			}
 			paths = append(paths, path)
 		default:
+			if language == "" && strings.EqualFold(filepath.Ext(name), ".kerml") {
+				// The service reads an inline document without a language as SysML
+				// whatever its name; the tool would infer KerML from the name.
+				language = "sysml"
+			}
 			sources = append(sources, inlineSource(name, document.Get(source).String(), language))
 		}
 	}

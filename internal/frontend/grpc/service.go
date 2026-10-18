@@ -588,6 +588,11 @@ func (s *Service) GetServerInfo(ctx context.Context, req *pb.ServerInfoRequest) 
 	}, nil
 }
 
+// Supports reports whether the service has a capability, as GetServerInfo
+// lists it; an in-process caller asks before choosing an RPC the way a remote
+// client reads the advertised list first.
+func (s *Service) Supports(capability string) bool { return s.capabilities.has(capability) }
+
 func (s *Service) requireCapability(capability string) error {
 	if s.capabilities.has(capability) {
 		return nil
