@@ -29,10 +29,10 @@ package test {
 	attribute atOperator : Boolean = 1 @ Integer;
 	attribute atCall = BaseFunctions::'@'(1, Integer);
 	attribute asOperator = 1 as Real;
-	attribute asCall = BaseFunctions::'as'(1, Real);
+	attribute asCall = BaseFunctions::'as'(1);
 	attribute allOperator : Natural = SequenceFunctions::size(all E);
 	attribute allCall = SequenceFunctions::size(BaseFunctions::'all'(E));
-	attribute metaCall = BaseFunctions::'meta'(P1, SysML::PartDefinition);
+	attribute metaCall = BaseFunctions::'meta'(P1);
 	attribute complexToString = ComplexFunctions::ToString(ComplexFunctions::rect(1.0, 2.0));
 	attribute complexFromString = ComplexFunctions::ToComplex("1.0 + 2.0i");
 	attribute naturalQuotientExact : Natural = NaturalFunctions::'/'(6, 2);
