@@ -148,9 +148,9 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 // that leaves it, by its lexical form or through a symlink, so a tool reads
 // only under -root. The path handed on has its symlinks resolved, so the
 // service opens the file the check saw, not what a link is later pointed at;
-// when the service infers the format from the name (inferred), a link whose
-// name means another format than its target's is refused rather than read as
-// the wrong one. A path that does not exist yet is resolved through its
+// when the service reads the format or language from the name (inferred:
+// every model source, not a layout), a link whose name means another format
+// or language than its target's is refused rather than read as the wrong one. A path that does not exist yet is resolved through its
 // nearest existing ancestor.
 func (g *group) path(p string, inferred bool) (string, error) {
 	p = strings.TrimSpace(p)

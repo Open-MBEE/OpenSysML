@@ -80,7 +80,7 @@ func (g *group) registerConversion(s *mcp.Server) {
 			return nil, nil, err
 		}
 		if path, ok := req.GetSource().(*pb.ConvertRequest_FilePath); ok {
-			resolved, err := g.path(path.FilePath, req.FromFormat == "")
+			resolved, err := g.path(path.FilePath, true)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -122,7 +122,7 @@ func (g *group) registerConversion(s *mcp.Server) {
 			return nil, nil, err
 		}
 		if path, ok := req.GetSource().(*pb.MigrateRequest_FilePath); ok {
-			resolved, err := g.path(path.FilePath, req.FromFormat == "")
+			resolved, err := g.path(path.FilePath, true)
 			if err != nil {
 				return nil, nil, err
 			}
