@@ -10,7 +10,7 @@ read	Probe::p1.atq	model	Probe::P1::atq	object:Probe::At1
 read	Probe::p1.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
 read	Probe::p1.caq	model	Probe::P1::caq	ERR_NOSUCHFEATURE object has no such feature: member caq not found in instance
 read	Probe::p1.cargo	model	Probe::P1::cargo	object:Probe::I1
-read	Probe::p1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(3) [instance(11), instance(12), instance(4)]
+read	Probe::p1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(3) [object:Probe::R1, object:Probe::P1::cq, object:Probe::P1::ac]
 read	Probe::p1.cnq	model	Probe::P1::cnq	object:Probe::Cn1
 read	Probe::p1.conq	model	Probe::P1::conq	ERR_NOSUCHFEATURE object has no such feature: member conq not found in instance
 read	Probe::p1.cq	model	Probe::P1::cq	object:Probe::P1::cq
@@ -25,7 +25,7 @@ read	Probe::p1.ifq	model	Probe::P1::ifq	object:Probe::If1
 read	Probe::p1.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
 read	Probe::p1.iu	model	Probe::P1::iu	ERR_NOSUCHFEATURE object has no such feature: member iu not found in instance
 read	Probe::p1.kq	model	Probe::P1::kq	constant 6.0
-read	Probe::p1.mass	model	Probe::P1::mass	collection(1) [3.0 [kg]]
+read	Probe::p1.mass	model	Probe::P1::mass	collection(1) [quantity 3.0 [kg]]
 read	Probe::p1.mq	model	Probe::P1::mq	quantity 2.0 [kg]
 read	Probe::p1.n	model	Probe::P1::n	undetermined <undetermined>
 read	Probe::p1.opt	model	Probe::P1::opt	undetermined <undetermined>
@@ -33,9 +33,9 @@ read	Probe::p1.oq	model	Probe::P1::oq	object:Probe::O1
 read	Probe::p1.other	model	Probe::P1::other	error uninitialized feature value: other
 read	Probe::p1.otherItem	model	Probe::P1::otherItem	error uninitialized feature value: otherItem
 read	Probe::p1.others	model	Probe::P1::others	undetermined <undetermined>
-read	Probe::p1.ownedActions	systems	Parts::Part::ownedActions	collection(3) [instance(5), instance(15), instance(22)]
-read	Probe::p1.ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [instance(16)]
-read	Probe::p1.ownedStates	systems	Parts::Part::ownedStates	collection(1) [instance(22)]
+read	Probe::p1.ownedActions	systems	Parts::Part::ownedActions	collection(3) [object:Probe::A1, object:Probe::Fl1, object:Probe::S1]
+read	Probe::p1.ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [object:Probe::Pt]
+read	Probe::p1.ownedStates	systems	Parts::Part::ownedStates	collection(1) [object:Probe::S1]
 read	Probe::p1.pa	model	Probe::P1::pa	object:Probe::A2
 read	Probe::p1.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
 read	Probe::p1.pt	model	Probe::P1::pt	object:Probe::Pt
@@ -48,9 +48,9 @@ read	Probe::p1.snap	model	Probe::P1::snap	object:Probe::P1::snap
 read	Probe::p1.sr	model	Probe::P1::sr	ERR_NOSUCHFEATURE object has no such feature: member sr not found in instance
 read	Probe::p1.st	model	Probe::P1::st	object:Probe::S1
 read	Probe::p1.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
-read	Probe::p1.sub	model	Probe::P1::sub	collection(2) [instance(7), instance(8)]
-read	Probe::p1.subitems	systems	Items::Item::subitems	collection(6) [instance(10), instance(7), instance(8), instance(13), instance(19), instance(6)]
-read	Probe::p1.subparts	systems	Items::Item::subparts	collection(5) [instance(7), instance(8), instance(13), instance(19), instance(6)]
+read	Probe::p1.sub	model	Probe::P1::sub	collection(2) [object:Probe::P2, object:Probe::P2]
+read	Probe::p1.subitems	systems	Items::Item::subitems	collection(6) [object:Probe::I1, object:Probe::P2, object:Probe::P2, object:Probe::Cn1, object:Probe::If1, object:Probe::Al1]
+read	Probe::p1.subparts	systems	Items::Item::subparts	collection(5) [object:Probe::P2, object:Probe::P2, object:Probe::Cn1, object:Probe::If1, object:Probe::Al1]
 read	Probe::p1.uq	model	Probe::P1::uq	ERR_NOSUCHFEATURE object has no such feature: member uq not found in instance
 read	Probe::p1.voids	systems	Items::Item::voids	undetermined <undetermined>
 read	Probe::p1.vpq	model	Probe::P1::vpq	ERR_NOSUCHFEATURE object has no such feature: member vpq not found in instance
@@ -125,9 +125,9 @@ read	Probe::box.bsle	domain	ShapeItems::CuboidOrTriangularPrism::bsle	error bind
 read	Probe::box.bsre	domain	ShapeItems::CuboidOrTriangularPrism::bsre	error binding end cannot be resolved: box.bsre is bound by `binding [1] bind [0..1] bf.edges = [0..1] bsre`, which makes some value of bsre a value of bf.edges without saying which value of either; the model does not state what bsre holds
 read	Probe::box.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::box.done	systemsFRAME	Items::Item::done	ERR_NOSUCHFEATURE object has no such feature: member done not found in instance
-read	Probe::box.edges	domain	ShapeItems::Cuboid::edges	collection(24) [instance(37), instance(38), instance(39), instance(40), instance(41), instance(42), instance(43), instance(44), instance(45), instance(46), instance(47), instance(48), instance(49), instance(50), instance(51), instance(52), instance(53), instance(54), instance(55), instance(56), instance(57), instance(58), instance(59), instance(60)]
+read	Probe::box.edges	domain	ShapeItems::Cuboid::edges	collection(24) [object:ShapeItems::Rectangle::e1, object:ShapeItems::Rectangle::e2, object:ShapeItems::Rectangle::e3, object:ShapeItems::Rectangle::e4, object:ShapeItems::Rectangle::e1, object:ShapeItems::Rectangle::e2, object:ShapeItems::Rectangle::e3, object:ShapeItems::Rectangle::e4, object:ShapeItems::Rectangle::e1, object:ShapeItems::Rectangle::e2, object:ShapeItems::Rectangle::e3, object:ShapeItems::Rectangle::e4, object:ShapeItems::Rectangle::e1, object:ShapeItems::Rectangle::e2, object:ShapeItems::Rectangle::e3, object:ShapeItems::Rectangle::e4, object:ShapeItems::Rectangle::e1, object:ShapeItems::Rectangle::e2, object:ShapeItems::Rectangle::e3, object:ShapeItems::Rectangle::e4, object:ShapeItems::Rectangle::e1, object:ShapeItems::Rectangle::e2, object:ShapeItems::Rectangle::e3, object:ShapeItems::Rectangle::e4]
 read	Probe::box.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::box.faces	domain	ShapeItems::Cuboid::faces	collection(6) [instance(34), instance(31), instance(32), instance(33), instance(35), instance(36)]
+read	Probe::box.faces	domain	ShapeItems::Cuboid::faces	collection(6) [object:ShapeItems::RectangularCuboid::tf, object:ShapeItems::RectangularCuboid::bf, object:ShapeItems::RectangularCuboid::ff, object:ShapeItems::RectangularCuboid::rf, object:ShapeItems::RectangularCuboid::slf, object:ShapeItems::RectangularCuboid::srf]
 read	Probe::box.ff	domain	ShapeItems::RectangularCuboid::ff	object:ShapeItems::RectangularCuboid::ff
 read	Probe::box.genus	domain	ShapeItems::Polyhedron::genus	constant 0
 read	Probe::box.height	model	Probe::box::height	quantity 3.0 [m]
@@ -214,8 +214,8 @@ read	Probe::spat.shape	systems	Items::Item::shape	undetermined <undetermined>
 read	Probe::spat.start	systemsFRAME	Items::Item::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
 read	Probe::spat.subSpatialItems	domain	SpatialItems::SpatialItem::subSpatialItems	undetermined <undetermined>
 read	Probe::spat.subSpatialParts	domain	SpatialItems::SpatialItem::subSpatialParts	undetermined <undetermined>
-read	Probe::spat.subitems	systems	Items::Item::subitems	collection(1) [instance(67)]
-read	Probe::spat.subparts	systems	Items::Item::subparts	collection(1) [instance(67)]
+read	Probe::spat.subitems	systems	Items::Item::subitems	collection(1) [object:SpatialItems::SpatialItem::componentParts]
+read	Probe::spat.subparts	systems	Items::Item::subparts	collection(1) [object:SpatialItems::SpatialItem::componentParts]
 read	Probe::spat.voids	systems	Items::Item::voids	undetermined <undetermined>
 object	Probe::sys	object:Probe::sys
 read	Probe::sys.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
@@ -272,7 +272,7 @@ read	Probe::psi.start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object h
 read	Probe::psi.subitems	systems	Items::Item::subitems	empty
 read	Probe::psi.subparts	systems	Items::Item::subparts	empty
 read	Probe::psi.voids	systems	Items::Item::voids	undetermined <undetermined>
-object	Probe::p1.sub	collection(2) [instance(7), instance(8)]
+object	Probe::p1.sub	collection(2) [object:Probe::P2, object:Probe::P2]
 object	Probe::p1.opt	undetermined <undetermined>
 object	Probe::p1.cargo	object:Probe::I1
 read	Probe::p1.cargo.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
@@ -367,8 +367,8 @@ read	Probe::p1.rq.subrequirements	systems	Requirements::RequirementCheck::subreq
 read	Probe::p1.rq.who	model	Probe::R1::who	object:Probe::P2
 object	Probe::p1.cq	object:Probe::P1::cq
 read	Probe::p1.cq.self	systemsFRAME	Constraints::ConstraintCheck::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
-read	Probe::p1.cq.x	model	Probe::P1::cq::x	collection(1) [1.0]
-read	Probe::p1.cq.y	model	Probe::P1::cq::y	collection(1) [2.0]
+read	Probe::p1.cq.x	model	Probe::P1::cq::x	collection(1) [constant 1.0]
+read	Probe::p1.cq.y	model	Probe::P1::cq::y	collection(1) [constant 2.0]
 object	Probe::p1.kq	constant 6.0
 object	Probe::p1.caq	ERR_NOSUCHFEATURE object has no such feature: member caq not found in instance
 object	Probe::p1.anq	error no value: calc usage anq computes output features (no output feature); read one of them
@@ -528,10 +528,10 @@ read	Probe::p1.es.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::p1.sr	ERR_NOSUCHFEATURE object has no such feature: member sr not found in instance
 object	Probe::p1.ac	object:Probe::P1::ac
 read	Probe::p1.ac.self	systemsFRAME	Constraints::ConstraintCheck::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
-read	Probe::p1.ac.x	model	Probe::P1::ac::x	collection(1) [1.0]
-read	Probe::p1.ac.y	model	Probe::P1::ac::y	collection(1) [2.0]
+read	Probe::p1.ac.x	model	Probe::P1::ac::x	collection(1) [constant 1.0]
+read	Probe::p1.ac.y	model	Probe::P1::ac::y	collection(1) [constant 2.0]
 object	Probe::p1.iu	ERR_NOSUCHFEATURE object has no such feature: member iu not found in instance
-object	Probe::p1.mass	collection(1) [3.0 [kg]]
+object	Probe::p1.mass	collection(1) [quantity 3.0 [kg]]
 object	new Probe::P1()	object:Probe::P1
 read	new Probe::P1().a	model	Probe::P1::a	constant 2.5
 read	new Probe::P1().ac	model	Probe::P1::ac	object:Probe::P1::ac
@@ -542,7 +542,7 @@ read	new Probe::P1().atq	model	Probe::P1::atq	object:Probe::At1
 read	new Probe::P1().boundingShapes	systems	Items::Item::boundingShapes	empty
 read	new Probe::P1().caq	model	Probe::P1::caq	ERR_NOSUCHFEATURE object has no such feature: member caq not found in instance
 read	new Probe::P1().cargo	model	Probe::P1::cargo	object:Probe::I1
-read	new Probe::P1().checkedConstraints	systems	Items::Item::checkedConstraints	collection(3) [instance(122), instance(123), instance(124)]
+read	new Probe::P1().checkedConstraints	systems	Items::Item::checkedConstraints	collection(3) [object:Probe::R1, object:Probe::P1::cq, object:Probe::P1::ac]
 read	new Probe::P1().cnq	model	Probe::P1::cnq	object:Probe::Cn1
 read	new Probe::P1().conq	model	Probe::P1::conq	ERR_NOSUCHFEATURE object has no such feature: member conq not found in instance
 read	new Probe::P1().cq	model	Probe::P1::cq	object:Probe::P1::cq
@@ -557,7 +557,7 @@ read	new Probe::P1().ifq	model	Probe::P1::ifq	object:Probe::If1
 read	new Probe::P1().isSolid	systems	Items::Item::isSolid	constant true
 read	new Probe::P1().iu	model	Probe::P1::iu	ERR_NOSUCHFEATURE object has no such feature: member iu not found in instance
 read	new Probe::P1().kq	model	Probe::P1::kq	constant 6.0
-read	new Probe::P1().mass	model	Probe::P1::mass	collection(1) [3.0 [kg]]
+read	new Probe::P1().mass	model	Probe::P1::mass	collection(1) [quantity 3.0 [kg]]
 read	new Probe::P1().mq	model	Probe::P1::mq	quantity 2.0 [kg]
 read	new Probe::P1().n	model	Probe::P1::n	object:ScalarValues::Integer
 read	new Probe::P1().opt	model	Probe::P1::opt	empty
@@ -565,9 +565,9 @@ read	new Probe::P1().oq	model	Probe::P1::oq	object:Probe::O1
 read	new Probe::P1().other	model	Probe::P1::other	error uninitialized feature value: other
 read	new Probe::P1().otherItem	model	Probe::P1::otherItem	error uninitialized feature value: otherItem
 read	new Probe::P1().others	model	Probe::P1::others	empty
-read	new Probe::P1().ownedActions	systems	Parts::Part::ownedActions	collection(3) [instance(207), instance(208), instance(212)]
-read	new Probe::P1().ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [instance(216)]
-read	new Probe::P1().ownedStates	systems	Parts::Part::ownedStates	collection(1) [instance(220)]
+read	new Probe::P1().ownedActions	systems	Parts::Part::ownedActions	collection(3) [object:Probe::A1, object:Probe::Fl1, object:Probe::S1]
+read	new Probe::P1().ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [object:Probe::Pt]
+read	new Probe::P1().ownedStates	systems	Parts::Part::ownedStates	collection(1) [object:Probe::S1]
 read	new Probe::P1().pa	model	Probe::P1::pa	object:Probe::A2
 read	new Probe::P1().performedActions	systems	Parts::Part::performedActions	empty
 read	new Probe::P1().pt	model	Probe::P1::pt	object:Probe::Pt
@@ -580,9 +580,9 @@ read	new Probe::P1().snap	model	Probe::P1::snap	object:Probe::P1::snap
 read	new Probe::P1().sr	model	Probe::P1::sr	ERR_NOSUCHFEATURE object has no such feature: member sr not found in instance
 read	new Probe::P1().st	model	Probe::P1::st	object:Probe::S1
 read	new Probe::P1().start	systemsFRAME	Parts::Part::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
-read	new Probe::P1().sub	model	Probe::P1::sub	collection(2) [instance(265), instance(266)]
-read	new Probe::P1().subitems	systems	Items::Item::subitems	collection(6) [instance(270), instance(271), instance(272), instance(273), instance(274), instance(276)]
-read	new Probe::P1().subparts	systems	Items::Item::subparts	collection(5) [instance(280), instance(281), instance(282), instance(283), instance(285)]
+read	new Probe::P1().sub	model	Probe::P1::sub	collection(2) [object:Probe::P2, object:Probe::P2]
+read	new Probe::P1().subitems	systems	Items::Item::subitems	collection(6) [object:Probe::I1, object:Probe::P2, object:Probe::P2, object:Probe::Cn1, object:Probe::If1, object:Probe::Al1]
+read	new Probe::P1().subparts	systems	Items::Item::subparts	collection(5) [object:Probe::P2, object:Probe::P2, object:Probe::Cn1, object:Probe::If1, object:Probe::Al1]
 read	new Probe::P1().uq	model	Probe::P1::uq	ERR_NOSUCHFEATURE object has no such feature: member uq not found in instance
 read	new Probe::P1().voids	systems	Items::Item::voids	empty
 read	new Probe::P1().vpq	model	Probe::P1::vpq	ERR_NOSUCHFEATURE object has no such feature: member vpq not found in instance
@@ -647,7 +647,7 @@ read	new Probe::A1().o	model	Probe::A1::o	empty
 read	new Probe::A1().self	systemsFRAME	Actions::Action::self	ERR_NOSUCHFEATURE object has no such feature: member self not found in instance
 read	new Probe::A1().sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	new Probe::A1().start	systemsFRAME	Actions::Action::start	ERR_NOSUCHFEATURE object has no such feature: member start not found in instance
-read	new Probe::A1().subactions	systems	Actions::Action::subactions	collection(1) [instance(367)]
+read	new Probe::A1().subactions	systems	Actions::Action::subactions	collection(1) [object:Probe::A2]
 read	new Probe::A1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::A1().transitions	systems	Actions::Action::transitions	empty
 read	new Probe::A1().whileLoops	systems	Actions::Action::whileLoops	empty
@@ -1000,339 +1000,339 @@ read	new Probe::M1().tag	model	Probe::M1::tag	object:ScalarValues::String
 read	new Probe::M1().voids	systems	Items::Item::voids	empty
 object	new Probe::At1()	object:Probe::At1
 read	new Probe::At1().v	model	Probe::At1::v	object:ScalarValues::Real
-call	BaseFunctions::'=='	1 == 1	constant true
-call	BaseFunctions::'=='	BaseFunctions::'=='(1, 2)	constant false
-call	BaseFunctions::'!='	1 != 2	constant true
-call	BaseFunctions::'!='	BaseFunctions::'!='(1, 1)	constant false
-call	BaseFunctions::'==='	Probe::p1 === Probe::p1	constant true
-call	BaseFunctions::'==='	BaseFunctions::'==='(1, 1)	constant true
-call	BaseFunctions::'!=='	Probe::p1 !== Probe::p2	constant true
-call	BaseFunctions::'!=='	BaseFunctions::'!=='(1, 1)	constant false
-call	BaseFunctions::ToString	BaseFunctions::ToString(42)	string "42"
-call	BaseFunctions::'['	2.0 [SI::m]	quantity 2.0 [SI::m]
-call	BaseFunctions::'['	BaseFunctions::'['(2.0, SI::m)	error library function is not evaluable: BaseFunctions::'[': '[' is abstract: the runtime evaluates its operator notation `num [unit]`, and its QuantityCalculations, VectorCalculations and TensorCalculations specializations take a measurement reference as an argument value
-call	BaseFunctions::'#'	(10, 20, 30)#(2)	constant 20
-call	BaseFunctions::'#'	BaseFunctions::'#'((10, 20, 30), 2)	constant 20
-call	BaseFunctions::','	(1, 2)	collection(2) [1, 2]
-call	BaseFunctions::','	BaseFunctions::','(1, 2)	collection(2) [1, 2]
-call	BaseFunctions::'all'	size(all Probe::E)	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 2
-call	BaseFunctions::'all'	size(BaseFunctions::'all'(Probe::E))	error cannot evaluate definition Probe::E
-call	BaseFunctions::'istype'	1 istype Integer	constant true
-call	BaseFunctions::'istype'	1 istype String	constant false
-call	BaseFunctions::'istype'	BaseFunctions::'istype'(1, Integer)	error cannot evaluate definition Integer
-call	BaseFunctions::'hastype'	1 hastype Integer	constant true
-call	BaseFunctions::'hastype'	1 hastype Real	constant false
-call	BaseFunctions::'hastype'	BaseFunctions::'hastype'(1, Integer)	error cannot evaluate definition Integer
-call	BaseFunctions::'@'	1 @ Integer	constant true
-call	BaseFunctions::'@'	BaseFunctions::'@'(1, Integer)	error cannot evaluate definition Integer
-call	BaseFunctions::'@@'	Probe::Tagged @@ Probe::M	constant false
-call	BaseFunctions::'@@'	Probe::P1 @@ Probe::M	constant false
-call	BaseFunctions::'as'	1 as Real	constant 1
-call	BaseFunctions::'as'	BaseFunctions::'as'(1, Real)	error cannot evaluate definition Real
-call	BaseFunctions::'as'	(1, "a", 2) as Integer	collection(2) [1, 2]
-call	BaseFunctions::'meta'	Probe::P1 meta SysML::PartDefinition	collection(1) [meta(Probe::P1 : SysML::Systems::PartDefinition)]
-call	BaseFunctions::'meta'	BaseFunctions::'meta'(Probe::P1, SysML::PartDefinition)	error cannot evaluate definition Probe::P1
-call	BooleanFunctions::'not'	not true	constant false
-call	BooleanFunctions::'not'	BooleanFunctions::'not'(false)	constant true
-call	BooleanFunctions::'xor'	true xor false	constant true
-call	BooleanFunctions::'xor'	BooleanFunctions::'xor'(true, true)	constant false
-call	BooleanFunctions::'|'	true | false	constant true
-call	BooleanFunctions::'|'	BooleanFunctions::'|'(false, false)	constant false
-call	BooleanFunctions::'&'	true & false	constant false
-call	BooleanFunctions::'&'	BooleanFunctions::'&'(true, true)	constant true
-call	BooleanFunctions::'=='	true == true	constant true
-call	BooleanFunctions::'=='	BooleanFunctions::'=='(true, false)	constant false
-call	BooleanFunctions::ToString	BooleanFunctions::ToString(true)	string "true"
-call	BooleanFunctions::ToBoolean	BooleanFunctions::ToBoolean("true")	constant true
-call	BooleanFunctions::ToBoolean	BooleanFunctions::ToBoolean("false")	constant false
-call	CollectionFunctions::'=='	CollectionFunctions::'=='(Probe::lst, Probe::lst)	constant true
-call	CollectionFunctions::'=='	Probe::lst == Probe::os	constant false
-call	CollectionFunctions::size	CollectionFunctions::size(Probe::lst)	constant 3
-call	CollectionFunctions::isEmpty	CollectionFunctions::isEmpty(Probe::lst)	constant false
-call	CollectionFunctions::notEmpty	CollectionFunctions::notEmpty(Probe::lst)	constant true
-call	CollectionFunctions::contains	CollectionFunctions::contains(Probe::lst, 2)	constant true
-call	CollectionFunctions::contains	CollectionFunctions::contains(Probe::lst, 9)	constant false
-call	CollectionFunctions::containsAll	CollectionFunctions::containsAll(Probe::lst, Probe::os)	constant true
-call	CollectionFunctions::head	CollectionFunctions::head(Probe::os)	constant 3
-call	CollectionFunctions::tail	CollectionFunctions::tail(Probe::os)	collection(2) [1, 2]
-call	CollectionFunctions::last	CollectionFunctions::last(Probe::os)	constant 2
-call	CollectionFunctions::'#'	CollectionFunctions::'#'(Probe::os, 1)	constant 3
-call	CollectionFunctions::'#'	Probe::os#(1)	object:Probe::os
-call	CollectionFunctions::'array#'	CollectionFunctions::'array#'(Probe::arr, (2, 1))	constant 3
-call	CollectionFunctions::'array#'	Probe::arr#(2, 1)	constant 3
-call	ComplexFunctions::rect	ComplexFunctions::rect(1.0, 2.0)	complex number 1.0 + 2.0i
-call	ComplexFunctions::polar	ComplexFunctions::re(ComplexFunctions::polar(2.0, 0.0))	constant 2.0
-call	ComplexFunctions::re	ComplexFunctions::re(ComplexFunctions::rect(1.0, 2.0))	constant 1.0
-call	ComplexFunctions::im	ComplexFunctions::im(ComplexFunctions::rect(1.0, 2.0))	constant 2.0
-call	ComplexFunctions::isZero	ComplexFunctions::isZero(ComplexFunctions::rect(0.0, 0.0))	constant true
-call	ComplexFunctions::isUnit	ComplexFunctions::isUnit(ComplexFunctions::rect(1.0, 0.0))	constant true
-call	ComplexFunctions::abs	ComplexFunctions::abs(ComplexFunctions::rect(3.0, 4.0))	constant 5.0
-call	ComplexFunctions::arg	ComplexFunctions::arg(ComplexFunctions::rect(1.0, 0.0))	constant 0.0
-call	ComplexFunctions::'+'	ComplexFunctions::'+'(ComplexFunctions::rect(1.0, 2.0), ComplexFunctions::rect(1.0, 1.0))	complex number 2.0 + 3.0i
-call	ComplexFunctions::'+'	ComplexFunctions::rect(1.0, 2.0) + ComplexFunctions::rect(1.0, 1.0)	complex number 2.0 + 3.0i
-call	ComplexFunctions::'-'	ComplexFunctions::rect(1.0, 2.0) - ComplexFunctions::rect(1.0, 1.0)	complex number 0.0 + 1.0i
-call	ComplexFunctions::'*'	ComplexFunctions::rect(0.0, 1.0) * ComplexFunctions::rect(0.0, 1.0)	complex number -1.0 + 0.0i
-call	ComplexFunctions::'/'	ComplexFunctions::rect(2.0, 0.0) / ComplexFunctions::rect(1.0, 0.0)	complex number 2.0 + 0.0i
-call	ComplexFunctions::'**'	ComplexFunctions::rect(0.0, 1.0) ** 2	complex number -1.0 + 0.0i
-call	ComplexFunctions::'^'	ComplexFunctions::rect(0.0, 1.0) ^ 2	complex number -1.0 + 0.0i
-call	ComplexFunctions::'=='	ComplexFunctions::rect(1.0, 2.0) == ComplexFunctions::rect(1.0, 2.0)	constant true
-call	ComplexFunctions::ToString	ComplexFunctions::ToString(ComplexFunctions::rect(1.0, 2.0))	error library function is not evaluable: ComplexFunctions::ToString: no string notation for a Complex value is defined
-call	ComplexFunctions::ToComplex	ComplexFunctions::ToComplex("1.0 + 2.0i")	error library function is not evaluable: ComplexFunctions::ToComplex: no string notation for a Complex value is defined
-call	ComplexFunctions::sum	ComplexFunctions::sum((ComplexFunctions::rect(1.0, 0.0), ComplexFunctions::rect(0.0, 1.0)))	complex number 1.0 + 1.0i
-call	ComplexFunctions::product	ComplexFunctions::product((ComplexFunctions::rect(2.0, 0.0), ComplexFunctions::rect(0.0, 1.0)))	complex number 0.0 + 2.0i
-call	ControlFunctions::'.'	Probe::p1.sub	collection(2) [instance(6), instance(7)]
-call	ControlFunctions::'.'	(Probe::p1, Probe::p1).sub	collection(4) [instance(6), instance(7), instance(6), instance(7)]
-call	ControlFunctions::'if'	if true ? 1 else 2	constant 1
-call	ControlFunctions::'if'	if false ? 1 else 2	constant 2
-call	ControlFunctions::'if'	ControlFunctions::'if'(true, 1, 2)	constant 1
-call	ControlFunctions::'if'	if true ? 1 else 1/0	constant 1
-call	ControlFunctions::'??'	null ?? 3	constant 3
-call	ControlFunctions::'??'	Probe::empty ?? 3	constant 3
-call	ControlFunctions::'??'	2 ?? 3	constant 2
-call	ControlFunctions::'??'	ControlFunctions::'??'((), 5)	constant 5
-call	ControlFunctions::'??'	1 ?? 1/0	constant 1
-call	ControlFunctions::'and'	true and false	constant false
-call	ControlFunctions::'and'	false and (1/0 == 0)	constant false
-call	ControlFunctions::'and'	ControlFunctions::'and'(true, true)	constant true
-call	ControlFunctions::'or'	true or (1/0 == 0)	constant true
-call	ControlFunctions::'or'	false or false	constant false
-call	ControlFunctions::'or'	ControlFunctions::'or'(false, true)	constant true
-call	ControlFunctions::'implies'	false implies (1/0 == 0)	constant true
-call	ControlFunctions::'implies'	true implies false	constant false
-call	ControlFunctions::'implies'	ControlFunctions::'implies'(true, true)	constant true
-call	ControlFunctions::collect	(1, 2, 3)->collect{in x; x * 2}	error unresolved reference: collect — did you mean ControlFunctions::collect? To use the bare name, import its package: private import ControlFunctions::*; || with imports: collection(3) [2, 4, 6]
-call	ControlFunctions::collect	ControlFunctions::collect((1, 2, 3), {in x; x * 2})	collection(3) [2, 4, 6]
-call	ControlFunctions::select	(1, 2, 3)->select{in x; x > 1}	error unresolved reference: select — did you mean ControlFunctions::select? To use the bare name, import its package: private import ControlFunctions::*; || with imports: collection(2) [2, 3]
-call	ControlFunctions::select	ControlFunctions::select((1, 2, 3), {in x; x > 1})	collection(2) [2, 3]
-call	ControlFunctions::selectOne	(1, 2, 3)->selectOne{in x; x > 1}	error unresolved reference: selectOne — did you mean ControlFunctions::selectOne? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant 2
-call	ControlFunctions::selectOne	ControlFunctions::selectOne((1, 2, 3), {in x; x > 1})	constant 2
-call	ControlFunctions::reject	(1, 2, 3)->reject{in x; x > 1}	error unresolved reference: reject — did you mean ControlFunctions::reject? To use the bare name, import its package: private import ControlFunctions::*; || with imports: collection(1) [1]
-call	ControlFunctions::reject	ControlFunctions::reject((1, 2, 3), {in x; x > 1})	collection(1) [1]
-call	ControlFunctions::reduce	(1, 2, 3)->reduce{in a; in b; a + b}	error unresolved reference: reduce — did you mean ControlFunctions::reduce? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant 6
-call	ControlFunctions::reduce	(1, 2, 3)->reduce '+'	error unresolved reference: + || with imports: error type mismatch: ControlFunctions::reduce requires a body expression, got function
-call	ControlFunctions::reduce	ControlFunctions::reduce((1, 2, 3), {in a; in b; a + b})	constant 6
-call	ControlFunctions::forAll	(1, 2, 3)->forAll{in x; x > 0}	error unresolved reference: forAll — did you mean ControlFunctions::forAll? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant true
-call	ControlFunctions::forAll	ControlFunctions::forAll((1, 2, 3), {in x; x > 1})	constant false
-call	ControlFunctions::exists	(1, 2, 3)->exists{in x; x > 2}	error unresolved reference: exists — did you mean ControlFunctions::exists or DocumentQueries::WhereRelated::exists? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant true
-call	ControlFunctions::exists	ControlFunctions::exists((1, 2, 3), {in x; x > 3})	constant false
-call	ControlFunctions::allTrue	ControlFunctions::allTrue((true, true))	constant true
-call	ControlFunctions::allTrue	(true, false)->allTrue()	error unresolved reference: allTrue — did you mean ControlFunctions::allTrue? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant false
-call	ControlFunctions::anyTrue	ControlFunctions::anyTrue((false, true))	constant true
-call	ControlFunctions::anyTrue	(false, false)->anyTrue()	error unresolved reference: anyTrue — did you mean ControlFunctions::anyTrue? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant false
-call	ControlFunctions::minimize	(3, 1, 2)->minimize{in x; x}	error unresolved reference: minimize — did you mean ControlFunctions::minimize? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant 1
-call	ControlFunctions::minimize	ControlFunctions::minimize((3, 1, 2), {in x; -x})	constant -3
-call	ControlFunctions::maximize	(3, 1, 2)->maximize{in x; x}	error unresolved reference: maximize — did you mean ControlFunctions::maximize? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant 3
-call	ControlFunctions::maximize	ControlFunctions::maximize((3, 1, 2), {in x; -x})	constant -1
-call	DataFunctions::'==='	DataFunctions::'==='(1, 1)	constant true
-call	DataFunctions::'==='	1 === 2	constant false
-call	IntegerFunctions::abs	IntegerFunctions::abs(-3)	constant 3
-call	IntegerFunctions::abs	abs(-3)	error unresolved reference: abs — did you mean RealFunctions::abs, ComplexFunctions::abs or IntegerFunctions::abs? || with imports: constant 3
-call	IntegerFunctions::'+'	1 + 2	constant 3
-call	IntegerFunctions::'+'	IntegerFunctions::'+'(1, 2)	constant 3
-call	IntegerFunctions::'+'	IntegerFunctions::'+'(1)	constant 1
-call	IntegerFunctions::'-'	5 - 2	constant 3
-call	IntegerFunctions::'-'	IntegerFunctions::'-'(5)	constant -5
-call	IntegerFunctions::'-'	-5	constant -5
-call	IntegerFunctions::'*'	2 * 3	constant 6
-call	IntegerFunctions::'*'	IntegerFunctions::'*'(2, 3)	constant 6
-call	IntegerFunctions::'/'	7 / 2	constant 3.5
-call	IntegerFunctions::'/'	IntegerFunctions::'/'(6, 2)	constant 3.0
-call	IntegerFunctions::'**'	2 ** 3	constant 8
-call	IntegerFunctions::'**'	IntegerFunctions::'**'(2, 3)	constant 8
-call	IntegerFunctions::'^'	2 ^ 3	constant 8
-call	IntegerFunctions::'^'	IntegerFunctions::'^'(2, 3)	constant 8
-call	IntegerFunctions::'%'	7 % 2	constant 1
-call	IntegerFunctions::'%'	IntegerFunctions::'%'(-7, 2)	constant -1
-call	IntegerFunctions::'<'	1 < 2	constant true
-call	IntegerFunctions::'<'	IntegerFunctions::'<'(2, 1)	constant false
-call	IntegerFunctions::'>'	2 > 1	constant true
-call	IntegerFunctions::'>'	IntegerFunctions::'>'(1, 2)	constant false
-call	IntegerFunctions::'<='	2 <= 2	constant true
-call	IntegerFunctions::'<='	IntegerFunctions::'<='(3, 2)	constant false
-call	IntegerFunctions::'>='	2 >= 2	constant true
-call	IntegerFunctions::'>='	IntegerFunctions::'>='(1, 2)	constant false
-call	IntegerFunctions::max	IntegerFunctions::max(1, 2)	constant 2
-call	IntegerFunctions::max	max(1, 2)	error unresolved reference: max — did you mean DataFunctions::max, RealFunctions::max or ScalarFunctions::max? || with imports: constant 2
-call	IntegerFunctions::min	IntegerFunctions::min(1, 2)	constant 1
-call	IntegerFunctions::min	min(1, 2)	error unresolved reference: min — did you mean DataFunctions::min, RealFunctions::min or ScalarFunctions::min? || with imports: constant 1
-call	IntegerFunctions::'=='	IntegerFunctions::'=='(1, 1)	constant true
-call	IntegerFunctions::'..'	1..3	collection(3) [1, 2, 3]
-call	IntegerFunctions::'..'	IntegerFunctions::'..'(1, 3)	collection(3) [1, 2, 3]
-call	IntegerFunctions::'..'	3..1	empty
-call	IntegerFunctions::ToString	IntegerFunctions::ToString(7)	string "7"
-call	IntegerFunctions::ToNatural	IntegerFunctions::ToNatural(7)	constant 7
-call	IntegerFunctions::ToInteger	IntegerFunctions::ToInteger("7")	constant 7
-call	IntegerFunctions::sum	IntegerFunctions::sum((1, 2, 3))	constant 6
-call	IntegerFunctions::sum	sum((1, 2, 3))	error unresolved reference: sum — did you mean RealFunctions::sum, VectorFunctions::sum or ComplexFunctions::sum? || with imports: constant 6
-call	IntegerFunctions::sum	IntegerFunctions::sum(())	constant 0
-call	IntegerFunctions::product	IntegerFunctions::product((1, 2, 3))	constant 6
-call	IntegerFunctions::product	product((2, 3))	error unresolved reference: product — did you mean RealFunctions::product, ComplexFunctions::product or IntegerFunctions::product? || with imports: constant 6
-call	IntegerFunctions::product	IntegerFunctions::product(())	constant 1
-call	NaturalFunctions::'+'	NaturalFunctions::'+'(1, 2)	constant 3
-call	NaturalFunctions::'*'	NaturalFunctions::'*'(2, 3)	constant 6
-call	NaturalFunctions::'/'	NaturalFunctions::'/'(7, 2)	error arithmetic domain error: function NaturalFunctions::'/' has no Natural result for 7 / 2; the quotient is 3.5
-call	NaturalFunctions::'%'	NaturalFunctions::'%'(7, 2)	constant 1
-call	NaturalFunctions::'<'	NaturalFunctions::'<'(1, 2)	constant true
-call	NaturalFunctions::'>'	NaturalFunctions::'>'(1, 2)	constant false
-call	NaturalFunctions::'<='	NaturalFunctions::'<='(2, 2)	constant true
-call	NaturalFunctions::'>='	NaturalFunctions::'>='(1, 2)	constant false
-call	NaturalFunctions::max	NaturalFunctions::max(1, 2)	constant 2
-call	NaturalFunctions::min	NaturalFunctions::min(1, 2)	constant 1
-call	NaturalFunctions::'=='	NaturalFunctions::'=='(1, 1)	constant true
-call	NaturalFunctions::ToString	NaturalFunctions::ToString(7)	string "7"
-call	NaturalFunctions::ToNatural	NaturalFunctions::ToNatural("7")	constant 7
-call	NumericalFunctions::sum0	NumericalFunctions::sum0((1, 2), 0)	constant 3
-call	NumericalFunctions::sum0	NumericalFunctions::sum0((), 0)	constant 0
-call	NumericalFunctions::product1	NumericalFunctions::product1((2, 3), 1)	constant 6
-call	NumericalFunctions::product1	NumericalFunctions::product1((), 1)	constant 1
-call	OccurrenceFunctions::'==='	OccurrenceFunctions::'==='(Probe::p1, Probe::p1)	constant true
-call	OccurrenceFunctions::'==='	OccurrenceFunctions::'==='(Probe::p1, Probe::p2)	constant false
-call	OccurrenceFunctions::isDuring	OccurrenceFunctions::isDuring(Probe::p1)	constant true
-call	OccurrenceFunctions::create	OccurrenceFunctions::create(Probe::p1)	error occurrence lifetime does not admit the change: function OccurrenceFunctions::create: object #1 (p1) began at 1, before the call
-call	OccurrenceFunctions::create	OccurrenceFunctions::create(new Probe::P2())	object:Probe::P2
-call	OccurrenceFunctions::destroy	OccurrenceFunctions::destroy(new Probe::P2())	object:Probe::P2
-call	OccurrenceFunctions::addNew	size(OccurrenceFunctions::addNew(Probe::p1.sub, new Probe::P2()))	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 3
-call	OccurrenceFunctions::addNewAt	size(OccurrenceFunctions::addNewAt(Probe::p1.sub, new Probe::P2(), 1))	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 3
-call	RationalFunctions::rat	RationalFunctions::rat(1, 2)	constant 0.5
-call	RationalFunctions::numer	RationalFunctions::numer(RationalFunctions::rat(2, 4))	constant 1
-call	RationalFunctions::denom	RationalFunctions::denom(RationalFunctions::rat(2, 4))	constant 2
-call	RationalFunctions::abs	RationalFunctions::abs(RationalFunctions::rat(-1, 2))	constant 0.5
-call	RationalFunctions::'+'	RationalFunctions::rat(1, 2) + RationalFunctions::rat(1, 2)	constant 1.0
-call	RationalFunctions::'+'	RationalFunctions::'+'(RationalFunctions::rat(1, 3), RationalFunctions::rat(1, 3))	constant 2/3
-call	RationalFunctions::'-'	RationalFunctions::rat(1, 2) - RationalFunctions::rat(1, 4)	constant 0.25
-call	RationalFunctions::'*'	RationalFunctions::rat(1, 2) * RationalFunctions::rat(1, 2)	constant 0.25
-call	RationalFunctions::'/'	RationalFunctions::rat(1, 2) / RationalFunctions::rat(1, 4)	constant 2.0
-call	RationalFunctions::'**'	RationalFunctions::rat(1, 2) ** 2	constant 0.25
-call	RationalFunctions::'^'	RationalFunctions::rat(1, 2) ^ 2	constant 0.25
-call	RationalFunctions::'<'	RationalFunctions::rat(1, 2) < RationalFunctions::rat(3, 4)	constant true
-call	RationalFunctions::'>'	RationalFunctions::rat(1, 2) > RationalFunctions::rat(3, 4)	constant false
-call	RationalFunctions::'<='	RationalFunctions::rat(1, 2) <= RationalFunctions::rat(1, 2)	constant true
-call	RationalFunctions::'>='	RationalFunctions::rat(1, 2) >= RationalFunctions::rat(3, 4)	constant false
-call	RationalFunctions::max	RationalFunctions::max(RationalFunctions::rat(1, 2), RationalFunctions::rat(3, 4))	constant 0.75
-call	RationalFunctions::min	RationalFunctions::min(RationalFunctions::rat(1, 2), RationalFunctions::rat(3, 4))	constant 0.5
-call	RationalFunctions::'=='	RationalFunctions::rat(1, 2) == RationalFunctions::rat(2, 4)	constant true
-call	RationalFunctions::gcd	RationalFunctions::gcd(12, 18)	constant 6
-call	RationalFunctions::floor	RationalFunctions::floor(RationalFunctions::rat(7, 2))	constant 3
-call	RationalFunctions::round	RationalFunctions::round(RationalFunctions::rat(7, 2))	constant 4
-call	RationalFunctions::ToString	RationalFunctions::ToString(RationalFunctions::rat(1, 2))	string "0.5"
-call	RationalFunctions::ToInteger	RationalFunctions::ToInteger(RationalFunctions::rat(4, 2))	constant 2
-call	RationalFunctions::ToRational	RationalFunctions::ToRational("1/2")	constant 0.5
-call	RationalFunctions::sum	RationalFunctions::sum((RationalFunctions::rat(1, 2), RationalFunctions::rat(1, 2)))	constant 1.0
-call	RationalFunctions::product	RationalFunctions::product((RationalFunctions::rat(1, 2), RationalFunctions::rat(1, 2)))	constant 0.25
-call	RealFunctions::re	RealFunctions::re(2.5)	constant 2.5
-call	RealFunctions::im	RealFunctions::im(2.5)	constant 0.0
-call	RealFunctions::abs	RealFunctions::abs(-2.5)	constant 2.5
-call	RealFunctions::arg	RealFunctions::arg(-1.0)	constant 0.0
-call	RealFunctions::arg	RealFunctions::arg(1.0)	constant 0.0
-call	RealFunctions::'+'	1.5 + 1.0	constant 2.5
-call	RealFunctions::'-'	1.5 - 1.0	constant 0.5
-call	RealFunctions::'*'	1.5 * 2.0	constant 3.0
-call	RealFunctions::'/'	3.0 / 2.0	constant 1.5
-call	RealFunctions::'**'	2.0 ** 3	constant 8.0
-call	RealFunctions::'^'	2.0 ^ 3	constant 8.0
-call	RealFunctions::'**'	RealFunctions::'**'(2.0, 0.5)	constant 1.4142135623730951
-call	RealFunctions::'<'	1.0 < 2.0	constant true
-call	RealFunctions::'>'	1.0 > 2.0	constant false
-call	RealFunctions::'<='	2.0 <= 2.0	constant true
-call	RealFunctions::'>='	1.0 >= 2.0	constant false
-call	RealFunctions::max	RealFunctions::max(1.0, 2.0)	constant 2.0
-call	RealFunctions::min	RealFunctions::min(1.0, 2.0)	constant 1.0
-call	RealFunctions::'=='	1.0 == 1.0	constant true
-call	RealFunctions::sqrt	RealFunctions::sqrt(4.0)	constant 2.0
-call	RealFunctions::sqrt	sqrt(4.0)	error unresolved reference: sqrt — did you mean RealFunctions::sqrt or QuantityCalculations::sqrt? || with imports: constant 2.0
-call	RealFunctions::floor	RealFunctions::floor(2.7)	constant 2
-call	RealFunctions::round	RealFunctions::round(2.5)	constant 3
-call	RealFunctions::round	RealFunctions::round(-2.5)	constant -3
-call	RealFunctions::ToString	RealFunctions::ToString(2.5)	string "2.5"
-call	RealFunctions::ToInteger	RealFunctions::ToInteger(2.7)	constant 2
-call	RealFunctions::ToRational	RealFunctions::ToRational(0.5)	constant 0.5
-call	RealFunctions::ToReal	RealFunctions::ToReal("2.5")	constant 2.5
-call	RealFunctions::sum	RealFunctions::sum((1.0, 2.5))	constant 3.5
-call	RealFunctions::sum	RealFunctions::sum(())	constant 0.0
-call	RealFunctions::product	RealFunctions::product((2.0, 2.5))	constant 5.0
-call	RealFunctions::product	RealFunctions::product(())	constant 1.0
-call	SequenceFunctions::'#'	SequenceFunctions::'#'((10, 20), 2)	constant 20
-call	SequenceFunctions::equals	SequenceFunctions::equals((1, 2), (1, 2))	constant true
-call	SequenceFunctions::equals	(1, 2)->equals((2, 1))	error unresolved reference: equals — did you mean SequenceFunctions::equals? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: constant false
-call	SequenceFunctions::same	SequenceFunctions::same((Probe::p1, Probe::p2), (Probe::p1, Probe::p2))	constant true
-call	SequenceFunctions::same	SequenceFunctions::same((1, 2), (1, 2))	constant true
-call	SequenceFunctions::size	SequenceFunctions::size((1, 2, 3))	constant 3
-call	SequenceFunctions::size	size((1, 2, 3))	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 3
-call	SequenceFunctions::size	(1, 2, 3)->size()	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 3
-call	SequenceFunctions::size	size(())	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 0
-call	SequenceFunctions::isEmpty	SequenceFunctions::isEmpty(())	constant true
-call	SequenceFunctions::isEmpty	isEmpty((1))	error unresolved reference: isEmpty — did you mean SequenceFunctions::isEmpty or CollectionFunctions::isEmpty? || with imports: constant false
-call	SequenceFunctions::isEmpty	()->isEmpty()	error unresolved reference: isEmpty — did you mean SequenceFunctions::isEmpty or CollectionFunctions::isEmpty? || with imports: constant true
-call	SequenceFunctions::notEmpty	SequenceFunctions::notEmpty((1))	constant true
-call	SequenceFunctions::notEmpty	notEmpty(())	error unresolved reference: notEmpty — did you mean SequenceFunctions::notEmpty or CollectionFunctions::notEmpty? || with imports: constant false
-call	SequenceFunctions::includes	SequenceFunctions::includes((1, 2), 2)	constant true
-call	SequenceFunctions::includes	(1, 2)->includes(3)	error unresolved reference: includes — did you mean SequenceFunctions::includes? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: constant false
-call	SequenceFunctions::includes	includes((1, 2), (1, 2))	error unresolved reference: includes — did you mean SequenceFunctions::includes? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: constant true
-call	SequenceFunctions::includesOnly	SequenceFunctions::includesOnly((1, 1), 1)	constant true
-call	SequenceFunctions::includesOnly	SequenceFunctions::includesOnly((1, 2), 1)	constant false
-call	SequenceFunctions::excludes	SequenceFunctions::excludes((1, 2), 3)	constant true
-call	SequenceFunctions::excludes	(1, 2)->excludes(2)	error unresolved reference: excludes — did you mean SequenceFunctions::excludes? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: constant false
-call	SequenceFunctions::union	SequenceFunctions::union((1, 2), (2, 3))	collection(4) [1, 2, 2, 3]
-call	SequenceFunctions::union	(1, 2)->union((3))	error unresolved reference: union — did you mean SequenceFunctions::union or Occurrences::Occurrence::unionsOf::union? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(3) [1, 2, 3]
-call	SequenceFunctions::intersection	SequenceFunctions::intersection((1, 2), (2, 3))	collection(1) [2]
-call	SequenceFunctions::intersection	(1, 2, 2)->intersection((2))	error unresolved reference: intersection — did you mean SequenceFunctions::intersection or Occurrences::Occurrence::intersectionsOf::intersection? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(2) [2, 2]
-call	SequenceFunctions::including	SequenceFunctions::including((1, 2), 3)	collection(3) [1, 2, 3]
-call	SequenceFunctions::including	(1, 2)->including(3)	error unresolved reference: including — did you mean SequenceFunctions::including? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(3) [1, 2, 3]
-call	SequenceFunctions::includingAt	SequenceFunctions::includingAt((1, 3), 2, 2)	collection(3) [1, 2, 3]
-call	SequenceFunctions::includingAt	(1, 3)->includingAt(2, 2)	error unresolved reference: includingAt — did you mean SequenceFunctions::includingAt? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(3) [1, 2, 3]
-call	SequenceFunctions::excluding	SequenceFunctions::excluding((1, 2, 3), 2)	collection(2) [1, 3]
-call	SequenceFunctions::excluding	(1, 2, 2, 3)->excluding(2)	error unresolved reference: excluding — did you mean SequenceFunctions::excluding? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(2) [1, 3]
-call	SequenceFunctions::excludingAt	SequenceFunctions::excludingAt((1, 2, 3), 2)	collection(2) [1, 3]
-call	SequenceFunctions::excludingAt	(1, 2, 3)->excludingAt(2)	error unresolved reference: excludingAt — did you mean SequenceFunctions::excludingAt? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(2) [1, 3]
-call	SequenceFunctions::subsequence	SequenceFunctions::subsequence((1, 2, 3, 4), 2, 3)	collection(2) [2, 3]
-call	SequenceFunctions::subsequence	(1, 2, 3, 4)->subsequence(2, 3)	error unresolved reference: subsequence — did you mean SequenceFunctions::subsequence? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(2) [2, 3]
-call	SequenceFunctions::head	SequenceFunctions::head((1, 2, 3))	constant 1
-call	SequenceFunctions::head	(1, 2, 3)->head()	error unresolved reference: head — did you mean SequenceFunctions::head or CollectionFunctions::head? || with imports: constant 1
-call	SequenceFunctions::head	head(())	error unresolved reference: head — did you mean SequenceFunctions::head or CollectionFunctions::head? || with imports: null
-call	SequenceFunctions::tail	SequenceFunctions::tail((1, 2, 3))	collection(2) [2, 3]
-call	SequenceFunctions::tail	(1, 2, 3)->tail()	error unresolved reference: tail — did you mean SequenceFunctions::tail or CollectionFunctions::tail? || with imports: collection(2) [2, 3]
-call	SequenceFunctions::tail	tail((1))	error unresolved reference: tail — did you mean SequenceFunctions::tail or CollectionFunctions::tail? || with imports: empty
-call	SequenceFunctions::last	SequenceFunctions::last((1, 2, 3))	constant 3
-call	SequenceFunctions::last	(1, 2, 3)->last()	error unresolved reference: last — did you mean SequenceFunctions::last, CollectionFunctions::last or lst? || with imports: constant 3
-call	SequenceFunctions::last	last(())	error unresolved reference: last — did you mean SequenceFunctions::last, CollectionFunctions::last or lst? || with imports: null
-call	StringFunctions::'+'	"a" + "b"	string "ab"
-call	StringFunctions::'+'	StringFunctions::'+'("a", "b")	string "ab"
-call	StringFunctions::Length	StringFunctions::Length("abc")	constant 3
-call	StringFunctions::Length	Length("")	error unresolved reference: Length — did you mean StringFunctions::Length? To use the bare name, import its package: private import StringFunctions::*; || with imports: constant 0
-call	StringFunctions::Substring	StringFunctions::Substring("abcd", 2, 3)	string "bc"
-call	StringFunctions::Substring	Substring("abcd", 1, 1)	error unresolved reference: Substring — did you mean StringFunctions::Substring? To use the bare name, import its package: private import StringFunctions::*; || with imports: string "a"
-call	StringFunctions::'<'	"a" < "b"	constant true
-call	StringFunctions::'>'	"a" > "b"	constant false
-call	StringFunctions::'<='	"a" <= "a"	constant true
-call	StringFunctions::'>='	"a" >= "b"	constant false
-call	StringFunctions::'=='	"a" == "a"	constant true
-call	StringFunctions::ToString	StringFunctions::ToString("a")	string "a"
-call	TrigFunctions::deg	TrigFunctions::deg(TrigFunctions::pi)	constant 180.0
-call	TrigFunctions::rad	TrigFunctions::rad(180.0)	constant 3.141592653589793
-call	TrigFunctions::sin	TrigFunctions::sin(0.0)	constant 0.0
-call	TrigFunctions::sin	TrigFunctions::sin(90.0)	constant 0.893996663600558
-call	TrigFunctions::cos	TrigFunctions::cos(0.0)	constant 1.0
-call	TrigFunctions::cos	TrigFunctions::cos(180.0)	constant -0.5984600690578581
-call	TrigFunctions::tan	TrigFunctions::tan(0.0)	constant 0.0
-call	TrigFunctions::tan	TrigFunctions::tan(45.0)	constant 1.6197751905438613
-call	TrigFunctions::cot	TrigFunctions::cot(45.0)	constant 0.6173696237835552
-call	TrigFunctions::arcsin	TrigFunctions::arcsin(1.0)	constant 1.5707963267948966
-call	TrigFunctions::arccos	TrigFunctions::arccos(1.0)	constant 0.0
-call	TrigFunctions::arctan	TrigFunctions::arctan(1.0)	constant 0.7853981633974483
-call	VectorFunctions::VectorOf	VectorFunctions::VectorOf((1, 2, 3)).elements	collection(3) [1, 2, 3]
-call	VectorFunctions::CartesianVectorOf	VectorFunctions::CartesianVectorOf((1.0, 2.0)).elements	collection(2) [1.0, 2.0]
-call	VectorFunctions::CartesianThreeVectorOf	VectorFunctions::CartesianThreeVectorOf((1.0, 2.0, 3.0)).elements	collection(3) [1.0, 2.0, 3.0]
-call	VectorFunctions::isCartesianZeroVector	VectorFunctions::isCartesianZeroVector(VectorFunctions::CartesianVectorOf((0.0, 0.0)))	constant true
-call	VectorFunctions::'cartesian+'	VectorFunctions::'cartesian+'(VectorFunctions::CartesianVectorOf((1.0, 2.0)), VectorFunctions::CartesianVectorOf((1.0, 1.0))).elements	collection(2) [2.0, 3.0]
-call	VectorFunctions::'cartesian-'	VectorFunctions::'cartesian-'(VectorFunctions::CartesianVectorOf((1.0, 2.0)), VectorFunctions::CartesianVectorOf((1.0, 1.0))).elements	collection(2) [0.0, 1.0]
-call	VectorFunctions::cartesianScalarVectorMult	VectorFunctions::cartesianScalarVectorMult(2.0, VectorFunctions::CartesianVectorOf((1.0, 2.0))).elements	collection(2) [2.0, 4.0]
-call	VectorFunctions::cartesianVectorScalarMult	VectorFunctions::cartesianVectorScalarMult(VectorFunctions::CartesianVectorOf((1.0, 2.0)), 2.0).elements	collection(2) [2.0, 4.0]
-call	VectorFunctions::cartesianInner	VectorFunctions::cartesianInner(VectorFunctions::CartesianVectorOf((1.0, 2.0)), VectorFunctions::CartesianVectorOf((3.0, 4.0)))	constant 11.0
-call	VectorFunctions::cartesianNorm	VectorFunctions::cartesianNorm(VectorFunctions::CartesianVectorOf((3.0, 4.0)))	constant 5.0
-call	VectorFunctions::cartesianAngle	VectorFunctions::cartesianAngle(VectorFunctions::CartesianVectorOf((1.0, 0.0)), VectorFunctions::CartesianVectorOf((0.0, 1.0)))	constant 1.5707963267948966
-call	VectorFunctions::sum	VectorFunctions::sum((VectorFunctions::CartesianThreeVectorOf((1.0, 0.0, 0.0)), VectorFunctions::CartesianThreeVectorOf((0.0, 1.0, 0.0)))).elements	collection(3) [1.0, 1.0, 0.0]
-call	VectorFunctions::'+'	VectorFunctions::CartesianVectorOf((1.0, 2.0)) + VectorFunctions::CartesianVectorOf((1.0, 1.0))	vector ⟨2.0, 3.0⟩
-call	VectorFunctions::'*'	VectorFunctions::CartesianVectorOf((1.0, 2.0)) * 2.0	vector ⟨2.0, 4.0⟩
+call	BaseFunctions::'=='	1 == 1	constant true	ok
+call	BaseFunctions::'=='	BaseFunctions::'=='(1, 2)	constant false	ok
+call	BaseFunctions::'!='	1 != 2	constant true	ok
+call	BaseFunctions::'!='	BaseFunctions::'!='(1, 1)	constant false	ok
+call	BaseFunctions::'==='	Probe::p1 === Probe::p1	constant true	ok
+call	BaseFunctions::'==='	BaseFunctions::'==='(1, 1)	constant true	ok
+call	BaseFunctions::'!=='	Probe::p1 !== Probe::p2	constant true	ok
+call	BaseFunctions::'!=='	BaseFunctions::'!=='(1, 1)	constant false	ok
+call	BaseFunctions::ToString	BaseFunctions::ToString(42)	string "42"	ok
+call	BaseFunctions::'['	2.0 [SI::m]	quantity 2.0 [SI::m]	ok
+call	BaseFunctions::'['	BaseFunctions::'['(2.0, SI::m)	error library function is not evaluable: BaseFunctions::'[': '[' is abstract: the runtime evaluates its operator notation `num [unit]`, and its QuantityCalculations, VectorCalculations and TensorCalculations specializations take a measurement reference as an argument value	UNEVALUATED want 2.0 [m]
+call	BaseFunctions::'#'	(10, 20, 30)#(2)	constant 20	ok
+call	BaseFunctions::'#'	BaseFunctions::'#'((10, 20, 30), 2)	constant 20	ok
+call	BaseFunctions::','	(1, 2)	collection(2) [constant 1, constant 2]	ok
+call	BaseFunctions::','	BaseFunctions::','(1, 2)	collection(2) [constant 1, constant 2]	ok
+call	BaseFunctions::'all'	size(all Probe::E)	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 2	ok
+call	BaseFunctions::'all'	size(BaseFunctions::'all'(Probe::E))	error cannot evaluate definition Probe::E	UNEVALUATED want 2
+call	BaseFunctions::'istype'	1 istype Integer	constant true	ok
+call	BaseFunctions::'istype'	1 istype String	constant false	ok
+call	BaseFunctions::'istype'	BaseFunctions::'istype'(1, Integer)	error cannot evaluate definition Integer	UNEVALUATED want true
+call	BaseFunctions::'hastype'	1 hastype Integer	constant true	ok
+call	BaseFunctions::'hastype'	1 hastype Real	constant false	ok
+call	BaseFunctions::'hastype'	BaseFunctions::'hastype'(1, Integer)	error cannot evaluate definition Integer	UNEVALUATED want true
+call	BaseFunctions::'@'	1 @ Integer	constant true	ok
+call	BaseFunctions::'@'	BaseFunctions::'@'(1, Integer)	error cannot evaluate definition Integer	UNEVALUATED want true
+call	BaseFunctions::'@@'	Probe::Tagged @@ Probe::M	constant false	WRONG want true, got false
+call	BaseFunctions::'@@'	Probe::P1 @@ Probe::M	constant false	ok
+call	BaseFunctions::'as'	1 as Real	constant 1	ok
+call	BaseFunctions::'as'	BaseFunctions::'as'(1, Real)	error cannot evaluate definition Real	UNEVALUATED want 1
+call	BaseFunctions::'as'	(1, "a", 2) as Integer	collection(2) [constant 1, constant 2]	ok
+call	BaseFunctions::'meta'	Probe::P1 meta SysML::PartDefinition	collection(1) [metaobject meta(Probe::P1 : SysML::Systems::PartDefinition)]	ok
+call	BaseFunctions::'meta'	BaseFunctions::'meta'(Probe::P1, SysML::PartDefinition)	error cannot evaluate definition Probe::P1	UNEVALUATED want metaobject
+call	BooleanFunctions::'not'	not true	constant false	ok
+call	BooleanFunctions::'not'	BooleanFunctions::'not'(false)	constant true	ok
+call	BooleanFunctions::'xor'	true xor false	constant true	ok
+call	BooleanFunctions::'xor'	BooleanFunctions::'xor'(true, true)	constant false	ok
+call	BooleanFunctions::'|'	true | false	constant true	ok
+call	BooleanFunctions::'|'	BooleanFunctions::'|'(false, false)	constant false	ok
+call	BooleanFunctions::'&'	true & false	constant false	ok
+call	BooleanFunctions::'&'	BooleanFunctions::'&'(true, true)	constant true	ok
+call	BooleanFunctions::'=='	true == true	constant true	ok
+call	BooleanFunctions::'=='	BooleanFunctions::'=='(true, false)	constant false	ok
+call	BooleanFunctions::ToString	BooleanFunctions::ToString(true)	string "true"	ok
+call	BooleanFunctions::ToBoolean	BooleanFunctions::ToBoolean("true")	constant true	ok
+call	BooleanFunctions::ToBoolean	BooleanFunctions::ToBoolean("false")	constant false	ok
+call	CollectionFunctions::'=='	CollectionFunctions::'=='(Probe::lst, Probe::lst)	constant true	ok
+call	CollectionFunctions::'=='	Probe::lst == Probe::os	constant false	ok
+call	CollectionFunctions::size	CollectionFunctions::size(Probe::lst)	constant 3	ok
+call	CollectionFunctions::isEmpty	CollectionFunctions::isEmpty(Probe::lst)	constant false	ok
+call	CollectionFunctions::notEmpty	CollectionFunctions::notEmpty(Probe::lst)	constant true	ok
+call	CollectionFunctions::contains	CollectionFunctions::contains(Probe::lst, 2)	constant true	ok
+call	CollectionFunctions::contains	CollectionFunctions::contains(Probe::lst, 9)	constant false	ok
+call	CollectionFunctions::containsAll	CollectionFunctions::containsAll(Probe::lst, Probe::os)	constant true	ok
+call	CollectionFunctions::head	CollectionFunctions::head(Probe::os)	constant 3	ok
+call	CollectionFunctions::tail	CollectionFunctions::tail(Probe::os)	collection(2) [constant 1, constant 2]	ok
+call	CollectionFunctions::last	CollectionFunctions::last(Probe::os)	constant 2	ok
+call	CollectionFunctions::'#'	CollectionFunctions::'#'(Probe::os, 1)	constant 3	ok
+call	CollectionFunctions::'#'	Probe::os#(1)	object:Probe::os	WRONG want 3, got object
+call	CollectionFunctions::'array#'	CollectionFunctions::'array#'(Probe::arr, (2, 1))	constant 3	ok
+call	CollectionFunctions::'array#'	Probe::arr#(2, 1)	constant 3	ok
+call	ComplexFunctions::rect	ComplexFunctions::rect(1.0, 2.0)	complex number 1.0 + 2.0i	ok
+call	ComplexFunctions::polar	ComplexFunctions::re(ComplexFunctions::polar(2.0, 0.0))	constant 2.0	ok
+call	ComplexFunctions::re	ComplexFunctions::re(ComplexFunctions::rect(1.0, 2.0))	constant 1.0	ok
+call	ComplexFunctions::im	ComplexFunctions::im(ComplexFunctions::rect(1.0, 2.0))	constant 2.0	ok
+call	ComplexFunctions::isZero	ComplexFunctions::isZero(ComplexFunctions::rect(0.0, 0.0))	constant true	ok
+call	ComplexFunctions::isUnit	ComplexFunctions::isUnit(ComplexFunctions::rect(1.0, 0.0))	constant true	ok
+call	ComplexFunctions::abs	ComplexFunctions::abs(ComplexFunctions::rect(3.0, 4.0))	constant 5.0	ok
+call	ComplexFunctions::arg	ComplexFunctions::arg(ComplexFunctions::rect(1.0, 0.0))	constant 0.0	ok
+call	ComplexFunctions::'+'	ComplexFunctions::'+'(ComplexFunctions::rect(1.0, 2.0), ComplexFunctions::rect(1.0, 1.0))	complex number 2.0 + 3.0i	ok
+call	ComplexFunctions::'+'	ComplexFunctions::rect(1.0, 2.0) + ComplexFunctions::rect(1.0, 1.0)	complex number 2.0 + 3.0i	ok
+call	ComplexFunctions::'-'	ComplexFunctions::rect(1.0, 2.0) - ComplexFunctions::rect(1.0, 1.0)	complex number 0.0 + 1.0i	ok
+call	ComplexFunctions::'*'	ComplexFunctions::rect(0.0, 1.0) * ComplexFunctions::rect(0.0, 1.0)	complex number -1.0 + 0.0i	ok
+call	ComplexFunctions::'/'	ComplexFunctions::rect(2.0, 0.0) / ComplexFunctions::rect(1.0, 0.0)	complex number 2.0 + 0.0i	ok
+call	ComplexFunctions::'**'	ComplexFunctions::rect(0.0, 1.0) ** 2	complex number -1.0 + 0.0i	ok
+call	ComplexFunctions::'^'	ComplexFunctions::rect(0.0, 1.0) ^ 2	complex number -1.0 + 0.0i	ok
+call	ComplexFunctions::'=='	ComplexFunctions::rect(1.0, 2.0) == ComplexFunctions::rect(1.0, 2.0)	constant true	ok
+call	ComplexFunctions::ToString	ComplexFunctions::ToString(ComplexFunctions::rect(1.0, 2.0))	error library function is not evaluable: ComplexFunctions::ToString: no string notation for a Complex value is defined	UNEVALUATED want string
+call	ComplexFunctions::ToComplex	ComplexFunctions::ToComplex("1.0 + 2.0i")	error library function is not evaluable: ComplexFunctions::ToComplex: no string notation for a Complex value is defined	UNEVALUATED want 1.0 + 2.0i
+call	ComplexFunctions::sum	ComplexFunctions::sum((ComplexFunctions::rect(1.0, 0.0), ComplexFunctions::rect(0.0, 1.0)))	complex number 1.0 + 1.0i	ok
+call	ComplexFunctions::product	ComplexFunctions::product((ComplexFunctions::rect(2.0, 0.0), ComplexFunctions::rect(0.0, 1.0)))	complex number 0.0 + 2.0i	ok
+call	ControlFunctions::'.'	Probe::p1.sub	collection(2) [object:Probe::P2, object:Probe::P2]	ok
+call	ControlFunctions::'.'	(Probe::p1, Probe::p1).sub	collection(4) [object:Probe::P2, object:Probe::P2, object:Probe::P2, object:Probe::P2]	ok
+call	ControlFunctions::'if'	if true ? 1 else 2	constant 1	ok
+call	ControlFunctions::'if'	if false ? 1 else 2	constant 2	ok
+call	ControlFunctions::'if'	ControlFunctions::'if'(true, 1, 2)	constant 1	ok
+call	ControlFunctions::'if'	if true ? 1 else 1/0	constant 1	ok
+call	ControlFunctions::'??'	null ?? 3	constant 3	ok
+call	ControlFunctions::'??'	Probe::empty ?? 3	constant 3	ok
+call	ControlFunctions::'??'	2 ?? 3	constant 2	ok
+call	ControlFunctions::'??'	ControlFunctions::'??'((), 5)	constant 5	ok
+call	ControlFunctions::'??'	1 ?? 1/0	constant 1	ok
+call	ControlFunctions::'and'	true and false	constant false	ok
+call	ControlFunctions::'and'	false and (1/0 == 0)	constant false	ok
+call	ControlFunctions::'and'	ControlFunctions::'and'(true, true)	constant true	ok
+call	ControlFunctions::'or'	true or (1/0 == 0)	constant true	ok
+call	ControlFunctions::'or'	false or false	constant false	ok
+call	ControlFunctions::'or'	ControlFunctions::'or'(false, true)	constant true	ok
+call	ControlFunctions::'implies'	false implies (1/0 == 0)	constant true	ok
+call	ControlFunctions::'implies'	true implies false	constant false	ok
+call	ControlFunctions::'implies'	ControlFunctions::'implies'(true, true)	constant true	ok
+call	ControlFunctions::collect	(1, 2, 3)->collect{in x; x * 2}	error unresolved reference: collect — did you mean ControlFunctions::collect? To use the bare name, import its package: private import ControlFunctions::*; || with imports: collection(3) [constant 2, constant 4, constant 6]	ok
+call	ControlFunctions::collect	ControlFunctions::collect((1, 2, 3), {in x; x * 2})	collection(3) [constant 2, constant 4, constant 6]	ok
+call	ControlFunctions::select	(1, 2, 3)->select{in x; x > 1}	error unresolved reference: select — did you mean ControlFunctions::select? To use the bare name, import its package: private import ControlFunctions::*; || with imports: collection(2) [constant 2, constant 3]	ok
+call	ControlFunctions::select	ControlFunctions::select((1, 2, 3), {in x; x > 1})	collection(2) [constant 2, constant 3]	ok
+call	ControlFunctions::selectOne	(1, 2, 3)->selectOne{in x; x > 1}	error unresolved reference: selectOne — did you mean ControlFunctions::selectOne? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant 2	ok
+call	ControlFunctions::selectOne	ControlFunctions::selectOne((1, 2, 3), {in x; x > 1})	constant 2	ok
+call	ControlFunctions::reject	(1, 2, 3)->reject{in x; x > 1}	error unresolved reference: reject — did you mean ControlFunctions::reject? To use the bare name, import its package: private import ControlFunctions::*; || with imports: collection(1) [constant 1]	ok
+call	ControlFunctions::reject	ControlFunctions::reject((1, 2, 3), {in x; x > 1})	collection(1) [constant 1]	ok
+call	ControlFunctions::reduce	(1, 2, 3)->reduce{in a; in b; a + b}	error unresolved reference: reduce — did you mean ControlFunctions::reduce? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant 6	ok
+call	ControlFunctions::reduce	(1, 2, 3)->reduce '+'	error unresolved reference: + || with imports: error type mismatch: ControlFunctions::reduce requires a body expression, got function	UNEVALUATED want 6
+call	ControlFunctions::reduce	ControlFunctions::reduce((1, 2, 3), {in a; in b; a + b})	constant 6	ok
+call	ControlFunctions::forAll	(1, 2, 3)->forAll{in x; x > 0}	error unresolved reference: forAll — did you mean ControlFunctions::forAll? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant true	ok
+call	ControlFunctions::forAll	ControlFunctions::forAll((1, 2, 3), {in x; x > 1})	constant false	ok
+call	ControlFunctions::exists	(1, 2, 3)->exists{in x; x > 2}	error unresolved reference: exists — did you mean ControlFunctions::exists or DocumentQueries::WhereRelated::exists? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant true	ok
+call	ControlFunctions::exists	ControlFunctions::exists((1, 2, 3), {in x; x > 3})	constant false	ok
+call	ControlFunctions::allTrue	ControlFunctions::allTrue((true, true))	constant true	ok
+call	ControlFunctions::allTrue	(true, false)->allTrue()	error unresolved reference: allTrue — did you mean ControlFunctions::allTrue? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant false	ok
+call	ControlFunctions::anyTrue	ControlFunctions::anyTrue((false, true))	constant true	ok
+call	ControlFunctions::anyTrue	(false, false)->anyTrue()	error unresolved reference: anyTrue — did you mean ControlFunctions::anyTrue? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant false	ok
+call	ControlFunctions::minimize	(3, 1, 2)->minimize{in x; x}	error unresolved reference: minimize — did you mean ControlFunctions::minimize? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant 1	ok
+call	ControlFunctions::minimize	ControlFunctions::minimize((3, 1, 2), {in x; -x})	constant -3	ok
+call	ControlFunctions::maximize	(3, 1, 2)->maximize{in x; x}	error unresolved reference: maximize — did you mean ControlFunctions::maximize? To use the bare name, import its package: private import ControlFunctions::*; || with imports: constant 3	ok
+call	ControlFunctions::maximize	ControlFunctions::maximize((3, 1, 2), {in x; -x})	constant -1	ok
+call	DataFunctions::'==='	DataFunctions::'==='(1, 1)	constant true	ok
+call	DataFunctions::'==='	1 === 2	constant false	ok
+call	IntegerFunctions::abs	IntegerFunctions::abs(-3)	constant 3	ok
+call	IntegerFunctions::abs	abs(-3)	error unresolved reference: abs — did you mean RealFunctions::abs, ComplexFunctions::abs or IntegerFunctions::abs? || with imports: constant 3	ok
+call	IntegerFunctions::'+'	1 + 2	constant 3	ok
+call	IntegerFunctions::'+'	IntegerFunctions::'+'(1, 2)	constant 3	ok
+call	IntegerFunctions::'+'	IntegerFunctions::'+'(1)	constant 1	ok
+call	IntegerFunctions::'-'	5 - 2	constant 3	ok
+call	IntegerFunctions::'-'	IntegerFunctions::'-'(5)	constant -5	ok
+call	IntegerFunctions::'-'	-5	constant -5	ok
+call	IntegerFunctions::'*'	2 * 3	constant 6	ok
+call	IntegerFunctions::'*'	IntegerFunctions::'*'(2, 3)	constant 6	ok
+call	IntegerFunctions::'/'	7 / 2	constant 3.5	ok
+call	IntegerFunctions::'/'	IntegerFunctions::'/'(6, 2)	constant 3.0	ok
+call	IntegerFunctions::'**'	2 ** 3	constant 8	ok
+call	IntegerFunctions::'**'	IntegerFunctions::'**'(2, 3)	constant 8	ok
+call	IntegerFunctions::'^'	2 ^ 3	constant 8	ok
+call	IntegerFunctions::'^'	IntegerFunctions::'^'(2, 3)	constant 8	ok
+call	IntegerFunctions::'%'	7 % 2	constant 1	ok
+call	IntegerFunctions::'%'	IntegerFunctions::'%'(-7, 2)	constant -1	ok
+call	IntegerFunctions::'<'	1 < 2	constant true	ok
+call	IntegerFunctions::'<'	IntegerFunctions::'<'(2, 1)	constant false	ok
+call	IntegerFunctions::'>'	2 > 1	constant true	ok
+call	IntegerFunctions::'>'	IntegerFunctions::'>'(1, 2)	constant false	ok
+call	IntegerFunctions::'<='	2 <= 2	constant true	ok
+call	IntegerFunctions::'<='	IntegerFunctions::'<='(3, 2)	constant false	ok
+call	IntegerFunctions::'>='	2 >= 2	constant true	ok
+call	IntegerFunctions::'>='	IntegerFunctions::'>='(1, 2)	constant false	ok
+call	IntegerFunctions::max	IntegerFunctions::max(1, 2)	constant 2	ok
+call	IntegerFunctions::max	max(1, 2)	error unresolved reference: max — did you mean DataFunctions::max, RealFunctions::max or ScalarFunctions::max? || with imports: constant 2	ok
+call	IntegerFunctions::min	IntegerFunctions::min(1, 2)	constant 1	ok
+call	IntegerFunctions::min	min(1, 2)	error unresolved reference: min — did you mean DataFunctions::min, RealFunctions::min or ScalarFunctions::min? || with imports: constant 1	ok
+call	IntegerFunctions::'=='	IntegerFunctions::'=='(1, 1)	constant true	ok
+call	IntegerFunctions::'..'	1..3	collection(3) [constant 1, constant 2, constant 3]	ok
+call	IntegerFunctions::'..'	IntegerFunctions::'..'(1, 3)	collection(3) [constant 1, constant 2, constant 3]	ok
+call	IntegerFunctions::'..'	3..1	empty	ok
+call	IntegerFunctions::ToString	IntegerFunctions::ToString(7)	string "7"	ok
+call	IntegerFunctions::ToNatural	IntegerFunctions::ToNatural(7)	constant 7	ok
+call	IntegerFunctions::ToInteger	IntegerFunctions::ToInteger("7")	constant 7	ok
+call	IntegerFunctions::sum	IntegerFunctions::sum((1, 2, 3))	constant 6	ok
+call	IntegerFunctions::sum	sum((1, 2, 3))	error unresolved reference: sum — did you mean RealFunctions::sum, VectorFunctions::sum or ComplexFunctions::sum? || with imports: constant 6	ok
+call	IntegerFunctions::sum	IntegerFunctions::sum(())	constant 0	ok
+call	IntegerFunctions::product	IntegerFunctions::product((1, 2, 3))	constant 6	ok
+call	IntegerFunctions::product	product((2, 3))	error unresolved reference: product — did you mean RealFunctions::product, ComplexFunctions::product or IntegerFunctions::product? || with imports: constant 6	ok
+call	IntegerFunctions::product	IntegerFunctions::product(())	constant 1	ok
+call	NaturalFunctions::'+'	NaturalFunctions::'+'(1, 2)	constant 3	ok
+call	NaturalFunctions::'*'	NaturalFunctions::'*'(2, 3)	constant 6	ok
+call	NaturalFunctions::'/'	NaturalFunctions::'/'(7, 2)	error arithmetic domain error: function NaturalFunctions::'/' has no Natural result for 7 / 2; the quotient is 3.5	UNEVALUATED want 3
+call	NaturalFunctions::'%'	NaturalFunctions::'%'(7, 2)	constant 1	ok
+call	NaturalFunctions::'<'	NaturalFunctions::'<'(1, 2)	constant true	ok
+call	NaturalFunctions::'>'	NaturalFunctions::'>'(1, 2)	constant false	ok
+call	NaturalFunctions::'<='	NaturalFunctions::'<='(2, 2)	constant true	ok
+call	NaturalFunctions::'>='	NaturalFunctions::'>='(1, 2)	constant false	ok
+call	NaturalFunctions::max	NaturalFunctions::max(1, 2)	constant 2	ok
+call	NaturalFunctions::min	NaturalFunctions::min(1, 2)	constant 1	ok
+call	NaturalFunctions::'=='	NaturalFunctions::'=='(1, 1)	constant true	ok
+call	NaturalFunctions::ToString	NaturalFunctions::ToString(7)	string "7"	ok
+call	NaturalFunctions::ToNatural	NaturalFunctions::ToNatural("7")	constant 7	ok
+call	NumericalFunctions::sum0	NumericalFunctions::sum0((1, 2), 0)	constant 3	ok
+call	NumericalFunctions::sum0	NumericalFunctions::sum0((), 0)	constant 0	ok
+call	NumericalFunctions::product1	NumericalFunctions::product1((2, 3), 1)	constant 6	ok
+call	NumericalFunctions::product1	NumericalFunctions::product1((), 1)	constant 1	ok
+call	OccurrenceFunctions::'==='	OccurrenceFunctions::'==='(Probe::p1, Probe::p1)	constant true	ok
+call	OccurrenceFunctions::'==='	OccurrenceFunctions::'==='(Probe::p1, Probe::p2)	constant false	ok
+call	OccurrenceFunctions::isDuring	OccurrenceFunctions::isDuring(Probe::p1)	constant true	ok
+call	OccurrenceFunctions::create	OccurrenceFunctions::create(Probe::p1)	error occurrence lifetime does not admit the change: function OccurrenceFunctions::create: object #1 (p1) began at 1, before the call	UNEVALUATED want object
+call	OccurrenceFunctions::create	OccurrenceFunctions::create(new Probe::P2())	object:Probe::P2	ok
+call	OccurrenceFunctions::destroy	OccurrenceFunctions::destroy(new Probe::P2())	object:Probe::P2	ok
+call	OccurrenceFunctions::addNew	size(OccurrenceFunctions::addNew(Probe::p1.sub, new Probe::P2()))	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 3	ok
+call	OccurrenceFunctions::addNewAt	size(OccurrenceFunctions::addNewAt(Probe::p1.sub, new Probe::P2(), 1))	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 3	ok
+call	RationalFunctions::rat	RationalFunctions::rat(1, 2)	constant 0.5	ok
+call	RationalFunctions::numer	RationalFunctions::numer(RationalFunctions::rat(2, 4))	constant 1	ok
+call	RationalFunctions::denom	RationalFunctions::denom(RationalFunctions::rat(2, 4))	constant 2	ok
+call	RationalFunctions::abs	RationalFunctions::abs(RationalFunctions::rat(-1, 2))	constant 0.5	ok
+call	RationalFunctions::'+'	RationalFunctions::rat(1, 2) + RationalFunctions::rat(1, 2)	constant 1.0	ok
+call	RationalFunctions::'+'	RationalFunctions::'+'(RationalFunctions::rat(1, 3), RationalFunctions::rat(1, 3))	constant 2/3	ok
+call	RationalFunctions::'-'	RationalFunctions::rat(1, 2) - RationalFunctions::rat(1, 4)	constant 0.25	ok
+call	RationalFunctions::'*'	RationalFunctions::rat(1, 2) * RationalFunctions::rat(1, 2)	constant 0.25	ok
+call	RationalFunctions::'/'	RationalFunctions::rat(1, 2) / RationalFunctions::rat(1, 4)	constant 2.0	ok
+call	RationalFunctions::'**'	RationalFunctions::rat(1, 2) ** 2	constant 0.25	ok
+call	RationalFunctions::'^'	RationalFunctions::rat(1, 2) ^ 2	constant 0.25	ok
+call	RationalFunctions::'<'	RationalFunctions::rat(1, 2) < RationalFunctions::rat(3, 4)	constant true	ok
+call	RationalFunctions::'>'	RationalFunctions::rat(1, 2) > RationalFunctions::rat(3, 4)	constant false	ok
+call	RationalFunctions::'<='	RationalFunctions::rat(1, 2) <= RationalFunctions::rat(1, 2)	constant true	ok
+call	RationalFunctions::'>='	RationalFunctions::rat(1, 2) >= RationalFunctions::rat(3, 4)	constant false	ok
+call	RationalFunctions::max	RationalFunctions::max(RationalFunctions::rat(1, 2), RationalFunctions::rat(3, 4))	constant 0.75	ok
+call	RationalFunctions::min	RationalFunctions::min(RationalFunctions::rat(1, 2), RationalFunctions::rat(3, 4))	constant 0.5	ok
+call	RationalFunctions::'=='	RationalFunctions::rat(1, 2) == RationalFunctions::rat(2, 4)	constant true	ok
+call	RationalFunctions::gcd	RationalFunctions::gcd(12, 18)	constant 6	ok
+call	RationalFunctions::floor	RationalFunctions::floor(RationalFunctions::rat(7, 2))	constant 3	ok
+call	RationalFunctions::round	RationalFunctions::round(RationalFunctions::rat(7, 2))	constant 4	ok
+call	RationalFunctions::ToString	RationalFunctions::ToString(RationalFunctions::rat(1, 2))	string "0.5"	ok
+call	RationalFunctions::ToInteger	RationalFunctions::ToInteger(RationalFunctions::rat(4, 2))	constant 2	ok
+call	RationalFunctions::ToRational	RationalFunctions::ToRational("1/2")	constant 0.5	ok
+call	RationalFunctions::sum	RationalFunctions::sum((RationalFunctions::rat(1, 2), RationalFunctions::rat(1, 2)))	constant 1.0	ok
+call	RationalFunctions::product	RationalFunctions::product((RationalFunctions::rat(1, 2), RationalFunctions::rat(1, 2)))	constant 0.25	ok
+call	RealFunctions::re	RealFunctions::re(2.5)	constant 2.5	ok
+call	RealFunctions::im	RealFunctions::im(2.5)	constant 0.0	ok
+call	RealFunctions::abs	RealFunctions::abs(-2.5)	constant 2.5	ok
+call	RealFunctions::arg	RealFunctions::arg(-1.0)	constant 0.0	ok
+call	RealFunctions::arg	RealFunctions::arg(1.0)	constant 0.0	ok
+call	RealFunctions::'+'	1.5 + 1.0	constant 2.5	ok
+call	RealFunctions::'-'	1.5 - 1.0	constant 0.5	ok
+call	RealFunctions::'*'	1.5 * 2.0	constant 3.0	ok
+call	RealFunctions::'/'	3.0 / 2.0	constant 1.5	ok
+call	RealFunctions::'**'	2.0 ** 3	constant 8.0	ok
+call	RealFunctions::'^'	2.0 ^ 3	constant 8.0	ok
+call	RealFunctions::'**'	RealFunctions::'**'(2.0, 0.5)	constant 1.4142135623730951	ok
+call	RealFunctions::'<'	1.0 < 2.0	constant true	ok
+call	RealFunctions::'>'	1.0 > 2.0	constant false	ok
+call	RealFunctions::'<='	2.0 <= 2.0	constant true	ok
+call	RealFunctions::'>='	1.0 >= 2.0	constant false	ok
+call	RealFunctions::max	RealFunctions::max(1.0, 2.0)	constant 2.0	ok
+call	RealFunctions::min	RealFunctions::min(1.0, 2.0)	constant 1.0	ok
+call	RealFunctions::'=='	1.0 == 1.0	constant true	ok
+call	RealFunctions::sqrt	RealFunctions::sqrt(4.0)	constant 2.0	ok
+call	RealFunctions::sqrt	sqrt(4.0)	error unresolved reference: sqrt — did you mean RealFunctions::sqrt or QuantityCalculations::sqrt? || with imports: constant 2.0	ok
+call	RealFunctions::floor	RealFunctions::floor(2.7)	constant 2	ok
+call	RealFunctions::round	RealFunctions::round(2.5)	constant 3	ok
+call	RealFunctions::round	RealFunctions::round(-2.5)	constant -3	ok
+call	RealFunctions::ToString	RealFunctions::ToString(2.5)	string "2.5"	ok
+call	RealFunctions::ToInteger	RealFunctions::ToInteger(2.7)	constant 2	ok
+call	RealFunctions::ToRational	RealFunctions::ToRational(0.5)	constant 0.5	ok
+call	RealFunctions::ToReal	RealFunctions::ToReal("2.5")	constant 2.5	ok
+call	RealFunctions::sum	RealFunctions::sum((1.0, 2.5))	constant 3.5	ok
+call	RealFunctions::sum	RealFunctions::sum(())	constant 0.0	ok
+call	RealFunctions::product	RealFunctions::product((2.0, 2.5))	constant 5.0	ok
+call	RealFunctions::product	RealFunctions::product(())	constant 1.0	ok
+call	SequenceFunctions::'#'	SequenceFunctions::'#'((10, 20), 2)	constant 20	ok
+call	SequenceFunctions::equals	SequenceFunctions::equals((1, 2), (1, 2))	constant true	ok
+call	SequenceFunctions::equals	(1, 2)->equals((2, 1))	error unresolved reference: equals — did you mean SequenceFunctions::equals? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: constant false	ok
+call	SequenceFunctions::same	SequenceFunctions::same((Probe::p1, Probe::p2), (Probe::p1, Probe::p2))	constant true	ok
+call	SequenceFunctions::same	SequenceFunctions::same((1, 2), (1, 2))	constant true	ok
+call	SequenceFunctions::size	SequenceFunctions::size((1, 2, 3))	constant 3	ok
+call	SequenceFunctions::size	size((1, 2, 3))	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 3	ok
+call	SequenceFunctions::size	(1, 2, 3)->size()	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 3	ok
+call	SequenceFunctions::size	size(())	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 0	ok
+call	SequenceFunctions::isEmpty	SequenceFunctions::isEmpty(())	constant true	ok
+call	SequenceFunctions::isEmpty	isEmpty((1))	error unresolved reference: isEmpty — did you mean SequenceFunctions::isEmpty or CollectionFunctions::isEmpty? || with imports: constant false	ok
+call	SequenceFunctions::isEmpty	()->isEmpty()	error unresolved reference: isEmpty — did you mean SequenceFunctions::isEmpty or CollectionFunctions::isEmpty? || with imports: constant true	ok
+call	SequenceFunctions::notEmpty	SequenceFunctions::notEmpty((1))	constant true	ok
+call	SequenceFunctions::notEmpty	notEmpty(())	error unresolved reference: notEmpty — did you mean SequenceFunctions::notEmpty or CollectionFunctions::notEmpty? || with imports: constant false	ok
+call	SequenceFunctions::includes	SequenceFunctions::includes((1, 2), 2)	constant true	ok
+call	SequenceFunctions::includes	(1, 2)->includes(3)	error unresolved reference: includes — did you mean SequenceFunctions::includes? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: constant false	ok
+call	SequenceFunctions::includes	includes((1, 2), (1, 2))	error unresolved reference: includes — did you mean SequenceFunctions::includes? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: constant true	ok
+call	SequenceFunctions::includesOnly	SequenceFunctions::includesOnly((1, 1), 1)	constant true	ok
+call	SequenceFunctions::includesOnly	SequenceFunctions::includesOnly((1, 2), 1)	constant false	ok
+call	SequenceFunctions::excludes	SequenceFunctions::excludes((1, 2), 3)	constant true	ok
+call	SequenceFunctions::excludes	(1, 2)->excludes(2)	error unresolved reference: excludes — did you mean SequenceFunctions::excludes? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: constant false	ok
+call	SequenceFunctions::union	SequenceFunctions::union((1, 2), (2, 3))	collection(4) [constant 1, constant 2, constant 2, constant 3]	ok
+call	SequenceFunctions::union	(1, 2)->union((3))	error unresolved reference: union — did you mean SequenceFunctions::union or Occurrences::Occurrence::unionsOf::union? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(3) [constant 1, constant 2, constant 3]	ok
+call	SequenceFunctions::intersection	SequenceFunctions::intersection((1, 2), (2, 3))	collection(1) [constant 2]	ok
+call	SequenceFunctions::intersection	(1, 2, 2)->intersection((2))	error unresolved reference: intersection — did you mean SequenceFunctions::intersection or Occurrences::Occurrence::intersectionsOf::intersection? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(2) [constant 2, constant 2]	ok
+call	SequenceFunctions::including	SequenceFunctions::including((1, 2), 3)	collection(3) [constant 1, constant 2, constant 3]	ok
+call	SequenceFunctions::including	(1, 2)->including(3)	error unresolved reference: including — did you mean SequenceFunctions::including? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(3) [constant 1, constant 2, constant 3]	ok
+call	SequenceFunctions::includingAt	SequenceFunctions::includingAt((1, 3), 2, 2)	collection(3) [constant 1, constant 2, constant 3]	ok
+call	SequenceFunctions::includingAt	(1, 3)->includingAt(2, 2)	error unresolved reference: includingAt — did you mean SequenceFunctions::includingAt? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(3) [constant 1, constant 2, constant 3]	ok
+call	SequenceFunctions::excluding	SequenceFunctions::excluding((1, 2, 3), 2)	collection(2) [constant 1, constant 3]	ok
+call	SequenceFunctions::excluding	(1, 2, 2, 3)->excluding(2)	error unresolved reference: excluding — did you mean SequenceFunctions::excluding? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(2) [constant 1, constant 3]	ok
+call	SequenceFunctions::excludingAt	SequenceFunctions::excludingAt((1, 2, 3), 2)	collection(2) [constant 1, constant 3]	ok
+call	SequenceFunctions::excludingAt	(1, 2, 3)->excludingAt(2)	error unresolved reference: excludingAt — did you mean SequenceFunctions::excludingAt? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(2) [constant 1, constant 3]	ok
+call	SequenceFunctions::subsequence	SequenceFunctions::subsequence((1, 2, 3, 4), 2, 3)	collection(2) [constant 2, constant 3]	ok
+call	SequenceFunctions::subsequence	(1, 2, 3, 4)->subsequence(2, 3)	error unresolved reference: subsequence — did you mean SequenceFunctions::subsequence? To use the bare name, import its package: private import SequenceFunctions::*; || with imports: collection(2) [constant 2, constant 3]	ok
+call	SequenceFunctions::head	SequenceFunctions::head((1, 2, 3))	constant 1	ok
+call	SequenceFunctions::head	(1, 2, 3)->head()	error unresolved reference: head — did you mean SequenceFunctions::head or CollectionFunctions::head? || with imports: constant 1	ok
+call	SequenceFunctions::head	head(())	error unresolved reference: head — did you mean SequenceFunctions::head or CollectionFunctions::head? || with imports: null	ok
+call	SequenceFunctions::tail	SequenceFunctions::tail((1, 2, 3))	collection(2) [constant 2, constant 3]	ok
+call	SequenceFunctions::tail	(1, 2, 3)->tail()	error unresolved reference: tail — did you mean SequenceFunctions::tail or CollectionFunctions::tail? || with imports: collection(2) [constant 2, constant 3]	ok
+call	SequenceFunctions::tail	tail((1))	error unresolved reference: tail — did you mean SequenceFunctions::tail or CollectionFunctions::tail? || with imports: empty	ok
+call	SequenceFunctions::last	SequenceFunctions::last((1, 2, 3))	constant 3	ok
+call	SequenceFunctions::last	(1, 2, 3)->last()	error unresolved reference: last — did you mean SequenceFunctions::last, CollectionFunctions::last or lst? || with imports: constant 3	ok
+call	SequenceFunctions::last	last(())	error unresolved reference: last — did you mean SequenceFunctions::last, CollectionFunctions::last or lst? || with imports: null	ok
+call	StringFunctions::'+'	"a" + "b"	string "ab"	ok
+call	StringFunctions::'+'	StringFunctions::'+'("a", "b")	string "ab"	ok
+call	StringFunctions::Length	StringFunctions::Length("abc")	constant 3	ok
+call	StringFunctions::Length	Length("")	error unresolved reference: Length — did you mean StringFunctions::Length? To use the bare name, import its package: private import StringFunctions::*; || with imports: constant 0	ok
+call	StringFunctions::Substring	StringFunctions::Substring("abcd", 2, 3)	string "bc"	ok
+call	StringFunctions::Substring	Substring("abcd", 1, 1)	error unresolved reference: Substring — did you mean StringFunctions::Substring? To use the bare name, import its package: private import StringFunctions::*; || with imports: string "a"	ok
+call	StringFunctions::'<'	"a" < "b"	constant true	ok
+call	StringFunctions::'>'	"a" > "b"	constant false	ok
+call	StringFunctions::'<='	"a" <= "a"	constant true	ok
+call	StringFunctions::'>='	"a" >= "b"	constant false	ok
+call	StringFunctions::'=='	"a" == "a"	constant true	ok
+call	StringFunctions::ToString	StringFunctions::ToString("a")	string "a"	ok
+call	TrigFunctions::deg	TrigFunctions::deg(TrigFunctions::pi)	constant 180.0	ok
+call	TrigFunctions::rad	TrigFunctions::rad(180.0)	constant 3.141592653589793	ok
+call	TrigFunctions::sin	TrigFunctions::sin(0.0)	constant 0.0	ok
+call	TrigFunctions::sin	TrigFunctions::sin(90.0)	constant 0.893996663600558	ok
+call	TrigFunctions::cos	TrigFunctions::cos(0.0)	constant 1.0	ok
+call	TrigFunctions::cos	TrigFunctions::cos(180.0)	constant -0.5984600690578581	ok
+call	TrigFunctions::tan	TrigFunctions::tan(0.0)	constant 0.0	ok
+call	TrigFunctions::tan	TrigFunctions::tan(45.0)	constant 1.6197751905438613	ok
+call	TrigFunctions::cot	TrigFunctions::cot(45.0)	constant 0.6173696237835552	ok
+call	TrigFunctions::arcsin	TrigFunctions::arcsin(1.0)	constant 1.5707963267948966	ok
+call	TrigFunctions::arccos	TrigFunctions::arccos(1.0)	constant 0.0	ok
+call	TrigFunctions::arctan	TrigFunctions::arctan(1.0)	constant 0.7853981633974483	ok
+call	VectorFunctions::VectorOf	VectorFunctions::VectorOf((1, 2, 3)).elements	collection(3) [constant 1, constant 2, constant 3]	ok
+call	VectorFunctions::CartesianVectorOf	VectorFunctions::CartesianVectorOf((1.0, 2.0)).elements	collection(2) [constant 1.0, constant 2.0]	ok
+call	VectorFunctions::CartesianThreeVectorOf	VectorFunctions::CartesianThreeVectorOf((1.0, 2.0, 3.0)).elements	collection(3) [constant 1.0, constant 2.0, constant 3.0]	ok
+call	VectorFunctions::isCartesianZeroVector	VectorFunctions::isCartesianZeroVector(VectorFunctions::CartesianVectorOf((0.0, 0.0)))	constant true	ok
+call	VectorFunctions::'cartesian+'	VectorFunctions::'cartesian+'(VectorFunctions::CartesianVectorOf((1.0, 2.0)), VectorFunctions::CartesianVectorOf((1.0, 1.0))).elements	collection(2) [constant 2.0, constant 3.0]	ok
+call	VectorFunctions::'cartesian-'	VectorFunctions::'cartesian-'(VectorFunctions::CartesianVectorOf((1.0, 2.0)), VectorFunctions::CartesianVectorOf((1.0, 1.0))).elements	collection(2) [constant 0.0, constant 1.0]	ok
+call	VectorFunctions::cartesianScalarVectorMult	VectorFunctions::cartesianScalarVectorMult(2.0, VectorFunctions::CartesianVectorOf((1.0, 2.0))).elements	collection(2) [constant 2.0, constant 4.0]	ok
+call	VectorFunctions::cartesianVectorScalarMult	VectorFunctions::cartesianVectorScalarMult(VectorFunctions::CartesianVectorOf((1.0, 2.0)), 2.0).elements	collection(2) [constant 2.0, constant 4.0]	ok
+call	VectorFunctions::cartesianInner	VectorFunctions::cartesianInner(VectorFunctions::CartesianVectorOf((1.0, 2.0)), VectorFunctions::CartesianVectorOf((3.0, 4.0)))	constant 11.0	ok
+call	VectorFunctions::cartesianNorm	VectorFunctions::cartesianNorm(VectorFunctions::CartesianVectorOf((3.0, 4.0)))	constant 5.0	ok
+call	VectorFunctions::cartesianAngle	VectorFunctions::cartesianAngle(VectorFunctions::CartesianVectorOf((1.0, 0.0)), VectorFunctions::CartesianVectorOf((0.0, 1.0)))	constant 1.5707963267948966	ok
+call	VectorFunctions::sum	VectorFunctions::sum((VectorFunctions::CartesianThreeVectorOf((1.0, 0.0, 0.0)), VectorFunctions::CartesianThreeVectorOf((0.0, 1.0, 0.0)))).elements	collection(3) [constant 1.0, constant 1.0, constant 0.0]	ok
+call	VectorFunctions::'+'	VectorFunctions::CartesianVectorOf((1.0, 2.0)) + VectorFunctions::CartesianVectorOf((1.0, 1.0))	vector ⟨2.0, 3.0⟩	ok
+call	VectorFunctions::scalarVectorMult	VectorFunctions::CartesianVectorOf((1.0, 2.0)) * 2.0	vector ⟨2.0, 4.0⟩	ok
 prefix	(none)	attribute Integer	attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	(none)	attribute At1	attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	(none)	enum E1	enum x : E1;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
@@ -1425,14 +1425,14 @@ prefix	abstract [0..*] + subsetter	attribute Integer	abstract attribute x : Inte
 prefix	abstract [0..*] + subsetter	attribute At1	abstract attribute x : At1[0..*]; attribute y : At1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
 prefix	abstract [0..*] + subsetter	enum E1	abstract enum x : E1[0..*]; enum y : E1 :> x;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance ;; Probe::d.y => ERR_NOSUCHFEATURE object has no such feature: member y not found in instance
 prefix	abstract [0..*] + subsetter	calc K1	abstract calc x : K1[0..*]; calc y : K1 :> x;	Probe::d.x => constant 4 ;; Probe::d.y => constant 4
-prefix	abstract [0..*] + subsetter	part P2	abstract part x : P2[0..*]; part y : P2 :> x;	Probe::d.x => collection(1) [instance(2)] ;; Probe::d.y => object:Probe::P2
-prefix	abstract [0..*] + subsetter	item I1	abstract item x : I1[0..*]; item y : I1 :> x;	Probe::d.x => collection(1) [instance(2)] ;; Probe::d.y => object:Probe::I1
-prefix	abstract [0..*] + subsetter	port Pt	abstract port x : Pt[0..*]; port y : Pt :> x;	Probe::d.x => collection(1) [instance(2)] ;; Probe::d.y => object:Probe::Pt
-prefix	abstract [0..*] + subsetter	action A1	abstract action x : A1[0..*]; action y : A1 :> x;	Probe::d.x => collection(1) [instance(2)] ;; Probe::d.y => object:Probe::A1
-prefix	abstract [0..*] + subsetter	state S1	abstract state x : S1[0..*]; state y : S1 :> x;	Probe::d.x => collection(1) [instance(2)] ;; Probe::d.y => object:Probe::S1
-prefix	abstract [0..*] + subsetter	requirement R1	abstract requirement x : R1[0..*]; requirement y : R1 :> x;	Probe::d.x => collection(1) [instance(2)] ;; Probe::d.y => object:Probe::R1
-prefix	abstract [0..*] + subsetter	constraint C1	abstract constraint x : C1[0..*]; constraint y : C1 :> x;	Probe::d.x => collection(1) [instance(2)] ;; Probe::d.y => object:Probe::C1
-prefix	abstract [0..*] + subsetter	occurrence O1	abstract occurrence x : O1[0..*]; occurrence y : O1 :> x;	Probe::d.x => collection(1) [instance(2)] ;; Probe::d.y => object:Probe::O1
+prefix	abstract [0..*] + subsetter	part P2	abstract part x : P2[0..*]; part y : P2 :> x;	Probe::d.x => collection(1) [object:Probe::P2] ;; Probe::d.y => object:Probe::P2
+prefix	abstract [0..*] + subsetter	item I1	abstract item x : I1[0..*]; item y : I1 :> x;	Probe::d.x => collection(1) [object:Probe::I1] ;; Probe::d.y => object:Probe::I1
+prefix	abstract [0..*] + subsetter	port Pt	abstract port x : Pt[0..*]; port y : Pt :> x;	Probe::d.x => collection(1) [object:Probe::Pt] ;; Probe::d.y => object:Probe::Pt
+prefix	abstract [0..*] + subsetter	action A1	abstract action x : A1[0..*]; action y : A1 :> x;	Probe::d.x => collection(1) [object:Probe::A1] ;; Probe::d.y => object:Probe::A1
+prefix	abstract [0..*] + subsetter	state S1	abstract state x : S1[0..*]; state y : S1 :> x;	Probe::d.x => collection(1) [object:Probe::S1] ;; Probe::d.y => object:Probe::S1
+prefix	abstract [0..*] + subsetter	requirement R1	abstract requirement x : R1[0..*]; requirement y : R1 :> x;	Probe::d.x => collection(1) [object:Probe::R1] ;; Probe::d.y => object:Probe::R1
+prefix	abstract [0..*] + subsetter	constraint C1	abstract constraint x : C1[0..*]; constraint y : C1 :> x;	Probe::d.x => collection(1) [object:Probe::C1] ;; Probe::d.y => object:Probe::C1
+prefix	abstract [0..*] + subsetter	occurrence O1	abstract occurrence x : O1[0..*]; occurrence y : O1 :> x;	Probe::d.x => collection(1) [object:Probe::O1] ;; Probe::d.y => object:Probe::O1
 prefix	abstract [0..*] + subsetter	connection Cn1	abstract connection x : Cn1[0..*] connect sub1 to sub2; connection y : Cn1 connect sub1 to sub2 :> x;	Probe::d.x => empty ;; Probe::d.y => object:Probe::Cn1
 prefix	variation	attribute Integer	variation attribute x : Integer { variant attribute va : Integer; variant attribute vb : Integer; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	attribute At1	variation attribute x : At1 { variant attribute va : At1; variant attribute vb : At1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
@@ -1486,6 +1486,19 @@ prefix	derived	requirement R1	derived requirement x : R1 = rq1;	Probe::d.x => ob
 prefix	derived	constraint C1	derived constraint x : C1 = cq1;	Probe::d.x => object:Probe::C1
 prefix	derived	occurrence O1	derived occurrence x : O1 = oc1;	Probe::d.x => object:Probe::O1
 prefix	derived	connection Cn1	derived connection x : Cn1 connect sub1 to sub2;	Probe::d.x => object:Probe::Cn1
+prefix	end	attribute Integer	end attribute x : Integer;	Probe::d.x => undetermined <undetermined>
+prefix	end	attribute At1	end attribute x : At1;	Probe::d.x => undetermined <undetermined>
+prefix	end	enum E1	end enum x : E1;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
+prefix	end	calc K1	end calc x : K1;	Probe::d.x => constant 4
+prefix	end	part P2	end part x : P2;	Probe::d.x => object:Probe::P2
+prefix	end	item I1	end item x : I1;	Probe::d.x => object:Probe::I1
+prefix	end	port Pt	end port x : Pt;	Probe::d.x => object:Probe::Pt
+prefix	end	action A1	end action x : A1;	Probe::d.x => object:Probe::A1
+prefix	end	state S1	end state x : S1;	Probe::d.x => object:Probe::S1
+prefix	end	requirement R1	end requirement x : R1;	Probe::d.x => object:Probe::R1
+prefix	end	constraint C1	end constraint x : C1;	Probe::d.x => object:Probe::C1
+prefix	end	occurrence O1	end occurrence x : O1;	Probe::d.x => object:Probe::O1
+prefix	end	connection Cn1	end connection x : Cn1 connect sub1 to sub2;	Probe::d.x => object:Probe::Cn1
 prefix	portion	attribute Integer	portion attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	portion	attribute At1	portion attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	portion	enum E1	portion enum x : E1;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance
@@ -1526,8 +1539,9 @@ prefix	[2..4]	constraint C1	constraint x : C1[2..4];	Probe::d.x => undetermined 
 prefix	[2..4]	occurrence O1	occurrence x : O1[2..4];	Probe::d.x => undetermined <undetermined>
 prefix	[2..4]	connection Cn1	connection x : Cn1[2..4] connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
 prefix	[*] = (3,1,3) (unique default)	attribute Integer	attribute x : Integer[*] = (3, 1, 3);	Probe::d.x => error feature value d.x: uniqueness violation: 3 (an Integer) is written at positions 1 and 3 of a unique feature
-prefix	[*] ordered nonunique = (3,1,3)	attribute Integer	attribute x : Integer[*] ordered nonunique = (3, 1, 3);	Probe::d.x => collection(3) [3, 1, 3]
-prefix	[*] nonunique = (3,1,3)	attribute Integer	attribute x : Integer[*] nonunique = (3, 1, 3);	Probe::d.x => collection(3) [3, 1, 3]
+prefix	[*] ordered nonunique = (3,1,3)	attribute Integer	attribute x : Integer[*] ordered nonunique = (3, 1, 3);	Probe::d.x => collection(3) [constant 3, constant 1, constant 3]
+prefix	[*] ordered = (3,1,3)	attribute Integer	attribute x : Integer[*] ordered = (3, 1, 3);	Probe::d.x => error feature value d.x: uniqueness violation: 3 (an Integer) is written at positions 1 and 3 of a unique feature
+prefix	[*] nonunique = (3,1,3)	attribute Integer	attribute x : Integer[*] nonunique = (3, 1, 3);	Probe::d.x => collection(3) [constant 3, constant 1, constant 3]
 prefix	[2] = (1,2,3) (too many)	attribute Integer	attribute x : Integer[2] = (1, 2, 3);	Probe::d.x => error feature value d.x: multiplicity violation: 3 value(s) bound to a feature with multiplicity upper bound 2
 prefix	default	attribute Integer	attribute x : Integer default 1;	Probe::d.x => constant 1
 prefix	default	enum E1	enum x : E1 default E1::a;	Probe::d.x => ERR_NOSUCHFEATURE object has no such feature: member x not found in instance

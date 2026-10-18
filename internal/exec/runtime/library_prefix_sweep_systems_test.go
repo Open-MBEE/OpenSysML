@@ -153,11 +153,15 @@ func sweepOutcome(ctx *Context, val Value, err error) string {
 		}
 		return "object"
 	case ValSequence, ValSet:
-		n := len(elementsOf(val))
-		if n == 0 {
+		elements := elementsOf(val)
+		if len(elements) == 0 {
 			return "empty"
 		}
-		return fmt.Sprintf("collection(%d) %s", n, FormatValue(val))
+		members := make([]string, len(elements))
+		for i, element := range elements {
+			members[i] = sweepOutcome(ctx, element, nil)
+		}
+		return fmt.Sprintf("collection(%d) [%s]", len(elements), strings.Join(members, ", "))
 	case ValNull:
 		return "null"
 	case ValUndetermined:

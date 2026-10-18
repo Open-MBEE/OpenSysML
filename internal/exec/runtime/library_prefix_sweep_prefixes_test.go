@@ -90,6 +90,7 @@ var sweepPrefixes = []sweepPrefix{
 	{"derived", func(k sweepPrefixKind) string {
 		return "derived " + k.kw + " x : " + k.typ + k.tail + valOr(k, "=") + ";"
 	}, "", []string{"Probe::d.x"}},
+	{"end", func(k sweepPrefixKind) string { return "end " + k.kw + " x : " + k.typ + k.tail + ";" }, "", []string{"Probe::d.x"}},
 	{"portion", func(k sweepPrefixKind) string { return "portion " + k.kw + " x : " + k.typ + k.tail + ";" }, "", []string{"Probe::d.x"}},
 	{"individual", func(k sweepPrefixKind) string { return "individual " + k.kw + " x : " + k.typ + k.tail + ";" }, "", []string{"Probe::d.x"}},
 	{"[2..4]", func(k sweepPrefixKind) string { return k.kw + " x : " + k.typ + "[2..4]" + k.tail + ";" }, "", []string{"Probe::d.x"}},
@@ -104,6 +105,12 @@ var sweepPrefixes = []sweepPrefix{
 			return ""
 		}
 		return k.kw + " x : " + k.typ + "[*] ordered nonunique = (3, 1, 3);"
+	}, "", []string{"Probe::d.x"}},
+	{"[*] ordered = (3,1,3)", func(k sweepPrefixKind) string {
+		if k.typ != "Integer" {
+			return ""
+		}
+		return k.kw + " x : " + k.typ + "[*] ordered = (3, 1, 3);"
 	}, "", []string{"Probe::d.x"}},
 	{"[*] nonunique = (3,1,3)", func(k sweepPrefixKind) string {
 		if k.typ != "Integer" {

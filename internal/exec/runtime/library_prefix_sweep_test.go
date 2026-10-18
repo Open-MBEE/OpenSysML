@@ -15,10 +15,8 @@ var updateLibraryPrefixSweep = flag.Bool("update-library-prefix-sweep", false, "
 // libraryPrefixSweepCommand reproduces the committed sweep outcomes.
 const libraryPrefixSweepCommand = "go test ./internal/exec/runtime -run TestLibraryAndPrefixSweep -update-library-prefix-sweep"
 
-// TestLibraryAndPrefixSweep records the outcome of every probe of the library and prefix
-// sweep (docs/project/library-and-prefix-sweep.md) — each Systems and Domain library feature
-// read on an object, each Kernel Function Library call, each grammar prefix on each usage
-// kind — and pins the committed file, so a gap or regression on any axis is a reviewed diff.
+// TestLibraryAndPrefixSweep pins the outcome of every library-feature read, Kernel Function
+// Library call and prefix-by-usage-kind probe, so a gap or regression on any axis is a reviewed diff.
 func TestLibraryAndPrefixSweep(t *testing.T) {
 	var lines []string
 	lines = append(lines, sweepSystemsLibraryReads(t)...)
