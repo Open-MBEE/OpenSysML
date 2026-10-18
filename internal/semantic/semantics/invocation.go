@@ -189,7 +189,7 @@ func CallSite(ref resolve.Reference) Performs {
 // evaluated call a feature typed by one, which performs that behavior.
 func (m *Model) Performable(p Performs, sym *symbols.Symbol) bool {
 	if p == PerformsAction {
-		return sym.Kind == symbols.SymbolActionDef || sym.Kind == symbols.SymbolActionUsage
+		return sym.Kind.IsAction()
 	}
 	return m.performs(sym, behaviorLike)
 }
