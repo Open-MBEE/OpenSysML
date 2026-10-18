@@ -22,6 +22,9 @@ package test {
 	}
 	part rack : R;
 
+	part def H { item si : SpatialItems::SpatialItem; }
+	part h : H;
+
 	part def P3 {
 		action def A;
 		perform action act : A;
@@ -40,6 +43,7 @@ package test {
 	attribute performedActionsModel = p3.performedActions;
 	attribute looseModel = rack.loose;
 	attribute gearModel = rack.gear;
+	attribute subSpatialItemsModel = h.si.subSpatialItems;
 
 	attribute voidsObject = new P1().voids;
 	attribute subOccurrencesObject = new P1().suboccurrences;

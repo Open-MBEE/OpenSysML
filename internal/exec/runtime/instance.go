@@ -1145,7 +1145,7 @@ func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name 
 			return nil, err
 		}
 		held := int64(len(contributed))
-		if atLeast > held || (!ctx.libraryDeclared(fv.Feature.Symbol) && mult.MayAdmitMore(held)) {
+		if max(atLeast, fewestOf(mult)) > held || (!ctx.libraryDeclared(fv.Feature.Symbol) && mult.MayAdmitMore(held)) {
 			open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
 			return fv, nil
 		}
