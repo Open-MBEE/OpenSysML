@@ -83,7 +83,7 @@ func runRenderTargetsFromFlags() ([]runRenderTarget, error) {
 				var found bool
 				form, found = runRenderFormFromPath(path)
 				if !found {
-					return nil, fmt.Errorf("-render-run path %q has no recognized form extension; use -render-form text, mermaid or plantuml", path)
+					return nil, fmt.Errorf("-render-run path %q has no recognized form extension; use -render-form text, mermaid, plantuml, svg or svg-animated", path)
 				}
 			}
 		} else if !slices.Contains(view.Forms(), form) {
@@ -124,6 +124,8 @@ func runRenderFormFromPath(path string) (view.Form, bool) {
 		return view.FormText, true
 	case ".dot", ".gv":
 		return view.FormDot, true
+	case ".svg":
+		return view.FormSVG, true
 	default:
 		return "", false
 	}

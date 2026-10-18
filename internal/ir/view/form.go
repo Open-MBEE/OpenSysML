@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Form is a written form of a rendering: the human-readable text every kind has,
@@ -30,12 +31,17 @@ const (
 	FormCSV Form = "csv"
 	// FormTSV is tab-separated values of a tabular rendering.
 	FormTSV Form = "tsv"
+	// FormSVG is a self-contained SVG drawing of a run: a timeline's lanes and
+	// state spans on a time axis, or a sequence's lifelines and messages.
+	FormSVG Form = "svg"
+	// FormSVGAnimated is the SVG form replaying the run with SMIL animation.
+	FormSVGAnimated Form = "svg-animated"
 )
 
 // Forms are the forms a rendering can be asked for, in the order they are
 // offered.
 func Forms() []Form {
-	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV}
+	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV, FormSVG, FormSVGAnimated}
 }
 
 // DiagramForms are the forms a document render writes its graph-shaped
@@ -145,7 +151,7 @@ func (e *WrongFormError) Error() string {
 				runForms = append(runForms, form)
 			}
 		}
-		forms = runForms
+		forms = append(runForms, FormSVG, FormSVGAnimated)
 	}
 	msg := fmt.Sprintf("%s %s rendering is not written as %s; ask for %s",
 		e.Kind.article(), e.Kind, e.Form, joinForms(forms, "or"))
@@ -169,6 +175,9 @@ func (e *WrongFormError) Unwrap() error { return ErrWrongForm }
 func (r *Rendering) supportsForm(form Form) bool {
 	if r.Run && form == FormD2 {
 		return false
+	}
+	if form == FormSVG || form == FormSVGAnimated {
+		return r.Run && (r.Kind == KindTimeline || r.Kind == KindSequence)
 	}
 	return r.Kind.SupportsForm(form)
 }
@@ -208,6 +217,9 @@ type Options struct {
 	// Show is the optional notation elements drawn besides those the rendering
 	// shows of itself (its Shown, the model's choice or DefaultShown); nil adds none.
 	Show Shown
+	// AnimationStep is how long the animated SVG form spends on each step of a
+	// run; zero is DefaultAnimationStep.
+	AnimationStep time.Duration
 }
 
 // Write is the rendering in form, with the default options: no particular
@@ -236,11 +248,13 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 	switch form {
 	case FormText:
 		return r.textWith(options), nil
-	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV:
+	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV, FormSVG, FormSVGAnimated:
 		if !r.supportsForm(form) {
 			return "", r.wrongFormError(form)
 		}
 		switch form {
+		case FormSVG, FormSVGAnimated:
+			return r.SVGWith(options, form == FormSVGAnimated), nil
 		case FormMarkdown:
 			return r.Markdown(), nil
 		case FormCSV:
