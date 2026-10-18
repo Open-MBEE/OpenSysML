@@ -2,6 +2,7 @@
 
 import difflib
 
+from opensysml.runs import Recording, RunsResult, SelfCheckResult
 from opensysml.importcompare import Comparison, ImportResult
 from opensysml.capabilities import CAPABILITY_QUERY
 from opensysml.symbol import Symbol
@@ -1092,6 +1093,51 @@ class Model:
             symbol_id, self._hash, ranges, subject=subject,
             arguments=arguments, named_arguments=named_arguments,
             samples=samples, seed=seed, engine=engine,
+        )
+
+    def run_runs(self, action=None, analysis=None, runs=1, seed=None, draws=None, clock_step=0.0,
+                 observe=(), inputs=None, performer=None, subject=None, arguments=None,
+                 named_arguments=None, engine=None) -> RunsResult:
+        """Run one of this model's actions, or Monte Carlo cases, ``runs`` times.
+
+        See :meth:`Connection.run_runs` for the arguments.
+
+        Returns:
+            RunsResult: The table, each observable's distribution and a case's
+            conclusion over the sample
+        """
+        return self._client.run_runs(
+            self._hash, action=action, analysis=analysis, runs=runs, seed=seed, draws=draws,
+            clock_step=clock_step, observe=observe, inputs=inputs, performer=performer,
+            subject=subject, arguments=arguments, named_arguments=named_arguments, engine=engine,
+        )
+
+    def self_check(self, packages=()) -> SelfCheckResult:
+        """Apply the reflective SysMLValidation constraints, and those of the
+        rule packages named, to every element of this model.
+
+        Args:
+            packages (list[str], optional): FQNs of rule packages
+
+        Returns:
+            SelfCheckResult: Every finding and the counts over them
+        """
+        return self._client.self_check(self._hash, packages=packages)
+
+    def record_run(self, symbol_id, subject=None, arguments=None, named_arguments=None, into=None,
+                   ranges=None, runs=0, seed=None, engine=None) -> Recording:
+        """Run one of this model's analysis cases and record the runs into it.
+
+        See :meth:`Connection.record_run` for the arguments.
+
+        Returns:
+            Recording: The runs' report, what the model gained and the
+            notation the records were written into
+        """
+        return self._client.record_run(
+            symbol_id, self._hash, subject=subject, arguments=arguments,
+            named_arguments=named_arguments, into=into, ranges=ranges, runs=runs, seed=seed,
+            engine=engine,
         )
 
     def __getitem__(self, name):

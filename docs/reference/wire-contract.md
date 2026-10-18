@@ -2262,6 +2262,53 @@ own pins; a state machine's graph lists `states`, `transitions` with their guard
 effects, and pseudostates in the same way. A behavior a node `performs` is exported after the
 subject under its own name, so the form is closed over everything the subject runs.
 
+## `RunRuns`
+
+`RunRuns` runs an action or a Monte Carlo case `runs` times and tables the result: what
+`sysml -runs N -observe f` prints, as data. `RunRunsRequest` names what runs by exactly one of
+`action_symbol_id` and `analysis_symbol_id`, binds it through `inputs`, `performer_symbol_id`,
+`subject_symbol_id`, `arguments` and `named_arguments` as `ExecuteActionRequest` and
+`RunAnalysisRequest` do, and carries the CLI's flags under their names: `runs` (int64), `seed`
+(optional uint64, required unless `draws` is `min`, `max` or `average`), `draws`, `clock_step`
+(double seconds), `observe` (repeated feature names) and `engine`. `RunRunsResponse` carries
+`rows` (one `SweepRow` per run, each with its `inputs`, `outputs`, `verdicts` and `error`),
+`observables`, `distributions` (`RunDistribution`: `name`, `unit`, `count`, `numeric`, `min`,
+`max`, `mean`, `deviation`, `percentiles`, `histogram`, `values`), `lines`, `outputs`,
+`verdicts`, `unconcluded`, `seed`, `instances`, `engine`, `strength`, `bounds`, `diagnostics`,
+`error` and `failure_reason`. A count below one, an unseeded random run and an ambiguous request
+are `INVALID_ARGUMENT`; an action, case or subject the model lacks is answered in band through
+`error`. The service advertises this method as the `runs` capability, and one without it refuses
+the call with `UNIMPLEMENTED`.
+
+## `SelfCheck`
+
+`SelfCheck` applies the `SysMLValidation` rule constraints to the model's own elements: what
+`sysml -self-check` prints, as data. `SelfCheckRequest` carries `model_hash` and
+`self_check_package` (repeated; rule packages applied beside `SysMLValidation`).
+`SelfCheckResponse` carries `status` (`holds` or `fails`), `findings` (`SelfCheckFinding`:
+`status`, `subject`, `location`, `constraint`, `element`, `message`, `line`), the int64 counts
+`elements`, `checks`, `violations`, `unevaluated` and `evaluation_errors`, `applications`
+(`SelfCheckApplication`: `constraint`, `count`), `summary`, `diagnostics` and `error`. A rule
+package the model lacks is answered in band through `error`. The service advertises this method
+as the `self_check` capability.
+
+## `RecordRun`
+
+`RecordRun` runs a case and records the result into the model: what `sysml -record-run` writes,
+as a new model the service holds. `RecordRunRequest` carries `model_hash`, `analysis_symbol_id`,
+`subject_symbol_id`, `arguments`, `named_arguments`, `ranges` (a sweep), `runs` and `seed` (a
+Monte Carlo sample), `record_into` (the target package; `Records` when empty), `engine` and
+`accept_documents`, which must be true because the answer rewrites documents.
+`RecordRunResponse` carries exactly one of `run` (`RunAnalysisResponse`), `sweep`
+(`RunSweepResponse`) and `sample` (`RunRunsResponse`), then `package`, `definition`, `records`
+(qualified names, `<Package>::<Case>_run<n>`), `source`, `content` (the whole document when the
+model has one and the records joined it), `documents` (`EditedDocument`; a standalone record
+document is named after its package, `Records.sysml`), `skipped`, `reasons`, `diagnostics`,
+`model_hash` (the recorded model; every record resolves through `GetSymbol` under it), `error`
+and `failure_reason`. A case or subject the model lacks, and a record that would leave the model
+with new errors, are answered in band through `error` with the model unchanged. The service
+advertises this method as the `record_run` capability.
+
 ## `ImportData`
 
 `ImportData` sets the feature values tabular or JSON data assigns: what `sysml -import` does, as
