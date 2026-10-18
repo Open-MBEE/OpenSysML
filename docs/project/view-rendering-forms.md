@@ -1355,12 +1355,24 @@ Pilot visualizer does; the specification leaves what a rendering draws to the to
   [design record](diagram-layout-annotations.md)). A `Layout` with `collapsed = true` about an
   element draws it with no children in every form, keeping its ports and the `collapsed` tag
   (`comment="collapsed"` in DOT, ` collapsed` in text, `Geometry.Collapsed` in the data); its
-  `show…` switches hide single compartments, in the text form as in DOT:
+  `show…` switches hide single compartments, in the text form as in DOT. A `Layout` binding only
+  `collapsed` or `show…` switches needs no `x` and `y`: it folds or hides without placing
+  (`Geometry.Unplaced`), so the rendering stays one the form lays out itself rather than a
+  positioned one that leaves unplaced nodes undrawn. The LSP node then carries `collapsed` and no
+  `x`, `y`; the gRPC and engine renderings carry its geometry with `collapsed` and `unplaced` set,
+  the coordinates meaning nothing.
 
   ```sysml
   view wiring { expose vehicle; render asInterconnectionDiagram;
-      metadata Layout about vehicle::engine { x = 120; y = 40; collapsed = true; } }
+      metadata Layout about vehicle::engine { collapsed = true; } }
   ```
+
+A whitelist is the filter's other direction: `expose rover::**[@Shown]` selects the marked
+elements and draws each as a root, the condition pruning their unmarked contents as any filter
+does, and nothing synthesizes the ancestors between them; `filter @Shown` on `expose rover`
+rejects an unmarked root and renders empty, naming the filter. The specification's filter
+conditions exclude, they never add (SysML v2 §7.24), so a picture of a few deep elements with
+their context is stated by exposing the context and bounding its `depth`, not by a whitelist.
 
 ## Surfaces
 

@@ -119,7 +119,7 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 		if node.Geometry != nil {
 			item.Geometry = &pb.RenderGeometry{
 				X: node.Geometry.X, Y: node.Geometry.Y, Width: node.Geometry.Width, Height: node.Geometry.Height,
-				HasSize: node.Geometry.HasSize, Collapsed: node.Geometry.Collapsed,
+				HasSize: node.Geometry.HasSize, Collapsed: node.Geometry.Collapsed, Unplaced: node.Geometry.Unplaced,
 			}
 		}
 		if node.Style != nil {
