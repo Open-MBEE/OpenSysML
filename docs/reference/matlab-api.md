@@ -83,7 +83,11 @@ is unlimited. `opensysml.getSymbol(model, id)` returns the `GetSymbol` answer as
 use cells. The function is `getSymbol`, not `symbol`: MATLAB names a class file after the class,
 so a `symbol.m` beside `Symbol.m` cannot coexist on a case-insensitive file system.
 `opensysml.diagnostics(model)` returns diagnostic records with severity, message, file, line,
-column and code.
+column and code, as the parse answered them under the default lint selection.
+`model.refreshDiagnostics('disableLint', {'undeclared-signal'}, 'enableLint', {...})`
+(also `opensysml.refreshDiagnostics(model, ...)`) asks the service again, leaving out the lints
+`disableLint` names and keeping the opt-in ones `enableLint` names, as `sysml -disable-lint`
+and `-enable-lint` select them; a code naming no lint is refused naming the lints there are.
 
 `opensysml.call(conn, method, request)` sends a decoded request to
 `/sysml.SysMLService/<method>`; `opensysml.callRaw(conn, method, requestJsonText)` returns
@@ -135,7 +139,16 @@ points are `opensysml.exploreAction`, `opensysml.exploreState`, and
 A failed traced run keeps its existing error identifier; `lastError().details`
 includes its partial `trace` and `traceDropped`.
 
-`opensysml.listEngines(conn)` returns `EngineInfo` records. Engine selection is available with
+`opensysml.listEngines(conn)` returns `EngineInfo` records; `'probe', true` starts each
+external engine and checks its handshake before listing it, as `sysml -engines -probe` does.
+`executeAction` and `executeState` take the run options of the `sysml` command: `'advance'`
+(simulated seconds to run for, reported back in `finalTime`), `'seed'` (the model's own draws),
+`'draws'` (`'random'`, `'min'`, `'max'` or `'average'`) and `'clockStep'`; a negative or
+unknown one is an `opensysml:argument` error before anything is sent.
+`runAnalysis(model, id, 'toolDryRun', true)` runs the case only to its first external tool
+call and answers what the tool would be given, as `sysml -tool-dry-run` does, in the result's
+`toolDryRun` (a struct with `action`, `tool`, `version`, `executable`, `args`, `env`, `inputs`,
+`outputs`, `lines`, ...) with no outputs. Engine selection is available with
 the `engine` option on supported calculation, verification, analysis, and sweep methods; a named
 engine requires the `engines` capability. `Standing` records the engine, evidence strength and
 bounds associated with an answer.
@@ -145,7 +158,7 @@ bounds associated with an answer.
 | `Verdict` | Outcome fields including `holds`, condition, witness, error, engine and diagnostics; `explain()`, `raiseForError()`, and logical conversion. |
 | `Validation` | Verdicts, summary, ordered instance cells in service order, diagnostics and verifications; `valid()`, `violated()`, `undecided()`, `raiseForError()`, and `explain()`. |
 | `CalcResult` | `value`, `outputs`, diagnostics and `Standing`; character conversion formats the computed result. |
-| `AnalysisResult` | Outputs, verdicts, instances, verifications, evaluations and standing; `selected()`, `satisfied()`, and `explain()`. |
+| `AnalysisResult` | Outputs, verdicts, instances, verifications, evaluations, standing and the `toolDryRun` preview (`[]` when the case ran for real); `selected()`, `satisfied()`, and `explain()`. |
 | `SweepTable` | Rows, parameters, sampling metadata, instances, diagnostics and standing; `failures()` selects failed rows. |
 | `Exploration` | Outcome cells, `complete`, run and budget counts; `status()`, `ok()`, `explain()`, and `raiseForIncomplete()`. |
 | `EngineInfo` | Engine identity, answers, bounds, readiness and protocol details; `explain()` describes it. |
@@ -227,10 +240,12 @@ returns a `DocumentQueryResult` with `columns` and `rows`; both are cell collect
 `model.renderView(viewName, 'ports', 'minimal')` returns a typed
 `opensysml.RenderedView` with ordered nodes, edges, ports, rows, notes and
 origins; geometry, style and canvas are empty when absent. Use `'full'` to
-include every declared port, and `'show', {'edge-labels', 'typings'}` to draw
+include every declared port, `'show', {'edge-labels', 'typings'}` to draw
 those [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
-besides the ones the view's rendering shows (`'all'` for every one); `shown`
-lists the elements drawn. The call requires `render_view`.
+besides the ones the view's rendering shows (`'all'` for every one; `shown`
+lists the elements drawn), and `'depth', n` to draw only `n` levels of nested
+elements below each exposed element (`0`, the default, draws every level the
+view allows). The call requires `render_view`.
 
 ## Edit builder
 
