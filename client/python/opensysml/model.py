@@ -2,6 +2,7 @@
 
 import difflib
 
+from opensysml.importcompare import Comparison, ImportResult
 from opensysml.capabilities import CAPABILITY_QUERY
 from opensysml.symbol import Symbol
 from opensysml.conversion import (
@@ -484,6 +485,31 @@ class Model:
         """
         return self.connection.export_graphs(self._hash, subject)
 
+
+    def import_data(self, imports, import_as="values", dry_run=False, accept_documents=False) -> ImportResult:
+        """Set the feature values data files assign into this model.
+
+        See :meth:`Connection.import_data` for the arguments.
+
+        Returns:
+            ImportResult: What each file set, the edited documents and the
+            hash of the imported model
+        """
+        return self._client.import_data(self._hash, imports, import_as=import_as, dry_run=dry_run,
+                                        accept_documents=accept_documents)
+
+    def compare_results(self, results, actions=(), runs=0, seed=None, draws=None, clock_step=None,
+                        observe=(), engine=None) -> Comparison:
+        """Run the configurations a results sidecar indexes against this
+        model and compare the runs with the tool's.
+
+        See :meth:`Connection.compare_results` for the arguments.
+
+        Returns:
+            Comparison: One ConfigurationComparison per configuration
+        """
+        return self._client.compare_results(self._hash, results, actions=actions, runs=runs, seed=seed,
+                                            draws=draws, clock_step=clock_step, observe=observe, engine=engine)
     def find(self, name):
         """Find symbol by short name or fully-qualified name.
 

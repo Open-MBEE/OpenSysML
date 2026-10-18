@@ -68,6 +68,8 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityRenderDocumentHTML:             "render_model_document",
 	sysmlgrpc.CapabilityRenderView:                     "render_model_view",
 	sysmlgrpc.CapabilityExportGraphs:                   "export_graphs",
+	sysmlgrpc.CapabilityImportData:                     "import_data",
+	sysmlgrpc.CapabilityCompareResults:                 "compare_results",
 	sysmlgrpc.CapabilityConvert:                        "convert",
 	sysmlgrpc.CapabilityConvertDocuments:               "convert",
 	sysmlgrpc.CapabilityConvertCompact:                 "convert",
