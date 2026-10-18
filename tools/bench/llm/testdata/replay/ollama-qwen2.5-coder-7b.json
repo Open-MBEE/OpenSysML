@@ -558,43 +558,43 @@
       {
         "requestDigest": "e751fa5901a407a00d4998369478ce9e08e5c3849da30f4df2943f90b02cb3b9",
         "response": {
-          "content": "```sysml\npackage Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 700 mm;\n    }\n\n    part Saddle {\n        attribute width : ScalarValues::Length = 300 mm;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}\n```",
+          "content": "```sysml\npackage Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 0.7 m;\n        attribute width : ScalarValues::Length = 0.2 m;\n    }\n\n    part Saddle {\n        attribute height : ScalarValues::Length = 0.3 m;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}\n```",
           "usage": {
             "inputTokens": 261,
-            "outputTokens": 118
+            "outputTokens": 133
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "b352046da254d24e88d5228e38b11873e3a89801d917b936b9ffca3a7a07b49a",
+        "requestDigest": "61291b4219e819fb1590441a4b010ade38973c8d85f0952d687185ae2dff3a16",
         "response": {
-          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 700 mm;\n    }\n\n    part Saddle {\n        attribute width : ScalarValues::Length = 300 mm;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
+          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 0.7 m;\n        attribute width : ScalarValues::Length = 0.2 m;\n    }\n\n    part Saddle {\n        attribute height : ScalarValues::Length = 0.3 m;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
           "usage": {
-            "inputTokens": 563,
-            "outputTokens": 113
+            "inputTokens": 600,
+            "outputTokens": 128
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "5d5bdb89319cbb67dbbc7458636b1bb13c1eee5e02af01195672bc71dd7c0612",
+        "requestDigest": "49c9ae9690adc5b1eeb2e7766769ddebb235b1b631705bf22859489d4973a9e5",
         "response": {
-          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 700 mm;\n    }\n\n    part Saddle {\n        attribute width : ScalarValues::Length = 300 mm;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
+          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 0.7 m;\n        attribute width : ScalarValues::Length = 0.2 m;\n    }\n\n    part Saddle {\n        attribute height : ScalarValues::Length = 0.3 m;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
           "usage": {
-            "inputTokens": 865,
-            "outputTokens": 113
+            "inputTokens": 939,
+            "outputTokens": 128
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "6427fdd68991b9b32b3c477f409b6a957c7482672b78b7d43afe226d3dc63816",
+        "requestDigest": "2f07291fd03b1fca93069742cf98b146db64d65dc0b4c29b69ee3357c183c8b5",
         "response": {
-          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 700 mm;\n    }\n\n    part Saddle {\n        attribute width : ScalarValues::Length = 300 mm;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
+          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 0.7 m;\n        attribute width : ScalarValues::Length = 0.2 m;\n    }\n\n    part Saddle {\n        attribute height : ScalarValues::Length = 0.3 m;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
           "usage": {
-            "inputTokens": 1167,
-            "outputTokens": 113
+            "inputTokens": 1278,
+            "outputTokens": 128
           },
           "model": "qwen2.5-coder:7b"
         }

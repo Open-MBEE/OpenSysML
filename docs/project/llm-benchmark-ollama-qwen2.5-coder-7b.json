@@ -1,6 +1,7 @@
 {
   "provider": "ollama",
   "model": "qwen2.5-coder:7b",
+  "modelReported": "qwen2.5-coder:7b",
   "recorded": "2026-10-18",
   "settings": {
     "maxRounds": 3,
@@ -17,8 +18,7 @@
     ]
   },
   "toolchain": {
-    "sysmlVersion": "sysml v0.10.1-1127-gc00f0157c\n  Commit:     c00f0157c\n  Build time: 2026-10-18_13:42:04\n  Go version: go1.25.11",
-    "pilotRelease": "2026-08 (jupyter-sysml-kernel 0.62.0)"
+    "sysmlVersion": "sysml v0.10.1-1127-gc00f0157c\n  Commit:     c00f0157c\n  Build time: 2026-10-18_13:42:04\n  Go version: go1.25.11"
   },
   "arms": {
     "compiler": {
@@ -276,7 +276,8 @@
           "usage": {
             "inputTokens": 242,
             "outputTokens": 42
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -324,7 +325,8 @@
           "usage": {
             "inputTokens": 409,
             "outputTokens": 37
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -372,7 +374,8 @@
           "usage": {
             "inputTokens": 576,
             "outputTokens": 37
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -420,7 +423,8 @@
           "usage": {
             "inputTokens": 743,
             "outputTokens": 37
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -428,7 +432,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "33.078s"
     },
     {
       "task": "B01",
@@ -492,7 +496,8 @@
           "usage": {
             "inputTokens": 1658,
             "outputTokens": 62
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -549,7 +554,8 @@
           "usage": {
             "inputTokens": 1884,
             "outputTokens": 66
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -606,7 +612,8 @@
           "usage": {
             "inputTokens": 2114,
             "outputTokens": 66
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -663,7 +670,8 @@
           "usage": {
             "inputTokens": 2344,
             "outputTokens": 66
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -671,7 +679,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "35.607s"
     },
     {
       "task": "B05",
@@ -762,7 +770,8 @@
           "usage": {
             "inputTokens": 312,
             "outputTokens": 109
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -846,7 +855,8 @@
           "usage": {
             "inputTokens": 599,
             "outputTokens": 104
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -930,7 +940,8 @@
           "usage": {
             "inputTokens": 886,
             "outputTokens": 104
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -1014,7 +1025,8 @@
           "usage": {
             "inputTokens": 1173,
             "outputTokens": 104
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -1022,7 +1034,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "52.13s"
     },
     {
       "task": "B05",
@@ -1140,7 +1152,8 @@
           "usage": {
             "inputTokens": 1728,
             "outputTokens": 119
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -1233,7 +1246,8 @@
           "usage": {
             "inputTokens": 2117,
             "outputTokens": 121
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -1326,7 +1340,8 @@
           "usage": {
             "inputTokens": 2439,
             "outputTokens": 121
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -1419,7 +1434,8 @@
           "usage": {
             "inputTokens": 2761,
             "outputTokens": 121
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -1427,7 +1443,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "1m4.208s"
     },
     {
       "task": "C01",
@@ -1455,7 +1471,8 @@
           "usage": {
             "inputTokens": 268,
             "outputTokens": 60
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -1476,7 +1493,8 @@
           "usage": {
             "inputTokens": 397,
             "outputTokens": 55
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -1497,7 +1515,8 @@
           "usage": {
             "inputTokens": 526,
             "outputTokens": 55
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -1518,7 +1537,8 @@
           "usage": {
             "inputTokens": 655,
             "outputTokens": 55
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -1526,7 +1546,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "29.079s"
     },
     {
       "task": "C01",
@@ -1554,7 +1574,8 @@
           "usage": {
             "inputTokens": 1684,
             "outputTokens": 55
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -1575,7 +1596,8 @@
           "usage": {
             "inputTokens": 1813,
             "outputTokens": 55
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -1596,7 +1618,8 @@
           "usage": {
             "inputTokens": 1942,
             "outputTokens": 55
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -1617,7 +1640,8 @@
           "usage": {
             "inputTokens": 2071,
             "outputTokens": 55
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -1625,7 +1649,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "29.119s"
     },
     {
       "task": "C05",
@@ -1734,7 +1758,8 @@
           "usage": {
             "inputTokens": 348,
             "outputTokens": 166
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -1836,7 +1861,8 @@
           "usage": {
             "inputTokens": 761,
             "outputTokens": 161
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -1938,7 +1964,8 @@
           "usage": {
             "inputTokens": 1174,
             "outputTokens": 161
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -2040,7 +2067,8 @@
           "usage": {
             "inputTokens": 1587,
             "outputTokens": 161
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -2048,7 +2076,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "1m36.136s"
     },
     {
       "task": "C05",
@@ -2139,7 +2167,8 @@
           "usage": {
             "inputTokens": 1764,
             "outputTokens": 151
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -2205,7 +2234,8 @@
           "usage": {
             "inputTokens": 2142,
             "outputTokens": 153
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -2271,7 +2301,8 @@
           "usage": {
             "inputTokens": 2454,
             "outputTokens": 153
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -2337,7 +2368,8 @@
           "usage": {
             "inputTokens": 2766,
             "outputTokens": 153
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -2345,7 +2377,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "2m29.036s"
     },
     {
       "task": "R01",
@@ -2409,7 +2441,8 @@
           "usage": {
             "inputTokens": 235,
             "outputTokens": 64
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -2466,7 +2499,8 @@
           "usage": {
             "inputTokens": 442,
             "outputTokens": 59
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -2523,7 +2557,8 @@
           "usage": {
             "inputTokens": 649,
             "outputTokens": 59
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -2580,7 +2615,8 @@
           "usage": {
             "inputTokens": 856,
             "outputTokens": 59
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -2588,7 +2624,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "32.432s"
     },
     {
       "task": "R01",
@@ -2733,7 +2769,8 @@
           "usage": {
             "inputTokens": 1651,
             "outputTokens": 76
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -2871,7 +2908,8 @@
           "usage": {
             "inputTokens": 2039,
             "outputTokens": 76
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -3009,7 +3047,8 @@
           "usage": {
             "inputTokens": 2427,
             "outputTokens": 76
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -3147,7 +3186,8 @@
           "usage": {
             "inputTokens": 2815,
             "outputTokens": 76
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -3155,7 +3195,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "47.64s"
     },
     {
       "task": "R05",
@@ -3255,7 +3295,8 @@
           "usage": {
             "inputTokens": 330,
             "outputTokens": 129
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -3330,7 +3371,8 @@
           "usage": {
             "inputTokens": 679,
             "outputTokens": 124
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -3405,7 +3447,8 @@
           "usage": {
             "inputTokens": 985,
             "outputTokens": 124
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -3480,7 +3523,8 @@
           "usage": {
             "inputTokens": 1291,
             "outputTokens": 124
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -3488,7 +3532,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "1m5.468s"
     },
     {
       "task": "R05",
@@ -3624,7 +3668,8 @@
           "usage": {
             "inputTokens": 1746,
             "outputTokens": 138
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -3744,7 +3789,8 @@
           "usage": {
             "inputTokens": 2224,
             "outputTokens": 132
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -3873,7 +3919,8 @@
           "usage": {
             "inputTokens": 2644,
             "outputTokens": 138
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -4002,7 +4049,8 @@
           "usage": {
             "inputTokens": 3122,
             "outputTokens": 138
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -4010,7 +4058,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "1m15.169s"
     },
     {
       "task": "S01",
@@ -4021,8 +4069,8 @@
       "attempts": [
         {
           "round": 0,
-          "sourceDigest": "20bc696cf290fe62ec8d78ca7b3c2639e37cbb6b322a4f67d92c3f0368e0ae67",
-          "sourceBytes": 482,
+          "sourceDigest": "a9775fd637c932094e135642ad890297c508403b1cb0933720cdd2f0a4bf55ab",
+          "sourceBytes": 537,
           "ok": false,
           "diagnostics": [
             {
@@ -4047,17 +4095,17 @@
               "severity": "error",
               "message": "expected '{' or ';' after declaration",
               "file": "model.sysml",
-              "line": 13,
+              "line": 10,
               "column": 54,
               "pass": "syntax",
               "code": "syntax"
             },
             {
               "severity": "error",
-              "message": "expected a body member",
+              "message": "expected '{' or ';' after declaration",
               "file": "model.sysml",
-              "line": 17,
-              "column": 9,
+              "line": 14,
+              "column": 55,
               "pass": "syntax",
               "code": "syntax"
             },
@@ -4084,6 +4132,15 @@
               "message": "expected a body member",
               "file": "model.sysml",
               "line": 20,
+              "column": 9,
+              "pass": "syntax",
+              "code": "syntax"
+            },
+            {
+              "severity": "error",
+              "message": "expected a body member",
+              "file": "model.sysml",
+              "line": 21,
               "column": 9,
               "pass": "syntax",
               "code": "syntax"
@@ -4091,13 +4148,14 @@
           ],
           "usage": {
             "inputTokens": 261,
-            "outputTokens": 118
-          }
+            "outputTokens": 133
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
-          "sourceDigest": "20bc696cf290fe62ec8d78ca7b3c2639e37cbb6b322a4f67d92c3f0368e0ae67",
-          "sourceBytes": 482,
+          "sourceDigest": "a9775fd637c932094e135642ad890297c508403b1cb0933720cdd2f0a4bf55ab",
+          "sourceBytes": 537,
           "ok": false,
           "diagnostics": [
             {
@@ -4122,17 +4180,17 @@
               "severity": "error",
               "message": "expected '{' or ';' after declaration",
               "file": "model.sysml",
-              "line": 13,
+              "line": 10,
               "column": 54,
               "pass": "syntax",
               "code": "syntax"
             },
             {
               "severity": "error",
-              "message": "expected a body member",
+              "message": "expected '{' or ';' after declaration",
               "file": "model.sysml",
-              "line": 17,
-              "column": 9,
+              "line": 14,
+              "column": 55,
               "pass": "syntax",
               "code": "syntax"
             },
@@ -4162,17 +4220,27 @@
               "column": 9,
               "pass": "syntax",
               "code": "syntax"
+            },
+            {
+              "severity": "error",
+              "message": "expected a body member",
+              "file": "model.sysml",
+              "line": 21,
+              "column": 9,
+              "pass": "syntax",
+              "code": "syntax"
             }
           ],
           "usage": {
-            "inputTokens": 563,
-            "outputTokens": 113
-          }
+            "inputTokens": 600,
+            "outputTokens": 128
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
-          "sourceDigest": "20bc696cf290fe62ec8d78ca7b3c2639e37cbb6b322a4f67d92c3f0368e0ae67",
-          "sourceBytes": 482,
+          "sourceDigest": "a9775fd637c932094e135642ad890297c508403b1cb0933720cdd2f0a4bf55ab",
+          "sourceBytes": 537,
           "ok": false,
           "diagnostics": [
             {
@@ -4197,17 +4265,17 @@
               "severity": "error",
               "message": "expected '{' or ';' after declaration",
               "file": "model.sysml",
-              "line": 13,
+              "line": 10,
               "column": 54,
               "pass": "syntax",
               "code": "syntax"
             },
             {
               "severity": "error",
-              "message": "expected a body member",
+              "message": "expected '{' or ';' after declaration",
               "file": "model.sysml",
-              "line": 17,
-              "column": 9,
+              "line": 14,
+              "column": 55,
               "pass": "syntax",
               "code": "syntax"
             },
@@ -4237,17 +4305,27 @@
               "column": 9,
               "pass": "syntax",
               "code": "syntax"
+            },
+            {
+              "severity": "error",
+              "message": "expected a body member",
+              "file": "model.sysml",
+              "line": 21,
+              "column": 9,
+              "pass": "syntax",
+              "code": "syntax"
             }
           ],
           "usage": {
-            "inputTokens": 865,
-            "outputTokens": 113
-          }
+            "inputTokens": 939,
+            "outputTokens": 128
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
-          "sourceDigest": "20bc696cf290fe62ec8d78ca7b3c2639e37cbb6b322a4f67d92c3f0368e0ae67",
-          "sourceBytes": 482,
+          "sourceDigest": "a9775fd637c932094e135642ad890297c508403b1cb0933720cdd2f0a4bf55ab",
+          "sourceBytes": 537,
           "ok": false,
           "diagnostics": [
             {
@@ -4272,17 +4350,17 @@
               "severity": "error",
               "message": "expected '{' or ';' after declaration",
               "file": "model.sysml",
-              "line": 13,
+              "line": 10,
               "column": 54,
               "pass": "syntax",
               "code": "syntax"
             },
             {
               "severity": "error",
-              "message": "expected a body member",
+              "message": "expected '{' or ';' after declaration",
               "file": "model.sysml",
-              "line": 17,
-              "column": 9,
+              "line": 14,
+              "column": 55,
               "pass": "syntax",
               "code": "syntax"
             },
@@ -4312,12 +4390,22 @@
               "column": 9,
               "pass": "syntax",
               "code": "syntax"
+            },
+            {
+              "severity": "error",
+              "message": "expected a body member",
+              "file": "model.sysml",
+              "line": 21,
+              "column": 9,
+              "pass": "syntax",
+              "code": "syntax"
             }
           ],
           "usage": {
-            "inputTokens": 1167,
-            "outputTokens": 113
-          }
+            "inputTokens": 1278,
+            "outputTokens": 128
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -4325,7 +4413,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "18m31.475s"
     },
     {
       "task": "S01",
@@ -4407,7 +4495,8 @@
           "usage": {
             "inputTokens": 1677,
             "outputTokens": 110
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -4482,7 +4571,8 @@
           "usage": {
             "inputTokens": 1977,
             "outputTokens": 110
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -4557,7 +4647,8 @@
           "usage": {
             "inputTokens": 2277,
             "outputTokens": 110
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -4632,7 +4723,8 @@
           "usage": {
             "inputTokens": 2577,
             "outputTokens": 110
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -4640,7 +4732,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "7m25.875s"
     },
     {
       "task": "S05",
@@ -4758,7 +4850,8 @@
           "usage": {
             "inputTokens": 307,
             "outputTokens": 140
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -4869,7 +4962,8 @@
           "usage": {
             "inputTokens": 693,
             "outputTokens": 135
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -4980,7 +5074,8 @@
           "usage": {
             "inputTokens": 1079,
             "outputTokens": 135
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -5091,7 +5186,8 @@
           "usage": {
             "inputTokens": 1465,
             "outputTokens": 135
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -5099,7 +5195,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "12m26.748s"
     },
     {
       "task": "S05",
@@ -5226,7 +5322,8 @@
           "usage": {
             "inputTokens": 1723,
             "outputTokens": 90
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -5400,7 +5497,8 @@
           "usage": {
             "inputTokens": 2113,
             "outputTokens": 92
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -5574,7 +5672,8 @@
           "usage": {
             "inputTokens": 2613,
             "outputTokens": 92
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -5748,7 +5847,8 @@
           "usage": {
             "inputTokens": 3113,
             "outputTokens": 92
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -5756,7 +5856,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "3m1.245s"
     },
     {
       "task": "V01",
@@ -5865,7 +5965,8 @@
           "usage": {
             "inputTokens": 256,
             "outputTokens": 85
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -5967,7 +6068,8 @@
           "usage": {
             "inputTokens": 585,
             "outputTokens": 80
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -6069,7 +6171,8 @@
           "usage": {
             "inputTokens": 914,
             "outputTokens": 80
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -6171,7 +6274,8 @@
           "usage": {
             "inputTokens": 1243,
             "outputTokens": 80
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -6179,7 +6283,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "1m49.584s"
     },
     {
       "task": "V01",
@@ -6297,7 +6401,8 @@
           "usage": {
             "inputTokens": 1672,
             "outputTokens": 79
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -6390,7 +6495,8 @@
           "usage": {
             "inputTokens": 1987,
             "outputTokens": 81
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -6483,7 +6589,8 @@
           "usage": {
             "inputTokens": 2236,
             "outputTokens": 81
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -6576,7 +6683,8 @@
           "usage": {
             "inputTokens": 2485,
             "outputTokens": 81
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -6584,7 +6692,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "1m54.694s"
     },
     {
       "task": "V05",
@@ -6675,7 +6783,8 @@
           "usage": {
             "inputTokens": 275,
             "outputTokens": 119
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -6759,7 +6868,8 @@
           "usage": {
             "inputTokens": 697,
             "outputTokens": 114
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -6843,7 +6953,8 @@
           "usage": {
             "inputTokens": 1119,
             "outputTokens": 114
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -6927,7 +7038,8 @@
           "usage": {
             "inputTokens": 1541,
             "outputTokens": 114
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -6935,7 +7047,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "2m52.788s"
     },
     {
       "task": "V05",
@@ -7044,7 +7156,8 @@
           "usage": {
             "inputTokens": 1691,
             "outputTokens": 129
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 1,
@@ -7200,7 +7313,8 @@
           "usage": {
             "inputTokens": 2171,
             "outputTokens": 127
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 2,
@@ -7356,7 +7470,8 @@
           "usage": {
             "inputTokens": 2766,
             "outputTokens": 127
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         },
         {
           "round": 3,
@@ -7512,7 +7627,8 @@
           "usage": {
             "inputTokens": 3361,
             "outputTokens": 127
-          }
+          },
+          "model": "qwen2.5-coder:7b"
         }
       ],
       "compiledRound0": false,
@@ -7520,7 +7636,7 @@
       "repairRounds": 3,
       "fidelity": 0,
       "toolCalls": 0,
-      "elapsed": ""
+      "elapsed": "3m20.176s"
     }
   ]
 }

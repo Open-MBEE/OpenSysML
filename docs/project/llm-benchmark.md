@@ -215,9 +215,9 @@ results file yet. The command to add one is under [Running it](#running-it); its
 and row belong here.
 
 One local open-weight model ran, on CPU (Ollama 0.40.6, 8 cores, no GPU), over a reduced design
-because a single completion took minutes: the ten tasks `S01 S05 B01 B05 R01 R05 C01 C05 V01 V05`
-(two per family, simple and medium), both arms, one sample, temperature 0, a 2048-token completion limit, three repair
-rounds, no pilot judging. Results file: [`llm-benchmark-ollama-qwen2.5-coder-7b.json`](llm-benchmark-ollama-qwen2.5-coder-7b.json)
+(its twenty cells took 63 minutes in all, the longest 7.5): the ten tasks
+`S01 S05 B01 B05 R01 R05 C01 C05 V01 V05` (two per family, simple and medium), both arms, one
+sample, temperature 0, a 2048-token completion limit, three repair rounds, no pilot judging. Results file: [`llm-benchmark-ollama-qwen2.5-coder-7b.json`](llm-benchmark-ollama-qwen2.5-coder-7b.json)
 (recorded 2026-10-18; `toolchain` names the exact `sysml` build).
 
 | Model | Arm | Cells | CR@0 | FCR | Repairs | Fidelity | Halluc. | Pilot agrees | Tool calls |
@@ -229,11 +229,12 @@ The paired comparison is all ties (10 pairs per metric, every p = 1.000): the mo
 a tool, so the mcp arm differed from the compiler arm only by the tool descriptions in its context.
 Not one of the 80 documents parsed. The diagnostics it was shown are in the results file; the
 recurring ones are syntax the model invented or borrowed from elsewhere — `action Brew { body: [
-heatWater, grindBeans ] }`, `decision { if ... { } else { } }`, KerML `class` declarations, an
-`import` without a visibility keyword, and a `/*` comment it never closed — and three rounds of
-verbatim diagnostics did not move it off them (most cells return the same document, byte for byte,
-in every round). It also imported `StandardViewDefinitions::*` into nearly every document, the
-last library the primer names as an example. Hallucination is 0% because nothing reached name
+heatWater, grindBeans ] }`, `decision { if ... { } else { } }`, KerML `class` declarations and
+an `import` without a visibility keyword — and three rounds of verbatim diagnostics did not move
+it off them (three cells returned the same document, byte for byte, in every round; the
+others changed details and never reached a document that parsed). It also imported
+`StandardViewDefinitions::*` into 56 of the 80 documents, the last library the primer names as an
+example. Hallucination is 0% because nothing reached name
 resolution. One 7B model on ten tasks says nothing about the frontier models the benchmark is
 built for; it does establish that the loop, both arms and the scorer run end to end against a
 live provider, and that the whole run replays bit for bit from its recording (below).
