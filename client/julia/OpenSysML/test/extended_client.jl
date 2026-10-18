@@ -783,6 +783,9 @@ end
                 unchanged = import_data(import_model, ["fleet.csv" => "element,count\n"])
                 @test !applied(unchanged) && unchanged.model_hash == import_model.hash
                 @test isempty(unchanged.documents) && unchanged.files[1].values == 0
+                same = import_data(import_model, ["fleet.csv" => "element,count\nV::car,2\n"])
+                @test !applied(same) && same.model_hash == import_model.hash
+                @test isempty(same.documents) && same.files[1].values == 1
                 @test_throws ExecutionError import_data(import_model,
                     ["fleet.csv" => "element,count\nV::car,9\nV::Nowhere,1\n"])
                 @test_throws OpenSysMLError import_data(import_model, [])
