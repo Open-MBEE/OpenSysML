@@ -2,22 +2,24 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import type { RenderResult } from "../protocol";
-import { landingModel } from "./model";
+import { landingModel, renderResult } from "./model";
+import { renderedViewFromJson } from "@openmbee/opensysml/browser";
 import type { EngineInstance, LandingModel } from "./model";
+import { STACK_SCENE } from "./scene";
 import { presented } from "./present";
 
 interface LandingFixture {
   hash: string;
-  render: Omit<RenderResult, "form" | "artifact" | "version">;
+  /** The protojson RenderViewResponse the module answered. */
+  render: unknown;
   instances: EngineInstance[];
 }
 
 const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as LandingFixture;
-const fixtureRender = fixture.render as RenderResult;
+const fixtureRender = renderResult(renderedViewFromJson(fixture.render));
 
 function fixtureModel(): LandingModel {
-  return landingModel(fixture.hash, fixtureRender, fixture.instances);
+  return landingModel(STACK_SCENE.rootSymbol, fixture.hash, fixtureRender, fixture.instances);
 }
 
 function withPartAttrs(model: LandingModel, feature: string, attrs: Record<string, string>): LandingModel {

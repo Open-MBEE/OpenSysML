@@ -8,8 +8,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -191,7 +194,7 @@ func pos(line, col int) toolkit.Position { return toolkit.Position{Line: line, C
 func TestDiagnosticsOfADocumentAndTheWorkspace(t *testing.T) {
 	f := newFixture(t)
 	var res DiagnosticsResult
-	f.ok("diagnostics", map[string]any{"path": "bad.sysml"}, &res)
+	f.ok("workspace_diagnostics", map[string]any{"path": "bad.sysml"}, &res)
 	if res.Errors == 0 || len(res.Diagnostics) == 0 {
 		t.Fatalf("no error for the unresolved name: %+v", res)
 	}
@@ -204,13 +207,13 @@ func TestDiagnosticsOfADocumentAndTheWorkspace(t *testing.T) {
 	}
 
 	var clean DiagnosticsResult
-	res2 := f.ok("diagnostics", map[string]any{"path": "a.sysml"}, &clean)
+	res2 := f.ok("workspace_diagnostics", map[string]any{"path": "a.sysml"}, &clean)
 	if clean.Errors != 0 {
 		t.Errorf("a.sysml has errors: %s", textOf(res2))
 	}
 
 	var all DiagnosticsResult
-	res3 := f.ok("diagnostics", map[string]any{}, &all)
+	res3 := f.ok("workspace_diagnostics", map[string]any{}, &all)
 	if all.Documents != 4 || all.Errors < 1 {
 		t.Errorf("workspace diagnostics = %d documents, %d errors; want 4 and >= 1", all.Documents, all.Errors)
 	}
@@ -221,7 +224,7 @@ func TestDiagnosticsOfADocumentAndTheWorkspace(t *testing.T) {
 
 func TestUnknownPathsAndPositionsOffTheEndFail(t *testing.T) {
 	f := newFixture(t)
-	if msg := f.fails("diagnostics", map[string]any{"path": "missing.sysml"}); !strings.Contains(msg, "missing.sysml") {
+	if msg := f.fails("workspace_diagnostics", map[string]any{"path": "missing.sysml"}); !strings.Contains(msg, "missing.sysml") {
 		t.Errorf("error = %q", msg)
 	}
 	f.fails("hover", map[string]any{"path": "missing.sysml", "position": pos(1, 1)})
@@ -241,7 +244,7 @@ func TestUnknownPathsAndPositionsOffTheEndFail(t *testing.T) {
 	write(t, filepath.Dir(f.root), "outside.sysml", "package Outside;\n")
 	t.Cleanup(func() { _ = os.Remove(outside) })
 	for _, path := range []string{"../outside.sysml", outside} {
-		if msg := f.fails("diagnostics", map[string]any{"path": path}); !strings.Contains(msg, "outside the workspace root") {
+		if msg := f.fails("workspace_diagnostics", map[string]any{"path": path}); !strings.Contains(msg, "outside the workspace root") {
 			t.Errorf("error for %s = %q", path, msg)
 		}
 	}
@@ -249,7 +252,7 @@ func TestUnknownPathsAndPositionsOffTheEndFail(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(f.root, "link.sysml")); err != nil {
 		t.Fatal(err)
 	}
-	if msg := f.fails("diagnostics", map[string]any{"path": "link.sysml"}); !strings.Contains(msg, "outside the workspace root") {
+	if msg := f.fails("workspace_diagnostics", map[string]any{"path": "link.sysml"}); !strings.Contains(msg, "outside the workspace root") {
 		t.Errorf("error for a symlink out of the root = %q", msg)
 	}
 	f.fails("format", map[string]any{"path": "link.sysml", "apply": true})
@@ -419,7 +422,7 @@ func TestRenameAcrossFiles(t *testing.T) {
 		t.Errorf("b.sysml after rename:\n%s", b)
 	}
 	var diags DiagnosticsResult
-	f.ok("diagnostics", map[string]any{}, &diags)
+	f.ok("workspace_diagnostics", map[string]any{}, &diags)
 	for _, d := range diags.Diagnostics {
 		if d.Path != "bad.sysml" {
 			t.Errorf("diagnostic after rename: %+v", d)
@@ -535,7 +538,7 @@ func TestApplyModelEdit(t *testing.T) {
 		t.Errorf("a.sysml after addMember:\n%s", a)
 	}
 	var diags DiagnosticsResult
-	f.ok("diagnostics", map[string]any{"path": "a.sysml"}, &diags)
+	f.ok("workspace_diagnostics", map[string]any{"path": "a.sysml"}, &diags)
 	if diags.Errors != 0 {
 		t.Errorf("errors after the edit: %+v", diags.Diagnostics)
 	}
@@ -597,6 +600,18 @@ func TestRendering(t *testing.T) {
 		}
 	}
 	f.fails("render_view", map[string]any{"path": "a.sysml", "form": "jpeg"})
+	// The rendering controls reach the server: a routing, the optional
+	// notation elements and a depth bound; a routing it lacks is refused.
+	f.ok("render_view", map[string]any{"path": "a.sysml", "form": "dot", "view": "#interconnection", "lines": "ortho", "show": []string{"all"}, "depth": 1}, &render)
+	if !strings.Contains(render.Artifact, "splines=ortho") {
+		t.Errorf("dot with lines=ortho lacks splines=ortho:\n%s", render.Artifact)
+	}
+	if msg := f.fails("render_view", map[string]any{"path": "a.sysml", "view": "#tree", "lines": "curvy"}); !strings.Contains(msg, "curvy") {
+		t.Errorf("error = %q", msg)
+	}
+	if msg := f.fails("render_view", map[string]any{"path": "a.sysml", "view": "#tree", "show": []string{"halos"}}); !strings.Contains(msg, "halos") {
+		t.Errorf("error = %q", msg)
+	}
 	f.unchanged(before)
 }
 
@@ -609,7 +624,7 @@ func TestOpenUpdateCloseHoldAnUnsavedBuffer(t *testing.T) {
 		t.Fatalf("open = %+v", state)
 	}
 	var diags DiagnosticsResult
-	f.ok("diagnostics", map[string]any{"path": "b.sysml"}, &diags)
+	f.ok("workspace_diagnostics", map[string]any{"path": "b.sysml"}, &diags)
 	if diags.Errors != 1 {
 		t.Errorf("diagnostics of the open buffer = %+v", diags)
 	}
@@ -623,7 +638,7 @@ func TestOpenUpdateCloseHoldAnUnsavedBuffer(t *testing.T) {
 	if state.Version != 2 || len(state.Diagnostics) != 1 || state.Diagnostics[0].Range.Start.Line != 8 {
 		t.Errorf("update = %+v", state)
 	}
-	f.ok("diagnostics", map[string]any{}, &diags)
+	f.ok("workspace_diagnostics", map[string]any{}, &diags)
 	byPath := map[string]int{}
 	for _, d := range diags.Diagnostics {
 		byPath[d.Path]++
@@ -645,7 +660,7 @@ func TestOpenUpdateCloseHoldAnUnsavedBuffer(t *testing.T) {
 	if state.Open || len(state.Diagnostics) != 0 {
 		t.Errorf("close = %+v", state)
 	}
-	f.ok("diagnostics", map[string]any{"path": "b.sysml"}, &diags)
+	f.ok("workspace_diagnostics", map[string]any{"path": "b.sysml"}, &diags)
 	if diags.Errors != 0 {
 		t.Errorf("diagnostics after close = %+v", diags)
 	}
@@ -677,7 +692,7 @@ func TestExternalEditsAreSeenWithoutBeingAnnounced(t *testing.T) {
 		t.Errorf("workspace symbols after an external edit = %+v", ws)
 	}
 	var diags DiagnosticsResult
-	f.ok("diagnostics", map[string]any{"path": "bad.sysml"}, &diags)
+	f.ok("workspace_diagnostics", map[string]any{"path": "bad.sysml"}, &diags)
 	if diags.Errors != 0 {
 		t.Errorf("diagnostics after an external fix = %+v", diags.Diagnostics)
 	}
@@ -744,5 +759,175 @@ func TestResources(t *testing.T) {
 	}
 	if _, err := f.cs.ReadResource(ctx, &mcp.ReadResourceParams{URI: "sysml://workspace/missing.sysml"}); err == nil {
 		t.Error("reading a missing document succeeded")
+	}
+}
+
+func TestAWriteRechecksWhereALinkPoints(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	outside := filepath.Join(filepath.Dir(f.root), "outside-target.sysml")
+	write(t, filepath.Dir(f.root), "outside-target.sysml", "package Outside;\n")
+	t.Cleanup(func() { _ = os.Remove(outside) })
+	write(t, f.root, "target.sysml", "package Linked;\n")
+	alias := filepath.Join(f.root, "alias.sysml")
+	if err := os.Symlink(filepath.Join(f.root, "target.sysml"), alias); err != nil {
+		t.Fatal(err)
+	}
+	ref, err := f.host.document(ctx, "alias.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The link is repointed out of the root after the path was resolved and
+	// before the write, as a concurrent actor could do.
+	if err := os.Remove(alias); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, alias); err != nil {
+		t.Fatal(err)
+	}
+	err = f.host.writeAll(ctx, []pendingWrite{{name: ref.name, content: []byte("package Hijacked;\n"), base: []byte("package Outside;\n")}})
+	if err == nil || !strings.Contains(err.Error(), "outside the workspace root") {
+		t.Errorf("write through a repointed link: %v", err)
+	}
+	if got, _ := os.ReadFile(outside); string(got) != "package Outside;\n" {
+		t.Errorf("the file outside the root was written: %q", got)
+	}
+}
+
+func TestAWorkspaceEditOutsideTheRootIsRefused(t *testing.T) {
+	f := newFixture(t)
+	outside := filepath.Join(filepath.Dir(f.root), "outside-edit.sysml")
+	write(t, filepath.Dir(f.root), "outside-edit.sysml", "package Outside;\n")
+	t.Cleanup(func() { _ = os.Remove(outside) })
+	edit := &protocol.WorkspaceEdit{Changes: map[protocol.DocumentURI][]protocol.TextEdit{
+		uri.File(outside): {{Range: protocol.Range{}, NewText: "x"}},
+	}}
+	for _, apply := range []bool{false, true} {
+		_, _, err := f.host.workspaceEdit(context.Background(), edit, apply, "rename")
+		if err == nil || !strings.Contains(err.Error(), "outside the workspace root") {
+			t.Errorf("apply=%v: %v", apply, err)
+		}
+	}
+	if got, _ := os.ReadFile(outside); string(got) != "package Outside;\n" {
+		t.Errorf("the file outside the root was written: %q", got)
+	}
+}
+
+func TestAWriteOverTextItWasNotComputedFromIsRefused(t *testing.T) {
+	f := newFixture(t)
+	before := f.snapshot()
+	err := f.host.writeAll(context.Background(), []pendingWrite{{name: filepath.Join(f.root, "a.sysml"), content: []byte("package A;\n"), base: []byte(vehicles + "// changed meanwhile\n")}})
+	if err == nil || !strings.Contains(err.Error(), "changed on disk") {
+		t.Errorf("write over changed text: %v", err)
+	}
+	f.unchanged(before)
+}
+
+func TestEditsWaitForEachOther(t *testing.T) {
+	f := newFixture(t)
+	write(t, f.root, "ugly.sysml", "package Ugly {\npart def  P;\n}\n")
+	// Hold the workspace as another edit would, from its read to its write.
+	f.host.mu.Lock()
+	done := make(chan FormatResult, 1)
+	go func() {
+		var res FormatResult
+		f.ok("format", map[string]any{"path": "ugly.sysml", "apply": true}, &res)
+		done <- res
+	}()
+	select {
+	case <-done:
+		t.Fatal("format ran while another edit held the workspace")
+	case <-time.After(200 * time.Millisecond):
+	}
+	f.host.mu.Unlock()
+	select {
+	case res := <-done:
+		if !res.Applied || f.read("ugly.sysml") != res.Text {
+			t.Errorf("format after the other edit = %+v", res)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("format did not run once the workspace was released")
+	}
+}
+
+func TestWritesCannotLeaveTheRoot(t *testing.T) {
+	f := newFixture(t)
+	outside := filepath.Join(filepath.Dir(f.root), "outside-write.sysml")
+	write(t, filepath.Dir(f.root), "outside-write.sysml", "package Outside;\n")
+	t.Cleanup(func() { _ = os.Remove(outside) })
+	if err := os.Symlink(filepath.Dir(f.root), filepath.Join(f.root, "up")); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(f.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	// A path that leaves the root lexically or through a link the write finds
+	// in place is refused by the root the writes go through.
+	for _, name := range []string{"../outside-write.sysml", "up/outside-write.sysml"} {
+		if err := writeFile(root, name, []byte("package Hijacked;\n")); err == nil {
+			t.Errorf("writing %s through the root succeeded", name)
+		}
+	}
+	if got, _ := os.ReadFile(outside); string(got) != "package Outside;\n" {
+		t.Errorf("the file outside the root was written: %q", got)
+	}
+}
+
+func TestAnOpenBufferIsNotWrittenOverAnEditMadeMeanwhile(t *testing.T) {
+	f := newFixture(t)
+	var state DocumentState
+	f.ok("open_document", map[string]any{"path": "b.sysml", "text": fleet}, &state)
+	// Writing the buffer is fine while the file is as it was when opened, and
+	// again after our own write.
+	var res FormatResult
+	f.ok("format", map[string]any{"path": "b.sysml", "apply": true}, &res)
+	f.ok("format", map[string]any{"path": "b.sysml", "apply": true}, &res)
+	if res.Applied {
+		t.Errorf("second format of a formatted buffer = %+v", res)
+	}
+	// An edit made on disk while the buffer is held is not overwritten.
+	external := "package Fleet {\n    private import Vehicles::*;\n    part edited : Wheel;\n}\n"
+	write(t, f.root, "b.sysml", external)
+	f.ok("update_document", map[string]any{"path": "b.sysml", "text": "package Fleet {\npart p : Vehicles::Wheel;\n}\n"}, &state)
+	msg := f.fails("format", map[string]any{"path": "b.sysml", "apply": true})
+	if !strings.Contains(msg, "changed on disk while it was held open") {
+		t.Errorf("error = %q", msg)
+	}
+	// Opening the document again does not take the external edit as the new
+	// baseline: it is refused too, the buffer and its snapshot are kept.
+	if msg := f.fails("open_document", map[string]any{"path": "b.sysml", "text": fleet}); !strings.Contains(msg, "changed on disk while it was held open") {
+		t.Errorf("reopen error = %q", msg)
+	}
+	if msg := f.fails("format", map[string]any{"path": "b.sysml", "apply": true}); !strings.Contains(msg, "changed on disk while it was held open") {
+		t.Errorf("error after reopen = %q", msg)
+	}
+	if got, _ := os.ReadFile(filepath.Join(f.root, "b.sysml")); string(got) != external {
+		t.Errorf("b.sysml = %q, want the external edit kept", got)
+	}
+	var rename WorkspaceEditResult
+	if res := f.call("rename", map[string]any{"path": "a.sysml", "position": pos(2, 14), "newName": "Tyre", "apply": true}, &rename); !res.IsError || !strings.Contains(textOf(res), "b.sysml") {
+		t.Errorf("rename reaching the open buffer = %+v", textOf(res))
+	}
+	if f.read("b.sysml") != external || f.read("a.sysml") != vehicles {
+		t.Error("a file was written over the external edit")
+	}
+	// Closing releases the buffer; the external text is what the tools see,
+	// and may be written again.
+	f.ok("close_document", map[string]any{"path": "b.sysml"}, &state)
+	f.ok("format", map[string]any{"path": "b.sysml", "apply": true}, &res)
+	if res.Applied {
+		t.Errorf("formatting the external text = %+v", res)
+	}
+	// A buffer for a file that does not exist yet is refused once the file
+	// appears underneath it.
+	f.ok("open_document", map[string]any{"path": "new.sysml", "text": "package New {\npart def  N;\n}\n"}, &state)
+	write(t, f.root, "new.sysml", "package New;\n")
+	if msg := f.fails("format", map[string]any{"path": "new.sysml", "apply": true}); !strings.Contains(msg, "changed on disk while it was held open") {
+		t.Errorf("error for a file created under a buffer = %q", msg)
+	}
+	if f.read("new.sysml") != "package New;\n" {
+		t.Error("new.sysml was overwritten")
 	}
 }

@@ -41,12 +41,25 @@ func registerSync(s *mcp.Server, h *Host) {
 		Name: "open_document",
 		Description: "Hold a document open with the given text, as an editor buffer the server analyzes instead of the file on disk, " +
 			"so text can be checked (diagnostics, hover, render) before it is written. Nothing is written to disk; close_document reverts to the file. " +
+			"format, rename and apply_model_edit with apply=true write the buffer, unless the file changed on disk since it was opened. " +
 			"Returns the diagnostics of the text.",
 		Annotations: toolkit.Mutating("Open document", true),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in OpenDocumentInput) (*mcp.CallToolResult, DocumentState, error) {
+	}, writing(h, func(ctx context.Context, _ *mcp.CallToolRequest, in OpenDocumentInput) (*mcp.CallToolResult, DocumentState, error) {
 		ref, err := h.resolve(in.Path)
 		if err != nil || ref.library {
 			return nil, DocumentState{}, orLibrary(err, "a standard library document cannot be opened for editing")
+		}
+		disk, err := readDisk(ref.name)
+		if err != nil {
+			return nil, DocumentState{}, err
+		}
+		// Reopening keeps the snapshot taken when the buffer began, so an edit
+		// made on disk meanwhile is not silently accepted as the baseline.
+		if seen, open := h.opened[ref.name]; open {
+			if !disk.same(seen) {
+				return nil, DocumentState{}, fmt.Errorf("%s changed on disk while it was held open; close_document and open it again with the text to keep", h.display(ref.uri()))
+			}
+			disk = seen
 		}
 		err = h.Server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{TextDocument: protocol.TextDocumentItem{
 			URI: ref.uri(), LanguageID: "sysml", Version: 1, Text: in.Text,
@@ -54,13 +67,14 @@ func registerSync(s *mcp.Server, h *Host) {
 		if err != nil {
 			return nil, DocumentState{}, err
 		}
+		h.opened[ref.name] = disk
 		return h.state(ref)
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_document",
 		Description: "Replace the text of a document held open by open_document and re-analyze it. Nothing is written to disk. Returns the diagnostics of the new text.",
 		Annotations: toolkit.Mutating("Update document", true),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in UpdateDocumentInput) (*mcp.CallToolResult, DocumentState, error) {
+	}, writing(h, func(ctx context.Context, _ *mcp.CallToolRequest, in UpdateDocumentInput) (*mcp.CallToolResult, DocumentState, error) {
 		ref, err := h.resolve(in.Path)
 		if err != nil || ref.library {
 			return nil, DocumentState{}, orLibrary(err, "a standard library document cannot be edited")
@@ -72,12 +86,12 @@ func registerSync(s *mcp.Server, h *Host) {
 			return nil, DocumentState{}, err
 		}
 		return h.state(ref)
-	})
+	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "close_document",
 		Description: "Release a document held open by open_document: the server goes back to the file on disk (or forgets the document when there is no file). Nothing is written.",
 		Annotations: toolkit.Mutating("Close document", true),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in CloseDocumentInput) (*mcp.CallToolResult, DocumentState, error) {
+	}, writing(h, func(ctx context.Context, _ *mcp.CallToolRequest, in CloseDocumentInput) (*mcp.CallToolResult, DocumentState, error) {
 		ref, err := h.resolve(in.Path)
 		if err != nil || ref.library {
 			return nil, DocumentState{}, orLibrary(err, "a standard library document is never open")
@@ -88,6 +102,7 @@ func registerSync(s *mcp.Server, h *Host) {
 		if err := h.Server.DidClose(ctx, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: ref.uri()}}); err != nil {
 			return nil, DocumentState{}, err
 		}
+		delete(h.opened, ref.name)
 		h.Refresh(ctx)
 		state := DocumentState{Path: h.display(ref.uri()), Diagnostics: []Diagnostic{}}
 		if doc := h.Workspace.Document(ref.name); doc != nil {
@@ -95,7 +110,7 @@ func registerSync(s *mcp.Server, h *Host) {
 			state.Diagnostics = h.diagnosticsOf(ref)
 		}
 		return text(renderDiagnostics(state.Diagnostics, state.Path+" closed")), state, nil
-	})
+	}))
 }
 
 // orLibrary is err when set, else an error with the library message.

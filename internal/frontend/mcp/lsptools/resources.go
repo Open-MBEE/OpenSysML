@@ -48,6 +48,8 @@ func registerResources(s *mcp.Server, h *Host) {
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", req.Params.URI, err)
 		}
+		h.mu.RLock()
+		defer h.mu.RUnlock()
 		ref, err := h.document(ctx, rel)
 		if err != nil {
 			return nil, err

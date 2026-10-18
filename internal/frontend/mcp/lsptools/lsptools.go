@@ -6,6 +6,8 @@ package lsptools
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -14,6 +16,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.lsp.dev/protocol"
@@ -40,6 +43,36 @@ type Host struct {
 	Workspace *model.Workspace
 
 	realRoot string // Root with symlinks resolved, which every document must lie under
+
+	// mu holds the workspace for a tool: shared while it reads, exclusive
+	// while it edits, so an edit is computed and written over one revision.
+	mu sync.RWMutex
+	// opened is the file on disk as it was when each open document was opened
+	// or last written, so a buffer is not written over an edit made meanwhile.
+	opened map[string]diskState
+}
+
+// diskState is a file's content on disk, or its absence.
+type diskState struct {
+	content []byte
+	existed bool
+}
+
+// readDisk is the state of the file at name, which may not exist.
+func readDisk(name string) (diskState, error) {
+	content, err := os.ReadFile(name) // #nosec G304 -- a workspace document resolve admitted
+	if errors.Is(err, fs.ErrNotExist) {
+		return diskState{}, nil
+	}
+	if err != nil {
+		return diskState{}, err
+	}
+	return diskState{content: content, existed: true}, nil
+}
+
+// same reports whether two disk states hold the same file.
+func (d diskState) same(o diskState) bool {
+	return d.existed == o.existed && bytes.Equal(d.content, o.content)
 }
 
 // NewHost starts a language server over root and indexes the model documents
@@ -60,7 +93,7 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 	if err := srv.Initialized(ctx, &protocol.InitializedParams{}); err != nil {
 		return nil, fmt.Errorf("indexing %s: %w", root, err)
 	}
-	h := &Host{Root: root, Server: srv, Workspace: ws, realRoot: root}
+	h := &Host{Root: root, Server: srv, Workspace: ws, realRoot: root, opened: map[string]diskState{}}
 	if real, err := filepath.EvalSymlinks(root); err == nil {
 		h.realRoot = real
 	}
@@ -245,43 +278,62 @@ func slices(names []string, name string) bool {
 	return false
 }
 
-// pendingWrite is one file of a change and the text it is to hold.
+// pendingWrite is one file of a change: the text it is to hold, and the text
+// the change was computed from.
 type pendingWrite struct {
 	name    string
 	content []byte
+	base    []byte
 }
 
-// writeAll puts every pending write on disk, or none: a file that changed on
-// disk since the workspace read it refuses the whole change, and a failed
-// write restores the files written before it. The index, and an open buffer of
-// a written document, then follow the new text.
+// writeAll puts every pending write on disk, or none: a file whose text on
+// disk is no longer what its change was computed from, or that changed under
+// an open buffer since the buffer was opened, refuses the whole change, and a
+// failed write restores the files written before it. Every file operation
+// goes through an os.Root at the resolved root, so a link repointed while the
+// change is in flight cannot carry a write outside it. The index, and an open
+// buffer of a written document, then follow the new text.
 func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
+	root, err := os.OpenRoot(h.realRoot)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
 	type original struct {
-		content []byte
-		existed bool
+		target string
+		diskState
 	}
 	originals := make(map[string]original, len(writes))
 	for _, w := range writes {
-		prev, err := os.ReadFile(w.name) // #nosec G304 -- a workspace document resolve admitted
+		target, err := h.target(w.name)
+		if err != nil {
+			return err
+		}
+		prev, err := root.ReadFile(target)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
-		if held, ok := h.Workspace.OnDisk(w.name); ok && !slices(h.Workspace.OpenNames(), w.name) && (err != nil || !bytes.Equal(prev, held)) {
+		now := diskState{content: prev, existed: err == nil}
+		if seen, open := h.opened[w.name]; open {
+			if !now.same(seen) {
+				return fmt.Errorf("%s changed on disk while it was held open; close_document and open it again with the text to keep", h.display(uri.File(w.name)))
+			}
+		} else if !now.same(diskState{content: w.base, existed: true}) {
 			return fmt.Errorf("%s changed on disk since it was read; call the tool again", h.display(uri.File(w.name)))
 		}
-		originals[w.name] = original{content: prev, existed: err == nil}
+		originals[w.name] = original{target: target, diskState: now}
 	}
 	var written []string
 	for _, w := range writes {
-		if err := writeFile(w.name, w.content); err != nil {
+		if err := writeFile(root, originals[w.name].target, w.content); err != nil {
 			var restore []string
 			for _, name := range written {
 				o := originals[name]
 				var rerr error
 				if o.existed {
-					rerr = writeFile(name, o.content)
+					rerr = writeFile(root, o.target, o.content)
 				} else {
-					rerr = os.Remove(name)
+					rerr = root.Remove(o.target)
 				}
 				if rerr != nil {
 					restore = append(restore, h.display(uri.File(name)))
@@ -295,7 +347,8 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 		written = append(written, w.name)
 	}
 	for _, w := range writes {
-		if slices(h.Workspace.OpenNames(), w.name) {
+		if _, open := h.opened[w.name]; open {
+			h.opened[w.name] = diskState{content: w.content, existed: true}
 			if err := h.replace(ctx, w.name, string(w.content)); err != nil {
 				return err
 			}
@@ -305,34 +358,59 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	return nil
 }
 
-// writeFile replaces name with content in one step: the bytes go to a
-// temporary file beside it that is renamed over it, so a failure part-way
-// leaves the file as it was. A symlink is followed, so the link stays and its
-// target is what changes; an existing file keeps its mode.
-func writeFile(name string, content []byte) error {
-	if real, err := filepath.EvalSymlinks(name); err == nil {
-		name = real
+// target is the file a write to name reaches, relative to the resolved root:
+// name with symlinks resolved, checked at write time to lie under the root,
+// since a link may have been repointed after the path was resolved. A file not
+// yet on disk lands in its resolved directory.
+func (h *Host) target(name string) (string, error) {
+	if !under(h.Root, name) {
+		return "", fmt.Errorf("%s is outside the workspace root %s", name, h.Root)
 	}
+	real, err := filepath.EvalSymlinks(name)
+	if errors.Is(err, fs.ErrNotExist) {
+		var dir string
+		if dir, err = filepath.EvalSymlinks(filepath.Dir(name)); err == nil {
+			real = filepath.Join(dir, filepath.Base(name))
+		}
+	}
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", h.display(uri.File(name)), err)
+	}
+	if !under(h.realRoot, real) {
+		return "", fmt.Errorf("%s resolves to %s, outside the workspace root %s", h.display(uri.File(name)), real, h.Root)
+	}
+	return filepath.Rel(h.realRoot, real)
+}
+
+// writeFile replaces name, relative to root, with content in one step: the
+// bytes go to a temporary file beside it that is renamed over it, so a failure
+// part-way leaves the file as it was. An existing file keeps its mode.
+func writeFile(root *os.Root, name string, content []byte) error {
 	mode := os.FileMode(0o600)
-	if info, err := os.Stat(name); err == nil {
+	if info, err := root.Stat(name); err == nil {
 		mode = info.Mode().Perm()
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(name), "."+filepath.Base(name)+".*.tmp")
+	var suffix [6]byte
+	if _, err := rand.Read(suffix[:]); err != nil {
+		return err
+	}
+	tmp := filepath.Join(filepath.Dir(name), "."+filepath.Base(name)+"."+hex.EncodeToString(suffix[:])+".tmp")
+	f, err := root.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 	if err != nil {
 		return err
 	}
-	_, err = tmp.Write(content)
-	if cerr := tmp.Close(); err == nil {
+	_, err = f.Write(content)
+	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
 	if err == nil {
-		err = os.Chmod(tmp.Name(), mode)
+		err = root.Chmod(tmp, mode)
 	}
 	if err == nil {
-		err = os.Rename(tmp.Name(), name)
+		err = root.Rename(tmp, name)
 	}
 	if err != nil {
-		_ = os.Remove(tmp.Name())
+		_ = root.Remove(tmp)
 	}
 	return err
 }
@@ -364,7 +442,7 @@ func Register(s *mcp.Server, h *Host) {
 		Name:        "workspace_info",
 		Description: "Describe the SysML v2 workspace the server has indexed: its root folder and the model documents found under it.",
 		Annotations: toolkit.ReadOnly("Workspace info"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ WorkspaceInfoInput) (*mcp.CallToolResult, WorkspaceInfo, error) {
+	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, _ WorkspaceInfoInput) (*mcp.CallToolResult, WorkspaceInfo, error) {
 		h.Refresh(ctx)
 		info := WorkspaceInfo{Root: h.Root, Documents: []string{}}
 		for _, name := range h.Workspace.DocumentNames() {
@@ -375,12 +453,31 @@ func Register(s *mcp.Server, h *Host) {
 		sort.Strings(info.Documents)
 		info.Open = h.Workspace.OpenNames()
 		return nil, info, nil
-	})
+	}))
 	registerQueries(s, h)
 	registerEdits(s, h)
 	registerRendering(s, h)
 	registerSync(s, h)
 	registerResources(s, h)
+}
+
+// reading runs a tool holding the workspace shared with other readers.
+func reading[In, Out any](h *Host, fn mcp.ToolHandlerFor[In, Out]) mcp.ToolHandlerFor[In, Out] {
+	return func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
+		h.mu.RLock()
+		defer h.mu.RUnlock()
+		return fn(ctx, req, in)
+	}
+}
+
+// writing runs a tool holding the workspace exclusively, from the read its
+// edit is computed on to the write, so no other tool changes it in between.
+func writing[In, Out any](h *Host, fn mcp.ToolHandlerFor[In, Out]) mcp.ToolHandlerFor[In, Out] {
+	return func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		return fn(ctx, req, in)
+	}
 }
 
 // text wraps prose as the readable content of a result whose structured

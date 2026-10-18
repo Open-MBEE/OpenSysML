@@ -20,7 +20,7 @@ type DiagnosticsInput struct {
 
 func (g *group) registerDiagnostics(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "model_diagnostics",
+		Name: "diagnostics",
 		Description: "Report every diagnostic of a parsed model (the GetDiagnostics RPC), as `sysml -validate` does: each with its " +
 			"severity, code, message and position. Parse with `strictConformance` for the strict mode of `sysml -validate -strict`; " +
 			"`disableLint` and `enableLint` select the lints as `sysml -disable-lint`/`-enable-lint` do. The result is the " +

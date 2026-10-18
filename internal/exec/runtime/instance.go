@@ -153,12 +153,40 @@ func (ctx *Context) shapeHoldsValue(typ *symbols.Symbol) bool {
 	if !ctx.model.semantics.ValueHeld(typ) {
 		return true
 	}
+	usages := ctx.usageAndSpecializedUsages(typ)
 	for _, feat := range features {
-		if !ctx.libraryDeclared(feat.Symbol) && holdsRecordField(feat.Symbol) {
+		if !holdsRecordField(feat.Symbol) {
+			continue
+		}
+		// A library usage's own body (`:>> mRefs default (m, m, m)`) describes the particular
+		// frame it names, for the usage and for a usage specializing it (`attribute local :> …`).
+		if !ctx.libraryDeclared(feat.Symbol) || usages[feat.OwnerType] {
 			return true
 		}
 	}
 	return false
+}
+
+// usageAndSpecializedUsages is typ, when it is a usage, with every usage it
+// directly specializes (`attribute local :> ...Frame;`); a definition contributes nothing.
+func (ctx *Context) usageAndSpecializedUsages(typ *symbols.Symbol) map[*symbols.Symbol]bool {
+	usages := map[*symbols.Symbol]bool{}
+	if usageSymbol(typ) {
+		usages[typ] = true
+	}
+	for _, sup := range ctx.model.semantics.DirectSupertypes(typ) {
+		if usageSymbol(sup) {
+			usages[sup] = true
+		}
+	}
+	return usages
+}
+
+// usageSymbol reports whether sym declares a usage — a feature — rather than a
+// definition; a KerML classifier is parsed as a usage node but classifies.
+func usageSymbol(sym *symbols.Symbol) bool {
+	_, ok := sym.Decl.(*ast.Usage)
+	return ok && !sym.Kind.IsDefinition()
 }
 
 // noValueError reports the read of node, which found the unset value val, naming
@@ -1028,6 +1056,11 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 		return fv, nil
 	}
 
+	// A feature reference-subsetting another of this object holds that one's values.
+	if held, err := inst.materializeReferenced(ctx, fv, name); err != nil || held {
+		return fv, err
+	}
+
 	// An abstract feature has no values of its own (KerML 1.0 §7.3.3.1) and an
 	// optional one demands none: each, a connector included, holds only contributions —
 	// unless the declaration's body binds a feature of the one object it then holds.
@@ -1325,14 +1358,19 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 	return feat.Type
 }
 
-// declaresFeatures reports whether a usage's body, or that of a feature it redefines, declares
-// features: a redefining feature inherits the redefined one's (KerML 1.0 §7.3.4.5).
+// declaresFeatures reports whether a usage's body, or that of a feature it redefines or
+// directly subsets, declares features: a specializing feature inherits them (KerML 1.0 §7.3.4.5).
 func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 	if declaresFeatures(feat.Symbol) {
 		return true
 	}
 	for _, redefined := range ctx.redefinedFeatures(feat.Symbol, feat.OwnerType) {
 		if declaresFeatures(redefined) {
+			return true
+		}
+	}
+	for _, sup := range ctx.model.semantics.DirectSupertypes(feat.Symbol) {
+		if usageSymbol(sup) && declaresFeatures(sup) {
 			return true
 		}
 	}

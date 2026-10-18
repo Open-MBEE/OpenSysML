@@ -1471,14 +1471,14 @@ func isActionSymbol(sym *symbols.Symbol) bool {
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.Definition:
-		return d.Kind == ast.DefAction
+		return d.Kind.IsAction()
 	case *ast.Usage:
-		return d.Kind == ast.UsageAction
+		return d.Kind.IsAction()
 	}
 	if sym.Decl != nil {
 		return false
 	}
-	return sym.Kind == symbols.SymbolActionDef || sym.Kind == symbols.SymbolActionUsage
+	return sym.Kind.IsAction()
 }
 
 // isStateSymbol reports whether sym declares a state, reading its declaration when

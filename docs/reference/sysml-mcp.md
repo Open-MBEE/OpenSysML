@@ -195,10 +195,10 @@ catalogue small for an agent that needs only one of them. The catalogue below is
 own `tools/list`, with each tool's description cut to its first sentence; the tool's full
 description, read by the agent, says what every argument does.
 
-No two groups share a tool name: the `lsp` group's `diagnostics`, `render_view` and
-`render_document` work on a document of the workspace, the `runtime` group's
-`model_diagnostics`, `render_model_view` and `render_model_document` on a model given as
-`paths`, inline `sources` or a `modelHash`. Every server also serves `tool_catalog`, which
+No two groups share a tool name: the `lsp` group's `workspace_diagnostics`, `render_view` and
+`render_document` work on a document of the workspace, the `runtime` group's `diagnostics`,
+`render_model_view` and `render_model_document` on a model given as `paths`, inline `sources` or
+a `modelHash`. Every server also serves `tool_catalog`, which
 answers this catalogue — each tool's group, the `sysml-grpc` RPC or `sysml` flag it stands for
 and a one-line summary — narrowed to the groups served, so an agent can discover the surface
 without this page.
@@ -212,7 +212,6 @@ without this page.
 | `code_actions` | List the quick fixes and refactorings available for a range of a document, each with the edits it would make. | no |
 | `completion` | Propose completions at a position: keywords, names in scope and members of the type being accessed. | no |
 | `definition` | Find where the name at a position is declared. | no |
-| `diagnostics` | Analyze a SysML v2 / KerML document, or the whole workspace, and list the errors, warnings and hints: syntax, unresolved names, type and constraint violations. | no |
 | `document_symbols` | Outline a document: the elements it declares, nested as they are owned, with their kinds and ranges. | no |
 | `documents` | List the document definitions (doc def) declared across the workspace, which render_document renders to Markdown. | no |
 | `format` | Format a SysML v2 / KerML document, or only the lines of a range, in the canonical style. | yes |
@@ -226,6 +225,7 @@ without this page.
 | `signature_help` | Describe the invocation enclosing a position: the callable's parameters and which one the position is at. | no |
 | `update_document` | Replace the text of a document held open by open_document and re-analyze it. | yes |
 | `views` | List the views a document declares and the pseudo-views (#tree, #interconnection, ...) render_view can draw of it. | no |
+| `workspace_diagnostics` | Analyze a SysML v2 / KerML document, or the whole workspace, and list the errors, warnings and hints: syntax, unresolved names, type and constraint violations. | no |
 | `workspace_info` | Describe the SysML v2 workspace the server has indexed: its root folder and the model documents found under it. | no |
 | `workspace_symbols` | Search the workspace's declared elements by name substring. | no |
 
@@ -237,6 +237,7 @@ without this page.
 | `check_behavior` | Search every schedule of an action or state machine (the CheckBehavior RPC, the REPL's %check-property/%check-diverge settings about %action/%state): a property false at a stable state, a deadlock, a failure or a feature whose final value the schedule decides is witnessed and replayed. | no |
 | `compare_results` | Run every configuration a SysML v1 tool's results sidecar indexes against the migrated model (the CompareResults RPC, the CLI's -compare-results with -action, -runs, -seed, -draws, -clock-step and -observe): each on its target, for its recorded run count under its duration mode, or the runs and draws given, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference. | no |
 | `convert` | Convert a SysML v2 model between the representations OpenSysML writes — textual notation, RDF Turtle, the API's JSON element form — (the Convert RPC, the CLI's -convert). | no |
+| `diagnostics` | Report every diagnostic of a parsed model (the GetDiagnostics RPC), as `sysml -validate` does: each with its severity, code, message and position. | no |
 | `evaluate` | Evaluate a SysML expression against a parsed model (the Evaluate RPC, the REPL's %eval): arithmetic, feature reads, quantities with units, collection operators. | no |
 | `evaluate_calc` | Invoke a calculation (the EvaluateCalc RPC, the REPL's %calc): a calc definition with positional arguments answers its `result`; a calc usage named with no arguments binds its inputs from its own members and answers every output feature in `outputs`. | no |
 | `execute_action` | Run an action definition or usage to completion and report its output parameters (the ExecuteAction RPC, the REPL's %run). | no |
@@ -247,7 +248,6 @@ without this page.
 | `instantiate` | Build an object of a part definition or usage and report its feature values (the Instantiate RPC, the REPL's %instantiate): every attribute's value or default, nested parts as instance ids, with every reachable instance in `instances`. | yes |
 | `list_engines` | List the analysis engines this build registers (the ListEngines RPC, as the CLI's -engines does): each with the questions it answers (evaluate, outcomes, holds, sensitive, satisfiable, sweep, compute), the strongest evidence it can produce, the bounds it takes, and whether it can run here. | no |
 | `migrate` | Migrate a SysML v1 model — UML XMI with the SysML profile, an Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2 in one of the representations convert writes (the Migrate RPC, the CLI's -migrate). | no |
-| `model_diagnostics` | Report every diagnostic of a parsed model (the GetDiagnostics RPC), as `sysml -validate` does: each with its severity, code, message and position. | no |
 | `parse` | Parse SysML v2 / KerML documents as one model and return its modelHash, the root namespace of each document and every diagnostic (the ParseSources RPC). | no |
 | `query` | Select elements of a parsed model with a SysML v2 API & Services Query — scope, select, where — or OSLC query text (the Query RPC). | no |
 | `record_run` | Run an analysis case — once, over the rows of a sweep (`ranges`), or as a Monte Carlo sample (`runs`) — and record the runs into the model as AnalysisRecords declarations (the RecordRun RPC, the CLI's -record-run/-record-into, the REPL's %record). | no |
