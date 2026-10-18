@@ -631,6 +631,47 @@ func TestResolveConfinesPathsToTheWorkspaceRoot(t *testing.T) {
 	}
 }
 
+func TestResolveAcceptsAbsolutePathsUnderARelativeRoot(t *testing.T) {
+	parent := t.TempDir()
+	if err := os.Mkdir(filepath.Join(parent, "models"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(parent)
+	m := NewManager("models", func() (*repl.Session, error) { return repl.NewSession(), nil })
+	want := filepath.Join(parent, "models", "a.sysml")
+	if got, err := m.Resolve(want); err != nil || got != want {
+		t.Errorf("Resolve(%q) = %q, %v; want it accepted", want, got, err)
+	}
+	if got, err := m.Resolve("a.sysml"); err != nil || got != want {
+		t.Errorf("Resolve(a.sysml) = %q, %v; want %q", got, err, want)
+	}
+	if got, err := m.Resolve(filepath.Join(parent, "a.sysml")); err == nil {
+		t.Errorf("Resolve of the root's parent = %q; want a refusal", got)
+	}
+}
+
+func TestResolveFollowsSymlinksBeforeJudgingTheRoot(t *testing.T) {
+	root, outside := t.TempDir(), t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, "escape")); err != nil {
+		t.Skip(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "models"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "models"), filepath.Join(root, "alias")); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(root, func() (*repl.Session, error) { return repl.NewSession(), nil })
+	for _, in := range []string{"escape", "escape/model.sysml", "escape/deeper/model.sysml"} {
+		if got, err := m.Resolve(in); err == nil || !strings.Contains(err.Error(), "through a symlink") {
+			t.Errorf("Resolve(%q) = %q, %v; want a refusal naming the symlink", in, got, err)
+		}
+	}
+	if got, err := m.Resolve("alias/model.sysml"); err != nil || got != filepath.Join(root, "alias", "model.sysml") {
+		t.Errorf("Resolve(alias/model.sysml) = %q, %v; want a symlink staying inside the root accepted", got, err)
+	}
+}
+
 func TestResolveExpandsHomeWhenItLiesUnderTheRoot(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
