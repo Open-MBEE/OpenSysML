@@ -1,0 +1,1 @@
+- The Go client's `RenderView` takes `WithShow(elements...)` and `WithDepth(n)` beside `WithFullPorts()`, and its `RenderedView.Shown` lists the optional notation elements drawn, as the other clients already read them.
