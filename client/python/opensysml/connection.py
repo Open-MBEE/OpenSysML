@@ -51,6 +51,9 @@ from opensysml.capabilities import (
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES,
     CAPABILITY_PERFORMER,
+    CAPABILITY_RECORD_RUN,
+    CAPABILITY_RUNS,
+    CAPABILITY_SELF_CHECK,
     CAPABILITY_STATE_TRACE,
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
@@ -197,6 +200,7 @@ def _add_sequence_message(add, operation_data, depth=0):
     for child in fields.get("else_body", ()):
         extended = _add_sequence_message(add.else_body.add(), child, depth + 1) or extended
     return extended
+from opensysml.runs import Recording, RecordedDocument, RunDistribution, RunsResult, self_check_result
 from opensysml.check import check_result
 from opensysml.engines import ENGINE_AUTO, EngineInfo, Standing
 from opensysml.verdict import (
@@ -2920,6 +2924,13 @@ class Connection:
         ):
             raise _failure_of(response.error, response.failure_reason, diagnostics)
 
+        result = self._analysis_result(response, diagnostics)
+        if response.error:
+            raise AnalysisRunError(response.error, result, diagnostics=diagnostics)
+        return result
+
+    def _analysis_result(self, response, diagnostics):
+        """One case run as Python values, from a RunAnalysisResponse."""
         instances = self._instances_of(response)
         by_id = {inst.id: inst for inst in instances}
         # An object the response carries is read as it; one it does not stays an id.
@@ -2946,8 +2957,6 @@ class Connection:
                 ToolDryRun(response.tool_dry_run) if response.HasField("tool_dry_run") else None
             ),
         )
-        if response.error:
-            raise AnalysisRunError(response.error, result, diagnostics=diagnostics)
         return result
 
     def explore_analysis(self, symbol_id, model_hash, subject=None, arguments=None,
@@ -3096,6 +3105,10 @@ class Connection:
             raise _failure_of(
                 response.error, response.failure_reason, diagnostics
             )
+        return self._sweep_table(response, diagnostics)
+
+    def _sweep_table(self, response, diagnostics):
+        """The rows of a RunSweepResponse as Python values."""
         instances = self._instances_of(response)
         rows = [
             self._sweep_row(row, instances, diagnostics)
@@ -3105,6 +3118,201 @@ class Connection:
             rows, list(response.parameters), sampled=response.sampled,
             seed=response.seed, instances=instances, diagnostics=diagnostics,
             standing=Standing.of(response),
+        )
+
+    def run_runs(self, model_hash, action=None, analysis=None, runs=1, seed=None, draws=None,
+                 clock_step=0.0, observe=(), inputs=None, performer=None, subject=None,
+                 arguments=None, named_arguments=None, engine=None):
+        """Run an action, or a Simulation::MonteCarlo case, ``runs`` times.
+
+        Every run is an ordinary run in a context of its own, drawing its
+        modeled randomness from a seed derived from ``seed``: the same seed
+        makes the same runs. A run that failed is a row carrying its error.
+
+        Args:
+            model_hash (str): Hash from ParseFile response
+            action (str, optional): FQN of the action to run; give this or
+                ``analysis``
+            analysis (str, optional): FQN of the Monte Carlo analysis case
+            runs (int): How many runs to make
+            seed (int, optional): Seed the runs draw from; required unless
+                ``draws`` fixes them
+            draws (str, optional): ``random`` (the default), ``min``, ``max``
+                or ``average``
+            clock_step (float, optional): Clock step of each run; 0 keeps the default
+            observe (list[str], optional): The action's features each run
+                reports, ``clock`` for the time it completed at; none reports
+                every feature and the clock
+            inputs (dict, optional): The action's input parameters by name
+            performer (str, optional): FQN of the part whose object performs
+                the action
+            subject (str, optional): FQN of a part/usage to instantiate as the
+                case's subject
+            arguments (list, optional): Positional arguments of the case
+            named_arguments (dict, optional): Arguments of the case by name
+            engine (str, optional): The engine to ask
+
+        Returns:
+            RunsResult: The table, each observable's distribution and a case's
+            conclusion over the sample
+
+        Raises:
+            ExecutionError: If no run followed from the request
+            MissingCapabilityError: If the service predates ``runs``
+            InvalidRequestError: If neither or both of action and analysis are
+                given, runs is not positive, random draws have no seed, or the
+                draw policy names none
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        capabilities = [CAPABILITY_RUNS]
+        if performer:
+            capabilities.append(CAPABILITY_PERFORMER)
+        for capability in capabilities:
+            require(self.server_info(), capability, upgrade_remedy(capability))
+        self._require_engine(engine)
+        request = sysml_pb2.RunRunsRequest(
+            model_hash=model_hash,
+            action_symbol_id=action or "",
+            analysis_symbol_id=analysis or "",
+            inputs={name: self._python_to_value(val) for name, val in (inputs or {}).items()},
+            performer_symbol_id=performer or "",
+            subject_symbol_id=subject or "",
+            arguments=[self._python_to_value(arg) for arg in (arguments or [])],
+            runs=int(runs),
+            draws=draws or "",
+            clock_step=float(clock_step),
+            observe=list(observe),
+            engine=_engine_field(engine),
+        )
+        if seed is not None:
+            request.seed = int(seed)
+        for name, arg in (named_arguments or {}).items():
+            request.named_arguments[name].CopyFrom(self._python_to_value(arg))
+        with translate_rpc_errors(unimplemented=self._capability_refusal(tuple(capabilities))):
+            response = self._stub.RunRuns(request)
+        diagnostics = [Diagnostic(d) for d in response.diagnostics]
+        if response.error:
+            raise _failure_of(response.error, response.failure_reason, diagnostics)
+        return self._runs_result(response, diagnostics)
+
+    def _runs_result(self, response, diagnostics):
+        """The runs of a RunRunsResponse as Python values."""
+        instances = self._instances_of(response)
+        by_id = {inst.id: inst for inst in instances}
+        resolve = lambda instance_id: by_id.get(instance_id, instance_id)  # noqa: E731
+        rows = [self._sweep_row(row, instances, diagnostics) for row in response.rows]
+        outputs = {}
+        for output in response.outputs:
+            try:
+                outputs[output.name] = value_to_python(output.value, resolve)
+            except UnsupportedValueError as exc:
+                outputs[output.name] = exc
+        verdicts = [
+            Verdict(pb_verdict, instances=instances, diagnostics=diagnostics)
+            for pb_verdict in response.verdicts
+        ]
+        return RunsResult(
+            rows, response.observables, [RunDistribution.of(d) for d in response.distributions],
+            response.lines, outputs, verdicts, response.unconcluded, instances,
+            Standing.of(response), response.seed if response.HasField("seed") else None,
+            diagnostics,
+        )
+
+    def self_check(self, model_hash, packages=()):
+        """Apply the SysMLValidation constraints, and those of the rule
+        packages named, reflectively to every element of the model, as
+        ``sysml -self-check`` does.
+
+        Args:
+            model_hash (str): Hash from ParseFile response
+            packages (list[str], optional): FQNs of packages whose constraint
+                definitions apply after the bundled ones (``-self-check-package``)
+
+        Returns:
+            SelfCheckResult: Every finding and the counts over them
+
+        Raises:
+            ExecutionError: If a package named is not declared
+            MissingCapabilityError: If the service predates ``self_check``
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        require(self.server_info(), CAPABILITY_SELF_CHECK, upgrade_remedy(CAPABILITY_SELF_CHECK))
+        request = sysml_pb2.SelfCheckRequest(model_hash=model_hash, self_check_package=list(packages))
+        with translate_rpc_errors(unimplemented=self._capability_refusal((CAPABILITY_SELF_CHECK,))):
+            response = self._stub.SelfCheck(request)
+        if response.error:
+            raise ExecutionError(response.error, diagnostics=[Diagnostic(d) for d in response.diagnostics])
+        return self_check_result(response)
+
+    def record_run(self, symbol_id, model_hash, subject=None, arguments=None, named_arguments=None,
+                   into=None, ranges=None, runs=0, seed=None, engine=None):
+        """Run an analysis case and record the runs into the model as
+        AnalysisRecords declarations, as ``sysml -record-run`` does.
+
+        With neither ``ranges`` nor ``runs`` the case runs once; ``ranges`` runs
+        it once per row as :meth:`run_sweep` does and records each completed
+        row; ``runs`` runs it that many times as :meth:`run_runs` does a Monte
+        Carlo case and records each completed run and the sample's conclusion.
+
+        Args:
+            symbol_id (str): FQN of the analysis case
+            model_hash (str): Hash from ParseFile response
+            subject (str, optional): FQN of a part/usage to instantiate as the subject
+            arguments (list, optional): Positional arguments
+            named_arguments (dict, optional): Arguments by name
+            into (str, optional): Package the records go into
+                (``-record-into``); none is a Records package beside the
+                package enclosing the case's own
+            ranges (dict, optional): Ranges as :meth:`run_sweep` takes them
+            runs (int, optional): Monte Carlo runs to make and record
+            seed (int, optional): Seed of the sample's draws; required with runs
+            engine (str, optional): The engine to ask
+
+        Returns:
+            Recording: The runs' report, what the model gained and the
+            notation the records were written into
+
+        Raises:
+            ExecutionError: If nothing was recorded: the case could not run,
+                no run completed, or the records would not analyze cleanly
+            MissingCapabilityError: If the service predates ``record_run``
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        require(self.server_info(), CAPABILITY_RECORD_RUN, upgrade_remedy(CAPABILITY_RECORD_RUN))
+        self._require_engine(engine)
+        request = sysml_pb2.RecordRunRequest(
+            model_hash=model_hash,
+            analysis_symbol_id=symbol_id,
+            subject_symbol_id=subject or "",
+            arguments=[self._python_to_value(arg) for arg in (arguments or [])],
+            engine=_engine_field(engine),
+            record_into=into or "",
+            runs=int(runs),
+            accept_documents=True,
+        )
+        if seed is not None:
+            request.seed = int(seed)
+        for name, arg in (named_arguments or {}).items():
+            request.named_arguments[name].CopyFrom(self._python_to_value(arg))
+        for name, bounds in (ranges or {}).items():
+            request.ranges.append(self._sweep_range(name, bounds))
+        with translate_rpc_errors(unimplemented=self._capability_refusal((CAPABILITY_RECORD_RUN,))):
+            response = self._stub.RecordRun(request)
+        diagnostics = [Diagnostic(d) for d in response.diagnostics]
+        if response.error:
+            raise _failure_of(response.error, response.failure_reason, diagnostics)
+        run = sweep = sample = None
+        if response.HasField("run"):
+            run = self._analysis_result(response.run, [Diagnostic(d) for d in response.run.diagnostics])
+        if response.HasField("sweep"):
+            sweep = self._sweep_table(response.sweep, [Diagnostic(d) for d in response.sweep.diagnostics])
+        if response.HasField("sample"):
+            sample = self._runs_result(response.sample, [Diagnostic(d) for d in response.sample.diagnostics])
+        return Recording(
+            run, sweep, sample, response.package, response.definition, response.records,
+            response.source, response.content,
+            [RecordedDocument(d.name, d.content) for d in response.documents],
+            response.skipped, response.reasons, response.model_hash, diagnostics,
         )
 
     def _sweep_range(self, name, bounds):

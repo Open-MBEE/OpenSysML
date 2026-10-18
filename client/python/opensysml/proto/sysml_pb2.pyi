@@ -2007,6 +2007,265 @@ class RunSweepResponse(_message.Message):
     bounds: _containers.RepeatedCompositeFieldContainer[Bound]
     def __init__(self, rows: _Optional[_Iterable[_Union[SweepRow, _Mapping]]] = ..., parameters: _Optional[_Iterable[str]] = ..., sampled: _Optional[bool] = ..., seed: _Optional[int] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ...) -> None: ...
 
+class RunRunsRequest(_message.Message):
+    __slots__ = ("model_hash", "action_symbol_id", "analysis_symbol_id", "inputs", "performer_symbol_id", "subject_symbol_id", "arguments", "named_arguments", "runs", "seed", "draws", "clock_step", "observe", "engine")
+    class InputsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: Value
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
+    class NamedArgumentsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: Value
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    ACTION_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    ANALYSIS_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    INPUTS_FIELD_NUMBER: _ClassVar[int]
+    PERFORMER_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    SUBJECT_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    NAMED_ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    RUNS_FIELD_NUMBER: _ClassVar[int]
+    SEED_FIELD_NUMBER: _ClassVar[int]
+    DRAWS_FIELD_NUMBER: _ClassVar[int]
+    CLOCK_STEP_FIELD_NUMBER: _ClassVar[int]
+    OBSERVE_FIELD_NUMBER: _ClassVar[int]
+    ENGINE_FIELD_NUMBER: _ClassVar[int]
+    model_hash: str
+    action_symbol_id: str
+    analysis_symbol_id: str
+    inputs: _containers.MessageMap[str, Value]
+    performer_symbol_id: str
+    subject_symbol_id: str
+    arguments: _containers.RepeatedCompositeFieldContainer[Value]
+    named_arguments: _containers.MessageMap[str, Value]
+    runs: int
+    seed: int
+    draws: str
+    clock_step: float
+    observe: _containers.RepeatedScalarFieldContainer[str]
+    engine: str
+    def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., analysis_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., performer_symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., named_arguments: _Optional[_Mapping[str, Value]] = ..., runs: _Optional[int] = ..., seed: _Optional[int] = ..., draws: _Optional[str] = ..., clock_step: _Optional[float] = ..., observe: _Optional[_Iterable[str]] = ..., engine: _Optional[str] = ...) -> None: ...
+
+class RunDistribution(_message.Message):
+    __slots__ = ("name", "unit", "count", "numeric", "min", "max", "mean", "deviation", "percentiles", "histogram", "values")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    UNIT_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    NUMERIC_FIELD_NUMBER: _ClassVar[int]
+    MIN_FIELD_NUMBER: _ClassVar[int]
+    MAX_FIELD_NUMBER: _ClassVar[int]
+    MEAN_FIELD_NUMBER: _ClassVar[int]
+    DEVIATION_FIELD_NUMBER: _ClassVar[int]
+    PERCENTILES_FIELD_NUMBER: _ClassVar[int]
+    HISTOGRAM_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    unit: str
+    count: int
+    numeric: bool
+    min: Value
+    max: Value
+    mean: Value
+    deviation: float
+    percentiles: _containers.RepeatedCompositeFieldContainer[RunPercentile]
+    histogram: _containers.RepeatedCompositeFieldContainer[RunHistogramBin]
+    values: _containers.RepeatedCompositeFieldContainer[RunCountedValue]
+    def __init__(self, name: _Optional[str] = ..., unit: _Optional[str] = ..., count: _Optional[int] = ..., numeric: _Optional[bool] = ..., min: _Optional[_Union[Value, _Mapping]] = ..., max: _Optional[_Union[Value, _Mapping]] = ..., mean: _Optional[_Union[Value, _Mapping]] = ..., deviation: _Optional[float] = ..., percentiles: _Optional[_Iterable[_Union[RunPercentile, _Mapping]]] = ..., histogram: _Optional[_Iterable[_Union[RunHistogramBin, _Mapping]]] = ..., values: _Optional[_Iterable[_Union[RunCountedValue, _Mapping]]] = ...) -> None: ...
+
+class RunPercentile(_message.Message):
+    __slots__ = ("percentile", "value")
+    PERCENTILE_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    percentile: float
+    value: Value
+    def __init__(self, percentile: _Optional[float] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
+
+class RunHistogramBin(_message.Message):
+    __slots__ = ("low", "high", "count")
+    LOW_FIELD_NUMBER: _ClassVar[int]
+    HIGH_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    low: Value
+    high: Value
+    count: int
+    def __init__(self, low: _Optional[_Union[Value, _Mapping]] = ..., high: _Optional[_Union[Value, _Mapping]] = ..., count: _Optional[int] = ...) -> None: ...
+
+class RunCountedValue(_message.Message):
+    __slots__ = ("value", "count")
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    value: Value
+    count: int
+    def __init__(self, value: _Optional[_Union[Value, _Mapping]] = ..., count: _Optional[int] = ...) -> None: ...
+
+class SelfCheckRequest(_message.Message):
+    __slots__ = ("model_hash", "self_check_package")
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    SELF_CHECK_PACKAGE_FIELD_NUMBER: _ClassVar[int]
+    model_hash: str
+    self_check_package: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, model_hash: _Optional[str] = ..., self_check_package: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class SelfCheckFinding(_message.Message):
+    __slots__ = ("status", "subject", "location", "constraint", "element", "message", "line")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    SUBJECT_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    CONSTRAINT_FIELD_NUMBER: _ClassVar[int]
+    ELEMENT_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    LINE_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    subject: str
+    location: str
+    constraint: str
+    element: str
+    message: str
+    line: str
+    def __init__(self, status: _Optional[str] = ..., subject: _Optional[str] = ..., location: _Optional[str] = ..., constraint: _Optional[str] = ..., element: _Optional[str] = ..., message: _Optional[str] = ..., line: _Optional[str] = ...) -> None: ...
+
+class SelfCheckApplication(_message.Message):
+    __slots__ = ("constraint", "count")
+    CONSTRAINT_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    constraint: str
+    count: int
+    def __init__(self, constraint: _Optional[str] = ..., count: _Optional[int] = ...) -> None: ...
+
+class SelfCheckResponse(_message.Message):
+    __slots__ = ("status", "findings", "elements", "checks", "violations", "unevaluated", "evaluation_errors", "applications", "summary", "error", "diagnostics")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    FINDINGS_FIELD_NUMBER: _ClassVar[int]
+    ELEMENTS_FIELD_NUMBER: _ClassVar[int]
+    CHECKS_FIELD_NUMBER: _ClassVar[int]
+    VIOLATIONS_FIELD_NUMBER: _ClassVar[int]
+    UNEVALUATED_FIELD_NUMBER: _ClassVar[int]
+    EVALUATION_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    APPLICATIONS_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    findings: _containers.RepeatedCompositeFieldContainer[SelfCheckFinding]
+    elements: int
+    checks: int
+    violations: int
+    unevaluated: int
+    evaluation_errors: int
+    applications: _containers.RepeatedCompositeFieldContainer[SelfCheckApplication]
+    summary: str
+    error: str
+    diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
+    def __init__(self, status: _Optional[str] = ..., findings: _Optional[_Iterable[_Union[SelfCheckFinding, _Mapping]]] = ..., elements: _Optional[int] = ..., checks: _Optional[int] = ..., violations: _Optional[int] = ..., unevaluated: _Optional[int] = ..., evaluation_errors: _Optional[int] = ..., applications: _Optional[_Iterable[_Union[SelfCheckApplication, _Mapping]]] = ..., summary: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ...) -> None: ...
+
+class RecordRunRequest(_message.Message):
+    __slots__ = ("model_hash", "analysis_symbol_id", "subject_symbol_id", "arguments", "named_arguments", "engine", "record_into", "ranges", "runs", "seed", "accept_documents")
+    class NamedArgumentsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: Value
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    ANALYSIS_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    SUBJECT_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    NAMED_ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    ENGINE_FIELD_NUMBER: _ClassVar[int]
+    RECORD_INTO_FIELD_NUMBER: _ClassVar[int]
+    RANGES_FIELD_NUMBER: _ClassVar[int]
+    RUNS_FIELD_NUMBER: _ClassVar[int]
+    SEED_FIELD_NUMBER: _ClassVar[int]
+    ACCEPT_DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
+    model_hash: str
+    analysis_symbol_id: str
+    subject_symbol_id: str
+    arguments: _containers.RepeatedCompositeFieldContainer[Value]
+    named_arguments: _containers.MessageMap[str, Value]
+    engine: str
+    record_into: str
+    ranges: _containers.RepeatedCompositeFieldContainer[SweepRange]
+    runs: int
+    seed: int
+    accept_documents: bool
+    def __init__(self, model_hash: _Optional[str] = ..., analysis_symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., named_arguments: _Optional[_Mapping[str, Value]] = ..., engine: _Optional[str] = ..., record_into: _Optional[str] = ..., ranges: _Optional[_Iterable[_Union[SweepRange, _Mapping]]] = ..., runs: _Optional[int] = ..., seed: _Optional[int] = ..., accept_documents: _Optional[bool] = ...) -> None: ...
+
+class RecordRunResponse(_message.Message):
+    __slots__ = ("run", "sweep", "sample", "package", "definition", "records", "source", "content", "documents", "skipped", "reasons", "error", "failure_reason", "diagnostics", "model_hash")
+    RUN_FIELD_NUMBER: _ClassVar[int]
+    SWEEP_FIELD_NUMBER: _ClassVar[int]
+    SAMPLE_FIELD_NUMBER: _ClassVar[int]
+    PACKAGE_FIELD_NUMBER: _ClassVar[int]
+    DEFINITION_FIELD_NUMBER: _ClassVar[int]
+    RECORDS_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    CONTENT_FIELD_NUMBER: _ClassVar[int]
+    DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
+    SKIPPED_FIELD_NUMBER: _ClassVar[int]
+    REASONS_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    FAILURE_REASON_FIELD_NUMBER: _ClassVar[int]
+    DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    run: RunAnalysisResponse
+    sweep: RunSweepResponse
+    sample: RunRunsResponse
+    package: str
+    definition: str
+    records: _containers.RepeatedScalarFieldContainer[str]
+    source: str
+    content: str
+    documents: _containers.RepeatedCompositeFieldContainer[EditedDocument]
+    skipped: int
+    reasons: _containers.RepeatedScalarFieldContainer[str]
+    error: str
+    failure_reason: FailureReason
+    diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
+    model_hash: str
+    def __init__(self, run: _Optional[_Union[RunAnalysisResponse, _Mapping]] = ..., sweep: _Optional[_Union[RunSweepResponse, _Mapping]] = ..., sample: _Optional[_Union[RunRunsResponse, _Mapping]] = ..., package: _Optional[str] = ..., definition: _Optional[str] = ..., records: _Optional[_Iterable[str]] = ..., source: _Optional[str] = ..., content: _Optional[str] = ..., documents: _Optional[_Iterable[_Union[EditedDocument, _Mapping]]] = ..., skipped: _Optional[int] = ..., reasons: _Optional[_Iterable[str]] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., model_hash: _Optional[str] = ...) -> None: ...
+
+class RunRunsResponse(_message.Message):
+    __slots__ = ("rows", "observables", "distributions", "lines", "outputs", "verdicts", "unconcluded", "error", "diagnostics", "failure_reason", "instances", "engine", "strength", "bounds", "seed")
+    ROWS_FIELD_NUMBER: _ClassVar[int]
+    OBSERVABLES_FIELD_NUMBER: _ClassVar[int]
+    DISTRIBUTIONS_FIELD_NUMBER: _ClassVar[int]
+    LINES_FIELD_NUMBER: _ClassVar[int]
+    OUTPUTS_FIELD_NUMBER: _ClassVar[int]
+    VERDICTS_FIELD_NUMBER: _ClassVar[int]
+    UNCONCLUDED_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
+    FAILURE_REASON_FIELD_NUMBER: _ClassVar[int]
+    INSTANCES_FIELD_NUMBER: _ClassVar[int]
+    ENGINE_FIELD_NUMBER: _ClassVar[int]
+    STRENGTH_FIELD_NUMBER: _ClassVar[int]
+    BOUNDS_FIELD_NUMBER: _ClassVar[int]
+    SEED_FIELD_NUMBER: _ClassVar[int]
+    rows: _containers.RepeatedCompositeFieldContainer[SweepRow]
+    observables: _containers.RepeatedScalarFieldContainer[str]
+    distributions: _containers.RepeatedCompositeFieldContainer[RunDistribution]
+    lines: _containers.RepeatedScalarFieldContainer[str]
+    outputs: _containers.RepeatedCompositeFieldContainer[CalcOutput]
+    verdicts: _containers.RepeatedCompositeFieldContainer[Verdict]
+    unconcluded: str
+    error: str
+    diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
+    failure_reason: FailureReason
+    instances: _containers.RepeatedCompositeFieldContainer[Instance]
+    engine: str
+    strength: str
+    bounds: _containers.RepeatedCompositeFieldContainer[Bound]
+    seed: int
+    def __init__(self, rows: _Optional[_Iterable[_Union[SweepRow, _Mapping]]] = ..., observables: _Optional[_Iterable[str]] = ..., distributions: _Optional[_Iterable[_Union[RunDistribution, _Mapping]]] = ..., lines: _Optional[_Iterable[str]] = ..., outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., unconcluded: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., seed: _Optional[int] = ...) -> None: ...
+
 class RunDocumentQueryRequest(_message.Message):
     __slots__ = ("model_hash", "query_id", "bindings")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
