@@ -662,6 +662,8 @@ per worker.
 sysml \-engines
 # Also start each external engine once
 sysml \-engines \-probe
+# Write the metaclass hierarchy as Turtle; no model is read
+sysml \-metaclass\-graph \-o sysml\-metaclasses.ttl
 # The same as \-schedule explore
 sysml \-engine explore \-action Drive m.sysml
 # Every engine that covers the question

@@ -110,6 +110,7 @@ var (
 	renderRuns       stringSlice
 	schedule         schedulePolicy
 	listEngines      bool
+	metaclassGraph   bool
 	explainCodes     codeNames
 	probeEngines     bool
 	engine           engineSelection
@@ -380,6 +381,16 @@ func runCLI() int {
 	if probeEngines {
 		fmt.Fprintln(os.Stderr, "sysml: -probe goes with -engines; it starts each external engine once to check it against its manifest")
 		return 2
+	}
+
+	// The metaclass hierarchy is a property of the pinned metamodel, not of any
+	// model, so it is written without one and the run ends there.
+	if metaclassGraph {
+		if err := writeMetaclassGraph(); err != nil {
+			fmt.Fprintln(os.Stderr, "sysml:", err)
+			return 2
+		}
+		return exitHolds
 	}
 
 	// A mode asked for with an empty value is a misuse, not an absent flag: it
