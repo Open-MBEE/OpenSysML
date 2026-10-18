@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -118,12 +119,51 @@ type conformanceCase struct {
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
 
+	// ImportData: the imports, in order.
+	Imports      []conformanceImport `json:"imports,omitempty"`
+	ImportDryRun bool                `json:"import_dry_run,omitempty"`
+	// ExpectedAssignments are the assignments' descriptions, in order, over
+	// every import; ExpectedContent (shared with ApplyEdits) the edited model.
+	ExpectedAssignments []string `json:"expected_assignments,omitempty"`
+
+	// CompareResults: the results index as JSON, the configurations selected,
+	// and how the runs draw.
+	Results         string            `json:"results,omitempty"`
+	Actions         []string          `json:"actions,omitempty"`
+	Runs            int64             `json:"runs,omitempty"`
+	Observe         map[string]string `json:"observe,omitempty"`
+	ExpectedConfigs []expectedConfig  `json:"expected_configurations,omitempty"`
+
 	// ExpectedError, when set, requires the RPC to report an in-band error
 	// containing this substring (a status error, for RunDocumentQuery).
 	ExpectedError string `json:"expected_error,omitempty"`
 
 	// ExecuteAction: the simulation clock the run ended at, checked when set.
 	ExpectedFinalTime *float64 `json:"expected_final_time,omitempty"`
+}
+
+// conformanceImport is one ImportData import: a name whose extension selects
+// the format unless import_format does, its content, and an optional mapping.
+type conformanceImport struct {
+	Name    string `json:"name"`
+	Content string `json:"content"`
+	Format  string `json:"import_format,omitempty"`
+	Map     string `json:"import_map,omitempty"`
+}
+
+// expectedConfig is what one CompareResults configuration must answer.
+type expectedConfig struct {
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	Runs       int64  `json:"runs,omitempty"`
+	Completed  int64  `json:"completed,omitempty"`
+	StoredRuns int64  `json:"stored_runs,omitempty"`
+	// Observables maps each stored observable to whether it was compared.
+	Observables map[string]bool `json:"observables,omitempty"`
+	// Unresolved is a substring of why the configuration could not run.
+	Unresolved string `json:"unresolved,omitempty"`
+	// LinesContain are substrings the CLI-formatted lines must contain.
+	LinesContain []string `json:"lines_contain,omitempty"`
 }
 
 type conformanceEditBody struct {
@@ -293,10 +333,134 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runRunDocumentQueryCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "EvaluateCalc":
 		runEvaluateCalcCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "ImportData":
+		runImportDataCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "CompareResults":
+		runCompareResultsCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "CheckBehavior":
 		runCheckBehaviorCase(t, srv, ctx, parseResp.ModelHash, tc)
 	default:
 		t.Fatalf("unknown rpc %q", tc.RPC)
+	}
+}
+
+func runImportDataCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	req := &pb.ImportDataRequest{ModelHash: modelHash, ImportDryRun: tc.ImportDryRun}
+	for _, item := range tc.Imports {
+		req.Imports = append(req.Imports, &pb.DataImport{
+			Name: item.Name, Content: item.Content, ImportFormat: item.Format, ImportMap: item.Map,
+		})
+	}
+	resp, err := srv.ImportData(ctx, req)
+	if err != nil {
+		t.Fatalf("ImportData: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		if len(resp.Files) != 0 || resp.ModelHash != "" || resp.Content != "" {
+			t.Errorf("a refused import answered files %v, model %q, content %q; want nothing changed", resp.Files, resp.ModelHash, resp.Content)
+		}
+		return
+	}
+	if len(resp.Files) != len(tc.Imports) {
+		t.Fatalf("files = %d, want one per import (%d)", len(resp.Files), len(tc.Imports))
+	}
+	var descriptions []string
+	for i, file := range resp.Files {
+		if file.Name != tc.Imports[i].Name {
+			t.Errorf("file %d is %q, want %q", i, file.Name, tc.Imports[i].Name)
+		}
+		if int(file.Values) != len(file.Assignments) {
+			t.Errorf("%s counts %d values over %d assignments", file.Name, file.Values, len(file.Assignments))
+		}
+		for _, a := range file.Assignments {
+			if a.Element == "" || a.Feature == "" || a.Value == "" || a.Where == "" {
+				t.Errorf("assignment %v is incomplete", a)
+			}
+			descriptions = append(descriptions, a.Description)
+		}
+	}
+	if !slices.Equal(descriptions, tc.ExpectedAssignments) {
+		t.Errorf("assignments = %q, want %q", descriptions, tc.ExpectedAssignments)
+	}
+	if tc.ImportDryRun {
+		if resp.ModelHash != "" || resp.Content != "" || len(resp.Documents) != 0 {
+			t.Errorf("a dry run answered model %q, content %q, documents %d; want the model untouched", resp.ModelHash, resp.Content, len(resp.Documents))
+		}
+		return
+	}
+	if resp.ModelHash == "" || resp.ModelHash == modelHash {
+		t.Fatalf("the imported model's hash %q is not a new model", resp.ModelHash)
+	}
+	if resp.Content != tc.ExpectedContent {
+		t.Errorf("content:\n%s\nwant:\n%s", resp.Content, tc.ExpectedContent)
+	}
+	if len(resp.Documents) != 1 || resp.Documents[0].Content != resp.Content {
+		t.Errorf("documents = %v; want the one edited document", resp.Documents)
+	}
+	if sym, err := srv.GetSymbol(ctx, &pb.GetSymbolRequest{ModelHash: resp.ModelHash, SymbolId: resp.Files[0].Assignments[0].Element}); err != nil || sym.Error != "" {
+		t.Errorf("the imported model does not answer GetSymbol: %v %s", err, sym.GetError())
+	}
+}
+
+func runCompareResultsCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	req := &pb.CompareResultsRequest{ModelHash: modelHash, Results: tc.Results, Actions: tc.Actions, Runs: tc.Runs, Seed: tc.Seed}
+	for _, stored := range slices.Sorted(maps.Keys(tc.Observe)) {
+		req.Observe = append(req.Observe, &pb.ObservablePair{Stored: stored, Feature: tc.Observe[stored]})
+	}
+	resp, err := srv.CompareResults(ctx, req)
+	if err != nil {
+		t.Fatalf("CompareResults: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		return
+	}
+	if len(resp.Configurations) != len(tc.ExpectedConfigs) {
+		t.Fatalf("configurations = %d, want %d", len(resp.Configurations), len(tc.ExpectedConfigs))
+	}
+	for i, want := range tc.ExpectedConfigs {
+		got := resp.Configurations[i]
+		if got.Name != want.Name || got.Status != want.Status {
+			t.Errorf("configuration %d is %s (%s), want %s (%s)", i, got.Name, got.Status, want.Name, want.Status)
+		}
+		if got.Runs != want.Runs || got.Completed != want.Completed || got.StoredRuns != want.StoredRuns {
+			t.Errorf("%s ran %d (%d completed) beside %d stored, want %d (%d) beside %d", want.Name, got.Runs, got.Completed, got.StoredRuns, want.Runs, want.Completed, want.StoredRuns)
+		}
+		if len(got.Rows) != int(got.Runs) {
+			t.Errorf("%s tables %d rows for %d runs", want.Name, len(got.Rows), got.Runs)
+		}
+		if want.Unresolved != "" && !strings.Contains(got.Unresolved, want.Unresolved) {
+			t.Errorf("%s unresolved = %q, want it to mention %q", want.Name, got.Unresolved, want.Unresolved)
+		}
+		if tc.Seed != nil && want.Status != "unresolved" && (got.Seed == nil || *got.Seed != *tc.Seed) {
+			t.Errorf("%s seed = %v, want %d", want.Name, got.Seed, *tc.Seed)
+		}
+		if len(got.Observables) != len(want.Observables) {
+			t.Errorf("%s observables = %d, want %d", want.Name, len(got.Observables), len(want.Observables))
+		}
+		for _, o := range got.Observables {
+			compared, known := want.Observables[o.Stored]
+			if !known {
+				t.Errorf("%s compares %q, which the fixture does not expect", want.Name, o.Stored)
+				continue
+			}
+			if o.Compared != compared {
+				t.Errorf("%s %s compared = %v, want %v (notes %v)", want.Name, o.Stored, o.Compared, compared, o.Notes)
+			}
+			if compared && (o.Tool == nil || o.Run == nil || o.Difference == nil || o.Run.Count != got.Completed) {
+				t.Errorf("%s %s is compared without both distributions and their difference: %v", want.Name, o.Stored, o)
+			}
+		}
+		if len(got.Lines) == 0 {
+			t.Errorf("%s answers no lines", want.Name)
+		}
+		joined := strings.Join(got.Lines, "\n")
+		for _, text := range want.LinesContain {
+			if !strings.Contains(joined, text) {
+				t.Errorf("%s lines:\n%s\nwant them to contain %q", want.Name, joined, text)
+			}
+		}
 	}
 }
 

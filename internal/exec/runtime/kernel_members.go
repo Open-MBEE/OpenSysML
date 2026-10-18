@@ -124,7 +124,7 @@ func (ctx *Context) trackedKernelValue(inst *Instance, sym *symbols.Symbol, feat
 		val, err := ctx.objectValue(inst)
 		return val, true, err
 	}
-	if feat.Scalar() || !ctx.kernelSubsets(self, inst.Type, sym) {
+	if feat.Scalar() || !ctx.subsetsTransitively(self, inst.Type, sym) {
 		return Value{}, false, nil
 	}
 	val, err := ctx.objectValue(inst)
@@ -168,7 +168,7 @@ func (ctx *Context) kernelInverseValue(inst *Instance, sym *symbols.Symbol, feat
 		if target == nil {
 			continue
 		}
-		if hasSelf && ctx.kernelSubsets(self, inst.Type, target) {
+		if hasSelf && ctx.subsetsTransitively(self, inst.Type, target) {
 			values = append(values, Value{Kind: ValInstance, Instance: inst.ID})
 		}
 		if !compositeFeature(target) {
@@ -179,7 +179,7 @@ func (ctx *Context) kernelInverseValue(inst *Instance, sym *symbols.Symbol, feat
 			continue
 		}
 		if holding, ok := owner.FeatureValues[held]; ok && holding.Feature != nil && holding.Feature.Symbol != nil &&
-			ctx.kernelSubsets(holding.Feature.Symbol, owner.Type, target) {
+			ctx.subsetsTransitively(holding.Feature.Symbol, owner.Type, target) {
 			values = append(values, Value{Kind: ValInstance, Instance: owner.ID})
 		}
 	}
@@ -201,30 +201,4 @@ func (ctx *Context) kernelInverseValue(inst *Instance, sym *symbols.Symbol, feat
 func compositeFeature(sym *symbols.Symbol) bool {
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && usage.IsComposite
-}
-
-// kernelSubsets reports whether feature, a member of owner, subsets target
-// transitively through declared `:>` edges, redefinitions and the subsettings a
-// model usage's kind implies (`part pa` subsets `subparts`, …, `suboccurrences`).
-func (ctx *Context) kernelSubsets(feature, owner, target *symbols.Symbol) bool {
-	seen := map[*symbols.Symbol]bool{feature: true}
-	for queue := []*symbols.Symbol{feature}; len(queue) > 0; {
-		cur := queue[0]
-		queue = queue[1:]
-		next := ctx.relatedFeatures(cur, owner, ast.RelSubsets)
-		next = append(next, ctx.redefinedFeatures(cur, owner)...)
-		if ctx.libraryTier(cur) == symbols.TierNone {
-			next = append(next, ctx.model.semantics.ImplicitSubsettings(cur)...)
-		}
-		for _, sub := range next {
-			if sub == target {
-				return true
-			}
-			if sub != nil && !seen[sub] {
-				seen[sub] = true
-				queue = append(queue, sub)
-			}
-		}
-	}
-	return false
 }

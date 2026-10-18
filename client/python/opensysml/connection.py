@@ -66,6 +66,8 @@ from opensysml.capabilities import (
     CAPABILITY_VERIFICATION,
     CAPABILITY_VERIFICATION_QUESTIONS,
     CAPABILITY_VERIFICATION_ARGUMENTS,
+    CAPABILITY_IMPORT_DATA,
+    CAPABILITY_COMPARE_RESULTS,
     MissingCapabilityError,
     ServerInfo,
     mismatch_reason,
@@ -94,7 +96,8 @@ from opensysml.document import (
     render_view_result,
     result_of as document_result,
 )
-from opensysml.edit import error_for_failure, failure_name, referrers_of, result_of
+from opensysml.edit import EditedDocument, error_for_failure, failure_name, referrers_of, result_of
+from opensysml.importcompare import comparison_result, import_result
 from opensysml.enumeration import EnumLiteral
 from opensysml.exploration import Exploration, Outcome
 from opensysml.errors import (
@@ -1987,6 +1990,105 @@ class Connection:
         ):
             response = self._stub.ExportGraphs(request)
         return graphs_result(response)
+
+    def import_data(self, model_hash, imports, import_as="values", dry_run=False, accept_documents=False):
+        """Set the feature values data files assign, one edit of the model per
+        file, as ``sysml -import`` does.
+
+        Args:
+            model_hash (str): Hash from ParseFile response
+            imports (list): Each data file as ``(name, content)``, or as a dict
+                with ``name``, ``content`` and optionally ``format`` (csv, tsv,
+                json or jsonl, as ``-import-format``) and ``map`` (the JSON
+                mapping text, as ``-import-map``)
+            import_as (str): What each row is made into (``-import-as``);
+                only ``values`` is supported
+            dry_run (bool): Report the values the imports would set, changing
+                nothing (``-import-dry-run``)
+            accept_documents (bool): Accept every edited document of a model
+                of several
+
+        Returns:
+            ImportResult: What each file set, the edited documents and the
+            hash of the imported model
+
+        Raises:
+            ExecutionError: If a file was refused; the model is then unchanged
+            MissingCapabilityError: If the service predates ``import_data``
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        require(self.server_info(), CAPABILITY_IMPORT_DATA, upgrade_remedy(CAPABILITY_IMPORT_DATA))
+        request = sysml_pb2.ImportDataRequest(
+            model_hash=model_hash, import_as=import_as, import_dry_run=dry_run, accept_documents=accept_documents,
+        )
+        for entry in imports:
+            if isinstance(entry, dict):
+                request.imports.add(name=entry["name"], content=entry["content"],
+                                    import_format=entry.get("format", ""), import_map=entry.get("map", ""))
+            else:
+                name, content = entry
+                request.imports.add(name=name, content=content)
+        with translate_rpc_errors(unimplemented=self._capability_refusal((CAPABILITY_IMPORT_DATA,))):
+            response = self._stub.ImportData(request)
+        if response.error:
+            raise ExecutionError(response.error, diagnostics=[Diagnostic(d) for d in response.diagnostics])
+        documents = [EditedDocument(name=d.name, content=d.content) for d in response.documents]
+        return import_result(response, documents)
+
+    def compare_results(self, model_hash, results, actions=(), runs=0, seed=None, draws=None,
+                        clock_step=None, observe=(), engine=None):
+        """Run the configurations a SysML v1 tool's results sidecar indexes
+        against the migrated model and table the tool's distributions of their
+        observables beside the runs', as ``sysml -compare-results`` does.
+
+        Args:
+            model_hash (str): Hash from ParseFile response
+            results (str): The sidecar JSON ``sysml -migration-results`` wrote
+            actions (list[str], optional): The configurations compared, by
+                qualified or simple name (``-action``); all when empty
+            runs (int, optional): Runs made of every configuration when
+                positive (``-runs``); else its own numberOfRuns, or one
+            seed (int, optional): The seed the runs derive theirs from
+                (``-seed``); without one, runs that draw at random are refused
+                unless ``draws`` fixes them
+            draws (str, optional): random, min, max or average (``-draws``)
+            clock_step (float, optional): Seconds; 0 is a continuous clock
+                (``-clock-step``)
+            observe (list, optional): Stored observables compared, each a name
+                or a ``(stored, feature)`` pair (``-observe``)
+            engine (str, optional): Engine selection
+
+        Returns:
+            Comparison: One ConfigurationComparison per configuration
+
+        Raises:
+            ExecutionError: If nothing could be compared
+            MissingCapabilityError: If the service predates ``compare_results``
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        require(self.server_info(), CAPABILITY_COMPARE_RESULTS, upgrade_remedy(CAPABILITY_COMPARE_RESULTS))
+        request = sysml_pb2.CompareResultsRequest(
+            model_hash=model_hash, results=results, actions=list(actions), runs=runs,
+            draws=draws or "", engine=engine or "",
+        )
+        if seed is not None:
+            request.seed = seed
+        if clock_step is not None:
+            request.clock_step = clock_step
+        for pair in observe:
+            if isinstance(pair, str):
+                request.observe.add(stored=pair)
+            else:
+                stored, feature = pair
+                request.observe.add(stored=stored, feature=feature)
+        with translate_rpc_errors(unimplemented=self._capability_refusal((CAPABILITY_COMPARE_RESULTS,))):
+            response = self._stub.CompareResults(request)
+        if response.error:
+            raise ExecutionError(response.error, diagnostics=[Diagnostic(d) for d in response.diagnostics])
+        diagnostics = [Diagnostic(d) for d in response.diagnostics]
+        return comparison_result(
+            response, lambda rows, instances: [self._sweep_row(row, instances, diagnostics) for row in rows],
+        )
 
     def get_symbol(self, model_hash, symbol_id):
         """Fetch symbol by ID from cached model.
