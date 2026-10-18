@@ -90,6 +90,19 @@ type conformanceCase struct {
 	// ExecuteState
 	Events []string `json:"events,omitempty"`
 
+	// RunRuns, RecordRun
+	Runs             int64    `json:"runs,omitempty"`
+	ObserveFeatures  []string `json:"observe_features,omitempty"`
+	RecordInto       string   `json:"record_into,omitempty"`
+	SelfCheckPackage []string `json:"self_check_package,omitempty"`
+
+	ExpectedRowCount    int      `json:"expected_row_count,omitempty"`
+	ExpectedObservables []string `json:"expected_observables,omitempty"`
+	ExpectedStatus      string   `json:"expected_status,omitempty"`
+	MinChecks           int64    `json:"min_checks,omitempty"`
+	ExpectedPackage     string   `json:"expected_package,omitempty"`
+	ExpectedRecords     []string `json:"expected_records,omitempty"`
+
 	PerformerSymbolID   string              `json:"performer_symbol_id,omitempty"`
 	CheckProperty       []string            `json:"check_property,omitempty"`
 	CheckDiverge        []string            `json:"check_diverge,omitempty"`
@@ -130,7 +143,6 @@ type conformanceCase struct {
 	// and how the runs draw.
 	Results         string            `json:"results,omitempty"`
 	Actions         []string          `json:"actions,omitempty"`
-	Runs            int64             `json:"runs,omitempty"`
 	Observe         map[string]string `json:"observe,omitempty"`
 	ExpectedConfigs []expectedConfig  `json:"expected_configurations,omitempty"`
 
@@ -333,6 +345,12 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runRunDocumentQueryCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "EvaluateCalc":
 		runEvaluateCalcCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "RunRuns":
+		runRunRunsCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "SelfCheck":
+		runSelfCheckCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "RecordRun":
+		runRecordRunCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ImportData":
 		runImportDataCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "CompareResults":
@@ -955,6 +973,128 @@ func runExecuteStateCase(t *testing.T, srv *grpc.Service, ctx context.Context, m
 
 // checkExpectedError validates the in-band error field and reports whether the
 // case is a negative one, in which case no further assertions apply.
+func runRunRunsCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	req := &pb.RunRunsRequest{
+		ModelHash:       modelHash,
+		SubjectSymbolId: tc.SubjectSymbolID,
+		Runs:            tc.Runs,
+		Seed:            tc.Seed,
+		Observe:         tc.ObserveFeatures,
+		Draws:           tc.Draws,
+	}
+	if tc.ContextSymbolID != "" {
+		req.AnalysisSymbolId = tc.ContextSymbolID
+	} else {
+		req.ActionSymbolId = tc.SymbolID
+	}
+	resp, err := srv.RunRuns(ctx, req)
+	if err != nil {
+		if tc.ExpectedError != "" && strings.Contains(err.Error(), tc.ExpectedError) {
+			return
+		}
+		t.Fatalf("RunRuns: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		return
+	}
+	if len(resp.Rows) != tc.ExpectedRowCount {
+		t.Errorf("rows = %d, want %d", len(resp.Rows), tc.ExpectedRowCount)
+	}
+	for i, row := range resp.Rows {
+		if row.Error != "" {
+			t.Errorf("run %d failed: %s", i+1, row.Error)
+		}
+	}
+	if !slices.Equal(resp.Observables, tc.ExpectedObservables) {
+		t.Errorf("observables = %v, want %v", resp.Observables, tc.ExpectedObservables)
+	}
+	if len(resp.Distributions) != len(tc.ExpectedObservables) {
+		t.Errorf("distributions = %d, want one per observable", len(resp.Distributions))
+	}
+	for _, d := range resp.Distributions {
+		if int(d.Count) != tc.ExpectedRowCount {
+			t.Errorf("distribution %s counts %d runs, want %d", d.Name, d.Count, tc.ExpectedRowCount)
+		}
+	}
+	for name, want := range tc.ExpectedOutputs {
+		var got *pb.Value
+		for _, entry := range resp.Outputs {
+			if entry.Name == name {
+				got = entry.Value
+			}
+		}
+		if got == nil {
+			t.Errorf("output %q is missing from %v", name, resp.Outputs)
+			continue
+		}
+		checkValue(t, "output "+name, want, got)
+	}
+	if tc.Seed != nil && (resp.Seed == nil || *resp.Seed != *tc.Seed) {
+		t.Errorf("seed = %v, want %d", resp.Seed, *tc.Seed)
+	}
+}
+
+func runSelfCheckCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	resp, err := srv.SelfCheck(ctx, &pb.SelfCheckRequest{ModelHash: modelHash, SelfCheckPackage: tc.SelfCheckPackage})
+	if err != nil {
+		t.Fatalf("SelfCheck: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		return
+	}
+	if resp.Status != tc.ExpectedStatus {
+		t.Errorf("status = %q, want %q; findings %v", resp.Status, tc.ExpectedStatus, resp.Findings)
+	}
+	if resp.Checks < tc.MinChecks {
+		t.Errorf("checks = %d, want at least %d", resp.Checks, tc.MinChecks)
+	}
+	if resp.Elements == 0 || len(resp.Applications) == 0 || !strings.HasPrefix(resp.Summary, "Self-model check: ") {
+		t.Errorf("the answer is incomplete: elements %d, applications %d, summary %q", resp.Elements, len(resp.Applications), resp.Summary)
+	}
+}
+
+func runRecordRunCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	resp, err := srv.RecordRun(ctx, &pb.RecordRunRequest{
+		ModelHash:        modelHash,
+		AnalysisSymbolId: tc.SymbolID,
+		SubjectSymbolId:  tc.SubjectSymbolID,
+		RecordInto:       tc.RecordInto,
+		Runs:             tc.Runs,
+		Seed:             tc.Seed,
+		AcceptDocuments:  true,
+	})
+	if err != nil {
+		t.Fatalf("RecordRun: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		return
+	}
+	if resp.Package != tc.ExpectedPackage {
+		t.Errorf("package = %q, want %q", resp.Package, tc.ExpectedPackage)
+	}
+	if !slices.Equal(resp.Records, tc.ExpectedRecords) {
+		t.Errorf("records = %v, want %v", resp.Records, tc.ExpectedRecords)
+	}
+	if (tc.Runs > 0) != (resp.Sample != nil) || (tc.Runs == 0) != (resp.Run != nil) {
+		t.Errorf("runs=%d answered run=%v sample=%v", tc.Runs, resp.Run != nil, resp.Sample != nil)
+	}
+	if resp.ModelHash == "" || resp.ModelHash == modelHash {
+		t.Fatalf("the recorded model's hash %q is not a new model", resp.ModelHash)
+	}
+	if len(resp.Documents) == 0 || resp.Documents[0].Content == "" {
+		t.Errorf("the answer carries no recorded document")
+	}
+	for _, record := range tc.ExpectedRecords {
+		sym, err := srv.GetSymbol(ctx, &pb.GetSymbolRequest{ModelHash: resp.ModelHash, SymbolId: record})
+		if err != nil || sym.Error != "" {
+			t.Errorf("%s is not in the recorded model: %v %s", record, err, sym.GetError())
+		}
+	}
+}
+
 type expectedViolation struct {
 	Kind     string `json:"kind"`
 	Property string `json:"property"`

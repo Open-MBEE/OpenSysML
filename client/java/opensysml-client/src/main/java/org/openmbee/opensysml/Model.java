@@ -37,8 +37,14 @@ import org.openmbee.opensysml.proto.RunAnalysisRequest;
 import org.openmbee.opensysml.proto.RunAnalysisResponse;
 import org.openmbee.opensysml.proto.RunDocumentQueryRequest;
 import org.openmbee.opensysml.proto.RunDocumentQueryResponse;
+import org.openmbee.opensysml.proto.RecordRunRequest;
+import org.openmbee.opensysml.proto.RecordRunResponse;
+import org.openmbee.opensysml.proto.RunRunsRequest;
+import org.openmbee.opensysml.proto.RunRunsResponse;
 import org.openmbee.opensysml.proto.RunSweepRequest;
 import org.openmbee.opensysml.proto.RunSweepResponse;
+import org.openmbee.opensysml.proto.SelfCheckRequest;
+import org.openmbee.opensysml.proto.SelfCheckResponse;
 import org.openmbee.opensysml.proto.SymbolResponse;
 import org.openmbee.opensysml.proto.ValidateInstanceRequest;
 import org.openmbee.opensysml.proto.ValidateInstanceResponse;
@@ -1593,6 +1599,108 @@ public final class Model {
         connection.call("RunSweep", request.build(), RunSweepResponse.getDefaultInstance());
     failed(response.getError(), response.getFailureReason(), response.getDiagnosticsList());
     return Protos.sweep(response);
+  }
+
+  /**
+   * Runs an action or a Monte Carlo analysis case repeatedly and tables every run, as {@code
+   * sysml -runs} does; a case is also concluded over the sample.
+   *
+   * @param options what to run, how many times, the draws and what to observe
+   * @return one row per run with the observables' distributions and the case's conclusion
+   * @throws ModelException if the action, the case, the subject or an observable is not found,
+   *     or the runs failed before the first row
+   * @throws ServiceException if neither or both of an action and a case are named, the run count
+   *     is not positive, random draws are unseeded, or the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code runs}, or a performer is
+   *     named and it does not advertise {@code performer}
+   */
+  public Runs runRuns(RunsOptions options) {
+    Objects.requireNonNull(options, NAME_OPTIONS);
+    connection.capabilities().require(Capabilities.RUNS);
+    options.performer().ifPresent(p -> connection.capabilities().require(Capabilities.PERFORMER));
+    RunRunsRequest.Builder request =
+        RunRunsRequest.newBuilder()
+            .setModelHash(hash)
+            .setRuns(options.runs())
+            .setClockStep(options.clockStep())
+            .addAllObserve(options.observe())
+            .putAllInputs(Protos.protos(options.inputs(), connection.capabilities()))
+            .addAllArguments(Protos.protos(options.arguments(), connection.capabilities()))
+            .putAllNamedArguments(
+                Protos.protos(options.namedArguments(), connection.capabilities()));
+    options.action().ifPresent(request::setActionSymbolId);
+    options.analysis().ifPresent(request::setAnalysisSymbolId);
+    options.seed().ifPresent(request::setSeed);
+    options.draws().ifPresent(request::setDraws);
+    options.performer().ifPresent(request::setPerformerSymbolId);
+    options.subject().ifPresent(request::setSubjectSymbolId);
+    engine.ifPresent(request::setEngine);
+    RunRunsResponse response =
+        connection.call("RunRuns", request.build(), RunRunsResponse.getDefaultInstance());
+    failed(response.getError(), response.getFailureReason(), response.getDiagnosticsList());
+    return Protos.runs(response);
+  }
+
+  /**
+   * Applies every rule constraint of the {@code SysMLValidation} library to this model, as
+   * {@code sysml -self-check} does.
+   *
+   * @param packages further packages whose rule constraints apply too, qualified
+   * @return every finding with the counts
+   * @throws ModelException if a package is not found or the check could not run
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code self_check}
+   */
+  public SelfCheck selfCheck(List<String> packages) {
+    Objects.requireNonNull(packages, "packages");
+    connection.capabilities().require(Capabilities.SELF_CHECK);
+    SelfCheckResponse response =
+        connection.call(
+            "SelfCheck",
+            SelfCheckRequest.newBuilder()
+                .setModelHash(hash)
+                .addAllSelfCheckPackage(packages)
+                .build(),
+            SelfCheckResponse.getDefaultInstance());
+    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    return Protos.selfCheck(response);
+  }
+
+  /**
+   * Runs an analysis case once, over a sweep or as a Monte Carlo sample and records the result
+   * into the model as {@code sysml -record-run} does; the recorded model is a new model the
+   * service holds.
+   *
+   * @param analysisSymbolId qualified name of the analysis case, definition or usage
+   * @param options the subject and arguments, the sweep or sample, and the target package
+   * @return what ran, the records made and the recorded model's hash
+   * @throws ModelException if the case, the subject or the package is not found, or the run failed
+   * @throws ServiceException if the sample is unseeded or the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code record_run}
+   */
+  public Recording recordRun(String analysisSymbolId, RecordOptions options) {
+    Objects.requireNonNull(analysisSymbolId, "analysisSymbolId");
+    Objects.requireNonNull(options, NAME_OPTIONS);
+    connection.capabilities().require(Capabilities.RECORD_RUN);
+    RecordRunRequest.Builder request =
+        RecordRunRequest.newBuilder()
+            .setModelHash(hash)
+            .setAnalysisSymbolId(analysisSymbolId)
+            .addAllArguments(Protos.protos(options.arguments(), connection.capabilities()))
+            .putAllNamedArguments(Protos.protos(options.namedArguments(), connection.capabilities()))
+            .setRuns(options.runs())
+            .setAcceptDocuments(true);
+    options.subject().ifPresent(request::setSubjectSymbolId);
+    options.into().ifPresent(request::setRecordInto);
+    options.seed().ifPresent(request::setSeed);
+    engine.ifPresent(request::setEngine);
+    for (SweepRange range : options.ranges()) {
+      request.addRanges(Protos.proto(range));
+    }
+    RecordRunResponse response =
+        connection.call("RecordRun", request.build(), RecordRunResponse.getDefaultInstance());
+    failed(response.getError(), response.getFailureReason(), response.getDiagnosticsList());
+    return Protos.recording(response);
   }
 
   /**

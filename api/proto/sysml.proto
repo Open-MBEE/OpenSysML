@@ -80,6 +80,21 @@ service SysMLService {
   // capability.
   rpc RunSweep(RunSweepRequest) returns (RunSweepResponse);
 
+  // Run an action, or a Simulation::MonteCarlo analysis case, a number of
+  // times, each run seeded from the request's seed, and table what the runs
+  // observed with each observable's distribution, as the CLI's -runs/-observe
+  // do. Reported as the "runs" capability.
+  rpc RunRuns(RunRunsRequest) returns (RunRunsResponse);
+  // SelfCheck applies the SysMLValidation constraints, and those of any rule
+  // packages, reflectively to every element of the model, as `sysml -self-check`
+  // does. Reported as the "self_check" capability.
+  rpc SelfCheck(SelfCheckRequest) returns (SelfCheckResponse);
+  // RecordRun runs an analysis case — once, over the rows of a sweep, or as a
+  // Monte Carlo sample — and records the runs into the model as AnalysisRecords
+  // declarations, as `sysml -record-run` does. Reported as the "record_run"
+  // capability.
+  rpc RecordRun(RecordRunRequest) returns (RecordRunResponse);
+
   // List the analysis engines this build registers, as the CLI's -engines and
   // the REPL's %engines do: each with the questions it answers, the strongest
   // evidence it can produce and whether it can run. Reported as the "engines"
@@ -2433,6 +2448,224 @@ message RunSweepResponse {
   string strength = 10;
   repeated Bound bounds = 11;
 }
+
+// RunRunsRequest runs one behavior repeatedly: an action, whose features and
+// clock the runs observe, or a Simulation::MonteCarlo analysis case, whose
+// declared observable each run reports and which is concluded over the sample.
+message RunRunsRequest {
+  string model_hash = 1;
+  // FQN of the action to run; exactly one of action_symbol_id and
+  // analysis_symbol_id is set.
+  string action_symbol_id = 2;
+  // FQN of the Simulation::MonteCarlo analysis case, definition or usage.
+  string analysis_symbol_id = 3;
+  // The action's input parameters, by name.
+  map<string, Value> inputs = 4;
+  // Optional FQN of a part/usage to perform the action on, or a path from one
+  // to a nested object; see ExecuteActionRequest.performer_symbol_id.
+  string performer_symbol_id = 5;
+  // Optional FQN of the case's subject; see RunAnalysisRequest.subject_symbol_id.
+  string subject_symbol_id = 6;
+  // The case's positional and named arguments, as every run binds them.
+  repeated Value arguments = 7;
+  map<string, Value> named_arguments = 8;
+  // How many runs to make; must be positive.
+  int64 runs = 9;
+  // Seed the runs draw their modeled randomness from, one derived seed per run:
+  // the same seed makes the same runs on every platform. Required unless the
+  // draws are fixed by `draws`.
+  optional uint64 seed = 10;
+  // Draw policy for the model's distributions, as the CLI's -draws: "random"
+  // (default), "min", "max" or "average".
+  string draws = 11;
+  // Clock step of each run, as the CLI's -clock-step; 0 keeps the default.
+  double clock_step = 12;
+  // Features of the action each run reports, "clock" for the time it completed
+  // at; empty reports every feature the action holds and the clock. Refused for
+  // a case, which observes what it declares.
+  repeated string observe = 13;
+  // The engine the runs are put to; see VerifyConstraintRequest.engine.
+  string engine = 14;
+}
+
+// RunDistribution summarises one observable over the completed runs.
+message RunDistribution {
+  string name = 1;
+  // The unit the numbers carry, empty when none or the values are not numbers.
+  string unit = 2;
+  // Completed runs that produced the observable.
+  int64 count = 3;
+  // Whether the values are numbers, so min/max/mean/deviation/percentiles and
+  // the histogram are set; otherwise `values` counts each distinct value.
+  bool numeric = 4;
+  Value min = 5;
+  Value max = 6;
+  Value mean = 7;
+  // Sample standard deviation of the numbers.
+  double deviation = 8;
+  repeated RunPercentile percentiles = 9;
+  repeated RunHistogramBin histogram = 10;
+  repeated RunCountedValue values = 11;
+}
+
+// RunPercentile is the value at a percentile of the completed runs.
+message RunPercentile {
+  double percentile = 1;
+  Value value = 2;
+}
+
+// RunHistogramBin counts the runs whose number fell in [low, high]; a single
+// distinct value has low == high.
+message RunHistogramBin {
+  Value low = 1;
+  Value high = 2;
+  int64 count = 3;
+}
+
+// RunCountedValue counts the runs that produced one distinct value.
+message RunCountedValue {
+  Value value = 1;
+  int64 count = 2;
+}
+
+// SelfCheckRequest asks for the reflective check of a parsed model.
+message SelfCheckRequest {
+  string model_hash = 1;
+  // Qualified names of packages whose constraint definitions apply after the
+  // bundled SysMLValidation ones (-self-check-package). Each must resolve to a
+  // package the model or its libraries declare; its own elements are not checked.
+  repeated string self_check_package = 2;
+}
+
+// SelfCheckFinding is one thing the check reports about a constraint applied
+// to an element, or a constraint or package it skipped.
+message SelfCheckFinding {
+  // fails: the element answered the constraint false; unevaluated: the runtime
+  // cannot yet apply the constraint reflectively; error: the evaluation failed;
+  // warning: a rule constraint was skipped, or a rule package yielded none.
+  string status = 1;
+  string subject = 2;     // "<constraint> for <element>", or the constraint or package alone
+  string location = 3;    // document:line:col of the element, empty when it has none
+  string constraint = 4;  // qualified name of the constraint applied
+  string element = 5;     // name of the element it was applied to
+  string message = 6;     // the reason, for a warning or an error
+  string line = 7;        // the finding as `sysml -self-check` prints it
+}
+
+// SelfCheckApplication counts the elements one constraint was applied to.
+message SelfCheckApplication {
+  string constraint = 1;
+  int64 count = 2;
+}
+
+// SelfCheckResponse is what the check found: every finding, the counts, and
+// the verdict over them.
+message SelfCheckResponse {
+  // holds: no violation and no evaluation error; fails: a violation;
+  // unresolved: no violation, but an evaluation that errored.
+  string status = 1;
+  repeated SelfCheckFinding findings = 2;
+  int64 elements = 3;           // elements the check visited
+  int64 checks = 4;             // constraint applications made
+  int64 violations = 5;         // applications answered false
+  int64 unevaluated = 6;        // applications the runtime could not make
+  int64 evaluation_errors = 7;  // applications and collections that errored
+  repeated SelfCheckApplication applications = 8;  // by constraint, in name order
+  string summary = 9;           // the one-line total `sysml -self-check` prints last
+  string error = 10;            // non-empty if the check could not start: a rule package named is not declared
+  repeated Diagnostic diagnostics = 11;
+}
+
+// RecordRunRequest asks for runs of an analysis case to be recorded into the
+// model. With neither `ranges` nor `runs` the case runs once; `ranges` runs it
+// once per row of the ranges as RunSweep does and records each completed row;
+// `runs` runs it that many times as RunRuns does a Simulation::MonteCarlo case
+// and records each completed run and the sample's conclusion.
+message RecordRunRequest {
+  string model_hash = 1;
+  string analysis_symbol_id = 2;  // qualified name of the analysis case definition or usage
+  string subject_symbol_id = 3;   // part/usage to instantiate as the subject, or a path from one
+  repeated Value arguments = 4;
+  map<string, Value> named_arguments = 5;
+  string engine = 6;
+  // Package the records go into (-record-into); empty is a Records package
+  // beside the package enclosing the case's own.
+  string record_into = 7;
+  repeated SweepRange ranges = 8;  // records a sweep's rows (-sweep)
+  int64 runs = 9;                  // records a Monte Carlo sample of this many runs (-runs)
+  optional uint64 seed = 10;       // seed of the sample's draws; required with runs
+  // As in ApplyEditsRequest: a model of several documents is refused unless the
+  // request says it reads the response's `documents`.
+  bool accept_documents = 11;
+}
+
+// RecordRunResponse is the runs' own report, what the model gained, and the
+// notation the records were written into.
+message RecordRunResponse {
+  // The runs' own result, one of these by how the request ran the case.
+  RunAnalysisResponse run = 1;
+  RunSweepResponse sweep = 2;
+  RunRunsResponse sample = 3;
+  string package = 4;              // qualified name of the package the records went into
+  string definition = 5;           // qualified name of the per-case record definition
+  repeated string records = 6;     // qualified names of the records made, in order
+  // The record declarations generated: the target package's full nesting down
+  // to it, holding the record definition when new and every record usage.
+  string source = 7;
+  // The notation of the document the records merged into, byte-identical to
+  // the source outside the package they joined, or the records as a document of
+  // their own when no document holds the package's nesting. As in
+  // ApplyEditsResponse, `content` is set for a single-document model alone and
+  // `documents` always: the document the records went into, named as the parse
+  // request named it, or, when they are a document of their own, named after
+  // their package with the notation's extension (`Records.sysml`).
+  string content = 8;
+  repeated EditedDocument documents = 9;
+  int64 skipped = 10;              // rows or runs that failed and were not recorded
+  repeated string reasons = 11;    // why runs were not recorded, as `sysml -record-run` reports them
+  // Non-empty when nothing was recorded: the case could not run, no run
+  // completed, or the records would not analyze cleanly, which leaves the model unchanged.
+  string error = 12;
+  FailureReason failure_reason = 13;
+  repeated Diagnostic diagnostics = 14;
+  // Hash of the model with the records in it, cached as a parse request's
+  // would be, so the next request can run against the recorded model without
+  // parsing it again. Empty when nothing was recorded.
+  string model_hash = 15;
+}
+
+// RunRunsResponse is the table of the runs, one row per run in run order, each
+// observable's distribution, and for a case its conclusion over the sample.
+message RunRunsResponse {
+  // One row per run: `inputs` carries the run number as `run`, `outputs` what
+  // the run observed, `verdicts` the case's in-run verdicts.
+  repeated SweepRow rows = 1;
+  // The observables tabled, in column order: those asked for, else every
+  // feature the action holds and "clock"; "observed" for a case.
+  repeated string observables = 2;
+  repeated RunDistribution distributions = 3;
+  // Each distribution and, for a case, its conclusion as the CLI prints them
+  // under the table; the table itself is `rows`.
+  repeated string lines = 4;
+  // A case's conclusion over the completed runs: its outputs and verdicts,
+  // which every row's verdicts were settled by. Empty for an action.
+  repeated CalcOutput outputs = 5;
+  repeated Verdict verdicts = 6;
+  // Why the case has no conclusion: no run completed, or the sample was refused.
+  string unconcluded = 7;
+  // Set when no run was made at all; a failed run is a row carrying its error.
+  string error = 8;
+  repeated Diagnostic diagnostics = 9;
+  FailureReason failure_reason = 10;
+  // Every object a row's verdict is about, so each `instance_id` resolves here.
+  repeated Instance instances = 11;
+  string engine = 12;
+  string strength = 13;
+  repeated Bound bounds = 14;
+  // The seed the runs drew from, when they drew.
+  optional uint64 seed = 15;
+}
+
 
 // RunDocumentQueryRequest runs a named document query — a calc def
 // specializing DocumentQueries::Query — against a model the service already
