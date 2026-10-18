@@ -2699,10 +2699,8 @@ func (s *Session) performingObject(args []string) (*runtime.Instance, string, er
 
 // --- Action Debugging Commands ---
 
-// attachPerformedAction binds the debugging session to the performance an object
-// already runs of the action, so %step, %continue and %advance drive that
-// performance and %features shows what it wrote; one a succession order still
-// holds back is refused with the order's violation.
+// attachPerformedAction binds the debugging session to the performance an object already
+// runs of the action, so %step, %continue and %advance drive it and %features shows what it wrote.
 func (s *Session) attachPerformedAction(
 	ctx *runtime.Context,
 	name, fqn, selfFQN string,

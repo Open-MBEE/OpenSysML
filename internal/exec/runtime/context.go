@@ -1960,33 +1960,10 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 	case 0:
 		return nil, nil
 	case 1:
-		exec, err := ctx.PerformedExecutor(performed[0])
-		if err != nil {
+		if err := ctx.refusePerformedInputs(action, performed[0], inputs); err != nil {
 			return nil, err
 		}
-		conflicts := 0
-		for name, value := range inputs {
-			implicit := false
-			for _, param := range ctx.actionParametersOf(action) {
-				if param.Name != name || !param.IsReference {
-					continue
-				}
-				root := exec.root
-				if bound, held := root.data[root.key(name)]; held {
-					implicit = ctx.valueEqual(bound, value)
-				} else {
-					implicit = value.Kind == ValInstance && value.Instance == self.ID
-				}
-				break
-			}
-			if !implicit {
-				conflicts++
-			}
-		}
-		if conflicts > 0 {
-			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, SymbolText(action))
-		}
-		return exec, nil
+		return ctx.PerformedExecutor(performed[0])
 	default:
 		if member := sameBehaviorMember(performed); member != nil {
 			return nil, fmt.Errorf("%w: the object performs %s %d times, under %s", errAmbiguousAction, SymbolText(action), len(performed), member.Name)
@@ -1995,23 +1972,50 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 	}
 }
 
-// PerformedExecutor is the executor of an action the object performs. One a
-// succession order holds back has none yet: it is started here once the order
-// admits it, as an exhibited machine held back is (stateRunFor), and refused
-// with the order's violation while its predecessor runs.
+// refusePerformedInputs refuses inputs for a performed action that are not the bindings
+// its declaration states; a held performance stored none yet, so only self itself passes.
+func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *ObjectBehavior, inputs map[string]Value) error {
+	conflicts := 0
+	for name, value := range inputs {
+		implicit := false
+		for _, param := range ctx.actionParametersOf(action) {
+			if param.Name != name || !param.IsReference {
+				continue
+			}
+			implicit = value.Kind == ValInstance && value.Instance == behavior.Object.ID
+			if behavior.Action != nil {
+				root := behavior.Action.root
+				if bound, held := root.data[root.key(name)]; held {
+					implicit = ctx.valueEqual(bound, value)
+				}
+			}
+			break
+		}
+		if !implicit {
+			conflicts++
+		}
+	}
+	if conflicts > 0 {
+		return fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, SymbolText(action))
+	}
+	return nil
+}
+
+// PerformedExecutor is the executor of an action the object performs; one a succession
+// order holds back is started once the order admits it, as stateRunFor starts a held machine.
 func (ctx *Context) PerformedExecutor(behavior *ObjectBehavior) (*ActionExecutor, error) {
 	if behavior.deferred != nil {
-		if err := ctx.checkSuccessionOrderViolation(behavior.Object, behavior.member); err != nil {
+		if err := ctx.checkHeldBehaviorStart(behavior); err != nil {
 			return nil, err
 		}
 		if err := ctx.releaseDeferredBehavior(behavior); err != nil {
 			return nil, err
 		}
 	}
+	if behavior.Err != nil {
+		return nil, behavior.Err
+	}
 	if behavior.Action == nil {
-		if behavior.Err != nil {
-			return nil, behavior.Err
-		}
 		return nil, fmt.Errorf("%s runs no action", behavior.Describe())
 	}
 	return behavior.Action, nil
@@ -2192,12 +2196,8 @@ func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self 
 	return exec, nil
 }
 
-// StartActionPerformedBy is CreateActionExecutorWithInputs for an action self may
-// perform already: the performance self runs of it is returned in place of a second,
-// started, with inputs refused and an object performing it several times over
-// reported exactly as a run to completion refuses and reports them (performanceOf),
-// so a bound on how far the run proceeds never changes which performance runs.
-// Reused marks the object's own performance, which the caller does not release.
+// StartActionPerformedBy is CreateActionExecutorWithInputs binding to the performance self
+// already runs of the action as performanceOf does; reused marks it, not the caller's to release.
 func (ctx *Context) StartActionPerformedBy(action *symbols.Symbol, self *Instance, inputs map[string]Value) (exec *ActionExecutor, reused bool, err error) {
 	exec, err = ctx.performanceOf(action, self, inputs)
 	if err != nil {
@@ -2241,11 +2241,8 @@ func (ctx *Context) CreateStateExecutorFor(stateMachine *symbols.Symbol, self *I
 	return exec, nil
 }
 
-// StartStatePerformedBy is CreateStateExecutorFor for a machine self may exhibit
-// already: the machine self exhibits is returned in place of a second performance of
-// it, an object exhibiting it under several usages refused, as a run to quiescence
-// reuses and refuses them (stateRunFor). Reused marks the object's own machine,
-// which the caller does not release.
+// StartStatePerformedBy is CreateStateExecutorFor binding to the machine self already
+// exhibits as stateRunFor does; reused marks it, not the caller's to release.
 func (ctx *Context) StartStatePerformedBy(stateMachine *symbols.Symbol, self *Instance) (exec *StateExecutor, reused bool, err error) {
 	if self != nil {
 		if err := ctx.checkPerformer(self); err != nil {

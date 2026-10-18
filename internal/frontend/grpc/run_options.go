@@ -102,11 +102,8 @@ func (o runOptions) actionOutcome(rt *runtime.Context, name string, action *symb
 	return (&runtime.Invocation{Actions: []*runtime.ActionExecutor{exec}}).Outcome(), nil
 }
 
-// startAction starts the action and moves the clock by the duration asked, as
-// `-action X -advance T` does. The performance is the one a run to completion
-// would run — the performer's own where it performs the action — so the duration
-// bounds how far it proceeds and nothing else; release lets go of what was started
-// for the call, which the performer's own performance is not.
+// startAction starts the performance a run to completion would run and moves the clock by
+// the duration asked, as `-action X -advance T` does; release lets go of one started for the call.
 func (o runOptions) startAction(rt *runtime.Context, name string, action *symbols.Symbol, self *runtime.Instance, inputs map[string]runtime.Value) (*runtime.ActionExecutor, func(), error) {
 	exec, reused, err := rt.StartActionPerformedBy(action, self, inputs)
 	if err != nil {
@@ -132,9 +129,8 @@ func (o runOptions) startAction(rt *runtime.Context, name string, action *symbol
 	return exec, release, nil
 }
 
-// stateOutcome runs the machine performed by self over events on rt: to
-// quiescence, or sending the events and then moving the clock by the duration
-// asked. Either way the machine is the one self exhibits where it exhibits it.
+// stateOutcome runs the machine self performs (the one it exhibits, where it does) over
+// events on rt: to quiescence, or sending the events and then moving the clock by the duration asked.
 func (o runOptions) stateOutcome(rt *runtime.Context, stateMachine *symbols.Symbol, self *runtime.Instance, events []string) (runtime.Outcome, error) {
 	if o.advance == nil {
 		return rt.StateOutcomePerformedBy(stateMachine, self, events)
