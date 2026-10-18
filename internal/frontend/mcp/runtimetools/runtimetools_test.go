@@ -692,6 +692,18 @@ func TestPathsStayUnderTheRoot(t *testing.T) {
 	if msg := h.fails("parse", map[string]any{"paths": []string{"alias.kerml"}}); !strings.Contains(msg, "whose extension names another format") {
 		t.Errorf("a link whose extension differs from its target's: %s", msg)
 	}
+	if err := os.WriteFile(filepath.Join(h.root, "graph.turtle"), []byte("@prefix ex: <http://example.org/> .\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(h.root, "graph.turtle"), filepath.Join(h.root, "graph.ttl")); err != nil {
+		t.Fatal(err)
+	}
+	if res := h.call("convert", map[string]any{"filePath": "graph.ttl", "toFormat": "sysml"}); strings.Contains(text(res), "another format") {
+		t.Errorf(".ttl and .turtle name the same format: %s", text(res))
+	}
+	if res := h.call("parse", map[string]any{"paths": []string{"alias.kerml"}}); !strings.Contains(text(res), "another format") {
+		t.Errorf("a link refused for its format must say so: %s", text(res))
+	}
 	if msg := h.fails("parse", map[string]any{"paths": []string{"missing/dir/new.sysml"}}); strings.Contains(msg, "outside") {
 		t.Errorf("a path under the root that does not exist yet is not outside it: %s", msg)
 	}

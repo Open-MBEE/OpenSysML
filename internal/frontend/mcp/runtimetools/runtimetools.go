@@ -29,6 +29,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
 // group holds what every runtime tool shares: the service and the workspace
@@ -116,7 +117,7 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 		if strings.TrimSpace(path) == "" {
 			return nil, argumentError("paths must not hold an empty path")
 		}
-		resolved, err := g.path(path)
+		resolved, err := g.path(path, true)
 		if err != nil {
 			return nil, err
 		}
@@ -146,11 +147,11 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 // that leaves it, by its lexical form or through a symlink, so a tool reads
 // only under -root. The path handed on has its symlinks resolved, so the
 // service opens the file the check saw, not what a link is later pointed at;
-// since the service reads the format from the name, a link whose extension
-// differs from its target's is refused rather than parsed as the wrong one.
-// A path that does not exist yet is resolved through its nearest existing
-// ancestor.
-func (g *group) path(p string) (string, error) {
+// when the service infers the format from the name (inferred), a link whose
+// name means another format than its target's is refused rather than read as
+// the wrong one. A path that does not exist yet is resolved through its
+// nearest existing ancestor.
+func (g *group) path(p string, inferred bool) (string, error) {
 	p = strings.TrimSpace(p)
 	if p == "" {
 		return "", argumentError("a path is required")
@@ -172,7 +173,7 @@ func (g *group) path(p string) (string, error) {
 			if !under(g.realRoot, real) {
 				return "", argumentError("%s resolves to %s, outside the workspace root %s", p, real, g.root)
 			}
-			if !strings.EqualFold(filepath.Ext(real), filepath.Ext(p)) {
+			if inferred && !sameFormat(p, real) {
 				return "", argumentError("%s is a link to %s, whose extension names another format; name the file itself or a link with its extension", p, real)
 			}
 			return real, nil
@@ -186,6 +187,17 @@ func (g *group) path(p string) (string, error) {
 		}
 		probe = parent
 	}
+}
+
+// sameFormat reports whether two names mean the same model format: the one
+// convert infers from each, or the same extension when it infers none.
+func sameFormat(a, b string) bool {
+	fa, errA := convert.FormatOfPath(a)
+	fb, errB := convert.FormatOfPath(b)
+	if errA == nil && errB == nil {
+		return fa == fb
+	}
+	return strings.EqualFold(filepath.Ext(a), filepath.Ext(b))
 }
 
 // under reports whether path lies under root, both clean and absolute.
