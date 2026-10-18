@@ -775,8 +775,14 @@ func (ctx *Context) referencedFeatureName(inst *Instance, sym *symbols.Symbol) s
 	if target == nil || target == sym {
 		return ""
 	}
-	if _, held := inst.FeatureValues[target.Name]; !held {
+	fv, held := inst.FeatureValues[target.Name]
+	if !held {
 		return ""
+	}
+	// A redefinition under another name (`part renamed :>> own`) keeps the name it
+	// redefines as an alias of its own slot, which the types no longer look up.
+	if fv.Feature.Symbol == target || ctx.redefinesTransitively(fv.Feature.Symbol, target) {
+		return target.Name
 	}
 	for _, typ := range inst.types() {
 		if ctx.isFeatureOf(typ, target, sym) {
@@ -804,6 +810,9 @@ func (inst *Instance) materializeReferenced(ctx *Context, fv *FeatureValue, name
 	if err != nil {
 		return false, fmt.Errorf("referenced feature %s of %s: %w", source, name, err)
 	}
+	// The reference reads the source for as long as it holds it: a write to the
+	// source unmaterializes it, and the next read follows the source again.
+	ctx.listRead(sfv, fv)
 	val := sfv.HeldValue()
 	if val.Kind == ValInvalid {
 		return false, nil
