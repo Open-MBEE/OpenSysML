@@ -6,12 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// VertexDeclsResolving returns every declaration a transition of this state
-// machine may name as an endpoint, collected by the pass a lowered graph's
-// vertices are collected by, so a checker reads the same ownership the executor
-// does. scope is the scope the machine's body was declared in; resolver is what
-// the annotations on its members resolve through, nil reading no
-// metadata-declared vertices.
+// VertexDeclsResolving returns every declaration a transition of this state machine may name
+// as an endpoint, as the lowered graph collects them; a nil resolver reads no metadata vertices.
 func VertexDeclsResolving(stateMachineDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (map[ast.Node]bool, error) {
 	members, err := machineMembers(stateMachineDecl)
 	if err != nil {

@@ -137,9 +137,8 @@ func layoutJoins(model *sysmlv1.Model, layout *mtip.Export) int {
 	return joined
 }
 
-// FromModelOptions migrates an already-read XMI model with the augments opts
-// carries. Unlike MigrateOptions it cannot fail, so a layout export joins
-// whatever of the model it can and reports the rest.
+// FromModelOptions migrates an already-read XMI model with the augments opts carries;
+// unlike MigrateOptions it cannot fail, so a layout export joins what it can and reports the rest.
 func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m := &migration{
 		model:             model,
