@@ -45,11 +45,13 @@ mandatory header — `// Invalid: <rule> (<citation>).` — naming the one rule 
 where that rule comes from; the harness refuses a corpus file without it. Cases were derived
 systematically from four sources, one subdirectory each:
 
-1. **`grammar/` — grammar mutation** (108 cases: 20 original, 45 added along the *unreached* axis
+1. **`grammar/` — grammar mutation** (112 cases: 20 original, 45 added along the *unreached* axis
    described below, 13 from a second sweep, 7 body-position cases
    `g61`–`g67` from the constraint census described under `semantic/`, the two second-result-expression
-   bodies `g69`/`k20`, the two name-before-keyword members `g70`/`k21`, and the seventeen prefix and
-   body-context cases `g71`–`g81`, `k22`–`k27`: exclusive prefix alternatives written together
+   bodies `g69`/`k20`, the two name-before-keyword members `g70`/`k21`, the seventeen prefix and
+   body-context cases `g71`–`g81`, `k22`–`k27`, and the four owning-body members `g82`–`g85` —
+   `frame` in a view and a view def body, `filter` in a rendering def body and `accept` in a view
+   body, each a syntax error under the pinned grammar —: exclusive prefix alternatives written together
    (`abstract variation`, `composite portion`) or repeated (`composite composite`), a repeated direction (on an ordinary and on a
    cross feature), `ref`, `constant` and `const` on a definition, `variation` in KerML, an
    invalid string escape, a signed multiplicity bound, a `transition` in a part def body and the
@@ -60,10 +62,10 @@ systematically from four sources, one subdirectory each:
    multiplicity on a definition, `g07`/`g08` state members in a part def body), a token from a
    sibling production (`g15` a keyword as a name, `k02` a SysML keyword in KerML), and unterminated
    bodies and comments (`g01`, `g12`, `k05`).
-2. **`extensions/` — the notation we invented** (11 cases). Every state-machine construct our
+2. **`extensions/` — the notation we invented** (12 cases). Every state-machine construct our
    `examples/` tree uses that no pinned production admits: `initial`, `choice`, `junction`,
    `history`, `region`, the since-removed `defer` member, and the `transition <src> to <tgt>` shorthand, plus `require`
-   outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`), which our grammar admits as an extension, and KerML's `connector` declared in a `.sysml` file (`x10`), which the default mode keeps parsed as a `kerml-notation` warning and strict mode refuses. The pinned grammar
+   outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`), which our grammar admits as an extension, KerML's `connector` declared in a `.sysml` file (`x10`), which the default mode keeps parsed as a `kerml-notation` warning and strict mode refuses, and a one-name `then <target>;` in a view body (`x12`), a succession member no non-action body admits. The pinned grammar
    spells entry as `entry; then <state>`, concurrency as `state ... parallel`, and transitions as
    `first <src> then <tgt>`, and has no pseudostates or deferral at all. Adjudication: these are
    **intended OpenSysML extensions**, not accidents — each has dedicated parser tests
@@ -116,7 +118,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 319
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 328
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -164,15 +166,15 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-319 case(s): 310 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
+328 case(s): 319 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
   of which 3 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
 | Source | Cases | Both reject | Pilot only | Ours only | Both accept |
 | --- | --- | --- | --- | --- | --- |
-| extensions | 11 | 11 | 0 | 0 | 0 |
-| grammar | 108 | 108 | 0 | 0 | 0 |
-| semantic | 165 | 156 | 0 | 9 | 0 |
+| extensions | 12 | 12 | 0 | 0 | 0 |
+| grammar | 112 | 112 | 0 | 0 | 0 |
+| semantic | 169 | 160 | 0 | 9 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the nine ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -235,7 +237,10 @@ The action-body parameter prefix-order cases `g80`–`g81` then raised the corpu
 (a package-level allocation whose ends name a definition's owned features by qualified name,
 `allocate ToastBread::applyHeat to Toaster::heating`; a connector with no featuring type reaches
 only features that have none, so both validators reject each end under
-`validateConnectorTypeFeaturing`) to 311, and `x10` (KerML's `connector` declared in a `.sysml` file, which the pinned SysML grammar has no production for — `no viable alternative at input 'c'` — and which we warn as `kerml-notation` by default and reject under strict) to 312, and `x11` (an indexed connector end, `connect s.y#(1) to k.u`, which the pinned grammar has no production for — `mismatched input '#' expecting 'to'` — and which we report as `nonstandard-notation` by default and reject under strict) to 313, and `s102`/`s103` (a part subsetting an attribute definition and a part redefining a part definition: KerML's `Subsetting::subsettedFeature` and `Redefinition::redefinedFeature` are typed Feature, a rule SysML usages inherit, so the pilot fails to link either — `Couldn't resolve reference to Feature` — and we report `subsets`/`redefines target must be a feature` at the same span, in `.sysml` sources as in `.kerml` ones) to 315, and `s104`–`s107` (a second objective in an analysis case definition and in an analysis case usage, `Only one objective is allowed.`, and a declared `exhibit state e references p;` / `perform action f references p;` naming a part, `Must reference a state.` / `Must reference an action.` at the `p` — each reported where the pilot reports it) to 319.
+`validateConnectorTypeFeaturing`) to 311, and `x10` (KerML's `connector` declared in a `.sysml` file, which the pinned SysML grammar has no production for — `no viable alternative at input 'c'` — and which we warn as `kerml-notation` by default and reject under strict) to 312, and `x11` (an indexed connector end, `connect s.y#(1) to k.u`, which the pinned grammar has no production for — `mismatched input '#' expecting 'to'` — and which we report as `nonstandard-notation` by default and reject under strict) to 313, and `s102`/`s103` (a part subsetting an attribute definition and a part redefining a part definition: KerML's `Subsetting::subsettedFeature` and `Redefinition::redefinedFeature` are typed Feature, a rule SysML usages inherit, so the pilot fails to link either — `Couldn't resolve reference to Feature` — and we report `subsets`/`redefines target must be a feature` at the same span, in `.sysml` sources as in `.kerml` ones) to 315, and `s104`–`s107` (a second objective in an analysis case definition and in an analysis case usage, `Only one objective is allowed.`, and a declared `exhibit state e references p;` / `perform action f references p;` naming a part, `Must reference a state.` / `Must reference an action.` at the `p` — each reported where the pilot reports it) to 319; `s20b` (an `include` whose target is a use case definition — `useCaseIncluded` is a reference subsetting, so a definition is no feature it can name; both validators report `Must reference a use case.` under `validateIncludeUseCaseUsageReference`) joined later, and the corpus stands at 323. The owning-body members `g82`–`g85`
+(`frame` in a view and a view def body, `filter` in a rendering def body, `accept` in a view body —
+each a syntax error under the pinned grammar, as our parser now reports them) and `x12` (`then
+<target>;` in a view body, a succession member no non-action body admits) brought it to 328.
 The KerML constraints in that
 source reopened 14 gaps — all of them semantic rules the pilot enforces and we did not; the
 named-argument validation that landed alongside closed one of them (`k33`), the constructor
@@ -280,7 +285,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 319 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 328 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 
@@ -643,6 +648,7 @@ for the gaps, and names where in OpenSysML the rule would have to fire.
 | `validateFramedConcernMembershipConstraintKind` | none: `frame` fixes `kind = requirement` in the grammar | no violating model | — | — | — |
 | `validateIfActionUsageParameters` | none: `IfNode` always parses condition and body parameters | no violating model | — | — | — |
 | `validateIncludeUseCaseUsageReference` | `semantic/s20-include-references-non-use-case.sysml` | both-reject | Must reference a use case. | Must reference a use case. | — |
+| `validateIncludeUseCaseUsageReference` | `semantic/s20b-include-references-definition.sysml` | both-reject | Must reference a use case.; includes target must be a usage, found useCaseDef | Couldn't resolve reference to Feature 'UD'.; Must reference a use case. | — |
 | `validateInterfaceDefinitionEnd` | `semantic/s21-interface-def-end-not-port.sysml` | both-reject | An interface definition end must be a port. | An interface definition end must be a port. | — |
 | `validateInterfaceUsageEnd` | existing: `xpect/p27-interface-end-not-port.sysml` | both-reject | An interface end must be a port. | An interface end must be a port. | — |
 | `validateInterfaceUsageType` | `semantic/s22-interface-typed-by-connection-def.sysml` | both-reject | An interface must be typed by interface definitions. | An interface must be typed by interface definitions. | — |

@@ -120,7 +120,7 @@ var errNoSuchAttribute = errors.New("no such attribute")
 // between its steps, with the checks an assignment in its behavior gets.
 func (e *StateExecutor) WriteAttribute(name string, value Value) error {
 	if !e.declaresAttribute(name) {
-		return fmt.Errorf("%w: state machine %s declares no attribute %q", errNoSuchAttribute, symbolText(e.stateMachine), name)
+		return fmt.Errorf("%w: state machine %s declares no attribute %q", errNoSuchAttribute, SymbolText(e.stateMachine), name)
 	}
 	return e.assignAttribute(name, value)
 }

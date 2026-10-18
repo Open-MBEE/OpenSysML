@@ -22,7 +22,7 @@ func runRouteToError(t *testing.T, exec *StateExecutor) error {
 	if err := exec.initialize(); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	done := make(chan error, 1)
 	go func() { done <- exec.RunToCompletion() }()
 	select {
@@ -110,7 +110,7 @@ func testJunctionOfTheLeftStateWhoseEveryBranchIsClosed(t *testing.T) {
 	if err := exec.initialize(); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}
-	exec.sendSignal("Go", nil)
+	exec.SendSignal("Go", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}

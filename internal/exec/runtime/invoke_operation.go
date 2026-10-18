@@ -120,7 +120,7 @@ func (ctx *Context) InvokeOperationWith(inst *Instance, name string, args Operat
 		}
 		return map[string]Value{"result": boolValue(holds)}, nil
 	}
-	return nil, fmt.Errorf("%w: %s of %s", errNotABehavior, name, symbolText(inst.Type))
+	return nil, fmt.Errorf("%w: %s of %s", errNotABehavior, name, SymbolText(inst.Type))
 }
 
 // resultName is the name an invocation returns the calc's result under: its
@@ -144,20 +144,20 @@ func (ctx *Context) operationOf(inst *Instance, name string, args OperationArgum
 	}
 	if member == nil {
 		return nil, fmt.Errorf("%w: %s of object #%d (type %s)",
-			errNoSuchBehavior, name, inst.ID, symbolText(inst.Type))
+			errNoSuchBehavior, name, inst.ID, SymbolText(inst.Type))
 	}
 	switch member.Kind {
 	case symbols.SymbolActionDef, symbols.SymbolActionUsage:
 		return member, nil
 	case symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return nil, fmt.Errorf("%w: %s of %s is a state machine, which runs as the object's exhibited machine",
-			errUnsupportedClassifierBehavior, name, symbolText(inst.Type))
+			errUnsupportedClassifierBehavior, name, SymbolText(inst.Type))
 	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage,
 		symbols.SymbolConstraintDef, symbols.SymbolConstraintUsage:
 		return member, nil
 	default:
 		return nil, fmt.Errorf("%w: %s of %s is a %s",
-			errNotABehavior, name, symbolText(inst.Type), member.Kind)
+			errNotABehavior, name, SymbolText(inst.Type), member.Kind)
 	}
 }
 

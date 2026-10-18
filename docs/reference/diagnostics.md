@@ -263,8 +263,10 @@ _Generated from the diagnostic code registry by `make diagnostics-catalogue`; `m
 |------|----------|---------|
 | [`actor-membership-owning-type`](#actor-membership-owning-type) | error | `actor` outside a requirement or case body |
 | [`defer-notation-removed`](#defer-notation-removed) | error | `defer <event>;` in a state body, a removed extension |
+| [`element-filter-membership-owning-type`](#element-filter-membership-owning-type) | error | `filter` outside a package or view body |
 | [`enumeration-body-member`](#enumeration-body-member) | error | a member an enumeration definition body does not admit |
 | [`expose-owning-namespace`](#expose-owning-namespace) | error | `expose` outside a view body |
+| [`framed-concern-membership-owning-type`](#framed-concern-membership-owning-type) | error | `frame` outside a requirement, concern or viewpoint body |
 | [`import-visibility`](#import-visibility) | error | an `import` written without `public`, `private` or `protected` |
 | [`kerml-notation`](#kerml-notation) | warning | KerML notation in a SysML file |
 | [`nonstandard-notation`](#nonstandard-notation) | warning | notation OpenSysML reads that no production of the SysML v2 grammar admits |
@@ -296,6 +298,14 @@ The state body member `defer <event>;` was an OpenSysML extension that SysML v2 
 
 Specification: SysML v2 §7.16 (states have no deferral notation)
 
+#### `element-filter-membership-owning-type`
+
+**error** · Syntax · `filter` outside a package or view body
+
+An element filter is a member of a package or a view: `filter` is admitted at the file root, in a package body, or in the body of a view definition or usage only. Move the member into the package or view whose members it selects.
+
+Specification: SysML.xtext ElementFilterMember (a PackageBodyElement, ViewDefinitionBodyItem and ViewBodyItem)
+
 #### `enumeration-body-member`
 
 **error** · Syntax · a member an enumeration definition body does not admit
@@ -311,6 +321,14 @@ Specification: SysML v2 §8.2.2.8 EnumerationBody
 An expose is an import a view usage owns: `expose` is admitted in the body of a view usage (and, as an OpenSysML extension the notation rules report, a view definition) only. Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.
 
 Specification: SysML v2 validateExposeOwningNamespace
+
+#### `framed-concern-membership-owning-type`
+
+**error** · Syntax · `frame` outside a requirement, concern or viewpoint body
+
+A framed concern is a member of a requirement: `frame` is admitted in the body of a requirement, concern or viewpoint definition or usage only. Move the member into the requirement or viewpoint that frames the concern.
+
+Specification: SysML.xtext FramedConcernMember (a RequirementBodyItem)
 
 #### `import-visibility`
 

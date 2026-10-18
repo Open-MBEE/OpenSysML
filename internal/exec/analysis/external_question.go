@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/modelform"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -204,7 +205,7 @@ func wireQuery(q *solve.Query) (enginewire.ConditionSet, error) {
 
 // wireSweep is a sweep's domain as the protocol carries it; the seed goes, zero included,
 // whenever the rows are drawn from it.
-func wireSweep(plan runtime.SweepPlan) (*enginewire.Sweep, error) {
+func wireSweep(plan sweep.SweepPlan) (*enginewire.Sweep, error) {
 	out := &enginewire.Sweep{Ranges: []enginewire.Range{}, Sampled: plan.Sampled, Samples: plan.Samples, Runs: plan.Runs}
 	if plan.Drawn() {
 		seed := plan.Seed
@@ -234,14 +235,14 @@ func wireSweep(plan runtime.SweepPlan) (*enginewire.Sweep, error) {
 
 // sweepTypeName spells a swept parameter's type: its declared type's qualified name, else
 // the numbers its range produces.
-func sweepTypeName(t runtime.SweepType) string {
+func sweepTypeName(t sweep.SweepType) string {
 	if decl := t.Declared(); decl != nil {
 		return symbols.FQNOf(decl)
 	}
 	switch t.Numbers {
-	case runtime.SweepIntegers:
+	case sweep.SweepIntegers:
 		return "Integer"
-	case runtime.SweepReals:
+	case sweep.SweepReals:
 		return "Real"
 	}
 	return ""

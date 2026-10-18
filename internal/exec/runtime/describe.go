@@ -32,7 +32,7 @@ func articleFor(word string) string {
 func describeOperand(val Value) string {
 	switch val.Kind {
 	case ValConst, ValComplex:
-		return describeValue(val)
+		return DescribeValue(val)
 	case ValString:
 		return "a string"
 	case ValNull:

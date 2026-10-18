@@ -20,6 +20,21 @@ type functionValue struct {
 	enclosing []frame
 }
 
+// arity is the fewest and the most positional arguments the function binds: the
+// fewest reach its last parameter without a default or an optional multiplicity,
+// since positional arguments bind from the first parameter on.
+func (fn *functionValue) arity() (low, high int) {
+	if fn.library != nil {
+		return fn.library.leastPositional(), len(fn.library.params)
+	}
+	for i := len(fn.shape.Params) - 1; i >= 0; i-- {
+		if fn.shape.Params[i].Default == nil {
+			return i + 1, len(fn.shape.Params)
+		}
+	}
+	return 0, len(fn.shape.Params)
+}
+
 // function is the payload of a ValFunction; nil for every other kind.
 func (v Value) function() *functionValue {
 	if v.Kind != ValFunction {
@@ -80,7 +95,7 @@ func (v Value) functionRun() int64 {
 func (ec *EvalContext) functionValueOf(sym *symbols.Symbol) (Value, error) {
 	if _, builtin := ec.ctx.builtinFor(sym); builtin {
 		return Value{}, fmt.Errorf("%w: %s binds its arguments unevaluated and cannot be read as a value",
-			errNotAFunction, ec.ctx.qualifiedSymbolName(sym))
+			errNotAFunction, ec.ctx.QualifiedName(sym))
 	}
 	shape, err := ec.ctx.calcInterfaceOf(sym)
 	if err != nil {
@@ -227,7 +242,7 @@ func (param *calcParameter) checkFunction(value *Value, what func() string) erro
 		return nil
 	}
 	return fmt.Errorf("%s: %w: %s is %s, not a function",
-		what(), errNotAFunction, FormatValue(*value), describeValue(*value))
+		what(), errNotAFunction, FormatValue(*value), DescribeValue(*value))
 }
 
 // invokeFunction applies a value called as a function to args through the calc
@@ -236,7 +251,7 @@ func (ec *EvalContext) invokeFunction(callee string, val Value, args calcArgs) (
 	val = soleElement(val)
 	fn := val.function()
 	if fn == nil || fn.shape == nil {
-		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, describeValue(val))
+		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, DescribeValue(val))
 	}
 	var result Value
 	var err error

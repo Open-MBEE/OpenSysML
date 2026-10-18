@@ -39,12 +39,11 @@ func (d Discovery) Dependencies(files []string, known func(name string) bool) []
 		if IsStdin(file) {
 			continue
 		}
-		// #nosec G304 -- the file is one the user named, or one found under its directory.
-		content, err := os.ReadFile(file)
+		path, content, err := ReadFile(file)
 		if err != nil {
 			continue
 		}
-		sources = append(sources, Source{Path: file, Content: content})
+		sources = append(sources, Source{Path: path, Content: content})
 	}
 	return d.DependenciesOf(sources, known)
 }
@@ -63,7 +62,11 @@ func (d Discovery) DependenciesOf(sources []Source, known func(name string) bool
 			continue
 		}
 		loaded[absKey(src.Path)] = true
+		// An archive member's siblings are the archive's other members.
 		dir := filepath.Dir(src.Path)
+		if archive, _, ok := SplitMemberPath(src.Path); ok {
+			dir = archive
+		}
 		if key := absKey(dir); !seenDir[key] {
 			seenDir[key] = true
 			dirs = append(dirs, dir)
@@ -259,29 +262,64 @@ const maxDependencyDirs = 2000
 // declaring it, sorted by path; the walk is ModelFiles' but tolerant and bounded.
 func rootIndex(dirs []string, loaded map[string]bool) map[string][]*fileSummary {
 	var candidates []string
+	var archives []string
 	budget := maxDependencyDirs
 	visited := map[string]bool{}
 	for _, dir := range dirs {
+		if IsArchiveFile(dir) {
+			archives = append(archives, dir)
+			continue
+		}
 		walkTolerant(dir, visited, &budget, IsModelFile, &candidates)
 	}
 	sort.Strings(candidates)
 	byRoot := map[string][]*fileSummary{}
 	seen := map[string]bool{}
-	for _, path := range candidates {
-		key := absKey(path)
+	add := func(summary *fileSummary) {
+		key := absKey(summary.path)
 		if loaded[key] || seen[key] {
-			continue
+			return
 		}
 		seen[key] = true
-		summary, ok := summarize(path)
-		if !ok {
-			continue
-		}
 		for _, name := range summary.roots {
 			byRoot[name] = append(byRoot[name], summary)
 		}
 	}
+	for _, path := range candidates {
+		if loaded[absKey(path)] || seen[absKey(path)] {
+			continue
+		}
+		if summary, ok := summarize(path); ok {
+			add(summary)
+		}
+	}
+	sort.Strings(archives)
+	for _, path := range archives {
+		for _, summary := range summarizeArchive(path) {
+			add(summary)
+		}
+	}
 	return byRoot
+}
+
+// summarizeArchive summarizes the model files of an installed archive, read
+// from the archive; one that does not open contributes nothing, as a
+// directory that cannot be read does not.
+func summarizeArchive(path string) []*fileSummary {
+	a, err := OpenArchive(path)
+	if err != nil {
+		return nil
+	}
+	var out []*fileSummary
+	for _, path := range a.Project.Files() {
+		_, member, _ := SplitMemberPath(path)
+		content, err := a.Read(member)
+		if err != nil {
+			continue
+		}
+		out = append(out, summarizeContent(path, content))
+	}
+	return out
 }
 
 // walkTolerant appends the files under dir that accept admits to out as walk

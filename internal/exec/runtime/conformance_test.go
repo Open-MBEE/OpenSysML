@@ -1419,7 +1419,7 @@ func runCalcUsageConformance(t *testing.T, ctx *Context, idx *symbols.Index, pat
 		return
 	}
 	if err != nil {
-		t.Fatalf("CalcUsageOutputs(%s) failed: %v", ctx.qualifiedSymbolName(usageSym), err)
+		t.Fatalf("CalcUsageOutputs(%s) failed: %v", ctx.QualifiedName(usageSym), err)
 	}
 
 	values := make(map[string]Value, len(outputs))
@@ -1449,7 +1449,7 @@ func runCalcUsageConformance(t *testing.T, ctx *Context, idx *symbols.Index, pat
 		}
 		result, err := ctx.InvokeCalc(usageSym, args, rootScope)
 		if err != nil {
-			t.Fatalf("InvokeCalc(%s) failed: %v", ctx.qualifiedSymbolName(usageSym), err)
+			t.Fatalf("InvokeCalc(%s) failed: %v", ctx.QualifiedName(usageSym), err)
 		}
 		validateValue(t, ctx, "result", *expected.Result, result)
 	}
@@ -1566,7 +1566,7 @@ func runAnalysisConformance(t *testing.T, ctx *Context, idx *symbols.Index, path
 		return
 	}
 	if err != nil {
-		t.Fatalf("RunAnalysis(%s) failed: %v", ctx.qualifiedSymbolName(caseSym), err)
+		t.Fatalf("RunAnalysis(%s) failed: %v", ctx.QualifiedName(caseSym), err)
 	}
 
 	checkCaseRun(t, ctx, idx, result, expected)
@@ -1670,7 +1670,7 @@ func runVerificationConformance(t *testing.T, ctx *Context, idx *symbols.Index, 
 
 	result, err := ctx.RunVerification(caseSym, analysisArgsOf(t, ctx, idx, expected), rootScope, nil)
 	if err != nil {
-		t.Fatalf("RunVerification(%s) failed: %v", ctx.qualifiedSymbolName(caseSym), err)
+		t.Fatalf("RunVerification(%s) failed: %v", ctx.QualifiedName(caseSym), err)
 	}
 	if got := string(result.Verdict.Kind); got != expected.Verdict {
 		t.Errorf("verdict = %q (%s), want %q", got, result.Verdict.Detail, expected.Verdict)
@@ -1954,7 +1954,7 @@ func featureValueAtPath(t *testing.T, ctx *Context, inst *Instance, path string)
 	current := inst
 	parts := strings.Split(path, ".")
 	for i, name := range parts {
-		fv, err := current.GetFeatureValue(ctx, name)
+		fv, err := current.MemberValue(ctx, name)
 		if err != nil || i == len(parts)-1 {
 			return fv, err
 		}
@@ -2209,14 +2209,14 @@ func namedSymbol(idx *symbols.Index, fqn string, defKind ast.DefinitionKind, usa
 	return matches[0]
 }
 
-// behavioralKind reports whether a symbol declares the definition or usage kind
-// an entry point asks for.
+// behavioralKind reports whether a symbol declares the definition or usage kind an
+// entry point asks for; the action entry point takes every action kind, use cases included.
 func behavioralKind(sym *symbols.Symbol, defKind ast.DefinitionKind, usageKind ast.UsageKind) bool {
 	switch decl := sym.Decl.(type) {
 	case *ast.Definition:
-		return decl.Kind == defKind
+		return decl.Kind == defKind || (defKind == ast.DefAction && decl.Kind.IsAction())
 	case *ast.Usage:
-		return decl.Kind == usageKind
+		return decl.Kind == usageKind || (usageKind == ast.UsageAction && decl.Kind.IsAction())
 	default:
 		return false
 	}

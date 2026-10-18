@@ -13,7 +13,7 @@
 /site/
 
 # In-browser engine assets (make docs-engine-assets); built, never vendored
-/docs/assets/sysml-engine.wasm*
+/docs/assets/sysml-wasm.wasm*
 /docs/assets/sysml-repl.wasm*
 /docs/assets/repl-examples/
 /docs/assets/wasm_exec.js
@@ -71,3 +71,7 @@ cmd/*/rsrc_windows_*.syso
 # The kernel a platform wheel bundles, staged by the release pipeline (setup.py)
 /client/jupyter-kernel/jupyter_opensysml_kernel/bin/
 /client/jupyter-kernel/labextension/
+/tools/conformance
+
+# The whole output a digested golden (*.golden.ttl.sha256) was compared against
+tests/export/testdata/**/*.actual

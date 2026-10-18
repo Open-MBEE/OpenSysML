@@ -26,10 +26,16 @@ import {
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
   CAPABILITY_RENDER_VIEW,
+  CAPABILITY_CHECK,
   CAPABILITY_EXPORT_GRAPHS,
+  CAPABILITY_IMPORT_DATA,
+  CAPABILITY_COMPARE_RESULTS,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_STRICT_CONFORMANCE,
+  CAPABILITY_RUNS,
+  CAPABILITY_SELF_CHECK,
+  CAPABILITY_RECORD_RUN,
   CAPABILITY_VERIFICATION,
   CAPABILITY_VERIFICATION_QUESTIONS,
   CAPABILITY_VERIFICATION_ARGUMENTS,
@@ -60,10 +66,16 @@ import {
   QueryRequestSchema,
   RenderDocumentRequestSchema,
   RenderViewRequestSchema,
+  CheckBehaviorRequestSchema,
   ExportGraphsRequestSchema,
+  ImportDataRequestSchema,
+  CompareResultsRequestSchema,
   RunAnalysisRequestSchema,
   RunDocumentQueryRequestSchema,
   RunSweepRequestSchema,
+  RunRunsRequestSchema,
+  SelfCheckRequestSchema,
+  RecordRunRequestSchema,
   SweepRangeSchema,
   ValidateInstanceRequestSchema,
   EvaluateCalcRequestSchema,
@@ -81,6 +93,7 @@ import {
   type Query,
   type RunAnalysisResponse,
   type RenderViewResponse,
+  type CheckBehaviorResponse,
   type ExportGraphsResponse,
   type Verdict as PbVerdict,
   type VerificationVerdict as PbVerificationVerdict,
@@ -122,6 +135,7 @@ import {
   type DocumentQueryResult,
 } from "./document.js";
 import { renderedViewOf, type RenderedView } from "./render-view.js";
+import { type CheckOptions, type CheckResult, checkResultOf } from "./check.js";
 import { type Graphs, graphsOf } from "./graphs.js";
 import {
   engineInfoOf,
@@ -136,6 +150,10 @@ import {
   raiseFailure,
   raiseWrongKind,
   sweepTableOf,
+  runsResultOf,
+  RunsResult,
+  SelfCheckResult,
+  Recording,
   validationOf,
   verdictOf,
   valuesMap,
@@ -146,6 +164,10 @@ import {
   type SweepTable,
   type Validation,
   type Verdict,
+  importResultOf,
+  comparisonOf,
+  type ImportResult,
+  type Comparison,
 } from "./verdict.js";
 import { toValue, type SysMLValue, type ValueInput } from "./values.js";
 import {
@@ -727,6 +749,71 @@ export class Connection {
     return renderedViewOf(response);
   }
 
+  /** Searches every schedule of an action for a violated property, a deadlock, a failure or a divergent value. */
+  async checkAction(
+    modelHash: string,
+    actionSymbolId: string,
+    options: CheckOptions & { inputs?: Readonly<Record<string, ValueInput>> } = {},
+  ): Promise<CheckResult> {
+    return this.checkBehavior(modelHash, actionSymbolId, "", options);
+  }
+
+  /** Searches every schedule of a state machine; see {@link checkAction}. */
+  async checkStateMachine(
+    modelHash: string,
+    stateMachineSymbolId: string,
+    options: CheckOptions = {},
+  ): Promise<CheckResult> {
+    return this.checkBehavior(modelHash, "", stateMachineSymbolId, options);
+  }
+
+  private async checkBehavior(
+    modelHash: string,
+    actionSymbolId: string,
+    stateMachineSymbolId: string,
+    options: CheckOptions & { inputs?: Readonly<Record<string, ValueInput>> },
+  ): Promise<CheckResult> {
+    const capabilities = [CAPABILITY_CHECK];
+    if (options.performer !== undefined && options.performer !== "") {
+      capabilities.push(CAPABILITY_PERFORMER);
+    }
+    for (const capability of capabilities) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+    const inputs: Record<string, ReturnType<typeof toValue>> = {};
+    for (const [name, value] of Object.entries(options.inputs ?? {})) {
+      inputs[name] = toValue(value, this.info);
+    }
+    const response: CheckBehaviorResponse = await callRpc(
+      this.rpc.checkBehavior(
+        create(CheckBehaviorRequestSchema, {
+          modelHash,
+          actionSymbolId,
+          stateMachineSymbolId,
+          inputs,
+          performerSymbolId: options.performer ?? "",
+          checkProperty: [...(options.properties ?? [])],
+          checkDiverge: [...(options.diverge ?? [])],
+          checkInput: [...(options.freeInputs ?? [])],
+          checkAssume: [...(options.assume ?? [])],
+          checkWitness: options.witness ?? false,
+          checkDepth: options.depth ?? 0,
+          checkStates: options.states ?? 0,
+          checkUnroll: options.unroll ?? 0,
+          checkTimeout: options.timeout ?? 0,
+          engine: options.engine ?? "",
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    if (response.error !== "") {
+      throw new ExecutionError(response.error, "unspecified", []);
+    }
+    return checkResultOf(response);
+  }
+
   /**
    * Exports the lowered graph of an action or state machine, and of every
    * behavior it performs, as the canonical `graphs:1` JSON an external
@@ -756,6 +843,14 @@ export class Connection {
       inputs?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       performer?: string;
+      /** Simulated seconds to run for (`sysml -advance`); unset runs to completion. */
+      advance?: number;
+      /** Seed of the model's own draws (`sysml -seed`). */
+      seed?: bigint;
+      /** How RandomFunctions draws resolve (`sysml -draws`): random, min, max or average. */
+      draws?: string;
+      /** Seconds the run's clock ticks by (`sysml -clock-step`); 0 is continuous. */
+      clockStep?: number;
     } = {},
   ): Promise<{
     outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
@@ -812,6 +907,10 @@ export class Connection {
       inputs?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       performer?: string;
+      advance?: number;
+      seed?: bigint;
+      draws?: string;
+      clockStep?: number;
     },
   ): Promise<ExecuteActionResponse> {
     const inputs: Record<string, ReturnType<typeof toValue>> = {};
@@ -830,6 +929,10 @@ export class Connection {
           inputs,
           schedule: options.schedule ?? "",
           performerSymbolId: options.performer ?? "",
+          advance: options.advance,
+          seed: options.seed,
+          draws: options.draws ?? "",
+          clockStep: options.clockStep ?? 0,
         }),
         this.callOptions(),
       ),
@@ -848,6 +951,14 @@ export class Connection {
       schedule?: string;
       performer?: string;
       trace?: boolean;
+      /** Simulated seconds to run for (`sysml -advance`); unset runs to completion. */
+      advance?: number;
+      /** Seed of the model's own draws (`sysml -seed`). */
+      seed?: bigint;
+      /** How RandomFunctions draws resolve (`sysml -draws`): random, min, max or average. */
+      draws?: string;
+      /** Seconds the run's clock ticks by (`sysml -clock-step`); 0 is continuous. */
+      clockStep?: number;
     } = {},
   ): Promise<{
     statesVisited: string[];
@@ -913,6 +1024,10 @@ export class Connection {
       schedule?: string;
       performer?: string;
       trace?: boolean;
+      advance?: number;
+      seed?: bigint;
+      draws?: string;
+      clockStep?: number;
     },
   ): Promise<ExecuteStateResponse> {
     const capabilities = this.runCapabilities(
@@ -929,6 +1044,10 @@ export class Connection {
           schedule: options.schedule ?? "",
           performerSymbolId: options.performer ?? "",
           trace: options.trace ?? false,
+          advance: options.advance,
+          seed: options.seed,
+          draws: options.draws ?? "",
+          clockStep: options.clockStep ?? 0,
         }),
         this.callOptions(),
       ),
@@ -967,11 +1086,11 @@ export class Connection {
   }
 
   /** Lists the analysis engines the service answers with, as `sysml -engines` does. */
-  async listEngines(): Promise<EngineInfo[]> {
+  async listEngines(options: { probe?: boolean } = {}): Promise<EngineInfo[]> {
     this.requireEngines();
     const response = await callRpc(
       this.rpc.listEngines(
-        create(ListEnginesRequestSchema, {}),
+        create(ListEnginesRequestSchema, { probe: options.probe ?? false }),
         this.callOptions(),
       ),
       "model",
@@ -1191,6 +1310,8 @@ export class Connection {
       namedArguments?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       engine?: string;
+      /** Preview the first external tool call instead of making it (`sysml -tool-dry-run`). */
+      toolDryRun?: boolean;
     } = {},
   ): Promise<AnalysisResult> {
     refuseExploring(options.schedule, "exploreAnalysis");
@@ -1247,6 +1368,7 @@ export class Connection {
       namedArguments?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       engine?: string;
+      toolDryRun?: boolean;
     },
   ): Promise<RunAnalysisResponse> {
     this.requireVerification();
@@ -1268,6 +1390,7 @@ export class Connection {
           namedArguments,
           schedule: options.schedule ?? "",
           engine: engineField(options.engine),
+          toolDryRun: options.toolDryRun ?? false,
         }),
         this.callOptions(),
       ),
@@ -1279,6 +1402,156 @@ export class Connection {
       ]),
     );
     return response;
+  }
+
+  /** Runs an action, or a Simulation::MonteCarlo case, `runs` times, each in
+   * a context of its own, and tables what the runs observed. */
+  async runRuns(
+    modelHash: string,
+    options: {
+      action?: string;
+      analysis?: string;
+      runs: bigint | number;
+      seed?: bigint | number;
+      draws?: string;
+      clockStep?: number;
+      observe?: readonly string[];
+      inputs?: Readonly<Record<string, ValueInput>>;
+      performer?: string;
+      subject?: string;
+      arguments?: readonly ValueInput[];
+      namedArguments?: Readonly<Record<string, ValueInput>>;
+      engine?: string;
+    },
+  ): Promise<RunsResult> {
+    const capabilities = [CAPABILITY_RUNS];
+    if (options.performer !== undefined && options.performer !== "") {
+      capabilities.push(CAPABILITY_PERFORMER);
+    }
+    for (const capability of capabilities) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+    this.requireEngine(options.engine);
+    const inputs: Record<string, ReturnType<typeof toValue>> = {};
+    for (const [name, arg] of Object.entries(options.inputs ?? {})) {
+      inputs[name] = toValue(arg, this.info);
+    }
+    const namedArguments: Record<string, ReturnType<typeof toValue>> = {};
+    for (const [name, arg] of Object.entries(options.namedArguments ?? {})) {
+      namedArguments[name] = toValue(arg, this.info);
+    }
+    const request = create(RunRunsRequestSchema, {
+      modelHash,
+      actionSymbolId: options.action ?? "",
+      analysisSymbolId: options.analysis ?? "",
+      inputs,
+      performerSymbolId: options.performer ?? "",
+      subjectSymbolId: options.subject ?? "",
+      arguments: (options.arguments ?? []).map((arg) => toValue(arg, this.info)),
+      namedArguments,
+      runs: BigInt(options.runs),
+      seed: options.seed === undefined ? undefined : BigInt(options.seed),
+      draws: options.draws ?? "",
+      clockStep: options.clockStep ?? 0,
+      observe: [...(options.observe ?? [])],
+      engine: engineField(options.engine),
+    });
+    const response = await callRpc(
+      this.rpc.runRuns(request, this.callOptions()),
+      "model",
+      capabilityRefusal(this.info, [...capabilities, ...engineCapabilities(options.engine)]),
+    );
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      raiseFailure(response.error, response.failureReason, diagnostics);
+    }
+    return runsResultOf(response, this.instancesOf(response.instances), diagnostics);
+  }
+
+  /** Applies the SysMLValidation constraints, and those of the rule packages
+   * named, reflectively to every element of the model. */
+  async selfCheck(modelHash: string, packages: readonly string[] = []): Promise<SelfCheckResult> {
+    requireCapability(this.info, CAPABILITY_SELF_CHECK, upgradeRemedy(CAPABILITY_SELF_CHECK));
+    const request = create(SelfCheckRequestSchema, { modelHash, selfCheckPackage: [...packages] });
+    const response = await callRpc(
+      this.rpc.selfCheck(request, this.callOptions()),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_SELF_CHECK]),
+    );
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      raiseFailure(response.error, 0, diagnostics);
+    }
+    return new SelfCheckResult(response, diagnostics);
+  }
+
+  /** Runs an analysis case once, over the rows of `ranges` or as a Monte
+   * Carlo sample of `runs`, and records the runs into the model. */
+  async recordRun(
+    modelHash: string,
+    symbolId: string,
+    options: {
+      subject?: string;
+      arguments?: readonly ValueInput[];
+      namedArguments?: Readonly<Record<string, ValueInput>>;
+      into?: string;
+      ranges?: Readonly<
+        Record<string, readonly [ValueInput, ValueInput] | readonly [ValueInput, ValueInput, ValueInput]>
+      >;
+      runs?: bigint | number;
+      seed?: bigint | number;
+      engine?: string;
+    } = {},
+  ): Promise<Recording> {
+    requireCapability(this.info, CAPABILITY_RECORD_RUN, upgradeRemedy(CAPABILITY_RECORD_RUN));
+    this.requireEngine(options.engine);
+    const namedArguments: Record<string, ReturnType<typeof toValue>> = {};
+    for (const [name, arg] of Object.entries(options.namedArguments ?? {})) {
+      namedArguments[name] = toValue(arg, this.info);
+    }
+    const request = create(RecordRunRequestSchema, {
+      modelHash,
+      analysisSymbolId: symbolId,
+      subjectSymbolId: options.subject ?? "",
+      arguments: (options.arguments ?? []).map((arg) => toValue(arg, this.info)),
+      namedArguments,
+      engine: engineField(options.engine),
+      recordInto: options.into ?? "",
+      runs: BigInt(options.runs ?? 0),
+      seed: options.seed === undefined ? undefined : BigInt(options.seed),
+      acceptDocuments: true,
+    });
+    for (const [name, bounds] of Object.entries(options.ranges ?? {})) {
+      request.ranges.push(this.sweepRange(name, bounds));
+    }
+    const response = await callRpc(
+      this.rpc.recordRun(request, this.callOptions()),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_RECORD_RUN, ...engineCapabilities(options.engine)]),
+    );
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      raiseFailure(response.error, response.failureReason, diagnostics);
+    }
+    const run = response.run;
+    const sweep = response.sweep;
+    const sample = response.sample;
+    return new Recording({
+      run:
+        run === undefined
+          ? undefined
+          : analysisResultOf(run, this.instancesOf(run.instances), run.diagnostics.map(decodeDiagnostic)),
+      sweep:
+        sweep === undefined
+          ? undefined
+          : sweepTableOf(sweep, this.instancesOf(sweep.instances), sweep.diagnostics.map(decodeDiagnostic)),
+      sample:
+        sample === undefined
+          ? undefined
+          : runsResultOf(sample, this.instancesOf(sample.instances), sample.diagnostics.map(decodeDiagnostic)),
+      response,
+      diagnostics,
+    });
   }
 
   /** Runs an analysis case or calc once per row of a parameter sweep. */
@@ -1384,6 +1657,85 @@ export class Connection {
       (response.verificationVerdicts ?? []).map(decodeVerificationVerdict),
       true,
     );
+  }
+
+  /** Sets the feature values data files assign, one edit of the model per
+   * file, as `sysml -import` does. */
+  async importData(
+    modelHash: string,
+    imports: readonly { name: string; content: string; format?: string; map?: string }[],
+    options: { importAs?: string; dryRun?: boolean; acceptDocuments?: boolean } = {},
+  ): Promise<ImportResult> {
+    requireCapability(this.info, CAPABILITY_IMPORT_DATA, upgradeRemedy(CAPABILITY_IMPORT_DATA));
+    const request = create(ImportDataRequestSchema, {
+      modelHash,
+      imports: imports.map((entry) => ({
+        name: entry.name,
+        content: entry.content,
+        importFormat: entry.format ?? "",
+        importMap: entry.map ?? "",
+      })),
+      importAs: options.importAs ?? "",
+      importDryRun: options.dryRun ?? false,
+      acceptDocuments: options.acceptDocuments ?? false,
+    });
+    const response = await callRpc(
+      this.rpc.importData(request, this.callOptions()),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_IMPORT_DATA]),
+    );
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      raiseFailure(response.error, 0, diagnostics);
+    }
+    return importResultOf(response, diagnostics);
+  }
+
+  /** Runs the configurations a SysML v1 tool's results sidecar indexes against
+   * the model and tables the tool's distributions beside the runs', as
+   * `sysml -compare-results` does. */
+  async compareResults(
+    modelHash: string,
+    results: string,
+    options: {
+      actions?: readonly string[];
+      runs?: bigint | number;
+      seed?: bigint | number;
+      draws?: string;
+      clockStep?: number;
+      observe?: readonly (string | readonly [string, string])[];
+      engine?: string;
+    } = {},
+  ): Promise<Comparison> {
+    requireCapability(this.info, CAPABILITY_COMPARE_RESULTS, upgradeRemedy(CAPABILITY_COMPARE_RESULTS));
+    this.requireEngine(options.engine);
+    const request = create(CompareResultsRequestSchema, {
+      modelHash,
+      results,
+      actions: [...(options.actions ?? [])],
+      runs: BigInt(options.runs ?? 0),
+      draws: options.draws ?? "",
+      observe: (options.observe ?? []).map((pair) =>
+        typeof pair === "string" ? { stored: pair, feature: "" } : { stored: pair[0], feature: pair[1] },
+      ),
+      engine: engineField(options.engine),
+    });
+    if (options.seed !== undefined) {
+      request.seed = BigInt(options.seed);
+    }
+    if (options.clockStep !== undefined) {
+      request.clockStep = options.clockStep;
+    }
+    const response = await callRpc(
+      this.rpc.compareResults(request, this.callOptions()),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_COMPARE_RESULTS, ...engineCapabilities(options.engine)]),
+    );
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      raiseFailure(response.error, response.failureReason, diagnostics);
+    }
+    return comparisonOf(response, (instances) => this.instancesOf(instances), diagnostics);
   }
 
   private instancesOf(pbInstances: readonly PbInstance[]): Instance[] {

@@ -87,12 +87,12 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if err := ctx.destroy(target); err != nil {
 			t.Fatalf("destroy Target: %v", err)
 		}
-		results, err := exec.resultsWithError()
+		results, err := exec.ResultsWithError()
 		if !errors.Is(err, errOccurrenceDestroyed) {
-			t.Fatalf("resultsWithError error = %v, want errOccurrenceDestroyed", err)
+			t.Fatalf("ResultsWithError error = %v, want errOccurrenceDestroyed", err)
 		}
 		if _, ok := results["live"]; ok {
-			t.Fatalf("resultsWithError returned failed live binding: %s", FormatValue(results["live"]))
+			t.Fatalf("ResultsWithError returned failed live binding: %s", FormatValue(results["live"]))
 		}
 		if _, ok := exec.Results()["live"]; ok {
 			t.Fatal("Results returned a failed live binding")
@@ -210,7 +210,7 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("RunToCompletion: %v", err)
 		}
-		data, err := exec.stateDataWithError()
+		data, err := exec.StateDataWithError()
 		if err != nil {
 			if !errors.Is(err, ErrNoValue) && !errors.Is(err, errUninitializedFeatureValue) && !errors.Is(err, ErrUnresolvedReference) {
 				t.Fatalf("read top after state exit = %v, want a typed inactive-state value error", err)
@@ -451,9 +451,9 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if err := copiedBehavior.Action.RunToCompletion(); err != nil {
 			t.Fatalf("RunToCompletion of imaged action: %v", err)
 		}
-		results, err := copiedBehavior.Action.resultsWithError()
+		results, err := copiedBehavior.Action.ResultsWithError()
 		if err != nil {
-			t.Fatalf("resultsWithError: %v", err)
+			t.Fatalf("ResultsWithError: %v", err)
 		}
 		if got := FormatValue(results["reader.result"]); got != "4" {
 			t.Fatalf("imaged reader result = %s, want the performer's z, 4, held by the [1] result", got)

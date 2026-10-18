@@ -309,6 +309,14 @@ test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|
 	esac
 	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./...; fi
 
+test-quick: ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export" | "rest migrate")
+	@echo "Running Go tests without race detection, shards $(SHARDS)..."
+	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race, no coverage.
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime model export rest migrate"; exit 1; }
+	pkgs=$$(for shard in $(SHARDS); do scripts/race-shard.sh $$shard || exit 1; done) && \
+	go test -skip '$(RACE_SHARD_SKIP)' -v -timeout 45m $$pkgs
+	case " $(SHARDS) " in *" rest "*) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -timeout 45m ./... ;; esac
+
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
 	@# -coverpkg credits a package for the code it exercises elsewhere: without it
@@ -620,23 +628,26 @@ docs: ## Build the documentation site, failing on a broken link
 	$(PYTHON) -m mkdocs build --strict --site-dir $(SITE_DIR)
 	@echo "✓ Built $(SITE_DIR)/"
 
-# The cli page's in-browser REPL fetches these assets; they are built, never
-# vendored. The Pages job runs this target before `docs`; a local `make docs` or
-# `docs-serve` preview wants the same target first or the REPL cannot load.
-docs-engine-assets: ## Build the in-browser engine assets into docs/assets
+# The home page's diagram client and the cli page's in-browser REPL fetch these
+# assets; they are built, never vendored. The Pages job runs this target before
+# `docs`; a local `make docs` or `docs-serve` preview wants the same target first
+# or neither page can load its module.
+docs-engine-assets: ## Build the in-browser WebAssembly assets into docs/assets
 	@mkdir -p docs/assets
-	GOOS=js GOARCH=wasm $(GO_BUILD) -o docs/assets/sysml-engine.wasm ./cmd/sysml-engine
-	gzip -9f docs/assets/sysml-engine.wasm
+	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -o docs/assets/sysml-wasm.wasm ./cmd/sysml-wasm
+	gzip -9nf docs/assets/sysml-wasm.wasm
 	GOOS=js GOARCH=wasm $(GO_BUILD) -tags sysml_re -o docs/assets/sysml-repl.wasm ./cmd/sysml
 	gzip -9f docs/assets/sysml-repl.wasm
 	@mkdir -p docs/assets/repl-examples
 	@cp examples/runtime-showcase/*.sysml docs/assets/repl-examples/
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" docs/assets/
-	@echo "✓ Built docs/assets/sysml-engine.wasm.gz, sysml-repl.wasm.gz, repl-examples/ + wasm_exec.js"
+	@echo "✓ Built docs/assets/sysml-wasm.wasm.gz, sysml-repl.wasm.gz, repl-examples/ + wasm_exec.js"
 
 # The landing page's diagram and router assets are built from the extension's
-# source rather than vendored; Pages and local previews need both bundles.
+# source rather than vendored; the diagram bundles the browser client from
+# client/node's source, so that package's dependencies are installed first.
 docs-landing-assets: ## Build the landing-page diagram assets into docs/assets
+	cd $(NODE_DIR) && npm ci
 	cd $(VSCODE_DIR) && npm ci && npm run build:landing
 
 docs-serve: docs-install ## Serve docs with live reload (build docs-engine-assets and docs-landing-assets first)

@@ -909,7 +909,7 @@ func (ctx *Context) carriersWhere(roots []*Instance, carries func(*Instance) boo
 // its name, as objects a multiplicity repeated do, while any other root is its own.
 func (ctx *Context) rootPath(root *Instance) string {
 	if ctx.denotesOccurrence(root) {
-		return strconv.Quote(ctx.qualifiedSymbolName(root.Type))
+		return strconv.Quote(ctx.QualifiedName(root.Type))
 	}
 	return strconv.FormatInt(root.ID, 10)
 }
@@ -1010,11 +1010,7 @@ func objectFeature(sym *symbols.Symbol) bool {
 	if !ok {
 		return false
 	}
-	switch usage.Kind {
-	case ast.UsagePart, ast.UsageItem, ast.UsageOccurrence, ast.UsageIndividual, ast.UsagePort:
-		return true
-	}
-	return false
+	return objectUsageKind(usage.Kind) || usage.Kind == ast.UsagePort
 }
 
 // heldObjects returns the identities a feature value denotes, a collection's

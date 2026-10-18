@@ -227,6 +227,12 @@ func (h *calcStmtHost) assignForeign(_ *EvalContext, s lower.Assign, _ Value) er
 
 // acceptReturn takes the value a `return` yields, which the result parameter
 // then holds, so it answers to that parameter's declaration.
+// statementFootprint keeps no footprint: a calc's body writes its own parameters,
+// which the expression reading its result stands on where it is read.
+func (h *calcStmtHost) statementFootprint([]lower.Statement, int) lower.Footprint {
+	return lower.Footprint{}
+}
+
 func (h *calcStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
 	if h.shape.performs() || len(stmts) < 2 {
 		return nil

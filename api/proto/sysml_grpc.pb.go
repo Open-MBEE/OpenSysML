@@ -37,13 +37,19 @@ const (
 	SysMLService_ValidateInstance_FullMethodName   = "/sysml.SysMLService/ValidateInstance"
 	SysMLService_EvaluateCalc_FullMethodName       = "/sysml.SysMLService/EvaluateCalc"
 	SysMLService_RunAnalysis_FullMethodName        = "/sysml.SysMLService/RunAnalysis"
+	SysMLService_CheckBehavior_FullMethodName      = "/sysml.SysMLService/CheckBehavior"
 	SysMLService_RunSweep_FullMethodName           = "/sysml.SysMLService/RunSweep"
+	SysMLService_RunRuns_FullMethodName            = "/sysml.SysMLService/RunRuns"
+	SysMLService_SelfCheck_FullMethodName          = "/sysml.SysMLService/SelfCheck"
+	SysMLService_RecordRun_FullMethodName          = "/sysml.SysMLService/RecordRun"
 	SysMLService_ListEngines_FullMethodName        = "/sysml.SysMLService/ListEngines"
 	SysMLService_Query_FullMethodName              = "/sysml.SysMLService/Query"
 	SysMLService_RunDocumentQuery_FullMethodName   = "/sysml.SysMLService/RunDocumentQuery"
 	SysMLService_RenderDocument_FullMethodName     = "/sysml.SysMLService/RenderDocument"
 	SysMLService_RenderView_FullMethodName         = "/sysml.SysMLService/RenderView"
 	SysMLService_ExportGraphs_FullMethodName       = "/sysml.SysMLService/ExportGraphs"
+	SysMLService_ImportData_FullMethodName         = "/sysml.SysMLService/ImportData"
+	SysMLService_CompareResults_FullMethodName     = "/sysml.SysMLService/CompareResults"
 )
 
 // SysMLServiceClient is the client API for SysMLService service.
@@ -104,11 +110,29 @@ type SysMLServiceClient interface {
 	ValidateInstance(ctx context.Context, in *ValidateInstanceRequest, opts ...grpc.CallOption) (*ValidateInstanceResponse, error)
 	EvaluateCalc(ctx context.Context, in *EvaluateCalcRequest, opts ...grpc.CallOption) (*EvaluateCalcResponse, error)
 	RunAnalysis(ctx context.Context, in *RunAnalysisRequest, opts ...grpc.CallOption) (*RunAnalysisResponse, error)
+	// CheckBehavior searches every schedule of an action or state machine, as
+	// `sysml -check-property`/`-check-diverge` do: a violated property, a
+	// deadlock, a failure or a divergent feature is witnessed and replayed.
+	CheckBehavior(ctx context.Context, in *CheckBehaviorRequest, opts ...grpc.CallOption) (*CheckBehaviorResponse, error)
 	// Run one analysis case or calc once per row of a parameter sweep, as the
 	// CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
 	// swept parameter bound to that row's value. Reported as the "verification"
 	// capability.
 	RunSweep(ctx context.Context, in *RunSweepRequest, opts ...grpc.CallOption) (*RunSweepResponse, error)
+	// Run an action, or a Simulation::MonteCarlo analysis case, a number of
+	// times, each run seeded from the request's seed, and table what the runs
+	// observed with each observable's distribution, as the CLI's -runs/-observe
+	// do. Reported as the "runs" capability.
+	RunRuns(ctx context.Context, in *RunRunsRequest, opts ...grpc.CallOption) (*RunRunsResponse, error)
+	// SelfCheck applies the SysMLValidation constraints, and those of any rule
+	// packages, reflectively to every element of the model, as `sysml -self-check`
+	// does. Reported as the "self_check" capability.
+	SelfCheck(ctx context.Context, in *SelfCheckRequest, opts ...grpc.CallOption) (*SelfCheckResponse, error)
+	// RecordRun runs an analysis case — once, over the rows of a sweep, or as a
+	// Monte Carlo sample — and records the runs into the model as AnalysisRecords
+	// declarations, as `sysml -record-run` does. Reported as the "record_run"
+	// capability.
+	RecordRun(ctx context.Context, in *RecordRunRequest, opts ...grpc.CallOption) (*RecordRunResponse, error)
 	// List the analysis engines this build registers, as the CLI's -engines and
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
@@ -136,6 +160,16 @@ type SysMLServiceClient interface {
 	// and every behavior it performs — as the canonical `graphs:<version>` JSON
 	// external analysis engines read. Reported as the "export_graphs" capability.
 	ExportGraphs(ctx context.Context, in *ExportGraphsRequest, opts ...grpc.CallOption) (*ExportGraphsResponse, error)
+	// Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+	// per element, as `sysml -import` does: a feature the element declares has its
+	// value set, one it inherits is redefined with the value; a dry run reports the
+	// values without changing the model. Reported as the "import_data" capability.
+	ImportData(ctx context.Context, in *ImportDataRequest, opts ...grpc.CallOption) (*ImportDataResponse, error)
+	// Run every configuration a SysML v1 tool's results sidecar indexes, as
+	// `sysml -compare-results` does, and table the tool's and OpenSysML's min,
+	// mean, p50, p90 and max of each observable with their relative difference.
+	// Reported as the "compare_results" capability.
+	CompareResults(ctx context.Context, in *CompareResultsRequest, opts ...grpc.CallOption) (*CompareResultsResponse, error)
 }
 
 type sysMLServiceClient struct {
@@ -308,9 +342,45 @@ func (c *sysMLServiceClient) RunAnalysis(ctx context.Context, in *RunAnalysisReq
 	return out, nil
 }
 
+func (c *sysMLServiceClient) CheckBehavior(ctx context.Context, in *CheckBehaviorRequest, opts ...grpc.CallOption) (*CheckBehaviorResponse, error) {
+	out := new(CheckBehaviorResponse)
+	err := c.cc.Invoke(ctx, SysMLService_CheckBehavior_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sysMLServiceClient) RunSweep(ctx context.Context, in *RunSweepRequest, opts ...grpc.CallOption) (*RunSweepResponse, error) {
 	out := new(RunSweepResponse)
 	err := c.cc.Invoke(ctx, SysMLService_RunSweep_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sysMLServiceClient) RunRuns(ctx context.Context, in *RunRunsRequest, opts ...grpc.CallOption) (*RunRunsResponse, error) {
+	out := new(RunRunsResponse)
+	err := c.cc.Invoke(ctx, SysMLService_RunRuns_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sysMLServiceClient) SelfCheck(ctx context.Context, in *SelfCheckRequest, opts ...grpc.CallOption) (*SelfCheckResponse, error) {
+	out := new(SelfCheckResponse)
+	err := c.cc.Invoke(ctx, SysMLService_SelfCheck_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sysMLServiceClient) RecordRun(ctx context.Context, in *RecordRunRequest, opts ...grpc.CallOption) (*RecordRunResponse, error) {
+	out := new(RecordRunResponse)
+	err := c.cc.Invoke(ctx, SysMLService_RecordRun_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -365,6 +435,24 @@ func (c *sysMLServiceClient) RenderView(ctx context.Context, in *RenderViewReque
 func (c *sysMLServiceClient) ExportGraphs(ctx context.Context, in *ExportGraphsRequest, opts ...grpc.CallOption) (*ExportGraphsResponse, error) {
 	out := new(ExportGraphsResponse)
 	err := c.cc.Invoke(ctx, SysMLService_ExportGraphs_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sysMLServiceClient) ImportData(ctx context.Context, in *ImportDataRequest, opts ...grpc.CallOption) (*ImportDataResponse, error) {
+	out := new(ImportDataResponse)
+	err := c.cc.Invoke(ctx, SysMLService_ImportData_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sysMLServiceClient) CompareResults(ctx context.Context, in *CompareResultsRequest, opts ...grpc.CallOption) (*CompareResultsResponse, error) {
+	out := new(CompareResultsResponse)
+	err := c.cc.Invoke(ctx, SysMLService_CompareResults_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -429,11 +517,29 @@ type SysMLServiceServer interface {
 	ValidateInstance(context.Context, *ValidateInstanceRequest) (*ValidateInstanceResponse, error)
 	EvaluateCalc(context.Context, *EvaluateCalcRequest) (*EvaluateCalcResponse, error)
 	RunAnalysis(context.Context, *RunAnalysisRequest) (*RunAnalysisResponse, error)
+	// CheckBehavior searches every schedule of an action or state machine, as
+	// `sysml -check-property`/`-check-diverge` do: a violated property, a
+	// deadlock, a failure or a divergent feature is witnessed and replayed.
+	CheckBehavior(context.Context, *CheckBehaviorRequest) (*CheckBehaviorResponse, error)
 	// Run one analysis case or calc once per row of a parameter sweep, as the
 	// CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
 	// swept parameter bound to that row's value. Reported as the "verification"
 	// capability.
 	RunSweep(context.Context, *RunSweepRequest) (*RunSweepResponse, error)
+	// Run an action, or a Simulation::MonteCarlo analysis case, a number of
+	// times, each run seeded from the request's seed, and table what the runs
+	// observed with each observable's distribution, as the CLI's -runs/-observe
+	// do. Reported as the "runs" capability.
+	RunRuns(context.Context, *RunRunsRequest) (*RunRunsResponse, error)
+	// SelfCheck applies the SysMLValidation constraints, and those of any rule
+	// packages, reflectively to every element of the model, as `sysml -self-check`
+	// does. Reported as the "self_check" capability.
+	SelfCheck(context.Context, *SelfCheckRequest) (*SelfCheckResponse, error)
+	// RecordRun runs an analysis case — once, over the rows of a sweep, or as a
+	// Monte Carlo sample — and records the runs into the model as AnalysisRecords
+	// declarations, as `sysml -record-run` does. Reported as the "record_run"
+	// capability.
+	RecordRun(context.Context, *RecordRunRequest) (*RecordRunResponse, error)
 	// List the analysis engines this build registers, as the CLI's -engines and
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
@@ -461,6 +567,16 @@ type SysMLServiceServer interface {
 	// and every behavior it performs — as the canonical `graphs:<version>` JSON
 	// external analysis engines read. Reported as the "export_graphs" capability.
 	ExportGraphs(context.Context, *ExportGraphsRequest) (*ExportGraphsResponse, error)
+	// Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+	// per element, as `sysml -import` does: a feature the element declares has its
+	// value set, one it inherits is redefined with the value; a dry run reports the
+	// values without changing the model. Reported as the "import_data" capability.
+	ImportData(context.Context, *ImportDataRequest) (*ImportDataResponse, error)
+	// Run every configuration a SysML v1 tool's results sidecar indexes, as
+	// `sysml -compare-results` does, and table the tool's and OpenSysML's min,
+	// mean, p50, p90 and max of each observable with their relative difference.
+	// Reported as the "compare_results" capability.
+	CompareResults(context.Context, *CompareResultsRequest) (*CompareResultsResponse, error)
 	mustEmbedUnimplementedSysMLServiceServer()
 }
 
@@ -522,8 +638,20 @@ func (UnimplementedSysMLServiceServer) EvaluateCalc(context.Context, *EvaluateCa
 func (UnimplementedSysMLServiceServer) RunAnalysis(context.Context, *RunAnalysisRequest) (*RunAnalysisResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunAnalysis not implemented")
 }
+func (UnimplementedSysMLServiceServer) CheckBehavior(context.Context, *CheckBehaviorRequest) (*CheckBehaviorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CheckBehavior not implemented")
+}
 func (UnimplementedSysMLServiceServer) RunSweep(context.Context, *RunSweepRequest) (*RunSweepResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunSweep not implemented")
+}
+func (UnimplementedSysMLServiceServer) RunRuns(context.Context, *RunRunsRequest) (*RunRunsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunRuns not implemented")
+}
+func (UnimplementedSysMLServiceServer) SelfCheck(context.Context, *SelfCheckRequest) (*SelfCheckResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SelfCheck not implemented")
+}
+func (UnimplementedSysMLServiceServer) RecordRun(context.Context, *RecordRunRequest) (*RecordRunResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RecordRun not implemented")
 }
 func (UnimplementedSysMLServiceServer) ListEngines(context.Context, *ListEnginesRequest) (*ListEnginesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListEngines not implemented")
@@ -542,6 +670,12 @@ func (UnimplementedSysMLServiceServer) RenderView(context.Context, *RenderViewRe
 }
 func (UnimplementedSysMLServiceServer) ExportGraphs(context.Context, *ExportGraphsRequest) (*ExportGraphsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExportGraphs not implemented")
+}
+func (UnimplementedSysMLServiceServer) ImportData(context.Context, *ImportDataRequest) (*ImportDataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ImportData not implemented")
+}
+func (UnimplementedSysMLServiceServer) CompareResults(context.Context, *CompareResultsRequest) (*CompareResultsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompareResults not implemented")
 }
 func (UnimplementedSysMLServiceServer) mustEmbedUnimplementedSysMLServiceServer() {}
 
@@ -880,6 +1014,24 @@ func _SysMLService_RunAnalysis_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SysMLService_CheckBehavior_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckBehaviorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).CheckBehavior(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_CheckBehavior_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).CheckBehavior(ctx, req.(*CheckBehaviorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SysMLService_RunSweep_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RunSweepRequest)
 	if err := dec(in); err != nil {
@@ -894,6 +1046,60 @@ func _SysMLService_RunSweep_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SysMLServiceServer).RunSweep(ctx, req.(*RunSweepRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SysMLService_RunRuns_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunRunsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).RunRuns(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_RunRuns_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).RunRuns(ctx, req.(*RunRunsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SysMLService_SelfCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SelfCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).SelfCheck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_SelfCheck_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).SelfCheck(ctx, req.(*SelfCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SysMLService_RecordRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecordRunRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).RecordRun(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_RecordRun_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).RecordRun(ctx, req.(*RecordRunRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1006,6 +1212,42 @@ func _SysMLService_ExportGraphs_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SysMLService_ImportData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportDataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).ImportData(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_ImportData_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).ImportData(ctx, req.(*ImportDataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SysMLService_CompareResults_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompareResultsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).CompareResults(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_CompareResults_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).CompareResults(ctx, req.(*CompareResultsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SysMLService_ServiceDesc is the grpc.ServiceDesc for SysMLService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1086,8 +1328,24 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SysMLService_RunAnalysis_Handler,
 		},
 		{
+			MethodName: "CheckBehavior",
+			Handler:    _SysMLService_CheckBehavior_Handler,
+		},
+		{
 			MethodName: "RunSweep",
 			Handler:    _SysMLService_RunSweep_Handler,
+		},
+		{
+			MethodName: "RunRuns",
+			Handler:    _SysMLService_RunRuns_Handler,
+		},
+		{
+			MethodName: "SelfCheck",
+			Handler:    _SysMLService_SelfCheck_Handler,
+		},
+		{
+			MethodName: "RecordRun",
+			Handler:    _SysMLService_RecordRun_Handler,
 		},
 		{
 			MethodName: "ListEngines",
@@ -1112,6 +1370,14 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExportGraphs",
 			Handler:    _SysMLService_ExportGraphs_Handler,
+		},
+		{
+			MethodName: "ImportData",
+			Handler:    _SysMLService_ImportData_Handler,
+		},
+		{
+			MethodName: "CompareResults",
+			Handler:    _SysMLService_CompareResults_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

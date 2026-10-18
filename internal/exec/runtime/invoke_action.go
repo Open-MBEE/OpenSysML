@@ -122,10 +122,11 @@ func mergedTypedSubflowInvocation(graph *lower.ActionGraph, usage *ast.Usage) (a
 	return actionInvocation{target: typed.Target, scope: typed.Scope}, true
 }
 
-// referencedInvocation reports the action a usage's reference subsetting performs.
+// referencedInvocation reports the action a usage's reference subsetting performs:
+// `perform a;`, or `include uc;`, which includes a use case the way a perform does.
 func referencedInvocation(usage *ast.Usage) (actionInvocation, bool) {
 	for _, rel := range usage.Relationships {
-		if rel.Kind != ast.RelReferences {
+		if !rel.Kind.ReferenceSubsets() {
 			continue
 		}
 		switch target := rel.Target.(type) {
@@ -509,10 +510,10 @@ func actionCandidates(
 		sym, ok = ctx.resolveQualified(scope, target)
 	}
 	if !ok || sym == nil {
-		return nil, nil, fmt.Errorf("unresolved action reference: %s", name)
+		return nil, nil, &UnresolvedActionError{Name: name}
 	}
 	if inv.referrer != nil && sym.Decl == inv.referrer {
-		return nil, nil, fmt.Errorf("unresolved action reference: %s (a perform statement cannot perform itself)", name)
+		return nil, nil, &UnresolvedActionError{Name: name, Detail: "a perform statement cannot perform itself"}
 	}
 	if !ctx.model.semantics.Performable(semantics.PerformsAction, sym) {
 		return nil, nil, fmt.Errorf("%w: %s is not an action (%v)", errNotABehavior, name, sym.Kind)
@@ -668,7 +669,7 @@ func (ctx *Context) ActionInputs(scope *symbols.Scope, sym *symbols.Symbol, posi
 	names := ctx.actionInputNames(sym)
 	if len(positional) > len(names) {
 		return nil, fmt.Errorf("%w: action %s takes %d input parameter(s), got %d argument(s)",
-			errActionArity, symbolText(sym), len(names), len(positional))
+			errActionArity, SymbolText(sym), len(names), len(positional))
 	}
 	inputs := make(map[string]Value, len(names))
 	bound := make(map[string]bool, len(names))
@@ -687,11 +688,11 @@ func (ctx *Context) ActionInputs(scope *symbols.Scope, sym *symbols.Symbol, posi
 		}
 		if !slices.Contains(names, name) {
 			return nil, fmt.Errorf("%w: action %s has no input parameter %q",
-				errUnknownParameter, symbolText(sym), name)
+				errUnknownParameter, SymbolText(sym), name)
 		}
 		if bound[name] {
 			return nil, fmt.Errorf("%w: input parameter %q of %s is given more than one argument",
-				errDuplicateArgument, name, symbolText(sym))
+				errDuplicateArgument, name, SymbolText(sym))
 		}
 		bound[name] = true
 		inputs[name] = arg.Value

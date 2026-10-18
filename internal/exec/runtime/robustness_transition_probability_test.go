@@ -46,7 +46,7 @@ func weightedStateRun(t *testing.T, body, signal string) error {
 		return err
 	}
 	if signal != "" {
-		exec.sendSignal(signal, nil)
+		exec.SendSignal(signal, nil)
 	}
 	return exec.RunToCompletion()
 }
@@ -669,7 +669,7 @@ func testSameNamedSignalsSeparateGroups(t *testing.T) {
 	}
 	// One occurrence matching both accepts still runs both enabled checks; the
 	// dispatch is not refused for grouping reasons alone.
-	exec.sendSignal("Other", nil)
+	exec.SendSignal("Other", nil)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}

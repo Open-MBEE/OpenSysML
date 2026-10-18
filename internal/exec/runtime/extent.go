@@ -146,7 +146,7 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 		}()
 		children, err := ctx.heldObjectsOf(inst, through, true, extentHoldsObjects)
 		if err != nil {
-			return fmt.Errorf("object of %s: %w", symbolText(inst.Type), err)
+			return fmt.Errorf("object of %s: %w", SymbolText(inst.Type), err)
 		}
 		for _, child := range children {
 			if err := descend(child.instance); err != nil {
@@ -194,7 +194,7 @@ func (ctx *Context) readUnlessRecursive(inst *Instance, name string, target *sym
 	rollback()
 	if reached != nil {
 		return nil, fmt.Errorf("%w: the value of %s makes an object of %s, already on the path, together with one of %s, which the extent cannot reach without it",
-			errExtentUnavailable, name, symbolText(ctx.onPath(recursive, path)), symbolText(reached.Type))
+			errExtentUnavailable, name, SymbolText(ctx.onPath(recursive, path)), SymbolText(reached.Type))
 	}
 	return nil, nil
 }
@@ -308,7 +308,7 @@ func (ec *EvalContext) boundObjects(sym *symbols.Symbol) ([]*Instance, error) {
 		if errors.As(err, &cycle) && ec.ctx.binding(cycle.Usage) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+		return nil, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
 	}
 	var out []*Instance
 	for _, id := range heldObjects(val) {
@@ -325,10 +325,10 @@ func (ec *EvalContext) boundObjects(sym *symbols.Symbol) ([]*Instance, error) {
 func (ctx *Context) undenotedUsage(sym *symbols.Symbol) error {
 	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); !mult.Lower.Known || !mult.Upper.Known {
 		return fmt.Errorf("%w: usage %s declares %s occurrences, a count the model does not fix, which the run denotes no object of",
-			errExtentUnavailable, symbolText(sym), mult.Text())
+			errExtentUnavailable, SymbolText(sym), mult.Text())
 	}
 	return fmt.Errorf("%w: usage %s is a %s at namespace level, which the run denotes no object of",
-		errExtentUnavailable, symbolText(sym), sym.Notation())
+		errExtentUnavailable, SymbolText(sym), sym.Notation())
 }
 
 // usageCensus is the object usages the namespaces of every document of the model declare, in

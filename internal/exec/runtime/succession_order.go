@@ -546,7 +546,7 @@ func (ctx *Context) noteBehaviorOrderFinding(order lower.BehaviorOrder, featurin
 	}
 	ctx.successionOrderNotes[key] = true
 	ctx.note(successionOrdersNothing{
-		Reason: fmt.Sprintf("succession %s releases %s: %s", behaviorOrderName(order), symbolText(endFeature(order.Later)), reason),
+		Reason: fmt.Sprintf("succession %s releases %s: %s", behaviorOrderName(order), SymbolText(endFeature(order.Later)), reason),
 		File:   order.File,
 		Span:   order.Span,
 	})
@@ -746,8 +746,8 @@ func (ctx *Context) successionViolation(order lower.BehaviorOrder, other *Object
 	return &successionOrderError{
 		Code: successionOrderViolatedCode,
 		Message: fmt.Sprintf("succession-order-violated: succession %s orders %s of object #%d before %s of object #%d, but %s of object #%d has already begun in featuring object #%d",
-			behaviorOrderName(order), symbolText(earlier), earlierObject,
-			symbolText(later), laterObject, symbolText(activeFeature), other.Object.ID, featuring.ID),
+			behaviorOrderName(order), SymbolText(earlier), earlierObject,
+			SymbolText(later), laterObject, SymbolText(activeFeature), other.Object.ID, featuring.ID),
 		Err: errSuccessionOrderViolated,
 	}
 }

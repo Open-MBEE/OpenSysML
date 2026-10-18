@@ -313,11 +313,11 @@ func (ctx *Context) metadataObject(element *symbols.Symbol, index int, annotatio
 	}
 	id, ok := val.Object()
 	if !ok {
-		return nil, fmt.Errorf("%w: metadata %s denotes no object", ErrTypeMismatch, ctx.qualifiedSymbolName(annotation.Type))
+		return nil, fmt.Errorf("%w: metadata %s denotes no object", ErrTypeMismatch, ctx.QualifiedName(annotation.Type))
 	}
 	inst, live := ctx.instances[id]
 	if !live || inst == nil {
-		return nil, fmt.Errorf("%w: metadata %s denotes no object", ErrTypeMismatch, ctx.qualifiedSymbolName(annotation.Type))
+		return nil, fmt.Errorf("%w: metadata %s denotes no object", ErrTypeMismatch, ctx.QualifiedName(annotation.Type))
 	}
 	return inst, nil
 }
@@ -327,12 +327,12 @@ func (ctx *Context) metadataObject(element *symbols.Symbol, index int, annotatio
 func (ctx *Context) metadataString(inst *Instance, typ *symbols.Symbol, feature string) (string, error) {
 	fv, err := inst.GetFeatureValue(ctx, feature)
 	if err != nil {
-		return "", fmt.Errorf("metadata %s: %s: %w", ctx.qualifiedSymbolName(typ), feature, err)
+		return "", fmt.Errorf("metadata %s: %s: %w", ctx.QualifiedName(typ), feature, err)
 	}
 	held := fv.Value
 	if held.Kind != ValString {
 		return "", fmt.Errorf("%w: metadata %s: %s holds %s, not a String",
-			ErrTypeMismatch, ctx.qualifiedSymbolName(typ), feature, describeValue(held))
+			ErrTypeMismatch, ctx.QualifiedName(typ), feature, DescribeValue(held))
 	}
 	return held.Str(), nil
 }
@@ -372,7 +372,7 @@ func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 	if answer.Diverged {
 		e.ctx.note(ToolDivergence{
 			Tool:   tool,
-			Action: e.ctx.qualifiedSymbolName(execution.on),
+			Action: e.ctx.QualifiedName(execution.on),
 			File:   execution.on.DocName,
 			Span:   execution.on.DeclSpan,
 		})
@@ -403,7 +403,7 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 		}
 		if other, taken := namedBy[variable]; taken {
 			return nil, &ToolError{Tool: tool, Kind: toolAmbiguousVariable,
-				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, symbolText(e.performed))}
+				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, SymbolText(e.performed))}
 		}
 		namedBy[variable] = param.Symbol.Name
 		name := param.Symbol.Name
@@ -416,7 +416,7 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 			}
 			if !bound && !e.ctx.model.semantics.OptionalParameter(param.Symbol) {
 				return nil, fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
-					errUnboundParameter, symbolText(e.performed), name)
+					errUnboundParameter, SymbolText(e.performed), name)
 			}
 			if bound {
 				sent, err := toolInput(tool, param.Symbol, held)
@@ -506,7 +506,7 @@ func toolInput(tool string, param *symbols.Symbol, held Value) (ToolValue, error
 		return v, nil
 	}
 	return ToolValue{}, &ToolError{Tool: tool, Kind: ToolUnsentInput,
-		Detail: fmt.Sprintf("%s holds %s, which the protocol does not carry", param.Name, describeValue(held))}
+		Detail: fmt.Sprintf("%s holds %s, which the protocol does not carry", param.Name, DescribeValue(held))}
 }
 
 // ToolValueOf is a value as the tool protocol carries it; false for one it does not carry.
@@ -567,14 +567,14 @@ func (c *ToolCall) Bind(outputs map[string]ToolValue) (map[string]Value, error) 
 	if len(unknown) > 0 {
 		sort.Strings(unknown)
 		return nil, &ToolError{Tool: c.ToolName, Kind: ToolUnknownOutput,
-			Detail: fmt.Sprintf("%s: no ToolVariable of %s receives it", strings.Join(unknown, ", "), symbolText(c.Action))}
+			Detail: fmt.Sprintf("%s: no ToolVariable of %s receives it", strings.Join(unknown, ", "), SymbolText(c.Action))}
 	}
 	bound := make(map[string]Value, len(c.Outputs))
 	for _, out := range c.Outputs {
 		answered, ok := outputs[out.Variable]
 		if !ok {
 			return nil, &ToolError{Tool: c.ToolName, Kind: ToolMissingOutput,
-				Detail: fmt.Sprintf("%s (%s of %s) was not answered", out.Variable, out.Parameter, symbolText(c.Action))}
+				Detail: fmt.Sprintf("%s (%s of %s) was not answered", out.Variable, out.Parameter, SymbolText(c.Action))}
 		}
 		value, err := c.ctx.toolOutput(c.scope, c.ToolName, out, answered)
 		if err != nil {
@@ -597,7 +597,7 @@ func (c *ToolCall) ConvertInput(in ToolInput, unit string) (semantics.Value, err
 		return semantics.Value{}, fault(errors.New("the call has no context to read units in"))
 	}
 	if !in.Value.Value.IsNumeric() {
-		return semantics.Value{}, fault(fmt.Errorf("%s is not a number", describeValue(Value{Kind: ValConst, Const: in.Value.Value})))
+		return semantics.Value{}, fault(fmt.Errorf("%s is not a number", DescribeValue(Value{Kind: ValConst, Const: in.Value.Value})))
 	}
 	from, err := c.ctx.UnitOf(c.scope, in.Value.Unit)
 	if err != nil {

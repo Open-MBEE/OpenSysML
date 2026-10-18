@@ -71,7 +71,7 @@ func TestStepOrderDrawsThePendingSignalAsQueued(t *testing.T) {
 					return nil, err
 				}
 				if c.queued != "" {
-					exec.sendSignal(c.queued, nil)
+					exec.SendSignal(c.queued, nil)
 				}
 				ctx.PostMessage(Message{SignalType: "Stop"})
 				return &Invocation{States: []*StateExecutor{exec}, Horizon: HorizonAt(1)}, nil

@@ -54,7 +54,7 @@ func (ctx *Context) startBehaviorOn(inst *Instance, member *symbols.Symbol) erro
 	decl, typ, ok := ctx.startableBehaviorOf(inst, member)
 	if !ok {
 		return fmt.Errorf("%w: %s is no behavior of object #%d (%s)",
-			errNoSuchBehavior, symbolText(member), inst.ID, symbolText(inst.Type))
+			errNoSuchBehavior, SymbolText(member), inst.ID, SymbolText(inst.Type))
 	}
 	if err := ctx.checkPerformer(inst); err != nil {
 		return fmt.Errorf("start %s %s: %w", decl.behavior.Kind, decl.behavior.Name, err)

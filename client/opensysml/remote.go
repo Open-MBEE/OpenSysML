@@ -210,6 +210,30 @@ func (r *remote) runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (*
 	return resp.Msg, nil
 }
 
+func (r *remote) runRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunRunsResponse, error) {
+	resp, err := r.rpc.RunRuns(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
+func (r *remote) selfCheck(ctx context.Context, req *pb.SelfCheckRequest) (*pb.SelfCheckResponse, error) {
+	resp, err := r.rpc.SelfCheck(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
+func (r *remote) recordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.RecordRunResponse, error) {
+	resp, err := r.rpc.RecordRun(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
 func (r *remote) query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	resp, err := r.rpc.Query(ctx, connect.NewRequest(req))
 	if err != nil {
@@ -253,6 +277,14 @@ func (r *remote) exportGraphs(ctx context.Context, req *pb.ExportGraphsRequest) 
 	return resp.Msg, nil
 }
 
+func (r *remote) checkBehavior(ctx context.Context, req *pb.CheckBehaviorRequest) (*pb.CheckBehaviorResponse, error) {
+	resp, err := r.rpc.CheckBehavior(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
 func (r *remote) convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error) {
 	resp, err := r.rpc.Convert(ctx, connect.NewRequest(req))
 	if err != nil {
@@ -290,4 +322,20 @@ func connectToError(err error) error {
 		return &StatusError{Code: Code(connectErr.Code()), Message: connectErr.Message()}
 	}
 	return &StatusError{Code: CodeUnavailable, Message: err.Error()}
+}
+
+func (r *remote) importData(ctx context.Context, req *pb.ImportDataRequest) (*pb.ImportDataResponse, error) {
+	resp, err := r.rpc.ImportData(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
+func (r *remote) compareResults(ctx context.Context, req *pb.CompareResultsRequest) (*pb.CompareResultsResponse, error) {
+	resp, err := r.rpc.CompareResults(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
 }

@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 319,
-        "digest": "sha256:e55c280b1c0346eb33c090c2704ece422db3d9106d7474c2f8f58cf1240cff86"
+        "files": 328,
+        "digest": "sha256:4b0ec62e3b1f9366a92474f8b89d5306a3e090b7e3e49160942110adb533ee5a"
       }
     ],
-    "recorded": "2026-10-16"
+    "recorded": "2026-10-18"
   },
   "totals": {
-    "cases": 319,
-    "bothReject": 310,
+    "cases": 328,
+    "bothReject": 319,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -49,24 +49,24 @@
   "sources": [
     {
       "source": "extensions",
-      "cases": 11,
-      "bothReject": 11,
+      "cases": 12,
+      "bothReject": 12,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
     },
     {
       "source": "grammar",
-      "cases": 108,
-      "bothReject": 108,
+      "cases": 112,
+      "bothReject": 112,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
     },
     {
       "source": "semantic",
-      "cases": 165,
-      "bothReject": 156,
+      "cases": 169,
+      "bothReject": 160,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -197,6 +197,17 @@
       "oursErrors": 1,
       "pilotErrors": 4,
       "defaultBucket": "pilot-only-rejects"
+    },
+    {
+      "path": "extensions/x12-target-succession-outside-action-body.sysml",
+      "source": "extensions",
+      "rule": "TargetSuccessionMember is an ActionBodyItem; a view body admits no 'then \u003ctarget\u003e;' succession (SysML.xtext:1367 ActionBodyItem, :1693 TargetSuccessionMember, :2359 ViewBodyItem).",
+      "mode": "strict",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2,
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "grammar/g01-unclosed-package-body.sysml",
@@ -926,6 +937,42 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 3
+    },
+    {
+      "path": "grammar/g82-frame-in-view-body.sysml",
+      "source": "grammar",
+      "rule": "FramedConcernMember is a RequirementBodyItem; a view body admits no 'frame' (SysML.xtext:2062 RequirementBodyItem, :2359 ViewBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g83-frame-in-view-def-body.sysml",
+      "source": "grammar",
+      "rule": "FramedConcernMember is a RequirementBodyItem; a view def body admits no 'frame' (SysML.xtext:2062 RequirementBodyItem, :2329 ViewDefinitionBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g84-filter-outside-package-or-view-body.sysml",
+      "source": "grammar",
+      "rule": "ElementFilterMember is a PackageBodyElement, ViewDefinitionBodyItem and ViewBodyItem; a rendering def body admits no 'filter' (SysML.xtext:227 ElementFilterMember, :2329 ViewDefinitionBodyItem, :2359 ViewBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g85-accept-outside-action-body.sysml",
+      "source": "grammar",
+      "rule": "AcceptNode is an ActionBodyItem; a view body admits no 'accept' (SysML.xtext:1367 ActionBodyItem, :1434 AcceptNode, :2359 ViewBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
     },
     {
       "path": "grammar/k01-specializes-without-target.kerml",
@@ -1933,6 +1980,15 @@
       "pilotErrors": 3
     },
     {
+      "path": "semantic/k74-package-level-redefines-featured-feature.kerml",
+      "source": "semantic",
+      "rule": "a package-level feature has no featuring type, so a feature featured by a type is not accessible to it (KerML 8.3.3.3 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s01-action-typed-by-part-def.sysml",
       "source": "semantic",
       "rule": "An action must be typed by action definitions (SysML 7.16 Actions; pilot validateActionUsageType).",
@@ -2068,9 +2124,27 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/s104-root-level-feature-redefined.sysml",
+      "source": "semantic",
+      "rule": "a feature owned by the root namespace is package-level and cannot be redefined by another (KerML 7.4.7 validateRedefinitionFeaturingTypes; pilot validateRedefinitionFeaturingTypes).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s105-analysis-usage-two-objectives.sysml",
       "source": "semantic",
       "rule": "An analysis case usage may have at most one objective (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneObjective).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s105-package-level-redefines-type-feature.sysml",
+      "source": "semantic",
+      "rule": "a package-level feature has no featuring type, so a feature of a type is not accessible to it (KerML 8.3.3.3 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -2183,6 +2257,15 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s20b-include-references-definition.sysml",
+      "source": "semantic",
+      "rule": "An include use case usage must reference a use case usage; a use case definition is not a feature (SysML 7.24 Use Cases; pilot validateIncludeUseCaseUsageReference).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
     },
     {
       "path": "semantic/s21-interface-def-end-not-port.sysml",
@@ -3110,8 +3193,8 @@
       }
     ],
     "totals": {
-      "cases": 319,
-      "bothReject": 310,
+      "cases": 328,
+      "bothReject": 319,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

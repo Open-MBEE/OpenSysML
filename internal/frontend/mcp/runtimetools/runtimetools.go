@@ -47,8 +47,14 @@ func Register(s *mcp.Server, svc *sysmlgrpc.Service, root string) {
 	g.registerDiagnostics(s)
 	g.registerRuntime(s)
 	g.registerVerification(s)
+	g.registerRuns(s)
+	g.registerSelfCheck(s)
+	g.registerRecord(s)
+	g.registerCheck(s)
 	g.registerQueries(s)
 	g.registerConversion(s)
+	g.registerImportData(s)
+	g.registerCompareResults(s)
 }
 
 // Source is one document given inline.

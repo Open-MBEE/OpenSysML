@@ -52,9 +52,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // One watcher for the whole session: a per-start watcher would outlive the
   // client that used it and pile up over restarts.
-  // The project interchange file is watched too: a usage added or a project
-  // installed changes which installed projects the server indexes.
-  watcher = vscode.workspace.createFileSystemWatcher("**/{*.sysml,*.kerml,.project.json}");
+  // The project interchange file and archives are watched too: a usage added
+  // or a project installed changes which installed projects the server indexes.
+  watcher = vscode.workspace.createFileSystemWatcher("**/{*.sysml,*.kerml,*.kpar,.project.json}");
   context.subscriptions.push(watcher);
 
   // The panel is the client of the server's render methods, and is registered

@@ -46,7 +46,7 @@ func (ctx *Context) RequireMonteCarloCase(sym *symbols.Symbol) error {
 	}
 	if !ctx.isMonteCarloCase(sym) {
 		return fmt.Errorf("%w: %s specializes no %s, so its runs have no statistics to bind",
-			errNotMonteCarlo, ctx.qualifiedSymbolName(sym), monteCarloCaseFQN)
+			errNotMonteCarlo, ctx.QualifiedName(sym), monteCarloCaseFQN)
 	}
 	return nil
 }
@@ -274,7 +274,7 @@ type MonteCarloStatistics struct {
 // statistic is Mean or Deviation as a value: a Real, or a quantity in the sample's unit.
 func (s MonteCarloStatistics) statistic(x float64) Value {
 	if s.Unit == nil {
-		return constValue(drawnReal(x))
+		return ConstValue(drawnReal(x))
 	}
 	return NewQuantityValue(&Quantity{Num: drawnReal(x), Unit: s.Unit.Clone()})
 }
@@ -391,7 +391,7 @@ func (r *MonteCarloRun) bindObservationStatistics(stats MonteCarloStatistics) er
 		feature string
 		value   Value
 	}{
-		{MonteCarloRunsOutput, constValue(drawnInt(stats.Runs))},
+		{MonteCarloRunsOutput, ConstValue(drawnInt(stats.Runs))},
 		{MonteCarloMeanOutput, stats.statistic(stats.Mean)},
 		{MonteCarloDeviationOutput, deviation},
 	}
@@ -469,7 +469,7 @@ func (r *MonteCarloRun) Conclude(stats MonteCarloStatistics, sample []bool) (Ana
 	if err := r.bindObservationStatistics(stats); err != nil {
 		return result, err
 	}
-	if err := r.bindStatistic(MonteCarloOutOfSpecOutput, constValue(drawnInt(stats.OutOfSpec))); err != nil {
+	if err := r.bindStatistic(MonteCarloOutOfSpecOutput, ConstValue(drawnInt(stats.OutOfSpec))); err != nil {
 		return result, err
 	}
 	if err := r.returnResults(); err != nil {

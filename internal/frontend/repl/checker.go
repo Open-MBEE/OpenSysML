@@ -492,79 +492,40 @@ func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePoli
 	return standing(checkedVerdict(subject, label, answered.Result), &answered)
 }
 
-// checkProperties resolves the session's properties to the constraint or
-// requirement each names: as the check engine evaluates each at every state
-// about every object the invocation's behaviors perform on, holding when it holds
-// of each; as the symbols the symbolic engine translates; and the scope they resolve in.
+// checkProperties resolves the session's properties and assumptions to the
+// constraint or requirement each names, as analysis.ResolveCheckConditions does.
 func (s *Session) checkProperties() ([]runtime.CheckProperty, []*symbols.Symbol, *symbols.Scope, error) {
 	docScopes := s.docScopes()
-	if (len(s.checker.properties) > 0 || len(s.checker.assume) > 0) && len(docScopes) == 0 {
-		return nil, nil, nil, errors.New("no declarations loaded")
-	}
 	var root *symbols.Scope
 	if len(docScopes) > 0 {
 		root = docScopes[0]
 	}
-	properties := make([]runtime.CheckProperty, 0, len(s.checker.properties))
-	conditions := make([]*symbols.Symbol, 0, len(s.checker.properties))
-	for _, name := range s.checker.properties {
-		sym, check, err := s.checkCondition(name)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		scope := declaringScope(sym, root)
-		properties = append(properties, runtime.CheckProperty{Name: name, Holds: func(ctx *runtime.Context, inv *runtime.Invocation) (bool, error) {
-			performers := inv.Performers()
-			if len(performers) == 0 {
-				performers = []*runtime.Instance{nil}
-			}
-			for _, self := range performers {
-				result, err := check(ctx, sym, scope, self)
-				if err != nil && !errors.Is(err, runtime.ErrViolated) {
-					return false, err
-				}
-				if !result.Holds {
-					return false, nil
-				}
-			}
-			return true, nil
-		}})
-		conditions = append(conditions, sym)
+	resolved, err := analysis.ResolveCheckConditions(s.lookupCondition, root, s.checker.properties, nil)
+	if err != nil {
+		return nil, nil, nil, err
 	}
-	return properties, conditions, root, nil
+	return resolved.Properties, resolved.Conditions, resolved.Scope, nil
 }
 
 // checkAssumptions resolves the session's assumptions to the constraint or
 // requirement each names.
 func (s *Session) checkAssumptions() ([]*symbols.Symbol, error) {
-	assume := make([]*symbols.Symbol, 0, len(s.checker.assume))
-	for _, name := range s.checker.assume {
-		sym, _, err := s.checkCondition(name)
-		if err != nil {
-			return nil, err
-		}
-		assume = append(assume, sym)
+	docScopes := s.docScopes()
+	var root *symbols.Scope
+	if len(docScopes) > 0 {
+		root = docScopes[0]
 	}
-	return assume, nil
+	resolved, err := analysis.ResolveCheckConditions(s.lookupCondition, root, nil, s.checker.assume)
+	if err != nil {
+		return nil, err
+	}
+	return resolved.Assume, nil
 }
 
-// conditionCheck evaluates a constraint or requirement about an object.
-type conditionCheck func(*runtime.Context, *symbols.Symbol, *symbols.Scope, *runtime.Instance) (runtime.CheckResult, error)
-
-// checkCondition resolves name to the constraint or requirement it names and
-// how the runtime evaluates it about an object.
-func (s *Session) checkCondition(name string) (*symbols.Symbol, conditionCheck, error) {
+// lookupCondition resolves a property or assumption name in the session.
+func (s *Session) lookupCondition(name string) (*symbols.Symbol, error) {
 	sym, _, err := s.lookupSymbol(name)
-	if err != nil {
-		return nil, nil, err
-	}
-	switch {
-	case runtime.RequireConstraint(sym) == nil:
-		return sym, (*runtime.Context).CheckConstraintOn, nil
-	case runtime.RequireRequirement(sym) == nil:
-		return sym, (*runtime.Context).CheckRequirementOn, nil
-	}
-	return nil, nil, fmt.Errorf("%q is not a constraint or requirement", name)
+	return sym, err
 }
 
 // checkStoppedVerdict reports a check that answered nothing: a refusal, a fault,
@@ -591,135 +552,24 @@ func checkStoppedVerdict(subject, label string, err error) Verdict {
 	return unresolvedVerdict(subject, err.Error())
 }
 
-// checkedVerdict reports what the check engine found: a violation or a divergence
-// fails the check, an exhaustive clean search holds, a bounded one is undecided. An
-// answer with no search report is the symbolic engine's or an external one's claim.
+// checkedVerdict reports what an engine answered to the check, rendered as
+// analysis.CheckLines renders it.
 func checkedVerdict(subject, label string, result analysis.Result) Verdict {
-	checked := result.Check()
-	if checked == nil {
-		if result.Covered() || result.Engine == analysis.SMTEngineName {
-			return decidedVerdict(subject, result)
-		}
-		return Verdict{Subject: subject, Status: VerdictUnresolved, Lines: []string{
-			fmt.Sprintf("? %s could not be checked", label),
-			"  " + result.Reason,
-		}}
-	}
-	report := checked.Report
-	v := Verdict{Subject: subject}
-	switch {
-	case result.Strength == analysis.NotCovered:
-		v.Status = VerdictUnresolved
-		v.Lines = append(v.Lines, fmt.Sprintf("? %s: %s", label, report.Status()), "  "+result.Reason)
-	case report.Verdict == runtime.CheckViolation, report.Verdict == runtime.CheckDivergent:
-		v.Status = VerdictFails
-		v.Lines = append(v.Lines, fmt.Sprintf("✗ %s: %s", label, report.Status()))
-	case report.Verdict == runtime.CheckExhaustive:
-		v.Status = VerdictHolds
-		v.Lines = append(v.Lines, fmt.Sprintf("✓ %s: %s", label, report.Status()))
-	default:
-		v.Status = VerdictUnresolved
-		v.Lines = append(v.Lines, fmt.Sprintf("? %s: %s", label, report.Status()))
-	}
-	for i, violation := range report.Violations {
-		mass := runtime.FormatWeight(violation.Mass)
-		if report.MassBounded {
-			mass = "≥ " + mass
-		}
-		v.Lines = append(v.Lines, "  violation: "+violation.String()+" (probability "+mass+")"+witnessPath(checked.Violations, i))
-	}
-	for i, d := range report.Divergent {
-		v.Lines = append(v.Lines, "  divergent: "+d.String())
-		for j, value := range d.Values {
-			var path []string
-			if i < len(checked.Divergent) {
-				path = checked.Divergent[i]
-			}
-			v.Lines = append(v.Lines, fmt.Sprintf("    %s = %s%s", d.Feature, value.Value, witnessPath(path, j)))
-		}
-	}
-	for _, final := range report.Finals {
-		v.Lines = append(v.Lines, "  outcome: "+final.Outcome)
-	}
-	return v
+	status, lines, _ := analysis.CheckLines(label, result)
+	return Verdict{Subject: subject, Status: verdictStatusOf(status), Lines: lines}
 }
 
-// decidedVerdict reports an answer carrying no check report, the symbolic engine's or an
-// external one's: a violation or a sensitivity fails, a proof holds, a bounded or uncovered
-// answer is undecided; the inputs, assumptions and witnesses it rests on follow, a
-// sensitivity's two schedules as witness A and witness B.
-func decidedVerdict(name string, result analysis.Result) Verdict {
-	v := Verdict{Subject: name}
-	switch {
-	case !result.Covered():
-		v.Status = VerdictUnresolved
-		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: not covered", name), "  "+result.Reason)
-	case result.Claim == analysis.ClaimViolated:
-		v.Status = VerdictFails
-		v.Lines = append(v.Lines, fmt.Sprintf("✗ Action %s: %s", name, result.Reason))
-	case result.Claim == analysis.ClaimSensitive:
-		v.Status = VerdictFails
-		v.Lines = append(v.Lines, fmt.Sprintf("✗ Action %s: sensitive: %s", name, result.Reason))
-	case result.Strength == analysis.Proved:
-		v.Status = VerdictHolds
-		v.Lines = append(v.Lines, fmt.Sprintf("✓ Action %s: %s", name, result.Claim))
-	default:
-		v.Status = VerdictUnresolved
-		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: %s (%s)", name, result.Claim, result.Strength))
-		if result.Question.Kind == analysis.Sensitive && result.Reason != "" {
-			v.Lines = append(v.Lines, "  "+result.Reason)
-		}
+func verdictStatusOf(status analysis.CheckStatus) VerdictStatus {
+	switch status {
+	case analysis.CheckHolds:
+		return VerdictHolds
+	case analysis.CheckFails:
+		return VerdictFails
 	}
-	if inputs := inputLines(result.Inputs); inputs != "" {
-		v.Lines = append(v.Lines, "  inputs: "+inputs)
-	}
-	if len(result.Assumptions) > 0 {
-		v.Lines = append(v.Lines, "  assumed: "+strings.Join(result.Assumptions, ", "))
-	}
-	switch w := result.Witness; {
-	case w != nil && result.Contrast != nil:
-		v.Lines = append(v.Lines, "  witness A: "+witnessLine(w), "  witness B: "+witnessLine(result.Contrast))
-	case w != nil:
-		v.Lines = append(v.Lines, "  witness: "+witnessLine(w))
-	}
-	return v
+	return VerdictUnresolved
 }
 
-// inputLines spells the inputs a symbolic engine reported, "" when it reported none.
-func inputLines(inputs []analysis.Input) string {
-	parts := make([]string, 0, len(inputs))
-	for _, in := range inputs {
-		parts = append(parts, in.String())
-	}
-	return strings.Join(parts, ", ")
-}
-
-// witnessLine spells a witness: the file it was written to, else its draws and
-// choices as one schedule, "no choices" for an empty one.
-func witnessLine(w *analysis.Witness) string {
-	if w.Written != "" {
-		return w.Written
-	}
-	if len(w.Draws) == 0 && len(w.Choices) == 0 {
-		return "no choices"
-	}
-	parts := make([]string, 0, len(w.Draws)+len(w.Choices))
-	for _, d := range w.Draws {
-		parts = append(parts, d.String())
-	}
-	for _, c := range w.Choices {
-		parts = append(parts, c.String())
-	}
-	return strings.Join(parts, "; ")
-}
-
-// witnessPath spells where the i'th witness was written, "" when none was.
-func witnessPath(paths []string, i int) string {
-	if i >= len(paths) || paths[i] == "" {
-		return ""
-	}
-	return " (witness " + paths[i] + ")"
-}
+func witnessLine(w *analysis.Witness) string { return analysis.WitnessLine(w) }
 
 // CheckBounds returns the search bounds a check runs under: depth, states and
 // unroll, 0 for the engines' defaults, and the timeout, 0 for none.

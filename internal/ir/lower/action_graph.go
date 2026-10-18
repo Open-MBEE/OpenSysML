@@ -52,6 +52,10 @@ type ActionGraph struct {
 	// send, accept and converge on; computed on the first call of Footprints.
 	footprints     map[ast.Node]Footprint
 	footprintsOnce sync.Once
+	// bindingFootprints: node → what binding its features, pins and payload
+	// touches, apart from its body's statements; computed by BindingFootprints.
+	bindingFootprints     map[ast.Node]Footprint
+	bindingFootprintsOnce sync.Once
 
 	// incoming: node → the successions into it; computed on the first call of Incoming.
 	incoming     map[ast.Node][]ActionEdge
@@ -618,7 +622,7 @@ func terminateTarget(m *ast.TerminateStatement, scope *symbols.Scope) (ast.Node,
 		segments[i] = part.Text
 	}
 	if sym, ok := resolve.FeatureSymbolInScope(scope, segments); ok {
-		if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && usage.Kind == ast.UsageAction {
+		if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && usage.Kind.IsAction() {
 			return usage, TerminateNode
 		}
 	}
@@ -866,7 +870,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 // a succession's `@Probability { p = ...; }` becomes its edge's weight.
 func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
 	typing := true
-	if usage, ok := actionDecl.(*ast.Usage); ok && usage.Kind == ast.UsageAction {
+	if usage, ok := actionDecl.(*ast.Usage); ok && usage.Kind.IsAction() {
 		typing, _ = mergedTypedActionBody(usage, scope)
 	}
 	return toActionGraphWithTyping(actionDecl, scope, resolver, typing)
@@ -1285,7 +1289,7 @@ func (l *actionEdgeLowerer) objectFlowEdge(n *ast.ObjectFlowEdge) error {
 
 func (l *actionEdgeLowerer) usage(n *ast.Usage) error {
 	switch n.Kind {
-	case ast.UsageAction:
+	case ast.UsageAction, ast.UsageUseCase:
 		return l.weights.refuseStrayIn(n.Prefixes, n.Members)
 	case ast.UsageBinding:
 		nodes := l.nodes
@@ -1954,9 +1958,9 @@ func isParameter(decl ast.Node) bool {
 func isActionDecl(node ast.Node) bool {
 	switch n := node.(type) {
 	case *ast.Definition:
-		return n.Kind == ast.DefAction
+		return n.Kind.IsAction()
 	case *ast.Usage:
-		return n.Kind == ast.UsageAction
+		return n.Kind.IsAction()
 	}
 	return false
 }
@@ -2093,7 +2097,7 @@ func BodyStatementMembers(members []ast.Node) []ast.Node {
 		case *ast.Usage:
 			// A declared action is a feature of the node; only one naming the action
 			// it performs is a step (`perform a;`).
-			if m.Kind == ast.UsageAction && !m.IsBodyParameter && performsAction(m) {
+			if m.Kind.IsAction() && !m.IsBodyParameter && performsAction(m) {
 				stmts = append(stmts, member)
 			}
 		}
@@ -2234,10 +2238,10 @@ func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.R
 	if stmt, ok := usageStatement(m, scope); ok {
 		return stmt
 	}
-	if m.Kind == ast.UsageAction && m.IsBodyParameter {
+	if m.Kind.IsAction() && m.IsBodyParameter {
 		return lowerBlock(m, m.Members, childScope(scope, m), resolver, ancestors)
 	}
-	if m.Kind == ast.UsageAction && performsAction(m) {
+	if m.Kind.IsAction() && performsAction(m) {
 		return performEffect(m, scope)
 	}
 	return Unsupported{Description: usageDescription(m), Node: m, Scope: scope}

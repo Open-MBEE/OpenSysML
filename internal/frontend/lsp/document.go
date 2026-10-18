@@ -16,40 +16,40 @@ const (
 	MethodRenderDocument = "opensysml/renderDocument"
 )
 
-// documentsResult lists the document definitions of the workspace, each by
+// DocumentsResult lists the document definitions of the workspace, each by
 // qualified name and the file declaring it.
-type documentsResult struct {
-	Documents []documentInfo `json:"documents"`
+type DocumentsResult struct {
+	Documents []DocumentInfo `json:"documents"`
 }
 
-// documentInfo is one document definition a client may ask to render.
-type documentInfo struct {
+// DocumentInfo is one document definition a client may ask to render.
+type DocumentInfo struct {
 	Name string `json:"name"`
 	URI  string `json:"uri"`
 }
 
-// renderDocumentParams asks for the Markdown rendering of the document
+// RenderDocumentParams asks for the Markdown rendering of the document
 // definition Name names. DiagramForm is the source its graph-shaped diagrams
 // are written as, mermaid, dot, plantuml or d2; empty is mermaid.
-type renderDocumentParams struct {
+type RenderDocumentParams struct {
 	Name         string   `json:"name"`
 	DiagramForm  string   `json:"diagramForm,omitempty"`
 	Show         []string `json:"show,omitempty"`
 	LinkTemplate string   `json:"linkTemplate,omitempty"`
 }
 
-// renderDocumentResult is the rendered document.
-type renderDocumentResult struct {
+// RenderDocumentResult is the rendered document.
+type RenderDocumentResult struct {
 	Name     string `json:"name"`
 	Markdown string `json:"markdown"`
 }
 
 // Documents answers opensysml/documents: the document definitions declared
 // across the workspace, in qualified-name order.
-func (s *Server) Documents() *documentsResult {
-	out := &documentsResult{Documents: []documentInfo{}}
+func (s *Server) Documents() *DocumentsResult {
+	out := &DocumentsResult{Documents: []DocumentInfo{}}
 	for _, def := range s.ws.DocumentDefinitions() {
-		out.Documents = append(out.Documents, documentInfo{
+		out.Documents = append(out.Documents, DocumentInfo{
 			Name: def.FQN,
 			URI:  string(s.documentURI(def.Doc)),
 		})
@@ -59,7 +59,7 @@ func (s *Server) Documents() *documentsResult {
 
 // RenderDocument answers opensysml/renderDocument: the named document compiled,
 // evaluated and rendered as Markdown, or the typed error stopping it.
-func (s *Server) RenderDocument(params *renderDocumentParams) (*renderDocumentResult, error) {
+func (s *Server) RenderDocument(params *RenderDocumentParams) (*RenderDocumentResult, error) {
 	shown, err := view.ShownOf(params.Show)
 	if err != nil {
 		return nil, err
@@ -71,5 +71,5 @@ func (s *Server) RenderDocument(params *renderDocumentParams) (*renderDocumentRe
 	if err != nil {
 		return nil, err
 	}
-	return &renderDocumentResult{Name: params.Name, Markdown: markdown}, nil
+	return &RenderDocumentResult{Name: params.Name, Markdown: markdown}, nil
 }

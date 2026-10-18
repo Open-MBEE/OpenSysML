@@ -32,9 +32,9 @@ func TestEndNamesAreSetAtTheirEnd(t *testing.T) {
 		t.Fatalf("no composition ends in wheels[4]; edges: %+v", rendering.Edges)
 	}
 	for form, want := range map[Form][]string{
-		FormDot:      {`"n0" -> "n16" [headlabel="wheels[4]", dir=back, arrowtail=diamond];`},
-		FormPlantUML: {`n0 *-- "wheels[4]" n16`},
-		FormD2:       {`n0 <- n16: { class: composition; target-arrowhead: { label: "wheels[4]" } }`},
+		FormDot:      {`"n0" -> "n24" [headlabel="wheels[4]", dir=back, arrowtail=diamond];`},
+		FormPlantUML: {`n0 *-- "wheels[4]" n24`},
+		FormD2:       {`n0 <- n24: { class: composition; target-arrowhead: { label: "wheels[4]" } }`},
 		FormMermaid:  {`◆ wheels[4]`},
 		FormText:     {`Fleet::Vehicle *-- Fleet::Wheel: wheels[4]`},
 	} {
@@ -302,7 +302,7 @@ func TestEndNamesSurviveTheNotationDefaults(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: DOT: %v", name, err)
 		}
-		if !strings.Contains(dot, `"n0" -> "n16" [headlabel="wheels", dir=back, arrowtail=diamond];`) {
+		if !strings.Contains(dot, `"n0" -> "n24" [headlabel="wheels", dir=back, arrowtail=diamond];`) {
 			t.Errorf("%s: DOT lacks the end name, without its multiplicity, at its end:\n%s", name, dot)
 		}
 		if strings.Contains(dot, `label="wheels`) && !strings.Contains(dot, `headlabel="wheels"`) {

@@ -607,6 +607,11 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 	if ec.ctx.holdsOnlyUnset(fv) {
 		return unsetFeatureValue(spelled, feature.Multiplicity, feature.Symbol), true
 	}
+	// A required feature nothing gave a value to is as open as an unset attribute.
+	if lower := feature.Multiplicity.Lower; !fv.Written && fv.HeldValue().Kind == ValInvalid &&
+		lower.Known && !lower.Infinite && lower.Value > 0 {
+		return unsetFeatureValue(spelled, feature.Multiplicity, feature.Symbol), true
+	}
 	if !fv.Assumed && (fv.Materialized || fv.HeldValue().Kind != ValInvalid) {
 		return Value{}, false
 	}

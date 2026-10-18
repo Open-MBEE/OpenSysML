@@ -71,7 +71,7 @@ func isFlowNode(member ast.Node) bool {
 	case *ast.PerformActionNode:
 		return true
 	case *ast.Usage:
-		return (m.Kind == ast.UsageAction && !m.IsBodyParameter && !m.IsAccept) || IsCaseNode(m)
+		return (isActionUsageNode(m) && !m.IsBodyParameter && !m.IsAccept) || IsCaseNode(m)
 	default:
 		return false
 	}
@@ -85,6 +85,12 @@ func isFlowNode(member ast.Node) bool {
 func IsCaseNode(u *ast.Usage) bool {
 	return (u.Kind == ast.UsageAnalysisCase || u.Kind == ast.UsageVerificationCase) &&
 		!u.IsBodyParameter && u.Direction == ast.DirNone
+}
+
+// isActionUsageNode reports whether a usage is an action step of the body it is in: an
+// action usage, or an undirected use case usage; a directed one is a parameter, as a case's.
+func isActionUsageNode(u *ast.Usage) bool {
+	return u.Kind.IsAction() && (u.Kind != ast.UsageUseCase || u.Direction == ast.DirNone)
 }
 
 // recordNodeScope records a node's own namespace, which its members resolve in.

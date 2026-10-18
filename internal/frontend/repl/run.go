@@ -3,6 +3,7 @@ package repl
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"unicode/utf16"
@@ -12,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 // errRuntimeInit marks a runtime the session could not create at all, which the
@@ -85,7 +87,11 @@ func errorLines(lines []string, _ []NamedValue, err error) ([]string, bool, erro
 // one named as the transcript is.
 func (s *Session) LoadFile(path string) ([]string, error) {
 	defer s.enter()()
-	read, err := s.readWithDependencies([]string{expandHome(path)}, loadOptions{})
+	files, err := s.expandPaths([]string{path})
+	if err != nil {
+		return nil, err
+	}
+	read, err := s.readWithDependencies(files, loadOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -111,14 +117,19 @@ func (s *Session) LoadFileSummary(path string) ([]string, error) {
 // root namespace load too.
 func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	defer s.enter()()
-	read, err := s.readWithDependencies(expandHomes(paths), loadOptions{})
+	paths, err := s.expandArchives(expandHomes(paths))
+	if err != nil {
+		return nil, err
+	}
+	read, err := s.readWithDependencies(paths, loadOptions{})
 	if err != nil {
 		return nil, err
 	}
 	files := read.files
 	lines := read.notes
+	archives := warningLines(s.discovery().ArchiveWarnings(paths), s.verbosity)
 	if len(files) == 0 {
-		return lines, nil
+		return append(lines, archives...), nil
 	}
 	res, byFile, whole := s.submitEach(files)
 	for i, f := range files {
@@ -133,7 +144,7 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 		}
 		lines = append(lines, renderSummary(own.ownMembers())...)
 	}
-	return lines, nil
+	return append(lines, archives...), nil
 }
 
 // DiagnosticLines reports the analysis of everything submitted so far as the
@@ -269,7 +280,17 @@ type Edit struct {
 // the line and column that file has it on.
 func (s *Session) LocatedDiagnostics() []Diagnostic {
 	defer s.enter()()
-	diags := s.diagnostics()
+	return s.locate(s.diagnostics())
+}
+
+// Locate places diagnostics reported over the session's buffer — a Result's —
+// in the submissions they are about, as LocatedDiagnostics does.
+func (s *Session) Locate(diags []diag.Diagnostic) []Diagnostic {
+	defer s.enter()()
+	return s.locate(diags)
+}
+
+func (s *Session) locate(diags []diag.Diagnostic) []Diagnostic {
 	if len(diags) == 0 {
 		return nil
 	}
@@ -656,4 +677,40 @@ func (s *Session) runStateMachine(name string, duration *float64, performer []st
 	}
 	values = append(values, namedValues(s.stateExec.contextOf(), exec.StateData())...)
 	return s.withTrace(standing(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values}, plan))
+}
+
+// expandArchives replaces each project interchange archive among paths with
+// its model files, as naming it on the command line does; every other path
+// is kept as given, so a file read failure stays the caller's to report. A
+// path reached twice — an archive and one of its members, two archives using
+// the same project — is kept once, in first position.
+func (s *Session) expandArchives(paths []string) ([]string, error) {
+	out := make([]string, 0, len(paths))
+	seen := map[string]bool{}
+	add := func(path string) {
+		key := path
+		if !project.IsStdin(path) {
+			if abs, err := filepath.Abs(path); err == nil {
+				key = abs
+			}
+		}
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, path)
+		}
+	}
+	for _, path := range paths {
+		if !project.IsArchiveFile(path) {
+			add(path)
+			continue
+		}
+		files, err := s.discovery().Expand([]string{path})
+		if err != nil {
+			return nil, err
+		}
+		for _, file := range files {
+			add(file)
+		}
+	}
+	return out, nil
 }
