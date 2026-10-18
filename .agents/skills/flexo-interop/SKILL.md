@@ -76,6 +76,31 @@ Everything else in the package (report determinism, the fixtures' coverage of th
 without a stack, so `go test -C tools ./referee/flexo` is worth running on any change to it; the
 client's own tests stay with it in `go test ./internal/translate/interop/flexo`.
 
+## Publish the whole standard library
+
+`TestFlexoInteropLibrary` publishes the bundled library the way `sysml -stdlib -convert ttl -o
+flexo://{project}/main` does — one project, ~112,000 elements, 1.4 million triples, 118 MB of
+Turtle — reads it back, and loads a user model typing parts by library ids into a second
+project. It is matched by `-run TestFlexoInterop` too, and it is not quick:
+
+```bash
+FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN="$FLEXO_INTEROP_TOKEN" \
+  go test -C tools -count=1 -timeout 30m ./referee/flexo -run TestFlexoInteropLibrary
+```
+
+About 3 min against a fresh local stack: ~14 s to convert, ~1.5–2 min for Layer 1 to take the
+graph, ~20 s to list it back. Bring the stack up fresh first (`docker compose down && up -d`): every
+library already loaded slows the next write, and a stack holding three or four of them takes a
+graph write past 10 min. The quick gates alone are `-run 'TestFlexoInterop$|TestFlexoInteropApply'`.
+The expectation is `tools/referee/flexo/testdata/library_expected.txt`; it counts elements by
+metaclass and property rather than listing them, and reads direct anchors (`ScalarValues::Real`,
+`ISQBase::mass`, …) by their normative ids.
+
+The CLI path needs the same patience: `FLEXO_TIMEOUT=10m` (a Go duration; default `60s`) for the
+one PUT, and the project created beforehand (`POST /projects` with a named `defaultBranch`, as
+under Traps). The conditional PUT answers 412 *after* committing on this Flexo version; the push
+reads the Location header and records the commit it names, so a 412 with a commit is a success.
+
 ## What a run does, and why each side exists
 
 Two projects per run, both created through `POST /projects` on the SysML v2 API:

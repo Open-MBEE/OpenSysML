@@ -2454,7 +2454,9 @@ As the model argument the branch is **read** as its head commit's RDF graph — 
 `turtle`, `rdf`). As `-o` the branch is **pushed**: `-convert ttl` replaces the branch's whole
 model graph with the converted Turtle, conditional on the branch's etag (`If-Match` against
 Layer 1), so a head the sync state says has moved is refused with exit 1 and nothing is
-written; `-convert sysml -o <url>` is refused, since a branch holds a graph, not notation.
+written; `-convert api-json -o <url>` pushes the same graph, which the service reads back
+as its JSON element form; `-convert sysml -o <url>` is refused, since a branch holds a graph,
+not notation.
 A run takes one side as a URL — reading a branch into a branch is refused — and `-o` naming
 the same file `-sync-state` does is refused, since the model would replace the recorded commit.
 
@@ -2470,7 +2472,38 @@ The head commit a read or push stood at is recorded in the sync state — `-sync
 or `<output>.sync.json` beside a `-o` file on a read and `<model>.sync.json` on a push — so a
 later push is refused rather than silently overwriting another writer's commit, exactly the
 moved-head refusal `-sync-apply` gives. A stdout-only read records nothing unless `-sync-state`
-names a file.
+names a file. `FLEXO_TIMEOUT` bounds each request, as a Go duration (`60s` unless set); a
+whole-graph write of a large model needs more.
+
+## Publishing the standard library
+
+`-stdlib` converts the bundled standard library — every KerML and SysML file under the
+Kernel, Systems, Domain and OpenSysML libraries, as one model — instead of a model file, to
+`ttl` or `api-json`, to stdout, to a `-o` file, or pushed to the branch `-o` names. Every element
+carries its normative id: the named ones the pilot implementation's library XMI assigns (the
+ids `tests/identity` is gated over), the derived ones — memberships, parameters, expressions —
+name-based uuids under them, as `-id uuid` spells them; `-id qualified` asks for the
+qualified-name spelling instead. No model file, `-from`, `-import` or check joins the run.
+
+```bash
+sysml -stdlib -convert api-json -o stdlib.json                   # the library as one element set
+sysml -stdlib -convert ttl -o stdlib.ttl                          # ...as one graph
+FLEXO_TIMEOUT=10m sysml -stdlib -convert api-json -o flexo://StandardLibrary/main
+```
+
+The push replaces the branch's graph with the library — about 112,000 elements and
+1.4 million triples, a write Layer 1 takes minutes over — so `FLEXO_TIMEOUT` has to allow for
+it. The project and branch exist beforehand: the SysML v2 API creates them
+(`POST {FLEXO_SYSMLV2_URL}/projects` with `{"@type": "Project", "@id": "StandardLibrary",
+"name": "StandardLibrary", "defaultBranch": {"@id": "main", "name": "main"}}` under the bearer
+token). The head commit is reported, and recorded only where `-sync-state` names a file: the
+library is no model a later `-sync-diff` compares against. Once published, another project
+types a part by a library element's `@id` (`ScalarValues::Real` is
+`14c0aa22-5489-59b5-b438-ded26e83ba31` in every publication, as in the pilot's XMI), names the
+library project in a `ProjectUsage`, and a query over the library project walks into the
+element the id names. What the service delivers of the library, element by element and property
+by property, is measured against a live stack by `TestFlexoInterop` in `tools/referee/flexo`
+and recorded in its `testdata/library_expected.txt`.
 
 ## Output Format
 

@@ -115,6 +115,7 @@ var (
 	engine           engineSelection
 	jobsFlag         jobsSetting
 	convertFormat    string
+	stdlibModel      bool
 	migrateFormat    string
 	bundleDir        string
 	unbundleFile     string
@@ -586,6 +587,19 @@ func runCLI() int {
 	if flagGiven("migration-results") && migrationResults == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -migration-results is empty; name the JSON file to write the run configurations and result snapshots to")
 		return 2
+	}
+	if stdlibModel {
+		switch {
+		case convertFormat == "":
+			fmt.Fprintln(os.Stderr, "sysml: -stdlib converts the bundled standard library with -convert ttl or api-json; write `sysml -stdlib -convert api-json -o stdlib.json`")
+			return 2
+		case len(args) > 0:
+			fmt.Fprintln(os.Stderr, "sysml: -stdlib converts the bundled standard library, which no model file joins; name no file with it")
+			return 2
+		case fromFormat != "" || migrateFormat != "" || len(dataImports) > 0 || modelChecks.requested():
+			fmt.Fprintln(os.Stderr, "sysml: -stdlib converts the bundled standard library as it is; -from, -migrate, -import and the checks do not apply to it")
+			return 2
+		}
 	}
 	if idForm != "" && convertFormat == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -id accompanies -convert to an RDF form; write `sysml model.sysml -convert api-json -id uuid`")

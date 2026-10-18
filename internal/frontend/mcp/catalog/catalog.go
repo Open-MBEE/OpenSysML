@@ -249,6 +249,7 @@ var CLIOnly = map[string]string{
 	"sync-annotate":        "talks to a remote SysML v2 API repository from the host",
 	"sync-confirm-deletes": "talks to a remote SysML v2 API repository from the host",
 	"sync-mint-ids":        "talks to a remote SysML v2 API repository from the host",
+	"stdlib":               "publishes the bundled library to a repository from the host",
 	"debug":                "process logging (sysml-mcp -log)",
 	"quiet":                "process logging (sysml-mcp -log)",
 	"cpuprofile":           "process profiling",
