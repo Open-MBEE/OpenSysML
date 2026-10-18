@@ -67,7 +67,7 @@ func (s *Session) monteCarloReport(inv analysisInvocation, sample *monteCarloRun
 		status = VerdictHolds
 	}
 	lines := append(sweepTraces(sample.table), sweepTableLines(sample.table)...)
-	lines = append(lines, distributionLines(sample.table)...)
+	lines = append(lines, analysis.DistributionLines(sample.table, objectText)...)
 	verdict := Verdict{Subject: label, Status: status, Values: sweepValues(sample.table, rows), Rows: rows}
 	if sample.unconcluded != nil {
 		if len(sample.completed) > 0 {

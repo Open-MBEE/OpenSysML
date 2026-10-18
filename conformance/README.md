@@ -138,6 +138,9 @@ What a request asks for is fixed per capability:
 | --- | --- |
 | `convert` | Refuse `Convert`. |
 | `migrate` | Refuse `Migrate`. |
+| `runs` | Refuse `RunRuns`. |
+| `self_check` | Refuse `SelfCheck`. |
+| `record_run` | Refuse `RecordRun`. |
 | `check` | Refuse `CheckBehavior`. |
 | `verification` | Refuse `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` and `EvaluateCalc`. |
 | `query` | Refuse `Query`. |

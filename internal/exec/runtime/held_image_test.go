@@ -454,7 +454,7 @@ func TestHeldImageCarriesTheModeledStream(t *testing.T) {
 			if got := rollerDraw(t, copied, "second"); got != second {
 				t.Errorf("the copy drew %v for its second, want the source's %v (its first was %v)", got, second, first)
 			}
-			if draws := dst.DrawsTaken(); len(draws) != 1 || constValue(draws[0].Value) != second {
+			if draws := dst.DrawsTaken(); len(draws) != 1 || ConstValue(draws[0].Value) != second {
 				t.Errorf("the destination recorded %v, want the one draw the copy made", draws)
 			}
 		})

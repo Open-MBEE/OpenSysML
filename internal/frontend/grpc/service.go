@@ -49,6 +49,18 @@ const CapabilityMigrate = "migrate"
 // answer.
 const CapabilityVerification = "verification"
 
+// CapabilityRuns names the RunRuns RPC, which runs an action or a Monte Carlo
+// case repeatedly and tables what the runs observed.
+const CapabilityRuns = "runs"
+
+// CapabilitySelfCheck names the SelfCheck RPC, which applies the reflective
+// SysMLValidation constraints to every element of a model.
+const CapabilitySelfCheck = "self_check"
+
+// CapabilityRecordRun names the RecordRun RPC, which records runs of an
+// analysis case into the model as AnalysisRecords declarations.
+const CapabilityRecordRun = "record_run"
+
 // CapabilityVerificationQuestions names the `question` field of the
 // verification requests — the solver questions "holds" and "satisfiable" —
 // and the `question`, `status` and `witness` fields of every Verdict.
@@ -338,6 +350,9 @@ var capabilities = []string{
 	CapabilityVerificationQuestions,
 	CapabilityVerificationArguments,
 	CapabilityVerificationObjectiveAuthoring,
+	CapabilityRuns,
+	CapabilitySelfCheck,
+	CapabilityRecordRun,
 	CapabilityMetadataAuthoring,
 	CapabilityMetadataPrefixAuthoring,
 	CapabilitySequenceAuthoring,
