@@ -452,9 +452,9 @@ func TestSimulationConfigNamesTheConstraintsOfAParametricTarget(t *testing.T) {
 	wantNoLine(t, r.Notation, "perform action run")
 	wantNote(t, r, "_g0", migrate.Approximated, "neither Circuit nor any general of it has a classifier behavior, so the configuration only holds 'circuit'"+
 		"; the tool solves the constraints it holds for values, which a v2 run checks and does not solve: "+
-		`Circuit::worst : 'Peak', whose rule {Javascript Rhino} p=max(a,b) is not migrated: the call "max" is not in the translated function table`+
-		"; Network::law : 'Ohm', whose rule is migrated as a constraint"+
-		"; Load::peak : 'Peak', as above")
+		`Model::Circuit::worst : 'Peak', whose rule {Javascript Rhino} p=max(a,b) is not migrated: the call "max" is not in the translated function table`+
+		"; Model::Network::law : 'Ohm', whose rule is migrated as a constraint"+
+		"; Model::Load::peak : 'Peak', as above")
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
 		t.Errorf("the migrated configuration does not analyse clean: %v\n%s", errs, r.Notation)
 	}

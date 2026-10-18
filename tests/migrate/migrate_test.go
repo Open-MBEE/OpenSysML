@@ -165,8 +165,8 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"flow of 'Vehicle Design'::Interfaces::Fuel from fuelIn.fuel to engine.fuelPort.fuel;",
 		"bind mass = massLimit.m;",
 		"bind speedOut = engine.piston.p;",
-		"satisfy RequirementsModel::'Mass Requirement';",
-		"satisfy RequirementsModel::'Engine Mass Requirement' by engine;",
+		"satisfy Requirements::'Mass Requirement';",
+		"satisfy Requirements::'Engine Mass Requirement' by engine;",
 		"part engine : Motor :>> engine;",
 		"connection def Drives {",
 		"constraint def MassLimit {",
@@ -312,6 +312,10 @@ func TestRejectsNonXMI(t *testing.T) {
 // constructFixtures are the XMI documents under testdata/xmi that each exercise
 // one family of behavioral or profile constructs; their notation and report are golden.
 var constructFixtures = []string{
+	"root_model_defs",
+	"root_model_packages",
+	"root_model_unnamed",
+	"root_models_two",
 	"anonymous_associations",
 	"docgen_columns",
 	"plant_states",
@@ -368,6 +372,7 @@ var constructFixtures = []string{
 	"tool_block_stereotypes",
 	"block_specialization_profile",
 	"property_markers",
+	"nested_requirement_refs",
 	"diagrams",
 	"diagram_edges",
 	"control_nodes",
@@ -397,6 +402,7 @@ var constructFixtures = []string{
 	"decision_else",
 	"calc_context",
 	"interaction_context",
+	"terminate_orthogonal",
 	"viewpoint_concerns",
 	"parameter_sets",
 }

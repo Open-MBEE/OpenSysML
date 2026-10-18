@@ -21,7 +21,7 @@ func TestPinBoxTouchesOneSideOutsideTheBox(t *testing.T) {
 		"on the border":        {Point{X: 100, Y: 20}, Point{X: 106, Y: 20}},
 		"inside, near the top": {Point{X: 50, Y: 4}, Point{X: 50, Y: -6}},
 	} {
-		pin := pinBox(box, tc.end)
+		pin := pinBox(box, box.pinSide(tc.end, tc.end), tc.end)
 		if got := pin.centre(); got != tc.centre {
 			t.Errorf("%s: pin centre = %v, want %v", name, got, tc.centre)
 		}

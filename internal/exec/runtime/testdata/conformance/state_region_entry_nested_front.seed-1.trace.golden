@@ -1,6 +1,6 @@
 exit: idle
 enter: work
-choice entering work: next inner(entry), right(entry) (unordered; took right(entry) first)
+choice entering work: next inner(entry), right(entry) (unordered; took right(entry) first; independent)
 stmt action body
   stmt assign log
       eval feature log -> ""
@@ -8,7 +8,7 @@ stmt action body
     eval operator + -> "right(entry) "
 enter: r
 enter: inner
-choice entering work: next p(entry), q(entry) (unordered; took p(entry) first)
+choice entering work: next p(entry), q(entry) (unordered; took p(entry) first; order-dependent: log)
 stmt action body
   stmt assign log
       eval feature log -> "right(entry) "

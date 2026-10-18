@@ -25,8 +25,8 @@ func treeEdgeLines(rendering *Rendering) []string {
 	var lines []string
 	for _, edge := range rendering.Edges {
 		line := fmt.Sprintf("%s %s %s", names[edge.From], edge.Kind, names[edge.To])
-		if edge.Label != "" {
-			line += ": " + edge.Label
+		if text := edge.text(); text != "" {
+			line += ": " + text
 		}
 		lines = append(lines, line)
 	}
@@ -98,9 +98,9 @@ func TestTreeCompositionEdgeIsRoutedByTheUsagesRoute(t *testing.T) {
 	var routed []string
 	for _, edge := range rendering.Edges {
 		if len(edge.Route) > 0 {
-			routed = append(routed, edge.Label)
+			routed = append(routed, edge.ToLabel)
 			if want := []Point{{100, 200}, {300, 200}}; !reflect.DeepEqual(edge.Route, want) {
-				t.Errorf("route of %s = %v, want %v", edge.Label, edge.Route, want)
+				t.Errorf("route of %s = %v, want %v", edge.ToLabel, edge.Route, want)
 			}
 		}
 	}
@@ -230,7 +230,7 @@ package Views {
 	}
 	var labels []string
 	for _, edge := range rendering.Edges {
-		labels = append(labels, edge.Label)
+		labels = append(labels, edge.ToLabel)
 	}
 	if want := []string{"wheels[axles]", "seats[0..rows]"}; !reflect.DeepEqual(labels, want) {
 		t.Errorf("labels = %q, want %q", labels, want)
@@ -339,9 +339,9 @@ func TestTreeDrawsAConnectionDefAsALineBetweenItsEndTypes(t *testing.T) {
 		}
 	}
 	want := []string{
-		"Fleet::Wheel association Fleet::Car: WheelToCar: wheels[4] / car",
-		"Fleet::Truck composition Fleet::Hitch: HitchToTruck: hitch / truck",
-		"Fleet::Car association Fleet::Trailer: Tows: tower / trailer[0..1]",
+		"Fleet::Wheel association Fleet::Car: wheels[4] WheelToCar car",
+		"Fleet::Truck composition Fleet::Hitch: truck HitchToTruck hitch",
+		"Fleet::Car association Fleet::Trailer: tower Tows trailer[0..1]",
 		"Fleet::Pairing reference Fleet::Car: a",
 		"Fleet::Pairing reference Fleet::Trailer: b",
 		"Fleet::Ferries reference Fleet::Car: car",
@@ -418,7 +418,7 @@ package Diagrams {
 		render Views::asTreeDiagram;
 	}
 }`)
-	if got, want := treeEdgeLines(rendering), []string{"Model::Car composition Model::Wheel: WheelToCar: wheels[4] / car"}; !reflect.DeepEqual(got, want) {
+	if got, want := treeEdgeLines(rendering), []string{"Model::Car composition Model::Wheel: car WheelToCar wheels[4]"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("edges = %q, want %q", got, want)
 	}
 	edge := rendering.Edges[0]
@@ -458,8 +458,15 @@ func TestTreeAssociationLineIsPlain(t *testing.T) {
 	if strings.Contains(dot, "penwidth=3") {
 		t.Errorf("DOT draws an association as a heavy connector:\n%s", dot)
 	}
-	if want := `[label="Tows: tower / trailer[0..1]", dir=none];`; !strings.Contains(dot, want) {
-		t.Errorf("DOT lacks the plain line %s:\n%s", want, dot)
+	if want := `[label="Tows", taillabel="tower", headlabel="trailer", dir=none];`; !strings.Contains(dot, want) {
+		t.Errorf("DOT lacks the plain line, its ends named without the multiplicity left out by default %s:\n%s", want, dot)
+	}
+	full, err := rendering.DOTWith(fullNotation)
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := `[label="Tows", taillabel="tower", headlabel="trailer[0..1]", dir=none];`; !strings.Contains(full, want) {
+		t.Errorf("DOT with every element lacks the plain line, the def's name along it %s:\n%s", want, full)
 	}
 }
 
@@ -486,7 +493,7 @@ package Diagrams {
 		render Views::asTreeDiagram;
 	}
 }`)
-	if got, want := treeEdgeLines(rendering), []string{"Model::Car composition Model::Wheel: CarToWheel: car / wheels[4]"}; !reflect.DeepEqual(got, want) {
+	if got, want := treeEdgeLines(rendering), []string{"Model::Car composition Model::Wheel: car CarToWheel wheels[4]"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("edges = %q, want %q", got, want)
 	}
 	if want := []Point{{10, 20}, {30, 40}}; !reflect.DeepEqual(rendering.Edges[0].Route, want) {
@@ -518,7 +525,7 @@ package Diagrams {
 	}
 }`)
 	want := []string{
-		"Model::Car composition Model::Wheel: WheelToCar: hybrid / car",
+		"Model::Car composition Model::Wheel: car WheelToCar hybrid",
 		"Model::Car composition Model::Electric: hybrid",
 	}
 	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, want) {

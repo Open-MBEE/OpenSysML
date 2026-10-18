@@ -1,0 +1,10 @@
+step 1: token 1@choose
+  eval feature level -> 0
+  eval literal 0 -> 0
+eval operator >= -> true
+choice step 2: decision choose branches 1->high, 2->low hold (unordered; took 1->high; order-dependent: mode)
+step 2: token 1@high
+stmt assign mode
+  eval literal 1 -> 1
+step 3: token 1@done
+step 4: no active tokens

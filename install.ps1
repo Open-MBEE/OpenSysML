@@ -420,8 +420,11 @@ if ($IsHostPlatform) {
         $previous = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
         try {
-            $reported = (& $binary --version 2>&1 | ForEach-Object { "$_" } | Select-Object -First 1) -join ''
+            # Every line is read before the first is kept: a pipeline Select-Object
+            # stops early kills the binary before its exit status is recorded.
+            $lines = @(& $binary --version 2>&1 | ForEach-Object { "$_" })
             $exit = $LASTEXITCODE
+            $reported = ($lines | Select-Object -First 1) -join ''
         } finally {
             $ErrorActionPreference = $previous
         }

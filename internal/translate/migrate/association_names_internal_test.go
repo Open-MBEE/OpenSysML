@@ -48,7 +48,7 @@ func TestSameNamedAssociationsDeclareDistinctNames(t *testing.T) {
 		"end outlet : Valve crosses pump.outlet;",
 		"connection 'valve to pump' : ValveToPump connect valve to pump;",
 	} {
-		if !strings.Contains(out, want) {
+		if !hasBlock(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}
 	}
@@ -58,11 +58,11 @@ func TestSameNamedAssociationsDeclareDistinctNames(t *testing.T) {
 	for _, e := range r.Report.Entries {
 		switch e.ID {
 		case "_feeds2":
-			if e.Target != "Sys::'Feeds 2'" {
-				t.Errorf("_feeds2 target = %q, want Sys::'Feeds 2'", e.Target)
+			if e.Target != "Model::Sys::'Feeds 2'" {
+				t.Errorf("_feeds2 target = %q, want Model::Sys::'Feeds 2'", e.Target)
 			}
 		case "_loose":
-			if e.Target != "Sys::ValveToPump" || !strings.Contains(e.Note, "written as connection def ValveToPump") {
+			if e.Target != "Model::Sys::ValveToPump" || !strings.Contains(e.Note, "written as connection def ValveToPump") {
 				t.Errorf("_loose entry = %+v", e)
 			}
 		}

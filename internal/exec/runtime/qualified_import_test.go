@@ -115,7 +115,7 @@ var qualifiedImportRejections = map[string]struct {
 	"viaPrivate":     {ErrUnresolvedReference, "unresolved reference: Priv::x"},
 	"viaSingleOther": {ErrUnresolvedReference, "unresolved reference: Single::shortNamed"},
 	"missing":        {ErrUnresolvedReference, "unresolved reference: Wild::nope"},
-	"twice":          {ErrAmbiguousReference, "ambiguous reference: Twice::t (2 candidates)"},
+	"twice":          {errAmbiguousReference, "ambiguous reference: Twice::t (2 candidates)"},
 }
 
 // TestQualifiedNameThroughImportEvaluates evaluates qualified names whose
@@ -198,7 +198,7 @@ func TestQualifiedNameThroughImportRejectedAsChecked(t *testing.T) {
 		}
 	}
 	_, err := evalIn(t, ctx, root, "Twice::t + 0")
-	if !errors.Is(err, ErrAmbiguousReference) || err.Error() != "ambiguous reference: Twice::t (2 candidates)" {
+	if !errors.Is(err, errAmbiguousReference) || err.Error() != "ambiguous reference: Twice::t (2 candidates)" {
 		t.Errorf("eval Twice::t + 0: err = %v, want ambiguous reference: Twice::t (2 candidates)", err)
 	}
 }
@@ -235,10 +235,10 @@ func TestQualifiedNameThroughImportKeepsTypedErrors(t *testing.T) {
 		want  error
 		names []string
 	}{
-		{"Wild::Color::purple", ErrNotALiteral, []string{"purple", "red", "green"}},
-		{"A::Color::purple", ErrNotALiteral, []string{"purple", "red", "green"}},
-		{"Wild::cut::nope", ErrNotAVariant, []string{"nope", "cutIdeal", "cutShallow"}},
-		{"test::c::nope", ErrUnknownOutput, []string{"nope", "a, b"}},
+		{"Wild::Color::purple", errNotALiteral, []string{"purple", "red", "green"}},
+		{"A::Color::purple", errNotALiteral, []string{"purple", "red", "green"}},
+		{"Wild::cut::nope", errNotAVariant, []string{"nope", "cutIdeal", "cutShallow"}},
+		{"test::c::nope", errUnknownOutput, []string{"nope", "a, b"}},
 	}
 	for _, tc := range cases {
 		_, err := evalIn(t, ctx, root, tc.src)

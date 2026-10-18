@@ -23,54 +23,92 @@ config:
 ---
 %% GeneralViews::plainView — tree rendering (view def GeneralView)
 flowchart TD
-  n0["`**Vehicle**`"]
-    n1("`**mass**`")
+  n0["`*«part def»*
+**Vehicle**`"]
+    n1("`*«attribute»*
+**mass**`")
   n0 --- n1
-    n2("`**chassis**`")
+    n2("`*«part»*
+**chassis**`")
   n0 --- n2
-    n3("`**driver**`")
+    n3("`*«part»*
+**driver**`")
   n0 --- n3
-  n4["`**Chassis**`"]
-  n5["`**LightChassis**`"]
-  n6["`**Driver**`"]
-  n7["`**Brake**`"]
-  n8("`**vehicle**`")
-    n9("`**mass**`")
+  n4["`*«part def»*
+**Chassis**`"]
+  n5["`*«part def»*
+**LightChassis**`"]
+  n6["`*«part def»*
+**Driver**`"]
+  n7["`*«action def»*
+**Brake**`"]
+  n8("`*«part»*
+**vehicle**`")
+    n9("`*«attribute»*
+**mass**`")
   n8 --- n9
-  n10("`**heavyVehicle**`")
-    n11("`**mass**`")
-  n10 --- n11
-  n12("`**brake**`")
-  n13["`**Powertrain**`"]
-    n14["`**Engine**`"]
-  n13 --- n14
-  n15["`**Boolean**`"]
-  n16["`**Complex**`"]
-  n17["`**Integer**`"]
-  n18["`**Natural**`"]
-  n19["`**Number**`"]
-  n20["`**NumericalValue**`"]
-  n21["`**Positive**`"]
-  n22["`**Rational**`"]
-  n23["`**Real**`"]
-  n24["`**ScalarValue**`"]
-  n25["`**String**`"]
-  n0 ---|"◇ mass"| n23
+    n10("`*«part»*
+**chassis**`")
+  n8 --- n10
+    n11("`*«part»*
+**driver**`")
+  n8 --- n11
+  n12("`*«part»*
+**heavyVehicle**`")
+    n13("`*«attribute»*
+**mass**`")
+  n12 --- n13
+    n14("`*«part»*
+**chassis**`")
+  n12 --- n14
+    n15("`*«part»*
+**driver**`")
+  n12 --- n15
+  n16("`*«action»*
+**brake**`")
+  n17["`*«package»*
+**Powertrain**`"]
+    n18["`*«part def»*
+**Engine**`"]
+  n17 --- n18
+  n19["`*«datatype»*
+**Boolean**`"]
+  n20["`*«datatype»*
+**Complex**`"]
+  n21["`*«datatype»*
+**Integer**`"]
+  n22["`*«datatype»*
+**Natural**`"]
+  n23["`*«datatype»*
+**Number**`"]
+  n24["`*«datatype»*
+**NumericalValue**`"]
+  n25["`*«datatype»*
+**Positive**`"]
+  n26["`*«datatype»*
+**Rational**`"]
+  n27["`*«datatype»*
+**Real**`"]
+  n28["`*«datatype»*
+**ScalarValue**`"]
+  n29["`*«datatype»*
+**String**`"]
+  n0 ---|"◇ mass"| n27
   n0 ---|"◆ chassis"| n4
   n0 ---|"◇ driver"| n6
   n5 -->|"specialization"| n4
   n8 -.->|"typing"| n0
   n9 -->|"redefines"| n1
-  n10 -.->|"typing"| n0
-  n11 -->|"redefines"| n1
-  n12 -.->|"typing"| n7
-  n15 -->|"specialization"| n24
-  n16 -->|"specialization"| n19
-  n17 -->|"specialization"| n22
-  n18 -->|"specialization"| n17
-  n19 -->|"specialization"| n20
-  n20 -->|"specialization"| n24
-  n21 -->|"specialization"| n18
-  n22 -->|"specialization"| n23
-  n23 -->|"specialization"| n16
-  n25 -->|"specialization"| n24
+  n12 -.->|"typing"| n0
+  n13 -->|"redefines"| n1
+  n16 -.->|"typing"| n7
+  n19 -->|"specialization"| n28
+  n20 -->|"specialization"| n23
+  n21 -->|"specialization"| n26
+  n22 -->|"specialization"| n21
+  n23 -->|"specialization"| n24
+  n24 -->|"specialization"| n28
+  n25 -->|"specialization"| n22
+  n26 -->|"specialization"| n27
+  n27 -->|"specialization"| n20
+  n29 -->|"specialization"| n28

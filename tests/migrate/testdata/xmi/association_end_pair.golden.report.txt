@@ -10,14 +10,14 @@
 # routes of Association: 2 written
 
 ## approximated (1)
-Association	Blocks::<Association>	_assoc_pair	-> Blocks::SensorToController	(the anonymous Association is written as connection def SensorToController; its one usage is the connection sensor to controller joining sensor and controller)
+Association	Blocks::<Association>	_assoc_pair	-> Model::Blocks::SensorToController	(the anonymous Association is written as connection def SensorToController; its one usage is the connection sensor to controller joining sensor and controller)
 
 ## mapped (8)
-Package	Blocks	_pkg_blocks	-> Blocks
-«Block» Class	Blocks::Controller	_blk_controller	-> Blocks::Controller
-Property	Blocks::Controller::sensors	_prop_sensors	-> Blocks::Controller::sensors
-Diagram	Blocks::Pair BDD	_diag_pair	-> Blocks::'Pair BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; laid out from the diagram's own symbol stream: 2 of 4 shown elements positioned (2 lying on connections), 1 of 1 connectors routed)
-«Block» Class	Blocks::Sensor	_blk_sensor	-> Blocks::Sensor
-Diagram	Blocks::Sensor BDD	_diag_sensor	-> Blocks::'Sensor BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 lying on connections), 1 of 1 connectors routed)
-Property	Blocks::Sensor::controller	_prop_controller	-> Blocks::Sensor::controller
-Model	Model	_m	(the root model's members are written at the top level)
+Package	Blocks	_pkg_blocks	-> Model::Blocks
+«Block» Class	Blocks::Controller	_blk_controller	-> Model::Blocks::Controller
+Property	Blocks::Controller::sensors	_prop_sensors	-> Model::Blocks::Controller::sensors
+Diagram	Blocks::Pair BDD	_diag_pair	-> Model::Blocks::'Pair BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 2 of 5 shown elements are compartment rows or end labels of exposed elements, not exposed; laid out from the diagram's own symbol stream: 2 of 4 shown elements positioned (2 lying on connections), 1 of 1 connectors routed)
+«Block» Class	Blocks::Sensor	_blk_sensor	-> Model::Blocks::Sensor
+Diagram	Blocks::Sensor BDD	_diag_sensor	-> Model::Blocks::'Sensor BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 4 shown elements are compartment rows or end labels of exposed elements, not exposed; laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 lying on connections), 1 of 1 connectors routed)
+Property	Blocks::Sensor::controller	_prop_controller	-> Model::Blocks::Sensor::controller
+Model	Model	_m	-> Model	(written as package Model)

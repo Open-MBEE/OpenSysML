@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -34,6 +35,7 @@ var testScope = fakeScope{
 	"GS_Found":         {expr: "this.GS_Found", scalar: "Boolean"},
 	"t":                {expr: "this.t", scalar: "Real"},
 	"t0":               {expr: "this.t0", scalar: "Real"},
+	"z":                {expr: "this.z", scalar: "Complex"},
 	"clock":            {expr: clockRead, scalar: "Real"},
 	"name":             {expr: "this.name", scalar: "String"},
 	"xs":               {expr: "this.xs", scalar: "Real", plural: true},
@@ -170,6 +172,35 @@ func TestTranslateExpr(t *testing.T) {
 		{"English", "Retry Count = 1", "Boolean", "this.'Retry Count' == 1", "Boolean"},
 		{"English", "NOT Guide Star Found OR Stage 2 Ready", "Boolean", "not this.'Guide Star Found' or this.'Stage 2 Ready'", "Boolean"},
 		{"English", "Mean = 0.0", "", "this.t == 0.0", "Boolean"},
+		{"English", "t0 = sin(t)", "Boolean", "this.t0 == TrigFunctions::sin(this.t)", "Boolean"},
+		{"English", "sin(t)", "", "TrigFunctions::sin(this.t)", "Real"},
+		{"English", "abs(z)", "", "ComplexFunctions::abs(this.z)", "Real"},
+		{"Java", "Math.abs(z)", "", "ComplexFunctions::abs(this.z)", "Real"},
+		{"English", "cos(t)", "", "TrigFunctions::cos(this.t)", "Real"},
+		{"English", "tan(t)", "", "TrigFunctions::tan(this.t)", "Real"},
+		{"English", "cot(t)", "", "TrigFunctions::cot(this.t)", "Real"},
+		{"English", "arcsin(t)", "", "TrigFunctions::arcsin(this.t)", "Real"},
+		{"English", "asin(t)", "", "TrigFunctions::arcsin(this.t)", "Real"},
+		{"English", "arccos(t)", "", "TrigFunctions::arccos(this.t)", "Real"},
+		{"English", "ACOS(t)", "", "TrigFunctions::arccos(this.t)", "Real"},
+		{"English", "arctan(t)", "", "TrigFunctions::arctan(this.t)", "Real"},
+		{"English", "atan(t)", "", "TrigFunctions::arctan(this.t)", "Real"},
+		{"English", "atan2(t, t0)", "", "OpenSysMLMathFunctions::atan2(this.t, this.t0)", "Real"},
+		{"English", "sqrt(t)", "", "RealFunctions::sqrt(this.t)", "Real"},
+		{"English", "abs(t)", "", "RealFunctions::abs(this.t)", "Real"},
+		{"English", "abs(i)", "", "IntegerFunctions::abs(this.i)", "Integer"},
+		{"English", "min(t, t0)", "", "RealFunctions::min(this.t, this.t0)", "Real"},
+		{"English", "max(i, Retries)", "", "IntegerFunctions::max(this.i, this.Retries)", "Integer"},
+		{"English", "floor(t)", "", "RealFunctions::floor(this.t)", "Integer"},
+		{"English", "ceil(t)", "", "OpenSysMLMathFunctions::ceiling(this.t)", "Integer"},
+		{"English", "ceiling(t)", "", "OpenSysMLMathFunctions::ceiling(this.t)", "Integer"},
+		{"English", "round(t)", "", "RealFunctions::round(this.t)", "Integer"},
+		{"English", "pow(t, 2)", "", "this.t ** 2", "Real"},
+		{"English", "exp(t)", "", "OpenSysMLMathFunctions::exp(this.t)", "Real"},
+		{"English", "ln(t)", "", "OpenSysMLMathFunctions::ln(this.t)", "Real"},
+		{"English", "log(t, 2)", "", "OpenSysMLMathFunctions::log(this.t, 2)", "Real"},
+		{"English", "Retry Count > floor(t) and GS_Found", "Boolean", "this.'Retry Count' > RealFunctions::floor(this.t) and this.GS_Found", "Boolean"},
+		{"English", "sin(t) * 2 >= cos(t0 - 1)", "Boolean", "TrigFunctions::sin(this.t) * 2 >= TrigFunctions::cos(this.t0 - 1)", "Boolean"},
 	}
 	for _, c := range cases {
 		body := c.body
@@ -524,6 +555,25 @@ func TestTranslateRefusals(t *testing.T) {
 		{"English", "java.util.Collections.max(xs) > 3", false, refusedConstruct, "java.util.Collections.max("},
 		{"English", "name.equals(name)", false, refusedConstruct, "name.equals("},
 		{"English", "Ready(GS_Found)", false, refusedConstruct, "Ready("},
+		{"English", "TrigFunctions.sin(t)", false, refusedConstruct, "TrigFunctions.sin("},
+		{"English", "sin t > 0", false, refusedName, "sin t"},
+		{"English", "Guide Star sin(t)", false, refusedConstruct, "Guide Star sin("},
+		{"English", "sin(t, t0)", false, refusedCall, "sin"},
+		{"English", "min(t)", false, refusedCall, "min"},
+		{"English", "max(t, t0, i)", false, refusedCall, "max"},
+		{"English", "pow(t)", false, refusedCall, "pow"},
+		{"English", "log(t)", false, refusedCall, "log"},
+		{"English", "sin(name)", false, refusedType, "sin"},
+		{"English", "sqrt(GS_Found)", false, refusedType, "sqrt"},
+		{"English", "sin(z)", false, refusedType, "sin"},
+		{"English", "sqrt(z)", false, refusedType, "sqrt"},
+		{"English", "floor(z)", false, refusedType, "floor"},
+		{"English", "exp(z)", false, refusedType, "exp"},
+		{"English", "max(z, t)", false, refusedType, "max"},
+		{"JavaScript", "Math.min(t, z)", false, refusedType, "Math.min"},
+		{"Java", "Math.sqrt(z)", false, refusedType, "Math.sqrt"},
+		{"JavaScript", "Math.round(z)", false, refusedType, "Math.round"},
+		{"English", "abs(xs)", false, refusedType, "abs"},
 		{"JavaScript Expression Language", "i / 2", false, refusedLanguage, "JavaScript Expression Language"},
 		{"ECMAScript for XML", "i / 2", false, refusedLanguage, "ECMAScript for XML"},
 		{"JavaScript 1.8 SE", "i / 2", false, refusedLanguage, "JavaScript 1.8 SE"},
@@ -572,6 +622,61 @@ func TestTranslateRefusals(t *testing.T) {
 		}
 		if c.token != "" && !strings.Contains(err.note(), strconv.Quote(c.token)) {
 			t.Errorf("%s %q: note %q does not carry the token %q", c.lang, c.body, err.note(), c.token)
+		}
+	}
+}
+
+// An English refusal of a call names the functions the dialect does read, so the
+// report tells a modeler which spellings would have been translated.
+func TestEnglishCallRefusalListsTheFunctions(t *testing.T) {
+	_, err := translateExpr("Ready(GS_Found)", "English", testScope, oneOf("Boolean", featureHolds))
+	if err == nil {
+		t.Fatal("translated, want a refusal")
+	}
+	names := englishCallNames()
+	if !strings.Contains(err.note(), names) {
+		t.Errorf("note %q does not list the functions %q", err.note(), names)
+	}
+	if !slices.IsSorted(strings.Split(names, ", ")) {
+		t.Errorf("the functions are not listed in order: %q", names)
+	}
+	for word, fn := range englishCalls {
+		if !strings.Contains(", "+names+", ", ", "+word+", ") {
+			t.Errorf("the list lacks %q", word)
+		}
+		if !pureCalls[fn] {
+			if _, ok := libraryCalls[fn]; !ok {
+				t.Errorf("%s maps to %q, which neither the script table nor the library table writes", word, fn)
+			}
+		}
+	}
+}
+
+// strictScope is testScope under a strict migration, which writes the standard library alone.
+type strictScope struct{ fakeScope }
+
+func (strictScope) strictMigration() bool { return true }
+
+func TestEnglishCallsUnderAStrictMigration(t *testing.T) {
+	sc := strictScope{testScope}
+	for _, c := range []struct{ body, expr, token string }{
+		{"sin(t)", "TrigFunctions::sin(this.t)", ""},
+		{"ceil(t)", "-RealFunctions::floor(-this.t)", ""},
+		{"exp(t)", "", "exp"},
+		{"ln(t)", "", "ln"},
+		{"log(t, 2)", "", "log"},
+		{"atan2(t, t0)", "", "atan2"},
+	} {
+		got, err := translateExpr(c.body, "English", sc, oneOf("", featureHolds))
+		switch {
+		case c.token == "" && err != nil:
+			t.Errorf("%q: refused: %s", c.body, err.note())
+		case c.token == "" && got.expr != c.expr:
+			t.Errorf("%q: got %q, want %q", c.body, got.expr, c.expr)
+		case c.token != "" && err == nil:
+			t.Errorf("%q: translated as %q, want a refusal at %q", c.body, got.expr, c.token)
+		case c.token != "" && (err.kind != refusedCall || err.token != c.token || !strings.Contains(err.note(), "strict")):
+			t.Errorf("%q: refused with kind %d at %q (%s), want a strict-migration call refusal at %q", c.body, err.kind, err.token, err.note(), c.token)
 		}
 	}
 }

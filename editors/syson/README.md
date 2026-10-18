@@ -9,8 +9,8 @@ operation dialog and mapped run results.
 
 - `backend/` — the Spring Boot auto-configuration, exporter, GraphQL mutation, run service,
   result mapping and Validation view service.
-- `frontend/` — the `@openmbee/opensysml-syson` npm package with the menu contribution,
-  dialog, results panel and extension registry contribution.
+- `frontend/` — the `@openmbee/opensysml-syson` npm package with the explorer menu and palette
+  contributions, dialog, results panel and extension registry contribution.
 - `syson-api-stubs/` — compile-only Sirius Web and SysON API classes for the offline Maven build.
 
 ## Build without private artifacts
@@ -70,7 +70,11 @@ Put the backend jar on the SysON application classpath. Its
 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` entry
 activates `OpenSysMLAutoConfiguration`; no package-scan change is needed. In the SysON frontend
 `index.tsx`, add `addOpenSysMLContributions(sysonExtensionRegistry)` after the existing SysON
-contributions.
+contributions. It appends the "Run with OpenSysML…" tool to both explorer extension points: the
+`treeItemContextMenuEntryOverrideExtensionPoint` of `@eclipse-sirius/sirius-components-trees`
+and, for the tool palette that shows a tree item's tools since SysON 2026.9, the
+`paletteToolOverrideExtensionPoint` of `@eclipse-sirius/sirius-components-palette`. Both packages
+are optional peer dependencies the SysON frontend already provides.
 
 ## Configuration
 
@@ -121,11 +125,25 @@ already provides and says so in the run's messages, so the copy resolves names i
 shadowing the service's own library; a copy that adds members the service's library lacks is exported
 and shadows it, with a warning naming the additions.
 
+SysON 2026.9.2's own SysML serializer, which the exporter drives, writes no `calc def`, writes a
+`calc` usage as an `action`, drops a calculation's result expression and flattens named arguments into
+a positional list. The exporter fills those four gaps itself (`CalculationSerializer`), so a document
+query declared in the project reaches the service as the `calc def` it is, with its parameters, its
+result expression and `name = value` arguments intact. What SysON's importer loses cannot be
+recovered: a reference from a calculation's result expression to one of the calculation's own
+parameters (`Descendants(source = root)` inside `calc def Subsystems { in root : Element; ... }`)
+is imported with no referent, so the exporter reports `Feature reference in <calc def> has no referent
+in the SysON model` and the service rejects the hole as a syntax error; references to features
+outside the calculation (`in root = telescope;`) survive. A document whose content is literal
+(paragraphs, sections, tables of literal rows) renders. SysON files every uploaded document, a user
+library included, under an unnamed root namespace; the exporter walks that namespace's members as
+the document's roots.
+
 Unit tests cover exporting, identity mapping, diagnostic mapping, configuration, GraphQL payloads,
 document bindings and validation results. Real-service integration tests run the mutation against
 `sysml-grpc` for instantiation, action execution, verification, diagnostics, document rendering,
 document queries, bundled-library detection and stored results. Frontend tests cover the registry,
-explorer menu, operation dialog, toast errors, mapped selection, outputs, traces, verdicts,
-instances, diagnostics, rendered documents and query rows.
+explorer menu and palette tool, operation dialog, toast errors, mapped selection, outputs, traces,
+verdicts, instances, diagnostics, rendered documents and query rows.
 
 Diagnostics that name a qualified name select that element; span-only diagnostics select the root element of the exported document containing the line. The serializer emits no source map.

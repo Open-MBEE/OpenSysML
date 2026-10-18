@@ -71,7 +71,7 @@ func testNumericLibraryCallThatHasNoValue(t *testing.T) {
 		{"VectorFunctions::cartesianNorm(flags)", ErrTypeMismatch},
 		{"VectorFunctions::cartesianAngle(xs, (0.0, 0.0, 0.0))", semantics.ErrArithmeticDomain},
 		{"VectorFunctions::vectorScalarDiv(xs, 0)", ErrDivisionByZero},
-		{"VectorFunctions::cartesianInner(xs)", ErrCalcArity},
+		{"VectorFunctions::cartesianInner(xs)", errCalcArity},
 		// Flat numbers are no collection of vectors; unequal dimensions have no
 		// sum or inner product; Booleans or a two-component three-vector are no vector.
 		{"VectorFunctions::sum(xs)", ErrTypeMismatch},
@@ -96,7 +96,7 @@ func testNumericLibraryCallThatHasNoValue(t *testing.T) {
 		{"ComplexFunctions::'/'(ComplexFunctions::rect(0.0, 1.0), ComplexFunctions::rect(0.0, 0.0))", ErrDivisionByZero},
 		{"ComplexFunctions::re(xs)", ErrTypeMismatch},
 		{"ComplexFunctions::re(ys)", ErrTypeMismatch},
-		{"ComplexFunctions::ToString(ComplexFunctions::rect(0.0, 1.0))", ErrUnevaluableLibraryFunction},
+		{"ComplexFunctions::ToString(ComplexFunctions::rect(0.0, 1.0))", errUnevaluableLibraryFunction},
 		// includingAt inserts before a position of 1..size+1, so an index past the
 		// end of the sequence names no insertion point and is reported rather than
 		// appending or dropping the values.
@@ -104,7 +104,7 @@ func testNumericLibraryCallThatHasNoValue(t *testing.T) {
 		{"SequenceFunctions::includingAt(xs, 9, 0)", ErrIndexOutOfRange},
 		{"SequenceFunctions::includingAt((), 9, 2)", ErrIndexOutOfRange},
 		{"SequenceFunctions::includingAt(xs, 9, 1.5)", ErrTypeMismatch},
-		{"SequenceFunctions::includingAt(xs, 9)", ErrCalcArity},
+		{"SequenceFunctions::includingAt(xs, 9)", errCalcArity},
 	} {
 		got, err := evalCollectionExpr(t, tt.expr)
 		if !errors.Is(err, tt.want) {
@@ -121,13 +121,13 @@ func testNamedLibraryCallThatHasNoValue(t *testing.T) {
 		expr string
 		want error
 	}{
-		{`RealFunctions::ToReal("1.5 meters")`, ErrInvalidNotation},
-		{`RealFunctions::ToReal("NaN")`, ErrInvalidNotation},
-		{`RealFunctions::ToReal(" 1.5 ")`, ErrInvalidNotation},
-		{`IntegerFunctions::ToInteger(" 7")`, ErrInvalidNotation},
-		{`RationalFunctions::ToRational("1/x")`, ErrInvalidNotation},
-		{`IntegerFunctions::ToInteger("2.0")`, ErrInvalidNotation},
-		{`BooleanFunctions::ToBoolean("yes")`, ErrInvalidNotation},
+		{`RealFunctions::ToReal("1.5 meters")`, errInvalidNotation},
+		{`RealFunctions::ToReal("NaN")`, errInvalidNotation},
+		{`RealFunctions::ToReal(" 1.5 ")`, errInvalidNotation},
+		{`IntegerFunctions::ToInteger(" 7")`, errInvalidNotation},
+		{`RationalFunctions::ToRational("1/x")`, errInvalidNotation},
+		{`IntegerFunctions::ToInteger("2.0")`, errInvalidNotation},
+		{`BooleanFunctions::ToBoolean("yes")`, errInvalidNotation},
 		{`IntegerFunctions::ToNatural(-1)`, semantics.ErrArithmeticDomain},
 		{`NaturalFunctions::ToNatural("-1")`, semantics.ErrArithmeticDomain},
 		{`RealFunctions::ToReal(xs)`, ErrTypeMismatch},
@@ -139,17 +139,17 @@ func testNamedLibraryCallThatHasNoValue(t *testing.T) {
 		{`RationalFunctions::numer("0.5")`, ErrTypeMismatch},
 		{`CollectionFunctions::'array#'(xs, (1, 1))`, ErrTypeMismatch},
 		{`OccurrenceFunctions::isDuring(xs)`, ErrMultiplicityViolation},
-		{`OccurrenceFunctions::isDuring(factor)`, ErrNotAnOccurrence},
+		{`OccurrenceFunctions::isDuring(factor)`, errNotAnOccurrence},
 		{`OccurrenceFunctions::'==='(xs, xs)`, ErrMultiplicityViolation},
-		{`OccurrenceFunctions::'==='(factor, factor)`, ErrNotAnOccurrence},
-		{`OccurrenceFunctions::create(factor)`, ErrNotAnOccurrence},
-		{`OccurrenceFunctions::destroy(factor)`, ErrNotAnOccurrence},
-		{`OccurrenceFunctions::addNew(xs)`, ErrCalcArity},
+		{`OccurrenceFunctions::'==='(factor, factor)`, errNotAnOccurrence},
+		{`OccurrenceFunctions::create(factor)`, errNotAnOccurrence},
+		{`OccurrenceFunctions::destroy(factor)`, errNotAnOccurrence},
+		{`OccurrenceFunctions::addNew(xs)`, errCalcArity},
 		{`OccurrenceFunctions::addNew(occ = xs)`, ErrMultiplicityViolation},
-		{`OccurrenceFunctions::addNew(xs, factor)`, ErrNotAnOccurrence},
-		{`OccurrenceFunctions::addNewAt(xs, xs)`, ErrCalcArity},
+		{`OccurrenceFunctions::addNew(xs, factor)`, errNotAnOccurrence},
+		{`OccurrenceFunctions::addNewAt(xs, xs)`, errCalcArity},
 		{`OccurrenceFunctions::addNewAt(occ = xs, index = 1)`, ErrMultiplicityViolation},
-		{`OccurrenceFunctions::addNewAt((), factor, 0)`, ErrNotAnOccurrence},
+		{`OccurrenceFunctions::addNewAt((), factor, 0)`, errNotAnOccurrence},
 		{`IntegerFunctions::'+'("a", 1)`, ErrTypeMismatch},
 		{`IntegerFunctions::'/'(1, 0)`, ErrDivisionByZero},
 		{`NaturalFunctions::'/'(7, 2)`, semantics.ErrArithmeticDomain},
@@ -186,7 +186,7 @@ func testNamedLibraryCallThatHasNoValue(t *testing.T) {
 		{`NumericalFunctions::sum0(xs, 1)`, ErrTypeMismatch},
 		{`NumericalFunctions::product1(xs, 0)`, ErrTypeMismatch},
 		{`NumericalFunctions::sum0(flags, 0)`, ErrTypeMismatch},
-		{`NumericalFunctions::sum0(xs)`, ErrCalcArity},
+		{`NumericalFunctions::sum0(xs)`, errCalcArity},
 	} {
 		got, err := evalCollectionExpr(t, tt.expr)
 		if !errors.Is(err, tt.want) {
@@ -204,19 +204,19 @@ func testBuiltinNamedArgumentThatBindsNothing(t *testing.T) {
 		expr string
 		want error
 	}{
-		{`NumericalFunctions::sum0(zero = 0, elements = xs)`, ErrUnknownParameter},
-		{`NumericalFunctions::sum0(zero = 0, zero = 1)`, ErrCalcArity},
-		{`NumericalFunctions::sum0(zero = 0, zero = 1, elements = xs)`, ErrCalcArity},
-		{`NumericalFunctions::sum0(collection = xs)`, ErrCalcArity},
-		{`ControlFunctions::'if'(thenValue = 1, elseValue = 2)`, ErrCalcArity},
+		{`NumericalFunctions::sum0(zero = 0, elements = xs)`, errUnknownParameter},
+		{`NumericalFunctions::sum0(zero = 0, zero = 1)`, errCalcArity},
+		{`NumericalFunctions::sum0(zero = 0, zero = 1, elements = xs)`, errCalcArity},
+		{`NumericalFunctions::sum0(collection = xs)`, errCalcArity},
+		{`ControlFunctions::'if'(thenValue = 1, elseValue = 2)`, errCalcArity},
 		{`ControlFunctions::'if'(test = true, thenValue = {in x; x})`, ErrBodyArity},
-		{`ControlFunctions::'and'(secondValue = true)`, ErrCalcArity},
-		{`ControlFunctions::'if'()`, ErrCalcArity},
-		{`ControlFunctions::'and'()`, ErrCalcArity},
-		{`SequenceFunctions::subsequence(xs)`, ErrCalcArity},
-		{`SequenceFunctions::subsequence(seq = xs)`, ErrCalcArity},
-		{`SequenceFunctions::size(xs, 1)`, ErrCalcArity},
-		{`SequenceFunctions::'#'(xs, 1, 2)`, ErrCalcArity},
+		{`ControlFunctions::'and'(secondValue = true)`, errCalcArity},
+		{`ControlFunctions::'if'()`, errCalcArity},
+		{`ControlFunctions::'and'()`, errCalcArity},
+		{`SequenceFunctions::subsequence(xs)`, errCalcArity},
+		{`SequenceFunctions::subsequence(seq = xs)`, errCalcArity},
+		{`SequenceFunctions::size(xs, 1)`, errCalcArity},
+		{`SequenceFunctions::'#'(xs, 1, 2)`, errCalcArity},
 		{`SequenceFunctions::'#'(seq = xs, index = 0)`, ErrIndexOutOfRange},
 		{`ControlFunctions::select(collection = xs, selector = factor)`, ErrTypeMismatch},
 		{`xs->select factor`, ErrTypeMismatch},
@@ -254,8 +254,8 @@ func testBodilessModelCalcNamedAsABuiltin(t *testing.T) {
 	`
 	for _, calc := range []string{"Total", "Size", "Parsed", "Added"} {
 		err := calcErrorWithLibraries(t, src, calc, nil, 10000)
-		if !errors.Is(err, ErrNoResultExpression) {
-			t.Errorf("%s = %v, want %v", calc, err, ErrNoResultExpression)
+		if !errors.Is(err, errNoResultExpression) {
+			t.Errorf("%s = %v, want %v", calc, err, errNoResultExpression)
 		}
 	}
 }
@@ -346,8 +346,8 @@ func testBaseIndexWithSeveralIndexes(t *testing.T) {
 		t.Errorf("Ragged = %v, want %v naming flattenedSize", err, ErrMultiplicityViolation)
 	}
 	err = calcErrorWithLibraries(t, src, "Vast", nil, 10000)
-	if !errors.Is(err, ErrIntegerUnaddressable) || !strings.Contains(err.Error(), "flattenedSize") || !strings.Contains(err.Error(), "18446744073709551616") {
-		t.Errorf("Vast = %v, want %v naming flattenedSize and its exact value", err, ErrIntegerUnaddressable)
+	if !errors.Is(err, errIntegerUnaddressable) || !strings.Contains(err.Error(), "flattenedSize") || !strings.Contains(err.Error(), "18446744073709551616") {
+		t.Errorf("Vast = %v, want %v naming flattenedSize and its exact value", err, errIntegerUnaddressable)
 	}
 }
 
@@ -551,7 +551,7 @@ func testStringOperandOfTheWrongKind(t *testing.T) {
 		{`StringFunctions::Substring("héllo", 1, 6)`, ErrIndexOutOfRange},
 		{`StringFunctions::Substring("abc", 0, 2)`, ErrIndexOutOfRange},
 		{`StringFunctions::Substring("abc", "1", 2)`, ErrTypeMismatch},
-		{`StringFunctions::Substring("abc", 1)`, ErrCalcArity},
+		{`StringFunctions::Substring("abc", 1)`, errCalcArity},
 	} {
 		got, err := evalCollectionExpr(t, tt.expr)
 		if !errors.Is(err, tt.want) {
@@ -768,8 +768,8 @@ func testLibraryFunctionWrongArity(t *testing.T) {
 	_, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, "package test { }"))
 
 	arg := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 1}}
-	if _, err := fn.invoke(ctx, calcArgs{positional: []Value{arg}}); !errors.Is(err, ErrCalcArity) {
-		t.Fatalf("max(1.0) error = %v, want ErrCalcArity", err)
+	if _, err := fn.invoke(ctx, calcArgs{positional: []Value{arg}}); !errors.Is(err, errCalcArity) {
+		t.Fatalf("max(1.0) error = %v, want errCalcArity", err)
 	}
 }
 

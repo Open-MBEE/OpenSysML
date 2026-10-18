@@ -30,6 +30,7 @@ config:
 ---
 %% NotationViews::alignmentView — state rendering (view def StateTransitionView)
 %% not represented: 2 fork/join name(s) (spread, collect); Mermaid's fork bar draws no label
+%% not represented: 1 note(s) not drawn: Mermaid state notes need an anchor to a declared state; free, edge-anchored and pseudostate notes have none
 %% canvas: w=1000 h=400
 %% layout: n0 x=0 y=0 w=1000 h=400
 %% layout: n18 x=40 y=30 w=15 h=15
@@ -40,7 +41,9 @@ config:
 %% layout: n4 x=540 y=120 w=120 h=60
 %% layout: n5 x=700 y=200 w=120 h=60
 %% layout: n6 x=790 y=270 w=120 h=100
+%% layout: n7 x=790 y=290 w=120 h=40
 %% layout: n9 x=810 y=295 w=80 h=30
+%% layout: n8 x=790 y=330 w=120 h=40
 %% layout: n10 x=810 y=335 w=80 h=30
 %% layout: n12 x=590 y=220 w=20 h=20
 %% layout: n13 x=592 y=290 w=16 h=16
@@ -70,21 +73,21 @@ config:
 %% route: n16->n4 860,90 660,90 660,120
 %% route: n17->n5 930,100 930,140 780,140 780,200
 stateDiagram-v2
-  state "Alignment" as n0 {
-    state "Initializing<br>initial, do / Initialize" as n1
-    state "Aligning<br>entry / prime, do / align, exit / Settle" as n2
+  state "«state def» Alignment" as n0 {
+    state "«state»<br>Initializing<br>initial, do / Initialize" as n1
+    state "«state»<br>Aligning<br>entry / prime, do / align, exit / Settle" as n2
       note right of n2
         guide on the current star
       end note
-    state "Phasing<br>entry / Initialize" as n3 {
-      state "Coarse<br>initial, do / Align" as n4
-      state "Fine<br>do / Align" as n5
-      state "Tracking" as n6 {
-        state "Guiding" as n7 {
-          state "guide" as n9
+    state "«state» Phasing<br>entry / Initialize" as n3 {
+      state "«state»<br>Coarse<br>initial, do / Align" as n4
+      state "«state»<br>Fine<br>do / Align" as n5
+      state "«state» Tracking" as n6 {
+        state "«region» Guiding" as n7 {
+          state "«state»<br>guide" as n9
         }
-        state "Focusing" as n8 {
-          state "focus" as n10
+        state "«region» Focusing" as n8 {
+          state "«state»<br>focus" as n10
         }
       }
       state n12 <<choice>>

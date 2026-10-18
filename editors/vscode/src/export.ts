@@ -1,7 +1,7 @@
 // Exporting a rendering to a file: which forms the server writes, how each is
 // offered and saved, and the pick → request → save sequence, kept apart from
 // VS Code so the sequence is testable with a fake host.
-import { RENDER_ELEMENTS_CAPABILITY, RENDER_FORMS_CAPABILITY, RENDER_STYLES_CAPABILITY, RenderParams, RenderResult } from "./protocol";
+import { RENDER_DEPTH_CAPABILITY, RENDER_ELEMENTS_CAPABILITY, RENDER_FORMS_CAPABILITY, RENDER_STYLES_CAPABILITY, RenderParams, RenderResult } from "./protocol";
 
 /** The forms `opensysml/render` writes, as the wire contract documents them, for a server that lists none itself. */
 export const DOCUMENTED_FORMS: readonly string[] = ["text", "mermaid", "markdown", "dot", "plantuml", "d2"];
@@ -59,6 +59,11 @@ export function serverElements(experimental: Record<string, unknown> | undefined
     return [...new Set(advertised as string[])];
   }
   return [];
+}
+
+/** serverReadsDepth reports whether the server bounds a rendering by a request's `depth`; false for a server predating it. */
+export function serverReadsDepth(experimental: Record<string, unknown> | undefined): boolean {
+  return experimental?.[RENDER_DEPTH_CAPABILITY] === true;
 }
 
 /** exportFile is how a form the server wrote is saved. */
@@ -122,6 +127,8 @@ export interface ExportRequest {
   style?: string;
   /** The optional notation elements asked for besides the view's own, when the server lists them. */
   show?: string[];
+  /** How many levels are drawn below each exposed element, when the setting bounds them and the server reads a depth. */
+  depth?: number;
   /** Links diagram elements to the declaration in the source document. */
   linkTemplate?: string;
 }
@@ -144,6 +151,9 @@ export async function exportRendering(host: ExportHost, request: ExportRequest):
     }
     if (request.show !== undefined && request.show.length > 0) {
       params.show = request.show;
+    }
+    if (request.depth !== undefined && request.depth > 0) {
+      params.depth = request.depth;
     }
     if (request.linkTemplate !== undefined) {
       params.linkTemplate = request.linkTemplate;

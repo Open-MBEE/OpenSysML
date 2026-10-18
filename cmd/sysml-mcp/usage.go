@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
 
@@ -121,7 +123,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml-mcp -print-config codex >> ~/.codex/config.toml", "Append the [mcp_servers.sysml] table"),
 				usage.Ex("sysml-mcp -print-config cursor -print-config-command sysml-mcp", "A block that finds the server on PATH"),
 			},
-		}, {
+		}, toolsSection(), {
 			Title: "Exit status",
 			Lead:  []string{"The status reports how the session ended:"},
 			Items: []usage.Item{
@@ -143,4 +145,31 @@ func doc() usage.Doc {
 		}},
 		SeeAlso: []string{"sysml(1)", "sysml-lsp(1)", "sysml-grpc(1)", "https://github.com/Open-MBEE/OpenSysML"},
 	}
+}
+
+// toolsSection lists every tool the server can serve, from the catalog that
+// also drives registration and the tool_catalog tool, so the manual page
+// cannot drift from the tools (`make man` regenerates it, `make man-check`
+// fails when it was not).
+func toolsSection() usage.Section {
+	sec := usage.Section{
+		Title: "Tools",
+		Lead: []string{
+			"The tools, by the group that serves them (-tools), each with the " +
+				"sysml-grpc RPC or sysml flag it stands for. The tool_catalog tool " +
+				"answers this list to the client, narrowed to the groups served.",
+		},
+	}
+	for _, e := range catalog.Entries(catalog.Groups()...) {
+		group := string(e.Group)
+		if group == "" {
+			group = "every group"
+		}
+		text := fmt.Sprintf("%s: %s", group, e.Summary)
+		if op := e.Operation(); op != "none" {
+			text = fmt.Sprintf("%s: %s (%s).", group, strings.TrimSuffix(e.Summary, "."), op)
+		}
+		sec.Items = append(sec.Items, usage.Entry(e.Name, text))
+	}
+	return sec
 }

@@ -13,16 +13,16 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// ErrNoArgumentTyper reports a call reached on a semantic model with no argument
+// errNoArgumentTyper reports a call reached on a semantic model with no argument
 // typing installed: the run would select among overloads by arity alone, weaker
 // than the checker did, so it selects nothing.
-var ErrNoArgumentTyper = errors.New("no argument typing installed on the semantic model")
+var errNoArgumentTyper = errors.New("no argument typing installed on the semantic model")
 
 // selectCall is the declaration e calls in scope as the checker selects it, from the
-// semantic model's typing of the arguments; ErrNoArgumentTyper when none is installed.
+// semantic model's typing of the arguments; errNoArgumentTyper when none is installed.
 func (m *Model) selectCall(scope *symbols.Scope, e *ast.InvocationExpr, performs semantics.Performs) (*semantics.InvocationSelection, error) {
 	if !m.semantics.HasArgumentTyper() {
-		return nil, ErrNoArgumentTyper
+		return nil, errNoArgumentTyper
 	}
 	return m.semantics.SelectCall(scope, e, performs), nil
 }
@@ -93,6 +93,10 @@ type Model struct {
 	// members into the prefix naming a machine usage and the state path within it.
 	activitySplits   map[activitySplitKey]activitySplit
 	constraintBodies sync.Map
+	// names memoizes the resolver's unqualified lookups by scope, name and
+	// exclusion: a run reads the same names on every step. A plain map, under
+	// the Model's one-goroutine contract like the other memos.
+	names map[nameKey]nameHit
 
 	// predicateShapes memoizes the invocation interfaces of constraints and
 	// requirements applied as predicates.
@@ -189,9 +193,9 @@ type Model struct {
 // anything else. The caller that builds a Model supplies it; the runtime parses nothing itself.
 type ExpressionParser func(origin, text string) (ast.Node, bool)
 
-// ErrNoExpressionParser is the typed error a run returns on reaching notation text
+// errNoExpressionParser is the typed error a run returns on reaching notation text
 // to read with no ExpressionParser installed on its Model.
-var ErrNoExpressionParser = errors.New("no expression parser installed on the runtime model")
+var errNoExpressionParser = errors.New("no expression parser installed on the runtime model")
 
 // SetExpressionParser installs the parser the Model reads witness input values and tool
 // units with; units the previous parser read are forgotten, so every lookup goes through it.
@@ -201,10 +205,10 @@ func (m *Model) SetExpressionParser(parse ExpressionParser) {
 }
 
 // parseOneExpression reads text as exactly one expression with the installed parser; ok is
-// false for text that is not one, err ErrNoExpressionParser when no parser is installed.
+// false for text that is not one, err errNoExpressionParser when no parser is installed.
 func (m *Model) parseOneExpression(origin, text string) (expr ast.Node, ok bool, err error) {
 	if m.parse == nil {
-		return nil, false, ErrNoExpressionParser
+		return nil, false, errNoExpressionParser
 	}
 	expr, ok = m.parse(origin, text)
 	return expr, ok, nil
@@ -214,7 +218,7 @@ func (m *Model) parseOneExpression(origin, text string) (expr ast.Node, ok bool,
 // the resolver it resolves names with; either may be nil for a context that
 // evaluates literals alone. The caller installs the checker's argument typing on
 // sem (semantics.Model.SetArgumentTyper) before any call is selected; a run that
-// selects a call without one fails with ErrNoArgumentTyper. Contexts are built
+// selects a call without one fails with errNoArgumentTyper. Contexts are built
 // over it with NewContext.
 func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 	return &Model{
@@ -327,4 +331,40 @@ func (m *Model) declaredSymbol(sym *symbols.Symbol) *symbols.Symbol {
 		return local
 	}
 	return sym
+}
+
+// nameKey is a memoized unqualified lookup: the name, the scope it was looked
+// up from, and the declaration hidden from it (nil for none).
+type nameKey struct {
+	scope     *symbols.Scope
+	name      string
+	excluding ast.Node
+}
+
+// nameHit is what a lookup found.
+type nameHit struct {
+	sym *symbols.Symbol
+	ok  bool
+}
+
+// resolvedName is the resolver's LookupName (LookupNameExcluding when excluding
+// is set), memoized: the model does not change under a run, so a name read on
+// every step of a loop is resolved once.
+func (m *Model) resolvedName(scope *symbols.Scope, name string, excluding ast.Node) (*symbols.Symbol, bool) {
+	key := nameKey{scope: scope, name: name, excluding: excluding}
+	if hit, ok := m.names[key]; ok {
+		return hit.sym, hit.ok
+	}
+	var sym *symbols.Symbol
+	var ok bool
+	if excluding == nil {
+		sym, ok = m.resolver.LookupName(scope, name)
+	} else {
+		sym, ok = m.resolver.LookupNameExcluding(scope, name, excluding)
+	}
+	if m.names == nil {
+		m.names = map[nameKey]nameHit{}
+	}
+	m.names[key] = nameHit{sym: sym, ok: ok}
+	return sym, ok
 }

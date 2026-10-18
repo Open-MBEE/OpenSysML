@@ -111,7 +111,7 @@ package Readings {
 }
 ```
 ```
-readings.sysml:4:41: error: 1 (an Integer) is written at positions 1 and 2 of a unique feature
+readings.sysml:4:41: error[unique-feature-values]: 1 (an Integer) is written at positions 1 and 2 of a unique feature
 ```
 The check reports a repeat it can decide from the text; one that only appears when the model runs
 — a value reaching a feature through another feature, an `assign`, a calc's argument or result —

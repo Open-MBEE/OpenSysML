@@ -332,8 +332,8 @@ func summarizeMissing(items []string, many, one string) []string {
 }
 
 // topLevelNames lists the written top-level elements of the user model, the
-// members of the global namespace a whole-model scope starts from: the roots'
-// members and the views of the diagrams written there.
+// members of the global namespace a whole-model scope starts from: the roots
+// and the views of the diagrams written there.
 func (m *migration) topLevelNames() []string {
 	var names []string
 	add := func(c *sysmlv1.Element) {
@@ -342,18 +342,12 @@ func (m *migration) topLevelNames() []string {
 		}
 	}
 	for _, r := range m.model.Roots {
-		switch {
-		case m.isLibrary(r):
-		case r.Type != "Model":
+		if !m.isLibrary(r) {
 			add(r)
-		default:
-			for _, c := range r.Children {
-				add(c)
-			}
 		}
 	}
 	for _, v := range m.hosted[nil] {
-		names = append(names, v.name)
+		names = append(names, queryName(v.name))
 	}
 	return names
 }
@@ -378,10 +372,14 @@ func (m *migration) namedRoot(ref sysmlv1.ElementRef, role string) (name, why st
 	return m.plainName(ref.Element), ""
 }
 
-// plainName is e's migrated qualified name as a query string names it: the
-// segments joined by ::, unquoted.
+// plainName joins the name's segments as the notation spells them, unquoted
+// with escapes kept.
 func (m *migration) plainName(e *sysmlv1.Element) string {
-	return strings.Join(m.segments(e), "::")
+	segments := m.segments(e)
+	for i, segment := range segments {
+		segments[i] = queryName(segment)
+	}
+	return strings.Join(segments, "::")
 }
 
 // typedRows filters src by the row types; package-owned usages only for an instance table.
@@ -485,9 +483,9 @@ func (m *migration) exceptSynthesizedUsages(rows qx) qx {
 				continue
 			}
 			if host := m.plainName(u.host); host != "" {
-				names.add(host + "::" + u.name)
+				names.add(host + "::" + queryName(u.name))
 			} else {
-				names.add(u.name)
+				names.add(queryName(u.name))
 			}
 		}
 	}

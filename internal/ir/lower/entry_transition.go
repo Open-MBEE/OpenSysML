@@ -89,10 +89,14 @@ func (g *StateGraph) UnconditionalStart(owner ast.Node) *ast.StateNode {
 	if len(transitions) == 0 || transitions[0].Guard != nil {
 		return nil
 	}
-	if transitions[0].Via != nil {
-		return g.unconditionalEntryTarget(transitions[0].Via, nil)
+	switch target := entryTransitionTarget(transitions[0]).(type) {
+	case *ast.StateNode:
+		return target
+	case *ast.PseudostateNode:
+		return g.unconditionalEntryTarget(target, nil)
+	default:
+		return nil
 	}
-	return transitions[0].Target
 }
 
 func (g *StateGraph) unconditionalEntryTarget(target ast.Node, seen map[*ast.PseudostateNode]bool) *ast.StateNode {
@@ -176,20 +180,13 @@ func lowerEntryTransition(graph *StateGraph, member *ast.TransitionMember, owner
 		return err
 	}
 	entryScope := symbols.TriggerScope(scope, member)
-	return addEntryTransitionTarget(graph, member, target, entryOwner, member.Guard, nil, scope, entryScope)
+	entry := &EntryTransition{Decl: member, Guard: member.Guard, Scope: entryScope}
+	return addEntryTransitionTarget(graph, entry, target, entryOwner, scope)
 }
 
-func addEntryTransitionTarget(
-	graph *StateGraph,
-	decl ast.Node,
-	target ast.Node,
-	owner ast.Node,
-	guard ast.Node,
-	effect []StateBehavior,
-	targetScope *symbols.Scope,
-	scope *symbols.Scope,
-) error {
-	entry := &EntryTransition{Decl: decl, Guard: guard, Effect: effect, Scope: scope}
+// addEntryTransitionTarget resolves target, a vertex declared in targetScope,
+// as entry's target and records entry on owner.
+func addEntryTransitionTarget(graph *StateGraph, entry *EntryTransition, target, owner ast.Node, targetScope *symbols.Scope) error {
 	switch vertex := target.(type) {
 	case *ast.StateNode:
 		entry.Target = vertex

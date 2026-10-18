@@ -285,7 +285,7 @@ must argue the interchange case rather than report a gap:
    and the sync diff above are all implementable without any specification change,
    because user-defined metadata is already conforming notation.
 3. **Record the measurements.** The Flexo interoperability harness
-   (`internal/translate/interop/flexo`) already measures what survives a live round trip; extended
+   (`tools/referee/flexo`) already measures what survives a live round trip; extended
    with an identity-carrying fixture, its committed report becomes the evidence the
    issue cites.
 4. Track the filing in [omg-issues.md](omg-issues.md) once posted.

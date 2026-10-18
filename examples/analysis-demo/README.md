@@ -395,18 +395,18 @@ run reaching that outcome made:
 ```
 ✓ explored Timing::groundWatch: 2 outcomes
 outcome                          | linearizations | probability | witness
----------------------------------+----------------+-------------+----------------------------------------------------------------------------------------------------------------
-armed = true; sawBraking = false | 1              | possible    | t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
-armed = true; sawBraking = true  | 1              | possible    | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
-complete (2 runs)
-  standing: outcomes (proved over schedules: 2 linearizations, inputs as written)
+---------------------------------+----------------+-------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+armed = true; sawBraking = false | 1              | possible    | t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch; t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
+armed = true; sawBraking = true  | 2              | possible    | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
+complete (3 runs)
+  standing: outcomes (proved over schedules: 3 linearizations, inputs as written)
 ```
 
-`complete (2 runs)` says every order within the run and depth budgets was
+`complete (3 runs)` says every order within the run and depth budgets was
 tried, so an outcome not listed cannot be reached by reordering alone, and the
 `standing` line records that the successful outcomes were proved over every
 schedule. The `probability` column says `possible` because the model makes no
-weighted choice: the two scheduler orders are alternatives, not events with
+weighted choice: the scheduler orders are alternatives, not events with
 probabilities. A one-line answer to "does the order matter?" is one outcome or
 two.
 
@@ -426,9 +426,9 @@ its body waits on time — no `-advance` is needed:
   standing: value (observed: 1 run under reverse)
 ✓ explored Timing::watchDescent: 2 outcomes
 outcome            | linearizations | probability | witness
--------------------+----------------+-------------+----------------------------------------------------------------------------------------------------------------
-sawBraking = false | 1              | possible    | t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
-sawBraking = true  | 1              | possible    | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
+-------------------+----------------+-------------+-----------------------------------------------------------------------------------------------------------------
+sawBraking = false | 1              | possible    | t=5.0: action watchDescent first of state machine flightMode of object #1, action watchDescent
+sawBraking = true  | 1              | possible    | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action watchDescent
 complete (2 runs)
   standing: outcomes (proved over schedules: 2 linearizations, inputs as written)
 ```
@@ -499,8 +499,8 @@ fuel at 0.25  -> Landers::hauler
 fuel at 0.5   -> Landers::relay
 
 == the watch and the flight mode on one clock
-sawBraking = False (1 order): t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
-sawBraking = True  (1 order): t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
+sawBraking = False (1 order): t=5.0: action watchDescent first of state machine flightMode of object #1, action watchDescent
+sawBraking = True  (1 order): t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action watchDescent
 ```
 
 The calls map one to one onto the command line: `Model.run_analysis(case,

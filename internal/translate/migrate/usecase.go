@@ -137,13 +137,22 @@ func (m *migration) usageIn(def *sysmlv1.Element) *defUsage {
 // connectUsages writes, in host's body, a connection named after e between the
 // usages of the two classifiers, and records it as the edge e is drawn as.
 func (m *migration) connectUsages(e, host, from, to *sysmlv1.Element, fromKw, toKw, name string) *defConn {
-	return m.connectTyped(e, nil, host, from, to, fromKw, toKw, name)
+	return m.connectTyped(e, nil, host, connectionEnds{from: from, to: to, fromKw: fromKw, toKw: toKw}, name)
+}
+
+// connectionEnds are the two classifiers a connection joins and the usage
+// keywords each is written with.
+type connectionEnds struct {
+	from, to     *sysmlv1.Element
+	fromKw, toKw string
 }
 
 // connectTyped is connectUsages with the connection typed by def, the
 // connection def written for e, when def is not nil.
-func (m *migration) connectTyped(e, def, host, from, to *sysmlv1.Element, fromKw, toKw, name string) *defConn {
-	fu, tu := m.defUsageOf(m.usageHost(from), from, fromKw), m.defUsageOf(m.usageHost(to), to, toKw)
+func (m *migration) connectTyped(e, def, host *sysmlv1.Element, ends connectionEnds, name string) *defConn {
+	fu, tu := m.defUsageOf(m.usageHost(ends.from), ends.from, ends.fromKw), m.defUsageOf(m.usageHost(ends.to), ends.to, ends.toKw)
+	// The usage's name is invented when e has none to give it, or a def keeps e's.
+	invented := name == "" || def != nil
 	if name == "" {
 		name = spoken(writeName(fu.name)) + " to " + spoken(writeName(tu.name))
 	}
@@ -160,6 +169,9 @@ func (m *migration) connectTyped(e, def, host, from, to *sysmlv1.Element, fromKw
 		m.moreConns[e] = append(m.moreConns[e], c)
 	}
 	m.extras[host] = append(m.extras[host], func() {
+		if invented {
+			m.w.madeUp(writeName(name))
+		}
 		typed := ""
 		if def != nil {
 			typed = " : " + m.ref(def, host)
@@ -219,7 +231,7 @@ func (m *migration) connectActor(link *actorLink) {
 		// The association is a connection def; its one usage is named like a usage.
 		def, name = link.assoc, lowerFirst(name)
 	}
-	link.conn = m.connectTyped(link.assoc, def, host, from, to, fromKw, toKw, name)
+	link.conn = m.connectTyped(link.assoc, def, host, connectionEnds{from: from, to: to, fromKw: fromKw, toKw: toKw}, name)
 	if link.block {
 		return
 	}
@@ -407,7 +419,7 @@ func (m *migration) planAssociations(assocs []*sysmlv1.Element, links []*actorLi
 		if !ok {
 			continue
 		}
-		m.connectTyped(e, e, host, from, to, fromKw, toKw, lowerFirst(m.nameOf(e)))
+		m.connectTyped(e, e, host, connectionEnds{from: from, to: to, fromKw: fromKw, toKw: toKw}, lowerFirst(m.nameOf(e)))
 	}
 }
 
@@ -460,8 +472,6 @@ func (m *migration) connHost(d, a, b *sysmlv1.Element) (host *sysmlv1.Element, o
 	for p := b.Parent; p != nil; p = p.Parent {
 		switch {
 		case !above[p]:
-		case isTopLevel(p):
-			return nil, true
 		case (p.Type == "Package" || p.Type == "Model") && m.written(p):
 			return p, true
 		}
@@ -662,6 +672,7 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 		return
 	}
 	from, to := m.ref(ext.Parent, m.scope), m.ref(extended, m.scope)
+	qualifiedFrom, qualifiedTo := m.qualifiedRef(ext.Parent, m.scope), m.qualifiedRef(extended, m.scope)
 	kind := spoken(from) + " extends " + spoken(to)
 	name, doc := m.nameOf(ext), ""
 	if name == "" {
@@ -675,7 +686,7 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 	}
 	m.wroteEdge(ext, m.scope, "dependency", name)
 	m.madeUp(ext, writeName(name))
-	m.w.trailed("dependency "+writeName(name)+" from "+from+" to "+to, ";", func() {
+	m.w.trailed("dependency "+writeName(name)+" from "+qualifiedFrom+" to "+qualifiedTo, ";", func() {
 		if doc != "" {
 			m.w.line("doc /* " + doc + " */")
 		}

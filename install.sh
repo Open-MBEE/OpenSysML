@@ -180,10 +180,12 @@ case "$uname_s" in
 Linux) host_os=linux ;;
 Darwin) host_os=darwin ;;
 MINGW* | MSYS* | CYGWIN* | Windows_NT) host_os=windows ;;
+*) ;;
 esac
 case "$uname_m" in
 x86_64 | amd64) host_arch=amd64 ;;
 aarch64 | arm64) host_arch=arm64 ;;
+*) ;;
 esac
 # A shell under Rosetta reports x86_64; the native build is the one to install.
 if [ "$host_os" = darwin ] && [ "$host_arch" = amd64 ] &&
@@ -262,7 +264,7 @@ fi
 # Only https is followed when the releases are fetched over https; a plain-http
 # mirror is left to its own policy.
 curl_proto=""
-case "$base_url" in https://*) curl_proto="--proto =https --proto-redir =https" ;; esac
+case "$base_url" in https://*) curl_proto="--proto =https --proto-redir =https" ;; *) ;; esac
 
 download() { # <url> <destination>
 	if [ "$downloader" = curl ]; then

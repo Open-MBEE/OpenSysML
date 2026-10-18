@@ -16,6 +16,7 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/lsptools"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/runtimetools"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/sessiontools"
@@ -23,13 +24,13 @@ import (
 )
 
 // Group names a set of tools a server registers together.
-type Group string
+type Group = catalog.Group
 
-// The groups, in the order the server registers them.
+// The groups a server can serve; see the catalog for the tools of each.
 const (
-	GroupLSP     Group = "lsp"
-	GroupRuntime Group = "runtime"
-	GroupSession Group = "session"
+	GroupLSP     = catalog.GroupLSP
+	GroupRuntime = catalog.GroupRuntime
+	GroupSession = catalog.GroupSession
 )
 
 // AllGroups is every group, the default selection.
@@ -139,6 +140,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			return nil, fmt.Errorf("unknown tool group %q", g)
 		}
 	}
+	registerCatalog(s.sdk, groups)
 	return s, nil
 }
 

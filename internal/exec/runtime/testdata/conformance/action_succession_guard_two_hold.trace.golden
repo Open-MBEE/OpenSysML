@@ -11,5 +11,5 @@ stmt assign low
   eval literal 1 -> 1
 stmt assign high
   eval literal 1 -> 1
-choice step 2: tokens 2@alert, 3@idle (unordered; took 3@idle first)
+choice step 2: tokens 2@alert, 3@idle (unordered; took 3@idle first; independent)
 step 2: no active tokens

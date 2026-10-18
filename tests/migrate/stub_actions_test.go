@@ -200,7 +200,7 @@ func TestPlaceholderEndFailsOnlyItsOwnPair(t *testing.T) {
 	r := migrateDocument(t, mixedAllocation, mixedAllocationApplications)
 	wantNote(t, r, "_make", migrate.Unmapped, "no v2 form for a UML CreateObjectAction")
 	wantNote(t, r, "_alloc", migrate.Approximated, "1 of 2 relationships written; pair 2 is named wire 2 so the pairs stay distinct; its end Rig::Run::make is written only as a placeholder of a node that is not migrated")
-	if e := entriesFor(r, "_alloc"); len(e) != 1 || e[0].Target != "wire" {
+	if e := entriesFor(r, "_alloc"); len(e) != 1 || e[0].Target != "Model::wire" {
 		t.Errorf("mixed allocation: got %+v, want target wire", e)
 	}
 	for _, line := range []string{

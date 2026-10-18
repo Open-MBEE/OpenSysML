@@ -7,30 +7,30 @@ digraph "FlowViews::driveView" {
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   subgraph "cluster_n0" {
-    label=<<b>Drive</b>>;
+    label=<<font point-size="10"><i>«action def»</i></font><br/><b>Drive</b>>;
     color=black;
     penwidth=0.5;
     URL="https://example.test/src/action.sysml#L11";
     tooltip="Flows::Drive";
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n1" [shape=circle, fillcolor=black, label="", width=0.2, URL="https://example.test/src/action.sysml#L14", tooltip="Flows::Drive::start"];
-    "n2" [style="rounded,filled", label=<<b>provide</b>>, URL="https://example.test/src/action.sysml#L16", tooltip="Flows::Drive::provide"];
+    "n2" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>provide</b>>, URL="https://example.test/src/action.sysml#L16", tooltip="Flows::Drive::provide"];
     subgraph "cluster_n3" {
-      label=<<b>monitor</b><br/>own flow>;
+      label=<<font point-size="10"><i>«action»</i></font><br/><b>monitor</b><br/>own flow>;
       color=black;
       penwidth=0.5;
       URL="https://example.test/src/action.sysml#L20";
       tooltip="Flows::Drive::monitor";
       "n3" [shape=point, style=invis, width=0, height=0, label=""];
       "n4" [shape=circle, fillcolor=black, label="", width=0.2, URL="https://example.test/src/action.sysml#L22", tooltip="Flows::Drive::monitor::begin"];
-      "n5" [style="rounded,filled", label=<<b>record</b>>, URL="https://example.test/src/action.sysml#L23", tooltip="Flows::Drive::monitor::record"];
+      "n5" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>record</b>>, URL="https://example.test/src/action.sysml#L23", tooltip="Flows::Drive::monitor::record"];
     }
-    "n6" [style="rounded,filled", label=<<b>tally</b>>, URL="https://example.test/src/action.sysml#L29", tooltip="Flows::Drive::tally"];
-    "n7" [label=<<b>split</b>>, URL="https://example.test/src/action.sysml#L33", tooltip="Flows::Drive::split"];
-    "n8" [label=<<b>sync</b>>, URL="https://example.test/src/action.sysml#L34", tooltip="Flows::Drive::sync"];
+    "n6" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>tally</b>>, URL="https://example.test/src/action.sysml#L29", tooltip="Flows::Drive::tally"];
+    "n7" [label=<<font point-size="10"><i>«fork»</i></font><br/><b>split</b>>, URL="https://example.test/src/action.sysml#L33", tooltip="Flows::Drive::split"];
+    "n8" [label=<<font point-size="10"><i>«join»</i></font><br/><b>sync</b>>, URL="https://example.test/src/action.sysml#L34", tooltip="Flows::Drive::sync"];
     "n9" [shape=doublecircle, fillcolor=black, label="", width=0.2, URL="https://example.test/src/action.sysml#L35", tooltip="action.sysml:35:3"];
-    "n10" [style="rounded,filled", label=<<b>park</b>>, URL="https://example.test/src/action.sysml#L36", tooltip="Flows::Drive::park"];
-    "n11" [label=<<b>check</b>>, URL="https://example.test/src/action.sysml#L46", tooltip="Flows::Drive::check"];
+    "n10" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>park</b>>, URL="https://example.test/src/action.sysml#L36", tooltip="Flows::Drive::park"];
+    "n11" [label=<<font point-size="10"><i>«decision»</i></font><br/><b>check</b>>, URL="https://example.test/src/action.sysml#L46", tooltip="Flows::Drive::check"];
   }
   "n4" -> "n5" [URL="https://example.test/src/action.sysml#L24", tooltip="action.sysml:24:4"];
   "n1" -> "n7" [URL="https://example.test/src/action.sysml#L38", tooltip="action.sysml:38:3"];

@@ -292,10 +292,7 @@ func TestEveryToolTakingAModelTakesPathsAndSources(t *testing.T) {
 		t.Errorf("%d tools take a model, want the model tools: %v", modelTools, names)
 	}
 	slices.Sort(names)
-	want := []string{"apply_edits", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "export_graphs",
-		"instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis",
-		"run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint",
-		"verify_requirement", "verify_satisfaction"}
+	want := []string{"apply_edits", "check_behavior", "compare_results", "convert", "evaluate", "evaluate_calc", "execute_action", "execute_state", "explain_diagnostic", "export_graphs", "import_data", "instantiate", "list_engines", "migrate", "model_diagnostics", "parse", "query", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}
 	if !slices.Equal(names, want) {
 		t.Errorf("tools = %v, want %v", names, want)
 	}
@@ -571,10 +568,7 @@ func TestQueriesAndRenderings(t *testing.T) {
 		t.Errorf("an empty composite: %s", msg)
 	}
 
-	telescope, err := filepath.Abs(telescopeFixture)
-	if err != nil {
-		t.Fatal(err)
-	}
+	telescope := h.copyIn(telescopeFixture, "telescope.sysml")
 	var rows pb.RunDocumentQueryResponse
 	_, out = h.ok("run_document_query", map[string]any{
 		"paths": []string{telescope}, "queryId": "Observatory::SubsystemTable",
@@ -613,6 +607,10 @@ func TestQueriesAndRenderings(t *testing.T) {
 	if view.GetKind() != "tree" {
 		t.Errorf("pseudo-view kind = %q", view.GetKind())
 	}
+	h.ok("render_model_view", map[string]any{"modelHash": hash, "view": "Demo::overview", "show": []string{"edge-labels"}}, &view)
+	if !slices.Contains(view.GetShown(), "edge-labels") {
+		t.Errorf("show edge-labels: shown = %v", view.GetShown())
+	}
 
 	var graphs pb.ExportGraphsResponse
 	_, out = h.ok("export_graphs", map[string]any{"modelHash": hash, "subject": "Demo::Lamp"}, &graphs)
@@ -628,6 +626,58 @@ func TestQueriesAndRenderings(t *testing.T) {
 }
 
 // documentNames are the DocumentQueries::Document specializations of a model.
+// copyIn copies a fixture into the workspace root under name and answers the
+// path a tool argument names it by: the tools read only under the root.
+func (h *harness) copyIn(fixture, name string) string {
+	h.t.Helper()
+	data, err := os.ReadFile(fixture)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(h.root, name), data, 0o600); err != nil {
+		h.t.Fatal(err)
+	}
+	return name
+}
+
+// Paths stay under the workspace root: a path that leaves it, lexically or
+// through a symlink, is refused by every tool that reads a file, and a path
+// under a link that stays inside the root is accepted.
+func TestPathsStayUnderTheRoot(t *testing.T) {
+	h := attach(t, newService(t))
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "secret.sysml"), []byte(demoModel), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for name, args := range map[string]map[string]any{
+		"parse ..":            {"paths": []string{"../" + filepath.Base(outside) + "/secret.sysml"}},
+		"parse absolute":      {"paths": []string{filepath.Join(outside, "secret.sysml")}},
+		"convert filePath":    {"filePath": filepath.Join(outside, "secret.sysml"), "toFormat": "ttl"},
+		"migrate filePath":    {"filePath": filepath.Join(outside, "secret.sysml"), "toFormat": "sysml"},
+		"migrate layoutPath":  {"filePath": "v1.xmi", "layoutPath": filepath.Join(outside, "layout.json"), "toFormat": "sysml"},
+		"run_document_query ": {"paths": []string{filepath.Join(outside, "secret.sysml")}, "queryId": "Q"},
+	} {
+		tool := strings.Fields(name)[0]
+		if msg := h.fails(tool, args); !strings.Contains(msg, "outside the workspace root") {
+			t.Errorf("%s: %s", name, msg)
+		}
+	}
+	if err := os.Symlink(filepath.Join(outside, "secret.sysml"), filepath.Join(h.root, "link.sysml")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if msg := h.fails("parse", map[string]any{"paths": []string{"link.sysml"}}); !strings.Contains(msg, "outside the workspace root") {
+		t.Errorf("a link out of the root: %s", msg)
+	}
+	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "inside.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	var resp pb.ParseSourcesResponse
+	h.ok("parse", map[string]any{"paths": []string{"inside.sysml"}}, &resp)
+	if msg := h.fails("parse", map[string]any{"paths": []string{"missing/dir/new.sysml"}}); strings.Contains(msg, "outside") {
+		t.Errorf("a path under the root that does not exist yet is not outside it: %s", msg)
+	}
+}
+
 func (h *harness) documentNames(path string) []string {
 	h.t.Helper()
 	var query pb.QueryResponse
@@ -777,6 +827,8 @@ func TestAnUnknownModelHashIsNotFound(t *testing.T) {
 		"export_graphs":         {"subject": "Demo::Lamp"},
 		"convert":               {"toFormat": "ttl"},
 		"apply_edits":           {"operations": []any{map[string]any{"setValue": map[string]any{"target": "x", "value": "1"}}}},
+		"import_data":           {"imports": []any{map[string]any{"name": "d.csv", "content": "element,x\n"}}},
+		"compare_results":       {"results": `{"source":"t","configurations":[]}`},
 	} {
 		args["modelHash"] = "0000000000000000000000000000000000000000000000000000000000000000"
 		msg := h.fails(name, args)
@@ -910,5 +962,34 @@ func TestEveryCapabilityIsServedByATool(t *testing.T) {
 		if !registered[CapabilityTools[capability]] {
 			t.Errorf("server_info advertises %q without a tool behind it", capability)
 		}
+	}
+}
+
+func TestDiagnosticsReportsEveryDiagnostic(t *testing.T) {
+	h := attach(t, newService(t))
+	var resp pb.DiagnosticsResponse
+	res, out := h.ok("model_diagnostics", map[string]any{"paths": []string{"demo.sysml"}}, &resp)
+	if len(resp.GetDiagnostics()) != 0 || !strings.HasSuffix(out, "no diagnostics") {
+		t.Errorf("a clean model: %v\n%s", resp.GetDiagnostics(), out)
+	}
+	if structured(t, res)["modelHash"] == "" {
+		t.Error("an implicit parse did not answer the model hash")
+	}
+	bad := "package Broken { part def A { attribute m : Real = nowhere; } }"
+	res, out = h.ok("model_diagnostics", map[string]any{"sources": []map[string]any{{"path": "broken.sysml", "text": bad}}}, &resp)
+	if len(resp.GetDiagnostics()) == 0 {
+		t.Fatalf("a model naming an unknown symbol reports no diagnostic\n%s", out)
+	}
+	if d := resp.GetDiagnostics()[0]; strings.Count(out, d.GetMessage()) != 1 || !strings.Contains(out, "broken.sysml") {
+		t.Errorf("the text does not spell the diagnostic %v exactly once:\n%s", d, out)
+	}
+	if n := len(resp.GetDiagnostics()); strings.Count(out, "\n") != n {
+		t.Errorf("the text has %d lines after the model hash for %d diagnostics:\n%s", strings.Count(out, "\n"), n, out)
+	}
+	if _, has := structured(t, res)["diagnostics"]; !has {
+		t.Error("the structured result is not the DiagnosticsResponse")
+	}
+	if msg := h.fails("model_diagnostics", map[string]any{"modelHash": "nope"}); !strings.Contains(msg, "NOT_FOUND") {
+		t.Errorf("an unknown hash: %s", msg)
 	}
 }

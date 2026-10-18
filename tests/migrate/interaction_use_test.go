@@ -74,7 +74,7 @@ func TestInteractionUsesAndStateInvariants(t *testing.T) {
 		}
 		return syms[0]
 	}
-	rig, err := ctx.Instantiate(sym("Rig"))
+	rig, err := ctx.Instantiate(sym("Model::Rig"))
 	if err != nil {
 		t.Fatalf("instantiate Rig: %v", err)
 	}
@@ -101,20 +101,20 @@ func TestInteractionUsesAndStateInvariants(t *testing.T) {
 
 	// The performed scenario spins the motor to 30 and checks it is fast; run's own invariant then
 	// holds before its next message slows the motor.
-	if _, err := ctx.ExecuteActionPerformedBy(sym("Rig::run"), rig, nil); err != nil {
+	if _, err := ctx.ExecuteActionPerformedBy(sym("Model::Rig::run"), rig, nil); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	if got := speed(); got != 5.0 {
 		t.Errorf("after run, drive.motor.speed = %v, want 5.0", got)
 	}
-	if _, err := ctx.ExecuteActionPerformedBy(sym("Rig::relay"), rig, nil); err != nil {
+	if _, err := ctx.ExecuteActionPerformedBy(sym("Model::Rig::relay"), rig, nil); err != nil {
 		t.Fatalf("relay: %v", err)
 	}
 	if got := speed(); got != 20.0 {
 		t.Errorf("after relay, drive.motor.speed = %v, want 20.0", got)
 	}
 	// The performed scenario spins the motor to 5, so its invariant fails where it is placed.
-	_, err = ctx.ExecuteActionPerformedBy(sym("Rig::overrun"), rig, nil)
+	_, err = ctx.ExecuteActionPerformedBy(sym("Model::Rig::overrun"), rig, nil)
 	var violation *runtime.ViolationError
 	if !stderrors.As(err, &violation) || violation.Element != "fast" {
 		t.Fatalf("overrun: err = %v, want the assertion fast violated", err)

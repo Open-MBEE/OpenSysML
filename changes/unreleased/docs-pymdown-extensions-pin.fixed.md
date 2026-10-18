@@ -1,0 +1,1 @@
+- **The documentation site builds again.** `docs-requirements.txt` pins `pymdown-extensions` to 12.1: the unpinned 12.2 release changed its `Highlight` constructor, and `mkdocstrings` 1.0.6 fails on every page with a Python API block (`Highlight.__init__() missing 1 required positional argument: 'md'`), which broke `make docs` and the Pages workflow.

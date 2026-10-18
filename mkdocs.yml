@@ -167,14 +167,8 @@ exclude_docs: |
   internals/notes/**
   project/*.json
   project/omg-issues.md
-  project/performance-census-2026-09.md
-  project/execution-performance-2026-09.md
-  project/performance-profile-2026-09.md
-  project/performance-release-0.5-vs-0.4.3.md
-  project/performance-release-0.6-vs-0.4.2.md
-  project/performance-release-0.8-vs-0.7.0.md
-  project/performance-release-0.9.1-vs-0.9.0.md
-  project/performance-release-0.9.2-vs-0.9.1.md
+  project/performance-release-0.10.1-vs-0.10.0.md
+  project/archive/**
   project/satellite-network-stress-test.md
   project/large-model-scaling-design.md
   project/native-compilation.md
@@ -281,7 +275,7 @@ nav:
       - Language server: reference/lsp.md
       - MCP server: reference/sysml-mcp.md
       - Jupyter kernel: reference/jupyter-kernel.md
-      - Diagnostics (lints): reference/diagnostics.md
+      - Diagnostics: reference/diagnostics.md
       - Client libraries: reference/clients.md
       - Go packages: reference/api.md
       - Python API: reference/python-api.md

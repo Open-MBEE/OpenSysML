@@ -10,45 +10,45 @@ Message	Rig::Spinup::new	_mNew	(the message creates drive.motor, a part that exi
 Interaction	Twin::Twinned	_twinned	(the lifeline 'm' stands for 'motor', which Twin reaches as both left.motor and right.motor)
 
 ## approximated (5)
-Parameter	Motor::Spin::result	_spRes	-> Motor::spin::result	(the return parameter is written as an out parameter)
-Interaction	Rig::Spinup	_spinup	-> Rig::spinup	(written as an action usage of Rig, which a call on an object performs, so its body runs on the object and reaches its features; written as a scenario of 8 steps, one per message in occurrence order; the lifelines' own behavior is not part of it)
-«TestCase» Interaction	Rig::Spinup Test	_tc	-> Rig::'Spinup Test'	(written as a scenario of 1 step, one per message in occurrence order; the lifelines' own behavior is not part of it; the test case has no return parameter, so the verification case states no verdict and is inconclusive once its steps complete)
+Parameter	Motor::Spin::result	_spRes	-> Model::Motor::spin::result	(the return parameter is written as an out parameter)
+Interaction	Rig::Spinup	_spinup	-> Model::Rig::spinup	(written as an action usage of Rig, which a call on an object performs, so its body runs on the object and reaches its features; written as a scenario of 8 steps, one per message in occurrence order; the lifelines' own behavior is not part of it)
+«TestCase» Interaction	Rig::Spinup Test	_tc	-> Model::Rig::'Spinup Test'	(written as a scenario of 1 step, one per message in occurrence order; the lifelines' own behavior is not part of it; the test case has no return parameter, so the verification case states no verdict and is inconclusive once its steps complete)
 Message	Rig::Spinup::brake	_mBrake	-> brake	(written as a call of brake on drive.motor; the asynchronous call is performed to completion before the next step: an action performs what it calls)
 Message	Rig::Spinup::spun	_mRet	-> spun	(written as the assignment of the call spin's results to ctrl; the value 30.0 the reply states for result is the operation's own result, which the call computes)
 
 ## mapped (76)
-«Block» Class	Controller	_ctrl	-> Controller
-Property	Controller::got	_got	-> Controller::got
-Signal	Done	_done	-> Done
-«Block» Class	Drive	_drive	-> Drive
-Property	Drive::motor	_dMotor	-> Drive::motor
-Signal	Go	_go	-> Go
-Property	Go::n	_goN	-> Go::n
-Model	Model	_m	(the root model's members are written at the top level)
-«Block» Class	Motor	_motor	-> Motor
-Operation	Motor::Brake	_brake	-> Motor::brake	(written as an action usage of Motor, which a call on an object performs, so its body runs on the object and reaches its features)
-Parameter	Motor::Brake::force	_brForce	-> Motor::brake::force
-Parameter	Motor::Brake::hold	_brHold	-> Motor::brake::hold
-Operation	Motor::Spin	_spin	-> Motor::spin	(written as an action usage of Motor, which a call on an object performs, so its body runs on the object and reaches its features)
-Parameter	Motor::Spin::rpm	_spRpm	-> Motor::spin::rpm
-Parameter	Motor::Spin::times	_spTimes	-> Motor::spin::times
-Activity	Motor::Spinning	_spinning	-> Motor::spin	(written as the body of the operation Motor::Spin, whose method it is)
+«Block» Class	Controller	_ctrl	-> Model::Controller
+Property	Controller::got	_got	-> Model::Controller::got
+Signal	Done	_done	-> Model::Done
+«Block» Class	Drive	_drive	-> Model::Drive
+Property	Drive::motor	_dMotor	-> Model::Drive::motor
+Signal	Go	_go	-> Model::Go
+Property	Go::n	_goN	-> Model::Go::n
+Model	Model	_m	-> Model	(written as package Model)
+«Block» Class	Motor	_motor	-> Model::Motor
+Operation	Motor::Brake	_brake	-> Model::Motor::brake	(written as an action usage of Motor, which a call on an object performs, so its body runs on the object and reaches its features)
+Parameter	Motor::Brake::force	_brForce	-> Model::Motor::brake::force
+Parameter	Motor::Brake::hold	_brHold	-> Model::Motor::brake::hold
+Operation	Motor::Spin	_spin	-> Model::Motor::spin	(written as an action usage of Motor, which a call on an object performs, so its body runs on the object and reaches its features)
+Parameter	Motor::Spin::rpm	_spRpm	-> Model::Motor::spin::rpm
+Parameter	Motor::Spin::times	_spTimes	-> Model::Motor::spin::times
+Activity	Motor::Spinning	_spinning	-> Model::Motor::spin	(written as the body of the operation Motor::Spin, whose method it is)
 ControlFlow	Motor::Spinning::<ControlFlow>	_cfSet
 ObjectFlow	Motor::Spinning::<ObjectFlow>	_ofRpm
 ObjectFlow	Motor::Spinning::<ObjectFlow>	_ofRes
 ReadStructuralFeatureAction	Motor::Spinning::read speed	_read	-> 'read speed'
-OutputPin	Motor::Spinning::read speed::result	_readOut	-> Motor::spin::'read speed'.result
-Parameter	Motor::Spinning::result	_spRes2	-> Motor::spin::result	(stands for the operation's parameter result at the same position, which is written once)
-ActivityParameterNode	Motor::Spinning::result	_apnRes	-> Motor::spin::result	(the flows to and from the node name the parameter result)
-Parameter	Motor::Spinning::rpm	_spRpm2	-> Motor::spin::rpm	(stands for the operation's parameter rpm at the same position, which is written once)
-ActivityParameterNode	Motor::Spinning::rpm	_apnRpm	-> Motor::spin::rpm	(the flows to and from the node name the parameter rpm)
+OutputPin	Motor::Spinning::read speed::result	_readOut	-> Model::Motor::spin::'read speed'.result
+Parameter	Motor::Spinning::result	_spRes2	-> Model::Motor::spin::result	(stands for the operation's parameter result at the same position, which is written once)
+ActivityParameterNode	Motor::Spinning::result	_apnRes	-> Model::Motor::spin::result	(the flows to and from the node name the parameter result)
+Parameter	Motor::Spinning::rpm	_spRpm2	-> Model::Motor::spin::rpm	(stands for the operation's parameter rpm at the same position, which is written once)
+ActivityParameterNode	Motor::Spinning::rpm	_apnRpm	-> Model::Motor::spin::rpm	(the flows to and from the node name the parameter rpm)
 AddStructuralFeatureValueAction	Motor::Spinning::set speed	_set	-> 'set speed'	(no edge leads to the node, so it starts with the activity)
-InputPin	Motor::Spinning::set speed::value	_setVal	-> Motor::spin::'set speed'.value
-Parameter	Motor::Spinning::times	_spTimes2	-> Motor::spin::times	(stands for the operation's parameter times at the same position, which is written once)
-Property	Motor::speed	_speed	-> Motor::speed
-«Block» Class	Other	_other	-> Other
-Property	Other::motor	_oMotor	-> Other::motor
-«Block» Class	Rig	_rig	-> Rig
+InputPin	Motor::Spinning::set speed::value	_setVal	-> Model::Motor::spin::'set speed'.value
+Parameter	Motor::Spinning::times	_spTimes2	-> Model::Motor::spin::times	(stands for the operation's parameter times at the same position, which is written once)
+Property	Motor::speed	_speed	-> Model::Motor::speed
+«Block» Class	Other	_other	-> Model::Other
+Property	Other::motor	_oMotor	-> Model::Other::motor
+«Block» Class	Rig	_rig	-> Model::Rig
 MessageOccurrenceSpecification	Rig::Spinup Test::<MessageOccurrenceSpecification>	_tRSpin	-> spin	(the occurrence orders the step spin)
 Lifeline	Rig::Spinup Test::m	_tlm	-> context.drive.motor	(the lifeline stands for context.drive.motor, which the steps address)
 Message	Rig::Spinup Test::spin	_tmSpin	-> spin	(written as a call of spin on context.drive.motor)
@@ -87,12 +87,12 @@ Lifeline	Rig::Spinup::m	_lm	-> drive.motor	(the lifeline stands for drive.motor,
 Message	Rig::Spinup::parEnd	_mGo2	-> parEnd	(written as a send to drive.motor)
 Message	Rig::Spinup::parOp1	_mDone	-> parOp1	(written as a send to ctrl)
 Message	Rig::Spinup::spin	_mSpin	-> spin	(written as a call of spin on drive.motor)
-Property	Rig::ctrl	_rCtrl	-> Rig::ctrl
-Property	Rig::drive	_rDrive	-> Rig::drive
-Property	Rig::mode	_mode	-> Rig::mode
-«Block» Class	Twin	_twin	-> Twin
-Property	Twin::left	_tLeft	-> Twin::left
-Property	Twin::right	_tRight	-> Twin::right
+Property	Rig::ctrl	_rCtrl	-> Model::Rig::ctrl
+Property	Rig::drive	_rDrive	-> Model::Rig::drive
+Property	Rig::mode	_mode	-> Model::Rig::mode
+«Block» Class	Twin	_twin	-> Model::Twin
+Property	Twin::left	_tLeft	-> Model::Twin::left
+Property	Twin::right	_tRight	-> Model::Twin::right
 
 ## skipped (1)
 BehaviorExecutionSpecification	Rig::Spinup::<BehaviorExecutionSpecification>	_exec	(the execution spans the steps between its occurrences, which run in order without it)

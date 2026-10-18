@@ -141,7 +141,8 @@ func (n *narrowing) narrow(node *Node) {
 // edge moves an edge's ends off what was left out: an end at a removed port
 // or node is at the node standing for it, and a connector's label is left
 // out when edge labels are, its name with it, a usage's multiplicity when
-// multiplicities are.
+// multiplicities are: an end name's always, the edge's own text's when it
+// is a usage's name.
 // A sequence diagram's message line is labelled by the message it is, which
 // no element makes optional.
 func (n *narrowing) edge(edge *Edge) {
@@ -150,8 +151,14 @@ func (n *narrowing) edge(edge *Edge) {
 	if !n.shown.Has(ElementEdgeLabels) && connectorEdge(edge.Kind) && n.kind != KindSequence {
 		edge.Label, edge.Name = "", ""
 	}
-	if !n.shown.Has(ElementMultiplicities) && (edge.Kind == EdgeComposition || edge.Kind == EdgeReference) {
-		edge.Label = multiplicityText.ReplaceAllString(edge.Label, "")
+	if !n.shown.Has(ElementMultiplicities) {
+		labels := []*string{&edge.FromLabel, &edge.ToLabel}
+		if edge.Kind == EdgeComposition || edge.Kind == EdgeReference {
+			labels = append(labels, &edge.Label)
+		}
+		for _, label := range labels {
+			*label = multiplicityText.ReplaceAllString(*label, "")
+		}
 	}
 }
 

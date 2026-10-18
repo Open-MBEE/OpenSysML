@@ -2,9 +2,9 @@ package test {
 	private import ScalarValues::*;
 
 	// A repeated step inside a stated loop body: each performance of `a`
-	// reads `c` then writes back, so an interleaving between them admits
-	// {c = 1, c = 2} — but the runtime performs each repetition as one move,
-	// so exploration only observes {c = 2} and reports the miss as a note.
+	// reads `c` then writes back, so the two interleave as two top-level
+	// performances do and admit {c = 1, c = 2}; the declared schedule finishes
+	// one before the other starts.
 	action def U {
 		attribute c : Integer = 0;
 		first start then b;

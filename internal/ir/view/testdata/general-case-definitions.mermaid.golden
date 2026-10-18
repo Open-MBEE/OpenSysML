@@ -23,12 +23,18 @@ config:
 ---
 %% UseCaseViews::caseDefinitionView — case rendering (view def GeneralView, filter @CaseDefinition)
 flowchart LR
-  n0(["`**'Add Fuel'**`"])
-  n1["`**vehicle**`"]
-  n2["`**fueler**`"]
-  n3(["`**'Enter Vehicle'**`"])
-  n4["`**vehicle**`"]
-  n5["`**driver**`"]
+  n0(["`*«use case def»*
+**'Add Fuel'**`"])
+  n1["`*«subject»*
+**vehicle**`"]
+  n2["`*«actor»*
+**fueler**`"]
+  n3(["`*«use case def»*
+**'Enter Vehicle'**`"])
+  n4["`*«subject»*
+**vehicle**`"]
+  n5["`*«actor»*
+**driver**`"]
   n0 ---|"«subject»"| n1
   n2 --- n0
   n3 ---|"«subject»"| n4

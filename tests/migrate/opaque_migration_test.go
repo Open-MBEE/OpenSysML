@@ -214,13 +214,13 @@ func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Plant")
-	wantVerdict(t, s.RunAction("Plant::fill", "Plant"))
+	wantVerdict(t, s.RunAction("Model::Plant::fill", "Plant"))
 	for _, path := range []string{"site.control.rack.controller.status", "site.control.rack.controller.led.lit"} {
 		if got := meta(t, s, "%eval in #1 : "+path); !strings.HasSuffix(got, "= true") {
 			t.Errorf("%s not assigned through the deep lane:\n%s", path, got)
 		}
 	}
-	runs := strings.Join(s.RunRuns("Plant::fill", []string{"Plant"}, 1, seedOf(1), []string{"this.level", "this.runs"}).Lines, "\n")
+	runs := strings.Join(s.RunRuns("Model::Plant::fill", []string{"Plant"}, 1, seedOf(1), []string{"this.level", "this.runs"}).Lines, "\n")
 	for _, want := range []string{"this.level: 1 run(s), min 9.0", "this.runs: 1 run(s), min 1"} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("runs lack %q:\n%s", want, runs)
@@ -284,8 +284,8 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 		"_mixed":   `the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset`,
 		"_python":  `the Python body is written as v2 assignments`,
 		"_partial": `the call "label.trim" is not in the translated function table`,
-		"_root":    `the body is kept as a comment: as the result expression, the types at "Math.sqrt(x)" disagree: the expression is a Real, not the Boolean wanted; as statements, the call "Math.sqrt" is not in the translated function table: a call is not a statement of the subset`,
-		"_split":   `the body is kept as a comment: as the result expression, the behavior has 2 output parameters; one result expression can stand for none of them; as statements, the construct "x" is outside the translated subset: an expression that assigns nothing is not a statement of the subset`,
+		"_root":    `the body is kept as a textual representation, which is not executed: as the result expression, the types at "Math.sqrt(x)" disagree: the expression is a Real, not the Boolean wanted; as statements, the call "Math.sqrt" is not in the translated function table: a call is not a statement of the subset`,
+		"_split":   `the body is kept as a textual representation, which is not executed: as the result expression, the behavior has 2 output parameters; one result expression can stand for none of them; as statements, the construct "x" is outside the translated subset: an expression that assigns nothing is not a statement of the subset`,
 	} {
 		wantNote(t, r, id, migrate.Approximated, want)
 	}
@@ -394,8 +394,8 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	wantNote(t, r, "_log", migrate.Approximated, "the JavaScript body is translated to v2; the console print print(…) is left out, as it writes to the tool's console and changes nothing of the model; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model")
 	wantNote(t, r, "_shout", migrate.Approximated, "the JavaScript body is translated to v2; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model")
 	wantLine(t, r.Notation, "assign ticks := ticks + 1;")
-	wantLine(t, r.Notation, "action shout;")
-	wantNoLine(t, r.Notation, "print(")
+	wantLine(t, r.Notation, "action shout {")
+	wantLine(t, r.Notation, `rep language "JavaScript" /* println("done");*/`)
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
@@ -429,7 +429,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 		"assign dial := hand;",
 		"attribute cube : ScalarValues::Real default = -(total ** 3);",
 		"ref part shown : Gauge default = if (count > 0) ? dial else hand;",
-		`/* default value not migrated: {JavaScript} count > 0 ? dial : hand — the types at "count > 0 ? dial : hand" disagree: the expression is a Gauge, not the Needle wanted */`,
+		`/* default value not migrated: {JavaScript} count > 0 ? dial : hand — the types at "count > 0 ? dial : hand" disagree: the expression is a Model::Gauge, not the Model::Needle wanted */`,
 		`/* default value not migrated: {JavaScript} cells.reading — the types at "cells.reading" disagree: the expression is a collection, not the one value wanted */`,
 		`/* default value not migrated: {JavaScript} total(count) — the call "total" is not in the translated function table */`,
 		`/* default value not migrated: {JavaScript} label + "!" — the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset */`,
@@ -438,7 +438,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 		`/* default value not migrated: {JavaScript} Math.sqrt(total) — the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted */`,
 		"in limit : ScalarValues::Integer[1] default = count + 1;",
 		"/* guard not migrated: [{JavaScript} ready and enabled] — the text \"and\" is not expression syntax: text follows the expression */",
-		"/* body not migrated (the text \"and\" is not expression syntax: a statement ends at `;` or a newline) {JavaScript}:",
+		`rep language "JavaScript" /* flag = ready and enabled*/`,
 		"assign flag := ready and enabled;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -470,13 +470,13 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	wantNote(t, r, "_lit", migrate.Approximated, `default value not migrated: the text "or" is not expression syntax: text follows the expression`)
 	wantNote(t, r, "_a2", migrate.Approximated, `the guard [{JavaScript} ready and enabled] is kept as a comment and the edge written unguarded: the text "and" is not expression syntax: text follows the expression`)
 	for id, want := range map[string]string{
-		"_bump":    `the types at "+" disagree: an operand is a Mode, not a number`,
-		"_pick":    `the types at "count =" disagree: a Mode is assigned to the Integer count holds`,
-		"_match":   `the types at "mode =" disagree: a Gauge is assigned to the Mode mode holds`,
-		"_narrow":  `the types at "hand =" disagree: a Gauge is assigned to the Needle hand holds`,
+		"_bump":    `the types at "+" disagree: an operand is a Model::Mode, not a number`,
+		"_pick":    `the types at "count =" disagree: a Model::Mode is assigned to the Integer count holds`,
+		"_match":   `the types at "mode =" disagree: a Model::Gauge is assigned to the Model::Mode mode holds`,
+		"_narrow":  `the types at "hand =" disagree: a Model::Gauge is assigned to the Model::Needle hand holds`,
 		"_huge":    `the construct "9007199254740993" is outside the translated subset: a script rounds a whole number beyond 9007199254740991 to the nearest floating-point value`,
 		"_alias":   "the construct \"==\" is outside the translated subset: Java compares strings by identity with `==`, which a comparison of their values does not reproduce; `equals` compares their content",
-		"_pointer": `the types at "count > 0 ? dial : hand" disagree: the expression is a Gauge, not the Needle wanted`,
+		"_pointer": `the types at "count > 0 ? dial : hand" disagree: the expression is a Model::Gauge, not the Model::Needle wanted`,
 		"_top":     `the types at "cells.reading" disagree: the expression is a collection, not the one value wanted`,
 	} {
 		wantNote(t, r, id, migrate.Approximated, want)
@@ -510,7 +510,7 @@ func TestPluralPathsStayCollections(t *testing.T) {
 	wantNote(t, r, "_peak", migrate.Mapped, "the JavaScript body is translated to v2")
 	for id, want := range map[string]string{
 		"_spread":  `the types at "+" disagree: an operand is a collection, not a number`,
-		"_reset":   `the body is kept as a comment: the construct "cells.reading" is outside the translated subset: cells is a collection, so the assignment would write through several objects`,
+		"_reset":   `the body is kept as a textual representation, which is not executed: the construct "cells.reading" is outside the translated subset: cells is a collection, so the assignment would write through several objects`,
 		"_calib":   `the construct "reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects`,
 		"_span":    `the types at "total =" disagree: one side is a collection and the other a single value`,
 		"_ticking": "its swimlane represents this.cells, a collection of objects, so none of them performs the call, which runs in the caller's context; the behavior acts on a Gauge through its parameter context, which is left unbound: the caller is a Meter, which is no Gauge and has 4 parts that are one, so no one of them is chosen; the behavior belongs to Gauge and runs here in the caller's context",
@@ -548,7 +548,7 @@ func TestMigratedActivityPerformedOnPartDeclaredElsewhere(t *testing.T) {
 	s := repl.NewSession()
 	res := s.SubmitFiles([]repl.SourceFile{
 		{Name: "Plant.sysml", Text: string(r.Notation), Kind: source.KindSysML},
-		{Name: "plant_inst.sysml", Text: "part plant : Plant;\n", Kind: source.KindSysML},
+		{Name: "plant_inst.sysml", Text: "private import Model::*;\npart plant : Plant;\n", Kind: source.KindSysML},
 	})
 	if res.Refused != nil {
 		t.Fatalf("submit: %v", res.Refused)
@@ -559,10 +559,31 @@ func TestMigratedActivityPerformedOnPartDeclaredElsewhere(t *testing.T) {
 		}
 	}
 	meta(t, s, "%instantiate plant")
-	wantVerdict(t, s.RunAction("Plant::fill", "plant"))
+	wantVerdict(t, s.RunAction("Model::Plant::fill", "plant"))
 	for path, want := range map[string]string{"plant.runs": "= 1", "plant.tank.volume": "= 4.0"} {
 		if got := meta(t, s, "%eval "+path); !strings.HasSuffix(got, want) {
 			t.Errorf("%s after Plant::fill: got %q, want suffix %q", path, got, want)
 		}
 	}
+}
+
+// The english_math_calls fixture holds constraint blocks whose English bodies call
+// mathematical functions by bare name: the table's words are written as the library's
+// functions, while a dotted name, a wrong number of arguments and a name of several
+// words stay refused.
+func TestEnglishMathCalls(t *testing.T) {
+	r := migrateXMI(t, "english_math_calls")
+	for _, line := range []string{
+		"constraint def 'Sine Wave' {",
+		"sine_wave == TrigFunctions::sin(t)",
+		"amplitude == RealFunctions::sqrt(x ** 2 + y ** 2) * OpenSysMLMathFunctions::exp(-RealFunctions::abs(t)) and RealFunctions::floor(t) <= RealFunctions::max(x, y)",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_sineRule", migrate.Mapped, "the English body is translated to v2")
+	wantNote(t, r, "_decayRule", migrate.Mapped, "the English body is translated to v2")
+	wantNote(t, r, "_clampDotted", migrate.Unmapped, `the construct "Math.max(" is outside the translated subset: a call is not English; the subset reads names, literals, comparisons, not/and/or and the functions abs, acos, arccos, arcsin, arctan, asin, atan, atan2, ceil, ceiling, cos, cot, exp, floor, ln, log, max, min, pow, round, sin, sqrt, tan`)
+	wantNote(t, r, "_clampArity", migrate.Unmapped, `the call "sin" is not in the translated function table: sin takes 1 argument(s), not 2`)
+	wantNote(t, r, "_clampWords", migrate.Unmapped, `the name "sin phase" resolves to nothing readable`)
+	wantClean(t, "english_math_calls.sysml", r)
 }

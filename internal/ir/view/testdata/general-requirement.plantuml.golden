@@ -43,21 +43,21 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "**MassRequirement**\nid R1, “The total mass of the vehicle shall not exceed the stated...”" as n0 <<requirement def>>
-class "**StoppingRequirement**\nid R2, “The vehicle shall stop within the stated distance.”" as n1 <<requirement def>>
-class "**EmergencyStopRequirement**\nid R3" as n2 <<requirement def>>
-class "**vehicleMass**\nid R1.1" as n3 <<requirement>> <<usage>>
-class "**chassisMass**\nid R1.2" as n4 <<requirement>> <<usage>>
-class "**emergencyStop**\nid R3.1" as n5 <<requirement>> <<usage>>
-class "**LightChassis**" as n6 <<part def>>
-class "**vehicle**" as n7 <<part>> <<usage>>
-class "**heavyVehicle**" as n8 <<part>> <<usage>>
-class "**brake**" as n9 <<action>> <<usage>>
-class "**MassTest**" as n10 <<verification def>>
-class "**lightMassTest**" as n11 <<verification>> <<usage>>
-class "**heavyMassTest**" as n12 <<verification>> <<usage>>
-class "**StopTest**" as n13 <<verification def>>
-class "**stopTest**" as n14 <<verification>> <<usage>>
+class "<size:10>//«requirement def»//</size>\n**MassRequirement**\nid R1, “The total mass of the vehicle shall not exceed the stated...”" as n0 <<requirement def>>
+class "<size:10>//«requirement def»//</size>\n**StoppingRequirement**\nid R2, “The vehicle shall stop within the stated distance.”" as n1 <<requirement def>>
+class "<size:10>//«requirement def»//</size>\n**EmergencyStopRequirement**\nid R3" as n2 <<requirement def>>
+class "<size:10>//«requirement»//</size>\n**vehicleMass**\nid R1.1" as n3 <<requirement>> <<usage>>
+class "<size:10>//«requirement»//</size>\n**chassisMass**\nid R1.2" as n4 <<requirement>> <<usage>>
+class "<size:10>//«requirement»//</size>\n**emergencyStop**\nid R3.1" as n5 <<requirement>> <<usage>>
+class "<size:10>//«part def»//</size>\n**LightChassis**" as n6 <<part def>>
+class "<size:10>//«part»//</size>\n**vehicle**" as n7 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**heavyVehicle**" as n8 <<part>> <<usage>>
+class "<size:10>//«action»//</size>\n**brake**" as n9 <<action>> <<usage>>
+class "<size:10>//«verification def»//</size>\n**MassTest**" as n10 <<verification def>>
+class "<size:10>//«verification»//</size>\n**lightMassTest**" as n11 <<verification>> <<usage>>
+class "<size:10>//«verification»//</size>\n**heavyMassTest**" as n12 <<verification>> <<usage>>
+class "<size:10>//«verification def»//</size>\n**StopTest**" as n13 <<verification def>>
+class "<size:10>//«verification»//</size>\n**stopTest**" as n14 <<verification>> <<usage>>
 n2 --|> n1
 n3 ..|> n0
 n4 ..|> n0

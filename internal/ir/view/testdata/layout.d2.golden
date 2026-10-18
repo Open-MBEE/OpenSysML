@@ -12,14 +12,14 @@ classes: {
 # layout: n1 x=300 y=40 collapsed
 # layout: n2 x=500 y=40 w=120 h=60
 # route: n1->n2 400,70 450,120 500,70
-n0: "Loop" {
+n0: "«part def»\nLoop" {
   class: definition
-  n1: "pump" {
+  n1: "«part»\npump" {
     class: usage
     style: { fill: "#FFE8BD"; stroke: "#333333"; font-size: 11; bold: true }
     "n1.0": "outlet" { class: pin }
   }
-  n2: "tank" {
+  n2: "«part»\ntank" {
     class: usage
     "n2.0": "inlet" { class: pin }
   }

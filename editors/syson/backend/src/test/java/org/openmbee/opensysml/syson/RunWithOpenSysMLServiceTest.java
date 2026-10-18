@@ -241,7 +241,7 @@ class RunWithOpenSysMLServiceTest {
         org.mockito.Mockito.when(model.hash()).thenReturn("hash");
         org.mockito.Mockito.when(model.renderDocument("Reports::'Mass Report'", org.openmbee.opensysml.DocumentForm.HTML))
                 .thenReturn(new org.openmbee.opensysml.RenderedDocument(org.openmbee.opensysml.DocumentForm.HTML,
-                        "<!DOCTYPE html><html></html>"));
+                        "<!DOCTYPE html><html></html>", "Reports-Mass.20Report.html"));
         ExportedProject project = new ExportedProject(List.of(SourceDocument.inline("report.sysml", "")),
                 new ElementIndex(Map.of("Reports::'Mass Report'", new ElementIndex.IndexedElement(
                         "Reports::'Mass Report'", "report-id", "sirius-id", target))), List.of(), List.of());

@@ -1,0 +1,12 @@
+# SysML v1 to v2 migration report: root_model_packages.xmi
+# migrated 8 element(s): 8 mapped, 0 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## mapped (8)
+Model	Catalog	_m	-> Catalog	(written as package Catalog)
+Package	Components	_parts	-> Catalog::Components
+«Block» Class	Components::Motor	_motor	-> Catalog::Components::Motor
+«Block» Class	Components::Wheel	_wheel	-> Catalog::Components::Wheel
+Package	Systems	_systems	-> Catalog::Systems
+«Block» Class	Systems::Rover	_rover	-> Catalog::Systems::Rover
+Property	Systems::Rover::Wheel	_roverWheel	-> Catalog::Systems::Rover::Wheel
+Property	Systems::Rover::motor	_roverMotor	-> Catalog::Systems::Rover::motor

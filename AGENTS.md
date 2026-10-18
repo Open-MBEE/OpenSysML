@@ -159,6 +159,7 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
 - Unit tests live beside code as `*_test.go`, one concern per test.
 - Design/adjust tests **before or alongside** implementation; don't retrofit weak tests afterward.
 - Prefer real SysML models in `tests/testdata/` over hand-built ASTs when exercising end-to-end behavior; hand-built ASTs are fine for targeted unit tests.
+- **Size caps.** `tests/hygiene/size_test.go` fails on a `_test.go` file over 2,000 lines or a fixture (under `testdata/` or named `*.golden.*`) over 200 KiB. Split the test file per §5.2 or shrink/digest the fixture; the pre-existing offenders are allowlisted there at their current size and may not grow — remove the entry once the file is back under the cap, and justify any new one in its reason.
 
 ---
 
@@ -172,8 +173,10 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
 6. **Add/adjust tests** to lock in the fix and cover the failure mode.
 7. **Verify** with the full gate in §2. Remove any temporary debug code and dead code.
 8. **Commit** using Conventional Commits (see §7). Keep PRs focused (one feature/fix each).
-9. **Open the PR as a draft** against `develop` and mark it ready for review once CI is green. Address
-   review findings as they arrive rather than waiting for CI. Merging is a maintainer's decision.
+9. **Open the PR as a draft** against `develop`. A draft runs the quick CI tier (race-free suite, cheap
+   static checks); mark it ready for review once that is green. The full tier then runs on the ready PR
+   and on every later push, and it must be green too. Address review findings as they arrive rather than
+   waiting for CI. Merging is a maintainer's decision.
 
 ---
 

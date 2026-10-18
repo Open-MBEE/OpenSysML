@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -54,10 +56,19 @@ const RenderStylesCapability = "openSysmlRenderStyles"
 // every port.
 const RenderPortsCapability = "openSysmlRenderPorts"
 
+// RenderLinesCapability is the experimental capability whose value lists the
+// edge routings a render request's `lines` draws the DOT or PlantUML form with,
+// the first the default; a server without it routes every edge as splines.
+const RenderLinesCapability = "openSysmlRenderLines"
+
 // RenderElementsCapability is the experimental capability whose value lists the
 // optional notation elements a render request's `show` names, in the order the
 // writer defines them, then "all", every one of them.
 const RenderElementsCapability = "openSysmlRenderElements"
+
+// RenderDepthCapability is the experimental capability a server advertises when
+// a render request's depth bounds how many levels are drawn below each exposed element.
+const RenderDepthCapability = "openSysmlRenderDepth"
 
 // renderElementNames lists the optional notation elements, then "all".
 func renderElementNames() []string {
@@ -77,6 +88,15 @@ func renderOverlayNames() []string {
 	names := make([]string, 0, len(view.Overlays()))
 	for _, overlay := range view.Overlays() {
 		names = append(names, string(overlay))
+	}
+	return names
+}
+
+// renderLinesNames lists the edge routings in the order the writer defines them.
+func renderLinesNames() []string {
+	names := make([]string, 0, len(view.LinesChoices()))
+	for _, lines := range view.LinesChoices() {
+		names = append(names, string(lines))
 	}
 	return names
 }
@@ -115,8 +135,10 @@ func renderFormNames() []string {
 // keyword family, in the artifact and as each node's Fill and Border; empty is black and white.
 // Style names the drawing style the DOT and Mermaid forms draw in; empty is the default, pilot.
 // Ports names how much of a part's ports an interconnection or mixed rendering
-// draws; empty is the default, minimal. Show names the optional notation
-// elements drawn besides the ones the view's rendering shows, or "all".
+// draws; empty is the default, minimal. Lines names how the DOT and PlantUML
+// forms route their edges; empty is the default, splines. Show names the
+// optional notation elements drawn besides the ones the view's rendering
+// shows, or "all".
 type RenderParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view,omitempty"`
@@ -124,7 +146,9 @@ type RenderParams struct {
 	Palette      string                          `json:"palette,omitempty"`
 	Style        string                          `json:"style,omitempty"`
 	Ports        string                          `json:"ports,omitempty"`
+	Lines        string                          `json:"lines,omitempty"`
 	Show         []string                        `json:"show,omitempty"`
+	Depth        int                             `json:"depth,omitempty"`
 	Overlay      string                          `json:"overlay,omitempty"`
 	LinkTemplate string                          `json:"linkTemplate,omitempty"`
 }
@@ -365,8 +389,9 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 		return nil, fmt.Errorf("unknown overlay %q; overlay takes %s", params.Overlay, view.OverlayNames())
 	}
 	var (
-		rendering *view.Rendering
-		snapshot  *model.Snapshot
+		rendering  *view.Rendering
+		snapshot   *model.Snapshot
+		firstError *diag.Diagnostic
 	)
 	if err := s.ws.Read(func(r *model.Reading) (err error) {
 		var verdicts view.Verdicts
@@ -377,9 +402,12 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 			}
 			verdicts = rt.RequirementVerdicts()
 		}
-		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts)
+		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts, params.Depth)
 		if err == nil && params.LinkTemplate != "" {
 			r.LinkSites(rendering, snapshot)
+		}
+		if err == nil {
+			firstError = firstBlocking(r.Diagnostics(name))
 		}
 		return err
 	}); err != nil {
@@ -403,12 +431,19 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	lines, err := renderLines(params.Lines)
+	if err != nil {
+		return nil, err
+	}
 	shown, err := renderShown(params.Show)
 	if err != nil {
 		return nil, err
 	}
+	if params.Depth < 0 {
+		return nil, &view.DepthError{Value: fmt.Sprint(params.Depth)}
+	}
 	artifact, err := rendering.WriteWith(form, view.Options{
-		Palette: colors, Style: style, Ports: ports, Show: shown,
+		Palette: colors, Style: style, Ports: ports, Lines: lines, Show: shown,
 		Links: view.Links{Template: params.LinkTemplate, Sites: snapshot.Sites()},
 	})
 	if err != nil {
@@ -449,7 +484,30 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 	for _, row := range data.Rows {
 		out.Rows = append(out.Rows, RenderRow{Cells: row.Cells, Origin: origin(row.Origin)})
 	}
+	if len(out.Nodes) == 0 && len(out.Edges) == 0 && len(out.Rows) == 0 && firstError != nil {
+		out.Notices = append([]string{analysisNotice(name, doc, *firstError)}, out.Notices...)
+	}
 	return out, nil
+}
+
+// firstBlocking is the first error among the diagnostics, nil when none blocks.
+func firstBlocking(diagnostics []diag.Diagnostic) *diag.Diagnostic {
+	for i := range diagnostics {
+		if diagnostics[i].Blocking() {
+			return &diagnostics[i]
+		}
+	}
+	return nil
+}
+
+// analysisNotice is what a rendering with nothing to draw says when the document
+// it was made from has an error: the error itself, in the words the CLI uses,
+// since an element the parser could not read is an element no view exposes.
+// The diagnostic and doc are of one reading, so the position is of the text rendered.
+func analysisNotice(name string, doc *model.Document, d diag.Diagnostic) string {
+	at := spanToRange(doc.Content, d.Span).Start
+	return fmt.Sprintf("%s did not analyse cleanly; nothing was rendered: %d:%d: %s",
+		filepath.Base(name), at.Line+1, at.Character+1, d.Message)
 }
 
 // renderNodes converts the rendering's nodes into out, each coloured as fills
@@ -523,7 +581,7 @@ func (s *Server) renderEdges(out *RenderResult, snapshot *model.Snapshot, edges 
 	for _, edge := range edges {
 		e := RenderEdge{
 			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Label, Kind: edge.Kind.String(), Style: wireStyle(edge.Style),
+			Label: edge.Text(), Kind: edge.Kind.String(), Style: wireStyle(edge.Style),
 		}
 		declaring := s.declaring(snapshot, edge.Origin)
 		e.Origin = s.originOf(declaring, edge.Origin)
@@ -591,6 +649,16 @@ func renderPorts(asked string) (view.Ports, error) {
 		return "", &view.UnknownPortsError{Name: asked}
 	}
 	return ports, nil
+}
+
+// renderLines is the edge routing a request names, the default when it names
+// none, and an error listing the routings there are when it names something else.
+func renderLines(asked string) (view.Lines, error) {
+	lines, ok := view.ParseLines(asked)
+	if !ok {
+		return "", &view.UnknownLinesError{Name: asked}
+	}
+	return lines, nil
 }
 
 // renderShown is the optional notation elements a request's show names,

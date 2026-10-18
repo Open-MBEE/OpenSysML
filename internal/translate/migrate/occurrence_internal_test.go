@@ -1,7 +1,6 @@
 package migrate
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -39,7 +38,7 @@ func TestPlainClassesAndTheirPropertiesUseOccurrenceForms(t *testing.T) {
 		"ref occurrence peer : Plain;",
 		"port 'connector' : Link;",
 	} {
-		if !strings.Contains(string(r.Notation), want) {
+		if !hasBlock(string(r.Notation), want) {
 			t.Errorf("notation lacks %q:\n%s", want, r.Notation)
 		}
 	}

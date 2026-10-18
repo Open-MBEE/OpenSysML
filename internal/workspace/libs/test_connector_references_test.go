@@ -35,13 +35,17 @@ namespace Test {
 }`,
 			wantErr: false,
 		},
+		// `connect` is SysML notation (SysML.xtext ConnectionUsage), not a
+		// KerML connector's verb, so in a `.kerml` file it is a name and the
+		// head is malformed, as `validate-kerml` reports it (`no viable
+		// alternative at input 'connect'`).
 		{
 			name: "connector connect with references",
 			input: `
 namespace Test {
     connector MyConnection connect [1] a references ctx to [1] b;
 }`,
-			wantErr: false,
+			wantErr: true,
 		},
 	}
 

@@ -74,7 +74,7 @@ func replaySchedule(
 		if err := stop.Err(); err != nil {
 			return r, err
 		}
-		taken := len(ctx.ChoicesTaken())
+		taken := len(ctx.choicesTaken())
 		if err := run.stabilize(); err != nil {
 			return r, r.failedOnSchedule(w, err, taken, at)
 		}
@@ -107,7 +107,7 @@ func replaySchedule(
 func (r *Replayed) failedOnSchedule(w Witness, err error, taken, at int) error {
 	r.Err = err
 	switch {
-	case errors.Is(err, ErrReplayRefused), errors.Is(err, ErrWitnessInput), errors.Is(err, ErrWitnessObject), errors.Is(err, ErrWitnessDraw):
+	case errors.Is(err, ErrReplayRefused), errors.Is(err, ErrWitnessInput), errors.Is(err, errWitnessObject), errors.Is(err, errWitnessDraw):
 		return r.disagreeOnSchedule(w, err.Error())
 	case at != ScheduleEnd:
 		return r.disagreeOnSchedule(w, fmt.Sprintf("the run failed after %d moves, before move %d: %v", taken, at, err))
@@ -133,8 +133,8 @@ func (r *Replayed) Evaluate(p CheckProperty) (bool, error) {
 	return r.evaluate(p)
 }
 
-// Outcome spells the run's outcome as a check reports a final state's.
-func (r *Replayed) Outcome() string {
+// outcome spells the run's outcome as a check reports a final state's.
+func (r *Replayed) outcome() string {
 	defer r.Ctx.beginProbe()()
 	if len(r.finalOrders) == 0 {
 		return r.Inv.Outcome().String()
@@ -154,7 +154,7 @@ func (r *Replayed) Outcome() string {
 // `this.<name>` the performing object's, `<object>.<name>` one of several performing
 // objects', a bare name the one behavior's own, `<behavior>.<name>` one of several's,
 // `node.path` one under a node an action performed, `finalState` a machine's final
-// configuration. A name nothing answers to is an UnknownCheckFeatureError.
+// configuration. A name nothing answers to is an unknownCheckFeatureError.
 func (r *Replayed) FinalValue(feature string) (string, error) {
 	c := &checker{ctx: r.Ctx, inv: r.Inv, opts: CheckOptions{Diverge: []string{feature}}}
 	if err := c.resolveDiverge(); err != nil {
@@ -173,7 +173,7 @@ func (r *Replayed) FinalValue(feature string) (string, error) {
 	}
 	value, held := values[c.divergenceKey(feature)]
 	if !held {
-		return "", &UnknownCheckFeatureError{Name: feature, Reason: "the run left no value under it"}
+		return "", &unknownCheckFeatureError{Name: feature, Reason: "the run left no value under it"}
 	}
 	return value, nil
 }

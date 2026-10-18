@@ -27,23 +27,28 @@ config:
 %% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 %% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
 flowchart TD
-  subgraph n0 ["`**Drive**`"]
+  subgraph n0 ["`*«action def»* **Drive**`"]
     direction TD
     n1@{ shape: f-circ, label: "" }
-    n2("`**provide**`")
-    subgraph n3 ["`**monitor**
+    n2("`*«action»*
+**provide**`")
+    subgraph n3 ["`*«action»* **monitor**
 own flow`"]
       direction TD
       n3_anchor[" "]
       n4@{ shape: f-circ, label: "" }
-      n5("`**record**`")
+      n5("`*«action»*
+**record**`")
     end
-    n6("`**tally**`")
+    n6("`*«action»*
+**tally**`")
     n7@{ shape: fork, label: "split" }
     n8@{ shape: fork, label: "sync" }
     n9@{ shape: fr-circ, label: "" }
-    n10("`**park**`")
-    n11{"`**check**`"}
+    n10("`*«action»*
+**park**`")
+    n11{"`*«decision»*
+**check**`"}
   end
   n4 --> n5
   n1 --> n7

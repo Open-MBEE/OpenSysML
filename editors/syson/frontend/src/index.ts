@@ -1,4 +1,5 @@
 export { RunWithOpenSysMLMenuContribution } from './extension/RunWithOpenSysMLMenuContribution';
+export { RunWithOpenSysMLPaletteContribution } from './extension/RunWithOpenSysMLPaletteContribution';
 export { RunWithOpenSysMLDialog } from './dialog/RunWithOpenSysMLDialog';
 export { RunResultsPanel } from './results/RunResultsPanel';
 export { opensysmlExtensionRegistry, addOpenSysMLContributions } from './registry/opensysmlExtensionRegistry';

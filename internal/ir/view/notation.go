@@ -92,10 +92,10 @@ func ElementOfAttribute(name string) (Element, bool) {
 type Shown map[Element]bool
 
 // DefaultShown is what a rendering shows when neither the model nor the caller
-// says: ports and compartments, as the notation draws them, and none of the
-// parameter symbols, edge labels, keywords, multiplicities, typings and
+// says: ports, compartments and keywords, as the notation's examples draw them,
+// and none of the parameter symbols, edge labels, multiplicities, typings and
 // qualifiers. It is the one place the default is decided.
-var DefaultShown = Shown{ElementPortSymbols: true, ElementCompartments: true}
+var DefaultShown = Shown{ElementPortSymbols: true, ElementCompartments: true, ElementKeywords: true}
 
 // AllShown is every optional element, what "all" names: the full notation.
 func AllShown() Shown {

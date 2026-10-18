@@ -94,15 +94,17 @@ func TestExposedNestedFeaturesAreNoSecondRoots(t *testing.T) {
 	checkPortDrawnOnce(t, "PlantUML", plantuml, "**pb : P**")
 }
 
-// The one node a nested feature is drawn as keeps the geometry its Layout
-// states, positioned where a second root would have carried it.
+// The one node a nested feature is drawn as keeps the place its Layout states,
+// positioned where a second root would have carried it: a port's Layout puts its
+// square on the border of its owner's stated box, level with the Layout's centre,
+// and centred on the Layout when the owner has no stated box.
 func TestExposedNestedFeaturesKeepTheirLayout(t *testing.T) {
 	rendering := render(t, "interconnection-exposed.sysml", "FixtureViews::dupIBD")
 	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	for _, want := range []string{`xlabel="pa : P", pos="170,-90!"`, `xlabel="pb : P", pos="230,-90!"`} {
+	for _, want := range []string{`xlabel="pa : P", pos="176,-90!"`, `xlabel="pb : P", pos="230,-90!"`} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
 		}

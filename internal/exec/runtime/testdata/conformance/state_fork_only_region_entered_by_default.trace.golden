@@ -1,0 +1,11 @@
+exit: init
+enter: working
+transition: init -> working (event: accept Default)
+exit: working
+enter: finished (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "finished(entry) " -> "finished(entry) "
+    eval operator + -> "finished(entry) "
+transition: working -> finished

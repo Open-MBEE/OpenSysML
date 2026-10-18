@@ -55,6 +55,7 @@ type RunAnalysisInput struct {
 	NamedArguments  map[string]map[string]any `json:"namedArguments,omitempty" jsonschema:"values for input parameters by name, each a protojson Value. Example arms: {\"intValue\":\"7\"}, {\"realValue\":1.5}, {\"boolValue\":true}, {\"stringValue\":\"x\"}, {\"quantity\":{\"realMagnitude\":5.0,\"unit\":\"m\"}}, {\"enumLiteral\":{\"literalId\":\"Colors::red\"}}"`
 	Schedule        string                    `json:"schedule,omitempty" jsonschema:"scheduling policy for choice points: declared, reverse (the default), seed:<n>, or explore[:runs=<n>,depth=<d>]"`
 	Engine          string                    `json:"engine,omitempty" jsonschema:"the analysis engine asked; empty is auto"`
+	ToolDryRun      bool                      `json:"toolDryRun,omitempty" jsonschema:"run the case only to the first external tool call its ToolExecution names and answer what the tool would be given in toolDryRun, without starting it (sysml -tool-dry-run); refused under explore"`
 }
 
 // RunSweepInput runs a case or calc once per row of a parameter sweep.

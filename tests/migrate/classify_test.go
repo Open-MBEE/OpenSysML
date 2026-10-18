@@ -180,7 +180,7 @@ func TestAnonymousAssociationIsAConnectionDef(t *testing.T) {
 		"end b : B;",
 		"connection def AToB2 {",
 		"end a : A crosses b.a;",
-		"metadata MigrationMetadata::SynthesizedName about AToB, AToB2;",
+		"metadata MigrationMetadata::SynthesizedName about AToB, AToB2, 'a to b', 'a to b 2';",
 		"connection 'a to b' : AToB connect a to b;",
 		"connection 'a to b 2' : AToB2 connect a to b;",
 	} {
@@ -217,7 +217,7 @@ func TestEnumerationLiteralsAreReported(t *testing.T) {
     <packagedElement xmi:type="uml:Enumeration" xmi:id="_e" name="Color">
       <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_red" name="red"/>
     </packagedElement>`, "")
-	if es := entriesFor(r, "_red"); len(es) != 1 || es[0].Verdict != migrate.Mapped || es[0].Target != "Color::red" {
+	if es := entriesFor(r, "_red"); len(es) != 1 || es[0].Verdict != migrate.Mapped || es[0].Target != "Model::Color::red" {
 		t.Errorf("entries = %+v", es)
 	}
 }

@@ -10,21 +10,21 @@ classes: {
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   flow: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
 }
-n0: "Drive" {
+n0: "«action def»\nDrive" {
   class: definition
   n1: "" { class: initial }
-  n2: "provide" { class: usage }
-  n3: "monitor\nown flow" {
+  n2: "«action»\nprovide" { class: usage }
+  n3: "«action»\nmonitor\nown flow" {
     class: usage
     n4: "" { class: initial }
-    n5: "record" { class: usage }
+    n5: "«action»\nrecord" { class: usage }
   }
-  n6: "tally" { class: usage }
+  n6: "«action»\ntally" { class: usage }
   n7: "" { class: bar }
   n8: "" { class: bar }
   n9: "" { class: final }
-  n10: "park" { class: usage }
-  n11: "check" { class: choice }
+  n10: "«action»\npark" { class: usage }
+  n11: "«decision»\ncheck" { class: choice }
 }
 n0.n3.n4 -> n0.n3.n5: { class: edge }
 n0.n1 -> n0.n7: { class: edge }

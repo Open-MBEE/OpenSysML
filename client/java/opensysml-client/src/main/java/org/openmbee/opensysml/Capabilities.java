@@ -72,6 +72,9 @@ public final class Capabilities {
   /** A parse names the documents whose results may differ from those of {@code base_model_hash}. */
   public static final String PARSE_SOURCES_AFFECTED = "parse_sources_affected";
 
+  /** A rendered document names the file a rendered set writes it to. */
+  public static final String RENDER_DOCUMENT_FILE_NAME = "render_document_file_name";
+
   /** A complex number travels as itself rather than as an unsupported null. */
   public static final String COMPLEX_VALUES = "complex_values";
 
@@ -180,6 +183,15 @@ public final class Capabilities {
 
   /** The {@code ExportGraphs} RPC exports a behavior's lowered graph as {@code graphs:1} JSON. */
   public static final String EXPORT_GRAPHS = "export_graphs";
+
+  /** The {@code ImportData} RPC sets feature values from CSV, TSV, JSON or JSON Lines data. */
+  public static final String IMPORT_DATA = "import_data";
+
+  /** The {@code CompareResults} RPC runs a SysML v1 tool's results index and compares. */
+  public static final String COMPARE_RESULTS = "compare_results";
+
+  /** The {@code CheckBehavior} RPC searches every schedule of a behavior for violations. */
+  public static final String CHECK = "check";
 
   /** A parse can judge the source as conforming SysML v2. */
   public static final String STRICT_CONFORMANCE = "strict_conformance";

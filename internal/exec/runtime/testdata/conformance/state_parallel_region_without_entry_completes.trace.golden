@@ -1,0 +1,8 @@
+exit: S1 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "S1(entry);"
+      eval literal "S1(exit);" -> "S1(exit);"
+    eval operator + -> "S1(entry);S1(exit);"
+enter: done
+transition: S1 -> done

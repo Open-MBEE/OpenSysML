@@ -23,7 +23,7 @@ import (
 	_ "github.com/Open-MBEE/OpenSysML/api/proto" // registers the schema this runner reflects over
 	"google.golang.org/protobuf/reflect/protoregistry"
 
-	"github.com/Open-MBEE/OpenSysML/tools/oracle/junit"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/report/junit"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 
 	"google.golang.org/protobuf/reflect/protoreflect"

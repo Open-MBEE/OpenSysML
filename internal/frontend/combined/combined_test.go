@@ -244,3 +244,53 @@ func assertRetentionNotFound(t *testing.T, server *Server, method, hash string) 
 		t.Errorf("%s(%s) error = %v, want NotFound", method, hash, err)
 	}
 }
+
+func TestRenderViewRoutesThroughEngine(t *testing.T) {
+	server, err := New("combined-test")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	model := `package Demo {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	part def Item;
+	part def Box { part item : Item; }
+	view parts { expose Demo::Box; render asInterconnectionDiagram; }
+}`
+	parseBody, err := server.Call(context.Background(), "ParseFile", []byte(fmt.Sprintf(`{"content":%q}`, model)))
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	var parsed struct {
+		ModelHash string `json:"modelHash"`
+	}
+	if err := json.Unmarshal(parseBody, &parsed); err != nil {
+		t.Fatalf("decoding ParseFile: %v\n%s", err, parseBody)
+	}
+	for _, viewName := range []string{"Demo::parts", "#interconnection:Demo::Box"} {
+		body, err := server.Call(context.Background(), "RenderView",
+			[]byte(fmt.Sprintf(`{"modelHash":%q,"view":%q}`, parsed.ModelHash, viewName)))
+		if err != nil {
+			t.Fatalf("RenderView(%q): %v", viewName, err)
+		}
+		var rendered struct {
+			Kind  string            `json:"kind"`
+			Nodes []json.RawMessage `json:"nodes"`
+		}
+		if err := json.Unmarshal(body, &rendered); err != nil {
+			t.Fatalf("decoding RenderView(%q): %v\n%s", viewName, err, body)
+		}
+		if rendered.Kind != "interconnection" || len(rendered.Nodes) == 0 {
+			t.Errorf("RenderView(%q) = kind %q with %d nodes, want an interconnection drawing", viewName, rendered.Kind, len(rendered.Nodes))
+		}
+	}
+	_, err = server.Call(context.Background(), "RenderView", []byte(fmt.Sprintf(`{"modelHash":%q}`, parsed.ModelHash)))
+	var callErr *jsonrpc.Error
+	if !errors.As(err, &callErr) || callErr.Code != jsonrpc.CodeInvalidArgument {
+		t.Fatalf("RenderView without a view error = %v, want InvalidArgument", err)
+	}
+	_, err = server.Call(context.Background(), "RenderView", []byte(`{"modelHash":"missing","view":"Demo::parts"}`))
+	if !errors.As(err, &callErr) || callErr.Code != jsonrpc.CodeNotFound {
+		t.Fatalf("RenderView of an unknown model error = %v, want NotFound", err)
+	}
+}

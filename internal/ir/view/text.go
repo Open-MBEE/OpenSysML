@@ -132,9 +132,10 @@ func noteText(note Note, labels map[string]string) string {
 	return line
 }
 
-// EmptyReason says why a rendering shows nothing: a view exposing nothing, or a
-// view whose exposed elements this kind of rendering cannot show, which the
-// notices then account for one by one.
+// EmptyReason says why a rendering shows nothing: a view exposing nothing, one
+// whose filter rejects or whose expose does not reach any element, or one whose
+// exposed elements this kind of rendering cannot show, which the notices then
+// account for one by one.
 func (r *Rendering) EmptyReason() string {
 	if r.Run {
 		switch r.Kind {
@@ -217,6 +218,9 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		}
 	}
 	for _, child := range node.Children {
+		if hiddenRow(node, child) {
+			continue
+		}
 		writeNodeText(b, child, depth+1, labels, names, ports, shown)
 		if child.Kind == startKind {
 			labels[child.ID] = "start of " + labels[node.ID]
@@ -232,14 +236,14 @@ func pinLine(port Port, ports portView) string {
 	return strings.TrimSpace(port.Direction.String() + " " + port.Name)
 }
 
-// textEdgeLabel is the text after an edge's ends: its label, except that an
-// action edge attached to pins is labelled by its name, since the ends name the
-// pins already.
+// textEdgeLabel is the text after an edge's ends: its texts folded into one,
+// the end names about its own, except that an action edge attached to pins is
+// labelled by its name, since the ends name the pins already.
 func textEdgeLabel(edge Edge, ports portView) string {
 	if ports.action && (edge.FromPort != "" || edge.ToPort != "") {
 		return edge.Name
 	}
-	return edge.Label
+	return edge.text()
 }
 
 // writeTableText writes a tabular rendering as aligned columns, padding each

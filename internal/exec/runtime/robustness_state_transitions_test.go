@@ -323,7 +323,7 @@ func testStateNestedRegionCompletionKeepsSiblingsRunning(t *testing.T) {
 	if exec.State() == StateCompleted {
 		t.Errorf("the machine completed while the sibling region rests outside `done`")
 	}
-	if got := exec.FinalStateName(); got != "done+rbusy" {
+	if got := exec.finalStateName(); got != "done+rbusy" {
 		t.Errorf("expected the regions in done+rbusy, got %q", got)
 	}
 }
@@ -381,8 +381,8 @@ func testStateChoiceWithoutAnEnabledBranch(t *testing.T) {
 	go func() { done <- exec.RunToCompletion() }()
 	select {
 	case err := <-done:
-		if !errors.Is(err, ErrChoiceWithoutBranch) {
-			t.Fatalf("expected ErrChoiceWithoutBranch: the incoming effect wrote x := 2 and the only branch wants 1; got %v", err)
+		if !errors.Is(err, errChoiceWithoutBranch) {
+			t.Fatalf("expected errChoiceWithoutBranch: the incoming effect wrote x := 2 and the only branch wants 1; got %v", err)
 		}
 		if !strings.Contains(err.Error(), "pick") {
 			t.Errorf("expected the error to name the choice, got %v", err)
@@ -716,8 +716,8 @@ func testHistoryWithoutRecordDefaultOrEntry(t *testing.T) {
 	fire(t, exec, "init", "away")
 
 	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil, nil)
-	if !errors.Is(err, ErrHistoryWithoutEntry) {
-		t.Fatalf("expected ErrHistoryWithoutEntry: nothing recorded, no default transition and outer has no entry transition; got %v", err)
+	if !errors.Is(err, errHistoryWithoutEntry) {
+		t.Fatalf("expected errHistoryWithoutEntry: nothing recorded, no default transition and outer has no entry transition; got %v", err)
 	}
 	for _, name := range []string{"H", "outer"} {
 		if !strings.Contains(err.Error(), name) {

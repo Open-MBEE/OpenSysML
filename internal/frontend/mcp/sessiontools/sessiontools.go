@@ -222,7 +222,7 @@ func Register(s *mcp.Server, m *Manager) {
 			}
 			paths = append(paths, resolved)
 		}
-		files, err := repl.ExpandPaths(paths)
+		files, err := sess.ExpandPaths(paths)
 		if err != nil {
 			return LoadResult{}, err
 		}

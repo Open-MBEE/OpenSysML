@@ -3,25 +3,25 @@
 
 ## approximated (3)
 CallBehaviorAction	Plant::Run::rate	_rRate	-> rate	(the behavior acts on a Tank through its parameter context, which is bound to Run::context.tank, the caller's one part that is one; the calc Tank::Rate is evaluated when the action runs; a calc is no action node)
-Parameter	Plant::Run::result	_runResult	-> Plant::Run::result	(the return parameter is written as an out parameter)
-Parameter	Tank::Rate::result	_rateResult	-> Tank::Rate::result	(the return parameter is written as an out parameter)
+Parameter	Plant::Run::result	_runResult	-> Model::Plant::Run::result	(the return parameter is written as an out parameter)
+Parameter	Tank::Rate::result	_rateResult	-> Model::Tank::Rate::result	(the return parameter is written as an out parameter)
 
 ## mapped (18)
-Model	Model	_m	(the root model's members are written at the top level)
-«Block» Class	Plant	_plant	-> Plant
-Activity	Plant::Run	_run	-> Plant::Run	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
+Model	Model	_m	-> Model	(written as package Model)
+«Block» Class	Plant	_plant	-> Model::Plant
+Activity	Plant::Run	_run	-> Model::Plant::Run	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
 ActivityFinalNode	Plant::Run::<ActivityFinalNode>	_rDone	-> final
 ControlFlow	Plant::Run::<ControlFlow>	_rf3
 InitialNode	Plant::Run::<InitialNode>	_rInit	-> start
 ObjectFlow	Plant::Run::<ObjectFlow>	_rf2
 ObjectFlow	Plant::Run::<ObjectFlow>	_rf4	(the action waits for the value as well as for the control flow into it, as its pin did)
-InputPin	Plant::Run::rate::factor	_rRateFactor	-> Plant::Run::rate.factor
-OutputPin	Plant::Run::rate::result	_rRateOut	-> Plant::Run::rate.result
-ActivityParameterNode	Plant::Run::result	_rOut	-> Plant::Run::result	(the flows to and from the node name the parameter result)
+InputPin	Plant::Run::rate::factor	_rRateFactor	-> Model::Plant::Run::rate.factor
+OutputPin	Plant::Run::rate::result	_rRateOut	-> Model::Plant::Run::rate.result
+ActivityParameterNode	Plant::Run::result	_rOut	-> Model::Plant::Run::result	(the flows to and from the node name the parameter result)
 ValueSpecificationAction	Plant::Run::two	_rTwo	-> two	(no edge leads to the node, so it starts with the activity)
-OutputPin	Plant::Run::two::result	_rTwoOut	-> Plant::Run::two.result
-Property	Plant::tank	_pTank	-> Plant::tank
-«Block» Class	Tank	_tank	-> Tank
-OpaqueBehavior	Tank::Rate	_rate	-> Tank::Rate	(the English body is translated to v2; acts on its owner Tank, which it takes as its parameter context, since its this is the def's own occurrence)
-Parameter	Tank::Rate::factor	_rateFactor	-> Tank::Rate::factor
-Property	Tank::level	_level	-> Tank::level
+OutputPin	Plant::Run::two::result	_rTwoOut	-> Model::Plant::Run::two.result
+Property	Plant::tank	_pTank	-> Model::Plant::tank
+«Block» Class	Tank	_tank	-> Model::Tank
+OpaqueBehavior	Tank::Rate	_rate	-> Model::Tank::Rate	(the English body is translated to v2; acts on its owner Tank, which it takes as its parameter context, since its this is the def's own occurrence)
+Parameter	Tank::Rate::factor	_rateFactor	-> Model::Tank::Rate::factor
+Property	Tank::level	_level	-> Model::Tank::level

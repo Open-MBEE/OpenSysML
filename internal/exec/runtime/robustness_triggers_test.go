@@ -107,8 +107,8 @@ func testTimeTriggerOfTheTypeValidationRefuses(t *testing.T) {
 			}
 
 			_, err := ctx.ExecuteState(sym)
-			if !errors.Is(err, ErrTimeTriggerType) {
-				t.Fatalf("err = %v; want ErrTimeTriggerType", err)
+			if !errors.Is(err, errTimeTriggerType) {
+				t.Fatalf("err = %v; want errTimeTriggerType", err)
 			}
 			if !strings.Contains(err.Error(), "`"+tc.trigger+"`") {
 				t.Errorf("err = %v; want it to quote the trigger as written", err)
@@ -158,8 +158,8 @@ func testActionReturnParameterValidationRefuses(t *testing.T) {
 			}
 
 			_, err := ctx.ExecuteAction(sym)
-			if !errors.Is(err, ErrActionResultParameter) {
-				t.Fatalf("err = %v; want ErrActionResultParameter", err)
+			if !errors.Is(err, errActionResultParameter) {
+				t.Fatalf("err = %v; want errActionResultParameter", err)
 			}
 			if !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("err = %v; want it to contain %q", err, tc.want)
@@ -253,8 +253,8 @@ func testActionAcceptTimeWaits(t *testing.T) {
 	})
 	t.Run("non-time dimension", func(t *testing.T) {
 		_, _, err := run(t, "accept after load")
-		if !errors.Is(err, ErrTimeTriggerType) {
-			t.Fatalf("err = %v; want ErrTimeTriggerType", err)
+		if !errors.Is(err, errTimeTriggerType) {
+			t.Fatalf("err = %v; want errTimeTriggerType", err)
 		}
 		if !strings.Contains(err.Error(), "`after load` must be a ISQBase::DurationValue, found MassValue") {
 			t.Errorf("err = %v; want it to name the type found", err)
@@ -532,8 +532,8 @@ func testClockAdvance(t *testing.T) {
 		if next, ok := exec.NextWait(); !ok || next != 6 {
 			t.Errorf("NextWait = %v, %v; want the performed action's wait at 6", next, ok)
 		}
-		if waits := exec.TimeWaits(); len(waits) != 1 || !strings.Contains(waits[0], "t=6.0") {
-			t.Errorf("TimeWaits = %v; want the performed action's wait", waits)
+		if waits := exec.describeTimeWaits(); len(waits) != 1 || !strings.Contains(waits[0], "t=6.0") {
+			t.Errorf("describeTimeWaits = %v; want the performed action's wait", waits)
 		}
 		if err := exec.Step(); !errors.Is(err, ErrNothingDue) || !strings.Contains(err.Error(), "t=6.0") {
 			t.Errorf("Step = %v; want ErrNothingDue naming the performed action's wait", err)
@@ -922,8 +922,8 @@ func testClockAdvance(t *testing.T) {
 					}
 				}
 			}`, "test::Rig")
-		if !errors.Is(err, ErrNoInitialState) {
-			t.Fatalf("instantiate = %v; want ErrNoInitialState from the machine with no initial state", err)
+		if !errors.Is(err, errNoInitialState) {
+			t.Fatalf("instantiate = %v; want errNoInitialState from the machine with no initial state", err)
 		}
 		if got := len(ctx.clock.waiters); got != 0 {
 			t.Errorf("clock drives %d executors after the failed start; want none", got)

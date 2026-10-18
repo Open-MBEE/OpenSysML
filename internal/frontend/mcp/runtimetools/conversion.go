@@ -80,7 +80,11 @@ func (g *group) registerConversion(s *mcp.Server) {
 			return nil, nil, err
 		}
 		if path, ok := req.GetSource().(*pb.ConvertRequest_FilePath); ok {
-			path.FilePath = g.path(path.FilePath)
+			resolved, err := g.path(path.FilePath)
+			if err != nil {
+				return nil, nil, err
+			}
+			path.FilePath = resolved
 		}
 		resp, err := g.svc.Convert(ctx, req)
 		if err != nil {
@@ -118,10 +122,18 @@ func (g *group) registerConversion(s *mcp.Server) {
 			return nil, nil, err
 		}
 		if path, ok := req.GetSource().(*pb.MigrateRequest_FilePath); ok {
-			path.FilePath = g.path(path.FilePath)
+			resolved, err := g.path(path.FilePath)
+			if err != nil {
+				return nil, nil, err
+			}
+			path.FilePath = resolved
 		}
 		if layout, ok := req.GetLayout().(*pb.MigrateRequest_LayoutPath); ok {
-			layout.LayoutPath = g.path(layout.LayoutPath)
+			resolved, err := g.path(layout.LayoutPath)
+			if err != nil {
+				return nil, nil, err
+			}
+			layout.LayoutPath = resolved
 		}
 		resp, err := g.svc.Migrate(ctx, req)
 		if err != nil {

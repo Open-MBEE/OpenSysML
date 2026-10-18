@@ -83,7 +83,7 @@ func TestNotationElementsAreNamed(t *testing.T) {
 	if got := ElementEdgeLabels.Attribute(); got != "showEdgeLabels" {
 		t.Errorf("Attribute() = %q", got)
 	}
-	if got := DefaultShown.Names(); strings.Join(got, ",") != "port-symbols,compartments" {
+	if got := DefaultShown.Names(); strings.Join(got, ",") != "port-symbols,compartments,keywords" {
 		t.Errorf("DefaultShown = %v", got)
 	}
 }
@@ -128,7 +128,8 @@ func TestParameterSymbolsAreLeftOutByDefault(t *testing.T) {
 			}
 		}
 		for _, actor := range []string{"Operator", "Administrator"} {
-			if n := len(regexp.MustCompile(`\b`+actor+`\b`).FindAllString(out, -1)); n == 0 {
+			// D2 escapes the newline under the keyword line as `\n`, no word boundary.
+			if n := len(regexp.MustCompile(`(?:\b|\\n)`+actor+`\b`).FindAllString(out, -1)); n == 0 {
 				t.Errorf("%s does not draw the actor %s:\n%s", form, actor, out)
 			}
 		}

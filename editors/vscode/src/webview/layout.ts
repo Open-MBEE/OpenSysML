@@ -50,7 +50,7 @@ export type Shape =
 export interface PlacedNode {
   node: RenderNode;
   box: Box;
-  /** The label's lines: head, «kind», then the detail; empty for a symbol. */
+  /** The label's lines: «kind», head, then the detail; empty for a symbol. */
   lines: string[];
   shape: Shape;
   /** The model, or a gesture in progress, states where the node goes. */
@@ -475,7 +475,7 @@ function hide(entries: PlacedNode[]): void {
 }
 
 /**
- * labelLines is a node's label as the graphical notation orders it: head, «kind», detail —
+ * labelLines is a node's label as the graphical notation stacks it: «kind», head, detail —
  * the «kind», the `: Type`, the detail and the name's qualification only when `shown`, the
  * optional notation elements the rendering draws, names keywords, typings, compartments and
  * qualifiers; a result without `shown` draws them all.
@@ -490,14 +490,30 @@ export function labelLines(
   }
   const draws = (element: string): boolean =>
     shown === undefined || shown.includes(element);
-  const lines = [labelHead(node, draws("typings"), draws("qualifiers"), names)];
+  const lines: string[] = [];
   if (node.name !== "" && draws("keywords")) {
     lines.push(`«${node.kind}»`);
   }
+  lines.push(labelHead(node, draws("typings"), draws("qualifiers"), names));
   if (node.detail !== "" && draws("compartments")) {
     lines.push(node.detail);
   }
   return lines;
+}
+
+/** LabelLineClass is the part of a label a line is: its «kind», its head or a detail line. */
+export type LabelLineClass = "keyword" | "head" | "detail";
+
+/**
+ * labelLineClass is the part of its label the i-th of `lines` is: a leading «kind»
+ * over a head is the keyword, the line after it (or the first) the head, the rest detail.
+ */
+export function labelLineClass(lines: readonly string[], i: number): LabelLineClass {
+  const keyworded = lines.length > 1 && /^«.+»$/u.test(lines[0]);
+  if (keyworded && i === 0) {
+    return "keyword";
+  }
+  return i === (keyworded ? 1 : 0) ? "head" : "detail";
 }
 
 /** nameSegments splits a qualified name at its `::`, a quoted segment with its escapes kept whole. */
@@ -1263,7 +1279,7 @@ export function labelSize(lines: string[]): { width: number; height: number } {
   lines.forEach((line, i) => {
     width = Math.max(
       width,
-      [...line].length * (i === 0 ? BOLD_GLYPH_WIDTH : GLYPH_WIDTH),
+      [...line].length * (labelLineClass(lines, i) === "head" ? BOLD_GLYPH_WIDTH : GLYPH_WIDTH),
     );
   });
   return {

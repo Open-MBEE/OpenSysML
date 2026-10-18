@@ -1,0 +1,106 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="KerMLWordsAreSysMLNames" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Range"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="lowerBound" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="upperBound" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="step" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="expr" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (OperatorExpr operator="*"
+                (FeatureReference name="step")
+                (LiteralInteger value="2"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="inv" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="and"
+                (OperatorExpr operator="<="
+                  (FeatureReference name="step")
+                  (FeatureReference name="upperBound"))
+                (OperatorExpr operator=">"
+                  (FeatureReference name="expr")
+                  (FeatureReference name="lowerBound")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="class" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (OperatorExpr operator="if"
+                (FeatureReference name="inv")
+                (FeatureReference name="step")
+                (FeatureReference name="expr"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="feature" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInfinity))
+              (SequenceExpr
+                (FeatureReference name="step")
+                (FeatureReference name="expr"))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert"
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="<="
+                  (FeatureReference name="step")
+                  (OperatorExpr operator="-"
+                    (FeatureReference name="upperBound")
+                    (FeatureReference name="lowerBound"))))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert"
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="<"
+                  (FeatureReference name="step")
+                  (FeatureReference name="upperBound")))))
+          (Membership visibility="default"
+            (Usage kind="calc" name="nSteps" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (InvocationExpr type="floor"
+                (OperatorExpr operator="/"
+                  (OperatorExpr operator="-"
+                    (FeatureReference name="upperBound")
+                    (FeatureReference name="lowerBound"))
+                  (FeatureReference name="step")))))
+          (Membership visibility="default"
+            (Usage kind="calc" name="firstValue" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (IndexExpr
+                (FeatureReference name="feature")
+                (LiteralInteger value="1"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="function" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (OperatorExpr operator="+"
+                (FeatureReference name="Range::step")
+                (FeatureReference name="Range::expr"))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Sweep"
+          (Membership visibility="default"
+            (Usage kind="part" name="range" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Range
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="struct" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (FeatureChainExpr member="step"
+                (FeatureReference name="range"))))
+          (Membership visibility="default"
+            (Usage kind="action" name="run" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (*ast.AssignmentActionNode))))))))

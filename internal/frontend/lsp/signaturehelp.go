@@ -195,10 +195,14 @@ func topLevelCommas(content []byte, from, to int) int {
 			}
 		case '/':
 			if i+1 < to && content[i+1] == '/' {
-				for i += 2; i < to && content[i] != '\n'; i++ {
+				i += 2
+				for i < to && content[i] != '\n' {
+					i++
 				}
 			} else if i+1 < to && content[i+1] == '*' {
-				for i += 3; i < to && (content[i-1] != '*' || content[i] != '/'); i++ {
+				i += 3
+				for i < to && (content[i-1] != '*' || content[i] != '/') {
+					i++
 				}
 			}
 		case ',':

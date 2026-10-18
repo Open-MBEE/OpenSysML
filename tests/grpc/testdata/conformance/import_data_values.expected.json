@@ -1,0 +1,14 @@
+{
+  "rpc": "ImportData",
+  "imports": [
+    {"name": "fleet.csv", "content": "element,count,label\nV::vehicle,7,fast\nV::car,9,\n"},
+    {"name": "labels.json", "content": "[{\"element\":\"V::car\",\"label\":\"slow\"}]"}
+  ],
+  "expected_assignments": [
+    "V::vehicle::count = 7 (redefines V::Vehicle::count)",
+    "V::vehicle::label = \"fast\" (redefines V::Vehicle::label)",
+    "V::car::count = 9",
+    "V::car::label = \"slow\" (redefines V::Vehicle::label)"
+  ],
+  "expected_content": "package V {\n\tprivate import ScalarValues::*;\n\tpart def Vehicle {\n\t\tattribute count : Integer default 1;\n\t\tattribute label : String default \"plain\";\n\t}\n\tpart vehicle : Vehicle {\n\t\tattribute :>> count = 7;\n\t\tattribute :>> label = \"fast\";\n\t}\n\tpart car : Vehicle {\n\t\tattribute :>> count = 9;\n\t\tattribute :>> label = \"slow\";\n\t}\n}\n"
+}

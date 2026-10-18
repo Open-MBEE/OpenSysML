@@ -327,18 +327,13 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 	switch {
 	case feature == "specific" && specializationMetaclassNames[meta]:
 		return source, true
-	case feature == "general" && specializationMetaclassNames[meta] && meta != "ConjugatedPortTyping":
+	case feature == "general" && specializationMetaclassNames[meta] && meta != "ConjugatedPortTyping", tgtEnd:
 		if tgtOK {
 			return []*symbols.Symbol{tgt}, true
 		}
 		return nil, false
 	case srcEnd:
 		return source, true
-	case tgtEnd:
-		if tgtOK {
-			return []*symbols.Symbol{tgt}, true
-		}
-		return nil, false
 	case feature == "owningType" && (specializationMetaclassNames[meta] || meta == "Conjugation"):
 		if m.reflectiveMetaclassConforms(src, "Type") {
 			return source, true
@@ -403,7 +398,7 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 			return nil, false
 		}
 		return source, true
-	case feature == "general" && specializationMetaclassNames[meta]:
+	case feature == "general" && specializationMetaclassNames[meta], tgtEnd:
 		if tgt == nil {
 			return nil, false
 		}
@@ -413,11 +408,6 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 			return nil, false
 		}
 		return source, true
-	case tgtEnd:
-		if tgt == nil {
-			return nil, false
-		}
-		return target, true
 	}
 	return nil, false
 }

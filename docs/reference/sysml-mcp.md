@@ -195,9 +195,13 @@ catalogue small for an agent that needs only one of them. The catalogue below is
 own `tools/list`, with each tool's description cut to its first sentence; the tool's full
 description, read by the agent, says what every argument does.
 
-No two groups share a tool name: the `lsp` group's `render_view` and `render_document` draw a
-document of the workspace, the `runtime` group's `render_model_view` and
-`render_model_document` a model given as `paths`, inline `sources` or a `modelHash`.
+No two groups share a tool name: the `lsp` group's `diagnostics`, `render_view` and
+`render_document` work on a document of the workspace, the `runtime` group's
+`model_diagnostics`, `render_model_view` and `render_model_document` on a model given as
+`paths`, inline `sources` or a `modelHash`. Every server also serves `tool_catalog`, which
+answers this catalogue — each tool's group, the `sysml-grpc` RPC or `sysml` flag it stands for
+and a one-line summary — narrowed to the groups served, so an agent can discover the surface
+without this page.
 
 ### `lsp`
 
@@ -230,15 +234,20 @@ document of the workspace, the `runtime` group's `render_model_view` and
 | Tool | Does | Writes |
 |---|---|---|
 | `apply_edits` | Apply source-preserving edits to a parsed model and return the edited notation (the ApplyEdits RPC): set a value, rename with every reference, add a member, import, documentation, comment, connection, transition, satisfy or metadata, delete, move. | no |
+| `check_behavior` | Search every schedule of an action or state machine (the CheckBehavior RPC, the REPL's %check-property/%check-diverge settings about %action/%state): a property false at a stable state, a deadlock, a failure or a feature whose final value the schedule decides is witnessed and replayed. | no |
+| `compare_results` | Run every configuration a SysML v1 tool's results sidecar indexes against the migrated model (the CompareResults RPC, the CLI's -compare-results with -action, -runs, -seed, -draws, -clock-step and -observe): each on its target, for its recorded run count under its duration mode, or the runs and draws given, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference. | no |
 | `convert` | Convert a SysML v2 model between the representations OpenSysML writes — textual notation, RDF Turtle, the API's JSON element form — (the Convert RPC, the CLI's -convert). | no |
 | `evaluate` | Evaluate a SysML expression against a parsed model (the Evaluate RPC, the REPL's %eval): arithmetic, feature reads, quantities with units, collection operators. | no |
 | `evaluate_calc` | Invoke a calculation (the EvaluateCalc RPC, the REPL's %calc): a calc definition with positional arguments answers its `result`; a calc usage named with no arguments binds its inputs from its own members and answers every output feature in `outputs`. | no |
 | `execute_action` | Run an action definition or usage to completion and report its output parameters (the ExecuteAction RPC, the REPL's %run). | no |
 | `execute_state` | Run a state machine over a sequence of events and report the states visited, the final context and the simulation clock (the ExecuteState RPC, the REPL's %run on a state). | no |
+| `explain_diagnostic` | Explain a diagnostic code (as the CLI's -explain does): what it means, how to resolve it and the specification clause or validation constraint behind it. | no |
 | `export_graphs` | Export the lowered graph of an action or state machine — the subject's and every behavior it performs — as the canonical graphs:<version> JSON external analysis engines read (the ExportGraphs RPC). | no |
+| `import_data` | Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element (the ImportData RPC, the CLI's -import with -import-as, -import-map, -import-format and -import-dry-run): a feature the element declares has its value set, one it inherits is redefined in the element's body with the value, as one edit per file; a value the model refuses leaves every row unapplied and answers `error`. | no |
 | `instantiate` | Build an object of a part definition or usage and report its feature values (the Instantiate RPC, the REPL's %instantiate): every attribute's value or default, nested parts as instance ids, with every reachable instance in `instances`. | yes |
 | `list_engines` | List the analysis engines this build registers (the ListEngines RPC, as the CLI's -engines does): each with the questions it answers (evaluate, outcomes, holds, sensitive, satisfiable, sweep, compute), the strongest evidence it can produce, the bounds it takes, and whether it can run here. | no |
 | `migrate` | Migrate a SysML v1 model — UML XMI with the SysML profile, an Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2 in one of the representations convert writes (the Migrate RPC, the CLI's -migrate). | no |
+| `model_diagnostics` | Report every diagnostic of a parsed model (the GetDiagnostics RPC), as `sysml -validate` does: each with its severity, code, message and position. | no |
 | `parse` | Parse SysML v2 / KerML documents as one model and return its modelHash, the root namespace of each document and every diagnostic (the ParseSources RPC). | no |
 | `query` | Select elements of a parsed model with a SysML v2 API & Services Query — scope, select, where — or OSLC query text (the Query RPC). | no |
 | `render_model_document` | Render a named document of a model given by modelHash, paths or sources (the workspace group's render_document renders by name over the root) — a part def specializing DocumentQueries::Document — to Markdown or HTML (the RenderDocument RPC, the CLI's -render-document), byte for byte what the CLI writes. | no |
@@ -292,8 +301,10 @@ document of the workspace, the `runtime` group's `render_model_view` and
 - **Positions** in arguments and results are 1-based `line` and `column` (a column counts
   characters, not UTF-16 code units; the server converts).
 - **Paths** are absolute or relative to the workspace root (`-root`), and are resolved against
-  it; a tool that takes `paths` accepts files, directories and globs. The `lsp` tools can also
-  work on text held open with `open_document` instead of a file on disk.
+  it; a tool that takes `paths` accepts files, directories and globs. A path must stay under the
+  root: one that leaves it, by its form (`../secret.sysml`, an absolute path elsewhere) or
+  through a symlink, is refused. The `lsp` tools can also work on text held open with
+  `open_document` instead of a file on disk.
 - **Writing** happens only on request: a tool marked as writing (`format`, `rename`,
   `apply_model_edit`, `session_save`, ...) returns the edit or the file it would write and
   touches the disk only with `"apply": true`. The session tools that write change the session's

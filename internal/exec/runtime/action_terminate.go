@@ -25,7 +25,7 @@ type terminated struct {
 
 func (t *terminated) Error() string {
 	if t.perf == nil {
-		return fmt.Sprintf("terminate object #%d (%s)", t.object.ID, symbolText(t.object.Type))
+		return fmt.Sprintf("terminate object #%d (%s)", t.object.ID, SymbolText(t.object.Type))
 	}
 	return "terminate " + t.perf.describe()
 }
@@ -60,10 +60,10 @@ func (e *performances) terminate(engine *stmtEngine, perf *actionFrame, s lower.
 func (e *performances) endPerformances(perf *actionFrame, targets []*actionFrame) error {
 	for _, target := range targets {
 		if target.ended {
-			return fmt.Errorf("%w: %s", ErrPerformanceEnded, target.describe())
+			return fmt.Errorf("%w: %s", errPerformanceEnded, target.describe())
 		}
 		if target.node == nil && !e.owner.endsOwn() {
-			return fmt.Errorf("%w: 'terminate' of %s is not executable", ErrStatementNotExecutable, target.describe())
+			return fmt.Errorf("%w: 'terminate' of %s is not executable", errStatementNotExecutable, target.describe())
 		}
 	}
 	for i, target := range targets {
@@ -113,7 +113,7 @@ func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*a
 			if perf != nil {
 				name = perf.describe()
 			}
-			return nil, fmt.Errorf("%w: %s is no step of a flow to end", ErrTerminateTarget, name)
+			return nil, fmt.Errorf("%w: %s is no step of a flow to end", errTerminateTarget, name)
 		}
 		return []*actionFrame{perf.parent}, nil
 	case lower.TerminateNode:
@@ -140,10 +140,10 @@ func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*a
 			return nil, nil
 		}
 		return nil, fmt.Errorf("%w: action node %s has no ongoing performance in a flow around %s",
-			ErrTerminateTarget, ActionNodeName(s.Target), perf.describe())
+			errTerminateTarget, ActionNodeName(s.Target), perf.describe())
 	}
 	return nil, fmt.Errorf("%w: %s: 'terminate' names no performance of a flow around it",
-		ErrTerminateTarget, perf.describe())
+		errTerminateTarget, perf.describe())
 }
 
 // declaresAround reports whether node is a node of f's flow or of a flow around it.
@@ -306,7 +306,7 @@ func (e *ActionExecutor) endTerminatedFor(id int64, err error) error {
 			return e.endAlongside(t)
 		}
 	}
-	return fmt.Errorf("%w: token %d is not running in %s", ErrTerminateTarget, id, t.perf.describe())
+	return fmt.Errorf("%w: token %d is not running in %s", errTerminateTarget, id, t.perf.describe())
 }
 
 // endAlongside ends in place, in the order named, the performances the terminate t
@@ -350,7 +350,7 @@ func (e *ActionExecutor) endOther(perf *actionFrame) error {
 	if perf.graph != nil && !perf.inBody {
 		inside := e.tokensIn(perf)
 		if len(inside) == 0 {
-			return fmt.Errorf("%w: no token runs in %s", ErrTerminateTarget, perf.describe())
+			return fmt.Errorf("%w: no token runs in %s", errTerminateTarget, perf.describe())
 		}
 		keep := e.tokens[inside[0]].ID
 		for _, idx := range inside[1:] {
@@ -382,18 +382,18 @@ func (e *ActionExecutor) endOther(perf *actionFrame) error {
 		}
 	}
 	return fmt.Errorf("%w: %s is performed by a body statement, which a terminate outside it cannot end",
-		ErrTerminateTarget, perf.describe())
+		errTerminateTarget, perf.describe())
 }
 
 // endPending ends perf, whose step the token parked at its node had yet to begin or
 // was waiting at: the token goes on from the node as from a performance that ended.
 func (e *ActionExecutor) endPending(tokenIdx int, perf *actionFrame) error {
 	if tokenIdx < 0 {
-		return fmt.Errorf("%w: no token is parked at %s", ErrTerminateTarget, perf.describe())
+		return fmt.Errorf("%w: no token is parked at %s", errTerminateTarget, perf.describe())
 	}
 	token := &e.tokens[tokenIdx]
 	if tr := e.trace(); tr != nil {
-		tr.RecordActionTerminatePending(perf.describe(), token.Wait != nil)
+		tr.recordActionTerminatePending(perf.describe(), token.Wait != nil)
 	}
 	token.Wait = nil
 	perf.live, perf.heldAt = 0, 0
@@ -422,7 +422,7 @@ func (e *ActionExecutor) leaveTerminated(tokenIdx int, perf *actionFrame) error 
 	token.repetition = perf.repetition
 	token.repetitionGroup = perf.repetitionGroup
 	if tr := e.trace(); tr != nil {
-		tr.RecordActionNodeExit(ActionNodeName(perf.node))
+		tr.recordActionNodeExit(ActionNodeName(perf.node))
 	}
 	if err := e.endPerformance(perf); err != nil {
 		return err
@@ -450,6 +450,6 @@ func (e *ActionExecutor) dropTokensIn(perf *actionFrame, keep int64) {
 		e.removeToken(e.tokenIndex(token.ID))
 	}
 	if tr := e.trace(); tr != nil {
-		tr.RecordActionTerminate(perf.describe(), dropped)
+		tr.recordActionTerminate(perf.describe(), dropped)
 	}
 }

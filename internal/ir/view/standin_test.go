@@ -282,12 +282,12 @@ func TestDOTPinnedFlowLabelsAreTheirOwnNames(t *testing.T) {
 		{Label: "value to value", Name: "feed", FromPort: "n1.0", Kind: EdgeFlow},
 		{Label: "value to value", Name: "feed", ToPort: "n2.0", Kind: EdgeFlow},
 	} {
-		if got := w.edgeText(edge); got != "feed" {
-			t.Errorf("edgeText(%+v) = %q, want the flow's own name", edge, got)
+		if _, got, _ := w.edgeTexts(edge); got != "feed" {
+			t.Errorf("edgeTexts(%+v) = %q, want the flow's own name", edge, got)
 		}
 		edge.Name = ""
-		if got := w.edgeText(edge); got != "" {
-			t.Errorf("edgeText(%+v) = %q, want none: the pin names what flows", edge, got)
+		if _, got, _ := w.edgeTexts(edge); got != "" {
+			t.Errorf("edgeTexts(%+v) = %q, want none: the pin names what flows", edge, got)
 		}
 	}
 }

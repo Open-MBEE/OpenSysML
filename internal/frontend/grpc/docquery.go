@@ -24,6 +24,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
+const (
+	bindingFormat = "binding %s: %v"
+)
+
 // RunDocumentQuery runs a named document query with parameter bindings, the
 // answer %run-query gives, as typed rows rather than formatted lines.
 func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error) {
@@ -175,13 +179,22 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 		if err != nil {
 			return nil, documentStatus(err)
 		}
-		return &pb.RenderDocumentResponse{Html: page}, nil
+		return &pb.RenderDocumentResponse{Html: page, FileName: s.documentFileName(files, sym)}, nil
 	}
 	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{Files: files})
 	if err != nil {
 		return nil, documentStatus(err)
 	}
-	return &pb.RenderDocumentResponse{Markdown: markdown}, nil
+	return &pb.RenderDocumentResponse{Markdown: markdown, FileName: s.documentFileName(files, sym)}, nil
+}
+
+// documentFileName is the file a rendered set writes sym's document to,
+// under the render_document_file_name capability.
+func (s *Service) documentFileName(files map[string]string, sym *symbols.Symbol) string {
+	if !s.capabilities.has(CapabilityRenderDocumentFileName) {
+		return ""
+	}
+	return files[symbols.FQNOf(sym)]
 }
 
 // documentSymbol resolves the query or document a request names, failing with
@@ -241,13 +254,13 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 	case *pb.DocumentValue_BigIntValue:
 		integer, err := protoconv.ProtoToBigInteger(kind.BigIntValue)
 		if err != nil {
-			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
+			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, bindingFormat, parameter, err)
 		}
 		return queryexec.IntegerOf(integer), nil
 	case *pb.DocumentValue_RationalValue:
 		rational, err := protoconv.ProtoToRational(kind.RationalValue)
 		if err != nil {
-			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
+			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, bindingFormat, parameter, err)
 		}
 		return queryexec.RationalOf(rational), nil
 	case *pb.DocumentValue_RealValue:
@@ -269,7 +282,7 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 	case *pb.DocumentValue_Quantity:
 		bound, err := protoconv.ProtoToQuantity(kind.Quantity, idx, sem)
 		if err != nil {
-			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
+			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, bindingFormat, parameter, err)
 		}
 		quantity := bound.Quantity()
 		if quantity == nil {
