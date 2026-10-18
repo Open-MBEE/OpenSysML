@@ -63,6 +63,18 @@ func (ctx *Context) derivesKernelCollection(inst *Instance, name string) bool {
 // inst (each object once unless nonunique); an open subsetter on a model-level read leaves it open.
 func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol, open *openPopulation) (*FeatureValue, error) {
 	feat := ctx.effectiveFeature(sym.Name, sym, inst.Type)
+	values, stopped, err := ctx.shapeContributions(inst, sym, &feat, nil, open)
+	if err != nil {
+		return nil, err
+	}
+	return &FeatureValue{Feature: &feat, Values: ctx.collectionOf(&feat, values), Materialized: !stopped}, nil
+}
+
+// shapeContributions unions onto held, in shape order, what the shape features of inst
+// subsetting the Kernel collection sym hold (KerML 1.0 §7.3.4.4), each object once unless
+// feat is nonunique. A non-nil open records an open subsetter on a model-level read instead
+// of making up its lower bound; the second result reports that it did.
+func (ctx *Context) shapeContributions(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature, held []Value, open *openPopulation) ([]Value, bool, error) {
 	var values []Value
 	var seen map[int64]bool
 	stopped, atLeast := false, int64(0)
@@ -73,6 +85,7 @@ func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol, o
 			values = append(values, elements...)
 		}
 	}
+	add(held)
 	features := ctx.FeaturesOf(inst.Type)
 	for i := range features {
 		shape := &features[i]
@@ -85,7 +98,7 @@ func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol, o
 		}
 		fv, err := inst.getFeatureValue(ctx, shape.Name, sub)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if sub != nil && sub.Stopped {
 			stopped = true
@@ -95,7 +108,7 @@ func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol, o
 		}
 		held, err := ctx.HeldElements(fv.HeldValue())
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		add(held)
 	}
@@ -103,9 +116,9 @@ func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol, o
 		open.Stopped, open.Contributed, open.AtLeast = true, values, atLeast
 	}
 	if err := ctx.chargeElements(int64(len(values))); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return &FeatureValue{Feature: &feat, Values: ctx.collectionOf(&feat, values), Materialized: !stopped}, nil
+	return values, stopped, nil
 }
 
 // subsetsTransitively reports whether feature, a member of owner, subsets target through
