@@ -158,9 +158,8 @@ func (ctx *Context) shapeHoldsValue(typ *symbols.Symbol) bool {
 		if !holdsRecordField(feat.Symbol) {
 			continue
 		}
-		// A library usage's own body (`:>> mRefs default (m, m, m)`) describes the
-		// particular frame it names, as a field the model adds does — for the usage
-		// itself and for every usage specializing it (`attribute local :> ...Frame;`).
+		// A library usage's own body (`:>> mRefs default (m, m, m)`) describes the particular
+		// frame it names, for the usage and for a usage specializing it (`attribute local :> …`).
 		if !ctx.libraryDeclared(feat.Symbol) || usages[feat.OwnerType] {
 			return true
 		}
@@ -1347,9 +1346,7 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 }
 
 // declaresFeatures reports whether a usage's body, or that of a feature it redefines or
-// subsets, declares features: a specializing feature inherits the specialized one's
-// (KerML 1.0 §7.3.4.5), so `attribute local :> ISQ::universalCartesianSpatial3dCoordinateFrame;`
-// carries the axes the library frame states in its body.
+// directly subsets, declares features: a specializing feature inherits them (KerML 1.0 §7.3.4.5).
 func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 	if declaresFeatures(feat.Symbol) {
 		return true
