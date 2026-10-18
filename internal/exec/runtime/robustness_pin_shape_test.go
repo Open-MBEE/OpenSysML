@@ -128,4 +128,9 @@ func testPinShapeMagnitude(t *testing.T) {
 	if _, ok := MagnitudeValue(sequenceOf([]Value{integerValue(7), integerValue(8)})); ok {
 		t.Fatal("MagnitudeValue([7, 8]) has a magnitude; two values are no one magnitude")
 	}
+	metre := Unit{Text: "m", Term: semantics.UnitTerm{Scale: semantics.UnitScale(1)}}
+	q := sequenceOf([]Value{NewQuantityValue(&Quantity{Num: integerValue(3).Const, Unit: metre})})
+	if n, unit, ok := Magnitude(q); !ok || n.AsReal() != 3 || unit == "" {
+		t.Fatalf("Magnitude([3 [m]]) = %v, %q, %v; want 3 with its unit", n, unit, ok)
+	}
 }
