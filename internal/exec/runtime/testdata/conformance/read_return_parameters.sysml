@@ -32,6 +32,8 @@ package test {
 		constraint cu { m > 0.0 }
 		constraint cn { assert constraint { n > 0.0 } }
 		constraint cnf { assert constraint { n < 0.0 } }
+		constraint ca { assume constraint { false } }
+		assert not constraint cneg { assume constraint { false } }
 	}
 	part p3 : P3;
 	requirement def R13 { require constraint c { assert constraint { false } } }
@@ -81,6 +83,8 @@ package test {
 	attribute cnNested : Boolean = p3.cn;
 	attribute cnfNested : Boolean = p3.cnf;
 	attribute r13Nested : Boolean = r13.c;
+	attribute caAssumeOnly : Boolean = p3.ca;
+	attribute cnegNoCondition : Boolean = p3.cneg;
 	attribute v4New = new V4().verdict;
 	attribute r1Bound : Boolean = r1.result;
 	attribute r1Unbound : Boolean = r1u.result;

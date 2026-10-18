@@ -90,9 +90,8 @@ func OwnedResultExpressions(sym *symbols.Symbol) []ResultExpression {
 	return out
 }
 
-// StatesOwnCondition reports whether sym's own body states a condition it is
-// checked by: a result expression, or a nested assertion (`assert constraint {
-// … }`), which a check evaluates though it is not sym's result expression.
+// StatesOwnCondition reports whether sym's own body states a condition a check
+// evaluates: a result expression or a nested `assert`/`assume constraint` member.
 func StatesOwnCondition(sym *symbols.Symbol) bool {
 	if !FunctionLike(sym) {
 		return false
