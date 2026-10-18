@@ -1,0 +1,478 @@
+# Probe::p1 (type Probe::p1)
+differencesOf: ERROR no such feature: object has no such feature: member differencesOf not found in instance
+dispatchScope: ERROR no such feature: object has no such feature: member dispatchScope not found in instance
+enactedPerformances: ERROR no such feature: object has no such feature: member enactedPerformances not found in instance
+immediatePredecessors: ERROR no such feature: object has no such feature: member immediatePredecessors not found in instance
+immediateSuccessors: ERROR no such feature: object has no such feature: member immediateSuccessors not found in instance
+incomingTransferSort: ERROR no such feature: object has no such feature: member incomingTransferSort not found in instance
+incomingTransfers: ERROR no such feature: object has no such feature: member incomingTransfers not found in instance
+incomingTransfersToSelf: ERROR no such feature: object has no such feature: member incomingTransfersToSelf not found in instance
+innerSpaceDimension: ERROR no such feature: object has no such feature: member innerSpaceDimension not found in instance
+intersectionsOf: ERROR no such feature: object has no such feature: member intersectionsOf not found in instance
+involvingPerformances: ERROR no such feature: object has no such feature: member involvingPerformances not found in instance
+isClosed: ERROR no such feature: object has no such feature: member isClosed not found in instance
+isDispatch: ERROR no such feature: object has no such feature: member isDispatch not found in instance
+isRunToCompletion: ERROR no such feature: object has no such feature: member isRunToCompletion not found in instance
+justOutsideOfOccurrences: ERROR no such feature: object has no such feature: member justOutsideOfOccurrences not found in instance
+localClock: ERROR no such feature: object has no such feature: member localClock not found in instance
+matingOccurrences: ERROR no such feature: object has no such feature: member matingOccurrences not found in instance
+middleTimeSlice: ERROR no such feature: object has no such feature: member middleTimeSlice not found in instance
+outerSpaceDimension: ERROR no such feature: object has no such feature: member outerSpaceDimension not found in instance
+outgoingTransfers: ERROR no such feature: object has no such feature: member outgoingTransfers not found in instance
+outgoingTransfersFromSelf: ERROR no such feature: object has no such feature: member outgoingTransfersFromSelf not found in instance
+outsideOfOccurrences: ERROR no such feature: object has no such feature: member outsideOfOccurrences not found in instance
+ownedPerformances: ERROR no such feature: object has no such feature: member ownedPerformances not found in instance
+portionOf: ERROR no such feature: object has no such feature: member portionOf not found in instance
+portionOfLife: ERROR no such feature: object has no such feature: member portionOfLife not found in instance
+portions: ERROR no such feature: object has no such feature: member portions not found in instance
+predecessors: ERROR no such feature: object has no such feature: member predecessors not found in instance
+runToCompletionScope: ERROR no such feature: object has no such feature: member runToCompletionScope not found in instance
+sameLifeOccurrences: ERROR no such feature: object has no such feature: member sameLifeOccurrences not found in instance
+snapshotOf: ERROR no such feature: object has no such feature: member snapshotOf not found in instance
+snapshots: ERROR no such feature: object has no such feature: member snapshots not found in instance
+spaceBoundaryOf: ERROR no such feature: object has no such feature: member spaceBoundaryOf not found in instance
+spaceEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceEnclosedOccurrences not found in instance
+spaceInterior: ERROR no such feature: object has no such feature: member spaceInterior not found in instance
+spaceInteriorOf: ERROR no such feature: object has no such feature: member spaceInteriorOf not found in instance
+spaceShotOf: ERROR no such feature: object has no such feature: member spaceShotOf not found in instance
+spaceShots: ERROR no such feature: object has no such feature: member spaceShots not found in instance
+spaceSliceOf: ERROR no such feature: object has no such feature: member spaceSliceOf not found in instance
+spaceSlices: ERROR no such feature: object has no such feature: member spaceSlices not found in instance
+spaceTimeCoincidentOccurrences: ERROR no such feature: object has no such feature: member spaceTimeCoincidentOccurrences not found in instance
+spaceTimeEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceTimeEnclosedOccurrences not found in instance
+spaceTimeEnclosedPoints: ERROR no such feature: object has no such feature: member spaceTimeEnclosedPoints not found in instance
+structuredSpaceBoundary: ERROR no such feature: object has no such feature: member structuredSpaceBoundary not found in instance
+subobjects: ERROR no such feature: object has no such feature: member subobjects not found in instance
+suboccurrences: ERROR no such feature: object has no such feature: member suboccurrences not found in instance
+successors: ERROR no such feature: object has no such feature: member successors not found in instance
+superoccurrence: ERROR no such feature: object has no such feature: member superoccurrence not found in instance
+surroundedByOccurrences: ERROR no such feature: object has no such feature: member surroundedByOccurrences not found in instance
+that: ERROR no such feature: object has no such feature: member that not found in instance
+this: ERROR no such feature: object has no such feature: member this not found in instance
+timeCoincidentOccurrences: ERROR no such feature: object has no such feature: member timeCoincidentOccurrences not found in instance
+timeEnclosedOccurrences: ERROR no such feature: object has no such feature: member timeEnclosedOccurrences not found in instance
+timeSliceOf: ERROR no such feature: object has no such feature: member timeSliceOf not found in instance
+timeSlices: ERROR no such feature: object has no such feature: member timeSlices not found in instance
+unionsOf: ERROR no such feature: object has no such feature: member unionsOf not found in instance
+withoutOccurrences: ERROR no such feature: object has no such feature: member withoutOccurrences not found in instance
+
+# Probe::p1.pa (type Probe::P1::pa)
+differencesOf: ERROR no such feature: object has no such feature: member differencesOf not found in instance
+dispatchScope: ERROR no such feature: object has no such feature: member dispatchScope not found in instance
+enactedPerformances: ERROR no such feature: object has no such feature: member enactedPerformances not found in instance
+immediatePredecessors: ERROR no such feature: object has no such feature: member immediatePredecessors not found in instance
+immediateSuccessors: ERROR no such feature: object has no such feature: member immediateSuccessors not found in instance
+incomingTransferSort: ERROR no such feature: object has no such feature: member incomingTransferSort not found in instance
+incomingTransfers: ERROR no such feature: object has no such feature: member incomingTransfers not found in instance
+incomingTransfersToSelf: ERROR no such feature: object has no such feature: member incomingTransfersToSelf not found in instance
+innerSpaceDimension: ERROR no such feature: object has no such feature: member innerSpaceDimension not found in instance
+intersectionsOf: ERROR no such feature: object has no such feature: member intersectionsOf not found in instance
+involvingPerformances: ERROR no such feature: object has no such feature: member involvingPerformances not found in instance
+isClosed: ERROR no such feature: object has no such feature: member isClosed not found in instance
+isDispatch: ERROR no such feature: object has no such feature: member isDispatch not found in instance
+isRunToCompletion: ERROR no such feature: object has no such feature: member isRunToCompletion not found in instance
+justOutsideOfOccurrences: ERROR no such feature: object has no such feature: member justOutsideOfOccurrences not found in instance
+localClock: ERROR no such feature: object has no such feature: member localClock not found in instance
+matingOccurrences: ERROR no such feature: object has no such feature: member matingOccurrences not found in instance
+middleTimeSlice: ERROR no such feature: object has no such feature: member middleTimeSlice not found in instance
+outerSpaceDimension: ERROR no such feature: object has no such feature: member outerSpaceDimension not found in instance
+outgoingTransfers: ERROR no such feature: object has no such feature: member outgoingTransfers not found in instance
+outgoingTransfersFromSelf: ERROR no such feature: object has no such feature: member outgoingTransfersFromSelf not found in instance
+outsideOfOccurrences: ERROR no such feature: object has no such feature: member outsideOfOccurrences not found in instance
+ownedPerformances: ERROR no such feature: object has no such feature: member ownedPerformances not found in instance
+portionOf: ERROR no such feature: object has no such feature: member portionOf not found in instance
+portionOfLife: ERROR no such feature: object has no such feature: member portionOfLife not found in instance
+portions: ERROR no such feature: object has no such feature: member portions not found in instance
+predecessors: ERROR no such feature: object has no such feature: member predecessors not found in instance
+runToCompletionScope: ERROR no such feature: object has no such feature: member runToCompletionScope not found in instance
+sameLifeOccurrences: ERROR no such feature: object has no such feature: member sameLifeOccurrences not found in instance
+snapshotOf: ERROR no such feature: object has no such feature: member snapshotOf not found in instance
+snapshots: ERROR no such feature: object has no such feature: member snapshots not found in instance
+spaceBoundaryOf: ERROR no such feature: object has no such feature: member spaceBoundaryOf not found in instance
+spaceEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceEnclosedOccurrences not found in instance
+spaceInterior: ERROR no such feature: object has no such feature: member spaceInterior not found in instance
+spaceInteriorOf: ERROR no such feature: object has no such feature: member spaceInteriorOf not found in instance
+spaceShotOf: ERROR no such feature: object has no such feature: member spaceShotOf not found in instance
+spaceShots: ERROR no such feature: object has no such feature: member spaceShots not found in instance
+spaceSliceOf: ERROR no such feature: object has no such feature: member spaceSliceOf not found in instance
+spaceSlices: ERROR no such feature: object has no such feature: member spaceSlices not found in instance
+spaceTimeCoincidentOccurrences: ERROR no such feature: object has no such feature: member spaceTimeCoincidentOccurrences not found in instance
+spaceTimeEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceTimeEnclosedOccurrences not found in instance
+spaceTimeEnclosedPoints: ERROR no such feature: object has no such feature: member spaceTimeEnclosedPoints not found in instance
+structuredSpaceBoundary: ERROR no such feature: object has no such feature: member structuredSpaceBoundary not found in instance
+subobjects: ERROR no such feature: object has no such feature: member subobjects not found in instance
+suboccurrences: ERROR no such feature: object has no such feature: member suboccurrences not found in instance
+successors: ERROR no such feature: object has no such feature: member successors not found in instance
+superoccurrence: ERROR no such feature: object has no such feature: member superoccurrence not found in instance
+surroundedByOccurrences: ERROR no such feature: object has no such feature: member surroundedByOccurrences not found in instance
+that: ERROR no such feature: object has no such feature: member that not found in instance
+this: ERROR no such feature: object has no such feature: member this not found in instance
+timeCoincidentOccurrences: ERROR no such feature: object has no such feature: member timeCoincidentOccurrences not found in instance
+timeEnclosedOccurrences: ERROR no such feature: object has no such feature: member timeEnclosedOccurrences not found in instance
+timeSliceOf: ERROR no such feature: object has no such feature: member timeSliceOf not found in instance
+timeSlices: ERROR no such feature: object has no such feature: member timeSlices not found in instance
+unionsOf: ERROR no such feature: object has no such feature: member unionsOf not found in instance
+withoutOccurrences: ERROR no such feature: object has no such feature: member withoutOccurrences not found in instance
+
+# Probe::p1.ia (type Probe::P1::ia)
+differencesOf: ERROR no such feature: object has no such feature: member differencesOf not found in instance
+dispatchScope: ERROR no such feature: object has no such feature: member dispatchScope not found in instance
+enactedPerformances: ERROR no such feature: object has no such feature: member enactedPerformances not found in instance
+immediatePredecessors: ERROR no such feature: object has no such feature: member immediatePredecessors not found in instance
+immediateSuccessors: ERROR no such feature: object has no such feature: member immediateSuccessors not found in instance
+incomingTransferSort: ERROR no such feature: object has no such feature: member incomingTransferSort not found in instance
+incomingTransfers: ERROR no such feature: object has no such feature: member incomingTransfers not found in instance
+incomingTransfersToSelf: ERROR no such feature: object has no such feature: member incomingTransfersToSelf not found in instance
+innerSpaceDimension: ERROR no such feature: object has no such feature: member innerSpaceDimension not found in instance
+intersectionsOf: ERROR no such feature: object has no such feature: member intersectionsOf not found in instance
+involvingPerformances: ERROR no such feature: object has no such feature: member involvingPerformances not found in instance
+isClosed: ERROR no such feature: object has no such feature: member isClosed not found in instance
+isDispatch: ERROR no such feature: object has no such feature: member isDispatch not found in instance
+isRunToCompletion: ERROR no such feature: object has no such feature: member isRunToCompletion not found in instance
+justOutsideOfOccurrences: ERROR no such feature: object has no such feature: member justOutsideOfOccurrences not found in instance
+localClock: ERROR no such feature: object has no such feature: member localClock not found in instance
+matingOccurrences: ERROR no such feature: object has no such feature: member matingOccurrences not found in instance
+middleTimeSlice: ERROR no such feature: object has no such feature: member middleTimeSlice not found in instance
+outerSpaceDimension: ERROR no such feature: object has no such feature: member outerSpaceDimension not found in instance
+outgoingTransfers: ERROR no such feature: object has no such feature: member outgoingTransfers not found in instance
+outgoingTransfersFromSelf: ERROR no such feature: object has no such feature: member outgoingTransfersFromSelf not found in instance
+outsideOfOccurrences: ERROR no such feature: object has no such feature: member outsideOfOccurrences not found in instance
+ownedPerformances: ERROR no such feature: object has no such feature: member ownedPerformances not found in instance
+portionOf: ERROR no such feature: object has no such feature: member portionOf not found in instance
+portionOfLife: ERROR no such feature: object has no such feature: member portionOfLife not found in instance
+portions: ERROR no such feature: object has no such feature: member portions not found in instance
+predecessors: ERROR no such feature: object has no such feature: member predecessors not found in instance
+runToCompletionScope: ERROR no such feature: object has no such feature: member runToCompletionScope not found in instance
+sameLifeOccurrences: ERROR no such feature: object has no such feature: member sameLifeOccurrences not found in instance
+snapshotOf: ERROR no such feature: object has no such feature: member snapshotOf not found in instance
+snapshots: ERROR no such feature: object has no such feature: member snapshots not found in instance
+spaceBoundaryOf: ERROR no such feature: object has no such feature: member spaceBoundaryOf not found in instance
+spaceEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceEnclosedOccurrences not found in instance
+spaceInterior: ERROR no such feature: object has no such feature: member spaceInterior not found in instance
+spaceInteriorOf: ERROR no such feature: object has no such feature: member spaceInteriorOf not found in instance
+spaceShotOf: ERROR no such feature: object has no such feature: member spaceShotOf not found in instance
+spaceShots: ERROR no such feature: object has no such feature: member spaceShots not found in instance
+spaceSliceOf: ERROR no such feature: object has no such feature: member spaceSliceOf not found in instance
+spaceSlices: ERROR no such feature: object has no such feature: member spaceSlices not found in instance
+spaceTimeCoincidentOccurrences: ERROR no such feature: object has no such feature: member spaceTimeCoincidentOccurrences not found in instance
+spaceTimeEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceTimeEnclosedOccurrences not found in instance
+spaceTimeEnclosedPoints: ERROR no such feature: object has no such feature: member spaceTimeEnclosedPoints not found in instance
+structuredSpaceBoundary: ERROR no such feature: object has no such feature: member structuredSpaceBoundary not found in instance
+subobjects: ERROR no such feature: object has no such feature: member subobjects not found in instance
+suboccurrences: ERROR no such feature: object has no such feature: member suboccurrences not found in instance
+successors: ERROR no such feature: object has no such feature: member successors not found in instance
+superoccurrence: ERROR no such feature: object has no such feature: member superoccurrence not found in instance
+surroundedByOccurrences: ERROR no such feature: object has no such feature: member surroundedByOccurrences not found in instance
+that: ERROR no such feature: object has no such feature: member that not found in instance
+this: ERROR no such feature: object has no such feature: member this not found in instance
+timeCoincidentOccurrences: ERROR no such feature: object has no such feature: member timeCoincidentOccurrences not found in instance
+timeEnclosedOccurrences: ERROR no such feature: object has no such feature: member timeEnclosedOccurrences not found in instance
+timeSliceOf: ERROR no such feature: object has no such feature: member timeSliceOf not found in instance
+timeSlices: ERROR no such feature: object has no such feature: member timeSlices not found in instance
+unionsOf: ERROR no such feature: object has no such feature: member unionsOf not found in instance
+withoutOccurrences: ERROR no such feature: object has no such feature: member withoutOccurrences not found in instance
+
+# Probe::p1.pt (type Probe::P1::pt)
+differencesOf: ERROR no such feature: object has no such feature: member differencesOf not found in instance
+dispatchScope: ERROR no such feature: object has no such feature: member dispatchScope not found in instance
+enactedPerformances: ERROR no such feature: object has no such feature: member enactedPerformances not found in instance
+endShot: ERROR no such feature: object has no such feature: member endShot not found in instance
+immediatePredecessors: ERROR no such feature: object has no such feature: member immediatePredecessors not found in instance
+immediateSuccessors: ERROR no such feature: object has no such feature: member immediateSuccessors not found in instance
+incomingTransferSort: ERROR no such feature: object has no such feature: member incomingTransferSort not found in instance
+incomingTransfers: ERROR no such feature: object has no such feature: member incomingTransfers not found in instance
+incomingTransfersToSelf: ERROR no such feature: object has no such feature: member incomingTransfersToSelf not found in instance
+innerSpaceDimension: ERROR no such feature: object has no such feature: member innerSpaceDimension not found in instance
+innerSpaceOccurrences: ERROR no such feature: object has no such feature: member innerSpaceOccurrences not found in instance
+intersectionsOf: ERROR no such feature: object has no such feature: member intersectionsOf not found in instance
+involvingPerformances: ERROR no such feature: object has no such feature: member involvingPerformances not found in instance
+isClosed: ERROR no such feature: object has no such feature: member isClosed not found in instance
+isDispatch: ERROR no such feature: object has no such feature: member isDispatch not found in instance
+isRunToCompletion: ERROR no such feature: object has no such feature: member isRunToCompletion not found in instance
+justOutsideOfOccurrences: ERROR no such feature: object has no such feature: member justOutsideOfOccurrences not found in instance
+localClock: ERROR no such feature: object has no such feature: member localClock not found in instance
+matingOccurrences: ERROR no such feature: object has no such feature: member matingOccurrences not found in instance
+middleTimeSlice: ERROR no such feature: object has no such feature: member middleTimeSlice not found in instance
+outerSpaceDimension: ERROR no such feature: object has no such feature: member outerSpaceDimension not found in instance
+outgoingTransfers: ERROR no such feature: object has no such feature: member outgoingTransfers not found in instance
+outsideOfOccurrences: ERROR no such feature: object has no such feature: member outsideOfOccurrences not found in instance
+ownedPerformances: ERROR no such feature: object has no such feature: member ownedPerformances not found in instance
+portionOf: ERROR no such feature: object has no such feature: member portionOf not found in instance
+portionOfLife: ERROR no such feature: object has no such feature: member portionOfLife not found in instance
+portions: ERROR no such feature: object has no such feature: member portions not found in instance
+predecessors: ERROR no such feature: object has no such feature: member predecessors not found in instance
+runToCompletionScope: ERROR no such feature: object has no such feature: member runToCompletionScope not found in instance
+sameLifeOccurrences: ERROR no such feature: object has no such feature: member sameLifeOccurrences not found in instance
+snapshotOf: ERROR no such feature: object has no such feature: member snapshotOf not found in instance
+snapshots: ERROR no such feature: object has no such feature: member snapshots not found in instance
+spaceBoundary: ERROR no such feature: object has no such feature: member spaceBoundary not found in instance
+spaceBoundaryOf: ERROR no such feature: object has no such feature: member spaceBoundaryOf not found in instance
+spaceEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceEnclosedOccurrences not found in instance
+spaceInterior: ERROR no such feature: object has no such feature: member spaceInterior not found in instance
+spaceInteriorOf: ERROR no such feature: object has no such feature: member spaceInteriorOf not found in instance
+spaceShotOf: ERROR no such feature: object has no such feature: member spaceShotOf not found in instance
+spaceShots: ERROR no such feature: object has no such feature: member spaceShots not found in instance
+spaceSliceOf: ERROR no such feature: object has no such feature: member spaceSliceOf not found in instance
+spaceSlices: ERROR no such feature: object has no such feature: member spaceSlices not found in instance
+spaceTimeCoincidentOccurrences: ERROR no such feature: object has no such feature: member spaceTimeCoincidentOccurrences not found in instance
+spaceTimeEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceTimeEnclosedOccurrences not found in instance
+spaceTimeEnclosedPoints: ERROR no such feature: object has no such feature: member spaceTimeEnclosedPoints not found in instance
+startShot: ERROR no such feature: object has no such feature: member startShot not found in instance
+structuredSpaceBoundary: ERROR no such feature: object has no such feature: member structuredSpaceBoundary not found in instance
+subobjects: ERROR no such feature: object has no such feature: member subobjects not found in instance
+suboccurrences: ERROR no such feature: object has no such feature: member suboccurrences not found in instance
+successors: ERROR no such feature: object has no such feature: member successors not found in instance
+superoccurrence: ERROR no such feature: object has no such feature: member superoccurrence not found in instance
+surroundedByOccurrences: ERROR no such feature: object has no such feature: member surroundedByOccurrences not found in instance
+that: ERROR no such feature: object has no such feature: member that not found in instance
+this: ERROR no such feature: object has no such feature: member this not found in instance
+timeCoincidentOccurrences: ERROR no such feature: object has no such feature: member timeCoincidentOccurrences not found in instance
+timeEnclosedOccurrences: ERROR no such feature: object has no such feature: member timeEnclosedOccurrences not found in instance
+timeSliceOf: ERROR no such feature: object has no such feature: member timeSliceOf not found in instance
+timeSlices: ERROR no such feature: object has no such feature: member timeSlices not found in instance
+unionsOf: ERROR no such feature: object has no such feature: member unionsOf not found in instance
+withoutOccurrences: ERROR no such feature: object has no such feature: member withoutOccurrences not found in instance
+
+# object of Probe::P1::act (type Probe::P1::act)
+differencesOf: ERROR no such feature: object has no such feature: member differencesOf not found in instance
+dispatchScope: ERROR no such feature: object has no such feature: member dispatchScope not found in instance
+enclosedPerformances: ERROR no such feature: object has no such feature: member enclosedPerformances not found in instance
+immediatePredecessors: ERROR no such feature: object has no such feature: member immediatePredecessors not found in instance
+immediateSuccessors: ERROR no such feature: object has no such feature: member immediateSuccessors not found in instance
+incomingTransferSort: ERROR no such feature: object has no such feature: member incomingTransferSort not found in instance
+incomingTransfersToSelf: ERROR no such feature: object has no such feature: member incomingTransfersToSelf not found in instance
+innerSpaceDimension: ERROR no such feature: object has no such feature: member innerSpaceDimension not found in instance
+innerSpaceOccurrences: ERROR no such feature: object has no such feature: member innerSpaceOccurrences not found in instance
+intersectionsOf: ERROR no such feature: object has no such feature: member intersectionsOf not found in instance
+involvedObjects: ERROR no such feature: object has no such feature: member involvedObjects not found in instance
+isClosed: ERROR no such feature: object has no such feature: member isClosed not found in instance
+isDispatch: ERROR no such feature: object has no such feature: member isDispatch not found in instance
+isRunToCompletion: ERROR no such feature: object has no such feature: member isRunToCompletion not found in instance
+justOutsideOfOccurrences: ERROR no such feature: object has no such feature: member justOutsideOfOccurrences not found in instance
+localClock: ERROR no such feature: object has no such feature: member localClock not found in instance
+matingOccurrences: ERROR no such feature: object has no such feature: member matingOccurrences not found in instance
+middleTimeSlice: ERROR no such feature: object has no such feature: member middleTimeSlice not found in instance
+outerSpaceDimension: ERROR no such feature: object has no such feature: member outerSpaceDimension not found in instance
+outgoingTransfers: ERROR no such feature: object has no such feature: member outgoingTransfers not found in instance
+outgoingTransfersFromSelf: ERROR no such feature: object has no such feature: member outgoingTransfersFromSelf not found in instance
+outsideOfOccurrences: ERROR no such feature: object has no such feature: member outsideOfOccurrences not found in instance
+performers: ERROR no such feature: object has no such feature: member performers not found in instance
+portionOf: ERROR no such feature: object has no such feature: member portionOf not found in instance
+portionOfLife: ERROR no such feature: object has no such feature: member portionOfLife not found in instance
+portions: ERROR no such feature: object has no such feature: member portions not found in instance
+predecessors: ERROR no such feature: object has no such feature: member predecessors not found in instance
+runToCompletionScope: ERROR no such feature: object has no such feature: member runToCompletionScope not found in instance
+sameLifeOccurrences: ERROR no such feature: object has no such feature: member sameLifeOccurrences not found in instance
+snapshotOf: ERROR no such feature: object has no such feature: member snapshotOf not found in instance
+snapshots: ERROR no such feature: object has no such feature: member snapshots not found in instance
+spaceBoundary: ERROR no such feature: object has no such feature: member spaceBoundary not found in instance
+spaceBoundaryOf: ERROR no such feature: object has no such feature: member spaceBoundaryOf not found in instance
+spaceEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceEnclosedOccurrences not found in instance
+spaceInterior: ERROR no such feature: object has no such feature: member spaceInterior not found in instance
+spaceInteriorOf: ERROR no such feature: object has no such feature: member spaceInteriorOf not found in instance
+spaceShotOf: ERROR no such feature: object has no such feature: member spaceShotOf not found in instance
+spaceShots: ERROR no such feature: object has no such feature: member spaceShots not found in instance
+spaceSliceOf: ERROR no such feature: object has no such feature: member spaceSliceOf not found in instance
+spaceSlices: ERROR no such feature: object has no such feature: member spaceSlices not found in instance
+spaceTimeCoincidentOccurrences: ERROR no such feature: object has no such feature: member spaceTimeCoincidentOccurrences not found in instance
+spaceTimeEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceTimeEnclosedOccurrences not found in instance
+spaceTimeEnclosedPoints: ERROR no such feature: object has no such feature: member spaceTimeEnclosedPoints not found in instance
+suboccurrences: ERROR no such feature: object has no such feature: member suboccurrences not found in instance
+subperformances: ERROR no such feature: object has no such feature: member subperformances not found in instance
+successors: ERROR no such feature: object has no such feature: member successors not found in instance
+superoccurrence: ERROR no such feature: object has no such feature: member superoccurrence not found in instance
+surroundedByOccurrences: ERROR no such feature: object has no such feature: member surroundedByOccurrences not found in instance
+that: ERROR no such feature: object has no such feature: member that not found in instance
+this: ERROR no such feature: object has no such feature: member this not found in instance
+thisPerformance: ERROR no such feature: object has no such feature: member thisPerformance not found in instance
+timeCoincidentOccurrences: ERROR no such feature: object has no such feature: member timeCoincidentOccurrences not found in instance
+timeEnclosedOccurrences: ERROR no such feature: object has no such feature: member timeEnclosedOccurrences not found in instance
+timeSliceOf: ERROR no such feature: object has no such feature: member timeSliceOf not found in instance
+timeSlices: ERROR no such feature: object has no such feature: member timeSlices not found in instance
+unionsOf: ERROR no such feature: object has no such feature: member unionsOf not found in instance
+withoutOccurrences: ERROR no such feature: object has no such feature: member withoutOccurrences not found in instance
+
+# object of Probe::P1::st (type Probe::P1::st)
+acceptable: ERROR no such feature: object has no such feature: member acceptable not found in instance
+accepted: ERROR no such feature: object has no such feature: member accepted not found in instance
+deferrable: ERROR no such feature: object has no such feature: member deferrable not found in instance
+differencesOf: ERROR no such feature: object has no such feature: member differencesOf not found in instance
+dispatchScope: ERROR no such feature: object has no such feature: member dispatchScope not found in instance
+enclosedPerformances: ERROR no such feature: object has no such feature: member enclosedPerformances not found in instance
+immediatePredecessors: ERROR no such feature: object has no such feature: member immediatePredecessors not found in instance
+immediateSuccessors: ERROR no such feature: object has no such feature: member immediateSuccessors not found in instance
+incomingTransferSort: ERROR no such feature: object has no such feature: member incomingTransferSort not found in instance
+incomingTransfersToSelf: ERROR no such feature: object has no such feature: member incomingTransfersToSelf not found in instance
+incomingTransitionTrigger: ERROR no such feature: object has no such feature: member incomingTransitionTrigger not found in instance
+innerSpaceDimension: ERROR no such feature: object has no such feature: member innerSpaceDimension not found in instance
+innerSpaceOccurrences: ERROR no such feature: object has no such feature: member innerSpaceOccurrences not found in instance
+intersectionsOf: ERROR no such feature: object has no such feature: member intersectionsOf not found in instance
+involvedObjects: ERROR no such feature: object has no such feature: member involvedObjects not found in instance
+isClosed: ERROR no such feature: object has no such feature: member isClosed not found in instance
+isDispatch: ERROR no such feature: object has no such feature: member isDispatch not found in instance
+isRunToCompletion: ERROR no such feature: object has no such feature: member isRunToCompletion not found in instance
+justOutsideOfOccurrences: ERROR no such feature: object has no such feature: member justOutsideOfOccurrences not found in instance
+localClock: ERROR no such feature: object has no such feature: member localClock not found in instance
+matingOccurrences: ERROR no such feature: object has no such feature: member matingOccurrences not found in instance
+middle: ERROR no such feature: object has no such feature: member middle not found in instance
+middleTimeSlice: ERROR no such feature: object has no such feature: member middleTimeSlice not found in instance
+nonDoMiddle: ERROR no such feature: object has no such feature: member nonDoMiddle not found in instance
+outerSpaceDimension: ERROR no such feature: object has no such feature: member outerSpaceDimension not found in instance
+outgoingHBLink: ERROR no such feature: object has no such feature: member outgoingHBLink not found in instance
+outgoingTransfers: ERROR no such feature: object has no such feature: member outgoingTransfers not found in instance
+outgoingTransfersFromSelf: ERROR no such feature: object has no such feature: member outgoingTransfersFromSelf not found in instance
+outsideOfOccurrences: ERROR no such feature: object has no such feature: member outsideOfOccurrences not found in instance
+performers: ERROR no such feature: object has no such feature: member performers not found in instance
+portionOf: ERROR no such feature: object has no such feature: member portionOf not found in instance
+portionOfLife: ERROR no such feature: object has no such feature: member portionOfLife not found in instance
+portions: ERROR no such feature: object has no such feature: member portions not found in instance
+predecessors: ERROR no such feature: object has no such feature: member predecessors not found in instance
+runToCompletionScope: ERROR no such feature: object has no such feature: member runToCompletionScope not found in instance
+sameLifeOccurrences: ERROR no such feature: object has no such feature: member sameLifeOccurrences not found in instance
+snapshotOf: ERROR no such feature: object has no such feature: member snapshotOf not found in instance
+snapshots: ERROR no such feature: object has no such feature: member snapshots not found in instance
+spaceBoundary: ERROR no such feature: object has no such feature: member spaceBoundary not found in instance
+spaceBoundaryOf: ERROR no such feature: object has no such feature: member spaceBoundaryOf not found in instance
+spaceEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceEnclosedOccurrences not found in instance
+spaceInterior: ERROR no such feature: object has no such feature: member spaceInterior not found in instance
+spaceInteriorOf: ERROR no such feature: object has no such feature: member spaceInteriorOf not found in instance
+spaceShotOf: ERROR no such feature: object has no such feature: member spaceShotOf not found in instance
+spaceShots: ERROR no such feature: object has no such feature: member spaceShots not found in instance
+spaceSliceOf: ERROR no such feature: object has no such feature: member spaceSliceOf not found in instance
+spaceSlices: ERROR no such feature: object has no such feature: member spaceSlices not found in instance
+spaceTimeCoincidentOccurrences: ERROR no such feature: object has no such feature: member spaceTimeCoincidentOccurrences not found in instance
+spaceTimeEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceTimeEnclosedOccurrences not found in instance
+spaceTimeEnclosedPoints: ERROR no such feature: object has no such feature: member spaceTimeEnclosedPoints not found in instance
+suboccurrences: ERROR no such feature: object has no such feature: member suboccurrences not found in instance
+subperformances: ERROR no such feature: object has no such feature: member subperformances not found in instance
+successors: ERROR no such feature: object has no such feature: member successors not found in instance
+superoccurrence: ERROR no such feature: object has no such feature: member superoccurrence not found in instance
+surroundedByOccurrences: ERROR no such feature: object has no such feature: member surroundedByOccurrences not found in instance
+that: ERROR no such feature: object has no such feature: member that not found in instance
+this: ERROR no such feature: object has no such feature: member this not found in instance
+thisPerformance: ERROR no such feature: object has no such feature: member thisPerformance not found in instance
+timeCoincidentOccurrences: ERROR no such feature: object has no such feature: member timeCoincidentOccurrences not found in instance
+timeEnclosedOccurrences: ERROR no such feature: object has no such feature: member timeEnclosedOccurrences not found in instance
+timeSliceOf: ERROR no such feature: object has no such feature: member timeSliceOf not found in instance
+timeSlices: ERROR no such feature: object has no such feature: member timeSlices not found in instance
+unionsOf: ERROR no such feature: object has no such feature: member unionsOf not found in instance
+withoutOccurrences: ERROR no such feature: object has no such feature: member withoutOccurrences not found in instance
+
+# object of Probe::A (type Probe::A)
+differencesOf: ERROR no such feature: object has no such feature: member differencesOf not found in instance
+dispatchScope: ERROR no such feature: object has no such feature: member dispatchScope not found in instance
+enclosedPerformances: ERROR no such feature: object has no such feature: member enclosedPerformances not found in instance
+immediatePredecessors: ERROR no such feature: object has no such feature: member immediatePredecessors not found in instance
+immediateSuccessors: ERROR no such feature: object has no such feature: member immediateSuccessors not found in instance
+incomingTransferSort: ERROR no such feature: object has no such feature: member incomingTransferSort not found in instance
+incomingTransfersToSelf: ERROR no such feature: object has no such feature: member incomingTransfersToSelf not found in instance
+innerSpaceDimension: ERROR no such feature: object has no such feature: member innerSpaceDimension not found in instance
+innerSpaceOccurrences: ERROR no such feature: object has no such feature: member innerSpaceOccurrences not found in instance
+intersectionsOf: ERROR no such feature: object has no such feature: member intersectionsOf not found in instance
+involvedObjects: ERROR no such feature: object has no such feature: member involvedObjects not found in instance
+isClosed: ERROR no such feature: object has no such feature: member isClosed not found in instance
+isDispatch: ERROR no such feature: object has no such feature: member isDispatch not found in instance
+isRunToCompletion: ERROR no such feature: object has no such feature: member isRunToCompletion not found in instance
+justOutsideOfOccurrences: ERROR no such feature: object has no such feature: member justOutsideOfOccurrences not found in instance
+localClock: ERROR no such feature: object has no such feature: member localClock not found in instance
+matingOccurrences: ERROR no such feature: object has no such feature: member matingOccurrences not found in instance
+middleTimeSlice: ERROR no such feature: object has no such feature: member middleTimeSlice not found in instance
+outerSpaceDimension: ERROR no such feature: object has no such feature: member outerSpaceDimension not found in instance
+outgoingTransfers: ERROR no such feature: object has no such feature: member outgoingTransfers not found in instance
+outgoingTransfersFromSelf: ERROR no such feature: object has no such feature: member outgoingTransfersFromSelf not found in instance
+outsideOfOccurrences: ERROR no such feature: object has no such feature: member outsideOfOccurrences not found in instance
+performers: ERROR no such feature: object has no such feature: member performers not found in instance
+portionOf: ERROR no such feature: object has no such feature: member portionOf not found in instance
+portionOfLife: ERROR no such feature: object has no such feature: member portionOfLife not found in instance
+portions: ERROR no such feature: object has no such feature: member portions not found in instance
+predecessors: ERROR no such feature: object has no such feature: member predecessors not found in instance
+runToCompletionScope: ERROR no such feature: object has no such feature: member runToCompletionScope not found in instance
+sameLifeOccurrences: ERROR no such feature: object has no such feature: member sameLifeOccurrences not found in instance
+snapshotOf: ERROR no such feature: object has no such feature: member snapshotOf not found in instance
+snapshots: ERROR no such feature: object has no such feature: member snapshots not found in instance
+spaceBoundary: ERROR no such feature: object has no such feature: member spaceBoundary not found in instance
+spaceBoundaryOf: ERROR no such feature: object has no such feature: member spaceBoundaryOf not found in instance
+spaceEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceEnclosedOccurrences not found in instance
+spaceInterior: ERROR no such feature: object has no such feature: member spaceInterior not found in instance
+spaceInteriorOf: ERROR no such feature: object has no such feature: member spaceInteriorOf not found in instance
+spaceShotOf: ERROR no such feature: object has no such feature: member spaceShotOf not found in instance
+spaceShots: ERROR no such feature: object has no such feature: member spaceShots not found in instance
+spaceSliceOf: ERROR no such feature: object has no such feature: member spaceSliceOf not found in instance
+spaceSlices: ERROR no such feature: object has no such feature: member spaceSlices not found in instance
+spaceTimeCoincidentOccurrences: ERROR no such feature: object has no such feature: member spaceTimeCoincidentOccurrences not found in instance
+spaceTimeEnclosedOccurrences: ERROR no such feature: object has no such feature: member spaceTimeEnclosedOccurrences not found in instance
+spaceTimeEnclosedPoints: ERROR no such feature: object has no such feature: member spaceTimeEnclosedPoints not found in instance
+suboccurrences: ERROR no such feature: object has no such feature: member suboccurrences not found in instance
+subperformances: ERROR no such feature: object has no such feature: member subperformances not found in instance
+successors: ERROR no such feature: object has no such feature: member successors not found in instance
+superoccurrence: ERROR no such feature: object has no such feature: member superoccurrence not found in instance
+surroundedByOccurrences: ERROR no such feature: object has no such feature: member surroundedByOccurrences not found in instance
+this: ERROR no such feature: object has no such feature: member this not found in instance
+thisPerformance: ERROR no such feature: object has no such feature: member thisPerformance not found in instance
+timeCoincidentOccurrences: ERROR no such feature: object has no such feature: member timeCoincidentOccurrences not found in instance
+timeEnclosedOccurrences: ERROR no such feature: object has no such feature: member timeEnclosedOccurrences not found in instance
+timeSliceOf: ERROR no such feature: object has no such feature: member timeSliceOf not found in instance
+timeSlices: ERROR no such feature: object has no such feature: member timeSlices not found in instance
+unionsOf: ERROR no such feature: object has no such feature: member unionsOf not found in instance
+withoutOccurrences: ERROR no such feature: object has no such feature: member withoutOccurrences not found in instance
+
+# Probe::a (unperformed action usage)
+differencesOf: undetermined <undetermined>
+dispatchScope: undetermined <undetermined>
+enclosedPerformances: undetermined <undetermined>
+immediatePredecessors: undetermined <undetermined>
+immediateSuccessors: undetermined <undetermined>
+incomingTransferSort: undetermined <undetermined>
+incomingTransfersToSelf: undetermined <undetermined>
+innerSpaceDimension: undetermined <undetermined>
+innerSpaceOccurrences: undetermined <undetermined>
+intersectionsOf: undetermined <undetermined>
+involvedObjects: undetermined <undetermined>
+isClosed: undetermined <undetermined>
+isDispatch: undetermined <undetermined>
+isRunToCompletion: undetermined <undetermined>
+justOutsideOfOccurrences: undetermined <undetermined>
+localClock: undetermined <undetermined>
+matingOccurrences: undetermined <undetermined>
+middleTimeSlice: undetermined <undetermined>
+outerSpaceDimension: undetermined <undetermined>
+outgoingTransfers: undetermined <undetermined>
+outgoingTransfersFromSelf: undetermined <undetermined>
+outsideOfOccurrences: undetermined <undetermined>
+performers: undetermined <undetermined>
+portionOf: undetermined <undetermined>
+portionOfLife: undetermined <undetermined>
+portions: undetermined <undetermined>
+predecessors: undetermined <undetermined>
+runToCompletionScope: undetermined <undetermined>
+sameLifeOccurrences: undetermined <undetermined>
+snapshotOf: undetermined <undetermined>
+snapshots: undetermined <undetermined>
+spaceBoundary: undetermined <undetermined>
+spaceBoundaryOf: undetermined <undetermined>
+spaceEnclosedOccurrences: undetermined <undetermined>
+spaceInterior: undetermined <undetermined>
+spaceInteriorOf: undetermined <undetermined>
+spaceShotOf: undetermined <undetermined>
+spaceShots: undetermined <undetermined>
+spaceSliceOf: undetermined <undetermined>
+spaceSlices: undetermined <undetermined>
+spaceTimeCoincidentOccurrences: undetermined <undetermined>
+spaceTimeEnclosedOccurrences: undetermined <undetermined>
+spaceTimeEnclosedPoints: undetermined <undetermined>
+suboccurrences: undetermined <undetermined>
+subperformances: undetermined <undetermined>
+successors: undetermined <undetermined>
+superoccurrence: undetermined <undetermined>
+surroundedByOccurrences: undetermined <undetermined>
+this: undetermined <undetermined>
+thisPerformance: undetermined <undetermined>
+timeCoincidentOccurrences: undetermined <undetermined>
+timeEnclosedOccurrences: undetermined <undetermined>
+timeSliceOf: undetermined <undetermined>
+timeSlices: undetermined <undetermined>
+unionsOf: undetermined <undetermined>
+withoutOccurrences: undetermined <undetermined>
+
+# nonexistent member
+Probe::p1.ownedParts: ERROR no such feature: object has no such feature: member ownedParts not found in instance
