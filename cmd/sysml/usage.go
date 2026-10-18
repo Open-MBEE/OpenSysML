@@ -125,7 +125,7 @@ func doc() usage.Doc {
 			Examples: []usage.Example{
 				usage.Ex("sysml -engines", "List engines, kind and status; nothing runs"),
 				usage.Ex("sysml -engines -probe", "Also start each external engine once"),
-				usage.Ex("sysml -metaclass-graph -o sysml-metaclasses.ttl", "Write the metaclass hierarchy as Turtle; no model is read"),
+				usage.Ex("sysml -metaclass-graph -o metaclasses.ttl", "Write the metaclass hierarchy as Turtle"),
 				usage.Ex("sysml -engine explore -action Drive m.sysml", "The same as -schedule explore"),
 				usage.Ex("sysml -engine all -requirement R m.sysml", "Every engine that covers the question"),
 				usage.Ex("sysml -engine run -json -constraint C m.sysml", "One engine; the plan in the report"),
@@ -837,6 +837,7 @@ func optionGroups() []usage.OptionGroup {
 		Title: "Converting and migrating",
 		Options: []usage.Option{
 			usage.Opt("convert", formatArg),
+			usage.Opt("metaclass-graph", ""),
 			usage.Opt("migrate", formatArg),
 			usage.Opt("from", formatArg),
 			usage.Opt("import", fileArg),
