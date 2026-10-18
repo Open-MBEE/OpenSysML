@@ -13,11 +13,11 @@
     "cargo.mass": {"type": "Real", "value": 3.0},
     "cargo.isSolid": {"type": "Boolean", "value": true},
     "cargo.shape": {"type": "Sequence", "elements": []},
-    "self": {"error": "feature \"self\" not found"},
-    "portions": {"error": "feature \"portions\" not found"},
-    "snapshots": {"error": "feature \"snapshots\" not found"},
-    "start": {"error": "feature \"start\" not found"},
-    "done": {"error": "feature \"done\" not found"},
-    "cargo.self": {"error": "feature \"self\" not found"}
+    "self": {"type": "Instance"},
+    "portions": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "snapshots": {"type": "Undetermined", "value": "[1..*]"},
+    "start": {"type": "Undetermined", "value": "[1]"},
+    "done": {"type": "Undetermined", "value": "[1]"},
+    "cargo.self": {"type": "Instance"}
   }
 }

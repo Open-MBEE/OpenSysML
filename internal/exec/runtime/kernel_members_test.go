@@ -30,13 +30,12 @@ const kernelProbeModel = `package Probe {
 	action a : A;
 }`
 
-// kernelTierMembers lists the public members an object of typ inherits from the
-// Kernel Semantic Library, as the semantics resolve them, in a stable order.
+// kernelTierMembers lists the public members of typ the shape leaves out as the
+// Kernel Semantic Library's frame, as the semantics resolve them, in a stable order.
 func kernelTierMembers(ctx *Context, typ *symbols.Symbol) []*symbols.Symbol {
-	idx := ctx.model.resolver.Index()
 	var members []*symbols.Symbol
 	for _, m := range ctx.model.semantics.MembersOf(typ) {
-		if m.Name == "" || !m.IsFeature() || idx.LibraryTier(m) != symbols.TierKernelSemantic {
+		if m.Name == "" || !m.IsFeature() || !ctx.kernelFrameMember(m) {
 			continue
 		}
 		if m.Visibility == ast.VisibilityPrivate || m.Visibility == ast.VisibilityProtected {

@@ -1,0 +1,217 @@
+package runtime
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+)
+
+// MemberValue reads the member of the object that name denotes, as every surface
+// reads one: a feature value of its shape, else a member the shape leaves out
+// through kernelMemberRead. GetFeatureValue alone probes the shape.
+func (inst *Instance) MemberValue(ctx *Context, name string) (*FeatureValue, error) {
+	fv, err := inst.GetFeatureValue(ctx, name)
+	if err == nil || !errors.Is(err, ErrNoSuchFeature) {
+		return fv, err
+	}
+	if _, has := inst.FeatureValues[name]; has {
+		return fv, err
+	}
+	if kfv, answered, kerr := ctx.kernelMemberRead(inst, name); answered {
+		return kfv, kerr
+	}
+	return fv, err
+}
+
+// kernelMemberRead answers a read of a member the object's shape leaves out: a
+// name that is no member of the object's type is refused naming the type, and a
+// Kernel Semantic Library member is answered from what the runtime tracks, the
+// library's own declared value, the composition it inverts, or its multiplicity —
+// empty where the lower bound is 0, undetermined where it is not. The second
+// result is false for a member the rule does not cover, which the caller reports.
+func (ctx *Context) kernelMemberRead(inst *Instance, name string) (*FeatureValue, bool, error) {
+	if ctx == nil || inst == nil || ctx.model.semantics == nil {
+		return nil, false, nil
+	}
+	sym, found := ctx.model.semantics.LookupMember(inst.Type, name)
+	if !found || sym == nil {
+		if redefining := ctx.redefiningMember(inst.Type, name); redefining != nil {
+			return nil, true, fmt.Errorf("%w: %s has no member %s: %s redefines it", ErrNoSuchFeature, SymbolText(inst.Type), name, ctx.QualifiedName(redefining))
+		}
+		return nil, true, fmt.Errorf("%w: %s has no member %s", ErrNoSuchFeature, SymbolText(inst.Type), name)
+	}
+	if !sym.IsFeature() {
+		return nil, true, fmt.Errorf("%w: %s has no feature %s (%s is not a feature)", ErrNoSuchFeature, SymbolText(inst.Type), name, name)
+	}
+	if !ctx.kernelFrameMember(sym) {
+		return nil, false, nil
+	}
+	feat := ctx.effectiveFeature(name, sym, inst.Type)
+	val, err := ctx.kernelMemberValue(inst, sym, &feat)
+	if err != nil {
+		return nil, true, err
+	}
+	fv := &FeatureValue{Feature: &feat, Materialized: true}
+	if feat.Scalar() || val.Kind == ValUndetermined {
+		fv.Value = val
+	} else {
+		fv.Values = val
+	}
+	return fv, true, nil
+}
+
+// redefiningMember is the member of typ that redefines an inherited feature named
+// name under another name (`Items::Item::start :>> startShot`), which masks the
+// redefined name (KerML 8.3.3.3.6); nil when none does.
+func (ctx *Context) redefiningMember(typ *symbols.Symbol, name string) *symbols.Symbol {
+	for _, m := range ctx.model.semantics.MembersOf(typ) {
+		for _, redefined := range ctx.redefinedFeatures(m, typ) {
+			if redefined != nil && redefined.Name == name {
+				return m
+			}
+		}
+	}
+	return nil
+}
+
+// kernelFrameMember reports a member the shape leaves out for framing the object:
+// one the Kernel Semantic Library declares, or a restatement of one of its roots
+// (`Parts::Part::self :>> Item::self`); parameters and values held by value are not.
+func (ctx *Context) kernelFrameMember(sym *symbols.Symbol) bool {
+	sem := ctx.model.semantics
+	return sem.FrameFeature(sym) && !semantics.IsParameter(sym) && !sem.HeldByValue(sym)
+}
+
+// kernelMemberValue is the value of the Kernel member sym on inst, in the order
+// the rule tries: tracked, declared by the library, inverted through composition,
+// then what the multiplicity alone says.
+func (ctx *Context) kernelMemberValue(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
+	if val, ok, err := ctx.trackedKernelValue(inst, sym, feat); ok {
+		return val, err
+	}
+	if val, ok := ctx.kernelDeclaredValue(inst, feat); ok {
+		return val, nil
+	}
+	if val, ok := ctx.kernelInverseValue(inst, sym, feat); ok {
+		return val, nil
+	}
+	if lower := feat.Multiplicity.Lower; lower.Known && !lower.Infinite && lower.Value == 0 {
+		if feat.Scalar() {
+			return Value{Kind: ValNull}, nil
+		}
+		return ctx.collectionOf(feat, nil), nil
+	}
+	return unsetFeatureValue(sym.Name, feat.Multiplicity, sym), nil
+}
+
+// trackedKernelValue answers the members the runtime tracks for every object:
+// `self` is the object itself (Base.kerml `Anything::self`), and a collection
+// `self` subsets — `timeSlices`, `spaceSlices`, `portions`, … (Occurrences.kerml) —
+// holds the object: an occurrence the runtime has recorded no portions of is its
+// own only portion. Transfers are tracked under no Kernel name, so none is here.
+func (ctx *Context) trackedKernelValue(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, bool, error) {
+	self, found := ctx.model.semantics.LookupMember(inst.Type, "self")
+	if !found || self == nil {
+		return Value{}, false, nil
+	}
+	if sym == self || ctx.model.semantics.IsSelf(sym) {
+		val, err := ctx.objectValue(inst)
+		return val, true, err
+	}
+	if feat.Scalar() || !ctx.kernelSubsets(self, inst.Type, sym) {
+		return Value{}, false, nil
+	}
+	val, err := ctx.objectValue(inst)
+	if err != nil {
+		return Value{}, true, err
+	}
+	return ctx.collectionOf(feat, []Value{val}), true, nil
+}
+
+// kernelDeclaredValue evaluates the value the library declares for the member —
+// `localClock default universalClock`, `this default self` — on the object through
+// the evaluator; false where it declares none or the evaluator cannot run it.
+func (ctx *Context) kernelDeclaredValue(inst *Instance, feat *EffectiveFeature) (Value, bool) {
+	if feat.DefaultValue == nil {
+		return Value{}, false
+	}
+	val, err := ctx.evalFeatureValueDefault(inst, &FeatureValue{Feature: feat}, feat.Name)
+	if err != nil || val.Kind == ValInvalid {
+		return Value{}, false
+	}
+	return val, true
+}
+
+// kernelInverseValue answers a member declared `inverse of` a composite collection
+// — `superoccurrence inverse of suboccurrences` — through composition: the object
+// holding inst, when the feature it holds inst as subsets that collection, else
+// none. A member inverting no composite collection is left to the multiplicity.
+func (ctx *Context) kernelInverseValue(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, bool) {
+	inverts := false
+	owner, held := inst.Owner()
+	for _, rel := range relationshipsOfKind(sym, ast.RelInverseOf) {
+		target := ctx.model.semantics.RelationshipTarget(sym, rel)
+		if target == nil || !compositeFeature(target) {
+			continue
+		}
+		inverts = true
+		if owner == nil {
+			continue
+		}
+		holding, ok := owner.FeatureValues[held]
+		if !ok || holding.Feature == nil || holding.Feature.Symbol == nil {
+			continue
+		}
+		if !ctx.kernelSubsets(holding.Feature.Symbol, owner.Type, target) {
+			continue
+		}
+		val := Value{Kind: ValInstance, Instance: owner.ID}
+		if feat.Scalar() {
+			return val, true
+		}
+		return ctx.collectionOf(feat, []Value{val}), true
+	}
+	if !inverts {
+		return Value{}, false
+	}
+	if feat.Scalar() {
+		return Value{Kind: ValNull}, true
+	}
+	return ctx.collectionOf(feat, nil), true
+}
+
+// compositeFeature reports a feature declared `composite`, whose values an
+// object holds as its parts.
+func compositeFeature(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsComposite
+}
+
+// kernelSubsets reports whether feature, a member of owner, subsets target
+// transitively through declared `:>` edges, redefinitions and the subsettings a
+// model usage's kind implies (`part pa` subsets `subparts`, …, `suboccurrences`).
+func (ctx *Context) kernelSubsets(feature, owner, target *symbols.Symbol) bool {
+	seen := map[*symbols.Symbol]bool{feature: true}
+	for queue := []*symbols.Symbol{feature}; len(queue) > 0; {
+		cur := queue[0]
+		queue = queue[1:]
+		next := ctx.relatedFeatures(cur, owner, ast.RelSubsets)
+		next = append(next, ctx.redefinedFeatures(cur, owner)...)
+		if ctx.libraryTier(cur) == symbols.TierNone {
+			next = append(next, ctx.model.semantics.ImplicitSubsettings(cur)...)
+		}
+		for _, sub := range next {
+			if sub == target {
+				return true
+			}
+			if sub != nil && !seen[sub] {
+				seen[sub] = true
+				queue = append(queue, sub)
+			}
+		}
+	}
+	return false
+}

@@ -248,7 +248,7 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 	if err != nil {
 		return nil, err
 	}
-	fv, err := inst.GetFeatureValue(ss.rt, feature)
+	fv, err := inst.MemberValue(ss.rt, feature)
 	if err != nil {
 		return nil, ss.runFailure(err, "feature %s of object %d could not be read: %v", feature, object)
 	}

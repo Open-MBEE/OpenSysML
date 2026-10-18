@@ -765,6 +765,13 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		if name == thisName && ec.namesOccurrenceThis(name) {
 			return ec.thisValue()
 		}
+		// Then a Kernel Semantic Library member of the bound instance, which the
+		// shape leaves out: read bare in the body as `self.<name>` reads it.
+		if ec.self != nil && ec.selfFeatureInScope(name) {
+			if fv, answered, err := ec.ctx.kernelMemberRead(ec.self, name); answered && err == nil {
+				return fv.HeldValue(), nil
+			}
+		}
 		// Then the scope the expression was written in: a sibling attribute, a
 		// member of an enclosing namespace, or a name an import brought in, found
 		// the way a written reference finds it. The declaration's own value is
@@ -1678,6 +1685,12 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		// read from a run of it against this object.
 		if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
 			return ec.calcUsageMemberValue(sym, inst, rest)
+		}
+		if fv, answered, err := ec.ctx.kernelMemberRead(inst, name); answered {
+			if err != nil {
+				return Value{}, err
+			}
+			return ec.chainMemberValue(fv.HeldValue(), rest, name)
 		}
 		return Value{}, fmt.Errorf("%w: member %s not found in instance", ErrNoSuchFeature, name)
 	}
