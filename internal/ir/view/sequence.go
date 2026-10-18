@@ -52,7 +52,7 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 					name = localName(participant)
 				}
 				node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name, NameSynthesized: r.model.NameSynthesized(participant),
-					Type: declType(participant), Typings: r.declTypings(participant), Origin: symbolOrigin(participant)}
+					Type: r.headType(participant), Typings: r.headTypings(participant), Origin: symbolOrigin(participant)}
 				out.Roots = append(out.Roots, node)
 				lifelines[participant] = node
 			}

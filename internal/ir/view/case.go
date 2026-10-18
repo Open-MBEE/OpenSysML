@@ -222,7 +222,7 @@ func (w *caseWalk) roleNode(owner *symbols.Symbol, caseNode *Node, sym *symbols.
 func (w *caseWalk) objectiveNode(owner *symbols.Symbol, caseNode *Node, sym *symbols.Symbol) {
 	detail := strings.Join(w.r.documentation(sym), "\n")
 	node := &Node{ID: w.ids.take(), Kind: "objective", Name: localName(sym), NameSynthesized: w.r.model.NameSynthesized(sym),
-		Type: declType(sym), Detail: detail, Typings: w.r.declTypings(sym), Origin: symbolOrigin(sym),
+		Type: w.r.headType(sym), Detail: detail, Typings: w.r.headTypings(sym), Origin: symbolOrigin(sym),
 		Geometry: w.r.geometryOf(w.view, sym, w.out)}
 	w.r.dress(w.view, sym, node, w.out)
 	w.append(node)

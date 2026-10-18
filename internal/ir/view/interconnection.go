@@ -294,7 +294,7 @@ func (w *featureWalk) pinParameters(node *Node, sym *symbols.Symbol) {
 func (w *featureWalk) pin(node *Node, sym *symbols.Symbol, direction PortDirection, parameter bool, geometry *Geometry) {
 	id := portID(node.ID, len(node.Ports))
 	node.Ports = append(node.Ports, Port{ID: id, Name: localName(sym), NameSynthesized: w.r.model.NameSynthesized(sym),
-		Type: declType(sym), Direction: direction, Parameter: parameter, Origin: symbolOrigin(sym), Geometry: geometry})
+		Type: w.r.headType(sym), Direction: direction, Parameter: parameter, Origin: symbolOrigin(sym), Geometry: geometry})
 	if w.pins[node] == nil {
 		w.pins[node] = map[*symbols.Symbol]string{}
 	}

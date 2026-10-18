@@ -895,30 +895,58 @@ func (r *Renderer) declTypings(sym *symbols.Symbol) []string {
 	return names
 }
 
-// typeSource is the declaration whose typing heads sym's box: sym when it declares one,
-// else the nearest feature it redefines that does, since a redefining feature has the
-// types of the feature it redefines (KerML 1.0 §7.3.4.5).
-func (r *Renderer) typeSource(sym *symbols.Symbol) *symbols.Symbol {
-	if declType(sym) != "" {
-		return sym
-	}
-	for _, redefined := range r.model.AllRedefinedFeatures(sym) {
-		if declType(redefined) != "" {
-			return redefined
+// typeSources are the declarations whose typings head sym's box: sym when it declares
+// one, else those of each feature it directly redefines, found the same way, since a
+// redefining feature has the types of the features it redefines (KerML 1.0 §7.3.4.5).
+func (r *Renderer) typeSources(sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	seen := map[*symbols.Symbol]bool{}
+	var visit func(*symbols.Symbol)
+	visit = func(cur *symbols.Symbol) {
+		if cur == nil || seen[cur] {
+			return
+		}
+		seen[cur] = true
+		if declType(cur) != "" {
+			out = append(out, cur)
+			return
+		}
+		for _, redefined := range r.model.DirectRedefinedFeatures(cur) {
+			visit(redefined)
 		}
 	}
-	return sym
+	visit(sym)
+	return out
 }
 
-// headType is the type a usage's box is headed with: its declared typing, or the
-// one it inherits from the feature it redefines.
+// headType is the type a usage's box is headed with, as the notation writes it: its
+// declared typing, or else the typings it inherits from the features it redefines,
+// in redefinition order and each spelled once.
 func (r *Renderer) headType(sym *symbols.Symbol) string {
-	return declType(r.typeSource(sym))
+	var texts []string
+	seen := map[string]bool{}
+	for _, source := range r.typeSources(sym) {
+		if text := declType(source); !seen[text] {
+			seen[text] = true
+			texts = append(texts, text)
+		}
+	}
+	return strings.Join(texts, ", ")
 }
 
-// headTypings are the qualified names of the elements headType resolves to.
+// headTypings are the qualified names of the elements headType resolves to, each once.
 func (r *Renderer) headTypings(sym *symbols.Symbol) []string {
-	return r.declTypings(r.typeSource(sym))
+	var names []string
+	seen := map[string]bool{}
+	for _, source := range r.typeSources(sym) {
+		for _, name := range r.declTypings(source) {
+			if !seen[name] {
+				seen[name] = true
+				names = append(names, name)
+			}
+		}
+	}
+	return names
 }
 
 // nodeType is the type a usage lowered into a behavior graph is declared with

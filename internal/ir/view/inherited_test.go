@@ -257,3 +257,48 @@ func TestRedefiningUsageHeadsWithInheritedType(t *testing.T) {
 		t.Errorf("mass redefines an untyped attribute, want no type; got %+v", mass)
 	}
 }
+
+// A usage redefining two typed features is headed with both types, in redefinition
+// order; a chain of untyped redefinitions reaches the type at its end; two redefined
+// features of one type spell it once; and every rendering form agrees.
+func TestRedefiningUsageHeadsWithEveryInheritedType(t *testing.T) {
+	rendering := render(t, "redefining-heads.sysml", "RedefiningHeads::heads")
+	d := nodeAt(rendering.Roots, "RedefiningHeads::d")
+	if d == nil {
+		t.Fatalf("d is not drawn; roots: %v", nodeNames(rendering.Roots))
+	}
+	want := map[string][2]string{
+		"both":   {"A, B", "RedefiningHeads::A,RedefiningHeads::B"},
+		"single": {"A", "RedefiningHeads::A"},
+		"pair":   {"A", "RedefiningHeads::A"},
+	}
+	for name, typing := range want {
+		node := nodeAt(d.Children, name)
+		if node == nil {
+			t.Fatalf("%s is not drawn under d; children: %v", name, childNames(d))
+		}
+		if node.Type != typing[0] || strings.Join(node.Typings, ",") != typing[1] {
+			t.Errorf("interconnection %s: type %q typings %v, want %q %q", name, node.Type, node.Typings, typing[0], typing[1])
+		}
+	}
+	tree := render(t, "redefining-heads.sysml", "RedefiningHeads::headsTree")
+	further := nodeAt(tree.Roots, "RedefiningHeads::Further")
+	if further == nil {
+		t.Fatalf("Further is not drawn in the tree; roots: %v", nodeNames(tree.Roots))
+	}
+	for name, typing := range want {
+		if node := nodeAt(further.Children, name); node == nil || node.Type != typing[0] {
+			t.Errorf("tree %s = %+v, want type %q", name, node, typing[0])
+		}
+	}
+	table := render(t, "redefining-heads.sysml", "RedefiningHeads::headsTable")
+	typed := map[string]string{}
+	for _, row := range table.Rows {
+		typed[row[0]] = row[2]
+	}
+	for name, typing := range want {
+		if typed[name] != typing[0] {
+			t.Errorf("table %s type = %q, want %q (rows %v)", name, typed[name], typing[0], table.Rows)
+		}
+	}
+}
