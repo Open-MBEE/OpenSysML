@@ -132,7 +132,7 @@ tracks below carry the detail and what each pull request deliberately leaves.
   #640); a constraint asked whether it holds for all values or is satisfiable (#685, #712).
 
 The previous baselines' retirements — the `v0.6.0`–`v0.8.0` closures recorded in
-`CHANGELOG.md`'s 0.7.0 and 0.8.0 sections, native compilation's first phase, the wire contract,
+the 0.7.0 and 0.8.0 sections of `docs/project/archive/CHANGELOG-0.0-0.8.md`, native compilation's first phase, the wire contract,
 L3–L6, the nested-action frames, D3, Q4, the changelog fragments, the census and its gate, the
 enumeration rules (#907, #909) — stay retired and are not repeated.
 
@@ -224,7 +224,8 @@ already ran. The procedure and its post-tag verification are in `docs/project/re
 
 ## R1 — the changelog agrees with the tags (done)
 
-`CHANGELOG.md`'s **0.4.3** section holds what `99e02003` shipped (#877), its **0.5.0** section
+In `docs/project/archive/CHANGELOG-0.0-0.8.md`, the **0.4.3** section holds what `99e02003`
+shipped (#877), its **0.5.0** section
 what `0fdeb11e` shipped (#894), its **0.5.1** section what `d7b3eb45` shipped, its **0.6.0**
 section what `30f103bb9` shipped (#988), its **0.7.0** section what `e0fbfea5b` shipped (#145,
 #154, #159), its **0.8.0** section what `238aed650` shipped (#268, #277), and its **0.9.0** and
