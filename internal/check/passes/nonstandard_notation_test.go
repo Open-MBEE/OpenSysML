@@ -267,18 +267,16 @@ func TestTargetSuccessionAfterANonActionMemberIsAnExtension(t *testing.T) {
 	wantSilent(t, "a.kerml", "behavior A { step a; then a; }")
 }
 
-// TargetSuccessionMember is an ActionBodyItem, and a state body reads
-// `then <target>;` as a target transition; in a body that admits neither it is
-// an extension whatever member precedes it.
+// Outside an action body (TargetSuccessionMember) or a state body (a target
+// transition), `then <target>;` is an extension whatever member precedes it.
 func TestTargetSuccessionOutsideAnActionOrStateBodyIsAnExtension(t *testing.T) {
 	const outside = "`then <target>;` outside an action or state body"
 	wantNotation(t, "a.sysml", "view v { action x; then y; }", CodeNonstandardNotation, outside)
 	wantNotation(t, "a.sysml", "view def V { action x; then y; }", CodeNonstandardNotation, outside)
 	wantNotation(t, "a.sysml", "part def P { action x; then y; }", CodeNonstandardNotation, outside)
 	wantNotation(t, "a.sysml", "viewpoint def V { frame f; then y; }", CodeNonstandardNotation, outside)
-	// A package body admits no target succession either, so the flags must not
-	// leak into one; the parser rejects the member first, which keeps the pass
-	// from stacking a notation finding on the same span.
+	// A package body admits no target succession: the parser rejects it, and the
+	// pass must not stack a notation finding on the same span.
 	for _, src := range []string{
 		"action def A { package P { action x; then y; } }",
 		"state def S { package P { action x; then y; } }",

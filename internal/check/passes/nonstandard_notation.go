@@ -248,8 +248,7 @@ func (w *notationWalker) walkDeclaration(members []ast.Node, declaration ast.Nod
 }
 
 // walkPackageMembers walks a namespace or package body, the member lists a fix
-// may add an import to. The parser opens bodyPackage there, which admits
-// neither ActionBodyItem nor a target transition, so the body flags reset.
+// may add an import to; such a body admits no action or state items.
 func (w *notationWalker) walkPackageMembers(members []ast.Node) {
 	action, viewDef, state := w.inActionBody, w.inViewDefBody, w.inStateBody
 	w.inActionBody, w.inViewDefBody, w.inStateBody = false, false, false
