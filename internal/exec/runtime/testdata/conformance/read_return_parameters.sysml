@@ -18,6 +18,10 @@ package test {
 	requirement def R5 { subject s : P2; assume constraint { false } require constraint { false } }
 	requirement def R6 { subject s : P2; assume constraint { true } require constraint { false } }
 	requirement def R7 { subject s : P2; assume constraint { s.m > 0.0 } require constraint { true } }
+	requirement def R8 { subject s : P2; assume constraint { attribute b : Boolean = true; assign b := false; b } require constraint { false } }
+	requirement def R9 { subject s : P2; assume constraint { false } require constraint { 1 / 0 > 0 } }
+	requirement def R10 { subject s : P2; assume constraint { s.m > 0.0 } assume constraint { false } require constraint { false } }
+	requirement def R11 { subject s : P2; require constraint { s.m > 0.0 } require constraint { false } }
 	case def Ca1 { subject s : P2; return r : Integer = 1 + 1; }
 	case def Ca2 { subject s : P2; objective obj { require constraint { true } } }
 	verification def V1 { subject s : P2; objective { verify r1; } requirement r1 : R1; return verdict : VerdictKind = PassIf(true); }
@@ -47,6 +51,10 @@ package test {
 	attribute r5New : Boolean = new R5().result;
 	attribute r6New : Boolean = new R6().result;
 	attribute r7New : Boolean = new R7().result;
+	attribute r8New : Boolean = new R8().result;
+	attribute r9New : Boolean = new R9().result;
+	attribute r10New : Boolean = new R10().result;
+	attribute r11New : Boolean = new R11().result;
 	attribute v4New = new V4().verdict;
 	attribute r1Bound : Boolean = r1.result;
 	attribute r1Unbound : Boolean = r1u.result;

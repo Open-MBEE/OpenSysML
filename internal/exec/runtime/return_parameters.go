@@ -112,8 +112,7 @@ func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sy
 		if cond.Required {
 			required = append(required, cond)
 		} else {
-			cond.Required = true
-			assumed = append(assumed, cond)
+			assumed = append(assumed, requiredCondition(cond))
 		}
 	}
 	check := conditionCheck{sym: typ, kind: "requirement", what: "require condition", self: inst, bindings: mapFrame(bindings)}
@@ -121,28 +120,60 @@ func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sy
 	if err != nil {
 		return Value{}, err
 	}
-	constraints, err := ctx.conditionsHold(check, required, sym, feat)
-	if err != nil {
-		return Value{}, err
+	result := impliesValue(assumptions, boolValue(true))
+	if assumptions.Kind != ValConst || assumptions.Const.Bool {
+		constraints, err := ctx.conditionsHold(check, required, sym, feat)
+		if err != nil {
+			return Value{}, err
+		}
+		result = impliesValue(assumptions, constraints)
 	}
-	result := impliesValue(assumptions, constraints)
 	if NegatedDecl(typ) && result.Kind == ValConst {
 		result = boolValue(!result.Const.Bool)
 	}
 	return result, nil
 }
 
-// conditionsHold evaluates one side of the implication: `true` for no condition,
-// `true`/`false` as the conditions decide, undetermined where they read an unbound input.
+// requiredCondition is cond evaluated for its own truth, the body's nested
+// conditions included, as the assumptions side of the implication needs it.
+func requiredCondition(cond Condition) Condition {
+	cond.Required = true
+	if len(cond.Group) > 0 {
+		group := make([]Condition, len(cond.Group))
+		for i, nested := range cond.Group {
+			group[i] = requiredCondition(nested)
+		}
+		cond.Group = group
+	}
+	return cond
+}
+
+// conditionsHold is `allTrue` over one side of the implication, three-valued:
+// `true` for no condition, `false` once any condition is violated whatever the
+// others read, else undetermined where one reads an unbound input.
 func (ctx *Context) conditionsHold(check conditionCheck, conds []Condition, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
-	if len(conds) == 0 {
-		return boolValue(true), nil
+	var undetermined *Value
+	for _, cond := range conds {
+		holds, err := ctx.evaluateConditions(check, []Condition{cond})
+		if err != nil {
+			value, err := ctx.conditionResultOf(err, sym, feat)
+			if err != nil {
+				return Value{}, err
+			}
+			if value.Kind != ValConst {
+				undetermined = &value
+				continue
+			}
+			holds = value.Const.Bool
+		}
+		if !holds {
+			return boolValue(false), nil
+		}
 	}
-	holds, err := ctx.evaluateConditions(check, conds)
-	if err != nil {
-		return ctx.conditionResultOf(err, sym, feat)
+	if undetermined != nil {
+		return *undetermined, nil
 	}
-	return boolValue(holds), nil
+	return boolValue(true), nil
 }
 
 // conditionResultOf maps a condition evaluation's failure: a violation is `false`,
