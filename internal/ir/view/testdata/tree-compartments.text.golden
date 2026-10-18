@@ -1,0 +1,22 @@
+AmplifierViews::positioned - tree rendering (render asTreeDiagram)
+
+part def Stage at (10, 10) size 240×260
+  attribute gain
+  attribute noiseFigure
+  part heatsink
+    attribute fins
+  part housing at (300, 400) size 120×40
+  part shield at (40, 220) size 100×30
+  port input
+  port output
+  constraint bound
+  action calibrate
+  item def Slot
+part def Housing at (300, 10) size 120×40
+enum def Band at (500, 10) size 100×100
+  enum low
+  enum high
+
+relationships:
+  Stage *-- Housing: housing
+  Stage *-- Housing: shield

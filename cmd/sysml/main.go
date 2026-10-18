@@ -19,6 +19,7 @@ import (
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/notation"   // registers the notation REPL commands
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional" // registers the positional REPL commands
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -109,11 +110,14 @@ var (
 	renderRuns       stringSlice
 	schedule         schedulePolicy
 	listEngines      bool
+	explainCodes     codeNames
 	probeEngines     bool
 	engine           engineSelection
 	jobsFlag         jobsSetting
 	convertFormat    string
 	migrateFormat    string
+	bundleDir        string
+	unbundleFile     string
 	queryText        string
 	outputPath       string
 	fromFormat       string
@@ -131,6 +135,9 @@ var (
 	renderUnplaced   string
 	renderStyle      string
 	renderPorts      string
+	renderLines      string
+	renderShow       string
+	renderDepth      int
 	renderOverlay    string
 	renderDoc        string
 	listWhat         string
@@ -155,6 +162,7 @@ var (
 	portableMode     bool
 	disabledLints    lintList
 	enabledLints     lintList
+	libraryRoots     pathList
 	noRecordCache    bool
 	modelChecks      checks
 	compileCalc      string
@@ -352,6 +360,13 @@ func runCLI() int {
 		return 0
 	}
 
+	// A diagnostic code is a property of the build too: it is explained without a
+	// model, and the run ends there.
+	if explainCodes.given {
+		// An -explain run reads no model, so every positional word is a code too.
+		return explainDiagnostics(os.Stdout, os.Stderr, append(explainCodes.codes, flag.Args()...))
+	}
+
 	// The engines a build knows are a property of the build, like its version, so
 	// they are listed without a model and the run ends there.
 	if listEngines {
@@ -436,12 +451,28 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -render-ports is how much of a part's ports -render or -render-all draws on an interconnection or mixed rendering; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
+	if renderLines != "" && renderView == "" && renderAllDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-lines is how the dot or plantuml form of -render or -render-all routes its edges; name the view to render with -render or a directory with -render-all")
+		return 2
+	}
 	if renderUnplaced != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -render-unplaced places the unplaced nodes of a positioned DOT drawing; name what to render with -render, -render-all, -render-document or -render-documents")
 		return 2
 	}
 	if renderStyle != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -render-style is the drawing style of a DOT or Mermaid diagram; name what to render with -render, -render-all, -render-document or -render-documents")
+		return 2
+	}
+	if renderShow != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-show is the optional notation elements a diagram draws; name what to render with -render, -render-all, -render-document or -render-documents")
+		return 2
+	}
+	if renderDepth != 0 && renderView == "" && renderAllDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-depth is how many levels of nested elements a diagram draws below each exposed element; name what to render with -render or -render-all")
+		return 2
+	}
+	if renderDepth < 0 {
+		fmt.Fprintf(os.Stderr, "sysml: -render-depth: %v\n", &view.DepthError{Value: fmt.Sprint(renderDepth)})
 		return 2
 	}
 
@@ -475,6 +506,29 @@ func runCLI() int {
 	if renderDoc == "" && renderDocsDir == "" &&
 		(docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlFlagsGiven()) {
 		fmt.Fprintln(os.Stderr, "sysml: -doc-form, -diagram-form, the document options and the stylesheet options apply to -render-document and -render-documents; name the document to render")
+		return 2
+	}
+
+	if flagGiven("bundle") || flagGiven("unbundle") {
+		switch {
+		case bundleDir != "" && unbundleFile != "":
+			fmt.Fprintln(os.Stderr, "sysml: -bundle writes an archive and -unbundle a directory; ask for one per run")
+		case bundleDir == "" && unbundleFile == "":
+			fmt.Fprintln(os.Stderr, "sysml: -bundle names the project directory to archive and -unbundle the archive to write out; neither may be empty")
+		case len(args) > 0 || modelChecks.requested() || convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || len(evalExprs) > 0:
+			fmt.Fprintln(os.Stderr, "sysml: -bundle and -unbundle copy a project and load no model; run them on their own")
+		default:
+			if bundleDir != "" {
+				if err := runBundle(bundleDir); err != nil {
+					fmt.Fprintf(os.Stderr, "sysml: %v\n", err)
+					return exitUnevaluable
+				}
+			} else if err := runUnbundle(unbundleFile); err != nil {
+				fmt.Fprintf(os.Stderr, "sysml: %v\n", err)
+				return exitUnevaluable
+			}
+			return exitHolds
+		}
 		return 2
 	}
 
@@ -614,7 +668,7 @@ func runCLI() int {
 		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || graphsSubject != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -graphs or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderStyle != "" || renderPorts != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderShow != "" || renderDepth != 0 || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():
@@ -830,6 +884,7 @@ func runCLI() int {
 
 	// Checking mode: load, check what was named, and exit on the verdict.
 	if modelChecks.requested() {
+		modelChecks.output = outputPath
 		return runChecks(args, evalExprs, modelChecks)
 	}
 
@@ -920,6 +975,7 @@ func newSession() *repl.Session {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}
+	sess.SetLibraryRoots(append(sess.LibraryRoots(), libraryRoots...))
 	cache, err := libs.OpenRecordCache(noRecordCache)
 	if err != nil && !quietMode {
 		fmt.Fprintf(os.Stderr, "%s record cache unavailable, holding every file loaded: %v\n", errPrefix, err)

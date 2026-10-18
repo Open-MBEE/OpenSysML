@@ -20,6 +20,6 @@ class RunWithOpenSysMLEventHandlerTest {
                 mock(RunWithOpenSysMLService.class));
         assertThat(handler.canHandle(mock(org.eclipse.sirius.components.core.api.IEditingContext.class),
                 new RunWithOpenSysMLInput(UUID.randomUUID(), "ctx", "obj", RunOperation.INSTANTIATE, null, null, null,
-                        null, null))).isTrue();
+                        null, null, null))).isTrue();
     }
 }

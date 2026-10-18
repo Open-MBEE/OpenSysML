@@ -516,6 +516,9 @@ func TestRenderDocumentMatchesTheRendererGolden(t *testing.T) {
 	if resp.Markdown != string(golden) {
 		t.Errorf("markdown differs from the renderer's golden:\n%s", resp.Markdown)
 	}
+	if resp.FileName != "Observatory-MassReport.md" {
+		t.Errorf("file name = %q, want the one a rendered set writes", resp.FileName)
+	}
 }
 
 // TestRenderDocumentHTMLMatchesTheRendererGolden: form "html" answers the HTML
@@ -540,6 +543,9 @@ func TestRenderDocumentHTMLMatchesTheRendererGolden(t *testing.T) {
 	}
 	if resp.Markdown != "" {
 		t.Errorf("html form also answered markdown:\n%s", resp.Markdown)
+	}
+	if resp.FileName != "Observatory-MassReport.html" {
+		t.Errorf("file name = %q, want the one a rendered set writes", resp.FileName)
 	}
 
 	resp, err = srv.RenderDocument(context.Background(), &pb.RenderDocumentRequest{

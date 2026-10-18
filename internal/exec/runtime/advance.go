@@ -259,9 +259,13 @@ func (ctx *Context) drawDueOrder(due []clockWaiter) (int, error) {
 		Where:        "t=" + semantics.FormatReal(ctx.clock.now),
 		Alternatives: make([]string, len(due)),
 	}
+	futures := ctx.futureFootprints()
+	fps := make([]lower.Footprint, len(due))
 	for i, w := range due {
 		choice.Alternatives[i] = w.dueLabel()
+		fps[i] = futures.executorFuture(w)
 	}
+	classifyChoice(&choice, fps, func(i, j int) lower.Relation { return ctx.relation(due[i], due[j]) })
 	scheduling := ctx.scheduling()
 	pick := scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {
@@ -293,10 +297,7 @@ func (ctx *Context) gateFutures() bool {
 	if sched := ctx.scheduling(); !sched.interleavesTurns() && !sched.checking() {
 		return false
 	}
-	if ctx.futures == nil {
-		ctx.futures = newFutureFootprints(ctx)
-	}
-	ctx.futures.gate()
+	ctx.futureFootprints().gate()
 	return true
 }
 
@@ -416,7 +417,7 @@ func (ctx *Context) runWaiter(w clockWaiter, progress *dueProgress) (bool, error
 	behavior := ctx.behaviorOf(w)
 	if ctx.trace != nil {
 		if behavior != nil {
-			ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
+			ctx.trace.recordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
 		}
 	}
 	moved, err := ctx.runTurn(w, progress)

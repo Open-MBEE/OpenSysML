@@ -32,17 +32,17 @@ func (ctx *Context) InvokePredicate(sym *symbols.Symbol, args []Value, scope *sy
 	if sym == nil || !isPredicateDecl(sym.Decl) {
 		name := "<nil>"
 		if sym != nil {
-			name = ctx.qualifiedSymbolName(sym)
+			name = ctx.QualifiedName(sym)
 		}
 		return false, fmt.Errorf("%s is not a predicate", name)
 	}
-	result, err := NewEvalContext(ctx, scope).invokePredicate(sym, calcArgs{positional: args})
+	result, err := newEvalContext(ctx, scope).invokePredicate(sym, calcArgs{positional: args})
 	if err != nil {
 		return false, err
 	}
 	if !result.isBool() {
 		return false, fmt.Errorf("%w: predicate %s returned %s, want Boolean",
-			ErrTypeMismatch, ctx.qualifiedSymbolName(sym), describeValue(result))
+			ErrTypeMismatch, ctx.QualifiedName(sym), DescribeValue(result))
 	}
 	return result.Const.Bool, nil
 }
@@ -79,7 +79,7 @@ func (ctx *Context) predicateShapeOf(sym *symbols.Symbol) *calcShape {
 		}
 	}
 	chain = append(chain, sym)
-	name := ctx.qualifiedSymbolName(sym)
+	name := ctx.QualifiedName(sym)
 	if sym.Name == "" {
 		// An anonymous usage answers to the name it redefines (`objective : MinimizeObjective;`).
 		name += ctx.model.semantics.EffectiveNameOf(sym)
@@ -135,11 +135,11 @@ func (ec *EvalContext) invokePredicateDirect(sym *symbols.Symbol, args calcArgs)
 		activation: activation,
 	}
 	if binder.trace != nil {
-		binder.trace.RecordCalculationEnter(shape.Kind, shape.Name)
+		binder.trace.recordCalculationEnter(shape.Kind, shape.Name)
 	}
 	if err := ctx.bindCalcParameters(shape, binder, args, ec.scope, env, nil, nil); err != nil {
 		if binder.trace != nil {
-			binder.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
+			binder.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		}
 		return Value{}, err
 	}
@@ -158,9 +158,9 @@ func (ec *EvalContext) invokePredicateDirect(sym *symbols.Symbol, args calcArgs)
 	}
 	if binder.trace != nil {
 		if err != nil {
-			binder.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
+			binder.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		} else {
-			binder.trace.RecordCalculationExit(shape.Kind, shape.Name, boolValue(holds))
+			binder.trace.recordCalculationExit(shape.Kind, shape.Name, boolValue(holds))
 		}
 	}
 	if err != nil {

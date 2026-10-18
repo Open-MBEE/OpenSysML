@@ -64,8 +64,8 @@ make build-wasm
 make install
 
 # Protobuf schema (api/proto/sysml.proto), all codegen driven by buf
-make proto           # regenerate the Go, Java and Python stubs
-make proto-buf       # Go and Java stubs only
+make proto           # regenerate the Go, Python, TypeScript and Rust stubs
+make proto-buf       # Go stubs only (the Java client generates its classes at Maven build time)
 make python-proto    # Python stubs only (needs grpcio-tools; PYTHON=... picks the interpreter)
 make proto-lint      # lint the schema, as CI does
 make proto-breaking  # reject wire-breaking changes against develop, as CI does
@@ -113,6 +113,14 @@ make wasm-check
 4. **Update goldens** (after intentional changes): `go test -run TestGolden -update ./tests/parser`
 
 See [docs/internals/architecture.md](docs/internals/architecture.md#parser-test-contract) for full details on the parser testing contract.
+
+**Size caps on tests and fixtures:** `go test ./tests/hygiene` fails when a `_test.go` file is over
+2,000 lines or a fixture (a file under a `testdata/` directory or named `*.golden.*`) is over
+200 KiB. Split a test file along its feature seams (see AGENTS.md §5.2) and shrink the model a
+fixture is generated from, or digest its output, rather than growing either further. The files
+that predate the caps are allowlisted in `tests/hygiene/size_test.go` at their current size with a
+one-line reason (lines for a test file, bytes for a fixture); an allowlisted file may not grow, and its entry is removed once it is back under
+the cap. A new entry needs a reason a reviewer accepts.
 
 ### Static Analysis
 
@@ -261,22 +269,36 @@ decision is recorded through the Release Checklist item above.
 
 ### GitHub Actions
 
-`.github/workflows/pr.yml` is the only CI a pull request runs, and it gates them: gofmt,
-`go vet`, `make lint`, the race-enabled test suite, the binaries, the client suites, the
-conformance suite over each transport, the protobuf lint and wire-compatibility checks, the
-documentation hygiene checks (`make docs-check`, `make man-check` and the census check), the
-site build, and in each client's job the release-digest copy it ships and the stubs it commits
-(regenerated with the pinned buf and diffed). It downloads the OMG
-corpora before the suite and runs each corpus gate as its own step, so those gates are required
-rather than skipped. Its `Build and test` job aggregates the rest, so that is the one check
-branch protection needs to require.
+`.github/workflows/pr.yml` is the only CI a pull request runs, in one of two tiers. Its
+`Build and test` job aggregates whichever tier ran, so that is the one check branch protection
+needs to require.
 
-Its first job, `Changed areas`, runs `scripts/ci-changed-areas.sh` over the pull request's
-files and the rest of the jobs are gated on what it reports: a change confined to one client
-runs that client's job alone, while a change to the Go sources, the proto, `conformance/` or
-the workflows runs everything. A path no area claims turns every area on, so a new directory
-is over-tested rather than untested — teach the script about it, and add a case to
-`scripts/ci-changed-areas-test.sh`, which the same job runs.
+**The full tier** runs on every push to a non-draft pull request, when a draft is marked ready
+for review, and on any pull request carrying the label `ci:full`. It gates: gofmt, `go vet`,
+`make lint`, the race-enabled test suite (six shards, `make test-shard`), the binaries, the
+client suites, the conformance suite over each transport, the protobuf lint and
+wire-compatibility checks, the documentation hygiene checks (`make docs-check`,
+`make man-check` and the census check), the site build, and in each client's job the
+release-digest copy it ships and the stubs it commits (regenerated with the pinned buf and
+diffed). It downloads the OMG corpora before the suite and runs each corpus gate as its own
+step, so those gates are required rather than skipped.
+
+**The quick tier** runs on every push to a draft pull request, within about a third of the
+runner time: the binaries, the same Go suite without `-race` in three shards
+(`make test-quick`), the download-free static checks (gofmt, vet, the production build, the
+library snapshot, grpc imports, proto lint and breaking), the WebAssembly, Xpect and
+conformance gates, and only the clients and docs whose own paths changed. The lint, the corpus
+and solver gates, the PDF toolchain, the coverage merge and the fan-out from a service change
+to every client wait for the full tier. Draft until the quick tier is green, then mark ready;
+the full tier is what a pull request has to pass to merge.
+
+The first job, `Changed areas`, decides the tier from the pull request's draft flag and labels,
+then runs `scripts/ci-changed-areas.sh` over its files and the rest of the jobs are gated on
+what it reports: a change confined to one client runs that client's job alone, while a change
+to the Go sources, the proto, `conformance/` or the workflows runs everything (under the full
+tier; `CI_TIER=quick` keeps the clients and docs to their own paths). A path no area claims
+turns every area on, so a new directory is over-tested rather than untested — teach the script
+about it, and add a case to `scripts/ci-changed-areas-test.sh`, which the same job runs.
 
 ### CircleCI
 
@@ -299,7 +321,8 @@ rather than only in the log. The README badge tracks this workflow.
 
 ### Required Checks
 
-PRs must pass the GitHub Actions `Build and test` check, which requires:
+PRs must pass the GitHub Actions `Build and test` check under the full tier (every push once
+the pull request is not a draft), which requires:
 - [ ] Build succeeds
 - [ ] All tests pass
 - [ ] No race conditions
@@ -339,7 +362,7 @@ github.com/Open-MBEE/OpenSysML
 
 Documentation is organized by what a reader wants, not by the feature that landed. Four areas,
 mapped in [docs/README.md](docs/README.md) and published as
-<https://redk.opensysml.org/>:
+<https://runtime.opensysml.org/>:
 
 - **[docs/guide/](docs/guide/)** — *how do I use it?* A numbered handbook read in order.
 - **[docs/reference/](docs/reference/)** — *what does this flag, command, API or triple mean?*
@@ -374,7 +397,7 @@ When a change needs documenting:
 - **Robustness cases are registered per feature.** A runtime failure-mode subtest goes in
   `internal/exec/runtime/robustness_<feature>_test.go` under a `TestRuntimeRobustness<Feature>`
   function (gRPC: `internal/frontend/grpc/robustness_<feature>_test.go`, `TestGRPCRobustness<Feature>`),
-  a new file for a new feature; `robustness_test.go` holds the shared cases and is not where new
+  a new file for a new feature; `robustness_test.go` holds only the shared helpers and is not where new
   ones go. `go test` discovers them like any test, and the build-time counters sum every
   `TestRuntimeRobustness*` and `TestGRPCRobustness*` function, so two branches adding cases never
   edit one registry.

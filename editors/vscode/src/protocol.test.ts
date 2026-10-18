@@ -38,8 +38,8 @@ test("normalizeRender fills the fields an older server omits", () => {
 
 test("a label never spells a value the server left out", () => {
   const result = normalizeRender(olderServer);
-  const lines = result.nodes.map(labelLines);
-  assert.deepEqual(lines, [["Demo::Vehicle", "«part def»"], ["part", "Wheel"], ["engine", "«part»", "Engine"]]);
+  const lines = result.nodes.map((node) => labelLines(node));
+  assert.deepEqual(lines, [["«part def»", "Demo::Vehicle"], ["part", "Wheel"], ["«part»", "engine", "Engine"]]);
   for (const line of lines.flat()) {
     assert.doesNotMatch(line, /undefined/);
   }

@@ -27,7 +27,7 @@ saved 102 bytes of sysml to my_model.sysml
 
 sysml> %save my_model.ttl
 note: RDF conversion — Turtle and the API's JSON element form alike — is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-saved 5746 bytes of ttl to my_model.ttl
+saved 6971 bytes of ttl to my_model.ttl
 ```
 
 A leading `~` is expanded. An existing file is replaced (and the replacement is reported), and the
@@ -88,10 +88,12 @@ sysml input.txt -convert ttl -from sysml
 
 `-convert` and `-from` accept `sysml`, `kerml`, `text`, `ttl`, `turtle` and `rdf`; `-from` also
 accepts `xmi` (or `uml`, `mdzip`) for a SysML v1 model exported as OMG XMI, an Eclipse `.uml`
-file or a zip archive holding the XMI (a MagicDraw/Cameo `.mdzip` project), which is migrated
-to v2 on the way in — an experimental path, and every run that takes it says so on stderr;
-[chapter 11](11-migrating-from-sysml-v1.md) walks one through, and
-[SysML v1 migration](../reference/sysml-v1-migration.md) states the mapping. The output path
+file or a zip archive holding the XMI (a MagicDraw/Cameo `.mdzip` project). Such a model is
+not converted but *migrated*: `-convert` refuses it and names the `-migrate` command to run
+instead, which reports every element it maps, approximates or leaves behind — an experimental
+path, and every run that takes it says so on stderr; [chapter 11](11-migrating-from-sysml-v1.md)
+walks one through, and [SysML v1 migration](../reference/sysml-v1-migration.md) states the
+mapping. The output path
 plays no part in choosing the format, so a destination without an extension, such as `-o /dev/null`
 or a FIFO, needs no extra flags.
 
@@ -184,7 +186,7 @@ model converts in both directions:
 ```bash
 $ sysml examples/rdf-interop-demo.sysml -convert ttl -o /tmp/rover.ttl
 note: RDF conversion — Turtle and the API's JSON element form alike — is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-wrote /tmp/rover.ttl (ttl, 72765 bytes)
+wrote /tmp/rover.ttl (ttl, 77207 bytes)
 $ sysml /tmp/rover.ttl -convert sysml -o /tmp/rover-back.sysml
 note: RDF conversion — Turtle and the API's JSON element form alike — is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
 wrote /tmp/rover-back.sysml (sysml, 1014 bytes)
@@ -207,7 +209,7 @@ conversion stopped and says why the graph could not carry it:
 ```bash
 $ sysml examples/parser_features_demo_action_semantics.sysml -convert ttl -o /tmp/action-semantics.ttl; echo $?
 note: RDF conversion — Turtle and the API's JSON element form alike — is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-wrote /tmp/action-semantics.ttl (ttl, 241275 bytes)
+wrote /tmp/action-semantics.ttl (ttl, 247206 bytes)
 0
 ```
 

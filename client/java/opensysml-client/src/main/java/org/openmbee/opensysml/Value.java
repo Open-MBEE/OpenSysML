@@ -972,7 +972,7 @@ public sealed interface Value {
    */
   default double asDouble() {
     if (this instanceof IntegerValue integer) {
-      return (double) integer.value();
+      return integer.value();
     }
     if (this instanceof BigIntegerValue integer) {
       return integer.value().doubleValue();

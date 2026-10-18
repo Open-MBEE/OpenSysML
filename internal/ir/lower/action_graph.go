@@ -52,6 +52,10 @@ type ActionGraph struct {
 	// send, accept and converge on; computed on the first call of Footprints.
 	footprints     map[ast.Node]Footprint
 	footprintsOnce sync.Once
+	// bindingFootprints: node → what binding its features, pins and payload
+	// touches, apart from its body's statements; computed by BindingFootprints.
+	bindingFootprints     map[ast.Node]Footprint
+	bindingFootprintsOnce sync.Once
 
 	// incoming: node → the successions into it; computed on the first call of Incoming.
 	incoming     map[ast.Node][]ActionEdge
@@ -132,6 +136,9 @@ type ActionGraph struct {
 	// lowering holds the declarations whose action content is being lowered on
 	// this path.
 	lowering []ast.Node
+	// unfolded memoizes, on the outermost flow, the flow each deferred typed body
+	// lowered to, keyed by its node, so a recursive definition is lowered once.
+	unfolded map[ast.Node]*ActionGraph
 
 	// inherited are the actions the action specializes, nearest general first.
 	inherited []Inherited
@@ -183,16 +190,22 @@ func (g *ActionGraph) recordDeclaredIn(decl ast.Node, scope *symbols.Scope) {
 	g.declaredIn[decl] = scope
 }
 
+// DeclScope is the scope a declaration of the graph was written in, where the
+// names its expressions spell resolve: the general's body where inherited, else
+// the action's own.
+func (g *ActionGraph) DeclScope(decl ast.Node) *symbols.Scope {
+	if decl != nil {
+		if declared := g.declaredIn[decl]; declared != nil {
+			return declared
+		}
+	}
+	return g.Scope
+}
+
 // DocOf is the document a declaration of the graph was written in: the general's
 // where inherited, else the action's own; "" outside any document.
 func (g *ActionGraph) DocOf(decl ast.Node) string {
-	scope := g.Scope
-	if decl != nil {
-		if declared := g.declaredIn[decl]; declared != nil {
-			scope = declared
-		}
-	}
-	return symbols.DocNameOf(scope)
+	return symbols.DocNameOf(g.DeclScope(decl))
 }
 
 // Inherited lists the declarations the action's content came from besides its
@@ -231,6 +244,9 @@ type ActionEdge struct {
 	Name               string
 	SourceMultiplicity *ast.Multiplicity
 	TargetMultiplicity *ast.Multiplicity
+	// DeclaredOrder marks the succession a block's declaration order synthesizes
+	// rather than the model states: the executor's order, not a written one.
+	DeclaredOrder bool
 	// Carries marks the succession of a succession flow, which delivers a value
 	// as well as ordering its ends.
 	Carries bool
@@ -374,6 +390,9 @@ type Declare struct {
 	BodyData bool           // expression-valued state action execution stored as state data
 	Node     ast.Node       // the declaration itself, for diagnostics
 	Scope    *symbols.Scope // the scope the declaration was written in
+	// Symbol is the feature the declaration introduces, which the block's frame
+	// binds its value by; nil when no scope declares Node.
+	Symbol *symbols.Symbol
 }
 
 func (Declare) statement() { /* marker: closed Statement set */ }
@@ -661,6 +680,9 @@ type Accept struct {
 	// action receive accept kept : Sig;`): it takes an occurrence no other accept
 	// of the state's behavior is ready for.
 	Keeper bool
+	// Payload is the feature the accept declares its payload as, which the nodes
+	// of its body resolve ParamName to where no nearer declaration binds the name.
+	Payload *symbols.Symbol
 }
 
 // Attribute is a lowered attribute default written among a behavior's members
@@ -682,6 +704,28 @@ type Attribute struct {
 	// Optional reports an effective multiplicity with lower bound 0 (`x : Integer[0..1]`):
 	// the feature may hold no value at all. The run resolves it, as it does Scope.
 	Optional bool
+	// Symbol is the feature the attribute declares, which a performance holding it
+	// binds its cell by; nil when no scope declares Node.
+	Symbol *symbols.Symbol
+	// Shadowed marks an inherited feature a same-named member of the specialization
+	// hides without redefining it (KerML 1.0 §8.2.3.5.3): both are held, and Name is
+	// then the hidden one's owner-qualified key (ShadowedKey).
+	Shadowed bool
+}
+
+// ShadowedKey is the name a performance binds a hidden inherited feature under:
+// the declaring type's name and the feature's, `Base::go`, which no simple name
+// spells.
+func ShadowedKey(sym *symbols.Symbol) string {
+	if sym == nil {
+		return ""
+	}
+	if sym.OwnerScope != nil {
+		if owner := sym.OwnerScope.Owner(); owner != nil && owner.Name != "" {
+			return owner.Name + "::" + sym.Name
+		}
+	}
+	return "::" + sym.Name
 }
 
 // TypeText spells the type a usage declares with `:` as the notation writes it
@@ -724,6 +768,9 @@ type Feature struct {
 	Binding   bool
 	Node      ast.Node // the declaration, for diagnostics
 	Scope     *symbols.Scope
+	// Shadowed marks an inherited feature a same-named nearer feature hides without
+	// redefining it; Name is then its ShadowedKey (see Attribute.Shadowed).
+	Shadowed bool
 }
 
 // valueIsBinding reports whether the declaration uses a live `=` value.
@@ -971,7 +1018,7 @@ func (l *actionEdgeLowerer) initial(n *ast.InitialNode) error {
 	if err != nil {
 		return err
 	}
-	return l.succession(n.First, n.Successor, ActionEdge{Guard: n.Guard, Decl: n, Probability: weight})
+	return l.succession(n.First, n.Successor, ActionEdge{Guard: n.Guard, Decl: n, Probability: weight, TargetMultiplicity: n.TargetMultiplicity})
 }
 
 func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
@@ -1045,11 +1092,12 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 		return err
 	}
 	edge := ActionEdge{
-		Source:      sourceNode,
-		Guard:       n.Guard,
-		Decl:        n,
-		Probability: weight,
-		Name:        n.Name,
+		Source:             sourceNode,
+		Guard:              n.Guard,
+		Decl:               n,
+		Probability:        weight,
+		Name:               n.Name,
+		TargetMultiplicity: n.TargetMultiplicity,
 	}
 	if targetNode == nil {
 		if n.Target != nil && ast.SimpleName(n.Target) != "" {
@@ -1087,32 +1135,23 @@ func sameUnconditionalActionEdge(graph *ActionGraph, existing, edge ActionEdge) 
 
 func sameActionEdgeMultiplicities(graph *ActionGraph, existing, edge ActionEdge) bool {
 	model := semantics.NewModel(graph.resolver)
-	return sameActionEdgeEndMultiplicity(graph, model,
-		existing.SourceMultiplicity, existing.Decl, existing.Target,
-		edge.SourceMultiplicity, edge.Decl, edge.Target) &&
-		sameActionEdgeEndMultiplicity(graph, model,
-			existing.TargetMultiplicity, existing.Decl, existing.Target,
-			edge.TargetMultiplicity, edge.Decl, edge.Target)
+	source := func(e ActionEdge) *ast.Multiplicity { return e.SourceMultiplicity }
+	target := func(e ActionEdge) *ast.Multiplicity { return e.TargetMultiplicity }
+	return sameActionEdgeEndMultiplicity(graph, model, existing, edge, source) &&
+		sameActionEdgeEndMultiplicity(graph, model, existing, edge, target)
 }
 
-func sameActionEdgeEndMultiplicity(
-	graph *ActionGraph,
-	model *semantics.Model,
-	existing *ast.Multiplicity,
-	existingDecl ast.Node,
-	existingStep ast.Node,
-	edge *ast.Multiplicity,
-	edgeDecl ast.Node,
-	edgeStep ast.Node,
-) bool {
-	if existing == nil || edge == nil {
-		return existing == nil && edge == nil
+// sameActionEdgeEndMultiplicity compares the end multiplicity that end selects on both edges.
+func sameActionEdgeEndMultiplicity(graph *ActionGraph, model *semantics.Model, existing, edge ActionEdge, end func(ActionEdge) *ast.Multiplicity) bool {
+	existingMult, edgeMult := end(existing), end(edge)
+	if existingMult == nil || edgeMult == nil {
+		return existingMult == nil && edgeMult == nil
 	}
-	existingBounds, err := graph.crossingRange(existingStep, existing, existingDecl, model)
+	existingBounds, err := graph.crossingRange(existing.Target, existingMult, existing.Decl, model)
 	if err != nil {
 		return false
 	}
-	edgeBounds, err := graph.crossingRange(edgeStep, edge, edgeDecl, model)
+	edgeBounds, err := graph.crossingRange(edge.Target, edgeMult, edge.Decl, model)
 	return err == nil && existingBounds == edgeBounds
 }
 
@@ -1692,14 +1731,22 @@ func lowerEffectiveActionNodeFeatures(graph *ActionGraph, node *ast.Usage, scope
 					continue
 				}
 				name, _ := ast.EffectiveName(m)
-				if name == "" || seen[name] {
+				if name == "" {
 					continue
 				}
 				feature, ok := declaredFeature(m, general)
 				if !ok {
 					continue
 				}
-				seen[name] = true
+				if seen[name] {
+					// Hidden by a nearer same-named feature: held under its own key
+					// unless that feature redefines it (KerML 1.0 §8.2.3.5.3).
+					feature.Name, feature.Shadowed = ShadowedKey(general.MemberDeclaring(m)), true
+					if feature.Name == "" || seen[feature.Name] || redefinesFeature(graph.resolver, features, name, feature.Node) {
+						continue
+					}
+				}
+				seen[feature.Name] = true
 				graph.recordDeclaredIn(m, general)
 				features = append(features, feature)
 			}
@@ -1727,6 +1774,62 @@ func declaredFeature(m *ast.Usage, scope *symbols.Scope) (Feature, bool) {
 		Node:      m,
 		Scope:     scope,
 	}, true
+}
+
+// redefinesFeature reports whether the feature among features named name
+// redefines the declaration hidden by clause.
+func redefinesFeature(resolver *resolve.Resolver, features []Feature, name string, hidden ast.Node) bool {
+	var target *symbols.Symbol
+	for _, feature := range features {
+		if feature.Name != name {
+			continue
+		}
+		if feature.Scope != nil {
+			target = feature.Scope.MemberDeclaring(hidden)
+		}
+		if usage, ok := feature.Node.(*ast.Usage); ok {
+			var r redefinitionResolver
+			if resolver != nil {
+				r = resolver
+			}
+			return redefinesByClause(r, feature.Scope, usage, target)
+		}
+	}
+	return false
+}
+
+// redefinitionResolver resolves what a redefinition clause names.
+type redefinitionResolver interface {
+	RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool)
+}
+
+// redefinesByClause reports whether usage, declared in scope, redefines target by
+// a `:>>` clause; with no resolver, or no target to compare, a clause naming the
+// feature's own name is taken at its word.
+func redefinesByClause(resolver redefinitionResolver, scope *symbols.Scope, usage *ast.Usage, target *symbols.Symbol) bool {
+	name, _ := ast.EffectiveName(usage)
+	for _, rel := range usage.Relationships {
+		if rel == nil || rel.Kind != ast.RelRedefines || rel.Target == nil {
+			continue
+		}
+		if resolver == nil || target == nil {
+			path := FeaturePath(rel.Target)
+			if i := strings.LastIndex(path, "::"); i >= 0 {
+				path = path[i+2:]
+			}
+			if i := strings.LastIndex(path, "."); i >= 0 {
+				path = path[i+1:]
+			}
+			if path == name {
+				return true
+			}
+			continue
+		}
+		if resolved, ok := resolver.RedefinitionTarget(scope, usage, rel.Target); ok && resolved == target {
+			return true
+		}
+	}
+	return false
 }
 
 // lowerParameters is the directed parameters an action declares among its own
@@ -1927,7 +2030,7 @@ func DeclaresNodeFeature(m *ast.Usage) bool {
 		return false
 	}
 	switch m.Kind {
-	case ast.UsageAction, ast.UsageUseCase, ast.UsageFlow, ast.UsageBinding, ast.UsageSuccession, ast.UsageConnection:
+	case ast.UsageAction, ast.UsageFlow, ast.UsageBinding, ast.UsageSuccession, ast.UsageConnection:
 		return false
 	}
 	return m.Direction != ast.DirNone || m.Kind == ast.UsageAttribute
@@ -1939,7 +2042,7 @@ func DeclaresNodeFeature(m *ast.Usage) bool {
 func lowerNodeBody(graph *ActionGraph, node ast.Node, members []ast.Node, scope *symbols.Scope) {
 	body := childScope(scope, node)
 	for _, member := range BodyStatementMembers(members) {
-		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body, graph.resolver))
+		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body, graph.resolver, graph.lowering))
 	}
 }
 
@@ -2005,7 +2108,7 @@ func BodyStatementMembers(members []ast.Node) []ast.Node {
 // lowerStatement lowers one executable body statement, in the scope it was
 // written in. Every form it recognizes is lowered losslessly; a form it does not
 // becomes Unsupported, so the executor reports it rather than skipping it.
-func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
+func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
 	switch m := member.(type) {
 	case *ast.SendStatement:
 		return lowerSend(m, scope)
@@ -2019,17 +2122,17 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 			Until:      m.Until,
 			Variable:   variable,
 			Collection: m.Collection,
-			Body:       lowerBlock(m, m.Body, childScope(scope, m), resolver),
+			Body:       lowerBlock(m, m.Body, childScope(scope, m), resolver, ancestors),
 			Node:       m,
 			Scope:      scope,
 		}
 	case *ast.IfActionNode:
 		lowered := If{Condition: m.Condition, Node: m, Scope: scope}
 		if m.Then != nil {
-			lowered.Then = lowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver)
+			lowered.Then = lowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver, ancestors)
 		}
 		if m.Else != nil {
-			block := lowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver)
+			block := lowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver, ancestors)
 			lowered.Else = &block
 		}
 		return lowered
@@ -2039,7 +2142,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 		target, terminates := terminateTarget(m, scope)
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: m.Target}
 	case *ast.Usage:
-		return lowerUsageStatement(m, scope, resolver)
+		return lowerUsageStatement(m, scope, resolver, ancestors)
 	default:
 		return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}
 	}
@@ -2128,7 +2231,7 @@ func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statemen
 // (`loop action charging { … } until charging.done`). An action usage naming
 // the action it performs is a performed action, which the host executes or
 // rejects as its own purity demands.
-func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
+func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
 	if m.IsTerminate {
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
 	}
@@ -2136,7 +2239,7 @@ func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.R
 		return stmt
 	}
 	if m.Kind.IsAction() && m.IsBodyParameter {
-		return lowerBlock(m, m.Members, childScope(scope, m), resolver)
+		return lowerBlock(m, m.Members, childScope(scope, m), resolver, ancestors)
 	}
 	if m.Kind.IsAction() && performsAction(m) {
 		return performEffect(m, scope)
@@ -2194,13 +2297,13 @@ func redefinedNames(u *ast.Usage) []string {
 // lowerBlock lowers the body of a loop or of one branch of a conditional. owner
 // is the node the block belongs to, which is the element that owns the block's
 // body-local namespace, and scope is the namespace it owns.
-func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) Block {
+func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Block {
 	if statesOwnFlow(members) {
-		return lowerStatedBlock(owner, members, scope, resolver)
+		return lowerStatedBlock(owner, members, scope, resolver, ancestors)
 	}
 	if blockNeedsFlow(members) {
-		graph := lowerBlockFlow(members, scope, false, resolver)
-		return Block{Node: owner, Scope: scope, Graph: graph, Stated: len(graph.Accepts) > 0}
+		graph := lowerBlockFlow(members, scope, false, resolver, ancestors)
+		return Block{Node: owner, Scope: scope, Graph: graph, Stated: flowStated(graph)}
 	}
 	block := Block{Node: owner, Scope: scope}
 	for _, member := range members {
@@ -2208,7 +2311,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolv
 		if actual == nil || isAnnotation(actual) {
 			continue
 		}
-		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver))
+		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver, ancestors))
 	}
 	return block
 }
@@ -2230,7 +2333,7 @@ func isAnnotation(n ast.Node) bool {
 // in order. An unvalued attribute is still owned by the behavior even though it
 // supplies no initial value. A redefinition names the attribute it overrides
 // (`attribute :>> x = 5;`), so the effective name is the one bound.
-func lowerAttributes(members []ast.Node) []Attribute {
+func lowerAttributes(members []ast.Node, scope *symbols.Scope) []Attribute {
 	var attrs []Attribute
 	for _, member := range members {
 		usage, ok := unwrapMembership(member).(*ast.Usage)
@@ -2241,7 +2344,7 @@ func lowerAttributes(members []ast.Node) []Attribute {
 		if name == "" {
 			continue
 		}
-		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage})
+		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage, Symbol: scope.MemberDeclaring(usage)})
 	}
 	return attrs
 }

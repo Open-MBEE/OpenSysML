@@ -17,6 +17,7 @@ import type { Conversion } from "./conversion.js";
 import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
 import type { BindingValues, DocumentQueryResult } from "./document.js";
 import type { RenderedView } from "./render-view.js";
+import type { CheckOptions, CheckResult } from "./check.js";
 import type { Graphs } from "./graphs.js";
 import type { Editor } from "./edit.js";
 import type { Exploration } from "./exploration.js";
@@ -26,6 +27,8 @@ import type {
   SweepTable,
   Validation,
   Verdict,
+  ImportResult,
+  Comparison,
 } from "./verdict.js";
 import type {
   Diagnostic,
@@ -427,14 +430,40 @@ export class Model {
   /** Renders a named view or targeted pseudo-view as diagram data. */
   renderView(
     viewName: string,
-    options: { ports?: "minimal" | "full" } = {},
+    options: { ports?: "minimal" | "full"; show?: readonly string[] } = {},
   ): Promise<RenderedView> {
     return this.connection.renderView(this.hash, viewName, options);
+  }
+
+  /** Searches every schedule of an action of this model, as `sysml -check-property` does. */
+  checkAction(
+    actionSymbolId: string,
+    options: CheckOptions & { inputs?: Readonly<Record<string, ValueInput>> } = {},
+  ): Promise<CheckResult> {
+    return this.connection.checkAction(this.hash, actionSymbolId, options);
+  }
+
+  /** Searches every schedule of a state machine of this model. */
+  checkStateMachine(stateMachineSymbolId: string, options: CheckOptions = {}): Promise<CheckResult> {
+    return this.connection.checkStateMachine(this.hash, stateMachineSymbolId, options);
   }
 
   /** Exports the lowered graph of an action or state machine of this model as `graphs:1` JSON. */
   exportGraphs(subject: string): Promise<Graphs> {
     return this.connection.exportGraphs(this.hash, subject);
+  }
+
+  /** Sets the feature values data files assign into this model. */
+  importData(
+    imports: Parameters<Connection["importData"]>[1],
+    options: Parameters<Connection["importData"]>[2] = {},
+  ): Promise<ImportResult> {
+    return this.connection.importData(this.hash, imports, options);
+  }
+
+  /** Runs the configurations a results sidecar indexes against this model and compares the runs with the tool's. */
+  compareResults(results: string, options: Parameters<Connection["compareResults"]>[2] = {}): Promise<Comparison> {
+    return this.connection.compareResults(this.hash, results, options);
   }
 
   /** Starts an edit of this model, to be applied in one call. */
@@ -449,6 +478,14 @@ export class Model {
       inputs?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       performer?: string;
+      /** Simulated seconds to run for (`sysml -advance`); unset runs to completion. */
+      advance?: number;
+      /** The seed the model's own draws are taken from (`sysml -seed`). */
+      seed?: bigint;
+      /** How RandomFunctions draws resolve: `random`, `min`, `max` or `average`. */
+      draws?: string;
+      /** The step the run's clock ticks by, in seconds; 0 is a continuous clock. */
+      clockStep?: number;
     } = {},
   ) {
     return this.connection.executeAction(this.hash, actionSymbolId, options);
@@ -474,6 +511,10 @@ export class Model {
       schedule?: string;
       performer?: string;
       trace?: boolean;
+      advance?: number;
+      seed?: bigint;
+      draws?: string;
+      clockStep?: number;
     } = {},
   ) {
     return this.connection.executeState(this.hash, stateMachineSymbolId, options);
@@ -540,6 +581,8 @@ export class Model {
       namedArguments?: Readonly<Record<string, ValueInput>>;
       schedule?: string;
       engine?: string;
+      /** Preview the external tool call the case would make instead of running it. */
+      toolDryRun?: boolean;
     } = {},
   ): Promise<AnalysisResult> {
     return this.connection.runAnalysis(this.hash, symbolId, options);
@@ -577,11 +620,19 @@ export class Model {
   }
 
   /** The diagnostics the service reports for this model now — for a model of
-   * several documents, or one parsed before later edits changed it. */
-  async refreshDiagnostics(): Promise<ModelDiagnostic[]> {
+   * several documents, or one parsed before later edits changed it. `disableLint`
+   * leaves those lints out and `enableLint` keeps opt-in ones in, as
+   * `sysml -disable-lint`/`-enable-lint` select them. */
+  async refreshDiagnostics(
+    options: { disableLint?: readonly string[]; enableLint?: readonly string[] } = {},
+  ): Promise<ModelDiagnostic[]> {
     const response = await callRpc(
       this.connection.rpc.getDiagnostics(
-        { modelHash: this.hash },
+        {
+          modelHash: this.hash,
+          disableLint: [...(options.disableLint ?? [])],
+          enableLint: [...(options.enableLint ?? [])],
+        },
         this.connection.callOptions(),
       ),
     );
@@ -871,6 +922,8 @@ export function decodeDiagnostic(diagnostic: Diagnostic): ModelDiagnostic {
     severity: diagnostic.severity,
     message: diagnostic.message,
     code: diagnostic.code,
+    orderDependent: [...diagnostic.orderDependent],
+    independent: diagnostic.independent,
     ...(span === undefined
       ? {}
       : {

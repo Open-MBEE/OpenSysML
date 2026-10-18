@@ -113,7 +113,9 @@ position; they are tracked in the project's compliance record.
 
 - **The vocabulary is non-normative.** `DocumentQueries` is an OpenSysML
   extension; other SysML v2 tools will parse models that use it but will not
-  render documents from them.
+  render documents from them. The extension libraries are maintained upstream
+  at [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library)
+  and vendored here pinned.
 - **Query-generated runs cannot cross-reference.** Column runs restyle
   query-produced text and can link to external URLs, but `Ref`-style
   cross-references to other content blocks apply to statically-authored runs

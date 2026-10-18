@@ -57,5 +57,6 @@
   ],
   "distinct": [
     ["box.edges.1", "box.edges.5"]
-  ]
+  ],
+  "materialization": {}
 }

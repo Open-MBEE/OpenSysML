@@ -10,6 +10,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/deferred"
 )
 
+const (
+	effectSuffix = " effect"
+)
+
 // Model is one test's state machine spelled in SysML v2 textual notation,
 // with the events the tester's stimulation queues to drive it. The machine
 // keeps a String attribute `log` to which every trace(...) call appends its
@@ -678,7 +682,7 @@ const entryLabel = " entry"
 
 // effectOf locates a transition's effect for a diagnostic.
 func effectOf(tr *Transition) string {
-	return tr.Describe() + " effect"
+	return tr.Describe() + effectSuffix
 }
 
 // regionWhere locates a region for a diagnostic.
@@ -837,7 +841,7 @@ func (e *emitter) startTarget(ind string, tr *Transition, where string) (*entryS
 	if tr.Effect != nil {
 		var stmts []string
 		if hasParams(tr.Effect) {
-			stmts, err = e.boundEffect(tr.Effect, ind+"    ", effectOf(tr), tr.Name+" effect")
+			stmts, err = e.boundEffect(tr.Effect, ind+"    ", effectOf(tr), tr.Name+effectSuffix)
 		} else {
 			stmts, err = e.plainBody(tr.Effect, effectOf(tr))
 		}
@@ -925,7 +929,7 @@ func (e *emitter) transition(b *strings.Builder, ind string, t *Transition) erro
 	}
 	var effect []string
 	if hasParams(t.Effect) {
-		effect, err = e.boundEffect(t.Effect, ind+"    ", effectOf(t), t.Name+" effect")
+		effect, err = e.boundEffect(t.Effect, ind+"    ", effectOf(t), t.Name+effectSuffix)
 	} else {
 		effect, err = e.plainBody(t.Effect, effectOf(t))
 	}

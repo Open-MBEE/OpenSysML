@@ -1,1 +1,0 @@
-- **The Node and browser clients can connect to the combined `sysml-wasm` module without a service.** Node defaults to a worker thread, with inline execution available, and browsers can run inline or in a supplied worker.

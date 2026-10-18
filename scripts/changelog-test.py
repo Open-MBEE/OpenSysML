@@ -38,6 +38,23 @@ Intro.
 - Released thing.
 """
 
+# BASE with an older release behind the latest one; both carry "- Shared line." under Fixed.
+TWO_RELEASES = BASE + """
+### Fixed
+
+- Shared line.
+
+## 0.4.2 — 2026-08-01
+
+### Added
+
+- Older released thing.
+
+### Fixed
+
+- Shared line.
+"""
+
 
 FIXED_FRAGMENT = "a.fixed.md"
 
@@ -96,19 +113,82 @@ class RenderTest(unittest.TestCase):
     def tearDown(self):
         changelog.CHANGELOG, changelog.FRAGMENTS = self.saved
 
+    def _notice(self, name: str, section: str, heading: str) -> str:
+        return f"{changelog.FRAGMENTS / name}: not folded, '### {section}' of '{heading}' already carries it\n"
+
+    def _render(self) -> str:
+        """Run render with stdout swallowed; return what it wrote to stderr."""
+        err = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            changelog.render()
+        return err.getvalue()
+
     def test_rerun_after_interrupted_render_does_not_duplicate(self):
         (changelog.FRAGMENTS / "a.added.md").write_text("- **A.** a.\n", encoding="utf-8")
         (changelog.FRAGMENTS / "b.fixed.md").write_text("- **B.** b.\n\n- **B2.** b2.\n", encoding="utf-8")
-        with contextlib.redirect_stdout(io.StringIO()):
-            changelog.render()
+        self.assertEqual(self._render(), "")
         once = changelog.CHANGELOG.read_text(encoding="utf-8")
         self.assertEqual(sorted(p.name for p in changelog.FRAGMENTS.iterdir()), [])
         # Simulate a run that wrote the changelog but died before deleting a fragment.
         (changelog.FRAGMENTS / "b.fixed.md").write_text("- **B.** b.\n\n- **B2.** b2.\n", encoding="utf-8")
-        with contextlib.redirect_stdout(io.StringIO()):
-            changelog.render()
+        err = self._render()
         self.assertEqual(changelog.CHANGELOG.read_text(encoding="utf-8"), once)
         self.assertEqual(sorted(p.name for p in changelog.FRAGMENTS.iterdir()), [])
+        self.assertEqual(err, self._notice("b.fixed.md", "Fixed", "## Unreleased"))
+
+    def test_entry_the_latest_release_already_carries_is_not_folded_again(self):
+        # BASE's 0.4.3 already lists "- Released thing." under Added; a fragment that outlived
+        # its release is only deleted, and the skip is reported.
+        (changelog.FRAGMENTS / "a.added.md").write_text("- Released thing.\n", encoding="utf-8")
+        (changelog.FRAGMENTS / FIXED_FRAGMENT).write_text("- Released thing.\n", encoding="utf-8")
+        err = self._render()
+        out = changelog.CHANGELOG.read_text(encoding="utf-8")
+        self.assertEqual(out.count("- Released thing."), 2)
+        self.assertIn("### Fixed\n\n- **Old fixed entry.** Text.\n\n- Released thing.\n\n## 0.4.3", out)
+        self.assertEqual(sorted(p.name for p in changelog.FRAGMENTS.iterdir()), [])
+        self.assertEqual(err, self._notice("a.added.md", "Added", "## 0.4.3 \u2014 2026-09-01"))
+
+    def test_entry_only_an_older_release_carries_is_folded(self):
+        # 0.4.2 lists "- Older released thing." under Added, but 0.4.3 does not: no live fragment
+        # can date from before the latest release, so this is a new entry that repeats an old line.
+        changelog.CHANGELOG.write_text(TWO_RELEASES, encoding="utf-8")
+        (changelog.FRAGMENTS / "a.added.md").write_text("- Older released thing.\n", encoding="utf-8")
+        (changelog.FRAGMENTS / FIXED_FRAGMENT).write_text("- Shared line.\n", encoding="utf-8")
+        err = self._render()
+        out = changelog.CHANGELOG.read_text(encoding="utf-8")
+        self.assertIn("- **Old added entry.** Text.\n\n- Older released thing.\n\n### Fixed", out)
+        self.assertEqual(out.count("- Older released thing."), 2)
+        self.assertEqual(out.count("- Shared line."), 2)
+        self.assertEqual(err, self._notice(FIXED_FRAGMENT, "Fixed", "## 0.4.3 \u2014 2026-09-01"))
+        self.assertEqual(sorted(p.name for p in changelog.FRAGMENTS.iterdir()), [])
+
+    def test_render_without_duplicates_is_a_plain_fold(self):
+        changelog.CHANGELOG.write_text(TWO_RELEASES, encoding="utf-8")
+        (changelog.FRAGMENTS / "a.added.md").write_text("- **A.** a.\n", encoding="utf-8")
+        (changelog.FRAGMENTS / "b.changed.md").write_text("- **C.** c.\n", encoding="utf-8")
+        self.assertEqual(self._render(), "")
+        expected = changelog.fold(TWO_RELEASES, {"Added": ["- **A.** a."], "Changed": ["- **C.** c."]})
+        self.assertEqual(changelog.CHANGELOG.read_text(encoding="utf-8"), expected)
+
+    def test_already_folded_names_the_section_it_searched(self):
+        found = changelog._already_folded
+        self.assertEqual(found(TWO_RELEASES, "Added", "- **Old added entry.** Text."), "## Unreleased")
+        self.assertEqual(found(TWO_RELEASES, "Added", "- Released thing."), "## 0.4.3 \u2014 2026-09-01")
+        self.assertEqual(found(TWO_RELEASES, "Fixed", "- Shared line."), "## 0.4.3 \u2014 2026-09-01")
+        self.assertIsNone(found(TWO_RELEASES, "Added", "- Older released thing."))
+        self.assertIsNone(found(TWO_RELEASES, "Fixed", "- Released thing."))
+        self.assertIsNone(found("# Changelog\n\n## Unreleased\n", "Added", "- a."))
+
+    def test_check_reports_a_fragment_a_fold_would_skip_without_failing(self):
+        (changelog.FRAGMENTS / "a.added.md").write_text("- Released thing.\n", encoding="utf-8")
+        (changelog.FRAGMENTS / "b.added.md").write_text("- Brand new.\n", encoding="utf-8")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(changelog.check(), 0)
+        self.assertEqual(err.getvalue(), self._notice("a.added.md", "Added", "## 0.4.3 \u2014 2026-09-01"))
+        (changelog.FRAGMENTS / "c.fixed.md").write_text("Plain prose.\n", encoding="utf-8")
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(changelog.check(), 1)
 
     def test_same_text_in_another_section_or_inside_a_longer_entry_is_still_folded(self):
         # BASE already has "- **Old added entry.** Text." under Added only.

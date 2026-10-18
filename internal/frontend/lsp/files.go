@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io/fs"
@@ -11,6 +12,7 @@ import (
 	"go.lsp.dev/protocol"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 //lint:file-ignore SA1019 rootUri/rootPath are deprecated, but see legacyRoot.
@@ -118,7 +120,8 @@ func (s *Server) loadFolders(ctx context.Context) {
 }
 
 // loadFolder reads the model sources one folder holds, skipping hidden and
-// vendored directories and passing over entries it cannot read.
+// vendored directories and passing over entries it cannot read, and those of
+// the installed projects the folder's project uses.
 func (s *Server) loadFolder(folder string) { s.scanFolder(folder, -1) }
 
 // scanFolder is loadFolder over at most budget directories, every directory
@@ -126,13 +129,173 @@ func (s *Server) loadFolder(folder string) { s.scanFolder(folder, -1) }
 // The sources found are indexed as one batch, not one at a time: each document
 // added alone would re-derive the imports of every package that reads it.
 func (s *Server) scanFolder(folder string, budget int) {
-	if folder == "" {
-		return
+	paths, _ := s.walkWorkspace(folder, budget)
+	s.loadFilesFromDisk(paths)
+}
+
+// walkWorkspace is walkFolder over folder followed by the directories of the
+// installed projects that the project at or above folder uses, each once; the
+// dependency sources are recorded against folder so they can be dropped with it.
+func (s *Server) walkWorkspace(folder string, budget int) (paths, unlisted []string) {
+	paths, unlisted = walkFolder(folder, budget)
+	seen := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		seen[path] = true
 	}
-	var paths []string
+	var deps []string
+	for _, used := range s.dependencyProjects(folder) {
+		var more, failed []string
+		if used.IsArchived() {
+			more = used.Files()
+		} else {
+			more, failed = walkFolder(used.Dir, -1)
+		}
+		unlisted = append(unlisted, failed...)
+		for _, path := range more {
+			if !seen[path] {
+				seen[path] = true
+				deps = append(deps, path)
+			}
+		}
+	}
+	s.mu.Lock()
+	if s.dependencies == nil {
+		s.dependencies = map[string][]string{}
+	}
+	if len(deps) == 0 {
+		delete(s.dependencies, folder)
+	} else {
+		s.dependencies[folder] = deps
+	}
+	s.mu.Unlock()
+	return append(paths, deps...), unlisted
+}
+
+// dependencyProjects lists the installed projects the project at or above
+// folder uses, found under the well-known library directories of its project
+// and the configured roots, a root given relative to the folder resolved
+// against it; a project may be a directory or an archive.
+func (s *Server) dependencyProjects(folder string) []*project.Interchange {
+	if folder == "" {
+		return nil
+	}
+	s.mu.Lock()
+	roots := make([]string, 0, len(s.libraryRoots))
+	for _, root := range s.libraryRoots {
+		if !filepath.IsAbs(root) {
+			root = filepath.Join(folder, root)
+		}
+		roots = append(roots, root)
+	}
+	s.mu.Unlock()
+	return project.Discovery{Roots: roots}.Around([]string{folder}).Used
+}
+
+// dependencySources lists the sources the installed projects contributed for
+// every folder and opened directory, each once.
+func (s *Server) dependencySources() map[string]bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := map[string]bool{}
+	for _, paths := range s.dependencies {
+		for _, path := range paths {
+			out[path] = true
+		}
+	}
+	return out
+}
+
+// reloadDependencies walks the folders and the opened directories again after
+// the library roots changed, dropping the dependency sources no project
+// contributes any more, and republishes the open documents.
+func (s *Server) reloadDependencies(ctx context.Context) {
+	before := s.dependencySources()
+	s.mu.Lock()
+	folders := append([]string(nil), s.folders...)
+	var openDirs []string
+	for dir := range s.openDirs {
+		openDirs = append(openDirs, dir)
+	}
+	s.mu.Unlock()
+	s.debugEdit(ctx, "", func() {
+		walked := map[string]bool{}
+		var paths []string
+		for _, folder := range folders {
+			found, _ := s.walkWorkspace(folder, -1)
+			paths = append(paths, found...)
+		}
+		for _, dir := range openDirs {
+			found, _ := s.walkWorkspace(dir, maxOpenedDirs)
+			paths = append(paths, found...)
+		}
+		for _, path := range paths {
+			walked[path] = true
+		}
+		s.loadFilesFromDisk(paths)
+		for name := range before {
+			if !walked[name] && !s.ws.IsOpen(name) {
+				s.ws.DeleteOnDisk(name)
+			}
+		}
+	})
+	s.refreshOpenDiagnostics(ctx, "")
+}
+
+// forgetDependencies drops the dependency records of the keys — folders or
+// opened directories — and returns the sources they listed and the set of
+// sources the remaining records still hold, which must stay indexed.
+func (s *Server) forgetDependencies(keys []string) (dropped []string, still map[string]bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, key := range keys {
+		dropped = append(dropped, s.dependencies[key]...)
+		delete(s.dependencies, key)
+	}
+	still = map[string]bool{}
+	for _, paths := range s.dependencies {
+		for _, path := range paths {
+			still[path] = true
+		}
+	}
+	return dropped, still
+}
+
+// dropDependencies forgets the dependency sources recorded against the keys
+// that no other key contributed, keeping an open buffer and a source under a
+// remaining folder, and returns what the remaining records still hold.
+func (s *Server) dropDependencies(keys, kept []string) map[string]bool {
+	dropped, still := s.forgetDependencies(keys)
+	for _, name := range dropped {
+		if !still[name] && !s.ws.IsOpen(name) && !underAnyFolder(name, kept) {
+			s.ws.DeleteOnDisk(name)
+		}
+	}
+	return still
+}
+
+// projectOrDir is the directory an opened document's siblings are scanned
+// from: its project's directory when it lies in one, so an import of a
+// declaration elsewhere in the project resolves as it does on the command
+// line, else its own directory.
+func projectOrDir(name string) string {
+	if projects := project.EnclosingProjects(name); len(projects) > 0 {
+		return projects[0]
+	}
+	return filepath.Dir(name)
+}
+
+// walkFolder lists the model sources under folder, visiting at most budget
+// directories (every directory when budget is negative) and skipping hidden and
+// vendored directories, unreadable entries and files too large to serve. It also
+// lists the directories it could not enumerate, whose sources it cannot vouch for.
+func walkFolder(folder string, budget int) (paths, unlisted []string) {
+	if folder == "" {
+		return nil, nil
+	}
 	_ = filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if d != nil && d.IsDir() {
+				unlisted = append(unlisted, path)
 				return fs.SkipDir
 			}
 			return nil
@@ -150,13 +313,96 @@ func (s *Server) scanFolder(folder string, budget int) {
 		if !model.IsModelSource(path) {
 			return nil
 		}
-		if info, statErr := d.Info(); statErr != nil || info.Size() > maxScannedFileSize {
+		if d.Type()&fs.ModeSymlink != 0 && !linksWithin(path, folder) {
+			return nil
+		}
+		if info, statErr := os.Stat(path); statErr != nil || info.Size() > maxScannedFileSize {
 			return nil
 		}
 		paths = append(paths, path)
 		return nil
 	})
-	s.loadFilesFromDisk(paths)
+	return paths, unlisted
+}
+
+// Rescan reconciles the workspace with the session's folders as they are on
+// disk now, for a client with no file watcher: sources added or rewritten since
+// the last walk are reindexed as one batch, and closed sources gone from disk
+// are dropped. An open buffer stays authoritative, as for a watched change.
+func (s *Server) Rescan(ctx context.Context) {
+	s.mu.Lock()
+	folders := append([]string(nil), s.folders...)
+	s.mu.Unlock()
+	if len(folders) == 0 {
+		return
+	}
+	s.debugEdit(ctx, "", func() {
+		before := s.dependencySources()
+		onDisk := map[string]bool{}
+		var changed, unlisted []string
+		for _, folder := range folders {
+			paths, failed := s.walkWorkspace(folder, -1)
+			unlisted = append(unlisted, failed...)
+			for _, path := range paths {
+				onDisk[path] = true
+				if s.changedOnDisk(path) {
+					changed = append(changed, path)
+				}
+			}
+		}
+		s.loadFilesFromDisk(changed)
+		for _, name := range s.ws.DocumentNames() {
+			if onDisk[name] || s.ws.IsLibraryDocument(name) || s.ws.IsOpen(name) || !(underFolders(name, folders) || before[name]) {
+				continue
+			}
+			// Not walked: gone, grown past the size limit, or moved under a
+			// directory the walk skips. readFromDisk drops the first two as a
+			// watched change would; the third is dropped as the walk never
+			// indexed it, unless its directory could not be listed, when the
+			// source is still there as far as anyone can tell. A file that
+			// cannot be read right now is kept.
+			if _, readable := s.readFromDisk(name); readable && !underFolders(name, unlisted) {
+				s.ws.DeleteOnDisk(name)
+			}
+		}
+	})
+	s.refreshOpenDiagnostics(ctx, "")
+}
+
+// changedOnDisk reports whether path's bytes differ from those the workspace
+// recorded for it, a file it has not recorded included.
+func (s *Server) changedOnDisk(path string) bool {
+	held, ok := s.ws.OnDisk(path)
+	if !ok {
+		return true
+	}
+	_, content, err := project.ReadFile(path)
+	return err != nil || !bytes.Equal(content, held)
+}
+
+// linksWithin reports whether the symlink at path resolves to a file under
+// folder: a link out of the workspace is not the workspace's to index, so a
+// query over the whole workspace shows nothing a path argument would refuse.
+func linksWithin(path, folder string) bool {
+	target, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false
+	}
+	root, err := filepath.EvalSymlinks(folder)
+	if err != nil {
+		return false
+	}
+	return underFolders(target, []string{root})
+}
+
+// underFolders reports whether name lies in one of the folders.
+func underFolders(name string, folders []string) bool {
+	for _, folder := range folders {
+		if rel, err := filepath.Rel(folder, name); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 // loadFilesFromDisk is loadFromDisk over the paths as one batch of the workspace.
@@ -188,6 +434,15 @@ func (s *Server) loadFromDisk(path string) {
 // readFromDisk reads a file's bytes for the workspace, forgetting a file that is
 // gone or too large to serve; it reports whether there is content to record.
 func (s *Server) readFromDisk(path string) ([]byte, bool) {
+	// A member of a project archive is read from the archive, in memory.
+	if _, _, ok := project.SplitMemberPath(path); ok {
+		_, content, err := project.ReadFile(path)
+		if err != nil || len(content) > maxScannedFileSize {
+			s.ws.DeleteOnDisk(path)
+			return nil, false
+		}
+		return content, true
+	}
 	if info, err := os.Stat(path); err == nil && info.Size() > maxScannedFileSize {
 		s.ws.DeleteOnDisk(path)
 		return nil, false
@@ -204,13 +459,23 @@ func (s *Server) readFromDisk(path string) ([]byte, bool) {
 }
 
 // DidChangeWatchedFiles reindexes model files changed outside the editor.
-// A deletion leaves an open buffer alone; it is still authoritative.
+// A deletion leaves an open buffer alone; it is still authoritative. A project
+// interchange file changed — a usage added, a project installed or removed —
+// has the projects the folders use found again.
 func (s *Server) DidChangeWatchedFiles(ctx context.Context, params *protocol.DidChangeWatchedFilesParams) error {
 	var sources []*protocol.FileEvent
+	projects := false
 	for _, event := range params.Changes {
-		if model.IsModelSource(uriToName(event.URI)) {
+		name := uriToName(event.URI)
+		switch {
+		case model.IsModelSource(name):
 			sources = append(sources, event)
+		case filepath.Base(name) == project.ProjectFile, project.IsArchive(name):
+			projects = true
 		}
+	}
+	if projects {
+		s.reloadDependencies(ctx)
 	}
 	if len(sources) == 0 {
 		return nil
@@ -265,7 +530,7 @@ func (s *Server) indexOpenedDirectory(name string) {
 	if !filepath.IsAbs(name) {
 		return
 	}
-	dir := filepath.Dir(name)
+	dir := projectOrDir(name)
 	if dir == filepath.VolumeName(name)+string(filepath.Separator) {
 		return
 	}
@@ -303,8 +568,9 @@ func (s *Server) releaseOpenedDirectories(closed string) {
 	if len(released) == 0 {
 		return
 	}
+	still := s.dropDependencies(released, folders)
 	for _, name := range s.ws.DocumentNames() {
-		if name != closed && underAnyFolder(name, released) && !underAnyFolder(name, folders) && !s.ws.IsOpen(name) {
+		if name != closed && underAnyFolder(name, released) && !underAnyFolder(name, folders) && !s.ws.IsOpen(name) && !still[name] {
 			s.ws.DeleteOnDisk(name)
 		}
 	}
@@ -353,8 +619,10 @@ func (s *Server) dropFolder(folder string) {
 	s.folders = kept
 	s.mu.Unlock()
 
+	// A source another folder's project uses stays, wherever it lies.
+	still := s.dropDependencies([]string{folder}, kept)
 	for _, name := range s.ws.DocumentNames() {
-		if underFolder(name, folder) && !underAnyFolder(name, kept) {
+		if underFolder(name, folder) && !underAnyFolder(name, kept) && !still[name] {
 			s.ws.DeleteOnDisk(name)
 		}
 	}

@@ -580,9 +580,10 @@ func TestFirstThenWithAnUntargetedEndIsRefused(t *testing.T) {
 	}
 }
 
-// A `first a then b` end declaring a name or bounds is refused, with or
-// without its source text: the notation writes each end as the bare feature
-// it names, so writing it would drop them. The declaring end is the one
+// A `first a then b` end declaring a name, or bounds on its source end, is
+// refused, with or without its source text: the notation writes each end as
+// the bare feature it names and bounds only on the target (`first a then
+// [m] b`), so writing it would drop them. The declaring end is the one
 // `succession first a then … b;` exports, at the same ids.
 func TestFirstThenWithADeclaringEndIsRefused(t *testing.T) {
 	const prefix = "package P {\n    action def Step;\n    action def A {\n        action a : Step;\n        action b : Step;\n        "
@@ -595,21 +596,25 @@ func TestFirstThenWithADeclaringEndIsRefused(t *testing.T) {
 		return string(turtle)
 	}
 	plain := graph(t, "first a then b;")
-	const end = "expr:P__A___402_pend1"
-	for _, tc := range []struct{ name, declaring, want string }{
-		{"bound", "succession first a then [2] b;", `declares "[2]"`},
-		{"name", "succession first a then tgt ::> b;", `declares "tgt ::>"`},
+	// source and target are the ids the two ends are declared under, which the
+	// blocks derived from them — bounds, references — embed bare as well.
+	const source = "P__A___402_pend0"
+	const target = "P__A___402_pend1"
+	for _, tc := range []struct{ name, declaring, graft, into, want string }{
+		{"bound", "succession first a then [2] b;", target, source, `declares "[2]"`},
+		{"name", "succession first a then tgt ::> b;", target, target, `declares "tgt ::>"`},
 	} {
-		// Swap the plain end's blocks for the declaring end's.
+		// Swap the plain end's blocks for the declaring end's, renaming every
+		// id derived from the grafted end's to the end it stands in for.
 		var declared []string
 		for _, block := range strings.Split(graph(t, tc.declaring), "\n\n") {
-			if strings.HasPrefix(block, end) {
-				declared = append(declared, block)
+			if strings.HasPrefix(block, "expr:"+tc.graft) {
+				declared = append(declared, strings.ReplaceAll(block, tc.graft, tc.into))
 			}
 		}
 		var blocks []string
 		for _, block := range strings.Split(plain, "\n\n") {
-			if !strings.HasPrefix(block, end) {
+			if !strings.HasPrefix(block, "expr:"+tc.into) {
 				blocks = append(blocks, block)
 			}
 		}
@@ -680,11 +685,14 @@ func TestSupersededThenDoneMembershipReadsBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The fixture is the earlier exporter's graph of the one action def that ends in `then done;`.
+	if !strings.Contains(string(turtle), "sysx:targetMember") {
+		t.Fatal("the fixture no longer exhibits the superseded shape: no sysx:targetMember")
+	}
 	back, err := convert.Convert("old.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("the superseded shape should still convert: %v", err)
 	}
-	// The fixture's bodies carry the earlier exporter's surrounding spaces, which KerML keeps, so its notation differs from the canonical golden only in those bodies.
 	checkGolden(t, filepath.Join("testdata", "superseded", "then_done_membership.golden.sysml"), back)
 }
 

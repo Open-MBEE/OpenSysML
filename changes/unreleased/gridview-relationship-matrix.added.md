@@ -1,1 +1,0 @@
-- **Render filtered `GridView`s as relationship matrices.** Matrix views show satisfy, verify, allocation, connection, derivation, refinement and dependency relationships in text, Markdown, CSV and TSV, including unnamed exposed members; Mermaid, DOT, PlantUML and D2 are refused as graph-only forms. Ordinary tables and other renderings keep their existing output.

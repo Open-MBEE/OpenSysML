@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
@@ -150,48 +151,19 @@ func (s *Session) heldRoot(fqn string) (*runtime.Instance, string, []string) {
 }
 
 // featureChainSymbol resolves a qualified name whose later segments are members
-// of the type of the segment before them (Outer::inner::b::c): the index
-// registers a declaration only under its own owner, so such a chain is walked
-// through the model's member lookup, which follows typing and specialization.
-// The second result is the fully-qualified name the symbol is declared under.
+// of the type of the segment before them — one a subtype inherits
+// (Sub::inherited) or one reached through a feature's type (Outer::inner::b) —
+// which the index registers no declaration under, through the model's member
+// lookup, so typing, specialization and redefinition are followed as the
+// notation resolves them. The second result is the fully-qualified name the
+// symbol is declared under.
 func (s *Session) featureChainSymbol(name string) (*symbols.Symbol, string) {
-	segments := strings.Split(name, "::")
-	if len(segments) < 3 {
-		return nil, ""
-	}
 	idx := s.browseIndex()
 	ctx, err := s.getOrCreateRuntime()
 	if idx == nil || err != nil {
 		return nil, ""
 	}
-	model := ctx.Semantics()
-	// The longest prefix a declaration answers to is the chain's root, so a
-	// nested feature is preferred over the type it happens to share a name with.
-	for i := len(segments) - 1; i > 0; i-- {
-		matches := idx.LookupQualified(strings.Join(segments[:i], "::"))
-		if len(matches) != 1 {
-			continue
-		}
-		sym := matches[0]
-		walked := true
-		for _, seg := range segments[i:] {
-			member, ok := model.LookupMember(sym, seg)
-			if !ok || member == nil {
-				walked = false
-				break
-			}
-			sym = member
-		}
-		if !walked {
-			continue
-		}
-		fqn := idx.GetFQN(sym)
-		if fqn == "" {
-			fqn = name
-		}
-		return sym, fqn
-	}
-	return nil, ""
+	return symbolfacts.MemberChain(idx, ctx.Semantics(), name)
 }
 
 // carrierLimit bounds the object graph a subject is searched through, so a
@@ -947,9 +919,8 @@ func (t *nameTable) collect(scope *symbols.Scope) {
 	}
 }
 
-// declaredUnder returns the declarations scope itself holds under name, each
-// once although a declaration whose short and primary names coincide is
-// registered under both.
+// declaredUnder returns the declarations scope itself holds under name, each once
+// although one whose short and primary names coincide is registered under both.
 func declaredUnder(scope *symbols.Scope, name string) []*symbols.Symbol {
 	syms := symbols.PreferDeclared(scope.LookupLocalAll(name))
 	out := syms[:0:0]

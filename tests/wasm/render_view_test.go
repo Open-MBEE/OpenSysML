@@ -36,7 +36,7 @@ func TestEngineRenderView(t *testing.T) {
 		t.Fatalf("ParseSources = %+v, want a hash and no diagnostics", parsed)
 	}
 
-	declared := engineRenderView(t, eng, parsed.ModelHash, "RenderViews::link", "")
+	declared := engineRenderView(t, eng, parsed.ModelHash, "RenderViews::link", "", "edge-labels")
 	if declared.Kind != "interconnection" {
 		t.Errorf("declared view kind = %q, want interconnection", declared.Kind)
 	}
@@ -112,7 +112,7 @@ func TestEngineRenderView(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Workspace.RenderView(%q): %v", viewName, err)
 			}
-			data := rendering.DataFor(view.Ports(display))
+			data := rendering.DataWith(view.Options{Ports: view.Ports(display)})
 			got := engineRenderView(t, eng, parsed.ModelHash, viewName, display)
 			assertRenderDataParity(t, got, data)
 		}
@@ -153,9 +153,9 @@ func TestEngineRenderView(t *testing.T) {
 	}
 }
 
-func engineRenderView(t *testing.T, eng *engine.Engine, hash, viewName, ports string) engine.JRenderViewResponse {
+func engineRenderView(t *testing.T, eng *engine.Engine, hash, viewName, ports string, show ...string) engine.JRenderViewResponse {
 	t.Helper()
-	params := map[string]string{"modelHash": hash, "view": viewName, "ports": ports}
+	params := map[string]any{"modelHash": hash, "view": viewName, "ports": ports, "show": show}
 	body := mustCall(t, eng, "RenderView", renderParamsJSON(t, params))
 	var response engine.JRenderViewResponse
 	if err := json.Unmarshal(body, &response); err != nil {

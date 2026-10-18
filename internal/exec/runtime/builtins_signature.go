@@ -152,21 +152,21 @@ func tracedBuiltin(tr *TraceRecorder, name string, bind func() ([]Value, error),
 		}
 		return apply(args)
 	}
-	tr.RecordCalcEnter(name)
+	tr.recordCalcEnter(name)
 	args, err := bind()
 	if err != nil {
-		tr.RecordCalcExitError(name, err)
+		tr.recordCalcExitError(name, err)
 		return Value{}, err
 	}
 	for i, p := range builtinSignatures[name] {
-		tr.RecordCalcBind(p.name, args[i], "argument")
+		tr.recordCalcBind(p.name, args[i], "argument")
 	}
 	result, err := apply(args)
 	if err != nil {
-		tr.RecordCalcExitError(name, err)
+		tr.recordCalcExitError(name, err)
 		return Value{}, err
 	}
-	tr.RecordCalcExit(name, result)
+	tr.recordCalcExit(name, result)
 	return result, nil
 }
 
@@ -214,11 +214,11 @@ func bindBuiltin(name string, positional int, named []string, unbound []error, b
 	params := builtinSignatures[name]
 	written := writtenName(name)
 	if positional > 0 && len(named) > 0 {
-		return nil, fmt.Errorf("%w: function %s takes either positional or named arguments", ErrCalcArity, written)
+		return nil, fmt.Errorf("%w: function %s takes either positional or named arguments", errCalcArity, written)
 	}
 	if positional > len(params) {
 		return nil, fmt.Errorf("%w: function %s takes %d argument(s), got %d",
-			ErrCalcArity, written, len(params), positional)
+			errCalcArity, written, len(params), positional)
 	}
 	args := make([]Value, len(params))
 	bound := make([]bool, len(params))
@@ -236,10 +236,10 @@ func bindBuiltin(name string, positional int, named []string, unbound []error, b
 		i := slices.IndexFunc(params, func(p declaredParam) bool { return p.name == argName })
 		if i < 0 {
 			return nil, fmt.Errorf("%w: function %s has no input parameter %q (expected %s)",
-				ErrUnknownParameter, written, argName, builtinParameterList(params))
+				errUnknownParameter, written, argName, builtinParameterList(params))
 		}
 		if bound[i] {
-			return nil, fmt.Errorf("%w: function %s binds parameter %q twice", ErrCalcArity, written, argName)
+			return nil, fmt.Errorf("%w: function %s binds parameter %q twice", errCalcArity, written, argName)
 		}
 		val, err := bind(i, j)
 		if err != nil {
@@ -259,7 +259,7 @@ func fillUnbound(written string, params []declaredParam, args []Value, bound []b
 		}
 		if !p.optional {
 			return nil, fmt.Errorf("%w: function %s is called without an argument for parameter %q",
-				ErrCalcArity, written, p.name)
+				errCalcArity, written, p.name)
 		}
 		args[i] = nullValue()
 	}
@@ -271,7 +271,7 @@ func fillUnbound(written string, params []declaredParam, args []Value, bound []b
 // is evaluated (to itself) like any other argument, which the trace records.
 func (ec *EvalContext) evalArgument(params []declaredParam, i int, arg ast.Node, keep bool) (Value, error) {
 	if _, body := arg.(*ast.BodyExpr); !body && i < len(params) && params[i].deferred {
-		return NewExprValue(arg, ec.closure()), nil
+		return newExprValue(arg, ec.closure()), nil
 	}
 	return ec.evaluate(arg, keep)
 }

@@ -82,7 +82,11 @@ func (e exploreEngine) Run(ctx context.Context, model *Model, q Question, budget
 		Values:  []Evaluation{{Name: q.Subject, Explored: x}},
 		Elapsed: time.Since(started),
 	}
-	if x.Complete() && x.FailedLinearizations() == 0 {
+	switch {
+	case len(x.Unenumerated) > 0:
+		result.Reason = runtime.DescribeGaps(x.Unenumerated)
+	case !x.Complete() || x.FailedLinearizations() > 0:
+	default:
 		result.Strength = Proved
 	}
 	return result, nil

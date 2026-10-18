@@ -7,8 +7,8 @@ Eclipse-based integrations.
 
 ## Install
 
-The artifact is not on Maven Central. Build and install it into the local
-Maven repository from a checkout; JDK 17 is the baseline:
+The artifact is on Maven Central from 0.10.1 (`org.openmbee:opensysml`). For unreleased
+changes, build and install it into the local Maven repository from a checkout; JDK 17 is the baseline:
 
 ```bash
 make build-grpc

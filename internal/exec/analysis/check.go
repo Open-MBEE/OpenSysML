@@ -183,9 +183,17 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 	case q.Kind == Holds, q.Kind == Sensitive:
 		result.Claim = ClaimHolds
 		result.Strength = Bounded
+		if len(report.Unenumerated) > 0 {
+			result.Strength = Observed
+			result.Reason = runtime.DescribeGaps(report.Unenumerated)
+		}
 	default:
 		result.Claim = ClaimOutcomes
 		result.Strength = Bounded
+		if len(report.Unenumerated) > 0 {
+			result.Strength = Observed
+			result.Reason = runtime.DescribeGaps(report.Unenumerated)
+		}
 	}
 	return result, nil
 }

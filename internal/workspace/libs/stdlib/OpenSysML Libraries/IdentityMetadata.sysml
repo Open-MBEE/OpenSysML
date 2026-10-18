@@ -1,4 +1,4 @@
-standard library package IdentityMetadata {
+library package IdentityMetadata {
     doc /* Binds notation to repository identity. Non-normative OpenSysML
          * extension, proposed for standardization; see the design record. */
 

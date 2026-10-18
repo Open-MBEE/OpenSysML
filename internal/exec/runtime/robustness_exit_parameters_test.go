@@ -153,7 +153,7 @@ func testExitParametersPayloadAbsent(t *testing.T) {
 // both fires it and the exit reads `speed`.
 func testExitParametersCallArity(t *testing.T) {
 	exec := exitParametersMachine(t, exitParametersCallModel)
-	exec.InvokeOperation("setSpeed", map[string]Value{"speed": constInt(5)})
+	exec.invokeOperation("setSpeed", map[string]Value{"speed": constInt(5)})
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func testExitParametersCallArity(t *testing.T) {
 	if exited := exec.stateData["exited"]; exited.Const.Int != -1 {
 		t.Errorf("exited = %v after the partial call, want the exit not performed", exited)
 	}
-	exec.InvokeOperation("setSpeed", map[string]Value{"speed": constInt(5), "gear": constInt(2)})
+	exec.invokeOperation("setSpeed", map[string]Value{"speed": constInt(5), "gear": constInt(2)})
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatal(err)
 	}

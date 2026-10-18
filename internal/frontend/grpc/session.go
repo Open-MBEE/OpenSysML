@@ -14,7 +14,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -254,6 +253,9 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 		return nil, ss.runFailure(err, "feature %s of object %d could not be read: %v", feature, object)
 	}
 	out := &pb.FeatureValue{FeatureName: feature, Materialized: fv.Materialized}
+	if ss.svc.capabilities.has(CapabilityOrderDependence) {
+		out.OrderDependent = int32(ss.rt.OrderDependent(fv.Feature.Name)) // #nosec G115 -- choice points per run are bounded by the depth budget
+	}
 	if fv.Feature.Scalar() {
 		switch {
 		case !fv.Materialized:
@@ -674,9 +676,10 @@ func (ss *Session) diagnostics(notes []runtime.RunNote) []*pb.Diagnostic {
 	return ss.svc.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(notes, ss.cached))
 }
 
-// declared resolves a symbol id in the session's model.
+// declared resolves a symbol id in the session's model; a member a subtype
+// inherits is named by the subtype too (Sub::inherited).
 func (ss *Session) declared(symbolID string) (*symbols.Symbol, error) {
-	syms := symbolfacts.LookupNamed(ss.cached.Index, symbolID)
+	syms := ss.cached.LookupNamedMember(symbolID)
 	if len(syms) == 0 {
 		return nil, sessionFailuref("symbol not found: %s", symbolID)
 	}

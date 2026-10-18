@@ -18,16 +18,13 @@ const triggerFixture = `package P {
 	private import MeasurementReferences::*;
 	private import Time::*;
 	private import ScalarValues::*;
-	private import Overloads::Durations::*;
-	private import Overloads::Instants::*;
-	private import Overloads::Flags::*;
-	private import Overloads::Lengths::*;
+	private import Overloads::*;
 
 	package Overloads {
-		package Durations { calc def Pick { in d : DurationValue; return : DurationValue = d; } }
-		package Instants { calc def Pick { in t : TimeInstantValue; return : TimeInstantValue = t; } }
-		package Flags { calc def Pick { in b : Boolean; return : Boolean = b; } }
-		package Lengths { calc def Pick { in l : LengthValue; return : LengthValue = l; } }
+		calc def Pick { in d : DurationValue; return : DurationValue = d; }
+		calc def Pick { in t : TimeInstantValue; return : TimeInstantValue = t; }
+		calc def Pick { in b : Boolean; return : Boolean = b; }
+		calc def Pick { in l : LengthValue; return : LengthValue = l; }
 	}
 
 	attribute <ms> millisecond : DurationUnit {
@@ -533,7 +530,7 @@ func TestCollectAndSelectTriggerArguments(t *testing.T) {
 		{"when (counts.{in n : Integer; noCount}).{in n : Integer; 5}", "trigger-when-boolean", nothing},
 		{"when (().{in a : Integer; a}).?{in n : Integer; true}", "trigger-when-boolean", nothing},
 		{"when counts.{in n : Integer; (noCount, 5)}", "trigger-when-boolean", "found Natural"},
-		{"when flags.{in f; (f > 3, true)}", "type.expr", "operator '>' is not defined for Boolean and Natural"},
+		{"when flags.{in f; (f > 3, true)}", "operator-operand-type", "operator '>' is not defined for Boolean and Natural"},
 	} {
 		wantTriggerDiag(t, "transition first a accept "+tc.trigger+" then b;", tc.code, tc.found)
 	}
@@ -574,11 +571,11 @@ func TestBodyTriggerArgumentIsRejected(t *testing.T) {
 	wantTriggerDiag(t, "transition first a accept after { d } then b;", "trigger-after-duration", body)
 	wantTriggerDiag(t, "transition first a accept at { t } then b;", "trigger-at-time-instant", body)
 	wantTriggerDiag(t, "entry action { accept when { flag }; }", "trigger-when-boolean", body)
-	wantTriggerDiag(t, "transition first a if { true } then b;", "type.expr", body)
+	wantTriggerDiag(t, "transition first a if { true } then b;", "transition-feature-membership-guard-expression", body)
 	wantTriggerDiag(t, "transition first a accept when ({ true }) then b;", "trigger-when-boolean", body)
 	wantTriggerDiag(t, "transition first a accept when { true }#(1) then b;", "trigger-when-boolean", body)
-	wantTriggerDiag(t, "transition first a accept when not { true } then b;", "type.expr", "operator 'not' requires a Boolean operand, found Expression")
-	wantTriggerDiag(t, "transition first a accept when { true } and flag then b;", "type.expr", "operator 'and' requires Boolean operands, found Expression and Boolean")
+	wantTriggerDiag(t, "transition first a accept when not { true } then b;", "operator-operand-type", "operator 'not' requires a Boolean operand, found Expression")
+	wantTriggerDiag(t, "transition first a accept when { true } and flag then b;", "operator-operand-type", "operator 'and' requires Boolean operands, found Expression and Boolean")
 	wantTriggerDiag(t, "transition first a accept after { 5 [s] } + d then b;", "trigger-after-duration", "`+` over an expression body `{ … }`")
 	wantTriggerDiag(t, "transition first a accept at { t } + d then b;", "trigger-at-time-instant", "`+` over an expression body `{ … }`")
 	wantTriggerSilent(t, "transition first a accept when flags->ControlFunctions::forAll {in f; f} then b;")

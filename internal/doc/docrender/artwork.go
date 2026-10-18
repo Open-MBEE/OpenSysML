@@ -46,6 +46,10 @@ type DiagramOptions struct {
 	// Pilot look when empty; the other forms draw one look.
 	Style view.DrawingStyle
 
+	// Show is the optional notation elements every diagram draws besides the
+	// ones its view's rendering shows; nil adds none.
+	Show view.Shown
+
 	// LinkTemplate fills source links for diagram elements.
 	LinkTemplate string
 }

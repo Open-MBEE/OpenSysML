@@ -132,7 +132,23 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 		},
 		{
 			name: "fork-adjacency", step: "a", multiplicity: "[3]",
-			code: lower.StepMultiplicityUnsupportedCode,
+			code: lower.StepOrderUnsatisfiableCode,
+			model: `package test {
+				action def A {
+					first start then b;
+					action b;
+					then f;
+					fork f;
+					action a[3];
+					succession first f then a;
+					succession first [*] a then [1] done;
+				}
+			}`,
+		},
+		{
+			name: "fork-adjacency-plain-succession", step: "a", multiplicity: "[3]",
+			code:   lower.StepOrderUnsatisfiableCode,
+			reason: "the succession's end multiplicities exclude the declared step count",
 			model: `package test {
 				action def A {
 					fork f;
@@ -192,8 +208,8 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 			}`,
 		},
 		{
-			name: "external-feature-read", step: "a", multiplicity: "[3]",
-			code: lower.StepMultiplicityUnsupportedCode,
+			name: "plain-then-after-repeated-step", step: "a", multiplicity: "[3]",
+			code: lower.StepOrderUnsatisfiableCode,
 			model: `package test {
 				private import ScalarValues::*;
 				action def A {
@@ -202,25 +218,6 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 					action a[3] { attribute x : Integer = 1; }
 					then q;
 					action q { assign total := a.x; }
-					then done;
-				}
-			}`,
-		},
-		{
-			name: "nested-external-feature-read", step: "inner", multiplicity: "[3]",
-			code: lower.StepMultiplicityUnsupportedCode,
-			model: `package test {
-				private import ScalarValues::*;
-				action def A {
-					attribute total : Integer = 0;
-					first start then outer;
-					action outer {
-						first start then inner;
-						action inner[3] { attribute x : Integer = 1; }
-						then done;
-					}
-					then q;
-					action q { assign total := outer.inner.x; }
 					then done;
 				}
 			}`,
@@ -293,8 +290,8 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 		},
 		{
 			name: "while-block-three", step: "tick", multiplicity: "[3]",
-			code:   lower.StepMultiplicityUnsupportedCode,
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+			code:   lower.StepOrderOpenCode,
+			reason: "the body states no succession, so its declaration order is the executor's and does not order every performance",
 			model: `package test {
 				private import ScalarValues::*;
 				action def A {
@@ -311,27 +308,7 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 			}`,
 		},
 		{
-			name: "unordered while-block-three", step: "tick", multiplicity: "[3]",
-			code:   lower.StepMultiplicityUnsupportedCode,
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
-			model: `package test {
-				action def A {
-					first start then worker;
-					action worker {
-						while true {
-							action anchor;
-							first start then anchor;
-							action tick[3] { }
-						}
-					}
-					then done;
-				}
-			}`,
-		},
-		{
-			name: "while-block-zero", step: "tick", multiplicity: "[0]",
-			code:   lower.StepMultiplicityUnsupportedCode,
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+			name: "while-block-zero", step: "tick", multiplicity: "[0]", wantRun: true,
 			model: `package test {
 				private import ScalarValues::*;
 				action def A {
@@ -348,9 +325,7 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 			}`,
 		},
 		{
-			name: "if-block-three", step: "tick", multiplicity: "[3]",
-			code:   lower.StepMultiplicityUnsupportedCode,
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+			name: "if-block-three", step: "tick", multiplicity: "[3]", wantRun: true,
 			model: `package test {
 				action def A {
 					first start then worker;
@@ -364,9 +339,7 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 			}`,
 		},
 		{
-			name: "if-block-zero", step: "tick", multiplicity: "[0]",
-			code:   lower.StepMultiplicityUnsupportedCode,
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+			name: "if-block-zero", step: "tick", multiplicity: "[0]", wantRun: true,
 			model: `package test {
 				action def A {
 					first start then worker;
@@ -394,8 +367,7 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 			}`,
 		},
 		{
-			name: "part-level performed action", step: "run", multiplicity: "[2]",
-			code:        lower.StepMultiplicityUnsupportedCode,
+			name: "part-level performed action", step: "run", multiplicity: "[2]", wantRun: true,
 			instantiate: true,
 			model: `package test {
 				action def Act { }
@@ -435,8 +407,8 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 				}
 				return
 			}
-			if !errors.Is(err, ErrActionStepMultiplicity) {
-				t.Fatalf("execution error = %v, want ErrActionStepMultiplicity", err)
+			if !errors.Is(err, errActionStepMultiplicity) {
+				t.Fatalf("execution error = %v, want errActionStepMultiplicity", err)
 			}
 			var stepErr *lower.StepMultiplicityError
 			if !errors.As(err, &stepErr) {
@@ -686,8 +658,8 @@ func TestRuntimeRobustnessActionStepMultiplicityOutcomes(t *testing.T) {
 		}
 		err = exploration.Outcomes[0].Outcome.Err
 		assertActionStepMultiplicityErrorIsNotSetup(t, err)
-		if !errors.Is(err, ErrIntegerUnaddressable) {
-			t.Errorf("outcome error = %v, want ErrIntegerUnaddressable", err)
+		if !errors.Is(err, errIntegerUnaddressable) {
+			t.Errorf("outcome error = %v, want errIntegerUnaddressable", err)
 		}
 		if !strings.Contains(err.Error(), "1180591620717411303424") {
 			t.Errorf("outcome error = %q, want the exact bound", err)
@@ -712,8 +684,8 @@ func TestRuntimeRobustnessActionStepMultiplicityOutcomes(t *testing.T) {
 		}
 		err = exploration.Outcomes[0].Outcome.Err
 		assertActionStepMultiplicityErrorIsNotSetup(t, err)
-		if !errors.Is(err, ErrIntegerUnaddressable) {
-			t.Errorf("outcome error = %v, want ErrIntegerUnaddressable", err)
+		if !errors.Is(err, errIntegerUnaddressable) {
+			t.Errorf("outcome error = %v, want errIntegerUnaddressable", err)
 		}
 		if !strings.Contains(err.Error(), "1180591620717411303424") {
 			t.Errorf("outcome error = %q, want the exact bound", err)
@@ -753,7 +725,12 @@ func TestRuntimeRobustnessActionStepMultiplicityOutcomes(t *testing.T) {
 			_, err := ctx.Instantiate(host)
 			return Outcome{}, err
 		})
-		assertActionStepMultiplicityExploreOutcome(t, exploration, err)
+		if err != nil {
+			t.Fatalf("Explore error = %v", err)
+		}
+		if len(exploration.Outcomes) != 1 || exploration.FailedLinearizations() != 0 {
+			t.Fatalf("exploration = %v; want one successful outcome", exploration)
+		}
 	})
 
 	t.Run("check", func(t *testing.T) {
@@ -773,7 +750,7 @@ func TestRuntimeRobustnessActionStepMultiplicityOutcomes(t *testing.T) {
 			t.Fatal("Check returned neither an error nor a report")
 		}
 		for _, violation := range report.Violations {
-			if violation.Kind == ViolationFailure && errors.Is(violation.Err, ErrActionStepMultiplicity) {
+			if violation.Kind == ViolationFailure && errors.Is(violation.Err, errActionStepMultiplicity) {
 				assertActionStepMultiplicityErrorIsNotSetup(t, violation.Err)
 				return
 			}
@@ -795,8 +772,8 @@ func assertActionStepMultiplicityExploreOutcome(t *testing.T, exploration *Explo
 
 func assertActionStepMultiplicityErrorIsNotSetup(t *testing.T, err error) {
 	t.Helper()
-	if !errors.Is(err, ErrActionStepMultiplicity) {
-		t.Fatalf("error = %v, want ErrActionStepMultiplicity", err)
+	if !errors.Is(err, errActionStepMultiplicity) {
+		t.Fatalf("error = %v, want errActionStepMultiplicity", err)
 	}
 	var setup *SetupError
 	if errors.As(err, &setup) {

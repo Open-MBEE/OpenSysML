@@ -528,6 +528,8 @@ pub struct RenderedView {
     pub notes: Vec<RenderNote>,
     /// Renderer notices.
     pub notices: Vec<String>,
+    /// The optional notation elements the rendering drew.
+    pub shown: Vec<String>,
     wire: wire::RenderViewResponse,
 }
 
@@ -650,6 +652,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
             })
             .collect(),
         notices: response.notices,
+        shown: response.shown,
         wire,
     }
 }
@@ -735,6 +738,7 @@ mod render_view_tests {
                 ..Default::default()
             }],
             notices: vec!["notice".to_owned()],
+            shown: vec!["port-symbols".to_owned(), "compartments".to_owned()],
         };
 
         let rendered = rendered_view_of(response);
@@ -757,6 +761,10 @@ mod render_view_tests {
         assert_eq!(rendered.notes[0].edge_to, "n1");
         assert!(rendered.notes[0].origin.is_none());
         assert_eq!(rendered.notices, vec!["notice".to_owned()]);
+        assert_eq!(
+            rendered.shown,
+            vec!["port-symbols".to_owned(), "compartments".to_owned()]
+        );
 
         let empty = rendered_view_of(wire::RenderViewResponse::default());
         assert!(empty.canvas.is_none());

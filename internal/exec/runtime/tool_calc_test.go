@@ -220,9 +220,9 @@ func TestToolCalcUsageReadsItsOutputsFromTheTool(t *testing.T) {
 	if got["warn"] != "false" || got["rating"] != "30.0 [SI::W]" {
 		t.Fatalf("outputs %v, want warn = false and rating = 30 W", got)
 	}
-	result, err := ctx.CalcUsageOutput(calcNamed(t, scope, "t"), "result", scope, nil)
+	result, err := ctx.calcUsageOutput(calcNamed(t, scope, "t"), "result", scope, nil)
 	if err != nil {
-		t.Fatalf("CalcUsageOutput(result): %v", err)
+		t.Fatalf("calcUsageOutput(result): %v", err)
 	}
 	if FormatValue(result) != "340.0 [SI::K]" {
 		t.Fatalf("result = %s, want 340.0 [SI::K]", FormatValue(result))
@@ -285,8 +285,8 @@ func TestToolCalcBareOutDesignatesTheAnsweredOutput(t *testing.T) {
 			"n":  {Value: toolReal(3)},
 		}})
 		_, err := ctx.InvokeCalc(calcNamed(t, scope, "TwoOuts"), []Value{realOf(1)}, scope)
-		if !errors.Is(err, ErrAmbiguousResult) {
-			t.Fatalf("InvokeCalc = %v, want ErrAmbiguousResult", err)
+		if !errors.Is(err, errAmbiguousResult) {
+			t.Fatalf("InvokeCalc = %v, want errAmbiguousResult", err)
 		}
 	})
 	t.Run("usage still reads the output", func(t *testing.T) {
@@ -294,9 +294,9 @@ func TestToolCalcBareOutDesignatesTheAnsweredOutput(t *testing.T) {
 		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
 			"ok": {Value: semanticsBool(true)},
 		}})
-		value, err := ctx.CalcUsageOutput(calcNamed(t, scope, "p"), "ok", scope, nil)
+		value, err := ctx.calcUsageOutput(calcNamed(t, scope, "p"), "ok", scope, nil)
 		if err != nil {
-			t.Fatalf("CalcUsageOutput: %v", err)
+			t.Fatalf("calcUsageOutput: %v", err)
 		}
 		if got := FormatValue(value); got != "true" {
 			t.Fatalf("p.ok = %s, want true", got)
@@ -399,7 +399,7 @@ func TestToolCalcRefusesLikeAPerformance(t *testing.T) {
 		ctx, scope := analysisFixture(t, toolCalcModel)
 		_, err := ctx.InvokeCalc(calcNamed(t, scope, "Thermal"), args(t, ctx, scope), scope)
 		var refusal *ToolNotRegisteredError
-		if !errors.As(err, &refusal) || !errors.Is(err, ErrToolNotRegistered) || refusal.Tool != "Thermo" {
+		if !errors.As(err, &refusal) || !errors.Is(err, errToolNotRegistered) || refusal.Tool != "Thermo" {
 			t.Fatalf("InvokeCalc = %v, want ToolNotRegisteredError", err)
 		}
 	})
@@ -498,8 +498,8 @@ func TestToolCalcSpecializingALibraryFunctionComputesByTool(t *testing.T) {
 	t.Run("no runner", func(t *testing.T) {
 		ctx, scope := analysisFixture(t, toolCalcModel)
 		_, err := ctx.InvokeCalc(calcNamed(t, scope, "Custom"), []Value{realOf(-4)}, scope)
-		if !errors.Is(err, ErrToolNotRegistered) {
-			t.Fatalf("InvokeCalc = %v, want ErrToolNotRegistered, not abs's answer", err)
+		if !errors.Is(err, errToolNotRegistered) {
+			t.Fatalf("InvokeCalc = %v, want errToolNotRegistered, not abs's answer", err)
 		}
 	})
 	t.Run("invocation expression", func(t *testing.T) {
@@ -542,8 +542,8 @@ func TestToolCalcCompiledCallerGoesThroughTheTool(t *testing.T) {
 				ctx, scope := analysisFixture(t, toolCalcModel)
 				ctx.SetCalcCompile(compile)
 				_, err := ctx.InvokeCalc(calcNamed(t, scope, "Wrapper"), []Value{realOf(3)}, scope)
-				if !errors.Is(err, ErrToolNotRegistered) {
-					t.Fatalf("InvokeCalc = %v, want ErrToolNotRegistered, not the body's 6.0", err)
+				if !errors.Is(err, errToolNotRegistered) {
+					t.Fatalf("InvokeCalc = %v, want errToolNotRegistered, not the body's 6.0", err)
 				}
 			})
 		})
@@ -650,9 +650,9 @@ func (r partialCalcRunner) RunTool(call *ToolCall) (ToolAnswer, error) {
 // its body and verdicts as before, needing no runner and refusing none.
 func TestToolCalcAnnotatedCaseStillRunsItsBody(t *testing.T) {
 	ctx, scope := analysisFixture(t, toolCalcModel)
-	value, err := ctx.CalcUsageOutput(calcNamed(t, scope, "s"), "r", scope, nil)
+	value, err := ctx.calcUsageOutput(calcNamed(t, scope, "s"), "r", scope, nil)
 	if err != nil {
-		t.Fatalf("CalcUsageOutput: %v", err)
+		t.Fatalf("calcUsageOutput: %v", err)
 	}
 	if got := FormatValue(value); got != "42" {
 		t.Fatalf("s.r = %s, want the body's 42", got)

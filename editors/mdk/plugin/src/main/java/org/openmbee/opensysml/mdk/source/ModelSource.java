@@ -12,6 +12,16 @@ public interface ModelSource extends AutoCloseable {
   List<SourceDocument> sources(Connection connection);
   List<Diagnostic> exportDiagnostics();
 
+  /** The service's name for an element the host names {@code qualifiedName}; identity unless the export renames roots. */
+  default String subjectName(String qualifiedName) {
+    return qualifiedName;
+  }
+
+  /** The host's name for an element the service names {@code subjectName}; the inverse of {@link #subjectName}. */
+  default String elementName(String subjectName) {
+    return subjectName;
+  }
+
   @Override
   default void close() {}
 }

@@ -17,8 +17,18 @@ type Diagnostic struct {
 	// Warning reports a well-formedness rule the reference states as a warning:
 	// the model still resolves, so validation continues past it.
 	Warning bool
+	// IllFormed marks a Warning the specification states as a validation
+	// constraint, so strict conformance reports it as an error.
+	IllFormed bool
 }
 
 // CodeNameConflict marks a name declared twice in one namespace, counting the
 // members it inherits (SysML 7.6.1, KerML 7.3.2.1).
 const CodeNameConflict = "name-conflict"
+
+// CodeUnresolved marks a name, or a segment of a qualified name, that resolves
+// to no element visible where it is written.
+const CodeUnresolved = "unresolved"
+
+// CodeAmbiguous marks a name several elements answer to with equal standing.
+const CodeAmbiguous = "ambiguous"

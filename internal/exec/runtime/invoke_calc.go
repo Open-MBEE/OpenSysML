@@ -94,7 +94,7 @@ func (d calcMemberDecl) admits(ctx *Context, scope *symbols.Scope, what string, 
 				return fmt.Errorf("%s: %w", what, err)
 			}
 			if !conforms {
-				return fmt.Errorf("%s: %w: %s is not a %s", what, ErrTypeMismatch, ctx.elementText(element), symbolText(typ))
+				return fmt.Errorf("%s: %w: %s is not a %s", what, ErrTypeMismatch, ctx.elementText(element), SymbolText(typ))
 			}
 		}
 	}
@@ -111,7 +111,7 @@ func (ctx *Context) elementText(element Value) string {
 			return ctx.carrierLabels([]carrier{{instance: inst}})[0]
 		}
 	}
-	return fmt.Sprintf("%s (%s)", FormatValue(element), describeValue(element))
+	return fmt.Sprintf("%s (%s)", FormatValue(element), DescribeValue(element))
 }
 
 // boundMemberDecl is what a member of owner declares for a value bound to it, folded along the
@@ -219,7 +219,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 		return cached, nil
 	}
 
-	name := ctx.qualifiedSymbolName(sym)
+	name := ctx.QualifiedName(sym)
 	if !isCalcDecl(sym.Decl) && !ctx.calcTypedFeature(sym) {
 		return nil, fmt.Errorf("%w: %s is %s, not a calc definition or usage", ErrNotACalc, name, describeDecl(sym.Decl))
 	}
@@ -231,14 +231,14 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	if conflict := ctx.model.semantics.ResultExpressionConflict(sym); conflict != nil {
 		if conflict.Stated > 1 {
 			return nil, fmt.Errorf("%w: %s states %d result expressions",
-				ErrConflictingResultExpressions, label, conflict.Stated)
+				errConflictingResultExpressions, label, conflict.Stated)
 		}
 		names := make([]string, len(conflict.Owners))
 		for i, owner := range conflict.Owners {
-			names[i] = ctx.qualifiedSymbolName(owner)
+			names[i] = ctx.QualifiedName(owner)
 		}
 		return nil, fmt.Errorf("%w: %s states or inherits a result expression from each of %s",
-			ErrConflictingResultExpressions, label, strings.Join(names, ", "))
+			errConflictingResultExpressions, label, strings.Join(names, ", "))
 	}
 	body, bodyOrder, bodyOwner := ctx.calcBodyWithOrder(chain)
 	shape := &calcShape{
@@ -282,9 +282,9 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	case computes || shape.Tool != nil:
 	case len(shape.Outputs) > 0 && shape.resultOutput() == nil:
 		shape.Uncomputed = fmt.Errorf("%w: %s binds none of its outputs (%s)",
-			ErrNoResultExpression, label, shape.outputNames())
+			errNoResultExpression, label, shape.outputNames())
 	default:
-		shape.Uncomputed = fmt.Errorf("%w: %s has no return expression%s", ErrNoResultExpression, label, unboundResultHint(chain))
+		shape.Uncomputed = fmt.Errorf("%w: %s has no return expression%s", errNoResultExpression, label, unboundResultHint(chain))
 	}
 
 	ctx.model.calcShapes[sym] = shape
@@ -563,12 +563,12 @@ func (ctx *Context) requireCalcNotCase(sym *symbols.Symbol) error {
 		runAs = "a verification case"
 	}
 	return fmt.Errorf("%w: %s is %s, not a calc definition or usage; run it as %s",
-		ErrNotACalc, ctx.qualifiedSymbolName(sym), describeDecl(sym.Decl), runAs)
+		ErrNotACalc, ctx.QualifiedName(sym), describeDecl(sym.Decl), runAs)
 }
 
 // InvokeCalcWith invokes a calculation with positional arguments and arguments
 // bound by parameter name together, which is what an argument list plus a swept
-// parameter binds. Arguments bind exactly as InvokeCalc and InvokeCalcNamed
+// parameter binds. Arguments bind exactly as InvokeCalc and invokeCalcNamed
 // bind them: by position first, then by name.
 func (ctx *Context) InvokeCalcWith(sym *symbols.Symbol, positional []Value, named map[string]Value, scope *symbols.Scope) (Value, error) {
 	defer ctx.beginRun()()
@@ -579,9 +579,9 @@ func (ctx *Context) InvokeCalcWith(sym *symbols.Symbol, positional []Value, name
 	return ctx.invokeCalc(sym, calcArgs{positional: positional, named: named}, scope)
 }
 
-// InvokeCalcNamed invokes a calculation with arguments bound by parameter name.
+// invokeCalcNamed invokes a calculation with arguments bound by parameter name.
 // A parameter with no argument falls back to its declared default.
-func (ctx *Context) InvokeCalcNamed(sym *symbols.Symbol, args map[string]Value, scope *symbols.Scope) (Value, error) {
+func (ctx *Context) invokeCalcNamed(sym *symbols.Symbol, args map[string]Value, scope *symbols.Scope) (Value, error) {
 	defer ctx.beginRun()()
 
 	if err := ctx.requireCalcNotCase(sym); err != nil {
@@ -625,7 +625,7 @@ func (ctx *Context) invokeCalcWithSelf(sym *symbols.Symbol, args calcArgs, scope
 // invokeBuiltinValues applies a built-in to arguments a direct invocation has
 // already evaluated, bound to its declared parameters as a call would bind them.
 func (ctx *Context) invokeBuiltinValues(sym *symbols.Symbol, fn builtinFunc, args calcArgs, callerScope *symbols.Scope, self *Instance) (Value, error) {
-	name := ctx.qualifiedSymbolName(sym)
+	name := ctx.QualifiedName(sym)
 	entered := ctx.activations
 	return tracedBuiltin(ctx.trace, name,
 		func() ([]Value, error) { return bindBuiltinValues(name, args) },
@@ -785,12 +785,12 @@ func (ctx *Context) invokeCalcShapeDirect(shape *calcShape, args calcArgs, calle
 	}
 
 	if ec.trace != nil {
-		ec.trace.RecordCalculationEnter(shape.Kind, shape.Name)
+		ec.trace.recordCalculationEnter(shape.Kind, shape.Name)
 	}
 
 	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil, occurrence); err != nil {
 		if ec.trace != nil {
-			ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
+			ec.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		}
 		return Value{}, err
 	}
@@ -804,9 +804,9 @@ func (ctx *Context) invokeCalcShapeDirect(shape *calcShape, args calcArgs, calle
 	}
 	if ec.trace != nil {
 		if err != nil {
-			ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
+			ec.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		} else {
-			ec.trace.RecordCalculationExit(shape.Kind, shape.Name, result)
+			ec.trace.recordCalculationExit(shape.Kind, shape.Name, result)
 		}
 	}
 	if err != nil {
@@ -840,7 +840,7 @@ func (ctx *Context) calcOccurrenceMaterializer(shape *calcShape, locals frame, a
 			if value, held := locals.lookup(name); held {
 				if err := inst.BindFeatureValue(ctx, name, value); err != nil {
 					return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
-						ErrActionPerformanceOccurrence, name, inst.ID, err)
+						errActionPerformanceOccurrence, name, inst.ID, err)
 				}
 			}
 		}
@@ -925,11 +925,11 @@ func (ctx *Context) bindCalcParameters(
 			// and needs this binding like a run's later defaults do.
 			if err := occurrence.inst.BindFeatureValue(ctx, param.Name, value); err != nil {
 				return fmt.Errorf("%w: bind %s of object #%d: %w",
-					ErrActionPerformanceOccurrence, param.Name, occurrence.inst.ID, err)
+					errActionPerformanceOccurrence, param.Name, occurrence.inst.ID, err)
 			}
 		}
 		if ec.trace != nil {
-			ec.trace.RecordCalcBind(param.Name, value, source)
+			ec.trace.recordCalcBind(param.Name, value, source)
 		}
 	}
 	return nil
@@ -1026,7 +1026,7 @@ func (shape *calcShape) designatedToolOutput(outputs map[string]Value) (calcOutp
 
 	switch len(valued) {
 	case 0:
-		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", ErrCalcNoReturn, shape.Label)
+		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", errCalcNoReturn, shape.Label)
 	case 1:
 		return valued[0], nil
 	default:
@@ -1036,7 +1036,7 @@ func (shape *calcShape) designatedToolOutput(outputs map[string]Value) (calcOutp
 		}
 		return calcOutput{}, fmt.Errorf(
 			"%w: %s computes %d output features (%s) and designates no result; read them from a usage instead: %s",
-			ErrAmbiguousResult, shape.Label, len(valued), strings.Join(names, ", "), shape.usageSpelling(valued[0].Name),
+			errAmbiguousResult, shape.Label, len(valued), strings.Join(names, ", "), shape.usageSpelling(valued[0].Name),
 		)
 	}
 }
@@ -1071,7 +1071,7 @@ func (shape *calcShape) checkArgs(args calcArgs) error {
 	if len(args.positional) > len(shape.Params) {
 		return fmt.Errorf(
 			"%w: %s takes %d argument(s), got %d",
-			ErrCalcArity, shape.Label, len(shape.Params), len(args.positional),
+			errCalcArity, shape.Label, len(shape.Params), len(args.positional),
 		)
 	}
 
@@ -1086,7 +1086,7 @@ func (shape *calcShape) checkArgs(args calcArgs) error {
 		if !shape.hasParameter(name) {
 			return fmt.Errorf(
 				"%w: %s has no input parameter %q",
-				ErrUnknownParameter, shape.Label, name,
+				errUnknownParameter, shape.Label, name,
 			)
 		}
 	}
@@ -1169,7 +1169,7 @@ func (ec *EvalContext) bindCalcParameter(
 		}
 		return Value{}, "", fmt.Errorf(
 			"%w: %s parameter %q has no argument and no default",
-			ErrUnboundParameter, shape.Label, param.Name,
+			errUnboundParameter, shape.Label, param.Name,
 		)
 	}
 	value, err := ec.Eval(param.Default)
@@ -1247,7 +1247,7 @@ func (ctx *Context) resolveLibraryPerformance(sym *symbols.Symbol) *libraryPerfo
 	if !ctx.redeclaresInputs(chain) {
 		return perf
 	}
-	perf.signature = &calcShape{Sym: sym, Name: ctx.qualifiedSymbolName(sym)}
+	perf.signature = &calcShape{Sym: sym, Name: ctx.QualifiedName(sym)}
 	perf.signature.Kind, perf.signature.Label = calcKindLabel(sym, perf.signature.Name)
 	for _, p := range ctx.model.semantics.BehaviorParametersOf(sym) {
 		if p.IsResult || (p.Direction != ast.DirIn && p.Direction != ast.DirInOut) {
@@ -1352,14 +1352,14 @@ func (ctx *Context) invokeLibraryPerformance(perf *libraryPerformance, args calc
 	}
 	defer ctx.leaveCalc()
 	if ctx.trace != nil {
-		ctx.trace.RecordCalcEnter(sig.Name)
+		ctx.trace.recordCalcEnter(sig.Name)
 	}
 	result, err := ctx.applyLibraryPerformance(perf, args, callerScope, self)
 	if ctx.trace != nil {
 		if err != nil {
-			ctx.trace.RecordCalcExitError(sig.Name, err)
+			ctx.trace.recordCalcExitError(sig.Name, err)
 		} else {
-			ctx.trace.RecordCalcExit(sig.Name, result)
+			ctx.trace.recordCalcExit(sig.Name, result)
 		}
 	}
 	return result, err
@@ -1394,7 +1394,7 @@ func (ctx *Context) applyLibraryPerformance(perf *libraryPerformance, args calcA
 	for i, position := range perf.positions {
 		if position < 0 {
 			return Value{}, fmt.Errorf("%w: function %s has no input parameter for %q of calc %s",
-				ErrUnknownParameter, ctx.qualifiedSymbolName(perf.lib), sig.ParamNames[i], sig.Name)
+				errUnknownParameter, ctx.QualifiedName(perf.lib), sig.ParamNames[i], sig.Name)
 		}
 		values[position] = frame.slots.values[i]
 	}
@@ -1528,9 +1528,9 @@ func unwrappedDeclMembers(decl ast.Node) []ast.Node {
 	return out
 }
 
-// qualifiedSymbolName renders a symbol's qualified name, falling back to its
+// QualifiedName renders a symbol's qualified name, falling back to its
 // local name when no index is reachable.
-func (ctx *Context) qualifiedSymbolName(sym *symbols.Symbol) string {
+func (ctx *Context) QualifiedName(sym *symbols.Symbol) string {
 	if sym == nil {
 		return ""
 	}

@@ -28,6 +28,10 @@ type ActionExecutor struct {
 	// its subperformances; self is the object performing the action, whose
 	// connections route what it sends.
 	performances
+	// performedAt is the node of another action's graph whose performance this
+	// executor runs, nil for an action run on its own: the body's own places are
+	// that performance's, as its pins are.
+	performedAt ast.Node
 	// action states the body performed; performed is the action as named, a usage
 	// stating no body of its own or the action itself, whose metadata binds the performance.
 	action, performed *symbols.Symbol
@@ -263,6 +267,7 @@ func newActionExecutorOn(
 	exec.flow = exec
 	exec.driven.exec = exec
 	ctx.clock.attach(exec)
+	ctx.run.notePerformer(exec)
 	return exec
 }
 
@@ -295,14 +300,62 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 			continue
 		}
 		declared[name] = len(features)
-		value, scope := e.ctx.model.semantics.ParameterDefault(member)
-		features = append(features, lower.Attribute{
-			Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: lower.TypeText(usage),
-			Value: value, Node: usage, Scope: scope, Optional: e.ctx.admitsNoValue(member),
-			Binding: value != nil && !usage.ValueIsInitial && !usage.ValueIsDefault,
-		})
+		features = append(features, e.inheritedAttribute(member, usage, name, false))
 	}
+	// An inherited feature a same-named member hides without redefining it is held
+	// too, under its own key, for the general's expressions that read it.
+	var held map[*symbols.Symbol]bool
+	bound := func(sym *symbols.Symbol) bool {
+		if held == nil {
+			held = make(map[*symbols.Symbol]bool, 2*len(features))
+			for _, attr := range features {
+				e.holdVisible(held, attr)
+			}
+		}
+		return held[sym]
+	}
+	e.ctx.shadowedInherited(e.action,
+		func(name string) bool { _, ok := declared[name]; return ok },
+		bound,
+		func(member *symbols.Symbol, usage *ast.Usage, key string) {
+			if _, ok := declared[key]; ok {
+				return
+			}
+			declared[key] = len(features)
+			features = append(features, e.inheritedAttribute(member, usage, key, true))
+		})
 	return features
+}
+
+// inheritedAttribute is the attribute a performance holds for an inherited member,
+// valued by the default of the member or of what it redefines.
+func (e *ActionExecutor) inheritedAttribute(member *symbols.Symbol, usage *ast.Usage, name string, shadowed bool) lower.Attribute {
+	value, scope := e.ctx.model.semantics.ParameterDefault(member)
+	return lower.Attribute{
+		Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: lower.TypeText(usage),
+		Value: value, Node: usage, Scope: scope, Optional: e.ctx.admitsNoValue(member),
+		Binding: value != nil && !usage.ValueIsInitial && !usage.ValueIsDefault,
+		Symbol:  member, Shadowed: shadowed,
+	}
+}
+
+// holdVisible marks the feature attr declares and every feature it redefines as held.
+func (e *ActionExecutor) holdVisible(held map[*symbols.Symbol]bool, attr lower.Attribute) {
+	sym := attr.Symbol
+	if sym == nil {
+		scope := attr.Scope
+		if scope == nil {
+			scope = e.graph.Scope
+		}
+		sym = memberSymbol(scope, attr.Node)
+	}
+	if sym == nil {
+		return
+	}
+	held[sym] = true
+	for _, redefined := range e.ctx.model.semantics.AllRedefinedFeatures(sym) {
+		held[redefined] = true
+	}
 }
 
 // Step advances execution by one step for all active tokens.
@@ -330,6 +383,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 // made and nothing is waiting for a message).
 func (e *ActionExecutor) Step() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -440,7 +494,7 @@ func (e *ActionExecutor) Step() error {
 
 	// Record trace after step completes
 	if e.trace() != nil {
-		e.trace().RecordActionStep(e.stepCount, e.tokens)
+		e.trace().recordActionStep(e.stepCount, e.tokens)
 	}
 
 	if e.state.Ended() {
@@ -547,7 +601,7 @@ func (e *ActionExecutor) waitsForMessage(perf *actionFrame, seen map[waitTarget]
 // waiting in perf's flow (the action's for nil), and any token of it blocked for
 // another reason alongside them.
 func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
-	where := actionLabelPrefix + symbolText(e.action)
+	where := actionLabelPrefix + SymbolText(e.action)
 	if perf != nil {
 		where = perf.describe()
 	}
@@ -682,6 +736,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 // runSteps is run, stopping after one step where single is set.
 func (e *ActionExecutor) runSteps(atCurrentTime, single bool) error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -1069,7 +1124,7 @@ func (e *ActionExecutor) acceptTaking(m Message) ([]TakingAccept, error) {
 // performanceName names the action the executor performs, which the accepts it
 // holds are placed in.
 func (e *ActionExecutor) performanceName() string {
-	return symbolText(e.action)
+	return SymbolText(e.action)
 }
 
 // parkedAcceptTakes calls takes with each token of perf's flow (of the whole action
@@ -1190,7 +1245,7 @@ func (e *ActionExecutor) breakpointNameOf(within []ast.Node, node ast.Node) stri
 		}
 		return nodeDescription(node)
 	}
-	for _, name := range ActionNodeNames(node) {
+	for _, name := range actionNodeNames(node) {
 		if e.breakpoints[name] {
 			return name
 		}
@@ -1247,9 +1302,9 @@ func ActionNodeName(node ast.Node) string {
 	}
 }
 
-// ActionNodeNames returns every name a node answers to: its name and, for a
+// actionNodeNames returns every name a node answers to: its name and, for a
 // usage, its declared short name, which is a name of its own.
-func ActionNodeNames(node ast.Node) []string {
+func actionNodeNames(node ast.Node) []string {
 	name := ActionNodeName(node)
 	var names []string
 	if name != "" {
@@ -1275,7 +1330,7 @@ func ActionNodeNames(node ast.Node) []string {
 func (e *ActionExecutor) NodeNames() []string {
 	names := make([]string, 0, len(e.graph.Nodes))
 	for _, node := range e.graph.Nodes {
-		names = append(names, ActionNodeNames(node)...)
+		names = append(names, actionNodeNames(node)...)
 	}
 	return append(names, e.subflowNodeNames(e.graph)...)
 }
@@ -1306,11 +1361,11 @@ func (e *ActionExecutor) initializeAttributes() error {
 		if _, held := e.root.data[e.root.key(attr.Name)]; held || e.dynamics.ownsFeature(attr.Name) {
 			continue
 		}
-		if e.occurrence != nil {
+		if e.occurrence != nil && !attr.Shadowed {
 			fv, err := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
 			if err != nil {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
-					ErrActionPerformanceOccurrence, attr.Name, e.occurrence.ID, err)
+					errActionPerformanceOccurrence, attr.Name, e.occurrence.ID, err)
 			}
 			if attr.Binding && !fv.Written && !e.occurrenceRedefinesAttribute(attr, fv) {
 				value, seeded, err := e.ctx.seedBodyBindingFromFeatureValue(e.root.cells, e.root.key(attr.Name), fv)
@@ -1427,7 +1482,9 @@ func (e *ActionExecutor) streamInitialOutput(name string, value Value) error {
 func (e *ActionExecutor) declaresAttribute(name string) bool {
 	for _, attr := range e.features {
 		if attr.Name == name {
-			return true
+			// A hidden inherited feature is the performance's alone: the
+			// occurrence's slots are keyed by name and hold the visible one.
+			return !attr.Shadowed
 		}
 	}
 	return false
@@ -1454,20 +1511,25 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The run's own object: what it holds is the run's, not the model's alone.
+	inst.explicit = true
 	e.occurrence = inst
 	e.performances.occurrence = inst
 	for _, attr := range e.features {
+		if attr.Shadowed {
+			continue // the performance's alone: the occurrence's slots are keyed by name
+		}
 		if value, held := e.root.data[e.root.key(attr.Name)]; held {
 			if cell := e.root.cells.existingCell(e.root.key(attr.Name)); cell != nil && cell.binding != nil && !cell.fv.Written {
 				if _, err := e.mirrorBindingOccurrence(attr.Name, value, cell); err != nil {
 					return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
-						ErrActionPerformanceOccurrence, attr.Name, inst.ID, err)
+						errActionPerformanceOccurrence, attr.Name, inst.ID, err)
 				}
 				continue
 			}
 			if err := inst.BindFeatureValue(e.ctx, attr.Name, value); err != nil {
 				return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
-					ErrActionPerformanceOccurrence, attr.Name, inst.ID, err)
+					errActionPerformanceOccurrence, attr.Name, inst.ID, err)
 			}
 		}
 	}
@@ -1498,12 +1560,12 @@ func (e *ActionExecutor) mirrorOccurrence(name string, value Value) (Value, erro
 	}
 	if err := e.occurrence.BindFeatureValue(e.ctx, name, value); err != nil {
 		return value, fmt.Errorf("%w: write %s of object #%d: %w",
-			ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+			errActionPerformanceOccurrence, name, e.occurrence.ID, err)
 	}
 	fv, err := e.occurrence.GetFeatureValue(e.ctx, name)
 	if err != nil {
 		return value, fmt.Errorf("%w: read %s of object #%d after write: %w",
-			ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+			errActionPerformanceOccurrence, name, e.occurrence.ID, err)
 	}
 	return fv.HeldValue(), nil
 }
@@ -1516,7 +1578,7 @@ func (e *ActionExecutor) mirrorBindingOccurrence(name string, value Value, cell 
 	mirrored, err := e.ctx.mirrorBodyCell(e.occurrence, name, cell, value)
 	if err != nil {
 		return value, fmt.Errorf("%w: write %s of object #%d: %w",
-			ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+			errActionPerformanceOccurrence, name, e.occurrence.ID, err)
 	}
 	return mirrored, nil
 }
@@ -1535,10 +1597,13 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 		if value, err = e.mirrorOccurrence(name, value); err != nil {
 			return err
 		}
-	} else if err := e.ctx.checkNamedWriteAs(e.graph.Scope, func() string { return actionLabelPrefix + symbolText(e.action) }, name, &value); err != nil {
+	} else {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
-		return err
+		scope, declared := heldDeclaration(e.root, e.graph.Scope, name)
+		if err := e.ctx.checkNamedWriteAs(scope, func() string { return actionLabelPrefix + SymbolText(e.action) }, declared, &value); err != nil {
+			return err
+		}
 	}
 	e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(name), value)
 	e.moved = true
@@ -1707,10 +1772,10 @@ func (e *ActionExecutor) fixWitnessInputs() error {
 		switch {
 		case dir == ast.DirOut:
 			return &WitnessInputError{Feature: in.Feature,
-				Reason: fmt.Sprintf("action %s writes it back rather than reading it", symbolText(e.action))}
+				Reason: fmt.Sprintf("action %s writes it back rather than reading it", SymbolText(e.action))}
 		case !declared && !e.declaresAttribute(in.Feature):
 			return &WitnessInputError{Feature: in.Feature,
-				Reason: fmt.Sprintf("action %s declares no such feature", symbolText(e.action))}
+				Reason: fmt.Sprintf("action %s declares no such feature", SymbolText(e.action))}
 		}
 		value := in.Value
 		if value.Kind == ValInvalid {
@@ -1764,31 +1829,32 @@ func (e *ActionExecutor) checkInputNames() error {
 	if len(outputs) > 0 {
 		sort.Strings(outputs)
 		return fmt.Errorf("%w: action %s writes %s back rather than reading it",
-			ErrOutputActionInput, symbolText(e.action), strings.Join(outputs, ", "))
+			errOutputActionInput, SymbolText(e.action), strings.Join(outputs, ", "))
 	}
 	if len(unknown) == 0 {
 		return nil
 	}
 	sort.Strings(unknown)
 	return fmt.Errorf("%w: action %s declares no %s",
-		ErrUnknownActionInput, symbolText(e.action), strings.Join(unknown, ", "))
+		errUnknownActionInput, SymbolText(e.action), strings.Join(unknown, ", "))
 }
 
 // initialize spawns initial token at InitialNode.
 func (e *ActionExecutor) initialize() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
 
 	if e.dynamicsKind != lower.NotStateSpace {
 		return e.initializeDynamics()
 	}
 	if err := lower.FlowStartError(e.graph); err != nil {
 		return fmt.Errorf("%w: no initial node found in action %s: %w",
-			ErrInvalidActionFlow, e.action.Name, err)
+			errInvalidActionFlow, e.action.Name, err)
 	}
 
 	// A nested node's own flow is validated here, not at construction, so a
 	// malformed one is a typed error rather than a leaf that silently runs.
-	if err := e.validateSubflows(e.graph); err != nil {
+	if err := validateSubflows(e.graph); err != nil {
 		return err
 	}
 	if err := e.checkResultParameters(); err != nil {
@@ -1827,6 +1893,7 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	}
 	id := e.tokens[tokenIdx].ID
 	defer e.beginTokenStep(id)()
+	defer e.ctx.underControl(e.tokens[tokenIdx].controlSerials())()
 	if err := e.stepTokenAt(tokenIdx); err != nil {
 		return e.endTerminatedFor(id, err)
 	}
@@ -1896,6 +1963,10 @@ func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 		return tokenIdx, false
 	}
 
+	control := token.control
+	for _, idx := range consumed {
+		control = unionControl(control, e.tokens[idx].control)
+	}
 	sort.Sort(sort.Reverse(sort.IntSlice(consumed)))
 	for _, idx := range consumed {
 		e.removeToken(idx)
@@ -1904,6 +1975,7 @@ func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 	e.tokens = append(e.tokens, Token{
 		ID: e.nextTokenID, Location: token.Location, repetition: token.repetition,
 		repetitionGroup: token.repetitionGroup, moved: e.sweep, frame: token.frame,
+		control: control,
 	})
 	e.nextTokenID++
 	return len(e.tokens) - 1, true
@@ -2095,15 +2167,38 @@ func (e *ActionExecutor) enabledSuccessions(frame *actionFrame, node ast.Node) (
 
 	enabled := make([]lower.ActionEdge, 0, len(declared))
 	for _, edge := range declared {
-		holds, err := e.guardHolds(ec, node, edge.Guard)
+		holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), node, edge.Guard)
 		if err != nil {
 			return nil, err
 		}
 		if holds {
 			enabled = append(enabled, edge)
+			continue
+		}
+		if err := e.falseGuardLeavesRepeated(graph, edge); err != nil {
+			return nil, err
 		}
 	}
 	return enabled, nil
+}
+
+// falseGuardLeavesRepeated reports the error a pruned succession into a
+// repeated step gives: its written target end counted every performance, which
+// a false guard leaves unordered with respect to the source.
+func (e *ActionExecutor) falseGuardLeavesRepeated(graph *lower.ActionGraph, edge lower.ActionEdge) error {
+	if edge.TargetMultiplicity == nil || !graph.HasStepMultiplicity(edge.Target, e.ctx.Semantics()) {
+		return nil
+	}
+	count, err := graph.StepCount(edge.Target, e.ctx.Semantics())
+	if err != nil {
+		return fmt.Errorf("%w: %w", errActionStepMultiplicity, err)
+	}
+	if count <= 1 {
+		return nil
+	}
+	return fmt.Errorf("%w: %w", errActionStepMultiplicity, graph.StepError(edge.Target, e.ctx.Semantics(),
+		lower.StepOrderOpenCode,
+		"a false guard leaves the performances of the repeated step unordered with respect to its source", edge.Decl))
 }
 
 // guardHolds evaluates the guard a succession out of node carries; a succession
@@ -2136,13 +2231,13 @@ func guardResult(ec *EvalContext, guard ast.Node) (Value, error) {
 // noted and not selected.
 func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, i int) (bool, error) {
 	guard := successors[i].Guard
-	scope := e.graphOf(frame).Scope
+	scope := e.graphOf(frame).DeclScope(successors[i].Decl)
 	var holds bool
 	var err error
 	func() {
 		defer e.ctx.beginProbe()()
 		holds, err = e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, scope, func() (bool, error) {
-			ec := e.evalContextFor(frame, e.graphOf(frame).Scope)
+			ec := e.evalContextFor(frame, scope)
 			defer ec.beginStep()()
 			result, err := guardResult(ec, guard)
 			if err != nil {
@@ -2155,7 +2250,7 @@ func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, 
 		})
 	}()
 	if err != nil {
-		if errors.Is(err, ErrOrderDependentPreview) || errors.Is(err, ErrOrderDependentGuardEffect) {
+		if errors.Is(err, errOrderDependentPreview) || errors.Is(err, errOrderDependentGuardEffect) {
 			return false, err
 		}
 		e.noteUnevaluableGuard(frame, node, successors, i, err)
@@ -2194,6 +2289,7 @@ func (e *ActionExecutor) stepCandidates(
 	for i, t := range e.tokens {
 		if !e.moving(t) && eligible(t) && !order.yielding[t.ID] {
 			tokens.ids = append(tokens.ids, t.ID)
+			order.able = append(order.able, t)
 			if e.parked(t, order) {
 				tokens.parked[t.ID] = true
 			}
@@ -2311,7 +2407,7 @@ func (e *ActionExecutor) stepInitialNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
 	graph := e.tokenGraph(tokenIdx)
 	if len(graph.Edges[token.Location]) == 0 {
-		return fmt.Errorf("%w: initial node has no successors", ErrInvalidActionFlow)
+		return fmt.Errorf("%w: initial node has no successors", errInvalidActionFlow)
 	}
 	if err := e.runNodeBody(token.frame, token.Location); err != nil {
 		return err
@@ -2372,7 +2468,7 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 
 	if len(graph.Edges[node]) == 0 {
 		return fmt.Errorf("%w: fork node %s has no successors",
-			ErrInvalidActionFlow, node.Name)
+			errInvalidActionFlow, node.Name)
 	}
 	if err := e.runNodeBody(frame, node); err != nil {
 		return err
@@ -2420,6 +2516,7 @@ func (e *ActionExecutor) split(tokenIdx int, successors []lower.ActionEdge) {
 			Via:      edge,
 			moved:    e.sweep,
 			frame:    frame,
+			control:  e.tokens[tokenIdx].control,
 		}
 		e.nextTokenID++
 		newTokens = append(newTokens, newToken)
@@ -2449,11 +2546,11 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	declared := graph.Edges[node]
 	if len(declared) == 0 {
 		return fmt.Errorf("%w: join node %s has no successors",
-			ErrInvalidActionFlow, node.Name)
+			errInvalidActionFlow, node.Name)
 	}
 	if len(declared) > 1 {
 		return fmt.Errorf("%w: join node %s has multiple successors",
-			ErrInvalidActionFlow, node.Name)
+			errInvalidActionFlow, node.Name)
 	}
 	successors, err := e.enabledSuccessions(frame, node)
 	if err != nil {
@@ -2481,11 +2578,11 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 	declared := graph.Edges[mergeNode]
 	if len(declared) == 0 {
 		return fmt.Errorf("%w: merge node %s has no successors",
-			ErrInvalidActionFlow, mergeNode.Name)
+			errInvalidActionFlow, mergeNode.Name)
 	}
 	if len(declared) > 1 {
 		return fmt.Errorf("%w: merge node %s has multiple successors (not yet supported)",
-			ErrInvalidActionFlow, mergeNode.Name)
+			errInvalidActionFlow, mergeNode.Name)
 	}
 	if err := e.runNodeBody(token.frame, mergeNode); err != nil {
 		return err
@@ -2520,7 +2617,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	successors := graph.Edges[decisionNode]
 	if len(successors) == 0 {
 		return fmt.Errorf("%w: decision node %s has no successors",
-			ErrInvalidActionFlow, decisionNode.Name)
+			errInvalidActionFlow, decisionNode.Name)
 	}
 	if err := e.runNodeBody(token.frame, decisionNode); err != nil {
 		return err
@@ -2564,7 +2661,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			}
 		} else {
 			var err error
-			if holds, err = e.guardHolds(ec, decisionNode, edge.Guard); err != nil {
+			if holds, err = e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), decisionNode, edge.Guard); err != nil {
 				return err
 			}
 		}
@@ -2584,30 +2681,67 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		// A branch picked past the first was only probed; its guard's final reading
 		// is the run's own, so the run holds what evaluating it did.
 		if pick > 0 && successors[holding[pick]].Guard != nil {
-			holds, err := e.guardHolds(ec, decisionNode, successors[holding[pick]].Guard)
+			picked := successors[holding[pick]]
+			holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(picked.Decl)), decisionNode, picked.Guard)
 			if err != nil {
 				return err
 			}
 			if !holds {
 				return fmt.Errorf("%w: decision node %s: guard of %s held when probed and not when read",
-					ErrNoEnabledSuccession, decisionNode.Name, branchName(successors, holding[pick]))
+					errNoEnabledSuccession, decisionNode.Name, branchName(successors, holding[pick]))
 			}
 		}
+		by := e.guardsStanding(graph, successors, holding[len(holding)-1])
 		if choice != nil {
 			e.noteChoice(*choice)
+			if !choice.Independent {
+				by = unionSerials(by, []int64{choice.serial})
+			}
 		}
+		token.underControl(by, commonReach(graph, successors))
 		e.move(token, successors[holding[pick]])
 		return nil
 	}
 
-	// Pass 2: Use unguarded edge as fallback
+	// Pass 2: Use unguarded edge as fallback. Every guard read and failed, so the
+	// fallback stands on what they read as a taken branch would.
 	if unguardedEdge != nil {
+		token.underControl(e.guardsStanding(graph, successors, len(successors)-1), commonReach(graph, successors))
 		e.move(token, *unguardedEdge)
 		return nil
 	}
 
 	return fmt.Errorf("%w: decision node %s has no true guard",
-		ErrNoEnabledSuccession, decisionNode.Name)
+		errNoEnabledSuccession, decisionNode.Name)
+}
+
+// guardsStanding is what the guards of successors up to and including index last
+// read that is order-dependent: each was read to decide the branch, whether it
+// held or failed.
+func (e *ActionExecutor) guardsStanding(graph *lower.ActionGraph, successors []lower.ActionEdge, last int) []int64 {
+	var by []int64
+	for i := 0; i <= last && i < len(successors); i++ {
+		if successors[i].Guard == nil {
+			continue
+		}
+		by = unionSerials(by, e.ctx.standingOf(lower.ExpressionFootprint(graph.DeclScope(successors[i].Decl), successors[i].Guard), true))
+	}
+	return by
+}
+
+// performedParams is the action's own parameters where another action's node
+// performs it, nil where it runs on its own: the places the node's pins are.
+func (e *ActionExecutor) performedParams() map[*symbols.Symbol]bool {
+	if e.performedAt == nil || e.graph == nil {
+		return nil
+	}
+	params := make(map[*symbols.Symbol]bool, len(e.graph.Parameters))
+	for _, f := range e.graph.Parameters {
+		if sym, ok := e.graph.Scope.LookupLocal(f.Name); ok && sym.Decl == f.Node {
+			params[sym] = true
+		}
+	}
+	return params
 }
 
 // stepActionExecutionNode evaluates inline expression or invokes nested action.
@@ -2699,7 +2833,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 		}
 	}
 
-	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil)
+	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -2709,6 +2843,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 		if err := e.setFrameFeature(perf, accept.ParamName, *payload); err != nil {
 			return err
 		}
+		e.ctx.acceptMarks(graph.Footprints()[usage].Writes, token.accepted)
 	}
 
 	// A node owning no flow, performing no action, is done in this step: a case
@@ -2786,14 +2921,19 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 	if err != nil {
 		return nil, false, fmt.Errorf("accept %s: %w", accept.ParamName, err)
 	}
+	token.accepted = msg.dependence
+	// The payload is a feature of the flow the accept sits in, which the nodes
+	// after it read by its name unless a feature of the flow's own holds the name:
+	// then the payload is the accept node's alone (`receiver.msg`).
+	if !token.frame.bindsPayload(accept) {
+		return &value, true, nil
+	}
 	if token.frame == e.root && e.declaresAttribute(accept.ParamName) {
 		what := func() string { return "accept " + accept.ParamName }
 		if err := e.ctx.checkMutable(e.root.scope, what, accept.ParamName); err != nil {
 			return nil, false, err
 		}
 	}
-	// The payload is a feature of the flow the accept sits in, which the
-	// nodes after it read by its name.
 	if err := e.setFrameFeature(token.frame, accept.ParamName, value); err != nil {
 		return nil, false, err
 	}
@@ -2813,12 +2953,17 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 		}
 		state.remaining--
 		state.live = slices.DeleteFunc(state.live, func(live *actionFrame) bool { return live == perf })
-		if state.remaining > 0 {
+		// A repeated step whose succession crosses into a join or merge crosses
+		// it per performance: each completing token carries on to the node and
+		// performs it, the group standing until the last one completes.
+		if state.remaining > 0 && !frame.graph.CrossesPerPerformance(node, e.ctx.Semantics()) {
 			e.tokens[tokenIdx].repetition = 0
 			e.tokens[tokenIdx].repetitionGroup = 0
 			return e.retireToken(tokenIdx)
 		}
-		delete(frame.repeats, group)
+		if state.remaining == 0 {
+			delete(frame.repeats, group)
+		}
 		e.tokens[tokenIdx].repetition = 0
 		e.tokens[tokenIdx].repetitionGroup = 0
 	}
@@ -2936,9 +3081,9 @@ func (e *ActionExecutor) NextWait() (float64, bool) {
 	return waits[0].Due, true
 }
 
-// TimeWaits describes the tokens parked on the clock, in token-ID order, then
+// describeTimeWaits describes the tokens parked on the clock, in token-ID order, then
 // those of the executors the paused work of its tokens waits on.
-func (e *ActionExecutor) TimeWaits() []string {
+func (e *ActionExecutor) describeTimeWaits() []string {
 	waits := e.timeWaits(nil)
 	out := make([]string, 0, len(waits))
 	for _, token := range waits {
@@ -2999,7 +3144,7 @@ func (e *ActionExecutor) tokensByID() []Token {
 
 // dueLabel names the executor in a due-order choice.
 func (e *ActionExecutor) dueLabel() string {
-	return actionLabelPrefix + symbolText(e.action) + performerSuffix(e.self)
+	return actionLabelPrefix + SymbolText(e.action) + performerSuffix(e.self)
 }
 
 // clockWaits lists the tokens parked on the clock for an instant it has not
@@ -3189,7 +3334,7 @@ func (e *performances) applyDataFlows(
 			}
 			return fmt.Errorf(
 				"%w: %s: %s produced no value at %s",
-				ErrFlowSource, flowDescription(flow), nodeDescription(sourceNode), orAnyPin(flow.SourcePin),
+				errFlowSource, flowDescription(flow), nodeDescription(sourceNode), orAnyPin(flow.SourcePin),
 			)
 		}
 		var err error
@@ -3394,6 +3539,8 @@ func (e *ActionExecutor) collectPartsHeld(into map[string]Value) {
 		if !live || len(objects) != 1 {
 			continue
 		}
+		// The object a performance denotes is the run's: what it holds is read as held.
+		objects[0].explicit = true
 		for name, value := range e.ctx.attributesHeld(objects[0]) {
 			into[sym.Name+"."+name] = value
 		}

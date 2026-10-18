@@ -105,7 +105,7 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 		behavior.Name = node.Name
 		behavior.Body = lowerActionExecution(node, scope)
 	default:
-		behavior.Body = []Statement{lowerStatement(action, scope, resolver)}
+		behavior.Body = []Statement{lowerStatement(action, scope, resolver, nil)}
 	}
 	behavior.Nodes = blockNodesOf(behavior.Body, nil)
 	behavior.Multiplicities = make(map[ast.Node]*ast.Multiplicity)
@@ -126,7 +126,7 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 // one stating none runs its statements in declaration order.
 func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
 	if !statesOwnFlow(node.Members) {
-		return lowerBlock(node, node.Members, scope, resolver)
+		return lowerBlock(node, node.Members, scope, resolver, nil)
 	}
 	graph, err := ToActionGraphWith(node, scope, resolver)
 	if err != nil {
@@ -145,7 +145,7 @@ func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.
 func lowerActionExecution(node *ast.ActionExecutionNode, scope *symbols.Scope) []Statement {
 	switch {
 	case node.Expression != nil:
-		return []Statement{Declare{Name: node.Name, Value: node.Expression, BodyData: true, Node: node, Scope: scope}}
+		return []Statement{Declare{Name: node.Name, Value: node.Expression, BodyData: true, Node: node, Scope: scope, Symbol: scope.MemberDeclaring(node)}}
 	case node.ActionRef != nil:
 		return []Statement{Effect{Kind: EffectPerform, Node: node, Scope: scope}}
 	default:

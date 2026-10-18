@@ -72,6 +72,7 @@ type runCapture struct {
 	ids                  *idSequence
 	nextID               int64
 	activations, runs    int64
+	coverageGaps         mapState[CoverageGap, bool]
 	run                  *runState
 	trace                *TraceRecorder
 	traced               traceCapture
@@ -122,6 +123,8 @@ type runStateCapture struct {
 	state           *runState
 	steps, elements int64
 	notes           []RunNote
+	marks           orderMarks
+	performers      []*Instance
 	scheduler       *scheduler
 	restoreSchedule func()
 	calcUsageRuns   map[int64]map[calcUsageKey]*calcRun
@@ -158,13 +161,13 @@ func (ctx *Context) Snapshot() (*Snapshot, error) {
 	return ctx.snapshotWith(nil, nil)
 }
 
-// Snapshot captures the executor's state along with its context's (Context.Snapshot).
-func (e *ActionExecutor) Snapshot() (*Snapshot, error) {
+// snapshot captures the executor's state along with its context's (Context.Snapshot).
+func (e *ActionExecutor) snapshot() (*Snapshot, error) {
 	return e.ctx.snapshotWith([]*ActionExecutor{e}, nil)
 }
 
-// Snapshot captures the executor's state along with its context's (Context.Snapshot).
-func (e *StateExecutor) Snapshot() (*Snapshot, error) {
+// snapshot captures the executor's state along with its context's (Context.Snapshot).
+func (e *StateExecutor) snapshot() (*Snapshot, error) {
 	return e.ctx.snapshotWith(nil, []*StateExecutor{e})
 }
 
@@ -440,6 +443,7 @@ func (ctx *Context) captureRun() runCapture {
 		choices:              ctx.choices,
 		draws:                ctx.draws,
 		evaluations:          ctx.evaluations,
+		coverageGaps:         captureMap(ctx.coverageGaps),
 		pendingBehaviors:     slices.Clone(ctx.pendingBehaviors),
 		heldBehaviors:        captureMap(ctx.heldBehaviors),
 		successionOrderNotes: captureMap(ctx.successionOrderNotes),
@@ -463,6 +467,7 @@ func (c runCapture) restore(ctx *Context) {
 	c.traced.restore(c.trace)
 	ctx.choices, ctx.draws = c.choices, c.draws
 	ctx.evaluations = c.evaluations
+	ctx.coverageGaps = c.coverageGaps.restore()
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()
 	ctx.successionOrderNotes = c.successionOrderNotes.restore()
@@ -480,6 +485,8 @@ func (s *executorCaptures) captureRunState(state *runState) {
 	s.runStates = append(s.runStates, runStateCapture{
 		state: state, steps: state.steps, elements: state.elements,
 		notes:           slices.Clone(state.notes),
+		marks:           state.marks.clone(),
+		performers:      slices.Clone(state.performers),
 		scheduler:       state.scheduler,
 		restoreSchedule: state.scheduler.mark(),
 		calcUsageRuns:   cloneCalcUsageRuns(state.calcUsageRuns),
@@ -490,6 +497,8 @@ func (s *executorCaptures) captureRunState(state *runState) {
 func (c runStateCapture) restore() {
 	c.state.steps, c.state.elements = c.steps, c.elements
 	c.state.notes = slices.Clone(c.notes)
+	c.state.marks = c.marks.clone()
+	c.state.performers = slices.Clone(c.performers)
 	c.state.scheduler = c.scheduler
 	c.restoreSchedule()
 	clear(c.state.calcUsageRuns)
@@ -618,6 +627,11 @@ func (e *ActionExecutor) reachableFrames() []*actionFrame {
 					visit(repeated)
 				}
 			}
+			for _, perfs := range perf.repeatedPerfs {
+				for _, repeated := range perfs {
+					visit(repeated)
+				}
+			}
 		}
 	}
 	visit(e.root)
@@ -665,6 +679,7 @@ func captureFrame(perf *actionFrame) frameCapture {
 	c.saved.outputs = slices.Clone(perf.outputs)
 	c.saved.subactions = maps.Clone(perf.subactions)
 	c.saved.repeats = cloneStepRepetitions(perf.repeats)
+	c.saved.repeatedPerfs = cloneRepeatedPerfs(perf.repeatedPerfs)
 	c.saved.pending = clonePending(perf.pending)
 	c.saved.held = cloneHeld(perf.held)
 	c.saved.staged = cloneStaged(perf.staged)
@@ -697,6 +712,7 @@ func (c frameCapture) restore() {
 	perf.outputs = slices.Clone(c.saved.outputs)
 	perf.subactions = maps.Clone(c.saved.subactions)
 	perf.repeats = cloneStepRepetitions(c.saved.repeats)
+	perf.repeatedPerfs = cloneRepeatedPerfs(c.saved.repeatedPerfs)
 	perf.pending = clonePending(c.saved.pending)
 	perf.held = cloneHeld(c.saved.held)
 	perf.staged = cloneStaged(c.saved.staged)
@@ -716,6 +732,17 @@ func cloneStepRepetitions(repeats map[repetitionGroupID]*stepRepetition) map[rep
 			continue
 		}
 		cloned[group] = &stepRepetition{node: state.node, remaining: state.remaining, live: slices.Clone(state.live)}
+	}
+	return cloned
+}
+
+func cloneRepeatedPerfs(repeated map[ast.Node][]*actionFrame) map[ast.Node][]*actionFrame {
+	if repeated == nil {
+		return nil
+	}
+	cloned := make(map[ast.Node][]*actionFrame, len(repeated))
+	for node, perfs := range repeated {
+		cloned[node] = slices.Clone(perfs)
 	}
 	return cloned
 }
@@ -781,7 +808,7 @@ func cloneNested(nested map[ast.Node][]nestedDelivery) map[ast.Node][]nestedDeli
 type stateCapture struct {
 	exec               *StateExecutor
 	state              ExecutionState
-	activeConfig       *StateConfiguration
+	activeConfig       *stateConfiguration
 	nextEventID        int64
 	events             eventHeap
 	stateData          mapState[string, Value]
@@ -979,11 +1006,15 @@ func cloneHeldEntries(entries []heldEntry) []heldEntry {
 	return cloned
 }
 
-func cloneConfiguration(config *StateConfiguration) *StateConfiguration {
+func cloneConfiguration(config *stateConfiguration) *stateConfiguration {
 	if config == nil {
 		return nil
 	}
-	return &StateConfiguration{simpleState: config.simpleState, regionStates: maps.Clone(config.regionStates)}
+	return &stateConfiguration{
+		simpleState:     config.simpleState,
+		regionStates:    maps.Clone(config.regionStates),
+		defaultComplete: maps.Clone(config.defaultComplete),
+	}
 }
 
 func cloneDispatch(dispatch *Dispatch) *Dispatch {
@@ -1005,6 +1036,8 @@ type moveMark struct {
 	run              *runState
 	steps, elements  int64
 	notes            []RunNote
+	marks            orderMarks
+	performers       []*Instance
 	choices, draws   int
 	trace            traceCapture
 	ids              *idSequence
@@ -1018,7 +1051,8 @@ func (e *StateExecutor) markMove() *moveMark {
 	ctx := e.ctx
 	m := &moveMark{
 		exec: e, outer: e.moving, run: ctx.run, steps: ctx.run.steps, elements: ctx.run.elements,
-		notes: slices.Clone(ctx.run.notes), choices: len(ctx.choices), draws: len(ctx.draws),
+		notes: slices.Clone(ctx.run.notes), marks: ctx.run.marks.clone(), performers: slices.Clone(ctx.run.performers),
+		choices: len(ctx.choices), draws: len(ctx.draws),
 		trace: captureTrace(ctx.trace),
 		ids:   ctx.ids, nextID: ctx.ids.next,
 	}
@@ -1050,6 +1084,8 @@ func (m *moveMark) undo() {
 		m.ids.release(e.ctx, m.nextID)
 	}
 	m.run.steps, m.run.elements, m.run.notes = m.steps, m.elements, m.notes
+	m.run.marks = m.marks.clone()
+	m.run.steps, m.run.elements, m.run.notes, m.run.performers = m.steps, m.elements, m.notes, m.performers
 	e.ctx.choices, e.ctx.draws = e.ctx.choices[:m.choices], e.ctx.draws[:m.draws]
 	m.trace.restore(e.ctx.trace)
 	m.state.restore(e.ctx)

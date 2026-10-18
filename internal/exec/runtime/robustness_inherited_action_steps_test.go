@@ -90,8 +90,8 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 				succession first p then a;
 			}
 		}`, "Derived")
-		if !errors.Is(err, ErrActionStepMultiplicity) {
-			t.Fatalf("ExecuteAction(Derived) error = %v, want ErrActionStepMultiplicity", err)
+		if !errors.Is(err, errActionStepMultiplicity) {
+			t.Fatalf("ExecuteAction(Derived) error = %v, want errActionStepMultiplicity", err)
 		}
 		var stepErr *lower.StepMultiplicityError
 		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderUnsatisfiableCode {
@@ -467,8 +467,8 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
-	t.Run("recursive_typed_action_body", func(t *testing.T) {
-		_, err := executeInheritedAction(t, `package test {
+	t.Run("unbounded_recursive_typed_action_body", func(t *testing.T) {
+		_, err := executeRecursiveTypedAction(t, `package test {
 			private import ScalarValues::*;
 			action def A {
 				attribute c : Integer = 0;
@@ -478,9 +478,9 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 				}
 				then done;
 			}
-		}`, "A")
-		if !errors.Is(err, lower.ErrRecursiveActionTyping) {
-			t.Fatalf("ExecuteAction error = %v, want ErrRecursiveActionTyping", err)
+		}`, "A", 200)
+		if !errors.Is(err, ErrActionStepLimitExceeded) {
+			t.Fatalf("ExecuteAction error = %v, want ErrActionStepLimitExceeded", err)
 		}
 	})
 
@@ -621,6 +621,29 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 		if got := outputs["c"]; got.Kind != ValConst || got.Const.Int != 0 {
 			t.Fatalf("c = %v, want 0", got)
+		}
+	})
+
+	t.Run("restated_end_multiplicity_succession_performs_once", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				attribute n : Integer = 0;
+				action a[1];
+				action b { assign n := n + 1; }
+				first start then a;
+				succession first [1] a then [1] b;
+				first b then done;
+			}
+			action def D :> Base {
+				succession first [1] a then [1] b;
+			}
+		}`, "D")
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if got := outputs["n"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Fatalf("n = %v, want 1", got)
 		}
 	})
 }

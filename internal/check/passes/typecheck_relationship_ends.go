@@ -95,7 +95,7 @@ func (tc *typeChecker) checkRelationshipEnd(scope *symbols.Scope, rel *ast.Relat
 		Severity: diag.SeverityError,
 		Span:     end.Span(),
 		Message:  fmt.Sprintf("%s %s must be %s, found %s", rel.Keyword, role, want, sym.Kind),
-		Code:     "type",
+		Code:     codeRelationshipEndKind,
 		Source:   "type",
 	})
 }

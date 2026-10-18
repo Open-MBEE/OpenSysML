@@ -50,7 +50,7 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 	// loaded from a .kerml file.
 	w := &notationWalker{
 		sysml:       ctx.Kind != source.KindKerML,
-		severity:    notationSeverity(ctx.Options.Conformance),
+		severity:    strictSeverity(ctx.Options.Conformance),
 		keywordName: keywordNameSpans(ctx.ParseDiagnostics),
 		doc:         name,
 		lookup:      ctx.Source,
@@ -78,14 +78,6 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 		w.diags[i].Notation = true
 	}
 	return w.diags
-}
-
-// notationSeverity maps the mode onto extension-notation severity.
-func notationSeverity(mode diag.ConformanceMode) diag.Severity {
-	if mode.IsStrict() {
-		return diag.SeverityError
-	}
-	return diag.SeverityWarning
 }
 
 // notationWalker accumulates the diagnostics of one document.

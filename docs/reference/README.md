@@ -7,6 +7,8 @@ reading order.
 - **[CLI](cli.md)** — every flag of `sysml`, the modes, and the exit status
 - **[REPL commands](repl-commands.md)** — every `%` command and its arguments
 - **[LSP extensions](lsp.md)** — the custom render requests `sysml-lsp` serves to a diagram client
+- **[Jupyter kernel](jupyter-kernel.md)** — `sysml-jupyter-kernel`, its kernelspec, what it reports
+  and renders, and how the package installs it
 - **[Diagnostics: lints](diagnostics.md)** — the codes of the advisory lints, what each reports and
   how each surface switches one off
 - **[Environment variables](environment.md)** — the resource limits for a single run, and paths
@@ -20,6 +22,8 @@ reading order.
 - **[Node API](node-api.md)** — `@openmbee/opensysml`, its two entry points and its typed unions
 - **[Java API](java-api.md)** — `opensysml`, its immutable records and its exceptions
 - **[Rust API](rust-api.md)** — the `opensysml` crate, blocking, and its one error enum
+- **[Julia API](julia-api.md)** — the `OpenSysML` package, Connect-JSON over `HTTP.jl`
+- **[MATLAB API](matlab-api.md)** — the `+opensysml` package, for MATLAB and GNU Octave
 - **[Service transports](service-transports.md)** — what `sysml-grpc` serves on one port, which
   body encoding a client should choose, and the flags for CORS, TLS and health
 - **[Wire contract](wire-contract.md)** — Connect + JSON field by field, for a MATLAB, R, Julia,
@@ -28,6 +32,9 @@ reading order.
   why the mapping is experimental
 - **[SysML v1 migration](sysml-v1-migration.md)** — reading OMG UML/SysML XMI, Eclipse `.uml` and `.mdzip`, what
   each v1 construct becomes, and the migration report
+- **[FMI models](fmi.md)** — importing a `.fmu` as a `calc def` and the FMI runner that evaluates it
+- **[Compact API JSON](api-json-compact.md)** — the `api-json-compact/1` form and how it maps to
+  the API element array
 - **[OSLC Query text](oslc-query.md)** — element-identification query syntax and semantics
 - **[Grammar](grammar/README.md)** — how each grammar production maps to the parser
 - **[WebAssembly builds](wasm.md)** — the two targets, how to build and run them, what works,

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
@@ -150,17 +151,17 @@ func TestComparisonTableRefusesMixedUnits(t *testing.T) {
 		})
 	}
 	bare := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 3}}
-	row := func(v runtime.Value) runtime.SweepRow {
-		return runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: v}}}
+	row := func(v runtime.Value) sweep.SweepRow {
+		return sweep.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: v}}}
 	}
 	cfg := &compareResults("'Group 1'", 2).Configurations[0]
-	for name, rows := range map[string][]runtime.SweepRow{
+	for name, rows := range map[string][]sweep.SweepRow{
 		"quantity first":   {row(quantity(2, "s")), row(bare)},
 		"bare first":       {row(bare), row(quantity(2, "s"))},
 		"two units":        {row(quantity(2, "s")), row(quantity(2000, "ms"))},
 		"failed run apart": {row(quantity(2, "s")), {Err: fmt.Errorf("boom")}, row(bare)},
 	} {
-		got := strings.Join(comparisonTable(cfg, runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: rows}, nil), "\n")
+		got := strings.Join(comparisonTable(cfg, sweep.SweepTable{Target: "Cfg::'Group 1'", Rows: rows}, nil), "\n")
 		if !strings.Contains(got, "note: target.total came to numbers in more than one unit (") || !strings.Contains(got, "so total is not compared") {
 			t.Errorf("%s: mixed units compared:\n%s", name, got)
 		}
@@ -168,7 +169,7 @@ func TestComparisonTableRefusesMixedUnits(t *testing.T) {
 			t.Errorf("%s: a difference is given over mixed units:\n%s", name, got)
 		}
 	}
-	same := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(quantity(2, "s")), row(quantity(4, "s"))}}
+	same := sweep.SweepTable{Target: "Cfg::'Group 1'", Rows: []sweep.SweepRow{row(quantity(2, "s")), row(quantity(4, "s"))}}
 	got := strings.Join(comparisonTable(cfg, same, nil), "\n")
 	if !strings.Contains(got, "2.0 [s]") || !strings.Contains(got, "difference") {
 		t.Errorf("one unit not compared in it:\n%s", got)
@@ -183,16 +184,16 @@ func TestComparisonTableRefusesNonnumericRuns(t *testing.T) {
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: n}}
 	}
 	flag := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: true}}
-	row := func(v runtime.Value) runtime.SweepRow {
-		return runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: v}}}
+	row := func(v runtime.Value) sweep.SweepRow {
+		return sweep.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: v}}}
 	}
 	cfg := &compareResults("'Group 1'", 2).Configurations[0]
-	for name, rows := range map[string][]runtime.SweepRow{
+	for name, rows := range map[string][]sweep.SweepRow{
 		"number first":     {row(number(2)), row(flag), row(number(4))},
 		"no number first":  {row(flag), row(number(2)), row(number(4))},
 		"failed run apart": {row(number(2)), {Err: fmt.Errorf("boom")}, row(flag), row(number(4))},
 	} {
-		got := strings.Join(comparisonTable(cfg, runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: rows}, nil), "\n")
+		got := strings.Join(comparisonTable(cfg, sweep.SweepTable{Target: "Cfg::'Group 1'", Rows: rows}, nil), "\n")
 		if !strings.Contains(got, "note: target.total holds no number in 1 of the 3 completed run(s) that produced it, so total is not compared") {
 			t.Errorf("%s: a run holding no number is not counted:\n%s", name, got)
 		}
@@ -200,7 +201,7 @@ func TestComparisonTableRefusesNonnumericRuns(t *testing.T) {
 			t.Errorf("%s: a difference is given over runs holding no number:\n%s", name, got)
 		}
 	}
-	none := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(flag), row(flag)}}
+	none := sweep.SweepTable{Target: "Cfg::'Group 1'", Rows: []sweep.SweepRow{row(flag), row(flag)}}
 	got := strings.Join(comparisonTable(cfg, none, nil), "\n")
 	if !strings.Contains(got, "note: target.total holds no number in any completed run, so total is not compared") {
 		t.Errorf("no run holding a number:\n%s", got)
@@ -215,17 +216,17 @@ func TestComparisonTableRefusesRunsMissingTheObservable(t *testing.T) {
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: n}}
 	}
 	flag := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: true}}
-	row := func(v runtime.Value) runtime.SweepRow {
-		return runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: v}}}
+	row := func(v runtime.Value) sweep.SweepRow {
+		return sweep.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: v}}}
 	}
-	without := runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "clock", Value: number(1)}}}
+	without := sweep.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "clock", Value: number(1)}}}
 	cfg := &compareResults("'Group 1'", 2).Configurations[0]
-	for name, rows := range map[string][]runtime.SweepRow{
+	for name, rows := range map[string][]sweep.SweepRow{
 		"number first":     {row(number(2)), without, row(number(4))},
 		"missing first":    {without, row(number(2)), row(number(4))},
 		"failed run apart": {row(number(2)), {Err: fmt.Errorf("boom")}, without, row(number(4))},
 	} {
-		got := strings.Join(comparisonTable(cfg, runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: rows}, nil), "\n")
+		got := strings.Join(comparisonTable(cfg, sweep.SweepTable{Target: "Cfg::'Group 1'", Rows: rows}, nil), "\n")
 		if !strings.Contains(got, "note: target.total was produced by 2 of the 3 completed run(s), so total is not compared") {
 			t.Errorf("%s: a run producing no value is not counted:\n%s", name, got)
 		}
@@ -233,7 +234,7 @@ func TestComparisonTableRefusesRunsMissingTheObservable(t *testing.T) {
 			t.Errorf("%s: a difference is given over runs producing no value:\n%s", name, got)
 		}
 	}
-	mixed := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(number(2)), without, row(flag)}}
+	mixed := sweep.SweepTable{Target: "Cfg::'Group 1'", Rows: []sweep.SweepRow{row(number(2)), without, row(flag)}}
 	got := strings.Join(comparisonTable(cfg, mixed, nil), "\n")
 	if !strings.Contains(got, "note: target.total was produced by 2 of the 3 completed run(s) and holds no number in 1 of those, so total is not compared") {
 		t.Errorf("a run producing no value beside one holding no number:\n%s", got)
@@ -376,8 +377,8 @@ func TestComparisonTablePoolsSummarisedResults(t *testing.T) {
 	number := func(n float64) runtime.Value {
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: n}}
 	}
-	row := func(n float64) runtime.SweepRow {
-		return runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: number(n)}}}
+	row := func(n float64) sweep.SweepRow {
+		return sweep.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: number(n)}}}
 	}
 	cfg := &compareResults("'Group 1'", 2).Configurations[0]
 	cfg.Analysis = "total"
@@ -392,7 +393,7 @@ func TestComparisonTablePoolsSummarisedResults(t *testing.T) {
 		t.Errorf("storedRuns = %q", got)
 	}
 
-	table := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(8), row(10)}}
+	table := sweep.SweepTable{Target: "Cfg::'Group 1'", Rows: []sweep.SweepRow{row(8), row(10)}}
 	got := strings.Join(comparisonTable(cfg, table, nil), "\n")
 	for _, want := range []string{
 		"total      | tool                     | 10   |     | 9.0   |     |      |",
@@ -504,8 +505,8 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 	number := func(n float64) runtime.Value {
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: n}}
 	}
-	row := func(n float64) runtime.SweepRow {
-		return runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: number(n)}}}
+	row := func(n float64) sweep.SweepRow {
+		return sweep.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: number(n)}}}
 	}
 	cfg := &compareResults("'Group 1'", 2).Configurations[0]
 	cfg.Analysis = "total"
@@ -515,7 +516,7 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 		ID: "_sum", Name: "analysis", Values: map[string]float64{"total": 10.0},
 		Statistics: &simresults.Statistics{Observable: "total", Runs: 3, Mean: 10.0, Deviation: simresults.Real(2.0), OutOfSpec: simresults.Count(1)},
 	}}
-	table := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(8), row(10), row(12)}}
+	table := sweep.SweepTable{Target: "Cfg::'Group 1'", Rows: []sweep.SweepRow{row(8), row(10), row(12)}}
 	got := strings.Join(comparisonTable(cfg, table, nil), "\n")
 	for _, want := range []string{
 		"statistics of total by 'Probe Monte Carlo':",
@@ -556,7 +557,7 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 	// The tool's deviation pools the runs stored one by one with each summary's
 	// spread about its own mean and its mean's offset from the pooled one.
 	cfg.Snapshots = append(cfg.Snapshots, simresults.Snapshot{ID: "_r1", Values: map[string]float64{"total": 14.0}})
-	if dev, ok := storedDeviation(cfg, "total"); !ok || spell(dev) != "2.581988897471611" {
+	if dev, ok := simresults.StoredDeviation(cfg, "total"); !ok || simresults.Spell(dev) != "2.581988897471611" {
 		t.Errorf("storedDeviation = %v, %v; want sqrt(20/3) over the four pooled runs", dev, ok)
 	}
 
@@ -568,17 +569,17 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 		{ID: "_r1", Values: map[string]float64{"total": -1e200}},
 		{ID: "_r2", Values: map[string]float64{"total": 1e200}},
 	}
-	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-math.Sqrt2*1e200) > 1e185 {
+	if dev, ok := simresults.StoredDeviation(huge, "total"); !ok || math.Abs(dev-math.Sqrt2*1e200) > 1e185 {
 		t.Errorf("storedDeviation over ±1e200 = %v, %v; want %v", dev, ok, math.Sqrt2*1e200)
 	}
 	huge.Snapshots = []simresults.Snapshot{
 		{ID: "_s1", Statistics: &simresults.Statistics{Observable: "total", Runs: 2, Mean: -1e200, Deviation: simresults.Real(1e200)}},
 		{ID: "_s2", Statistics: &simresults.Statistics{Observable: "total", Runs: 2, Mean: 1e200, Deviation: simresults.Real(1e200)}},
 	}
-	if d, pooled := storedDistribution(huge, "total"); !pooled || d.Count != 4 || d.Mean != 0 {
+	if d, pooled := simresults.StoredDistribution(huge, "total"); !pooled || d.Count != 4 || d.Mean != 0 {
 		t.Errorf("storedDistribution over summaries at ±1e200 = %+v, %v; want four runs with a mean of 0", d, pooled)
 	}
-	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-math.Sqrt2*1e200) > 1e185 {
+	if dev, ok := simresults.StoredDeviation(huge, "total"); !ok || math.Abs(dev-math.Sqrt2*1e200) > 1e185 {
 		t.Errorf("storedDeviation over summaries at ±1e200 = %v, %v; want %v", dev, ok, math.Sqrt2*1e200)
 	}
 	// Nor is a run's or a summary's offset from the pooled mean taken raw: runs at
@@ -588,7 +589,7 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 		{ID: "_r1", Values: map[string]float64{"total": -maxF}},
 		{ID: "_s1", Statistics: &simresults.Statistics{Observable: "total", Runs: 3, Mean: maxF, Deviation: simresults.Real(0)}},
 	}
-	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-maxF) > 1e293 {
+	if dev, ok := simresults.StoredDeviation(huge, "total"); !ok || math.Abs(dev-maxF) > 1e293 {
 		t.Errorf("storedDeviation over -max and a summary at max = %v, %v; want %v", dev, ok, maxF)
 	}
 
@@ -607,7 +608,7 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 	// One completed run has no sample deviation: the runs' is left blank, not 0, and
 	// the tool's stands alone uncompared.
 	cfg.Snapshots[0].Statistics.Deviation = simresults.Real(2.0)
-	one := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(10)}}
+	one := sweep.SweepTable{Target: "Cfg::'Group 1'", Rows: []sweep.SweepRow{row(10)}}
 	got = strings.Join(comparisonTable(cfg, one, nil), "\n")
 	for _, want := range []string{
 		"Deviation | return Deviation | 2.581988897471611 |                          |",
@@ -640,10 +641,10 @@ func TestComparisonTablePoolsRunCountsExactly(t *testing.T) {
 	if runs == int64(float64(runs)) || want == int64(float64(want)) {
 		t.Fatalf("%d rounds to itself as a Real; the count under test must not", want)
 	}
-	if d, pooled := storedDistribution(cfg, "total"); !pooled || int64(d.Count) != want || d.Mean != 10.0 {
+	if d, pooled := simresults.StoredDistribution(cfg, "total"); !pooled || int64(d.Count) != want || d.Mean != 10.0 {
 		t.Errorf("storedDistribution = %+v, %v; want %d runs with a mean of 10.0", d, pooled, want)
 	}
-	table := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{{
+	table := sweep.SweepTable{Target: "Cfg::'Group 1'", Rows: []sweep.SweepRow{{
 		Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 10.0}}}},
 	}}}
 	got := strings.Join(comparisonTable(cfg, table, nil), "\n")

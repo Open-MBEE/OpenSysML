@@ -17,6 +17,12 @@ import (
 // inherited-name rule needs to see the Action/Part diamond.
 func w9cLibraryDiags(t *testing.T, src string, warm bool) []diag.Diagnostic {
 	t.Helper()
+	return w9cLibraryDiagsUnder(t, src, warm, Options{})
+}
+
+// w9cLibraryDiagsUnder is w9cLibraryDiags analyzed under opts.
+func w9cLibraryDiagsUnder(t *testing.T, src string, warm bool, opts Options) []diag.Diagnostic {
+	t.Helper()
 	// The loader below is what populates the library here, so this starts empty:
 	// loading it twice would re-add every library document.
 	idx := symbols.NewIndex()
@@ -54,7 +60,35 @@ func w9cLibraryDiags(t *testing.T, src string, warm bool) []diag.Diagnostic {
 	root := parser.New(source.New("<t>.sysml", []byte(src))).ParseFile()
 	idx.AddDocument("<t>.sysml", root)
 	idx.ExpandWildcardImports()
-	return Analyze("<t>.sysml", root, nil, idx)
+	return AnalyzeWithOptions("<t>.sysml", source.KindSysML, root, nil, idx, opts)
+}
+
+// A name repeated against a library base or inherited from two library bases
+// is an indistinguishable membership like any other (KerML 8.3.2.4.5): a
+// warning by default, an error under strict conformance, with the same wording.
+func TestW9CInheritedNameConflictEscalatesUnderStrictConformance(t *testing.T) {
+	src := `package Test {
+	private import Occurrences::Occurrence;
+	part def Base :> Occurrence;
+	part def Leaf :> Base { part portions; }
+	state S { state start; }
+}`
+	for _, mode := range []diag.ConformanceMode{diag.ConformanceDefault, diag.ConformanceStrict} {
+		diags := w9cLibraryDiagsUnder(t, src, false, Options{Conformance: mode})
+		got := w9cMessages(diags, msgW9CDuplicateInherited)
+		want := []string{
+			msgW9CDuplicateInherited + " 'portions' from Occurrence",
+			msgW9CDuplicateInherited + " 'start' from StateAction",
+		}
+		if strings.Join(got, "\n") != strings.Join(want, "\n") {
+			t.Errorf("%v: got %v, want %v", mode, got, want)
+		}
+		for _, d := range diags {
+			if strings.HasPrefix(d.Message, msgW9CDuplicateInherited) && d.Severity != strictSeverity(mode) {
+				t.Errorf("%v: %q has severity %v, want %v", mode, d.Message, d.Severity, strictSeverity(mode))
+			}
+		}
+	}
 }
 
 func w9cMessages(diags []diag.Diagnostic, prefix string) []string {
@@ -233,6 +267,32 @@ func TestW9CShortNameDistinguishability(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			w9cWantLines(t, tc.src, "name-conflict", tc.lines...)
 		})
+	}
+}
+
+// A short name repeated in one namespace is an indistinguishable membership
+// (KerML 8.3.2.4.3 compares short names too), so strict conformance reports it
+// as an error; a short name only a member of an unrelated metaclass repeats is
+// distinguishable and stays clean.
+func TestW9CShortNameDistinguishabilityEscalatesUnderStrictConformance(t *testing.T) {
+	const src = `package Test {
+	part def <one> two;
+	part def <one> three;
+	attribute def <four> five;
+	part def <five> six;
+}`
+	for _, mode := range []diag.ConformanceMode{diag.ConformanceDefault, diag.ConformanceStrict} {
+		root := parser.New(source.New("<t>", []byte(src))).ParseFile()
+		idx := newTestIndex()
+		idx.AddDocument("<t>", root)
+		var got []int
+		for _, d := range only(AnalyzeWithOptions("<t>", source.KindSysML, root, nil, idx, Options{Conformance: mode}), "name-conflict") {
+			if d.Message != "Duplicate of other owned member name" || d.Severity != strictSeverity(mode) {
+				t.Errorf("%v: got %+v, want %q of severity %v", mode, d, "Duplicate of other owned member name", strictSeverity(mode))
+			}
+			got = append(got, w8dLine(src, d.Span))
+		}
+		w9cCheckLines(t, got, "name-conflict", []int{2, 3})
 	}
 }
 

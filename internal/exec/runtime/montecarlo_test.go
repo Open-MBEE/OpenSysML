@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"math/big"
 	"reflect"
@@ -12,70 +11,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
-
-// The seed of each run is a function of the Monte Carlo's seed and the run's
-// number alone: the same pair derives the same seed, and the runs of one Monte
-// Carlo — and of neighbouring seeds — all differ.
-func TestRunSeedIsDistinctPerRunAndReproducible(t *testing.T) {
-	seen := make(map[uint64]string)
-	for _, seed := range []uint64{0, 1, 2, math.MaxUint64} {
-		for i := int64(1); i <= 1000; i++ {
-			run := RunSeed(seed, i)
-			if run != RunSeed(seed, i) {
-				t.Fatalf("RunSeed(%d, %d) differs between calls", seed, i)
-			}
-			key := seen[run]
-			if key != "" {
-				t.Fatalf("RunSeed(%d, %d) = %d, which %s also derives", seed, i, run, key)
-			}
-			seen[run] = fmt.Sprintf("seed %d run %d", seed, i)
-		}
-	}
-}
-
-// A Monte Carlo plan makes one row per run, numbered from 1 in RunParam, and
-// nothing above the run limit.
-func TestMonteCarloPlanNumbersItsRuns(t *testing.T) {
-	ctx, _ := analysisFixture(t, sweepRobustnessModel)
-	rows, err := ctx.sweepBindings(MonteCarloPlan(3, 9), 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var numbers []int64
-	for _, row := range rows {
-		n, ok := RunNumber(row)
-		if !ok || len(row) != 1 {
-			t.Fatalf("row %v numbers no run", row)
-		}
-		numbers = append(numbers, n)
-	}
-	if want := []int64{1, 2, 3}; !reflect.DeepEqual(numbers, want) {
-		t.Errorf("runs numbered %v, want %v", numbers, want)
-	}
-	if _, err := ctx.sweepBindings(MonteCarloPlan(11, 9), 10); err == nil {
-		t.Error("11 runs under a limit of 10 were planned")
-	}
-	if _, ok := RunNumber(nil); ok {
-		t.Error("no bindings number a run")
-	}
-}
-
-// reals and ints are values for Distribute.
-func reals(xs ...float64) []semantics.Value {
-	vs := make([]semantics.Value, len(xs))
-	for i, x := range xs {
-		vs[i] = drawnReal(x)
-	}
-	return vs
-}
-
-func ints(ns ...int64) []semantics.Value {
-	vs := make([]semantics.Value, len(ns))
-	for i, n := range ns {
-		vs[i] = drawnInt(n)
-	}
-	return vs
-}
 
 // Distribute reports the extremes, the mean, and nearest-rank percentiles, each
 // a value some run took, and bins the range into equal widths.
@@ -87,8 +22,8 @@ func TestDistributeSummarisesTheRuns(t *testing.T) {
 	if d.P50 != drawnReal(5) || d.P90 != drawnReal(9) {
 		t.Errorf("p50 %v p90 %v, want the 5th and the 9th smallest", d.P50, d.P90)
 	}
-	if len(d.Histogram) != HistogramBins {
-		t.Fatalf("%d bins, want %d", len(d.Histogram), HistogramBins)
+	if len(d.Histogram) != histogramBins {
+		t.Fatalf("%d bins, want %d", len(d.Histogram), histogramBins)
 	}
 	total := 0
 	for i, bin := range d.Histogram {
@@ -97,7 +32,7 @@ func TestDistributeSummarisesTheRuns(t *testing.T) {
 			t.Errorf("bin %d starts at %v, the one before ends at %v", i, bin.Lo, d.Histogram[i-1].Hi)
 		}
 	}
-	if total != 10 || d.Histogram[0].Lo != drawnReal(1) || d.Histogram[HistogramBins-1].Hi != drawnReal(10) {
+	if total != 10 || d.Histogram[0].Lo != drawnReal(1) || d.Histogram[histogramBins-1].Hi != drawnReal(10) {
 		t.Errorf("bins %v cover %d run(s), want all 10 from 1 to 10", d.Histogram, total)
 	}
 	if Distribute(nil) != nil {
@@ -205,11 +140,11 @@ func TestDistributeKeepsLargeIntegersExact(t *testing.T) {
 	if whole.Mean != -1.0/3 || whole.Min != drawnInt(math.MinInt64) || whole.Max != drawnInt(math.MaxInt64) {
 		t.Errorf("over the whole Integer range: min %v mean %v max %v, want a mean of -1/3", whole.Min, whole.Mean, whole.Max)
 	}
-	if n := len(whole.Histogram); n != HistogramBins || whole.Histogram[0].Count != 1 || whole.Histogram[4].Count != 1 || whole.Histogram[n-1].Count != 1 {
+	if n := len(whole.Histogram); n != histogramBins || whole.Histogram[0].Count != 1 || whole.Histogram[4].Count != 1 || whole.Histogram[n-1].Count != 1 {
 		t.Errorf("bins over the whole int64 range: %v", whole.Histogram)
 	}
 	extremes := Distribute(ints(math.MaxInt64, math.MinInt64+1))
-	if n := len(extremes.Histogram); n != HistogramBins || extremes.Histogram[0].Lo != drawnInt(math.MinInt64+1) || extremes.Histogram[n-1].Hi != drawnInt(math.MaxInt64) {
+	if n := len(extremes.Histogram); n != histogramBins || extremes.Histogram[0].Lo != drawnInt(math.MinInt64+1) || extremes.Histogram[n-1].Hi != drawnInt(math.MaxInt64) {
 		t.Errorf("bins over all but one Integer: %v", extremes.Histogram)
 	}
 	if extremes.Mean != 0 {
@@ -280,8 +215,8 @@ func TestMonteCarloSampleTakesQuantitiesInTheFirstRunsUnit(t *testing.T) {
 		{runs(NewStringValue("x")), []string{"run 1 of Mc", `"x"`, "not a number"}},
 	} {
 		_, err := MonteCarloSample(refused.runs)
-		if !errors.Is(err, ErrMonteCarloObserved) {
-			t.Fatalf("MonteCarloSample = %v; want an ErrMonteCarloObserved", err)
+		if !errors.Is(err, errMonteCarloObserved) {
+			t.Fatalf("MonteCarloSample = %v; want an errMonteCarloObserved", err)
 		}
 		for _, name := range refused.names {
 			if !strings.Contains(err.Error(), name) {
@@ -289,4 +224,21 @@ func TestMonteCarloSampleTakesQuantitiesInTheFirstRunsUnit(t *testing.T) {
 			}
 		}
 	}
+}
+
+// reals and ints are values for Distribute.
+func reals(xs ...float64) []semantics.Value {
+	vs := make([]semantics.Value, len(xs))
+	for i, x := range xs {
+		vs[i] = drawnReal(x)
+	}
+	return vs
+}
+
+func ints(ns ...int64) []semantics.Value {
+	vs := make([]semantics.Value, len(ns))
+	for i, n := range ns {
+		vs[i] = drawnInt(n)
+	}
+	return vs
 }

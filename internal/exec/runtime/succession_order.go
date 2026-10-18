@@ -20,37 +20,37 @@ const (
 )
 
 var (
-	// ErrSuccessionOrderCycle identifies held behaviors waiting on each other.
-	ErrSuccessionOrderCycle = errors.New("succession order cycle")
-	// ErrSuccessionOrderViolated identifies an explicit start that breaks an order.
-	ErrSuccessionOrderViolated = errors.New("succession order violated")
+	// errSuccessionOrderCycle identifies held behaviors waiting on each other.
+	errSuccessionOrderCycle = errors.New("succession order cycle")
+	// errSuccessionOrderViolated identifies an explicit start that breaks an order.
+	errSuccessionOrderViolated = errors.New("succession order violated")
 )
 
-// SuccessionOrderError carries the runtime code and message for a refused start.
-type SuccessionOrderError struct {
+// successionOrderError carries the runtime code and message for a refused start.
+type successionOrderError struct {
 	Code    string
 	Message string
 	Err     error
 }
 
-func (e *SuccessionOrderError) Error() string { return e.Message }
-func (e *SuccessionOrderError) Unwrap() error { return e.Err }
+func (e *successionOrderError) Error() string { return e.Message }
+func (e *successionOrderError) Unwrap() error { return e.Err }
 
-// SuccessionOrdersNothing reports a runtime succession that cannot order performances.
-type SuccessionOrdersNothing struct {
+// successionOrdersNothing reports a runtime succession that cannot order performances.
+type successionOrdersNothing struct {
 	Reason string
 	File   string
 	Span   source.Span
 }
 
-func (n SuccessionOrdersNothing) Describe() string { return n.Reason }
-func (n SuccessionOrdersNothing) String() string {
+func (n successionOrdersNothing) Describe() string { return n.Reason }
+func (n successionOrdersNothing) String() string {
 	return successionOrdersNothingCode + ": " + n.Reason
 }
-func (n SuccessionOrdersNothing) Location() (string, source.Span) {
+func (n successionOrdersNothing) Location() (string, source.Span) {
 	return n.File, n.Span
 }
-func (n SuccessionOrdersNothing) Diagnostic() diag.Diagnostic {
+func (n successionOrdersNothing) Diagnostic() diag.Diagnostic {
 	return diag.Diagnostic{
 		Severity: diag.SeverityWarning,
 		Span:     n.Span,
@@ -311,7 +311,7 @@ func (ctx *Context) behaviorOrderMatches(inst *Instance, member *symbols.Symbol,
 	return matching
 }
 
-func (ctx *Context) deferredBehaviorFor(inst *Instance, decl classifierBehaviorDecl, binding int) (*ObjectBehavior, error) {
+func (ctx *Context) deferredBehaviorFor(inst *Instance, decl classifierBehaviorDecl, binding int, performance int64) (*ObjectBehavior, error) {
 	chain, err := ctx.classifierBehaviorChain(decl)
 	if err != nil {
 		return nil, err
@@ -319,17 +319,18 @@ func (ctx *Context) deferredBehaviorFor(inst *Instance, decl classifierBehaviorD
 	deferred := decl
 	ctx.behaviorHeld()
 	return &ObjectBehavior{
-		Name:      decl.behavior.Name,
-		Kind:      decl.behavior.Kind,
-		Symbol:    chain[len(chain)-1],
-		Object:    inst,
-		member:    decl.member,
-		bindings:  chain,
-		kinds:     ctx.behaviorKinds(chain),
-		binding:   binding,
-		typeBound: true,
-		ctx:       ctx,
-		deferred:  &deferred,
+		Name:        decl.behavior.Name,
+		Kind:        decl.behavior.Kind,
+		Symbol:      chain[len(chain)-1],
+		Object:      inst,
+		member:      decl.member,
+		bindings:    chain,
+		kinds:       ctx.behaviorKinds(chain),
+		binding:     binding,
+		performance: performance,
+		typeBound:   true,
+		ctx:         ctx,
+		deferred:    &deferred,
 	}, nil
 }
 
@@ -544,8 +545,8 @@ func (ctx *Context) noteBehaviorOrderFinding(order lower.BehaviorOrder, featurin
 		return
 	}
 	ctx.successionOrderNotes[key] = true
-	ctx.note(SuccessionOrdersNothing{
-		Reason: fmt.Sprintf("succession %s releases %s: %s", behaviorOrderName(order), symbolText(endFeature(order.Later)), reason),
+	ctx.note(successionOrdersNothing{
+		Reason: fmt.Sprintf("succession %s releases %s: %s", behaviorOrderName(order), SymbolText(endFeature(order.Later)), reason),
 		File:   order.File,
 		Span:   order.Span,
 	})
@@ -558,10 +559,10 @@ func (ctx *Context) releaseDeferredBehavior(behavior *ObjectBehavior) error {
 	ctx.noteBehaviorOrderFindings(behavior)
 	decl := *behavior.deferred
 	if ctx.trace != nil {
-		ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, behavior.Object.ID)
+		ctx.trace.recordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, behavior.Object.ID)
 	}
 	ctx.attachBehavior(behavior.Object, decl.member)
-	started, err := ctx.attachClassifierBehavior(behavior.Object, decl)
+	started, err := ctx.attachOneClassifierBehavior(behavior.Object, decl, behavior.performance)
 	ctx.behaviorAttached(behavior.Object, decl.member)
 	if started != nil {
 		behavior.Symbol = started.Symbol
@@ -573,7 +574,7 @@ func (ctx *Context) releaseDeferredBehavior(behavior *ObjectBehavior) error {
 	}
 	behavior.deferred = nil
 	if err != nil {
-		if started == nil || !errors.Is(err, ErrUnboundParameter) {
+		if started == nil || !errors.Is(err, errUnboundParameter) {
 			if started != nil {
 				started.leaveClock()
 			}
@@ -644,10 +645,10 @@ func (ctx *Context) walkSuccessionCycle() error {
 			for _, item := range cycle {
 				names = append(names, item.Describe())
 			}
-			return &SuccessionOrderError{
+			return &successionOrderError{
 				Code:    successionOrderCycleCode,
 				Message: "succession-order-cycle: held behaviors wait on each other: " + strings.Join(names, " -> "),
-				Err:     ErrSuccessionOrderCycle,
+				Err:     errSuccessionOrderCycle,
 			}
 		}
 	}
@@ -742,12 +743,12 @@ func (ctx *Context) successionViolation(order lower.BehaviorOrder, other *Object
 		earlierObject, laterObject = other.Object.ID, inst.ID
 		activeFeature = earlier
 	}
-	return &SuccessionOrderError{
+	return &successionOrderError{
 		Code: successionOrderViolatedCode,
 		Message: fmt.Sprintf("succession-order-violated: succession %s orders %s of object #%d before %s of object #%d, but %s of object #%d has already begun in featuring object #%d",
-			behaviorOrderName(order), symbolText(earlier), earlierObject,
-			symbolText(later), laterObject, symbolText(activeFeature), other.Object.ID, featuring.ID),
-		Err: ErrSuccessionOrderViolated,
+			behaviorOrderName(order), SymbolText(earlier), earlierObject,
+			SymbolText(later), laterObject, SymbolText(activeFeature), other.Object.ID, featuring.ID),
+		Err: errSuccessionOrderViolated,
 	}
 }
 
@@ -775,7 +776,7 @@ func (ctx *Context) noteRefusedBehaviorOrders(inst *Instance) {
 			continue
 		}
 		ctx.successionOrderNotes[key] = true
-		ctx.note(SuccessionOrdersNothing{
+		ctx.note(successionOrdersNothing{
 			Reason: order.Refusal.Reason,
 			File:   order.File,
 			Span:   order.Refusal.Span,

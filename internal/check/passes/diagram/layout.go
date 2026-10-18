@@ -27,6 +27,7 @@ const (
 	layoutValueCode     = "diagram-layout-value"
 	layoutCanvasCode    = "diagram-layout-canvas"
 	layoutDuplicateCode = "diagram-layout-duplicate"
+	viewDepthCode       = "view-depth-value"
 )
 
 func (LayoutPass) Level() kit.PassLevel { return kit.LevelConstraint }
@@ -52,6 +53,7 @@ func (LayoutPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []
 	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		seen[sym] = true
 		c.check(sym)
+		c.checkDepth(sym)
 	})
 	for _, sym := range c.model.AboutAnnotatedSymbols() {
 		if !seen[sym] {
@@ -83,6 +85,15 @@ func (c *layoutChecker) inDoc(scope *symbols.Scope) bool {
 	return false
 }
 
+// checkDepth reports a view's depth attribute bound to anything but a
+// non-negative integer literal, the way a Layout binding that reads as no
+// geometry is reported.
+func (c *layoutChecker) checkDepth(sym *symbols.Symbol) {
+	for _, problem := range c.model.ViewDepthProblems(sym) {
+		c.errorf(problem.Node.Span(), viewDepthCode, "%s: %s", c.describe(sym), problem.Message)
+	}
+}
+
 // check validates every DiagramLayout annotation of sym stated in the document.
 func (c *layoutChecker) check(sym *symbols.Symbol) {
 	sites := c.model.LayoutSitesOf(sym)
@@ -95,6 +106,9 @@ func (c *layoutChecker) check(sym *symbols.Symbol) {
 			key := viewKey{view: site.View.Decl, typeFQN: site.TypeFQN}
 			if owner := c.memberOwner(site, sym); owner != nil {
 				key.owner = owner.Decl
+			}
+			if site.General != nil {
+				key.general = site.General.Decl
 			}
 			if _, dup := firstInView[key]; !dup {
 				firstInView[key] = site
@@ -141,6 +155,7 @@ type viewKey struct {
 	view    ast.Node
 	typeFQN string
 	owner   ast.Node
+	general ast.Node
 }
 
 // memberOwner is the namespace a Layout positions sym as a member of, nil for
@@ -157,6 +172,10 @@ func (c *layoutChecker) memberOwner(site *semantics.LayoutSite, sym *symbols.Sym
 // `about` annotation is stated in, any kind for an annotation applying in every
 // view. A Layout wants a node, a Route an edge, a Style or a Note either.
 func (c *layoutChecker) checkPlaced(site *semantics.LayoutSite, sym *symbols.Symbol) {
+	if site.General != nil {
+		c.checkSpecializationPlaced(site, sym)
+		return
+	}
 	wantNode := site.TypeFQN != semantics.RouteFQN
 	wantEdge := site.TypeFQN != semantics.LayoutFQN
 	verb := map[string]string{
@@ -194,6 +213,31 @@ func (c *layoutChecker) checkPlaced(site *semantics.LayoutSite, sym *symbols.Sym
 		c.warnf(site.Node.Span(), layoutUnplacedCode,
 			"%s %s, which the %s rendering of %s does not draw as %s",
 			verb, c.describe(sym), kind, c.describe(site.View), role)
+	}
+}
+
+// checkSpecializationPlaced warns when the rendering a Route naming a general
+// applies to draws no edge from the element to that general.
+func (c *layoutChecker) checkSpecializationPlaced(site *semantics.LayoutSite, sym *symbols.Symbol) {
+	if site.View == nil {
+		if !c.renderer.DrawsSpecializationAnywhere(sym, site.General) {
+			c.warnf(site.Node.Span(), layoutUnplacedCode,
+				"Route steers the edge from %s to %s, which no rendering draws", c.describe(sym), c.describe(site.General))
+		}
+		return
+	}
+	kind, _, err := c.renderer.KindOf(site.View)
+	if err != nil {
+		return
+	}
+	drawn, ok := c.drawnIn(site.View)
+	if !ok {
+		return
+	}
+	if !drawn.Specialization(sym, site.General) {
+		c.warnf(site.Node.Span(), layoutUnplacedCode,
+			"Route steers the edge from %s to %s, which the %s rendering of %s does not draw",
+			c.describe(sym), c.describe(site.General), kind, c.describe(site.View))
 	}
 }
 

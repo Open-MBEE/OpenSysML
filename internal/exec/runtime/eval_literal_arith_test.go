@@ -98,7 +98,7 @@ package test {
 	if !ok {
 		t.Fatalf("result declares %T, want a usage", sym.Decl)
 	}
-	ec := NewEvalContext(NewContext(typedModel(model, resolver), 10000), pkg.Scope)
+	ec := newEvalContext(NewContext(typedModel(model, resolver), 10000), pkg.Scope)
 	got, err := ec.Eval(decl.Value)
 	if err == nil {
 		t.Fatalf("eval = %v, want an overflow error", got)

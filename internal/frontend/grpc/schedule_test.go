@@ -76,7 +76,7 @@ func TestScheduleFieldSelectsThePolicyOnEveryRunRPC(t *testing.T) {
 	hash := mustVerifyModel(t, srv, scheduleModel, "schedule-field")
 
 	tokenChoice := func(first string) string {
-		return "choice point: step 3: tokens 2@left, 3@right (unordered; took " + first + " first)"
+		return "choice point: step 3: tokens 2@left, 3@right (unordered; took " + first + " first; independent)"
 	}
 	for _, test := range []struct{ schedule, want string }{
 		{"", tokenChoice("3@right")},
@@ -95,7 +95,7 @@ func TestScheduleFieldSelectsThePolicyOnEveryRunRPC(t *testing.T) {
 	}
 
 	transitionChoice := func(took string) string {
-		return "choice point: state idle on accept Go: transitions 1->low, 2->high (unordered; took " + took + ")"
+		return "choice point: state idle on accept Go: transitions 1->low, 2->high (unordered; took " + took + "; order-dependent)"
 	}
 	for _, test := range []struct{ schedule, visited, want string }{
 		{"", "idle,low", transitionChoice("1->low")},
@@ -117,8 +117,8 @@ func TestScheduleFieldSelectsThePolicyOnEveryRunRPC(t *testing.T) {
 	}
 
 	for _, test := range []struct{ schedule, want string }{
-		{"", "choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first)"},
-		{"declared", "choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)"},
+		{"", "choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first; order-dependent: r)"},
+		{"declared", "choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first; order-dependent: r)"},
 	} {
 		resp := runAnalysis(t, srv, &pb.RunAnalysisRequest{ModelHash: hash, SymbolId: "Sched::forked", Schedule: test.schedule})
 		if resp.Error != "" {

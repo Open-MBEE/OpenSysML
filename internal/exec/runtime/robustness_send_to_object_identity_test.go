@@ -84,16 +84,16 @@ func instantiateBounded(t *testing.T, src, fqn string) error {
 // A selection admitting nothing yields no object, which is no target.
 func testSendToNoObject(t *testing.T) {
 	err := instantiateBounded(t, sendToObjectModel(`send new Ping() to cars->select { in c; false };`), "test::Fleet")
-	if !errors.Is(err, ErrSendTargetNotObject) {
-		t.Fatalf("error = %v, want %v", err, ErrSendTargetNotObject)
+	if !errors.Is(err, errSendTargetNotObject) {
+		t.Fatalf("error = %v, want %v", err, errSendTargetNotObject)
 	}
 }
 
 // An expression yielding a data value names no object to address.
 func testSendToDataValue(t *testing.T) {
 	err := instantiateBounded(t, sendToObjectModel(`send new Ping() to 3;`), "test::Fleet")
-	if !errors.Is(err, ErrSendTargetNotObject) {
-		t.Fatalf("error = %v, want %v", err, ErrSendTargetNotObject)
+	if !errors.Is(err, errSendTargetNotObject) {
+		t.Fatalf("error = %v, want %v", err, errSendTargetNotObject)
 	}
 }
 
@@ -102,8 +102,8 @@ func testSendToDestroyedObject(t *testing.T) {
 	err := instantiateBounded(t, sendToObjectModel(
 		`assign sameObject := destroy(cars#(2)) === cars#(2);
 		send new Ping() to cars#(2);`), "test::Fleet")
-	if !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Fatalf("error = %v, want %v", err, ErrOccurrenceDestroyed)
+	if !errors.Is(err, errOccurrenceDestroyed) {
+		t.Fatalf("error = %v, want %v", err, errOccurrenceDestroyed)
 	}
 }
 
@@ -140,8 +140,8 @@ func testSendViaUnreachedReceiver(t *testing.T) {
 		}
 	}`
 	err := instantiateBounded(t, model, "test::Fleet")
-	if !errors.Is(err, ErrUnreachableSendReceiver) {
-		t.Fatalf("error = %v, want %v", err, ErrUnreachableSendReceiver)
+	if !errors.Is(err, errUnreachableSendReceiver) {
+		t.Fatalf("error = %v, want %v", err, errUnreachableSendReceiver)
 	}
 }
 
@@ -182,8 +182,8 @@ func testSendViaConstructedReceiverAbandoned(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateActionExecutorFor(test::Fleet::ping): %v", err)
 	}
-	if err := exec.RunToCompletion(); !errors.Is(err, ErrUnroutableSend) {
-		t.Fatalf("error = %v, want %v", err, ErrUnroutableSend)
+	if err := exec.RunToCompletion(); !errors.Is(err, errUnroutableSend) {
+		t.Fatalf("error = %v, want %v", err, errUnroutableSend)
 	}
 	if len(ctx.created) != before || len(ctx.objectBehaviors) != beforeBehaviors {
 		t.Errorf("after the failed send: %d objects, %d behaviors; want the %d and %d before it",

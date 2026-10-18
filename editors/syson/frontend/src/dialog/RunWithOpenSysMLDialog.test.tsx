@@ -20,6 +20,8 @@ const successResult = {
   diagnostics: [],
   verdicts: [],
   instances: [],
+  document: null,
+  table: null,
 };
 
 type RunVariables = {
@@ -248,5 +250,89 @@ describe('RunWithOpenSysMLDialog', () => {
     expect(variables.arguments).toEqual([]);
     expect(variables.schedule).toBeNull();
     expect(variables.subject).toBeNull();
+  });
+
+  it('renders a document in the chosen form and shows it', async () => {
+    type FormVariables = { input: { operation: string; form: string | null; inputs: unknown[] } };
+    const variableMatcher = vi.fn((_variables: FormVariables) => true);
+    const documentMock = {
+      request: { query: runWithOpenSysMLMutation },
+      variableMatcher,
+      result: {
+        data: {
+          runWithOpenSysML: {
+            __typename: 'RunWithOpenSysMLSuccessPayload',
+            id: 'run',
+            messages: [],
+            result: {
+              ...successResult,
+              operation: 'RENDER_DOCUMENT',
+              target: 'Observatory::MassReport',
+              outputs: [],
+              document: { form: 'HTML', content: '<!DOCTYPE html><html></html>', fileName: 'MassReport.html' },
+            },
+          },
+        },
+      },
+    };
+    render(
+      <MockedProvider mocks={[documentMock]}>
+        <RunWithOpenSysMLDialog {...props} />
+      </MockedProvider>
+    );
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Operation' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Render document' }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Form' }));
+    fireEvent.click(screen.getByRole('option', { name: 'HTML' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+    await waitFor(() => expect(screen.getByText('Document (HTML)')).toBeInTheDocument());
+    const variables = variableMatcher.mock.calls[0][0];
+    expect(variables.input.operation).toBe('RENDER_DOCUMENT');
+    expect(variables.input.form).toBe('HTML');
+    expect(variables.input.inputs).toEqual([]);
+  });
+
+  it('sends document query bindings as inputs and omits the form', async () => {
+    type BindingVariables = {
+      input: { operation: string; form: string | null; inputs: Array<{ name: string; expression: string }> };
+    };
+    const variableMatcher = vi.fn((_variables: BindingVariables) => true);
+    const queryMock = {
+      request: { query: runWithOpenSysMLMutation },
+      variableMatcher,
+      result: {
+        data: {
+          runWithOpenSysML: {
+            __typename: 'RunWithOpenSysMLSuccessPayload',
+            id: 'run',
+            messages: [],
+            result: {
+              ...successResult,
+              operation: 'RUN_DOCUMENT_QUERY',
+              outputs: [],
+              resultText: '1 row',
+              table: { columns: ['name'], rows: [{ element: 'P::mount', siriusId: null, cells: ['mount'] }] },
+            },
+          },
+        },
+      },
+    };
+    render(
+      <MockedProvider mocks={[queryMock]}>
+        <RunWithOpenSysMLDialog {...props} />
+      </MockedProvider>
+    );
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Operation' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Run document query' }));
+    expect(screen.queryByRole('combobox', { name: 'Form' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Add binding'));
+    fireEvent.change(screen.getByLabelText('Parameter'), { target: { value: 'root' } });
+    fireEvent.change(screen.getByLabelText('Value'), { target: { value: 'P::telescope' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+    await waitFor(() => expect(screen.getByRole('cell', { name: 'mount' })).toBeInTheDocument());
+    const variables = variableMatcher.mock.calls[0][0];
+    expect(variables.input.operation).toBe('RUN_DOCUMENT_QUERY');
+    expect(variables.input.form).toBeNull();
+    expect(variables.input.inputs).toEqual([{ name: 'root', expression: 'P::telescope' }]);
   });
 });

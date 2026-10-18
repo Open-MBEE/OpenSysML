@@ -1,0 +1,11 @@
+{
+	"type": "action",
+	"evaluate": "test::outer",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "result": {"type": "Integer", "value": 6}, "other": {"type": "Integer", "value": 3}}},
+		{"outputs": {"x": {"type": "Integer", "value": 2}, "result": {"type": "Integer", "value": 7}, "other": {"type": "Integer", "value": 3}}}
+	],
+	"admissible": "A performed action's outputs stand on what its inputs were bound from",
+	"orderDependent": {"x": 2, "result": 2, "doIt.x": 2, "doIt.result": 2}
+}

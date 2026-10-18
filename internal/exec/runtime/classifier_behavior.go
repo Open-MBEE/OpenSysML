@@ -40,6 +40,9 @@ type ObjectBehavior struct {
 	// binding is member's position among the type's behavior bindings, which
 	// outlives the symbols and so tells the behavior a restart puts in its place.
 	binding int
+	// performance is the behavior's place among the performances member enacts:
+	// a performed action declared [n] attaches n, each performing once.
+	performance int64
 	// State is the machine the object exhibits, nil for a performed action.
 	State *StateExecutor
 	// Action is the action the object performs, nil for an exhibited machine.
@@ -58,7 +61,7 @@ type ObjectBehavior struct {
 func (b *ObjectBehavior) Describe() string {
 	name := b.Name
 	if name == "" {
-		name = symbolText(b.Symbol)
+		name = SymbolText(b.Symbol)
 	}
 	return fmt.Sprintf("%s %s of object #%d", b.Kind, name, b.Object.ID)
 }
@@ -81,9 +84,9 @@ func (inst *Instance) Behaviors() []*ObjectBehavior {
 	return inst.behaviors
 }
 
-// Behavior returns the behavior of the given name the object runs. An unnamed
+// behavior returns the behavior of the given name the object runs. An unnamed
 // behavior answers to no name and so is never returned.
-func (inst *Instance) Behavior(name string) (*ObjectBehavior, bool) {
+func (inst *Instance) behavior(name string) (*ObjectBehavior, bool) {
 	if name == "" {
 		return nil, false
 	}
@@ -100,7 +103,7 @@ func (inst *Instance) Behavior(name string) (*ObjectBehavior, bool) {
 // it redefines (KerML 1.0 §7.3.4.5), so both names denote one execution. The
 // renaming may come from any type of the object, a classifier included.
 func (ctx *Context) BehaviorNamed(inst *Instance, name string) (*ObjectBehavior, bool) {
-	if b, ok := inst.Behavior(name); ok {
+	if b, ok := inst.behavior(name); ok {
 		return b, true
 	}
 	if name == "" {
@@ -117,7 +120,7 @@ func (ctx *Context) BehaviorNamed(inst *Instance, name string) (*ObjectBehavior,
 				continue
 			}
 			for _, redefined := range ctx.redefinedNames(feat.Symbol, typ) {
-				if b, ok := inst.Behavior(redefined); ok {
+				if b, ok := inst.behavior(redefined); ok {
 					return b, true
 				}
 			}
@@ -207,17 +210,21 @@ func (inst *Instance) behaviorsOf(kind lower.ClassifierBehaviorKind, sym *symbol
 	if sym == nil || sym.Decl == nil {
 		return nil
 	}
-	var bodies []*ObjectBehavior
+	var direct, bodies []*ObjectBehavior
 	for _, b := range inst.behaviors {
 		if b.Kind != kind {
 			continue
 		}
 		if b.member != nil && b.member.Decl == sym.Decl {
-			return []*ObjectBehavior{b}
+			direct = append(direct, b)
+			continue
 		}
 		if (len(b.bindings) > 1 && declaresAny(b.bindings[1:], sym)) || declaresAny(b.kinds, sym) {
 			bodies = append(bodies, b)
 		}
+	}
+	if len(direct) > 0 {
+		return direct
 	}
 	return bodies
 }
@@ -338,16 +345,72 @@ func (ctx *Context) abandonInstancesSince(mark int) {
 // abandonInstancesBetween removes the objects registered from mark up to end,
 // keeping those registered since, along with occurrences naming the removed.
 func (ctx *Context) abandonInstancesBetween(mark, end int) {
-	abandoned := make(map[int64]bool)
-	var gone []*Instance
-	for _, id := range ctx.created[mark:end] {
-		if inst, live := ctx.instances[id]; live {
-			abandoned[id] = true
-			gone = append(gone, inst)
-			delete(ctx.instances, id)
+	ctx.forgetAbandoned(ctx.dropInstances(mark, end, func(*Instance) bool { return true }))
+}
+
+// abandonInstancesHeldBy removes the objects registered since mark that are one
+// of roots or held by one, directly or below, as a nested value or as the
+// variant it selected; the others stay, in order.
+func (ctx *Context) abandonInstancesHeldBy(mark int, roots map[*Instance]bool) {
+	held := ctx.heldSince(mark, roots)
+	ctx.forgetAbandoned(ctx.dropInstances(mark, len(ctx.created), func(inst *Instance) bool {
+		return held[inst.ID]
+	}))
+}
+
+// heldSince names the objects registered since mark that are one of roots or
+// held by one, directly or below. A variant's object names the object that
+// selected it only through the selection, so that link is followed as well.
+func (ctx *Context) heldSince(mark int, roots map[*Instance]bool) map[int64]bool {
+	selectedBy := make(map[int64]int64, len(ctx.variantObjects))
+	for key, id := range ctx.variantObjects {
+		selectedBy[id] = key.owner
+	}
+	held := make(map[int64]bool, len(roots))
+	for grew := true; grew; {
+		grew = false
+		for _, id := range ctx.created[mark:] {
+			inst, live := ctx.instances[id]
+			if !live || held[id] {
+				continue
+			}
+			if roots[inst] || (inst.owner != nil && held[inst.owner.ID]) || held[selectedBy[id]] {
+				held[id] = true
+				grew = true
+			}
 		}
 	}
-	ctx.created = append(ctx.created[:mark], ctx.created[end:]...)
+	return held
+}
+
+// dropInstances unregisters the objects registered from mark up to end that drop
+// accepts, and the dead ones there, answering the identities and objects dropped.
+func (ctx *Context) dropInstances(mark, end int, drop func(*Instance) bool) (map[int64]bool, []*Instance) {
+	abandoned := make(map[int64]bool)
+	var gone []*Instance
+	rest := append([]int64(nil), ctx.created[mark:end]...)
+	tail := append([]int64(nil), ctx.created[end:]...)
+	ctx.created = ctx.created[:mark]
+	for _, id := range rest {
+		inst, live := ctx.instances[id]
+		if !live {
+			continue
+		}
+		if !drop(inst) {
+			ctx.created = append(ctx.created, id)
+			continue
+		}
+		abandoned[id] = true
+		gone = append(gone, inst)
+		delete(ctx.instances, id)
+	}
+	ctx.created = append(ctx.created, tail...)
+	return abandoned, gone
+}
+
+// forgetAbandoned drops every record naming the objects abandoned: the
+// occurrences, bindings, lives, edges, values and messages that reached them.
+func (ctx *Context) forgetAbandoned(abandoned map[int64]bool, gone []*Instance) {
 	if len(abandoned) == 0 {
 		return
 	}
@@ -373,11 +436,16 @@ func (ctx *Context) abandonInstancesBetween(mark, end int) {
 	ctx.forgetMessagesTo(abandoned)
 }
 
-// forgetVariantsNaming unselects every variant whose object is abandoned, so the
-// selection is made again, and its object built again, when next read.
+// forgetVariantsNaming unselects every variant whose object or selecting object
+// is abandoned, so the selection is made, and its object built, again when next read.
 func (ctx *Context) forgetVariantsNaming(abandoned map[int64]bool) {
+	for selection := range ctx.selectedVariants {
+		if abandoned[selection.owner] {
+			delete(ctx.selectedVariants, selection)
+		}
+	}
 	for key, id := range ctx.variantObjects {
-		if !abandoned[id] {
+		if !abandoned[id] && !abandoned[key.owner] {
 			continue
 		}
 		delete(ctx.variantObjects, key)
@@ -682,36 +750,53 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 			if ctx.runsBound(inst, decl.member, typ) {
 				continue
 			}
-			var behavior *ObjectBehavior
+			var behaviors []*ObjectBehavior
 			var err error
 			if ctx.shouldDeferBehavior(inst, decl.member) {
-				behavior, err = ctx.deferredBehaviorFor(inst, decl, i)
+				var count int64
+				if count, err = ctx.classifierPerformanceCount(decl); err == nil {
+					for k := int64(0); k < count; k++ {
+						var behavior *ObjectBehavior
+						if behavior, err = ctx.deferredBehaviorFor(inst, decl, i, k); err != nil {
+							break
+						}
+						behaviors = append(behaviors, behavior)
+					}
+				}
 			} else {
 				if ctx.trace != nil {
-					ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
+					ctx.trace.recordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
 				}
 				ctx.attachBehavior(inst, decl.member)
-				behavior, err = ctx.attachClassifierBehavior(inst, decl)
+				behaviors, err = ctx.attachClassifierBehavior(inst, decl)
 				ctx.behaviorAttached(inst, decl.member)
 			}
 			if err != nil {
-				if behavior == nil || !errors.Is(err, ErrUnboundParameter) {
-					if behavior != nil {
-						behavior.leaveClock()
+				var failed *ObjectBehavior
+				if len(behaviors) > 0 {
+					failed = behaviors[len(behaviors)-1]
+					behaviors = behaviors[:len(behaviors)-1]
+				}
+				if failed == nil || !errors.Is(err, errUnboundParameter) {
+					if failed != nil {
+						failed.leaveClock()
 					}
 					return err
 				}
-				ctx.endFailedPerformance(behavior, fmt.Errorf("%s: %w", behavior.Describe(), err))
+				ctx.endFailedPerformance(failed, fmt.Errorf("%s: %w", failed.Describe(), err))
+				behaviors = append(behaviors, failed)
 			}
-			behavior.typeBound = true
-			behavior.binding = i
-			inst.behaviors = append(inst.behaviors, behavior)
-			ctx.behaviorsAttached++
-			ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
-			if behavior.deferred == nil {
-				ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
+			for _, behavior := range behaviors {
+				behavior.typeBound = true
+				behavior.binding = i
+				inst.behaviors = append(inst.behaviors, behavior)
+				ctx.behaviorsAttached++
+				ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+				if behavior.deferred == nil {
+					ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
+				}
+				ctx.workChanged()
 			}
-			ctx.workChanged()
 		}
 	}
 
@@ -800,8 +885,8 @@ func (b *ObjectBehavior) settle() {
 	}
 }
 
-// Moved reports whether the execution has left the state its start put it in.
-func (b *ObjectBehavior) Moved() bool {
+// moved reports whether the execution has left the state its start put it in.
+func (b *ObjectBehavior) moved() bool {
 	switch {
 	case b.State != nil:
 		return b.State.moved
@@ -915,7 +1000,7 @@ func (ctx *Context) forgetBehaviors(behaviors []*ObjectBehavior) {
 // performance rather than failing what ran it: an unbound input of a performed
 // action the object's type bound.
 func recordsFailure(b *ObjectBehavior, err error) bool {
-	return b != nil && b.typeBound && b.Kind == lower.PerformedAction && errors.Is(err, ErrUnboundParameter)
+	return b != nil && b.typeBound && b.Kind == lower.PerformedAction && errors.Is(err, errUnboundParameter)
 }
 
 // failBehavior records a failure that ends the behavior for good, through the
@@ -975,7 +1060,7 @@ func (ctx *Context) drainObjectBehaviorsUntil(progress *dueProgress, halted func
 		if rounds >= ctx.maxStateEvents {
 			return false, budgetExceeded(ErrStateEventLimitExceeded,
 				fmt.Sprintf("%s: exceeded max events (%d rounds; raise %s to allow more), possible non-terminating exchange between objects",
-					ErrBehaviorBudget, ctx.maxStateEvents, MaxStateEventsEnvVar), ErrBehaviorBudget)
+					errBehaviorBudget, ctx.maxStateEvents, MaxStateEventsEnvVar), errBehaviorBudget)
 		}
 		behavior, ok := ctx.nextRunnableBehavior()
 		if !ok {
@@ -1000,7 +1085,7 @@ func (ctx *Context) runAttachedBehavior(behavior *ObjectBehavior, progress *dueP
 		}
 	}
 	if ctx.trace != nil {
-		ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
+		ctx.trace.recordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
 	}
 	var moved bool
 	var waiter clockWaiter
@@ -1107,7 +1192,7 @@ func (b *ObjectBehavior) hasPendingWork() bool {
 	}
 	switch {
 	case b.State != nil:
-		return !b.State.State().Ended() && (b.State.HasDueEvent() || b.State.HasPendingSignal())
+		return !b.State.State().Ended() && (b.State.hasDueEvent() || b.State.HasPendingSignal())
 	case b.Action != nil:
 		return !b.Action.State().Ended() && b.Action.HasPendingSignal()
 	default:
@@ -1115,10 +1200,33 @@ func (b *ObjectBehavior) hasPendingWork() bool {
 	}
 }
 
-// attachClassifierBehavior builds the object's own execution of one behavior its
-// type binds, seeded with the values the binding declaration supplies, and
-// initializes it so its start is reported where every other behavior's is.
-func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBehaviorDecl) (*ObjectBehavior, error) {
+// attachClassifierBehavior builds the object's own executions of one behavior
+// its type binds: a performed action declared [n] enacts n performances, each
+// its own behavior answering to the same name on the object; [0] enacts none.
+// On a per-performance failure the returned slice ends with the failed behavior.
+func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBehaviorDecl) ([]*ObjectBehavior, error) {
+	count, err := ctx.classifierPerformanceCount(decl)
+	if err != nil {
+		return nil, err
+	}
+	var behaviors []*ObjectBehavior
+	for i := int64(0); i < count; i++ {
+		behavior, err := ctx.attachOneClassifierBehavior(inst, decl, i)
+		if behavior != nil {
+			behaviors = append(behaviors, behavior)
+		}
+		if err != nil {
+			return behaviors, err
+		}
+	}
+	return behaviors, nil
+}
+
+// classifierPerformanceCount is the number of performances a behavior member
+// enacts: one, unless a performed-action usage declares or inherits a
+// multiplicity, which fixes the count it performs under.
+func (ctx *Context) classifierPerformanceCount(decl classifierBehaviorDecl) (int64, error) {
+	count := int64(1)
 	if usage := decl.behavior.Decl; lower.IsPerformedActionUsage(usage) {
 		scope := decl.member.OwnerScope
 		graph := &lower.ActionGraph{
@@ -1130,18 +1238,26 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 			graph.Multiplicities[usage] = usage.Multiplicity
 		}
 		if graph.HasStepMultiplicity(usage, ctx.Semantics()) {
-			count, err := graph.StepCount(usage, ctx.Semantics())
+			fixed, err := graph.StepCount(usage, ctx.Semantics())
 			if err != nil {
-				return nil, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+				return 0, fmt.Errorf("%w: %w", errActionStepMultiplicity, err)
 			}
-			if count != 1 {
-				return nil, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(
-					usage, ctx.Semantics(), lower.StepMultiplicityUnsupportedCode,
-					"part-level performed actions cannot execute with multiplicity other than [1]", nil))
-			}
+			count = fixed
 		}
 	}
-	behavior, occurrence, err := ctx.bindClassifierBehavior(inst, decl)
+	if count > ctx.maxActionSteps || count > int64(int(^uint(0)>>1)) {
+		return 0, budgetExceeded(ErrActionStepLimitExceeded,
+			fmt.Sprintf("execution exceeded max steps (%d steps; raise %s to allow more), possible infinite loop",
+				ctx.maxActionSteps, MaxActionStepsEnvVar))
+	}
+	return count, nil
+}
+
+// attachOneClassifierBehavior builds the object's own execution of one behavior
+// its type binds, seeded with the values the binding declaration supplies, and
+// initializes it so its start is reported where every other behavior's is.
+func (ctx *Context) attachOneClassifierBehavior(inst *Instance, decl classifierBehaviorDecl, occurrenceIndex int64) (*ObjectBehavior, error) {
+	behavior, occurrence, err := ctx.bindClassifierBehavior(inst, decl, occurrenceIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -1156,14 +1272,14 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 	case lower.ExhibitedState:
 		exec, err := newStateExecutorForOccurrence(ctx, sym, inst, occurrence)
 		if err != nil {
-			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
+			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
 		for name, value := range arguments {
 			exec.ctx.writeBodyValue(exec.stateCells, exec.stateData, name, value)
 		}
 		if err := exec.initialize(); err != nil {
 			exec.Release()
-			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
+			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
 		behavior.State = exec
 	case lower.PerformedAction:
@@ -1173,7 +1289,7 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 		}
 		exec, err := newActionExecutorOfGraph(ctx, decl.member, sym, inst, occurrence, graph)
 		if err != nil {
-			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
+			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
 		if len(arguments) > 0 {
 			exec.SetInputs(arguments)
@@ -1188,41 +1304,42 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 			// A performed action that fails to start is returned with the error
 			// for a type-bound start to record; an explicit start fails it.
 			behavior.Action = exec
-			return behavior, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
+			return behavior, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
 		behavior.Action = exec
 	default:
-		return nil, fmt.Errorf("%w: %s", ErrUnsupportedClassifierBehavior, decl.behavior.Kind)
+		return nil, fmt.Errorf("%w: %s", errUnsupportedClassifierBehavior, decl.behavior.Kind)
 	}
 	return behavior, nil
 }
 
 // bindClassifierBehavior is the object's binding of one behavior its type declares,
 // its execution still to be made, and the performance occurrence the binding holds.
-func (ctx *Context) bindClassifierBehavior(inst *Instance, decl classifierBehaviorDecl) (*ObjectBehavior, *Instance, error) {
+func (ctx *Context) bindClassifierBehavior(inst *Instance, decl classifierBehaviorDecl, occurrenceIndex int64) (*ObjectBehavior, *Instance, error) {
 	chain, err := ctx.classifierBehaviorChain(decl)
 	if err != nil {
 		return nil, nil, err
 	}
 	sym := chain[len(chain)-1]
 	behavior := &ObjectBehavior{
-		Name:     decl.behavior.Name,
-		Kind:     decl.behavior.Kind,
-		Symbol:   sym,
-		Object:   inst,
-		member:   decl.member,
-		bindings: chain,
-		kinds:    ctx.behaviorKinds(chain),
-		ctx:      ctx,
+		Name:        decl.behavior.Name,
+		Kind:        decl.behavior.Kind,
+		Symbol:      sym,
+		Object:      inst,
+		member:      decl.member,
+		bindings:    chain,
+		kinds:       ctx.behaviorKinds(chain),
+		performance: occurrenceIndex,
+		ctx:         ctx,
 	}
 	var occurrence *Instance
 	switch decl.behavior.Kind {
 	case lower.ExhibitedState:
-		occurrence, err = ctx.performanceOccurrence(inst, decl, sym, ErrStatePerformanceOccurrence)
+		occurrence, err = ctx.performanceOccurrence(inst, decl, sym, errStatePerformanceOccurrence, 0)
 	case lower.PerformedAction:
-		occurrence, err = ctx.performanceOccurrence(inst, decl, sym, ErrActionPerformanceOccurrence)
+		occurrence, err = ctx.performanceOccurrence(inst, decl, sym, errActionPerformanceOccurrence, occurrenceIndex)
 	default:
-		return nil, nil, fmt.Errorf("%w: %s", ErrUnsupportedClassifierBehavior, decl.behavior.Kind)
+		return nil, nil, fmt.Errorf("%w: %s", errUnsupportedClassifierBehavior, decl.behavior.Kind)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -1239,6 +1356,7 @@ func (ctx *Context) performanceOccurrence(
 	decl classifierBehaviorDecl,
 	behavior *symbols.Symbol,
 	sentinel error,
+	occurrenceIndex int64,
 ) (*Instance, error) {
 	name := decl.behavior.Name
 	fv, ok := inst.FeatureValues[name]
@@ -1263,22 +1381,48 @@ func (ctx *Context) performanceOccurrence(
 				sentinel, name, inst.ID, err)
 		}
 	}
-	if fv.HeldValue().Kind == ValInvalid {
+	held := fv.HeldValue()
+	var elements []Value
+	switch held.Kind {
+	case ValSequence:
+		elements = append(elements, held.Sequence().Elements()...)
+	case ValSet:
+		elements = append(elements, held.Set().Elements()...)
+	case ValInstance:
+		elements = append(elements, held)
+	}
+	// A performed action declared [n] holds an occurrence per performance: this
+	// performance materializes the one at its index when the feature holds
+	// fewer, the feature listing every occurrence so far in index order. A held
+	// value that is no occurrence at all is left to be reported below.
+	materializable := held.Kind == ValInvalid || len(elements) > 0
+	materialized := false
+	for int64(len(elements)) <= occurrenceIndex && materializable {
 		occurrence, err := ctx.materialize(behavior, 0, inst, name)
 		if err != nil {
 			return nil, fmt.Errorf("%w: materialize %s of object #%d: %w",
 				sentinel, name, inst.ID, err)
 		}
+		elements = append(elements, Value{Kind: ValInstance, Instance: occurrence.ID})
+		materialized = true
+	}
+	if materialized {
 		ctx.noteProbeWrite(fv)
 		endWrite := ctx.beginFeatureWrite(fv)
 		before := ctx.beforeWrite(fv)
-		fv.Value = Value{Kind: ValInstance, Instance: occurrence.ID}
+		if len(elements) == 1 {
+			fv.Value = elements[0]
+		} else {
+			fv.Value = sequenceOf(elements)
+		}
 		fv.Materialized = true
 		ctx.afterWrite(fv, before)
 		endWrite()
-		return occurrence, nil
 	}
-	id, ok := fv.HeldValue().Object()
+	if int64(len(elements)) > occurrenceIndex {
+		held = elements[occurrenceIndex]
+	}
+	id, ok := held.Object()
 	if !ok {
 		return nil, fmt.Errorf("%w: %s of object #%d holds %s, not an occurrence",
 			sentinel, name, inst.ID, fv.HeldValue().Kind)
@@ -1304,7 +1448,7 @@ func (b *ObjectBehavior) run() error {
 		}
 		return b.Action.RunToQuiescence()
 	default:
-		return fmt.Errorf("%w: %s has no execution", ErrUnsupportedClassifierBehavior, b.Name)
+		return fmt.Errorf("%w: %s has no execution", errUnsupportedClassifierBehavior, b.Name)
 	}
 }
 
@@ -1347,13 +1491,13 @@ func (ctx *Context) classifierBehaviorChain(decl classifierBehaviorDecl) ([]*sym
 			// A declaration naming nothing that holds a body is not executable:
 			// the type binds a behavior no element states.
 			return nil, fmt.Errorf("%w: %s %s of %s names no behavior body",
-				ErrUnresolvedClassifierBehavior, decl.behavior.Kind, decl.behavior.Name, symbolText(decl.member))
+				errUnresolvedClassifierBehavior, decl.behavior.Kind, decl.behavior.Name, SymbolText(decl.member))
 		}
 		sym = next
 		chain = append(chain, sym)
 	}
 	return nil, fmt.Errorf("%w: %s %s of %s names itself through %d bindings",
-		ErrUnresolvedClassifierBehavior, decl.behavior.Kind, decl.behavior.Name, symbolText(decl.member), maxBehaviorBindingDepth)
+		errUnresolvedClassifierBehavior, decl.behavior.Kind, decl.behavior.Name, SymbolText(decl.member), maxBehaviorBindingDepth)
 }
 
 // namedBehavior reports the element a binding declaration names: what it
@@ -1390,7 +1534,7 @@ func (ctx *Context) classifierBehaviorArguments(inst *Instance, decl classifierB
 		value, err := ec.Eval(arg.Value)
 		if err != nil {
 			return nil, fmt.Errorf("%s %s of %s: bind %s: %w",
-				decl.behavior.Kind, decl.behavior.Name, symbolText(inst.Type), arg.Name, err)
+				decl.behavior.Kind, decl.behavior.Name, SymbolText(inst.Type), arg.Name, err)
 		}
 		args[ctx.argumentParameter(scope, arg)] = value
 	}
@@ -1454,7 +1598,7 @@ func assignPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, 
 		return false, nil
 	}
 	if ctx.isClockTime(self, name) {
-		return true, fmt.Errorf("assignment to %s: %w: object #%d (%s)", name, ErrClockNotAssignable, self.ID, symbolText(self.Type))
+		return true, fmt.Errorf("assignment to %s: %w: object #%d (%s)", name, errClockNotAssignable, self.ID, SymbolText(self.Type))
 	}
 	if _, ok := self.FeatureValues[name]; !ok {
 		return false, nil
@@ -1462,7 +1606,7 @@ func assignPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, 
 	if !namesPerformerFeature(ctx, self, scope, name) {
 		return true, fmt.Errorf("write %s of object #%d: %w: %s is a feature of %s, which the body does not name: "+
 			"pass it as a parameter, or write the body in the declaration that holds it",
-			name, self.ID, ErrPerformerFeatureNotInScope, name, symbolText(self.Type))
+			name, self.ID, errPerformerFeatureNotInScope, name, SymbolText(self.Type))
 	}
 	if err := self.SetFeatureValue(ctx, name, value); err != nil {
 		return true, fmt.Errorf("write %s of object #%d: %w", name, self.ID, err)
@@ -1509,20 +1653,22 @@ func (ctx *Context) typeHoldsFeature(typeSym, feature *symbols.Symbol) bool {
 	if owner == nil {
 		return false
 	}
-	if owner == typeSym {
+	// The owner and the type may be symbols of separate scope trees for one
+	// declaration, so they are compared as elements, not as pointers.
+	if symbols.SameElement(owner, typeSym) {
 		return true
 	}
 	for _, super := range ctx.model.semantics.AllSupertypes(typeSym) {
-		if super == owner {
+		if symbols.SameElement(super, owner) {
 			return true
 		}
 	}
 	return false
 }
 
-// symbolText names a symbol in diagnostics, falling back to its kind when it is
+// SymbolText names a symbol in diagnostics, falling back to its kind when it is
 // anonymous.
-func symbolText(sym *symbols.Symbol) string {
+func SymbolText(sym *symbols.Symbol) string {
 	if sym == nil {
 		return unknownText
 	}

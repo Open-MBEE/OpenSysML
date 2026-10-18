@@ -1,4 +1,4 @@
-standard library package MigrationMetadata {
+library package MigrationMetadata {
     doc /* What a migration from another modeling language had to make up
          * because its source left it unstated. Non-normative OpenSysML
          * extension, proposed for standardization; see the design record. */
@@ -32,6 +32,18 @@ standard library package MigrationMetadata {
              * with it would resolve to; the migration renamed it and recorded
              * the source name here and in its report. */
         attribute sourceName : ScalarValues::String;
+    }
+
+    metadata def AppliedStereotype {
+        doc /* The annotated element carried the named stereotype in the
+             * source, and its v2 form does not: the element is itself the
+             * stereotype's form, as a dependency is a «Trace»'s, or the
+             * stereotype comes from a profile the migration did not write,
+             * named by profile. tags keeps, as `tag = value`, the tag values
+             * no v2 feature holds. */
+        attribute stereotype : ScalarValues::String;
+        attribute profile : ScalarValues::String[0..1];
+        attribute tags : ScalarValues::String[0..*];
     }
 
     metadata def StandIn {

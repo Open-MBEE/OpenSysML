@@ -60,6 +60,15 @@ top-level one is. `instantiate` names an instance case's type the same way.
   drives the same execution to the end.
 - `schedule`: the scheduling policy the case was recorded under (see
   [Scheduling Policy](#scheduling-policy)); omitted means the default.
+- `performers`: objects that each perform the action, for a case whose contract
+  is what the body does on its performer — an action usage a part definition
+  owns, performed on a part of that type, writes that part's features. Each
+  entry names the object's usage plus the `outputs` and `terminated` expected
+  of that object's performance, the `slots` the object holds afterwards (keyed
+  by path from the object, `runs` or `tank.volume`), or the `error` the
+  performance must fail with:
+  `{"object": "test::plant", "slots": {"runs": {"type": "Integer", "value": 1}}}`.
+  Omit for an action performed by no object.
 
 ### For States (`ExecuteState`)
 
@@ -155,16 +164,17 @@ beside `performers`, on a calc, constraint, requirement or instance case, or
 with an entry that states nothing. The `events` a state case injects are its
 input and stay at the top level: every outcome is a result of the same run.
 
-The schema does not represent runtime-error outcomes in `outcomes`; an
-exploration that reaches one is reported as an unexpected failure. The set is
-exact. Besides checking the default run, `TestExecutionConformance`
-explores every case with `outcomes` under the `explore` policy: the case is
-replayed from the start once per linearization the library admits, each run on a
-fresh context over the same lowering, and the case fails when a listed outcome
-no run reaches (`admissible outcome 2 of 3 is unreachable`), when a run reaches
-an outcome the set does not list or fails with an error — named with the choice
-sequence of a witness run (`step 1: t2 first of t1, t2, t3; step 2: t1 first of
-t1, t3`) — or when the exploration is incomplete. Exploration is bounded by a
+An entry may state `error` in place of a result: text a schedule's run must
+fail with, for an action or state case one order of which reaches a diagnostic
+(an unset output read before the step producing it). The set is exact. Besides
+checking the default run, `TestExecutionConformance` explores every case with
+`outcomes` under the `explore` policy: the case is replayed from the start once
+per linearization the library admits, each run on a fresh context over the same
+lowering, and the case fails when a listed outcome no run reaches (`admissible
+outcome 2 of 3 is unreachable`), when a run reaches an outcome the set does not
+list or fails with an error no entry states — named with the choice sequence of
+a witness run (`step 1: t2 first of t1, t2, t3; step 2: t1 first of t1, t3`) —
+or when the exploration is incomplete. Exploration is bounded by a
 budget of runs and of choice points per run, `runs: 1024, depth: 64` by default;
 a case that hits it fails with a message telling the author to raise it:
 
@@ -191,10 +201,30 @@ a case that hits it fails with a message telling the author to raise it:
   timeout; the referee's completion query still proves every run ends within N, so a
   budget too low fails the case rather than hiding behavior.
 
-`TestExecutionConformance` explores cases with `outcomes`; the check corpus can
-also explore a single-result case with a `.check.expected.json` entry. The
-default schedule is deterministic, so a case with an admissible set still keeps
-its exact golden trace.
+- `exploreGaps`: optional; the coverage gaps exploring the case must record,
+  by identifier (`runtime.CoverageGap`), each matched exactly and in canonical
+  order — the constructs whose orders the exploration could not vary, so it
+  reports itself incomplete short of them rather than complete. No construct
+  records one today, so no case states any; a case stating none must explore
+  complete. Stating it explores the case even without
+  `outcomes`; the exact set it explores to is then asserted only where the case
+  also carries `outcomes` or `outputs`. Where the default budget leaves that
+  exploration short, a case pairs `exploreGaps` with `exploreBudget` for the
+  budget only — a budget never changes a result's standing.
+
+- `orderDependent`: optional; per output the default run holds at an
+  order-dependent value, the number of unresolved choice points touching it —
+  choice points whose alternatives write what another reads or writes, or meet
+  on the bus, as the run's result marks them (`x = 1 (order-dependent; 2 choice
+  points — explore shows the set)`). Stated, every other output must be touched
+  by none; `{}` asserts the run marks nothing, as a case whose open orders all
+  commute does. A case admitting several `outcomes` states it separately: the
+  marker is derived from the run's choice points, not from the outcomes admitted.
+
+`TestExecutionConformance` explores cases with `outcomes` or `exploreGaps`; the
+check corpus can also explore a single-result case with a `.check.expected.json`
+entry. The default schedule is deterministic, so a case with an admissible set
+still keeps its exact golden trace.
 
 ### Scheduling Policy
 
@@ -407,8 +437,8 @@ JSON number past 2^53 is read through a float64 that may round its digits.
 
 - `verdict`: the `VerdictKind` the run of the case's body produced — `pass` or
   `fail` as the library's `PassIf` calculation computed it, `inconclusive` for a
-  body that bound no verdict value, `error` for a body whose run could not be
-  carried out.
+  body that bound no verdict value or a case a definition owns with no object of
+  the definition to run on, `error` for a body whose run could not be carried out.
 - `verdictDetail`: text the verdict carries, matched as a substring — the
   message of an `error` verdict, or why an `inconclusive` one decided nothing.
 - `subcases`: the verdict of each verification case the body performs, by
@@ -552,6 +582,8 @@ Supported types:
   or any other feature the library declares unique and unordered
 - `Instance`: an object, whose identity a case does not pin (no `value`)
 - `Unset`: a valueless feature of a value type, holding no value (no `value`)
+- `Undetermined`: a value the model leaves open, optionally pinned to the count
+  it is undetermined of, as a JSON string (`{"type": "Undetermined", "value": "[1..*]"}`)
 - `Variant`: the name of the variant a variation feature is bound to, as a JSON
   string (`{"type": "Variant", "value": "cutIdeal"}`)
 - `EnumLiteral`: the enumeration literal a value is, written as the enumeration

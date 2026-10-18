@@ -645,7 +645,7 @@ func TestMermaidFlowchartDoesNotLinkUsedPortSubgraph(t *testing.T) {
 	if _, ok := links.URL(target.Origin); !ok {
 		t.Fatalf("used-port action %q has no source URL", target.ID)
 	}
-	input, err := rendering.WriteWith(FormMermaid, Options{Links: links})
+	input, err := rendering.WriteWith(FormMermaid, Options{Show: AllShown(), Links: links})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -831,11 +831,11 @@ func TestLinkWritersDoNotLinkZeroOrigins(t *testing.T) {
 	if url, ok := links.URL(zero); ok || url != "" {
 		t.Fatalf("zero origin URL = %q, %t", url, ok)
 	}
-	copy := *rendering
-	copy.Roots = []*Node{{ID: "n0", Kind: "part", Name: "synthetic", Origin: zero}}
-	copy.Edges = []Edge{{From: "n0", To: "n0", Kind: EdgeConnection, Origin: zero}}
+	clone := *rendering
+	clone.Roots = []*Node{{ID: "n0", Kind: "part", Name: "synthetic", Origin: zero}}
+	clone.Edges = []Edge{{From: "n0", To: "n0", Kind: EdgeConnection, Origin: zero}}
 	for _, form := range []Form{FormMermaid, FormDot, FormPlantUML, FormD2} {
-		got, err := copy.WriteWith(form, Options{Links: links})
+		got, err := clone.WriteWith(form, Options{Links: links})
 		if err != nil {
 			t.Errorf("%s: %v", form, err)
 			continue

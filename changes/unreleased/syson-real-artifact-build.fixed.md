@@ -1,1 +1,0 @@
-- SysON plugin: the real-artifact build (`-Psyson-artifacts`) now compiles its tests and frontend typecheck against the published 2026.9.0 SysON and Sirius packages.

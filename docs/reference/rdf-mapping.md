@@ -14,10 +14,11 @@ of the following is a deliberate property of the mapping rather than a defect to
 report:
 
 - **What is not mapped is refused, not partly converted**, and the refusal names
-  the construct. Every one of the 346 models under `examples/` (committed, training and
+  the construct. Every one of the 365 models under `examples/` (committed, training and
   pilot corpora) converts to Turtle, and a second
   conversion of the written-back notation reproduces the Turtle byte for byte for
-  every one — the notation is written from the [source text](#source-text) the
+  all but seven, whose two graphs differ only in the whitespace inside their
+  source-text literals — the notation is written from the [source text](#source-text) the
   graph carries. These figures are the
   per-file ratchet in `tests/corpus/roundtrip_test.go`, described
   in [rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md). See
@@ -40,7 +41,7 @@ report:
   properties, the multi-valued ones included; what it loses is the `sysx:`
   properties, since the reader ignores predicates outside `sysml:` and
   `urn:sysmlv2:annotation:json:`. The measurement lives in
-  `internal/translate/interop/flexo`, an opt-in gate described in
+  `tools/referee/flexo`, an opt-in gate described in
   `.agents/skills/flexo-interop`, and its committed report records what changes
   as the remaining work lands.
 
@@ -958,7 +959,7 @@ stores a posted array both ways: one JSON annotation literal holding the array,
 plus a typed triple per member — an IRI for a `{"@id": …}` member, a typed
 literal for a primitive. The mapping writes what that path writes, so a graph
 OpenSysML produces reads back through that service with its collections intact;
-the live measurement is in `internal/translate/interop/flexo/testdata/interop_expected.txt`.
+the live measurement is in `tools/referee/flexo/testdata/interop_expected.txt`.
 
 The JSON shape is the commit path's:
 
@@ -1305,7 +1306,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | written | metaclass | carries |
 |---|---|---|
 | `first x;` in an action body | `sysml:Membership` with `sysx:declaredKeyword "first"` | `sysml:memberElement` and `sysml:sourceFeature` (the member the flow starts at — a reference, not a name it declares), `sysx:hasBody` and the members of its body. Read, a `sysx:InitialNode` from an older graph is the same member |
-| `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysml:SuccessionAsUsage` with `sysx:declaredKeyword "first"` | its two ends, each a `ReferenceUsage` under an `EndFeatureMembership` whose `ReferenceSubsetting` references x or y (SysML-textual-bnf `SuccessionAsUsage`, `ConnectorEndMember`), listed by `sysml:connectorEnd`; `sysml:sourceFeature` (x, a reference) and `sysml:targetFeature` (y), which the ends derive; `sysx:guard`, `sysx:hasBody` and the members of its body. A guarded `first x if g then y` is a transition and owns no ends of its own: a `sysml:TransitionUsage`, as `succession first x if g then y` is (SysML.xtext `GuardedSuccession`, whose `succession` is optional). A transition in an action body is written back in that keyword-less spelling, unless the graph states `sysx:declaredKeyword "succession"` or the transition declares a name, which needs the keyword; `transition`, which an action body does not admit, is written only in a state body. Reading back, an end whose referenced feature differs from `sysml:sourceFeature` or `sysml:targetFeature`, or that declares a name or bounds, is refused, since the notation states each end once, as the bare feature it names |
+| `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysml:SuccessionAsUsage` with `sysx:declaredKeyword "first"` | its two ends, each a `ReferenceUsage` under an `EndFeatureMembership` whose `ReferenceSubsetting` references x or y (SysML-textual-bnf `SuccessionAsUsage`, `ConnectorEndMember`), listed by `sysml:connectorEnd`; `sysml:sourceFeature` (x, a reference) and `sysml:targetFeature` (y), which the ends derive; `sysx:guard`, `sysx:hasBody` and the members of its body. A guarded `first x if g then y` is a transition and owns no ends of its own: a `sysml:TransitionUsage`, as `succession first x if g then y` is (SysML.xtext `GuardedSuccession`, whose `succession` is optional). A transition in an action body is written back in that keyword-less spelling, unless the graph states `sysx:declaredKeyword "succession"` or the transition declares a name, which needs the keyword; `transition`, which an action body does not admit, is written only in a state body. A written target-end multiplicity (`then [m] y`) is carried on the target connector end. Reading back, an end whose referenced feature differs from `sysml:sourceFeature` or `sysml:targetFeature`, or that declares a name or bounds other than the target end's, is refused, since the notation states each end once, as the bare feature it names |
 | `done;` written on its own | `sysml:Membership` with `sysx:declaredKeyword "done"` | `sysml:memberElement`, the library's `Actions::Action::done`. Read, a `sysx:FinalNode` from an older graph is the same member |
 | `then done;`, `[m] then done;`, `then [m] done;` | `sysml:SuccessionAsUsage` with `sysx:endForm "then"` | its target end's `ReferenceSubsetting` reaches the library's `Actions::Action::done` — `sysml:targetFeature` states the same — and no member is declared for the node. A source-end multiplicity (`[m] then`) is carried on the empty source connector end; a target-end crossing multiplicity (`then [m] done`) on the target connector end, as `succession first a then [m] done;` carries it. Read, an older graph's `done` Membership targeted through `sysx:targetMember` writes back as `then done;` |
 | `action a;`, `action a { x + 1 }` | `sysx:ActionExecutionNode` | `sysml:references` or `sysx:expression` |
@@ -1334,7 +1335,7 @@ whether `[m]` preceded `then`; `sysx:sourceMultiplicityBeforeThen` preserves tha
 spelling when `sysx:sourceText` is absent. The crossing multiplicity a `then`
 writes ahead of the target it references (`then [m] b;`, `then [m] b { … }`,
 `[m] then [n] b;`) is carried on the target connector end, the same end
-`succession first a then [m] b;` states. These forms follow SysML.xtext:878, 887,
+`succession first a then [m] b;` states; a guarded succession's written target end (`succession first a if g then [m] b;`, `first a if g then [m] b;`) is likewise carried on the target connector end of the succession it owns. These forms follow SysML.xtext:878, 887,
 1607 ActionBodyParameter, 1442 AcceptNode, 1499 SendNode, 1535 AssignmentNode, 1596 IfNode,
 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode, 1703 TargetSuccession,
 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession and formal/2026-03-02. Every spelling round-trips in
@@ -1349,15 +1350,12 @@ The conditions and expressions these nodes carry are expression trees, like
 every other expression-valued position ([Expressions](#expressions)): they
 convert back exactly *and* SPARQL can see inside them.
 
-What is still refused, naming the node:
-
-- **A succession that does not name both of its ends.** `then fork;` and
-  `then monitorPedal;` written after a preceding member express an order whose
-  source end the notation leaves implicit, and the parser records the node the
-  statement introduces separately from the edge into it. Reconstructing that
-  shape would mean inferring which node an edge belongs to from member position,
-  which could silently reattach edges, so it is reported instead. Nine of the
-  eighteen remaining refusals under `examples/` are this shape.
+A succession that names neither of its ends (`then fork;`, `then monitorPedal;`
+written after a preceding member) is no longer refused: it is carried by the
+members it sequences, as `sysx:sourceMember` and `sysx:targetMember`
+([End-binding heads](#end-binding-heads)). Nothing under `examples/` is refused
+today; the per-file verdicts are in
+[rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md).
 
 ## Limitations
 
@@ -1831,7 +1829,7 @@ including a parallel state's regions, calculation and requirement) reads these
 forms back as the same node, and on the fixtures a second conversion writes the
 same Turtle byte for byte (`export_test.go:TestSuccessionRoundTripsInEveryBody`).
 That is a statement about the fixtures, not the mapping: over the example corpus
-the second hop reproduces the graph for all 303 files that convert, but from
+the second hop reproduces the graph for all 365 files, but from
 the source text they carry, which the corpus gate does not strip
 ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)). An end
 whose name needs quotes (`first a then 'drive vehicle';`) is a reference to the
@@ -2194,13 +2192,19 @@ any graph this mapping holds:
   full document uses for the same target (`unresolved:`-derived, recoverable
   from the reference's `x-sysmlv2-unresolved-reference` textual annotation)
   reads as the same name.
-- **A succession from a nameless member is written by position.** The
-  toolkit resolves the source end of `entry; then idle;` to the empty
+- **A succession from a nameless or derived member is written by position.**
+  The toolkit resolves the source end of `entry; then idle;` to the empty
   `ActionUsage` the `entry` membership owns, which no `first` clause could
   name; a source that is the member written before the succession — or the
   action a nameless `entry;`/`do;`/`exit;` membership owns — comes back as
   `then idle;` beside it (SysML v2 1.0 § 7.17.4), the way a source the
-  toolkit leaves unresolved already does.
+  toolkit leaves unresolved already does. An end the toolkit reaches only
+  through an implied `ReferenceSubsetting` (`isImplied`) was never written,
+  so `then done;` after a named action stays `then done;` rather than
+  `succession first a then done;`, and a `then` whose target the toolkit
+  likewise derived is attached to the declaration beside it (`then action
+  step2;`), while a written target beside its declaration stays `then idle;
+  state idle;`.
 - **Ends the notation alone cannot place are refused.** Where a member's two
   collapsed ends disagree, or an element names no owner it can sit under,
   `-convert sysml` fails rather than guesses a position.

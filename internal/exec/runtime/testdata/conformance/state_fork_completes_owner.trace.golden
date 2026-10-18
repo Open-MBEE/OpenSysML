@@ -4,13 +4,13 @@ stmt action body
       eval feature log -> ""
       eval literal "T1(effect) " -> "T1(effect) "
     eval operator + -> "T1(effect) "
-choice fork split: next split->left.done(effect), split->right.done(effect) (unordered; took split->left.done(effect) first)
+choice fork split: next split->left.done(effect), split->right.done(effect) (unordered; took split->left.done(effect) first; order-dependent: log)
 stmt action body
   stmt assign log
       eval feature log -> "T1(effect) "
       eval literal "T1.1(effect) " -> "T1.1(effect) "
     eval operator + -> "T1(effect) T1.1(effect) "
-choice fork split: next work(entry), split->right.done(effect) (unordered; took work(entry) first)
+choice fork split: next work(entry), split->right.done(effect) (unordered; took work(entry) first; order-dependent: log)
 enter: work (entry action)
 stmt action body
   stmt assign log
@@ -25,7 +25,7 @@ stmt action body
     eval operator + -> "T1(effect) T1.1(effect) work(entry) T1.2(effect) "
 enter: done
 transition: idle -> split
-choice exiting work: next left.done(exit), right.done(exit) (unordered; took left.done(exit) first)
+choice exiting work: next left.done(exit), right.done(exit) (unordered; took left.done(exit) first; independent)
 exit: done
 exit: done
 exit: work (exit action)

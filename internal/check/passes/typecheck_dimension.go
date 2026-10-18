@@ -41,7 +41,7 @@ func (ec *exprChecker) checkDimensions(scope *symbols.Scope, e *ast.OperatorExpr
 	if lhs.Term.Commensurable(rhs.Term) {
 		return
 	}
-	ec.warnf(e.Span(), "operator '%s' combines incommensurable quantities: %s and %s",
+	ec.warnCode(codeIncommensurableOperands, e.Span(), "operator '%s' combines incommensurable quantities: %s and %s",
 		e.Operator, describeDimension(lhs), describeDimension(rhs))
 }
 
@@ -52,7 +52,7 @@ func (ec *exprChecker) checkPointOperands(scope *symbols.Scope, e *ast.OperatorE
 	case ast.OpNeg:
 		if len(e.Operands) == 1 {
 			if dim, ok := ec.model.DimensionOfExpr(scope, e.Operands[0]); ok && dim.IsPoint() {
-				ec.warnf(e.Span(), "operator '-' negates a point on the measurement scale %s, which has no negative; negate a difference between points instead", dim.Unit)
+				ec.warnCode(codeIncommensurableOperands, e.Span(), "operator '-' negates a point on the measurement scale %s, which has no negative; negate a difference between points instead", dim.Unit)
 			}
 		}
 		return
@@ -72,18 +72,18 @@ func (ec *exprChecker) checkPointOperands(scope *symbols.Scope, e *ast.OperatorE
 	switch e.Operator {
 	case ast.OpAdd:
 		if lpoint && rpoint {
-			ec.warnf(e.Span(), "operator '+' adds two points on the measurement scale %s, which have no sum; their difference is a magnitude in the scale's unit", lhs.Unit)
+			ec.warnCode(codeIncommensurableOperands, e.Span(), "operator '+' adds two points on the measurement scale %s, which have no sum; their difference is a magnitude in the scale's unit", lhs.Unit)
 		}
 	case ast.OpSub:
 		if lhsOK && lhs.IsMagnitude() {
-			ec.warnf(e.Span(), "operator '-' subtracts a point on the measurement scale %s from a magnitude, which is neither a point nor a magnitude; write `point - magnitude`", rhs.Unit)
+			ec.warnCode(codeIncommensurableOperands, e.Span(), "operator '-' subtracts a point on the measurement scale %s from a magnitude, which is neither a point nor a magnitude; write `point - magnitude`", rhs.Unit)
 		}
 	default:
 		point := lhs
 		if !lpoint {
 			point = rhs
 		}
-		ec.warnf(e.Span(), "operator '%s' on a point on the measurement scale %s: a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first", e.Operator, point.Unit)
+		ec.warnCode(codeIncommensurableOperands, e.Span(), "operator '%s' on a point on the measurement scale %s: a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first", e.Operator, point.Unit)
 	}
 }
 
@@ -132,7 +132,7 @@ func (ec *exprChecker) checkElementDimension(scope *symbols.Scope, declared *sym
 	if !ok || want.Term.Commensurable(got.Term) {
 		return
 	}
-	ec.errorf(element.Span(), msgIncommensurableBinding,
+	ec.errorCode(codeIncommensurableBinding, element.Span(), msgIncommensurableBinding,
 		describeDimension(got), describeDimension(want))
 }
 
@@ -152,7 +152,7 @@ func (ec *exprChecker) judgedAsMeasurementRef(scope *symbols.Scope, declared *sy
 		return false
 	}
 	if c.Known && !c.Holds {
-		ec.errorf(element.Span(), msgIncommensurableBinding, c.Found, declared.Name)
+		ec.errorCode(codeIncommensurableBinding, element.Span(), msgIncommensurableBinding, c.Found, declared.Name)
 	}
 	return true
 }
@@ -170,7 +170,7 @@ func (ec *exprChecker) judgedAsFramedQuantity(scope *symbols.Scope, declared *sy
 		return false
 	}
 	if c.Known && !c.Holds {
-		ec.errorf(element.Span(), msgIncommensurableBinding, c.Found, declared.Name)
+		ec.errorCode(codeIncommensurableBinding, element.Span(), msgIncommensurableBinding, c.Found, declared.Name)
 	}
 	return true
 }

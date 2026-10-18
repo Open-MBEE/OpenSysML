@@ -14,12 +14,15 @@ import (
 // The lowered graph is kept as is: lowered IR is derived from the shared, frozen
 // declarations and never written once lowered, so every context reads one copy.
 type imagedBehavior struct {
-	object    int64
-	attached  int // position among the behaviors of the context imaged
-	member    *symbols.Symbol
-	binding   int
-	name      string
-	kind      lower.ClassifierBehaviorKind
+	object   int64
+	attached int // position among the behaviors of the context imaged
+	member   *symbols.Symbol
+	binding  int
+	name     string
+	kind     lower.ClassifierBehaviorKind
+	// index is the performance's place among those the member enacts, naming the
+	// occurrence of a performed action declared [n].
+	index     int64
 	onClock   bool
 	err       error
 	typeBound bool
@@ -58,19 +61,20 @@ type imagedAction struct {
 
 // imagedFrame is one performance's state by value, the frames it points at by position.
 type imagedFrame struct {
-	saved      actionFrame
-	parent     int
-	locals     []map[string]Value
-	localCells [][]imagedBodyCell
-	data       map[string]Value
-	cells      []imagedBodyCell
-	outer      []imagedOuter
-	subactions map[ast.Node]int
-	repeats    map[repetitionGroupID]imagedRepetition
-	pending    map[ast.Node]map[string][]Value
-	held       map[ast.Node]map[string][]nodeObject
-	staged     map[ast.Node]map[string][]imagedStaged
-	nested     map[ast.Node][]nestedDelivery
+	saved         actionFrame
+	parent        int
+	locals        []map[string]Value
+	localCells    [][]imagedBodyCell
+	data          map[string]Value
+	cells         []imagedBodyCell
+	outer         []imagedOuter
+	subactions    map[ast.Node]int
+	repeats       map[repetitionGroupID]imagedRepetition
+	repeatedPerfs map[ast.Node][]int
+	pending       map[ast.Node]map[string][]Value
+	held          map[ast.Node]map[string][]nodeObject
+	staged        map[ast.Node]map[string][]imagedStaged
+	nested        map[ast.Node][]nestedDelivery
 }
 
 // imagedBodyCell stores a body binding's value and tracking state for an image.
@@ -113,7 +117,7 @@ type imagedOuter struct {
 type imagedState struct {
 	graph              *lower.StateGraph
 	state              ExecutionState
-	activeConfig       *StateConfiguration
+	activeConfig       *stateConfiguration
 	nextEventID        int64
 	events             []Event
 	stateData          map[string]Value
@@ -164,6 +168,7 @@ func (t *imaging) behavior(b *ObjectBehavior) error {
 	for _, bound := range b.bindings {
 		t.declared[bound] = true
 	}
+	img.index = b.performance
 	if b.deferred != nil {
 		t.img.behaviors = append(t.img.behaviors, img)
 		return nil
@@ -177,7 +182,7 @@ func (t *imaging) behavior(b *ObjectBehavior) error {
 		img.onClock = slices.Contains(t.ctx.clock.waiters, clockWaiter(b.Action))
 		img.action, err = t.actionExecutor(b.Action)
 	default:
-		return fmt.Errorf("%w: a behavior with no execution", ErrImageBound)
+		return fmt.Errorf("%w: a behavior with no execution", errImageBound)
 	}
 	if err != nil {
 		return err
@@ -189,7 +194,7 @@ func (t *imaging) behavior(b *ObjectBehavior) error {
 // actionExecutor takes an action executor's state, its frames by position.
 func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 	if e.inRun {
-		return nil, fmt.Errorf("%w: action %s is running", ErrSnapshotMidRun, symbolText(e.action))
+		return nil, fmt.Errorf("%w: action %s is running", ErrSnapshotMidRun, SymbolText(e.action))
 	}
 	frames := e.reachableFrames()
 	at := func(perf *actionFrame) int { return slices.Index(frames, perf) }
@@ -223,7 +228,7 @@ func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 	for _, token := range e.tokens {
 		if token.body != nil {
 			return nil, fmt.Errorf("%w: token %d of %s at %s", ErrSnapshotPausedBody,
-				token.ID, symbolText(e.action), ActionNodeName(token.Location))
+				token.ID, SymbolText(e.action), ActionNodeName(token.Location))
 		}
 		copied := token
 		if token.Wait != nil {
@@ -252,7 +257,8 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 	f := imagedFrame{saved: *perf, parent: at(perf.parent)}
 	f.saved.parent, f.saved.locals, f.saved.outer, f.saved.data = nil, nil, nil, nil
 	f.saved.cells, f.saved.localCells = nil, nil
-	f.saved.subactions, f.saved.repeats, f.saved.pending, f.saved.held, f.saved.staged, f.saved.nested = nil, nil, nil, nil, nil, nil
+	f.saved.subactions, f.saved.repeats, f.saved.repeatedPerfs = nil, nil, nil
+	f.saved.pending, f.saved.held, f.saved.staged, f.saved.nested = nil, nil, nil, nil
 	f.saved.connections = slices.Clone(perf.connections)
 	f.saved.features = maps.Clone(perf.features)
 	f.saved.aliases = maps.Clone(perf.aliases)
@@ -298,6 +304,16 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 			f.repeats[group] = repeated
 		}
 	}
+	if perf.repeatedPerfs != nil {
+		f.repeatedPerfs = make(map[ast.Node][]int, len(perf.repeatedPerfs))
+		for node, perfs := range perf.repeatedPerfs {
+			indexed := make([]int, len(perfs))
+			for i, repeated := range perfs {
+				indexed[i] = at(repeated)
+			}
+			f.repeatedPerfs[node] = indexed
+		}
+	}
 	if err := t.nestedValues(perf.pending); err != nil {
 		return imagedFrame{}, err
 	}
@@ -319,10 +335,10 @@ func (t *imaging) outerFrames(perf *actionFrame, at func(*actionFrame) int) ([]i
 	var outer []imagedOuter
 	for _, o := range perf.outer {
 		if o.slots != nil || o.owner != nil {
-			return nil, fmt.Errorf("%w: a frame of a calc around %s", ErrImageBound, perf.label)
+			return nil, fmt.Errorf("%w: a frame of a calc around %s", errImageBound, perf.label)
 		}
 		if o.perf != nil && at(o.perf) < 0 {
-			return nil, fmt.Errorf("%w: a performance around %s the run no longer reaches", ErrImageBound, perf.label)
+			return nil, fmt.Errorf("%w: a performance around %s the run no longer reaches", errImageBound, perf.label)
 		}
 		if err := t.values(o.vars); err != nil {
 			return nil, err
@@ -395,7 +411,7 @@ func stagedImaged(staged map[ast.Node]map[string][]stagedStream, at func(*action
 // stateExecutor takes a state executor's state.
 func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	if e.inRun {
-		return nil, fmt.Errorf("%w: state machine %s is running", ErrSnapshotMidRun, symbolText(e.stateMachine))
+		return nil, fmt.Errorf("%w: state machine %s is running", ErrSnapshotMidRun, SymbolText(e.stateMachine))
 	}
 	img := &imagedState{
 		graph: e.graph, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
@@ -477,7 +493,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	for _, act := range e.doActions {
 		if act.run != nil {
 			return nil, fmt.Errorf("%w: do behavior of state %s of %s", ErrSnapshotPausedBody,
-				StateVertexName(act.state), symbolText(e.stateMachine))
+				StateVertexName(act.state), SymbolText(e.stateMachine))
 		}
 		if err := t.firing(act.firing); err != nil {
 			return nil, fmt.Errorf("do behavior of state %s: %w", StateVertexName(act.state), err)
@@ -513,7 +529,7 @@ func (t *imaging) event(event Event) error {
 		}
 		return nil
 	}
-	return fmt.Errorf("%w: event %d carries a %T", ErrImageBound, event.ID, event.Payload)
+	return fmt.Errorf("%w: event %d carries a %T", errImageBound, event.ID, event.Payload)
 }
 
 // behavior gives the object made for an imaged behavior an execution of its own
@@ -523,10 +539,10 @@ func (m *materializing) behavior(b imagedBehavior) error {
 	inst := m.made[b.object]
 	decl, ok := m.declaration(inst, b.member)
 	if !ok {
-		return fmt.Errorf("%w: the type binds no such behavior", ErrImageBound)
+		return fmt.Errorf("%w: the type binds no such behavior", errImageBound)
 	}
 	if b.deferred != nil {
-		behavior, err := dst.deferredBehaviorFor(inst, decl, b.binding)
+		behavior, err := dst.deferredBehaviorFor(inst, decl, b.binding, b.index)
 		if err != nil {
 			return err
 		}
@@ -540,13 +556,14 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		dst.workChanged()
 		return nil
 	}
-	behavior, occurrence, err := dst.bindClassifierBehavior(inst, decl)
+	behavior, occurrence, err := dst.bindClassifierBehavior(inst, decl, b.index)
 	if err != nil {
 		return err
 	}
 	behavior.binding = b.binding
 	behavior.Err = b.err
 	behavior.typeBound = b.typeBound
+	behavior.performance = b.index
 	switch {
 	case b.state != nil:
 		exec := newStateExecutorOn(dst, behavior.Symbol, inst, occurrence, b.state.graph)
@@ -556,6 +573,7 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		dst.registerStateExecutor(exec)
 		if b.onClock {
 			dst.clock.attach(exec)
+			dst.run.notePerformer(exec)
 		}
 		behavior.State = exec
 	case b.action != nil:
@@ -715,6 +733,16 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 				state.live = append(state.live, frameAt(at))
 			}
 			perf.repeats[group] = state
+		}
+	}
+	if img.repeatedPerfs != nil {
+		perf.repeatedPerfs = make(map[ast.Node][]*actionFrame, len(img.repeatedPerfs))
+		for node, indexed := range img.repeatedPerfs {
+			perfs := make([]*actionFrame, len(indexed))
+			for i, at := range indexed {
+				perfs[i] = frameAt(at)
+			}
+			perf.repeatedPerfs[node] = perfs
 		}
 	}
 	if err := m.pending(perf, img.pending); err != nil {
@@ -969,7 +997,7 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	if e.stateCells != nil {
 		e.stateCells.vars = e.stateData
 		restoreStateBodyCells(m.dst, e.stateCells, e.graph.Attributes, img.stateCells,
-			"state machine "+symbolText(e.stateMachine), e.graph.Scope)
+			"state machine "+SymbolText(e.stateMachine), e.graph.Scope)
 	}
 	for node, attrs := range img.stateAttrs {
 		if e.stateAttrs[node], err = m.values(attrs); err != nil {

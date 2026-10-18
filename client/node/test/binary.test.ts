@@ -39,8 +39,8 @@ import { type Release, serveRelease } from "./release-server.js";
 
 const REPO = "Test-Owner/OpenSysML";
 const VERSION = "v0.9.9";
-// The repository the package's own release-digests.json pins, and the assets
-// every release of it publishes.
+// The repository the package's own release-digests.json pins, the service assets
+// every release of it publishes, and the kernel assets published from v0.10.0 on.
 const SHIPPED_REPO = "Open-MBEE/OpenSysML";
 const SERVICE_ASSETS = [
   "sysml-grpc-darwin-amd64",
@@ -48,6 +48,13 @@ const SERVICE_ASSETS = [
   "sysml-grpc-linux-amd64",
   "sysml-grpc-linux-arm64",
   "sysml-grpc-windows-amd64.exe",
+];
+const KERNEL_ASSETS = [
+  "sysml-jupyter-kernel-darwin-amd64",
+  "sysml-jupyter-kernel-darwin-arm64",
+  "sysml-jupyter-kernel-linux-amd64",
+  "sysml-jupyter-kernel-linux-arm64",
+  "sysml-jupyter-kernel-windows-amd64.exe",
 ];
 // The release job stamps the table it publishes and names the tag here, so
 // the suite proves the package about to ship pins its own release.
@@ -150,19 +157,28 @@ test("a binary on $PATH is used, and with nothing anywhere the error says so", a
   assert.doesNotMatch(error.message, /never downloads/);
 });
 
-test("the shipped table pins every service asset of every release it lists", () => {
+test("the shipped table pins every service asset of every release it lists, and the kernel whole", () => {
   assert.ok(Object.hasOwn(PINNED_SHA256, SHIPPED_REPO), `nothing is pinned for ${SHIPPED_REPO}`);
   const releases = PINNED_SHA256[SHIPPED_REPO];
   assert.ok(Object.keys(releases).length > 0, `no release of ${SHIPPED_REPO} is pinned`);
   for (const [version, assets] of Object.entries(releases)) {
     assert.match(version, RELEASE_TAG, `${version} is not a release tag`);
-    assert.deepEqual(
-      Object.keys(assets).sort(),
-      SERVICE_ASSETS,
-      `${version} does not pin exactly the five service assets`,
+    const names = Object.keys(assets).sort();
+    const service = names.filter((asset) => asset.startsWith("sysml-grpc-"));
+    const kernel = names.filter((asset) => asset.startsWith("sysml-jupyter-kernel-"));
+    assert.deepEqual(service, SERVICE_ASSETS, `${version} does not pin every service asset`);
+    if (kernel.length > 0) {
+      assert.deepEqual(kernel, KERNEL_ASSETS, `${version} pins the kernel for some platforms only`);
+    }
+    assert.equal(
+      names.length,
+      service.length + kernel.length,
+      `${version} pins an asset of neither the service nor the kernel: ${names.join(", ")}`,
     );
-    for (const asset of SERVICE_ASSETS) {
-      assert.equal(pinnedDigest(version, asset, SHIPPED_REPO), assets[asset]);
+    for (const asset of names) {
+      const digest = assets[asset];
+      assert.match(digest, /^[0-9a-f]{64}$/, `${version} ${asset}`);
+      assert.equal(pinnedDigest(version, asset, SHIPPED_REPO), digest);
     }
   }
   assert.equal(pinnedDigest("v0.0.0-never-released", releaseAssetName(), SHIPPED_REPO), undefined);

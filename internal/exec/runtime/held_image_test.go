@@ -103,7 +103,7 @@ func TestHeldImageImportRemapsMessageSerialsBeforeAccept(t *testing.T) {
 	if len(messages) != 3 || messages[0].Serial != 1 || messages[1].Serial != 2 || messages[2].Serial != 0 {
 		t.Fatalf("messages = %+v, want destination serial 1, imported serial 2, and imported serial 0", messages)
 	}
-	accepted, ok := dst.TakeMessage(func(msg Message) bool { return msg.Serial == 2 })
+	accepted, ok := dst.takeMessage(func(msg Message) bool { return msg.Serial == 2 })
 	if !ok {
 		t.Fatal("could not take the imported message")
 	}
@@ -151,13 +151,15 @@ func TestHeldImageCarriesAnEntryBoundary(t *testing.T) {
 	if len(decls) != 1 {
 		t.Fatalf("Host has %d classifier behaviors, want one", len(decls))
 	}
-	behavior, err := ctx.attachClassifierBehavior(host, decls[0])
+	behaviors, err := ctx.attachClassifierBehavior(host, decls[0])
 	if err != nil {
 		t.Fatalf("attachClassifierBehavior: %v", err)
 	}
-	behavior.binding = 0
-	host.behaviors = append(host.behaviors, behavior)
-	ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+	for _, behavior := range behaviors {
+		behavior.binding = 0
+		host.behaviors = append(host.behaviors, behavior)
+	}
+	ctx.objectBehaviors = append(ctx.objectBehaviors, behaviors...)
 	state, ok := host.ExhibitedState()
 	if !ok {
 		t.Fatal("Host exhibits no state machine")
@@ -281,7 +283,7 @@ func TestHeldImageCarriesAMovedStateMachine(t *testing.T) {
 	if got := lampLeaf(t, copied); got != "on" {
 		t.Errorf("the copy is at %s, want on as imaged", got)
 	}
-	var hse *HeldStateError
+	var hse *heldStateError
 	if err := dst.Pristine(copied); !errors.As(err, &hse) || !strings.Contains(err.Error(), "has moved") {
 		t.Errorf("Pristine(copy) = %v, want the moved machine refused as in the source", err)
 	}
@@ -460,7 +462,7 @@ func TestHeldImageCarriesTheModeledStream(t *testing.T) {
 }
 
 // A run following a witness is bound to its context: the image refuses it as
-// ErrImageBound rather than restart the witness in the copy.
+// errImageBound rather than restart the witness in the copy.
 func TestHeldImageRefusesARunFollowingAWitness(t *testing.T) {
 	idx, _, src := buildRuntimeWithLibraries(t, "roller.sysml", parseAndBuild(t, drawingRollerSource))
 	root := idx.DocumentRoot("roller.sysml")
@@ -484,8 +486,8 @@ func TestHeldImageRefusesARunFollowingAWitness(t *testing.T) {
 		t.Fatalf("the replay drew %v for its first, want the witness's %v", got, want)
 	}
 	var bound *HeldImageError
-	if _, err := replaying.Image(replayed); !errors.Is(err, ErrImageBound) || !errors.As(err, &bound) || bound.ID != replayed.ID {
-		t.Errorf("Image over a run following a witness = %v, want ErrImageBound naming #%d", err, replayed.ID)
+	if _, err := replaying.Image(replayed); !errors.Is(err, errImageBound) || !errors.As(err, &bound) || bound.ID != replayed.ID {
+		t.Errorf("Image over a run following a witness = %v, want errImageBound naming #%d", err, replayed.ID)
 	}
 }
 
@@ -506,7 +508,7 @@ func TestHeldImageCarriesAParkedAction(t *testing.T) {
 
 	dst := imageInto(t, src, waiter)
 	copied, _ := dst.Instance(waiter.ID)
-	behavior, ok := copied.Behavior("await")
+	behavior, ok := copied.behavior("await")
 	if !ok || behavior.Action == nil {
 		t.Fatalf("the copy performs no await action, behaviors: %v", copied.Behaviors())
 	}
@@ -532,9 +534,34 @@ func TestHeldImageCarriesAParkedAction(t *testing.T) {
 	if got := featureInt(t, src, waiter, "woken"); got != 0 {
 		t.Errorf("the source's woken = %d after the copy's message, want 0", got)
 	}
-	if original, _ := waiter.Behavior("await"); original.Action.State() != StateWaiting {
+	if original, _ := waiter.behavior("await"); original.Action.State() != StateWaiting {
 		t.Errorf("the source's await is %v, want still waiting", original.Action.State())
 	}
+}
+
+// A repeated performed action's image binds each copied behavior its own
+// occurrence: the run feature holds one distinct occurrence per performance.
+func TestHeldImageCarriesDistinctRepeatedOccurrences(t *testing.T) {
+	const source = `
+		private import ScalarValues::*;
+		part def Performer {
+			attribute visits : Integer = 0;
+			perform action run[2] {
+				action heard accept g : Integer;
+				first start then heard;
+			}
+		}
+	`
+	idx, _, src := buildRuntimeWithLibraries(t, "repeated-performer.sysml", parseAndBuild(t, source))
+	performer, err := src.Instantiate(resolveSymbol(t, idx.DocumentRoot("repeated-performer.sysml"), "Performer"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	assertDistinctRunOccurrences(t, src, performer)
+
+	dst := imageInto(t, src, performer)
+	copied, _ := dst.Instance(performer.ID)
+	assertDistinctRunOccurrences(t, dst, copied)
 }
 
 // lampMachine is the machine the bulb exhibits.
@@ -651,7 +678,7 @@ func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	}
 	await := func(t *testing.T, obj *Instance) *ActionExecutor {
 		t.Helper()
-		behavior, ok := obj.Behavior("await")
+		behavior, ok := obj.behavior("await")
 		if !ok || behavior.Action == nil {
 			t.Fatalf("object #%d performs no await action, behaviors: %v", obj.ID, obj.Behaviors())
 		}
@@ -752,7 +779,7 @@ func TestHeldImageCarriesRepeatedActionBarrier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate Repeater: %v", err)
 	}
-	behavior, ok := repeater.Behavior("run")
+	behavior, ok := repeater.behavior("run")
 	if !ok || behavior.Action == nil {
 		t.Fatal("Repeater has no run action")
 	}
@@ -789,7 +816,7 @@ func TestHeldImageCarriesRepeatedActionBarrier(t *testing.T) {
 	if !ok {
 		t.Fatal("image has no copied Repeater")
 	}
-	imagedBehavior, ok := copied.Behavior("run")
+	imagedBehavior, ok := copied.behavior("run")
 	if !ok || imagedBehavior.Action == nil {
 		t.Fatal("copied Repeater has no run action")
 	}
@@ -847,7 +874,7 @@ func TestHeldImageCarriesConcurrentRepeatedActionBarriers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate Repeater: %v", err)
 	}
-	behavior, ok := repeater.Behavior("run")
+	behavior, ok := repeater.behavior("run")
 	if !ok || behavior.Action == nil {
 		t.Fatal("Repeater has no run action")
 	}
@@ -888,7 +915,7 @@ func TestHeldImageCarriesConcurrentRepeatedActionBarriers(t *testing.T) {
 	if !ok {
 		t.Fatal("image has no copied Repeater")
 	}
-	imagedBehavior, ok := copied.Behavior("run")
+	imagedBehavior, ok := copied.behavior("run")
 	if !ok || imagedBehavior.Action == nil {
 		t.Fatal("copied Repeater has no run action")
 	}
@@ -937,7 +964,7 @@ func TestHeldImageCarriesNestedUnorderedRepeatedActionBarriers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate Repeater: %v", err)
 	}
-	behavior, ok := repeater.Behavior("run")
+	behavior, ok := repeater.behavior("run")
 	if !ok || behavior.Action == nil {
 		t.Fatal("Repeater has no run action")
 	}
@@ -984,7 +1011,7 @@ func TestHeldImageCarriesNestedUnorderedRepeatedActionBarriers(t *testing.T) {
 	if !ok {
 		t.Fatal("image has no copied Repeater")
 	}
-	imagedBehavior, ok := copied.Behavior("run")
+	imagedBehavior, ok := copied.behavior("run")
 	if !ok || imagedBehavior.Action == nil {
 		t.Fatal("copied Repeater has no run action")
 	}
@@ -1039,8 +1066,8 @@ func TestHeldImageRefusesWhatItCannotCarry(t *testing.T) {
 	src.runDepth--
 
 	other := NewContext(src.Model(), 10000)
-	if _, err := other.Image(bulb); !errors.Is(err, ErrImageRoot) {
-		t.Errorf("Image of another context's object = %v, want ErrImageRoot", err)
+	if _, err := other.Image(bulb); !errors.Is(err, errImageRoot) {
+		t.Errorf("Image of another context's object = %v, want errImageRoot", err)
 	}
 
 	img, err := src.Image(bulb)
@@ -1049,16 +1076,16 @@ func TestHeldImageRefusesWhatItCannotCarry(t *testing.T) {
 	}
 	taken := imageInto(t, src, bulb)
 	var hie *HeldImageError
-	if err := img.Materialize(taken); !errors.Is(err, ErrImageIdentityTaken) || !errors.As(err, &hie) || hie.ID != bulb.ID {
-		t.Errorf("Materialize over a held identity = %v, want ErrImageIdentityTaken naming #%d", err, bulb.ID)
+	if err := img.Materialize(taken); !errors.Is(err, errImageIdentityTaken) || !errors.As(err, &hie) || hie.ID != bulb.ID {
+		t.Errorf("Materialize over a held identity = %v, want errImageIdentityTaken naming #%d", err, bulb.ID)
 	}
-	if err := img.Materialize(src); !errors.Is(err, ErrImageIdentityTaken) {
-		t.Errorf("Materialize into the source = %v, want ErrImageIdentityTaken", err)
+	if err := img.Materialize(src); !errors.Is(err, errImageIdentityTaken) {
+		t.Errorf("Materialize into the source = %v, want errImageIdentityTaken", err)
 	}
 	ahead := NewContext(src.Model(), 10000)
 	ahead.clock.now = 5
-	if err := img.Materialize(ahead); !errors.Is(err, ErrImageClock) {
-		t.Errorf("Materialize into a context at t=5 = %v, want ErrImageClock", err)
+	if err := img.Materialize(ahead); !errors.Is(err, errImageClock) {
+		t.Errorf("Materialize into a context at t=5 = %v, want errImageClock", err)
 	}
 	if n := len(ahead.instances); n != 0 {
 		t.Errorf("the refused materialization left %d objects behind", n)
@@ -1066,8 +1093,8 @@ func TestHeldImageRefusesWhatItCannotCarry(t *testing.T) {
 
 	// A feature being written is state bound to the context writing it.
 	src.instances[bulb.ID].FeatureValues["lamp"].changing = true
-	if _, err := src.Image(bulb); !errors.Is(err, ErrImageBound) || !errors.As(err, &hie) || hie.ID != bulb.ID {
-		t.Errorf("Image over a feature being written = %v, want ErrImageBound naming #%d", err, bulb.ID)
+	if _, err := src.Image(bulb); !errors.Is(err, errImageBound) || !errors.As(err, &hie) || hie.ID != bulb.ID {
+		t.Errorf("Image over a feature being written = %v, want errImageBound naming #%d", err, bulb.ID)
 	}
 	src.instances[bulb.ID].FeatureValues["lamp"].changing = false
 
@@ -1077,9 +1104,9 @@ func TestHeldImageRefusesWhatItCannotCarry(t *testing.T) {
 		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
 	}}
 	src.instances[bulb.ID].FeatureValues["lamp"].Value = inBody
-	var notPortable *NotPortableError
+	var notPortable *notPortableError
 	if _, err := src.Image(bulb); !errors.As(err, &notPortable) || !errors.As(err, &hie) || hie.ID != bulb.ID {
-		t.Errorf("Image over a function of a body = %v, want a NotPortableError naming #%d", err, bulb.ID)
+		t.Errorf("Image over a function of a body = %v, want a notPortableError naming #%d", err, bulb.ID)
 	}
 
 	// A destroyed object is no longer one to sweep on: the image refuses it as a root.
@@ -1090,13 +1117,13 @@ func TestHeldImageRefusesWhatItCannotCarry(t *testing.T) {
 	if err := src.destroy(plain); err != nil {
 		t.Fatalf("destroy: %v", err)
 	}
-	if _, err := src.Image(plain); !errors.Is(err, ErrOccurrenceDestroyed) || !errors.As(err, &hie) || hie.ID != plain.ID {
-		t.Errorf("Image of a destroyed object = %v, want ErrOccurrenceDestroyed naming #%d", err, plain.ID)
+	if _, err := src.Image(plain); !errors.Is(err, errOccurrenceDestroyed) || !errors.As(err, &hie) || hie.ID != plain.ID {
+		t.Errorf("Image of a destroyed object = %v, want errOccurrenceDestroyed naming #%d", err, plain.ID)
 	}
 }
 
 // A message in flight naming an object the context does not hold — as its event
-// occurrence, or the port it reached — is ErrImageRoot naming that object, whether the
+// occurrence, or the port it reached — is errImageRoot naming that object, whether the
 // message is bound for an object of the closure or open to any consumer; the image
 // panics on none of them.
 func TestHeldImageRefusesAMessageNamingAnObjectNotHeld(t *testing.T) {
@@ -1115,8 +1142,8 @@ func TestHeldImageRefusesAMessageNamingAnObjectNotHeld(t *testing.T) {
 		src.messages = append(slices.Clone(sound), tc.msg)
 		_, err := src.Image(bulb)
 		var hie *HeldImageError
-		if !errors.Is(err, ErrImageRoot) || !errors.As(err, &hie) || !strings.Contains(err.Error(), "object #404") {
-			t.Errorf("Image with the %s not held = %v, want ErrImageRoot naming #404", tc.name, err)
+		if !errors.Is(err, errImageRoot) || !errors.As(err, &hie) || !strings.Contains(err.Error(), "object #404") {
+			t.Errorf("Image with the %s not held = %v, want errImageRoot naming #404", tc.name, err)
 		}
 	}
 	src.messages = sound
@@ -1157,9 +1184,9 @@ func TestHeldImageOfABehaviorlessClosureLeavesTheBusBe(t *testing.T) {
 		t.Errorf("the destination has %d messages in flight, want none", n)
 	}
 
-	var notPortable *NotPortableError
+	var notPortable *notPortableError
 	if _, err := src.Image(bulb); !errors.As(err, &notPortable) {
-		t.Errorf("Image of the bulb, whose machine reads the bus = %v, want a NotPortableError", err)
+		t.Errorf("Image of the bulb, whose machine reads the bus = %v, want a notPortableError", err)
 	}
 }
 
@@ -1188,9 +1215,9 @@ func TestHeldImageMaterializeFailsWhole(t *testing.T) {
 
 	dst := NewContext(src.Model(), 10000)
 	before := destinationStateOf(dst)
-	var notPortable *NotPortableError
+	var notPortable *notPortableError
 	if err := img.Materialize(dst); !errors.As(err, &notPortable) {
-		t.Fatalf("Materialize with a message it cannot carry = %v, want a NotPortableError", err)
+		t.Fatalf("Materialize with a message it cannot carry = %v, want a notPortableError", err)
 	}
 	if after := destinationStateOf(dst); after != before {
 		t.Errorf("the failed materialization changed the destination:\n before %+v\n after  %+v", before, after)
@@ -1207,7 +1234,7 @@ func TestHeldImageMaterializeFailsWhole(t *testing.T) {
 	}
 	before = destinationStateOf(shared)
 	if err := img.Materialize(shared); !errors.As(err, &notPortable) {
-		t.Fatalf("Materialize into the shared sequence = %v, want a NotPortableError", err)
+		t.Fatalf("Materialize into the shared sequence = %v, want a notPortableError", err)
 	}
 	if after := destinationStateOf(shared); after != before {
 		t.Errorf("the failed materialization changed the destination on a shared sequence:\n before %+v\n after  %+v", before, after)
@@ -1305,8 +1332,8 @@ func TestHeldImageKeepsTheIdentitiesSetAsideForConnectors(t *testing.T) {
 	before := destinationStateOf(taken)
 	err = img.Materialize(taken)
 	var imageErr *HeldImageError
-	if !errors.Is(err, ErrImageIdentityTaken) || !errors.As(err, &imageErr) || imageErr.ID != obj.ID {
-		t.Fatalf("Materialize into a context holding #%d = %v, want ErrImageIdentityTaken about #%d", kept[0], err, obj.ID)
+	if !errors.Is(err, errImageIdentityTaken) || !errors.As(err, &imageErr) || imageErr.ID != obj.ID {
+		t.Fatalf("Materialize into a context holding #%d = %v, want errImageIdentityTaken about #%d", kept[0], err, obj.ID)
 	}
 	if !strings.Contains(err.Error(), fmt.Sprintf("connector #%d set aside", kept[0])) {
 		t.Errorf("Materialize = %v, want it to name connector #%d", err, kept[0])
@@ -1358,8 +1385,8 @@ func TestHeldImageRefusesAnIdentitySetAsideByTheDestination(t *testing.T) {
 	before := destinationStateOf(dst)
 	err = img.Materialize(dst)
 	var imageErr *HeldImageError
-	if !errors.Is(err, ErrImageIdentityTaken) || !errors.As(err, &imageErr) || imageErr.ID != widget.ID {
-		t.Fatalf("Materialize over an identity set aside = %v, want ErrImageIdentityTaken about #%d", err, widget.ID)
+	if !errors.Is(err, errImageIdentityTaken) || !errors.As(err, &imageErr) || imageErr.ID != widget.ID {
+		t.Fatalf("Materialize over an identity set aside = %v, want errImageIdentityTaken about #%d", err, widget.ID)
 	}
 	if after := destinationStateOf(dst); after != before {
 		t.Errorf("the refused materialization changed the destination:\n before %+v\n after  %+v", before, after)
@@ -1400,8 +1427,8 @@ func TestHeldImageRefusesAUsageDenotingAnotherObjectOfTheDestination(t *testing.
 	before := destinationStateOf(dst)
 	err = img.Materialize(dst)
 	var imageErr *HeldImageError
-	if !errors.Is(err, ErrImageBindingTaken) || !errors.As(err, &imageErr) || imageErr.ID != plain.ID {
-		t.Fatalf("Materialize where plain denotes #%d = %v, want ErrImageBindingTaken about #%d", own.ID, err, plain.ID)
+	if !errors.Is(err, errImageBindingTaken) || !errors.As(err, &imageErr) || imageErr.ID != plain.ID {
+		t.Fatalf("Materialize where plain denotes #%d = %v, want errImageBindingTaken about #%d", own.ID, err, plain.ID)
 	}
 	if !strings.Contains(err.Error(), fmt.Sprintf("usage plain denotes #%d", own.ID)) {
 		t.Errorf("Materialize = %v, want it to name the usage and #%d", err, own.ID)
@@ -1526,13 +1553,13 @@ func heldDigest(ctx *Context, held func(id int64) bool) string {
 		if inst.owner != nil {
 			owner = inst.owner.ID
 		}
-		fmt.Fprintf(&b, "#%d %s owner=#%d.%s life=%+v ends=%d\n", id, symbolText(inst.Type), owner, inst.ownerFeature, ctx.lives[id], len(inst.Ends))
+		fmt.Fprintf(&b, "#%d %s owner=#%d.%s life=%+v ends=%d\n", id, SymbolText(inst.Type), owner, inst.ownerFeature, ctx.lives[id], len(inst.Ends))
 		for _, name := range slices.Sorted(maps.Keys(inst.FeatureValues)) {
 			fv := inst.FeatureValues[name]
 			fmt.Fprintf(&b, "  %s = %s written=%t materialized=%t\n", name, FormatValue(fv.HeldValue()), fv.Written, fv.Materialized)
 		}
 		for _, behavior := range inst.behaviors {
-			fmt.Fprintf(&b, "  behavior %s %s moved=%t\n", behavior.Kind, behavior.Name, behavior.Moved())
+			fmt.Fprintf(&b, "  behavior %s %s moved=%t\n", behavior.Kind, behavior.Name, behavior.moved())
 			if exec := behavior.Action; exec != nil {
 				fmt.Fprintf(&b, "    action state=%v inputs=%s\n", exec.State(), formatValues(exec.inputs))
 				for _, token := range exec.Tokens() {

@@ -22,8 +22,8 @@ func TestRuntimeRobustnessUseCase(t *testing.T) {
 			}
 		}`))
 		_, err := ctx.CreateActionExecutor(oneSymbol(t, idx, "test::loop"))
-		if !errors.Is(err, ErrInvalidActionFlow) {
-			t.Fatalf("expected ErrInvalidActionFlow at initialization, got: %v", err)
+		if !errors.Is(err, errInvalidActionFlow) {
+			t.Fatalf("expected errInvalidActionFlow at initialization, got: %v", err)
 		}
 		if !strings.Contains(err.Error(), "no initial node found in action loop") {
 			t.Errorf("error %q does not say what the flow lacks", err)

@@ -117,8 +117,8 @@ func calcStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver)
 			return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}, true
 		}
 		return usageStatement(m, scope)
-	case *ast.Definition, *ast.Documentation, *ast.Comment, *ast.Import, *ast.Alias:
-		// Declares a member of the calculation, not a step of it.
+	case *ast.Definition, *ast.Documentation, *ast.Comment, *ast.TextualRepresentation, *ast.Import, *ast.Alias:
+		// An annotation or declaration describes the calculation, not a step of it.
 		return nil, false
 	case *ast.SuccessionEdge:
 		return nil, false
@@ -129,7 +129,7 @@ func calcStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver)
 		if ast.IsExpression(member) {
 			return Return{Value: member, Node: member, Scope: scope}, true
 		}
-		return lowerStatement(member, scope, resolver), true
+		return lowerStatement(member, scope, resolver, nil), true
 	}
 }
 
@@ -300,12 +300,12 @@ func usageStatement(u *ast.Usage, scope *symbols.Scope) (Statement, bool) {
 		// An initial value (`:=`) is what the output holds when the body starts,
 		// for its assignments to replace; a binding (`=`) is the value it returns.
 		if u.ValueIsInitial && name != "" {
-			return Declare{Name: name, Value: u.Value, Binding: valueIsBinding(u.Value, u.ValueIsInitial, u.ValueIsDefault), Node: u, Scope: scope}, true
+			return Declare{Name: name, Value: u.Value, Binding: valueIsBinding(u.Value, u.ValueIsInitial, u.ValueIsDefault), Node: u, Scope: scope, Symbol: scope.MemberDeclaring(u)}, true
 		}
 		return Return{Value: u.Value, Node: u, Scope: scope}, true
 	}
 	if u.Kind == ast.UsageAttribute && name != "" {
-		return Declare{Name: name, Value: u.Value, Binding: valueIsBinding(u.Value, u.ValueIsInitial, u.ValueIsDefault), Node: u, Scope: scope}, true
+		return Declare{Name: name, Value: u.Value, Binding: valueIsBinding(u.Value, u.ValueIsInitial, u.ValueIsDefault), Node: u, Scope: scope, Symbol: scope.MemberDeclaring(u)}, true
 	}
 	if (u.Kind == ast.UsageCalc || u.Kind == ast.UsageAnalysisCase || u.Kind == ast.UsageVerificationCase) && name != "" {
 		return DeclareUsage{Name: name, Node: u, Scope: scope}, true

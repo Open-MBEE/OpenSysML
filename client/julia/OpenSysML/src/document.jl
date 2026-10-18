@@ -155,6 +155,7 @@ struct RenderedView
     canvas::Union{Nothing,RenderCanvas}
     notes::Vector{RenderNote}
     notices::Vector{String}
+    shown::Vector{String}
 end
 
 function _document_ref(raw)
@@ -391,11 +392,16 @@ function rendered_view_result(raw)
     RenderedView(_render_string(raw, "view"), _render_string(raw, "kind"),
         _render_string(raw, "stated"), nodes, edges,
         String[String(c) for c in get(raw, "columns", Any[])], rows, canvas, notes,
-        String[String(n) for n in get(raw, "notices", Any[])])
+        String[String(n) for n in get(raw, "notices", Any[])],
+        String[String(n) for n in get(raw, "shown", Any[])])
 end
 
-"""Render a named view with minimal or full ports."""
-function render_view(model::Model, view_name::AbstractString; ports="minimal")
+"""
+Render a named view with minimal or full ports. `show` names the optional
+notation elements to draw besides those the view's rendering shows
+(`"edge-labels"`, `"all"`, ...); the service refuses a name it does not know.
+"""
+function render_view(model::Model, view_name::AbstractString; ports="minimal", show=String[])
     ports in ("minimal", "full") || throw(ArgumentError("ports must be 'minimal' or 'full'"))
     conn = model.connection
     require_capability(conn, CAPABILITY_RENDER_VIEW)
@@ -403,7 +409,8 @@ function render_view(model::Model, view_name::AbstractString; ports="minimal")
         SymbolNotFoundError(view_name; service_message=message),
         capabilities=(CAPABILITY_RENDER_VIEW,), connection=conn) do
         call(conn, "RenderView", Dict{String,Any}("modelHash" => model.hash,
-            "view" => String(view_name), "ports" => ports == "minimal" ? "" : ports))
+            "view" => String(view_name), "ports" => ports == "minimal" ? "" : ports,
+            "show" => String[String(s) for s in show]))
     end
     rendered_view_result(answer)
 end

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -172,6 +173,52 @@ func filteredHTML(t *testing.T, pandoc, markdown string, captions []string) stri
 		t.Errorf("captions marked = %d, want %d:\n%s", got, len(captions), html)
 	}
 	return html
+}
+
+func TestArtworkFilterMarksTablesByHeaderWidth(t *testing.T) {
+	pandoc, err := pandocTool.locate("")
+	if err != nil {
+		t.Skipf("pandoc not installed: %v", err)
+	}
+	pipeTable := func(columns int) string {
+		headers := make([]string, columns)
+		rule := make([]string, columns)
+		values := make([]string, columns)
+		for i := range headers {
+			headers[i], rule[i], values[i] = "column", "---", "value"
+		}
+		return "| " + strings.Join(headers, " | ") + " |\n| " + strings.Join(rule, " | ") +
+			" |\n| " + strings.Join(values, " | ") + " |"
+	}
+	markdown := strings.Join([]string{pipeTable(6), pipeTable(7), pipeTable(11)}, "\n\n")
+	html := filteredHTML(t, pandoc, markdown, nil)
+	for _, want := range []string{
+		`<table>`,
+		`<table class="sysml-table-landscape">`,
+		`<table class="sysml-table-landscape sysml-table-dense">`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("filtered HTML lacks %q:\n%s", want, html)
+		}
+	}
+
+	dir := t.TempDir()
+	filter, err := writeArtworkFilter(dir, nil, formulas{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	script, err := os.ReadFile(filepath.Join(dir, filter))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"local landscapeColumns = " + strconv.Itoa(docrender.WideTableColumns),
+		"local denseColumns = " + strconv.Itoa(docrender.DenseTableColumns),
+	} {
+		if !strings.Contains(string(script), want) {
+			t.Errorf("filter lacks %q:\n%s", want, script)
+		}
+	}
 }
 
 // TestArtworkFilterMarksCaptionPastFallbackNotice checks a positioned

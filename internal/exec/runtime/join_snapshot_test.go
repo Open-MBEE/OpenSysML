@@ -49,7 +49,7 @@ func TestSnapshotRestoresJoinArrivals(t *testing.T) {
 	if !strings.Contains(canonical, "arrived{sync: a}") {
 		t.Fatalf("canonical state = %s, want deterministic join arrival spelling", canonical)
 	}
-	snapshot, err := exec.Snapshot()
+	snapshot, err := exec.snapshot()
 	if err != nil {
 		t.Fatalf("Snapshot: %v", err)
 	}

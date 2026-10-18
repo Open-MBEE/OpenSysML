@@ -22,6 +22,7 @@ package CaseExamples {
 		subject vehicle : Vehicle;
 		actor driver : Person;
 	}
+	use case addFuel : 'Add Fuel';
 
 	use case 'Provide Transportation' : 'Enter Vehicle' {
 		subject vehicle : Vehicle;
@@ -30,7 +31,7 @@ package CaseExamples {
 			doc /* Transport the vehicle and its passengers safely. */
 		}
 
-		include 'Add Fuel'[0..*] {
+		include addFuel[0..*] {
 			subject vehicle;
 			actor fueler = driver;
 		}
@@ -79,6 +80,6 @@ package CaseExamples {
 		render asCaseDiagram;
 		metadata Layout about CaseExamples::'Provide Transportation' { x = 40; y = 60; }
 		metadata Layout about CaseExamples::'Provide Transportation'::driver { x = 100; y = 60; }
-		metadata Route about CaseExamples::'Provide Transportation'::'Add Fuel' { points = (60, 20, 100, 60); }
+		metadata Route about CaseExamples::'Provide Transportation'::addFuel { points = (60, 20, 100, 60); }
 	}
 }

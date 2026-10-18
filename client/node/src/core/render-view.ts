@@ -116,6 +116,8 @@ export interface RenderedView {
   canvas?: RenderCanvas;
   notes: readonly RenderNote[];
   notices: readonly string[];
+  /** The optional notation elements the rendering drew. */
+  shown: readonly string[];
 }
 
 function spanOf(span: PbSpan | undefined): RenderSpan | undefined {
@@ -245,6 +247,7 @@ export function renderedViewOf(response: RenderViewResponse): RenderedView {
     rows: response.rows.map(rowOf),
     notes: response.notes.map(noteOf),
     notices: [...response.notices],
+    shown: [...response.shown],
     ...(canvas === undefined ? {} : { canvas }),
   };
 }

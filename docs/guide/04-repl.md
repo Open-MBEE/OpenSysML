@@ -226,7 +226,10 @@ specialized view is marked `(from <view>)`. The view restates no framing: every 
 viewpoint frames is checked against what the view exposes. A concern that states no condition,
 or names one that does not resolve, is reported as `unevaluable` with the reason, not as a
 pass. These verdicts are this implementation's own decisions, because SysML v2 leaves
-verification verdict semantics non-normative.
+verification verdict semantics non-normative. (The extension
+libraries these documents name are maintained upstream at
+[Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library)
+and vendored here pinned.)
 
 ```
 sysml> package Demo {
@@ -368,6 +371,23 @@ name along with the view, not silently substituted, and an element the rendering
 represent is reported rather than left out. The same operation outside the prompt is
 [`sysml -render`](../reference/cli.md#rendering-a-view).
 
+### Limiting what a view draws
+
+A tree or interconnection rendering draws everything the exposed elements contain, which on a
+model with several levels of decomposition is more than one picture wants. Three mechanisms bound
+it ([the details](../project/view-rendering-forms.md#limiting-what-a-view-draws)):
+
+- The view's `filter` conditions prune the walk as well as choosing the roots:
+  `view parts { expose vehicle; filter @SysML::PartUsage; render asTreeDiagram; }` draws the parts
+  and none of their attributes or ports, and `filter not @Hidden;` leaves out every element marked
+  `#Hidden`.
+- An attribute `depth` on the view bounds how many levels are drawn below each exposed element:
+  `view overview { expose vehicle; attribute depth = 2; render asTreeDiagram; }`. An element at the
+  bound keeps its ports and compartment rows and says `nested deeper than 2 levels; not shown`.
+  `%render Fleet::overview depth=1` overrides it for one render.
+- A `DiagramLayout::Layout` with `collapsed = true` about an element folds its children away in
+  every form: `metadata Layout about vehicle::engine { x = 120; y = 40; collapsed = true; }`.
+
 ## Where an expression is evaluated
 
 `%eval <expression>` evaluates in the namespace the session is currently working in, which is the
@@ -433,6 +453,7 @@ completes them: `#` offers the ids there are, `car.` the objects `car` holds.
 | what it computes across a range of one parameter | `%sweep`, `%samples` | [6](06-behavior.md#running-an-analysis-case) |
 | whether a check *can* hold at all (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%check` | [reference](../reference/repl-commands.md) |
 | which conditions conflict when it cannot (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%explain` | [reference](../reference/repl-commands.md) |
+| what a diagnostic code means and how to resolve it | `%explain-code` | [3](03-command-line.md#checking-as-a-gate) |
 | what values satisfy it, keeping what is already fixed (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%solve` | [reference](../reference/repl-commands.md) |
 | which variants its conditions permit (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%configure` | [reference](../reference/repl-commands.md) |
 | which values are best for an analysis case's objectives (experimental, needs [z3](01-install.md#installing-a-solver-optional)) | `%optimize` | [reference](../reference/repl-commands.md) |

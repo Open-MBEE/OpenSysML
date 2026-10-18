@@ -1,4 +1,10 @@
 {
 	"type": "action",
-	"error": "action step tick[3]"
+	"libraries": true,
+	"schedule": "declared",
+	"exploreBudget": {"runs": 8192},
+	"outputs": {
+		"c": {"type": "Integer", "value": 6},
+		"i": {"type": "Integer", "value": 2}
+	}
 }

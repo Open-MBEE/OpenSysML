@@ -2,6 +2,7 @@ package org.openmbee.opensysml.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -22,7 +23,7 @@ class ReleaseAssetsTest {
   /** The repository the jar's own release-digests.json pins. */
   private static final String SHIPPED_REPO = "Open-MBEE/OpenSysML";
 
-  /** The assets every release publishes, which a complete pin names all of. */
+  /** The service assets every release publishes, which a complete pin names all of. */
   private static final List<String> SERVICE_ASSETS =
       List.of(
           "sysml-grpc-darwin-amd64",
@@ -30,6 +31,18 @@ class ReleaseAssetsTest {
           "sysml-grpc-linux-amd64",
           "sysml-grpc-linux-arm64",
           "sysml-grpc-windows-amd64.exe");
+
+  /**
+   * The Jupyter kernel assets a release publishes beside the service from the release that
+   * introduced them; a release pins them whole or not at all.
+   */
+  private static final List<String> KERNEL_ASSETS =
+      List.of(
+          "sysml-jupyter-kernel-darwin-amd64",
+          "sysml-jupyter-kernel-darwin-arm64",
+          "sysml-jupyter-kernel-linux-amd64",
+          "sysml-jupyter-kernel-linux-arm64",
+          "sysml-jupyter-kernel-windows-amd64.exe");
 
   /**
    * The release job stamps the resource it packages and names the tag here, so the suite proves
@@ -90,11 +103,17 @@ class ReleaseAssetsTest {
           version + " is not a release tag");
       assertTrue(release.getValue() instanceof Map<?, ?>, version + " pins no assets");
       Map<?, ?> assets = (Map<?, ?>) release.getValue();
-      assertEquals(
-          new TreeSet<>(SERVICE_ASSETS),
-          new TreeSet<Object>(assets.keySet()),
-          version + " does not pin exactly the five service assets");
-      for (String asset : SERVICE_ASSETS) {
+      TreeSet<Object> names = new TreeSet<>(assets.keySet());
+      assertTrue(
+          names.containsAll(SERVICE_ASSETS),
+          version + " does not pin every one of the five service assets: " + names);
+      TreeSet<Object> others = new TreeSet<>(names);
+      others.removeAll(SERVICE_ASSETS);
+      assertTrue(
+          others.isEmpty() || others.equals(new TreeSet<>(KERNEL_ASSETS)),
+          version + " pins assets that are neither the service nor the whole kernel: " + others);
+      for (Object name : names) {
+        String asset = (String) name;
         Optional<String> pinned = shipped.pin(SHIPPED_REPO, version, asset);
         assertEquals(Optional.of(assets.get(asset)), pinned, asset + " of " + version);
         assertTrue(pinned.get().matches("[0-9a-f]{64}"), pinned.get());
@@ -120,7 +139,7 @@ class ReleaseAssetsTest {
   /** The releases of {@link #SHIPPED_REPO} the resource on the classpath lists, as parsed JSON. */
   private static Map<?, ?> shippedReleases() throws IOException {
     try (InputStream in = ReleaseDigests.class.getResourceAsStream(ReleaseDigests.RESOURCE)) {
-      assertTrue(in != null, ReleaseDigests.RESOURCE + " must be on the classpath");
+      assertNotNull(in, ReleaseDigests.RESOURCE + " must be on the classpath");
       Object table = Json.parse(new String(in.readAllBytes(), StandardCharsets.UTF_8));
       assertTrue(table instanceof Map<?, ?>, "the resource is not a JSON object");
       Object releases = ((Map<?, ?>) table).get(SHIPPED_REPO);

@@ -1,0 +1,100 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="DirectedBehaviorUsageMembers" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="concern" abstract=false variation=false name="C"))
+      (Membership visibility="default"
+        (Definition kind="requirement" abstract=false variation=false name="R"))
+      (Membership visibility="default"
+        (Definition kind="use case" abstract=false variation=false name="U"))
+      (Membership visibility="default"
+        (Definition kind="verification case" abstract=false variation=false name="V"))
+      (Membership visibility="default"
+        (Definition kind="analysis case" abstract=false variation=false name="N"))
+      (Membership visibility="default"
+        (Definition kind="case" abstract=false variation=false name="K"))
+      (Membership visibility="default"
+        (Definition kind="constraint" abstract=false variation=false name="Q"))
+      (Membership visibility="default"
+        (Definition kind="view" abstract=false variation=false name="W"))
+      (Membership visibility="default"
+        (Definition kind="viewpoint" abstract=false variation=false name="P"))
+      (Membership visibility="default"
+        (Definition kind="rendering" abstract=false variation=false name="G"))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="F"))
+      (Membership visibility="default"
+        (Definition kind="item" abstract=false variation=false name="I"))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Elicit"
+          (Membership visibility="default"
+            (Usage kind="concern" name="problem" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=C
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="concern" name="needs" ref=false direction="inout" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=C
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="requirement" name="spec" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=R
+                (*ast.QualifiedName))
+              (SubjectMember name="s" type="I")))
+          (Membership visibility="default"
+            (Usage kind="use case" name="uses" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=U
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInfinity))))
+          (Membership visibility="default"
+            (Usage kind="verification case" name="checks" ref=false direction="out" composite=false derived=false ordered=false nonunique=false keyword="verification"
+              (Relationship kind="typing" target=V
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInfinity))))
+          (Membership visibility="default"
+            (Usage kind="analysis case" name="study" ref=true direction="out" composite=false derived=false ordered=false nonunique=false keyword="analysis"
+              (Relationship kind="typing" target=N
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="case" name="k" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=K
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="rule" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Q
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="view" name="w" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=W
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="viewpoint" name="p" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=P
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="rendering" name="g" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=G
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="calc" name="f" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=F
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="state" name="st" ref=false direction="in" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="item" name="product" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=I
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="action" name="refine" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="concern" name="needs" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=C
+                    (*ast.QualifiedName))
+                  (FeatureReference name="Elicit::needs")))
+              (Membership visibility="default"
+                (Usage kind="requirement" name="spec" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=R
+                    (*ast.QualifiedName))
+                  (FeatureReference name="Elicit::spec"))))))))))

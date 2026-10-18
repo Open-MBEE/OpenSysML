@@ -29,7 +29,7 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|model|export|rest)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|model|export|rest|migrate)
 make test-short       # faster, no race detector
 make clean            # remove build artifacts
 ```
@@ -151,7 +151,7 @@ When touching the lexer/parser or adding grammar:
 1. **Golden AST fixture** locking parse structure (`tests/parser/testdata/parse/`).
 2. **Execution conformance:** add `.sysml` + `.expected.json` under `internal/exec/runtime/testdata/conformance/`; run `go test -run TestExecutionConformance ./internal/exec/runtime`. Schema is documented in that dir's `README.md`.
 3. **Golden execution traces** for ordering-sensitive behavior (fork/join, transitions): `go test -run TestExecutionTrace ./internal/exec/runtime` (update flag: `-update-traces`).
-4. **Robustness:** add a failure-mode case (deadlock, unbound params, missing refs, dangling transitions, step budget) as a subtest of a `TestRuntimeRobustness<Feature>` function in `internal/exec/runtime/robustness_<feature>_test.go` — a new file for a new feature, so branches never edit one shared registry; `robustness_test.go` holds the shared cases and is not where new ones go. Must return typed errors, never panic or hang. The suite counters read every `TestRuntimeRobustness*` function, and gRPC cases follow the same pattern with `TestGRPCRobustness*`.
+4. **Robustness:** add a failure-mode case (deadlock, unbound params, missing refs, dangling transitions, step budget) as a subtest of a `TestRuntimeRobustness<Feature>` function in `internal/exec/runtime/robustness_<feature>_test.go` — a new file for a new feature, so branches never edit one shared registry; `robustness_test.go` holds only the shared helpers and is not where new ones go. Must return typed errors, never panic or hang. The suite counters read every `TestRuntimeRobustness*` function, and gRPC cases follow the same pattern with `TestGRPCRobustness*`.
 
 Then update `docs/project/spec-compliance.md` mapping: semantic rule → implementation (file:function) → test → status (✅ faithful / ⚠️ approximate / ❌ not implemented / 🚧 known failure).
 
@@ -159,6 +159,7 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
 - Unit tests live beside code as `*_test.go`, one concern per test.
 - Design/adjust tests **before or alongside** implementation; don't retrofit weak tests afterward.
 - Prefer real SysML models in `tests/testdata/` over hand-built ASTs when exercising end-to-end behavior; hand-built ASTs are fine for targeted unit tests.
+- **Size caps.** `tests/hygiene/size_test.go` fails on a `_test.go` file over 2,000 lines or a fixture (under `testdata/` or named `*.golden.*`) over 200 KiB. Split the test file per §5.2 or shrink/digest the fixture; the pre-existing offenders are allowlisted there at their current size and may not grow — remove the entry once the file is back under the cap, and justify any new one in its reason.
 
 ---
 
@@ -172,8 +173,10 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
 6. **Add/adjust tests** to lock in the fix and cover the failure mode.
 7. **Verify** with the full gate in §2. Remove any temporary debug code and dead code.
 8. **Commit** using Conventional Commits (see §7). Keep PRs focused (one feature/fix each).
-9. **Open the PR as a draft** against `develop` and mark it ready for review once CI is green. Address
-   review findings as they arrive rather than waiting for CI. Merging is a maintainer's decision.
+9. **Open the PR as a draft** against `develop`. A draft runs the quick CI tier (race-free suite, cheap
+   static checks); mark it ready for review once that is green. The full tier then runs on the ready PR
+   and on every later push, and it must be green too. Address review findings as they arrive rather than
+   waiting for CI. Merging is a maintainer's decision.
 
 ---
 

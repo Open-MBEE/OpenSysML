@@ -36,7 +36,7 @@ func (q *exploreQueue) recordProbabilityPath(run *exploreRun, outcome int, leaf 
 }
 
 func slotProbabilityShares(slot exploreSlot) []float64 {
-	if slot.kind != slotPick || !slot.described || !slot.choice.Weighted() || slot.taken >= len(slot.choice.Weights) {
+	if slot.kind != slotPick || !slot.described || !slot.choice.weighted() || slot.taken >= len(slot.choice.Weights) {
 		return nil
 	}
 	total := 0.0

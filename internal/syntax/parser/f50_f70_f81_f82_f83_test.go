@@ -130,7 +130,9 @@ func TestNegativeF50F70F81F82F83AndF62F63(t *testing.T) {
 		// cannot name the feature there; in SysML it is an ordinary name and
 		// the reference accepts `abstract var;` as a DefaultReferenceUsage.
 		{"abstract_var", "package P { abstract var; }", "abstract_var.kerml"},
-		{"member", "package P { classifier D { member ; } }", ""},
+		// `member` is a KerML keyword (KerML.xtext TypeFeatureMember); in SysML
+		// `member;` is a DefaultReferenceUsage named by it.
+		{"member", "package P { classifier D { member ; } }", "member.kerml"},
 		{"representation", "package P { classifier D { inv c { rep language; } } }", ""},
 		{"differences", "package P { classifier D differences ; }", ""},
 		{"disjoint", "package P { disjoint from A; }", ""},

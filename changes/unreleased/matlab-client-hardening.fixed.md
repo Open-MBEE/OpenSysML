@@ -1,1 +1,0 @@
-- **Align MATLAB client decoding and transport behavior with the service and Python client.** JSON map keys, validation results, integer bounds, symbol lookup and HTTP failures now preserve their intended values and errors.

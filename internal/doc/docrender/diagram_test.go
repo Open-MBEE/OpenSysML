@@ -28,7 +28,7 @@ func renderedDiagram(t *testing.T, caption string, rendering *view.Rendering, di
 func renderedDiagramForm(t *testing.T, caption string, rendering *view.Rendering, direction view.Direction, form view.Form) string {
 	t.Helper()
 	w := &markdownWriter{opts: DiagramOptions{Form: form}}
-	blocks, err := w.diagramFigure("d", caption, rendering, view.Options{Direction: direction})
+	blocks, err := w.diagramFigure("d", caption, rendering, view.Options{Direction: direction, Show: view.AllShown()})
 	if err != nil {
 		t.Fatalf("diagramFigure: %v", err)
 	}

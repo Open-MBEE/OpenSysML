@@ -1,0 +1,11 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}, {"signal": "Next"}],
+	"outcomes": [
+		{"outputs": {"last": {"type": "Integer", "value": 1}, "computed": {"type": "Integer", "value": 2}, "fixed": {"type": "Integer", "value": 5}}},
+		{"outputs": {"last": {"type": "Integer", "value": 2}, "computed": {"type": "Integer", "value": 3}, "fixed": {"type": "Integer", "value": 5}}}
+	],
+	"admissible": "An effect computing from an order-dependent attribute stands on its choice points",
+	"orderDependent": {"last": 1, "computed": 1}
+}

@@ -45,7 +45,7 @@ func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 	wantNoLine(t, r.Notation, "Median :")
 	wantNoLine(t, r.Notation, "= median")
 	wantLine(t, r.Notation, "analysis 'Monte Carlo' : 'Settling Analysis Monte Carlo' {")
-	wantLine(t, r.Notation, "subject :>> analysed : 'settling of 5 runs';")
+	wantLine(t, r.Notation, "subject :>> analysed = 'settling of 5 runs';")
 	wantLine(t, r.Notation, "out :>> deviation = 0.6;")
 	wantBlock(t, r.Notation, "analysis def 'Retried Settling Monte Carlo' :> Simulation::MonteCarlo {",
 		"subject analysed : 'Retried Settling';",
@@ -80,7 +80,7 @@ func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 		}
 		configured[cfg.AnalysisCase] = cfg
 	}
-	cfg, ok := configured["'Settling Analysis Monte Carlo'"]
+	cfg, ok := configured["Model::'Settling Analysis Monte Carlo'"]
 	if !ok {
 		t.Fatalf("configurations = %+v, want one by 'Settling Analysis Monte Carlo'", r.Results.Configurations)
 	}
@@ -91,7 +91,7 @@ func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 	if len(cfg.Snapshots) != 1 || !reflect.DeepEqual(cfg.Snapshots[0].Statistics, want) {
 		t.Errorf("snapshots = %+v, want one holding %+v", cfg.Snapshots, want)
 	}
-	retried, ok := configured["'Retried Settling Monte Carlo'"]
+	retried, ok := configured["Model::'Retried Settling Monte Carlo'"]
 	if !ok {
 		t.Fatalf("configurations = %+v, want one by 'Retried Settling Monte Carlo'", r.Results.Configurations)
 	}
@@ -309,7 +309,7 @@ func TestMonteCarloParametricViewExposesTheAnalysis(t *testing.T) {
 	wantNote(t, r, "_bindDeviation", migrate.Approximated, "the binding to the simulation tool's MonteCarloAnalysis::Deviation is written in the analysis def 'Settling Analysis Monte Carlo' as the returned Deviation, bound to deviation")
 	wantNote(t, r, "_diag_par", migrate.Approximated, "a SysML Parametric Diagram written as a view rendered asInterconnectionDiagram; "+
 		"6 of 14 shown elements are not written and not exposed; laid out from the diagram's own symbol stream: "+
-		"5 of 11 shown elements positioned (6 not exposed), 1 of 3 connectors routed (2 not drawn)")
+		"5 of 11 shown elements positioned (6 lying on connections), 1 of 3 connectors routed (2 not drawn)")
 	for _, e := range entriesFor(r, "_diag_par") {
 		if strings.Contains(e.Note, "not written)") {
 			t.Errorf("diagram note reports a binding's route as not written: %s", e.Note)
@@ -317,7 +317,7 @@ func TestMonteCarloParametricViewExposesTheAnalysis(t *testing.T) {
 	}
 	report := reportText(t, r)
 	for _, want := range []string{"# routes of Connector: 1 written", "# routes of Connector: 2 not drawn",
-		"placements: 5 of 11 written (6 not exposed, 0 resolving to no element); routes: 1 of 3 written (2 not pinned, 0 resolving to no element)"} {
+		"placements: 5 of 11 written (0 not exposed, 6 lying on connections, 0 resolving to no element); routes: 1 of 3 written (2 not pinned, 0 resolving to no element)"} {
 		if !strings.Contains(report, want) {
 			t.Errorf("report lacks %q:\n%s", want, report)
 		}
@@ -338,8 +338,8 @@ func TestMonteCarloParametricViewExposesTheAnalysis(t *testing.T) {
 			nodes[child.Name] = child
 		}
 	}
-	analysis, settleTime := nodes["'Settling Analysis Monte Carlo'"], nodes["Sensor::settleTime"]
-	if analysis == nil || settleTime == nil || nodes["Sensor::misses"] == nil || len(nodes) != 3 {
+	analysis, settleTime := nodes["Model::'Settling Analysis Monte Carlo'"], nodes["Model::Sensor::settleTime"]
+	if analysis == nil || settleTime == nil || nodes["Model::Sensor::misses"] == nil || len(nodes) != 3 {
 		t.Fatalf("rendering draws %v, want the analysis def, settleTime and misses alone", slices.Sorted(maps.Keys(nodes)))
 	}
 	if analysis.Kind != "analysis def" || analysis.Geometry == nil || *analysis.Geometry != (view.Geometry{X: 70, Y: 56, Width: 81, Height: 26, HasSize: true}) {

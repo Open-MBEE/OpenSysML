@@ -27,7 +27,7 @@ func TestMigratedExcludingFilterFitsBudgetBelowThreeTraversals(t *testing.T) {
 	if 3*syntheticElements <= visitBudget {
 		t.Fatalf("visit budget %d does not rule out three traversals of %d elements", visitBudget, syntheticElements)
 	}
-	packagePrefix := "package Fleet {\n    package Structure {"
+	packagePrefix := "package Fleet {\n        package Structure {"
 	opening := strings.Index(notation, packagePrefix)
 	if opening < 0 {
 		t.Fatal("migrated Fleet::Structure package is missing")
@@ -35,7 +35,7 @@ func TestMigratedExcludingFilterFitsBudgetBelowThreeTraversals(t *testing.T) {
 	insertAt := opening + len(packagePrefix)
 	var additions strings.Builder
 	for i := 0; i < syntheticElements; i++ {
-		fmt.Fprintf(&additions, "\n        part def BudgetElement%d;", i)
+		fmt.Fprintf(&additions, "\n            part def BudgetElement%d;", i)
 	}
 	notation = notation[:insertAt] + additions.String() + notation[insertAt:]
 

@@ -41,18 +41,18 @@ note {
 skinparam wrapWidth 300
 hide stereotype
 left to right direction
-usecase "<size:10>//«use case»//</size>\n**VehicleUseCases::'Provide Transportation'**" as n0 <<use case>> <<usage>> [[https://example.test/src/general-case.sysml#L13]]
-rectangle "<size:10>//«subject»//</size>\n**vehicle : Vehicle**" as n1 <<subject>> <<usage>> [[https://example.test/src/general-case.sysml#L14]]
-actor "<size:10>//«actor»//</size>\n**driver : Person**" as n2 <<actor>> <<usage>> [[https://example.test/src/general-case.sysml#L15]]
-actor "<size:10>//«actor»//</size>\n**passengers : Person**" as n3 <<actor>> <<usage>> [[https://example.test/src/general-case.sysml#L16]]
+usecase "<size:10>//«use case»//</size>\n**'Provide Transportation'**" as n0 <<use case>> <<usage>> [[https://example.test/src/general-case.sysml#L13]]
+rectangle "<size:10>//«subject»//</size>\n**vehicle**" as n1 <<subject>> <<usage>> [[https://example.test/src/general-case.sysml#L14]]
+actor "<size:10>//«actor»//</size>\n**driver**" as n2 <<actor>> <<usage>> [[https://example.test/src/general-case.sysml#L15]]
+actor "<size:10>//«actor»//</size>\n**passengers**" as n3 <<actor>> <<usage>> [[https://example.test/src/general-case.sysml#L16]]
 note as n4
   **[[https://example.test/src/general-case.sysml#L17 objective]]**
   [[https://example.test/src/general-case.sysml#L17 Deliver the driver and passengers to their destination.]]
 end note
-usecase "<size:10>//«include use case»//</size>\n**addFuel : 'Add Fuel'**" as n5 <<include use case>> <<usage>> [[https://example.test/src/general-case.sysml#L20]]
+usecase "<size:10>//«include use case»//</size>\n**addFuel**" as n5 <<include use case>> <<usage>> [[https://example.test/src/general-case.sysml#L20]]
 rectangle "<size:10>//«subject»//</size>\n**vehicle**" as n6 <<subject>> <<usage>> [[https://example.test/src/general-case.sysml#L21]]
 actor "<size:10>//«actor»//</size>\n**fueler**" as n7 <<actor>> <<usage>> [[https://example.test/src/general-case.sysml#L22]]
-usecase "<size:10>//«include use case»//</size>\n**'enter vehicle' : 'Enter Vehicle'**" as n8 <<include use case>> <<usage>> [[https://example.test/src/general-case.sysml#L24]]
+usecase "<size:10>//«include use case»//</size>\n**'enter vehicle'**" as n8 <<include use case>> <<usage>> [[https://example.test/src/general-case.sysml#L24]]
 rectangle "<size:10>//«subject»//</size>\n**vehicle**" as n9 <<subject>> <<usage>> [[https://example.test/src/general-case.sysml#L25]]
 actor "<size:10>//«actor»//</size>\n**driver**" as n10 <<actor>> <<usage>> [[https://example.test/src/general-case.sysml#L26]]
 n0 -- n1 : <U+00AB>subject<U+00BB> [[https://example.test/src/general-case.sysml#L14]]

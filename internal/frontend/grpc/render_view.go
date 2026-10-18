@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -28,10 +29,18 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 	if !ok {
 		return nil, statusError(connect.CodeInvalidArgument, (&view.UnknownPortsError{Name: req.Ports}).Error())
 	}
+	shown, err := view.ShownOf(req.Show)
+	if err != nil {
+		return nil, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+	if req.Depth < 0 {
+		return nil, statusError(connect.CodeInvalidArgument, (&view.DepthError{Value: fmt.Sprint(req.Depth)}).Error())
+	}
 
 	worker, release := cached.worker()
 	defer release()
 	renderer := view.NewRenderer(worker.Model.Semantics(), worker.Model.Resolver(), cachedSourceText(cached))
+	renderer.SetDepth(int(req.Depth))
 	rendering, err := view.RenderNamed(renderer, req.View, func(name string) []*symbols.Symbol {
 		return symbolfacts.LookupNamed(cached.Index, name)
 	})
@@ -42,7 +51,7 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 		}
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
-	return renderViewData(cached, rendering.DataFor(ports)), nil
+	return renderViewData(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown})), nil
 }
 
 type renderViewOrigins struct {
@@ -85,6 +94,7 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 		Stated:  data.Stated,
 		Columns: data.Columns,
 		Notices: data.Notices,
+		Shown:   data.Shown,
 		Nodes:   make([]*pb.RenderNode, 0, len(data.Nodes)),
 		Edges:   make([]*pb.RenderEdge, 0, len(data.Edges)),
 		Rows:    make([]*pb.RenderRow, 0, len(data.Rows)),
@@ -120,7 +130,7 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 	for _, edge := range data.Edges {
 		item := &pb.RenderEdge{
 			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Label, Name: edge.Name, Kind: edge.Kind.String(), Origin: origins.span(edge.Origin),
+			Label: edge.Text(), Name: edge.Name, Kind: edge.Kind.String(), Origin: origins.span(edge.Origin),
 		}
 		for _, point := range edge.Route {
 			item.Route = append(item.Route, &pb.RenderPoint{X: point.X, Y: point.Y})

@@ -1,1 +1,0 @@
-- The SysML v1 migrator writes a DocGen `TableStructure` with `loop = true` as one table over the elements its chain holds and ledgers it mapped: DocGen keeps a table's loop and runs none, so one table listing them together is what it prints, not an approximation of one table each.

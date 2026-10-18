@@ -44,7 +44,7 @@
 **Objective:** Ensure malformed or pathological behaviors fail *gracefully* (typed error, detected deadlock) rather than panicking or hanging.
 
 ### Task B5.1 — Failure-mode tests
-- **File:** `internal/exec/runtime/robustness_test.go`.
+- **Files:** `internal/exec/runtime/robustness_<feature>_test.go`, one per feature, with the shared helpers in `robustness_test.go`.
 - **Cases (each must return a typed error, never panic/hang):**
   - Deadlocked action (join awaiting a token that never arrives — exercise the deadlock detector referenced in `docs/internals/architecture.md:214`)
   - Decision with no satisfied guard

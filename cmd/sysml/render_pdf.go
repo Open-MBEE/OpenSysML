@@ -1,4 +1,4 @@
-//go:build !sysml_prod && !sysml_nodocpdf
+//go:build !sysml_re && !sysml_nodocpdf
 
 package main
 
@@ -56,6 +56,7 @@ func pdfOptions() (docpdf.Options, error) {
 		return docpdf.Options{}, err
 	}
 	return docpdf.Options{
+		Show:                shownOrNone(),
 		TitlePage:           pdfTitlePage,
 		TOC:                 pdfTOC,
 		NumberSections:      pdfNumbering,

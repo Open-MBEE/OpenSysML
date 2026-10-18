@@ -306,7 +306,7 @@ func TestListNamesRoundTrip(t *testing.T) {
 			}
 			resolved++
 		case *item.Supported:
-			got := listRun(t, binary, path, "-render", item.Name, "-render-form", "text")
+			got := listRun(t, binary, path, "-render", item.Name, "-render-form", "text", "-render-show", "qualifiers")
 			if got.status != 0 || !strings.HasPrefix(got.stdout, item.Name+" - ") || exposed[item.Name] == "" ||
 				!strings.Contains(got.stdout, exposed[item.Name]) {
 				t.Errorf("-render %s: exit = %d\n%s", item.Name, got.status, got.output())

@@ -184,7 +184,7 @@ func readDelimited(name string, data []byte, comma rune, m *Map) ([]Row, error) 
 		columns[n] = column{index: i, name: n, unit: unit}
 		order = append(order, n)
 	}
-	if long := longForm(columns, m); long {
+	if longForm(columns, m) {
 		return readLongForm(name, r, columns, m)
 	}
 	elementColumn := m.Element.columnOr(defaultElementColumn)

@@ -19,6 +19,18 @@ func TestNeedsContinuation(t *testing.T) {
 		{"a[0]", false},
 		{"package P } }", false},
 		{"} package P {", true},
+		// A string, quoted name, comment or note still open at the end of the
+		// line continues: the literal may span lines, and the prompt should not
+		// submit half of one.
+		{`attribute s = "line one`, true},
+		{"attribute s = \"line one\nline two\";", false},
+		{"part def 'multi", true},
+		{"part def 'multi\nline';", false},
+		{"doc /* body", true},
+		{"doc /* body\n*/", false},
+		{"//* note", true},
+		{"// note", false},
+		{`attribute s = "a\"b";`, false},
 	}
 	for _, c := range cases {
 		if got := needsContinuation(c.src); got != c.want {

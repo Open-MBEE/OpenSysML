@@ -1,7 +1,10 @@
 {
-	"verdict": "divergent",
-	"divergent": {
-		"y": ["30", "31"],
-		"seen": ["30", "31"]
-	}
+	"verdict": "violation",
+	"agreed": {
+		"y": "31",
+		"seen": "31"
+	},
+	"failures": [
+		"eval assignment RHS: type mismatch: operator '+' is not defined for a sequence and an Integer"
+	]
 }

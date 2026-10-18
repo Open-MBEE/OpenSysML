@@ -93,6 +93,9 @@ type Context struct {
 	// bindingStack holds the namespace-level usages whose values are being evaluated, innermost
 	// last, so a value reaching back to its own usage is a cycle, and an extent finds no object of it yet.
 	bindingStack []*symbols.Symbol
+	// chainStack holds the chains being read through package-level usages no object
+	// stands for, innermost last, so a value reading its own chain again is a cycle.
+	chainStack []chainRead
 	// bindingReads holds, per bound usage, the declarations its value read to arrive at the binding,
 	// so a re-analysis carries the binding only while every one of them still reads the same.
 	bindingReads map[*symbols.Symbol]*bindingReads
@@ -159,6 +162,10 @@ type Context struct {
 	// behavior starts when an object is materialized (see DeclaredReader).
 	declarative bool
 
+	// coverageGaps holds the constructs this run performed in one order without
+	// a choice point, recorded once each (coverage_gap.go).
+	coverageGaps map[CoverageGap]bool
+
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.
 	heldBehaviors map[*ObjectBehavior]bool
@@ -174,6 +181,15 @@ type Context struct {
 	trace *TraceRecorder
 	// stepWrites is the ledger of the action step under way, nil between steps.
 	stepWrites *stepWriteLedger
+	// controls is the choice points the move under way stands on by control: the
+	// guards read and branches drawn around it (order_marks.go).
+	controls []int64
+	// performing is the node whose performance the executor running is, nil for a
+	// run of its own: a body's own place is stamped as that performance's.
+	performing ast.Node
+	// performingParams are the parameters of the action performing runs, which
+	// are that performance's own as its pins are.
+	performingParams map[*symbols.Symbol]bool
 
 	// actionDepth is the number of action invocations currently on the stack,
 	// bounding recursion across nested action executors.
@@ -257,6 +273,8 @@ type Context struct {
 	sharedTaken    int64
 	// verdicts is the span sharing verdicts between objects of one shape; nil outside one.
 	verdicts *verdictMemo
+	// exemplars are the objects `this` denotes in the check about no object under way (exemplar.go).
+	exemplars *exemplars
 	// behaviorsAttached counts the object behaviors attached so far, so a
 	// derivation knows whether one was attached under it.
 	behaviorsAttached int64
@@ -388,7 +406,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		instances: make(map[int64]*Instance),
 		lives:     make(map[int64]life),
 
-		compileCalcs: CalcCompileFromEnv(),
+		compileCalcs: calcCompileFromEnv(),
 
 		run: &runState{
 			calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
@@ -423,7 +441,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		namespaceChainReads:       make(map[*namespaceClass]bool),
 		namespaceCollecting:       make(map[*symbols.Symbol]bool),
 
-		shareDefaults:  SharedDefaultsFromEnv(),
+		shareDefaults:  sharedDefaultsFromEnv(),
 		sharedDefaults: make(map[sharedKey]*sharedDefault),
 		shapes:         make(map[shapeNode]*shapeNode),
 	}
@@ -751,6 +769,11 @@ type runState struct {
 	steps    int64
 	elements int64
 	notes    []RunNote
+	// marks is what the run's values stand on (order_marks.go).
+	marks orderMarks
+	// performers are the objects the run's executors have performed on, kept
+	// after an executor leaves the clock so a value of theirs is still matched.
+	performers []*Instance
 	// scheduler is the resolutions the run's choices draw from (scheduler.go).
 	scheduler *scheduler
 	// calcUsageRuns holds, per activation under way, the evaluation of each calc
@@ -759,6 +782,13 @@ type runState struct {
 	// extentCandidates holds, per type an extent was taken of, the namespace usages
 	// that may hold one (extent.go).
 	extentCandidates map[*symbols.Symbol]*extentCandidates
+}
+
+// notePerformer records the object an executor joining the clock performs on.
+func (r *runState) notePerformer(w clockWaiter) {
+	if self := executorSelf(w); self != nil && !slices.Contains(r.performers, self) {
+		r.performers = append(r.performers, self)
+	}
 }
 
 // newRunState is the state a run starts with, under the schedule policy set now.
@@ -1183,7 +1213,9 @@ func (ctx *Context) registerInstance(inst *Instance) {
 
 // EvaluateConstraint evaluates a constraint definition/usage naming no object:
 // against the single object of this runtime carrying it, the declared defaults
-// when there is none, ErrAmbiguousSubject when there are several.
+// when there is none, ErrAmbiguousSubject when there are several. Checked against
+// the defaults, `this` denotes an exemplar of the type made for the check and
+// abandoned with it (exemplar.go).
 // Returns (satisfied, error). If IsAssert=true, violation is an error.
 // If IsAssert=false (assume), always returns (true, nil) but logs assumptions.
 func (ctx *Context) EvaluateConstraint(sym *symbols.Symbol, scope *symbols.Scope) (bool, error) {
@@ -1646,7 +1678,7 @@ func unboundSubjectError(err error, kind, element string, unbound map[string]boo
 	if !errors.As(err, &noValue) || !unbound[noValue.Feature] {
 		return err
 	}
-	return &UnboundSubjectError{Kind: kind, Element: element, Subject: noValue.Feature}
+	return &subjectUnboundError{Kind: kind, Element: element, Subject: noValue.Feature}
 }
 
 // ExecuteAction executes an action definition/usage to completion.
@@ -1880,7 +1912,7 @@ func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *
 	if err != nil {
 		return nil, nil, err
 	}
-	return data, exec.GetStateVisits(), nil
+	return data, exec.getStateVisits(), nil
 }
 
 // StateOutcomeWithEvents runs a state machine as ExecuteStateWithEvents does and
@@ -1902,17 +1934,17 @@ func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *
 	return (&Invocation{States: []*StateExecutor{exec}}).Outcome(), nil
 }
 
-// ErrAmbiguousMachine is the typed error a machine named on an object exhibiting
+// errAmbiguousMachine is the typed error a machine named on an object exhibiting
 // it under several usages wraps.
-var ErrAmbiguousMachine = errors.New("ambiguous state machine")
+var errAmbiguousMachine = errors.New("ambiguous state machine")
 
-// ErrAmbiguousAction is the typed error an action named on an object performing
+// errAmbiguousAction is the typed error an action named on an object performing
 // it under several usages wraps.
-var ErrAmbiguousAction = errors.New("ambiguous action")
+var errAmbiguousAction = errors.New("ambiguous action")
 
-// ErrPerformedInputs is the typed error inputs given for an action the object
+// errPerformedInputs is the typed error inputs given for an action the object
 // performs already wrap: its performance took the arguments its declaration binds.
-var ErrPerformedInputs = errors.New("inputs for a performed action")
+var errPerformedInputs = errors.New("inputs for a performed action")
 
 // performanceOf is the performance self runs of action's declaration, to run in
 // place of a second; nil when self performs none. The `in ref` parameters a
@@ -1948,12 +1980,31 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 			}
 		}
 		if conflicts > 0 {
-			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", ErrPerformedInputs, symbolText(action))
+			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, SymbolText(action))
 		}
 		return performed[0].Action, nil
 	default:
-		return nil, fmt.Errorf("%w: the object performs %s as %s", ErrAmbiguousAction, symbolText(action), strings.Join(behaviorUsages(performed), " and "))
+		if member := sameBehaviorMember(performed); member != nil {
+			return nil, fmt.Errorf("%w: the object performs %s %d times, under %s", errAmbiguousAction, SymbolText(action), len(performed), member.Name)
+		}
+		return nil, fmt.Errorf("%w: the object performs %s as %s", errAmbiguousAction, SymbolText(action), strings.Join(behaviorUsages(performed), " and "))
 	}
+}
+
+// sameBehaviorMember is the usage every behavior is bound under when they
+// share one: the performances of `perform action run[2]` are ambiguous as
+// several of `run`, not as different usages.
+func sameBehaviorMember(behaviors []*ObjectBehavior) *symbols.Symbol {
+	member := behaviors[0].Member()
+	if member == nil {
+		return nil
+	}
+	for _, b := range behaviors[1:] {
+		if b.Member() != member {
+			return nil
+		}
+	}
+	return member
 }
 
 // behaviorUsages names the usages the behaviors are bound under, unnamed ones left out.
@@ -1979,7 +2030,7 @@ func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*ObjectBehavior,
 	case 1:
 		return exhibited[0], nil
 	default:
-		return nil, fmt.Errorf("%w: the object exhibits %s as %s", ErrAmbiguousMachine, symbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
+		return nil, fmt.Errorf("%w: the object exhibits %s as %s", errAmbiguousMachine, SymbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
 	}
 }
 

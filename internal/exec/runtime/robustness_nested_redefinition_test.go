@@ -39,7 +39,7 @@ func TestRuntimeRobustnessNestedRedefinition(t *testing.T) {
 
 	// A chain below a feature bound to an existing object states two values for
 	// the feature below it, like a restating body does: the read errors with
-	// ErrValuedFeatureRestated and the bound object keeps its own value.
+	// errValuedFeatureRestated and the bound object keeps its own value.
 	t.Run("chain_below_a_value_bound_feature_is_rejected", func(t *testing.T) {
 		ctx := contextOver(t, `package test {
 			private import ScalarValues::Real;
@@ -53,8 +53,8 @@ func TestRuntimeRobustnessNestedRedefinition(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Instantiate: %v", err)
 		}
-		if _, err := obj.GetFeatureValue(ctx, "mid"); !errors.Is(err, ErrValuedFeatureRestated) {
-			t.Fatalf("GetFeatureValue(mid) = %v, want ErrValuedFeatureRestated", err)
+		if _, err := obj.GetFeatureValue(ctx, "mid"); !errors.Is(err, errValuedFeatureRestated) {
+			t.Fatalf("GetFeatureValue(mid) = %v, want errValuedFeatureRestated", err)
 		}
 		existing, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::existing"))
 		if err != nil {

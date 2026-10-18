@@ -342,7 +342,7 @@ func (p *Parser) parseDirectionOrMember() ast.Node {
 			rank = 5
 		}
 		if rank == 0 {
-			if hasRefPrefix {
+			if hasRefPrefix || p.directedUsageKindAt(i) {
 				return p.parseBodyMember()
 			}
 			return p.parseDirectionParameter()
@@ -361,6 +361,24 @@ func (p *Parser) parseDirectionOrMember() ast.Node {
 			highestKeyword = tok.KeywordID
 		}
 	}
+}
+
+// directedUsageKindAt reports whether the keyword at offset i, after a direction, is a usage kind
+// the parameter path does not read (`in concern c`, `out use case u`): a direction prefixes every
+// usage (SysML.xtext RefPrefix), so the member is read as the usage it declares.
+func (p *Parser) directedUsageKindAt(i int) bool {
+	tok := p.peekN(i)
+	if tok.KeywordID == "use" {
+		next := p.peekN(i + 1)
+		return next.Kind == lexer.Keyword && next.KeywordID == "case"
+	}
+	if _, ok := parameterKindKeywords[tok.KeywordID]; ok {
+		return false
+	}
+	if _, ok := p.usageKind(tok.KeywordID); !ok {
+		return false
+	}
+	return !namesDeclaration(p.peekN(i + 1))
 }
 
 // parameterKindKeywords are the kind keywords a directed parameter may state; any
@@ -662,8 +680,13 @@ func (p *Parser) parseInitialNode(tok lexer.Token) ast.Node {
 	}
 
 	var successor *ast.QualifiedName
+	var targetMultiplicity *ast.Multiplicity
 	if p.atKeyword("then") {
 		p.advance() // consume 'then'
+		// The target end may carry a crossing multiplicity: `then [m] y`.
+		if p.at(lexer.LBracket) {
+			targetMultiplicity = p.parseMultiplicity()
+		}
 		successor = p.parseChainedName()
 	}
 
@@ -678,11 +701,12 @@ func (p *Parser) parseInitialNode(tok lexer.Token) ast.Node {
 	members, hasBody := p.parseNodeBodyContext(start, "initial node", bodyOther)
 
 	node := &ast.InitialNode{
-		First:     first,
-		Successor: successor,
-		Guard:     guard,
-		Members:   members,
-		HasBody:   hasBody,
+		First:              first,
+		Successor:          successor,
+		Guard:              guard,
+		TargetMultiplicity: targetMultiplicity,
+		Members:            members,
+		HasBody:            hasBody,
 	}
 	node.NodeSpan = p.spanFrom(start)
 
@@ -3333,6 +3357,11 @@ func (p *Parser) parseTransitionTail(start int, name ast.NameSegment, source *as
 			p.advance() // consume 'then'
 			if node.Target != nil {
 				p.error(p.peek().Span, "a transition has one target: the name after 'then'")
+			}
+			// An action body's guarded succession admits a written target end:
+			// `then [m] target` (SysML.xtext GuardedSuccession → ConnectorEnd).
+			if p.bodyContext().carriesActions() && p.at(lexer.LBracket) {
+				node.TargetMultiplicity = p.parseMultiplicity()
 			}
 			node.Target = p.parseChainedName()
 			continue

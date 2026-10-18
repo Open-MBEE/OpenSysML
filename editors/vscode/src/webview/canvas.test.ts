@@ -49,7 +49,8 @@ test("drawCanvas draws every node as a group carrying its rendering id, movable 
   assert.deepEqual([rect.getAttribute("x"), rect.getAttribute("y"), rect.getAttribute("width"), rect.getAttribute("height")], ["10", "20", "120", "60"]);
   assert.equal(rect.classList.contains("container"), true);
   const spans = [...svg.querySelectorAll('g[data-opensysml-id="a"] tspan')].map((span) => span.textContent);
-  assert.deepEqual(spans, ["tank : Tank", "«part»"]);
+  assert.deepEqual(spans, ["«part»", "tank : Tank"]);
+  assert.deepEqual([...svg.querySelectorAll('g[data-opensysml-id="a"] tspan')].map((span) => span.getAttribute("class")), ["keyword", "head"]);
   // A fork is a bar, with no label.
   assert.equal(svg.querySelector('g[data-opensysml-id="d"] > rect')?.classList.contains("filled"), true);
   assert.equal(svg.querySelector('g[data-opensysml-id="d"] text'), null);
@@ -317,6 +318,6 @@ test("drawCanvas preserves the portless SVG output", () => {
   const svg = drawCanvas(layoutCanvas(result));
   assert.equal(
     createHash("sha256").update(svg.outerHTML).digest("hex"),
-    "52334cbfe93d9918625083578f1fff97b00e50efca7ff0079fef923bc94bcf28",
+    "83e9891b39565506610ab53d65fc7a583f5ab415504eae3b857f59235745b3a2",
   );
 });

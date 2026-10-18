@@ -858,6 +858,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.node(n.First)
 		e.node(n.Successor)
 		e.node(n.Guard)
+		e.node(n.TargetMultiplicity)
 		e.nodes(n.Members)
 		e.w.Bool(n.HasBody)
 	case *ast.InvocationExpr:
@@ -1082,6 +1083,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.nodes(n.Effect)
 		e.w.Bool(n.HasEffect)
 		e.node(n.Via)
+		e.node(n.TargetMultiplicity)
 		e.nodes(n.Members)
 		e.w.Bool(n.HasBody)
 		e.w.Bool(n.IsSuccession)
@@ -1364,6 +1366,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.First = typed[*ast.QualifiedName](d)
 		n.Successor = typed[*ast.QualifiedName](d)
 		n.Guard = d.node()
+		n.TargetMultiplicity = typed[*ast.Multiplicity](d)
 		n.Members = d.nodes()
 		n.HasBody = d.r.Bool()
 	case *ast.InvocationExpr:
@@ -1588,6 +1591,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.Effect = d.nodes()
 		n.HasEffect = d.r.Bool()
 		n.Via = typed[*ast.QualifiedName](d)
+		n.TargetMultiplicity = typed[*ast.Multiplicity](d)
 		n.Members = d.nodes()
 		n.HasBody = d.r.Bool()
 		n.IsSuccession = d.r.Bool()

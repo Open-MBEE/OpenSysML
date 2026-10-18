@@ -1,1 +1,0 @@
-- **The in-browser engine can render declared views and targeted pseudo-views, with ports and edge endpoint pins in both engine and language-server render data.** Diagram clients can draw a visitor's edited model from the same semantic rendering used by the workspace.

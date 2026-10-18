@@ -1,0 +1,15 @@
+step 1: token 1@sender
+stmt send
+  eval literal 9 -> 9
+step 2: token 1@receiver
+step 3: token 1@reader
+enter action node: reader
+step 4: token 1@assign seen
+stmt assign seen
+  eval feature msg -> 1
+step 5: token 1@assign payload
+stmt assign payload
+  eval chain msg -> 9
+leave action node: reader
+step 6: token 1@done
+step 7: no active tokens

@@ -22,6 +22,13 @@ import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
 import org.openmbee.opensysml.proto.RenderDocumentRequest;
 import org.openmbee.opensysml.proto.RenderDocumentResponse;
+import org.openmbee.opensysml.proto.CompareResultsRequest;
+import org.openmbee.opensysml.proto.CompareResultsResponse;
+import org.openmbee.opensysml.proto.ImportDataRequest;
+import org.openmbee.opensysml.proto.ImportDataResponse;
+import org.openmbee.opensysml.proto.ObservablePair;
+import org.openmbee.opensysml.proto.CheckBehaviorRequest;
+import org.openmbee.opensysml.proto.CheckBehaviorResponse;
 import org.openmbee.opensysml.proto.ExportGraphsRequest;
 import org.openmbee.opensysml.proto.ExportGraphsResponse;
 import org.openmbee.opensysml.proto.RenderViewRequest;
@@ -275,10 +282,28 @@ public final class Model {
    * @throws ModelException if the service reported a failure in its answer
    */
   public List<Diagnostic> diagnostics() {
+    return diagnostics(DiagnosticsOptions.defaults());
+  }
+
+  /**
+   * Asks the service for this model's diagnostics under a lint selection.
+   *
+   * @param options the lints left out and the opt-in lints kept, as {@code sysml -disable-lint}
+   *     and {@code -enable-lint} select them
+   * @return the diagnostics, in order
+   * @throws ServiceException if the service does not hold this model, or a code names no lint
+   * @throws ModelException if the service reported a failure in its answer
+   */
+  public List<Diagnostic> diagnostics(DiagnosticsOptions options) {
+    Objects.requireNonNull(options, NAME_OPTIONS);
     DiagnosticsResponse response =
         connection.call(
             "GetDiagnostics",
-            DiagnosticsRequest.newBuilder().setModelHash(hash).build(),
+            DiagnosticsRequest.newBuilder()
+                .setModelHash(hash)
+                .addAllDisableLint(options.disableLint())
+                .addAllEnableLint(options.enableLint())
+                .build(),
             DiagnosticsResponse.getDefaultInstance());
     List<Diagnostic> diagnostics = Protos.diagnostics(response.getDiagnosticsList());
     if (!response.getError().isEmpty()) {
@@ -673,9 +698,21 @@ public final class Model {
             .putAllInputs(Protos.protos(inputs, connection.capabilities()))
             .setSchedule(schedule(options, explore));
     options.performer().ifPresent(request::setPerformerSymbolId);
+    options.advance().ifPresent(request::setAdvance);
+    options.seed().ifPresent(request::setSeed);
+    options.draws().ifPresent(request::setDraws);
+    request.setClockStep(options.clockStep());
     ExecuteActionResponse response =
         connection.call("ExecuteAction", request.build(), ExecuteActionResponse.getDefaultInstance());
-    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(
+          response.getError(),
+          FailureReason.UNSPECIFIED,
+          Protos.diagnostics(response.getDiagnosticsList()),
+          List.of(),
+          0,
+          response.getFinalTime());
+    }
     return response;
   }
 
@@ -769,6 +806,10 @@ public final class Model {
             .setSchedule(schedule(options, explore));
     options.performer().ifPresent(request::setPerformerSymbolId);
     request.setTrace(options.trace());
+    options.advance().ifPresent(request::setAdvance);
+    options.seed().ifPresent(request::setSeed);
+    options.draws().ifPresent(request::setDraws);
+    request.setClockStep(options.clockStep());
     ExecuteStateResponse response =
         connection.call("ExecuteState", request.build(), ExecuteStateResponse.getDefaultInstance());
     if (!response.getError().isEmpty()) {
@@ -777,7 +818,8 @@ public final class Model {
           FailureReason.UNSPECIFIED,
           Protos.diagnostics(response.getDiagnosticsList()),
           Protos.documentEvents(response.getTraceList()),
-          response.getTraceDropped());
+          response.getTraceDropped(),
+          response.getFinalTime());
     }
     return response;
   }
@@ -1175,7 +1217,8 @@ public final class Model {
             .setSymbolId(symbolId)
             .addAllArguments(Protos.protos(options.arguments(), connection.capabilities()))
             .putAllNamedArguments(Protos.protos(options.namedArguments(), connection.capabilities()))
-            .setSchedule(schedule(options.schedule(), options.explores(), explore));
+            .setSchedule(schedule(options.schedule(), options.explores(), explore))
+            .setToolDryRun(options.toolDryRun());
     options.subject().ifPresent(request::setSubjectSymbolId);
     engine.ifPresent(request::setEngine);
     return connection.call("RunAnalysis", request.build(), RunAnalysisResponse.getDefaultInstance());
@@ -1649,7 +1692,9 @@ public final class Model {
                 .build(),
             RenderDocumentResponse.getDefaultInstance());
     return new RenderedDocument(
-        form, form == DocumentForm.HTML ? response.getHtml() : response.getMarkdown());
+        form,
+        form == DocumentForm.HTML ? response.getHtml() : response.getMarkdown(),
+        response.getFileName());
   }
 
   /**
@@ -1666,8 +1711,34 @@ public final class Model {
 
   /** Renders a view with an explicit port selection. */
   public RenderedView renderView(String viewName, RenderViewPorts ports) {
+    return renderView(viewName, ports, List.of());
+  }
+
+  /**
+   * Renders a view with an explicit port selection, showing the named optional notation elements
+   * ({@code "edge-labels"}, {@code "all"}, ...) besides those the view's rendering shows.
+   *
+   * @throws ServiceException if a name is none the service knows
+   */
+  public RenderedView renderView(String viewName, RenderViewPorts ports, List<String> show) {
+    return renderView(viewName, ports, show, 0);
+  }
+
+  /**
+   * Renders a view as {@link #renderView(String, RenderViewPorts, List)} does, drawing {@code
+   * depth} levels of nested elements below each exposed element when {@code depth} is above 0,
+   * overriding the depth the view states.
+   *
+   * @throws IllegalArgumentException if {@code depth} is negative
+   */
+  public RenderedView renderView(
+      String viewName, RenderViewPorts ports, List<String> show, int depth) {
     Objects.requireNonNull(viewName, "viewName");
     Objects.requireNonNull(ports, "ports");
+    Objects.requireNonNull(show, "show");
+    if (depth < 0) {
+      throw new IllegalArgumentException("depth must be a non-negative integer");
+    }
     connection.capabilities().require(Capabilities.RENDER_VIEW);
     RenderViewResponse response =
         connection.call(
@@ -1676,9 +1747,77 @@ public final class Model {
                 .setModelHash(hash)
                 .setView(viewName)
                 .setPorts(ports.wireName())
+                .addAllShow(show)
+                .setDepth(depth)
                 .build(),
             RenderViewResponse.getDefaultInstance());
     return RenderedView.from(response);
+  }
+
+  /**
+   * Searches every schedule of an action for a violated property, a deadlock, a failure or a
+   * divergent value, as {@code sysml -check-property} does.
+   *
+   * @param actionSymbolId qualified name of the action definition or usage
+   * @param inputs input parameter name to value, bound first
+   * @param options what to check, the bounds and the engine
+   * @return the verdict with every violation, divergence and final outcome witnessed
+   * @throws ModelException if the behavior, a property or the performer is not found, or the
+   *     search failed before deciding
+   * @throws ServiceException if a bound is negative, the engine is unknown or the service does not
+   *     hold this model
+   * @throws CapabilityException if the service does not advertise {@code check}, or a performer is
+   *     named and it does not advertise {@code performer}
+   */
+  public CheckResult checkAction(
+      String actionSymbolId, Map<String, Value> inputs, CheckOptions options) {
+    Objects.requireNonNull(actionSymbolId, "actionSymbolId");
+    Objects.requireNonNull(inputs, "inputs");
+    return checkBehavior(actionSymbolId, "", inputs, options);
+  }
+
+  /**
+   * Searches every schedule of a state machine; see {@link #checkAction}.
+   *
+   * @param stateMachineSymbolId qualified name of the state definition or usage
+   * @param options what to check, the bounds and the engine
+   * @return the verdict with every violation, divergence and final outcome witnessed
+   */
+  public CheckResult checkStateMachine(String stateMachineSymbolId, CheckOptions options) {
+    Objects.requireNonNull(stateMachineSymbolId, "stateMachineSymbolId");
+    return checkBehavior("", stateMachineSymbolId, Map.of(), options);
+  }
+
+  private CheckResult checkBehavior(
+      String actionSymbolId,
+      String stateMachineSymbolId,
+      Map<String, Value> inputs,
+      CheckOptions options) {
+    Objects.requireNonNull(options, NAME_OPTIONS);
+    connection.capabilities().require(Capabilities.CHECK);
+    options.performer().ifPresent(p -> connection.capabilities().require(Capabilities.PERFORMER));
+    CheckBehaviorRequest.Builder request =
+        CheckBehaviorRequest.newBuilder()
+            .setModelHash(hash)
+            .setActionSymbolId(actionSymbolId)
+            .setStateMachineSymbolId(stateMachineSymbolId)
+            .putAllInputs(Protos.protos(inputs, connection.capabilities()))
+            .addAllCheckProperty(options.properties())
+            .addAllCheckDiverge(options.diverge())
+            .addAllCheckInput(options.freeInputs())
+            .addAllCheckAssume(options.assume())
+            .setCheckWitness(options.witness())
+            .setCheckDepth(options.depth())
+            .setCheckStates(options.states())
+            .setCheckUnroll(options.unroll())
+            .setCheckTimeout(options.timeout());
+    options.engine().ifPresent(request::setEngine);
+    options.performer().ifPresent(request::setPerformerSymbolId);
+    CheckBehaviorResponse response =
+        connection.call(
+            "CheckBehavior", request.build(), CheckBehaviorResponse.getDefaultInstance());
+    failed(response.getError(), FailureReason.UNSPECIFIED, List.of());
+    return Protos.checkResult(response);
   }
 
   /**
@@ -1699,6 +1838,76 @@ public final class Model {
             ExportGraphsRequest.newBuilder().setModelHash(hash).setSubject(subject).build(),
             ExportGraphsResponse.getDefaultInstance());
     return new Graphs(response.getContent(), response.getVersion(), response.getSubject());
+  }
+
+  /**
+   * Sets the feature values tabular or JSON data assigns, one row per element, and parses the
+   * edited model.
+   *
+   * @param imports the data files, imported in order
+   * @param dryRun whether to report the assignments without changing the model
+   * @param acceptDocuments whether to accept a multi-document model's edited documents
+   * @return the values set and the edited model
+   * @throws ModelException when the model refuses an import; the model is then unchanged
+   */
+  public ImportResult importData(
+      List<DataImport> imports, boolean dryRun, boolean acceptDocuments) {
+    Objects.requireNonNull(imports, "imports");
+    connection.capabilities().require(Capabilities.IMPORT_DATA);
+    ImportDataRequest.Builder request =
+        ImportDataRequest.newBuilder()
+            .setModelHash(hash)
+            .setImportDryRun(dryRun)
+            .setAcceptDocuments(acceptDocuments);
+    for (DataImport dataImport : imports) {
+      request.addImports(
+          org.openmbee.opensysml.proto.DataImport.newBuilder()
+              .setName(dataImport.name())
+              .setContent(dataImport.content())
+              .setImportFormat(dataImport.format().orElse(""))
+              .setImportMap(dataImport.map().orElse("")));
+    }
+    ImportDataResponse response =
+        connection.call("ImportData", request.build(), ImportDataResponse.getDefaultInstance());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
+    }
+    return Protos.importResult(response);
+  }
+
+  /**
+   * Runs the configurations a SysML v1 tool's results index names and tables the tool's
+   * distributions beside the runs'.
+   *
+   * @param results the results index, as JSON
+   * @param options how to run the configurations
+   * @return the comparison, configuration by configuration
+   */
+  public Comparison compareResults(String results, CompareOptions options) {
+    Objects.requireNonNull(results, "results");
+    Objects.requireNonNull(options, NAME_OPTIONS);
+    connection.capabilities().require(Capabilities.COMPARE_RESULTS);
+    CompareResultsRequest.Builder request =
+        CompareResultsRequest.newBuilder()
+            .setModelHash(hash)
+            .setResults(results)
+            .addAllActions(options.actions())
+            .setRuns(options.runs())
+            .setDraws(options.draws().orElse(""))
+            .setEngine(options.engine().orElse(""));
+    options.seed().ifPresent(request::setSeed);
+    options.clockStep().ifPresent(request::setClockStep);
+    for (CompareOptions.ObservablePair pair : options.observe()) {
+      request.addObserve(
+          ObservablePair.newBuilder().setStored(pair.stored()).setFeature(pair.feature()));
+    }
+    CompareResultsResponse response =
+        connection.call(
+            "CompareResults", request.build(), CompareResultsResponse.getDefaultInstance());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
+    }
+    return Protos.comparison(response);
   }
 
   private String schedule(ExecutionOptions options, boolean explore) {

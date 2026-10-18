@@ -121,7 +121,9 @@
 // are deliberately absent, models being read through Symbol, Instance and
 // Value.
 //
-// No operation shells out to an SMT solver: verification evaluates conditions
-// with the same runtime Evaluate and Instantiate use. The solver-backed
-// analyses belong to the REPL.
+// The default verification question, evaluate, evaluates conditions with the
+// same runtime Evaluate and Instantiate use, so an in-process caller needs
+// nothing installed for it. QuestionHolds and QuestionSatisfiable are put to
+// the service's solve engine, which runs an external SMT solver (z3 or cvc5)
+// found on PATH; ListEngines reports whether one was found.
 package opensysml

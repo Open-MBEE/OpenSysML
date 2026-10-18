@@ -1,0 +1,15 @@
+{
+  "type": "action",
+  "libraries": true,
+  "documents": ["part_owned_action_writes_owner_across_documents.defs.sysml"],
+  "evaluate": "plantDefs::Plant::fill",
+  "performers": [
+    {
+      "object": "test::plant",
+      "slots": {
+        "runs": {"type": "Integer", "value": 1},
+        "tank.volume": {"type": "Real", "value": 4.0}
+      }
+    }
+  ]
+}

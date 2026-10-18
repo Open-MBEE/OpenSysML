@@ -1,7 +1,8 @@
 package test {
-	// A perform statement runs the action it reference-subsets (SysML 7.17.6),
-	// exchanging values with it through parameters: `result` is 12 only if
-	// performing `doIt` executed the body of `increment`.
+	// A perform statement runs the action it reference-subsets (SysML 7.17.6) as a
+	// performance of its own: `increment`'s `in base`, which nothing binds, reads as
+	// unset inside its body — never as the performer's same-named `base` — so the
+	// body's `base + 5` fails with the operator's type error.
 	action outer {
 		attribute base : Integer = 7;
 		attribute result : Integer = 0;

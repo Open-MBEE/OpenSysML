@@ -1,0 +1,11 @@
+{
+	"type": "action",
+	"libraries": true,
+	"schedule": "declared",
+	"exploreBudget": {"runs": 8192},
+	"trace": true,
+	"outputs": {
+		"c": {"type": "Integer", "value": 6},
+		"passes": {"type": "Integer", "value": 2}
+	}
+}

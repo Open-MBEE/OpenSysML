@@ -57,11 +57,11 @@ func testAddressedViaBoundReferenceMissingReceiver(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostAddressing(
 		"send new Ping() via dev.tx to missing;",
 	), "test::Host")
-	var typed *UnreachableSendReceiverError
+	var typed *unreachableSendReceiverError
 	if !errors.As(err, &typed) || typed.Port != "dev.tx" || typed.Receiver != "missing" {
-		t.Fatalf("error = %v, want UnreachableSendReceiverError for missing through dev.tx", err)
+		t.Fatalf("error = %v, want unreachableSendReceiverError for missing through dev.tx", err)
 	}
-	if !errors.Is(err, ErrUnreachableSendReceiver) || !strings.Contains(err.Error(), `"missing" is not reachable through port "dev.tx"`) {
+	if !errors.Is(err, errUnreachableSendReceiver) || !strings.Contains(err.Error(), `"missing" is not reachable through port "dev.tx"`) {
 		t.Fatalf("error = %v, want the written path in the report", err)
 	}
 }
@@ -72,12 +72,12 @@ func testAddressedViaBoundReferenceMissingPort(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostAddressing(
 		"send new Ping() via dev.nope to listener;",
 	), "test::Host")
-	var typed *UnknownSendPortError
+	var typed *unknownSendPortError
 	if !errors.As(err, &typed) || typed.Port != "dev.nope" || typed.Receiver != "listener" {
-		t.Fatalf("error = %v, want UnknownSendPortError for dev.nope", err)
+		t.Fatalf("error = %v, want unknownSendPortError for dev.nope", err)
 	}
-	if !errors.Is(err, ErrSendViaUnknownPort) {
-		t.Fatalf("error = %v, want ErrSendViaUnknownPort", err)
+	if !errors.Is(err, errSendViaUnknownPort) {
+		t.Fatalf("error = %v, want errSendViaUnknownPort", err)
 	}
 }
 
@@ -88,8 +88,8 @@ func testAddressedViaBoundReferenceSenderReceiver(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostAddressing(
 		"send new Ping() via dev.tx to round;",
 	), "test::Host")
-	var typed *UnreachableSendReceiverError
+	var typed *unreachableSendReceiverError
 	if !errors.As(err, &typed) || typed.Port != "dev.tx" || typed.Receiver != "round" {
-		t.Fatalf("error = %v, want UnreachableSendReceiverError for round through dev.tx", err)
+		t.Fatalf("error = %v, want unreachableSendReceiverError for round through dev.tx", err)
 	}
 }

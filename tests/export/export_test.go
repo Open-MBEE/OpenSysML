@@ -2248,6 +2248,29 @@ func TestActionSuccessionTargetMultiplicityRoundTripsWithoutSourceText(t *testin
 	)
 }
 
+// A guarded succession's `then [m] b` writes the same target end: on the
+// succession a `succession first a if g then [m] b` transition owns, and on the
+// `first a if g then [m] b` shorthand's own ends.
+func TestGuardedSuccessionTargetMultiplicityRoundTripsWithoutSourceText(t *testing.T) {
+	const src = `package P {
+    action def A {
+        action a;
+        action b;
+        action c;
+        succession first a if ready then [*] b;
+        first a if ready then [0..1] c;
+        in ready : Boolean;
+        private import ScalarValues::Boolean;
+    }
+}
+`
+	back := notationFromTheGraphAlone(t, "guarded_target_multiplicity.sysml", src)
+	wantFragments(t, back,
+		"succession first a if ready then [*] b;",
+		"first a if ready then [0..1] c;",
+	)
+}
+
 // A succession is its two ends, so a graph from elsewhere that names only one of
 // them declares no order: that is reported rather than written back as notation
 // (`succession;`) that says nothing.
@@ -3325,19 +3348,8 @@ var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|pr
 
 // name the element carries, and the encoding decodes back to that name.
 func TestFixtureElementIDsRoundTrip(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("testdata", "convert", "*.golden.ttl"))
-	if err != nil || len(paths) == 0 {
-		t.Fatalf("no fixtures found: %v", err)
-	}
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		graph, err := rdf.ParseTurtle(data)
-		if err != nil {
-			t.Fatalf("%s: %v", path, err)
-		}
+	for _, golden := range goldenGraphs(t) {
+		path, graph := golden.path, golden.graph
 		for _, subject := range graph.Subjects() {
 			// A library element the graph names keeps the normative id the
 			// references to it carry; its name is checked against the library.
@@ -3625,23 +3637,6 @@ func modelFiles(t *testing.T) []string {
 func fixtureName(path string) (name, ext string) {
 	ext = filepath.Ext(path)
 	return strings.TrimSuffix(filepath.Base(path), ext), ext
-}
-
-func checkGolden(t *testing.T, path string, got []byte) {
-	t.Helper()
-	if *update {
-		if err := os.WriteFile(path, got, 0o644); err != nil {
-			t.Fatal(err)
-		}
-		return
-	}
-	want, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("%v (run with -update to create it)", err)
-	}
-	if string(got) != string(want) {
-		t.Errorf("%s differs\n--- want ---\n%s\n--- got ---\n%s", path, want, got)
-	}
 }
 
 // A save replaces the previous file only once the new bytes are safely written,
@@ -3952,14 +3947,27 @@ func TestKerMLBinaryConnectorEndsCarryTheRoundTripWithoutSourceText(t *testing.T
 
 // A comment in a head spelling a verb (`connect /* from */ a to b`) is not the
 // verb: the head's form is read from its tokens, so the graph still states it.
+// `connector` is KerML notation and `connect`/`binding` SysML notation, so each
+// set of heads is converted from the file kind whose grammar spells it.
 func TestEndVerbsInCommentsAreNotVerbs(t *testing.T) {
-	src := `package Comments {
+	for _, tc := range []struct {
+		name, src string
+		wants     []string
+	}{
+		{"comments.kerml", `package Comments {
 	class T { feature eng; feature t; feature u; }
 	class V :> T {
 		connector /* from */ eng to t;
 		connector /* ( */ [1] eng to /* allocate */ [0..1] u;
 		connector link /* to */ from eng to u;
 	}
+}
+`, []string{
+			"connector eng to t;",
+			"connector [1] eng to [0..1] u;",
+			"connector link from eng to u;",
+		}},
+		{"comments.sysml", `package Comments {
 	part def P { part a; part b; part c; }
 	part p : P {
 		connect /* from */ a to b;
@@ -3967,25 +3975,24 @@ func TestEndVerbsInCommentsAreNotVerbs(t *testing.T) {
 		binding /* of */ bind a = b;
 	}
 }
-`
-	turtle, err := convert.Convert("comments.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
-	if err != nil {
-		t.Fatalf("to turtle: %v", err)
-	}
-	if n := strings.Count(string(turtle), "sysx:endForm "); n != 6 {
-		t.Errorf("the graph should state all 6 heads' forms, got %d\n%s", n, turtle)
-	}
-	back := backFromTheGraphAlone(t, string(turtle))
-	for _, want := range []string{
-		"connector eng to t;",
-		"connector [1] eng to [0..1] u;",
-		"connector link from eng to u;",
-		"connect a to b;",
-		"connect (a, b, c);",
-		"binding bind a = b;",
+`, []string{
+			"connect a to b;",
+			"connect (a, b, c);",
+			"binding bind a = b;",
+		}},
 	} {
-		if !strings.Contains(back, want) {
-			t.Errorf("the notation should read %q\n%s", want, back)
+		turtle, err := convert.Convert(tc.name, []byte(tc.src), convert.FormatSysML, convert.FormatTurtle)
+		if err != nil {
+			t.Fatalf("%s to turtle: %v", tc.name, err)
+		}
+		if n := strings.Count(string(turtle), "sysx:endForm "); n != 3 {
+			t.Errorf("%s: the graph should state all 3 heads' forms, got %d\n%s", tc.name, n, turtle)
+		}
+		back := backFromTheGraphAloneAs(t, tc.name, string(turtle))
+		for _, want := range tc.wants {
+			if !strings.Contains(back, want) {
+				t.Errorf("%s: the notation should read %q\n%s", tc.name, want, back)
+			}
 		}
 	}
 }
@@ -4021,12 +4028,19 @@ func TestNaryConnectorEndsDoNotStateBinaryEndpoints(t *testing.T) {
 // is canonical spelling, so the graphs are compared as sets of triples.
 func backFromTheGraphAlone(t *testing.T, turtle string) string {
 	t.Helper()
+	return backFromTheGraphAloneAs(t, "m.sysml", turtle)
+}
+
+// backFromTheGraphAloneAs is backFromTheGraphAlone with the notation re-read
+// as the file kind name carries, for a graph of KerML notation.
+func backFromTheGraphAloneAs(t *testing.T, name, turtle string) string {
+	t.Helper()
 	stripped := withoutTriples(t, withoutTriples(t, []byte(turtle), "sysx:sourceText"), "sysx:sourceTail")
 	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation from the mapping alone: %v", err)
 	}
-	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+	again, err := convert.Convert(name, back, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}

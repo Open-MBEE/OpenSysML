@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"outputs": {
+		"k": {"type": "Integer", "value": 7},
+		"scaled": {"type": "Integer", "value": 20},
+		"offset": {"type": "Integer", "value": 3},
+		"usage": {"type": "Integer", "value": 70},
+		"own": {"type": "Integer", "value": 7}
+	}
+}

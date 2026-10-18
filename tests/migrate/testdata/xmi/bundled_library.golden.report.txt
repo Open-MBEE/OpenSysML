@@ -9,9 +9,9 @@ CallBehaviorAction	Recorder::Tally::print	_print	-> print	(the behavior fUML Bas
 CallBehaviorAction	Recorder::Tally::get	_get	-> get	(calls fUML ListFunctions::ListGet, which the v2 library computes; the behavior is known by the copy of the library the model bundles as fUML-Library.mdzip, which its href resolves to; v2 fails on an index outside 1..ListSize(list) where v1 gives no result)
 
 ## mapped (32)
-Model	Model	_m	(the root model's members are written at the top level)
-«Block» Class	Recorder	_recorder	-> Recorder
-Activity	Recorder::Tally	_tally	-> Recorder::Tally
+Model	Model	_m	-> Model	(written as package Model)
+«Block» Class	Recorder	_recorder	-> Model::Recorder
+Activity	Recorder::Tally	_tally	-> Model::Recorder::Tally
 ActivityFinalNode	Recorder::Tally::<ActivityFinalNode>	_final	-> final
 ControlFlow	Recorder::Tally::<ControlFlow>	_c2
 ControlFlow	Recorder::Tally::<ControlFlow>	_c3
@@ -26,21 +26,21 @@ ObjectFlow	Recorder::Tally::<ObjectFlow>	_o3	(the action waits for the value as 
 ObjectFlow	Recorder::Tally::<ObjectFlow>	_o4	(the action waits for the value as well as for the control flow into it, as its pin did)
 ObjectFlow	Recorder::Tally::<ObjectFlow>	_o5	(the action waits for the value as well as for the control flow into it, as its pin did)
 ValueSpecificationAction	Recorder::Tally::count	_count	-> count
-OutputPin	Recorder::Tally::count::result	_countOut	-> Recorder::Tally::count.result
-ValuePin	Recorder::Tally::get::index	_getIndex	-> Recorder::Tally::get.index
-InputPin	Recorder::Tally::get::list	_getList	-> Recorder::Tally::get.list
-OutputPin	Recorder::Tally::get::result	_getOut	-> Recorder::Tally::get.result
+OutputPin	Recorder::Tally::count::result	_countOut	-> Model::Recorder::Tally::count.result
+ValuePin	Recorder::Tally::get::index	_getIndex	-> Model::Recorder::Tally::get.index
+InputPin	Recorder::Tally::get::list	_getList	-> Model::Recorder::Tally::get.list
+OutputPin	Recorder::Tally::get::result	_getOut	-> Model::Recorder::Tally::get.result
 CallBehaviorAction	Recorder::Tally::label	_label	-> label	(calls fUML StringFunctions::Concat, which the v2 library computes; the behavior is known by the referentPath fUML_Library::PrimitiveBehaviors::StringFunctions::Concat recorded beside its href into the library module fUML-Library.mdzip)
-OutputPin	Recorder::Tally::label::result	_labelOut	-> Recorder::Tally::label.result
-ValuePin	Recorder::Tally::label::x	_labelX	-> Recorder::Tally::label.x
-InputPin	Recorder::Tally::label::y	_labelY	-> Recorder::Tally::label.y
-InputPin	Recorder::Tally::print::value	_printValue	-> Recorder::Tally::print.value
+OutputPin	Recorder::Tally::label::result	_labelOut	-> Model::Recorder::Tally::label.result
+ValuePin	Recorder::Tally::label::x	_labelX	-> Model::Recorder::Tally::label.x
+InputPin	Recorder::Tally::label::y	_labelY	-> Model::Recorder::Tally::label.y
+InputPin	Recorder::Tally::print::value	_printValue	-> Model::Recorder::Tally::print.value
 CallBehaviorAction	Recorder::Tally::size	_size	-> size	(calls fUML ListFunctions::ListSize, which the v2 library computes; the behavior is known by the copy of the library the model bundles as fUML-Library.mdzip, which its href resolves to)
-InputPin	Recorder::Tally::size::list	_sizeList	-> Recorder::Tally::size.list
-OutputPin	Recorder::Tally::size::result	_sizeOut	-> Recorder::Tally::size.result
+InputPin	Recorder::Tally::size::list	_sizeList	-> Model::Recorder::Tally::size.list
+OutputPin	Recorder::Tally::size::result	_sizeOut	-> Model::Recorder::Tally::size.result
 CallBehaviorAction	Recorder::Tally::toString	_toString	-> toString	(calls fUML IntegerFunctions::ToString, which the v2 library computes; the behavior is known by the referentPath fUML_Library::PrimitiveBehaviors::IntegerFunctions::ToString recorded beside its href into the library module fUML-Library.mdzip)
-OutputPin	Recorder::Tally::toString::result	_toStringOut	-> Recorder::Tally::toString.result
-InputPin	Recorder::Tally::toString::x	_toStringX	-> Recorder::Tally::toString.x
+OutputPin	Recorder::Tally::toString::result	_toStringOut	-> Model::Recorder::Tally::toString.result
+InputPin	Recorder::Tally::toString::x	_toStringX	-> Model::Recorder::Tally::toString.x
 
 ## skipped (1)
 Package	fUML_Library	_fumlLibrary	(profile or library content)

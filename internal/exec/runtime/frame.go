@@ -22,6 +22,11 @@ type frame struct {
 	// aliases map the name of a redefined feature to the name of the feature
 	// redefining it, which the frame binds it under (`in g :>> x` holds x as g).
 	aliases map[string]string
+	// held indexes the bindings by the feature each is a value of: the declared
+	// feature and every feature it redefines, mapped to the name the frame binds
+	// it under, so a read resolved to a feature finds its cell whatever else
+	// shares the name (feature_identity.go).
+	held map[*symbols.Symbol]string
 	// perf is the action performance vars belongs to, if any, whose flow's nodes
 	// the frame also answers for (action_frame.go).
 	perf *actionFrame
@@ -134,13 +139,13 @@ func (f frame) performs() *symbols.Symbol {
 func (f frame) withVars(vars map[string]Value) frame {
 	return frame{
 		vars: vars, masked: f.masked, visible: f.visible, unvalued: f.unvalued,
-		aliases: f.aliases, perf: f.perf, owner: f.owner, lexical: f.lexical, write: f.write,
+		aliases: f.aliases, held: f.held, perf: f.perf, owner: f.owner, lexical: f.lexical, write: f.write,
 		performed: f.performed, run: f.run, merged: f.merged, firing: f.firing, machine: f.machine,
 	}
 }
 
 // lookup finds name in the frame: a slot binding it, else the map.
-func (f frame) lookup(name string) (Value, bool) {
+func (f *frame) lookup(name string) (Value, bool) {
 	name = canonical(f.aliases, name)
 	if f.visible != nil && !f.visible[name] {
 		return Value{}, false
@@ -174,15 +179,33 @@ func (f frame) read(ctx *Context, name string) (Value, bool, error) {
 	if f.cells == nil && len(ctx.deriving) != 0 && f.ensureCells != nil {
 		f.cells = f.ensureCells()
 	}
+	var value Value
+	var ok bool
 	if f.cells == nil {
-		value, ok := f.vars[name]
-		return value, ok, nil
+		value, ok = f.vars[name]
+	} else {
+		var err error
+		if value, ok, err = ctx.readBodyCell(f.cells, name); err != nil {
+			return Value{}, false, err
+		}
 	}
-	return ctx.readBodyCell(f.cells, name)
+	if !ok && f.perf != nil && f.perf.unvalued[name] {
+		// The performance's own attribute, unvalued: that is the answer, not
+		// a same-named value some enclosing frame holds.
+		return Value{}, false, &NoValueError{Feature: name}
+	}
+	return value, ok, nil
+}
+
+// hides reports whether the frame masks name or keeps it out of sight, so a read
+// of it passes to the frames outside.
+func (f *frame) hides(name string) bool {
+	name = canonical(f.aliases, name)
+	return f.masked[name] || (f.visible != nil && !f.visible[name])
 }
 
 // has reports whether the frame binds name or declares it unvalued.
-func (f frame) has(name string) bool {
+func (f *frame) has(name string) bool {
 	if f.unvalued[name] {
 		return true
 	}
@@ -304,6 +327,7 @@ func (f frame) snapshot() frame {
 	}
 	out.firing = f.firing.snapshot()
 	out.machine = f.machine
+	out.held = f.held
 	return out
 }
 

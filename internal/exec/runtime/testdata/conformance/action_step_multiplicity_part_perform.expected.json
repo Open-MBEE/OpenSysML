@@ -2,5 +2,11 @@
 	"type": "instance",
 	"libraries": true,
 	"instantiate": "test::Host",
-	"error": "action step run[2]: part-level performed actions cannot execute with multiplicity other than [1]"
+	"objects": [
+		{
+			"finalState": "idle",
+			"stateVisits": ["idle"],
+			"slots": {"count": {"type": "Integer", "value": 2}}
+		}
+	]
 }

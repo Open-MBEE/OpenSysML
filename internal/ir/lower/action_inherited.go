@@ -70,7 +70,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) ([
 				recordInheritedPerform(graph, matches[0], decl, body)
 				continue
 			}
-			if replacement := incompatible[decl]; replacement != nil {
+			if incompatible[decl] != nil {
 				continue
 			}
 			if shadowsInheritedActionNode(graph, body, decl) {
@@ -186,7 +186,7 @@ func hasInheritedBody(graph *ActionGraph, body *symbols.Scope) bool {
 func lowerableActionNode(decl ast.Node) bool {
 	switch n := decl.(type) {
 	case *ast.Usage:
-		return n.Kind.IsAction() || IsCaseNode(n)
+		return isActionUsageNode(n) || IsCaseNode(n)
 	case *ast.InitialNode, *ast.FinalNode, *ast.ForkNode, *ast.JoinNode,
 		*ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode,
 		*ast.PerformActionNode, *ast.WhileLoopActionNode, *ast.IfActionNode,

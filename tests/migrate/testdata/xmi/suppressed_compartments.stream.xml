@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag_bdd'></elementID>
+    <geometry>0, 0, 480, 320</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_camera'>
+    <elementID xmi:idref='_blk_camera'></elementID>
+    <symbolStyleID>_style_blocks</symbolStyleID>
+    <properties>
+      <mdElement elementClass='BooleanProperty'>
+        <propertyID>SUPPRESS_PARTS_COMPARTMENT</propertyID>
+        <value xmi:value='true'/>
+      </mdElement>
+      <mdElement elementClass='BooleanProperty'>
+        <propertyID>SUPPRESS_CLASS_OPERATIONS</propertyID>
+      </mdElement>
+    </properties>
+    <geometry>40, 20, 200, 100</geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Port' xmi:id='_sym_data'>
+        <elementID xmi:idref='_port_data'></elementID>
+        <geometry>235, 60, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+    </mdOwnedViews>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_lens'>
+    <elementID xmi:idref='_blk_lens'></elementID>
+    <symbolStyleID>_style_blocks</symbolStyleID>
+    <geometry>40, 220, 120, 33</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_lens_again'>
+    <elementID xmi:idref='_blk_lens'></elementID>
+    <geometry>200, 220, 120, 60</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_mount'>
+    <elementID xmi:idref='_blk_mount'></elementID>
+    <properties>
+      <mdElement elementClass='BooleanProperty'>
+        <propertyID>SUPPRESS_CLASS_ATTRIBUTES</propertyID>
+      </mdElement>
+    </properties>
+    <geometry>300, 220, 120, 60</geometry>
+  </mdElement>
+  <symbolStyles>
+    <mdElement elementClass='SimpleStyle'>
+      <mdElement elementClass='PropertyManagerByStereotype'>
+        <propertyManagerID>_style_blocks</propertyManagerID>
+        <parentPropertyManager>_style_classes</parentPropertyManager>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_CLASS_ATTRIBUTES</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_REFERENCES_COMPARTMENT</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_STRUCTURE</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+      </mdElement>
+      <mdElement elementClass='ExtendableManager'>
+        <propertyManagerID>_style_classes</propertyManagerID>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_CLASS_OPERATIONS</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_CLASS_PORTS</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+      </mdElement>
+    </mdElement>
+  </symbolStyles>
+</mdOwnedViews>

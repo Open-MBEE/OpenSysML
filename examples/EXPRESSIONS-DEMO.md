@@ -28,10 +28,11 @@ are left out of the transcripts here.
 ## `x as T` — a cast selects, it does not convert
 
 A cast keeps the values its target classifies and drops the rest; it never
-changes a value. `4.0 as Integer` is `4.0`, because a whole Real *is* an
-Integer in the `ScalarValues` hierarchy, and `2.5 as Integer` is the empty
-sequence. The functions that convert — `ToInteger`, `ToString` and their kin
-— are in the library, and are not what `as` does.
+changes a value. `4 as Integer` is `4`, and both `2.5 as Integer` and
+`4.0 as Integer` are the empty sequence: a value is judged by the types it is
+a value of, and a finite real is a Rational, whole or not, never an Integer
+(KerML 8.4.4.9.2). The functions that convert — `ToInteger`, `ToString` and
+their kin — are in the library, and are not what `as` does.
 
 ```
 %instantiate PayloadCasts
@@ -41,7 +42,7 @@ sequence. The functions that convert — `ToInteger`, `ToString` and their kin
 ```
 Instance: ExpressionsDemo::PayloadCasts (ID: 1)
 Features:
-  wholeOnly = [1.0, 3.0]
+  wholeOnly = [1, 3]
   cameras = [Instance(ID: 2), Instance(ID: 4)]
     mass = 4.0 [kg]
     mass = 6.5 [kg]
@@ -51,8 +52,8 @@ Features:
   notACamera = []
 ```
 
-- `wholeOnly` is `WholeReadings((1.0, 2.5, 3.0, 4.75))`: a sequence casts
-  element by element, in order, keeping only the whole numbers.
+- `wholeOnly` is `WholeReadings((1, 2.5, 3, 4.75))`: a sequence casts
+  element by element, in order, keeping only the Integer values.
 - `cameras` is `CamerasOf((navCam, spectrometer, sciCam))`: an object is kept
   by every classifier it is an instance of, so the two cameras pass and the
   spectrometer does not.
@@ -128,9 +129,10 @@ error: evaluation failed: type mismatch: operator '+' is not defined for the unb
 annotation in the order they are written — a `metadata … about elem` usage
 declared elsewhere takes its place by source position among the inline `@`
 annotations — each carrying the values its body binds over the defaults its
-`metadata def` declares. `navCam` is annotated
-`@Heritage { mission = "Cassini"; }`, the spectrometer sets `flown = false`,
-and `sciCam` carries no annotation at all.
+`metadata def` declares, followed by the element's own reflective metaobject
+(KerML 8.3.4.8.15). `navCam` is annotated `@Heritage { mission = "Cassini"; }`,
+the spectrometer sets `flown = false`, and `sciCam` carries no annotation at
+all, so only its metaobject is left.
 
 ```
 %instantiate HeritageReport
@@ -140,13 +142,13 @@ and `sciCam` carries no annotation at all.
 ```
 Instance: ExpressionsDemo::HeritageReport (ID: 6)
 Features:
-  navCamAnnotations = [Instance(ID: 7)]
+  navCamAnnotations = [Instance(ID: 7), meta(ExpressionsDemo::navCam : SysML::Systems::PartUsage)]
     mission = "Cassini"
     flown = true
   navCamMission = "Cassini"
   navCamFlown = true
   spectrometerFlown = false
-  sciCamAnnotations = []
+  sciCamAnnotations = [meta(ExpressionsDemo::sciCam : SysML::Systems::PartUsage)]
 ```
 
 `navCamFlown` is `true` without `navCam` saying so: the annotation did not bind

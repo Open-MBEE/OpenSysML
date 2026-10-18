@@ -27,9 +27,12 @@ type stmtEnv struct {
 	perf          *actionFrame
 	locals        map[string]Value
 	localCells    *bodyCells
+	localHeld     map[*symbols.Symbol]string
 	unvaluedLocal map[string]bool
 	frames        []map[string]Value
 	cells         []*bodyCells
+	// held indexes, per frame, the features the frame's declarations are.
+	held []map[*symbols.Symbol]string
 	// unvalued names, per frame, the features a frame declares but holds no value
 	// for yet (`out v : Integer;`), which an assignment writes into that frame.
 	unvalued []map[string]bool
@@ -40,8 +43,19 @@ func (env *stmtEnv) enter(e *stmtEngine) map[string]Value {
 	frame := make(map[string]Value)
 	env.frames = append(env.frames, frame)
 	env.cells = append(env.cells, nil)
+	env.held = append(env.held, nil)
 	env.unvalued = append(env.unvalued, nil)
 	return frame
+}
+
+// hold records that the innermost entered block — or the behavior's own locals
+// when none is entered — declares name as the feature sym.
+func (env *stmtEnv) hold(ctx *Context, sym *symbols.Symbol, name string) {
+	if depth := len(env.frames); depth > 0 {
+		ctx.holdFeature(&env.held[depth-1], sym, name)
+		return
+	}
+	ctx.holdFeature(&env.localHeld, sym, name)
 }
 
 // ensureLocalCells lazily creates dependency cells for an entered block.
@@ -63,6 +77,7 @@ func (env *stmtEnv) leave(ctx *Context, forget bool) {
 		}
 		env.cells = env.cells[:len(env.cells)-1]
 		env.frames = env.frames[:len(env.frames)-1]
+		env.held = env.held[:len(env.held)-1]
 		env.unvalued = env.unvalued[:len(env.unvalued)-1]
 	}
 }
@@ -249,19 +264,23 @@ func (env *stmtEnv) constraintResult(ctx *Context) (frame, error) {
 }
 
 // localFrames returns the entered block maps and their dependency-cell stores.
-func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells) {
+func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells, []map[*symbols.Symbol]string) {
 	locals := make([]map[string]Value, 0, len(env.frames)+1)
 	cells := make([]*bodyCells, 0, len(env.frames)+1)
+	held := make([]map[*symbols.Symbol]string, 0, len(env.frames)+1)
 	locals = append(locals, env.locals)
 	cells = append(cells, env.localCells)
+	held = append(held, env.localHeld)
 	locals = append(locals, env.frames...)
 	cells = append(cells, env.cells...)
-	return locals, cells
+	held = append(held, env.held...)
+	return locals, cells, held
 }
 
 // localFrame exposes the behavior's root locals as an evaluation frame.
 func (env *stmtEnv) localFrame() frame {
 	local := env.bodyFrame(env.locals, env.localCells, env.unvaluedLocal)
+	local.held = env.localHeld
 	return local
 }
 
@@ -342,6 +361,9 @@ type stmtHost interface {
 	// yieldsBetweenStatements reports whether this list participates in its
 	// enclosing action body's interleaving.
 	yieldsBetweenStatements() bool
+	// statementFootprint is what statement i of stmts touches, for the marks of
+	// the run's values (order_marks.go); the zero footprint where none is kept.
+	statementFootprint(stmts []lower.Statement, i int) lower.Footprint
 	// acceptReturn takes the value a `return` yields.
 	acceptReturn(value Value, s lower.Return) error
 	// effect states an effect on the world outside the body, over engine's values.
@@ -438,10 +460,12 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
 	root := e.env.bodyFrame(e.env.locals, e.env.localCells, e.env.unvaluedLocal)
+	root.held = e.env.localHeld
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
 	for i := range e.env.frames {
 		frames = append(frames, e.env.bodyFrame(e.env.frames[i], e.env.cells[i], e.env.unvalued[i]))
+		frames[len(frames)-1].held = e.env.held[i]
 		index := i
 		frames[len(frames)-1].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
 	}
@@ -472,6 +496,7 @@ func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
 	root := e.env.bodyFrame(e.env.locals, e.env.localCells, e.env.unvaluedLocal)
+	root.held = e.env.localHeld
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
 	if depth > len(e.env.frames) {
@@ -479,6 +504,7 @@ func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
 	}
 	for i, local := range e.env.frames[:depth] {
 		frames = append(frames, e.env.bodyFrame(local, e.env.cells[i], e.env.unvalued[i]))
+		frames[len(frames)-1].held = e.env.held[i]
 		index := i
 		frames[len(frames)-1].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
 	}
@@ -498,6 +524,7 @@ func (f *engineFrame) abandon(*Context) { f.engine.finish() }
 func (f *engineFrame) clone() bodyFrame {
 	engine, env := *f.engine, *f.engine.env
 	env.frames, env.cells, env.unvalued = slices.Clone(env.frames), slices.Clone(env.cells), slices.Clone(env.unvalued)
+	env.held = slices.Clone(env.held)
 	env.unvaluedLocal = maps.Clone(env.unvaluedLocal)
 	engine.env, engine.scratch, engine.frameBuf = &env, EvalContext{}, nil
 	return &engineFrame{engine: &engine}
@@ -529,6 +556,8 @@ func (ctx *Context) runStatements(build func() *stmtEngine, stmts []lower.Statem
 // stmtListFrame is where a statement list paused: at its i-th statement, which
 // holds the trace level it opened and the elements held before it (elementScope).
 type stmtListFrame struct {
+	// under is the choice the draw of the statement running made, 0 for none.
+	under    int64
 	i        int
 	run      *runState
 	elements int64
@@ -642,7 +671,7 @@ func (e *stmtEngine) runWithOrder(stmts []lower.Statement, explicitOrder *lower.
 		if err := e.yieldBody(); err != nil {
 			return flowNext, e.ctx.pausing(f, err)
 		}
-		flow, err := e.statement(stmts[f.i], f, resumed)
+		flow, err := e.statement(stmts, f.i, f, resumed)
 		resumed = false
 		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
@@ -680,7 +709,8 @@ func (e *stmtEngine) runUnordered(stmts []lower.Statement, f *stmtListFrame, res
 			if err := e.yieldBody(); err != nil {
 				return flowNext, e.ctx.pausing(f, err)
 			}
-			f.i, f.switched = e.pickStatement(stmts, next), -1
+			f.i, f.under = e.pickStatement(stmts, next, order, f.divided)
+			f.switched = -1
 			if e.host.yieldsBetweenStatements() {
 				resumed = e.ctx.resumeStrand(f)
 			} else {
@@ -690,7 +720,7 @@ func (e *stmtEngine) runUnordered(stmts []lower.Statement, f *stmtListFrame, res
 				level.moved = false
 			}
 		}
-		flow, err := e.statement(stmts[f.i], f, resumed)
+		flow, err := e.statementUnder(stmts, f.i, f, resumed)
 		resumed = false
 		if paused(err) && e.ctx.body != nil && e.ctx.body.paused.strand == f {
 			e.ctx.setAside(f)
@@ -772,42 +802,59 @@ const statementsWherePrefix = "statements in "
 
 // pickStatement picks the statement to run next among next, two or more a
 // choice point of the run's schedule.
-func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int) int {
+func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int, order *lower.StatementOrder, divided bool) (int, int64) {
 	if len(next) == 1 {
-		return next[0]
+		return next[0], 0
 	}
 	if !e.ctx.scheduling().ordersStatements() {
-		return next[0]
+		return next[0], 0
 	}
 	alts := make([]string, len(next))
+	fps := make([]lower.Footprint, len(next))
 	for k, i := range next {
 		alts[k] = fmt.Sprintf("%d %s", i+1, stmtLabel(stmts[i]))
+		fps[k] = order.Footprint(i)
 	}
 	choice := ChoicePoint{
-		Kind:         ChoiceStatementOrder,
+		Kind:         choiceStatementOrder,
 		Step:         e.host.orderStep(),
 		Where:        statementsWherePrefix + e.host.describe(),
 		Alternatives: alts,
 	}
+	classifyBy(&choice, fps, func(a, b int) bool { return order.Dependent(next[a], next[b], divided) },
+		func(int, int) lower.Relation { return lower.Relation{} })
 	if e.ctx.statementOrderSweep != nil {
 		choice.Taken = e.ctx.statementOrderSweep.choose(&choice)
 		if e.ctx.statementOrderGuardBodies != nil {
 			e.ctx.statementOrderGuardBodies[e.host.describe()] = true
 		}
-		return next[choice.Taken]
+		return next[choice.Taken], 0
 	}
 	choice.Taken = e.ctx.scheduling().choose(choice, nil)
 	e.ctx.noteChoice(choice)
-	return next[choice.Taken]
+	if choice.Independent {
+		return next[choice.Taken], 0
+	}
+	return next[choice.Taken], choice.serial
 }
 
 // statement executes one lowered statement, recording it in the trace with the
 // evaluations and nested statements it produces underneath it; one paused keeps
 // its trace level and elements open until it is resumed and ends.
-func (e *stmtEngine) statement(stmt lower.Statement, f *stmtListFrame, resumed bool) (stmtFlow, error) {
+// statementUnder runs statement i as the one an order drew: what it writes stands
+// on the choice the draw made, where the order of the statements may matter.
+func (e *stmtEngine) statementUnder(stmts []lower.Statement, i int, f *stmtListFrame, resumed bool) (stmtFlow, error) {
+	if f.under != 0 {
+		defer e.ctx.underControl([]int64{f.under})()
+	}
+	return e.statement(stmts, i, f, resumed)
+}
+
+func (e *stmtEngine) statement(stmts []lower.Statement, i int, f *stmtListFrame, resumed bool) (stmtFlow, error) {
+	stmt := stmts[i]
 	if !resumed {
 		if tr := e.ctx.trace; tr != nil {
-			tr.RecordStatement(stmtLabel(stmt))
+			tr.recordStatement(stmtLabel(stmt))
 		}
 		// A statement's collections live no longer than the statement, so the one after
 		// it starts from the elements held before it.
@@ -817,9 +864,12 @@ func (e *stmtEngine) statement(stmt lower.Statement, f *stmtListFrame, resumed b
 	if paused(err) {
 		return flow, err
 	}
+	if _, assigns := stmt.(lower.Assign); assigns && err == nil {
+		e.ctx.propagateMarks(e.host.statementFootprint(stmts, i), true)
+	}
 	f.run.elements = f.elements
 	if tr := e.ctx.trace; tr != nil {
-		tr.EndStatement()
+		tr.endStatement()
 	}
 	return flow, err
 }
@@ -962,6 +1012,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 				return flowNext, err
 			}
 			e.env.declare(e.ctx, s.Name, evaluated)
+			e.env.hold(e.ctx, s.Symbol, s.Name)
 			return flowNext, nil
 		}
 		// A constraint body's performance declares a valueless name as missing
@@ -972,6 +1023,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		} else {
 			e.env.declare(e.ctx, s.Name, Value{Kind: ValNull})
 		}
+		e.env.hold(e.ctx, s.Symbol, s.Name)
 		return flowNext, nil
 	case lower.DeclareUsage:
 		return flowNext, e.declareUsage(s)
@@ -1002,7 +1054,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 	case lower.Assert:
 		return flowNext, e.assert(s)
 	case lower.Unsupported:
-		return flowNext, fmt.Errorf("%w: %s: %s in a body is not executable", ErrStatementNotExecutable, e.host.describe(), s.Description)
+		return flowNext, fmt.Errorf("%w: %s: %s in a body is not executable", errStatementNotExecutable, e.host.describe(), s.Description)
 	default:
 		return flowNext, fmt.Errorf("%s: unsupported statement %T", e.host.describe(), stmt)
 	}
@@ -1031,7 +1083,7 @@ func (e *stmtEngine) assert(s lower.Assert) error {
 // this execution of the body reads starts here, so an evaluation of the same
 // usage from before the declaration was reached is discarded.
 func (e *stmtEngine) declareUsage(stmt lower.DeclareUsage) error {
-	// Known limitation: the `=` pins of a body-local calc usage are evaluated once per declaration and do not track later writes.
+	// knownValues limitation: the `=` pins of a body-local calc usage are evaluated once per declaration and do not track later writes.
 	sym, err := e.ctx.bodyUsageSymbol(stmt)
 	if err != nil {
 		return fmt.Errorf("%s: %w", e.host.describe(), err)
@@ -1041,9 +1093,15 @@ func (e *stmtEngine) declareUsage(stmt lower.DeclareUsage) error {
 }
 
 // branchFrame is the branch of a conditional a body paused in.
-type branchFrame struct{ elseBranch bool }
+type branchFrame struct {
+	elseBranch bool
+	// control is what the condition read stood on, which the branch runs under.
+	control []int64
+}
 
-func (*branchFrame) abandon(*Context) {}
+func (*branchFrame) abandon(*Context) {
+	// A branch frame holds nothing that abandoning it must release.
+}
 
 func (f *branchFrame) clone() bodyFrame { c := *f; return &c }
 
@@ -1064,13 +1122,14 @@ func (e *stmtEngine) ifStatement(stmt lower.If) (stmtFlow, error) {
 		if !holds && stmt.Else == nil {
 			return flowNext, nil
 		}
-		f = &branchFrame{elseBranch: !holds}
+		f = &branchFrame{elseBranch: !holds, control: e.ctx.standingOf(lower.ExpressionFootprint(stmt.Scope, stmt.Condition), true)}
 		e.ctx.guardPerformed()
 	}
 	branch := stmt.Then
 	if f.elseBranch {
 		branch = *stmt.Else
 	}
+	defer e.ctx.underControl(f.control)()
 	flow, err := e.block(branch)
 	return flow, e.ctx.pausing(f, err)
 }
@@ -1081,6 +1140,7 @@ type blockFrame struct {
 	locals     map[string]Value
 	cells      *bodyCells
 	unvalued   map[string]bool
+	held       map[*symbols.Symbol]string
 	activation int64
 	outer      int64
 }
@@ -1097,6 +1157,7 @@ func (f *blockFrame) clone() bodyFrame {
 		c.locals = maps.Clone(f.locals)
 	}
 	c.unvalued = maps.Clone(f.unvalued)
+	c.held = maps.Clone(f.held)
 	return &c
 }
 
@@ -1111,11 +1172,13 @@ func (e *stmtEngine) enterBlock(f *blockFrame) (leave func(bool)) {
 		e.env.frames = append(e.env.frames, f.locals)
 		e.env.cells = append(e.env.cells, f.cells)
 		e.env.unvalued = append(e.env.unvalued, f.unvalued)
+		e.env.held = append(e.env.held, f.held)
 	}
 	e.activation = f.activation
 	return func(forget bool) {
 		f.unvalued = e.env.unvalued[len(e.env.unvalued)-1]
 		f.cells = e.env.cells[len(e.env.cells)-1]
+		f.held = e.env.held[len(e.env.held)-1]
 		e.env.leave(e.ctx, forget)
 		e.activation = f.outer
 	}
@@ -1147,22 +1210,6 @@ func (e *stmtEngine) block(block lower.Block) (stmtFlow, error) {
 // of it is an action node rather than a statement: the host's where the body
 // states its successions, else its nodes one after another.
 func (e *stmtEngine) runBlock(block lower.Block) (stmtFlow, error) {
-	if e.restrictedBlockFlow(block) {
-		for _, node := range block.Graph.Nodes {
-			if !block.Graph.HasStepMultiplicity(node, e.ctx.Semantics()) {
-				continue
-			}
-			count, err := block.Graph.StepCount(node, e.ctx.Semantics())
-			if err != nil {
-				return flowNext, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
-			}
-			if count != 1 {
-				return flowNext, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, block.Graph.StepError(
-					node, e.ctx.Semantics(), lower.StepMultiplicityUnsupportedCode,
-					"a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there", nil))
-			}
-		}
-	}
 	switch {
 	case block.Graph == nil:
 		return e.run(block.Statements)
@@ -1174,22 +1221,16 @@ func (e *stmtEngine) runBlock(block lower.Block) (stmtFlow, error) {
 	return e.blockFlow(block)
 }
 
-func (e *stmtEngine) restrictedBlockFlow(block lower.Block) bool {
-	if block.Graph == nil {
-		return false
-	}
-	switch block.Node.(type) {
-	case *ast.WhileLoopActionNode, *ast.IfBranchNode:
-		return true
-	default:
-		return false
-	}
+// flowNodeFrame is the node of a block's flow a body paused at, and the
+// performances of it this pass still owes when it declares a count.
+type flowNodeFrame struct {
+	node ast.Node
+	reps int64
 }
 
-// flowNodeFrame is the node of a block's flow a body paused at.
-type flowNodeFrame struct{ node ast.Node }
-
-func (*flowNodeFrame) abandon(*Context) {}
+func (*flowNodeFrame) abandon(*Context) {
+	// A flow node frame holds nothing that abandoning it must release.
+}
 
 func (f *flowNodeFrame) clone() bodyFrame { c := *f; return &c }
 
@@ -1216,13 +1257,20 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 			if err := e.ctx.incrementStep(); err != nil {
 				return flowNext, err
 			}
+			count, err := e.blockStepCount(graph, f.node)
+			if err != nil {
+				return flowNext, err
+			}
+			f.reps = count
 		}
-		flow, err := e.blockNode(graph, f.node, resumed)
-		resumed = false
-		if err != nil || flow == flowReturn {
-			return flow, e.ctx.pausing(f, err)
+		for ; f.reps > 0; f.reps-- {
+			flow, err := e.blockNode(graph, f.node, resumed)
+			resumed = false
+			if err != nil || flow == flowReturn {
+				return flow, e.ctx.pausing(f, err)
+			}
+			e.bodyPerformed()
 		}
-		e.bodyPerformed()
 		successors := graph.Edges[f.node]
 		if len(successors) == 0 {
 			return flowNext, nil
@@ -1230,6 +1278,23 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 		f.node = successors[0].Target
 	}
 	return flowNext, nil
+}
+
+// blockStepCount returns the number of performances a node of a block's
+// declaration-order flow owes this pass: its declared count, checked by the same
+// rules an executor's flow applies.
+func (e *stmtEngine) blockStepCount(graph *lower.ActionGraph, node ast.Node) (int64, error) {
+	if graph.Multiplicities[node] == nil {
+		return 1, nil
+	}
+	count, err := graph.StepCount(node, e.ctx.Semantics())
+	if err == nil {
+		err = graph.CheckStep(node, e.ctx.Semantics())
+	}
+	if err != nil {
+		return 0, fmt.Errorf("%w: %w", errActionStepMultiplicity, err)
+	}
+	return count, nil
 }
 
 func (e *stmtEngine) yieldBody() error {
@@ -1256,7 +1321,7 @@ func (e *stmtEngine) blockNode(graph *lower.ActionGraph, node ast.Node, resumed 
 	if tr := e.ctx.trace; tr != nil {
 		if name := ActionNodeName(node); name != "" {
 			if !resumed {
-				tr.RecordStatement("node " + name)
+				tr.recordStatement("node " + name)
 			}
 			traced = true
 		}
@@ -1269,7 +1334,7 @@ func (e *stmtEngine) blockNode(graph *lower.ActionGraph, node ast.Node, resumed 
 		flow, err = e.run(graph.Bodies[node])
 	}
 	if traced && !paused(err) {
-		e.ctx.trace.EndStatement()
+		e.ctx.trace.endStatement()
 	}
 	return flow, err
 }
@@ -1291,11 +1356,15 @@ type loopFrame struct {
 	locals     map[string]Value
 	cells      *bodyCells
 	unvalued   map[string]bool
+	held       map[*symbols.Symbol]string
 	iteration  int
 	activation int64
 	outer      int64
 	// elements are what a `for` loop iterates over, evaluated once as it is entered.
 	elements []Value
+	// control is what the loop's condition or collection read stood on, which its
+	// iterations run under.
+	control []int64
 }
 
 // abandon releases dependencies and activation state for a discarded loop.
@@ -1310,6 +1379,7 @@ func (f *loopFrame) clone() bodyFrame {
 		c.locals = maps.Clone(f.locals)
 	}
 	c.unvalued = maps.Clone(f.unvalued)
+	c.held = maps.Clone(f.held)
 	return &c
 }
 
@@ -1331,10 +1401,12 @@ func (e *stmtEngine) enterLoop(f *loopFrame) (leave func(bool)) {
 		e.env.frames = append(e.env.frames, f.locals)
 		e.env.cells = append(e.env.cells, f.cells)
 		e.env.unvalued = append(e.env.unvalued, f.unvalued)
+		e.env.held = append(e.env.held, f.held)
 	}
 	return func(forget bool) {
 		f.unvalued = e.env.unvalued[len(e.env.unvalued)-1]
 		f.cells = e.env.cells[len(e.env.cells)-1]
+		f.held = e.env.held[len(e.env.held)-1]
 		e.env.leave(e.ctx, forget)
 		e.activation = f.outer
 	}
@@ -1347,7 +1419,7 @@ func (e *stmtEngine) beginIteration(f *loopFrame, resumed bool) {
 	if !resumed {
 		f.iteration++
 		if tr := e.ctx.trace; tr != nil {
-			tr.RecordLoopIteration(f.iteration)
+			tr.recordLoopIteration(f.iteration)
 		}
 		f.activation = e.ctx.newActivation()
 	}
@@ -1362,7 +1434,7 @@ func (e *stmtEngine) endIteration(f *loopFrame, err error) {
 	e.ctx.endActivation(f.activation)
 	e.activation = f.outer
 	if tr := e.ctx.trace; tr != nil {
-		tr.EndStatement()
+		tr.endStatement()
 	}
 }
 
@@ -1421,12 +1493,15 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 			if !holds {
 				return flowNext, true, nil
 			}
+			f.control = e.ctx.standingOf(lower.ExpressionFootprint(stmt.Body.Scope, stmt.Condition), true)
 		}
 		clear(f.locals)
 		e.syncLoopCells(f)
 		e.ctx.resetBodyCells(f.cells)
 	}
+	restore := e.ctx.underControl(f.control)
 	flow, err = e.runBlock(stmt.Body)
+	restore()
 	e.syncLoopCells(f)
 	if err != nil || flow == flowReturn {
 		return flow, true, err
@@ -1443,6 +1518,7 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 		if err != nil {
 			return flowNext, true, err
 		}
+		f.control = unionSerials(f.control, e.ctx.standingOf(lower.ExpressionFootprint(stmt.Body.Scope, until), true))
 		return flowNext, holds, nil
 	}
 	return flowNext, false, nil
@@ -1469,7 +1545,7 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 		if err != nil {
 			return flowNext, fmt.Errorf("%s: %w", e.host.describe(), err)
 		}
-		f = &loopFrame{elements: elements}
+		f = &loopFrame{elements: elements, control: e.ctx.standingOf(lower.ExpressionFootprint(stmt.Scope, stmt.Collection), true)}
 		if len(elements) == 0 {
 			e.bodyPerformed()
 		}
@@ -1511,7 +1587,9 @@ func (e *stmtEngine) forIteration(stmt lower.Loop, f *loopFrame, resumed bool) (
 		e.ctx.resetBodyCells(f.cells)
 		f.locals[stmt.Variable] = f.elements[f.iteration-1]
 	}
+	restore := e.ctx.underControl(f.control)
 	flow, err = e.runBlock(stmt.Body)
+	restore()
 	e.syncLoopCells(f)
 	return flow, err
 }
@@ -1575,7 +1653,7 @@ func forElements(value Value) ([]Value, error) {
 		return nil, nil
 	default:
 		return nil, fmt.Errorf("%w: 'for' iterates a collection, and %s is not one",
-			ErrTypeMismatch, describeValue(value))
+			ErrTypeMismatch, DescribeValue(value))
 	}
 }
 

@@ -365,7 +365,7 @@ var kermlDeclarationInventory = []struct {
 	{"assoc", "package P { part def X; part def Y; assoc A { end a : X; end b : Y; } }", "`connection def`"},
 	{"assoc struct", "package P { part def X; part def Y; assoc struct A { end a : X; end b : Y; } }", "`connection def`"},
 	{"interaction", "package P { part def X; part def Y; interaction I { end a : X; end b : Y; } }", "move the declaration to a .kerml file"},
-	{"inv", "package P { inv { true } }", "`constraint` or `assert constraint`"},
+	{"inv", "package P { inv i { true } }", "`constraint` or `assert constraint`"},
 	{"multiplicity", "package P { multiplicity m [1]; }", "move the declaration to a .kerml file"},
 }
 
