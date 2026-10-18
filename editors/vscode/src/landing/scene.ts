@@ -1,6 +1,6 @@
 import type { RenderResult } from "../protocol";
-import type { LandingModel } from "./model";
-import { presentedRollup, presentedStack } from "./present";
+import type { LandingModel, LandingPart } from "./model";
+import { presentedRollup, presentedStack, rollupTone, stackTone } from "./present";
 import mass from "./mass.json";
 import stack from "./stack.json";
 
@@ -21,6 +21,9 @@ export interface SceneRollup {
 }
 
 export type SceneProgram = SceneJourney | SceneRollup;
+
+/** The hero's fill for a box, one of the three the page defines; a box with none is drawn plain. */
+export type SceneTone = "primary" | "secondary" | "accent";
 
 /** The controls under the stage a scene offers; the page hides the others. */
 export type SceneControl = "run" | "edit" | "debug" | "download";
@@ -69,6 +72,8 @@ export interface Scene {
   controls: readonly SceneControl[];
   /** How the hero draws the model: the boxes' heads and detail lines. */
   present: (model: LandingModel, scene: Scene) => RenderResult;
+  /** The tone a part's box is filled with; undefined leaves it plain. */
+  tone: (part: LandingPart, scene: Scene) => SceneTone | undefined;
   program: SceneProgram;
   variants: readonly SceneVariant[];
 }
@@ -85,6 +90,7 @@ export const STACK_SCENE: Scene = {
   pngName: "opensysml-stack.png",
   controls: ["run", "edit", "debug", "download"],
   present: presentedStack,
+  tone: stackTone,
   program: {
     kind: "journey",
     symbol: "OpenSysMLStack::ModelJourney",
@@ -106,6 +112,7 @@ export const MASS_ROLLUP_SCENE: Scene = {
   pngName: "saturn-v-mass-rollup.png",
   controls: ["run", "edit", "download"],
   present: presentedRollup,
+  tone: rollupTone,
   program: { kind: "rollup", feature: "totalMass" },
   variants: [
     {

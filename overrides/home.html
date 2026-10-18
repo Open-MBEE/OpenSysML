@@ -201,15 +201,16 @@
       stroke: #181818;
       stroke-width: 1;
     }
-    .osml-diagram g[data-kind="runtime"] > .shape,
-    .osml-diagram g[data-kind="runtime"] .port-shape { fill: #e3f2fd; stroke: #1565c0; }
-    .osml-diagram g[data-kind="runtime"] .keyword { fill: #1565c0; }
-    .osml-diagram g[data-kind="reference"] > .shape,
-    .osml-diagram g[data-kind="reference"] .port-shape { fill: #f3e5f5; stroke: #6a1b9a; }
-    .osml-diagram g[data-kind="reference"] .keyword { fill: #6a1b9a; }
-    .osml-diagram g[data-kind="model store"] > .shape,
-    .osml-diagram g[data-kind="model store"] .port-shape { fill: #fff3e0; stroke: var(--md-accent-fg-color); stroke-width: 2; }
-    .osml-diagram g[data-kind="model store"] .keyword { fill: var(--md-accent-fg-color); }
+    /* A scene tones its boxes: the stack by kind, the roll-up by what the engine found. */
+    .osml-diagram g[data-osml-tone="primary"] > .shape,
+    .osml-diagram g[data-osml-tone="primary"] .port-shape { fill: #e3f2fd; stroke: #1565c0; }
+    .osml-diagram g[data-osml-tone="primary"] .keyword { fill: #1565c0; }
+    .osml-diagram g[data-osml-tone="secondary"] > .shape,
+    .osml-diagram g[data-osml-tone="secondary"] .port-shape { fill: #f3e5f5; stroke: #6a1b9a; }
+    .osml-diagram g[data-osml-tone="secondary"] .keyword { fill: #6a1b9a; }
+    .osml-diagram g[data-osml-tone="accent"] > .shape,
+    .osml-diagram g[data-osml-tone="accent"] .port-shape { fill: #fff3e0; stroke: var(--md-accent-fg-color); stroke-width: 2; }
+    .osml-diagram g[data-osml-tone="accent"] .keyword { fill: var(--md-accent-fg-color); }
     .osml-diagram .label { fill: #181818; }
     .osml-diagram .label .head { font-weight: 700; }
     .osml-diagram .label .keyword { font-style: italic; font-size: .8em; }

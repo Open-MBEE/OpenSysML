@@ -442,6 +442,10 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
       if (!part) {
         continue;
       }
+      const tone = scene.tone(part, scene);
+      if (tone !== undefined) {
+        group.dataset.osmlTone = tone;
+      }
       // A nested part is drawn beside its project's group, not inside it, so it takes the pointer itself.
       if (part.owner !== undefined) {
         group.classList.add("osml-nested");
