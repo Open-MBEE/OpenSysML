@@ -20,6 +20,7 @@ func TestRuntimeRobustnessPinShape(t *testing.T) {
 	t.Run("two_values_in_a_bare_pin_are_no_operand", testPinShapeTwoValuesAreNoOperand)
 	t.Run("undetermined_count_survives_a_multi_valued_target", testPinShapeUndeterminedSurvives)
 	t.Run("one_element_tool_input_is_sent_as_its_element", testPinShapeToolInputSendsElement)
+	t.Run("one_element_sequence_has_its_element_magnitude", testPinShapeMagnitude)
 }
 
 func pinShapeModel(pins, body string) string {
@@ -116,5 +117,15 @@ func testPinShapeToolInputSendsElement(t *testing.T) {
 	}
 	if len(sent.Items) != 2 {
 		t.Fatalf("a parameter holding [7, 8] sends %+v, want two Items", sent)
+	}
+}
+
+func testPinShapeMagnitude(t *testing.T) {
+	n, ok := MagnitudeValue(sequenceOf([]Value{integerValue(7)}))
+	if !ok || n.Int != 7 {
+		t.Fatalf("MagnitudeValue([7]) = %v, %v; want 7", n, ok)
+	}
+	if _, ok := MagnitudeValue(sequenceOf([]Value{integerValue(7), integerValue(8)})); ok {
+		t.Fatal("MagnitudeValue([7, 8]) has a magnitude; two values are no one magnitude")
 	}
 }
