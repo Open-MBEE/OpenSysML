@@ -3335,6 +3335,11 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 		return ec.invokeBuiltin(target.builtinName, target.builtin, exprs, n.NamedArgs, target.names, target.unbound)
 	}
 
+	// A declaration the runtime cannot evaluate is reported with its reason
+	// before its arguments are read: a type named as a value is not the fault.
+	if target.library != nil && target.library.unevaluable {
+		return target.library.apply(target.library.written(), ec.ctx, nil)
+	}
 	callArgs, err := ec.evalInvocationArgs(qualName, exprs, n.NamedArgs, target)
 	if err != nil {
 		return Value{}, err
