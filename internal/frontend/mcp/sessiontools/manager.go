@@ -44,7 +44,7 @@ type held struct {
 // NewManager returns a manager with no sessions open; root is the workspace
 // folder relative paths in tool arguments are resolved against.
 func NewManager(root string, factory Factory) *Manager {
-	return &Manager{root: root, factory: factory, sessions: map[string]*held{}}
+	return &Manager{root: filepath.Clean(root), factory: factory, sessions: map[string]*held{}}
 }
 
 // ErrNoSession reports a name no open session has.
@@ -187,10 +187,11 @@ func (m *Manager) CloseAll() {
 	}
 }
 
-// Resolve makes a path absolute: against the workspace root unless it is
-// absolute already or under the user's home (`~`), which is expanded, so the
-// path answered names the file touched. Standard input is no file a tool can
-// read, so a lone "-" is refused.
+// Resolve makes a path absolute against the workspace root and refuses one
+// that leaves it: a tool's paths may be relative, absolute or under the
+// user's home (`~`, expanded), but the file touched must lie under the root,
+// so a client cannot read or write beyond the workspace it was given.
+// Standard input is no file a tool can read, so a lone "-" is refused.
 func (m *Manager) Resolve(path string) (string, error) {
 	path = strings.TrimSpace(path)
 	switch {
@@ -203,5 +204,10 @@ func (m *Manager) Resolve(path string) (string, error) {
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(m.root, path)
 	}
-	return filepath.Clean(path), nil
+	path = filepath.Clean(path)
+	rel, err := filepath.Rel(m.root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("%s is outside the workspace root %s; session tools only read and write under the root", path, m.root)
+	}
+	return path, nil
 }

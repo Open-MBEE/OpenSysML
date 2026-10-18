@@ -544,8 +544,11 @@ func TestACloseRacingAQueuedCallRunsItFirstOrFailsIt(t *testing.T) {
 			closed.Store(true)
 			closing <- err
 		}()
-		// Both wait on the session's lock before the running call lets go of it.
-		time.Sleep(5 * time.Millisecond)
+		// Close drops the session from the list before it waits on the lock, so
+		// the list emptying is the close having reached the lock the call holds.
+		for slices.Contains(m.Names(), "raced") {
+			time.Sleep(100 * time.Microsecond)
+		}
 		close(release)
 		if err := <-queued; err != nil && !errors.Is(err, ErrNoSession) {
 			t.Fatal(err)
@@ -601,22 +604,41 @@ func TestASubmissionIsAcceptedDespiteAnOlderErrorAtDebugVerbosity(t *testing.T) 
 	}
 }
 
-func TestResolveExpandsHomeAndAnswersAbsolutePaths(t *testing.T) {
+func TestResolveConfinesPathsToTheWorkspaceRoot(t *testing.T) {
 	root := t.TempDir()
 	m := NewManager(root, func() (*repl.Session, error) { return repl.NewSession(), nil })
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Skip(err)
-	}
 	for in, want := range map[string]string{
-		"~/model.sysml":                filepath.Join(home, "model.sysml"),
+		".":                            root,
 		"sub/../model.ttl":             filepath.Join(root, "model.ttl"),
+		"sub/model.sysml":              filepath.Join(root, "sub", "model.sysml"),
 		filepath.Join(root, "x.sysml"): filepath.Join(root, "x.sysml"),
 	} {
 		got, err := m.Resolve(in)
 		if err != nil || got != want {
 			t.Errorf("Resolve(%q) = %q, %v; want %q", in, got, err, want)
 		}
+	}
+	outside := []string{"..", "../model.sysml", "sub/../../model.sysml", filepath.Join(filepath.Dir(root), "model.sysml"), filepath.Join(root+"-sibling", "model.sysml")}
+	if home, err := os.UserHomeDir(); err == nil {
+		if rel, err := filepath.Rel(root, home); err != nil || rel == ".." || strings.HasPrefix(rel, "../") {
+			outside = append(outside, "~/model.sysml")
+		}
+	}
+	for _, in := range outside {
+		if got, err := m.Resolve(in); err == nil || !strings.Contains(err.Error(), "outside the workspace root") {
+			t.Errorf("Resolve(%q) = %q, %v; want a refusal", in, got, err)
+		}
+	}
+}
+
+func TestResolveExpandsHomeWhenItLiesUnderTheRoot(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip(err)
+	}
+	m := NewManager(filepath.Dir(home), func() (*repl.Session, error) { return repl.NewSession(), nil })
+	if got, err := m.Resolve("~/model.sysml"); err != nil || got != filepath.Join(home, "model.sysml") {
+		t.Errorf("Resolve(~/model.sysml) = %q, %v", got, err)
 	}
 }
 
@@ -648,5 +670,35 @@ func TestACancellationBeforeTheCommandBeginsStillStopsIt(t *testing.T) {
 	})
 	if err != nil {
 		t.Errorf("after the withdrawn interrupt: %v", err)
+	}
+}
+
+func TestTheFileToolsRefuseAPathOutsideTheRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "escaped.sysml")
+	cs := connect(t, root)
+	must(t, cs, "session_submit", args("text", "package Escaping { part def P; }"), nil)
+	for _, path := range []string{outside, "../escaped.sysml"} {
+		res := call(t, cs, "session_save", args("path", path, "apply", true), nil)
+		if !res.IsError || !strings.Contains(errText(res), "outside the workspace root") {
+			t.Errorf("session_save(%q) = %v, %s; want a refusal", path, res.IsError, errText(res))
+		}
+	}
+	if _, err := os.Stat(outside); !os.IsNotExist(err) {
+		t.Errorf("a refused save wrote %s: %v", outside, err)
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(root), "escaped.sysml")); !os.IsNotExist(err) {
+		t.Errorf("a refused save wrote beside the root: %v", err)
+	}
+	if err := os.WriteFile(outside, []byte("package Outside { part def Q; }"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res := call(t, cs, "session_load", args("paths", []string{outside}), nil)
+	if !res.IsError || !strings.Contains(errText(res), "outside the workspace root") {
+		t.Errorf("session_load(%q) = %v, %s; want a refusal", outside, res.IsError, errText(res))
+	}
+	var value EvalResult
+	if res := call(t, cs, "session_eval", args("expression", "Outside::Q"), &value); !res.IsError {
+		t.Errorf("a refused load still declared Outside::Q: %+v", value)
 	}
 }
