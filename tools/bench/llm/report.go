@@ -11,8 +11,8 @@ import (
 // Results is one model's benchmark run as committed under docs/project/.
 type Results struct {
 	Provider string `json:"provider"`
-	// Model is the identifier asked for; ModelReported is what the provider
-	// answered with, when it differs (dated snapshots).
+	// Model is the identifier asked for; ModelReported lists the distinct
+	// identifiers the provider answered with (dated snapshots), when it did.
 	Model         string `json:"model"`
 	ModelReported string `json:"modelReported,omitempty"`
 	Recorded      string `json:"recorded"`

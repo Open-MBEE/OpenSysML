@@ -58,15 +58,19 @@ type Stratum struct {
 	Fidelity     float64 `json:"fidelity"`
 }
 
-// AggregateCells summarises one arm's cells.
+// AggregateCells summarises one arm's cells. Cells that ended in an Error are
+// counted in Cells and Errors but measured nowhere else.
 func AggregateCells(cells []CellResult) Aggregate {
 	agg := Aggregate{ByFamily: map[string]Stratum{}, ByDifficulty: map[string]Stratum{}}
 	bySample := map[int][]CellResult{}
+	var measured []CellResult
 	for _, c := range cells {
 		agg.Cells++
 		if c.Error != "" {
 			agg.Errors++
+			continue
 		}
+		measured = append(measured, c)
 		bySample[c.Sample] = append(bySample[c.Sample], c)
 	}
 	samples := make([]int, 0, len(bySample))
@@ -97,8 +101,8 @@ func AggregateCells(cells []CellResult) Aggregate {
 	agg.CompileRate0, agg.FinalCompile, agg.RepairRounds = NewStat(cr0), NewStat(fcr), NewStat(rounds)
 	agg.Fidelity, agg.Hallucination, agg.ToolCalls = NewStat(fid), NewStat(hall), NewStat(tools)
 	agg.PilotAgreement = NewStat(pilot)
-	agg.ByFamily = strata(cells, func(c CellResult) string { return c.Family })
-	agg.ByDifficulty = strata(cells, func(c CellResult) string { return c.Difficulty })
+	agg.ByFamily = strata(measured, func(c CellResult) string { return c.Family })
+	agg.ByDifficulty = strata(measured, func(c CellResult) string { return c.Difficulty })
 	return agg
 }
 
@@ -153,6 +157,10 @@ type Paired struct {
 }
 
 // PairedMetrics are the per-cell metrics the arms are compared on.
+// LowerIsBetter names the paired metrics where a smaller value is the better
+// outcome, so a negative difference counts as a win for the second arm.
+var LowerIsBetter = map[string]bool{"repairRounds": true}
+
 var PairedMetrics = map[string]func(CellResult) float64{
 	"compileRate0":     func(c CellResult) float64 { return b2f(c.CompiledRound0) },
 	"finalCompileRate": func(c CellResult) float64 { return b2f(c.CompiledFinal) },
@@ -183,10 +191,14 @@ func ComparePaired(a, b []CellResult) []Paired {
 			}
 			d := f(cb) - f(ca)
 			diffs = append(diffs, d)
+			better := d
+			if LowerIsBetter[name] {
+				better = -d
+			}
 			switch {
-			case d > 0:
+			case better > 0:
 				p.Wins++
-			case d < 0:
+			case better < 0:
 				p.Losses++
 			}
 		}

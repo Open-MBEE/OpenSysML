@@ -44,7 +44,43 @@ func TestComparePaired(t *testing.T) {
 			rounds = p
 		}
 	}
-	if rounds.Pairs != 3 || rounds.Wins != 0 || rounds.Losses != 2 || math.Abs(rounds.MeanDiff+1) > 1e-9 {
+	// Fewer repairs is better, so the two cells mcp repaired faster are wins
+	// even though the signed difference stays mcp − compiler.
+	if rounds.Pairs != 3 || rounds.Wins != 2 || rounds.Losses != 0 || math.Abs(rounds.MeanDiff+1) > 1e-9 {
 		t.Fatalf("%+v", rounds)
+	}
+}
+
+// TestAggregateSkipsErroredCells keeps provider failures out of every measured
+// rate while still counting them.
+func TestAggregateSkipsErroredCells(t *testing.T) {
+	cells := []CellResult{
+		{Cell: Cell{Task: "T1", Arm: ArmCompiler, Sample: 1}, Family: "structure", Difficulty: "simple", CompiledRound0: true, CompiledFinal: true, Fidelity: 1},
+		{Cell: Cell{Task: "T2", Arm: ArmCompiler, Sample: 1}, Family: "structure", Difficulty: "simple", Error: "HTTP 429"},
+		{Cell: Cell{Task: "T1", Arm: ArmCompiler, Sample: 2}, Family: "structure", Difficulty: "simple", Error: "HTTP 429"},
+	}
+	agg := AggregateCells(cells)
+	if agg.Cells != 3 || agg.Errors != 2 {
+		t.Fatalf("cells=%d errors=%d, want 3 and 2", agg.Cells, agg.Errors)
+	}
+	if agg.FinalCompile.N != 1 || agg.FinalCompile.Mean != 1 || agg.Fidelity.Mean != 1 {
+		t.Errorf("errored cells leaked into the rates: %+v", agg)
+	}
+	if s := agg.ByFamily["structure"]; s.Cells != 1 || s.FinalCompile != 1 {
+		t.Errorf("errored cells leaked into the strata: %+v", s)
+	}
+}
+
+func TestReportedModels(t *testing.T) {
+	cells := []CellResult{
+		{Attempts: []Attempt{{Model: "gpt-x-2026-01-01"}, {Model: "gpt-x-2026-01-01"}}},
+		{Attempts: []Attempt{{Model: ""}}},
+		{Attempts: []Attempt{{Model: "gpt-x-2026-02-01"}}},
+	}
+	if got := reportedModels(cells); got != "gpt-x-2026-01-01, gpt-x-2026-02-01" {
+		t.Errorf("reportedModels = %q", got)
+	}
+	if got := reportedModels(nil); got != "" {
+		t.Errorf("reportedModels(nil) = %q", got)
 	}
 }

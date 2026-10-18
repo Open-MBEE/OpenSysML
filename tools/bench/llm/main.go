@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -159,6 +160,9 @@ func runCommand(args []string, stdout, stderr io.Writer) error {
 		}
 	}
 
+	if o.MaxRounds < 0 {
+		return fmt.Errorf("-rounds must not be negative, got %d", o.MaxRounds)
+	}
 	results := &Results{Provider: provider.Name(), Model: provider.Model(), Recorded: baseline.Today()}
 	results.Settings.MaxRounds, results.Settings.Samples, results.Settings.Temperature = o.MaxRounds, o.Samples, o.Temperature
 	results.Settings.Tasks, results.Settings.Tools = len(tasks), MCPTools
@@ -188,6 +192,7 @@ func runCommand(args []string, stdout, stderr io.Writer) error {
 		}
 	}
 	results.Finish()
+	results.ModelReported = reportedModels(results.Cells)
 	fmt.Fprint(stdout, MarkdownTable([]*Results{results}))
 	if s := MarkdownSignificance(results); s != "" {
 		fmt.Fprint(stdout, "\n"+s)
@@ -255,4 +260,22 @@ func corpusCommand(stdout io.Writer) error {
 	}
 	fmt.Fprintf(stdout, "%d tasks\n", len(m.Tasks))
 	return nil
+}
+
+// reportedModels joins the distinct model identifiers the provider reported
+// across a run's attempts, so a rolling alias that changed snapshot mid-run
+// shows every snapshot it served.
+func reportedModels(cells []CellResult) string {
+	seen := map[string]bool{}
+	var models []string
+	for _, c := range cells {
+		for _, a := range c.Attempts {
+			if a.Model != "" && !seen[a.Model] {
+				seen[a.Model] = true
+				models = append(models, a.Model)
+			}
+		}
+	}
+	sort.Strings(models)
+	return strings.Join(models, ", ")
 }

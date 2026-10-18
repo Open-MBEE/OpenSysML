@@ -46,6 +46,8 @@ type Attempt struct {
 	Unresolved   []string         `json:"unresolved,omitempty"`
 	ToolCalls    []ToolCallRecord `json:"toolCalls,omitempty"`
 	Usage        Usage            `json:"usage"`
+	// Model is the identifier the provider reported for this attempt, if any.
+	Model string `json:"model,omitempty"`
 }
 
 // CellResult is everything measured about one cell.
@@ -80,9 +82,11 @@ type CellResult struct {
 
 // Runner drives the generate–validate–repair loop for one provider.
 type Runner struct {
-	Provider    Provider
-	Toolchain   Toolchain
-	Corpus      *Manifest
+	Provider  Provider
+	Toolchain Toolchain
+	Corpus    *Manifest
+	// MaxRounds is how many repair rounds follow the first generation; zero
+	// makes the first generation final.
 	MaxRounds   int
 	Temperature float64
 	MaxTokens   int
@@ -101,15 +105,16 @@ func (r *Runner) logf(format string, args ...any) {
 }
 
 // RunCell runs one cell to completion.
-func (r *Runner) RunCell(ctx context.Context, task Task, arm Arm, sample int) CellResult {
+func (r *Runner) RunCell(ctx context.Context, task Task, arm Arm, sample int) (res CellResult) {
 	start := time.Now()
 	cell := Cell{Task: task.ID, Arm: arm, Sample: sample}
 	ctx = WithCell(ctx, cell)
-	res := CellResult{Cell: cell, Family: task.Family, Difficulty: task.Difficulty}
+	res = CellResult{Cell: cell, Family: task.Family, Difficulty: task.Difficulty}
 	defer func() { res.Elapsed = time.Since(start).Round(time.Millisecond).String() }()
 	maxRounds := r.MaxRounds
-	if maxRounds <= 0 {
-		maxRounds = DefaultMaxRounds
+	if maxRounds < 0 {
+		res.Error = fmt.Sprintf("negative repair rounds %d", maxRounds)
+		return res
 	}
 	res.RepairRounds = maxRounds
 
@@ -166,6 +171,7 @@ func (r *Runner) RunCell(ctx context.Context, task Task, arm Arm, sample int) Ce
 // with text.
 func (r *Runner) generate(ctx context.Context, req *Request, round int) (string, Attempt, error) {
 	attempt := Attempt{Round: round}
+	exhausted := false
 	for calls := 0; ; {
 		resp, err := r.Provider.Complete(ctx, *req)
 		if err != nil {
@@ -173,6 +179,9 @@ func (r *Runner) generate(ctx context.Context, req *Request, round int) (string,
 		}
 		attempt.Usage.InputTokens += resp.Usage.InputTokens
 		attempt.Usage.OutputTokens += resp.Usage.OutputTokens
+		if resp.Model != "" {
+			attempt.Model = resp.Model
+		}
 		if len(resp.ToolCalls) == 0 {
 			source := ExtractModel(resp.Content)
 			if source == "" {
@@ -186,14 +195,25 @@ func (r *Runner) generate(ctx context.Context, req *Request, round int) (string,
 		if r.MCP == nil {
 			return "", attempt, fmt.Errorf("model called tool %q in an arm without tools", resp.ToolCalls[0].Name)
 		}
-		calls += len(resp.ToolCalls)
+		if exhausted {
+			return "", attempt, fmt.Errorf("model kept calling tools after its budget of %d calls", MaxToolCallsPerRound)
+		}
 		req.Messages = append(req.Messages, Message{Role: "assistant", Content: resp.Content, ToolCalls: resp.ToolCalls})
 		for _, call := range resp.ToolCalls {
-			text, rec := r.MCP.Call(ctx, round, call)
+			var text string
+			var rec ToolCallRecord
+			if calls < MaxToolCallsPerRound {
+				text, rec = r.MCP.Call(ctx, round, call)
+			} else {
+				text = fmt.Sprintf("tool budget of %d calls per round exhausted; the call was not made", MaxToolCallsPerRound)
+				rec = ToolCallRecord{Round: round, Name: call.Name, Arguments: call.Arguments, IsError: true, Refused: true}
+			}
+			calls++
 			attempt.ToolCalls = append(attempt.ToolCalls, rec)
 			req.Messages = append(req.Messages, Message{Role: "tool", ToolCallID: call.ID, ToolName: call.Name, Content: text})
 		}
 		if calls >= MaxToolCallsPerRound {
+			exhausted = true
 			req.Messages = append(req.Messages, Message{Role: "user", Content: "No more tool calls are available this round. Answer now with the complete document only."})
 			req.Tools = nil
 			defer func() { req.Tools = r.MCP.Specs() }()

@@ -14,7 +14,8 @@ func TestExtractStructure(t *testing.T) {
 	 {"@type":"PartUsage","@id":"u","qualifiedName":"P::A::b","owner":{"@id":"a"}},
 	 {"@type":"PartUsage","@id":"anon","owner":{"@id":"a"}},
 	 {"@type":"FeatureTyping","@id":"ft","source":[{"@id":"u"}],"target":[{"@id":"a"}]},
-	 {"@type":"OwningMembership","@id":"om","source":[{"@id":"p"}],"target":[{"@id":"a"}]}
+	 {"@type":"OwningMembership","@id":"om","source":[{"@id":"p"}],"target":[{"@id":"a"}]},
+	 {"@type":"Specialization","@id":"sp","qualifiedName":"P::A::spec","source":[{"@id":"u"}],"target":[{"@id":"a"}]}
 	]`)
 	s, err := ExtractStructure(apiJSON)
 	if err != nil {
@@ -25,7 +26,7 @@ func TestExtractStructure(t *testing.T) {
 		lines = append(lines, f)
 	}
 	facts := strings.Join(lines, "\n")
-	for _, want := range []string{"PartDefinition P::A", "PartUsage P::A::b", "FeatureTyping P::A::b -> P::A"} {
+	for _, want := range []string{"PartDefinition P::A", "PartUsage P::A::b", "FeatureTyping P::A::b -> P::A", "Specialization P::A::spec", "Specialization P::A::b -> P::A"} {
 		if !strings.Contains(facts, want) {
 			t.Errorf("facts lack %q:\n%s", want, facts)
 		}

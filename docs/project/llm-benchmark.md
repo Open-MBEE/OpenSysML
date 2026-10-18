@@ -42,8 +42,10 @@ For each cell (task × arm × sample):
   in-memory transport with the LSP and runtime tool groups. Tool calls are forwarded as the
   provider's native tool protocol (OpenAI `tools`/`tool_calls` or Anthropic `tool_use`), answered,
   and the model is asked again; at most `MaxToolCallsPerRound` = 8 tool calls are served per
-  round before the model must answer with a document. Every call is recorded in the results
-  file with its arguments, the SHA-256 and size of the answer, and the first 400 bytes of it.
+  round before the model must answer with a document. Calls beyond the budget are refused with
+  a tool error instead of being made (recorded with `refused: true`), and a model that still
+  calls tools after the refusal fails the cell. Every call is recorded in the results file with
+  its arguments, the SHA-256 and size of the answer, and the first 400 bytes of it.
 
 ### Providers
 
@@ -128,10 +130,12 @@ Per-family and per-difficulty final compile rate and fidelity are kept in each r
 ### Paired comparison
 
 For each metric that is defined per cell (CR@0, FCR, repairs, fidelity) the two arms are paired
-by (task, sample), cells with a provider error excluded. The results file carries the mean
-difference (mcp − compiler), a paired t statistic with its two-sided p-value from Student's t
-with n − 1 degrees of freedom, and the sign test: the counts of pairs where mcp did better and
-worse, and the exact two-sided binomial p-value over the non-tied pairs. With few pairs the
+by (task, sample), cells with a provider error excluded (such cells are counted under `errors`
+in the aggregates and enter no rate or stratum). The results file carries the mean difference
+(mcp − compiler), a paired t statistic with its two-sided p-value from Student's t with n − 1
+degrees of freedom, and the sign test: the counts of pairs where mcp did better and worse
+(fewer repairs is better; higher is better for the other three), and the exact two-sided
+binomial p-value over the non-tied pairs. With few pairs the
 sign test is the one to read; the t-test assumes approximately normal differences.
 
 ---

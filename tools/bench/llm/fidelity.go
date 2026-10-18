@@ -60,7 +60,6 @@ func ExtractStructure(apiJSON []byte) (Structure, error) {
 	for _, e := range elems {
 		if qn, ok := names[e.ID]; ok {
 			s.Elements = append(s.Elements, e.Type+" "+qn)
-			continue
 		}
 		if len(e.Source) == 0 || len(e.Target) == 0 || strings.HasSuffix(e.Type, "Membership") {
 			continue

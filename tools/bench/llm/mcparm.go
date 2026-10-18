@@ -19,12 +19,14 @@ var MCPTools = []string{"parse", "explain_diagnostic", "symbol", "validate_insta
 
 // ToolCallRecord is one tool call the model made, with the answer digested.
 type ToolCallRecord struct {
-	Round        int             `json:"round"`
-	Name         string          `json:"name"`
-	Arguments    json.RawMessage `json:"arguments"`
-	IsError      bool            `json:"isError,omitempty"`
-	ResultDigest string          `json:"resultDigest"`
-	ResultBytes  int             `json:"resultBytes"`
+	Round     int             `json:"round"`
+	Name      string          `json:"name"`
+	Arguments json.RawMessage `json:"arguments"`
+	IsError   bool            `json:"isError,omitempty"`
+	// Refused is set when the call exceeded MaxToolCallsPerRound and was not made.
+	Refused      bool   `json:"refused,omitempty"`
+	ResultDigest string `json:"resultDigest"`
+	ResultBytes  int    `json:"resultBytes"`
 	// Result keeps the first ResultPreview bytes of the answer the model saw.
 	Result string `json:"result,omitempty"`
 }

@@ -2,6 +2,8 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"math"
 	"path/filepath"
 	"strings"
@@ -44,7 +46,7 @@ func TestReplayLoop(t *testing.T) {
 		t.Fatalf("mcp arm offers %d tools, want %d", got, len(MCPTools))
 	}
 	replay := NewReplay(loadSynthetic(t))
-	runner := &Runner{Provider: replay, Toolchain: tc, Corpus: corpus, MCP: mcpArm, Pilot: tc.Pilot != ""}
+	runner := &Runner{Provider: replay, Toolchain: tc, Corpus: corpus, MCP: mcpArm, MaxRounds: DefaultMaxRounds, Pilot: tc.Pilot != ""}
 	results := &Results{Provider: replay.Name(), Model: replay.Model()}
 	tasks, err := corpus.Select([]string{"S01", "B01", "R01", "C01", "V01", "S02"})
 	if err != nil {
@@ -61,6 +63,9 @@ func TestReplayLoop(t *testing.T) {
 	for _, c := range results.Cells {
 		if c.Error != "" {
 			t.Errorf("%s: %s", CellKey(c.Cell), c.Error)
+		}
+		if c.Elapsed == "" {
+			t.Errorf("%s: no elapsed time recorded", CellKey(c.Cell))
 		}
 	}
 
@@ -165,5 +170,80 @@ func TestReplayStrictDigest(t *testing.T) {
 	missing := WithCell(context.Background(), Cell{Task: "Z99", Arm: ArmCompiler, Sample: 1})
 	if _, err := replay.Complete(missing, Request{}); err == nil {
 		t.Fatal("replay served a cell it never recorded")
+	}
+}
+
+// TestToolBudgetAndRounds bounds the tool calls a round may make and honours a
+// zero-round run, over an in-code fixture.
+func TestToolBudgetAndRounds(t *testing.T) {
+	tc := testToolchain(t)
+	corpus, err := LoadCorpus()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tasks, err := corpus.Select([]string{"S01"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	task := tasks[0]
+	gold, err := corpus.GoldSource(task)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog := func(id string) ToolCall {
+		return ToolCall{ID: id, Name: "tool_catalog", Arguments: json.RawMessage(`{}`)}
+	}
+	document := Recording{Response: Response{Content: gold}}
+	var burst []ToolCall
+	for i := 0; i <= MaxToolCallsPerRound; i++ {
+		burst = append(burst, catalog(fmt.Sprintf("b%d", i)))
+	}
+	var oneByOne []Recording
+	for i := 0; i <= MaxToolCallsPerRound; i++ {
+		oneByOne = append(oneByOne, Recording{Response: Response{ToolCalls: []ToolCall{catalog(fmt.Sprintf("s%d", i))}}})
+	}
+	fixture := &Fixture{Provider: "replay", Model: "budget", Cells: map[string][]Recording{
+		"S01/mcp/1":      {{Response: Response{ToolCalls: burst}}, document},
+		"S01/mcp/2":      append(oneByOne, document),
+		"S01/compiler/1": {{Response: Response{Content: "package Bicycle {\n    part p : BogusType;\n}\n"}}},
+	}}
+	ctx := context.Background()
+	mcpArm, err := StartMCP(ctx, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mcpArm.Close(ctx)
+	runner := &Runner{Provider: NewReplay(fixture), Toolchain: tc, Corpus: corpus, MCP: mcpArm, MaxRounds: DefaultMaxRounds}
+
+	burstCell := runner.RunCell(ctx, task, ArmMCP, 1)
+	if burstCell.Error != "" || !burstCell.CompiledFinal || burstCell.ToolCalls != MaxToolCallsPerRound+1 {
+		t.Fatalf("burst cell: %+v", burstCell)
+	}
+	refused := 0
+	for _, rec := range burstCell.Attempts[0].ToolCalls {
+		if rec.Refused {
+			refused++
+			if !rec.IsError || rec.ResultBytes != 0 {
+				t.Errorf("refused call recorded as served: %+v", rec)
+			}
+		}
+	}
+	if refused != 1 {
+		t.Errorf("refused %d calls of a burst of %d, want 1", refused, MaxToolCallsPerRound+1)
+	}
+
+	runaway := runner.RunCell(ctx, task, ArmMCP, 2)
+	if runaway.Error == "" || !strings.Contains(runaway.Error, "budget") || runaway.CompiledFinal {
+		t.Fatalf("a model that keeps calling tools after the budget must fail the cell: %+v", runaway)
+	}
+
+	runner.MaxRounds = 0
+	once := runner.RunCell(ctx, task, ArmCompiler, 1)
+	if once.Error != "" || len(once.Attempts) != 1 || once.CompiledFinal || once.RepairRounds != 0 {
+		t.Fatalf("zero rounds: %+v", once)
+	}
+	runner.MaxRounds = -1
+	if neg := runner.RunCell(ctx, task, ArmCompiler, 1); neg.Error == "" {
+		t.Fatal("negative rounds accepted")
 	}
 }
