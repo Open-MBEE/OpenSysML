@@ -317,16 +317,32 @@ try {
         if ($Tools.Count -eq 0) { Fail "$ReleaseManifest of $ReleaseName lists no $Platform build; releases before v0.0.4 have no bundle" }
         if ($missing.Count -gt 0) { Write-Host "  -Tools all: $ReleaseName publishes no $($missing -join ' or ') for $Platform" }
     }
+    # The bundle is fetched only for the tools it carries; a tool published on
+    # its own (sysml-grpc, sysml-jupyter-kernel) alone does not pull it in.
+    $WantBundle = ($Tools -contains 'sysml') -or ($Tools -contains 'sysml-lsp')
     $WantGrpc = $Tools -contains 'sysml-grpc'
     $WantKernel = $Tools -contains 'sysml-jupyter-kernel'
     $WantMcp = $Tools -contains 'sysml-mcp'
     Write-Host "  tools:    $($Tools -join ' ')"
     Write-Host "  binaries: $InstallDir"
-    Write-Host "  from:     $(Get-AssetUrl $Bundle)"
-    if ($WantGrpc) { Write-Host "            $(Get-AssetUrl $GrpcAsset)" }
-    if ($WantKernel) { Write-Host "            $(Get-AssetUrl $KernelAsset)" }
-    if ($WantMcp) { Write-Host "            $(Get-AssetUrl $McpAsset)" }
-    if ($SignedBuild) { Write-Host "  the release carries the signed Windows build (its $Manifest was fetched to tell); installing $Bundle" }
+    $fromAssets = @()
+    if ($WantBundle) { $fromAssets += $Bundle }
+    if ($WantGrpc) { $fromAssets += $GrpcAsset }
+    if ($WantKernel) { $fromAssets += $KernelAsset }
+    if ($WantMcp) { $fromAssets += $McpAsset }
+    $fromLabel = '  from:     '
+    foreach ($asset in $fromAssets) {
+        Write-Host "$fromLabel$(Get-AssetUrl $asset)"
+        $fromLabel = '            '
+    }
+    if ($SignedBuild) {
+        $signedAssets = @()
+        if ($WantBundle) { $signedAssets += $Bundle }
+        if ($WantGrpc) { $signedAssets += $GrpcAsset }
+        if ($WantMcp) { $signedAssets += $McpAsset }
+        $use = if ($signedAssets.Count -gt 0) { "installing $($signedAssets -join ' and ')" } else { 'none of the requested tools is among its assets' }
+        Write-Host "  the release carries the signed Windows build (its $Manifest was fetched to tell); $use"
+    }
     if ($SignedBuild -and $WantKernel) { Write-Host "  sysml-jupyter-kernel is not among the signed assets; $KernelAsset is checked against $ReleaseManifest" }
     if ($SignedBuildNote) { Write-Host $SignedBuildNote }
     if ($DryRun) {
@@ -336,8 +352,10 @@ try {
 
     Write-Host 'Downloading...'
     if (-not (Test-Path -LiteralPath (Join-Path $Work $Manifest))) { Get-Asset $Manifest | Out-Null }
-    Get-Asset $Bundle | Out-Null
-    Test-Checksum $Bundle $Manifest
+    if ($WantBundle) {
+        Get-Asset $Bundle | Out-Null
+        Test-Checksum $Bundle $Manifest
+    }
     if ($WantGrpc) {
         Get-Asset $GrpcAsset | Out-Null
         Test-Checksum $GrpcAsset $Manifest
@@ -365,7 +383,7 @@ try {
         }
     }
     $Extracted = Join-Path $Work 'bundle'
-    Expand-Release $Bundle $Extracted
+    if ($WantBundle) { Expand-Release $Bundle $Extracted }
     $McpExtracted = Join-Path $Work 'mcp'
     if ($WantMcp) { Expand-Release $McpAsset $McpExtracted }
 

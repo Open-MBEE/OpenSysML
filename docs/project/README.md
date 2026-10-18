@@ -40,6 +40,10 @@ within these records and means nothing outside this repository.
   exercise, judged by whether an input for each exists, advisory
 - **[Grammar-to-metaclass map](grammar-metaclass-map.md)** — how OMG grammar productions relate to
   the metaclasses and features OpenSysML recognizes, with a location-based differential, advisory
+- **[Library and prefix sweep](library-and-prefix-sweep.md)** — every Systems and Domain library
+  feature read on an object, every Kernel Function Library function called, and every grammar prefix
+  crossed with every usage kind, each probe bucketed by what the runtime answered and the gap classes
+  the sweep found.
 - **[Validation-constraint census](validation-constraints.md)** — which of the pilot's named
   validation constraints OpenSysML reports, each mapped to the pass and message that reports it,
   with a violating model as evidence; the figures and the name list are gated in CI

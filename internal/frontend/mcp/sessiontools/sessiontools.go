@@ -94,7 +94,7 @@ func diagnostics(ds []repl.Diagnostic) []Diagnostic {
 // LoadInput names the files to load.
 type LoadInput struct {
 	SessionName
-	Paths []string `json:"paths" jsonschema:"files, directories (walked for .sysml/.kerml/.ipynb) or glob patterns, absolute or relative to the workspace root"`
+	Paths []string `json:"paths" jsonschema:"files, directories (walked for .sysml/.kerml/.ipynb) or glob patterns, relative to the workspace root or absolute; a path outside the root is refused"`
 }
 
 // LoadResult is what a load read and what the analysis found.
@@ -149,8 +149,8 @@ type Notation struct {
 // SaveInput names the file to write the model to.
 type SaveInput struct {
 	SessionName
-	Path  string `json:"path" jsonschema:"file to write, absolute or relative to the workspace root: .sysml notation, or .ttl/.json RDF (experimental)"`
-	Apply bool   `json:"apply,omitempty" jsonschema:"write the file; without it the notation that would be written is returned and nothing is touched"`
+	Path  string `json:"path" jsonschema:"file to write, relative to the workspace root or absolute but under it: .sysml notation, or .ttl/.json RDF (experimental)"`
+	Apply bool   `json:"apply,omitempty" jsonschema:"write the file; without it the bytes the file would hold (notation, Turtle or JSON by extension) are returned as content and nothing is touched"`
 }
 
 // SaveResult is what a save wrote, or would write.
@@ -208,7 +208,7 @@ func Register(s *mcp.Server, m *Manager) {
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "session_load",
-		Description: "Load model files into a session, as %load does: files, directories or globs, resolved against the workspace root. Every file is accepted before the model is analyzed, so load order does not matter, and files beside the paths that declare a namespace they import load too. Returns what loaded and the diagnostics.",
+		Description: "Load model files into a session, as %load does: files, directories or globs, resolved against the workspace root and refused outside it. Every file is accepted before the model is analyzed, so load order does not matter, and files beside the paths that declare a namespace they import load too. Returns what loaded and the diagnostics.",
 		Annotations: toolkit.Mutating("Load files", true),
 	}, handler(m, func(_ context.Context, sess *repl.Session, in LoadInput) (LoadResult, error) {
 		if len(in.Paths) == 0 {
@@ -250,7 +250,7 @@ func Register(s *mcp.Server, m *Manager) {
 		res := sess.Submit(in.Text)
 		verbosity := sess.Verbosity()
 		out := SubmitResult{
-			Accepted:    res.Refused == nil && !res.Failed(verbosity),
+			Accepted:    !res.Rejected(),
 			Declared:    orEmpty(res.Declared),
 			Notices:     orEmpty(res.Notices),
 			Diagnostics: diagnostics(sess.Locate(res.OwnDiagnostics(verbosity))),
@@ -292,7 +292,7 @@ func Register(s *mcp.Server, m *Manager) {
 	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "session_save",
-		Description: "Write a session's model to a file, as %save does: .sysml notation with comments preserved, or .ttl/.json RDF (experimental). Without apply nothing is written and the file's content, in the format the extension names, is returned as content.",
+		Description: "Write a session's model to a file under the workspace root, as %save does: .sysml notation with comments preserved, or .ttl/.json RDF (experimental). A path outside the root is refused. Without apply nothing is written and the file's content, in the format the extension names, is returned as content.",
 		Annotations: toolkit.Mutating("Save model", true),
 	}, handler(m, func(_ context.Context, sess *repl.Session, in SaveInput) (SaveResult, error) {
 		path, err := m.Resolve(in.Path)

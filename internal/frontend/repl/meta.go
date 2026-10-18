@@ -1080,8 +1080,7 @@ func (s *Session) evalValue(expr string) (evaluated, error) {
 				}
 				val, readErr := fv.ReadValue(fv.Feature.Name)
 				ev := answered(expr+onInstance(inst, owner), ctx, val, formatFeatureValue(ctx, fv))
-				// The feature exists, so a read that fails is one that holds no value yet.
-				ev.unset = readErr != nil
+				ev.unset = runtime.IsUninitializedFeatureValue(readErr)
 				return ev, nil
 			}
 		}
@@ -2772,8 +2771,7 @@ func (s *Session) startAction(name string, performer []string) ([]string, error)
 // doStep advances the action executor one step, or the state machine one event
 // when the session debugs a machine instead.
 // debuggedAction is the action %step and %continue act on: the one debugged,
-// unless it has ended while a machine is still running, which is then what a
-// step moves.
+// or nil once it has ended while a machine still runs, which a step then moves.
 func (s *Session) debuggedAction() *actionSession {
 	a := s.actionExec
 	if a != nil && s.stateExec != nil && a.executor.State().Ended() && !s.stateExec.executor.State().Ended() {

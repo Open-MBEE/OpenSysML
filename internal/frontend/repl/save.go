@@ -61,9 +61,11 @@ func (s *Session) saveSource(path string) ([]byte, string, []string, bool) {
 	return []byte(src), path, nil, true
 }
 
-// expandHome expands a leading `~` or `~/` to the user's home directory, which
+// ExpandHome expands a leading `~` or `~/` to the user's home directory, which
 // the prompt is expected to understand even though no shell has been through
-// the line.
+// the line; a host resolving paths for the prompt expands them the same way.
+func ExpandHome(path string) string { return expandHome(path) }
+
 func expandHome(path string) string {
 	// Either separator: `~/` is what a user types even where the separator is
 	// a backslash.

@@ -640,12 +640,20 @@ func isOccurrenceUsage(sym *symbols.Symbol) bool {
 	if !ok || usage.Value != nil {
 		return false
 	}
-	switch usage.Kind {
-	case ast.UsagePart, ast.UsageItem, ast.UsageOccurrence, ast.UsageIndividual:
+	return objectUsageKind(usage.Kind)
+}
+
+// objectUsageKind reports a usage kind whose values are objects: the occurrence usages
+// (SysML v2 §7.9), cases, views, viewpoints, concerns and renderings among them (§7.21–7.26).
+func objectUsageKind(kind ast.UsageKind) bool {
+	switch kind {
+	case ast.UsagePart, ast.UsageItem, ast.UsageOccurrence, ast.UsageIndividual,
+		ast.UsageCase, ast.UsageUseCase, ast.UsageSatisfy,
+		ast.UsageView, ast.UsageViewpoint, ast.UsageConcern, ast.UsageFramedConcern,
+		ast.UsageRendering, ast.UsageViewRendering:
 		return true
-	default:
-		return false
 	}
+	return false
 }
 
 // namesOneObject reports whether a usage denotes one object of its own — which

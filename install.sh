@@ -16,8 +16,8 @@
 #
 # Run with --help for the options.
 #
-# Needs: curl or wget; tar (unzip or a zip-capable tar for the Windows archive);
-# sha256sum, shasum or openssl.
+# Needs: curl or wget; sha256sum, shasum or openssl; and, for the bundle, tar
+# (unzip or a zip-capable tar for the Windows archive).
 set -eu
 
 REPO_URL="https://github.com/Open-MBEE/OpenSysML"
@@ -288,11 +288,6 @@ sha256_of() { # <file>: the hex digest
 }
 have sha256sum || have shasum || have openssl || fail "sha256sum, shasum or openssl is needed to verify the download"
 
-if [ "$target_os" = windows ]; then
-	have unzip || have tar || fail "unzip or tar is needed to extract $bundle"
-else
-	have tar || fail "tar is needed to extract $bundle"
-fi
 if [ "$verify_signature" = true ]; then
 	have cosign || fail "--verify-signature needs cosign on PATH (https://docs.sigstore.dev/cosign/system_config/installation/)"
 fi
@@ -386,10 +381,32 @@ fi
 info "  tools:    $tool_list"
 info "  binaries: $bin_dir"
 [ -z "$man_dir" ] || info "  manuals:  $man_dir"
-info "  from:     $(asset_url "$bundle")"
-! want sysml-grpc || info "            $(asset_url "$grpc_asset")"
-! want sysml-jupyter-kernel || info "            $(asset_url "$kernel_asset")"
-! want sysml-mcp || info "            $(asset_url "$mcp_asset")"
+# The bundle is fetched only for the tools it carries; a tool published on
+# its own (sysml-grpc, sysml-jupyter-kernel) alone does not pull it in.
+want_bundle=false
+for tool in $tool_list; do
+	case "$tool" in
+	sysml | sysml-lsp) want_bundle=true ;;
+	esac
+done
+if [ "$want_bundle" = true ] || want sysml-mcp; then
+	archive=$bundle
+	[ "$want_bundle" = true ] || archive=$mcp_asset
+	if [ "$target_os" = windows ]; then
+		have unzip || have tar || fail "unzip or tar is needed to extract $archive"
+	else
+		have tar || fail "tar is needed to extract $archive"
+	fi
+fi
+from_label="  from:     "
+from() { # <url>: one line per asset, the first labelled
+	info "$from_label$1"
+	from_label="            "
+}
+[ "$want_bundle" = false ] || from "$(asset_url "$bundle")"
+! want sysml-grpc || from "$(asset_url "$grpc_asset")"
+! want sysml-jupyter-kernel || from "$(asset_url "$kernel_asset")"
+! want sysml-mcp || from "$(asset_url "$mcp_asset")"
 if [ "$dry_run" = true ]; then
 	info "Dry run: nothing installed."
 	exit 0
@@ -408,8 +425,10 @@ verify() { # <asset>: against the manifest
 	info "  $1 verified"
 }
 
-fetch "$bundle"
-verify "$bundle"
+if [ "$want_bundle" = true ]; then
+	fetch "$bundle"
+	verify "$bundle"
+fi
 if want sysml-grpc; then
 	fetch "$grpc_asset"
 	verify "$grpc_asset"
@@ -437,7 +456,7 @@ extract() { # <archive> <directory>: the archive's files into the directory
 		tar -xzf "$work/$1" -C "$2"
 	fi
 }
-extract "$bundle" "$work/bundle"
+[ "$want_bundle" = false ] || extract "$bundle" "$work/bundle"
 ! want sysml-mcp || extract "$mcp_asset" "$work/mcp"
 
 install_file() { # <source> <destination> <mode>

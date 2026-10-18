@@ -166,13 +166,25 @@ if (Test-Ok 'the kernel alone' -Version $Good -Tools sysml-jupyter-kernel) {
     Assert-Installed sysml-jupyter-kernel
     Assert-Absent sysml, sysml-lsp, sysml-grpc, sysml-mcp
     Assert-Said "download/$Good/sysml-jupyter-kernel-$HostPlatform"
+    Assert-Unsaid "opensysml-$HostPlatform.tar.gz"
     Assert-Said "Installed: $script:dir/sysml-jupyter-kernel"
+}
+
+# A tool published on its own does not pull the bundle in.
+if (Test-Ok 'sysml-grpc alone' -Version $Good -Tools sysml-grpc) {
+    Assert-Installed sysml-grpc
+    Assert-Absent sysml, sysml-lsp, sysml-jupyter-kernel
+    Assert-Unsaid "opensysml-$HostPlatform.tar.gz"
+    Assert-Said "  from:     $BaseUrl/download/$Good/sysml-grpc-$HostPlatform"
+    Assert-Said "sysml-grpc-$HostPlatform verified"
+    Assert-Said "Installed: $script:dir/sysml-grpc"
 }
 
 # sysml-mcp comes from its own archive.
 if (Test-Ok 'the MCP server alone' -Version $Good -Tools sysml-mcp) {
     Assert-Installed sysml-mcp
     Assert-Absent sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel
+    Assert-Unsaid "opensysml-$HostPlatform.tar.gz"
     Assert-Said "download/$Good/sysml-mcp-$HostPlatform.tar.gz"
     Assert-Said "sysml-mcp-$HostPlatform.tar.gz verified"
     Assert-Said "sysml-mcp $Good"
@@ -226,6 +238,7 @@ if (Test-Ok 'kernel staged for windows' -Version $Good -Os windows -Tools sysml-
     Assert-Installed sysml-jupyter-kernel.exe
     Assert-Absent sysml.exe, sysml-lsp.exe, sysml-grpc.exe, sysml-mcp.exe, sysml-jupyter-kernel
     Assert-Said "download/$Good/sysml-jupyter-kernel-windows-amd64.exe"
+    Assert-Unsaid 'opensysml-windows-amd64.zip'
     Assert-Said 'sysml-jupyter-kernel-windows-amd64.exe verified'
     Assert-Said "Installed: $(Join-Path $script:dir sysml-jupyter-kernel.exe)"
     if ((Get-Content -LiteralPath (Join-Path $script:dir sysml-jupyter-kernel.exe) -Raw) -notlike "sysml-jupyter-kernel $($Good.Substring(1)) for windows*") {
@@ -280,6 +293,8 @@ if (-not $HostIsWindows) {
     # release and is checked against SHA256SUMS.txt; alone it needs no Authenticode.
     if (Test-Ok 'kernel from the signed release' -Version $Signed -Os windows -Tools sysml-jupyter-kernel) {
         Assert-Said 'the release carries the signed Windows build'
+        Assert-Said 'none of the requested tools is among its assets'
+        Assert-Unsaid 'installing opensysml-windows-amd64-signed.zip'
         Assert-Said 'sysml-jupyter-kernel is not among the signed assets'
         Assert-Said "download/$Signed/sysml-jupyter-kernel-windows-amd64.exe"
         Assert-Said 'sysml-jupyter-kernel-windows-amd64.exe verified'
