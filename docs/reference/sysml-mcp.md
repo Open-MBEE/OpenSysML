@@ -17,7 +17,22 @@ names another — the same workspace [`sysml-lsp`](lsp.md) serves an editor.
 
 ## Installing
 
-Every release publishes `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows) for linux/amd64,
+The quickest way is npm: `npx -y @openmbee/sysml-mcp` installs the server on first use, with
+nothing preinstalled but Node 20.11 or later, which is how the agent hosts' own documentation
+configures a server. [`@openmbee/sysml-mcp`](https://www.npmjs.com/package/@openmbee/sysml-mcp)
+has no dependencies; its `sysml-mcp` command picks the platform package
+`@openmbee/sysml-mcp-<os>-<cpu>` (linux/darwin × x64/arm64, win32 x64) for the machine, at
+exactly its own version, and runs the release binary that package carries — the same bytes as
+the release archive, verified against the release's `.sha256` sidecars when the package was
+built — with the arguments and stdio it was given. Its version is the OpenSysML release:
+`npx -y @openmbee/sysml-mcp@0.10.1` runs the `v0.10.1` server.
+
+```bash
+claude mcp add --transport stdio sysml -- npx -y @openmbee/sysml-mcp -root .
+codex mcp add sysml -- npx -y @openmbee/sysml-mcp -root .
+```
+
+Every release also publishes `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows) for linux/amd64,
 linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64: the binary under its plain name, the
 `LICENSE` and, on Unix, its manual page under `share/man/man1/`. It is its own archive, not part
 of the `opensysml-<os>-<arch>` bundle, so:
@@ -55,16 +70,23 @@ The block names the server `sysml`, so its tools appear to the agent under that 
 (`sysml/diagnostics` or `mcp__sysml__diagnostics`, as the host spells it), and names the binary
 by its resolved absolute path (`os.Executable`, symlinks followed), so the host finds it wherever
 it was installed and however it starts the process. To name a command instead — `sysml-mcp` when
-the binary is on `PATH`, or a wrapper — give `-print-config-command`:
+the binary is on `PATH`, or a wrapper — give `-print-config-command`; to have the host run the
+server from npm instead, `npx -y @openmbee/sysml-mcp`, give `-print-config-npx`, which writes
+`npx` as the command and `-y @openmbee/sysml-mcp` as the first arguments:
 
 ```bash
 sysml-mcp -print-config cursor -print-config-command sysml-mcp
+sysml-mcp -print-config vscode -print-config-npx
 ```
 
-The blocks below were written with `-print-config-command /usr/local/bin/sysml-mcp`. A host that
-should serve fewer tools or another folder gets them as arguments: add `"-tools", "lsp,runtime"`
-or `"-root", "models"` to the `args` array (the `command` array in OpenCode's case). Hosts start
-the server with the project as its working directory, which is what `-root` defaults to.
+The blocks below were written with `-print-config-command /usr/local/bin/sysml-mcp`; with
+`-print-config-npx` the command is `"npx"` and the `args` array begins
+`"-y", "@openmbee/sysml-mcp"` (OpenCode's `command` array becomes
+`["npx", "-y", "@openmbee/sysml-mcp"]`, and Codex's `args = ["-y", "@openmbee/sysml-mcp"]`). A
+host that should serve fewer tools or another folder gets them as arguments: add
+`"-tools", "lsp,runtime"` or `"-root", "models"` to the `args` array (the `command` array in
+OpenCode's case). Hosts start the server with the project as its working directory, which is
+what `-root` defaults to.
 
 ### OpenCode — `opencode.json`
 
