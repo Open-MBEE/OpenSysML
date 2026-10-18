@@ -768,7 +768,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		// Then a Kernel Semantic Library member of the bound instance, which the
 		// shape leaves out: read bare in the body as `self.<name>` reads it.
 		if ec.self != nil && ec.selfFeatureInScope(name) {
-			if fv, answered, err := ec.ctx.kernelMemberRead(ec.self, name, ec.modelReads(ec.self)); answered && err == nil {
+			if fv, answered, err := ec.ctx.kernelMemberRead(ec.self, name); answered && err == nil {
 				return fv.HeldValue(), nil
 			}
 		}
@@ -1689,7 +1689,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if ec.ctx.derivesKernelCollection(inst, name) {
 			return ec.chainFeatureValue(inst, name, rest, from)
 		}
-		if fv, answered, err := ec.ctx.kernelMemberRead(inst, name, ec.modelReads(inst)); answered {
+		if fv, answered, err := ec.ctx.kernelMemberRead(inst, name); answered {
 			if err != nil {
 				return Value{}, err
 			}

@@ -99,11 +99,6 @@ func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol, o
 		}
 		add(held)
 	}
-	// At model level a collection the library does not declare abstract holds its
-	// subsetters' values and an open count beyond them, as a Systems one does.
-	if open != nil && !symbols.IsAbstract(sym) {
-		stopped, atLeast = true, max(atLeast, int64(len(values)))
-	}
 	if stopped {
 		open.Stopped, open.Contributed, open.AtLeast = true, values, atLeast
 	}
