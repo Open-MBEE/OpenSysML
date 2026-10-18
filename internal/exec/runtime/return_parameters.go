@@ -1,0 +1,158 @@
+package runtime
+
+import (
+	"errors"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+)
+
+// verdictLiteralName is the qualified name of the library's VerdictKind enumeration
+// literal a verification case's verdict is read as.
+const verdictLiteralName = verdictKindName + "::"
+
+// resultParameter reports whether sym is a result parameter (`return …`) of the
+// behavior declaring it, such as Cases::Case::result or RequirementCheck::result.
+func resultParameter(sym *symbols.Symbol) bool {
+	if sym == nil || !semantics.IsParameter(sym) {
+		return false
+	}
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModResult)
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsResult
+}
+
+// returnParameterRead answers a read of a result parameter the object's type
+// inherits from the behavior it enacts: the object's own evaluation, as the library
+// declares it (Requirements.sysml `RequirementCheck::result`, Cases.sysml
+// `Case::result`, VerificationCases.sysml `VerificationCase::verdict`), and
+// undetermined where the inputs of that evaluation are unbound.
+func (ctx *Context) returnParameterRead(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (*FeatureValue, error) {
+	val, err := ctx.returnParameterValue(inst, sym, feat)
+	if err != nil {
+		return nil, err
+	}
+	fv := &FeatureValue{Feature: feat, Materialized: true}
+	if feat.Scalar() || val.Kind == ValUndetermined {
+		fv.Value = val
+	} else {
+		fv.Values = val
+	}
+	return fv, nil
+}
+
+// returnParameterValue is the value of the inherited result parameter sym on inst,
+// in the order the rule tries: a result parameter the object's type declares
+// redefines the inherited one (KerML 8.4.4.6, implied parameter redefinition) and
+// so answers for it; else the evaluation the type states — a verification case's
+// verdict, a requirement's conditions; else the parameter is unbound.
+func (ctx *Context) returnParameterValue(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
+	typ := inst.Type
+	if own := ctx.ownResultParameter(typ, sym); own != "" {
+		fv, err := inst.MemberValue(ctx, own)
+		if err != nil {
+			return Value{}, err
+		}
+		return fv.HeldValue(), nil
+	}
+	switch {
+	case IsVerificationCaseSymbol(typ):
+		return ctx.verificationVerdictValue(typ, inst, sym, feat)
+	case statesConditions(typ):
+		return ctx.conditionResultValue(typ, inst, sym, feat)
+	}
+	return unsetFeatureValue(sym.Name, feat.Multiplicity, sym), nil
+}
+
+// statesConditions reports whether sym is a definition or usage whose result is
+// the conjunction of the conditions it states: a requirement, viewpoint or
+// concern (SysML v2 §7.21, Requirements.sysml `RequirementCheck::result`).
+func statesConditions(sym *symbols.Symbol) bool {
+	switch decl := sym.Decl.(type) {
+	case *ast.Definition:
+		return decl.Kind == ast.DefRequirement || decl.Kind == ast.DefViewpoint || decl.Kind == ast.DefConcern
+	case *ast.Usage:
+		return decl.Kind == ast.UsageRequirement || decl.Kind == ast.UsageViewpoint || decl.Kind == ast.UsageConcern
+	}
+	return false
+}
+
+// ownResultParameter is the name of the result parameter a type more specific than
+// sym's owner declares — the one that redefines sym (KerML 8.4.4.6, implied
+// parameter redefinition) — or "" when typ inherits no more specific one.
+func (ctx *Context) ownResultParameter(typ, sym *symbols.Symbol) string {
+	for _, m := range ctx.model.semantics.MembersOf(typ) {
+		if m == sym || !resultParameter(m) || m.Owner() == nil || m.Owner() == sym.Owner() {
+			continue
+		}
+		if ctx.isOrSpecializes(m.Owner(), sym.Owner()) {
+			return m.Name
+		}
+	}
+	return ""
+}
+
+// conditionResultValue evaluates the conditions typ states against inst's own
+// features, as a satisfaction assertion evaluates them against its subject: true
+// when every required condition holds, false when one is violated, true when none
+// is stated (`allTrue` of no constraints), undetermined when one reads an unbound input.
+func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
+	defer ctx.beginRun()()
+	members := ctx.chainMembers(typ, typ.OwnerScope)
+	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, inst, nil, frame{})
+	if err == nil {
+		var holds bool
+		holds, err = ctx.evaluateConditions(conditionCheck{
+			sym:      typ,
+			kind:     "requirement",
+			what:     "require condition",
+			self:     inst,
+			bindings: mapFrame(bindings),
+			negated:  NegatedDecl(typ),
+		}, ctx.conditionsOf(typ, members))
+		if err == nil {
+			return boolValue(holds), nil
+		}
+	}
+	var violation *ViolationError
+	switch {
+	case errors.As(err, &violation):
+		return boolValue(false), nil
+	case errors.Is(err, ErrNoConditions):
+		return boolValue(true), nil
+	case unboundInput(err):
+		return undeterminedFeatureValue(err.Error(), feat.Multiplicity, sym), nil
+	}
+	return Value{}, err
+}
+
+// unboundInput reports an evaluation that read an input nothing binds: an unbound
+// subject, an uninitialized feature, or a condition whose value is undetermined.
+func unboundInput(err error) bool {
+	return errors.Is(err, errUnboundSubject) || errors.Is(err, errUninitializedFeatureValue) ||
+		errors.Is(err, ErrNoValue) || errors.Is(err, ErrNeedsObject)
+}
+
+// verificationVerdictValue runs the verification case typ on inst and answers the
+// VerdictKind literal its body produced; a run that decided nothing — an unbound
+// subject, a body binding no verdict — leaves the verdict undetermined with its reason.
+func (ctx *Context) verificationVerdictValue(typ *symbols.Symbol, inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
+	result, err := ctx.RunVerification(typ, AnalysisArgs{}, typ.OwnerScope, inst)
+	if err != nil {
+		if unboundInput(err) {
+			return undeterminedFeatureValue(err.Error(), feat.Multiplicity, sym), nil
+		}
+		return Value{}, err
+	}
+	verdict := result.Verdict
+	if verdict.Kind == verdictError || verdict.Detail != "" {
+		return undeterminedFeatureValue(verdict.Detail, feat.Multiplicity, sym), nil
+	}
+	for _, lit := range ctx.model.resolver.Index().LookupQualified(verdictLiteralName + string(verdict.Kind)) {
+		return NewEnumLiteral(lit), nil
+	}
+	return undeterminedFeatureValue("the library declares no VerdictKind::"+string(verdict.Kind), feat.Multiplicity, sym), nil
+}

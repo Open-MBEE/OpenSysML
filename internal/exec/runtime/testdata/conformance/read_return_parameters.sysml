@@ -1,0 +1,63 @@
+// A result parameter an object inherits from the library behavior it enacts
+// answers the object's own evaluation: RequirementCheck::result is the
+// requirement's required conditions conjoined (Requirements.sysml), Case::result
+// the case's own return parameter, which redefines it (Cases.sysml), and
+// VerificationCase::verdict the verdict the case's body produced
+// (VerificationCases.sysml). An evaluation reading an unbound input — a subject
+// nothing supplies — is undetermined, never a made-up value.
+package test {
+	private import ScalarValues::*;
+	private import VerificationCases::*;
+
+	part def P2 { attribute m : Real = 3.0; }
+	part p2 : P2;
+
+	requirement def R1 { subject s : P2; attribute lim : Real = 5.0; require constraint { s.m < lim } assume constraint { lim > 0.0 } }
+	requirement def R2 { subject s : P2; }
+	requirement def R3 { subject s : P2; require constraint { false } }
+	case def Ca1 { subject s : P2; return r : Integer = 1 + 1; }
+	case def Ca2 { subject s : P2; objective obj { require constraint { true } } }
+	verification def V1 { subject s : P2; objective { verify r1; } requirement r1 : R1; return verdict : VerdictKind = PassIf(true); }
+	verification def V2 { subject s : P2; objective { verify r3; } requirement r3 : R3; }
+	verification def V3 { subject s : P2; return verdict : VerdictKind = PassIf(false); }
+	viewpoint def Vp1 { frame concern con1 : Con1; require constraint { true } }
+	concern def Con1 { stakeholder sh : P2; }
+
+	requirement r1 : R1 { subject s :>> s = p2; }
+	requirement r1u : R1;
+	requirement r3 : R3 { subject s :>> s = p2; }
+	case ca1 : Ca1;
+	case ca2 : Ca2;
+	verification v1 : V1 { subject s :>> s = p2; }
+	verification v2 : V2 { subject s :>> s = p2; }
+	verification v3 : V3 { subject s :>> s = p2; }
+	viewpoint vp1 : Vp1;
+	concern con1 : Con1;
+	part def Checks { satisfy r1 by p2; satisfy r3 by p2; }
+
+	calc probe { out one : Integer = 1; }
+
+	attribute r1New : Boolean = new R1().result;
+	attribute r2New : Boolean = new R2().result;
+	attribute r3New : Boolean = new R3().result;
+	attribute r1Bound : Boolean = r1.result;
+	attribute r1Unbound : Boolean = r1u.result;
+	attribute r3Bound : Boolean = r3.result;
+	attribute vp1New : Boolean = new Vp1().result;
+	attribute vp1Usage : Boolean = vp1.result;
+	attribute con1New : Boolean = new Con1().result;
+	attribute con1Usage : Boolean = con1.result;
+	attribute ca1New = new Ca1().result;
+	attribute ca1Usage = ca1.result;
+	attribute ca2New = new Ca2().result;
+	attribute ca2Usage = ca2.result;
+	attribute v1New = new V1().verdict;
+	attribute v1Result = new V1().result;
+	attribute v1Usage = v1.verdict;
+	attribute v2New = new V2().verdict;
+	attribute v2Usage = v2.verdict;
+	attribute v2UsageResult = v2.result;
+	attribute v3New = new V3().verdict;
+	attribute v3Usage = v3.verdict;
+	attribute v3UsageResult = v3.result;
+}

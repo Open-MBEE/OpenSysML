@@ -46,6 +46,11 @@ func (ctx *Context) kernelMemberRead(inst *Instance, name string) (*FeatureValue
 	if !sym.IsFeature() {
 		return nil, true, fmt.Errorf("%w: %s has no feature %s (%s is not a feature)", ErrNoSuchFeature, SymbolText(inst.Type), name, name)
 	}
+	if resultParameter(sym) && ctx.model.semantics.FrameFeature(sym) {
+		feat := ctx.effectiveFeature(name, sym, inst.Type)
+		fv, err := ctx.returnParameterRead(inst, sym, &feat)
+		return fv, true, err
+	}
 	if !ctx.kernelFrameMember(sym) {
 		return nil, false, nil
 	}
