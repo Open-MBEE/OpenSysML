@@ -112,6 +112,52 @@ func withSchedule(sess *repl.Session, spelling string, fn func() repl.Verdict) (
 	return fn(), nil
 }
 
+// runOf is the run session_run makes of a behavior of the kind named: an
+// action, a state machine, a calc or an analysis case.
+func runOf(sess *repl.Session, in RunInput) (func() repl.Verdict, error) {
+	switch strings.ToLower(strings.TrimSpace(in.Kind)) {
+	case "action":
+		return func() repl.Verdict { return sess.RunAction(in.Name, performer(in.Object)...) }, nil
+	case "state":
+		return func() repl.Verdict {
+			if in.Duration != nil {
+				return sess.RunStateMachineFor(in.Name, *in.Duration, performer(in.Object)...)
+			}
+			return sess.RunStateMachine(in.Name, performer(in.Object)...)
+		}, nil
+	case "calc":
+		return func() repl.Verdict { return sess.RunCalc(invocation(in.Name, in.Arguments, in.Object)) }, nil
+	case "analysis":
+		return func() repl.Verdict { return sess.RunAnalysis(invocation(in.Name, in.Arguments, in.Object)) }, nil
+	}
+	return nil, fmt.Errorf("kind %q is unknown; want action, state, calc or analysis", in.Kind)
+}
+
+// repeatedRuns runs an action count times, or concludes a Monte Carlo case over
+// count runs, as the kind names.
+func repeatedRuns(sess *repl.Session, in RunsInput) (Verdict, error) {
+	switch strings.ToLower(strings.TrimSpace(in.Kind)) {
+	case "", "action":
+		return verdict(sess.RunRuns(in.Name, performer(in.Object), in.Count, in.Seed, in.Observables)), nil
+	case "case":
+		return verdict(sess.RunMonteCarlo(invocation(in.Name, in.Arguments, in.Object), in.Count, in.Seed)), nil
+	}
+	return Verdict{}, fmt.Errorf("kind %q is unknown; want action or case", in.Kind)
+}
+
+// renderRunForm is the form render_run draws in: text when none is named.
+func renderRunForm(name string) (view.Form, error) {
+	f := strings.TrimSpace(name)
+	if f == "" {
+		return view.FormText, nil
+	}
+	form := view.Form(f)
+	if !slices.Contains(view.Forms(), form) {
+		return "", fmt.Errorf("form %q is unknown; want one of %v", name, view.Forms())
+	}
+	return form, nil
+}
+
 // registerRuns adds the tools that run behaviors and table their runs.
 func registerRuns(s *mcp.Server, m *Manager) {
 	mcp.AddTool(s, &mcp.Tool{
@@ -122,23 +168,9 @@ func registerRuns(s *mcp.Server, m *Manager) {
 		if strings.TrimSpace(in.Name) == "" {
 			return Verdict{}, errors.New("name is required")
 		}
-		var run func() repl.Verdict
-		switch strings.ToLower(strings.TrimSpace(in.Kind)) {
-		case "action":
-			run = func() repl.Verdict { return sess.RunAction(in.Name, performer(in.Object)...) }
-		case "state":
-			run = func() repl.Verdict {
-				if in.Duration != nil {
-					return sess.RunStateMachineFor(in.Name, *in.Duration, performer(in.Object)...)
-				}
-				return sess.RunStateMachine(in.Name, performer(in.Object)...)
-			}
-		case "calc":
-			run = func() repl.Verdict { return sess.RunCalc(invocation(in.Name, in.Arguments, in.Object)) }
-		case "analysis":
-			run = func() repl.Verdict { return sess.RunAnalysis(invocation(in.Name, in.Arguments, in.Object)) }
-		default:
-			return Verdict{}, fmt.Errorf("kind %q is unknown; want action, state, calc or analysis", in.Kind)
+		run, err := runOf(sess, in)
+		if err != nil {
+			return Verdict{}, err
 		}
 		v, err := withSchedule(sess, in.Schedule, run)
 		if err != nil {
@@ -177,13 +209,7 @@ func registerRuns(s *mcp.Server, m *Manager) {
 		if in.Count <= 0 {
 			return Verdict{}, errors.New("count must be positive")
 		}
-		switch strings.ToLower(strings.TrimSpace(in.Kind)) {
-		case "", "action":
-			return verdict(sess.RunRuns(in.Name, performer(in.Object), in.Count, in.Seed, in.Observables)), nil
-		case "case":
-			return verdict(sess.RunMonteCarlo(invocation(in.Name, in.Arguments, in.Object), in.Count, in.Seed)), nil
-		}
-		return Verdict{}, fmt.Errorf("kind %q is unknown; want action or case", in.Kind)
+		return repeatedRuns(sess, in)
 	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "render_run",
@@ -194,12 +220,9 @@ func registerRuns(s *mcp.Server, m *Manager) {
 		if !ok {
 			return RenderedRun{}, fmt.Errorf("kind %q is unknown; want timeline or sequence", in.Kind)
 		}
-		form := view.FormText
-		if f := strings.TrimSpace(in.Form); f != "" {
-			form = view.Form(f)
-			if !slices.Contains(view.Forms(), form) {
-				return RenderedRun{}, fmt.Errorf("form %q is unknown; want one of %v", in.Form, view.Forms())
-			}
+		form, err := renderRunForm(in.Form)
+		if err != nil {
+			return RenderedRun{}, err
 		}
 		rendering, err := sess.RunTraceRendering(kind)
 		if errors.Is(err, runtrace.ErrNoTrace) {
