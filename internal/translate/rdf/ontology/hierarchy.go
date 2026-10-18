@@ -2,13 +2,8 @@ package ontology
 
 import "github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 
-// MetaclassGraph returns the rdf.SysML metaclass hierarchy as an RDF vocabulary
-// graph: one rdfs:Class per metaclass of the pinned pilot metamodel, named in
-// the rdf.SysML namespace exactly as rdf:type names it on a converted element, one
-// rdfs:subClassOf per declared general metaclass, and sysx:abstract true on the
-// metaclasses no element is an instance of. A store that holds one rdf:type per
-// element finds the specializations of a metaclass through
-// rdf:type/rdfs:subClassOf* once this graph is loaded beside the model.
+// MetaclassGraph is the metaclass hierarchy as an RDF vocabulary graph: one rdfs:Class per
+// metaclass, one rdfs:subClassOf per declared general, sysx:abstract on the abstract ones.
 func MetaclassGraph() *rdf.Graph {
 	g := rdf.NewGraph()
 	g.Prefixes = map[string]string{

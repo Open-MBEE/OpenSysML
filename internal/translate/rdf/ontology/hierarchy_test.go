@@ -26,9 +26,8 @@ func TestMetaclassGraphIsCurrent(t *testing.T) {
 	}
 }
 
-// TestMetaclassGraphShape checks the graph against the ontology table it is
-// written from: every metaclass is a class with its label, every declared
-// parent is a subClassOf edge, and exactly the abstract metaclasses are marked.
+// TestMetaclassGraphShape checks the graph against the ontology table it is written from:
+// classes, labels, parent edges and abstract marks all agree.
 func TestMetaclassGraphShape(t *testing.T) {
 	g := ontology.MetaclassGraph()
 	classes := ontology.Classes()

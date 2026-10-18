@@ -28,9 +28,8 @@ func runGraphs(files []string) error {
 	return writeOutputFile(outputPath, raw, fmt.Sprintf("graphs:%d", modelform.GraphsVersion))
 }
 
-// writeMetaclassGraph writes the Turtle of the metaclass hierarchy graph, the
-// bytes committed as internal/translate/rdf/ontology/sysml-metaclasses.ttl, to
-// stdout or to -output.
+// writeMetaclassGraph writes the Turtle committed as
+// internal/translate/rdf/ontology/sysml-metaclasses.ttl to stdout or to -output.
 func writeMetaclassGraph() error {
 	out := rdf.WriteTurtle(ontology.MetaclassGraph())
 	if outputPath == "" {
