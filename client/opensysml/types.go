@@ -77,6 +77,7 @@ const (
 	CapabilityRationalValues                 = sysmlgrpc.CapabilityRationalValues
 	CapabilityConvertDocuments               = sysmlgrpc.CapabilityConvertDocuments
 	CapabilityConvertCompact                 = sysmlgrpc.CapabilityConvertCompact
+	CapabilityConvertCheckDiagnostics        = sysmlgrpc.CapabilityConvertCheckDiagnostics
 	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
 	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
 )

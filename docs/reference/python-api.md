@@ -56,6 +56,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_CONVERT_CHECK_DIAGNOSTICS
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_PARSE_SOURCES_AFFECTED
     options:
       heading_level: 3

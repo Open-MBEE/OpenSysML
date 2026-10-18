@@ -1988,6 +1988,37 @@ object in place of the element array; `omit_derived` and `keep_derived` leave ou
 derived properties. Expanded, it is the element array. The format is defined in
 [Compact API JSON](api-json-compact.md).
 
+`includeCheckDiagnostics`, under the `convert_check_diagnostics` capability, adds the semantic
+check's diagnostics to `diagnostics` alongside the output, each with its own `severity` (`error`,
+`warning` or `info`) and `code`, as `ParseFile` and
+`GetDiagnostics` [report them](#diagnostics-the-shape-of-a-finding): the notation is analyzed as a parse analyzes it, so an unresolved
+type is an `error` here while the conversion itself succeeds or fails exactly as it does without
+the field. It is for notation sources only — a graph has no notation to check — so one with a
+`ttl`, `api-json` or XMI source is `invalid_argument`. A source with syntax errors reports those
+alone, as before: the check passes do not run on a model that did not parse, whether the
+conversion refused it or `tolerateSyntaxErrors` let it through. For a `modelHash` the analysis
+the parse cached is reported, and with `documents`, that of the written documents only. Off, the
+default, `diagnostics` holds the syntax errors alone, as it always has.
+
+```console
+$ … /Convert -d '{"content":"package P { part x : NoSuchType; }","toFormat":"api-json","includeCheckDiagnostics":true}'
+{
+  "content": "[\n  {\n    \"@type\": \"Namespace\",\n…",
+  "fromFormat": "sysml",
+  "toFormat": "api-json",
+  "diagnostics": [
+    {
+      "severity": "error",
+      "message": "unresolved reference: NoSuchType",
+      "span": {"file": "<content>", "startLine": 1, "startColumn": 21, "endLine": 1, "endColumn": 31},
+      "code": "unresolved"
+    }
+  ],
+  "experimental": true,
+  "experimentalNotice": "…"
+}
+```
+
 ```console
 $ … /Convert -d '{"filePath":"Vehicle.sysml","toFormat":"ttl"}'
 {

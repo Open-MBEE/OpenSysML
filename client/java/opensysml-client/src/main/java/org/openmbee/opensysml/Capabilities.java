@@ -69,6 +69,9 @@ public final class Capabilities {
   /** api-json converts as the compact document, optionally without derived properties. */
   public static final String CONVERT_COMPACT = "convert_compact";
 
+  /** Convert reports the semantic check's diagnostics, with their severities, alongside the output. */
+  public static final String CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
+
   /** A parse names the documents whose results may differ from those of {@code base_model_hash}. */
   public static final String PARSE_SOURCES_AFFECTED = "parse_sources_affected";
 

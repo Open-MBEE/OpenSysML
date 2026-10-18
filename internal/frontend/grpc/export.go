@@ -11,6 +11,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
@@ -53,6 +54,9 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	if err != nil {
 		return nil, err
 	}
+	if err := s.checkConvertCheckDiagnostics(req, from); err != nil {
+		return nil, err
+	}
 
 	resp := &pb.ConvertResponse{FromFormat: from.String(), ToFormat: to.String()}
 	// Marked on the response rather than left to the client to infer, so a caller
@@ -72,7 +76,62 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	}
 	resp.Content = string(out)
 	resp.Diagnostics = s.filterDiagnosticCapabilities(syntaxDiagnostics(syntax))
+	// The passes run on a model that parsed whole, so a tolerated syntax error
+	// leaves the parse's diagnostics as the report, as ParseFile's would be.
+	if req.IncludeCheckDiagnostics && syntax == nil {
+		checked, err := s.convertCheckDiagnostics(req, name)
+		if err != nil {
+			return nil, err
+		}
+		resp.Diagnostics = append(resp.Diagnostics, checked...)
+	}
 	return resp, nil
+}
+
+// checkConvertCheckDiagnostics refuses include_check_diagnostics for a source
+// that is not notation: the passes analyze a parse, and a graph has none.
+func (s *Service) checkConvertCheckDiagnostics(req *pb.ConvertRequest, from convert.Format) error {
+	if !req.IncludeCheckDiagnostics {
+		return nil
+	}
+	if err := s.requireCapability(CapabilityConvertCheckDiagnostics); err != nil {
+		return err
+	}
+	if from != convert.FormatSysML {
+		return statusError(connect.CodeInvalidArgument,
+			"include_check_diagnostics applies to notation sources, which are the ones the semantic check analyzes")
+	}
+	return nil
+}
+
+// convertCheckDiagnostics is the semantic check's report on one document of
+// notation, as ParseFile reports it: a model_hash's cached analysis, else the
+// source analyzed as a parse analyzes it, without caching a model the client
+// did not ask to hold.
+func (s *Service) convertCheckDiagnostics(req *pb.ConvertRequest, name string) ([]*pb.Diagnostic, error) {
+	var input sourceInput
+	var err error
+	switch src := req.Source.(type) {
+	case *pb.ConvertRequest_ModelHash:
+		if cached, ok := s.cache.Get(src.ModelHash); ok {
+			return s.modelDiagnostics(cached), nil
+		}
+		return nil, statusErrorf(connect.CodeNotFound,
+			"model %s is no longer cached: parse it again, or convert its file_path or content", src.ModelHash)
+	case *pb.ConvertRequest_Content:
+		language := ""
+		if strings.EqualFold(req.FromFormat, "kerml") {
+			language = "kerml"
+		}
+		input, err = inlineInput(name, language, src.Content)
+	case *pb.ConvertRequest_FilePath:
+		input, err = fileInput(src.FilePath)
+	}
+	if err != nil {
+		return nil, err
+	}
+	_, model := s.parseModelKeeping([]sourceInput{input}, diag.ConformanceModeOf(false), false, false)
+	return s.modelDiagnostics(model), nil
 }
 
 // namesV1 reports whether a request names a SysML v1 model — by from_format,
@@ -487,6 +546,9 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 	if err != nil {
 		return nil, true, err
 	}
+	if err := s.checkConvertCheckDiagnostics(req, convert.FormatSysML); err != nil {
+		return nil, true, err
+	}
 	if to != convert.FormatTurtle && to != convert.FormatAPIJSON {
 		return nil, true, statusErrorf(connect.CodeFailedPrecondition,
 			"notation is written for one document, and this model has %d; convert it to %s or %s, or convert each document",
@@ -526,5 +588,12 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 		return resp, true, nil
 	}
 	resp.Content = string(out)
+	if req.IncludeCheckDiagnostics {
+		for _, doc := range cached.Documents {
+			if len(req.Documents) == 0 || slices.Contains(req.Documents, doc.Source.Name()) {
+				resp.Diagnostics = append(resp.Diagnostics, doc.protoDiagnostics(s.documentDiagnostics)...)
+			}
+		}
+	}
 	return resp, true, nil
 }

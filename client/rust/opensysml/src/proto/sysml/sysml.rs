@@ -1447,6 +1447,19 @@ pub struct ConvertRequest {
     /// property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
     #[prost(string, repeated, tag="11")]
     pub keep_derived: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Report the semantic check's diagnostics alongside the output, each with its
+    /// own severity ("error", "warning" or "info") and code, as ParseFile and
+    /// GetDiagnostics report them: the source is analyzed as a parse analyzes it,
+    /// so an unresolved type is an error here while the conversion itself stands
+    /// or fails as it would without the field. Notation sources only: a graph
+    /// source has no notation to check, so one is INVALID_ARGUMENT. A source with
+    /// syntax errors reports those alone, since the passes do not run on a model
+    /// that did not parse. For a model_hash the cached analysis is reported; with
+    /// documents, the written documents' only. Default off, which reports the
+    /// syntax errors alone as before. Reported as the "convert_check_diagnostics"
+    /// capability.
+    #[prost(bool, tag="12")]
+    pub include_check_diagnostics: bool,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }
@@ -1477,7 +1490,8 @@ pub struct ConvertResponse {
     #[prost(string, tag="4")]
     pub error: ::prost::alloc::string::String,
     /// Syntax errors tolerated under tolerate_syntax_errors, or those that failed
-    /// the conversion.
+    /// the conversion; with include_check_diagnostics, the semantic check's
+    /// diagnostics as well, each with its own severity.
     #[prost(message, repeated, tag="5")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
     /// Set when either format is RDF or the API's JSON element form, whose
