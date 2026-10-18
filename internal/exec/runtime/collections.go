@@ -451,6 +451,14 @@ func (ec *EvalContext) denotedBody(val Value) (Value, error) {
 
 // checkBody verifies a denoted value is a body declaring arity parameters.
 func checkBody(op string, val Value, arity int) (Value, error) {
+	if fn := val.function(); fn != nil && fn.shape != nil {
+		// A function the argument names (`->reduce '+'`) is applied as the body is.
+		if low, high := fn.arity(); arity < low || arity > high {
+			return Value{}, fmt.Errorf("%w: %s calls %s with %d argument(s), but it declares %d parameter(s)",
+				ErrBodyArity, op, fn.shape.Name, arity, high)
+		}
+		return val, nil
+	}
 	if val.Kind != valExpr {
 		return Value{}, fmt.Errorf("%w: %s requires a body expression, got %s", ErrTypeMismatch, op, DescribeValue(val))
 	}
@@ -473,6 +481,9 @@ func (ec *EvalContext) evalClosure(val Value) (Value, error) {
 // applyBody evaluates a body with its parameters bound to args, as a frame of
 // its own over the environment the body closes over.
 func (ec *EvalContext) applyBody(val Value, args ...Value) (Value, error) {
+	if val.Kind == ValFunction {
+		return ec.invokeFunction(val.FunctionName(), val, calcArgs{positional: args})
+	}
 	body, ok := val.expr().(*ast.BodyExpr)
 	if !ok {
 		return Value{}, fmt.Errorf("%w: a body expression is required, got %s", ErrTypeMismatch, DescribeValue(val))
