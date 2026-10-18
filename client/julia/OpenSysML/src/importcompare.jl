@@ -28,8 +28,11 @@ struct ImportResult
     diagnostics::Vector{Diagnostic}
 end
 
-"""Whether the import changed the model (false on a dry run)."""
-applied(result::ImportResult) = !isempty(result.model_hash)
+"""
+Whether the import changed the model: some file set a value and this was no dry run. An
+import whose files set nothing answers the model it was given, under that model's hash.
+"""
+applied(result::ImportResult) = !isempty(result.model_hash) && any(f -> f.values > 0, result.files)
 
 """
 One tabular or JSON data file to import: its `name` (whose extension selects the format

@@ -231,6 +231,13 @@ func (s *Service) compareConfiguration(ctx context.Context, v *verifyContext, cf
 		c.Lines = append(c.Lines, "note: "+n)
 	}
 	c.Status = "holds"
+	if len(comparison.Observables) == 0 {
+		// Nothing stood against anything: the tool stored no observable and the
+		// runs produced no number, so there is nothing to hold.
+		c.Status = "undecided"
+		c.Notes = append(c.Notes, "no observable was compared")
+		c.Lines = append(c.Lines, "note: no observable was compared")
+	}
 	for _, o := range comparison.Observables {
 		// Compared alone: the runs may have produced no number for the observable,
 		// or the tool stored none, and then nothing stood against anything.
