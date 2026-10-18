@@ -11,10 +11,8 @@ import { layoutCanvas } from "./layout";
 const dom = new JSDOM("<!DOCTYPE html><body></body>");
 globalThis.document = dom.window.document;
 
-// The server's rendering of `view fails : InterconnectionView { expose abcd; filter @PartUsage; }`
-// over a part with three parts, an action, an interface and a port: the three
-// parts nested in the exposed one, no edge, and a notice for the interface the
-// filter keeps out.
+// The server's rendering of `expose abcd; filter @PartUsage;`: three parts
+// nested in the exposed one, no edge, a notice for the excluded interface.
 const filtered: RenderResult = {
   view: "Model::fails",
   kind: "interconnection",

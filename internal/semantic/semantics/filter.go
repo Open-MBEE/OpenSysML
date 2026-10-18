@@ -1015,11 +1015,8 @@ func (m *Model) symbolByFQN(fqn string) *symbols.Symbol {
 	return found
 }
 
-// typeByFQN returns the element a filter or a classification names as a type:
-// the one registered under the qualified name, or the first where several
-// documents declare it, as two copies of one library do. Conformance to such
-// a type is judged by name across the copies (conformsByName), so any of them
-// serves; a filter that found none would reject every candidate for no reason.
+// typeByFQN is the type a filter or classification names: the first element
+// under the qualified name, since copies of one library conform by name.
 func (m *Model) typeByFQN(fqn string) *symbols.Symbol {
 	if fqn == "" || m.resolver == nil || m.resolver.Index() == nil {
 		return nil
