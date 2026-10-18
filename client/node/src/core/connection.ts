@@ -28,6 +28,8 @@ import {
   CAPABILITY_RENDER_VIEW,
   CAPABILITY_CHECK,
   CAPABILITY_EXPORT_GRAPHS,
+  CAPABILITY_IMPORT_DATA,
+  CAPABILITY_COMPARE_RESULTS,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_STRICT_CONFORMANCE,
@@ -66,6 +68,8 @@ import {
   RenderViewRequestSchema,
   CheckBehaviorRequestSchema,
   ExportGraphsRequestSchema,
+  ImportDataRequestSchema,
+  CompareResultsRequestSchema,
   RunAnalysisRequestSchema,
   RunDocumentQueryRequestSchema,
   RunSweepRequestSchema,
@@ -160,6 +164,10 @@ import {
   type SweepTable,
   type Validation,
   type Verdict,
+  importResultOf,
+  comparisonOf,
+  type ImportResult,
+  type Comparison,
 } from "./verdict.js";
 import { toValue, type SysMLValue, type ValueInput } from "./values.js";
 import {
@@ -1649,6 +1657,85 @@ export class Connection {
       (response.verificationVerdicts ?? []).map(decodeVerificationVerdict),
       true,
     );
+  }
+
+  /** Sets the feature values data files assign, one edit of the model per
+   * file, as `sysml -import` does. */
+  async importData(
+    modelHash: string,
+    imports: readonly { name: string; content: string; format?: string; map?: string }[],
+    options: { importAs?: string; dryRun?: boolean; acceptDocuments?: boolean } = {},
+  ): Promise<ImportResult> {
+    requireCapability(this.info, CAPABILITY_IMPORT_DATA, upgradeRemedy(CAPABILITY_IMPORT_DATA));
+    const request = create(ImportDataRequestSchema, {
+      modelHash,
+      imports: imports.map((entry) => ({
+        name: entry.name,
+        content: entry.content,
+        importFormat: entry.format ?? "",
+        importMap: entry.map ?? "",
+      })),
+      importAs: options.importAs ?? "",
+      importDryRun: options.dryRun ?? false,
+      acceptDocuments: options.acceptDocuments ?? false,
+    });
+    const response = await callRpc(
+      this.rpc.importData(request, this.callOptions()),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_IMPORT_DATA]),
+    );
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      raiseFailure(response.error, 0, diagnostics);
+    }
+    return importResultOf(response, diagnostics);
+  }
+
+  /** Runs the configurations a SysML v1 tool's results sidecar indexes against
+   * the model and tables the tool's distributions beside the runs', as
+   * `sysml -compare-results` does. */
+  async compareResults(
+    modelHash: string,
+    results: string,
+    options: {
+      actions?: readonly string[];
+      runs?: bigint | number;
+      seed?: bigint | number;
+      draws?: string;
+      clockStep?: number;
+      observe?: readonly (string | readonly [string, string])[];
+      engine?: string;
+    } = {},
+  ): Promise<Comparison> {
+    requireCapability(this.info, CAPABILITY_COMPARE_RESULTS, upgradeRemedy(CAPABILITY_COMPARE_RESULTS));
+    this.requireEngine(options.engine);
+    const request = create(CompareResultsRequestSchema, {
+      modelHash,
+      results,
+      actions: [...(options.actions ?? [])],
+      runs: BigInt(options.runs ?? 0),
+      draws: options.draws ?? "",
+      observe: (options.observe ?? []).map((pair) =>
+        typeof pair === "string" ? { stored: pair, feature: "" } : { stored: pair[0], feature: pair[1] },
+      ),
+      engine: engineField(options.engine),
+    });
+    if (options.seed !== undefined) {
+      request.seed = BigInt(options.seed);
+    }
+    if (options.clockStep !== undefined) {
+      request.clockStep = options.clockStep;
+    }
+    const response = await callRpc(
+      this.rpc.compareResults(request, this.callOptions()),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_COMPARE_RESULTS, ...engineCapabilities(options.engine)]),
+    );
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      raiseFailure(response.error, response.failureReason, diagnostics);
+    }
+    return comparisonOf(response, (instances) => this.instancesOf(instances), diagnostics);
   }
 
   private instancesOf(pbInstances: readonly PbInstance[]): Instance[] {

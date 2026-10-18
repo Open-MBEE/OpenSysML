@@ -30,6 +30,8 @@ import type {
   RunsResult,
   SelfCheckResult,
   Recording,
+  ImportResult,
+  Comparison,
 } from "./verdict.js";
 import type {
   Diagnostic,
@@ -452,6 +454,19 @@ export class Model {
   /** Exports the lowered graph of an action or state machine of this model as `graphs:1` JSON. */
   exportGraphs(subject: string): Promise<Graphs> {
     return this.connection.exportGraphs(this.hash, subject);
+  }
+
+  /** Sets the feature values data files assign into this model. */
+  importData(
+    imports: Parameters<Connection["importData"]>[1],
+    options: Parameters<Connection["importData"]>[2] = {},
+  ): Promise<ImportResult> {
+    return this.connection.importData(this.hash, imports, options);
+  }
+
+  /** Runs the configurations a results sidecar indexes against this model and compares the runs with the tool's. */
+  compareResults(results: string, options: Parameters<Connection["compareResults"]>[2] = {}): Promise<Comparison> {
+    return this.connection.compareResults(this.hash, results, options);
   }
 
   /** Starts an edit of this model, to be applied in one call. */

@@ -35,6 +35,8 @@ from opensysml.capabilities import (
     CAPABILITY_RECORD_RUN,
     CAPABILITY_RUNS,
     CAPABILITY_SELF_CHECK,
+    CAPABILITY_IMPORT_DATA,
+    CAPABILITY_COMPARE_RESULTS,
     CAPABILITY_CHECK,
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
@@ -51,6 +53,10 @@ from opensysml.values import (
     UNSET, Array, Function, InstanceRef, MeasurementRef, Metaobject, SetValue, TensorQuantity,
     Undetermined, UnsetType,
     Vector, VectorQuantity,
+)
+from opensysml.importcompare import (
+    CaseStatistic, CaseStatistics, ComparedDistribution, Comparison, ConfigurationComparison,
+    ImportResult, ImportedFile, ImportedValue, ObservableComparison, StatisticDifference,
 )
 from opensysml.verdict import (
     AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, ToolDryRun, Validation,
@@ -146,6 +152,9 @@ __all__ = [
     "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
     "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
     "Graphs",
+    "CaseStatistic", "CaseStatistics", "ComparedDistribution", "Comparison", "ConfigurationComparison",
+    "ImportResult", "ImportedFile", "ImportedValue", "ObservableComparison", "StatisticDifference",
+    "CAPABILITY_IMPORT_DATA", "CAPABILITY_COMPARE_RESULTS",
     "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
     "ConversionError", "ExecutionError", "FeatureValueError", "MigrationError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",

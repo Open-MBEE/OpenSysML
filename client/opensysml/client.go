@@ -184,6 +184,12 @@ type Client interface {
 	// and of every behavior it performs, as the canonical graphs:1 JSON an
 	// external analysis engine is sent. Requires the export_graphs capability.
 	ExportGraphs(ctx context.Context, model *Model, subject string) (*Graphs, error)
+	// ImportData sets the feature values data files assign, one edit of the
+	// model per file (import_data capability).
+	ImportData(ctx context.Context, model *Model, imports []DataImport, opts ...ImportOption) (*ImportResult, error)
+	// CompareResults runs the configurations a tool's results sidecar indexes
+	// and tables the tool's distributions beside the runs' (compare_results capability).
+	CompareResults(ctx context.Context, model *Model, results string, opts ...CompareOption) (*Comparison, error)
 
 	// CheckAction and CheckStateMachine search every schedule of a behavior for a
 	// violated property, deadlock, failure or divergent final value (check capability).
@@ -341,6 +347,8 @@ type caller interface {
 	renderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error)
 	renderView(ctx context.Context, req *pb.RenderViewRequest) (*pb.RenderViewResponse, error)
 	exportGraphs(ctx context.Context, req *pb.ExportGraphsRequest) (*pb.ExportGraphsResponse, error)
+	importData(ctx context.Context, req *pb.ImportDataRequest) (*pb.ImportDataResponse, error)
+	compareResults(ctx context.Context, req *pb.CompareResultsRequest) (*pb.CompareResultsResponse, error)
 	checkBehavior(ctx context.Context, req *pb.CheckBehaviorRequest) (*pb.CheckBehaviorResponse, error)
 	convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error)
 	migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.MigrateResponse, error)

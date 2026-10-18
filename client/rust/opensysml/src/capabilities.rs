@@ -29,6 +29,10 @@ pub const CAPABILITY_RENDER_DOCUMENT_HTML: &str = "render_document_html";
 pub const CAPABILITY_RENDER_VIEW: &str = "render_view";
 /// The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON.
 pub const CAPABILITY_EXPORT_GRAPHS: &str = "export_graphs";
+/// The ImportData RPC, which sets the feature values data files assign.
+pub const CAPABILITY_IMPORT_DATA: &str = "import_data";
+/// The CompareResults RPC, which compares a tool's stored results with the runs.
+pub const CAPABILITY_COMPARE_RESULTS: &str = "compare_results";
 /// The `CheckBehavior` RPC, searching every schedule of a behavior for violations and divergent values.
 pub const CAPABILITY_CHECK: &str = "check";
 /// An enumeration literal as `Value.enum_literal`.

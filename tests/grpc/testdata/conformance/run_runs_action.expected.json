@@ -3,7 +3,7 @@
   "symbol_id": "MC::Settle",
   "runs": 4,
   "seed": 7,
-  "observe": [
+  "observe_features": [
     "t"
   ],
   "expected_row_count": 4,

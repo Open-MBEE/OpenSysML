@@ -108,6 +108,10 @@ func (c *pkgClient) dispatch(ctx context.Context, method string, request protore
 		return c.selfCheck(ctx, request)
 	case "RecordRun":
 		return c.recordRun(ctx, request)
+	case "ImportData":
+		return c.importData(ctx, request)
+	case "CompareResults":
+		return c.compareResults(ctx, request)
 	case "Convert":
 		return c.convert(ctx, request)
 	case "Migrate":
@@ -988,6 +992,151 @@ func (c *pkgClient) exportGraphs(ctx context.Context, request protoreflect.Messa
 	return &pb.ExportGraphsResponse{
 		Content: graphs.Content, Version: int32(graphs.Version), Subject: graphs.Subject,
 	}, nil
+}
+
+func (c *pkgClient) importData(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.ImportDataRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	imports := make([]opensysml.DataImport, 0, len(req.Imports))
+	for _, item := range req.Imports {
+		imports = append(imports, opensysml.DataImport{
+			Name: item.Name, Content: item.Content, Format: item.ImportFormat, Map: item.ImportMap,
+		})
+	}
+	var opts []opensysml.ImportOption
+	if req.ImportDryRun {
+		opts = append(opts, opensysml.ImportDryRun())
+	}
+	if req.AcceptDocuments {
+		opts = append(opts, opensysml.ImportAcceptDocuments())
+	}
+	result, err := c.api.ImportData(ctx, c.model(req.ModelHash), imports, opts...)
+	var failure *opensysml.FailureError
+	if errors.As(err, &failure) {
+		return &pb.ImportDataResponse{Error: failure.Message, Diagnostics: diagnosticsToProto(failure.Diagnostics)}, nil
+	}
+	if err != nil {
+		return nil, apiError(err)
+	}
+	response := &pb.ImportDataResponse{
+		Content:     result.Content,
+		ModelHash:   result.ModelHash,
+		Diagnostics: diagnosticsToProto(result.Diagnostics),
+	}
+	for _, file := range result.Files {
+		converted := &pb.ImportedFile{Name: file.Name, Values: file.Values, Elements: file.Elements}
+		for _, a := range file.Assignments {
+			converted.Assignments = append(converted.Assignments, &pb.ImportedValue{
+				Element: a.Element, Feature: a.Feature, Value: a.Value,
+				Redefines: a.Redefines, Where: a.Where, Description: a.Description,
+			})
+		}
+		response.Files = append(response.Files, converted)
+	}
+	for _, doc := range result.Documents {
+		response.Documents = append(response.Documents, &pb.EditedDocument{Name: doc.Name, Content: doc.Content})
+	}
+	return response, nil
+}
+
+func (c *pkgClient) compareResults(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.CompareResultsRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	opts := []opensysml.CompareOption{
+		opensysml.CompareActions(req.Actions...), opensysml.CompareRuns(req.Runs),
+		opensysml.CompareDraws(req.Draws), opensysml.CompareEngine(req.Engine),
+	}
+	if req.Seed != nil {
+		opts = append(opts, opensysml.CompareSeed(*req.Seed))
+	}
+	if req.ClockStep != nil {
+		opts = append(opts, opensysml.CompareClockStep(*req.ClockStep))
+	}
+	for _, pair := range req.Observe {
+		opts = append(opts, opensysml.CompareObserve(pair.Stored, pair.Feature))
+	}
+	comparison, err := c.api.CompareResults(ctx, c.model(req.ModelHash), req.Results, opts...)
+	var failure *opensysml.FailureError
+	if errors.As(err, &failure) {
+		return &pb.CompareResultsResponse{Error: failure.Message, Diagnostics: diagnosticsToProto(failure.Diagnostics)}, nil
+	}
+	if err != nil {
+		return nil, apiError(err)
+	}
+	response := &pb.CompareResultsResponse{
+		Source:      comparison.Source,
+		Diagnostics: diagnosticsToProto(comparison.Diagnostics),
+		Engine:      comparison.Standing.Engine,
+		Strength:    comparison.Standing.Strength,
+		Bounds:      boundsToProto(comparison.Standing.Bounds),
+	}
+	for i := range comparison.Configurations {
+		response.Configurations = append(response.Configurations, configurationToProto(&comparison.Configurations[i]))
+	}
+	return response, nil
+}
+
+func configurationToProto(cfg *opensysml.ConfigurationComparison) *pb.ConfigurationComparison {
+	out := &pb.ConfigurationComparison{
+		Id: cfg.ID, Name: cfg.Name, Behavior: cfg.Behavior, Target: cfg.Target,
+		ResultLocation: cfg.ResultLocation, Status: cfg.Status, Unresolved: cfg.Unresolved,
+		StoredRuns: cfg.StoredRuns, StoredSnapshots: cfg.StoredSnapshots,
+		Runs: cfg.Runs, Completed: cfg.Completed, Draws: cfg.Draws, Seed: cfg.Seed,
+		ClockStep: cfg.ClockStep, Errors: cfg.Errors, Notes: cfg.Notes, Lines: cfg.Lines,
+	}
+	for _, row := range cfg.Rows {
+		out.Rows = append(out.Rows, &pb.SweepRow{
+			Inputs: namedValuesToProto(row.Inputs), Outputs: namedValuesToProto(row.Outputs), Error: row.Error,
+		})
+	}
+	for i := range cfg.Observables {
+		out.Observables = append(out.Observables, observableToProto(&cfg.Observables[i]))
+	}
+	return out
+}
+
+func namedValuesToProto(values map[string]opensysml.Value) []*pb.CalcOutput {
+	out := make([]*pb.CalcOutput, 0, len(values))
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		out = append(out, &pb.CalcOutput{Name: name, Value: valueToProto(values[name])})
+	}
+	return out
+}
+
+func observableToProto(o *opensysml.ObservableComparison) *pb.ObservableComparison {
+	out := &pb.ObservableComparison{
+		Stored: o.Stored, Feature: o.Feature, Unit: o.Unit, Pooled: o.Pooled, Unstored: o.Unstored,
+		Produced: o.Produced, Compared: o.Compared, Notes: o.Notes,
+		Tool: distributionToProto(o.Tool), Run: distributionToProto(o.Run),
+	}
+	if o.Difference != nil {
+		out.Difference = &pb.StatisticDifference{
+			Min: o.Difference.Min, Mean: o.Difference.Mean, P50: o.Difference.P50, P90: o.Difference.P90, Max: o.Difference.Max,
+		}
+	}
+	if o.Declared != nil {
+		declared := &pb.CaseStatistics{Analysis: o.Declared.Analysis, Notes: o.Declared.Notes}
+		for _, row := range o.Declared.Rows {
+			declared.Rows = append(declared.Rows, &pb.CaseStatistic{
+				Statistic: row.Statistic, Of: row.Of, Tool: row.Tool, Run: row.Run, Difference: row.Difference,
+			})
+		}
+		out.Declared = declared
+	}
+	return out
+}
+
+func distributionToProto(d *opensysml.ComparedDistribution) *pb.ComparedDistribution {
+	if d == nil {
+		return nil
+	}
+	return &pb.ComparedDistribution{
+		Count: d.Count, Min: d.Min, Mean: d.Mean, P50: d.P50, P90: d.P90, Max: d.Max, Deviation: d.Deviation,
+	}
 }
 
 func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message) (proto.Message, error) {

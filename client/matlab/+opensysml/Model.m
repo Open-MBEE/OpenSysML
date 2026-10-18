@@ -167,6 +167,14 @@ classdef Model < handle
             result = opensysml.recordRun(m, analysisId, varargin{:});
         end
 
+        function result = importData(m, imports, varargin)
+            result = opensysml.importData(m, imports, varargin{:});
+        end
+
+        function result = compareResults(m, results, varargin)
+            result = opensysml.compareResults(m, results, varargin{:});
+        end
+
         function result = symbol(m, id)
             result = opensysml.Symbol(opensysml.getSymbol(m, id), m);
         end

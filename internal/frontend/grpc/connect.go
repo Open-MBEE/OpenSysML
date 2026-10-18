@@ -195,3 +195,13 @@ func (a *ConnectAdapter) RenderView(ctx context.Context, req *connect.Request[pb
 func (a *ConnectAdapter) ExportGraphs(ctx context.Context, req *connect.Request[pb.ExportGraphsRequest]) (*connect.Response[pb.ExportGraphsResponse], error) {
 	return connectCall(ctx, req, a.svc.ExportGraphs)
 }
+
+// ImportData sets the feature values data files assign, as `sysml -import` does.
+func (a *ConnectAdapter) ImportData(ctx context.Context, req *connect.Request[pb.ImportDataRequest]) (*connect.Response[pb.ImportDataResponse], error) {
+	return connectCall(ctx, req, a.svc.ImportData)
+}
+
+// CompareResults runs the configurations a results sidecar indexes and compares the runs with the tool's.
+func (a *ConnectAdapter) CompareResults(ctx context.Context, req *connect.Request[pb.CompareResultsRequest]) (*connect.Response[pb.CompareResultsResponse], error) {
+	return connectCall(ctx, req, a.svc.CompareResults)
+}

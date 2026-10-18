@@ -68,6 +68,8 @@ var Tools = []Entry{
 
 	{Name: "apply_edits", Group: GroupRuntime, RPCs: []string{"ApplyEdits"},
 		Summary: "Apply workspace edits to a parsed model and answer the edited documents."},
+	{Name: "compare_results", Group: GroupRuntime, RPCs: []string{"CompareResults"}, Flags: []string{"compare-results"},
+		Summary: "Run the configurations a SysML v1 tool's results index and table the tool's distributions beside the runs'."},
 	{Name: "convert", Group: GroupRuntime, RPCs: []string{"Convert"}, Flags: []string{"convert", "from", "id"},
 		Summary: "Convert a model between the textual notation, JSON, RDF and XMI."},
 	{Name: "diagnostics", Group: GroupRuntime, RPCs: []string{"GetDiagnostics"}, Flags: []string{"validate", "disable-lint", "enable-lint"},
@@ -85,6 +87,9 @@ var Tools = []Entry{
 		Summary: "Run a state machine over a sequence of events and report the trace."},
 	{Name: "export_graphs", Group: GroupRuntime, RPCs: []string{"ExportGraphs"}, Flags: []string{"graphs"},
 		Summary: "Export the lowered action and state graphs of a model."},
+	{Name: "import_data", Group: GroupRuntime, RPCs: []string{"ImportData"},
+		Flags:   []string{"import", "import-as", "import-map", "import-format", "import-dry-run"},
+		Summary: "Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element."},
 	{Name: "instantiate", Group: GroupRuntime, RPCs: []string{"Instantiate"}, Flags: []string{"instantiate"},
 		Summary: "Instantiate a definition or usage and report the object's feature values."},
 	{Name: "list_engines", Group: GroupRuntime, RPCs: []string{"ListEngines"}, Flags: []string{"engines", "probe"},
@@ -144,12 +149,6 @@ var RPCsWithoutTools = map[string]string{}
 // it. A flag listed here is an operation the CLI has and the service does not;
 // adding the field or RPC and the tool moves the flag into an entry.
 var Unserved = map[string]string{
-	"import":              "no RPC imports tabular or JSON data into a model",
-	"import-as":           "no RPC imports tabular or JSON data into a model",
-	"import-map":          "no RPC imports tabular or JSON data into a model",
-	"import-format":       "no RPC imports tabular or JSON data into a model",
-	"import-dry-run":      "no RPC imports tabular or JSON data into a model",
-	"compare-results":     "no RPC compares recorded results against a migrated model",
 	"portable":            "MigrateRequest has no portable field",
 	"render-all":          "no RPC renders every declared view",
 	"render-form":         "RenderViewRequest answers data, not a drawn form",

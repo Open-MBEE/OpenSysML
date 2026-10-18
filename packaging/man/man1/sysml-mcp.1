@@ -95,6 +95,11 @@ diagnostic counts.
 runtime: Apply workspace edits to a parsed model and answer the edited
 documents (rpc ApplyEdits).
 .TP
+.B compare_results
+runtime: Run the configurations a SysML v1 tool's results index and table the
+tool's distributions beside the runs' (rpc CompareResults, sysml
+\-compare\-results).
+.TP
 .B convert
 runtime: Convert a model between the textual notation, JSON, RDF and XMI (rpc
 Convert, sysml \-convert, sysml \-from, sysml \-id).
@@ -128,6 +133,11 @@ runtime: Run a state machine over a sequence of events and report the trace
 .B export_graphs
 runtime: Export the lowered action and state graphs of a model (rpc
 ExportGraphs, sysml \-graphs).
+.TP
+.B import_data
+runtime: Set the feature values a CSV, TSV, JSON or JSON Lines file assigns,
+one row per element (rpc ImportData, sysml \-import, sysml \-import\-as, sysml
+\-import\-map, sysml \-import\-format, sysml \-import\-dry\-run).
 .TP
 .B instantiate
 runtime: Instantiate a definition or usage and report the object's feature

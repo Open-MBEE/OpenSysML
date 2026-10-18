@@ -795,6 +795,210 @@ fn recording_a_run_and_a_sample_grows_the_model() {
     );
 }
 
+const IMPORT_MODEL: &str = r#"package V {
+    private import ScalarValues::*;
+    part def Vehicle {
+        attribute count : Integer default 1;
+        attribute label : String default "plain";
+    }
+    part vehicle : Vehicle;
+    part car : Vehicle {
+        attribute :>> count = 2;
+    }
+}"#;
+
+const PROBE_MODEL: &str = r#"package Cfg {
+    private import ScalarValues::*;
+    part def Probe {
+        attribute total : Real = 1.0;
+        action steady { first start; then assign total := 4.0; then done; }
+    }
+    action def 'Group 1' { part target : Probe; perform action run ::> target.steady; }
+}"#;
+
+const PROBE_RESULTS: &str = r#"{"source":"probe.xmi","configurations":[
+ {"id":"_c1","name":"Cfg::'Group 1'","runs":2,"target":"target","behavior":"run","observables":["total"],
+  "snapshots":[{"id":"_r1","values":{"total":4.0}},{"id":"_r2","values":{"total":6.0}}]},
+ {"id":"_cn","name":"Cfg::Nothing","observables":[],"snapshots":[]}]}"#;
+
+#[test]
+fn import_data_sets_the_values_and_answers_the_edited_model() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(&connection, IMPORT_MODEL);
+    let imports = vec![
+        opensysml::DataImport {
+            name: "fleet.csv".to_owned(),
+            content: "element,count,label\nV::vehicle,7,fast\nV::car,9,\n".to_owned(),
+            format: None,
+            map: None,
+        },
+        opensysml::DataImport {
+            name: "labels.txt".to_owned(),
+            content: r#"[{"element":"V::car","label":"slow"}]"#.to_owned(),
+            format: Some("json".to_owned()),
+            map: None,
+        },
+    ];
+    let result = model
+        .import_data(&imports, &opensysml::DataImportOptions::default())
+        .unwrap();
+    let descriptions: Vec<&str> = result
+        .files
+        .iter()
+        .flat_map(|file| file.assignments.iter().map(|a| a.description.as_str()))
+        .collect();
+    assert_eq!(
+        descriptions,
+        vec![
+            "V::vehicle::count = 7 (redefines V::Vehicle::count)",
+            "V::vehicle::label = \"fast\" (redefines V::Vehicle::label)",
+            "V::car::count = 9",
+            "V::car::label = \"slow\" (redefines V::Vehicle::label)",
+        ]
+    );
+    assert_eq!(result.files.len(), 2);
+    assert_eq!((result.files[0].values, result.files[0].elements), (3, 2));
+    assert_eq!(
+        result.files[0].assignments[0].redefines,
+        "V::Vehicle::count"
+    );
+    assert!(!result.files[0].assignments[0].where_.is_empty());
+    assert!(result.content.contains("attribute :>> count = 7;"));
+    assert!(result.content.contains("attribute :>> label = \"slow\";"));
+    assert!(!result.model_hash.is_empty() && result.model_hash != model.hash());
+    assert_eq!(result.documents.len(), 1);
+
+    let dry = model
+        .import_data(
+            &[opensysml::DataImport {
+                name: "fleet.tsv".to_owned(),
+                content: "element\tcount\nV::vehicle\t7\n".to_owned(),
+                format: None,
+                map: None,
+            }],
+            &opensysml::DataImportOptions {
+                dry_run: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(dry.files.len(), 1);
+    assert_eq!(dry.files[0].assignments.len(), 1);
+    assert!(dry.model_hash.is_empty() && dry.content.is_empty() && dry.documents.is_empty());
+
+    let refused = model.import_data(
+        &[opensysml::DataImport {
+            name: "fleet.csv".to_owned(),
+            content: "element,count\nV::car,9\nV::Nowhere,1\n".to_owned(),
+            format: None,
+            map: None,
+        }],
+        &opensysml::DataImportOptions::default(),
+    );
+    assert!(
+        matches!(&refused, Err(opensysml::Error::Execution { message, .. }) if message.contains("V::Nowhere")),
+        "{refused:?}"
+    );
+    let empty = model.import_data(&[], &opensysml::DataImportOptions::default());
+    assert!(
+        matches!(
+            empty,
+            Err(opensysml::Error::Service {
+                status: opensysml::Status::InvalidArgument,
+                ..
+            })
+        ),
+        "{empty:?}"
+    );
+}
+
+#[test]
+fn compare_results_tables_the_tool_beside_the_runs() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(&connection, PROBE_MODEL);
+    let comparison = model
+        .compare_results(
+            PROBE_RESULTS,
+            &opensysml::CompareOptions {
+                seed: Some(7),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(comparison.source, "probe.xmi");
+    assert!(!comparison.holds());
+    assert_eq!(comparison.configurations.len(), 2);
+    let group = &comparison.configurations[0];
+    assert_eq!(group.name, "Cfg::'Group 1'");
+    assert_eq!(group.status, "holds");
+    assert_eq!((group.runs, group.completed, group.stored_runs), (2, 2, 2));
+    assert_eq!(group.seed, Some(7));
+    assert_eq!(group.rows.len(), 2);
+    assert_eq!(group.observables.len(), 1);
+    let total = &group.observables[0];
+    assert_eq!(
+        (total.stored.as_str(), total.feature.as_str()),
+        ("total", "target.total")
+    );
+    assert!(total.compared);
+    let tool = total.tool.as_ref().unwrap();
+    let run = total.run.as_ref().unwrap();
+    assert_eq!((tool.count, tool.mean, run.mean), (2, 5.0, 4.0));
+    assert_eq!(total.difference.as_ref().unwrap().mean, "-20.0%");
+    assert!(!group.lines.is_empty());
+    let nothing = &comparison.configurations[1];
+    assert_eq!(nothing.status, "unresolved");
+    assert!(!nothing.unresolved.is_empty());
+
+    let selected = model
+        .compare_results(
+            PROBE_RESULTS,
+            &opensysml::CompareOptions {
+                actions: vec!["Group 1".to_owned()],
+                runs: 1,
+                seed: Some(3),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(selected.configurations.len(), 1);
+    assert_eq!(selected.configurations[0].runs, 1);
+    assert!(selected.holds());
+
+    let negative = model.compare_results(
+        PROBE_RESULTS,
+        &opensysml::CompareOptions {
+            runs: -1,
+            ..Default::default()
+        },
+    );
+    assert!(
+        matches!(
+            negative,
+            Err(opensysml::Error::Service {
+                status: opensysml::Status::InvalidArgument,
+                ..
+            })
+        ),
+        "{negative:?}"
+    );
+    let malformed = model.compare_results("not json", &opensysml::CompareOptions::default());
+    assert!(
+        matches!(
+            malformed,
+            Err(opensysml::Error::Service {
+                status: opensysml::Status::InvalidArgument,
+                ..
+            })
+        ),
+        "{malformed:?}"
+    );
+}
+
 #[test]
 fn a_checked_behavior_witnesses_its_violation_and_divergence() {
     let Some(connection) = service_or_skip() else {

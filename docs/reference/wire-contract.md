@@ -2309,6 +2309,42 @@ and `failure_reason`. A case or subject the model lacks, and a record that would
 with new errors, are answered in band through `error` with the model unchanged. The service
 advertises this method as the `record_run` capability.
 
+## `ImportData`
+
+`ImportData` sets the feature values tabular or JSON data assigns: what `sysml -import` does, as
+data. `ImportDataRequest` carries `model_hash`, `imports` (repeated `DataImport`: `name`,
+`content`, `import_format` — `csv`, `tsv`, `json` or `jsonl`, the name's extension when empty —
+and `import_map`, the mapping file's content), `import_as` (`values` when empty), `import_dry_run`
+and `accept_documents`. `ImportDataResponse` carries `files` (one `ImportedFile` per import, in
+order: `name`, the int64 `values` and `elements`, and `assignments` of `ImportedValue`: `element`,
+`feature`, `value`, `redefines`, `where`, `description`), `documents` (`EditedDocument`),
+`content` (a one-document model's edited text), `model_hash` (the imported model the service now
+holds; unset on a dry run), `diagnostics` and `error`. A request with no `imports` is
+`INVALID_ARGUMENT`; an import the model refuses is answered in band through `error` with `files`,
+`content` and `model_hash` unset and the model unchanged. The service advertises this method as
+the `import_data` capability, and one without it refuses the call with `UNIMPLEMENTED`.
+
+## `CompareResults`
+
+`CompareResults` runs the configurations a SysML v1 tool's results index names and tables the
+tool's distributions beside the runs': what `sysml -compare-results` prints, as data.
+`CompareResultsRequest` carries `model_hash`, `results` (the index JSON `-migration-results`
+writes), `actions` (repeated names or ids; all when empty), `runs` (int64; 0 for as many as the
+tool stored), `seed` (optional uint64), `draws`, `clock_step` (optional double seconds), `observe`
+(repeated `ObservablePair`: `stored`, `feature`) and `engine`. `CompareResultsResponse` carries
+`configurations` (`ConfigurationComparison`: `id`, `name`, `behavior`, `target`,
+`result_location`, `status`, `unresolved`, `stored_runs`, `stored_snapshots`, `runs`,
+`completed`, `draws`, `seed`, `clock_step`, `rows` of `SweepRow`, `instances`, `observables`,
+`errors`, `notes`, `lines`), `source`, `error`, `diagnostics`, `failure_reason`, `engine`,
+`strength` and `bounds`. Each `ObservableComparison` carries `stored`, `feature`, `unit`, the
+tool's `ComparedDistribution` (`count`, `min`, `mean`, `p50`, `p90`, `max`, `deviation`) with
+`pooled` and `unstored`, the runs' `run` distribution with `produced`, `compared`, the
+`StatisticDifference` (`min`, `mean`, `p50`, `p90`, `max`, each a signed percentage as text),
+the case's `declared` statistics (`CaseStatistics`: `analysis`, `rows` of `CaseStatistic`, `notes`)
+and `notes`. A malformed index, a negative `runs` and an unknown `draws` are `INVALID_ARGUMENT`;
+a configuration that cannot run is answered as `unresolved` within the list. The service
+advertises this method as the `compare_results` capability.
+
 
 ## `CheckBehavior`
 

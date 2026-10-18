@@ -74,6 +74,19 @@ import org.openmbee.opensysml.proto.RunAnalysisResponse;
 import org.openmbee.opensysml.proto.RunDocumentQueryResponse;
 import org.openmbee.opensysml.proto.RecordRunResponse;
 import org.openmbee.opensysml.proto.RunRunsResponse;
+import org.openmbee.opensysml.CaseStatistic;
+import org.openmbee.opensysml.CaseStatistics;
+import org.openmbee.opensysml.ComparedDistribution;
+import org.openmbee.opensysml.Comparison;
+import org.openmbee.opensysml.ConfigurationComparison;
+import org.openmbee.opensysml.ImportResult;
+import org.openmbee.opensysml.ImportedFile;
+import org.openmbee.opensysml.ImportedValue;
+import org.openmbee.opensysml.ObservableComparison;
+import org.openmbee.opensysml.StatisticDifference;
+import org.openmbee.opensysml.proto.CompareResultsResponse;
+import org.openmbee.opensysml.proto.ImportDataResponse;
+import java.util.OptionalLong;
 import org.openmbee.opensysml.proto.RunSweepResponse;
 import org.openmbee.opensysml.proto.SelfCheckResponse;
 import org.openmbee.opensysml.proto.Span;
@@ -1754,14 +1767,14 @@ public final class Protos {
   }
 
   /**
-   * What a sweep ran.
+   * Rows of a sweep or of repeated runs, with their values made readable.
    *
-   * @param response the generated answer
-   * @return the immutable table
+   * @param rows the generated rows
+   * @return immutable rows, in order
    */
-  private static List<SweepRow> sweepRows(List<org.openmbee.opensysml.proto.SweepRow> wire) {
-    List<SweepRow> rows = new ArrayList<>(wire.size());
-    for (org.openmbee.opensysml.proto.SweepRow row : wire) {
+  public static List<SweepRow> sweepRows(List<org.openmbee.opensysml.proto.SweepRow> rows) {
+    List<SweepRow> converted = new ArrayList<>(rows.size());
+    for (org.openmbee.opensysml.proto.SweepRow row : rows) {
       List<CaseEvaluation> evaluations = new ArrayList<>(row.getEvaluationsCount());
       for (org.openmbee.opensysml.proto.CaseEvaluation evaluation : row.getEvaluationsList()) {
         List<Value> arguments = new ArrayList<>(evaluation.getArgumentsCount());
@@ -1779,7 +1792,7 @@ public final class Protos {
                 evaluation.getSelected(),
                 evaluation.getTied()));
       }
-      rows.add(
+      converted.add(
           new SweepRow(
               outputs(row.getInputsList()),
               outputs(row.getOutputsList()),
@@ -1789,9 +1802,150 @@ public final class Protos {
               row.getError(),
               failureReason(row.getFailureReason())));
     }
-    return rows;
+    return List.copyOf(converted);
   }
 
+  /**
+   * What an import set, with the edited model.
+   *
+   * @param response the generated response
+   * @return the import result
+   */
+  public static ImportResult importResult(ImportDataResponse response) {
+    List<ImportedFile> files = new ArrayList<>(response.getFilesCount());
+    for (org.openmbee.opensysml.proto.ImportedFile file : response.getFilesList()) {
+      List<ImportedValue> assignments = new ArrayList<>(file.getAssignmentsCount());
+      for (org.openmbee.opensysml.proto.ImportedValue value : file.getAssignmentsList()) {
+        assignments.add(
+            new ImportedValue(
+                value.getElement(),
+                value.getFeature(),
+                value.getValue(),
+                value.getRedefines(),
+                value.getWhere(),
+                value.getDescription()));
+      }
+      files.add(new ImportedFile(file.getName(), file.getValues(), file.getElements(), assignments));
+    }
+    List<EditedDocument> documents = new ArrayList<>(response.getDocumentsCount());
+    for (org.openmbee.opensysml.proto.EditedDocument document : response.getDocumentsList()) {
+      documents.add(new EditedDocument(document.getName(), document.getContent()));
+    }
+    return new ImportResult(
+        files,
+        documents,
+        response.getContent(),
+        present(response.getModelHash()),
+        diagnostics(response.getDiagnosticsList()),
+        response);
+  }
+
+  /**
+   * A tool's results compared with runs, configuration by configuration.
+   *
+   * @param response the generated response
+   * @return the comparison
+   */
+  public static Comparison comparison(CompareResultsResponse response) {
+    List<ConfigurationComparison> configurations =
+        new ArrayList<>(response.getConfigurationsCount());
+    for (org.openmbee.opensysml.proto.ConfigurationComparison configuration :
+        response.getConfigurationsList()) {
+      List<ObservableComparison> observables =
+          new ArrayList<>(configuration.getObservablesCount());
+      for (org.openmbee.opensysml.proto.ObservableComparison observable :
+          configuration.getObservablesList()) {
+        observables.add(
+            new ObservableComparison(
+                observable.getStored(),
+                observable.getFeature(),
+                observable.getUnit(),
+                observable.hasTool()
+                    ? Optional.of(distribution(observable.getTool()))
+                    : Optional.empty(),
+                observable.getPooled(),
+                observable.getUnstored(),
+                observable.hasRun()
+                    ? Optional.of(distribution(observable.getRun()))
+                    : Optional.empty(),
+                observable.getProduced(),
+                observable.getCompared(),
+                observable.hasDifference()
+                    ? Optional.of(
+                        new StatisticDifference(
+                            observable.getDifference().getMin(),
+                            observable.getDifference().getMean(),
+                            observable.getDifference().getP50(),
+                            observable.getDifference().getP90(),
+                            observable.getDifference().getMax()))
+                    : Optional.empty(),
+                observable.hasDeclared()
+                    ? Optional.of(caseStatistics(observable.getDeclared()))
+                    : Optional.empty(),
+                observable.getNotesList()));
+      }
+      configurations.add(
+          new ConfigurationComparison(
+              configuration.getId(),
+              configuration.getName(),
+              configuration.getBehavior(),
+              configuration.getTarget(),
+              configuration.getResultLocation(),
+              configuration.getStatus(),
+              configuration.getUnresolved(),
+              configuration.getStoredRuns(),
+              configuration.getStoredSnapshots(),
+              configuration.getRuns(),
+              configuration.getCompleted(),
+              configuration.getDraws(),
+              configuration.hasSeed()
+                  ? OptionalLong.of(configuration.getSeed())
+                  : OptionalLong.empty(),
+              configuration.getClockStep(),
+              sweepRows(configuration.getRowsList()),
+              instances(configuration.getInstancesList()),
+              observables,
+              configuration.getErrorsList(),
+              configuration.getNotesList(),
+              configuration.getLinesList()));
+    }
+    return new Comparison(
+        response.getSource(),
+        configurations,
+        standing(response.getEngine(), response.getStrength(), response.getBoundsList()),
+        diagnostics(response.getDiagnosticsList()),
+        response);
+  }
+
+  private static ComparedDistribution distribution(
+      org.openmbee.opensysml.proto.ComparedDistribution distribution) {
+    return new ComparedDistribution(
+        distribution.getCount(),
+        distribution.getMin(),
+        distribution.getMean(),
+        distribution.getP50(),
+        distribution.getP90(),
+        distribution.getMax(),
+        distribution.getDeviation());
+  }
+
+  private static CaseStatistics caseStatistics(
+      org.openmbee.opensysml.proto.CaseStatistics declared) {
+    List<CaseStatistic> rows = new ArrayList<>(declared.getRowsCount());
+    for (org.openmbee.opensysml.proto.CaseStatistic row : declared.getRowsList()) {
+      rows.add(
+          new CaseStatistic(
+              row.getStatistic(), row.getOf(), row.getTool(), row.getRun(), row.getDifference()));
+    }
+    return new CaseStatistics(declared.getAnalysis(), rows, declared.getNotesList());
+  }
+
+  /**
+   * What a sweep ran.
+   *
+   * @param response the generated answer
+   * @return the immutable table
+   */
   public static Sweep sweep(RunSweepResponse response) {
     List<SweepRow> rows = sweepRows(response.getRowsList());
     return new Sweep(

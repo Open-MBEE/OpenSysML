@@ -53,6 +53,8 @@ func Register(s *mcp.Server, svc *sysmlgrpc.Service, root string) {
 	g.registerCheck(s)
 	g.registerQueries(s)
 	g.registerConversion(s)
+	g.registerImportData(s)
+	g.registerCompareResults(s)
 }
 
 // Source is one document given inline.

@@ -115,6 +115,7 @@ var packageLayer = map[string]string{
 
 	"internal/workspace/model":       "workspace",
 	"internal/workspace/selfcheck":   "workspace",
+	"internal/workspace/dataimport":  "workspace",
 	"internal/workspace/modelrt":     "workspace",
 	"internal/workspace/modeldoc":    "workspace",
 	"internal/semantic/highlight":    "semantic",
