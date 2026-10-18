@@ -1,0 +1,28 @@
+{
+  "type": "instance",
+  "instantiate": "test::P1",
+  "libraries": true,
+  "slots": {
+    "x": {"type": "Integer", "value": 1},
+    "self": {"type": "Instance"},
+    "this": {"type": "Instance"},
+    "portionOfLife": {"type": "Instance"},
+    "clockIsUniversal": {"type": "Boolean", "value": true},
+    "timeSlices": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "portions": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "snapshots": {"type": "Undetermined", "value": "[1..*]"},
+    "predecessors": {"type": "Sequence", "elements": []},
+    "successors": {"type": "Sequence", "elements": []},
+    "incomingTransfers": {"type": "Sequence", "elements": []},
+    "predecessorCount": {"type": "Integer", "value": 0},
+    "predecessorsSize": {"type": "Integer", "value": 0},
+    "ownPortionCount": {"type": "Integer", "value": 1},
+    "superoccurrence": {"type": "Null"},
+    "pa.superoccurrence": {"type": "Instance"},
+    "pt.superoccurrence": {"type": "Null"},
+    "pa.self": {"type": "Instance"},
+    "ownedParts": {"error": "P1 has no member ownedParts"},
+    "startShot": {"error": "P1 has no member startShot: Parts::Part::start redefines it"},
+    "pa.ownedParts": {"error": "pa has no member ownedParts"}
+  }
+}

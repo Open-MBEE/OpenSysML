@@ -219,7 +219,13 @@ func IsShapeFeature(sym *symbols.Symbol) bool {
 		symbols.SymbolInterfaceUsage, symbols.SymbolFlowUsage, symbols.SymbolBindingUsage,
 		// An allocation usage is a connection usage of the allocation library
 		// (SysML v2 §8.3.19), so an object carries it as a feature.
-		symbols.SymbolAllocationUsage:
+		symbols.SymbolAllocationUsage,
+		// Cases, views and their concerns are occurrence usages of their owner
+		// (SysML v2 §7.21–7.26), an enumeration usage an attribute; an analysis or
+		// verification usage stays a calc the chain runs.
+		symbols.SymbolCaseUsage, symbols.SymbolUseCaseUsage, symbols.SymbolSatisfyRequirementUsage,
+		symbols.SymbolViewUsage, symbols.SymbolViewpointUsage, symbols.SymbolConcernUsage,
+		symbols.SymbolRenderingUsage, symbols.SymbolEnumerationUsage:
 		return true
 	default:
 		return false
