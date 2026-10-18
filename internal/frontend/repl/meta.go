@@ -2078,14 +2078,12 @@ func (s *Session) evalCalcIn(x execution, ctx *runtime.Context, sym *symbols.Sym
 	// Arguments are evaluated where the prompt evaluates any expression, so a
 	// quantity argument names the units the session's imports bring in.
 	scope := s.promptScope()
-	argValues := make([]runtime.Value, len(exprs))
+	argValues, _, err := evalArgumentList(ctx, scope, exprs, nil)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	argTexts := make([]string, len(exprs))
 	for i, arg := range exprs {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		argValues[i] = val
 		argTexts[i] = arg.text
 	}
 
@@ -3468,15 +3466,8 @@ func (s *Session) invokeOperation(name, operation, args string) ([]string, error
 		return nil, rerr
 	}
 	var bound runtime.OperationArguments
-	if bound.Named, err = s.evalArguments(ctx, parsed.named); err != nil {
+	if bound.Positional, bound.Named, err = evalArgumentList(ctx, s.promptScope(), parsed.positional, parsed.named); err != nil {
 		return nil, err
-	}
-	for i, arg := range parsed.positional {
-		value, err := ctx.EvalWithScope(arg.expr, s.promptScope())
-		if err != nil {
-			return nil, fmt.Errorf("argument %d (%s): %w", i+1, arg.text, err)
-		}
-		bound.Positional = append(bound.Positional, value)
 	}
 	results, err := ctx.InvokeOperationWith(inst, operation, bound)
 	if err != nil {
@@ -3587,18 +3578,44 @@ func (s *Session) evalArguments(ctx *runtime.Context, parsed []argument) (map[st
 
 // evalArgumentsIn evaluates parsed arguments in ctx under scope, binding each to its parameter.
 func evalArgumentsIn(ctx *runtime.Context, scope *symbols.Scope, parsed []argument) (map[string]runtime.Value, error) {
-	if len(parsed) == 0 {
-		return nil, nil
+	_, named, err := evalArgumentList(ctx, scope, nil, parsed)
+	return named, err
+}
+
+// evalArgumentList evaluates an invocation's whole argument list — positional
+// arguments in order, then named ones — in one run, so a seeded draw in one
+// argument continues the stream of the draw before it and a seed reproduces
+// the whole invocation. Every argument surface binds its arguments through it.
+func evalArgumentList(ctx *runtime.Context, scope *symbols.Scope, positional []argExpr, named []argument) ([]runtime.Value, map[string]runtime.Value, error) {
+	if len(positional) == 0 && len(named) == 0 {
+		return nil, nil, nil
 	}
-	bound := make(map[string]runtime.Value, len(parsed))
-	for _, arg := range parsed {
-		value, err := ctx.EvalWithScope(arg.node, scope)
-		if err != nil {
-			return nil, fmt.Errorf("argument %s: %w", arg.param, err)
+	nodes := make([]ast.Node, 0, len(positional)+len(named))
+	for _, arg := range positional {
+		nodes = append(nodes, arg.expr)
+	}
+	for _, arg := range named {
+		nodes = append(nodes, arg.node)
+	}
+	values, err := ctx.EvalArguments(scope, nodes)
+	if err != nil {
+		var failed *runtime.ArgumentError
+		if !errors.As(err, &failed) {
+			return nil, nil, err
 		}
-		bound[arg.param] = value
+		if failed.Index < len(positional) {
+			return nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", positional[failed.Index].text, failed.Err)
+		}
+		return nil, nil, fmt.Errorf("argument %s: %w", named[failed.Index-len(positional)].param, failed.Err)
 	}
-	return bound, nil
+	var bound map[string]runtime.Value
+	if len(named) > 0 {
+		bound = make(map[string]runtime.Value, len(named))
+		for i, arg := range named {
+			bound[arg.param] = values[len(positional)+i]
+		}
+	}
+	return values[:len(positional):len(positional)], bound, nil
 }
 
 // doEvents displays the event queue.

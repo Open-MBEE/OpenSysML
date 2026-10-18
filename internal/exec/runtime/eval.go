@@ -497,6 +497,36 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 	return newEvalContext(ctx, sym.OwnerScope).declaredValue(sym, value)
 }
 
+// ArgumentError reports the argument of an argument list, by position, whose
+// evaluation failed.
+type ArgumentError struct {
+	Index int
+	Err   error
+}
+
+func (e *ArgumentError) Error() string { return fmt.Sprintf("argument %d: %v", e.Index+1, e.Err) }
+
+// Unwrap returns the evaluation error itself.
+func (e *ArgumentError) Unwrap() error { return e.Err }
+
+// EvalArguments evaluates one invocation's whole argument list in one run, as
+// one evaluation of the list in one evaluation context: a seeded draw in a later
+// argument continues the stream an earlier one drew from, instead of each
+// argument restarting it. The i-th value is the i-th argument's.
+func (ctx *Context) EvalArguments(scope *symbols.Scope, args []ast.Node) ([]Value, error) {
+	defer ctx.beginRun()()
+
+	values := make([]Value, len(args))
+	for i, arg := range args {
+		value, err := newEvalContext(ctx, scope).Eval(arg)
+		if err != nil {
+			return nil, &ArgumentError{Index: i, Err: err}
+		}
+		values[i] = value
+	}
+	return values, nil
+}
+
 // EvalWithScopeOn evaluates an expression against a concrete instance, so a
 // feature it names reads that object's feature value. It brackets one run, as
 // EvalWithScope does, which is what bounds the evaluation by the step budget.

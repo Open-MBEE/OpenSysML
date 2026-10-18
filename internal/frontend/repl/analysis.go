@@ -269,15 +269,7 @@ func (s *Session) runAnalysisIn(x execution, ctx *runtime.Context, inv analysisI
 		return caseRun{}, err
 	}
 	var args runtime.AnalysisArgs
-	scope := s.promptScope()
-	for _, arg := range parsed.positional {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return caseRun{}, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		args.Positional = append(args.Positional, val)
-	}
-	if args.Named, err = s.evalArguments(ctx, parsed.named); err != nil {
+	if args.Positional, args.Named, err = evalArgumentList(ctx, s.promptScope(), parsed.positional, parsed.named); err != nil {
 		return caseRun{}, err
 	}
 
