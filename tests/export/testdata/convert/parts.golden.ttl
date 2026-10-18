@@ -139,6 +139,7 @@ elmt:Vehicles__Vehicle__engine_om
 
 expr:Vehicles__Vehicle__engine_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Vehicles__Vehicle__engine_pmultiplicity" ;
     sysml:owner elmt:Vehicles__Vehicle__engine ;
     sysml:owningRelationship expr:Vehicles__Vehicle__engine_pmultiplicity_om ;
@@ -161,6 +162,7 @@ expr:Vehicles__Vehicle__engine_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Vehicles__Vehicle__engine_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner expr:Vehicles__Vehicle__engine_pmultiplicity ;
     sysml:owningRelationship expr:Vehicles__Vehicle__engine_pupperBound_om ;

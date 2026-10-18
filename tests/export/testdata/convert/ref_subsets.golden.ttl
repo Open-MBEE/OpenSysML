@@ -303,6 +303,7 @@ elmt:ReferenceSubsets__design__fleet_om
 
 expr:ReferenceSubsets__design__fleet_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ReferenceSubsets__design__fleet_pmultiplicity" ;
     sysml:owner elmt:ReferenceSubsets__design__fleet ;
     sysml:owningRelationship expr:ReferenceSubsets__design__fleet_pmultiplicity_om ;
@@ -328,6 +329,7 @@ expr:ReferenceSubsets__design__fleet_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "ReferenceSubsets__design__fleet_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "0"^^xsd:integer ;
     sysml:owner expr:ReferenceSubsets__design__fleet_pmultiplicity ;
     sysml:owningRelationship expr:ReferenceSubsets__design__fleet_plowerBound_om ;
@@ -347,6 +349,7 @@ expr:ReferenceSubsets__design__fleet_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "ReferenceSubsets__design__fleet_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:owner expr:ReferenceSubsets__design__fleet_pmultiplicity ;
     sysml:owningRelationship expr:ReferenceSubsets__design__fleet_pupperBound_om ;
     sysml:owningMembership expr:ReferenceSubsets__design__fleet_pupperBound_om .
@@ -407,6 +410,7 @@ elmt:ReferenceSubsets__design__presidentOfCountry_om
 
 expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ReferenceSubsets__design__presidentOfCountry_pmultiplicity" ;
     sysml:owner elmt:ReferenceSubsets__design__presidentOfCountry ;
     sysml:owningRelationship expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity_om ;
@@ -432,6 +436,7 @@ expr:ReferenceSubsets__design__presidentOfCountry_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "ReferenceSubsets__design__presidentOfCountry_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "0"^^xsd:integer ;
     sysml:owner expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
     sysml:owningRelationship expr:ReferenceSubsets__design__presidentOfCountry_plowerBound_om ;
@@ -451,6 +456,7 @@ expr:ReferenceSubsets__design__presidentOfCountry_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "ReferenceSubsets__design__presidentOfCountry_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
     sysml:owningRelationship expr:ReferenceSubsets__design__presidentOfCountry_pupperBound_om ;

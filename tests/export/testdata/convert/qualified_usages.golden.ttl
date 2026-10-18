@@ -731,6 +731,7 @@ elmt:Q__ctx___403_om
 
 <urn:opensysml:expr:Q__ctx___403_pchain0>
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Q__ctx___403_pchain0" ;
     sysml:ownedFeatureChaining <urn:opensysml:expr:Q__ctx___403_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx___403_pchain0_pfc1> ;
     sysml:ownedRelationship <urn:opensysml:expr:Q__ctx___403_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx___403_pchain0_pfc1> ;
@@ -877,6 +878,7 @@ elmt:Q__ctx___406_om
 
 <urn:opensysml:expr:Q__ctx___406_pchain0>
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Q__ctx___406_pchain0" ;
     sysml:ownedFeatureChaining <urn:opensysml:expr:Q__ctx___406_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx___406_pchain0_pfc1> ;
     sysml:ownedRelationship <urn:opensysml:expr:Q__ctx___406_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx___406_pchain0_pfc1> ;

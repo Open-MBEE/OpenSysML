@@ -270,6 +270,7 @@ expr:P__h__r_pvalue
     a sysml:FeatureChainExpression ;
     sysx:sourceText "n.next.next" ;
     sysml:elementId "P__h__r_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:P__h__r_pvalue_pa0 ;
     sysml:ownedRelationship expr:P__h__r_pvalue_pin0_om, expr:P__h__r_pvalue_pout_om, expr:P__h__r_pvalue_ptargetFeature ;
     sysml:ownedMembership expr:P__h__r_pvalue_pin0_om, expr:P__h__r_pvalue_pout_om ;
@@ -292,6 +293,7 @@ expr:P__h__r_pvalue_pa0
     a sysml:FeatureChainExpression ;
     sysx:sourceText "n.next" ;
     sysml:elementId "P__h__r_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:P__h__r_pvalue_pa0_pa0 ;
     sysml:ownedRelationship expr:P__h__r_pvalue_pa0_pin0_om, expr:P__h__r_pvalue_pa0_pout_om, expr:P__h__r_pvalue_pa0_ptargetFeature ;
     sysml:ownedMembership expr:P__h__r_pvalue_pa0_pin0_om, expr:P__h__r_pvalue_pa0_pout_om ;
@@ -314,6 +316,7 @@ expr:P__h__r_pvalue_pa0_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "n" ;
     sysml:elementId "P__h__r_pvalue_pa0_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:P__n ;
     sysml:ownedRelationship expr:P__h__r_pvalue_pa0_pa0_pout_om, expr:P__h__r_pvalue_pa0_pa0_preferent ;
     sysml:ownedMembership expr:P__h__r_pvalue_pa0_pa0_pout_om ;
@@ -328,6 +331,7 @@ expr:P__h__r_pvalue_pa0_pa0
 
 expr:P__h__r_pvalue_pa0_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__h__r_pvalue_pa0_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:P__h__r_pvalue_pa0_pa0 ;
@@ -348,6 +352,7 @@ expr:P__h__r_pvalue_pa0_pa0_pout_om
 
 expr:P__h__r_pvalue_pa0_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__h__r_pvalue_pa0_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:P__h__r_pvalue_pa0 ;
@@ -382,6 +387,7 @@ expr:P__h__r_pvalue_pa0_pa0_om
 
 expr:P__h__r_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__h__r_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:P__h__r_pvalue_pa0 ;
@@ -402,6 +408,7 @@ expr:P__h__r_pvalue_pa0_pout_om
 
 expr:P__h__r_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__h__r_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:P__h__r_pvalue ;
@@ -436,6 +443,7 @@ expr:P__h__r_pvalue_pa0_om
 
 expr:P__h__r_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__h__r_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:P__h__r_pvalue ;
@@ -512,6 +520,7 @@ elmt:P__c_om
 
 expr:P__c_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__c_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:P__c ;
@@ -535,6 +544,7 @@ expr:P__c_pend0_om
 
 expr:P__c_pend0_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__c_pend0_pchain" ;
     sysml:ownedFeatureChaining expr:P__c_pend0_pchain_pfc0, expr:P__c_pend0_pchain_pfc1, expr:P__c_pend0_pchain_pfc2 ;
     sysml:ownedRelationship expr:P__c_pend0_pchain_pfc0, expr:P__c_pend0_pchain_pfc1, expr:P__c_pend0_pchain_pfc2 ;
@@ -602,6 +612,7 @@ expr:P__c_pend0_prs
 
 expr:P__c_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__c_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:P__c ;
@@ -625,6 +636,7 @@ expr:P__c_pend1_om
 
 expr:P__c_pend1_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "P__c_pend1_pchain" ;
     sysml:ownedFeatureChaining expr:P__c_pend1_pchain_pfc0, expr:P__c_pend1_pchain_pfc1 ;
     sysml:ownedRelationship expr:P__c_pend1_pchain_pfc0, expr:P__c_pend1_pchain_pfc1 ;

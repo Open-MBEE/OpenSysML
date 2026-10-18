@@ -359,6 +359,7 @@ elmt:ActionNodes__Drive__brake_om
 
 elmt:ActionNodes__Drive__split
     a sysml:ForkNode ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ActionNodes::Drive::split" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -387,6 +388,7 @@ elmt:ActionNodes__Drive__split_om
 
 elmt:ActionNodes__Drive__sync
     a sysml:JoinNode ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ActionNodes::Drive::sync" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -415,6 +417,7 @@ elmt:ActionNodes__Drive__sync_om
 
 elmt:ActionNodes__Drive__gather
     a sysml:MergeNode ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ActionNodes::Drive::gather" ;
     sysx:sourceLine "14"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -443,6 +446,7 @@ elmt:ActionNodes__Drive__gather_om
 
 elmt:ActionNodes__Drive__pick
     a sysml:DecisionNode ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ActionNodes::Drive::pick" ;
     sysx:sourceLine "15"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -536,6 +540,7 @@ elmt:ActionNodes__Drive__Brake_om
 
 elmt:ActionNodes__Drive___4012
     a sysml:AssignmentActionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ActionNodes::Drive::@12" ;
     sysx:sourceLine "18"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -572,6 +577,7 @@ expr:ActionNodes__Drive___4012_ptarget
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "log" ;
     sysml:elementId "ActionNodes__Drive___4012_ptarget" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ActionNodes__Drive__log ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4012_ptarget_pout_om, expr:ActionNodes__Drive___4012_ptarget_preferent ;
     sysml:ownedMembership expr:ActionNodes__Drive___4012_ptarget_pout_om ;
@@ -586,6 +592,7 @@ expr:ActionNodes__Drive___4012_ptarget
 
 expr:ActionNodes__Drive___4012_ptarget_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4012_ptarget_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ActionNodes__Drive___4012_ptarget ;
@@ -618,6 +625,7 @@ expr:ActionNodes__Drive___4012_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "speed" ;
     sysml:elementId "ActionNodes__Drive___4012_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ActionNodes__Drive__speed ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4012_pvalue_pout_om, expr:ActionNodes__Drive___4012_pvalue_preferent ;
     sysml:ownedMembership expr:ActionNodes__Drive___4012_pvalue_pout_om ;
@@ -632,6 +640,7 @@ expr:ActionNodes__Drive___4012_pvalue
 
 expr:ActionNodes__Drive___4012_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4012_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ActionNodes__Drive___4012_pvalue ;
@@ -664,6 +673,7 @@ expr:ActionNodes__Drive___4012_pvalue_om
 
 elmt:ActionNodes__Drive___4013
     a sysml:SendActionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ActionNodes::Drive::@13" ;
     sysx:sourceLine "19"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -699,6 +709,7 @@ expr:ActionNodes__Drive___4013_ppayload
     a sysml:ConstructorExpression ;
     sysx:sourceText "new Command()" ;
     sysml:elementId "ActionNodes__Drive___4013_ppayload" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:function elmt:ActionNodes__Command ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4013_ppayload_pfunction, expr:ActionNodes__Drive___4013_ppayload_pout_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4013_ppayload_pout_om ;
@@ -720,6 +731,7 @@ expr:ActionNodes__Drive___4013_ppayload_pfunction
 
 expr:ActionNodes__Drive___4013_ppayload_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4013_ppayload_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ActionNodes__Drive___4013_ppayload ;
@@ -752,6 +764,7 @@ expr:ActionNodes__Drive___4013_preceiver
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "antenna" ;
     sysml:elementId "ActionNodes__Drive___4013_preceiver" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ActionNodes__Drive__antenna ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4013_preceiver_pout_om, expr:ActionNodes__Drive___4013_preceiver_preferent ;
     sysml:ownedMembership expr:ActionNodes__Drive___4013_preceiver_pout_om ;
@@ -766,6 +779,7 @@ expr:ActionNodes__Drive___4013_preceiver
 
 expr:ActionNodes__Drive___4013_preceiver_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4013_preceiver_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ActionNodes__Drive___4013_preceiver ;
@@ -796,6 +810,7 @@ expr:ActionNodes__Drive___4013_preceiver_om
 
 elmt:ActionNodes__Drive___4014
     a sysml:SendActionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ActionNodes::Drive::@14" ;
     sysx:sourceLine "20"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -832,6 +847,7 @@ expr:ActionNodes__Drive___4014_ppayload
     a sysml:ConstructorExpression ;
     sysx:sourceText "new Command()" ;
     sysml:elementId "ActionNodes__Drive___4014_ppayload" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:function elmt:ActionNodes__Command ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4014_ppayload_pfunction, expr:ActionNodes__Drive___4014_ppayload_pout_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4014_ppayload_pout_om ;
@@ -853,6 +869,7 @@ expr:ActionNodes__Drive___4014_ppayload_pfunction
 
 expr:ActionNodes__Drive___4014_ppayload_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4014_ppayload_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ActionNodes__Drive___4014_ppayload ;
@@ -885,6 +902,7 @@ expr:ActionNodes__Drive___4014_preceiver
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "antenna" ;
     sysml:elementId "ActionNodes__Drive___4014_preceiver" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ActionNodes__Drive__antenna ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4014_preceiver_pout_om, expr:ActionNodes__Drive___4014_preceiver_preferent ;
     sysml:ownedMembership expr:ActionNodes__Drive___4014_preceiver_pout_om ;
@@ -899,6 +917,7 @@ expr:ActionNodes__Drive___4014_preceiver
 
 expr:ActionNodes__Drive___4014_preceiver_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4014_preceiver_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ActionNodes__Drive___4014_preceiver ;
@@ -1004,6 +1023,7 @@ expr:ActionNodes__Drive___4015___400_pvalue
     a sysml:TriggerInvocationExpression ;
     sysx:sourceText "when speed > 0" ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:kind "when" ;
     sysml:argument expr:ActionNodes__Drive___4015___400_pvalue_pa0 ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4015___400_pvalue_pin0_om, expr:ActionNodes__Drive___4015___400_pvalue_pout_om ;
@@ -1026,6 +1046,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "speed > 0" ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_om, expr:ActionNodes__Drive___4015___400_pvalue_pa0_pout_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_om, expr:ActionNodes__Drive___4015___400_pvalue_pa0_pout_om ;
@@ -1045,6 +1066,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange
     a sysml:OperatorExpression ;
     sysx:sourceText "speed > 0" ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue_pa0_pchange" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:operator ">" ;
     sysml:argument expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0, expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa1 ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pin0_om, expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pin1_om, expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pout_om ;
@@ -1069,6 +1091,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "speed" ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ActionNodes__Drive__speed ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0_pout_om, expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0_preferent ;
     sysml:ownedMembership expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0_pout_om ;
@@ -1083,6 +1106,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0
 
 expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0 ;
@@ -1103,6 +1127,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa0_pout_om
 
 expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange ;
@@ -1139,6 +1164,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "0"^^xsd:integer ;
     sysml:owner expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pin1 ;
     sysml:owningRelationship expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa1_om ;
@@ -1146,6 +1172,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa1
 
 expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pin1" ;
     sysml:direction "in" ;
     sysml:owner expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange ;
@@ -1180,6 +1207,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pa1_om
 
 expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue_pa0_pchange_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange ;
@@ -1211,6 +1239,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_pa0_pchange_om
 
 expr:ActionNodes__Drive___4015___400_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ActionNodes__Drive___4015___400_pvalue_pa0 ;
@@ -1231,6 +1260,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_pa0_pout_om
 
 expr:ActionNodes__Drive___4015___400_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:ActionNodes__Drive___4015___400_pvalue ;
@@ -1265,6 +1295,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_pa0_om
 
 expr:ActionNodes__Drive___4015___400_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4015___400_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ActionNodes__Drive___4015___400_pvalue ;
@@ -1297,6 +1328,7 @@ expr:ActionNodes__Drive___4015___400_pvalue_om
 
 elmt:ActionNodes__Drive___4016
     a sysml:TerminateActionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ActionNodes::Drive::@16" ;
     sysx:sourceLine "22"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1324,6 +1356,7 @@ elmt:ActionNodes__Drive___4016_om
 
 elmt:ActionNodes__Drive___4017
     a sysml:TerminateActionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "ActionNodes::Drive::@17" ;
     sysx:sourceLine "23"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1356,6 +1389,7 @@ expr:ActionNodes__Drive___4017_pexpression
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "brake" ;
     sysml:elementId "ActionNodes__Drive___4017_pexpression" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:ActionNodes__Drive__brake ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4017_pexpression_pout_om, expr:ActionNodes__Drive___4017_pexpression_preferent ;
     sysml:ownedMembership expr:ActionNodes__Drive___4017_pexpression_pout_om ;
@@ -1370,6 +1404,7 @@ expr:ActionNodes__Drive___4017_pexpression
 
 expr:ActionNodes__Drive___4017_pexpression_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4017_pexpression_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:ActionNodes__Drive___4017_pexpression ;
@@ -1466,6 +1501,7 @@ elmt:ActionNodes__Drive___4019_om
 
 expr:ActionNodes__Drive___4019_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4019_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ActionNodes__Drive___4019 ;
@@ -1507,6 +1543,7 @@ expr:ActionNodes__Drive___4019_pend0_prs
 
 expr:ActionNodes__Drive___4019_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4019_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ActionNodes__Drive___4019 ;
@@ -1597,6 +1634,7 @@ elmt:ActionNodes__Drive___4020_om
 
 expr:ActionNodes__Drive___4020_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4020_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ActionNodes__Drive___4020 ;
@@ -1638,6 +1676,7 @@ expr:ActionNodes__Drive___4020_pend0_prs
 
 expr:ActionNodes__Drive___4020_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ActionNodes__Drive___4020_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ActionNodes__Drive___4020 ;

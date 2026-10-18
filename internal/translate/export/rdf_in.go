@@ -2234,6 +2234,13 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	variantFirst := keyword == "variant" && isVariant
 	compositeByDefault := usageCompositeByDefault(d.graph, d.metaclass, d.ownership, rdf.IRI(el.iri),
 		d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDirection), d.boolOf(el, rdf.SysML+"isEnd"))
+	// Usage::isReference is derived as not isComposite, so a usage stated
+	// non-composite where its kind is composite was written `ref`.
+	ref := (d.boolOf(el, rdf.SysML+"isReference") || !kerml && d.statedFalse(el, "isComposite") && compositeByDefault) && !variantReference
+	// A usage composite by its kind (SysML.xtext BasicUsagePrefix spells no
+	// `composite`) states the flag without a word, unless `ref` beside it
+	// would deny it; a feature writes the word back.
+	compositeWord := d.boolOf(el, rdf.SysML+"isComposite") && !isPortion && (!compositeByDefault || ref)
 	for _, flag := range []struct {
 		keyword string
 		set     bool
@@ -2246,9 +2253,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// `portion` is composite and stands in for `composite`
 		// (KerML.xtext BasicFeaturePrefix `isComposite ?= 'composite' | isPortion ?= 'portion'`).
 		{"portion", isPortion},
-		// A usage composite by its kind (SysML.xtext BasicUsagePrefix spells no
-		// `composite`) states the flag without a word; a feature writes the word back.
-		{"composite", d.boolOf(el, rdf.SysML+"isComposite") && !isPortion && !compositeByDefault},
+		{"composite", kerml && compositeWord},
 		{constantKeyword(kerml), d.boolOf(el, rdf.SysML+"isConstant")},
 		{"individual", d.boolOf(el, rdf.SysML+"isIndividual")},
 		{"snapshot", portion == "snapshot"},
@@ -2256,9 +2261,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		{"event", event},
 		{"end", d.boolOf(el, rdf.SysML+"isEnd")},
 		// A VariantReference is a reference usage by what it is.
-		// Usage::isReference is derived as not isComposite, so a usage stated
-		// non-composite where its kind is composite was written `ref`.
-		{"ref", (d.boolOf(el, rdf.SysML+"isReference") || !kerml && d.statedFalse(el, "isComposite") && compositeByDefault) && !variantReference},
+		{"ref", ref},
+		// SysML has no `composite` of its own; this grammar reads one closing the prefix, after `ref`.
+		{"composite", !kerml && compositeWord},
 	} {
 		// A keyword such as `snapshot` is both a modifier and a kind keyword;
 		// writing it here as well as below would declare it twice.

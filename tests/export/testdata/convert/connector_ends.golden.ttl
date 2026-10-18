@@ -470,6 +470,7 @@ elmt:ConnectorEnds__Vehicle___406_om
 
 expr:ConnectorEnds__Vehicle___406_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___406_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___406 ;
@@ -511,6 +512,7 @@ expr:ConnectorEnds__Vehicle___406_pend0_prs
 
 expr:ConnectorEnds__Vehicle___406_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___406_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___406 ;
@@ -534,6 +536,7 @@ expr:ConnectorEnds__Vehicle___406_pend1_om
 
 expr:ConnectorEnds__Vehicle___406_pend1_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___406_pend1_pchain" ;
     sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___406_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___406_pend1_pchain_pfc1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___406_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___406_pend1_pchain_pfc1 ;
@@ -635,6 +638,7 @@ elmt:ConnectorEnds__Vehicle___407_om
 
 expr:ConnectorEnds__Vehicle___407_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___407_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___407 ;
@@ -660,6 +664,7 @@ expr:ConnectorEnds__Vehicle___407_pend0_om
 
 expr:ConnectorEnds__Vehicle___407_pend0_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___407_pend0_pchain" ;
     sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___407_pend0_pchain_pfc0, expr:ConnectorEnds__Vehicle___407_pend0_pchain_pfc1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___407_pend0_pchain_pfc0, expr:ConnectorEnds__Vehicle___407_pend0_pchain_pfc1 ;
@@ -715,6 +720,7 @@ expr:ConnectorEnds__Vehicle___407_pend0_prs
 
 expr:ConnectorEnds__Vehicle___407_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___407_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___407 ;
@@ -802,6 +808,7 @@ elmt:ConnectorEnds__Vehicle___408_om
 
 expr:ConnectorEnds__Vehicle___408_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___408_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___408 ;
@@ -831,6 +838,7 @@ expr:ConnectorEnds__Vehicle___408_pend0_om
 
 expr:ConnectorEnds__Vehicle___408_pend0_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___408_pend0_pchain" ;
     sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___408_pend0_pchain_pfc0, expr:ConnectorEnds__Vehicle___408_pend0_pchain_pfc1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___408_pend0_pchain_pfc0, expr:ConnectorEnds__Vehicle___408_pend0_pchain_pfc1 ;
@@ -886,6 +894,7 @@ expr:ConnectorEnds__Vehicle___408_pend0_prs
 
 expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___408_pend0_pmultiplicity" ;
     sysml:owner expr:ConnectorEnds__Vehicle___408_pend0 ;
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om ;
@@ -908,6 +917,7 @@ expr:ConnectorEnds__Vehicle___408_pend0_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "ConnectorEnds__Vehicle___408_pend0_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___408_pend0_pupperBound_om ;
@@ -925,6 +935,7 @@ expr:ConnectorEnds__Vehicle___408_pend0_pupperBound_om
 
 expr:ConnectorEnds__Vehicle___408_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___408_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___408 ;
@@ -971,6 +982,7 @@ expr:ConnectorEnds__Vehicle___408_pend1_prs
 
 expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___408_pend1_pmultiplicity" ;
     sysml:owner expr:ConnectorEnds__Vehicle___408_pend1 ;
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity_om ;
@@ -996,6 +1008,7 @@ expr:ConnectorEnds__Vehicle___408_pend1_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "ConnectorEnds__Vehicle___408_pend1_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "0"^^xsd:integer ;
     sysml:owner expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___408_pend1_plowerBound_om ;
@@ -1015,6 +1028,7 @@ expr:ConnectorEnds__Vehicle___408_pend1_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "ConnectorEnds__Vehicle___408_pend1_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner expr:ConnectorEnds__Vehicle___408_pend1_pmultiplicity ;
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___408_pend1_pupperBound_om ;
@@ -1078,6 +1092,7 @@ elmt:ConnectorEnds__Vehicle___409_om
 
 expr:ConnectorEnds__Vehicle___409_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___409_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___409 ;
@@ -1122,6 +1137,7 @@ expr:ConnectorEnds__Vehicle___409_pend0_prs
 
 expr:ConnectorEnds__Vehicle___409_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___409_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___409 ;
@@ -1145,6 +1161,7 @@ expr:ConnectorEnds__Vehicle___409_pend1_om
 
 expr:ConnectorEnds__Vehicle___409_pend1_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___409_pend1_pchain" ;
     sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___409_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___409_pend1_pchain_pfc1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___409_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___409_pend1_pchain_pfc1 ;
@@ -1249,6 +1266,7 @@ elmt:ConnectorEnds__Vehicle___4010_om
 
 expr:ConnectorEnds__Vehicle___4010_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4010_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___4010 ;
@@ -1295,6 +1313,7 @@ expr:ConnectorEnds__Vehicle___4010_pend0_prs
 
 expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4010_pend0_pmultiplicity" ;
     sysml:owner expr:ConnectorEnds__Vehicle___4010_pend0 ;
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity_om ;
@@ -1320,6 +1339,7 @@ expr:ConnectorEnds__Vehicle___4010_pend0_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "ConnectorEnds__Vehicle___4010_pend0_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "0"^^xsd:integer ;
     sysml:owner expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___4010_pend0_plowerBound_om ;
@@ -1339,6 +1359,7 @@ expr:ConnectorEnds__Vehicle___4010_pend0_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "ConnectorEnds__Vehicle___4010_pend0_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner expr:ConnectorEnds__Vehicle___4010_pend0_pmultiplicity ;
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___4010_pend0_pupperBound_om ;
@@ -1356,6 +1377,7 @@ expr:ConnectorEnds__Vehicle___4010_pend0_pupperBound_om
 
 expr:ConnectorEnds__Vehicle___4010_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4010_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___4010 ;
@@ -1402,6 +1424,7 @@ expr:ConnectorEnds__Vehicle___4010_pend1_prs
 
 expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4010_pend1_pmultiplicity" ;
     sysml:owner expr:ConnectorEnds__Vehicle___4010_pend1 ;
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity_om ;
@@ -1427,6 +1450,7 @@ expr:ConnectorEnds__Vehicle___4010_pend1_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "ConnectorEnds__Vehicle___4010_pend1_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___4010_pend1_plowerBound_om ;
@@ -1446,6 +1470,7 @@ expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "ConnectorEnds__Vehicle___4010_pend1_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:owner expr:ConnectorEnds__Vehicle___4010_pend1_pmultiplicity ;
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound_om ;
     sysml:owningMembership expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound_om .
@@ -1510,6 +1535,7 @@ elmt:ConnectorEnds__Vehicle__link_om
 
 expr:ConnectorEnds__Vehicle__link_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle__link_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle__link ;
@@ -1551,6 +1577,7 @@ expr:ConnectorEnds__Vehicle__link_pend0_prs
 
 expr:ConnectorEnds__Vehicle__link_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle__link_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle__link ;
@@ -1574,6 +1601,7 @@ expr:ConnectorEnds__Vehicle__link_pend1_om
 
 expr:ConnectorEnds__Vehicle__link_pend1_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle__link_pend1_pchain" ;
     sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle__link_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle__link_pend1_pchain_pfc1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle__link_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle__link_pend1_pchain_pfc1 ;
@@ -1677,6 +1705,7 @@ elmt:ConnectorEnds__Vehicle___4012_om
 
 expr:ConnectorEnds__Vehicle___4012_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4012_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___4012 ;
@@ -1718,6 +1747,7 @@ expr:ConnectorEnds__Vehicle___4012_pend0_prs
 
 expr:ConnectorEnds__Vehicle___4012_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4012_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___4012 ;
@@ -1741,6 +1771,7 @@ expr:ConnectorEnds__Vehicle___4012_pend1_om
 
 expr:ConnectorEnds__Vehicle___4012_pend1_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4012_pend1_pchain" ;
     sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___4012_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4012_pend1_pchain_pfc1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4012_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4012_pend1_pchain_pfc1 ;
@@ -1843,6 +1874,7 @@ elmt:ConnectorEnds__Vehicle___4013_om
 
 expr:ConnectorEnds__Vehicle___4013_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4013_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___4013 ;
@@ -1884,6 +1916,7 @@ expr:ConnectorEnds__Vehicle___4013_pend0_prs
 
 expr:ConnectorEnds__Vehicle___4013_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4013_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___4013 ;
@@ -1907,6 +1940,7 @@ expr:ConnectorEnds__Vehicle___4013_pend1_om
 
 expr:ConnectorEnds__Vehicle___4013_pend1_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4013_pend1_pchain" ;
     sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___4013_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4013_pend1_pchain_pfc1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4013_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4013_pend1_pchain_pfc1 ;
@@ -2009,6 +2043,7 @@ elmt:ConnectorEnds__Vehicle___4014_om
 
 expr:ConnectorEnds__Vehicle___4014_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4014_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___4014 ;
@@ -2050,6 +2085,7 @@ expr:ConnectorEnds__Vehicle___4014_pend0_prs
 
 expr:ConnectorEnds__Vehicle___4014_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4014_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___4014 ;
@@ -2073,6 +2109,7 @@ expr:ConnectorEnds__Vehicle___4014_pend1_om
 
 expr:ConnectorEnds__Vehicle___4014_pend1_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4014_pend1_pchain" ;
     sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___4014_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4014_pend1_pchain_pfc1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4014_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4014_pend1_pchain_pfc1 ;
@@ -2174,6 +2211,7 @@ elmt:ConnectorEnds__Vehicle___4015_om
 
 expr:ConnectorEnds__Vehicle___4015_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4015_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___4015 ;
@@ -2215,6 +2253,7 @@ expr:ConnectorEnds__Vehicle___4015_pend0_prs
 
 expr:ConnectorEnds__Vehicle___4015_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4015_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___4015 ;
@@ -2238,6 +2277,7 @@ expr:ConnectorEnds__Vehicle___4015_pend1_om
 
 expr:ConnectorEnds__Vehicle___4015_pend1_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4015_pend1_pchain" ;
     sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___4015_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4015_pend1_pchain_pfc1 ;
     sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4015_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4015_pend1_pchain_pfc1 ;
@@ -2293,6 +2333,7 @@ expr:ConnectorEnds__Vehicle___4015_pend1_prs
 
 expr:ConnectorEnds__Vehicle___4015_pend2
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ConnectorEnds__Vehicle___4015_pend2" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ConnectorEnds__Vehicle___4015 ;

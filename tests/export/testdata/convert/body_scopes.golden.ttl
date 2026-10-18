@@ -229,6 +229,7 @@ expr:Scopes__D__one_pvalue
     a sysml:InvocationExpression ;
     sysx:sourceText "xs->collect {in limit; limit}" ;
     sysml:elementId "Scopes__D__one_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:function "collect" ;
     sysml:ownedRelationship expr:Scopes__D__one_pvalue_pfunction, expr:Scopes__D__one_pvalue_pin0_om, expr:Scopes__D__one_pvalue_pin1_om, expr:Scopes__D__one_pvalue_pout_om ;
     sysml:operand expr:Scopes__D__one_pvalue_poperand ;
@@ -261,6 +262,7 @@ expr:Scopes__D__one_pvalue_poperand
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "xs" ;
     sysml:elementId "Scopes__D__one_pvalue_poperand" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Scopes__D__xs ;
     sysml:ownedRelationship expr:Scopes__D__one_pvalue_poperand_pout_om, expr:Scopes__D__one_pvalue_poperand_preferent ;
     sysml:ownedMembership expr:Scopes__D__one_pvalue_poperand_pout_om ;
@@ -275,6 +277,7 @@ expr:Scopes__D__one_pvalue_poperand
 
 expr:Scopes__D__one_pvalue_poperand_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__one_pvalue_poperand_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Scopes__D__one_pvalue_poperand ;
@@ -295,6 +298,7 @@ expr:Scopes__D__one_pvalue_poperand_pout_om
 
 expr:Scopes__D__one_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__one_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Scopes__D__one_pvalue ;
@@ -331,6 +335,7 @@ expr:Scopes__D__one_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "{in limit; limit}" ;
     sysml:elementId "Scopes__D__one_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent expr:Scopes__D__one_pvalue_pa0_pbody ;
     sysml:ownedRelationship expr:Scopes__D__one_pvalue_pa0_pbody_om, expr:Scopes__D__one_pvalue_pa0_pout_om ;
     sysml:ownedMembership expr:Scopes__D__one_pvalue_pa0_pbody_om, expr:Scopes__D__one_pvalue_pa0_pout_om ;
@@ -348,6 +353,7 @@ expr:Scopes__D__one_pvalue_pa0
 
 expr:Scopes__D__one_pvalue_pa0_pbody
     a sysml:Expression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__one_pvalue_pa0_pbody" ;
     sysml:owner expr:Scopes__D__one_pvalue_pa0 ;
     sysml:owningRelationship expr:Scopes__D__one_pvalue_pa0_pbody_om ;
@@ -375,6 +381,7 @@ expr:Scopes__D__one_pvalue_pa0_pbody_om
 
 expr:Scopes__D__one_pvalue_pa0_pin0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__one_pvalue_pa0_pin0" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
@@ -398,6 +405,7 @@ expr:Scopes__D__one_pvalue_pa0_presult
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "limit" ;
     sysml:elementId "Scopes__D__one_pvalue_pa0_presult" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent "limit" ;
     sysml:ownedRelationship expr:Scopes__D__one_pvalue_pa0_presult_pout_om, expr:Scopes__D__one_pvalue_pa0_presult_preferent ;
     sysml:ownedMembership expr:Scopes__D__one_pvalue_pa0_presult_pout_om ;
@@ -412,6 +420,7 @@ expr:Scopes__D__one_pvalue_pa0_presult
 
 expr:Scopes__D__one_pvalue_pa0_presult_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__one_pvalue_pa0_presult_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Scopes__D__one_pvalue_pa0_presult ;
@@ -443,6 +452,7 @@ expr:Scopes__D__one_pvalue_pa0_presult_om
 
 expr:Scopes__D__one_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__one_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Scopes__D__one_pvalue_pa0 ;
@@ -463,6 +473,7 @@ expr:Scopes__D__one_pvalue_pa0_pout_om
 
 expr:Scopes__D__one_pvalue_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__one_pvalue_pin1" ;
     sysml:direction "in" ;
     sysml:owner expr:Scopes__D__one_pvalue ;
@@ -497,6 +508,7 @@ expr:Scopes__D__one_pvalue_pa0_om
 
 expr:Scopes__D__one_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__one_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Scopes__D__one_pvalue ;
@@ -564,6 +576,7 @@ expr:Scopes__D__two_pvalue
     a sysml:InvocationExpression ;
     sysx:sourceText "xs->select {in Gauge; Gauge}" ;
     sysml:elementId "Scopes__D__two_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:function "select" ;
     sysml:ownedRelationship expr:Scopes__D__two_pvalue_pfunction, expr:Scopes__D__two_pvalue_pin0_om, expr:Scopes__D__two_pvalue_pin1_om, expr:Scopes__D__two_pvalue_pout_om ;
     sysml:operand expr:Scopes__D__two_pvalue_poperand ;
@@ -596,6 +609,7 @@ expr:Scopes__D__two_pvalue_poperand
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "xs" ;
     sysml:elementId "Scopes__D__two_pvalue_poperand" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Scopes__D__xs ;
     sysml:ownedRelationship expr:Scopes__D__two_pvalue_poperand_pout_om, expr:Scopes__D__two_pvalue_poperand_preferent ;
     sysml:ownedMembership expr:Scopes__D__two_pvalue_poperand_pout_om ;
@@ -610,6 +624,7 @@ expr:Scopes__D__two_pvalue_poperand
 
 expr:Scopes__D__two_pvalue_poperand_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__two_pvalue_poperand_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Scopes__D__two_pvalue_poperand ;
@@ -630,6 +645,7 @@ expr:Scopes__D__two_pvalue_poperand_pout_om
 
 expr:Scopes__D__two_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__two_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Scopes__D__two_pvalue ;
@@ -666,6 +682,7 @@ expr:Scopes__D__two_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "{in Gauge; Gauge}" ;
     sysml:elementId "Scopes__D__two_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent expr:Scopes__D__two_pvalue_pa0_pbody ;
     sysml:ownedRelationship expr:Scopes__D__two_pvalue_pa0_pbody_om, expr:Scopes__D__two_pvalue_pa0_pout_om ;
     sysml:ownedMembership expr:Scopes__D__two_pvalue_pa0_pbody_om, expr:Scopes__D__two_pvalue_pa0_pout_om ;
@@ -683,6 +700,7 @@ expr:Scopes__D__two_pvalue_pa0
 
 expr:Scopes__D__two_pvalue_pa0_pbody
     a sysml:Expression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__two_pvalue_pa0_pbody" ;
     sysml:owner expr:Scopes__D__two_pvalue_pa0 ;
     sysml:owningRelationship expr:Scopes__D__two_pvalue_pa0_pbody_om ;
@@ -710,6 +728,7 @@ expr:Scopes__D__two_pvalue_pa0_pbody_om
 
 expr:Scopes__D__two_pvalue_pa0_pin0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__two_pvalue_pa0_pin0" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
@@ -733,6 +752,7 @@ expr:Scopes__D__two_pvalue_pa0_presult
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "Gauge" ;
     sysml:elementId "Scopes__D__two_pvalue_pa0_presult" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent "Gauge" ;
     sysml:ownedRelationship expr:Scopes__D__two_pvalue_pa0_presult_pout_om, expr:Scopes__D__two_pvalue_pa0_presult_preferent ;
     sysml:ownedMembership expr:Scopes__D__two_pvalue_pa0_presult_pout_om ;
@@ -747,6 +767,7 @@ expr:Scopes__D__two_pvalue_pa0_presult
 
 expr:Scopes__D__two_pvalue_pa0_presult_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__two_pvalue_pa0_presult_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Scopes__D__two_pvalue_pa0_presult ;
@@ -778,6 +799,7 @@ expr:Scopes__D__two_pvalue_pa0_presult_om
 
 expr:Scopes__D__two_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__two_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Scopes__D__two_pvalue_pa0 ;
@@ -798,6 +820,7 @@ expr:Scopes__D__two_pvalue_pa0_pout_om
 
 expr:Scopes__D__two_pvalue_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__two_pvalue_pin1" ;
     sysml:direction "in" ;
     sysml:owner expr:Scopes__D__two_pvalue ;
@@ -832,6 +855,7 @@ expr:Scopes__D__two_pvalue_pa0_om
 
 expr:Scopes__D__two_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__two_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Scopes__D__two_pvalue ;
@@ -899,6 +923,7 @@ expr:Scopes__D__outside_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "limit" ;
     sysml:elementId "Scopes__D__outside_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Lib__limit ;
     sysml:ownedRelationship expr:Scopes__D__outside_pvalue_pout_om, expr:Scopes__D__outside_pvalue_preferent ;
     sysml:ownedMembership expr:Scopes__D__outside_pvalue_pout_om ;
@@ -913,6 +938,7 @@ expr:Scopes__D__outside_pvalue
 
 expr:Scopes__D__outside_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Scopes__D__outside_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Scopes__D__outside_pvalue ;

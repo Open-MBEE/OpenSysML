@@ -654,6 +654,7 @@ elmt:Shadowing__Bus__link_om
 
 expr:Shadowing__Bus__link_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__Bus__link_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing__Bus__link ;
@@ -677,6 +678,7 @@ expr:Shadowing__Bus__link_pend0_om
 
 expr:Shadowing__Bus__link_pend0_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__Bus__link_pend0_pchain" ;
     sysml:ownedFeatureChaining expr:Shadowing__Bus__link_pend0_pchain_pfc0, expr:Shadowing__Bus__link_pend0_pchain_pfc1 ;
     sysml:ownedRelationship expr:Shadowing__Bus__link_pend0_pchain_pfc0, expr:Shadowing__Bus__link_pend0_pchain_pfc1 ;
@@ -732,6 +734,7 @@ expr:Shadowing__Bus__link_pend0_prs
 
 expr:Shadowing__Bus__link_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__Bus__link_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing__Bus__link ;
@@ -839,6 +842,7 @@ elmt:Shadowing__Bus__budgeted_om
 
 elmt:Shadowing__Bus__budgeted_subject
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__Bus__budgeted_subject" ;
     sysml:qualifiedName "Shadowing::Bus::budgeted::_subject" ;
     sysml:owner elmt:Shadowing__Bus__budgeted ;
@@ -866,6 +870,7 @@ expr:Shadowing__Bus__budgeted_subject_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "payload" ;
     sysml:elementId "Shadowing__Bus__budgeted_subject_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Shadowing__Bus__payload ;
     sysml:ownedRelationship expr:Shadowing__Bus__budgeted_subject_pvalue_pout_om, expr:Shadowing__Bus__budgeted_subject_pvalue_preferent ;
     sysml:ownedMembership expr:Shadowing__Bus__budgeted_subject_pvalue_pout_om ;
@@ -880,6 +885,7 @@ expr:Shadowing__Bus__budgeted_subject_pvalue
 
 expr:Shadowing__Bus__budgeted_subject_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__Bus__budgeted_subject_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Shadowing__Bus__budgeted_subject_pvalue ;
@@ -1008,6 +1014,7 @@ elmt:Shadowing___408_om
 
 elmt:Shadowing___408_subject
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing___408_subject" ;
     sysml:qualifiedName "Shadowing::@8::_subject" ;
     sysml:owner elmt:Shadowing___408 ;
@@ -1035,6 +1042,7 @@ expr:Shadowing___408_subject_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "payload" ;
     sysml:elementId "Shadowing___408_subject_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Shadowing__payload ;
     sysml:ownedRelationship expr:Shadowing___408_subject_pvalue_pout_om, expr:Shadowing___408_subject_pvalue_preferent ;
     sysml:ownedMembership expr:Shadowing___408_subject_pvalue_pout_om ;
@@ -1049,6 +1057,7 @@ expr:Shadowing___408_subject_pvalue
 
 expr:Shadowing___408_subject_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing___408_subject_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Shadowing___408_subject_pvalue ;
@@ -1333,6 +1342,7 @@ expr:Shadowing__deeper__load_pvalue
     a sysml:FeatureChainExpression ;
     sysx:sourceText "vehicle.cargo" ;
     sysml:elementId "Shadowing__deeper__load_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Shadowing__deeper__load_pvalue_pa0 ;
     sysml:ownedRelationship expr:Shadowing__deeper__load_pvalue_pin0_om, expr:Shadowing__deeper__load_pvalue_pout_om, expr:Shadowing__deeper__load_pvalue_ptargetFeature ;
     sysml:ownedMembership expr:Shadowing__deeper__load_pvalue_pin0_om, expr:Shadowing__deeper__load_pvalue_pout_om ;
@@ -1355,6 +1365,7 @@ expr:Shadowing__deeper__load_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "vehicle" ;
     sysml:elementId "Shadowing__deeper__load_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Shadowing__study___400 ;
     sysml:ownedRelationship expr:Shadowing__deeper__load_pvalue_pa0_pout_om, expr:Shadowing__deeper__load_pvalue_pa0_preferent ;
     sysml:ownedMembership expr:Shadowing__deeper__load_pvalue_pa0_pout_om ;
@@ -1369,6 +1380,7 @@ expr:Shadowing__deeper__load_pvalue_pa0
 
 expr:Shadowing__deeper__load_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__deeper__load_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Shadowing__deeper__load_pvalue_pa0 ;
@@ -1389,6 +1401,7 @@ expr:Shadowing__deeper__load_pvalue_pa0_pout_om
 
 expr:Shadowing__deeper__load_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__deeper__load_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Shadowing__deeper__load_pvalue ;
@@ -1423,6 +1436,7 @@ expr:Shadowing__deeper__load_pvalue_pa0_om
 
 expr:Shadowing__deeper__load_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Shadowing__deeper__load_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Shadowing__deeper__load_pvalue ;

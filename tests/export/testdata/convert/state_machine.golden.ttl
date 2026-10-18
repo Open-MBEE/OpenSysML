@@ -516,6 +516,7 @@ elmt:StateMachine__VehicleStates__active___400__monitor
 
 elmt:StateMachine__VehicleStates__active___401
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "StateMachine::VehicleStates::active::@1" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
@@ -556,6 +557,7 @@ elmt:StateMachine__VehicleStates__active___401_om
 
 elmt:StateMachine__VehicleStates__active___401_linkparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active___401_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:StateMachine__VehicleStates__active___401 ;
@@ -576,6 +578,7 @@ elmt:StateMachine__VehicleStates__active___401_linkparam_om
 
 elmt:StateMachine__VehicleStates__active___401_triggerparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active___401_triggerparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:StateMachine__VehicleStates__active___401 ;
@@ -596,6 +599,7 @@ elmt:StateMachine__VehicleStates__active___401_triggerparam_om
 
 elmt:StateMachine__VehicleStates__active___401_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active___401_succession" ;
     sysml:connectorEnd expr:StateMachine__VehicleStates__active___401_succession_pend0, expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates__active___401_succession_pend0_om, expr:StateMachine__VehicleStates__active___401_succession_pend1_om ;
@@ -617,6 +621,7 @@ elmt:StateMachine__VehicleStates__active___401_succession
 
 expr:StateMachine__VehicleStates__active___401_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active___401_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__active___401_succession ;
@@ -635,6 +640,7 @@ expr:StateMachine__VehicleStates__active___401_succession_pend0_om
 
 expr:StateMachine__VehicleStates__active___401_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active___401_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__active___401_succession ;
@@ -675,6 +681,7 @@ expr:StateMachine__VehicleStates__active___401_succession_pend1_prs
 
 elmt:StateMachine__VehicleStates__active___401___40trigger
     a sysml:AcceptActionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "StateMachine::VehicleStates::active::@1::@trigger" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
@@ -758,6 +765,7 @@ elmt:StateMachine__VehicleStates__active___401_succession_om
 
 elmt:StateMachine__VehicleStates__off_5fto_5fstart
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "StateMachine::VehicleStates::off_to_start" ;
     sysx:sourceLine "19"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -808,6 +816,7 @@ expr:StateMachine__VehicleStates__off_5fto_5fstart_psourcemember
 
 elmt:StateMachine__VehicleStates__off_5fto_5fstart_linkparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
@@ -828,6 +837,7 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_linkparam_om
 
 elmt:StateMachine__VehicleStates__off_5fto_5fstart_triggerparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_triggerparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
@@ -848,6 +858,7 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_triggerparam_om
 
 elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_succession" ;
     sysml:connectorEnd expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om ;
@@ -869,6 +880,7 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession
 
 expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
@@ -887,6 +899,7 @@ expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om
 
 expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
@@ -927,6 +940,7 @@ expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_prs
 
 elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger
     a sysml:AcceptActionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "StateMachine::VehicleStates::off_to_start::@trigger" ;
     sysx:sourceLine "19"^^xsd:integer ;
     sysx:sourceColumn "43"^^xsd:integer ;
@@ -1010,6 +1024,7 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession_om
 
 elmt:StateMachine__VehicleStates___405
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "StateMachine::VehicleStates::@5" ;
     sysx:sourceLine "20"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1059,6 +1074,7 @@ expr:StateMachine__VehicleStates___405_psourcemember
 
 elmt:StateMachine__VehicleStates___405_linkparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates___405_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:StateMachine__VehicleStates___405 ;
@@ -1079,6 +1095,7 @@ elmt:StateMachine__VehicleStates___405_linkparam_om
 
 elmt:StateMachine__VehicleStates___405_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates___405_succession" ;
     sysml:connectorEnd expr:StateMachine__VehicleStates___405_succession_pend0, expr:StateMachine__VehicleStates___405_succession_pend1 ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates___405_succession_pend0_om, expr:StateMachine__VehicleStates___405_succession_pend1_om ;
@@ -1100,6 +1117,7 @@ elmt:StateMachine__VehicleStates___405_succession
 
 expr:StateMachine__VehicleStates___405_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates___405_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates___405_succession ;
@@ -1118,6 +1136,7 @@ expr:StateMachine__VehicleStates___405_succession_pend0_om
 
 expr:StateMachine__VehicleStates___405_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates___405_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates___405_succession ;
@@ -1160,6 +1179,7 @@ expr:StateMachine__VehicleStates___405_pguard
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "ready" ;
     sysml:elementId "StateMachine__VehicleStates___405_pguard" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent "ready" ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates___405_pguard_pout_om, expr:StateMachine__VehicleStates___405_pguard_preferent ;
     sysml:ownedMembership expr:StateMachine__VehicleStates___405_pguard_pout_om ;
@@ -1174,6 +1194,7 @@ expr:StateMachine__VehicleStates___405_pguard
 
 expr:StateMachine__VehicleStates___405_pguard_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates___405_pguard_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:StateMachine__VehicleStates___405_pguard ;
@@ -1218,6 +1239,7 @@ elmt:StateMachine__VehicleStates___405_succession_om
 
 elmt:StateMachine__VehicleStates__active_5fto_5foff
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "StateMachine::VehicleStates::active_to_off" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1274,6 +1296,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff_psourcemember
 
 elmt:StateMachine__VehicleStates__active_5fto_5foff_linkparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
@@ -1294,6 +1317,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff_linkparam_om
 
 elmt:StateMachine__VehicleStates__active_5fto_5foff_triggerparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_triggerparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
@@ -1314,6 +1338,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff_triggerparam_om
 
 elmt:StateMachine__VehicleStates__active_5fto_5foff_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_succession" ;
     sysml:connectorEnd expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om ;
@@ -1335,6 +1360,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff_succession
 
 expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
@@ -1353,6 +1379,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om
 
 expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
@@ -1393,6 +1420,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_prs
 
 elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger
     a sysml:AcceptActionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "StateMachine::VehicleStates::active_to_off::@trigger" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "47"^^xsd:integer ;
@@ -1511,6 +1539,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "lane" ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:StateMachine__VehicleStates__lane ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout_om, expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_preferent ;
     sysml:ownedMembership expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout_om ;
@@ -1525,6 +1554,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue
 
 expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
@@ -1559,6 +1589,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff_pguard
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "monitor" ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_pguard" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent "monitor" ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_pout_om, expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_preferent ;
     sysml:ownedMembership expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_pout_om ;
@@ -1573,6 +1604,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff_pguard
 
 expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_pguard_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:StateMachine__VehicleStates__active_5fto_5foff_pguard ;
@@ -1885,6 +1917,7 @@ elmt:StateMachine__Composite___400
 
 elmt:StateMachine__Composite___401
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "StateMachine::Composite::@1" ;
     sysx:sourceLine "33"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1914,6 +1947,7 @@ elmt:StateMachine__Composite___401_om
 
 elmt:StateMachine__Composite__launch
     a sysml:StateUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "StateMachine::Composite::launch" ;
     sysx:sourceLine "34"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1943,6 +1977,7 @@ elmt:StateMachine__Composite__launch_om
 
 elmt:StateMachine__Composite__waiting
     a sysml:StateUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "StateMachine::Composite::waiting" ;
     sysx:sourceLine "35"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -2253,6 +2288,7 @@ elmt:StateMachine__Composite__primary_om
 
 elmt:StateMachine__Composite__primary__ready
     a sysml:StateUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "StateMachine::Composite::primary::ready" ;
     sysx:sourceLine "46"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;

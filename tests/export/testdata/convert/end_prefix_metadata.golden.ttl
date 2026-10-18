@@ -175,6 +175,7 @@ elmt:EndPrefixMetadata__Derivation_om
 
 elmt:EndPrefixMetadata__Derivation___405
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::@5" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -244,6 +245,7 @@ elmt:EndPrefixMetadata__Derivation__r1_om
 
 elmt:EndPrefixMetadata__Derivation__r1___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::r1::@0" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
@@ -313,6 +315,7 @@ elmt:EndPrefixMetadata__Derivation__r1_5f1_om
 
 elmt:EndPrefixMetadata__Derivation__r1_5f1___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_1::@0" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
@@ -382,6 +385,7 @@ elmt:EndPrefixMetadata__Derivation__r1_5f2_om
 
 elmt:EndPrefixMetadata__Derivation__r1_5f2___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_2::@0" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -481,6 +485,7 @@ elmt:EndPrefixMetadata__Derivation__cause___400_om
 
 expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "EndPrefixMetadata__Derivation__cause___400_pmultiplicity" ;
     sysml:owner elmt:EndPrefixMetadata__Derivation__cause___400 ;
     sysml:owningRelationship expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity_om ;
@@ -503,6 +508,7 @@ expr:EndPrefixMetadata__Derivation__cause___400_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "EndPrefixMetadata__Derivation__cause___400_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:owner expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
     sysml:owningRelationship expr:EndPrefixMetadata__Derivation__cause___400_pupperBound_om ;
     sysml:owningMembership expr:EndPrefixMetadata__Derivation__cause___400_pupperBound_om .
@@ -559,6 +565,7 @@ elmt:EndPrefixMetadata__Derivation__effect_om
 
 expr:EndPrefixMetadata__Derivation__effect_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "EndPrefixMetadata__Derivation__effect_pmultiplicity" ;
     sysml:owner elmt:EndPrefixMetadata__Derivation__effect ;
     sysml:owningRelationship expr:EndPrefixMetadata__Derivation__effect_pmultiplicity_om ;
@@ -581,6 +588,7 @@ expr:EndPrefixMetadata__Derivation__effect_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "EndPrefixMetadata__Derivation__effect_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:owner expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
     sysml:owningRelationship expr:EndPrefixMetadata__Derivation__effect_pupperBound_om ;
     sysml:owningMembership expr:EndPrefixMetadata__Derivation__effect_pupperBound_om .
@@ -747,6 +755,7 @@ elmt:EndPrefixMetadata__context___402_om
 
 elmt:EndPrefixMetadata__context___402___402
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "EndPrefixMetadata::context::@2::@2" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;

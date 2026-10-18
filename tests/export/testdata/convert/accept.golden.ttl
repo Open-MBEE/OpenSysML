@@ -421,6 +421,7 @@ expr:Accepts__Watch__framed___401_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "lens" ;
     sysml:elementId "Accepts__Watch__framed___401_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Accepts__Watch__lens ;
     sysml:ownedRelationship expr:Accepts__Watch__framed___401_pvalue_pout_om, expr:Accepts__Watch__framed___401_pvalue_preferent ;
     sysml:ownedMembership expr:Accepts__Watch__framed___401_pvalue_pout_om ;
@@ -435,6 +436,7 @@ expr:Accepts__Watch__framed___401_pvalue
 
 expr:Accepts__Watch__framed___401_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Accepts__Watch__framed___401_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Accepts__Watch__framed___401_pvalue ;

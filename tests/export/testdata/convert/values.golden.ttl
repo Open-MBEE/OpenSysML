@@ -254,6 +254,7 @@ expr:Values__Sized__size_pvalue
     a sysml:LiteralRational ;
     sysx:sourceText "4.5" ;
     sysml:elementId "Values__Sized__size_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "4.5"^^xsd:decimal ;
     sysml:owner elmt:Values__Sized__size ;
     sysml:owningRelationship expr:Values__Sized__size_pvalue_om ;
@@ -312,6 +313,7 @@ expr:Values__Sized__label_pvalue
     a sysml:LiteralString ;
     sysx:sourceText "\"front\"" ;
     sysml:elementId "Values__Sized__label_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "front" ;
     sysml:owner elmt:Values__Sized__label ;
     sysml:owningRelationship expr:Values__Sized__label_pvalue_om ;
@@ -370,6 +372,7 @@ expr:Values__Sized__total_pvalue
     a sysml:OperatorExpression ;
     sysx:sourceText "1.0 + 2.0" ;
     sysml:elementId "Values__Sized__total_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:operator "+" ;
     sysml:argument expr:Values__Sized__total_pvalue_pa0, expr:Values__Sized__total_pvalue_pa1 ;
     sysml:ownedRelationship expr:Values__Sized__total_pvalue_pin0_om, expr:Values__Sized__total_pvalue_pin1_om, expr:Values__Sized__total_pvalue_pout_om ;
@@ -394,6 +397,7 @@ expr:Values__Sized__total_pvalue_pa0
     a sysml:LiteralRational ;
     sysx:sourceText "1.0" ;
     sysml:elementId "Values__Sized__total_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1.0"^^xsd:decimal ;
     sysml:owner expr:Values__Sized__total_pvalue_pin0 ;
     sysml:owningRelationship expr:Values__Sized__total_pvalue_pa0_om ;
@@ -401,6 +405,7 @@ expr:Values__Sized__total_pvalue_pa0
 
 expr:Values__Sized__total_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Values__Sized__total_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Values__Sized__total_pvalue ;
@@ -437,6 +442,7 @@ expr:Values__Sized__total_pvalue_pa1
     a sysml:LiteralRational ;
     sysx:sourceText "2.0" ;
     sysml:elementId "Values__Sized__total_pvalue_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "2.0"^^xsd:decimal ;
     sysml:owner expr:Values__Sized__total_pvalue_pin1 ;
     sysml:owningRelationship expr:Values__Sized__total_pvalue_pa1_om ;
@@ -444,6 +450,7 @@ expr:Values__Sized__total_pvalue_pa1
 
 expr:Values__Sized__total_pvalue_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Values__Sized__total_pvalue_pin1" ;
     sysml:direction "in" ;
     sysml:owner expr:Values__Sized__total_pvalue ;
@@ -478,6 +485,7 @@ expr:Values__Sized__total_pvalue_pa1_om
 
 expr:Values__Sized__total_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Values__Sized__total_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Values__Sized__total_pvalue ;

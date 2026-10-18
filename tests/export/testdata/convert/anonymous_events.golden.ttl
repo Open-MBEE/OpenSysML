@@ -198,6 +198,7 @@ elmt:AnonymousEvents__Sender___401_om
 
 <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0>
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousEvents__Sender___401_pchain0" ;
     sysml:ownedFeatureChaining <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc0>, <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc1> ;
     sysml:ownedRelationship <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc0>, <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc1> ;

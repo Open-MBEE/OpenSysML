@@ -488,6 +488,7 @@ expr:R90__A__t_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "Tempo::operative" ;
     sysml:elementId "R90__A__t_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:OtherPkg__Tempo__operative ;
     sysml:ownedRelationship expr:R90__A__t_pvalue_pout_om, expr:R90__A__t_pvalue_preferent ;
     sysml:ownedMembership expr:R90__A__t_pvalue_pout_om ;
@@ -502,6 +503,7 @@ expr:R90__A__t_pvalue
 
 expr:R90__A__t_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "R90__A__t_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:R90__A__t_pvalue ;
@@ -742,6 +744,7 @@ expr:R90__A__s_pvalue
     a sysml:FeatureChainExpression ;
     sysx:sourceText "w.size" ;
     sysml:elementId "R90__A__s_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:R90__A__s_pvalue_pa0 ;
     sysml:ownedRelationship expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_pout_om, expr:R90__A__s_pvalue_ptargetFeature ;
     sysml:ownedMembership expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_pout_om ;
@@ -764,6 +767,7 @@ expr:R90__A__s_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "w" ;
     sysml:elementId "R90__A__s_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:R90__A__w ;
     sysml:ownedRelationship expr:R90__A__s_pvalue_pa0_pout_om, expr:R90__A__s_pvalue_pa0_preferent ;
     sysml:ownedMembership expr:R90__A__s_pvalue_pa0_pout_om ;
@@ -778,6 +782,7 @@ expr:R90__A__s_pvalue_pa0
 
 expr:R90__A__s_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "R90__A__s_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:R90__A__s_pvalue_pa0 ;
@@ -798,6 +803,7 @@ expr:R90__A__s_pvalue_pa0_pout_om
 
 expr:R90__A__s_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "R90__A__s_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:R90__A__s_pvalue ;
@@ -832,6 +838,7 @@ expr:R90__A__s_pvalue_pa0_om
 
 expr:R90__A__s_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "R90__A__s_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:R90__A__s_pvalue ;
@@ -1226,6 +1233,7 @@ elmt:R90__Run___400
 
 elmt:R90__Run___401
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "R90::Run::@1" ;
     sysx:sourceLine "42"^^xsd:integer ;
     sysx:sourceColumn "16"^^xsd:integer ;
@@ -1254,6 +1262,7 @@ elmt:R90__Run___401_om
 
 elmt:R90__Run__idle
     a sysml:StateUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "R90::Run::idle" ;
     sysx:sourceLine "43"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1282,6 +1291,7 @@ elmt:R90__Run__idle_om
 
 elmt:R90__Run___403
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "R90::Run::@3" ;
     sysx:sourceLine "44"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1326,6 +1336,7 @@ expr:R90__Run___403_psourcemember
 
 elmt:R90__Run___403_linkparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "R90__Run___403_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:R90__Run___403 ;
@@ -1346,6 +1357,7 @@ elmt:R90__Run___403_linkparam_om
 
 elmt:R90__Run___403_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "R90__Run___403_succession" ;
     sysml:connectorEnd expr:R90__Run___403_succession_pend0, expr:R90__Run___403_succession_pend1 ;
     sysml:ownedRelationship expr:R90__Run___403_succession_pend0_om, expr:R90__Run___403_succession_pend1_om ;
@@ -1367,6 +1379,7 @@ elmt:R90__Run___403_succession
 
 expr:R90__Run___403_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "R90__Run___403_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:R90__Run___403_succession ;
@@ -1385,6 +1398,7 @@ expr:R90__Run___403_succession_pend0_om
 
 expr:R90__Run___403_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "R90__Run___403_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:R90__Run___403_succession ;
@@ -1468,6 +1482,7 @@ elmt:R90__Done_om
 
 elmt:R90__Done__done
     a sysml:StateUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "R90::Done::done" ;
     sysx:sourceLine "47"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1575,6 +1590,7 @@ elmt:Meta__Tagged_om
 
 elmt:Meta__Tagged___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Meta::Tagged::@0" ;
     sysx:sourceLine "52"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -1693,6 +1709,7 @@ expr:Filtered___400_pfilter
     a sysml:OperatorExpression ;
     sysx:sourceText "@Safety" ;
     sysml:elementId "Filtered___400_pfilter" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:operator "@" ;
     sysx:typeArgument elmt:Meta__Safety ;
     sysml:ownedRelationship expr:Filtered___400_pfilter_pin0_om, expr:Filtered___400_pfilter_pout_om ;
@@ -1713,6 +1730,7 @@ expr:Filtered___400_pfilter
 
 expr:Filtered___400_pfilter_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Filtered___400_pfilter_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Filtered___400_pfilter ;
@@ -1751,6 +1769,7 @@ expr:Filtered___400_pfilter_pin0_ft0
 
 expr:Filtered___400_pfilter_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Filtered___400_pfilter_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Filtered___400_pfilter ;
@@ -1871,6 +1890,7 @@ expr:Filtered___402_pfilter
     a sysml:OperatorExpression ;
     sysx:sourceText "@Safety" ;
     sysml:elementId "Filtered___402_pfilter" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:operator "@" ;
     sysx:typeArgument elmt:Meta__Safety ;
     sysml:ownedRelationship expr:Filtered___402_pfilter_pin0_om, expr:Filtered___402_pfilter_pout_om ;
@@ -1891,6 +1911,7 @@ expr:Filtered___402_pfilter
 
 expr:Filtered___402_pfilter_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Filtered___402_pfilter_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Filtered___402_pfilter ;
@@ -1929,6 +1950,7 @@ expr:Filtered___402_pfilter_pin0_ft0
 
 expr:Filtered___402_pfilter_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Filtered___402_pfilter_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Filtered___402_pfilter ;

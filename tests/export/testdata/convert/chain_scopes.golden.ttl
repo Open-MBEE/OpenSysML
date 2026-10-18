@@ -454,6 +454,7 @@ expr:Chains__Car__a_pvalue
     a sysml:FeatureChainExpression ;
     sysx:sourceText "w.Gen::G1::x" ;
     sysml:elementId "Chains__Car__a_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__a_pvalue_pa0 ;
     sysml:ownedRelationship expr:Chains__Car__a_pvalue_pin0_om, expr:Chains__Car__a_pvalue_pout_om, expr:Chains__Car__a_pvalue_ptargetFeature ;
     sysml:ownedMembership expr:Chains__Car__a_pvalue_pin0_om, expr:Chains__Car__a_pvalue_pout_om ;
@@ -476,6 +477,7 @@ expr:Chains__Car__a_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "w" ;
     sysml:elementId "Chains__Car__a_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Chains__Car__w ;
     sysml:ownedRelationship expr:Chains__Car__a_pvalue_pa0_pout_om, expr:Chains__Car__a_pvalue_pa0_preferent ;
     sysml:ownedMembership expr:Chains__Car__a_pvalue_pa0_pout_om ;
@@ -490,6 +492,7 @@ expr:Chains__Car__a_pvalue_pa0
 
 expr:Chains__Car__a_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__a_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__a_pvalue_pa0 ;
@@ -510,6 +513,7 @@ expr:Chains__Car__a_pvalue_pa0_pout_om
 
 expr:Chains__Car__a_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__a_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Chains__Car__a_pvalue ;
@@ -544,6 +548,7 @@ expr:Chains__Car__a_pvalue_pa0_om
 
 expr:Chains__Car__a_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__a_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__a_pvalue ;
@@ -611,6 +616,7 @@ expr:Chains__Car__b_pvalue
     a sysml:FeatureChainExpression ;
     sysx:sourceText "w.Gen::G2::x" ;
     sysml:elementId "Chains__Car__b_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__b_pvalue_pa0 ;
     sysml:ownedRelationship expr:Chains__Car__b_pvalue_pin0_om, expr:Chains__Car__b_pvalue_pout_om, expr:Chains__Car__b_pvalue_ptargetFeature ;
     sysml:ownedMembership expr:Chains__Car__b_pvalue_pin0_om, expr:Chains__Car__b_pvalue_pout_om ;
@@ -633,6 +639,7 @@ expr:Chains__Car__b_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "w" ;
     sysml:elementId "Chains__Car__b_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Chains__Car__w ;
     sysml:ownedRelationship expr:Chains__Car__b_pvalue_pa0_pout_om, expr:Chains__Car__b_pvalue_pa0_preferent ;
     sysml:ownedMembership expr:Chains__Car__b_pvalue_pa0_pout_om ;
@@ -647,6 +654,7 @@ expr:Chains__Car__b_pvalue_pa0
 
 expr:Chains__Car__b_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__b_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__b_pvalue_pa0 ;
@@ -667,6 +675,7 @@ expr:Chains__Car__b_pvalue_pa0_pout_om
 
 expr:Chains__Car__b_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__b_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Chains__Car__b_pvalue ;
@@ -701,6 +710,7 @@ expr:Chains__Car__b_pvalue_pa0_om
 
 expr:Chains__Car__b_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__b_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__b_pvalue ;
@@ -768,6 +778,7 @@ expr:Chains__Car__c_pvalue
     a sysml:FeatureChainExpression ;
     sysx:sourceText "w.y" ;
     sysml:elementId "Chains__Car__c_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__c_pvalue_pa0 ;
     sysml:ownedRelationship expr:Chains__Car__c_pvalue_pin0_om, expr:Chains__Car__c_pvalue_pout_om, expr:Chains__Car__c_pvalue_ptargetFeature ;
     sysml:ownedMembership expr:Chains__Car__c_pvalue_pin0_om, expr:Chains__Car__c_pvalue_pout_om ;
@@ -790,6 +801,7 @@ expr:Chains__Car__c_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "w" ;
     sysml:elementId "Chains__Car__c_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Chains__Car__w ;
     sysml:ownedRelationship expr:Chains__Car__c_pvalue_pa0_pout_om, expr:Chains__Car__c_pvalue_pa0_preferent ;
     sysml:ownedMembership expr:Chains__Car__c_pvalue_pa0_pout_om ;
@@ -804,6 +816,7 @@ expr:Chains__Car__c_pvalue_pa0
 
 expr:Chains__Car__c_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__c_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__c_pvalue_pa0 ;
@@ -824,6 +837,7 @@ expr:Chains__Car__c_pvalue_pa0_pout_om
 
 expr:Chains__Car__c_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__c_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Chains__Car__c_pvalue ;
@@ -858,6 +872,7 @@ expr:Chains__Car__c_pvalue_pa0_om
 
 expr:Chains__Car__c_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__c_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__c_pvalue ;
@@ -925,6 +940,7 @@ expr:Chains__Car__d_pvalue
     a sysml:FeatureChainExpression ;
     sysx:sourceText "axle.hub.Gen::G2::x" ;
     sysml:elementId "Chains__Car__d_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__d_pvalue_pa0 ;
     sysml:ownedRelationship expr:Chains__Car__d_pvalue_pin0_om, expr:Chains__Car__d_pvalue_pout_om, expr:Chains__Car__d_pvalue_ptargetFeature ;
     sysml:ownedMembership expr:Chains__Car__d_pvalue_pin0_om, expr:Chains__Car__d_pvalue_pout_om ;
@@ -947,6 +963,7 @@ expr:Chains__Car__d_pvalue_pa0
     a sysml:FeatureChainExpression ;
     sysx:sourceText "axle.hub" ;
     sysml:elementId "Chains__Car__d_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__d_pvalue_pa0_pa0 ;
     sysml:ownedRelationship expr:Chains__Car__d_pvalue_pa0_pin0_om, expr:Chains__Car__d_pvalue_pa0_pout_om, expr:Chains__Car__d_pvalue_pa0_ptargetFeature ;
     sysml:ownedMembership expr:Chains__Car__d_pvalue_pa0_pin0_om, expr:Chains__Car__d_pvalue_pa0_pout_om ;
@@ -969,6 +986,7 @@ expr:Chains__Car__d_pvalue_pa0_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "axle" ;
     sysml:elementId "Chains__Car__d_pvalue_pa0_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Chains__Car__axle ;
     sysml:ownedRelationship expr:Chains__Car__d_pvalue_pa0_pa0_pout_om, expr:Chains__Car__d_pvalue_pa0_pa0_preferent ;
     sysml:ownedMembership expr:Chains__Car__d_pvalue_pa0_pa0_pout_om ;
@@ -983,6 +1001,7 @@ expr:Chains__Car__d_pvalue_pa0_pa0
 
 expr:Chains__Car__d_pvalue_pa0_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__d_pvalue_pa0_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__d_pvalue_pa0_pa0 ;
@@ -1003,6 +1022,7 @@ expr:Chains__Car__d_pvalue_pa0_pa0_pout_om
 
 expr:Chains__Car__d_pvalue_pa0_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__d_pvalue_pa0_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Chains__Car__d_pvalue_pa0 ;
@@ -1037,6 +1057,7 @@ expr:Chains__Car__d_pvalue_pa0_pa0_om
 
 expr:Chains__Car__d_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__d_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__d_pvalue_pa0 ;
@@ -1057,6 +1078,7 @@ expr:Chains__Car__d_pvalue_pa0_pout_om
 
 expr:Chains__Car__d_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__d_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Chains__Car__d_pvalue ;
@@ -1091,6 +1113,7 @@ expr:Chains__Car__d_pvalue_pa0_om
 
 expr:Chains__Car__d_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__d_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__d_pvalue ;
@@ -1158,6 +1181,7 @@ expr:Chains__Car__e_pvalue
     a sysml:FeatureChainExpression ;
     sysx:sourceText "axle.hub.y" ;
     sysml:elementId "Chains__Car__e_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__e_pvalue_pa0 ;
     sysml:ownedRelationship expr:Chains__Car__e_pvalue_pin0_om, expr:Chains__Car__e_pvalue_pout_om, expr:Chains__Car__e_pvalue_ptargetFeature ;
     sysml:ownedMembership expr:Chains__Car__e_pvalue_pin0_om, expr:Chains__Car__e_pvalue_pout_om ;
@@ -1180,6 +1204,7 @@ expr:Chains__Car__e_pvalue_pa0
     a sysml:FeatureChainExpression ;
     sysx:sourceText "axle.hub" ;
     sysml:elementId "Chains__Car__e_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__e_pvalue_pa0_pa0 ;
     sysml:ownedRelationship expr:Chains__Car__e_pvalue_pa0_pin0_om, expr:Chains__Car__e_pvalue_pa0_pout_om, expr:Chains__Car__e_pvalue_pa0_ptargetFeature ;
     sysml:ownedMembership expr:Chains__Car__e_pvalue_pa0_pin0_om, expr:Chains__Car__e_pvalue_pa0_pout_om ;
@@ -1202,6 +1227,7 @@ expr:Chains__Car__e_pvalue_pa0_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "axle" ;
     sysml:elementId "Chains__Car__e_pvalue_pa0_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Chains__Car__axle ;
     sysml:ownedRelationship expr:Chains__Car__e_pvalue_pa0_pa0_pout_om, expr:Chains__Car__e_pvalue_pa0_pa0_preferent ;
     sysml:ownedMembership expr:Chains__Car__e_pvalue_pa0_pa0_pout_om ;
@@ -1216,6 +1242,7 @@ expr:Chains__Car__e_pvalue_pa0_pa0
 
 expr:Chains__Car__e_pvalue_pa0_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__e_pvalue_pa0_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__e_pvalue_pa0_pa0 ;
@@ -1236,6 +1263,7 @@ expr:Chains__Car__e_pvalue_pa0_pa0_pout_om
 
 expr:Chains__Car__e_pvalue_pa0_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__e_pvalue_pa0_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Chains__Car__e_pvalue_pa0 ;
@@ -1270,6 +1298,7 @@ expr:Chains__Car__e_pvalue_pa0_pa0_om
 
 expr:Chains__Car__e_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__e_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__e_pvalue_pa0 ;
@@ -1290,6 +1319,7 @@ expr:Chains__Car__e_pvalue_pa0_pout_om
 
 expr:Chains__Car__e_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__e_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Chains__Car__e_pvalue ;
@@ -1324,6 +1354,7 @@ expr:Chains__Car__e_pvalue_pa0_om
 
 expr:Chains__Car__e_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__e_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__e_pvalue ;
@@ -1425,6 +1456,7 @@ expr:Chains__Car__f_pvalue
     a sysml:FeatureChainExpression ;
     sysx:sourceText "spare.y" ;
     sysml:elementId "Chains__Car__f_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__f_pvalue_pa0 ;
     sysml:ownedRelationship expr:Chains__Car__f_pvalue_pin0_om, expr:Chains__Car__f_pvalue_pout_om, expr:Chains__Car__f_pvalue_ptargetFeature ;
     sysml:ownedMembership expr:Chains__Car__f_pvalue_pin0_om, expr:Chains__Car__f_pvalue_pout_om ;
@@ -1447,6 +1479,7 @@ expr:Chains__Car__f_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "spare" ;
     sysml:elementId "Chains__Car__f_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Chains__Car__spare ;
     sysml:ownedRelationship expr:Chains__Car__f_pvalue_pa0_pout_om, expr:Chains__Car__f_pvalue_pa0_preferent ;
     sysml:ownedMembership expr:Chains__Car__f_pvalue_pa0_pout_om ;
@@ -1461,6 +1494,7 @@ expr:Chains__Car__f_pvalue_pa0
 
 expr:Chains__Car__f_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__f_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__f_pvalue_pa0 ;
@@ -1481,6 +1515,7 @@ expr:Chains__Car__f_pvalue_pa0_pout_om
 
 expr:Chains__Car__f_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__f_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Chains__Car__f_pvalue ;
@@ -1515,6 +1550,7 @@ expr:Chains__Car__f_pvalue_pa0_om
 
 expr:Chains__Car__f_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Chains__Car__f_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Chains__Car__f_pvalue ;

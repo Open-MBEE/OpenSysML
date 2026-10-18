@@ -476,6 +476,28 @@ func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library st
 	return e, nil
 }
 
+// mintedComposites states Feature::isComposite on the features the mapping
+// mints rather than reads from a usage head — expression nodes and parameters,
+// connector and message ends, implied parameters: none is written with a prefix,
+// so each takes its kind's value (the OMG API JSON shape states the flag on
+// every feature). The flag follows the type, where a head states it.
+func (e *encoder) mintedComposites() {
+	own := graphOwnership(e.graph)
+	triples := e.graph.Triples()
+	out := make([]rdf.Triple, 0, len(triples))
+	for _, t := range triples {
+		out = append(out, t)
+		if t.Predicate.Value != rdf.RDFType || !ontology.IsAncestorOrSelf(e.metaclassOf(t.Subject), mFeature) ||
+			e.graph.HasProperty(t.Subject, rdf.SysML+"isComposite") {
+			continue
+		}
+		composite := usageCompositeByDefault(e.graph, e.metaclassOf, own, t.Subject,
+			e.graph.HasProperty(t.Subject, rdf.SysML+pDirection), e.graph.BoolValue(t.Subject, rdf.SysML+"isEnd"))
+		out = append(out, rdf.Triple{Subject: t.Subject, Predicate: e.sysml("isComposite"), Object: rdf.Bool(composite)})
+	}
+	e.graph = rdf.NewGraphOf(out, e.graph.Prefixes)
+}
+
 // encodeDocument writes the graph of the document the encoder was made for.
 func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
 	e.src = newAuthoredSource(e.file, root)
@@ -487,6 +509,7 @@ func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
 	if e.idErr != nil {
 		return e.idErr
 	}
+	e.mintedComposites()
 	e.libraryNames()
 	e.sourceText()
 	if err := rdf.AnnotateCollections(e.graph); err != nil {

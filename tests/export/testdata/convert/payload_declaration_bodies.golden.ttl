@@ -360,6 +360,7 @@ elmt:Payloads__Ctx___402_om
 
 expr:Payloads__Ctx___402_pend0
     a sysml:FlowEnd ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx___402_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Payloads__Ctx___402 ;
@@ -405,6 +406,7 @@ expr:Payloads__Ctx___402_pend0_prs
 
 expr:Payloads__Ctx___402_pend0_pff
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx___402_pend0_pff" ;
     sysml:owner expr:Payloads__Ctx___402_pend0 ;
     sysml:owningRelationship expr:Payloads__Ctx___402_pend0_pff_om ;
@@ -427,6 +429,7 @@ expr:Payloads__Ctx___402_pend0_pff_om
 
 expr:Payloads__Ctx___402_pend1
     a sysml:FlowEnd ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx___402_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Payloads__Ctx___402 ;
@@ -472,6 +475,7 @@ expr:Payloads__Ctx___402_pend1_prs
 
 expr:Payloads__Ctx___402_pend1_pff
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx___402_pend1_pff" ;
     sysml:owner expr:Payloads__Ctx___402_pend1 ;
     sysml:owningRelationship expr:Payloads__Ctx___402_pend1_pff_om ;
@@ -600,6 +604,7 @@ elmt:Payloads__Ctx__m_om
 
 expr:Payloads__Ctx__m_pend0
     a sysml:EventOccurrenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx__m_pend0" ;
     sysml:owner elmt:Payloads__Ctx__m ;
     sysml:owningRelationship expr:Payloads__Ctx__m_pend0_om ;
@@ -624,6 +629,7 @@ expr:Payloads__Ctx__m_pend0_om
 
 expr:Payloads__Ctx__m_pend0_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx__m_pend0_pchain" ;
     sysml:ownedFeatureChaining expr:Payloads__Ctx__m_pend0_pchain_pfc0, expr:Payloads__Ctx__m_pend0_pchain_pfc1 ;
     sysml:ownedRelationship expr:Payloads__Ctx__m_pend0_pchain_pfc0, expr:Payloads__Ctx__m_pend0_pchain_pfc1 ;
@@ -679,6 +685,7 @@ expr:Payloads__Ctx__m_pend0_prs
 
 expr:Payloads__Ctx__m_pend1
     a sysml:EventOccurrenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx__m_pend1" ;
     sysml:owner elmt:Payloads__Ctx__m ;
     sysml:owningRelationship expr:Payloads__Ctx__m_pend1_om ;
@@ -703,6 +710,7 @@ expr:Payloads__Ctx__m_pend1_om
 
 expr:Payloads__Ctx__m_pend1_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx__m_pend1_pchain" ;
     sysml:ownedFeatureChaining expr:Payloads__Ctx__m_pend1_pchain_pfc0, expr:Payloads__Ctx__m_pend1_pchain_pfc1 ;
     sysml:ownedRelationship expr:Payloads__Ctx__m_pend1_pchain_pfc0, expr:Payloads__Ctx__m_pend1_pchain_pfc1 ;
@@ -831,6 +839,7 @@ elmt:Payloads__Ctx___404_om
 
 expr:Payloads__Ctx___404_pend0
     a sysml:EventOccurrenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx___404_pend0" ;
     sysml:owner elmt:Payloads__Ctx___404 ;
     sysml:owningRelationship expr:Payloads__Ctx___404_pend0_om ;
@@ -855,6 +864,7 @@ expr:Payloads__Ctx___404_pend0_om
 
 expr:Payloads__Ctx___404_pend0_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx___404_pend0_pchain" ;
     sysml:ownedFeatureChaining expr:Payloads__Ctx___404_pend0_pchain_pfc0, expr:Payloads__Ctx___404_pend0_pchain_pfc1 ;
     sysml:ownedRelationship expr:Payloads__Ctx___404_pend0_pchain_pfc0, expr:Payloads__Ctx___404_pend0_pchain_pfc1 ;
@@ -910,6 +920,7 @@ expr:Payloads__Ctx___404_pend0_prs
 
 expr:Payloads__Ctx___404_pend1
     a sysml:EventOccurrenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx___404_pend1" ;
     sysml:owner elmt:Payloads__Ctx___404 ;
     sysml:owningRelationship expr:Payloads__Ctx___404_pend1_om ;
@@ -934,6 +945,7 @@ expr:Payloads__Ctx___404_pend1_om
 
 expr:Payloads__Ctx___404_pend1_pchain
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx___404_pend1_pchain" ;
     sysml:ownedFeatureChaining expr:Payloads__Ctx___404_pend1_pchain_pfc0, expr:Payloads__Ctx___404_pend1_pchain_pfc1 ;
     sysml:ownedRelationship expr:Payloads__Ctx___404_pend1_pchain_pfc0, expr:Payloads__Ctx___404_pend1_pchain_pfc1 ;
@@ -1027,6 +1039,7 @@ expr:Payloads__Ctx___404__cmd_pvalue
     a sysml:FeatureChainExpression ;
     sysx:sourceText "m.cmd" ;
     sysml:elementId "Payloads__Ctx___404__cmd_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
     sysml:ownedRelationship expr:Payloads__Ctx___404__cmd_pvalue_pin0_om, expr:Payloads__Ctx___404__cmd_pvalue_pout_om, expr:Payloads__Ctx___404__cmd_pvalue_ptargetFeature ;
     sysml:ownedMembership expr:Payloads__Ctx___404__cmd_pvalue_pin0_om, expr:Payloads__Ctx___404__cmd_pvalue_pout_om ;
@@ -1049,6 +1062,7 @@ expr:Payloads__Ctx___404__cmd_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "m" ;
     sysml:elementId "Payloads__Ctx___404__cmd_pvalue_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Payloads__Ctx__m ;
     sysml:ownedRelationship expr:Payloads__Ctx___404__cmd_pvalue_pa0_pout_om, expr:Payloads__Ctx___404__cmd_pvalue_pa0_preferent ;
     sysml:ownedMembership expr:Payloads__Ctx___404__cmd_pvalue_pa0_pout_om ;
@@ -1063,6 +1077,7 @@ expr:Payloads__Ctx___404__cmd_pvalue_pa0
 
 expr:Payloads__Ctx___404__cmd_pvalue_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx___404__cmd_pvalue_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
@@ -1083,6 +1098,7 @@ expr:Payloads__Ctx___404__cmd_pvalue_pa0_pout_om
 
 expr:Payloads__Ctx___404__cmd_pvalue_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx___404__cmd_pvalue_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Payloads__Ctx___404__cmd_pvalue ;
@@ -1117,6 +1133,7 @@ expr:Payloads__Ctx___404__cmd_pvalue_pa0_om
 
 expr:Payloads__Ctx___404__cmd_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Payloads__Ctx___404__cmd_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Payloads__Ctx___404__cmd_pvalue ;

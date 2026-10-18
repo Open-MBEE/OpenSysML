@@ -79,6 +79,7 @@ elmt:Machines__Lamp___400
 
 elmt:Machines__Lamp___401
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::@1" ;
     sysx:sourceLine "3"^^xsd:integer ;
     sysx:sourceColumn "16"^^xsd:integer ;
@@ -107,6 +108,7 @@ elmt:Machines__Lamp___401_om
 
 elmt:Machines__Lamp__off
     a sysml:StateUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::off" ;
     sysx:sourceLine "4"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -231,6 +233,7 @@ elmt:Machines__Lamp__on__heat___400
 
 elmt:Machines__Lamp__on__heat___401
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::on::heat::@1" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "24"^^xsd:integer ;
@@ -259,6 +262,7 @@ elmt:Machines__Lamp__on__heat___401_om
 
 elmt:Machines__Lamp__on__heat__warm
     a sysml:StateUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::on::heat::warm" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
@@ -287,6 +291,7 @@ elmt:Machines__Lamp__on__heat__warm_om
 
 elmt:Machines__Lamp__on__heat__hot
     a sysml:StateUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::on::heat::hot" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
@@ -315,6 +320,7 @@ elmt:Machines__Lamp__on__heat__hot_om
 
 elmt:Machines__Lamp__on__heat___404
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::on::heat::@4" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
@@ -359,6 +365,7 @@ expr:Machines__Lamp__on__heat___404_psourcemember
 
 elmt:Machines__Lamp__on__heat___404_linkparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__heat___404_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:Machines__Lamp__on__heat___404 ;
@@ -379,6 +386,7 @@ elmt:Machines__Lamp__on__heat___404_linkparam_om
 
 elmt:Machines__Lamp__on__heat___404_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__heat___404_succession" ;
     sysml:connectorEnd expr:Machines__Lamp__on__heat___404_succession_pend0, expr:Machines__Lamp__on__heat___404_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp__on__heat___404_succession_pend0_om, expr:Machines__Lamp__on__heat___404_succession_pend1_om ;
@@ -400,6 +408,7 @@ elmt:Machines__Lamp__on__heat___404_succession
 
 expr:Machines__Lamp__on__heat___404_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__heat___404_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp__on__heat___404_succession ;
@@ -418,6 +427,7 @@ expr:Machines__Lamp__on__heat___404_succession_pend0_om
 
 expr:Machines__Lamp__on__heat___404_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__heat___404_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp__on__heat___404_succession ;
@@ -524,6 +534,7 @@ elmt:Machines__Lamp__on__light___400
 
 elmt:Machines__Lamp__on__light___401
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::on::light::@1" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "24"^^xsd:integer ;
@@ -552,6 +563,7 @@ elmt:Machines__Lamp__on__light___401_om
 
 elmt:Machines__Lamp__on__light__dim
     a sysml:StateUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::on::light::dim" ;
     sysx:sourceLine "14"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
@@ -580,6 +592,7 @@ elmt:Machines__Lamp__on__light__dim_om
 
 elmt:Machines__Lamp__on__light__bright
     a sysml:StateUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::on::light::bright" ;
     sysx:sourceLine "15"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
@@ -608,6 +621,7 @@ elmt:Machines__Lamp__on__light__bright_om
 
 elmt:Machines__Lamp__on__light___404
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::on::light::@4" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
@@ -652,6 +666,7 @@ expr:Machines__Lamp__on__light___404_psourcemember
 
 elmt:Machines__Lamp__on__light___404_linkparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__light___404_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:Machines__Lamp__on__light___404 ;
@@ -672,6 +687,7 @@ elmt:Machines__Lamp__on__light___404_linkparam_om
 
 elmt:Machines__Lamp__on__light___404_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__light___404_succession" ;
     sysml:connectorEnd expr:Machines__Lamp__on__light___404_succession_pend0, expr:Machines__Lamp__on__light___404_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp__on__light___404_succession_pend0_om, expr:Machines__Lamp__on__light___404_succession_pend1_om ;
@@ -693,6 +709,7 @@ elmt:Machines__Lamp__on__light___404_succession
 
 expr:Machines__Lamp__on__light___404_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__light___404_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp__on__light___404_succession ;
@@ -711,6 +728,7 @@ expr:Machines__Lamp__on__light___404_succession_pend0_om
 
 expr:Machines__Lamp__on__light___404_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__light___404_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp__on__light___404_succession ;
@@ -761,6 +779,7 @@ elmt:Machines__Lamp__on__light___404_succession_om
 
 elmt:Machines__Lamp__on__light___405
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::on::light::@5" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
@@ -805,6 +824,7 @@ expr:Machines__Lamp__on__light___405_psourcemember
 
 elmt:Machines__Lamp__on__light___405_linkparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__light___405_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:Machines__Lamp__on__light___405 ;
@@ -825,6 +845,7 @@ elmt:Machines__Lamp__on__light___405_linkparam_om
 
 elmt:Machines__Lamp__on__light___405_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__light___405_succession" ;
     sysml:connectorEnd expr:Machines__Lamp__on__light___405_succession_pend0, expr:Machines__Lamp__on__light___405_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp__on__light___405_succession_pend0_om, expr:Machines__Lamp__on__light___405_succession_pend1_om ;
@@ -846,6 +867,7 @@ elmt:Machines__Lamp__on__light___405_succession
 
 expr:Machines__Lamp__on__light___405_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__light___405_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp__on__light___405_succession ;
@@ -864,6 +886,7 @@ expr:Machines__Lamp__on__light___405_succession_pend0_om
 
 expr:Machines__Lamp__on__light___405_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp__on__light___405_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp__on__light___405_succession ;
@@ -914,6 +937,7 @@ elmt:Machines__Lamp__on__light___405_succession_om
 
 elmt:Machines__Lamp___404
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::@4" ;
     sysx:sourceLine "20"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -958,6 +982,7 @@ expr:Machines__Lamp___404_psourcemember
 
 elmt:Machines__Lamp___404_linkparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___404_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:Machines__Lamp___404 ;
@@ -978,6 +1003,7 @@ elmt:Machines__Lamp___404_linkparam_om
 
 elmt:Machines__Lamp___404_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___404_succession" ;
     sysml:connectorEnd expr:Machines__Lamp___404_succession_pend0, expr:Machines__Lamp___404_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp___404_succession_pend0_om, expr:Machines__Lamp___404_succession_pend1_om ;
@@ -999,6 +1025,7 @@ elmt:Machines__Lamp___404_succession
 
 expr:Machines__Lamp___404_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___404_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp___404_succession ;
@@ -1017,6 +1044,7 @@ expr:Machines__Lamp___404_succession_pend0_om
 
 expr:Machines__Lamp___404_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___404_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp___404_succession ;
@@ -1067,6 +1095,7 @@ elmt:Machines__Lamp___404_succession_om
 
 elmt:Machines__Lamp___405
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::@5" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1111,6 +1140,7 @@ expr:Machines__Lamp___405_psourcemember
 
 elmt:Machines__Lamp___405_linkparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___405_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:Machines__Lamp___405 ;
@@ -1131,6 +1161,7 @@ elmt:Machines__Lamp___405_linkparam_om
 
 elmt:Machines__Lamp___405_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___405_succession" ;
     sysml:connectorEnd expr:Machines__Lamp___405_succession_pend0, expr:Machines__Lamp___405_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp___405_succession_pend0_om, expr:Machines__Lamp___405_succession_pend1_om ;
@@ -1152,6 +1183,7 @@ elmt:Machines__Lamp___405_succession
 
 expr:Machines__Lamp___405_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___405_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp___405_succession ;
@@ -1170,6 +1202,7 @@ expr:Machines__Lamp___405_succession_pend0_om
 
 expr:Machines__Lamp___405_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___405_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp___405_succession ;
@@ -1220,6 +1253,7 @@ elmt:Machines__Lamp___405_succession_om
 
 elmt:Machines__Lamp___406
     a sysml:TransitionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Machines::Lamp::@6" ;
     sysx:sourceLine "22"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1264,6 +1298,7 @@ expr:Machines__Lamp___406_psourcemember
 
 elmt:Machines__Lamp___406_linkparam
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___406_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:Machines__Lamp___406 ;
@@ -1284,6 +1319,7 @@ elmt:Machines__Lamp___406_linkparam_om
 
 elmt:Machines__Lamp___406_succession
     a sysml:SuccessionAsUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___406_succession" ;
     sysml:connectorEnd expr:Machines__Lamp___406_succession_pend0, expr:Machines__Lamp___406_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp___406_succession_pend0_om, expr:Machines__Lamp___406_succession_pend1_om ;
@@ -1305,6 +1341,7 @@ elmt:Machines__Lamp___406_succession
 
 expr:Machines__Lamp___406_succession_pend0
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___406_succession_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp___406_succession ;
@@ -1323,6 +1360,7 @@ expr:Machines__Lamp___406_succession_pend0_om
 
 expr:Machines__Lamp___406_succession_pend1
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Machines__Lamp___406_succession_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp___406_succession ;

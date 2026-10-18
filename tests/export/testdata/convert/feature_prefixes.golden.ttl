@@ -285,6 +285,7 @@ elmt:FeaturePrefixes__B__slices_om
 
 expr:FeaturePrefixes__B__slices_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "FeaturePrefixes__B__slices_pmultiplicity" ;
     sysml:owner elmt:FeaturePrefixes__B__slices ;
     sysml:owningRelationship expr:FeaturePrefixes__B__slices_pmultiplicity_om ;
@@ -310,6 +311,7 @@ expr:FeaturePrefixes__B__slices_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "FeaturePrefixes__B__slices_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner expr:FeaturePrefixes__B__slices_pmultiplicity ;
     sysml:owningRelationship expr:FeaturePrefixes__B__slices_plowerBound_om ;
@@ -329,6 +331,7 @@ expr:FeaturePrefixes__B__slices_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "FeaturePrefixes__B__slices_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:owner expr:FeaturePrefixes__B__slices_pmultiplicity ;
     sysml:owningRelationship expr:FeaturePrefixes__B__slices_pupperBound_om ;
     sysml:owningMembership expr:FeaturePrefixes__B__slices_pupperBound_om .
@@ -425,6 +428,7 @@ elmt:FeaturePrefixes__C___400_om
 
 expr:FeaturePrefixes__C___400_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "FeaturePrefixes__C___400_pmultiplicity" ;
     sysml:owner elmt:FeaturePrefixes__C___400 ;
     sysml:owningRelationship expr:FeaturePrefixes__C___400_pmultiplicity_om ;
@@ -447,6 +451,7 @@ expr:FeaturePrefixes__C___400_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "FeaturePrefixes__C___400_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner expr:FeaturePrefixes__C___400_pmultiplicity ;
     sysml:owningRelationship expr:FeaturePrefixes__C___400_pupperBound_om ;
@@ -505,6 +510,7 @@ expr:FeaturePrefixes__C___401_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "p" ;
     sysml:elementId "FeaturePrefixes__C___401_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:FeaturePrefixes__C___400 ;
     sysml:ownedRelationship expr:FeaturePrefixes__C___401_pvalue_pout_om, expr:FeaturePrefixes__C___401_pvalue_preferent ;
     sysml:ownedMembership expr:FeaturePrefixes__C___401_pvalue_pout_om ;
@@ -519,6 +525,7 @@ expr:FeaturePrefixes__C___401_pvalue
 
 expr:FeaturePrefixes__C___401_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "FeaturePrefixes__C___401_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:FeaturePrefixes__C___401_pvalue ;

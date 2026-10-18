@@ -335,6 +335,7 @@ elmt:IndividualDefinitions__Mission__crew_om
 
 expr:IndividualDefinitions__Mission__crew_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "IndividualDefinitions__Mission__crew_pmultiplicity" ;
     sysml:owner elmt:IndividualDefinitions__Mission__crew ;
     sysml:owningRelationship expr:IndividualDefinitions__Mission__crew_pmultiplicity_om ;
@@ -357,6 +358,7 @@ expr:IndividualDefinitions__Mission__crew_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "IndividualDefinitions__Mission__crew_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:owner expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
     sysml:owningRelationship expr:IndividualDefinitions__Mission__crew_pupperBound_om ;
     sysml:owningMembership expr:IndividualDefinitions__Mission__crew_pupperBound_om .

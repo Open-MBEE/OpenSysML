@@ -382,6 +382,7 @@ expr:AnonymousFeatures__v___402_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "e" ;
     sysml:elementId "AnonymousFeatures__v___402_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:AnonymousFeatures__e ;
     sysml:ownedRelationship expr:AnonymousFeatures__v___402_pvalue_pout_om, expr:AnonymousFeatures__v___402_pvalue_preferent ;
     sysml:ownedMembership expr:AnonymousFeatures__v___402_pvalue_pout_om ;
@@ -396,6 +397,7 @@ expr:AnonymousFeatures__v___402_pvalue
 
 expr:AnonymousFeatures__v___402_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousFeatures__v___402_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:AnonymousFeatures__v___402_pvalue ;

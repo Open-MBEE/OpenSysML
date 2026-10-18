@@ -165,6 +165,7 @@ elmt:Quoted_20Names__Rover_20Model__mass_20limit_om
 
 elmt:Quoted_20Names__Rover_20Model__mass_20limit___400
     a sysml:OperatorExpression ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Quoted Names::Rover Model::mass limit::@0" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
@@ -211,6 +212,7 @@ expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "'dry mass'" ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:Quoted_20Names__Rover_20Model__dry_20mass ;
     sysml:ownedRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_pout_om, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_preferent ;
     sysml:ownedMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_pout_om ;
@@ -225,6 +227,7 @@ expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0
 
 expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0 ;
@@ -245,6 +248,7 @@ expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_pout_om
 
 expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pin0" ;
     sysml:direction "in" ;
     sysml:owner elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
@@ -281,6 +285,7 @@ expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pa1" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "0"^^xsd:integer ;
     sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
     sysml:owningRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1_om ;
@@ -288,6 +293,7 @@ expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1
 
 expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pin1" ;
     sysml:direction "in" ;
     sysml:owner elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
@@ -322,6 +328,7 @@ expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1_om
 
 expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pout" ;
     sysml:direction "out" ;
     sysml:owner elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;

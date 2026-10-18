@@ -272,6 +272,7 @@ expr:AnonymousPortions__car___400___400_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "100" ;
     sysml:elementId "AnonymousPortions__car___400___400_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "100"^^xsd:integer ;
     sysml:owner elmt:AnonymousPortions__car___400___400 ;
     sysml:owningRelationship expr:AnonymousPortions__car___400___400_pvalue_om ;
@@ -371,6 +372,7 @@ expr:AnonymousPortions__car___401___400_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "50" ;
     sysml:elementId "AnonymousPortions__car___401___400_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "50"^^xsd:integer ;
     sysml:owner elmt:AnonymousPortions__car___401___400 ;
     sysml:owningRelationship expr:AnonymousPortions__car___401___400_pvalue_om ;
@@ -473,6 +475,7 @@ expr:AnonymousPortions__car___402___400_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "AnonymousPortions__car___402___400_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "0"^^xsd:integer ;
     sysml:owner elmt:AnonymousPortions__car___402___400 ;
     sysml:owningRelationship expr:AnonymousPortions__car___402___400_pvalue_om ;
