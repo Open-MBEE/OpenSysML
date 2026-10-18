@@ -59,6 +59,26 @@ func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
+// printConfig answers -print-config: the list of hosts when none is named, or
+// the block for the host named with it.
+func printConfig(opts *options, fs *flag.FlagSet, stdout, stderr io.Writer) int {
+	name := opts.printConfig.host
+	if fs.NArg() > 0 {
+		fmt.Fprintf(stderr, "%sunexpected argument %q after -print-config %s\n", commandPrefix, fs.Arg(0), name)
+		printUsage(stderr, fs)
+		return exitUnservable
+	}
+	if name == "" {
+		printHostList(stdout)
+		return exitServed
+	}
+	if err := printHostConfig(stdout, name, opts.configCommand); err != nil {
+		fmt.Fprintf(stderr, "%s-print-config: %v\n", commandPrefix, err)
+		return exitUnservable
+	}
+	return exitServed
+}
+
 // run carries out what the command line asked for: the version, the help, or
 // the protocol itself. A flag it could not read is reported with the usage,
 // rather than entering protocol mode and dying on the first frame.
@@ -72,6 +92,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 		// Parse has already reported the flag and printed the usage on stderr.
 		return exitUnservable
 	}
+	if opts.printConfig.set && opts.printConfig.host == "" && fs.NArg() > 0 {
+		// The host follows the bare flag; flags after it are read as well.
+		opts.printConfig.host = fs.Arg(0)
+		if err := fs.Parse(fs.Args()[1:]); err != nil {
+			return exitUnservable
+		}
+	}
 
 	if opts.showHelp {
 		printUsage(stdout, fs)
@@ -84,6 +111,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if opts.showVersion {
 		fmt.Fprint(stdout, build().Report(mcpCommand))
 		return exitServed
+	}
+	if opts.printConfig.set {
+		return printConfig(opts, fs, stdout, stderr)
 	}
 	if fs.NArg() > 0 {
 		fmt.Fprintf(stderr, "%sunexpected argument %q; %s\n", commandPrefix, fs.Arg(0), protocolMessage)

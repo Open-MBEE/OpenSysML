@@ -79,6 +79,7 @@ elmt:AnonymousFeatures__Part__m
     sysml:owner elmt:AnonymousFeatures__Part ;
     sysml:owningRelationship elmt:AnonymousFeatures__Part__m_om ;
     sysml:owningMembership elmt:AnonymousFeatures__Part__m_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "m" ;
     sysx:declaredKeyword "feature" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -109,6 +110,7 @@ elmt:AnonymousFeatures__Part__accessedFeature
     sysml:owner elmt:AnonymousFeatures__Part ;
     sysml:owningRelationship elmt:AnonymousFeatures__Part__accessedFeature_om ;
     sysml:owningMembership elmt:AnonymousFeatures__Part__accessedFeature_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "accessedFeature" ;
     sysx:declaredKeyword "feature" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -139,6 +141,7 @@ elmt:AnonymousFeatures__Part__engine
     sysml:owner elmt:AnonymousFeatures__Part ;
     sysml:owningRelationship elmt:AnonymousFeatures__Part__engine_om ;
     sysml:owningMembership elmt:AnonymousFeatures__Part__engine_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "engine" ;
     sysx:declaredKeyword "feature" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -169,9 +172,9 @@ elmt:AnonymousFeatures__Part__carParts
     sysml:owner elmt:AnonymousFeatures__Part ;
     sysml:owningRelationship elmt:AnonymousFeatures__Part__carParts_om ;
     sysml:owningMembership elmt:AnonymousFeatures__Part__carParts_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "carParts" ;
     sysx:declaredKeyword "feature" ;
-    sysml:isComposite "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\tcomposite feature carParts;\n" .
 
@@ -200,6 +203,7 @@ elmt:AnonymousFeatures__v
     sysml:owner elmt:AnonymousFeatures ;
     sysml:owningRelationship elmt:AnonymousFeatures__v_om ;
     sysml:owningMembership elmt:AnonymousFeatures__v_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "v" ;
     sysx:declaredKeyword "feature" ;
     sysml:type elmt:AnonymousFeatures__Part ;
@@ -242,6 +246,7 @@ elmt:AnonymousFeatures__v___400
     sysml:owner elmt:AnonymousFeatures__v ;
     sysml:owningRelationship elmt:AnonymousFeatures__v___400_om ;
     sysml:owningMembership elmt:AnonymousFeatures__v___400_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "feature" ;
     sysml:redefines elmt:AnonymousFeatures__Part__m ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -282,6 +287,7 @@ elmt:AnonymousFeatures__v___400__g
     sysml:owner elmt:AnonymousFeatures__v___400 ;
     sysml:owningRelationship elmt:AnonymousFeatures__v___400__g_om ;
     sysml:owningMembership elmt:AnonymousFeatures__v___400__g_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "g" ;
     sysx:declaredKeyword "feature" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -312,6 +318,7 @@ elmt:AnonymousFeatures__v___401
     sysml:owner elmt:AnonymousFeatures__v ;
     sysml:owningRelationship elmt:AnonymousFeatures__v___401_om ;
     sysml:owningMembership elmt:AnonymousFeatures__v___401_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "feature" ;
     sysml:redefines elmt:AnonymousFeatures__Part__accessedFeature ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -346,8 +353,8 @@ elmt:AnonymousFeatures__v___402
     sysml:owner elmt:AnonymousFeatures__v ;
     sysml:owningRelationship elmt:AnonymousFeatures__v___402_om ;
     sysml:owningMembership elmt:AnonymousFeatures__v___402_om ;
-    sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousFeatures__Part__engine ;
     sysml:value expr:AnonymousFeatures__v___402_pvalue ;
     sysml:ownedRelationship expr:AnonymousFeatures__v___402_pvalue_om, elmt:AnonymousFeatures__v___402_rd0 ;
@@ -375,6 +382,7 @@ expr:AnonymousFeatures__v___402_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "e" ;
     sysml:elementId "AnonymousFeatures__v___402_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:referent elmt:AnonymousFeatures__e ;
     sysml:ownedRelationship expr:AnonymousFeatures__v___402_pvalue_pout_om, expr:AnonymousFeatures__v___402_pvalue_preferent ;
     sysml:ownedMembership expr:AnonymousFeatures__v___402_pvalue_pout_om ;
@@ -389,6 +397,7 @@ expr:AnonymousFeatures__v___402_pvalue
 
 expr:AnonymousFeatures__v___402_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousFeatures__v___402_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:AnonymousFeatures__v___402_pvalue ;
@@ -432,6 +441,7 @@ elmt:AnonymousFeatures__v___403
     sysml:owner elmt:AnonymousFeatures__v ;
     sysml:owningRelationship elmt:AnonymousFeatures__v___403_om ;
     sysml:owningMembership elmt:AnonymousFeatures__v___403_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "feature" ;
     sysml:direction "inout" ;
     sysml:redefines elmt:AnonymousFeatures__Part__accessedFeature, elmt:AnonymousFeatures__Part__m ;
@@ -472,6 +482,7 @@ elmt:AnonymousFeatures__e
     sysml:owner elmt:AnonymousFeatures ;
     sysml:owningRelationship elmt:AnonymousFeatures__e_om ;
     sysml:owningMembership elmt:AnonymousFeatures__e_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "e" ;
     sysx:declaredKeyword "feature" ;
     sysml:subsets elmt:AnonymousFeatures__Part__engine ;
