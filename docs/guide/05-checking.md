@@ -207,7 +207,8 @@ integer is reported, while `n as Natural` on `attribute n : Natural = 7` keeps `
 `Positive` greater than all the integers). It exceeds every finite number, equals itself and prints
 as `*`, and whatever that ordering decides is answered, in the operator notation and the function
 notation alike: `* > 1`, `'>'(*, 1)`, `* == *`, `max(*, 1)` (`*`), `min(*, 1)` (`1`), `abs(*)`,
-`ToString(*)` (`"*"`) and unary `+`. The Kernel Function Library defines no arithmetic result over
+`ToString(*)` (`"*"`) and unary `+`. Beside a feature the model leaves open, `max(*, u)` is still `*`
+and the ordering stays open. The Kernel Function Library defines no arithmetic result over
 it, so `+`, `-`, `*`, `/`, `%`, `**`, `^`, unary `-`, `..`, `sum` and `product` over `*` are well
 typed — the checker accepts them, as the pilot does — and evaluating one is an error naming the
 operator, as a division by zero is.

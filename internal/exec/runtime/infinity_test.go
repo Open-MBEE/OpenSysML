@@ -299,3 +299,45 @@ func TestUnboundedAgainstDeclaredSubtype(t *testing.T) {
 		}
 	}
 }
+
+// TestInfinityOrderingOverOpenOperands orders `*` beside a feature the model
+// leaves open: the maximum is `*` whatever the feature holds, the minimum and the
+// comparisons stay open in both notations, and the arithmetic stays undefined.
+func TestInfinityOrderingOverOpenOperands(t *testing.T) {
+	const src = "package test {\n\tprivate import ScalarValues::*;\n\tattribute u : Integer;\n}"
+	for _, expr := range []string{"IntegerFunctions::max(*, test::u)", "IntegerFunctions::max(test::u, *)"} {
+		t.Run(expr, func(t *testing.T) {
+			_, got, err := evalDeclaredExpr(t, src, expr)
+			if err != nil {
+				t.Fatalf("%s failed: %v", expr, err)
+			}
+			if text := FormatValue(got); text != "*" {
+				t.Errorf("%s = %s, want *", expr, text)
+			}
+		})
+	}
+	open := []string{
+		"IntegerFunctions::min(*, test::u)", "IntegerFunctions::min(test::u, *)",
+		"test::u < *", "* > test::u", "test::u <= *", "test::u == *",
+		"IntegerFunctions::'<'(test::u, *)", "RealFunctions::'>='(*, test::u)",
+	}
+	for _, expr := range open {
+		t.Run(expr, func(t *testing.T) {
+			_, got, err := evalDeclaredExpr(t, src, expr)
+			if err != nil {
+				t.Fatalf("%s failed: %v", expr, err)
+			}
+			if got.Kind != ValUndetermined {
+				t.Errorf("%s = %s, want an undetermined value", expr, FormatValue(got))
+			}
+		})
+	}
+	for _, expr := range []string{"test::u + *", "* - test::u", "IntegerFunctions::'+'(test::u, *)"} {
+		t.Run(expr, func(t *testing.T) {
+			_, _, err := evalDeclaredExpr(t, src, expr)
+			if !errors.Is(err, ErrTypeMismatch) {
+				t.Errorf("%s: error %v, want a type mismatch", expr, err)
+			}
+		})
+	}
+}
