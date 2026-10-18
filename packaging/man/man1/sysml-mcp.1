@@ -87,9 +87,85 @@ the client, narrowed to the groups served.
 every group: List the tools this server serves, each with the RPC or sysml
 flag it stands for.
 .TP
+.B apply_model_edit
+lsp: Edit a model by operations on its elements (setValue, rename, addMember,
+delete, move, ...) and answer the text edits; write them with apply.
+.TP
+.B close_document
+lsp: Release a document held open by open_document; the server reads the file
+on disk again.
+.TP
+.B code_actions
+lsp: List the quick fixes and refactorings available for a range of a
+document, each with its edits.
+.TP
+.B completion
+lsp: Propose completions at a position: keywords, names in scope and members
+of the accessed type.
+.TP
+.B definition
+lsp: Find where the name at a position is declared.
+.TP
+.B document_symbols
+lsp: Outline a document: the elements it declares, nested as they are owned.
+.TP
+.B documents
+lsp: List the document definitions declared across the workspace.
+.TP
+.B format
+lsp: Format a document, or a range of it, in the canonical style; write the
+file with apply.
+.TP
+.B hover
+lsp: Explain the element at a position: kind, qualified name, type, value and
+documentation.
+.TP
+.B inlay_hints
+lsp: List the inferred types and values an editor would show inline for a
+document or range.
+.TP
+.B open_document
+lsp: Hold a document open with the given text, analyzed instead of the file on
+disk.
+.TP
+.B references
+lsp: Find every place in the workspace that refers to the element at a
+position.
+.TP
+.B rename
+lsp: Rename the element at a position everywhere in the workspace; write the
+files with apply.
+.TP
+.B render_document
+lsp: Render a document definition of the workspace to Markdown, its queries
+evaluated and its diagrams embedded.
+.TP
+.B render_view
+lsp: Render a declared view or pseudo\-view of a workspace document as
+Mermaid, dot, PlantUML, D2, text or a table.
+.TP
+.B signature_help
+lsp: Describe the invocation enclosing a position: its parameters and the
+active one.
+.TP
+.B update_document
+lsp: Replace the text of a document held open by open_document and answer the
+diagnostics of the new text.
+.TP
+.B views
+lsp: List the views a document declares and the pseudo\-views render_view can
+draw of it.
+.TP
+.B workspace_diagnostics
+lsp: List the errors, warnings and hints of one workspace document or of the
+whole workspace.
+.TP
 .B workspace_info
 lsp: Describe the workspace root and the documents it holds, with their
 diagnostic counts.
+.TP
+.B workspace_symbols
+lsp: Search the workspace's declared elements by name substring.
 .TP
 .B apply_edits
 runtime: Apply workspace edits to a parsed model and answer the edited
