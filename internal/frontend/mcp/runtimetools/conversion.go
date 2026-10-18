@@ -57,28 +57,7 @@ func (g *group) registerConversion(s *mcp.Server) {
 			"back as `content` for the agent to write. A SysML v1 model is refused with INVALID_ARGUMENT: use migrate. The result is the " +
 			"ConvertResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Convert model"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ConvertInput) (*mcp.CallToolResult, Result, error) {
-		m, err := g.convertSource(ctx, in)
-		if err != nil {
-			return nil, nil, err
-		}
-		req := &pb.ConvertRequest{}
-		if err := unmarshal(in, m.hash, req); err != nil {
-			return nil, nil, err
-		}
-		if path, ok := req.GetSource().(*pb.ConvertRequest_FilePath); ok {
-			resolved, err := g.path(path.FilePath, sourceNameRole(req.FromFormat))
-			if err != nil {
-				return nil, nil, err
-			}
-			path.FilePath = resolved
-		}
-		resp, err := g.svc.Convert(ctx, req)
-		if err != nil {
-			return nil, nil, toolError(err)
-		}
-		return answer(resp, m, convertText(resp))
-	})
+	}, g.convert)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "migrate",
@@ -129,21 +108,48 @@ func (g *group) registerConversion(s *mcp.Server) {
 			"nothing is applied. Nothing is written to disk: the edited text comes back as `content` (one document) or `documents` " +
 			"for the agent to write. The result is the ApplyEditsResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Apply edits"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ApplyEditsInput) (*mcp.CallToolResult, Result, error) {
-		m, err := g.resolve(ctx, in.ModelInput)
+	}, g.applyEdits)
+}
+
+// convert serves the convert tool: it resolves the named source and converts it.
+func (g *group) convert(ctx context.Context, _ *mcp.CallToolRequest, in ConvertInput) (*mcp.CallToolResult, Result, error) {
+	m, err := g.convertSource(ctx, in)
+	if err != nil {
+		return nil, nil, err
+	}
+	req := &pb.ConvertRequest{}
+	if err := unmarshal(in, m.hash, req); err != nil {
+		return nil, nil, err
+	}
+	if path, ok := req.GetSource().(*pb.ConvertRequest_FilePath); ok {
+		resolved, err := g.path(path.FilePath, sourceNameRole(req.FromFormat))
 		if err != nil {
 			return nil, nil, err
 		}
-		req := &pb.ApplyEditsRequest{}
-		if err := unmarshal(in, m.hash, req); err != nil {
-			return nil, nil, err
-		}
-		resp, err := g.svc.ApplyEdits(ctx, req)
-		if err != nil {
-			return nil, nil, toolError(err)
-		}
-		return answer(resp, m, applyEditsText(resp))
-	})
+		path.FilePath = resolved
+	}
+	resp, err := g.svc.Convert(ctx, req)
+	if err != nil {
+		return nil, nil, toolError(err)
+	}
+	return answer(resp, m, convertText(resp))
+}
+
+// applyEdits serves the apply_edits tool over the resolved model.
+func (g *group) applyEdits(ctx context.Context, _ *mcp.CallToolRequest, in ApplyEditsInput) (*mcp.CallToolResult, Result, error) {
+	m, err := g.resolve(ctx, in.ModelInput)
+	if err != nil {
+		return nil, nil, err
+	}
+	req := &pb.ApplyEditsRequest{}
+	if err := unmarshal(in, m.hash, req); err != nil {
+		return nil, nil, err
+	}
+	resp, err := g.svc.ApplyEdits(ctx, req)
+	if err != nil {
+		return nil, nil, toolError(err)
+	}
+	return answer(resp, m, applyEditsText(resp))
 }
 
 // convertSource checks that convert names exactly one source and resolves the

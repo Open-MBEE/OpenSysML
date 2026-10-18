@@ -180,10 +180,10 @@ func under(root, path string) bool {
 func (h *Host) contained(path string) error {
 	probe := path
 	for {
-		real, err := filepath.EvalSymlinks(probe)
+		resolved, err := filepath.EvalSymlinks(probe)
 		if err == nil {
-			if !under(h.realRoot, real) {
-				return fmt.Errorf("%s resolves to %s, outside the workspace root %s", path, real, h.Root)
+			if !under(h.realRoot, resolved) {
+				return fmt.Errorf("%s resolves to %s, outside the workspace root %s", path, resolved, h.Root)
 			}
 			return nil
 		}
