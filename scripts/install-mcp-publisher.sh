@@ -43,7 +43,11 @@ url="https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_P
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 curl -fsSL --retry 3 -o "$tmp/$archive" "$url"
-actual="$(sha256sum "$tmp/$archive" | cut -d' ' -f1)"
+if command -v sha256sum >/dev/null 2>&1; then
+  actual="$(sha256sum "$tmp/$archive" | cut -d' ' -f1)"
+else
+  actual="$(shasum -a 256 "$tmp/$archive" | cut -d' ' -f1)"
+fi
 if [[ "$actual" != "$expected" ]]; then
   echo "Error: $archive has sha256 $actual, not the pinned $expected; refusing to install it." >&2
   exit 1
