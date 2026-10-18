@@ -1,0 +1,58 @@
+model: tools/referee/exec/testdata/models/unbounded_arithmetic.sysml
+
+# `*` as an operand. KerML 1.0 §8.3.4.8.11 types the literal as a Positive and §8.2.5.8.4
+# makes it "a number from the DataType ScalarValues::Positive that is greater than all the
+# integers"; §9.3.2 extends Natural with it. The Kernel Function Library (§9.4) defines no
+# arithmetic result over it, and the pinned pilot leaves every arithmetic operator over `*`
+# unevaluated (the operator expression itself comes back); ours reports a typed error. The
+# ordering the specification states is answered: comparisons, equality, max, min and abs.
+
+# Arithmetic: undefined by the specification, unevaluated by the pilot, refused here.
+add-right ::  :: Unbounded::add1
+add-left ::  :: Unbounded::add2
+add-real ::  :: Unbounded::addReal
+sub-right ::  :: Unbounded::sub1
+sub-left ::  :: Unbounded::sub2
+sub-both ::  :: Unbounded::subBoth
+mul-left ::  :: Unbounded::mul1
+mul-zero ::  :: Unbounded::mul0
+div-right ::  :: Unbounded::div1
+div-left ::  :: Unbounded::div2
+mod ::  :: Unbounded::mod1
+pow-base ::  :: Unbounded::pow1
+pow-exponent ::  :: Unbounded::pow2
+caret ::  :: Unbounded::caret
+negate ::  :: Unbounded::neg
+range-upper ::  :: Unbounded::rng
+sum-unbounded ::  :: Unbounded::sum1
+feature-plus-one ::  :: Unbounded::hiPlus
+calc-argument-plus-one ::  :: Unbounded::bumped
+calc-body-plus-one ::  :: Unbounded::viaCalc
+
+# Ordering and identity: `*` exceeds every integer and equals itself.
+plus ::  :: Unbounded::pos
+greater ::  :: Unbounded::gt
+less ::  :: Unbounded::lt
+greater-equal ::  :: Unbounded::ge
+less-equal-self ::  :: Unbounded::le
+equal-self ::  :: Unbounded::eq
+equal-one ::  :: Unbounded::eqOne
+not-equal-one ::  :: Unbounded::ne
+greater-function ::  :: Unbounded::gtFn
+equal-function ::  :: Unbounded::eqFn
+max ::  :: Unbounded::mx
+min ::  :: Unbounded::mn
+abs ::  :: Unbounded::ab
+to-string ::  :: Unbounded::str
+size-with-unbounded ::  :: Unbounded::cnt
+includes-unbounded ::  :: Unbounded::has
+conditional ::  :: Unbounded::cond
+feature-value ::  :: Unbounded::hi
+bound-by-feature ::  :: Unbounded::many
+calc-identity ::  :: Unbounded::same
+
+# The bare expressions, evaluated in the global scope.
+global-add ::  :: * + 1
+global-negate ::  :: -*
+global-greater ::  :: * > 1
+global-equal ::  :: * == *
