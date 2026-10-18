@@ -1413,7 +1413,9 @@ participants' type declarations, not messages or the environment participant.
 `svg` and `svg-animated` are the only forms drawn by this implementation itself rather than
 handed to a diagram engine; they exist for run renderings only (`view.FormSVG`,
 `view.FormSVGAnimated`, written by `Rendering.SVGWith` in `internal/ir/view/run_svg.go`), and a
-model view asked for either gets the wrong-form error naming its forms. Both kinds already carry
+model view asked for either gets the wrong-form error naming its forms. `view.ViewForms()` is the
+list without them, the forms a model view is written in: the LSP's `openSysmlRenderForms`, the
+REPL's `%render` completion and `-render-form`'s help and unknown-form error name those. Both kinds already carry
 geometry-free data — a timeline is lanes × clock time, a sequence is lifelines × message order —
 so the writer needs no layout engine, and the two kinds share one document frame (header, title,
 notices, escaping, links, animation timing) and differ only in the shapes.

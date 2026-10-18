@@ -44,6 +44,12 @@ func Forms() []Form {
 	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV, FormSVG, FormSVGAnimated}
 }
 
+// ViewForms are the forms a model view is written in: every form but the
+// run-only SVG forms, which draw a recorded run and no model view.
+func ViewForms() []Form {
+	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV}
+}
+
 // DiagramForms are the forms a document render writes its graph-shaped
 // diagrams as; a tabular view is written as a table whichever is chosen.
 func DiagramForms() []Form { return []Form{FormMermaid, FormDot, FormPlantUML, FormD2} }
