@@ -764,8 +764,8 @@ func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Bindin
 
 // withBoundMembers adds to an object's features the members of sym that the
 // bindings of the objects holding it reach through feature, where the shape
-// leaves them out: a Kernel member the model binds describes the object rather
-// than framing it (KerML 1.0 §7.3.4.4), so it holds a value like any other.
+// leaves them out: a Kernel frame member the model binds (`cf.edges = ae`)
+// is a feature of the object, so it holds a value like any other.
 func (ctx *Context) withBoundMembers(owner *Instance, feature string, sym *symbols.Symbol, features []EffectiveFeature) []EffectiveFeature {
 	if owner == nil || feature == "" {
 		return features
