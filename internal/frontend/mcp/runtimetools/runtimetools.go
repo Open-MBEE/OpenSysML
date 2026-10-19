@@ -50,8 +50,8 @@ func Register(s *mcp.Server, svc *sysmlgrpc.Service, root string) {
 		root = abs
 	}
 	g := &group{svc: svc, root: root, realRoot: root}
-	if real, err := filepath.EvalSymlinks(root); err == nil {
-		g.realRoot = real
+	if resolved, err := filepath.EvalSymlinks(root); err == nil {
+		g.realRoot = resolved
 	}
 	g.registerInfo(s)
 	g.registerExplain(s)
@@ -169,18 +169,18 @@ func (g *group) path(p string, role nameRole) (string, error) {
 	}
 	probe := p
 	for {
-		real, err := filepath.EvalSymlinks(probe)
+		resolved, err := filepath.EvalSymlinks(probe)
 		if err == nil {
 			if rest, err := filepath.Rel(probe, p); err == nil && rest != "." {
-				real = filepath.Join(real, rest)
+				resolved = filepath.Join(resolved, rest)
 			}
-			if !under(g.realRoot, real) {
-				return "", argumentError("%s resolves to %s, outside the workspace root %s", p, real, g.root)
+			if !under(g.realRoot, resolved) {
+				return "", argumentError("%s resolves to %s, outside the workspace root %s", p, resolved, g.root)
 			}
-			if !sameFormat(p, real, role) {
-				return "", argumentError("%s is a link to %s, whose extension names another format; name the file itself or a link with its extension", p, real)
+			if !sameFormat(p, resolved, role) {
+				return "", argumentError("%s is a link to %s, whose extension names another format; name the file itself or a link with its extension", p, resolved)
 			}
-			return real, nil
+			return resolved, nil
 		}
 		if !errors.Is(err, fs.ErrNotExist) {
 			return "", argumentError("%s: %v", p, err)

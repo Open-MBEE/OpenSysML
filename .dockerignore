@@ -1,0 +1,12 @@
+# Only what `go build ./cmd/...` reads enters the image build context; the
+# clients, documentation, editors, examples and the downloaded corpora are
+# the bulk of the tree and none of them is compiled into the binaries.
+*
+!go.mod
+!go.sum
+!Makefile
+!cmd/
+!internal/
+!api/
+**/testdata/
+**/*_test.go

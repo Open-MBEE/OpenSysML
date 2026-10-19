@@ -161,7 +161,10 @@ const SELF_MESSAGE_REACH = 28;
  */
 // The order Array.prototype.sort gives strings: by code unit, in every locale.
 function byCodeUnit(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
+  if (a < b) {
+    return -1;
+  }
+  return a > b ? 1 : 0;
 }
 
 export function layoutCanvas(
@@ -513,7 +516,8 @@ export function labelLineClass(lines: readonly string[], i: number): LabelLineCl
   if (keyworded && i === 0) {
     return "keyword";
   }
-  return i === (keyworded ? 1 : 0) ? "head" : "detail";
+  const head = keyworded ? 1 : 0;
+  return i === head ? "head" : "detail";
 }
 
 /** nameSegments splits a qualified name at its `::`, a quoted segment with its escapes kept whole. */
@@ -537,10 +541,14 @@ function nameSegments(name: string): string[] {
   return segments;
 }
 
+// nameSegments always yields a segment, so the fallback never applies.
+function lastSegment(segments: readonly string[]): string {
+  return segments.at(-1) ?? "";
+}
+
 /** simpleName is the last segment of a qualified name, a quoted segment kept whole. */
 export function simpleName(name: string): string {
-  const segments = nameSegments(name);
-  return segments[segments.length - 1];
+  return lastSegment(nameSegments(name));
 }
 
 /**
@@ -557,7 +565,7 @@ export function simpleNames(nodes: readonly RenderNode[]): Map<string, string> {
     }
     const parts = nameSegments(node.name);
     segments.set(node.id, parts);
-    const last = parts[parts.length - 1];
+    const last = lastSegment(parts);
     groups.set(last, [...(groups.get(last) ?? []), node]);
   }
   const suffix = (parts: string[], n: number): string =>
@@ -789,6 +797,23 @@ export function freePlacement(
   return direction ? undefined : clampedAt;
 }
 
+/** The axis two facing ports share when the other port lies on the far side of this one. */
+function facingAxis(
+  port: PlacedPort,
+  other: PlacedPort,
+  ownFace: RenderPoint,
+  otherFace: RenderPoint,
+): "x" | "y" | undefined {
+  const facesEast = port.side === "east" && other.side === "west" && otherFace.x > ownFace.x;
+  const facesWest = port.side === "west" && other.side === "east" && otherFace.x < ownFace.x;
+  if (facesEast || facesWest) {
+    return "y";
+  }
+  const facesSouth = port.side === "south" && other.side === "north" && otherFace.y > ownFace.y;
+  const facesNorth = port.side === "north" && other.side === "south" && otherFace.y < ownFace.y;
+  return facesSouth || facesNorth ? "x" : undefined;
+}
+
 /** Lines a dropped node's port up with a wired port less than MIN_JOG out of line, where that spot is free
  * of `others` (by default every other shown node). */
 export function alignedPlacement(
@@ -838,20 +863,7 @@ export function alignedPlacement(
     }
     const ownFace = portFace({ ...node.box, x: at.x, y: at.y }, port);
     const otherFace = portFace(otherNode.box, other);
-    const axis =
-      (port.side === "east" &&
-        other.side === "west" &&
-        otherFace.x > ownFace.x) ||
-      (port.side === "west" && other.side === "east" && otherFace.x < ownFace.x)
-        ? "y"
-        : (port.side === "south" &&
-              other.side === "north" &&
-              otherFace.y > ownFace.y) ||
-            (port.side === "north" &&
-              other.side === "south" &&
-              otherFace.y < ownFace.y)
-          ? "x"
-          : undefined;
+    const axis = facingAxis(port, other, ownFace, otherFace);
     if (axis) {
       pairs.push({ port, other, otherNode, axis });
     }
@@ -1393,8 +1405,7 @@ function routeEdge(
 
 function sameBox(a: Box | undefined, b: Box): boolean {
   return (
-    a !== undefined &&
-    a.x === b.x &&
+    a?.x === b.x &&
     a.y === b.y &&
     a.width === b.width &&
     a.height === b.height
@@ -1766,12 +1777,8 @@ export function liftedEdges(
     if (edge.hidden || (!from && !to)) {
       continue;
     }
-    const route =
-      from && to
-        ? edge.route.map((p) => ({ x: p.x + dx, y: p.y + dy }))
-        : edge.rerouted
-          ? []
-          : edge.route;
+    const kept = edge.rerouted ? [] : edge.route;
+    const route = from && to ? edge.route.map((p) => ({ x: p.x + dx, y: p.y + dy })) : kept;
     out.push(
       routeEdge(edge.edge, edge.index, placed, new Map([[edge.index, route]])),
     );
