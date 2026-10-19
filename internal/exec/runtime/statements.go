@@ -945,7 +945,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 				cells = e.ensureRootCells()
 			}
 			check := func(value *Value) error {
-				return e.ctx.checkBodyDeclarationAs(s.Scope, e.host.describe, name, value)
+				return e.checkBodyDeclaration(s.Scope, name, value)
 			}
 			bindingContext := e.evalIn(s.Scope)
 			visible := make([]map[string]bool, len(bindingContext.frames))
@@ -980,7 +980,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 				if err != nil {
 					return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
 				}
-				if err := e.ctx.checkBodyDeclarationAs(s.Scope, e.host.describe, s.Name, &evaluated); err != nil {
+				if err := e.checkBodyDeclaration(s.Scope, s.Name, &evaluated); err != nil {
 					return flowNext, err
 				}
 				value = evaluated
@@ -995,7 +995,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 				if err != nil {
 					return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
 				}
-				if err := e.ctx.checkBodyDeclarationAs(s.Scope, e.host.describe, s.Name, &evaluated); err != nil {
+				if err := e.checkBodyDeclaration(s.Scope, s.Name, &evaluated); err != nil {
 					return flowNext, err
 				}
 				value = evaluated
@@ -1008,7 +1008,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 			if err != nil {
 				return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
 			}
-			if err := e.ctx.checkBodyDeclarationAs(s.Scope, e.host.describe, s.Name, &evaluated); err != nil {
+			if err := e.checkBodyDeclaration(s.Scope, s.Name, &evaluated); err != nil {
 				return flowNext, err
 			}
 			e.env.declare(e.ctx, s.Name, evaluated)
@@ -1669,9 +1669,18 @@ func (e *stmtEngine) condition(expr ast.Node, scope *symbols.Scope, what string)
 	if err != nil {
 		return false, fmt.Errorf("eval %s: %w", what, err)
 	}
+	value = soleElement(value)
 	if value.Kind != ValConst || value.Const.Kind != semantics.ValBool {
 		return false, fmt.Errorf("%s: %s must evaluate to a Boolean, got %s",
 			e.host.describe(), what, value.Kind)
 	}
 	return value.Const.Bool, nil
+}
+
+// checkBodyDeclaration checks a body-local declaration's value against its declaration,
+// held in its multiplicity's shape except in a calculation body, whose features are held
+// as computed (write_conformance.go checkTargetHeld).
+func (e *stmtEngine) checkBodyDeclaration(scope *symbols.Scope, name string, value *Value) error {
+	_, calc := e.host.(*calcStmtHost)
+	return e.ctx.checkBodyDeclarationHeld(scope, e.host.describe, name, value, !calc)
 }

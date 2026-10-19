@@ -618,6 +618,17 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 	if _, exact := feature.Multiplicity.Exactly(); exact {
 		return Value{}, false
 	}
+	// A library collection the model values with nothing holds nothing: a lower
+	// bound of 0 is met by none, a higher one by nothing.
+	if fewestOf(feature.Multiplicity) == 0 && ec.ctx.libraryDeclared(feature.Symbol) {
+		if feature.Scalar() {
+			return nullValue(), true
+		}
+		if typed, ok := ec.ctx.emptyOfSymbol(feature.Symbol); ok {
+			return typed, true
+		}
+		return sequenceOf(nil), true
+	}
 	return undeterminedFeatureValue(openCountReason(spelled, feature.Multiplicity), feature.Multiplicity, feature.Symbol), true
 }
 

@@ -1715,6 +1715,12 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 
 // chainFeatureValue continues a chain through the named feature value of inst.
 func (ec *EvalContext) chainFeatureValue(inst *Instance, name string, rest []ast.NameSegment, from string) (Value, error) {
+	if val, ok, err := ec.constraintUsageRead(inst, name); ok {
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(val, constraintResultTail(rest), name)
+	}
 	// Read through the feature value so a derived or composite member is materialized
 	// on demand rather than read as an empty feature value.
 	fv, open, err := ec.memberFeatureValue(inst, name)
@@ -2308,10 +2314,13 @@ func (ec *EvalContext) evalIdentity(n *ast.OperatorExpr) (Value, error) {
 // kind, is never the same value, so an Integer is not identical to a Real of
 // equal magnitude, nor an enumeration's literal to the bare scalar it equals or
 // to another enumeration's literal of that value. Two sequences are identical
-// element by element.
+// element by element, and a value is the one-element sequence holding it.
 func valueIdentical(left, right Value) bool {
 	if isEmptyValue(left) || isEmptyValue(right) {
 		return isEmptyValue(left) && isEmptyValue(right)
+	}
+	if left.Kind != right.Kind {
+		left, right = soleElement(left), soleElement(right)
 	}
 	if left.Kind != right.Kind || left.EnumerationLiteral() != right.EnumerationLiteral() {
 		return false
@@ -3335,6 +3344,11 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 		return ec.invokeBuiltin(target.builtinName, target.builtin, exprs, n.NamedArgs, target.names, target.unbound)
 	}
 
+	// A declaration the runtime cannot evaluate is reported with its reason
+	// before its arguments are read: a type named as a value is not the fault.
+	if target.library != nil && target.library.unevaluable {
+		return target.library.apply(target.library.written(), ec.ctx, nil)
+	}
 	callArgs, err := ec.evalInvocationArgs(qualName, exprs, n.NamedArgs, target)
 	if err != nil {
 		return Value{}, err
@@ -3378,6 +3392,7 @@ func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.Fea
 	if err != nil {
 		return Value{}, err
 	}
+	fn = soleElement(fn)
 	if fn.Kind != ValFunction {
 		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, DescribeValue(fn))
 	}
@@ -3746,9 +3761,11 @@ func qualifiedNameToString(qn *ast.QualifiedName) string {
 	return strings.Join(parts, "::")
 }
 
-// equalValues is `==` over two operands: a set meeting a sequence flows into the
-// ordered context and is compared as its canonical sequence; otherwise valueEqual.
+// equalValues is `==` over two operands: a one-element collection is its element
+// (KerML 1.0 §7.4.8), a set meeting a sequence flows into the ordered context and
+// is compared as its canonical sequence; otherwise valueEqual.
 func (ctx *Context) equalValues(a, b Value) bool {
+	a, b = soleElement(a), soleElement(b)
 	if a.Kind == ValSet && b.Kind == ValSequence || a.Kind == ValSequence && b.Kind == ValSet {
 		return ctx.sequenceEqual(sequenceOf(elementsOf(a)).Sequence(), sequenceOf(elementsOf(b)).Sequence())
 	}

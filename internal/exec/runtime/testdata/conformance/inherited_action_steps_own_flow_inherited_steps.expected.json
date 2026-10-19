@@ -4,6 +4,6 @@
 	"evaluate": "test::S",
 	"trace": true,
 	"outputs": {
-		"b.v": {"type": "Integer", "value": 7}
+		"b.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]}
 	}
 }

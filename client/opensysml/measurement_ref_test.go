@@ -126,7 +126,7 @@ func TestMeasurementRefsCrossEveryTransport(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExecuteAction: %v", err)
 			}
-			converted, ok = run.Outputs["y"].(opensysml.Quantity)
+			converted, ok = sole(t, "y", run.Outputs["y"]).(opensysml.Quantity)
 			if !ok || converted.Magnitude != opensysml.Real(3000) || converted.Unit != "m" {
 				t.Errorf("y = %#v, want 3000.0 m", run.Outputs["y"])
 			}
