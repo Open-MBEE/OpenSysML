@@ -379,66 +379,85 @@ func selfCheckParamType(sem *semantics.Model, sym *symbols.Symbol) (*symbols.Sym
 }
 
 func selfCheckElements(idx *symbols.Index, sem *semantics.Model, exclude []RulePackage) []selfCheckElement {
-	var out []selfCheckElement
-	seenSymbols := make(map[*symbols.Symbol]bool)
-	seenScopes := make(map[*symbols.Scope]bool)
+	w := &selfCheckWalker{sem: sem, seenSymbols: make(map[*symbols.Symbol]bool), seenScopes: make(map[*symbols.Scope]bool)}
 	// A rule package's elements are checked by nothing, at any depth.
 	for _, group := range exclude {
 		for _, pkg := range group.symbols {
-			seenSymbols[pkg] = true
-			seenScopes[pkg.Scope] = true
-		}
-	}
-	var walk func(*symbols.Scope)
-	walk = func(scope *symbols.Scope) {
-		if scope == nil || seenScopes[scope] {
-			return
-		}
-		seenScopes[scope] = true
-		members := scope.AllMembers()
-		owned := make(map[*symbols.Scope]bool, len(members))
-		visits := make([]selfCheckVisit, 0, len(members)+len(scope.Children()))
-		for _, sym := range members {
-			if sym.Scope != nil {
-				owned[sym.Scope] = true
-			}
-			visits = append(visits, selfCheckVisit{offset: sym.DeclSpan.Offset, member: sym})
-		}
-		for _, child := range scope.Children() {
-			if owned[child] {
-				continue
-			}
-			offset := 0
-			if child.Node() != nil {
-				offset = child.Node().Span().Offset
-			}
-			visits = append(visits, selfCheckVisit{offset: offset, child: child})
-		}
-		sort.SliceStable(visits, func(i, j int) bool { return visits[i].offset < visits[j].offset })
-		for _, visit := range visits {
-			if visit.member != nil {
-				sym := visit.member
-				if !seenSymbols[sym] {
-					seenSymbols[sym] = true
-					if meta := sem.MetaclassOf(sym); meta != nil {
-						out = append(out, selfCheckElement{symbol: sym, metaclass: meta})
-					}
-					for _, rel := range sem.ImplicitRelationships(sym) {
-						if meta := sem.MetaclassOf(rel); meta != nil {
-							out = append(out, selfCheckElement{symbol: rel, metaclass: meta})
-						}
-					}
-				}
-				walk(sym.Scope)
-				continue
-			}
-			walk(visit.child)
+			w.seenSymbols[pkg] = true
+			w.seenScopes[pkg.Scope] = true
 		}
 	}
 	for _, doc := range idx.WorkspaceDocuments() {
-		walk(idx.DocumentRoot(doc))
+		w.walk(idx.DocumentRoot(doc))
 	}
-	return out
+	return w.out
+}
+
+// selfCheckWalker gathers the elements of the workspace's documents in source
+// order, each once, with the metaclass each is checked as.
+type selfCheckWalker struct {
+	sem         *semantics.Model
+	seenSymbols map[*symbols.Symbol]bool
+	seenScopes  map[*symbols.Scope]bool
+	out         []selfCheckElement
+}
+
+// walk visits a scope's members and unowned child scopes in source order.
+func (w *selfCheckWalker) walk(scope *symbols.Scope) {
+	if scope == nil || w.seenScopes[scope] {
+		return
+	}
+	w.seenScopes[scope] = true
+	for _, visit := range selfCheckVisits(scope) {
+		if visit.member != nil {
+			w.collect(visit.member)
+			w.walk(visit.member.Scope)
+			continue
+		}
+		w.walk(visit.child)
+	}
+}
+
+// collect records a symbol not yet seen and the relationships implied for it.
+func (w *selfCheckWalker) collect(sym *symbols.Symbol) {
+	if w.seenSymbols[sym] {
+		return
+	}
+	w.seenSymbols[sym] = true
+	if meta := w.sem.MetaclassOf(sym); meta != nil {
+		w.out = append(w.out, selfCheckElement{symbol: sym, metaclass: meta})
+	}
+	for _, rel := range w.sem.ImplicitRelationships(sym) {
+		if meta := w.sem.MetaclassOf(rel); meta != nil {
+			w.out = append(w.out, selfCheckElement{symbol: rel, metaclass: meta})
+		}
+	}
+}
+
+// selfCheckVisits orders a scope's members, and the child scopes no member
+// owns, by their offset in the source.
+func selfCheckVisits(scope *symbols.Scope) []selfCheckVisit {
+	members := scope.AllMembers()
+	owned := make(map[*symbols.Scope]bool, len(members))
+	visits := make([]selfCheckVisit, 0, len(members)+len(scope.Children()))
+	for _, sym := range members {
+		if sym.Scope != nil {
+			owned[sym.Scope] = true
+		}
+		visits = append(visits, selfCheckVisit{offset: sym.DeclSpan.Offset, member: sym})
+	}
+	for _, child := range scope.Children() {
+		if owned[child] {
+			continue
+		}
+		offset := 0
+		if child.Node() != nil {
+			offset = child.Node().Span().Offset
+		}
+		visits = append(visits, selfCheckVisit{offset: offset, child: child})
+	}
+	sort.SliceStable(visits, func(i, j int) bool { return visits[i].offset < visits[j].offset })
+	return visits
 }
 
 func selfCheckSources(docs []*model.Document) map[string]*source.SourceFile {
