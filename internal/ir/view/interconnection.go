@@ -200,7 +200,7 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, path expansion, depth int
 		name = localName(sym)
 	}
 	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
-		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out),
+		Type: r.headType(sym), Typings: r.headTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out),
 		Style: r.styleOf(w.view, sym, w.out)}
 	if path[sym] {
 		node.Detail = detailWith(node.Detail, "already shown as "+w.node(sym).ID)
@@ -294,7 +294,7 @@ func (w *featureWalk) pinParameters(node *Node, sym *symbols.Symbol) {
 func (w *featureWalk) pin(node *Node, sym *symbols.Symbol, direction PortDirection, parameter bool, geometry *Geometry) {
 	id := portID(node.ID, len(node.Ports))
 	node.Ports = append(node.Ports, Port{ID: id, Name: localName(sym), NameSynthesized: w.r.model.NameSynthesized(sym),
-		Type: declType(sym), Direction: direction, Parameter: parameter, Origin: symbolOrigin(sym), Geometry: geometry})
+		Type: w.r.headType(sym), Direction: direction, Parameter: parameter, Origin: symbolOrigin(sym), Geometry: geometry})
 	if w.pins[node] == nil {
 		w.pins[node] = map[*symbols.Symbol]string{}
 	}

@@ -40,19 +40,17 @@ const terminatingPart = `package test {
 }`
 
 // `terminate this` in a part's behavior ends the part: every behavior it performs is
-// over, the action debugger stepping one of them reports it terminated rather than
-// waiting on, and the ended part performs nothing further.
+// over, the action debugger attached to one of them reports it terminated rather
+// than waiting on, and the ended part performs nothing further.
 func TestTerminatingThisEndsThePartsBehaviors(t *testing.T) {
 	s := NewSession()
 	submits(t, s, terminatingPart)
 	wants(t, run(t, s, "%instantiate test::p"), "Created instance")
-	wants(t, run(t, s, "%action work test::p"), `Started action executor for "work"`)
-	wants(t, run(t, s, "%step"), "State: Running")
-	wants(t, run(t, s, "%step"), "State: Waiting")
+	wants(t, run(t, s, "%action work test::p"), `✓ Debugging action "work" performed by object #1 of "test::p"`, "State: Waiting")
 
 	wants(t, run(t, s, "%send Kill to test::p"), `Accepted by state machine "life" in state alive`)
 	wants(t, run(t, s, "%advance 1"), "1 event(s) processed")
-	wants(t, run(t, s, "%step"), "State: Terminated", "Tokens: 0", actionTerminatedText)
+	wants(t, run(t, s, "%step"), "Action already terminated")
 	wants(t, run(t, s, "%continue"), "Action already terminated")
 	wants(t, run(t, s, "%features test::p"), "seen = 0",
 		"life: exhibited state machine, terminated", "work: performed action, terminated")
@@ -60,5 +58,5 @@ func TestTerminatingThisEndsThePartsBehaviors(t *testing.T) {
 	wants(t, run(t, s, "%state life test::p"), "Current state: <none>")
 	wants(t, run(t, s, "%current"), "Execution state: Terminated")
 	wants(t, run(t, s, "%send Kill to test::p"), `accepts no signal Kill now: state machine "life" terminated`)
-	wants(t, run(t, s, "%action work test::p"), "performer of the behavior: occurrence lifetime does not admit the change", "ended at")
+	wants(t, run(t, s, "%action work test::p"), `✓ Debugging action "work" performed by object #1 of "test::p"`, "State: Terminated")
 }

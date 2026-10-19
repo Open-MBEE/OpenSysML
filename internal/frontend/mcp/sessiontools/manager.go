@@ -70,6 +70,7 @@ func (m *Manager) Open(name string) (string, error) {
 	if err != nil {
 		return name, err
 	}
+	sess.SetFileGuard(m.Guard)
 	m.sessions[name] = &held{name: name, sess: sess}
 	return name, nil
 }
@@ -110,6 +111,7 @@ func (m *Manager) get(name string) (*held, error) {
 	if err != nil {
 		return nil, err
 	}
+	sess.SetFileGuard(m.Guard)
 	h := &held{name: name, sess: sess}
 	m.sessions[name] = h
 	return h, nil
@@ -211,21 +213,41 @@ func (m *Manager) Resolve(path string) (string, error) {
 		path = filepath.Join(m.root, path)
 	}
 	path = filepath.Clean(path)
+	if err := m.Guard(path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// Guard is the check every file a session reads or writes must pass, however
+// it was named — by a typed tool, by a %load or %save through repl_command, or
+// found by walking a directory or following a dependency: the file must lie
+// under the workspace root as spelled and once its symlinks are followed. A
+// relative path is taken from the working directory, as the prompt takes it.
+func (m *Manager) Guard(path string) error {
+	if !filepath.IsAbs(path) {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Errorf("resolving %s: %w", path, err)
+		}
+		path = abs
+	}
+	path = filepath.Clean(path)
 	if escapes(m.root, path) {
-		return "", fmt.Errorf("%s is outside the workspace root %s; session tools only read and write under the root", path, m.root)
+		return fmt.Errorf("%s is outside the workspace root %s; session tools only read and write under the root", path, m.root)
 	}
 	resolved, err := realPath(path)
 	if err != nil {
-		return "", fmt.Errorf("resolving %s: %w", path, err)
+		return fmt.Errorf("resolving %s: %w", path, err)
 	}
 	realRoot, err := realPath(m.root)
 	if err != nil {
-		return "", fmt.Errorf("resolving the workspace root %s: %w", m.root, err)
+		return fmt.Errorf("resolving the workspace root %s: %w", m.root, err)
 	}
 	if escapes(realRoot, resolved) {
-		return "", fmt.Errorf("%s leads through a symlink to %s, outside the workspace root %s; session tools only read and write under the root", path, resolved, m.root)
+		return fmt.Errorf("%s leads through a symlink to %s, outside the workspace root %s; session tools only read and write under the root", path, resolved, m.root)
 	}
-	return path, nil
+	return nil
 }
 
 // escapes reports whether the cleaned absolute path lies outside root.

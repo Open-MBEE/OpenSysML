@@ -405,7 +405,7 @@ func (ctx *Context) classify(inst *Instance, typ *symbols.Symbol) error {
 		}
 	}
 	ctx.unfoldSubsettedDefaults(inst, typ, features)
-	if err := ctx.aliasRedefinedFeatureValuesOf(inst, typ, carried, ctx.FeaturesOf(typ)); err != nil {
+	if err := ctx.aliasRedefinedFeatureValuesOf(inst, []*symbols.Symbol{typ}, carried, ctx.FeaturesOf(typ)); err != nil {
 		rollback()
 		return err
 	}
