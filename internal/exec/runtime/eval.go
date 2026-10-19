@@ -768,8 +768,8 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		// Then a Kernel Semantic Library member of the bound instance, which the
 		// shape leaves out: read bare in the body as `self.<name>` reads it.
 		if ec.self != nil && ec.selfFeatureInScope(name) {
-			if fv, answered, err := ec.ctx.kernelMemberRead(ec.self, name); answered && err == nil {
-				return fv.HeldValue(), nil
+			if val, answered, err := ec.kernelMemberValue(ec.self, name, ""); answered && err == nil {
+				return val, nil
 			}
 		}
 		// Then the scope the expression was written in: a sibling attribute, a
@@ -1707,11 +1707,11 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 			}
 			return ec.chainMemberValue(val, rest, name)
 		}
-		if fv, answered, err := ec.ctx.kernelMemberRead(inst, name); answered {
+		if val, answered, err := ec.kernelMemberValue(inst, name, from); answered {
 			if err != nil {
 				return Value{}, err
 			}
-			return ec.chainMemberValue(fv.HeldValue(), rest, name)
+			return ec.chainMemberValue(val, rest, name)
 		}
 		return Value{}, fmt.Errorf("%w: member %s not found in instance", ErrNoSuchFeature, name)
 	}
@@ -1733,6 +1733,12 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 
 // chainFeatureValue continues a chain through the named feature value of inst.
 func (ec *EvalContext) chainFeatureValue(inst *Instance, name string, rest []ast.NameSegment, from string) (Value, error) {
+	if val, ok, err := ec.constraintUsageRead(inst, name); ok {
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(val, constraintResultTail(rest), name)
+	}
 	// Read through the feature value so a derived or composite member is materialized
 	// on demand rather than read as an empty feature value.
 	fv, open, err := ec.memberFeatureValue(inst, name)
@@ -2326,10 +2332,13 @@ func (ec *EvalContext) evalIdentity(n *ast.OperatorExpr) (Value, error) {
 // kind, is never the same value, so an Integer is not identical to a Real of
 // equal magnitude, nor an enumeration's literal to the bare scalar it equals or
 // to another enumeration's literal of that value. Two sequences are identical
-// element by element.
+// element by element, and a value is the one-element sequence holding it.
 func valueIdentical(left, right Value) bool {
 	if isEmptyValue(left) || isEmptyValue(right) {
 		return isEmptyValue(left) && isEmptyValue(right)
+	}
+	if left.Kind != right.Kind {
+		left, right = soleElement(left), soleElement(right)
 	}
 	if left.Kind != right.Kind || left.EnumerationLiteral() != right.EnumerationLiteral() {
 		return false
@@ -3353,6 +3362,11 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 		return ec.invokeBuiltin(target.builtinName, target.builtin, exprs, n.NamedArgs, target.names, target.unbound)
 	}
 
+	// A declaration the runtime cannot evaluate is reported with its reason
+	// before its arguments are read: a type named as a value is not the fault.
+	if target.library != nil && target.library.unevaluable {
+		return target.library.apply(target.library.written(), ec.ctx, nil)
+	}
 	callArgs, err := ec.evalInvocationArgs(qualName, exprs, n.NamedArgs, target)
 	if err != nil {
 		return Value{}, err
@@ -3396,6 +3410,7 @@ func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.Fea
 	if err != nil {
 		return Value{}, err
 	}
+	fn = soleElement(fn)
 	if fn.Kind != ValFunction {
 		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, DescribeValue(fn))
 	}
@@ -3764,9 +3779,11 @@ func qualifiedNameToString(qn *ast.QualifiedName) string {
 	return strings.Join(parts, "::")
 }
 
-// equalValues is `==` over two operands: a set meeting a sequence flows into the
-// ordered context and is compared as its canonical sequence; otherwise valueEqual.
+// equalValues is `==` over two operands: a one-element collection is its element
+// (KerML 1.0 §7.4.8), a set meeting a sequence flows into the ordered context and
+// is compared as its canonical sequence; otherwise valueEqual.
 func (ctx *Context) equalValues(a, b Value) bool {
+	a, b = soleElement(a), soleElement(b)
 	if a.Kind == ValSet && b.Kind == ValSequence || a.Kind == ValSequence && b.Kind == ValSet {
 		return ctx.sequenceEqual(sequenceOf(elementsOf(a)).Sequence(), sequenceOf(elementsOf(b)).Sequence())
 	}
@@ -3935,4 +3952,26 @@ func (ctx *Context) sequenceEqual(a, b *Sequence) bool {
 		}
 	}
 	return true
+}
+
+// kernelMemberValue reads the Kernel member name of inst through the model where the
+// read is model-level, so an open shape subsetter leaves the collection open rather
+// than counted at its lower bound; not answered for a member the rule does not cover.
+func (ec *EvalContext) kernelMemberValue(inst *Instance, name, from string) (Value, bool, error) {
+	var open *openPopulation
+	if ec.modelReads(inst) {
+		open = &openPopulation{}
+	}
+	fv, answered, err := ec.ctx.kernelMemberRead(inst, name, open)
+	if !answered || err != nil {
+		return Value{}, answered, err
+	}
+	if open != nil && open.Stopped {
+		spelled := name
+		if from != "" {
+			spelled = from + "." + name
+		}
+		return openCollectionValue(spelled, fv.Feature, open), true, nil
+	}
+	return fv.HeldValue(), true, nil
 }

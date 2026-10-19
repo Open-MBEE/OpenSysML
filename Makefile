@@ -1,4 +1,4 @@
-.PHONY: all build extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model
+.PHONY: all build extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -21,6 +21,9 @@ GO_INSTALL := CGO_ENABLED=0 go install -ldflags "$(LDFLAGS)"
 
 # Static-analysis tool versions, pinned so CI and local runs agree
 STATICCHECK_VERSION := 2025.1.1
+# Unbounded, staticcheck's heap on this module peaks near 4 GiB, which the 4 GiB CI
+# executor kills it for; the soft limit holds the peak near 2 GiB for ~10% more GC time.
+STATICCHECK_ENV := GOMEMLIMIT=2GiB
 GOSEC_VERSION := v2.22.5
 BUF_VERSION := v1.57.2
 GO_WINRES_VERSION := v0.3.3
@@ -356,8 +359,8 @@ coverage-merge: ## Merge the shard profiles coverage-runtime/model/export/rest/m
 
 lint: ## Run static analysis (staticcheck + gosec), as CI does
 	@echo "Running staticcheck..."
-	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
-	go run -C $(TOOLS_DIR) honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
+	$(STATICCHECK_ENV) go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
+	$(STATICCHECK_ENV) go run -C $(TOOLS_DIR) honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
 	@echo "Running gosec..."
 	@# Generated protobuf code is excluded: its unsafe.Pointer use (G103) comes
 	@# from protoc-gen-go and is not ours to change.
@@ -392,6 +395,13 @@ ontology-table-check: ## Verify the committed metamodel table matches the pinned
 	./scripts/download-pilot-metamodel.sh
 	go run -C $(TOOLS_DIR) ./gen/ontology -check
 	@echo "✓ internal/translate/rdf/ontology/table.go is current"
+
+metaclass-graph: build-sysml ## Regenerate the metaclass hierarchy Turtle from the committed metamodel table
+	./bin/sysml -metaclass-graph -o internal/translate/rdf/ontology/sysml-metaclasses.ttl
+
+metaclass-graph-check: ## Verify the committed metaclass hierarchy Turtle matches the metamodel table, as CI does
+	go test -count=1 -run TestMetaclassGraphIsCurrent ./internal/translate/rdf/ontology
+	@echo "✓ internal/translate/rdf/ontology/sysml-metaclasses.ttl is current"
 
 python-metamodel: ## Regenerate Python metaclass classes from the ontology table
 	go run -C $(TOOLS_DIR) ./gen/pymetamodel

@@ -18,10 +18,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
-// syntaxGzipBudget bounds the gzipped js build of sysml-syntax: staying small is
-// the point of serving no resolution and no stdlib, so exceeding the budget
-// means the command pulled in a dependency it must not have.
-const syntaxGzipBudget = 1540000
+// syntaxGzipBudget bounds the gzipped js build of sysml-syntax, which serves no resolution
+// and no stdlib: linking either adds 250 KB+ or 1.55 MB and trips it. 1,365,010 bytes on 2026-10-19.
+const syntaxGzipBudget = 1500000
 
 // syntaxCalls are the calls the stdio session and the host surface both make,
 // one of each method over its fixture.
@@ -282,6 +281,7 @@ func TestSyntaxDependencies(t *testing.T) {
 		"github.com/Open-MBEE/OpenSysML/internal/translate/",
 		"net",
 		"net/",
+		"regexp",
 	}
 	for _, pkg := range strings.Split(string(out), "\n") {
 		pkg = strings.TrimSpace(pkg)

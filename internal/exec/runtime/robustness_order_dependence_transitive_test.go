@@ -152,7 +152,7 @@ func testDerivedValueStandsOnItsChoicePoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
-	x, y := FormatValue(exec.Results()["x"]), FormatValue(exec.Results()["y"])
+	x, y := FormatValue(soleElement(exec.Results()["x"])), FormatValue(soleElement(exec.Results()["y"]))
 	if (x != "1" || y != "2") && (x != "2" || y != "3") {
 		t.Fatalf("x = %s, y = %s, want y = x + 1 for a writer's x", x, y)
 	}
@@ -188,7 +188,7 @@ func testGuardReadMarksItsBranchWrites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
-	x, mode := FormatValue(exec.Results()["x"]), FormatValue(exec.Results()["mode"])
+	x, mode := FormatValue(soleElement(exec.Results()["x"])), FormatValue(soleElement(exec.Results()["mode"]))
 	if (x != "1" || mode != "10") && (x != "2" || mode != "20") {
 		t.Fatalf("x = %s, mode = %s, want the branch the guard on x selected", x, mode)
 	}
@@ -208,7 +208,7 @@ func testCycleOfDependentWritesEndsAndMarksBothSides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
-	if got := FormatValue(exec.Results()["i"]); got != "3" {
+	if got := FormatValue(soleElement(exec.Results()["i"])); got != "3" {
 		t.Fatalf("i = %s, want 3 iterations", got)
 	}
 	for _, name := range []string{"x", "y"} {
@@ -236,7 +236,7 @@ func testRewriteFromALiteralClearsTheMark(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
-	if x, y := FormatValue(exec.Results()["x"]), FormatValue(exec.Results()["y"]); x != "10" || y != "11" {
+	if x, y := FormatValue(soleElement(exec.Results()["x"])), FormatValue(soleElement(exec.Results()["y"])); x != "10" || y != "11" {
 		t.Fatalf("x = %s, y = %s, want the rewrite and what was computed from it", x, y)
 	}
 	if n := ctx.UnresolvedChoices(); n != 2 {

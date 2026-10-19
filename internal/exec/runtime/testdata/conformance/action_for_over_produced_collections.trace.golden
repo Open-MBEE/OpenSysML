@@ -81,7 +81,7 @@ stmt for c
         eval feature c -> 3
       eval operator + -> 5
 stmt for e
-  eval feature nothing -> null
+  eval feature nothing -> ()
 stmt for d
     eval literal 3 -> 3
     eval literal 1 -> 1

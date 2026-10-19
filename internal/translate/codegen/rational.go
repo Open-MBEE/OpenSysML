@@ -95,6 +95,8 @@ func (fc *funcCompiler) classify(x Expr, reached bool) exactness {
 		return fc.classify(x.X, reached)
 	case Checked:
 		return fc.classify(x.X, reached)
+	case Held:
+		return fc.classify(x.X, reached)
 	case Framed:
 		return fc.classify(x.X, reached)
 	case Let:
@@ -284,6 +286,9 @@ func exactWiden(x Expr) Expr {
 		w.X = exactWiden(w.X)
 		return w
 	case Checked:
+		w.X = exactWiden(w.X)
+		return w
+	case Held:
 		w.X = exactWiden(w.X)
 		return w
 	case Framed:

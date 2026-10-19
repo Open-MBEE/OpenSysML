@@ -4,7 +4,7 @@
 	"evaluate": "test::MigratedLoopTestedFirst",
 	"trace": true,
 	"outputs": {
-		"loop.iOut": {"type": "Integer", "value": 1},
-		"loop.sOut": {"type": "Integer", "value": 0}
+		"loop.iOut": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"loop.sOut": {"type": "Sequence", "elements": [{"type": "Integer", "value": 0}]}
 	}
 }
