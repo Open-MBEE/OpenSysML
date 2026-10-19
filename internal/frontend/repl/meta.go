@@ -2191,10 +2191,12 @@ func closesAtEnd(text string) bool {
 	return false
 }
 
-// argExpr is one parsed argument: its expression and the text it was written as.
+// argExpr is one parsed argument: its expression, the text it was written as
+// and its position in the written argument list.
 type argExpr struct {
 	expr ast.Node
 	text string
+	at   int
 }
 
 // parseExprList parses an argument list as expressions, so an argument that
@@ -2202,7 +2204,7 @@ type argExpr struct {
 // invocation — survives as the one expression it is.
 func parseExprList(text string) ([]argExpr, error) {
 	var out []argExpr
-	for _, arg := range splitArgs(text) {
+	for i, arg := range splitArgs(text) {
 		if isNamedArgument(arg) {
 			return nil, fmt.Errorf("named arguments are not supported here; pass arguments positionally")
 		}
@@ -2210,7 +2212,7 @@ func parseExprList(text string) ([]argExpr, error) {
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, argExpr{expr: expr, text: arg})
+		out = append(out, argExpr{expr: expr, text: arg, at: i})
 	}
 	return out, nil
 }
@@ -3484,10 +3486,11 @@ func (s *Session) invokeOperation(name, operation, args string) ([]string, error
 }
 
 // argument is one `name=<expression>` argument of %invoke or %send, parsed and
-// not yet evaluated.
+// not yet evaluated, at its position in the written argument list.
 type argument struct {
 	param string
 	node  ast.Node
+	at    int
 }
 
 // invokeArguments are %invoke's arguments parsed and not yet evaluated: the list is
@@ -3502,12 +3505,13 @@ type invokeArguments struct {
 // a parameter twice is refused here, before the object is reached.
 func parseInvokeArguments(text string) (invokeArguments, error) {
 	var args invokeArguments
-	for _, arg := range splitArgs(text) {
+	for i, arg := range splitArgs(text) {
 		if isNamedArgument(arg) {
 			named, err := parseArguments([]string{arg})
 			if err != nil {
 				return invokeArguments{}, err
 			}
+			named[0].at = i
 			args.named = append(args.named, named...)
 			continue
 		}
@@ -3515,7 +3519,7 @@ func parseInvokeArguments(text string) (invokeArguments, error) {
 		if err != nil {
 			return invokeArguments{}, err
 		}
-		args.positional = append(args.positional, argExpr{expr: expr, text: arg})
+		args.positional = append(args.positional, argExpr{expr: expr, text: arg, at: i})
 	}
 	if len(args.positional) > 0 && len(args.named) > 0 {
 		return invokeArguments{}, fmt.Errorf("%w: %d positional and %d named argument(s)",
@@ -3549,7 +3553,7 @@ func splitInvokeLine(tail string) (object, operation, args string) {
 // parseArguments takes apart and parses `name=<expression>` arguments.
 func parseArguments(args []string) ([]argument, error) {
 	parsed := make([]argument, 0, len(args))
-	for _, arg := range args {
+	for i, arg := range args {
 		param, expr, ok := strings.Cut(arg, "=")
 		param, expr = strings.TrimSpace(param), strings.TrimSpace(expr)
 		if !ok || param == "" || expr == "" {
@@ -3562,7 +3566,7 @@ func parseArguments(args []string) ([]argument, error) {
 		if node == nil {
 			return nil, fmt.Errorf("argument %s: could not parse %q", param, expr)
 		}
-		parsed = append(parsed, argument{param: param, node: node})
+		parsed = append(parsed, argument{param: param, node: node, at: i})
 	}
 	return parsed, nil
 }
@@ -3582,20 +3586,34 @@ func evalArgumentsIn(ctx *runtime.Context, scope *symbols.Scope, parsed []argume
 	return named, err
 }
 
-// evalArgumentList evaluates an invocation's whole argument list — positional
-// arguments in order, then named ones — in one run, so a seeded draw in one
-// argument continues the stream of the draw before it and a seed reproduces
-// the whole invocation. Every argument surface binds its arguments through it.
+// evalArgumentList evaluates an invocation's whole argument list in one run and
+// in the order written, positional and named arguments however they are mixed,
+// so a seeded draw in one argument continues the stream of the draw before it
+// and a seed reproduces the whole invocation. Every argument surface binds its
+// arguments through it.
 func evalArgumentList(ctx *runtime.Context, scope *symbols.Scope, positional []argExpr, named []argument) ([]runtime.Value, map[string]runtime.Value, error) {
 	if len(positional) == 0 && len(named) == 0 {
 		return nil, nil, nil
 	}
-	nodes := make([]ast.Node, 0, len(positional)+len(named))
-	for _, arg := range positional {
-		nodes = append(nodes, arg.expr)
+	// An argument is addressed by one index over both lists, positional first.
+	at := func(i int) int {
+		if i < len(positional) {
+			return positional[i].at
+		}
+		return named[i-len(positional)].at
 	}
-	for _, arg := range named {
-		nodes = append(nodes, arg.node)
+	order := make([]int, len(positional)+len(named))
+	for i := range order {
+		order[i] = i
+	}
+	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(at(a), at(b)) })
+	nodes := make([]ast.Node, len(order))
+	for k, i := range order {
+		if i < len(positional) {
+			nodes[k] = positional[i].expr
+		} else {
+			nodes[k] = named[i-len(positional)].node
+		}
 	}
 	values, err := ctx.EvalArguments(scope, nodes)
 	if err != nil {
@@ -3603,19 +3621,25 @@ func evalArgumentList(ctx *runtime.Context, scope *symbols.Scope, positional []a
 		if !errors.As(err, &failed) {
 			return nil, nil, err
 		}
-		if failed.Index < len(positional) {
-			return nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", positional[failed.Index].text, failed.Err)
+		i := order[failed.Index]
+		if i < len(positional) {
+			return nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", positional[i].text, failed.Err)
 		}
-		return nil, nil, fmt.Errorf("argument %s: %w", named[failed.Index-len(positional)].param, failed.Err)
+		return nil, nil, fmt.Errorf("argument %s: %w", named[i-len(positional)].param, failed.Err)
 	}
+	byPosition := make([]runtime.Value, len(positional))
 	var bound map[string]runtime.Value
 	if len(named) > 0 {
 		bound = make(map[string]runtime.Value, len(named))
-		for i, arg := range named {
-			bound[arg.param] = values[len(positional)+i]
+	}
+	for k, i := range order {
+		if i < len(positional) {
+			byPosition[i] = values[k]
+		} else {
+			bound[named[i-len(positional)].param] = values[k]
 		}
 	}
-	return values[:len(positional):len(positional)], bound, nil
+	return byPosition, bound, nil
 }
 
 // doEvents displays the event queue.

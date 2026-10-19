@@ -51,7 +51,8 @@ func splitAnalysisArgs(tail string) (analysisInvocation, error) {
 }
 
 // analysisArgs are an invocation's arguments parsed and not yet evaluated:
-// positional ones in order, and the ones written as `<parameter> = <expr>`.
+// positional ones in order, and the ones written as `<parameter> = <expr>`,
+// each at its position in the written list.
 type analysisArgs struct {
 	positional []argExpr
 	named      []argument
@@ -61,12 +62,13 @@ type analysisArgs struct {
 // one binding a parameter by name may be mixed, as a case's inputs allow.
 func parseAnalysisArgs(text string) (analysisArgs, error) {
 	var args analysisArgs
-	for _, arg := range splitArgs(text) {
+	for i, arg := range splitArgs(text) {
 		if isNamedArgument(arg) {
 			named, err := parseArguments([]string{arg})
 			if err != nil {
 				return analysisArgs{}, err
 			}
+			named[0].at = i
 			args.named = append(args.named, named...)
 			continue
 		}
@@ -74,7 +76,7 @@ func parseAnalysisArgs(text string) (analysisArgs, error) {
 		if err != nil {
 			return analysisArgs{}, err
 		}
-		args.positional = append(args.positional, argExpr{expr: expr, text: arg})
+		args.positional = append(args.positional, argExpr{expr: expr, text: arg, at: i})
 	}
 	return args, nil
 }

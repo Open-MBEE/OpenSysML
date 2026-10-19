@@ -88,6 +88,9 @@ func TestSeededArgumentListDrawsSuccessivelyOnEverySurface(t *testing.T) {
 	drawsSuccessively(t, "%invoke named", run(t, s, "%invoke box bump a=uniform(0.0, 1.0) b=uniform(0.0, 1.0)"), "d =", want)
 	drawsSuccessively(t, "%analysis", run(t, s, "%analysis Two::Study("+twoDraws+") box"), "diff =", want)
 	drawsSuccessively(t, "%analysis named", run(t, s, "%analysis Two::Study(a=uniform(0.0, 1.0), b=uniform(0.0, 1.0)) box"), "diff =", want)
+	// A mixed list draws in the order written: here b draws first, so a - b is
+	// the second draw less the first.
+	drawsSuccessively(t, "%analysis mixed", run(t, s, "%analysis Two::Study(b=uniform(0.0, 1.0), uniform(0.0, 1.0)) box"), "diff =", -want)
 
 	sweep := run(t, s, "%sweep Two::Shift("+twoDraws+") n=0..1")
 	for i, row := range sweepRows(sweep) {
@@ -104,6 +107,8 @@ func TestSeededArgumentListDrawsSuccessivelyOnEverySurface(t *testing.T) {
 			t.Errorf("%%runs run %d observed %v, want %v:\n%s", i, got, want, runs)
 		}
 	}
+	mixed := run(t, s, "%runs 3 7 Two::Mc(hi=uniform(0.0, 1.0), uniform(0.0, 1.0)) box")
+	drawsSuccessively(t, "%runs mixed", mixed, "Mean =", -want)
 }
 
 // sweepRows reads the numeric cells of each table row of out.
