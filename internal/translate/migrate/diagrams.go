@@ -111,7 +111,7 @@ func (m *migration) planViews() {
 		}
 		v.name = m.viewName(v.host, name)
 		if v.name != name && d.Name != "" {
-			v.note = joinNotes(v.note, "written as "+v.name+" since a member of its owner is also named "+name)
+			v.note = joinNotes(v.note, writtenAs+v.name+" since a member of its owner is also named "+name)
 		}
 		where := "view '" + v.name + "'"
 		if d.Owner != nil {

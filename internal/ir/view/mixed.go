@@ -145,8 +145,8 @@ func (w *mixedWalk) packageNode(sym *symbols.Symbol, exposed bool) *Node {
 		name = w.r.notationName(sym)
 	}
 	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name,
-		NameSynthesized: w.r.model.NameSynthesized(sym), Type: declType(sym),
-		Typings: w.r.declTypings(sym), Origin: symbolOrigin(sym),
+		NameSynthesized: w.r.model.NameSynthesized(sym), Type: w.r.headType(sym),
+		Typings: w.r.headTypings(sym), Origin: symbolOrigin(sym),
 		Geometry: w.r.geometryOf(w.view, sym, w.out)}
 	w.r.dress(w.view, sym, node, w.out)
 	return node

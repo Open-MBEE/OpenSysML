@@ -2034,6 +2034,9 @@ type ownedMember struct {
 	code   string // the diagnostic code, named after the owning-type constraint
 }
 
+// stateSubactionOwningType is the rule a misplaced entry, do or exit action breaks.
+const stateSubactionOwningType = "state-subaction-membership-owning-type"
+
 // requirementOrCase names the bodies that offer the members shared by both.
 const requirementOrCase = "requirement or case"
 
@@ -2046,9 +2049,9 @@ var ownedMembers = map[string]ownedMember{
 	// body's production alone, so the `assume`/`require` prefix is body-owned.
 	"assume":  {"a constraint assumption", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}, "requirement-constraint-membership-owning-type"},
 	"require": {"a required constraint", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}, "requirement-constraint-membership-owning-type"},
-	"entry":   {"the entry action of a state", "state", []bodyContext{bodyState}, "state-subaction-membership-owning-type"},
-	"do":      {"the do action of a state", "state", []bodyContext{bodyState}, "state-subaction-membership-owning-type"},
-	"exit":    {"the exit action of a state", "state", []bodyContext{bodyState}, "state-subaction-membership-owning-type"},
+	"entry":   {"the entry action of a state", "state", []bodyContext{bodyState}, stateSubactionOwningType},
+	"do":      {"the do action of a state", "state", []bodyContext{bodyState}, stateSubactionOwningType},
+	"exit":    {"the exit action of a state", "state", []bodyContext{bodyState}, stateSubactionOwningType},
 	"render":  {"the rendering of a view", "view", []bodyContext{bodyViewDef, bodyView}, "view-rendering-membership-owning-type"},
 	// FramedConcernMember is a RequirementBodyItem only (SysML.xtext): a view
 	// frames nothing, which the conformance rules now reflect too.

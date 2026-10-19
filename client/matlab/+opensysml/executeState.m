@@ -1,8 +1,13 @@
 function answer = executeState(model, stateId, varargin)
 %EXECUTESTATE Run one state-machine outcome.
+%   Options: events, schedule, performer, trace, and the run options of the
+%   sysml command: advance (simulated seconds to run for, reported back in
+%   finalTime), seed (the model's own draws), draws ('random', 'min', 'max'
+%   or 'average') and clockStep.
 
     options = opensysml.internal.nameValueOptions(struct( ...
-        'events', {{}}, 'schedule', '', 'performer', '', 'trace', false), varargin, 'executeState');
+        'events', {{}}, 'schedule', '', 'performer', '', 'trace', false, ...
+        'advance', [], 'seed', [], 'draws', '', 'clockStep', 0), varargin, 'executeState');
     schedule = char(options.schedule);
     rejectExplore(schedule, 'opensysml.exploreState');
     capabilities = opensysml.internal.runCapabilities(model.connection, schedule, ...
@@ -13,6 +18,7 @@ function answer = executeState(model, stateId, varargin)
     if ~isempty(schedule), request.schedule = schedule; end
     if ~isempty(options.performer), request.performerSymbolId = char(options.performer); end
     if options.trace, request.trace = true; end
+    request = opensysml.internal.runOptions(request, options, 'executeState');
     raw = opensysml.call(model.connection, 'ExecuteState', request, capabilities);
     traceRaw = fieldOr(raw, 'trace', {});
     if iscell(traceRaw)

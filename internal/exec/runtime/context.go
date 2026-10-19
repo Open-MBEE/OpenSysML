@@ -1973,14 +1973,14 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 }
 
 // CheckPerformedInputs is refusePerformedInputs for a caller attaching to the
-// performance itself: inputs equal to the bindings the performance stored pass,
-// any other is refused as an argument the declaration already supplied.
+// performance itself: inputs equal to the bindings the performance stored, or its
+// declaration states while it is held, pass; any other is refused.
 func (ctx *Context) CheckPerformedInputs(action *symbols.Symbol, behavior *ObjectBehavior, inputs map[string]Value) error {
 	return ctx.refusePerformedInputs(action, behavior, inputs)
 }
 
 // refusePerformedInputs refuses inputs for a performed action that are not the bindings
-// its declaration states; a held performance stored none yet, so only self itself passes.
+// its declaration states, whether the performance has started or is still held.
 func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *ObjectBehavior, inputs map[string]Value) error {
 	conflicts := 0
 	for name, value := range inputs {
@@ -1990,12 +1990,13 @@ func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *Obje
 				continue
 			}
 			implicit = value.Kind == ValInstance && value.Instance == behavior.Object.ID
-			if behavior.Action != nil {
-				root := behavior.Action.root
-				if bound, held := root.data[root.key(name)]; held {
-					// A stored reference binding is the one-element sequence a bare pin holds.
-					implicit = ctx.valueEqual(soleElement(bound), soleElement(value))
-				}
+			bound, held, err := ctx.performedBinding(behavior, name)
+			if err != nil {
+				return err
+			}
+			if held {
+				// A reference binding is the one-element sequence a bare pin holds.
+				implicit = ctx.valueEqual(soleElement(bound), soleElement(value))
 			}
 			break
 		}
@@ -2007,6 +2008,42 @@ func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *Obje
 		return fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, SymbolText(action))
 	}
 	return nil
+}
+
+// performedBinding is the value a performance binds parameter name to: the one its
+// frame stores once started, else the one its declaration states while it is held.
+func (ctx *Context) performedBinding(behavior *ObjectBehavior, name string) (Value, bool, error) {
+	if behavior.Action != nil {
+		root := behavior.Action.root
+		bound, held := root.data[root.key(name)]
+		return bound, held, nil
+	}
+	if behavior.deferred == nil {
+		return Value{}, false, nil
+	}
+	return ctx.heldBinding(behavior, name)
+}
+
+// heldBinding evaluates the argument a held performance's declaration binds parameter
+// name with, in the performer's scope, as a probe: nothing the evaluation materializes
+// or starts outlives it, so the held performance is neither released nor rescheduled.
+// Outside a run it has a run's own budget, as the start it precedes would.
+func (ctx *Context) heldBinding(behavior *ObjectBehavior, name string) (Value, bool, error) {
+	decl := *behavior.deferred
+	scope := ctx.argumentScope(behavior.Object, decl)
+	for _, arg := range decl.behavior.Arguments {
+		if ctx.argumentParameter(scope, arg) != name {
+			continue
+		}
+		defer ctx.beginRun()()
+		defer ctx.beginProbe()()
+		value, err := ctx.classifierBehaviorArgument(behavior.Object, decl, scope, arg)
+		if err != nil {
+			return Value{}, false, err
+		}
+		return value, true, nil
+	}
+	return Value{}, false, nil
 }
 
 // PerformedExecutor is the executor of an action the object performs; one a succession
