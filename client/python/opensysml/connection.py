@@ -1914,6 +1914,35 @@ class Connection:
             response = self._stub.RenderDocument(request)
         return response.html if form == "html" else response.markdown
 
+    def diagnostics(self, model_hash, disable_lint=(), enable_lint=()):
+        """Ask the service for a model's diagnostics now, under a lint selection.
+
+        Args:
+            model_hash (str): Hash from the parse response
+            disable_lint (Iterable[str]): Lint codes to leave out, as
+                ``sysml -disable-lint`` does
+            enable_lint (Iterable[str]): Opt-in lint codes to keep, as
+                ``sysml -enable-lint`` does
+
+        Returns:
+            list[Diagnostic]: The diagnostics the model has under that selection
+
+        Raises:
+            InvalidRequestError: If a code names no lint; the message names the
+                lints there are
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        request = sysml_pb2.DiagnosticsRequest(
+            model_hash=model_hash,
+            disable_lint=list(disable_lint),
+            enable_lint=list(enable_lint),
+        )
+        with translate_rpc_errors():
+            response = self._stub.GetDiagnostics(request)
+        if response.error:
+            raise ModelError(response.error)
+        return [Diagnostic(d) for d in response.diagnostics]
+
     def render_view(self, model_hash, view_name, ports="minimal", show=None, depth=0):
         """Render a named view with minimal or full ports, the optional notation elements named and, above 0, a depth bound."""
         if ports not in ("minimal", "full"):

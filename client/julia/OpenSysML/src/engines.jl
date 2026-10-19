@@ -56,10 +56,12 @@ end
 Base.show(io::IO, engine::EngineInfo) = print(io, "$(engine.name) ($(engine.authority))")
 
 """List the engines and authorities advertised by the service."""
-function list_engines(conn::Connection)
+function list_engines(conn::Connection; probe::Bool=false)
     require_capability(conn, CAPABILITY_ENGINES)
+    request = Dict{String,Any}()
+    probe && (request["probe"] = true)
     answer = _translate(; capabilities=(CAPABILITY_ENGINES,), connection=conn) do
-        call(conn, "ListEngines", Dict{String,Any}())
+        call(conn, "ListEngines", request)
     end
     return EngineInfo[EngineInfo(e) for e in get(answer, "engines", Any[])]
 end
