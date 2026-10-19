@@ -18,7 +18,8 @@ divergence is also a row in [spec-compliance.md](spec-compliance.md).
 | `Domain Libraries/Quantities and Units/VectorCalculations.sysml` | `calc def outer` | `calc def outer { in : VectorQuantityValue[1]; in : VectorQuantityValue[1]; return : VectorQuantityValue[1]; }` — a vector, where the outer product of two vectors of orders one is a tensor of order two (`TensorCalculations::'['` returns `TensorQuantityValue[1]` for exactly that shape) | nothing: `outer` is `errUnevaluableLibraryFunction` naming the declaration and its return type (`runtime/quantity_functions.go` `registerVectorCalculations`); the checker types a call by the declared `VectorQuantityValue` | No `VectorQuantityValue` holds an outer product, and answering a `TensorQuantityValue` would disagree with the checker and the declaration; the draft below asks for `return : TensorQuantityValue[1]` |
 | `Domain Libraries/Quantities and Units/TensorCalculations.sysml` | `calc def isUnitTensorQuantity` | `calc def isUnitTensorQuantity { in x : TensorQuantityValue[1]; return : Boolean[1]; }` — no body, and no statement of which tensor is the unit one beside `isUnitVectorQuantity` (a vector of norm one) | the identity of a square order-two tensor: `true` when every diagonal component is one and every other zero; a tensor of any other shape (a vector, a 2×3, an order three) is `errUnevaluableLibraryFunction` naming the shape it needs (`runtime/tensor_functions.go` `tensorIsUnit`) | The library names no unit tensor; the identity matrix is the one tensor with an established claim to the name, and it exists for square order two alone, so a reading over other shapes would be invented. Recorded so the reading can be checked against a future release that gives the calculation a body |
 | `Domain Libraries/Geometry/ShapeItems.sysml` | `item def CuboidOrTriangularPrism` (`Cuboid`, `RectangularCuboid`, `Box`) | `item tfe [2] :> edges;` … `binding [1] bind [0..1] tf.edges = [0..1] tfe;` `binding [1] bind [0..1] ff.edges = [0..1] tfe;` — every named edge group and vertex group (`tfe`…`urre`, `tflv`…`brrv`) is valued only by bindings whose ends link *one unspecified* value each; and `item :>> vertices; assert constraint { size(vertices) == size(edges) }` beside `Quadrilateral`'s `item :>> vertices [8];` and `StructuredSpaceObject`'s `faces.vertices subsets vertices` | the groups and everything read through them (`box.tfe`, `box.tflv`, `box.tfe.length`, `box.vertices`) are the typed `errBindingEnd` naming the binding; the runtime never picks a member (`runtime/binding.go` `undeterminedBindingError`) | No conjunction of the bindings, the `MatesWith` connections and the `size(...)` assertions identifies which of a face's four edges a group holds, so no evaluator can name `tfe`; and a `Cuboid`'s `vertices` cannot be both a superset of its six faces' 48 vertex objects and 24 long. The draft below records both |
-| `Domain Libraries/Geometry/ShapeItems.sysml` | `item def ConeOrCylinder` (`CircularCone`, `CircularCylinder`, `RightCircularCone`, `RightCircularCylinder`) | `item base : Disc [1] :> faces { … }` … `item be [2] :> edges { attribute :>> semiMajorAxis = ConeOrCylinder::semiMajorAxis; … }` … `binding [1] bind [0..*] base.edges = [0..*] be;` with `Circle`'s `attribute :>> semiMajorAxis [1] = radius;` and `item :>> edges { attribute length [1] = Circle::radius * TrigFunctions::pi * 2; }` — the base circle's semi-axes are stated from its radius, and nothing states the radius | the base circle's `radius`, and the edge `length` derived from it, hold no value: the typed `ErrNoValue` naming `Circle::radius` where read, and no finding when the cone or cylinder is instantiated (`runtime/materialize.go` `materializeWalk.walk`) | A `=` value states its feature from what it reads; the library states `semiMajorAxis` from `radius`, never `radius` from the semi-axes `be` would supply through a `[0..*]`-to-`[0..*]` binding, so no evaluator reading values as the library writes them reaches the base radius. Recorded below for a maintainer to raise |
+| `Domain Libraries/Geometry/ShapeItems.sysml` | `item def ConeOrCylinder` (`CircularCone`, `CircularCylinder`, `RightCircularCone`, `RightCircularCylinder`) | `item base : Disc [1] :> faces { … }` … `item be [2] :> edges { attribute :>> semiMajorAxis = ConeOrCylinder::semiMajorAxis; … }` … `binding [1] bind [0..*] base.edges = [0..*] be;` with `Circle`'s `attribute :>> semiMajorAxis [1] = radius;` and `item :>> edges { attribute length [1] = Circle::radius * TrigFunctions::pi * 2; }` — the base circle's semi-axes are stated from its radius, and nothing states the radius | the base circle's `radius`, and the edge `length` derived from it, hold no value: the typed `ErrNoValue` naming `Circle::radius` where read, and no finding when the cone or cylinder is instantiated (`runtime/materialize.go` `materializeWalk.report`) | A `=` value states its feature from what it reads; the library states `semiMajorAxis` from `radius`, never `radius` from the semi-axes `be` would supply through a `[0..*]`-to-`[0..*]` binding, so no evaluator reading values as the library writes them reaches the base radius. Recorded below for a maintainer to raise |
+| `Domain Libraries/Geometry/ShapeItems.sysml` | `item def RightTriangularPrism` (`Wedge`), `item def RightTriangle` | `item :>> rf : RightTriangle { attribute :>> length = ff.length; attribute :>> width = rf.width; }` — inside `rf`, `rf` names the item being declared, so its `width` is bound to itself; and `item hypotenuse :>> e3 { attribute :>> length = ( Triangle::length^2 + Triangle::width^2 ); }` — the sum of two squared lengths, an area, written to `Line::length`, a `LengthValue` | the self-binding is the typed `ErrCyclicFeatureValue` wherever `rf.width` is read, and the hypotenuse's value is the typed dimension mismatch (`cannot write 25 [SI::'m²'] (dimension L^2) to a feature typed by LengthValue`); each is reported once by `-instantiate`, where it lies, and nothing read through either is reported again (`runtime/materialize.go` `materializeWalk.report`) | `rf.width = rf.width` fixes no value — the twin declaration beside it reads `ff.length`, and `ff` is the face the `width` mirrors — and `length^2 + width^2` is the hypotenuse squared, so no reading of either declaration yields the value its name promises. The draft below records both |
 | `Kernel Libraries/Kernel Data Type Library/Collections.kerml` | `UniqueCollection::elements`, `OrderedSet::elements`, `Map::elements`, `OrderedMap::elements` | `feature elements[0..*] :>> Collection::elements { doc /* Note: Redefinition of 'elements' is unique by default. */ }` over `feature elements[0..*] nonunique` — a redefinition stating neither `nonunique` nor `ordered`, whose only claim to uniqueness is the note | the four redefinitions are unique, as their notes say, and every collection under them (`Set`, `OrderedSet`, `Map`, `OrderedMap`, a model's `:>> elements` in one) inherits that; a redefinition anywhere else that states neither keyword takes the uniqueness of what it redefines (`semantics.Model.IsUnique`) | KerML 1.0 §7.3.4.4 gives the *default* only to a fresh or subsetting feature; a redefinition has "the same" values as the feature it redefines (§7.3.4.5), and the pinned pilot models it so — `'3dVectorQuantityValue'::num :>> num` and `CartesianSpatial3dCoordinateFrame::mRefs :>> mRefs` restate no keyword and the validator refuses to redefine either `nonunique` (`validateSubsettingUniquenessConformance`), while the library's own `mRefs default (SI::m, SI::m, SI::m)` and every `(0, 0, 1)` direction vector hold repeats it accepts. Reading every unstated redefinition as unique would make those defaults and vectors violations; reading it as inheriting makes `Set` and `Map` nonunique against the note. The note is the library's statement of intent, so it wins for these four declarations only |
 | `Kernel Libraries/Kernel Function Library/SequenceFunctions.kerml` | `function includingAt` | `(seq->subsequence(1, index - 1), values, seq->subsequence(index + 1))` — the prefix before `index`, then the values, then the tail from `index + 1`, so the element **at** `index` is dropped from the result | insertion: the values are inserted before the 1-based `index`, the tail from that position shifts right, and the result is longer than `seq` by the values inserted. `index == size + 1` appends; any other index outside `1..size + 1` is `ErrIndexOutOfRange` (`runtime.builtinSequenceIncludingAt`) | The body contradicts the declarations around it in the same file. `excludingAt` is the operation that removes at an index, and the behavior pairs are additive/subtractive: `add` calls `including` as `remove` calls `excluding`, and `addAt` calls `includingAt` (`seq->includingAt(values, index)`) as `removeAt` calls `excludingAt`. A removing `includingAt` would leave the library with two ways to delete at an index and none to insert at one, and would make `addAt` remove. The vendored expression is an off-by-one slip in the tail: the insertion body is `(seq->subsequence(1, index - 1), values, seq->subsequence(index))` |
 
@@ -664,8 +665,126 @@ runtime in which the open radius would show. OpenSysML answers `shape.radius`,
 naming `Circle::radius` on `-e`, `%eval` and `%features`. Instantiating the cone or cylinder
 is clean: the check `-instantiate` makes reads every feature value but reports a derived
 value whose derivation reads a feature nothing gives a value to no more than it reports that
-feature (`runtime/materialize.go` `materializeWalk.walk`; conformance
+feature (`runtime/materialize.go` `materializeWalk.report`; conformance
 `instance_library_geometry_right_circular_cylinder`, `instance_derived_reads_redefined_chain`).
+
+---
+
+## `ShapeItems::RightTriangularPrism` — a face width bound to itself, and a hypotenuse that is its own square
+
+**Not filed.** Drafted here for a maintainer to authorise; nothing has been
+posted upstream.
+
+Quoted verbatim from
+`internal/workspace/libs/stdlib/Domain Libraries/Geometry/ShapeItems.sysml`:
+
+```sysml
+	item def RightTriangle :> Triangle {
+		attribute :>> xoffset = length / 2;
+
+		item :>> e2 { attribute :>> length = Triangle::width; }
+
+		item hypotenuse :>> e3 {
+			attribute :>> length = ( Triangle::length^2 + Triangle::width^2 );
+		}
+	}
+	...
+	item def RightTriangularPrism :> TriangularPrism {
+		attribute :>> length [1];
+		attribute :>> width [1];
+		attribute :>> height [1];
+		...
+		item :>> ff : RightTriangle {
+			attribute :>> length = RightTriangularPrism::length;
+			attribute :>> width = RightTriangularPrism::width;
+		}
+		item :>> rf : RightTriangle {
+			attribute :>> length = ff.length;
+			attribute :>> width = rf.width;
+		}
+```
+
+and from `Triangle`, `Polygon` and `Line` in the same file:
+
+```sysml
+	item def Line :> PlanarCurve {
+		attribute :>> length [1];
+	...
+	item def Polygon :> Path, PlanarCurve {
+		item :>> edges : Line { item :>> vertices [2]; }
+	...
+	item def Triangle :> Polygon {
+		attribute :>> length [1];
+		attribute :>> width [1];
+		attribute :>> xoffset [1];
+
+		item :>> edges [3] = (base, e2, e3);
+		item base [1] { length = Triangle::length; }
+		item e2 [1];
+		item e3 [1];
+```
+
+````markdown
+**Library question, two parts.**
+
+**1. `RightTriangularPrism::rf::width` is bound to itself.** Inside the body of
+`item :>> rf : RightTriangle`, the name `rf` resolves outward to the item being
+declared (KerML 1.0 §8.2.3.5 name resolution: the body's own members first, then the
+owning namespace, `RightTriangularPrism`, where `rf` is a member), so
+`attribute :>> width = rf.width;` binds `rf`'s `width` to `rf`'s `width`. A feature
+value is a binding of the feature to the result of its expression (§7.4.11), and a
+binding of a feature to itself fixes nothing: the rear face of a fully dimensioned prism
+(`length`, `width` and `height` all given) has no `width`, so neither do its `e2`
+(`length = Triangle::width`) and its `hypotenuse`, and the prism's `tfe`
+(`length = ff.hypotenuse.length`) is the only edge group that reaches a value through a
+right triangle. The declaration beside it reads `ff.length`, and the front face `ff`
+is the one whose `width` is `RightTriangularPrism::width`; is `attribute :>> width =
+ff.width;` the intended text?
+
+**2. `RightTriangle::hypotenuse::length` is the square of the hypotenuse.**
+`attribute :>> length = ( Triangle::length^2 + Triangle::width^2 );` redefines
+`Line::length`, a `LengthValue`, with the sum of two squared lengths — an area,
+`25 [m²]` for a 3 m by 4 m right triangle, where the hypotenuse is `5 [m]`.
+`QuantityCalculations::'^'` over a `ScalarQuantityValue` keeps the dimension, and the
+result of a feature value's expression must conform to the feature's type (§7.4.11; the
+value binds `length` to it, and a `LengthValue` holds no value of dimension L²). Is
+`sqrt(Triangle::length^2 + Triangle::width^2)` (`RealFunctions::sqrt` is imported by
+`QuantityCalculations::sqrt` over `ScalarQuantityValue`) the intended text?
+````
+
+The pinned pilot implementation (`2026-08`, `jupyter-sysml-kernel` 0.62.0) offers no
+reference answer for either: asked through `build/pilot-evaluator/eval-sysml` over
+`part w : RightTriangularPrism { :>> length = 3 [m]; :>> width = 4 [m]; :>> height = 1 [m]; }`,
+`w.ff.hypotenuse.length` is `EXCEPTION:java.lang.StackOverflowError`, `w.ff.width` and
+`w.ff.e2.length` are the unreduced `OperatorExpression [` (the `4 [m]` the value was
+given, unevaluated), `w.ff.xoffset` the unreduced `OperatorExpression /`, and
+`w.rf.width` does not terminate (the evaluator was stopped after 15 minutes without an
+answer). Neither validator reports either declaration: a feature value naming its own feature
+and a value whose dimension differs from its feature's type are not well-formedness
+rules of the textual notation, so `-validate` and the pilot's `validate-sysml-batch`
+accept the library and a model using it clean.
+
+OpenSysML evaluates every value the library does fix — `ff.length`, `ff.width`,
+`ff.xoffset` (`1.5 [m]`), `ff.base.length`, `ff.e2.length`, `rf.length`,
+`rf.xoffset`, the `faces`, `tf`/`bf`/`slf`/`srf` as `Rectangle`s — and reports the two
+declarations above as what they are, once each (conformance
+`instance_library_geometry_right_triangular_prism`): `rf.width` is the typed
+`ErrCyclicFeatureValue` on every read (`-e`, `%eval`, `%features`, the gRPC and LSP
+evaluation requests), and the hypotenuse's value the typed dimension mismatch. The check
+`-instantiate` makes over a new object reports each failure where it lies and never again
+for a feature that reads through it (`runtime/materialize.go` `materializeWalk.report`):
+
+```text
+error: in shape.ff: feature value hypotenuse.length: type mismatch: cannot write 25 [SI::'m²'] (dimension L^2) to a feature typed by LengthValue (dimension L)
+error: in shape: feature value rf.width: cyclic feature value dependency: rf.width
+```
+
+A prism given only its `height` leaves `length` and `width`, and every face and edge
+dimension the library derives from them, without a value; the check reports none of those,
+as it reports no unset attribute, and the self-bound `rf.width` is the one finding
+(conformance `instance_library_geometry_right_triangular_prism_height_only`). The
+dimensions a `RightTriangularPrism` user supplies are `length`, `width` and `height`;
+no other attribute of the prism or its faces is left for the user to give.
 
 ---
 

@@ -167,37 +167,21 @@ func (ctx *Context) relatedFeatureNames(sym, owner *symbols.Symbol, kind ast.Rel
 	return names
 }
 
-// aliasRedefinedFeatureValuesOf makes every name a redefinition chain gives one feature read one
-// feature value (the most specific valued declaration's); two valued names of it is an error.
-// A value carried under one of the names is kept, refined by that declaration.
-func (ctx *Context) aliasRedefinedFeatureValuesOf(inst *Instance, typ *symbols.Symbol, carried map[string]bool, features []EffectiveFeature) error {
-	groups := ctx.redefinitionGroups(typ)
-	if len(groups) == 0 {
-		return nil
-	}
+// aliasRedefinedFeatureValuesOf makes every name a redefinition chain gives one feature, across
+// types sharing a name, read one feature value: a carried one, else the most specific valued declaration's.
+func (ctx *Context) aliasRedefinedFeatureValuesOf(inst *Instance, types []*symbols.Symbol, carried map[string]bool, features []EffectiveFeature) error {
 	byName := make(map[string]*EffectiveFeature, len(features))
 	for i := range features {
 		byName[features[i].Name] = &features[i]
 	}
-
-	// A name whose effective feature a nested chain replaced leads its group:
-	// the chain's declaration is the most specific statement of the feature.
-	var overridden map[string]bool
-	canonical := ctx.FeaturesOf(typ)
-	canonicalByName := make(map[string]*EffectiveFeature, len(canonical))
-	for i := range canonical {
-		canonicalByName[canonical[i].Name] = &canonical[i]
-		feat, ok := byName[canonical[i].Name]
-		if ok && feat.Symbol != nil && feat.Symbol != canonical[i].Symbol {
-			if overridden == nil {
-				overridden = make(map[string]bool)
-			}
-			overridden[canonical[i].Name] = true
+	var chains []redefinitionChains
+	for _, typ := range types {
+		if groups := ctx.redefinitionGroups(typ); len(groups) > 0 {
+			chains = append(chains, ctx.redefinitionChainsOf(typ, groups, byName))
 		}
 	}
-
-	for _, names := range groups {
-		chosen, err := ctx.sharedRedefinitionName(inst, byName, canonicalByName, names, overridden)
+	for _, names := range mergedRedefinitionGroups(chains) {
+		chosen, in, err := ctx.sharedRedefinitionName(inst, byName, chains, names)
 		if err != nil {
 			return err
 		}
@@ -205,7 +189,7 @@ func (ctx *Context) aliasRedefinedFeatureValuesOf(inst *Instance, typ *symbols.S
 		for _, name := range names {
 			if carried[name] {
 				fv = inst.FeatureValues[name]
-				if err := ctx.refineFeatureValue(inst, fv, byName[chosen], typ); err != nil {
+				if err := ctx.refineFeatureValue(inst, fv, byName[chosen], in); err != nil {
 					return err
 				}
 				break
@@ -216,6 +200,77 @@ func (ctx *Context) aliasRedefinedFeatureValuesOf(inst *Instance, typ *symbols.S
 		}
 	}
 	return nil
+}
+
+// redefinitionChains is one type's redefinition groups with the declarations
+// its features canonically have and the names a nested chain overrode.
+type redefinitionChains struct {
+	typ             *symbols.Symbol
+	groups          [][]string
+	canonicalByName map[string]*EffectiveFeature
+	overridden      map[string]bool
+}
+
+// redefinitionChainsOf notes which names of typ's groups a nested chain replaced the
+// effective feature of: that chain's declaration is the most specific, so it leads.
+func (ctx *Context) redefinitionChainsOf(typ *symbols.Symbol, groups [][]string, byName map[string]*EffectiveFeature) redefinitionChains {
+	chains := redefinitionChains{typ: typ, groups: groups}
+	canonical := ctx.FeaturesOf(typ)
+	chains.canonicalByName = make(map[string]*EffectiveFeature, len(canonical))
+	for i := range canonical {
+		chains.canonicalByName[canonical[i].Name] = &canonical[i]
+		feat, ok := byName[canonical[i].Name]
+		if ok && feat.Symbol != nil && feat.Symbol != canonical[i].Symbol {
+			if chains.overridden == nil {
+				chains.overridden = make(map[string]bool)
+			}
+			chains.overridden[canonical[i].Name] = true
+		}
+	}
+	return chains
+}
+
+// mergedRedefinitionGroups joins the groups of every type that share a name, since a
+// name is one feature whichever type declares it; first-appearance order is kept.
+func mergedRedefinitionGroups(chains []redefinitionChains) [][]string {
+	leader := map[string]string{}
+	var find func(string) string
+	find = func(name string) string {
+		next := leader[name]
+		if next == name {
+			return name
+		}
+		root := find(next)
+		leader[name] = root
+		return root
+	}
+	var order []string
+	for _, c := range chains {
+		for _, names := range c.groups {
+			for _, name := range names {
+				if _, ok := leader[name]; !ok {
+					leader[name] = name
+					order = append(order, name)
+				}
+				if a, b := find(names[0]), find(name); a != b {
+					leader[b] = a
+				}
+			}
+		}
+	}
+	var merged [][]string
+	index := map[string]int{}
+	for _, name := range order {
+		root := find(name)
+		at, ok := index[root]
+		if !ok {
+			at = len(merged)
+			index[root] = at
+			merged = append(merged, nil)
+		}
+		merged[at] = append(merged[at], name)
+	}
+	return merged
 }
 
 // redefinitionGroups groups the names of typ's features by the feature they name,
@@ -294,12 +349,40 @@ func (ctx *Context) redefinitionAliases(typ *symbols.Symbol, name string) map[st
 	return aliases
 }
 
-// sharedRedefinitionName returns the name in a group of names of one feature
-// whose feature value the group shares: the first name, in most-specific-first order,
-// whose own declaration values it — by a value, or by a body valuing the features
-// of the value it inherits — and otherwise the most specific name.
-// Two names valued by one declaration are errConflictingRedefinition.
-func (ctx *Context) sharedRedefinitionName(inst *Instance, byName, canonicalByName map[string]*EffectiveFeature, names []string, overridden map[string]bool) (string, error) {
+// sharedRedefinitionName returns the name whose feature value a merged group shares, the
+// first valued one in most-specific-first order else the most specific, and its type.
+func (ctx *Context) sharedRedefinitionName(inst *Instance, byName map[string]*EffectiveFeature, chains []redefinitionChains, names []string) (string, *symbols.Symbol, error) {
+	in := map[string]bool{}
+	for _, name := range names {
+		in[name] = true
+	}
+	for _, c := range chains {
+		for _, group := range c.groups {
+			if !in[group[0]] {
+				continue
+			}
+			valued, err := ctx.valuedRedefinitionName(inst, byName, c.canonicalByName, group, c.overridden)
+			if err != nil {
+				return "", nil, err
+			}
+			if valued != "" {
+				return valued, c.typ, nil
+			}
+		}
+	}
+	for _, c := range chains {
+		for _, group := range c.groups {
+			if group[0] == names[0] {
+				return names[0], c.typ, nil
+			}
+		}
+	}
+	return names[0], chains[0].typ, nil
+}
+
+// valuedRedefinitionName returns the first name of one type's group, overridden
+// names first, whose declaration values it, or "" when none does.
+func (ctx *Context) valuedRedefinitionName(inst *Instance, byName, canonicalByName map[string]*EffectiveFeature, names []string, overridden map[string]bool) (string, error) {
 	valued := ""
 	var valuedBy *symbols.Scope
 	for _, name := range overriddenFirst(names, overridden) {
@@ -321,10 +404,7 @@ func (ctx *Context) sharedRedefinitionName(inst *Instance, byName, canonicalByNa
 			}
 		}
 	}
-	if valued != "" {
-		return valued, nil
-	}
-	return names[0], nil
+	return valued, nil
 }
 
 // overriddenFirst orders the names with the overridden ones first, each part
