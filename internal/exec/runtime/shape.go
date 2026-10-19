@@ -261,14 +261,6 @@ func (ctx *Context) withConjoinedTypes(inst, owner *Instance, feature string, fe
 	return features
 }
 
-// declaredType resolves the first type a feature states itself, ignoring inheritance.
-func (ctx *Context) declaredType(featureSym *symbols.Symbol) *symbols.Symbol {
-	if types := ctx.declaredTypes(featureSym); len(types) > 0 {
-		return types[0]
-	}
-	return nil
-}
-
 // declaredTypes resolves every type a feature states itself, in declaration
 // order, ignoring inheritance.
 func (ctx *Context) declaredTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
