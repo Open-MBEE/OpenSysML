@@ -837,6 +837,7 @@ type openPopulation struct {
 	Stopped     bool
 	Contributed []Value
 	AtLeast     int64
+	Fixed       int // the leading Contributed whose positions the model fixes
 }
 
 // openFeatureValue is GetFeatureValue for a model-level read: a collection whose count
