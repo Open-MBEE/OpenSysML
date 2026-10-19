@@ -692,8 +692,8 @@ end
                         private import ScalarValues::*;
                         private import RandomFunctions::*;
                         action draw {
-                            out d : Real = uniform(0.0, 1.0);
-                            out n : Integer = uniformInteger(1, 6);
+                            out d : Real[1] = uniform(0.0, 1.0);
+                            out n : Integer[1] = uniformInteger(1, 6);
                         }
                     }
                 """)
