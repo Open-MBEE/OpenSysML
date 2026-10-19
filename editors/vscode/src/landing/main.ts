@@ -41,7 +41,7 @@ import {
 import { carried, obstacles, resettle } from "./carry";
 import { download, exportFrame, exportSvg, rasterSize, rasterize } from "./export";
 import { quantityText } from "./present";
-import { SCENES, STACK_SCENE, chooseScene, type Scene, type SceneVariant } from "./scene";
+import { SCENES, STACK_SCENE, chooseScene, requiredVariant, variantChain, type Scene, type SceneVariant } from "./scene";
 import { wireTabs } from "./tabs";
 import { ZOOM_STEP, pannedView, pinchedView, refittedView, zoomOf, zoomedView, type View } from "./zoom";
 
@@ -441,6 +441,10 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
       const part = partOf(group.dataset.opensysmlId ?? "");
       if (!part) {
         continue;
+      }
+      const tone = scene.tone(part, scene);
+      if (tone !== undefined) {
+        group.dataset.osmlTone = tone;
       }
       // A nested part is drawn beside its project's group, not inside it, so it takes the pointer itself.
       if (part.owner !== undefined) {
@@ -1570,13 +1574,17 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
       button.textContent = candidate.label;
       variantsEl.append(button);
       variantBtns.set(candidate, button);
-      on(button, "click", () => void switchVariant(variant === candidate ? undefined : candidate));
+      // Switching a variant off returns to the one it builds on; one that is on only through another goes too.
+      on(button, "click", () => void switchVariant(variantChain(scene, variant).includes(candidate) ? requiredVariant(scene, candidate) : candidate));
     }
   }
 
   function syncVariantControls(): void {
+    const chain = variantChain(scene, variant);
     for (const [candidate, button] of variantBtns) {
-      const on = candidate === variant;
+      const on = chain.includes(candidate);
+      const required = requiredVariant(scene, candidate);
+      button.hidden = required !== undefined && !chain.includes(required);
       button.setAttribute("aria-pressed", String(on));
       button.textContent = on ? candidate.activeLabel : candidate.label;
       button.disabled = running;

@@ -38,6 +38,9 @@ func TestLibraryRootNameWarns(t *testing.T) {
 		{"root alias short name like a library package", `alias <Views> V for ScalarValues;`, 1},
 		{"nested alias is not a root", `package P { alias Views for P; }`, 0},
 		{"root alias with unrelated name", `alias V for ScalarValues;`, 0},
+		{"root named like an OpenSysML extension library", `package MigrationMetadata {}`, 0},
+		{"inlined OpenSysML extension library", `library package DiagramLayout { metadata def Layout; }`, 0},
+		{"root alias named like an OpenSysML extension library", `alias OpenSysMLRenderings for ScalarValues;`, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := libraryRootNameDiags(t, tc.src); got != tc.want {

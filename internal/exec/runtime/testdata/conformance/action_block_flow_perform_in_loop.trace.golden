@@ -7,7 +7,7 @@ stmt for i
     stmt node Bump
 step 1: token 1@compute
       stmt assign doubled
-          eval feature i -> 1
+          eval feature i -> (1)
           eval literal 2 -> 2
         eval operator * -> 2
 step 2: token 1@done
@@ -20,7 +20,7 @@ step 3: no active tokens
     stmt node Bump
 step 1: token 1@compute
       stmt assign doubled
-          eval feature i -> 2
+          eval feature i -> (2)
           eval literal 2 -> 2
         eval operator * -> 4
 step 2: token 1@done
@@ -33,7 +33,7 @@ step 3: no active tokens
     stmt node Bump
 step 1: token 1@compute
       stmt assign doubled
-          eval feature i -> 3
+          eval feature i -> (3)
           eval literal 2 -> 2
         eval operator * -> 6
 step 2: token 1@done

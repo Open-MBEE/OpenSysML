@@ -87,7 +87,7 @@ class RunDistribution:
     def of(cls, pb):
         numbers = {}
         if pb.numeric and pb.HasField("min"):
-            numbers = dict(minimum=_value(pb.min), maximum=_value(pb.max), mean=_value(pb.mean))
+            numbers = {"minimum": _value(pb.min), "maximum": _value(pb.max), "mean": _value(pb.mean)}
         return cls(
             pb.name, pb.unit, pb.count, pb.numeric, deviation=pb.deviation,
             percentiles=[RunPercentile.of(p) for p in pb.percentiles],

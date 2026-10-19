@@ -1,5 +1,10 @@
 classdef AnalysisResult
 %ANALYSISRESULT What an analysis case computed and decided.
+%   toolDryRun is the external tool call previewed when the case ran under
+%   runAnalysis(..., 'toolDryRun', true): a struct with action, tool, version,
+%   manifest, executable, protocol, args, env, cwd, stdin, stdinData,
+%   inputFile, outputDir, inputs, outputs, replySource and lines; [] when the
+%   case ran for real.
 
     properties
         outputs = struct()
@@ -12,11 +17,12 @@ classdef AnalysisResult
         engine = ''
         strength = ''
         bounds = {}
+        toolDryRun = []
     end
 
     methods
         function obj = AnalysisResult(outputs, verdicts, instances, diagnostics, ...
-                verifications, evaluations, standing)
+                verifications, evaluations, standing, toolDryRun)
             if nargin >= 1 && ~isempty(outputs), obj.outputs = outputs; end
             if nargin >= 2, obj.verdicts = toCells(verdicts); end
             if nargin >= 3, obj.instances = instanceMap(instances);
@@ -31,6 +37,7 @@ classdef AnalysisResult
             obj.engine = obj.standing.engine;
             obj.strength = obj.standing.strength;
             obj.bounds = obj.standing.bounds;
+            if nargin >= 8, obj.toolDryRun = toolDryRun; end
         end
 
         function values = selected(obj)

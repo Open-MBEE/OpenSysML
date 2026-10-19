@@ -7,7 +7,7 @@ read	Probe::p1.act	model	Probe::P1::act	object:Probe::A1
 read	Probe::p1.alq	model	Probe::P1::alq	object:Probe::Al1
 read	Probe::p1.anq	model	Probe::P1::anq	error no value: calc usage anq computes output features (no output feature); read one of them
 read	Probe::p1.atq	model	Probe::P1::atq	object:Probe::At1
-read	Probe::p1.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::p1.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::p1.caq	model	Probe::P1::caq	object:Probe::Ca1
 read	Probe::p1.cargo	model	Probe::P1::cargo	object:Probe::I1
 read	Probe::p1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(6) [object:Probe::R1#1, object:Probe::P1::cq#2, object:Probe::Vp1#3, object:Probe::Con1#4, object:Probe::R1#5, object:Probe::P1::ac#6]
@@ -15,14 +15,14 @@ read	Probe::p1.cnq	model	Probe::P1::cnq	object:Probe::Cn1
 read	Probe::p1.conq	model	Probe::P1::conq	object:Probe::Con1
 read	Probe::p1.cq	model	Probe::P1::cq	object:Probe::P1::cq
 read	Probe::p1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
-read	Probe::p1.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
+read	Probe::p1.envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	Probe::p1.eq	model	Probe::P1::eq	enumeration literal E1::a
 read	Probe::p1.es	model	Probe::P1::es	object:Probe::S1
 read	Probe::p1.ev	model	Probe::P1::ev	object:Probe::P1::ev
-read	Probe::p1.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
+read	Probe::p1.exhibitedStates	systems	Parts::Part::exhibitedStates	collection(1) [object:Probe::S1#1]
 read	Probe::p1.flq	model	Probe::P1::flq	object:Probe::Fl1
 read	Probe::p1.ifq	model	Probe::P1::ifq	object:Probe::If1
-read	Probe::p1.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::p1.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::p1.iu	model	Probe::P1::iu	object:Probe::U1
 read	Probe::p1.kq	model	Probe::P1::kq	constant 6.0
 read	Probe::p1.mass	model	Probe::P1::mass	collection(1) [quantity 3.0 [kg]]
@@ -37,12 +37,12 @@ read	Probe::p1.ownedActions	systems	Parts::Part::ownedActions	collection(6) [obj
 read	Probe::p1.ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [object:Probe::Pt#1]
 read	Probe::p1.ownedStates	systems	Parts::Part::ownedStates	collection(1) [object:Probe::S1#1]
 read	Probe::p1.pa	model	Probe::P1::pa	object:Probe::A2
-read	Probe::p1.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::p1.performedActions	systems	Parts::Part::performedActions	collection(2) [object:Probe::A2#1, object:Probe::S1#2]
 read	Probe::p1.pt	model	Probe::P1::pt	object:Probe::Pt
 read	Probe::p1.rdq	model	Probe::P1::rdq	object:Probe::Rd1
 read	Probe::p1.rq	model	Probe::P1::rq	object:Probe::R1
 read	Probe::p1.self	systemsFRAME	Parts::Part::self	object:Probe::p1
-read	Probe::p1.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::p1.shape	systems	Items::Item::shape	null
 read	Probe::p1.slice	model	Probe::P1::slice	object:Probe::P1::slice
 read	Probe::p1.snap	model	Probe::P1::snap	object:Probe::P1::snap
 read	Probe::p1.sr	model	Probe::P1::sr	object:Probe::R1
@@ -52,40 +52,40 @@ read	Probe::p1.sub	model	Probe::P1::sub	collection(2) [object:Probe::P2#1, objec
 read	Probe::p1.subitems	systems	Items::Item::subitems	collection(8) [object:Probe::I1#1, object:Probe::P2#2, object:Probe::P2#3, object:Probe::Vw1#4, object:Probe::Rd1#5, object:Probe::Cn1#6, object:Probe::If1#7, object:Probe::Al1#8]
 read	Probe::p1.subparts	systems	Items::Item::subparts	collection(7) [object:Probe::P2#1, object:Probe::P2#2, object:Probe::Vw1#3, object:Probe::Rd1#4, object:Probe::Cn1#5, object:Probe::If1#6, object:Probe::Al1#7]
 read	Probe::p1.uq	model	Probe::P1::uq	object:Probe::U1
-read	Probe::p1.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::p1.voids	systems	Items::Item::voids	empty
 read	Probe::p1.vpq	model	Probe::P1::vpq	object:Probe::Vp1
 read	Probe::p1.vq	model	Probe::P1::vq	error no value: calc usage vq computes output features (no output feature); read one of them
 read	Probe::p1.vq3	model	Probe::P1::vq3	undetermined <undetermined>
 read	Probe::p1.vwq	model	Probe::P1::vwq	object:Probe::Vw1
 object	Probe::p2	object:Probe::p2
-read	Probe::p2.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::p2.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::p2.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::p2.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
-read	Probe::p2.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::p2.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
-read	Probe::p2.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::p2.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::p2.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::p2.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::p2.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::p2.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::p2.ownedStates	systems	Parts::Part::ownedStates	empty
-read	Probe::p2.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::p2.performedActions	systems	Parts::Part::performedActions	empty
 read	Probe::p2.self	systemsFRAME	Parts::Part::self	object:Probe::p2
-read	Probe::p2.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::p2.shape	systems	Items::Item::shape	null
 read	Probe::p2.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::p2.subitems	systems	Items::Item::subitems	empty
 read	Probe::p2.subparts	systems	Items::Item::subparts	empty
-read	Probe::p2.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::p2.voids	systems	Items::Item::voids	empty
 object	Probe::i1	object:Probe::i1
-read	Probe::i1.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::i1.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::i1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::i1.done	systemsFRAME	Items::Item::done	undetermined <undetermined>
-read	Probe::i1.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::i1.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::i1.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::i1.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::i1.self	systemsFRAME	Items::Item::self	object:Probe::i1
-read	Probe::i1.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::i1.shape	systems	Items::Item::shape	null
 read	Probe::i1.start	systemsFRAME	Items::Item::start	undetermined <undetermined>
 read	Probe::i1.subitems	systems	Items::Item::subitems	empty
 read	Probe::i1.subparts	systems	Items::Item::subparts	empty
-read	Probe::i1.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::i1.voids	systems	Items::Item::voids	empty
 read	Probe::i1.w	model	Probe::I1::w	constant 1.0
 object	Probe::pt	undetermined <undetermined>
 object	Probe::act	undetermined <undetermined>
@@ -94,8 +94,8 @@ object	Probe::r1	undetermined <undetermined>
 object	Probe::c1	undetermined <undetermined>
 object	Probe::k1	function Probe::k1
 object	Probe::ca1	object:Probe::ca1
-read	Probe::ca1.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
-read	Probe::ca1.actors	systems	Cases::Case::actors	undetermined <undetermined>
+read	Probe::ca1.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
+read	Probe::ca1.actors	systems	Cases::Case::actors	empty
 read	Probe::ca1.assignments	systems	Actions::Action::assignments	empty
 read	Probe::ca1.controls	systems	Actions::Action::controls	empty
 read	Probe::ca1.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -108,12 +108,12 @@ read	Probe::ca1.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfer
 read	Probe::ca1.joins	systems	Actions::Action::joins	empty
 read	Probe::ca1.loops	systems	Actions::Action::loops	empty
 read	Probe::ca1.merges	systems	Actions::Action::merges	empty
-read	Probe::ca1.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::ca1.result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	Probe::ca1.s	model	Probe::Ca1::s	undetermined <undetermined>
 read	Probe::ca1.self	systemsFRAME	Cases::Case::self	object:Probe::ca1
-read	Probe::ca1.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::ca1.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::ca1.start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
-read	Probe::ca1.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
+read	Probe::ca1.subactions	systems	Actions::Action::subactions	empty
 read	Probe::ca1.subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
 read	Probe::ca1.subcases	systems	Cases::Case::subcases	empty
 read	Probe::ca1.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
@@ -122,8 +122,8 @@ read	Probe::ca1.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::an1	error no value: calc usage Probe::an1 computes output features (no output feature); read one of them
 object	Probe::v1	error no value: calc usage Probe::v1 computes output features (no output feature); read one of them
 object	Probe::u1	object:Probe::u1
-read	Probe::u1.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
-read	Probe::u1.actors	systems	Cases::Case::actors	undetermined <undetermined>
+read	Probe::u1.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
+read	Probe::u1.actors	systems	Cases::Case::actors	empty
 read	Probe::u1.assignments	systems	Actions::Action::assignments	empty
 read	Probe::u1.controls	systems	Actions::Action::controls	empty
 read	Probe::u1.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -132,19 +132,19 @@ read	Probe::u1.done	systemsFRAME	UseCases::UseCase::done	undetermined <undetermi
 read	Probe::u1.forLoops	systems	Actions::Action::forLoops	empty
 read	Probe::u1.forks	systems	Actions::Action::forks	empty
 read	Probe::u1.ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	Probe::u1.includedUseCases	systems	UseCases::UseCase::includedUseCases	undetermined <undetermined>
+read	Probe::u1.includedUseCases	systems	UseCases::UseCase::includedUseCases	empty
 read	Probe::u1.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	Probe::u1.joins	systems	Actions::Action::joins	empty
 read	Probe::u1.loops	systems	Actions::Action::loops	empty
 read	Probe::u1.merges	systems	Actions::Action::merges	empty
 read	Probe::u1.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
-read	Probe::u1.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::u1.result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	Probe::u1.s	model	Probe::U1::s	undetermined <undetermined>
 read	Probe::u1.self	systemsFRAME	UseCases::UseCase::self	object:Probe::u1
-read	Probe::u1.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::u1.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::u1.start	systemsFRAME	UseCases::UseCase::start	undetermined <undetermined>
 read	Probe::u1.subUseCases	systems	UseCases::UseCase::subUseCases	empty
-read	Probe::u1.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
+read	Probe::u1.subactions	systems	Actions::Action::subactions	empty
 read	Probe::u1.subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
 read	Probe::u1.subcases	systems	Cases::Case::subcases	empty
 read	Probe::u1.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
@@ -152,66 +152,66 @@ read	Probe::u1.transitions	systems	Actions::Action::transitions	empty
 read	Probe::u1.whileLoops	systems	Actions::Action::whileLoops	empty
 read	Probe::u1.who	model	Probe::U1::who	object:Probe::P2
 object	Probe::vw1	object:Probe::vw1
-read	Probe::vw1.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::vw1.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::vw1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::vw1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
-read	Probe::vw1.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::vw1.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
-read	Probe::vw1.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::vw1.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::vw1.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::vw1.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::vw1.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::vw1.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::vw1.ownedStates	systems	Parts::Part::ownedStates	empty
-read	Probe::vw1.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::vw1.performedActions	systems	Parts::Part::performedActions	empty
 read	Probe::vw1.self	systemsFRAME	Views::View::self	object:Probe::vw1
-read	Probe::vw1.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::vw1.shape	systems	Items::Item::shape	null
 read	Probe::vw1.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::vw1.subitems	systems	Items::Item::subitems	empty
 read	Probe::vw1.subparts	systems	Items::Item::subparts	empty
-read	Probe::vw1.subviews	systems	Views::View::subviews	undetermined <undetermined>
-read	Probe::vw1.viewRendering	systems	Views::View::viewRendering	undetermined <undetermined>
+read	Probe::vw1.subviews	systems	Views::View::subviews	empty
+read	Probe::vw1.viewRendering	systems	Views::View::viewRendering	empty
 read	Probe::vw1.viewpointConformance	systems	Views::View::viewpointConformance	object:Views::View::viewpointConformance
-read	Probe::vw1.viewpointSatisfactions	systems	Views::View::viewpointSatisfactions	undetermined <undetermined>
-read	Probe::vw1.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::vw1.viewpointSatisfactions	systems	Views::View::viewpointSatisfactions	empty
+read	Probe::vw1.voids	systems	Items::Item::voids	empty
 object	Probe::vp1	object:Probe::vp1
-read	Probe::vp1.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
-read	Probe::vp1.assumptions	systems	Requirements::RequirementCheck::assumptions	undetermined <undetermined>
+read	Probe::vp1.actors	systems	Requirements::RequirementCheck::actors	empty
+read	Probe::vp1.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	Probe::vp1.con1	model	Probe::Vp1::con1	object:Probe::Con1
 read	Probe::vp1.concerns	systems	Requirements::RequirementCheck::concerns	empty
-read	Probe::vp1.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
-read	Probe::vp1.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::vp1.constraints	systems	Requirements::RequirementCheck::constraints	empty
+read	Probe::vp1.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	Probe::vp1.self	systemsFRAME	Views::ViewpointCheck::self	object:Probe::vp1
-read	Probe::vp1.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
+read	Probe::vp1.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	Probe::vp1.subj	systems	Views::ViewpointCheck::subj	undetermined <undetermined>
 read	Probe::vp1.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 object	Probe::con1	object:Probe::con1
-read	Probe::con1.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
-read	Probe::con1.assumptions	systems	Requirements::RequirementCheck::assumptions	undetermined <undetermined>
+read	Probe::con1.actors	systems	Requirements::RequirementCheck::actors	empty
+read	Probe::con1.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	Probe::con1.concerns	systems	Requirements::RequirementCheck::concerns	empty
-read	Probe::con1.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
-read	Probe::con1.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::con1.constraints	systems	Requirements::RequirementCheck::constraints	empty
+read	Probe::con1.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	Probe::con1.self	systemsFRAME	Requirements::ConcernCheck::self	object:Probe::con1
 read	Probe::con1.sh	model	Probe::Con1::sh	object:Probe::P2
-read	Probe::con1.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
+read	Probe::con1.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	Probe::con1.subj	systems	Requirements::RequirementCheck::subj	undetermined <undetermined>
 read	Probe::con1.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 object	Probe::rd1	object:Probe::rd1
-read	Probe::rd1.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::rd1.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::rd1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::rd1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
-read	Probe::rd1.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::rd1.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
-read	Probe::rd1.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::rd1.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::rd1.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::rd1.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::rd1.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::rd1.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::rd1.ownedStates	systems	Parts::Part::ownedStates	empty
-read	Probe::rd1.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::rd1.performedActions	systems	Parts::Part::performedActions	empty
 read	Probe::rd1.self	systemsFRAME	Views::Rendering::self	object:Probe::rd1
-read	Probe::rd1.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::rd1.shape	systems	Items::Item::shape	null
 read	Probe::rd1.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::rd1.subitems	systems	Items::Item::subitems	empty
 read	Probe::rd1.subparts	systems	Items::Item::subparts	empty
-read	Probe::rd1.subrenderings	systems	Views::Rendering::subrenderings	undetermined <undetermined>
-read	Probe::rd1.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::rd1.subrenderings	systems	Views::Rendering::subrenderings	empty
+read	Probe::rd1.voids	systems	Items::Item::voids	empty
 object	Probe::cn1	undetermined <undetermined>
 object	Probe::if1	undetermined <undetermined>
 object	Probe::al1	undetermined <undetermined>
@@ -228,7 +228,7 @@ read	Probe::box.bf	domain	ShapeItems::RectangularCuboid::bf	object:ShapeItems::R
 read	Probe::box.bfe	domain	ShapeItems::CuboidOrTriangularPrism::bfe	error binding end cannot be resolved: box.bfe is bound by `binding [1] bind [0..1] bf.edges = [0..1] bfe`, which makes some value of bfe a value of bf.edges without saying which value of either; the model does not state what bfe holds
 read	Probe::box.bflv	domain	ShapeItems::CuboidOrTriangularPrism::bflv	error binding end cannot be resolved: box.bfe is bound by `binding [1] bind [0..1] bf.edges = [0..1] bfe`, which makes some value of bfe a value of bf.edges without saying which value of either; the model does not state what bfe holds
 read	Probe::box.bfrv	domain	ShapeItems::CuboidOrTriangularPrism::bfrv	error binding end cannot be resolved: box.bfe is bound by `binding [1] bind [0..1] bf.edges = [0..1] bfe`, which makes some value of bfe a value of bf.edges without saying which value of either; the model does not state what bfe holds
-read	Probe::box.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::box.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::box.bre	domain	ShapeItems::CuboidOrTriangularPrism::bre	error binding end cannot be resolved: box.bre is bound by `binding [1] bind [0..1] bf.edges = [0..1] bre`, which makes some value of bre a value of bf.edges without saying which value of either; the model does not state what bre holds
 read	Probe::box.brlv	domain	ShapeItems::CuboidOrTriangularPrism::brlv	error binding end cannot be resolved: box.bre is bound by `binding [1] bind [0..1] bf.edges = [0..1] bre`, which makes some value of bre a value of bf.edges without saying which value of either; the model does not state what bre holds
 read	Probe::box.brrv	domain	ShapeItems::CuboidOrTriangularPrism::brrv	error binding end cannot be resolved: box.bre is bound by `binding [1] bind [0..1] bf.edges = [0..1] bre`, which makes some value of bre a value of bf.edges without saying which value of either; the model does not state what bre holds
@@ -237,18 +237,18 @@ read	Probe::box.bsre	domain	ShapeItems::CuboidOrTriangularPrism::bsre	error bind
 read	Probe::box.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::box.done	systemsFRAME	Items::Item::done	undetermined <undetermined>
 read	Probe::box.edges	domain	ShapeItems::Cuboid::edges	collection(24) [object:ShapeItems::Rectangle::e1#1, object:ShapeItems::Rectangle::e2#2, object:ShapeItems::Rectangle::e3#3, object:ShapeItems::Rectangle::e4#4, object:ShapeItems::Rectangle::e1#5, object:ShapeItems::Rectangle::e2#6, object:ShapeItems::Rectangle::e3#7, object:ShapeItems::Rectangle::e4#8, object:ShapeItems::Rectangle::e1#9, object:ShapeItems::Rectangle::e2#10, object:ShapeItems::Rectangle::e3#11, object:ShapeItems::Rectangle::e4#12, object:ShapeItems::Rectangle::e1#13, object:ShapeItems::Rectangle::e2#14, object:ShapeItems::Rectangle::e3#15, object:ShapeItems::Rectangle::e4#16, object:ShapeItems::Rectangle::e1#17, object:ShapeItems::Rectangle::e2#18, object:ShapeItems::Rectangle::e3#19, object:ShapeItems::Rectangle::e4#20, object:ShapeItems::Rectangle::e1#21, object:ShapeItems::Rectangle::e2#22, object:ShapeItems::Rectangle::e3#23, object:ShapeItems::Rectangle::e4#24]
-read	Probe::box.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
+read	Probe::box.envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	Probe::box.faces	domain	ShapeItems::Cuboid::faces	collection(6) [object:ShapeItems::RectangularCuboid::tf#1, object:ShapeItems::RectangularCuboid::bf#2, object:ShapeItems::RectangularCuboid::ff#3, object:ShapeItems::RectangularCuboid::rf#4, object:ShapeItems::RectangularCuboid::slf#5, object:ShapeItems::RectangularCuboid::srf#6]
 read	Probe::box.ff	domain	ShapeItems::RectangularCuboid::ff	object:ShapeItems::RectangularCuboid::ff
 read	Probe::box.genus	domain	ShapeItems::Polyhedron::genus	constant 0
 read	Probe::box.height	model	Probe::box::height	quantity 3.0 [m]
 read	Probe::box.isClosed	domain	ShapeItems::Polyhedron::isClosed	constant true
-read	Probe::box.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::box.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::box.length	model	Probe::box::length	quantity 1.0 [m]
 read	Probe::box.outerSpaceDimension	domain	ShapeItems::Polyhedron::outerSpaceDimension	constant 3
 read	Probe::box.rf	domain	ShapeItems::RectangularCuboid::rf	object:ShapeItems::RectangularCuboid::rf
 read	Probe::box.self	systemsFRAME	Items::Item::self	object:Probe::box
-read	Probe::box.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::box.shape	systems	Items::Item::shape	null
 read	Probe::box.slf	domain	ShapeItems::RectangularCuboid::slf	object:ShapeItems::RectangularCuboid::slf
 read	Probe::box.srf	domain	ShapeItems::RectangularCuboid::srf	object:ShapeItems::RectangularCuboid::srf
 read	Probe::box.start	systemsFRAME	Items::Item::start	undetermined <undetermined>
@@ -268,146 +268,146 @@ read	Probe::box.ufre	domain	ShapeItems::CuboidOrTriangularPrism::ufre	error bind
 read	Probe::box.urle	domain	ShapeItems::CuboidOrTriangularPrism::urle	error binding end cannot be resolved: box.urle is bound by `binding [1] bind [0..1] rf.edges = [0..1] urle`, which makes some value of urle a value of rf.edges without saying which value of either; the model does not state what urle holds
 read	Probe::box.urre	domain	ShapeItems::CuboidOrTriangularPrism::urre	error binding end cannot be resolved: box.urre is bound by `binding [1] bind [0..1] rf.edges = [0..1] urre`, which makes some value of urre a value of rf.edges without saying which value of either; the model does not state what urre holds
 read	Probe::box.vertices	domain	ShapeItems::Cuboid::vertices	error subsetting feature tflv of vertices: binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds
-read	Probe::box.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::box.voids	systems	Items::Item::voids	empty
 read	Probe::box.width	model	Probe::box::width	quantity 2.0 [m]
 object	Probe::sph	object:Probe::sph
-read	Probe::sph.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::sph.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::sph.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::sph.done	systemsFRAME	Items::Item::done	undetermined <undetermined>
 read	Probe::sph.edges	domain	ShapeItems::ConicSurface::edges	empty
-read	Probe::sph.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
+read	Probe::sph.envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	Probe::sph.faces	domain	ShapeItems::Ellipsoid::faces	object:ShapeItems::Ellipsoid::faces
 read	Probe::sph.genus	domain	ShapeItems::ConicSurface::genus	constant 0
-read	Probe::sph.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::sph.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::sph.radius	model	Probe::sph::radius	quantity 1.0 [m]
 read	Probe::sph.self	systemsFRAME	Items::Item::self	object:Probe::sph
 read	Probe::sph.semiAxis1	domain	ShapeItems::Sphere::semiAxis1	quantity 1.0 [m]
 read	Probe::sph.semiAxis2	domain	ShapeItems::Sphere::semiAxis2	quantity 1.0 [m]
 read	Probe::sph.semiAxis3	domain	ShapeItems::Sphere::semiAxis3	quantity 1.0 [m]
-read	Probe::sph.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::sph.shape	systems	Items::Item::shape	null
 read	Probe::sph.start	systemsFRAME	Items::Item::start	undetermined <undetermined>
 read	Probe::sph.subitems	systems	Items::Item::subitems	empty
 read	Probe::sph.subparts	systems	Items::Item::subparts	empty
 read	Probe::sph.vertices	domain	ShapeItems::ConicSurface::vertices	empty
-read	Probe::sph.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::sph.voids	systems	Items::Item::voids	empty
 object	Probe::clk	object:Probe::clk
-read	Probe::clk.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::clk.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::clk.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::clk.currentTime	domain	Time::Clock::currentTime	quantity 0.0 [s]
 read	Probe::clk.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
-read	Probe::clk.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::clk.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
-read	Probe::clk.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::clk.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::clk.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::clk.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::clk.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::clk.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::clk.ownedStates	systems	Parts::Part::ownedStates	empty
-read	Probe::clk.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::clk.performedActions	systems	Parts::Part::performedActions	empty
 read	Probe::clk.self	systemsFRAME	Parts::Part::self	object:Probe::clk
-read	Probe::clk.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::clk.shape	systems	Items::Item::shape	null
 read	Probe::clk.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::clk.subitems	systems	Items::Item::subitems	empty
 read	Probe::clk.subparts	systems	Items::Item::subparts	empty
-read	Probe::clk.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::clk.voids	systems	Items::Item::voids	empty
 object	Probe::spat	object:Probe::spat
-read	Probe::spat.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::spat.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::spat.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::spat.componentItems	domain	SpatialItems::SpatialItem::componentItems	undetermined <undetermined>
 read	Probe::spat.componentParts	domain	SpatialItems::SpatialItem::componentParts	undetermined <undetermined>
 read	Probe::spat.coordinateFrame	domain	SpatialItems::SpatialItem::coordinateFrame	coordinate frame universalCartesianSpatial3dCoordinateFrame [m, m, m]
 read	Probe::spat.done	systemsFRAME	Items::Item::done	undetermined <undetermined>
-read	Probe::spat.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::spat.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::spat.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::spat.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::spat.localClock	domain	SpatialItems::SpatialItem::localClock	object:Time::universalClock
 read	Probe::spat.originPoint	domain	SpatialItems::SpatialItem::originPoint	object:Objects::Point
 read	Probe::spat.originPointConstraint	domain	SpatialItems::SpatialItem::originPointConstraint	undetermined <undetermined>
 read	Probe::spat.self	systemsFRAME	Items::Item::self	object:Probe::spat
-read	Probe::spat.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::spat.shape	systems	Items::Item::shape	null
 read	Probe::spat.start	systemsFRAME	Items::Item::start	undetermined <undetermined>
 read	Probe::spat.subSpatialItems	domain	SpatialItems::SpatialItem::subSpatialItems	undetermined <undetermined>
 read	Probe::spat.subSpatialParts	domain	SpatialItems::SpatialItem::subSpatialParts	undetermined <undetermined>
 read	Probe::spat.subitems	systems	Items::Item::subitems	collection(1) [object:SpatialItems::SpatialItem::componentParts#1]
 read	Probe::spat.subparts	systems	Items::Item::subparts	collection(1) [object:SpatialItems::SpatialItem::componentParts#1]
-read	Probe::spat.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::spat.voids	systems	Items::Item::voids	empty
 object	Probe::sys	object:Probe::sys
-read	Probe::sys.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::sys.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::sys.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::sys.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
-read	Probe::sys.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::sys.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
-read	Probe::sys.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::sys.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::sys.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::sys.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::sys.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::sys.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::sys.ownedStates	systems	Parts::Part::ownedStates	empty
-read	Probe::sys.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::sys.performedActions	systems	Parts::Part::performedActions	empty
 read	Probe::sys.self	systemsFRAME	Parts::Part::self	object:Probe::sys
-read	Probe::sys.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::sys.shape	systems	Items::Item::shape	null
 read	Probe::sys.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::sys.subitems	systems	Items::Item::subitems	empty
 read	Probe::sys.subparts	systems	Items::Item::subparts	empty
-read	Probe::sys.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::sys.voids	systems	Items::Item::voids	empty
 object	Probe::der	undetermined <undetermined>
 object	Probe::risk	error unresolved reference: RiskMetadata::RiskLevel::high
 object	Probe::dsub	object:Probe::dsub
-read	Probe::dsub.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::dsub.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::dsub.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::dsub.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
-read	Probe::dsub.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::dsub.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
-read	Probe::dsub.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::dsub.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::dsub.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::dsub.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::dsub.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::dsub.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::dsub.ownedStates	systems	Parts::Part::ownedStates	empty
-read	Probe::dsub.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::dsub.performedActions	systems	Parts::Part::performedActions	empty
 read	Probe::dsub.self	systemsFRAME	Parts::Part::self	object:Probe::dsub
-read	Probe::dsub.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::dsub.shape	systems	Items::Item::shape	null
 read	Probe::dsub.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::dsub.subitems	systems	Items::Item::subitems	empty
 read	Probe::dsub.subparts	systems	Items::Item::subparts	empty
-read	Probe::dsub.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::dsub.voids	systems	Items::Item::voids	empty
 object	Probe::psi	object:Probe::psi
 read	Probe::psi.annotatedElement	domain	ParametersOfInterestMetadata::MeasureOfEffectiveness::annotatedElement	object:SysML::Systems::Usage
 read	Probe::psi.baseType	domain	ParametersOfInterestMetadata::MeasureOfEffectiveness::baseType	metaobject meta(ParametersOfInterestMetadata::measuresOfEffectiveness : SysML::Systems::AttributeUsage)
-read	Probe::psi.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::psi.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::psi.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::psi.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
-read	Probe::psi.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::psi.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
-read	Probe::psi.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::psi.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::psi.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::psi.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::psi.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::psi.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::psi.ownedStates	systems	Parts::Part::ownedStates	empty
-read	Probe::psi.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::psi.performedActions	systems	Parts::Part::performedActions	empty
 read	Probe::psi.self	systemsFRAME	Parts::Part::self	object:Probe::psi
-read	Probe::psi.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::psi.shape	systems	Items::Item::shape	null
 read	Probe::psi.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::psi.subitems	systems	Items::Item::subitems	empty
 read	Probe::psi.subparts	systems	Items::Item::subparts	empty
-read	Probe::psi.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::psi.voids	systems	Items::Item::voids	empty
 object	Probe::p1.sub	collection(2) [object:Probe::P2#1, object:Probe::P2#2]
 object	Probe::p1.opt	undetermined <undetermined>
 object	Probe::p1.cargo	object:Probe::I1
-read	Probe::p1.cargo.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::p1.cargo.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::p1.cargo.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::p1.cargo.done	systemsFRAME	Items::Item::done	undetermined <undetermined>
-read	Probe::p1.cargo.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::p1.cargo.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::p1.cargo.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::p1.cargo.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::p1.cargo.self	systemsFRAME	Items::Item::self	object:Probe::I1
-read	Probe::p1.cargo.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::p1.cargo.shape	systems	Items::Item::shape	null
 read	Probe::p1.cargo.start	systemsFRAME	Items::Item::start	undetermined <undetermined>
 read	Probe::p1.cargo.subitems	systems	Items::Item::subitems	empty
 read	Probe::p1.cargo.subparts	systems	Items::Item::subparts	empty
-read	Probe::p1.cargo.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::p1.cargo.voids	systems	Items::Item::voids	empty
 read	Probe::p1.cargo.w	model	Probe::I1::w	constant 1.0
 object	Probe::p1.pt	object:Probe::Pt
 read	Probe::p1.pt.inflow	model	Probe::Pt::inflow	object:Probe::I1
-read	Probe::p1.pt.interfacingPorts	systems	Ports::Port::interfacingPorts	undetermined <undetermined>
+read	Probe::p1.pt.interfacingPorts	systems	Ports::Port::interfacingPorts	empty
 read	Probe::p1.pt.outflow	model	Probe::Pt::outflow	object:Probe::I1
 read	Probe::p1.pt.outgoingTransfersFromSelf	systemsFRAME	Ports::Port::outgoingTransfersFromSelf	undetermined <undetermined>
 read	Probe::p1.pt.self	systemsFRAME	Ports::Port::self	object:Probe::Pt
-read	Probe::p1.pt.subports	systems	Ports::Port::subports	undetermined <undetermined>
+read	Probe::p1.pt.subports	systems	Ports::Port::subports	empty
 read	Probe::p1.pt.x	model	Probe::Pt::x	undetermined <undetermined>
 object	Probe::p1.act	object:Probe::A1
-read	Probe::p1.act.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
+read	Probe::p1.act.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
 read	Probe::p1.act.assignments	systems	Actions::Action::assignments	empty
 read	Probe::p1.act.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.act.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -424,14 +424,14 @@ read	Probe::p1.act.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.act.nested	model	Probe::A1::nested	object:Probe::A2
 read	Probe::p1.act.o	model	Probe::A1::o	undetermined <undetermined>
 read	Probe::p1.act.self	systemsFRAME	Actions::Action::self	object:Probe::A1
-read	Probe::p1.act.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::p1.act.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.act.start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
-read	Probe::p1.act.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
+read	Probe::p1.act.subactions	systems	Actions::Action::subactions	empty
 read	Probe::p1.act.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.act.transitions	systems	Actions::Action::transitions	empty
 read	Probe::p1.act.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::p1.st	object:Probe::S1
-read	Probe::p1.st.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
+read	Probe::p1.st.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
 read	Probe::p1.st.assignments	systems	Actions::Action::assignments	empty
 read	Probe::p1.st.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.st.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -451,12 +451,12 @@ read	Probe::p1.st.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.st.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.st.on1	model	Probe::S1::on1	undetermined <undetermined>
 read	Probe::p1.st.self	systemsFRAME	States::StateAction::self	object:Probe::S1
-read	Probe::p1.st.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::p1.st.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.st.start	systemsFRAME	States::StateAction::start	undetermined <undetermined>
 read	Probe::p1.st.stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	Probe::p1.st.stateTransitions	systems	States::StateAction::stateTransitions	empty
-read	Probe::p1.st.subactions	systems	States::StateAction::subactions	undetermined <undetermined>
-read	Probe::p1.st.substates	systems	States::StateAction::substates	undetermined <undetermined>
+read	Probe::p1.st.subactions	systems	States::StateAction::subactions	empty
+read	Probe::p1.st.substates	systems	States::StateAction::substates	empty
 read	Probe::p1.st.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.st.transitions	systems	Actions::Action::transitions	empty
 read	Probe::p1.st.whileLoops	systems	Actions::Action::whileLoops	empty
@@ -464,16 +464,16 @@ object	Probe::p1.other	undetermined <undetermined>
 object	Probe::p1.otherItem	undetermined <undetermined>
 object	Probe::p1.others	undetermined <undetermined>
 object	Probe::p1.rq	object:Probe::R1
-read	Probe::p1.rq.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
-read	Probe::p1.rq.assumptions	systems	Requirements::RequirementCheck::assumptions	undetermined <undetermined>
+read	Probe::p1.rq.actors	systems	Requirements::RequirementCheck::actors	empty
+read	Probe::p1.rq.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	Probe::p1.rq.concerns	systems	Requirements::RequirementCheck::concerns	empty
-read	Probe::p1.rq.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
+read	Probe::p1.rq.constraints	systems	Requirements::RequirementCheck::constraints	empty
 read	Probe::p1.rq.lim	model	Probe::R1::lim	constant 5.0
-read	Probe::p1.rq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.rq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	Probe::p1.rq.s	model	Probe::R1::s	undetermined <undetermined>
 read	Probe::p1.rq.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::R1
 read	Probe::p1.rq.sh	model	Probe::R1::sh	object:Probe::P2
-read	Probe::p1.rq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
+read	Probe::p1.rq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	Probe::p1.rq.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 read	Probe::p1.rq.who	model	Probe::R1::who	object:Probe::P2
 object	Probe::p1.cq	object:Probe::P1::cq
@@ -482,8 +482,8 @@ read	Probe::p1.cq.x	model	Probe::P1::cq::x	collection(1) [constant 1.0]
 read	Probe::p1.cq.y	model	Probe::P1::cq::y	collection(1) [constant 2.0]
 object	Probe::p1.kq	constant 6.0
 object	Probe::p1.caq	object:Probe::Ca1
-read	Probe::p1.caq.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
-read	Probe::p1.caq.actors	systems	Cases::Case::actors	undetermined <undetermined>
+read	Probe::p1.caq.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
+read	Probe::p1.caq.actors	systems	Cases::Case::actors	empty
 read	Probe::p1.caq.assignments	systems	Actions::Action::assignments	empty
 read	Probe::p1.caq.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.caq.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -496,12 +496,12 @@ read	Probe::p1.caq.incomingTransfers	systemsFRAME	Actions::Action::incomingTrans
 read	Probe::p1.caq.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.caq.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.caq.merges	systems	Actions::Action::merges	empty
-read	Probe::p1.caq.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.caq.result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	Probe::p1.caq.s	model	Probe::Ca1::s	undetermined <undetermined>
 read	Probe::p1.caq.self	systemsFRAME	Cases::Case::self	object:Probe::Ca1
-read	Probe::p1.caq.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::p1.caq.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.caq.start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
-read	Probe::p1.caq.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
+read	Probe::p1.caq.subactions	systems	Actions::Action::subactions	empty
 read	Probe::p1.caq.subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
 read	Probe::p1.caq.subcases	systems	Cases::Case::subcases	empty
 read	Probe::p1.caq.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
@@ -510,8 +510,8 @@ read	Probe::p1.caq.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::p1.anq	error no value: calc usage anq computes output features (no output feature); read one of them
 object	Probe::p1.vq	error no value: calc usage vq computes output features (no output feature); read one of them
 object	Probe::p1.uq	object:Probe::U1
-read	Probe::p1.uq.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
-read	Probe::p1.uq.actors	systems	Cases::Case::actors	undetermined <undetermined>
+read	Probe::p1.uq.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
+read	Probe::p1.uq.actors	systems	Cases::Case::actors	empty
 read	Probe::p1.uq.assignments	systems	Actions::Action::assignments	empty
 read	Probe::p1.uq.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.uq.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -520,19 +520,19 @@ read	Probe::p1.uq.done	systemsFRAME	UseCases::UseCase::done	undetermined <undete
 read	Probe::p1.uq.forLoops	systems	Actions::Action::forLoops	empty
 read	Probe::p1.uq.forks	systems	Actions::Action::forks	empty
 read	Probe::p1.uq.ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	Probe::p1.uq.includedUseCases	systems	UseCases::UseCase::includedUseCases	undetermined <undetermined>
+read	Probe::p1.uq.includedUseCases	systems	UseCases::UseCase::includedUseCases	empty
 read	Probe::p1.uq.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	Probe::p1.uq.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.uq.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.uq.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.uq.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
-read	Probe::p1.uq.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.uq.result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	Probe::p1.uq.s	model	Probe::U1::s	undetermined <undetermined>
 read	Probe::p1.uq.self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1
-read	Probe::p1.uq.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::p1.uq.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.uq.start	systemsFRAME	UseCases::UseCase::start	undetermined <undetermined>
 read	Probe::p1.uq.subUseCases	systems	UseCases::UseCase::subUseCases	empty
-read	Probe::p1.uq.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
+read	Probe::p1.uq.subactions	systems	Actions::Action::subactions	empty
 read	Probe::p1.uq.subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
 read	Probe::p1.uq.subcases	systems	Cases::Case::subcases	empty
 read	Probe::p1.uq.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
@@ -540,130 +540,130 @@ read	Probe::p1.uq.transitions	systems	Actions::Action::transitions	empty
 read	Probe::p1.uq.whileLoops	systems	Actions::Action::whileLoops	empty
 read	Probe::p1.uq.who	model	Probe::U1::who	object:Probe::P2
 object	Probe::p1.vwq	object:Probe::Vw1
-read	Probe::p1.vwq.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::p1.vwq.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::p1.vwq.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::p1.vwq.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
-read	Probe::p1.vwq.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::p1.vwq.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
-read	Probe::p1.vwq.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::p1.vwq.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::p1.vwq.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::p1.vwq.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::p1.vwq.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::p1.vwq.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::p1.vwq.ownedStates	systems	Parts::Part::ownedStates	empty
-read	Probe::p1.vwq.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::p1.vwq.performedActions	systems	Parts::Part::performedActions	empty
 read	Probe::p1.vwq.self	systemsFRAME	Views::View::self	object:Probe::Vw1
-read	Probe::p1.vwq.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::p1.vwq.shape	systems	Items::Item::shape	null
 read	Probe::p1.vwq.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::p1.vwq.subitems	systems	Items::Item::subitems	empty
 read	Probe::p1.vwq.subparts	systems	Items::Item::subparts	empty
-read	Probe::p1.vwq.subviews	systems	Views::View::subviews	undetermined <undetermined>
-read	Probe::p1.vwq.viewRendering	systems	Views::View::viewRendering	undetermined <undetermined>
+read	Probe::p1.vwq.subviews	systems	Views::View::subviews	empty
+read	Probe::p1.vwq.viewRendering	systems	Views::View::viewRendering	empty
 read	Probe::p1.vwq.viewpointConformance	systems	Views::View::viewpointConformance	object:Views::View::viewpointConformance
-read	Probe::p1.vwq.viewpointSatisfactions	systems	Views::View::viewpointSatisfactions	undetermined <undetermined>
-read	Probe::p1.vwq.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::p1.vwq.viewpointSatisfactions	systems	Views::View::viewpointSatisfactions	empty
+read	Probe::p1.vwq.voids	systems	Items::Item::voids	empty
 object	Probe::p1.vpq	object:Probe::Vp1
-read	Probe::p1.vpq.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
-read	Probe::p1.vpq.assumptions	systems	Requirements::RequirementCheck::assumptions	undetermined <undetermined>
+read	Probe::p1.vpq.actors	systems	Requirements::RequirementCheck::actors	empty
+read	Probe::p1.vpq.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	Probe::p1.vpq.con1	model	Probe::Vp1::con1	object:Probe::Con1
 read	Probe::p1.vpq.concerns	systems	Requirements::RequirementCheck::concerns	empty
-read	Probe::p1.vpq.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
-read	Probe::p1.vpq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.vpq.constraints	systems	Requirements::RequirementCheck::constraints	empty
+read	Probe::p1.vpq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	Probe::p1.vpq.self	systemsFRAME	Views::ViewpointCheck::self	object:Probe::Vp1
-read	Probe::p1.vpq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
+read	Probe::p1.vpq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	Probe::p1.vpq.subj	systems	Views::ViewpointCheck::subj	undetermined <undetermined>
 read	Probe::p1.vpq.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 object	Probe::p1.conq	object:Probe::Con1
-read	Probe::p1.conq.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
-read	Probe::p1.conq.assumptions	systems	Requirements::RequirementCheck::assumptions	undetermined <undetermined>
+read	Probe::p1.conq.actors	systems	Requirements::RequirementCheck::actors	empty
+read	Probe::p1.conq.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	Probe::p1.conq.concerns	systems	Requirements::RequirementCheck::concerns	empty
-read	Probe::p1.conq.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
-read	Probe::p1.conq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.conq.constraints	systems	Requirements::RequirementCheck::constraints	empty
+read	Probe::p1.conq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	Probe::p1.conq.self	systemsFRAME	Requirements::ConcernCheck::self	object:Probe::Con1
 read	Probe::p1.conq.sh	model	Probe::Con1::sh	object:Probe::P2
-read	Probe::p1.conq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
+read	Probe::p1.conq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	Probe::p1.conq.subj	systems	Requirements::RequirementCheck::subj	undetermined <undetermined>
 read	Probe::p1.conq.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 object	Probe::p1.rdq	object:Probe::Rd1
-read	Probe::p1.rdq.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::p1.rdq.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::p1.rdq.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::p1.rdq.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
-read	Probe::p1.rdq.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::p1.rdq.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
-read	Probe::p1.rdq.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::p1.rdq.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::p1.rdq.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::p1.rdq.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::p1.rdq.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::p1.rdq.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::p1.rdq.ownedStates	systems	Parts::Part::ownedStates	empty
-read	Probe::p1.rdq.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::p1.rdq.performedActions	systems	Parts::Part::performedActions	empty
 read	Probe::p1.rdq.self	systemsFRAME	Views::Rendering::self	object:Probe::Rd1
-read	Probe::p1.rdq.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::p1.rdq.shape	systems	Items::Item::shape	null
 read	Probe::p1.rdq.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::p1.rdq.subitems	systems	Items::Item::subitems	empty
 read	Probe::p1.rdq.subparts	systems	Items::Item::subparts	empty
-read	Probe::p1.rdq.subrenderings	systems	Views::Rendering::subrenderings	undetermined <undetermined>
-read	Probe::p1.rdq.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::p1.rdq.subrenderings	systems	Views::Rendering::subrenderings	empty
+read	Probe::p1.rdq.voids	systems	Items::Item::voids	empty
 object	Probe::p1.cnq	object:Probe::Cn1
-read	Probe::p1.cnq.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::p1.cnq.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::p1.cnq.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::p1.cnq.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::p1.cnq.e1	model	Probe::Cn1::e1	object:Probe::P2
 read	Probe::p1.cnq.e2	model	Probe::Cn1::e2	object:Probe::P2
-read	Probe::p1.cnq.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::p1.cnq.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
-read	Probe::p1.cnq.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::p1.cnq.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::p1.cnq.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::p1.cnq.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::p1.cnq.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::p1.cnq.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::p1.cnq.ownedStates	systems	Parts::Part::ownedStates	empty
-read	Probe::p1.cnq.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::p1.cnq.performedActions	systems	Parts::Part::performedActions	empty
 read	Probe::p1.cnq.self	systemsFRAME	Parts::Part::self	object:Probe::Cn1
-read	Probe::p1.cnq.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::p1.cnq.shape	systems	Items::Item::shape	null
 read	Probe::p1.cnq.source	systems	Connections::BinaryConnection::source	object:Probe::P2
 read	Probe::p1.cnq.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::p1.cnq.subitems	systems	Items::Item::subitems	empty
 read	Probe::p1.cnq.subparts	systems	Items::Item::subparts	empty
 read	Probe::p1.cnq.target	systems	Connections::BinaryConnection::target	object:Probe::P2
-read	Probe::p1.cnq.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::p1.cnq.voids	systems	Items::Item::voids	empty
 object	Probe::p1.ifq	object:Probe::If1
-read	Probe::p1.ifq.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::p1.ifq.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::p1.ifq.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::p1.ifq.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
-read	Probe::p1.ifq.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::p1.ifq.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
-read	Probe::p1.ifq.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::p1.ifq.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::p1.ifq.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::p1.ifq.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::p1.ifq.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::p1.ifq.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::p1.ifq.ownedStates	systems	Parts::Part::ownedStates	empty
 read	Probe::p1.ifq.p1	model	Probe::If1::p1	object:Probe::Pt
 read	Probe::p1.ifq.p2	model	Probe::If1::p2	object:Probe::Pt
 read	Probe::p1.ifq.participant	systems	Interfaces::BinaryInterface::participant	undetermined <undetermined>
-read	Probe::p1.ifq.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::p1.ifq.performedActions	systems	Parts::Part::performedActions	empty
 read	Probe::p1.ifq.self	systemsFRAME	Parts::Part::self	object:Probe::If1
-read	Probe::p1.ifq.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::p1.ifq.shape	systems	Items::Item::shape	null
 read	Probe::p1.ifq.source	systems	Interfaces::BinaryInterface::source	object:Probe::Pt
 read	Probe::p1.ifq.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::p1.ifq.subitems	systems	Items::Item::subitems	empty
 read	Probe::p1.ifq.subparts	systems	Items::Item::subparts	empty
 read	Probe::p1.ifq.target	systems	Interfaces::BinaryInterface::target	object:Probe::Pt
-read	Probe::p1.ifq.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::p1.ifq.voids	systems	Items::Item::voids	empty
 object	Probe::p1.alq	object:Probe::Al1
 read	Probe::p1.alq.a1	model	Probe::Al1::a1	object:Probe::P2
 read	Probe::p1.alq.a2	model	Probe::Al1::a2	object:Probe::P2
-read	Probe::p1.alq.boundingShapes	systems	Items::Item::boundingShapes	undetermined <undetermined>
+read	Probe::p1.alq.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::p1.alq.checkedConstraints	systems	Items::Item::checkedConstraints	empty
 read	Probe::p1.alq.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
-read	Probe::p1.alq.envelopingShapes	systems	Items::Item::envelopingShapes	undetermined <undetermined>
-read	Probe::p1.alq.exhibitedStates	systems	Parts::Part::exhibitedStates	undetermined <undetermined>
-read	Probe::p1.alq.isSolid	systems	Items::Item::isSolid	undetermined <undetermined>
+read	Probe::p1.alq.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::p1.alq.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::p1.alq.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::p1.alq.ownedActions	systems	Parts::Part::ownedActions	empty
 read	Probe::p1.alq.ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	Probe::p1.alq.ownedStates	systems	Parts::Part::ownedStates	empty
-read	Probe::p1.alq.performedActions	systems	Parts::Part::performedActions	undetermined <undetermined>
+read	Probe::p1.alq.performedActions	systems	Parts::Part::performedActions	empty
 read	Probe::p1.alq.self	systemsFRAME	Parts::Part::self	object:Probe::Al1
-read	Probe::p1.alq.shape	systems	Items::Item::shape	undetermined <undetermined>
+read	Probe::p1.alq.shape	systems	Items::Item::shape	null
 read	Probe::p1.alq.source	systems	Allocations::Allocation::source	object:Probe::P2
 read	Probe::p1.alq.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::p1.alq.subitems	systems	Items::Item::subitems	empty
 read	Probe::p1.alq.subparts	systems	Items::Item::subparts	empty
 read	Probe::p1.alq.target	systems	Allocations::Allocation::target	object:Probe::P2
-read	Probe::p1.alq.voids	systems	Items::Item::voids	undetermined <undetermined>
+read	Probe::p1.alq.voids	systems	Items::Item::voids	empty
 object	Probe::p1.flq	object:Probe::Fl1
 read	Probe::p1.flq.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
 read	Probe::p1.flq.assignments	systems	Actions::Action::assignments	empty
@@ -697,7 +697,7 @@ object	Probe::p1.snap	object:Probe::P1::snap
 object	Probe::p1.slice	object:Probe::P1::slice
 object	Probe::p1.ev	object:Probe::P1::ev
 object	Probe::p1.pa	object:Probe::A2
-read	Probe::p1.pa.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
+read	Probe::p1.pa.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
 read	Probe::p1.pa.assignments	systems	Actions::Action::assignments	empty
 read	Probe::p1.pa.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.pa.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -711,14 +711,14 @@ read	Probe::p1.pa.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.pa.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.pa.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.pa.self	systemsFRAME	Actions::Action::self	object:Probe::A2
-read	Probe::p1.pa.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::p1.pa.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.pa.start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
-read	Probe::p1.pa.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
+read	Probe::p1.pa.subactions	systems	Actions::Action::subactions	empty
 read	Probe::p1.pa.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.pa.transitions	systems	Actions::Action::transitions	empty
 read	Probe::p1.pa.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::p1.es	object:Probe::S1
-read	Probe::p1.es.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
+read	Probe::p1.es.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
 read	Probe::p1.es.assignments	systems	Actions::Action::assignments	empty
 read	Probe::p1.es.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.es.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -738,26 +738,26 @@ read	Probe::p1.es.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.es.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.es.on1	model	Probe::S1::on1	undetermined <undetermined>
 read	Probe::p1.es.self	systemsFRAME	States::StateAction::self	object:Probe::S1
-read	Probe::p1.es.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::p1.es.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.es.start	systemsFRAME	States::StateAction::start	undetermined <undetermined>
 read	Probe::p1.es.stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	Probe::p1.es.stateTransitions	systems	States::StateAction::stateTransitions	empty
-read	Probe::p1.es.subactions	systems	States::StateAction::subactions	undetermined <undetermined>
-read	Probe::p1.es.substates	systems	States::StateAction::substates	undetermined <undetermined>
+read	Probe::p1.es.subactions	systems	States::StateAction::subactions	empty
+read	Probe::p1.es.substates	systems	States::StateAction::substates	empty
 read	Probe::p1.es.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.es.transitions	systems	Actions::Action::transitions	empty
 read	Probe::p1.es.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::p1.sr	object:Probe::R1
-read	Probe::p1.sr.actors	systems	Requirements::RequirementCheck::actors	undetermined <undetermined>
-read	Probe::p1.sr.assumptions	systems	Requirements::RequirementCheck::assumptions	undetermined <undetermined>
+read	Probe::p1.sr.actors	systems	Requirements::RequirementCheck::actors	empty
+read	Probe::p1.sr.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	Probe::p1.sr.concerns	systems	Requirements::RequirementCheck::concerns	empty
-read	Probe::p1.sr.constraints	systems	Requirements::RequirementCheck::constraints	undetermined <undetermined>
+read	Probe::p1.sr.constraints	systems	Requirements::RequirementCheck::constraints	empty
 read	Probe::p1.sr.lim	model	Probe::R1::lim	constant 5.0
-read	Probe::p1.sr.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.sr.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	Probe::p1.sr.s	model	Probe::R1::s	undetermined <undetermined>
 read	Probe::p1.sr.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::R1
 read	Probe::p1.sr.sh	model	Probe::R1::sh	object:Probe::P2
-read	Probe::p1.sr.stakeholders	systems	Requirements::RequirementCheck::stakeholders	undetermined <undetermined>
+read	Probe::p1.sr.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	Probe::p1.sr.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 read	Probe::p1.sr.who	model	Probe::R1::who	object:Probe::P2
 object	Probe::p1.ac	object:Probe::P1::ac
@@ -765,8 +765,8 @@ read	Probe::p1.ac.self	systemsFRAME	Constraints::ConstraintCheck::self	object:Pr
 read	Probe::p1.ac.x	model	Probe::P1::ac::x	collection(1) [constant 1.0]
 read	Probe::p1.ac.y	model	Probe::P1::ac::y	collection(1) [constant 2.0]
 object	Probe::p1.iu	object:Probe::U1
-read	Probe::p1.iu.acceptSubactions	systems	Actions::Action::acceptSubactions	undetermined <undetermined>
-read	Probe::p1.iu.actors	systems	Cases::Case::actors	undetermined <undetermined>
+read	Probe::p1.iu.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
+read	Probe::p1.iu.actors	systems	Cases::Case::actors	empty
 read	Probe::p1.iu.assignments	systems	Actions::Action::assignments	empty
 read	Probe::p1.iu.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.iu.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -775,19 +775,19 @@ read	Probe::p1.iu.done	systemsFRAME	UseCases::UseCase::done	undetermined <undete
 read	Probe::p1.iu.forLoops	systems	Actions::Action::forLoops	empty
 read	Probe::p1.iu.forks	systems	Actions::Action::forks	empty
 read	Probe::p1.iu.ifSubactions	systems	Actions::Action::ifSubactions	empty
-read	Probe::p1.iu.includedUseCases	systems	UseCases::UseCase::includedUseCases	undetermined <undetermined>
+read	Probe::p1.iu.includedUseCases	systems	UseCases::UseCase::includedUseCases	empty
 read	Probe::p1.iu.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	Probe::p1.iu.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.iu.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.iu.merges	systems	Actions::Action::merges	empty
 read	Probe::p1.iu.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
-read	Probe::p1.iu.result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	Probe::p1.iu.result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	Probe::p1.iu.s	model	Probe::U1::s	undetermined <undetermined>
 read	Probe::p1.iu.self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1
-read	Probe::p1.iu.sendSubactions	systems	Actions::Action::sendSubactions	undetermined <undetermined>
+read	Probe::p1.iu.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.iu.start	systemsFRAME	UseCases::UseCase::start	undetermined <undetermined>
 read	Probe::p1.iu.subUseCases	systems	UseCases::UseCase::subUseCases	empty
-read	Probe::p1.iu.subactions	systems	Actions::Action::subactions	undetermined <undetermined>
+read	Probe::p1.iu.subactions	systems	Actions::Action::subactions	empty
 read	Probe::p1.iu.subcalculations	systems	Calculations::Calculation::subcalculations	error no value: calc usage subcalculations computes output features (no output feature); read one of them
 read	Probe::p1.iu.subcases	systems	Cases::Case::subcases	empty
 read	Probe::p1.iu.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
@@ -814,7 +814,7 @@ read	new Probe::P1().envelopingShapes	systems	Items::Item::envelopingShapes	empt
 read	new Probe::P1().eq	model	Probe::P1::eq	enumeration literal E1::a
 read	new Probe::P1().es	model	Probe::P1::es	object:Probe::S1
 read	new Probe::P1().ev	model	Probe::P1::ev	object:Probe::P1::ev
-read	new Probe::P1().exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	new Probe::P1().exhibitedStates	systems	Parts::Part::exhibitedStates	collection(1) [object:Probe::S1#1]
 read	new Probe::P1().flq	model	Probe::P1::flq	object:Probe::Fl1
 read	new Probe::P1().ifq	model	Probe::P1::ifq	object:Probe::If1
 read	new Probe::P1().isSolid	systems	Items::Item::isSolid	constant true
@@ -832,7 +832,7 @@ read	new Probe::P1().ownedActions	systems	Parts::Part::ownedActions	collection(6
 read	new Probe::P1().ownedPorts	systems	Parts::Part::ownedPorts	collection(1) [object:Probe::Pt#1]
 read	new Probe::P1().ownedStates	systems	Parts::Part::ownedStates	collection(1) [object:Probe::S1#1]
 read	new Probe::P1().pa	model	Probe::P1::pa	object:Probe::A2
-read	new Probe::P1().performedActions	systems	Parts::Part::performedActions	empty
+read	new Probe::P1().performedActions	systems	Parts::Part::performedActions	collection(2) [object:Probe::A2#1, object:Probe::S1#2]
 read	new Probe::P1().pt	model	Probe::P1::pt	object:Probe::Pt
 read	new Probe::P1().rdq	model	Probe::P1::rdq	object:Probe::Rd1
 read	new Probe::P1().rq	model	Probe::P1::rq	object:Probe::R1
@@ -950,7 +950,7 @@ read	new Probe::R1().assumptions	systems	Requirements::RequirementCheck::assumpt
 read	new Probe::R1().concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	new Probe::R1().constraints	systems	Requirements::RequirementCheck::constraints	empty
 read	new Probe::R1().lim	model	Probe::R1::lim	constant 5.0
-read	new Probe::R1().result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	new Probe::R1().result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	new Probe::R1().s	model	Probe::R1::s	error uninitialized feature value: s
 read	new Probe::R1().self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::R1
 read	new Probe::R1().sh	model	Probe::R1::sh	object:Probe::P2
@@ -999,7 +999,7 @@ read	new Probe::Ca1().incomingTransfers	systemsFRAME	Actions::Action::incomingTr
 read	new Probe::Ca1().joins	systems	Actions::Action::joins	empty
 read	new Probe::Ca1().loops	systems	Actions::Action::loops	empty
 read	new Probe::Ca1().merges	systems	Actions::Action::merges	empty
-read	new Probe::Ca1().result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	new Probe::Ca1().result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	new Probe::Ca1().s	model	Probe::Ca1::s	error uninitialized feature value: s
 read	new Probe::Ca1().self	systemsFRAME	Cases::Case::self	object:Probe::Ca1
 read	new Probe::Ca1().sendSubactions	systems	Actions::Action::sendSubactions	empty
@@ -1025,7 +1025,7 @@ read	new Probe::An1().incomingTransfers	systemsFRAME	Actions::Action::incomingTr
 read	new Probe::An1().joins	systems	Actions::Action::joins	empty
 read	new Probe::An1().loops	systems	Actions::Action::loops	empty
 read	new Probe::An1().merges	systems	Actions::Action::merges	empty
-read	new Probe::An1().result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	new Probe::An1().result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	new Probe::An1().s	model	Probe::An1::s	error uninitialized feature value: s
 read	new Probe::An1().self	systemsFRAME	AnalysisCases::AnalysisCase::self	error no value: calc usage self computes output features (no output feature); read one of them
 read	new Probe::An1().sendSubactions	systems	Actions::Action::sendSubactions	empty
@@ -1064,7 +1064,7 @@ read	new Probe::V1().subcalculations	systems	Calculations::Calculation::subcalcu
 read	new Probe::V1().subcases	systems	Cases::Case::subcases	empty
 read	new Probe::V1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::V1().transitions	systems	Actions::Action::transitions	empty
-read	new Probe::V1().verdict	systemsFRAME	VerificationCases::VerificationCase::verdict	ERR_NOSUCHFEATURE object has no such feature: member verdict not found in instance
+read	new Probe::V1().verdict	systemsFRAME	VerificationCases::VerificationCase::verdict	undetermined <undetermined>
 read	new Probe::V1().whileLoops	systems	Actions::Action::whileLoops	empty
 object	new Probe::U1()	object:Probe::U1
 read	new Probe::U1().acceptSubactions	systems	Actions::Action::acceptSubactions	empty
@@ -1083,7 +1083,7 @@ read	new Probe::U1().joins	systems	Actions::Action::joins	empty
 read	new Probe::U1().loops	systems	Actions::Action::loops	empty
 read	new Probe::U1().merges	systems	Actions::Action::merges	empty
 read	new Probe::U1().obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
-read	new Probe::U1().result	systemsFRAME	Cases::Case::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	new Probe::U1().result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	new Probe::U1().s	model	Probe::U1::s	error uninitialized feature value: s
 read	new Probe::U1().self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1
 read	new Probe::U1().sendSubactions	systems	Actions::Action::sendSubactions	empty
@@ -1123,7 +1123,7 @@ read	new Probe::Vp1().assumptions	systems	Requirements::RequirementCheck::assump
 read	new Probe::Vp1().con1	model	Probe::Vp1::con1	object:Probe::Con1
 read	new Probe::Vp1().concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	new Probe::Vp1().constraints	systems	Requirements::RequirementCheck::constraints	empty
-read	new Probe::Vp1().result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	new Probe::Vp1().result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	new Probe::Vp1().self	systemsFRAME	Views::ViewpointCheck::self	object:Probe::Vp1
 read	new Probe::Vp1().stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	new Probe::Vp1().subj	systems	Views::ViewpointCheck::subj	error uninitialized feature value: subj
@@ -1133,7 +1133,7 @@ read	new Probe::Con1().actors	systems	Requirements::RequirementCheck::actors	emp
 read	new Probe::Con1().assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	new Probe::Con1().concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	new Probe::Con1().constraints	systems	Requirements::RequirementCheck::constraints	empty
-read	new Probe::Con1().result	systemsFRAME	Requirements::RequirementConstraintCheck::result	ERR_NOSUCHFEATURE object has no such feature: member result not found in instance
+read	new Probe::Con1().result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	new Probe::Con1().self	systemsFRAME	Requirements::ConcernCheck::self	object:Probe::Con1
 read	new Probe::Con1().sh	model	Probe::Con1::sh	object:Probe::P2
 read	new Probe::Con1().stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
@@ -1279,22 +1279,22 @@ call	BaseFunctions::'#'	BaseFunctions::'#'((10, 20, 30), 2)	constant 20	ok
 call	BaseFunctions::','	(1, 2)	collection(2) [constant 1, constant 2]	ok
 call	BaseFunctions::','	BaseFunctions::','(1, 2)	collection(2) [constant 1, constant 2]	ok
 call	BaseFunctions::'all'	size(all Probe::E)	error unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size? || with imports: constant 2	ok
-call	BaseFunctions::'all'	size(BaseFunctions::'all'(Probe::E))	error cannot evaluate definition Probe::E	UNEVALUATED want 2
+call	BaseFunctions::'all'	size(BaseFunctions::'all'(Probe::E))	error library function is not evaluable: BaseFunctions::'all': the function is abstract and names a type, not a value (KerML 8.3.4.8 ExtentExpression): the runtime evaluates the operator notation `all T`	UNEVALUATED want 2
 call	BaseFunctions::'istype'	1 istype Integer	constant true	ok
 call	BaseFunctions::'istype'	1 istype String	constant false	ok
-call	BaseFunctions::'istype'	BaseFunctions::'istype'(1, Integer)	error cannot evaluate definition Integer	UNEVALUATED want true
+call	BaseFunctions::'istype'	BaseFunctions::'istype'(1, Integer)	error library function is not evaluable: BaseFunctions::'istype': the function is abstract and its type parameter is a type reference, not a value (KerML 8.3.4.8 ClassificationExpression): the runtime evaluates the operator notation `x istype T`, `x hastype T`, `x @ T`	UNEVALUATED want true
 call	BaseFunctions::'hastype'	1 hastype Integer	constant true	ok
 call	BaseFunctions::'hastype'	1 hastype Real	constant false	ok
-call	BaseFunctions::'hastype'	BaseFunctions::'hastype'(1, Integer)	error cannot evaluate definition Integer	UNEVALUATED want true
+call	BaseFunctions::'hastype'	BaseFunctions::'hastype'(1, Integer)	error library function is not evaluable: BaseFunctions::'hastype': the function is abstract and its type parameter is a type reference, not a value (KerML 8.3.4.8 ClassificationExpression): the runtime evaluates the operator notation `x istype T`, `x hastype T`, `x @ T`	UNEVALUATED want true
 call	BaseFunctions::'@'	1 @ Integer	constant true	ok
-call	BaseFunctions::'@'	BaseFunctions::'@'(1, Integer)	error cannot evaluate definition Integer	UNEVALUATED want true
+call	BaseFunctions::'@'	BaseFunctions::'@'(1, Integer)	error library function is not evaluable: BaseFunctions::'@': the function is abstract and its type parameter is a type reference, not a value (KerML 8.3.4.8 ClassificationExpression): the runtime evaluates the operator notation `x istype T`, `x hastype T`, `x @ T`	UNEVALUATED want true
 call	BaseFunctions::'@@'	Probe::Tagged @@ Probe::M	constant true	ok
 call	BaseFunctions::'@@'	Probe::P1 @@ Probe::M	constant false	ok
 call	BaseFunctions::'as'	1 as Real	constant 1	ok
-call	BaseFunctions::'as'	BaseFunctions::'as'(1, Real)	error cannot evaluate definition Real	UNEVALUATED want 1
+call	BaseFunctions::'as'	BaseFunctions::'as'(1, Real)	error library function is not evaluable: BaseFunctions::'as': the function is abstract and its type is a type reference, not a value (KerML 8.3.4.8 ClassificationExpression): the runtime evaluates the operator notation `x as T`	UNEVALUATED want 1
 call	BaseFunctions::'as'	(1, "a", 2) as Integer	collection(2) [constant 1, constant 2]	ok
 call	BaseFunctions::'meta'	Probe::P1 meta SysML::PartDefinition	collection(1) [metaobject meta(Probe::P1 : SysML::Systems::PartDefinition)]	ok
-call	BaseFunctions::'meta'	BaseFunctions::'meta'(Probe::P1, SysML::PartDefinition)	error cannot evaluate definition Probe::P1	UNEVALUATED want metaobject
+call	BaseFunctions::'meta'	BaseFunctions::'meta'(Probe::P1, SysML::PartDefinition)	error library function is not evaluable: BaseFunctions::'meta': the function is abstract and its type is a type reference, not a value (KerML 8.3.4.8 MetadataAccessExpression): the runtime evaluates the operator notation `x meta T`	UNEVALUATED want metaobject
 call	BooleanFunctions::'not'	not true	constant false	ok
 call	BooleanFunctions::'not'	BooleanFunctions::'not'(false)	constant true	ok
 call	BooleanFunctions::'xor'	true xor false	constant true	ok

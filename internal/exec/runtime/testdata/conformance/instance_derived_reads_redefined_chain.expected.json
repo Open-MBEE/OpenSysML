@@ -1,0 +1,11 @@
+{
+  "type": "instance",
+  "instantiate": "test::Rig",
+  "libraries": true,
+  "slots": {
+    "wheel.size": {"type": "Quantity", "value": 60, "unit": "cm"},
+    "wheel.edge.length": {"type": "Quantity", "value": 120, "unit": "cm"},
+    "bare.edge.length": {"error": "no value for feature Curve::size"}
+  },
+  "materialization": {}
+}

@@ -284,6 +284,10 @@ CAPABILITY_CONVERT_DOCUMENTS = "convert_documents"
 #: compact document (an id table and handles), optionally without derived properties.
 CAPABILITY_CONVERT_COMPACT = "convert_compact"
 
+#: ``ConvertRequest.include_check_diagnostics``: the semantic check's diagnostics, each with its
+#: own severity, reported alongside the converted output.
+CAPABILITY_CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics"
+
 #: ``ParseSourcesRequest.base_model_hash`` and ``ParseSourcesResponse.affected``: the documents
 #: whose results may differ from the base model's, so a client re-reads only those after an edit.
 CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"

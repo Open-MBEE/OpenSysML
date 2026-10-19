@@ -48,7 +48,7 @@ stmt assign reads
 step 13: token 1@take
 stmt assign total
     eval feature total -> 0
-    eval feature value -> 3
+    eval feature value -> (3)
   eval operator + -> 3
 stmt assign reads
     eval feature reads -> 0
@@ -61,7 +61,7 @@ eval operator < -> true
 step 15: token 1@take
 stmt assign total
     eval feature total -> 3
-    eval feature value -> 3
+    eval feature value -> (3)
   eval operator + -> 6
 stmt assign reads
     eval feature reads -> 1
@@ -74,7 +74,7 @@ eval operator < -> true
 step 17: token 1@take
 stmt assign total
     eval feature total -> 6
-    eval feature value -> 3
+    eval feature value -> (3)
   eval operator + -> 9
 stmt assign reads
     eval feature reads -> 2

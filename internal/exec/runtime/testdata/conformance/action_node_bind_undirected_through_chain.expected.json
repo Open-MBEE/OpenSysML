@@ -7,6 +7,6 @@
 		"flagged": {"type": "Integer", "value": 1},
 		"acc.total": {"type": "Integer", "value": 42},
 		"acc.k": {"type": "Integer", "value": 7},
-		"pick.mark.v": {"type": "Integer", "value": 1}
+		"pick.mark.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
 	}
 }

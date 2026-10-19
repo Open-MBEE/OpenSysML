@@ -137,15 +137,6 @@ func MaxConfigurationsFromEnv() int {
 // environment names. Each combination is found by its own `check-sat`, with the
 // combinations already reported denied, and Result.Truncated says the enumeration
 // stopped at its bound rather than having shown there is no other.
-func Configurations(ctx context.Context, q *Query, limit int) (*Result, error) {
-	solver, err := Discover()
-	if err != nil {
-		return nil, err
-	}
-	return solver.Configurations(ctx, q, limit)
-}
-
-// Configurations enumerates satisfying combinations of variants with this solver.
 func (s *Solver) Configurations(ctx context.Context, q *Query, limit int) (*Result, error) {
 	if q == nil {
 		return nil, fmt.Errorf("solve: no query to configure")

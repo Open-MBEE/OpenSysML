@@ -3,11 +3,11 @@
 	"libraries": true,
 	"evaluate": "test::Replaced",
 	"outputs": {
-		"result": {"type": "Integer", "value": 3},
-		"src.n": {"type": "Integer", "value": 1000},
-		"add.a": {"type": "Integer", "value": 1},
-		"add.b": {"type": "Integer", "value": 2},
-		"add.sum": {"type": "Integer", "value": 3},
-		"fin.k": {"type": "Integer", "value": 3}
+		"result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+		"src.n": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1000}]},
+		"add.a": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"add.b": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+		"add.sum": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+		"fin.k": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]}
 	}
 }

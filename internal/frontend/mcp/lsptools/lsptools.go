@@ -25,6 +25,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 // stdlibResourcePrefix is the resource URI prefix of the bundled standard
@@ -82,7 +83,7 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 	if err != nil {
 		return nil, err
 	}
-	srv := lsp.NewServer(ws, lsp.WithVersion(version))
+	srv := lsp.NewServer(ws, lsp.WithVersion(version), lsp.WithLibraryRoots(project.EnvLibraryRoots()))
 	params := &protocol.InitializeParams{
 		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(root)), Name: root}},
 		Capabilities: protocol.ClientCapabilities{
@@ -110,9 +111,6 @@ func (h *Host) Refresh(ctx context.Context) { h.Server.Rescan(ctx) }
 func (h *Host) Close(ctx context.Context) error {
 	return h.Server.Shutdown(ctx)
 }
-
-// URI is the document URI of a workspace path.
-func (h *Host) URI(path string) protocol.DocumentURI { return uri.File(path) }
 
 // docRef names a document the tools address: a workspace file by absolute
 // path, or a bundled library document by its library-relative name.

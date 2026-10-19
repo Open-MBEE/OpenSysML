@@ -421,7 +421,8 @@ class TestExploreAgainstTheService:
 
     def test_an_analysis_explores_the_actions_it_performs(self):
         exploration = self.model.explore_analysis("Sched::raced")
-        assert sorted(o.outputs["winner"] for o in exploration) == [1, 2]
+        # The bare `out winner` is [0..*], so each outcome holds its one value as a sequence.
+        assert sorted(o.outputs["winner"] for o in exploration) == [[1], [2]]
         assert exploration.complete
 
     def test_a_runs_budget_of_one_is_incomplete(self):

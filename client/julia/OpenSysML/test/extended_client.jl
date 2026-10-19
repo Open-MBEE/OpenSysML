@@ -667,6 +667,57 @@ end
                 @test isempty(failures(table))
                 @test Bool(table)
                 @test !isempty(list_engines(conn))
+                @test !isempty(list_engines(conn; probe=true))
+
+                linted = parse_source(conn, """
+                    package test {
+                        private import ScalarValues::*;
+                        attribute x : Real = 0.1;
+                        state def M { entry; then a; state a; state b; transition first a when Pnig then b; }
+                    }
+                """)
+                codes(diags) = Set(d.code for d in diags)
+                @test "undeclared-signal" in codes(linted.diagnostics)
+                @test "undeclared-signal" in codes(refresh_diagnostics(linted))
+                @test "undeclared-signal" ∉ codes(refresh_diagnostics(linted;
+                    disable_lint=["undeclared-signal"]))
+                @test "rounded-real-literal" ∉ codes(linted.diagnostics)
+                @test "rounded-real-literal" in codes(refresh_diagnostics(linted;
+                    enable_lint=("rounded-real-literal",)))
+                @test_throws InvalidRequestError refresh_diagnostics(linted;
+                    enable_lint=["no-such-lint"])
+
+                drawing = parse_source(conn, """
+                    package test {
+                        private import ScalarValues::*;
+                        private import RandomFunctions::*;
+                        action draw {
+                            out d : Real[1] = uniform(0.0, 1.0);
+                            out n : Integer[1] = uniformInteger(1, 6);
+                        }
+                    }
+                """)
+                drawn = execute_action(drawing, "test::draw"; draws="min", seed=7)
+                @test drawn["d"] == 0.0
+                @test drawn["n"] == 1
+                @test execute_action(drawing, "test::draw"; draws="max")["n"] == 6
+                seeded = execute_action(drawing, "test::draw"; seed=7)
+                @test execute_action(drawing, "test::draw"; seed=7)["d"] == seeded["d"]
+                delayed = parse_source(conn, """
+                    package test {
+                        private import ScalarValues::*;
+                        action delayed {
+                            attribute count : Integer = 0;
+                            first start;
+                            then action wait accept after 5 [SI::s];
+                            then action tick assign count := count + 1;
+                            then done;
+                        }
+                    }
+                """)
+                @test execute_action(delayed, "test::delayed"; clock_step=4)["count"] == 1
+                @test execute_action(delayed, "test::delayed"; advance=10)["count"] == 1
+                @test_throws ArgumentError execute_action(delayed, "test::delayed"; draws="most")
             end
 
             @testset "query, documents, and conversion" begin
@@ -701,6 +752,21 @@ end
                 @test "edge-labels" in shown_view.shown
                 full_view = render_view(views_model, "RenderViewDemo::connections"; ports="full")
                 @test any(port.name == "spare" for node in full_view.nodes for port in node.ports)
+                deep_model = parse_source(conn, """
+                    package Deep {
+                        private import Views::*;
+                        part vehicle {
+                            part wheel { part hub { part bearing; } }
+                            part engine { part piston; }
+                        }
+                        view structure { expose vehicle; render asTreeDiagram; }
+                    }
+                """)
+                @test length(render_view(deep_model, "Deep::structure").nodes) == 6
+                bounded_view = render_view(deep_model, "Deep::structure"; depth=1)
+                @test length(bounded_view.nodes) == 3
+                @test any(occursin("nested deeper than 1 level", n) for n in bounded_view.notices)
+                @test_throws ArgumentError render_view(deep_model, "Deep::structure"; depth=-1)
                 behavior_model = parse_file(conn, joinpath(FIXTURES, "behavior.sysml"))
                 graphs = export_graphs(behavior_model, "Test::race")
                 @test graphs isa Graphs
@@ -933,7 +999,7 @@ end
                 performer_model = parse_source(conn, performer_source; name="performer.sysml")
                 run = execute_action(performer_model, "Wire::Craft::look";
                     performer="Wire::pair.craft")
-                @test run["seen"] === true
+                @test run["seen"] == [true]
                 @test run.performer["this.pinged"] === true
                 state_run = execute_state(performer_model, "Wire::Craft::modes";
                     performer="Wire::pair.craft")

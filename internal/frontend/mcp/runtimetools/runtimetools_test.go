@@ -422,10 +422,12 @@ func TestExecuteActionBindsInputsAndReportsOutputs(t *testing.T) {
 	_, out := h.ok("execute_action", map[string]any{
 		"modelHash": hash, "actionSymbolId": "Demo::Count", "inputs": map[string]any{"lo": value("intValue", "41")},
 	}, &resp)
-	if resp.GetError() != "" || resp.GetOutputs()["hi"].GetIntValue() != 42 {
+	// The bare `out hi` is [0..*], so its one value is reported as a one-element sequence.
+	hi := resp.GetOutputs()["hi"].GetSequence().GetElements()
+	if resp.GetError() != "" || len(hi) != 1 || hi[0].GetIntValue() != 42 {
 		t.Errorf("Count(41) = %v, error %q\n%s", resp.GetOutputs(), resp.GetError(), out)
 	}
-	if !strings.Contains(out, "hi = 42") {
+	if !strings.Contains(out, "hi = (42)") {
 		t.Errorf("text lacks the output:\n%s", out)
 	}
 

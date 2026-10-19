@@ -1,0 +1,54 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::Device::step",
+  "performers": [
+    {
+      "object": "test::dev",
+      "outputs": {
+        "value": {
+          "type": "Sequence",
+          "elements": [
+            {
+              "type": "Integer",
+              "value": 5
+            }
+          ]
+        },
+        "doubled": {
+          "type": "Sequence",
+          "elements": [
+            {
+              "type": "Integer",
+              "value": 10
+            }
+          ]
+        }
+      },
+      "slots": {
+        "level": {
+          "type": "Integer",
+          "value": 5
+        },
+        "step.value": {
+          "type": "Sequence",
+          "elements": [
+            {
+              "type": "Integer",
+              "value": 5
+            }
+          ]
+        },
+        "step.doubled": {
+          "type": "Sequence",
+          "elements": [
+            {
+              "type": "Integer",
+              "value": 10
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

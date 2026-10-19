@@ -57,9 +57,15 @@ func TestTestFilesStayUnderTheLineCap(t *testing.T) {
 			files = append(files, path)
 		}
 	}
-	ratchet(t, "test file", files, oversizeTestFiles, maxTestFileLines, "lines", "oversizeTestFiles",
-		"split it along the feature seams AGENTS.md §5.2 describes, one file per feature",
-		countLines)
+	ratchet(t, files, sizeCap{
+		kind:      "test file",
+		allowlist: oversizeTestFiles,
+		limit:     maxTestFileLines,
+		unit:      "lines",
+		listName:  "oversizeTestFiles",
+		remedy:    "split it along the feature seams AGENTS.md §5.2 describes, one file per feature",
+		measure:   countLines,
+	})
 }
 
 // TestFixturesStayUnderTheSizeCap fails when a tracked fixture (a file under a
@@ -73,9 +79,15 @@ func TestFixturesStayUnderTheSizeCap(t *testing.T) {
 			files = append(files, path)
 		}
 	}
-	ratchet(t, "fixture", files, oversizeFixtures, maxFixtureBytes, "bytes", "oversizeFixtures",
-		"shrink the model it is generated from, or replace it with a digest of the output",
-		func(data []byte) int { return len(data) })
+	ratchet(t, files, sizeCap{
+		kind:      "fixture",
+		allowlist: oversizeFixtures,
+		limit:     maxFixtureBytes,
+		unit:      "bytes",
+		listName:  "oversizeFixtures",
+		remedy:    "shrink the model it is generated from, or replace it with a digest of the output",
+		measure:   func(data []byte) int { return len(data) },
+	})
 }
 
 // countLines counts a final line that lacks its newline too.
@@ -98,14 +110,26 @@ func isFixture(path string) bool {
 	return i > 0 && i+len(".golden.") < len(base)
 }
 
-// ratchet reports every file over the limit that the allowlist does not cover
+// sizeCap is one kind of tracked file's cap: the limit in its unit, the named
+// allowlist excusing files over it, the remedy a failure suggests, and the measure.
+type sizeCap struct {
+	kind      string
+	allowlist []oversize
+	limit     int
+	unit      string
+	listName  string
+	remedy    string
+	measure   func([]byte) int
+}
+
+// ratchet reports every file over the cap that the allowlist does not cover
 // at its current size, and every allowlist entry that no longer excuses anything.
-func ratchet(t *testing.T, kind string, files []string, allowlist []oversize, limit int, unit, listName, remedy string, measure func([]byte) int) {
+func ratchet(t *testing.T, files []string, c sizeCap) {
 	t.Helper()
 	recorded := map[string]oversize{}
-	for _, entry := range allowlist {
+	for _, entry := range c.allowlist {
 		if _, dup := recorded[entry.path]; dup {
-			t.Errorf("%s lists %s twice", listName, entry.path)
+			t.Errorf("%s lists %s twice", c.listName, entry.path)
 		}
 		recorded[entry.path] = entry
 	}
@@ -117,26 +141,26 @@ func ratchet(t *testing.T, kind string, files []string, allowlist []oversize, li
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)
 		}
-		size := measure(data)
+		size := c.measure(data)
 		entry, listed := recorded[path]
 		seen[path] = true
 		switch {
-		case !listed && size > limit:
+		case !listed && size > c.limit:
 			problems = append(problems, fmt.Sprintf("%s is %d %s, over the cap of %d %s: %s; "+
 				"if it has to stay whole, add it to %s with its size and the reason",
-				path, size, unit, limit, unit, remedy, listName))
+				path, size, c.unit, c.limit, c.unit, c.remedy, c.listName))
 		case listed && size > entry.size:
 			problems = append(problems, fmt.Sprintf("%s grew from %d to %d %s: %s rather than growing it further "+
 				"(a justified growth updates its %s entry)",
-				path, entry.size, size, unit, remedy, listName))
-		case listed && size <= limit:
+				path, entry.size, size, c.unit, c.remedy, c.listName))
+		case listed && size <= c.limit:
 			problems = append(problems, fmt.Sprintf("%s is %d %s, within the cap of %d %s: remove its %s entry",
-				path, size, unit, limit, unit, listName))
+				path, size, c.unit, c.limit, c.unit, c.listName))
 		}
 	}
-	for _, entry := range allowlist {
+	for _, entry := range c.allowlist {
 		if !seen[entry.path] {
-			problems = append(problems, fmt.Sprintf("%s is not a tracked %s: remove its %s entry", entry.path, kind, listName))
+			problems = append(problems, fmt.Sprintf("%s is not a tracked %s: remove its %s entry", entry.path, c.kind, c.listName))
 		}
 	}
 	sort.Strings(problems)
