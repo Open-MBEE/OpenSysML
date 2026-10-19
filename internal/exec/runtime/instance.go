@@ -605,7 +605,7 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 	if tail != nil {
 		held += tail.count
 	}
-	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); mult.AdmitsMore(held) && !symbols.IsAbstract(sym) {
+	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); held < fewestOf(mult) || (!ctx.libraryDeclared(sym) && mult.AdmitsMore(held) && !symbols.IsAbstract(sym)) {
 		spelled := ctx.QualifiedName(sym)
 		return undeterminedFeatureValue(openCountReason(spelled, mult), mult, sym), nil
 	}
@@ -1064,7 +1064,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// An abstract feature has no values of its own (KerML 1.0 §7.3.3.1) and an
 	// optional one demands none: each, a connector included, holds only contributions —
 	// unless the declaration's body binds a feature of the one object it then holds.
-	if fv.Feature.HoldsOnlyContributions() && !ctx.bodyBindsAFeature(fv.Feature) && (ctx.model.semantics.IsConnectorObjectUsage(fv.Feature.Symbol) || ctx.CompositeTypeOf(fv.Feature) != nil) {
+	if fv.Feature.HoldsOnlyContributions() && !ctx.bodyBindsAFeature(fv.Feature) && (symbols.IsAbstract(fv.Feature.Symbol) || ctx.model.semantics.IsConnectorObjectUsage(fv.Feature.Symbol) || ctx.CompositeTypeOf(fv.Feature) != nil) {
 		return inst.holdContributions(ctx, fv, name)
 	}
 
@@ -1134,8 +1134,8 @@ func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name st
 // for a scalar, otherwise the members making up the collection's lower bound.
 func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name string, open *openPopulation, composite *symbols.Symbol) (*FeatureValue, error) {
 	mult := fv.Feature.Multiplicity
-	// A model-level read makes up no collection whose count the model leaves open;
-	// a body binding a feature of the one object an optional scalar holds fixes it at one.
+	// A model-level read holds what the model declares: it makes up no member for a
+	// lower bound the declared contributions leave unmet, and reports that instead.
 	_, exact := mult.Exactly()
 	if open != nil && !exact && !(fv.Feature.Scalar() && ctx.bodyBindsAFeature(fv.Feature)) {
 		release := ctx.elementScope()
@@ -1144,7 +1144,8 @@ func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name 
 		if err != nil {
 			return nil, err
 		}
-		if held := int64(len(contributed)); atLeast > held || mult.MayAdmitMore(held) {
+		held := int64(len(contributed))
+		if max(atLeast, fewestOf(mult)) > held || (!ctx.libraryDeclared(fv.Feature.Symbol) && mult.MayAdmitMore(held)) {
 			open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
 			return fv, nil
 		}
