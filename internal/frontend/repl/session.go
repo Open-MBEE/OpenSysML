@@ -231,6 +231,9 @@ type actionSession struct {
 	selfFQN  string
 	symbol   *symbols.Symbol
 	executor *runtime.ActionExecutor
+	// attached marks the session as driving a performance the object performs
+	// itself, which runs on after the session rather than being released with it.
+	attached bool
 	// rtCtx is the context the executor runs in. A submission rebuilds the
 	// session's own, so results are read against the one that produced them.
 	rtCtx *runtime.Context
@@ -263,7 +266,7 @@ func (a *actionSession) selfOf() string {
 // release lets go of the session's run, ending any work a breakpoint left
 // paused; a nil session has none.
 func (a *actionSession) release() {
-	if a != nil {
+	if a != nil && !a.attached {
 		a.executor.Release()
 	}
 }

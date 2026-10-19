@@ -9,10 +9,10 @@
     ]},
     "cyl.base.edges": {"type": "Instance"},
     "cyl.af.edges": {"type": "Instance"},
-    "cyl.be": {"error": "binding end cannot be resolved \"cf.edges\": feature edges not found"},
-    "cyl.ae": {"error": "binding end cannot be resolved \"cf.edges\": feature edges not found"},
-    "cyl.edges": {"error": "Surface has no member edges"},
-    "cyl.vertices": {"error": "Surface has no member vertices"},
+    "cyl.be": {"error": "cyl.be is bound by `binding [1] bind [0..*] base.edges = [0..*] be`"},
+    "cyl.ae": {"error": "cyl.ae is bound by `binding [1] bind [0..*] cf.edges = [0..*] ae`"},
+    "cyl.edges": {"error": "StructuredSurface.edges is bound by `binding [1] bind [0..*] cf.edges = [0..*] be`"},
+    "cyl.vertices": {"type": "Sequence", "elements": []},
     "cyl.isSolid": {"type": "Boolean", "value": true},
     "cyl.voids": {"type": "Sequence", "elements": []}
   }

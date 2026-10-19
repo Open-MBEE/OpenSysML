@@ -2699,6 +2699,81 @@ func (s *Session) performingObject(args []string) (*runtime.Instance, string, er
 
 // --- Action Debugging Commands ---
 
+// attachPerformedAction binds the debugging session to the performance an object already
+// runs of the action, so %step, %continue and %advance drive it and %features shows what it wrote.
+func (s *Session) attachPerformedAction(
+	ctx *runtime.Context,
+	name, fqn, selfFQN string,
+	inst *runtime.Instance,
+	behavior *runtime.ObjectBehavior,
+) ([]string, error) {
+	exec, err := ctx.PerformedExecutor(behavior)
+	if err != nil {
+		return nil, err
+	}
+	exec.SetTrace(s.trace)
+
+	s.actionExec.release()
+	s.actionExec = &actionSession{
+		name:     name,
+		fqn:      fqn,
+		selfFQN:  selfFQN,
+		symbol:   behavior.Symbol,
+		executor: exec,
+		attached: true,
+		rtCtx:    ctx,
+	}
+	s.endedAction = nil
+
+	performed := behavior.Name
+	if performed == "" {
+		performed = name
+	}
+	return []string{
+		fmt.Sprintf("✓ Debugging action %q performed by %s", performed, objectMention(inst, selfFQN)),
+		fmt.Sprintf("note: %s already performs %q, so this session attaches to that running performance rather than starting a second one (as `%%action %s` would)",
+			objectMention(inst, selfFQN), name, name),
+		fmt.Sprintf("  State: %s", exec.State()),
+		fmt.Sprintf("  Tokens: %d", len(exec.Tokens())),
+	}, nil
+}
+
+// AmbiguousActionError reports a definition an object performs as the body of
+// several actions, so that naming it attaches to none of them.
+type AmbiguousActionError struct {
+	Object string // the object, as objectMention prints it
+	Action string // the definition asked for, as typed
+	// Usages are the performed usages running it, in declaration order, as the
+	// prompt prints names; "" for one without a name.
+	Usages []string
+}
+
+func (e *AmbiguousActionError) Error() string {
+	names := make([]string, len(e.Usages))
+	for i, u := range e.Usages {
+		names[i] = u
+		if u == "" {
+			names[i] = "an unnamed one"
+		}
+	}
+	return fmt.Sprintf("%s performs %q as %d actions, so naming the definition attaches to none of them: name the performed usage instead — %s",
+		e.Object, e.Action, len(e.Usages), strings.Join(names, " or "))
+}
+
+// ambiguousAction reports a definition inst performs as the body of several
+// actions, naming the usages that would address one.
+func ambiguousAction(action string, inst *runtime.Instance, label string, performed []*runtime.ObjectBehavior) error {
+	e := &AmbiguousActionError{Object: objectMention(inst, label), Action: action}
+	for _, b := range performed {
+		usage := ""
+		if member := b.Member(); member != nil && member.Name != "" {
+			usage = declarationNotation(member)
+		}
+		e.Usages = append(e.Usages, usage)
+	}
+	return e
+}
+
 // doAction starts an action executor debugging session.
 func (s *Session) doAction(name string, performer []string) ([]string, bool, error) {
 	if s.checking() {
@@ -2718,6 +2793,13 @@ func (s *Session) doAction(name string, performer []string) ([]string, bool, err
 // startAction creates the action executor a debugging session runs, reporting
 // what prevented it as an error so a caller outside the prompt can act on it.
 func (s *Session) startAction(name string, performer []string) ([]string, error) {
+	return s.startActionWithInputs(name, performer, invokeArguments{})
+}
+
+// startActionWithInputs is startAction with the action's input parameters bound
+// from arguments written positionally, in parameter order, or as
+// `<parameter>=<expression>`, each evaluated where the prompt evaluates.
+func (s *Session) startActionWithInputs(name string, performer []string, inputs invokeArguments) ([]string, error) {
 	if err := s.refuseExplore(); err != nil {
 		return nil, err
 	}
@@ -2740,8 +2822,27 @@ func (s *Session) startAction(name string, performer []string) ([]string, error)
 		return nil, perr
 	}
 
-	// Create executor
-	exec, err := ctx.CreateActionExecutorFor(sym, self)
+	bound, err := s.actionInputs(ctx, sym, inputs)
+	if err != nil {
+		return nil, err
+	}
+
+	// The performance the object runs of the action is the one meant: a second
+	// would write the same feature values over again beside it.
+	if self != nil {
+		switch performed := self.PerformedActionsOf(sym); len(performed) {
+		case 0:
+		case 1:
+			if err := ctx.CheckPerformedInputs(sym, performed[0], bound); err != nil {
+				return nil, err
+			}
+			return s.attachPerformedAction(ctx, name, qualifiedOr(fqn, name), selfFQN, self, performed[0])
+		default:
+			return nil, ambiguousAction(name, self, selfFQN, performed)
+		}
+	}
+
+	exec, err := ctx.CreateActionExecutorWithInputs(sym, self, bound)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create executor: %w", err)
 	}
@@ -2770,6 +2871,23 @@ func (s *Session) startAction(name string, performer []string) ([]string, error)
 
 // doStep advances the action executor one step, or the state machine one event
 // when the session debugs a machine instead.
+// actionInputs evaluates an action's arguments at the prompt, as one argument list in
+// one run, and binds them to its input parameters as the runtime binds an invocation's.
+func (s *Session) actionInputs(ctx *runtime.Context, sym *symbols.Symbol, args invokeArguments) (map[string]runtime.Value, error) {
+	if len(args.positional) == 0 && len(args.named) == 0 {
+		return nil, nil
+	}
+	positional, bound, err := evalArgumentList(ctx, s.promptScope(), args.positional, args.named)
+	if err != nil {
+		return nil, err
+	}
+	named := make([]runtime.NamedInput, 0, len(args.named))
+	for _, arg := range args.named {
+		named = append(named, runtime.NamedInput{Name: arg.param, Value: bound[arg.param]})
+	}
+	return ctx.ActionInputs(s.promptScope(), sym, positional, named)
+}
+
 // debuggedAction is the action %step and %continue act on: the one debugged,
 // or nil once it has ended while a machine still runs, which a step then moves.
 func (s *Session) debuggedAction() *actionSession {
@@ -2843,7 +2961,9 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 	exec := s.actionExec.executor
 
 	if exec.State().Ended() {
-		return []string{"✓ Action already " + strings.ToLower(exec.State().String())}, namedValues(s.actionExec.contextOf(), exec.Results()), nil
+		out := []string{"✓ Action already " + strings.ToLower(exec.State().String())}
+		out = append(out, renderResults(s.actionExec.contextOf(), exec.Results())...)
+		return out, namedValues(s.actionExec.contextOf(), exec.Results()), nil
 	}
 
 	// Run to completion, or to the first breakpoint hit
@@ -3504,8 +3624,13 @@ type invokeArguments struct {
 // expression or `<parameter>=<expression>`. A list mixing the two forms or naming
 // a parameter twice is refused here, before the object is reached.
 func parseInvokeArguments(text string) (invokeArguments, error) {
+	return parseInvokeArgumentList(splitArgs(text))
+}
+
+// parseInvokeArgumentList is parseInvokeArguments over arguments already split.
+func parseInvokeArgumentList(list []string) (invokeArguments, error) {
 	var args invokeArguments
-	for i, arg := range splitArgs(text) {
+	for i, arg := range list {
 		if isNamedArgument(arg) {
 			named, err := parseArguments([]string{arg})
 			if err != nil {

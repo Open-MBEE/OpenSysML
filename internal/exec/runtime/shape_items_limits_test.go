@@ -30,11 +30,10 @@ func TestShapeItemsUnsupportedExpressionsAreTypedErrors(t *testing.T) {
 		{"box.tflv", errBindingEnd, "binding [1] bind [0..1] tf.edges = [0..1] tfe"},
 		{"box.vertices", errBindingEnd, "subsetting feature tflv of vertices: binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`"},
 		{"box.spaceBoundary", ErrNoSuchFeature, "box has no member spaceBoundary: Items::Item::shape redefines it"},
-		{"cyl.edges", ErrNoSuchFeature, "Surface has no member edges"},
-		{"cyl.faces.edges", ErrNoSuchFeature, "Surface has no member edges"},
-		{"cyl.vertices", ErrNoSuchFeature, "Surface has no member vertices"},
-		{"cyl.be", errBindingEnd, `"cf.edges": feature edges not found`},
-		{"cyl.ae", errBindingEnd, `"cf.edges": feature edges not found`},
+		{"cyl.edges", errBindingEnd, "StructuredSurface.edges is bound by `binding [1] bind [0..*] cf.edges = [0..*] be`"},
+		{"cyl.faces.edges", errBindingEnd, "StructuredSurface.edges is bound by `binding [1] bind [0..*] cf.edges = [0..*] be`"},
+		{"cyl.be", errBindingEnd, "cyl.be is bound by `binding [1] bind [0..*] base.edges = [0..*] be`"},
+		{"cyl.ae", errBindingEnd, "cyl.ae is bound by `binding [1] bind [0..*] cf.edges = [0..*] ae`"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.expr, func(t *testing.T) {
@@ -57,10 +56,12 @@ func TestShapeItemsUnsupportedExpressionsAreTypedErrors(t *testing.T) {
 		}
 	}
 
-	// A curve the library declares without vertices holds none: that is a value, not a gap.
-	val, err := evalIn(t, ctx, pkg.Scope, "ell.vertices")
-	if err != nil || FormatValue(val) != "[]" {
-		t.Errorf("ell.vertices = %s, %v; want [] with no error", FormatValue(val), err)
+	// A shape the library declares without vertices holds none: that is a value, not a gap.
+	for _, expr := range []string{"ell.vertices", "cyl.vertices"} {
+		val, err := evalIn(t, ctx, pkg.Scope, expr)
+		if err != nil || FormatValue(val) != "[]" {
+			t.Errorf("%s = %s, %v; want [] with no error", expr, FormatValue(val), err)
+		}
 	}
 
 	// `binding [1] bind [0..*] base.edges = [0..*] be` links one value of each end, so a face's
