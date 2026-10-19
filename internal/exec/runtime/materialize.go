@@ -93,10 +93,11 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 		w.budget--
 		fv, err := inst.GetFeatureValue(w.ctx, of.Name)
 		if err != nil {
-			// A feature valued by bindings that link one unspecified value of it holds
-			// something the model leaves open, as an unset attribute does: not a finding.
+			// A feature valued by bindings that link one unspecified value of it, or
+			// derived from a feature nothing gives a value to, holds something the model
+			// leaves open, as an unset attribute does: not a finding.
 			var undetermined *undeterminedBindingError
-			if !errors.As(err, &undetermined) {
+			if !errors.As(err, &undetermined) && !errors.Is(err, ErrNoValue) {
 				w.errs = append(w.errs, err)
 			}
 			continue

@@ -396,6 +396,7 @@ func (ctx *Context) redefinedDefault(sym, owner *symbols.Symbol) (ast.Node, *sym
 		queue = queue[1:]
 		targets := ctx.relatedFeatures(cur, owner, ast.RelRedefines)
 		targets = append(targets, ctx.model.semantics.ImplicitParameterRedefinitions(cur)...)
+		targets = append(targets, ctx.redefinedNamespaceUsages(cur)...)
 		for _, redefined := range targets {
 			if seen[redefined] {
 				continue
@@ -408,6 +409,26 @@ func (ctx *Context) redefinedDefault(sym, owner *symbols.Symbol) (ast.Node, *sym
 		}
 	}
 	return nil, nil
+}
+
+// redefinedNamespaceUsages are the usages sym redefines that no type features — package-level
+// attributes such as `ShapeItems::xoffset` — whose value a redefining feature inherits as it
+// inherits any redefined feature's (KerML 1.0 §7.3.4.5), though no object carries them.
+func (ctx *Context) redefinedNamespaceUsages(sym *symbols.Symbol) []*symbols.Symbol {
+	var usages []*symbols.Symbol
+	for _, rel := range relationshipsOfKind(sym, ast.RelRedefines) {
+		resolved := ctx.model.semantics.RelationshipTarget(sym, rel)
+		if resolved == nil || resolved == sym {
+			continue
+		}
+		if owner := ctx.findOwnerType(resolved); owner != nil && owner.Kind != symbols.SymbolPackage && owner.Kind != symbols.SymbolNamespace {
+			continue
+		}
+		if _, usage := resolved.Decl.(*ast.Usage); usage {
+			usages = append(usages, resolved)
+		}
+	}
+	return usages
 }
 
 // findOwnerType walks up the scope chain to find the type symbol that owns the feature's declaration.

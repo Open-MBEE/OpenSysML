@@ -1412,6 +1412,10 @@ func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
 		return now, true, err
 	}
 	if _, ok := ec.self.FeatureValues[name]; !ok && !ec.ctx.derivesKernelCollection(ec.self, name) {
+		// A member the shape leaves out, which the default the holder governs over states.
+		if val, ok, err := ec.ctx.holderDefaultMember(ec.self, name); ok {
+			return val, true, err
+		}
 		return Value{}, false, nil
 	}
 	fv, open, err := ec.memberFeatureValue(ec.self, name)
@@ -1688,6 +1692,13 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		if ec.ctx.derivesKernelCollection(inst, name) {
 			return ec.chainFeatureValue(inst, name, rest, from)
+		}
+		// A member the shape leaves out, which the default the holder governs over states.
+		if val, ok, err := ec.ctx.holderDefaultMember(inst, name); ok {
+			if err != nil {
+				return Value{}, err
+			}
+			return ec.chainMemberValue(val, rest, name)
 		}
 		if fv, answered, err := ec.ctx.kernelMemberRead(inst, name); answered {
 			if err != nil {

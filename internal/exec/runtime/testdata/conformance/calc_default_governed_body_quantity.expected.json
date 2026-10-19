@@ -1,0 +1,14 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "offsets": {"type": "Sequence", "elements": [
+      {"type": "Quantity", "value": 0, "unit": "m"},
+      {"type": "Quantity", "value": 3, "unit": "m"}
+    ]},
+    "centeredUnit": {"type": "MeasurementRef", "unit": "m"},
+    "nudgedNum": {"type": "Integer", "value": 3},
+    "nudgedDimensions": {"type": "Sequence", "elements": []}
+  }
+}
