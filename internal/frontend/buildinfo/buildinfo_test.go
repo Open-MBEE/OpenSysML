@@ -1,6 +1,8 @@
 package buildinfo
 
 import (
+	"math/rand"
+	"regexp"
 	"runtime"
 	"runtime/debug"
 	"testing"
@@ -186,5 +188,52 @@ func TestReport(t *testing.T) {
 	want := "sysml v0.9.2\n  Commit:     abc1234\n  Build time: 2026-01-02_03:04:05\n  Go version: go1.25.11\n"
 	if got := info.Report("sysml"); got != want {
 		t.Errorf("Report = %q, want %q", got, want)
+	}
+}
+
+// The hand-written matchers replaced two regular expressions so that commands
+// built for js/wasm do not link regexp; they must agree with those patterns.
+func TestVersionMatchersAgreeWithTheirPatterns(t *testing.T) {
+	pseudo := regexp.MustCompile(`^v[0-9]+\.(0\.0-|\d+\.\d+-([^+]*\.)?0\.)\d{14}-[A-Za-z0-9]+(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`)
+	semantic := regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
+	corpus := []string{
+		"", "v", "v1", "v1.", "v1.2", "v1.2.", "v1.2.3", "v1.2.3-", "v1.2.3+", "v1.2.3-+",
+		"v1.2.3-rc.1", "v1.2.3-rc.1+dirty", "v1.2.3+dirty", "v1.2.3+a.b", "v1.2.3+a..b", "v1.2.3+a+b",
+		"v1.2.3-a+b+c", "v1.2.3-a-b", "v1.2.3x", "V1.2.3", "01.2.3", "v01.02.03", "v1.2.3.4",
+		"v0.0.0-20261006023628-7e5aaa9e8902", "v0.0.0-20261006023628-7e5aaa9e8902+incompatible",
+		"v0.0.0-20261006023628-7e5aaa9e8902+a.b-c", "v0.0.0-20261006023628-7e5aaa9e8902+a..b",
+		"v0.0.0-20261006023628-7e5aaa9e8902+", "v0.0.0-20261006023628-", "v0.0.0-2026100602362-7e5aaa9e8902",
+		"v0.0.0-202610060236281-7e5aaa9e8902", "v0.0.0-20261006023628-7e5a_aa9e8902",
+		"v0.9.3-0.20261006023628-7e5aaa9e8902", "v0.9.2-pre.0.20261006023628-7e5aaa9e89",
+		"v0.9.2-pre.1.20261006023628-7e5aaa9e89", "v0.9.2-pre0.20261006023628-7e5aaa9e89",
+		"v0.9.2-pre-0.0.20261006023628-7e5aaa9e89", "v0.9.2-pre.0.0.20261006023628-7e5aaa9e89",
+		"v0.9.2-pre+0.20261006023628-7e5aaa9e89", "v0.9.2.3-0.20261006023628-7e5aaa9e89",
+		"v0.9-0.20261006023628-7e5aaa9e89", "v1.0.0-0.20261006023628-7e5aaa9e89", "v1.0.0-.0.20261006023628-7e5aaa9e89",
+		"v0.0.1-20261006023628-7e5aaa9e8902", "v1.0.0-20261006023628-7e5aaa9e8902", "0.0.0-20261006023628-7e5aaa9e8902",
+	}
+	rng := rand.New(rand.NewSource(1))
+	const alphabet = "v0129.-+aZ_"
+	for i := 0; i < 200000; i++ {
+		b := make([]byte, rng.Intn(40))
+		for j := range b {
+			b[j] = alphabet[rng.Intn(len(alphabet))]
+		}
+		corpus = append(corpus, string(b))
+	}
+	// Timestamps are 14 digits, which random bytes rarely produce: derive shapes from them.
+	for _, stamp := range []string{"20261006023628", "2026100602362", "202610060236281", "2026100602362a"} {
+		for _, base := range []string{"v0.0.0-", "v1.2.3-", "v1.2.3-0.", "v1.2.3-rc.0.", "v1.2.3-rc-0.", "v1.2.3-rc0.", "v1.2.3-.0.", "v1.2.3-0.0.", "v1.2.3-x.y.0.", "v1.2-0.", "v1-0.", "v1.2.3-+.0."} {
+			for _, tail := range []string{"-abc", "-", "-ab_c", "-abc+x", "-abc+x.y", "-abc+x..y", "-abc+", "-abc+x+y", "", "abc"} {
+				corpus = append(corpus, base+stamp+tail)
+			}
+		}
+	}
+	for _, v := range corpus {
+		if got, want := pseudoVersion(v), pseudo.MatchString(v); got != want {
+			t.Errorf("pseudoVersion(%q) = %v, pattern says %v", v, got, want)
+		}
+		if got, want := semanticVersion(v), semantic.MatchString(v); got != want {
+			t.Errorf("semanticVersion(%q) = %v, pattern says %v", v, got, want)
+		}
 	}
 }

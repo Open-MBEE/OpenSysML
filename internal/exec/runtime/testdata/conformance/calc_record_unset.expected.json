@@ -3,14 +3,14 @@
 	"evaluate": "test::unset",
 	"libraries": true,
 	"outputs": {
-		"notNull": {"type": "Boolean", "value": false},
-		"distinct": {"type": "Boolean", "value": false},
-		"alias": {"type": "Boolean", "value": true},
-		"vsValue": {"type": "Boolean", "value": true},
-		"size": {"type": "Integer", "value": 1},
-		"empty": {"type": "Boolean", "value": false},
-		"kept": {"type": "Boolean", "value": true},
-		"nested": {"type": "Boolean", "value": false},
-		"defaulted": {"type": "Real", "value": 3.0}
+		"notNull": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+		"distinct": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+		"alias": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+		"vsValue": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+		"size": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"empty": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+		"kept": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+		"nested": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+		"defaulted": {"type": "Sequence", "elements": [{"type": "Real", "value": 3.0}]}
 	}
 }

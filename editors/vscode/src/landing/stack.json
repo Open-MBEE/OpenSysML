@@ -1916,7 +1916,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "flexo": {
           "featureName": "flexo",
@@ -1959,7 +1960,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "pilot": {
           "featureName": "pilot",
@@ -2061,7 +2063,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2116,7 +2119,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "quadstore": {
           "featureName": "quadstore",
@@ -2200,7 +2204,8 @@
       "typeSymbolId": "OpenSysMLStack::ModelPort",
       "featureValues": {
         "interfacingPorts": {
-          "featureName": "interfacingPorts"
+          "featureName": "interfacingPorts",
+          "materialized": true
         },
         "subports": {
           "featureName": "subports",
@@ -2225,7 +2230,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2261,7 +2267,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -2308,7 +2315,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2344,7 +2352,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -2391,7 +2400,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2427,7 +2437,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -2474,7 +2485,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2510,7 +2522,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -2599,7 +2612,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "interchange": {
           "featureName": "interchange",
@@ -2689,7 +2703,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "repl": {
           "featureName": "repl",
@@ -2878,7 +2893,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2914,7 +2930,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -2949,7 +2966,8 @@
       "typeSymbolId": "OpenSysMLStack::ModelPort",
       "featureValues": {
         "interfacingPorts": {
-          "featureName": "interfacingPorts"
+          "featureName": "interfacingPorts",
+          "materialized": true
         },
         "subports": {
           "featureName": "subports",
@@ -2974,7 +2992,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3010,7 +3029,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3057,7 +3077,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3093,7 +3114,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3140,7 +3162,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3176,7 +3199,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3223,7 +3247,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3259,7 +3284,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3306,7 +3332,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3342,7 +3369,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3389,7 +3417,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3425,7 +3454,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3472,7 +3502,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3508,7 +3539,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3555,7 +3587,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3591,7 +3624,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3638,7 +3672,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3674,7 +3709,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3721,7 +3757,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3757,7 +3794,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3804,7 +3842,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3840,7 +3879,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3887,7 +3927,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3923,7 +3964,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3970,7 +4012,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4006,7 +4049,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4053,7 +4097,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4089,7 +4134,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4136,7 +4182,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4172,7 +4219,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4226,7 +4274,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4251,7 +4300,8 @@
           "featureName": "participant"
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -4333,7 +4383,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "grammars": {
           "featureName": "grammars",
@@ -4395,7 +4446,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "plantuml": {
           "featureName": "plantuml",
@@ -4517,7 +4569,8 @@
       "typeSymbolId": "OpenSysMLStack::ModelPort",
       "featureValues": {
         "interfacingPorts": {
-          "featureName": "interfacingPorts"
+          "featureName": "interfacingPorts",
+          "materialized": true
         },
         "subports": {
           "featureName": "subports",
@@ -4542,7 +4595,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4578,7 +4632,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4625,7 +4680,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4661,7 +4717,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4708,7 +4765,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4744,7 +4802,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4791,7 +4850,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4827,7 +4887,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4874,7 +4935,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4910,7 +4972,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4957,7 +5020,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4993,7 +5057,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -5040,7 +5105,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -5076,7 +5142,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -5123,7 +5190,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -5159,7 +5227,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -5213,7 +5282,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -5238,7 +5308,8 @@
           "featureName": "participant"
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",

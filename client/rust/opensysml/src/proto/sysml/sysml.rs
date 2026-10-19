@@ -3718,7 +3718,7 @@ pub struct RenderNode {
     pub ports: ::prost::alloc::vec::Vec<RenderPort>,
     #[prost(message, optional, tag="11")]
     pub origin: ::core::option::Option<Span>,
-    /// Unset when no layout positions the node.
+    /// Unset when no layout annotates the node; unplaced when the layout only folds or hides it.
     #[prost(message, optional, tag="12")]
     pub geometry: ::core::option::Option<RenderGeometry>,
     #[prost(message, optional, tag="13")]
@@ -3775,6 +3775,9 @@ pub struct RenderGeometry {
     pub has_size: bool,
     #[prost(bool, tag="6")]
     pub collapsed: bool,
+    /// The layout places nothing (it only folds or hides): x and y carry no position.
+    #[prost(bool, tag="7")]
+    pub unplaced: bool,
 }
 /// RenderCanvas is the rendering's drawing surface.
 #[derive(Clone, PartialEq, ::prost::Message)]

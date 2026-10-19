@@ -101,7 +101,7 @@ func TestFunctionsCrossEveryTransport(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExecuteAction: %v", err)
 			}
-			if run.Outputs["y"] != opensysml.Real(81) {
+			if sole(t, "y", run.Outputs["y"]) != opensysml.Real(81) {
 				t.Errorf("y = %#v, want 81.0", run.Outputs["y"])
 			}
 

@@ -65,11 +65,11 @@ func TestPerformedByRunsOnTheObjectAPathReaches(t *testing.T) {
 	}
 
 	run, err := client.ExecuteAction(ctx, model, "Wire::Craft::look", nil, opensysml.PerformedBy("Wire::pair.craft"))
-	if err != nil || run.Outputs["seen"] != opensysml.Bool(true) {
+	if err != nil || sole(t, "seen", run.Outputs["seen"]) != opensysml.Bool(true) {
 		t.Errorf("ExecuteAction look on pair.craft: %v %#v, want seen true", err, run)
 	}
 	exploration, err := client.ExploreAction(ctx, model, "Wire::Craft::look", nil, opensysml.PerformedBy("Wire::pair.craft"))
-	if err != nil || len(exploration.Outcomes) != 1 || exploration.Outcomes[0].Outputs["seen"] != opensysml.Bool(true) {
+	if err != nil || len(exploration.Outcomes) != 1 || sole(t, "seen", exploration.Outcomes[0].Outputs["seen"]) != opensysml.Bool(true) {
 		t.Errorf("ExploreAction look on pair.craft: %v %+v, want one outcome with seen true", err, exploration)
 	}
 	if run.Performer["this.pinged"] != opensysml.Bool(true) {

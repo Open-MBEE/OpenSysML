@@ -263,6 +263,6 @@ class TestRationalsAgainstTheService:
     def test_a_float_input_is_a_real(self):
         exact = self.conn.execute_action("R::addThird", self.model.hash, inputs={"x": Fraction(1, 4)})
         real = self.conn.execute_action("R::addThird", self.model.hash, inputs={"x": 0.25})
-        assert exact["y"] == Fraction(7, 12)
-        assert real["y"] == 0.25 + 1 / 3
-        assert isinstance(real["y"], float)
+        assert exact["y"] == [Fraction(7, 12)]  # the bare `out y` is [0..*]: one value, as a sequence
+        assert real["y"] == [0.25 + 1 / 3]
+        assert isinstance(real["y"][0], float)

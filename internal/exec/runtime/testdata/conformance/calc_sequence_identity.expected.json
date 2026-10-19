@@ -3,10 +3,10 @@
 	"evaluate": "test::identities",
 	"libraries": true,
 	"outputs": {
-		"mixed": {"type": "Boolean", "value": false},
-		"kept": {"type": "Boolean", "value": true},
-		"differ": {"type": "Boolean", "value": true},
-		"nested": {"type": "Boolean", "value": false},
-		"equal": {"type": "Boolean", "value": true}
+		"mixed": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+		"kept": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+		"differ": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+		"nested": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+		"equal": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]}
 	}
 }

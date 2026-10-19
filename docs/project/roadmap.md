@@ -132,7 +132,7 @@ tracks below carry the detail and what each pull request deliberately leaves.
   #640); a constraint asked whether it holds for all values or is satisfiable (#685, #712).
 
 The previous baselines' retirements — the `v0.6.0`–`v0.8.0` closures recorded in
-`CHANGELOG.md`'s 0.7.0 and 0.8.0 sections, native compilation's first phase, the wire contract,
+the 0.7.0 and 0.8.0 sections of `docs/project/archive/CHANGELOG-0.0-0.8.md`, native compilation's first phase, the wire contract,
 L3–L6, the nested-action frames, D3, Q4, the changelog fragments, the census and its gate, the
 enumeration rules (#907, #909) — stay retired and are not repeated.
 
@@ -224,12 +224,12 @@ already ran. The procedure and its post-tag verification are in `docs/project/re
 
 ## R1 — the changelog agrees with the tags (done)
 
-`CHANGELOG.md`'s **0.4.3** section holds what `99e02003` shipped (#877), its **0.5.0** section
-what `0fdeb11e` shipped (#894), its **0.5.1** section what `d7b3eb45` shipped, its **0.6.0**
-section what `30f103bb9` shipped (#988), its **0.7.0** section what `e0fbfea5b` shipped (#145,
-#154, #159), its **0.8.0** section what `238aed650` shipped (#268, #277), and its **0.9.0** and
-**0.9.1** sections what `ee54ea03e` (#564) and `b9de3b070` (#614) shipped, each dated to its
-tag; **Unreleased** is empty in the file because since #852 a change adds a fragment under
+In `docs/project/archive/CHANGELOG-0.0-0.8.md`, the **0.4.3** section holds what `99e02003`
+shipped (#877), its **0.5.0** section what `0fdeb11e` shipped (#894), its **0.5.1** section what
+`d7b3eb45` shipped, its **0.6.0** section what `30f103bb9` shipped (#988), its **0.7.0** section
+what `e0fbfea5b` shipped (#145, #154, #159) and its **0.8.0** section what `238aed650` shipped
+(#268, #277); `CHANGELOG.md`'s **0.9.0** and **0.9.1** sections hold what `ee54ea03e` (#564) and
+`b9de3b070` (#614) shipped, each dated to its tag; its **Unreleased** is empty in the file because since #852 a change adds a fragment under
 `changes/unreleased/` instead, and `python3 scripts/changelog.py release X.Y.Z` folds the
 fragments in at release time (`releasing.md`). The 0.5.0 fold was the first release cut that way
 and every release since followed it; under git-flow the fold rides the `release/x.y.z` pull
@@ -602,20 +602,25 @@ what the service's own commit path stores for the same model. It measures the ga
 asserting the fix, so every item below shows up as movement in
 `tools/referee/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`.
 
-What the current recording measures, for the identity-carrying fixture: **59 of 59 elements
-listed and 505 of 582 properties delivered** on the graph-load side, against 33 of 33 and 158 of
-158 for the same model posted through the service's own commit path; 1 of 59 reads as a root, and
-1 has no owner in the model (expression nodes and connector ends are owned elements now); every
-element is readable directly by id; no subject of the graph is outside the element namespace.
-**Every standard property is delivered, the 26 multi-valued ones included** — `connectorEnd`,
-`ownedEndFeature`, `chainingFeature`, `relatedElement`, `ownedRelationship` (6/6), `ownedMembership`
-(4/4), `ownedFeature`, `ownedFeatureMembership`, `ownedMember` (3/3 each), `specializes` (1/1) —
-since D3.4 landed. The 77 lost properties are one thing:
+What the current recording measures, for the reference fixture: **76 of 76 elements
+listed and 702 of 863 properties delivered** on the graph-load side, against 33 of 33 and 158 of
+158 for the same model posted through the service's own commit path, and 78 of 78 and 717 of 878
+for the API element form (its root `Namespace` and `OwningMembership` included); 1 of 76 reads as a
+root, and 1 has no owner in the model (expression nodes and connector ends are owned elements now);
+every element is readable directly by id; no subject of the graph is outside the element namespace.
+**Every standard property is delivered, the 49 multi-valued ones included** — `connectorEnd`,
+`ownedEndFeature`, `chainingFeature` (2/2), `ownedFeatureChaining` (2/2), `relatedElement` (17/17),
+`ownedRelationship` (9/9), `ownedMembership` (4/4), `ownedMember` (4/4), `ownedFeature`,
+`ownedFeatureMembership` (3/3 each), `specializes`, `ownedSpecialization`, `ownedSubclassification`
+(1/1 each) — since D3.4 landed; a connector end's feature chain reaches the service as one
+`FeatureChaining` per link, owned through the end's `ReferenceSubsetting`. The 161 lost properties
+are one thing:
 
-- **The remaining loss is annotation vocabulary in `sysx:`** — seven predicates: source text and
-  tail, notation spelling (`declaredKeyword`, `endForm`, `sourceLanguage`), body presence and
-  member order. `sysx:argumentIndex`, `sysx:endIndex` and `sysx:relatedFeature` no longer appear,
-  because operand order and end targets are standard `sysml:` structure; the remaining `sysx:`
+- **The remaining loss is annotation vocabulary in `sysx:`** — eleven predicates: source text,
+  tail and position (`sourceLine`, `sourceColumn`, `sourceEndLine`, `sourceEndColumn`), notation
+  spelling (`declaredKeyword`, `endForm`, `sourceLanguage`), body presence and member order.
+  `sysx:argumentIndex`, `sysx:endIndex` and `sysx:relatedFeature` no longer appear, because
+  operand order and end targets are standard `sysml:` structure; the remaining `sysx:`
   annotations are intentionally documented in D1 and D2 below.
 
 The commit path delivers 6 of 6 of its own multi-valued properties, because it stores each array

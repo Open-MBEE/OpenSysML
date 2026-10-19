@@ -25,14 +25,22 @@ type Point struct {
 type Geometry struct {
 	X, Y          float64
 	Width, Height float64
-	HasSize       bool
-	Collapsed     bool
-	Hidden        semantics.HiddenCompartments
+	// Unplaced marks a Layout stating no x and y, one that only folds or hides
+	// and leaves the node for the form to lay out.
+	Unplaced  bool
+	HasSize   bool
+	Collapsed bool
+	Hidden    semantics.HiddenCompartments
 }
 
 // geometryFromLayout is the Geometry a resolved Layout gives.
 func geometryFromLayout(l *semantics.Layout) *Geometry {
-	return &Geometry{X: l.X, Y: l.Y, Width: l.Width, Height: l.Height, HasSize: l.HasSize, Collapsed: l.Collapsed, Hidden: l.Hidden}
+	return &Geometry{X: l.X, Y: l.Y, Width: l.Width, Height: l.Height, Unplaced: l.Unplaced, HasSize: l.HasSize, Collapsed: l.Collapsed, Hidden: l.Hidden}
+}
+
+// placed reports whether g positions its node; a nil or fold-only Geometry does not.
+func (g *Geometry) placed() bool {
+	return g != nil && !g.Unplaced
 }
 
 // centre is the middle of the geometry, its corner when it has no size.
