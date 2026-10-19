@@ -51,12 +51,14 @@ func twoDrawsSession(t *testing.T) (*Session, float64) {
 	return s, want
 }
 
-// number reads the first "<label> <value>" line of out, a quantity's magnitude included.
+// number reads the first "<label> <value>" line of out: a quantity's magnitude
+// included, and the sole element of a one-element sequence ("[0.5]").
 func number(t *testing.T, out, label string) float64 {
 	t.Helper()
 	for _, line := range strings.Split(out, "\n") {
 		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), label+" "); ok {
 			rest, _, _ = strings.Cut(strings.TrimSpace(rest), " ")
+			rest = strings.TrimSuffix(strings.TrimPrefix(rest, "["), "]")
 			v, err := strconv.ParseFloat(rest, 64)
 			if err != nil {
 				t.Fatalf("%s %q is not a number in\n%s", label, rest, out)
