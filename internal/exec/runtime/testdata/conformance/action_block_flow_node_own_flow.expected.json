@@ -3,7 +3,7 @@
 	"evaluate": "test::outer",
 	"outputs": {
 		"total": {"type": "Integer", "value": 13},
-		"iterate.step.v": {"type": "Integer", "value": 7},
-		"iterate.step.one.w": {"type": "Integer", "value": 6}
+		"iterate.step.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]},
+		"iterate.step.one.w": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]}
 	}
 }

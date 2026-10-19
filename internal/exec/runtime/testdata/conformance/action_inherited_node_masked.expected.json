@@ -3,10 +3,10 @@
 	"libraries": true,
 	"evaluate": "test::Masked",
 	"outputs": {
-		"result": {"type": "Integer", "value": 0},
+		"result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 0}]},
 		"x": {"type": "Integer", "value": 5},
-		"add.total": {"type": "Integer", "value": 42},
-		"fin.k": {"type": "Integer", "value": 0},
-		"fin.seen": {"type": "Integer", "value": 42}
+		"add.total": {"type": "Sequence", "elements": [{"type": "Integer", "value": 42}]},
+		"fin.k": {"type": "Sequence", "elements": [{"type": "Integer", "value": 0}]},
+		"fin.seen": {"type": "Sequence", "elements": [{"type": "Integer", "value": 42}]}
 	}
 }

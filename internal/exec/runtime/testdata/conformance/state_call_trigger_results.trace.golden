@@ -4,7 +4,7 @@ stmt action body
     eval feature value -> 3
 step 1: token 1@doubling
     stmt assign result
-        eval feature value -> 3
+        eval feature value -> (3)
         eval literal 2 -> 2
       eval operator * -> 6
 step 2: token 1@done
@@ -14,7 +14,7 @@ stmt perform
 step 1: token 1@negating
   stmt assign result
       eval literal 0 -> 0
-      eval feature result -> 6
+      eval feature result -> (6)
     eval operator - -> -6
 step 2: token 1@done
 step 3: no active tokens
@@ -25,7 +25,7 @@ stmt action body
     eval feature value -> 5
 step 1: token 1@doubling
     stmt assign result
-        eval feature value -> 5
+        eval feature value -> (5)
         eval literal 2 -> 2
       eval operator * -> 10
 step 2: token 1@done
