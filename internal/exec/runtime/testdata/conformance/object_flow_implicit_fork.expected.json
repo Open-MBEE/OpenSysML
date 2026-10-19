@@ -4,7 +4,7 @@
 	"evaluate": "test::fan",
 	"trace": true,
 	"outputs": {
-		"left.v": {"type": "Real", "value": 5.0},
-		"right.v": {"type": "Real", "value": 5.0}
+		"left.v": {"type": "Sequence", "elements": [{"type": "Real", "value": 5.0}]},
+		"right.v": {"type": "Sequence", "elements": [{"type": "Real", "value": 5.0}]}
 	}
 }

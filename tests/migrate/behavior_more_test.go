@@ -467,7 +467,7 @@ func checkDeferredSignalsAreKeptAndReplayed(t *testing.T, r *migrate.Result) {
 	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "Current state: Waiting"); i++ {
 		meta(t, s, "%step")
 	}
-	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Waiting") || !strings.Contains(out, "Waiting.deferredAlarm = null") || !strings.Contains(out, "Waiting.deferredBeep = null") {
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Waiting") || !strings.Contains(out, "Waiting.deferredAlarm = []") || !strings.Contains(out, "Waiting.deferredBeep = []") {
 		t.Errorf("Waiting's buffers were not emptied by its first exit:\n%s", out)
 	}
 	meta(t, s, "%send Go")
@@ -745,7 +745,7 @@ func TestStrictDeferredSignalsAreKeptByEveryRoute(t *testing.T) {
 		t.Errorf("%%send Arm while Waiting: %s", out)
 	}
 	meta(t, s, "%advance 0")
-	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Working") || !strings.Contains(out, "Waiting.deferredCmd = null") {
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Working") || !strings.Contains(out, "Waiting.deferredCmd = []") {
 		t.Errorf("the kept Cmd, replayed once armed, did not take the guarded transition:\n%s", out)
 	}
 	if out := meta(t, s, "%eval in #1 : unit.got"); !strings.Contains(out, "= 1") {
@@ -797,7 +797,7 @@ func TestStrictDeferralKeepsRoutesAPortTransitionSkips(t *testing.T) {
 	meta(t, s, "%continue")
 	meta(t, s, "%advance 0")
 	meta(t, s, "%state Unit::Duty #1.unit")
-	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Working") || !strings.Contains(out, "Waiting.deferredCmd = null") {
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Working") || !strings.Contains(out, "Waiting.deferredCmd = []") {
 		t.Fatalf("the Cmd at the inbox did not take the transition and flush the kept one:\n%s", out)
 	}
 	if out := meta(t, s, "%eval in #1 : unit.got"); !strings.Contains(out, "= 2") {

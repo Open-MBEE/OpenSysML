@@ -3,8 +3,8 @@
 	"libraries": true,
 	"evaluate": "test::Derived",
 	"outputs": {
-		"result": {"type": "Integer", "value": 50},
-		"twice.y": {"type": "Integer", "value": 42},
-		"twiceMore.y": {"type": "Integer", "value": 8}
+		"result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 50}]},
+		"twice.y": {"type": "Sequence", "elements": [{"type": "Integer", "value": 42}]},
+		"twiceMore.y": {"type": "Sequence", "elements": [{"type": "Integer", "value": 8}]}
 	}
 }
