@@ -53,7 +53,7 @@ func testSendTargetHoldsAValue(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostNotifying(
 		"in recipient : Integer;", "in recipient = 4;", "recipient",
 	), "test::Host")
-	if !errors.Is(err, errSendTargetNotObject) || !strings.Contains(err.Error(), `"recipient" holds 4, which is no object to address "recipient" to`) {
+	if !errors.Is(err, errSendTargetNotObject) || !strings.Contains(err.Error(), `"recipient" holds [4], which is no object to address "recipient" to`) {
 		t.Fatalf("error = %v, want errSendTargetNotObject over a number", err)
 	}
 }

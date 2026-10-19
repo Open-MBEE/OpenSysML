@@ -51,7 +51,7 @@ func toString(args []runtime.Value) (runtime.Value, error) {
 // value bracketed as an input ("[in=") when input is null or true, an output
 // ("[out=") otherwise, spelled by ToString of its primitive type, "??" for any other.
 func formatParameterValue(args []runtime.Value) (runtime.Value, error) {
-	input, value := args[0], args[1]
+	input, value := soleValue(args[0]), soleValue(args[1])
 	prefix := "[out="
 	switch {
 	case input.Kind == runtime.ValNull:
@@ -70,6 +70,17 @@ func formatParameterValue(args []runtime.Value) (runtime.Value, error) {
 		text = s
 	}
 	return runtime.NewStringValue(prefix + text + "]"), nil
+}
+
+// soleValue is the one element of a one-element sequence, else the value itself: a
+// parameter of unstated multiplicity holds its value as a sequence (KerML §7.4.8).
+func soleValue(v runtime.Value) runtime.Value {
+	if v.Kind == runtime.ValSequence {
+		if elements := v.Sequence().Elements(); len(elements) == 1 {
+			return elements[0]
+		}
+	}
+	return v
 }
 
 // primitiveText spells a Boolean, Integer or UnlimitedNatural as fUML ToString does.

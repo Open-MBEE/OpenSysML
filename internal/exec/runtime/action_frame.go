@@ -275,7 +275,10 @@ func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 		name := root.key(attr.Name)
 		cells := e.performances.bodyCells(root)
 		check := func(value *Value) error {
-			return e.holdAttributeAsReal(attr, value)
+			if err := e.holdAttributeAsReal(attr, value); err != nil {
+				return err
+			}
+			return e.ctx.shapeDeclared(scope, attr.Name, value)
 		}
 		var cell *bodyCell
 		context := func(scope *symbols.Scope) *EvalContext {
@@ -1036,7 +1039,7 @@ func (f *actionFrame) repeatedPin(name string) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		values = append(values, value)
+		values = append(values, elementsOf(value)...)
 	}
 	return sequenceOf(values), nil
 }

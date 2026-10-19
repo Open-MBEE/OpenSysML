@@ -2,8 +2,8 @@
 	"type": "action",
 	"outputs": {
 		"result": {"type": "Integer", "value": 21},
-		"p.v": {"type": "Integer", "value": 21},
-		"q.v": {"type": "Integer", "value": 21},
-		"q.w": {"type": "Integer", "value": 42}
+		"p.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 21}]},
+		"q.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 21}]},
+		"q.w": {"type": "Sequence", "elements": [{"type": "Integer", "value": 42}]}
 	}
 }

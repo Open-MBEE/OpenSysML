@@ -10,7 +10,7 @@ step 3: token 2@sync, token 3@sync
 step 4: token 4@doIt
 step 1: token 1@bump
 stmt assign result
-    eval feature x -> 1
+    eval feature x -> (1)
     eval literal 5 -> 5
   eval operator + -> 6
 step 2: token 1@done

@@ -12,6 +12,6 @@ stmt assign v
   eval feature x -> 2
 step 5: token 4@finish
 stmt assign result
-  eval chain v -> 2
+  eval chain v -> (2)
 step 6: token 4@done
 step 7: no active tokens
