@@ -58,50 +58,7 @@ func (g *group) registerConversion(s *mcp.Server) {
 			"back as `content` for the agent to write. A SysML v1 model is refused with INVALID_ARGUMENT: use migrate. The result is the " +
 			"ConvertResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Convert model"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ConvertInput) (*mcp.CallToolResult, Result, error) {
-		var m model
-		named := in.ModelHash != "" || len(in.Paths)+len(in.Sources) > 0
-		sources := 0
-		for _, given := range []bool{named, in.FilePath != "", in.Content != nil} {
-			if given {
-				sources++
-			}
-		}
-		if sources != 1 {
-			return nil, nil, argumentError("convert needs exactly one source: a model (modelHash, paths or sources), filePath, or content")
-		}
-		if named {
-			var err error
-			if m, err = g.resolve(ctx, in.ModelInput); err != nil {
-				return nil, nil, err
-			}
-		}
-		req := &pb.ConvertRequest{}
-		if err := unmarshal(in, m.hash, req); err != nil {
-			return nil, nil, err
-		}
-		if path, ok := req.GetSource().(*pb.ConvertRequest_FilePath); ok {
-			resolved, err := g.path(path.FilePath, sourceNameRole(req.FromFormat))
-			if err != nil {
-				return nil, nil, err
-			}
-			path.FilePath = resolved
-		}
-		resp, err := g.svc.Convert(ctx, req)
-		if err != nil {
-			return nil, nil, toolError(err)
-		}
-		var b strings.Builder
-		b.WriteString(errorText(resp.GetError()))
-		if resp.GetExperimentalNotice() != "" {
-			b.WriteString("notice: " + resp.GetExperimentalNotice() + "\n")
-		}
-		b.WriteString(diagnosticsText(resp.GetDiagnostics()))
-		if resp.GetError() == "" {
-			fmt.Fprintf(&b, "%s -> %s:\n%s", resp.GetFromFormat(), resp.GetToFormat(), resp.GetContent())
-		}
-		return answer(resp, m, b.String())
-	})
+	}, g.convert)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "migrate",
@@ -140,29 +97,7 @@ func (g *group) registerConversion(s *mcp.Server) {
 		if err != nil {
 			return nil, nil, toolError(err)
 		}
-		var b strings.Builder
-		b.WriteString(errorText(resp.GetError()))
-		if resp.GetExperimentalNotice() != "" {
-			b.WriteString("notice: " + resp.GetExperimentalNotice() + "\n")
-		}
-		if report := resp.GetReport(); report != nil {
-			if report.GetSummary() != "" {
-				b.WriteString(report.GetSummary() + "\n")
-			}
-			if report.GetText() != "" {
-				b.WriteString(report.GetText())
-				if !strings.HasSuffix(report.GetText(), "\n") {
-					b.WriteByte('\n')
-				}
-			}
-		}
-		for _, f := range resp.GetFiles() {
-			fmt.Fprintf(&b, "file %s (%d bytes)\n", f.GetPath(), len(f.GetContent()))
-		}
-		if resp.GetError() == "" {
-			fmt.Fprintf(&b, "%s -> %s:\n%s", resp.GetFromFormat(), resp.GetToFormat(), resp.GetContent())
-		}
-		return answer(resp, model{}, b.String())
+		return answer(resp, model{}, migrateText(resp))
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -174,50 +109,143 @@ func (g *group) registerConversion(s *mcp.Server) {
 			"nothing is applied. Nothing is written to disk: the edited text comes back as `content` (one document) or `documents` " +
 			"for the agent to write. The result is the ApplyEditsResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Apply edits"),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ApplyEditsInput) (*mcp.CallToolResult, Result, error) {
-		m, err := g.resolve(ctx, in.ModelInput)
+	}, g.applyEdits)
+}
+
+// convert serves the convert tool: it resolves the named source and converts it.
+func (g *group) convert(ctx context.Context, _ *mcp.CallToolRequest, in ConvertInput) (*mcp.CallToolResult, Result, error) {
+	m, err := g.convertSource(ctx, in)
+	if err != nil {
+		return nil, nil, err
+	}
+	req := &pb.ConvertRequest{}
+	if err := unmarshal(in, m.hash, req); err != nil {
+		return nil, nil, err
+	}
+	if path, ok := req.GetSource().(*pb.ConvertRequest_FilePath); ok {
+		resolved, err := g.path(path.FilePath, sourceNameRole(req.FromFormat))
 		if err != nil {
 			return nil, nil, err
 		}
-		req := &pb.ApplyEditsRequest{}
-		if err := unmarshal(in, m.hash, req); err != nil {
-			return nil, nil, err
+		path.FilePath = resolved
+	}
+	resp, err := g.svc.Convert(ctx, req)
+	if err != nil {
+		return nil, nil, toolError(err)
+	}
+	return answer(resp, m, convertText(resp))
+}
+
+// applyEdits serves the apply_edits tool over the resolved model.
+func (g *group) applyEdits(ctx context.Context, _ *mcp.CallToolRequest, in ApplyEditsInput) (*mcp.CallToolResult, Result, error) {
+	m, err := g.resolve(ctx, in.ModelInput)
+	if err != nil {
+		return nil, nil, err
+	}
+	req := &pb.ApplyEditsRequest{}
+	if err := unmarshal(in, m.hash, req); err != nil {
+		return nil, nil, err
+	}
+	resp, err := g.svc.ApplyEdits(ctx, req)
+	if err != nil {
+		return nil, nil, toolError(err)
+	}
+	return answer(resp, m, applyEditsText(resp))
+}
+
+// convertSource checks that convert names exactly one source and resolves the
+// model when the source is one; a file path or inline content resolves nothing.
+func (g *group) convertSource(ctx context.Context, in ConvertInput) (model, error) {
+	named := in.ModelHash != "" || len(in.Paths)+len(in.Sources) > 0
+	sources := 0
+	for _, given := range []bool{named, in.FilePath != "", in.Content != nil} {
+		if given {
+			sources++
 		}
-		resp, err := g.svc.ApplyEdits(ctx, req)
-		if err != nil {
-			return nil, nil, toolError(err)
+	}
+	if sources != 1 {
+		return model{}, argumentError("convert needs exactly one source: a model (modelHash, paths or sources), filePath, or content")
+	}
+	if !named {
+		return model{}, nil
+	}
+	return g.resolve(ctx, in.ModelInput)
+}
+
+// convertText reports a conversion: its error or notice, diagnostics and content.
+func convertText(resp *pb.ConvertResponse) string {
+	var b strings.Builder
+	b.WriteString(errorText(resp.GetError()))
+	if resp.GetExperimentalNotice() != "" {
+		b.WriteString("notice: " + resp.GetExperimentalNotice() + "\n")
+	}
+	b.WriteString(diagnosticsText(resp.GetDiagnostics()))
+	if resp.GetError() == "" {
+		fmt.Fprintf(&b, "%s -> %s:\n%s", resp.GetFromFormat(), resp.GetToFormat(), resp.GetContent())
+	}
+	return b.String()
+}
+
+// migrateText reports a migration: its error or notice, report, files and content.
+func migrateText(resp *pb.MigrateResponse) string {
+	var b strings.Builder
+	b.WriteString(errorText(resp.GetError()))
+	if resp.GetExperimentalNotice() != "" {
+		b.WriteString("notice: " + resp.GetExperimentalNotice() + "\n")
+	}
+	if report := resp.GetReport(); report != nil {
+		if report.GetSummary() != "" {
+			b.WriteString(report.GetSummary() + "\n")
 		}
-		var b strings.Builder
-		if resp.GetError() != "" {
-			fmt.Fprintf(&b, "error: %s (%s)\n", resp.GetError(), resp.GetFailure().String())
-			for _, r := range resp.GetReferrers() {
-				fmt.Fprintf(&b, "referrer %s in %s\n", r.GetName(), r.GetDocument())
+		if report.GetText() != "" {
+			b.WriteString(report.GetText())
+			if !strings.HasSuffix(report.GetText(), "\n") {
+				b.WriteByte('\n')
 			}
-			for _, r := range resp.GetReferringElements() {
-				fmt.Fprintf(&b, "referrer %s\n", r)
+		}
+	}
+	for _, f := range resp.GetFiles() {
+		fmt.Fprintf(&b, "file %s (%d bytes)\n", f.GetPath(), len(f.GetContent()))
+	}
+	if resp.GetError() == "" {
+		fmt.Fprintf(&b, "%s -> %s:\n%s", resp.GetFromFormat(), resp.GetToFormat(), resp.GetContent())
+	}
+	return b.String()
+}
+
+// applyEditsText reports an edit batch: its refusal, the edits applied, the
+// diagnostics and the edited documents.
+func applyEditsText(resp *pb.ApplyEditsResponse) string {
+	var b strings.Builder
+	if resp.GetError() != "" {
+		fmt.Fprintf(&b, "error: %s (%s)\n", resp.GetError(), resp.GetFailure().String())
+		for _, r := range resp.GetReferrers() {
+			fmt.Fprintf(&b, "referrer %s in %s\n", r.GetName(), r.GetDocument())
+		}
+		for _, r := range resp.GetReferringElements() {
+			fmt.Fprintf(&b, "referrer %s\n", r)
+		}
+	}
+	for _, a := range resp.GetApplied() {
+		fmt.Fprintf(&b, "edit %d on %s", a.GetOperationIndex(), a.GetTarget())
+		if a.GetDocument() != "" {
+			fmt.Fprintf(&b, " in %s", a.GetDocument())
+		}
+		fmt.Fprintf(&b, ": %q -> %q\n", a.GetOldText(), a.GetNewText())
+	}
+	b.WriteString(diagnosticsText(resp.GetDiagnostics()))
+	switch {
+	case len(resp.GetDocuments()) > 0:
+		for _, d := range resp.GetDocuments() {
+			fmt.Fprintf(&b, "--- %s\n%s", d.GetName(), d.GetContent())
+			if !strings.HasSuffix(d.GetContent(), "\n") {
+				b.WriteByte('\n')
 			}
 		}
-		for _, a := range resp.GetApplied() {
-			fmt.Fprintf(&b, "edit %d on %s", a.GetOperationIndex(), a.GetTarget())
-			if a.GetDocument() != "" {
-				fmt.Fprintf(&b, " in %s", a.GetDocument())
-			}
-			fmt.Fprintf(&b, ": %q -> %q\n", a.GetOldText(), a.GetNewText())
-		}
-		b.WriteString(diagnosticsText(resp.GetDiagnostics()))
-		switch {
-		case len(resp.GetDocuments()) > 0:
-			for _, d := range resp.GetDocuments() {
-				fmt.Fprintf(&b, "--- %s\n%s", d.GetName(), d.GetContent())
-				if !strings.HasSuffix(d.GetContent(), "\n") {
-					b.WriteByte('\n')
-				}
-			}
-		case resp.GetError() == "":
-			b.WriteString(resp.GetContent())
-		}
-		return answer(resp, m, b.String())
-	})
+	case resp.GetError() == "":
+		b.WriteString(resp.GetContent())
+	}
+	return b.String()
 }
 
 // sourceNameRole is what the service reads from a convert or migrate source's
