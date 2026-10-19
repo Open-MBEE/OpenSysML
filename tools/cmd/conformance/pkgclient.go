@@ -53,74 +53,110 @@ func (c *pkgClient) call(ctx context.Context, method string, request protoreflec
 	return response.ProtoReflect(), nil
 }
 
+// pkgCall makes one RPC through the public API.
+type pkgCall func(ctx context.Context, request protoreflect.Message) (proto.Message, error)
+
 // dispatch makes the call through the public API and rebuilds the wire
 // response from what the API returned, so the comparison sees exactly what a
 // Go caller was given.
 func (c *pkgClient) dispatch(ctx context.Context, method string, request protoreflect.Message) (proto.Message, error) {
+	for _, family := range []func(string) (pkgCall, bool){c.modelCall, c.runtimeCall, c.verificationCall, c.documentCall} {
+		if call, ok := family(method); ok {
+			return call(ctx, request)
+		}
+	}
+	return nil, &uncoveredError{reason: fmt.Sprintf("the public Go API does not cover %s", method)}
+}
+
+// modelCall is the RPC reading or editing a model: the handshake, parsing,
+// symbols, diagnostics, queries and edits.
+func (c *pkgClient) modelCall(method string) (pkgCall, bool) {
 	switch method {
 	case "GetServerInfo":
-		return c.serverInfo(ctx)
+		return func(ctx context.Context, _ protoreflect.Message) (proto.Message, error) { return c.serverInfo(ctx) }, true
 	case "ListEngines":
-		return c.listEngines(ctx, request)
+		return c.listEngines, true
 	case "ParseFile":
-		return c.parseFile(ctx, request)
+		return c.parseFile, true
 	case "ParseSources":
-		return c.parseSources(ctx, request)
+		return c.parseSources, true
 	case "GetSymbol":
-		return c.getSymbol(ctx, request)
+		return c.getSymbol, true
 	case "GetDiagnostics":
-		return c.getDiagnostics(ctx, request)
-	case "Evaluate":
-		return c.evaluate(ctx, request)
-	case "Instantiate":
-		return c.instantiate(ctx, request)
-	case "ExecuteAction":
-		return c.executeAction(ctx, request)
-	case "ExecuteState":
-		return c.executeState(ctx, request)
-	case "CheckBehavior":
-		return c.checkBehavior(ctx, request)
-	case "VerifyConstraint":
-		return c.verifyConstraint(ctx, request)
-	case "VerifyRequirement":
-		return c.verifyRequirement(ctx, request)
-	case "VerifySatisfaction":
-		return c.verifySatisfaction(ctx, request)
-	case "ValidateInstance":
-		return c.validateInstance(ctx, request)
-	case "EvaluateCalc":
-		return c.evaluateCalc(ctx, request)
-	case "RunAnalysis":
-		return c.runAnalysis(ctx, request)
+		return c.getDiagnostics, true
 	case "Query":
-		return c.query(ctx, request)
-	case "RunDocumentQuery":
-		return c.runDocumentQuery(ctx, request)
-	case "RenderDocument":
-		return c.renderDocument(ctx, request)
-	case "RenderView":
-		return c.renderView(ctx, request)
-	case "ExportGraphs":
-		return c.exportGraphs(ctx, request)
-	case "RunRuns":
-		return c.runRuns(ctx, request)
-	case "SelfCheck":
-		return c.selfCheck(ctx, request)
-	case "RecordRun":
-		return c.recordRun(ctx, request)
-	case "ImportData":
-		return c.importData(ctx, request)
-	case "CompareResults":
-		return c.compareResults(ctx, request)
-	case "Convert":
-		return c.convert(ctx, request)
-	case "Migrate":
-		return c.migrate(ctx, request)
+		return c.query, true
 	case "ApplyEdits":
-		return c.applyEdits(ctx, request)
-	default:
-		return nil, &uncoveredError{reason: fmt.Sprintf("the public Go API does not cover %s", method)}
+		return c.applyEdits, true
 	}
+	return nil, false
+}
+
+// runtimeCall is the RPC running a model: evaluation, instantiation,
+// execution, analyses and the data they read or record.
+func (c *pkgClient) runtimeCall(method string) (pkgCall, bool) {
+	switch method {
+	case "Evaluate":
+		return c.evaluate, true
+	case "Instantiate":
+		return c.instantiate, true
+	case "ExecuteAction":
+		return c.executeAction, true
+	case "ExecuteState":
+		return c.executeState, true
+	case "CheckBehavior":
+		return c.checkBehavior, true
+	case "EvaluateCalc":
+		return c.evaluateCalc, true
+	case "RunAnalysis":
+		return c.runAnalysis, true
+	case "RunRuns":
+		return c.runRuns, true
+	case "RecordRun":
+		return c.recordRun, true
+	case "ImportData":
+		return c.importData, true
+	}
+	return nil, false
+}
+
+// verificationCall is the RPC passing a verdict: constraints, requirements,
+// satisfaction, instance validation, the self-check and result comparison.
+func (c *pkgClient) verificationCall(method string) (pkgCall, bool) {
+	switch method {
+	case "VerifyConstraint":
+		return c.verifyConstraint, true
+	case "VerifyRequirement":
+		return c.verifyRequirement, true
+	case "VerifySatisfaction":
+		return c.verifySatisfaction, true
+	case "ValidateInstance":
+		return c.validateInstance, true
+	case "SelfCheck":
+		return c.selfCheck, true
+	case "CompareResults":
+		return c.compareResults, true
+	}
+	return nil, false
+}
+
+// documentCall is the RPC producing a document, diagram or translation.
+func (c *pkgClient) documentCall(method string) (pkgCall, bool) {
+	switch method {
+	case "RunDocumentQuery":
+		return c.runDocumentQuery, true
+	case "RenderDocument":
+		return c.renderDocument, true
+	case "RenderView":
+		return c.renderView, true
+	case "ExportGraphs":
+		return c.exportGraphs, true
+	case "Convert":
+		return c.convert, true
+	case "Migrate":
+		return c.migrate, true
+	}
+	return nil, false
 }
 
 func (c *pkgClient) serverInfo(ctx context.Context) (proto.Message, error) {
