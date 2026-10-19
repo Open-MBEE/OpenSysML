@@ -444,11 +444,11 @@ func TestRunBindsAnActionsInputsPositionallyOrByName(t *testing.T) {
 
 	var v Verdict
 	must(t, cs, "session_run", args("kind", "action", "name", "Inputs::Double", "arguments", []string{"3"}), &v)
-	if v.Status != "holds" || !slices.Contains(v.Values, NamedValue{Name: "y", Value: "6"}) {
+	if v.Status != "holds" || !slices.Contains(v.Values, NamedValue{Name: "y", Value: "[6]"}) {
 		t.Errorf("positional run = %+v", v)
 	}
 	must(t, cs, "session_run", args("kind", "action", "name", "Inputs::Double", "arguments", []string{"x = 4"}), &v)
-	if v.Status != "holds" || !slices.Contains(v.Values, NamedValue{Name: "y", Value: "8"}) {
+	if v.Status != "holds" || !slices.Contains(v.Values, NamedValue{Name: "y", Value: "[8]"}) {
 		t.Errorf("named run = %+v", v)
 	}
 	for _, tc := range []struct{ args, wants string }{
