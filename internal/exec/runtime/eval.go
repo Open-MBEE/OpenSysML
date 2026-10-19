@@ -1625,7 +1625,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity, ValQuantity, ValMeasurementRef, ValCoordinateFrame, ValCoordinateTransformation:
 		// An array or vector read from an object keeps that object's members; a
 		// frame answers its own features from the value, then from its object.
-		if inst, ok := ec.ctx.structuredObject(value); ok && isStructuredValue(&value) {
+		if inst, ok := ec.ctx.structuredObject(value); ok && (isStructuredValue(&value) || value.Kind == ValQuantity) {
 			return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
 		}
 		return ec.chainOwnFeature(value, parts, from)

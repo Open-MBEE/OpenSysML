@@ -398,6 +398,8 @@ func backingObject(value Value) int64 {
 		return value.Array().Object
 	case ValVector:
 		return value.Vector().Object
+	case ValQuantity:
+		return value.Quantity().Object
 	case ValCoordinateFrame:
 		return value.CoordinateFrame().Object
 	case ValCoordinateTransformation:
@@ -594,7 +596,7 @@ func (ctx *Context) scalarQuantityOfObject(inst *Instance, array Value) (Value, 
 			ErrTypeMismatch, op, DescribeValue(elements[0]),
 		)
 	}
-	return NewQuantityValue(&Quantity{Num: elements[0].Const, Unit: unit}), true, nil
+	return NewQuantityValue(&Quantity{Num: elements[0].Const, Unit: unit, Object: inst.ID}), true, nil
 }
 
 // objectArrayFeature is the values an object holds under a Collections::Array

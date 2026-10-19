@@ -9,6 +9,10 @@
     ]},
     "centeredUnit": {"type": "MeasurementRef", "unit": "m"},
     "nudgedNum": {"type": "Integer", "value": 3},
-    "nudgedDimensions": {"type": "Sequence", "elements": []}
+    "nudgedDimensions": {"type": "Sequence", "elements": []},
+    "taggedValue": {"type": "Quantity", "value": 2, "unit": "m"},
+    "taggedTag": {"type": "Integer", "value": 7},
+    "heldValue": {"type": "Quantity", "value": 4, "unit": "m"},
+    "heldTag": {"type": "Integer", "value": 9}
   }
 }
