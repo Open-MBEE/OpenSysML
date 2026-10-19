@@ -53,7 +53,7 @@ surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 2
 timeSliceOf: collection of 1
 timeSlices: collection of 1
 unionsOf: empty
@@ -443,7 +443,7 @@ withoutOccurrences: empty
 differencesOf: empty
 dispatchScope: undetermined <undetermined>
 done: undetermined <undetermined>
-enclosedPerformances: undetermined <undetermined>
+enclosedPerformances: empty
 immediatePredecessors: empty
 immediateSuccessors: empty
 incomingTransferSort: undetermined <undetermined>
@@ -487,8 +487,8 @@ spaceTimeCoincidentOccurrences: undetermined <undetermined>
 spaceTimeEnclosedOccurrences: undetermined <undetermined>
 spaceTimeEnclosedPoints: undetermined <undetermined>
 start: undetermined <undetermined>
-suboccurrences: undetermined <undetermined>
-subperformances: undetermined <undetermined>
+suboccurrences: empty
+subperformances: empty
 successors: empty
 superoccurrence: null
 surroundedByOccurrences: empty

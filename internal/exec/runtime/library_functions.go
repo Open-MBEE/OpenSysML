@@ -74,32 +74,32 @@ func init() {
 	// parameters, so an Integer argument widens (ScalarValues declares
 	// Integer :> Rational :> Real); `floor` and `round` return Integer.
 	registerLibraryFunction("RealFunctions::sqrt", []string{"x"}, realUnary(math.Sqrt))
-	registerLibraryFunction("RealFunctions::abs", []string{"x"}, realUnary(math.Abs))
+	registerOrderedFunction("RealFunctions::abs", []string{"x"}, realUnary(math.Abs))
 	registerLibraryFunction("RealFunctions::floor", []string{"x"}, floorToInteger)
 	registerLibraryFunction("RealFunctions::round", []string{"x"}, roundToInteger)
-	registerLibraryFunction("RealFunctions::max", []string{"x", "y"}, realBinary(math.Max))
-	registerLibraryFunction("RealFunctions::min", []string{"x", "y"}, realBinary(math.Min))
+	registerOrderedFunction("RealFunctions::max", []string{"x", "y"}, realBinary(math.Max))
+	registerOrderedFunction("RealFunctions::min", []string{"x", "y"}, realBinary(math.Min))
 
 	// RationalFunctions declares the same three operations over Rational.
-	registerLibraryFunction("RationalFunctions::abs", []string{"x"}, numericAbs)
-	registerLibraryFunction("RationalFunctions::max", []string{"x", "y"}, numericExtremum(true))
-	registerLibraryFunction("RationalFunctions::min", []string{"x", "y"}, numericExtremum(false))
+	registerOrderedFunction("RationalFunctions::abs", []string{"x"}, numericAbs)
+	registerOrderedFunction("RationalFunctions::max", []string{"x", "y"}, numericExtremum(true))
+	registerOrderedFunction("RationalFunctions::min", []string{"x", "y"}, numericExtremum(false))
 
 	// NumericalFunctions declares them abstractly over NumericalValue, so the
 	// result keeps the operands' kind: Integer arguments give an Integer.
-	registerLibraryFunction("NumericalFunctions::abs", []string{"x"}, numericAbs)
-	registerLibraryFunction("NumericalFunctions::max", []string{"x", "y"}, numericExtremum(true))
-	registerLibraryFunction("NumericalFunctions::min", []string{"x", "y"}, numericExtremum(false))
+	registerOrderedFunction("NumericalFunctions::abs", []string{"x"}, numericAbs)
+	registerOrderedFunction("NumericalFunctions::max", []string{"x", "y"}, numericExtremum(true))
+	registerOrderedFunction("NumericalFunctions::min", []string{"x", "y"}, numericExtremum(false))
 	registerLibraryFunction("NumericalFunctions::isZero", []string{"x"}, isZero)
 	registerLibraryFunction("NumericalFunctions::isUnit", []string{"x"}, isUnit)
 
 	// IntegerFunctions and NaturalFunctions declare Integer parameters, so a
 	// Real argument does not conform and is rejected rather than truncated.
-	registerLibraryFunction("IntegerFunctions::abs", []string{"x"}, integerAbs, integerDomain)
-	registerLibraryFunction("IntegerFunctions::max", []string{"x", "y"}, integerExtremum(true), integerDomain, integerDomain)
-	registerLibraryFunction("IntegerFunctions::min", []string{"x", "y"}, integerExtremum(false), integerDomain, integerDomain)
-	registerLibraryFunction("NaturalFunctions::max", []string{"x", "y"}, integerExtremum(true), naturalDomain, naturalDomain)
-	registerLibraryFunction("NaturalFunctions::min", []string{"x", "y"}, integerExtremum(false), naturalDomain, naturalDomain)
+	registerOrderedFunction("IntegerFunctions::abs", []string{"x"}, integerAbs, integerDomain)
+	registerOrderedFunction("IntegerFunctions::max", []string{"x", "y"}, integerExtremum(true), integerDomain, integerDomain)
+	registerOrderedFunction("IntegerFunctions::min", []string{"x", "y"}, integerExtremum(false), integerDomain, integerDomain)
+	registerOrderedFunction("NaturalFunctions::max", []string{"x", "y"}, integerExtremum(true), naturalDomain, naturalDomain)
+	registerOrderedFunction("NaturalFunctions::min", []string{"x", "y"}, integerExtremum(false), naturalDomain, naturalDomain)
 
 	// TrigFunctions. The library names the angle `theta` and the inverse
 	// functions `arcsin`/`arccos`/`arctan` over a `x` parameter; `tan` and `cot`
@@ -228,6 +228,45 @@ func registerStringFunctions() {
 // domain each parameter puts on its argument by itself.
 func registerLibraryFunction(name string, params []string, apply func([]semantics.Value) (semantics.Value, error), domains ...scalarDomain) {
 	registerContextFunction(name, params, pureScalars(apply), domains...)
+}
+
+// registerOrderedFunction is registerLibraryFunction for `abs`, `max` and `min`,
+// which the ordering of the unbounded `*` answers as well as a number does.
+func registerOrderedFunction(name string, params []string, apply func([]semantics.Value) (semantics.Value, error), domains ...scalarDomain) {
+	finite := numericScalars(params, pureScalars(apply), domains)
+	registerValueFunction(name, params, len(params), orderedOverUnbounded(finite, strings.HasSuffix(name, "::min")))
+	libraryFunctions[name].scalar = true
+	undeterminedAware[name] = true
+}
+
+// orderedOverUnbounded extends finite, an `abs`, `max` or `min` over numbers, to
+// the unbounded `*`, which KerML 1.0 §8.2.5.8.4 places above every integer: the
+// absolute value of `*` is `*`, a maximum beside it is `*`, and a minimum (least)
+// beside it is the other operand, held as the function holds that operand alone.
+// A call without `*` is finite's, as is the check of the other operand's domain.
+func orderedOverUnbounded(finite libraryApply, least bool) libraryApply {
+	unbounded := func(arg Value) bool { return isUnbounded(soleElement(arg)) }
+	return func(name string, ctx *Context, args []Value) (Value, error) {
+		switch {
+		case len(args) == 1 && unbounded(args[0]):
+			return soleElement(args[0]), nil
+		case len(args) == 2 && (unbounded(args[0]) || unbounded(args[1])):
+		default:
+			return finite(name, ctx, args)
+		}
+		other := args[1]
+		if unbounded(args[1]) {
+			other = args[0]
+		}
+		if unbounded(other) {
+			return soleElement(other), nil
+		}
+		held, err := finite(name, ctx, []Value{other, other})
+		if err != nil || least {
+			return held, err
+		}
+		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}, nil
+	}
 }
 
 // pureScalars lifts an implementation over its arguments alone to a contextApply.
