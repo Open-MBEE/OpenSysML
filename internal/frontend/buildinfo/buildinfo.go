@@ -172,9 +172,8 @@ func semanticVersion(version string) bool {
 	return rest == ""
 }
 
-// pseudoVersion reports whether a version is one the toolchain derived from a
-// commit, in the shape golang.org/x/mod/module documents: a base version, a
-// 14-digit timestamp and a revision, with optional build metadata.
+// pseudoVersion matches a commit-derived module version as golang.org/x/mod/module
+// shapes it: a base version, a 14-digit timestamp, a revision and optional build metadata.
 func pseudoVersion(version string) bool {
 	body, meta, hasMeta := strings.Cut(version, "+")
 	if hasMeta && !buildMetadata(meta) {
