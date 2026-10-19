@@ -5538,9 +5538,21 @@ type ConvertRequest struct {
 	// With omit_derived: the derived properties still written, named as in the
 	// element form ("owner", "qualifiedName"). A name that is not a derived
 	// property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
-	KeepDerived   []string `protobuf:"bytes,11,rep,name=keep_derived,json=keepDerived,proto3" json:"keep_derived,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	KeepDerived []string `protobuf:"bytes,11,rep,name=keep_derived,json=keepDerived,proto3" json:"keep_derived,omitempty"`
+	// Report the semantic check's diagnostics alongside the output, each with its
+	// own severity ("error", "warning" or "info") and code, as ParseFile and
+	// GetDiagnostics report them: the source is analyzed as a parse analyzes it,
+	// so an unresolved type is an error here while the conversion itself stands
+	// or fails as it would without the field. Notation sources only: a graph
+	// source has no notation to check, so one is INVALID_ARGUMENT. A source with
+	// syntax errors reports those alone, since the passes do not run on a model
+	// that did not parse. For a model_hash the cached analysis is reported; with
+	// documents, the written documents' only. Default off, which reports the
+	// syntax errors alone as before. Reported as the "convert_check_diagnostics"
+	// capability.
+	IncludeCheckDiagnostics bool `protobuf:"varint,12,opt,name=include_check_diagnostics,json=includeCheckDiagnostics,proto3" json:"include_check_diagnostics,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *ConvertRequest) Reset() {
@@ -5663,6 +5675,13 @@ func (x *ConvertRequest) GetKeepDerived() []string {
 	return nil
 }
 
+func (x *ConvertRequest) GetIncludeCheckDiagnostics() bool {
+	if x != nil {
+		return x.IncludeCheckDiagnostics
+	}
+	return false
+}
+
 type isConvertRequest_Source interface {
 	isConvertRequest_Source()
 }
@@ -5695,7 +5714,8 @@ type ConvertResponse struct {
 	ToFormat   string `protobuf:"bytes,3,opt,name=to_format,json=toFormat,proto3" json:"to_format,omitempty"`
 	Error      string `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"` // non-empty if the conversion failed; content is unset
 	// Syntax errors tolerated under tolerate_syntax_errors, or those that failed
-	// the conversion.
+	// the conversion; with include_check_diagnostics, the semantic check's
+	// diagnostics as well, each with its own severity.
 	Diagnostics []*Diagnostic `protobuf:"bytes,5,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
 	// Set when either format is RDF or the API's JSON element form, whose
 	// mapping is experimental: it covers model structure and the behavior its
@@ -17249,7 +17269,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\x1aA\n" +
 	"\x13OrderDependentEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\x81\x03\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xbd\x03\n" +
 	"\x0eConvertRequest\x12\x1d\n" +
 	"\tfile_path\x18\x01 \x01(\tH\x00R\bfilePath\x12\x1a\n" +
 	"\acontent\x18\x02 \x01(\tH\x00R\acontent\x12\x1f\n" +
@@ -17264,7 +17284,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\acompact\x18\t \x01(\bR\acompact\x12!\n" +
 	"\fomit_derived\x18\n" +
 	" \x01(\bR\vomitDerived\x12!\n" +
-	"\fkeep_derived\x18\v \x03(\tR\vkeepDerivedB\b\n" +
+	"\fkeep_derived\x18\v \x03(\tR\vkeepDerived\x12:\n" +
+	"\x19include_check_diagnostics\x18\f \x01(\bR\x17includeCheckDiagnosticsB\b\n" +
 	"\x06source\"\x89\x02\n" +
 	"\x0fConvertResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12\x1f\n" +
