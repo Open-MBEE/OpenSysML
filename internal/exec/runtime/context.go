@@ -2027,6 +2027,7 @@ func (ctx *Context) performedBinding(behavior *ObjectBehavior, name string) (Val
 // heldBinding evaluates the argument a held performance's declaration binds parameter
 // name with, in the performer's scope, as a probe: nothing the evaluation materializes
 // or starts outlives it, so the held performance is neither released nor rescheduled.
+// Outside a run it has a run's own budget, as the start it precedes would.
 func (ctx *Context) heldBinding(behavior *ObjectBehavior, name string) (Value, bool, error) {
 	decl := *behavior.deferred
 	scope := ctx.argumentScope(behavior.Object, decl)
@@ -2034,6 +2035,7 @@ func (ctx *Context) heldBinding(behavior *ObjectBehavior, name string) (Value, b
 		if ctx.argumentParameter(scope, arg) != name {
 			continue
 		}
+		defer ctx.beginRun()()
 		defer ctx.beginProbe()()
 		value, err := ctx.classifierBehaviorArgument(behavior.Object, decl, scope, arg)
 		if err != nil {

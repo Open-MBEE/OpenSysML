@@ -353,3 +353,43 @@ func TestActionHeldBindingThroughACalcUsageReadsItAnew(t *testing.T) {
 		t.Fatalf("held later offered right once useLeft is false: %v, want only %v", err, errSuccessionOrderViolated)
 	}
 }
+
+// Checking a held action's inputs outside a run has a run's own step budget, as
+// the start it precedes would: a budget an earlier run spent does not refuse the
+// declared binding.
+func TestActionHeldInputCheckHasItsOwnBudget(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package H {
+		private import ScalarValues::*;
+		part def Heater { attribute level : Integer = 0; }
+		action def Nudge {
+			in delta : Integer[1] = 1;
+			in ref context : Heater[1];
+			first apply;
+			action apply { assign context.level := context.level + delta; }
+			first apply then done;
+		}
+		part def Host {
+			part other : Heater;
+			perform action earlier { first start; then action w accept after 5 [SI::s]; then done; }
+			perform action later : Nudge { in ref :>> context = other; }
+			first earlier then later;
+		}
+	}`))
+	host := mustInstantiate(t, ctx, oneSymbol(t, idx, "H::Host"))
+	later := oneSymbol(t, idx, "H::Host::later")
+	fv, err := host.GetFeatureValue(ctx, "other")
+	if err != nil {
+		t.Fatalf("read other: %v", err)
+	}
+	other := fv.HeldValue()
+
+	// The run left behind at the prompt has spent its whole budget.
+	ctx.run.steps = ctx.maxSteps
+	_, _, err = ctx.StartActionPerformedBy(later, host, map[string]Value{"context": other})
+	if errors.Is(err, ErrStepLimitExceeded) {
+		t.Fatalf("held later checked after a spent run: %v, want the check on a budget of its own", err)
+	}
+	if !errors.Is(err, errSuccessionOrderViolated) || errors.Is(err, errPerformedInputs) {
+		t.Fatalf("held later offered its declared binding: %v, want only %v", err, errSuccessionOrderViolated)
+	}
+}
