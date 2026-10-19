@@ -18,6 +18,7 @@ divergence is also a row in [spec-compliance.md](spec-compliance.md).
 | `Domain Libraries/Quantities and Units/VectorCalculations.sysml` | `calc def outer` | `calc def outer { in : VectorQuantityValue[1]; in : VectorQuantityValue[1]; return : VectorQuantityValue[1]; }` — a vector, where the outer product of two vectors of orders one is a tensor of order two (`TensorCalculations::'['` returns `TensorQuantityValue[1]` for exactly that shape) | nothing: `outer` is `errUnevaluableLibraryFunction` naming the declaration and its return type (`runtime/quantity_functions.go` `registerVectorCalculations`); the checker types a call by the declared `VectorQuantityValue` | No `VectorQuantityValue` holds an outer product, and answering a `TensorQuantityValue` would disagree with the checker and the declaration; the draft below asks for `return : TensorQuantityValue[1]` |
 | `Domain Libraries/Quantities and Units/TensorCalculations.sysml` | `calc def isUnitTensorQuantity` | `calc def isUnitTensorQuantity { in x : TensorQuantityValue[1]; return : Boolean[1]; }` — no body, and no statement of which tensor is the unit one beside `isUnitVectorQuantity` (a vector of norm one) | the identity of a square order-two tensor: `true` when every diagonal component is one and every other zero; a tensor of any other shape (a vector, a 2×3, an order three) is `errUnevaluableLibraryFunction` naming the shape it needs (`runtime/tensor_functions.go` `tensorIsUnit`) | The library names no unit tensor; the identity matrix is the one tensor with an established claim to the name, and it exists for square order two alone, so a reading over other shapes would be invented. Recorded so the reading can be checked against a future release that gives the calculation a body |
 | `Domain Libraries/Geometry/ShapeItems.sysml` | `item def CuboidOrTriangularPrism` (`Cuboid`, `RectangularCuboid`, `Box`) | `item tfe [2] :> edges;` … `binding [1] bind [0..1] tf.edges = [0..1] tfe;` `binding [1] bind [0..1] ff.edges = [0..1] tfe;` — every named edge group and vertex group (`tfe`…`urre`, `tflv`…`brrv`) is valued only by bindings whose ends link *one unspecified* value each; and `item :>> vertices; assert constraint { size(vertices) == size(edges) }` beside `Quadrilateral`'s `item :>> vertices [8];` and `StructuredSpaceObject`'s `faces.vertices subsets vertices` | the groups and everything read through them (`box.tfe`, `box.tflv`, `box.tfe.length`, `box.vertices`) are the typed `errBindingEnd` naming the binding; the runtime never picks a member (`runtime/binding.go` `undeterminedBindingError`) | No conjunction of the bindings, the `MatesWith` connections and the `size(...)` assertions identifies which of a face's four edges a group holds, so no evaluator can name `tfe`; and a `Cuboid`'s `vertices` cannot be both a superset of its six faces' 48 vertex objects and 24 long. The draft below records both |
+| `Domain Libraries/Geometry/ShapeItems.sysml` | `item def ConeOrCylinder` (`CircularCone`, `CircularCylinder`, `RightCircularCone`, `RightCircularCylinder`) | `item base : Disc [1] :> faces { … }` … `item be [2] :> edges { attribute :>> semiMajorAxis = ConeOrCylinder::semiMajorAxis; … }` … `binding [1] bind [0..*] base.edges = [0..*] be;` with `Circle`'s `attribute :>> semiMajorAxis [1] = radius;` and `item :>> edges { attribute length [1] = Circle::radius * TrigFunctions::pi * 2; }` — the base circle's semi-axes are stated from its radius, and nothing states the radius | the base circle's `radius`, and the edge `length` derived from it, hold no value: the typed `ErrNoValue` naming `Circle::radius` where read, and no finding when the cone or cylinder is instantiated (`runtime/materialize.go` `materializeWalk.report`) | A `=` value states its feature from what it reads; the library states `semiMajorAxis` from `radius`, never `radius` from the semi-axes `be` would supply through a `[0..*]`-to-`[0..*]` binding, so no evaluator reading values as the library writes them reaches the base radius. Recorded below for a maintainer to raise |
 | `Domain Libraries/Geometry/ShapeItems.sysml` | `item def RightTriangularPrism` (`Wedge`), `item def RightTriangle` | `item :>> rf : RightTriangle { attribute :>> length = ff.length; attribute :>> width = rf.width; }` — inside `rf`, `rf` names the item being declared, so its `width` is bound to itself; and `item hypotenuse :>> e3 { attribute :>> length = ( Triangle::length^2 + Triangle::width^2 ); }` — the sum of two squared lengths, an area, written to `Line::length`, a `LengthValue` | the self-binding is the typed `ErrCyclicFeatureValue` wherever `rf.width` is read, and the hypotenuse's value is the typed dimension mismatch (`cannot write 25 [SI::'m²'] (dimension L^2) to a feature typed by LengthValue`); each is reported once by `-instantiate`, where it lies, and nothing read through either is reported again (`runtime/materialize.go` `materializeWalk.report`) | `rf.width = rf.width` fixes no value — the twin declaration beside it reads `ff.length`, and `ff` is the face the `width` mirrors — and `length^2 + width^2` is the hypotenuse squared, so no reading of either declaration yields the value its name promises. The draft below records both |
 | `Kernel Libraries/Kernel Data Type Library/Collections.kerml` | `UniqueCollection::elements`, `OrderedSet::elements`, `Map::elements`, `OrderedMap::elements` | `feature elements[0..*] :>> Collection::elements { doc /* Note: Redefinition of 'elements' is unique by default. */ }` over `feature elements[0..*] nonunique` — a redefinition stating neither `nonunique` nor `ordered`, whose only claim to uniqueness is the note | the four redefinitions are unique, as their notes say, and every collection under them (`Set`, `OrderedSet`, `Map`, `OrderedMap`, a model's `:>> elements` in one) inherits that; a redefinition anywhere else that states neither keyword takes the uniqueness of what it redefines (`semantics.Model.IsUnique`) | KerML 1.0 §7.3.4.4 gives the *default* only to a fresh or subsetting feature; a redefinition has "the same" values as the feature it redefines (§7.3.4.5), and the pinned pilot models it so — `'3dVectorQuantityValue'::num :>> num` and `CartesianSpatial3dCoordinateFrame::mRefs :>> mRefs` restate no keyword and the validator refuses to redefine either `nonunique` (`validateSubsettingUniquenessConformance`), while the library's own `mRefs default (SI::m, SI::m, SI::m)` and every `(0, 0, 1)` direction vector hold repeats it accepts. Reading every unstated redefinition as unique would make those defaults and vectors violations; reading it as inheriting makes `Set` and `Map` nonunique against the note. The note is the library's statement of intent, so it wins for these four declarations only |
 | `Kernel Libraries/Kernel Function Library/SequenceFunctions.kerml` | `function includingAt` | `(seq->subsequence(1, index - 1), values, seq->subsequence(index + 1))` — the prefix before `index`, then the values, then the tail from `index + 1`, so the element **at** `index` is dropped from the result | insertion: the values are inserted before the 1-based `index`, the tail from that position shifts right, and the result is longer than `seq` by the values inserted. `index == size + 1` appends; any other index outside `1..size + 1` is `ErrIndexOutOfRange` (`runtime.builtinSequenceIncludingAt`) | The body contradicts the declarations around it in the same file. `excludingAt` is the operation that removes at an index, and the behavior pairs are additive/subtractive: `add` calls `including` as `remove` calls `excluding`, and `addAt` calls `includingAt` (`seq->includingAt(values, index)`) as `removeAt` calls `excludingAt`. A removing `includingAt` would leave the library with two ways to delete at an index and none to insert at one, and would make `addAt` remove. The vendored expression is an off-by-one slip in the tail: the insertion body is `(seq->subsequence(1, index - 1), values, seq->subsequence(index))` |
@@ -548,6 +549,124 @@ pin down — two collections sharing exactly one value, bound `[0..1]` to a `[1]
 feature — is reported the same way; that is a limitation recorded in
 [spec-compliance.md](spec-compliance.md), not a reading of this library, whose groups
 no conjunction pins down.
+
+---
+
+## `ShapeItems::ConeOrCylinder` — a base circle whose radius nothing states
+
+**Not filed.** Drafted here for a maintainer to authorise; nothing has been
+posted upstream.
+
+Quoted verbatim from
+`internal/workspace/libs/stdlib/Domain Libraries/Geometry/ShapeItems.sysml`
+(`ConeOrCylinder`, `CircularCone`; `CircularCylinder` redefines `base` and `af` in the
+same form):
+
+```sysml
+	item def ConeOrCylinder :> Shell {
+		attribute :>> semiMajorAxis [1];
+		attribute :>> semiMinorAxis [1];
+		...
+		item :>> faces [2..3];
+		item base : Disc [1] :> faces {
+            attribute :>> Disc::innerSpaceDimension, faces::innerSpaceDimension;
+            ref :>> Disc::edges, ConeOrCylinder::faces::edges { ... }
+            ref :>> Disc::vertices, ConeOrCylinder::faces::vertices;
+		}
+		...
+		item :>> edges [2..4] = faces.edges;
+		item be [2] :> edges {
+			attribute :>> semiMajorAxis = ConeOrCylinder::semiMajorAxis;
+			attribute :>> semiMinorAxis = ConeOrCylinder::semiMinorAxis;
+		}
+		...
+		/* Bind face edges to specific edges */
+		binding [1] bind [0..*] base.edges = [0..*] be;
+		binding [1] bind [0..*] cf.edges = [0..*] be;
+	}
+
+	item def CircularCone :> Cone {
+		attribute :>> radius [1];
+		attribute :>> semiMajorAxis [1] = radius;
+		attribute :>> semiMinorAxis [1] = radius;
+
+		item :>> base : CircularDisc {
+		    ref :>> base::edges, CircularDisc::edges;
+		}
+	}
+```
+
+and from `Disc`, `CircularDisc` and `Circle` in the same file:
+
+```sysml
+	item def Disc :> Shell, PlanarSurface {
+		attribute :>> semiMajorAxis [1];
+		attribute :>> semiMinorAxis [1];
+
+		item :>> shape : Ellipse [1] {
+			attribute :>> semiMajorAxis = Disc::semiMajorAxis;
+			attribute :>> semiMinorAxis = Disc::semiMinorAxis;
+		}
+		...
+		item :>> edges : Ellipse [1] = shape { ... }
+	}
+
+	item def CircularDisc :> Disc {
+		attribute :>> radius [1];
+		attribute :>> semiMajorAxis [1] = radius;
+		attribute :>> semiMinorAxis [1] = radius;
+
+		item :>> shape : Circle { ... }
+		item :>> edges : Circle;
+	}
+
+	item def Circle :> Ellipse {
+		attribute :>> radius [1];
+		attribute :>> semiMajorAxis [1] = radius;
+		attribute :>> semiMinorAxis [1] = radius;
+
+		item :>> edges {
+			attribute length [1] = Circle::radius * TrigFunctions::pi * 2;
+		}
+	}
+```
+
+````markdown
+**Library question.** Given a `RightCircularCone` (or `RightCircularCylinder`) with its
+`radius` and `height` bound — `item :>> shape : ShapeItems::RightCircularCone { :>> height
+= 20 [cm]; :>> radius = 60 [cm]; }` — what values do the base circle's `radius` and its
+edge's `length` have?
+
+Every statement about the base circle's size runs from a radius to the semi-axes:
+`CircularCone::semiMajorAxis = radius`, `CircularDisc::semiMajorAxis = radius`,
+`Disc::shape::semiMajorAxis = Disc::semiMajorAxis`, `Circle::semiMajorAxis = radius`. The
+one statement that reaches the base from the cone's own size, `be::semiMajorAxis =
+ConeOrCylinder::semiMajorAxis` through `binding [1] bind [0..*] base.edges = [0..*] be`,
+again supplies a semi-axis — of *some* value of `base.edges` (the binding's `[0..*]` ends
+are connector-end multiplicities, KerML 1.0 §7.4.6.2, saying how many values take part
+rather than which) — and `Circle::edges::length` is derived from `Circle::radius`, which
+no FeatureValue in the chain states. A `FeatureValue` with `isDefault = false` binds its
+feature to the result of its expression (KerML 1.0 §8.3.4.10); it does not state the
+expression's operands from the feature. So `base.radius`, `base.shape.radius` and
+`base.edges.length` are determined, if at all, only by solving `semiMajorAxis = radius`
+for `radius`, which no part of the library asks of any other quantity: a reader taking the
+values as written finds the base radius open, and the edge length with it. Is the
+intent that `CircularCone::base` and `CircularCylinder::base`/`af` state their radius —
+`item :>> base : CircularDisc { attribute :>> radius = CircularCone::radius; }` — as
+`Cylinder`'s `af` and `ConeOrCylinder`'s `be` state their sizes from the owner's?
+````
+
+Both validators accept the reproducer: the specification places no conformance rule
+requiring a derived feature's operands to be stated, and the pilot implementation has no
+runtime in which the open radius would show. OpenSysML answers `shape.radius`,
+`shape.semiMajorAxis` and `shape.height` as bound, `shape.xoffset` and `shape.yoffset` as
+`0 [m]` (the library's `default`, which the `{ :>> num = 0; }` bodies govern over only for
+`num`), and the base circle's `radius` and its edge's `length` as the typed `ErrNoValue`
+naming `Circle::radius` on `-e`, `%eval` and `%features`. Instantiating the cone or cylinder
+is clean: the check `-instantiate` makes reads every feature value but reports a derived
+value whose derivation reads a feature nothing gives a value to no more than it reports that
+feature (`runtime/materialize.go` `materializeWalk.report`; conformance
+`instance_library_geometry_right_circular_cylinder`, `instance_derived_reads_redefined_chain`).
 
 ---
 
