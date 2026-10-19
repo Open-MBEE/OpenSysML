@@ -114,7 +114,7 @@ Its elements carry the ids the OMG pilot implementation gives them — `ScalarVa
 `14c0aa22-5489-59b5-b438-ded26e83ba31` wherever the library is published — so a model stored
 elsewhere can type its parts by those ids and still mean the library. Published to a Flexo MMS
 branch (`-o flexo://StandardLibrary/main`, with the project created first and `FLEXO_TIMEOUT`
-raised to the minutes a write of 1.4 million triples takes), the library is a project other
+raised to the minutes the write takes), the library is a project other
 projects reference; [the CLI reference](../reference/cli.md#publishing-the-standard-library)
 has the full procedure.
 

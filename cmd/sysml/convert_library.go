@@ -24,6 +24,17 @@ func convertLibrary(to convert.Format) (int, error) {
 	if idForm == "" {
 		opts.ID = export.IDUUID
 	}
+	toBranch := false
+	if outputPath != "" {
+		_, isURL, err := branchURL(outputPath)
+		if err != nil {
+			return 0, err
+		}
+		toBranch = isURL
+	}
+	if !toBranch && syncState != "" {
+		return 0, fmt.Errorf("-sync-state records a repository branch's head; -o names no branch")
+	}
 	inputs, err := libraryInputs()
 	if err != nil {
 		return 0, err
@@ -35,12 +46,8 @@ func convertLibrary(to convert.Format) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if outputPath != "" {
-		if _, isURL, err := branchURL(outputPath); err != nil {
-			return 0, err
-		} else if isURL {
-			return pushLibrary(graph, to, len(inputs))
-		}
+	if toBranch {
+		return pushLibrary(graph, to, len(inputs))
 	}
 	out, err := convert.FromGraphWith(graph, to, opts)
 	if err != nil {

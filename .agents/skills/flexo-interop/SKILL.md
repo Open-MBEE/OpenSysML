@@ -79,8 +79,8 @@ client's own tests stay with it in `go test ./internal/translate/interop/flexo`.
 ## Publish the whole standard library
 
 `TestFlexoInteropLibrary` publishes the bundled library the way `sysml -stdlib -convert ttl -o
-flexo://{project}/main` does — one project, ~112,000 elements, 1.4 million triples, 118 MB of
-Turtle — reads it back, and loads a user model typing parts by library ids into a second
+flexo://{project}/main` does — one project, sized as `testdata/library_expected.txt` records —
+reads it back, and loads a user model typing parts by library ids into a second
 project. It is matched by `-run TestFlexoInterop` too, and it is not quick:
 
 ```bash

@@ -2503,9 +2503,9 @@ sysml -stdlib -convert ttl -o stdlib.ttl                          # ...as one gr
 FLEXO_TIMEOUT=10m sysml -stdlib -convert api-json -o flexo://StandardLibrary/main
 ```
 
-The push replaces the branch's graph with the library — about 112,000 elements and
-1.4 million triples, a write Layer 1 takes minutes over — so `FLEXO_TIMEOUT` has to allow for
-it. The project and branch exist beforehand: the SysML v2 API creates them
+The push replaces the branch's graph with the whole library, a write Layer 1 takes minutes
+over — `tools/referee/flexo/testdata/library_expected.txt` records the measured size — so
+`FLEXO_TIMEOUT` has to allow for it. The project and branch exist beforehand: the SysML v2 API creates them
 (`POST {FLEXO_SYSMLV2_URL}/projects` with `{"@type": "Project", "@id": "StandardLibrary",
 "name": "StandardLibrary", "defaultBranch": {"@id": "main", "name": "main"}}` under the bearer
 token). The head commit is reported, and recorded only where `-sync-state` names a file: the
