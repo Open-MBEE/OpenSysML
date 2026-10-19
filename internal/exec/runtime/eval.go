@@ -509,10 +509,8 @@ func (e *ArgumentError) Error() string { return fmt.Sprintf("argument %d: %v", e
 // Unwrap returns the evaluation error itself.
 func (e *ArgumentError) Unwrap() error { return e.Err }
 
-// EvalArguments evaluates one invocation's whole argument list in one run, as
-// one evaluation of the list in one evaluation context: a seeded draw in a later
-// argument continues the stream an earlier one drew from, instead of each
-// argument restarting it. The i-th value is the i-th argument's.
+// EvalArguments evaluates an invocation's whole argument list in one run, so a seeded draw
+// continues the one before it; the i-th value is the i-th argument's, or an ArgumentError.
 func (ctx *Context) EvalArguments(scope *symbols.Scope, args []ast.Node) ([]Value, error) {
 	defer ctx.beginRun()()
 
