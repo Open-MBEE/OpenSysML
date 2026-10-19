@@ -1064,6 +1064,12 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 		return fv, err
 	}
 
+	// A `default` the holding declaration inherits and a body governs over supplies
+	// the features of the one object that body leaves unvalued (see default_body.go).
+	if held, err := inst.materializeFromHolderDefault(ctx, fv, name); err != nil || held {
+		return fv, err
+	}
+
 	// An abstract feature has no values of its own (KerML 1.0 §7.3.3.1) and an
 	// optional one demands none: each, a connector included, holds only contributions —
 	// unless the declaration's body binds a feature of the one object it then holds.
@@ -1112,7 +1118,13 @@ func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name st
 	if ctx.takeShared(inst, fv) {
 		return fv, nil
 	}
-	val, clean, reads, err := ctx.deriveFeatureValue(inst, fv, name)
+	return inst.holdDerived(ctx, fv, name, func() (Value, error) { return ctx.evalFeatureValueDefault(inst, fv, name) })
+}
+
+// holdDerived holds what derive states for the feature, recording what it reads, once
+// that conforms to the feature's multiplicity and type.
+func (inst *Instance) holdDerived(ctx *Context, fv *FeatureValue, name string, derive func() (Value, error)) (*FeatureValue, error) {
+	val, clean, reads, err := ctx.deriveFeatureValue(inst, fv, derive)
 	if err != nil {
 		return nil, err
 	}
