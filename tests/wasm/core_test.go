@@ -23,7 +23,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const coreGzipBudget = 6300000
+// coreGzipBudget bounds the gzipped js build of sysml-core: set on 2026-10-19 against a
+// measured 6,303,819 bytes, after check and view growth outgrew the 6,300,000 it opened at.
+const coreGzipBudget = 6500000
 
 const cleanCoreModel = `
 package Demo {
