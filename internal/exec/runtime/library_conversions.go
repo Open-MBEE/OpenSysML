@@ -99,6 +99,9 @@ func booleanToString(name string, _ *Context, args []Value) (Value, error) {
 
 // integerToString is IntegerFunctions::ToString, the decimal digits of x.
 func integerToString(name string, _ *Context, args []Value) (Value, error) {
+	if isUnbounded(soleElement(args[0])) {
+		return NewStringValue("*"), nil
+	}
 	x, err := integerArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
@@ -108,6 +111,9 @@ func integerToString(name string, _ *Context, args []Value) (Value, error) {
 
 // naturalToString is NaturalFunctions::ToString over a Natural argument.
 func naturalToString(name string, _ *Context, args []Value) (Value, error) {
+	if isUnbounded(soleElement(args[0])) {
+		return NewStringValue("*"), nil
+	}
 	x, err := naturalArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
@@ -121,6 +127,9 @@ func naturalToString(name string, _ *Context, args []Value) (Value, error) {
 // for a Rational, a non-terminating one written `numer/denom`. An Integer
 // argument keeps its digits.
 func numberToString(name string, _ *Context, args []Value) (Value, error) {
+	if isUnbounded(soleElement(args[0])) {
+		return NewStringValue("*"), nil
+	}
 	x, err := numericArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err

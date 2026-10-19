@@ -22,7 +22,7 @@ type RunInput struct {
 	SessionName
 	Kind      string   `json:"kind" jsonschema:"what to run: action, state (a state machine), calc or analysis (an analysis, verification or trade-study case)"`
 	Name      string   `json:"name" jsonschema:"qualified name of the behavior"`
-	Arguments []string `json:"arguments,omitempty" jsonschema:"argument expressions: positional for a calc; positional or written parameter=expression for an analysis case"`
+	Arguments []string `json:"arguments,omitempty" jsonschema:"argument expressions: positional for a calc; positional, in parameter order, or written parameter=expression for an action's inputs or an analysis case"`
 	Object    string   `json:"object,omitempty" jsonschema:"an object the session holds (name, #id or path such as car.fl): the performer of an action or state machine, the subject of a case"`
 	Duration  *float64 `json:"duration,omitempty" jsonschema:"for state: advance the machine's clock by this many time units after its initial transition; omit to take the initial transition alone"`
 	Schedule  string   `json:"schedule,omitempty" jsonschema:"scheduling policy for this run alone: declared, reverse, seed:<n> or explore[:runs=N,depth=D]; omit for the session's"`
@@ -125,7 +125,7 @@ func registerRuns(s *mcp.Server, m *Manager) {
 		var run func() repl.Verdict
 		switch strings.ToLower(strings.TrimSpace(in.Kind)) {
 		case "action":
-			run = func() repl.Verdict { return sess.RunAction(in.Name, performer(in.Object)...) }
+			run = func() repl.Verdict { return sess.RunActionWithInputs(in.Name, in.Arguments, performer(in.Object)...) }
 		case "state":
 			run = func() repl.Verdict {
 				if in.Duration != nil {

@@ -217,6 +217,11 @@ const CapabilityConvertDocuments = "convert_documents"
 // handles, and optionally without the metamodel's derived properties.
 const CapabilityConvertCompact = "convert_compact"
 
+// CapabilityConvertCheckDiagnostics names ConvertRequest.include_check_diagnostics:
+// the semantic check's diagnostics, with their severities, reported alongside
+// the converted output.
+const CapabilityConvertCheckDiagnostics = "convert_check_diagnostics"
+
 // CapabilityParseSourcesAffected names ParseSourcesRequest.base_model_hash and
 // ParseSourcesResponse.affected: the documents whose results may differ from
 // the base model's, so a client re-reads only those after an edit.
@@ -374,6 +379,7 @@ var capabilities = []string{
 	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
+	CapabilityConvertCheckDiagnostics,
 	CapabilityParseSourcesAffected,
 	CapabilityRenderDocumentFileName,
 	CapabilityOrderDependence,

@@ -33,6 +33,9 @@ type Discovery struct {
 	// Roots are the directories installed projects are looked for under,
 	// besides the well-known ones beneath each enclosing project.
 	Roots []string
+	// Guard, when set, is asked before a file found by the dependency search is
+	// read; a file it refuses is left out as if it declared nothing.
+	Guard func(path string) error
 }
 
 // EnvLibraryRoots returns the library roots LibraryRootsEnvVar names, none when

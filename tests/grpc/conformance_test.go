@@ -883,13 +883,14 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 	}
 
 	resp, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
-		ModelHash:      modelHash,
-		ActionSymbolId: tc.SymbolID,
-		Inputs:         inputs,
-		Advance:        tc.Advance,
-		Seed:           tc.Seed,
-		Draws:          tc.Draws,
-		ClockStep:      tc.ClockStep,
+		ModelHash:         modelHash,
+		ActionSymbolId:    tc.SymbolID,
+		PerformerSymbolId: tc.PerformerSymbolID,
+		Inputs:            inputs,
+		Advance:           tc.Advance,
+		Seed:              tc.Seed,
+		Draws:             tc.Draws,
+		ClockStep:         tc.ClockStep,
 	})
 	if err != nil {
 		t.Fatalf("ExecuteAction: %v", err)
@@ -1200,6 +1201,8 @@ func toProtoValue(t *testing.T, ev expectedValue) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_StringValue{StringValue: s}}
 	case "null":
 		return &pb.Value{Kind: &pb.Value_Null{Null: ""}}
+	case "instance_id":
+		return &pb.Value{Kind: &pb.Value_InstanceId{InstanceId: int64(mustFloat(t, ev))}}
 	case "sequence":
 		seq := &pb.ValueSequence{}
 		for _, element := range ev.Elements {

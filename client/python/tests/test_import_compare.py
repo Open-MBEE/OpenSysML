@@ -56,12 +56,16 @@ def test_import_data_sends_each_import_in_order_and_builds_the_result():
     assert request.model_hash == "h"
     assert [i.name for i in request.imports] == ["fleet.csv", "more.json"]
     assert request.imports[0].content == "element,count\nV::car,9\n"
-    assert request.imports[1].import_format == "json" and request.imports[1].import_map == "{}"
-    assert request.import_as == "values" and not request.import_dry_run
+    assert request.imports[1].import_format == "json"
+    assert request.imports[1].import_map == "{}"
+    assert request.import_as == "values"
+    assert not request.import_dry_run
     assert isinstance(result, ImportResult)
-    assert result.model_hash == "h2" and result.content == "package V { }"
+    assert result.model_hash == "h2"
+    assert result.content == "package V { }"
     assert [f.name for f in result.files] == ["fleet.csv"]
-    assert result.files[0].values == 2 and result.files[0].elements == 1
+    assert result.files[0].values == 2
+    assert result.files[0].elements == 1
     assert result.values == 2
     assert [a.description for a in result.files[0].assignments] == [
         "V::car::count = 9", 'V::car::label = "fast" (redefines V::Vehicle::label)']
@@ -76,7 +80,8 @@ def test_import_data_dry_run_is_sent_and_a_refusal_raises():
     with pytest.raises(ExecutionError, match="V::Nowhere"):
         conn.import_data("h", [("fleet.csv", "element\nV::Nowhere\n")], dry_run=True, accept_documents=True)
     request = stub.ImportData.call_args[0][0]
-    assert request.import_dry_run and request.accept_documents
+    assert request.import_dry_run
+    assert request.accept_documents
 
 
 def test_import_data_requires_the_capability():
@@ -124,30 +129,49 @@ def test_compare_results_sends_the_options_and_builds_the_comparison():
     result = conn.compare_results("h", '{"configurations":[]}', actions=["Group 1"], runs=2, seed=7,
                                   draws="random", clock_step=0.5, observe=[("total", "target.total")])
     request = stub.CompareResults.call_args[0][0]
-    assert request.model_hash == "h" and request.results == '{"configurations":[]}'
-    assert list(request.actions) == ["Group 1"] and request.runs == 2
-    assert request.HasField("seed") and request.seed == 7
+    assert request.model_hash == "h"
+    assert request.results == '{"configurations":[]}'
+    assert list(request.actions) == ["Group 1"]
+    assert request.runs == 2
+    assert request.HasField("seed")
+    assert request.seed == 7
     assert request.draws == "random"
-    assert request.HasField("clock_step") and request.clock_step == 0.5
+    assert request.HasField("clock_step")
+    assert request.clock_step == 0.5
     assert [(o.stored, o.feature) for o in request.observe] == [("total", "target.total")]
     assert request.engine == ""
     assert isinstance(result, Comparison)
-    assert result.source == "probe.xmi" and result.standing.engine == "interpreter"
+    assert result.source == "probe.xmi"
+    assert result.standing.engine == "interpreter"
     assert not result.holds
     first, second = result.configurations
-    assert first.holds and first.name == "Cfg::'Group 1'" and first.runs == 2 and first.completed == 2
-    assert first.stored_runs == 2 and first.seed == 7 and first.draws == "random"
-    assert len(first.rows) == 2 and first.rows[0].outputs["target.total"] == 4.0
+    assert first.holds
+    assert first.name == "Cfg::'Group 1'"
+    assert first.runs == 2
+    assert first.completed == 2
+    assert first.stored_runs == 2
+    assert first.seed == 7
+    assert first.draws == "random"
+    assert len(first.rows) == 2
+    assert first.rows[0].outputs["target.total"] == 4.0
     observable = first.observables[0]
-    assert observable.stored == "total" and observable.feature == "target.total" and observable.compared
-    assert observable.tool.count == 2 and observable.tool.mean == 5.0 and observable.tool.deviation == 1.0
+    assert observable.stored == "total"
+    assert observable.feature == "target.total"
+    assert observable.compared
+    assert observable.tool.count == 2
+    assert observable.tool.mean == 5.0
+    assert observable.tool.deviation == 1.0
     assert observable.run.mean == 4.0
-    assert observable.difference.mean == "-20.0%" and observable.difference.max == "-33.3%"
+    assert observable.difference.mean == "-20.0%"
+    assert observable.difference.max == "-33.3%"
     assert observable.declared.analysis == "Cfg::Study"
-    assert observable.declared.rows[0].statistic == "mean" and observable.declared.rows[0].difference == "-20.0%"
+    assert observable.declared.rows[0].statistic == "mean"
+    assert observable.declared.rows[0].difference == "-20.0%"
     assert observable.notes == ["the tool pooled two summaries"]
     assert first.lines == ["total: tool mean 5.0, runs mean 4.0 (-20.0%)"]
-    assert second.status == "unresolved" and not second.holds and second.seed is None
+    assert second.status == "unresolved"
+    assert not second.holds
+    assert second.seed is None
     assert "the configuration names no behavior" in second.unresolved
     assert "Cfg::Nothing: unresolved" in str(result)
 
@@ -160,8 +184,11 @@ def test_compare_results_leaves_unset_options_unset_and_raises_a_failure():
     with pytest.raises(ExecutionError, match="no source or configurations"):
         conn.compare_results("h", "{}")
     request = stub.CompareResults.call_args[0][0]
-    assert not request.HasField("seed") and not request.HasField("clock_step")
-    assert request.runs == 0 and request.draws == "" and list(request.observe) == []
+    assert not request.HasField("seed")
+    assert not request.HasField("clock_step")
+    assert request.runs == 0
+    assert request.draws == ""
+    assert list(request.observe) == []
 
 
 def test_compare_results_requires_the_capability():

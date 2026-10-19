@@ -59,13 +59,22 @@ def test_run_runs_sends_the_request_and_builds_the_table():
     conn = make_connection(stub, CURRENT)
     result = conn.run_runs("h", action="MC::Settle", runs=2, seed=7, observe=["t"])
     request = stub.RunRuns.call_args[0][0]
-    assert request.action_symbol_id == "MC::Settle" and request.runs == 2 and request.seed == 7
+    assert request.action_symbol_id == "MC::Settle"
+    assert request.runs == 2
+    assert request.seed == 7
     assert list(request.observe) == ["t"]
-    assert isinstance(result, RunsResult) and len(result) == 2 and result.seed == 7
-    assert result.rows[1].outputs == {"t": 2.0} and result.observables == ["t"]
+    assert isinstance(result, RunsResult)
+    assert len(result) == 2
+    assert result.seed == 7
+    assert result.rows[1].outputs == {"t": 2.0}
+    assert result.observables == ["t"]
     dist = result.distributions[0]
-    assert dist.numeric and dist.min == 1.0 and dist.mean == 1.5 and dist.percentiles[0].percentile == 50
-    assert dist.histogram[0].count == 2 and str(result).startswith("t: 2 run(s)")
+    assert dist.numeric
+    assert dist.min == 1.0
+    assert dist.mean == 1.5
+    assert dist.percentiles[0].percentile == 50
+    assert dist.histogram[0].count == 2
+    assert str(result).startswith("t: 2 run(s)")
 
 
 def test_run_runs_without_seed_leaves_it_unset():
@@ -73,7 +82,8 @@ def test_run_runs_without_seed_leaves_it_unset():
     stub.RunRuns.return_value = sysml_pb2.RunRunsResponse()
     conn = make_connection(stub, CURRENT)
     result = conn.run_runs("h", action="MC::Settle", runs=1, draws="min")
-    assert not stub.RunRuns.call_args[0][0].HasField("seed") and result.seed is None
+    assert not stub.RunRuns.call_args[0][0].HasField("seed")
+    assert result.seed is None
 
 
 def test_run_runs_error_raises():
@@ -102,18 +112,23 @@ def test_self_check_builds_the_findings():
     conn = make_connection(stub, CURRENT)
     result = conn.self_check("h", packages=["Rules"])
     assert list(stub.SelfCheck.call_args[0][0].self_check_package) == ["Rules"]
-    assert isinstance(result, SelfCheckResult) and not result.holds and result.violations == 1
-    assert result.findings[0].element == "P::x" and result.applications == {"V::c": 4}
+    assert isinstance(result, SelfCheckResult)
+    assert not result.holds
+    assert result.violations == 1
+    assert result.findings[0].element == "P::x"
+    assert result.applications == {"V::c": 4}
     assert str(result).endswith("0 unevaluated")
 
 
 def test_self_check_error_and_capability():
     stub = Mock()
     stub.SelfCheck.return_value = sysml_pb2.SelfCheckResponse(error="Nope names no package")
+    conn = make_connection(stub, CURRENT)
     with pytest.raises(ExecutionError, match="Nope"):
-        make_connection(stub, CURRENT).self_check("h", packages=["Nope"])
+        conn.self_check("h", packages=["Nope"])
+    conn = make_connection(Mock(), (CAPABILITY_FEATURE_VALUES,))
     with pytest.raises(MissingCapabilityError):
-        make_connection(Mock(), (CAPABILITY_FEATURE_VALUES,)).self_check("h")
+        conn.self_check("h")
 
 
 def test_record_run_builds_the_recording():
@@ -127,16 +142,25 @@ def test_record_run_builds_the_recording():
     conn = make_connection(stub, CURRENT)
     rec = conn.record_run("A::Cost", "h", subject="A::p", into="Logs", runs=2, seed=3)
     request = stub.RecordRun.call_args[0][0]
-    assert request.analysis_symbol_id == "A::Cost" and request.record_into == "Logs"
-    assert request.runs == 2 and request.seed == 3 and request.accept_documents
-    assert isinstance(rec, Recording) and rec.run.outputs == {"total": 6.0} and rec.sweep is None
-    assert rec.records == ["Records::Cost_run1"] and rec.documents[0].name == "Records.sysml" and rec.model_hash == "h2"
+    assert request.analysis_symbol_id == "A::Cost"
+    assert request.record_into == "Logs"
+    assert request.runs == 2
+    assert request.seed == 3
+    assert request.accept_documents
+    assert isinstance(rec, Recording)
+    assert rec.run.outputs == {"total": 6.0}
+    assert rec.sweep is None
+    assert rec.records == ["Records::Cost_run1"]
+    assert rec.documents[0].name == "Records.sysml"
+    assert rec.model_hash == "h2"
 
 
 def test_record_run_error_and_capability():
     stub = Mock()
     stub.RecordRun.return_value = sysml_pb2.RecordRunResponse(error="nothing recorded: no run completed")
+    conn = make_connection(stub, CURRENT)
     with pytest.raises(ExecutionError, match="nothing recorded"):
-        make_connection(stub, CURRENT).record_run("A::Cost", "h")
+        conn.record_run("A::Cost", "h")
+    conn = make_connection(Mock(), (CAPABILITY_FEATURE_VALUES,))
     with pytest.raises(MissingCapabilityError):
-        make_connection(Mock(), (CAPABILITY_FEATURE_VALUES,)).record_run("A::Cost", "h")
+        conn.record_run("A::Cost", "h")

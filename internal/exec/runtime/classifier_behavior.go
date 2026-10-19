@@ -1518,27 +1518,43 @@ func (ctx *Context) namedBehavior(sym *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
-// classifierBehaviorArguments evaluates the values a binding declaration
-// supplies to the behavior's parameters, against the object running it.
+// classifierBehaviorArguments evaluates the arguments a behavior declaration binds,
+// keyed by the parameter each binds, in the declaration's scope on inst.
 func (ctx *Context) classifierBehaviorArguments(inst *Instance, decl classifierBehaviorDecl) (map[string]Value, error) {
 	if len(decl.behavior.Arguments) == 0 {
 		return nil, nil
 	}
-	scope := DeclScope(decl.member)
-	if scope == nil {
-		scope = DeclScope(inst.Type)
-	}
+	scope := ctx.argumentScope(inst, decl)
 	args := make(map[string]Value, len(decl.behavior.Arguments))
 	for _, arg := range decl.behavior.Arguments {
-		ec := NewEvalContextIn(ctx, scope, inst)
-		value, err := ec.Eval(arg.Value)
+		value, err := ctx.classifierBehaviorArgument(inst, decl, scope, arg)
 		if err != nil {
-			return nil, fmt.Errorf("%s %s of %s: bind %s: %w",
-				decl.behavior.Kind, decl.behavior.Name, SymbolText(inst.Type), arg.Name, err)
+			return nil, err
 		}
 		args[ctx.argumentParameter(scope, arg)] = value
 	}
 	return args, nil
+}
+
+// argumentScope is the scope a behavior declaration's arguments are evaluated in.
+func (ctx *Context) argumentScope(inst *Instance, decl classifierBehaviorDecl) *symbols.Scope {
+	if scope := DeclScope(decl.member); scope != nil {
+		return scope
+	}
+	return DeclScope(inst.Type)
+}
+
+// classifierBehaviorArgument evaluates one argument of a behavior declaration on
+// inst, as a step of its own: a calc usage it reads is not held past it.
+func (ctx *Context) classifierBehaviorArgument(inst *Instance, decl classifierBehaviorDecl, scope *symbols.Scope, arg lower.Attribute) (Value, error) {
+	ec := NewEvalContextIn(ctx, scope, inst)
+	defer ec.beginStep()()
+	value, err := ec.Eval(arg.Value)
+	if err != nil {
+		return Value{}, fmt.Errorf("%s %s of %s: bind %s: %w",
+			decl.behavior.Kind, decl.behavior.Name, SymbolText(inst.Type), arg.Name, err)
+	}
+	return value, nil
 }
 
 // argumentParameter names the behavior parameter an argument binds: the feature

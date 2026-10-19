@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "instantiate": "test::Gable",
+  "slots": {
+    "ridge": {"type": "Sequence", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"},
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]},
+    "vertices": {"type": "Sequence", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"},
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]}
+  },
+  "materialization": {}
+}

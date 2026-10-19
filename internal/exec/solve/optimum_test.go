@@ -157,12 +157,12 @@ func TestNestedStageShadowsAndBoundsTheCase(t *testing.T) {
 	if len(result.Optima) != 2 {
 		t.Fatalf("reported %d optima, want 2", len(result.Optima))
 	}
-	cost, cap := result.Optima[0], result.Optima[1]
+	cost, bound := result.Optima[0], result.Optima[1]
 	if cost.Status != OptimumAttained || cost.Value != "5" {
 		t.Errorf("greatest cost under the nested cap is %s %q: %s", cost.Status, cost.Value, cost.Detail)
 	}
-	if cap.Status != OptimumAttained || cap.Value != "5" {
-		t.Errorf("the nested cap is %s %q, want the nested 5 rather than the case's 9: %s", cap.Status, cap.Value, cap.Detail)
+	if bound.Status != OptimumAttained || bound.Value != "5" {
+		t.Errorf("the nested cap is %s %q, want the nested 5 rather than the case's 9: %s", bound.Status, bound.Value, bound.Detail)
 	}
 }
 
@@ -179,8 +179,8 @@ func TestNestedStageConstraintParameterIsItsOwn(t *testing.T) {
 	if cost := result.Optima[0]; cost.Status != OptimumAttained || cost.Value != "5" {
 		t.Errorf("greatest cost under the nested cap is %s %q: %s", cost.Status, cost.Value, cost.Detail)
 	}
-	if cap := result.Optima[1]; cap.Status != OptimumAttained || cap.Value != "5" {
-		t.Errorf("the nested cap is %s %q, want 5: %s", cap.Status, cap.Value, cap.Detail)
+	if bound := result.Optima[1]; bound.Status != OptimumAttained || bound.Value != "5" {
+		t.Errorf("the nested cap is %s %q, want 5: %s", bound.Status, bound.Value, bound.Detail)
 	}
 }
 

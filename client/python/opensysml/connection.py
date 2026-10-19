@@ -412,6 +412,23 @@ def _require_exploring(schedule):
         )
 
 
+def _check_search(properties, diverge, free_inputs, assume, witness, depth, states, unroll,
+                  timeout, engine):
+    """The CheckBehaviorRequest fields the search options of a check set."""
+    return {
+        "check_property": list(properties),
+        "check_diverge": list(diverge),
+        "check_input": list(free_inputs),
+        "check_assume": list(assume),
+        "check_witness": bool(witness),
+        "check_depth": int(depth),
+        "check_states": int(states),
+        "check_unroll": int(unroll),
+        "check_timeout": float(timeout),
+        "engine": engine or "",
+    }
+
+
 def _verifications_of(response):
     """Read the body verdicts of a response, empty for a service without them."""
     return [
@@ -1914,6 +1931,35 @@ class Connection:
             response = self._stub.RenderDocument(request)
         return response.html if form == "html" else response.markdown
 
+    def diagnostics(self, model_hash, disable_lint=(), enable_lint=()):
+        """Ask the service for a model's diagnostics now, under a lint selection.
+
+        Args:
+            model_hash (str): Hash from the parse response
+            disable_lint (Iterable[str]): Lint codes to leave out, as
+                ``sysml -disable-lint`` does
+            enable_lint (Iterable[str]): Opt-in lint codes to keep, as
+                ``sysml -enable-lint`` does
+
+        Returns:
+            list[Diagnostic]: The diagnostics the model has under that selection
+
+        Raises:
+            InvalidRequestError: If a code names no lint; the message names the
+                lints there are
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        request = sysml_pb2.DiagnosticsRequest(
+            model_hash=model_hash,
+            disable_lint=list(disable_lint),
+            enable_lint=list(enable_lint),
+        )
+        with translate_rpc_errors():
+            response = self._stub.GetDiagnostics(request)
+        if response.error:
+            raise ModelError(response.error)
+        return [Diagnostic(d) for d in response.diagnostics]
+
     def render_view(self, model_hash, view_name, ports="minimal", show=None, depth=0):
         """Render a named view with minimal or full ports, the optional notation elements named and, above 0, a depth bound."""
         if ports not in ("minimal", "full"):
@@ -1941,21 +1987,22 @@ class Connection:
                      properties=(), diverge=(), free_inputs=(), assume=(), witness=False,
                      depth=0, states=0, unroll=0, timeout=0.0, engine=None):
         """Search every schedule of an action, as ``sysml -check-property`` does."""
-        return self._check_behavior(action_symbol_id, "", model_hash, inputs, performer, properties,
-                                    diverge, free_inputs, assume, witness, depth, states, unroll,
-                                    timeout, engine)
+        search = _check_search(properties, diverge, free_inputs, assume, witness,
+                               depth, states, unroll, timeout, engine)
+        return self._check_behavior(model_hash, inputs, performer,
+                                    action_symbol_id=action_symbol_id, **search)
 
     def check_state_machine(self, state_machine_symbol_id, model_hash, performer=None,
                             properties=(), diverge=(), free_inputs=(), assume=(), witness=False,
                             depth=0, states=0, unroll=0, timeout=0.0, engine=None):
         """Search every schedule of a state machine, as ``sysml -check-property`` does."""
-        return self._check_behavior("", state_machine_symbol_id, model_hash, None, performer,
-                                    properties, diverge, free_inputs, assume, witness, depth, states,
-                                    unroll, timeout, engine)
+        search = _check_search(properties, diverge, free_inputs, assume, witness,
+                               depth, states, unroll, timeout, engine)
+        return self._check_behavior(model_hash, None, performer,
+                                    state_machine_symbol_id=state_machine_symbol_id, **search)
 
-    def _check_behavior(self, action_symbol_id, state_machine_symbol_id, model_hash, inputs,
-                        performer, properties, diverge, free_inputs, assume, witness, depth,
-                        states, unroll, timeout, engine):
+    def _check_behavior(self, model_hash, inputs, performer, **fields):
+        """Send a CheckBehaviorRequest whose ``fields`` name the subject and the search."""
         capabilities = [CAPABILITY_CHECK]
         if performer:
             capabilities.append(CAPABILITY_PERFORMER)
@@ -1963,20 +2010,9 @@ class Connection:
             require(self.server_info(), capability, upgrade_remedy(capability))
         request = sysml_pb2.CheckBehaviorRequest(
             model_hash=model_hash,
-            action_symbol_id=action_symbol_id,
-            state_machine_symbol_id=state_machine_symbol_id,
             inputs={name: self._python_to_value(val) for name, val in (inputs or {}).items()},
             performer_symbol_id=performer or "",
-            check_property=list(properties),
-            check_diverge=list(diverge),
-            check_input=list(free_inputs),
-            check_assume=list(assume),
-            check_witness=bool(witness),
-            check_depth=int(depth),
-            check_states=int(states),
-            check_unroll=int(unroll),
-            check_timeout=float(timeout),
-            engine=engine or "",
+            **fields,
         )
         with translate_rpc_errors(unimplemented=self._capability_refusal(tuple(capabilities))):
             response = self._stub.CheckBehavior(request)

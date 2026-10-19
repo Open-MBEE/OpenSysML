@@ -53,7 +53,7 @@ surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 2
 timeSliceOf: collection of 1
 timeSlices: collection of 1
 unionsOf: empty
