@@ -878,8 +878,8 @@ and write` on this repository. A token lacking the latter fails the job at the
 pull request with HTTP 403 or 404 after the branch is pushed; grant the scope
 and re-run the job, which reuses the branch.
 
-`tests/hygiene` holds the table to this: every release `CHANGELOG.md` records
-is pinned for all five `sysml-grpc-*` assets, except the release the tree
+`tests/hygiene` holds the table to this: every release `CHANGELOG.md` or its archive
+(`docs/project/archive/CHANGELOG-0.0-0.8.md`) records is pinned for all five `sysml-grpc-*` assets, except the release the tree
 itself declares in `_version.py` until its tag exists (its digests are built by
 that tag), and the releases listed in the test as unpinnable — `v0.0.4`, which
 predates the service binaries, and `v0.0.9`, `v0.1.1` and `v0.1.2`, which

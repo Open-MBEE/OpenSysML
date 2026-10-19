@@ -9,7 +9,7 @@ stmt assign seen
   eval feature msg -> 1
 step 5: token 1@assign payload
 stmt assign payload
-  eval chain msg -> 9
+  eval chain msg -> (9)
 leave action node: reader
 step 6: token 1@done
 step 7: no active tokens

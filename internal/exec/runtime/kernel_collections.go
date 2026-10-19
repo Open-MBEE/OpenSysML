@@ -63,6 +63,19 @@ func (ctx *Context) derivesKernelCollection(inst *Instance, name string) bool {
 // inst (each object once unless nonunique); an open subsetter on a model-level read leaves it open.
 func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol, open *openPopulation) (*FeatureValue, error) {
 	feat := ctx.effectiveFeature(sym.Name, sym, inst.Type)
+	values, stopped, err := ctx.shapeContributions(inst, sym, &feat, nil, open)
+	if err != nil {
+		return nil, err
+	}
+	return &FeatureValue{Feature: &feat, Values: ctx.collectionOf(&feat, values), Materialized: !stopped}, nil
+}
+
+// shapeContributions unions onto held, in shape order, what the shape features of inst
+// subsetting the Kernel collection sym hold (KerML 1.0 §7.3.4.4), each object once unless
+// feat is nonunique. A non-nil open records an open subsetter on a model-level read instead
+// of making up its lower bound, with the values before it as the positions the model fixes;
+// the second result reports that it did.
+func (ctx *Context) shapeContributions(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature, held []Value, open *openPopulation) ([]Value, bool, error) {
 	var values []Value
 	var seen map[int64]bool
 	stopped, atLeast := false, int64(0)
@@ -73,39 +86,63 @@ func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol, o
 			values = append(values, elements...)
 		}
 	}
-	features := ctx.FeaturesOf(inst.Type)
-	for i := range features {
-		shape := &features[i]
-		if shape.Symbol == nil || !ctx.subsetsTransitively(shape.Symbol, inst.Type, sym) {
-			continue
-		}
+	add(held)
+	fixed := -1
+	for _, shape := range ctx.shapeSubsettersOf(inst, sym) {
 		var sub *openPopulation
 		if open != nil {
 			sub = &openPopulation{}
 		}
 		fv, err := inst.getFeatureValue(ctx, shape.Name, sub)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if sub != nil && sub.Stopped {
-			stopped = true
+			if !stopped {
+				stopped, fixed = true, len(values)
+			}
 			atLeast = max(atLeast, int64(len(sub.Contributed)), sub.AtLeast, fewestOf(shape.Multiplicity))
 			add(sub.Contributed)
 			continue
 		}
 		held, err := ctx.HeldElements(fv.HeldValue())
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		add(held)
 	}
 	if stopped {
-		open.Stopped, open.Contributed, open.AtLeast = true, values, atLeast
+		open.Stopped, open.Contributed, open.AtLeast, open.Fixed = true, values, atLeast, fixed
 	}
 	if err := ctx.chargeElements(int64(len(values))); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return &FeatureValue{Feature: &feat, Values: ctx.collectionOf(&feat, values), Materialized: !stopped}, nil
+	return values, stopped, nil
+}
+
+// shapeSubsettersOf lists the shape features of inst, through every type classifying it,
+// that transitively subset the Kernel collection sym, in shape order and once per name.
+func (ctx *Context) shapeSubsettersOf(inst *Instance, sym *symbols.Symbol) []*EffectiveFeature {
+	var out []*EffectiveFeature
+	var seen map[string]bool
+	types := inst.types()
+	if len(types) > 1 {
+		seen = make(map[string]bool)
+	}
+	for _, typ := range types {
+		features := ctx.FeaturesOf(typ)
+		for i := range features {
+			shape := &features[i]
+			if shape.Symbol == nil || seen[shape.Name] || !ctx.subsetsTransitively(shape.Symbol, typ, sym) {
+				continue
+			}
+			if seen != nil {
+				seen[shape.Name] = true
+			}
+			out = append(out, shape)
+		}
+	}
+	return out
 }
 
 // subsetsTransitively reports whether feature, a member of owner, subsets target through

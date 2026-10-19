@@ -78,15 +78,6 @@ type Optimum struct {
 	Detail string
 }
 
-// Optimize discovers a solver and asks it for the query's optima.
-func Optimize(ctx context.Context, q *Query) (*Result, error) {
-	solver, err := Discover()
-	if err != nil {
-		return nil, err
-	}
-	return solver.Optimize(ctx, q)
-}
-
 // Optimize asks the solver for the optimum of each objective, in the
 // lexicographic order the query declares them.
 //

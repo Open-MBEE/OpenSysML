@@ -1,0 +1,56 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::probe",
+  "outputs": {
+    "doubled": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 10
+        }
+      ]
+    },
+    "again": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 15
+        }
+      ]
+    },
+    "one": {
+      "type": "Integer",
+      "value": 15
+    },
+    "s.value": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 5
+        }
+      ]
+    },
+    "s.doubled": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 10
+        }
+      ]
+    },
+    "s.again": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 15
+        }
+      ]
+    }
+  }
+}

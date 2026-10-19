@@ -369,8 +369,8 @@ func TestMakeMoveDrawsTheDueOrderOnce(t *testing.T) {
 	if orders := dueOrders(); len(orders) != 1 {
 		t.Fatalf("drew %d due orders, want the one move both executors were due for", len(orders))
 	}
-	if x := FormatValue(action.Results()["x"]); x != "2" {
-		t.Fatalf("x = %s, want 2", x)
+	if x := FormatValue(action.Results()["x"]); x != "[2]" {
+		t.Fatalf("x = %s, want [2]", x)
 	}
 	if y := FormatValue(machine.StateData()["y"]); y != "2" {
 		t.Fatalf("y = %s, want 2", y)

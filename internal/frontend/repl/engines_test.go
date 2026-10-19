@@ -301,8 +301,8 @@ func TestActionDebuggerPutsToolComputationsToTheEngines(t *testing.T) {
 	if ran != 1 || s.actionExec == nil || s.actionExec.executor.State() != runtime.StateCompleted {
 		t.Fatalf("tool ran %d times; want once, leaving a completed executor", ran)
 	}
-	if got := runtime.FormatValue(s.actionExec.executor.Results()["y"]); got != "4.0" {
-		t.Fatalf("y = %s, want 4.0", got)
+	if got := runtime.FormatValue(s.actionExec.executor.Results()["y"]); got != "[4.0]" {
+		t.Fatalf("y = %s, want [4.0]", got)
 	}
 
 	run(t, s, "%engine run")

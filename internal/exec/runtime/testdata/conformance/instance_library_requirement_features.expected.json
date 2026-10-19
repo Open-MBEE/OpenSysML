@@ -9,7 +9,7 @@
     "assumptions": {"type": "Sequence", "elements": []},
     "constraints": {"type": "Sequence", "elements": []},
     "subj": {"error": "uninitialized feature value: subj"},
-    "result": {"error": "feature \"result\" not found"},
+    "result": {"type": "Undetermined", "value": "[1]"},
     "requirement": {"error": "MassLimit has no member requirement"},
     "self": {"type": "Instance"}
   }
