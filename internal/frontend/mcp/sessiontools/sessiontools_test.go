@@ -829,3 +829,44 @@ func TestTheFileToolsRefuseAPathOutsideTheRoot(t *testing.T) {
 		t.Errorf("a refused load still declared Outside::Q: %+v", value)
 	}
 }
+
+func TestEveryFileASessionTouchesPassesTheRootGuard(t *testing.T) {
+	root, outside := t.TempDir(), t.TempDir()
+	model := filepath.Join(outside, "outside.sysml")
+	if err := os.WriteFile(model, []byte("package Outside { part def Q; }"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "models"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(model, filepath.Join(root, "models", "linked.sysml")); err != nil {
+		t.Skip(err)
+	}
+	cs := connect(t, root)
+	must(t, cs, "session_submit", args("text", "package Guarded { part def P; }"), nil)
+
+	// A directory load walks to a file whose symlink leaves the root.
+	res := call(t, cs, "session_load", args("paths", []string{"models"}), nil)
+	if !res.IsError || !strings.Contains(errText(res), "through a symlink") {
+		t.Errorf("session_load(models) = %v, %s; want the linked file refused", res.IsError, errText(res))
+	}
+
+	// The prompt commands pass through the same guard as the typed tools.
+	for _, line := range []string{"%load " + model, "%save " + filepath.Join(outside, "escaped.sysml"), "%load " + filepath.Join(root, "models")} {
+		res := call(t, cs, "repl_command", args("line", line), nil)
+		if !res.IsError || !strings.Contains(errText(res), "outside the workspace root") {
+			t.Errorf("repl_command(%q) = %v, %s; want a refusal", line, res.IsError, errText(res))
+		}
+	}
+	if _, err := os.Stat(filepath.Join(outside, "escaped.sysml")); !os.IsNotExist(err) {
+		t.Errorf("%%save through repl_command wrote outside the root: %v", err)
+	}
+	var value EvalResult
+	if res := call(t, cs, "session_eval", args("expression", "Outside::Q"), &value); !res.IsError {
+		t.Errorf("a refused load still declared Outside::Q: %+v", value)
+	}
+	must(t, cs, "repl_command", args("line", "%save "+filepath.Join(root, "kept.sysml")), nil)
+	if _, err := os.Stat(filepath.Join(root, "kept.sysml")); err != nil {
+		t.Errorf("%%save inside the root through repl_command did not write: %v", err)
+	}
+}
