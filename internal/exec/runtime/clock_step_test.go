@@ -6,8 +6,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // steppedModel waits three times and reads the clock after each wait, so the
@@ -42,19 +40,6 @@ func runUnderStep(t *testing.T, m *exploreModel, name string, step float64) (*Co
 	return ctx, out, err
 }
 
-func realOutputs(t *testing.T, out map[string]Value, names ...string) []float64 {
-	t.Helper()
-	got := make([]float64, len(names))
-	for i, name := range names {
-		v := out[name]
-		if v.Kind != ValConst || v.Const.Kind != semantics.ValReal {
-			t.Fatalf("%s = %v, want a Real", name, v)
-		}
-		got[i] = v.Const.AsReal()
-	}
-	return got
-}
-
 // A continuous clock (the default) reads a wait due exactly when it ends: the
 // instants are the sums of the durations, and an absolute wait is its instant.
 func TestContinuousClockReadsWaitsExactly(t *testing.T) {
@@ -66,7 +51,7 @@ func TestContinuousClockReadsWaitsExactly(t *testing.T) {
 	if ctx.ClockStep() != 0 {
 		t.Errorf("ClockStep() = %v, want 0", ctx.ClockStep())
 	}
-	got := realOutputs(t, out, "t1", "t2", "t3")
+	got := soleRealOutputs(t, out, "t1", "t2", "t3")
 	for i, want := range []float64{2.3, 2.7, 6.0} {
 		if math.Abs(got[i]-want) > 1e-12 {
 			t.Errorf("t%d = %v, want %v", i+1, got[i], want)
@@ -95,7 +80,7 @@ func TestSteppedClockReadsWaitsOnTicks(t *testing.T) {
 		if ctx.ClockStep() != tc.step {
 			t.Errorf("step %v: ClockStep() = %v", tc.step, ctx.ClockStep())
 		}
-		got := realOutputs(t, out, "t1", "t2", "t3")
+		got := soleRealOutputs(t, out, "t1", "t2", "t3")
 		for i, want := range tc.want {
 			if math.Abs(got[i]-want) > 1e-9 {
 				t.Errorf("step %v: t%d = %v, want %v", tc.step, i+1, got[i], want)
@@ -200,7 +185,7 @@ func TestWitnessCarriesTheClockStep(t *testing.T) {
 	if err != nil {
 		t.Fatalf("replay: %v", err)
 	}
-	if want, have := realOutputs(t, out, "t1", "t2", "t3"), realOutputs(t, got, "t1", "t2", "t3"); !slices.Equal(want, have) {
+	if want, have := soleRealOutputs(t, out, "t1", "t2", "t3"), soleRealOutputs(t, got, "t1", "t2", "t3"); !slices.Equal(want, have) {
 		t.Errorf("the replay read %v, want the stepped run's %v", have, want)
 	}
 	if replay.ClockStep() != 0 {

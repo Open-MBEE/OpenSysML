@@ -933,7 +933,7 @@ end
                 performer_model = parse_source(conn, performer_source; name="performer.sysml")
                 run = execute_action(performer_model, "Wire::Craft::look";
                     performer="Wire::pair.craft")
-                @test run["seen"] === true
+                @test run["seen"] == [true]
                 @test run.performer["this.pinged"] === true
                 state_run = execute_state(performer_model, "Wire::Craft::modes";
                     performer="Wire::pair.craft")

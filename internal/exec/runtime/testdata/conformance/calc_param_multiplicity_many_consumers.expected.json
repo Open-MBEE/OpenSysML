@@ -1,0 +1,14 @@
+{
+  "libraries": true,
+  "type": "instance",
+  "instantiate": "test::Host",
+  "slots": {
+    "counted": {"type": "Integer", "value": 3},
+    "picked": {"type": "Integer", "value": 2},
+    "isOne": {"type": "Boolean", "value": true},
+    "isOneBare": {"type": "Boolean", "value": true},
+    "isOnePair": {"type": "Boolean", "value": false},
+    "eqOne": {"type": "Boolean", "value": true},
+    "eqOneBare": {"type": "Boolean", "value": true}
+  }
+}

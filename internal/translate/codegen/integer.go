@@ -190,6 +190,8 @@ func unboundedIntExpr(x Expr) string {
 		return unboundedIntExprs(x.X, x.Other)
 	case Checked:
 		return unboundedIntExprs(x.X)
+	case Held:
+		return unboundedIntExprs(x.X)
 	case Let:
 		return unboundedIntExprs(x.Value, x.In)
 	case Coalesce:

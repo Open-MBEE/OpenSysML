@@ -17,9 +17,9 @@ materialize: Ping #2
   stmt assign deferred
       enter calc SequenceFunctions::including
         eval feature deferred -> ()
-        eval chain kept -> instance#2
+        eval chain kept -> (instance#2)
         bind seq = () [argument]
-        bind values = instance#2 [argument]
+        bind values = (instance#2) [argument]
       exit calc SequenceFunctions::including -> (instance#2)
     eval invoke SequenceFunctions::including -> (instance#2)
 exit: busy (exit action)
