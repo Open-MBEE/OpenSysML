@@ -410,11 +410,11 @@ func TestActionDebuggerRunsAUseCase(t *testing.T) {
 	wants(t, run(t, s, "%stop"), `✓ Stopped debugging session for "Drones::chargeDrone"`)
 
 	wants(t, run(t, s, "%action Drones::Weigh"), `✓ Started action executor for "Drones::Weigh"`)
-	wants(t, run(t, s, "%continue"), "✓ Action completed", "m = 3.5")
+	wants(t, run(t, s, "%continue"), "✓ Action completed", "m = [3.5]")
 	run(t, s, "%stop")
 
 	wants(t, run(t, s, "%action Drones::mission"), `✓ Started action executor for "Drones::mission"`)
-	wants(t, run(t, s, "%continue"), "✓ Action completed", "charge.charge = 1", "weigh.m = 3.5", "total = 4.5")
+	wants(t, run(t, s, "%continue"), "✓ Action completed", "charge.charge = 1", "weigh.m = [3.5]", "total = [4.5]")
 	run(t, s, "%stop")
 
 	wants(t, run(t, s, "%analysis Drones::chargeDrone"), "error: not an analysis case: Drones::chargeDrone is an use case usage")

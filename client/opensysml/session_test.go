@@ -499,7 +499,7 @@ func TestSessionPerformReportsBranchesAndChoices(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Perform gamble: %v", err)
 		}
-		if _, ok := gambled.Outputs["won"].(opensysml.Bool); !ok {
+		if _, ok := sole(t, "won", gambled.Outputs["won"]).(opensysml.Bool); !ok {
 			t.Errorf("gamble outputs = %#v, want a Bool won", gambled.Outputs)
 		}
 		fv, err := session.Feature(hero, "gold")
