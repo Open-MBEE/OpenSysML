@@ -292,3 +292,64 @@ func TestActionHeldReportsAFailingDeclaredBinding(t *testing.T) {
 		t.Fatalf("held undivided offered its performer: %v, want %v", err, errPerformedInputs)
 	}
 }
+
+// A declared binding read through a calc usage is evaluated anew by every input
+// check: what one check computed is not held past it, so a check after a change to
+// what the usage reads compares against the usage's current answer.
+func TestActionHeldBindingThroughACalcUsageReadsItAnew(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package H {
+		private import ScalarValues::*;
+		part def Heater { attribute level : Integer = 0; }
+		calc def Pick { in useLeft : Boolean; in left : Heater; in right : Heater; return : Heater = if useLeft ? left else right; }
+		action def Nudge {
+			in delta : Integer[1] = 1;
+			in ref context : Heater[1];
+			first apply;
+			action apply { assign context.level := context.level + delta; }
+			first apply then done;
+		}
+		part def Host {
+			attribute useLeft : Boolean = true;
+			part left : Heater;
+			part right : Heater;
+			calc pick : Pick { in useLeft = useLeft; in left = left; in right = right; }
+			perform action earlier { first start; then action w accept after 5 [SI::s]; then done; }
+			perform action later : Nudge { in ref :>> context = pick; }
+			first earlier then later;
+		}
+	}`))
+	host := mustInstantiate(t, ctx, oneSymbol(t, idx, "H::Host"))
+	later := oneSymbol(t, idx, "H::Host::later")
+	side := func(name string) Value {
+		fv, err := host.GetFeatureValue(ctx, name)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		return fv.HeldValue()
+	}
+	left, right := side("left"), side("right")
+	if n := len(ctx.run.calcUsageRuns); n != 0 {
+		t.Fatalf("%d activation(s) hold a calc usage evaluation before any check", n)
+	}
+
+	_, _, err := ctx.StartActionPerformedBy(later, host, map[string]Value{"context": left})
+	if !errors.Is(err, errSuccessionOrderViolated) || errors.Is(err, errPerformedInputs) {
+		t.Fatalf("held later offered left while useLeft: %v, want only %v", err, errSuccessionOrderViolated)
+	}
+	if _, _, err := ctx.StartActionPerformedBy(later, host, map[string]Value{"context": right}); !errors.Is(err, errPerformedInputs) {
+		t.Fatalf("held later offered right while useLeft: %v, want %v", err, errPerformedInputs)
+	}
+	if n := len(ctx.run.calcUsageRuns); n != 0 {
+		t.Errorf("%d activation(s) hold a calc usage evaluation after the checks, want none: a check holds nothing past itself", n)
+	}
+	if err := host.SetFeatureValue(ctx, "useLeft", boolValue(false)); err != nil {
+		t.Fatalf("set useLeft: %v", err)
+	}
+	if _, _, err := ctx.StartActionPerformedBy(later, host, map[string]Value{"context": left}); !errors.Is(err, errPerformedInputs) {
+		t.Fatalf("held later offered left once useLeft is false: %v, want %v", err, errPerformedInputs)
+	}
+	_, _, err = ctx.StartActionPerformedBy(later, host, map[string]Value{"context": right})
+	if !errors.Is(err, errSuccessionOrderViolated) || errors.Is(err, errPerformedInputs) {
+		t.Fatalf("held later offered right once useLeft is false: %v, want only %v", err, errSuccessionOrderViolated)
+	}
+}

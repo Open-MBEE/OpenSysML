@@ -1544,9 +1544,11 @@ func (ctx *Context) argumentScope(inst *Instance, decl classifierBehaviorDecl) *
 	return DeclScope(inst.Type)
 }
 
-// classifierBehaviorArgument evaluates one argument of a behavior declaration on inst.
+// classifierBehaviorArgument evaluates one argument of a behavior declaration on
+// inst, as a step of its own: a calc usage it reads is not held past it.
 func (ctx *Context) classifierBehaviorArgument(inst *Instance, decl classifierBehaviorDecl, scope *symbols.Scope, arg lower.Attribute) (Value, error) {
 	ec := NewEvalContextIn(ctx, scope, inst)
+	defer ec.beginStep()()
 	value, err := ec.Eval(arg.Value)
 	if err != nil {
 		return Value{}, fmt.Errorf("%s %s of %s: bind %s: %w",
