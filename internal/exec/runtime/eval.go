@@ -1628,12 +1628,13 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if inst, ok := ec.ctx.structuredObject(value); ok && (isStructuredValue(&value) || value.Kind == ValQuantity) {
 			// A scalar quantity answers its own features (`num`, `mRef`) as the value it
 			// is; its object answers the members a specialization adds.
+			next, segments, label := Value{Kind: ValInstance, Instance: inst.ID}, parts, from
 			if value.Kind == ValQuantity {
 				if answer, ok, err := ec.ctx.quantityFeature(value, name); ok && err == nil {
-					return ec.chainMemberValue(answer, rest, name)
+					next, segments, label = answer, rest, name
 				}
 			}
-			return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
+			return ec.chainMemberValue(next, segments, label)
 		}
 		return ec.chainOwnFeature(value, parts, from)
 	case ValInstance, ValVariant:
@@ -1700,14 +1701,13 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if ec.ctx.derivesKernelCollection(inst, name) {
 			return ec.chainFeatureValue(inst, name, rest, from)
 		}
-		// A member the shape leaves out, which the default the holder governs over states.
-		if val, ok, err := ec.ctx.holderDefaultMember(inst, name); ok {
-			if err != nil {
-				return Value{}, err
-			}
-			return ec.chainMemberValue(val, rest, name)
+		// A member the shape leaves out, which the default the holder governs over
+		// states; else a Kernel member.
+		val, answered, err := ec.ctx.holderDefaultMember(inst, name)
+		if !answered {
+			val, answered, err = ec.kernelMemberValue(inst, name, from)
 		}
-		if val, answered, err := ec.kernelMemberValue(inst, name, from); answered {
+		if answered {
 			if err != nil {
 				return Value{}, err
 			}
