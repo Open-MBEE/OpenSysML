@@ -681,11 +681,11 @@ func TestPathsStayUnderTheRoot(t *testing.T) {
 	}
 	var resp pb.ParseSourcesResponse
 	_, out := h.ok("parse", map[string]any{"paths": []string{"inside.sysml", "brokenlink.sysml"}}, &resp)
-	real, err := filepath.EvalSymlinks(filepath.Join(h.root, "broken.sysml"))
+	resolved, err := filepath.EvalSymlinks(filepath.Join(h.root, "broken.sysml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, real) || strings.Contains(out, "brokenlink.sysml") {
+	if !strings.Contains(out, resolved) || strings.Contains(out, "brokenlink.sysml") {
 		t.Errorf("the service must be handed the resolved file, not the link:\n%s", out)
 	}
 	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "alias.kerml")); err != nil {

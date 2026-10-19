@@ -108,21 +108,13 @@ func (s *Session) runActionToCompletion(ctx *runtime.Context, inv analysisInvoca
 		return err
 	}
 	scope := s.promptScope()
-	var positional []runtime.Value
-	for _, arg := range parsed.positional {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		positional = append(positional, val)
+	positional, bound, err := evalArgumentList(ctx, scope, parsed.positional, parsed.named)
+	if err != nil {
+		return err
 	}
 	var named []runtime.NamedInput
 	for _, arg := range parsed.named {
-		value, err := ctx.EvalWithScope(arg.node, scope)
-		if err != nil {
-			return fmt.Errorf("argument %s: %w", arg.param, err)
-		}
-		named = append(named, runtime.NamedInput{Name: arg.param, Value: value})
+		named = append(named, runtime.NamedInput{Name: arg.param, Value: bound[arg.param]})
 	}
 	inputs, err := ctx.ActionInputs(scope, sym, positional, named)
 	if err != nil {

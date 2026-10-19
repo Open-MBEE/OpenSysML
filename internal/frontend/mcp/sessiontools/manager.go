@@ -236,7 +236,7 @@ func (m *Manager) Guard(path string) error {
 	if escapes(m.root, path) {
 		return fmt.Errorf("%s is outside the workspace root %s; session tools only read and write under the root", path, m.root)
 	}
-	real, err := realPath(path)
+	resolved, err := realPath(path)
 	if err != nil {
 		return fmt.Errorf("resolving %s: %w", path, err)
 	}
@@ -244,8 +244,8 @@ func (m *Manager) Guard(path string) error {
 	if err != nil {
 		return fmt.Errorf("resolving the workspace root %s: %w", m.root, err)
 	}
-	if escapes(realRoot, real) {
-		return fmt.Errorf("%s leads through a symlink to %s, outside the workspace root %s; session tools only read and write under the root", path, real, m.root)
+	if escapes(realRoot, resolved) {
+		return fmt.Errorf("%s leads through a symlink to %s, outside the workspace root %s; session tools only read and write under the root", path, resolved, m.root)
 	}
 	return nil
 }
@@ -271,9 +271,9 @@ const maxLinkHops = 40
 func realPathHops(path string, hops int) (string, error) {
 	rest := ""
 	for p := path; ; {
-		real, err := filepath.EvalSymlinks(p)
+		resolved, err := filepath.EvalSymlinks(p)
 		if err == nil {
-			return filepath.Join(real, rest), nil
+			return filepath.Join(resolved, rest), nil
 		}
 		parent := filepath.Dir(p)
 		if !errors.Is(err, fs.ErrNotExist) || parent == p {

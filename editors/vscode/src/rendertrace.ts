@@ -17,5 +17,6 @@ export function renderSummary(document: string, params: RenderParams, result: Re
   const notices = result.notices ?? [];
   const head = `Rendered ${view} of ${document}: ${result.kind} (${result.form}), ${counts.join(", ")}, ${notices.length} notice(s)`;
   const lead = nothingToDraw(result) ? `${head}; nothing to draw` : head;
-  return notices.length === 0 ? lead : `${lead}:\n${notices.map((notice) => `  ${notice}`).join("\n")}`;
+  const listed = notices.map((notice) => `  ${notice}`).join("\n");
+  return notices.length === 0 ? lead : `${lead}:\n${listed}`;
 }
