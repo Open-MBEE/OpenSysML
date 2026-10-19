@@ -17,6 +17,7 @@ const twoDrawsModel = `package Two {
 		action bump { in a : Real; in b : Real; out d : Real = a - b; }
 	}
 	part box : Box;
+	action def Diff { in a : Real; in b : Real; out d : Real = a - b; }
 	analysis def Study { subject s : Box; in a : Real; in b : Real; return diff : Real = a - b; }
 	analysis def Mc :> Simulation::MonteCarlo {
 		subject s : Box;
@@ -86,6 +87,8 @@ func TestSeededArgumentListDrawsSuccessivelyOnEverySurface(t *testing.T) {
 	drawsSuccessively(t, "%calc", run(t, s, "%calc Two::Pair("+twoDraws+")"), "=", want)
 	drawsSuccessively(t, "%invoke", run(t, s, "%invoke box bump "+twoDrawsSpaced), "d =", want)
 	drawsSuccessively(t, "%invoke named", run(t, s, "%invoke box bump a=uniform(0.0, 1.0) b=uniform(0.0, 1.0)"), "d =", want)
+	drawsSuccessively(t, "action inputs", actionOutput(t, s.RunActionWithInputs("Two::Diff", []string{"uniform(0.0, 1.0)", "uniform(0.0, 1.0)"})), "d =", want)
+	drawsSuccessively(t, "action inputs named", actionOutput(t, s.RunActionWithInputs("Two::Diff", []string{"b=uniform(0.0, 1.0)", "a=uniform(0.0, 1.0)"})), "d =", -want)
 	drawsSuccessively(t, "%analysis", run(t, s, "%analysis Two::Study("+twoDraws+") box"), "diff =", want)
 	drawsSuccessively(t, "%analysis named", run(t, s, "%analysis Two::Study(a=uniform(0.0, 1.0), b=uniform(0.0, 1.0)) box"), "diff =", want)
 	// A mixed list draws in the order written: here b draws first, so a - b is
@@ -109,6 +112,19 @@ func TestSeededArgumentListDrawsSuccessivelyOnEverySurface(t *testing.T) {
 	}
 	mixed := run(t, s, "%runs 3 7 Two::Mc(hi=uniform(0.0, 1.0), uniform(0.0, 1.0)) box")
 	drawsSuccessively(t, "%runs mixed", mixed, "Mean =", -want)
+}
+
+// actionOutput renders a run's verdict as "<name> <value>" lines, one per output.
+func actionOutput(t *testing.T, v Verdict) string {
+	t.Helper()
+	if v.Status != VerdictHolds {
+		t.Fatalf("run of %s: %s %v", v.Subject, v.Status, v.Lines)
+	}
+	var lines []string
+	for _, nv := range v.Values {
+		lines = append(lines, nv.Name+" = "+nv.Value)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // sweepRows reads the numeric cells of each table row of out.
@@ -145,6 +161,10 @@ func TestSeededArgumentListIsDeterministic(t *testing.T) {
 	if other := run(t, s, "%invoke box bump "+twoDrawsSpaced); number(t, other, "d =") != want {
 		t.Errorf("%%invoke under the same seed drew differently from %%calc:\n%s", other)
 	}
+	inputs := []string{"uniform(0.0, 1.0)", "uniform(0.0, 1.0)"}
+	if other := actionOutput(t, s.RunActionWithInputs("Two::Diff", inputs)); number(t, other, "d =") != want {
+		t.Errorf("a run's bound inputs under the same seed drew differently from %%calc:\n%s", other)
+	}
 }
 
 // An argument that fails to evaluate is reported by its text or parameter, as
@@ -153,5 +173,8 @@ func TestArgumentListReportsTheFailingArgument(t *testing.T) {
 	s, _ := twoDrawsSession(t)
 	wants(t, run(t, s, "%calc Two::Pair(1.0, nowhere)"), `evaluation of argument "nowhere" failed`)
 	wants(t, run(t, s, "%invoke box bump a=1.0 b=nowhere"), "argument b:")
+	if v := s.RunActionWithInputs("Two::Diff", []string{"1.0", "nowhere"}); v.Status != VerdictUnresolved || !strings.Contains(strings.Join(v.Lines, "\n"), `evaluation of argument "nowhere" failed`) {
+		t.Errorf("a run's failing input: %s %v", v.Status, v.Lines)
+	}
 	wants(t, run(t, s, "%analysis Two::Study(nowhere, 1.0) box"), `evaluation of argument "nowhere" failed`)
 }
