@@ -269,9 +269,6 @@ type values interface {
 	// valueOf returns the value v is pinned to, wrapping errNoConcreteValue when
 	// the model declares none.
 	valueOf(v *Var) (runtime.Value, error)
-
-	// origin names where the values come from, for a report.
-	origin() string
 }
 
 // declaredValues reads the value the evaluator reads for a variable: the value
@@ -305,8 +302,6 @@ func newDeclaredValues(ctx *runtime.Context, sym *symbols.Symbol, subject *runti
 	}
 	return &declaredValues{ctx: ctx, features: features, subject: subject}
 }
-
-func (d *declaredValues) origin() string { return "declared" }
 
 func (d *declaredValues) valueOf(v *Var) (runtime.Value, error) {
 	steps := strings.Split(v.Name, ".")
@@ -420,8 +415,6 @@ type nodeValues struct {
 	byName   map[string]runtime.Value
 	fallback *declaredValues
 }
-
-func (n *nodeValues) origin() string { return "evaluated" }
 
 func (n *nodeValues) valueOf(v *Var) (runtime.Value, error) {
 	if val, ok := n.byName[v.Name]; ok {
