@@ -1983,7 +1983,11 @@ func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *Obje
 				continue
 			}
 			implicit = value.Kind == ValInstance && value.Instance == behavior.Object.ID
-			if bound, held := ctx.performedBinding(behavior, name); held {
+			bound, held, err := ctx.performedBinding(behavior, name)
+			if err != nil {
+				return err
+			}
+			if held {
 				// A reference binding is the one-element sequence a bare pin holds.
 				implicit = ctx.valueEqual(soleElement(bound), soleElement(value))
 			}
@@ -2000,23 +2004,37 @@ func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *Obje
 }
 
 // performedBinding is the value a performance binds parameter name to: the one its
-// frame stores once started, else the declared feature value of a held performance,
-// evaluated in the performer's scope without releasing or scheduling it.
-func (ctx *Context) performedBinding(behavior *ObjectBehavior, name string) (Value, bool) {
+// frame stores once started, else the one its declaration states while it is held.
+func (ctx *Context) performedBinding(behavior *ObjectBehavior, name string) (Value, bool, error) {
 	if behavior.Action != nil {
 		root := behavior.Action.root
 		bound, held := root.data[root.key(name)]
-		return bound, held
+		return bound, held, nil
 	}
 	if behavior.deferred == nil {
-		return Value{}, false
+		return Value{}, false, nil
 	}
-	args, err := ctx.classifierBehaviorArguments(behavior.Object, *behavior.deferred)
-	if err != nil {
-		return Value{}, false
+	return ctx.heldBinding(behavior, name)
+}
+
+// heldBinding evaluates the argument a held performance's declaration binds parameter
+// name with, in the performer's scope, as a probe: nothing the evaluation materializes
+// or starts outlives it, so the held performance is neither released nor rescheduled.
+func (ctx *Context) heldBinding(behavior *ObjectBehavior, name string) (Value, bool, error) {
+	decl := *behavior.deferred
+	scope := ctx.argumentScope(behavior.Object, decl)
+	for _, arg := range decl.behavior.Arguments {
+		if ctx.argumentParameter(scope, arg) != name {
+			continue
+		}
+		defer ctx.beginProbe()()
+		value, err := ctx.classifierBehaviorArgument(behavior.Object, decl, scope, arg)
+		if err != nil {
+			return Value{}, false, err
+		}
+		return value, true, nil
 	}
-	bound, held := args[name]
-	return bound, held
+	return Value{}, false, nil
 }
 
 // PerformedExecutor is the executor of an action the object performs; one a succession

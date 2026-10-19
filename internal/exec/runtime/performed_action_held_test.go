@@ -175,3 +175,120 @@ func TestActionHeldAcceptsItsDeclaredReferenceBinding(t *testing.T) {
 		t.Errorf("other.level = %d, want 1: joining the performance does not run it again", got)
 	}
 }
+
+// Checking the inputs of a held action against its declared binding evaluates the
+// binding as a probe: a refused start materializes no part, starts no behavior
+// and writes nothing, even where the bound part is still unmaterialized and its
+// type performs an action of its own.
+func TestActionHeldInputCheckLeavesTheModelUnchanged(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package H {
+		private import ScalarValues::*;
+		part def Counter {
+			attribute level : Integer = 0;
+			attribute bumps : Integer = 0;
+			perform action bump { first start; then action m assign bumps := bumps + 1; then done; }
+		}
+		action def Nudge {
+			in delta : Integer[1] = 1;
+			in ref context : Counter[1];
+			first apply;
+			action apply { assign context.level := context.level + delta; }
+			first apply then done;
+		}
+		part def Host {
+			part other : Counter;
+			perform action earlier { first start; then action w accept after 5 [SI::s]; then done; }
+			perform action later : Nudge { in ref :>> context = other; }
+			first earlier then later;
+		}
+	}`))
+	host := mustInstantiate(t, ctx, oneSymbol(t, idx, "H::Host"))
+	later := oneSymbol(t, idx, "H::Host::later")
+	held := host.PerformedActionsOf(later)
+	if len(held) != 1 || held[0].deferred == nil {
+		t.Fatalf("later on the host: %d performances, want one held back", len(held))
+	}
+	objects, behaviors := len(ctx.created), len(ctx.objectBehaviors)
+
+	self := Value{Kind: ValInstance, Instance: host.ID}
+	if _, _, err := ctx.StartActionPerformedBy(later, host, map[string]Value{"context": self}); !errors.Is(err, errPerformedInputs) {
+		t.Fatalf("held later offered its performer where `other` is bound: %v, want %v", err, errPerformedInputs)
+	}
+	if len(ctx.created) != objects || len(ctx.objectBehaviors) != behaviors {
+		t.Fatalf("a refused start left %d object(s) and %d behavior(s) behind",
+			len(ctx.created)-objects, len(ctx.objectBehaviors)-behaviors)
+	}
+	if held[0].deferred == nil || held[0].Action != nil {
+		t.Fatal("a refused start released the held action")
+	}
+
+	if _, err := ctx.Advance(10); err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	fv, err := host.GetFeatureValue(ctx, "other")
+	if err != nil {
+		t.Fatalf("read other: %v", err)
+	}
+	other, ok := ctx.Instance(fv.HeldValue().Instance)
+	if !ok {
+		t.Fatalf("other is not an object: %v", fv.HeldValue())
+	}
+	if got := featureInt(t, ctx, other, "level"); got != 1 {
+		t.Errorf("other.level = %d, want 1: later ran once when earlier ended", got)
+	}
+	if got := featureInt(t, ctx, other, "bumps"); got != 1 {
+		t.Errorf("other.bumps = %d, want 1: other's own behavior ran once, on materialization", got)
+	}
+}
+
+// A declared binding that fails to evaluate is reported as the release would
+// report it, rather than refusing the input; another argument's failure does not
+// touch the comparison of the one offered.
+func TestActionHeldReportsAFailingDeclaredBinding(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package H {
+		private import ScalarValues::*;
+		part def Heater { attribute level : Integer = 0; }
+		action def Nudge {
+			in delta : Integer[1] default = 1;
+			in ref context : Heater[1];
+			first apply;
+			action apply { assign context.level := context.level + delta; }
+			first apply then done;
+		}
+		part def Host {
+			attribute zero : Integer = 0;
+			ref pick : Heater[1];
+			part other : Heater;
+			perform action earlier { first start; then action w accept after 5 [SI::s]; then done; }
+			perform action unpicked : Nudge { in ref :>> context = pick; }
+			perform action undivided : Nudge { in ref :>> context = other; in :>> delta = 1 / zero; }
+			first earlier then unpicked;
+			first earlier then undivided;
+		}
+	}`))
+	host := mustInstantiate(t, ctx, oneSymbol(t, idx, "H::Host"))
+	fv, err := host.GetFeatureValue(ctx, "other")
+	if err != nil {
+		t.Fatalf("read other: %v", err)
+	}
+	other := fv.HeldValue()
+	self := Value{Kind: ValInstance, Instance: host.ID}
+
+	unpicked := oneSymbol(t, idx, "H::Host::unpicked")
+	_, _, err = ctx.StartActionPerformedBy(unpicked, host, map[string]Value{"context": other})
+	if !errors.Is(err, errUninitializedFeatureValue) || !strings.Contains(err.Error(), "bind context") || errors.Is(err, errPerformedInputs) {
+		t.Fatalf("held unpicked whose binding fails: %v, want the binding's failure, not %v", err, errPerformedInputs)
+	}
+	if held := host.PerformedActionsOf(unpicked); len(held) != 1 || held[0].deferred == nil {
+		t.Fatal("a failed binding check released the held action")
+	}
+
+	undivided := oneSymbol(t, idx, "H::Host::undivided")
+	_, _, err = ctx.StartActionPerformedBy(undivided, host, map[string]Value{"context": other})
+	if !errors.Is(err, errSuccessionOrderViolated) || errors.Is(err, errPerformedInputs) {
+		t.Fatalf("held undivided offered its declared binding: %v, want only %v", err, errSuccessionOrderViolated)
+	}
+	if _, _, err := ctx.StartActionPerformedBy(undivided, host, map[string]Value{"context": self}); !errors.Is(err, errPerformedInputs) {
+		t.Fatalf("held undivided offered its performer: %v, want %v", err, errPerformedInputs)
+	}
+}
