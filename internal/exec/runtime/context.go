@@ -1973,7 +1973,7 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 }
 
 // refusePerformedInputs refuses inputs for a performed action that are not the bindings
-// its declaration states; a held performance stored none yet, so only self itself passes.
+// its declaration states, whether the performance has started or is still held.
 func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *ObjectBehavior, inputs map[string]Value) error {
 	conflicts := 0
 	for name, value := range inputs {
@@ -1983,11 +1983,9 @@ func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *Obje
 				continue
 			}
 			implicit = value.Kind == ValInstance && value.Instance == behavior.Object.ID
-			if behavior.Action != nil {
-				root := behavior.Action.root
-				if bound, held := root.data[root.key(name)]; held {
-					implicit = ctx.valueEqual(bound, value)
-				}
+			if bound, held := ctx.performedBinding(behavior, name); held {
+				// A reference binding is the one-element sequence a bare pin holds.
+				implicit = ctx.valueEqual(soleElement(bound), soleElement(value))
 			}
 			break
 		}
@@ -1999,6 +1997,26 @@ func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *Obje
 		return fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, SymbolText(action))
 	}
 	return nil
+}
+
+// performedBinding is the value a performance binds parameter name to: the one its
+// frame stores once started, else the declared feature value of a held performance,
+// evaluated in the performer's scope without releasing or scheduling it.
+func (ctx *Context) performedBinding(behavior *ObjectBehavior, name string) (Value, bool) {
+	if behavior.Action != nil {
+		root := behavior.Action.root
+		bound, held := root.data[root.key(name)]
+		return bound, held
+	}
+	if behavior.deferred == nil {
+		return Value{}, false
+	}
+	args, err := ctx.classifierBehaviorArguments(behavior.Object, *behavior.deferred)
+	if err != nil {
+		return Value{}, false
+	}
+	bound, held := args[name]
+	return bound, held
 }
 
 // PerformedExecutor is the executor of an action the object performs; one a succession

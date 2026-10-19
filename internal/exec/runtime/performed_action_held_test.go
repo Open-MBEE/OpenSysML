@@ -108,3 +108,70 @@ func TestActionHeldWhoseReleaseFailsReportsTheFailure(t *testing.T) {
 		t.Fatalf("later whose release failed: %v, want %v", err, errUnboundParameter)
 	}
 }
+
+// A held action whose declaration binds an `in ref` parameter (`:>> context =
+// other`) accepts that binding as an input before it starts, as the started
+// performance does: the feature value is the model's, not the start's. The
+// check neither releases the held action nor refuses the binding it states.
+func TestActionHeldAcceptsItsDeclaredReferenceBinding(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package H {
+		private import ScalarValues::*;
+		part def Heater { attribute level : Integer = 0; }
+		action def Nudge {
+			in delta : Integer[1] = 1;
+			in ref context : Heater[1];
+			first apply;
+			action apply { assign context.level := context.level + delta; }
+			first apply then done;
+		}
+		part def Host {
+			part other : Heater;
+			perform action earlier { first start; then action w accept after 5 [SI::s]; then done; }
+			perform action later : Nudge { in ref :>> context = other; }
+			first earlier then later;
+		}
+	}`))
+	host := mustInstantiate(t, ctx, oneSymbol(t, idx, "H::Host"))
+	later := oneSymbol(t, idx, "H::Host::later")
+	held := host.PerformedActionsOf(later)
+	if len(held) != 1 || held[0].deferred == nil {
+		t.Fatalf("later on the host: %d performances, want one held back", len(held))
+	}
+	fv, err := host.GetFeatureValue(ctx, "other")
+	if err != nil {
+		t.Fatalf("read other: %v", err)
+	}
+	other := fv.HeldValue()
+	self := Value{Kind: ValInstance, Instance: host.ID}
+
+	_, _, err = ctx.StartActionPerformedBy(later, host, map[string]Value{"context": other})
+	if !errors.Is(err, errSuccessionOrderViolated) || errors.Is(err, errPerformedInputs) {
+		t.Fatalf("held later with its declared binding: %v, want only %v", err, errSuccessionOrderViolated)
+	}
+	if _, _, err := ctx.StartActionPerformedBy(later, host, map[string]Value{"context": self}); !errors.Is(err, errPerformedInputs) {
+		t.Fatalf("held later offered its performer where `other` is bound: %v, want %v", err, errPerformedInputs)
+	}
+	if held[0].deferred == nil || held[0].Action != nil {
+		t.Fatal("checking the inputs of a held action released it")
+	}
+
+	if _, err := ctx.Advance(10); err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	otherInst, ok := ctx.Instance(other.Instance)
+	if !ok {
+		t.Fatalf("other #%d is not an instance", other.Instance)
+	}
+	if got := featureInt(t, ctx, otherInst, "level"); got != 1 {
+		t.Errorf("other.level = %d, want 1: later ran once when earlier ended", got)
+	}
+	if _, err := ctx.ExecuteActionPerformedBy(later, host, map[string]Value{"context": other}); err != nil {
+		t.Fatalf("started later with its declared binding: %v", err)
+	}
+	if _, err := ctx.ExecuteActionPerformedBy(later, host, map[string]Value{"context": self}); !errors.Is(err, errPerformedInputs) {
+		t.Fatalf("started later offered its performer: %v, want %v", err, errPerformedInputs)
+	}
+	if got := featureInt(t, ctx, otherInst, "level"); got != 1 {
+		t.Errorf("other.level = %d, want 1: joining the performance does not run it again", got)
+	}
+}
