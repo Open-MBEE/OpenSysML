@@ -2078,14 +2078,12 @@ func (s *Session) evalCalcIn(x execution, ctx *runtime.Context, sym *symbols.Sym
 	// Arguments are evaluated where the prompt evaluates any expression, so a
 	// quantity argument names the units the session's imports bring in.
 	scope := s.promptScope()
-	argValues := make([]runtime.Value, len(exprs))
+	argValues, _, err := evalArgumentList(ctx, scope, exprs, nil)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	argTexts := make([]string, len(exprs))
 	for i, arg := range exprs {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		argValues[i] = val
 		argTexts[i] = arg.text
 	}
 
@@ -2193,10 +2191,12 @@ func closesAtEnd(text string) bool {
 	return false
 }
 
-// argExpr is one parsed argument: its expression and the text it was written as.
+// argExpr is one parsed argument: its expression, the text it was written as
+// and its position in the written argument list.
 type argExpr struct {
 	expr ast.Node
 	text string
+	at   int
 }
 
 // parseExprList parses an argument list as expressions, so an argument that
@@ -2204,7 +2204,7 @@ type argExpr struct {
 // invocation — survives as the one expression it is.
 func parseExprList(text string) ([]argExpr, error) {
 	var out []argExpr
-	for _, arg := range splitArgs(text) {
+	for i, arg := range splitArgs(text) {
 		if isNamedArgument(arg) {
 			return nil, fmt.Errorf("named arguments are not supported here; pass arguments positionally")
 		}
@@ -2212,7 +2212,7 @@ func parseExprList(text string) ([]argExpr, error) {
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, argExpr{expr: expr, text: arg})
+		out = append(out, argExpr{expr: expr, text: arg, at: i})
 	}
 	return out, nil
 }
@@ -2871,29 +2871,19 @@ func (s *Session) startActionWithInputs(name string, performer []string, inputs 
 
 // doStep advances the action executor one step, or the state machine one event
 // when the session debugs a machine instead.
-// actionInputs evaluates an action's arguments at the prompt and binds them to
-// its input parameters as the runtime binds an invocation's: positional ones in
-// parameter order, named ones by name, an unknown or doubly bound parameter and
-// a wrong count each refused by name.
+// actionInputs evaluates an action's arguments at the prompt, as one argument list in
+// one run, and binds them to its input parameters as the runtime binds an invocation's.
 func (s *Session) actionInputs(ctx *runtime.Context, sym *symbols.Symbol, args invokeArguments) (map[string]runtime.Value, error) {
 	if len(args.positional) == 0 && len(args.named) == 0 {
 		return nil, nil
 	}
-	positional := make([]runtime.Value, 0, len(args.positional))
-	for i, arg := range args.positional {
-		value, err := ctx.EvalWithScope(arg.expr, s.promptScope())
-		if err != nil {
-			return nil, fmt.Errorf("argument %d (%s): %w", i+1, arg.text, err)
-		}
-		positional = append(positional, value)
+	positional, bound, err := evalArgumentList(ctx, s.promptScope(), args.positional, args.named)
+	if err != nil {
+		return nil, err
 	}
 	named := make([]runtime.NamedInput, 0, len(args.named))
 	for _, arg := range args.named {
-		value, err := ctx.EvalWithScope(arg.node, s.promptScope())
-		if err != nil {
-			return nil, fmt.Errorf("argument %s: %w", arg.param, err)
-		}
-		named = append(named, runtime.NamedInput{Name: arg.param, Value: value})
+		named = append(named, runtime.NamedInput{Name: arg.param, Value: bound[arg.param]})
 	}
 	return ctx.ActionInputs(s.promptScope(), sym, positional, named)
 }
@@ -3598,15 +3588,8 @@ func (s *Session) invokeOperation(name, operation, args string) ([]string, error
 		return nil, rerr
 	}
 	var bound runtime.OperationArguments
-	if bound.Named, err = s.evalArguments(ctx, parsed.named); err != nil {
+	if bound.Positional, bound.Named, err = evalArgumentList(ctx, s.promptScope(), parsed.positional, parsed.named); err != nil {
 		return nil, err
-	}
-	for i, arg := range parsed.positional {
-		value, err := ctx.EvalWithScope(arg.expr, s.promptScope())
-		if err != nil {
-			return nil, fmt.Errorf("argument %d (%s): %w", i+1, arg.text, err)
-		}
-		bound.Positional = append(bound.Positional, value)
 	}
 	results, err := ctx.InvokeOperationWith(inst, operation, bound)
 	if err != nil {
@@ -3623,10 +3606,11 @@ func (s *Session) invokeOperation(name, operation, args string) ([]string, error
 }
 
 // argument is one `name=<expression>` argument of %invoke or %send, parsed and
-// not yet evaluated.
+// not yet evaluated, at its position in the written argument list.
 type argument struct {
 	param string
 	node  ast.Node
+	at    int
 }
 
 // invokeArguments are %invoke's arguments parsed and not yet evaluated: the list is
@@ -3646,12 +3630,13 @@ func parseInvokeArguments(text string) (invokeArguments, error) {
 // parseInvokeArgumentList is parseInvokeArguments over arguments already split.
 func parseInvokeArgumentList(list []string) (invokeArguments, error) {
 	var args invokeArguments
-	for _, arg := range list {
+	for i, arg := range list {
 		if isNamedArgument(arg) {
 			named, err := parseArguments([]string{arg})
 			if err != nil {
 				return invokeArguments{}, err
 			}
+			named[0].at = i
 			args.named = append(args.named, named...)
 			continue
 		}
@@ -3659,7 +3644,7 @@ func parseInvokeArgumentList(list []string) (invokeArguments, error) {
 		if err != nil {
 			return invokeArguments{}, err
 		}
-		args.positional = append(args.positional, argExpr{expr: expr, text: arg})
+		args.positional = append(args.positional, argExpr{expr: expr, text: arg, at: i})
 	}
 	if len(args.positional) > 0 && len(args.named) > 0 {
 		return invokeArguments{}, fmt.Errorf("%w: %d positional and %d named argument(s)",
@@ -3693,7 +3678,7 @@ func splitInvokeLine(tail string) (object, operation, args string) {
 // parseArguments takes apart and parses `name=<expression>` arguments.
 func parseArguments(args []string) ([]argument, error) {
 	parsed := make([]argument, 0, len(args))
-	for _, arg := range args {
+	for i, arg := range args {
 		param, expr, ok := strings.Cut(arg, "=")
 		param, expr = strings.TrimSpace(param), strings.TrimSpace(expr)
 		if !ok || param == "" || expr == "" {
@@ -3706,7 +3691,7 @@ func parseArguments(args []string) ([]argument, error) {
 		if node == nil {
 			return nil, fmt.Errorf("argument %s: could not parse %q", param, expr)
 		}
-		parsed = append(parsed, argument{param: param, node: node})
+		parsed = append(parsed, argument{param: param, node: node, at: i})
 	}
 	return parsed, nil
 }
@@ -3722,18 +3707,61 @@ func (s *Session) evalArguments(ctx *runtime.Context, parsed []argument) (map[st
 
 // evalArgumentsIn evaluates parsed arguments in ctx under scope, binding each to its parameter.
 func evalArgumentsIn(ctx *runtime.Context, scope *symbols.Scope, parsed []argument) (map[string]runtime.Value, error) {
-	if len(parsed) == 0 {
-		return nil, nil
+	_, named, err := evalArgumentList(ctx, scope, nil, parsed)
+	return named, err
+}
+
+// evalArgumentList evaluates an invocation's whole argument list in one run, in the order
+// written, so a seeded draw continues the one before it; every argument surface binds through it.
+func evalArgumentList(ctx *runtime.Context, scope *symbols.Scope, positional []argExpr, named []argument) ([]runtime.Value, map[string]runtime.Value, error) {
+	if len(positional) == 0 && len(named) == 0 {
+		return nil, nil, nil
 	}
-	bound := make(map[string]runtime.Value, len(parsed))
-	for _, arg := range parsed {
-		value, err := ctx.EvalWithScope(arg.node, scope)
-		if err != nil {
-			return nil, fmt.Errorf("argument %s: %w", arg.param, err)
+	// An argument is addressed by one index over both lists, positional first.
+	at := func(i int) int {
+		if i < len(positional) {
+			return positional[i].at
 		}
-		bound[arg.param] = value
+		return named[i-len(positional)].at
 	}
-	return bound, nil
+	order := make([]int, len(positional)+len(named))
+	for i := range order {
+		order[i] = i
+	}
+	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(at(a), at(b)) })
+	nodes := make([]ast.Node, len(order))
+	for k, i := range order {
+		if i < len(positional) {
+			nodes[k] = positional[i].expr
+		} else {
+			nodes[k] = named[i-len(positional)].node
+		}
+	}
+	values, err := ctx.EvalArguments(scope, nodes)
+	if err != nil {
+		var failed *runtime.ArgumentError
+		if !errors.As(err, &failed) {
+			return nil, nil, err
+		}
+		i := order[failed.Index]
+		if i < len(positional) {
+			return nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", positional[i].text, failed.Err)
+		}
+		return nil, nil, fmt.Errorf("argument %s: %w", named[i-len(positional)].param, failed.Err)
+	}
+	byPosition := make([]runtime.Value, len(positional))
+	var bound map[string]runtime.Value
+	if len(named) > 0 {
+		bound = make(map[string]runtime.Value, len(named))
+	}
+	for k, i := range order {
+		if i < len(positional) {
+			byPosition[i] = values[k]
+		} else {
+			bound[named[i-len(positional)].param] = values[k]
+		}
+	}
+	return byPosition, bound, nil
 }
 
 // doEvents displays the event queue.

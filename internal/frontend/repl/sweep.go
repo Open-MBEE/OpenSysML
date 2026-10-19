@@ -271,19 +271,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 // evalInvocationArgs evaluates an invocation's positional and named arguments in ctx,
 // where scope names what the prompt reaches.
 func evalInvocationArgs(ctx *runtime.Context, scope *symbols.Scope, parsed analysisArgs) ([]runtime.Value, map[string]runtime.Value, error) {
-	var positional []runtime.Value
-	for _, arg := range parsed.positional {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		positional = append(positional, val)
-	}
-	named, err := evalArgumentsIn(ctx, scope, parsed.named)
-	if err != nil {
-		return nil, nil, err
-	}
-	return positional, named, nil
+	return evalArgumentList(ctx, scope, parsed.positional, parsed.named)
 }
 
 // sweptArgs are an invocation's arguments as the prompt evaluates them, with what each
