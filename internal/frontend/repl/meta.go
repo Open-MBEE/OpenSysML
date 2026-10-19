@@ -31,6 +31,7 @@ import (
 const (
 	constraintCommand  = "%constraint"
 	requirementCommand = "%requirement"
+	depthOption        = "depth="
 )
 
 // renderUsage is how %render is written: a view, the form to write it in, text
@@ -384,6 +385,9 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 	if result, ok := s.metaCheckCommand(fields); ok {
 		return result, true
 	}
+	if result, ok := s.metaViewCommand(fields); ok {
+		return result, true
+	}
 	switch fields[0] {
 	case "%help":
 		return metaOut(helpText(), false, nil), true
@@ -467,6 +471,16 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doSearch(nameText(fields[1]))), true
 	case "%builtins":
 		return metaOut(s.doBuiltins()), true
+	case "%quit", "%exit":
+		return metaOut([]string{"goodbye"}, true, nil), true
+	}
+	return metaResult{}, false
+}
+
+// metaViewCommand answers the commands that show or draw a view, a graph or a
+// run, reporting false for any other line.
+func (s *Session) metaViewCommand(fields []string) (metaResult, bool) {
+	switch fields[0] {
 	case "%view":
 		if len(fields) < 2 {
 			return metaOut([]string{"usage: %view <name>"}, false, nil), true
@@ -483,8 +497,6 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.metaViz(fields[1:])), true
 	case "%render-run":
 		return metaOut(s.metaRenderRun(fields[1:])), true
-	case "%quit", "%exit":
-		return metaOut([]string{"goodbye"}, true, nil), true
 	}
 	return metaResult{}, false
 }
@@ -541,7 +553,7 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 // renderOptionWord reports whether word is a rendering option rather than a
 // form, so the text form is understood before it.
 func renderOptionWord(word string) bool {
-	if strings.HasPrefix(word, "show=") || strings.HasPrefix(word, "link=") || strings.HasPrefix(word, "depth=") {
+	if strings.HasPrefix(word, "show=") || strings.HasPrefix(word, "link=") || strings.HasPrefix(word, depthOption) {
 		return true
 	}
 	if o, ok := view.ParseOverlay(word); ok && o != "" {
@@ -568,95 +580,120 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 	if len(args) < 1 {
 		return renderUsageOf(renderUsage)
 	}
-	form = view.FormText
+	r := renderArgs{form: view.FormText}
 	options := min(2, len(args))
 	if len(args) >= 2 {
 		switch {
 		case slices.Contains(view.Forms(), view.Form(args[1])):
-			form = view.Form(args[1])
+			r.form = view.Form(args[1])
 		case renderOptionWord(args[1]):
 			options = 1
 		default:
 			return renderUsageOf(fmt.Sprintf("unknown form %q; %s", args[1], renderUsage))
 		}
 	}
-	linkSet, depthSet := false, false
 	for _, word := range args[options:] {
-		if o, ok := view.ParseOverlay(word); ok && o != "" {
-			if overlay != "" {
-				return renderUsageOf(renderUsage)
-			}
-			overlay = o
-			continue
+		if usage := r.read(word); usage != "" {
+			return renderUsageOf(usage)
 		}
-		if strings.HasPrefix(word, "show=") {
-			if opts.Show != nil {
-				return renderUsageOf(renderUsage)
-			}
-			shown, err := view.ParseShown(strings.TrimPrefix(word, "show="))
-			if err != nil || shown == nil {
-				return renderUsageOf(fmt.Sprintf("show= names the optional notation elements to draw, %s; %s", view.ElementNames(), renderUsage))
-			}
-			opts.Show = shown
-			continue
-		}
-		if strings.HasPrefix(word, "depth=") {
-			if depthSet {
-				return renderUsageOf(renderUsage)
-			}
-			depthSet = true
-			levels, err := view.ParseDepth(strings.TrimPrefix(word, "depth="))
-			if err != nil {
-				return renderUsageOf(err.Error() + "; " + renderUsage)
-			}
-			depth = levels
-			continue
-		}
-		if strings.HasPrefix(word, "link=") {
-			if linkSet {
-				return renderUsageOf(renderUsage)
-			}
-			opts.Links.Template = strings.TrimPrefix(word, "link=")
-			if err := view.ParseLinkTemplate(opts.Links.Template); err != nil {
-				return renderUsageOf(err.Error() + "; " + renderUsage)
-			}
-			linkSet = true
-			continue
-		}
-		if style, ok := view.ParseDrawingStyle(word); ok {
-			if opts.Style != "" {
-				return renderUsageOf(renderUsage)
-			}
-			opts.Style = style
-			continue
-		}
-		if ports, ok := view.ParsePorts(word); ok {
-			if opts.Ports != "" {
-				return renderUsageOf(renderUsage)
-			}
-			opts.Ports = ports
-			continue
-		}
-		if lines, ok := view.ParseLines(word); ok {
-			if opts.Lines != "" {
-				return renderUsageOf(renderUsage)
-			}
-			opts.Lines = lines
-			continue
-		}
-		if !form.TakesPalette() {
-			return renderUsageOf(fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", form, renderUsage))
-		}
-		palette, ok := view.ParsePalette(word)
-		if !ok {
-			return renderUsageOf((&view.UnknownPaletteError{Name: word}).Error() + "; " + renderUsage)
-		}
-		if opts.Palette != "" {
-			return renderUsageOf(renderUsage)
-		}
-		opts.Palette = palette
 	}
-	return args[0], form, opts, overlay, depth, nil
+	return args[0], r.form, r.opts, r.overlay, r.depth, nil
+}
+
+// renderArgs accumulates %render's options as the words after the form are read.
+type renderArgs struct {
+	form     view.Form
+	opts     view.Options
+	overlay  view.Overlay
+	depth    int
+	linkSet  bool
+	depthSet bool
+}
+
+// read reads one option word, answering the usage to print when it does not
+// read or repeats an option already given.
+func (r *renderArgs) read(word string) string {
+	if o, ok := view.ParseOverlay(word); ok && o != "" {
+		return setOnce(&r.overlay, o)
+	}
+	if strings.HasPrefix(word, "show=") {
+		return r.readShown(strings.TrimPrefix(word, "show="))
+	}
+	if strings.HasPrefix(word, depthOption) {
+		return r.readDepth(strings.TrimPrefix(word, depthOption))
+	}
+	if strings.HasPrefix(word, "link=") {
+		return r.readLink(strings.TrimPrefix(word, "link="))
+	}
+	if style, ok := view.ParseDrawingStyle(word); ok {
+		return setOnce(&r.opts.Style, style)
+	}
+	if ports, ok := view.ParsePorts(word); ok {
+		return setOnce(&r.opts.Ports, ports)
+	}
+	if lines, ok := view.ParseLines(word); ok {
+		return setOnce(&r.opts.Lines, lines)
+	}
+	return r.readPalette(word)
+}
+
+// setOnce sets an option given once; a repeat answers the usage.
+func setOnce[T ~string](option *T, value T) string {
+	if *option != "" {
+		return renderUsage
+	}
+	*option = value
+	return ""
+}
+
+func (r *renderArgs) readShown(names string) string {
+	if r.opts.Show != nil {
+		return renderUsage
+	}
+	shown, err := view.ParseShown(names)
+	if err != nil || shown == nil {
+		return fmt.Sprintf("show= names the optional notation elements to draw, %s; %s", view.ElementNames(), renderUsage)
+	}
+	r.opts.Show = shown
+	return ""
+}
+
+func (r *renderArgs) readDepth(levels string) string {
+	if r.depthSet {
+		return renderUsage
+	}
+	r.depthSet = true
+	depth, err := view.ParseDepth(levels)
+	if err != nil {
+		return err.Error() + "; " + renderUsage
+	}
+	r.depth = depth
+	return ""
+}
+
+func (r *renderArgs) readLink(template string) string {
+	if r.linkSet {
+		return renderUsage
+	}
+	r.opts.Links.Template = template
+	if err := view.ParseLinkTemplate(template); err != nil {
+		return err.Error() + "; " + renderUsage
+	}
+	r.linkSet = true
+	return ""
+}
+
+// readPalette reads a word no other option claimed as a palette, which only the
+// diagram forms take.
+func (r *renderArgs) readPalette(word string) string {
+	if !r.form.TakesPalette() {
+		return fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", r.form, renderUsage)
+	}
+	palette, ok := view.ParsePalette(word)
+	if !ok {
+		return (&view.UnknownPaletteError{Name: word}).Error() + "; " + renderUsage
+	}
+	return setOnce(&r.opts.Palette, palette)
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line
@@ -1065,59 +1102,7 @@ func (s *Session) evalValue(expr string) (evaluated, error) {
 		}
 	}
 	if sym != nil {
-		// An object carrying the feature makes this a question about that object,
-		// as a check of a condition is: read the feature value, which holds the value the
-		// object actually has, rather than the value the declaration defaults to.
-		inst, owner, subjErr := s.subjectFor(expr, fqn, sym)
-		if subjErr != nil {
-			return evaluated{}, subjErr
-		}
-		if inst != nil {
-			if _, ok := inst.FeatureValues[sym.Name]; ok {
-				fv, err := inst.GetFeatureValue(ctx, sym.Name)
-				if err != nil {
-					return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
-				}
-				val, readErr := fv.ReadValue(fv.Feature.Name)
-				ev := answered(expr+onInstance(inst, owner), ctx, val, formatFeatureValue(ctx, fv))
-				ev.unset = runtime.IsUninitializedFeatureValue(readErr)
-				return ev, nil
-			}
-		}
-		// An enumeration literal is a value even though it declares none.
-		if val, isLiteral, err := ctx.EnumerationLiteralValue(sym); isLiteral {
-			if err != nil {
-				return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
-			}
-			return answered(expr, ctx, val, formatValue(ctx, val)), nil
-		}
-		// A measurement unit is the reference it declares, whatever defines it.
-		if val, isUnit, err := ctx.MeasurementUnitValue(sym); isUnit {
-			if err != nil {
-				return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
-			}
-			return answered(expr, ctx, val, formatValue(ctx, val)), nil
-		}
-		// A calc definition is the function it declares.
-		if val, isFunction, err := ctx.FunctionValue(sym); isFunction {
-			if err != nil {
-				return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
-			}
-			return answered(expr, ctx, val, formatValue(ctx, val)), nil
-		}
-		// A valueless usage may still name a value its own features shape.
-		if _, isUsage := sym.Decl.(*ast.Usage); !isUsage && !declaresValue(sym) {
-			return evaluated{}, fmt.Errorf("%q has no value to evaluate", expr)
-		}
-		// Read as the declaration is read: in its own scope, against its declared type.
-		val, err := ctx.EvalDeclaredValue(sym)
-		if err != nil {
-			if !declaresValue(sym) && errors.Is(err, runtime.ErrNoValue) {
-				return evaluated{}, fmt.Errorf("%q has no value to evaluate", expr)
-			}
-			return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
-		}
-		return answered(expr, ctx, val, formatValue(ctx, val)), nil
+		return s.evalSymbol(ctx, expr, fqn, sym)
 	}
 
 	// A compound expression is evaluated in the session's own namespace; an empty
@@ -1126,6 +1111,74 @@ func (s *Session) evalValue(expr string) (evaluated, error) {
 		return s.evalWithoutDeclarations(ctx, expr)
 	}
 
+	return s.evalCompound(ctx, expr, lookupErr)
+}
+
+// evalSymbol evaluates a reference to sym: the value the subject object holds
+// for it, the literal, unit or function it is, or the value it declares.
+func (s *Session) evalSymbol(ctx *runtime.Context, expr, fqn string, sym *symbols.Symbol) (evaluated, error) {
+	// An object carrying the feature makes this a question about that object,
+	// as a check of a condition is: read the feature value, which holds the value the
+	// object actually has, rather than the value the declaration defaults to.
+	inst, owner, subjErr := s.subjectFor(expr, fqn, sym)
+	if subjErr != nil {
+		return evaluated{}, subjErr
+	}
+	if inst != nil {
+		if _, ok := inst.FeatureValues[sym.Name]; ok {
+			return heldValue(ctx, expr, inst, owner, sym)
+		}
+	}
+	// An enumeration literal is a value even though it declares none.
+	if val, isLiteral, err := ctx.EnumerationLiteralValue(sym); isLiteral {
+		return declaredAnswer(ctx, expr, val, err)
+	}
+	// A measurement unit is the reference it declares, whatever defines it.
+	if val, isUnit, err := ctx.MeasurementUnitValue(sym); isUnit {
+		return declaredAnswer(ctx, expr, val, err)
+	}
+	// A calc definition is the function it declares.
+	if val, isFunction, err := ctx.FunctionValue(sym); isFunction {
+		return declaredAnswer(ctx, expr, val, err)
+	}
+	// A valueless usage may still name a value its own features shape.
+	if _, isUsage := sym.Decl.(*ast.Usage); !isUsage && !declaresValue(sym) {
+		return evaluated{}, fmt.Errorf("%q has no value to evaluate", expr)
+	}
+	// Read as the declaration is read: in its own scope, against its declared type.
+	val, err := ctx.EvalDeclaredValue(sym)
+	if err != nil {
+		if !declaresValue(sym) && errors.Is(err, runtime.ErrNoValue) {
+			return evaluated{}, fmt.Errorf("%q has no value to evaluate", expr)
+		}
+		return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
+	}
+	return answered(expr, ctx, val, formatValue(ctx, val)), nil
+}
+
+// heldValue answers the value inst holds for the feature sym names.
+func heldValue(ctx *runtime.Context, expr string, inst *runtime.Instance, owner string, sym *symbols.Symbol) (evaluated, error) {
+	fv, err := inst.GetFeatureValue(ctx, sym.Name)
+	if err != nil {
+		return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
+	}
+	val, readErr := fv.ReadValue(fv.Feature.Name)
+	ev := answered(expr+onInstance(inst, owner), ctx, val, formatFeatureValue(ctx, fv))
+	ev.unset = runtime.IsUninitializedFeatureValue(readErr)
+	return ev, nil
+}
+
+// declaredAnswer answers a value a declaration is, or the failure to read it.
+func declaredAnswer(ctx *runtime.Context, expr string, val runtime.Value, err error) (evaluated, error) {
+	if err != nil {
+		return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
+	}
+	return answered(expr, ctx, val, formatValue(ctx, val)), nil
+}
+
+// evalCompound evaluates expr as an attribute value appended to the transcript;
+// lookupErr, the failure to read expr as a name, is reported when that fails too.
+func (s *Session) evalCompound(ctx *runtime.Context, expr string, lookupErr error) (evaluated, error) {
 	// Complex expression with feature refs - parsed after the transcript, the
 	// loaded files masked out of it as they are out of the transcript document
 	typed, _ := s.transcript()
@@ -1146,21 +1199,7 @@ func (s *Session) evalValue(expr string) (evaluated, error) {
 		return evaluated{}, fmt.Errorf("parse failed: %s", p.Diagnostics[0].Message)
 	}
 
-	// Find __eval__ attribute (should be last member)
-	var evalUsage *ast.Usage
-	for i := len(root.Members) - 1; i >= 0; i-- {
-		member := root.Members[i]
-		if membership, ok := member.(*ast.Membership); ok {
-			member = membership.Member
-		}
-		if usage, ok := member.(*ast.Usage); ok && usage.Value != nil {
-			if usage.Ident.Name == "__eval__" || usage.Ident.ShortName == "__eval__" {
-				evalUsage = usage
-				break
-			}
-		}
-	}
-
+	evalUsage := evalAttribute(root)
 	if evalUsage == nil || evalUsage.Value == nil {
 		return evaluated{}, errors.New("could not parse expression")
 	}
@@ -1177,6 +1216,23 @@ func (s *Session) evalValue(expr string) (evaluated, error) {
 	}
 
 	return answered(expr, ctx, val, formatValue(ctx, val)), nil
+}
+
+// evalAttribute finds the __eval__ attribute, the last member of the parsed
+// transcript, that carries the expression to evaluate.
+func evalAttribute(root *ast.RootNamespace) *ast.Usage {
+	for i := len(root.Members) - 1; i >= 0; i-- {
+		member := root.Members[i]
+		if membership, ok := member.(*ast.Membership); ok {
+			member = membership.Member
+		}
+		if usage, ok := member.(*ast.Usage); ok && usage.Value != nil {
+			if usage.Ident.Name == "__eval__" || usage.Ident.ShortName == "__eval__" {
+				return usage
+			}
+		}
+	}
+	return nil
 }
 
 // declaresValue reports whether sym's declaration binds a value of its own: a
