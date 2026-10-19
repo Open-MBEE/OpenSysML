@@ -120,6 +120,9 @@ func TestParseFileArguments(t *testing.T) {
 		"documents interleaved":     `{"documents":[{"content":"package A;"},{"file_path":"` + inside + `"}]}`,
 		"path with a name":          `{"documents":[{"file_path":"` + inside + `","name":"v"}]}`,
 		"document without a source": `{"documents":[{"language":"sysml"}]}`,
+		// The service reads an unlanguaged inline document as SysML whatever its
+		// name; the tool reads a .kerml name as KerML.
+		"kerml name without a language": `{"documents":[{"content":"package C;","name":"c.KerML"}]}`,
 	}
 	for name, request := range uncovered {
 		t.Run(name, func(t *testing.T) {
@@ -143,7 +146,6 @@ func TestParseSourcesArguments(t *testing.T) {
 		{"file_path":"`+inside+`"},
 		{"content":"package A;","name":"a.sysml"},
 		{"content":"package B;","language":"kerml"},
-		{"content":"package C;","name":"c.KerML"},
 		{"content":"package D;","name":"d.kerml","language":"kerml"}],
 		"strict_conformance":true,"base_model_hash":"h0"}`)
 	got, err := toolArguments("ParseSources", request, root)
@@ -157,9 +159,6 @@ func TestParseSourcesArguments(t *testing.T) {
 		"sources": []any{
 			map[string]any{"path": "a.sysml", "text": "package A;"},
 			map[string]any{"path": "", "text": "package B;", "language": "kerml"},
-			// The service reads an unlanguaged inline document as SysML whatever
-			// its name, where the tool would infer KerML from it.
-			map[string]any{"path": "c.KerML", "text": "package C;", "language": "sysml"},
 			map[string]any{"path": "d.kerml", "text": "package D;", "language": "kerml"},
 		},
 	}

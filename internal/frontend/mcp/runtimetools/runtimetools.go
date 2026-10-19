@@ -156,8 +156,9 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 
 // singleFileRequest spells a parse of one document as the ParseFile RPC, which
 // the tool stands for as well: a service without parse_sources answers that
-// much. ParseFile carries no base hash and names inline content <content>, so a
-// request needing either is not one.
+// much. ParseFile carries no base hash and names inline content <content>, so
+// a request with a base hash or another name (an unnamed source would be
+// <content-0>) is not one.
 func singleFileRequest(req *pb.ParseSourcesRequest) (*pb.ParseFileRequest, bool) {
 	if len(req.GetDocuments()) != 1 || req.GetBaseModelHash() != "" {
 		return nil, false
@@ -168,7 +169,7 @@ func singleFileRequest(req *pb.ParseSourcesRequest) (*pb.ParseFileRequest, bool)
 	case *pb.SourceDocument_FilePath:
 		single.Source = &pb.ParseFileRequest_FilePath{FilePath: src.FilePath}
 	case *pb.SourceDocument_Content:
-		if doc.GetName() != "" && doc.GetName() != "<content>" {
+		if doc.GetName() != "<content>" {
 			return nil, false
 		}
 		single.Source = &pb.ParseFileRequest_Content{Content: src.Content}

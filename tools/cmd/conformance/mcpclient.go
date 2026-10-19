@@ -256,8 +256,9 @@ func parseSourcesArguments(request protoreflect.Message, root string) (map[strin
 		default:
 			if language == "" && strings.EqualFold(filepath.Ext(name), ".kerml") {
 				// The service reads an inline document without a language as SysML
-				// whatever its name; the tool would infer KerML from the name.
-				language = "sysml"
+				// whatever its name; the tool reads a .kerml name as KerML, and
+				// naming the language instead would ask for inline_language.
+				return nil, &uncoveredError{reason: "the parse tool reads an inline document named " + name + " as KerML, where the service reads one without a language as SysML"}
 			}
 			sources = append(sources, inlineSource(name, document.Get(source).String(), language))
 		}
