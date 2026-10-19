@@ -4,9 +4,9 @@
 	"outputs": {
 		"legV": {"type": "Integer", "value": 14},
 		"own": {"type": "Integer", "value": 15},
-		"leg.x": {"type": "Integer", "value": 7},
-		"leg.v": {"type": "Integer", "value": 14},
-		"leg.inner.w": {"type": "Integer", "value": 7},
-		"leg.inner.v": {"type": "Integer", "value": 14}
+		"leg.x": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]},
+		"leg.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 14}]},
+		"leg.inner.w": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]},
+		"leg.inner.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 14}]}
 	}
 }

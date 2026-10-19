@@ -3,7 +3,18 @@
   "evaluate": "test::ChargeDrone",
   "trace": true,
   "outputs": {
-    "level": {"type": "Integer", "value": 5},
-    "charged": {"type": "Integer", "value": 15}
+    "level": {
+      "type": "Integer",
+      "value": 5
+    },
+    "charged": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 15
+        }
+      ]
+    }
   }
 }

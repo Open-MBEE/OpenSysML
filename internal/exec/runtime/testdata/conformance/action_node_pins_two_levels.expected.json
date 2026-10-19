@@ -5,6 +5,6 @@
 	"outputs": {
 		"seen": {"type": "Integer", "value": 8},
 		"total": {"type": "Integer", "value": 15},
-		"leg.inner.v": {"type": "Integer", "value": 7}
+		"leg.inner.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]}
 	}
 }
