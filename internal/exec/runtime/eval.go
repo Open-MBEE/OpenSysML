@@ -768,8 +768,8 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		// Then a Kernel Semantic Library member of the bound instance, which the
 		// shape leaves out: read bare in the body as `self.<name>` reads it.
 		if ec.self != nil && ec.selfFeatureInScope(name) {
-			if fv, answered, err := ec.ctx.kernelMemberRead(ec.self, name); answered && err == nil {
-				return fv.HeldValue(), nil
+			if val, answered, err := ec.kernelMemberValue(ec.self, name, ""); answered && err == nil {
+				return val, nil
 			}
 		}
 		// Then the scope the expression was written in: a sibling attribute, a
@@ -1689,11 +1689,11 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if ec.ctx.derivesKernelCollection(inst, name) {
 			return ec.chainFeatureValue(inst, name, rest, from)
 		}
-		if fv, answered, err := ec.ctx.kernelMemberRead(inst, name); answered {
+		if val, answered, err := ec.kernelMemberValue(inst, name, from); answered {
 			if err != nil {
 				return Value{}, err
 			}
-			return ec.chainMemberValue(fv.HeldValue(), rest, name)
+			return ec.chainMemberValue(val, rest, name)
 		}
 		return Value{}, fmt.Errorf("%w: member %s not found in instance", ErrNoSuchFeature, name)
 	}
@@ -3934,4 +3934,26 @@ func (ctx *Context) sequenceEqual(a, b *Sequence) bool {
 		}
 	}
 	return true
+}
+
+// kernelMemberValue reads the Kernel member name of inst through the model where the
+// read is model-level, so an open shape subsetter leaves the collection open rather
+// than counted at its lower bound; not answered for a member the rule does not cover.
+func (ec *EvalContext) kernelMemberValue(inst *Instance, name, from string) (Value, bool, error) {
+	var open *openPopulation
+	if ec.modelReads(inst) {
+		open = &openPopulation{}
+	}
+	fv, answered, err := ec.ctx.kernelMemberRead(inst, name, open)
+	if !answered || err != nil {
+		return Value{}, answered, err
+	}
+	if open != nil && open.Stopped {
+		spelled := name
+		if from != "" {
+			spelled = from + "." + name
+		}
+		return openCollectionValue(spelled, fv.Feature, open), true, nil
+	}
+	return fv.HeldValue(), true, nil
 }

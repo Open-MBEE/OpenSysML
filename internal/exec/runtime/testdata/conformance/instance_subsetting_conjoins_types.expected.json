@@ -1,0 +1,14 @@
+{
+  "type": "instance",
+  "instantiate": "test::holder",
+  "slots": {
+    "frontArea": {"type": "Rational", "value": "2.0"},
+    "frontBorder": {"type": "Rational", "value": "3.0"},
+    "frontWeight": {"type": "Rational", "value": "1.5"},
+    "trimLength": {"type": "Rational", "value": "9.0"},
+    "frontDoubled": {"type": "Rational", "value": "1.0"},
+    "bothArea": {"type": "Rational", "value": "2.0"},
+    "bothBorder": {"type": "Rational", "value": "3.0"}
+  },
+  "materialization": {}
+}

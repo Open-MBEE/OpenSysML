@@ -1182,7 +1182,13 @@ call above; the FQN of a part definition or usage creates an object of it for th
 path from such a declaration through its parts — `Mission::mission.vehicle`,
 `Fleet::convoy.escorts[2]` for a multi-valued part — creates the declaration and reaches the
 object at the end of the path, so the action's `this` is a part *inside* its assembly and the
-assembly's connectors reach it. Each explored run creates the declaration anew, and each
+assembly's connectors reach it. When the object reached performs the action (`perform action
+run : Run { in ref :>> ctx = this; }` in its definition, say), the call runs that performance
+rather than a second one — with or without `advance`, which bounds how far it proceeds and
+nothing else — so `outputs`, `performerAttributes` and the occurrence are the object's own;
+`inputs` for it are refused, as its declaration binds its arguments, and an object performing
+the action under two usages is refused as ambiguous. An object not performing the action
+performs a fresh one, as an empty performer does outside any object. Each explored run creates the declaration anew, and each
 outcome's `outputs` carry the object's attributes as the run left them under `this.`
 (`this.pinged`), beside the action's own, so runs that differ only in what they left the
 object holding are distinct outcomes. An executed run reports the same entries, spelled and
@@ -1306,8 +1312,8 @@ $ … /ExecuteState -d '{"modelHash":"70ee…0c59","stateMachineSymbolId":"Test:
 `performerSymbolId` names the object the machine runs on, spelled as `ExecuteAction`'s is —
 empty, a declaration's FQN, or a path from one such as `Mission::mission.vehicle` — with the
 same errors. When the object reached exhibits the machine (`exhibit state modes;` in the part
-definition of a vehicle, say), the call runs that exhibited machine rather than a second copy,
-so the object's own transitions, the messages its ports receive over the assembly's
+definition of a vehicle, say), the call runs that exhibited machine rather than a second copy —
+with or without `advance` — so the object's own transitions, the messages its ports receive over the assembly's
 connectors and the features it assigns are the run's; an object exhibiting the machine under
 two usages is refused as ambiguous, since the call cannot tell which it means. An object not
 exhibiting the machine performs a fresh one, as an empty performer does outside any object.

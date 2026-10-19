@@ -391,6 +391,8 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	if len(pending) > 0 {
 		features, inst.nested = ctx.applyNestedRedefinitions(sym, features, pending)
 	}
+	features = ctx.withConjoinedTypes(inst, owner, feature, features)
+	features = ctx.withBoundMembers(inst, owner, feature, features)
 
 	// Create feature value for each feature, allocated as one block.
 	values := make([]FeatureValue, len(features))
@@ -401,8 +403,8 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	}
 
 	// A redefining feature declares the feature it redefines again, so the two
-	// names read one feature value.
-	if err := ctx.aliasRedefinedFeatureValuesOf(inst, sym, nil, features); err != nil {
+	// names read one feature value, under every type of the object at once.
+	if err := ctx.aliasRedefinedFeatureValuesOf(inst, inst.types(), nil, features); err != nil {
 		return nil, err
 	}
 
@@ -837,6 +839,7 @@ type openPopulation struct {
 	Stopped     bool
 	Contributed []Value
 	AtLeast     int64
+	Fixed       int // the leading Contributed whose positions the model fixes
 }
 
 // openFeatureValue is GetFeatureValue for a model-level read: a collection whose count
@@ -860,7 +863,7 @@ func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopul
 	}
 	fv, err := inst.materializeFeatureValue(ctx, name, open)
 	if err != nil {
-		return nil, &FeatureValueError{Err: err}
+		return nil, &FeatureValueError{Err: err, Instance: inst, Feature: name}
 	}
 	return fv, nil
 }

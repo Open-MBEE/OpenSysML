@@ -623,8 +623,10 @@ func TestParallelControlFlowsAreEachWritten(t *testing.T) {
 	wantNote(t, r, "_retry", migrate.Approximated, "several edges leave the node, which a fork fork carries")
 	s := session(t, r)
 	meta(t, s, "%instantiate Retrier")
+	// The object performs recover, so the session attaches to the performance
+	// that ran at instantiation, which reports itself already completed.
 	meta(t, s, "%action Retrier::recover #1")
-	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
+	if out := meta(t, s, "%continue"); !strings.Contains(strings.ToLower(out), "completed") {
 		t.Errorf("the action with parallel flows did not run to completion:\n%s", out)
 	}
 }
@@ -945,7 +947,7 @@ func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
 		meta(t, s, "%seed 1")
 		meta(t, s, "%instantiate Mission::Sub")
 		meta(t, s, "%action Mission::Sub::run #1")
-		if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
+		if out := meta(t, s, "%continue"); !strings.Contains(strings.ToLower(out), "completed") {
 			t.Errorf("the nested def did not run to completion:\n%s", out)
 		}
 	}

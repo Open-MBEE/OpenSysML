@@ -1,0 +1,13 @@
+{
+  "type": "instance",
+  "instantiate": "test::wedge",
+  "libraries": true,
+  "slots": {
+    "ff.length": {"type": "Real", "value": 3.0},
+    "ff.width": {"type": "Real", "value": 4.0},
+    "rf.length": {"type": "Real", "value": 3.0},
+    "rf.width": {"type": "Real", "value": 4.0},
+    "edge.length": {"type": "Real", "value": 4.0}
+  },
+  "materialization": {}
+}

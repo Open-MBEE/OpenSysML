@@ -260,32 +260,20 @@
      ]
     },
     {
-     "title": "Start the action on an object",
-     "text": "Apollo 11 performs the mission. <code>%action</code> starts a debugger on the action, which waits with one token at the start.",
+     "title": "Attach to the action on an object",
+     "text": "Apollo 11 performs the mission as it is created. <code>%action</code> on the object attaches to that performance rather than starting a second one.",
      "input": [
       "%instantiate MissionSequence::apollo11",
       "%action MissionSequence::Flight::mission MissionSequence::apollo11"
      ],
      "expect": [
-      "Started action executor"
+      "attaches to that running performance",
+      "State: Completed"
      ]
     },
     {
-     "title": "Step it and look at the token",
-     "text": "Each <code>%step</code> moves the token one node. <code>%tokens</code> shows where the token is and the value of <code>remaining</code> so far.",
-     "input": [
-      "%step",
-      "%step",
-      "%tokens"
-     ],
-     "expect": [
-      "Token 1 @ lunarOrbitInsertion",
-      "remaining = 6350 ['m/s']"
-     ]
-    },
-    {
-     "title": "Run it to the end",
-     "text": "Enough delta-v is left, so the decision takes the landing branch.",
+     "title": "Read what the flight left",
+     "text": "The performance already ran its course, so <code>%continue</code> reports its results: enough delta-v was left, and the decision took the landing branch.",
      "input": [
       "%continue"
      ],
@@ -296,7 +284,7 @@
     },
     {
      "title": "Apollo 8 takes the other branch",
-     "text": "Apollo 8 carries 4 000 m/s less. The same flow run on that object skips the landing.",
+     "text": "Apollo 8 carries 4 000 m/s less. The same flow on that object skips the landing.",
      "input": [
       "%instantiate MissionSequence::apollo8",
       "%action MissionSequence::Flight::mission MissionSequence::apollo8",
