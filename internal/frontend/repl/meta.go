@@ -3586,11 +3586,8 @@ func evalArgumentsIn(ctx *runtime.Context, scope *symbols.Scope, parsed []argume
 	return named, err
 }
 
-// evalArgumentList evaluates an invocation's whole argument list in one run and
-// in the order written, positional and named arguments however they are mixed,
-// so a seeded draw in one argument continues the stream of the draw before it
-// and a seed reproduces the whole invocation. Every argument surface binds its
-// arguments through it.
+// evalArgumentList evaluates an invocation's whole argument list in one run, in the order
+// written, so a seeded draw continues the one before it; every argument surface binds through it.
 func evalArgumentList(ctx *runtime.Context, scope *symbols.Scope, positional []argExpr, named []argument) ([]runtime.Value, map[string]runtime.Value, error) {
 	if len(positional) == 0 && len(named) == 0 {
 		return nil, nil, nil

@@ -50,9 +50,8 @@ func splitAnalysisArgs(tail string) (analysisInvocation, error) {
 	return inv, nil
 }
 
-// analysisArgs are an invocation's arguments parsed and not yet evaluated:
-// positional ones in order, and the ones written as `<parameter> = <expr>`,
-// each at its position in the written list.
+// analysisArgs are an invocation's arguments parsed and not yet evaluated, positional
+// and `<parameter> = <expr>` ones, each at its position in the written list.
 type analysisArgs struct {
 	positional []argExpr
 	named      []argument
