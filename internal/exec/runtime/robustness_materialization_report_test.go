@@ -6,19 +6,17 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessMaterializationReport covers what the check over a new object
-// reports when feature values fail through one another: a genuine cycle stays the typed
-// cycle error, a value derived from an unset feature is no finding, and one failure read
-// through several features is reported once, where it lies.
+// TestRuntimeRobustnessMaterializationReport covers what the check over a new object reports
+// when feature values fail through one another: each failure once, an open value never.
 func TestRuntimeRobustnessMaterializationReport(t *testing.T) {
 	t.Run("cyclic_value_dependency_is_the_typed_cycle_error", testCyclicValueDependencyIsTheTypedCycleError)
 	t.Run("derived_from_unset_is_no_finding_but_reads_as_no_value", testDerivedFromUnsetIsNoFindingButReadsAsNoValue)
 	t.Run("failure_read_through_several_features_is_reported_once", testFailureReadThroughSeveralFeaturesIsReportedOnce)
+	t.Run("binding_source_failing_default_is_reported_once", testBindingSourceFailingDefaultIsReportedOnce)
 }
 
-// testCyclicValueDependencyIsTheTypedCycleError: two features each computed from the other
-// have no well-founded value; reading either is ErrCyclicFeatureValue, and the check reports
-// the cycle once, naming both features.
+// testCyclicValueDependencyIsTheTypedCycleError: two features each computed from the other are
+// ErrCyclicFeatureValue on every read, and the check reports the cycle once, naming both.
 func testCyclicValueDependencyIsTheTypedCycleError(t *testing.T) {
 	ctx, inst, err := instantiateWithLibraries(t, `package test {
 		private import ScalarValues::Real;
@@ -53,9 +51,8 @@ func testCyclicValueDependencyIsTheTypedCycleError(t *testing.T) {
 	}
 }
 
-// testDerivedFromUnsetIsNoFindingButReadsAsNoValue: a feature derived from one nothing
-// values holds no value as that feature does, so the check passes over it as it passes over
-// the unset attribute, while reading it is the typed no-value error naming the unset feature.
+// testDerivedFromUnsetIsNoFindingButReadsAsNoValue: a feature derived from an unset one is
+// passed over as the unset one is, while reading it is the typed no-value error naming it.
 func testDerivedFromUnsetIsNoFindingButReadsAsNoValue(t *testing.T) {
 	ctx, inst, err := instantiateWithLibraries(t, `package test {
 		private import ScalarValues::Real;
@@ -88,8 +85,7 @@ func testDerivedFromUnsetIsNoFindingButReadsAsNoValue(t *testing.T) {
 }
 
 // testFailureReadThroughSeveralFeaturesIsReportedOnce: a default its feature does not admit
-// fails every feature that reads through it, and the check reports the failing feature value
-// once, where it lies, not again for each reader.
+// fails every reader, and the check reports the failing feature value once, where it lies.
 func testFailureReadThroughSeveralFeaturesIsReportedOnce(t *testing.T) {
 	ctx, inst, err := instantiateWithLibraries(t, `package test {
 		private import ScalarValues::Real;
@@ -125,5 +121,38 @@ func testFailureReadThroughSeveralFeaturesIsReportedOnce(t *testing.T) {
 	}
 	if got := errs[0].Error(); !strings.HasPrefix(got, "feature value Source.xs:") {
 		t.Errorf("materialization error = %q, want the failing feature value Source.xs named first", got)
+	}
+}
+
+// testBindingSourceFailingDefaultIsReportedOnce: a binding reaches its source's default without
+// a GetFeatureValue read, and the source's failure is still one finding, at the source.
+func testBindingSourceFailingDefaultIsReportedOnce(t *testing.T) {
+	ctx, inst, err := instantiateWithLibraries(t, `package test {
+		private import ScalarValues::Real;
+		part def Sys {
+			attribute x : Real = 1.0;
+			attribute a : Real[3] = x;
+			attribute b : Real[3];
+			binding bind b = a;
+		}
+	}`, "test::Sys")
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	for _, name := range []string{"a", "b"} {
+		_, err := inst.GetFeatureValue(ctx, name)
+		if !errors.Is(err, ErrMultiplicityViolation) {
+			t.Errorf("reading %s: got %v, want ErrMultiplicityViolation", name, err)
+		}
+	}
+	errs, bounded := ctx.MaterializationErrors(inst)
+	if bounded {
+		t.Error("bounded = true, want a small object read in full")
+	}
+	if len(errs) != 1 {
+		t.Fatalf("materialization errors = %v, want the one failing default", errs)
+	}
+	if got := errs[0].Error(); !strings.HasPrefix(got, "feature value Sys.a:") || !errors.Is(errs[0], ErrMultiplicityViolation) {
+		t.Errorf("materialization error = %q, want the multiplicity violation of Sys.a", got)
 	}
 }

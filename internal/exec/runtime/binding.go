@@ -496,7 +496,7 @@ func (ctx *Context) ownEndpointValue(loc bindingLocation) (Value, bool, error) {
 	fv := loc.instance.FeatureValues[loc.name]
 	if !fv.Materialized && !fv.BindingDerived && ctx.CompositeTypeOf(fv.Feature) == nil {
 		if _, err := loc.instance.materializeFeatureValueIntrinsic(ctx, loc.name); err != nil {
-			return Value{}, false, err
+			return Value{}, false, &FeatureValueError{Err: err, Instance: loc.instance, Feature: loc.name}
 		}
 	}
 	ctx.noteRead(loc.instance, fv)
@@ -902,7 +902,7 @@ func (ctx *Context) bindingLocationValue(loc bindingLocation, materialize bool) 
 			return Value{}, false, nil
 		}
 		if _, err := loc.instance.materializeFeatureValueIntrinsic(ctx, loc.name); err != nil {
-			return Value{}, false, err
+			return Value{}, false, &FeatureValueError{Err: err, Instance: loc.instance, Feature: loc.name}
 		}
 	}
 	ctx.noteRead(loc.instance, fv)

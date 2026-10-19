@@ -127,11 +127,8 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 	}
 }
 
-// report records what a feature value's read found, once per failure. A feature valued by
-// bindings that link one unspecified value of it, or derived from a feature nothing gives a
-// value to, holds what the model leaves open, as an unset attribute does: not a finding. A
-// read that failed because another feature value did is that value's failure: it is reported
-// once, as the innermost feature value that failed, however many values read through it.
+// report records a feature value's failure once, as the innermost feature value that failed;
+// a value the model leaves open (a partial binding, an unset feature read) is no finding.
 func (w *materializeWalk) report(err error) {
 	var undetermined *undeterminedBindingError
 	var noValue *NoValueError
@@ -160,9 +157,8 @@ func (w *materializeWalk) report(err error) {
 	}
 }
 
-// located says where a nested object's failure lies: the usages walked from the object the
-// check started at to the one holding the feature value, which the error names itself when it
-// materializes a usage. The object itself, or one not held under it, is named by the error alone.
+// located prefixes a failure below the walked object with the usages walked to its holder,
+// which the error names itself when it materializes a usage.
 func (w *materializeWalk) located(fve *FeatureValueError) error {
 	var path []string
 	for o := fve.Instance; o != w.root; o = o.owner {
@@ -190,8 +186,7 @@ func (e *FeatureValueError) ref() featureValueRef {
 	return featureValueRef{instance: e.Instance.ID, feature: e.Feature}
 }
 
-// featureValueFailures lists the feature values that failed to materialize along err's cause
-// chain, outermost first; a failure that reached no feature value lists none.
+// featureValueFailures lists the feature values that failed along err's cause chain, outermost first.
 func featureValueFailures(err error) []*FeatureValueError {
 	switch e := err.(type) {
 	case *FeatureValueError:
