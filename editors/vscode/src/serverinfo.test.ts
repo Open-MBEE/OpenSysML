@@ -7,6 +7,11 @@ test("a release's extension is packaged with the release's server", () => {
   assert.equal(serverBuildOf("0.10.1"), "v0.10.1");
 });
 
+test("a release candidate's extension is packaged with the candidate's server, pre-release part and all", () => {
+  assert.equal(serverBuildOf("0.10.2-rc.1"), "v0.10.2-rc.1");
+  assert.equal(serverReport("0.10.2-rc.1", { name: "sysml-lsp", version: "v0.10.2-rc.1" }), "Connected to sysml-lsp v0.10.2-rc.1.");
+});
+
 test("a snapshot's extension is packaged with the snapshot's server, named by the pre-release part", () => {
   assert.equal(serverBuildOf("0.10.2-nightly-20261019-e8607989d"), "nightly-20261019-e8607989d");
 });

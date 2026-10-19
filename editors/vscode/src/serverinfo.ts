@@ -6,12 +6,13 @@ export interface ServerInfo {
 
 /**
  * serverBuildOf is the version the `sysml-lsp` packaged alongside an extension
- * reports: a release's `vX.Y.Z` for an extension at `X.Y.Z`, and a snapshot's
- * own tag for an extension whose pre-release part is that tag.
+ * reports: a release's `vX.Y.Z` for an extension at `X.Y.Z` (a pre-release
+ * such as `X.Y.Z-rc.1` included), and a snapshot's own `nightly-<date>-<commit>`
+ * tag for an extension carrying that tag as its pre-release part.
  */
 export function serverBuildOf(extensionVersion: string): string {
-  const dash = extensionVersion.indexOf("-");
-  return dash < 0 ? `v${extensionVersion}` : extensionVersion.slice(dash + 1);
+  const night = extensionVersion.indexOf("-nightly-");
+  return night < 0 ? `v${extensionVersion}` : extensionVersion.slice(night + 1);
 }
 
 /**
