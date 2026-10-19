@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -179,6 +180,38 @@ func TestFeaturesOf_TypeConjoinedThroughSubsetting(t *testing.T) {
 	if got := sortedFeatureNames(ctx.FeaturesOf(ctx.CompositeTypeOf(&front))); len(got) != 2 || got[0] != "area" || got[1] != "border" {
 		t.Errorf("features of what front holds = %v, want [area border]", got)
 	}
+}
+
+// TestFeaturesOf_EveryStatedTypeIsConjoined: a feature stating several types
+// (`part both : A, B`) holds values of every one; the first stated is the type
+// its objects are made as and the others are conjoined with it.
+func TestFeaturesOf_EveryStatedTypeIsConjoined(t *testing.T) {
+	code := `
+		part def A { attribute a; }
+		part def B { attribute b; }
+		part def Holder { part both : A, B [1]; }
+	`
+	model, resolver, rootScope := parseAndBuildModel(t, code)
+	ctx := NewContext(typedModel(model, resolver), testMaxSteps)
+
+	both := effectiveFeatureNamed(t, ctx.FeaturesOf(resolveSymbol(t, rootScope, "Holder")), "both")
+	if both.Type == nil || both.Type.Name != "A" {
+		t.Fatalf("both.Type = %v, want A", both.Type)
+	}
+	if got := typeNames(ctx.effectiveTypes(both.Symbol)); len(got) != 2 || got[0] != "A" || got[1] != "B" {
+		t.Errorf("effectiveTypes(both) = %v, want [A B]", got)
+	}
+	if extra := ctx.conjoinedTypes(both.Symbol, both.Type); len(extra) != 1 || extra[0].Name != "B" {
+		t.Errorf("conjoinedTypes(both, A) = %v, want [B]", typeNames(extra))
+	}
+}
+
+func typeNames(types []*symbols.Symbol) []string {
+	names := make([]string, 0, len(types))
+	for _, typ := range types {
+		names = append(names, typ.Name)
+	}
+	return names
 }
 
 // TestFeaturesOf_ConjunctionOfUnrelatedTypes: when neither type stands for the

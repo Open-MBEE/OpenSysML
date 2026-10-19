@@ -172,29 +172,38 @@ func (ctx *Context) extractType(featureSym *symbols.Symbol) *symbols.Symbol {
 // statedType is the type a feature declares, or the first one a feature it
 // specializes declares when it declares none itself (KerML 1.0 §7.4.7).
 func (ctx *Context) statedType(featureSym *symbols.Symbol) *symbols.Symbol {
-	if typ := ctx.declaredType(featureSym); typ != nil {
-		return typ
+	if types := ctx.statedTypes(featureSym); len(types) > 0 {
+		return types[0]
+	}
+	return nil
+}
+
+// statedTypes is every type a feature declares (`part x : A, B`), or those of
+// the first feature it specializes that declares any when it declares none.
+func (ctx *Context) statedTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
+	if types := ctx.declaredTypes(featureSym); len(types) > 0 {
+		return types
 	}
 	for _, sup := range ctx.model.semantics.AllSupertypes(featureSym) {
-		if typ := ctx.declaredType(sup); typ != nil {
-			return typ
+		if types := ctx.declaredTypes(sup); len(types) > 0 {
+			return types
 		}
 	}
 	return nil
 }
 
-// effectiveTypes returns the types every value of a feature has: the type it
+// effectiveTypes returns the types every value of a feature has: the types it
 // states conjoined with the types of each feature it subsets, redefines or
 // references, keeping only the most specific. A parameter's positional
 // redefinition of a general parameter contributes a type only when the
 // parameter states none itself, as the semantic layer resolves it.
 func (ctx *Context) effectiveTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
 	sem := ctx.model.semantics
-	stated := ctx.statedType(featureSym)
-	if stated == nil {
+	stated := ctx.statedTypes(featureSym)
+	if len(stated) == 0 {
 		return nil
 	}
-	types := []*symbols.Symbol{stated}
+	types := slices.Clone(stated)
 	add := func(candidates []*symbols.Symbol) {
 		for _, typ := range candidates {
 			if typ != nil && !slices.Contains(types, typ) {
@@ -259,25 +268,33 @@ func (ctx *Context) withConjoinedTypes(inst, owner *Instance, feature string, fe
 	return features
 }
 
-// declaredType resolves the type a feature states itself, ignoring inheritance.
+// declaredType resolves the first type a feature states itself, ignoring inheritance.
 func (ctx *Context) declaredType(featureSym *symbols.Symbol) *symbols.Symbol {
-	// Check usage relationships for typing
-	rels := semantics.RelationshipsOf(featureSym)
-	for _, rel := range rels {
-		if rel.Kind == ast.RelTyping && rel.Target != nil {
-			// Unwrap FeatureReference if needed
-			target := rel.Target
-			if fr, ok := target.(*ast.FeatureReference); ok {
-				target = fr.Name
-			}
-			if qn, ok := target.(*ast.QualifiedName); ok {
-				if resolved, ok := ctx.resolveQualified(featureSym.OwnerScope, qn); ok {
-					return resolved
-				}
+	if types := ctx.declaredTypes(featureSym); len(types) > 0 {
+		return types[0]
+	}
+	return nil
+}
+
+// declaredTypes resolves every type a feature states itself, in declaration
+// order, ignoring inheritance.
+func (ctx *Context) declaredTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
+	var types []*symbols.Symbol
+	for _, rel := range semantics.RelationshipsOf(featureSym) {
+		if rel.Kind != ast.RelTyping || rel.Target == nil {
+			continue
+		}
+		target := rel.Target
+		if fr, ok := target.(*ast.FeatureReference); ok {
+			target = fr.Name
+		}
+		if qn, ok := target.(*ast.QualifiedName); ok {
+			if resolved, ok := ctx.resolveQualified(featureSym.OwnerScope, qn); ok && !slices.Contains(types, resolved) {
+				types = append(types, resolved)
 			}
 		}
 	}
-	return nil
+	return types
 }
 
 // extractMultiplicity returns the multiplicity governing a feature. stated is

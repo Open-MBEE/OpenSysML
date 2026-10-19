@@ -392,7 +392,7 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 		features, inst.nested = ctx.applyNestedRedefinitions(sym, features, pending)
 	}
 	features = ctx.withConjoinedTypes(inst, owner, feature, features)
-	features = ctx.withBoundMembers(owner, feature, sym, features)
+	features = ctx.withBoundMembers(inst, owner, feature, features)
 
 	// Create feature value for each feature, allocated as one block.
 	values := make([]FeatureValue, len(features))
@@ -403,9 +403,12 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	}
 
 	// A redefining feature declares the feature it redefines again, so the two
-	// names read one feature value.
-	if err := ctx.aliasRedefinedFeatureValuesOf(inst, sym, nil, features); err != nil {
-		return nil, err
+	// names read one feature value, under the object's type and each type its
+	// feature conjoins with it.
+	for _, typ := range inst.types() {
+		if err := ctx.aliasRedefinedFeatureValuesOf(inst, typ, nil, features); err != nil {
+			return nil, err
+		}
 	}
 
 	// Register instance
