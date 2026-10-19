@@ -238,28 +238,35 @@ func (ctx *Context) featureMultiplicity(sym, owner *symbols.Symbol) semantics.Ra
 	if stated {
 		return mult
 	}
-	if inherited, ok, _ := ctx.inheritedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true}, symbols.IsAbstract(sym)); ok {
-		return inherited
-	}
-	if bound, ok := ctx.subsettedBound(sym, owner); ok {
-		return bound
+	if unstated, _, ok := ctx.unstatedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true}, false); ok {
+		return unstated
 	}
 	return mult
+}
+
+// unstatedMultiplicity is the multiplicity of a feature declaring none: inherited from what it
+// redefines and, abstract or on a subsetting walk, subsets; else, valued, bound by what it subsets.
+// path holds sym; stated reports a declaration on the walk stating one.
+func (ctx *Context) unstatedMultiplicity(sym, owner *symbols.Symbol, path map[*symbols.Symbol]bool, subsetting bool) (mult semantics.Range, stated, found bool) {
+	if inherited, ok, inheritedStated := ctx.inheritedMultiplicity(sym, owner, path, subsetting || symbols.IsAbstract(sym)); ok {
+		return inherited, inheritedStated, true
+	}
+	return ctx.subsettedBound(sym, owner, path)
 }
 
 // subsettedBound is the multiplicity of a valued feature declaring none that subsets, references
 // or crosses a type-owned feature: no tighter default of one is declared for it (SysML v2 §7.6.3),
 // so its value is bound to as many as what it subsets admits, down to none (KerML 1.0 §7.3.4.3).
 // A valueless one keeps the assumed one value the run time materializes.
-func (ctx *Context) subsettedBound(sym, owner *symbols.Symbol) (semantics.Range, bool) {
+func (ctx *Context) subsettedBound(sym, owner *symbols.Symbol, path map[*symbols.Symbol]bool) (semantics.Range, bool, bool) {
 	if !bindsValue(sym) || ctx.model.semantics.ImplicitMultiplicityApplies(sym) {
-		return semantics.Range{}, false
+		return semantics.Range{}, false, false
 	}
-	inherited, ok, _ := ctx.inheritedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true}, true)
+	inherited, ok, stated := ctx.inheritedMultiplicity(sym, owner, path, true)
 	if !ok {
-		return semantics.Range{}, false
+		return semantics.Range{}, false, false
 	}
-	return semantics.Range{Lower: semantics.Bound{Known: true}, Upper: inherited.Upper}, true
+	return semantics.Range{Lower: semantics.Bound{Known: true}, Upper: inherited.Upper}, stated, true
 }
 
 // bindsValue reports a feature whose declaration binds it a value (`= v`, `default v`).
@@ -309,16 +316,16 @@ func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*
 		if path[general] {
 			continue
 		}
-		generalMult, generalStated := ctx.model.semantics.MultiplicityOf(general)
+		generalMult, generalStated := ctx.extractMultiplicity(general)
 		if !generalStated && subsetting && ctx.model.semantics.ImplicitMultiplicityApplies(general) {
 			generalMult, generalStated = semantics.AssumedRange(), true
 		} else if !generalStated {
 			path[general] = true
-			inherited, ok, inheritedStated := ctx.inheritedMultiplicity(general, owner, path, subsetting || symbols.IsAbstract(general))
+			unstated, unstatedStated, ok := ctx.unstatedMultiplicity(general, owner, path, subsetting)
 			delete(path, general)
-			generalStated = inheritedStated
+			generalStated = unstatedStated
 			if ok {
-				generalMult = inherited
+				generalMult = unstated
 			} else {
 				generalMult = semantics.AssumedRange()
 			}

@@ -6,11 +6,13 @@ import (
 )
 
 // TestRuntimeRobustnessSubsettingMultiplicity covers a declared value whose count the
-// multiplicity the model states for the feature refuses: one it declares, or the usage
-// default of one it takes when it subsets nothing (SysML v2 §7.6.3).
+// multiplicity the model states for the feature refuses: one it declares, the usage
+// default of one it takes when it subsets nothing (SysML v2 §7.6.3), or the bound of a
+// subsetted feature it reads a value of its owner for.
 func TestRuntimeRobustnessSubsettingMultiplicity(t *testing.T) {
 	t.Run("two_values_bound_to_a_declared_one", testTwoValuesBoundToADeclaredOne)
 	t.Run("two_values_bound_to_a_defaulted_one", testTwoValuesBoundToADefaultedOne)
+	t.Run("three_values_bound_through_a_scoped_two", testThreeValuesBoundThroughAScopedTwo)
 }
 
 // A subsetting feature restating `[1]` is bound by it: two distinct corners bound to it
@@ -60,5 +62,34 @@ func testTwoValuesBoundToADefaultedOne(t *testing.T) {
 	}
 	if want := "feature value Wedge.tip: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1"; err.Error() != want {
 		t.Errorf("wedge.tip: error = %q, want %q", err, want)
+	}
+}
+
+// A subsetting feature declaring no multiplicity is bound by the subsetted feature's,
+// also when that bound names a value of the owner: three corners bound to `ridge :>
+// vertices` under `vertices [limit]` with `limit = 2` are a multiplicity violation on
+// a read of `ridge` alone.
+func testThreeValuesBoundThroughAScopedTwo(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<subsetting-scoped-two>", parseAndBuild(t, `package test {
+		item def Point;
+		item def Wedge {
+			attribute limit = 2;
+			item a : Point;
+			item b : Point;
+			item c : Point;
+			item vertices : Point [limit];
+			item ridge :> vertices = (a, b, c);
+		}
+	}`))
+	wedge, err := ctx.Instantiate(oneSymbol(t, idx, "test::Wedge"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	_, err = wedge.GetFeatureValue(ctx, "ridge")
+	if !errors.Is(err, ErrMultiplicityViolation) {
+		t.Fatalf("wedge.ridge: err = %v, want ErrMultiplicityViolation", err)
+	}
+	if want := "feature value Wedge.ridge: multiplicity violation: 3 value(s) bound to a feature with multiplicity upper bound 2"; err.Error() != want {
+		t.Errorf("wedge.ridge: error = %q, want %q", err, want)
 	}
 }
