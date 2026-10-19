@@ -1972,6 +1972,13 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 	}
 }
 
+// CheckPerformedInputs is refusePerformedInputs for a caller attaching to the
+// performance itself: inputs equal to the bindings the performance stored, or its
+// declaration states while it is held, pass; any other is refused.
+func (ctx *Context) CheckPerformedInputs(action *symbols.Symbol, behavior *ObjectBehavior, inputs map[string]Value) error {
+	return ctx.refusePerformedInputs(action, behavior, inputs)
+}
+
 // refusePerformedInputs refuses inputs for a performed action that are not the bindings
 // its declaration states, whether the performance has started or is still held.
 func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *ObjectBehavior, inputs map[string]Value) error {
