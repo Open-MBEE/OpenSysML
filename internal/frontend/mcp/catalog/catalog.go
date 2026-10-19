@@ -195,6 +195,7 @@ var RPCsWithoutTools = map[string]string{}
 // it. A flag listed here is an operation the CLI has and the service does not;
 // adding the field or RPC and the tool moves the flag into an entry.
 var Unserved = map[string]string{
+	"metaclass-graph":     "no RPC answers the metaclass hierarchy vocabulary graph",
 	"portable":            "MigrateRequest has no portable field",
 	"render-all":          "no RPC renders every declared view",
 	"render-form":         "RenderViewRequest answers data, not a drawn form",

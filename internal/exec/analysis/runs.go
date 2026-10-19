@@ -133,12 +133,9 @@ func Summarize(table sweep.SweepTable, name string, text func(*runtime.Context, 
 			if out.Name != name {
 				continue
 			}
-			if n, ok := runtime.MagnitudeValue(out.Value); ok {
+			if n, u, ok := runtime.Magnitude(out.Value); ok {
 				numbers = append(numbers, n)
-				unit = ""
-				if q := out.Value.Quantity(); q != nil {
-					unit = q.Unit.String()
-				}
+				unit = u
 				units[unit] = true
 				continue
 			}
