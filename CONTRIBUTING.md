@@ -18,7 +18,7 @@ reviewed and released.
 ```bash
 git clone https://github.com/Open-MBEE/OpenSysML.git
 cd OpenSysML
-make build  # builds bin/sysml, bin/sysml-lsp, and bin/sysml-grpc with version info
+make build  # builds bin/sysml, bin/sysml-lsp, bin/sysml-grpc, bin/sysml-jupyter-kernel and bin/sysml-mcp with version info
 make test   # runs all tests
 make lint   # runs staticcheck and gosec, as CI does
 
