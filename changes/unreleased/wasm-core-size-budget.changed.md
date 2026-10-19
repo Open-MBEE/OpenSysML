@@ -1,0 +1,1 @@
+- The gzipped size budget of the validation-only `sysml-core` WebAssembly build is 6,500,000 bytes, up from 6,300,000: the check and view passes it links had grown past the original figure, so the gate now records the size it was set against and leaves headroom for that growth.

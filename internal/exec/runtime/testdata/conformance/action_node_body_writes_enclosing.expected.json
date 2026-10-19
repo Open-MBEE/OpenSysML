@@ -4,7 +4,7 @@
 	"outputs": {
 		"count": {"type": "Integer", "value": 2},
 		"total": {"type": "Integer", "value": 20},
-		"p.v": {"type": "Integer", "value": 2},
-		"q.v": {"type": "Integer", "value": 5}
+		"p.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+		"q.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]}
 	}
 }

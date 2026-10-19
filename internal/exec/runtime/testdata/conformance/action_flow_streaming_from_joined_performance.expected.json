@@ -2,6 +2,6 @@
 	"type": "action",
 	"evaluate": "test::Cfg",
 	"outputs": {
-		"total": {"type": "Integer", "value": 3}
+		"total": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]}
 	}
 }

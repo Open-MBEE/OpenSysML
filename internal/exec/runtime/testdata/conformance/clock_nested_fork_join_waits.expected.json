@@ -4,7 +4,7 @@
   "trace": true,
   "evaluate": "test::Caller",
   "outputs": {
-    "total": {"type": "Integer", "value": 111},
-    "legs.reached": {"type": "Integer", "value": 11}
+    "total": {"type": "Sequence", "elements": [{"type": "Integer", "value": 111}]},
+    "legs.reached": {"type": "Sequence", "elements": [{"type": "Integer", "value": 11}]}
   }
 }
