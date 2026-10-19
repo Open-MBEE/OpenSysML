@@ -860,7 +860,7 @@ func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopul
 	}
 	fv, err := inst.materializeFeatureValue(ctx, name, open)
 	if err != nil {
-		return nil, &FeatureValueError{Err: err}
+		return nil, &FeatureValueError{Err: err, Instance: inst, Feature: name}
 	}
 	return fv, nil
 }
