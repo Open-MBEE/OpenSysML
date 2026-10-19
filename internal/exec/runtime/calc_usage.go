@@ -1052,6 +1052,9 @@ func (run *calcRun) output(ctx *Context, name string) (Value, error) {
 	}
 	out, ok := run.shape.output(name)
 	if !ok {
+		if value, answered, err := run.inheritedResult(ctx, name); answered {
+			return value, err
+		}
 		return Value{}, fmt.Errorf(
 			"%w: %s declares no output %s (it declares: %s)",
 			errUnknownOutput, run.shape.Label, name, run.shape.outputNames(),
@@ -1065,6 +1068,22 @@ func (run *calcRun) output(ctx *Context, name string) (Value, error) {
 		ctx.trace.recordCalcOutput(run.shape.Name, name, value)
 	}
 	return value, nil
+}
+
+// inheritedResult answers a read of a result parameter the calc inherits rather
+// than declares (`Case::result`, `VerificationCase::verdict`): the result parameter
+// the calc declares redefines it and answers for it; a calc declaring none binds it no value.
+func (run *calcRun) inheritedResult(ctx *Context, name string) (Value, bool, error) {
+	sym, found := ctx.model.semantics.LookupMember(run.shape.Sym, name)
+	if !found || !resultParameter(sym) {
+		return Value{}, false, nil
+	}
+	if out := run.shape.resultOutput(); out != nil && out.Name != "" && out.Name != name {
+		value, err := run.output(ctx, out.Name)
+		return value, true, err
+	}
+	feat := ctx.effectiveFeature(name, sym, run.shape.Sym)
+	return undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", run.shape.Label, name), feat.Multiplicity, sym), true, nil
 }
 
 // readBodyOutput returns a calc output after deriving its body-local dependencies.

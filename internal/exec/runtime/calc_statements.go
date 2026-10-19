@@ -131,7 +131,7 @@ func (h *calcStmtHost) declaredOutput(name string) bool {
 // undeclared name: writing that would be an effect outside the calculation.
 func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s lower.Assign) error {
 	if env.rootDeclares(name) {
-		if err := h.ctx.checkBodyWrite(h, s, &value); err != nil {
+		if err := h.ctx.checkNamedWriteComputed(s.Scope, h.describe(), s.Target, &value); err != nil {
 			return err
 		}
 		env.assignRootLocal(h.ctx, name, value)
@@ -171,7 +171,7 @@ func (h *calcStmtHost) assignData(env *stmtEnv, name string, value Value, s lowe
 // occurrence when `this` materialized and holds the feature.
 func calcFeatureWriter(ctx *Context, shape *calcShape, occ *calcOccurrence) func(frame, string, Value) error {
 	return func(f frame, name string, value Value) error {
-		if err := ctx.checkNamedWrite(shape.bodyScope(), calcBodyDescription, name, &value); err != nil {
+		if err := ctx.checkNamedWriteComputed(shape.bodyScope(), calcBodyDescription, name, &value); err != nil {
 			return err
 		}
 		f.set(name, value)
@@ -398,7 +398,7 @@ func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 		return true, nil
 	}
 	if h.declaredOutput(name) || h.env.data.has(name) {
-		if err := h.ctx.checkNamedWrite(h.shape.bodyScope(), h.describe(), name, &value); err != nil {
+		if err := h.ctx.checkNamedWriteComputed(h.shape.bodyScope(), h.describe(), name, &value); err != nil {
 			return true, err
 		}
 		h.env.data.setBody(h.ctx, name, value)

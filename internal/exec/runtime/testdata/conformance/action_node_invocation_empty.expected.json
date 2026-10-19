@@ -3,11 +3,11 @@
 	"evaluate": "test::outer",
 	"outputs": {
 		"times": {"type": "Integer", "value": 5},
-		"fromDefault": {"type": "Integer", "value": 10},
-		"fromCaller": {"type": "Integer", "value": 50},
-		"explicit.times": {"type": "Integer", "value": 1},
-		"explicit.result": {"type": "Integer", "value": 10},
-		"bare.times": {"type": "Integer", "value": 5},
-		"bare.result": {"type": "Integer", "value": 50}
+		"fromDefault": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]},
+		"fromCaller": {"type": "Sequence", "elements": [{"type": "Integer", "value": 50}]},
+		"explicit.times": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"explicit.result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]},
+		"bare.times": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+		"bare.result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 50}]}
 	}
 }

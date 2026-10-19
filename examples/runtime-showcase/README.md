@@ -274,9 +274,9 @@ makes the object and `-action` names the action and the object:
 ✓ Action completed
   Final state: Completed
   Results:
-    landed = true
+    landed = [true]
     remaining = 480 ['m/s']
-    returned = true
+    returned = [true]
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -291,9 +291,9 @@ other branch of the decision:
 
 ```
   Results:
-    landed = false
+    landed = [false]
     remaining = 450 ['m/s']
-    returned = true
+    returned = [true]
 ```
 
 `MissionPhases` is the mission as a state machine on a clock in seconds, and

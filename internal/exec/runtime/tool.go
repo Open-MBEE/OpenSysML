@@ -498,9 +498,10 @@ func (ctx *Context) performanceParameters(performed, callee *symbols.Symbol) ([]
 	return ctx.actionParametersOf(held), nil
 }
 
-// toolInput is one parameter's value as the protocol carries it: a number, truth or string
-// as is, a quantity as the run holds it, its unit spelt by short names (`km/h`).
+// toolInput is one parameter's value as the protocol carries it (a scalar, a quantity with its
+// unit by short names); a one-element collection is sent as its element, several as Items.
 func toolInput(tool string, param *symbols.Symbol, held Value) (ToolValue, error) {
+	held = soleElement(held)
 	if v, ok := ToolValueOf(held); ok {
 		return v, nil
 	}

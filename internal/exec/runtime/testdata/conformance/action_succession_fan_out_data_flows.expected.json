@@ -6,8 +6,8 @@
 		"runs": {"type": "Integer", "value": 1},
 		"got": {"type": "Integer", "value": 21},
 		"doubled": {"type": "Integer", "value": 42},
-		"p.v": {"type": "Integer", "value": 21},
-		"q.v": {"type": "Integer", "value": 21},
-		"r.v": {"type": "Integer", "value": 21}
+		"p.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 21}]},
+		"q.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 21}]},
+		"r.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 21}]}
 	}
 }

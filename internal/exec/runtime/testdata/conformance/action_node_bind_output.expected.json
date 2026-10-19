@@ -4,6 +4,6 @@
 	"outputs": {
 		"total": {"type": "Integer", "value": 5},
 		"doubled": {"type": "Integer", "value": 10},
-		"twice.n": {"type": "Integer", "value": 5}
+		"twice.n": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]}
 	}
 }

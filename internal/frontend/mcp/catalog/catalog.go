@@ -205,6 +205,7 @@ const (
 // it. A flag listed here is an operation the CLI has and the service does not;
 // adding the field or RPC and the tool moves the flag into an entry.
 var Unserved = map[string]string{
+	"metaclass-graph":     "no RPC answers the metaclass hierarchy vocabulary graph",
 	"portable":            "MigrateRequest has no portable field",
 	"render-all":          "no RPC renders every declared view",
 	"render-form":         notDrawn,
@@ -295,16 +296,6 @@ func Names(groups ...Group) []string {
 	}
 	sort.Strings(names)
 	return names
-}
-
-// Lookup finds the entry of a tool.
-func Lookup(name string) (Entry, bool) {
-	for _, e := range Tools {
-		if e.Name == name {
-			return e, true
-		}
-	}
-	return Entry{}, false
 }
 
 // ToolFor answers the tool that serves an RPC of the service.
