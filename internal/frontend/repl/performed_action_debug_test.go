@@ -10,7 +10,7 @@ package P {
 	private import ScalarValues::*;
 	action def Run {
 		in ref ctx : Robot[1];
-		out n : Integer;
+		out n : Integer[1];
 	}
 	part def Robot {
 		attribute steps : Integer = 0;
