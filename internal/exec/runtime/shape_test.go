@@ -155,9 +155,8 @@ func TestFeaturesOf_DefaultValue(t *testing.T) {
 	}
 }
 
-// TestFeaturesOf_TypeConjoinedThroughSubsetting: a feature typed by one
-// definition that subsets a feature typed by a specialization of it holds that
-// specialization (KerML 1.0 §7.3.4.4), so its objects carry the members of both.
+// TestFeaturesOf_TypeConjoinedThroughSubsetting: a feature subsetting one typed by a
+// specialization of its type holds that specialization (KerML 1.0 §7.3.4.4).
 func TestFeaturesOf_TypeConjoinedThroughSubsetting(t *testing.T) {
 	code := `
 		part def Sheet { attribute area; }
@@ -182,9 +181,8 @@ func TestFeaturesOf_TypeConjoinedThroughSubsetting(t *testing.T) {
 	}
 }
 
-// TestFeaturesOf_EveryStatedTypeIsConjoined: a feature stating several types
-// (`part both : A, B`) holds values of every one; the first stated is the type
-// its objects are made as and the others are conjoined with it.
+// TestFeaturesOf_EveryStatedTypeIsConjoined: `part both : A, B` holds values of every
+// stated type; the first is the type its objects are made as, the rest conjoined.
 func TestFeaturesOf_EveryStatedTypeIsConjoined(t *testing.T) {
 	code := `
 		part def A { attribute a; }
@@ -214,10 +212,8 @@ func typeNames(types []*symbols.Symbol) []string {
 	return names
 }
 
-// TestFeaturesOf_ConjunctionOfUnrelatedTypes: when neither type stands for the
-// other, the feature keeps the type it states, the object it holds is classified
-// by the other type too and carries the members of both; a member both types
-// declare is one feature.
+// TestFeaturesOf_ConjunctionOfUnrelatedTypes: when neither type stands for the other, the
+// object is classified by both and carries both's members; a shared name is one feature.
 func TestFeaturesOf_ConjunctionOfUnrelatedTypes(t *testing.T) {
 	code := `
 		part def Panel { attribute area; attribute weight; }
@@ -269,9 +265,8 @@ func TestFeaturesOf_ConjunctionOfUnrelatedTypes(t *testing.T) {
 	}
 }
 
-// TestFeaturesOf_StatedTypeStandsWhenNotSpecialized: a type reached through
-// what a feature specializes refines the stated type only when it specializes
-// it; a state usage typed by another state usage keeps that usage as its type.
+// TestFeaturesOf_StatedTypeStandsWhenNotSpecialized: an inherited type refines the stated
+// one only when it specializes it; a state usage typed by another keeps that usage.
 func TestFeaturesOf_StatedTypeStandsWhenNotSpecialized(t *testing.T) {
 	code := `
 		state Machine { entry; then idle; state idle; }
@@ -286,9 +281,8 @@ func TestFeaturesOf_StatedTypeStandsWhenNotSpecialized(t *testing.T) {
 	}
 }
 
-// TestFeaturesOf_ParameterKeepsItsStatedType: a parameter's positional
-// redefinition of a general parameter contributes a type only when the
-// parameter states none.
+// TestFeaturesOf_ParameterKeepsItsStatedType: a parameter's positional redefinition of a
+// general parameter contributes a type only when the parameter states none.
 func TestFeaturesOf_ParameterKeepsItsStatedType(t *testing.T) {
 	code := `
 		private import ScalarValues::*;

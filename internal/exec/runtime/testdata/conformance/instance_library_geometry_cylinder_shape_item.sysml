@@ -1,7 +1,5 @@
-// A part whose `shape` is a ShapeItems::Cylinder: the cylinder's curved face
-// `cf` is declared a Surface subsetting `faces : StructuredSurface`, so it
-// carries StructuredSurface's `edges`, which the library binds to the cylinder's
-// own edges. Instantiation reads every feature without a missing-feature error.
+// A ShapeItems::Cylinder's curved face `cf : Surface :> faces` carries StructuredSurface's
+// `edges`, which the library binds, so instantiation reads every feature without a missing-feature error.
 package test {
     part def P {
         item :>> shape : ShapeItems::Cylinder {

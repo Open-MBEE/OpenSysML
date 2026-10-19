@@ -381,9 +381,8 @@ func TestSubsetterContributionIsTypedByTheSubsettedFeature(t *testing.T) {
 	}
 }
 
-// TestSubsetterObjectHasTheSubsettedType: a subsetter typed by one definition
-// that subsets a feature typed by another holds objects of both types (KerML 1.0
-// §7.3.4.4), so the subsetted feature admits what it contributes.
+// TestSubsetterObjectHasTheSubsettedType: a subsetter typed by an unrelated definition
+// holds objects of both types (KerML 1.0 §7.3.4.4), so the subsetted feature admits them.
 func TestSubsetterObjectHasTheSubsettedType(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defaultNullCollectionModel))
 	inst := instantiateNamed(t, ctx, idx, "test::mistyped")
@@ -461,5 +460,50 @@ func TestSubsettersAreFoundThroughEachClassifier(t *testing.T) {
 	}
 	if n := len(elementsOf(fv.HeldValue())); n != 2 {
 		t.Errorf("items holds %d elements after classifying, want the two subsetters'", n)
+	}
+}
+
+// A's `bar :>> foo` and B's `baz :>> bar` name one feature of an object typed
+// `A, B`, so foo, bar and baz share one feature value, holding foo's default.
+func TestOverlappingRedefinitionsOfConjoinedTypesShareOneValue(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::Real;
+			item def A0 { attribute foo : Real = 1.0; }
+			item def A :> A0 { attribute bar :>> foo; }
+			item def B0 { attribute bar : Real; }
+			item def B :> B0 { attribute baz :>> bar; }
+			part def Holder { item both : A, B [1]; }
+			part holder : Holder;
+		}
+	`))
+	matches := idx.LookupQualified("test::holder")
+	if len(matches) != 1 {
+		t.Fatalf("test::holder: %d matching symbols, want 1", len(matches))
+	}
+	holder, err := ctx.Instantiate(matches[0])
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	fv, err := holder.GetFeatureValue(ctx, "both")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(both): %v", err)
+	}
+	id, _ := fv.HeldValue().Object()
+	both, ok := ctx.Instance(id)
+	if !ok {
+		t.Fatalf("both = %s, want an object", FormatTraceValue(fv.HeldValue()))
+	}
+	for _, name := range []string{"foo", "bar", "baz"} {
+		fv, err := both.GetFeatureValue(ctx, name)
+		if err != nil {
+			t.Fatalf("GetFeatureValue(%s): %v", name, err)
+		}
+		if got := FormatTraceValue(fv.HeldValue()); got != "1.0" {
+			t.Errorf("both.%s = %s, want 1.0", name, got)
+		}
+		if both.FeatureValues[name] != both.FeatureValues["foo"] {
+			t.Errorf("%s and foo are separate feature values, want one shared feature value", name)
+		}
 	}
 }

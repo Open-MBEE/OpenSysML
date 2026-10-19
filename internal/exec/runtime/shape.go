@@ -157,10 +157,8 @@ func isInputParameter(sym *symbols.Symbol) bool {
 	return ok && !usage.IsResult && (usage.Direction == ast.DirIn || usage.Direction == ast.DirInOut)
 }
 
-// extractType resolves the type of a feature: the one it states, or the single
-// more specific type that stands for the conjunction of it with the types of the
-// features it subsets, redefines or references (KerML 1.0 §7.3.4.3–§7.3.4.4) —
-// a `Surface` subsetting a `StructuredSurface` feature holds StructuredSurfaces.
+// extractType resolves a feature's type: the one it states, or the single more specific
+// effective type that stands for the conjunction (KerML 1.0 §7.3.4.3–§7.3.4.4).
 func (ctx *Context) extractType(featureSym *symbols.Symbol) *symbols.Symbol {
 	stated := ctx.statedType(featureSym)
 	if types := ctx.effectiveTypes(featureSym); len(types) == 1 && types[0] != stated && ctx.model.semantics.Conforms(types[0], stated) {
@@ -192,11 +190,8 @@ func (ctx *Context) statedTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
 	return nil
 }
 
-// effectiveTypes returns the types every value of a feature has: the types it
-// states conjoined with the types of each feature it subsets, redefines or
-// references, keeping only the most specific. A parameter's positional
-// redefinition of a general parameter contributes a type only when the
-// parameter states none itself, as the semantic layer resolves it.
+// effectiveTypes returns the most specific of the stated types conjoined with the types
+// of each subsetted, redefined or referenced feature (a positional parameter redefinition only when none is stated).
 func (ctx *Context) effectiveTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
 	sem := ctx.model.semantics
 	stated := ctx.statedTypes(featureSym)
@@ -227,18 +222,16 @@ func (ctx *Context) effectiveTypes(featureSym *symbols.Symbol) []*symbols.Symbol
 	})
 }
 
-// conjoinedTypes returns the types of a feature's values that typ, the type its
-// objects are made as, does not stand for: a feature typed `Panel` subsetting
-// one typed `Framed` holds objects that are both (KerML 1.0 §7.3.4.3).
+// conjoinedTypes returns the effective types that typ, the type the feature's objects
+// are made as, does not stand for: `Panel :> frames : Framed` holds both (§7.3.4.3).
 func (ctx *Context) conjoinedTypes(featureSym, typ *symbols.Symbol) []*symbols.Symbol {
 	return slices.DeleteFunc(ctx.effectiveTypes(featureSym), func(other *symbols.Symbol) bool {
 		return other == typ || ctx.model.semantics.Conforms(typ, other)
 	})
 }
 
-// withConjoinedTypes makes an object held by feature of owner a value of every
-// type its feature conjoins: each one classifies the object, and its members
-// the object's type lacks join the shape; a member both declare is one feature.
+// withConjoinedTypes classifies the object by every type its feature conjoins and adds
+// their members to its shape; a member two types declare is one feature.
 func (ctx *Context) withConjoinedTypes(inst, owner *Instance, feature string, features []EffectiveFeature) []EffectiveFeature {
 	if owner == nil || feature == "" {
 		return features

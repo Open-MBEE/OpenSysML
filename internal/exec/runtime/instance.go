@@ -403,12 +403,9 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	}
 
 	// A redefining feature declares the feature it redefines again, so the two
-	// names read one feature value, under the object's type and each type its
-	// feature conjoins with it.
-	for _, typ := range inst.types() {
-		if err := ctx.aliasRedefinedFeatureValuesOf(inst, typ, nil, features); err != nil {
-			return nil, err
-		}
+	// names read one feature value, under every type of the object at once.
+	if err := ctx.aliasRedefinedFeatureValuesOf(inst, inst.types(), nil, features); err != nil {
+		return nil, err
 	}
 
 	// Register instance

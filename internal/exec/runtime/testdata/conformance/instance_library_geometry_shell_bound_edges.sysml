@@ -1,7 +1,5 @@
-// A feature typed by a model definition that subsets a feature typed by the
-// library's `ShapeItems::Shell` holds objects that are Shells too, so a binding
-// to the Kernel member `edges` the object inherits only through the Shell resolves
-// to a slot of the object instead of failing as a missing feature.
+// `front : Panel :> frames` with `frames : ShapeItems::Shell` holds Shells too, so a
+// binding to the Kernel member `edges` inherited only through Shell gets a slot.
 package test {
     private import ScalarValues::*;
 

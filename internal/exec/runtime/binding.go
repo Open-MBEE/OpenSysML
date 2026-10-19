@@ -762,10 +762,8 @@ func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Bindin
 	}, nil
 }
 
-// withBoundMembers adds to an object's features the members of its types that
-// the bindings of the objects holding it reach through feature, where the shape
-// leaves them out: a Kernel frame member the model binds (`cf.edges = ae`)
-// is a feature of the object, so it holds a value like any other.
+// withBoundMembers adds the Kernel frame members the model binds through feature
+// (`cf.edges = ae`) to the object's features, so each holds a value like any other.
 func (ctx *Context) withBoundMembers(inst, owner *Instance, feature string, features []EffectiveFeature) []EffectiveFeature {
 	if owner == nil || feature == "" {
 		return features

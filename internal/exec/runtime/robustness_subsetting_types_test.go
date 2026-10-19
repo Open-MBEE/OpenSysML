@@ -6,10 +6,8 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessSubsettingTypes covers objects held by a feature whose
-// types come together through subsetting: a member inherited from the subsetted
-// feature's type that the model leaves without a value fails with a typed error
-// naming what is missing, never with a missing-feature error or a panic.
+// TestRuntimeRobustnessSubsettingTypes: a member inherited through subsetting that the
+// model leaves without a value fails with a typed error, never missing-feature or a panic.
 func TestRuntimeRobustnessSubsettingTypes(t *testing.T) {
 	t.Run("inherited_member_bound_without_a_witness", testInheritedMemberBoundWithoutAWitness)
 	t.Run("member_outside_the_conjunction_is_still_missing", testMemberOutsideTheConjunctionIsStillMissing)
@@ -29,9 +27,8 @@ const subsettingTypesModel = `package test {
 	part holder : Holder;
 }`
 
-// testInheritedMemberBoundWithoutAWitness: the binding reaches `trim` through
-// Framed, the type `front` inherits by subsetting, but binds one of many
-// spares without saying which; the read reports the undetermined binding.
+// testInheritedMemberBoundWithoutAWitness: `trim`, inherited through Framed, is bound
+// to one of many spares without saying which; the read reports the undetermined binding.
 func testInheritedMemberBoundWithoutAWitness(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, subsettingTypesModel))
 	holder := instantiateNamed(t, ctx, idx, "test::holder")
@@ -52,9 +49,8 @@ func testInheritedMemberBoundWithoutAWitness(t *testing.T) {
 	}
 }
 
-// testMemberOutsideTheConjunctionIsStillMissing: the conjunction adds Framed's
-// members to what `front` holds and nothing else; a member of neither type is
-// still reported missing by name, while Panel's own members keep their values.
+// testMemberOutsideTheConjunctionIsStillMissing: a member of neither Panel nor Framed
+// is still reported missing by name, while Panel's own members keep their values.
 func testMemberOutsideTheConjunctionIsStillMissing(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, subsettingTypesModel))
 	holder := instantiateNamed(t, ctx, idx, "test::holder")
