@@ -470,10 +470,10 @@ expression; the `::` inside a qualified name is not a separator.
 ### Arguments
 
 The arguments of an invocation — `%calc`, `%analysis`, `%sweep`, `%runs`, `%invoke` and `%check`,
-written positionally or as `parameter=expression` — evaluate where `%eval` does, and the whole
-list evaluates as one expression list in one run, in the order written, as the Kernel Semantics
-evaluate an invocation's argument expressions in one evaluation context. A draw in one argument therefore continues the
-stream of the draw before it: under `%seed 7`, `%calc Pair(uniform(0.0, 1.0), uniform(0.0, 1.0))`
+written positionally or, except for `%calc`, as `parameter=expression` — evaluate where `%eval`
+does, and the whole list evaluates as one expression list in one run, in the order written, as the
+Kernel Semantics evaluate an invocation's argument expressions in one evaluation context. A draw in
+one argument therefore continues the stream of the draw before it: under `%seed 7`, `%calc Pair(uniform(0.0, 1.0), uniform(0.0, 1.0))`
 binds two different values, the same two that `%eval uniform(0.0, 1.0) - uniform(0.0, 1.0)` draws,
 and repeating the command under the same seed binds them again. An argument that fails to evaluate
 is reported by its text (`evaluation of argument "x" failed`) or, when named, by its parameter.
