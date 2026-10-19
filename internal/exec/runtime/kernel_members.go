@@ -20,7 +20,7 @@ func (inst *Instance) MemberValue(ctx *Context, name string) (*FeatureValue, err
 	if _, has := inst.FeatureValues[name]; has {
 		return fv, err
 	}
-	if kfv, answered, kerr := ctx.kernelMemberRead(inst, name); answered {
+	if kfv, answered, kerr := ctx.kernelMemberRead(inst, name, nil); answered {
 		return kfv, kerr
 	}
 	return fv, err
@@ -32,7 +32,8 @@ func (inst *Instance) MemberValue(ctx *Context, name string) (*FeatureValue, err
 // library's own declared value, the composition it inverts, or its multiplicity —
 // empty where the lower bound is 0, undetermined where it is not. The second
 // result is false for a member the rule does not cover, which the caller reports.
-func (ctx *Context) kernelMemberRead(inst *Instance, name string) (*FeatureValue, bool, error) {
+// A non-nil open is a model-level read, which makes up no open subsetter's count.
+func (ctx *Context) kernelMemberRead(inst *Instance, name string, open *openPopulation) (*FeatureValue, bool, error) {
 	if ctx == nil || inst == nil || ctx.model.semantics == nil {
 		return nil, false, nil
 	}
@@ -46,15 +47,20 @@ func (ctx *Context) kernelMemberRead(inst *Instance, name string) (*FeatureValue
 	if !sym.IsFeature() {
 		return nil, true, fmt.Errorf("%w: %s has no feature %s (%s is not a feature)", ErrNoSuchFeature, SymbolText(inst.Type), name, name)
 	}
+	if resultParameter(sym) && ctx.model.semantics.FrameFeature(sym) {
+		feat := ctx.effectiveFeature(name, sym, inst.Type)
+		fv, err := ctx.returnParameterRead(inst, sym, &feat)
+		return fv, true, err
+	}
 	if !ctx.kernelFrameMember(sym) {
 		return nil, false, nil
 	}
 	feat := ctx.effectiveFeature(name, sym, inst.Type)
-	val, err := ctx.kernelMemberValue(inst, sym, &feat)
+	val, stopped, err := ctx.kernelMemberValue(inst, sym, &feat, open)
 	if err != nil {
 		return nil, true, err
 	}
-	fv := &FeatureValue{Feature: &feat, Materialized: true}
+	fv := &FeatureValue{Feature: &feat, Materialized: !stopped}
 	if feat.Scalar() || val.Kind == ValUndetermined {
 		fv.Value = val
 	} else {
@@ -87,51 +93,59 @@ func (ctx *Context) kernelFrameMember(sym *symbols.Symbol) bool {
 
 // kernelMemberValue is the value of the Kernel member sym on inst, in the order
 // the rule tries: tracked, declared by the library, inverted through composition,
-// then what the multiplicity alone says.
-func (ctx *Context) kernelMemberValue(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
-	if val, ok, err := ctx.trackedKernelValue(inst, sym, feat); ok {
-		return val, err
+// then what the multiplicity alone says. The second result reports a model-level
+// read stopped by an open subsetter, recorded in open.
+func (ctx *Context) kernelMemberValue(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature, open *openPopulation) (Value, bool, error) {
+	if val, stopped, ok, err := ctx.trackedKernelValue(inst, sym, feat, open); ok {
+		return val, stopped, err
 	}
 	if val, ok, err := ctx.kernelDeclaredValue(inst, feat); ok {
-		return val, nil
+		return val, false, nil
 	} else if err != nil {
 		// A declared value the evaluator cannot run leaves the member open, not empty.
-		return undeterminedFeatureValue(fmt.Sprintf("%s declares a value the evaluator cannot run: %v", sym.Name, err), feat.Multiplicity, sym), nil
+		return undeterminedFeatureValue(fmt.Sprintf("%s declares a value the evaluator cannot run: %v", sym.Name, err), feat.Multiplicity, sym), false, nil
 	}
 	if val, ok := ctx.kernelInverseValue(inst, sym, feat); ok {
-		return val, nil
+		return val, false, nil
 	}
 	if lower := feat.Multiplicity.Lower; lower.Known && !lower.Infinite && lower.Value == 0 {
 		if feat.Scalar() {
-			return Value{Kind: ValNull}, nil
+			return Value{Kind: ValNull}, false, nil
 		}
-		return ctx.collectionOf(feat, nil), nil
+		return ctx.collectionOf(feat, nil), false, nil
 	}
-	return unsetFeatureValue(sym.Name, feat.Multiplicity, sym), nil
+	return unsetFeatureValue(sym.Name, feat.Multiplicity, sym), false, nil
 }
 
 // trackedKernelValue answers the members the runtime tracks for every object:
 // `self` is the object itself (Base.kerml `Anything::self`), and a collection
-// `self` subsets — `timeSlices`, `spaceSlices`, `portions`, … (Occurrences.kerml) —
-// holds the object: an occurrence the runtime has recorded no portions of is its
-// own only portion. Transfers are tracked under no Kernel name, so none is here.
-func (ctx *Context) trackedKernelValue(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, bool, error) {
+// `self` subsets — `timeSlices`, `spaceSlices`, `portions`, `timeEnclosedOccurrences`, …
+// (Occurrences.kerml) — holds the object, since an occurrence the runtime has recorded
+// no portions of is its own only portion, unioned with what the shape features
+// subsetting the collection hold (`ownedPorts :> timeEnclosedOccurrences`, KerML 1.0
+// §7.3.4.4): the object first, then the contributions in shape order, each once.
+// Transfers are tracked under no Kernel name, so none is here.
+func (ctx *Context) trackedKernelValue(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature, open *openPopulation) (val Value, stopped, ok bool, err error) {
 	self, found := ctx.model.semantics.LookupMember(inst.Type, "self")
 	if !found || self == nil {
-		return Value{}, false, nil
+		return Value{}, false, false, nil
 	}
 	if sym == self || ctx.model.semantics.IsSelf(sym) {
 		val, err := ctx.objectValue(inst)
-		return val, true, err
+		return val, false, true, err
 	}
 	if feat.Scalar() || !ctx.subsetsTransitively(self, inst.Type, sym) {
-		return Value{}, false, nil
+		return Value{}, false, false, nil
 	}
-	val, err := ctx.objectValue(inst)
+	val, err = ctx.objectValue(inst)
 	if err != nil {
-		return Value{}, true, err
+		return Value{}, false, true, err
 	}
-	return ctx.collectionOf(feat, []Value{val}), true, nil
+	values, stopped, err := ctx.shapeContributions(inst, sym, feat, []Value{val}, open)
+	if err != nil {
+		return Value{}, false, true, err
+	}
+	return ctx.collectionOf(feat, values), stopped, true, nil
 }
 
 // kernelDeclaredValue evaluates the value the library declares for the member —

@@ -6,9 +6,9 @@
 			{"type": "Integer", "value": 1},
 			{"type": "Integer", "value": 2}
 		]},
-		"one": {"type": "Integer", "value": 1},
-		"plain": {"type": "Integer", "value": 1},
-		"second": {"type": "Integer", "value": 2},
-		"count": {"type": "Integer", "value": 3}
+		"one": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"plain": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"second": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+		"count": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]}
 	}
 }
