@@ -481,6 +481,23 @@ func endFeature(end lower.BehaviorOrderEnd) *symbols.Symbol {
 	return end.Path[len(end.Path)-1]
 }
 
+// checkHeldBehaviorStart refuses an explicit start of a held behavior its order does not
+// admit yet: a predecessor begun and running, or one not ended — itself held, say.
+func (ctx *Context) checkHeldBehaviorStart(behavior *ObjectBehavior) error {
+	if err := ctx.checkSuccessionOrderViolation(behavior.Object, behavior.member); err != nil {
+		return err
+	}
+	for _, block := range ctx.behaviorOrderBlocks(behavior) {
+		return &successionOrderError{
+			Code: successionOrderViolatedCode,
+			Message: fmt.Sprintf("succession-order-violated: succession %s orders %s before %s, but %s has not ended in featuring object #%d",
+				behaviorOrderName(block.order), block.predecessor.Describe(), behavior.Describe(), block.predecessor.Describe(), block.featuring.ID),
+			Err: errSuccessionOrderViolated,
+		}
+	}
+	return nil
+}
+
 func (ctx *Context) deferredBehaviorReady(behavior *ObjectBehavior) bool {
 	return len(ctx.behaviorOrderBlocks(behavior)) == 0
 }

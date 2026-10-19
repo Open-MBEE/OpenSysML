@@ -235,3 +235,71 @@ func TestRecursiveUsageKeepsItsDeclaredMembers(t *testing.T) {
 		t.Errorf("detail = %q, want the recursion noted", next.Detail)
 	}
 }
+
+// A redefining usage that declares no typing is headed with the type it inherits
+// from the feature it redefines; one redefining an untyped feature stays untyped.
+func TestRedefiningUsageHeadsWithInheritedType(t *testing.T) {
+	rendering := render(t, "typed-usage-inherited.sysml", "TypedUsageViews::rocketLinks")
+	rocket := nodeAt(rendering.Roots, "TypedUsageViews::rocket")
+	if rocket == nil {
+		t.Fatalf("rocket is not drawn; roots: %v", nodeNames(rendering.Roots))
+	}
+	for _, path := range [][]string{{"subcomponents"}, {"stage1", "subcomponents"}} {
+		node := nodeAt(rocket.Children, path...)
+		if node == nil {
+			t.Fatalf("%v is not drawn under rocket", path)
+		}
+		if node.Type != "Component" || strings.Join(node.Typings, ",") != "TypedUsageViews::Component" {
+			t.Errorf("%v: type %q typings %v, want Component inherited from Component::subcomponents", path, node.Type, node.Typings)
+		}
+	}
+	if mass := nodeAt(rocket.Children, "mass"); mass == nil || mass.Type != "" || len(mass.Typings) != 0 {
+		t.Errorf("mass redefines an untyped attribute, want no type; got %+v", mass)
+	}
+}
+
+// A usage redefining typed features is headed with every type they declare, each element
+// once in redefinition order, through untyped chains, the same in every rendering form.
+func TestRedefiningUsageHeadsWithEveryInheritedType(t *testing.T) {
+	rendering := render(t, "redefining-heads.sysml", "RedefiningHeads::heads")
+	d := nodeAt(rendering.Roots, "RedefiningHeads::d")
+	if d == nil {
+		t.Fatalf("d is not drawn; roots: %v", nodeNames(rendering.Roots))
+	}
+	want := map[string][2]string{
+		"both":   {"A, B", "RedefiningHeads::A,RedefiningHeads::B"},
+		"single": {"A", "RedefiningHeads::A"},
+		"pair":   {"A", "RedefiningHeads::A"},
+		"lbrb":   {"A, B", "RedefiningHeads::A,RedefiningHeads::B"},
+		"q":      {"Q::A, A", "RedefiningHeads::Q::A,RedefiningHeads::A"},
+	}
+	for name, typing := range want {
+		node := nodeAt(d.Children, name)
+		if node == nil {
+			t.Fatalf("%s is not drawn under d; children: %v", name, childNames(d))
+		}
+		if node.Type != typing[0] || strings.Join(node.Typings, ",") != typing[1] {
+			t.Errorf("interconnection %s: type %q typings %v, want %q %q", name, node.Type, node.Typings, typing[0], typing[1])
+		}
+	}
+	tree := render(t, "redefining-heads.sysml", "RedefiningHeads::headsTree")
+	further := nodeAt(tree.Roots, "RedefiningHeads::Further")
+	if further == nil {
+		t.Fatalf("Further is not drawn in the tree; roots: %v", nodeNames(tree.Roots))
+	}
+	for name, typing := range want {
+		if node := nodeAt(further.Children, name); node == nil || node.Type != typing[0] {
+			t.Errorf("tree %s = %+v, want type %q", name, node, typing[0])
+		}
+	}
+	table := render(t, "redefining-heads.sysml", "RedefiningHeads::headsTable")
+	typed := map[string]string{}
+	for _, row := range table.Rows {
+		typed[row[0]] = row[2]
+	}
+	for name, typing := range want {
+		if typed[name] != typing[0] {
+			t.Errorf("table %s type = %q, want %q (rows %v)", name, typed[name], typing[0], table.Rows)
+		}
+	}
+}

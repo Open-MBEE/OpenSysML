@@ -139,6 +139,9 @@ pub const CAPABILITY_CONVERT_DOCUMENTS: &str = "convert_documents";
 /// `ConvertRequest.compact`, `omit_derived` and `keep_derived`: api-json written as the compact
 /// document (an id table and handles), optionally without derived properties.
 pub const CAPABILITY_CONVERT_COMPACT: &str = "convert_compact";
+/// `ConvertRequest.include_check_diagnostics`: the semantic check's diagnostics, each with its
+/// own severity, reported alongside the converted output.
+pub const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS: &str = "convert_check_diagnostics";
 /// `ParseSourcesRequest.base_model_hash` and `ParseSourcesResponse.affected`: the documents whose
 /// results may differ from the base model's, so a client re-reads only those after an edit.
 pub const CAPABILITY_PARSE_SOURCES_AFFECTED: &str = "parse_sources_affected";

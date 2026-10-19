@@ -1182,7 +1182,13 @@ call above; the FQN of a part definition or usage creates an object of it for th
 path from such a declaration through its parts — `Mission::mission.vehicle`,
 `Fleet::convoy.escorts[2]` for a multi-valued part — creates the declaration and reaches the
 object at the end of the path, so the action's `this` is a part *inside* its assembly and the
-assembly's connectors reach it. Each explored run creates the declaration anew, and each
+assembly's connectors reach it. When the object reached performs the action (`perform action
+run : Run { in ref :>> ctx = this; }` in its definition, say), the call runs that performance
+rather than a second one — with or without `advance`, which bounds how far it proceeds and
+nothing else — so `outputs`, `performerAttributes` and the occurrence are the object's own;
+`inputs` for it are refused, as its declaration binds its arguments, and an object performing
+the action under two usages is refused as ambiguous. An object not performing the action
+performs a fresh one, as an empty performer does outside any object. Each explored run creates the declaration anew, and each
 outcome's `outputs` carry the object's attributes as the run left them under `this.`
 (`this.pinged`), beside the action's own, so runs that differ only in what they left the
 object holding are distinct outcomes. An executed run reports the same entries, spelled and
@@ -1306,8 +1312,8 @@ $ … /ExecuteState -d '{"modelHash":"70ee…0c59","stateMachineSymbolId":"Test:
 `performerSymbolId` names the object the machine runs on, spelled as `ExecuteAction`'s is —
 empty, a declaration's FQN, or a path from one such as `Mission::mission.vehicle` — with the
 same errors. When the object reached exhibits the machine (`exhibit state modes;` in the part
-definition of a vehicle, say), the call runs that exhibited machine rather than a second copy,
-so the object's own transitions, the messages its ports receive over the assembly's
+definition of a vehicle, say), the call runs that exhibited machine rather than a second copy —
+with or without `advance` — so the object's own transitions, the messages its ports receive over the assembly's
 connectors and the features it assigns are the run's; an object exhibiting the machine under
 two usages is refused as ambiguous, since the call cannot tell which it means. An object not
 exhibiting the machine performs a fresh one, as an empty performer does outside any object.
@@ -1987,6 +1993,37 @@ the model does not hold, or `documents` for a `filePath` or `content`, is `inval
 object in place of the element array; `omit_derived` and `keep_derived` leave out the metamodel's
 derived properties. Expanded, it is the element array. The format is defined in
 [Compact API JSON](api-json-compact.md).
+
+`includeCheckDiagnostics`, under the `convert_check_diagnostics` capability, adds the semantic
+check's diagnostics to `diagnostics` alongside the output, each with its own `severity` (`error`,
+`warning` or `info`) and `code`, as `ParseFile` and
+`GetDiagnostics` [report them](#diagnostics-the-shape-of-a-finding): the notation is analyzed as a parse analyzes it, so an unresolved
+type is an `error` here while the conversion itself succeeds or fails exactly as it does without
+the field. It is for notation sources only — a graph has no notation to check — so one with a
+`ttl`, `api-json` or XMI source is `invalid_argument`. A source with syntax errors reports those
+alone, as before: the check passes do not run on a model that did not parse, whether the
+conversion refused it or `tolerateSyntaxErrors` let it through. For a `modelHash` the analysis
+the parse cached is reported, and with `documents`, that of the written documents only. Off, the
+default, `diagnostics` holds the syntax errors alone, as it always has.
+
+```console
+$ … /Convert -d '{"content":"package P { part x : NoSuchType; }","toFormat":"api-json","includeCheckDiagnostics":true}'
+{
+  "content": "[\n  {\n    \"@type\": \"Namespace\",\n…",
+  "fromFormat": "sysml",
+  "toFormat": "api-json",
+  "diagnostics": [
+    {
+      "severity": "error",
+      "message": "unresolved reference: NoSuchType",
+      "span": {"file": "<content>", "startLine": 1, "startColumn": 21, "endLine": 1, "endColumn": 31},
+      "code": "unresolved"
+    }
+  ],
+  "experimental": true,
+  "experimentalNotice": "…"
+}
+```
 
 ```console
 $ … /Convert -d '{"filePath":"Vehicle.sysml","toFormat":"ttl"}'

@@ -25,6 +25,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 // stdlibResourcePrefix is the resource URI prefix of the bundled standard
@@ -78,7 +79,7 @@ func (d diskState) same(o diskState) bool {
 // NewHost starts a language server over root and indexes the model documents
 // under it.
 func NewHost(ctx context.Context, root string, ws *model.Workspace, version string) (*Host, error) {
-	srv := lsp.NewServer(ws, lsp.WithVersion(version))
+	srv := lsp.NewServer(ws, lsp.WithVersion(version), lsp.WithLibraryRoots(project.EnvLibraryRoots()))
 	params := &protocol.InitializeParams{
 		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(root)), Name: root}},
 		Capabilities: protocol.ClientCapabilities{

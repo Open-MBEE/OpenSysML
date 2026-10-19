@@ -12,8 +12,12 @@ function result = decodeAnalysisResult(model, raw)
     verdicts = opensysml.internal.decodeVerdicts(fieldOr(raw, 'verdicts', {}), ...
         instances, diagnostics, verifications);
     evaluations = opensysml.internal.decodeEvaluations(fieldOr(raw, 'evaluations', {}), instances);
+    preview = [];
+    if isfield(raw, 'toolDryRun') && isstruct(raw.toolDryRun)
+        preview = opensysml.internal.decodeToolDryRun(raw.toolDryRun);
+    end
     result = opensysml.AnalysisResult(outputs, verdicts, instances, diagnostics, ...
-        verifications, evaluations, opensysml.internal.decodeStanding(raw));
+        verifications, evaluations, opensysml.internal.decodeStanding(raw), preview);
 end
 
 function value = fieldOr(raw, name, fallback)

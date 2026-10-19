@@ -713,8 +713,128 @@ pub struct AnalysisResult {
     pub evaluations: Vec<CaseEvaluation>,
     /// Who answered, how strongly, within what bounds.
     pub standing: Standing,
+    /// The external tool call previewed when the case ran under
+    /// `AnalysisOptions.tool_dry_run`; `None` when the case ran for real.
+    pub tool_dry_run: Option<ToolDryRun>,
     instances: Arc<[Instance]>,
     wire: wire::RunAnalysisResponse,
+}
+
+/// The external tool call an analysis would make, previewed without running the tool: what
+/// `AnalysisOptions.tool_dry_run` stops at, as `sysml -tool-dry-run` prints it.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct ToolDryRun {
+    /// The qualified name of the tool-executing action reached.
+    pub action: String,
+    /// The tool the action names.
+    pub tool: String,
+    /// The tool version the manifest declares, if any.
+    pub version: String,
+    /// The manifest file the tool was found in.
+    pub manifest: String,
+    /// The program that would run.
+    pub executable: String,
+    /// How the tool is spoken to (`stdio`, `files`, ...).
+    pub protocol: String,
+    /// The command line the tool would get.
+    pub args: Vec<String>,
+    /// Environment entries set for it.
+    pub env: Vec<String>,
+    /// The working directory it would run in.
+    pub cwd: String,
+    /// How standard input is fed.
+    pub stdin: String,
+    /// The text written to it.
+    pub stdin_data: String,
+    /// The input file written; `None` when the tool reads none.
+    pub input_file: Option<ToolDryRunFile>,
+    /// Whether an output directory would be made.
+    pub output_dir: bool,
+    /// Each value handed over.
+    pub inputs: Vec<ToolDryRunInput>,
+    /// Each result read back.
+    pub outputs: Vec<ToolDryRunOutput>,
+    /// Where the tool's answer would be read from.
+    pub reply_source: String,
+    /// The preview as `sysml -tool-dry-run` prints it.
+    pub lines: Vec<String>,
+}
+
+/// The input file a previewed tool call would be given.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct ToolDryRunFile {
+    /// The file's name.
+    pub name: String,
+    /// Its format.
+    pub format: String,
+    /// Its contents.
+    pub data: String,
+}
+
+/// One value a previewed tool call would hand over.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct ToolDryRunInput {
+    /// The model variable the value comes from.
+    pub variable: String,
+    /// The tool parameter it binds.
+    pub parameter: String,
+    /// The value, as the tool would read it.
+    pub value: String,
+    /// Its unit, if any.
+    pub unit: String,
+}
+
+/// One result a previewed tool call would read back.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct ToolDryRunOutput {
+    /// The model variable the result fills.
+    pub variable: String,
+    /// The tool parameter it is read from.
+    pub parameter: String,
+}
+
+impl From<wire::ToolDryRun> for ToolDryRun {
+    fn from(pb: wire::ToolDryRun) -> Self {
+        ToolDryRun {
+            action: pb.action,
+            tool: pb.tool,
+            version: pb.version,
+            manifest: pb.manifest,
+            executable: pb.executable,
+            protocol: pb.protocol,
+            args: pb.args,
+            env: pb.env,
+            cwd: pb.cwd,
+            stdin: pb.stdin,
+            stdin_data: pb.stdin_data,
+            input_file: pb.input_file.map(|file| ToolDryRunFile {
+                name: file.name,
+                format: file.format,
+                data: file.data,
+            }),
+            output_dir: pb.output_dir,
+            inputs: pb
+                .inputs
+                .into_iter()
+                .map(|input| ToolDryRunInput {
+                    variable: input.variable,
+                    parameter: input.parameter,
+                    value: input.value,
+                    unit: input.unit,
+                })
+                .collect(),
+            outputs: pb
+                .outputs
+                .into_iter()
+                .map(|output| ToolDryRunOutput {
+                    variable: output.variable,
+                    parameter: output.parameter,
+                })
+                .collect(),
+            reply_source: pb.reply_source,
+            lines: pb.lines,
+        }
+    }
 }
 
 impl AnalysisResult {
@@ -1302,6 +1422,7 @@ pub(crate) fn analysis_of(
         verifications: verifications_of(&response.verification_verdicts),
         evaluations: evaluations(&response.evaluations)?,
         standing: Standing::of(&response.engine, &response.strength, &response.bounds),
+        tool_dry_run: response.tool_dry_run.map(ToolDryRun::from),
         instances,
         wire,
     };
@@ -1411,6 +1532,69 @@ mod tests {
             failure_reason: reason as i32,
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn a_tool_dry_run_is_read_field_by_field() {
+        let response = wire::RunAnalysisResponse {
+            tool_dry_run: Some(wire::ToolDryRun {
+                action: "Demo::compute".to_owned(),
+                tool: "octave".to_owned(),
+                version: "8.4".to_owned(),
+                manifest: "/tools/octave.json".to_owned(),
+                executable: "/usr/bin/octave".to_owned(),
+                protocol: "stdio".to_owned(),
+                args: vec!["--eval".to_owned(), "run".to_owned()],
+                env: vec!["HOME=/tmp".to_owned()],
+                cwd: "/tmp/run".to_owned(),
+                stdin: "data".to_owned(),
+                stdin_data: "x = 1".to_owned(),
+                input_file: Some(wire::ToolDryRunFile {
+                    name: "in.json".to_owned(),
+                    format: "json".to_owned(),
+                    data: "{}".to_owned(),
+                }),
+                output_dir: true,
+                inputs: vec![wire::ToolDryRunInput {
+                    variable: "x".to_owned(),
+                    parameter: "p".to_owned(),
+                    value: "250.0".to_owned(),
+                    unit: "m".to_owned(),
+                }],
+                outputs: vec![wire::ToolDryRunOutput {
+                    variable: "y".to_owned(),
+                    parameter: "q".to_owned(),
+                }],
+                reply_source: "stdout".to_owned(),
+                lines: vec!["would run /usr/bin/octave".to_owned()],
+            }),
+            ..Default::default()
+        };
+        let result = analysis_of(response, &capabilities(&[])).unwrap();
+        assert!(result.outputs.is_empty());
+        let preview = result.tool_dry_run.expect("the preview is typed");
+        assert_eq!(preview.action, "Demo::compute");
+        assert_eq!(preview.tool, "octave");
+        assert_eq!(preview.version, "8.4");
+        assert_eq!(preview.args, vec!["--eval", "run"]);
+        assert_eq!(preview.env, vec!["HOME=/tmp"]);
+        assert_eq!(
+            preview.input_file,
+            Some(ToolDryRunFile {
+                name: "in.json".to_owned(),
+                format: "json".to_owned(),
+                data: "{}".to_owned(),
+            })
+        );
+        assert!(preview.output_dir);
+        assert_eq!(preview.inputs[0].value, "250.0");
+        assert_eq!(preview.inputs[0].unit, "m");
+        assert_eq!(preview.outputs[0].parameter, "q");
+        assert_eq!(preview.reply_source, "stdout");
+        assert_eq!(preview.lines, vec!["would run /usr/bin/octave"]);
+        let real_run =
+            analysis_of(wire::RunAnalysisResponse::default(), &capabilities(&[])).unwrap();
+        assert!(real_run.tool_dry_run.is_none());
     }
 
     #[test]

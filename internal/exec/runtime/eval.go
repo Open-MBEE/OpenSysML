@@ -1412,6 +1412,10 @@ func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
 		return now, true, err
 	}
 	if _, ok := ec.self.FeatureValues[name]; !ok && !ec.ctx.derivesKernelCollection(ec.self, name) {
+		// A member the shape leaves out, which the default the holder governs over states.
+		if val, ok, err := ec.ctx.holderDefaultMember(ec.self, name); ok {
+			return val, true, err
+		}
 		return Value{}, false, nil
 	}
 	fv, open, err := ec.memberFeatureValue(ec.self, name)
@@ -1621,8 +1625,16 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity, ValQuantity, ValMeasurementRef, ValCoordinateFrame, ValCoordinateTransformation:
 		// An array or vector read from an object keeps that object's members; a
 		// frame answers its own features from the value, then from its object.
-		if inst, ok := ec.ctx.structuredObject(value); ok && isStructuredValue(&value) {
-			return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
+		if inst, ok := ec.ctx.structuredObject(value); ok && (isStructuredValue(&value) || value.Kind == ValQuantity) {
+			// A scalar quantity answers its own features (`num`, `mRef`) as the value it
+			// is; its object answers the members a specialization adds.
+			next, segments, label := Value{Kind: ValInstance, Instance: inst.ID}, parts, from
+			if value.Kind == ValQuantity {
+				if answer, ok, err := ec.ctx.quantityFeature(value, name); ok && err == nil {
+					next, segments, label = answer, rest, name
+				}
+			}
+			return ec.chainMemberValue(next, segments, label)
 		}
 		return ec.chainOwnFeature(value, parts, from)
 	case ValInstance, ValVariant:
@@ -1689,7 +1701,13 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if ec.ctx.derivesKernelCollection(inst, name) {
 			return ec.chainFeatureValue(inst, name, rest, from)
 		}
-		if val, answered, err := ec.kernelMemberValue(inst, name, from); answered {
+		// A member the shape leaves out, which the default the holder governs over
+		// states; else a Kernel member.
+		val, answered, err := ec.ctx.holderDefaultMember(inst, name)
+		if !answered {
+			val, answered, err = ec.kernelMemberValue(inst, name, from)
+		}
+		if answered {
 			if err != nil {
 				return Value{}, err
 			}

@@ -92,6 +92,20 @@ rolls up to is determined: the runtime answers `<undetermined>` rather than a
 number it would have to invent. The model was never wrong; it was incomplete
 in a way only an attempt to use it reveals.
 
+The fix is where SysML puts it, in the usage: `saturnVComplete` is the same
+vehicle with `:>> mass = 2000 [kg]` on its `instrumentUnit`, and the rollup
+completes:
+
+```bash
+./bin/sysml -quiet -e MassRollup::saturnVComplete.totalMass \
+  examples/runtime-showcase/mass-rollup.sysml
+```
+
+```
+✓ MassRollup::saturnVComplete.totalMass
+  = 2943728 [kg]
+```
+
 ## Whether it reaches orbit
 
 `RocketEquation` is Tsiolkovsky's equation with typed inputs: specific impulse
@@ -256,7 +270,9 @@ performs the action with its own budget, and `apollo11` and `apollo8` are two
 flights.
 
 An action a part performs runs on an instance of that part, so `-instantiate`
-makes the object and `-action` names the action and the object:
+makes the object — which performs its `mission` as it is created — and `-action`
+names the action and the object, attaching to that performance rather than
+starting a second one:
 
 ```bash
 ./bin/sysml -quiet -instantiate MissionSequence::apollo11 \
@@ -268,12 +284,13 @@ makes the object and `-action` names the action and the object:
 ✓ Created instance of MissionSequence::apollo11
   ID: 1
   Use %features MissionSequence::apollo11 to inspect
-✓ Started action executor for "MissionSequence::Flight::mission"
-  State: Running
-  Tokens: 1
-✓ Action completed
-  Final state: Completed
+✓ Debugging action "mission" performed by object #1 of "MissionSequence::apollo11"
+note: object #1 of "MissionSequence::apollo11" already performs "MissionSequence::Flight::mission", so this session attaches to that running performance rather than starting a second one (as `%action MissionSequence::Flight::mission` would)
+  State: Completed
+  Tokens: 0
+✓ Action already completed
   Results:
+    budget = [9500 ['m/s']]
     landed = [true]
     remaining = 480 ['m/s']
     returned = [true]
@@ -291,6 +308,7 @@ other branch of the decision:
 
 ```
   Results:
+    budget = [5500 ['m/s']]
     landed = [false]
     remaining = 450 ['m/s']
     returned = [true]

@@ -348,12 +348,13 @@ func TestConnectorEndsAreReadAgainAfterADependencyChanges(t *testing.T) {
 func TestCollectionIsCollectedAgainAfterADependencyChanges(t *testing.T) {
 	s := NewSession()
 	s.Submit("calc def double { in x; return : ScalarValues::Real = x * 2.0; }")
+	// `one :> pool` states no multiplicity, so it is bound by `pool[*]` and prints as a collection.
 	s.Submit("part def A { attribute pool : ScalarValues::Real[*]; attribute one :> pool = double(3.0); }")
 	wants(t, run(t, s, "%instantiate A"), "ID: 1")
-	wants(t, run(t, s, "%features A"), "pool = [6.0]", "one = 6.0")
+	wants(t, run(t, s, "%features A"), "pool = [6.0]", "one = [6.0]")
 
 	s.Submit("calc def double { in x; return : ScalarValues::Real = x * 3.0; }")
-	wants(t, run(t, s, "%features A"), "pool = [9.0]", "one = 9.0")
+	wants(t, run(t, s, "%features A"), "pool = [9.0]", "one = [9.0]")
 
 	// A collection of objects is kept, so its members keep their identities.
 	s.Submit("package D { part def B; part def C { part xs : B[3]; } }")

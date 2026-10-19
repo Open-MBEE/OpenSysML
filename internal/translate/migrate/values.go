@@ -237,7 +237,7 @@ func (m *migration) defaultInstanceNote(p *sysmlv1.Element, kw string) string {
 	}
 	kind, types, subsets, _ := m.instanceKind(inst)
 	if !instanceFits(kind, kw) {
-		return "the default value " + describe(inst) + " is written as " + kwArticle(kind.usageKeyword()) + ", which cannot be the default of " + article(kw) + kw
+		return "the default value " + describe(inst) + isWrittenAs + kwArticle(kind.usageKeyword()) + ", which cannot be the default of " + article(kw) + kw
 	}
 	if t := m.model.Ref(p, "type"); t != nil && !m.instanceOf(append(types, subsets...), t) {
 		return "the default value " + describe(inst) + " is not an instance of " + qualifiedName(t) + ", the type of " + p.Name

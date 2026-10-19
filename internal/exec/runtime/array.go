@@ -398,6 +398,8 @@ func backingObject(value Value) int64 {
 		return value.Array().Object
 	case ValVector:
 		return value.Vector().Object
+	case ValQuantity:
+		return value.Quantity().Object
 	case ValCoordinateFrame:
 		return value.CoordinateFrame().Object
 	case ValCoordinateTransformation:
@@ -539,7 +541,7 @@ func (ctx *Context) vectorOfObject(inst *Instance, array Value) (Value, bool, er
 	}
 	quantitySym := ctx.librarySymbol(vectorQuantityTypeFQN)
 	if a.Rank() == 0 || (quantitySym != nil && ctx.modelConforms(typ, quantitySym)) {
-		return array, true, nil
+		return ctx.scalarQuantityOfObject(inst, array)
 	}
 	components := make([]semantics.Value, len(a.Elements))
 	for i, elem := range a.Elements {
@@ -557,6 +559,44 @@ func (ctx *Context) vectorOfObject(inst *Instance, array Value) (Value, bool, er
 	}
 	val.Vector().Object = inst.ID
 	return val, true, nil
+}
+
+// scalarQuantityOfObject is the quantity a ScalarQuantityValue object stating its one
+// `num` and its `mRef` is (`0 [m]`); one stating no mRef stays the Array it shapes.
+func (ctx *Context) scalarQuantityOfObject(inst *Instance, array Value) (Value, bool, error) {
+	scalarSym := ctx.librarySymbol(scalarQuantityTypeFQN)
+	typ := ctx.objectType(inst)
+	if scalarSym == nil || !ctx.modelConforms(typ, scalarSym) {
+		return array, true, nil
+	}
+	refs, stated, err := ctx.objectFeatureElements(inst, vectorQuantityMRefFeature)
+	if err != nil {
+		return Value{}, true, err
+	}
+	if !stated {
+		// mRef is no feature of a value-held shape; the default the holder governs over may state it.
+		ref, ok, err := ctx.holderDefaultMember(inst, vectorQuantityMRefFeature)
+		if err != nil {
+			return Value{}, true, err
+		}
+		refs, stated = elementsOf(ref), ok
+	}
+	elements := array.Array().Elements
+	if !stated || len(refs) != 1 || len(elements) != 1 {
+		return array, true, nil
+	}
+	op := scalarQuantityTypeFQN + " " + SymbolText(inst.Type)
+	unit, err := axisUnitOf(op+" mRef", refs[0])
+	if err != nil {
+		return Value{}, true, err
+	}
+	if elements[0].Kind != ValConst || !elements[0].Const.IsNumeric() {
+		return Value{}, true, fmt.Errorf(
+			"%w: %s: num is %s, ScalarQuantityValue declares num : Number",
+			ErrTypeMismatch, op, DescribeValue(elements[0]),
+		)
+	}
+	return NewQuantityValue(&Quantity{Num: elements[0].Const, Unit: unit, Object: inst.ID}), true, nil
 }
 
 // objectArrayFeature is the values an object holds under a Collections::Array
@@ -616,7 +656,7 @@ func (ctx *Context) objectFeatureElements(inst *Instance, name string) ([]Value,
 	if err != nil {
 		return nil, true, err
 	}
-	stated := fv.Feature.DefaultValue != nil || fv.Written || fv.BindingDerived
+	stated := fv.Feature.DefaultValue != nil || fv.Written || fv.BindingDerived || ctx.holderDefaultSupplies(inst, fv)
 	return elementsOf(val), stated, nil
 }
 
