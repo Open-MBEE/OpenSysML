@@ -2833,8 +2833,8 @@ func (s *Session) startActionWithInputs(name string, performer []string, inputs 
 		switch performed := self.PerformedActionsOf(sym); len(performed) {
 		case 0:
 		case 1:
-			if len(bound) > 0 {
-				return nil, fmt.Errorf("%s already performs %s, whose inputs are its own: run it without arguments", selfFQN, name)
+			if err := ctx.CheckPerformedInputs(sym, performed[0], bound); err != nil {
+				return nil, err
 			}
 			return s.attachPerformedAction(ctx, name, qualifiedOr(fqn, name), selfFQN, self, performed[0])
 		default:

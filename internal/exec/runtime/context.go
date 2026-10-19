@@ -1972,6 +1972,13 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 	}
 }
 
+// CheckPerformedInputs is refusePerformedInputs for a caller attaching to the
+// performance itself: inputs equal to the bindings the performance stored pass,
+// any other is refused as an argument the declaration already supplied.
+func (ctx *Context) CheckPerformedInputs(action *symbols.Symbol, behavior *ObjectBehavior, inputs map[string]Value) error {
+	return ctx.refusePerformedInputs(action, behavior, inputs)
+}
+
 // refusePerformedInputs refuses inputs for a performed action that are not the bindings
 // its declaration states; a held performance stored none yet, so only self itself passes.
 func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *ObjectBehavior, inputs map[string]Value) error {
@@ -1986,7 +1993,8 @@ func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *Obje
 			if behavior.Action != nil {
 				root := behavior.Action.root
 				if bound, held := root.data[root.key(name)]; held {
-					implicit = ctx.valueEqual(bound, value)
+					// A stored reference binding is the one-element sequence a bare pin holds.
+					implicit = ctx.valueEqual(soleElement(bound), soleElement(value))
 				}
 			}
 			break

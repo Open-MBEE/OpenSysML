@@ -110,6 +110,18 @@ const inputsModel = `package Inputs {
 }
 `
 
+const performedModel = `package Perf {
+	action def Nudge {
+		in ref context : Heater;
+		out done : ScalarValues::Boolean := true;
+	}
+	part def Heater {
+		perform action nudge : Nudge { in ref :>> context = this; }
+	}
+	part heater : Heater;
+}
+`
+
 const machineModel = `package Lamps {
 	attribute def Go;
 	state def Lamp {
@@ -460,6 +472,22 @@ func TestRunBindsAnActionsInputsPositionallyOrByName(t *testing.T) {
 		if v.Status != "unresolved" || !strings.Contains(v.Text, tc.wants) {
 			t.Errorf("arguments %q: verdict = %+v, want %q", tc.args, v, tc.wants)
 		}
+	}
+}
+
+func TestRunAttachesToAPerformedActionWhoseInputsMatch(t *testing.T) {
+	cs := connect(t, t.TempDir())
+	must(t, cs, "session_submit", args("text", performedModel), nil)
+	must(t, cs, "repl_command", args("line", "%instantiate Perf::heater"), nil)
+
+	var v Verdict
+	must(t, cs, "session_run", args("kind", "action", "name", "Perf::Nudge", "object", "heater", "arguments", []string{"context = heater"}), &v)
+	if v.Status != "holds" {
+		t.Errorf("matching input = %+v", v)
+	}
+	must(t, cs, "session_run", args("kind", "action", "name", "Perf::Nudge", "object", "heater", "arguments", []string{"context = null"}), &v)
+	if v.Status != "unresolved" || !strings.Contains(v.Text, "performs Nudge already") {
+		t.Errorf("conflicting input = %+v", v)
 	}
 }
 
