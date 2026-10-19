@@ -20,7 +20,7 @@ enter action node: branch body of action node iterate
         eval operator * -> 20
       stmt assign total
           eval feature total -> 0
-          eval chain v -> 20
+          eval chain v -> (20)
         eval operator + -> 20
 leave action node: branch body of action node iterate
   iteration 3
@@ -35,7 +35,7 @@ enter action node: branch body of action node iterate
         eval operator * -> 30
       stmt assign total
           eval feature total -> 20
-          eval chain v -> 30
+          eval chain v -> (30)
         eval operator + -> 50
 leave action node: branch body of action node iterate
 step 2: token 1@done
