@@ -112,9 +112,6 @@ func (h *Host) Close(ctx context.Context) error {
 	return h.Server.Shutdown(ctx)
 }
 
-// URI is the document URI of a workspace path.
-func (h *Host) URI(path string) protocol.DocumentURI { return uri.File(path) }
-
 // docRef names a document the tools address: a workspace file by absolute
 // path, or a bundled library document by its library-relative name.
 type docRef struct {

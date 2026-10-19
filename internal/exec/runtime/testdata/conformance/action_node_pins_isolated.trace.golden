@@ -6,8 +6,8 @@ stmt assign v
   eval literal 4 -> 4
 step 3: token 1@fin
 stmt assign total
-    eval chain v -> 3
-    eval chain v -> 4
+    eval chain v -> (3)
+    eval chain v -> (4)
   eval operator + -> 7
 step 4: token 1@done
 step 5: no active tokens

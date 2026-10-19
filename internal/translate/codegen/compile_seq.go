@@ -58,6 +58,9 @@ func (fc *funcCompiler) bind(v Expr, b binding, where, label string) (Expr, erro
 	if err != nil {
 		return nil, err
 	}
+	if b.shaped {
+		many = Held{X: many, Many: b.m.MultiValued()}
+	}
 	if b.m == MultAny && b.r == RangeAny && !b.unique {
 		return many, nil
 	}
