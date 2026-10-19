@@ -108,10 +108,8 @@ func goValidateFunctions(root string) (map[string]bool, error) {
 	return names, nil
 }
 
-// complianceCheck holds what the compliance map's citations are checked
-// against (the manifest rows by every spelling, the validation library's
-// constraints, the tree's validate… functions, the rule rows' markers by
-// line) and the problems found.
+// complianceCheck holds what the compliance map's citations are checked against
+// (manifest rows, library constraints, validate… functions, rule-row markers) and the problems found.
 type complianceCheck struct {
 	index    map[string]*manifest.Constraint
 	library  map[string]bool
@@ -194,9 +192,8 @@ func (k *complianceCheck) checkLine(number int, text string) {
 	}
 }
 
-// cite checks one citation on line: a `spec:` name against the library, any
-// other against the census rows and the Go functions, holding a rule row's
-// status to the census status of the pilot rows it cites bare.
+// cite checks one citation on line: a `spec:` name against the library, any other against
+// the census rows and Go functions; a rule row is held to the status of the pilot rows it cites bare.
 func (k *complianceCheck) cite(line *citedLine, isSpec bool, name, reference string) {
 	if isSpec {
 		k.citeSpec(line.number, name)
