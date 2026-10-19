@@ -37,6 +37,8 @@ package test {
         out nudgedDimensions [0..*] = nudged.offset.dimensions;
         out taggedValue : Tagged = tagged;
         out taggedTag = tagged.tag;
+        out taggedNum = tagged.num;
+        out taggedElements [1..*] = tagged.elements;
         out heldValue : Tagged = holder.offset;
         out heldTag = holder.offset.tag;
     }

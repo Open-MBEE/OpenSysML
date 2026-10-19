@@ -12,6 +12,8 @@
     "nudgedDimensions": {"type": "Sequence", "elements": []},
     "taggedValue": {"type": "Quantity", "value": 2, "unit": "m"},
     "taggedTag": {"type": "Integer", "value": 7},
+    "taggedNum": {"type": "Integer", "value": 2},
+    "taggedElements": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
     "heldValue": {"type": "Quantity", "value": 4, "unit": "m"},
     "heldTag": {"type": "Integer", "value": 9}
   }
