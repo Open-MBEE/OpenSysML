@@ -522,7 +522,9 @@ func EvalUnary(op ast.OperatorKind, v Value) (Value, bool) {
 			return Value{Kind: ValReal, Real: -v.Real}, true
 		}
 	case ast.OpPos:
-		if v.IsNumeric() {
+		// Unary `+` is NumericalFunctions::'+' with no second operand: the
+		// identity, which the unbounded `*` is as much under as any number.
+		if v.IsNumeric() || v.IsUnbounded() {
 			return v, true
 		}
 	case ast.OpNot:
