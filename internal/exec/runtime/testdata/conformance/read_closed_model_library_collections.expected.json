@@ -1,0 +1,25 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::probe",
+  "outputs": {
+    "one": {"type": "Integer", "value": 1}
+  },
+  "reads": {
+    "test::voidsModel": {"type": "Sequence", "elements": []},
+    "test::isSolidModel": {"type": "Boolean", "value": true},
+    "test::subOccurrencesModel": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "test::vModel": {"type": "Integer", "value": 2},
+    "test::subpartsModel": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "test::predecessorsModel": {"type": "Sequence", "elements": []},
+    "test::middleTimeSliceModel": {"type": "Null"},
+    "test::performedActionsModel": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "test::looseModel": {"type": "Undetermined"},
+    "test::gearModel": {"type": "Undetermined"},
+    "test::subSpatialItemsModel": {"type": "Undetermined"},
+    "test::voidsObject": {"type": "Sequence", "elements": []},
+    "test::subOccurrencesObject": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "test::vObject": {"type": "Integer", "value": 2},
+    "test::performedActionsObject": {"type": "Sequence", "elements": [{"type": "Instance"}]}
+  }
+}

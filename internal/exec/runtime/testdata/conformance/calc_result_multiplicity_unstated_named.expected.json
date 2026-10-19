@@ -1,0 +1,7 @@
+{
+  "libraries": true,
+  "type": "calc",
+  "evaluate": "test::Shaped",
+  "inputs": [{"type": "Real", "value": 25.0}],
+  "result": {"type": "Real", "value": 25.0}
+}

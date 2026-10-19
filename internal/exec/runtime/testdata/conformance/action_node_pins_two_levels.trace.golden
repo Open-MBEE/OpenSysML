@@ -11,13 +11,13 @@ stmt assign seen
 step 4: token 1@innerFin
 stmt assign seen
     eval feature seen -> 1
-    eval chain v -> 7
+    eval chain v -> (7)
   eval operator + -> 8
 step 5: token 1@done
 leave action node: leg
 step 6: token 1@fin
 stmt assign total
-    eval chain v -> 7
+    eval chain v -> (7)
     eval feature seen -> 8
   eval operator + -> 15
 step 7: token 1@done

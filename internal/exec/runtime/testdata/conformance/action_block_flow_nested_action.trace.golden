@@ -13,7 +13,7 @@ stmt for i
       stmt action body
         stmt assign scaled
             eval feature i -> 1
-            eval feature factor -> 10
+            eval feature factor -> (10)
           eval operator * -> 10
         stmt node inner
           stmt assign sum
@@ -30,7 +30,7 @@ stmt for i
       stmt action body
         stmt assign scaled
             eval feature i -> 2
-            eval feature factor -> 10
+            eval feature factor -> (10)
           eval operator * -> 20
         stmt node inner
           stmt assign sum
@@ -47,7 +47,7 @@ stmt for i
       stmt action body
         stmt assign scaled
             eval feature i -> 3
-            eval feature factor -> 10
+            eval feature factor -> (10)
           eval operator * -> 30
         stmt node inner
           stmt assign sum

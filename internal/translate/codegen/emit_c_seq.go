@@ -146,6 +146,15 @@ static const char *sysml_show64_SFX(ELEM v) {
 	return text;
 }
 
+/* s in the shape a feature's multiplicity gives its values: a multi-valued
+   feature holds a sequence, an at-most-one feature its sole element. */
+static inline sysml_seq_SFX sysml_held_SFX(sysml_seq_SFX s, int many) {
+	if (many && s.shape != SYSML_MANY) { sysml_charge(s.len); return (sysml_seq_SFX){SYSML_MANY, s.len, s.data}; }
+	if (!many && s.shape == SYSML_MANY && s.len == 0) return sysml_null_SFX();
+	if (!many && s.shape == SYSML_MANY && s.len == 1) return (sysml_seq_SFX){SYSML_ONE, 1, s.data};
+	return s;
+}
+
 /* An uninitialized sequence of n elements, charged to the budget. */
 static sysml_seq_SFX sysml_many_SFX(sysml_int n) {
 	sysml_charge(n);
@@ -192,7 +201,7 @@ static inline ELEM sysml_one_of_SFX(sysml_seq_SFX s, const char *where) {
 /* The one scalar an operator needs; fmt takes the shape found, and the
    description of the other operand where the message names both. */
 static inline ELEM sysml_scalar_SFX(sysml_seq_SFX s, const char *fmt, bool bare, const char *other) {
-	if (__builtin_expect(s.shape != SYSML_ONE, 0)) sysml_failf(fmt, sysml_describe(s.shape, bare, ""), other);
+	if (__builtin_expect(s.len != 1, 0)) sysml_failf(fmt, sysml_describe(s.shape, bare, ""), other);
 	return s.data[0];
 }
 
@@ -231,7 +240,7 @@ static sysml_seq_SFX sysml_unique_SFX(sysml_seq_SFX s, const char *where) {
 /* Same shape, same elements in order: the '==' of collections; every empty one is null. */
 static sysml_bool sysml_eq_SFX(sysml_seq_SFX a, sysml_seq_SFX b) {
 	if (a.len == 0 || b.len == 0) return a.len == 0 && b.len == 0;
-	if (a.shape != b.shape || a.len != b.len) return false;
+	if (a.len != b.len) return false;
 	for (sysml_int i = 0; i < a.len; i++) if (!EQ(a.data[i], b.data[i])) return false;
 	return true;
 }
@@ -390,7 +399,7 @@ static sysml_bool sysml_same_num(sysml_seq_num a, sysml_seq_num b) {
 /* '===' of two collections of numbers: '==' with each element '===' its counterpart. */
 static sysml_bool sysml_ident_num(sysml_seq_num a, sysml_seq_num b) {
 	if (a.len == 0 || b.len == 0) return a.len == 0 && b.len == 0;
-	return a.shape == b.shape && sysml_same_num(a, b);
+	return sysml_same_num(a, b);
 }
 
 static sysml_seq_int sysml_at_least_seq(sysml_seq_int s, sysml_int lo, const char *type) {
@@ -599,6 +608,12 @@ func (e *cEmitter) seqExpr(x Expr) (string, bool) {
 		return e.seqLit(x), true
 	case ToMany:
 		return fmt.Sprintf("sysml_one_%s(%s)", cSeqSuffix(x.X.Type()), e.expr(x.X)), true
+	case Held:
+		many := 0
+		if x.Many {
+			many = 1
+		}
+		return fmt.Sprintf("sysml_held_%s(%s, %d)", cSeqSuffix(x.X.Type()), e.expr(x.X), many), true
 	case ToOne:
 		sfx := cSeqSuffix(x.X.Type())
 		if x.Where != "" {
