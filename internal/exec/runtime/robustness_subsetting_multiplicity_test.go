@@ -5,10 +5,8 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessSubsettingMultiplicity covers a declared value whose count the
-// multiplicity the model states for the feature refuses: one it declares, the usage
-// default of one it takes when it subsets nothing (SysML v2 §7.6.3), or the bound of a
-// subsetted feature it reads a value of its owner for.
+// TestRuntimeRobustnessSubsettingMultiplicity covers a declared value whose count the feature's
+// multiplicity refuses: declared, the usage default of one (SysML v2 §7.6.3), or a subsetted bound.
 func TestRuntimeRobustnessSubsettingMultiplicity(t *testing.T) {
 	t.Run("two_values_bound_to_a_declared_one", testTwoValuesBoundToADeclaredOne)
 	t.Run("two_values_bound_to_a_defaulted_one", testTwoValuesBoundToADefaultedOne)
@@ -65,10 +63,8 @@ func testTwoValuesBoundToADefaultedOne(t *testing.T) {
 	}
 }
 
-// A subsetting feature declaring no multiplicity is bound by the subsetted feature's,
-// also when that bound names a value of the owner: three corners bound to `ridge :>
-// vertices` under `vertices [limit]` with `limit = 2` are a multiplicity violation on
-// a read of `ridge` alone.
+// A subsetted bound naming a value of the owner binds the subsetter: three corners bound to
+// `ridge :> vertices` under `vertices [limit]`, `limit = 2`, fail on a read of `ridge` alone.
 func testThreeValuesBoundThroughAScopedTwo(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<subsetting-scoped-two>", parseAndBuild(t, `package test {
 		item def Point;

@@ -1,6 +1,5 @@
-// A feature redefining a valued subsetting feature and restating no multiplicity is bound as
-// the redefined feature is (KerML 1.0 §7.3.4.5): by `vertices [*]`, not by a default of one,
-// whether it binds its own value or keeps the one it redefines.
+// A feature redefining a valued subsetting feature and restating no multiplicity is bound as it is
+// (KerML 1.0 §7.3.4.5): by `vertices [*]`, whether it binds its own value or keeps the redefined one.
 package test {
 	item def Point;
 	item def Face {

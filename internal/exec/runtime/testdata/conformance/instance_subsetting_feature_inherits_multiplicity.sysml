@@ -1,6 +1,5 @@
-// A feature declaring no multiplicity and subsetting a type-owned feature takes no usage
-// default of one (SysML v2 §7.6.3): it inherits the multiplicity of what it subsets
-// (KerML 1.0 §8.4.4.12.1), so `ridge :> vertices` holds the four corners the two faces bind to it.
+// A valued feature declaring no multiplicity and subsetting a type-owned feature takes no default of
+// one (SysML v2 §7.6.3) but its bound (KerML 1.0 §8.4.4.12.1): `ridge :> vertices` holds four corners.
 package test {
 	item def Point;
 	item def Face {

@@ -245,8 +245,7 @@ func (ctx *Context) featureMultiplicity(sym, owner *symbols.Symbol) semantics.Ra
 }
 
 // unstatedMultiplicity is the multiplicity of a feature declaring none: inherited from what it
-// redefines and, abstract or on a subsetting walk, subsets; else, valued, bound by what it subsets.
-// path holds sym; stated reports a declaration on the walk stating one.
+// redefines (and, abstract or on a subsetting walk, subsets), else, valued, bound by what it subsets.
 func (ctx *Context) unstatedMultiplicity(sym, owner *symbols.Symbol, path map[*symbols.Symbol]bool, subsetting bool) (mult semantics.Range, stated, found bool) {
 	if inherited, ok, inheritedStated := ctx.inheritedMultiplicity(sym, owner, path, subsetting || symbols.IsAbstract(sym)); ok {
 		return inherited, inheritedStated, true
@@ -254,10 +253,8 @@ func (ctx *Context) unstatedMultiplicity(sym, owner *symbols.Symbol, path map[*s
 	return ctx.subsettedBound(sym, owner, path)
 }
 
-// subsettedBound is the multiplicity of a valued feature declaring none that subsets, references
-// or crosses a type-owned feature: no tighter default of one is declared for it (SysML v2 §7.6.3),
-// so its value is bound to as many as what it subsets admits, down to none (KerML 1.0 §7.3.4.3).
-// A valueless one keeps the assumed one value the run time materializes.
+// subsettedBound bounds a valued feature declaring none by the upper bound of the type-owned feature
+// it subsets, references or crosses: no default of one is declared for it (SysML v2 §7.6.3).
 func (ctx *Context) subsettedBound(sym, owner *symbols.Symbol, path map[*symbols.Symbol]bool) (semantics.Range, bool, bool) {
 	if !bindsValue(sym) || ctx.model.semantics.ImplicitMultiplicityApplies(sym) {
 		return semantics.Range{}, false, false
@@ -299,11 +296,8 @@ func (ctx *Context) statedMultiplicity(sym *symbols.Symbol) (semantics.Range, bo
 	return mult, stated
 }
 
-// inheritedMultiplicity intersects the multiplicities a feature declaring none inherits from what
-// it redefines, by name or as a parameter at the same position, and, when subsetting is followed,
-// from what it subsets, references or crosses (KerML 1.0 §8.4.4.12.1); a general declaring none
-// takes the usage default where that applies. path ends cycles, not shared ancestors. stated
-// reports a general on the walk stating one.
+// inheritedMultiplicity intersects what a feature declaring none redefines and, when subsetting is
+// followed, subsets (KerML 1.0 §8.4.4.12.1); path ends cycles, stated reports a general stating one.
 func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*symbols.Symbol]bool, subsetting bool) (mult semantics.Range, found, stated bool) {
 	generals := append(ctx.relatedFeatures(sym, owner, ast.RelRedefines),
 		ctx.model.semantics.ImplicitParameterRedefinitions(sym)...)
