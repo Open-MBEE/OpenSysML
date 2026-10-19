@@ -72,6 +72,12 @@ func (s *Session) importData(path string, opts ImportOptions) Verdict {
 	mapPath := ""
 	if opts.Map != "" {
 		mapPath = expandHome(opts.Map)
+		if err := s.guardFiles([]string{mapPath}, false); err != nil {
+			return fail(err)
+		}
+	}
+	if err := s.guardFiles([]string{expandHome(path)}, false); err != nil {
+		return fail(err)
 	}
 	rows, err := dataimport.ReadFile(expandHome(path), path, mapPath, opts.Format)
 	if err != nil {

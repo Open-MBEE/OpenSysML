@@ -1,6 +1,6 @@
 import type { RenderResult } from "../protocol";
-import type { LandingModel } from "./model";
-import { presentedRollup, presentedStack } from "./present";
+import type { LandingModel, LandingPart } from "./model";
+import { presentedRollup, presentedStack, rollupTone, stackTone } from "./present";
 import mass from "./mass.json";
 import stack from "./stack.json";
 
@@ -22,6 +22,9 @@ export interface SceneRollup {
 
 export type SceneProgram = SceneJourney | SceneRollup;
 
+/** The hero's fill for a box, one of the three the page defines; a box with none is drawn plain. */
+export type SceneTone = "primary" | "secondary" | "accent";
+
 /** The controls under the stage a scene offers; the page hides the others. */
 export type SceneControl = "run" | "edit" | "debug" | "download";
 
@@ -36,6 +39,8 @@ export interface SceneVariant {
   view: string;
   /** What the status line says when the variant is switched on. */
   hint: string;
+  /** The variant this one builds on: its toggle is offered while that one is on, and switching it off returns there. */
+  requires?: string;
 }
 
 /** What the Go landing test pins for a scene: the first paint before the module loads. */
@@ -69,6 +74,8 @@ export interface Scene {
   controls: readonly SceneControl[];
   /** How the hero draws the model: the boxes' heads and detail lines. */
   present: (model: LandingModel, scene: Scene) => RenderResult;
+  /** The tone a part's box is filled with; undefined leaves it plain. */
+  tone: (part: LandingPart, scene: Scene) => SceneTone | undefined;
   program: SceneProgram;
   variants: readonly SceneVariant[];
 }
@@ -85,6 +92,7 @@ export const STACK_SCENE: Scene = {
   pngName: "opensysml-stack.png",
   controls: ["run", "edit", "debug", "download"],
   present: presentedStack,
+  tone: stackTone,
   program: {
     kind: "journey",
     symbol: "OpenSysMLStack::ModelJourney",
@@ -106,6 +114,7 @@ export const MASS_ROLLUP_SCENE: Scene = {
   pngName: "saturn-v-mass-rollup.png",
   controls: ["run", "edit", "download"],
   present: presentedRollup,
+  tone: rollupTone,
   program: { kind: "rollup", feature: "totalMass" },
   variants: [
     {
@@ -114,12 +123,35 @@ export const MASS_ROLLUP_SCENE: Scene = {
       activeLabel: "Remove the instrument unit",
       rootSymbol: "MassRollup::saturnVWithIU",
       view: "#interconnection:MassRollup::saturnVWithIU",
-      hint: "The instrument unit declares a height and no mass, so the roll-up it joins is undetermined: the engine says so rather than guessing.",
+      hint: "On purpose, the model gives the instrument unit a height but no mass: valid SysML, since a definition may leave a value to its usages. So the roll-up it joins is undetermined, and the engine says which value is missing rather than guessing one. Give it its mass to see the fix.",
+    },
+    {
+      id: "iu-mass",
+      label: "Give it its mass",
+      activeLabel: "Take its mass away",
+      rootSymbol: "MassRollup::saturnVComplete",
+      view: "#interconnection:MassRollup::saturnVComplete",
+      hint: "The fix is in the model, not the engine: the usage supplies the mass the definition left open (:>> mass = 2000 [kg] on instrumentUnit), and the same roll-up completes.",
+      requires: "iu",
     },
   ],
 };
 
 export const SCENES: readonly Scene[] = [STACK_SCENE, MASS_ROLLUP_SCENE];
+
+/** requiredVariant is the variant `variant` builds on; undefined when it stands alone. */
+export function requiredVariant(scene: Scene, variant: SceneVariant): SceneVariant | undefined {
+  return variant.requires === undefined ? undefined : scene.variants.find((candidate) => candidate.id === variant.requires);
+}
+
+/** variantChain is the variant switched on and the ones it builds on, that variant first; empty while none is on. */
+export function variantChain(scene: Scene, variant: SceneVariant | undefined): SceneVariant[] {
+  const chain: SceneVariant[] = [];
+  for (let current = variant; current !== undefined && !chain.includes(current); current = requiredVariant(scene, current)) {
+    chain.push(current);
+  }
+  return chain;
+}
 
 /** forcedSceneId is the scene a URL names, by `?scene=<id>` or `#scene=<id>`; absent when it names none. */
 export function forcedSceneId(url: URL): string | undefined {

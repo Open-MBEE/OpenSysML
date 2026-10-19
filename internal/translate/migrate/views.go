@@ -497,7 +497,7 @@ func (m *migration) viewpointTags(e *sysmlv1.Element) {
 			continue
 		}
 		if text == "" {
-			m.add(c, Skipped, "", "empty comment")
+			m.add(c, Skipped, "", emptyComment)
 			continue
 		}
 		m.frameConcern(text)

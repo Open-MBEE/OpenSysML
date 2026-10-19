@@ -97,7 +97,7 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 	wants(t, run(t, s, "%render"), renderUsage)
 	wants(t, run(t, s, "%render Demo::summary png"), `unknown form "png"`, renderUsage)
 	wants(t, run(t, s, "%render Demo::summary svg"), "a tree rendering is not written as svg", "text, mermaid, dot, plantuml or d2")
-	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports] [link=<template>]]", "Graphviz DOT", "PlantUML")
+	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports] [lines] [verdicts]", "[show=<elements>] [depth=<levels>] [link=<template>]]", "Graphviz DOT", "PlantUML")
 }
 
 // The PlantUML form is asked for by name, is the same rendering in PlantUML

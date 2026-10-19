@@ -65,9 +65,9 @@ curl -fsSL https://opensysml.org/install.sh | sh -s -- --tools all --verify-sign
 ```
 
 `all` is resolved against the chosen release's `SHA256SUMS.txt`: it installs the tools that
-release published for this platform, and says which of the four it lacks (`sysml-grpc` is
-published from v0.9.0, `sysml-jupyter-kernel` from v0.10.0). Naming such a tool explicitly on
-an older release fails instead.
+release published for this platform, and says which of the five it lacks (`sysml-grpc` is
+published from v0.9.0, `sysml-jupyter-kernel` from v0.10.0, `sysml-mcp` from the first release
+after v0.10.1). Naming such a tool explicitly on an older release fails instead.
 
 `--verify-signature` checks `SHA256SUMS.txt` against the signature the release pipeline
 publishes beside it (see [the signed checksum manifest](../project/releasing.md#the-signed-checksum-manifest)); it needs
@@ -444,7 +444,7 @@ the version `git describe` reports, for the local platform.
 ```bash
 git clone https://github.com/Open-MBEE/OpenSysML.git
 cd OpenSysML
-make build       # builds bin/sysml, bin/sysml-lsp, bin/sysml-grpc and bin/sysml-jupyter-kernel
+make build       # builds bin/sysml, bin/sysml-lsp, bin/sysml-grpc, bin/sysml-jupyter-kernel and bin/sysml-mcp
 # OR
 go build -o sysml ./cmd/sysml
 go build -o sysml-lsp ./cmd/sysml-lsp
@@ -454,7 +454,7 @@ go build -o sysml-lsp ./cmd/sysml-lsp
 ```bash
 make install     # installs to $GOPATH/bin
 # OR
-sudo mv bin/sysml bin/sysml-lsp bin/sysml-grpc /usr/local/bin/
+sudo mv bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel bin/sysml-mcp /usr/local/bin/
 ```
 
 **Install binaries and manual pages, the way a package does:**

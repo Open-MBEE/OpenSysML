@@ -49,11 +49,11 @@ func TestCheckComplianceAcceptsTheConventions(t *testing.T) {
 // and names the line.
 func TestCheckComplianceRejectsDrift(t *testing.T) {
 	root := complianceRoot(t)
-	mutate := func(old, new string) string {
+	mutate := func(old, replacement string) string {
 		if strings.Count(compliancePage, old) != 1 {
 			t.Fatalf("%q must occur once in the page", old)
 		}
-		return strings.Replace(compliancePage, old, new, 1)
+		return strings.Replace(compliancePage, old, replacement, 1)
 	}
 	pageCases := []struct{ name, page, want string }{
 		{"unknown name", mutate("`validateA` holds", "`validateAa` holds"), ":7: `validateAa` is neither a constraint"},

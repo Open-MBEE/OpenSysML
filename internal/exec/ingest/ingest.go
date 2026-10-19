@@ -24,9 +24,6 @@ const (
 	FormatJSONL Format = "jsonl"
 )
 
-// Formats lists the formats Read accepts.
-func Formats() []Format { return []Format{FormatCSV, FormatTSV, FormatJSON, FormatJSONL} }
-
 // ParseFormat reads a format name; ndjson is JSON Lines.
 func ParseFormat(name string) (Format, error) {
 	switch strings.ToLower(strings.TrimSpace(name)) {

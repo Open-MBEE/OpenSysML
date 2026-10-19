@@ -713,8 +713,128 @@ pub struct AnalysisResult {
     pub evaluations: Vec<CaseEvaluation>,
     /// Who answered, how strongly, within what bounds.
     pub standing: Standing,
+    /// The external tool call previewed when the case ran under
+    /// `AnalysisOptions.tool_dry_run`; `None` when the case ran for real.
+    pub tool_dry_run: Option<ToolDryRun>,
     instances: Arc<[Instance]>,
     wire: wire::RunAnalysisResponse,
+}
+
+/// The external tool call an analysis would make, previewed without running the tool: what
+/// `AnalysisOptions.tool_dry_run` stops at, as `sysml -tool-dry-run` prints it.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct ToolDryRun {
+    /// The qualified name of the tool-executing action reached.
+    pub action: String,
+    /// The tool the action names.
+    pub tool: String,
+    /// The tool version the manifest declares, if any.
+    pub version: String,
+    /// The manifest file the tool was found in.
+    pub manifest: String,
+    /// The program that would run.
+    pub executable: String,
+    /// How the tool is spoken to (`stdio`, `files`, ...).
+    pub protocol: String,
+    /// The command line the tool would get.
+    pub args: Vec<String>,
+    /// Environment entries set for it.
+    pub env: Vec<String>,
+    /// The working directory it would run in.
+    pub cwd: String,
+    /// How standard input is fed.
+    pub stdin: String,
+    /// The text written to it.
+    pub stdin_data: String,
+    /// The input file written; `None` when the tool reads none.
+    pub input_file: Option<ToolDryRunFile>,
+    /// Whether an output directory would be made.
+    pub output_dir: bool,
+    /// Each value handed over.
+    pub inputs: Vec<ToolDryRunInput>,
+    /// Each result read back.
+    pub outputs: Vec<ToolDryRunOutput>,
+    /// Where the tool's answer would be read from.
+    pub reply_source: String,
+    /// The preview as `sysml -tool-dry-run` prints it.
+    pub lines: Vec<String>,
+}
+
+/// The input file a previewed tool call would be given.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct ToolDryRunFile {
+    /// The file's name.
+    pub name: String,
+    /// Its format.
+    pub format: String,
+    /// Its contents.
+    pub data: String,
+}
+
+/// One value a previewed tool call would hand over.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct ToolDryRunInput {
+    /// The model variable the value comes from.
+    pub variable: String,
+    /// The tool parameter it binds.
+    pub parameter: String,
+    /// The value, as the tool would read it.
+    pub value: String,
+    /// Its unit, if any.
+    pub unit: String,
+}
+
+/// One result a previewed tool call would read back.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct ToolDryRunOutput {
+    /// The model variable the result fills.
+    pub variable: String,
+    /// The tool parameter it is read from.
+    pub parameter: String,
+}
+
+impl From<wire::ToolDryRun> for ToolDryRun {
+    fn from(pb: wire::ToolDryRun) -> Self {
+        ToolDryRun {
+            action: pb.action,
+            tool: pb.tool,
+            version: pb.version,
+            manifest: pb.manifest,
+            executable: pb.executable,
+            protocol: pb.protocol,
+            args: pb.args,
+            env: pb.env,
+            cwd: pb.cwd,
+            stdin: pb.stdin,
+            stdin_data: pb.stdin_data,
+            input_file: pb.input_file.map(|file| ToolDryRunFile {
+                name: file.name,
+                format: file.format,
+                data: file.data,
+            }),
+            output_dir: pb.output_dir,
+            inputs: pb
+                .inputs
+                .into_iter()
+                .map(|input| ToolDryRunInput {
+                    variable: input.variable,
+                    parameter: input.parameter,
+                    value: input.value,
+                    unit: input.unit,
+                })
+                .collect(),
+            outputs: pb
+                .outputs
+                .into_iter()
+                .map(|output| ToolDryRunOutput {
+                    variable: output.variable,
+                    parameter: output.parameter,
+                })
+                .collect(),
+            reply_source: pb.reply_source,
+            lines: pb.lines,
+        }
+    }
 }
 
 impl AnalysisResult {
@@ -1302,6 +1422,7 @@ pub(crate) fn analysis_of(
         verifications: verifications_of(&response.verification_verdicts),
         evaluations: evaluations(&response.evaluations)?,
         standing: Standing::of(&response.engine, &response.strength, &response.bounds),
+        tool_dry_run: response.tool_dry_run.map(ToolDryRun::from),
         instances,
         wire,
     };
@@ -1389,278 +1510,6 @@ pub(crate) fn exploration_of(response: ExploredResponse) -> Result<Exploration, 
         probabilities_lower_bound: status.probabilities_lower_bound,
         wire: response,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn capabilities(names: &[&str]) -> Capabilities {
-        Capabilities::new(wire::ServerInfoResponse {
-            capabilities: names.iter().map(|name| (*name).to_owned()).collect(),
-            ..Default::default()
-        })
-    }
-
-    fn verdict(element: &str, holds: bool, error: &str, reason: FailureReason) -> wire::Verdict {
-        wire::Verdict {
-            kind: "constraint".to_owned(),
-            element_id: element.to_owned(),
-            holds,
-            error: error.to_owned(),
-            failure_reason: reason as i32,
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn a_wrong_kind_failure_is_its_own_error() {
-        assert!(matches!(
-            failure_of("not a calc", FailureReason::WrongKind as i32, Vec::new()),
-            Error::WrongKind { .. }
-        ));
-        match failure_of("undecided", FailureReason::Undecided as i32, Vec::new()) {
-            Error::Execution { reason, .. } => assert_eq!(reason, FailureReason::Undecided),
-            other => panic!("expected an execution error, got {other:?}"),
-        }
-        assert_eq!(reason_of(9999), FailureReason::Unspecified);
-    }
-
-    #[test]
-    fn a_satisfaction_keeps_every_verdict_and_types_their_reasons() {
-        let satisfaction = satisfaction_of(
-            wire::VerifySatisfactionResponse {
-                verdicts: vec![
-                    verdict("P::a", true, "", FailureReason::Unspecified),
-                    verdict("P::b", false, "no value", FailureReason::Evaluation),
-                ],
-                ..Default::default()
-            },
-            &capabilities(&[]),
-        )
-        .unwrap();
-        assert_eq!(satisfaction.verdicts.len(), 2);
-        assert!(!satisfaction.holds());
-        let failed = &satisfaction.verdicts[1];
-        assert_eq!(failed.reason, FailureReason::Evaluation);
-        match failed.require_evaluated() {
-            Err(Error::Execution { reason, .. }) => assert_eq!(reason, FailureReason::Evaluation),
-            other => panic!("expected an execution error, got {other:?}"),
-        }
-        assert_eq!(satisfaction.wire().verdicts.len(), 2);
-    }
-
-    #[test]
-    fn a_wrong_kind_verdict_refuses_the_whole_answer() {
-        let refused = satisfaction_of(
-            wire::VerifySatisfactionResponse {
-                verdicts: vec![verdict(
-                    "P::a",
-                    false,
-                    "not a requirement",
-                    FailureReason::WrongKind,
-                )],
-                ..Default::default()
-            },
-            &capabilities(&[]),
-        );
-        assert!(matches!(refused, Err(Error::WrongKind { .. })));
-    }
-
-    #[test]
-    fn reported_instances_need_feature_values() {
-        let refused = satisfaction_of(
-            wire::VerifySatisfactionResponse {
-                instances: vec![wire::Instance::default()],
-                ..Default::default()
-            },
-            &capabilities(&[]),
-        );
-        assert!(matches!(
-            refused,
-            Err(Error::MissingCapability { capability, .. }) if capability == CAPABILITY_FEATURE_VALUES
-        ));
-    }
-
-    #[test]
-    fn a_validation_holds_only_when_its_summary_does() {
-        let validation = validation_of(
-            wire::ValidateInstanceResponse {
-                verdicts: vec![
-                    verdict("P::a", false, "", FailureReason::Unspecified),
-                    verdict("P::b", false, "open", FailureReason::Undecided),
-                ],
-                summary: Some(verdict("P::x", false, "", FailureReason::Unspecified)),
-                bounded: true,
-                ..Default::default()
-            },
-            &capabilities(&[]),
-        )
-        .unwrap();
-        assert!(!validation.valid());
-        assert_eq!(validation.violated().count(), 1);
-        assert_eq!(validation.undecided().count(), 1);
-        assert!(validation.bounded);
-        assert!(validation.require_evaluated().is_err());
-    }
-
-    #[test]
-    fn a_sweep_keeps_the_rows_a_failed_run_made() {
-        let table = sweep_of(
-            wire::RunSweepResponse {
-                rows: vec![
-                    wire::SweepRow {
-                        outputs: vec![wire::CalcOutput {
-                            name: "y".to_owned(),
-                            value: Some(wire::Value {
-                                kind: Some(wire::value::Kind::IntValue(2)),
-                            }),
-                        }],
-                        elapsed_micros: 5,
-                        ..Default::default()
-                    },
-                    wire::SweepRow {
-                        error: "division by zero".to_owned(),
-                        failure_reason: FailureReason::Evaluation as i32,
-                        elapsed_micros: -1,
-                        ..Default::default()
-                    },
-                ],
-                parameters: vec!["x".to_owned()],
-                seed: 7,
-                engine: "concrete".to_owned(),
-                ..Default::default()
-            },
-            &capabilities(&[]),
-        )
-        .unwrap();
-        assert_eq!(table.rows.len(), 2);
-        assert_eq!(table.rows[0].output("y"), Some(&Value::Integer(2)));
-        assert_eq!(table.rows[0].elapsed, Duration::from_micros(5));
-        assert_eq!(table.rows[1].elapsed, Duration::ZERO);
-        assert_eq!(table.rows[1].reason, FailureReason::Evaluation);
-        assert_eq!(table.failures().count(), 1);
-        assert!(!table.holds());
-        assert_eq!(table.standing.engine, "concrete");
-        assert_eq!(table.seed, 7);
-    }
-
-    #[test]
-    fn a_failed_sweep_types_its_reason() {
-        let error = sweep_of(
-            wire::RunSweepResponse {
-                error: "x is not swept".to_owned(),
-                failure_reason: FailureReason::AmbiguousSubject as i32,
-                ..Default::default()
-            },
-            &capabilities(&[]),
-        )
-        .unwrap_err();
-        assert!(matches!(
-            error,
-            Error::Execution {
-                reason: FailureReason::AmbiguousSubject,
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn an_analysis_verdict_that_failed_to_evaluate_is_not_satisfied() {
-        let result = analysis_of(
-            wire::RunAnalysisResponse {
-                verdicts: vec![
-                    verdict("P::a", true, "", FailureReason::Unspecified),
-                    verdict("P::b", true, "unbound", FailureReason::Evaluation),
-                ],
-                ..Default::default()
-            },
-            &capabilities(&[]),
-        )
-        .unwrap();
-        assert!(!result.satisfied());
-    }
-
-    #[test]
-    fn a_calc_answers_one_value_or_its_named_outputs() {
-        let single = calc_of(wire::EvaluateCalcResponse {
-            result: Some(wire::Value {
-                kind: Some(wire::value::Kind::RealValue(2.5)),
-            }),
-            ..Default::default()
-        })
-        .unwrap();
-        assert_eq!(single.value, Some(Value::Real(2.5)));
-        let error = calc_of(wire::EvaluateCalcResponse {
-            error: "not a calc".to_owned(),
-            failure_reason: FailureReason::WrongKind as i32,
-            ..Default::default()
-        })
-        .unwrap_err();
-        assert!(matches!(error, Error::WrongKind { .. }));
-    }
-
-    #[test]
-    fn an_exploration_keeps_its_status_and_outcomes() {
-        let exploration = exploration_of(ExploredResponse::Action(Box::new(
-            wire::ExecuteActionResponse {
-                outcomes: vec![
-                    wire::Outcome {
-                        linearizations: 2,
-                        ..Default::default()
-                    },
-                    wire::Outcome {
-                        error: "deadlock".to_owned(),
-                        linearizations: 1,
-                        ..Default::default()
-                    },
-                ],
-                exploration: Some(wire::ExplorationStatus {
-                    complete: false,
-                    runs: 3,
-                    budgets_hit: vec!["runs".to_owned()],
-                    runs_budget: 3,
-                    ..Default::default()
-                }),
-                ..Default::default()
-            },
-        )))
-        .unwrap();
-        assert_eq!(exploration.outcomes.len(), 2);
-        assert!(exploration.outcomes[1].failed());
-        assert!(exploration.outcomes[1].require_completed().is_err());
-        assert!(!exploration.complete);
-        assert!(exploration.require_complete().is_err());
-        assert_eq!(exploration.budgets_hit, vec!["runs".to_owned()]);
-    }
-
-    #[test]
-    fn an_explored_run_without_status_is_undecodable() {
-        let error = exploration_of(ExploredResponse::State(Box::default())).unwrap_err();
-        assert!(matches!(error, Error::Decode(_)));
-    }
-
-    #[test]
-    fn engine_and_verification_records_round_trip() {
-        let engine = wire::EngineInfo {
-            name: "smt".to_owned(),
-            ..Default::default()
-        };
-        assert_eq!(
-            wire::EngineInfo::from(EngineInfo::from(engine.clone())),
-            engine
-        );
-        let verification = wire::VerificationVerdict {
-            requirement_id: "P::r".to_owned(),
-            instance_id: 7,
-            instance_type_id: "P::part".to_owned(),
-            ..Default::default()
-        };
-        assert_eq!(
-            wire::VerificationVerdict::from(VerificationVerdict::from(verification.clone())),
-            verification
-        );
-    }
 }
 
 fn sweep_rows_of(
@@ -2451,4 +2300,339 @@ pub(crate) fn comparison_of(
         diagnostics,
         wire,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn capabilities(names: &[&str]) -> Capabilities {
+        Capabilities::new(wire::ServerInfoResponse {
+            capabilities: names.iter().map(|name| (*name).to_owned()).collect(),
+            ..Default::default()
+        })
+    }
+
+    fn verdict(element: &str, holds: bool, error: &str, reason: FailureReason) -> wire::Verdict {
+        wire::Verdict {
+            kind: "constraint".to_owned(),
+            element_id: element.to_owned(),
+            holds,
+            error: error.to_owned(),
+            failure_reason: reason as i32,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_tool_dry_run_is_read_field_by_field() {
+        let response = wire::RunAnalysisResponse {
+            tool_dry_run: Some(wire::ToolDryRun {
+                action: "Demo::compute".to_owned(),
+                tool: "octave".to_owned(),
+                version: "8.4".to_owned(),
+                manifest: "/tools/octave.json".to_owned(),
+                executable: "/usr/bin/octave".to_owned(),
+                protocol: "stdio".to_owned(),
+                args: vec!["--eval".to_owned(), "run".to_owned()],
+                env: vec!["HOME=/tmp".to_owned()],
+                cwd: "/tmp/run".to_owned(),
+                stdin: "data".to_owned(),
+                stdin_data: "x = 1".to_owned(),
+                input_file: Some(wire::ToolDryRunFile {
+                    name: "in.json".to_owned(),
+                    format: "json".to_owned(),
+                    data: "{}".to_owned(),
+                }),
+                output_dir: true,
+                inputs: vec![wire::ToolDryRunInput {
+                    variable: "x".to_owned(),
+                    parameter: "p".to_owned(),
+                    value: "250.0".to_owned(),
+                    unit: "m".to_owned(),
+                }],
+                outputs: vec![wire::ToolDryRunOutput {
+                    variable: "y".to_owned(),
+                    parameter: "q".to_owned(),
+                }],
+                reply_source: "stdout".to_owned(),
+                lines: vec!["would run /usr/bin/octave".to_owned()],
+            }),
+            ..Default::default()
+        };
+        let result = analysis_of(response, &capabilities(&[])).unwrap();
+        assert!(result.outputs.is_empty());
+        let preview = result.tool_dry_run.expect("the preview is typed");
+        assert_eq!(preview.action, "Demo::compute");
+        assert_eq!(preview.tool, "octave");
+        assert_eq!(preview.version, "8.4");
+        assert_eq!(preview.args, vec!["--eval", "run"]);
+        assert_eq!(preview.env, vec!["HOME=/tmp"]);
+        assert_eq!(
+            preview.input_file,
+            Some(ToolDryRunFile {
+                name: "in.json".to_owned(),
+                format: "json".to_owned(),
+                data: "{}".to_owned(),
+            })
+        );
+        assert!(preview.output_dir);
+        assert_eq!(preview.inputs[0].value, "250.0");
+        assert_eq!(preview.inputs[0].unit, "m");
+        assert_eq!(preview.outputs[0].parameter, "q");
+        assert_eq!(preview.reply_source, "stdout");
+        assert_eq!(preview.lines, vec!["would run /usr/bin/octave"]);
+        let real_run =
+            analysis_of(wire::RunAnalysisResponse::default(), &capabilities(&[])).unwrap();
+        assert!(real_run.tool_dry_run.is_none());
+    }
+
+    #[test]
+    fn a_wrong_kind_failure_is_its_own_error() {
+        assert!(matches!(
+            failure_of("not a calc", FailureReason::WrongKind as i32, Vec::new()),
+            Error::WrongKind { .. }
+        ));
+        match failure_of("undecided", FailureReason::Undecided as i32, Vec::new()) {
+            Error::Execution { reason, .. } => assert_eq!(reason, FailureReason::Undecided),
+            other => panic!("expected an execution error, got {other:?}"),
+        }
+        assert_eq!(reason_of(9999), FailureReason::Unspecified);
+    }
+
+    #[test]
+    fn a_satisfaction_keeps_every_verdict_and_types_their_reasons() {
+        let satisfaction = satisfaction_of(
+            wire::VerifySatisfactionResponse {
+                verdicts: vec![
+                    verdict("P::a", true, "", FailureReason::Unspecified),
+                    verdict("P::b", false, "no value", FailureReason::Evaluation),
+                ],
+                ..Default::default()
+            },
+            &capabilities(&[]),
+        )
+        .unwrap();
+        assert_eq!(satisfaction.verdicts.len(), 2);
+        assert!(!satisfaction.holds());
+        let failed = &satisfaction.verdicts[1];
+        assert_eq!(failed.reason, FailureReason::Evaluation);
+        match failed.require_evaluated() {
+            Err(Error::Execution { reason, .. }) => assert_eq!(reason, FailureReason::Evaluation),
+            other => panic!("expected an execution error, got {other:?}"),
+        }
+        assert_eq!(satisfaction.wire().verdicts.len(), 2);
+    }
+
+    #[test]
+    fn a_wrong_kind_verdict_refuses_the_whole_answer() {
+        let refused = satisfaction_of(
+            wire::VerifySatisfactionResponse {
+                verdicts: vec![verdict(
+                    "P::a",
+                    false,
+                    "not a requirement",
+                    FailureReason::WrongKind,
+                )],
+                ..Default::default()
+            },
+            &capabilities(&[]),
+        );
+        assert!(matches!(refused, Err(Error::WrongKind { .. })));
+    }
+
+    #[test]
+    fn reported_instances_need_feature_values() {
+        let refused = satisfaction_of(
+            wire::VerifySatisfactionResponse {
+                instances: vec![wire::Instance::default()],
+                ..Default::default()
+            },
+            &capabilities(&[]),
+        );
+        assert!(matches!(
+            refused,
+            Err(Error::MissingCapability { capability, .. }) if capability == CAPABILITY_FEATURE_VALUES
+        ));
+    }
+
+    #[test]
+    fn a_validation_holds_only_when_its_summary_does() {
+        let validation = validation_of(
+            wire::ValidateInstanceResponse {
+                verdicts: vec![
+                    verdict("P::a", false, "", FailureReason::Unspecified),
+                    verdict("P::b", false, "open", FailureReason::Undecided),
+                ],
+                summary: Some(verdict("P::x", false, "", FailureReason::Unspecified)),
+                bounded: true,
+                ..Default::default()
+            },
+            &capabilities(&[]),
+        )
+        .unwrap();
+        assert!(!validation.valid());
+        assert_eq!(validation.violated().count(), 1);
+        assert_eq!(validation.undecided().count(), 1);
+        assert!(validation.bounded);
+        assert!(validation.require_evaluated().is_err());
+    }
+
+    #[test]
+    fn a_sweep_keeps_the_rows_a_failed_run_made() {
+        let table = sweep_of(
+            wire::RunSweepResponse {
+                rows: vec![
+                    wire::SweepRow {
+                        outputs: vec![wire::CalcOutput {
+                            name: "y".to_owned(),
+                            value: Some(wire::Value {
+                                kind: Some(wire::value::Kind::IntValue(2)),
+                            }),
+                        }],
+                        elapsed_micros: 5,
+                        ..Default::default()
+                    },
+                    wire::SweepRow {
+                        error: "division by zero".to_owned(),
+                        failure_reason: FailureReason::Evaluation as i32,
+                        elapsed_micros: -1,
+                        ..Default::default()
+                    },
+                ],
+                parameters: vec!["x".to_owned()],
+                seed: 7,
+                engine: "concrete".to_owned(),
+                ..Default::default()
+            },
+            &capabilities(&[]),
+        )
+        .unwrap();
+        assert_eq!(table.rows.len(), 2);
+        assert_eq!(table.rows[0].output("y"), Some(&Value::Integer(2)));
+        assert_eq!(table.rows[0].elapsed, Duration::from_micros(5));
+        assert_eq!(table.rows[1].elapsed, Duration::ZERO);
+        assert_eq!(table.rows[1].reason, FailureReason::Evaluation);
+        assert_eq!(table.failures().count(), 1);
+        assert!(!table.holds());
+        assert_eq!(table.standing.engine, "concrete");
+        assert_eq!(table.seed, 7);
+    }
+
+    #[test]
+    fn a_failed_sweep_types_its_reason() {
+        let error = sweep_of(
+            wire::RunSweepResponse {
+                error: "x is not swept".to_owned(),
+                failure_reason: FailureReason::AmbiguousSubject as i32,
+                ..Default::default()
+            },
+            &capabilities(&[]),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            Error::Execution {
+                reason: FailureReason::AmbiguousSubject,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn an_analysis_verdict_that_failed_to_evaluate_is_not_satisfied() {
+        let result = analysis_of(
+            wire::RunAnalysisResponse {
+                verdicts: vec![
+                    verdict("P::a", true, "", FailureReason::Unspecified),
+                    verdict("P::b", true, "unbound", FailureReason::Evaluation),
+                ],
+                ..Default::default()
+            },
+            &capabilities(&[]),
+        )
+        .unwrap();
+        assert!(!result.satisfied());
+    }
+
+    #[test]
+    fn a_calc_answers_one_value_or_its_named_outputs() {
+        let single = calc_of(wire::EvaluateCalcResponse {
+            result: Some(wire::Value {
+                kind: Some(wire::value::Kind::RealValue(2.5)),
+            }),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(single.value, Some(Value::Real(2.5)));
+        let error = calc_of(wire::EvaluateCalcResponse {
+            error: "not a calc".to_owned(),
+            failure_reason: FailureReason::WrongKind as i32,
+            ..Default::default()
+        })
+        .unwrap_err();
+        assert!(matches!(error, Error::WrongKind { .. }));
+    }
+
+    #[test]
+    fn an_exploration_keeps_its_status_and_outcomes() {
+        let exploration = exploration_of(ExploredResponse::Action(Box::new(
+            wire::ExecuteActionResponse {
+                outcomes: vec![
+                    wire::Outcome {
+                        linearizations: 2,
+                        ..Default::default()
+                    },
+                    wire::Outcome {
+                        error: "deadlock".to_owned(),
+                        linearizations: 1,
+                        ..Default::default()
+                    },
+                ],
+                exploration: Some(wire::ExplorationStatus {
+                    complete: false,
+                    runs: 3,
+                    budgets_hit: vec!["runs".to_owned()],
+                    runs_budget: 3,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+        )))
+        .unwrap();
+        assert_eq!(exploration.outcomes.len(), 2);
+        assert!(exploration.outcomes[1].failed());
+        assert!(exploration.outcomes[1].require_completed().is_err());
+        assert!(!exploration.complete);
+        assert!(exploration.require_complete().is_err());
+        assert_eq!(exploration.budgets_hit, vec!["runs".to_owned()]);
+    }
+
+    #[test]
+    fn an_explored_run_without_status_is_undecodable() {
+        let error = exploration_of(ExploredResponse::State(Box::default())).unwrap_err();
+        assert!(matches!(error, Error::Decode(_)));
+    }
+
+    #[test]
+    fn engine_and_verification_records_round_trip() {
+        let engine = wire::EngineInfo {
+            name: "smt".to_owned(),
+            ..Default::default()
+        };
+        assert_eq!(
+            wire::EngineInfo::from(EngineInfo::from(engine.clone())),
+            engine
+        );
+        let verification = wire::VerificationVerdict {
+            requirement_id: "P::r".to_owned(),
+            instance_id: 7,
+            instance_type_id: "P::part".to_owned(),
+            ..Default::default()
+        };
+        assert_eq!(
+            wire::VerificationVerdict::from(VerificationVerdict::from(verification.clone())),
+            verification
+        );
+    }
 }
