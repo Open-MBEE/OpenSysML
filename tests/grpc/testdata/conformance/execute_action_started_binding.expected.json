@@ -1,0 +1,22 @@
+{
+  "rpc": "ExecuteAction",
+  "symbol_id": "test::Nudge",
+  "performer_symbol_id": "test::host",
+  "inputs": {
+    "context": {
+      "kind": "instance_id",
+      "value": 3
+    }
+  },
+  "expected_outputs": {
+    "level": {
+      "kind": "sequence",
+      "elements": [
+        {
+          "kind": "int_value",
+          "value": 1
+        }
+      ]
+    }
+  }
+}

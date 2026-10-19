@@ -45,7 +45,7 @@ empty else blocks are not authorable.
 | `disable_lint`, `enable_lint` | GetDiagnostics | lint codes left out of, and opt-in lint codes kept in, the diagnostics, as `sysml -disable-lint`/`-enable-lint` select them |
 | `expected_codes`, `absent_codes` | GetDiagnostics | diagnostic codes the answer must carry, and must not |
 | `events` | ExecuteState | event names injected, in order |
-| `performer_symbol_id` | CheckBehavior | FQN of the part/usage whose object performs the action |
+| `performer_symbol_id` | CheckBehavior, ExecuteAction | FQN of the part/usage whose object performs the action; an ExecuteAction on it joins the performance that object already holds or runs, so `inputs` must be the bindings its declaration states (an `instance_id` input names an object of the instantiated performer) |
 | `check_property` | CheckBehavior | constraints or requirements evaluated at every stable state |
 | `check_diverge` | CheckBehavior | features whose final value the schedule may decide |
 | `expected_verdict` | CheckBehavior | `holds`, `fails` or `undecided` |
