@@ -134,7 +134,9 @@ is one `SweepRow` per point, and a failed row keeps the outputs and verdicts it 
 `RunOptions` also carries the run options of the `sysml` command — `advance` (simulated seconds to
 run for, reported back in `final_time`, on `Error::Execution` too when the run stops short), `seed`, `draws` (`"min"`, `"max"`, `"average"` or
 `"random"`) and `clock_step` — `AnalysisOptions.tool_dry_run` previews the first external tool
-call instead of making it, `Connection::probe_engines` starts each external engine and checks its
+call instead of making it, answered as the typed `ToolDryRun` in `AnalysisResult.tool_dry_run`
+(the tool, its executable, arguments, environment, the inputs handed over and the outputs read
+back, and the preview lines as `sysml -tool-dry-run` prints them), `Connection::probe_engines` starts each external engine and checks its
 handshake before listing it, and `Connection::diagnostics_with_lints` selects the lints of one
 answer.
 

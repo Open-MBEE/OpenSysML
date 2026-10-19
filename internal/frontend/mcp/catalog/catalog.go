@@ -250,8 +250,8 @@ var CLIOnly = map[string]string{
 	"sync-annotate":        "talks to a remote SysML v2 API repository from the host",
 	"sync-confirm-deletes": "talks to a remote SysML v2 API repository from the host",
 	"sync-mint-ids":        "talks to a remote SysML v2 API repository from the host",
-	"debug":                "process logging (sysml-mcp -log)",
-	"quiet":                "process logging (sysml-mcp -log)",
+	"debug":                "process logging (sysml-mcp -log-level)",
+	"quiet":                "process logging (sysml-mcp -log-level)",
 	"cpuprofile":           "process profiling",
 	"memprofile":           "process profiling",
 	"memstats":             "process profiling",
@@ -286,16 +286,6 @@ func Names(groups ...Group) []string {
 	}
 	sort.Strings(names)
 	return names
-}
-
-// Lookup finds the entry of a tool.
-func Lookup(name string) (Entry, bool) {
-	for _, e := range Tools {
-		if e.Name == name {
-			return e, true
-		}
-	}
-	return Entry{}, false
 }
 
 // ToolFor answers the tool that serves an RPC of the service.

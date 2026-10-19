@@ -114,49 +114,7 @@ func (g *treeGraph) associationLines() {
 		for _, node := range nodes {
 			site := g.out.sites[node]
 			if line, ok := g.associationLine(node, site); ok {
-				def := site.sym
-				delete(g.nodes, symbols.KeyOf(def))
-				name := ""
-				if !g.r.model.NameSynthesized(def) {
-					name = localName(def)
-				}
-				edge := Edge{From: line.from.ID, To: line.to.ID, Kind: EdgeAssociation, Name: name, Label: name, Origin: symbolOrigin(def),
-					Route: g.r.routeOf(site.view, def, g.out), Style: node.Style}
-				var labels [2]string
-				for i, end := range line.ends {
-					label := ""
-					if p := line.crossed[i]; p != nil {
-						g.lined[linedEdge{symbols.KeyOf(p), symbols.KeyOf(line.types[i])}] = true
-						label = g.r.usageLabel(p)
-						if compositeUsage(p) && edge.Kind != EdgeComposition {
-							from, to := g.node(p.Owner()).ID, g.node(line.types[i]).ID
-							if from != edge.From {
-								// The def's route runs from its first end's type to its second's.
-								slices.Reverse(edge.Route)
-							}
-							edge.Kind, edge.From, edge.To = EdgeComposition, from, to
-						}
-						if edge.Route == nil {
-							edge.Route = g.r.routeOf(site.view, p, g.out)
-						}
-						if edge.Style == nil {
-							edge.Style = g.r.styleOf(site.view, p, g.out)
-						}
-					} else if !g.r.model.NameSynthesized(end) {
-						label = g.r.usageLabel(end)
-					}
-					labels[i] = label
-				}
-				edge.FromLabel, edge.ToLabel = labels[0], labels[1]
-				if g.node(line.types[0]).ID == edge.To && g.node(line.types[1]).ID != edge.To {
-					edge.FromLabel, edge.ToLabel = labels[1], labels[0]
-				}
-				g.add(edge, def)
-				for i := range g.out.Notes {
-					if n := &g.out.Notes[i]; n.Anchor == node.ID {
-						n.Anchor, n.EdgeFrom, n.EdgeTo = "", edge.From, edge.To
-					}
-				}
+				g.drawAssociation(node, site, line)
 				continue
 			}
 			node.Children = prune(node.Children)
@@ -165,6 +123,63 @@ func (g *treeGraph) associationLines() {
 		return kept
 	}
 	g.out.Roots = prune(g.out.Roots)
+}
+
+// drawAssociation replaces node, the box of a connection def, with the line
+// between its end types; the notes anchored on the box move to the line.
+func (g *treeGraph) drawAssociation(node *Node, site treeSite, line association) {
+	def := site.sym
+	delete(g.nodes, symbols.KeyOf(def))
+	name := ""
+	if !g.r.model.NameSynthesized(def) {
+		name = localName(def)
+	}
+	edge := Edge{From: line.from.ID, To: line.to.ID, Kind: EdgeAssociation, Name: name, Label: name, Origin: symbolOrigin(def),
+		Route: g.r.routeOf(site.view, def, g.out), Style: node.Style}
+	var labels [2]string
+	for i := range line.ends {
+		labels[i] = g.associationEndLabel(&edge, site, line, i)
+	}
+	edge.FromLabel, edge.ToLabel = labels[0], labels[1]
+	if g.node(line.types[0]).ID == edge.To && g.node(line.types[1]).ID != edge.To {
+		edge.FromLabel, edge.ToLabel = labels[1], labels[0]
+	}
+	g.add(edge, def)
+	for i := range g.out.Notes {
+		if n := &g.out.Notes[i]; n.Anchor == node.ID {
+			n.Anchor, n.EdgeFrom, n.EdgeTo = "", edge.From, edge.To
+		}
+	}
+}
+
+// associationEndLabel is the label at end i of the line; an end crossing a drawn
+// property takes that property's edge over, a composition when it is composite.
+func (g *treeGraph) associationEndLabel(edge *Edge, site treeSite, line association, i int) string {
+	end := line.ends[i]
+	p := line.crossed[i]
+	if p == nil {
+		if g.r.model.NameSynthesized(end) {
+			return ""
+		}
+		return g.r.usageLabel(end)
+	}
+	g.lined[linedEdge{symbols.KeyOf(p), symbols.KeyOf(line.types[i])}] = true
+	label := g.r.usageLabel(p)
+	if compositeUsage(p) && edge.Kind != EdgeComposition {
+		from, to := g.node(p.Owner()).ID, g.node(line.types[i]).ID
+		if from != edge.From {
+			// The def's route runs from its first end's type to its second's.
+			slices.Reverse(edge.Route)
+		}
+		edge.Kind, edge.From, edge.To = EdgeComposition, from, to
+	}
+	if edge.Route == nil {
+		edge.Route = g.r.routeOf(site.view, p, g.out)
+	}
+	if edge.Style == nil {
+		edge.Style = g.r.styleOf(site.view, p, g.out)
+	}
+	return label
 }
 
 // linedEdge is the edge from a property to one of its types that an

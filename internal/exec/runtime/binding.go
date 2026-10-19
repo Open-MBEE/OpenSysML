@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -496,7 +497,7 @@ func (ctx *Context) ownEndpointValue(loc bindingLocation) (Value, bool, error) {
 	fv := loc.instance.FeatureValues[loc.name]
 	if !fv.Materialized && !fv.BindingDerived && ctx.CompositeTypeOf(fv.Feature) == nil {
 		if _, err := loc.instance.materializeFeatureValueIntrinsic(ctx, loc.name); err != nil {
-			return Value{}, false, err
+			return Value{}, false, &FeatureValueError{Err: err, Instance: loc.instance, Feature: loc.name}
 		}
 	}
 	ctx.noteRead(loc.instance, fv)
@@ -761,6 +762,62 @@ func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Bindin
 	}, nil
 }
 
+// withBoundMembers adds the Kernel frame members the model binds through feature
+// (`cf.edges = ae`) to the object's features, so each holds a value like any other.
+func (ctx *Context) withBoundMembers(inst, owner *Instance, feature string, features []EffectiveFeature) []EffectiveFeature {
+	if owner == nil || feature == "" {
+		return features
+	}
+	types := inst.types()
+	held := make(map[string]bool, len(features))
+	for i := range features {
+		held[features[i].Name] = true
+	}
+	added := false
+	path := feature
+	for current := owner; current != nil; {
+		for _, typ := range current.types() {
+			for _, binding := range ctx.objectBindings(typ) {
+				for _, end := range binding.Ends {
+					name, ok := strings.CutPrefix(end.Path, path+".")
+					if !ok || strings.Contains(name, ".") || held[name] {
+						continue
+					}
+					member, typ := ctx.boundFrameMember(types, name)
+					if member == nil {
+						continue
+					}
+					if !added {
+						features, added = slices.Clone(features), true
+					}
+					held[name] = true
+					features = append(features, ctx.effectiveFeature(name, member, typ))
+				}
+			}
+		}
+		next, nextFeature := current.Owner()
+		if next == nil || nextFeature == "" {
+			break
+		}
+		path = nextFeature + "." + path
+		current = next
+	}
+	return features
+}
+
+// boundFrameMember finds the Kernel frame member name of the first of types
+// declaring it that the shape leaves out, with that type.
+func (ctx *Context) boundFrameMember(types []*symbols.Symbol, name string) (*symbols.Symbol, *symbols.Symbol) {
+	sem := ctx.model.semantics
+	for _, typ := range types {
+		member, found := sem.LookupMember(typ, name)
+		if found && member.IsFeature() && sem.FrameFeature(member) && !sem.FrameRoot(typ, member) {
+			return member, typ
+		}
+	}
+	return nil, nil
+}
+
 // resolveBindingLocations follows an end's path from owner to the named feature on every
 // object it reaches, visiting each object a collection-valued step holds, in order.
 func (ctx *Context) resolveBindingLocations(owner *Instance, path string) ([]bindingLocation, error) {
@@ -902,7 +959,7 @@ func (ctx *Context) bindingLocationValue(loc bindingLocation, materialize bool) 
 			return Value{}, false, nil
 		}
 		if _, err := loc.instance.materializeFeatureValueIntrinsic(ctx, loc.name); err != nil {
-			return Value{}, false, err
+			return Value{}, false, &FeatureValueError{Err: err, Instance: loc.instance, Feature: loc.name}
 		}
 	}
 	ctx.noteRead(loc.instance, fv)

@@ -66,6 +66,7 @@ const CAPABILITY_BIG_INT_VALUES = "big_int_values"
 const CAPABILITY_RATIONAL_VALUES = "rational_values"
 const CAPABILITY_CONVERT_DOCUMENTS = "convert_documents"
 const CAPABILITY_CONVERT_COMPACT = "convert_compact"
+const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics"
 const CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"
 const CAPABILITY_RENDER_DOCUMENT_FILE_NAME = "render_document_file_name"
 

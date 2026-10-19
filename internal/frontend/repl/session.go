@@ -193,6 +193,9 @@ type Session struct {
 	progress *progressPrinter
 
 	verbosity Verbosity
+	// fileGuard, when set, is asked before the session reads or writes a file
+	// a command named, so a host can confine the session to a workspace.
+	fileGuard func(path string) error
 
 	// renderWidth is the width a text rendering's table is written to fit, 0 for
 	// as wide as its widest cell.
@@ -231,6 +234,9 @@ type actionSession struct {
 	selfFQN  string
 	symbol   *symbols.Symbol
 	executor *runtime.ActionExecutor
+	// attached marks the session as driving a performance the object performs
+	// itself, which runs on after the session rather than being released with it.
+	attached bool
 	// rtCtx is the context the executor runs in. A submission rebuilds the
 	// session's own, so results are read against the one that produced them.
 	rtCtx *runtime.Context
@@ -263,7 +269,7 @@ func (a *actionSession) selfOf() string {
 // release lets go of the session's run, ending any work a breakpoint left
 // paused; a nil session has none.
 func (a *actionSession) release() {
-	if a != nil {
+	if a != nil && !a.attached {
 		a.executor.Release()
 	}
 }
@@ -1629,4 +1635,51 @@ func rebasedFixes(fixes []diag.Fix, delta int) []diag.Fix {
 		out[i] = f
 	}
 	return out
+}
+
+// SetFileGuard installs a check every file the session is asked to read or
+// write must pass: the files %load and %save name, those a directory or glob
+// expands to, and the dependencies found beside them. Files under the library
+// roots are exempt, since installed projects live outside a workspace. A nil
+// guard lifts the check.
+func (s *Session) SetFileGuard(guard func(path string) error) {
+	s.fileGuard = guard
+}
+
+// guardFiles asks the file guard about each file; with libraries true, files
+// under a library root pass without asking.
+func (s *Session) guardFiles(files []string, libraries bool) error {
+	for _, f := range files {
+		if err := s.guardFile(f, libraries); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Session) guardFile(file string, libraries bool) error {
+	if s.fileGuard == nil || (libraries && s.underLibraryRoot(file)) {
+		return nil
+	}
+	return s.fileGuard(file)
+}
+
+// underLibraryRoot reports whether the file lies under a library root where it
+// really is, the symlinks on the way followed, so a link planted under a root
+// cannot stand for a file elsewhere.
+func (s *Session) underLibraryRoot(file string) bool {
+	real, err := filepath.EvalSymlinks(file)
+	if err != nil {
+		return false
+	}
+	for _, root := range s.libraryRoots {
+		realRoot, err := filepath.EvalSymlinks(root)
+		if err != nil {
+			continue
+		}
+		if rel, err := filepath.Rel(realRoot, real); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }

@@ -403,8 +403,10 @@ Render a named view with minimal or full ports. `show` names the optional
 notation elements to draw besides those the view's rendering shows
 (`"edge-labels"`, `"all"`, ...); the service refuses a name it does not know.
 """
-function render_view(model::Model, view_name::AbstractString; ports="minimal", show=String[])
+function render_view(model::Model, view_name::AbstractString; ports="minimal", show=String[],
+                     depth::Integer=0)
     ports in ("minimal", "full") || throw(ArgumentError("ports must be 'minimal' or 'full'"))
+    depth >= 0 || throw(ArgumentError("depth must be a non-negative integer"))
     conn = model.connection
     require_capability(conn, CAPABILITY_RENDER_VIEW)
     answer = _translate(; not_found=(message, _) ->
@@ -412,7 +414,7 @@ function render_view(model::Model, view_name::AbstractString; ports="minimal", s
         capabilities=(CAPABILITY_RENDER_VIEW,), connection=conn) do
         call(conn, "RenderView", Dict{String,Any}("modelHash" => model.hash,
             "view" => String(view_name), "ports" => ports == "minimal" ? "" : ports,
-            "show" => String[String(s) for s in show]))
+            "show" => String[String(s) for s in show], "depth" => Int(depth)))
     end
     rendered_view_result(answer)
 end

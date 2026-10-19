@@ -2548,7 +2548,7 @@ func (a *activity) opaqueAction(n *sysmlv1.Element, name string) {
 		a.m.textualReps(n)
 		if !r.ok {
 			a.inert[n] = true
-			if r.note == "the body is empty" && opaqueBodiesEmpty(n) {
+			if r.note == emptyBodyNote && opaqueBodiesEmpty(n) {
 				a.m.add(n, Mapped, name, "its body is empty, so it is written as an action that does nothing")
 				return
 			}
@@ -3088,7 +3088,7 @@ func (a *activity) declareVariables() {
 			form = "no v2 form"
 		}
 		for _, v := range variables {
-			a.m.add(v, Unmapped, "", "a variable of "+describe(a.act)+" is not written: the "+a.act.Type+" is written as "+form+", whose body declares no local features")
+			a.m.add(v, Unmapped, "", "a variable of "+describe(a.act)+" is not written: the "+a.act.Type+isWrittenAs+form+", whose body declares no local features")
 		}
 		return
 	}
@@ -3382,7 +3382,7 @@ func (a *activity) reducerFunc(n *sysmlv1.Element) (fn, why string) {
 		if form == "" {
 			form = "no v2 form"
 		}
-		return "", theReducer + qualifiedName(reducer) + " is written as " + form + ", not a calc or function def, so it has no v2 function"
+		return "", theReducer + qualifiedName(reducer) + isWrittenAs + form + ", not a calc or function def, so it has no v2 function"
 	}
 	var ins, rets int
 	for _, p := range a.m.actionParameters(reducer) {
@@ -3476,11 +3476,11 @@ func (a *activity) sendDestination(n *sysmlv1.Element, what string) (string, str
 		path, hasPath := a.portPath(port)
 		switch {
 		case !a.m.written(port):
-			return "", "the port " + qualifiedName(port) + " has no v2 declaration; the " + what + sentToSender
+			return "", thePort + qualifiedName(port) + " has no v2 declaration; the " + what + sentToSender
 		case hasPath:
 			return " via " + a.m.respellThis(a.self()+"."+path, a.act), ""
 		default:
-			return "", "the port " + qualifiedName(port) + " is no port of the object the sender acts on; the " + what + sentToSender
+			return "", thePort + qualifiedName(port) + " is no port of the object the sender acts on; the " + what + sentToSender
 		}
 	}
 	t := firstOwned(n, "target")
