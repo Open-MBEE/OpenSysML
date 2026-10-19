@@ -1,0 +1,1 @@
+- `make lint` runs staticcheck under `GOMEMLIMIT=2GiB`: unbounded, its heap on this module peaked near 4 GiB and the 4 GiB CI executor killed the job on some runs, while the soft limit holds the peak near 2 GiB for about a tenth more GC time.

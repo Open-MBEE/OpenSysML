@@ -21,6 +21,9 @@ GO_INSTALL := CGO_ENABLED=0 go install -ldflags "$(LDFLAGS)"
 
 # Static-analysis tool versions, pinned so CI and local runs agree
 STATICCHECK_VERSION := 2025.1.1
+# Unbounded, staticcheck's heap on this module peaks near 4 GiB, which the 4 GiB CI
+# executor kills it for; the soft limit holds the peak near 2 GiB for ~10% more GC time.
+STATICCHECK_ENV := GOMEMLIMIT=2GiB
 GOSEC_VERSION := v2.22.5
 BUF_VERSION := v1.57.2
 GO_WINRES_VERSION := v0.3.3
@@ -356,8 +359,8 @@ coverage-merge: ## Merge the shard profiles coverage-runtime/model/export/rest/m
 
 lint: ## Run static analysis (staticcheck + gosec), as CI does
 	@echo "Running staticcheck..."
-	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
-	go run -C $(TOOLS_DIR) honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
+	$(STATICCHECK_ENV) go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
+	$(STATICCHECK_ENV) go run -C $(TOOLS_DIR) honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
 	@echo "Running gosec..."
 	@# Generated protobuf code is excluded: its unsafe.Pointer use (G103) comes
 	@# from protoc-gen-go and is not ours to change.
