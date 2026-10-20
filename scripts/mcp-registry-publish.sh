@@ -66,7 +66,7 @@ if ! $check; then
   [[ -n "${MCP_REGISTRY_PRIVATE_KEY:-}" ]] || fail "MCP_REGISTRY_PRIVATE_KEY is not set; add the repository secret holding the opensysml.org Ed25519 key ($DOCS)"
   key="$(printf '%s' "$MCP_REGISTRY_PRIVATE_KEY" | tr -d '[:space:]')"
   if [[ "$key" == -----BEGIN* ]]; then
-    key="$(printf '%s\n' "$MCP_REGISTRY_PRIVATE_KEY" | openssl pkey -noout -text 2>/dev/null | grep -A3 'priv:' | tail -n +2 | tr -d ' :\n')" \
+    key="$(printf '%s\n' "$MCP_REGISTRY_PRIVATE_KEY" | openssl pkey -noout -text 2>/dev/null | awk '/^priv:/ { seed = 1; next } /^pub:/ { seed = 0 } seed' | tr -d ' :\n')" \
       || fail "MCP_REGISTRY_PRIVATE_KEY is not a PEM private key openssl can read ($DOCS)"
   fi
   [[ "$key" =~ ^[0-9a-fA-F]{64}$ ]] || fail "MCP_REGISTRY_PRIVATE_KEY is neither an Ed25519 PEM private key nor its 64-hex-digit seed, which mcp-publisher login dns takes ($DOCS)"

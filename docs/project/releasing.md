@@ -1718,7 +1718,7 @@ generates or holds the key.
    ```
 
    which derives the public key the way the registry documents
-   (`openssl pkey -in key.pem -pubout -outform DER | tail -c 32 | base64`) and prints
+   (the last 32 bytes of `openssl pkey -in key.pem -pubout -outform DER`, base64-encoded) and prints
    `opensysml.org. IN TXT "v=MCPv1; k=ed25519; p=<base64 public key>"`. Add that TXT record at
    the zone apex of `opensysml.org`, beside any existing TXT records (the registry reads them
    all).
@@ -1735,8 +1735,8 @@ generates or holds the key.
 
 4. Store the key as the repository's GitHub Actions secret `MCP_REGISTRY_PRIVATE_KEY`. The CLI
    takes the private key as its 64-hex-digit seed
-   (`openssl pkey -in key.pem -noout -text | grep -A3 "priv:" | tail -n +2 | tr -d ' :\n'`, which
-   the script also prints); the secret may hold either those 64 hex digits or the PEM file as
+   (the `priv:` block of `openssl pkey -in key.pem -noout -text` with spaces, colons and newlines
+   removed, which the script also prints); the secret may hold either those 64 hex digits or the PEM file as
    `openssl genpkey` wrote it, and the publish script derives the seed from the PEM itself.
 
 To rehearse the pipeline before a release, run the workflow by hand (*Actions → MCP Registry →

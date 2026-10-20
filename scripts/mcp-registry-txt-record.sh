@@ -37,8 +37,9 @@ if [[ "$algorithm" != "ED25519 Private-Key:" ]]; then
   exit 1
 fi
 
-# The last 32 bytes of the DER SubjectPublicKeyInfo are the raw Ed25519 public key.
-public_key="$(openssl pkey -in "$key" -pubout -outform DER | tail -c 32 | base64)"
+# The DER SubjectPublicKeyInfo is a fixed 12-byte prefix (16 base64 characters) followed by the
+# raw 32-byte Ed25519 public key, so its base64 from character 17 on is the key's base64.
+public_key="$(openssl pkey -in "$key" -pubout -outform DER | openssl base64 -A | cut -c17-)"
 
 cat <<RECORD
 # DNS TXT record for $DOMAIN (one record at the zone apex, next to any existing TXT records):
@@ -50,8 +51,8 @@ dig @1.1.1.1 TXT ${DOMAIN} +short
 
 # Log in once the record resolves. The private key is the 64-hex-digit seed, read from the file
 # as the command runs; mcp-publisher stores the resulting token under ~/.config/mcp-publisher/.
-mcp-publisher login dns --domain "${DOMAIN}" --private-key "\$(openssl pkey -in "${key}" -noout -text | grep -A3 'priv:' | tail -n +2 | tr -d ' :\\n')"
+mcp-publisher login dns --domain "${DOMAIN}" --private-key "\$(openssl pkey -in "${key}" -noout -text | awk '/^priv:/ { seed = 1; next } /^pub:/ { seed = 0 } seed' | tr -d ' :\\n')"
 
 # GitHub Actions secret MCP_REGISTRY_PRIVATE_KEY: the same 64 hex digits, produced by
-openssl pkey -in "${key}" -noout -text | grep -A3 'priv:' | tail -n +2 | tr -d ' :\\n'
+openssl pkey -in "${key}" -noout -text | awk '/^priv:/ { seed = 1; next } /^pub:/ { seed = 0 } seed' | tr -d ' :\\n'
 RECORD
