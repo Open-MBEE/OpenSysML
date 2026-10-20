@@ -23,6 +23,12 @@ func TestRuntimeRobustnessValueStandIn(t *testing.T) {
 		part def P { attribute b : Boolean[1]; }
 		part p : P;
 	}`
+	const outside = `package test {
+		private import ScalarValues::*;
+		state def Life { out result : Boolean[1]; attribute flag : Boolean[1]; entry; then idle; state idle; }
+		part def Host { exhibit state life : Life; }
+		part host : Host;
+	}`
 
 	t.Run("stand_in_released_once_the_machine_writes", func(t *testing.T) {
 		ctx, host := standInObject(t, exhibited, "test::host")
@@ -96,12 +102,33 @@ func TestRuntimeRobustnessValueStandIn(t *testing.T) {
 		}
 	})
 
-	const outside = `package test {
-		private import ScalarValues::*;
-		state def Life { out result : Boolean[1]; attribute flag : Boolean[1]; entry; then idle; state idle; }
-		part def Host { exhibit state life : Life; }
-		part host : Host;
-	}`
+	t.Run("rolled_back_outside_write_restores_the_machine_data", func(t *testing.T) {
+		ctx, host := standInObject(t, outside, "test::host")
+		life := standInHolder(t, ctx, host, "life")
+		standIn := standInOf(t, ctx, life, "result")
+		_, rollback := ctx.beginJournal()
+		if err := life.SetFeatureValue(ctx, "result", constInt(9)); err == nil {
+			t.Fatalf("writing 9 to a Boolean feature succeeded")
+		}
+		if err := life.SetFeatureValue(ctx, "result", boolValue(true)); err != nil {
+			t.Fatalf("write result: %v", err)
+		}
+		if got := machineData(t, host, "life")["result"]; !got.isBool() || !got.Const.Bool {
+			t.Fatalf("machine data result = %s inside the journal, want true", FormatValue(got))
+		}
+		rollback()
+		if got := standInOf(t, ctx, life, "result"); got != standIn {
+			t.Fatalf("result holds #%d after the rollback, want the stand-in #%d", got, standIn)
+		}
+		got := machineData(t, host, "life")["result"]
+		if got.Kind != ValInstance || got.Instance != standIn {
+			t.Fatalf("machine data result = %s after the rollback, want the stand-in #%d", FormatValue(got), standIn)
+		}
+		if _, err := ctx.Image(host); err != nil {
+			t.Fatalf("Image after the rollback: %v", err)
+		}
+	})
+
 	for _, name := range []string{"result", "flag"} {
 		t.Run("outside_write_of_"+name+"_reaches_the_machine_data", func(t *testing.T) {
 			ctx, host := standInObject(t, outside, "test::host")
@@ -122,6 +149,40 @@ func TestRuntimeRobustnessValueStandIn(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("derived_attribute_follows_the_outside_write_and_the_part_round_trips", func(t *testing.T) {
+		const derived = `package test {
+			private import ScalarValues::*;
+			state def Life { attribute flag : Boolean[1]; attribute d : Boolean = flag; entry; then idle; state idle; }
+			part def Host { exhibit state life : Life; }
+			part host : Host;
+		}`
+		ctx, host := standInObject(t, derived, "test::host")
+		life := standInHolder(t, ctx, host, "life")
+		standIn := standInOf(t, ctx, life, "flag")
+		if got := heldFeatureValue(t, ctx, life, "d").HeldValue(); got.Kind != ValInstance || got.Instance != standIn {
+			t.Fatalf("life.d = %s before the write, want the stand-in #%d", FormatValue(got), standIn)
+		}
+		if err := life.SetFeatureValue(ctx, "flag", boolValue(true)); err != nil {
+			t.Fatalf("write flag: %v", err)
+		}
+		if got := heldFeatureValue(t, ctx, life, "d").HeldValue(); !got.isBool() || !got.Const.Bool {
+			t.Fatalf("life.d = %s after the write, want true", FormatValue(got))
+		}
+		data := machineData(t, host, "life")
+		for _, name := range []string{"flag", "d"} {
+			if got := data[name]; !got.isBool() || !got.Const.Bool {
+				t.Fatalf("machine data %s = %s after the write, want true", name, FormatValue(got))
+			}
+		}
+		if _, live := ctx.Instance(standIn); live {
+			t.Fatalf("stand-in #%d is still registered after the write", standIn)
+		}
+		copied := imageInto(t, ctx, host)
+		if source, copy := heldDigest(ctx, everyObject), heldDigest(copied, everyObject); source != copy {
+			t.Fatalf("the copy differs from the source:\n--- source\n%s\n--- copy\n%s", source, copy)
+		}
+	})
 
 	t.Run("bound_stand_in_is_dropped_when_the_binding_resolves", func(t *testing.T) {
 		const bound = `package test {
