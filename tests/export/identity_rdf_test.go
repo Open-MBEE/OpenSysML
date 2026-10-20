@@ -853,12 +853,13 @@ func elementIDs(t *testing.T, turtle []byte) map[string]string {
 }
 
 // A library uuid is the norm's only on the subject named as the library element
-// is: by its effective name, or by the position the encoder writes it at.
+// is: by its effective name, which the encoder writes a member named by its
+// naming feature under too, never by a position.
 func TestNormativeSubjectNamesTheLibraryElementExactly(t *testing.T) {
 	const (
 		realID         = "14c0aa22-5489-59b5-b438-ded26e83ba31" // ScalarValues::Real
 		realMembership = "ab72a695-5fe9-58a3-9d48-9e9a8711862d"
-		edges          = "1c6076b4-48fa-5c5f-81f2-7c850aee33b1" // ShapeItems::Polyhedron::edges, written as @3
+		edges          = "1c6076b4-48fa-5c5f-81f2-7c850aee33b1" // ShapeItems::Polyhedron::edges, named by its redefinition
 		pyramidEdges   = "6749b419-719a-51d9-8e13-d993bb953e80" // ShapeItems::RectangularPyramid::base::edges
 	)
 	cases := []struct {
@@ -874,12 +875,12 @@ func TestNormativeSubjectNamesTheLibraryElementExactly(t *testing.T) {
 		{realID, "ScalarValues::@7", false},
 		{realID, "ScalarValues::@8", false},
 		{rdf.EncodeElementID("ScalarValues::Real"), "ScalarValues::Real", false},
-		{edges, "ShapeItems::Polyhedron::@3", true},
+		{edges, "ShapeItems::Polyhedron::@3", false},
 		{edges, "ShapeItems::Polyhedron::edges", true},
 		{edges, "ShapeItems::Polyhedron::@2", false},
 		{edges, "ShapeItems::Polyhedron::@4", false},
 		{edges, "P::Polyhedron::@3", false},
-		{pyramidEdges, "ShapeItems::RectangularPyramid::@3::@0", true},
+		{pyramidEdges, "ShapeItems::RectangularPyramid::@3::@0", false},
 		{pyramidEdges, "ShapeItems::RectangularPyramid::base::edges", true},
 		{pyramidEdges, "ShapeItems::RectangularPyramid::@1::@3", false},
 		{pyramidEdges, "ShapeItems::RectangularPyramid::@3::@1", false},
@@ -893,8 +894,8 @@ func TestNormativeSubjectNamesTheLibraryElementExactly(t *testing.T) {
 }
 
 // A redefining feature without a name of its own takes the redefined one, so
-// the norm fixes an id for it while the graph names it by position. Neither
-// side may mistake that id for a declared one.
+// the norm fixes an id for it and the graph names it so (sysml:name, no
+// declaredName). Neither side may mistake that id for a declared one.
 func TestEffectivelyNamedLibraryMemberCarriesNormativeID(t *testing.T) {
 	const name = "Domain Libraries/Geometry/ShapeItems.sysml"
 	src, err := libs.EmbeddedSource().Read(name)
@@ -912,8 +913,14 @@ func TestEffectivelyNamedLibraryMemberCarriesNormativeID(t *testing.T) {
 	// ShapeItems::Polyhedron::edges under the SysML prefix.
 	const edges = "1c6076b4-48fa-5c5f-81f2-7c850aee33b1"
 	subject := rdf.ElementIRIForID(edges)
-	if got, _ := graph.Object(subject, rdf.SysML+"qualifiedName"); got != rdf.String("ShapeItems::Polyhedron::@3") {
+	if got, _ := graph.Object(subject, rdf.SysML+"qualifiedName"); got != rdf.String("ShapeItems::Polyhedron::edges") {
 		t.Fatalf("the redefining item is named %v in the graph", got)
+	}
+	if got, _ := graph.Object(subject, rdf.SysML+"name"); got != rdf.String("edges") {
+		t.Fatalf("the redefining item's effective name is %v in the graph", got)
+	}
+	if graph.HasProperty(subject, rdf.SysML+"declaredName") {
+		t.Errorf("the effective name is stated as declared")
 	}
 	if graph.HasProperty(subject, rdf.OpenSysML+"declaredId") {
 		t.Errorf("the norm's id is stated as declared")
