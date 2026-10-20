@@ -2065,9 +2065,8 @@ func (ctx *Context) directValueTypes(scope *symbols.Scope, value Value) ([]*symb
 	return out, nil
 }
 
-// directTypes names the types an object is of for being of sym: every type a feature is
-// typed by — stated, or inherited through what it subsets, redefines or references, the
-// most specific of each (KerML 1.0 §7.3.4.3–§7.3.4.4) — else sym itself.
+// directTypes is every type a feature is typed by, stated or inherited through what it
+// subsets, redefines or references (KerML 1.0 §7.3.4.3–§7.3.4.4), else sym itself.
 func (ctx *Context) directTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if types := ctx.effectiveTypes(sym); len(types) > 0 {
 		return types

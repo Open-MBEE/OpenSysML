@@ -6,9 +6,8 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessHoldingFeatureTypes: an object classified by the types of the feature
-// holding it is still not of a type none of those conform to, and a type operand that does
-// not resolve is still the typed error, never a verdict.
+// TestRuntimeRobustnessHoldingFeatureTypes: an object classified by its holding feature's
+// types is still not of a type none of those conform to; an unresolved type is the typed error.
 func TestRuntimeRobustnessHoldingFeatureTypes(t *testing.T) {
 	t.Run("a_type_the_object_cannot_be_is_false", testHoldingFeatureTypesImpossibleType)
 	t.Run("an_unresolved_type_operand_is_the_typed_error", testHoldingFeatureTypesUnresolvedOperand)

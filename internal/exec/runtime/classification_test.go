@@ -15,9 +15,8 @@ const holdingFeatureTypesModel = `package test {
 	item rig : Rig;
 }`
 
-// An object made as a feature is of every type the feature inherits — its stated type and
-// the types of what it subsets (KerML 1.0 §7.3.4.3–§7.3.4.4) — so its direct types are all of
-// them, and a type one of those specializes is not direct.
+// An object made as a feature has every type the feature inherits as a direct type
+// (KerML 1.0 §7.3.4.3–§7.3.4.4), and none of what those specialize.
 func TestDirectTypesOfAnObjectMadeAsAFeatureAreEveryTypeItInherits(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, holdingFeatureTypesModel)
 	rig := instantiateQualified(t, ctx, idx, "test::rig")
