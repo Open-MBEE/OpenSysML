@@ -584,19 +584,22 @@ from the declaration alone and would move `and-second-false`, `or-second-true` a
 decides — `and true`, `or false`, `implies false` — stay `<undetermined>`.
 
 **Open cardinality at model level.** A `FeatureReferenceExpression` evaluates to the values of
-the feature on a target (KerML 1.1 §7.4.9), and a multiplicity bounds how many values a feature
-has on each instance of its featuring type (§7.3.4.1, §7.4.12); at model level there is no
-target, so a valueless `gear[1..*]` or `loose[0..2]` states bounds and no count. Three other
-readings have each been the behaviour at some point and are not taken: (1) the read is an
-error (`ErrNoValue`) — that is the instance-level contract for a *required* value that is
-missing, and a model that declares `loose[0..2]` is missing nothing; (2) the minimum is
-materialized, so `size(rack.gear)` is `1` and `rack.gear#(7)` is out of range — that is what
-`%instantiate` does to build an object, a definite population the model does not assert; (3) a
-valueless `[0..n]` usage reads as the empty sequence — the same minimum-population rule spelled
-for the lower bound `0`, which makes `isEmpty(rack.loose)` `true` where the model allows two
-values. Reading (2) and (3) remain the documented object-level contract; only the model-level
-read changed. The pilot supports the adjudication by declining to answer any of these rather
-than by supplying the numbers.
+the feature on a target (KerML 1.1 §7.4.9), a multiplicity bounds how many values a feature has
+on each instance of its featuring type (§7.3.4.1, §7.4.12), and the model declares every value a
+feature has (§7.4.11 feature values, §7.3.4.4 subsetting). A valueless usage therefore reads
+closed over the model, at model level as on an instantiated object: `loose[0..2]` holds nothing,
+so `size(rack.loose)` is `0` and `isEmpty(rack.loose)` `true`, exactly as the library's
+`voids[0..*]` is empty; a lower bound nothing declared meets (`gear[1..*]` with nothing
+subsetting it) states bounds and no count, and the read is `<undetermined>` of those bounds,
+carrying what subsetting usages certainly contribute. Two other readings have each been the
+behaviour at some point and are not taken: (1) the read is an error (`ErrNoValue`) — that is the
+instance-level contract for a *required* value that is missing, and a model that declares
+`loose[0..2]` is missing nothing; (2) the minimum is materialized, so `size(rack.gear)` is `1`
+and `rack.gear#(7)` is out of range — that is what `%instantiate` does to build an object, a
+definite population the model does not assert. Reading (2) remains the documented object-level
+contract for an unmet lower bound. The pilot supports the adjudication by declining to answer
+any of these rather than by supplying the numbers: it counts every unevaluated usage element as
+one value, `size(rack.loose)` and `size(p1.suboccurrences)` alike.
 
 The twelve `tensor_quantities.cases` probe `TensorCalculations` over a 2×2 stress tensor built
 by `TensorCalculations::'['` on a model-declared `TensorMeasurementReference`, added with the
