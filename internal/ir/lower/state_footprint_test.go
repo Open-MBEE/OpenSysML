@@ -548,10 +548,8 @@ func TestBehaviorFootprintsCoverEveryBehavior(t *testing.T) {
 	}
 }
 
-// A transition into a terminate node naming the occurrence it ends performs the
-// node — its body, then the termination — and moves to the completion vertex of
-// the body declaring it: the footprint carries the body's places beside the
-// source's activity, and stays dynamic for the occurrence it ends.
+// A transition into a named terminate node carries the node body's places and the
+// source's activity, and stays dynamic for the occurrence the node ends.
 func TestTransitionFootprintsCoverNamedTerminateNode(t *testing.T) {
 	graph, err := ToStateGraph(stateUsageIn(t, `
 		package test {

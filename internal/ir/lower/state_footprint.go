@@ -319,9 +319,8 @@ func (b *stateFootprintBuilder) segment(source *ast.StateNode, seg *Transition) 
 	}
 }
 
-// terminate adds what reaching a terminate node does: a node naming the occurrence
-// it ends performs its body and the termination, then moves to the completion
-// vertex of the body declaring it; one ending the performance itself reaches beyond it.
+// terminate adds a named node's body, its termination and the move to its body's
+// completion vertex; a node ending the performance itself reaches beyond it.
 func (b *stateFootprintBuilder) terminate(source *ast.StateNode, node *ast.Usage) {
 	behavior, named := b.graph.TerminateBehaviors[node]
 	if !named {
