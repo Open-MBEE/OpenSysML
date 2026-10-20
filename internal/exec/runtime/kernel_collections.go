@@ -63,8 +63,8 @@ func (ctx *Context) derivesKernelCollection(inst *Instance, name string) bool {
 // inst (each object once unless nonunique); an open subsetter on a model-level read leaves it open.
 func (ctx *Context) kernelCollectionValue(inst *Instance, sym *symbols.Symbol, open *openPopulation) (*FeatureValue, error) {
 	feat := ctx.effectiveFeature(sym.Name, sym, inst.Type)
-	// The performances the successions that fired order before this one lead.
-	held, _, err := ctx.successionValues(inst, sym)
+	// What the run recorded leads: the successions that fired, the transfers that completed.
+	held, _, err := ctx.recordedValues(inst, sym)
 	if err != nil {
 		return nil, err
 	}

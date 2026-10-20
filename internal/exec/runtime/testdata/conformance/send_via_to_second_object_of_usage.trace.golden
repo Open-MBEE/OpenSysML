@@ -26,10 +26,11 @@ materialize: Ping #7
     eval literal 2 -> 2
   eval index -> instance#5
 materialize: PingPort #8
+materialize: PingPort #9
 step 3: token 1@done
 step 4: no active tokens
 run: exhibited state machine listening of #3
-materialize: PingPort #9
+materialize: PingPort #10
 run: exhibited state machine listening of #5
 exit: waiting
 enter: heard

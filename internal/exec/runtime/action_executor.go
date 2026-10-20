@@ -2914,6 +2914,9 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 		tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
 			msg.Serial, acceptedEventName(msg), msg.Payload)
 	}
+	if err := e.ctx.recordTransfer(msg, e.occurrence, e.self); err != nil {
+		return nil, false, err
+	}
 	if accept.ParamName == "" {
 		return nil, true, nil
 	}

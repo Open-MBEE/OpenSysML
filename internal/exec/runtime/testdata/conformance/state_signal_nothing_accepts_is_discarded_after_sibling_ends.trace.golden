@@ -8,6 +8,7 @@ stmt action body
 materialize: Ping #3
   eval literal 1 -> 1
 eval index -> 1 [s]
+materialize: Transfer #4
 exit: idle
 enter: armed
 transition: idle -> armed (event: time)

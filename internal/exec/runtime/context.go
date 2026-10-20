@@ -42,6 +42,8 @@ type Context struct {
 	shots map[int64]occurrenceShots
 	// fired holds, per performance, the performances whose end let a succession start it (occurrence_successions.go).
 	fired map[int64][]int64
+	// transfers holds the Transfer performances the run completed, oldest first (occurrence_transfers.go).
+	transfers []transferRecord
 	// lifetimes stands for the lives as a `=` value reads them, to derive again when they change.
 	lifetimes FeatureValue
 

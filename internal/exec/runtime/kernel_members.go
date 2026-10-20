@@ -135,7 +135,10 @@ func (ctx *Context) trackedKernelValue(inst *Instance, sym *symbols.Symbol, feat
 		return val, false, true, err
 	}
 	if feat.Scalar() {
-		val, ok, err := ctx.shotValue(inst, sym, feat)
+		if val, ok, err := ctx.shotValue(inst, sym, feat); ok {
+			return val, false, true, err
+		}
+		val, ok, err := ctx.transferEndValue(inst, sym)
 		return val, false, ok, err
 	}
 	var held []Value
@@ -154,7 +157,7 @@ func (ctx *Context) trackedKernelValue(inst *Instance, sym *symbols.Symbol, feat
 		if len(held) == 0 && len(shots) == 0 {
 			return undeterminedFeatureValue(fmt.Sprintf("%s has not started: no snapshot of it has happened", SymbolText(inst.Type)), feat.Multiplicity, sym), false, true, nil
 		}
-	} else if fired, ok, err := ctx.successionValues(inst, sym); ok {
+	} else if fired, ok, err := ctx.recordedValues(inst, sym); ok {
 		if err != nil {
 			return Value{}, false, true, err
 		}

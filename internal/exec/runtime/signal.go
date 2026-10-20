@@ -61,6 +61,13 @@ type Message struct {
 	// definition the accept's own name denotes in the scope the accept is written
 	// in, so that its payload binds as a sent occurrence's does.
 	TypedByAccept bool
+	// Sender is the object the message was sent from, SenderPerformance the
+	// performance that sent it and SenderPort the port it left through, 0 for
+	// none; SentAt is the shared clock's time it was sent.
+	Sender            int64
+	SenderPerformance int64
+	SenderPort        int64
+	SentAt            float64
 	// Payload binds features of the message's type by name, as the send's arguments did.
 	Payload map[string]Value
 	// Value is the one value a send of an expression carries (`send 7`, `send d`),
@@ -117,6 +124,7 @@ func (ctx *Context) postFrom(msg Message, from *Instance, behavior *symbols.Symb
 	if msg.Delivery == deliverAnyone {
 		msg.Delivery = deliveryOf(msg)
 	}
+	msg.Sender, msg.SentAt = objectID(from), ctx.clock.Now()
 	ctx.messageSerial++
 	msg.Serial = ctx.messageSerial
 	ctx.messages = append(ctx.messages, msg)
@@ -457,7 +465,10 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 	if receiverObjects != nil && len(copies) == 0 {
 		return &unreachableSendReceiverError{Port: send.Target, Receiver: exprText(send.ReceiverExpr)}
 	}
+	performance := objectID(ec.occurrence)
+	port, _ := ctx.portInstanceID(holder, routed.Target)
 	for _, c := range copies {
+		c.msg.SenderPerformance, c.msg.SenderPort = performance, port
 		ctx.postFrom(c.msg, c.from, behavior)
 	}
 	return nil
