@@ -260,6 +260,7 @@ var CLIOnly = map[string]string{
 	"sync-annotate":        hostRepository,
 	"sync-confirm-deletes": hostRepository,
 	"sync-mint-ids":        hostRepository,
+	"stdlib":               hostRepository,
 	"debug":                "process logging (sysml-mcp -log-level)",
 	"quiet":                "process logging (sysml-mcp -log-level)",
 	"cpuprofile":           hostProfiling,
