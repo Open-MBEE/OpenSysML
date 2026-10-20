@@ -70,7 +70,7 @@ func (m *Manager) Open(name string) (string, error) {
 	if err != nil {
 		return name, err
 	}
-	sess.SetFileGuard(m.Guard)
+	m.confine(sess)
 	m.sessions[name] = &held{name: name, sess: sess}
 	return name, nil
 }
@@ -111,7 +111,7 @@ func (m *Manager) get(name string) (*held, error) {
 	if err != nil {
 		return nil, err
 	}
-	sess.SetFileGuard(m.Guard)
+	m.confine(sess)
 	h := &held{name: name, sess: sess}
 	m.sessions[name] = h
 	return h, nil
@@ -213,6 +213,28 @@ func (m *Manager) Resolve(path string) (string, error) {
 		return "", err
 	}
 	return res.Path, nil
+}
+
+// confine keeps every file sess reads or writes under the workspace root: its
+// paths are checked by Guard, and its saves are written through WriteFile.
+func (m *Manager) confine(sess *repl.Session) {
+	sess.SetFileGuard(m.Guard)
+	sess.SetFileWriter(m.WriteFile)
+}
+
+// WriteFile writes a file a session saves through the workspace root, so the
+// bytes land where the root's directory handle says, not where a path resolved
+// again at write time leads: a link repointed out of the root after Guard
+// passed it is refused. A relative path is taken from the working directory.
+func (m *Manager) WriteFile(path string, content []byte) (replaced bool, err error) {
+	if !filepath.IsAbs(path) {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return false, fmt.Errorf("resolving %s: %w", path, err)
+		}
+		path = abs
+	}
+	return m.root.WriteFile(path, content)
 }
 
 // Guard is the check every file a session reads or writes must pass, however
