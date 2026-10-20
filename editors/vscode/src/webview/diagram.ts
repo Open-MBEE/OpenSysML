@@ -255,7 +255,7 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
     case "routing":
       applyRouting(message.routing);
       if (last && layout && !gesture) {
-        layout = layoutCanvas(last, { routing }, auto);
+        layout = layoutCanvas(last, panelOverrides(), currentAuto());
         show(layout);
       }
       return;
