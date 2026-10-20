@@ -160,10 +160,10 @@ citations; it moves only when the manifest does.
 <!-- doc-counts:begin validation-spec-coverage -->
 | Document | check* | derive* | validate* | Stated | Pilot-named | Spec-sourced | Implemented | ❔ unknown |
 |---|---|---|---|---|---|---|---|---|
-| KerML 1.0 (`formal/26-03-01`) | 80 | 90 | 88 | 258 | 72 | 186 | 0 | 186 |
-| SysML 2.0 (`formal/26-03-02`) | 128 | 145 | 92 | 365 | 72 | 293 | 0 | 293 |
+| KerML 1.0 (`formal/26-03-01`) | 80 | 90 | 88 | 258 | 87 | 171 | 11 | 160 |
+| SysML 2.0 (`formal/26-03-02`) | 128 | 145 | 92 | 365 | 86 | 279 | 33 | 246 |
 
-**Formal coverage:** the pinned documents state 623 constraints in the Constraints subsections of their abstract-syntax clauses — 208 `check*`, 235 `derive*` and 180 `validate*`. 144 of them are named by a pilot validator and counted in the census above; 479 are recorded from the documents alone, outside the census, of which 0 are implemented and 479 remain ❔ unknown.
+**Formal coverage:** the pinned documents state 623 constraints in the Constraints subsections of their abstract-syntax clauses — 208 `check*`, 235 `derive*` and 180 `validate*`. 173 of them are named by a pilot validator and counted in the census above; 450 are recorded from the documents alone, outside the census, of which 44 are implemented and 406 remain ❔ unknown.
 <!-- doc-counts:end validation-spec-coverage -->
 
 *Stated* is what the documents' Constraints subsections name; *Pilot-named* the ones a pilot

@@ -101,7 +101,7 @@ func TestShapeItemsChainsThroughRedefiningFacesBindInTheGraph(t *testing.T) {
 		t.Fatalf("parse turtle: %v", err)
 	}
 
-	polygonEdges := elementNamed(t, graph, "ShapeItems::Polygon::@1")
+	polygonEdges := elementNamed(t, graph, "ShapeItems::Polygon::edges")
 	facesEdges := chainTargets(t, graph, elementNamed(t, graph, "ShapeItems::Polyhedron"), "faces.edges")
 	if len(facesEdges) != 1 || !facesEdges[0].IsIRI() {
 		t.Fatalf("Polyhedron's faces.edges names %v, want one IRI", facesEdges)
@@ -111,7 +111,7 @@ func TestShapeItemsChainsThroughRedefiningFacesBindInTheGraph(t *testing.T) {
 		t.Errorf("faces.edges binds to %s, which redefines %v, want Polygon's edges first", facesEdges[0], redefined)
 	}
 	for _, usage := range []string{"ff", "rf"} {
-		member := elementNamed(t, graph, "ShapeItems::CuboidOrTriangularPrism::"+usage+"::@0")
+		member := elementNamed(t, graph, "ShapeItems::CuboidOrTriangularPrism::"+usage+"::edges")
 		got := graph.Objects(member, rdf.SysML+"redefines")
 		facesEdges := rdf.IRI(rdf.Element + "fbddc2c8-6a82-5e4a-bd0a-6d1666839005")
 		if len(got) != 2 || got[0] != polygonEdges || got[1] != facesEdges {
