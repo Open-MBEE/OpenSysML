@@ -7,7 +7,8 @@
 // A constraint usage whose input nothing binds reads as an undetermined verdict, itself
 // and through `result`, rather than failing the read. An input nothing supplies stays
 // undetermined whatever lower bound it declares (`[1]` as unstated), and its count is
-// the effective range of the parameter for a calc and a constraint alike.
+// the effective range of the parameter for a calc and a constraint alike; a case usage
+// read as a feature leaves such an input open too, and runs without it.
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::size;
@@ -33,6 +34,14 @@ package test {
 			in limit : Real[1];
 			limit > 1.0
 		}
+		analysis def Rated {
+			subject s : Real;
+			in n : Real[1];
+			return : Real = s * 2.0;
+		}
+		analysis rated : Rated {
+			subject s = 3.0;
+		}
 		action act {
 			in i : Integer;
 			out o : Integer;
@@ -56,6 +65,8 @@ package test {
 		attribute underOneLimit = rig.underOne.limit;
 		attribute underOneVerdict = rig.underOne;
 		attribute underOneResult = rig.underOne.result;
+		attribute ratedN = rig.rated.n;
+		attribute ratedResult = rig.rated.result;
 		attribute actIn = rig.act.i;
 		attribute actOut = rig.act.o;
 		attribute actK = rig.act.k;

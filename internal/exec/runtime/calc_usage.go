@@ -892,7 +892,7 @@ func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args ca
 	// the usage or its definition declares, and one declaring none is left unsupplied.
 	unsupplied := shape.unsuppliedParameters(args)
 	var open map[string]bool
-	if shape.readsOpen(nested) {
+	if shape.readsOpen(nested, args) {
 		open = unsupplied
 	}
 	if err := ctx.bindCalcParameters(shape, ec, args, reader.scope, env, nested, occurrence, open); err != nil {
@@ -1413,7 +1413,7 @@ func (run *calcRun) memberValue(ctx *Context, name string) (Value, bool, error) 
 // object; the usage computes nothing without it. A case usage runs without the
 // input, and a usage written in a behavior body binds from that body, so neither.
 func (start *calcUsageStart) openInput() string {
-	if !start.shape.readsOpen(start.nested) {
+	if start.shape.Sym.Kind != symbols.SymbolCalcUsage || start.shape.isCase() || !start.shape.readsOpen(start.nested, calcArgs{}) {
 		return ""
 	}
 	for i := range start.shape.Params {
@@ -1424,12 +1424,13 @@ func (start *calcUsageStart) openInput() string {
 	return ""
 }
 
-// readsOpen reports a calc usage read over an object, whose unsupplied inputs are
-// left open: not a case, which runs without them, nor a usage written in a behavior
-// body (nested reads it), which binds its inputs from that body's evaluation.
-func (shape *calcShape) readsOpen(nested *EvalContext) bool {
+// readsOpen reports a calc or case usage read as a feature, whose unsupplied inputs
+// are left open: one passed no arguments (an invocation binds its parameters, KerML
+// §7.4.9.4) and not written in a behavior body (nested reads it), which binds its
+// inputs from that body's evaluation.
+func (shape *calcShape) readsOpen(nested *EvalContext, args calcArgs) bool {
 	sym := shape.Sym
-	if sym.Kind != symbols.SymbolCalcUsage || nested != nil {
+	if !isCalcUsageSymbol(sym) || nested != nil || len(args.positional) > 0 || len(args.named) > 0 {
 		return false
 	}
 	owner := sym.Owner()

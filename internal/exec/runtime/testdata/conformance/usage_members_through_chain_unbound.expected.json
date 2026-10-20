@@ -63,6 +63,14 @@
       "type": "Undetermined",
       "value": "[1]"
     },
+    "ratedN": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "ratedResult": {
+      "type": "Real",
+      "value": 6.0
+    },
     "actIn": {
       "type": "Undetermined",
       "value": "[0..*]"

@@ -30,6 +30,8 @@ const usageMembersProbeModel = `package Probe {
 		constraint masked { in base : ScalarValues::Real; base > 1.0 }
 		calc scaledOne { in w : ScalarValues::Real[1]; in k : ScalarValues::Real = 2.0; attribute s : ScalarValues::Real = 5.0; return : ScalarValues::Real = w * k; }
 		constraint underOne { in limit : ScalarValues::Real[1]; limit > base }
+		analysis def Rated { subject s : ScalarValues::Real; in n : ScalarValues::Real[1]; return : ScalarValues::Real = s * 2.0; }
+		analysis rated : Rated { subject s = base; }
 		action act { in i : ScalarValues::Integer; out o : ScalarValues::Integer; attribute k : ScalarValues::Integer = 3; }
 		state def M;
 		state sm : M { entry action e { attribute who = this; } state idle; state busy; transition idle then busy; }
@@ -118,6 +120,16 @@ func testUsageMembersStatedLowerBound(t *testing.T) {
 		val, err := eval(src)
 		if err != nil || val.Kind != ValUndetermined {
 			t.Fatalf("%s = %s, %v; want undetermined: the lower bound does not make an unsupplied input an error", src, FormatValue(val), err)
+		}
+	}
+	for _, src := range []string{"Probe::rig.rated.n", "new Probe::Rig().rated.n"} {
+		if val, err := eval(src); err != nil || val.Kind != ValUndetermined {
+			t.Fatalf("%s = %s, %v; want undetermined: a case usage read as a feature leaves the input open too", src, FormatValue(val), err)
+		}
+	}
+	for _, src := range []string{"Probe::rig.rated.result", "new Probe::Rig().rated.result"} {
+		if val, err := eval(src); err != nil || FormatValue(val) != "8.0" {
+			t.Fatalf("%s = %s, %v; want 8.0: the case runs without the input", src, FormatValue(val), err)
 		}
 	}
 	if val, err := eval("Probe::rig.scaledOne.k"); err != nil || FormatValue(val) != "2.0" {
