@@ -3,7 +3,6 @@
 import {
   normalizeRender,
   nothingToDraw,
-  type EditPalette,
   type FromWebview,
   type PickerEntry,
   type RenderNode,
@@ -11,8 +10,8 @@ import {
   type RenderResult,
   type ToWebview,
 } from "../protocol";
-import { cameoLook, type DiagramStyle, pilotLook, STYLE_LABELS, STYLES, styleOf } from "../style";
-import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
+import { cameoLook, type DiagramStyle, pilotLook, type Routing, routingOf, STYLE_LABELS, STYLES, styleOf } from "../style";
+import { MenuCommand, nodeMenu } from "./actions";
 import { autoLayout, type AutoLayout } from "./autolayout";
 import { loadAvoid, reportAvoidFailure } from "./avoid";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
@@ -51,17 +50,17 @@ const notices = document.getElementById("notices") as HTMLDetailsElement;
 const noticeList = document.getElementById("notice-list") as HTMLElement;
 const undrawable = document.getElementById("undrawable") as HTMLDetailsElement;
 const undrawableList = document.getElementById("undrawable-list") as HTMLElement;
-const adder = document.getElementById("add") as HTMLSelectElement;
 const menu = document.getElementById("menu") as HTMLUListElement;
 
 const state = JSON.parse(body.dataset.state ?? "{}") as { uri?: string; avoid?: string };
 const documentURI = state.uri ?? "";
-const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string };
+const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string; routing?: string };
 let selected = saved.view ?? "";
 // A rendering saved by an older extension is normalized like a fresh one, and
 // drawn in the look it was, or the default when it saved none.
 let last: RenderResult | undefined = saved.last === undefined ? undefined : normalizeRender(saved.last);
 let style: DiagramStyle = styleOf(saved.style);
+let routing: Routing = routingOf(saved.routing);
 let selectedNode: string | undefined;
 /** The layout on screen, which gestures act on; undefined while a table or nothing is shown. */
 let layout: CanvasLayout | undefined;
@@ -77,7 +76,6 @@ const DOUBLE_CLICK_MS = 400;
 // The waypoint last clicked; the pointer is captured while pressed, so a dblclick
 // event would name the container rather than the handle, and clicks are paired here.
 let clickedWaypoint: { edge: number; point: number; at: number } | undefined;
-let paletteEntries: MenuItem[] = [];
 // The extension's number for the drawing shown; an action names the drawing its ids came from.
 let drawn = 0;
 
@@ -100,7 +98,7 @@ loadAvoid(state.avoid ?? "").then(
       return;
     }
     if (last && layout) {
-      layout = layoutCanvas(last, {}, auto);
+      layout = layoutCanvas(last, { routing }, auto);
       show(layout);
     }
   },
@@ -117,15 +115,6 @@ picker.addEventListener("change", () => {
   selected = picker.value;
   remember();
   vscode.postMessage({ type: "pick", view: selected });
-});
-
-// The list's entries are actions, so the prompt is reselected after one is chosen.
-adder.addEventListener("change", () => {
-  const item = paletteEntries[Number(adder.value)];
-  adder.selectedIndex = 0;
-  if (item?.command) {
-    run(item.command);
-  }
 });
 
 window.addEventListener("click", () => hideMenu());
@@ -172,6 +161,7 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
     case "render":
       // The number names what is on screen; a drawing that failed left the last one up.
       applyStyle(message.style);
+      applyRouting(message.routing);
       if (draw(message.result)) {
         drawn = message.drawn;
         if (message.hint !== undefined) {
@@ -186,6 +176,13 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
       return;
     case "style":
       applyStyle(message.style);
+      return;
+    case "routing":
+      applyRouting(message.routing);
+      if (last && layout && !gesture) {
+        layout = layoutCanvas(last, { routing }, auto);
+        show(layout);
+      }
       return;
     case "error":
       showError(message.message);
@@ -242,6 +239,15 @@ function applyStyle(chosen: DiagramStyle): void {
   remember();
 }
 
+// applyRouting picks whose routes the edges follow; the caller redraws where a drawing is up.
+function applyRouting(chosen: Routing): void {
+  if (chosen === routing) {
+    return;
+  }
+  routing = chosen;
+  remember();
+}
+
 // showUndrawable says why a listed view is not drawable, since the picker only
 // says that it is not and holds the reason in a tooltip.
 function showUndrawable(views: PickerEntry[]): void {
@@ -279,7 +285,7 @@ function draw(result: RenderResult): boolean {
       // Mermaid is the machine form a diagram is exported in; the panel draws
       // the same nodes and edges itself, so their geometry is its own to edit.
       auto = undefined;
-      layout = layoutCanvas(result);
+      layout = layoutCanvas(result, { routing });
       if (empty || nothingLaidOut(layout)) {
         layout = undefined;
         diagram.replaceChildren(emptyElement(result));
@@ -307,7 +313,7 @@ function draw(result: RenderResult): boolean {
           return;
         }
         auto = laid;
-        layout = layoutCanvas(result, {}, auto);
+        layout = layoutCanvas(result, { routing }, auto);
         show(layout);
       });
     }
@@ -315,7 +321,6 @@ function draw(result: RenderResult): boolean {
     showNotices(result);
     // An open menu names nodes of the drawing just replaced.
     hideMenu();
-    showPalette(result.palette);
     kindLabel.textContent = describe(result);
     return true;
   } catch (err) {
@@ -428,7 +433,7 @@ function moveGesture(event: PointerEvent): void {
     drawDrag(event.shiftKey);
     return;
   }
-  showDragged(layoutCanvas(result, { ...overridesOf(gesture.placements), held: layout }, auto));
+  showDragged(layoutCanvas(result, { ...overridesOf(gesture.placements), held: layout, routing }, auto));
 }
 
 // showDragged puts the canvas a gesture has changed on screen. The pointer is captured by the
@@ -452,7 +457,7 @@ function drawDrag(shift: boolean): void {
     const svg = showDragged(layout);
     liftNode(svg, layout, gesture.id, gesture.at.x - gesture.start.x, gesture.at.y - gesture.start.y);
   } else {
-    showDragged(layoutCanvas(last, { ...overridesOf(gesture.placements), held: layout }, auto));
+    showDragged(layoutCanvas(last, { ...overridesOf(gesture.placements), held: layout, routing }, auto));
   }
   previewDrop(shift);
 }
@@ -544,7 +549,7 @@ function cancelGesture(): void {
 // settle shows the model's layout after a gesture that made no edit, laid out again if the router loaded meanwhile.
 function settle(): void {
   if (unrouted && last && layout) {
-    layout = layoutCanvas(last, {}, auto);
+    layout = layoutCanvas(last, { routing }, auto);
   }
   unrouted = false;
   if (layout) {
@@ -657,27 +662,6 @@ function showHint(message: string): void {
   status.classList.toggle("hint", message !== "");
 }
 
-// showPalette fills the toolbar's "Add" list, or hides it for a rendering that is not editable.
-function showPalette(palette: EditPalette | undefined): void {
-  paletteEntries = palette ? paletteItems(palette) : [];
-  adder.replaceChildren();
-  adder.hidden = paletteEntries.length === 0;
-  if (paletteEntries.length === 0) {
-    return;
-  }
-  const prompt = document.createElement("option");
-  prompt.value = "";
-  prompt.textContent = "Add…";
-  adder.append(prompt);
-  paletteEntries.forEach((item, index) => {
-    const option = document.createElement("option");
-    option.value = String(index);
-    option.textContent = item.label;
-    adder.append(option);
-  });
-  adder.selectedIndex = 0;
-}
-
 // showMenu opens a node's context menu where it was clicked, kept on screen;
 // its entries act on the rendering the node was drawn from.
 function showMenu(node: RenderNode, result: RenderResult, x: number, y: number): void {
@@ -749,5 +733,5 @@ function highlight(id: string | undefined): void {
 
 // remember keeps what the panel is showing, so a window reload restores it.
 function remember(): void {
-  vscode.setState({ uri: documentURI, view: selected, last, style });
+  vscode.setState({ uri: documentURI, view: selected, last, style, routing });
 }

@@ -119,6 +119,16 @@ var corpusRoundTripRoots = []corpusRoundTripRoot{
 		requireEnv: "OPENSYSML_REQUIRE_PILOT_CORPORA",
 		fetch:      "./scripts/download-pilot-corpora.sh",
 	},
+	{
+		name:       "spec-examples/kerml",
+		requireEnv: "OPENSYSML_REQUIRE_SPEC_EXAMPLES",
+		fetch:      "./scripts/download-spec-examples.sh",
+	},
+	{
+		name:       "spec-examples/sysml",
+		requireEnv: "OPENSYSML_REQUIRE_SPEC_EXAMPLES",
+		fetch:      "./scripts/download-spec-examples.sh",
+	},
 }
 
 // skip mirrors corpusGate.skip: skip locally, fail when the require-env is

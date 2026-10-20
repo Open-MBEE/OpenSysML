@@ -118,7 +118,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 328
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 331
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -166,7 +166,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-331 case(s): 320 both reject, 0 only the pilot rejects, 11 only we reject, 0 both accept
+334 case(s): 323 both reject, 0 only the pilot rejects, 11 only we reject, 0 both accept
   of which 3 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -174,7 +174,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 12 | 12 | 0 | 0 | 0 |
 | grammar | 112 | 112 | 0 | 0 | 0 |
-| semantic | 172 | 161 | 0 | 11 | 0 |
+| semantic | 175 | 164 | 0 | 11 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the eleven ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -247,7 +247,7 @@ only features that have none, so both validators reject each end under
 each a syntax error under the pinned grammar, as our parser now reports them) and `x12` (`then
 <target>;` in a view body, a succession member no non-action body admits) brought it to 328; `s108`
 (a usage subsetting a constant usage) to 329; and the two definition-end usage cases
-(`connection-def-end-not-usage`, `flow-def-end-not-usage`), both ours-only, to 331.
+(`connection-def-end-not-usage`, `flow-def-end-not-usage`), both ours-only, to 331; the end-feature owner cases `k75`, `s110` and `s111` (a non-end feature redefining an inherited end from inside a KerML connector, a SysML connection definition and a connection usage — the owners KerML 1.1 §8.3.3.3.8 `validateRedefinitionEndConformance` names — `Redefining feature must be an end feature` at the redefinition on both sides) brought it to 334.
 The KerML constraints in that
 source reopened 14 gaps — all of them semantic rules the pilot enforces and we did not; the
 named-argument validation that landed alongside closed one of them (`k33`), the constructor
@@ -292,7 +292,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 331 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 334 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 

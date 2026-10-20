@@ -627,7 +627,7 @@ docs-counts: ## Regenerate and verify the committed documentation counts; the te
 	go run -C $(TOOLS_DIR) ./cmd/doc-counts -check
 	go run -C $(TOOLS_DIR) ./cmd/validation-census -check
 	go run -C $(TOOLS_DIR) ./cmd/transformation-census -check
-	go test -C $(TOOLS_DIR) -count=1 ./census/doccounts ./census/validation ./census/transformation ./referee/diff ./referee/reject
+	go test -C $(TOOLS_DIR) -count=1 ./census/doccounts ./census/validation ./census/transformation ./referee/diff ./referee/reject ./referee/apijson
 	@echo "✓ Documentation counts and refereed figures are current"
 
 diagnostics-catalogue: ## Regenerate the diagnostic code catalogue in docs/reference/diagnostics.md from the registry

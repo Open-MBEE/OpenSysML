@@ -219,6 +219,52 @@ func TestAnonymousCrossFeatureRelationshipsAfterMultiplicity(t *testing.T) {
 	}
 }
 
+// A cross feature declared ahead of a reference usage's `ref` (SysML.xtext
+// ReferenceUsage: `EndUsagePrefix 'ref' Usage`) keeps its own multiplicity and
+// ordering, and the end keeps the multiplicity written after its name.
+func TestCrossFeatureBeforeRefKeyword(t *testing.T) {
+	m, root := buildModelNamed(t, "t.sysml", `package P {
+		part def A; part def B; part def C;
+		connection def Assoc {
+			end a_cross[1] ref a[1] : A;
+			end b_cross[0..2] ref b[1] : B;
+			end c_cross[*] nonunique ordered ref c[1] : C;
+		}
+	}`)
+	p := sym(t, root, "P")
+	assoc := nested(t, p.Scope, "Assoc")
+	known := func(v int64) Bound { return Bound{Value: v, Known: true} }
+	for _, tc := range []struct {
+		end, cross, typ string
+		crossRange      Range
+	}{
+		{"a", "a_cross", "A", Range{known(1), known(1)}},
+		{"b", "b_cross", "B", Range{known(0), known(2)}},
+		{"c", "c_cross", "C", Range{known(0), Bound{Infinite: true, Known: true}}},
+	} {
+		e := nested(t, assoc.Scope, tc.end)
+		wantRelationshipKinds(t, e, ast.RelTyping)
+		wantTypes(t, m, e, tc.typ)
+		if r, ok := m.MultiplicityOf(e); !ok || r != (Range{known(1), known(1)}) {
+			t.Fatalf("MultiplicityOf(%s) = %+v, %v, want [1]", tc.end, r, ok)
+		}
+		cross := m.OwnedCrossFeature(e)
+		if cross == nil {
+			t.Fatalf("OwnedCrossFeature(%s) = nil", tc.end)
+		}
+		if name := cross.Name; name != tc.cross {
+			t.Fatalf("OwnedCrossFeature(%s) = %q, want %q", tc.end, name, tc.cross)
+		}
+		if r, ok := m.MultiplicityOf(cross); !ok || r != tc.crossRange {
+			t.Fatalf("MultiplicityOf(%s) = %+v, %v, want %+v", tc.cross, r, ok, tc.crossRange)
+		}
+	}
+	c := nested(t, assoc.Scope, "c")
+	if cross, _ := c.Decl.(*ast.Usage); cross == nil || cross.CrossFeature == nil || !cross.CrossFeature.IsOrdered || !cross.CrossFeature.IsNonunique {
+		t.Fatalf("c_cross lost its `nonunique ordered`")
+	}
+}
+
 func wantRelationshipKinds(t *testing.T, sym *symbols.Symbol, want ...ast.RelationshipKind) {
 	t.Helper()
 	rels := RelationshipsOf(sym)
