@@ -53,9 +53,9 @@ func (writer) PrintElement(file *source.SourceFile, span source.Span, shown stri
 	return lines
 }
 
-// Save writes the model to path. The format follows the file extension:
-// `.sysml`/`.kerml` writes the notation, `.ttl` writes RDF Turtle, `.json` the
-// API element form.
+// Save writes the model to path, with write or directly when write is nil. The
+// format follows the file extension: `.sysml`/`.kerml` writes the notation,
+// `.ttl` writes RDF Turtle, `.json` the API element form.
 //
 // A session that does not fully parse is still saved as notation, with its
 // syntax errors reported as warnings: that save writes the user's own text back
@@ -63,14 +63,17 @@ func (writer) PrintElement(file *source.SourceFile, span source.Span, shown stri
 // refusing it would leave the only copy inside a REPL they are about to close.
 // A `.ttl` save of the same session is refused, because a graph built from a
 // tree the parser recovered would be quietly missing declarations.
-func (w writer) Save(origin string, src []byte, path string) ([]string, bool, error) {
+func (w writer) Save(origin string, src []byte, path string, write replext.FileWriter) ([]string, bool, error) {
 	out, lines, ok := w.Preview(origin, src, path)
 	if !ok {
 		return lines, false, nil
 	}
 	format, _ := convert.FormatOfPath(path)
-	// WriteFile's errors already name the path, so they are not prefixed again.
-	replaced, err := export.WriteFile(path, out)
+	if write == nil {
+		write = export.WriteFile
+	}
+	// The writer's errors already name the path, so they are not prefixed again.
+	replaced, err := write(path, out)
 	if err != nil {
 		return nil, false, err
 	}
