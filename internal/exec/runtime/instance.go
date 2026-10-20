@@ -426,10 +426,11 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 // first activation: it exists throughout the run, not from its first read.
 func (ctx *Context) beganWithRun(inst *Instance) {
 	l := ctx.lives[inst.ID]
-	if l.began <= 1 && l.reached <= 1 {
+	if l.began <= 1 {
 		return
 	}
-	l.reached, l.began, l.beganAt = 1, 1, 0
+	// reached stays where the read materialized it, so `create` can still start it there.
+	l.began, l.beganAt = 1, 0
 	ctx.lives[inst.ID] = l
 	ctx.livesChanged()
 }
