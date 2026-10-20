@@ -107,6 +107,7 @@ async function listViews(client: LanguageClient, uri: string, output: vscode.Out
 export class DiagramPanels implements vscode.Disposable {
   /** The panels, by panelKey of the document and the view each draws. */
   private readonly panels = new Map<string, DiagramPanel>();
+  private readonly moves = new Map<DiagramPanel, Promise<void>>();
   private readonly disposables: vscode.Disposable[] = [];
   private readonly dismissals: Dismissals;
   private readonly chosenViews: ChosenViews;
@@ -359,7 +360,17 @@ export class DiagramPanels implements vscode.Disposable {
 
   // moveToNewWindow floats the panel's tab: the move takes the active editor, so
   // the panel is focused first, and the source editor gets focus back afterwards.
-  private async moveToNewWindow(panel: DiagramPanel, editor: vscode.TextEditor | undefined): Promise<void> {
+  // A panel already on its way (the openIn setting's move) is not moved twice.
+  private moveToNewWindow(panel: DiagramPanel, editor: vscode.TextEditor | undefined): Promise<void> {
+    let move = this.moves.get(panel);
+    if (!move) {
+      move = this.float(panel, editor).finally(() => this.moves.delete(panel));
+      this.moves.set(panel, move);
+    }
+    return move;
+  }
+
+  private async float(panel: DiagramPanel, editor: vscode.TextEditor | undefined): Promise<void> {
     panel.reveal(panel.column(), false);
     await vscode.commands.executeCommand("workbench.action.moveEditorToNewWindow");
     if (editor && !editor.document.isClosed) {

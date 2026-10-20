@@ -1754,10 +1754,12 @@ export function movedNode(
     }
   };
   visit(entry, true);
-  // The model's stated route moves with the subtree, drawn or not; the router's own is never written.
+  // Under `model` the drawn route moves with the subtree, the auto layout's included, since
+  // the moved nodes are placed from now on; under `router` only the model's stated route
+  // does, drawn or not, and the router's own is never written.
   const edges: EdgePlacement[] = [];
   for (const edge of layout.edges) {
-    const stated = edge.rerouted ? (edge.edge.route ?? []) : edge.route;
+    const stated = layout.routing === "router" ? (edge.edge.route ?? []) : edge.rerouted ? [] : edge.route;
     if (
       stated.length > 0 &&
       routable(layout, edge) &&
