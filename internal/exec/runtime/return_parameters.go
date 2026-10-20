@@ -302,7 +302,7 @@ func (ec *EvalContext) constraintMemberValue(inst *Instance, sym *symbols.Symbol
 	}
 	var count semantics.Range
 	if bound.held != nil {
-		count, _ = ec.ctx.extractMultiplicity(bound.held)
+		count = ec.ctx.effectiveFeature(name, bound.held, sym).Multiplicity
 	}
 	return undeterminedFeatureValue(fmt.Sprintf("constraint %s binds no value to %s", sym.Name, name), count, bound.held), true, nil
 }

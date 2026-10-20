@@ -14,6 +14,7 @@ func TestRuntimeRobustnessUsageMembers(t *testing.T) {
 	t.Run("unsupplied calc input is undetermined", testUsageMembersUnsuppliedCalcInput)
 	t.Run("constraint member nothing declares", testUsageMembersConstraintUndeclared)
 	t.Run("unbound constraint input is undetermined", testUsageMembersUnboundConstraintInput)
+	t.Run("unsupplied input is undetermined whatever its lower bound", testUsageMembersStatedLowerBound)
 	t.Run("state body members are features of the state", testUsageMembersStateBody)
 	t.Run("parameter of an uninvoked action is undetermined on an instance", testUsageMembersUninvokedParameter)
 	t.Run("bodiless entry action of an exhibited state is a known gap", testUsageMembersExhibitedState)
@@ -27,6 +28,8 @@ const usageMembersProbeModel = `package Probe {
 		constraint fits { in limit : ScalarValues::Real = 100.0; attribute margin : ScalarValues::Real = 5.0; base < limit }
 		constraint under { in limit : ScalarValues::Real; limit > base }
 		constraint masked { in base : ScalarValues::Real; base > 1.0 }
+		calc scaledOne { in w : ScalarValues::Real[1]; in k : ScalarValues::Real = 2.0; attribute s : ScalarValues::Real = 5.0; return : ScalarValues::Real = w * k; }
+		constraint underOne { in limit : ScalarValues::Real[1]; limit > base }
 		action act { in i : ScalarValues::Integer; out o : ScalarValues::Integer; attribute k : ScalarValues::Integer = 3; }
 		state def M;
 		state sm : M { entry action e { attribute who = this; } state idle; state busy; transition idle then busy; }
@@ -99,6 +102,44 @@ func testUsageMembersUnboundConstraintInput(t *testing.T) {
 		val, err := eval(src)
 		if err != nil || val.Kind != ValUndetermined || !strings.Contains(val.Undetermined().reason, "no argument and no default") {
 			t.Fatalf("%s = %s, %v; want an undetermined verdict naming the input nothing binds, not a failed read", src, FormatValue(val), err)
+		}
+	}
+}
+
+// An input declared `[1]` that nothing supplies reads as the unstated form does:
+// undetermined, with the outputs and body locals the usage computes nothing for, on a
+// calc and a constraint alike, and the count of an unstated one is the same on both.
+func testUsageMembersStatedLowerBound(t *testing.T) {
+	eval := usageMembersEval(t)
+	for _, src := range []string{
+		"Probe::rig.scaledOne.w", "Probe::rig.scaledOne.s", "Probe::rig.scaledOne.result", "new Probe::Rig().scaledOne.result",
+		"Probe::rig.underOne.limit", "Probe::rig.underOne", "Probe::rig.underOne.result", "new Probe::Rig().underOne",
+	} {
+		val, err := eval(src)
+		if err != nil || val.Kind != ValUndetermined {
+			t.Fatalf("%s = %s, %v; want undetermined: the lower bound does not make an unsupplied input an error", src, FormatValue(val), err)
+		}
+	}
+	if val, err := eval("Probe::rig.scaledOne.k"); err != nil || FormatValue(val) != "2.0" {
+		t.Fatalf("Probe::rig.scaledOne.k = %s, %v; want the default 2.0", FormatValue(val), err)
+	}
+	if val, err := eval("Probe::rig.scaledOne"); err != nil || val.Kind != ValFunction {
+		t.Fatalf("Probe::rig.scaledOne = %s, %v; want the function value the usage reads as", FormatValue(val), err)
+	}
+	calcInput, err := eval("Probe::rig.scaled.w")
+	if err != nil || calcInput.Kind != ValUndetermined {
+		t.Fatalf("Probe::rig.scaled.w = %s, %v; want undetermined", FormatValue(calcInput), err)
+	}
+	constraintInput, err := eval("Probe::rig.under.limit")
+	if err != nil || constraintInput.Kind != ValUndetermined {
+		t.Fatalf("Probe::rig.under.limit = %s, %v; want undetermined", FormatValue(constraintInput), err)
+	}
+	if calcInput.Undetermined().count != constraintInput.Undetermined().count {
+		t.Fatalf("unsupplied input counts differ: calc %v, constraint %v; want the effective parameter range on both", calcInput.Undetermined().count, constraintInput.Undetermined().count)
+	}
+	for _, src := range []string{"Probe::rig.scaled.w->SequenceFunctions::size()", "Probe::rig.under.limit->SequenceFunctions::size()"} {
+		if val, err := eval(src); err != nil || val.Kind != ValUndetermined {
+			t.Fatalf("%s = %s, %v; want undetermined: the input may hold any number of values", src, FormatValue(val), err)
 		}
 	}
 }

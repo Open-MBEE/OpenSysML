@@ -801,7 +801,7 @@ func (ctx *Context) invokeCalcShapeDirect(shape *calcShape, args calcArgs, calle
 		ec.trace.recordCalculationEnter(shape.Kind, shape.Name)
 	}
 
-	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil, occurrence); err != nil {
+	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil, occurrence, nil); err != nil {
 		if ec.trace != nil {
 			ec.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		}
@@ -894,7 +894,8 @@ func (ctx *Context) leaveCalc() {
 // declared closest to the invoked calc, evaluated in the scope of the calc
 // declaring it. ec supplies the environment defaults are evaluated in; nested,
 // when non-null, is the environment reading a nested usage, which the bindings
-// the usage itself declares are written in and evaluate against.
+// the usage itself declares are written in and evaluate against. open names the
+// parameters a usage read as a feature leaves unsupplied, bound to no value.
 func (ctx *Context) bindCalcParameters(
 	shape *calcShape,
 	ec *EvalContext,
@@ -903,6 +904,7 @@ func (ctx *Context) bindCalcParameters(
 	bindings frame,
 	nested *EvalContext,
 	occurrence *calcOccurrence,
+	open map[string]bool,
 ) error {
 	for i := range shape.Params {
 		param := &shape.Params[i]
@@ -917,28 +919,37 @@ func (ctx *Context) bindCalcParameters(
 		if nested != nil && param.Owner == shape.Sym {
 			binder = nested
 		}
-		value, source, err := binder.evalIn(defaultScope).bindCalcParameter(shape, param, args, i, nested)
-		if err != nil {
-			return err
-		}
-		// The parameter holds the value bound to it, so that value answers to the
-		// parameter's effective multiplicity as a written one does to its declared one.
-		what := func() string {
-			return fmt.Sprintf("%s: %s for parameter %q", shape.Label, source, param.Name)
-		}
-		decl := param.Decl
-		// An actor states no direction, so the parameter chain does not reach what it
-		// redefines; its range is the one the shape folded along the redeclarations.
-		if decl.Target != nil && param.Sym != nil && !param.IsActor {
-			target := *decl.Target
-			target.mult = ctx.model.semantics.EffectiveParameterRange(param.Sym)
-			decl.Target = &target
-		}
-		if err := decl.check(ctx, &value, what); err != nil {
-			return err
-		}
-		if err := param.checkFunction(&value, what); err != nil {
-			return err
+		var value Value
+		var source string
+		if open[param.Name] {
+			// A usage read as a feature passes no arguments: a parameter nothing values
+			// stays open whatever its lower bound, so there is no value to check here.
+			value, source = nullValue(), "unsupplied"
+		} else {
+			var err error
+			value, source, err = binder.evalIn(defaultScope).bindCalcParameter(shape, param, args, i, nested)
+			if err != nil {
+				return err
+			}
+			// The parameter holds the value bound to it, so that value answers to the
+			// parameter's effective multiplicity as a written one does to its declared one.
+			what := func() string {
+				return fmt.Sprintf("%s: %s for parameter %q", shape.Label, source, param.Name)
+			}
+			decl := param.Decl
+			// An actor states no direction, so the parameter chain does not reach what it
+			// redefines; its range is the one the shape folded along the redeclarations.
+			if decl.Target != nil && param.Sym != nil && !param.IsActor {
+				target := *decl.Target
+				target.mult = ctx.model.semantics.EffectiveParameterRange(param.Sym)
+				decl.Target = &target
+			}
+			if err := decl.check(ctx, &value, what); err != nil {
+				return err
+			}
+			if err := param.checkFunction(&value, what); err != nil {
+				return err
+			}
 		}
 		bindings.bindParam(i, param.Name, value)
 		if occurrence != nil && occurrence.inst != nil {
@@ -1409,7 +1420,7 @@ func (ctx *Context) applyLibraryPerformance(perf *libraryPerformance, args calcA
 		trace:      ctx.trace,
 		activation: activation,
 	}
-	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, nil, nil); err != nil {
+	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, nil, nil, nil); err != nil {
 		return Value{}, err
 	}
 

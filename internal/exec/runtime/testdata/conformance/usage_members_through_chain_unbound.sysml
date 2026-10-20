@@ -5,9 +5,12 @@
 // action usage nothing has invoked is bound at invocation (SysML v2 §7.17.2), so it reads
 // undetermined on the instance as at model level, while a body attribute reads its value.
 // A constraint usage whose input nothing binds reads as an undetermined verdict, itself
-// and through `result`, rather than failing the read.
+// and through `result`, rather than failing the read. An input nothing supplies stays
+// undetermined whatever lower bound it declares (`[1]` as unstated), and its count is
+// the effective range of the parameter for a calc and a constraint alike.
 package test {
 	private import ScalarValues::*;
+	private import SequenceFunctions::size;
 
 	part def Rig {
 		calc scaled {
@@ -19,6 +22,16 @@ package test {
 			in limit : Real;
 			in slack : Real = 1.0;
 			limit > slack
+		}
+		calc scaledOne {
+			in w : Real[1];
+			in k : Real = 2.0;
+			attribute s : Real = 5.0;
+			return : Real = w * k;
+		}
+		constraint underOne {
+			in limit : Real[1];
+			limit > 1.0
 		}
 		action act {
 			in i : Integer;
@@ -35,6 +48,14 @@ package test {
 		attribute underSlack = rig.under.slack;
 		attribute underVerdict = rig.under;
 		attribute underResult = rig.under.result;
+		attribute scaledWCount = size(rig.scaled.w);
+		attribute underLimitCount = size(rig.under.limit);
+		attribute scaledOneW = rig.scaledOne.w;
+		attribute scaledOneS = rig.scaledOne.s;
+		attribute scaledOneResult = rig.scaledOne.result;
+		attribute underOneLimit = rig.underOne.limit;
+		attribute underOneVerdict = rig.underOne;
+		attribute underOneResult = rig.underOne.result;
 		attribute actIn = rig.act.i;
 		attribute actOut = rig.act.o;
 		attribute actK = rig.act.k;
