@@ -96,6 +96,26 @@ func (ctx *Context) ownResultParameter(typ, sym *symbols.Symbol) string {
 	return ""
 }
 
+// conditionSelf is the object a requirement usage's conditions read: the object owner
+// holds under the usage's name when it holds one (its own features, KerML §7.4.11), else owner.
+func (ctx *Context) conditionSelf(sym *symbols.Symbol, owner *Instance) *Instance {
+	if owner == nil || sym == nil || sym.Name == "" || declaringType(sym) == nil {
+		return owner
+	}
+	if _, has := owner.FeatureValues[sym.Name]; !has {
+		return owner
+	}
+	fv, err := owner.GetFeatureValue(ctx, sym.Name)
+	if err != nil || fv == nil {
+		return owner
+	}
+	value := fv.HeldValue()
+	if inst, ok := ctx.instances[value.Instance]; ok && value.Kind == ValInstance {
+		return inst
+	}
+	return owner
+}
+
 // conditionResultValue evaluates the result the library declares for a requirement
 // check, `allTrue(assumptions()) implies allTrue(constraints())`, against inst's
 // own features, each side as a satisfaction assertion evaluates its conditions:
@@ -104,18 +124,18 @@ func (ctx *Context) ownResultParameter(typ, sym *symbols.Symbol) string {
 func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
 	defer ctx.beginRun()()
 	members := ctx.chainMembers(typ, typ.OwnerScope)
-	// A nested usage's bindings and conditions read the object owning it, as the
-	// check on that object evaluates them (`subject s :>> s = sub;` names the owner's sub).
-	self := inst
+	// A nested usage's bindings name the owner's features (`subject s :>> s = sub;`) and are
+	// read against it, as the check on that object reads them; its conditions read its own object.
+	bindingSelf := inst
 	if owner, _ := inst.Owner(); owner != nil {
-		self = owner
+		bindingSelf = owner
 	}
-	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, self, nil, frame{})
+	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, bindingSelf, nil, frame{})
 	if err != nil {
 		return ctx.conditionResultOf(err, sym, feat)
 	}
 	conds := ctx.conditionsOf(typ, members)
-	check := conditionCheck{sym: typ, kind: "requirement", what: "require condition", self: self, bindings: mapFrame(bindings)}
+	check := conditionCheck{sym: typ, kind: "requirement", what: "require condition", self: inst, bindings: mapFrame(bindings)}
 	if conflictingResultExpression(conds) != nil {
 		_, err := ctx.evaluateConditions(check, conds)
 		return Value{}, err

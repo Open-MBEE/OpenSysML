@@ -1371,6 +1371,7 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 	commit, rollback := ctx.beginJournal()
 	// A satisfy usage's `by` is its subject's binding (SysML v2 §7.21.4), read like
 	// a body's `subject = x;` unless an object is supplied from outside.
+	suppliedBy := false
 	if by := satisfiedBy(sym); by != nil && subject == nil {
 		value, err := evalIn(sym.OwnerScope).Eval(by)
 		if err != nil {
@@ -1380,6 +1381,7 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 		for _, name := range ctx.subjectParameterNames(sym) {
 			bindings[name] = value
 		}
+		suppliedBy = true
 	}
 	for _, member := range members {
 		var what string
@@ -1410,9 +1412,9 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 			}
 			continue
 		}
-		if expr == nil {
-			// A redeclaration valuing nothing reads the value the feature it
-			// redefines binds, under its own names too.
+		// A redeclaration valuing nothing reads the value the feature it redefines binds,
+		// under its own names too; so does a subject the `by` operand supersedes (§7.21.4).
+		if expr == nil || (isSubject && suppliedBy) {
 			if value, ok := boundUnder(bindings, names); ok {
 				if err := hold(member, what+" binding", value); err != nil {
 					rollback()
@@ -1429,8 +1431,9 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 		bound := false
 		if isSubject {
 			value, bound, err = ctx.qualifiedMemberOf(self, member.scope, expr)
-			// A subject defaulted to a member holding nothing determined stays unbound.
-			if bound && err == nil && (value.Kind == ValUndetermined || certainlyEmpty(value)) {
+			// A subject defaulted to a member holding nothing determined stays unbound;
+			// a value written with `=` is held, and refused when it is empty.
+			if bound && err == nil && valueIsDefault(member.node) && (value.Kind == ValUndetermined || certainlyEmpty(value)) {
 				continue
 			}
 		}
@@ -1536,6 +1539,17 @@ func (ctx *Context) subjectParameterNames(sym *symbols.Symbol) []string {
 		}
 	}
 	return names
+}
+
+// valueIsDefault reports whether a member's value expression is written as `default`.
+func valueIsDefault(node ast.Node) bool {
+	switch m := node.(type) {
+	case *ast.SubjectMember:
+		return m.ValueIsDefault
+	case *ast.Usage:
+		return m.ValueIsDefault
+	}
+	return false
 }
 
 // boundUnder returns the value bindings hold under any of names.
@@ -1677,7 +1691,7 @@ func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 		sym:      sym,
 		kind:     "requirement",
 		what:     "require condition",
-		self:     subject.instance,
+		self:     ctx.conditionSelf(sym, subject.instance),
 		bindings: mapFrame(reqBindings),
 		negated:  NegatedDecl(sym),
 	}, conds)
