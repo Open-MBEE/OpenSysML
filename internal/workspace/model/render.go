@@ -326,6 +326,22 @@ func (w *Workspace) renderViewWithLocked(d *Document, fqn string, overlay view.O
 	return rendering, nil
 }
 
+// relatedElementsLocked is Reading.RelatedElements under the lock.
+func (w *Workspace) relatedElementsLocked(doc, fqn string) (*symbols.Symbol, []view.RelatedGroup, error) {
+	if w.docs[doc] == nil {
+		return nil, nil, fmt.Errorf("%s: no such document", doc)
+	}
+	sym, err := namedFrom(w.index, func(d string) bool { _, ok := w.docs[d]; return ok }, doc, fqn)
+	if err != nil || sym == nil {
+		return nil, nil, err
+	}
+	var groups []view.RelatedGroup
+	w.queryLocked(doc, func(*resolve.Resolver, *semantics.Model) {
+		groups = w.rendererLocked(doc).Related(sym)
+	})
+	return sym, groups, nil
+}
+
 // renderPseudoLocked renders a pseudo-view: `#<kind>` renders the document's own
 // top-level elements, `#<kind>:<fqn>` the element named.
 func (w *Workspace) renderPseudoLocked(doc, spec string, renderer *view.Renderer) (*view.Rendering, error) {

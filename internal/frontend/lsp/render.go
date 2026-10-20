@@ -349,6 +349,16 @@ func (s *Server) renderHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
 			}
 			return reply(ctx, s.Views(&params), nil)
+		case MethodRelatedElements:
+			var params RelatedElementsParams
+			if err := json.Unmarshal(req.Params(), &params); err != nil {
+				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
+			}
+			res, err := s.RelatedElements(&params)
+			if err != nil {
+				return reply(ctx, nil, err)
+			}
+			return reply(ctx, res, nil)
 		case MethodDocuments:
 			return reply(ctx, s.Documents(), nil)
 		case MethodRenderDocument:

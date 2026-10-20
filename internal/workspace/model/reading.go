@@ -147,6 +147,13 @@ func (r *Reading) RenderOverlaidView(doc, fqn string, overlay view.Overlay, verd
 	return r.w.renderViewLocked(doc, fqn, overlay, verdicts, depth, include)
 }
 
+// RelatedElements groups the model's own elements related to the element fqn
+// names from doc by the relationships a rendering draws edges for, with the
+// element itself; nil when no held document declares it, an error when several do.
+func (r *Reading) RelatedElements(doc, fqn string) (*symbols.Symbol, []view.RelatedGroup, error) {
+	return r.w.relatedElementsLocked(doc, fqn)
+}
+
 // LinkSites is RenderViewLinked's source sites for a rendering made by this
 // reading, frozen into its snapshot.
 func (r *Reading) LinkSites(rendering *view.Rendering, snapshot *Snapshot) {
