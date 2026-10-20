@@ -17,6 +17,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
+// errorLine prefixes the lines of a comparison that report a failure.
+const errorLine = "error: "
+
 // compareOptions shape the runs CompareResults makes, as the request asked.
 type compareOptions struct {
 	runs      int64
@@ -89,7 +92,7 @@ func (s *Service) CompareResults(ctx context.Context, req *pb.CompareResultsRequ
 	}
 	for _, r := range refused {
 		resp.Configurations = append(resp.Configurations, &pb.ConfigurationComparison{
-			Name: r.Name, Status: "unresolved", Unresolved: r.Reason, Lines: []string{"error: " + r.Reason}})
+			Name: r.Name, Status: "unresolved", Unresolved: r.Reason, Lines: []string{errorLine + r.Reason}})
 	}
 	return resp, nil
 }
@@ -106,8 +109,9 @@ func (s *Service) compareConfiguration(ctx context.Context, v *verifyContext, cf
 	}
 	unresolved := func(reason string) {
 		c.Status, c.Unresolved = "unresolved", reason
-		c.Lines = append(c.Lines, "error: "+reason)
+		c.Lines = append(c.Lines, errorLine+reason)
 	}
+	notRun := func(why string) { unresolved("the configuration " + cfg.Name + " could not be run: " + why) }
 	if cfg.Behavior == "" {
 		reason := "the configuration " + cfg.Name + " performs no migrated behavior"
 		if len(cfg.Notes) > 0 {
@@ -148,7 +152,7 @@ func (s *Service) compareConfiguration(ctx context.Context, v *verifyContext, cf
 	c.Runs, c.Draws, c.ClockStep = count, policy.String(), step
 	syms := v.cached.LookupNamedMember(cfg.Name)
 	if len(syms) == 0 {
-		unresolved("the configuration " + cfg.Name + " could not be run: action not found: " + cfg.Name)
+		notRun("action not found: " + cfg.Name)
 		return c, nil, nil
 	}
 	action := syms[0]
@@ -157,7 +161,7 @@ func (s *Service) compareConfiguration(ctx context.Context, v *verifyContext, cf
 	case opts.seed != nil:
 		plan = sweep.MonteCarloPlan(count, *opts.seed)
 	case !policy.Fixed():
-		unresolved("the configuration " + cfg.Name + " could not be run: the runs draw at random; set seed, or fix the draws as min, max or average")
+		notRun("the runs draw at random; set seed, or fix the draws as min, max or average")
 		return c, nil, nil
 	}
 	run := func(rt *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
@@ -192,7 +196,7 @@ func (s *Service) compareConfiguration(ctx context.Context, v *verifyContext, cf
 		if ctx.Err() != nil {
 			return nil, nil, ctx.Err()
 		}
-		unresolved("the configuration " + cfg.Name + " could not be run: " + err.Error())
+		notRun(err.Error())
 		return c, &answered, nil
 	}
 	table := answered.Result.Table()
@@ -224,7 +228,7 @@ func (s *Service) compareConfiguration(ctx context.Context, v *verifyContext, cf
 	c.Lines = append(c.Lines, comparison.Lines()...)
 	c.Errors = dedupeSorted(failures)
 	for _, f := range c.Errors {
-		c.Lines = append(c.Lines, "error: "+f)
+		c.Lines = append(c.Lines, errorLine+f)
 	}
 	c.Notes = append(notes, cfg.Notes...)
 	for _, n := range c.Notes {

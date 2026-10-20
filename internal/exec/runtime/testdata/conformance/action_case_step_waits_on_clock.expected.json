@@ -4,7 +4,7 @@
   "evaluate": "test::Config",
   "trace": true,
   "outputs": {
-    "verdict": {"type": "EnumLiteral", "value": "VerdictKind::pass"},
-    "ended": {"type": "Real", "value": 60.0}
+    "verdict": {"type": "Sequence", "elements": [{"type": "EnumLiteral", "value": "VerdictKind::pass"}]},
+    "ended": {"type": "Sequence", "elements": [{"type": "Real", "value": 60.0}]}
   }
 }

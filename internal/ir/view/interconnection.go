@@ -53,15 +53,26 @@ func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []
 				declKind(elem), r.notationName(elem)))
 		}
 	}
-	// A port the drawn usages of its owner pin is drawn there alone, on each of
-	// them, whatever the display shows.
+	w.exposedPorts(ports)
+	w.connectorEdges()
+	w.valueBindingEdges()
+	first := make(map[*symbols.Symbol]*Node, len(w.nodes))
+	for sym, nodes := range w.nodes {
+		first[sym] = nodes[0]
+	}
+	return first
+}
+
+// exposedPorts marks each exposed port where the drawn usages of its owner pin
+// it — on each of them, whatever the display shows — and draws the rest as nodes.
+func (w *featureWalk) exposedPorts(ports []*symbols.Symbol) {
 	for _, port := range ports {
 		if w.node(port) != nil {
 			continue
 		}
 		sites := w.pinSites(port)
 		if len(sites) == 0 {
-			out.Roots = append(out.Roots, w.featureNode(port, expansion{}, 0, true))
+			w.out.Roots = append(w.out.Roots, w.featureNode(port, expansion{}, 0, true))
 			continue
 		}
 		for _, site := range sites {
@@ -72,8 +83,11 @@ func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []
 			}
 		}
 	}
-	// A connector found in a node is drawn there; exposed by itself as well,
-	// it is not drawn again from outside.
+}
+
+// connectorEdges draws each collected connector once: one found in a node is
+// drawn there, and not again from outside when the view also exposes it.
+func (w *featureWalk) connectorEdges() {
 	seen, within := map[connectorSite]bool{}, map[*symbols.Symbol]bool{}
 	for _, connector := range w.connectors {
 		if connector.within != nil {
@@ -87,12 +101,6 @@ func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []
 		seen[connector] = true
 		w.connectionEdges(connector.sym, connector.within)
 	}
-	w.valueBindingEdges()
-	first := make(map[*symbols.Symbol]*Node, len(w.nodes))
-	for sym, nodes := range w.nodes {
-		first[sym] = nodes[0]
-	}
-	return first
 }
 
 // featureWalk is one interconnection rendering's walk over the exposed features:
@@ -200,7 +208,7 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, path expansion, depth int
 		name = localName(sym)
 	}
 	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
-		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out),
+		Type: r.headType(sym), Typings: r.headTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out),
 		Style: r.styleOf(w.view, sym, w.out)}
 	if path[sym] {
 		node.Detail = detailWith(node.Detail, "already shown as "+w.node(sym).ID)
@@ -294,7 +302,7 @@ func (w *featureWalk) pinParameters(node *Node, sym *symbols.Symbol) {
 func (w *featureWalk) pin(node *Node, sym *symbols.Symbol, direction PortDirection, parameter bool, geometry *Geometry) {
 	id := portID(node.ID, len(node.Ports))
 	node.Ports = append(node.Ports, Port{ID: id, Name: localName(sym), NameSynthesized: w.r.model.NameSynthesized(sym),
-		Type: declType(sym), Direction: direction, Parameter: parameter, Origin: symbolOrigin(sym), Geometry: geometry})
+		Type: w.r.headType(sym), Direction: direction, Parameter: parameter, Origin: symbolOrigin(sym), Geometry: geometry})
 	if w.pins[node] == nil {
 		w.pins[node] = map[*symbols.Symbol]string{}
 	}
@@ -638,21 +646,8 @@ func (w *featureWalk) endNode(connector *symbols.Symbol, within *Node, attachmen
 	}
 	target, resolved := w.r.resolver.ResolveTarget(connector.OwnerScope, attachment)
 	if operand := chainOperand(attachment); operand != nil {
-		if resolved && w.mixed && target.Owner() != nil && !mixedStructural(target.Owner()) {
-			if node := w.node(target); node != nil {
-				return edgeEnd{node: node}
-			}
-		}
-		if base := w.endNode(connector, within, operand); base.node != nil {
-			if at := w.memberEnd(base.node, target); at.node != nil {
-				return at
-			}
-			// A member the view's filters exclude ends no edge at its owner; one
-			// below the depth bound or a collapsed body does.
-			if resolved && w.excluded(target) {
-				return edgeEnd{}
-			}
-			return base
+		if at, ok := w.chainEnd(connector, within, operand, target, resolved); ok {
+			return at
 		}
 	}
 	if !resolved || w.excluded(target) {
@@ -677,6 +672,30 @@ func (w *featureWalk) endNode(connector *symbols.Symbol, within *Node, attachmen
 	}
 	// A port of a definition drawn only as the pin of the one usage typed by it.
 	return w.pinSite(target)
+}
+
+// chainEnd is where a feature chain's target attaches under what its operand
+// draws; ok is false when the operand draws nothing, leaving the end to the
+// rendering at large.
+func (w *featureWalk) chainEnd(connector *symbols.Symbol, within *Node, operand ast.Node, target *symbols.Symbol, resolved bool) (at edgeEnd, ok bool) {
+	if resolved && w.mixed && target.Owner() != nil && !mixedStructural(target.Owner()) {
+		if node := w.node(target); node != nil {
+			return edgeEnd{node: node}, true
+		}
+	}
+	base := w.endNode(connector, within, operand)
+	if base.node == nil {
+		return edgeEnd{}, false
+	}
+	if at := w.memberEnd(base.node, target); at.node != nil {
+		return at, true
+	}
+	// A member the view's filters exclude ends no edge at its owner; one
+	// below the depth bound or a collapsed body does.
+	if resolved && w.excluded(target) {
+		return edgeEnd{}, true
+	}
+	return base, true
 }
 
 // memberEnd is where a member of what base draws attaches: the node under base

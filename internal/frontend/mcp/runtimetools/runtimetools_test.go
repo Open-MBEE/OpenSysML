@@ -135,7 +135,9 @@ func attach(t *testing.T, svc *sysmlgrpc.Service) *harness {
 	}
 	h := &harness{t: t, root: root}
 	server := mcp.NewServer(&mcp.Implementation{Name: "test-server", Version: "0"}, nil)
-	Register(server, svc, root)
+	if err := Register(server, svc, root); err != nil {
+		t.Fatal(err)
+	}
 	serverT, clientT := mcp.NewInMemoryTransports()
 	ctx := context.Background()
 	go func() { _ = server.Run(ctx, serverT) }()
@@ -420,10 +422,12 @@ func TestExecuteActionBindsInputsAndReportsOutputs(t *testing.T) {
 	_, out := h.ok("execute_action", map[string]any{
 		"modelHash": hash, "actionSymbolId": "Demo::Count", "inputs": map[string]any{"lo": value("intValue", "41")},
 	}, &resp)
-	if resp.GetError() != "" || resp.GetOutputs()["hi"].GetIntValue() != 42 {
+	// The bare `out hi` is [0..*], so its one value is reported as a one-element sequence.
+	hi := resp.GetOutputs()["hi"].GetSequence().GetElements()
+	if resp.GetError() != "" || len(hi) != 1 || hi[0].GetIntValue() != 42 {
 		t.Errorf("Count(41) = %v, error %q\n%s", resp.GetOutputs(), resp.GetError(), out)
 	}
-	if !strings.Contains(out, "hi = 42") {
+	if !strings.Contains(out, "hi = (42)") {
 		t.Errorf("text lacks the output:\n%s", out)
 	}
 
@@ -679,11 +683,11 @@ func TestPathsStayUnderTheRoot(t *testing.T) {
 	}
 	var resp pb.ParseSourcesResponse
 	_, out := h.ok("parse", map[string]any{"paths": []string{"inside.sysml", "brokenlink.sysml"}}, &resp)
-	real, err := filepath.EvalSymlinks(filepath.Join(h.root, "broken.sysml"))
+	resolved, err := filepath.EvalSymlinks(filepath.Join(h.root, "broken.sysml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, real) || strings.Contains(out, "brokenlink.sysml") {
+	if !strings.Contains(out, resolved) || strings.Contains(out, "brokenlink.sysml") {
 		t.Errorf("the service must be handed the resolved file, not the link:\n%s", out)
 	}
 	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "alias.kerml")); err != nil {
@@ -1040,5 +1044,26 @@ func TestDiagnosticsReportsEveryDiagnostic(t *testing.T) {
 	}
 	if msg := h.fails("diagnostics", map[string]any{"modelHash": "nope"}); !strings.Contains(msg, "NOT_FOUND") {
 		t.Errorf("an unknown hash: %s", msg)
+	}
+}
+
+func TestADanglingLinkIsJudgedByWhereItPoints(t *testing.T) {
+	h := attach(t, newService(t))
+	if err := os.Symlink(filepath.Join(filepath.Dir(h.root), "not-yet.sysml"), filepath.Join(h.root, "dangle.sysml")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	for name, args := range map[string]map[string]any{
+		"parse":   {"paths": []string{"dangle.sysml"}},
+		"convert": {"filePath": "dangle.sysml", "toFormat": "ttl"},
+	} {
+		if msg := h.fails(name, args); !strings.Contains(msg, "INVALID_ARGUMENT") || !strings.Contains(msg, "leads through a symlink to") {
+			t.Errorf("%s through a dangling link out of the root: %s", name, msg)
+		}
+	}
+	if err := os.Symlink("later.sysml", filepath.Join(h.root, "soon.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	if msg := h.fails("parse", map[string]any{"paths": []string{"soon.sysml"}}); strings.Contains(msg, "outside") {
+		t.Errorf("a dangling link staying inside the root is a file not yet written, not outside: %s", msg)
 	}
 }

@@ -1,6 +1,6 @@
 {
 	"type": "action",
 	"outputs": {
-		"result": {"type": "Rational", "value": "4.0"}
+		"result": {"type": "Sequence", "elements": [{"type": "Rational", "value": "4.0"}]}
 	}
 }

@@ -1,0 +1,28 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::probe",
+  "outputs": {
+    "g.flag": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Boolean",
+          "value": true
+        }
+      ]
+    },
+    "g.limit": {
+      "type": "Integer",
+      "value": 3
+    },
+    "g.seen": {
+      "type": "Integer",
+      "value": 1
+    },
+    "g.count": {
+      "type": "Integer",
+      "value": 3
+    }
+  }
+}

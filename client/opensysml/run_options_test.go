@@ -35,7 +35,7 @@ func TestRunOptionsAdvanceAndClockStep(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExecuteAction advance 10: %v", err)
 	}
-	if run.FinalTime != 10 || run.Outputs["fired"] != opensysml.Bool(true) {
+	if run.FinalTime != 10 || sole(t, "fired", run.Outputs["fired"]) != opensysml.Bool(true) {
 		t.Errorf("ExecuteAction advance 10: FinalTime = %v, fired = %#v; want 10 and Bool(true)", run.FinalTime, run.Outputs["fired"])
 	}
 

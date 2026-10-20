@@ -60,12 +60,13 @@ public record RunDocument(RunDocumentForm form, String content, String fileName)
     static List<String> splitQualifiedName(String qualifiedName) {
         StringBuilder raw = new StringBuilder();
         boolean quoted = false;
-        for (int i = 0; i < qualifiedName.length(); i++) {
-            char ch = qualifiedName.charAt(i);
+        int i = 0;
+        while (i < qualifiedName.length()) {
+            char ch = qualifiedName.charAt(i++);
             if (ch == '\'') {
                 quoted = !quoted;
-            } else if (quoted && ch == '\\' && i + 1 < qualifiedName.length()) {
-                raw.append(ch).append(qualifiedName.charAt(++i));
+            } else if (quoted && ch == '\\' && i < qualifiedName.length()) {
+                raw.append(ch).append(qualifiedName.charAt(i++));
             } else {
                 raw.append(ch);
             }
@@ -75,8 +76,10 @@ public record RunDocument(RunDocumentForm form, String content, String fileName)
 
     private static boolean isDeviceStem(String stem) {
         int dot = stem.indexOf('.');
-        String name = (dot < 0 ? stem : stem.substring(0, dot)).replaceAll(" +$", "").toUpperCase();
-        return DEVICE_NAMES.contains(name);
+        String head = dot < 0 ? stem : stem.substring(0, dot);
+        int end = head.length();
+        while (end > 0 && head.charAt(end - 1) == ' ') end--;
+        return DEVICE_NAMES.contains(head.substring(0, end).toUpperCase());
     }
 
     // Cuts an ASCII stem to n bytes, keeping a `.XX` escape whole.

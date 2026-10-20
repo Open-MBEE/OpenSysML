@@ -107,7 +107,7 @@ func TestMCPServerShipsAsItsOwnArchive(t *testing.T) {
 		}
 		i += 1 + next
 	}
-	if i := stepIndex(runSteps(t, config.Jobs["publish-github-release"].Steps), "dist/*.tar.gz dist/*.zip dist/release/"); i < 0 {
+	if stepIndex(runSteps(t, config.Jobs["publish-github-release"].Steps), "dist/*.tar.gz dist/*.zip dist/release/") < 0 {
 		t.Error("publish-github-release no longer moves dist/*.tar.gz and dist/*.zip into the release, which is how the sysml-mcp archives are published")
 	}
 

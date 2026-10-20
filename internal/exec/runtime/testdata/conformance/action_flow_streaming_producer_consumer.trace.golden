@@ -18,7 +18,7 @@ choice step 5: tokens 2@emit, 3@prime (unordered; took 3@prime first; independen
 step 5: token 2@again, token 3@take
 stmt assign total
     eval feature total -> 0
-    eval feature value -> 1
+    eval feature value -> (1)
   eval operator + -> 1
 stmt assign reads
     eval feature reads -> 0
@@ -42,7 +42,7 @@ choice step 7: tokens 2@emit, 3@more (unordered; took 3@more first; independent)
 step 7: token 2@again, token 3@take
 stmt assign total
     eval feature total -> 1
-    eval feature value -> 2
+    eval feature value -> (2)
   eval operator + -> 3
 stmt assign reads
     eval feature reads -> 1
@@ -66,7 +66,7 @@ choice step 9: tokens 2@emit, 3@more (unordered; took 3@more first; independent)
 step 9: token 2@again, token 3@take
 stmt assign total
     eval feature total -> 3
-    eval feature value -> 3
+    eval feature value -> (3)
   eval operator + -> 6
 stmt assign reads
     eval feature reads -> 2

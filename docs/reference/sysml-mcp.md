@@ -211,7 +211,9 @@ environment's setup installs it on `PATH`.
 The server offers three groups, chosen with `-tools lsp,runtime,session` (every group by
 default): `lsp` is the language server's workspace over the documents under the root, `runtime`
 the one-shot service also served by [`sysml-grpc`](service-transports.md) — one tool per RPC,
-with the RPC's request as the arguments and its response as the structured result — and
+with the RPC's request as the arguments and its response as the structured result (the
+[conformance suite](https://github.com/Open-MBEE/OpenSysML/tree/main/conformance) runs through these tools as protocol `mcp`,
+so they answer the scenarios the service does) — and
 `session` persistent REPL sessions, one tool per `%` command. Serving fewer groups keeps the
 catalogue small for an agent that needs only one of them. The catalogue below is the server's
 own `tools/list`, with each tool's description cut to its first sentence; the tool's full
@@ -315,7 +317,7 @@ without this page.
 | `session_load` | Load model files into a session, as %load does: files, directories or globs, resolved against the workspace root and refused outside it. | yes |
 | `session_open` | Open a named REPL session: an empty model that declarations, instances and runs accumulate into across calls. | yes |
 | `session_print` | Print a session's model as SysML notation, or one named element with its body, as %print does. | no |
-| `session_run` | Run a behavior in a session to completion and report what it produced: an action (%action then %continue), a state machine (%state, then %advance when a duration is given), a calc (%calc) or an analysis case (%analysis). | yes |
+| `session_run` | Run a behavior in a session to completion and report what it produced: an action (%action then %continue), a state machine (%state, then %advance when a duration is given), a calc (%calc) or an analysis case (%analysis). Its `arguments` are expressions evaluated together in one run, as the REPL evaluates an argument list, so a seeded draw in one continues the stream of the draw before it. | yes |
 | `session_save` | Write a session's model to a file under the workspace root, as %save does: .sysml notation with comments preserved, or .ttl/.json RDF (experimental). | yes |
 | `session_submit` | Submit SysML declarations to a session, as typing them at the prompt does: the text joins the model, the whole model is re-analyzed, and what it declared and the diagnostics about it come back. | yes |
 | `solve` | Ask an SMT solver for values satisfying an element's conditions (%solve, experimental), keeping the values the model already fixes; reports the conflict when the fixed values admit none. | no |

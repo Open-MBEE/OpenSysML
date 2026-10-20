@@ -27,7 +27,7 @@ func TestSuitePassesThroughThePublicGoAPI(t *testing.T) {
 	scenarios := loadSuite(t)
 	var log strings.Builder
 	r := &runner{
-		service:     &service{binary: "client/opensysml"},
+		service:     "client/opensysml",
 		client:      c,
 		fixtures:    filepath.Join(suiteDir, "fixtures"),
 		models:      map[string]string{},

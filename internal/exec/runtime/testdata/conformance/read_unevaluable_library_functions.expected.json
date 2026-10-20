@@ -1,0 +1,28 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::probe",
+  "outputs": {
+    "one": {"type": "Integer", "value": 1}
+  },
+  "reads": {
+    "test::bracketOperator": {"type": "Quantity", "value": 2.0, "unit": "SI::m"},
+    "test::bracketCall": {"error": "library function is not evaluable: BaseFunctions::'[': '[' is abstract: the runtime evaluates its operator notation `num [unit]`"},
+    "test::istypeOperator": {"type": "Boolean", "value": true},
+    "test::istypeCall": {"error": "library function is not evaluable: BaseFunctions::'istype': the function is abstract and its type parameter is a type reference, not a value (KerML 8.3.4.8 ClassificationExpression)"},
+    "test::hastypeOperator": {"type": "Boolean", "value": true},
+    "test::hastypeCall": {"error": "library function is not evaluable: BaseFunctions::'hastype': the function is abstract and its type parameter is a type reference"},
+    "test::atOperator": {"type": "Boolean", "value": true},
+    "test::atCall": {"error": "library function is not evaluable: BaseFunctions::'@': the function is abstract and its type parameter is a type reference"},
+    "test::asOperator": {"type": "Integer", "value": 1},
+    "test::asCall": {"error": "library function is not evaluable: BaseFunctions::'as': the function is abstract and its type is a type reference, not a value (KerML 8.3.4.8 ClassificationExpression)"},
+    "test::allOperator": {"type": "Integer", "value": 2},
+    "test::allCall": {"error": "library function is not evaluable: BaseFunctions::'all': the function is abstract and names a type, not a value (KerML 8.3.4.8 ExtentExpression)"},
+    "test::metaCall": {"error": "library function is not evaluable: BaseFunctions::'meta': the function is abstract and its type is a type reference, not a value (KerML 8.3.4.8 MetadataAccessExpression)"},
+    "test::complexToString": {"error": "library function is not evaluable: ComplexFunctions::ToString: no string notation for a Complex value is defined"},
+    "test::complexFromString": {"error": "library function is not evaluable: ComplexFunctions::ToComplex: no string notation for a Complex value is defined"},
+    "test::naturalQuotientExact": {"type": "Integer", "value": 3},
+    "test::naturalQuotientInexact": {"error": "arithmetic domain error: function NaturalFunctions::'/' has no Natural result for 7 / 2; the quotient is 3.5"},
+    "test::createdFresh": {"type": "Instance"}
+  }
+}

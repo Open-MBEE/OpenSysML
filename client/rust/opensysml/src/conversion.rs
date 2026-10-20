@@ -162,6 +162,7 @@ pub(crate) fn request_of(
         compact: false,
         omit_derived: false,
         keep_derived: Vec::new(),
+        include_check_diagnostics: false,
         source: Some(match source {
             ConvertSource::File(path) => Source::FilePath(path.to_string_lossy().into_owned()),
             ConvertSource::Content(content) => Source::Content(content.clone()),

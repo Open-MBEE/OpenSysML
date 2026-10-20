@@ -112,7 +112,7 @@ func (m *migration) carrierSignal(v *sysmlv1.Element, incoming []*sysmlv1.Elemen
 		sig = s
 	}
 	if cat, _ := m.classify(sig); cat != catItemDef {
-		return nil, "the signal " + m.nameFor(sig) + " is written as " + aOrAn(cat.keyword()) + ", which no item holds"
+		return nil, "the signal " + m.nameFor(sig) + isWrittenAs + aOrAn(cat.keyword()) + ", which no item holds"
 	}
 	return sig, ""
 }

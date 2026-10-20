@@ -210,14 +210,14 @@ func arithmeticDomain(op ast.OperatorKind) func(other Value) ([]string, bool) {
 }
 
 // comparisonDomain is the types an open operand of an ordering may hold beside
-// other: a String orders against a String, a number or quantity against a number,
-// and a Boolean or Complex against nothing.
+// other: a String orders against a String, a number, the unbounded `*` or a
+// quantity against a number, and a Boolean or Complex against nothing.
 func comparisonDomain(other Value) ([]string, bool) {
 	switch other.Kind {
 	case ValString:
 		return []string{stringTypeFQN}, true
 	case ValConst:
-		return []string{numericalValueTypeFQN}, other.Const.IsNumeric()
+		return []string{numericalValueTypeFQN}, other.Const.IsNumeric() || other.Const.IsUnbounded()
 	case ValQuantity:
 		return []string{numericalValueTypeFQN}, true
 	case ValComplex:

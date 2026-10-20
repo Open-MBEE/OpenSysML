@@ -33,6 +33,12 @@ var lintCodes = []Entry{
 	},
 }
 
+// The extension libraries the method codes cite.
+const (
+	specMOSA  = "MOSA extension library"
+	specOOSEM = "OOSEM extension library"
+)
+
 // methodCodes are the codes of the method rules: findings of the MOSA and OOSEM
 // self-check passes, which read a model against a modeling method it declares.
 var methodCodes = []Entry{
@@ -48,35 +54,35 @@ var methodCodes = []Entry{
 		Summary: "a modular system interface naming no interface control authority",
 		Meaning: "The model names an interface control authority for other interfaces, so MOSA expects one on this interface or its definition. " +
 			"Add an `@InterfaceControl` annotation.",
-		Spec: "MOSA extension library",
+		Spec: specMOSA,
 	},
 	{
 		Code: "mosa-interface-not-traced", Tier: TierMethod, Severity: "warning",
 		Summary: "a modular system interface satisfying no requirement",
 		Meaning: "The model declares interface requirements, so MOSA expects each modular system interface, or its definition, to be named by a `satisfy ... by` statement. " +
 			"Add the satisfaction.",
-		Spec: "MOSA extension library",
+		Spec: specMOSA,
 	},
 	{
 		Code: "mosa-component-no-data-rights", Tier: TierMethod, Severity: "warning",
 		Summary: "a major system component recording no data rights",
 		Meaning: "The model records data rights elsewhere, so MOSA expects a `@DataRights` annotation on this component or its definition stating the rights the program holds in its technical data. " +
 			"Add the annotation.",
-		Spec: "MOSA extension library",
+		Spec: specMOSA,
 	},
 	{
 		Code: "mosa-proprietary-no-rationale", Tier: TierMethod, Severity: "warning",
 		Summary: "an element marked `@Proprietary` with no rationale",
 		Meaning: "MOSA expects the justification for each proprietary element to be recorded with it. " +
 			"Give the annotation a `rationale`.",
-		Spec: "MOSA extension library",
+		Spec: specMOSA,
 	},
 	{
 		Code: "mosa-boundary-not-designated", Tier: TierMethod, Severity: "warning",
 		Summary: "a connection between major components that is no modular system interface",
 		Meaning: "The connection joins two major system components (or modular systems), a boundary MOSA expects to be designated a modular system interface. " +
 			"Type the connection by a `#modularSystemInterface` definition or mark it so.",
-		Spec: "MOSA extension library",
+		Spec: specMOSA,
 	},
 	{
 		Code: "oosem-requirement-not-derived", Tier: TierMethod, Severity: "warning",
@@ -90,21 +96,21 @@ var methodCodes = []Entry{
 		Summary: "a requirement nothing satisfies",
 		Meaning: "The model states satisfactions, so OOSEM expects each requirement to be named by a `satisfy` statement. " +
 			"Add the satisfaction, or mark the requirement as not yet allocated.",
-		Spec: "OOSEM extension library",
+		Spec: specOOSEM,
 	},
 	{
 		Code: "oosem-logical-component-not-allocated", Tier: TierMethod, Severity: "warning",
 		Summary: "a logical component allocated to nothing",
 		Meaning: "The model declares nodes or physical components, so OOSEM expects each logical component, or its type, to be allocated to one. " +
 			"Add an `allocate` from the component to a node or physical component.",
-		Spec: "OOSEM extension library",
+		Spec: specOOSEM,
 	},
 	{
 		Code: "oosem-use-case-subject", Tier: TierMethod, Severity: "warning",
 		Summary: "a use case whose subject is untyped",
 		Meaning: "The subject of a use case is the system it serves; OOSEM expects it typed by that system's definition. " +
 			"Type the subject.",
-		Spec: "OOSEM extension library",
+		Spec: specOOSEM,
 	},
 	{
 		Code: "self-check-rule", Tier: TierMethod, Severity: "error",

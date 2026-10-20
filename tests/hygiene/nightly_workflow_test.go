@@ -36,6 +36,7 @@ type actionsStep struct {
 	Run  string            `yaml:"run"`
 	If   string            `yaml:"if"`
 	With map[string]string `yaml:"with"`
+	Env  map[string]string `yaml:"env"`
 }
 
 func (j actionsJob) needs() []string {
@@ -430,5 +431,35 @@ func TestNightlyPublishesTheNpmRunnerWithTheClient(t *testing.T) {
 	}
 	if stepIndex(npm, "dist-tags.latest", "@openmbee/sysml-mcp") < 0 {
 		t.Error("the npm job does not check, after publishing, that @openmbee/sysml-mcp's latest still names the stable release")
+	}
+}
+
+// The clients are versioned as development builds of the release the snapshot leads
+// to; the extension must be too, or a night's vsix (0.10.1-nightly-…) ranks below the
+// 0.10.1 already released and VS Code offers the release as an upgrade from it.
+func TestNightlyVSIXIsVersionedAsTheSnapshotCoreNotTheManifest(t *testing.T) {
+	workflow, _ := loadNightlyWorkflow(t)
+	publish := nightlyJob(t, workflow, "publish")
+	derive := stepIndex(publish.runSteps(), `"$SNAPSHOT_SCRIPT"`, `--stamp`)
+	if derive < 0 || !containsAll(publish.runSteps()[derive].Command, `echo "$versions"`, `>> "$GITHUB_OUTPUT"`) {
+		t.Fatalf("the publish job does not write the snapshot script's versions (core= included) to its outputs")
+	}
+	var packaged *actionsStep
+	for i := range publish.Steps {
+		if publish.Steps[i].Name == "Package the VS Code extension" {
+			packaged = &publish.Steps[i]
+		}
+	}
+	if packaged == nil {
+		t.Fatalf("the publish job has no 'Package the VS Code extension' step")
+	}
+	if packaged.Env["CORE"] != "${{ steps.version.outputs.core }}" {
+		t.Errorf("the vsix step reads CORE=%q, not the version step's core output", packaged.Env["CORE"])
+	}
+	if !containsAll(packaged.Run, `expected="${CORE}-${VERSION}"`, `"$stamped" != "$expected"`) {
+		t.Errorf("the vsix step does not package and check the extension as <core>-<snapshot tag>:\n%s", packaged.Run)
+	}
+	if strings.Contains(packaged.Run, "editors/vscode/package.json').version") {
+		t.Errorf("the vsix step still versions the extension from its manifest, which names the release already made:\n%s", packaged.Run)
 	}
 }

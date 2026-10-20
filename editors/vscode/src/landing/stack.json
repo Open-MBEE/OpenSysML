@@ -41,6 +41,7 @@
         "id": "n2",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n1",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -54,6 +55,7 @@
         "id": "n3",
         "kind": "attribute",
         "name": "kind",
+        "type": "String",
         "parent": "n1",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -67,6 +69,7 @@
         "id": "n4",
         "kind": "attribute",
         "name": "lang",
+        "type": "String",
         "parent": "n1",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -80,6 +83,7 @@
         "id": "n5",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n1",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -93,6 +97,7 @@
         "id": "n6",
         "kind": "attribute",
         "name": "repo",
+        "type": "String",
         "parent": "n1",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -120,6 +125,7 @@
         "id": "n8",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n7",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -133,6 +139,7 @@
         "id": "n9",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n7",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -174,6 +181,7 @@
         "id": "n12",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n11",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -187,6 +195,7 @@
         "id": "n13",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n11",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -228,6 +237,7 @@
         "id": "n16",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n15",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -241,6 +251,7 @@
         "id": "n17",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n15",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -282,6 +293,7 @@
         "id": "n20",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n19",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -295,6 +307,7 @@
         "id": "n21",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n19",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -336,6 +349,7 @@
         "id": "n24",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n23",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -349,6 +363,7 @@
         "id": "n25",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n23",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -390,6 +405,7 @@
         "id": "n28",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n27",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -403,6 +419,7 @@
         "id": "n29",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n27",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -444,6 +461,7 @@
         "id": "n32",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n31",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -457,6 +475,7 @@
         "id": "n33",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n31",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -498,6 +517,7 @@
         "id": "n36",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n35",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -511,6 +531,7 @@
         "id": "n37",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n35",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -552,6 +573,7 @@
         "id": "n40",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n39",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -565,6 +587,7 @@
         "id": "n41",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n39",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -606,6 +629,7 @@
         "id": "n44",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n43",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -619,6 +643,7 @@
         "id": "n45",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n43",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -660,6 +685,7 @@
         "id": "n48",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n47",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -673,6 +699,7 @@
         "id": "n49",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n47",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -714,6 +741,7 @@
         "id": "n52",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n51",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -727,6 +755,7 @@
         "id": "n53",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n51",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -768,6 +797,7 @@
         "id": "n56",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n55",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -781,6 +811,7 @@
         "id": "n57",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n55",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -822,6 +853,7 @@
         "id": "n60",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n59",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -835,6 +867,7 @@
         "id": "n61",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n59",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -876,6 +909,7 @@
         "id": "n64",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n63",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -889,6 +923,7 @@
         "id": "n65",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n63",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -930,6 +965,7 @@
         "id": "n68",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n67",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -943,6 +979,7 @@
         "id": "n69",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n67",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -991,6 +1028,7 @@
         "id": "n72",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n71",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1004,6 +1042,7 @@
         "id": "n73",
         "kind": "attribute",
         "name": "kind",
+        "type": "String",
         "parent": "n71",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1017,6 +1056,7 @@
         "id": "n74",
         "kind": "attribute",
         "name": "lang",
+        "type": "String",
         "parent": "n71",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1030,6 +1070,7 @@
         "id": "n75",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n71",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1043,6 +1084,7 @@
         "id": "n76",
         "kind": "attribute",
         "name": "repo",
+        "type": "String",
         "parent": "n71",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1070,6 +1112,7 @@
         "id": "n78",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n77",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1083,6 +1126,7 @@
         "id": "n79",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n77",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1124,6 +1168,7 @@
         "id": "n82",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n81",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1137,6 +1182,7 @@
         "id": "n83",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n81",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1178,6 +1224,7 @@
         "id": "n86",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n85",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1191,6 +1238,7 @@
         "id": "n87",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n85",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1232,6 +1280,7 @@
         "id": "n90",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n89",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1245,6 +1294,7 @@
         "id": "n91",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n89",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1286,6 +1336,7 @@
         "id": "n94",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n93",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1299,6 +1350,7 @@
         "id": "n95",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n93",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1340,6 +1392,7 @@
         "id": "n98",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n97",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1353,6 +1406,7 @@
         "id": "n99",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n97",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1394,6 +1448,7 @@
         "id": "n102",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n101",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1407,6 +1462,7 @@
         "id": "n103",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n101",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1448,6 +1504,7 @@
         "id": "n106",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n105",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1461,6 +1518,7 @@
         "id": "n107",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n105",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1509,6 +1567,7 @@
         "id": "n110",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n109",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1522,6 +1581,7 @@
         "id": "n111",
         "kind": "attribute",
         "name": "kind",
+        "type": "String",
         "parent": "n109",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1535,6 +1595,7 @@
         "id": "n112",
         "kind": "attribute",
         "name": "lang",
+        "type": "String",
         "parent": "n109",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1548,6 +1609,7 @@
         "id": "n113",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n109",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1561,6 +1623,7 @@
         "id": "n114",
         "kind": "attribute",
         "name": "repo",
+        "type": "String",
         "parent": "n109",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1588,6 +1651,7 @@
         "id": "n116",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n115",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1601,6 +1665,7 @@
         "id": "n117",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n115",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1642,6 +1707,7 @@
         "id": "n120",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n119",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1655,6 +1721,7 @@
         "id": "n121",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n119",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1696,6 +1763,7 @@
         "id": "n124",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n123",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1709,6 +1777,7 @@
         "id": "n125",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n123",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1750,6 +1819,7 @@
         "id": "n128",
         "kind": "attribute",
         "name": "label",
+        "type": "String",
         "parent": "n127",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1763,6 +1833,7 @@
         "id": "n129",
         "kind": "attribute",
         "name": "role",
+        "type": "String",
         "parent": "n127",
         "origin": {
           "file": "opensysml-stack.sysml",
@@ -1845,7 +1916,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "flexo": {
           "featureName": "flexo",
@@ -1888,7 +1960,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "pilot": {
           "featureName": "pilot",
@@ -1990,7 +2063,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2045,7 +2119,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "quadstore": {
           "featureName": "quadstore",
@@ -2129,7 +2204,8 @@
       "typeSymbolId": "OpenSysMLStack::ModelPort",
       "featureValues": {
         "interfacingPorts": {
-          "featureName": "interfacingPorts"
+          "featureName": "interfacingPorts",
+          "materialized": true
         },
         "subports": {
           "featureName": "subports",
@@ -2154,7 +2230,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2190,7 +2267,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -2237,7 +2315,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2273,7 +2352,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -2320,7 +2400,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2356,7 +2437,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -2403,7 +2485,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2439,7 +2522,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -2528,7 +2612,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "interchange": {
           "featureName": "interchange",
@@ -2618,7 +2703,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "repl": {
           "featureName": "repl",
@@ -2807,7 +2893,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2843,7 +2930,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -2878,7 +2966,8 @@
       "typeSymbolId": "OpenSysMLStack::ModelPort",
       "featureValues": {
         "interfacingPorts": {
-          "featureName": "interfacingPorts"
+          "featureName": "interfacingPorts",
+          "materialized": true
         },
         "subports": {
           "featureName": "subports",
@@ -2903,7 +2992,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2939,7 +3029,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -2986,7 +3077,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3022,7 +3114,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3069,7 +3162,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3105,7 +3199,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3152,7 +3247,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3188,7 +3284,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3235,7 +3332,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3271,7 +3369,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3318,7 +3417,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3354,7 +3454,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3401,7 +3502,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3437,7 +3539,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3484,7 +3587,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3520,7 +3624,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3567,7 +3672,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3603,7 +3709,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3650,7 +3757,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3686,7 +3794,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3733,7 +3842,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3769,7 +3879,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3816,7 +3927,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3852,7 +3964,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3899,7 +4012,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3935,7 +4049,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -3982,7 +4097,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4018,7 +4134,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4065,7 +4182,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4101,7 +4219,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4155,7 +4274,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4180,7 +4300,8 @@
           "featureName": "participant"
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -4262,7 +4383,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "grammars": {
           "featureName": "grammars",
@@ -4324,7 +4446,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "plantuml": {
           "featureName": "plantuml",
@@ -4446,7 +4569,8 @@
       "typeSymbolId": "OpenSysMLStack::ModelPort",
       "featureValues": {
         "interfacingPorts": {
-          "featureName": "interfacingPorts"
+          "featureName": "interfacingPorts",
+          "materialized": true
         },
         "subports": {
           "featureName": "subports",
@@ -4471,7 +4595,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4507,7 +4632,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4554,7 +4680,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4590,7 +4717,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4637,7 +4765,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4673,7 +4802,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4720,7 +4850,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4756,7 +4887,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4803,7 +4935,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4839,7 +4972,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4886,7 +5020,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4922,7 +5057,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -4969,7 +5105,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -5005,7 +5142,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -5052,7 +5190,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -5088,7 +5227,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "role": {
           "featureName": "role",
@@ -5142,7 +5282,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -5167,7 +5308,8 @@
           "featureName": "participant"
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",

@@ -1,5 +1,8 @@
 package codes
 
+// specStateSubactionKind is the constraint pair the state subaction codes cite.
+const specStateSubactionKind = "SysML v2 validateStateDefinitionSubactionKind and validateStateUsageSubactionKind"
+
 // typeCodes are the codes of the typing tier: what a declaration may be typed
 // by, reference or specialize, and what an expression evaluates to.
 var typeCodes = []Entry{
@@ -316,21 +319,21 @@ var typeCodes = []Entry{
 		Summary: "a state with more than one entry action",
 		Meaning: "A state definition or usage declares at most one `entry` action. " +
 			"Merge the entry actions into one, sequenced in its body.",
-		Spec: "SysML v2 validateStateDefinitionSubactionKind and validateStateUsageSubactionKind",
+		Spec: specStateSubactionKind,
 	},
 	{
 		Code: "state-do-action", Tier: TierType, Severity: "error",
 		Summary: "a state with more than one do action",
 		Meaning: "A state definition or usage declares at most one `do` action. " +
 			"Merge the do actions into one, with parallel or sequenced steps in its body.",
-		Spec: "SysML v2 validateStateDefinitionSubactionKind and validateStateUsageSubactionKind",
+		Spec: specStateSubactionKind,
 	},
 	{
 		Code: "state-exit-action", Tier: TierType, Severity: "error",
 		Summary: "a state with more than one exit action",
 		Meaning: "A state definition or usage declares at most one `exit` action. " +
 			"Merge the exit actions into one, sequenced in its body.",
-		Spec: "SysML v2 validateStateDefinitionSubactionKind and validateStateUsageSubactionKind",
+		Spec: specStateSubactionKind,
 	},
 	{
 		Code: "only-one-return-parameter", Tier: TierType, Severity: "error",
