@@ -29,7 +29,7 @@ const MODEL = `package An {
     analysis def CostAnalysis {
         subject s : Ship;
         in limit : Real = 20.0;
-        out total : Real = Sum(s.cost, s.other);
+        out total : Real[1] = Sum(s.cost, s.other);
         objective affordable {
             require constraint { total <= limit }
         }
@@ -45,7 +45,7 @@ const MODEL = `package An {
     }
 
     analysis plain {
-        out x : Real = 1.0 + 2.0;
+        out x : Real[1] = 1.0 + 2.0;
     }
 }
 `;
@@ -116,7 +116,7 @@ const SWEEP = `package Sw {
     analysis def CostAnalysis {
         subject s : Ship;
         in limit : Real = 20.0;
-        out total : Real = s.cost * limit;
+        out total : Real[1] = s.cost * limit;
         objective affordable {
             require constraint { total <= 100.0 }
         }

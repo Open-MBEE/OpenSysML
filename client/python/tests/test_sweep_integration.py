@@ -39,7 +39,7 @@ package Sw {
     analysis def CostAnalysis {
         subject s : Ship;
         in limit : Real = 20.0;
-        out total : Real = s.cost * limit;
+        out total : Real[1] = s.cost * limit;
         objective affordable {
             require constraint { total <= 100.0 }
         }
