@@ -118,7 +118,7 @@ func TestFeaturedByAnonymousPortionResolvesWhereWritten(t *testing.T) {
 		if strings.Contains(graph, "sysml:featuringType \"") {
 			t.Errorf("a featuring type is an element, not a literal:\n%s", graph)
 		}
-		if !strings.Contains(graph, "sysml:featuringType elmt:T__CC1___401 ;") {
+		if !strings.Contains(graph, "sysml:featuringType elmt:T__CC1__startShot ;") {
 			t.Errorf("the graph should feature CC1_startShot_snapshots by the anonymous portion:\n%s", graph)
 		}
 	}
