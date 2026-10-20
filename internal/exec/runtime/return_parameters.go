@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -240,33 +241,83 @@ func (ctx *Context) verificationVerdictValue(typ *symbols.Symbol, inst *Instance
 	return undeterminedFeatureValue("the library declares no VerdictKind::"+string(verdict.Kind), feat.Multiplicity, sym), nil
 }
 
-// constraintUsageRead answers a read of a constraint usage declared on inst's type —
-// `constraint c { … }` or `assert constraint c { … }` — as the constraint evaluated on
-// inst, the predicate the object enacts; not ok for a usage stating no body of its
-// own (a typed or `::>` reference denotes its object), one bound to a value, a
-// variation, or a library collection of constraint objects.
-func (ec *EvalContext) constraintUsageRead(inst *Instance, name string) (Value, bool, error) {
+// enactedConstraint is the constraint usage declared on inst's type that name
+// denotes — `constraint c { … }` or `assert constraint c { … }` — the predicate the
+// object enacts; not ok for a usage stating no body of its own (a typed or `::>`
+// reference denotes its object), one bound to a value, a variation, or a library
+// collection of constraint objects.
+func (ec *EvalContext) enactedConstraint(inst *Instance, name string) (*symbols.Symbol, bool) {
 	fv, ok := inst.FeatureValues[name]
 	if !ok || fv.Feature == nil || fv.Feature.Symbol == nil || fv.Feature.Symbol.Kind != symbols.SymbolConstraintUsage {
-		return Value{}, false, nil
+		return nil, false
 	}
 	sym := fv.Feature.Symbol
 	if !semantics.StatesOwnCondition(sym) || !fv.Feature.Scalar() || fv.Feature.DefaultValue != nil ||
 		ec.ctx.libraryDeclared(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) || fv.Materialized || fv.HeldValue().Kind != ValInvalid {
-		return Value{}, false, nil
+		return nil, false
 	}
+	return sym, true
+}
+
+// constraintUsageRead answers a read of the constraint usage sym the object inst
+// enacts as the constraint evaluated on inst: its verdict, undetermined where an
+// input of it is unbound.
+func (ec *EvalContext) constraintUsageRead(inst *Instance, sym *symbols.Symbol) (Value, error) {
 	result, err := ec.ctx.CheckConstraintOn(sym, sym.OwnerScope, inst)
 	if err != nil {
 		if unboundInput(err) {
-			return undeterminedFeatureValue(err.Error(), fv.Feature.Multiplicity, sym), true, nil
+			return undeterminedFeatureValue(err.Error(), inst.FeatureValues[sym.Name].Feature.Multiplicity, sym), nil
 		}
 		var violation *ViolationError
 		if errors.As(err, &violation) {
-			return boolValue(false), true, nil
+			return boolValue(false), nil
 		}
-		return Value{}, true, err
+		return Value{}, err
 	}
-	return boolValue(result.Holds), true, nil
+	return boolValue(result.Holds), nil
+}
+
+// constraintMemberValue reads a member of the constraint usage sym on inst — an `in`
+// parameter or a feature its body declares, features of the usage as of any other
+// (SysML v2 §7.18.2) — as the check evaluates it: the value it declares over inst,
+// else the same-named feature of inst an unbound input reads in place of an
+// argument, else undetermined. Not found for a name the usage declares neither way.
+func (ec *EvalContext) constraintMemberValue(inst *Instance, sym *symbols.Symbol, name string) (Value, bool, error) {
+	features := ec.ctx.conditionFeatures(sym)
+	bound, declared := features[name]
+	if !declared {
+		return Value{}, false, nil
+	}
+	scope := bound.scope
+	if scope == nil {
+		scope = sym.OwnerScope
+	}
+	env := NewEvalContextIn(ec.ctx, scope, inst)
+	env.features = features
+	if val, ok, err := env.valuedFeatureValue(name); ok {
+		if err != nil {
+			return Value{}, true, fmt.Errorf("constraint %s: %s: %w", sym.Name, name, err)
+		}
+		return val, true, nil
+	}
+	if fv, err := inst.GetFeatureValue(ec.ctx, name); err == nil && fv != nil {
+		val, err := ec.ctx.readFeatureValue(fv, name)
+		return val, true, err
+	}
+	var count semantics.Range
+	if bound.held != nil {
+		count, _ = ec.ctx.extractMultiplicity(bound.held)
+	}
+	return undeterminedFeatureValue(fmt.Sprintf("constraint %s binds no value to %s", sym.Name, name), count, bound.held), true, nil
+}
+
+// constraintMemberSegment is the member a chain through a constraint usage reads
+// next, "" when the chain ends at the usage or at its `result`.
+func constraintMemberSegment(rest []ast.NameSegment) string {
+	if len(rest) == 0 || rest[0].Text == "result" {
+		return ""
+	}
+	return rest[0].Text
 }
 
 // constraintResultTail drops a trailing `result` segment of a chain through a

@@ -1116,12 +1116,17 @@ func (param *calcParameter) declaredOptional() bool {
 
 // hasParameter reports whether the calc declares an input parameter of that name.
 func (shape *calcShape) hasParameter(name string) bool {
-	for _, param := range shape.Params {
-		if param.Name == name {
-			return true
+	return shape.parameter(name) != nil
+}
+
+// parameter is the input parameter of that name, nil when the calc declares none.
+func (shape *calcShape) parameter(name string) *calcParameter {
+	for i := range shape.Params {
+		if shape.Params[i].Name == name {
+			return &shape.Params[i]
 		}
 	}
-	return false
+	return nil
 }
 
 // performs reports whether the body's action nodes are performed as steps: a case

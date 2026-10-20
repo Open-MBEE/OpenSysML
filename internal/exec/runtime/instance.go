@@ -1427,13 +1427,39 @@ func isReferenceUsage(sym *symbols.Symbol) bool {
 // declaresFeatures reports whether a usage's own body restates or adds features,
 // which the object it materializes has to carry.
 func declaresFeatures(sym *symbols.Symbol) bool {
-	for _, member := range unwrappedDeclMembers(sym.Decl) {
-		usage, ok := member.(*ast.Usage)
-		if !ok {
-			continue
-		}
-		if usage.Ident.Name != "" || usage.Ident.ShortName != "" || len(usage.Relationships) > 0 {
-			return true
+	return declaresAFeature(unwrappedDeclMembers(sym.Decl))
+}
+
+// declaresAFeature reports whether one of a body's members declares a feature: a
+// named or specializing usage, or a state body's named substate or entry, do or
+// exit action, each a feature of the state declaring it (SysML v2 §7.19).
+func declaresAFeature(members []ast.Node) bool {
+	for _, member := range members {
+		switch m := member.(type) {
+		case *ast.Usage:
+			if m.Ident.Name != "" || m.Ident.ShortName != "" || len(m.Relationships) > 0 {
+				return true
+			}
+		case *ast.SubstateMember:
+			if m.Name != "" {
+				return true
+			}
+		case *ast.StateNode:
+			if m.Name != "" {
+				return true
+			}
+		case *ast.EntryMember:
+			if declaresAFeature(m.Actions) {
+				return true
+			}
+		case *ast.DoMember:
+			if declaresAFeature(m.Actions) {
+				return true
+			}
+		case *ast.ExitMember:
+			if declaresAFeature(m.Actions) {
+				return true
+			}
 		}
 	}
 	return false

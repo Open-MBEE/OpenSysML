@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -325,6 +326,17 @@ func (shape *calcShape) outputNames() string {
 func (shape *calcShape) declaresUsage(name string) bool {
 	for _, stmt := range shape.Body {
 		if decl, ok := stmt.(lower.DeclareUsage); ok && decl.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// declaresLocal reports whether the body's own statements declare a feature of
+// that name (`attribute scale = 10.0;`), one the run leaves a value for.
+func (shape *calcShape) declaresLocal(name string) bool {
+	for _, stmt := range shape.Body {
+		if decl, ok := stmt.(lower.Declare); ok && decl.Name == name {
 			return true
 		}
 	}
@@ -1252,6 +1264,16 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 	if len(parts) == 0 {
 		return Value{}, fmt.Errorf("empty member chain")
 	}
+	// A usage with an input nothing supplies computes nothing to read; its
+	// inputs still read as what binds them, which is nothing for that one.
+	if ec.ctx.readsAsFunction(sym) {
+		if value, ok, err := ec.unsuppliedCalcInput(sym, parts[0].Text); ok {
+			if err != nil {
+				return Value{}, err
+			}
+			return ec.chainMemberValue(value, parts[1:], parts[0].Text)
+		}
+	}
 	run, err := ec.ctx.calcUsageRun(ec, sym)
 	if err != nil {
 		return Value{}, err
@@ -1275,11 +1297,72 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 			)
 		}
 	}
-	value, err := run.output(ec.ctx, parts[0].Text)
+	name := parts[0].Text
+	if value, ok, err := run.memberValue(ec.ctx, name); ok {
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(value, parts[1:], name)
+	}
+	value, err := run.output(ec.ctx, name)
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.chainMemberValue(value, parts[1:], parts[0].Text)
+	return ec.chainMemberValue(value, parts[1:], name)
+}
+
+// memberValue reads a member of the calc that is no output — an input parameter
+// as the run bound it, or a usage the body declares as the run left it — which
+// are features of the usage as its outputs are (SysML v2 §7.17.2); undetermined
+// where the run bound or left no value. Not ok for a name the calc declares
+// neither way, or declares as an output.
+func (run *calcRun) memberValue(ctx *Context, name string) (Value, bool, error) {
+	if _, isOutput := run.shape.output(name); isOutput {
+		return Value{}, false, nil
+	}
+	var member *symbols.Symbol
+	if param := run.shape.parameter(name); param != nil {
+		member = param.Sym
+	} else if run.shape.declaresUsage(name) || run.shape.declaresLocal(name) {
+		scope := ctx.calcScope(run.shape.BodyOwner, run.shape.Sym, run.scope)
+		member, _ = ctx.lookupName(scope, name)
+	} else {
+		return Value{}, false, nil
+	}
+	if value, ok := run.lookup(name); ok {
+		return value, true, nil
+	}
+	var count semantics.Range
+	if member != nil {
+		count, _ = ctx.extractMultiplicity(member)
+	}
+	return undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", run.shape.Label, name), count, member), true, nil
+}
+
+// unsuppliedCalcInput reads an input parameter of a calc usage read as a function
+// value: the default it declares, evaluated over the object the usage is a feature
+// of, or undetermined for the input nothing supplies. Not ok for any other name.
+func (ec *EvalContext) unsuppliedCalcInput(sym *symbols.Symbol, name string) (Value, bool, error) {
+	shape, err := ec.ctx.calcInterfaceOf(sym)
+	if err != nil {
+		return Value{}, true, err
+	}
+	param := shape.parameter(name)
+	if param == nil {
+		return Value{}, false, nil
+	}
+	if param.Default == nil {
+		var count semantics.Range
+		if param.Sym != nil {
+			count, _ = ec.ctx.extractMultiplicity(param.Sym)
+		}
+		return undeterminedFeatureValue(fmt.Sprintf("%s: nothing supplies parameter %q", shape.Label, name), count, param.Sym), true, nil
+	}
+	value, err := NewEvalContextIn(ec.ctx, ec.ctx.calcScope(param.Owner, shape.Sym, ec.scope), ec.self).Eval(param.Default)
+	if err != nil {
+		return Value{}, true, calcDefaultError(shape.Kind, shape.Name, name, err)
+	}
+	return value, true, nil
 }
 
 // nestedUsage is the evaluation of a calc or analysis usage this run's body

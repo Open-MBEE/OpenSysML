@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "instantiate": "test::Bench",
+  "slots": {
+    "scaledW": {"type": "Undetermined", "value": "[1]"},
+    "scaledK": {"type": "Rational", "value": "2.0"},
+    "underLimit": {"type": "Undetermined", "value": "[1]"},
+    "underSlack": {"type": "Rational", "value": "1.0"}
+  }
+}

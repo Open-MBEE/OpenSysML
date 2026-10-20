@@ -1505,6 +1505,19 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return ec.evalCalcUsageMembers(sym, parts)
 	}
 
+	// A constraint usage of the object being evaluated is the predicate that object
+	// enacts, read through the object (`fits.limit` as `self.fits.limit`), not an
+	// object of its own.
+	if name := simpleEndName(base); name != "" && ec.self != nil {
+		if _, enacted := ec.enactedConstraint(ec.self, name); enacted {
+			if names, err := ec.namesValue(name); err != nil {
+				return Value{}, err
+			} else if !names {
+				return ec.chainMemberValue(Value{Kind: ValInstance, Instance: ec.self.ID}, append([]ast.NameSegment{{Text: name}}, parts...), "")
+			}
+		}
+	}
+
 	// A part carries no value of its own: it denotes an occurrence, whose features
 	// `lander.mass.mDry` reads, so the chain is read from that object.
 	if sym, ok, err := ec.occurrenceOperand(base); err != nil {
@@ -1527,7 +1540,10 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	}
 
 	// Evaluate the operand (left side of the chain)
-	operand, err := ec.Eval(n.Operand)
+	// One chain is read from its first operand through every member in turn (KerML
+	// 1.0 §7.4.3), so a member computed on the way — a calc usage's input — is
+	// read from the object before it rather than from the value of a shorter chain.
+	operand, err := ec.Eval(base)
 	if err != nil {
 		var noValue *NoValueError
 		if errors.As(err, &noValue) {
@@ -1563,7 +1579,7 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		}
 	}
 
-	return ec.chainMemberValue(operand, n.Member.Parts, "")
+	return ec.chainMemberValue(operand, parts, "")
 }
 
 // chainMembersDeclared reports the first chain member nothing declares, so
@@ -1761,7 +1777,20 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 
 // chainFeatureValue continues a chain through the named feature value of inst.
 func (ec *EvalContext) chainFeatureValue(inst *Instance, name string, rest []ast.NameSegment, from string) (Value, error) {
-	if val, ok, err := ec.constraintUsageRead(inst, name); ok {
+	if sym, ok := ec.enactedConstraint(inst, name); ok {
+		// The constraint's own members read through it as any usage's do; the
+		// usage itself, or its `result`, is the predicate evaluated on the object.
+		if member := constraintMemberSegment(rest); member != "" {
+			val, found, err := ec.constraintMemberValue(inst, sym, member)
+			if !found {
+				return Value{}, fmt.Errorf("%w: constraint %s has no member %s", ErrNoSuchFeature, name, member)
+			}
+			if err != nil {
+				return Value{}, err
+			}
+			return ec.chainMemberValue(val, rest[1:], member)
+		}
+		val, err := ec.constraintUsageRead(inst, sym)
 		if err != nil {
 			return Value{}, err
 		}
