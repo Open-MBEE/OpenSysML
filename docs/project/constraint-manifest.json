@@ -256,7 +256,8 @@
       "metaclass": "AssignmentActionUsage",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.17.5"
+        "clause": "8.3.17.5",
+        "name": "validateAssignmentActionUsage"
       },
       "checks": "The referent of an assignment action is time-varying",
       "implementation": "internal/check/passes/w8d_assignment_referent.go:AssignmentReferentPass.Run",
@@ -422,7 +423,8 @@
       "metaclass": "AttributeUsage",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.7.3"
+        "clause": "8.3.7.3",
+        "name": "validateAttributeUsageIsReference"
       },
       "checks": "An attribute usage is referential (`checkAttributeUsage`, active). Unobservable in text: `AttributeUsageImpl` constructs with `isComposite = false`, `UsageAdapter.postProcess` clears it again for attribute featuring, and `composite attribute a;` is a syntax error. Tried, pilot silent: `attribute a;`, `ref r;`, bare `x;`, valued/typed attributes, `end`/`in` attributes, `variation attribute v { variant attribute w; }`, ordered nonunique and redefined attributes, `in`/`out` parameters",
       "implementation": "—",
@@ -805,7 +807,8 @@
       "metaclass": "ConjugatedPortDefinition",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.12.2"
+        "clause": "8.3.12.2",
+        "name": "validateConjugatedPortDefinitionConjugatedPortDefinitionIsEmpty"
       },
       "checks": "A conjugated port definition has no conjugated port definition of its own (`checkConjugatedPortDefinition`, active). Unobservable in text: `SysML.xtext` `ConjugatedPortDefinitionMember` is an implicit member the grammar adds to every `port def`, no notation declares or nests one, and `~~PD` is a syntax error. Tried, pilot silent: `port def PD;`, port definitions nested in port definitions, `port p : ~PD` and `port def Q :> ~PD` forms",
       "implementation": "—",
@@ -1190,7 +1193,8 @@
       "metaclass": "ElementFilterMembership",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.4.13.2"
+        "clause": "8.3.4.13.2",
+        "name": "validateElementFilterMembershipConditionIsBoolean"
       },
       "checks": "A filter condition has a Boolean result",
       "implementation": "internal/check/passes/filter.go:filterChecker.check",
@@ -1211,7 +1215,8 @@
       "metaclass": "ElementFilterMembership",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.4.13.2"
+        "clause": "8.3.4.13.2",
+        "name": "validateElementFilterMembershipConditionIsModelLevelEvaluable"
       },
       "checks": "A filter condition is model-level evaluable",
       "implementation": "internal/check/passes/filter.go:filterChecker.check",
@@ -1251,7 +1256,8 @@
       "metaclass": "EndFeatureMembership",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.3.3.3"
+        "clause": "8.3.3.3.3",
+        "name": "validateEndFeatureMembershipIsEnd"
       },
       "checks": "The feature of an end feature membership is an end feature (`Must be an end feature`; the pilot's constant is spelled `Membershp`); grammar-derived — an end feature membership is built only from the `end` prefix and `EndFeatureMembershipAdapter.postProcess` sets the member's `isEnd`, so the member is always an end feature. Shapes tried: `end feature`, `const end feature`, SysML `end` usages in connection and part definitions, an end redefined by a non-end feature",
       "implementation": "—",
@@ -1329,7 +1335,8 @@
       "metaclass": "EventOccurrenceUsage",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.9.2"
+        "clause": "8.3.9.2",
+        "name": "validateEventOccurrenceUsageReference"
       },
       "checks": "An event occurrence usage references an occurrence",
       "implementation": "internal/check/passes/w8d_occurrence_typing.go:W8DOccurrenceTypingPass.Run",
@@ -1458,7 +1465,8 @@
       "metaclass": "FeatureChainExpression",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.4.8.4"
+        "clause": "8.3.4.8.4",
+        "name": "validateFeatureChainExpressionConformance"
       },
       "checks": "The target feature of a feature-chain expression is a feature of the source's type (`Must be a valid feature`); the pilot also reports the unresolved chain target from name resolution",
       "implementation": "internal/check/passes/w8c_feature_reference.go:FeatureReferencePass.Run",
@@ -1630,7 +1638,8 @@
       "metaclass": "Feature",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.3.3.4"
+        "clause": "8.3.3.3.4",
+        "name": "validateFeatureEndMultiplicity"
       },
       "checks": "An end feature has multiplicity 1 (warning `End feature must have multiplicity 1`): none of the end's multiplicities — its own, or one inherited through subsetting, redefinition, typing, a reference or an implicit end — is exactly `1..1`; an unevaluable bound counts as omitted (`[n..1]` is silent). In SysML an end usage defaults to `1..1`, so only a declared own non-`1..1` multiplicity warns; the `[m]` of `end [m] item x : A` is the cross feature's and is silent",
       "implementation": "internal/check/passes/end_multiplicity.go:constraintChecker.checkFeatureEndFeatureMultiplicity",
@@ -1931,7 +1940,8 @@
       "metaclass": "FlowDefinition",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.16.2"
+        "clause": "8.3.16.2",
+        "name": "validateFlowDefinitionFlowEnds"
       },
       "checks": "A flow definition has at most two ends",
       "implementation": "internal/check/passes/w10b_ends.go:W10BEndKindPass.Run",
@@ -2052,7 +2062,8 @@
       "metaclass": "Flow",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.4.9.2"
+        "clause": "8.3.4.9.2",
+        "name": "validateFlowPayloadFeature"
       },
       "checks": "A flow has at most one item feature (`Only one item feature is allowed`); grammar-unconstructable: `FlowDeclaration` admits one `of` payload clause (`( 'of' PayloadFeatureMember )?`) and a `PayloadFeature` has no other spelling — a second `of` is a syntax error in both tools, and a feature in the flow body is an ordinary owned feature",
       "implementation": "—",
@@ -2641,7 +2652,8 @@
       "metaclass": "MetadataFeature",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.4.12.3"
+        "clause": "8.3.4.12.3",
+        "name": "validateMetadataFeatureMetaclass"
       },
       "checks": "A metadata feature is typed by exactly one metaclass; a class, structure, data type or other non-metaclass type is rejected (`Must have exactly one metaclass`); on the negative case the pilot reports `validateMetadataFeatureMetadataNotAbstract` instead, because its grammar links `@M` only to a metaclass and the unlinked feature keeps only the implicit abstract `Metaobject` type",
       "implementation": "internal/check/passes/w8c_metadata_type.go:MetadataTypePass.Run",
@@ -2662,7 +2674,8 @@
       "metaclass": "MetadataFeature",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.4.12.3"
+        "clause": "8.3.4.12.3",
+        "name": "validateMetadataFeatureMetaclassNotAbstract"
       },
       "checks": "A metadata feature's metaclass is not abstract (`Must have a concrete type`); also what the pilot reports for a metadata feature typed by a non-metaclass, see `validateMetadataFeatureMetadata`",
       "implementation": "internal/check/passes/w8c_metadata_type.go:MetadataTypePass.Run",
@@ -2724,7 +2737,8 @@
       "metaclass": "MultiplicityRange",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.4.11.2"
+        "clause": "8.3.4.11.2",
+        "name": "validateMultiplicityRangeBoundResultTypes"
       },
       "checks": "A model-level-evaluable bound must evaluate to a non-negative integer or `*`; a bound that is not model-level evaluable must have an Integer-conforming result type (`Must have a Natural value`)",
       "implementation": "internal/check/passes/w8c_multiplicity_bounds.go:MultiplicityBoundsPass.Run",
@@ -2745,7 +2759,8 @@
       "metaclass": "Namespace",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.2.4.5"
+        "clause": "8.3.2.4.5",
+        "name": "validateNamespaceDistinguishibility"
       },
       "checks": "Memberships of a namespace — owned, inherited and imported — are distinguishable by name and short name, unless their member elements' metaclasses conform in neither direction (KerML 8.3.2.4.3; a warning by default and, for owned, alias, short-name and inherited memberships, an error under strict conformance; the pilot's constant is spelled `Distinguishablity`, the pilot does not implement the metaclass clause, and it never compares an imported membership with another imported or an inherited one). For imported memberships the constraint is reached through KerML 7.2.5.4, which hides a name two imports bring; the warning reports the hidden pair, but resolution binds the first import's member, as the pilot does, where the clause leaves the reference unresolved — hence approximate. One membership two imports reach, two memberships of one element, an imported name an owned member hides and library content are not reported",
       "implementation": "internal/semantic/resolve/distinguishability.go:checkOwnedNames; internal/semantic/resolve/distinguishability.go:checkInheritedNames; internal/semantic/resolve/distinguishability.go:checkImportedNames; internal/semantic/resolve/distinguishability.go:Resolver.DistinguishableByMetaclass",
@@ -2960,7 +2975,8 @@
       "metaclass": "Type",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.3.1.10"
+        "clause": "8.3.3.1.10",
+        "name": "validateTypeOwnedDifferencingNotOne"
       },
       "checks": "A type does not difference exactly one type",
       "implementation": "internal/check/passes/w8c_type_relationships.go:TypeRelationshipsPass.Run",
@@ -2981,7 +2997,8 @@
       "metaclass": "Type",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.3.1.10"
+        "clause": "8.3.3.1.10",
+        "name": "validateTypeOwnedIntersectingNotOne"
       },
       "checks": "A type does not intersect exactly one type",
       "implementation": "internal/check/passes/w8c_type_relationships.go:TypeRelationshipsPass.Run",
@@ -3002,7 +3019,8 @@
       "metaclass": "Type",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.3.1.10"
+        "clause": "8.3.3.1.10",
+        "name": "validateTypeOwnedUnioningNotOne"
       },
       "checks": "A type does not union exactly one type",
       "implementation": "internal/check/passes/w8c_type_relationships.go:TypeRelationshipsPass.Run",
@@ -3023,7 +3041,8 @@
       "metaclass": "ParameterMembership",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.4.6.4"
+        "clause": "8.3.4.6.4",
+        "name": "validateParameterMembershipParameterDirection"
       },
       "checks": "A parameter has the direction its membership requires (`Must have direction '{direction}'`); derived-property based: the pilot's `ParameterMembershipAdapter.postProcess` overwrites the member's direction with the membership's (`in` for an argument or body parameter, `out` for a `return`), so a textual argument or return can never disagree — `function F { return in r : Integer = 1; }` and the SysML `calc def` spelling validate clean in both tools; a directed feature of a behavior is written through an ordinary `FeatureMembership`, which the check does not visit",
       "implementation": "—",
@@ -3676,7 +3695,8 @@
       "metaclass": "Specialization",
       "spec": {
         "document": "kerml",
-        "clause": "8.3.3.1.8"
+        "clause": "8.3.3.1.8",
+        "name": "validateSpecificationSpecificNotConjugated"
       },
       "checks": "A conjugated type is not the specific type of a specialization: a standalone `specialization subtype`, `subset`, `redefinition` or `typing` element whose specific is a conjugated type or feature",
       "implementation": "internal/check/passes/w11e_conjugated_specialization.go:W11EConjugatedSpecializationPass.Run",
@@ -3741,7 +3761,8 @@
       "metaclass": "StateDefinition",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.18.5"
+        "clause": "8.3.18.5",
+        "name": "validateStateDefinitionStateSubactionKind"
       },
       "checks": "A state definition has at most one entry, do and exit action each",
       "implementation": "internal/check/passes/w10b_structural.go:W10BStructuralPass.Run",
@@ -3762,7 +3783,8 @@
       "metaclass": "StateSubactionMembership",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.18.4"
+        "clause": "8.3.18.4",
+        "name": "validateStateSubactionMembershipOwningType"
       },
       "checks": "Only a state has entry, do or exit actions (the pilot's constant is spelled `Membershio`); the pilot grammar rejects them elsewhere (`mismatched input 'entry' expecting '}'`)",
       "implementation": "internal/syntax/parser/defusage.go:Parser.misplacedMember (syntax tier, like the pilot)",
@@ -3805,7 +3827,8 @@
       "metaclass": "StateUsage",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.18.6"
+        "clause": "8.3.18.6",
+        "name": "validateStateUsageStateSubactionKind"
       },
       "checks": "A state usage has at most one entry, do and exit action each",
       "implementation": "internal/check/passes/w10b_structural.go:W10BStructuralPass.Run",
@@ -4140,7 +4163,8 @@
       "metaclass": "TriggerInvocationExpression",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.17.17"
+        "clause": "8.3.17.17",
+        "name": "validateTriggerInvocationExpressionAfterArgument"
       },
       "checks": "An `after` trigger argument is a DurationValue",
       "implementation": "internal/check/passes/typecheck_trigger.go:exprChecker.checkTimeEvent",
@@ -4161,7 +4185,8 @@
       "metaclass": "TriggerInvocationExpression",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.17.17"
+        "clause": "8.3.17.17",
+        "name": "validateTriggerInvocationExpressionAtArgument"
       },
       "checks": "An `at` trigger argument is a TimeInstantValue",
       "implementation": "internal/check/passes/typecheck_trigger.go:exprChecker.checkTimeEvent",
@@ -4182,7 +4207,8 @@
       "metaclass": "TriggerInvocationExpression",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.17.17"
+        "clause": "8.3.17.17",
+        "name": "validateTriggerInvocationExpressionWhenArgument"
       },
       "checks": "A `when` trigger argument is Boolean",
       "implementation": "internal/check/passes/typecheck_trigger.go:triggerArgumentChecker.check",
@@ -4458,7 +4484,8 @@
       "metaclass": "VariantMembership",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.6.5"
+        "clause": "8.3.6.5",
+        "name": "validateVariantMembershipOwningNamespace"
       },
       "checks": "A variant is an owned member of a variation",
       "implementation": "internal/check/passes/variant_owner.go:VariantOwnerPass.Run; internal/check/passes/w8d_variability.go:W8DVariabilityPass.Run",
@@ -4545,7 +4572,8 @@
       "metaclass": "ViewUsage",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.26.11"
+        "clause": "8.3.26.11",
+        "name": "validateViewUsageOnlyOneViewRendering"
       },
       "checks": "A view usage has at most one view rendering",
       "implementation": "internal/check/passes/diagram/view_rendering.go:ViewRenderingPass.Run",
@@ -4610,7 +4638,8 @@
       "metaclass": "WhileLoopActionUsage",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.17.19"
+        "clause": "8.3.17.19",
+        "name": "validateWhileLoopActionUsage"
       },
       "checks": "A while loop has at least two input parameters (`A while loop action must have at least two parameters.`; `checkWhileLoopActionUsage` tests `inputParameters.size < 2`). Grammar-unconstructable: `WhileLoopNode` always parses an `ExpressionParameterMember` (`while`) or an `EmptyParameterMember` (`loop`) and an `ActionBodyParameterMember` (a third with `until`), each a `ParameterMembership` whose parameter `ParameterMembershipAdapter.postProcess` sets to direction `in`. Tried `while c {}`, `loop {}`, `loop {} until c;`, `while c action b { in extra : Integer; }`, `action w : Q while c {}`, and the truncated spellings `while {}`, `while c;`, `loop;`, `loop {} until;`, `while c {} until;`: never reported; the truncated spellings are syntax errors in both tools (pilot `no viable alternative at input 'while'` / `'loop'`, OpenSysML `expected '{' after while condition` / `expected an expression`)",
       "implementation": "—",
@@ -13482,66 +13511,6 @@
       "rationale": "stated by the formal document; not yet assessed against the tree"
     },
     {
-      "name": "validateAssignmentActionUsage",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "AssignmentActionUsage",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.17.5",
-        "name": "validateAssignmentActionUsage"
-      },
-      "checks": "The featureTarget of the referent of an AssignmentActionUsage must be able to have time-varying values.",
-      "ocl": "referent <> null implies referent.featureTarget.mayTimeVary",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateAttributeUsageIsReference",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "AttributeUsage",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.7.3",
-        "name": "validateAttributeUsageIsReference"
-      },
-      "checks": "An AttributeUsage is always referential.",
-      "ocl": "isReference",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateConjugatedPortDefinitionConjugatedPortDefinitionIsEmpty",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "ConjugatedPortDefinition",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.12.2",
-        "name": "validateConjugatedPortDefinitionConjugatedPortDefinitionIsEmpty"
-      },
-      "checks": "A ConjugatedPortDefinition must not itself have a conjugatedPortDefinition",
-      "ocl": "conjugatedPortDefinition = null",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
       "name": "validateConjugatedPortDefinitionOriginalPortDefinition",
       "source": "spec",
       "kind": "validate",
@@ -13602,86 +13571,6 @@
       "rationale": "stated by the formal document; not yet assessed against the tree"
     },
     {
-      "name": "validateElementFilterMembershipConditionIsBoolean",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "ElementFilterMembership",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.4.13.2",
-        "name": "validateElementFilterMembershipConditionIsBoolean"
-      },
-      "checks": "The result parameter of the condition Expression must directly or indirectly specialize ScalarValues::Boolean.",
-      "ocl": "condition.result.specializesFromLibrary('ScalarValues::Boolean')",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateElementFilterMembershipConditionIsModelLevelEvaluable",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "ElementFilterMembership",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.4.13.2",
-        "name": "validateElementFilterMembershipConditionIsModelLevelEvaluable"
-      },
-      "checks": "The condition Expression must be model-level evaluable.",
-      "ocl": "condition.isModelLevelEvaluable",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateEndFeatureMembershipIsEnd",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "EndFeatureMembership",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.3.3.3",
-        "name": "validateEndFeatureMembershipIsEnd"
-      },
-      "checks": "The ownedMemberFeature of an EndFeatureMembership must be an end Feature.",
-      "ocl": "ownedMemberFeature.isEnd",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateEventOccurrenceUsageReference",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "EventOccurrenceUsage",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.9.2",
-        "name": "validateEventOccurrenceUsageReference"
-      },
-      "checks": "If an EventOccurrenceUsage has an ownedReferenceSubsetting, then the featureTarget of the referencedFeature must be an OccurrenceUsage.",
-      "ocl": "referencedFeatureTarget() <> null implies\n    referencedFeatureTarget().oclIsKindOf(OccurrenceUsage)",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
       "name": "validateExposeVisibility",
       "source": "spec",
       "kind": "validate",
@@ -13693,86 +13582,6 @@
       },
       "checks": "An Expose always has protected visibility.",
       "ocl": "visibility = VisibilityKind::protected",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateFeatureChainExpressionConformance",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "FeatureChainExpression",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.4.8.4",
-        "name": "validateFeatureChainExpressionConformance"
-      },
-      "checks": "The targetFeature of a FeatureChainExpression must be featured within the result parameter of the argument Expression of the FeatureChainExpression.",
-      "ocl": "argument->notEmpty() implies\n    targetFeature.isFeaturedWithin(argument->first().result)",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateFeatureEndMultiplicity",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "Feature",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.3.3.4",
-        "name": "validateFeatureEndMultiplicity"
-      },
-      "checks": "If a Feature has isEnd = true, then it must have multiplicity 1..1.",
-      "ocl": "isEnd implies\n    multiplicities().allSuperTypes()->flatten()->\n    selectByKind(MultiplicityRange)->exists(hasBounds(1,1))",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateFlowDefinitionFlowEnds",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "FlowDefinition",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.16.2",
-        "name": "validateFlowDefinitionFlowEnds"
-      },
-      "checks": "A FlowDefinition may not have more than two flowEnds.",
-      "ocl": "flowEnd->size() <= 2",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateFlowPayloadFeature",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "Flow",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.4.9.2",
-        "name": "validateFlowPayloadFeature"
-      },
-      "checks": "A Flow must have at most one ownedFeature that is an PayloadFeature.",
-      "ocl": "ownedFeature->selectByKind(PayloadFeature)->size() <= 1",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -13802,86 +13611,6 @@
       "rationale": "stated by the formal document; not yet assessed against the tree"
     },
     {
-      "name": "validateMetadataFeatureMetaclass",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "MetadataFeature",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.4.12.3",
-        "name": "validateMetadataFeatureMetaclass"
-      },
-      "checks": "A MetadataFeature must have exactly one type that is a Metaclass.",
-      "ocl": "type->selectByKind(Metaclass).size() = 1",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateMetadataFeatureMetaclassNotAbstract",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "MetadataFeature",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.4.12.3",
-        "name": "validateMetadataFeatureMetaclassNotAbstract"
-      },
-      "checks": "The metaclass of a MetadataFeature must not be abstract.",
-      "ocl": "not metaclass.isAbstract",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateMultiplicityRangeBoundResultTypes",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "MultiplicityRange",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.4.11.2",
-        "name": "validateMultiplicityRangeBoundResultTypes"
-      },
-      "checks": "The results of the bound Expression(s) of a MultiplicityRange must be typed by ScalarValues::Intger from the Kernel Data Types Library. If a bound is model-level evaluable, then it must evaluate to a non-negative value.",
-      "ocl": "bound->forAll(b |\n    b.result.specializesFromLibrary('ScalarValues::Integer') and\n    let value : UnlimitedNatural = valueOf(b) in\n    value <> null implies value >= 0\n)",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateNamespaceDistinguishibility",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "Namespace",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.2.4.5",
-        "name": "validateNamespaceDistinguishibility"
-      },
-      "checks": "All memberships of a Namespace must be distinguishable from each other.",
-      "ocl": "membership->forAll(m1 |\n    membership->forAll(m2 |\n        m1 <> m2 implies m1.isDistinguishableFrom(m2)))",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
       "name": "validateOccurrenceUsagePortionKind",
       "source": "spec",
       "kind": "validate",
@@ -13893,33 +13622,16 @@
       },
       "checks": "If an OccurrenceUsage has a non-null portionKind, then its owningType must be an OccurrenceDefinition or an OccurrenceUsage.",
       "ocl": "portionKind <> null implies\n    owningType <> null and\n    (owningType.oclIsKindOf(OccurrenceDefinition) or\n     owningType.oclIsKindOf(OccurrenceUsage))",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/check/passes/w10b_individual_portion.go:W10BPortionOwnerPass.Run",
+      "message": "the pilot reports this rule under the name `validateOccurrenceUsageIsPortion` (`Must be owned by an occurrence definition or usage.`), whose formal text is instead the derivation `portionKind <> null implies isPortion`; that row holds the negative case",
       "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateParameterMembershipParameterDirection",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "ParameterMembership",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.4.6.4",
-        "name": "validateParameterMembershipParameterDirection"
-      },
-      "checks": "The ownedMemberParameter of a ParameterMembership must have a direction equal to the result of the parameterDirection() operation.",
-      "ocl": "ownedMemberParameter.direction = parameterDirection()",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
+      "codes": [
+        "portion-owner"
+      ],
+      "passes": [
+        "constraint"
+      ],
+      "status": "faithful"
     },
     {
       "name": "validateSendActionParameters",
@@ -13933,266 +13645,6 @@
       },
       "checks": "A SendActionUsage must have at least three owned input parameters, corresponding to its payload, sender and receiver, respectively (whether or not they have FeatureValues).",
       "ocl": "inputParameters()->size() >= 3",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateSpecificationSpecificNotConjugated",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "Specialization",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.3.1.8",
-        "name": "validateSpecificationSpecificNotConjugated"
-      },
-      "checks": "The specific Type of a Specialization cannot be a conjugated Type.",
-      "ocl": "not specific.isConjugated",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateStateDefinitionStateSubactionKind",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "StateDefinition",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.18.5",
-        "name": "validateStateDefinitionStateSubactionKind"
-      },
-      "checks": "A StateDefinition must not have more than one owned StateSubactionMembership of each kind.",
-      "ocl": "ownedMembership->\n    selectByKind(StateSubactionMembership)->\n    isUnique(kind)",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateStateSubactionMembershipOwningType",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "StateSubactionMembership",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.18.4",
-        "name": "validateStateSubactionMembershipOwningType"
-      },
-      "checks": "The owningType of a StateSubactionMembership must be a StateDefinition or a StateUsage.",
-      "ocl": "owningType.oclIsKindOf(StateDefinition) or\nowningType.oclIsKindOf(StateUsage)",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateStateUsageStateSubactionKind",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "StateUsage",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.18.6",
-        "name": "validateStateUsageStateSubactionKind"
-      },
-      "checks": "A StateUsage must not have more than one owned StateSubactionMembership of each kind.",
-      "ocl": "ownedMembership->\n    selectByKind(StateSubactionMembership)->\n    isUnique(kind)",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateTriggerInvocationExpressionAfterArgument",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "TriggerInvocationExpression",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.17.17",
-        "name": "validateTriggerInvocationExpressionAfterArgument"
-      },
-      "checks": "If a TriggerInvocationExpression has kind = after, then it must have an argument Expression with a result that conforms to the type Quantities::ScalarQuantityValue and a feature that directly or indirectly redefines Quantities::TensorQuantityValue::mRef and directly or indirectly specializes ISQBase::DurationUnit.",
-      "ocl": "kind = TriggerKind::after implies\n    argument->notEmpty() and\n    argument->at(1).result.specializesFromLibrary('Quantities::ScalarQuantityValue') and\n    let mRef : Element =\n        resolveGlobal('Quantities::TensorQuantityValue::mRef').ownedMemberElement in\n    argument->at(1).result.feature->\n        select(ownedRedefinition.redefinedFeature->\n           closure(ownedRedefinition.redefinedFeature)->\n           includes(mRef))->\n        exists(specializesFromLibrary('ISQBase::DurationUnit'))",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateTriggerInvocationExpressionAtArgument",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "TriggerInvocationExpression",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.17.17",
-        "name": "validateTriggerInvocationExpressionAtArgument"
-      },
-      "checks": "If a TriggerInvocationExpression has kind = at, then it must have an argument Expression with a result that conforms to the type Time::TimeInstantValue.",
-      "ocl": "kind = TriggerKind::at implies\n    argument->notEmpty() and\n    argument->at(1).result.specializesFromLibrary('Time::TimeInstantValue')",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateTriggerInvocationExpressionWhenArgument",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "TriggerInvocationExpression",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.17.17",
-        "name": "validateTriggerInvocationExpressionWhenArgument"
-      },
-      "checks": "If a TriggerInvocationExpression has kind = when, then it must have an argument that is a FeatureReferenceExpression whose referent is an Expression with a result that conforms to the type ScalarValues::Boolean.",
-      "ocl": "kind = TriggerKind::when implies\n    argument->notEmpty() and\n    argument->at(1).oclIsKindOf(FeatureReferenceExpression) and\n    let referent : Feature =\n        argument->at(1).oclAsType(FeatureReferenceExpression).referent in\n    referent.oclIsKindOf(Expression) and\n    referent.oclAsType(Expression).result.specializesFromLibrary('ScalarValues::Boolean')",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateTypeOwnedDifferencingNotOne",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "Type",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.3.1.10",
-        "name": "validateTypeOwnedDifferencingNotOne"
-      },
-      "checks": "A Type must not have exactly one ownedDifferencing.",
-      "ocl": "ownedDifferencing->size() <> 1",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateTypeOwnedIntersectingNotOne",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "Type",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.3.1.10",
-        "name": "validateTypeOwnedIntersectingNotOne"
-      },
-      "checks": "A Type must not have exactly one ownedIntersecting.",
-      "ocl": "ownedIntersecting->size() <> 1",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateTypeOwnedUnioningNotOne",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "Type",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.3.1.10",
-        "name": "validateTypeOwnedUnioningNotOne"
-      },
-      "checks": "A Type must not have exactly one ownedUnioning.",
-      "ocl": "ownedUnioning->size() <> 1",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateVariantMembershipOwningNamespace",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "VariantMembership",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.6.5",
-        "name": "validateVariantMembershipOwningNamespace"
-      },
-      "checks": "The membershipOwningNamespace of a VariantMembership must be a variation-point Definition or Usage.",
-      "ocl": "membershipOwningNamespace.oclIsKindOf(Definition) and\n    membershipOwningNamespace.oclAsType(Definition).isVariation or\nmembershipOwningNamespace.oclIsKindOf(Usage) and\n    membershipOwningNamespace.oclAsType(Usage).isVariation",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateViewUsageOnlyOneViewRendering",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "ViewUsage",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.26.11",
-        "name": "validateViewUsageOnlyOneViewRendering"
-      },
-      "checks": "A ViewUsage must have at most one ViewRenderingMembership.",
-      "ocl": "featureMembership->\n    selectByKind(ViewRenderingMembership)->\n    size() <= 1",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "validateWhileLoopActionUsage",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "WhileLoopActionUsage",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.17.19",
-        "name": "validateWhileLoopActionUsage"
-      },
-      "checks": "A WhileLoopActionUsage must have at least two owned input parameters.",
-      "ocl": "inputParameters()->size() >= 2",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
