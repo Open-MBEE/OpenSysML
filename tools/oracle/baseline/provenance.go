@@ -5,6 +5,7 @@
 package baseline
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -52,13 +53,14 @@ type Record struct {
 	Recorded string `json:"recorded,omitempty"`
 }
 
-// Tool is one reference bridge: the pilot release it was built against, and the
-// digest of the in-repository source it was compiled from.
+// Tool is one side of a comparison: a reference bridge, with the pilot release
+// it was built against, or this repository's own writer, which has none; either
+// is identified by the digest of the in-repository source it is compiled from.
 type Tool struct {
 	Name         string `json:"name"`
 	Source       string `json:"source"`
 	SourceDigest string `json:"sourceDigest"`
-	Release      string `json:"release"`
+	Release      string `json:"release,omitempty"`
 }
 
 // Input is one directory of files the run read — a compared corpus root, or a
@@ -127,17 +129,55 @@ func DigestFile(path string) (string, error) {
 // the digest of its contents, so a renamed, added or edited file all move it.
 // The paths are slash-separated and relative to dir.
 func DigestFiles(dir string, rel []string) (string, error) {
+	return digestFiles(dir, rel, DigestFile)
+}
+
+func digestFiles(dir string, rel []string, digestFile func(string) (string, error)) (string, error) {
 	sorted := append([]string(nil), rel...)
 	sort.Strings(sorted)
 	sum := sha256.New()
 	for _, name := range sorted {
-		digest, err := DigestFile(filepath.Join(dir, filepath.FromSlash(name)))
+		digest, err := digestFile(filepath.Join(dir, filepath.FromSlash(name)))
 		if err != nil {
 			return "", err
 		}
 		fmt.Fprintf(sum, "%s\x00%s\n", name, digest)
 	}
 	return digestPrefix + hex.EncodeToString(sum.Sum(nil)), nil
+}
+
+// DigestPackage is the digest of a Go package's production sources: its
+// non-test .go files, named relative to dir and read with CRLF folded to LF, so
+// a baseline states which writer produced its side of a comparison without
+// depending on the checkout's path or line-ending conversion.
+func DigestPackage(dir string) (string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+	var sources []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		sources = append(sources, name)
+	}
+	if len(sources) == 0 {
+		return "", fmt.Errorf("%s holds no Go sources", dir)
+	}
+	return digestFiles(dir, sources, digestSourceFile)
+}
+
+// digestSourceFile digests a text source as git stores it (LF), whatever the
+// checkout's autocrlf setting rewrote it to.
+func digestSourceFile(path string) (string, error) {
+	content, err := os.ReadFile(path) // #nosec G304 -- callers name repository sources
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n")))
+	return digestPrefix + hex.EncodeToString(sum[:]), nil
 }
 
 // DigestStrings is the digest of a list of already-canonical strings, used for

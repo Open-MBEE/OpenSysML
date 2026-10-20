@@ -173,6 +173,11 @@ func run(opts options) error {
 		return baseline.Write(committed, fresh, opts.log)
 	}
 	if opts.check {
+		// The provenance guard names what moved (a pin, the errata, a tool's
+		// source, a root) and whose it is before the counts are held to the baseline.
+		if err := baseline.CheckCommitted(committed, refreshCommand, record); err != nil {
+			return err
+		}
 		return baseline.Reproduces(committed, fresh)
 	}
 	return nil

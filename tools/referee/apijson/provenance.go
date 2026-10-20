@@ -14,6 +14,8 @@ const (
 	refreshCommand    = "go run -C tools ./cmd/pilot-apijson-diff -update"
 	bridgeSource      = "scripts/pilot-json-exporter/ExportJSON.java"
 	bridgeName        = "pilot-json-exporter"
+	writerSource      = "internal/translate/export"
+	writerName        = "api-json-writer"
 )
 
 // manualExamples is the one root the pilot differential does not compare: the
@@ -24,15 +26,20 @@ var manualExamples = diff.Root{Name: "manual-examples", Dir: "docs/manual/exampl
 func roots() []diff.Root { return append(diff.Roots(), manualExamples) }
 
 // provenance identifies the run's inputs: the pilot pin, the bridge source the
-// exporter is compiled from, and every non-empty root by its files' digest.
+// exporter is compiled from, the package our writer is compiled from, and every
+// non-empty root by its files' digest.
 func provenance(repo string) (baseline.Record, error) {
 	pin, err := baseline.ReadPin(repo)
 	if err != nil {
 		return baseline.Record{}, err
 	}
-	digest, err := baseline.DigestFile(filepath.Join(repo, filepath.FromSlash(bridgeSource)))
+	bridgeDigest, err := baseline.DigestFile(filepath.Join(repo, filepath.FromSlash(bridgeSource)))
 	if err != nil {
 		return baseline.Record{}, fmt.Errorf("digest %s: %w", bridgeSource, err)
+	}
+	writerDigest, err := baseline.DigestPackage(filepath.Join(repo, filepath.FromSlash(writerSource)))
+	if err != nil {
+		return baseline.Record{}, fmt.Errorf("digest %s: %w", writerSource, err)
 	}
 	overlay, err := errata.Load()
 	if err != nil {
@@ -43,7 +50,10 @@ func provenance(repo string) (baseline.Record, error) {
 		PilotCommit:   pin.Commit,
 		PilotArtifact: pin.Artifact,
 		Errata:        baseline.ErrataDigest(overlay.Entries()),
-		Tools:         []baseline.Tool{{Name: bridgeName, Source: bridgeSource, SourceDigest: digest, Release: pin.Release()}},
+		Tools: []baseline.Tool{
+			{Name: bridgeName, Source: bridgeSource, SourceDigest: bridgeDigest, Release: pin.Release()},
+			{Name: writerName, Source: writerSource, SourceDigest: writerDigest},
+		},
 	}
 	for _, root := range roots() {
 		files, err := diff.CollectFiles(repo, root)
