@@ -577,6 +577,29 @@ test("layoutCanvas with unplaced takes the auto layout over the model's Layout a
   assert.equal(dragged.nodes.get("a")!.pinned, true);
 });
 
+test("movedNode alone writes the dragged node and nothing of the auto layout under it", () => {
+  const drawing = rendering(
+    [node("box", "box", { x: 10, y: 10 }), node("a", "a", { parent: "box", x: 30, y: 40 }), node("b", "b", { parent: "box" })],
+    [{ from: "a", to: "b", label: "", kind: "connection", route: [{ x: 500, y: 900 }] }],
+  );
+  const auto: AutoLayout = {
+    nodes: new Map([
+      ["box", { x: 24, y: 24, width: 300, height: 200 }],
+      ["a", { x: 48, y: 60, width: 96, height: 52 }],
+      ["b", { x: 48, y: 150, width: 96, height: 52 }],
+    ]),
+    routes: new Map([[0, [{ x: 96, y: 112 }, { x: 96, y: 130 }, { x: 120, y: 130 }, { x: 120, y: 150 }]]]),
+    ports: new Map(),
+  };
+  const free = layoutCanvas(drawing, { unplaced: true }, auto);
+  const held = movedNode(free, "box", 20, 0)!;
+  assert.ok(held.nodes.length > 1 || held.edges.length > 0);
+  const alone = movedNode(free, "box", 20, 0, true)!;
+  assert.deepEqual(alone.nodes.map((placement) => placement.id), ["box"]);
+  assert.equal(alone.nodes[0].layout.x, 44);
+  assert.deepEqual(alone.edges, []);
+});
+
 test("layoutCanvas hides a sequence diagram's messages of a hidden kind and closes the rows over them", () => {
   const drawing = rendering(
     [node("a", "a"), node("b", "b")],

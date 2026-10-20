@@ -1716,17 +1716,23 @@ function contains(box: Box, at: RenderPoint): boolean {
 /**
  * movedNode is what dragging a node by (dx, dy) puts in the model: the node itself,
  * every descendant the model already places, and every stated route between nodes
- * of that subtree — all shifted together, so the subtree keeps its shape.
+ * of that subtree — all shifted together, so the subtree keeps its shape. With
+ * `alone`, as under an auto layout whose places and routes are the panel's and not
+ * the model's, it is the dragged node and nothing else.
  */
 export function movedNode(
   layout: CanvasLayout,
   id: string,
   dx: number,
   dy: number,
+  alone = false,
 ): Placements | undefined {
   const entry = layout.nodes.get(id);
   if (!entry || !movable(layout, entry)) {
     return undefined;
+  }
+  if (alone) {
+    return { nodes: [{ id, layout: shifted(entry, dx, dy) }], edges: [] };
   }
   const subtree = new Set<string>();
   const nodes: NodePlacement[] = [];

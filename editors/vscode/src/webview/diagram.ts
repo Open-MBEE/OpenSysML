@@ -590,11 +590,10 @@ function applyViewport(): void {
   diagram.scrollLeft = want.scrollLeft;
   diagram.scrollTop = want.scrollTop;
   const stopped = { left: diagram.scrollLeft, top: diagram.scrollTop };
-  // The status line and list below the canvas may not have their height yet, so the container
-  // can stop short of the offset asked for; it is asked again once the layout has settled, unless
-  // the user has scrolled since, and only then is where the container stands taken as the truth.
+  // The status line under the canvas may have no height yet and clamp the offset: ask again once
+  // the layout has settled, unless the user or a newer viewport has moved the container since.
   requestAnimationFrame(() => {
-    if (diagram.scrollLeft === stopped.left && diagram.scrollTop === stopped.top) {
+    if (viewport === want && diagram.scrollLeft === stopped.left && diagram.scrollTop === stopped.top) {
       diagram.scrollLeft = want.scrollLeft;
       diagram.scrollTop = want.scrollTop;
     }
@@ -754,7 +753,7 @@ function moveGesture(event: PointerEvent): void {
   }
   switch (gesture.kind) {
     case "node":
-      gesture.placements = movedNode(layout, gesture.id, dx, dy);
+      gesture.placements = movedNode(layout, gesture.id, dx, dy, freeAuto !== undefined);
       break;
     case "waypoint":
       gesture.placements = movedWaypoint(layout, gesture.edge, gesture.point, at);
