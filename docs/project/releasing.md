@@ -32,7 +32,7 @@ own: it is part of this module, so the core's `v*` tag is what a Go program pins
 Between releases, `.github/workflows/nightly.yml` builds the newest green `develop`
 commit every night with `scripts/build-release-artifacts.sh` — the same targets,
 platforms and layout as `build-release` below — together with the Python wheel and the
-seven npm packages, and publishes it as the prerelease `nightly-<yyyymmdd>-<commit>`,
+thirteen npm packages, and publishes it as the prerelease `nightly-<yyyymmdd>-<commit>`,
 kept for 14 days, with the moving alias `nightly` at the newest night; both are never
 marked latest and are signed by the workflow's own GitHub identity rather than the
 CircleCI one the clients pin. The clients go to PyPI and npm as development versions
@@ -164,8 +164,10 @@ branch that moves the integration state onto `main`:
    [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi)). Also set `"version"` in
    `client/node/package.json` — the five platform packages in
    `optionalDependencies` and `@openmbee/opensysml-wasm` in `peerDependencies` —
-   to the SemVer spelling of the same version (`0.9.1`;
-   `0.9.0-rc.1` for `0.9.0rc1`), and run `npm install --package-lock-only` in
+   and in `packaging/npm/sysml-mcp/package.json` — its five platform packages in
+   `optionalDependencies` — to the SemVer spelling of the same version (`0.9.1`;
+   `0.9.0-rc.1` for `0.9.0rc1`; `TestMCPRunnerManifestAgreesWithTheClientVersion` in
+   `tests/hygiene` fails while the two manifests disagree), and run `npm install --package-lock-only` in
    `client/node` so the lockfile agrees; the release workflow fails before
    building anything when package.json disagrees, and `npm ci` refuses a
    lockfile that still locks the platform packages at the previous version
@@ -430,12 +432,15 @@ one alongside it).
      "import opensysml; print(opensysml.__version__, opensysml.load('examples/state-machine-demo.sysml').diagnostics)"
    ```
 
-2. **Verify the npm upload.** Check the registry sees all seven packages at the
-   version and the right dist-tag:
+2. **Verify the npm upload.** Check the registry sees all thirteen packages at the
+   version and the right dist-tag, and that the npm runner starts the release's
+   server with nothing installed:
 
    ```bash
    npm view @openmbee/opensysml@0.0.5 version dist-tags
    npm view @openmbee/opensysml-wasm@0.0.5 version
+   npm view @openmbee/sysml-mcp@0.0.5 version dist-tags optionalDependencies
+   npx -y @openmbee/sysml-mcp@0.0.5 -version
    ```
 
    Then install it in a temp dir and load a model with `OPENSYSML_BINARY` unset,
@@ -1321,9 +1326,12 @@ tag that publishes the binaries and `opensysml` — at that version. No other ta
 publishes it; the `client-node-v*` path never ran and is no longer matched.
 The npm packages are published with core releases at the client's version, and
 the `npm` context they need is already in place (see
-[What the job needs](#what-the-job-needs-1)).
+[What the job needs](#what-the-job-needs-1)). The same job publishes the MCP
+server's npm runner, `@openmbee/sysml-mcp` (`packaging/npm/sysml-mcp`), and its
+five platform packages, at the same version; see
+[Thirteen packages, one tag](#thirteen-packages-one-tag).
 
-### Seven packages, one tag
+### Thirteen packages, one tag
 
 `@openmbee/opensysml` carries no binary. The service binary comes from one of five
 per-platform packages it names in `optionalDependencies`, which npm installs by
@@ -1341,7 +1349,32 @@ package carries the combined WebAssembly module and its matching Go runtime:
 
 All seven share the version in `client/node/package.json`. The platform
 packages and WASM package are published first, so `@openmbee/opensysml` is
-never on the registry naming a version of a package that is not. Where no
+never on the registry naming a version of a package that is not.
+
+`@openmbee/sysml-mcp` follows the same pattern for `sysml-mcp`, so that
+`npx -y @openmbee/sysml-mcp` starts the server with nothing preinstalled: a
+dependency-free package whose `sysml-mcp` command runs the binary from the
+platform package `optionalDependencies` names for the machine, at exactly its
+own version. Each platform package carries the release `sysml-mcp` binary, the
+LICENSE and the man page — what the `sysml-mcp-<os>-<arch>` archive carries:
+
+| package | os | cpu |
+| --- | --- | --- |
+| `@openmbee/sysml-mcp-linux-x64` | linux | x64 |
+| `@openmbee/sysml-mcp-linux-arm64` | linux | arm64 |
+| `@openmbee/sysml-mcp-darwin-x64` | darwin | x64 |
+| `@openmbee/sysml-mcp-darwin-arm64` | darwin | arm64 |
+| `@openmbee/sysml-mcp-win32-x64` | win32 | x64 |
+
+All six share the version in `packaging/npm/sysml-mcp/package.json`, which
+must equal `client/node/package.json`'s (`TestMCPRunnerManifestAgreesWithTheClientVersion`
+in `tests/hygiene`, and `npm run platform-packages` refuses to build while they
+disagree). The platform packages are published before the runner, as the
+client's are. The win32 package carries the binary CircleCI built and
+`SHA256SUMS.txt` covers, as `@openmbee/opensysml-sysml-grpc-win32-x64` does;
+the Authenticode-signed `sysml-mcp.exe` is produced afterwards by the GitHub
+`release-windows` workflow and reaches only the signed release zip (see
+[Windows Authenticode signing](#windows-authenticode-signing)). Where no
 platform package matches — a platform with no
 release build — the client falls back to `$OPENSYSML_BINARY`, a binary in
 `~/.opensysml/bin/`, a release download into that cache, `sysml-grpc` on
@@ -1360,8 +1393,11 @@ attaches. `npm run platform-packages` refuses to package a binary
 whose bytes disagree with its `.sha256` sidecar, or that has none, so the
 packages can only carry what the release built. The WASM package is built from
 `dist/wasm` in the same workspace with both assets checked against their
-sidecars. npm's `--provenance` is not used: the CLI mints attestations only on
-GitHub Actions and GitLab CI/CD.
+sidecars, and the `sysml-mcp` platform packages from `dist/mcp`, the raw
+binaries the `sysml-mcp-<os>-<arch>` archives are staged from, which carry
+`.sha256` sidecars for this purpose (the archives, not the raw binaries, are
+the release assets). npm's `--provenance` is not used: the CLI mints
+attestations only on GitHub Actions and GitLab CI/CD.
 
 ### Why the core's tag
 
@@ -1388,8 +1424,8 @@ spell the SemVer version exactly, `v` aside.
 ### Pre-releases
 
 A pre-release tag — the same one that sends `opensysml` to TestPyPI — publishes
-all seven packages to the `next` dist-tag; `latest` is untouched. Install a
-pre-release with `@next` or the exact version.
+all thirteen packages to the `next` dist-tag; `latest` is untouched. Install a
+pre-release with `@next` or the exact version (`npx -y @openmbee/sysml-mcp@next`).
 
 ### What the job needs
 
@@ -1424,23 +1460,30 @@ Everything below is already in place; it is recorded so it can be re-created.
    `build-python-package` does for the wheel. Only that file in the working
    copy changes; see [Pinned release digests](#pinned-release-digests).
 3. Requires `NPM_TOKEN` from the `npm` context.
-4. Refuses to run if any of the seven packages is already on the registry at this
-   version (a publish cannot be repeated).
+4. Refuses to run if any of the thirteen packages is already on the registry at
+   this version (a publish cannot be repeated).
 5. Installs Z3, then builds and tests the client against the release's linux
    binary (`npm ci`, build, typecheck, lint, tests), with
    `$OPENSYSML_EXPECT_PINNED_RELEASE` set to the tag so the suite asserts the
    stamped table pins it. The suite's verification tests ask the service
    solver-backed questions, and the service finds the solver on PATH; without
    one those questions are undecided and the tests fail.
-6. Builds the five platform packages from `dist/grpc` and the WASM package
-   from `dist/wasm`, checking every asset against its `.sha256` sidecar.
+6. Builds the five platform packages from `dist/grpc`, the five `sysml-mcp`
+   platform packages from `dist/mcp` and the WASM package from `dist/wasm`,
+   checking every asset against its `.sha256` sidecar.
 7. Packs the client into `dist/npm/` with `npm pack` and opens the tarball:
    its `release-digests.json` must pin all five service assets for the tag,
-   with the digests of the binaries in `dist/grpc`, or the job fails.
+   with the digests of the binaries in `dist/grpc`, or the job fails. Then
+   packs `@openmbee/sysml-mcp` beside it: the tarball must be the tag's
+   version with no dependencies and its five platform packages pinned at it,
+   and `scripts/npm-mcp-test.sh` installs that tarball with the linux-x64
+   platform package from step 6 into a throwaway project and speaks
+   `initialize` and `tools/list` to the installed command, or the job fails.
 8. Authenticates to npm and runs `npm whoami`, so an expired token fails before
    the first publish.
-9. Publishes the WASM and five platform packages, then the client — the
-   tarball verified in step 7, not a fresh pack — on the resolved dist-tag.
+9. Publishes the WASM and ten platform packages, then the client and
+   `@openmbee/sysml-mcp` — the tarballs verified in step 7, not fresh packs —
+   on the resolved dist-tag.
 
 ### If a publish goes wrong
 
@@ -1453,7 +1496,7 @@ workflow from failed* — without repeating the rest of the workflow.
 
 After the first publish the version is used: the registry refusal makes a
 re-run fail by design, and a half-published set — some platform packages up,
-the client not — is not repaired by re-running. `npm deprecate` what went up
+the client or `@openmbee/sysml-mcp` not — is not repaired by re-running. `npm deprecate` what went up
 (and `npm unpublish` within 72 hours only if nothing depends on it) and cut the
 next core patch release. Never remove the refusal to force a re-run through.
 
