@@ -403,7 +403,19 @@ func (ctx *Context) adoptBodyCellValue(fv *FeatureValue) {
 	}
 	value := fv.HeldValue()
 	held := ctx.beforeWrite(&cell.fv)
-	cell.owner.vars[cell.name] = value
+	if !held.taken {
+		ctx.noteProbeWrite(&cell.fv)
+	}
+	vars, name := cell.owner.vars, cell.name
+	prior, had := vars[name]
+	ctx.noteProbeUndo(func() {
+		if had {
+			vars[name] = prior
+		} else {
+			delete(vars, name)
+		}
+	})
+	vars[name] = value
 	cell.fv.Value, cell.fv.Values, cell.fv.Materialized = value, Value{}, true
 	ctx.afterWrite(&cell.fv, held)
 }
