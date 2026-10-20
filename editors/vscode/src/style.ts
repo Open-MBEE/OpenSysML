@@ -11,6 +11,21 @@ export const SHOW_SETTING = "opensysml.diagram.show";
 /** The setting bounding how many levels of nested elements a diagram draws below each exposed element. */
 export const DEPTH_SETTING = "opensysml.diagram.depth";
 
+/** The setting that picks whose routes the diagram panel draws its edges along. */
+export const ROUTING_SETTING = "opensysml.diagram.routing";
+
+/** The routings: `model` draws a stated `Route` verbatim, `router` sends every edge without an ELK route through libavoid. */
+export const ROUTINGS = ["model", "router"] as const;
+
+export type Routing = (typeof ROUTINGS)[number];
+
+export const DEFAULT_ROUTING: Routing = "model";
+
+/** routingOf reads the routing setting: the routing it names, or the default when it names none. */
+export function routingOf(value: unknown): Routing {
+  return typeof value === "string" && (ROUTINGS as readonly string[]).includes(value) ? (value as Routing) : DEFAULT_ROUTING;
+}
+
 /** depthOf reads the depth setting: a non-negative whole number, anything else 0, every level. */
 export function depthOf(value: unknown): number {
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;

@@ -55,7 +55,7 @@ import {
 } from "./protocol";
 import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
 import { logsRender, renderSummary } from "./rendertrace";
-import { DEPTH_SETTING, depthOf, DiagramStyle, drawingStyleOf, paletteOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
+import { DEPTH_SETTING, depthOf, DiagramStyle, drawingStyleOf, paletteOf, Routing, ROUTING_SETTING, routingOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
 import {
   chooseView,
@@ -139,6 +139,10 @@ export class DiagramPanels implements vscode.Disposable {
         if (event.affectsConfiguration(STYLE_SETTING) || event.affectsConfiguration(SHOW_SETTING) || event.affectsConfiguration(DEPTH_SETTING)) {
           for (const panel of this.panels.values()) {
             panel.restyle();
+          }
+        } else if (event.affectsConfiguration(ROUTING_SETTING)) {
+          for (const panel of this.panels.values()) {
+            panel.reroute();
           }
         }
       }),
@@ -589,6 +593,11 @@ function diagramDepth(scope: vscode.Uri): number {
   return depthOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("depth"));
 }
 
+/** diagramRouting is whose routes the setting draws a document's edges along: the model's stated ones, or the router's. */
+function diagramRouting(scope: vscode.Uri): Routing {
+  return routingOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("routing"));
+}
+
 /** supportedDepth is the depth to ask of a server that reads one; undefined when none is set or the server predates it. */
 function supportedDepth(client: LanguageClient, depth: number): number | undefined {
   return depth > 0 && serverReadsDepth(experimental(client)) ? depth : undefined;
@@ -831,6 +840,7 @@ class DiagramPanel {
         selected: this.selected,
         drawn: this.drawn,
         style,
+        routing: diagramRouting(this.docURI),
         hint: renderHint(palette !== undefined && !colours, drawing !== undefined && !styled),
       });
       this.highlightActive();
@@ -843,6 +853,11 @@ class DiagramPanel {
   restyle(): void {
     this.post({ type: "style", style: diagramStyle(this.docURI) });
     this.refresh();
+  }
+
+  /** reroute lays the drawing out again along the routes the setting now asks for; nothing is rendered anew. */
+  reroute(): void {
+    this.post({ type: "routing", routing: diagramRouting(this.docURI) });
   }
 
   /** highlightAt marks the node or table row whose declaration contains the cursor. */
