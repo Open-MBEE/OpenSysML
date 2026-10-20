@@ -117,14 +117,15 @@ func usedDeclaration(idx *symbols.Index, name string, syms []*symbols.Symbol) *s
 	return syms[0]
 }
 
-// tree is one side of a duplication: the common prefix of the documents on
-// that side once the path the copies share is stripped.
+// treePair names the two trees a duplication lies in: what is left of each
+// document's path once the path the copies share is stripped.
 type treePair struct{ used, shadowed string }
 
+// grouped is one finding in the making: the duplicated packages of one tree pair.
 type grouped struct {
 	pair     treePair
 	names    []string
-	used     string          // the used document the group was first seen in
+	used     string          // the used declaration's document, paired with shadowed
 	shadowed *symbols.Symbol // the shadowed declaration the finding is attached to
 }
 
