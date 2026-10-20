@@ -59,7 +59,9 @@ func DevelopCommit(dir, given string) (string, error) {
 func BuildRoot() (string, error) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok || !filepath.IsAbs(file) {
-		return "", fmt.Errorf("source path of the build is unknown (%q): built with -trimpath?", file)
+		// A -trimpath build keeps no checkout path; `go run -C tools` builds from
+		// the working directory's checkout, which Root finds.
+		return Root()
 	}
 	root, err := RootFrom(filepath.Dir(file))
 	if err != nil {
