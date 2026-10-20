@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::host",
+  "slots": {
+    "life.flag": {"type": "Boolean", "value": true},
+    "life.seen": {"type": "Boolean", "value": true}
+  }
+}
