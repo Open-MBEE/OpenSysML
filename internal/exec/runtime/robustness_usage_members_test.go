@@ -55,7 +55,7 @@ func testUsageMembersCalcUndeclared(t *testing.T) {
 func testUsageMembersUnsuppliedCalcInput(t *testing.T) {
 	eval := usageMembersEval(t)
 	val, err := eval("Probe::rig.scaled.w")
-	if err != nil || val.Kind != ValUndetermined || !strings.Contains(val.Undetermined().reason, "nothing supplies") {
+	if err != nil || val.Kind != ValUndetermined || !strings.Contains(val.Undetermined().reason, "binds no value") {
 		t.Fatalf("Probe::rig.scaled.w = %s, %v; want undetermined for the input nothing supplies", FormatValue(val), err)
 	}
 	if val, err := eval("Probe::rig.scaled.result"); err != nil || val.Kind != ValUndetermined || !strings.Contains(val.Undetermined().reason, "nothing supplies") {

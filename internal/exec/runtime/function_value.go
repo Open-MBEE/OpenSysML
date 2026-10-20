@@ -131,18 +131,13 @@ func (ctx *Context) readsAsFunction(sym *symbols.Symbol) bool {
 // hasUnsuppliedInput reports an input parameter no read of the calc could bind:
 // neither an argument, a default nor the enclosing case supplies one.
 func (shape *calcShape) hasUnsuppliedInput() bool {
-	return shape.unsuppliedInput() != nil
-}
-
-// unsuppliedInput is the first input parameter no read of the calc could bind, nil when every one is supplied.
-func (shape *calcShape) unsuppliedInput() *calcParameter {
 	for i := range shape.Params {
 		param := &shape.Params[i]
 		if param.Default == nil && !param.IsSubject && !param.IsActor && !param.declaredOptional() {
-			return param
+			return true
 		}
 	}
-	return nil
+	return false
 }
 
 // FunctionValue is the function a read of the declaration sym denotes — a calc

@@ -4,7 +4,7 @@
   "slots": {
     "scaledW": {
       "type": "Undetermined",
-      "value": "[1]"
+      "value": "[0..*]"
     },
     "scaledK": {
       "type": "Rational",

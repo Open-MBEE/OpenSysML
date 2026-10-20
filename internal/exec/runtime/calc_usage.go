@@ -587,7 +587,13 @@ func (ctx *Context) calcUsageRun(reader *EvalContext, sym *symbols.Symbol) (*cal
 	if err != nil || run != nil {
 		return run, err
 	}
-	run, err = ctx.finishCalcUsage(start)
+	return ctx.finishCalcUsageRun(start)
+}
+
+// finishCalcUsageRun runs the begun usage's body to its end, refusing a wait the
+// body would pause on while its outputs are read.
+func (ctx *Context) finishCalcUsageRun(start *calcUsageStart) (*calcRun, error) {
+	run, err := ctx.finishCalcUsage(start)
 	if paused(err) && ctx.body.paused.onWait {
 		return nil, ctx.caseReadWaits(start)
 	}
@@ -1287,23 +1293,15 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 	if len(parts) == 0 {
 		return Value{}, fmt.Errorf("empty member chain")
 	}
-	// A calc usage with an input nothing supplies computes nothing to read; its
-	// inputs still read as what binds them, which is nothing for that one.
-	if sym.Kind == symbols.SymbolCalcUsage && ec.ctx.readsAsFunction(sym) {
-		if value, ok, err := ec.unsuppliedCalcInput(sym, parts[0].Text); ok {
-			if err != nil {
-				return Value{}, err
-			}
+	start, run, err := ec.ctx.beginCalcUsage(ec, sym)
+	if err == nil && run == nil {
+		// A calc usage with an input nothing supplies computes nothing: read over an
+		// object, its inputs and outputs are answered without running its body.
+		if value, ok := start.unsuppliedRead(sym, ec, parts[0].Text); ok {
 			return ec.chainMemberValue(value, parts[1:], parts[0].Text)
 		}
-		if value, ok, err := ec.unsuppliedCalcOutput(sym, parts[0].Text); ok && ec.calcRun == nil {
-			if err != nil {
-				return Value{}, err
-			}
-			return ec.chainMemberValue(value, parts[1:], parts[0].Text)
-		}
+		run, err = ec.ctx.finishCalcUsageRun(start)
 	}
-	run, err := ec.ctx.calcUsageRun(ec, sym)
 	if err != nil {
 		if value, ok := ec.ctx.unboundSubjectRead(sym, parts[0].Text, err); ok {
 			return ec.chainMemberValue(value, parts[1:], parts[0].Text)
@@ -1375,6 +1373,60 @@ func (run *calcRun) memberValue(ctx *Context, name string) (Value, bool, error) 
 	return undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", run.shape.Label, name), count, member), true, nil
 }
 
+// unsuppliedRead answers a read, over an object, of a member of a calc usage with
+// an input nothing supplies, before its body runs: an input as bound or undetermined,
+// an output undetermined naming the input, since the usage computes nothing. A case
+// usage runs without the input, and inside a calc's own evaluation the enclosing
+// invocation reports it, so neither is answered here.
+func (start *calcUsageStart) unsuppliedRead(sym *symbols.Symbol, reader *EvalContext, name string) (Value, bool) {
+	if sym.Kind != symbols.SymbolCalcUsage || reader.calcRun != nil || !start.unsuppliedRequired() {
+		return Value{}, false
+	}
+	if owner := sym.Owner(); owner != nil && (isBehaviorDefKind(owner.Kind) || isCalcUsageSymbol(owner)) {
+		return Value{}, false
+	}
+	shape := start.shape
+	if param := shape.parameter(name); param != nil {
+		if !start.unsupplied[name] || param.declaredOptional() {
+			return start.env.lookup(name)
+		}
+		var count semantics.Range
+		if param.Sym != nil {
+			count = reader.ctx.effectiveFeature(name, param.Sym, shape.Sym).Multiplicity
+		}
+		return undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", shape.Label, name), count, param.Sym), true
+	}
+	out, ok := shape.output(name)
+	if !ok {
+		return Value{}, false
+	}
+	for i := range shape.Params {
+		param := &shape.Params[i]
+		if !start.unsupplied[param.Name] || param.declaredOptional() {
+			continue
+		}
+		var count semantics.Range
+		var feature *symbols.Symbol
+		if target := out.Decl.Target; target != nil {
+			count, feature = target.mult, target.feature
+		}
+		reason := fmt.Sprintf("%s: nothing supplies parameter %q, so %s is not computed", shape.Label, param.Name, name)
+		return undeterminedFeatureValue(reason, count, feature), true
+	}
+	return Value{}, false
+}
+
+// unsuppliedRequired reports an unsupplied parameter the usage cannot do without:
+// one declared neither optional nor with a default.
+func (start *calcUsageStart) unsuppliedRequired() bool {
+	for i := range start.shape.Params {
+		if param := &start.shape.Params[i]; start.unsupplied[param.Name] && !param.declaredOptional() {
+			return true
+		}
+	}
+	return false
+}
+
 // unsuppliedParameters names the parameters args and the declared defaults leave
 // unbound; the subject binds through its own rule and is never among them.
 func (shape *calcShape) unsuppliedParameters(args calcArgs) map[string]bool {
@@ -1442,57 +1494,6 @@ func (ec *EvalContext) occurrenceMember(run *calcRun, parts []ast.NameSegment) (
 	}
 	value, err := ec.chainFeatureValue(inst, name, parts[1:], name)
 	return value, true, err
-}
-
-// unsuppliedCalcInput reads an input parameter of a calc usage read as a function
-// value: the default it declares, evaluated over the object the usage is a feature
-// of, or undetermined for the input nothing supplies. Not ok for any other name.
-func (ec *EvalContext) unsuppliedCalcInput(sym *symbols.Symbol, name string) (Value, bool, error) {
-	shape, err := ec.ctx.calcInterfaceOf(sym)
-	if err != nil {
-		return Value{}, true, err
-	}
-	param := shape.parameter(name)
-	if param == nil {
-		return Value{}, false, nil
-	}
-	if param.Default == nil {
-		var count semantics.Range
-		if param.Sym != nil {
-			count, _ = ec.ctx.extractMultiplicity(param.Sym)
-		}
-		return undeterminedFeatureValue(fmt.Sprintf("%s: nothing supplies parameter %q", shape.Label, name), count, param.Sym), true, nil
-	}
-	value, err := NewEvalContextIn(ec.ctx, ec.ctx.calcScope(param.Owner, shape.Sym, ec.scope), ec.self).Eval(param.Default)
-	if err != nil {
-		return Value{}, true, calcDefaultError(shape.Kind, shape.Name, name, err)
-	}
-	return value, true, nil
-}
-
-// unsuppliedCalcOutput is the read, over an object, of an output of a calc usage
-// with an input nothing supplies: the usage computes nothing, so the output is
-// undetermined, naming that input. Inside a calc's own evaluation the enclosing
-// invocation reports the unbound input instead.
-func (ec *EvalContext) unsuppliedCalcOutput(sym *symbols.Symbol, name string) (Value, bool, error) {
-	shape, err := ec.ctx.calcInterfaceOf(sym)
-	if err != nil {
-		return Value{}, true, err
-	}
-	out, ok := shape.output(name)
-	if !ok {
-		return Value{}, false, nil
-	}
-	param := shape.unsuppliedInput()
-	if param == nil {
-		return Value{}, false, nil
-	}
-	var count semantics.Range
-	var feature *symbols.Symbol
-	if target := out.Decl.Target; target != nil {
-		count, feature = target.mult, target.feature
-	}
-	return undeterminedFeatureValue(fmt.Sprintf("%s: nothing supplies parameter %q, so %s is not computed", shape.Label, param.Name, name), count, feature), true, nil
 }
 
 // nestedUsage is the evaluation of a calc or analysis usage this run's body
