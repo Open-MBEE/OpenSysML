@@ -952,7 +952,7 @@ func TestMembershipImportUsesImportedElementWhenMembershipIsUnavailable(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := newDecoder(graph, metaclasses, nil, nil)
+	d := newDecoder(graph, metaclasses, nil, nil, nil)
 	importElement := &element{iri: imported.Value, metaclass: mMembershipImport}
 	d.byIRI[target.Value] = &element{
 		iri: target.Value, metaclass: mPackage, qname: "Base::DataValue", elementID: "target",
