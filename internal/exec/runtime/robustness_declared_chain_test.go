@@ -27,6 +27,7 @@ const declaredChainFixture = `package test {
 	private import ScalarValues::*;
 	attribute def Details { attribute limit : Real default = 4.0; }
 	action def Act { in x : Real[0..1]; }
+	port def Pt { in attribute v : Real[0..1]; }
 	requirement def Limits {
 		attribute own : Real = test::req.own;
 		attribute left : Real = test::req.right;
@@ -38,7 +39,12 @@ const declaredChainFixture = `package test {
 		attribute any : Details[0..*];
 		attribute one : Details;
 		action act : Act;
+		port pt : Pt;
 	}
+	part def W;
+	part l1 : W[0..*];
+	part l2 : W[0..*] :> l1;
+	part leaf : W :> l2;
 	requirement req : Limits;
 }`
 
@@ -99,7 +105,7 @@ func testDeclaredChainOpenCount(t *testing.T) {
 // A member whose lower bound is 0 and which nothing values holds nothing: the read
 // is the empty sequence, not an error and not an undetermined count, and a chain
 // through it is empty too. A parameter of an un-invoked action usage is an unbound
-// input, whatever its lower bound.
+// input whatever its lower bound; a port's directed feature is not. Subsetting is transitive.
 func testDeclaredChainOptionalCount(t *testing.T) {
 	ctx, scope := declaredChainContext(t)
 	for src, want := range map[string]string{"req.any.limit": "[]", "req.any": "[]"} {
@@ -108,6 +114,12 @@ func testDeclaredChainOptionalCount(t *testing.T) {
 	}
 	val, err := ctx.EvalWithScope(parseExpr(t, "req.act.x"), scope)
 	wantUndetermined(t, "req.act.x", val, err, "[0..1]")
+	val, err = ctx.EvalWithScope(parseExpr(t, "req.pt.v"), scope)
+	wantFormatted(t, "req.pt.v", val, err, "[]")
+	val, err = ctx.EvalWithScope(parseExpr(t, "l1"), scope)
+	if err != nil || len(heldObjects(val)) != 1 {
+		t.Fatalf("l1 = %s, %v; want the one object leaf contributes through l2", FormatValue(val), err)
+	}
 	val, err = ctx.EvalWithScope(parseExpr(t, "req.one.limit"), scope)
 	if err != nil {
 		t.Fatalf("req.one.limit: %v", err)

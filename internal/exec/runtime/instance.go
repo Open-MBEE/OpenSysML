@@ -1174,7 +1174,7 @@ func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name 
 			return nil, err
 		}
 		held := int64(len(contributed))
-		if !mult.Lower.Known || !mult.Upper.Known || max(atLeast, fewestOf(mult)) > held || isBehaviorParameter(fv.Feature.Symbol) {
+		if !mult.Lower.Known || !mult.Upper.Known || max(atLeast, fewestOf(mult)) > held || semantics.IsBehaviorParameter(fv.Feature.Symbol) {
 			open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
 			return fv, nil
 		}
@@ -1268,7 +1268,7 @@ func (inst *Instance) materializeCompositeCollection(ctx *Context, fv *FeatureVa
 		fv.Values = ctx.collectionOf(fv.Feature, elements)
 	}
 	fv.Materialized = true
-	fv.Assumed = isBehaviorParameter(fv.Feature.Symbol) || count > 0 && mult.AdmitsMore(int64(len(contributed))+count)
+	fv.Assumed = semantics.IsBehaviorParameter(fv.Feature.Symbol) || count > 0 && mult.AdmitsMore(int64(len(contributed))+count)
 	fv.intrinsic = ctx.subsettersDeclared(inst, name)
 	if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
 		return fail(err)
@@ -1353,7 +1353,7 @@ func (inst *Instance) holdContributed(ctx *Context, fv *FeatureValue, name strin
 		fv.Values = val
 	}
 	fv.Materialized, fv.intrinsic = true, ctx.subsettersDeclared(inst, name)
-	fv.Assumed = isBehaviorParameter(fv.Feature.Symbol)
+	fv.Assumed = semantics.IsBehaviorParameter(fv.Feature.Symbol)
 	return fv, nil
 }
 

@@ -9,13 +9,18 @@
 // the bounds and what they fix (`w` is not empty). A feature value (`= (w1, w2)`) and a
 // subsetting usage meeting the bound (`fl :> fitted[1..*]`) close the count. A parameter of
 // a behavior usage nothing has invoked (`act.i`, `act.o`) is an unbound input whatever its
-// multiplicity: its caller supplies it (SysML v2 §7.16, KerML 1.0 §7.4.8).
+// multiplicity: its caller supplies it (SysML v2 §7.17.2, KerML 1.0 §7.4.7); a directed
+// feature of a port or part (`dir.inp`, `dir.pt.v`) is no parameter and reads closed.
+// Subsetting is transitive (§7.3.3.1): `leaf :> l2 :> l1` makes `l1` hold `leaf`, and
+// `kleaf :> k2 :> k1[1..*]` meets `k1`'s bound.
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::*;
 
 	part def Wheel { attribute mass : Real = 1.0; }
 	action def Act { in i : Integer[0..1]; out o : Integer[0..1]; }
+	port def Pt { in attribute v : Integer[0..1]; out item o : Box[0..*]; }
+	part def Dir { in attribute inp : Integer[0..1]; out attribute outp : Integer[0..*]; port pt : Pt; }
 	item def Box;
 	part def Car {
 		part wheels : Wheel[0..*];
@@ -71,6 +76,19 @@ package test {
 	attribute pkgNested = nested;
 	attribute pkgW = w;
 	attribute pkgFitted = fitted;
+	part dir : Dir;
+	attribute dirIn = dir.inp;
+	attribute dirOut = dir.outp;
+	attribute portIn = dir.pt.v;
+	attribute portOut = dir.pt.o;
+	part l1 : Wheel[0..*];
+	part l2 : Wheel[0..*] :> l1;
+	part leaf : Wheel :> l2;
+	part k1 : Wheel[1..*];
+	part k2 : Wheel[0..*] :> k1;
+	part kleaf : Wheel :> k2;
+	attribute nL1 = size(l1);
+	attribute nK1 = size(k1);
 	attribute actIn = car.act.i;
 	attribute actOut = car.act.o;
 

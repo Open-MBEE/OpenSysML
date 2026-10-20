@@ -28,6 +28,12 @@
     "test::nRModel": {"type": "Undetermined", "value": "[1]"},
     "test::pkgW": {"type": "Undetermined", "value": "[1..*]"},
     "test::pkgFitted": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "test::dirIn": {"type": "Sequence", "elements": []},
+    "test::dirOut": {"type": "Sequence", "elements": []},
+    "test::portIn": {"type": "Sequence", "elements": []},
+    "test::portOut": {"type": "Sequence", "elements": []},
+    "test::nL1": {"type": "Integer", "value": 1},
+    "test::nK1": {"type": "Integer", "value": 1},
     "test::actIn": {"type": "Undetermined", "value": "[0..1]"},
     "test::actOut": {"type": "Undetermined", "value": "[0..1]"}
   }

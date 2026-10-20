@@ -645,11 +645,12 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 	var contributed []*Instance
 	var optional []*symbols.Symbol
 	for _, sub := range subs {
-		if ctx.optionalValueless(sub) {
+		objs, err := ctx.denotedSubsetObjects(sub)
+		// A valueless optional subsetter holding nothing of its own may still be filled.
+		if err == nil && len(objs) == 0 && ctx.optionalValueless(sub) {
 			optional = append(optional, sub)
 			continue
 		}
-		objs, err := ctx.denotedSubsetObjects(sub)
 		if err != nil {
 			return fail(fmt.Errorf("subsetting usage %s of %s: %w", SymbolText(sub), SymbolText(sym), err))
 		}
@@ -763,11 +764,8 @@ func (ctx *Context) namespaceValued(sym *symbols.Symbol) bool {
 	return member != nil && ok
 }
 
-// openDenotedValue is the model-level read of a namespace usage whose count its
-// multiplicity does not fix and nothing binds: what the usages subsetting it contribute
-// (KerML 1.0 §7.3.4.4), closed over the model where that meets the lower bound, else
-// undetermined of the bounds, carrying those contributions (§7.4.12). Nothing is made
-// up for the bound. decided reports whether the read was answered without materializing.
+// openDenotedValue reads a namespace usage of open count nothing binds as its subsetters'
+// contributions (KerML 1.0 §7.3.4.4): closed where they meet the lower bound, else undetermined.
 func (ctx *Context) openDenotedValue(sym *symbols.Symbol, mult semantics.Range) (val Value, decided bool, err error) {
 	if _, exact := mult.Exactly(); exact || ctx.namespaceValued(sym) {
 		return Value{}, false, nil
@@ -776,15 +774,23 @@ func (ctx *Context) openDenotedValue(sym *symbols.Symbol, mult semantics.Range) 
 	var ids []int64
 	var atLeast int64
 	for _, sub := range ctx.namespaceModelIndex().subsetters[sym] {
-		if ctx.optionalValueless(sub) {
-			continue
-		}
+		// A valueless optional subsetter contributes what subsets it in turn: subsetting is transitive.
 		val, err := ctx.denotedValue(sub)
 		if err != nil {
 			return Value{}, false, fmt.Errorf("subsetting usage %s: %w", SymbolText(sub), err)
 		}
 		if val.Kind == ValUndetermined {
 			atLeast = max(atLeast, fewestOf(ctx.featureMultiplicity(sub, ctx.findOwnerType(sub))))
+			for _, inst := range ctx.liveInstances(heldObjects(sequenceOf(knownElementsOf(val)))) {
+				if !slices.Contains(ids, inst.ID) {
+					obj, err := ctx.objectValue(inst)
+					if err != nil {
+						return Value{}, false, err
+					}
+					ids = append(ids, inst.ID)
+					contributed = append(contributed, obj)
+				}
+			}
 			continue
 		}
 		for _, inst := range ctx.liveInstances(heldObjects(val)) {

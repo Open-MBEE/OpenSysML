@@ -1334,10 +1334,8 @@ func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, er
 	return val, true, err
 }
 
-// emptyDeclaredFeature reads a valueless feature declaration whose lower bound is
-// zero as the empty sequence an object holding nothing reads. At model level a
-// binding or a subsetting may still value it, so the namespace read decides
-// (emptyOptionalDeclaration). A variation is a choice, not an empty feature.
+// emptyDeclaredFeature reads a valueless feature of lower bound 0 on an object as the
+// empty sequence; at model level emptyOptionalDeclaration decides. A variation is a choice.
 func (ec *EvalContext) emptyDeclaredFeature(sym *symbols.Symbol) (Value, bool) {
 	if ec.modelLevel() || !ec.ctx.optionalValueless(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) {
 		return Value{}, false
@@ -1345,12 +1343,10 @@ func (ec *EvalContext) emptyDeclaredFeature(sym *symbols.Symbol) (Value, bool) {
 	return sequenceOf(nil), true
 }
 
-// emptyOptionalDeclaration reads a namespace usage of lower bound 0 that nothing
-// binds as what the usages subsetting it contribute, else the empty collection it
-// declares: a model declaring no value for it declares that it holds none. A behavior's
-// parameter is excepted: its invocation supplies it, so nothing has bound it yet.
+// emptyOptionalDeclaration reads a namespace usage of lower bound 0 nothing binds as what
+// subsets it, else empty: the model declares it holds none. A behavior's parameter stays open.
 func (ctx *Context) emptyOptionalDeclaration(sym *symbols.Symbol) (Value, bool, error) {
-	if !ctx.optionalValueless(sym) || ctx.model.semantics.IsVariationFeature(sym) || isBehaviorParameter(sym) {
+	if !ctx.optionalValueless(sym) || ctx.model.semantics.IsVariationFeature(sym) || semantics.IsBehaviorParameter(sym) {
 		return Value{}, false, nil
 	}
 	if objs, subsetted, err := ctx.namespacedSubsetObjects(sym); err != nil {
