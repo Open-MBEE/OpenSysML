@@ -9,7 +9,7 @@ CallBehaviorAction	Host::Run::make	_callMake	-> make	(the behavior acts on a Hos
 Activity	Consume	_consume	-> Model::Consume
 Parameter	Consume::value	_consumeIn	-> Model::Consume::value
 «Block» Class	Host	_host	-> Model::Host
-Activity	Host::Run	_run	-> Model::Host::Run	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Host::Run	_run	-> Model::Host::Run	(acts on its owner Host, which it takes as its parameter context, since its this names no feature of the owner)
 ActivityFinalNode	Host::Run::<ActivityFinalNode>	_rf	-> final
 ControlFlow	Host::Run::<ControlFlow>	_re2
 ControlFlow	Host::Run::<ControlFlow>	_re3

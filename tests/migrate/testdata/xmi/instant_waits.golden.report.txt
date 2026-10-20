@@ -12,7 +12,7 @@ Activity	Stimulus::Blink	_blink	-> Model::Stimulus::Blink	(also run as the do ac
 Activity	Stimulus::Cool Down	_cool	-> Model::Stimulus::'Cool Down'	(also run as the exit action of 'On')
 DurationConstraint	Stimulus::Cool Down::dtCool	_dtCool	-> Model::Stimulus::'Cool Down'	(written as a wait drawn uniformly over [1.0, 3.0] s before 'Cool Down'; a tool's fixed min or max mode is a run setting, not the model's)
 DurationConstraint	Stimulus::Send Ack On::dtOn	_dtOn	-> Model::Stimulus::'Send Ack On'	(written as a wait drawn uniformly over [1.0, 3.0] s before 'Turn On'; a tool's fixed min or max mode is a run setting, not the model's)
-StateMachine	Stimulus::Stimulus Behavior	_sm	-> Model::Stimulus::'Stimulus Behavior'	(acts on its owner Stimulus, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Stimulus as its usage stimulus Behavior)
+StateMachine	Stimulus::Stimulus Behavior	_sm	-> Model::Stimulus::'Stimulus Behavior'	(acts on its owner Stimulus, which it takes as its parameter context, since its this names no feature of the owner; the classifier behavior is run by every object of Stimulus as its usage stimulus Behavior)
 Activity	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack	_sendAck	-> Model::Stimulus::'Stimulus Behavior'::unnamed::'Send Ack'	(written as the do action of (_tOn); it waits for the clock (the duration constraint 'dtOn' on 'Turn On' in 'Send Ack On'), which a v2 transition effect, performed whole at the instant it is triggered, may not: a run stops at the wait)
 AcceptEventAction	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Hold::someday	_sahWait	-> someday	(the time event's time is not written: the instant "someday" is neither a number with a time unit nor an expression: names someday, which nothing visible from Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Hold is called)
 Activity	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Off	_sendAckOff	-> Model::Stimulus::'Stimulus Behavior'::unnamed5::'Send Ack Off'	(written as the do action of (_tOff); it waits for the clock (the accept of a time event 'delayed' in 'Delaying'), which a v2 transition effect, performed whole at the instant it is triggered, may not: a run stops at the wait)
@@ -38,7 +38,7 @@ Signal	Cmd Pause	_cmdPause	-> Model::'Cmd Pause'
 Signal	Cmd Settle	_cmdSettle	-> Model::'Cmd Settle'
 Model	Model	_m	-> Model	(written as package Model)
 «Block» Class	Relay	_relay	-> Model::Relay
-Activity	Relay::Settle	_settle	-> Model::Relay::Settle	(acts on its owner Relay, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Relay::Settle	_settle	-> Model::Relay::Settle	(acts on its owner Relay, which it takes as its parameter context, since its this names no feature of the owner)
 ActivityFinalNode	Relay::Settle::<ActivityFinalNode>	_settleFinal	-> final
 ControlFlow	Relay::Settle::<ControlFlow>	_settleE2
 ControlFlow	Relay::Settle::<ControlFlow>	_settleE3

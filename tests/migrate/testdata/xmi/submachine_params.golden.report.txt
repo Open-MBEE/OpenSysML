@@ -2,7 +2,7 @@
 # migrated 23 element(s): 21 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## approximated (2)
-StateMachine	Plant::Line	_line	-> Model::Plant::Line	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Plant as its usage line)
+StateMachine	Plant::Line	_line	-> Model::Plant::Line	(acts on its owner Plant, which it takes as its parameter context, since its this names no feature of the owner; the classifier behavior is run by every object of Plant as its usage line)
 OpaqueBehavior	Plant::Line::main::Cell::tally	_cellEntry	-> Model::Plant::Line::Cell::tally	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 
 ## mapped (21)
@@ -10,7 +10,7 @@ SignalEvent	<SignalEvent>	_goEv	(written where a trigger refers to it, as accept
 Signal	Go	_go	-> Model::Go
 Model	Model	_m	-> Model	(written as package Model)
 «Block» Class	Plant	_plant	-> Model::Plant
-StateMachine	Plant::CellMachine	_cell	-> Model::Plant::CellMachine	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
+StateMachine	Plant::CellMachine	_cell	-> Model::Plant::CellMachine	(acts on its owner Plant, which it takes as its parameter context, since its this names no feature of the owner)
 Region	Plant::CellMachine::cell	_rc	(the one region is written as the body of its owner)
 FinalState	Plant::CellMachine::cell::<FinalState>	_finC	-> done
 Pseudostate	Plant::CellMachine::cell::<Pseudostate>	_initC	(written as the entry of the region)

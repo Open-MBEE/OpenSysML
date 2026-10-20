@@ -335,7 +335,7 @@ func TestFeaturedViewpointOwnActivityReachesItsPorts(t *testing.T) {
 	wantLine(t, r.Notation, "in ref context : Review[1];")
 	wantLine(t, r.Notation, "send new Ping() via context.tx;")
 	wantLine(t, r.Notation, "in ref :>> context = Run::context;")
-	wantNote(t, r, "_inspect", migrate.Mapped, "acts on its owner Host::Review, which it takes as its parameter context, since its this is the def's own occurrence")
+	wantNote(t, r, "_inspect", migrate.Mapped, "acts on its owner Host::Review, which it takes as its parameter context, since its this names no feature of the owner")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}

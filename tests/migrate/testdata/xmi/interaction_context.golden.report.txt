@@ -2,7 +2,7 @@
 # migrated 22 element(s): 21 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## approximated (1)
-Interaction	Rig::Pair	_pair	-> Model::Rig::Pair	(written as a scenario of 1 step, one per message in occurrence order; the lifelines' own behavior is not part of it; acts on its owner Rig, which it takes as its parameter context, since its this is the def's own occurrence; also run as the do action of 'on'; the behavior acts on a Rig through its parameter context, which is bound to Duty::context.rig, the caller's one part that is one)
+Interaction	Rig::Pair	_pair	-> Model::Rig::Pair	(written as a scenario of 1 step, one per message in occurrence order; the lifelines' own behavior is not part of it; acts on its owner Rig, which it takes as its parameter context, since its this names no feature of the owner; also run as the do action of 'on'; the behavior acts on a Rig through its parameter context, which is bound to Duty::context.rig, the caller's one part that is one)
 
 ## mapped (21)
 «Block» Class	Ctrl	_ctrl	-> Model::Ctrl
@@ -10,7 +10,7 @@ Property	Ctrl::got	_got	-> Model::Ctrl::got
 Model	Model	_m	-> Model	(written as package Model)
 Signal	Ping	_ping	-> Model::Ping
 «Block» Class	Plant	_plant	-> Model::Plant
-StateMachine	Plant::Duty	_duty	-> Model::Plant::Duty	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
+StateMachine	Plant::Duty	_duty	-> Model::Plant::Duty	(acts on its owner Plant, which it takes as its parameter context, since its this names no feature of the owner)
 Region	Plant::Duty::main	_dReg	(the one region is written as the body of its owner)
 FinalState	Plant::Duty::main::<FinalState>	_dEnd	-> done
 Pseudostate	Plant::Duty::main::<Pseudostate>	_dInit	(written as the entry of the region)

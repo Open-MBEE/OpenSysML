@@ -7,7 +7,7 @@ CallBehaviorAction	Library::Recursive Viewpoint::View Body::recursive call	_recu
 ## mapped (8)
 Package	Library	_library	-> Model::Library
 «Viewpoint» Class	Library::Recursive Viewpoint	_viewpoint	-> Model::Library::'Recursive Viewpoint'
-Operation	Library::Recursive Viewpoint::View	_view	-> Model::Library::'Recursive Viewpoint'::View	(acts on its owner Library::Recursive Viewpoint, which it takes as its parameter context, since its this is the def's own occurrence; its owner's usage view performs it, as a call on an object does)
+Operation	Library::Recursive Viewpoint::View	_view	-> Model::Library::'Recursive Viewpoint'::View	(acts on its owner Library::Recursive Viewpoint, which it takes as its parameter context, since its this names no feature of the owner; its owner's usage view performs it, as a call on an object does)
 Activity	Library::Recursive Viewpoint::View Body	_viewBody	-> Model::Library::'Recursive Viewpoint'::View	(written as the body of the operation Library::Recursive Viewpoint::View, whose method it is)
 ActivityFinalNode	Library::Recursive Viewpoint::View Body::<ActivityFinalNode>	_finish	-> final
 ControlFlow	Library::Recursive Viewpoint::View Body::<ControlFlow>	_finishFlow
