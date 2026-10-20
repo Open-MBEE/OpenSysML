@@ -88,8 +88,8 @@ func TestVerificationMethodBodyInAPIJSON(t *testing.T) {
 	if member == nil {
 		t.Fatalf("no member qualified *::kind in %s", doc)
 	}
-	if _, ok := member["declaredName"]; ok {
-		t.Errorf("the body member declares a name: %v", member["declaredName"])
+	if declaredName, ok := member["declaredName"]; !ok || declaredName != nil {
+		t.Errorf("the body member declaredName = %v, want present null", declaredName)
 	}
 	if _, ok := member["ownedRedefinition"]; !ok {
 		t.Errorf("no ownedRedefinition on the body member: %v", member)
