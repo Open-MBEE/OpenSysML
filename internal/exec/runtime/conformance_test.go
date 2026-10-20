@@ -271,6 +271,22 @@ type ExpectedObjectVerdict struct {
 	Object    string `json:"object,omitempty"`
 	Status    string `json:"status"`
 	Error     string `json:"error,omitempty"`
+	// Verifications are the runs of the verification cases verifying the requirement
+	// the verdict is about, in order; absent, they are not checked, empty, there are none.
+	Verifications []ExpectedVerificationRun `json:"verifications,omitempty"`
+}
+
+// ExpectedVerificationRun is one run of a verification case beside a validation verdict:
+// the case by qualified name, the path of the object it ran as a feature of (empty for the
+// root), the verdict kind and detail its body produced, the verdict of each objective and
+// assertion of the same run by name, and the verdict of each subcase by qualified name.
+type ExpectedVerificationRun struct {
+	Case          string            `json:"case"`
+	Object        string            `json:"object,omitempty"`
+	Verdict       string            `json:"verdict"`
+	VerdictDetail string            `json:"verdictDetail,omitempty"`
+	Verdicts      map[string]string `json:"verdicts,omitempty"`
+	Subcases      map[string]string `json:"subcases,omitempty"`
 }
 
 // ExpectedMaterialization is the report of reading an instance's feature values in full:
@@ -1599,30 +1615,40 @@ func checkCaseRun(t *testing.T, ctx *Context, idx *symbols.Index, result Analysi
 		}
 	}
 
-	verdicts := make(map[string]AnalysisVerdict, len(result.Verdicts))
-	for _, verdict := range result.Verdicts {
-		verdicts[verdict.Name] = verdict
-	}
-	for name, want := range expected.Verdicts {
-		verdict, ok := verdicts[name]
-		if !ok {
-			t.Errorf("no verdict for %q among %v", name, verdictNames(result.Verdicts))
-			continue
-		}
-		if got := verdict.Status.String(); got != want {
-			t.Errorf("%s %s: verdict %q (%s), want %q", verdict.Kind, name, got, verdict.Detail, want)
-		}
-	}
-	if len(result.Verdicts) != len(expected.Verdicts) {
-		t.Errorf("the case reported %d verdict(s) %v, the outcome states %d",
-			len(result.Verdicts), verdictNames(result.Verdicts), len(expected.Verdicts))
-	}
+	checkAnalysisVerdicts(t, "", result.Verdicts, expected.Verdicts)
 	if expected.Evaluations != nil {
 		checkEvaluations(t, ctx, result.Evaluations, expected.Evaluations)
 	}
 
 	for name, expectedVal := range expected.Reads {
 		validateRead(t, ctx, idx, name, expectedVal)
+	}
+}
+
+// checkAnalysisVerdicts validates the objective and assertion verdicts a run
+// reported against the ones the outcome states by name, under label when given.
+func checkAnalysisVerdicts(t *testing.T, label string, got []AnalysisVerdict, want map[string]string) {
+	t.Helper()
+	if label != "" {
+		label += ": "
+	}
+	verdicts := make(map[string]AnalysisVerdict, len(got))
+	for _, verdict := range got {
+		verdicts[verdict.Name] = verdict
+	}
+	for name, wantStatus := range want {
+		verdict, ok := verdicts[name]
+		if !ok {
+			t.Errorf("%sno verdict for %q among %v", label, name, verdictNames(got))
+			continue
+		}
+		if status := verdict.Status.String(); status != wantStatus {
+			t.Errorf("%s%s %s: verdict %q (%s), want %q", label, verdict.Kind, name, status, verdict.Detail, wantStatus)
+		}
+	}
+	if len(got) != len(want) {
+		t.Errorf("%sthe case reported %d verdict(s) %v, the outcome states %d",
+			label, len(got), verdictNames(got), len(want))
 	}
 }
 
@@ -1853,7 +1879,7 @@ func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path
 	validateIdentity(t, ctx, inst, expected)
 	validateObjectRuns(t, ctx, typeSym, inst, expected)
 	validateMaterialization(t, ctx, inst, expected.Materialization)
-	validateValidation(t, ctx, idx.DocumentRoot(path), inst, expected.Validation)
+	validateValidation(t, ctx, caseDocumentRoots(idx, path, expected), inst, expected.Validation)
 
 	for name, wantSatisfied := range expected.Constraints {
 		feat := featureNamed(ctx, typeSym, name)
@@ -1894,12 +1920,12 @@ func validateMaterialization(t *testing.T, ctx *Context, inst *Instance, expecte
 
 // validateValidation checks what validating the instance as a whole reports
 // against what the case states, when it states it: the verdicts in order.
-func validateValidation(t *testing.T, ctx *Context, scope *symbols.Scope, inst *Instance, expected *ExpectedValidation) {
+func validateValidation(t *testing.T, ctx *Context, scopes []*symbols.Scope, inst *Instance, expected *ExpectedValidation) {
 	t.Helper()
 	if expected == nil {
 		return
 	}
-	report, err := ctx.ValidateObject(inst, []*symbols.Scope{scope})
+	report, err := ctx.ValidateObject(inst, scopes)
 	if err != nil {
 		t.Fatalf("validation: %v", err)
 	}
@@ -1945,7 +1971,71 @@ func validateValidation(t *testing.T, ctx *Context, scope *symbols.Scope, inst *
 		case v.Status != ValidationHolds && v.Err == nil:
 			t.Errorf("validation verdict %d is %s yet carries no error", i+1, v.Status)
 		}
+		if want.Verifications != nil {
+			checkVerdictVerifications(t, ctx, scopes, inst, i+1, v, want.Verifications)
+		}
 	}
+}
+
+// checkVerdictVerifications runs the verification cases verifying the requirement
+// a validation verdict is about, as a report does beside the verdict, and validates
+// each run against the ones the outcome states, in order.
+func checkVerdictVerifications(t *testing.T, ctx *Context, scopes []*symbols.Scope, root *Instance, n int, v ObjectVerdict, want []ExpectedVerificationRun) {
+	t.Helper()
+	label := fmt.Sprintf("validation verdict %d", n)
+	var results []VerificationResult
+	if v.Requirement != nil {
+		results = ctx.VerificationResultsOn(scopes, v.Requirement, v.Subject)
+	}
+	paths := heldObjectPaths(ctx, root)
+	var got []string
+	for _, r := range results {
+		var path []string
+		if r.Verdict.Subject != nil {
+			path = paths[r.Verdict.Subject.ID]
+		}
+		got = append(got, fmt.Sprintf("%s on %q: %s", r.Verdict.Case, strings.Join(path, "."), r.Verdict.Kind))
+	}
+	if len(results) != len(want) {
+		t.Errorf("%s: %d verification run(s), want %d:\n%s", label, len(results), len(want), strings.Join(got, "\n"))
+		return
+	}
+	for i, w := range want {
+		r := results[i]
+		run := fmt.Sprintf("%s verification %d", label, i+1)
+		wantText := fmt.Sprintf("%s on %q: %s", w.Case, w.Object, w.Verdict)
+		if got[i] != wantText {
+			t.Errorf("%s: %s (%s), want %s", run, got[i], r.Verdict.Detail, wantText)
+			continue
+		}
+		if w.VerdictDetail != "" && !strings.Contains(r.Verdict.Detail, w.VerdictDetail) {
+			t.Errorf("%s: detail = %q, want it to contain %q", run, r.Verdict.Detail, w.VerdictDetail)
+		}
+		checkSubcaseVerdicts(t, r.Subcases, w.Subcases)
+		if r.Verdict.Kind != verdictError {
+			checkAnalysisVerdicts(t, run, r.Run.Verdicts, w.Verdicts)
+		}
+	}
+}
+
+// caseDocumentRoots are the root scopes of a case's model, its own document first,
+// which a validation reads as a report over the documents loaded does.
+func caseDocumentRoots(idx *symbols.Index, path string, expected ExpectedOutcome) []*symbols.Scope {
+	scopes := []*symbols.Scope{idx.DocumentRoot(path)}
+	for _, name := range expected.Documents {
+		scopes = append(scopes, idx.DocumentRoot(filepath.Join(filepath.Dir(path), name)))
+	}
+	return scopes
+}
+
+// heldObjectPaths maps each object root holds, by ID, to its path from root as a
+// validation verdict names it.
+func heldObjectPaths(ctx *Context, root *Instance) map[int64][]string {
+	paths := map[int64][]string{}
+	for _, obj := range ctx.walkHeldObjects(root, maxMaterializeBudget).objects {
+		paths[obj.inst.ID] = obj.path
+	}
+	return paths
 }
 
 // featureValueAtPath reads a slot on the instance or on a nested object.

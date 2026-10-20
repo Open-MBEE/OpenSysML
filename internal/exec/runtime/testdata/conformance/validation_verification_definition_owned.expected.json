@@ -1,0 +1,34 @@
+{
+  "libraries": true,
+  "type": "instance",
+  "documents": [
+    "validation_verification_definition_owned.requirement.sysml",
+    "validation_verification_definition_owned.definition.sysml"
+  ],
+  "instantiate": "ProductPkg::good",
+  "slots": {
+    "cost": {
+      "type": "Real",
+      "value": 80.0
+    }
+  },
+  "validation": {
+    "verdicts": [
+      {
+        "kind": "satisfaction",
+        "assertion": "satisfy costReq",
+        "status": "holds",
+        "verifications": [
+          {
+            "case": "DefinitionPkg::Definition::costTest",
+            "verdict": "pass",
+            "verdicts": {
+              "costObjective": "satisfied"
+            }
+          }
+        ]
+      }
+    ],
+    "valid": true
+  }
+}

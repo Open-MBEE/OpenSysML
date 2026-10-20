@@ -1,0 +1,32 @@
+{
+  "libraries": true,
+  "type": "instance",
+  "documents": [
+    "validation_verification_definition_owned_subject_unbound.requirement.sysml",
+    "validation_verification_definition_owned_subject_unbound.definition.sysml"
+  ],
+  "instantiate": "ProductPkg::good",
+  "slots": {
+    "cost": {
+      "type": "Real",
+      "value": 80.0
+    }
+  },
+  "validation": {
+    "verdicts": [
+      {
+        "kind": "satisfaction",
+        "assertion": "satisfy costReq",
+        "status": "holds",
+        "verifications": [
+          {
+            "case": "DefinitionPkg::costTest",
+            "verdict": "error",
+            "verdictDetail": "subject is unbound"
+          }
+        ]
+      }
+    ],
+    "valid": true
+  }
+}

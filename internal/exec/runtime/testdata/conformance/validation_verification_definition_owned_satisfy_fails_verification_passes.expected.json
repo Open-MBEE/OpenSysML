@@ -1,0 +1,35 @@
+{
+  "libraries": true,
+  "type": "instance",
+  "documents": [
+    "validation_verification_definition_owned_satisfy_fails_verification_passes.requirement.sysml",
+    "validation_verification_definition_owned_satisfy_fails_verification_passes.definition.sysml"
+  ],
+  "instantiate": "ProductPkg::bad",
+  "slots": {
+    "cost": {
+      "type": "Real",
+      "value": 120.0
+    }
+  },
+  "validation": {
+    "verdicts": [
+      {
+        "kind": "satisfaction",
+        "assertion": "satisfy costReq",
+        "status": "violated",
+        "verifications": [
+          {
+            "case": "DefinitionPkg::Definition::costTest",
+            "verdict": "pass",
+            "verdicts": {
+              "costObjective": "satisfied"
+            }
+          }
+        ],
+        "error": "evaluated to false"
+      }
+    ],
+    "valid": false
+  }
+}
