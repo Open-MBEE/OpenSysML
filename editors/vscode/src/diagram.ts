@@ -978,7 +978,8 @@ class DiagramPanel {
     try {
       const params: RelatedElementsParams = { textDocument: { uri: this.docURI.toString() }, element: node.fqn };
       const result = await client.sendRequest<RelatedElementsResult>(RELATED_ELEMENTS_METHOD, params);
-      const items = relatedPickItems(result, this.include);
+      const drawn = new Set(this.rendering.nodes.flatMap((drawnNode) => (drawnNode.fqn === undefined ? [] : [drawnNode.fqn])));
+      const items = relatedPickItems(result, this.include, drawn);
       if (items.length === 0) {
         void vscode.window.showInformationMessage(`${node.fqn} relates to nothing a diagram can include.`);
         return;

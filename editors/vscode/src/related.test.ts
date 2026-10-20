@@ -34,6 +34,9 @@ test("relatedPickItems heads each group with its count and checks what is alread
     { label: "taxi", description: "part", detail: "Fleet::taxi", picked: true, fqn: "Fleet::taxi" },
   ]);
   assert.deepEqual(relatedPickItems({ ...related, groups: [] }, []), []);
+  const drawn = relatedPickItems(related, ["Fleet::taxi"], new Set(["Rel::car", "Fleet::taxi"]));
+  assert.equal(drawn[3].description, "part · drawn", "an element the drawing shows without being included is marked drawn");
+  assert.equal(drawn[4].description, "part", "an included element is drawn because it is included; no mark");
 });
 
 test("includeAfterPick keeps what was not listed, drops listed elements unchecked, adds the checked once", () => {

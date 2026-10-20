@@ -24,8 +24,11 @@ export interface RelatedPickItem {
   fqn?: string;
 }
 
-/** relatedPickItems lists each group as a heading with its count, then its elements, checked when already included. */
-export function relatedPickItems(result: RelatedElementsResult, include: readonly string[]): RelatedPickItem[] {
+/**
+ * relatedPickItems lists each group as a heading with its count, then its elements, checked when already included; one the
+ * drawing already shows (nested under a drawn node, say) is marked drawn, since including it changes nothing on screen.
+ */
+export function relatedPickItems(result: RelatedElementsResult, include: readonly string[], drawn: ReadonlySet<string> = new Set()): RelatedPickItem[] {
   const items: RelatedPickItem[] = [];
   for (const group of result.groups) {
     if (group.elements.length === 0) {
@@ -35,7 +38,7 @@ export function relatedPickItems(result: RelatedElementsResult, include: readonl
     for (const element of group.elements) {
       items.push({
         label: element.name,
-        description: element.kind,
+        description: drawn.has(element.fqn) && !include.includes(element.fqn) ? `${element.kind} · drawn` : element.kind,
         detail: element.fqn,
         picked: include.includes(element.fqn),
         fqn: element.fqn,
