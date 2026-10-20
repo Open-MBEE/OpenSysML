@@ -461,10 +461,28 @@ func TestUnterminatedCommentIsReported(t *testing.T) {
 	}
 }
 
-// A clause after the `terminate` marker is reported once, at the clause, and the
-// usage keeps its marker and its body: the recovery skips to the body.
+// A multiplicity after the feature a connector end references is reported once,
+// at the multiplicity, and the end list goes on: the end keeps its reference.
+func TestConnectorEndTrailingMultiplicityReportedOnce(t *testing.T) {
+	src := "package P { part s { connection c : DC connect ([1] hub ::> h.mainSwitch[1], [1] device ::> d.sensorFeed[0..1]); } }"
+	p := New(source.New("t.sysml", []byte(src)))
+	p.ParseFile()
+	if len(p.Diagnostics) != 2 {
+		t.Fatalf("ParseFile(%q) diagnostics = %v, want each trailing multiplicity reported once", src, p.Diagnostics)
+	}
+	for i, want := range []string{"[1],", "[0..1])"} {
+		d := p.Diagnostics[i]
+		if !strings.Contains(d.Message, "multiplicity precedes it") || d.Span.Offset != strings.Index(src, want) {
+			t.Errorf("diagnostic %d = %v at %d, want the trailing multiplicity reported at %d", i, d.Message, d.Span.Offset, strings.Index(src, want))
+		}
+	}
+}
+
+// A clause after the `terminate` marker that names no occurrence is reported
+// once, at the clause, and the usage keeps its marker and its body: the
+// recovery skips to the body.
 func TestTerminateMarkerClosesTheDeclaration(t *testing.T) {
-	for _, clause := range []string{"terminate", ": Brake", "ordered", "= 3", "stop"} {
+	for _, clause := range []string{"terminate", ": Brake", "ordered", "= 3"} {
 		src := "package P { action def A { first start; then stop; action stop terminate " + clause + " { doc /* d */ } } }"
 		p := New(source.New("t.sysml", []byte(src)))
 		f := p.ParseFile()

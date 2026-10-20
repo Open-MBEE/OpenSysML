@@ -1,0 +1,91 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="CrossEnds" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Device"))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Hub"
+          (Membership visibility="default"
+            (Usage kind="part" name="mainSwitch" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Device
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Node"
+          (Membership visibility="default"
+            (Usage kind="part" name="sensorFeed" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Device
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="connection" abstract=false variation=false name="DeviceConnection"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="hub" ref=false direction="none" composite=false derived=false ordered=false nonunique=false end=true
+              (Relationship kind="typing" target=Hub
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="device" ref=false direction="none" composite=false derived=false ordered=false nonunique=false end=true
+              (Relationship kind="typing" target=Node
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="A"))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="B"))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="C"))
+      (Membership visibility="default"
+        (Definition kind="connection" abstract=false variation=false name="Assoc"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=true direction="none" composite=false derived=false ordered=false nonunique=false end=true
+              (Relationship kind="typing" target=A
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="1"))
+              (CrossFeatureMember name="a_cross"
+                (Multiplicity range=false
+                  (LiteralInteger value="1")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="b" ref=true direction="none" composite=false derived=false ordered=false nonunique=false end=true
+              (Relationship kind="typing" target=B
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="1"))
+              (CrossFeatureMember name="b_cross"
+                (Multiplicity range=true
+                  (LiteralInteger value="0")
+                  (LiteralInteger value="2")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="c" ref=true direction="none" composite=false derived=false ordered=false nonunique=false end=true
+              (Relationship kind="typing" target=C
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="1"))
+              (CrossFeatureMember name="c_cross" ordered=true nonunique=true
+                (Multiplicity range=false
+                  (LiteralInfinity)))))))
+      (Membership visibility="default"
+        (Usage kind="part" name="system" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="part" name="h" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Hub
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="n" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Node
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="connection" name="link" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=DeviceConnection
+                (*ast.QualifiedName))
+              (ConnectorEnd target="hub"
+                (Multiplicity range=false
+                  (LiteralInteger value="1"))
+                (*ast.QualifiedName)
+                (Relationship kind="references" target=(expr)
+                  (FeatureChainExpr member="mainSwitch"
+                    (FeatureReference name="h"))))
+              (ConnectorEnd target="device"
+                (Multiplicity range=false
+                  (LiteralInteger value="1"))
+                (*ast.QualifiedName)
+                (Relationship kind="references" target=(expr)
+                  (FeatureChainExpr member="sensorFeed"
+                    (FeatureReference name="n")))))))))))

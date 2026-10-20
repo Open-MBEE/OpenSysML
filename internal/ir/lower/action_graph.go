@@ -2233,6 +2233,10 @@ func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statemen
 // rejects as its own purity demands.
 func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
 	if m.IsTerminate {
+		if ts := TerminatedOccurrence(m); ts != nil {
+			target, terminates := terminateTarget(ts, scope)
+			return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: ts.Target}
+		}
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
 	}
 	if stmt, ok := usageStatement(m, scope); ok {
@@ -2245,6 +2249,15 @@ func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.R
 		return performEffect(m, scope)
 	}
 	return Unsupported{Description: usageDescription(m), Node: m, Scope: scope}
+}
+
+// TerminatedOccurrence returns the occurrence a terminate action usage names
+// (`action stop terminate process;`), nil when it terminates its own container.
+func TerminatedOccurrence(m *ast.Usage) *ast.TerminateStatement {
+	if m == nil || !m.IsTerminate {
+		return nil
+	}
+	return m.Terminates
 }
 
 // SendPayload returns the message a send with no argument carries: the value

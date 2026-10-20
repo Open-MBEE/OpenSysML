@@ -459,7 +459,11 @@ type Usage struct {
 	// IsTerminate marks a terminate action usage (`action stop terminate;`,
 	// SysML.xtext TerminateActionUsage): a token reaching it ends the containing performance.
 	IsTerminate bool
-	IsResult    bool // declared with 'return': the result parameter of a calculation/expression
+	// Terminates is the occurrence a terminate action usage names after its
+	// `terminate` (`action stop terminate process;`, SysML.xtext TerminateNode's
+	// NodeParameterMember); nil when it terminates the occurrence containing it.
+	Terminates *TerminateStatement
+	IsResult   bool // declared with 'return': the result parameter of a calculation/expression
 	// IsNegated is the `not` of `assert not constraint { … }` and
 	// `assert not satisfy … by …`: the conditions are asserted to be false
 	// (Invariant::isNegated, SysML v2 §8.3.21.10).

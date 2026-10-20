@@ -1772,7 +1772,7 @@ func classifyTrigger(trigger ast.Node) ast.Node {
 	// parameter was parsed with (`accept when x > 1`).
 	if payload, ok := trigger.(*ast.Usage); ok {
 		if payload.Value != nil {
-			return classifyTrigger(payload.Value)
+			return classifyTrigger(payloadTrigger(payload.Value))
 		}
 		return &ast.AcceptEvent{
 			SignalType: typingTarget(payload),
@@ -1799,6 +1799,42 @@ func classifyTrigger(trigger ast.Node) ast.Node {
 	return &ast.ChangeEvent{
 		Condition: trigger,
 	}
+}
+
+// payloadTrigger returns the event an accept payload's value states. The
+// `when`, `at` and `after` forms are already events; a value invoking the
+// library's TriggerWhen, TriggerAt or TriggerAfter is the same event written in
+// full (SysML v2 §7.17.8: `accept : ChangeSignal = TriggerWhen({ c })`).
+func payloadTrigger(value ast.Node) ast.Node {
+	inv, ok := value.(*ast.InvocationExpr)
+	if !ok || inv.Operand != nil || inv.Type == nil || len(inv.Args) != 1 || len(inv.NamedArgs) != 0 {
+		return value
+	}
+	parts := inv.Type.Parts
+	if len(parts) == 2 && parts[0].Text != "Triggers" || len(parts) > 2 {
+		return value
+	}
+	arg := inv.Args[0]
+	switch parts[len(parts)-1].Text {
+	case "TriggerWhen":
+		// The condition is a bool parameter: a parameterless body expression
+		// states it directly.
+		if body, isBody := arg.(*ast.BodyExpr); isBody && len(body.Params) == 0 && len(body.Members) == 0 && body.Result != nil {
+			arg = body.Result
+		}
+		evt := &ast.ChangeEvent{Condition: arg}
+		evt.NodeSpan = inv.Span()
+		return evt
+	case "TriggerAt":
+		evt := &ast.TimeEvent{Duration: arg, Absolute: true}
+		evt.NodeSpan = inv.Span()
+		return evt
+	case "TriggerAfter":
+		evt := &ast.TimeEvent{Duration: arg}
+		evt.NodeSpan = inv.Span()
+		return evt
+	}
+	return value
 }
 
 // collectStateTransitions collects the transitions a state usage carries: those

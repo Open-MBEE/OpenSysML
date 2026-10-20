@@ -1,0 +1,37 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="LoopTests" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="WhileLoop"
+          (Membership visibility="default"
+            (Usage kind="calc" name="whileTest" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (LiteralBool value=true)))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="CountedLoop"
+          (Relationship kind="specializes" target=WhileLoop
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="count" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (Membership visibility="default"
+            (Usage kind="calc" name="" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=whileTest
+                (*ast.QualifiedName))
+              (OperatorExpr operator="<"
+                (FeatureReference name="count")
+                (LiteralInteger value="3"))))))
+      (Membership visibility="default"
+        (Usage kind="part" name="p" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="3")))
+          (Membership visibility="default"
+            (Usage kind="calc" name="scaled" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="*"
+                (FeatureReference name="a")
+                (LiteralInteger value="5")))))))))

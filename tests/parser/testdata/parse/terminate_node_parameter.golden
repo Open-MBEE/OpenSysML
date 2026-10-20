@@ -1,0 +1,29 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Terminates" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="ProcessWorkflow"))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Workflow"
+          (Membership visibility="default"
+            (Usage kind="action" name="process" ref=true direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ProcessWorkflow
+                (*ast.QualifiedName))))
+          (InitialNode name="start" successor="")
+          (Membership visibility="default"
+            (Usage kind="action" name="terminate1" ref=false direction="none" composite=false derived=false ordered=false nonunique=false terminate=true
+              (TerminateStatement
+                (FeatureReference name="process"))))
+          (SuccessionEdge source="start" target="terminate1")
+          (Membership visibility="default"
+            (Usage kind="action" name="terminate2" ref=false direction="none" composite=false derived=false ordered=false nonunique=false terminate=true
+              (TerminateStatement
+                (FeatureReference name="process"))
+              (Membership visibility="default"
+                (Documentation locale=""))))
+          (SuccessionEdge source="terminate1" target="terminate2")
+          (Membership visibility="default"
+            (Usage kind="action" name="terminate3" ref=false direction="none" composite=false derived=false ordered=false nonunique=false terminate=true))
+          (SuccessionEdge source="terminate2" target="terminate3")
+          (FinalNode)
+          (SuccessionEdge source="terminate3" target="@done"))))))
