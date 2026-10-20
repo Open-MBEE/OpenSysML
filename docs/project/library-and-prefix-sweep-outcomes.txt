@@ -10,7 +10,7 @@ read	Probe::p1.atq	model	Probe::P1::atq	object:Probe::At1
 read	Probe::p1.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::p1.caq	model	Probe::P1::caq	object:Probe::Ca1
 read	Probe::p1.cargo	model	Probe::P1::cargo	object:Probe::I1
-read	Probe::p1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(6) [object:Probe::R1#1, object:Probe::P1::cq#2, object:Probe::Vp1#3, object:Probe::Con1#4, object:Probe::R1#5, object:Probe::P1::ac#6]
+read	Probe::p1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(6) [object:Probe::P1::rq#1, object:Probe::P1::cq#2, object:Probe::Vp1#3, object:Probe::Con1#4, object:Probe::P1::sr#5, object:Probe::P1::ac#6]
 read	Probe::p1.cnq	model	Probe::P1::cnq	object:Probe::Cn1
 read	Probe::p1.conq	model	Probe::P1::conq	object:Probe::Con1
 read	Probe::p1.cq	model	Probe::P1::cq	object:Probe::P1::cq
@@ -40,12 +40,12 @@ read	Probe::p1.pa	model	Probe::P1::pa	object:Probe::A2
 read	Probe::p1.performedActions	systems	Parts::Part::performedActions	collection(2) [object:Probe::A2#1, object:Probe::S1#2]
 read	Probe::p1.pt	model	Probe::P1::pt	object:Probe::Pt
 read	Probe::p1.rdq	model	Probe::P1::rdq	object:Probe::Rd1
-read	Probe::p1.rq	model	Probe::P1::rq	object:Probe::R1
+read	Probe::p1.rq	model	Probe::P1::rq	object:Probe::P1::rq
 read	Probe::p1.self	systemsFRAME	Parts::Part::self	object:Probe::p1
 read	Probe::p1.shape	systems	Items::Item::shape	null
 read	Probe::p1.slice	model	Probe::P1::slice	object:Probe::P1::slice
 read	Probe::p1.snap	model	Probe::P1::snap	object:Probe::P1::snap
-read	Probe::p1.sr	model	Probe::P1::sr	object:Probe::R1
+read	Probe::p1.sr	model	Probe::P1::sr	object:Probe::P1::sr
 read	Probe::p1.st	model	Probe::P1::st	object:Probe::S1
 read	Probe::p1.start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	Probe::p1.sub	model	Probe::P1::sub	collection(2) [object:Probe::P2#1, object:Probe::P2#2]
@@ -137,7 +137,7 @@ read	Probe::u1.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers
 read	Probe::u1.joins	systems	Actions::Action::joins	empty
 read	Probe::u1.loops	systems	Actions::Action::loops	empty
 read	Probe::u1.merges	systems	Actions::Action::merges	empty
-read	Probe::u1.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
+read	Probe::u1.obj	systems	UseCases::UseCase::obj	object:UseCases::UseCase::obj
 read	Probe::u1.result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	Probe::u1.s	model	Probe::U1::s	undetermined <undetermined>
 read	Probe::u1.self	systemsFRAME	UseCases::UseCase::self	object:Probe::u1
@@ -463,15 +463,15 @@ read	Probe::p1.st.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::p1.other	undetermined <undetermined>
 object	Probe::p1.otherItem	undetermined <undetermined>
 object	Probe::p1.others	undetermined <undetermined>
-object	Probe::p1.rq	object:Probe::R1
+object	Probe::p1.rq	object:Probe::P1::rq
 read	Probe::p1.rq.actors	systems	Requirements::RequirementCheck::actors	empty
 read	Probe::p1.rq.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	Probe::p1.rq.concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	Probe::p1.rq.constraints	systems	Requirements::RequirementCheck::constraints	empty
 read	Probe::p1.rq.lim	model	Probe::R1::lim	constant 5.0
 read	Probe::p1.rq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
-read	Probe::p1.rq.s	model	Probe::R1::s	undetermined <undetermined>
-read	Probe::p1.rq.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::R1
+read	Probe::p1.rq.s	model	Probe::P1::rq::s	object:Probe::P2
+read	Probe::p1.rq.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::P1::rq
 read	Probe::p1.rq.sh	model	Probe::R1::sh	object:Probe::P2
 read	Probe::p1.rq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	Probe::p1.rq.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
@@ -525,7 +525,7 @@ read	Probe::p1.uq.incomingTransfers	systemsFRAME	Actions::Action::incomingTransf
 read	Probe::p1.uq.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.uq.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.uq.merges	systems	Actions::Action::merges	empty
-read	Probe::p1.uq.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
+read	Probe::p1.uq.obj	systems	UseCases::UseCase::obj	object:UseCases::UseCase::obj
 read	Probe::p1.uq.result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	Probe::p1.uq.s	model	Probe::U1::s	undetermined <undetermined>
 read	Probe::p1.uq.self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1
@@ -747,15 +747,15 @@ read	Probe::p1.es.substates	systems	States::StateAction::substates	empty
 read	Probe::p1.es.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.es.transitions	systems	Actions::Action::transitions	empty
 read	Probe::p1.es.whileLoops	systems	Actions::Action::whileLoops	empty
-object	Probe::p1.sr	object:Probe::R1
+object	Probe::p1.sr	object:Probe::P1::sr
 read	Probe::p1.sr.actors	systems	Requirements::RequirementCheck::actors	empty
 read	Probe::p1.sr.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	Probe::p1.sr.concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	Probe::p1.sr.constraints	systems	Requirements::RequirementCheck::constraints	empty
 read	Probe::p1.sr.lim	model	Probe::R1::lim	constant 5.0
-read	Probe::p1.sr.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
-read	Probe::p1.sr.s	model	Probe::R1::s	undetermined <undetermined>
-read	Probe::p1.sr.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::R1
+read	Probe::p1.sr.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	error requirement sr: subject binding: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1
+read	Probe::p1.sr.s	model	Probe::R1::s	error feature value sr.s: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1
+read	Probe::p1.sr.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::P1::sr
 read	Probe::p1.sr.sh	model	Probe::R1::sh	object:Probe::P2
 read	Probe::p1.sr.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	Probe::p1.sr.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
@@ -780,7 +780,7 @@ read	Probe::p1.iu.incomingTransfers	systemsFRAME	Actions::Action::incomingTransf
 read	Probe::p1.iu.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.iu.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.iu.merges	systems	Actions::Action::merges	empty
-read	Probe::p1.iu.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
+read	Probe::p1.iu.obj	systems	UseCases::UseCase::obj	object:UseCases::UseCase::obj
 read	Probe::p1.iu.result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	Probe::p1.iu.s	model	Probe::U1::s	undetermined <undetermined>
 read	Probe::p1.iu.self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1
@@ -805,7 +805,7 @@ read	new Probe::P1().atq	model	Probe::P1::atq	object:Probe::At1
 read	new Probe::P1().boundingShapes	systems	Items::Item::boundingShapes	empty
 read	new Probe::P1().caq	model	Probe::P1::caq	object:Probe::Ca1
 read	new Probe::P1().cargo	model	Probe::P1::cargo	object:Probe::I1
-read	new Probe::P1().checkedConstraints	systems	Items::Item::checkedConstraints	collection(6) [object:Probe::R1#1, object:Probe::P1::cq#2, object:Probe::Vp1#3, object:Probe::Con1#4, object:Probe::R1#5, object:Probe::P1::ac#6]
+read	new Probe::P1().checkedConstraints	systems	Items::Item::checkedConstraints	collection(6) [object:Probe::P1::rq#1, object:Probe::P1::cq#2, object:Probe::Vp1#3, object:Probe::Con1#4, object:Probe::P1::sr#5, object:Probe::P1::ac#6]
 read	new Probe::P1().cnq	model	Probe::P1::cnq	object:Probe::Cn1
 read	new Probe::P1().conq	model	Probe::P1::conq	object:Probe::Con1
 read	new Probe::P1().cq	model	Probe::P1::cq	object:Probe::P1::cq
@@ -835,12 +835,12 @@ read	new Probe::P1().pa	model	Probe::P1::pa	object:Probe::A2
 read	new Probe::P1().performedActions	systems	Parts::Part::performedActions	collection(2) [object:Probe::A2#1, object:Probe::S1#2]
 read	new Probe::P1().pt	model	Probe::P1::pt	object:Probe::Pt
 read	new Probe::P1().rdq	model	Probe::P1::rdq	object:Probe::Rd1
-read	new Probe::P1().rq	model	Probe::P1::rq	object:Probe::R1
+read	new Probe::P1().rq	model	Probe::P1::rq	object:Probe::P1::rq
 read	new Probe::P1().self	systemsFRAME	Parts::Part::self	object:Probe::P1
 read	new Probe::P1().shape	systems	Items::Item::shape	empty
 read	new Probe::P1().slice	model	Probe::P1::slice	object:Probe::P1::slice
 read	new Probe::P1().snap	model	Probe::P1::snap	object:Probe::P1::snap
-read	new Probe::P1().sr	model	Probe::P1::sr	object:Probe::R1
+read	new Probe::P1().sr	model	Probe::P1::sr	object:Probe::P1::sr
 read	new Probe::P1().st	model	Probe::P1::st	object:Probe::S1
 read	new Probe::P1().start	systemsFRAME	Parts::Part::start	undetermined <undetermined>
 read	new Probe::P1().sub	model	Probe::P1::sub	collection(2) [object:Probe::P2#1, object:Probe::P2#2]
@@ -1082,7 +1082,7 @@ read	new Probe::U1().incomingTransfers	systemsFRAME	Actions::Action::incomingTra
 read	new Probe::U1().joins	systems	Actions::Action::joins	empty
 read	new Probe::U1().loops	systems	Actions::Action::loops	empty
 read	new Probe::U1().merges	systems	Actions::Action::merges	empty
-read	new Probe::U1().obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
+read	new Probe::U1().obj	systems	UseCases::UseCase::obj	object:UseCases::UseCase::obj
 read	new Probe::U1().result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	new Probe::U1().s	model	Probe::U1::s	error uninitialized feature value: s
 read	new Probe::U1().self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1

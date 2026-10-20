@@ -116,6 +116,9 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 	if defaultVal == nil {
 		defaultVal, defaultDecl = ctx.redefinedDefault(memberSym, typeSym)
 	}
+	if defaultVal == nil {
+		defaultVal, defaultDecl = ctx.roleRedefiningDefault(memberSym, typeSym)
+	}
 	mult := ctx.featureMultiplicity(memberSym, typeSym)
 	return EffectiveFeature{
 		Name:         name,
@@ -446,6 +449,32 @@ func (ctx *Context) redefinedDefault(sym, owner *symbols.Symbol) (ast.Node, *sym
 			}
 			queue = append(queue, redefined)
 		}
+	}
+	return nil, nil
+}
+
+// roleRedefiningDefault is the value typeSym binds to sym by redefining it under no
+// name of its own: a body's `subject = x;` for the inherited subject (SysML v2
+// §7.20.2), or a satisfy usage's `by x` (§7.20.4), with the declaration binding it;
+// nil when none does.
+func (ctx *Context) roleRedefiningDefault(sym, typeSym *symbols.Symbol) (ast.Node, *symbols.Symbol) {
+	if typeSym == nil || typeSym.Decl == nil {
+		return nil, nil
+	}
+	if by := satisfiedBy(typeSym); by != nil && ctx.model.semantics.SubjectParameterOf(typeSym) == sym {
+		return by, typeSym
+	}
+	scope := bodyScope(typeSym, typeSym.OwnerScope)
+	for _, node := range unwrappedDeclMembers(typeSym.Decl) {
+		member := memberSymbol(scope, node)
+		if member == nil || member == sym || member.Name != "" {
+			continue
+		}
+		val := ctx.extractDefaultValue(member)
+		if val == nil || !slices.Contains(ctx.redefinedFeatures(member, typeSym), sym) {
+			continue
+		}
+		return val, member
 	}
 	return nil, nil
 }

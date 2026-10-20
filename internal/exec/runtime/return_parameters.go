@@ -75,7 +75,8 @@ func statesConditions(sym *symbols.Symbol) bool {
 	case *ast.Definition:
 		return decl.Kind == ast.DefRequirement || decl.Kind == ast.DefViewpoint || decl.Kind == ast.DefConcern
 	case *ast.Usage:
-		return decl.Kind == ast.UsageRequirement || decl.Kind == ast.UsageViewpoint || decl.Kind == ast.UsageConcern
+		return decl.Kind == ast.UsageRequirement || decl.Kind == ast.UsageViewpoint || decl.Kind == ast.UsageConcern ||
+			(decl.Kind == ast.UsageSatisfy && !decl.IsVerifiedRequirement())
 	}
 	return false
 }
