@@ -1,0 +1,159 @@
+package runtime
+
+import (
+	"errors"
+	"strings"
+	"testing"
+)
+
+// TestRuntimeRobustnessOccurrenceMembers reads the temporal members of
+// occurrences where a run has not produced them: before a performance starts,
+// while one is parked on an accept nothing sends, after the step budget ended
+// a run, and across a snapshot restored to before the run moved.
+func TestRuntimeRobustnessOccurrenceMembers(t *testing.T) {
+	t.Run("shots_before_start_are_undetermined_with_reason", testOccurrenceShotsBeforeStart)
+	t.Run("shots_of_a_parked_performance", testOccurrenceShotsParked)
+	t.Run("reads_after_step_budget", testOccurrenceReadsAfterStepBudget)
+	t.Run("restore_takes_back_shots_and_durations", testOccurrenceRestoreTakesBackShots)
+}
+
+const occurrenceWaitSrc = `package Probe {
+	private import ScalarValues::*;
+	attribute def Never;
+	part def P {
+		attribute n : Integer = 0;
+		perform action act {
+			first start;
+			then action w accept after 60.0 [SI::s];
+			then action m assign n := n + 1;
+			then done;
+		}
+	}
+	part def Parked {
+		perform action act {
+			first start;
+			then action w accept Never;
+			then done;
+		}
+	}
+	part def Held {
+		perform action a { first start; then action w accept Never; then done; }
+		perform action b;
+		first a then b;
+	}
+}`
+
+func undeterminedReason(t *testing.T, val Value, err error, what string) string {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("%s: %v", what, err)
+	}
+	if val.Kind != ValUndetermined || val.Undetermined() == nil {
+		t.Fatalf("%s = %s, want undetermined", what, FormatValue(val))
+	}
+	return val.Undetermined().reason
+}
+
+func testOccurrenceShotsBeforeStart(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, occurrenceWaitSrc)
+	h := mustInstantiate(t, ctx, oneSymbol(t, idx, "Probe::Held"))
+	// b is held back by the succession from a, which never ends: it has no
+	// performance to read yet, which is a typed refusal rather than a value.
+	for _, expr := range []string{"b", "b.start", "b.snapshots"} {
+		if _, err := evalOn(t, ctx, h, expr); !errors.Is(err, errUninitializedFeatureValue) {
+			t.Errorf("%s before b starts = %v, want errUninitializedFeatureValue", expr, err)
+		}
+	}
+	for _, expr := range []string{"a.done", "Time::DurationOf(a)"} {
+		val, err := evalOn(t, ctx, h, expr)
+		if reason := undeterminedReason(t, val, err, expr); !strings.Contains(reason, "has not ended") {
+			t.Errorf("%s: reason %q does not say the performance has not ended", expr, reason)
+		}
+	}
+	if got := FormatValue(mustEvalOn(t, ctx, h, "a.successors->SequenceFunctions::size()")); got != "0" {
+		t.Errorf("a.successors has %s elements, want none: the succession to b has not fired", got)
+	}
+}
+
+func testOccurrenceShotsParked(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, occurrenceWaitSrc)
+	p := mustInstantiate(t, ctx, oneSymbol(t, idx, "Probe::Parked"))
+	if val := mustEvalOn(t, ctx, p, "act.start"); val.Kind != ValInstance {
+		t.Errorf("act.start = %s, want the start snapshot", FormatValue(val))
+	}
+	val, err := evalOn(t, ctx, p, "act.done")
+	if reason := undeterminedReason(t, val, err, "act.done"); !strings.Contains(reason, "has not ended") {
+		t.Errorf("act.done: reason %q does not say the performance has not ended", reason)
+	}
+	val, err = evalOn(t, ctx, p, "Time::DurationOf(act)")
+	if reason := undeterminedReason(t, val, err, "Time::DurationOf(act)"); !strings.Contains(reason, "has not ended") {
+		t.Errorf("DurationOf(act): reason %q does not say the performance has not ended", reason)
+	}
+	if got := FormatValue(mustEvalOn(t, ctx, p, "act.snapshots->SequenceFunctions::size()")); got != "1" {
+		t.Errorf("act.snapshots has %s elements, want the start snapshot alone", got)
+	}
+	if got := FormatValue(mustEvalOn(t, ctx, p, "act.predecessors->SequenceFunctions::size()")); got != "0" {
+		t.Errorf("act.predecessors has %s elements, want none: no succession fired", got)
+	}
+}
+
+func testOccurrenceReadsAfterStepBudget(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, occurrenceWaitSrc)
+	p := mustInstantiate(t, ctx, oneSymbol(t, idx, "Probe::P"))
+	// The budget runs out where the run stands: moving the clock to the wait's
+	// end is refused with the typed error, and the shots stay where the run was.
+	ctx.maxSteps = 1
+	if _, err := ctx.Advance(60); !errors.Is(err, ErrStepLimitExceeded) {
+		t.Fatalf("Advance at an exhausted budget = %v, want ErrStepLimitExceeded", err)
+	}
+	ctx.maxSteps = 100000
+	if val := mustEvalOn(t, ctx, p, "act.start"); val.Kind != ValInstance {
+		t.Errorf("act.start after the budget = %s, want the start snapshot", FormatValue(val))
+	}
+	val, err := evalOn(t, ctx, p, "act.done")
+	if reason := undeterminedReason(t, val, err, "act.done after the budget"); !strings.Contains(reason, "has not ended") {
+		t.Errorf("act.done after the budget: reason %q", reason)
+	}
+	if got := FormatValue(mustEvalOn(t, ctx, p, "act.snapshots->SequenceFunctions::size()")); got != "1" {
+		t.Errorf("act.snapshots after the budget has %s elements, want the start snapshot alone", got)
+	}
+}
+
+func testOccurrenceRestoreTakesBackShots(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, occurrenceWaitSrc)
+	p := mustInstantiate(t, ctx, oneSymbol(t, idx, "Probe::P"))
+	snapshot, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	defer snapshot.Release()
+	if _, err := ctx.Advance(60); err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	done := mustEvalOn(t, ctx, p, "act.done")
+	if done.Kind != ValInstance {
+		t.Fatalf("act.done after the wait = %s, want the end snapshot", FormatValue(done))
+	}
+	if got := FormatValue(mustEvalOn(t, ctx, p, "Time::DurationOf(act)")); !strings.HasPrefix(got, "60.0") {
+		t.Errorf("DurationOf(act) after the wait = %s, want 60.0 [s]", got)
+	}
+	snapshot.Restore()
+	if _, live := ctx.instances[done.Instance]; live {
+		t.Errorf("end snapshot #%d made after the snapshot is still held", done.Instance)
+	}
+	val, err := evalOn(t, ctx, p, "act.done")
+	if reason := undeterminedReason(t, val, err, "act.done after the restore"); !strings.Contains(reason, "has not ended") {
+		t.Errorf("act.done after the restore: reason %q", reason)
+	}
+	val, err = evalOn(t, ctx, p, "Time::DurationOf(act)")
+	undeterminedReason(t, val, err, "DurationOf(act) after the restore")
+	if got := FormatValue(mustEvalOn(t, ctx, p, "act.snapshots->SequenceFunctions::size()")); got != "1" {
+		t.Errorf("act.snapshots after the restore has %s elements, want the start snapshot alone", got)
+	}
+	if _, err := ctx.Advance(60); err != nil {
+		t.Fatalf("Advance after the restore: %v", err)
+	}
+	if again := mustEvalOn(t, ctx, p, "act.done"); again.Kind != ValInstance {
+		t.Errorf("act.done after running again = %s, want the end snapshot", FormatValue(again))
+	}
+}
