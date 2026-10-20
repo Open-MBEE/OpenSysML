@@ -73,10 +73,11 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 		}
 		out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
 	}
-	// A parameter redefines the parameter at its position implicitly, and the
-	// direction it declares must be the redefined one's (KerML 7.4.7.2).
+	// A parameter redefines the parameter at its position implicitly (KerML 7.4.7.2),
+	// and that Redefinition is held to the direction and restriction rules like a written one.
 	for _, target := range m.implicitParameterCounterparts(sym) {
 		out = append(out, m.directionViolations(sym, traits, target, sym.Decl)...)
+		out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
 	}
 	return out
 }
@@ -119,11 +120,8 @@ func (m *Model) directionViolations(sym *symbols.Symbol, traits featureTraits,
 	}}
 }
 
-// restrictionViolations reports the uniqueness and constancy rules: a subsetting
-// or redefining feature may not be nonunique where the target is unique, nor
-// variable yet not constant where the target is constant (KerML 8.3.3.3.9).
-// Variability and constancy are the derived properties — a SysML usage is
-// variable by `Usage::mayTimeVary`, an end that may vary is constant unwritten.
+// restrictionViolations reports the uniqueness and constancy rules (KerML 8.3.3.3.9) on the
+// derived isVariable/isConstant: a SysML usage varies by mayTimeVary, a varying end is constant.
 func (m *Model) restrictionViolations(sym *symbols.Symbol, traits featureTraits,
 	target *symbols.Symbol, ref ast.Node) []ConformanceViolation {
 	if _, ok := featureTraitsOf(target); !ok {

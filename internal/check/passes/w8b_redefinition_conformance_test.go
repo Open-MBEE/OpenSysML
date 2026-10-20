@@ -182,9 +182,8 @@ func TestW8BConstancyConformanceAllowsConstantRestriction(t *testing.T) {
 	}
 }
 
-// The rule reads the subsetted feature's own isConstant (KerML 8.3.3.3.9): a
-// feature that merely subsets a constant one is not constant, so a variable
-// feature subsetting it conforms, and a subsetting cycle declares nothing.
+// The rule reads the subsetted feature's own isConstant (KerML 8.3.3.3.9): merely subsetting
+// a constant feature makes none constant, and a subsetting cycle declares nothing.
 func TestW8BConstancyConformanceIsNotInherited(t *testing.T) {
 	diags := conformanceDiags(t, `
 		package P {
@@ -216,9 +215,8 @@ func constancyDiags(t *testing.T, src string) []diag.Diagnostic {
 	return out
 }
 
-// A SysML usage is variable by Usage::mayTimeVary (SysML v2 §8.3.6.4): owned by
-// an occurrence definition or usage, not a portion, not a composite action. Such
-// a usage subsetting or redefining a `constant` one must itself be constant.
+// A SysML usage owned by an occurrence definition or usage, not a portion nor a composite
+// action, varies by Usage::mayTimeVary (SysML v2 §8.3.6.4), so it must be constant to subset one.
 func TestW8BConstancyConformanceSysMLUsages(t *testing.T) {
 	diags := constancyDiags(t, `
 		package P {
@@ -257,9 +255,8 @@ func TestW8BConstancyConformanceSysMLUsages(t *testing.T) {
 	}
 }
 
-// An end usage that may vary in time is constant without `constant` being
-// written (SysML v2 §8.2.2.6.2), so an end conforms to anything and a plain
-// usage subsetting or redefining an end does not.
+// An end usage that may vary in time is constant unwritten (SysML v2 §8.2.2.6.2): an end
+// conforms to anything, a plain usage subsetting or redefining an end does not.
 func TestW8BConstancyConformanceSysMLEnds(t *testing.T) {
 	diags := constancyDiags(t, `
 		package P {
@@ -282,9 +279,8 @@ func TestW8BConstancyConformanceSysMLEnds(t *testing.T) {
 	}
 }
 
-// Where mayTimeVary is false the premise fails and the rule stays silent: a
-// portion, a usage owned by a package or an attribute definition, a composite
-// action, and a usage that is itself declared constant.
+// Where mayTimeVary is false the premise fails and the rule stays silent: a portion, a usage
+// owned by a package or an attribute definition, a composite action, a usage declared constant.
 func TestW8BConstancyConformanceSysMLNonVaryingUsages(t *testing.T) {
 	diags := constancyDiags(t, `
 		package P {
@@ -387,5 +383,22 @@ func TestW8BUniquenessConformanceOfAnImplicitSubsetting(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A parameter redefines the general behavior's parameter at its position without `:>>`
+// (KerML 7.4.7.2); that implied Redefinition is held to the constancy rule like a written one.
+func TestW8BConstancyConformanceImplicitParameters(t *testing.T) {
+	src := `package IP {
+    private import ScalarValues::*;
+    action def Gen { in constant attribute limit : Real; }
+    action def Spec :> Gen { in attribute cap : Real; }
+    action def SpecOk :> Gen { in constant attribute cap : Real; }
+    action def SpecExplicit :> Gen { in attribute cap :>> limit; }
+}`
+	got := codes(constancyDiags(t, src))
+	const want = "subsetting-constancy-conformance"
+	if len(got) != 2 || got[0] != want || got[1] != want {
+		t.Fatalf("implicit (Spec) and written (SpecExplicit) parameter redefinitions, got %v", got)
 	}
 }
