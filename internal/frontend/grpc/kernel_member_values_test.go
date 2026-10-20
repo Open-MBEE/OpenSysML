@@ -43,9 +43,12 @@ func TestSessionFeatureValueReadsKernelMembers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FeatureValue(snapshots) failed: %v", err)
 	}
-	if _, ok := snapshots.GetValue().GetKind().(*pb.Value_Undetermined); !ok || len(snapshots.GetValues()) != 0 {
-		kind, value := describeValue(snapshots.GetValue())
-		t.Errorf("snapshots: %s %v with %d values, want an undetermined value", kind, value, len(snapshots.GetValues()))
+	// An object that began has its start snapshot, the one snapshot of a part that runs nothing.
+	if snapshots.GetValue() != nil || len(snapshots.GetValues()) != 1 {
+		t.Errorf("snapshots = %v with %d values, want the start snapshot alone", snapshots, len(snapshots.GetValues()))
+	} else if _, ok := snapshots.GetValues()[0].GetKind().(*pb.Value_InstanceId); !ok {
+		kind, value := describeValue(snapshots.GetValues()[0])
+		t.Errorf("snapshots#1: %s %v, want an object", kind, value)
 	}
 	predecessors, err := ss.FeatureValue(id, "predecessors")
 	if err != nil || predecessors.GetValue() != nil || len(predecessors.GetValues()) != 0 {
