@@ -154,6 +154,14 @@ func (ctx *Context) trackedKernelValue(inst *Instance, sym *symbols.Symbol, feat
 		if len(held) == 0 && len(shots) == 0 {
 			return undeterminedFeatureValue(fmt.Sprintf("%s has not started: no snapshot of it has happened", SymbolText(inst.Type)), feat.Multiplicity, sym), false, true, nil
 		}
+	} else if fired, ok, err := ctx.successionValues(inst, sym); ok {
+		if err != nil {
+			return Value{}, false, true, err
+		}
+		held = append(held, fired...)
+		if len(held) == 0 {
+			return ctx.collectionOf(feat, nil), false, true, nil
+		}
 	} else if len(held) == 0 {
 		return Value{}, false, false, nil
 	}
