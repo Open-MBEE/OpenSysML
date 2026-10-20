@@ -153,9 +153,11 @@ metaclass when the two sides disagree on the metaclass (`typeMismatch`).
   does not cover what the writer consumes — the parser, name resolution, the metamodel or the library
   — so a semantic change upstream still surfaces as count movement with no named cause; it names
   writer changes only. `TestCommittedBaselineStatesThisRepositorysProvenance` checks, without Java,
-  that every one of those fields is this checkout's; `-check` compares the same block alongside the
-  counts, so a writer edit reads `provenance.tools[api-json-writer].sourceDigest: baseline records …,
-  repository now has …` next to the buckets it moved rather than as bare drift. `TestProvenanceGuardFailsOnAMovedPin`
+  that every one of those fields is this checkout's; `-check` holds the same block to the baseline
+  before the counts, so a writer edit stops it at `provenance.tools[api-json-writer].sourceDigest:
+  baseline records …, repository now has …` rather than at bare count drift (the fresh report it
+  wrote still holds the moved buckets). The writer digested is the one linked into the referee —
+  the checkout it was built from — which `-repo` pointing elsewhere does not change. `TestProvenanceGuardFailsOnAMovedPin`
   and `TestProvenanceGuardFailsOnAnEditedWriter` pin that a moved pin and an edited writer are each
   named with the refresh command. `TestRecordStatesTheBaselinesFigures` (`make docs-counts`) ties
   this record's figures to the baseline.

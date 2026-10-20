@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -51,6 +52,20 @@ func DevelopCommit(dir, given string) (string, error) {
 		return "", fmt.Errorf("git merge-base HEAD origin/develop: %w; pass -develop", err)
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// BuildRoot is the root of the checkout this executable was compiled from,
+// where the product code linked into it lives; -repo may point elsewhere.
+func BuildRoot() (string, error) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok || !filepath.IsAbs(file) {
+		return "", fmt.Errorf("source path of the build is unknown (%q): built with -trimpath?", file)
+	}
+	root, err := RootFrom(filepath.Dir(file))
+	if err != nil {
+		return "", fmt.Errorf("checkout this tool was built from: %w", err)
+	}
+	return root, nil
 }
 
 // RootFrom is Root walking up from dir instead of the working directory.

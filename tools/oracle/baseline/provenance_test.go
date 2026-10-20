@@ -87,9 +87,8 @@ func TestDigestFilesIdentifiesTheSetNotTheOrder(t *testing.T) {
 	}
 }
 
-// A package digest covers the production .go files and nothing else: tests,
-// other kinds of file and subdirectories can change without moving it, while a
-// single byte in a production source does.
+// A package digest moves on a byte of a production .go file and on nothing
+// else: tests, other kinds of file and subdirectories change freely.
 func TestDigestPackageCoversOnlyProductionGoSources(t *testing.T) {
 	dir := t.TempDir()
 	write := func(name, content string) {

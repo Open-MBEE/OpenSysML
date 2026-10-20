@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/errata"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/diff"
 )
 
@@ -27,18 +28,18 @@ func roots() []diff.Root { return append(diff.Roots(), manualExamples) }
 
 // provenance identifies the run's inputs: the pilot pin, the sources the pilot
 // exporter and our writer are compiled from, and every non-empty root's digest.
-func provenance(repo string) (baseline.Record, error) {
-	pin, err := baseline.ReadPin(repo)
+func provenance(checkout string) (baseline.Record, error) {
+	pin, err := baseline.ReadPin(checkout)
 	if err != nil {
 		return baseline.Record{}, err
 	}
-	bridgeDigest, err := baseline.DigestFile(filepath.Join(repo, filepath.FromSlash(bridgeSource)))
+	bridgeDigest, err := baseline.DigestFile(filepath.Join(checkout, filepath.FromSlash(bridgeSource)))
 	if err != nil {
 		return baseline.Record{}, fmt.Errorf("digest %s: %w", bridgeSource, err)
 	}
-	writerDigest, err := baseline.DigestPackage(filepath.Join(repo, filepath.FromSlash(writerSource)))
+	writerDigest, err := writerProvenance()
 	if err != nil {
-		return baseline.Record{}, fmt.Errorf("digest %s: %w", writerSource, err)
+		return baseline.Record{}, err
 	}
 	overlay, err := errata.Load()
 	if err != nil {
@@ -55,14 +56,14 @@ func provenance(repo string) (baseline.Record, error) {
 		},
 	}
 	for _, root := range roots() {
-		files, err := diff.CollectFiles(repo, root)
+		files, err := diff.CollectFiles(checkout, root)
 		if err != nil {
 			return baseline.Record{}, err
 		}
 		if len(files) == 0 {
 			continue
 		}
-		digest, err := baseline.DigestFiles(filepath.Join(repo, filepath.FromSlash(root.Dir)), files)
+		digest, err := baseline.DigestFiles(filepath.Join(checkout, filepath.FromSlash(root.Dir)), files)
 		if err != nil {
 			return baseline.Record{}, fmt.Errorf("digest %s: %w", root.Dir, err)
 		}
@@ -73,4 +74,18 @@ func provenance(repo string) (baseline.Record, error) {
 		record.Inputs = append(record.Inputs, baseline.Input{Name: root.Name, Dir: root.Dir, Origin: origin, Files: len(files), Digest: digest})
 	}
 	return record, nil
+}
+
+// writerProvenance digests the writer linked into this executable: the one in
+// the checkout it was built from, which -repo pointing elsewhere does not change.
+func writerProvenance() (string, error) {
+	built, err := repo.BuildRoot()
+	if err != nil {
+		return "", fmt.Errorf("digest %s: %w", writerSource, err)
+	}
+	digest, err := baseline.DigestPackage(filepath.Join(built, filepath.FromSlash(writerSource)))
+	if err != nil {
+		return "", fmt.Errorf("digest %s: %w", writerSource, err)
+	}
+	return digest, nil
 }
