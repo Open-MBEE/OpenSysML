@@ -1358,9 +1358,8 @@ func (ec *EvalContext) namesOccurrenceThis(name string) bool {
 	return ok && ec.ctx.model.resolver.IsOccurrenceThis(sym)
 }
 
-// thisValue is the context occurrence `this` denotes in the body being evaluated,
-// contextOccurrence of the run's occurrence or of the object it is evaluated on,
-// the same answer a member read of `this` gives.
+// thisValue is the context occurrence `this` denotes in the body being evaluated:
+// contextOccurrence of the run's occurrence or of the object evaluated on, as a member read answers.
 func (ec *EvalContext) thisValue() (Value, error) {
 	occurrence := ec.occurrence
 	if occurrence == nil && ec.thisOccurrence != nil {
@@ -1396,11 +1395,8 @@ func (ec *EvalContext) thisValue() (Value, error) {
 		errThisNotAnObject, SymbolText(object))
 }
 
-// contextOccurrence is what `this` denotes on inst: the owner of an owned performance,
-// through subperformances to the first holder that is not a performance (Objects.kerml
-// `ownedPerformances::this default that`, Performances.kerml `subperformances::this`,
-// Parts.sysml `ownedActions::this = that as Part`); an object or a root performance no
-// object owns is its own (Occurrences.kerml `this default self`).
+// contextOccurrence is what `this` denotes on inst: through owned performances to the first holder
+// that is not one (Objects.kerml ownedPerformances::this, Performances.kerml subperformances::this).
 func (ctx *Context) contextOccurrence(inst *Instance) *Instance {
 	for inst.owner != nil && isPerformanceKind(inst.Type.Kind) {
 		inst = inst.owner
