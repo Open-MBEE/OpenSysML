@@ -134,11 +134,53 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 			Name:     src.Path,
 		})
 	}
+	if single, ok := singleFileRequest(req); ok && !g.svc.Supports(sysmlgrpc.CapabilityParseSources) {
+		resp, err := g.svc.ParseFile(ctx, single)
+		if err != nil {
+			return nil, toolError(err)
+		}
+		return parseFileAsSources(resp), nil
+	}
 	resp, err := g.svc.ParseSources(ctx, req)
 	if err != nil {
 		return nil, toolError(err)
 	}
 	return resp, nil
+}
+
+// singleFileRequest spells a parse of one document as the ParseFile RPC, which
+// the tool stands for as well: a service without parse_sources answers that
+// much. ParseFile carries no base hash and names inline content <content>, so
+// a request with a base hash or another name (an unnamed source would be
+// <content-0>) is not one.
+func singleFileRequest(req *pb.ParseSourcesRequest) (*pb.ParseFileRequest, bool) {
+	if len(req.GetDocuments()) != 1 || req.GetBaseModelHash() != "" {
+		return nil, false
+	}
+	doc := req.GetDocuments()[0]
+	single := &pb.ParseFileRequest{Language: doc.GetLanguage(), StrictConformance: req.GetStrictConformance()}
+	switch src := doc.GetSource().(type) {
+	case *pb.SourceDocument_FilePath:
+		single.Source = &pb.ParseFileRequest_FilePath{FilePath: src.FilePath}
+	case *pb.SourceDocument_Content:
+		if doc.GetName() != "<content>" {
+			return nil, false
+		}
+		single.Source = &pb.ParseFileRequest_Content{Content: src.Content}
+	default:
+		return nil, false
+	}
+	return single, true
+}
+
+// parseFileAsSources reads a ParseFile answer as the ParseSources answer for the
+// same one document.
+func parseFileAsSources(resp *pb.ParseFileResponse) *pb.ParseSourcesResponse {
+	out := &pb.ParseSourcesResponse{ModelHash: resp.GetModelHash(), Diagnostics: resp.GetDiagnostics(), Error: resp.GetError()}
+	if root := resp.GetRoot(); root != nil {
+		out.Roots = []*pb.SymbolInfo{root}
+	}
+	return out
 }
 
 // path resolves a path argument against the workspace root and refuses one

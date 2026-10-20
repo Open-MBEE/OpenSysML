@@ -1796,6 +1796,11 @@ jobs:
       - name: Conformance suite through client/opensysml
         run: make conformance-pkg
 
+      # The same suite through sysml-mcp's runtime tools over stdio, so the tools
+      # are proven to serve the service the scenarios specify, not a re-implementation.
+      - name: Conformance suite through sysml-mcp
+        run: make conformance-mcp
+
       # if: always() — the reports matter most when a gate failed and halted the job.
       - uses: actions/upload-artifact@v4
         if: always()
@@ -1806,3 +1811,5 @@ jobs:
             bin/conformance-report.xml
             bin/conformance-grpc-transport-report.json
             bin/conformance-pkg-report.json
+            bin/conformance-mcp-report.json
+            bin/conformance-mcp-report.xml
