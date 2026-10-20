@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# Publishes each npm package given (a package directory or a packed tarball)
-# under a dist-tag, skipping any whose name is already on the registry at the
-# version it declares: a publish cannot be repeated, so a re-run of a release
-# job that stopped half-way completes the set instead of failing on the first
-# package that went up. Run: scripts/npm-publish-missing.sh <dist-tag> <package>...
+# Publishes each package (directory or tarball) under a dist-tag, skipping any the
+# registry already has at its version, so a re-run completes a half-published set.
 set -euo pipefail
 
 if [[ $# -lt 2 ]]; then
