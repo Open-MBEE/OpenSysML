@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -492,7 +493,7 @@ func boundInputs(shape *calcShape, env frame) []InputBinding {
 	var inputs []InputBinding
 	for i := range shape.Params {
 		param := &shape.Params[i]
-		if param.IsSubject {
+		if param.IsSubject || param.IsActor {
 			continue
 		}
 		if value, ok := env.lookup(param.Name); ok {
@@ -1305,6 +1306,9 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 	}
 	run, err := ec.ctx.calcUsageRun(ec, sym)
 	if err != nil {
+		if value, ok := ec.ctx.unboundSubjectRead(sym, parts[0].Text, err); ok {
+			return ec.chainMemberValue(value, parts[1:], parts[0].Text)
+		}
 		return Value{}, err
 	}
 	for {
@@ -1334,38 +1338,91 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 		return ec.chainMemberValue(value, parts[1:], name)
 	}
 	value, err := run.output(ec.ctx, name)
+	if errors.Is(err, errUnknownOutput) {
+		if value, ok, readErr := ec.occurrenceMember(run, parts); ok {
+			return value, readErr
+		}
+	}
 	if err != nil {
 		return Value{}, err
 	}
 	return ec.chainMemberValue(value, parts[1:], name)
 }
 
-// memberValue reads a member of the calc that is no output — an input parameter
-// as the run bound it, or a usage the body declares as the run left it — which
-// are features of the usage as its outputs are (SysML v2 §7.19.2); undetermined
-// where the run bound or left no value. Not ok for a name the calc declares
-// neither way, or declares as an output.
+// memberValue reads a member of the usage that is no output — a parameter (subject,
+// actor or input) or a body local as the run bound it; undetermined where it bound none.
 func (run *calcRun) memberValue(ctx *Context, name string) (Value, bool, error) {
 	if _, isOutput := run.shape.output(name); isOutput {
 		return Value{}, false, nil
 	}
-	var member *symbols.Symbol
-	if param := run.shape.parameter(name); param != nil {
-		member = param.Sym
-	} else if run.shape.declaresUsage(name) || run.shape.declaresLocal(name) {
-		scope := ctx.calcScope(run.shape.BodyOwner, run.shape.Sym, run.scope)
-		member, _ = ctx.lookupName(scope, name)
-	} else {
+	param := run.shape.parameter(name)
+	if param == nil && !run.shape.declaresUsage(name) {
+		if value, ok := run.lookupBody(name); ok {
+			return value, true, nil
+		}
 		return Value{}, false, nil
 	}
-	if value, ok := run.lookup(name); ok {
+	if value, ok := run.lookup(name); ok && !(param != nil && param.Default == nil && value.Kind == ValNull) {
 		return value, true, nil
+	}
+	var member *symbols.Symbol
+	if param != nil {
+		member = param.Sym
 	}
 	var count semantics.Range
 	if member != nil {
-		count, _ = ctx.extractMultiplicity(member)
+		count = ctx.effectiveFeature(name, member, run.shape.Sym).Multiplicity
 	}
 	return undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", run.shape.Label, name), count, member), true, nil
+}
+
+// lookupBody answers a local the run's body statements left bound, never a parameter.
+func (run *calcRun) lookupBody(name string) (Value, bool) {
+	for i := len(run.bodyFrames) - 1; i >= 0; i-- {
+		if value, ok := run.bodyFrames[i].lookup(name); ok {
+			return value, true
+		}
+	}
+	return Value{}, false
+}
+
+// unboundSubjectRead answers a read of the subject the case binds nothing to as
+// undetermined — a feature holding no value — though the case cannot run for want of it.
+func (ctx *Context) unboundSubjectRead(sym *symbols.Symbol, name string, err error) (Value, bool) {
+	var unbound *subjectUnboundError
+	if !errors.As(err, &unbound) || unbound.Subject != name {
+		return Value{}, false
+	}
+	shape, shapeErr := ctx.calcShapeOf(sym)
+	if shapeErr != nil || unbound.Element != shape.Name {
+		return Value{}, false
+	}
+	param, ok := shape.subjectParameter()
+	if !ok || param.Name != name {
+		return Value{}, false
+	}
+	feat := ctx.effectiveFeature(name, param.Sym, sym)
+	reason := fmt.Sprintf("%s binds no value to its subject %s", shape.Label, name)
+	return undeterminedFeatureValue(reason, feat.Multiplicity, param.Sym), true
+}
+
+// occurrenceMember reads a feature the run holds no binding for — the objective, a
+// requirement or part the usage declares — from the usage's occurrence, as on any object.
+func (ec *EvalContext) occurrenceMember(run *calcRun, parts []ast.NameSegment) (Value, bool, error) {
+	name := parts[0].Text
+	sym, found := ec.ctx.model.semantics.LookupMember(run.shape.Sym, name)
+	if !found || declaresType(sym) || run.occurrence == nil || run.occurrence.materialize == nil {
+		return Value{}, false, nil
+	}
+	inst, err := run.occurrence.materialize()
+	if err != nil {
+		return Value{}, true, err
+	}
+	if _, carried := inst.FeatureValues[name]; !carried {
+		return Value{}, false, nil
+	}
+	value, err := ec.chainFeatureValue(inst, name, parts[1:], name)
+	return value, true, err
 }
 
 // unsuppliedCalcInput reads an input parameter of a calc usage read as a function

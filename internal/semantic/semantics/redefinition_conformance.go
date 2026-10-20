@@ -73,10 +73,13 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 		}
 		out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
 	}
-	// A parameter redefines the parameter at its position implicitly, and the
-	// direction it declares must be the redefined one's (KerML 7.4.7.2).
+	// A parameter redefines the parameter at its position implicitly (KerML 7.4.7.2),
+	// and that Redefinition is held to the direction and restriction rules like a written one.
 	for _, target := range m.implicitParameterCounterparts(sym) {
 		out = append(out, m.directionViolations(sym, traits, target, sym.Decl)...)
+		if !written[target] {
+			out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
+		}
 	}
 	return out
 }
@@ -119,9 +122,8 @@ func (m *Model) directionViolations(sym *symbols.Symbol, traits featureTraits,
 	}}
 }
 
-// restrictionViolations reports the uniqueness and constancy rules: a subsetting
-// or redefining feature may not be nonunique where the target is unique, nor
-// variable where the target is constant (KerML 8.3.3.3).
+// restrictionViolations reports the uniqueness and constancy rules (KerML 8.3.3.3.9) on the
+// derived isVariable/isConstant: a SysML usage varies by mayTimeVary, a varying end is constant.
 func (m *Model) restrictionViolations(sym *symbols.Symbol, traits featureTraits,
 	target *symbols.Symbol, ref ast.Node) []ConformanceViolation {
 	if _, ok := featureTraitsOf(target); !ok {
@@ -133,7 +135,7 @@ func (m *Model) restrictionViolations(sym *symbols.Symbol, traits featureTraits,
 			Kind: ViolationUniqueness, Feature: sym, Target: target, Ref: ref,
 		})
 	}
-	if traits.IsVariable && m.constantDeclaration(target, map[*symbols.Symbol]bool{}) != nil {
+	if m.FeatureIsVariable(sym) && !m.FeatureIsConstant(sym) && m.FeatureIsConstant(target) {
 		out = append(out, ConformanceViolation{
 			Kind: ViolationConstancy, Feature: sym, Target: target, Ref: ref,
 		})
@@ -175,8 +177,6 @@ func owningTypeOf(sym *symbols.Symbol) *symbols.Symbol {
 type featureTraits struct {
 	Direction   ast.FeatureDirection
 	IsNonunique bool
-	IsVariable  bool
-	IsConstant  bool
 }
 
 // featureTraitsOf returns the traits sym's declaration states, if it is a feature.
@@ -186,11 +186,9 @@ func featureTraitsOf(sym *symbols.Symbol) (featureTraits, bool) {
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:
-		return featureTraits{Direction: d.Direction, IsNonunique: d.IsNonunique,
-			IsVariable: d.IsVariable, IsConstant: d.IsConstant}, true
+		return featureTraits{Direction: d.Direction, IsNonunique: d.IsNonunique}, true
 	case *ast.CrossFeatureMember:
-		return featureTraits{Direction: d.Direction, IsNonunique: d.IsNonunique,
-			IsVariable: d.IsVariable, IsConstant: d.IsConstant}, true
+		return featureTraits{Direction: d.Direction, IsNonunique: d.IsNonunique}, true
 	}
 	return featureTraits{}, false
 }
