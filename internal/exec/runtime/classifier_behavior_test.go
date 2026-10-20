@@ -2377,7 +2377,7 @@ const defRunThisFixture = `
 				in delta : Integer[1] = 3;
 				first apply;
 				action apply {
-					assign context.flag := this.delta == delta;
+					assign context.flag := this == context;
 					assign context.same := this == this;
 				}
 				first apply then done;
@@ -2386,11 +2386,10 @@ const defRunThisFixture = `
 	}
 `
 
-// Running a behavior definition directly gives the run an occurrence `this`
-// denotes even though no performed usage materialized one: the occurrence is
-// made on first use, seeded with the performance's own features, and `this`
-// compares to itself — so both reads run and land on the performer through
-// the context binding.
+// Running a behavior definition directly on an object gives the run a `this`:
+// the performer the context parameter binds (Objects.kerml `ownedPerformances::
+// this default that`), so `this == context` holds, `this` compares to itself,
+// and both writes land on the performer through the context binding.
 func TestExecuteActionPerformedByDefReadsThis(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunThisFixture))
 	warm := oneSymbol(t, idx, "test::Heater::Warm")
@@ -2424,7 +2423,7 @@ const qualifiedAssignFixture = `
 			out seen : Integer[1];
 			action step {
 				assign Probe::count := 3;
-				assign Probe::seen := this.count;
+				assign Probe::seen := count;
 			}
 			first step;
 		}
@@ -2556,8 +2555,9 @@ func TestCalcQualifiedWriteRejectsAnotherObject(t *testing.T) {
 	}
 }
 
-// qualifiedWriteFixture runs a state machine whose entry materializes this and
-// then writes its own attribute through its qualified name: `this` stays live.
+// qualifiedWriteFixture runs a state machine whose entry compares this to itself
+// and then writes its own attribute through its qualified name: the write is
+// read back by name.
 const qualifiedWriteFixture = `
 	package test {
 		private import ScalarValues::*;
@@ -2572,7 +2572,7 @@ const qualifiedWriteFixture = `
 				entry action run {
 					assign Life::mark := this == this;
 					assign Life::n := 5;
-					assign context.flag := this.n == 5;
+					assign context.flag := n == 5;
 				}
 			}
 			first start then on;
@@ -2580,8 +2580,9 @@ const qualifiedWriteFixture = `
 	}
 `
 
-// A qualified write inside a machine that already materialized this lands on the
-// same occurrence `this` reads, through the machine's own write path.
+// A qualified write inside a running machine lands on the machine's own
+// occurrence, the one its bare feature reads answer, through the machine's own
+// write path.
 func TestQualifiedWriteMirrorsTheLiveOccurrence(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, qualifiedWriteFixture))
 	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
