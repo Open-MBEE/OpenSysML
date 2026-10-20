@@ -23,10 +23,8 @@ const baseTypeFeature = "baseType"
 //   - a definition annotated with a usage baseType subclassifies the types of
 //     that baseType.
 //
-// Any other combination contributes nothing, and so does an annotation whose
-// type no declaration supplies: that is the reference's diagnostic, not a
-// provisional answer. A lookup a guard cut short is accounted for by the
-// resolver frames DirectSupertypes opened, as for any other supertype.
+// Any other combination contributes nothing, as does an annotation whose type is
+// undeclared: that is a diagnostic, and a guard-cut lookup is the resolver frames'.
 func (m *Model) semanticMetadataBases(sym *symbols.Symbol) []*symbols.Symbol {
 	switch sym.Decl.(type) {
 	case *ast.Definition, *ast.Usage, *ast.SubjectMember, *ast.AssumeMember, *ast.RequireMember:

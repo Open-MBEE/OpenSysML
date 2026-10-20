@@ -418,10 +418,8 @@ func TestDirectSupertypesKeptAcrossOwnerCycleGuard(t *testing.T) {
 	})
 }
 
-// A closure built while a metadata annotation type is unresolved is settled and
-// memoized like any other: the lookup that missed the type read its name, so
-// the declaration arriving later invalidates the answer through the resolver's
-// frames (see resolve.Resolver.Invalidate) rather than by leaving it provisional.
+// A closure built while a metadata annotation type is undeclared is memoized: the
+// lookup read the name, so a later declaration invalidates it (Resolver.Invalidate).
 func TestAllSupertypesMemoizedWhileMetadataTypeUnresolved(t *testing.T) {
 	m, root := buildModel(t, "part def A; #Unknown part def B specializes A;")
 	b := sym(t, root, "B")

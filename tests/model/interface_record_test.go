@@ -398,11 +398,8 @@ func libraryIdentity(t *testing.T) string {
 	return identity
 }
 
-// A reference no declaration answers is a diagnostic of the document, not an
-// absent interface: a definition annotated with an undeclared metadata type and
-// an `about` usage naming undeclared elements are recorded like any other, and
-// the record contributes to the workspace-wide `about` index as the loaded
-// document did, so it is not written off as stale when a neighbour reads it.
+// An undeclared metadata type or `about` target is a diagnostic, not an absent
+// interface: the record is written and joins the `about` index as when loaded.
 func TestInterfaceRecordOfUnresolvedMetadataReferences(t *testing.T) {
 	t.Parallel()
 	docs := map[string][]byte{

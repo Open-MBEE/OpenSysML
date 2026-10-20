@@ -193,10 +193,8 @@ func TestMetadataUsageMemberResolvesItsType(t *testing.T) {
 	}
 }
 
-// A semantic metadata keyword whose definition no open document supplies is an
-// unresolved reference, and the annotated usage's supertypes are settled without
-// it; the lookup read the name, so opening the declaration later recomputes the
-// answer and the baseType it contributes appears.
+// An undeclared semantic metadata keyword leaves the usage's supertypes settled;
+// opening its declaration later recomputes them and its baseType appears.
 func TestSemanticMetadataTypeDeclaredLaterContributesItsBase(t *testing.T) {
 	const car, wheels = "file:///car.sysml", "file:///wheels.sysml"
 	ws := NewWorkspace()

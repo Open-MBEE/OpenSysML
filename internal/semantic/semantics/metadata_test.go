@@ -43,9 +43,8 @@ func TestBaseTypeReboundIgnoresTwinSymbols(t *testing.T) {
 	}
 }
 
-// An annotation naming a metadata type no declaration supplies contributes no
-// implicit specialization; the reference is reported, and the element's
-// supertypes are settled rather than provisional (SysML v2 §7.27.3).
+// An annotation naming an undeclared metadata type contributes no specialization
+// and leaves the supertypes settled, not provisional (SysML v2 §7.27.3).
 func TestUnresolvedMetadataTypeLeavesSupertypesSettled(t *testing.T) {
 	cases := map[string]string{
 		"t.kerml": `package P { behavior Save { @Command; } }`,
