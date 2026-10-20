@@ -134,7 +134,7 @@ func TestReturnParameterReadsAgreeWithChecksOnNestedUsages(t *testing.T) {
 	root := idx.DocumentRoot("<test>")
 	inst := mustInstantiate(t, ctx, oneSymbol(t, idx, "test::P1"))
 
-	for _, usage := range []string{"rq", "rqNamed", "rqBare", "rqPart", "rqFail", "rqNarrow"} {
+	for _, usage := range []string{"rq", "rqNamed", "rqBare", "rqPart", "rqFail", "rqNarrow", "rqDefault"} {
 		sym := requirementUsage(t, idx, "test::P1::"+usage)
 		result, err := ctx.CheckRequirementOn(sym, inst.Type.Scope, inst)
 		if err != nil && !violationErr(err) {

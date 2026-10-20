@@ -138,7 +138,7 @@ read	Probe::u1.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers
 read	Probe::u1.joins	systems	Actions::Action::joins	empty
 read	Probe::u1.loops	systems	Actions::Action::loops	empty
 read	Probe::u1.merges	systems	Actions::Action::merges	empty
-read	Probe::u1.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
+read	Probe::u1.obj	systems	UseCases::UseCase::obj	object:UseCases::UseCase::obj
 read	Probe::u1.result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	Probe::u1.s	model	Probe::U1::s	undetermined <undetermined>
 read	Probe::u1.self	systemsFRAME	UseCases::UseCase::self	object:Probe::u1
@@ -526,7 +526,7 @@ read	Probe::p1.uq.incomingTransfers	systemsFRAME	Actions::Action::incomingTransf
 read	Probe::p1.uq.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.uq.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.uq.merges	systems	Actions::Action::merges	empty
-read	Probe::p1.uq.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
+read	Probe::p1.uq.obj	systems	UseCases::UseCase::obj	object:UseCases::UseCase::obj
 read	Probe::p1.uq.result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	Probe::p1.uq.s	model	Probe::U1::s	undetermined <undetermined>
 read	Probe::p1.uq.self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1
@@ -781,7 +781,7 @@ read	Probe::p1.iu.incomingTransfers	systemsFRAME	Actions::Action::incomingTransf
 read	Probe::p1.iu.joins	systems	Actions::Action::joins	empty
 read	Probe::p1.iu.loops	systems	Actions::Action::loops	empty
 read	Probe::p1.iu.merges	systems	Actions::Action::merges	empty
-read	Probe::p1.iu.obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
+read	Probe::p1.iu.obj	systems	UseCases::UseCase::obj	object:UseCases::UseCase::obj
 read	Probe::p1.iu.result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	Probe::p1.iu.s	model	Probe::U1::s	undetermined <undetermined>
 read	Probe::p1.iu.self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1
@@ -1084,7 +1084,7 @@ read	new Probe::U1().incomingTransfers	systemsFRAME	Actions::Action::incomingTra
 read	new Probe::U1().joins	systems	Actions::Action::joins	empty
 read	new Probe::U1().loops	systems	Actions::Action::loops	empty
 read	new Probe::U1().merges	systems	Actions::Action::merges	empty
-read	new Probe::U1().obj	systems	UseCases::UseCase::obj	object:Requirements::RequirementCheck
+read	new Probe::U1().obj	systems	UseCases::UseCase::obj	object:UseCases::UseCase::obj
 read	new Probe::U1().result	systemsFRAME	Cases::Case::result	undetermined <undetermined>
 read	new Probe::U1().s	model	Probe::U1::s	error uninitialized feature value: s
 read	new Probe::U1().self	systemsFRAME	UseCases::UseCase::self	object:Probe::U1

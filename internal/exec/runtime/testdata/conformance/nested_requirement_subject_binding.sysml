@@ -21,6 +21,7 @@ package test {
 		requirement rqPart : RP { subject s :>> s = pa; }
 		requirement rqFail : R1 { subject s :>> s = neg; }
 		requirement rqNarrow : R1 { subject s :>> s = sub; require constraint { s < 2 } }
+		requirement rqDefault : R1 { subject s :>> s default sub; }
 		requirement rqUnbound : R1 { subject s :>> s; }
 		requirement rqPlain : R1;
 		satisfy requirement sat : RP by pa;
@@ -51,6 +52,8 @@ package test {
 	attribute rqFailS = p1.rqFail.s;
 	attribute rqFailResult = p1.rqFail.result;
 	attribute rqNarrowResult = p1.rqNarrow.result;
+	attribute rqDefaultS = p1.rqDefault.s;
+	attribute rqDefaultResult = p1.rqDefault.result;
 	attribute rqUnboundS = p1.rqUnbound.s;
 	attribute rqUnboundResult = p1.rqUnbound.result;
 	attribute rqPlainResult = p1.rqPlain.result;
