@@ -48,7 +48,7 @@ const expectationHeader = `# What a real Flexo MMS stack does with this project'
 #
 # Regenerate against a running stack (see .agents/skills/flexo-interop):
 #   FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN=<jwt> \
-#     go test -C tools -count=1 ./referee/flexo -run TestFlexoInterop -update-flexo
+#     go test -C tools -count=1 ./referee/flexo -run 'TestFlexoInterop$' -update-flexo
 #
 # graph-load is the Turtle this project writes, loaded through Layer 1's graph
 # endpoint. json-commit is the same model posted through the SysML v2 service's
@@ -70,7 +70,7 @@ const applyExpectationHeader = `# What a real Flexo MMS stack does when the iden
 #
 # Regenerate against a running stack (see .agents/skills/flexo-interop):
 #   FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN=<jwt> \
-#     go test -C tools -count=1 ./referee/flexo -run TestFlexoInterop -update-flexo
+#     go test -C tools -count=1 ./referee/flexo -run TestFlexoInteropApply -update-flexo
 #
 # initial applies the fixture to an empty branch; revision applies its revised
 # sibling on top, refusing first without confirmed deletes; repository-changed
