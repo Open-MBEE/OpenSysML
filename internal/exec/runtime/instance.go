@@ -937,6 +937,7 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 		}
 		ctx.noteProbeWrite(fv)
 		before := ctx.beforeWrite(fv)
+		held, intrinsic := fv.HeldValue(), fv.intrinsic
 		if fv.Feature.Scalar() {
 			fv.Value = value
 			fv.Values = Value{}
@@ -949,7 +950,37 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 		ctx.unshareTraces()
 		ctx.afterWrite(fv, before)
 		ctx.adoptBodyCellValue(fv)
+		ctx.releaseStandIn(inst, fv, name, held, intrinsic)
 		return nil
+	})
+}
+
+// releaseStandIn drops the object a value-typed feature materialized to stand for its
+// unspecified value once a write gives it one: a data value has no identity of its own.
+func (ctx *Context) releaseStandIn(inst *Instance, fv *FeatureValue, name string, held Value, intrinsic bool) {
+	if !intrinsic || held.Kind != ValInstance || !ctx.HoldsNoValue(held) {
+		return
+	}
+	id := held.Instance
+	standIn, live := ctx.instances[id]
+	if !live || standIn.owner != inst || standIn.ownerFeature != name || len(standIn.behaviors) != 0 {
+		return
+	}
+	if namesAbandoned(fv, map[int64]bool{id: true}) {
+		return
+	}
+	at := slices.Index(ctx.created, id)
+	if at < 0 {
+		return
+	}
+	l, lived := ctx.lives[id]
+	ctx.forgetAbandoned(ctx.dropInstances(at, at+1, func(*Instance) bool { return true }))
+	ctx.noteProbeUndo(func() {
+		ctx.instances[id] = standIn
+		ctx.created = slices.Insert(ctx.created, min(at, len(ctx.created)), id)
+		if lived {
+			ctx.lives[id] = l
+		}
 	})
 }
 
