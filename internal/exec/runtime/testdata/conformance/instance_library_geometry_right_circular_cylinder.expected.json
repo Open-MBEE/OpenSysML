@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "instantiate": "test::p",
+  "libraries": true,
+  "slots": {
+    "shape.height": {"type": "Quantity", "value": 20, "unit": "SI::cm"},
+    "shape.radius": {"type": "Quantity", "value": 60, "unit": "SI::cm"},
+    "shape.semiMajorAxis": {"type": "Quantity", "value": 60, "unit": "SI::cm"},
+    "shape.xoffset.dimensions": {"type": "Sequence", "elements": []},
+    "shape.xoffset.num": {"type": "Sequence", "elements": [{"type": "Integer", "value": 0}]},
+    "shape.yoffset.dimensions": {"type": "Sequence", "elements": []},
+    "shape.base.edges.edges.length": {"error": "no value for feature Circle::radius"}
+  },
+  "materialization": {}
+}

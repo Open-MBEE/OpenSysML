@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -119,7 +120,7 @@ func main() {
 	)
 
 	// Create gRPC service (cache is internal to the service)
-	unavailable := unavailableCapabilitiesForTesting()
+	unavailable := sysmlgrpc.WithheldCapabilitiesForTesting()
 	var serving []sysmlgrpc.Option
 	if names := splitNames(opts.serveExternal); len(names) > 0 {
 		serving = append(serving, sysmlgrpc.ServeExternalEngines(names...))
@@ -273,4 +274,15 @@ func healthHandler(ver string) http.Handler {
 		}
 	})
 	return mux
+}
+
+// splitNames reads a comma-separated list, dropping blanks.
+func splitNames(list string) []string {
+	var names []string
+	for _, name := range strings.Split(list, ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }

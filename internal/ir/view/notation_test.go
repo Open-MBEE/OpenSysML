@@ -129,7 +129,7 @@ func TestParameterSymbolsAreLeftOutByDefault(t *testing.T) {
 		}
 		for _, actor := range []string{"Operator", "Administrator"} {
 			// D2 escapes the newline under the keyword line as `\n`, no word boundary.
-			if n := len(regexp.MustCompile(`(?:\b|\\n)`+actor+`\b`).FindAllString(out, -1)); n == 0 {
+			if len(regexp.MustCompile(`(?:\b|\\n)`+actor+`\b`).FindAllString(out, -1)) == 0 {
 				t.Errorf("%s does not draw the actor %s:\n%s", form, actor, out)
 			}
 		}
@@ -279,7 +279,7 @@ func TestRunsDrawEverythingWithoutAShown(t *testing.T) {
 		},
 		Edges: []Edge{{From: "n0", To: "n1", Kind: EdgeFlow, Label: "start"}},
 	}
-	if shown := rendering.showing(nil); shown != rendering {
+	if rendering.showing(nil) != rendering {
 		t.Error("a run is narrowed")
 	}
 	if out := rendering.Mermaid(); !strings.Contains(out, "participant n0 as Run::mission.controller : Controller") ||

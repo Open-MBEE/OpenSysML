@@ -226,6 +226,15 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"convert check diagnostics", CapabilityConvertCheckDiagnostics, func(s *Service) error {
+			_, err := s.Convert(ctx, &pb.ConvertRequest{
+				Source:                  &pb.ConvertRequest_Content{Content: "package P;"},
+				FromFormat:              "sysml",
+				ToFormat:                "api-json",
+				IncludeCheckDiagnostics: true,
+			})
+			return err
+		}},
 		{"parse sources affected", CapabilityParseSourcesAffected, func(s *Service) error {
 			_, err := s.ParseSources(ctx, &pb.ParseSourcesRequest{
 				Documents:     inlineDocuments("p.sysml", "package P;"),

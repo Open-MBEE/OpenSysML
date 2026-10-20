@@ -21,8 +21,10 @@ curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/ope
 code --install-extension opensysml-sysml.vsix
 ```
 
-Its version is `<manifest version>-nightly-<yyyymmdd>-<commit>`, so a later night
-installs over an earlier one as an update.
+Its version is `<next release>-nightly-<yyyymmdd>-<commit>` — the development version of
+the release the night leads to — so a later night installs over an earlier one as an update,
+and so does that release when it ships. The **SysML v2** Output channel names the server the
+extension reached and, when it is not the build the extension was packaged with, says which was.
 
 ## Build and side-load
 

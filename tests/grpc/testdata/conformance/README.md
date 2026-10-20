@@ -45,7 +45,7 @@ empty else blocks are not authorable.
 | `disable_lint`, `enable_lint` | GetDiagnostics | lint codes left out of, and opt-in lint codes kept in, the diagnostics, as `sysml -disable-lint`/`-enable-lint` select them |
 | `expected_codes`, `absent_codes` | GetDiagnostics | diagnostic codes the answer must carry, and must not |
 | `events` | ExecuteState | event names injected, in order |
-| `performer_symbol_id` | CheckBehavior | FQN of the part/usage whose object performs the action |
+| `performer_symbol_id` | CheckBehavior, ExecuteAction | FQN of the part/usage whose object performs the action; an ExecuteAction on it joins the performance that object already holds or runs, so `inputs` must be the bindings its declaration states (an `instance_id` input names an object of the instantiated performer) |
 | `check_property` | CheckBehavior | constraints or requirements evaluated at every stable state |
 | `check_diverge` | CheckBehavior | features whose final value the schedule may decide |
 | `expected_verdict` | CheckBehavior | `holds`, `fails` or `undecided` |
@@ -76,7 +76,7 @@ error must carry none.
 
 A value is `{"kind": <oneof field of pb.Value>, "value": <literal>}`, where `kind` is one of
 `int_value`, `real_value`, `rational_value`, `bool_value`, `string_value`, `instance_id`,
-`quantity`, `null` or `unset` — the last being a materialized feature value holding no value, as a valueless feature of a
+`quantity`, `null`, `unset` or `sequence` — a `sequence` carrying its `elements` as values of this form in place of a literal, as a `[0..*]` output holding one value does; `unset` being a materialized feature value holding no value, as a valueless feature of a
 value type does. A `rational_value`'s literal is the string `"<numerator>/<denominator>"`, sent
 as written and answered in lowest terms. The assertion checks the oneof arm as well as the payload, so a value returned
 with the wrong type fails; `instance_id`, `null` and `unset` assert the arm only, since instance

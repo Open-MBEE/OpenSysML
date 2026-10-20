@@ -2,9 +2,11 @@ package main
 
 import (
 	"flag"
+	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
 
@@ -27,4 +29,29 @@ func TestTheManualPageDocumentsEveryFlag(t *testing.T) {
 			t.Errorf("the manual page does not document -%s", f.Name)
 		}
 	})
+}
+
+// The catalog tells a caller of a CLI-only option what sysml-mcp has instead,
+// so each flag and environment variable it names must be one the usage defines.
+func TestTheCatalogNamesOnlyFlagsAndVariablesTheUsageDefines(t *testing.T) {
+	flags := map[string]bool{}
+	docFlags().VisitAll(func(f *flag.Flag) { flags[f.Name] = true })
+	variables := map[string]bool{}
+	for _, item := range usage.BudgetEnvironment() {
+		variables[item.Label] = true
+	}
+	flagRef := regexp.MustCompile(`sysml-mcp -([a-z][a-z0-9-]*)`)
+	variableRef := regexp.MustCompile(`\bOPENSYSML_[A-Z_]+\b`)
+	for option, text := range catalog.CLIOnly {
+		for _, m := range flagRef.FindAllStringSubmatch(text, -1) {
+			if !flags[m[1]] {
+				t.Errorf("CLIOnly[%q] names sysml-mcp -%s, which the usage does not define", option, m[1])
+			}
+		}
+		for _, name := range variableRef.FindAllString(text, -1) {
+			if !variables[name] {
+				t.Errorf("CLIOnly[%q] names %s, which the usage does not document", option, name)
+			}
+		}
+	}
 }

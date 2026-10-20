@@ -3,7 +3,23 @@
   "type": "action",
   "evaluate": "test::fly",
   "outputs": {
-    "m": {"type": "Real", "value": 3.5},
-    "who": {"type": "String", "value": "Ann"}
+    "m": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Real",
+          "value": 3.5
+        }
+      ]
+    },
+    "who": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "String",
+          "value": "Ann"
+        }
+      ]
+    }
   }
 }

@@ -22,7 +22,7 @@ type RunInput struct {
 	SessionName
 	Kind      string   `json:"kind" jsonschema:"what to run: action, state (a state machine), calc or analysis (an analysis, verification or trade-study case)"`
 	Name      string   `json:"name" jsonschema:"qualified name of the behavior"`
-	Arguments []string `json:"arguments,omitempty" jsonschema:"argument expressions: positional for a calc; positional or written parameter=expression for an analysis case"`
+	Arguments []string `json:"arguments,omitempty" jsonschema:"argument expressions: positional for a calc; positional, in parameter order, or written parameter=expression for an action's inputs or an analysis case"`
 	Object    string   `json:"object,omitempty" jsonschema:"an object the session holds (name, #id or path such as car.fl): the performer of an action or state machine, the subject of a case"`
 	Duration  *float64 `json:"duration,omitempty" jsonschema:"for state: advance the machine's clock by this many time units after its initial transition; omit to take the initial transition alone"`
 	Schedule  string   `json:"schedule,omitempty" jsonschema:"scheduling policy for this run alone: declared, reverse, seed:<n> or explore[:runs=N,depth=D]; omit for the session's"`
@@ -112,6 +112,82 @@ func withSchedule(sess *repl.Session, spelling string, fn func() repl.Verdict) (
 	return fn(), nil
 }
 
+// sweep runs a calc or analysis case over the rows of the ranges given, or
+// over rows sampled from them.
+func sweep(_ context.Context, sess *repl.Session, in SweepInput) (Verdict, error) {
+	if strings.TrimSpace(in.Name) == "" {
+		return Verdict{}, errors.New("name is required")
+	}
+	if len(in.Ranges) == 0 {
+		return Verdict{}, errors.New("ranges is required: at least one parameter=from..to[:step]")
+	}
+	inv := invocation(in.Name, in.Arguments, in.Object)
+	if in.Samples != nil {
+		if in.Samples.Count <= 0 {
+			return Verdict{}, errors.New("samples.count must be positive")
+		}
+		return verdict(sess.RunSamples(inv, in.Ranges, in.Samples.Count, in.Samples.Seed)), nil
+	}
+	return verdict(sess.RunSweep(inv, in.Ranges)), nil
+}
+
+// renderRun draws the run the session recorded in the form asked for.
+func renderRun(_ context.Context, sess *repl.Session, in RenderRunInput) (RenderedRun, error) {
+	kind, ok := runtrace.ParseKind(strings.TrimSpace(in.Kind))
+	if !ok {
+		return RenderedRun{}, fmt.Errorf("kind %q is unknown; want timeline or sequence", in.Kind)
+	}
+	form, err := renderRunForm(in.Form)
+	if err != nil {
+		return RenderedRun{}, err
+	}
+	rendering, err := sess.RunTraceRendering(kind)
+	if errors.Is(err, runtrace.ErrNoTrace) {
+		return RenderedRun{}, errors.New("the session records no trace; run repl_command `%trace on` before the run")
+	}
+	if err != nil {
+		return RenderedRun{}, err
+	}
+	drawn, err := rendering.WriteWith(form, view.Options{})
+	if err != nil {
+		return RenderedRun{}, err
+	}
+	raw, err := json.Marshal(rendering)
+	if err != nil {
+		return RenderedRun{}, fmt.Errorf("encoding the rendering: %w", err)
+	}
+	data, err := decoded(raw)
+	if err != nil {
+		return RenderedRun{}, err
+	}
+	return RenderedRun{Kind: string(kind), Form: string(form), Until: rendering.RunUntil, Text: drawn, Rendering: data}, nil
+}
+
+// repeatedRuns runs an action count times, or concludes a Monte Carlo case over
+// count runs, as the kind names.
+func repeatedRuns(sess *repl.Session, in RunsInput) (Verdict, error) {
+	switch strings.ToLower(strings.TrimSpace(in.Kind)) {
+	case "", "action":
+		return verdict(sess.RunRuns(in.Name, performer(in.Object), in.Count, in.Seed, in.Observables)), nil
+	case "case":
+		return verdict(sess.RunMonteCarlo(invocation(in.Name, in.Arguments, in.Object), in.Count, in.Seed)), nil
+	}
+	return Verdict{}, fmt.Errorf("kind %q is unknown; want action or case", in.Kind)
+}
+
+// renderRunForm is the form render_run draws in: text when none is named.
+func renderRunForm(name string) (view.Form, error) {
+	f := strings.TrimSpace(name)
+	if f == "" {
+		return view.FormText, nil
+	}
+	form := view.Form(f)
+	if !slices.Contains(view.Forms(), form) {
+		return "", fmt.Errorf("form %q is unknown; want one of %v", name, view.Forms())
+	}
+	return form, nil
+}
+
 // registerRuns adds the tools that run behaviors and table their runs.
 func registerRuns(s *mcp.Server, m *Manager) {
 	mcp.AddTool(s, &mcp.Tool{
@@ -125,7 +201,7 @@ func registerRuns(s *mcp.Server, m *Manager) {
 		var run func() repl.Verdict
 		switch strings.ToLower(strings.TrimSpace(in.Kind)) {
 		case "action":
-			run = func() repl.Verdict { return sess.RunAction(in.Name, performer(in.Object)...) }
+			run = func() repl.Verdict { return sess.RunActionWithInputs(in.Name, in.Arguments, performer(in.Object)...) }
 		case "state":
 			run = func() repl.Verdict {
 				if in.Duration != nil {
@@ -150,22 +226,7 @@ func registerRuns(s *mcp.Server, m *Manager) {
 		Name:        "sweep",
 		Description: "Run a calc or analysis case once per row of the ranges given (%sweep), or over rows drawn from them (%samples), and return the table: each row's inputs, outputs, verdicts and timing. The verdict holds when every run completed and every objective was satisfied.",
 		Annotations: toolkit.Mutating("Sweep parameters", false),
-	}, handler(m, func(_ context.Context, sess *repl.Session, in SweepInput) (Verdict, error) {
-		if strings.TrimSpace(in.Name) == "" {
-			return Verdict{}, errors.New("name is required")
-		}
-		if len(in.Ranges) == 0 {
-			return Verdict{}, errors.New("ranges is required: at least one parameter=from..to[:step]")
-		}
-		inv := invocation(in.Name, in.Arguments, in.Object)
-		if in.Samples != nil {
-			if in.Samples.Count <= 0 {
-				return Verdict{}, errors.New("samples.count must be positive")
-			}
-			return verdict(sess.RunSamples(inv, in.Ranges, in.Samples.Count, in.Samples.Seed)), nil
-		}
-		return verdict(sess.RunSweep(inv, in.Ranges)), nil
-	}))
+	}, handler(m, sweep))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "runs",
 		Description: "Run an action count times, each run's modeled randomness seeded on its own, and return the table of the observables with each one's distribution (%runs); or run a Simulation::MonteCarlo analysis case count times on fresh subjects and conclude it.",
@@ -177,49 +238,11 @@ func registerRuns(s *mcp.Server, m *Manager) {
 		if in.Count <= 0 {
 			return Verdict{}, errors.New("count must be positive")
 		}
-		switch strings.ToLower(strings.TrimSpace(in.Kind)) {
-		case "", "action":
-			return verdict(sess.RunRuns(in.Name, performer(in.Object), in.Count, in.Seed, in.Observables)), nil
-		case "case":
-			return verdict(sess.RunMonteCarlo(invocation(in.Name, in.Arguments, in.Object), in.Count, in.Seed)), nil
-		}
-		return Verdict{}, fmt.Errorf("kind %q is unknown; want action or case", in.Kind)
+		return repeatedRuns(sess, in)
 	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "render_run",
 		Description: "Render the run a session recorded as a state timeline or a message sequence (%render-run), in a text, diagram or SVG form. Recording must be on before the run: repl_command `%trace on`.",
 		Annotations: toolkit.ReadOnly("Render run"),
-	}, handler(m, func(_ context.Context, sess *repl.Session, in RenderRunInput) (RenderedRun, error) {
-		kind, ok := runtrace.ParseKind(strings.TrimSpace(in.Kind))
-		if !ok {
-			return RenderedRun{}, fmt.Errorf("kind %q is unknown; want timeline or sequence", in.Kind)
-		}
-		form := view.FormText
-		if f := strings.TrimSpace(in.Form); f != "" {
-			form = view.Form(f)
-			if !slices.Contains(view.Forms(), form) {
-				return RenderedRun{}, fmt.Errorf("form %q is unknown; want one of %v", in.Form, view.Forms())
-			}
-		}
-		rendering, err := sess.RunTraceRendering(kind)
-		if errors.Is(err, runtrace.ErrNoTrace) {
-			return RenderedRun{}, errors.New("the session records no trace; run repl_command `%trace on` before the run")
-		}
-		if err != nil {
-			return RenderedRun{}, err
-		}
-		drawn, err := rendering.WriteWith(form, view.Options{})
-		if err != nil {
-			return RenderedRun{}, err
-		}
-		raw, err := json.Marshal(rendering)
-		if err != nil {
-			return RenderedRun{}, fmt.Errorf("encoding the rendering: %w", err)
-		}
-		data, err := decoded(raw)
-		if err != nil {
-			return RenderedRun{}, err
-		}
-		return RenderedRun{Kind: string(kind), Form: string(form), Until: rendering.RunUntil, Text: drawn, Rendering: data}, nil
-	}))
+	}, handler(m, renderRun))
 }

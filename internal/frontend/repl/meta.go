@@ -31,6 +31,7 @@ import (
 const (
 	constraintCommand  = "%constraint"
 	requirementCommand = "%requirement"
+	depthOption        = "depth="
 )
 
 // renderUsage is how %render is written: a view, the form to write it in, text
@@ -234,7 +235,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%builtins", group: groupLibrary, desc: "list the library functions this build implements directly"},
 	{name: "%view", group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
 	{name: "%graphs", group: groupLibrary, args: argName, desc: "export the lowered graph of an action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external engine is sent"},
-	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports] [link=<template>]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram, a Markdown table or relationship matrix, or as Graphviz DOT, PlantUML or D2, filled from a named palette, drawn in a style (pilot or cameo) and optionally linking elements to their source with a link template"},
+	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports] [lines] [verdicts] [show=<elements>] [depth=<levels>] [link=<template>]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram, a Markdown table or relationship matrix, or as Graphviz DOT, PlantUML or D2, filled from a named palette, drawn in a style (pilot or cameo) with its lines routed as splines, ortho or polyline, overlaid with verdicts, limited to the elements show= names and the depth= levels, and optionally linking elements to their source with a link template"},
 	{name: "%viz", group: groupLibrary, args: "[--view=<VIEW>] [--style=<STYLE>...] [form] <name> [<name>...]", desc: "draw the named elements on demand, with no view declared, as the pilot kernel's %viz does: VIEW is DEFAULT, TREE, INTERCONNECTION, STATE, ACTION, SEQUENCE, MIXED or CASE in any letter case, DEFAULT (the view when none is named) choosing the kind from what the names resolve to; each --style is a direction (TB, LR, RL, BT), a drawing style (pilot or cameo), a palette, a port display, or a pilot style that is accepted and noted as not drawn; the form is any %render form, text when none is named"},
 
 	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
@@ -384,6 +385,9 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 	if result, ok := s.metaCheckCommand(fields); ok {
 		return result, true
 	}
+	if result, ok := s.metaViewCommand(fields); ok {
+		return result, true
+	}
 	switch fields[0] {
 	case "%help":
 		return metaOut(helpText(), false, nil), true
@@ -467,6 +471,16 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doSearch(nameText(fields[1]))), true
 	case "%builtins":
 		return metaOut(s.doBuiltins()), true
+	case "%quit", "%exit":
+		return metaOut([]string{"goodbye"}, true, nil), true
+	}
+	return metaResult{}, false
+}
+
+// metaViewCommand answers the commands that show or draw a view, a graph or a
+// run, reporting false for any other line.
+func (s *Session) metaViewCommand(fields []string) (metaResult, bool) {
+	switch fields[0] {
 	case "%view":
 		if len(fields) < 2 {
 			return metaOut([]string{"usage: %view <name>"}, false, nil), true
@@ -483,8 +497,6 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.metaViz(fields[1:])), true
 	case "%render-run":
 		return metaOut(s.metaRenderRun(fields[1:])), true
-	case "%quit", "%exit":
-		return metaOut([]string{"goodbye"}, true, nil), true
 	}
 	return metaResult{}, false
 }
@@ -541,7 +553,7 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 // renderOptionWord reports whether word is a rendering option rather than a
 // form, so the text form is understood before it.
 func renderOptionWord(word string) bool {
-	if strings.HasPrefix(word, "show=") || strings.HasPrefix(word, "link=") || strings.HasPrefix(word, "depth=") {
+	if strings.HasPrefix(word, "show=") || strings.HasPrefix(word, "link=") || strings.HasPrefix(word, depthOption) {
 		return true
 	}
 	if o, ok := view.ParseOverlay(word); ok && o != "" {
@@ -568,95 +580,120 @@ func parseRenderArgs(args []string) (name string, form view.Form, opts view.Opti
 	if len(args) < 1 {
 		return renderUsageOf(renderUsage)
 	}
-	form = view.FormText
+	r := renderArgs{form: view.FormText}
 	options := min(2, len(args))
 	if len(args) >= 2 {
 		switch {
 		case slices.Contains(view.Forms(), view.Form(args[1])):
-			form = view.Form(args[1])
+			r.form = view.Form(args[1])
 		case renderOptionWord(args[1]):
 			options = 1
 		default:
 			return renderUsageOf(fmt.Sprintf("unknown form %q; %s", args[1], renderUsage))
 		}
 	}
-	linkSet, depthSet := false, false
 	for _, word := range args[options:] {
-		if o, ok := view.ParseOverlay(word); ok && o != "" {
-			if overlay != "" {
-				return renderUsageOf(renderUsage)
-			}
-			overlay = o
-			continue
+		if usage := r.read(word); usage != "" {
+			return renderUsageOf(usage)
 		}
-		if strings.HasPrefix(word, "show=") {
-			if opts.Show != nil {
-				return renderUsageOf(renderUsage)
-			}
-			shown, err := view.ParseShown(strings.TrimPrefix(word, "show="))
-			if err != nil || shown == nil {
-				return renderUsageOf(fmt.Sprintf("show= names the optional notation elements to draw, %s; %s", view.ElementNames(), renderUsage))
-			}
-			opts.Show = shown
-			continue
-		}
-		if strings.HasPrefix(word, "depth=") {
-			if depthSet {
-				return renderUsageOf(renderUsage)
-			}
-			depthSet = true
-			levels, err := view.ParseDepth(strings.TrimPrefix(word, "depth="))
-			if err != nil {
-				return renderUsageOf(err.Error() + "; " + renderUsage)
-			}
-			depth = levels
-			continue
-		}
-		if strings.HasPrefix(word, "link=") {
-			if linkSet {
-				return renderUsageOf(renderUsage)
-			}
-			opts.Links.Template = strings.TrimPrefix(word, "link=")
-			if err := view.ParseLinkTemplate(opts.Links.Template); err != nil {
-				return renderUsageOf(err.Error() + "; " + renderUsage)
-			}
-			linkSet = true
-			continue
-		}
-		if style, ok := view.ParseDrawingStyle(word); ok {
-			if opts.Style != "" {
-				return renderUsageOf(renderUsage)
-			}
-			opts.Style = style
-			continue
-		}
-		if ports, ok := view.ParsePorts(word); ok {
-			if opts.Ports != "" {
-				return renderUsageOf(renderUsage)
-			}
-			opts.Ports = ports
-			continue
-		}
-		if lines, ok := view.ParseLines(word); ok {
-			if opts.Lines != "" {
-				return renderUsageOf(renderUsage)
-			}
-			opts.Lines = lines
-			continue
-		}
-		if !form.TakesPalette() {
-			return renderUsageOf(fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", form, renderUsage))
-		}
-		palette, ok := view.ParsePalette(word)
-		if !ok {
-			return renderUsageOf((&view.UnknownPaletteError{Name: word}).Error() + "; " + renderUsage)
-		}
-		if opts.Palette != "" {
-			return renderUsageOf(renderUsage)
-		}
-		opts.Palette = palette
 	}
-	return args[0], form, opts, overlay, depth, nil
+	return args[0], r.form, r.opts, r.overlay, r.depth, nil
+}
+
+// renderArgs accumulates %render's options as the words after the form are read.
+type renderArgs struct {
+	form     view.Form
+	opts     view.Options
+	overlay  view.Overlay
+	depth    int
+	linkSet  bool
+	depthSet bool
+}
+
+// read reads one option word, answering the usage to print when it does not
+// read or repeats an option already given.
+func (r *renderArgs) read(word string) string {
+	if o, ok := view.ParseOverlay(word); ok && o != "" {
+		return setOnce(&r.overlay, o)
+	}
+	if strings.HasPrefix(word, "show=") {
+		return r.readShown(strings.TrimPrefix(word, "show="))
+	}
+	if strings.HasPrefix(word, depthOption) {
+		return r.readDepth(strings.TrimPrefix(word, depthOption))
+	}
+	if strings.HasPrefix(word, "link=") {
+		return r.readLink(strings.TrimPrefix(word, "link="))
+	}
+	if style, ok := view.ParseDrawingStyle(word); ok {
+		return setOnce(&r.opts.Style, style)
+	}
+	if ports, ok := view.ParsePorts(word); ok {
+		return setOnce(&r.opts.Ports, ports)
+	}
+	if lines, ok := view.ParseLines(word); ok {
+		return setOnce(&r.opts.Lines, lines)
+	}
+	return r.readPalette(word)
+}
+
+// setOnce sets an option given once; a repeat answers the usage.
+func setOnce[T ~string](option *T, value T) string {
+	if *option != "" {
+		return renderUsage
+	}
+	*option = value
+	return ""
+}
+
+func (r *renderArgs) readShown(names string) string {
+	if r.opts.Show != nil {
+		return renderUsage
+	}
+	shown, err := view.ParseShown(names)
+	if err != nil || shown == nil {
+		return fmt.Sprintf("show= names the optional notation elements to draw, %s; %s", view.ElementNames(), renderUsage)
+	}
+	r.opts.Show = shown
+	return ""
+}
+
+func (r *renderArgs) readDepth(levels string) string {
+	if r.depthSet {
+		return renderUsage
+	}
+	r.depthSet = true
+	depth, err := view.ParseDepth(levels)
+	if err != nil {
+		return err.Error() + "; " + renderUsage
+	}
+	r.depth = depth
+	return ""
+}
+
+func (r *renderArgs) readLink(template string) string {
+	if r.linkSet {
+		return renderUsage
+	}
+	r.opts.Links.Template = template
+	if err := view.ParseLinkTemplate(template); err != nil {
+		return err.Error() + "; " + renderUsage
+	}
+	r.linkSet = true
+	return ""
+}
+
+// readPalette reads a word no other option claimed as a palette, which only the
+// diagram forms take.
+func (r *renderArgs) readPalette(word string) string {
+	if !r.form.TakesPalette() {
+		return fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", r.form, renderUsage)
+	}
+	palette, ok := view.ParsePalette(word)
+	if !ok {
+		return (&view.UnknownPaletteError{Name: word}).Error() + "; " + renderUsage
+	}
+	return setOnce(&r.opts.Palette, palette)
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line
@@ -1065,59 +1102,7 @@ func (s *Session) evalValue(expr string) (evaluated, error) {
 		}
 	}
 	if sym != nil {
-		// An object carrying the feature makes this a question about that object,
-		// as a check of a condition is: read the feature value, which holds the value the
-		// object actually has, rather than the value the declaration defaults to.
-		inst, owner, subjErr := s.subjectFor(expr, fqn, sym)
-		if subjErr != nil {
-			return evaluated{}, subjErr
-		}
-		if inst != nil {
-			if _, ok := inst.FeatureValues[sym.Name]; ok {
-				fv, err := inst.GetFeatureValue(ctx, sym.Name)
-				if err != nil {
-					return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
-				}
-				val, readErr := fv.ReadValue(fv.Feature.Name)
-				ev := answered(expr+onInstance(inst, owner), ctx, val, formatFeatureValue(ctx, fv))
-				ev.unset = runtime.IsUninitializedFeatureValue(readErr)
-				return ev, nil
-			}
-		}
-		// An enumeration literal is a value even though it declares none.
-		if val, isLiteral, err := ctx.EnumerationLiteralValue(sym); isLiteral {
-			if err != nil {
-				return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
-			}
-			return answered(expr, ctx, val, formatValue(ctx, val)), nil
-		}
-		// A measurement unit is the reference it declares, whatever defines it.
-		if val, isUnit, err := ctx.MeasurementUnitValue(sym); isUnit {
-			if err != nil {
-				return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
-			}
-			return answered(expr, ctx, val, formatValue(ctx, val)), nil
-		}
-		// A calc definition is the function it declares.
-		if val, isFunction, err := ctx.FunctionValue(sym); isFunction {
-			if err != nil {
-				return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
-			}
-			return answered(expr, ctx, val, formatValue(ctx, val)), nil
-		}
-		// A valueless usage may still name a value its own features shape.
-		if _, isUsage := sym.Decl.(*ast.Usage); !isUsage && !declaresValue(sym) {
-			return evaluated{}, fmt.Errorf("%q has no value to evaluate", expr)
-		}
-		// Read as the declaration is read: in its own scope, against its declared type.
-		val, err := ctx.EvalDeclaredValue(sym)
-		if err != nil {
-			if !declaresValue(sym) && errors.Is(err, runtime.ErrNoValue) {
-				return evaluated{}, fmt.Errorf("%q has no value to evaluate", expr)
-			}
-			return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
-		}
-		return answered(expr, ctx, val, formatValue(ctx, val)), nil
+		return s.evalSymbol(ctx, expr, fqn, sym)
 	}
 
 	// A compound expression is evaluated in the session's own namespace; an empty
@@ -1126,6 +1111,74 @@ func (s *Session) evalValue(expr string) (evaluated, error) {
 		return s.evalWithoutDeclarations(ctx, expr)
 	}
 
+	return s.evalCompound(ctx, expr, lookupErr)
+}
+
+// evalSymbol evaluates a reference to sym: the value the subject object holds
+// for it, the literal, unit or function it is, or the value it declares.
+func (s *Session) evalSymbol(ctx *runtime.Context, expr, fqn string, sym *symbols.Symbol) (evaluated, error) {
+	// An object carrying the feature makes this a question about that object,
+	// as a check of a condition is: read the feature value, which holds the value the
+	// object actually has, rather than the value the declaration defaults to.
+	inst, owner, subjErr := s.subjectFor(expr, fqn, sym)
+	if subjErr != nil {
+		return evaluated{}, subjErr
+	}
+	if inst != nil {
+		if _, ok := inst.FeatureValues[sym.Name]; ok {
+			return heldValue(ctx, expr, inst, owner, sym)
+		}
+	}
+	// An enumeration literal is a value even though it declares none.
+	if val, isLiteral, err := ctx.EnumerationLiteralValue(sym); isLiteral {
+		return declaredAnswer(ctx, expr, val, err)
+	}
+	// A measurement unit is the reference it declares, whatever defines it.
+	if val, isUnit, err := ctx.MeasurementUnitValue(sym); isUnit {
+		return declaredAnswer(ctx, expr, val, err)
+	}
+	// A calc definition is the function it declares.
+	if val, isFunction, err := ctx.FunctionValue(sym); isFunction {
+		return declaredAnswer(ctx, expr, val, err)
+	}
+	// A valueless usage may still name a value its own features shape.
+	if _, isUsage := sym.Decl.(*ast.Usage); !isUsage && !declaresValue(sym) {
+		return evaluated{}, fmt.Errorf("%q has no value to evaluate", expr)
+	}
+	// Read as the declaration is read: in its own scope, against its declared type.
+	val, err := ctx.EvalDeclaredValue(sym)
+	if err != nil {
+		if !declaresValue(sym) && errors.Is(err, runtime.ErrNoValue) {
+			return evaluated{}, fmt.Errorf("%q has no value to evaluate", expr)
+		}
+		return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
+	}
+	return answered(expr, ctx, val, formatValue(ctx, val)), nil
+}
+
+// heldValue answers the value inst holds for the feature sym names.
+func heldValue(ctx *runtime.Context, expr string, inst *runtime.Instance, owner string, sym *symbols.Symbol) (evaluated, error) {
+	fv, err := inst.GetFeatureValue(ctx, sym.Name)
+	if err != nil {
+		return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
+	}
+	val, readErr := fv.ReadValue(fv.Feature.Name)
+	ev := answered(expr+onInstance(inst, owner), ctx, val, formatFeatureValue(ctx, fv))
+	ev.unset = runtime.IsUninitializedFeatureValue(readErr)
+	return ev, nil
+}
+
+// declaredAnswer answers a value a declaration is, or the failure to read it.
+func declaredAnswer(ctx *runtime.Context, expr string, val runtime.Value, err error) (evaluated, error) {
+	if err != nil {
+		return evaluated{}, fmt.Errorf("evaluation failed: %w", err)
+	}
+	return answered(expr, ctx, val, formatValue(ctx, val)), nil
+}
+
+// evalCompound evaluates expr as an attribute value appended to the transcript;
+// lookupErr, the failure to read expr as a name, is reported when that fails too.
+func (s *Session) evalCompound(ctx *runtime.Context, expr string, lookupErr error) (evaluated, error) {
 	// Complex expression with feature refs - parsed after the transcript, the
 	// loaded files masked out of it as they are out of the transcript document
 	typed, _ := s.transcript()
@@ -1146,21 +1199,7 @@ func (s *Session) evalValue(expr string) (evaluated, error) {
 		return evaluated{}, fmt.Errorf("parse failed: %s", p.Diagnostics[0].Message)
 	}
 
-	// Find __eval__ attribute (should be last member)
-	var evalUsage *ast.Usage
-	for i := len(root.Members) - 1; i >= 0; i-- {
-		member := root.Members[i]
-		if membership, ok := member.(*ast.Membership); ok {
-			member = membership.Member
-		}
-		if usage, ok := member.(*ast.Usage); ok && usage.Value != nil {
-			if usage.Ident.Name == "__eval__" || usage.Ident.ShortName == "__eval__" {
-				evalUsage = usage
-				break
-			}
-		}
-	}
-
+	evalUsage := evalAttribute(root)
 	if evalUsage == nil || evalUsage.Value == nil {
 		return evaluated{}, errors.New("could not parse expression")
 	}
@@ -1177,6 +1216,23 @@ func (s *Session) evalValue(expr string) (evaluated, error) {
 	}
 
 	return answered(expr, ctx, val, formatValue(ctx, val)), nil
+}
+
+// evalAttribute finds the __eval__ attribute, the last member of the parsed
+// transcript, that carries the expression to evaluate.
+func evalAttribute(root *ast.RootNamespace) *ast.Usage {
+	for i := len(root.Members) - 1; i >= 0; i-- {
+		member := root.Members[i]
+		if membership, ok := member.(*ast.Membership); ok {
+			member = membership.Member
+		}
+		if usage, ok := member.(*ast.Usage); ok && usage.Value != nil {
+			if usage.Ident.Name == "__eval__" || usage.Ident.ShortName == "__eval__" {
+				return usage
+			}
+		}
+	}
+	return nil
 }
 
 // declaresValue reports whether sym's declaration binds a value of its own: a
@@ -2078,14 +2134,12 @@ func (s *Session) evalCalcIn(x execution, ctx *runtime.Context, sym *symbols.Sym
 	// Arguments are evaluated where the prompt evaluates any expression, so a
 	// quantity argument names the units the session's imports bring in.
 	scope := s.promptScope()
-	argValues := make([]runtime.Value, len(exprs))
+	argValues, _, err := evalArgumentList(ctx, scope, exprs, nil)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	argTexts := make([]string, len(exprs))
 	for i, arg := range exprs {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		argValues[i] = val
 		argTexts[i] = arg.text
 	}
 
@@ -2193,10 +2247,12 @@ func closesAtEnd(text string) bool {
 	return false
 }
 
-// argExpr is one parsed argument: its expression and the text it was written as.
+// argExpr is one parsed argument: its expression, the text it was written as
+// and its position in the written argument list.
 type argExpr struct {
 	expr ast.Node
 	text string
+	at   int
 }
 
 // parseExprList parses an argument list as expressions, so an argument that
@@ -2204,7 +2260,7 @@ type argExpr struct {
 // invocation — survives as the one expression it is.
 func parseExprList(text string) ([]argExpr, error) {
 	var out []argExpr
-	for _, arg := range splitArgs(text) {
+	for i, arg := range splitArgs(text) {
 		if isNamedArgument(arg) {
 			return nil, fmt.Errorf("named arguments are not supported here; pass arguments positionally")
 		}
@@ -2212,7 +2268,7 @@ func parseExprList(text string) ([]argExpr, error) {
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, argExpr{expr: expr, text: arg})
+		out = append(out, argExpr{expr: expr, text: arg, at: i})
 	}
 	return out, nil
 }
@@ -2699,6 +2755,81 @@ func (s *Session) performingObject(args []string) (*runtime.Instance, string, er
 
 // --- Action Debugging Commands ---
 
+// attachPerformedAction binds the debugging session to the performance an object already
+// runs of the action, so %step, %continue and %advance drive it and %features shows what it wrote.
+func (s *Session) attachPerformedAction(
+	ctx *runtime.Context,
+	name, fqn, selfFQN string,
+	inst *runtime.Instance,
+	behavior *runtime.ObjectBehavior,
+) ([]string, error) {
+	exec, err := ctx.PerformedExecutor(behavior)
+	if err != nil {
+		return nil, err
+	}
+	exec.SetTrace(s.trace)
+
+	s.actionExec.release()
+	s.actionExec = &actionSession{
+		name:     name,
+		fqn:      fqn,
+		selfFQN:  selfFQN,
+		symbol:   behavior.Symbol,
+		executor: exec,
+		attached: true,
+		rtCtx:    ctx,
+	}
+	s.endedAction = nil
+
+	performed := behavior.Name
+	if performed == "" {
+		performed = name
+	}
+	return []string{
+		fmt.Sprintf("✓ Debugging action %q performed by %s", performed, objectMention(inst, selfFQN)),
+		fmt.Sprintf("note: %s already performs %q, so this session attaches to that running performance rather than starting a second one (as `%%action %s` would)",
+			objectMention(inst, selfFQN), name, name),
+		fmt.Sprintf("  State: %s", exec.State()),
+		fmt.Sprintf("  Tokens: %d", len(exec.Tokens())),
+	}, nil
+}
+
+// AmbiguousActionError reports a definition an object performs as the body of
+// several actions, so that naming it attaches to none of them.
+type AmbiguousActionError struct {
+	Object string // the object, as objectMention prints it
+	Action string // the definition asked for, as typed
+	// Usages are the performed usages running it, in declaration order, as the
+	// prompt prints names; "" for one without a name.
+	Usages []string
+}
+
+func (e *AmbiguousActionError) Error() string {
+	names := make([]string, len(e.Usages))
+	for i, u := range e.Usages {
+		names[i] = u
+		if u == "" {
+			names[i] = "an unnamed one"
+		}
+	}
+	return fmt.Sprintf("%s performs %q as %d actions, so naming the definition attaches to none of them: name the performed usage instead — %s",
+		e.Object, e.Action, len(e.Usages), strings.Join(names, " or "))
+}
+
+// ambiguousAction reports a definition inst performs as the body of several
+// actions, naming the usages that would address one.
+func ambiguousAction(action string, inst *runtime.Instance, label string, performed []*runtime.ObjectBehavior) error {
+	e := &AmbiguousActionError{Object: objectMention(inst, label), Action: action}
+	for _, b := range performed {
+		usage := ""
+		if member := b.Member(); member != nil && member.Name != "" {
+			usage = declarationNotation(member)
+		}
+		e.Usages = append(e.Usages, usage)
+	}
+	return e
+}
+
 // doAction starts an action executor debugging session.
 func (s *Session) doAction(name string, performer []string) ([]string, bool, error) {
 	if s.checking() {
@@ -2718,6 +2849,13 @@ func (s *Session) doAction(name string, performer []string) ([]string, bool, err
 // startAction creates the action executor a debugging session runs, reporting
 // what prevented it as an error so a caller outside the prompt can act on it.
 func (s *Session) startAction(name string, performer []string) ([]string, error) {
+	return s.startActionWithInputs(name, performer, invokeArguments{})
+}
+
+// startActionWithInputs is startAction with the action's input parameters bound
+// from arguments written positionally, in parameter order, or as
+// `<parameter>=<expression>`, each evaluated where the prompt evaluates.
+func (s *Session) startActionWithInputs(name string, performer []string, inputs invokeArguments) ([]string, error) {
 	if err := s.refuseExplore(); err != nil {
 		return nil, err
 	}
@@ -2740,8 +2878,27 @@ func (s *Session) startAction(name string, performer []string) ([]string, error)
 		return nil, perr
 	}
 
-	// Create executor
-	exec, err := ctx.CreateActionExecutorFor(sym, self)
+	bound, err := s.actionInputs(ctx, sym, inputs)
+	if err != nil {
+		return nil, err
+	}
+
+	// The performance the object runs of the action is the one meant: a second
+	// would write the same feature values over again beside it.
+	if self != nil {
+		switch performed := self.PerformedActionsOf(sym); len(performed) {
+		case 0:
+		case 1:
+			if err := ctx.CheckPerformedInputs(sym, performed[0], bound); err != nil {
+				return nil, err
+			}
+			return s.attachPerformedAction(ctx, name, qualifiedOr(fqn, name), selfFQN, self, performed[0])
+		default:
+			return nil, ambiguousAction(name, self, selfFQN, performed)
+		}
+	}
+
+	exec, err := ctx.CreateActionExecutorWithInputs(sym, self, bound)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create executor: %w", err)
 	}
@@ -2770,6 +2927,23 @@ func (s *Session) startAction(name string, performer []string) ([]string, error)
 
 // doStep advances the action executor one step, or the state machine one event
 // when the session debugs a machine instead.
+// actionInputs evaluates an action's arguments at the prompt, as one argument list in
+// one run, and binds them to its input parameters as the runtime binds an invocation's.
+func (s *Session) actionInputs(ctx *runtime.Context, sym *symbols.Symbol, args invokeArguments) (map[string]runtime.Value, error) {
+	if len(args.positional) == 0 && len(args.named) == 0 {
+		return nil, nil
+	}
+	positional, bound, err := evalArgumentList(ctx, s.promptScope(), args.positional, args.named)
+	if err != nil {
+		return nil, err
+	}
+	named := make([]runtime.NamedInput, 0, len(args.named))
+	for _, arg := range args.named {
+		named = append(named, runtime.NamedInput{Name: arg.param, Value: bound[arg.param]})
+	}
+	return ctx.ActionInputs(s.promptScope(), sym, positional, named)
+}
+
 // debuggedAction is the action %step and %continue act on: the one debugged,
 // or nil once it has ended while a machine still runs, which a step then moves.
 func (s *Session) debuggedAction() *actionSession {
@@ -2843,7 +3017,9 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 	exec := s.actionExec.executor
 
 	if exec.State().Ended() {
-		return []string{"✓ Action already " + strings.ToLower(exec.State().String())}, namedValues(s.actionExec.contextOf(), exec.Results()), nil
+		out := []string{"✓ Action already " + strings.ToLower(exec.State().String())}
+		out = append(out, renderResults(s.actionExec.contextOf(), exec.Results())...)
+		return out, namedValues(s.actionExec.contextOf(), exec.Results()), nil
 	}
 
 	// Run to completion, or to the first breakpoint hit
@@ -3468,15 +3644,8 @@ func (s *Session) invokeOperation(name, operation, args string) ([]string, error
 		return nil, rerr
 	}
 	var bound runtime.OperationArguments
-	if bound.Named, err = s.evalArguments(ctx, parsed.named); err != nil {
+	if bound.Positional, bound.Named, err = evalArgumentList(ctx, s.promptScope(), parsed.positional, parsed.named); err != nil {
 		return nil, err
-	}
-	for i, arg := range parsed.positional {
-		value, err := ctx.EvalWithScope(arg.expr, s.promptScope())
-		if err != nil {
-			return nil, fmt.Errorf("argument %d (%s): %w", i+1, arg.text, err)
-		}
-		bound.Positional = append(bound.Positional, value)
 	}
 	results, err := ctx.InvokeOperationWith(inst, operation, bound)
 	if err != nil {
@@ -3493,10 +3662,11 @@ func (s *Session) invokeOperation(name, operation, args string) ([]string, error
 }
 
 // argument is one `name=<expression>` argument of %invoke or %send, parsed and
-// not yet evaluated.
+// not yet evaluated, at its position in the written argument list.
 type argument struct {
 	param string
 	node  ast.Node
+	at    int
 }
 
 // invokeArguments are %invoke's arguments parsed and not yet evaluated: the list is
@@ -3510,13 +3680,19 @@ type invokeArguments struct {
 // expression or `<parameter>=<expression>`. A list mixing the two forms or naming
 // a parameter twice is refused here, before the object is reached.
 func parseInvokeArguments(text string) (invokeArguments, error) {
+	return parseInvokeArgumentList(splitArgs(text))
+}
+
+// parseInvokeArgumentList is parseInvokeArguments over arguments already split.
+func parseInvokeArgumentList(list []string) (invokeArguments, error) {
 	var args invokeArguments
-	for _, arg := range splitArgs(text) {
+	for i, arg := range list {
 		if isNamedArgument(arg) {
 			named, err := parseArguments([]string{arg})
 			if err != nil {
 				return invokeArguments{}, err
 			}
+			named[0].at = i
 			args.named = append(args.named, named...)
 			continue
 		}
@@ -3524,7 +3700,7 @@ func parseInvokeArguments(text string) (invokeArguments, error) {
 		if err != nil {
 			return invokeArguments{}, err
 		}
-		args.positional = append(args.positional, argExpr{expr: expr, text: arg})
+		args.positional = append(args.positional, argExpr{expr: expr, text: arg, at: i})
 	}
 	if len(args.positional) > 0 && len(args.named) > 0 {
 		return invokeArguments{}, fmt.Errorf("%w: %d positional and %d named argument(s)",
@@ -3558,7 +3734,7 @@ func splitInvokeLine(tail string) (object, operation, args string) {
 // parseArguments takes apart and parses `name=<expression>` arguments.
 func parseArguments(args []string) ([]argument, error) {
 	parsed := make([]argument, 0, len(args))
-	for _, arg := range args {
+	for i, arg := range args {
 		param, expr, ok := strings.Cut(arg, "=")
 		param, expr = strings.TrimSpace(param), strings.TrimSpace(expr)
 		if !ok || param == "" || expr == "" {
@@ -3571,7 +3747,7 @@ func parseArguments(args []string) ([]argument, error) {
 		if node == nil {
 			return nil, fmt.Errorf("argument %s: could not parse %q", param, expr)
 		}
-		parsed = append(parsed, argument{param: param, node: node})
+		parsed = append(parsed, argument{param: param, node: node, at: i})
 	}
 	return parsed, nil
 }
@@ -3587,18 +3763,61 @@ func (s *Session) evalArguments(ctx *runtime.Context, parsed []argument) (map[st
 
 // evalArgumentsIn evaluates parsed arguments in ctx under scope, binding each to its parameter.
 func evalArgumentsIn(ctx *runtime.Context, scope *symbols.Scope, parsed []argument) (map[string]runtime.Value, error) {
-	if len(parsed) == 0 {
-		return nil, nil
+	_, named, err := evalArgumentList(ctx, scope, nil, parsed)
+	return named, err
+}
+
+// evalArgumentList evaluates an invocation's whole argument list in one run, in the order
+// written, so a seeded draw continues the one before it; every argument surface binds through it.
+func evalArgumentList(ctx *runtime.Context, scope *symbols.Scope, positional []argExpr, named []argument) ([]runtime.Value, map[string]runtime.Value, error) {
+	if len(positional) == 0 && len(named) == 0 {
+		return nil, nil, nil
 	}
-	bound := make(map[string]runtime.Value, len(parsed))
-	for _, arg := range parsed {
-		value, err := ctx.EvalWithScope(arg.node, scope)
-		if err != nil {
-			return nil, fmt.Errorf("argument %s: %w", arg.param, err)
+	// An argument is addressed by one index over both lists, positional first.
+	at := func(i int) int {
+		if i < len(positional) {
+			return positional[i].at
 		}
-		bound[arg.param] = value
+		return named[i-len(positional)].at
 	}
-	return bound, nil
+	order := make([]int, len(positional)+len(named))
+	for i := range order {
+		order[i] = i
+	}
+	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(at(a), at(b)) })
+	nodes := make([]ast.Node, len(order))
+	for k, i := range order {
+		if i < len(positional) {
+			nodes[k] = positional[i].expr
+		} else {
+			nodes[k] = named[i-len(positional)].node
+		}
+	}
+	values, err := ctx.EvalArguments(scope, nodes)
+	if err != nil {
+		var failed *runtime.ArgumentError
+		if !errors.As(err, &failed) {
+			return nil, nil, err
+		}
+		i := order[failed.Index]
+		if i < len(positional) {
+			return nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", positional[i].text, failed.Err)
+		}
+		return nil, nil, fmt.Errorf("argument %s: %w", named[i-len(positional)].param, failed.Err)
+	}
+	byPosition := make([]runtime.Value, len(positional))
+	var bound map[string]runtime.Value
+	if len(named) > 0 {
+		bound = make(map[string]runtime.Value, len(named))
+	}
+	for k, i := range order {
+		if i < len(positional) {
+			byPosition[i] = values[k]
+		} else {
+			bound[named[i-len(positional)].param] = values[k]
+		}
+	}
+	return byPosition, bound, nil
 }
 
 // doEvents displays the event queue.

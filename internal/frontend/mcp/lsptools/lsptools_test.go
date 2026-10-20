@@ -931,3 +931,23 @@ func TestAnOpenBufferIsNotWrittenOverAnEditMadeMeanwhile(t *testing.T) {
 		t.Error("new.sysml was overwritten")
 	}
 }
+
+func TestADanglingLinkIsJudgedByWhereItPoints(t *testing.T) {
+	f := newFixture(t)
+	if err := os.Symlink(filepath.Join(filepath.Dir(f.root), "not-yet.sysml"), filepath.Join(f.root, "dangle.sysml")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, err := f.host.resolve("dangle.sysml"); err == nil || !strings.Contains(err.Error(), "leads through a symlink to") {
+		t.Errorf("a dangling link out of the root: %v", err)
+	}
+	if msg := f.fails("open_document", map[string]any{"path": "dangle.sysml", "text": "package D;\n"}); !strings.Contains(msg, "outside the workspace root") {
+		t.Errorf("open_document through a dangling link out of the root: %s", msg)
+	}
+	if err := os.Symlink("later.sysml", filepath.Join(f.root, "soon.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	ref, err := f.host.resolve("soon.sysml")
+	if err != nil || ref.name != filepath.Join(f.root, "soon.sysml") {
+		t.Errorf("a dangling link staying inside the root = %+v, %v; want it accepted as a file not yet written", ref, err)
+	}
+}

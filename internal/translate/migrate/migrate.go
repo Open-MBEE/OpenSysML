@@ -46,7 +46,18 @@ const (
 // scalarValuesPrefix qualifies a name from the standard ScalarValues package.
 const scalarValuesPrefix = "ScalarValues::"
 
-const fromKeyword = " from "
+// The phrases the report's notes repeat.
+const (
+	fromKeyword      = " from "
+	writtenAs        = "written as "
+	isWrittenAs      = " is written as "
+	isNotWritten     = " is not written"
+	constraintYields = "the constraint yields"
+	itsEnd           = "its end "
+	emptyComment     = "empty comment"
+	emptyBodyNote    = "the body is empty"
+	thePort          = "the port "
+)
 
 // Result is a migration's output: the v2 notation, the report over it, and
 // the result snapshots of its run configurations.
@@ -137,14 +148,8 @@ func layoutJoins(model *sysmlv1.Model, layout *mtip.Export) int {
 	return joined
 }
 
-// FromModel migrates an already-read XMI model.
-func FromModel(name string, model *sysmlv1.Model) *Result {
-	return FromModelOptions(name, model, Options{})
-}
-
-// FromModelOptions is FromModel with the augments opts carries. Unlike
-// MigrateOptions it cannot fail, so a layout export joins whatever of the
-// model it can and reports the rest.
+// FromModelOptions migrates an already-read XMI model with the augments opts carries;
+// unlike MigrateOptions it cannot fail, so a layout export joins what it can and reports the rest.
 func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m := &migration{
 		model:             model,
@@ -663,9 +668,9 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 			v = Approximated
 		}
 		if src, clash := m.libraryClash[e]; clash {
-			note = joinNotes(note, "written as "+n+" since a root package named "+src+" would be hidden by the standard library's "+src)
+			note = joinNotes(note, writtenAs+n+" since a root package named "+src+" would be hidden by the standard library's "+src)
 		} else {
-			note = joinNotes(note, "written as "+n+" since a sibling is also named "+e.Name)
+			note = joinNotes(note, writtenAs+n+" since a sibling is also named "+e.Name)
 		}
 	}
 	if i, ok := m.indexed[e.ID]; ok && e.ID != "" {
@@ -1559,7 +1564,7 @@ func (m *migration) general(e, g *sysmlv1.Element, cat category) (ref, note stri
 		return "", m.monteCarloGeneralization(e)
 	}
 	if target.IsProxy() || m.isLibrary(target) {
-		return "", "generalization of library type " + qualifiedName(target) + " is not written"
+		return "", "generalization of library type " + qualifiedName(target) + isNotWritten
 	}
 	if cat == catView && m.conforms(g) {
 		// The view's body satisfies the viewpoint instead.
@@ -1730,7 +1735,7 @@ func (m *migration) constraintRule(e *sysmlv1.Element) ruleForm {
 		if f.spec == nil {
 			f.note = "the constraint has no specification"
 		} else {
-			f.expr, f.ok, f.note = m.valueExprAs(f.spec, e, oneOf("Boolean", "the constraint yields"))
+			f.expr, f.ok, f.note = m.valueExprAs(f.spec, e, oneOf("Boolean", constraintYields))
 		}
 	}
 	m.rules[e] = f
@@ -1947,7 +1952,7 @@ func (m *migration) valueSlot(e, slot, f *sysmlv1.Element, dir string) ([]string
 	for _, v := range slot.Owned("value") {
 		if inst := m.model.Ref(v, "instance"); v.Type == "InstanceValue" && inst != nil && inst.Type == "InstanceSpecification" {
 			if kind, _, _, _ := m.instanceKind(inst); kind != catNone && kind.usageKeyword() != "attribute" {
-				return nil, slotValueSubject + describe(inst) + " is written as " + kwArticle(kind.usageKeyword()) + ", which cannot be the value of an attribute", false
+				return nil, slotValueSubject + describe(inst) + isWrittenAs + kwArticle(kind.usageKeyword()) + ", which cannot be the value of an attribute", false
 			}
 		}
 		expr, ok, note := m.featureValue(v, f, e)
@@ -1997,7 +2002,7 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 		}
 		kind, instTypes, subsets, _ := m.instanceKind(inst)
 		if !instanceFits(kind, kw) {
-			return nil, slotValueSubject + describe(inst) + " is written as " + kwArticle(kind.usageKeyword()) + ", which cannot be the value of " + article(kw) + kw, false
+			return nil, slotValueSubject + describe(inst) + isWrittenAs + kwArticle(kind.usageKeyword()) + ", which cannot be the value of " + article(kw) + kw, false
 		}
 		// A property with no type, its own or inherited, takes any instance of its kind.
 		for _, t := range types {
@@ -2336,7 +2341,7 @@ func (m *migration) nameEnds(e *sysmlv1.Element) {
 			name = fmt.Sprintf("%s%d", base, i)
 		}
 		if was := m.nameOf(end); was != "" && name != was {
-			m.downgrade(e, "end "+was+" is written as "+name+" so the ends and members stay distinct")
+			m.downgrade(e, "end "+was+isWrittenAs+name+" so the ends and members stay distinct")
 			if end.Parent == e {
 				m.names[end] = name
 			}
@@ -2447,7 +2452,7 @@ func (m *migration) crossedProperty(e, end *sysmlv1.Element, typ string) (opp *s
 		return nil, label + "the opposite end is untyped, so the property cannot be reached through it"
 	}
 	if oref, _ := m.typeRef(ot, e); oref == "" {
-		return nil, label + "the opposite end's type " + qualifiedName(ot) + " is not written"
+		return nil, label + "the opposite end's type " + qualifiedName(ot) + isNotWritten
 	}
 	if end.Parent != ot {
 		return nil, label + "the end property is owned by " + qualifiedName(end.Parent) + ", not by the opposite end's type " + qualifiedName(ot)
@@ -3602,14 +3607,14 @@ func (m *migration) itemFlow(f, c *sysmlv1.Element, segs [][]*sysmlv1.Element, p
 		notes = append(notes, missing)
 	}
 	if name != "" && f.Name != "" && name != f.Name {
-		notes = append(notes, "written as "+name+" since a member of "+qualifiedName(c.Parent)+" is also named "+f.Name)
+		notes = append(notes, writtenAs+name+" since a member of "+qualifiedName(c.Parent)+" is also named "+f.Name)
 	}
 	for _, item := range conveyed {
 		sp := m.flowProperty(src, item)
 		dp := m.flowProperty(dst, item)
 		if sp == nil || dp == nil {
 			if typ, tnote := m.typeRef(item, m.scope); typ == "" {
-				notes = append(notes, joinNotes("the conveyed classifier "+item.Name+" is not written", tnote))
+				notes = append(notes, joinNotes("the conveyed classifier "+item.Name+isNotWritten, tnote))
 			} else {
 				notes = append(notes, "no flow property typed by "+item.Name+" on both ends of the realizing connector")
 			}
@@ -3717,7 +3722,7 @@ func (m *migration) placeholderEnds() {
 				if m.verdictOf(end) == Unmapped {
 					pl.fail(p.target)
 				}
-				pl.notes = append(pl.notes, "its end "+qualifiedName(end)+" is written only as a placeholder of a node that is not migrated")
+				pl.notes = append(pl.notes, itsEnd+qualifiedName(end)+" is written only as a placeholder of a node that is not migrated")
 				break
 			}
 		}
@@ -3773,7 +3778,7 @@ func (m *migration) rule(r *sysmlv1.Element) {
 		m.assertedRule(r, spec)
 		return
 	}
-	expr, ok, note := m.valueExprAs(spec, r, oneOf("Boolean", "the constraint yields"))
+	expr, ok, note := m.valueExprAs(spec, r, oneOf("Boolean", constraintYields))
 	if !ok {
 		m.unmappedExpr(r, spec, note)
 		return
@@ -3825,7 +3830,7 @@ func (m *migration) ruleAsDef(r *sysmlv1.Element) bool {
 // assertedRule writes an owned rule as an asserted constraint usage holding
 // the specification as its body.
 func (m *migration) assertedRule(r, spec *sysmlv1.Element) {
-	expr, ok, note := m.valueExprAs(spec, m.scope, oneOf("Boolean", "the constraint yields"))
+	expr, ok, note := m.valueExprAs(spec, m.scope, oneOf("Boolean", constraintYields))
 	if !ok {
 		m.unmappedExpr(r, spec, note)
 		return
@@ -4074,7 +4079,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 	var nodes []*sysmlv1.Element
 	for _, end := range []*sysmlv1.Element{client, supplier} {
 		if !m.written(end) {
-			return "", false, "its end " + qualifiedName(end) + " is not migrated"
+			return "", false, itsEnd + qualifiedName(end) + " is not migrated"
 		}
 		if act, _ := m.nodeGraph(end); act != nil {
 			nodes = append(nodes, end)
@@ -4294,11 +4299,11 @@ func (m *migration) allocationFallbackNote(client, supplier *sysmlv1.Element) st
 			continue
 		}
 		if m.packageFeature(e) {
-			notes = append(notes, "its end "+qualifiedName(e)+" is a feature of a package, which no allocation end can be typed by, so a plain dependency stands for it")
+			notes = append(notes, itsEnd+qualifiedName(e)+" is a feature of a package, which no allocation end can be typed by, so a plain dependency stands for it")
 		} else if owner != nil {
-			notes = append(notes, "its end "+qualifiedName(e)+" has no feature path relative to its enclosing written definition, so a plain dependency stands for it")
+			notes = append(notes, itsEnd+qualifiedName(e)+" has no feature path relative to its enclosing written definition, so a plain dependency stands for it")
 		} else {
-			notes = append(notes, "its end "+qualifiedName(e)+" has no enclosing written definition to type an allocation end, so a plain dependency stands for it")
+			notes = append(notes, itsEnd+qualifiedName(e)+" has no enclosing written definition to type an allocation end, so a plain dependency stands for it")
 		}
 	}
 	return strings.Join(notes, "; ")
@@ -4419,7 +4424,7 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 		missing := m.dangling(c, "annotatedElement")
 		text := m.commentBody(c)
 		if text == "" {
-			m.add(c, Skipped, "", "empty comment")
+			m.add(c, Skipped, "", emptyComment)
 			continue
 		}
 		if note := m.concernCommentFallback(c); note != "" {
@@ -4456,8 +4461,8 @@ func (m *migration) writeConcern(c *sysmlv1.Element) {
 		}
 	})
 	note := ""
-	if text := m.commentBody(c); text == "" {
-		note = "empty comment"
+	if m.commentBody(c) == "" {
+		note = emptyComment
 	}
 	if m.annotatesOthers(c, c.Parent) {
 		note = joinNotes(note, "a v2 concern annotates nothing, so the comment's annotations are not carried")
@@ -4532,7 +4537,7 @@ func (m *migration) commentAbout(c *sysmlv1.Element, about []*sysmlv1.Element, t
 func (m *migration) comment(c *sysmlv1.Element) {
 	text := m.commentBody(c)
 	if text == "" {
-		m.add(c, Skipped, "", "empty comment")
+		m.add(c, Skipped, "", emptyComment)
 		return
 	}
 	if note := m.concernCommentFallback(c); note != "" {
@@ -4647,26 +4652,9 @@ func (m *migration) appliedStereotypes(e *sysmlv1.Element, write bool, kind stri
 			continue
 		}
 		classifying, consumed := m.consumes(s)
-		var tags []string
-		for k, vs := range s.Tags {
-			if classifying && consumed[k] {
-				continue
-			}
-			tags = append(tags, k+" = "+strings.Join(m.tagValues(vs), ", "))
-		}
-		sort.Strings(tags)
+		tags := m.unconsumedTags(s, classifying, consumed)
 		if classifying {
-			// A specialization's own name («Subsystem» :> «Block») is not what classified e, so it is marked.
-			if len(tags) == 0 && s.Name != kind && classifyingStereotypes[s.Name] {
-				continue
-			}
-			kindMarked = kindMarked || s.Name == kind
-			if write && (len(tags) > 0 || !m.strict || s.Name != kind) {
-				m.appliedStereotype(s.Name, "", tags)
-			}
-			if len(tags) > 0 {
-				m.downgrade(e, "«"+s.Name+"» "+strings.Join(tags, "; ")+" has no v2 form")
-			}
+			kindMarked = m.classifyingApplication(e, s, tags, kind, write) || kindMarked
 			continue
 		}
 		outsider := s.Definition == nil && toolProfile(s.Namespace) == "" && !readsTypeModifier(e, s) && !sysmlv1.IsDocGenProfile(s.Namespace)
@@ -4687,9 +4675,43 @@ func (m *migration) appliedStereotypes(e *sysmlv1.Element, write bool, kind stri
 	if kind != "" && !kindMarked && write && !m.strict {
 		m.appliedStereotype(kind, "", nil)
 	}
-	if len(outside) == 0 {
-		return
+	if len(outside) > 0 {
+		m.note(e, outsideProfilesNote(outside, byNamespace, write, m.strict))
 	}
+}
+
+// unconsumedTags words the tag values of s no v2 feature holds, sorted by tag.
+func (m *migration) unconsumedTags(s *sysmlv1.Stereotype, classifying bool, consumed map[string]bool) []string {
+	var tags []string
+	for k, vs := range s.Tags {
+		if classifying && consumed[k] {
+			continue
+		}
+		tags = append(tags, k+" = "+strings.Join(m.tagValues(vs), ", "))
+	}
+	sort.Strings(tags)
+	return tags
+}
+
+// classifyingApplication marks the classifying stereotype s applied to e where
+// e's v2 form does not carry it; it reports whether s names e's kind.
+func (m *migration) classifyingApplication(e *sysmlv1.Element, s *sysmlv1.Stereotype, tags []string, kind string, write bool) bool {
+	// A specialization's own name («Subsystem» :> «Block») is not what classified e, so it is marked.
+	if len(tags) == 0 && s.Name != kind && classifyingStereotypes[s.Name] {
+		return false
+	}
+	if write && (len(tags) > 0 || !m.strict || s.Name != kind) {
+		m.appliedStereotype(s.Name, "", tags)
+	}
+	if len(tags) > 0 {
+		m.downgrade(e, "«"+s.Name+"» "+strings.Join(tags, "; ")+" has no v2 form")
+	}
+	return s.Name == kind
+}
+
+// outsideProfilesNote words the applications from profiles the document does
+// not define, grouped by profile, and what became of them.
+func outsideProfilesNote(outside []string, byNamespace map[string][]string, write, strict bool) string {
 	var parts []string
 	for _, ns := range outside {
 		parts = append(parts, strings.Join(byNamespace[ns], " ")+fromKeyword+ns)
@@ -4698,7 +4720,7 @@ func (m *migration) appliedStereotypes(e *sysmlv1.Element, write bool, kind stri
 	switch {
 	case !write:
 		one, many = one+"is dropped: its element is written as no member of its own", many+"are dropped: their element is written as no member of its own"
-	case m.strict:
+	case strict:
 		one, many = one+"is noted in a comment", many+"are noted in comments"
 	default:
 		one, many = one+"is kept as metadata", many+"are kept as metadata"
@@ -4707,7 +4729,7 @@ func (m *migration) appliedStereotypes(e *sysmlv1.Element, write bool, kind stri
 	if len(outside) > 1 || len(byNamespace[outside[0]]) > 1 {
 		verdict = many
 	}
-	m.note(e, strings.Join(parts, " and ")+verdict)
+	return strings.Join(parts, " and ") + verdict
 }
 
 // appliedStereotype marks the element whose body is open as having carried

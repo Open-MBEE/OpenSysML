@@ -186,7 +186,7 @@ class TestScheduleAgainstTheService:
 
     def test_an_analysis_performs_its_actions_under_the_policy(self):
         result = self.model.run_analysis("Sched::raced", schedule="declared")
-        assert result.outputs["winner"] == 2
+        assert result.outputs["winner"] == [2]  # the bare `out winner` holds its one value as a sequence
 
     def test_the_same_seed_answers_the_same_way(self):
         answers = {

@@ -3,8 +3,8 @@
 	"evaluate": "test::caller",
 	"outputs": {
 		"result": {"type": "Integer", "value": 7},
-		"run.x": {"type": "Integer", "value": 3},
-		"run.z": {"type": "Integer", "value": 7},
-		"run.r": {"type": "Integer", "value": 7}
+		"run.x": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+		"run.z": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]},
+		"run.r": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]}
 	}
 }

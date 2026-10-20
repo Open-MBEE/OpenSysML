@@ -292,11 +292,26 @@ func splitCells(row string) []string {
 	row = strings.Trim(row, " ")
 	row = strings.TrimPrefix(row, "|")
 	row = trimEndBorder(row)
-	type ticRun struct{ start, end, escape, size int }
-	var (
-		pipes []int
-		tics  []ticRun
-	)
+	pipes, tics := scanRow(row)
+	spans := codeSpans(tics)
+	var cells []string
+	start := 0
+	for _, pipe := range pipes {
+		if inCodeSpan(pipe, spans) {
+			continue
+		}
+		cells = append(cells, strings.TrimSpace(row[start:pipe]))
+		start = pipe + 1
+	}
+	return append(cells, strings.TrimSpace(row[start:]))
+}
+
+// ticRun is a run of backticks in a row: its first and last offsets, whether a
+// backslash escapes its first tick, and how many ticks it holds.
+type ticRun struct{ start, end, escape, size int }
+
+// scanRow finds the unescaped pipes and the backtick runs of row.
+func scanRow(row string) (pipes []int, tics []ticRun) {
 	for i := 0; i < len(row); {
 		switch {
 		case strings.HasPrefix(row[i:], `\\`), strings.HasPrefix(row[i:], `\|`):
@@ -322,7 +337,13 @@ func splitCells(row string) []string {
 			i++
 		}
 	}
-	var regions [][2]int
+	return pipes, tics
+}
+
+// codeSpans pairs each backtick run with the next run of its size, which
+// closes the code span it opens; a run no later run matches is plain text.
+func codeSpans(tics []ticRun) [][2]int {
+	var spans [][2]int
 	for pos := 0; pos < len(tics); {
 		size := tics[pos].size - tics[pos].escape
 		closer := -1
@@ -338,26 +359,20 @@ func splitCells(row string) []string {
 			pos++
 			continue
 		}
-		regions = append(regions, [2]int{tics[pos].start, tics[closer].end})
+		spans = append(spans, [2]int{tics[pos].start, tics[closer].end})
 		pos = closer + 1
 	}
-	var cells []string
-	start := 0
-	for _, pipe := range pipes {
-		inCode := false
-		for _, region := range regions {
-			if region[0] <= pipe && pipe <= region[1] {
-				inCode = true
-				break
-			}
+	return spans
+}
+
+// inCodeSpan reports whether offset pos lies in one of the spans.
+func inCodeSpan(pos int, spans [][2]int) bool {
+	for _, span := range spans {
+		if span[0] <= pos && pos <= span[1] {
+			return true
 		}
-		if inCode {
-			continue
-		}
-		cells = append(cells, strings.TrimSpace(row[start:pipe]))
-		start = pipe + 1
 	}
-	return append(cells, strings.TrimSpace(row[start:]))
+	return false
 }
 
 // trimEndBorder drops a closing pipe that no odd run of backslashes escapes.

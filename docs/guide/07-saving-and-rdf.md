@@ -144,6 +144,11 @@ a table of the element ids, each written once, and the elements with every refer
 index into it; `omit_derived` leaves out the metamodel's derived properties, except those
 `keep_derived` names. The service reports it as `convert_compact`; the shape is in the
 [Compact API JSON](../reference/api-json-compact.md).
+`include_check_diagnostics`, for a notation source, adds the semantic check's diagnostics to the
+response alongside the output, each with its own severity and code as `ParseFile` reports them,
+so a service that accepts notation can show its warnings — an unresolved type, a duplicate
+name, nonstandard notation — with what it wrote. Off, only syntax errors are reported, as before.
+The service reports it as `convert_check_diagnostics`.
 Which documents an edit reached is what `ParseSources` answers as `affected` when it is sent the
 previous model's hash (`parse_sources_affected`).
 

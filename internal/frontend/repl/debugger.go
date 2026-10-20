@@ -144,15 +144,15 @@ func (s *Session) DebugStop() ([]string, error) {
 }
 
 // SetBreakpoints sets a breakpoint at each node named, clearing the ones set
-// before when clear is set, and reports the breakpoints the debugged action
+// before when reset is set, and reports the breakpoints the debugged action
 // then has with the lines %break prints. A node the action has none of is the
 // error, naming its nodes.
-func (s *Session) SetBreakpoints(nodes []string, clear bool) (DebugReport, error) {
+func (s *Session) SetBreakpoints(nodes []string, reset bool) (DebugReport, error) {
 	defer s.enter()()
 	if s.actionExec == nil {
 		return DebugReport{}, errors.New(s.noActionSessionMsg())
 	}
-	if clear {
+	if reset {
 		s.actionExec.executor.ClearBreakpoints()
 	}
 	var lines []string

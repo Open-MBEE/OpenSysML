@@ -250,7 +250,7 @@ var compiledCases = []compiledCase{
 	{"Closure::Neq", []string{"true"}}, {"Closure::Neq", []string{"false"}},
 	{"Closure::EqNum", []string{"true"}},
 	{"Closure::SameSq", []string{"true"}}, {"Closure::SameSq", []string{"false"}},
-	{"Closure::Pair", nil}, {"Closure::PairUntyped", nil}, {"Closure::PairApply", []string{"3.0"}},
+	{"Closure::Pair", nil}, {"Closure::AnyOne", []string{"4"}}, {"Closure::PairUntyped", nil}, {"Closure::PairApply", []string{"3.0"}},
 	{"Closure::MixedKind", []string{"true", "4.0"}}, {"Closure::MixedKind", []string{"false", "4.0"}}, {"Closure::MixedKind", []string{"false", "-4.0"}},
 	{"Closure::ToStr", []string{"true"}}, {"Closure::ToStr", []string{"false"}},
 	{"Closure::ReturnedApply", []string{"3.0"}},

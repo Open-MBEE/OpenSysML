@@ -96,12 +96,6 @@ final class Rendering {
     return instances.stream().map(Rendering::instance).toList();
   }
 
-  /**
-   * The bounds of a standing.
-   *
-   * @param standing the immutable standing
-   * @return the generated bounds, in order
-   */
   /** A {@code CheckBehaviorResponse} carrying a check result as the service would answer it. */
   static CheckBehaviorResponse checkResult(CheckResult result) {
     CheckBehaviorResponse.Builder response =
@@ -223,6 +217,12 @@ final class Rendering {
     return proto.build();
   }
 
+  /**
+   * The bounds of a standing.
+   *
+   * @param standing the immutable standing
+   * @return the generated bounds, in order
+   */
   static List<Bound> bounds(Standing standing) {
     return standing.bounds().stream()
         .map(

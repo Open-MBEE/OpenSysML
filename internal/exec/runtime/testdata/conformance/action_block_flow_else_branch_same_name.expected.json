@@ -2,6 +2,6 @@
 	"type": "action",
 	"outputs": {
 		"total": {"type": "Integer", "value": 30},
-		"choose.p.v": {"type": "Integer", "value": 30}
+		"choose.p.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]}
 	}
 }

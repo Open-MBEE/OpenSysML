@@ -252,6 +252,11 @@ every KerML and SysML file of it, as one model whose elements carry their
 normative ids \(em instead of a model file; \-id defaults to uuid. \-o may
 name a Flexo branch to publish the library to
 .TP
+.B \-metaclass\-graph
+Write the SysML metaclass hierarchy of the pinned pilot metamodel as Turtle
+(rdfs:Class, rdfs:subClassOf, sysx:abstract) to stdout or \-o, without a
+model, and exit
+.TP
 .BR \-migrate " \fIformat\fP"
 Migrate the SysML v1 model (.xmi, .uml or .mdzip; \-from names the format when
 the extension does not) to SysML v2, written in this format: sysml, kerml,
@@ -669,6 +674,8 @@ per worker.
 sysml \-engines
 # Also start each external engine once
 sysml \-engines \-probe
+# Write the metaclass hierarchy as Turtle
+sysml \-metaclass\-graph \-o metaclasses.ttl
 # The same as \-schedule explore
 sysml \-engine explore \-action Drive m.sysml
 # Every engine that covers the question
