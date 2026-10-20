@@ -199,6 +199,9 @@ func featureValueOf(fv *FeatureValue) Value {
 	if fv == nil {
 		return Value{}
 	}
+	if fv.Values.Kind != ValInvalid {
+		return fv.Values
+	}
 	return fv.Value
 }
 

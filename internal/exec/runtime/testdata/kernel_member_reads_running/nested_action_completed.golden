@@ -29,15 +29,15 @@ outsideOfOccurrences: empty  [static-only pilot=decl] (outside read: invalid <un
 ownedPerformances: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 portionOf: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
 portionOfLife: root  [static-only pilot=decl]
-portions: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+portions: [root, object of Parts::Part::start]  [static-only pilot=decl] (outside read: invalid <unknown>)
 predecessors: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 runToCompletionScope: root  [static-only pilot=decl]
 sameLifeOccurrences: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
 self: root  [static-only pilot=decl]
 snapshotOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
-snapshots: undetermined <undetermined>  [undetermined pilot=decl]
+snapshots: [object of Parts::Part::start]  [static-only pilot=decl] (outside read: invalid <unknown>)
 spaceBoundaryOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
-spaceEnclosedOccurrences: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceEnclosedOccurrences: [root, object of Parts::Part::start]  [static-only pilot=decl] (outside read: invalid <unknown>)
 spaceInterior: null  [static-only pilot=decl]
 spaceInteriorOf: null  [static-only pilot=decl]
 spaceShotOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
@@ -45,9 +45,9 @@ spaceShots: undetermined <undetermined>  [undetermined pilot=decl]
 spaceSliceOf: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
 spaceSlices: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
 spaceTimeCoincidentOccurrences: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
-spaceTimeEnclosedOccurrences: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceTimeEnclosedOccurrences: [root, object of Parts::Part::start]  [static-only pilot=decl] (outside read: invalid <unknown>)
 spaceTimeEnclosedPoints: undetermined <undetermined>  [undetermined pilot=decl]
-start: undetermined <undetermined>  [undetermined pilot=decl]
+start: object of Parts::Part::start  [static-only pilot=decl]
 structuredSpaceBoundary: null  [static-only pilot=decl]
 subobjects: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 suboccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
@@ -56,15 +56,15 @@ superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 this: root  [static-only pilot=decl]
 timeCoincidentOccurrences: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
-timeEnclosedOccurrences: [root, act]  [populated pilot=decl] (outside read: invalid <unknown>)
+timeEnclosedOccurrences: [root, act, object of Parts::Part::start]  [populated pilot=decl] (outside read: invalid <unknown>)
 timeSliceOf: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
-timeSlices: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+timeSlices: [root, object of Parts::Part::start]  [static-only pilot=decl] (outside read: invalid <unknown>)
 unionsOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 withoutOccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 ### act (type Running::nested_action_completed::Root::act)
 differencesOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 dispatchScope: act  [static-only pilot=decl]
-done: undetermined <undetermined>  [wrong pilot=decl] spec: object of Running::nested_action_completed::Root::act::done
+done: object of Actions::Action::done  [wrong pilot=decl] spec: object of Running::nested_action_completed::Root::act::done
 enclosedPerformances: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 immediatePredecessors: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 immediateSuccessors: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
@@ -89,16 +89,16 @@ outsideOfOccurrences: empty  [static-only pilot=decl] (outside read: invalid <un
 performers: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 portionOf: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
 portionOfLife: act  [static-only pilot=decl]
-portions: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+portions: [act, object of Actions::Action::done]  [populated pilot=decl] (outside read: invalid <unknown>)
 predecessors: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 runToCompletionScope: act  [static-only pilot=decl]
 sameLifeOccurrences: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
 self: act  [static-only pilot=decl]
 snapshotOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
-snapshots: undetermined <undetermined>  [undetermined pilot=decl]
+snapshots: [object of Actions::Action::done]  [populated pilot=decl] (outside read: invalid <unknown>)
 spaceBoundary: null  [static-only pilot=decl]
 spaceBoundaryOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
-spaceEnclosedOccurrences: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceEnclosedOccurrences: [act, object of Actions::Action::done]  [populated pilot=decl] (outside read: invalid <unknown>)
 spaceInterior: null  [static-only pilot=decl]
 spaceInteriorOf: null  [static-only pilot=decl]
 spaceShotOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
@@ -106,7 +106,7 @@ spaceShots: undetermined <undetermined>  [undetermined pilot=decl]
 spaceSliceOf: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
 spaceSlices: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
 spaceTimeCoincidentOccurrences: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
-spaceTimeEnclosedOccurrences: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceTimeEnclosedOccurrences: [act, object of Actions::Action::done]  [populated pilot=decl] (outside read: invalid <unknown>)
 spaceTimeEnclosedPoints: undetermined <undetermined>  [undetermined pilot=decl]
 suboccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 subperformances: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
@@ -117,9 +117,9 @@ that: undetermined <undetermined>  [undetermined pilot=decl]
 this: act  [static-only pilot=decl]
 thisPerformance: act  [static-only pilot=decl]
 timeCoincidentOccurrences: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
-timeEnclosedOccurrences: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+timeEnclosedOccurrences: [act, object of Actions::Action::done]  [populated pilot=decl] (outside read: invalid <unknown>)
 timeSliceOf: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
-timeSlices: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+timeSlices: [act, object of Actions::Action::done]  [populated pilot=decl] (outside read: invalid <unknown>)
 unionsOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 withoutOccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
 ### expressions on root
@@ -129,7 +129,7 @@ act.s2: refused: uninitialized feature value: s2  [refused pilot=decl]
 act.s1.startShot: refused: uninitialized feature value: s1  [refused pilot=decl]
 act.s2.predecessors: refused: uninitialized feature value: s2  [refused pilot=decl]
 act.start: refused: uninitialized feature value: start  [refused pilot=decl]
-act.done: undetermined <undetermined>  [wrong pilot=decl] spec: object of Running::nested_action_completed::Root::act::done
+act.done: object of Actions::Action::done  [wrong pilot=decl] spec: object of Running::nested_action_completed::Root::act::done
 Time::TimeOf(act): quantity 0.0 [s]  [populated pilot=decl]
 Time::DurationOf(act): quantity 0.0 [s]  [populated pilot=decl]
 Clocks::TimeOf(act, Clocks::universalClock): quantity 0.0 [s]  [populated pilot=decl]
@@ -146,8 +146,8 @@ self.predecessors->SequenceFunctions::includes(act): constant false  [populated 
 act.timeEnclosedOccurrences->SequenceFunctions::includes(self): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 13
+populated: 19
 refused: 10
-static-only: 93
-undetermined: 21
+static-only: 90
+undetermined: 18
 wrong: 2

@@ -25,15 +25,15 @@ outsideOfOccurrences: empty
 ownedPerformances: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
+portions: collection of 2
 predecessors: empty
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
 self: object (the receiver)
 snapshotOf: empty
-snapshots: undetermined <undetermined>
+snapshots: collection of 1
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: collection of 2
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -41,9 +41,9 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 2
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
+start: object of Parts::Part::start
 structuredSpaceBoundary: null
 subobjects: collection of 3
 suboccurrences: collection of 3
@@ -53,9 +53,9 @@ surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 2
+timeEnclosedOccurrences: collection of 3
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: collection of 2
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -86,15 +86,15 @@ outsideOfOccurrences: empty
 ownedPerformances: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
+portions: collection of 2
 predecessors: empty
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
 self: object (the receiver)
 snapshotOf: empty
-snapshots: undetermined <undetermined>
+snapshots: collection of 1
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: collection of 2
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -102,9 +102,9 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 2
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
+start: object of Parts::Part::start
 structuredSpaceBoundary: null
 subobjects: empty
 suboccurrences: empty
@@ -114,9 +114,9 @@ surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 2
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: collection of 2
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -147,15 +147,15 @@ outsideOfOccurrences: empty
 ownedPerformances: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
+portions: collection of 2
 predecessors: empty
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
 self: object (the receiver)
 snapshotOf: empty
-snapshots: undetermined <undetermined>
+snapshots: collection of 1
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: collection of 2
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -163,9 +163,9 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 2
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
+start: object of Items::Item::start
 structuredSpaceBoundary: null
 subobjects: empty
 suboccurrences: empty
@@ -175,9 +175,9 @@ surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 2
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: collection of 2
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -209,16 +209,16 @@ outsideOfOccurrences: empty
 ownedPerformances: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
+portions: collection of 2
 predecessors: empty
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
 self: object (the receiver)
 snapshotOf: empty
-snapshots: undetermined <undetermined>
+snapshots: collection of 1
 spaceBoundary: null
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: collection of 2
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -226,7 +226,7 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 2
 spaceTimeEnclosedPoints: undetermined <undetermined>
 startShot: undetermined <undetermined>
 structuredSpaceBoundary: null
@@ -238,9 +238,9 @@ surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 2
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: collection of 2
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -272,16 +272,16 @@ outsideOfOccurrences: empty
 performers: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
+portions: collection of 2
 predecessors: empty
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
 self: object (the receiver)
 snapshotOf: empty
-snapshots: undetermined <undetermined>
+snapshots: collection of 1
 spaceBoundary: null
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: collection of 2
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -289,9 +289,9 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 2
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
+start: object of Actions::Action::start
 suboccurrences: empty
 subperformances: empty
 successors: empty
@@ -301,9 +301,9 @@ that: undetermined <undetermined>
 this: object (the receiver)
 thisPerformance: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 2
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: collection of 2
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -342,16 +342,16 @@ outsideOfOccurrences: empty
 performers: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
+portions: collection of 2
 predecessors: empty
 runToCompletionScope: undetermined <undetermined>
 sameLifeOccurrences: collection of 1
 self: object (the receiver)
 snapshotOf: empty
-snapshots: undetermined <undetermined>
+snapshots: collection of 1
 spaceBoundary: null
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: collection of 2
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -359,9 +359,9 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 2
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
+start: object of States::StateAction::start
 suboccurrences: empty
 subperformances: empty
 successors: empty
@@ -371,9 +371,9 @@ that: undetermined <undetermined>
 this: object (the receiver)
 thisPerformance: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 2
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: collection of 2
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -405,16 +405,16 @@ outsideOfOccurrences: empty
 performers: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
+portions: collection of 2
 predecessors: empty
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
 self: object (the receiver)
 snapshotOf: empty
-snapshots: undetermined <undetermined>
+snapshots: collection of 1
 spaceBoundary: null
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: collection of 2
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -422,9 +422,9 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 2
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
+start: object of Actions::Action::start
 suboccurrences: empty
 subperformances: empty
 successors: empty
@@ -433,9 +433,9 @@ surroundedByOccurrences: empty
 this: object (the receiver)
 thisPerformance: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 2
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: collection of 2
 unionsOf: empty
 withoutOccurrences: empty
 

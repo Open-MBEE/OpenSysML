@@ -134,17 +134,35 @@ func (ctx *Context) trackedKernelValue(inst *Instance, sym *symbols.Symbol, feat
 		val, err := ctx.objectValue(inst)
 		return val, false, true, err
 	}
-	if feat.Scalar() || !ctx.subsetsTransitively(self, inst.Type, sym) {
+	if feat.Scalar() {
+		val, ok, err := ctx.shotValue(inst, sym, feat)
+		return val, false, ok, err
+	}
+	var held []Value
+	if ctx.subsetsTransitively(self, inst.Type, sym) {
+		val, err := ctx.objectValue(inst)
+		if err != nil {
+			return Value{}, false, true, err
+		}
+		held = append(held, val)
+	}
+	var shots []Value
+	if ctx.shotsCollection(sym) {
+		if shots, err = ctx.happenedShots(inst); err != nil {
+			return Value{}, false, true, err
+		}
+		if len(held) == 0 && len(shots) == 0 {
+			return undeterminedFeatureValue(fmt.Sprintf("%s has not started: no snapshot of it has happened", SymbolText(inst.Type)), feat.Multiplicity, sym), false, true, nil
+		}
+	} else if len(held) == 0 {
 		return Value{}, false, false, nil
 	}
-	val, err = ctx.objectValue(inst)
+	values, stopped, err := ctx.shapeContributions(inst, sym, feat, held, open)
 	if err != nil {
 		return Value{}, false, true, err
 	}
-	values, stopped, err := ctx.shapeContributions(inst, sym, feat, []Value{val}, open)
-	if err != nil {
-		return Value{}, false, true, err
-	}
+	// The snapshots follow the object and what its shape features hold.
+	values = append(values, shots...)
 	return ctx.collectionOf(feat, values), stopped, true, nil
 }
 
