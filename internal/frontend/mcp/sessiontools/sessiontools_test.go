@@ -903,3 +903,95 @@ func TestAProjectArchiveInTheRootLoads(t *testing.T) {
 		t.Errorf("loading the archive reported errors: %+v", loaded)
 	}
 }
+
+func TestASaveThroughALinkRepointedAfterTheGuardWritesNothingOutsideTheRoot(t *testing.T) {
+	cases := []struct {
+		name, link, inside, outside, save, escaped string
+	}{
+		{"a directory link", "link", "inside", "", "link/model.sysml", "model.sysml"},
+		{"a file link", "link.sysml", filepath.Join("inside", "target.sysml"), "target.sysml", "link.sysml", "target.sysml"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root, outside := t.TempDir(), t.TempDir()
+			if err := os.MkdirAll(filepath.Join(root, "inside"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			for _, p := range []string{filepath.Join(root, "inside", "target.sysml"), filepath.Join(outside, "target.sysml")} {
+				if err := os.WriteFile(p, []byte("package Untouched;\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			link := filepath.Join(root, tc.link)
+			if err := os.Symlink(filepath.Join(root, tc.inside), link); err != nil {
+				t.Skip(err)
+			}
+			m := mustManager(t, root, func() (*repl.Session, error) { return repl.NewSession(), nil })
+			sess, err := m.Get("")
+			if err != nil {
+				t.Fatal(err)
+			}
+			path, err := m.Resolve(tc.save)
+			if err != nil {
+				t.Fatalf("Resolve(%s) while the link is inside the root = %v", tc.save, err)
+			}
+			// The link is repointed out of the root after the guard passed and
+			// before the write, as a concurrent actor could do.
+			repointed := false
+			sess.SetFileGuard(func(path string, exempt []string) error {
+				err := m.Guard(path, exempt)
+				if err := os.Remove(link); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(filepath.Join(outside, tc.outside), link); err != nil {
+					t.Fatal(err)
+				}
+				repointed = true
+				return err
+			})
+			sess.Submit("package Hijacked { part def P; }")
+			lines, written, err := sess.Save(path)
+			if !repointed {
+				t.Fatal("the guard was not asked before the write")
+			}
+			if written || err == nil || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "outside the workspace root") {
+				t.Errorf("Save(%s) through a repointed link = %v, %v, %v; want a refusal naming the path", path, lines, written, err)
+			}
+			if got, err := os.ReadFile(filepath.Join(outside, tc.escaped)); !os.IsNotExist(err) && string(got) != "package Untouched;\n" {
+				t.Errorf("the save landed outside the root: %q, %v", got, err)
+			}
+			if got, _ := os.ReadFile(filepath.Join(root, "inside", "target.sysml")); string(got) != "package Untouched;\n" {
+				t.Errorf("the file the link pointed at before was written: %q", got)
+			}
+			entries, _ := os.ReadDir(outside)
+			if len(entries) != 1 {
+				t.Errorf("the save left %d entries outside the root; want the one planted there", len(entries))
+			}
+		})
+	}
+}
+
+func TestASaveInsideTheRootKeepsTheFileModeAndContent(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "kept.sysml")
+	if err := os.WriteFile(path, []byte("package Old;\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	cs := connect(t, root)
+	must(t, cs, "session_submit", args("text", "package Kept { part def P; }"), nil)
+	var saved SaveResult
+	must(t, cs, "session_save", args("path", "kept.sysml", "apply", true), &saved)
+	if !saved.Applied || !strings.Contains(saved.Text, "replaced the existing file") {
+		t.Errorf("save over an existing file = %+v", saved)
+	}
+	if data, err := os.ReadFile(path); err != nil || !strings.Contains(string(data), "part def P") {
+		t.Errorf("written file = %q, %v", data, err)
+	}
+	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o640 {
+		t.Errorf("mode = %v, %v; want the existing 0640 kept", info.Mode(), err)
+	}
+	entries, _ := os.ReadDir(root)
+	if len(entries) != 1 {
+		t.Errorf("the root holds %d entries; want the file and no temporary left behind", len(entries))
+	}
+}
