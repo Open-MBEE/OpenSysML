@@ -54,7 +54,7 @@ Never commit a token or paste one into a report. The harness reads it from the e
 
 ```bash
 FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN="$FLEXO_INTEROP_TOKEN" \
-  go test -C tools -count=1 ./referee/flexo -run TestFlexoInterop
+  go test -C tools -count=1 ./referee/flexo -run 'TestFlexoInterop$|TestFlexoInteropApply'
 ```
 
 About 10–20 s against a local stack. Override `FLEXO_LAYER1_URL`, `FLEXO_SYSMLV2_URL` or
@@ -68,7 +68,7 @@ interoperability statement:
 
 ```bash
 FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN="$FLEXO_INTEROP_TOKEN" \
-  go test -C tools -count=1 ./referee/flexo -run TestFlexoInterop -update-flexo
+  go test -C tools -count=1 ./referee/flexo -run 'TestFlexoInterop$' -update-flexo
 git diff tools/referee/flexo/testdata/interop_expected.txt
 ```
 
