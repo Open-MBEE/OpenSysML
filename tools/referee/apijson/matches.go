@@ -46,15 +46,6 @@ func (r *RootMatches) fate(key string) string {
 	return "absent"
 }
 
-func (r *RootMatches) metaclass(key string) string {
-	for _, m := range []map[string]string{r.Matched, r.PilotOnly, r.OursOnly} {
-		if typ := m[key]; typ != "" {
-			return typ
-		}
-	}
-	return ""
-}
-
 func readMatches(path string) (*Matches, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
