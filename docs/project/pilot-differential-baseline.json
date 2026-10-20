@@ -91,11 +91,11 @@
   "totals": {
     "files": 912,
     "filesFullyAgreeing": 510,
-    "agreement": 1088,
-    "severityMismatch": 7,
-    "openSysMLOnly": 370,
-    "pilotOnly": 2446,
-    "openSysMLDiagnostics": 1465,
+    "agreement": 1085,
+    "severityMismatch": 11,
+    "openSysMLOnly": 366,
+    "pilotOnly": 2445,
+    "openSysMLDiagnostics": 1462,
     "pilotDiagnostics": 3541
   },
   "roots": [
@@ -723,11 +723,11 @@
       "totals": {
         "files": 511,
         "filesFullyAgreeing": 149,
-        "agreement": 1040,
-        "severityMismatch": 2,
-        "openSysMLOnly": 54,
-        "pilotOnly": 2353,
-        "openSysMLDiagnostics": 1096,
+        "agreement": 1037,
+        "severityMismatch": 6,
+        "openSysMLOnly": 50,
+        "pilotOnly": 2352,
+        "openSysMLDiagnostics": 1093,
         "pilotDiagnostics": 3395
       },
       "files": [
@@ -876,18 +876,11 @@
               "line": 11,
               "severity": "error",
               "category": "syntax",
-              "count": 2
-            }
-          ],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 17,
-              "severity": "error",
-              "category": "syntax",
               "count": 1
             }
           ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
               "line": 5,
@@ -906,6 +899,12 @@
               "severity": "error",
               "category": "kind-mismatch",
               "count": 2
+            },
+            {
+              "line": 11,
+              "severity": "error",
+              "category": "syntax",
+              "count": 1
             },
             {
               "line": 11,
@@ -2605,14 +2604,7 @@
             }
           ],
           "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 8,
-              "severity": "error",
-              "category": "syntax",
-              "count": 1
-            }
-          ],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
               "line": 4,
@@ -9852,15 +9844,17 @@
               "count": 2
             }
           ],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
+          "severityMismatch": [
             {
               "line": 9,
-              "severity": "error",
               "category": "syntax",
+              "openSysMLSeverity": "warning",
+              "pilotSeverity": "error",
               "count": 1
-            },
+            }
+          ],
+          "openSysMLOnly": [],
+          "pilotOnly": [
             {
               "line": 14,
               "severity": "warning",
@@ -11569,18 +11563,11 @@
               "line": 11,
               "severity": "error",
               "category": "syntax",
-              "count": 2
-            }
-          ],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 20,
-              "severity": "error",
-              "category": "syntax",
               "count": 1
             }
           ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
               "line": 5,
@@ -11610,6 +11597,12 @@
               "line": 11,
               "severity": "error",
               "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 11,
+              "severity": "error",
+              "category": "syntax",
               "count": 1
             },
             {
@@ -15114,18 +15107,11 @@
               "line": 9,
               "severity": "error",
               "category": "syntax",
-              "count": 2
-            }
-          ],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 9,
-              "severity": "error",
-              "category": "syntax",
               "count": 1
             }
           ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
               "line": 8,
@@ -15144,6 +15130,12 @@
               "severity": "error",
               "category": "kind-mismatch",
               "count": 2
+            },
+            {
+              "line": 9,
+              "severity": "error",
+              "category": "syntax",
+              "count": 1
             },
             {
               "line": 9,
@@ -16113,15 +16105,17 @@
               "count": 1
             }
           ],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
+          "severityMismatch": [
             {
               "line": 4,
-              "severity": "error",
               "category": "syntax",
+              "openSysMLSeverity": "warning",
+              "pilotSeverity": "error",
               "count": 1
-            },
+            }
+          ],
+          "openSysMLOnly": [],
+          "pilotOnly": [
             {
               "line": 9,
               "severity": "error",
@@ -16152,7 +16146,15 @@
               "count": 1
             }
           ],
-          "severityMismatch": [],
+          "severityMismatch": [
+            {
+              "line": 4,
+              "category": "syntax",
+              "openSysMLSeverity": "warning",
+              "pilotSeverity": "error",
+              "count": 1
+            }
+          ],
           "openSysMLOnly": [
             {
               "line": 11,
@@ -16184,7 +16186,7 @@
               "line": 4,
               "severity": "error",
               "category": "syntax",
-              "count": 3
+              "count": 2
             },
             {
               "line": 5,
@@ -16246,14 +16248,22 @@
               "count": 1
             }
           ],
-          "severityMismatch": [],
+          "severityMismatch": [
+            {
+              "line": 4,
+              "category": "syntax",
+              "openSysMLSeverity": "warning",
+              "pilotSeverity": "error",
+              "count": 1
+            }
+          ],
           "openSysMLOnly": [],
           "pilotOnly": [
             {
               "line": 4,
               "severity": "error",
               "category": "syntax",
-              "count": 3
+              "count": 2
             },
             {
               "line": 5,
@@ -25295,11 +25305,11 @@
     "totals": {
       "files": 912,
       "filesFullyAgreeing": 511,
-      "agreement": 1088,
-      "severityMismatch": 7,
-      "openSysMLOnly": 369,
-      "pilotOnly": 2446,
-      "openSysMLDiagnostics": 1464,
+      "agreement": 1085,
+      "severityMismatch": 11,
+      "openSysMLOnly": 365,
+      "pilotOnly": 2445,
+      "openSysMLDiagnostics": 1461,
       "pilotDiagnostics": 3541
     },
     "findings": [
