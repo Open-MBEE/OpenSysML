@@ -300,6 +300,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml in.txt -convert ttl -from sysml", "Name the input format explicitly"),
 				usage.Ex("sysml flexo://demo/main -convert sysml", "A Flexo branch as notation"),
 				usage.Ex("sysml model.sysml -convert ttl -o flexo://demo/main", "Push the graph to the branch"),
+				usage.Ex("sysml -stdlib -convert ttl -o flexo://lib/main", "Publish the standard library"),
 			},
 			Paragraphs: []string{
 				"The input format is taken from the file extension (.sysml, .kerml, " +
@@ -314,12 +315,17 @@ func doc() usage.Doc {
 					"http(s)://host[:port][/base]/projects/{project}/branches/{branch}, " +
 					"or flexo://{project}/{branch}, both naming the endpoint " +
 					"FLEXO_SYSMLV2_URL configures. A branch input is read as its head " +
-					"commit's RDF graph; a branch -o takes the -convert ttl output as " +
-					"the branch's whole model graph, conditional on the branch's etag, " +
-					"and refuses a head the sync state says has moved. Both need the " +
+					"commit's RDF graph; a branch -o takes the -convert ttl or api-json " +
+					"graph as the branch's whole model graph, conditional on the branch's " +
+					"etag, and refuses a head the sync state says has moved. Both need the " +
 					"bearer token in FLEXO_INTEROP_TOKEN and record the head commit " +
 					"in the sync state (-sync-state, or <output>.sync.json on a read / " +
-					"<model>.sync.json on a push).",
+					"<model>.sync.json on a push); FLEXO_TIMEOUT bounds one request " +
+					"(60s unless set), and a whole-library graph needs minutes.",
+				"-stdlib converts the bundled standard library instead — every KerML " +
+					"and SysML file as one model, each element under its normative id — " +
+					"to a file or to a branch, publishing the library as a project other " +
+					"projects type against by id.",
 				// Printed rather than restated, so the help cannot drift from what a
 				// conversion reports.
 				convert.ExperimentalNotice,
@@ -715,6 +721,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&importMap, "import-map", "Read the -import before it onto elements and features as this JSON mapping file says")
 	fs.Var(&importFormat, "import-format", "Read the -import before it as csv, tsv, json or jsonl rather than as its extension says")
 	fs.BoolVar(&importDryRun, "import-dry-run", false, "Report the values -import would set, changing and writing nothing")
+	fs.BoolVar(&stdlibModel, "stdlib", false, stdlibUsage())
 	fs.StringVar(&idForm, "id", "", "With -convert ttl or api-json, how derived element ids are spelled: qualified (default) derives each from its qualified name; uuid mints name-based uuids under each root package, as the library convention does")
 	fs.StringVar(&outputPath, "output", "", outputUsage())
 	fs.StringVar(&outputPath, "o", "", outputUsage())
@@ -837,6 +844,7 @@ func optionGroups() []usage.OptionGroup {
 		Title: "Converting and migrating",
 		Options: []usage.Option{
 			usage.Opt("convert", formatArg),
+			usage.Opt("stdlib", ""),
 			usage.Opt("metaclass-graph", ""),
 			usage.Opt("migrate", formatArg),
 			usage.Opt("from", formatArg),
