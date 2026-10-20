@@ -53,9 +53,8 @@ type Record struct {
 	Recorded string `json:"recorded,omitempty"`
 }
 
-// Tool is one side of a comparison: a reference bridge, with the pilot release
-// it was built against, or this repository's own writer, which has none; either
-// is identified by the digest of the in-repository source it is compiled from.
+// Tool is one side of a comparison, identified by the digest of its in-repository
+// source: a reference bridge (with its pilot release) or this repository's writer.
 type Tool struct {
 	Name         string `json:"name"`
 	Source       string `json:"source"`
@@ -146,10 +145,8 @@ func digestFiles(dir string, rel []string, digestFile func(string) (string, erro
 	return digestPrefix + hex.EncodeToString(sum.Sum(nil)), nil
 }
 
-// DigestPackage is the digest of a Go package's production sources: its
-// non-test .go files, named relative to dir and read with CRLF folded to LF, so
-// a baseline states which writer produced its side of a comparison without
-// depending on the checkout's path or line-ending conversion.
+// DigestPackage digests a Go package's non-test .go files, named relative to
+// dir and read with CRLF folded to LF, so the result is checkout-independent.
 func DigestPackage(dir string) (string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {

@@ -25,9 +25,8 @@ var manualExamples = diff.Root{Name: "manual-examples", Dir: "docs/manual/exampl
 // roots are the differential's corpus roots plus the manual's examples.
 func roots() []diff.Root { return append(diff.Roots(), manualExamples) }
 
-// provenance identifies the run's inputs: the pilot pin, the bridge source the
-// exporter is compiled from, the package our writer is compiled from, and every
-// non-empty root by its files' digest.
+// provenance identifies the run's inputs: the pilot pin, the sources the pilot
+// exporter and our writer are compiled from, and every non-empty root's digest.
 func provenance(repo string) (baseline.Record, error) {
 	pin, err := baseline.ReadPin(repo)
 	if err != nil {
