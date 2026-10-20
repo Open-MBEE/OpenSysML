@@ -1,9 +1,6 @@
 package view
 
 import (
-	"sort"
-
-	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -32,8 +29,6 @@ const (
 	RelatedFlows RelatedKind = "flows"
 	// RelatedBindings are the elements bindings join sym to.
 	RelatedBindings RelatedKind = "bindings"
-	// RelatedTransitions are the states sym's transitions reach or leave.
-	RelatedTransitions RelatedKind = "transitions"
 	// RelatedSuccessions are the actions sym's successions reach or leave.
 	RelatedSuccessions RelatedKind = "successions"
 )
@@ -42,7 +37,7 @@ const (
 var relatedKinds = []RelatedKind{
 	RelatedGeneralizations, RelatedSpecializations, RelatedTypes, RelatedTypedUsages,
 	RelatedOwner, RelatedOwnedMembers, RelatedConnections, RelatedFlows, RelatedBindings,
-	RelatedTransitions, RelatedSuccessions,
+	RelatedSuccessions,
 }
 
 // relatedLabels say what each group holds, as a client lists them.
@@ -56,7 +51,6 @@ var relatedLabels = map[RelatedKind]string{
 	RelatedConnections:     "Connections (connected to)",
 	RelatedFlows:           "Flows (flows from or to)",
 	RelatedBindings:        "Bindings (bound to)",
-	RelatedTransitions:     "Transitions (states reached or left)",
 	RelatedSuccessions:     "Successions (actions reached or left)",
 }
 
@@ -77,8 +71,10 @@ type RelatedGroup struct {
 // Related groups the model's own elements related to sym by the relationships
 // a rendering draws edges for: its generalizations and specializations, its
 // types and the usages it types, its owner and owned members, the elements
-// connectors, flows and bindings join it to, and the states or actions its
-// transitions or successions reach or leave. Empty groups are left out.
+// connectors, flows and bindings join it to, and the actions its successions
+// reach or leave. Empty groups are left out. A state's transitions are not a
+// group: a state nested in its machine is drawn only within the machine, so
+// including the states a transition joins draws nothing of their own.
 func (r *Renderer) Related(sym *symbols.Symbol) []RelatedGroup {
 	if sym == nil {
 		return nil
@@ -87,7 +83,6 @@ func (r *Renderer) Related(sym *symbols.Symbol) []RelatedGroup {
 	c.generalizations()
 	c.ownership()
 	c.modelWide()
-	c.transitions()
 	c.successions()
 	var out []RelatedGroup
 	for _, kind := range relatedKinds {
@@ -132,45 +127,55 @@ func (c *relatedCollector) library(sym *symbols.Symbol) bool {
 // generalizations are what the element's own relationships name: the targets a
 // tree or general rendering draws specialization and typing edges to.
 func (c *relatedCollector) generalizations() {
-	for _, rel := range semantics.RelationshipsOf(c.sym) {
-		if rel == nil || rel.Target == nil {
-			continue
-		}
-		switch rel.Kind {
-		case ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines:
-			if target, ok := c.r.generalizationTarget(c.sym, rel); ok {
-				c.add(RelatedGeneralizations, target)
-			}
-		}
+	for _, target := range c.generalizationTargets(c.sym) {
+		c.add(RelatedGeneralizations, target)
 	}
 	for _, typ := range c.r.model.DeclaredTypes(c.sym) {
 		c.add(RelatedTypes, typ)
 	}
 }
 
-// ownership is the element declaring sym and the elements sym declares.
+// generalizationKinds are the relationship kinds a generalization edge draws.
+var generalizationKinds = []ast.RelationshipKind{ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines}
+
+// generalizationTargets are the elements sym specializes, subsets or redefines:
+// read from its declaration, or from the relationship facts recorded for a
+// symbol of a closed document, which keeps no declaration.
+func (c *relatedCollector) generalizationTargets(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym.Recorded() {
+		var out []*symbols.Symbol
+		for _, kind := range generalizationKinds {
+			out = append(out, c.r.model.RecordedRelationshipTargets(sym, kind)...)
+		}
+		return out
+	}
+	var out []*symbols.Symbol
+	for _, rel := range semantics.RelationshipsOf(sym) {
+		if rel == nil || rel.Target == nil {
+			continue
+		}
+		switch rel.Kind {
+		case ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines:
+			if target, ok := c.r.generalizationTarget(sym, rel); ok {
+				out = append(out, target)
+			}
+		}
+	}
+	return out
+}
+
+// ownership is the element declaring sym and the elements sym's body declares
+// that a rendering shows as content: a Layout annotation or a view's render
+// member is left out, as the tree walk leaves them out.
 func (c *relatedCollector) ownership() {
 	if c.sym.OwnerScope != nil {
 		c.add(RelatedOwner, c.sym.OwnerScope.Owner())
 	}
-	for _, member := range ownedMembers(c.sym) {
-		c.add(RelatedOwnedMembers, member)
-	}
-}
-
-// ownedMembers are the elements sym's body declares, in declaration order.
-func ownedMembers(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym.Scope == nil {
-		return nil
-	}
-	var out []*symbols.Symbol
-	for _, member := range append(append([]*symbols.Symbol(nil), sym.Scope.Members()...), sym.Scope.AnonymousMembers()...) {
-		if member.OwnerScope == sym.Scope {
-			out = append(out, member)
+	for _, member := range c.r.containedMembers(c.sym) {
+		if member.OwnerScope == c.sym.Scope {
+			c.add(RelatedOwnedMembers, member)
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].DeclSpan.Offset < out[j].DeclSpan.Offset })
-	return out
 }
 
 // modelWide walks the model's own elements once for what names sym from the
@@ -181,21 +186,14 @@ func (c *relatedCollector) modelWide() {
 		if elem == c.sym {
 			continue
 		}
-		for _, rel := range semantics.RelationshipsOf(elem) {
-			if rel == nil || rel.Target == nil {
-				continue
+		for _, target := range c.generalizationTargets(elem) {
+			if target == c.sym {
+				c.add(RelatedSpecializations, elem)
 			}
-			switch rel.Kind {
-			case ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines:
-				if target, ok := c.r.generalizationTarget(elem, rel); ok && target == c.sym {
-					c.add(RelatedSpecializations, elem)
-				}
-			case ast.RelTyping:
-				for _, typ := range c.r.model.DeclaredTypes(elem) {
-					if typ == c.sym {
-						c.add(RelatedTypedUsages, elem)
-					}
-				}
+		}
+		for _, typ := range c.r.model.DeclaredTypes(elem) {
+			if typ == c.sym {
+				c.add(RelatedTypedUsages, elem)
 			}
 		}
 		if c.r.drawsConnector(elem) {
@@ -261,39 +259,6 @@ func (c *relatedCollector) endAnchors(scope *symbols.Scope, attachment ast.Node)
 	return [2]*symbols.Symbol{from, feature}
 }
 
-// transitions are the states the transitions of the state machine owning sym
-// reach from it or leave for it, read from the lowered graph a state rendering
-// draws its edges from.
-func (c *relatedCollector) transitions() {
-	if c.sym.Kind != symbols.SymbolStateUsage {
-		return
-	}
-	machine := c.behaviorOwner(symbols.SymbolStateDef, symbols.SymbolStateUsage)
-	if machine == nil {
-		return
-	}
-	graph, err := lower.ToStateGraphWithEndpoints(machine.Decl, declScope(machine), lower.NewLibraryStateTypes(c.r.resolver))
-	if err != nil {
-		return
-	}
-	root := c.documentRoot(machine.DocName)
-	if root == nil {
-		return
-	}
-	stateOf := func(node ast.Node) *symbols.Symbol {
-		return root.DeclaredAt(nodeOrigin(machine.DocName, node).Span)
-	}
-	for src, transitions := range graph.Transitions {
-		for _, transition := range transitions {
-			if stateOf(src) == c.sym {
-				c.add(RelatedTransitions, stateOf(transition.Target))
-			} else if stateOf(transition.Target) == c.sym {
-				c.add(RelatedTransitions, stateOf(src))
-			}
-		}
-	}
-}
-
 // successions are the actions the successions of the action owning sym reach
 // from it or leave for it.
 func (c *relatedCollector) successions() {
@@ -316,7 +281,12 @@ func (c *relatedCollector) successions() {
 
 // behaviorOwner is the nearest element declaring sym whose kind is one of kinds.
 func (c *relatedCollector) behaviorOwner(kinds ...symbols.SymbolKind) *symbols.Symbol {
-	for scope := c.sym.OwnerScope; scope != nil; scope = scope.Owner().OwnerScope {
+	return behaviorOwnerOf(c.sym, kinds...)
+}
+
+// behaviorOwnerOf is the nearest element declaring sym whose kind is one of kinds.
+func behaviorOwnerOf(sym *symbols.Symbol, kinds ...symbols.SymbolKind) *symbols.Symbol {
+	for scope := sym.OwnerScope; scope != nil; scope = scope.Owner().OwnerScope {
 		owner := scope.Owner()
 		if owner == nil {
 			return nil
@@ -330,8 +300,9 @@ func (c *relatedCollector) behaviorOwner(kinds ...symbols.SymbolKind) *symbols.S
 	return nil
 }
 
-func (c *relatedCollector) documentRoot(doc string) *symbols.Scope {
-	idx := c.r.resolver.Index()
+// documentRoot is the scope of the document named, nil without an index.
+func (r *Renderer) documentRoot(doc string) *symbols.Scope {
+	idx := r.resolver.Index()
 	if idx == nil {
 		return nil
 	}

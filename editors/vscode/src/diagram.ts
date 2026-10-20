@@ -844,6 +844,7 @@ class DiagramPanel {
         style,
         hint: renderHint(palette !== undefined && !colours, drawing !== undefined && !styled),
         related: includes && supportsRelated(experimental(client)),
+        include: this.include.length > 0 ? this.include : undefined,
       });
       this.highlightActive();
     } catch (err) {
@@ -924,6 +925,10 @@ class DiagramPanel {
   private receive(message: FromWebview): void {
     switch (message.type) {
       case "ready":
+        // A webview restored after a reload says what it drew besides the view; the panel draws it again.
+        if (message.include !== undefined && this.include.length === 0) {
+          this.include = message.include;
+        }
         this.refresh();
         return;
       case "pick":
@@ -975,9 +980,14 @@ class DiagramPanel {
       void vscode.window.showWarningMessage(`${node?.name || "This node"} has no qualified name to look up related elements by.`);
       return;
     }
+    // The checklist is for the view on screen now; one that changes meanwhile starts afresh, and the answer is dropped.
+    const view = this.selected;
     try {
       const params: RelatedElementsParams = { textDocument: { uri: this.docURI.toString() }, element: node.fqn };
       const result = await client.sendRequest<RelatedElementsResult>(RELATED_ELEMENTS_METHOD, params);
+      if (this.selected !== view) {
+        return;
+      }
       const drawn = new Set(this.rendering.nodes.flatMap((drawnNode) => (drawnNode.fqn === undefined ? [] : [drawnNode.fqn])));
       const items = relatedPickItems(result, this.include, drawn);
       if (items.length === 0) {
@@ -991,7 +1001,7 @@ class DiagramPanel {
         matchOnDescription: true,
         matchOnDetail: true,
       });
-      if (picked === undefined) {
+      if (picked === undefined || this.selected !== view) {
         return;
       }
       this.include = includeAfterPick(this.include, items, picked);

@@ -105,8 +105,8 @@ REPL's `%render` command prints, as an SVG canvas of its own, and redraws as you
 - **Related elements.** *Show related elements…* on a node's right-click menu lists what relates
   to it, grouped by relationship kind with a count for each — what it specializes and what
   specializes it, the definitions typing it and the usages it types, its owner and owned
-  members, the elements connections, flows and bindings join it to, the states or actions its
-  transitions or successions reach — and the elements you check are drawn in the panel with the
+  members, the elements connections, flows and bindings join it to, the actions its successions
+  reach — and the elements you check are drawn in the panel with the
   edges between them and what is already drawn, laid out like any node the model does not place.
   A node drawn this way has a dashed border; *Hide from diagram* leaves it out again (the entry is
   greyed on a node the view itself draws, which only an edit to the view can remove). The list is

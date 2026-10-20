@@ -8,12 +8,14 @@ import (
 )
 
 const relatedModel = `package Rel {
+	private import DiagramLayout::*;
 	part def Vehicle;
 	part def Car :> Vehicle;
 	part def Truck :> Vehicle;
 	part def Engine;
 	part def Wheel;
 	part car : Car {
+		metadata Layout about engine { x = 10; y = 20; }
 		part engine : Engine;
 		part wheel : Wheel;
 		part frontWheel :> wheel;
@@ -101,12 +103,11 @@ func TestRelatedGroupsStructuralRelationships(t *testing.T) {
 	})
 }
 
-// A state relates to the states its machine's transitions reach from it and
-// leave for it; an action to the actions its owner's successions join it to.
+// An action relates to the actions its owner's successions join it to; a state
+// has no transitions group, being drawn only within its machine.
 func TestRelatedGroupsBehaviorRelationships(t *testing.T) {
 	wantRelated(t, "Rel::Lifecycle::on", map[RelatedKind]string{
-		RelatedOwner:       "Rel::Lifecycle",
-		RelatedTransitions: "Rel::Lifecycle::off Rel::Lifecycle::broken",
+		RelatedOwner: "Rel::Lifecycle",
 	})
 	wantRelated(t, "Rel::Build::paint", map[RelatedKind]string{
 		RelatedOwner:       "Rel::Build",
@@ -129,4 +130,43 @@ func TestRelatedKindsListEveryGroupKind(t *testing.T) {
 	if got := r.Related(none); got != nil {
 		t.Errorf("Related(nil) = %v, want nil", got)
 	}
+}
+
+// Actions of one action exposed as roots of their own are joined by its
+// successions between them; beside the action itself they take no root edge.
+func TestActionRootsAreJoinedByTheirOwnersSuccessions(t *testing.T) {
+	r, idx := loadSources(t, []string{"rel.sysml"}, [][]byte{[]byte(relatedModel)})
+	actions, err := r.RenderExposed([]*symbols.Symbol{lookup(t, idx, "Rel::Build::weld"), lookup(t, idx, "Rel::Build::ship"), lookup(t, idx, "Rel::Build::paint")}, KindAction, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(actions.Roots) != 3 || len(actions.Edges) != 2 {
+		t.Fatalf("actions: roots %d, edges %+v, notices %v; want weld -> paint -> ship", len(actions.Roots), actions.Edges, actions.Notices)
+	}
+	for i, want := range [][2]string{{"Rel::Build::weld", "Rel::Build::paint"}, {"Rel::Build::paint", "Rel::Build::ship"}} {
+		edge := actions.Edges[i]
+		if edge.Kind != EdgeSuccession || actions.Roots[rootIndex(actions, edge.From)].Name != want[0] || actions.Roots[rootIndex(actions, edge.To)].Name != want[1] {
+			t.Errorf("edge %d = %+v, want succession %s -> %s", i, edge, want[0], want[1])
+		}
+	}
+	whole, err := r.RenderExposed([]*symbols.Symbol{lookup(t, idx, "Rel::Build"), lookup(t, idx, "Rel::Build::paint"), lookup(t, idx, "Rel::Build::ship")}, KindAction, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, root := range whole.Roots[1:] {
+		for _, edge := range whole.Edges {
+			if edge.From == root.ID || edge.To == root.ID {
+				t.Errorf("an action exposed beside its owner takes no root edge: %+v", edge)
+			}
+		}
+	}
+}
+
+func rootIndex(rendering *Rendering, id string) int {
+	for i, root := range rendering.Roots {
+		if root.ID == id {
+			return i
+		}
+	}
+	return -1
 }

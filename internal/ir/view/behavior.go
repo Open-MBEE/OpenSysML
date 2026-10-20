@@ -31,6 +31,32 @@ func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol,
 	}
 }
 
+// rootsByOwner groups the roots of kind rootKind by the nearest owner of one of
+// ownerKinds declaring them, keeping only owners with two or more such roots
+// and not drawn themselves, whose body the roots are then drawn apart from.
+func rootsByOwner(roots map[*symbols.Symbol]*Node, rootKind symbols.SymbolKind, ownerKinds ...symbols.SymbolKind) map[*symbols.Symbol]map[*symbols.Symbol]*Node {
+	out := map[*symbols.Symbol]map[*symbols.Symbol]*Node{}
+	for sym, node := range roots {
+		if sym.Kind != rootKind {
+			continue
+		}
+		owner := behaviorOwnerOf(sym, ownerKinds...)
+		if owner == nil || roots[owner] != nil {
+			continue
+		}
+		if out[owner] == nil {
+			out[owner] = map[*symbols.Symbol]*Node{}
+		}
+		out[owner][sym] = node
+	}
+	for owner, group := range out {
+		if len(group) < 2 {
+			delete(out, owner)
+		}
+	}
+	return out
+}
+
 // renderState builds one state machine or state node with shared IDs.
 func (r *Renderer) renderState(view *symbols.Symbol, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) *Node {
@@ -545,9 +571,34 @@ func escaped(text string, i int) bool {
 // outside any view.
 func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
+	roots := map[*symbols.Symbol]*Node{}
 	for _, elem := range exposed {
 		if node, ok := r.renderAction(view, elem, ids, out, nil); ok {
 			out.Roots = append(out.Roots, node)
+			roots[elem] = node
+		}
+	}
+	r.rootSuccessionEdges(view, roots, out)
+}
+
+// rootSuccessionEdges draws the successions of one action between actions of
+// it exposed as roots of their own, read from the action declaring them.
+func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.Symbol]*Node, out *Rendering) {
+	for owner, actions := range rootsByOwner(roots, symbols.SymbolActionUsage, symbols.SymbolActionDef, symbols.SymbolActionUsage) {
+		for _, succession := range r.model.ActionSuccessions(owner) {
+			from, to := actions[succession.Source.Symbol], actions[succession.Target.Symbol]
+			if from == nil || to == nil || from == to || succession.Decl == nil {
+				continue
+			}
+			doc := owner.DocName
+			if succession.Owner != nil {
+				doc = succession.Owner.DocName
+			}
+			out.Edges = append(out.Edges, Edge{
+				From: from.ID, To: to.ID, Kind: EdgeSuccession, Origin: nodeOrigin(doc, succession.Decl),
+				Route: r.declaredRouteOf(view, owner, succession.Decl, out),
+				Style: r.declaredEdgeDress(view, owner, succession.Decl, from.ID, to.ID, out),
+			})
 		}
 	}
 }

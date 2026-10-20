@@ -56,7 +56,7 @@ const menu = document.getElementById("menu") as HTMLUListElement;
 
 const state = JSON.parse(body.dataset.state ?? "{}") as { uri?: string; avoid?: string };
 const documentURI = state.uri ?? "";
-const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string };
+const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string; include?: string[] };
 let selected = saved.view ?? "";
 // A rendering saved by an older extension is normalized like a fresh one, and
 // drawn in the look it was, or the default when it saved none.
@@ -82,6 +82,8 @@ let paletteEntries: MenuItem[] = [];
 let drawn = 0;
 // Whether the server answers what relates to a node, so a node's menu offers to show related elements.
 let related = false;
+// What the panel draws besides the view, as the extension last said; kept so a reload restores it.
+let include: string[] = saved.include ?? [];
 
 fillStyles();
 applyStyle(style);
@@ -175,6 +177,7 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
       // The number names what is on screen; a drawing that failed left the last one up.
       applyStyle(message.style);
       related = message.related === true;
+      include = message.include ?? [];
       if (draw(message.result)) {
         drawn = message.drawn;
         if (message.hint !== undefined) {
@@ -202,7 +205,7 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
   }
 });
 
-vscode.postMessage({ type: "ready" });
+vscode.postMessage({ type: "ready", include: include.length > 0 ? include : undefined });
 
 // fillPicker lists the document's views and the pseudo-views, marking the ones
 // whose rendering kind the server does not produce with why.
@@ -764,5 +767,5 @@ function highlight(id: string | undefined): void {
 
 // remember keeps what the panel is showing, so a window reload restores it.
 function remember(): void {
-  vscode.setState({ uri: documentURI, view: selected, last, style });
+  vscode.setState({ uri: documentURI, view: selected, last, style, include });
 }

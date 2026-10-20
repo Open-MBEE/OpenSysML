@@ -389,9 +389,9 @@ specializes, subsets or redefines), `specializations` (what specializes,
 subsets or redefines it), `types` (the definitions typing it), `typedUsages`
 (the usages it types), `owner`, `ownedMembers`, `connections`, `flows` and
 `bindings` (the elements connectors, flows and bindings join it to — the part
-an end is written from, `car` of `car.port`), `transitions` (the states its
-machine's transitions reach from it or leave for it) and `successions` (the
-actions its owner's successions join it to). They are the relationships a
+an end is written from, `car` of `car.port`) and `successions` (the actions its
+owner's successions join it to; a state has no transitions group, being drawn
+only within its machine). They are the relationships a
 rendering draws edges for, read from the same model information, so including
 a listed element draws the edge. Each group has a `label` for a client listing
 it, and each element its `fqn` (what `include` takes), `name`, `kind` (the

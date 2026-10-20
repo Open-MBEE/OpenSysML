@@ -439,8 +439,8 @@ export interface RelatedElementsResult {
 
 /** A message the extension sends the webview; `drawn` counts the panel's drawings and names this one. */
 export type ToWebview =
-  /** `related` says whether the server answers what relates to a node, so its menu offers to show related elements. */
-  | { type: "render"; result: RenderResult; selected: string; drawn: number; style: DiagramStyle; hint?: string; related?: boolean }
+  /** `related` says whether the server answers what relates to a node, so its menu offers to show related elements; `include` is what the panel draws besides the view, kept in the webview's state so a reload restores it. */
+  | { type: "render"; result: RenderResult; selected: string; drawn: number; style: DiagramStyle; hint?: string; related?: boolean; include?: string[] }
   | { type: "views"; views: PickerEntry[]; selected: string }
   /** The look to redraw the diagram on screen in, ahead of the rendering coloured for it. */
   | { type: "style"; style: DiagramStyle }
@@ -471,7 +471,8 @@ export interface EdgePlacement {
 
 /** A message the webview sends the extension; `drawn` is the drawing a message's ids name. */
 export type FromWebview =
-  | { type: "ready" }
+  /** `include` is what the webview's saved state says the panel drew besides the view, restored after a reload. */
+  | { type: "ready"; include?: string[] }
   | { type: "reveal"; id: string; drawn: number }
   /** A located table row opens its element; `row` indexes the drawing's rows. */
   | { type: "revealRow"; row: number; drawn: number }
