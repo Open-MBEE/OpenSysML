@@ -589,6 +589,46 @@ func TestTransitionFootprintsCoverNamedTerminateNode(t *testing.T) {
 	}
 }
 
+// A branch out of a pseudostate into a named terminate node, taken by a transition
+// whose origin is unknown, carries the node body's places and the completion entered.
+func TestBranchFootprintsCoverNamedTerminateNode(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			part worker;
+			state Machine {
+				attribute alarm : Integer = 0;
+				attribute level : Integer = 0;
+				entry; then pick;
+				choice pick;
+				transition first pick if level > 1 then halt;
+				transition first pick if level <= 1 then quiet;
+				action halt terminate worker { assign alarm := level; }
+				state quiet;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	pick := graph.Pseudostates[0]
+	halt := graph.BranchFootprints()[graph.Transitions[pick][0]]
+	if !hasPlace(halt.Writes, "alarm") || !hasPlace(halt.Reads, "level") {
+		t.Fatalf("halt branch reads %v writes %v, want the node body's level read and alarm written",
+			placeNames(halt.Reads), placeNames(halt.Writes))
+	}
+	completion := graph.TerminateCompletion[terminateNamed(t, graph, "halt")]
+	if !hasPlace(halt.Writes, completion.Name) {
+		t.Fatalf("halt branch writes %v, want the activity of the completion vertex %s", placeNames(halt.Writes), completion.Name)
+	}
+	if !halt.Dynamic {
+		t.Fatal("ending another occurrence reaches beyond the machine: the footprint must be dynamic")
+	}
+	quiet := graph.BranchFootprints()[graph.Transitions[pick][1]]
+	if hasPlace(quiet.Writes, "alarm") || quiet.Dynamic {
+		t.Fatalf("quiet branch writes %v dynamic %v, want neither the node body nor dynamism", placeNames(quiet.Writes), quiet.Dynamic)
+	}
+}
+
 func terminateNamed(t *testing.T, graph *StateGraph, name string) *ast.Usage {
 	t.Helper()
 	for usage := range graph.TerminateBehaviors {
