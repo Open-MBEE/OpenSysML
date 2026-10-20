@@ -49,6 +49,9 @@ within these records and means nothing outside this repository.
 - **[Validation-constraint census](validation-constraints.md)** — which of the pilot's named
   validation constraints OpenSysML reports, each mapped to the pass and message that reports it,
   with a violating model as evidence; the figures and the name list are gated in CI
+- **[Constraint census triage](constraint-census-triage.md)** — the census's ❔ unknown rows
+  triaged against the Beta 2 specifications and the pinned pilot: which are already reported
+  under another name, which cannot be violated in text, and which are launch-ready gaps.
 - **[SysML v1 to v2 transformation census](sysml-v1-transformation-census.md)** — which of the OMG
   transformation model's 783 mapping classes the migrator carries out, each tied to the code and
   test that backs it; the figures and the mapping list are gated in CI
