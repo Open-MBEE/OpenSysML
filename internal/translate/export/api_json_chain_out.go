@@ -22,7 +22,7 @@ func apiJSONOrderedFeatureChain(
 	for _, relationship := range graph.ObjectsView(subject, rdf.SysML+pOwnedRelationship) {
 		appendRelationship(relationship)
 	}
-	for _, relationship := range nameIndex.chainOwners[subject.Value] {
+	for _, relationship := range nameIndex.chainRelationships(subject) {
 		appendRelationship(relationship)
 	}
 	for _, relationship := range relationships {
@@ -33,7 +33,7 @@ func apiJSONOrderedFeatureChain(
 		}
 		target := targets[0]
 		if target.IsLiteral() {
-			if resolved, ok := nameIndex.chainTargets[relationship.Value]; ok {
+			if resolved, ok := nameIndex.chainTarget(relationship); ok {
 				target = resolved.target
 			}
 		}

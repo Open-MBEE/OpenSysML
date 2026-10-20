@@ -14,20 +14,28 @@ import (
 )
 
 type apiJSONNameIndex struct {
-	chainTargets  map[string]apiJSONChainTarget
-	chainOwners   map[string][]rdf.Term
-	catalogTypeMu sync.Mutex
-	catalogModel  *semantics.Model
-	catalogTypes  map[string][]rdf.Term
-	subjectsByID  map[string]rdf.Term
-	expressionIDs map[string]bool
-	catalog       *identity.Catalog
-	catalogNames  *apiJSONCatalogNameIndex
-	owners        map[string]rdf.Term
-	scopes        map[string][]rdf.Term
-	ownedNames    map[apiJSONScopeName][]rdf.Term
-	imports       map[string][]rdf.Term
-	importedNames map[apiJSONScopeName][]rdf.Term
+	subjectSlots        map[string]int
+	subjects            []rdf.Term
+	chainTargets        map[string]apiJSONChainTarget
+	chainTargetsBySlot  []apiJSONChainTarget
+	chainTargetSet      []bool
+	chainOwners         [][]rdf.Term
+	externalChainOwners map[string][]rdf.Term
+	catalogTypeMu       sync.Mutex
+	catalogModel        *semantics.Model
+	catalogTypes        map[string][]rdf.Term
+	subjectsByID        map[string]rdf.Term
+	expressionIDs       map[string]bool
+	catalog             *identity.Catalog
+	catalogNames        *apiJSONCatalogNameIndex
+	owners              []rdf.Term
+	externalOwners      map[string]rdf.Term
+	scopes              [][]rdf.Term
+	scopeSet            []bool
+	externalScopes      map[string][]rdf.Term
+	ownedNames          map[apiJSONScopeName][]rdf.Term
+	imports             [][]rdf.Term
+	importedNames       map[apiJSONScopeName][]rdf.Term
 }
 
 type apiJSONChainTarget struct {
@@ -50,22 +58,44 @@ type apiJSONCatalogNameIndex struct {
 var apiJSONCatalogNameIndexes sync.Map
 
 func newAPIJSONNameIndex(graph *rdf.Graph) *apiJSONNameIndex {
+	return newAPIJSONNameIndexWithSubjectSlots(graph, nil)
+}
+
+func newAPIJSONNameIndexWithSubjectSlots(graph *rdf.Graph, subjectSlots map[string]int) *apiJSONNameIndex {
 	catalog := identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
+	var subjects []rdf.Term
+	if graph != nil {
+		subjects = graph.SubjectsView()
+	}
+	if subjectSlots == nil {
+		subjectSlots = make(map[string]int, len(subjects))
+		for position, subject := range subjects {
+			subjectSlots[subject.Value] = position
+		}
+	}
 	index := &apiJSONNameIndex{
-		catalog:       catalog,
-		catalogNames:  apiJSONCatalogNames(catalog),
-		catalogTypes:  make(map[string][]rdf.Term),
-		subjectsByID:  make(map[string]rdf.Term),
-		expressionIDs: make(map[string]bool),
-		owners:        make(map[string]rdf.Term),
-		scopes:        make(map[string][]rdf.Term),
-		ownedNames:    make(map[apiJSONScopeName][]rdf.Term),
-		imports:       make(map[string][]rdf.Term),
-		importedNames: make(map[apiJSONScopeName][]rdf.Term),
+		subjectSlots:       subjectSlots,
+		subjects:           subjects,
+		chainTargets:       make(map[string]apiJSONChainTarget),
+		chainTargetsBySlot: make([]apiJSONChainTarget, len(subjects)),
+		chainTargetSet:     make([]bool, len(subjects)),
+		chainOwners:        make([][]rdf.Term, len(subjects)),
+		catalog:            catalog,
+		catalogNames:       apiJSONCatalogNames(catalog),
+		catalogTypes:       make(map[string][]rdf.Term),
+		subjectsByID:       make(map[string]rdf.Term),
+		expressionIDs:      make(map[string]bool),
+		owners:             make([]rdf.Term, len(subjects)),
+		scopes:             make([][]rdf.Term, len(subjects)),
+		scopeSet:           make([]bool, len(subjects)),
+		ownedNames:         make(map[apiJSONScopeName][]rdf.Term),
+		imports:            make([][]rdf.Term, len(subjects)),
+		importedNames:      make(map[apiJSONScopeName][]rdf.Term),
 	}
 	for _, subject := range graph.SubjectsView() {
-		index.owners[subject.Value] = apiJSONNameOwner(graph, subject)
-		index.imports[subject.Value] = append(graph.ObjectsView(subject, rdf.SysML+pOwnedRelationship),
+		position := subjectSlots[subject.Value]
+		index.owners[position] = apiJSONNameOwner(graph, subject)
+		index.imports[position] = append(graph.ObjectsView(subject, rdf.SysML+pOwnedRelationship),
 			graph.ObjectsView(subject, rdf.SysML+pOwnedImport)...)
 		id, ok := rdf.SubjectID(subject)
 		if !ok {
@@ -92,26 +122,95 @@ func newAPIJSONNameIndex(graph *rdf.Graph) *apiJSONNameIndex {
 		}
 		member, ok := graph.Object(membership, rdf.SysML+pMemberElement)
 		if ok && member.IsIRI() {
-			index.addOwnedNameInScope(index.owners[membership.Value], member, name)
+			index.addOwnedNameInScope(index.ownerForSubject(membership), member, name)
 		}
 	}
-	index.chainOwners = apiJSONChainOwnerIndex(graph)
-	index.chainTargets = apiJSONFeatureChainTargets(graph, index)
+	index.chainOwners, index.externalChainOwners = apiJSONChainOwnerIndex(graph, subjectSlots, len(subjects))
+	index.chainTargetsBySlot, index.chainTargetSet, index.chainTargets = apiJSONFeatureChainTargets(graph, index)
 	return index
 }
 
 func (index *apiJSONNameIndex) ownerOf(graph *rdf.Graph, subject rdf.Term) rdf.Term {
-	if owner, ok := index.owners[subject.Value]; ok {
+	if owner, ok := index.ownerForSubjectOK(subject); ok {
+		return owner
+	}
+	if owner, ok := index.externalOwners[subject.Value]; ok {
 		return owner
 	}
 	owner := apiJSONNameOwner(graph, subject)
-	index.owners[subject.Value] = owner
+	if index.externalOwners == nil {
+		index.externalOwners = make(map[string]rdf.Term)
+	}
+	index.externalOwners[subject.Value] = owner
 	return owner
 }
 
 func (index *apiJSONNameIndex) addOwnedName(subject rdf.Term, name string) {
-	owner := index.owners[subject.Value]
+	owner := index.ownerForSubject(subject)
 	index.addOwnedNameInScope(owner, subject, name)
+}
+
+func (index *apiJSONNameIndex) ownerForSubject(subject rdf.Term) rdf.Term {
+	owner, _ := index.ownerForSubjectOK(subject)
+	return owner
+}
+
+func (index *apiJSONNameIndex) ownerForSubjectOK(subject rdf.Term) (rdf.Term, bool) {
+	position, ok := index.subjectSlots[subject.Value]
+	if !ok || position >= len(index.owners) {
+		return rdf.Term{}, false
+	}
+	return index.owners[position], true
+}
+
+func (index *apiJSONNameIndex) chainTarget(subject rdf.Term) (apiJSONChainTarget, bool) {
+	position, ok := index.subjectSlots[subject.Value]
+	if ok && position < len(index.chainTargetSet) && index.chainTargetSet[position] {
+		return index.chainTargetsBySlot[position], true
+	}
+	target, ok := index.chainTargets[subject.Value]
+	return target, ok
+}
+
+func (index *apiJSONNameIndex) chainRelationships(owner rdf.Term) []rdf.Term {
+	position, ok := index.subjectSlots[owner.Value]
+	if ok && position < len(index.chainOwners) {
+		return index.chainOwners[position]
+	}
+	return index.externalChainOwners[owner.Value]
+}
+
+func (index *apiJSONNameIndex) scopePath(owner rdf.Term) ([]rdf.Term, bool) {
+	position, ok := index.subjectSlots[owner.Value]
+	if ok && position < len(index.scopeSet) && index.scopeSet[position] {
+		return index.scopes[position], true
+	}
+	if !ok || position >= len(index.scopeSet) {
+		ownerScopes, exists := index.externalScopes[owner.Value]
+		return ownerScopes, exists
+	}
+	return nil, false
+}
+
+func (index *apiJSONNameIndex) setScopePath(owner rdf.Term, ownerScopes []rdf.Term) {
+	position, ok := index.subjectSlots[owner.Value]
+	if ok && position < len(index.scopes) {
+		index.scopes[position] = ownerScopes
+		index.scopeSet[position] = true
+		return
+	}
+	if index.externalScopes == nil {
+		index.externalScopes = make(map[string][]rdf.Term)
+	}
+	index.externalScopes[owner.Value] = ownerScopes
+}
+
+func (index *apiJSONNameIndex) importsFor(scope rdf.Term) []rdf.Term {
+	position, ok := index.subjectSlots[scope.Value]
+	if !ok || position >= len(index.imports) {
+		return nil
+	}
+	return index.imports[position]
 }
 
 func (index *apiJSONNameIndex) addOwnedNameInScope(owner, target rdf.Term, name string) {
@@ -168,24 +267,40 @@ func appendAPIJSONCatalogName(index map[string][]rdf.Term, name string, target r
 	return index
 }
 
-func apiJSONChainOwnerIndex(graph *rdf.Graph) map[string][]rdf.Term {
-	owners := make(map[string][]rdf.Term)
+func apiJSONChainOwnerIndex(
+	graph *rdf.Graph,
+	subjectSlots map[string]int,
+	subjectCount int,
+) ([][]rdf.Term, map[string][]rdf.Term) {
+	owners := make([][]rdf.Term, subjectCount)
+	var externalOwners map[string][]rdf.Term
 	for _, relationship := range graph.SubjectsView() {
 		if rdf.LocalName(graph.Type(relationship)) != mFeatureChaining {
 			continue
 		}
 		owner := firstIRI(graph, relationship, pOwningRelatedElement, pOwner)
 		if owner.Value != "" {
-			owners[owner.Value] = append(owners[owner.Value], relationship)
+			if position, ok := subjectSlots[owner.Value]; ok && position < len(owners) {
+				owners[position] = append(owners[position], relationship)
+			} else {
+				if externalOwners == nil {
+					externalOwners = make(map[string][]rdf.Term)
+				}
+				externalOwners[owner.Value] = append(externalOwners[owner.Value], relationship)
+			}
 		}
 	}
-	return owners
+	return owners, externalOwners
 }
 
-func apiJSONFeatureChainTargets(graph *rdf.Graph, index *apiJSONNameIndex) map[string]apiJSONChainTarget {
-	resolved := make(map[string]apiJSONChainTarget)
-	for ownerID, relationships := range index.chainOwners {
-		owner := rdf.IRI(ownerID)
+func apiJSONFeatureChainTargets(
+	graph *rdf.Graph,
+	index *apiJSONNameIndex,
+) ([]apiJSONChainTarget, []bool, map[string]apiJSONChainTarget) {
+	resolved := make([]apiJSONChainTarget, len(index.subjects))
+	resolvedSet := make([]bool, len(index.subjects))
+	resolvedBySubject := make(map[string]apiJSONChainTarget)
+	resolveOwner := func(owner rdf.Term, relationships []rdf.Term) {
 		ordered := make([]rdf.Term, 0, len(relationships))
 		seen := make(map[string]bool, len(relationships))
 		for _, relationship := range graph.ObjectsView(owner, rdf.SysML+pOwnedRelationship) {
@@ -223,10 +338,23 @@ func apiJSONFeatureChainTargets(graph *rdf.Graph, index *apiJSONNameIndex) map[s
 			if !ok || i >= len(targets) || targets[i].Value == "" {
 				continue
 			}
-			resolved[ordered[i].Value] = apiJSONChainTarget{reference: reference, target: targets[i]}
+			if position, ok := index.subjectSlots[ordered[i].Value]; ok && position < len(resolved) {
+				target := apiJSONChainTarget{reference: reference, target: targets[i]}
+				resolved[position] = target
+				resolvedSet[position] = true
+				resolvedBySubject[ordered[i].Value] = target
+			}
 		}
 	}
-	return resolved
+	for position, relationships := range index.chainOwners {
+		if len(relationships) != 0 {
+			resolveOwner(index.subjects[position], relationships)
+		}
+	}
+	for ownerID, relationships := range index.externalChainOwners {
+		resolveOwner(rdf.IRI(ownerID), relationships)
+	}
+	return resolved, resolvedSet, resolvedBySubject
 }
 
 func apiJSONResolveNameReference(
@@ -248,7 +376,7 @@ func apiJSONResolveNameReference(
 		switch key {
 		case pTarget:
 			if name, ok := value.(apiJSONNameReference); ok {
-				if target, resolved := index.chainTargets[subject.Value]; resolved {
+				if target, resolved := index.chainTarget(subject); resolved {
 					return target.reference, nil
 				}
 				return name, []string{name.name}
@@ -258,7 +386,7 @@ func apiJSONResolveNameReference(
 				if !apiJSONValuesHaveNameReferences(members) {
 					return value, nil
 				}
-				target, resolved := index.chainTargets[subject.Value]
+				target, resolved := index.chainTarget(subject)
 				result := make([]any, len(members))
 				var unresolved []string
 				for i, member := range members {
@@ -280,7 +408,7 @@ func apiJSONResolveNameReference(
 	switch value := value.(type) {
 	case apiJSONNameReference:
 		if key == pChainingFeature && rdf.LocalName(graph.Type(subject)) == mFeatureChaining {
-			if target, resolved := index.chainTargets[subject.Value]; resolved {
+			if target, resolved := index.chainTarget(subject); resolved {
 				return target.reference, nil
 			}
 			return value, []string{value.name}
@@ -484,14 +612,14 @@ func apiJSONGraphResolveName(
 	scopes := []rdf.Term{subject}
 	owner := index.ownerOf(graph, subject)
 	if owner.Value != "" {
-		ownerScopes, ok := index.scopes[owner.Value]
+		ownerScopes, ok := index.scopePath(owner)
 		if !ok {
 			seen := make(map[string]bool)
 			for scope := owner; scope.Value != "" && !seen[scope.Value]; scope = index.ownerOf(graph, scope) {
 				seen[scope.Value] = true
 				ownerScopes = append(ownerScopes, scope)
 			}
-			index.scopes[owner.Value] = ownerScopes
+			index.setScopePath(owner, ownerScopes)
 		}
 		for _, scope := range ownerScopes {
 			if scope.Value != subject.Value {
@@ -547,7 +675,7 @@ func apiJSONImportedNames(
 			add(target)
 		}
 	}
-	relations := index.imports[scope.Value]
+	relations := index.importsFor(scope)
 	seen := make(map[string]bool, len(relations))
 	for _, relation := range relations {
 		if seen[relation.Value] {

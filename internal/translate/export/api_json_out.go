@@ -88,9 +88,13 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	}
 	subjects := settled.SubjectsView()
 	elements := make([]apiJSONObject, 0, len(subjects))
-	evaluation := newAPIJSONEvaluation(settled)
-	mappingNames := mappingQualifiedNames(evaluation.structure.graph)
-	nameIndex := newAPIJSONNameIndex(settled)
+	subjectSlots := make(map[string]int, len(subjects))
+	for position, subject := range subjects {
+		subjectSlots[subject.Value] = position
+	}
+	evaluation := newAPIJSONEvaluation(settled, subjectSlots)
+	mappingNames := newAPIJSONMappingNameIndex(evaluation.structure.graph, subjectSlots)
+	nameIndex := newAPIJSONNameIndexWithSubjectSlots(settled, subjectSlots)
 	comparisonCache := &apiJSONTermCache{}
 	for _, subject := range subjects {
 		// The element form holds the model's own elements only; a library element
@@ -188,11 +192,52 @@ type apiJSONNameReference struct {
 	name string
 }
 
+type apiJSONMappingNameIndex struct {
+	subjectSlots map[string]int
+	names        []string
+	hasName      []bool
+}
+
+func newAPIJSONMappingNameIndex(graph *rdf.Graph, subjectSlots map[string]int) *apiJSONMappingNameIndex {
+	defaults := mappingQualifiedNames(graph)
+	index := &apiJSONMappingNameIndex{
+		subjectSlots: subjectSlots,
+		names:        make([]string, len(subjectSlots)),
+		hasName:      make([]bool, len(subjectSlots)),
+	}
+	for _, subject := range graph.SubjectsView() {
+		position, ok := subjectSlots[subject.Value]
+		if !ok || position >= len(index.names) {
+			continue
+		}
+		id, ok := rdf.SubjectID(subject)
+		if !ok {
+			continue
+		}
+		name, ok := defaults[id]
+		if ok {
+			index.names[position] = name
+			index.hasName[position] = true
+		}
+	}
+	return index
+}
+
+func (index *apiJSONMappingNameIndex) name(subject rdf.Term) (string, bool) {
+	position, ok := index.subjectSlots[subject.Value]
+	if !ok || position >= len(index.names) || !index.hasName[position] {
+		return "", false
+	}
+	return index.names[position], true
+}
+
 // apiJSONElement builds the element object for one subject: "@type", "@id",
 // then each property in statement order.
 func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
 	evaluation := newAPIJSONEvaluation(graph)
-	mappingNames := mappingQualifiedNames(evaluation.structure.graph)
+	mappingNames := newAPIJSONMappingNameIndex(
+		evaluation.structure.graph, evaluation.structure.subjectSlots,
+	)
 	return apiJSONElementWithEvaluation(graph, subject, evaluation, mappingNames)
 }
 
@@ -200,7 +245,7 @@ func apiJSONElementWithEvaluation(
 	graph *rdf.Graph,
 	subject rdf.Term,
 	evaluation *apiJSONEvaluation,
-	mappingNames map[string]string,
+	mappingNames *apiJSONMappingNameIndex,
 ) (apiJSONObject, error) {
 	return apiJSONElementWithEvaluationOptions(
 		graph, subject, evaluation, mappingNames, newAPIJSONNameIndex(graph), &apiJSONTermCache{}, APIJSONOptions{},
@@ -211,7 +256,7 @@ func apiJSONElementWithEvaluationOptions(
 	graph *rdf.Graph,
 	subject rdf.Term,
 	evaluation *apiJSONEvaluation,
-	mappingNames map[string]string,
+	mappingNames *apiJSONMappingNameIndex,
 	nameIndex *apiJSONNameIndex,
 	comparisonCache *apiJSONTermCache,
 	options APIJSONOptions,
@@ -225,7 +270,7 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 	graph *rdf.Graph,
 	subject rdf.Term,
 	evaluation *apiJSONEvaluation,
-	mappingNames map[string]string,
+	mappingNames *apiJSONMappingNameIndex,
 	nameIndex *apiJSONNameIndex,
 	comparisonCache *apiJSONTermCache,
 	propertyOrderGraph *rdf.Graph,
@@ -890,7 +935,7 @@ func apiJSONMappingValueForTerm(subject, term rdf.Term) (any, error) {
 func apiJSONMappingQualifiedName(
 	graph *rdf.Graph,
 	subject rdf.Term,
-	defaults map[string]string,
+	defaults *apiJSONMappingNameIndex,
 	specName any,
 ) (any, bool, error) {
 	objects := graph.ObjectsView(subject, rdf.SysML+"qualifiedName")
@@ -901,12 +946,12 @@ func apiJSONMappingQualifiedName(
 		if !objects[0].IsLiteral() {
 			return nil, false, fmt.Errorf("subject <%s> has a non-literal sysml:qualifiedName", subject.Value)
 		}
-		id, ok := rdf.SubjectID(subject)
+		_, ok := rdf.SubjectID(subject)
 		if !ok {
 			return nil, false, fmt.Errorf("subject <%s> has no API element id", subject.Value)
 		}
 		graphName := objects[0].Value
-		if defaultName, hasDefault := defaults[id]; hasDefault && defaultName == graphName {
+		if defaultName, hasDefault := defaults.name(subject); hasDefault && defaultName == graphName {
 			return nil, false, nil
 		}
 		if graph.BoolValue(subject, rdf.SysML+"isLibraryElement") && specName == graphName {
