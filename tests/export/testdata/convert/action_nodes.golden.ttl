@@ -475,6 +475,7 @@ elmt:ActionNodes__Drive__pick_om
 
 elmt:ActionNodes__Drive___4010
     a sysml:PerformActionUsage ;
+    sysml:name "brake" ;
     sysml:qualifiedName "ActionNodes::Drive::@10" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;

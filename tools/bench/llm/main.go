@@ -122,6 +122,7 @@ func runCommand(args []string, stdout, stderr io.Writer) error {
 	}
 
 	var provider Provider
+	var recordedTools []ToolSpec
 	if o.Provider == "replay" {
 		if o.Fixture == "" {
 			return errors.New("replay needs -fixture")
@@ -131,6 +132,7 @@ func runCommand(args []string, stdout, stderr io.Writer) error {
 			return err
 		}
 		provider = NewReplay(f)
+		recordedTools = f.Tools
 	} else {
 		if o.Model == "" {
 			return errors.New("-model is required")
@@ -146,7 +148,7 @@ func runCommand(args []string, stdout, stderr io.Writer) error {
 		provider = recorder
 	}
 
-	runner := &Runner{Provider: provider, Toolchain: tc, Corpus: corpus, MaxRounds: o.MaxRounds, Temperature: o.Temperature, MaxTokens: o.MaxTokens, Pilot: o.Pilot}
+	runner := &Runner{Provider: provider, Toolchain: tc, Corpus: corpus, MaxRounds: o.MaxRounds, Temperature: o.Temperature, MaxTokens: o.MaxTokens, Pilot: o.Pilot, Tools: recordedTools}
 	runner.Log = func(format string, a ...any) { fmt.Fprintf(stderr, format+"\n", a...) }
 	for _, a := range arms {
 		if a == ArmMCP {
