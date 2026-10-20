@@ -14,7 +14,7 @@
     "test::predecessorsModel": {"type": "Sequence", "elements": []},
     "test::middleTimeSliceModel": {"type": "Null"},
     "test::performedActionsModel": {"type": "Sequence", "elements": [{"type": "Instance"}]},
-    "test::looseModel": {"type": "Undetermined"},
+    "test::looseModel": {"type": "Sequence", "elements": []},
     "test::gearModel": {"type": "Undetermined"},
     "test::subSpatialItemsModel": {"type": "Undetermined"},
     "test::voidsObject": {"type": "Sequence", "elements": []},

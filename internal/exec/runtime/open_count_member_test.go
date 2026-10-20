@@ -31,22 +31,27 @@ const openCountMemberModel = `package test {
 
 // A bound member of an instantiated object reading a chain through a package-level
 // usage whose member's count the model leaves open is undetermined, as the chain
-// read directly is: nothing in the model picks an element of `some[1..*]`.
+// read directly is: nothing in the model picks an element of `some[1..*]`. A chain
+// through `maybe[0..1]`, which the model values with nothing, is empty on both paths.
 func TestBoundMemberOverOpenCountChainIsUndetermined(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, openCountMemberModel))
 	scope := oneSymbol(t, idx, "test").Scope
-	for src, count := range map[string]string{"req.some.limit": "[1..*]", "req.own": "[1..*]", "opt.maybe.limit": "[0..1]", "h.boundLimit": "[1..*]"} {
+	for src, count := range map[string]string{"req.some.limit": "[1..*]", "req.own": "[1..*]", "h.boundLimit": "[1..*]"} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, count)
 	}
+	val, err := evalIn(t, ctx, scope, "opt.maybe.limit")
+	wantFormatted(t, "opt.maybe.limit", val, err, "[]")
 	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::h"))
 	if err != nil {
 		t.Fatalf("instantiate h: %v", err)
 	}
-	for src, count := range map[string]string{"boundLimit": "[1..*]", "viaOwn": "[1..*]", "optional": "[0..1]"} {
+	for src, count := range map[string]string{"boundLimit": "[1..*]", "viaOwn": "[1..*]"} {
 		val, err := evalOn(t, ctx, inst, src)
 		wantUndetermined(t, "h."+src, val, err, count)
 	}
+	val, err = evalOn(t, ctx, inst, "optional")
+	wantFormatted(t, "h.optional", val, err, "[]")
 }
 
 // A chain whose count a binding, a redefinition or a fixed multiplicity closes reads

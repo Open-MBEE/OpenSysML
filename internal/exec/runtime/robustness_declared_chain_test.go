@@ -10,13 +10,15 @@ import (
 // TestRuntimeRobustnessDeclaredChain exercises the failure modes of a chain read
 // through a package-level usage no object stands for: a member whose value reads
 // its own chain, two members reading each other, a member whose bound value does
-// not evaluate, and a member whose count the model leaves open.
+// not evaluate, a member whose count the model leaves open, and one whose lower
+// bound of 0 nothing declared meets.
 func TestRuntimeRobustnessDeclaredChain(t *testing.T) {
 	t.Run("member_reading_its_own_chain_is_cyclic", testDeclaredChainSelfCycle)
 	t.Run("members_reading_each_other_are_cyclic", testDeclaredChainMutualCycle)
 	t.Run("member_reading_a_sibling_chain_is_not_cyclic", testDeclaredChainSiblingRead)
 	t.Run("broken_member_value_reports_its_error", testDeclaredChainBrokenValue)
 	t.Run("open_member_count_stays_undetermined", testDeclaredChainOpenCount)
+	t.Run("optional_member_count_is_closed_over_the_model", testDeclaredChainOptionalCount)
 }
 
 // declaredChainFixture is a package-level requirement usage whose members bind
@@ -85,11 +87,21 @@ func testDeclaredChainOpenCount(t *testing.T) {
 	ctx, scope := declaredChainContext(t)
 	for src, count := range map[string]string{
 		"req.some.limit": "[1..*]",
-		"req.any.limit":  "[0..*]",
 		"req.some":       "[1..*]",
 	} {
 		val, err := ctx.EvalWithScope(parseExpr(t, src), scope)
 		wantUndetermined(t, src, val, err, count)
+	}
+}
+
+// A member whose lower bound is 0 and which nothing values holds nothing: the read
+// is the empty sequence, not an error and not an undetermined count, and a chain
+// through it is empty too.
+func testDeclaredChainOptionalCount(t *testing.T) {
+	ctx, scope := declaredChainContext(t)
+	for src, want := range map[string]string{"req.any.limit": "[]", "req.any": "[]"} {
+		val, err := ctx.EvalWithScope(parseExpr(t, src), scope)
+		wantFormatted(t, src, val, err, want)
 	}
 	val, err := ctx.EvalWithScope(parseExpr(t, "req.one.limit"), scope)
 	if err != nil {

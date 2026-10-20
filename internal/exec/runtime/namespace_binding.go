@@ -749,6 +749,68 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 	return contributed, true, nil
 }
 
+// namespaceValued reports whether a binding connector or a class of bound usages
+// gives a namespace usage its value, so the model fixes what it holds.
+func (ctx *Context) namespaceValued(sym *symbols.Symbol) bool {
+	if _, ok := ctx.namespaceBindings[sym]; ok {
+		return true
+	}
+	class, member := ctx.namespaceClassMember(sym)
+	if class != nil {
+		return true
+	}
+	_, ok := ctx.namespaceBindings[member]
+	return member != nil && ok
+}
+
+// openDenotedValue is the model-level read of a namespace usage whose count its
+// multiplicity does not fix and nothing binds: what the usages subsetting it contribute
+// (KerML 1.0 §7.3.4.4), closed over the model where that meets the lower bound, else
+// undetermined of the bounds, carrying those contributions (§7.4.12). Nothing is made
+// up for the bound. decided reports whether the read was answered without materializing.
+func (ctx *Context) openDenotedValue(sym *symbols.Symbol, mult semantics.Range) (val Value, decided bool, err error) {
+	if _, exact := mult.Exactly(); exact || ctx.namespaceValued(sym) {
+		return Value{}, false, nil
+	}
+	var contributed []Value
+	var ids []int64
+	var atLeast int64
+	for _, sub := range ctx.namespaceModelIndex().subsetters[sym] {
+		if ctx.optionalValueless(sub) {
+			continue
+		}
+		val, err := ctx.denotedValue(sub)
+		if err != nil {
+			return Value{}, false, fmt.Errorf("subsetting usage %s: %w", SymbolText(sub), err)
+		}
+		if val.Kind == ValUndetermined {
+			atLeast = max(atLeast, fewestOf(ctx.featureMultiplicity(sub, ctx.findOwnerType(sub))))
+			continue
+		}
+		for _, inst := range ctx.liveInstances(heldObjects(val)) {
+			if slices.Contains(ids, inst.ID) {
+				continue
+			}
+			obj, err := ctx.objectValue(inst)
+			if err != nil {
+				return Value{}, false, err
+			}
+			ids = append(ids, inst.ID)
+			contributed = append(contributed, obj)
+		}
+	}
+	if held := int64(len(contributed)); mult.Lower.Known && !mult.Lower.Infinite && max(atLeast, fewestOf(mult)) <= held {
+		if mult.Upper.Known {
+			return Value{}, false, nil
+		}
+		// An upper bound the model does not evaluate admits what is held: nothing is made up.
+		return ctx.declaredCollection(sym, sequenceOf(contributed)), true, nil
+	}
+	feature := &EffectiveFeature{Name: sym.Name, Symbol: sym, Multiplicity: mult}
+	open := &openPopulation{Stopped: true, Contributed: contributed, AtLeast: atLeast}
+	return openCollectionValue(ctx.QualifiedName(sym), feature, open), true, nil
+}
+
 // denotedSubsetObjects is the objects a usage subsetting a namespace usage
 // contributes: what it denotes, or what its declared value binds it to.
 func (ctx *Context) denotedSubsetObjects(sym *symbols.Symbol) ([]*Instance, error) {

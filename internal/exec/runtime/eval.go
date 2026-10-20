@@ -489,6 +489,9 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 				return val, err
 			}
 		}
+		if val, ok, err := ctx.emptyOptionalDeclaration(sym); ok || err != nil {
+			return val, err
+		}
 		// Read as a name of it is read: a feature nothing values is undetermined.
 		return newEvalContext(ctx, sym.OwnerScope).withoutValue(sym, ctx.QualifiedName(sym), nil)
 	}
@@ -995,8 +998,8 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		if decl.BindingExpr != nil {
 			return ec.declaredValue(currentSym, decl.BindingExpr)
 		}
-		if val, ok := ec.emptyDeclaredFeature(currentSym); ok {
-			return val, nil
+		if val, ok, err := ec.ctx.emptyOptionalDeclaration(currentSym); ok || err != nil {
+			return val, err
 		}
 	}
 	return ec.resolvedWithoutValue(currentSym, qn)
@@ -1321,7 +1324,10 @@ func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, er
 		// may have bound it to another usage's value, or a subsetting may
 		// have filled it — reads through the binding answer those.
 		ec.ctx.noteDeclarationRead(sym)
-		return ec.ctx.namespaceBoundValue(sym)
+		if val, bound, err := ec.ctx.namespaceBoundValue(sym); bound || err != nil {
+			return val, bound, err
+		}
+		return ec.ctx.emptyOptionalDeclaration(sym)
 	}
 	ec.ctx.noteDeclarationRead(sym)
 	val, err := ec.ctx.denotedValue(sym)
@@ -1329,13 +1335,43 @@ func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, er
 }
 
 // emptyDeclaredFeature reads a valueless feature declaration whose lower bound is
-// zero as the empty sequence an object holding nothing reads. At model level no
-// object holds it, so it stays undetermined. A variation is a choice, not an empty feature.
+// zero as the empty sequence an object holding nothing reads. At model level a
+// binding or a subsetting may still value it, so the namespace read decides
+// (emptyOptionalDeclaration). A variation is a choice, not an empty feature.
 func (ec *EvalContext) emptyDeclaredFeature(sym *symbols.Symbol) (Value, bool) {
 	if ec.modelLevel() || !ec.ctx.optionalValueless(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) {
 		return Value{}, false
 	}
 	return sequenceOf(nil), true
+}
+
+// emptyOptionalDeclaration reads a namespace usage of lower bound 0 that nothing
+// binds as what the usages subsetting it contribute, else the empty collection it
+// declares: a model declaring no value for it declares that it holds none.
+func (ctx *Context) emptyOptionalDeclaration(sym *symbols.Symbol) (Value, bool, error) {
+	if !ctx.optionalValueless(sym) || ctx.model.semantics.IsVariationFeature(sym) {
+		return Value{}, false, nil
+	}
+	if objs, subsetted, err := ctx.namespacedSubsetObjects(sym); err != nil {
+		return Value{}, true, err
+	} else if subsetted {
+		elements := make([]Value, 0, len(objs))
+		for _, inst := range objs {
+			obj, err := ctx.objectValue(inst)
+			if err != nil {
+				return Value{}, true, err
+			}
+			elements = append(elements, obj)
+		}
+		if len(elements) == 1 {
+			return elements[0], true, nil
+		}
+		return sequenceOf(elements), true, nil
+	}
+	if typed, ok := ctx.emptyOfSymbol(sym); ok {
+		return typed, true, nil
+	}
+	return sequenceOf(nil), true, nil
 }
 
 // namesSelf reports whether the name resolves, where the expression was written,

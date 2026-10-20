@@ -100,7 +100,8 @@ func TestChainThroughPackageUsageReadsBoundMember(t *testing.T) {
 }
 
 // A member nothing binds stays undetermined through the chain, as does a member
-// of a usage whose instances are not exactly one: no value is invented.
+// of a usage whose instances are not exactly one: no value is invented. An optional
+// member nothing values holds none: the empty sequence, closed over the model.
 func TestChainThroughPackageUsageWithoutBoundMemberIsUndetermined(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, packageUsageChainModel)
 	ctx := NewContext(typedModel(model, resolver), 10000)
@@ -109,7 +110,6 @@ func TestChainThroughPackageUsageWithoutBoundMemberIsUndetermined(t *testing.T) 
 	for src, count := range map[string]string{
 		"costReq.unset":                    "[1]",
 		"bareReq.maximum":                  "[1]",
-		"optionalReq.maximum":              "[0..1]",
 		"product.dims.w + bareReq.maximum": "[1]",
 		"costReq.details.other":            "[1]",
 		"inherit.deep.limit":               "[1]",
@@ -120,8 +120,10 @@ func TestChainThroughPackageUsageWithoutBoundMemberIsUndetermined(t *testing.T) 
 		val, err := ctx.EvalWithScope(parseExpr(t, src), pkg.Scope)
 		wantUndetermined(t, src, val, err, count)
 	}
+	val, err := ctx.EvalWithScope(parseExpr(t, "optionalReq.maximum"), pkg.Scope)
+	wantFormatted(t, "optionalReq.maximum", val, err, "[]")
 
-	_, err := ctx.EvalWithScope(parseExpr(t, "costReq.nonexistent"), pkg.Scope)
+	_, err = ctx.EvalWithScope(parseExpr(t, "costReq.nonexistent"), pkg.Scope)
 	if !errors.Is(err, ErrUnresolvedReference) {
 		t.Errorf("costReq.nonexistent: err = %v; want ErrUnresolvedReference", err)
 	}
