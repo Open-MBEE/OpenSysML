@@ -135,7 +135,9 @@ func attach(t *testing.T, svc *sysmlgrpc.Service) *harness {
 	}
 	h := &harness{t: t, root: root}
 	server := mcp.NewServer(&mcp.Implementation{Name: "test-server", Version: "0"}, nil)
-	Register(server, svc, root)
+	if err := Register(server, svc, root); err != nil {
+		t.Fatal(err)
+	}
 	serverT, clientT := mcp.NewInMemoryTransports()
 	ctx := context.Background()
 	go func() { _ = server.Run(ctx, serverT) }()
@@ -1042,5 +1044,26 @@ func TestDiagnosticsReportsEveryDiagnostic(t *testing.T) {
 	}
 	if msg := h.fails("diagnostics", map[string]any{"modelHash": "nope"}); !strings.Contains(msg, "NOT_FOUND") {
 		t.Errorf("an unknown hash: %s", msg)
+	}
+}
+
+func TestADanglingLinkIsJudgedByWhereItPoints(t *testing.T) {
+	h := attach(t, newService(t))
+	if err := os.Symlink(filepath.Join(filepath.Dir(h.root), "not-yet.sysml"), filepath.Join(h.root, "dangle.sysml")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	for name, args := range map[string]map[string]any{
+		"parse":   {"paths": []string{"dangle.sysml"}},
+		"convert": {"filePath": "dangle.sysml", "toFormat": "ttl"},
+	} {
+		if msg := h.fails(name, args); !strings.Contains(msg, "INVALID_ARGUMENT") || !strings.Contains(msg, "leads through a symlink to") {
+			t.Errorf("%s through a dangling link out of the root: %s", name, msg)
+		}
+	}
+	if err := os.Symlink("later.sysml", filepath.Join(h.root, "soon.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	if msg := h.fails("parse", map[string]any{"paths": []string{"soon.sysml"}}); strings.Contains(msg, "outside") {
+		t.Errorf("a dangling link staying inside the root is a file not yet written, not outside: %s", msg)
 	}
 }
