@@ -68,6 +68,13 @@ In an empty window, use File > Open File and keep Explorer's "No Folder Opened" 
 Confirm a real server process and resolved symbol hover; mutate a reference to an undefined
 name and undo to prove diagnostics are live.
 
+**Run GUI tests in a scratch workspace outside the checkout** (e.g. copy the fixture to
+`~/vscode-scratch/` and set User `opensysml.server.path`). The repository root indexes thousands of
+fixture models (one shadows the standard library's `package Views`) plus the vendored stdlib
+`.project.json` files, and the extension's `**/{*.sysml,*.kerml,*.kpar,.project.json}` watcher
+sends every model a corpus download or `-update` run writes under the tree to the server as
+`workspace/didChangeWatchedFiles`, which re-reads it mid-test.
+
 For unsaved-buffer authority during sibling indexing, use `main.sysml` above a
 `parts/lib.sysml`. Open only the library, change its declaration without saving, then restart
 the language server. Open the parent main file: its first directory scan revisits the already
@@ -282,6 +289,10 @@ main.sysml  package Main { import Lib::*; part w : Widget; }
   `document.querySelectorAll('#diagram svg g[data-opensysml-id]').length`,
   `document.querySelectorAll('#diagram .movable').length`, and after moving the cursor
   `document.querySelector('#diagram .opensysml-selected')?.dataset.opensysmlId`.
+- **The diagram SVG is `#diagram > svg.opensysml-canvas`** in the webview's inner `active-frame`
+  frame; an empty view (`p.empty`) or a table (`table`) leaves no such element. To query it
+  from the shell, launch VS Code with `--remote-debugging-port=9333`: the panel is the `iframe`
+  target in `curl -s localhost:9333/json`, and `Page.getFrameTree` names `active-frame` as its child.
 - **Drags are pointer-captured on `#diagram`**, so a `dblclick` there names the container, never the
   handle under it — waypoint removal is two quick clicks paired by the webview itself (`< 400 ms`,
   no movement between press and release). Deliver it as one double-click action (the computer
@@ -563,6 +574,10 @@ probe that advertises `["plaintext"]` — test it there, not in the editor.
 Record the VS Code window maximized (wmctrl above). Verify visual claims by `zoom`ing the status bar
 (language indicator "SysML v2"/"KerML", problem counts) and the completion popup — the popup's detail
 column is too small to read in a 1024x768 full screenshot.
+
+Do not change the X display resolution (`xrandr`) mid-session: it breaks the running VS Code
+window's layout and any recording. For legible text, set User `"window.zoomLevel": 2` (Settings or
+`~/.config/Code/User/settings.json`); the open window rescales without a reload.
 
 ## Document-query authoring / `opensysml/renderDocument` (`internal/frontend/lsp/document.go`, `editors/vscode/src/document.ts`)
 
