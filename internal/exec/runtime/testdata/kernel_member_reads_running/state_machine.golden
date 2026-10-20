@@ -97,7 +97,7 @@ performers: empty  [static-only pilot=decl]
 portionOf: [sm]  [static-only pilot=decl]
 portionOfLife: sm  [static-only pilot=decl]
 portions: undetermined <undetermined>  [undetermined pilot=decl]
-predecessors: [object of Running::state_machine::Root]  [static-only pilot=decl]
+predecessors: [object of Running::state_machine::Root, object of Clocks::universalClock]  [populated pilot=decl]
 runToCompletionScope: undetermined <undetermined>  [undetermined pilot=decl]
 sameLifeOccurrences: [sm]  [static-only pilot=decl]
 self: sm  [static-only pilot=decl]
@@ -249,7 +249,7 @@ performers: empty  [static-only pilot=decl]
 portionOf: [sm]  [static-only pilot=decl]
 portionOfLife: sm  [static-only pilot=decl]
 portions: undetermined <undetermined>  [undetermined pilot=decl]
-predecessors: [object of Running::state_machine::Root]  [static-only pilot=decl]
+predecessors: [object of Running::state_machine::Root, object of Clocks::universalClock]  [populated pilot=decl]
 runToCompletionScope: undetermined <undetermined>  [undetermined pilot=decl]
 sameLifeOccurrences: [sm]  [static-only pilot=decl]
 self: sm  [static-only pilot=decl]
@@ -401,7 +401,7 @@ performers: empty  [static-only pilot=decl]
 portionOf: [sm]  [static-only pilot=decl]
 portionOfLife: sm  [static-only pilot=decl]
 portions: undetermined <undetermined>  [undetermined pilot=decl]
-predecessors: [object of Running::state_machine::Root]  [static-only pilot=decl]
+predecessors: [object of Running::state_machine::Root, object of Clocks::universalClock]  [populated pilot=decl]
 runToCompletionScope: undetermined <undetermined>  [undetermined pilot=decl]
 sameLifeOccurrences: [sm]  [static-only pilot=decl]
 self: sm  [static-only pilot=decl]
@@ -458,7 +458,7 @@ self.predecessors->SequenceFunctions::includes(sm): constant false  [populated p
 sm.timeEnclosedOccurrences->SequenceFunctions::includes(self): undetermined <undetermined>  [undetermined pilot=decl]
 
 ## buckets
-populated: 27
+populated: 30
 refused: 27
-static-only: 258
+static-only: 255
 undetermined: 129

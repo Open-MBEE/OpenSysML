@@ -13,10 +13,8 @@ const (
 	occurrenceOutgoingTransfersFQN = occurrenceFQN + "::outgoingTransfers"
 )
 
-// transferRecord is one Transfer performance of the run: its Transfers::Transfer
-// object, the occurrences it left (sending performance, object, port) and those
-// it reached (accepting performance, object, port), per Occurrences.kerml
-// `outgoingTransfers`/`incomingTransfers`.
+// transferRecord is one Transfer performance of the run: its object, the
+// occurrences it left (`outgoingTransfers`) and those it reached (`incomingTransfers`).
 type transferRecord struct {
 	id      int64
 	source  int64 // the end feature `source`: the sending performance, else the sending object
@@ -26,10 +24,8 @@ type transferRecord struct {
 	targets []int64
 }
 
-// beginTransfer records the message a send posts as a Transfer that began now
-// (Transfers.kerml: a Performance from the source to the target), from the
-// sending performance or object to the object the message is bound for. A
-// message from outside the run has no source and records none.
+// beginTransfer records a posted message as a Transfer begun now, from the sending
+// performance (else object) to the object it is bound for; one from outside records none.
 func (ctx *Context) beginTransfer(msg *Message) error {
 	if msg.Sender == 0 && msg.SenderPerformance == 0 {
 		return nil
@@ -64,9 +60,8 @@ func (ctx *Context) beginTransfer(msg *Message) error {
 	return nil
 }
 
-// recordTransfer completes the Transfer of a message an accept took: it ends
-// now, its target is the accepting performance (else its object) and it
-// reached that performance, its object and the port it came in through.
+// recordTransfer completes the Transfer of a message an accept took: it ends now
+// and its target is the accepting performance (else its object).
 func (ctx *Context) recordTransfer(msg Message, receiver, receiverObject *Instance) error {
 	at := slices.IndexFunc(ctx.transfers, func(r transferRecord) bool { return r.id == msg.Transfer && msg.Transfer != 0 })
 	if at < 0 {

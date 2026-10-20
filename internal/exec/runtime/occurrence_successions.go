@@ -104,29 +104,36 @@ func (ctx *Context) timeOrderOpen(inst *Instance, sym *symbols.Symbol, feat *Eff
 	return Value{}, false
 }
 
-// timeOrdered lists the occurrences that ended before inst began (before) or
-// began after it ended (Occurrences.kerml `predecessors`, `successors`), each
-// with the shots of its own that did so, by object id.
+// timeOrdered lists the occurrences that ended before inst began (before) or began
+// after it ended (Occurrences.kerml `predecessors`, `successors`), shots included, by id.
 func (ctx *Context) timeOrdered(inst *Instance, before bool) ([]int64, error) {
 	l := ctx.lives[inst.ID]
-	ordered := func(o life) bool {
+	ordered := func(began, ended int64) bool {
 		if before {
-			return o.ended != 0 && o.ended < l.began
+			return ended != 0 && ended < l.began
 		}
-		return o.began != 0 && o.began > l.ended
+		return began != 0 && began > l.ended
 	}
+	// Every shot in the order is materialized first, so the answer does not
+	// depend on which shots earlier reads happened to make.
 	ids := make([]int64, 0, len(ctx.instances))
 	for id := range ctx.instances {
-		if id != inst.ID && ordered(ctx.lives[id]) {
-			ids = append(ids, id)
-		}
+		ids = append(ids, id)
 	}
 	slices.Sort(ids)
 	for _, id := range ids {
-		if _, isShot := ctx.shotOccurrence(id); isShot {
+		o := ctx.lives[id]
+		if _, isShot := ctx.shotOccurrence(id); isShot || id == inst.ID {
 			continue
 		}
 		for _, start := range [...]bool{true, false} {
+			at := o.ended
+			if start {
+				at = o.began
+			}
+			if !ordered(at, at) {
+				continue
+			}
 			other := ctx.instances[id]
 			fqn := occurrenceEndShotFQN
 			if start {
@@ -144,7 +151,7 @@ func (ctx *Context) timeOrdered(inst *Instance, before bool) ([]int64, error) {
 	}
 	out := make([]int64, 0, len(ids))
 	for id := range ctx.instances {
-		if id != inst.ID && ordered(ctx.lives[id]) {
+		if o := ctx.lives[id]; id != inst.ID && ordered(o.began, o.ended) {
 			out = append(out, id)
 		}
 	}

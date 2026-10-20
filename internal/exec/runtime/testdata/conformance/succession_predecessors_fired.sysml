@@ -9,6 +9,8 @@ package test {
 		first a then b;
 		first b then c;
 		attribute ran : Integer = n;
+		attribute aAfterOwnStart : Boolean = includes(a.predecessors, self.start);
+		attribute ownStartBeforeA : Boolean = includes(self.start.successors, a);
 		attribute aPredecessors : Integer = size(a.predecessors);
 		attribute bPredecessors : Integer = size(b.predecessors);
 		attribute cPredecessors : Integer = size(c.predecessors);

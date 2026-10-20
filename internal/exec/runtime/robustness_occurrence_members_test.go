@@ -6,10 +6,8 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessOccurrenceMembers reads the temporal members of
-// occurrences where a run has not produced them: before a performance starts,
-// while one is parked on an accept nothing sends, after the step budget ended
-// a run, and across a snapshot restored to before the run moved.
+// TestRuntimeRobustnessOccurrenceMembers reads the temporal members where a run has
+// not produced them: before a start, parked on an accept, after the step budget, across a restore.
 func TestRuntimeRobustnessOccurrenceMembers(t *testing.T) {
 	t.Run("shots_before_start_are_undetermined_with_reason", testOccurrenceShotsBeforeStart)
 	t.Run("shots_of_a_parked_performance", testOccurrenceShotsParked)
@@ -105,8 +103,12 @@ func testOccurrenceShotsParked(t *testing.T) {
 	}
 	val, err = evalOn(t, ctx, p, "act.snapshots")
 	wantOpenSnapshots(t, val, err, "act.snapshots")
-	if got := FormatValue(mustEvalOn(t, ctx, p, "act.predecessors->SequenceFunctions::size()")); got != "0" {
-		t.Errorf("act.predecessors has %s elements, want none: no succession fired", got)
+	// Nothing ended before act began but its holder's start shot; no succession fired.
+	if got := FormatValue(mustEvalOn(t, ctx, p, "act.predecessors->SequenceFunctions::size()")); got != "1" {
+		t.Errorf("act.predecessors has %s elements, want the holder's start shot alone", got)
+	}
+	if got := FormatValue(mustEvalOn(t, ctx, p, "act.predecessors->SequenceFunctions::includes(self.start)")); got != "true" {
+		t.Errorf("act.predecessors includes the holder's start shot = %s, want true", got)
 	}
 }
 

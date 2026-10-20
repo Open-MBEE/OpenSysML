@@ -273,7 +273,7 @@ performers: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
 portions: undetermined <undetermined>
-predecessors: collection of 4
+predecessors: collection of 6
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
 self: object (the receiver)
@@ -343,7 +343,7 @@ performers: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
 portions: undetermined <undetermined>
-predecessors: collection of 5
+predecessors: collection of 7
 runToCompletionScope: undetermined <undetermined>
 sameLifeOccurrences: collection of 1
 self: object (the receiver)
@@ -406,7 +406,7 @@ performers: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
 portions: undetermined <undetermined>
-predecessors: collection of 6
+predecessors: collection of 9
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
 self: object (the receiver)

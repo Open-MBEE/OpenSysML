@@ -76,9 +76,8 @@ func runningReadOutcome(ctx *Context, labels map[int64]string, val Value, err er
 	return fmt.Sprintf("%s %s", val.Kind, FormatValue(val))
 }
 
-// runningBucket classifies a running read against the same member's answer on an
-// unexecuted object of the same type: populated, static-only, undetermined,
-// refused, or wrong where the specification pins a value the read misses.
+// runningBucket classifies a running read against an unexecuted object's answer:
+// populated, static-only, undetermined, refused, or wrong against a pinned spec value.
 func runningBucket(outcome, static, want string, err error) string {
 	switch {
 	case want != "" && outcome != want:
@@ -93,14 +92,8 @@ func runningBucket(outcome, static, want string, err error) string {
 	return "populated"
 }
 
-// TestKernelLibraryMembersReadableWhileRunning reads every public Kernel Semantic
-// Library member of objects whose behaviours are running or have run — a nested
-// action performed to completion, an action waiting on the clock, a succession
-// chain partly fired, a state machine between states, a transfer that happened,
-// a performance that created an object, a loop of several performances — at
-// points in the run, and pins each answer and its bucket in one golden per
-// scenario. The OMG pilot evaluator cannot perform a behaviour, so every row's
-// pilot evidence is declaration-level only (marked pilot=decl).
+// TestKernelLibraryMembersReadableWhileRunning pins every public Kernel Semantic
+// Library member at points in seven runs, one golden per scenario (pilot=decl: the pilot cannot run them).
 func TestKernelLibraryMembersReadableWhileRunning(t *testing.T) {
 	for _, sc := range runningScenarios {
 		t.Run(sc.name, func(t *testing.T) {

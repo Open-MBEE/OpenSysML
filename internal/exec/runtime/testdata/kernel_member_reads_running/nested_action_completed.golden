@@ -90,7 +90,7 @@ performers: empty  [static-only pilot=decl]
 portionOf: [act]  [static-only pilot=decl]
 portionOfLife: act  [static-only pilot=decl]
 portions: [act, object of Running::nested_action_completed::Root::act, object of Running::nested_action_completed::Root::act]  [populated pilot=decl]
-predecessors: [object of Running::nested_action_completed::Root]  [static-only pilot=decl]
+predecessors: [object of Running::nested_action_completed::Root, object of Clocks::universalClock]  [populated pilot=decl]
 runToCompletionScope: act  [static-only pilot=decl]
 sameLifeOccurrences: [act]  [static-only pilot=decl]
 self: act  [static-only pilot=decl]
@@ -146,7 +146,7 @@ self.predecessors->SequenceFunctions::includes(act): constant false  [populated 
 act.timeEnclosedOccurrences->SequenceFunctions::includes(self): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 22
+populated: 23
 refused: 9
-static-only: 83
+static-only: 82
 undetermined: 25
