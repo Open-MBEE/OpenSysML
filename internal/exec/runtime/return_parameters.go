@@ -105,6 +105,11 @@ func (ctx *Context) conditionSelf(sym *symbols.Symbol, owner *Instance) *Instanc
 	if _, has := owner.FeatureValues[sym.Name]; !has {
 		return owner
 	}
+	// Reaching the held object is structure a shared verdict's shape fixes, not a
+	// value it reads: the fetch is kept out of the check's trace.
+	tracing := ctx.tracing
+	ctx.tracing = nil
+	defer func() { ctx.tracing = tracing }()
 	fv, err := owner.GetFeatureValue(ctx, sym.Name)
 	if err != nil || fv == nil {
 		return owner
