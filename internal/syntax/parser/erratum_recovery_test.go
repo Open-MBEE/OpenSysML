@@ -108,6 +108,27 @@ func TestErratumSpellingsRecoverTheMember(t *testing.T) {
 	}
 }
 
+// A global `$::` target recovers the alias as a package-relative one does.
+func TestAliasOfRecoveryAcceptsGlobalTargets(t *testing.T) {
+	const code = "package P { package Q { feature b; } alias a of $::P::Q::b; feature after; }"
+	p := New(source.New("test.kerml", []byte(code)))
+	file := p.ParseFile()
+	if len(p.Diagnostics) != 1 || !strings.HasPrefix(p.Diagnostics[0].Message, "expected 'for' in alias") {
+		for _, d := range p.Diagnostics {
+			t.Errorf("offset %d: %s", d.Span.Offset, d.Message)
+		}
+		t.Fatalf("got %d diagnostics, want the alias one", len(p.Diagnostics))
+	}
+	pkg := file.Members[0].(*ast.Membership).Member.(*ast.Package)
+	if len(pkg.Members) != 3 {
+		t.Fatalf("package has %d members, want Q, the alias and `after`", len(pkg.Members))
+	}
+	al, ok := pkg.Members[1].(*ast.Alias)
+	if !ok || al.Ident.Name != "a" || ast.QualifiedText(al.For) != "$::P::Q::b" {
+		t.Errorf("second member = %#v, want `alias a for $::P::Q::b`", pkg.Members[1])
+	}
+}
+
 // The same parameter-list recovery applies to a bodiless declaration and in SysML.
 func TestParameterListRecoveryKeepsTheNextMember(t *testing.T) {
 	for _, tc := range []struct{ name, code string }{
@@ -120,6 +141,8 @@ func TestParameterListRecoveryKeepsTheNextMember(t *testing.T) {
 		{"requirement_usage.sysml", "package P { requirement r(x : T) { subject s; } part after; }"},
 		{"calc_usage.sysml", "package P { calc c(x : T) { in y : Real; y } part after; }"},
 		{"step.kerml", "package P { step s(x : T) { in feature y; } feature after; }"},
+		{"nested_semicolon.kerml", "package P { behavior B(f(x; y)) { feature inside; } feature after; }"},
+		{"unclosed.kerml", "package P { behavior B(x : T { feature inside; } feature after; }"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := New(source.New(tc.name, []byte(tc.code)))

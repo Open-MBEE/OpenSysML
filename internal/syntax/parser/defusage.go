@@ -1956,7 +1956,7 @@ func (p *Parser) skipParameterList() {
 	}
 	open := p.advance()
 	depth := 1
-	for depth > 0 && !p.atEOF() && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !p.at(lexer.Semicolon) {
+	for depth > 0 && !p.atEOF() && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !(depth == 1 && p.at(lexer.Semicolon)) {
 		switch p.advance().Kind {
 		case lexer.LParen:
 			depth++
