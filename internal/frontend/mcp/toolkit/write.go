@@ -48,10 +48,31 @@ func (r Root) WriteFile(path string, content []byte) (replaced bool, err error) 
 	default:
 		replaced = true
 	}
-	if err := WriteFile(root, name, content, savedFileMode); err != nil {
+	err = WriteFile(root, name, content, savedFileMode)
+	if replaced && errors.Is(err, fs.ErrPermission) {
+		// The file is writable but its directory is not, so no temporary file
+		// can be made beside it; the model is what the user wants saved.
+		if writeThrough(root, name, content) == nil {
+			return true, nil
+		}
+	}
+	if err != nil {
 		return false, fmt.Errorf("cannot write %s: %w", path, err)
 	}
 	return replaced, nil
+}
+
+// writeThrough truncates and rewrites name in place through root.
+func writeThrough(root *os.Root, name string, content []byte) error {
+	f, err := root.OpenFile(name, os.O_WRONLY|os.O_TRUNC, 0)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(content)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	return err
 }
 
 // WriteFile replaces name, relative to root, with content atomically: a temporary

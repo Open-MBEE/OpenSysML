@@ -105,3 +105,35 @@ func TestWriteFileFollowsALinkRepointedWithinTheRoot(t *testing.T) {
 		t.Errorf("the dangling link's target = %q; want it created", got)
 	}
 }
+
+// An existing file in a directory the user cannot add entries to is still
+// written, as export.WriteFile writes it: in place, since no temporary file fits.
+func TestWriteFileFallsBackWhenTheDirectoryIsClosed(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+	tr := newTree(t)
+	root, err := NewRoot(tr.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(tr.root, "closed")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "model.sysml")
+	if err := os.WriteFile(path, []byte("package Longer;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	replaced, err := root.WriteFile(path, []byte("package Q;\n"))
+	if err != nil || !replaced {
+		t.Fatalf("replaced=%v err=%v", replaced, err)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "package Q;\n" {
+		t.Errorf("file = %q, want the new model with nothing of the old one left", data)
+	}
+}
