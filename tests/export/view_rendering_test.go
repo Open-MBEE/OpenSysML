@@ -47,6 +47,15 @@ func TestViewRenderingReferenceIsNamedByTheRendering(t *testing.T) {
 			t.Errorf("the notation should contain %q:\n%s", want, notation)
 		}
 	}
+	// The name is derived, so a graph written without sysml:name still agrees
+	// with its text and reads back verbatim.
+	unnamed, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysml:name"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation without sysml:name: %v", err)
+	}
+	if string(unnamed) != viewRenderingModel {
+		t.Errorf("without sysml:name the notation changed\n--- want ---\n%s\n--- got ---\n%s", viewRenderingModel, unnamed)
+	}
 
 	doc, err := convert.Convert("m.sysml", []byte(viewRenderingModel), convert.FormatSysML, convert.FormatAPIJSON)
 	if err != nil {
