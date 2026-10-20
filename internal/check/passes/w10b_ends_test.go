@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // The reproducer of validation/invalid/InterfaceUsage_Invalid: an interface end
@@ -197,4 +199,35 @@ func w10bDefName(decl string) string {
 		}
 	}
 	return decl
+}
+
+// A document's language may be declared apart from its file name: KerML opened
+// under a .sysml name still declares KerML end features, which a SysML connection
+// definition inheriting them must be reported for.
+func TestW10BEndsAreUsagesReadsTheDeclaredDocumentKind(t *testing.T) {
+	const base = `package Base {
+		assoc Pair { end feature a : Anything; end feature b : Anything; }
+	}`
+	const derived = `package P {
+		private import Base::Pair;
+		abstract connection def C :> Pair;
+	}`
+	baseRoot := parser.New(source.NewWithKind("base.sysml", []byte(base), source.KindKerML)).ParseFile()
+	derivedFile := source.New("derived.sysml", []byte(derived))
+	derivedRoot := parser.New(derivedFile).ParseFile()
+	idx := newTestIndex()
+	idx.AddDocumentWithKind("base.sysml", baseRoot, source.KindKerML)
+	idx.AddDocument("derived.sysml", derivedRoot)
+	var got []diag.Diagnostic
+	for _, d := range Analyze("derived.sysml", derivedRoot, nil, idx) {
+		if d.Code == "connection-def-end-not-usage" {
+			got = append(got, d)
+		}
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d connection-def-end-not-usage diagnostics, want 1: %v", len(got), got)
+	}
+	if want := "abstract connection def C"; !strings.HasPrefix(derived[got[0].Span.Offset:], want) {
+		t.Errorf("reported at %q, want the definition", derived[got[0].Span.Offset:got[0].Span.Offset+len(want)])
+	}
 }

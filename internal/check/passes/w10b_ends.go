@@ -45,7 +45,7 @@ func (W10BEndKindPass) Run(ctx *Context, name string, root *ast.RootNamespace) [
 	if rootScope == nil {
 		return nil
 	}
-	c := &w10bEndChecker{model: ctx.Model(), doc: name, kind: ctx.Kind}
+	c := &w10bEndChecker{model: ctx.Model(), index: ctx.Index, doc: name, kind: ctx.Kind}
 	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		switch sym.Kind {
 		case symbols.SymbolConnectionDef, symbols.SymbolAllocationDef:
@@ -65,6 +65,7 @@ func (W10BEndKindPass) Run(ctx *Context, name string, root *ast.RootNamespace) [
 
 type w10bEndChecker struct {
 	model *semantics.Model
+	index *symbols.Index
 	doc   string      // the document under analysis
 	kind  source.Kind // and its language
 	diags []diag.Diagnostic
@@ -182,10 +183,11 @@ func (c *w10bEndChecker) isUsage(end *symbols.Symbol) bool {
 }
 
 // docKind is the language of the document named doc: the analysed document's as
-// the context states it, any other's by its extension.
+// the context states it, any other's as the index records it, which honours a
+// language declared apart from the file name.
 func (c *w10bEndChecker) docKind(doc string) source.Kind {
 	if doc == c.doc {
 		return c.kind
 	}
-	return source.KindOf(doc)
+	return c.index.DocumentKind(doc)
 }
