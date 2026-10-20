@@ -1,0 +1,44 @@
+{
+  "name": "@openmbee/sysml-mcp",
+  "version": "0.10.1",
+  "description": "Runs the OpenSysML Model Context Protocol server, sysml-mcp, from the release binary for this platform: npx -y @openmbee/sysml-mcp",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Open-MBEE/OpenSysML.git",
+    "directory": "packaging/npm/sysml-mcp"
+  },
+  "homepage": "https://github.com/Open-MBEE/OpenSysML/tree/main/packaging/npm/sysml-mcp#readme",
+  "keywords": [
+    "sysml",
+    "sysml-v2",
+    "kerml",
+    "mbse",
+    "mcp",
+    "model-context-protocol",
+    "opensysml"
+  ],
+  "mcpName": "org.opensysml/sysml-mcp",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "bin": {
+    "sysml-mcp": "bin/sysml-mcp.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "optionalDependencies": {
+    "@openmbee/sysml-mcp-darwin-arm64": "0.10.1",
+    "@openmbee/sysml-mcp-darwin-x64": "0.10.1",
+    "@openmbee/sysml-mcp-linux-arm64": "0.10.1",
+    "@openmbee/sysml-mcp-linux-x64": "0.10.1",
+    "@openmbee/sysml-mcp-win32-x64": "0.10.1"
+  }
+}

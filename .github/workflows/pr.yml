@@ -292,6 +292,17 @@ jobs:
       - name: Test the install scripts
         run: scripts/install-test.sh
 
+      # The npm runner: the packed @openmbee/sysml-mcp beside this platform's
+      # package, installed from the tarballs, answers initialize and tools/list.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test the npm runner
+        run: |
+          make build-mcp
+          scripts/npm-mcp-test.sh
+
       - name: Provision the pinned corpora
         if: needs.changes.outputs.tier == 'full'
         uses: ./.github/actions/corpora
