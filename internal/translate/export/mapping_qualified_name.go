@@ -32,6 +32,10 @@ func mappingQualifiedNames(graph *rdf.Graph) map[string]string {
 	return mappingQualifiedNamesWithContext(graph, newMappingQualifiedNameContext(graph))
 }
 
+func mappingQualifiedNamesForAPIJSONImport(graph *rdf.Graph, context *mappingQualifiedNameContext) map[string]string {
+	return mappingQualifiedNamesWithPositionRule(graph, context, true)
+}
+
 type mappingQualifiedNameContext struct {
 	packageCache        map[string]bool
 	incomingMemberships map[string][]rdf.Term
@@ -70,6 +74,14 @@ func newMappingQualifiedNameContextWithMemberships(graph *rdf.Graph, incoming ma
 }
 
 func mappingQualifiedNamesWithContext(graph *rdf.Graph, context *mappingQualifiedNameContext) map[string]string {
+	return mappingQualifiedNamesWithPositionRule(graph, context, false)
+}
+
+func mappingQualifiedNamesWithPositionRule(
+	graph *rdf.Graph,
+	context *mappingQualifiedNameContext,
+	memberPositionsOnly bool,
+) map[string]string {
 	names := make(map[string]string)
 	if graph == nil {
 		return names
@@ -105,7 +117,11 @@ func mappingQualifiedNamesWithContext(graph *rdf.Graph, context *mappingQualifie
 		name, hasName := mappingQualifiedNameLocalName(graph, subject, subjectParameters)
 		index, hasIndex := 0, false
 		if hasOwner {
-			index, hasIndex = mappingOwnedRelationshipPosition(graph, subject, owner)
+			if memberPositionsOnly {
+				index, hasIndex = mappingOwnedMemberRelationshipPosition(graph, subject, owner)
+			} else {
+				index, hasIndex = mappingOwnedRelationshipPosition(graph, subject, owner)
+			}
 		} else if memberIndex, ok := graph.Lexical(subject, rdf.OpenSysML+"memberIndex"); ok {
 			if parsed, err := strconv.Atoi(memberIndex); err == nil {
 				index, hasIndex = parsed, true
@@ -433,6 +449,37 @@ func mappingOwnedRelationshipPosition(graph *rdf.Graph, subject, owner rdf.Term)
 				}
 			}
 		}
+	}
+	return 0, false
+}
+
+func mappingOwnedMemberRelationshipPosition(graph *rdf.Graph, subject, owner rdf.Term) (int, bool) {
+	relationships := graph.ObjectsView(owner, rdf.SysML+pOwnedRelationship)
+	if len(relationships) == 0 {
+		relationships = graph.ObjectsView(owner, rdf.SysML+pOwnedMembership)
+	}
+	owningRelationship, _ := graph.Object(subject, rdf.SysML+pOwningRelationship)
+	owningMembership, _ := graph.Object(subject, rdf.SysML+pOwningMembership)
+	position := 0
+	for _, relationship := range relationships {
+		if !mappingTypeConforms(graph, owner, "Relationship") &&
+			!mappingTypeConforms(graph, relationship, "Membership") &&
+			!mappingTypeConforms(graph, relationship, "Import") {
+			continue
+		}
+		if relationship.Equal(subject) ||
+			owningRelationship.IsIRI() && relationship.Equal(owningRelationship) ||
+			owningMembership.IsIRI() && relationship.Equal(owningMembership) {
+			return position, true
+		}
+		for _, property := range mappingOwnedRelationshipPredicates {
+			for _, member := range graph.ObjectsView(relationship, property) {
+				if member.Equal(subject) {
+					return position, true
+				}
+			}
+		}
+		position++
 	}
 	return 0, false
 }
