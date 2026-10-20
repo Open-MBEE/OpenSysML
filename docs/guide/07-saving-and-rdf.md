@@ -100,6 +100,24 @@ or a FIFO, needs no extra flags.
 Converting to the same format rewrites the input: notation is reformatted, and
 Turtle is normalized (prefixes sorted, predicates grouped by subject).
 
+### The standard library as a model
+
+The standard library the command bundles converts too, as one model, with `-stdlib` in place
+of a model file:
+
+```bash
+sysml -stdlib -convert api-json -o stdlib.json        # every library file, one element set
+sysml -stdlib -convert ttl -o stdlib.ttl               # ...one graph
+```
+
+Its elements carry the ids the OMG pilot implementation gives them — `ScalarValues::Real` is
+`14c0aa22-5489-59b5-b438-ded26e83ba31` wherever the library is published — so a model stored
+elsewhere can type its parts by those ids and still mean the library. Published to a Flexo MMS
+branch (`-o flexo://StandardLibrary/main`, with the project created first and `FLEXO_TIMEOUT`
+raised to the minutes the write takes), the library is a project other
+projects reference; [the CLI reference](../reference/cli.md#publishing-the-standard-library)
+has the full procedure.
+
 ### Exit status
 
 The command exits non-zero and writes nothing for any input it cannot convert
