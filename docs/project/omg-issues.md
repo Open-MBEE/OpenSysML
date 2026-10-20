@@ -1036,6 +1036,98 @@ unsatisfiable under any reading — the same defect as the geometry example's
 
 ---
 
+## Defects in the vendored systems library
+
+SysML v2.1 Beta 2 §8.3.13.3 types `ConnectionDefinition::connectionEnd : Usage [0..*] {redefines
+associationEnd}` and §8.3.16.2 `FlowDefinition::flowEnd : Usage [0..*] {redefines associationEnd}`:
+every end feature of a connection or flow definition, inherited ones included, is a Usage. The
+type-tier pass `W10BEndKindPass` reports a definition that inherits a KerML `end feature` from a
+kernel association (`connection-def-end-not-usage`, `flow-def-end-not-usage`). Over the standard
+library as OMG published it that pass reports `Flows::Message` itself: the base flow definition owns
+no end features and inherits `Transfer::source` and `Transfer::target`, KerML features — and with
+it every `flow def` that specializes `Message` without ends of its own. The pinned pilot (2026-08,
+0.62.0) is silent, because it predates the check; the pilot's master branch adds the same check
+(ST6RI-974) and repairs the library in the same change, which also resolves OMG issue
+[SYSML21-681](https://issues.omg.org/issues/SYSML21-681) ("Problems with the resolution to
+SYSML21-324": the ends had been removed from `Message` and `messages` in the course of resolving
+SYSML21-324, which did not ask for it).
+
+The repair is carried as three entries of the declared errata overlay over `Systems
+Library/Flows.sysml`, one per published line it touches, spelled and placed exactly as upstream
+spells and places it. The published bytes are never edited; the bundled library (`libs.BundledSource`,
+and the snapshot generated from it) reads the corrected text. Two gates in `internal/workspace/model`
+pin the repair: `TestStdlibCorrectionsAreAccountedFor` requires each of the three lines to be listed
+against the finding it answers, and `TestStdlibValidationCorrectionsClearTheirFindings` requires
+`flow-def-end-not-usage` to be reported at `Message` over the published `Flows.sysml` and not over
+the bundled one.
+
+### `Flows::Message` inherits `Transfer::source` and `Transfer::target`, KerML features, as its flow ends
+
+**Resolved upstream** by SYSML21-681 / ST6RI-974, not yet in a pinned release. Published,
+`Flows.sysml`:46 is the last member before the end features belong:
+
+```sysml
+ref payload :>> MessageAction::payload, Transfer::payload;
+```
+
+Corrected by the overlay — the published line followed by the two owned ends, at the library's indentation:
+
+```sysml
+        ref payload :>> MessageAction::payload, Transfer::payload;
+        
+        end occurrence source: Occurrence :>> Transfer::source;
+        end occurrence target: Occurrence :>> Transfer::target;
+```
+
+`Message :> MessageAction, Transfer` owns no ends, so its end features are the two `Transfer`
+inherits from `BinaryLink` — KerML features, not Usages — against **SysML v2.1 Beta 2 §8.3.16.2**.
+The owned occurrence usages redefine them, so `Message` and every flow definition specializing it
+has usage ends — the declaration the pilot's change restores as consistent with the Beta 2
+specification.
+
+### `Flows::messages` is a flow usage whose ends are `Transfer::source` and `Transfer::target`
+
+**Resolved upstream** by SYSML21-681 / ST6RI-974. Published, `Flows.sysml`:99:
+
+```sysml
+abstract message messages: Message[0..*] nonunique :> transfers, actions {
+```
+
+Corrected by the overlay:
+
+```sysml
+abstract action messages: Message[0..*] nonunique :> transfers, actions {
+```
+
+`messages` is the base feature of all flow usages. Declared `message`, it is itself a flow usage;
+declared `action`, it is an action usage typed by `Message` — a flow definition is an action
+definition, "flows are kinds of actions" — which is how the pilot's change resolves SYSML21-681
+once `Message` has end features again. Its name, type, multiplicity and subsettings stay as
+published.
+
+### `Flows::messages` owns no ends redefining `Message::source` and `Message::target`
+
+**Resolved upstream** by SYSML21-681 / ST6RI-974. Published, `Flows.sysml`:103 closes the doc
+comment of `messages`:
+
+```sysml
+ */
+```
+
+Corrected by the overlay — the published line followed by the two owned ends, at the library's indentation:
+
+```sysml
+         */
+         
+        end occurrence source: Occurrence :>> Message::source, transfers::source;
+        end occurrence target: Occurrence :>> Message::target, transfers::target;
+```
+
+With `Message` owning `source` and `target` (the entry above), `messages` redefines them and the
+`transfers` ends it subsets, completing the repair upstream makes in one change.
+
+---
+
 ## Defects in the pilot implementation
 
 The first section records a defect in a vendored library body, and the second records defects in

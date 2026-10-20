@@ -38,7 +38,7 @@ file may carry several:
 | `ID` | the row in [omg-issues.md](omg-issues.md) documenting the defect |
 | `Path`, `Line` | the defective location, relative to the repository root |
 | `AsPublished` | that line's exact bytes, verbatim |
-| `Corrected` | what the oracles read instead — **empty means documented without a correction** |
+| `Corrected` | what the oracles read instead of that line — one line, or several where the repair inserts declarations after it; **empty means documented without a correction** |
 | `Citation` | the specification clause the published text violates |
 | `Derivation` | one line deriving the defect from that clause |
 
@@ -59,6 +59,9 @@ The registry as it stands:
 | SI-299 | `Domain Libraries/Quantities and Units/SI.sysml`:299 | KerML 7.4.9 | documented without a correction |
 | SI-303 | `Domain Libraries/Quantities and Units/SI.sysml`:303 | KerML 7.2.5.4 | corrected — `: MagneticDipoleMomentUnit` → `: ISQElectromagnetism::MagneticDipoleMomentUnit` |
 | USCustomaryUnits-255 | `Domain Libraries/Quantities and Units/USCustomaryUnits.sysml`:255 | SysML v2 §9.8.9.1 | corrected — `229835/900 [K]` → `(229835/900) [K]` |
+| Flows-46 | `Systems Library/Flows.sysml`:46 | SysML v2.1 Beta 2 §8.3.16.2 | corrected — `Message` gains `end occurrence source/target :>> Transfer::source/target` after its `payload` |
+| Flows-99 | `Systems Library/Flows.sysml`:99 | SysML v2.1 Beta 2 §8.3.16.2 | corrected — `abstract message messages` → `abstract action messages` |
+| Flows-103 | `Systems Library/Flows.sysml`:103 | SysML v2.1 Beta 2 §8.3.16.2 | corrected — `messages` gains `end occurrence source/target :>> Message::source/target, transfers::source/target` after its doc comment |
 
 The library entries are derived in [omg-issues.md](omg-issues.md) under "Defects in the vendored
 quantity libraries".
@@ -89,8 +92,12 @@ verification failed and the entry was removed rather than re-pointed.
   entry loudly instead of silently skipping the correction. A library read checks
   every declared line of the file the same way before substituting any, and fails
   the read rather than serve the file unverified.
-- **One entry per line.** Two entries naming the same file and line are refused;
-  several entries for one file are applied together.
+- **One entry per published line.** An entry is keyed to one published line, which
+  `AsPublished` must match whole; its `Corrected` text may be that line rewritten or
+  that line followed by the declarations a repair inserts after it (`Flows-46`,
+  `Flows-103`), so a multi-line repair is as many entries as published lines it
+  changes. Two entries naming the same file and line are refused; several entries
+  for one file are applied together.
 - **No entry without provenance.** A missing citation, a missing derivation, a
   missing `omg-issues.md` row, a correction identical to the published text, a
   line that does not exist, or a path outside the published roots are all
@@ -101,15 +108,18 @@ verification failed and the entry was removed rather than re-pointed.
 - **Errata are not a reclassification route.** The overlay changes no category in
   [the adjudications record](adjudications.md)'s terms and no analyzer behaviour. F82 stays a
   true positive of ours; what the overlay records is that the *examples* are wrong.
-- **A library correction is only declared for a line the checker rejects, or a line whose
-  type name the library hides.** Three gates in `internal/workspace/model` pin the expression
-  type checker's verdict on the standard library as exact sets: all nine findings over the
-  published text, exactly the five documented-only ones over the bundled library, and every
-  correction accounted for as one of those findings or as a listed hidden-name correction — a
-  line naming a member two imports bring, which KerML 7.2.5.4 hides from the importing
-  namespace (`SI.sysml`:303, the one such line). A correction the checker still reports at, a
-  finding that vanishes without an entry, or a correction of a line nothing rejects, fails a
-  gate.
+- **A library correction is only declared for a line the checker rejects, a line whose
+  type name the library hides, or a line of a repair that clears a validation finding.** Four
+  gates in `internal/workspace/model` pin that: the expression type checker's verdict on the
+  standard library as exact sets — all nine findings over the published text, exactly the five
+  documented-only ones over the bundled library — every correction accounted for as one of
+  those findings, as a listed hidden-name correction (a line naming a member two imports
+  bring, which KerML 7.2.5.4 hides from the importing namespace; `SI.sysml`:303, the one such
+  line) or as a listed line of a validation repair, and each listed repair's finding reported
+  over the published file and cleared over the bundled one (`flow-def-end-not-usage` at
+  `Flows::Message`, answered by the three `Flows.sysml` entries). A correction the checker
+  still reports at, a finding that vanishes without an entry, or a correction of a line nothing
+  rejects, fails a gate.
 
 ## Both figures, and which one is the statement
 
