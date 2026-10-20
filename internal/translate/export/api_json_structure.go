@@ -45,7 +45,7 @@ func apiJSONEvaluationGraph(graph *rdf.Graph) *rdf.Graph {
 	for _, subject := range graph.SubjectsView() {
 		subjects[subject.Value] = true
 	}
-	libraryIDs := make(map[string]bool)
+	libraryReferences := make(map[rdf.Term]*identity.LibraryElement)
 	for _, triple := range graph.Triples() {
 		if !triple.Object.IsIRI() || subjects[triple.Object.Value] {
 			continue
@@ -58,20 +58,17 @@ func apiJSONEvaluationGraph(graph *rdf.Graph) *rdf.Graph {
 		if !ok || library.Symbol == nil {
 			continue
 		}
-		libraryIDs[id] = true
+		libraryReferences[triple.Object] = library
 	}
-	if len(libraryIDs) == 0 {
+	if len(libraryReferences) == 0 {
 		return graph
 	}
-	builder := rdf.NewGraphBuilder(graph.Len() + len(libraryIDs)*5)
-	for prefix, namespace := range graph.Prefixes {
-		builder.SetPrefix(prefix, namespace)
+	additions := make([]rdf.Triple, 0, len(libraryReferences)*5)
+	add := func(subject, predicate, object rdf.Term) {
+		additions = append(additions, rdf.Triple{Subject: subject, Predicate: predicate, Object: object})
 	}
-	for _, triple := range graph.Triples() {
-		builder.AddTriple(triple)
-	}
-	for id := range libraryIDs {
-		library, ok := catalog.Element(id)
+	for subject, library := range libraryReferences {
+		id, ok := rdf.SubjectID(subject)
 		if !ok {
 			continue
 		}
@@ -79,18 +76,20 @@ func apiJSONEvaluationGraph(graph *rdf.Graph) *rdf.Graph {
 		if metaclass == "" {
 			continue
 		}
-		subject := rdf.ElementIRIForID(id)
-		builder.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
-		builder.Add(subject, rdf.SysMLTerm("elementId"), rdf.String(id))
-		builder.Add(subject, rdf.SysMLTerm("isLibraryElement"), rdf.Bool(true))
+		add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
+		add(subject, rdf.SysMLTerm("elementId"), rdf.String(id))
+		add(subject, rdf.SysMLTerm("isLibraryElement"), rdf.Bool(true))
 		if library.Symbol.Name != "" {
-			builder.Add(subject, rdf.SysMLTerm("declaredName"), rdf.String(library.Symbol.Name))
+			add(subject, rdf.SysMLTerm("declaredName"), rdf.String(library.Symbol.Name))
 		}
 		if library.FQN != "" {
-			builder.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(library.FQN))
+			add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(library.FQN))
 		}
 	}
-	return builder.Build()
+	triples := make([]rdf.Triple, 0, graph.Len()+len(additions))
+	triples = append(triples, graph.Triples()...)
+	triples = append(triples, additions...)
+	return rdf.NewGraphOfWithIndexOverlay(triples, graph.Prefixes, graph, additions)
 }
 
 func newAPIJSONGraphStructure(graph *rdf.Graph) *apiJSONGraphStructure {

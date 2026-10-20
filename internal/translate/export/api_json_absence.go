@@ -55,10 +55,17 @@ func appendAPIJSONOwnedAbsences(graph *rdf.Graph, subject rdf.Term, element apiJ
 	}
 	libraryStub := LibraryReference(graph, subject)
 	var absences []apiJSONMember
+	var mappingValues apiJSONObject
+	for _, member := range element {
+		if member.key == "sysx:mappingValues" {
+			mappingValues, _ = member.value.(apiJSONObject)
+			break
+		}
+	}
 	for _, planned := range apiJSONOwnedAbsencePlanFor(metaclass) {
 		property := planned.property
 		if apiJSONHasMember(element, property.Name) ||
-			apiJSONHasMappingValue(element, property.Name) ||
+			apiJSONHasMember(mappingValues, property.Name) ||
 			property.Derived || planned.effective.Derived {
 			continue
 		}
@@ -97,17 +104,6 @@ func apiJSONHasMember(element apiJSONObject, key string) bool {
 		if member.key == key {
 			return true
 		}
-	}
-	return false
-}
-
-func apiJSONHasMappingValue(element apiJSONObject, key string) bool {
-	for _, member := range element {
-		if member.key != "sysx:mappingValues" {
-			continue
-		}
-		values, ok := member.value.(apiJSONObject)
-		return ok && apiJSONHasMember(values, key)
 	}
 	return false
 }

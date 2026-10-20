@@ -379,7 +379,7 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 	graphOrder = apiJSONGraphPropertyOrderWithFallback(
 		graphOrder, apiJSONGraphPropertyOrder(graph, subject),
 	)
-	if len(graphOrder) > 0 {
+	if len(graphOrder) > 0 && apiJSONHasPropertyOrderSidecar(element, graph, subject) {
 		naturalOrder, sidecarOnly := apiJSONNaturalPropertyOrderWithOrder(
 			graph, subject, element, graphOrder,
 		)
@@ -391,6 +391,16 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 		}
 	}
 	return element, nil
+}
+
+func apiJSONHasPropertyOrderSidecar(element apiJSONObject, graph *rdf.Graph, subject rdf.Term) bool {
+	for _, member := range element {
+		switch member.key {
+		case "qualifiedName", "sysx:mappingQualifiedName", "sysx:mappingValues":
+			return true
+		}
+	}
+	return graph.HasProperty(subject, rdf.SysML+pQualifiedName)
 }
 
 func apiJSONGraphPropertyOrder(graph *rdf.Graph, subject rdf.Term) []string {
@@ -536,6 +546,18 @@ func apiJSONNaturalPropertyOrderWithOrder(
 }
 
 func apiJSONGraphPropertyOrderWithFallback(order, fallback []string) []string {
+	if len(order) == len(fallback) {
+		equal := true
+		for i := range order {
+			if order[i] != fallback[i] {
+				equal = false
+				break
+			}
+		}
+		if equal {
+			return order
+		}
+	}
 	inOrder := make(map[string]bool, len(order))
 	for _, property := range order {
 		inOrder[property] = true
