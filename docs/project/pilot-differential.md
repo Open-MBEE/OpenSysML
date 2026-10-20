@@ -245,7 +245,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 910 files)
+## Results (pilot `2026-08`, 912 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -253,11 +253,11 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 88 | 261 | 0 | 0 | 0 | 261 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
-| `examples/spec-examples` | 511 | 149 | 1099 | 3407 | 1030 | 2 | 67 | 2375 |
-| `tests/testdata` | 30 | 17 | 66 | 85 | 48 | 5 | 13 | 32 |
+| `examples/spec-examples` | 511 | 149 | 1106 | 3407 | 1033 | 2 | 71 | 2372 |
+| `tests/testdata` | 32 | 19 | 66 | 85 | 48 | 5 | 13 | 32 |
 | `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **910** | **508** | **1468** | **3553** | **1078** | **7** | **383** | **2468** |
+| **Total** | **912** | **510** | **1475** | **3553** | **1081** | **7** | **387** | **2465** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -305,10 +305,10 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 `unmapped`, 26 `unresolved-reference`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`,
 3 `unresolved-reference`; `kerml-examples` 13 `unmapped`, 3 `unresolved-reference`; `testdata` 10 `unmapped`,
 1 `unresolved-reference`, 2 `multiplicity`; `examples` 5
-`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`; `spec-examples` 25 `syntax`,
+`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`; `spec-examples` 29 `syntax`,
 37 `unresolved-reference`, 3 `kind-mismatch`, 2 `unmapped`. Only-pilot: `testdata` 13 `kind-mismatch`, 14 `unmapped`,
 3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
-594 `kind-mismatch`, 198 `syntax`, 169 `unresolved-reference`, 50 `multiplicity`, 5 `units`.
+594 `kind-mismatch`, 195 `syntax`, 169 `unresolved-reference`, 50 `multiplicity`, 5 `units`.
 
 The `spec-examples` figures are dominated by fragments: the specification's examples leave
 cross-example names undeclared, and the pilot's typing and EMF cascade follows each one; every
@@ -977,7 +977,7 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **2468** |
+| only pilot | 82 | **2465** |
 | pilot diagnostics | 123 | **3553** |
 | severity-only | 9 | **7** |
 
@@ -1202,8 +1202,8 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **508 / 383 / 1468** |
-| only pilot | **2468** |
+| overall: fully agreeing / only ours / our diagnostics | **510 / 387 / 1475** |
+| only pilot | **2465** |
 | pilot diagnostics | **3553** |
 | severity-only | **7** |
 | unmapped, our side | **287** |

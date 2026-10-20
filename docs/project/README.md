@@ -24,6 +24,9 @@ within these records and means nothing outside this repository.
   puts to the specification authors
 - **[Pilot execution referee](pilot-execution-referee.md)** — how far the pinned pilot's
   execution surface reaches, and which behavior rows it can adjudicate
+- **[API-JSON derived-property differential](api-json-differential.md)** — every corpus model's
+  API element JSON compared property by property with the pinned pilot's export, bucketed per
+  (metaclass, property) as a scorecard of the metamodel's derived properties
 - **[PSSM referee](pssm-referee.md)** — the OMG PSSM state-machine test suite, translated by rule
   into SysML v2 notation and run against the runtime as an advisory oracle, its bucket counts
   gated in CI; never evidence of SysML v2 conformance
@@ -49,6 +52,9 @@ within these records and means nothing outside this repository.
 - **[Validation-constraint census](validation-constraints.md)** — which of the pilot's named
   validation constraints OpenSysML reports, each mapped to the pass and message that reports it,
   with a violating model as evidence; the figures and the name list are gated in CI
+- **[Constraint census triage](constraint-census-triage.md)** — the census's ❔ unknown rows
+  triaged against the Beta 2 specifications and the pinned pilot: which are already reported
+  under another name, which cannot be violated in text, and which are launch-ready gaps.
 - **[SysML v1 to v2 transformation census](sysml-v1-transformation-census.md)** — which of the OMG
   transformation model's 783 mapping classes the migrator carries out, each tied to the code and
   test that backs it; the figures and the mapping list are gated in CI
