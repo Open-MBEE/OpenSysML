@@ -557,9 +557,9 @@ test("layoutCanvas with unplaced takes the auto layout over the model's Layout a
   const auto: AutoLayout = {
     nodes: new Map([
       ["a", { x: 24, y: 24, width: 96, height: 52 }],
-      ["b", { x: 24, y: 200, width: 96, height: 52 }],
+      ["b", { x: 52, y: 200, width: 96, height: 52 }],
     ]),
-    routes: new Map([[0, [{ x: 72, y: 76 }, { x: 72, y: 200 }]]]),
+    routes: new Map([[0, [{ x: 72, y: 76 }, { x: 72, y: 140 }, { x: 100, y: 140 }, { x: 100, y: 200 }]]]),
     ports: new Map(),
   };
   const stated = layoutCanvas(drawing, {}, auto);
@@ -568,11 +568,30 @@ test("layoutCanvas with unplaced takes the auto layout over the model's Layout a
   const free = layoutCanvas(drawing, { unplaced: true }, auto);
   assert.deepEqual([free.nodes.get("a")!.box, free.nodes.get("b")!.box], [auto.nodes.get("a"), auto.nodes.get("b")]);
   assert.deepEqual([free.nodes.get("a")!.pinned, free.nodes.get("b")!.pinned], [false, false]);
+  // The model's Route set aside, the edge follows the auto layout's bent route, not a straight line.
   assert.deepEqual(free.edges[0].points, auto.routes.get(0));
+  assert.deepEqual(free.edges[0].route, [{ x: 72, y: 140 }, { x: 100, y: 140 }]);
   // A gesture's own override still wins over the auto layout.
   const dragged = layoutCanvas(drawing, { unplaced: true, nodes: new Map([["a", { x: 300, y: 300, width: 96, height: 52 }]]) }, auto);
   assert.deepEqual(dragged.nodes.get("a")!.box, { x: 300, y: 300, width: 96, height: 52 });
   assert.equal(dragged.nodes.get("a")!.pinned, true);
+});
+
+test("layoutCanvas hides a sequence diagram's messages of a hidden kind and closes the rows over them", () => {
+  const drawing = rendering(
+    [node("a", "a"), node("b", "b")],
+    [
+      { from: "a", to: "b", label: "", kind: "flow" },
+      { from: "b", to: "a", label: "", kind: "succession" },
+      { from: "a", to: "b", label: "", kind: "flow" },
+    ],
+    { kind: "sequence" },
+  );
+  const all = layoutCanvas(drawing);
+  const filtered = layoutCanvas(drawing, { hiddenKinds: new Set(["flow"]) });
+  assert.deepEqual(filtered.edges.map((edge) => edge.hidden), [true, false, true]);
+  assert.equal(filtered.edges[1].points[0].y, all.edges[0].points[0].y);
+  assert.ok(filtered.height < all.height);
 });
 
 test("layoutCanvas hides the edges of a hidden kind, which then count for nothing", () => {

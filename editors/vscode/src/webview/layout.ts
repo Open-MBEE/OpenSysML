@@ -205,7 +205,7 @@ export function layoutCanvas(
     }
   }
   if (result.kind === "sequence") {
-    const layout = layoutSequence(result, roots, placed);
+    const layout = layoutSequence(result, roots, placed, overrides.hiddenKinds);
     placePorts(result.edges ?? [], placed, auto);
     return includePortExtent(layout);
   }
@@ -281,9 +281,13 @@ function layoutSequence(
   result: RenderResult,
   roots: PlacedNode[],
   placed: Map<string, PlacedNode>,
+  hiddenKinds?: ReadonlySet<string>,
 ): CanvasLayout {
   const edges = result.edges ?? [];
-  const bottom = MARGIN + headHeight(roots) + MESSAGE_GAP * (edges.length + 1);
+  // A hidden message takes no row of its own; the rows close up over it.
+  const hidden = edges.map((edge) => hiddenKinds?.has(edge.kind) === true);
+  const shown = hidden.filter((h) => !h).length;
+  const bottom = MARGIN + headHeight(roots) + MESSAGE_GAP * (shown + 1);
   let x = MARGIN;
   for (const root of roots) {
     const size = labelSize(root.lines);
@@ -291,8 +295,9 @@ function layoutSequence(
     root.lifeline = bottom;
     x += size.width + GAP;
   }
+  let row = 0;
   const routed = edges.map((edge, index): PlacedEdge => {
-    const y = MARGIN + headHeight(roots) + MESSAGE_GAP * (index + 1);
+    const y = MARGIN + headHeight(roots) + MESSAGE_GAP * (hidden[index] ? row : ++row);
     const from = placed.get(edge.from)?.box;
     const to = placed.get(edge.to)?.box;
     const fromX = from ? from.x + from.width / 2 : MARGIN;
@@ -315,7 +320,7 @@ function layoutSequence(
       points,
       route: [],
       label: midpoint(points),
-      hidden: false,
+      hidden: hidden[index],
       rerouted: false,
     };
   });
@@ -1365,7 +1370,7 @@ function routeEdge(
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
   const hidden = source?.hidden === true || target?.hidden === true || hiddenKinds?.has(edge.kind) === true;
-  const routed = autoRoute(edge, index, routes, auto, source, target);
+  const routed = autoRoute(edge, index, routes, auto, source, target, unplaced);
   if (routed !== undefined) {
     // ELK's anchors already lie on the boxes' borders, so its polyline is drawn
     // verbatim and a drag edits only the inner waypoints.
@@ -1428,8 +1433,9 @@ function autoRoute(
   auto: AutoLayout | undefined,
   source: PlacedNode | undefined,
   target: PlacedNode | undefined,
+  unplaced = false,
 ): RenderPoint[] | undefined {
-  const stated = routes?.has(index) ? routes.get(index) : edge.route;
+  const stated = routes?.has(index) ? routes.get(index) : unplaced ? undefined : edge.route;
   const routed =
     stated === undefined && source?.pinned === false && target?.pinned === false
       ? auto?.routes.get(index)
@@ -1445,18 +1451,19 @@ function avoidable(
   placed: Map<string, PlacedNode>,
   routes: Map<number, RenderPoint[] | undefined> | undefined,
   auto: AutoLayout | undefined,
+  unplaced: boolean,
 ): boolean {
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
   return (
     !routes?.has(index) &&
-    (edge.route?.length ?? 0) === 0 &&
+    (unplaced || (edge.route?.length ?? 0) === 0) &&
     edge.from !== edge.to &&
     source !== undefined &&
     target !== undefined &&
     !source.hidden &&
     !target.hidden &&
-    autoRoute(edge, index, routes, auto, source, target) === undefined
+    autoRoute(edge, index, routes, auto, source, target, unplaced) === undefined
   );
 }
 
@@ -1472,8 +1479,10 @@ function rerouteAroundBoxes(
   auto: AutoLayout | undefined,
 ): void {
   const indices = edges
-    .filter((edge) =>
-      avoidable(edge.edge, edge.index, placed, overrides.routes, auto),
+    .filter(
+      (edge) =>
+        !edge.hidden &&
+        avoidable(edge.edge, edge.index, placed, overrides.routes, auto, overrides.unplaced === true),
     )
     .map((edge) => edge.index);
   const held = overrides.held;

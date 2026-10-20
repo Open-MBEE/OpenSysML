@@ -86,8 +86,8 @@ let selectedNode: string | undefined;
 let viewport: Viewport = readViewport(saved.viewport);
 /** The node selected by a click, whose neighbourhood is emphasised; undefined when nothing is. */
 let focused: string | undefined;
-/** True while applyViewport's own scrolling is settling, so the scroll listener does not record it. */
-let settling = false;
+/** How many applyViewport scrolls are still settling; while any is, the scroll listener leaves recording to them. */
+let settling = 0;
 /** The relationship kinds this panel hides, once its filter has been set; until then the workspace default applies. */
 let hiddenKinds: Set<string> | undefined = Array.isArray(saved.hidden) ? new Set(saved.hidden.filter((kind) => typeof kind === "string")) : undefined;
 /** The kinds the `hideRelations` setting hides, from the latest rendering. */
@@ -195,15 +195,15 @@ diagram.addEventListener("wheel", (event) => {
   }
   event.preventDefault();
   const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * WHEEL_LINE_PX : event.deltaY;
-  setViewport(zoomAbout(viewport, wheelFactor(delta), clientPoint(event)));
+  setViewport(zoomAbout(scrolled(), wheelFactor(delta), clientPoint(event)));
 }, { passive: false });
 // Scrolling, by wheel or scrollbar, is where the viewport is; it is remembered so a reload comes back there.
 diagram.addEventListener("scroll", () => {
   // The scroll applyViewport asked for is not news; what it settled on is read once the layout has.
-  if (settling) {
+  if (settling > 0) {
     return;
   }
-  viewport = { ...viewport, scrollLeft: diagram.scrollLeft, scrollTop: diagram.scrollTop };
+  viewport = scrolled();
   rememberSoon();
 });
 document.getElementById("zoom-in")?.addEventListener("click", () => zoomBy(ZOOM_STEP));
@@ -586,24 +586,32 @@ function applyViewport(): void {
   sizeCanvas(svg, viewport.zoom);
   zoomReadout.textContent = zoomLabel(viewport.zoom);
   const want = viewport;
-  settling = true;
+  settling++;
   diagram.scrollLeft = want.scrollLeft;
   diagram.scrollTop = want.scrollTop;
+  const stopped = { left: diagram.scrollLeft, top: diagram.scrollTop };
   // The status line and list below the canvas may not have their height yet, so the container
-  // can stop short of the offset asked for; it is asked again once the layout has settled, and
-  // only then is what it settled on taken as the truth.
+  // can stop short of the offset asked for; it is asked again once the layout has settled, unless
+  // the user has scrolled since, and only then is where the container stands taken as the truth.
   requestAnimationFrame(() => {
-    if (viewport === want) {
+    if (diagram.scrollLeft === stopped.left && diagram.scrollTop === stopped.top) {
       diagram.scrollLeft = want.scrollLeft;
       diagram.scrollTop = want.scrollTop;
     }
     requestAnimationFrame(() => {
-      settling = false;
-      if (viewport === want) {
-        viewport = { ...viewport, scrollLeft: diagram.scrollLeft, scrollTop: diagram.scrollTop };
+      settling--;
+      if (settling === 0) {
+        viewport = scrolled();
+        rememberSoon();
       }
     });
   });
+}
+
+// scrolled is the viewport at the container's own scroll offsets, which may be ahead of
+// what the scroll listener has recorded while an applied viewport settles.
+function scrolled(): Viewport {
+  return { ...viewport, scrollLeft: diagram.scrollLeft, scrollTop: diagram.scrollTop };
 }
 
 // setViewport moves the viewport and keeps it.
@@ -615,7 +623,7 @@ function setViewport(next: Viewport): void {
 
 // zoomBy zooms about the centre of what is on screen.
 function zoomBy(factor: number): void {
-  setViewport(zoomAbout(viewport, factor, { x: diagram.clientWidth / 2, y: diagram.clientHeight / 2 }));
+  setViewport(zoomAbout(scrolled(), factor, { x: diagram.clientWidth / 2, y: diagram.clientHeight / 2 }));
 }
 
 // resetZoom shows the canvas at 1:1, keeping the centre of what is on screen in view.
@@ -772,8 +780,10 @@ function moveGesture(event: PointerEvent): void {
 function showDragged(shown: CanvasLayout): SVGSVGElement {
   const svg = drawCanvas(shown);
   diagram.classList.add("dragging");
+  sizeCanvas(svg, viewport.zoom);
   diagram.replaceChildren(svg);
   highlight(selectedNode);
+  applySelection();
   return svg;
 }
 
