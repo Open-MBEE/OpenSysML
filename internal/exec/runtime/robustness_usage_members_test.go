@@ -32,6 +32,10 @@ const usageMembersProbeModel = `package Probe {
 		constraint underOne { in limit : ScalarValues::Real[1]; limit > base }
 		analysis def Rated { subject s : ScalarValues::Real; in n : ScalarValues::Real[1]; return : ScalarValues::Real = s * 2.0; }
 		analysis rated : Rated { subject s = base; }
+		analysis def Scored { subject s : ScalarValues::Real; in n : ScalarValues::Real[1]; attribute loc : ScalarValues::Real = n + 1.0; return : ScalarValues::Real = s * n; }
+		analysis scored : Scored { subject s = base; }
+		verification def Checked { subject s : ScalarValues::Real; in n : ScalarValues::Real[1]; return verdict : VerificationCases::VerdictKind = VerificationCases::PassIf(s > n); }
+		verification checked : Checked { subject s = base; }
 		action act { in i : ScalarValues::Integer; out o : ScalarValues::Integer; attribute k : ScalarValues::Integer = 3; }
 		state def M;
 		state sm : M { entry action e { attribute who = this; } state idle; state busy; transition idle then busy; }
@@ -127,9 +131,14 @@ func testUsageMembersStatedLowerBound(t *testing.T) {
 			t.Fatalf("%s = %s, %v; want undetermined: a case usage read as a feature leaves the input open too", src, FormatValue(val), err)
 		}
 	}
-	for _, src := range []string{"Probe::rig.rated.result", "new Probe::Rig().rated.result"} {
-		if val, err := eval(src); err != nil || FormatValue(val) != "8.0" {
-			t.Fatalf("%s = %s, %v; want 8.0: the case runs without the input", src, FormatValue(val), err)
+	for _, src := range []string{
+		"Probe::rig.rated.result", "new Probe::Rig().rated.result",
+		"Probe::rig.scored.loc", "Probe::rig.scored.result", "new Probe::Rig().scored.result",
+		"Probe::rig.checked.verdict", "new Probe::Rig().checked.verdict",
+	} {
+		val, err := eval(src)
+		if err != nil || val.Kind != ValUndetermined || !strings.Contains(val.Undetermined().reason, `parameter "n"`) {
+			t.Fatalf("%s = %s, %v; want undetermined naming n: a case computes nothing without the input, its body never running on a null", src, FormatValue(val), err)
 		}
 	}
 	if val, err := eval("Probe::rig.scaledOne.k"); err != nil || FormatValue(val) != "2.0" {

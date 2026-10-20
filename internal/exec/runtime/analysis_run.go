@@ -306,7 +306,10 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 
 	var run *calcRun
 	if asUsage {
-		run, err = ctx.calcUsageRun(reader, sym)
+		// A run is requested, not a read: an input the usage leaves open refuses it.
+		if run, err = ctx.calcUsageRun(reader, sym); err == nil && run.open != "" {
+			run, err = nil, shape.unboundParameter(run.open)
+		}
 	} else {
 		run, err = ctx.analysisRun(shape, reader, calcArgs, false)
 	}

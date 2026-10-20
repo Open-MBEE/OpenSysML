@@ -8,7 +8,8 @@
 // and through `result`, rather than failing the read. An input nothing supplies stays
 // undetermined whatever lower bound it declares (`[1]` as unstated), and its count is
 // the effective range of the parameter for a calc and a constraint alike; a case usage
-// read as a feature leaves such an input open too, and runs without it.
+// read as a feature leaves such an input open too and, like a calc, runs no body on it:
+// its result, verdict and body locals read undetermined naming the input.
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::size;
@@ -42,11 +43,31 @@ package test {
 		analysis rated : Rated {
 			subject s = 3.0;
 		}
+		analysis def Scored {
+			subject s : Real;
+			in n : Real[1];
+			attribute loc : Real = n + 1.0;
+			return : Real = s * n;
+		}
+		analysis scored : Scored {
+			subject s = 3.0;
+		}
+		verification def Checked {
+			subject s : Real;
+			in n : Real[1];
+			return verdict : VerificationCases::VerdictKind = VerificationCases::PassIf(s > n);
+		}
+		verification checked : Checked {
+			subject s = 3.0;
+		}
 		action act {
 			in i : Integer;
 			out o : Integer;
 			attribute k : Integer = 3;
 		}
+	}
+	analysis pkgScored : Rig::Scored {
+		subject s = 3.0;
 	}
 	part def Bench {
 		part rig : Rig;
@@ -67,6 +88,11 @@ package test {
 		attribute underOneResult = rig.underOne.result;
 		attribute ratedN = rig.rated.n;
 		attribute ratedResult = rig.rated.result;
+		attribute scoredN = rig.scored.n;
+		attribute scoredLoc = rig.scored.loc;
+		attribute scoredResult = rig.scored.result;
+		attribute checkedVerdict = rig.checked.verdict;
+		attribute pkgScoredResult = pkgScored.result;
 		attribute actIn = rig.act.i;
 		attribute actOut = rig.act.o;
 		attribute actK = rig.act.k;

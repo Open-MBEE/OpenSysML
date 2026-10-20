@@ -1204,16 +1204,19 @@ func (ec *EvalContext) bindCalcParameter(
 		if param.optional(ec.ctx.model.semantics) {
 			return nullValue(), "omitted", nil
 		}
-		return Value{}, "", fmt.Errorf(
-			"%w: %s parameter %q has no argument and no default",
-			errUnboundParameter, shape.Label, param.Name,
-		)
+		return Value{}, "", shape.unboundParameter(param.Name)
 	}
 	value, err := ec.Eval(param.Default)
 	if err != nil {
 		return Value{}, "", calcDefaultError(shape.Kind, shape.Name, param.Name, err)
 	}
 	return value, "default", nil
+}
+
+// unboundParameter is the error of a parameter an invocation or a run neither
+// binds nor defaults: the request cannot proceed without it.
+func (shape *calcShape) unboundParameter(name string) error {
+	return fmt.Errorf("%w: %s parameter %q has no argument and no default", errUnboundParameter, shape.Label, name)
 }
 
 // calcScope returns the scope an inherited or own calc body member is written

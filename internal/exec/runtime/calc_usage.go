@@ -1408,16 +1408,24 @@ func (run *calcRun) memberValue(ctx *Context, name string) (Value, bool, error) 
 	return undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", run.shape.Label, name), count, member), true, nil
 }
 
-// openInput names the required input of a calc usage nothing supplies — one with
-// neither a value nor a default, declared whatever its lower bound — read over an
-// object; the usage computes nothing without it. A case usage runs without the
-// input, and a usage written in a behavior body binds from that body, so neither.
+// openInput names the required input (no value, no default, whatever its lower bound) of
+// a usage read as a feature: it computes nothing without it, so no body runs on a null.
 func (start *calcUsageStart) openInput() string {
-	if start.shape.Sym.Kind != symbols.SymbolCalcUsage || start.shape.isCase() || !start.shape.readsOpen(start.nested, calcArgs{}) {
+	shape := start.shape
+	if !shape.readsOpen(start.nested, calcArgs{}) {
 		return ""
 	}
-	for i := range start.shape.Params {
-		if param := &start.shape.Params[i]; start.unsupplied[param.Name] && !param.declaredOptional() {
+	for i := range shape.Params {
+		param := &shape.Params[i]
+		if !start.unsupplied[param.Name] {
+			continue
+		}
+		// A calc computes nothing without any input; a case runs without a subject or
+		// actor (they read undetermined) and without an input whose range admits none.
+		if shape.isCase() && (param.IsSubject || param.IsActor || param.optional(start.ec.ctx.model.semantics)) {
+			continue
+		}
+		if !param.declaredOptional() {
 			return param.Name
 		}
 	}

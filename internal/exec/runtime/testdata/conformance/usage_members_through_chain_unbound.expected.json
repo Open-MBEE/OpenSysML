@@ -68,8 +68,28 @@
       "value": "[1]"
     },
     "ratedResult": {
-      "type": "Real",
-      "value": 6.0
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "scoredN": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "scoredLoc": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "scoredResult": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "checkedVerdict": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "pkgScoredResult": {
+      "type": "Undetermined",
+      "value": "[1]"
     },
     "actIn": {
       "type": "Undetermined",
