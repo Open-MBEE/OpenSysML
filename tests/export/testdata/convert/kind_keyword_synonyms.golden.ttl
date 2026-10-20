@@ -461,18 +461,18 @@ elmt:Synonyms__Vehicle
     sysml:owningMembership elmt:Synonyms__Vehicle_om ;
     sysml:declaredName "Vehicle" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Synonyms__Vehicle___400, elmt:Synonyms__Vehicle__safe, elmt:Synonyms__Vehicle__alsoSafe ;
-    sysml:ownedMembership elmt:Synonyms__Vehicle___400_om, elmt:Synonyms__Vehicle__safe_om, elmt:Synonyms__Vehicle__alsoSafe_om ;
-    sysml:ownedRelationship elmt:Synonyms__Vehicle___400_om, elmt:Synonyms__Vehicle__safe_om, elmt:Synonyms__Vehicle__alsoSafe_om ;
-    sysml:ownedFeature elmt:Synonyms__Vehicle___400, elmt:Synonyms__Vehicle__safe, elmt:Synonyms__Vehicle__alsoSafe ;
-    sysml:ownedFeatureMembership elmt:Synonyms__Vehicle___400_om, elmt:Synonyms__Vehicle__safe_om, elmt:Synonyms__Vehicle__alsoSafe_om ;
+    sysml:ownedMember elmt:Synonyms__Vehicle__idling, elmt:Synonyms__Vehicle__safe, elmt:Synonyms__Vehicle__alsoSafe ;
+    sysml:ownedMembership elmt:Synonyms__Vehicle__idling_om, elmt:Synonyms__Vehicle__safe_om, elmt:Synonyms__Vehicle__alsoSafe_om ;
+    sysml:ownedRelationship elmt:Synonyms__Vehicle__idling_om, elmt:Synonyms__Vehicle__safe_om, elmt:Synonyms__Vehicle__alsoSafe_om ;
+    sysml:ownedFeature elmt:Synonyms__Vehicle__idling, elmt:Synonyms__Vehicle__safe, elmt:Synonyms__Vehicle__alsoSafe ;
+    sysml:ownedFeatureMembership elmt:Synonyms__Vehicle__idling_om, elmt:Synonyms__Vehicle__safe_om, elmt:Synonyms__Vehicle__alsoSafe_om ;
     sysx:sourceText "    part def Vehicle {\n" ;
     sysx:sourceTail "    }\n" ;
-    json:ownedMember "[{\"@id\":\"Synonyms__Vehicle___400\"},{\"@id\":\"Synonyms__Vehicle__safe\"},{\"@id\":\"Synonyms__Vehicle__alsoSafe\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Synonyms__Vehicle___400_om\"},{\"@id\":\"Synonyms__Vehicle__safe_om\"},{\"@id\":\"Synonyms__Vehicle__alsoSafe_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Synonyms__Vehicle___400_om\"},{\"@id\":\"Synonyms__Vehicle__safe_om\"},{\"@id\":\"Synonyms__Vehicle__alsoSafe_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Synonyms__Vehicle___400\"},{\"@id\":\"Synonyms__Vehicle__safe\"},{\"@id\":\"Synonyms__Vehicle__alsoSafe\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Synonyms__Vehicle___400_om\"},{\"@id\":\"Synonyms__Vehicle__safe_om\"},{\"@id\":\"Synonyms__Vehicle__alsoSafe_om\"}]" .
+    json:ownedMember "[{\"@id\":\"Synonyms__Vehicle__idling\"},{\"@id\":\"Synonyms__Vehicle__safe\"},{\"@id\":\"Synonyms__Vehicle__alsoSafe\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Synonyms__Vehicle__idling_om\"},{\"@id\":\"Synonyms__Vehicle__safe_om\"},{\"@id\":\"Synonyms__Vehicle__alsoSafe_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Synonyms__Vehicle__idling_om\"},{\"@id\":\"Synonyms__Vehicle__safe_om\"},{\"@id\":\"Synonyms__Vehicle__alsoSafe_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Synonyms__Vehicle__idling\"},{\"@id\":\"Synonyms__Vehicle__safe\"},{\"@id\":\"Synonyms__Vehicle__alsoSafe\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Synonyms__Vehicle__idling_om\"},{\"@id\":\"Synonyms__Vehicle__safe_om\"},{\"@id\":\"Synonyms__Vehicle__alsoSafe_om\"}]" .
 
 elmt:Synonyms__Vehicle_om
     a sysml:OwningMembership ;
@@ -484,43 +484,44 @@ elmt:Synonyms__Vehicle_om
     sysml:owningRelatedElement elmt:Synonyms ;
     sysml:membershipOwningNamespace elmt:Synonyms .
 
-elmt:Synonyms__Vehicle___400
+elmt:Synonyms__Vehicle__idling
     a sysml:ExhibitStateUsage ;
-    sysml:qualifiedName "Synonyms::Vehicle::@0" ;
+    sysml:name "idling" ;
+    sysml:qualifiedName "Synonyms::Vehicle::idling" ;
     sysx:sourceLine "14"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "14"^^xsd:integer ;
     sysx:sourceEndColumn "31"^^xsd:integer ;
-    sysml:elementId "Synonyms__Vehicle___400" ;
+    sysml:elementId "Synonyms__Vehicle__idling" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Vehicle ;
     sysml:owner elmt:Synonyms__Vehicle ;
-    sysml:owningRelationship elmt:Synonyms__Vehicle___400_om ;
-    sysml:owningMembership elmt:Synonyms__Vehicle___400_om ;
+    sysml:owningRelationship elmt:Synonyms__Vehicle__idling_om ;
+    sysml:owningMembership elmt:Synonyms__Vehicle__idling_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "exhibit" ;
     sysml:type elmt:Synonyms__Idle ;
     sysml:references "idling" ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedTyping elmt:Synonyms__Vehicle___400_ft0 ;
-    sysml:ownedSpecialization elmt:Synonyms__Vehicle___400_ft0, elmt:Synonyms__Vehicle___400_rs ;
-    sysml:ownedRelationship elmt:Synonyms__Vehicle___400_ft0, elmt:Synonyms__Vehicle___400_rs ;
-    sysml:ownedReferenceSubsetting elmt:Synonyms__Vehicle___400_rs ;
-    sysml:ownedSubsetting elmt:Synonyms__Vehicle___400_rs ;
+    sysml:ownedTyping elmt:Synonyms__Vehicle__idling_ft0 ;
+    sysml:ownedSpecialization elmt:Synonyms__Vehicle__idling_ft0, elmt:Synonyms__Vehicle__idling_rs ;
+    sysml:ownedRelationship elmt:Synonyms__Vehicle__idling_ft0, elmt:Synonyms__Vehicle__idling_rs ;
+    sysml:ownedReferenceSubsetting elmt:Synonyms__Vehicle__idling_rs ;
+    sysml:ownedSubsetting elmt:Synonyms__Vehicle__idling_rs ;
     sysx:sourceText "        exhibit idling : Idle;\n" ;
-    json:ownedSpecialization "[{\"@id\":\"Synonyms__Vehicle___400_ft0\"},{\"@id\":\"Synonyms__Vehicle___400_rs\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Synonyms__Vehicle___400_ft0\"},{\"@id\":\"Synonyms__Vehicle___400_rs\"}]" .
+    json:ownedSpecialization "[{\"@id\":\"Synonyms__Vehicle__idling_ft0\"},{\"@id\":\"Synonyms__Vehicle__idling_rs\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Synonyms__Vehicle__idling_ft0\"},{\"@id\":\"Synonyms__Vehicle__idling_rs\"}]" .
 
-elmt:Synonyms__Vehicle___400_om
+elmt:Synonyms__Vehicle__idling_om
     a sysml:FeatureMembership ;
-    sysml:elementId "Synonyms__Vehicle___400_om" ;
+    sysml:elementId "Synonyms__Vehicle__idling_om" ;
     sysml:owner elmt:Synonyms__Vehicle ;
-    sysml:memberElement elmt:Synonyms__Vehicle___400 ;
-    sysml:ownedMemberElement elmt:Synonyms__Vehicle___400 ;
-    sysml:ownedRelatedElement elmt:Synonyms__Vehicle___400 ;
+    sysml:memberElement elmt:Synonyms__Vehicle__idling ;
+    sysml:ownedMemberElement elmt:Synonyms__Vehicle__idling ;
+    sysml:ownedRelatedElement elmt:Synonyms__Vehicle__idling ;
     sysml:owningRelatedElement elmt:Synonyms__Vehicle ;
     sysml:membershipOwningNamespace elmt:Synonyms__Vehicle ;
-    sysml:ownedMemberFeature elmt:Synonyms__Vehicle___400 ;
+    sysml:ownedMemberFeature elmt:Synonyms__Vehicle__idling ;
     sysml:owningType elmt:Synonyms__Vehicle .
 
 elmt:Synonyms__Vehicle__safe
@@ -635,18 +636,18 @@ elmt:Synonyms__Dashboard
     sysml:owningMembership elmt:Synonyms__Dashboard_om ;
     sysml:declaredName "Dashboard" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Synonyms__Dashboard___400, elmt:Synonyms__Dashboard___401 ;
-    sysml:ownedMembership elmt:Synonyms__Dashboard___400_om, elmt:Synonyms__Dashboard___401_om ;
-    sysml:ownedRelationship elmt:Synonyms__Dashboard___400_om, elmt:Synonyms__Dashboard___401_om ;
-    sysml:ownedFeature elmt:Synonyms__Dashboard___400, elmt:Synonyms__Dashboard___401 ;
-    sysml:ownedFeatureMembership elmt:Synonyms__Dashboard___400_om, elmt:Synonyms__Dashboard___401_om ;
+    sysml:ownedMember elmt:Synonyms__Dashboard__display, elmt:Synonyms__Dashboard___401 ;
+    sysml:ownedMembership elmt:Synonyms__Dashboard__display_om, elmt:Synonyms__Dashboard___401_om ;
+    sysml:ownedRelationship elmt:Synonyms__Dashboard__display_om, elmt:Synonyms__Dashboard___401_om ;
+    sysml:ownedFeature elmt:Synonyms__Dashboard__display, elmt:Synonyms__Dashboard___401 ;
+    sysml:ownedFeatureMembership elmt:Synonyms__Dashboard__display_om, elmt:Synonyms__Dashboard___401_om ;
     sysx:sourceText "    view def Dashboard {\n" ;
     sysx:sourceTail "    }\n" ;
-    json:ownedMember "[{\"@id\":\"Synonyms__Dashboard___400\"},{\"@id\":\"Synonyms__Dashboard___401\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Synonyms__Dashboard___400_om\"},{\"@id\":\"Synonyms__Dashboard___401_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Synonyms__Dashboard___400_om\"},{\"@id\":\"Synonyms__Dashboard___401_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Synonyms__Dashboard___400\"},{\"@id\":\"Synonyms__Dashboard___401\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Synonyms__Dashboard___400_om\"},{\"@id\":\"Synonyms__Dashboard___401_om\"}]" .
+    json:ownedMember "[{\"@id\":\"Synonyms__Dashboard__display\"},{\"@id\":\"Synonyms__Dashboard___401\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Synonyms__Dashboard__display_om\"},{\"@id\":\"Synonyms__Dashboard___401_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Synonyms__Dashboard__display_om\"},{\"@id\":\"Synonyms__Dashboard___401_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Synonyms__Dashboard__display\"},{\"@id\":\"Synonyms__Dashboard___401\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Synonyms__Dashboard__display_om\"},{\"@id\":\"Synonyms__Dashboard___401_om\"}]" .
 
 elmt:Synonyms__Dashboard_om
     a sysml:OwningMembership ;
@@ -658,39 +659,40 @@ elmt:Synonyms__Dashboard_om
     sysml:owningRelatedElement elmt:Synonyms ;
     sysml:membershipOwningNamespace elmt:Synonyms .
 
-elmt:Synonyms__Dashboard___400
+elmt:Synonyms__Dashboard__display
     a sysml:RenderingUsage ;
-    sysml:qualifiedName "Synonyms::Dashboard::@0" ;
+    sysml:name "display" ;
+    sysml:qualifiedName "Synonyms::Dashboard::display" ;
     sysx:sourceLine "20"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "20"^^xsd:integer ;
     sysx:sourceEndColumn "24"^^xsd:integer ;
-    sysml:elementId "Synonyms__Dashboard___400" ;
+    sysml:elementId "Synonyms__Dashboard__display" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Dashboard ;
     sysml:owner elmt:Synonyms__Dashboard ;
-    sysml:owningRelationship elmt:Synonyms__Dashboard___400_om ;
-    sysml:owningMembership elmt:Synonyms__Dashboard___400_om ;
+    sysml:owningRelationship elmt:Synonyms__Dashboard__display_om ;
+    sysml:owningMembership elmt:Synonyms__Dashboard__display_om ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:references "display" ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedReferenceSubsetting elmt:Synonyms__Dashboard___400_rs ;
-    sysml:ownedSubsetting elmt:Synonyms__Dashboard___400_rs ;
-    sysml:ownedSpecialization elmt:Synonyms__Dashboard___400_rs ;
-    sysml:ownedRelationship elmt:Synonyms__Dashboard___400_rs ;
+    sysml:ownedReferenceSubsetting elmt:Synonyms__Dashboard__display_rs ;
+    sysml:ownedSubsetting elmt:Synonyms__Dashboard__display_rs ;
+    sysml:ownedSpecialization elmt:Synonyms__Dashboard__display_rs ;
+    sysml:ownedRelationship elmt:Synonyms__Dashboard__display_rs ;
     sysx:sourceText "        render display;\n" .
 
-elmt:Synonyms__Dashboard___400_om
+elmt:Synonyms__Dashboard__display_om
     a sysml:ViewRenderingMembership ;
-    sysml:elementId "Synonyms__Dashboard___400_om" ;
+    sysml:elementId "Synonyms__Dashboard__display_om" ;
     sysml:owner elmt:Synonyms__Dashboard ;
-    sysml:memberElement elmt:Synonyms__Dashboard___400 ;
-    sysml:ownedMemberElement elmt:Synonyms__Dashboard___400 ;
-    sysml:ownedRelatedElement elmt:Synonyms__Dashboard___400 ;
+    sysml:memberElement elmt:Synonyms__Dashboard__display ;
+    sysml:ownedMemberElement elmt:Synonyms__Dashboard__display ;
+    sysml:ownedRelatedElement elmt:Synonyms__Dashboard__display ;
     sysml:owningRelatedElement elmt:Synonyms__Dashboard ;
     sysml:membershipOwningNamespace elmt:Synonyms__Dashboard ;
-    sysml:ownedRendering elmt:Synonyms__Dashboard___400 ;
-    sysml:ownedMemberFeature elmt:Synonyms__Dashboard___400 ;
+    sysml:ownedRendering elmt:Synonyms__Dashboard__display ;
+    sysml:ownedMemberFeature elmt:Synonyms__Dashboard__display ;
     sysml:owningType elmt:Synonyms__Dashboard .
 
 elmt:Synonyms__Dashboard___401
@@ -742,37 +744,37 @@ elmt:Synonyms__reading_ft0
     sysml:relatedElement elmt:Synonyms__reading, elmt:Synonyms__Temperature ;
     json:relatedElement "[{\"@id\":\"Synonyms__reading\"},{\"@id\":\"Synonyms__Temperature\"}]" .
 
-elmt:Synonyms__Vehicle___400_ft0
+elmt:Synonyms__Vehicle__idling_ft0
     a sysml:FeatureTyping ;
-    sysml:elementId "Synonyms__Vehicle___400_ft0" ;
-    sysml:typedFeature elmt:Synonyms__Vehicle___400 ;
-    sysml:owningFeature elmt:Synonyms__Vehicle___400 ;
-    sysml:specific elmt:Synonyms__Vehicle___400 ;
-    sysml:source elmt:Synonyms__Vehicle___400 ;
-    sysml:owningRelatedElement elmt:Synonyms__Vehicle___400 ;
+    sysml:elementId "Synonyms__Vehicle__idling_ft0" ;
+    sysml:typedFeature elmt:Synonyms__Vehicle__idling ;
+    sysml:owningFeature elmt:Synonyms__Vehicle__idling ;
+    sysml:specific elmt:Synonyms__Vehicle__idling ;
+    sysml:source elmt:Synonyms__Vehicle__idling ;
+    sysml:owningRelatedElement elmt:Synonyms__Vehicle__idling ;
     sysml:type elmt:Synonyms__Idle ;
     sysml:general elmt:Synonyms__Idle ;
     sysml:target elmt:Synonyms__Idle ;
-    sysml:owner elmt:Synonyms__Vehicle___400 ;
-    sysml:relatedElement elmt:Synonyms__Vehicle___400, elmt:Synonyms__Idle ;
-    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle___400\"},{\"@id\":\"Synonyms__Idle\"}]" .
+    sysml:owner elmt:Synonyms__Vehicle__idling ;
+    sysml:relatedElement elmt:Synonyms__Vehicle__idling, elmt:Synonyms__Idle ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle__idling\"},{\"@id\":\"Synonyms__Idle\"}]" .
 
-elmt:Synonyms__Vehicle___400_rs
+elmt:Synonyms__Vehicle__idling_rs
     a sysml:ReferenceSubsetting ;
-    sysml:elementId "Synonyms__Vehicle___400_rs" ;
-    sysml:referencingFeature elmt:Synonyms__Vehicle___400 ;
-    sysml:subsettingFeature elmt:Synonyms__Vehicle___400 ;
-    sysml:owningFeature elmt:Synonyms__Vehicle___400 ;
-    sysml:specific elmt:Synonyms__Vehicle___400 ;
-    sysml:source elmt:Synonyms__Vehicle___400 ;
-    sysml:owningRelatedElement elmt:Synonyms__Vehicle___400 ;
+    sysml:elementId "Synonyms__Vehicle__idling_rs" ;
+    sysml:referencingFeature elmt:Synonyms__Vehicle__idling ;
+    sysml:subsettingFeature elmt:Synonyms__Vehicle__idling ;
+    sysml:owningFeature elmt:Synonyms__Vehicle__idling ;
+    sysml:specific elmt:Synonyms__Vehicle__idling ;
+    sysml:source elmt:Synonyms__Vehicle__idling ;
+    sysml:owningRelatedElement elmt:Synonyms__Vehicle__idling ;
     sysml:referencedFeature "idling" ;
     sysml:subsettedFeature "idling" ;
     sysml:general "idling" ;
     sysml:target "idling" ;
-    sysml:owner elmt:Synonyms__Vehicle___400 ;
-    sysml:relatedElement elmt:Synonyms__Vehicle___400, "idling" ;
-    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle___400\"},\"idling\"]" .
+    sysml:owner elmt:Synonyms__Vehicle__idling ;
+    sysml:relatedElement elmt:Synonyms__Vehicle__idling, "idling" ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle__idling\"},\"idling\"]" .
 
 elmt:Synonyms__Vehicle__safe_ft0
     a sysml:FeatureTyping ;
@@ -804,22 +806,22 @@ elmt:Synonyms__Vehicle__alsoSafe_ft0
     sysml:relatedElement elmt:Synonyms__Vehicle__alsoSafe, elmt:Synonyms__Safe ;
     json:relatedElement "[{\"@id\":\"Synonyms__Vehicle__alsoSafe\"},{\"@id\":\"Synonyms__Safe\"}]" .
 
-elmt:Synonyms__Dashboard___400_rs
+elmt:Synonyms__Dashboard__display_rs
     a sysml:ReferenceSubsetting ;
-    sysml:elementId "Synonyms__Dashboard___400_rs" ;
-    sysml:referencingFeature elmt:Synonyms__Dashboard___400 ;
-    sysml:subsettingFeature elmt:Synonyms__Dashboard___400 ;
-    sysml:owningFeature elmt:Synonyms__Dashboard___400 ;
-    sysml:specific elmt:Synonyms__Dashboard___400 ;
-    sysml:source elmt:Synonyms__Dashboard___400 ;
-    sysml:owningRelatedElement elmt:Synonyms__Dashboard___400 ;
+    sysml:elementId "Synonyms__Dashboard__display_rs" ;
+    sysml:referencingFeature elmt:Synonyms__Dashboard__display ;
+    sysml:subsettingFeature elmt:Synonyms__Dashboard__display ;
+    sysml:owningFeature elmt:Synonyms__Dashboard__display ;
+    sysml:specific elmt:Synonyms__Dashboard__display ;
+    sysml:source elmt:Synonyms__Dashboard__display ;
+    sysml:owningRelatedElement elmt:Synonyms__Dashboard__display ;
     sysml:referencedFeature "display" ;
     sysml:subsettedFeature "display" ;
     sysml:general "display" ;
     sysml:target "display" ;
-    sysml:owner elmt:Synonyms__Dashboard___400 ;
-    sysml:relatedElement elmt:Synonyms__Dashboard___400, "display" ;
-    json:relatedElement "[{\"@id\":\"Synonyms__Dashboard___400\"},\"display\"]" .
+    sysml:owner elmt:Synonyms__Dashboard__display ;
+    sysml:relatedElement elmt:Synonyms__Dashboard__display, "display" ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Dashboard__display\"},\"display\"]" .
 
 elmt:Synonyms__Dashboard___401_ft0
     a sysml:FeatureTyping ;

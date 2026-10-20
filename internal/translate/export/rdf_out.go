@@ -447,7 +447,7 @@ func (e *encoder) declaredSubjects() []mintedSubject {
 	nodes := make([]ast.Node, 0, len(e.fqn))
 	for node := range e.fqn {
 		el, identified := e.ids.byNode[node]
-		if name, _ := declaredNameAndMembers(node); name != "" || identified && el.source != identity.SourceDerived {
+		if memberName(node) != "" || identified && el.source != identity.SourceDerived {
 			nodes = append(nodes, node)
 		}
 	}
@@ -578,6 +578,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		payloads:           map[*ast.Usage]*ast.Usage{},
 		payloadFeatures:    map[*ast.Usage]bool{},
 		fqn:                map[ast.Node]string{},
+		positional:         map[ast.Node]string{},
 		links:              map[*ast.QualifiedName]*symbols.Symbol{},
 		preceding:          map[ast.Node]ast.Node{},
 		introduced:         map[ast.Node]ast.Node{},
@@ -593,7 +594,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 			e.links[ref.QN] = sym
 		}
 	}
-	if err := e.collect(root.Members, ""); err != nil {
+	if err := e.collect(root.Members, "", ""); err != nil {
 		return nil, err
 	}
 	e.indexTriggerMembers()
@@ -642,6 +643,9 @@ type encoder struct {
 	// fqn is the qualified name of each member node, which is how a succession
 	// end the notation leaves unnamed addresses the member it binds.
 	fqn map[ast.Node]string
+	// positional is, for a member named by its naming feature, the name a graph
+	// stating no effective names addresses it by: its position in its owner.
+	positional map[ast.Node]string
 	// links is what each written reference resolves to, read with the rule of
 	// its position (a redefinition among the generals, an edge end as a vertex).
 	links map[*ast.QualifiedName]*symbols.Symbol
@@ -966,10 +970,13 @@ func (e *encoder) provenance(subject rdf.Term, node ast.Node) {
 // declared twice in one namespace is not an identity: the first member keeps
 // the qualified name, as the language's own naming rule fixes it, and each
 // later one is identified by its position, like a member declared unnamed.
-func (e *encoder) collect(members []ast.Node, owner string) error {
+// position is the owner's name in a graph that states no effective names,
+// under which a member named by its naming feature is addressed by position.
+func (e *encoder) collect(members []ast.Node, owner, position string) error {
 	for i, member := range e.kept(members) {
 		node, _ := unwrapMember(member)
-		name, children := declaredNameAndMembers(node)
+		declared, children := declaredNameAndMembers(node)
+		name := memberName(node)
 		fqn := qualify(owner, name, i)
 		if fqn == "" {
 			continue
@@ -979,6 +986,14 @@ func (e *encoder) collect(members []ast.Node, owner string) error {
 			fqn = qualify(owner, "", i)
 		}
 		e.fqn[node] = fqn
+		segment := declared
+		if fqn == qualify(owner, "", i) {
+			segment = ""
+		}
+		positional := qualify(position, segment, i)
+		if positional != fqn {
+			e.positional[node] = positional
+		}
 		// A trigger's payload is a parameter of the transition's trigger action.
 		if transition, ok := node.(*ast.TransitionMember); ok {
 			if payload := e.triggerPayload(transition); payload != nil && payload == transition.Trigger {
@@ -986,7 +1001,7 @@ func (e *encoder) collect(members []ast.Node, owner string) error {
 			}
 		}
 		e.declared[fqn] = true
-		if err := e.collect(children, fqn); err != nil {
+		if err := e.collect(children, fqn, positional); err != nil {
 			return err
 		}
 		if err := e.collectPrefixes(node, fqn, len(e.kept(children))); err != nil {
@@ -1107,7 +1122,7 @@ func (e *encoder) collectPrefixes(node ast.Node, owner string, index int) error 
 		fqn := qualify(owner, "", index)
 		e.fqn[prefix] = fqn
 		e.declared[fqn] = true
-		if err := e.collect(prefix.Body, fqn); err != nil {
+		if err := e.collect(prefix.Body, fqn, fqn); err != nil {
 			return err
 		}
 		index++
@@ -1339,8 +1354,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 	// sibling of the same owner declared first is addressed by position there.
 	fqn, collected := e.fqn[node]
 	if !collected {
-		name, _ := declaredNameAndMembers(node)
-		fqn = qualify(owner, name, index)
+		fqn = qualify(owner, memberName(node), index)
 	}
 	subject := h.local
 	local := subject.Value != ""
@@ -1356,6 +1370,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if subject, err = e.mint(node, fqn); err != nil {
 			return err
 		}
+		e.derivedName(subject, node)
 	}
 	if e.effects[node] {
 		h.membershipClass = mTransitionFeatureMembership
@@ -3512,6 +3527,33 @@ func declaredNameAndMembers(node ast.Node) (string, []ast.Node) {
 		return n.Ident.Name, nil
 	}
 	return "", nil
+}
+
+// memberName is the name a member is known by in its namespace: the one it
+// declares, or the one its naming feature lends it (KerML Feature::effectiveName)
+// — `perform a;` is named a and a view's `render tree;` is named tree (SysML
+// RenderingUsage::namingFeature), like the symbol table resolves them.
+func memberName(node ast.Node) string {
+	if name, _ := declaredNameAndMembers(node); name != "" {
+		return name
+	}
+	if rel := ast.DeclNamingFeature(node); rel != nil {
+		name, _ := ast.TargetName(rel.Target)
+		return name
+	}
+	return ""
+}
+
+// derivedName states sysml:name where the effective name is not the declared
+// one, so the graph carries the name the member answers to without a reader
+// re-deriving it from the naming feature.
+func (e *encoder) derivedName(subject rdf.Term, node ast.Node) {
+	if declared, _ := declaredNameAndMembers(node); declared != "" {
+		return
+	}
+	if name := memberName(node); name != "" {
+		e.graph.Add(subject, e.sysml(pName), rdf.String(name))
+	}
 }
 
 // qualify builds the qualified name of a member. An unnamed declaration is
