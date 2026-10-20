@@ -24,6 +24,11 @@ type oursExport struct {
 	Separate bool
 	// Unconvertible counts the documents the writer refused when converted alone.
 	Unconvertible int
+	// Skipped counts the files left out because the pilot failed on them;
+	// Colliding the documents converted alone for declaring an element another
+	// document of the root declares.
+	Skipped   int
+	Colliding int
 	// Duplicates counts identical copies dropped; Ambiguous the elements two of
 	// which computed the same key but differ; Shared names the first such keys.
 	Duplicates int
@@ -35,13 +40,20 @@ type oursExport struct {
 }
 
 // exportOurs converts the files of one root together, so cross-file imports
-// resolve, and keys the elements the writer emits. When the root does not
-// convert as one model (two documents declaring the same element, as the
-// interchange fixtures do), each document is converted alone instead.
-func exportOurs(dir string, files []string) (*oursExport, error) {
+// resolve, and keys the elements the writer emits. Files in skip (the ones the
+// pilot failed on) are left out. A document that declares an element another
+// document of the root declares too (the interchange fixtures do) cannot share
+// a graph with it, so each such document is converted alone and the rest
+// together; only if the rest still do not convert as one model is every
+// document converted alone.
+func exportOurs(dir string, files []string, skip map[string]bool) (*oursExport, error) {
 	result := &oursExport{Unkeyed: make(map[string]int)}
 	documents := make([]export.ModelDocument, 0, len(files))
 	for _, rel := range files {
+		if skip[rel] {
+			result.Skipped++
+			continue
+		}
 		// #nosec G304 -- the corpus root to compare is named on the command line.
 		content, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
 		if err != nil {
@@ -59,24 +71,61 @@ func exportOurs(dir string, files []string) (*oursExport, error) {
 	if len(documents) == 0 {
 		return result, nil
 	}
-	raw, err := convertOurs(documents)
-	if err == nil {
-		result.Elements, result.Unkeyable = keyOurs(raw, soleFile(documents), result.Unkeyed)
-	} else {
-		result.Separate = true
-		for _, document := range documents {
-			raw, err := convertOurs([]export.ModelDocument{document})
-			if err != nil {
-				result.Unconvertible++
-				continue
+	alone := make([][]map[string]any, len(documents))
+	declaring := make(map[string][]int)
+	for i, document := range documents {
+		raw, err := convertOurs([]export.ModelDocument{document})
+		if err != nil {
+			result.Unconvertible++
+			continue
+		}
+		alone[i] = raw
+		for _, el := range raw {
+			if id, ok := el["@id"].(string); ok {
+				declaring[id] = append(declaring[id], i)
 			}
-			elements, unkeyable := keyOurs(raw, document.File.Name(), result.Unkeyed)
-			result.Elements = append(result.Elements, elements...)
-			result.Unkeyable += unkeyable
+		}
+	}
+	colliding := make([]bool, len(documents))
+	for _, indexes := range declaring {
+		if len(indexes) > 1 {
+			for _, i := range indexes {
+				colliding[i] = true
+			}
+		}
+	}
+	var shared []export.ModelDocument
+	for i, document := range documents {
+		switch {
+		case alone[i] == nil:
+		case colliding[i]:
+			result.Colliding++
+			result.key(alone[i], document.File.Name())
+		default:
+			shared = append(shared, document)
+		}
+	}
+	if len(shared) > 0 {
+		if raw, err := convertOurs(shared); err == nil {
+			result.key(raw, soleFile(shared))
+		} else {
+			result.Separate = true
+			for i, document := range documents {
+				if alone[i] != nil && !colliding[i] {
+					result.key(alone[i], document.File.Name())
+				}
+			}
 		}
 	}
 	result.Elements, result.Duplicates, result.Ambiguous, result.Shared = dropAmbiguous(result.Elements)
 	return result, nil
+}
+
+// key adds the writer's elements of one conversion, keyed.
+func (r *oursExport) key(raw []map[string]any, file string) {
+	elements, unkeyable := keyOurs(raw, file, r.Unkeyed)
+	r.Elements = append(r.Elements, elements...)
+	r.Unkeyable += unkeyable
 }
 
 // soleFile names a root's one document, whose writer states no sysx:sourceDocument.
@@ -246,8 +295,9 @@ func (k *ourKeyer) ownedElements(owner map[string]any) []string {
 	return owned
 }
 
-// fileOf is the document an element comes from: the one its root namespace
-// states, found up the owner chain.
+// fileOf is the document an element comes from: the one a document's root
+// elements state, found up the owner chain. The writer's root Namespace, which
+// wraps a document's roots, states none itself, so it takes its members'.
 func (k *ourKeyer) fileOf(id string) string {
 	if file, ok := k.files[id]; ok {
 		return file
@@ -258,14 +308,30 @@ func (k *ourKeyer) fileOf(id string) string {
 		if object == nil {
 			break
 		}
-		if stated, _ := object["sysx:sourceDocument"].(string); stated != "" {
+		if stated := statedDocument(object); stated != "" {
 			file = stated
 			break
 		}
-		current = refID(object["owner"])
+		owner := refID(object["owner"])
+		if owner == "" {
+			for _, member := range k.ownedElements(object) {
+				if stated := statedDocument(k.byID[member]); stated != "" {
+					file = stated
+					break
+				}
+			}
+			break
+		}
+		current = owner
 	}
 	k.files[id] = file
 	return file
+}
+
+// statedDocument is the document an element names (sysx:sourceDocument), if any.
+func statedDocument(object map[string]any) string {
+	stated, _ := object["sysx:sourceDocument"].(string)
+	return stated
 }
 
 // isRelationship recognizes a relationship element by the properties only the

@@ -17,8 +17,8 @@ import (
 // pilotExport is one corpus root exported through the pinned pilot.
 type pilotExport struct {
 	Elements []*element
-	// Failed counts the files the pilot read or exported with an exception.
-	Failed int
+	// Failed names the files the pilot read or exported with an exception.
+	Failed []string
 	// Library counts the standard-library elements the pilot wrote, which this
 	// repository's writer never does; each file that refers to one writes it again.
 	Library int
@@ -90,7 +90,7 @@ func runPilot(launcher, dir string, files []string, timeout time.Duration) (*pil
 		content, err := os.ReadFile(path) // #nosec G304 -- the bridge wrote it under our temporary directory
 		if err != nil {
 			if os.IsNotExist(err) {
-				result.Failed++
+				result.Failed = append(result.Failed, rel)
 				continue
 			}
 			return nil, fmt.Errorf("read pilot export %s: %w", rel, err)

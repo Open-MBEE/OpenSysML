@@ -102,19 +102,25 @@ func run(opts options) error {
 		}
 		dir := filepath.Join(opts.repo, filepath.FromSlash(root.Dir))
 		fmt.Fprintf(opts.log, "%s: %d files\n", root.Name, len(files))
-		ours, err := exportOurs(dir, files)
+		pilot, err := runPilot(opts.launcher, dir, files, opts.timeout)
 		if err != nil {
 			return err
 		}
-		pilot, err := runPilot(opts.launcher, dir, files, opts.timeout)
+		// A file the pilot failed on has nothing to compare against, so its
+		// elements do not become ours-only.
+		failed := make(map[string]bool, len(pilot.Failed))
+		for _, rel := range pilot.Failed {
+			failed[rel] = true
+		}
+		ours, err := exportOurs(dir, files, failed)
 		if err != nil {
 			return err
 		}
 		elements, buckets := result.compareRoot(root.Name, ours.Elements, pilot.Elements)
 		report.Roots = append(report.Roots, RootReport{
 			Name: root.Name, Dir: root.Dir, Files: len(files),
-			OursRefused: ours.Refused, PilotFailed: pilot.Failed,
-			OursSeparate: ours.Separate, OursUnconvertible: ours.Unconvertible, PilotLibraryElements: pilot.Library,
+			OursRefused: ours.Refused, PilotFailed: len(pilot.Failed),
+			OursSeparate: ours.Separate, OursUnconvertible: ours.Unconvertible, OursColliding: ours.Colliding, PilotLibraryElements: pilot.Library,
 			Elements: elements, Properties: buckets,
 			DuplicateElements: Sides{Ours: ours.Duplicates, Pilot: pilot.Duplicates},
 			AmbiguousKeys:     Sides{Ours: ours.Ambiguous, Pilot: pilot.Ambiguous},
@@ -123,7 +129,8 @@ func run(opts options) error {
 		report.Totals.Files += len(files)
 		report.Totals.OursRefused += ours.Refused
 		report.Totals.OursUnconvertible += ours.Unconvertible
-		report.Totals.PilotFailed += pilot.Failed
+		report.Totals.OursColliding += ours.Colliding
+		report.Totals.PilotFailed += len(pilot.Failed)
 		report.Totals.PilotLibraryElements += pilot.Library
 		report.Totals.DuplicateElements.Ours += ours.Duplicates
 		report.Totals.DuplicateElements.Pilot += pilot.Duplicates

@@ -20,10 +20,10 @@ const exporterDescription = "org.omg.sysml.util.traversal.facade.impl.JsonElemen
 var normalizations = []string{
 	"The pilot's {payload, identity} envelope is unwrapped; the payload is the element.",
 	"Every element is addressed by a stable key, not an id: a named element by its qualifiedName; an unnamed one by <ownerKey>/<metaclass>[i], i counting the owner's preceding non-implied owned relationships (a relationship) or owned elements (otherwise) of the same metaclass; an ownerless one by /<file>/<metaclass>#i over its document's root elements. The pilot mints a fresh UUID for every user element on each run, so its ids carry no information.",
-	"A reference ({\"@id\": x}) compares as the key of x; the pilot bridge's key table covers library elements too. A reference no key addresses compares as the sentinel \"?\" and is counted under unkeyedReferences.",
+	"A reference ({\"@id\": x}) compares as the key of x; the pilot bridge's key table covers library elements too. A reference no key addresses is counted under unkeyedReferences and makes the comparison indeterminate, a bucket apart from the four the scorecard ranks: two unknown targets are not known equal, nor different.",
 	"elementId, memberElementId and ownedMemberElementId hold ids as strings and are mapped through the same keys; elementId itself is identity, not derivation, and is left out of the buckets.",
 	"JSON null, a missing property and an empty collection all state nothing (absent); a property absent on both sides is absent-both, not present-equal.",
-	"A Boolean false against a property the other side leaves out is absent-both: false is every Boolean attribute's default, so neither side states anything; a true the other side lacks is missing.",
+	"A Boolean attribute written at its metamodel default (model/kerml.ecore and model/SysML.ecore in the pinned jar: isUnique defaults to true, every other defaulted Boolean to false) against a side that leaves it out is absent-both, since leaving it out states the default; a value the other side lacks is missing. The derived Booleans (isConjugated, isLibraryElement, isModelLevelEvaluable, isReference, mayTimeVary), isVariation and a LiteralBoolean's value have no default, so leaving one out states nothing.",
 	"Property order and the order of object keys are ignored; the order of collections is compared.",
 	"Properties outside the metamodel (this repository's sysx: annotations) are left out and counted under extensionProperties.",
 	"Identical copies of one element on one side (the pilot writes an element in every file whose traversal reaches it) are one element, counted under duplicateElements; elements two of which compute the same key but differ are dropped from matching and counted under ambiguousKeys; elements no key addresses are counted under unkeyableElements.",
@@ -38,10 +38,10 @@ type Report struct {
 	Normalizations []string        `json:"normalizations"`
 	Totals         Totals          `json:"totals"`
 	Roots          []RootReport    `json:"roots"`
-	// Scorecard maps "<metaclass>.<property>" to the row's five counts in the
+	// Scorecard maps "<metaclass>.<property>" to the row's six counts in the
 	// order present-equal, present-different, ours-missing, pilot-missing,
-	// absent-both; the text report lists the same rows ranked.
-	Scorecard map[string][5]int `json:"scorecard"`
+	// absent-both, indeterminate; the text report lists the same rows ranked.
+	Scorecard map[string][6]int `json:"scorecard"`
 	rows      []Row
 }
 
@@ -50,9 +50,9 @@ func scorecardKey(row Row) string { return row.Metaclass + "." + row.Property }
 
 func (r *Report) setScorecard(rows []Row) {
 	r.rows = rows
-	r.Scorecard = make(map[string][5]int, len(rows))
+	r.Scorecard = make(map[string][6]int, len(rows))
 	for _, row := range rows {
-		r.Scorecard[scorecardKey(row)] = [5]int{row.PresentEqual, row.PresentDifferent, row.OursMissing, row.PilotMissing, row.AbsentBoth}
+		r.Scorecard[scorecardKey(row)] = [6]int{row.PresentEqual, row.PresentDifferent, row.OursMissing, row.PilotMissing, row.AbsentBoth, row.Indeterminate}
 	}
 }
 
@@ -61,6 +61,7 @@ type Totals struct {
 	Files                int           `json:"files"`
 	OursRefused          int           `json:"oursRefused"`
 	OursUnconvertible    int           `json:"oursUnconvertible"`
+	OursColliding        int           `json:"oursColliding"`
 	PilotFailed          int           `json:"pilotFailed"`
 	PilotLibraryElements int           `json:"pilotLibraryElements"`
 	Elements             ElementTotals `json:"elements"`
@@ -90,6 +91,7 @@ type RootReport struct {
 	// document was converted alone and cross-file references stay unresolved.
 	OursSeparate         bool          `json:"oursSeparate,omitempty"`
 	OursUnconvertible    int           `json:"oursUnconvertible,omitempty"`
+	OursColliding        int           `json:"oursColliding,omitempty"`
 	PilotLibraryElements int           `json:"pilotLibraryElements"`
 	Elements             ElementTotals `json:"elements"`
 	Properties           Buckets       `json:"properties"`
@@ -136,9 +138,9 @@ func writeReports(out string, report *Report, examples Examples, logs map[string
 
 func headline(report *Report) string {
 	t := report.Totals
-	return fmt.Sprintf("%d files, %d elements matched (%d ours-only, %d pilot-only of which %d implied); properties: %d present-equal, %d present-different, %d ours-missing, %d pilot-missing, %d absent-both",
+	return fmt.Sprintf("%d files, %d elements matched (%d ours-only, %d pilot-only of which %d implied); properties: %d present-equal, %d present-different, %d ours-missing, %d pilot-missing, %d absent-both, %d indeterminate",
 		t.Files, t.Elements.Matched, t.Elements.OursOnly, t.Elements.PilotOnly, t.Elements.PilotOnlyImplied,
-		t.Properties.PresentEqual, t.Properties.PresentDifferent, t.Properties.OursMissing, t.Properties.PilotMissing, t.Properties.AbsentBoth)
+		t.Properties.PresentEqual, t.Properties.PresentDifferent, t.Properties.OursMissing, t.Properties.PilotMissing, t.Properties.AbsentBoth, t.Properties.Indeterminate)
 }
 
 // renderText is the human-readable report: totals, roots, the scorecard with
@@ -149,15 +151,25 @@ func renderText(report *Report, examples Examples, logs map[string]string) strin
 	fmt.Fprintf(&b, "exporter: %s\n\n", report.Exporter)
 	fmt.Fprintf(&b, "%s\n", headline(report))
 	t := report.Totals
-	fmt.Fprintf(&b, "ours refused %d files and could not convert %d alone, pilot failed %d and wrote %d library elements; type mismatches %d; unkeyed references %d; extension properties %d; duplicate copies ours %d pilot %d; ambiguous keys ours %d pilot %d; unkeyable elements ours %d pilot %d\n\n",
-		t.OursRefused, t.OursUnconvertible, t.PilotFailed, t.PilotLibraryElements, t.Elements.TypeMismatch,
+	fmt.Fprintf(&b, "ours refused %d files, could not convert %d alone and converted %d alone for declaring an element another file declares; pilot failed %d (those files left out of ours) and wrote %d library elements; type mismatches %d; unkeyed references %d; extension properties %d; duplicate copies ours %d pilot %d; ambiguous keys ours %d pilot %d; unkeyable elements ours %d pilot %d\n\n",
+		t.OursRefused, t.OursUnconvertible, t.OursColliding, t.PilotFailed, t.PilotLibraryElements, t.Elements.TypeMismatch,
 		t.UnkeyedReferences, t.ExtensionProperties, t.DuplicateElements.Ours, t.DuplicateElements.Pilot,
 		t.AmbiguousKeys.Ours, t.AmbiguousKeys.Pilot, t.UnkeyableElements.Ours, t.UnkeyableElements.Pilot)
 	b.WriteString("roots:\n")
 	for _, root := range report.Roots {
-		note := ""
+		var notes []string
+		if root.OursColliding > 0 {
+			notes = append(notes, fmt.Sprintf("%d colliding documents converted alone", root.OursColliding))
+		}
 		if root.OursSeparate {
-			note = fmt.Sprintf("  (ours converted per document, %d unconvertible)", root.OursUnconvertible)
+			notes = append(notes, "ours converted per document")
+		}
+		if root.OursUnconvertible > 0 {
+			notes = append(notes, fmt.Sprintf("%d unconvertible", root.OursUnconvertible))
+		}
+		note := ""
+		if len(notes) > 0 {
+			note = "  (" + strings.Join(notes, ", ") + ")"
 		}
 		fmt.Fprintf(&b, "  %-18s %4d files  matched %6d  ours-only %5d  pilot-only %5d  equal %7d  different %6d  ours-missing %7d  pilot-missing %5d%s\n",
 			root.Name, root.Files, root.Elements.Matched, root.Elements.OursOnly, root.Elements.PilotOnly,
@@ -168,10 +180,10 @@ func renderText(report *Report, examples Examples, logs map[string]string) strin
 		byRow[example.Metaclass+"\x00"+example.Property] = example
 	}
 	fmt.Fprintf(&b, "\nscorecard (%d rows, most differing first):\n", len(report.rows))
-	fmt.Fprintf(&b, "  %-32s %-28s %7s %9s %12s %13s %11s\n", "metaclass", "property", "equal", "different", "ours-missing", "pilot-missing", "absent-both")
+	fmt.Fprintf(&b, "  %-32s %-28s %7s %9s %12s %13s %11s %13s\n", "metaclass", "property", "equal", "different", "ours-missing", "pilot-missing", "absent-both", "indeterminate")
 	for _, row := range report.rows {
-		fmt.Fprintf(&b, "  %-32s %-28s %7d %9d %12d %13d %11d\n", row.Metaclass, row.Property,
-			row.PresentEqual, row.PresentDifferent, row.OursMissing, row.PilotMissing, row.AbsentBoth)
+		fmt.Fprintf(&b, "  %-32s %-28s %7d %9d %12d %13d %11d %13d\n", row.Metaclass, row.Property,
+			row.PresentEqual, row.PresentDifferent, row.OursMissing, row.PilotMissing, row.AbsentBoth, row.Indeterminate)
 		if example, ok := byRow[row.Metaclass+"\x00"+row.Property]; ok {
 			fmt.Fprintf(&b, "      e.g. %s %s/%s (%s): ours %s, pilot %s\n", example.Bucket, example.Root, example.File, example.Element, example.Ours, example.Pilot)
 		}

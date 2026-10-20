@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/tools/referee/diff"
@@ -18,7 +19,7 @@ const probeFile = "probe.sysml"
 // runs without Java.
 func probeSides(t *testing.T) (*oursExport, pilotDocument) {
 	t.Helper()
-	ours, err := exportOurs("testdata", []string{probeFile})
+	ours, err := exportOurs("testdata", []string{probeFile}, nil)
 	if err != nil {
 		t.Fatalf("export ours: %v", err)
 	}
@@ -166,21 +167,30 @@ func TestDisagreementDetectorIsLive(t *testing.T) {
 func TestBucketOfEquatesOnlyRepresentations(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
+		property    string
 		ours, pilot any
 		want        string
 	}{
-		{"both absent", nil, nil, bucketAbsentBoth},
-		{"null against empty collection", nil, []any{}, bucketAbsentBoth},
-		{"ours empty collection", []any{}, []any{ref{"P::a"}}, bucketOursMissing},
-		{"pilot null", "x", nil, bucketPilotMissing},
-		{"absent boolean is false", nil, false, bucketAbsentBoth},
-		{"absent boolean against true", nil, true, bucketOursMissing},
-		{"equal references", []any{ref{"P::a"}, ref{"P::b"}}, []any{ref{"P::a"}, ref{"P::b"}}, bucketPresentEqual},
-		{"reordered references", []any{ref{"P::b"}, ref{"P::a"}}, []any{ref{"P::a"}, ref{"P::b"}}, bucketPresentDifferent},
-		{"unkeyed reference differs", ref{unkeyed}, ref{"P::a"}, bucketPresentDifferent},
-		{"numbers", 1.0, 1.0, bucketPresentEqual},
+		{"both absent", "ownedMember", nil, nil, bucketAbsentBoth},
+		{"null against empty collection", "ownedMember", nil, []any{}, bucketAbsentBoth},
+		{"ours empty collection", "ownedMember", []any{}, []any{ref{"P::a"}}, bucketOursMissing},
+		{"pilot null", "declaredName", "x", nil, bucketPilotMissing},
+		{"absent boolean is its false default", "isAbstract", nil, false, bucketAbsentBoth},
+		{"absent boolean against true", "isAbstract", nil, true, bucketOursMissing},
+		{"absent isUnique is its true default", "isUnique", nil, true, bucketAbsentBoth},
+		{"absent isUnique against nonunique", "isUnique", nil, false, bucketOursMissing},
+		{"stated nonunique against absent", "isUnique", false, nil, bucketPilotMissing},
+		{"derived boolean has no default", "isReference", nil, false, bucketOursMissing},
+		{"derived boolean stated against absent", "isLibraryElement", false, nil, bucketPilotMissing},
+		{"equal references", "ownedMember", []any{ref{"P::a"}, ref{"P::b"}}, []any{ref{"P::a"}, ref{"P::b"}}, bucketPresentEqual},
+		{"reordered references", "ownedMember", []any{ref{"P::b"}, ref{"P::a"}}, []any{ref{"P::a"}, ref{"P::b"}}, bucketPresentDifferent},
+		{"unkeyed reference is indeterminate", "source", ref{unkeyed}, ref{"P::a"}, bucketIndeterminate},
+		{"two unkeyed references are not known equal", "source", ref{unkeyed}, ref{unkeyed}, bucketIndeterminate},
+		{"unkeyed reference inside a collection", "ownedMember", []any{ref{"P::a"}, ref{unkeyed}}, []any{ref{"P::a"}, ref{"P::b"}}, bucketIndeterminate},
+		{"unkeyed reference against absent", "source", ref{unkeyed}, nil, bucketPilotMissing},
+		{"numbers", "value", 1.0, 1.0, bucketPresentEqual},
 	} {
-		if got := bucketOf(tc.ours, tc.pilot); got != tc.want {
+		if got := bucketOf(tc.property, tc.ours, tc.pilot); got != tc.want {
 			t.Errorf("%s: got %s, want %s", tc.name, got, tc.want)
 		}
 	}
@@ -243,5 +253,56 @@ func TestRootsAreTheDifferentialsPlusTheManualExamples(t *testing.T) {
 	want := append(diff.Roots(), manualExamples)
 	if got := roots(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("roots() = %+v, want %+v", got, want)
+	}
+}
+
+func TestSharedConversionKeysEachDocumentsRootNamespace(t *testing.T) {
+	ours, err := exportOurs("testdata", []string{probeFile, "second.sysml"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ours.Separate || ours.Colliding != 0 {
+		t.Fatalf("two unrelated documents should share one graph: separate %v, colliding %d", ours.Separate, ours.Colliding)
+	}
+	keys := make(map[string]string)
+	for _, e := range ours.Elements {
+		if e.Type == "Namespace" || strings.HasSuffix(e.Key, "/Namespace#0/OwningMembership[0]") {
+			keys[e.Key] = e.File
+		}
+	}
+	for _, want := range []string{
+		"/" + probeFile + "/Namespace#0", "/" + probeFile + "/Namespace#0/OwningMembership[0]",
+		"/second.sysml/Namespace#0", "/second.sysml/Namespace#0/OwningMembership[0]",
+	} {
+		if _, ok := keys[want]; !ok {
+			t.Errorf("no element keyed %s; namespaces keyed %v", want, keys)
+		}
+	}
+}
+
+func TestCollidingDocumentsAreConvertedAlone(t *testing.T) {
+	dir := t.TempDir()
+	for name, text := range map[string]string{
+		"a.sysml":    "package Gears { part def Gear; }",
+		"b.sysml":    "package Gears { part def Gear { attribute teeth : ScalarValues::Integer; } }",
+		"uses.sysml": "package Uses { import Gears::*; part g : Gear; }",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ours, err := exportOurs(dir, []string{"a.sysml", "b.sysml", "uses.sysml"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ours.Colliding != 2 || ours.Separate || ours.Unconvertible != 0 {
+		t.Fatalf("want the two Gears documents alone and the rest shared: colliding %d, separate %v, unconvertible %d", ours.Colliding, ours.Separate, ours.Unconvertible)
+	}
+	skipped, err := exportOurs(dir, []string{"a.sysml", "b.sysml", "uses.sysml"}, map[string]bool{"a.sysml": true, "b.sysml": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if skipped.Skipped != 2 || skipped.Colliding != 0 {
+		t.Fatalf("skipping the pilot's failed files: skipped %d, colliding %d", skipped.Skipped, skipped.Colliding)
 	}
 }

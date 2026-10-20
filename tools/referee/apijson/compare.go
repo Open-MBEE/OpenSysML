@@ -13,17 +13,21 @@ const (
 	bucketOursMissing      = "ours-missing"
 	bucketPilotMissing     = "pilot-missing"
 	bucketAbsentBoth       = "absent-both"
+	bucketIndeterminate    = "indeterminate"
 )
 
 // Buckets counts the property comparisons of one scope by outcome. AbsentBoth
-// is kept apart from the four buckets the scorecard ranks: a property both
-// sides leave empty is agreement, but not evidence that either derives it.
+// and Indeterminate are kept apart from the four buckets the scorecard ranks: a
+// property both sides leave empty is agreement, but not evidence that either
+// derives it, and a reference to a target neither key table addresses can be
+// called neither equal nor different.
 type Buckets struct {
 	PresentEqual     int `json:"presentEqual"`
 	PresentDifferent int `json:"presentDifferent"`
 	OursMissing      int `json:"oursMissing"`
 	PilotMissing     int `json:"pilotMissing"`
 	AbsentBoth       int `json:"absentBoth"`
+	Indeterminate    int `json:"indeterminate"`
 }
 
 func (b *Buckets) add(bucket string) {
@@ -38,6 +42,8 @@ func (b *Buckets) add(bucket string) {
 		b.PilotMissing++
 	case bucketAbsentBoth:
 		b.AbsentBoth++
+	case bucketIndeterminate:
+		b.Indeterminate++
 	}
 }
 
@@ -47,6 +53,7 @@ func (b *Buckets) addAll(other Buckets) {
 	b.OursMissing += other.OursMissing
 	b.PilotMissing += other.PilotMissing
 	b.AbsentBoth += other.AbsentBoth
+	b.Indeterminate += other.Indeterminate
 }
 
 // Differing is the number of comparisons that found the two sides apart.
@@ -152,7 +159,7 @@ func (c *comparison) compareRoot(root string, ours, pilot []*element) (ElementTo
 			if property == "elementId" {
 				continue
 			}
-			bucket := bucketOf(o.Props[property], p.Props[property])
+			bucket := bucketOf(property, o.Props[property], p.Props[property])
 			buckets.add(bucket)
 			c.record(root, p, property, bucket, o.Props[property], p.Props[property])
 		}
@@ -180,16 +187,44 @@ func unionProperties(a, b map[string]any) []string {
 	return sortedKeys(set)
 }
 
-// bucketOf classifies one property: null, a missing key and an empty collection
-// all state nothing, and so does a Boolean false against a property the other
-// side leaves out (false is every Boolean attribute's default); otherwise the
-// normalized values compare deeply, collections in order.
-func bucketOf(ours, pilot any) string {
-	if pilot == false && ours == nil {
-		pilot = nil
+// booleanDefaults lists the metamodel's Boolean attributes whose default is
+// not false (model/kerml.ecore and model/SysML.ecore in the pinned pilot jar,
+// defaultValueLiteral). Every other Boolean attribute there defaults to false,
+// except the ones undefaultedBooleans names.
+var booleanDefaults = map[string]bool{"isUnique": true}
+
+// undefaultedBooleans are the Boolean properties the metamodel gives no
+// default: the derived ones (isConjugated, isLibraryElement,
+// isModelLevelEvaluable, isReference, mayTimeVary), isVariation and a
+// LiteralBoolean's value. Leaving one out states nothing.
+var undefaultedBooleans = map[string]bool{
+	"isConjugated": true, "isLibraryElement": true, "isModelLevelEvaluable": true,
+	"isReference": true, "mayTimeVary": true, "isVariation": true, "value": true,
+}
+
+// booleanDefault is the value an export states for a Boolean attribute by
+// leaving it out, when the metamodel declares one.
+func booleanDefault(property string) (value bool, ok bool) {
+	if undefaultedBooleans[property] {
+		return false, false
 	}
-	if ours == false && pilot == nil {
-		ours = nil
+	return booleanDefaults[property], true
+}
+
+// bucketOf classifies one property: null, a missing key and an empty collection
+// all state nothing, and so does a Boolean attribute written at its metamodel
+// default against a side that leaves it out; a reference whose target neither
+// key table addresses is indeterminate on either side, since two unknown
+// targets are not known equal; otherwise the normalized values compare deeply,
+// collections in order.
+func bucketOf(property string, ours, pilot any) string {
+	if value, ok := booleanDefault(property); ok {
+		if pilot == value && ours == nil {
+			pilot = nil
+		}
+		if ours == value && pilot == nil {
+			ours = nil
+		}
 	}
 	oursAbsent, pilotAbsent := isAbsent(ours), isAbsent(pilot)
 	switch {
@@ -199,6 +234,8 @@ func bucketOf(ours, pilot any) string {
 		return bucketOursMissing
 	case pilotAbsent:
 		return bucketPilotMissing
+	case mentionsUnkeyed(ours) || mentionsUnkeyed(pilot):
+		return bucketIndeterminate
 	case reflect.DeepEqual(ours, pilot):
 		return bucketPresentEqual
 	}
@@ -216,7 +253,7 @@ func (c *comparison) record(root string, p *element, property, bucket string, ou
 	if mentionsUnkeyed(ours) || mentionsUnkeyed(pilot) {
 		c.unkeyedReferences++
 	}
-	if bucket == bucketPresentEqual || bucket == bucketAbsentBoth {
+	if bucket == bucketPresentEqual || bucket == bucketAbsentBoth || bucket == bucketIndeterminate {
 		return
 	}
 	// The first example per row in root, file and key order is deterministic
