@@ -527,3 +527,17 @@ func symbolLabel(sym *symbols.Symbol) string {
 		return fmt.Sprintf("anonymous %T", sym.Decl)
 	}
 }
+
+// bindImplicitSatisfactionSubject holds, on the object of a satisfy usage stating no `by`,
+// the owning object as the requirement's subject (SysML v2 §7.21.4), as its result reads it.
+func (ctx *Context) bindImplicitSatisfactionSubject(inst, owner *Instance) {
+	if owner == nil || implicitSatisfactionSubject(inst.Type, inst) == nil {
+		return
+	}
+	for _, name := range ctx.subjectParameterNames(inst.Type) {
+		if fv := inst.FeatureValues[name]; fv != nil && fv.Value.Kind == ValInvalid {
+			fv.Value = Value{Kind: ValInstance, Instance: owner.ID}
+			fv.Materialized = true
+		}
+	}
+}

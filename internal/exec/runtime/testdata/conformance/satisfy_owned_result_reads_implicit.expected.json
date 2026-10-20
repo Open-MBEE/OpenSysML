@@ -3,6 +3,7 @@
   "libraries": true,
   "instantiate": "test::Craft",
   "slots": {
-    "verdict": {"type": "Boolean", "value": true}
+    "verdict": {"type": "Boolean", "value": true},
+    "subjectSpeed": {"type": "Real", "value": 0.5}
   }
 }

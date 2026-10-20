@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Fleet",
+  "slots": {
+    "verdict": {"type": "Boolean", "value": true},
+    "subjectSpeed": {"type": "Real", "value": 0.7}
+  }
+}

@@ -407,6 +407,7 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	if err := ctx.aliasRedefinedFeatureValuesOf(inst, inst.types(), nil, features); err != nil {
 		return nil, err
 	}
+	ctx.bindImplicitSatisfactionSubject(inst, owner)
 
 	// Register instance
 	ctx.registerInstance(inst)

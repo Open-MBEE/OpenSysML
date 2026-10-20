@@ -190,7 +190,7 @@ func sweepSystemsLibraryReads(t *testing.T) []string {
 	for _, p := range []string{"p1", "p2", "i1", "pt", "act", "st", "r1", "c1", "k1", "ca1", "an1", "v1", "u1", "vw1", "vp1", "con1", "rd1", "cn1", "if1", "al1", "fl1", "o1", "e1", "at1", "mass1", "len1", "q", "box", "sph", "clk", "spat", "sys", "der", "risk", "dsub", "psi"} {
 		paths = append(paths, "Probe::"+p)
 	}
-	for _, p := range []string{"sub", "opt", "cargo", "pt", "act", "st", "other", "otherItem", "others", "rq", "cq", "kq", "caq", "anq", "vq", "uq", "vwq", "vpq", "conq", "rdq", "cnq", "ifq", "alq", "flq", "oq", "eq", "atq", "mq", "vq3", "snap", "slice", "ev", "pa", "es", "sr", "ac", "iu", "mass"} {
+	for _, p := range []string{"sub", "opt", "cargo", "pt", "act", "st", "other", "otherItem", "others", "rq", "cq", "kq", "caq", "anq", "vq", "uq", "vwq", "vpq", "conq", "rdq", "cnq", "ifq", "alq", "flq", "oq", "eq", "atq", "mq", "vq3", "snap", "slice", "ev", "pa", "es", "sr", "srOne", "ac", "iu", "mass"} {
 		paths = append(paths, "Probe::p1."+p)
 	}
 	for _, d := range []string{"P1", "P2", "I1", "Pt", "A1", "S1", "R1", "C1", "K1", "Ca1", "An1", "V1", "U1", "Vw1", "Vp1", "Con1", "Rd1", "Cn1", "If1", "Al1", "Fl1", "O1", "E1", "M1", "At1"} {
