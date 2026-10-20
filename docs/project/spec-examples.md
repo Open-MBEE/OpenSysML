@@ -77,15 +77,15 @@ Pilot `2026-08` (`0.62.0`), both validators, fresh cache:
 
 | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| 511 | 149 | 1096 | 3395 | 1040 | 2 | 54 | 2353 |
+| 511 | 149 | 1089 | 3395 | 1037 | 2 | 50 | 2356 |
 
 Of the pilot-only diagnostics, 1359 are the pilot's EMF `unmapped` records ("The feature 'type' of
 ... is required"), 587 its `kind-mismatch` typing constraints ("A usage must be typed by
 definitions.") and 50 multiplicity constraints: all three follow an unresolved cross-example name on
 the same lines, where we report the unresolved reference once and stop. Those 1996 are the same
 finding counted differently, not disagreements about the examples. The remaining pilot-only
-categories are 197 syntax, 156 unresolved-reference and 4 units; the 54 ours-only diagnostics are
-38 unresolved-reference, 11 syntax, 3 kind-mismatch and 2 unmapped. Every file behind those two
+categories are 200 syntax, 156 unresolved-reference and 4 units; the 50 ours-only diagnostics are
+38 unresolved-reference, 7 syntax, 3 kind-mismatch and 2 unmapped. Every file behind those two
 groups is adjudicated below.
 
 ## Adjudication
