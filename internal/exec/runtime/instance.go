@@ -937,7 +937,7 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 		}
 		ctx.noteProbeWrite(fv)
 		before := ctx.beforeWrite(fv)
-		held, intrinsic := fv.HeldValue(), fv.intrinsic
+		held := fv.HeldValue()
 		if fv.Feature.Scalar() {
 			fv.Value = value
 			fv.Values = Value{}
@@ -950,25 +950,42 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 		ctx.unshareTraces()
 		ctx.afterWrite(fv, before)
 		ctx.adoptBodyCellValue(fv)
-		ctx.releaseStandIn(inst, fv, name, held, intrinsic)
+		ctx.adoptOccurrenceWrite(inst, fv)
+		ctx.releaseStandIns(fv, held)
 		return nil
 	})
 }
 
-// releaseStandIn drops the object a value-typed feature materialized to stand for its
-// unspecified value once a write gives it one: a data value has no identity of its own.
-func (ctx *Context) releaseStandIn(inst *Instance, fv *FeatureValue, name string, held Value, intrinsic bool) {
-	if !intrinsic || held.Kind != ValInstance || !ctx.HoldsNoValue(held) {
+// releaseStandIns drops the objects a value-typed feature materialized to stand for its
+// unspecified values once a write gives it some: a data value has no identity of its own.
+func (ctx *Context) releaseStandIns(fv *FeatureValue, held Value) {
+	if held.Kind == ValInvalid {
 		return
 	}
-	id := held.Instance
-	standIn, live := ctx.instances[id]
-	if !live || standIn.owner != inst || standIn.ownerFeature != name || len(standIn.behaviors) != 0 {
-		return
+	elements := []Value{held}
+	if held.Kind != ValInstance {
+		elements = listedElements(held)
 	}
-	if namesAbandoned(fv, map[int64]bool{id: true}) {
-		return
+	for _, elem := range elements {
+		if elem.Kind != ValInstance || !ctx.HoldsNoValue(elem) {
+			continue
+		}
+		id := elem.Instance
+		standIn := ctx.instances[id]
+		owner := standIn.owner
+		if owner == nil || owner.FeatureValues[standIn.ownerFeature] != fv || len(standIn.behaviors) != 0 {
+			continue
+		}
+		if namesAbandoned(fv, map[int64]bool{id: true}) || ctx.runDataNames(owner, id) {
+			continue
+		}
+		ctx.dropStandIn(standIn)
 	}
+}
+
+// dropStandIn unregisters a stand-in, lifetime included; a journal rolled back puts it back.
+func (ctx *Context) dropStandIn(standIn *Instance) {
+	id := standIn.ID
 	at := slices.Index(ctx.created, id)
 	if at < 0 {
 		return
@@ -982,6 +999,50 @@ func (ctx *Context) releaseStandIn(inst *Instance, fv *FeatureValue, name string
 			ctx.lives[id] = l
 		}
 	})
+}
+
+// adoptOccurrenceWrite has every run over inst whose data mirrors fv hold what the
+// write landed on it: a run's data and its occurrence agree.
+func (ctx *Context) adoptOccurrenceWrite(inst *Instance, fv *FeatureValue) {
+	if ctx.mirroringBodyCell != 0 {
+		return
+	}
+	for _, exec := range ctx.stateExecutors {
+		if exec.occurrence == inst {
+			exec.adoptOccurrenceWrite(fv)
+		}
+	}
+	for _, behavior := range ctx.objectBehaviors {
+		if exec := behavior.Action; exec != nil && exec.occurrence == inst {
+			exec.adoptOccurrenceWrite(fv)
+		}
+	}
+}
+
+// runDataNames reports whether the data of a run over inst still names object id.
+func (ctx *Context) runDataNames(inst *Instance, id int64) bool {
+	named := map[int64]bool{id: true}
+	for _, exec := range ctx.stateExecutors {
+		if exec.occurrence == inst && valuesName(exec.stateData, named) {
+			return true
+		}
+	}
+	for _, behavior := range ctx.objectBehaviors {
+		if exec := behavior.Action; exec != nil && exec.occurrence == inst && exec.root != nil && valuesName(exec.root.data, named) {
+			return true
+		}
+	}
+	return false
+}
+
+// valuesName reports whether any of vars names one of the objects.
+func valuesName(vars map[string]Value, objects map[int64]bool) bool {
+	for _, val := range vars {
+		if namesAbandonedValue(val, objects) {
+			return true
+		}
+	}
+	return false
 }
 
 // materializeFeatureValue is GetFeatureValue's materialization: the feature value's value, evaluated and

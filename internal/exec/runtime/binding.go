@@ -1033,7 +1033,7 @@ func (ctx *Context) assignBindingValue(inst *Instance, fv *FeatureValue, name st
 	}
 	ctx.noteProbeWrite(fv)
 	ctx.noteFeatureWrite(fv)
-	held, intrinsic := fv.HeldValue(), fv.intrinsic
+	held := fv.HeldValue()
 	if fv.Feature.Scalar() {
 		fv.Value = val
 		fv.Values = Value{}
@@ -1043,7 +1043,8 @@ func (ctx *Context) assignBindingValue(inst *Instance, fv *FeatureValue, name st
 	}
 	fv.Materialized, fv.intrinsic = true, false
 	fv.BindingDerived, fv.Assumed = true, false
-	ctx.releaseStandIn(inst, fv, name, held, intrinsic)
+	ctx.adoptOccurrenceWrite(inst, fv)
+	ctx.releaseStandIns(fv, held)
 	return nil
 }
 

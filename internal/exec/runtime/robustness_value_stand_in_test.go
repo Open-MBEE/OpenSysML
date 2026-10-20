@@ -95,6 +95,102 @@ func TestRuntimeRobustnessValueStandIn(t *testing.T) {
 			t.Fatalf("stand-in #%d has no lifetime after the rollback", standIn)
 		}
 	})
+
+	const outside = `package test {
+		private import ScalarValues::*;
+		state def Life { out result : Boolean[1]; attribute flag : Boolean[1]; entry; then idle; state idle; }
+		part def Host { exhibit state life : Life; }
+		part host : Host;
+	}`
+	for _, name := range []string{"result", "flag"} {
+		t.Run("outside_write_of_"+name+"_reaches_the_machine_data", func(t *testing.T) {
+			ctx, host := standInObject(t, outside, "test::host")
+			life := standInHolder(t, ctx, host, "life")
+			standIn := standInOf(t, ctx, life, name)
+			if err := life.SetFeatureValue(ctx, name, boolValue(true)); err != nil {
+				t.Fatalf("write %s: %v", name, err)
+			}
+			if _, live := ctx.Instance(standIn); live {
+				t.Fatalf("stand-in #%d is still registered after the write", standIn)
+			}
+			data := machineData(t, host, "life")
+			if got := data[name]; !got.isBool() || !got.Const.Bool {
+				t.Fatalf("machine data %s = %s after the write, want true", name, FormatValue(got))
+			}
+			if _, err := ctx.Image(host); err != nil {
+				t.Fatalf("Image after the write: %v", err)
+			}
+		})
+	}
+
+	t.Run("bound_stand_in_is_dropped_when_the_binding_resolves", func(t *testing.T) {
+		const bound = `package test {
+			private import ScalarValues::*;
+			state def Life { out result : Boolean[1]; entry; then idle; state idle; }
+			part def Host { attribute flag : Boolean[1]; exhibit state life : Life; bind life.result = flag; }
+			part host : Host;
+		}`
+		ctx, host := standInObject(t, bound, "test::host")
+		life := standInHolder(t, ctx, host, "life")
+		standIn := standInOf(t, ctx, life, "result")
+		if err := host.SetFeatureValue(ctx, "flag", boolValue(true)); err != nil {
+			t.Fatalf("write flag: %v", err)
+		}
+		if got := heldFeatureValue(t, ctx, life, "result").HeldValue(); !got.isBool() || !got.Const.Bool {
+			t.Fatalf("life.result = %s after flag is written, want true", FormatValue(got))
+		}
+		if _, live := ctx.Instance(standIn); live {
+			t.Fatalf("stand-in #%d is still registered once the binding resolved", standIn)
+		}
+		if _, err := ctx.Image(host); err != nil {
+			t.Fatalf("Image: %v", err)
+		}
+	})
+
+	t.Run("open_collection_stand_in_is_dropped", func(t *testing.T) {
+		const open = `package test {
+			private import ScalarValues::*;
+			state def Life { out results : Boolean[1..*]; entry; then work; state work { entry action e { assign results := (true, false); } } }
+			part def Host { exhibit state life : Life; }
+			part host : Host;
+		}`
+		ctx, _ := standInObject(t, open, "test::host")
+		if got := ctx.InstanceCount(); got != 2 {
+			t.Fatalf("InstanceCount = %d, want 2; ids %v", got, ctx.InstanceIDs())
+		}
+	})
+
+	t.Run("redefined_parameter_data_agrees_under_both_names", func(t *testing.T) {
+		const redefined = `package test {
+			private import ScalarValues::*;
+			state def Base { out result : Boolean[1]; }
+			state def Life :> Base { out res :>> result; entry; then work; state work { entry action e { assign res := true; } } }
+			part def Host { exhibit state life : Life; }
+			part host : Host;
+		}`
+		ctx, host := standInObject(t, redefined, "test::host")
+		if got := ctx.InstanceCount(); got != 2 {
+			t.Fatalf("InstanceCount = %d, want 2; ids %v", got, ctx.InstanceIDs())
+		}
+		data := machineData(t, host, "life")
+		for _, name := range []string{"res", "result"} {
+			if got := data[name]; !got.isBool() || !got.Const.Bool {
+				t.Fatalf("machine data %s = %s, want true", name, FormatValue(got))
+			}
+		}
+	})
+}
+
+// machineData is the data of the state machine inst exhibits under name.
+func machineData(t *testing.T, inst *Instance, name string) map[string]Value {
+	t.Helper()
+	for _, behavior := range inst.behaviors {
+		if behavior.State != nil && behavior.Name == name {
+			return behavior.State.StateData()
+		}
+	}
+	t.Fatalf("#%d exhibits no machine %s", inst.ID, name)
+	return nil
 }
 
 // standInObject instantiates the usage fqn of source in a context with the libraries.

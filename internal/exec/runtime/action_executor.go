@@ -1479,6 +1479,27 @@ func (e *ActionExecutor) streamInitialOutput(name string, value Value) error {
 
 // declaresAttribute reports whether the action declares an attribute of this
 // name, which its performance holds rather than the object performing it.
+// adoptOccurrenceWrite has the run's data hold what a write landed on the
+// occurrence feature it mirrors, under every name the data holds it by.
+func (e *ActionExecutor) adoptOccurrenceWrite(fv *FeatureValue) {
+	if e.occurrence == nil || e.root == nil {
+		return
+	}
+	for _, attr := range e.features {
+		if attr.Shadowed || e.occurrence.FeatureValues[attr.Name] != fv {
+			continue
+		}
+		key := e.root.key(attr.Name)
+		if _, held := e.root.data[key]; !held {
+			continue
+		}
+		if cell := e.root.cells.existingCell(key); cell != nil && e.ctx.derivingValue(&cell.fv) {
+			continue
+		}
+		e.ctx.writeBodyValue(e.root.cells, e.root.data, key, fv.HeldValue())
+	}
+}
+
 func (e *ActionExecutor) declaresAttribute(name string) bool {
 	for _, attr := range e.features {
 		if attr.Name == name {
