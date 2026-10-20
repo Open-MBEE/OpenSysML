@@ -146,7 +146,7 @@ func TestW8BUniquenessConformanceAllowsNonuniqueTarget(t *testing.T) {
 }
 
 // Subsetting_constant_invalid.kerml.xt: a variable feature may not subset or
-// redefine a constant one, transitively.
+// redefine a constant one.
 func TestW8BConstancyConformance(t *testing.T) {
 	diags := conformanceDiags(t, `
 		package P {
@@ -182,12 +182,15 @@ func TestW8BConstancyConformanceAllowsConstantRestriction(t *testing.T) {
 	}
 }
 
-// Constancy is inherited along the subsetting chain, which parseable input may
-// close into a cycle: the walk must terminate rather than recurse forever.
-func TestW8BConstancyConformanceTerminatesOnCyclicSubsetting(t *testing.T) {
+// The rule reads the subsetted feature's own isConstant (KerML 8.3.3.3.9): merely subsetting
+// a constant feature makes none constant, and a subsetting cycle declares nothing.
+func TestW8BConstancyConformanceIsNotInherited(t *testing.T) {
 	diags := conformanceDiags(t, `
 		package P {
 			class A {
+				const feature c;
+				feature d :> c;
+				var feature e :> d;
 				feature a :> b;
 				feature b :> a;
 				var feature v :> a;
@@ -195,7 +198,110 @@ func TestW8BConstancyConformanceTerminatesOnCyclicSubsetting(t *testing.T) {
 		}
 	`)
 	if len(diags) != 0 {
-		t.Fatalf("a cycle declares no constant feature, got %v", codes(diags))
+		t.Fatalf("constancy is the subsetted feature's own, got %v", codes(diags))
+	}
+}
+
+// constancyDiags returns the constancy-conformance findings of a SysML source
+// analysed with the standard library, which the usages' variability derives from.
+func constancyDiags(t *testing.T, src string) []diag.Diagnostic {
+	t.Helper()
+	var out []diag.Diagnostic
+	for _, d := range w8cLibraryDiagnostics(t, "<t>.sysml", src) {
+		if d.Code == "subsetting-constancy-conformance" || d.Severity == diag.SeverityError {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// A SysML usage owned by an occurrence definition or usage, not a portion nor a composite
+// action, varies by Usage::mayTimeVary (SysML v2 §8.3.6.4), so it must be constant to subset one.
+func TestW8BConstancyConformanceSysMLUsages(t *testing.T) {
+	diags := constancyDiags(t, `
+		package P {
+			private import ScalarValues::*;
+			part def A {
+				constant attribute c : Real;
+				attribute d :> c;
+				derived attribute e :> c;
+				ref attribute r :> c;
+				constant part cp : A;
+				part dp :> cp;
+			}
+			part def B :> A {
+				attribute f :>> c;
+			}
+			action def Act {
+				in constant attribute x : Real;
+				in attribute y : Real :> x;
+			}
+			calc def Cal {
+				in constant x : Real;
+				return y : Real :> x;
+			}
+			part p : A {
+				attribute g :> c;
+			}
+		}
+	`)
+	if got := len(diags); got != 8 {
+		t.Fatalf("expected eight violations (d, e, r, dp, f, y, y, g), got %d: %v", got, codes(diags))
+	}
+	for _, d := range diags {
+		if d.Code != "subsetting-constancy-conformance" {
+			t.Fatalf("unexpected diagnostic %q: %s", d.Code, d.Message)
+		}
+	}
+}
+
+// An end usage that may vary in time is constant unwritten (SysML v2 §8.2.2.6.2): an end
+// conforms to anything, a plain usage subsetting or redefining an end does not.
+func TestW8BConstancyConformanceSysMLEnds(t *testing.T) {
+	diags := constancyDiags(t, `
+		package P {
+			part def A { constant ref part r : A; }
+			part def B :> A { end part z :>> r; }
+			connection def Conn :> Connections::BinaryConnection {
+				end one : A;
+				end two : A;
+				ref part w :> one;
+			}
+			connection def Conn2 :> Conn { end three :>> one; }
+			part k : Conn { end ref za :>> one; }
+		}
+	`)
+	if got := len(diags); got != 1 {
+		t.Fatalf("expected the one violation at w :> one, got %d: %v", got, codes(diags))
+	}
+	if diags[0].Code != "subsetting-constancy-conformance" {
+		t.Fatalf("unexpected diagnostic %q: %s", diags[0].Code, diags[0].Message)
+	}
+}
+
+// Where mayTimeVary is false the premise fails and the rule stays silent: a portion, a usage
+// owned by a package or an attribute definition, a composite action, a usage declared constant.
+func TestW8BConstancyConformanceSysMLNonVaryingUsages(t *testing.T) {
+	diags := constancyDiags(t, `
+		package P {
+			private import ScalarValues::*;
+			part def A {
+				constant item x : A;
+				timeslice t :> A::x;
+				snapshot s :> A::x;
+				constant attribute c : Real;
+				constant attribute k :> c;
+			}
+			part a : A { timeslice t2 :> x; }
+			part def B :> A { constant attribute e :>> c; }
+			attribute def D { attribute c2 : Real; attribute d2 :> c2; }
+			action def Act { action ca; action da :> ca; }
+			attribute c3 : Real;
+			attribute d3 :> c3;
+		}
+	`)
+	if len(diags) != 0 {
+		t.Fatalf("no usage here both varies in time and subsets a constant one, got %v", codes(diags))
 	}
 }
 
@@ -277,5 +383,23 @@ func TestW8BUniquenessConformanceOfAnImplicitSubsetting(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A parameter redefines the general behavior's parameter at its position without `:>>`
+// (KerML 7.4.7.2); that implied Redefinition is held to the constancy rule like a written one.
+func TestW8BConstancyConformanceImplicitParameters(t *testing.T) {
+	src := `package IP {
+    private import ScalarValues::*;
+    action def Gen { in constant attribute limit : Real; }
+    action def Spec :> Gen { in attribute cap : Real; }
+    action def SpecOk :> Gen { in constant attribute cap : Real; }
+    action def SpecExplicit :> Gen { in attribute cap :>> limit; }
+    action def SpecSubsets :> Gen { in attribute cap :> limit; }
+}`
+	got := codes(constancyDiags(t, src))
+	const want = "subsetting-constancy-conformance"
+	if len(got) != 3 || got[0] != want || got[1] != want || got[2] != want {
+		t.Fatalf("one finding each for Spec, SpecExplicit and SpecSubsets (written `:>` and implied `:>>` share the target), got %v", got)
 	}
 }

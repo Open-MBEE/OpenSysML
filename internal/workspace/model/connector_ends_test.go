@@ -136,10 +136,12 @@ func TestConnectorEndNamesResolve(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Two cases carry findings the reference reports too — an end-less
 			// general relating fewer than two elements, and a non-end member
-			// redefining an end — so those rules are not the subject here.
+			// redefining an end (which, varying in time, must also be constant
+			// like the end) — so those rules are not the subject here.
 			confirmed := map[string]bool{
-				"Must have at least two related elements":   true,
-				"Redefining feature must be an end feature": true,
+				"Must have at least two related elements":                                                   true,
+				"Redefining feature must be an end feature":                                                 true,
+				"Subsetting/redefining feature must be constant if subsetted/redefined feature is constant": true,
 			}
 			var found []string
 			for _, msg := range allMessages(t, "ends", tc.src) {
