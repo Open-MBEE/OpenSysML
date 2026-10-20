@@ -1,7 +1,10 @@
 package model
 
 import (
+	"fmt"
+
 	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // WorkspaceFindings reports what is wrong with the workspace as a whole rather
@@ -15,10 +18,16 @@ func (w *Workspace) WorkspaceFindings() []checkws.Finding {
 		return w.findings
 	}
 	w.findings = checkws.DuplicateLibraries(w.index)
+	libraryPath := libs.LibraryPath()
 	for i := range w.findings {
 		// A workspace document standing in for a bundled file carries the
 		// library's mark in the index, but its text is the workspace's own.
-		w.findings[i].Library = w.docs[w.findings[i].Document] == nil
+		f := &w.findings[i]
+		f.Library = w.docs[f.Document] == nil
+		if f.Library && libraryPath != "" {
+			// Library files are named relative to the directory they were loaded from.
+			f.Diagnostic.Message += fmt.Sprintf("; the paths are relative to %s, %s", libs.LibraryPathEnvVar, libraryPath)
+		}
 	}
 	w.findingsGen, w.findingsKnown = w.generation, true
 	return w.findings
