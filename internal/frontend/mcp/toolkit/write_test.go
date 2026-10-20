@@ -1,0 +1,107 @@
+package toolkit
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestWriteFileKeepsTheModeAndReplacesAtomically(t *testing.T) {
+	tr := newTree(t)
+	r, err := NewRoot(tr.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	existing := filepath.Join(tr.root, "sub", "kept.sysml")
+	tr.write(t, existing, "package Old;")
+	if err := os.Chmod(existing, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	replaced, err := r.WriteFile(existing, []byte("package New;"))
+	if err != nil || !replaced {
+		t.Fatalf("WriteFile over an existing file = %v, %v; want replaced", replaced, err)
+	}
+	if got, _ := os.ReadFile(existing); string(got) != "package New;" {
+		t.Errorf("content = %q", got)
+	}
+	if info, err := os.Stat(existing); err != nil || info.Mode().Perm() != 0o640 {
+		t.Errorf("mode = %v, %v; want the existing 0640 kept", info.Mode(), err)
+	}
+	fresh := filepath.Join(tr.root, "sub", "fresh.sysml")
+	replaced, err = r.WriteFile("sub/fresh.sysml", []byte("package Fresh;"))
+	if err != nil || replaced {
+		t.Fatalf("WriteFile of a new file = %v, %v; want written, not replaced", replaced, err)
+	}
+	if info, err := os.Stat(fresh); err != nil || info.Mode().Perm() != savedFileMode&^umask(t) {
+		t.Errorf("a new file's mode = %v, %v; want %o less the umask", info.Mode(), err, savedFileMode)
+	}
+	entries, _ := os.ReadDir(filepath.Join(tr.root, "sub"))
+	if len(entries) != 2 {
+		t.Errorf("the directory holds %d entries; want the two files and no temporary left behind", len(entries))
+	}
+	if _, err := r.WriteFile("sub", []byte("x")); err == nil || !strings.Contains(err.Error(), "is a directory") {
+		t.Errorf("WriteFile over a directory = %v; want a refusal", err)
+	}
+}
+
+// umask is the process's file creation mask, read by creating a file.
+func umask(t *testing.T) os.FileMode {
+	t.Helper()
+	probe := filepath.Join(t.TempDir(), "probe")
+	if err := os.WriteFile(probe, nil, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(probe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return 0o777 &^ info.Mode().Perm()
+}
+
+func TestWriteFileRefusesAPathThatLeavesTheRoot(t *testing.T) {
+	tr := newTree(t)
+	r, err := NewRoot(tr.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(tr.outside, "b.sysml")
+	for _, path := range []string{"../outside/b.sysml", outside, "link.sysml", "dirlink/b.sysml", "dangle.sysml", "dirlink/new.sysml"} {
+		if replaced, err := r.WriteFile(path, []byte("package Hijacked;")); err == nil || !strings.Contains(err.Error(), "outside the workspace root") {
+			t.Errorf("WriteFile(%s) = %v, %v; want a refusal naming the root", path, replaced, err)
+		}
+	}
+	if got, _ := os.ReadFile(outside); string(got) != "package B;" {
+		t.Errorf("the file outside the root was written: %q", got)
+	}
+	entries, _ := os.ReadDir(tr.outside)
+	if len(entries) != 1 {
+		t.Errorf("the outside directory holds %d entries; want only b.sysml", len(entries))
+	}
+}
+
+func TestWriteFileFollowsALinkRepointedWithinTheRoot(t *testing.T) {
+	tr := newTree(t)
+	r, err := NewRoot(tr.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A link that stays inside the root is written through, as a save over a
+	// linked model updates the model rather than unlinking it.
+	replaced, err := r.WriteFile("copy.sysml", []byte("package Through;"))
+	if err != nil || !replaced {
+		t.Fatalf("WriteFile through a link inside the root = %v, %v", replaced, err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(tr.root, "a.sysml")); string(got) != "package Through;" {
+		t.Errorf("the link's target = %q; want it written", got)
+	}
+	if info, err := os.Lstat(filepath.Join(tr.root, "copy.sysml")); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("the link was replaced by a file: %v, %v", info, err)
+	}
+	if replaced, err := r.WriteFile("dangle-in.sysml", []byte("package Placed;")); err != nil || replaced {
+		t.Fatalf("WriteFile through a dangling link inside the root = %v, %v", replaced, err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(tr.root, "missing.sysml")); string(got) != "package Placed;" {
+		t.Errorf("the dangling link's target = %q; want it created", got)
+	}
+}

@@ -308,8 +308,9 @@ without this page.
 - **Paths** are absolute or relative to the workspace root (`-root`), and are resolved against
   it; a tool that takes `paths` accepts files, directories and globs. A path must stay under the
   root: one that leaves it, by its form (`../secret.sysml`, an absolute path elsewhere) or
-  through a symlink, is refused. The `lsp` tools can also work on text held open with
-  `open_document` instead of a file on disk.
+  through a symlink, is refused, and writes are performed through the resolved root itself, so
+  a link repointed after the check cannot carry one outside it. The `lsp` tools can also work on
+  text held open with `open_document` instead of a file on disk.
 - **Writing** happens only on request: a tool marked as writing (`format`, `rename`,
   `apply_model_edit`, `session_save`, ...) returns the edit or the file it would write and
   touches the disk only with `"apply": true`. The session tools that write change the session's
