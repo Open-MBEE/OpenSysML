@@ -93,3 +93,9 @@ test("a palette's colours pass through, and a server naming none leaves them abs
     assert.equal(node.border, undefined);
   }
 });
+
+test("normalizeRender keeps a node's included mark", () => {
+  const result = normalizeRender({ ...olderServer, nodes: [{ id: "n0", kind: "part def", name: "Demo::Vehicle", detail: "", included: true }] } as unknown as RenderResult);
+  assert.equal(result.nodes[0].included, true);
+  assert.equal(normalizeRender(olderServer as unknown as RenderResult).nodes[0].included, undefined);
+});

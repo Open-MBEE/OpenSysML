@@ -80,6 +80,8 @@ let clickedWaypoint: { edge: number; point: number; at: number } | undefined;
 let paletteEntries: MenuItem[] = [];
 // The extension's number for the drawing shown; an action names the drawing its ids came from.
 let drawn = 0;
+// Whether the server answers what relates to a node, so a node's menu offers to show related elements.
+let related = false;
 
 fillStyles();
 applyStyle(style);
@@ -172,6 +174,7 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
     case "render":
       // The number names what is on screen; a drawing that failed left the last one up.
       applyStyle(message.style);
+      related = message.related === true;
       if (draw(message.result)) {
         drawn = message.drawn;
         if (message.hint !== undefined) {
@@ -681,7 +684,7 @@ function showPalette(palette: EditPalette | undefined): void {
 // showMenu opens a node's context menu where it was clicked, kept on screen;
 // its entries act on the rendering the node was drawn from.
 function showMenu(node: RenderNode, result: RenderResult, x: number, y: number): void {
-  const items = nodeMenu(node, result.palette);
+  const items = nodeMenu(node, result.palette, { related });
   menu.replaceChildren();
   if (items.length === 0) {
     hideMenu();
@@ -695,6 +698,11 @@ function showMenu(node: RenderNode, result: RenderResult, x: number, y: number):
     } else if (item.heading) {
       entry.className = "title";
       entry.textContent = item.label;
+    } else if (item.disabled) {
+      entry.className = "disabled";
+      entry.setAttribute("aria-disabled", "true");
+      entry.textContent = item.label;
+      entry.addEventListener("click", (event) => event.stopPropagation());
     } else {
       entry.textContent = item.label;
       const { command } = item;
@@ -722,9 +730,16 @@ function hideMenu(): void {
 // run hands a chosen entry to the extension with the drawing it was offered
 // on; the panel redraws once the document has changed.
 function run(command: MenuCommand): void {
-  if (command.kind === "reveal") {
-    vscode.postMessage({ type: "reveal", id: command.id, drawn });
-    return;
+  switch (command.kind) {
+    case "reveal":
+      vscode.postMessage({ type: "reveal", id: command.id, drawn });
+      return;
+    case "related":
+      vscode.postMessage({ type: "related", id: command.id, drawn });
+      return;
+    case "hide":
+      vscode.postMessage({ type: "hide", id: command.id, drawn });
+      return;
   }
   vscode.postMessage({ type: "edit", action: command, drawn });
 }

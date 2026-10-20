@@ -43,6 +43,9 @@ import {
   RENDER_CHANGED_METHOD,
   RENDER_METHOD,
   RENDER_PALETTE_CAPABILITY,
+  RELATED_ELEMENTS_METHOD,
+  RelatedElementsParams,
+  RelatedElementsResult,
   RenderChangedParams,
   RenderNode,
   RenderOrigin,
@@ -54,6 +57,7 @@ import {
   WorkspaceEdit,
 } from "./protocol";
 import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
+import { hiddenFrom, includeAfterPick, RelatedPickItem, relatedPickItems, supportsInclude, supportsRelated } from "./related";
 import { logsRender, renderSummary } from "./rendertrace";
 import { DEPTH_SETTING, depthOf, DiagramStyle, drawingStyleOf, paletteOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
@@ -628,6 +632,8 @@ class DiagramPanel {
   private readonly disposables: vscode.Disposable[] = [];
   private selected: string;
   private rendering: Rendering = { nodes: [], version: 0 };
+  /** The elements this panel draws besides its view's own content, by qualified name; sent with every render request. */
+  private include: string[] = [];
   // Counts the drawings posted to the webview; an action names the one its ids came from.
   private drawn = 0;
   private pending = false;
@@ -714,7 +720,10 @@ class DiagramPanel {
     this.selected = view;
     if (!this.owner.retarget(from, view, picked)) {
       this.selected = from;
+      return;
     }
+    // The included elements were chosen for the drawing just left.
+    this.include = [];
   }
 
   dispose(): void {
@@ -792,6 +801,7 @@ class DiagramPanel {
       const styled = drawing !== undefined && supportsStyle(client, drawing);
       const shown = supportedShown(client, diagramShown(this.docURI));
       const depth = supportedDepth(client, diagramDepth(this.docURI));
+      const includes = supportsInclude(experimental(client));
       const params: RenderParams = {
         textDocument,
         view: this.selected === "" ? undefined : this.selected,
@@ -799,6 +809,7 @@ class DiagramPanel {
         style: styled ? drawing : undefined,
         show: shown.length > 0 ? shown : undefined,
         depth,
+        include: includes && this.include.length > 0 ? this.include : undefined,
       };
       const result = normalizeRender(await client.sendRequest<RenderResult>(RENDER_METHOD, params));
       if (logsRender(vscode.workspace.getConfiguration("opensysml", this.docURI).get<string>("trace.server"), result)) {
@@ -832,6 +843,7 @@ class DiagramPanel {
         drawn: this.drawn,
         style,
         hint: renderHint(palette !== undefined && !colours, drawing !== undefined && !styled),
+        related: includes && supportsRelated(experimental(client)),
       });
       this.highlightActive();
     } catch (err) {
@@ -931,6 +943,12 @@ class DiagramPanel {
       case "edit":
         void this.edit(message.action, message.drawn);
         return;
+      case "related":
+        void this.showRelated(message.id, message.drawn);
+        return;
+      case "hide":
+        void this.hide(message.id, message.drawn);
+        return;
       case "place":
         void this.place(message.nodes, message.edges, message.drawn);
         return;
@@ -941,6 +959,61 @@ class DiagramPanel {
         this.fail(message.message);
         return;
     }
+  }
+
+  // showRelated lists what relates to a node, by relationship kind, and includes the
+  // elements the user checks in the panel's drawing; unchecking one drawn that way
+  // leaves it out again. Nothing is written to the model.
+  private async showRelated(id: string, drawn: number): Promise<void> {
+    const client = this.client();
+    if (!offeredOn(this.drawn, drawn)) {
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
+      return;
+    }
+    const node = this.node(this.rendering, id);
+    if (!client || !node?.fqn) {
+      void vscode.window.showWarningMessage(`${node?.name || "This node"} has no qualified name to look up related elements by.`);
+      return;
+    }
+    try {
+      const params: RelatedElementsParams = { textDocument: { uri: this.docURI.toString() }, element: node.fqn };
+      const result = await client.sendRequest<RelatedElementsResult>(RELATED_ELEMENTS_METHOD, params);
+      const items = relatedPickItems(result, this.include);
+      if (items.length === 0) {
+        void vscode.window.showInformationMessage(`${node.fqn} relates to nothing a diagram can include.`);
+        return;
+      }
+      const picked = await vscode.window.showQuickPick(items.map(quickPickItem), {
+        title: `Related elements of ${node.fqn}`,
+        placeHolder: "Checked elements are drawn in this panel; the view is not edited",
+        canPickMany: true,
+        matchOnDescription: true,
+        matchOnDetail: true,
+      });
+      if (picked === undefined) {
+        return;
+      }
+      this.include = includeAfterPick(this.include, items, picked);
+      this.refresh();
+    } catch (err) {
+      this.fail(errorMessage(err));
+    }
+  }
+
+  // hide leaves an included node out of the drawing again; a node the view's own
+  // content draws is not the panel's to hide.
+  private hide(id: string, drawn: number): void {
+    if (!offeredOn(this.drawn, drawn)) {
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
+      return;
+    }
+    const node = this.node(this.rendering, id);
+    if (!node?.fqn || node.included !== true) {
+      void vscode.window.showWarningMessage(`${node?.name || "This node"} is drawn by the view itself; edit the view to leave it out.`);
+      return;
+    }
+    this.include = hiddenFrom(this.include, node.fqn);
+    this.refresh();
   }
 
   // revealSource opens the declaration a node was built from; the id names only the drawing it was clicked on.
@@ -1349,6 +1422,11 @@ function supportsEdit(client: LanguageClient): boolean {
   return experimental(client)?.[APPLY_MODEL_EDIT_CAPABILITY] === true;
 }
 
+/** quickPickItem is a checklist line as the quick pick shows it: a heading as a separator, an element checkable. */
+function quickPickItem(item: RelatedPickItem): vscode.QuickPickItem & RelatedPickItem {
+  return item.heading ? { ...item, kind: vscode.QuickPickItemKind.Separator } : item;
+}
+
 /** supportsPalette reports whether the server colours a rendering's nodes by the palette asked for. */
 function supportsPalette(client: LanguageClient): boolean {
   return experimental(client)?.[RENDER_PALETTE_CAPABILITY] === true;
@@ -1470,6 +1548,8 @@ function html(
       #menu li:hover { background: var(--vscode-menu-selectionBackground); color: var(--vscode-menu-selectionForeground); }
       #menu li.separator { height: 0; padding: 0; margin: 0.25rem 0; border-top: 1px solid var(--vscode-menu-separatorBackground, var(--vscode-widget-border)); cursor: default; }
       #menu li.title { opacity: 0.7; cursor: default; font-size: 0.9em; }
+      #menu li.disabled { opacity: 0.5; cursor: default; }
+      #menu li.disabled:hover { background: transparent; color: inherit; }
       #diagram.stale { opacity: 0.45; }
       #diagram:focus { outline: none; }
       #diagram svg { display: block; font-family: var(--vscode-font-family); user-select: none; touch-action: none; }
@@ -1482,6 +1562,7 @@ function html(
       }
       #diagram g.opensysml-node { cursor: pointer; }
       #diagram g.opensysml-node.movable { cursor: grab; }
+      #diagram g.opensysml-node.included > .shape, #diagram g.opensysml-node.included > g.shape > * { stroke-dasharray: 6 3; }
       #diagram .shape { fill: var(--vscode-editorWidget-background, var(--vscode-editor-background)); stroke: var(--vscode-foreground); stroke-width: 1.25px; }
       #diagram .shape.container { fill: var(--vscode-sideBar-background, var(--vscode-editor-background)); }
       #diagram .shape.filled { fill: var(--vscode-foreground); }
