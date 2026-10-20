@@ -2,17 +2,13 @@ import { randomBytes } from "node:crypto";
 import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 import {
-  connectionOwner,
-  describeOwner,
   describeRefusal,
   describeStale,
   editParams,
-  endpointPath,
   fileLabel,
   moveDestinations,
   moveOperation,
   offeredOn,
-  ownerOf,
   placementOperations,
   referrersByFile,
   reparentOperations,
@@ -20,12 +16,10 @@ import {
   unopenedDocuments,
   REDRAWN_MESSAGE,
   Rendering,
-  rootOwner,
   validName,
 } from "./edits";
 import { ExportHost, exportRendering, serverElements, serverForms, serverReadsDepth, serverStyles } from "./export";
 import {
-  admits,
   APPLY_MODEL_EDIT_CAPABILITY,
   CROSS_DOCUMENT_CAPABILITY,
   declaredHere,
@@ -1034,10 +1028,6 @@ class DiagramPanel {
 
   private async operationsFor(rendering: Rendering, action: EditAction): Promise<ModelEditOperation[] | undefined> {
     switch (action.kind) {
-      case "addMember":
-        return this.addMember(rendering, action.memberKind, action.typed, action.owner);
-      case "addConnection":
-        return this.addConnection(rendering, action.connectionKind, action.from, action.to);
       case "rename":
         return this.rename(rendering, action.id);
       case "delete":
@@ -1045,83 +1035,6 @@ class DiagramPanel {
       case "move":
         return this.move(rendering, action.id);
     }
-  }
-
-  private async addMember(
-    rendering: Rendering,
-    memberKind: string,
-    typed: boolean,
-    at: string | undefined,
-  ): Promise<ModelEditOperation[] | undefined> {
-    const owner = at ? ownerOf(this.node(rendering, at), rendering.nodes) : await this.ownerFromContext(rendering, memberKind);
-    if (!owner || !declaredHere(owner)) {
-      return undefined;
-    }
-    if (!admits(rendering.palette, memberKind, owner)) {
-      void vscode.window.showErrorMessage(`A ${memberKind} cannot be declared in ${owner.fqn}.`);
-      return undefined;
-    }
-    const name = await vscode.window.showInputBox({
-      title: `Add ${memberKind} to ${owner.fqn}`,
-      prompt: "Name of the new declaration",
-      validateInput: validName,
-    });
-    if (name === undefined) {
-      return undefined;
-    }
-    let type: string | undefined;
-    if (typed) {
-      type = await vscode.window.showInputBox({
-        title: `Add ${memberKind} ${name.trim()}`,
-        prompt: "Type, as written from that scope (leave empty for none)",
-      });
-      if (type === undefined) {
-        return undefined;
-      }
-    }
-    return [{ kind: "addMember", owner: owner.fqn, memberKind, name: name.trim(), type: type?.trim() || undefined }];
-  }
-
-  private async addConnection(
-    rendering: Rendering,
-    connectionKind: string,
-    fromID: string | undefined,
-    toID: string | undefined,
-  ): Promise<ModelEditOperation[] | undefined> {
-    const from = fromID ? this.node(rendering, fromID) : await this.pickNode(rendering, `${connectionKind}: from`, undefined);
-    if (!from) {
-      return undefined;
-    }
-    const to = toID ? this.node(rendering, toID) : await this.pickNode(rendering, `${connectionKind} from ${from.name}: to`, from);
-    if (!to) {
-      return undefined;
-    }
-    const owner = connectionOwner(from, to);
-    if (!owner) {
-      void vscode.window.showErrorMessage(`${from.name} and ${to.name} are not both declared in this document, so no ${connectionKind} can join them here.`);
-      return undefined;
-    }
-    const ends = [endpointPath(from, owner), endpointPath(to, owner)];
-    if (!ends[0] || !ends[1]) {
-      void vscode.window.showErrorMessage(`A ${connectionKind} needs two named features below ${describeOwner(owner)}.`);
-      return undefined;
-    }
-    const name = await vscode.window.showInputBox({
-      title: `Add ${connectionKind} from ${ends[0]} to ${ends[1]}`,
-      prompt: "Name (leave empty for an unnamed connection)",
-      validateInput: (value) => (value.trim() === "" ? undefined : validName(value)),
-    });
-    if (name === undefined) {
-      return undefined;
-    }
-    return [{
-      kind: "addConnection",
-      owner: owner.fqn,
-      memberKind: connectionKind,
-      from: ends[0],
-      to: ends[1],
-      name: name.trim() || undefined,
-    }];
   }
 
   private async rename(rendering: Rendering, id: string): Promise<ModelEditOperation[] | undefined> {
@@ -1175,41 +1088,6 @@ class DiagramPanel {
     }
     const operation = moveOperation(node, picked.fqn);
     return operation && [operation];
-  }
-
-  // A palette addition goes into the declaration at the cursor, else the one root, else a pick;
-  // each only if it may own the kind.
-  private async ownerFromContext(rendering: Rendering, memberKind: string): Promise<RenderNode | undefined> {
-    const keep = (node: RenderNode) => declaredHere(node) && admits(rendering.palette, memberKind, node);
-    const editor = vscode.window.visibleTextEditors.find(
-      (candidate) => candidate.document.uri.toString() === this.docURI.toString(),
-    );
-    const atCursor = editor ? ownerOf(this.nodeAt(rendering, editor.selection.active), rendering.nodes) : undefined;
-    if (atCursor && keep(atCursor)) {
-      return atCursor;
-    }
-    const root = rootOwner(rendering.nodes);
-    if (root && keep(root)) {
-      return root;
-    }
-    return this.pickNode(rendering, `Add ${memberKind} to`, undefined, keep);
-  }
-
-  private async pickNode(
-    rendering: Rendering,
-    title: string,
-    except: RenderNode | undefined,
-    keep: (node: RenderNode) => boolean = declaredHere,
-  ): Promise<RenderNode | undefined> {
-    const items = rendering.nodes
-      .filter((node) => node !== except && keep(node))
-      .map((node) => ({ label: node.name, description: node.type ? `${node.kind} : ${node.type}` : node.kind, detail: node.fqn, node }));
-    if (items.length === 0) {
-      void vscode.window.showInformationMessage("The diagram has no node this can apply to.");
-      return undefined;
-    }
-    const picked = await vscode.window.showQuickPick(items, { title, matchOnDetail: true });
-    return picked?.node;
   }
 
   private node(rendering: Rendering, id: string): RenderNode | undefined {
@@ -1341,7 +1219,7 @@ class DiagramPanel {
   }
 }
 
-/** AppliedAction is what an edit was made for: a menu or palette action, or a drag on the canvas. */
+/** AppliedAction is what an edit was made for: a menu action, or a drag on the canvas. */
 type AppliedAction = EditAction | { kind: "place" } | { kind: "reparent"; id: string; owner: string };
 
 /** supportsEdit reports whether the server advertised the model-edit capability. */
@@ -1457,7 +1335,6 @@ function html(
       #view { flex: 1 1 auto; max-width: 30rem; }
       #style { max-width: 14rem; }
       #kind { opacity: 0.8; font-size: 0.9em; }
-      #add { max-width: 14rem; }
       #status { color: var(--vscode-errorForeground); min-height: 1.2em; font-size: 0.9em; white-space: pre-wrap; }
       #status.hint { color: var(--vscode-descriptionForeground, var(--vscode-foreground)); }
       #diagram { overflow: auto; }
@@ -1583,7 +1460,6 @@ function html(
       <label for="style">Style</label>
       <select id="style"></select>
       <span id="kind"></span>
-      <select id="add" hidden aria-label="Add to the model"></select>
     </div>
     <div id="status"></div>
     <div id="diagram" tabindex="-1"></div>

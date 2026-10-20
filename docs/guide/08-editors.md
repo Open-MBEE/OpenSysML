@@ -106,10 +106,11 @@ REPL's `%render` command prints, as an SVG canvas of its own, and redraws as you
   burst of editing has settled. The panel draws its own SVG, so nothing is fetched from the
   network.
 
-The model is the only thing edited: the panel's **Add…** menu, a node's right-click menu and
-a drag on the canvas each become a source-preserving edit of the `.sysml` file, applied to the
-editor's buffer like typed text, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it and the diagram
-redraws from what the file now says.
+The model is the only thing edited, and new elements are written in the text: the panel
+creates nothing. A node's right-click menu (**Go to declaration**, **Rename…**, **Move to…**,
+**Delete…**) and a drag on the canvas each become a source-preserving edit of the `.sysml`
+file, applied to the editor's buffer like typed text, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it
+and the diagram redraws from what the file now says.
 
 Where a diagram's boxes go is the model's decision when it states one: a view whose body places
 its elements with the bundled `DiagramLayout` library (`metadata Layout about engine { x = 120;

@@ -19,8 +19,8 @@ import {
 
 /**
  * Rendering is the diagram an action is taken on: its nodes and edges, the view
- * they were drawn for (empty for a pseudo-view), what they offer to add, and the
- * document version they draw.
+ * they were drawn for (empty for a pseudo-view), the palette that makes them
+ * editable, and the document version they draw.
  */
 export interface Rendering {
   nodes: RenderNode[];
@@ -93,27 +93,8 @@ export function ancestors(node: RenderNode, nodes: RenderNode[]): RenderNode[] {
   return out;
 }
 
-/** ownerOf is the node's own declaration, else its nearest ancestor the document declares. */
-export function ownerOf(node: RenderNode | undefined, nodes: RenderNode[]): RenderNode | undefined {
-  if (!node) {
-    return undefined;
-  }
-  return [node, ...ancestors(node, nodes)].find(declaredHere);
-}
-
-/** rootOwner is the rendering's one declared root, or nothing when there are several. */
-export function rootOwner(nodes: RenderNode[]): RenderNode | undefined {
-  const roots = nodes.filter((node) => !node.parent && declaredHere(node));
-  return roots.length === 1 ? roots[0] : undefined;
-}
-
 /** DOCUMENT_ROOT stands for the document itself, which owns its top-level declarations; an edit names it by the empty owner. */
 export const DOCUMENT_ROOT: RenderOwner = { fqn: "", feature: false };
-
-/** ownersOf: the namespaces declaring node, nearest first, the document last; undefined for a node the document does not declare. */
-export function ownersOf(node: RenderNode): RenderOwner[] | undefined {
-  return declaredHere(node) ? [...(node.owners ?? []), DOCUMENT_ROOT] : undefined;
-}
 
 /** Destination is a namespace a move may put a node into: a drawn node, or the document itself, which no node draws. */
 export interface Destination {
@@ -175,73 +156,6 @@ export function reparentOperations(
   const placed = placementOperations(rendering, nodes, edges);
   const move = moveOperation(node, owner.fqn);
   return placed && move ? [...placed, move] : undefined;
-}
-
-/** nameSegments splits a qualified name at `::` outside quotes: `'P::Q'::x` is two segments. */
-export function nameSegments(text: string): string[] {
-  const out: string[] = [];
-  let start = 0;
-  let quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (quoted && c === "\\") {
-      i++;
-    } else if (c === "'") {
-      quoted = !quoted;
-    } else if (!quoted && text.startsWith("::", i)) {
-      out.push(text.slice(start, i));
-      start = i + 2;
-      i++;
-    }
-  }
-  out.push(text.slice(start));
-  return out;
-}
-
-/**
- * connectionOwner is the nearest namespace declaring both nodes, drawn or not, down to
- * the document itself; undefined when either is not declared in the document.
- */
-export function connectionOwner(from: RenderNode, to: RenderNode): RenderOwner | undefined {
-  const fromOwners = ownersOf(from);
-  const toOwners = ownersOf(to);
-  if (!fromOwners || !toOwners) {
-    return undefined;
-  }
-  const shared = new Set(toOwners.map((owner) => owner.fqn));
-  return fromOwners.find((owner) => shared.has(owner.fqn));
-}
-
-/** describeOwner names an owner for a message: its qualified name, or the document for DOCUMENT_ROOT. */
-export function describeOwner(owner: RenderOwner): string {
-  return owner.fqn === "" ? "the document" : owner.fqn;
-}
-
-/** localName is the last name of a qualified one, as the notation spells it: `'fuel::out'` of `'x::y'::'fuel::out'`. */
-function localName(fqn: string): string {
-  const segments = nameSegments(fqn);
-  return segments.at(-1) as string;
-}
-
-/**
- * endpointPath spells a node from owner's scope, chaining through a feature by `.` and
- * into any other namespace by `::` (`tank.fuelOut`; from the document, `Car::tank.fuelOut`);
- * undefined for the owner itself and for a node outside it.
- */
-export function endpointPath(node: RenderNode, owner: RenderOwner): string | undefined {
-  const owners = ownersOf(node);
-  const below = owners?.findIndex((step) => step.fqn === owner.fqn) ?? -1;
-  if (!owners || below < 0 || !declaredHere(node)) {
-    return undefined;
-  }
-  const steps: RenderOwner[] = [{ fqn: node.fqn, feature: false }, ...owners.slice(0, below)].reverse();
-  const separatorBefore = (i: number): string => {
-    if (i === 0) {
-      return "";
-    }
-    return steps[i - 1].feature ? "." : "::";
-  };
-  return steps.map((step, i) => separatorBefore(i) + localName(step.fqn)).join("");
 }
 
 /** What the user is told when an action names a rendering that has been replaced. */

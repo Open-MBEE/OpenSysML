@@ -365,6 +365,12 @@ representable.
 
 ### The palette
 
+The VS Code panel no longer shows it: its **Add…** list and the node menu's add entries
+were withdrawn, since elements are created in the text, and the panel keeps **Rename…**,
+**Move to…**, **Delete…** and the drag gestures. `AddMember` and `AddConnection` stay on
+the server for `applyModelEdit`, gRPC and MCP clients, and the rendering's palette still marks it
+editable and says which drawn nodes may own a `subject`-like member.
+
 Which actions are offered is decided by the rendering's kind, not hardcoded:
 `interconnection` offers parts, ports and connections; `state` offers states,
 transitions, entry/exit; `action` offers action nodes, successions, forks and
