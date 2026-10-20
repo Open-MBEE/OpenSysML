@@ -233,10 +233,16 @@ is now pilot-only under its structural key, while our named key is ours-only. Th
 46 `attribute :>> x = …` redefinitions of features the model itself declares, with the 138 elements
 they own, plus `render asInterconnectionDiagram;` and its `ReferenceSubsetting`. Both sides state
 what the spec derives from what they resolved; the loss measures the pilot's library coverage, not
-a derivation, and is a limitation of this referee: a member whose naming feature lives in a
-library the pilot does not load cannot match. The eight files of `docs/manual/examples` and 11 of
-the 52 under `examples` import such a library; the pinned roots, `tests/testdata` and the probes
-import none.
+a derivation, and is a limitation of this referee: a member whose naming feature the pilot does not
+resolve cannot match. The same shape is the whole of what the other roots lost, masked there by
+their gains: `examples` lost 914 (2805 gained) — 205 such redefinitions of `DocumentQueries` and
+`AnalysisRecords` features and two `render` members of `OpenSysMLRenderings` renderings, with
+what they own — and `spec-examples` lost 57 (171 gained): 13 members whose naming feature the
+pinned excerpt leaves undeclared (`perform VehicleActions::move`, `individual timeslice redefines
+preflight`, `render asMyTreeDiagram` under an undefined view definition, …), which we name by the
+reference as written and the pilot, resolving nothing, does not name. `training`, `pilot-examples`,
+`pilot-validation`, `kerml-examples` and `tests/testdata` lost no match. A run's own list of such
+movements comes from `-lost-against`.
 
 ## Launch-ready gaps
 
