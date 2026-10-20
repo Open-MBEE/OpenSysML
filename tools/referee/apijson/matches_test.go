@@ -84,6 +84,15 @@ func TestCompareRootRecordsTheInventory(t *testing.T) {
 	if _, err := readMatches(filepath.Join(t.TempDir(), "missing.json")); err == nil {
 		t.Error("a missing inventory file was read without error")
 	}
+	for _, content := range []string{"{}", "null", `{"roots":null}`, `{"roots":{"r":null}}`, `[]`} {
+		path := filepath.Join(t.TempDir(), "bad.json")
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := readMatches(path); err == nil {
+			t.Errorf("%s was accepted as an inventory", content)
+		}
+	}
 }
 
 func jsonOf(t *testing.T, v any) string {

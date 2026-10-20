@@ -55,6 +55,14 @@ func readMatches(path string) (*Matches, error) {
 	if err := json.Unmarshal(content, &matches); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	if matches.Roots == nil {
+		return nil, fmt.Errorf("%s: not a match inventory (no roots)", path)
+	}
+	for root, r := range matches.Roots {
+		if r == nil {
+			return nil, fmt.Errorf("%s: root %s has no inventory", path, root)
+		}
+	}
 	return &matches, nil
 }
 
