@@ -38,6 +38,7 @@ jobs:
       OPENSYSML_REQUIRE_SMT: "1"
       OPENSYSML_REQUIRE_WASM: "1"
       OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
+      OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN: "1"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -96,6 +97,10 @@ jobs:
             echo "Snapshot regenerated for the synced libraries." >> "$GITHUB_STEP_SUMMARY"
             make stdlib-snapshot
           fi
+
+      # The tools module's llm-bench tests drive bin/sysml and skip without it.
+      - name: Build binaries
+        run: make build
 
       # One process runs every package, so the slowest ones share the runner's cores
       # and outlive go test's default 10-minute cap; the per-package timeout is the
