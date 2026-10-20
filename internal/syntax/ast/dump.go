@@ -956,6 +956,9 @@ func usageChildren(v *Usage) []Node {
 	if v.CrossFeature != nil {
 		kids = append(kids, v.CrossFeature)
 	}
+	if v.Terminates != nil {
+		kids = append(kids, v.Terminates)
+	}
 	if v.Value != nil {
 		kids = append(kids, v.Value)
 	}

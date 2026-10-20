@@ -106,10 +106,11 @@ REPL's `%render` command prints, as an SVG canvas of its own, and redraws as you
   burst of editing has settled. The panel draws its own SVG, so nothing is fetched from the
   network.
 
-The model is the only thing edited: the panel's **Add…** menu, a node's right-click menu and
-a drag on the canvas each become a source-preserving edit of the `.sysml` file, applied to the
-editor's buffer like typed text, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it and the diagram
-redraws from what the file now says.
+The model is the only thing edited, and new elements are written in the text: the panel
+creates nothing. A node's right-click menu (**Go to declaration**, **Rename…**, **Move to…**,
+**Delete…**) and a drag on the canvas each become a source-preserving edit of the `.sysml`
+file, applied to the editor's buffer like typed text, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it
+and the diagram redraws from what the file now says.
 
 Where a diagram's boxes go is the model's decision when it states one: a view whose body places
 its elements with the bundled `DiagramLayout` library (`metadata Layout about engine { x = 120;
@@ -130,6 +131,27 @@ The geometry is on every node and edge the server sends (`x`, `y`,
 `%% layout:` comments, so other clients can honor it; see
 [Diagram layout annotations](../project/diagram-layout-annotations.md). A drag applies to the
 tree, interconnection, state and action diagrams, which read the annotations back.
+
+The `opensysml.diagram.routing` setting decides whose routes the edges follow. Under `model`,
+the default, a stated `Route` is drawn through its waypoints exactly as above, so a diagonal
+migrated from another tool stays a diagonal. Under `router`, every edge ELK did not route —
+those with a stated `Route` included — is routed at right angles around the boxes by the
+panel's router; the stated routes stay in the model (`DiagramLayout` is layout metadata, not
+part of the language, so nothing about the model's meaning changes) but are not drawn, and the
+waypoint handles are hidden, since a route the panel draws is not one to bend by hand. A node
+drag still carries the stated routes between the nodes it moves. Changing the setting re-lays
+the open diagrams out at once. The setting is the panel's alone: `sysml -render-lines`, the
+Mermaid and DOT exports and the document pipeline keep the stated routes.
+
+#### The diagram in its own window
+
+`SysML: Move Diagram to New Window` (the panel's title bar `…` menu and a model file's offer
+it too, and the command palette) moves the diagram into a floating window of VS Code's own,
+which can be dragged to another screen. Run from the editor, the command leaves the cursor
+where it was; the moved panel keeps its drawing, its chosen view and its style. The diagrams
+share one group, and the group goes with the window: a second diagram opened afterwards joins
+the floating window beside the first. Set `opensysml.diagram.openIn` to `newWindow` to have
+the first diagram opened in a session move out on its own; later ones join it as before.
 
 #### Exporting a diagram
 
