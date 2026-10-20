@@ -45,7 +45,7 @@ func (ctx *Context) materializationErrorsWithin(inst *Instance, budget int) (err
 		reported: map[featureValueRef]bool{},
 		budget:   budget,
 	}
-	w.walk(inst, 0)
+	w.walk(inst, 0, false)
 	return w.errs, w.bounded
 }
 
@@ -67,7 +67,10 @@ type materializeWalk struct {
 	errs     []error
 }
 
-func (w *materializeWalk) walk(inst *Instance, depth int) {
+// walk reads inst's feature values; unperformed marks a performance nothing performs,
+// whose parameters, connectors and steps its run binds: only the values its own
+// declarations bind are read on it, and on what they hold.
+func (w *materializeWalk) walk(inst *Instance, depth int, unperformed bool) {
 	// A destroyed object holds no feature values to materialize any more.
 	if w.ctx.checkNotDestroyed(inst) != nil {
 		return
@@ -81,6 +84,9 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 		// A constraint or requirement a part carries holds a verdict about the
 		// object rather than a value, so there is nothing to materialize.
 		if holdsVerdict(feat) {
+			continue
+		}
+		if unperformed && (!w.ctx.valueBinds(feat) || w.ctx.model.semantics.IsConnectorObjectUsage(feat.Symbol)) {
 			continue
 		}
 		if held := w.ctx.CompositeTypeOf(feat); held != nil && (depth >= maxMaterializeDepth || w.onPath[held]) {
@@ -108,33 +114,31 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 			w.errs = append(w.errs, err)
 		}
 		w.bounded = w.bounded || cut
-		// A performance nothing performs is an identity whose features the performance
-		// binds: its objects are read, and none is descended into.
-		if w.ctx.unperformedUsage(inst, feat) {
-			continue
-		}
+		held := unperformed || w.ctx.unperformedUsage(inst, feat)
 		// Each object held is charged as it is reached, so every one the budget admits
 		// is walked and only those past it are cut.
-		for _, held := range instancesOf(w.ctx, values) {
+		for _, child := range instancesOf(w.ctx, values) {
 			if w.budget <= 0 {
 				w.bounded = true
 				return
 			}
 			w.budget--
-			if w.visited[held.ID] {
+			if w.visited[child.ID] {
 				continue
 			}
-			w.visited[held.ID] = true
-			w.onPath[held.Type] = true
-			w.walk(held, depth+1)
-			delete(w.onPath, held.Type)
+			w.visited[child.ID] = true
+			w.onPath[child.Type] = true
+			w.walk(child, depth+1, held)
+			delete(w.onPath, child.Type)
 		}
 	}
 }
 
 // unperformedUsage reports an action or state usage of inst that no behavior of the
 // object performs or exhibits: neither under the usage itself, nor under a member
-// redefining it, nor under a `perform`/`exhibit` whose bindings name it.
+// redefining it, nor under a `perform`/`exhibit` whose bindings name it. A step of a
+// running action runs as a frame, not as a behavior of the object, so its identity
+// is read as an unperformed one: for the values its declarations bind.
 func (ctx *Context) unperformedUsage(inst *Instance, feat *EffectiveFeature) bool {
 	sym := feat.Symbol
 	if sym == nil || sym.Decl == nil || (sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage) {

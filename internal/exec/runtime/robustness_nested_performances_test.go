@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -67,6 +68,26 @@ func TestRuntimeRobustnessNestedPerformances(t *testing.T) {
 		}
 		if got := FormatValue(val); got != "[]" {
 			t.Errorf("self.opt = %s, want [] for a [0..1] usage nothing values", got)
+		}
+	})
+
+	t.Run("materialization_report_reads_bound_values_of_unperformed_usage", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+			part def P {
+				action a { attribute n : ScalarValues::Integer[2] = 1; }
+				action ok { attribute m : ScalarValues::Integer = 2; }
+			}
+		}`))
+		inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::P"))
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		errs, bounded := ctx.MaterializationErrors(inst)
+		if bounded {
+			t.Errorf("materialization report bounded, want every bound value of the unperformed usages read")
+		}
+		if len(errs) != 1 || !strings.Contains(errs[0].Error(), "n") {
+			t.Errorf("materialization errors = %v, want the one multiplicity failure of a.n", errs)
 		}
 	})
 
