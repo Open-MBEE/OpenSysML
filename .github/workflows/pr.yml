@@ -25,6 +25,7 @@ env:
   # Same for the three pinned OMG pilot corpora, which are downloaded below and
   # gated by tests/corpus/pilot_corpora_test.go.
   OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+  OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
   # Same for the pinned OMG PSSM test suite, gated by tools/referee/pssm and tools/cmd/pssm-referee.
   OPENSYSML_REQUIRE_PSSM_SUITE: "1"
   # Same for the pinned OMG SysML v1 to v2 transformation model, gated by tools/census/transformation.
@@ -219,6 +220,32 @@ jobs:
             echo "pilot corpus $root: $count model files"
             if [ "$count" -eq 0 ]; then
               echo "error: pilot corpus $root is empty; the corpora gate would not run" >&2
+              exit 1
+            fi
+          done
+
+      # The specification examples, extracted from the two PDFs at the same pin:
+      # the PDFs are cached, the extraction reruns from them (it is the tree's
+      # own tool), and the result is verified rather than trusted.
+      - name: Cache the OMG specification documents
+        uses: actions/cache@v4
+        with:
+          path: build/spec-docs/pdf
+          key: spec-docs-${{ hashFiles('scripts/download-spec-examples.sh', 'scripts/pilot-pin.sh') }}
+
+      - name: Extract the OMG specification examples
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils
+          ./scripts/download-spec-examples.sh
+
+      - name: Verify the OMG specification examples
+        run: |
+          for root in sysml kerml; do
+            count=$(find "examples/spec-examples/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
+            echo "specification examples $root: $count model files"
+            if [ "$count" -eq 0 ]; then
+              echo "error: specification examples $root is empty; the spec-examples gate would not run" >&2
               exit 1
             fi
           done
@@ -433,6 +460,35 @@ jobs:
             fi
           done
 
+      # The specification examples, extracted from the two PDFs at the same pin:
+      # the PDFs are cached, the extraction reruns from them (it is the tree's
+      # own tool), and the result is verified rather than trusted.
+      - name: Cache the OMG specification documents
+        if: needs.changes.outputs.tier == 'full'
+        uses: actions/cache@v4
+        with:
+          path: build/spec-docs/pdf
+          key: spec-docs-${{ hashFiles('scripts/download-spec-examples.sh', 'scripts/pilot-pin.sh') }}
+
+      - name: Extract the OMG specification examples
+        if: needs.changes.outputs.tier == 'full'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils
+          ./scripts/download-spec-examples.sh
+
+      - name: Verify the OMG specification examples
+        if: needs.changes.outputs.tier == 'full'
+        run: |
+          for root in sysml kerml; do
+            count=$(find "examples/spec-examples/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
+            echo "specification examples $root: $count model files"
+            if [ "$count" -eq 0 ]; then
+              echo "error: specification examples $root is empty; the spec-examples gate would not run" >&2
+              exit 1
+            fi
+          done
+
       - name: Cache the OMG PSSM test suite
         if: needs.changes.outputs.tier == 'full'
         uses: actions/cache@v4
@@ -549,6 +605,18 @@ jobs:
           grep -E 'pilot corpus files clean' pilot-corpora-gate.log
           if grep -qE '^\s*--- SKIP' pilot-corpora-gate.log; then
             echo "error: the pilot corpora gate skipped" >&2
+            exit 1
+          fi
+
+      # The specification-examples gate on its own, for the same reason.
+      - name: Run spec examples gate
+        if: needs.changes.outputs.tier == 'full'
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./tests/corpus -run 'TestSpecExamples' | tee spec-examples-gate.log
+          grep -E 'specification examples clean' spec-examples-gate.log
+          if grep -qE '^\s*--- SKIP' spec-examples-gate.log; then
+            echo "error: the spec examples gate skipped" >&2
             exit 1
           fi
 

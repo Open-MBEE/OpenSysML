@@ -70,8 +70,9 @@ var defaultRoots = []corpusRoot{
 	{Name: "pilot-examples", Dir: "examples/pilot-corpora/sysml-examples", Pinned: true},
 	{Name: "pilot-validation", Dir: "examples/pilot-corpora/sysml-validation", Pinned: true},
 	{Name: "kerml-examples", Dir: "examples/pilot-corpora/kerml-examples", Pinned: true},
+	{Name: "spec-examples", Dir: "examples/spec-examples", Pinned: true},
 	{Name: "testdata", Dir: "tests/testdata"},
-	{Name: "examples", Dir: "examples", Skip: []string{"sysml-v2-training", "pilot-corpora", "reference-fmus"}},
+	{Name: "examples", Dir: "examples", Skip: []string{"sysml-v2-training", "pilot-corpora", "spec-examples", "reference-fmus"}},
 	// Hand-written models for behaviour classes the corpora do not cover, such
 	// as redefining a feature inherited through an alias.
 	{Name: "probes", Dir: "tools/referee/diff/testdata"},

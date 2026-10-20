@@ -27,6 +27,8 @@ client/julia/**/Manifest.toml
 
 # Downloaded OMG corpora (run scripts/download-pilot-corpora.sh)
 /examples/pilot-corpora/
+# Extracted OMG specification examples (run scripts/download-spec-examples.sh)
+/examples/spec-examples/
 
 # Downloaded Modelica Reference-FMUs (run scripts/download-reference-fmus.sh)
 /examples/reference-fmus/
