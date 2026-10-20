@@ -1070,13 +1070,13 @@ the bundled one.
 ref payload :>> MessageAction::payload, Transfer::payload;
 ```
 
-Corrected by the overlay — the published line followed by the two owned ends:
+Corrected by the overlay — the published line followed by the two owned ends, at the library's indentation:
 
 ```sysml
-ref payload :>> MessageAction::payload, Transfer::payload;
-
-end occurrence source: Occurrence :>> Transfer::source;
-end occurrence target: Occurrence :>> Transfer::target;
+        ref payload :>> MessageAction::payload, Transfer::payload;
+        
+        end occurrence source: Occurrence :>> Transfer::source;
+        end occurrence target: Occurrence :>> Transfer::target;
 ```
 
 `Message :> MessageAction, Transfer` owns no ends, so its end features are the two `Transfer`
@@ -1114,13 +1114,13 @@ comment of `messages`:
  */
 ```
 
-Corrected by the overlay — the published line followed by the two owned ends:
+Corrected by the overlay — the published line followed by the two owned ends, at the library's indentation:
 
 ```sysml
- */
-
-end occurrence source: Occurrence :>> Message::source, transfers::source;
-end occurrence target: Occurrence :>> Message::target, transfers::target;
+         */
+         
+        end occurrence source: Occurrence :>> Message::source, transfers::source;
+        end occurrence target: Occurrence :>> Message::target, transfers::target;
 ```
 
 With `Message` owning `source` and `target` (the entry above), `messages` redefines them and the
