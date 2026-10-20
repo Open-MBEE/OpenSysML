@@ -526,7 +526,7 @@ func TestCaseKeywordIsAnExtension(t *testing.T) {
 	}
 }
 
-// A bare condition is the body's result expression (SysML v2 8.2.2.19
+// A body's closing bare condition is its result expression (SysML v2 8.2.2.19
 // CalculationBodyPart, KerML 8.2.5.7.1 FunctionBodyPart), which no `;` follows:
 // a written `;` is reported at its own span, in either notation, with a fix
 // that deletes it. A reference an `assert` states ends in `;` as every usage does.
@@ -549,9 +549,11 @@ func TestConditionTerminatorIsAnExtension(t *testing.T) {
 			t.Errorf("%s: want a fix deleting the `;`, got %+v", tc.src, got[0].Fixes)
 		}
 	}
-	// Two terminated conditions are two findings.
+	// Only the closing condition is the result expression: the `;` between two
+	// conditions separates them, and only a `;` after the last one is reported.
 	wantNotation(t, "a.sysml", "constraint def K { in x : ScalarValues::Real; x > 0.0; x < 1.0; }",
-		CodeNonstandardNotation, want, want)
+		CodeNonstandardNotation, want)
+	wantSilent(t, "a.sysml", "constraint def K { in x : ScalarValues::Real; x > 0.0; x < 1.0 }")
 	for _, tc := range []struct{ name, src string }{
 		{"a.sysml", "constraint def K { in x : ScalarValues::Real; x > 0.0 }"},
 		{"a.sysml", "part def P { attribute m : ScalarValues::Real; constraint k { m > 0.0 } }"},

@@ -148,7 +148,7 @@ func hasParseError(diags []diag.Diagnostic) bool {
 // bodies its members carry.
 func (w *notationWalker) walk(members []ast.Node) {
 	var previous ast.Node
-	for _, member := range members {
+	for i, member := range members {
 		unwrapped := kit.UnwrapMembership(member)
 		w.targetSuccession(unwrapped, previous)
 		if !isMemberAttachedSuccession(unwrapped) {
@@ -197,7 +197,9 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.walk(n.Members)
 			w.leaveKerMLDeclaration(reported)
 		case *ast.ConstraintMember:
-			w.conditionTerminator(n)
+			if i == len(members)-1 {
+				w.conditionTerminator(n)
+			}
 			w.walk(n.Body)
 		case *ast.AssumeMember:
 			w.walk(n.Body)
@@ -859,11 +861,13 @@ func (w *notationWalker) caseKeyword(n ast.Node, keyword string, isDef bool) {
 	w.diags = append(w.diags, d)
 }
 
-// conditionTerminator reports the `;` after a bare condition. The condition is
-// the body's result expression — SysML v2 8.2.2.19 CalculationBodyPart and
-// KerML 8.2.5.7.1 FunctionBodyPart end in `( ownedRelationship +=
-// ResultExpressionMember )?`, a `MemberPrefix? ownedRelatedElement +=
-// OwnedExpression` — and no production terminates it.
+// conditionTerminator reports the `;` after a body's closing bare condition.
+// That condition is the body's result expression — SysML v2 8.2.2.19
+// CalculationBodyPart and KerML 8.2.5.7.1 FunctionBodyPart end in
+// `( ownedRelationship += ResultExpressionMember )?`, a `MemberPrefix?
+// ownedRelatedElement += OwnedExpression` — and no production terminates it.
+// A `;` between two conditions separates members of the conjunction OpenSysML
+// reads, which is not the result position.
 func (w *notationWalker) conditionTerminator(n *ast.ConstraintMember) {
 	if n.Keyword != "" || n.Expression == nil || n.Terminator.Len == 0 {
 		return
