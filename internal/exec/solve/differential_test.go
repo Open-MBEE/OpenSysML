@@ -424,10 +424,17 @@ func (n *nodeValues) valueOf(v *Var) (runtime.Value, error) {
 }
 
 // newNodeValues evaluates every reference the conditions state, naming each by
-// the variable the translation gives it.
+// the variable the translation gives it. A satisfaction's references are read with
+// its bindings, as its conditions read them: `s` is the object `by` names.
 func newNodeValues(ctx *runtime.Context, el diffElement, self *runtime.Instance) *nodeValues {
 	out := &nodeValues{byName: map[string]runtime.Value{}, fallback: newDeclaredValues(ctx, valueHost(el), self)}
 	subject := el.subject()
+	read := func(node ast.Node, scope *symbols.Scope) (runtime.Value, error) {
+		if el.kind == "satisfaction" {
+			return ctx.ReadInSatisfaction(el.assertion, self, scope, node)
+		}
+		return ctx.EvalWithScopeOn(node, scope, self)
+	}
 	var collect func(conds []runtime.Condition)
 	collect = func(conds []runtime.Condition) {
 		for _, cond := range conds {
@@ -440,7 +447,7 @@ func newNodeValues(ctx *runtime.Context, el diffElement, self *runtime.Instance)
 				if !ok {
 					continue
 				}
-				val, err := ctx.EvalWithScopeOn(node, cond.Scope, self)
+				val, err := read(node, cond.Scope)
 				if err != nil {
 					continue
 				}
