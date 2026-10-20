@@ -109,7 +109,7 @@ func (l *Loader) load(name string, idx *symbols.Index) error {
 func (l *Loader) add(f libraryFile, idx *symbols.Index) {
 	doc := pending{name: f.name}
 	if l.cache != nil {
-		doc.key = l.cache.keyForSum(f.sum, l.setDigest())
+		doc.key = l.cache.keyForSum(f.name, f.sum, l.setDigest())
 		if rec, ok := l.cache.Load(doc.key); ok {
 			doc.rec = rec
 		}
