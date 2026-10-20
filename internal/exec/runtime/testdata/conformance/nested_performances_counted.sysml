@@ -32,8 +32,24 @@ package test {
         attribute s1ContextIsOwner : Boolean = s1.this == self;
         attribute a1HasNoSubperformances : Boolean = a1.subperformances->SequenceFunctions::isEmpty();
     }
+    item def Box {
+        action ia;
+        attribute ownedPerformanceCount : Integer = ownedPerformances->SequenceFunctions::size();
+        attribute suboccurrenceCount : Integer = suboccurrences->SequenceFunctions::size();
+        attribute iaContextIsOwner : Boolean = ia.this == self;
+    }
+    part def Forms {
+        action one;
+        action two [2];
+        action opt [0..1];
+        action many [*];
+        attribute ownedActionCount : Integer = ownedActions->SequenceFunctions::size();
+        attribute secondOfTwoIsHeld : Boolean = ownedActions#(3) == two#(2);
+    }
     part def Rig {
         part p3 : P3;
+        item box : Box;
+        part forms : Forms;
         action act : Act;
         attribute actContextIsRig : Boolean = act.this == self;
         attribute actA1ContextIsRig : Boolean = act.a1.this == self;

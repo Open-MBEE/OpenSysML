@@ -110,7 +110,7 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 		w.bounded = w.bounded || cut
 		// A performance nothing performs is an identity whose features the performance
 		// binds: its objects are read, and none is descended into.
-		if unperformedUsage(inst, feat) {
+		if w.ctx.unperformedUsage(inst, feat) {
 			continue
 		}
 		// Each object held is charged as it is reached, so every one the budget admits
@@ -133,14 +133,19 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 }
 
 // unperformedUsage reports an action or state usage of inst that no behavior of the
-// object performs or exhibits.
-func unperformedUsage(inst *Instance, feat *EffectiveFeature) bool {
+// object performs or exhibits: neither under the usage itself, nor under a member
+// redefining it, nor under a `perform`/`exhibit` whose bindings name it.
+func (ctx *Context) unperformedUsage(inst *Instance, feat *EffectiveFeature) bool {
 	sym := feat.Symbol
-	if sym == nil || (sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage) {
+	if sym == nil || sym.Decl == nil || (sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage) {
 		return false
 	}
 	for _, b := range inst.behaviors {
-		if b.member == sym || (b.member != nil && sym.Decl != nil && b.member.Decl == sym.Decl) {
+		if b.member == nil {
+			continue
+		}
+		if b.member == sym || b.member.Decl == sym.Decl || declaresAny(b.bindings, sym) ||
+			declaresAny(ctx.redefinedFeatures(b.member, inst.Type), sym) {
 			return false
 		}
 	}

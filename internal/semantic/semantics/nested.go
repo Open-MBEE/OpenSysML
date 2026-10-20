@@ -252,14 +252,18 @@ func partNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (
 }
 
 // actionNestedFQN is the rule chain of a usage whose kind nests under an
-// action: the action's `subactions`, the part's `ownedActions`, then the
-// occurrence rules with the KerML step fallback behind them.
+// action: the action's `subactions`, the part's `ownedActions`, the item's
+// `ownedPerformances` (KerML 1.1 §8.4.4.7.2, a composite step of a structure;
+// SysML v2 §8.4.13.2), then the occurrence rules with the KerML step fallback behind them.
 func actionNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (string, bool) {
 	if composite && ownerInActionFamily(owner) {
 		return "Actions::Action::subactions", false
 	}
 	if composite && ownerInPartFamily(owner) {
 		return "Parts::Part::ownedActions", false
+	}
+	if composite && ownerInItemFamily(owner) {
+		return "Objects::Object::ownedPerformances", false
 	}
 	return occurrenceNestedFQN(owner, composite, portion, true)
 }

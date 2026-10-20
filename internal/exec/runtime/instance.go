@@ -1406,8 +1406,9 @@ func untypedOccurrenceUsage(feat *EffectiveFeature) bool {
 }
 
 // untypedPerformanceUsage reports an action or state usage declaring no type and no value,
-// a performance that exists for every instance of its owner (Parts.sysml `ownedActions`,
-// `ownedStates`; Actions.sysml `subactions`) as a typed one does.
+// a performance its owner holds as it holds a typed one (Parts.sysml `ownedActions`,
+// `ownedStates`; Actions.sysml `subactions`): one object for a usage declaring no
+// multiplicity, as many as a fixed bound states, none made up for an open bound.
 func untypedPerformanceUsage(sym *symbols.Symbol) bool {
 	if sym == nil || (sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage) {
 		return false
