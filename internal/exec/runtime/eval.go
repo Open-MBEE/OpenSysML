@@ -1780,7 +1780,7 @@ func (ec *EvalContext) chainFeatureValue(inst *Instance, name string, rest []ast
 	if sym, ok := ec.enactedConstraint(inst, name); ok {
 		// The constraint's own members read through it as any usage's do; the
 		// usage itself, or its `result`, is the predicate evaluated on the object.
-		if member := constraintMemberSegment(rest); member != "" {
+		if member, tail := constraintMemberSegment(rest); member != "" {
 			val, found, err := ec.constraintMemberValue(inst, sym, member)
 			if !found {
 				return Value{}, fmt.Errorf("%w: constraint %s has no member %s", ErrNoSuchFeature, name, member)
@@ -1788,7 +1788,7 @@ func (ec *EvalContext) chainFeatureValue(inst *Instance, name string, rest []ast
 			if err != nil {
 				return Value{}, err
 			}
-			return ec.chainMemberValue(val, rest[1:], member)
+			return ec.chainMemberValue(val, tail, member)
 		}
 		val, err := ec.constraintUsageRead(inst, sym)
 		if err != nil {

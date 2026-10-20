@@ -312,12 +312,12 @@ func (ec *EvalContext) constraintMemberValue(inst *Instance, sym *symbols.Symbol
 }
 
 // constraintMemberSegment is the member a chain through a constraint usage reads
-// next, "" when the chain ends at the usage or at its `result`.
-func constraintMemberSegment(rest []ast.NameSegment) string {
+// next and the segments after it; "" when the chain ends at the usage or at its `result`.
+func constraintMemberSegment(rest []ast.NameSegment) (string, []ast.NameSegment) {
 	if len(rest) == 0 || rest[0].Text == "result" {
-		return ""
+		return "", nil
 	}
-	return rest[0].Text
+	return rest[0].Text, rest[1:]
 }
 
 // constraintResultTail drops a trailing `result` segment of a chain through a
