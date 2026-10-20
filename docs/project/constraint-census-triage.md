@@ -422,6 +422,412 @@ against which both answers are `true`; and the API JSON form's silence on implie
 is what keeps the 165 rows unobservable, so an export that writes them (as the pilot's does)
 would make this table checkable mechanically.
 
+## `derive*` rows (235)
+
+A `derive*` constraint defines a derived property. This table records only whether the API
+JSON form (`bin/sysml -convert api-json`) emits the property at all, over the two models of the
+`check*` step (`probes/triage/check-model.sysml`, `.kerml`), one conversion each: **yes** when
+every element of the row's metaclass carries the property, **partial** when some do or when the
+model has no element of that exact metaclass but the property appears on another, **no** when
+no element of the metaclass carries it (the *Where* column says whether the model had elements
+of that metaclass at all — a row whose metaclass is absent from the models is `no` only in the
+sense that the property name appears nowhere in the export). The Turtle form maps the same
+properties through the same writer, so it is not tabulated separately. Nothing here is a
+diagnostic, so the pilot column is omitted; the pilot's own JSON export is the referee of the
+API-JSON derived-property differential in progress, and #1232 adds owned-absence and
+evaluator-derived properties to the export — both are the in-flight overlap of every row.
+
+| # | Constraint | Metaclass | Clause | Property | API JSON | Where | In-flight overlap |
+|---|---|---|---|---|---|---|---|
+| 1 | `deriveAcceptActionUsagePayloadArgument` | AcceptActionUsage | sysml 8.3.17.2 | `payloadArgument` | no | no `AcceptActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 2 | `deriveAcceptActionUsagePayloadParameter` | AcceptActionUsage | sysml 8.3.17.2 | `payloadParameter` | no | no `AcceptActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 3 | `deriveAcceptActionUsageReceiverArgument` | AcceptActionUsage | sysml 8.3.17.2 | `receiverArgument` | no | no `AcceptActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 4 | `deriveActionDefinitionAction` | ActionDefinition | sysml 8.3.17.3 | `action` | no | 0/1 `ActionDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 5 | `deriveAllocationDefinitionAllocation` | AllocationDefinition | sysml 8.3.15.2 | `allocation` | no | 0/1 `AllocationDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 6 | `deriveAnalysisCaseDefinitionResultExpression` | AnalysisCaseDefinition | sysml 8.3.23.2 | `resultExpression` | no | 0/1 `AnalysisCaseDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 7 | `deriveAnalysisCaseUsageResultExpression` | AnalysisCaseUsage | sysml 8.3.23.3 | `resultExpression` | no | 0/2 `AnalysisCaseUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 8 | `deriveAnnotatingElementAnnotatedElement` | AnnotatingElement | kerml 8.3.2.3.2 | `annotatedElement` | no | no `AnnotatingElement` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 9 | `deriveAnnotatingElementAnnotation` | AnnotatingElement | kerml 8.3.2.3.2 | `annotation` | no | no `AnnotatingElement` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 10 | `deriveAnnotatingElementOwnedAnnotatingRelationship` | AnnotatingElement | kerml 8.3.2.3.2 | `ownedAnnotatingRelationship` | no | no `AnnotatingElement` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 11 | `deriveAnnotationAnnotatingElement` | Annotation | kerml 8.3.2.3.3 | `annotatingElement` | no | no `Annotation` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 12 | `deriveAnnotationOwnedAnnotatingElement` | Annotation | kerml 8.3.2.3.3 | `ownedAnnotatingElement` | no | no `Annotation` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 13 | `deriveAssertConstraintUsageAssertedConstraint` | AssertConstraintUsage | sysml 8.3.20.2 | `assertedConstraint` | no | no `AssertConstraintUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 14 | `deriveAssignmentActionUsageReferent` | AssignmentActionUsage | sysml 8.3.17.5 | `referent` | no | no `AssignmentActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 15 | `deriveAssignmentActionUsageValueExpression` | AssignmentActionUsage | sysml 8.3.17.5 | `valueExpression` | no | no `AssignmentActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 16 | `deriveAssignmentUsageTargetArgument` | AssignmentActionUsage | sysml 8.3.17.5 | `assignmentUsageTargetArgument` | no | no `AssignmentActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 17 | `deriveAssociationRelatedType` | Association | kerml 8.3.4.4.2 | `relatedType` | no | no `Association` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 18 | `deriveAssociationSourceType` | Association | kerml 8.3.4.4.2 | `sourceType` | no | no `Association` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 19 | `deriveAssociationTargetType` | Association | kerml 8.3.4.4.2 | `targetType` | no | no `Association` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 20 | `deriveBehaviorStep` | Behavior | kerml 8.3.4.6.2 | `step` | no | no `Behavior` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 21 | `deriveCalculationUsageCalculation` | CalculationDefinition | sysml 8.3.19.2 | `calculationUsageCalculation` | no | 0/1 `CalculationDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 22 | `deriveCaseDefinitionActorParameter` | CaseDefinition | sysml 8.3.22.2 | `actorParameter` | no | 0/1 `CaseDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 23 | `deriveCaseDefinitionObjectiveRequirement` | CaseDefinition | sysml 8.3.22.2 | `objectiveRequirement` | no | 0/1 `CaseDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 24 | `deriveCaseDefinitionSubjectParameter` | CaseDefinition | sysml 8.3.22.2 | `subjectParameter` | no | 0/1 `CaseDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 25 | `deriveCaseUsageActorParameter` | CaseUsage | sysml 8.3.22.3 | `actorParameter` | no | 0/1 `CaseUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 26 | `deriveCaseUsageObjectiveRequirement` | CaseUsage | sysml 8.3.22.3 | `objectiveRequirement` | no | 0/1 `CaseUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 27 | `deriveCaseUsageSubjectParameter` | CaseUsage | sysml 8.3.22.3 | `subjectParameter` | no | 0/1 `CaseUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 28 | `deriveClassifierOwnedSubclassification` | Classifier | kerml 8.3.3.2.2 | `ownedSubclassification` | no | no `Classifier` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 29 | `deriveConjugatedPortTypingPortDefinition` | ConjugatedPortTyping | sysml 8.3.12.3 | `portDefinition` | no | no `ConjugatedPortTyping` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 30 | `deriveConnectorDefaultFeaturingType` | Connector | kerml 8.3.4.5.3 | `defaultFeaturingType` | no | 0/1 `Connector` elements | API-JSON derived-property differential (in progress); #1232 |
+| 31 | `deriveConnectorRelatedFeature` | Connector | kerml 8.3.4.5.3 | `relatedFeature` | yes | 1/1 `Connector` elements | API-JSON derived-property differential (in progress); #1232 |
+| 32 | `deriveConnectorSourceFeature` | Connector | kerml 8.3.4.5.3 | `sourceFeature` | yes | 1/1 `Connector` elements | API-JSON derived-property differential (in progress); #1232 |
+| 33 | `deriveConnectorTargetFeature` | Connector | kerml 8.3.4.5.3 | `targetFeature` | yes | 1/1 `Connector` elements | API-JSON derived-property differential (in progress); #1232 |
+| 34 | `deriveConstructorExpressionArgument` | ConstructorExpression | kerml 8.3.4.8.3 | `argument` | no | no `ConstructorExpression` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 35 | `deriveDefinitionDirectedUsage` | Definition | sysml 8.3.6.2 | `directedUsage` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 36 | `deriveDefinitionOwnedAction` | Definition | sysml 8.3.6.2 | `ownedAction` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 37 | `deriveDefinitionOwnedAllocation` | Definition | sysml 8.3.6.2 | `ownedAllocation` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 38 | `deriveDefinitionOwnedAnalysisCase` | Definition | sysml 8.3.6.2 | `ownedAnalysisCase` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 39 | `deriveDefinitionOwnedAttribute` | Definition | sysml 8.3.6.2 | `ownedAttribute` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 40 | `deriveDefinitionOwnedCalculation` | Definition | sysml 8.3.6.2 | `ownedCalculation` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 41 | `deriveDefinitionOwnedCase` | Definition | sysml 8.3.6.2 | `ownedCase` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 42 | `deriveDefinitionOwnedConcern` | Definition | sysml 8.3.6.2 | `ownedConcern` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 43 | `deriveDefinitionOwnedConnection` | Definition | sysml 8.3.6.2 | `ownedConnection` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 44 | `deriveDefinitionOwnedConstraint` | Definition | sysml 8.3.6.2 | `ownedConstraint` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 45 | `deriveDefinitionOwnedEnumeration` | Definition | sysml 8.3.6.2 | `ownedEnumeration` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 46 | `deriveDefinitionOwnedFlow` | Definition | sysml 8.3.6.2 | `ownedFlow` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 47 | `deriveDefinitionOwnedInterface` | Definition | sysml 8.3.6.2 | `ownedInterface` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 48 | `deriveDefinitionOwnedItem` | Definition | sysml 8.3.6.2 | `ownedItem` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 49 | `deriveDefinitionOwnedMetadata` | Definition | sysml 8.3.6.2 | `ownedMetadata` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 50 | `deriveDefinitionOwnedOccurrence` | Definition | sysml 8.3.6.2 | `ownedOccurrence` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 51 | `deriveDefinitionOwnedPart` | Definition | sysml 8.3.6.2 | `ownedPart` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 52 | `deriveDefinitionOwnedPort` | Definition | sysml 8.3.6.2 | `ownedPort` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 53 | `deriveDefinitionOwnedReference` | Definition | sysml 8.3.6.2 | `ownedReference` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 54 | `deriveDefinitionOwnedRendering` | Definition | sysml 8.3.6.2 | `ownedRendering` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 55 | `deriveDefinitionOwnedRequirement` | Definition | sysml 8.3.6.2 | `ownedRequirement` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 56 | `deriveDefinitionOwnedState` | Definition | sysml 8.3.6.2 | `ownedState` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 57 | `deriveDefinitionOwnedTransition` | Definition | sysml 8.3.6.2 | `ownedTransition` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 58 | `deriveDefinitionOwnedUsage` | Definition | sysml 8.3.6.2 | `ownedUsage` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 59 | `deriveDefinitionOwnedUseCase` | Definition | sysml 8.3.6.2 | `ownedUseCase` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 60 | `deriveDefinitionOwnedVerificationCase` | Definition | sysml 8.3.6.2 | `ownedVerificationCase` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 61 | `deriveDefinitionOwnedView` | Definition | sysml 8.3.6.2 | `ownedView` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 62 | `deriveDefinitionOwnedViewpoint` | Definition | sysml 8.3.6.2 | `ownedViewpoint` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 63 | `deriveDefinitionUsage` | Definition | sysml 8.3.6.2 | `usage` | no | no `Definition` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 64 | `deriveDefinitionVariant` | Definition | sysml 8.3.6.2 | `variant` | partial | no `Definition` element in the model; present on EnumerationDefinition | API-JSON derived-property differential (in progress); #1232 |
+| 65 | `deriveDefinitionVariantMembership` | Definition | sysml 8.3.6.2 | `variantMembership` | partial | no `Definition` element in the model; present on EnumerationDefinition | API-JSON derived-property differential (in progress); #1232 |
+| 66 | `deriveElementDocumentation` | Element | kerml 8.3.2.1.2 | `documentation` | no | no `Element` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 67 | `deriveElementIsLibraryElement` | Element | kerml 8.3.2.1.2 | `isLibraryElement` | no | no `Element` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 68 | `deriveElementName` | Element | kerml 8.3.2.1.2 | `name` | no | no `Element` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 69 | `deriveElementOwnedAnnotation` | Element | kerml 8.3.2.1.2 | `ownedAnnotation` | no | no `Element` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 70 | `deriveElementOwnedElement` | Element | kerml 8.3.2.1.2 | `ownedElement` | no | no `Element` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 71 | `deriveElementOwner` | Element | kerml 8.3.2.1.2 | `owner` | partial | no `Element` element in the model; present on ActionDefinition, ActionUsage, AllocationDefinition, AllocationUsage | API-JSON derived-property differential (in progress); #1232 |
+| 72 | `deriveElementQualifiedName` | Element | kerml 8.3.2.1.2 | `qualifiedName` | partial | no `Element` element in the model; present on ActionDefinition, ActionUsage, AllocationDefinition, AllocationUsage | API-JSON derived-property differential (in progress); #1232 |
+| 73 | `deriveElementShortName` | Element | kerml 8.3.2.1.2 | `shortName` | no | no `Element` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 74 | `deriveElementTextualRepresentation` | Element | kerml 8.3.2.1.2 | `textualRepresentation` | no | no `Element` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 75 | `deriveEventOccurrenceUsageEventOccurrence` | EventOccurrenceUsage | sysml 8.3.9.2 | `eventOccurrence` | no | no `EventOccurrenceUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 76 | `deriveExpressionIsModelLevelEvaluable` | Expression | kerml 8.3.4.7.3 | `isModelLevelEvaluable` | no | 0/2 `Expression` elements | API-JSON derived-property differential (in progress); #1232 |
+| 77 | `deriveExpressionResult` | Expression | kerml 8.3.4.7.3 | `result` | no | 0/2 `Expression` elements | API-JSON derived-property differential (in progress); #1232 |
+| 78 | `deriveFeatureChainExpressionTargetFeature` | FeatureChainExpression | kerml 8.3.4.8.4 | `targetFeature` | partial | no `FeatureChainExpression` element in the model; present on AllocationUsage, ConnectionUsage, Connector, InterfaceUsage | API-JSON derived-property differential (in progress); #1232 |
+| 79 | `deriveFeatureChainingFeature` | Feature | kerml 8.3.3.3.4 | `chainingFeature` | no | no `Feature` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 80 | `deriveFeatureCrossFeature` | Feature | kerml 8.3.3.3.4 | `crossFeature` | no | no `Feature` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 81 | `deriveFeatureFeatureTarget` | Feature | kerml 8.3.3.3.4 | `featureTarget` | no | no `Feature` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 82 | `deriveFeatureFeaturingType` | Feature | kerml 8.3.3.3.4 | `featuringType` | no | no `Feature` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 83 | `deriveFeatureOwnedCrossSubsetting` | Feature | kerml 8.3.3.3.4 | `ownedCrossSubsetting` | no | no `Feature` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 84 | `deriveFeatureOwnedFeatureChaining` | Feature | kerml 8.3.3.3.4 | `ownedFeatureChaining` | no | no `Feature` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 85 | `deriveFeatureOwnedFeatureInverting` | Feature | kerml 8.3.3.3.4 | `ownedFeatureInverting` | no | no `Feature` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 86 | `deriveFeatureOwnedRedefinition` | Feature | kerml 8.3.3.3.4 | `ownedRedefinition` | no | no `Feature` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 87 | `deriveFeatureOwnedReferenceSubsetting` | Feature | kerml 8.3.3.3.4 | `ownedReferenceSubsetting` | partial | no `Feature` element in the model; present on PortUsage, ReferenceUsage | API-JSON derived-property differential (in progress); #1232 |
+| 88 | `deriveFeatureOwnedSubsetting` | Feature | kerml 8.3.3.3.4 | `ownedSubsetting` | partial | no `Feature` element in the model; present on PortUsage, ReferenceUsage | API-JSON derived-property differential (in progress); #1232 |
+| 89 | `deriveFeatureOwnedTypeFeaturing` | Feature | kerml 8.3.3.3.4 | `ownedTypeFeaturing` | no | no `Feature` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 90 | `deriveFeatureOwnedTyping` | Feature | kerml 8.3.3.3.4 | `ownedTyping` | partial | no `Feature` element in the model; present on AttributeUsage, Connector, PartUsage, PortUsage | API-JSON derived-property differential (in progress); #1232 |
+| 91 | `deriveFeatureReferenceExpressionReferent` | FeatureReferenceExpression | kerml 8.3.4.8.5 | `referent` | no | no `FeatureReferenceExpression` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 92 | `deriveFeatureType` | Feature | kerml 8.3.3.3.4 | `type` | partial | no `Feature` element in the model; present on AttributeUsage, Connector, FeatureTyping, PartUsage | API-JSON derived-property differential (in progress); #1232 |
+| 93 | `deriveFlowFlowEnd` | Flow | kerml 8.3.4.9.2 | `flowEnd` | no | no `Flow` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 94 | `deriveFlowPayloadFeature` | Flow | kerml 8.3.4.9.2 | `payloadFeature` | no | no `Flow` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 95 | `deriveFlowPayloadType` | Flow | kerml 8.3.4.9.2 | `payloadType` | no | no `Flow` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 96 | `deriveFlowSourceOutputFeature` | Flow | kerml 8.3.4.9.2 | `sourceOutputFeature` | no | no `Flow` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 97 | `deriveFlowTargetInputFeature` | Flow | kerml 8.3.4.9.2 | `targetInputFeature` | no | no `Flow` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 98 | `deriveForLoopActionUsageLoopVariable` | ForLoopActionUsage | sysml 8.3.17.9 | `loopVariable` | no | no `ForLoopActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 99 | `deriveForLoopActionUsageSeqArgument` | ForLoopActionUsage | sysml 8.3.17.9 | `seqArgument` | no | no `ForLoopActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 100 | `deriveFunctionResult` | Function | kerml 8.3.4.7.4 | `result` | no | 0/1 `Function` elements | API-JSON derived-property differential (in progress); #1232 |
+| 101 | `deriveIfActionUsageElseAction` | IfActionUsage | sysml 8.3.17.10 | `elseAction` | no | no `IfActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 102 | `deriveIfActionUsageIfArgument` | IfActionUsage | sysml 8.3.17.10 | `ifArgument` | no | no `IfActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 103 | `deriveIfActionUsageThenAction` | IfActionUsage | sysml 8.3.17.10 | `thenAction` | no | no `IfActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 104 | `deriveInstantiationExpressionInstantiatedType` | InstantiationExpression | kerml 8.3.4.8.7 | `instantiatedType` | no | no `InstantiationExpression` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 105 | `deriveInvocationExpressionArgument` | InvocationExpression | kerml 8.3.4.8.8 | `argument` | no | no `InvocationExpression` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 106 | `deriveItemUsageItemDefinition` | ItemUsage | sysml 8.3.10.3 | `itemDefinition` | no | 0/2 `ItemUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 107 | `deriveLiteralExpressionIsModelLevelEvaluable` | LiteralExpression | kerml 8.3.4.8.10 | `isModelLevelEvaluable` | no | no `LiteralExpression` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 108 | `deriveLoopActionUsageBodyAction` | LoopActionUsage | sysml 8.3.17.12 | `bodyAction` | no | no `LoopActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 109 | `deriveMembershipImportImportedElement` | MembershipImport | kerml 8.3.2.4.4 | `importedElement` | no | no `MembershipImport` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 110 | `deriveMembershipMemberElementId` | Membership | kerml 8.3.2.4.3 | `memberElementId` | no | no `Membership` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 111 | `deriveMetadataAccessExpressionReferencdElement` | MetadataAccessExpression | kerml 8.3.4.8.15 | `referencdElement` | no | no `MetadataAccessExpression` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 112 | `deriveMetadataFeatureMetaclass` | MetadataFeature | kerml 8.3.4.12.3 | `metaclass` | no | no `MetadataFeature` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 113 | `deriveMultiplicityRangeBound` | MultiplicityRange | kerml 8.3.4.11.2 | `bound` | no | no `MultiplicityRange` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 114 | `deriveMultiplicityRangeLowerBound` | MultiplicityRange | kerml 8.3.4.11.2 | `lowerBound` | no | no `MultiplicityRange` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 115 | `deriveMultiplicityRangeUpperBound` | MultiplicityRange | kerml 8.3.4.11.2 | `upperBound` | no | no `MultiplicityRange` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 116 | `deriveNamespaceImportImportedElement` | NamespaceImport | kerml 8.3.2.4.6 | `importedElement` | no | no `NamespaceImport` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 117 | `deriveNamespaceImportedMembership` | Namespace | kerml 8.3.2.4.5 | `importedMembership` | no | 0/2 `Namespace` elements | API-JSON derived-property differential (in progress); #1232 |
+| 118 | `deriveNamespaceMembers` | Namespace | kerml 8.3.2.4.5 | `members` | no | 0/2 `Namespace` elements | API-JSON derived-property differential (in progress); #1232 |
+| 119 | `deriveNamespaceOwnedImport` | Namespace | kerml 8.3.2.4.5 | `ownedImport` | no | 0/2 `Namespace` elements | API-JSON derived-property differential (in progress); #1232 |
+| 120 | `deriveNamespaceOwnedMember` | Namespace | kerml 8.3.2.4.5 | `ownedMember` | yes | 2/2 `Namespace` elements | API-JSON derived-property differential (in progress); #1232 |
+| 121 | `deriveNamespaceOwnedMembership` | Namespace | kerml 8.3.2.4.5 | `ownedMembership` | yes | 2/2 `Namespace` elements | API-JSON derived-property differential (in progress); #1232 |
+| 122 | `deriveOccurrenceUsageIndividualDefinition` | OccurrenceUsage | sysml 8.3.9.4 | `individualDefinition` | no | 0/4 `OccurrenceUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 123 | `deriveOwningMembershipOwnedMemberName` | OwningMembership | kerml 8.3.2.4.8 | `ownedMemberName` | no | 0/72 `OwningMembership` elements | API-JSON derived-property differential (in progress); #1232 |
+| 124 | `deriveOwningMembershipOwnedMemberShortName` | OwningMembership | kerml 8.3.2.4.8 | `ownedMemberShortName` | no | 0/72 `OwningMembership` elements | API-JSON derived-property differential (in progress); #1232 |
+| 125 | `deriveOwningNamespace` | Element | kerml 8.3.2.1.2 | `owningNamespace` | partial | no `Element` element in the model; present on ActionDefinition, ActionUsage, AllocationDefinition, AllocationUsage | API-JSON derived-property differential (in progress); #1232 |
+| 126 | `derivePackageFilterCondition` | Package | kerml 8.3.4.13.4 | `filterCondition` | no | 0/2 `Package` elements | API-JSON derived-property differential (in progress); #1232 |
+| 127 | `derivePartUsagePartDefinition` | PartUsage | sysml 8.3.11.3 | `partDefinition` | no | 0/4 `PartUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 128 | `derivePortDefinitionConjugatedPortDefinition` | PortDefinition | sysml 8.3.12.5 | `conjugatedPortDefinition` | yes | 1/1 `PortDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 129 | `deriveRelationshipRelatedElement` | Relationship | kerml 8.3.2.1.3 | `relatedElement` | partial | no `Relationship` element in the model; present on FeatureTyping, PortConjugation, ReferenceSubsetting | API-JSON derived-property differential (in progress); #1232 |
+| 130 | `deriveRenderingDefinitionRendering` | RenderingDefinition | sysml 8.3.26.5 | `rendering` | no | 0/1 `RenderingDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 131 | `deriveRequirementConstraintMembershipReferencedConstraint` | RequirementConstraintMembership | sysml 8.3.21.7 | `referencedConstraint` | no | no `RequirementConstraintMembership` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 132 | `deriveRequirementDefinitionActorParameter` | RequirementDefinition | sysml 8.3.21.8 | `actorParameter` | no | 0/1 `RequirementDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 133 | `deriveRequirementDefinitionAssumedConstraint` | RequirementDefinition | sysml 8.3.21.8 | `assumedConstraint` | no | 0/1 `RequirementDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 134 | `deriveRequirementDefinitionFramedConcern` | RequirementDefinition | sysml 8.3.21.8 | `framedConcern` | no | 0/1 `RequirementDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 135 | `deriveRequirementDefinitionRequiredConstraint` | RequirementDefinition | sysml 8.3.21.8 | `requiredConstraint` | no | 0/1 `RequirementDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 136 | `deriveRequirementDefinitionStakeholderParameter` | RequirementDefinition | sysml 8.3.21.8 | `stakeholderParameter` | no | 0/1 `RequirementDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 137 | `deriveRequirementDefinitionSubjectParameter` | RequirementDefinition | sysml 8.3.21.8 | `subjectParameter` | no | 0/1 `RequirementDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 138 | `deriveRequirementDefinitionText` | RequirementDefinition | sysml 8.3.21.8 | `text` | no | 0/1 `RequirementDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 139 | `deriveRequirementUsageActorParameter` | RequirementUsage | sysml 8.3.21.9 | `actorParameter` | no | 0/2 `RequirementUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 140 | `deriveRequirementUsageAssumedConstraint` | RequirementUsage | sysml 8.3.21.9 | `assumedConstraint` | no | 0/2 `RequirementUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 141 | `deriveRequirementUsageFramedConcern` | RequirementUsage | sysml 8.3.21.9 | `framedConcern` | no | 0/2 `RequirementUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 142 | `deriveRequirementUsageRequiredConstraint` | RequirementUsage | sysml 8.3.21.9 | `requiredConstraint` | no | 0/2 `RequirementUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 143 | `deriveRequirementUsageStakeholderParameter` | RequirementUsage | sysml 8.3.21.9 | `stakeholderParameter` | no | 0/2 `RequirementUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 144 | `deriveRequirementUsageSubjectParameter` | RequirementUsage | sysml 8.3.21.9 | `subjectParameter` | no | 0/2 `RequirementUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 145 | `deriveRequirementUsageText` | RequirementUsage | sysml 8.3.21.9 | `text` | no | 0/2 `RequirementUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 146 | `deriveSatisfyRequirementUsageSatisfyingFeature` | SatisfyRequirementUsage | sysml 8.3.21.10 | `satisfyingFeature` | no | no `SatisfyRequirementUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 147 | `deriveSendActionUsagePayloadArgument` | SendActionUsage | sysml 8.3.17.15 | `payloadArgument` | no | no `SendActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 148 | `deriveSendActionUsageReceiverArgument` | SendActionUsage | sysml 8.3.17.15 | `receiverArgument` | no | no `SendActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 149 | `deriveSendActionUsageSenderArgument` | SendActionUsage | sysml 8.3.17.15 | `senderArgument` | no | no `SendActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 150 | `deriveStateDefinitionDoAction` | StateDefinition | sysml 8.3.18.5 | `doAction` | no | 0/1 `StateDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 151 | `deriveStateDefinitionEntryAction` | StateDefinition | sysml 8.3.18.5 | `entryAction` | no | 0/1 `StateDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 152 | `deriveStateDefinitionExitAction` | StateDefinition | sysml 8.3.18.5 | `exitAction` | no | 0/1 `StateDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 153 | `deriveStateDefinitionState` | StateDefinition | sysml 8.3.18.5 | `state` | no | 0/1 `StateDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 154 | `deriveStateUsageDoAction` | StateUsage | sysml 8.3.18.6 | `doAction` | no | 0/2 `StateUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 155 | `deriveStateUsageEntryAction` | StateUsage | sysml 8.3.18.6 | `entryAction` | no | 0/2 `StateUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 156 | `deriveStateUsageExitAction` | StateUsage | sysml 8.3.18.6 | `exitAction` | no | 0/2 `StateUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 157 | `deriveStepBehavior` | Step | kerml 8.3.4.6.3 | `behavior` | no | 0/2 `Step` elements | API-JSON derived-property differential (in progress); #1232 |
+| 158 | `deriveTerminateActionUsageTerminatedOccurrenceArgument` | TerminateActionUsage | sysml 8.3.17.16 | `terminatedOccurrenceArgument` | no | no `TerminateActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 159 | `deriveTransitionUsageEffectAction` | TransitionUsage | sysml 8.3.18.9 | `effectAction` | no | no `TransitionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 160 | `deriveTransitionUsageGuardExpression` | TransitionUsage | sysml 8.3.18.9 | `guardExpression` | no | no `TransitionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 161 | `deriveTransitionUsageSource` | TransitionUsage | sysml 8.3.18.9 | `source` | partial | no `TransitionUsage` element in the model; present on FeatureTyping, PortConjugation, ReferenceSubsetting | API-JSON derived-property differential (in progress); #1232 |
+| 162 | `deriveTransitionUsageSuccession` | TransitionUsage | sysml 8.3.18.9 | `succession` | no | no `TransitionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 163 | `deriveTransitionUsageTarget` | TransitionUsage | sysml 8.3.18.9 | `target` | partial | no `TransitionUsage` element in the model; present on FeatureTyping, PortConjugation, ReferenceSubsetting | API-JSON derived-property differential (in progress); #1232 |
+| 164 | `deriveTransitionUsageTriggerAction` | TransitionUsage | sysml 8.3.18.9 | `triggerAction` | no | no `TransitionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 165 | `deriveTypeDifferencingType` | Type | kerml 8.3.3.1.10 | `differencingType` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 166 | `deriveTypeDirectedFeature` | Type | kerml 8.3.3.1.10 | `directedFeature` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 167 | `deriveTypeEndFeature` | Type | kerml 8.3.3.1.10 | `endFeature` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 168 | `deriveTypeFeature` | Type | kerml 8.3.3.1.10 | `feature` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 169 | `deriveTypeFeatureMembership` | Type | kerml 8.3.3.1.10 | `featureMembership` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 170 | `deriveTypeInheritedFeature` | Type | kerml 8.3.3.1.10 | `inheritedFeature` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 171 | `deriveTypeInheritedMembership` | Type | kerml 8.3.3.1.10 | `inheritedMembership` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 172 | `deriveTypeInput` | Type | kerml 8.3.3.1.10 | `input` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 173 | `deriveTypeIntersectingType` | Type | kerml 8.3.3.1.10 | `intersectingType` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 174 | `deriveTypeMultiplicity` | Type | kerml 8.3.3.1.10 | `multiplicity` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 175 | `deriveTypeOutput` | Type | kerml 8.3.3.1.10 | `output` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 176 | `deriveTypeOwnedConjugator` | Type | kerml 8.3.3.1.10 | `ownedConjugator` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 177 | `deriveTypeOwnedDifferencing` | Type | kerml 8.3.3.1.10 | `ownedDifferencing` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 178 | `deriveTypeOwnedDisjoining` | Type | kerml 8.3.3.1.10 | `ownedDisjoining` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 179 | `deriveTypeOwnedEndFeature` | Type | kerml 8.3.3.1.10 | `ownedEndFeature` | partial | no `Type` element in the model; present on AllocationUsage, ConnectionUsage, Connector, InterfaceUsage | API-JSON derived-property differential (in progress); #1232 |
+| 180 | `deriveTypeOwnedFeature` | Type | kerml 8.3.3.1.10 | `ownedFeature` | partial | no `Type` element in the model; present on AllocationDefinition, AllocationUsage, AssociationUsage, ClassUsage | API-JSON derived-property differential (in progress); #1232 |
+| 181 | `deriveTypeOwnedFeatureMembership` | Type | kerml 8.3.3.1.10 | `ownedFeatureMembership` | partial | no `Type` element in the model; present on AllocationDefinition, AllocationUsage, AssociationUsage, ClassUsage | API-JSON derived-property differential (in progress); #1232 |
+| 182 | `deriveTypeOwnedIntersecting` | Type | kerml 8.3.3.1.10 | `ownedIntersecting` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 183 | `deriveTypeOwnedSpecialization` | Type | kerml 8.3.3.1.10 | `ownedSpecialization` | partial | no `Type` element in the model; present on AttributeUsage, Connector, PartUsage, PortUsage | API-JSON derived-property differential (in progress); #1232 |
+| 184 | `deriveTypeOwnedUnioning` | Type | kerml 8.3.3.1.10 | `ownedUnioning` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 185 | `deriveTypeUnioningType` | Type | kerml 8.3.3.1.10 | `unioningType` | no | no `Type` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 186 | `deriveUsageDirectedUsage` | Usage | sysml 8.3.6.4 | `directedUsage` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 187 | `deriveUsageIsReference` | Usage | sysml 8.3.6.4 | `isReference` | partial | no `Usage` element in the model; present on ReferenceUsage | API-JSON derived-property differential (in progress); #1232 |
+| 188 | `deriveUsageMayTimeVary` | Usage | sysml 8.3.6.4 | `mayTimeVary` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 189 | `deriveUsageNestedAction` | Usage | sysml 8.3.6.4 | `nestedAction` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 190 | `deriveUsageNestedAllocation` | Usage | sysml 8.3.6.4 | `nestedAllocation` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 191 | `deriveUsageNestedAnalysisCase` | Usage | sysml 8.3.6.4 | `nestedAnalysisCase` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 192 | `deriveUsageNestedAttribute` | Usage | sysml 8.3.6.4 | `nestedAttribute` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 193 | `deriveUsageNestedCalculation` | Usage | sysml 8.3.6.4 | `nestedCalculation` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 194 | `deriveUsageNestedCase` | Usage | sysml 8.3.6.4 | `nestedCase` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 195 | `deriveUsageNestedConcern` | Usage | sysml 8.3.6.4 | `nestedConcern` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 196 | `deriveUsageNestedConnection` | Usage | sysml 8.3.6.4 | `nestedConnection` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 197 | `deriveUsageNestedConstraint` | Usage | sysml 8.3.6.4 | `nestedConstraint` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 198 | `deriveUsageNestedEnumeration` | Usage | sysml 8.3.6.4 | `nestedEnumeration` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 199 | `deriveUsageNestedFlow` | Usage | sysml 8.3.6.4 | `nestedFlow` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 200 | `deriveUsageNestedInterface` | Usage | sysml 8.3.6.4 | `nestedInterface` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 201 | `deriveUsageNestedItem` | Usage | sysml 8.3.6.4 | `nestedItem` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 202 | `deriveUsageNestedMetadata` | Usage | sysml 8.3.6.4 | `nestedMetadata` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 203 | `deriveUsageNestedOccurrence` | Usage | sysml 8.3.6.4 | `nestedOccurrence` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 204 | `deriveUsageNestedPart` | Usage | sysml 8.3.6.4 | `nestedPart` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 205 | `deriveUsageNestedPort` | Usage | sysml 8.3.6.4 | `nestedPort` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 206 | `deriveUsageNestedReference` | Usage | sysml 8.3.6.4 | `nestedReference` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 207 | `deriveUsageNestedRendering` | Usage | sysml 8.3.6.4 | `nestedRendering` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 208 | `deriveUsageNestedRequirement` | Usage | sysml 8.3.6.4 | `nestedRequirement` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 209 | `deriveUsageNestedState` | Usage | sysml 8.3.6.4 | `nestedState` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 210 | `deriveUsageNestedTransition` | Usage | sysml 8.3.6.4 | `nestedTransition` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 211 | `deriveUsageNestedUsage` | Usage | sysml 8.3.6.4 | `nestedUsage` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 212 | `deriveUsageNestedUseCase` | Usage | sysml 8.3.6.4 | `nestedUseCase` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 213 | `deriveUsageNestedVerificationCase` | Usage | sysml 8.3.6.4 | `nestedVerificationCase` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 214 | `deriveUsageNestedView` | Usage | sysml 8.3.6.4 | `nestedView` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 215 | `deriveUsageNestedViewpoint` | Usage | sysml 8.3.6.4 | `nestedViewpoint` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 216 | `deriveUsageUsage` | Usage | sysml 8.3.6.4 | `usage` | no | no `Usage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 217 | `deriveUsageVariant` | Usage | sysml 8.3.6.4 | `variant` | partial | no `Usage` element in the model; present on EnumerationDefinition | API-JSON derived-property differential (in progress); #1232 |
+| 218 | `deriveUsageVariantMembership` | Usage | sysml 8.3.6.4 | `variantMembership` | partial | no `Usage` element in the model; present on EnumerationDefinition | API-JSON derived-property differential (in progress); #1232 |
+| 219 | `deriveUseCaseDefinitionIncludedUseCase` | UseCaseDefinition | sysml 8.3.25.3 | `includedUseCase` | no | 0/1 `UseCaseDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 220 | `deriveUseCaseUsageIncludedUseCase` | UseCaseUsage | sysml 8.3.25.4 | `includedUseCase` | no | 0/1 `UseCaseUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 221 | `deriveVerificationCaseDefinitionVerifiedRequirement` | VerificationCaseDefinition | sysml 8.3.24.3 | `verifiedRequirement` | no | 0/1 `VerificationCaseDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 222 | `deriveVerificationCaseUsageVerifiedRequirement` | VerificationCaseUsage | sysml 8.3.24.4 | `verifiedRequirement` | no | 0/2 `VerificationCaseUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 223 | `deriveVewRenderingMembershipReferencedRendering` | ViewRenderingMembership | sysml 8.3.26.10 | `vewRenderingMembershipReferencedRendering` | no | no `ViewRenderingMembership` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 224 | `deriveViewDefinitionSatisfiedViewpoint` | ViewDefinition | sysml 8.3.26.7 | `satisfiedViewpoint` | no | 0/1 `ViewDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 225 | `deriveViewDefinitionView` | ViewDefinition | sysml 8.3.26.7 | `view` | no | 0/1 `ViewDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 226 | `deriveViewDefinitionViewCondition` | ViewDefinition | sysml 8.3.26.7 | `viewCondition` | no | 0/1 `ViewDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 227 | `deriveViewDefinitionViewRendering` | ViewDefinition | sysml 8.3.26.7 | `viewRendering` | no | 0/1 `ViewDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 228 | `deriveViewUsageExposedElement` | ViewUsage | sysml 8.3.26.11 | `exposedElement` | no | 0/1 `ViewUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 229 | `deriveViewUsageSatisfiedViewpoint` | ViewUsage | sysml 8.3.26.11 | `satisfiedViewpoint` | no | 0/1 `ViewUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 230 | `deriveViewUsageViewCondition` | ViewUsage | sysml 8.3.26.11 | `viewCondition` | no | 0/1 `ViewUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 231 | `deriveViewUsageViewRendering` | ViewUsage | sysml 8.3.26.11 | `viewRendering` | no | 0/1 `ViewUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 232 | `deriveViewpointDefinitionViewpointStakeholder` | ViewpointDefinition | sysml 8.3.26.8 | `viewpointStakeholder` | no | 0/1 `ViewpointDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
+| 233 | `deriveViewpointUsageViewpointStakeholder` | ViewpointUsage | sysml 8.3.26.9 | `viewpointStakeholder` | no | 0/2 `ViewpointUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 234 | `deriveWhileLoopActionUsageUntilArgument` | WhileLoopActionUsage | sysml 8.3.17.19 | `untilArgument` | no | no `WhileLoopActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+| 235 | `deriveWhileLoopActionUsageWhileArgument` | WhileLoopActionUsage | sysml 8.3.17.19 | `whileArgument` | no | no `WhileLoopActionUsage` element in the model; absent everywhere | API-JSON derived-property differential (in progress); #1232 |
+
+Summary: 6 yes, 20 partial, 209 no. The export writes ownership, membership, typing and the
+declared attributes an element states, and omits most derived properties; in particular it
+omits `isAbstract` on a variation definition, `isSufficient` on a connection definition, and
+every implied relationship, and it exports an `objective` as `isComposite = false`. These are
+export observations for the differential, not validation gaps.
+
+## Constraint names only the Beta 2 PDFs state (128)
+
+A raw token scan of the two Beta 2 PDFs finds 128 `check*`/`derive*`/`validate*` names the
+manifest does not record. Each is classified against the manifest's names and formal names:
+
+| Class | Count | Meaning |
+|---|---|---|
+| truncated reference | 81 | the prose cites a constraint across a line break, so the token is a prefix of a recorded name |
+| misspelling or variant | 34 | within edit distance of a recorded name (`checkFeatureParameterRefinition`, `validateOccurranceUsageIndividualDefinition`, `checkPartUsageSupartSpecialization`, …) |
+| kind-swapped reference | 1 | the prose names a `validate*` rule as `check*` or the reverse |
+| stated and recorded | 3 | already a manifest name or formal name |
+| unmatched | 9 | no recorded name within reach: `checkCondition`, `checkConstraints`, `checkLevel` are prose tokens, not constraints; `checkFeatureEndIsConstaint` is a misspelled, kind-swapped reference to `validateFeatureEndIsConstant`; `checkActionUsageAnalysisAction`, `checkConnectorEndRedefinition`, `checkFeatureEndRedefinitionSpecialization`, `checkFeatureValueExpressionTypeFeaturing` and `checkVerificationCaseUsageSubAnalysisCaseSpecialization` are Beta 2 names for implied relationships the formal documents state under another name (`checkActionUsageOwnedActionSpecialization`, `checkFeatureEndRedefinition`, `checkFeatureOwnedCrossFeatureRedefinitionSpecialization`, `checkExpressionTypeFeaturing`, `checkVerificationCaseUsageSubVerificationCaseSpecialization`); all are `check*` rows whose observability is the one recorded for the formal name above |
+
+No name in the list is a `validate*` rule the pilot genuinely lacks: every `validate*` token is a
+misspelling or variant of a recorded name. The full mapping:
+
+| Token | Class | Recorded name |
+|---|---|---|
+| `checkAcceptActionUsage` | truncated reference | `checkAcceptActionUsageSpecialization (+3 more)` |
+| `checkAcceptActionUsageSubaction` | truncated reference | `checkAcceptActionUsageSubactionSpecialization` |
+| `checkAcceptActionUsageTriggerAction` | truncated reference | `checkAcceptActionUsageTriggerActionSpecialization` |
+| `checkActionUsageAnalysisAction` | unmatched | `checkActionUsageSpecialization` |
+| `checkActionUsageAnalysisActionSpecialization` | misspelling or variant | `checkActionUsageOwnedActionSpecialization` |
+| `checkActionUsageStateAction` | truncated reference | `checkActionUsageStateActionRedefinition` |
+| `checkAnalysisCaseUsageSubAnalysisCase` | truncated reference | `checkAnalysisCaseUsageSubAnalysisCaseSpecialization` |
+| `checkAssignmentActionReferentRedefinition` | misspelling or variant | `checkAssignmentActionUsageReferentRedefinition` |
+| `checkAssignmentActionUsage` | truncated reference | `checkAssignmentActionUsageSpecialization (+4 more)` |
+| `checkAssignmentActionUsageSubaction` | misspelling or variant | `checkAssignmentActionUsageSpecialization` |
+| `checkAssociation` | truncated reference | `checkAssociationSpecialization (+3 more)` |
+| `checkAssociationBinary` | truncated reference | `checkAssociationBinarySpecialization` |
+| `checkAssociationStructure` | truncated reference | `checkAssociationStructureSpecialization (+1 more)` |
+| `checkAttributeUsageDataTypeSpecialization` | misspelling or variant | `checkAttributeUsageSpecialization` |
+| `checkBindingConnector` | truncated reference | `checkBindingConnectorSpecialization` |
+| `checkBooleanExpression` | truncated reference | `checkBooleanExpressionSpecialization` |
+| `checkCalculationUsageSubcalculation` | misspelling or variant | `checkCalculationUsageSpecialization` |
+| `checkClassifierSpecialization` | misspelling or variant | `checkClassSpecialization` |
+| `checkConcernUsageFramedConcern` | truncated reference | `checkConcernUsageFramedConcernSpecialization` |
+| `checkCondition` | unmatched | — |
+| `checkConnectionDefinitionSpecialization` | misspelling or variant | `checkConnectionDefinitionSpecializations` |
+| `checkConnectorBinary` | truncated reference | `checkConnectorBinarySpecialization (+1 more)` |
+| `checkConnectorBinaryObject` | truncated reference | `checkConnectorBinaryObjectSpecialization` |
+| `checkConnectorEndRedefinition` | unmatched | `checkFeatureEndRedefinition` |
+| `checkConnectorObject` | truncated reference | `checkConnectorObjectSpecialization` |
+| `checkConstraintUsageCheckedConstraint` | truncated reference | `checkConstraintUsageCheckedConstraintSpecialization` |
+| `checkConstraintUsageRequirementConstraint` | misspelling or variant | `checkConstraintUsageRequirementConstraintSpecialization` |
+| `checkConstraints` | unmatched | — |
+| `checkConstructorExpression` | truncated reference | `checkConstructorExpressionSpecialization (+3 more)` |
+| `checkConstructorExpressionResultFeatureRedefnition` | misspelling or variant | `checkConstructorExpressionResultFeatureRedefinition` |
+| `checkDecisionNodeOutgoingSuccession` | truncated reference | `checkDecisionNodeOutgoingSuccessionSpecialization` |
+| `checkExpression` | truncated reference | `checkExpressionTypeFeaturing (+2 more)` |
+| `checkExpressionFeaturingType` | misspelling or variant | `checkExpressionTypeFeaturing` |
+| `checkExpressionResult` | truncated reference | `checkExpressionResultBindingConnector` |
+| `checkFeatureChainExpression` | truncated reference | `checkFeatureChainExpressionTargetRedefinition (+2 more)` |
+| `checkFeatureCrossing` | truncated reference | `checkFeatureCrossingSpecialization` |
+| `checkFeatureDataValue` | truncated reference | `checkFeatureDataValueSpecialization` |
+| `checkFeatureEnd` | truncated reference | `checkFeatureEndRedefinition (+1 more)` |
+| `checkFeatureEndIsConstaint` | unmatched | `validateFeatureEndIsConstant` |
+| `checkFeatureEndIsConstant` | kind-swapped reference | `validateFeatureEndIsConstant` |
+| `checkFeatureEndRedefinitionSpecialization` | unmatched | `checkFeatureOwnedCrossFeatureRedefinitionSpecialization` |
+| `checkFeatureFeatureMembership` | truncated reference | `checkFeatureFeatureMembershipTypeFeaturing` |
+| `checkFeatureFlowFeature` | truncated reference | `checkFeatureFlowFeatureRedefinition` |
+| `checkFeatureObject` | truncated reference | `checkFeatureObjectSpecialization` |
+| `checkFeatureOccurrence` | truncated reference | `checkFeatureOccurrenceSpecialization` |
+| `checkFeatureOwnedCrossFeature` | truncated reference | `checkFeatureOwnedCrossFeatureTypeFeaturing (+2 more)` |
+| `checkFeatureParameter` | truncated reference | `checkFeatureParameterRedefinition` |
+| `checkFeatureParameterRefinition` | misspelling or variant | `checkFeatureParameterRedefinition` |
+| `checkFeatureReference` | truncated reference | `checkFeatureReferenceExpressionBindingConnector (+1 more)` |
+| `checkFeatureResult` | truncated reference | `checkFeatureResultRedefinition` |
+| `checkFeatureSubobject` | truncated reference | `checkFeatureSubobjectSpecialization` |
+| `checkFeatureSuboccurrence` | truncated reference | `checkFeatureSuboccurrenceSpecialization` |
+| `checkFeatureValuation` | truncated reference | `checkFeatureValuationSpecialization` |
+| `checkFeatureValue` | truncated reference | `checkFeatureValueBindingConnector` |
+| `checkFeatureValueExpressionTypeFeaturing` | unmatched | `checkExpressionTypeFeaturing` |
+| `checkFlowBinarySpecialization` | misspelling or variant | `checkFlowSpecialization` |
+| `checkFlowUsageFlowSpecification` | misspelling or variant | `checkFlowUsageFlowSpecialization` |
+| `checkFlowUsageSpecification` | misspelling or variant | `checkFlowUsageSpecialization` |
+| `checkForLoopActionUsageSubaction` | truncated reference | `checkForLoopActionUsageSubactionSpecialization` |
+| `checkFunctionResult` | truncated reference | `checkFunctionResultBindingConnector` |
+| `checkIncludeUseCaseUsageSpecialization` | misspelling or variant | `checkIncludeUseCaseSpecialization` |
+| `checkIndexExpressionResult` | truncated reference | `checkIndexExpressionResultSpecialization` |
+| `checkInvocationExpression` | truncated reference | `checkInvocationExpressionSpecialization (+3 more)` |
+| `checkInvocationExpressionResultSpecialization` | misspelling or variant | `checkInvocationExpressionSpecialization` |
+| `checkLevel` | unmatched | — |
+| `checkLiteralBoolean` | truncated reference | `checkLiteralBooleanSpecialization` |
+| `checkLiteralExpression` | truncated reference | `checkLiteralExpressionSpecialization` |
+| `checkLiteralInfinity` | truncated reference | `checkLiteralInfinitySpecialization` |
+| `checkLiteralInteger` | truncated reference | `checkLiteralIntegerSpecialization` |
+| `checkLiteralRational` | truncated reference | `checkLiteralRationalSpecialization` |
+| `checkLiteralString` | truncated reference | `checkLiteralStringSpecialization` |
+| `checkMergeNodeIncomingSuccession` | truncated reference | `checkMergeNodeIncomingSuccessionSpecialization` |
+| `checkMetadataAccess` | truncated reference | `checkMetadataAccessExpressionSpecialization` |
+| `checkMetadataFeature` | truncated reference | `checkMetadataFeatureSpecialization (+1 more)` |
+| `checkMetadataFeatureSemantic` | truncated reference | `checkMetadataFeatureSemanticSpecialization` |
+| `checkMultiplicity` | truncated reference | `checkMultiplicityTypeFeaturing (+2 more)` |
+| `checkNullExpression` | truncated reference | `checkNullExpressionSpecialization` |
+| `checkOccurrenceDefinitionIndividual` | truncated reference | `checkOccurrenceDefinitionIndividualSpecialization` |
+| `checkOccurrenceDefinitionMultiplicity` | truncated reference | `checkOccurrenceDefinitionMultiplicitySpecialization` |
+| `checkOccurrenceDefinitionSpecialization` | misspelling or variant | `checkOccurrenceDefinitionIndividualSpecialization` |
+| `checkOccurrenceUsageSnapshot` | truncated reference | `checkOccurrenceUsageSnapshotSpecialization` |
+| `checkOccurrenceUsageSuboccurrence` | truncated reference | `checkOccurrenceUsageSuboccurrenceSpecialization` |
+| `checkOccurrenceUsageTimeSlice` | truncated reference | `checkOccurrenceUsageTimeSliceSpecialization` |
+| `checkPartUsageSupartSpecialization` | misspelling or variant | `checkPartUsageSubpartSpecialization` |
+| `checkPayloadFeature` | truncated reference | `checkPayloadFeatureRedefinition` |
+| `checkRenderingUsage` | truncated reference | `checkRenderingUsageRedefinition (+2 more)` |
+| `checkRenderingUsageSubrendering` | truncated reference | `checkRenderingUsageSubrenderingSpecialization` |
+| `checkRequirementUsage` | truncated reference | `checkRequirementUsageSpecialization (+3 more)` |
+| `checkRequirementUsageRequirement` | truncated reference | `checkRequirementUsageRequirementVerificationSpecialization` |
+| `checkRequirementUsageSubrequirement` | truncated reference | `checkRequirementUsageSubrequirementSpecialization` |
+| `checkSatisfyRequirement` | truncated reference | `checkSatisfyRequirementUsageSpecialization (+1 more)` |
+| `checkSelectExpressionResult` | truncated reference | `checkSelectExpressionResultSpecialization` |
+| `checkSendActionUsageSubaction` | truncated reference | `checkSendActionUsageSubactionSpecialization` |
+| `checkStateUsageExclusiveState` | truncated reference | `checkStateUsageExclusiveStateSpecialization` |
+| `checkStepEnclosedPerformance` | truncated reference | `checkStepEnclosedPerformanceSpecialization` |
+| `checkStepOwnedPerformance` | truncated reference | `checkStepOwnedPerformanceSpecialization` |
+| `checkStepSubperformance` | truncated reference | `checkStepSubperformanceSpecialization` |
+| `checkSuccession` | truncated reference | `checkSuccessionSpecialization (+2 more)` |
+| `checkSuccessionFlow` | truncated reference | `checkSuccessionFlowSpecialization (+1 more)` |
+| `checkSuccessionFlowUsage` | truncated reference | `checkSuccessionFlowUsageSpecialization` |
+| `checkTerminateActionUsageSubaction` | truncated reference | `checkTerminateActionUsageSubactionSpecialization` |
+| `checkTransitionUsage` | truncated reference | `checkTransitionUsageSpecialization (+7 more)` |
+| `checkTransitionUsageSource` | truncated reference | `checkTransitionUsageSourceBindingConnector` |
+| `checkTransitionUsageSuccessionSource` | truncated reference | `checkTransitionUsageSuccessionSourceSpecialization` |
+| `checkTransitionUsageTransitionFeature` | truncated reference | `checkTransitionUsageTransitionFeatureSpecialization` |
+| `checkTriggerInvocationExpressionSpecialization` | misspelling or variant | `checkInvocationExpressionSpecialization` |
+| `checkUsageVariationUsage` | truncated reference | `checkUsageVariationUsageTypeFeaturing (+1 more)` |
+| `checkUseCaseUsageSubAnalysisCaseSpecialization` | misspelling or variant | `checkAnalysisCaseUsageSubAnalysisCaseSpecialization` |
+| `checkVariationUsageTypeFeaturing` | misspelling or variant | `checkUsageVariationUsageTypeFeaturing` |
+| `checkVerificationCaseDefinitionSpecialization` | misspelling or variant | `checkVerificationCaseSpecialization` |
+| `checkVerificationCaseUsageSubAnalysisCaseSpecialization` | unmatched | `checkVerificationCaseUsageSubVerificationCaseSpecialization` |
+| `checkVerificationCaseUsageSubVerification` | truncated reference | `checkVerificationCaseUsageSubVerificationCaseSpecialization` |
+| `checkViewpointUsageViewpointSatisfaction` | misspelling or variant | `checkViewpointUsageViewpointSatisfactionSpecialization` |
+| `checkWhileLoopActionUsageSubaction` | truncated reference | `checkWhileLoopActionUsageSubactionSpecialization` |
+| `deriveElementOwningNamespace` | misspelling or variant | `deriveOwningNamespace` |
+| `deriveMetadataAccessExpressionReferencedElement` | misspelling or variant | `deriveMetadataAccessExpressionReferencdElement` |
+| `validateAttributeDefinitionFeature` | misspelling or variant | `validateAttributeDefinitionFeatures` |
+| `validateAttributeUsageFeature` | misspelling or variant | `validateAttributeUsageFeatures` |
+| `validateDecisionNodeOutcomingSuccessions` | misspelling or variant | `validateDecisionNodeOutgoingSuccessions` |
+| `validateDefinitionVariationOwnedFeatureMembership` | stated and recorded | `validateDefinitionVariationOwnedFeatureMembership` |
+| `validateForkNodeOutgoingSuccessions` | misspelling or variant | `validateJoinNodeOutgoingSuccessions` |
+| `validateJoinNodeIncomingSuccessions` | misspelling or variant | `validateForkNodeIncomingSuccessions` |
+| `validateOccurranceUsageIndividualDefinition` | misspelling or variant | `validateOccurrenceUsageIndividualDefinition` |
+| `validateOccurrenceUsageIsIndividual` | misspelling or variant | `validateOccurrenceUsageIndividualUsage` |
+| `validatePortDefinitionNestedUsagesNotComposite` | misspelling or variant | `validatePortDefinitionOwnedUsagesNotComposite` |
+| `validateUsageOwningType` | misspelling or variant | `validateUsageType` |
+| `validateUsageVariationOwnedFeatureMembership` | stated and recorded | `validateUsageVariationOwnedFeatureMembership` |
+| `validateViewDefinitionOnlyOneViewRendering` | stated and recorded | `validateViewDefinitionOnlyOneViewRendering` |
+
 ## Observations: where the two tools differ on a probe
 
 Neither item is a rule this record changes; both are recorded so the difference is on file.
@@ -443,5 +849,7 @@ Neither item is a rule this record changes; both are recorded so the difference 
 ## Launch-ready gaps
 
 None from the `validate*` rows (every rule the Beta 2 documents state for these 88 names is
-either reported already or cannot be violated in the textual notation) and none from the
-`check*` rows (every relationship that can be observed is present).
+either reported already or cannot be violated in the textual notation) none from the
+`check*` rows (every relationship that can be observed is present), none from the `derive*`
+rows (export observations, not validation rules) and none from the Beta 2-only names (every
+`validate*` token is a misspelling or variant of a recorded name).
