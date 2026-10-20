@@ -1712,6 +1712,82 @@ Once published the version is immutable — it cannot be replaced or deleted,
 and the refusal makes a re-run fail by design. A published mistake needs the
 next core patch release.
 
+## Listing `sysml-mcp` in the MCP Registry
+
+Every release tag also lists [`sysml-mcp`](../reference/sysml-mcp.md) in the official
+[MCP Registry](https://registry.modelcontextprotocol.io) as `org.opensysml/sysml-mcp`, so hosts
+and galleries that read the registry (the GitHub MCP Registry, VS Code's *Browse MCP Servers*,
+third-party directories) find it. The registry holds metadata only: `packaging/mcp/server.json`
+names the npm package `@openmbee/sysml-mcp`, whose `package.json` declares
+`"mcpName": "org.opensysml/sysml-mcp"` and which `npx -y @openmbee/sysml-mcp` runs. The
+workflow `.github/workflows/mcp-registry.yml` runs on the tag, and
+`scripts/mcp-registry-publish.sh` does the work, in this order:
+
+1. Wait, for at most an hour (`MCP_REGISTRY_NPM_TIMEOUT`), for `@openmbee/sysml-mcp@<version>`
+   on registry.npmjs.org, which CircleCI's `publish-npm` job publishes on the same tag, and
+   check that it declares the `mcpName` above; the registry rejects a listing otherwise.
+2. Install the pinned `mcp-publisher` release (`scripts/install-mcp-publisher.sh`, which
+   verifies the archive's SHA-256 against the one recorded there).
+3. Fill the tag's version into a copy of `server.json` (the committed file carries the
+   placeholder `0.0.0-unreleased`) and let `mcp-publisher validate` check it.
+4. Prove `opensysml.org` with `mcp-publisher login dns --domain opensysml.org` and publish.
+
+A pre-release tag (`v1.2.3-rc.1`) publishes nothing: the registry lists releases only. Every
+failure names its fix: a missing `MCP_REGISTRY_PRIVATE_KEY` secret, an npm version that never
+appeared (check the CircleCI job, then re-run the workflow), a DNS login the registry refused
+(the TXT record below is missing or does not match the key).
+
+`make mcp-registry-check` runs what needs no credentials: the hygiene tests that validate
+`server.json` against the schema and against the tool catalogue, then the publish script's
+`--check` mode, which installs `mcp-publisher` and validates the filled file.
+
+### What a maintainer must do once
+
+The namespace `org.opensysml/*` is proven by a DNS TXT record on `opensysml.org`, following the
+registry's [DNS authentication](https://modelcontextprotocol.io/registry/authentication). The
+maintainer who controls the zone does this, on a machine of their own; nothing in the repository
+generates or holds the key.
+
+1. Generate an Ed25519 key offline and keep the file somewhere private:
+
+   ```sh
+   openssl genpkey -algorithm Ed25519 -out mcp-registry-key.pem
+   ```
+
+2. Print the record and the login from it:
+
+   ```sh
+   scripts/mcp-registry-txt-record.sh mcp-registry-key.pem
+   ```
+
+   which derives the public key the way the registry documents
+   (the last 32 bytes of `openssl pkey -in key.pem -pubout -outform DER`, base64-encoded) and prints
+   `opensysml.org. IN TXT "v=MCPv1; k=ed25519; p=<base64 public key>"`. Add that TXT record at
+   the zone apex of `opensysml.org`, beside any existing TXT records (the registry reads them
+   all).
+
+3. Check propagation before the first release:
+
+   ```sh
+   dig TXT opensysml.org +short
+   ```
+
+   must show the `v=MCPv1; k=ed25519; p=...` record (try `dig @1.1.1.1 TXT opensysml.org +short`
+   too; the registry resolves through public resolvers). The script's `mcp-publisher login dns`
+   line then logs a workstation in, which is the full rehearsal of what CI will do.
+
+4. Store the key as the repository's GitHub Actions secret `MCP_REGISTRY_PRIVATE_KEY`. The CLI
+   takes the private key as its 64-hex-digit seed
+   (the `priv:` block of `openssl pkey -in key.pem -noout -text` with spaces, colons and newlines
+   removed, which the script also prints); the secret may hold either those 64 hex digits or the PEM file as
+   `openssl genpkey` wrote it, and the publish script derives the seed from the PEM itself.
+
+To rehearse the pipeline before a release, run the workflow by hand (*Actions → MCP Registry →
+Run workflow*) with an existing tag and the `staging` registry: it publishes to
+`https://staging.registry.modelcontextprotocol.io`, the registry's staging instance, which
+may reset its data and accepts pre-release tags. The same DNS record and secret serve both
+registries.
+
 ## Releasing the Rust client to crates.io
 
 The `opensysml` crate is published on crates.io by the `release` workflow's `publish-crates`

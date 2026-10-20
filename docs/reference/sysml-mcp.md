@@ -55,6 +55,17 @@ same on Windows, the Homebrew formula and the Scoop manifest install it beside `
 `make build-mcp` (into `bin/sysml-mcp`) or as part of `make build`. `sysml-mcp -version` reports
 the build.
 
+## Finding it in your host
+
+Each release is also listed in the official [MCP Registry](https://registry.modelcontextprotocol.io)
+as `org.opensysml/sysml-mcp`, pointing at the npm package `@openmbee/sysml-mcp`, so a host that
+browses the registry offers it without any of the above: the GitHub MCP Registry lists it, VS
+Code finds it under *MCP: Browse MCP Servers* (or the Extensions view's MCP Servers section),
+and third-party directories that mirror the registry carry the same entry. Installing from there
+configures `npx -y @openmbee/sysml-mcp`, which downloads the release binary for the platform
+and runs it; the `-root` argument the listing declares is the workspace folder, the current
+directory by default.
+
 ## Configuring a host
 
 Each host reads a configuration file of its own, and `-print-config <host>` writes the exact
