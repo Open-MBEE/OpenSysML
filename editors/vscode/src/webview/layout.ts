@@ -123,6 +123,8 @@ export interface Overrides {
   bounds?: Box;
   /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route. */
   held?: CanvasLayout;
+  /** Lay out from the auto layout alone, the model's Layout and Route placements ignored; a node the auto layout did not place keeps a grid slot. */
+  unplaced?: boolean;
   /** Edge kinds the panel hides: their edges are laid out but not drawn, routed around or counted in the extents, as an edge at a hidden node is. */
   hiddenKinds?: ReadonlySet<string>;
 }
@@ -213,7 +215,7 @@ export function layoutCanvas(
       return { stated: override, pinned: true };
     }
     const { x, y, width, height, collapsed } = entry.node;
-    if (x !== undefined && y !== undefined) {
+    if (x !== undefined && y !== undefined && overrides.unplaced !== true) {
       return { stated: { x, y, width, height, collapsed }, pinned: true };
     }
     // The auto layout's geometry is stated but not pinned: it is a guess, so
@@ -244,7 +246,7 @@ export function layoutCanvas(
     reach(nodeBounds.x + nodeBounds.width, nodeBounds.y + nodeBounds.height);
   }
   const edges = (result.edges ?? []).map((edge, index) =>
-    routeEdge(edge, index, placed, overrides.routes, auto, overrides.hiddenKinds),
+    routeEdge(edge, index, placed, overrides.routes, auto, overrides.hiddenKinds, overrides.unplaced === true),
   );
   rerouteAroundBoxes(edges, placed, roots, overrides, auto);
   for (const edge of edges) {
@@ -1357,8 +1359,9 @@ function routeEdge(
   routes: Map<number, RenderPoint[] | undefined> | undefined,
   auto?: AutoLayout,
   hiddenKinds?: ReadonlySet<string>,
+  unplaced = false,
 ): PlacedEdge {
-  const stated = routes?.has(index) ? routes.get(index) : edge.route;
+  const stated = routes?.has(index) ? routes.get(index) : unplaced ? undefined : edge.route;
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
   const hidden = source?.hidden === true || target?.hidden === true || hiddenKinds?.has(edge.kind) === true;

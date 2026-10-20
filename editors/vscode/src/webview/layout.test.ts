@@ -549,6 +549,32 @@ test("layoutCanvas moves nested siblings past a container grown around a placed 
   assert.ok(root.box.y + root.box.height >= d.box.y + d.box.height + 16);
 });
 
+test("layoutCanvas with unplaced takes the auto layout over the model's Layout and Route, pinning nothing", () => {
+  const drawing = rendering(
+    [node("a", "a", { x: 10, y: 10 }), node("b", "b", { x: 400, y: 10 })],
+    [{ from: "a", to: "b", label: "", kind: "connection", route: [{ x: 500, y: 900 }] }],
+  );
+  const auto: AutoLayout = {
+    nodes: new Map([
+      ["a", { x: 24, y: 24, width: 96, height: 52 }],
+      ["b", { x: 24, y: 200, width: 96, height: 52 }],
+    ]),
+    routes: new Map([[0, [{ x: 72, y: 76 }, { x: 72, y: 200 }]]]),
+    ports: new Map(),
+  };
+  const stated = layoutCanvas(drawing, {}, auto);
+  assert.deepEqual([stated.nodes.get("a")!.box.x, stated.nodes.get("b")!.box.x], [10, 400]);
+  assert.deepEqual(stated.edges[0].route, [{ x: 500, y: 900 }]);
+  const free = layoutCanvas(drawing, { unplaced: true }, auto);
+  assert.deepEqual([free.nodes.get("a")!.box, free.nodes.get("b")!.box], [auto.nodes.get("a"), auto.nodes.get("b")]);
+  assert.deepEqual([free.nodes.get("a")!.pinned, free.nodes.get("b")!.pinned], [false, false]);
+  assert.deepEqual(free.edges[0].points, auto.routes.get(0));
+  // A gesture's own override still wins over the auto layout.
+  const dragged = layoutCanvas(drawing, { unplaced: true, nodes: new Map([["a", { x: 300, y: 300, width: 96, height: 52 }]]) }, auto);
+  assert.deepEqual(dragged.nodes.get("a")!.box, { x: 300, y: 300, width: 96, height: 52 });
+  assert.equal(dragged.nodes.get("a")!.pinned, true);
+});
+
 test("layoutCanvas hides the edges of a hidden kind, which then count for nothing", () => {
   const drawing = rendering(
     [node("a", "a", { x: 10, y: 10 }), node("b", "b", { x: 200, y: 10 })],

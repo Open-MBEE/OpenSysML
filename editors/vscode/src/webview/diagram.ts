@@ -68,6 +68,8 @@ const undrawableList = document.getElementById("undrawable-list") as HTMLElement
 const adder = document.getElementById("add") as HTMLSelectElement;
 const menu = document.getElementById("menu") as HTMLUListElement;
 const zoomReadout = document.getElementById("zoom") as HTMLElement;
+const autoButton = document.getElementById("auto-layout") as HTMLButtonElement;
+const resetButton = document.getElementById("reset-layout") as HTMLButtonElement;
 const relations = document.getElementById("relations") as HTMLDetailsElement;
 const relationList = document.getElementById("relation-list") as HTMLElement;
 
@@ -92,6 +94,8 @@ let defaultHidden: string[] = [];
 let layout: CanvasLayout | undefined;
 /** What ELK placed for the rendering on screen; undefined until it answers, and for kinds it does not lay out. */
 let auto: AutoLayout | undefined;
+/** ELK's layout of the rendering free of the model's placements, while the Auto layout command is in force. */
+let freeAuto: AutoLayout | undefined;
 let gesture: Gesture | undefined;
 // The router loaded mid-gesture, so the layout on screen predates it.
 let unrouted = false;
@@ -125,7 +129,7 @@ loadAvoid(state.avoid ?? "").then(
       return;
     }
     if (last && layout) {
-      layout = layoutCanvas(last, panelOverrides(), auto);
+      layout = layoutCanvas(last, panelOverrides(), currentAuto());
       show(layout);
     }
   },
@@ -200,6 +204,8 @@ document.getElementById("zoom-in")?.addEventListener("click", () => zoomBy(ZOOM_
 document.getElementById("zoom-out")?.addEventListener("click", () => zoomBy(1 / ZOOM_STEP));
 document.getElementById("zoom-fit")?.addEventListener("click", () => fitCanvas());
 document.getElementById("zoom-reset")?.addEventListener("click", () => resetZoom());
+autoButton.addEventListener("click", () => autoLayoutPanel());
+resetButton.addEventListener("click", () => resetLayout());
 window.addEventListener("keyup", (event) => {
   if (event.key === "Shift") {
     drawDrag(false);
@@ -334,6 +340,8 @@ let emptyReason: string | undefined;
 function draw(result: RenderResult): boolean {
   unrouted = false;
   cancelGesture();
+  freeAuto = undefined;
+  showLayoutMode();
   if (focused !== undefined && !result.nodes?.some((node) => node.id === focused)) {
     focused = undefined;
   }
@@ -373,6 +381,9 @@ function draw(result: RenderResult): boolean {
           return;
         }
         auto = laid;
+        if (freeAuto) {
+          return;
+        }
         layout = layoutCanvas(result, panelOverrides(), auto);
         show(layout);
       });
@@ -427,7 +438,54 @@ function hiddenSet(): Set<string> {
 
 // panelOverrides is what the panel itself lays over every layout of the rendering.
 function panelOverrides(): Overrides {
-  return { hiddenKinds: hiddenSet() };
+  return { hiddenKinds: hiddenSet(), unplaced: freeAuto !== undefined };
+}
+
+// currentAuto is the ELK layout in force: the free one while Auto layout is, else the one held to the model.
+function currentAuto(): AutoLayout | undefined {
+  return freeAuto ?? auto;
+}
+
+// autoLayoutPanel lays the rendering on screen out afresh with ELK, the model's Layout and
+// Route annotations set aside for this panel until the next rendering or Reset to model.
+function autoLayoutPanel(): void {
+  const result = last;
+  if (!result || !layout || gesture) {
+    return;
+  }
+  showStatus("Laying out…");
+  void autoLayout(result, { free: true }).then((laid) => {
+    if (last !== result) {
+      return;
+    }
+    showStatus(laid ? "" : "Auto layout is not available for this diagram.");
+    if (!laid || !layout) {
+      return;
+    }
+    freeAuto = laid;
+    layout = layoutCanvas(result, panelOverrides(), laid);
+    show(layout);
+    showLayoutMode();
+  });
+}
+
+// resetLayout puts the model's layout back after Auto layout.
+function resetLayout(): void {
+  if (freeAuto === undefined) {
+    return;
+  }
+  freeAuto = undefined;
+  showLayoutMode();
+  if (last && layout) {
+    layout = layoutCanvas(last, panelOverrides(), auto);
+    show(layout);
+  }
+}
+
+// showLayoutMode offers Reset to model only while Auto layout is in force.
+function showLayoutMode(): void {
+  resetButton.hidden = freeAuto === undefined;
+  autoButton.disabled = freeAuto !== undefined;
 }
 
 // showRelations lists the relationship kinds the rendering draws, each with a box to
@@ -487,7 +545,7 @@ relationList.addEventListener("change", (event) => {
   hiddenKinds = hidden;
   remember();
   if (last && layout) {
-    layout = layoutCanvas(last, panelOverrides(), auto);
+    layout = layoutCanvas(last, panelOverrides(), currentAuto());
     show(layout);
   }
 });
@@ -685,7 +743,7 @@ function moveGesture(event: PointerEvent): void {
     drawDrag(event.shiftKey);
     return;
   }
-  showDragged(layoutCanvas(result, { ...panelOverrides(), ...overridesOf(gesture.placements), held: layout }, auto));
+  showDragged(layoutCanvas(result, { ...panelOverrides(), ...overridesOf(gesture.placements), held: layout }, currentAuto()));
 }
 
 // showDragged puts the canvas a gesture has changed on screen. The pointer is captured by the
@@ -709,7 +767,7 @@ function drawDrag(shift: boolean): void {
     const svg = showDragged(layout);
     liftNode(svg, layout, gesture.id, gesture.at.x - gesture.start.x, gesture.at.y - gesture.start.y);
   } else {
-    showDragged(layoutCanvas(last, { ...panelOverrides(), ...overridesOf(gesture.placements), held: layout }, auto));
+    showDragged(layoutCanvas(last, { ...panelOverrides(), ...overridesOf(gesture.placements), held: layout }, currentAuto()));
   }
   previewDrop(shift);
 }
@@ -823,7 +881,7 @@ function panTo(pan: PanGesture, at: ClientPoint): void {
 // settle shows the model's layout after a gesture that made no edit, laid out again if the router loaded meanwhile.
 function settle(): void {
   if (unrouted && last && layout) {
-    layout = layoutCanvas(last, panelOverrides(), auto);
+    layout = layoutCanvas(last, panelOverrides(), currentAuto());
   }
   unrouted = false;
   if (layout) {

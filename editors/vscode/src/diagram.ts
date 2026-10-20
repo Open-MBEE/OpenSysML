@@ -1480,6 +1480,7 @@ function html(
         border: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border)); box-shadow: 0 2px 8px var(--vscode-widget-shadow); }
       #relation-list label { display: flex; align-items: center; gap: 0.4rem; padding: 0.1rem 0; white-space: nowrap; cursor: pointer; }
       #relation-list .count { margin-left: auto; opacity: 0.7; font-variant-numeric: tabular-nums; }
+      #nav button#auto-layout, #nav button#reset-layout { margin-left: 0.25rem; }
       #zoom { min-width: 3.2em; text-align: center; font-size: 0.9em; opacity: 0.8; font-variant-numeric: tabular-nums; }
       #view { flex: 1 1 auto; max-width: 30rem; }
       #style { max-width: 14rem; }
@@ -1633,6 +1634,8 @@ function html(
         <button id="zoom-in" type="button" title="Zoom in (+)" aria-label="Zoom in">+</button>
         <button id="zoom-fit" type="button" title="Fit the whole diagram in view">Fit</button>
         <button id="zoom-reset" type="button" title="Actual size (0)">1:1</button>
+        <button id="auto-layout" type="button" title="Lay the diagram out afresh, ignoring the model's Layout and Route annotations; nothing is written">Auto layout</button>
+        <button id="reset-layout" type="button" hidden title="Back to the layout the model states">Reset to model</button>
       </span>
     </div>
     <div id="status"></div>
