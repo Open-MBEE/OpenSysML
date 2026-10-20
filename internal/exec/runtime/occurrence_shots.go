@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 const (
@@ -92,18 +93,13 @@ func (ctx *Context) shotsCollection(sym *symbols.Symbol) bool {
 // through the members of its type that stand for them.
 func (ctx *Context) happenedShots(inst *Instance) ([]Value, error) {
 	var shots []Value
-	for _, name := range [...]string{"startShot", "endShot"} {
-		member := ctx.redefiningMember(inst.Type, name)
-		if member == nil {
-			if sym, found := ctx.model.semantics.LookupMember(inst.Type, name); found {
-				member = sym
-			}
-		}
+	for _, fqn := range [...]string{occurrenceStartShotFQN, occurrenceEndShotFQN} {
+		member := ctx.shotMemberOf(inst.Type, ctx.librarySymbol(fqn))
 		if member == nil {
 			continue
 		}
 		feat := ctx.effectiveFeature(member.Name, member, inst.Type)
-		val, err := ctx.shotOf(inst, member, &feat, name == "startShot")
+		val, err := ctx.shotOf(inst, member, &feat, fqn == occurrenceStartShotFQN)
 		if err != nil {
 			return nil, err
 		}
@@ -112,4 +108,47 @@ func (ctx *Context) happenedShots(inst *Instance) ([]Value, error) {
 		}
 	}
 	return shots, nil
+}
+
+// shotMemberOf is the member standing for the shot (startShot or endShot) on an
+// object of typ: the nearest member of typ or what it specializes that subsets
+// the shot, past a node a body declares under the member's name; nil for none.
+func (ctx *Context) shotMemberOf(typ, shot *symbols.Symbol) *symbols.Symbol {
+	if shot == nil {
+		return nil
+	}
+	for _, src := range append([]*symbols.Symbol{typ}, ctx.model.semantics.AllSupertypes(typ)...) {
+		for _, m := range ctx.model.semantics.MembersOf(src) {
+			if m == shot || (m != nil && m.IsFeature() && ctx.subsetsTransitively(m, src, shot)) {
+				return m
+			}
+		}
+	}
+	return nil
+}
+
+// shotFeatureValue reads a shape feature of inst standing for its start or end
+// snapshot (`start`/`done` a body steps through) from the occurrence's lifetime
+// rather than a value of its own, which nothing gives it; nil for any other.
+func (inst *Instance) shotFeatureValue(ctx *Context, name string) (*FeatureValue, error) {
+	fv := inst.FeatureValues[name]
+	if fv.Materialized || fv.HeldValue().Kind != ValInvalid || fv.Feature == nil || fv.Feature.Symbol == nil || !fv.Feature.Scalar() {
+		return nil, nil
+	}
+	sym, feat := fv.Feature.Symbol, fv.Feature
+	if _, initial := sym.Decl.(*ast.InitialNode); initial {
+		// A body's `first start;` is a node under the inherited start's name.
+		if inherited := ctx.shotMemberOf(inst.Type, ctx.librarySymbol(occurrenceStartShotFQN)); inherited != nil {
+			effective := ctx.effectiveFeature(name, inherited, inst.Type)
+			sym, feat = inherited, &effective
+		}
+	}
+	val, ok, err := ctx.shotValue(inst, sym, feat)
+	if !ok {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &FeatureValue{Feature: fv.Feature, Value: val, Materialized: val.Kind != ValUndetermined}, nil
 }

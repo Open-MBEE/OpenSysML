@@ -861,6 +861,9 @@ func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopul
 		// Naming no feature value of the object is no materialization of one.
 		return nil, fmt.Errorf("%w: feature %q not found in instance %d (type %s)", ErrNoSuchFeature, name, inst.ID, inst.Type.Name)
 	}
+	if fv, err := inst.shotFeatureValue(ctx, name); fv != nil || err != nil {
+		return fv, err
+	}
 	fv, err := inst.materializeFeatureValue(ctx, name, open)
 	if err != nil {
 		return nil, &FeatureValueError{Err: err, Instance: inst, Feature: name}
