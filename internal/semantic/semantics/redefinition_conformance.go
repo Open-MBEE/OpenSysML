@@ -77,7 +77,9 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 	// and that Redefinition is held to the direction and restriction rules like a written one.
 	for _, target := range m.implicitParameterCounterparts(sym) {
 		out = append(out, m.directionViolations(sym, traits, target, sym.Decl)...)
-		out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
+		if !written[target] {
+			out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
+		}
 	}
 	return out
 }

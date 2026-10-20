@@ -395,10 +395,11 @@ func TestW8BConstancyConformanceImplicitParameters(t *testing.T) {
     action def Spec :> Gen { in attribute cap : Real; }
     action def SpecOk :> Gen { in constant attribute cap : Real; }
     action def SpecExplicit :> Gen { in attribute cap :>> limit; }
+    action def SpecSubsets :> Gen { in attribute cap :> limit; }
 }`
 	got := codes(constancyDiags(t, src))
 	const want = "subsetting-constancy-conformance"
-	if len(got) != 2 || got[0] != want || got[1] != want {
-		t.Fatalf("implicit (Spec) and written (SpecExplicit) parameter redefinitions, got %v", got)
+	if len(got) != 3 || got[0] != want || got[1] != want || got[2] != want {
+		t.Fatalf("one finding each for Spec, SpecExplicit and SpecSubsets (written `:>` and implied `:>>` share the target), got %v", got)
 	}
 }
