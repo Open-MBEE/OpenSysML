@@ -37,6 +37,9 @@ type StateBehavior struct {
 	// the steps of that body and by no other: a `terminate` in one ends them all.
 	// Every other behavior is a performance of its own and has none (nil).
 	Block ast.Node
+	// Ordered marks a Body whose statements run in the order written where a
+	// schedule would otherwise pick it: a terminate node's body, then its terminate.
+	Ordered bool
 }
 
 // StateBehaviors are the lowered entry, do and exit behaviors of one state, each
@@ -215,6 +218,7 @@ func terminateBehavior(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateN
 		Multiplicity:   usage.Multiplicity,
 		Scope:          scope,
 		Owner:          owner,
+		Ordered:        true,
 	}
 	behavior.Nodes = blockNodesOf(behavior.Body, nil)
 	for _, graph := range BlockFlows(behavior.Body) {
