@@ -26,6 +26,21 @@ export function routingOf(value: unknown): Routing {
   return typeof value === "string" && (ROUTINGS as readonly string[]).includes(value) ? (value as Routing) : DEFAULT_ROUTING;
 }
 
+/** The setting that says where a newly opened diagram panel goes. */
+export const OPEN_IN_SETTING = "opensysml.diagram.openIn";
+
+/** Where a new panel opens: in the diagram group beside the source, or moved out into a window of its own. */
+export const OPEN_INS = ["beside", "newWindow"] as const;
+
+export type OpenIn = (typeof OPEN_INS)[number];
+
+export const DEFAULT_OPEN_IN: OpenIn = "beside";
+
+/** openInOf reads the openIn setting: the place it names, or the default when it names none. */
+export function openInOf(value: unknown): OpenIn {
+  return typeof value === "string" && (OPEN_INS as readonly string[]).includes(value) ? (value as OpenIn) : DEFAULT_OPEN_IN;
+}
+
 /** depthOf reads the depth setting: a non-negative whole number, anything else 0, every level. */
 export function depthOf(value: unknown): number {
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
