@@ -579,6 +579,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		payloadFeatures:    map[*ast.Usage]bool{},
 		fqn:                map[ast.Node]string{},
 		positional:         map[ast.Node]string{},
+		positionalTaken:    map[string]bool{},
 		links:              map[*ast.QualifiedName]*symbols.Symbol{},
 		preceding:          map[ast.Node]ast.Node{},
 		introduced:         map[ast.Node]ast.Node{},
@@ -643,9 +644,12 @@ type encoder struct {
 	// fqn is the qualified name of each member node, which is how a succession
 	// end the notation leaves unnamed addresses the member it binds.
 	fqn map[ast.Node]string
-	// positional is, for a member named by its naming feature, the name a graph
-	// stating no effective names addresses it by: its position in its owner.
-	positional map[ast.Node]string
+	// positional is, where it differs from fqn, the name a graph stating no
+	// effective names gives a member: a declared name claimed among declared
+	// names alone, else its position in its owner; positionalTaken holds the
+	// names so claimed.
+	positional      map[ast.Node]string
+	positionalTaken map[string]bool
 	// links is what each written reference resolves to, read with the rule of
 	// its position (a redefinition among the generals, an edge end as a vertex).
 	links map[*ast.QualifiedName]*symbols.Symbol
@@ -986,11 +990,11 @@ func (e *encoder) collect(members []ast.Node, owner, position string) error {
 			fqn = qualify(owner, "", i)
 		}
 		e.fqn[node] = fqn
-		segment := declared
-		if fqn == qualify(owner, "", i) {
-			segment = ""
+		positional := qualify(position, declared, i)
+		if declared != "" && e.positionalTaken[positional] {
+			positional = qualify(position, "", i)
 		}
-		positional := qualify(position, segment, i)
+		e.positionalTaken[positional] = true
 		if positional != fqn {
 			e.positional[node] = positional
 		}
