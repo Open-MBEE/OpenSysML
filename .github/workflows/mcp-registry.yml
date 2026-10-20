@@ -1,0 +1,47 @@
+# Lists each release of sysml-mcp in the MCP Registry as org.opensysml/sysml-mcp.
+#
+# The listing is metadata (packaging/mcp/server.json) pointing at the npm package
+# @openmbee/sysml-mcp, which CircleCI publishes on the same tag; the job waits for
+# that version on registry.npmjs.org, proves opensysml.org with the Ed25519 key in
+# the MCP_REGISTRY_PRIVATE_KEY secret and publishes. Pre-release tags publish
+# nothing. A manual run can rehearse a tag against the registry's staging instance.
+name: MCP Registry
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (vX.Y.Z) whose npm package to list
+        required: true
+      registry:
+        description: Registry to publish to; staging may reset its data and accepts pre-release tags
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to the MCP Registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      REGISTRY: ${{ github.event_name == 'workflow_dispatch' && inputs.registry || 'production' }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ env.TAG }}
+      - name: Publish server.json
+        env:
+          MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
+        run: |
+          if [ "$REGISTRY" = staging ]; then
+            export MCP_REGISTRY_URL=https://staging.registry.modelcontextprotocol.io
+            export MCP_REGISTRY_ALLOW_PRERELEASE=1
+          fi
+          scripts/mcp-registry-publish.sh "$TAG"
