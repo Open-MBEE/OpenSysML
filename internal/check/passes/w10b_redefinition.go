@@ -16,7 +16,8 @@ const (
 // checkW10BRedefinition implements the KerML redefinition constraints the
 // reference reports and we did not: a package-level feature cannot be
 // redefined, redefining and redefined features cannot share a featuring type,
-// and an end feature can only be redefined by an end feature
+// and an end feature can only be redefined by an end feature when the
+// redefining feature is owned by an association or a connector
 // (KerML §7.4.9 validateRedefinition*).
 func (cc *constraintChecker) checkW10BRedefinition(sym *symbols.Symbol) {
 	if sym == nil || !isUsageKind(sym.Kind) {
@@ -37,7 +38,7 @@ func (cc *constraintChecker) checkW10BRedefinition(sym *symbols.Symbol) {
 			cc.addRedefineDiag(rel.Target, msgRedefinePackageLevel, "redefinition-package-level")
 		case cc.sameFeaturingType(sym, redefined):
 			cc.addRedefineDiag(rel.Target, msgRedefineSameFeaturing, "redefinition-same-featuring")
-		case w10bIsEndFeature(redefined) && !w10bIsEndFeature(sym):
+		case w10bIsEndFeature(redefined) && !w10bIsEndFeature(sym) && cc.ownedByAssociationOrConnector(sym):
 			cc.addRedefineDiag(rel.Target, msgRedefineEndFeature, "redefinition-not-end")
 		}
 	}
@@ -81,6 +82,18 @@ func (cc *constraintChecker) sameFeaturingType(sym, redefined *symbols.Symbol) b
 		}
 	}
 	return false
+}
+
+// ownedByAssociationOrConnector reports whether sym's owning type is an
+// Association or a Connector, the only owners a non-end redefinition of an end
+// feature is reported in (KerML 1.1 §8.3.3.3.8 validateRedefinitionEndConformance:
+// `redefinedFeature.isEnd and redefiningFeature.owningType <> null and
+// (owningType.oclIsKindOf(Association) or owningType.oclIsKindOf(Connector))
+// implies redefiningFeature.isEnd`).
+func (cc *constraintChecker) ownedByAssociationOrConnector(sym *symbols.Symbol) bool {
+	owner := w10bOwningType(sym)
+	return cc.model.MetaclassConforms(owner, "KerML::Kernel::Association") ||
+		cc.model.MetaclassConforms(owner, "KerML::Kernel::Connector")
 }
 
 // w10bIsEndFeature reports whether sym is an end feature: an `end` modifier, or
