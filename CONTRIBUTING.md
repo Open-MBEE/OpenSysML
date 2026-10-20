@@ -1,7 +1,7 @@
-# Contributing to the OpenSysML REDK
+# Contributing to the OpenSysML MDK
 
 Thank you for your interest in contributing to the OpenSysML Runtime Environment and Development
-Kit (REDK). This document describes how to set up a
+Kit (MDK). This document describes how to set up a
 development environment, the standards a change is expected to meet, and how contributions are
 reviewed and released.
 
