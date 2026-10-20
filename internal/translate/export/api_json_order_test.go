@@ -125,6 +125,38 @@ func TestAPIJSONMappingPropertyOrderOnlyRecordsMisplacedSidecarProperties(t *tes
 			},
 			want: false,
 		},
+		{
+			name:       "qualified name in element order is misplaced",
+			properties: []string{"isComposite", "qualifiedName"},
+			element: apiJSONObject{
+				{key: "@type", value: "PartUsage"},
+				{key: "@id", value: "p"},
+				{key: "qualifiedName", value: "P::p"},
+				{key: "isComposite", value: true},
+			},
+			want: true,
+		},
+		{
+			name:       "qualified name in graph order needs no sidecar",
+			properties: []string{"qualifiedName", "isComposite"},
+			element: apiJSONObject{
+				{key: "@type", value: "PartUsage"},
+				{key: "@id", value: "p"},
+				{key: "qualifiedName", value: "P::p"},
+				{key: "isComposite", value: true},
+			},
+			want: false,
+		},
+		{
+			name:       "reconstructed qualified name placement is preserved",
+			properties: []string{"isComposite", "qualifiedName"},
+			element: apiJSONObject{
+				{key: "@type", value: "PartUsage"},
+				{key: "@id", value: "p"},
+				{key: "isComposite", value: true},
+			},
+			want: true,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			graph := rdf.NewGraph()

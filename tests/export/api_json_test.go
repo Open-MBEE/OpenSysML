@@ -202,7 +202,7 @@ func TestAPIJSONConvertRoutesMatchTurtleOnDevelopPassingFixtures(t *testing.T) {
 			if err != nil {
 				t.Fatalf("SysMLToRDF: %v", err)
 			}
-			want := rdf.WriteTurtle(graph)
+			want := rdf.WriteTurtle(apiJSONGraphWithoutLibraryReferences(graph))
 			document, err := cachedAPIJSON(path, source, "standard", "graph")
 			if err != nil {
 				t.Fatalf("write standard API JSON: %v", err)

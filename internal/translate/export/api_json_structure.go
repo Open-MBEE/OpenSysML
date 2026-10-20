@@ -4,9 +4,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 type apiJSONGraphStructure struct {
@@ -26,11 +28,69 @@ type apiJSONEvaluation struct {
 }
 
 func newAPIJSONEvaluation(graph *rdf.Graph) *apiJSONEvaluation {
+	graph = apiJSONEvaluationGraph(graph)
 	structure := newAPIJSONGraphStructure(graph)
 	return &apiJSONEvaluation{
 		structure: structure,
 		evaluator: metamodel.New(nil, nil, metamodel.Options{Structure: structure}),
 	}
+}
+
+func apiJSONEvaluationGraph(graph *rdf.Graph) *rdf.Graph {
+	if graph == nil {
+		return nil
+	}
+	catalog := identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
+	subjects := make(map[string]bool, len(graph.SubjectsView()))
+	for _, subject := range graph.SubjectsView() {
+		subjects[subject.Value] = true
+	}
+	libraryIDs := make(map[string]bool)
+	for _, triple := range graph.Triples() {
+		if !triple.Object.IsIRI() || subjects[triple.Object.Value] {
+			continue
+		}
+		id, ok := rdf.SubjectID(triple.Object)
+		if !ok {
+			continue
+		}
+		library, ok := catalog.Element(id)
+		if !ok || library.Symbol == nil {
+			continue
+		}
+		libraryIDs[id] = true
+	}
+	if len(libraryIDs) == 0 {
+		return graph
+	}
+	builder := rdf.NewGraphBuilder(graph.Len() + len(libraryIDs)*5)
+	for prefix, namespace := range graph.Prefixes {
+		builder.SetPrefix(prefix, namespace)
+	}
+	for _, triple := range graph.Triples() {
+		builder.AddTriple(triple)
+	}
+	for id := range libraryIDs {
+		library, ok := catalog.Element(id)
+		if !ok {
+			continue
+		}
+		metaclass := declaredMetaclass(library.Symbol.Decl)
+		if metaclass == "" {
+			continue
+		}
+		subject := rdf.ElementIRIForID(id)
+		builder.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
+		builder.Add(subject, rdf.SysMLTerm("elementId"), rdf.String(id))
+		builder.Add(subject, rdf.SysMLTerm("isLibraryElement"), rdf.Bool(true))
+		if library.Symbol.Name != "" {
+			builder.Add(subject, rdf.SysMLTerm("declaredName"), rdf.String(library.Symbol.Name))
+		}
+		if library.FQN != "" {
+			builder.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(library.FQN))
+		}
+	}
+	return builder.Build()
 }
 
 func newAPIJSONGraphStructure(graph *rdf.Graph) *apiJSONGraphStructure {

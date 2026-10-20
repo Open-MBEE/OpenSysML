@@ -82,7 +82,7 @@ func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ReadAPIJSON: %v", err)
 			}
-			assertAPIJSONGraphsEqual(t, original, got)
+			assertAPIJSONGraphsEqual(t, apiJSONGraphWithoutLibraryReferences(original), got)
 
 			if isExample {
 				countsMu.Lock()
@@ -97,6 +97,16 @@ func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 			}
 		})
 	}
+}
+
+func apiJSONGraphWithoutLibraryReferences(graph *rdf.Graph) *rdf.Graph {
+	triples := make([]rdf.Triple, 0, graph.Len())
+	for _, triple := range graph.Triples() {
+		if !export.LibraryReference(graph, triple.Subject) {
+			triples = append(triples, triple)
+		}
+	}
+	return rdf.NewGraphOf(triples, graph.Prefixes)
 }
 
 func assertAPIJSONGraphsEqual(t *testing.T, want, got *rdf.Graph) {

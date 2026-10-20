@@ -89,7 +89,7 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	subjects := settled.SubjectsView()
 	elements := make([]apiJSONObject, 0, len(subjects))
 	evaluation := newAPIJSONEvaluation(settled)
-	mappingNames := mappingQualifiedNames(settled)
+	mappingNames := mappingQualifiedNames(evaluation.structure.graph)
 	nameIndex := newAPIJSONNameIndex(settled)
 	comparisonCache := &apiJSONTermCache{}
 	for _, subject := range subjects {
@@ -98,8 +98,8 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 		if LibraryReference(settled, subject) {
 			continue
 		}
-		element, err := apiJSONElementWithEvaluationOptions(
-			settled, subject, evaluation, mappingNames, nameIndex, comparisonCache, options,
+		element, err := apiJSONElementWithEvaluationOptionsAndOrder(
+			settled, subject, evaluation, mappingNames, nameIndex, comparisonCache, wrapped, options,
 		)
 		if err != nil {
 			return nil, err
@@ -191,8 +191,8 @@ type apiJSONNameReference struct {
 // apiJSONElement builds the element object for one subject: "@type", "@id",
 // then each property in statement order.
 func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
-	mappingNames := mappingQualifiedNames(graph)
 	evaluation := newAPIJSONEvaluation(graph)
+	mappingNames := mappingQualifiedNames(evaluation.structure.graph)
 	return apiJSONElementWithEvaluation(graph, subject, evaluation, mappingNames)
 }
 
@@ -214,6 +214,21 @@ func apiJSONElementWithEvaluationOptions(
 	mappingNames map[string]string,
 	nameIndex *apiJSONNameIndex,
 	comparisonCache *apiJSONTermCache,
+	options APIJSONOptions,
+) (apiJSONObject, error) {
+	return apiJSONElementWithEvaluationOptionsAndOrder(
+		graph, subject, evaluation, mappingNames, nameIndex, comparisonCache, graph, options,
+	)
+}
+
+func apiJSONElementWithEvaluationOptionsAndOrder(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	evaluation *apiJSONEvaluation,
+	mappingNames map[string]string,
+	nameIndex *apiJSONNameIndex,
+	comparisonCache *apiJSONTermCache,
+	propertyOrderGraph *rdf.Graph,
 	options APIJSONOptions,
 ) (apiJSONObject, error) {
 	types := graph.ObjectsView(subject, rdf.RDFType)
@@ -360,8 +375,14 @@ func apiJSONElementWithEvaluationOptions(
 		}
 	}
 	element = appendAPIJSONOwnedAbsences(graph, subject, element, types[0])
-	if graphOrder := apiJSONGraphPropertyOrder(graph, subject); len(graphOrder) > 0 {
-		naturalOrder, sidecarOnly := apiJSONNaturalPropertyOrder(graph, subject, element)
+	graphOrder := apiJSONGraphPropertyOrder(propertyOrderGraph, subject)
+	graphOrder = apiJSONGraphPropertyOrderWithFallback(
+		graphOrder, apiJSONGraphPropertyOrder(graph, subject),
+	)
+	if len(graphOrder) > 0 {
+		naturalOrder, sidecarOnly := apiJSONNaturalPropertyOrderWithOrder(
+			graph, subject, element, graphOrder,
+		)
 		if apiJSONHasMisplacedSidecarProperty(graphOrder, naturalOrder, sidecarOnly) {
 			element = append(element, apiJSONMember{
 				key:   apiJSONMappingPropertyOrderKey,
@@ -389,6 +410,17 @@ func apiJSONGraphPropertyOrder(graph *rdf.Graph, subject rdf.Term) []string {
 }
 
 func apiJSONNaturalPropertyOrder(graph *rdf.Graph, subject rdf.Term, element apiJSONObject) ([]string, []string) {
+	return apiJSONNaturalPropertyOrderWithOrder(
+		graph, subject, element, apiJSONGraphPropertyOrder(graph, subject),
+	)
+}
+
+func apiJSONNaturalPropertyOrderWithOrder(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	element apiJSONObject,
+	graphOrder []string,
+) ([]string, []string) {
 	memberProperties := make(map[string]bool, len(element))
 	mappingQualifiedNameIndex := -1
 	hasQualifiedName := false
@@ -471,10 +503,19 @@ func apiJSONNaturalPropertyOrder(graph *rdf.Graph, subject rdf.Term, element api
 		order = append(order, "")
 		copy(order[insertAt+1:], order[insertAt:])
 		order[insertAt] = "qualifiedName"
+	} else if !hasQualifiedName && graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+		order = append(order, "")
+		copy(order[1:], order[:len(order)-1])
+		order[0] = "qualifiedName"
+	}
+
+	if hasQualifiedName || mappingQualifiedNameIndex >= 0 ||
+		graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+		sidecarOnly = append(sidecarOnly, "qualifiedName")
 	}
 
 	graphProperties := make(map[string]bool)
-	for _, property := range apiJSONGraphPropertyOrder(graph, subject) {
+	for _, property := range graphOrder {
 		graphProperties[property] = true
 	}
 	filtered := make([]string, 0, len(order))
@@ -492,6 +533,33 @@ func apiJSONNaturalPropertyOrder(graph *rdf.Graph, subject rdf.Term, element api
 		}
 	}
 	return filtered, filteredSidecarOnly
+}
+
+func apiJSONGraphPropertyOrderWithFallback(order, fallback []string) []string {
+	inOrder := make(map[string]bool, len(order))
+	for _, property := range order {
+		inOrder[property] = true
+	}
+	before := make(map[string][]string)
+	var trailing []string
+	var pending []string
+	for _, property := range fallback {
+		if !inOrder[property] {
+			pending = append(pending, property)
+			continue
+		}
+		if len(pending) > 0 {
+			before[property] = append(before[property], pending...)
+			pending = nil
+		}
+	}
+	trailing = append(trailing, pending...)
+	combined := make([]string, 0, len(order)+len(trailing))
+	for _, property := range order {
+		combined = append(combined, before[property]...)
+		combined = append(combined, property)
+	}
+	return append(combined, trailing...)
 }
 
 func apiJSONHasMisplacedSidecarProperty(graphOrder, naturalOrder, sidecarOnly []string) bool {

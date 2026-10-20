@@ -228,19 +228,41 @@ func TestAPIJSONOmitsMappingQualifiedNameWhenLibraryNameMatchesSpec(t *testing.T
 	if err := json.Unmarshal(document, &elements); err != nil {
 		t.Fatal(err)
 	}
-	libraryStub := ""
-	for _, element := range elements {
-		if element["@type"] != "DataType" || element["isLibraryElement"] != true ||
-			element["qualifiedName"] != "ScalarValues::Integer" {
+	libraryID := ""
+	for _, subject := range graph.Subjects() {
+		qualifiedName, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName")
+		if !LibraryReference(graph, subject) || !ok || qualifiedName != "ScalarValues::Integer" {
 			continue
 		}
-		libraryStub, _ = element["@id"].(string)
-		if _, hasKey := element["sysx:mappingQualifiedName"]; hasKey {
-			t.Errorf("library stub carries a redundant mappingQualifiedName: %#v", element)
+		libraryID, _ = rdf.SubjectID(subject)
+	}
+	if libraryID == "" {
+		t.Fatal("the RDF graph has no ScalarValues::Integer library reference")
+	}
+	libraryElement := false
+	typeReference := false
+	for _, element := range elements {
+		if element["@id"] == libraryID {
+			libraryElement = true
+		}
+		if element["declaredName"] != "count" {
+			continue
+		}
+		switch value := element["type"].(type) {
+		case map[string]any:
+			typeReference = value["@id"] == libraryID
+		case []any:
+			for _, item := range value {
+				reference, ok := item.(map[string]any)
+				typeReference = typeReference || ok && reference["@id"] == libraryID
+			}
 		}
 	}
-	if libraryStub == "" {
-		t.Fatal("the API JSON does not contain the ScalarValues::Integer library stub")
+	if libraryElement {
+		t.Fatal("the API JSON emits the ScalarValues::Integer library element")
+	}
+	if !typeReference {
+		t.Fatal("the count attribute does not reference ScalarValues::Integer by @id")
 	}
 
 	compact, err := WriteAPIJSONCompact(graph, CompactAPIJSONOptions{OmitDerived: true})
@@ -254,18 +276,10 @@ func TestAPIJSONOmitsMappingQualifiedNameWhenLibraryNameMatchesSpec(t *testing.T
 	if err := json.Unmarshal(compact, &compactDocument); err != nil {
 		t.Fatal(err)
 	}
-	foundCompact := false
-	for i, element := range compactDocument.Elements {
-		if compactDocument.IDs[i] != libraryStub {
-			continue
+	for i := range compactDocument.Elements {
+		if compactDocument.IDs[i] == libraryID {
+			t.Fatal("the compact API JSON emits the ScalarValues::Integer library element")
 		}
-		foundCompact = true
-		if _, hasKey := element["sysx:mappingQualifiedName"]; hasKey {
-			t.Errorf("compact library stub carries a redundant mappingQualifiedName: %#v", element)
-		}
-	}
-	if !foundCompact {
-		t.Fatal("the compact API JSON does not contain the ScalarValues::Integer library stub")
 	}
 }
 
