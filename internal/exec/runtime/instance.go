@@ -948,6 +948,7 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 		fv.BindingDerived, fv.Assumed, fv.intrinsic = false, false, false
 		ctx.unshareTraces()
 		ctx.afterWrite(fv, before)
+		ctx.adoptBodyCellValue(fv)
 		return nil
 	})
 }
@@ -1621,6 +1622,10 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 		return value, nil
 	}
 
+	// A declared redefinition of `this` holds the context occurrence the member read answers.
+	if r := ctx.model.resolver; r != nil && r.IsOccurrenceThis(fv.Feature.Symbol) {
+		return ctx.objectValue(ctx.contextOccurrence(inst))
+	}
 	scope := fv.Feature.DefaultScope()
 	if scope == nil {
 		scope = inst.Type.OwnerScope
