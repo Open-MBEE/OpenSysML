@@ -8,10 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// TestSatisfyByRejectsExpressionOperand pins the operand of `by` to a feature
-// reference or feature chain (SysML.xtext SatisfactionReferenceExpression): a
-// wider expression is reported once, where the chain ends, and the usage still
-// closes at its ';' so the members after it parse undisturbed.
+// TestSatisfyByRejectsExpressionOperand: a `by` operand wider than a feature chain
+// (SysML.xtext SatisfactionReferenceExpression) is one diagnostic; the usage closes at ';'.
 func TestSatisfyByRejectsExpressionOperand(t *testing.T) {
 	cases := []struct {
 		name, operand, want string
@@ -22,6 +20,8 @@ func TestSatisfyByRejectsExpressionOperand(t *testing.T) {
 		{"arrow", "sub->first()", "not an expression", "sub"},
 		{"chained_index", "self.items#(2)", "not an expression", "items"},
 		{"arithmetic", "1 + 2", "expected a feature reference after 'by'", ""},
+		{"constructor", "new Sub()", "expected a feature reference after 'by'", ""},
+		{"succession_words", "a to b", "not an expression", "a"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -96,4 +96,31 @@ func hasPart(node ast.Node, name string) bool {
 		return !found
 	})
 	return found
+}
+
+// TestSatisfyByMissingTerminator: a `by` subject the next line's member follows
+// lacks its ';', and is reported as that, not as an expression operand.
+func TestSatisfyByMissingTerminator(t *testing.T) {
+	p := New(source.New("test.sysml", []byte(`package Test {
+	requirement def R1;
+	part def Sub;
+	part context {
+		part a : Sub;
+		satisfy requirement sr : R1 by a
+		part after : Sub;
+	}
+}`)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 1 {
+		for _, d := range p.Diagnostics {
+			t.Logf("  %s", d.Message)
+		}
+		t.Fatalf("expected exactly one diagnostic, got %d", len(p.Diagnostics))
+	}
+	if got := p.Diagnostics[0].Message; !strings.Contains(got, "missing ';'") {
+		t.Errorf("diagnostic %q does not report the missing ';'", got)
+	}
+	if !hasPart(root, "after") {
+		t.Error("the member after the satisfy usage was lost to recovery")
+	}
 }

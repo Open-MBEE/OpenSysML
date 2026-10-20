@@ -69,8 +69,8 @@ func (ctx *Context) returnParameterValue(inst *Instance, sym *symbols.Symbol, fe
 
 // statesConditions reports whether sym is a definition or usage whose result is
 // the conjunction of the conditions it states: a requirement, viewpoint or
-// concern (SysML v2 §7.21, Requirements.sysml `RequirementCheck::result`). A
-// satisfy usage is a requirement usage (SysML v2 §7.20.5 SatisfyRequirementUsage).
+// concern (SysML v2 §7.21, Requirements.sysml `RequirementCheck::result`), a
+// satisfy usage among them (SysML v2 §7.21.4, §8.3.21.10 SatisfyRequirementUsage).
 func statesConditions(sym *symbols.Symbol) bool {
 	switch decl := sym.Decl.(type) {
 	case *ast.Definition:
@@ -80,17 +80,6 @@ func statesConditions(sym *symbols.Symbol) bool {
 			(decl.Kind == ast.UsageSatisfy && !decl.IsVerifiedRequirement())
 	}
 	return false
-}
-
-// satisfactionResultSubject is the object a satisfy usage's `by` names, which every
-// subject its requirement declares is bound to (SysML v2 §8.3.17.15); nil for a
-// requirement whose subject its own members bind.
-func (ctx *Context) satisfactionResultSubject(typ *symbols.Symbol) (*Instance, error) {
-	a := ctx.satisfyAssertionOf(typ)
-	if a == nil || a.SubjectRef == "" {
-		return nil, nil
-	}
-	return ctx.SatisfySubject(a)
 }
 
 // ownResultParameter is the name of the result parameter a type more specific than
@@ -106,6 +95,17 @@ func (ctx *Context) ownResultParameter(typ, sym *symbols.Symbol) string {
 		}
 	}
 	return ""
+}
+
+// satisfactionResultSubject is the object a package-level satisfy usage's `by`
+// names, bound to every subject its requirement declares (SysML v2 §8.4.17.3). A
+// satisfaction a type owns binds it on the owning object, which no read instantiates.
+func (ctx *Context) satisfactionResultSubject(typ *symbols.Symbol) (*Instance, error) {
+	a := ctx.satisfyAssertionOf(typ)
+	if a == nil || a.SubjectRef == "" || a.StatingType() != nil {
+		return nil, nil
+	}
+	return ctx.SatisfySubject(a)
 }
 
 // conditionResultValue evaluates the result the library declares for a requirement
@@ -150,7 +150,9 @@ func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sy
 		}
 		result = impliesValue(assumptions, constraints)
 	}
-	if NegatedDecl(typ) && result.Kind == ValConst {
+	// A negated satisfaction's result is the requirement's own verdict; the negation
+	// asserts that verdict false (Requirements.sysml notSatisfiedRequirementChecks).
+	if NegatedDecl(typ) && result.Kind == ValConst && !isSatisfyUsage(typ) {
 		result = boolValue(!result.Const.Bool)
 	}
 	return result, nil
@@ -293,4 +295,10 @@ func constraintResultTail(rest []ast.NameSegment) []ast.NameSegment {
 		return nil
 	}
 	return rest
+}
+
+// isSatisfyUsage reports whether sym declares a satisfy usage.
+func isSatisfyUsage(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageSatisfy
 }

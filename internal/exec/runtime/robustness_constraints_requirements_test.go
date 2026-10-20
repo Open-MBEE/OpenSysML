@@ -88,9 +88,8 @@ func testSatisfyRequirementWithoutConditions(t *testing.T) {
 	}
 }
 
-// testSatisfyTypedDeclarationWithoutConditions: a satisfaction declared with a
-// requirement definition as its type has that definition's conditions to check,
-// so one whose definition states none reports that, not a missing requirement.
+// testSatisfyTypedDeclarationWithoutConditions: a satisfaction typed by a requirement
+// definition that states no condition reports that, not a missing requirement.
 func testSatisfyTypedDeclarationWithoutConditions(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `
 		package test {

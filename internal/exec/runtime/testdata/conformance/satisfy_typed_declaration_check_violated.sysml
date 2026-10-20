@@ -1,6 +1,6 @@
 // A satisfaction declared with its requirement definition as type
 // (`satisfy requirement sr : R by s;`) is checked against R's conditions
-// (SysML v2 7.20.5) and reports the violation the subject causes.
+// (SysML v2 §7.21.4, §8.4.17.3) and reports the violation the subject causes.
 package test {
 	private import ScalarValues::*;
 

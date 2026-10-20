@@ -98,9 +98,8 @@ func violationErr(err error) bool {
 	return errors.As(err, &violation)
 }
 
-// TestSatisfyUsageResultAgreesWithItsCheck: the `result` of a satisfy usage declared
-// with its requirement definition as type reads what checking the satisfaction
-// decides, the subject `by` names bound to every subject the definition declares.
+// TestSatisfyUsageResultAgreesWithItsCheck: a typed satisfy usage's `result` reads
+// what checking the satisfaction decides, the `by` object bound as its subject.
 func TestSatisfyUsageResultAgreesWithItsCheck(t *testing.T) {
 	for _, name := range []string{"satisfy_typed_declaration", "satisfy_typed_declaration_violated"} {
 		src, err := os.ReadFile(filepath.Join("testdata", "conformance", name+".sysml"))

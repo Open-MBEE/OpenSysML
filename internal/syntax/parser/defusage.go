@@ -3896,14 +3896,15 @@ func (p *Parser) parseRelationshipTarget() ast.Node {
 	return operand
 }
 
-// parseSatisfactionSubject parses the operand of a satisfy usage's `by`: a feature
-// reference or feature chain (SysML.xtext SatisfactionReferenceExpression:
-// FeatureChainMember), never a wider expression. An operand that is not one is
-// reported once, where it stops being a chain, and skipped to the body or ';'.
+// parseSatisfactionSubject parses the operand of `by`, a feature reference or chain
+// (SysML.xtext SatisfactionReferenceExpression); anything wider is one diagnostic.
 func (p *Parser) parseSatisfactionSubject(u *ast.Usage) {
-	if !p.atNameOrKeyword() && !(p.at(lexer.Dollar) && p.peekN(1).Kind == lexer.ColonColon) {
+	// A reserved word names a feature only as a chain segment (`do.start`); alone
+	// before more tokens it opens an expression (`new Sub()`), not a reference.
+	keywordLed := p.at(lexer.Keyword) && !slices.Contains([]lexer.Kind{lexer.Dot, lexer.ColonColon, lexer.Semicolon, lexer.LBrace}, p.peekN(1).Kind)
+	if keywordLed || (!p.atNameOrKeyword() && !(p.at(lexer.Dollar) && p.peekN(1).Kind == lexer.ColonColon)) {
 		p.error(p.peek().Span, "expected a feature reference after 'by'")
-		p.skipToEndDelimiter()
+		p.skipSatisfactionOperand()
 		return
 	}
 	if subjTarget := p.parseRelationshipTarget(); subjTarget != nil {
@@ -3915,8 +3916,31 @@ func (p *Parser) parseSatisfactionSubject(u *ast.Usage) {
 	if p.at(lexer.Semicolon) || p.at(lexer.LBrace) || p.at(lexer.RBrace) || p.atEOF() {
 		return
 	}
+	if p.startsLaterLine() {
+		// The next member's line: the usage lacks its ';', which its end reports.
+		return
+	}
 	p.error(p.peek().Span, "expected ';' or '{' after the satisfaction subject: 'by' takes a feature reference or feature chain, not an expression")
-	p.skipToEndDelimiter()
+	p.skipSatisfactionOperand()
+}
+
+// skipSatisfactionOperand skips the rest of a `by` operand up to the usage's ';' or
+// body; `to`/`then` cannot continue a satisfaction, so they are skipped too.
+func (p *Parser) skipSatisfactionOperand() {
+	for !p.atEOF() && !p.at(lexer.Semicolon) && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) {
+		p.advance()
+	}
+}
+
+// startsLaterLine reports whether the next token begins a later line than the last
+// token consumed.
+func (p *Parser) startsLaterLine() bool {
+	last, ok := p.lastToken()
+	if !ok {
+		return false
+	}
+	lines := p.src.Lines()
+	return lines.PosAt(p.peek().Span.Offset).Line > lines.PosAt(last.Span.End()).Line
 }
 
 // parsePreNameRelationships parses the specializations a declaration may state

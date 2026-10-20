@@ -10,7 +10,7 @@ import (
 )
 
 // SatisfyAssertion is one satisfaction assertion an element states:
-// `assert satisfy <requirement> by <subject>` (SysML v2 §8.3.17.15). The
+// `assert satisfy <requirement> by <subject>` (SysML v2 §8.4.17.3). The
 // assertion is a requirement usage of its own — it reference-subsets the
 // requirement it satisfies and binds that requirement's subject parameter to
 // the feature named by `by` — so it carries a verdict the requirement alone
@@ -34,9 +34,8 @@ type SatisfyAssertion struct {
 	// one can be reported by name.
 	RequirementRef string
 
-	// Definition is the requirement definition a declared satisfaction is typed
-	// by (`satisfy requirement sr : R1 by s;`), whose conditions it inherits; nil
-	// when it declares no type or the type resolves to nothing.
+	// Definition is the requirement definition a declared satisfaction is typed by
+	// (`satisfy requirement sr : R1 by s;`); nil when none resolves.
 	Definition *symbols.Symbol
 
 	// Subject is the feature named by `by`, whose values the requirement is
@@ -187,8 +186,8 @@ func (ctx *Context) satisfyAssertionOf(sym *symbols.Symbol) *SatisfyAssertion {
 		case ast.RelSubsets:
 			a.RequirementRef, a.Requirement = ctx.resolveRelationship(sym, rel)
 		case ast.RelTyping:
-			// `satisfy requirement sr : R1 by s;` declares a requirement usage typed
-			// by R1, whose conditions it inherits (SysML v2 7.20.5).
+			// A declared satisfaction is a requirement usage typed by its definition,
+			// whose conditions it inherits (SysML v2 §7.21.4, §8.3.21.10).
 			_, a.Definition = ctx.resolveRelationship(sym, rel)
 		case ast.RelSubject:
 			a.SubjectRef, a.Subject = ctx.resolveRelationship(sym, rel)
@@ -348,7 +347,7 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	subject := reached.instance
 
 	// Every subject the chain declares names the object `by` supplies, which is
-	// what satisfies the requirement (SysML v2 §8.3.17.15); the other values the
+	// what satisfies the requirement (SysML v2 §8.4.17.3); the other values the
 	// requirement binds by name are visible to its conditions here too, as they
 	// are when the requirement is evaluated directly.
 	members, bindings, err := ctx.satisfactionBindings(a, target, subject)
