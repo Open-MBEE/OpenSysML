@@ -959,28 +959,32 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 // releaseStandIns drops the objects a value-typed feature materialized to stand for its
 // unspecified values once a write gives it some: a data value has no identity of its own.
 func (ctx *Context) releaseStandIns(fv *FeatureValue, held Value) {
-	if held.Kind == ValInvalid {
+	switch held.Kind {
+	case ValInstance:
+		ctx.releaseStandIn(fv, held)
+	case ValSequence, ValSet, ValArray:
+		for _, elem := range listedElements(held) {
+			ctx.releaseStandIn(fv, elem)
+		}
+	}
+}
+
+// releaseStandIn drops elem when it is a stand-in made for fv that nothing names any more.
+func (ctx *Context) releaseStandIn(fv *FeatureValue, elem Value) {
+	if elem.Kind != ValInstance || !ctx.HoldsNoValue(elem) {
 		return
 	}
-	elements := []Value{held}
-	if held.Kind != ValInstance {
-		elements = listedElements(held)
+	id := elem.Instance
+	standIn := ctx.instances[id]
+	owner := standIn.owner
+	if owner == nil || owner.FeatureValues[standIn.ownerFeature] != fv || len(standIn.behaviors) != 0 {
+		return
 	}
-	for _, elem := range elements {
-		if elem.Kind != ValInstance || !ctx.HoldsNoValue(elem) {
-			continue
-		}
-		id := elem.Instance
-		standIn := ctx.instances[id]
-		owner := standIn.owner
-		if owner == nil || owner.FeatureValues[standIn.ownerFeature] != fv || len(standIn.behaviors) != 0 {
-			continue
-		}
-		if namesAbandoned(fv, map[int64]bool{id: true}) || ctx.runDataNames(owner, id) {
-			continue
-		}
-		ctx.dropStandIn(standIn)
+	named := map[int64]bool{id: true}
+	if namesAbandoned(fv, named) || ctx.runDataNames(owner, named) {
+		return
 	}
+	ctx.dropStandIn(standIn)
 }
 
 // dropStandIn unregisters a stand-in, lifetime included; a journal rolled back puts it back.
@@ -1019,9 +1023,8 @@ func (ctx *Context) adoptOccurrenceWrite(inst *Instance, fv *FeatureValue) {
 	}
 }
 
-// runDataNames reports whether the data of a run over inst still names object id.
-func (ctx *Context) runDataNames(inst *Instance, id int64) bool {
-	named := map[int64]bool{id: true}
+// runDataNames reports whether the data of a run over inst still names one of the objects.
+func (ctx *Context) runDataNames(inst *Instance, named map[int64]bool) bool {
 	for _, exec := range ctx.stateExecutors {
 		if exec.occurrence == inst && valuesName(exec.stateData, named) {
 			return true
