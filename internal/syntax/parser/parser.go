@@ -454,11 +454,37 @@ func (p *Parser) expectSemicolon(what string) bool {
 // expectBodyOrEnd consumes the `{` opening a construct's body, after its `;`
 // form was not taken; neither carries a fix, since either would repair it.
 func (p *Parser) expectBodyOrEnd(what string) bool {
+	skipped := p.skipParameterList()
 	if p.accept2(lexer.LBrace) {
 		return true
 	}
+	if skipped && p.accept2(lexer.Semicolon) {
+		return false
+	}
 	p.missingTerminator("expected '{' or ';' after "+what, "missing ';' at end of "+what)
 	return false
+}
+
+// skipParameterList reports a `( ... )` written where a declaration's body
+// belongs and skips the group, so the body that follows is still read. No
+// production puts a parenthesised parameter list on a declaration: parameters
+// are directed features of the body (KerML.xtext ParameterMember).
+func (p *Parser) skipParameterList() bool {
+	if !p.at(lexer.LParen) {
+		return false
+	}
+	open := p.advance()
+	depth := 1
+	for depth > 0 && !p.atEOF() && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !p.at(lexer.Semicolon) {
+		switch p.advance().Kind {
+		case lexer.LParen:
+			depth++
+		case lexer.RParen:
+			depth--
+		}
+	}
+	p.error(open.Span, "a declaration takes no parenthesised parameter list: declare each parameter as a directed feature of the body, `in <name> : <Type>;`")
+	return true
 }
 
 // missingTerminator reports the terminator a construct lacks: on its last token when

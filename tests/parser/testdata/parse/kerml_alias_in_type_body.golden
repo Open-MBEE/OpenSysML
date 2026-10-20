@@ -1,0 +1,17 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="AliasInTypeBody" library=false standard=false
+      (Membership visibility="default"
+        (Package name="SC" library=false standard=false
+          (Membership visibility="default"
+            (Usage kind="step" name="s1" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))))
+      (Membership visibility="default"
+        (Usage kind="behavior" name="ST" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="step" name="trns" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Alias visibility="default" name="s1" for="SC::s1")
+              (Alias visibility="private" name="<t> target" for="SC::s1"
+                (Membership visibility="default"
+                  (Documentation locale="")))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false keyword="feature")))))))))

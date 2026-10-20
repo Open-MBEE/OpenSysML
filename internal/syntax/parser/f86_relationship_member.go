@@ -188,6 +188,11 @@ func (p *Parser) parseTypeFeaturingMember(start int, vis ast.Visibility, trivia 
 		p.advance() // 'of'
 	}
 	featured := p.parseRelationshipTarget()
+	if p.atKeyword("featured") && p.peekN(1).Kind == lexer.Keyword && p.peekN(1).KeywordID == "by" {
+		// `featuring f featured by T` is the owned form's keyword on the member
+		// form, which spells `by` alone (KerML.xtext TypeFeaturing).
+		p.error(p.advance().Span, "expected 'by' after the featured feature of a featuring relationship, not 'featured by'")
+	}
 	if !p.acceptKeyword("by") {
 		en := p.errorNodeSkip(start, "expected 'by' after the featured feature of a featuring relationship")
 		en.SetLeadingTrivia(trivia)

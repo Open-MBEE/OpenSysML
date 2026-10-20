@@ -77,15 +77,15 @@ Pilot `2026-08` (`0.62.0`), both validators, fresh cache:
 
 | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| 511 | 149 | 1106 | 3407 | 1033 | 2 | 71 | 2372 |
+| 511 | 149 | 1099 | 3407 | 1030 | 2 | 67 | 2375 |
 
 Of the pilot-only diagnostics, 1359 are the pilot's EMF `unmapped` records ("The feature 'type' of
 ... is required"), 594 its `kind-mismatch` typing constraints ("A usage must be typed by
 definitions.") and 50 multiplicity constraints: all three follow an unresolved cross-example name on
 the same lines, where we report the unresolved reference once and stop. Those 2003 are the same
 finding counted differently, not disagreements about the examples. The remaining pilot-only
-categories are 195 syntax, 169 unresolved-reference and 5 units; the 71 ours-only diagnostics are
-37 unresolved-reference, 29 syntax, 3 kind-mismatch and 2 unmapped. Every file behind those two
+categories are 198 syntax, 169 unresolved-reference and 5 units; the 67 ours-only diagnostics are
+37 unresolved-reference, 25 syntax, 3 kind-mismatch and 2 unmapped. Every file behind those two
 groups is adjudicated below.
 
 ## Adjudication
@@ -107,6 +107,9 @@ needs context the text does not print) or **cascade** (a secondary diagnostic of
 | SysML 7.21.2 | `sysml/7.21.2/2.sysml` | `constraint massIsPositive { attribute mass : MassValue; mass > 0[kg]; }` | `CalculationBodyPart` (8.2.2.19.1) ends with a `ResultExpressionMember`, which has no `;` | rejects (`extraneous input ';' expecting '}'`) | accepts silently | erratum; ours also a gap |
 | SysML 7.18.3, 8.4.14.3 | `sysml/7.18.3/4.sysml`, `sysml/8.4.14.3/1.sysml` | `transition off_on first off if isEnabled accept TurnOn via commPort do action ... then on;` | `TransitionUsage` (8.2.2.18.1) orders trigger (`accept`) before guard (`if`) before effect (`do`) | rejects | rejects (clause order) | erratum, both right |
 | SysML 8.4.13.9 | `sysml/8.4.13.9/1.sysml` | `action if1 if test1 then action then1 { ... }` | `IfNode` (8.2.2.17.7) has no `then`: the body follows the expression directly | rejects | rejects (`expected a name`) | erratum, both right |
+| SysML 8.4.14.3 | `sysml/8.4.14.3/2.kerml` | `alias s1 of SC::s1;` inside a `step` body | `AliasMember` (KerML 8.2.3.3.1) is `'alias' ( '<' NAME '>' )? NAME? 'for' [QualifiedName] RelationshipBody`, and `TypeBodyElement` (8.2.4.1.1) admits it: the member form is right, the keyword is `for` | rejects (`mismatched input 'of' expecting 'for'`) | rejects (`expected 'for' in alias`), then reads the alias and the rest of the body | erratum, both right |
+| KerML 7.3.4.8 | `kerml/7.3.4.8/1.kerml` | `featuring engine_by_Vehicle of engine featured by Vehicle;`, `featuring power featured by engine { doc /* ... */ }` | `TypeFeaturing` (8.2.4.3.7) is `'featuring' ( Identification 'of' )? [QualifiedName] 'by' [QualifiedName] RelationshipBody`: the member form spells `by` alone, as the 7.3.4.8 prose does not; the relationship body is admitted | rejects (`extraneous input 'featured' expecting 'by'`) | rejects (`expected 'by' ... not 'featured by'`), then reads the relationship and its body | erratum, both right |
+| KerML 7.2.4.3, SysML 7.4.3 | `kerml/7.2.4.3/1.kerml`, `sysml/7.4.3/1.sysml` | `behavior setX(c : C, newX : Real) { language "alf" /* ... */ }`, `action def setX(c : C, newX : Real) { ... }` | no production puts a parenthesised parameter list on a declaration; parameters are `ParameterMember`s of the body (KerML 8.2.4.4.2, SysML 8.2.2.5.2). The rep-less `TextualRepresentation = ( 'rep' Identification )? 'language' STRING_VALUE REGULAR_COMMENT` (KerML 8.2.3.3.3) is admitted in both notations | rejects (`no viable alternative at input '('`) | rejects (`a declaration takes no parenthesised parameter list`), then reads the body with its textual representation | erratum, both right |
 | SysML 8.4.13.5 | `sysml/8.4.13.5/1.sysml` | `action snd send p via src to tgt;` | `SendNode` (8.2.2.17.5) reads `OccurrenceUsagePrefix ActionUsageDeclaration? 'send'`, with no `action` keyword, while `SendNodeDeclaration` in the same clause reads `ActionNodeUsageDeclaration? 'send'`, which has one | rejects (`no viable alternative at input 'send'`) | accepts | grammar text inconsistent; ours follows `SendNodeDeclaration`, the form `AcceptNode` and `TerminateNode` use |
 
 ### The pilot departs from the text (pilot)
@@ -129,9 +132,6 @@ needs context the text does not print) or **cascade** (a secondary diagnostic of
 | SysML 7.17.8 | `sysml/7.17.8/2.sysml` | `accept : ChangeSignal = Triggers::triggerWhen({ level > threshold });` | `AcceptParameterPart` payload is a `PayloadParameterMember` whose `PayloadFeature` may carry a typing and a value part (8.2.2.17.4) | accepts | rejects (`expected ';' after accept action`) | ours |
 | SysML 7.6.4 | `sysml/7.6.4/1.sysml` | `orderedContent ordered :>> content;` | `DefaultReferenceUsage` (8.2.2.5.4): `UsageDeclaration` admits `MultiplicityPart`'s `ordered`/`nonunique` after the name without a bracketed multiplicity | accepts | rejects (`expected a body member`) | ours |
 | SysML 8.4.13.10 | `sysml/8.4.13.10/2.sysml` | `in calc redefines Actions::WhileLoopAction::whileTest { test1 }` | a `CalculationUsage` body ends with a `ResultExpressionMember` (8.2.2.19.1) | accepts | rejects (`expected a body member`) | ours |
-| SysML 8.4.14.3 | `sysml/8.4.14.3/2.kerml` | `step trns subsets States::State::stateTransitions { alias s1 of SC::s1; ... }` | KerML `TypeBody` admits `AliasMember` (8.2.3.3.1) | accepts | rejects (`expected a body member`) | ours |
-| KerML 7.3.4.8 | `kerml/7.3.4.8/1.kerml` | `featuring ... of engine featured by Vehicle { doc /* ... */ }` | a relationship body (`RelationshipBody`, 8.2.2.1) owns annotating elements | accepts | rejects (`expected a namespace member`) | ours |
-| KerML 7.2.4.3, SysML 7.4.3 | `kerml/7.2.4.3/1.kerml`, `sysml/7.4.3/1.sysml` | `language "alf" /* c.x = newX; ... */` inside a behavior body | `TextualRepresentation = ( 'rep' Identification )? 'language' STRING_VALUE REGULAR_COMMENT` (KerML 8.2.2.2.3): `rep` is optional | accepts | rejects (`expected a namespace member`) | ours |
 | KerML 7.4.9.3 | `kerml/7.4.9.3/1`–`3.kerml` | `sensors.{in s: Sensor; s.reading}` as a namespace member | an expression is not a `NamespaceMember` (8.2.2.3); the text shows the expression alone | rejects (`no viable alternative at input '}'`) | silent | ours (we accept an expression statement as a member) |
 | SysML 7.17.4 | `sysml/7.17.4/7.sysml` (before the `then` rule above was added) | `then join1;` | `ActionTargetSuccessionMember` is an `ActionBodyItem` only (8.2.2.17.1) | rejects | silent at package level | ours (the completion now wraps it; the parser still accepts the form at package level) |
 | SysML 8.4.13.4, 7.21.2, 8.4.19.x | see the erratum table | `a1[1..1]` after an end name; `;` after a result expression; `analysis case def` | as above | rejects | silent | ours (accepted where the grammar has no production) |
@@ -166,16 +166,20 @@ example the resolutions did not reach.
 | Excluded blocks | 20 | 4 | 24 |
 | Files reporting a diagnostic of ours | 262 | 136 | 398 |
 | Files fully agreeing with the pilot | | | 149 |
-| Files in the erratum table | 24 | 0 | 24 |
+| Files in the erratum table | 26 | 2 | 28 |
 | Files in the pilot table | 6 | 1 | 7 |
-| Files in the ours table | 9 | 5 | 14 |
+| Files in the ours table | 7 | 3 | 10 |
 
 ## Launch-ready gaps
 
 Each row is self-contained: clause, the extracted file that shows it, the behaviour the text requires,
 and a probe to reproduce it. None of these is fixed here; the ratchet pins the current verdicts so each
 fix moves exactly its own lines. The in-flight column records whether other work on the same rule was
-found open at the time of writing.
+found open at the time of writing. The rows first numbered G6, G7 and G8 (an `alias` in a type body, a
+relationship body on a `featuring`, a `language` representation without `rep`) are not gaps: the grammar
+productions are implemented, and what the printed examples add (`alias ... of`, `featured by` on the member
+form, a parenthesised parameter list) no production admits and the pilot rejects, so they sit in the erratum
+table above; the later labels keep their numbers.
 
 | # | Clause | File | Expected behaviour | Probe | In-flight overlap |
 |---|---|---|---|---|---|
@@ -184,9 +188,6 @@ found open at the time of writing.
 | G3 | SysML 8.2.2.17.4 `AcceptParameterPart` | `sysml/7.17.8/2.sysml` | `accept : ChangeSignal = Triggers::triggerWhen({ level > threshold });` parses: a typed payload with a value part. | `sysml -validate`: no `expected ';' after accept action`. | none found |
 | G4 | SysML 8.2.2.5.4 `DefaultReferenceUsage` | `sysml/7.6.4/1.sysml` | `orderedContent ordered :>> content;` parses: `ordered` without a bracketed multiplicity. | `sysml -validate`: no `expected a body member` at that line. | none found |
 | G5 | SysML 8.2.2.19.1 `CalculationBody` | `sysml/8.4.13.10/2.sysml` | A calculation *usage* body ends with a result expression: `in calc redefines ...::whileTest { test1 }`. | `sysml -validate`: no `expected a body member`. | none found |
-| G6 | KerML 8.2.3.3.1 `AliasMember` in a `TypeBody` | `sysml/8.4.14.3/2.kerml` | `alias s1 of SC::s1;` is accepted inside a `step` body. | `sysml -validate`: no `expected a body member` at line 9. | none found |
-| G7 | KerML 8.2.2.1 `RelationshipBody` | `kerml/7.3.4.8/1.kerml` | `featuring ... featured by Vehicle { doc /* ... */ }` accepts the documentation in the relationship body. | `sysml -validate`: no `expected a namespace member`. | none found |
-| G8 | KerML 8.2.2.2.3 `TextualRepresentation` | `kerml/7.2.4.3/1.kerml`, `sysml/7.4.3/1.sysml` | `language "alf" /* ... */` without `rep` is a textual representation. | `sysml -validate`: no `expected a namespace member` at the closing `*/`. | none found |
 | G9 | KerML 8.2.2.3 `NamespaceMember` | `kerml/7.4.9.3/1`–`3.kerml` | A bare expression such as `sensors.{in s: Sensor; s.reading}` is not a namespace member and is reported as a syntax error, as the pilot does. | `sysml -validate`: a `syntax` diagnostic on line 4; today the files are clean. | none found |
 | G10 | SysML 8.2.2.17.1 `ActionBodyItem` | `sysml/7.17.4/7.sysml` with the package wrapper | `then join1;` directly in a package is a syntax error, since target successions exist only in action bodies. | wrap the example in a package by hand and run `sysml -validate`: a `syntax` diagnostic; today it is clean. | none found |
 | G11 | SysML 8.2.2.13.1 `ConnectorEnd` | `sysml/8.4.13.4/1`–`9.sysml` | A multiplicity *after* an end reference (`first a1[1..1] then j[1..1]`) has no production and is reported, as the pilot does; the project's nonstandard-notation policy decides whether as an error or a warning. | `sysml -validate`: a diagnostic on each succession line; today the files are clean. | none found |

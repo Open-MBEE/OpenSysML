@@ -531,6 +531,12 @@ func TestNegative(t *testing.T) {
 		{"sequence_index_comma_only", "package P { attribute s = (1, 2); attribute e = s#(,); }"},
 		{"argument_list_trailing_comma", "package P { attribute s = f(1,); }"},
 		{"named_argument_list_trailing_comma", "package P { attribute s = f(x = 1,); }"},
+		// No production puts a parenthesised parameter list on a declaration:
+		// parameters are directed features of the body (SysML.xtext
+		// ParameterMember). The group is reported and the body still read.
+		{"action_def_parameter_list", "package P { action def A(x : Integer) { in y : Integer; } }"},
+		{"calc_def_parameter_list_bodiless", "package P { calc def C(x : Integer); }"},
+		{"part_def_parameter_list_unclosed", "package P { part def D(x : Integer { } }"},
 	}
 
 	for _, tt := range tests {
@@ -748,6 +754,16 @@ func TestNegativeKerML(t *testing.T) {
 		{"terminate_then_ordered", "package P { action def A { first start; then stop; action stop terminate ordered; } }"},
 		{"terminate_then_value", "package P { action def A { first start; then stop; action stop terminate = 3; } }"},
 		{"terminate_then_target", "package P { action def A { first start; then stop; action stop terminate stop; } }"},
+		// AliasMember spells `for` (KerML.xtext:161) and TypeFeaturing `by`
+		// (KerML.xtext:651); the mis-spelt keyword is reported and the member
+		// kept, so the body around it is still read.
+		{"alias_of", "package P { feature f; alias g of f; }"},
+		{"alias_of_in_type_body", "package P { feature f; class C { alias g of f; } }"},
+		{"alias_of_no_target", "package P { feature f; alias g of ; }"},
+		{"featuring_featured_by", "package P { class T; feature f; featuring f featured by T; }"},
+		{"featuring_featured_by_body", "package P { class T; feature f; featuring f featured by T { doc /* d */ } }"},
+		{"featuring_featured_no_by", "package P { class T; feature f; featuring f featured T; }"},
+		{"behavior_parameter_list", "package P { behavior B(x : Real) { language \"alf\" /* x */ } }"},
 	}
 
 	for _, tt := range tests {
