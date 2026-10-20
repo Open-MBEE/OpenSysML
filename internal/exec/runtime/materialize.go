@@ -108,6 +108,11 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 			w.errs = append(w.errs, err)
 		}
 		w.bounded = w.bounded || cut
+		// A performance nothing performs is an identity whose features the performance
+		// binds: its objects are read, and none is descended into.
+		if unperformedUsage(inst, feat) {
+			continue
+		}
 		// Each object held is charged as it is reached, so every one the budget admits
 		// is walked and only those past it are cut.
 		for _, held := range instancesOf(w.ctx, values) {
@@ -125,6 +130,21 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 			delete(w.onPath, held.Type)
 		}
 	}
+}
+
+// unperformedUsage reports an action or state usage of inst that no behavior of the
+// object performs or exhibits.
+func unperformedUsage(inst *Instance, feat *EffectiveFeature) bool {
+	sym := feat.Symbol
+	if sym == nil || (sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage) {
+		return false
+	}
+	for _, b := range inst.behaviors {
+		if b.member == sym || (b.member != nil && sym.Decl != nil && b.member.Decl == sym.Decl) {
+			return false
+		}
+	}
+	return true
 }
 
 // report records a feature value's failure once, as the innermost feature value that failed;
