@@ -32,11 +32,22 @@ func (r *Resolver) IsOccurrenceThis(sym *symbols.Symbol) bool {
 // innermost enclosing object, since an owned performance and its subperformances
 // take their owner's `this` ([KerML] Objects::ownedPerformances,
 // Performances::subperformances; [SysML] Parts::Part::ownedActions::this,
-// Actions::Action::subactions). Neither a behavior usage nor a behavior
-// definition is its own context — the walk continues through both to the object
-// whose performances they declare. Nil in a standalone behavior, where `this` is
-// the performance itself.
+// Actions::Action::subactions). The walk continues through behavior usages and
+// definitions alike. Nil in a standalone behavior, where `this` is the
+// performance itself.
 func (r *Resolver) ThisContext(scope *symbols.Scope) *symbols.Symbol {
+	return thisContext(scope, true)
+}
+
+// thisChainContext is the object a chain `this.<member>` written in scope is
+// resolved against: the enclosing object of a usage body. A definition's `this`
+// keeps its declared type (Performances::Performance::this : Object), so a chain
+// written in a definition resolves against that type, not the lexical owner.
+func (r *Resolver) thisChainContext(scope *symbols.Scope) *symbols.Symbol {
+	return thisContext(scope, false)
+}
+
+func thisContext(scope *symbols.Scope, throughDefs bool) *symbols.Symbol {
 	for s := scope; s != nil; s = s.Parent() {
 		owner := s.Owner()
 		if owner == nil {
@@ -45,7 +56,9 @@ func (r *Resolver) ThisContext(scope *symbols.Scope) *symbols.Symbol {
 		switch {
 		case isObjectKind(owner.Kind):
 			return owner
-		case isBehaviorDefKind(owner.Kind), isBehaviorUsageKind(owner.Kind):
+		case isBehaviorUsageKind(owner.Kind):
+			continue
+		case isBehaviorDefKind(owner.Kind) && throughDefs:
 			continue
 		default:
 			return nil

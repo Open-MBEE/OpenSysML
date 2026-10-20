@@ -453,24 +453,52 @@ package Q { filter @Safety; }`,
 	}
 }
 
-// A behavior definition is no context of its own: `this` inside a def nested
-// in an object definition is the object owning the performance (Parts.sysml
-// `ownedActions::this = that as Part`), so `this.<feature>` reads the enclosing
-// object's feature, as it does in a usage, and the def's own features are
-// reached by name.
+// `this` written in a behavior definition keeps its declared type
+// (Performances::Performance::this : Object), so `this.<feature>` inside a def
+// resolves no feature of the enclosing part def nor of the def itself, at
+// package level or nested — while a usage's `this` chain still reaches the
+// object lexically.
 func TestW8CFeatureReferenceThisInsideBehaviorDef(t *testing.T) {
-	src := `package P {
+	for _, tc := range []struct{ name, src, feature string }{
+		{"nested def reads the part's feature", `package P {
 	private import ScalarValues::*;
 	part def H {
 		attribute level : Integer = 0;
 		action def Nudge {
-			attribute own : Integer = 0;
-			action step { assign this.level := own; }
+			action step { assign this.level := 1; }
 		}
+	}
+}`, "level"},
+		{"package-level def reads its own feature", `package P {
+	private import ScalarValues::*;
+	action def Probe {
+		attribute count : Integer = 1;
+		attribute viaThis : Integer = this.count;
+	}
+}`, "count"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			msgs := w8cLibraryErrorsIn(t, "<t>.sysml", tc.src)
+			found := false
+			for _, m := range msgs {
+				if strings.Contains(m, tc.feature) {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("this.%s inside a definition should not resolve, got %v", tc.feature, msgs)
+			}
+		})
+	}
+	src := `package P {
+	private import ScalarValues::*;
+	part def H {
+		attribute level : Integer = 0;
+		action nudge { assign this.level := 1; }
 	}
 }`
 	if msgs := w8cLibraryErrorsIn(t, "<t>.sysml", src); len(msgs) != 0 {
-		t.Errorf("this.level inside action def Nudge should resolve to H's level, got %v", msgs)
+		t.Errorf("this.level inside a usage should resolve to H's level, got %v", msgs)
 	}
 }
 
@@ -876,7 +904,7 @@ func TestW8CFeatureReferenceViaBoundaries(t *testing.T) {
 			item def E;
 			part def Owner {
 				port x;
-				action def A {
+				action a {
 					action r accept e : E via this.x;
 				}
 			}
