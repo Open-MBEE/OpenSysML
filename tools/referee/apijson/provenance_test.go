@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
+	"github.com/Open-MBEE/OpenSysML/tools/referee/diff"
 )
 
 // The Java-free guard: the committed baseline must state the pin, the bridge
@@ -37,13 +38,33 @@ func TestProvenanceGuardFailsOnAMovedPin(t *testing.T) {
 	}
 }
 
+// The bridge reads this repository's own libraries after the pinned standard
+// library; the record states them as an input, so an edit under them is a
+// mismatch like an edit under a corpus root.
+func TestProvenanceStatesTheLibrariesTheBridgeReads(t *testing.T) {
+	_, current := currentProvenance(t)
+	var libraries *baseline.Input
+	for i := range current.Inputs {
+		if current.Inputs[i].Name == diff.LibrariesInput {
+			libraries = &current.Inputs[i]
+		}
+	}
+	if libraries == nil || libraries.Dir != "internal/workspace/libs/stdlib/OpenSysML Libraries" || libraries.Origin != baseline.OriginOurs || libraries.Files == 0 || libraries.Digest == "" {
+		t.Fatalf("want the %q input at the bundled libraries with files and a digest, got %+v", diff.LibrariesInput, current.Inputs)
+	}
+}
+
 func currentProvenance(t *testing.T) (string, baseline.Record) {
 	t.Helper()
 	root, err := repo.Choose("")
 	if err != nil {
 		t.Fatal(err)
 	}
-	current, err := provenance(root)
+	libraries, err := diff.LibrariesHandedOver(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := provenance(root, libraries)
 	if err != nil {
 		t.Fatal(err)
 	}

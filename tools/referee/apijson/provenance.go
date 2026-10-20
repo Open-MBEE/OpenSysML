@@ -25,7 +25,10 @@ func roots() []diff.Root { return append(diff.Roots(), manualExamples) }
 
 // provenance identifies the run's inputs: the pilot pin, the bridge source the
 // exporter is compiled from, and every non-empty root by its files' digest.
-func provenance(repo string) (baseline.Record, error) {
+// provenance identifies what a run compares: the pin, the bridge source, each
+// corpus root's contents and the libraries (an absolute directory inside the
+// repository) the bridge reads beside the standard library.
+func provenance(repo, libraries string) (baseline.Record, error) {
 	pin, err := baseline.ReadPin(repo)
 	if err != nil {
 		return baseline.Record{}, err
@@ -63,5 +66,18 @@ func provenance(repo string) (baseline.Record, error) {
 		}
 		record.Inputs = append(record.Inputs, baseline.Input{Name: root.Name, Dir: root.Dir, Origin: origin, Files: len(files), Digest: digest})
 	}
+	libraryRoot := diff.Root{Name: diff.LibrariesInput, Dir: diff.RelativeTo(repo, libraries)}
+	files, err := diff.CollectFiles(repo, libraryRoot)
+	if err != nil {
+		return baseline.Record{}, err
+	}
+	if len(files) == 0 {
+		return baseline.Record{}, fmt.Errorf("no .sysml or .kerml files under the library directory %s", libraries)
+	}
+	digest, err = baseline.DigestFiles(libraries, files)
+	if err != nil {
+		return baseline.Record{}, fmt.Errorf("digest %s: %w", libraries, err)
+	}
+	record.Inputs = append(record.Inputs, baseline.Input{Name: libraryRoot.Name, Dir: libraryRoot.Dir, Origin: baseline.OriginOurs, Files: len(files), Digest: digest})
 	return record, nil
 }

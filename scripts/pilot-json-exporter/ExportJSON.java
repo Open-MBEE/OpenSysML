@@ -91,6 +91,15 @@ public final class ExportJSON extends SysMLUtil {
         readAll(library.resolve(DOMAIN_LIBRARIES_DIRECTORY).toString(), false, SYSML_EXTENSION);
     }
 
+    /**
+     * Read one more library directory as library resources, after the standard library, the way
+     * the pilot's command-line utilities read the paths that follow their input (KerML files first).
+     */
+    private void loadExtensionLibrary(Path directory) {
+        readAll(directory.toString(), false, KERML_EXTENSION);
+        readAll(directory.toString(), false, SYSML_EXTENSION);
+    }
+
     /** Read every input file into the shared resource set and the Xtext index. */
     private void readInputs(List<Path> files) {
         for (Path file : files) {
@@ -299,6 +308,7 @@ public final class ExportJSON extends SysMLUtil {
             Path library = null;
             Path root = null;
             Path out = null;
+            List<Path> extensions = new ArrayList<>();
             List<Path> files = new ArrayList<>();
             for (int i = 0; i < args.length; i++) {
                 switch (args[i]) {
@@ -311,6 +321,9 @@ public final class ExportJSON extends SysMLUtil {
                     case "--out":
                         out = value(args, ++i, "--out");
                         break;
+                    case "--extension-library":
+                        extensions.add(value(args, ++i, "--extension-library"));
+                        break;
                     default:
                         if (args[i].startsWith("--")) {
                             throw new IllegalArgumentException("unknown option: " + args[i]);
@@ -319,7 +332,7 @@ public final class ExportJSON extends SysMLUtil {
                 }
             }
             if (library == null || out == null) {
-                STDERR.println("Usage: export-json --library <sysml.library> --out <dir> [--root <dir>] <file>...");
+                STDERR.println("Usage: export-json --library <sysml.library> --out <dir> [--root <dir>] [--extension-library <dir>]... <file>...");
                 System.exit(2);
             }
             if (files.isEmpty()) {
@@ -333,6 +346,9 @@ public final class ExportJSON extends SysMLUtil {
 
             ExportJSON instance = new ExportJSON(root, out);
             instance.loadLibrary(library);
+            for (Path extension : extensions) {
+                instance.loadExtensionLibrary(extension);
+            }
             instance.readInputs(files);
             instance.exportInputs();
             System.exit(instance.hasErrors ? 1 : 0);
