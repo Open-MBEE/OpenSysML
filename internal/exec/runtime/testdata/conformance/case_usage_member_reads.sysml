@@ -57,7 +57,7 @@ package test {
 	part holder : Holder;
 
 	verification checkThree : CheckPositive { subject n = 3; actor who = op; }
-	verification checkMany : CheckPositive { subject n = 3; actor many = (op, op2); in open = 1; }
+	verification checkMany : CheckPositive { subject n = 3; actor many = (op, op2); in :>> open = 1; }
 	calc twoTimes : Twice { in x = 2; }
 	verification checkNothing : CheckPositive;
 	analysis scaledFour : Scale { subject n = 4; }
