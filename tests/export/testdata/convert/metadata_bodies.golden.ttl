@@ -517,20 +517,20 @@ elmt:Annotated__car___402
     sysx:declaredKeyword "@" ;
     sysml:type elmt:Annotated__Safety ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Annotated__car___402___400, elmt:Annotated__car___402__reviewer, elmt:Annotated__car___402__isSet, elmt:Annotated__car___402__audit ;
-    sysml:ownedMembership elmt:Annotated__car___402___400_om, elmt:Annotated__car___402__reviewer_om, elmt:Annotated__car___402__isSet_om, elmt:Annotated__car___402__audit_om ;
-    sysml:ownedRelationship elmt:Annotated__car___402___400_om, elmt:Annotated__car___402__reviewer_om, elmt:Annotated__car___402__isSet_om, elmt:Annotated__car___402__audit_om, elmt:Annotated__car___402_ft0 ;
-    sysml:ownedFeature elmt:Annotated__car___402___400, elmt:Annotated__car___402__reviewer, elmt:Annotated__car___402__isSet, elmt:Annotated__car___402__audit ;
-    sysml:ownedFeatureMembership elmt:Annotated__car___402___400_om, elmt:Annotated__car___402__reviewer_om, elmt:Annotated__car___402__isSet_om, elmt:Annotated__car___402__audit_om ;
+    sysml:ownedMember elmt:Annotated__car___402__level, elmt:Annotated__car___402__reviewer, elmt:Annotated__car___402__isSet, elmt:Annotated__car___402__audit ;
+    sysml:ownedMembership elmt:Annotated__car___402__level_om, elmt:Annotated__car___402__reviewer_om, elmt:Annotated__car___402__isSet_om, elmt:Annotated__car___402__audit_om ;
+    sysml:ownedRelationship elmt:Annotated__car___402__level_om, elmt:Annotated__car___402__reviewer_om, elmt:Annotated__car___402__isSet_om, elmt:Annotated__car___402__audit_om, elmt:Annotated__car___402_ft0 ;
+    sysml:ownedFeature elmt:Annotated__car___402__level, elmt:Annotated__car___402__reviewer, elmt:Annotated__car___402__isSet, elmt:Annotated__car___402__audit ;
+    sysml:ownedFeatureMembership elmt:Annotated__car___402__level_om, elmt:Annotated__car___402__reviewer_om, elmt:Annotated__car___402__isSet_om, elmt:Annotated__car___402__audit_om ;
     sysml:ownedTyping elmt:Annotated__car___402_ft0 ;
     sysml:ownedSpecialization elmt:Annotated__car___402_ft0 ;
     sysx:sourceText "        @Safety {\n" ;
     sysx:sourceTail "        }\n" ;
-    json:ownedMember "[{\"@id\":\"Annotated__car___402___400\"},{\"@id\":\"Annotated__car___402__reviewer\"},{\"@id\":\"Annotated__car___402__isSet\"},{\"@id\":\"Annotated__car___402__audit\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Annotated__car___402___400_om\"},{\"@id\":\"Annotated__car___402__reviewer_om\"},{\"@id\":\"Annotated__car___402__isSet_om\"},{\"@id\":\"Annotated__car___402__audit_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car___402___400_om\"},{\"@id\":\"Annotated__car___402__reviewer_om\"},{\"@id\":\"Annotated__car___402__isSet_om\"},{\"@id\":\"Annotated__car___402__audit_om\"},{\"@id\":\"Annotated__car___402_ft0\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Annotated__car___402___400\"},{\"@id\":\"Annotated__car___402__reviewer\"},{\"@id\":\"Annotated__car___402__isSet\"},{\"@id\":\"Annotated__car___402__audit\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Annotated__car___402___400_om\"},{\"@id\":\"Annotated__car___402__reviewer_om\"},{\"@id\":\"Annotated__car___402__isSet_om\"},{\"@id\":\"Annotated__car___402__audit_om\"}]" .
+    json:ownedMember "[{\"@id\":\"Annotated__car___402__level\"},{\"@id\":\"Annotated__car___402__reviewer\"},{\"@id\":\"Annotated__car___402__isSet\"},{\"@id\":\"Annotated__car___402__audit\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Annotated__car___402__level_om\"},{\"@id\":\"Annotated__car___402__reviewer_om\"},{\"@id\":\"Annotated__car___402__isSet_om\"},{\"@id\":\"Annotated__car___402__audit_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__level_om\"},{\"@id\":\"Annotated__car___402__reviewer_om\"},{\"@id\":\"Annotated__car___402__isSet_om\"},{\"@id\":\"Annotated__car___402__audit_om\"},{\"@id\":\"Annotated__car___402_ft0\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Annotated__car___402__level\"},{\"@id\":\"Annotated__car___402__reviewer\"},{\"@id\":\"Annotated__car___402__isSet\"},{\"@id\":\"Annotated__car___402__audit\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Annotated__car___402__level_om\"},{\"@id\":\"Annotated__car___402__reviewer_om\"},{\"@id\":\"Annotated__car___402__isSet_om\"},{\"@id\":\"Annotated__car___402__audit_om\"}]" .
 
 elmt:Annotated__car___402_om
     a sysml:OwningMembership ;
@@ -542,65 +542,66 @@ elmt:Annotated__car___402_om
     sysml:owningRelatedElement elmt:Annotated__car ;
     sysml:membershipOwningNamespace elmt:Annotated__car .
 
-elmt:Annotated__car___402___400
+elmt:Annotated__car___402__level
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "Annotated::car::@2::@0" ;
+    sysml:name "level" ;
+    sysml:qualifiedName "Annotated::car::@2::level" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
     sysx:sourceEndColumn "27"^^xsd:integer ;
-    sysml:elementId "Annotated__car___402___400" ;
+    sysml:elementId "Annotated__car___402__level" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__car___402 ;
     sysml:owner elmt:Annotated__car___402 ;
-    sysml:owningRelationship elmt:Annotated__car___402___400_om ;
-    sysml:owningMembership elmt:Annotated__car___402___400_om ;
+    sysml:owningRelationship elmt:Annotated__car___402__level_om ;
+    sysml:owningMembership elmt:Annotated__car___402__level_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__level ;
-    sysml:value expr:Annotated__car___402___400_pvalue ;
-    sysml:ownedRelationship expr:Annotated__car___402___400_pvalue_om, elmt:Annotated__car___402___400_rd0 ;
-    sysml:ownedMembership expr:Annotated__car___402___400_pvalue_om ;
+    sysml:value expr:Annotated__car___402__level_pvalue ;
+    sysml:ownedRelationship expr:Annotated__car___402__level_pvalue_om, elmt:Annotated__car___402__level_rd0 ;
+    sysml:ownedMembership expr:Annotated__car___402__level_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedRedefinition elmt:Annotated__car___402___400_rd0 ;
-    sysml:ownedSubsetting elmt:Annotated__car___402___400_rd0 ;
-    sysml:ownedSpecialization elmt:Annotated__car___402___400_rd0 ;
+    sysml:ownedRedefinition elmt:Annotated__car___402__level_rd0 ;
+    sysml:ownedSubsetting elmt:Annotated__car___402__level_rd0 ;
+    sysml:ownedSpecialization elmt:Annotated__car___402__level_rd0 ;
     sysx:sourceText "            :>> level = 3;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car___402___400_pvalue_om\"},{\"@id\":\"Annotated__car___402___400_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__level_pvalue_om\"},{\"@id\":\"Annotated__car___402__level_rd0\"}]" .
 
-elmt:Annotated__car___402___400_om
+elmt:Annotated__car___402__level_om
     a sysml:FeatureMembership ;
-    sysml:elementId "Annotated__car___402___400_om" ;
+    sysml:elementId "Annotated__car___402__level_om" ;
     sysml:owner elmt:Annotated__car___402 ;
-    sysml:memberElement elmt:Annotated__car___402___400 ;
-    sysml:ownedMemberElement elmt:Annotated__car___402___400 ;
-    sysml:ownedRelatedElement elmt:Annotated__car___402___400 ;
+    sysml:memberElement elmt:Annotated__car___402__level ;
+    sysml:ownedMemberElement elmt:Annotated__car___402__level ;
+    sysml:ownedRelatedElement elmt:Annotated__car___402__level ;
     sysml:owningRelatedElement elmt:Annotated__car___402 ;
     sysml:membershipOwningNamespace elmt:Annotated__car___402 ;
-    sysml:ownedMemberFeature elmt:Annotated__car___402___400 ;
+    sysml:ownedMemberFeature elmt:Annotated__car___402__level ;
     sysml:owningType elmt:Annotated__car___402 .
 
-expr:Annotated__car___402___400_pvalue
+expr:Annotated__car___402__level_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "3" ;
-    sysml:elementId "Annotated__car___402___400_pvalue" ;
+    sysml:elementId "Annotated__car___402__level_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "3"^^xsd:integer ;
-    sysml:owner elmt:Annotated__car___402___400 ;
-    sysml:owningRelationship expr:Annotated__car___402___400_pvalue_om ;
-    sysml:owningMembership expr:Annotated__car___402___400_pvalue_om .
+    sysml:owner elmt:Annotated__car___402__level ;
+    sysml:owningRelationship expr:Annotated__car___402__level_pvalue_om ;
+    sysml:owningMembership expr:Annotated__car___402__level_pvalue_om .
 
-expr:Annotated__car___402___400_pvalue_om
+expr:Annotated__car___402__level_pvalue_om
     a sysml:FeatureValue ;
-    sysml:elementId "Annotated__car___402___400_pvalue_om" ;
-    sysml:owner elmt:Annotated__car___402___400 ;
-    sysml:memberElement expr:Annotated__car___402___400_pvalue ;
-    sysml:ownedMemberElement expr:Annotated__car___402___400_pvalue ;
-    sysml:ownedRelatedElement expr:Annotated__car___402___400_pvalue ;
-    sysml:owningRelatedElement elmt:Annotated__car___402___400 ;
-    sysml:membershipOwningNamespace elmt:Annotated__car___402___400 ;
-    sysml:featureWithValue elmt:Annotated__car___402___400 ;
-    sysml:value expr:Annotated__car___402___400_pvalue .
+    sysml:elementId "Annotated__car___402__level_pvalue_om" ;
+    sysml:owner elmt:Annotated__car___402__level ;
+    sysml:memberElement expr:Annotated__car___402__level_pvalue ;
+    sysml:ownedMemberElement expr:Annotated__car___402__level_pvalue ;
+    sysml:ownedRelatedElement expr:Annotated__car___402__level_pvalue ;
+    sysml:owningRelatedElement elmt:Annotated__car___402__level ;
+    sysml:membershipOwningNamespace elmt:Annotated__car___402__level ;
+    sysml:featureWithValue elmt:Annotated__car___402__level ;
+    sysml:value expr:Annotated__car___402__level_pvalue .
 
 elmt:Annotated__car___402__reviewer
     a sysml:ReferenceUsage ;
@@ -1507,22 +1508,22 @@ elmt:Annotated__car___402_ft0
     sysml:relatedElement elmt:Annotated__car___402, elmt:Annotated__Safety ;
     json:relatedElement "[{\"@id\":\"Annotated__car___402\"},{\"@id\":\"Annotated__Safety\"}]" .
 
-elmt:Annotated__car___402___400_rd0
+elmt:Annotated__car___402__level_rd0
     a sysml:Redefinition ;
-    sysml:elementId "Annotated__car___402___400_rd0" ;
-    sysml:redefiningFeature elmt:Annotated__car___402___400 ;
-    sysml:subsettingFeature elmt:Annotated__car___402___400 ;
-    sysml:owningFeature elmt:Annotated__car___402___400 ;
-    sysml:specific elmt:Annotated__car___402___400 ;
-    sysml:source elmt:Annotated__car___402___400 ;
-    sysml:owningRelatedElement elmt:Annotated__car___402___400 ;
+    sysml:elementId "Annotated__car___402__level_rd0" ;
+    sysml:redefiningFeature elmt:Annotated__car___402__level ;
+    sysml:subsettingFeature elmt:Annotated__car___402__level ;
+    sysml:owningFeature elmt:Annotated__car___402__level ;
+    sysml:specific elmt:Annotated__car___402__level ;
+    sysml:source elmt:Annotated__car___402__level ;
+    sysml:owningRelatedElement elmt:Annotated__car___402__level ;
     sysml:redefinedFeature elmt:Annotated__Safety__level ;
     sysml:subsettedFeature elmt:Annotated__Safety__level ;
     sysml:general elmt:Annotated__Safety__level ;
     sysml:target elmt:Annotated__Safety__level ;
-    sysml:owner elmt:Annotated__car___402___400 ;
-    sysml:relatedElement elmt:Annotated__car___402___400, elmt:Annotated__Safety__level ;
-    json:relatedElement "[{\"@id\":\"Annotated__car___402___400\"},{\"@id\":\"Annotated__Safety__level\"}]" .
+    sysml:owner elmt:Annotated__car___402__level ;
+    sysml:relatedElement elmt:Annotated__car___402__level, elmt:Annotated__Safety__level ;
+    json:relatedElement "[{\"@id\":\"Annotated__car___402__level\"},{\"@id\":\"Annotated__Safety__level\"}]" .
 
 elmt:Annotated__car___402__reviewer_rd0
     a sysml:Redefinition ;

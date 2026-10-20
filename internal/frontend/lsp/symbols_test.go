@@ -41,3 +41,31 @@ func TestDocumentSymbolReturnsTree(t *testing.T) {
 		t.Errorf("N kind = %v, want Namespace", pkg.Children[0].Kind)
 	}
 }
+
+// A view's `render tree;` is listed under the view by the name of the
+// rendering it references, which is the member's effective name.
+func TestDocumentSymbolNamesAViewRenderingByItsRendering(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	name := uri.File("/tmp/render.sysml").Filename()
+	ws.Open(name, []byte("package P { rendering def Tree; rendering tree : Tree; view def V { render tree; } }"), 1)
+	res, err := s.DocumentSymbol(context.Background(), &protocol.DocumentSymbolParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
+	})
+	if err != nil {
+		t.Fatalf("DocumentSymbol err = %v", err)
+	}
+	pkg := res[0].(protocol.DocumentSymbol)
+	var view *protocol.DocumentSymbol
+	for i := range pkg.Children {
+		if pkg.Children[i].Name == "V" {
+			view = &pkg.Children[i]
+		}
+	}
+	if view == nil {
+		t.Fatalf("pkg.Children = %+v, want V", pkg.Children)
+	}
+	if len(view.Children) != 1 || view.Children[0].Name != "tree" {
+		t.Fatalf("V.Children = %+v, want [tree]", view.Children)
+	}
+}

@@ -494,8 +494,8 @@ func TestChainReachingAUsageNamedByAChainWritesItsEffectiveName(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	for _, want := range []string{
-		"sysml:chainingFeature elmt:P__generator, elmt:P__generator___400",
-		"sysml:chainingFeature elmt:P__train, elmt:P__train__engine, elmt:P__train__engine___400",
+		"sysml:chainingFeature elmt:P__generator, elmt:P__generator__generate",
+		"sysml:chainingFeature elmt:P__train, elmt:P__train__engine, elmt:P__train__engine__generate",
 	} {
 		if !strings.Contains(string(graph), want) {
 			t.Errorf("graph does not link %q\n%s", want, graph)
