@@ -1622,7 +1622,7 @@
       "checks": "A cross feature has the same types as its feature (KerML `Feature::type`: declared, subsetted, redefined and referenced features' types, the most specific kept), an untyped feature being typed by `Anything` and an owned cross feature by its end",
       "implementation": "internal/check/passes/w10b_cross_features.go:checkW10BCrossFeatures",
       "message": "—",
-      "negativeCase": "`semantic/k18-cross-feature-type-differs.kerml`, `semantic/k54-cross-feature-typed-narrower-than-end.kerml`, `semantic/s88-cross-feature-typed-narrower-than-end.sysml`",
+      "negativeCase": "`semantic/k18-cross-feature-type-differs.kerml`, `semantic/k54-cross-feature-typed-narrower-than-end.kerml`, `semantic/k76-cross-feature-after-member-binding-type-differs.kerml`, `semantic/s88-cross-feature-typed-narrower-than-end.sysml`",
       "codes": [
         "cross-feature-type"
       ],
