@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -82,6 +83,10 @@ type Workspace struct {
 	// displaced, by standing in for it or by taking its name, for when it comes back.
 	standIns  map[string]string
 	displaced map[string]symbols.LibraryDocument
+	// findings caches WorkspaceFindings for the generation it was computed at.
+	findings      []checkws.Finding
+	findingsGen   uint64
+	findingsKnown bool
 
 	// workers is how many documents OpenAll and DiagnosticsAll work on at once.
 	workers int

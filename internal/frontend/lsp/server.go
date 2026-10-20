@@ -10,6 +10,7 @@ import (
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 	"go.uber.org/zap"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
@@ -44,6 +45,9 @@ type Server struct {
 	// pubMu serializes analyze-and-send, so the sweep's timer goroutine and a
 	// notification handler cannot deliver one document's diagnostics out of order.
 	pubMu sync.Mutex
+	// findingURIs are the documents not open in the editor that the workspace
+	// findings were last published on, to withdraw from when they move.
+	findingURIs map[uri.URI]bool
 
 	mu               sync.Mutex
 	shutdownReceived bool
