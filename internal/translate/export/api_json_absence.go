@@ -30,6 +30,7 @@ var (
 	apiJSONOwnedAbsenceOntologyOnce sync.Once
 	apiJSONOwnedAbsenceMetadata     apiJSONOwnedAbsenceOntology
 	apiJSONOwnedAbsencePlans        sync.Map
+	apiJSONEmptyCollection          = []any{}
 )
 
 var apiJSONOwnedAbsenceTypeAliases = map[string]string{
@@ -49,12 +50,25 @@ var apiJSONOwnedAbsenceExtensionParents = map[string]string{
 }
 
 func appendAPIJSONOwnedAbsences(graph *rdf.Graph, subject rdf.Term, element apiJSONObject, typ rdf.Term) apiJSONObject {
+	return appendAPIJSONOwnedAbsencesWithScratch(graph, subject, element, typ, nil)
+}
+
+func appendAPIJSONOwnedAbsencesWithScratch(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	element apiJSONObject,
+	typ rdf.Term,
+	scratch *apiJSONWriteScratch,
+) apiJSONObject {
 	metaclass := apiJSONOwnedAbsenceMetaclassInGraph(graph, typ.Value)
 	if metaclass == "" {
 		return element
 	}
 	libraryStub := LibraryReference(graph, subject)
-	var absences []apiJSONMember
+	var absences apiJSONObject
+	if scratch != nil {
+		absences = scratch.absences[:0]
+	}
 	var mappingValues apiJSONObject
 	for _, member := range element {
 		if member.key == "sysx:mappingValues" {
@@ -62,7 +76,8 @@ func appendAPIJSONOwnedAbsences(graph *rdf.Graph, subject rdf.Term, element apiJ
 			break
 		}
 	}
-	for _, planned := range apiJSONOwnedAbsencePlanFor(metaclass) {
+	plan := apiJSONOwnedAbsencePlanFor(metaclass)
+	for _, planned := range plan {
 		property := planned.property
 		if apiJSONHasMember(element, property.Name) ||
 			apiJSONHasMember(mappingValues, property.Name) ||
@@ -80,7 +95,7 @@ func appendAPIJSONOwnedAbsences(graph *rdf.Graph, subject rdf.Term, element apiJ
 		}
 		var value any
 		if property.Many {
-			value = []any{}
+			value = apiJSONEmptyCollection
 		}
 		absences = append(absences, apiJSONMember{key: property.Name, value: value})
 	}
@@ -92,9 +107,21 @@ func appendAPIJSONOwnedAbsences(graph *rdf.Graph, subject rdf.Term, element apiJ
 		}
 	}
 	if len(absences) > 0 {
-		element = append(element, make(apiJSONObject, len(absences))...)
-		copy(element[insertAt+len(absences):], element[insertAt:len(element)-len(absences)])
-		copy(element[insertAt:], absences)
+		oldLength := len(element)
+		newLength := oldLength + len(absences)
+		if newLength > cap(element) {
+			expanded := make(apiJSONObject, newLength)
+			copy(expanded[:insertAt], element[:insertAt])
+			copy(expanded[insertAt+len(absences):], element[insertAt:])
+			element = expanded
+		} else {
+			element = element[:newLength]
+			copy(element[insertAt+len(absences):], element[insertAt:oldLength])
+		}
+		copy(element[insertAt:insertAt+len(absences)], absences)
+	}
+	if scratch != nil {
+		scratch.absences = absences
 	}
 	return element
 }

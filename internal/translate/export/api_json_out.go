@@ -96,6 +96,7 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	mappingNames := newAPIJSONMappingNameIndex(evaluation.structure.graph, subjectSlots)
 	nameIndex := newAPIJSONNameIndexWithSubjectSlots(settled, subjectSlots)
 	comparisonCache := &apiJSONTermCache{}
+	scratch := &apiJSONWriteScratch{}
 	for _, subject := range subjects {
 		// The element form holds the model's own elements only; a library element
 		// stays a bare reference, as an ownerless element there is a root (the OMG API JSON shape).
@@ -103,7 +104,7 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 			continue
 		}
 		element, err := apiJSONElementWithEvaluationOptionsAndOrder(
-			settled, subject, evaluation, mappingNames, nameIndex, comparisonCache, wrapped, options,
+			settled, subject, evaluation, mappingNames, nameIndex, comparisonCache, wrapped, options, scratch,
 		)
 		if err != nil {
 			return nil, err
@@ -262,7 +263,7 @@ func apiJSONElementWithEvaluationOptions(
 	options APIJSONOptions,
 ) (apiJSONObject, error) {
 	return apiJSONElementWithEvaluationOptionsAndOrder(
-		graph, subject, evaluation, mappingNames, nameIndex, comparisonCache, graph, options,
+		graph, subject, evaluation, mappingNames, nameIndex, comparisonCache, graph, options, &apiJSONWriteScratch{},
 	)
 }
 
@@ -275,6 +276,7 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 	comparisonCache *apiJSONTermCache,
 	propertyOrderGraph *rdf.Graph,
 	options APIJSONOptions,
+	scratch *apiJSONWriteScratch,
 ) (apiJSONObject, error) {
 	types := graph.ObjectsView(subject, rdf.RDFType)
 	if len(types) != 1 {
@@ -419,14 +421,14 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 			element[mappingValuesPosition] = member
 		}
 	}
-	element = appendAPIJSONOwnedAbsences(graph, subject, element, types[0])
+	element = appendAPIJSONOwnedAbsencesWithScratch(graph, subject, element, types[0], scratch)
 	graphOrder := apiJSONGraphPropertyOrder(propertyOrderGraph, subject)
 	graphOrder = apiJSONGraphPropertyOrderWithFallback(
 		graphOrder, apiJSONGraphPropertyOrder(graph, subject),
 	)
 	if len(graphOrder) > 0 && apiJSONHasPropertyOrderSidecar(element, graph, subject) {
-		naturalOrder, sidecarOnly := apiJSONNaturalPropertyOrderWithOrder(
-			graph, subject, element, graphOrder,
+		naturalOrder, sidecarOnly := apiJSONNaturalPropertyOrderWithScratch(
+			graph, subject, element, graphOrder, scratch,
 		)
 		if apiJSONHasMisplacedSidecarProperty(graphOrder, naturalOrder, sidecarOnly) {
 			element = append(element, apiJSONMember{
@@ -449,8 +451,9 @@ func apiJSONHasPropertyOrderSidecar(element apiJSONObject, graph *rdf.Graph, sub
 }
 
 func apiJSONGraphPropertyOrder(graph *rdf.Graph, subject rdf.Term) []string {
-	order := make([]string, 0, len(graph.PredicatesView(subject)))
-	for _, predicate := range graph.PredicatesView(subject) {
+	predicates := graph.PredicatesView(subject)
+	order := make([]string, 0, len(predicates))
+	for _, predicate := range predicates {
 		if predicate == rdf.RDFType || rdf.IsAnnotationJSON(predicate) {
 			continue
 		}
@@ -470,13 +473,63 @@ func apiJSONNaturalPropertyOrder(graph *rdf.Graph, subject rdf.Term, element api
 	)
 }
 
+type apiJSONWriteScratch struct {
+	absences            apiJSONObject
+	memberProperties    map[string]bool
+	emitted             map[string]bool
+	graphProperties     map[string]bool
+	seen                map[string]bool
+	order               []string
+	sidecarOnly         []string
+	filtered            []string
+	filteredSidecarOnly []string
+}
+
 func apiJSONNaturalPropertyOrderWithOrder(
 	graph *rdf.Graph,
 	subject rdf.Term,
 	element apiJSONObject,
 	graphOrder []string,
 ) ([]string, []string) {
-	memberProperties := make(map[string]bool, len(element))
+	return apiJSONNaturalPropertyOrderWithScratch(
+		graph, subject, element, graphOrder, &apiJSONWriteScratch{},
+	)
+}
+
+func apiJSONNaturalPropertyOrderWithScratch(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	element apiJSONObject,
+	graphOrder []string,
+	scratch *apiJSONWriteScratch,
+) ([]string, []string) {
+	if scratch == nil {
+		scratch = &apiJSONWriteScratch{}
+	}
+	if scratch.memberProperties == nil {
+		scratch.memberProperties = make(map[string]bool, len(element))
+	} else {
+		clear(scratch.memberProperties)
+	}
+	if scratch.emitted == nil {
+		scratch.emitted = make(map[string]bool, len(element))
+	} else {
+		clear(scratch.emitted)
+	}
+	if scratch.graphProperties == nil {
+		scratch.graphProperties = make(map[string]bool, len(graphOrder))
+	} else {
+		clear(scratch.graphProperties)
+	}
+	if scratch.seen == nil {
+		scratch.seen = make(map[string]bool, len(graphOrder))
+	} else {
+		clear(scratch.seen)
+	}
+	order := scratch.order[:0]
+	sidecarOnly := scratch.sidecarOnly[:0]
+	filtered := scratch.filtered[:0]
+	filteredSidecarOnly := scratch.filteredSidecarOnly[:0]
 	mappingQualifiedNameIndex := -1
 	hasQualifiedName := false
 	for i, member := range element {
@@ -488,15 +541,12 @@ func apiJSONNaturalPropertyOrderWithOrder(
 			}
 		case "qualifiedName":
 			hasQualifiedName = true
-			memberProperties[member.key] = true
+			scratch.memberProperties[member.key] = true
 		default:
-			memberProperties[member.key] = true
+			scratch.memberProperties[member.key] = true
 		}
 	}
 
-	order := make([]string, 0, len(element))
-	sidecarOnly := make([]string, 0)
-	emitted := make(map[string]bool, len(element))
 	for _, member := range element {
 		switch member.key {
 		case "@type", "@id", apiJSONMappingPropertyOrderKey, "sysx:mappingQualifiedName":
@@ -507,19 +557,19 @@ func apiJSONNaturalPropertyOrderWithOrder(
 				continue
 			}
 			for _, value := range values {
-				if memberProperties[value.key] || emitted[value.key] {
+				if scratch.memberProperties[value.key] || scratch.emitted[value.key] {
 					continue
 				}
 				order = append(order, value.key)
-				emitted[value.key] = true
+				scratch.emitted[value.key] = true
 				sidecarOnly = append(sidecarOnly, value.key)
 			}
 		default:
-			if emitted[member.key] {
+			if scratch.emitted[member.key] {
 				continue
 			}
 			order = append(order, member.key)
-			emitted[member.key] = true
+			scratch.emitted[member.key] = true
 		}
 	}
 
@@ -569,24 +619,24 @@ func apiJSONNaturalPropertyOrderWithOrder(
 		sidecarOnly = append(sidecarOnly, "qualifiedName")
 	}
 
-	graphProperties := make(map[string]bool)
 	for _, property := range graphOrder {
-		graphProperties[property] = true
+		scratch.graphProperties[property] = true
 	}
-	filtered := make([]string, 0, len(order))
-	seen := make(map[string]bool, len(order))
 	for _, property := range order {
-		if graphProperties[property] && !seen[property] {
+		if scratch.graphProperties[property] && !scratch.seen[property] {
 			filtered = append(filtered, property)
-			seen[property] = true
+			scratch.seen[property] = true
 		}
 	}
-	filteredSidecarOnly := make([]string, 0, len(sidecarOnly))
 	for _, property := range sidecarOnly {
-		if graphProperties[property] {
+		if scratch.graphProperties[property] {
 			filteredSidecarOnly = append(filteredSidecarOnly, property)
 		}
 	}
+	scratch.order = order
+	scratch.sidecarOnly = sidecarOnly
+	scratch.filtered = filtered
+	scratch.filteredSidecarOnly = filteredSidecarOnly
 	return filtered, filteredSidecarOnly
 }
 
