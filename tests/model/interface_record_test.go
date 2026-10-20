@@ -397,3 +397,20 @@ func libraryIdentity(t *testing.T) string {
 	}
 	return identity
 }
+
+// A reference no declaration answers is a diagnostic of the document, not an
+// absent interface: a definition annotated with an undeclared metadata type and
+// an `about` usage naming undeclared elements are recorded like any other, and
+// the record contributes to the workspace-wide `about` index as the loaded
+// document did, so it is not written off as stale when a neighbour reads it.
+func TestInterfaceRecordOfUnresolvedMetadataReferences(t *testing.T) {
+	t.Parallel()
+	docs := map[string][]byte{
+		"decl.kerml":  []byte("package Decl { metaclass SecurityRelated { feature level : Base::Anything; } }\n"),
+		"about.kerml": []byte("package About { metadata securityDesignAnnotation : SecurityRelated about SecurityDesign; }\n"),
+		"save.kerml":  []byte("package Annot { behavior Save { @Command; } metadata Note : Command about Save; }\n"),
+	}
+	if recorded := recordDifferential(t, docs); recorded != len(docs) {
+		t.Fatalf("%d of %d documents recorded, want every one", recorded, len(docs))
+	}
+}

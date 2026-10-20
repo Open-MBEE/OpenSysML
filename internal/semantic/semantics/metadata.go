@@ -23,19 +23,19 @@ const baseTypeFeature = "baseType"
 //   - a definition annotated with a usage baseType subclassifies the types of
 //     that baseType.
 //
-// Any other combination contributes nothing. The second result is false when an
-// annotation named a type that could not be resolved yet, so the answer is
-// provisional and must not be memoized.
-func (m *Model) semanticMetadataBases(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
+// Any other combination contributes nothing, and so does an annotation whose
+// type no declaration supplies: that is the reference's diagnostic, not a
+// provisional answer. A lookup a guard cut short is accounted for by the
+// resolver frames DirectSupertypes opened, as for any other supertype.
+func (m *Model) semanticMetadataBases(sym *symbols.Symbol) []*symbols.Symbol {
 	switch sym.Decl.(type) {
 	case *ast.Definition, *ast.Usage, *ast.SubjectMember, *ast.AssumeMember, *ast.RequireMember:
 	default:
-		return nil, true
+		return nil
 	}
 	isDef := !sym.IsFeature()
 
 	var out []*symbols.Symbol
-	complete := true
 	for _, a := range MetadataAnnotationsOf(sym.Decl) {
 		p := a.Node
 		if p.Type == nil {
@@ -43,7 +43,6 @@ func (m *Model) semanticMetadataBases(sym *symbols.Symbol) ([]*symbols.Symbol, b
 		}
 		def, ok := m.resolveAnnotationType(sym, a)
 		if !ok || def == nil {
-			complete = false
 			continue
 		}
 		if resolved, aliasOK := m.resolver.ResolveAliasTarget(def); aliasOK {
@@ -69,7 +68,7 @@ func (m *Model) semanticMetadataBases(sym *symbols.Symbol) ([]*symbols.Symbol, b
 			out = append(out, base)
 		}
 	}
-	return out, complete
+	return out
 }
 
 // MetadataAnnotation is a metadata feature annotating an element, written either

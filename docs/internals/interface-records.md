@@ -63,7 +63,7 @@ Per symbol, the facts (`LibraryFacts`), each with the reader that needs it:
 | `Supers` — direct supertypes, resolved | inheritance, member lookup through the type, conformance |
 | `Redefines`, `References` — redefined features, the feature a reference subsets | masking, distinguishability, end typing |
 | `Alias` — the element an alias's own target names, an alias itself in a chain; zero when it names nothing | qualified-name resolution through the alias, an alias to nothing skipped as loaded |
-| `Direction`, `Modifiers` — `in`/`out`/`inout`, `end`, `derived`, `variation`, `variant`, `abstract`, `individual`, `ordered`, `nonunique`, `constant`, `parallel`, `ModResult`, `ModValued` (the declaration binds a value), and the rest of the boolean traits a declaration states | typing, redefinition conformance, variation and individual checks, the parameter list of a behavior — which parameters a call binds, which it may leave unbound, its result |
+| `Direction`, `Modifiers` — `in`/`out`/`inout`, `end`, `derived`, `variation`, `variant`, `abstract`, `individual`, `ordered`, `nonunique`, `constant`, `parallel`, `ModResult`, `ModValued` (the declaration binds a value), `ModAnnotatesOthers` (a metadata usage written with an `about` clause, resolved or not, so the record joins the workspace-wide `about` index as the loaded document did), and the rest of the boolean traits a declaration states | typing, redefinition conformance, variation and individual checks, the parameter list of a behavior — which parameters a call binds, which it may leave unbound, its result |
 | `ModNamesNothing` — a name borrowed from a referenced or redefined feature that resolved to no feature | `Resolver.BindsName`: whether the member is found by that name, and whether a specialization declaring it inherits a duplicate |
 | `Multiplicity` — the declared bounds, evaluated; a bound written as the name of a feature the declaring scope values carries that value, marked so a reader evaluating without the scope sees it unknown, as it does loaded | multiplicity conformance of a redefinition, end multiplicities; whether a `multiplicity` member is a `MultiplicityRange` under a `@@` filter |
 | `Unit`, `Dimension` — the reduced unit or dimension a library-style declaration denotes | quantity typing, unit conversion |
@@ -148,8 +148,9 @@ rather than writing an approximate one, and the document stays loaded.
 `WriteInterface` returns `ErrUnrecordable` for a document whose interface it
 cannot state without the tree, and the document is held loaded. Today that is:
 a supertype, redefinition, alias, annotation, annotation type, relationship, subsetted
-multiplicity or base-type target no `ElementRef` reaches; supertypes the semantic model marked provisional; a
-quantity-valued annotation or metadata default; and a metadata definition
+multiplicity or base-type target no `ElementRef` reaches; supertypes the semantic model marked provisional
+(a lookup a resolver guard cut short — a name no declaration supplies is settled, and its
+diagnostic is the record's); a quantity-valued annotation or metadata default; and a metadata definition
 whose `baseType` is bound conditionally. In the four OMG corpora one document of 313 is refused
 (`kerml-examples/Simple Tests/MetadataTest.kerml`, a conditional `baseType`
 binding). A refusal is never silent: the error names the fact and the element.

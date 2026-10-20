@@ -173,8 +173,8 @@ example the resolutions did not reach.
 ## Launch-ready gaps
 
 Each row is self-contained: clause, the extracted file that shows it, the behaviour the text requires,
-and a probe to reproduce it. None of these is fixed here; the ratchet pins the current verdicts so each
-fix moves exactly its own lines. The in-flight column records whether other work on the same rule was
+and a probe to reproduce it. The ratchet pins the current verdicts so each fix moves exactly its own
+lines; a row whose fix has landed says so in its probe column. The in-flight column records whether other work on the same rule was
 found open at the time of writing.
 
 | # | Clause | File | Expected behaviour | Probe | In-flight overlap |
@@ -192,7 +192,7 @@ found open at the time of writing.
 | G11 | SysML 8.2.2.13.1 `ConnectorEnd` | `sysml/8.4.13.4/1`–`9.sysml` | A multiplicity *after* an end reference (`first a1[1..1] then j[1..1]`) has no production and is reported, as the pilot does; the project's nonstandard-notation policy decides whether as an error or a warning. | `sysml -validate`: a diagnostic on each succession line; today the files are clean. | none found |
 | G12 | SysML 8.2.2.19.1 `ResultExpressionMember` | `sysml/7.21.2/2.sysml` | A `;` after a body's result expression (`mass > 0[kg];`) is reported, as the pilot does. | `sysml -validate`: a diagnostic on line 9; today the file is clean. | none found |
 | G13 | SysML 8.2.2.22 / 8.2.2.23 keywords | `sysml/8.4.19.1/1`, `8.4.19.2/1`, `8.4.20.1/1.sysml` | `analysis case def` / `verification case def` are not SysML keywords (`analysis def`, `verification def` are) and are reported, as the pilot does. | `sysml -validate`: a `syntax` or `nonstandard-notation` diagnostic on the definition line; today only the usage `specializes` is reported. | none found |
-| G14 | KerML 7.4.13 metadata examples; SysML 7.27.2 | `kerml/7.4.13/3`, `11`, `12`, `14`, `15.kerml`, `sysml/7.27.2/3.sysml` | The document interface record (`tests/model/interface_record_test.go`) is derivable for every file of the root: today `provisional supertypes of ... Save` refuses four files whose metadata definitions specialise an undeclared name, and two files are "written among other documents". Until then the root is left out of `corpusRoots` in `tests/model`, so the incremental and interface-record differentials do not run over it. | `go test ./tests/model -run TestInterfaceRecordDifferentialCorpora` with the root added to `corpusRoots`: 6 failures today. | none found |
+| G14 | KerML 7.4.13 metadata examples; SysML 7.27.2 | `kerml/7.4.13/3`, `11`, `12`, `14`, `15.kerml`, `sysml/7.27.2/3.sysml` | The document interface record (`tests/model/interface_record_test.go`) is derivable for every file of the root, so the root is in `corpusRoots` in `tests/model` and the incremental and interface-record differentials run over it. A reference no declaration answers is the document's diagnostic, not an absent interface: an annotation naming an undeclared metadata type (`@Command;` in `behavior Save`) contributes no supertype and leaves the supertypes settled rather than provisional, and an `about` usage naming undeclared elements (`metadata securityDesignAnnotation : SecurityRelated about SecurityDesign;`) is recorded as an `about` usage, so the record contributes to the workspace-wide `about` index as the loaded document did instead of being written off as stale. | **Fixed.** `go test ./tests/model -run 'TestInterfaceRecordDifferentialCorpora/spec-examples'`: every file of the root is recorded (6 failures before the fix: four `provisional supertypes of ... Save` refusals, two records "written among other documents"). | none found |
 
 The sweep for in-flight work covered the open pull requests and the remote branches without one that
 touch `internal/syntax/parser`, `internal/check` and the corpus gates; none of them addresses the
