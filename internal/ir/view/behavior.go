@@ -582,23 +582,35 @@ func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol
 }
 
 // rootSuccessionEdges draws the successions of one action between actions of
-// it exposed as roots of their own, read from the action declaring them.
+// it exposed as roots of their own, read from the action's lowered graph and
+// labelled as actionEdges labels them within the action.
 func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.Symbol]*Node, out *Rendering) {
 	for owner, actions := range rootsByOwner(roots, symbols.SymbolActionUsage, symbols.SymbolActionDef, symbols.SymbolActionUsage) {
-		for _, succession := range r.model.ActionSuccessions(owner) {
-			from, to := actions[succession.Source.Symbol], actions[succession.Target.Symbol]
-			if from == nil || to == nil || from == to || succession.Decl == nil {
-				continue
+		graph, err := lower.ToActionGraphWith(owner.Decl, declScope(owner), r.resolver)
+		if err != nil {
+			continue
+		}
+		root := r.documentRoot(owner.DocName)
+		if root == nil {
+			continue
+		}
+		actionOf := func(node ast.Node) *Node { return actions[root.DeclaredAt(nodeOrigin(owner.DocName, node).Span)] }
+		for _, src := range graph.Nodes {
+			for _, edge := range graph.Edges[src] {
+				from, to := actionOf(src), actionOf(edge.Target)
+				if from == nil || to == nil || from == to {
+					continue
+				}
+				decl := edge.Decl
+				if edge.Gate != nil {
+					decl = edge.Gate
+				}
+				edgeDoc := docOf(graph, decl, owner.DocName)
+				out.Edges = append(out.Edges, Edge{From: from.ID, To: to.ID, Kind: EdgeSuccession,
+					Label:  r.successionLabel(edge, edgeDoc, owner.DocName, r.declaredNameSynthesized(owner, decl)),
+					Origin: nodeOrigin(edgeDoc, decl), Route: r.declaredRouteOf(view, owner, decl, out),
+					Style: r.declaredEdgeDress(view, owner, decl, from.ID, to.ID, out)})
 			}
-			doc := owner.DocName
-			if succession.Owner != nil {
-				doc = succession.Owner.DocName
-			}
-			out.Edges = append(out.Edges, Edge{
-				From: from.ID, To: to.ID, Kind: EdgeSuccession, Origin: nodeOrigin(doc, succession.Decl),
-				Route: r.declaredRouteOf(view, owner, succession.Decl, out),
-				Style: r.declaredEdgeDress(view, owner, succession.Decl, from.ID, to.ID, out),
-			})
 		}
 	}
 }

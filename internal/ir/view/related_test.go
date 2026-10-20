@@ -37,7 +37,7 @@ const relatedModel = `package Rel {
 		action paint;
 		action ship;
 		first weld then paint;
-		first paint then ship;
+		succession checked first paint if true then ship;
 	}
 }
 `
@@ -143,18 +143,31 @@ func TestActionRootsAreJoinedByTheirOwnersSuccessions(t *testing.T) {
 	if len(actions.Roots) != 3 || len(actions.Edges) != 2 {
 		t.Fatalf("actions: roots %d, edges %+v, notices %v; want weld -> paint -> ship", len(actions.Roots), actions.Edges, actions.Notices)
 	}
-	for i, want := range [][2]string{{"Rel::Build::weld", "Rel::Build::paint"}, {"Rel::Build::paint", "Rel::Build::ship"}} {
+	for i, want := range [][3]string{{"Rel::Build::weld", "Rel::Build::paint", ""}, {"Rel::Build::paint", "Rel::Build::ship", "[true]"}} {
 		edge := actions.Edges[i]
-		if edge.Kind != EdgeSuccession || actions.Roots[rootIndex(actions, edge.From)].Name != want[0] || actions.Roots[rootIndex(actions, edge.To)].Name != want[1] {
-			t.Errorf("edge %d = %+v, want succession %s -> %s", i, edge, want[0], want[1])
+		if edge.Kind != EdgeSuccession || actions.Roots[rootIndex(actions, edge.From)].Name != want[0] || actions.Roots[rootIndex(actions, edge.To)].Name != want[1] || edge.Label != want[2] {
+			t.Errorf("edge %d = %+v, want succession %s -> %s labelled %q", i, edge, want[0], want[1], want[2])
 		}
 	}
-	whole, err := r.RenderExposed([]*symbols.Symbol{lookup(t, idx, "Rel::Build"), lookup(t, idx, "Rel::Build::paint"), lookup(t, idx, "Rel::Build::ship")}, KindAction, "")
+	whole, err := r.RenderExposed([]*symbols.Symbol{lookup(t, idx, "Rel::Build")}, KindAction, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, root := range whole.Roots[1:] {
-		for _, edge := range whole.Edges {
+	var within []string
+	for _, edge := range whole.Edges {
+		if edge.Kind == EdgeSuccession {
+			within = append(within, edge.Label)
+		}
+	}
+	if strings.Join(within, "|") != strings.Join([]string{actions.Edges[0].Label, actions.Edges[1].Label}, "|") {
+		t.Errorf("labels within Build = %q, want the root edges' %q", within, []string{actions.Edges[0].Label, actions.Edges[1].Label})
+	}
+	beside, err := r.RenderExposed([]*symbols.Symbol{lookup(t, idx, "Rel::Build"), lookup(t, idx, "Rel::Build::paint"), lookup(t, idx, "Rel::Build::ship")}, KindAction, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, root := range beside.Roots[1:] {
+		for _, edge := range beside.Edges {
 			if edge.From == root.ID || edge.To == root.ID {
 				t.Errorf("an action exposed beside its owner takes no root edge: %+v", edge)
 			}
