@@ -52,7 +52,7 @@ func (ctx *Context) comparableTypes(typ, other *symbols.Symbol, seen map[*symbol
 		return false
 	}
 	seen[typ] = true
-	for _, super := range ctx.model.semantics.DirectSupertypes(typ) {
+	for _, super := range ctx.model.semantics.DeclaredSupertypes(typ) {
 		if !ctx.comparableTypes(super, other, seen) {
 			return false
 		}

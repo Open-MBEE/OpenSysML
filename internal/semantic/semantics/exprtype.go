@@ -221,7 +221,7 @@ func (m *Model) DeclaresResolvedType(sym *symbols.Symbol, prim PrimType) bool {
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
-		bases := m.implicitBases(cur)
+		bases := m.ImplicitGenerals(cur)
 		for _, sup := range m.DirectSupertypes(cur) {
 			if seen[sup] {
 				continue
@@ -237,12 +237,6 @@ func (m *Model) DeclaresResolvedType(sym *symbols.Symbol, prim PrimType) bool {
 			}
 			seen[sup] = true
 			queue = append(queue, sup)
-		}
-		if m.kindBaseExcludes(m.implicitKerMLFeatureBase(cur), prim) {
-			return true
-		}
-		if m.kindBaseExcludes(m.implicitUsageBaseFeature(cur), prim) {
-			return true
 		}
 	}
 	return false

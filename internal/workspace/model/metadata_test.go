@@ -142,8 +142,8 @@ func TestPlainMetadataKeywordAddsNoSpecialization(t *testing.T) {
 		}
 	}`
 	got := implicitBaseOf(t, src, "P", "Design", "wheel")
-	if len(got) != 1 || got[0] != "Base::Anything" {
-		t.Fatalf("supertypes of the annotated usage = %v, want [Base::Anything]", got)
+	if want := []string{"Base::Anything", "Base::things"}; !slices.Equal(got, want) {
+		t.Fatalf("supertypes of the annotated usage = %v, want %v", got, want)
 	}
 	if plain := implicitBaseOf(t, src, "P", "Design", "plain"); !slices.Equal(plain, got) {
 		t.Fatalf("supertypes of the plain usage = %v, want %v as the annotated one", plain, got)

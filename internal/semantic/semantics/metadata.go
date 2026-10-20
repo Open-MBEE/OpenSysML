@@ -61,8 +61,12 @@ func (m *Model) semanticMetadataBases(sym *symbols.Symbol) ([]*symbols.Symbol, b
 		switch {
 		case isDef && base.IsFeature():
 			// A definition cannot subclassify a feature: it subclassifies
-			// what the feature is typed by.
-			out = append(out, m.DirectSupertypes(base)...)
+			// what the feature is typed by, not the features it subsets.
+			for _, super := range m.DirectSupertypes(base) {
+				if !super.IsFeature() {
+					out = append(out, super)
+				}
+			}
 		case isDef || base.IsFeature():
 			// Definition with a definition baseType, or usage with a usage
 			// baseType. A usage with a definition baseType adds nothing.

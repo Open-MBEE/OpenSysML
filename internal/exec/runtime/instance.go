@@ -1385,7 +1385,7 @@ func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 			return true
 		}
 	}
-	for _, sup := range ctx.model.semantics.DirectSupertypes(feat.Symbol) {
+	for _, sup := range ctx.model.semantics.DeclaredSupertypes(feat.Symbol) {
 		if usageSymbol(sup) && declaresFeatures(sup) {
 			return true
 		}

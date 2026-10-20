@@ -178,7 +178,7 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 		}
 	}
 	if len(generals) > 1 {
-		bases := m.implicitBases(sym)
+		bases := m.ImplicitGenerals(sym)
 		generals = slices.DeleteFunc(generals, func(sup *symbols.Symbol) bool { return slices.Contains(bases, sup) })
 	}
 	if len(generals) == 1 {
@@ -402,8 +402,11 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 	}
 
 	var out []*symbols.Symbol
+	// The base feature a kind implies owns no parameters; those of its type are
+	// reached through the kind's base definition or the declared chain already.
+	baseFeatures := m.ImpliedBaseFeatures(owner)
 	for _, sup := range m.DirectSupertypes(owner) {
-		if !behaviorLike(sup) {
+		if !behaviorLike(sup) || slices.Contains(baseFeatures, sup) {
 			continue
 		}
 		supParams := m.parametersOf(sup)
