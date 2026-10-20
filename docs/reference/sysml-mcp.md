@@ -40,6 +40,17 @@ same on Windows, the Homebrew formula and the Scoop manifest install it beside `
 `make build-mcp` (into `bin/sysml-mcp`) or as part of `make build`. `sysml-mcp -version` reports
 the build.
 
+## Finding it in your host
+
+Each release is also listed in the official [MCP Registry](https://registry.modelcontextprotocol.io)
+as `org.opensysml/sysml-mcp`, pointing at the npm package `@openmbee/sysml-mcp`, so a host that
+browses the registry offers it without any of the above: the GitHub MCP Registry lists it, VS
+Code finds it under *MCP: Browse MCP Servers* (or the Extensions view's MCP Servers section),
+and third-party directories that mirror the registry carry the same entry. Installing from there
+configures `npx -y @openmbee/sysml-mcp`, which downloads the release binary for the platform
+and runs it; the `-root` argument the listing declares is the workspace folder, the current
+directory by default.
+
 ## Configuring a host
 
 Each host reads a configuration file of its own, and `-print-config <host>` writes the exact
@@ -308,8 +319,9 @@ without this page.
 - **Paths** are absolute or relative to the workspace root (`-root`), and are resolved against
   it; a tool that takes `paths` accepts files, directories and globs. A path must stay under the
   root: one that leaves it, by its form (`../secret.sysml`, an absolute path elsewhere) or
-  through a symlink, is refused. The `lsp` tools can also work on text held open with
-  `open_document` instead of a file on disk.
+  through a symlink, is refused, and writes are performed through the resolved root itself, so
+  a link repointed after the check cannot carry one outside it. The `lsp` tools can also work on
+  text held open with `open_document` instead of a file on disk.
 - **Writing** happens only on request: a tool marked as writing (`format`, `rename`,
   `apply_model_edit`, `session_save`, ...) returns the edit or the file it would write and
   touches the disk only with `"apply": true`. The session tools that write change the session's
