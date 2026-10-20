@@ -42,6 +42,12 @@ func (m *Model) isConnectorLike(sym *symbols.Symbol) bool {
 	return connectorLike(sym) || sym != nil && sym.Decl == nil && m.IsBinaryConnector(sym)
 }
 
+// IsAssociationOrConnector reports whether sym's declaration kind makes it an Association or a
+// Connector (assoc, interaction, connector, flow, SysML connection kinds); no library is needed.
+func (m *Model) IsAssociationOrConnector(sym *symbols.Symbol) bool {
+	return m != nil && m.isConnectorLike(sym)
+}
+
 // ownedEnds returns the end features sym owns, one entry per end in
 // declaration order: first the ends of its `connect` clause, then the `end`
 // features of its body. An end whose symbol is not registered still occupies

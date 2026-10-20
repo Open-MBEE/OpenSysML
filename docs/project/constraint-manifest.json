@@ -3274,10 +3274,10 @@
         "clause": "8.3.3.3.8",
         "name": "validateRedefinitionEndConformance"
       },
-      "checks": "A feature redefining an end feature is an end feature",
+      "checks": "A feature of an association or a connector redefining an end feature is an end feature",
       "implementation": "internal/check/passes/w10b_redefinition.go:checkW10BRedefinition",
       "message": "—",
-      "negativeCase": "`semantic/k15-nonend-redefines-end.kerml`",
+      "negativeCase": "`semantic/k15-nonend-redefines-end.kerml`, `semantic/k75-nonend-redefines-end-in-connector.kerml`, `semantic/s110-nonend-redefines-end-in-connection-def.sysml`, `semantic/s111-nonend-redefines-end-in-connection-usage.sysml`",
       "codes": [
         "redefinition-not-end"
       ],
