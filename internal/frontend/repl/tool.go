@@ -48,10 +48,10 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 	if !s.hasDeclarations() {
 		return unresolvedVerdict(label, "no declarations loaded")
 	}
-	sym, fqn, err := s.lookupSymbolOfKinds(inv.name,
+	sym, fqn, err := s.lookupSymbolOfKinds(inv.name, append([]symbols.SymbolKind{
 		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolVerificationCaseDef, symbols.SymbolVerificationCaseUsage,
-		symbols.SymbolActionDef, symbols.SymbolActionUsage)
+	}, actionKinds...)...)
 	if err != nil {
 		return unresolvedVerdict(label, err.Error())
 	}
@@ -76,8 +76,7 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 	ctx.SetToolRunner(runner)
 	defer ctx.SetToolRunner(prior)
 
-	isAction := sym.Kind == symbols.SymbolActionDef || sym.Kind == symbols.SymbolActionUsage
-	if isAction {
+	if sym.Kind.IsAction() {
 		err = s.runActionToCompletion(ctx, inv, sym)
 	} else {
 		_, err = s.runAnalysisIn(s.direct(), ctx, inv, sym, fqn, heldObjects{s})
@@ -109,21 +108,13 @@ func (s *Session) runActionToCompletion(ctx *runtime.Context, inv analysisInvoca
 		return err
 	}
 	scope := s.promptScope()
-	var positional []runtime.Value
-	for _, arg := range parsed.positional {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		positional = append(positional, val)
+	positional, bound, err := evalArgumentList(ctx, scope, parsed.positional, parsed.named)
+	if err != nil {
+		return err
 	}
 	var named []runtime.NamedInput
 	for _, arg := range parsed.named {
-		value, err := ctx.EvalWithScope(arg.node, scope)
-		if err != nil {
-			return fmt.Errorf("argument %s: %w", arg.param, err)
-		}
-		named = append(named, runtime.NamedInput{Name: arg.param, Value: value})
+		named = append(named, runtime.NamedInput{Name: arg.param, Value: bound[arg.param]})
 	}
 	inputs, err := ctx.ActionInputs(scope, sym, positional, named)
 	if err != nil {

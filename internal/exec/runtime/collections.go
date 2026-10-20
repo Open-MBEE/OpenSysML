@@ -130,6 +130,19 @@ func (ctx *Context) collectionObjectElements(val Value) (Value, bool, error) {
 	return elements, true, err
 }
 
+// orderedCollectionObjectElements is collectionObjectElements for an object of an
+// OrderedCollection, whose positions are its elements'; false for every other value.
+func (ctx *Context) orderedCollectionObjectElements(val Value) (Value, bool, error) {
+	if val.Kind != ValInstance {
+		return Value{}, false, nil
+	}
+	inst, ok := ctx.Instance(val.Instance)
+	if !ok || !ctx.specializes(inst.Type, ctx.librarySymbol(orderedCollectionTypeFQN)) {
+		return Value{}, false, nil
+	}
+	return ctx.collectionObjectElements(val)
+}
+
 // elementCount is len(elementsOf(val)) without materializing a scalar's
 // one-element sequence.
 func elementCount(val *Value) int64 {
@@ -335,6 +348,14 @@ func (ec *EvalContext) evalSequenceIndex(n *ast.IndexExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
+	// `col#(i)` over an OrderedCollection is CollectionFunctions::'#': the element
+	// at i of `col.elements`, not the one-element sequence the object itself is.
+	if elements, ok, err := ec.ctx.orderedCollectionObjectElements(operand); ok || err != nil {
+		if err != nil {
+			return Value{}, err
+		}
+		operand = elements
+	}
 	if indexes := elementsOf(indexVal); len(indexes) != 1 || isStructuredValue(&operand) {
 		return builtinBaseIndex(ec, []Value{operand, indexVal})
 	}
@@ -451,6 +472,14 @@ func (ec *EvalContext) denotedBody(val Value) (Value, error) {
 
 // checkBody verifies a denoted value is a body declaring arity parameters.
 func checkBody(op string, val Value, arity int) (Value, error) {
+	if fn := val.function(); fn != nil && fn.shape != nil {
+		// A function the argument names (`->reduce '+'`) is applied as the body is.
+		if low, high := fn.arity(); arity < low || arity > high {
+			return Value{}, fmt.Errorf("%w: %s calls %s with %d argument(s), but it declares %d parameter(s)",
+				ErrBodyArity, op, fn.shape.Name, arity, high)
+		}
+		return val, nil
+	}
 	if val.Kind != valExpr {
 		return Value{}, fmt.Errorf("%w: %s requires a body expression, got %s", ErrTypeMismatch, op, DescribeValue(val))
 	}
@@ -473,6 +502,16 @@ func (ec *EvalContext) evalClosure(val Value) (Value, error) {
 // applyBody evaluates a body with its parameters bound to args, as a frame of
 // its own over the environment the body closes over.
 func (ec *EvalContext) applyBody(val Value, args ...Value) (Value, error) {
+	if val.Kind == ValFunction {
+		// A library function runs no expression of its own, so each application is
+		// one step, as a body's evaluation is; a calc body charges its own.
+		if fn := val.function(); fn != nil && fn.library != nil {
+			if err := ec.ctx.incrementStep(); err != nil {
+				return Value{}, err
+			}
+		}
+		return ec.invokeFunction(val.FunctionName(), val, calcArgs{positional: args})
+	}
 	body, ok := val.expr().(*ast.BodyExpr)
 	if !ok {
 		return Value{}, fmt.Errorf("%w: a body expression is required, got %s", ErrTypeMismatch, DescribeValue(val))

@@ -2260,9 +2260,9 @@
         "name": "validateIncludeUseCaseUsageReference"
       },
       "checks": "An include use case usage references a use case",
-      "implementation": "internal/check/passes/w11a_usage_typing.go:W11AUsageTypingPass.Run",
+      "implementation": "internal/check/passes/w11a_usage_typing.go:w11aUsageChecker.checkReference",
       "message": "—",
-      "negativeCase": "`semantic/s20-include-references-non-use-case.sysml`",
+      "negativeCase": "`semantic/s20-include-references-non-use-case.sysml`, `semantic/s20b-include-references-definition.sysml`",
       "codes": [
         "usage-reference-kind"
       ],

@@ -1,6 +1,7 @@
 package project
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -32,6 +33,9 @@ type Discovery struct {
 	// Roots are the directories installed projects are looked for under,
 	// besides the well-known ones beneath each enclosing project.
 	Roots []string
+	// Guard, when set, is asked before a file found by the dependency search is
+	// read; a file it refuses is left out as if it declared nothing.
+	Guard func(path string) error
 }
 
 // EnvLibraryRoots returns the library roots LibraryRootsEnvVar names, none when
@@ -61,6 +65,9 @@ type Projects struct {
 	// through the projects those use in turn; with no enclosing project, every
 	// project installed under the configured roots.
 	Used []*Interchange
+	// Malformed holds the archives found under the roots that could not be
+	// read as project interchange files, each reported under its path.
+	Malformed []*ArchiveError
 }
 
 // Dirs lists the directories of the enclosing and the used projects, in that order.
@@ -107,11 +114,18 @@ func (d Discovery) Around(paths []string) Projects {
 	}
 	var out Projects
 	for _, dir := range nearest {
+		if IsArchiveFile(dir) {
+			if a, err := openCached(dir); err == nil {
+				out.Enclosing = append(out.Enclosing, a.Project)
+			}
+			continue
+		}
 		if project, err := ReadInterchange(dir); err == nil {
 			out.Enclosing = append(out.Enclosing, project)
 		}
 	}
-	installed := installedProjects(d.libraryRoots(ancestors))
+	installed, malformed := installedProjects(d.libraryRoots(ancestors))
+	out.Malformed = malformed
 	if len(out.Enclosing) == 0 {
 		out.Used = installed
 		return out
@@ -120,9 +134,9 @@ func (d Discovery) Around(paths []string) Projects {
 	return out
 }
 
-// libraryRoots lists the directories installed projects are looked for under:
-// the configured roots, then the well-known library directories under each
-// project directory; those that exist, each once.
+// libraryRoots lists the roots installed projects are looked for under: the
+// configured roots (a directory or an archive), then the well-known library
+// directories under each project directory; those that exist, each once.
 func (d Discovery) libraryRoots(projectDirs []string) []string {
 	var out []string
 	seen := map[string]bool{}
@@ -132,7 +146,7 @@ func (d Discovery) libraryRoots(projectDirs []string) []string {
 			return
 		}
 		seen[key] = true
-		if info, err := os.Stat(root); err == nil && info.IsDir() {
+		if info, err := os.Stat(root); err == nil && (info.IsDir() || IsArchiveFile(root)) {
 			out = append(out, root)
 		}
 	}
@@ -148,25 +162,39 @@ func (d Discovery) libraryRoots(projectDirs []string) []string {
 }
 
 // installedProjects lists the projects under the roots: a root that is itself
-// a project, else every directory below it that holds a project interchange
-// file; each project once however many paths lead to it, sorted by directory.
-// The walk stops at a project, passes over hidden directories and whatever
-// cannot be read, and is bounded.
-func installedProjects(roots []string) []*Interchange {
+// a project or an archive, else every directory below it that holds a project
+// interchange file and every .kpar file; each project once however many paths
+// lead to it, sorted by path. The walk stops at a project, passes over hidden
+// directories and whatever cannot be read, and is bounded. An archive that is
+// not a project interchange file is returned apart, under its path.
+func installedProjects(roots []string) ([]*Interchange, []*ArchiveError) {
 	var out []*Interchange
+	var malformed []*ArchiveError
 	seen := map[string]bool{}
-	found := func(dir string) {
-		key := resolvedKey(dir)
+	found := func(path string) {
+		key := resolvedKey(path)
 		if seen[key] {
 			return
 		}
 		seen[key] = true
-		if project, err := ReadInterchange(dir); err == nil {
+		if IsArchive(path) {
+			a, err := openCached(path)
+			if err != nil {
+				var ae *ArchiveError
+				if errors.As(err, &ae) {
+					malformed = append(malformed, ae)
+				}
+				return
+			}
+			out = append(out, a.Project)
+			return
+		}
+		if project, err := ReadInterchange(path); err == nil {
 			out = append(out, project)
 		}
 	}
 	for _, root := range roots {
-		if IsProjectDir(root) {
+		if IsProjectDir(root) || IsArchiveFile(root) {
 			found(root)
 			continue
 		}
@@ -174,12 +202,13 @@ func installedProjects(roots []string) []*Interchange {
 		walkInstalled(root, map[string]bool{}, &budget, found)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Dir < out[j].Dir })
-	return out
+	sort.Slice(malformed, func(i, j int) bool { return malformed[i].Path < malformed[j].Path })
+	return out, malformed
 }
 
-// walkInstalled calls found for each project under dir, stopping at a project, a hidden
-// or seen directory or the budget; the projects directly under dir come before any descent.
-func walkInstalled(dir string, visited map[string]bool, budget *int, found func(dir string)) {
+// walkInstalled calls found for each project directory and archive under dir, stopping at a
+// project, a hidden or seen directory or the budget; those directly under dir come before any descent.
+func walkInstalled(dir string, visited map[string]bool, budget *int, found func(path string)) {
 	resolved, err := filepath.EvalSymlinks(dir)
 	if err != nil || visited[resolved] || *budget == 0 {
 		return
@@ -197,7 +226,13 @@ func walkInstalled(dir string, visited map[string]bool, budget *int, found func(
 		}
 		path := filepath.Join(dir, e.Name())
 		info, err := os.Stat(path) // resolves a link to what it points at
-		if err != nil || !info.IsDir() {
+		if err != nil {
+			continue
+		}
+		if !info.IsDir() {
+			if info.Mode().IsRegular() && IsArchive(path) {
+				found(path)
+			}
 			continue
 		}
 		if IsProjectDir(path) {
@@ -263,11 +298,7 @@ func pickInstalled(installed []*Interchange, u Usage) *Interchange {
 func projectFiles(projects []*Interchange) []string {
 	var out []string
 	for _, project := range projects {
-		var files []string
-		budget := maxDependencyDirs
-		walkTolerant(project.Dir, map[string]bool{}, &budget, IsLoadable, &files)
-		sort.Strings(files)
-		out = append(out, files...)
+		out = append(out, project.Files()...)
 	}
 	return out
 }

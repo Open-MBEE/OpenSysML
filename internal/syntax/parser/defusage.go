@@ -2034,6 +2034,9 @@ type ownedMember struct {
 	code   string // the diagnostic code, named after the owning-type constraint
 }
 
+// stateSubactionOwningType is the rule a misplaced entry, do or exit action breaks.
+const stateSubactionOwningType = "state-subaction-membership-owning-type"
+
 // requirementOrCase names the bodies that offer the members shared by both.
 const requirementOrCase = "requirement or case"
 
@@ -2046,10 +2049,16 @@ var ownedMembers = map[string]ownedMember{
 	// body's production alone, so the `assume`/`require` prefix is body-owned.
 	"assume":  {"a constraint assumption", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}, "requirement-constraint-membership-owning-type"},
 	"require": {"a required constraint", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}, "requirement-constraint-membership-owning-type"},
-	"entry":   {"the entry action of a state", "state", []bodyContext{bodyState}, "state-subaction-membership-owning-type"},
-	"do":      {"the do action of a state", "state", []bodyContext{bodyState}, "state-subaction-membership-owning-type"},
-	"exit":    {"the exit action of a state", "state", []bodyContext{bodyState}, "state-subaction-membership-owning-type"},
+	"entry":   {"the entry action of a state", "state", []bodyContext{bodyState}, stateSubactionOwningType},
+	"do":      {"the do action of a state", "state", []bodyContext{bodyState}, stateSubactionOwningType},
+	"exit":    {"the exit action of a state", "state", []bodyContext{bodyState}, stateSubactionOwningType},
 	"render":  {"the rendering of a view", "view", []bodyContext{bodyViewDef, bodyView}, "view-rendering-membership-owning-type"},
+	// FramedConcernMember is a RequirementBodyItem only (SysML.xtext): a view
+	// frames nothing, which the conformance rules now reflect too.
+	"frame": {"the concern a requirement or viewpoint frames", "requirement", []bodyContext{bodyRequirement}, "framed-concern-membership-owning-type"},
+	// ElementFilterMember is a PackageBodyElement, a ViewDefinitionBodyItem and
+	// a ViewBodyItem (SysML.xtext), so a package, the root or a view admits it.
+	"filter": {"an element filter", "package or view", []bodyContext{bodyPackage, bodyViewDef, bodyView}, "element-filter-membership-owning-type"},
 	// TransitionUsageMember is a StateBodyItem only (SysML.xtext); a transition between
 	// action nodes is an extension the notation pass reports, so those bodies read it too.
 	"transition": {"a transition between states", "state", []bodyContext{bodyState, bodyAction, bodyCalc, bodyCase}, "transition-membership-owning-type"},
@@ -2072,8 +2081,9 @@ func memberKeyword(notation string) string {
 }
 
 // BodyAdmitsMember reports whether the body of owner — a Definition or Usage;
-// any other node, the document root included, opens a plain namespace body —
-// offers the member keyword kw introduces; as for MemberOwner, kw may be a notation.
+// a package or the document root opens a package body, anything else a plain
+// namespace body — offers the member keyword kw introduces; as for MemberOwner,
+// kw may be a notation.
 func BodyAdmitsMember(owner ast.Node, kw string) bool {
 	m, ok := ownedMembers[memberKeyword(kw)]
 	if !ok {
@@ -2118,6 +2128,8 @@ func declarationBodyContext(owner ast.Node) bodyContext {
 		body = usageBodyContext(d.Kind)
 	case *ast.SubstateMember:
 		body = usageBodyContext(ast.UsageState)
+	case *ast.Package, *ast.RootNamespace:
+		body = bodyPackage
 	}
 	return body
 }
@@ -2897,6 +2909,11 @@ func (p *Parser) parseBodyMember() ast.Node {
 			return p.parseActionMember()
 		}
 		if p.atAcceptNodeAt(p.prefixLookahead()) {
+			if !p.bodyContext().admitsAcceptNode() {
+				en := p.errorNodeSkip(start, msgExpectedBodyMember)
+				en.SetLeadingTrivia(trivia)
+				return en
+			}
 			return p.parseAcceptNode(start, vis, trivia, p.parsePrefixMetadata())
 		}
 		// Delegate to parseDefUsage which handles prefixes; a prefixed
@@ -3072,6 +3089,14 @@ func (p *Parser) parseBodyMember() ast.Node {
 	// (`accept when x > 1`) — and is parsed by the one payload parser triggers
 	// also use, so every spelling reaches lowering the same way.
 	if p.atAcceptNode() {
+		// AcceptNode is an ActionBodyItem (SysML.xtext): outside an
+		// action-admitting body it stands where no member may, like the
+		// behavioral keywords. A state body keeps reading it as today.
+		if !p.bodyContext().admitsAcceptNode() {
+			en := p.errorNodeSkip(start, msgExpectedBodyMember)
+			en.SetLeadingTrivia(trivia)
+			return en
+		}
 		return p.parseAcceptNode(start, vis, trivia, nil)
 	}
 

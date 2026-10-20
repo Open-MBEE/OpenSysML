@@ -129,8 +129,8 @@ func (s *Session) Render(args []string) (Rendered, error) {
 
 // renderForms are the forms %render writes, as its second argument spells them.
 func renderForms() []string {
-	out := make([]string, 0, len(view.Forms()))
-	for _, form := range view.Forms() {
+	out := make([]string, 0, len(view.ViewForms()))
+	for _, form := range view.ViewForms() {
 		out = append(out, string(form))
 	}
 	return out

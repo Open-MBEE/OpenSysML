@@ -54,6 +54,9 @@ func TestWriteAPIJSONMatchesTheEncoderItReplaced(t *testing.T) {
 	}
 	var elements []apiJSONObject
 	for _, subject := range settled.Subjects() {
+		if LibraryReference(settled, subject) {
+			continue
+		}
 		element, err := apiJSONElement(settled, subject)
 		if err != nil {
 			t.Fatal(err)

@@ -3,18 +3,13 @@ package repl
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
 	sedit "github.com/Open-MBEE/OpenSysML/internal/check/edit"
-	"github.com/Open-MBEE/OpenSysML/internal/exec/ingest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/dataimport"
 )
 
 const importUsage = "usage: %import <file> [as values] [map <file>] [format csv|tsv|json|jsonl] [dry-run]"
@@ -68,89 +63,29 @@ func (s *Session) doImport(tail string) ([]string, bool, error) {
 	return s.importData(path, opts).Lines, false, nil
 }
 
-// importOp is one edit an import makes, with the input value it came from.
-type importOp struct {
-	op    sedit.Operation
-	where string
-	desc  string
-	doc   string
-	at    int
-}
-
+// importData reads the file, lowers its rows to edits and applies them as one
+// edit of the model's source, as dataimport lowers them for the CLI too.
 func (s *Session) importData(path string, opts ImportOptions) Verdict {
 	fail := func(err error) Verdict {
 		return Verdict{Subject: path, Status: VerdictFails, Lines: []string{errPrefix + err.Error(), "  the model was left unchanged"}}
 	}
-	rows, err := readImport(expandHome(path), path, opts)
-	if err != nil {
-		return fail(err)
-	}
-	ops, values, elements, err := s.importOps(rows)
-	if err != nil {
-		return fail(err)
-	}
-	if values == 0 {
-		return Verdict{Subject: path, Status: VerdictHolds, Lines: []string{"✓ " + path + ": no values to import"}}
-	}
-	edited, err := s.importEdits(ops)
-	if err != nil {
-		return fail(err)
-	}
-	head := fmt.Sprintf("✓ imported %s into %s from %s", countOf(values, "value", "values"), countOf(elements, "element", "elements"), path)
-	if opts.DryRun {
-		head = fmt.Sprintf("dry run: would import %s into %s from %s; the model is unchanged", countOf(values, "value", "values"), countOf(elements, "element", "elements"), path)
-	} else if err := s.commitImport(edited); err != nil {
-		return fail(err)
-	}
-	lines := []string{head}
-	for _, o := range ops {
-		lines = append(lines, "  "+o.desc)
-	}
-	return Verdict{Subject: path, Status: VerdictHolds, Lines: lines}
-}
-
-func readImport(file, name string, opts ImportOptions) ([]ingest.Row, error) {
-	var m *ingest.Map
+	mapPath := ""
 	if opts.Map != "" {
-		data, err := os.ReadFile(expandHome(opts.Map))
-		if err != nil {
-			return nil, err
-		}
-		m, err = ingest.ParseMap(data)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", opts.Map, err)
+		mapPath = expandHome(opts.Map)
+		if err := s.guardFiles([]string{mapPath}, false); err != nil {
+			return fail(err)
 		}
 	}
-	formatName := opts.Format
-	if formatName == "" && m != nil {
-		formatName = m.Format
+	if err := s.guardFiles([]string{expandHome(path)}, false); err != nil {
+		return fail(err)
 	}
-	var format ingest.Format
-	if formatName != "" {
-		f, err := ingest.ParseFormat(formatName)
-		if err != nil {
-			return nil, err
-		}
-		format = f
-	} else if f, ok := ingest.FormatOfPath(file); ok {
-		format = f
-	} else {
-		return nil, fmt.Errorf("%s: the extension names no data format; name one as csv, tsv, json or jsonl", name)
-	}
-	data, err := os.ReadFile(filepath.Clean(file))
+	rows, err := dataimport.ReadFile(expandHome(path), path, mapPath, opts.Format)
 	if err != nil {
-		return nil, err
+		return fail(err)
 	}
-	return ingest.Read(name, data, format, m)
-}
-
-// importOps lowers rows to edits: a feature the element declares has its value
-// set, one it inherits is redefined in the element's body with the value. It
-// also counts the values set and the elements they are set on.
-func (s *Session) importOps(rows []ingest.Row) ([]importOp, int, int, error) {
 	idx := s.symbolIndex()
 	if idx == nil {
-		return nil, 0, 0, errors.New("no model is loaded to import into")
+		return fail(errors.New("no model is loaded to import into"))
 	}
 	resolver := resolve.New(idx)
 	sem := semantics.NewModel(resolver)
@@ -161,268 +96,33 @@ func (s *Session) importOps(rows []ingest.Row) ([]importOp, int, int, error) {
 			own[sn.origin] = true
 		}
 	}
-	var ops []importOp
-	elements := map[string]bool{}
-	assigned := map[[2]string]string{}
-	redefined := map[string]bool{}
-	values := 0
-	for _, row := range rows {
-		if len(row.Cells) == 0 {
-			continue
-		}
-		t, err := importTargetOf(idx, resolver, sem, row.Element)
-		if err != nil {
-			return nil, 0, 0, fmt.Errorf("%s: %w", row.Where, err)
-		}
-		if !own[t.anchor.DocName] {
-			return nil, 0, 0, fmt.Errorf("%s: %s is a library element, which an import does not change", row.Where, row.Element)
-		}
-		elements[t.fqn] = true
-		owner := source.QualifiedNameOf(symbols.NameChain(t.anchor))
-		path := idx.GetFQN(t.anchor)
-		for _, via := range t.via {
-			path += "::" + via.Name
-			if !redefined[path] {
-				kind, ok := redefinitionKeyword(via.Kind)
-				if !ok {
-					return nil, 0, 0, fmt.Errorf("%s: %s inherits %s, a %s an import cannot redefine", row.Where, strings.TrimSuffix(path, "::"+via.Name), via.Name, via.Kind)
-				}
-				op := sedit.AddMember(owner, kind, "")
-				op.Redefines = []string{source.NameText(via.Name)}
-				ops = append(ops, importOp{
-					op: op, where: row.Where,
-					desc: fmt.Sprintf("%s (redefines %s)", path, idx.GetFQN(via)),
-					doc:  t.anchor.DocName, at: t.anchor.DeclSpan.Offset,
-				})
-				redefined[path] = true
-			}
-			owner += "::" + source.NameText(via.Name)
-		}
-		for _, cell := range row.Cells {
-			if first, ok := assigned[[2]string{t.fqn, cell.Feature}]; ok {
-				return nil, 0, 0, fmt.Errorf("%s: %s::%s is already set at %s", cell.Where, t.fqn, cell.Feature, first)
-			}
-			assigned[[2]string{t.fqn, cell.Feature}] = cell.Where
-			feat, declared := importFeature(sem, resolver, t.sym, cell.Feature)
-			if feat == nil {
-				return nil, 0, 0, fmt.Errorf("%s: %s has no feature named %s", cell.Where, t.fqn, cell.Feature)
-			}
-			declared = declared && len(t.via) == 0
-			class, enum := importClass(sem, idx, feat)
-			value, err := ingest.Literal(cell, class, enum)
-			if err != nil {
-				return nil, 0, 0, fmt.Errorf("%s: %w", cell.Where, err)
-			}
-			if class == ingest.ClassEnum && !importEnumValue(idx, enum, value) {
-				return nil, 0, 0, fmt.Errorf("%s: %s is not a value of %s", cell.Where, strings.TrimSpace(cell.Text), enum)
-			}
-			if err := importDimension(sem, t.sym, feat, cell, value); err != nil {
-				return nil, 0, 0, fmt.Errorf("%s: %w", cell.Where, err)
-			}
-			values++
-			if declared {
-				target := idx.GetFQN(feat)
-				ops = append(ops, importOp{
-					op: sedit.SetValue(source.QualifiedNameOf(symbols.NameChain(feat)), value), where: cell.Where,
-					desc: target + " = " + value, doc: feat.DocName, at: feat.DeclSpan.Offset,
-				})
-				continue
-			}
-			kind, ok := redefinitionKeyword(feat.Kind)
-			if !ok {
-				return nil, 0, 0, fmt.Errorf("%s: %s inherits %s, a %s an import cannot redefine", cell.Where, t.fqn, cell.Feature, feat.Kind)
-			}
-			op := sedit.AddMember(owner, kind, "")
-			op.Redefines = []string{source.NameText(feat.Name)}
-			op.Value = value
-			ops = append(ops, importOp{
-				op: op, where: cell.Where,
-				desc: fmt.Sprintf("%s::%s = %s (redefines %s)", t.fqn, feat.Name, value, idx.GetFQN(feat)),
-				doc:  t.anchor.DocName, at: t.anchor.DeclSpan.Offset,
-			})
-		}
+	ops, summary, err := dataimport.Lower(idx, resolver, sem, func(doc string) bool { return own[doc] }, rows)
+	if err != nil {
+		return fail(err)
 	}
-	return ops, values, len(elements), nil
-}
-
-// importTarget is the element a row names: anchor is the nearest declared element,
-// via the inherited features below it to redefine there, outermost first.
-type importTarget struct {
-	sym    *symbols.Symbol
-	fqn    string
-	anchor *symbols.Symbol
-	via    []*symbols.Symbol
-}
-
-// importTargetOf resolves name, following an alias to the element it names.
-func importTargetOf(idx *symbols.Index, resolver *resolve.Resolver, sem *semantics.Model, name string) (importTarget, error) {
-	segs, ok := source.QualifiedNameSegments(name)
-	if !ok || len(segs) == 0 {
-		return importTarget{}, fmt.Errorf("%s is not a qualified name", name)
+	if summary.Values == 0 {
+		return Verdict{Subject: path, Status: VerdictHolds, Lines: []string{"✓ " + path + ": no values to import"}}
 	}
-	for n := len(segs); n >= 1; n-- {
-		syms := idx.LookupQualified(strings.Join(segs[:n], "::"))
-		if len(syms) == 0 {
-			continue
-		}
-		if len(syms) > 1 {
-			return importTarget{}, fmt.Errorf("%s names more than one element", strings.Join(segs[:n], "::"))
-		}
-		sym := resolver.AliasedElement(syms[0])
-		t := importTarget{sym: sym, fqn: idx.GetFQN(sym), anchor: sym}
-		for _, seg := range segs[n:] {
-			feat, declared := importFeature(sem, resolver, t.sym, seg)
-			switch {
-			case feat == nil:
-				return importTarget{}, fmt.Errorf("no element named %s: %s has no member named %s", name, t.fqn, seg)
-			case declared && len(t.via) == 0:
-				t.sym, t.fqn, t.anchor = feat, idx.GetFQN(feat), feat
-			default:
-				t.sym, t.fqn = feat, t.fqn+"::"+feat.Name
-				t.via = append(t.via, feat)
-			}
-		}
-		return t, nil
+	edited, err := s.importEdits(ops)
+	if err != nil {
+		return fail(err)
 	}
-	return importTarget{}, fmt.Errorf("no element named %s", name)
-}
-
-// importDimension refuses a value whose unit measures another dimension than
-// the quantity feat is declared to hold.
-func importDimension(sem *semantics.Model, elem, feat *symbols.Symbol, cell ingest.Cell, value string) error {
-	want, ok := sem.DimensionOfFeature(feat)
-	if !ok {
-		return nil
+	head := fmt.Sprintf("✓ imported %s into %s from %s", countOf(summary.Values, "value", "values"), countOf(summary.Elements, "element", "elements"), path)
+	if opts.DryRun {
+		head = fmt.Sprintf("dry run: would import %s into %s from %s; the model is unchanged", countOf(summary.Values, "value", "values"), countOf(summary.Elements, "element", "elements"), path)
+	} else if err := s.commitImport(edited); err != nil {
+		return fail(err)
 	}
-	node, ok := parser.ParseOneExpression("<import>", value)
-	if !ok {
-		return nil
+	lines := []string{head}
+	for _, o := range ops {
+		lines = append(lines, "  "+o.Description())
 	}
-	got, ok := sem.DimensionOfExpr(elem.Scope, node)
-	if !ok || want.Term.Commensurable(got.Term) {
-		return nil
-	}
-	if cell.Unit == "" {
-		return fmt.Errorf("%s has no unit, but %s is measured in dimension %s; name its unit, as `%s [unit]`", cell.Text, feat.Name, want, cell.Feature)
-	}
-	return fmt.Errorf("%s is measured in dimension %s, but %s is measured in dimension %s", value, got, feat.Name, want)
-}
-
-// importFeature is the feature named name that elem declares, else the one it
-// inherits from its types and supertypes; declared reports which. An alias
-// there stands for the feature it names, when that is one of elem's own.
-func importFeature(sem *semantics.Model, resolver *resolve.Resolver, elem *symbols.Symbol, name string) (feat *symbols.Symbol, declared bool) {
-	supers := sem.AllSupertypes(elem)
-	if elem.IsFeature() {
-		for _, t := range sem.FeatureTypes(elem) {
-			supers = append(supers, t)
-			supers = append(supers, sem.AllSupertypes(t)...)
-		}
-	}
-	member := func(scope *symbols.Scope, local bool) (*symbols.Symbol, bool) {
-		m, ok := scope.LookupLocal(name)
-		if !ok {
-			return nil, false
-		}
-		if m.Kind == symbols.SymbolAlias {
-			m = resolver.AliasedElement(m)
-			if !m.IsFeature() {
-				return nil, false
-			}
-			if m.OwnerScope == elem.Scope {
-				return m, true
-			}
-			for _, sup := range supers {
-				if sup.Scope != nil && m.OwnerScope == sup.Scope {
-					return m, false
-				}
-			}
-			return nil, false
-		}
-		if !m.IsFeature() || (local && m.OwnerScope != elem.Scope) {
-			return nil, false
-		}
-		return m, local
-	}
-	if elem.Scope != nil {
-		if m, local := member(elem.Scope, true); m != nil {
-			return m, local
-		}
-	}
-	for _, sup := range supers {
-		if sup.Scope == nil {
-			continue
-		}
-		if m, _ := member(sup.Scope, false); m != nil {
-			return m, false
-		}
-	}
-	return nil, false
-}
-
-// importEnumValue reports whether value, an enumeration literal as notation
-// spells it, is one of enum's.
-func importEnumValue(idx *symbols.Index, enum, value string) bool {
-	names, ok := source.QualifiedNameSegments(value)
-	if !ok {
-		return false
-	}
-	for _, sym := range idx.LookupQualified(strings.Join(names, "::")) {
-		if sym.OwnerScope != nil && idx.GetFQN(sym.OwnerScope.Owner()) == enum {
-			return true
-		}
-	}
-	return false
-}
-
-// importClass is the kind of value feat's types admit, and the enumeration
-// naming its literals when it is one.
-func importClass(sem *semantics.Model, idx *symbols.Index, feat *symbols.Symbol) (ingest.Class, string) {
-	names := map[string]bool{}
-	for _, t := range sem.FeatureTypes(feat) {
-		if t.Kind == symbols.SymbolEnumerationDef {
-			return ingest.ClassEnum, idx.GetFQN(t)
-		}
-		names[idx.GetFQN(t)] = true
-		for _, sup := range sem.AllSupertypes(t) {
-			names[idx.GetFQN(sup)] = true
-		}
-	}
-	switch {
-	case names["ScalarValues::String"]:
-		return ingest.ClassString, ""
-	case names["ScalarValues::Boolean"]:
-		return ingest.ClassBoolean, ""
-	case names["ScalarValues::Integer"]:
-		return ingest.ClassInteger, ""
-	case names["ScalarValues::Real"], names["Quantities::ScalarQuantityValue"]:
-		return ingest.ClassReal, ""
-	}
-	return ingest.ClassUnknown, ""
-}
-
-// redefinitionKeyword is the keyword a redefinition of a feature of kind is declared with.
-func redefinitionKeyword(kind symbols.SymbolKind) (string, bool) {
-	switch kind {
-	case symbols.SymbolAttributeUsage:
-		return "attribute", true
-	case symbols.SymbolPartUsage:
-		return "part", true
-	case symbols.SymbolItemUsage:
-		return "item", true
-	case symbols.SymbolPortUsage:
-		return "port", true
-	case symbols.SymbolOccurrenceUsage:
-		return "occurrence", true
-	case symbols.SymbolReferenceUsage:
-		return "ref", true
-	}
-	return "", false
+	return Verdict{Subject: path, Status: VerdictHolds, Lines: lines}
 }
 
 // importEdits applies the operations to the snippets declaring their targets,
 // each snippet's as one edit, and returns each edited snippet's new text.
-func (s *Session) importEdits(ops []importOp) (map[int]string, error) {
+func (s *Session) importEdits(ops []dataimport.Assignment) (map[int]string, error) {
 	type group struct {
 		doc     string
 		snippet int
@@ -433,19 +133,19 @@ func (s *Session) importEdits(ops []importOp) (map[int]string, error) {
 	byKey := map[[2]int]*group{}
 	docIDs := map[string]int{}
 	for i, o := range ops {
-		snippet, start := s.importSnippet(o.doc, o.at)
+		snippet, start := s.importSnippet(o.Doc, o.At)
 		if snippet < 0 {
-			return nil, fmt.Errorf("%s: %s is not in a session document", o.where, o.op.Target+o.op.Owner)
+			return nil, fmt.Errorf("%s: %s is not in a session document", o.Where, o.Op.Target+o.Op.Owner)
 		}
-		id, ok := docIDs[o.doc]
+		id, ok := docIDs[o.Doc]
 		if !ok {
 			id = len(docIDs)
-			docIDs[o.doc] = id
+			docIDs[o.Doc] = id
 		}
 		key := [2]int{id, snippet}
 		g := byKey[key]
 		if g == nil {
-			g = &group{doc: o.doc, snippet: snippet, start: start}
+			g = &group{doc: o.Doc, snippet: snippet, start: start}
 			byKey[key] = g
 			groups = append(groups, g)
 		}
@@ -455,7 +155,7 @@ func (s *Session) importEdits(ops []importOp) (map[int]string, error) {
 	for _, g := range groups {
 		list := make([]sedit.Operation, len(g.ops))
 		for j, i := range g.ops {
-			list[j] = ops[i].op
+			list[j] = ops[i].Op
 		}
 		res, _, ok, err := s.ws.ApplyEdit(g.doc, list, nil)
 		if err == nil && !ok {
@@ -477,21 +177,21 @@ func (s *Session) importEdits(ops []importOp) (map[int]string, error) {
 
 // importFailure locates a refused edit at the input value it came from; an
 // edit refused as a whole is retried an operation at a time to find it.
-func (s *Session) importFailure(doc string, ops []importOp, group []int, err error) error {
+func (s *Session) importFailure(doc string, ops []dataimport.Assignment, group []int, err error) error {
 	var e *sedit.Error
 	if !errors.As(err, &e) {
 		return err
 	}
 	if e.OperationIndex >= 0 && e.OperationIndex < len(group) {
-		return fmt.Errorf("%s: %s", ops[group[e.OperationIndex]].where, e.Message)
+		return fmt.Errorf("%s: %s", ops[group[e.OperationIndex]].Where, e.Message)
 	}
 	for _, i := range group {
-		if _, _, _, one := s.ws.ApplyEdit(doc, []sedit.Operation{ops[i].op}, nil); one != nil {
+		if _, _, _, one := s.ws.ApplyEdit(doc, []sedit.Operation{ops[i].Op}, nil); one != nil {
 			var oneErr *sedit.Error
 			if errors.As(one, &oneErr) {
-				return fmt.Errorf("%s: %s", ops[i].where, oneErr.Message)
+				return fmt.Errorf("%s: %s", ops[i].Where, oneErr.Message)
 			}
-			return fmt.Errorf("%s: %w", ops[i].where, one)
+			return fmt.Errorf("%s: %w", ops[i].Where, one)
 		}
 	}
 	return err

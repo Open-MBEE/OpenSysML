@@ -146,6 +146,16 @@ type Client interface {
 	// schedule capability for a policy and engines for a named engine, checked
 	// before anything is sent.
 	RunAnalysis(ctx context.Context, model *Model, symbolID string, opts ...AnalysisOption) (*Analysis, error)
+	// RunAction and RunMonteCarlo run an action or a Simulation::MonteCarlo case
+	// repeatedly and table what the runs observed (runs capability).
+	RunAction(ctx context.Context, model *Model, actionID string, count int64, opts ...RunsOption) (*Runs, error)
+	RunMonteCarlo(ctx context.Context, model *Model, caseID string, count int64, opts ...RunsOption) (*Runs, error)
+	// SelfCheck applies the reflective SysMLValidation constraints to every
+	// element of the model (self_check capability).
+	SelfCheck(ctx context.Context, model *Model, rulePackages ...string) (*SelfCheck, error)
+	// RecordRun runs an analysis case and records the runs into the model
+	// (record_run capability).
+	RecordRun(ctx context.Context, model *Model, caseID string, opts ...RecordOption) (*Recording, error)
 
 	// Query selects the model's elements the query matches, in declaration
 	// order. Requires the query capability.
@@ -174,6 +184,17 @@ type Client interface {
 	// and of every behavior it performs, as the canonical graphs:1 JSON an
 	// external analysis engine is sent. Requires the export_graphs capability.
 	ExportGraphs(ctx context.Context, model *Model, subject string) (*Graphs, error)
+	// ImportData sets the feature values data files assign, one edit of the
+	// model per file (import_data capability).
+	ImportData(ctx context.Context, model *Model, imports []DataImport, opts ...ImportOption) (*ImportResult, error)
+	// CompareResults runs the configurations a tool's results sidecar indexes
+	// and tables the tool's distributions beside the runs' (compare_results capability).
+	CompareResults(ctx context.Context, model *Model, results string, opts ...CompareOption) (*Comparison, error)
+
+	// CheckAction and CheckStateMachine search every schedule of a behavior for a
+	// violated property, deadlock, failure or divergent final value (check capability).
+	CheckAction(ctx context.Context, model *Model, actionID string, opts ...CheckOption) (*Check, error)
+	CheckStateMachine(ctx context.Context, model *Model, stateMachineID string, opts ...CheckOption) (*Check, error)
 
 	// Convert writes the model in another representation, from the source the
 	// parse read, so WithFromFormat does not apply and is refused. Requires the
@@ -318,11 +339,17 @@ type caller interface {
 	validateInstance(ctx context.Context, req *pb.ValidateInstanceRequest) (*pb.ValidateInstanceResponse, error)
 	evaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest) (*pb.EvaluateCalcResponse, error)
 	runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (*pb.RunAnalysisResponse, error)
+	runRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunRunsResponse, error)
+	selfCheck(ctx context.Context, req *pb.SelfCheckRequest) (*pb.SelfCheckResponse, error)
+	recordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.RecordRunResponse, error)
 	query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error)
 	runDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error)
 	renderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error)
 	renderView(ctx context.Context, req *pb.RenderViewRequest) (*pb.RenderViewResponse, error)
 	exportGraphs(ctx context.Context, req *pb.ExportGraphsRequest) (*pb.ExportGraphsResponse, error)
+	importData(ctx context.Context, req *pb.ImportDataRequest) (*pb.ImportDataResponse, error)
+	compareResults(ctx context.Context, req *pb.CompareResultsRequest) (*pb.CompareResultsResponse, error)
+	checkBehavior(ctx context.Context, req *pb.CheckBehaviorRequest) (*pb.CheckBehaviorResponse, error)
 	convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error)
 	migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.MigrateResponse, error)
 	applyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error)

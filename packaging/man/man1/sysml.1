@@ -246,6 +246,11 @@ input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b}
 of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph.
 A SysML v1 model is refused: it is migrated, with \-migrate
 .TP
+.B \-metaclass\-graph
+Write the SysML metaclass hierarchy of the pinned pilot metamodel as Turtle
+(rdfs:Class, rdfs:subClassOf, sysx:abstract) to stdout or \-o, without a
+model, and exit
+.TP
 .BR \-migrate " \fIformat\fP"
 Migrate the SysML v1 model (.xmi, .uml or .mdzip; \-from names the format when
 the extension does not) to SysML v2, written in this format: sysml, kerml,
@@ -282,6 +287,15 @@ Report the values \-import would set, changing and writing nothing
 With \-convert ttl or api\-json, how derived element ids are spelled:
 qualified (default) derives each from its qualified name; uuid mints
 name\-based uuids under each root package, as the library convention does
+.TP
+.BR \-bundle " \fIdir\fP"
+Write this project directory as a project interchange archive (KerML 1.0
+\(sc10.3), to \-o or to <name>\-<version>.kpar; the archive is the same bytes
+on every run
+.TP
+.BR \-unbundle " \fIfile\fP"
+Write this project interchange archive (.kpar) out as a project directory, to
+\-o or to <name>\-<version>, which must be new or empty
 .TP
 .BR \-o ", " \-output " \fIfile\fP"
 Write what \-convert, \-migrate, \-compile, \-render or \-render\-document
@@ -344,11 +358,12 @@ it performs, as the canonical graphs:1 JSON an external analysis engine is
 sent, to stdout or \-output
 .TP
 .BR \-render\-form " \fIform\fP"
-Form \-render or \-render\-all writes: text, mermaid, markdown, dot, plantuml,
-d2, csv or tsv (csv and tsv for a table or matrix); D2 writes tree,
-interconnection, state, action, sequence, requirement, definition and package
-renderings, not case or mixed; default from the destination for \-render, each
-kind's machine form for \-render\-all
+Form \-render, \-render\-all or \-render\-run writes: text, mermaid, markdown,
+dot, plantuml, d2, csv or tsv (csv and tsv for a table or matrix; svg and
+svg\-animated for \-render\-run); D2 writes tree, interconnection, state,
+action, sequence, requirement, definition and package renderings, not case or
+mixed; default from the destination for \-render, each kind's machine form for
+\-render\-all
 .TP
 .BR \-render\-palette " \fIpalette\fP"
 Palette the dot, mermaid, plantuml or d2 form fills nodes from, by keyword
@@ -653,6 +668,8 @@ per worker.
 sysml \-engines
 # Also start each external engine once
 sysml \-engines \-probe
+# Write the metaclass hierarchy as Turtle
+sysml \-metaclass\-graph \-o metaclasses.ttl
 # The same as \-schedule explore
 sysml \-engine explore \-action Drive m.sysml
 # Every engine that covers the question

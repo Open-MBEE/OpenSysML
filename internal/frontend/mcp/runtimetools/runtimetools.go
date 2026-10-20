@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"log/slog"
 	"path/filepath"
 	"sort"
@@ -27,28 +26,41 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 )
 
 // group holds what every runtime tool shares: the service and the workspace
 // root that relative paths are resolved against.
 type group struct {
 	svc  *sysmlgrpc.Service
-	root string
+	root toolkit.Root
 }
 
 // Register adds the runtime tools to s over svc; root is the workspace folder a
-// relative path in a tool argument is resolved against.
-func Register(s *mcp.Server, svc *sysmlgrpc.Service, root string) {
-	g := &group{svc: svc, root: root}
+// relative path in a tool argument is resolved against, which must exist.
+func Register(s *mcp.Server, svc *sysmlgrpc.Service, root string) error {
+	r, err := toolkit.NewRoot(root)
+	if err != nil {
+		return err
+	}
+	g := &group{svc: svc, root: r}
 	g.registerInfo(s)
 	g.registerExplain(s)
 	g.registerParse(s)
 	g.registerDiagnostics(s)
 	g.registerRuntime(s)
 	g.registerVerification(s)
+	g.registerRuns(s)
+	g.registerSelfCheck(s)
+	g.registerRecord(s)
+	g.registerCheck(s)
 	g.registerQueries(s)
 	g.registerConversion(s)
+	g.registerImportData(s)
+	g.registerCompareResults(s)
+	return nil
 }
 
 // Source is one document given inline.
@@ -103,8 +115,12 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 		if strings.TrimSpace(path) == "" {
 			return nil, argumentError("paths must not hold an empty path")
 		}
+		resolved, err := g.path(path, toolkit.NameFormat)
+		if err != nil {
+			return nil, err
+		}
 		req.Documents = append(req.Documents, &pb.SourceDocument{
-			Source: &pb.SourceDocument_FilePath{FilePath: g.path(path)},
+			Source: &pb.SourceDocument_FilePath{FilePath: resolved},
 		})
 	}
 	for _, src := range in.Sources {
@@ -118,6 +134,13 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 			Name:     src.Path,
 		})
 	}
+	if single, ok := singleFileRequest(req); ok && !g.svc.Supports(sysmlgrpc.CapabilityParseSources) {
+		resp, err := g.svc.ParseFile(ctx, single)
+		if err != nil {
+			return nil, toolError(err)
+		}
+		return parseFileAsSources(resp), nil
+	}
 	resp, err := g.svc.ParseSources(ctx, req)
 	if err != nil {
 		return nil, toolError(err)
@@ -125,12 +148,54 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 	return resp, nil
 }
 
-// path resolves a path argument against the workspace root.
-func (g *group) path(p string) string {
-	if filepath.IsAbs(p) {
-		return filepath.Clean(p)
+// singleFileRequest spells a parse of one document as the ParseFile RPC, which
+// the tool stands for as well: a service without parse_sources answers that
+// much. ParseFile carries no base hash and names inline content <content>, so
+// a request with a base hash or another name (an unnamed source would be
+// <content-0>) is not one.
+func singleFileRequest(req *pb.ParseSourcesRequest) (*pb.ParseFileRequest, bool) {
+	if len(req.GetDocuments()) != 1 || req.GetBaseModelHash() != "" {
+		return nil, false
 	}
-	return filepath.Join(g.root, p)
+	doc := req.GetDocuments()[0]
+	single := &pb.ParseFileRequest{Language: doc.GetLanguage(), StrictConformance: req.GetStrictConformance()}
+	switch src := doc.GetSource().(type) {
+	case *pb.SourceDocument_FilePath:
+		single.Source = &pb.ParseFileRequest_FilePath{FilePath: src.FilePath}
+	case *pb.SourceDocument_Content:
+		if doc.GetName() != "<content>" {
+			return nil, false
+		}
+		single.Source = &pb.ParseFileRequest_Content{Content: src.Content}
+	default:
+		return nil, false
+	}
+	return single, true
+}
+
+// parseFileAsSources reads a ParseFile answer as the ParseSources answer for the
+// same one document.
+func parseFileAsSources(resp *pb.ParseFileResponse) *pb.ParseSourcesResponse {
+	out := &pb.ParseSourcesResponse{ModelHash: resp.GetModelHash(), Diagnostics: resp.GetDiagnostics(), Error: resp.GetError()}
+	if root := resp.GetRoot(); root != nil {
+		out.Roots = []*pb.SymbolInfo{root}
+	}
+	return out
+}
+
+// path resolves a path argument against the workspace root and refuses one
+// that leaves it, by its lexical form or through a symlink, so a tool reads
+// only under -root. The path handed on has its symlinks resolved, so the
+// service opens the file the check saw, not what a link is later pointed at;
+// where the service reads something from the name (role), a link whose name
+// means another format or language than its target's is refused rather than
+// read as the wrong one.
+func (g *group) path(p string, role toolkit.NameRole) (string, error) {
+	res, err := g.root.Resolve(p, toolkit.NameMeans(role))
+	if err != nil {
+		return "", argumentError("%s", err)
+	}
+	return res.Real, nil
 }
 
 // argumentError is a refused argument, reported as the service reports one.

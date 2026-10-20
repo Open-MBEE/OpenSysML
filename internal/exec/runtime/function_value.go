@@ -20,6 +20,21 @@ type functionValue struct {
 	enclosing []frame
 }
 
+// arity is the fewest and the most positional arguments the function binds: the
+// fewest reach its last parameter without a default or an optional multiplicity,
+// since positional arguments bind from the first parameter on.
+func (fn *functionValue) arity() (low, high int) {
+	if fn.library != nil {
+		return fn.library.leastPositional(), len(fn.library.params)
+	}
+	for i := len(fn.shape.Params) - 1; i >= 0; i-- {
+		if fn.shape.Params[i].Default == nil {
+			return i + 1, len(fn.shape.Params)
+		}
+	}
+	return 0, len(fn.shape.Params)
+}
+
 // function is the payload of a ValFunction; nil for every other kind.
 func (v Value) function() *functionValue {
 	if v.Kind != ValFunction {
@@ -222,7 +237,8 @@ func (ec *EvalContext) qualifiedBoundFunction(callee *symbols.Symbol, qn *ast.Qu
 // checkFunction refuses a value bound to a calc usage parameter that is no
 // function; an omitted optional parameter holds null.
 func (param *calcParameter) checkFunction(value *Value, what func() string) error {
-	if !param.IsCalc || value.Kind == ValFunction || value.Kind == ValNull {
+	held := soleElement(*value)
+	if !param.IsCalc || held.Kind == ValFunction || held.Kind == ValNull {
 		return nil
 	}
 	return fmt.Errorf("%s: %w: %s is %s, not a function",
@@ -232,6 +248,7 @@ func (param *calcParameter) checkFunction(value *Value, what func() string) erro
 // invokeFunction applies a value called as a function to args through the calc
 // invocation path: a value that is no function is refused with a typed error.
 func (ec *EvalContext) invokeFunction(callee string, val Value, args calcArgs) (Value, error) {
+	val = soleElement(val)
 	fn := val.function()
 	if fn == nil || fn.shape == nil {
 		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, DescribeValue(val))

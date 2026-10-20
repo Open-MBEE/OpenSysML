@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "instantiate": "test::holder",
+  "libraries": true,
+  "slots": {
+    "front.edges": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "frontThickness": {"type": "Real", "value": 2.0}
+  },
+  "materialization": {}
+}

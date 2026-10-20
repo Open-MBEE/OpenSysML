@@ -135,7 +135,9 @@ func attach(t *testing.T, svc *sysmlgrpc.Service) *harness {
 	}
 	h := &harness{t: t, root: root}
 	server := mcp.NewServer(&mcp.Implementation{Name: "test-server", Version: "0"}, nil)
-	Register(server, svc, root)
+	if err := Register(server, svc, root); err != nil {
+		t.Fatal(err)
+	}
 	serverT, clientT := mcp.NewInMemoryTransports()
 	ctx := context.Background()
 	go func() { _ = server.Run(ctx, serverT) }()
@@ -292,10 +294,7 @@ func TestEveryToolTakingAModelTakesPathsAndSources(t *testing.T) {
 		t.Errorf("%d tools take a model, want the model tools: %v", modelTools, names)
 	}
 	slices.Sort(names)
-	want := []string{"apply_edits", "convert", "diagnostics", "evaluate", "evaluate_calc", "execute_action", "execute_state", "explain_diagnostic", "export_graphs",
-		"instantiate", "list_engines", "migrate", "parse", "query", "render_model_document", "render_model_view", "run_analysis",
-		"run_document_query", "run_sweep", "server_info", "symbol", "validate_instance", "verify_constraint",
-		"verify_requirement", "verify_satisfaction"}
+	want := []string{"apply_edits", "check_behavior", "compare_results", "convert", "diagnostics", "evaluate", "evaluate_calc", "execute_action", "execute_state", "explain_diagnostic", "export_graphs", "import_data", "instantiate", "list_engines", "migrate", "parse", "query", "record_run", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_runs", "run_sweep", "self_check", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}
 	if !slices.Equal(names, want) {
 		t.Errorf("tools = %v, want %v", names, want)
 	}
@@ -423,10 +422,12 @@ func TestExecuteActionBindsInputsAndReportsOutputs(t *testing.T) {
 	_, out := h.ok("execute_action", map[string]any{
 		"modelHash": hash, "actionSymbolId": "Demo::Count", "inputs": map[string]any{"lo": value("intValue", "41")},
 	}, &resp)
-	if resp.GetError() != "" || resp.GetOutputs()["hi"].GetIntValue() != 42 {
+	// The bare `out hi` is [0..*], so its one value is reported as a one-element sequence.
+	hi := resp.GetOutputs()["hi"].GetSequence().GetElements()
+	if resp.GetError() != "" || len(hi) != 1 || hi[0].GetIntValue() != 42 {
 		t.Errorf("Count(41) = %v, error %q\n%s", resp.GetOutputs(), resp.GetError(), out)
 	}
-	if !strings.Contains(out, "hi = 42") {
+	if !strings.Contains(out, "hi = (42)") {
 		t.Errorf("text lacks the output:\n%s", out)
 	}
 
@@ -571,10 +572,7 @@ func TestQueriesAndRenderings(t *testing.T) {
 		t.Errorf("an empty composite: %s", msg)
 	}
 
-	telescope, err := filepath.Abs(telescopeFixture)
-	if err != nil {
-		t.Fatal(err)
-	}
+	telescope := h.copyIn(telescopeFixture, "telescope.sysml")
 	var rows pb.RunDocumentQueryResponse
 	_, out = h.ok("run_document_query", map[string]any{
 		"paths": []string{telescope}, "queryId": "Observatory::SubsystemTable",
@@ -632,6 +630,104 @@ func TestQueriesAndRenderings(t *testing.T) {
 }
 
 // documentNames are the DocumentQueries::Document specializations of a model.
+// copyIn copies a fixture into the workspace root under name and answers the
+// path a tool argument names it by: the tools read only under the root.
+func (h *harness) copyIn(fixture, name string) string {
+	h.t.Helper()
+	data, err := os.ReadFile(fixture)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(h.root, name), data, 0o600); err != nil {
+		h.t.Fatal(err)
+	}
+	return name
+}
+
+// Paths stay under the workspace root: a path that leaves it, lexically or
+// through a symlink, is refused by every tool that reads a file, and a path
+// under a link that stays inside the root is accepted.
+func TestPathsStayUnderTheRoot(t *testing.T) {
+	h := attach(t, newService(t))
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "secret.sysml"), []byte(demoModel), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for name, args := range map[string]map[string]any{
+		"parse ..":            {"paths": []string{"../" + filepath.Base(outside) + "/secret.sysml"}},
+		"parse absolute":      {"paths": []string{filepath.Join(outside, "secret.sysml")}},
+		"convert filePath":    {"filePath": filepath.Join(outside, "secret.sysml"), "toFormat": "ttl"},
+		"migrate filePath":    {"filePath": filepath.Join(outside, "secret.sysml"), "toFormat": "sysml"},
+		"migrate layoutPath":  {"filePath": "v1.xmi", "layoutPath": filepath.Join(outside, "layout.json"), "toFormat": "sysml"},
+		"run_document_query ": {"paths": []string{filepath.Join(outside, "secret.sysml")}, "queryId": "Q"},
+	} {
+		tool := strings.Fields(name)[0]
+		if msg := h.fails(tool, args); !strings.Contains(msg, "outside the workspace root") {
+			t.Errorf("%s: %s", name, msg)
+		}
+	}
+	if err := os.Symlink(filepath.Join(outside, "secret.sysml"), filepath.Join(h.root, "link.sysml")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if msg := h.fails("parse", map[string]any{"paths": []string{"link.sysml"}}); !strings.Contains(msg, "outside the workspace root") {
+		t.Errorf("a link out of the root: %s", msg)
+	}
+	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "inside.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(h.root, "broken.sysml"), []byte("package Broken {"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(h.root, "broken.sysml"), filepath.Join(h.root, "brokenlink.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	var resp pb.ParseSourcesResponse
+	_, out := h.ok("parse", map[string]any{"paths": []string{"inside.sysml", "brokenlink.sysml"}}, &resp)
+	resolved, err := filepath.EvalSymlinks(filepath.Join(h.root, "broken.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, resolved) || strings.Contains(out, "brokenlink.sysml") {
+		t.Errorf("the service must be handed the resolved file, not the link:\n%s", out)
+	}
+	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "alias.kerml")); err != nil {
+		t.Fatal(err)
+	}
+	if msg := h.fails("parse", map[string]any{"paths": []string{"alias.kerml"}}); !strings.Contains(msg, "whose extension names another format") {
+		t.Errorf("a link whose extension differs from its target's: %s", msg)
+	}
+	if err := os.WriteFile(filepath.Join(h.root, "graph.turtle"), []byte("@prefix ex: <http://example.org/> .\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(h.root, "graph.turtle"), filepath.Join(h.root, "graph.ttl")); err != nil {
+		t.Fatal(err)
+	}
+	if res := h.call("convert", map[string]any{"filePath": "graph.ttl", "toFormat": "sysml"}); strings.Contains(text(res), "another format") {
+		t.Errorf(".ttl and .turtle name the same format: %s", text(res))
+	}
+	if res := h.call("parse", map[string]any{"paths": []string{"alias.kerml"}}); !strings.Contains(text(res), "another format") {
+		t.Errorf("a link refused for its format must say so: %s", text(res))
+	}
+	if res := h.call("convert", map[string]any{"filePath": "alias.kerml", "fromFormat": "sysml", "toFormat": "ttl"}); !strings.Contains(text(res), "another format") {
+		t.Errorf("an explicit fromFormat does not choose the language, so the .kerml link is still refused: %s", text(res))
+	}
+	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "input.data")); err != nil {
+		t.Fatal(err)
+	}
+	if res := h.call("convert", map[string]any{"filePath": "input.data", "fromFormat": "sysml", "toFormat": "ttl"}); !strings.Contains(text(res), "another format") {
+		t.Errorf("the parser reads a name with neither model extension as its own kind, so the link is refused even with fromFormat: %s", text(res))
+	}
+	if err := os.Symlink(filepath.Join(h.root, "demo.sysml"), filepath.Join(h.root, "copy.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	if res := h.call("convert", map[string]any{"filePath": "copy.sysml", "fromFormat": "sysml", "toFormat": "ttl"}); res.IsError {
+		t.Errorf("a link of the target's kind converts: %s", text(res))
+	}
+	if msg := h.fails("parse", map[string]any{"paths": []string{"missing/dir/new.sysml"}}); strings.Contains(msg, "outside") {
+		t.Errorf("a path under the root that does not exist yet is not outside it: %s", msg)
+	}
+}
+
 func (h *harness) documentNames(path string) []string {
 	h.t.Helper()
 	var query pb.QueryResponse
@@ -774,6 +870,9 @@ func TestAnUnknownModelHashIsNotFound(t *testing.T) {
 		"evaluate_calc":         {"symbolId": "Demo::add"},
 		"run_analysis":          {"symbolId": "Demo::sedanCost"},
 		"run_sweep":             {"symbolId": "Demo::Twice", "ranges": []any{}},
+		"run_runs":              {"actionSymbolId": "Demo::Spin", "runs": 1, "draws": "min"},
+		"self_check":            {},
+		"record_run":            {"analysisSymbolId": "Demo::sedanCost"},
 		"query":                 {},
 		"run_document_query":    {"queryId": "Q"},
 		"render_model_document": {"documentId": "D"},
@@ -781,6 +880,8 @@ func TestAnUnknownModelHashIsNotFound(t *testing.T) {
 		"export_graphs":         {"subject": "Demo::Lamp"},
 		"convert":               {"toFormat": "ttl"},
 		"apply_edits":           {"operations": []any{map[string]any{"setValue": map[string]any{"target": "x", "value": "1"}}}},
+		"import_data":           {"imports": []any{map[string]any{"name": "d.csv", "content": "element,x\n"}}},
+		"compare_results":       {"results": `{"source":"t","configurations":[]}`},
 	} {
 		args["modelHash"] = "0000000000000000000000000000000000000000000000000000000000000000"
 		msg := h.fails(name, args)
@@ -943,5 +1044,26 @@ func TestDiagnosticsReportsEveryDiagnostic(t *testing.T) {
 	}
 	if msg := h.fails("diagnostics", map[string]any{"modelHash": "nope"}); !strings.Contains(msg, "NOT_FOUND") {
 		t.Errorf("an unknown hash: %s", msg)
+	}
+}
+
+func TestADanglingLinkIsJudgedByWhereItPoints(t *testing.T) {
+	h := attach(t, newService(t))
+	if err := os.Symlink(filepath.Join(filepath.Dir(h.root), "not-yet.sysml"), filepath.Join(h.root, "dangle.sysml")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	for name, args := range map[string]map[string]any{
+		"parse":   {"paths": []string{"dangle.sysml"}},
+		"convert": {"filePath": "dangle.sysml", "toFormat": "ttl"},
+	} {
+		if msg := h.fails(name, args); !strings.Contains(msg, "INVALID_ARGUMENT") || !strings.Contains(msg, "leads through a symlink to") {
+			t.Errorf("%s through a dangling link out of the root: %s", name, msg)
+		}
+	}
+	if err := os.Symlink("later.sysml", filepath.Join(h.root, "soon.sysml")); err != nil {
+		t.Fatal(err)
+	}
+	if msg := h.fails("parse", map[string]any{"paths": []string{"soon.sysml"}}); strings.Contains(msg, "outside") {
+		t.Errorf("a dangling link staying inside the root is a file not yet written, not outside: %s", msg)
 	}
 }

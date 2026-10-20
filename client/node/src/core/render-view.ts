@@ -1,3 +1,5 @@
+import { fromJson, type JsonValue } from "@bufbuild/protobuf";
+import { RenderViewResponseSchema } from "../generated/sysml_pb.js";
 import type {
   RenderCanvas as PbRenderCanvas,
   RenderEdge as PbRenderEdge,
@@ -34,6 +36,8 @@ export interface RenderGeometry {
   height: number;
   hasSize: boolean;
   collapsed: boolean;
+  /** The layout only folds or hides the node: x and y carry no position. */
+  unplaced: boolean;
 }
 
 export interface RenderStyle {
@@ -142,6 +146,7 @@ function geometryOf(geometry: PbRenderGeometry | undefined): RenderGeometry | un
         height: geometry.height,
         hasSize: geometry.hasSize,
         collapsed: geometry.collapsed,
+        unplaced: geometry.unplaced,
       };
 }
 
@@ -233,6 +238,11 @@ function canvasOf(canvas: PbRenderCanvas | undefined): RenderCanvas | undefined 
   return canvas === undefined
     ? undefined
     : { unit: canvas.unit, width: canvas.width, height: canvas.height, hasSize: canvas.hasSize };
+}
+
+/** Reads a rendering saved as the protojson of a RenderViewResponse (as JSON.parse returns it), as a service or a WASM module answers it. */
+export function renderedViewFromJson(json: unknown): RenderedView {
+  return renderedViewOf(fromJson(RenderViewResponseSchema, json as JsonValue));
 }
 
 export function renderedViewOf(response: RenderViewResponse): RenderedView {

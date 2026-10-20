@@ -65,6 +65,12 @@ CAPABILITY_RENDER_VIEW = "render_view"
 #: The ``ExportGraphs`` RPC, which exports the lowered graph of an action or
 #: state machine as the canonical ``graphs:1`` JSON an external engine is sent.
 CAPABILITY_EXPORT_GRAPHS = "export_graphs"
+CAPABILITY_IMPORT_DATA = "import_data"
+CAPABILITY_COMPARE_RESULTS = "compare_results"
+
+#: The ``CheckBehavior`` RPC, which searches every schedule of a behavior for
+#: violated properties, deadlocks, failures and divergent values.
+CAPABILITY_CHECK = "check"
 
 #: ``form`` on ``RenderDocumentRequest``, which asks ``RenderDocument`` for the
 #: HTML page instead of Markdown. Without it the service would render Markdown
@@ -278,6 +284,10 @@ CAPABILITY_CONVERT_DOCUMENTS = "convert_documents"
 #: compact document (an id table and handles), optionally without derived properties.
 CAPABILITY_CONVERT_COMPACT = "convert_compact"
 
+#: ``ConvertRequest.include_check_diagnostics``: the semantic check's diagnostics, each with its
+#: own severity, reported alongside the converted output.
+CAPABILITY_CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics"
+
 #: ``ParseSourcesRequest.base_model_hash`` and ``ParseSourcesResponse.affected``: the documents
 #: whose results may differ from the base model's, so a client re-reads only those after an edit.
 CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"
@@ -398,3 +408,14 @@ def require(info: ServerInfo, capability: str, remedy: str) -> None:
     """Raise :class:`MissingCapabilityError` unless ``info`` reports ``capability``."""
     if not info.has(capability):
         raise MissingCapabilityError(capability, info, remedy)
+
+#: The ``RunRuns`` RPC, which runs an action or a Monte Carlo case repeatedly
+#: and tables what the runs observed.
+CAPABILITY_RUNS = "runs"
+
+#: The ``SelfCheck`` RPC, which applies the reflective SysMLValidation
+#: constraints to every element of a model.
+CAPABILITY_SELF_CHECK = "self_check"
+
+#: The ``RecordRun`` RPC, which records runs of an analysis case into the model.
+CAPABILITY_RECORD_RUN = "record_run"

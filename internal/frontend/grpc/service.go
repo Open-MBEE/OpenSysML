@@ -49,6 +49,18 @@ const CapabilityMigrate = "migrate"
 // answer.
 const CapabilityVerification = "verification"
 
+// CapabilityRuns names the RunRuns RPC, which runs an action or a Monte Carlo
+// case repeatedly and tables what the runs observed.
+const CapabilityRuns = "runs"
+
+// CapabilitySelfCheck names the SelfCheck RPC, which applies the reflective
+// SysMLValidation constraints to every element of a model.
+const CapabilitySelfCheck = "self_check"
+
+// CapabilityRecordRun names the RecordRun RPC, which records runs of an
+// analysis case into the model as AnalysisRecords declarations.
+const CapabilityRecordRun = "record_run"
+
 // CapabilityVerificationQuestions names the `question` field of the
 // verification requests — the solver questions "holds" and "satisfiable" —
 // and the `question`, `status` and `witness` fields of every Verdict.
@@ -82,6 +94,19 @@ const CapabilityRenderView = "render_view"
 // CapabilityExportGraphs names the capability of the ExportGraphs RPC, which
 // exports the lowered graph of an action or state machine as `graphs:1` JSON.
 const CapabilityExportGraphs = "export_graphs"
+
+// CapabilityImportData names the ImportData RPC, which sets the feature values
+// a CSV, TSV, JSON or JSON Lines file assigns, one row per element.
+const CapabilityImportData = "import_data"
+
+// CapabilityCompareResults names the CompareResults RPC, which runs the
+// configurations a tool's results sidecar indexes and tables the tool's
+// distributions of their observables beside the runs'.
+const CapabilityCompareResults = "compare_results"
+
+// CapabilityCheck names the CheckBehavior RPC, which searches every schedule of
+// a behavior for violated properties, deadlocks, failures and divergent values.
+const CapabilityCheck = "check"
 
 // CapabilityOSLCQuery names the capability of evaluating OSLC Query text.
 const CapabilityOSLCQuery = "oslc_query"
@@ -191,6 +216,11 @@ const CapabilityConvertDocuments = "convert_documents"
 // keep_derived: api-json written as the compact document, with an id table and
 // handles, and optionally without the metamodel's derived properties.
 const CapabilityConvertCompact = "convert_compact"
+
+// CapabilityConvertCheckDiagnostics names ConvertRequest.include_check_diagnostics:
+// the semantic check's diagnostics, with their severities, reported alongside
+// the converted output.
+const CapabilityConvertCheckDiagnostics = "convert_check_diagnostics"
 
 // CapabilityParseSourcesAffected names ParseSourcesRequest.base_model_hash and
 // ParseSourcesResponse.affected: the documents whose results may differ from
@@ -325,6 +355,9 @@ var capabilities = []string{
 	CapabilityVerificationQuestions,
 	CapabilityVerificationArguments,
 	CapabilityVerificationObjectiveAuthoring,
+	CapabilityRuns,
+	CapabilitySelfCheck,
+	CapabilityRecordRun,
 	CapabilityMetadataAuthoring,
 	CapabilityMetadataPrefixAuthoring,
 	CapabilitySequenceAuthoring,
@@ -341,8 +374,12 @@ var capabilities = []string{
 	CapabilityStateTrace,
 	CapabilityRenderView,
 	CapabilityExportGraphs,
+	CapabilityImportData,
+	CapabilityCompareResults,
+	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
+	CapabilityConvertCheckDiagnostics,
 	CapabilityParseSourcesAffected,
 	CapabilityRenderDocumentFileName,
 	CapabilityOrderDependence,
@@ -448,6 +485,23 @@ func NewService(cacheSize int, version string, opts ...Option) (*Service, error)
 	return newService(cacheSize, version, opts)
 }
 
+// TestWithholdCapabilitiesEnv names, comma-separated, the capabilities a
+// command's service deliberately lacks, so a conformance run can test a
+// client's fallback for each.
+const TestWithholdCapabilitiesEnv = "OPENSYSML_TEST_WITHHOLD_CAPABILITIES"
+
+// WithheldCapabilitiesForTesting reads TestWithholdCapabilitiesEnv, dropping
+// blanks; nil when it is unset.
+func WithheldCapabilitiesForTesting() []string {
+	var names []string
+	for _, name := range strings.Split(os.Getenv(TestWithholdCapabilitiesEnv), ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
 // NewServiceWithUnavailableCapabilitiesForTesting creates a service that
 // deliberately lacks named capabilities for conformance testing.
 func NewServiceWithUnavailableCapabilitiesForTesting(cacheSize int, version string, unavailable []string, opts ...Option) (*Service, error) {
@@ -539,6 +593,11 @@ func (s *Service) GetServerInfo(ctx context.Context, req *pb.ServerInfoRequest) 
 		Capabilities: s.capabilities.names(),
 	}, nil
 }
+
+// Supports reports whether the service has a capability, as GetServerInfo
+// lists it; an in-process caller asks before choosing an RPC the way a remote
+// client reads the advertised list first.
+func (s *Service) Supports(capability string) bool { return s.capabilities.has(capability) }
 
 func (s *Service) requireCapability(capability string) error {
 	if s.capabilities.has(capability) {
@@ -844,6 +903,18 @@ func fileInput(path string) (sourceInput, error) {
 // (lineage.go): ParseSources, whose model of many documents is reparsed after
 // each edit. ParseFile's one document is cheap to parse whole.
 func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, incremental bool) (string, *CachedModel) {
+	return s.parseModelKeeping(inputs, mode, incremental, true)
+}
+
+// parseModelKeeping is parseModel, caching the model only when keep is set: a
+// model staged on the way to another is not kept, so it evicts nothing.
+func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceMode, incremental, keep bool) (string, *CachedModel) {
+	store := func(hash string, model *CachedModel) *CachedModel {
+		if !keep {
+			return model
+		}
+		return s.cache.Add(hash, model)
+	}
 	// Keyed by what was read, not by the hash a request carried: a hash
 	// disagreeing with its content would serve another model. Each document's
 	// name is part of the key, since its diagnostics name the document they came
@@ -873,7 +944,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, in
 	// changed is parsed and analyzed again (lineage.go).
 	if incremental {
 		if model, ok := s.parseFromLineage(inputs, mode); ok {
-			return modelHash, s.cache.Add(modelHash, model)
+			return modelHash, store(modelHash, model)
 		}
 	}
 
@@ -921,7 +992,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, in
 	// A parse racing another of the same model keeps the entry already cached,
 	// so the objects held on it stay reachable under the hash.
 	model := &CachedModel{Documents: documents, Index: idx, Library: library, Mode: mode}
-	return modelHash, s.cache.Add(modelHash, model)
+	return modelHash, store(modelHash, model)
 }
 
 // GetSymbol retrieves symbol information by FQN

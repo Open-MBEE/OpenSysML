@@ -1,6 +1,7 @@
-// The landing page's hero diagram: the stack model as the engine renders it, laid out
+// The landing page's hero diagram: a scene's model as the engine renders it, laid out
 // by ELK, its wires rerouted by libavoid around the boxes a visitor moves, drawn by
-// the same canvas code as the VS Code diagram panel.
+// the same canvas code as the VS Code diagram panel. A visit opens on one of the scenes
+// at random; the tabs switch between them over one connection to the module.
 import type { LayoutGeometry, RenderPoint, RenderResult } from "../protocol";
 import { autoLayout, type AutoLayout } from "../webview/autolayout";
 import { CLEARANCE, loadAvoid, portExitReach } from "../webview/avoid";
@@ -17,25 +18,31 @@ import {
   type PlacedNode,
   type PlacedPort,
 } from "../webview/layout";
+import type { Connection } from "@openmbee/opensysml/browser";
+import { connectModule, moduleUrls } from "./connect";
 import {
-  JOURNEY_EVENTS,
+  blocks,
   debugSteps,
   journey,
-  landingModel,
   readModel,
+  rollup,
+  rollupLevels,
   runJourney,
+  sceneTarget,
+  snapshotModel,
+  valueText,
   type DebugStep,
   type Diagnostic,
-  type EngineClient,
-  type EngineInstance,
   type JourneyRun,
   type LandingModel,
   type LandingPart,
+  type SceneTarget,
 } from "./model";
 import { carried, obstacles, resettle } from "./carry";
 import { download, exportFrame, exportSvg, rasterSize, rasterize } from "./export";
-import { presented } from "./present";
-import stack from "./stack.json";
+import { quantityText } from "./present";
+import { SCENES, STACK_SCENE, chooseScene, requiredVariant, variantChain, type Scene, type SceneVariant } from "./scene";
+import { wireTabs } from "./tabs";
 import { ZOOM_STEP, pannedView, pinchedView, refittedView, zoomOf, zoomedView, type View } from "./zoom";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -62,15 +69,18 @@ interface Mounted {
   dispose(): void;
 }
 
-interface EngineUrls {
-  wasmExec: string;
-  engine: string;
+/** What a scene's mount is given by the hero: the module connection it shares and its model's URL. */
+interface MountOptions {
+  engine(): Promise<Connection>;
+  modelUrl: string;
+  /** Called when the diagram finds its root gone from the page. */
+  onLeave(): void;
 }
 
 declare global {
   interface Window {
-    osmlLoadEngine?(urls: EngineUrls): Promise<EngineClient>;
-    osmlMountDiagram?(root: HTMLElement): void;
+    /** Mounts the hero on `root`, opening on `scene` when given, else on one chosen for the visit. */
+    osmlMountDiagram?(root: HTMLElement, scene?: Scene): void;
     __osmlDiagram?: Mounted;
     document$?: { subscribe(next: () => void): { unsubscribe(): void } };
   }
@@ -129,8 +139,7 @@ function overlap(a: DOMRect | Box, b: DOMRect | Box): number {
   return w > 0 && h > 0 ? w * h : 0;
 }
 
-function mount(root: HTMLElement): Mounted {
-  window.__osmlDiagram?.dispose();
+function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted {
   const hero = root.closest<HTMLElement>(".osml-hero") ?? root;
   const stage = root.querySelector<HTMLElement>("[data-osml-stage]")!;
   const card = hero.querySelector<HTMLElement>("[data-osml-card]")!;
@@ -158,6 +167,27 @@ function mount(root: HTMLElement): Mounted {
   const nowEl = debugPanel.querySelector<HTMLElement>("[data-osml-debug-now]")!;
   const queueEl = debugPanel.querySelector<HTMLElement>("[data-osml-debug-queue]")!;
   const traceEl = debugPanel.querySelector<HTMLOListElement>("[data-osml-debug-trace]")!;
+  const variantsEl = root.querySelector<HTMLElement>("[data-osml-variants]");
+  const journeyProgram = scene.program.kind === "journey" ? scene.program : undefined;
+  const rollupProgram = scene.program.kind === "rollup" ? scene.program : undefined;
+  const rootName = scene.rootSymbol.slice(scene.rootSymbol.lastIndexOf("::") + 2);
+  // The controls are the page's; a scene shows the ones it declares and starts them afresh.
+  const offers = (control: Scene["controls"][number]): boolean => scene.controls.includes(control);
+  runBtn.hidden = !offers("run");
+  runBtn.textContent = "▶ Run the model";
+  srcBtn.hidden = !offers("edit");
+  srcBtn.setAttribute("aria-expanded", "false");
+  srcBtn.textContent = "Edit the model";
+  editor.hidden = true;
+  srcEl.value = "";
+  srcEl.readOnly = false;
+  srcEl.removeAttribute("aria-invalid");
+  debugBtn.hidden = !offers("debug");
+  debugBtn.setAttribute("aria-expanded", "false");
+  debugBtn.textContent = "Debug the run";
+  debugPanel.hidden = true;
+  traceEl.replaceChildren();
+  downloadBtn.hidden = !offers("download");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const ac = new AbortController();
   const { signal } = ac;
@@ -170,7 +200,7 @@ function mount(root: HTMLElement): Mounted {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("class", "osml-diagram");
   svg.setAttribute("role", "group");
-  svg.setAttribute("aria-label", "The OpenSysML stack, drawn from its SysML model");
+  svg.setAttribute("aria-label", scene.description);
   // Zoomed in, the drawing is clipped to the stage so it does not run over the hero's copy.
   const clip = document.createElementNS(SVG_NS, "clipPath");
   clip.id = "osml-stage-clip";
@@ -184,8 +214,11 @@ function mount(root: HTMLElement): Mounted {
   svg.append(defs, viewport);
   hero.append(svg);
 
-  let model = landingModel(stack.hash, stack.render as unknown as RenderResult, stack.instances as unknown as EngineInstance[]);
-  let result = presented(model);
+  let model = snapshotModel(scene);
+  // The root drawn: the scene's own, or a variant's while its toggle is on.
+  let target: SceneTarget = sceneTarget(scene);
+  const present = (): RenderResult => scene.present(model, scene);
+  let result = present();
   let live = false;
   let goodSource: string | undefined;
   let auto: AutoLayout | undefined;
@@ -202,12 +235,14 @@ function mount(root: HTMLElement): Mounted {
   let cardFor: string | undefined;
   let hot: string | undefined;
   let liveNode: string | undefined;
+  // The boxes a roll-up lights together: one level of the composition at a time.
+  let liveLevel: ReadonlySet<string> = new Set();
   let liveEdge: number | undefined;
   let token: SVGCircleElement | undefined;
   let running = false;
   let editTimer: ReturnType<typeof setTimeout> | undefined;
+  // The revision of what is read: the editor's text and the drawn root; an older read is dropped.
   let editSequence = 0;
-  let enginePromise: Promise<EngineClient> | undefined;
   let sourcePromise: Promise<string> | undefined;
 
   const partOf = (id: string): LandingPart | undefined => [...model.parts.values()].find((part) => part.id === id);
@@ -216,6 +251,10 @@ function mount(root: HTMLElement): Mounted {
   const projects = (): LandingPart[] => [...model.parts.values()].filter((part) => part.owner === undefined);
 
   function status(text: string, error = false): void {
+    if (signal.aborted) {
+      // A scene that has left the stage says nothing over the one that replaced it.
+      return;
+    }
     statusEl.textContent = text;
     statusEl.classList.toggle("osml-schematic__status--err", error);
   }
@@ -388,7 +427,7 @@ function mount(root: HTMLElement): Mounted {
     for (const group of content.querySelectorAll<SVGGElement>("g.opensysml-node")) {
       const id = group.dataset.opensysmlId;
       group.classList.toggle("is-hot", id === lit);
-      group.classList.toggle("is-live", id === liveNode);
+      group.classList.toggle("is-live", id === liveNode || (id !== undefined && liveLevel.has(id)));
     }
     for (const group of content.querySelectorAll<SVGGElement>("g.opensysml-edge")) {
       const index = Number(group.dataset.edge);
@@ -402,6 +441,10 @@ function mount(root: HTMLElement): Mounted {
       const part = partOf(group.dataset.opensysmlId ?? "");
       if (!part) {
         continue;
+      }
+      const tone = scene.tone(part, scene);
+      if (tone !== undefined) {
+        group.dataset.osmlTone = tone;
       }
       // A nested part is drawn beside its project's group, not inside it, so it takes the pointer itself.
       if (part.owner !== undefined) {
@@ -467,22 +510,16 @@ function mount(root: HTMLElement): Mounted {
 
   // ---- the engine and the model text ----
 
-  function engine(): Promise<EngineClient> {
-    if (!window.osmlLoadEngine) {
-      return Promise.reject(new Error("the engine loader is missing"));
+  // engine is the hero's connection to the sysml-wasm module, shared by every scene.
+  function engine(): Promise<Connection> {
+    if (signal.aborted) {
+      return Promise.reject(new Error("the diagram has left the page"));
     }
-    enginePromise ??= window.osmlLoadEngine({
-      wasmExec: root.dataset.osmlWasmExec ?? "",
-      engine: root.dataset.osmlEngine ?? "",
-    }).catch((error: unknown) => {
-      enginePromise = undefined;
-      throw error;
-    });
-    return enginePromise;
+    return options.engine();
   }
 
   function publishedSource(): Promise<string> {
-    sourcePromise ??= fetch(root.dataset.osmlModel ?? "")
+    sourcePromise ??= fetch(options.modelUrl)
       .then((response) => {
         if (!response.ok) {
           throw new Error(`the model did not download (HTTP ${response.status})`);
@@ -509,7 +546,7 @@ function mount(root: HTMLElement): Mounted {
         placed.delete(feature);
       }
     }
-    result = presented(model);
+    result = present();
     if (cardFor && !partOf(cardFor)) {
       closeCard();
     }
@@ -527,18 +564,25 @@ function mount(root: HTMLElement): Mounted {
     }
   }
 
+  const sameTarget = (a: SceneTarget, b: SceneTarget): boolean => a.rootSymbol === b.rootSymbol && a.view === b.view;
+
   // read parses the source on the engine; it reports diagnostics and keeps the last good model.
   async function read(source: string, verb: string): Promise<LandingModel | undefined> {
     const started = performance.now();
-    const outcome = readModel(await engine(), source);
-    if (outcome.diagnostics.length > 0 || !outcome.model) {
-      const first = outcome.diagnostics[0];
+    const revision = editSequence;
+    const outcome = await readModel(await engine(), scene, source, target);
+    if (revision !== editSequence || signal.aborted) {
+      // The editor took input or the root changed while the worker read this; the newer read follows.
+      return undefined;
+    }
+    if (!outcome.model) {
+      const first = outcome.diagnostics.find(blocks) ?? outcome.diagnostics[0];
       srcEl.setAttribute("aria-invalid", "true");
       status(`Not ${verb}: ${first ? diagnosticText(first) : "the model has nothing to draw"}. The diagram shows the last model that read cleanly.`, true);
       return undefined;
     }
     srcEl.removeAttribute("aria-invalid");
-    if (source !== goodSource) {
+    if (source !== goodSource || !sameTarget(outcome.model.target, model.target)) {
       adopt(outcome.model, source);
     }
     const ms = Math.max(1, Math.round(performance.now() - started));
@@ -602,6 +646,12 @@ function mount(root: HTMLElement): Mounted {
     attrs.className = "osml-nodecard__attrs";
     for (const key of Object.keys(part.attrs).sort(byCodeUnit)) {
       row(attrs, key, part.attrs[key]);
+    }
+    for (const key of Object.keys(part.quantities).sort(byCodeUnit)) {
+      row(attrs, key, quantityText(part.quantities[key]));
+    }
+    for (const key of Object.keys(part.unvalued).sort(byCodeUnit)) {
+      row(attrs, key, `undetermined: ${part.unvalued[key]}`);
     }
     const node = model.render.nodes.find((candidate) => candidate.id === id);
     for (const port of node?.ports ?? []) {
@@ -1033,7 +1083,7 @@ function mount(root: HTMLElement): Mounted {
         to: heroStyle.getPropertyValue("--osml-hero-to").trim() || "#303f9f",
       };
       const drawing = exportSvg(content, frame, size, backdrop, (element) => element === token);
-      download(await rasterize(drawing), "opensysml-stack.png");
+      download(await rasterize(drawing), scene.pngName);
     } catch (error: unknown) {
       status(`Could not save the diagram: ${message(error)}.`, true);
     } finally {
@@ -1134,7 +1184,73 @@ function mount(root: HTMLElement): Mounted {
   // The model to run: the editor's text when it reads cleanly, else the last good model.
   async function runnable(): Promise<LandingModel | undefined> {
     const source = await currentSource();
-    return source === goodSource ? model : read(source, "run");
+    return source === goodSource && sameTarget(model.target, target) ? model : read(source, "run");
+  }
+
+  function detailSpan(id: string): SVGTSpanElement | null {
+    return groupOf(id)?.querySelector<SVGTSpanElement>("tspan.detail") ?? null;
+  }
+
+  // animateRollup lights the boxes level by level from the deepest up, each level's values
+  // appearing as the engine's roll-up reaches it; the drawing itself is already laid out.
+  async function animateRollup(levels: readonly string[][], feature: string): Promise<void> {
+    const details = new Map<string, string>();
+    for (const id of levels.flat()) {
+      const span = detailSpan(id);
+      if (span) {
+        details.set(id, span.textContent ?? "");
+        span.textContent = `${feature} = …`;
+      }
+    }
+    try {
+      for (const ids of levels) {
+        if (signal.aborted) {
+          break;
+        }
+        for (const id of ids) {
+          const span = detailSpan(id);
+          if (span) {
+            span.textContent = details.get(id) ?? "";
+          }
+        }
+        liveLevel = new Set(ids);
+        syncClasses();
+        await delay(reduceMotion.matches ? 350 : 900);
+      }
+      liveLevel = new Set();
+      syncClasses();
+      await delay(600);
+    } finally {
+      for (const [id, text] of details) {
+        const span = detailSpan(id);
+        if (span) {
+          span.textContent = text;
+        }
+      }
+      liveLevel = new Set();
+      syncClasses();
+    }
+  }
+
+  // runRollup instantiates the root and evaluates its rolled-up feature on the engine, then
+  // shows the roll-up climbing the composition and reports the vehicle's total last.
+  async function runRollup(feature: string): Promise<void> {
+    const current = await runnable();
+    if (!current) {
+      return;
+    }
+    const started = performance.now();
+    const total = await rollup(await engine(), current, feature);
+    const ms = Math.max(1, Math.round(performance.now() - started));
+    const drawnRoot = target.rootSymbol.slice(target.rootSymbol.lastIndexOf("::") + 2);
+    const objects = current.parts.size + 1;
+    status(`Instantiate made ${objects} objects; the roll-up of ${drawnRoot}.${feature} climbs from the engines…`);
+    runBtn.textContent = "▶ Run it again";
+    await animateRollup(rollupLevels(current), feature);
+    status(
+      `Instantiate made ${objects} objects and Evaluate rolled up ${drawnRoot}.${feature} = ${valueText(total)} in ${ms} ms.`,
+      total.kind === "undetermined",
+    );
   }
 
   let seed: number | undefined;
@@ -1152,10 +1268,15 @@ function mount(root: HTMLElement): Mounted {
     running = true;
     runBtn.disabled = true;
     syncDebugControls();
+    syncVariantControls();
     status("Loading the engine and reading the model…");
     void (async () => {
       let ran = false;
       try {
+        if (rollupProgram !== undefined) {
+          await runRollup(rollupProgram.feature);
+          return;
+        }
         const current = await runnable();
         if (!current) {
           return;
@@ -1168,7 +1289,7 @@ function mount(root: HTMLElement): Mounted {
         }
         const used = seed;
         const started = performance.now();
-        const visited = journey(await engine(), current, used);
+        const visited = await journey(await engine(), scene, current, used);
         ran = true;
         const ms = Math.max(1, Math.round(performance.now() - started));
         if (visited.length === 0) {
@@ -1176,7 +1297,7 @@ function mount(root: HTMLElement): Mounted {
         }
         const names = visited.map((id) => partOf(id)?.attrs.label ?? id);
         status(
-          `ExecuteState ran ModelJourney on ${JOURNEY_EVENTS.join(", ")} under ${picked ? "random seed" : "seed"} ${used} in ${ms} ms: ${names.join(" → ")}`,
+          `ExecuteState ran ModelJourney on ${journeyEvents.join(", ")} under ${picked ? "random seed" : "seed"} ${used} in ${ms} ms: ${names.join(" → ")}`,
         );
         runBtn.textContent = "▶ Run it again";
         await animate(visited);
@@ -1186,10 +1307,11 @@ function mount(root: HTMLElement): Mounted {
         running = false;
         runBtn.disabled = false;
         syncDebugControls();
-        const eventsStale = ran && !sameEvents(sent, JOURNEY_EVENTS);
+        syncVariantControls();
+        const eventsStale = ran && !sameEvents(sent, journeyEvents);
         if (run !== undefined && (runSeed !== seed || eventsStale)) {
           if (eventsStale) {
-            sent = [...JOURNEY_EVENTS];
+            sent = [...journeyEvents];
           }
           if (debugPanel.hidden) {
             run = undefined;
@@ -1207,7 +1329,8 @@ function mount(root: HTMLElement): Mounted {
   // Every change re-runs ModelJourney from the start on the engine with all the events
   // sent so far; the panel then steps through that run's trace record by record.
 
-  let sent: string[] = [...JOURNEY_EVENTS];
+  const journeyEvents: readonly string[] = journeyProgram?.events ?? [];
+  let sent: string[] = [...journeyEvents];
   let run: JourneyRun | undefined;
   let steps: DebugStep[] = [];
   // The last trace record shown; -1 is before the first.
@@ -1322,7 +1445,7 @@ function mount(root: HTMLElement): Mounted {
       // This run uses the latest model, including one its own read adopted.
       rerunStale = false;
       const started = performance.now();
-      run = runJourney(client, current, sent, seed);
+      run = await runJourney(client, scene, current, sent, seed);
       runSeed = seed;
       steps = debugSteps(run.trace);
       const ms = Math.max(1, Math.round(performance.now() - started));
@@ -1436,6 +1559,77 @@ function mount(root: HTMLElement): Mounted {
   });
   on(reseedBtn, "click", () => setSeed(randomSeed()));
 
+  // ---- switching the root ----
+  // A variant's toggle redraws the scene from another root over the same text.
+
+  let variant: SceneVariant | undefined;
+  const variantBtns = new Map<SceneVariant, HTMLButtonElement>();
+  if (variantsEl) {
+    variantsEl.replaceChildren();
+    for (const candidate of scene.variants) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "osml-btn";
+      button.setAttribute("aria-pressed", "false");
+      button.textContent = candidate.label;
+      variantsEl.append(button);
+      variantBtns.set(candidate, button);
+      // Switching a variant off returns to the one it builds on; one that is on only through another goes too.
+      on(button, "click", () => void switchVariant(variantChain(scene, variant).includes(candidate) ? requiredVariant(scene, candidate) : candidate));
+    }
+  }
+
+  function syncVariantControls(): void {
+    const chain = variantChain(scene, variant);
+    for (const [candidate, button] of variantBtns) {
+      const on = chain.includes(candidate);
+      const required = requiredVariant(scene, candidate);
+      button.hidden = required !== undefined && !chain.includes(required);
+      button.setAttribute("aria-pressed", String(on));
+      button.textContent = on ? candidate.activeLabel : candidate.label;
+      button.disabled = running;
+    }
+  }
+
+  async function switchVariant(next: SceneVariant | undefined): Promise<void> {
+    if (running) {
+      return;
+    }
+    variant = next;
+    target = next === undefined ? sceneTarget(scene) : { rootSymbol: next.rootSymbol, view: next.view };
+    // A read of the previous root still in flight is superseded, as an edit supersedes a read.
+    const revision = ++editSequence;
+    syncVariantControls();
+    status(next === undefined ? `Reading ${rootName} again…` : `Reading ${next.rootSymbol.slice(next.rootSymbol.lastIndexOf("::") + 2)}…`);
+    try {
+      const current = await runnable();
+      if (revision !== editSequence || signal.aborted) {
+        return;
+      }
+      if (current && next !== undefined) {
+        status(next.hint);
+      }
+      if (!current) {
+        revertVariant();
+      }
+    } catch (error) {
+      if (revision === editSequence) {
+        status(`The engine could not read the model (${message(error)}). The diagram still works.`, true);
+        revertVariant();
+      }
+    }
+  }
+
+  // revertVariant puts the toggle back on the root the diagram still shows after a read failed.
+  function revertVariant(): void {
+    if (sameTarget(model.target, target)) {
+      return;
+    }
+    variant = scene.variants.find((candidate) => candidate.rootSymbol === model.target.rootSymbol && candidate.view === model.target.view);
+    target = model.target;
+    syncVariantControls();
+  }
+
   // ---- editing the model ----
 
   on(srcBtn, "click", () => {
@@ -1493,6 +1687,7 @@ function mount(root: HTMLElement): Mounted {
   const resize = new ResizeObserver(() => {
     if (!root.isConnected) {
       dispose();
+      options.onLeave();
       return;
     }
     settle();
@@ -1523,6 +1718,7 @@ function mount(root: HTMLElement): Mounted {
   const navigation = window.document$?.subscribe(() => {
     if (!root.isConnected) {
       dispose();
+      options.onLeave();
     }
   });
 
@@ -1548,16 +1744,103 @@ function mount(root: HTMLElement): Mounted {
     hero.classList.remove("osml-hero--focus", "osml-hero--dragging");
     stage.classList.remove("osml-schematic__stage--zoomed", "osml-schematic__stage--panning");
     zoomBar.hidden = true;
-    if (window.__osmlDiagram === mounted) {
-      window.__osmlDiagram = undefined;
-    }
+    variantsEl?.replaceChildren();
   }
 
   const mounted: Mounted = { dispose };
+  syncVariantControls();
   relayOut();
   return mounted;
 }
 
-window.osmlMountDiagram = (root: HTMLElement): void => {
-  window.__osmlDiagram = mount(root);
+// mountHero opens the hero on one scene and keeps one connection to the module across the
+// tabs: the scenes offered are the tabs on the page, each naming its model's URL; a visit
+// opens on the one the URL forces, else on one at random.
+function mountHero(root: HTMLElement, forced?: Scene): Mounted {
+  window.__osmlDiagram?.dispose();
+  const tablist = root.querySelector<HTMLElement>("[data-osml-tabs]");
+  const tabs = tablist ? [...tablist.querySelectorAll<HTMLElement>('[role="tab"][data-osml-scene]')] : [];
+  const offered = tabs.flatMap((tab) => {
+    const scene = SCENES.find((candidate) => candidate.id === tab.dataset.osmlScene);
+    return scene === undefined ? [] : [scene];
+  });
+  const scenes = offered.length > 0 ? offered : [STACK_SCENE];
+  let scene = forced ?? chooseScene(scenes, new URL(window.location.href));
+  const ac = new AbortController();
+  let enginePromise: Promise<Connection> | undefined;
+  // engine connects to the sysml-wasm module once; every scene's calls share the connection.
+  const engine = (): Promise<Connection> => {
+    if (ac.signal.aborted) {
+      return Promise.reject(new Error("the diagram has left the page"));
+    }
+    enginePromise ??= connectModule(moduleUrls(root.dataset, document.baseURI)).then(
+      (connection) => {
+        if (ac.signal.aborted) {
+          void connection.close();
+          throw new Error("the diagram has left the page");
+        }
+        return connection;
+      },
+      (error: unknown) => {
+        enginePromise = undefined;
+        throw error;
+      },
+    );
+    return enginePromise;
+  };
+  const modelUrlOf = (chosen: Scene): string =>
+    tabs.find((tab) => tab.dataset.osmlScene === chosen.id)?.dataset.osmlModel ?? root.dataset.osmlModel ?? "";
+  // show reveals the copy written for the scene: captions and hints marked data-osml-for.
+  const show = (chosen: Scene): void => {
+    root.dataset.osmlScene = chosen.id;
+    for (const element of root.querySelectorAll<HTMLElement>("[data-osml-for]")) {
+      element.hidden = element.dataset.osmlFor !== chosen.id;
+    }
+  };
+  const open = (chosen: Scene): Mounted => mount(root, chosen, { engine, modelUrl: modelUrlOf(chosen), onLeave: dispose });
+  show(scene);
+  let mounted = open(scene);
+  if (tablist) {
+    wireTabs(
+      tablist,
+      scene.id,
+      (id) => {
+        const next = scenes.find((candidate) => candidate.id === id);
+        if (next === undefined || next === scene || ac.signal.aborted) {
+          return;
+        }
+        scene = next;
+        mounted.dispose();
+        show(scene);
+        mounted = open(scene);
+        const status = root.querySelector<HTMLElement>("[data-osml-status]");
+        if (status) {
+          status.textContent = `${scene.title}: run it or edit it in your browser on the OpenSysML engine.`;
+          status.classList.remove("osml-schematic__status--err");
+        }
+      },
+      ac.signal,
+    );
+  }
+
+  function dispose(): void {
+    if (ac.signal.aborted) {
+      return;
+    }
+    ac.abort();
+    mounted.dispose();
+    // The worker goes with the hero; a connection still opening closes itself on arrival.
+    void enginePromise?.then((connection) => connection.close(), () => undefined);
+    enginePromise = undefined;
+    if (window.__osmlDiagram === hero) {
+      window.__osmlDiagram = undefined;
+    }
+  }
+
+  const hero: Mounted = { dispose };
+  return hero;
+}
+
+window.osmlMountDiagram = (root: HTMLElement, scene?: Scene): void => {
+  window.__osmlDiagram = mountHero(root, scene);
 };

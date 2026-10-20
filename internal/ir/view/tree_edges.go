@@ -54,23 +54,28 @@ type treeEdgeKey struct {
 // its edges from the first node, the one that shows its members.
 func (r *Renderer) treeEdges(out *Rendering) {
 	g := &treeGraph{r: r, out: out, nodes: map[symbols.ElementKey]*Node{}, parent: map[string]string{}, edges: map[treeEdgeKey]bool{}, lined: map[linedEdge]bool{}}
-	var index func(node *Node, parent string)
-	index = func(node *Node, parent string) {
-		if parent != "" {
-			g.parent[node.ID] = parent
+	// An element is indexed where it is declared — as a root, exposed by a
+	// nested view, or nested in the node of its owner — not where a usage of
+	// its owner draws it as inherited: a relationship arrow joins declarations,
+	// not one usage's copy to another's.
+	var index func(node, parent *Node)
+	index = func(node, parent *Node) {
+		if parent != nil {
+			g.parent[node.ID] = parent.ID
 		}
-		if site, ok := out.sites[node]; ok {
+		parentSite, inElement := out.sites[parent]
+		if site, ok := out.sites[node]; ok && (!inElement || declaredUnder(parentSite.sym, site.sym)) {
 			key := symbols.KeyOf(site.sym)
 			if _, drawn := g.nodes[key]; !drawn {
 				g.nodes[key] = node
 			}
 		}
 		for _, child := range node.Children {
-			index(child, node.ID)
+			index(child, node)
 		}
 	}
 	for _, root := range out.Roots {
-		index(root, "")
+		index(root, nil)
 	}
 	g.associationLines()
 	var walk func(node *Node)
@@ -88,6 +93,15 @@ func (r *Renderer) treeEdges(out *Rendering) {
 	out.sites = nil
 }
 
+// declaredUnder reports whether a node drawn in the node of parent draws sym
+// as a declaration: parent is sym's owner, or a view exposing it.
+func declaredUnder(parent, sym *symbols.Symbol) bool {
+	if parent == nil || sym == nil {
+		return false
+	}
+	return parent == sym.Owner() || parent.Kind == symbols.SymbolViewUsage || parent.Kind == symbols.SymbolViewDef
+}
+
 // associationLines redraws each connection def the tree would show as a box
 // as a line between the nodes of its two end types, the way a block definition
 // diagram draws an association, and drops its node. Each end is named at its
@@ -100,49 +114,7 @@ func (g *treeGraph) associationLines() {
 		for _, node := range nodes {
 			site := g.out.sites[node]
 			if line, ok := g.associationLine(node, site); ok {
-				def := site.sym
-				delete(g.nodes, symbols.KeyOf(def))
-				name := ""
-				if !g.r.model.NameSynthesized(def) {
-					name = localName(def)
-				}
-				edge := Edge{From: line.from.ID, To: line.to.ID, Kind: EdgeAssociation, Name: name, Label: name, Origin: symbolOrigin(def),
-					Route: g.r.routeOf(site.view, def, g.out), Style: node.Style}
-				var labels [2]string
-				for i, end := range line.ends {
-					label := ""
-					if p := line.crossed[i]; p != nil {
-						g.lined[linedEdge{symbols.KeyOf(p), symbols.KeyOf(line.types[i])}] = true
-						label = g.r.usageLabel(p)
-						if compositeUsage(p) && edge.Kind != EdgeComposition {
-							from, to := g.node(p.Owner()).ID, g.node(line.types[i]).ID
-							if from != edge.From {
-								// The def's route runs from its first end's type to its second's.
-								slices.Reverse(edge.Route)
-							}
-							edge.Kind, edge.From, edge.To = EdgeComposition, from, to
-						}
-						if edge.Route == nil {
-							edge.Route = g.r.routeOf(site.view, p, g.out)
-						}
-						if edge.Style == nil {
-							edge.Style = g.r.styleOf(site.view, p, g.out)
-						}
-					} else if !g.r.model.NameSynthesized(end) {
-						label = g.r.usageLabel(end)
-					}
-					labels[i] = label
-				}
-				edge.FromLabel, edge.ToLabel = labels[0], labels[1]
-				if g.node(line.types[0]).ID == edge.To && g.node(line.types[1]).ID != edge.To {
-					edge.FromLabel, edge.ToLabel = labels[1], labels[0]
-				}
-				g.add(edge, def)
-				for i := range g.out.Notes {
-					if n := &g.out.Notes[i]; n.Anchor == node.ID {
-						n.Anchor, n.EdgeFrom, n.EdgeTo = "", edge.From, edge.To
-					}
-				}
+				g.drawAssociation(node, site, line)
 				continue
 			}
 			node.Children = prune(node.Children)
@@ -151,6 +123,63 @@ func (g *treeGraph) associationLines() {
 		return kept
 	}
 	g.out.Roots = prune(g.out.Roots)
+}
+
+// drawAssociation replaces node, the box of a connection def, with the line
+// between its end types; the notes anchored on the box move to the line.
+func (g *treeGraph) drawAssociation(node *Node, site treeSite, line association) {
+	def := site.sym
+	delete(g.nodes, symbols.KeyOf(def))
+	name := ""
+	if !g.r.model.NameSynthesized(def) {
+		name = localName(def)
+	}
+	edge := Edge{From: line.from.ID, To: line.to.ID, Kind: EdgeAssociation, Name: name, Label: name, Origin: symbolOrigin(def),
+		Route: g.r.routeOf(site.view, def, g.out), Style: node.Style}
+	var labels [2]string
+	for i := range line.ends {
+		labels[i] = g.associationEndLabel(&edge, site, line, i)
+	}
+	edge.FromLabel, edge.ToLabel = labels[0], labels[1]
+	if g.node(line.types[0]).ID == edge.To && g.node(line.types[1]).ID != edge.To {
+		edge.FromLabel, edge.ToLabel = labels[1], labels[0]
+	}
+	g.add(edge, def)
+	for i := range g.out.Notes {
+		if n := &g.out.Notes[i]; n.Anchor == node.ID {
+			n.Anchor, n.EdgeFrom, n.EdgeTo = "", edge.From, edge.To
+		}
+	}
+}
+
+// associationEndLabel is the label at end i of the line; an end crossing a drawn
+// property takes that property's edge over, a composition when it is composite.
+func (g *treeGraph) associationEndLabel(edge *Edge, site treeSite, line association, i int) string {
+	end := line.ends[i]
+	p := line.crossed[i]
+	if p == nil {
+		if g.r.model.NameSynthesized(end) {
+			return ""
+		}
+		return g.r.usageLabel(end)
+	}
+	g.lined[linedEdge{symbols.KeyOf(p), symbols.KeyOf(line.types[i])}] = true
+	label := g.r.usageLabel(p)
+	if compositeUsage(p) && edge.Kind != EdgeComposition {
+		from, to := g.node(p.Owner()).ID, g.node(line.types[i]).ID
+		if from != edge.From {
+			// The def's route runs from its first end's type to its second's.
+			slices.Reverse(edge.Route)
+		}
+		edge.Kind, edge.From, edge.To = EdgeComposition, from, to
+	}
+	if edge.Route == nil {
+		edge.Route = g.r.routeOf(site.view, p, g.out)
+	}
+	if edge.Style == nil {
+		edge.Style = g.r.styleOf(site.view, p, g.out)
+	}
+	return label
 }
 
 // linedEdge is the edge from a property to one of its types that an
@@ -223,8 +252,9 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 }
 
 // edgesOf draws what the element of node states of itself and of the usages
-// drawn beneath it; a member the depth bound hides is not drawn as an edge
-// either. Its typing is drawn from the node itself only when its owner is not
+// it declares that are drawn beneath it; a member the depth bound hides is not
+// drawn as an edge either, and one the element has from its type is the type's
+// to draw. Its typing is drawn from the node itself only when its owner is not
 // drawn: a drawn owner's composition edge, or the nesting, stands for it. A
 // usage's Style dresses the edge standing for it as it does the usage's node;
 // its Notes stay anchored to the node, where the usage is named.
@@ -250,7 +280,7 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	}
 	for _, child := range node.Children {
 		member := g.out.sites[child].sym
-		if !structuralUsage(member) {
+		if !structuralUsage(member) || member.Owner() != sym {
 			continue
 		}
 		kind := EdgeComposition

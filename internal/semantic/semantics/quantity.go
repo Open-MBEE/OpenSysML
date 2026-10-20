@@ -20,6 +20,9 @@ var ErrIncommensurableUnits = errors.New("incommensurable units")
 type Quantity struct {
 	Num  Value
 	Unit Unit
+	// Object is the object the quantity was read from, whose other members a
+	// chain through the quantity reads; 0 for a quantity no object states.
+	Object int64
 }
 
 // Unit is a measurement reference as a quantity carries it: its text as written or

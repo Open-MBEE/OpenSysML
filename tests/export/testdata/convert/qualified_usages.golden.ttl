@@ -212,6 +212,7 @@ elmt:Q__Ctx__a1
     sysml:owner elmt:Q__Ctx ;
     sysml:owningRelationship elmt:Q__Ctx__a1_om ;
     sysml:owningMembership elmt:Q__Ctx__a1_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "a1" ;
     sysml:type elmt:Q__A ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -245,6 +246,7 @@ elmt:Q__Ctx__a2
     sysml:owner elmt:Q__Ctx ;
     sysml:owningRelationship elmt:Q__Ctx__a2_om ;
     sysml:owningMembership elmt:Q__Ctx__a2_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "a2" ;
     sysml:type elmt:Q__A ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -278,6 +280,7 @@ elmt:Q__Ctx__s1
     sysml:owner elmt:Q__Ctx ;
     sysml:owningRelationship elmt:Q__Ctx__s1_om ;
     sysml:owningMembership elmt:Q__Ctx__s1_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "s1" ;
     sysml:type elmt:Q__S ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -311,6 +314,7 @@ elmt:Q__Ctx__s2
     sysml:owner elmt:Q__Ctx ;
     sysml:owningRelationship elmt:Q__Ctx__s2_om ;
     sysml:owningMembership elmt:Q__Ctx__s2_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "s2" ;
     sysml:type elmt:Q__S ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -344,6 +348,7 @@ elmt:Q__Ctx__u1
     sysml:owner elmt:Q__Ctx ;
     sysml:owningRelationship elmt:Q__Ctx__u1_om ;
     sysml:owningMembership elmt:Q__Ctx__u1_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "u1" ;
     sysml:type elmt:Q__U ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -377,6 +382,7 @@ elmt:Q__Ctx__r1
     sysml:owner elmt:Q__Ctx ;
     sysml:owningRelationship elmt:Q__Ctx__r1_om ;
     sysml:owningMembership elmt:Q__Ctx__r1_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "r1" ;
     sysml:type elmt:Q__R ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -410,6 +416,7 @@ elmt:Q__Ctx__c1
     sysml:owner elmt:Q__Ctx ;
     sysml:owningRelationship elmt:Q__Ctx__c1_om ;
     sysml:owningMembership elmt:Q__Ctx__c1_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "c1" ;
     sysml:type elmt:Q__C ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -481,6 +488,7 @@ elmt:Q__Sub__sa
     sysml:owner elmt:Q__Sub ;
     sysml:owningRelationship elmt:Q__Sub__sa_om ;
     sysml:owningMembership elmt:Q__Sub__sa_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "sa" ;
     sysml:type elmt:Q__A ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -514,6 +522,7 @@ elmt:Q__Sub__ss
     sysml:owner elmt:Q__Sub ;
     sysml:owningRelationship elmt:Q__Sub__ss_om ;
     sysml:owningMembership elmt:Q__Sub__ss_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "ss" ;
     sysml:type elmt:Q__S ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -547,6 +556,7 @@ elmt:Q__ctx
     sysml:owner elmt:Q ;
     sysml:owningRelationship elmt:Q__ctx_om ;
     sysml:owningMembership elmt:Q__ctx_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "ctx" ;
     sysml:type elmt:Q__Ctx ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -588,6 +598,7 @@ elmt:Q__ctx__sub
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx__sub_om ;
     sysml:owningMembership elmt:Q__ctx__sub_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "sub" ;
     sysml:type elmt:Q__Sub ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -621,6 +632,7 @@ elmt:Q__ctx__pa
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx__pa_om ;
     sysml:owningMembership elmt:Q__ctx__pa_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "pa" ;
     sysx:declaredPrefix "perform" ;
     sysml:type elmt:Q__A ;
@@ -655,6 +667,7 @@ elmt:Q__ctx___402
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx___402_om ;
     sysml:owningMembership elmt:Q__ctx___402_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:Q__Ctx__a1 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -689,6 +702,7 @@ elmt:Q__ctx___403
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx___403_om ;
     sysml:owningMembership elmt:Q__ctx___403_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
     sysml:redefines elmt:Q__Ctx__a2 ;
     sysml:references <urn:opensysml:expr:Q__ctx___403_pchain0> ;
@@ -717,6 +731,7 @@ elmt:Q__ctx___403_om
 
 <urn:opensysml:expr:Q__ctx___403_pchain0>
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Q__ctx___403_pchain0" ;
     sysml:ownedFeatureChaining <urn:opensysml:expr:Q__ctx___403_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx___403_pchain0_pfc1> ;
     sysml:ownedRelationship <urn:opensysml:expr:Q__ctx___403_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx___403_pchain0_pfc1> ;
@@ -764,6 +779,7 @@ elmt:Q__ctx__es
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx__es_om ;
     sysml:owningMembership elmt:Q__ctx__es_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "es" ;
     sysx:declaredKeyword "exhibit state" ;
     sysml:type elmt:Q__S ;
@@ -798,6 +814,7 @@ elmt:Q__ctx___405
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx___405_om ;
     sysml:owningMembership elmt:Q__ctx___405_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "exhibit" ;
     sysml:references elmt:Q__Ctx__s1 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -832,6 +849,7 @@ elmt:Q__ctx___406
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx___406_om ;
     sysml:owningMembership elmt:Q__ctx___406_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "exhibit" ;
     sysml:redefines elmt:Q__Ctx__s2 ;
     sysml:references <urn:opensysml:expr:Q__ctx___406_pchain0> ;
@@ -860,6 +878,7 @@ elmt:Q__ctx___406_om
 
 <urn:opensysml:expr:Q__ctx___406_pchain0>
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Q__ctx___406_pchain0" ;
     sysml:ownedFeatureChaining <urn:opensysml:expr:Q__ctx___406_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx___406_pchain0_pfc1> ;
     sysml:ownedRelationship <urn:opensysml:expr:Q__ctx___406_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx___406_pchain0_pfc1> ;
@@ -907,6 +926,7 @@ elmt:Q__ctx__iu
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx__iu_om ;
     sysml:owningMembership elmt:Q__ctx__iu_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "iu" ;
     sysml:type elmt:Q__U ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -940,6 +960,7 @@ elmt:Q__ctx___408
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx___408_om ;
     sysml:owningMembership elmt:Q__ctx___408_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:references elmt:Q__Ctx__u1 ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -974,6 +995,7 @@ elmt:Q__ctx__sr
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx__sr_om ;
     sysml:owningMembership elmt:Q__ctx__sr_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "sr" ;
     sysml:type elmt:Q__R ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1007,6 +1029,7 @@ elmt:Q__ctx___4010
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx___4010_om ;
     sysml:owningMembership elmt:Q__ctx___4010_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:subsets elmt:Q__Ctx__r1 ;
     sysx:endForm "satisfy" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1041,6 +1064,7 @@ elmt:Q__ctx__ac
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx__ac_om ;
     sysml:owningMembership elmt:Q__ctx__ac_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "ac" ;
     sysml:type elmt:Q__C ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -1074,6 +1098,7 @@ elmt:Q__ctx___4012
     sysml:owner elmt:Q__ctx ;
     sysml:owningRelationship elmt:Q__ctx___4012_om ;
     sysml:owningMembership elmt:Q__ctx___4012_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:declaredKeyword "assert" ;
     sysml:references elmt:Q__Ctx__c1 ;
     sysx:hasBody "false"^^xsd:boolean ;

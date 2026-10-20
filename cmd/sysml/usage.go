@@ -125,6 +125,7 @@ func doc() usage.Doc {
 			Examples: []usage.Example{
 				usage.Ex("sysml -engines", "List engines, kind and status; nothing runs"),
 				usage.Ex("sysml -engines -probe", "Also start each external engine once"),
+				usage.Ex("sysml -metaclass-graph -o metaclasses.ttl", "Write the metaclass hierarchy as Turtle"),
 				usage.Ex("sysml -engine explore -action Drive m.sysml", "The same as -schedule explore"),
 				usage.Ex("sysml -engine all -requirement R m.sysml", "Every engine that covers the question"),
 				usage.Ex("sysml -engine run -json -constraint C m.sysml", "One engine; the plan in the report"),
@@ -689,6 +690,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through it; needs -seed")
 	fs.Var(&jobsFlag, "jobs", "Runs of one check that may go concurrently, each on a worker of its own, and files of one load that are parsed and validated at once; the result is the same at any count. Default OPENSYSML_JOBS, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker")
 
+	fs.BoolVar(&metaclassGraph, "metaclass-graph", false, "Write the SysML metaclass hierarchy of the pinned pilot metamodel as Turtle (rdfs:Class, rdfs:subClassOf, sysx:abstract) to stdout or -o, without a model, and exit")
 	fs.BoolVar(&listEngines, "engines", false, "List the analysis engines this build knows and their status, spawning nothing, and exit")
 	fs.BoolVar(&probeEngines, "probe", false, "With -engines, also start each external engine once and report the outcome as its status")
 	fs.Var(&engine, "engine", "Analysis engine every check is put to: auto (default), all, or one by name — run, explore, check, smt, sweep, solve, tool:<name> or an external engine")
@@ -704,6 +706,8 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.unroll, checkUnrollFlag, "Under smt, the most iterations of one loop the solver unrolls before it stops (default 4)")
 	fs.Var(&modelChecks.checker.timeout, "check-timeout", "The time the check's plan may run for, as 30s or 2m, and the time each smt solver query may take in place of OPENSYSML_SMT_TIMEOUT")
 
+	fs.StringVar(&bundleDir, "bundle", "", "Write this project directory as a project interchange archive (KerML 1.0 §10.3), to -o or to <name>-<version>.kpar; the archive is the same bytes on every run")
+	fs.StringVar(&unbundleFile, "unbundle", "", "Write this project interchange archive (.kpar) out as a project directory, to -o or to <name>-<version>, which must be new or empty")
 	fs.StringVar(&convertFormat, "convert", "", convertUsage())
 	fs.StringVar(&fromFormat, "from", "", fromUsage())
 	fs.Var(&dataImports, "import", "Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element, before -convert writes the model; an element column names the element and each other column a feature, as `mass [kg]` (repeatable)")
@@ -719,7 +723,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, case, mixed, sequence, table or matrix, without a declared view")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&graphsSubject, "graphs", "", "Write the lowered graph of this action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external analysis engine is sent, to stdout or -output")
-	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot, plantuml, d2, csv or tsv (csv and tsv for a table or matrix); D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; default from the destination for -render, each kind's machine form for -render-all")
+	fs.StringVar(&renderForm, "render-form", "", "Form -render, -render-all or -render-run writes: text, mermaid, markdown, dot, plantuml, d2, csv or tsv (csv and tsv for a table or matrix; svg and svg-animated for -render-run); D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; default from the destination for -render, each kind's machine form for -render-all")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid, plantuml or d2 form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
 	fs.StringVar(&renderLink, "render-link", "", "Source link template for -render, -render-all, -render-document, -render-documents and -render-run. Placeholders: {file}, {line}, {col}, {qname}, {id}; {file} is the path as loaded (use absolute paths for vscode:// or file:// links)")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
@@ -833,6 +837,7 @@ func optionGroups() []usage.OptionGroup {
 		Title: "Converting and migrating",
 		Options: []usage.Option{
 			usage.Opt("convert", formatArg),
+			usage.Opt("metaclass-graph", ""),
 			usage.Opt("migrate", formatArg),
 			usage.Opt("from", formatArg),
 			usage.Opt("import", fileArg),
@@ -841,6 +846,8 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("import-format", formatArg),
 			usage.Opt("import-dry-run", ""),
 			usage.Opt("id", nameArg),
+			usage.Opt("bundle", "<dir>"),
+			usage.Opt("unbundle", fileArg),
 			usage.Opt("output", fileArg, "o"),
 			usage.Opt("migration-report", fileArg),
 			usage.Opt("migration-results", fileArg),

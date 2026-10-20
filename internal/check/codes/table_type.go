@@ -1,5 +1,8 @@
 package codes
 
+// specStateSubactionKind is the constraint pair the state subaction codes cite.
+const specStateSubactionKind = "SysML v2 validateStateDefinitionSubactionKind and validateStateUsageSubactionKind"
+
 // typeCodes are the codes of the typing tier: what a declaration may be typed
 // by, reference or specialize, and what an expression evaluates to.
 var typeCodes = []Entry{
@@ -148,7 +151,7 @@ var typeCodes = []Entry{
 		Summary: "a value bound to a feature whose type does not admit it",
 		Meaning: "A feature value (`x : Integer = \"a\"`), a default and an initial value alike, binds the value to the feature, and a feature's values are instances of its types: here the value's type does not conform to the feature's. " +
 			"Write a value of the feature's type, convert it with a library function, or type the feature by what the value is.",
-		Spec: "KerML 1.0 validateBindingConnectorTypeConformance and §8.3.3.3.4 (a feature's values are instances of its types)",
+		Spec: "KerML 1.0 validateBindingConnectorTypeConformance and §8.3.3.3.4 (a feature's values are instances of its types); a `*` value is a Positive (checkLiteralInfinitySpecialization)",
 	},
 	{
 		Code: "feature-value-count", Tier: TierType, Severity: "error",
@@ -316,21 +319,21 @@ var typeCodes = []Entry{
 		Summary: "a state with more than one entry action",
 		Meaning: "A state definition or usage declares at most one `entry` action. " +
 			"Merge the entry actions into one, sequenced in its body.",
-		Spec: "SysML v2 validateStateDefinitionSubactionKind and validateStateUsageSubactionKind",
+		Spec: specStateSubactionKind,
 	},
 	{
 		Code: "state-do-action", Tier: TierType, Severity: "error",
 		Summary: "a state with more than one do action",
 		Meaning: "A state definition or usage declares at most one `do` action. " +
 			"Merge the do actions into one, with parallel or sequenced steps in its body.",
-		Spec: "SysML v2 validateStateDefinitionSubactionKind and validateStateUsageSubactionKind",
+		Spec: specStateSubactionKind,
 	},
 	{
 		Code: "state-exit-action", Tier: TierType, Severity: "error",
 		Summary: "a state with more than one exit action",
 		Meaning: "A state definition or usage declares at most one `exit` action. " +
 			"Merge the exit actions into one, sequenced in its body.",
-		Spec: "SysML v2 validateStateDefinitionSubactionKind and validateStateUsageSubactionKind",
+		Spec: specStateSubactionKind,
 	},
 	{
 		Code: "only-one-return-parameter", Tier: TierType, Severity: "error",

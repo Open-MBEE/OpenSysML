@@ -93,6 +93,11 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	nameIndex := newAPIJSONNameIndex(settled)
 	comparisonCache := &apiJSONTermCache{}
 	for _, subject := range subjects {
+		// The element form holds the model's own elements only; a library element
+		// stays a bare reference, as an ownerless element there is a root (the OMG API JSON shape).
+		if LibraryReference(settled, subject) {
+			continue
+		}
 		element, err := apiJSONElementWithEvaluationOptions(
 			settled, subject, evaluation, mappingNames, nameIndex, comparisonCache, options,
 		)

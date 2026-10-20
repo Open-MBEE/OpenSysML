@@ -924,6 +924,15 @@ func (w *Workspace) bundledLocked(name string) bool {
 	return ok
 }
 
+// LibraryNames returns the relative paths of the bundled library files the
+// workspace can serve through LibraryDocument, sorted; nil without a source.
+func (w *Workspace) LibraryNames() []string {
+	if w.libSource == nil {
+		return nil
+	}
+	return w.libSource.List()
+}
+
 // LibraryDocument returns the parsed text of the named bundled library file,
 // read from the source the index was built from, so its spans are the ones the
 // index's symbols carry. It is nil for a name that is no library document and

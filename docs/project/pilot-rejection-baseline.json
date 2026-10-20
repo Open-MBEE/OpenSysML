@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 322,
-        "digest": "sha256:40faa37c680cc5938857617576bcdf5514e31e481bdc95a523ac6b2527197c44"
+        "files": 328,
+        "digest": "sha256:4b0ec62e3b1f9366a92474f8b89d5306a3e090b7e3e49160942110adb533ee5a"
       }
     ],
-    "recorded": "2026-10-17"
+    "recorded": "2026-10-18"
   },
   "totals": {
-    "cases": 322,
-    "bothReject": 313,
+    "cases": 328,
+    "bothReject": 319,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -49,24 +49,24 @@
   "sources": [
     {
       "source": "extensions",
-      "cases": 11,
-      "bothReject": 11,
+      "cases": 12,
+      "bothReject": 12,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
     },
     {
       "source": "grammar",
-      "cases": 108,
-      "bothReject": 108,
+      "cases": 112,
+      "bothReject": 112,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
     },
     {
       "source": "semantic",
-      "cases": 168,
-      "bothReject": 159,
+      "cases": 169,
+      "bothReject": 160,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -197,6 +197,17 @@
       "oursErrors": 1,
       "pilotErrors": 4,
       "defaultBucket": "pilot-only-rejects"
+    },
+    {
+      "path": "extensions/x12-target-succession-outside-action-body.sysml",
+      "source": "extensions",
+      "rule": "TargetSuccessionMember is an ActionBodyItem; a view body admits no 'then \u003ctarget\u003e;' succession (SysML.xtext:1367 ActionBodyItem, :1693 TargetSuccessionMember, :2359 ViewBodyItem).",
+      "mode": "strict",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2,
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "grammar/g01-unclosed-package-body.sysml",
@@ -926,6 +937,42 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 3
+    },
+    {
+      "path": "grammar/g82-frame-in-view-body.sysml",
+      "source": "grammar",
+      "rule": "FramedConcernMember is a RequirementBodyItem; a view body admits no 'frame' (SysML.xtext:2062 RequirementBodyItem, :2359 ViewBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g83-frame-in-view-def-body.sysml",
+      "source": "grammar",
+      "rule": "FramedConcernMember is a RequirementBodyItem; a view def body admits no 'frame' (SysML.xtext:2062 RequirementBodyItem, :2329 ViewDefinitionBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g84-filter-outside-package-or-view-body.sysml",
+      "source": "grammar",
+      "rule": "ElementFilterMember is a PackageBodyElement, ViewDefinitionBodyItem and ViewBodyItem; a rendering def body admits no 'filter' (SysML.xtext:227 ElementFilterMember, :2329 ViewDefinitionBodyItem, :2359 ViewBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g85-accept-outside-action-body.sysml",
+      "source": "grammar",
+      "rule": "AcceptNode is an ActionBodyItem; a view body admits no 'accept' (SysML.xtext:1367 ActionBodyItem, :1434 AcceptNode, :2359 ViewBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
     },
     {
       "path": "grammar/k01-specializes-without-target.kerml",
@@ -2212,6 +2259,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/s20b-include-references-definition.sysml",
+      "source": "semantic",
+      "rule": "An include use case usage must reference a use case usage; a use case definition is not a feature (SysML 7.24 Use Cases; pilot validateIncludeUseCaseUsageReference).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/s21-interface-def-end-not-port.sysml",
       "source": "semantic",
       "rule": "An interface definition end must be a port (SysML 7.14 Interfaces; pilot validateInterfaceDefinitionEnd).",
@@ -3137,8 +3193,8 @@
       }
     ],
     "totals": {
-      "cases": 322,
-      "bothReject": 313,
+      "cases": 328,
+      "bothReject": 319,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

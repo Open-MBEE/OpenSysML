@@ -79,11 +79,12 @@ func TestClassificationIsNotInheritedByASubtype(t *testing.T) {
 	}
 }
 
-// `@` also holds for the element's own metaclass, and `@@` holds for that alone:
-// metadata stated about an element is not what the element is.
+// Both `@` and `@@` classify the element's metadata, its annotations and its own
+// metaclass alike (KerML 1.0 §7.4.9.2: `x @@ T` tests `x.metadata`).
 func TestClassificationMetaclassVersusAnnotation(t *testing.T) {
 	const src = `
 		metadata def Safety;
+		metadata def Other;
 		metadata def PartDefinition;
 		#Safety part def Belt;
 	`
@@ -92,7 +93,9 @@ func TestClassificationMetaclassVersusAnnotation(t *testing.T) {
 		want bool
 	}{
 		{"@Safety", true},
-		{"@@Safety", false},
+		{"@@Safety", true},
+		{"@Other", false},
+		{"@@Other", false},
 		{"@PartDefinition", true},
 		{"@@PartDefinition", true},
 	} {

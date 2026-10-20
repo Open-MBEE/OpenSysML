@@ -433,11 +433,13 @@ func TestCheckDocumentRejectsDrift(t *testing.T) {
 		}
 		return &m
 	}
-	editNegative := func(name, old, new string) *manifest.Manifest {
-		return edit(name, func(c *manifest.Constraint) { c.NegativeCase = strings.Replace(c.NegativeCase, old, new, 1) })
+	editNegative := func(name, old, replacement string) *manifest.Manifest {
+		return edit(name, func(c *manifest.Constraint) { c.NegativeCase = strings.Replace(c.NegativeCase, old, replacement, 1) })
 	}
-	editImplementation := func(name, old, new string) *manifest.Manifest {
-		return edit(name, func(c *manifest.Constraint) { c.Implementation = strings.Replace(c.Implementation, old, new, 1) })
+	editImplementation := func(name, old, replacement string) *manifest.Manifest {
+		return edit(name, func(c *manifest.Constraint) {
+			c.Implementation = strings.Replace(c.Implementation, old, replacement, 1)
+		})
 	}
 	withNegative := func(m *manifest.Manifest, name, cell string) *manifest.Manifest {
 		for i := range m.Constraints {

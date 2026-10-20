@@ -386,7 +386,62 @@ it ([the details](../project/view-rendering-forms.md#limiting-what-a-view-draws)
   bound keeps its ports and compartment rows and says `nested deeper than 2 levels; not shown`.
   `%render Fleet::overview depth=1` overrides it for one render.
 - A `DiagramLayout::Layout` with `collapsed = true` about an element folds its children away in
-  every form: `metadata Layout about vehicle::engine { x = 120; y = 40; collapsed = true; }`.
+  every form: `metadata Layout about vehicle::engine { collapsed = true; }`. A Layout that only
+  folds (or only hides compartments with its `show…` switches) needs no `x` and `y`; the form
+  still lays the diagram out itself. Give it a position too and the diagram becomes a positioned
+  one, in which nodes without a position are left undrawn.
+
+Together they cut a deep decomposition down to one picture. Mark what every picture should
+leave out with a metadata definition of your own, mark what one picture should single out with
+another, and let each view say how deep it goes:
+
+```sysml
+package Rover {
+    private import Views::*;
+    private import DiagramLayout::*;
+    metadata def Hidden;
+    metadata def Shown;
+    metadata def Owner { attribute team : ScalarValues::String; }
+
+    part rover {
+        part chassis {
+            @Owner { team = "Mechanical"; }
+            part drive { part controller { part cpu; part firmware; } #Hidden part wheels[6]; }
+            #Hidden part suspension;
+        }
+        #Shown part power { part battery; }
+        part comms { #Shown part radio; part antenna; }
+    }
+
+    // Two levels below rover, nothing marked Hidden, and no metadata usages drawn as nodes.
+    view overview {
+        expose rover;
+        attribute depth = 2;
+        filter not @Hidden;
+        filter not @SysML::MetadataUsage;
+        render asTreeDiagram;
+    }
+
+    // Only the elements marked Shown, each a root of its own.
+    view picked { expose rover::**[@Shown]; render asInterconnectionDiagram; }
+
+    // Everything, with drive folded to a single box.
+    view folded {
+        expose rover;
+        render asTreeDiagram;
+        metadata Layout about rover::chassis::drive { collapsed = true; }
+    }
+}
+```
+
+`%render Rover::overview` draws `rover`, `chassis`, `drive`, `power`, `battery`, `comms` and
+`antenna`; `drive` says `nested deeper than 2 levels; not shown`, and `wheels`, `suspension`,
+`radio`'s absent sibling marks and the `@Owner` usage are left out. `%render Rover::overview depth=1`
+stops at `chassis`, `power` and `comms`. `%render Rover::picked` draws `power` and `radio` alone:
+a filter condition only ever prunes, so neither the ancestors between the marked elements nor
+their unmarked contents (`battery`) are drawn — mark everything the picture should hold, or
+expose the marked elements' owners and let a `depth` bound the rest. `filter @Shown` on
+`expose rover` would reject `rover` itself and render empty, saying so.
 
 ## Where an expression is evaluated
 
@@ -411,6 +466,17 @@ The pinned name may be an element, in which case the expression reads that eleme
 or an object reference, in which case the expression reads that object's feature values, the same
 values an unpinned `%eval` reads after `%instantiate`. A single `:` separates the context from the
 expression; the `::` inside a qualified name is not a separator.
+
+### Arguments
+
+The arguments of an invocation — `%calc`, `%analysis`, `%sweep`, `%runs`, `%invoke` and `%check`,
+written positionally or, except for `%calc`, as `parameter=expression` — evaluate where `%eval`
+does, and the whole list evaluates as one expression list in one run, in the order written, as the
+Kernel Semantics evaluate an invocation's argument expressions in one evaluation context. A draw in
+one argument therefore continues the stream of the draw before it: under `%seed 7`, `%calc Pair(uniform(0.0, 1.0), uniform(0.0, 1.0))`
+binds two different values, the same two that `%eval uniform(0.0, 1.0) - uniform(0.0, 1.0)` draws,
+and repeating the command under the same seed binds them again. An argument that fails to evaluate
+is reported by its text (`evaluation of argument "x" failed`) or, when named, by its parameter.
 
 ## Addressing an object
 

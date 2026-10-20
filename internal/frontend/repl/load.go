@@ -61,11 +61,13 @@ func (s *Session) loadPathsReport(paths []string, opts loadOptions) (LoadReport,
 	}
 	srcs := read.files
 	loaded := append(loadedFiles(srcs), read.notes...)
+	archives := warningLines(s.discovery().ArchiveWarnings(files), s.verbosity)
 	if len(srcs) == 0 {
-		return LoadReport{Loaded: loaded, Errors: s.hasAnalysisErrors()}, nil
+		return LoadReport{Loaded: loaded, Found: archives, Errors: s.hasAnalysisErrors()}, nil
 	}
 	found, declared := renderSplit(s.submitFiles(srcs), s.verbosity)
 	found = append(found, conversionWarnings(srcs, s.verbosity)...)
+	found = append(found, archives...)
 	return LoadReport{Loaded: loaded, Found: found, Declared: declared, Errors: s.hasAnalysisErrors()}, nil
 }
 
@@ -91,14 +93,21 @@ func loadedFiles(srcs []SourceFile) []string {
 }
 
 func conversionWarnings(files []SourceFile, verbosity Verbosity) []string {
+	var warnings []string
+	for _, file := range files {
+		warnings = append(warnings, file.Warnings...)
+	}
+	return warningLines(warnings, verbosity)
+}
+
+// warningLines renders warnings as the lines a load reports, none when quiet.
+func warningLines(warnings []string, verbosity Verbosity) []string {
 	if verbosity <= VerbosityQuiet {
 		return nil
 	}
 	var lines []string
-	for _, file := range files {
-		for _, warning := range file.Warnings {
-			lines = append(lines, "warning: "+warning)
-		}
+	for _, warning := range warnings {
+		lines = append(lines, "warning: "+warning)
 	}
 	return lines
 }
@@ -121,6 +130,9 @@ func (s *Session) expandPaths(paths []string) ([]string, error) {
 	if len(files) == 0 {
 		return nil, errors.New("no model files to load")
 	}
+	if err := s.guardFiles(files, true); err != nil {
+		return nil, err
+	}
 	return files, nil
 }
 
@@ -140,7 +152,11 @@ func (s *Session) LibraryRoots() []string {
 
 // discovery is the search for installed projects under the session's library roots.
 func (s *Session) discovery() project.Discovery {
-	return project.Discovery{Roots: s.libraryRoots}
+	d := project.Discovery{Roots: s.libraryRoots}
+	if s.fileGuard != nil {
+		d.Guard = func(path string) error { return s.guardFile(path, true) }
+	}
+	return d
 }
 
 // reading is what readSources read: the sources a load submits, and what the
@@ -164,6 +180,9 @@ func (s *Session) readWithDependencies(paths []string, opts loadOptions) (readin
 	deps := s.discovery().DependenciesOf(read.deps, s.ws.IsLibraryRoot)
 	if len(deps) == 0 {
 		return read, nil
+	}
+	if err := s.guardFiles(deps, true); err != nil {
+		return reading{}, err
 	}
 	more, err := s.readSources(deps, loadOptions{})
 	if err != nil {

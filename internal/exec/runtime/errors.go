@@ -587,6 +587,13 @@ func budgetExceeded(sentinel error, message string, causes ...error) error {
 	return &budgetExceededError{message: message, errs: errs}
 }
 
+// IsUninitializedFeatureValue reports whether err is a read of a required
+// feature that holds no value and has no default, which a caller shows as
+// unset rather than as a failure.
+func IsUninitializedFeatureValue(err error) bool {
+	return errors.Is(err, errUninitializedFeatureValue)
+}
+
 // NoValueError reports a feature a condition names that carries no value,
 // naming the feature so a caller can tell which one is uninitialized.
 type NoValueError struct {
@@ -661,6 +668,9 @@ func (e *ViolationError) Unwrap() error { return ErrViolated }
 // ErrFeatureValueMaterialization, so a caller tests either.
 type FeatureValueError struct {
 	Err error
+	// Instance holds the feature value that did not materialize, as the feature named Feature.
+	Instance *Instance
+	Feature  string
 }
 
 func (e *FeatureValueError) Error() string { return e.Err.Error() }
@@ -741,3 +751,19 @@ func calcFrame(kind, calc string, err error) error {
 func calcDefaultError(kind, calc, param string, err error) error {
 	return calcFrame(kind, calc, fmt.Errorf("default for parameter %q: %w", param, err))
 }
+
+// UnresolvedActionError reports a perform, include or action reference naming
+// no behavior the runtime can find. It is a kind of ErrUnresolvedReference.
+type UnresolvedActionError struct {
+	Name   string // the name as written
+	Detail string // why the name resolves to nothing, when there is more to say
+}
+
+func (e *UnresolvedActionError) Error() string {
+	if e.Detail != "" {
+		return fmt.Sprintf("unresolved action reference: %s (%s)", e.Name, e.Detail)
+	}
+	return "unresolved action reference: " + e.Name
+}
+
+func (e *UnresolvedActionError) Unwrap() error { return ErrUnresolvedReference }

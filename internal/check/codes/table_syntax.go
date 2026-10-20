@@ -117,6 +117,20 @@ var syntaxCodes = []Entry{
 		Spec: "SysML v2 §8.2.2.19 TransitionUsageMember (a StateBodyItem)",
 	},
 	{
+		Code: "framed-concern-membership-owning-type", Tier: TierSyntax, Severity: "error",
+		Summary: "`frame` outside a requirement, concern or viewpoint body",
+		Meaning: "A framed concern is a member of a requirement: `frame` is admitted in the body of a requirement, concern or viewpoint definition or usage only. " +
+			"Move the member into the requirement or viewpoint that frames the concern.",
+		Spec: "SysML.xtext FramedConcernMember (a RequirementBodyItem)",
+	},
+	{
+		Code: "element-filter-membership-owning-type", Tier: TierSyntax, Severity: "error",
+		Summary: "`filter` outside a package or view body",
+		Meaning: "An element filter is a member of a package or a view: `filter` is admitted at the file root, in a package body, or in the body of a view definition or usage only. " +
+			"Move the member into the package or view whose members it selects.",
+		Spec: "SysML.xtext ElementFilterMember (a PackageBodyElement, ViewDefinitionBodyItem and ViewBodyItem)",
+	},
+	{
 		Code: "view-rendering-membership-owning-type", Tier: TierSyntax, Severity: "error",
 		Summary: "`render` outside a view body",
 		Meaning: "A rendering is a member of a view: `render` is admitted in the body of a view definition or usage only. " +

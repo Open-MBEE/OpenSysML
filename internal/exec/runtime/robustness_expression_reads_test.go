@@ -221,7 +221,7 @@ func testElementsChainOfANonNumericCollection(t *testing.T) {
 // testArithmeticOverTheUnboundedValue: `*` is no number, so arithmetic over it
 // fails with a typed error naming the operation.
 func testArithmeticOverTheUnboundedValue(t *testing.T) {
-	for _, expr := range []string{"* + 1", "1 - *", "2 * *", "* / 2", "* % 2", "* ** 2", "-*", "+*"} {
+	for _, expr := range []string{"* + 1", "1 - *", "2 * *", "* / 2", "* % 2", "* ** 2", "-*", "1..*"} {
 		_, _, err := evalDeclaredExpr(t, "package test {}", expr)
 		if !errors.Is(err, ErrTypeMismatch) {
 			t.Errorf("%s: error = %v, want ErrTypeMismatch", expr, err)

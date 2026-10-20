@@ -1040,7 +1040,14 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: editors/vscode/package-lock.json
+          cache-dependency-path: |
+            editors/vscode/package-lock.json
+            client/node/package-lock.json
+
+      # The landing bundle and its tests import the browser client from client/node's source.
+      - name: Install the browser client's dependencies
+        working-directory: client/node
+        run: npm ci --ignore-scripts
 
       # Type-check, bundle and package. The generated TextMate grammars are
       # gated by go test ./editors/... in the job above.
@@ -1789,6 +1796,11 @@ jobs:
       - name: Conformance suite through client/opensysml
         run: make conformance-pkg
 
+      # The same suite through sysml-mcp's runtime tools over stdio, so the tools
+      # are proven to serve the service the scenarios specify, not a re-implementation.
+      - name: Conformance suite through sysml-mcp
+        run: make conformance-mcp
+
       # if: always() — the reports matter most when a gate failed and halted the job.
       - uses: actions/upload-artifact@v4
         if: always()
@@ -1799,3 +1811,5 @@ jobs:
             bin/conformance-report.xml
             bin/conformance-grpc-transport-report.json
             bin/conformance-pkg-report.json
+            bin/conformance-mcp-report.json
+            bin/conformance-mcp-report.xml

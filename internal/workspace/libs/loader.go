@@ -115,7 +115,7 @@ func (l *Loader) add(f libraryFile, idx *symbols.Index) {
 		}
 	}
 	idx.AddDocument(f.name, f.root)
-	idx.MarkLibraryDocument(f.name, symbols.LibraryDocument{Tier: TierOf(f.name), Digest: hex.EncodeToString(f.sum[:])})
+	idx.MarkLibraryDocument(f.name, symbols.LibraryDocument{Tier: tierOf(l.src, f.name), Digest: hex.EncodeToString(f.sum[:])})
 	l.loaded = append(l.loaded, doc)
 }
 
@@ -130,6 +130,20 @@ var bundleTiers = []struct {
 	{"Systems Library", symbols.TierSystems},
 	{"Domain Libraries", symbols.TierDomain},
 	{"OpenSysML Libraries", symbols.TierOpenSysML},
+}
+
+// TierClassifier is a Source that knows the tier of its files better than their
+// names tell: an archive's is stated by the project it holds, not by a directory.
+type TierClassifier interface {
+	TierOf(name string) symbols.LibraryTier
+}
+
+// tierOf is the tier src states for the file, else the one its name shows.
+func tierOf(src Source, name string) symbols.LibraryTier {
+	if t, ok := src.(TierClassifier); ok {
+		return t.TierOf(name)
+	}
+	return TierOf(name)
 }
 
 // TierOf classifies a library file by the directory of the bundle it is under,

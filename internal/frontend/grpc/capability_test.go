@@ -226,6 +226,15 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"convert check diagnostics", CapabilityConvertCheckDiagnostics, func(s *Service) error {
+			_, err := s.Convert(ctx, &pb.ConvertRequest{
+				Source:                  &pb.ConvertRequest_Content{Content: "package P;"},
+				FromFormat:              "sysml",
+				ToFormat:                "api-json",
+				IncludeCheckDiagnostics: true,
+			})
+			return err
+		}},
 		{"parse sources affected", CapabilityParseSourcesAffected, func(s *Service) error {
 			_, err := s.ParseSources(ctx, &pb.ParseSourcesRequest{
 				Documents:     inlineDocuments("p.sysml", "package P;"),
@@ -297,6 +306,10 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 		}},
 		{"export graphs", CapabilityExportGraphs, func(s *Service) error {
 			_, err := s.ExportGraphs(ctx, &pb.ExportGraphsRequest{ModelHash: "any", Subject: "Any"})
+			return err
+		}},
+		{"check behavior", CapabilityCheck, func(s *Service) error {
+			_, err := s.CheckBehavior(ctx, &pb.CheckBehaviorRequest{ModelHash: "any", ActionSymbolId: "Any"})
 			return err
 		}},
 		{"render document html", CapabilityRenderDocumentHTML, func(s *Service) error {

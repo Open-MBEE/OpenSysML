@@ -2,7 +2,8 @@
 
 Actions and state machines are executed, not just parsed. A debugger steps through
 them, and the non-interactive `-action` and `-state` flags run them to completion and report the
-values they produce. A behavior can be performed by an object, in which case the messages it sends
+values they produce. A use case is an action, so `%action` and `-action` run a use case definition
+or usage the same way, its `include use case` members performing as nested actions. A behavior can be performed by an object, in which case the messages it sends
 are routed over that object's connections. What a run reports is one linearization of the partial
 order the model states — the default `reverse` policy picks it, deterministically — so when more
 than one order is valid, the values are *a* result, not *the* result; `explore` and `check` are
@@ -1789,6 +1790,33 @@ case takes the object named after it as the object it is a feature of (`-analysi
 holder"`), else the single object of the definition the run holds; `-validate=<object>`,
 `-requirement` and `-satisfy` run a verification case a definition owns once per object of it the
 check is about, naming the object on its verdict.
+
+So a requirement a part definition `satisfy`s is checked on every usage of it, and a verification
+the definition owns runs on each usage's object; the usage's subject is the owning object, which
+an owned performance names `this` — `self` there is the case itself, and binding the subject to
+it draws `warning[bound-feature-types]`, as the reference implementation reports it:
+
+```sysml
+// in DefinitionPkg; RequirementPkg::costReq : CostRequirement { :>> maximumCost = 100.0; }
+part def Definition {
+    attribute cost : Real;
+    satisfy costReq;
+    verification def CostTest {
+        subject product : Definition;
+        objective { verify costReq; }
+        return verdict = VerificationCases::PassIf(product.cost <= RequirementPkg::costReq.maximumCost);
+    }
+    verification costTest : CostTest { subject product = this; }
+}
+// in ProductPkg
+part good : Definition { attribute :>> cost = 80.0; }
+```
+
+`sysml -instantiate ProductPkg::good -validate=ProductPkg::good model.sysml` reports `satisfy costReq
+holds (on ProductPkg::good ID: 1)` and `Verification DefinitionPkg::Definition::costTest on
+ProductPkg::good (object #1) verdict: pass`; a usage with `cost = 120.0` fails both.
+`-analysis DefinitionPkg::Definition::costTest` without an object has nothing to run on and says so:
+`verdict: inconclusive — needs an object of DefinitionPkg::Definition: none is instantiated`.
 
 What stops a case is reported as an error naming it, never as a silent empty result: a
 `subject` nothing binds (`analysis An::CostAnalysis: s subject is unbound: bind it

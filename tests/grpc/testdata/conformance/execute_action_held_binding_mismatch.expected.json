@@ -1,0 +1,12 @@
+{
+  "rpc": "ExecuteAction",
+  "symbol_id": "test::Nudge",
+  "performer_symbol_id": "test::host",
+  "inputs": {
+    "context": {
+      "kind": "instance_id",
+      "value": 1
+    }
+  },
+  "expected_error": "inputs for a performed action"
+}

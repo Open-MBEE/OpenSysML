@@ -95,8 +95,9 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 		t.Errorf("%%render dot wrote Mermaid or a palette:\n%s", text)
 	}
 	wants(t, run(t, s, "%render"), renderUsage)
-	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, renderUsage)
-	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports] [link=<template>]]", "Graphviz DOT", "PlantUML")
+	wants(t, run(t, s, "%render Demo::summary png"), `unknown form "png"`, renderUsage)
+	wants(t, run(t, s, "%render Demo::summary svg"), "a tree rendering is not written as svg", "text, mermaid, dot, plantuml or d2")
+	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports] [lines] [verdicts]", "[show=<elements>] [depth=<levels>] [link=<template>]]", "Graphviz DOT", "PlantUML")
 }
 
 // The PlantUML form is asked for by name, is the same rendering in PlantUML
@@ -518,7 +519,7 @@ func TestViewsListsSessionViewsInDeclarationOrder(t *testing.T) {
 
 func TestRenderMisuseShowsUsage(t *testing.T) {
 	s := viewSession(t)
-	for _, line := range []string{"%render", "%render Demo::summary svg"} {
+	for _, line := range []string{"%render", "%render Demo::summary png"} {
 		out, _, err := s.RunMeta(line)
 		if err != nil {
 			t.Fatal(err)
@@ -847,11 +848,11 @@ func TestRenderReadsAnOptionWithoutAForm(t *testing.T) {
 			t.Errorf("show=bogus answered %q, want it to contain %q", text, want)
 		}
 	}
-	unknown, _, err := s.RunMeta("%render Demo::summary svg")
+	unknown, _, err := s.RunMeta("%render Demo::summary png")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(strings.Join(unknown, "\n"), `unknown form "svg"`) {
+	if !strings.Contains(strings.Join(unknown, "\n"), `unknown form "png"`) {
 		t.Errorf("a word that is neither a form nor an option answered %q", unknown)
 	}
 }

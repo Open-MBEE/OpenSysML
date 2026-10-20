@@ -31,12 +31,12 @@ flowchart LR
   n2["`*«actor»*
 **driver**`"]
   n3@{ shape: notch-rect, label: "objective<br>Transport the vehicle and its passengers safely." }
-  n4(["`*«use case def»*
-**'Add Fuel'**`"])
-  n5["`*«subject»*
-**vehicle**`"]
-  n6["`*«actor»*
+  n4(["`*«use case»*
+**addFuel**`"])
+  n5["`*«actor»*
 **fueler**`"]
+  n6["`*«subject»*
+**vehicle**`"]
   n7(["`*«include use case»*
 **'enter vehicle'**`"])
   n8["`*«subject»*
@@ -62,8 +62,8 @@ flowchart LR
   n0 ---|"«subject»"| n1
   n2 --- n0
   n0 -.- n3
-  n4 ---|"«subject»"| n5
-  n6 --- n4
+  n5 --- n4
+  n4 ---|"«subject»"| n6
   n0 -.->|"«include»"| n4
   n0 -.->|"«include»"| n7
   n7 ---|"«subject»"| n8

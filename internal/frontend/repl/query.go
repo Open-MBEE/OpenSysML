@@ -236,15 +236,7 @@ func (s *Session) checkArgs(ctx *runtime.Context, argText string) (runtime.Check
 		return runtime.CheckArgs{}, err
 	}
 	var args runtime.CheckArgs
-	scope := s.promptScope()
-	for _, arg := range parsed.positional {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return runtime.CheckArgs{}, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		args.Positional = append(args.Positional, val)
-	}
-	if args.Named, err = s.evalArguments(ctx, parsed.named); err != nil {
+	if args.Positional, args.Named, err = evalArgumentList(ctx, s.promptScope(), parsed.positional, parsed.named); err != nil {
 		return runtime.CheckArgs{}, err
 	}
 	return args, nil

@@ -1,0 +1,20 @@
+{
+  "libraries": true,
+  "type": "action",
+  "evaluate": "test::mission",
+  "outputs": {
+    "look.m": {
+      "type": "Real",
+      "value": 3.5
+    },
+    "total": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Real",
+          "value": 4.5
+        }
+      ]
+    }
+  }
+}

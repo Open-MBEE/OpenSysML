@@ -11,6 +11,7 @@ go run -C tools ./cmd/conformance -v             # print each scenario's normali
 go run -C tools ./cmd/conformance -run evaluate  # only the scenarios whose id matches
 go run -C tools ./cmd/conformance -binary bin/sysml-grpc  # test a binary already built
 go run -C tools ./cmd/conformance -protocols grpc,connect,connect-json
+make conformance-mcp                   # the suite through sysml-mcp's runtime tools
 ```
 
 `-report <file>` writes the machine-readable summary (`-` writes it to stdout). `-junit <file>`
@@ -22,6 +23,20 @@ disagreed, the list of mismatches. The default protocols are `grpc`, `connect` (
 and `connect-json` (JSON body); all three runs use one service process. Use `-transport grpc
 -protocols grpc` to exercise a grpc-go-only service. Connect protocol clients issue unary POSTs
 to `/sysml.SysMLService/<Method>` with `application/proto` or `application/json` bodies.
+
+Protocol `mcp` runs the suite through [`sysml-mcp`](../docs/reference/sysml-mcp.md), which
+serves the same service as MCP tools, one per RPC. The runner builds the server (or takes
+`-mcp-binary`), starts it with `-tools runtime -root <fixtures>` over stdio and drives it with
+the MCP Go SDK client: a scenario's RPC is called as its runtime tool, the request spelled as
+the tool's arguments and the tool's structured result read back as the RPC's response, which
+the same normalization and comparison then judge. A tool error carries the RPC's status code
+(`NOT_FOUND: …`), and arguments the tool's input schema refuses are its `INVALID_ARGUMENT`.
+`-withhold-capabilities` applies: the server is started with the same
+`OPENSYSML_TEST_WITHHOLD_CAPABILITIES` the service is. The runtime tools read files only under
+their root, so a scenario naming a path outside the fixtures directory (the absent-file
+scenarios of `parse` and `parse_sources`) is skipped with that reason rather than run;
+`make conformance-mcp` passes `-allow-skips` for them, as `make conformance-pkg` does for the
+public API's.
 
 ## Layout
 
@@ -138,6 +153,10 @@ What a request asks for is fixed per capability:
 | --- | --- |
 | `convert` | Refuse `Convert`. |
 | `migrate` | Refuse `Migrate`. |
+| `runs` | Refuse `RunRuns`. |
+| `self_check` | Refuse `SelfCheck`. |
+| `record_run` | Refuse `RecordRun`. |
+| `check` | Refuse `CheckBehavior`. |
 | `verification` | Refuse `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` and `EvaluateCalc`. |
 | `query` | Refuse `Query`. |
 | `oslc_query` | Refuse `Query` only when `oslc_query` is set; structured queries still use `query`. |
@@ -148,6 +167,8 @@ What a request asks for is fixed per capability:
 | `strict_conformance` | Refuse `ParseFile` only when `strict_conformance` is true. |
 | `evaluate_subject` | Refuse `Evaluate` only when `subject_symbol_id` is set. |
 | `schedule` | Refuse `ExecuteAction`, `ExecuteState` and `RunAnalysis` only when `schedule` is set; an empty field runs under the default policy. |
+| `import_data` | Refuse `ImportData`. |
+| `compare_results` | Refuse `CompareResults`. |
 | `type_facts` | Response-population capability: omit type facts; no request asks for them. |
 | `symbol_attributes` | Response-population capability: omit symbol attributes; no request asks for them. |
 | `feature_values` | Response-population capability: omit instance feature values; no request asks for them. |

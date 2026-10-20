@@ -651,15 +651,16 @@ func TestSendDefaultsToTheActionSessionsObject(t *testing.T) {
 	wants(t, run(t, s, "%send Go(n=7) to Q::pd"), `✓ Sent Go(n=7) to object #1 of "Q::pd"`, `Accepted by performed action "main" waiting at accept g`)
 	run(t, s, "%stop")
 
-	wants(t, run(t, s, "%action Q::Main Q::pd"), `✓ Started action executor for "Q::Main"`)
-	// The fresh executor is at its start, so only the object's own action is
-	// parked for the signal.
+	// The session attaches to the performance the object already runs of Main,
+	// so that one performance is parked for the signal.
+	wants(t, run(t, s, "%action Q::Main Q::pd"), `✓ Debugging action "main" performed by object #1 of "Q::pd"`,
+		`already performs "Q::Main", so this session attaches to that running performance rather than starting a second one`)
 	out := run(t, s, "%send Go(n=2)")
 	wants(t, out, `✓ Sent Go(n=2) to object #1 of "Q::pd"`, `Accepted by performed action "main" waiting at accept g`)
 	rejects(t, out, `"Main"`)
 	wants(t, run(t, s, "%send Halt"),
 		`error: object #1 of "Q::pd" accepts no signal Halt now`,
-		`performed action "main" waiting at accept g of type Go, performed action "Main" running`)
+		`performed action "main" waiting at accept g of type Go`)
 
 	res := s.Submit("package Other { part def Unrelated; }")
 	if len(res.Diagnostics) > 0 {
@@ -672,18 +673,15 @@ func TestSendDefaultsToTheActionSessionsObject(t *testing.T) {
 	wants(t, run(t, s, "%send Go(n=1)"), "error: no active debugging session", "name one with `to <object>`")
 }
 
-// TestSendIsDispatchedToTheDebuggedActionAtItsAccept: an %action session whose
-// own executor is parked at the accept is reported among the takers, and a step
-// of it goes on with the signal.
+// TestSendIsDispatchedToTheDebuggedActionAtItsAccept: an %action session attached
+// to the object's performance parked at the accept is the taker reported, and a
+// continue of it goes on with the signal.
 func TestSendIsDispatchedToTheDebuggedActionAtItsAccept(t *testing.T) {
 	s := performedSession(t)
-	run(t, s, "%action Q::Main Q::pd")
-	run(t, s, "%step")
-	wants(t, run(t, s, "%step"), "Step complete")
+	wants(t, run(t, s, "%action Q::Main Q::pd"), "State: Waiting")
 	wants(t, run(t, s, "%send Go(n=7)"),
 		`✓ Sent Go(n=7) to object #1 of "Q::pd"`,
 		`Accepted by performed action "main" waiting at accept g`,
-		`Accepted by performed action "Main" waiting at accept g`,
 		"Use %step or %advance <time> to dispatch it")
 	wants(t, run(t, s, "%continue"), "Action completed", "total = 7")
 }

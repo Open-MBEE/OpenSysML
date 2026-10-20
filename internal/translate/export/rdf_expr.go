@@ -243,7 +243,12 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 		return e.arguments(subject, owner, n.Elements)
 
 	case *ast.MetadataAccessExpr:
-		e.graph.Add(subject, e.sysml(pReferencedElement), e.reference(n.Ref))
+		// The element read is the memberElement of a Membership the expression owns
+		// (KerML.xtext MetadataAccessExpression `ownedRelationship += ElementReferenceMember`);
+		// referencedElement is derived from it (validateMetadataAccessExpressionReferencedElement).
+		target := e.reference(n.Ref)
+		e.referenceMembership(subject, target)
+		e.graph.Add(subject, e.sysml(pReferencedElement), target)
 
 	case *ast.BodyExpr:
 		return e.bodyExpression(subject, owner, n)
@@ -673,7 +678,13 @@ func (e *encoder) calleeMembership(subject rdf.Term, function *ast.QualifiedName
 		e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 		return
 	}
-	target := e.reference(function)
+	e.referenceMembership(subject, e.reference(function))
+}
+
+// referenceMembership owns, under an expression, the Membership whose
+// memberElement is the element the expression names (KerML.xtext
+// ElementReferenceMember), as the metamodel has it rather than as a collapsed edge.
+func (e *encoder) referenceMembership(subject, target rdf.Term) {
 	membership := e.ids.mintedNode(rdf.ExpressionIRI(subject, "function"), subject, "function")
 	e.typed(membership, mMembership)
 	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
@@ -1289,8 +1300,7 @@ func (d *decoder) expressionForm(node rdf.Term, in *element) (operand, error) {
 		return primary(d.expressionReference(node, rdf.SysML+pReferent, in,
 			"a feature reference names the feature it reads"))
 	case mMetadataAccess:
-		name, err := d.expressionReference(node, rdf.SysML+pReferencedElement, in,
-			"a metadata access names the element it reads the metadata of")
+		name, err := d.metadataAccessReference(node, in)
 		if err != nil {
 			return primary("", err)
 		}
@@ -1888,6 +1898,32 @@ func (d *decoder) calleeText(node rdf.Term, in *element) (string, bool, error) {
 		return name, true, err
 	}
 	return "", false, nil
+}
+
+// metadataAccessReference is the element a metadata access reads: the
+// memberElement of the first non-feature Membership it owns, from which
+// referencedElement is derived (KerML validateMetadataAccessExpressionReferencedElement);
+// a graph stating only the derived referencedElement is still read.
+func (d *decoder) metadataAccessReference(node rdf.Term, in *element) (string, error) {
+	for _, relationship := range d.graph.Objects(node, rdf.SysML+pOwnedRelationship) {
+		class := d.metaclass(relationship)
+		if !ontology.IsAncestorOrSelf(class, "Membership") || ontology.IsAncestorOrSelf(class, mFeatureMembership) {
+			continue
+		}
+		member, ok := d.graph.Object(relationship, rdf.SysML+pMemberElement)
+		if !ok {
+			continue
+		}
+		if stated, has := d.graph.Object(node, rdf.SysML+pReferencedElement); has && stated != member {
+			return "", &UnsupportedError{
+				What: fmt.Sprintf("the metadata access <%s>", node.Value),
+				Note: fmt.Sprintf("its referencedElement <%s> is not the member <%s> of the Membership it owns, which the metamodel derives it from", stated.Value, member.Value),
+			}
+		}
+		return d.referenceName(member, in)
+	}
+	return d.expressionReference(node, rdf.SysML+pReferencedElement, in,
+		"a metadata access owns a Membership of the element it reads the metadata of")
 }
 
 // calleeRelationships is the function a Membership the invocation owns names,

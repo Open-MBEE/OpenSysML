@@ -110,12 +110,15 @@ var (
 	renderRuns       stringSlice
 	schedule         schedulePolicy
 	listEngines      bool
+	metaclassGraph   bool
 	explainCodes     codeNames
 	probeEngines     bool
 	engine           engineSelection
 	jobsFlag         jobsSetting
 	convertFormat    string
 	migrateFormat    string
+	bundleDir        string
+	unbundleFile     string
 	queryText        string
 	outputPath       string
 	fromFormat       string
@@ -484,7 +487,7 @@ func runCLI() int {
 		case renderDoc != "" || renderDocsDir != "" || renderView != "" || renderAllDir != "" ||
 			convertFormat != "" || migrateFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
 			queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || modelChecks.requested() ||
-			flagGiven("list") || flagGiven("list-kind") || flagGiven("list-form"):
+			flagGiven("list") || flagGiven("list-kind") || flagGiven("list-form") || metaclassGraph:
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet and nothing else; ask for it in its own run")
 			return 2
 		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven():
@@ -501,9 +504,57 @@ func runCLI() int {
 		return exitHolds
 	}
 
+	// The metaclass hierarchy is a property of the pinned metamodel, not of any
+	// model; writing it is the whole run, so it cannot stand in for another.
+	if metaclassGraph {
+		switch {
+		case len(args) > 0:
+			fmt.Fprintln(os.Stderr, "sysml: -metaclass-graph writes the metaclass hierarchy of the pinned metamodel, which no model shapes; ask for it without model files")
+			return 2
+		case renderDoc != "" || renderDocsDir != "" || renderView != "" || renderAllDir != "" ||
+			convertFormat != "" || migrateFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
+			queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || modelChecks.requested() ||
+			flagGiven("list") || flagGiven("list-kind") || flagGiven("list-form") || htmlShowCSS:
+			fmt.Fprintln(os.Stderr, "sysml: -metaclass-graph writes the metaclass hierarchy and nothing else; ask for it in its own run")
+			return 2
+		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven() ||
+			fromFormat != "" || strictMode || syncBase != "" || syncState != "" ||
+			syncConfirmDeletes || syncMintIDs || syncAnnotate != "":
+			fmt.Fprintln(os.Stderr, "sysml: -metaclass-graph writes the metaclass hierarchy, which reads no input; the input, repository and document options do not apply")
+			return 2
+		}
+		if err := writeMetaclassGraph(); err != nil {
+			return fail(err)
+		}
+		return exitHolds
+	}
+
 	if renderDoc == "" && renderDocsDir == "" &&
 		(docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlFlagsGiven()) {
 		fmt.Fprintln(os.Stderr, "sysml: -doc-form, -diagram-form, the document options and the stylesheet options apply to -render-document and -render-documents; name the document to render")
+		return 2
+	}
+
+	if flagGiven("bundle") || flagGiven("unbundle") {
+		switch {
+		case bundleDir != "" && unbundleFile != "":
+			fmt.Fprintln(os.Stderr, "sysml: -bundle writes an archive and -unbundle a directory; ask for one per run")
+		case bundleDir == "" && unbundleFile == "":
+			fmt.Fprintln(os.Stderr, "sysml: -bundle names the project directory to archive and -unbundle the archive to write out; neither may be empty")
+		case len(args) > 0 || modelChecks.requested() || convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || len(evalExprs) > 0:
+			fmt.Fprintln(os.Stderr, "sysml: -bundle and -unbundle copy a project and load no model; run them on their own")
+		default:
+			if bundleDir != "" {
+				if err := runBundle(bundleDir); err != nil {
+					fmt.Fprintf(os.Stderr, "sysml: %v\n", err)
+					return exitUnevaluable
+				}
+			} else if err := runUnbundle(unbundleFile); err != nil {
+				fmt.Fprintf(os.Stderr, "sysml: %v\n", err)
+				return exitUnevaluable
+			}
+			return exitHolds
+		}
 		return 2
 	}
 

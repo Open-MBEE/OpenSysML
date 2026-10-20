@@ -17,6 +17,7 @@ import type { Conversion } from "./conversion.js";
 import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
 import type { BindingValues, DocumentQueryResult } from "./document.js";
 import type { RenderedView } from "./render-view.js";
+import type { CheckOptions, CheckResult } from "./check.js";
 import type { Graphs } from "./graphs.js";
 import type { Editor } from "./edit.js";
 import type { Exploration } from "./exploration.js";
@@ -26,13 +27,20 @@ import type {
   SweepTable,
   Validation,
   Verdict,
+  RunsResult,
+  SelfCheckResult,
+  Recording,
+  ImportResult,
+  Comparison,
 } from "./verdict.js";
-import type {
-  Diagnostic,
-  FeatureValue as PbFeatureValue,
-  Instance as PbInstance,
-  ParseFileRequest,
-  SymbolInfo,
+import { fromJson, type JsonValue } from "@bufbuild/protobuf";
+import {
+  InstanceSchema,
+  type Diagnostic,
+  type FeatureValue as PbFeatureValue,
+  type Instance as PbInstance,
+  type ParseFileRequest,
+  type SymbolInfo,
 } from "../generated/sysml_pb.js";
 import { callRpc } from "./status.js";
 import { decodeValue, type SysMLValue, type ValueInput } from "./values.js";
@@ -432,9 +440,35 @@ export class Model {
     return this.connection.renderView(this.hash, viewName, options);
   }
 
+  /** Searches every schedule of an action of this model, as `sysml -check-property` does. */
+  checkAction(
+    actionSymbolId: string,
+    options: CheckOptions & { inputs?: Readonly<Record<string, ValueInput>> } = {},
+  ): Promise<CheckResult> {
+    return this.connection.checkAction(this.hash, actionSymbolId, options);
+  }
+
+  /** Searches every schedule of a state machine of this model. */
+  checkStateMachine(stateMachineSymbolId: string, options: CheckOptions = {}): Promise<CheckResult> {
+    return this.connection.checkStateMachine(this.hash, stateMachineSymbolId, options);
+  }
+
   /** Exports the lowered graph of an action or state machine of this model as `graphs:1` JSON. */
   exportGraphs(subject: string): Promise<Graphs> {
     return this.connection.exportGraphs(this.hash, subject);
+  }
+
+  /** Sets the feature values data files assign into this model. */
+  importData(
+    imports: Parameters<Connection["importData"]>[1],
+    options: Parameters<Connection["importData"]>[2] = {},
+  ): Promise<ImportResult> {
+    return this.connection.importData(this.hash, imports, options);
+  }
+
+  /** Runs the configurations a results sidecar indexes against this model and compares the runs with the tool's. */
+  compareResults(results: string, options: Parameters<Connection["compareResults"]>[2] = {}): Promise<Comparison> {
+    return this.connection.compareResults(this.hash, results, options);
   }
 
   /** Starts an edit of this model, to be applied in one call. */
@@ -570,6 +604,21 @@ export class Model {
     } = {},
   ): Promise<Exploration> {
     return this.connection.exploreAnalysis(this.hash, symbolId, options);
+  }
+
+  /** Runs an action, or a Monte Carlo case, of this model `runs` times. */
+  runRuns(options: Parameters<Connection["runRuns"]>[1]): Promise<RunsResult> {
+    return this.connection.runRuns(this.hash, options);
+  }
+
+  /** Applies the reflective SysMLValidation constraints to every element of this model. */
+  selfCheck(packages: readonly string[] = []): Promise<SelfCheckResult> {
+    return this.connection.selfCheck(this.hash, packages);
+  }
+
+  /** Runs an analysis case of this model and records the runs into it. */
+  recordRun(symbolId: string, options: Parameters<Connection["recordRun"]>[2] = {}): Promise<Recording> {
+    return this.connection.recordRun(this.hash, symbolId, options);
   }
 
   /** Runs an analysis case or calc of this model once per row of a sweep. */
@@ -850,6 +899,14 @@ export class Instance {
   get(name: string): FeatureValue | undefined {
     return this.features.get(name);
   }
+}
+
+/**
+ * instanceFromJson decodes one instance from the protojson form of an `Instance`
+ * message, as a snapshot of an Instantiate answer stores it, into the typed object.
+ */
+export function instanceFromJson(json: unknown): Instance {
+  return new Instance(fromJson(InstanceSchema, json as JsonValue));
 }
 
 /** What one instantiation produced: the root object and every object it owns. */

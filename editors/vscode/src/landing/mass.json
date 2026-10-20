@@ -1,0 +1,4154 @@
+{
+  "hash": "1fbb4134073d10facd76005e86dc2a8f41191bd86af0960a11c29fbd2aa25360",
+  "render": {
+    "kind": "interconnection",
+    "stated": "no view declared; rendering MassRollup::saturnV directly",
+    "nodes": [
+      {
+        "id": "n0",
+        "kind": "part",
+        "name": "MassRollup::saturnV",
+        "type": "LaunchVehicle",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 75,
+          "startCol": 5,
+          "endLine": 75,
+          "endCol": 34
+        }
+      },
+      {
+        "id": "n1",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n0",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 68,
+          "startCol": 9,
+          "endLine": 68,
+          "endCol": 37
+        }
+      },
+      {
+        "id": "n2",
+        "kind": "part",
+        "name": "stage1",
+        "type": "'S-IC'",
+        "parent": "n0",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 69,
+          "startCol": 9,
+          "endLine": 69,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n3",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n2",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 39,
+          "startCol": 9,
+          "endLine": 39,
+          "endCol": 42
+        }
+      },
+      {
+        "id": "n4",
+        "kind": "attribute",
+        "name": "propellantMass",
+        "parent": "n2",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 40,
+          "startCol": 9,
+          "endLine": 40,
+          "endCol": 53
+        }
+      },
+      {
+        "id": "n5",
+        "kind": "part",
+        "name": "engine1",
+        "type": "'F-1'",
+        "parent": "n2",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 41,
+          "startCol": 9,
+          "endLine": 41,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n6",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n5",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 20,
+          "startCol": 9,
+          "endLine": 20,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n7",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n5",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 21,
+          "startCol": 9,
+          "endLine": 21,
+          "endCol": 44
+        }
+      },
+      {
+        "id": "n8",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n5",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 22,
+          "startCol": 9,
+          "endLine": 22,
+          "endCol": 49
+        }
+      },
+      {
+        "id": "n9",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n5",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n10",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n5",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n11",
+        "kind": "part",
+        "name": "engine2",
+        "type": "'F-1'",
+        "parent": "n2",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 42,
+          "startCol": 9,
+          "endLine": 42,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n12",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n11",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 20,
+          "startCol": 9,
+          "endLine": 20,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n13",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n11",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 21,
+          "startCol": 9,
+          "endLine": 21,
+          "endCol": 44
+        }
+      },
+      {
+        "id": "n14",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n11",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 22,
+          "startCol": 9,
+          "endLine": 22,
+          "endCol": 49
+        }
+      },
+      {
+        "id": "n15",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n11",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n16",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n11",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n17",
+        "kind": "part",
+        "name": "engine3",
+        "type": "'F-1'",
+        "parent": "n2",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 43,
+          "startCol": 9,
+          "endLine": 43,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n18",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n17",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 20,
+          "startCol": 9,
+          "endLine": 20,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n19",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n17",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 21,
+          "startCol": 9,
+          "endLine": 21,
+          "endCol": 44
+        }
+      },
+      {
+        "id": "n20",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n17",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 22,
+          "startCol": 9,
+          "endLine": 22,
+          "endCol": 49
+        }
+      },
+      {
+        "id": "n21",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n17",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n22",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n17",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n23",
+        "kind": "part",
+        "name": "engine4",
+        "type": "'F-1'",
+        "parent": "n2",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 44,
+          "startCol": 9,
+          "endLine": 44,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n24",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n23",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 20,
+          "startCol": 9,
+          "endLine": 20,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n25",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n23",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 21,
+          "startCol": 9,
+          "endLine": 21,
+          "endCol": 44
+        }
+      },
+      {
+        "id": "n26",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n23",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 22,
+          "startCol": 9,
+          "endLine": 22,
+          "endCol": 49
+        }
+      },
+      {
+        "id": "n27",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n23",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n28",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n23",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n29",
+        "kind": "part",
+        "name": "engine5",
+        "type": "'F-1'",
+        "parent": "n2",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 45,
+          "startCol": 9,
+          "endLine": 45,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n30",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n29",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 20,
+          "startCol": 9,
+          "endLine": 20,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n31",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n29",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 21,
+          "startCol": 9,
+          "endLine": 21,
+          "endCol": 44
+        }
+      },
+      {
+        "id": "n32",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n29",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 22,
+          "startCol": 9,
+          "endLine": 22,
+          "endCol": 49
+        }
+      },
+      {
+        "id": "n33",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n29",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n34",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n29",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n35",
+        "kind": "part",
+        "name": "engines",
+        "type": "Engine",
+        "parent": "n2",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 46,
+          "startCol": 9,
+          "endLine": 46,
+          "endCol": 74
+        }
+      },
+      {
+        "id": "n36",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n35",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 15,
+          "startCol": 9,
+          "endLine": 15,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n37",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n35",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 16,
+          "startCol": 9,
+          "endLine": 16,
+          "endCol": 48
+        }
+      },
+      {
+        "id": "n38",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n35",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n39",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n35",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 10,
+          "startCol": 9,
+          "endLine": 10,
+          "endCol": 37
+        }
+      },
+      {
+        "id": "n40",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n35",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n41",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n2",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 33,
+          "startCol": 9,
+          "endLine": 33,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n42",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "parent": "n2",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 35,
+          "startCol": 9,
+          "endLine": 35,
+          "endCol": 42
+        }
+      },
+      {
+        "id": "n43",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n42",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n44",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n42",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 10,
+          "startCol": 9,
+          "endLine": 10,
+          "endCol": 37
+        }
+      },
+      {
+        "id": "n45",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n42",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n46",
+        "kind": "part",
+        "name": "stage2",
+        "type": "'S-II'",
+        "parent": "n0",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 70,
+          "startCol": 9,
+          "endLine": 70,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n47",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n46",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 50,
+          "startCol": 9,
+          "endLine": 50,
+          "endCol": 41
+        }
+      },
+      {
+        "id": "n48",
+        "kind": "attribute",
+        "name": "propellantMass",
+        "parent": "n46",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 51,
+          "startCol": 9,
+          "endLine": 51,
+          "endCol": 52
+        }
+      },
+      {
+        "id": "n49",
+        "kind": "part",
+        "name": "engine1",
+        "type": "'J-2'",
+        "parent": "n46",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 52,
+          "startCol": 9,
+          "endLine": 52,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n50",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n49",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 26,
+          "startCol": 9,
+          "endLine": 26,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n51",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n49",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 27,
+          "startCol": 9,
+          "endLine": 27,
+          "endCol": 44
+        }
+      },
+      {
+        "id": "n52",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n49",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 28,
+          "startCol": 9,
+          "endLine": 28,
+          "endCol": 49
+        }
+      },
+      {
+        "id": "n53",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n49",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n54",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n49",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n55",
+        "kind": "part",
+        "name": "engine2",
+        "type": "'J-2'",
+        "parent": "n46",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 53,
+          "startCol": 9,
+          "endLine": 53,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n56",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n55",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 26,
+          "startCol": 9,
+          "endLine": 26,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n57",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n55",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 27,
+          "startCol": 9,
+          "endLine": 27,
+          "endCol": 44
+        }
+      },
+      {
+        "id": "n58",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n55",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 28,
+          "startCol": 9,
+          "endLine": 28,
+          "endCol": 49
+        }
+      },
+      {
+        "id": "n59",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n55",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n60",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n55",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n61",
+        "kind": "part",
+        "name": "engine3",
+        "type": "'J-2'",
+        "parent": "n46",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 54,
+          "startCol": 9,
+          "endLine": 54,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n62",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n61",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 26,
+          "startCol": 9,
+          "endLine": 26,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n63",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n61",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 27,
+          "startCol": 9,
+          "endLine": 27,
+          "endCol": 44
+        }
+      },
+      {
+        "id": "n64",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n61",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 28,
+          "startCol": 9,
+          "endLine": 28,
+          "endCol": 49
+        }
+      },
+      {
+        "id": "n65",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n61",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n66",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n61",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n67",
+        "kind": "part",
+        "name": "engine4",
+        "type": "'J-2'",
+        "parent": "n46",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 55,
+          "startCol": 9,
+          "endLine": 55,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n68",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n67",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 26,
+          "startCol": 9,
+          "endLine": 26,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n69",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n67",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 27,
+          "startCol": 9,
+          "endLine": 27,
+          "endCol": 44
+        }
+      },
+      {
+        "id": "n70",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n67",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 28,
+          "startCol": 9,
+          "endLine": 28,
+          "endCol": 49
+        }
+      },
+      {
+        "id": "n71",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n67",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n72",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n67",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n73",
+        "kind": "part",
+        "name": "engine5",
+        "type": "'J-2'",
+        "parent": "n46",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 56,
+          "startCol": 9,
+          "endLine": 56,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n74",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n73",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 26,
+          "startCol": 9,
+          "endLine": 26,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n75",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n73",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 27,
+          "startCol": 9,
+          "endLine": 27,
+          "endCol": 44
+        }
+      },
+      {
+        "id": "n76",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n73",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 28,
+          "startCol": 9,
+          "endLine": 28,
+          "endCol": 49
+        }
+      },
+      {
+        "id": "n77",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n73",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n78",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n73",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n79",
+        "kind": "part",
+        "name": "engines",
+        "type": "Engine",
+        "parent": "n46",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 57,
+          "startCol": 9,
+          "endLine": 57,
+          "endCol": 74
+        }
+      },
+      {
+        "id": "n80",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n79",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 15,
+          "startCol": 9,
+          "endLine": 15,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n81",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n79",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 16,
+          "startCol": 9,
+          "endLine": 16,
+          "endCol": 48
+        }
+      },
+      {
+        "id": "n82",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n79",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n83",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n79",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 10,
+          "startCol": 9,
+          "endLine": 10,
+          "endCol": 37
+        }
+      },
+      {
+        "id": "n84",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n79",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n85",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n46",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 33,
+          "startCol": 9,
+          "endLine": 33,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n86",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "parent": "n46",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 35,
+          "startCol": 9,
+          "endLine": 35,
+          "endCol": 42
+        }
+      },
+      {
+        "id": "n87",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n86",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n88",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n86",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 10,
+          "startCol": 9,
+          "endLine": 10,
+          "endCol": 37
+        }
+      },
+      {
+        "id": "n89",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n86",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n90",
+        "kind": "part",
+        "name": "stage3",
+        "type": "'S-IVB'",
+        "parent": "n0",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 71,
+          "startCol": 9,
+          "endLine": 71,
+          "endCol": 31
+        }
+      },
+      {
+        "id": "n91",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n90",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 61,
+          "startCol": 9,
+          "endLine": 61,
+          "endCol": 41
+        }
+      },
+      {
+        "id": "n92",
+        "kind": "attribute",
+        "name": "propellantMass",
+        "parent": "n90",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 62,
+          "startCol": 9,
+          "endLine": 62,
+          "endCol": 52
+        }
+      },
+      {
+        "id": "n93",
+        "kind": "part",
+        "name": "engine1",
+        "type": "'J-2'",
+        "parent": "n90",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 63,
+          "startCol": 9,
+          "endLine": 63,
+          "endCol": 30
+        }
+      },
+      {
+        "id": "n94",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n93",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 26,
+          "startCol": 9,
+          "endLine": 26,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n95",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n93",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 27,
+          "startCol": 9,
+          "endLine": 27,
+          "endCol": 44
+        }
+      },
+      {
+        "id": "n96",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n93",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 28,
+          "startCol": 9,
+          "endLine": 28,
+          "endCol": 49
+        }
+      },
+      {
+        "id": "n97",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n93",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n98",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n93",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n99",
+        "kind": "part",
+        "name": "engines",
+        "type": "Engine",
+        "parent": "n90",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 64,
+          "startCol": 9,
+          "endLine": 64,
+          "endCol": 36
+        }
+      },
+      {
+        "id": "n100",
+        "kind": "attribute",
+        "name": "thrust",
+        "parent": "n99",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 15,
+          "startCol": 9,
+          "endLine": 15,
+          "endCol": 40
+        }
+      },
+      {
+        "id": "n101",
+        "kind": "attribute",
+        "name": "specificImpulse",
+        "parent": "n99",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 16,
+          "startCol": 9,
+          "endLine": 16,
+          "endCol": 48
+        }
+      },
+      {
+        "id": "n102",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n99",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n103",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n99",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 10,
+          "startCol": 9,
+          "endLine": 10,
+          "endCol": 37
+        }
+      },
+      {
+        "id": "n104",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n99",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n105",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n90",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 33,
+          "startCol": 9,
+          "endLine": 33,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n106",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "parent": "n90",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 35,
+          "startCol": 9,
+          "endLine": 35,
+          "endCol": 42
+        }
+      },
+      {
+        "id": "n107",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "detail": "nested deeper than 3 levels; not shown",
+        "parent": "n106",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n108",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n106",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 10,
+          "startCol": 9,
+          "endLine": 10,
+          "endCol": 37
+        }
+      },
+      {
+        "id": "n109",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n106",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n110",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "parent": "n0",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 72,
+          "startCol": 9,
+          "endLine": 72,
+          "endCol": 59
+        }
+      },
+      {
+        "id": "n111",
+        "kind": "part",
+        "name": "subcomponents",
+        "type": "Component",
+        "parent": "n110",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 9,
+          "startCol": 9,
+          "endLine": 9,
+          "endCol": 56
+        }
+      },
+      {
+        "id": "n112",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n111",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 10,
+          "startCol": 9,
+          "endLine": 10,
+          "endCol": 37
+        }
+      },
+      {
+        "id": "n113",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n111",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n114",
+        "kind": "attribute",
+        "name": "mass",
+        "parent": "n110",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 10,
+          "startCol": 9,
+          "endLine": 10,
+          "endCol": 37
+        }
+      },
+      {
+        "id": "n115",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n110",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      },
+      {
+        "id": "n116",
+        "kind": "attribute",
+        "name": "totalMass",
+        "parent": "n0",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 11,
+          "startCol": 9,
+          "endLine": 11,
+          "endCol": 88
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "n42",
+        "to": "n35",
+        "kind": "binding",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 35,
+          "startCol": 9,
+          "endLine": 35,
+          "endCol": 42
+        }
+      },
+      {
+        "from": "n86",
+        "to": "n79",
+        "kind": "binding",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 35,
+          "startCol": 9,
+          "endLine": 35,
+          "endCol": 42
+        }
+      },
+      {
+        "from": "n99",
+        "to": "n93",
+        "kind": "binding",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 64,
+          "startCol": 9,
+          "endLine": 64,
+          "endCol": 36
+        }
+      },
+      {
+        "from": "n106",
+        "to": "n99",
+        "kind": "binding",
+        "origin": {
+          "file": "mass-rollup.sysml",
+          "startLine": 35,
+          "startCol": 9,
+          "endLine": 35,
+          "endCol": 42
+        }
+      }
+    ],
+    "notices": [
+      "34 elements nested deeper than 3 levels not shown"
+    ],
+    "shown": [
+      "port-symbols",
+      "compartments",
+      "keywords",
+      "typings"
+    ]
+  },
+  "instances": [
+    {
+      "id": "1",
+      "typeSymbolId": "MassRollup::saturnV",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "0",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "stage1": {
+          "featureName": "stage1",
+          "value": {
+            "instanceId": "2"
+          },
+          "materialized": true
+        },
+        "stage2": {
+          "featureName": "stage2",
+          "value": {
+            "instanceId": "3"
+          },
+          "materialized": true
+        },
+        "stage3": {
+          "featureName": "stage3",
+          "value": {
+            "instanceId": "4"
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "values": [
+            {
+              "instanceId": "2"
+            },
+            {
+              "instanceId": "3"
+            },
+            {
+              "instanceId": "4"
+            }
+          ],
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "values": [
+            {
+              "instanceId": "2"
+            },
+            {
+              "instanceId": "3"
+            },
+            {
+              "instanceId": "4"
+            }
+          ],
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "values": [
+            {
+              "instanceId": "2"
+            },
+            {
+              "instanceId": "3"
+            },
+            {
+              "instanceId": "4"
+            }
+          ],
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "2941728",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "2",
+      "typeSymbolId": "MassRollup::S-IC",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "engine1": {
+          "featureName": "engine1",
+          "value": {
+            "instanceId": "5"
+          },
+          "materialized": true
+        },
+        "engine2": {
+          "featureName": "engine2",
+          "value": {
+            "instanceId": "6"
+          },
+          "materialized": true
+        },
+        "engine3": {
+          "featureName": "engine3",
+          "value": {
+            "instanceId": "7"
+          },
+          "materialized": true
+        },
+        "engine4": {
+          "featureName": "engine4",
+          "value": {
+            "instanceId": "8"
+          },
+          "materialized": true
+        },
+        "engine5": {
+          "featureName": "engine5",
+          "value": {
+            "instanceId": "9"
+          },
+          "materialized": true
+        },
+        "engines": {
+          "featureName": "engines",
+          "values": [
+            {
+              "instanceId": "5"
+            },
+            {
+              "instanceId": "6"
+            },
+            {
+              "instanceId": "7"
+            },
+            {
+              "instanceId": "8"
+            },
+            {
+              "instanceId": "9"
+            }
+          ],
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "130000",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "propellantMass": {
+          "featureName": "propellantMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "2160000",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "values": [
+            {
+              "instanceId": "5"
+            },
+            {
+              "instanceId": "6"
+            },
+            {
+              "instanceId": "7"
+            },
+            {
+              "instanceId": "8"
+            },
+            {
+              "instanceId": "9"
+            }
+          ],
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "values": [
+            {
+              "instanceId": "5"
+            },
+            {
+              "instanceId": "6"
+            },
+            {
+              "instanceId": "7"
+            },
+            {
+              "instanceId": "8"
+            },
+            {
+              "instanceId": "9"
+            }
+          ],
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "values": [
+            {
+              "instanceId": "5"
+            },
+            {
+              "instanceId": "6"
+            },
+            {
+              "instanceId": "7"
+            },
+            {
+              "instanceId": "8"
+            },
+            {
+              "instanceId": "9"
+            }
+          ],
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "2332000",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "5",
+      "typeSymbolId": "MassRollup::F-1",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "8400",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "specificImpulse": {
+          "featureName": "specificImpulse",
+          "value": {
+            "quantity": {
+              "intMagnitude": "263",
+              "unit": "s",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::second",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "thrust": {
+          "featureName": "thrust",
+          "value": {
+            "quantity": {
+              "intMagnitude": "6770000",
+              "unit": "N",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -2
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "8400",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "6",
+      "typeSymbolId": "MassRollup::F-1",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "8400",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "specificImpulse": {
+          "featureName": "specificImpulse",
+          "value": {
+            "quantity": {
+              "intMagnitude": "263",
+              "unit": "s",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::second",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "thrust": {
+          "featureName": "thrust",
+          "value": {
+            "quantity": {
+              "intMagnitude": "6770000",
+              "unit": "N",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -2
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "8400",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "7",
+      "typeSymbolId": "MassRollup::F-1",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "8400",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "specificImpulse": {
+          "featureName": "specificImpulse",
+          "value": {
+            "quantity": {
+              "intMagnitude": "263",
+              "unit": "s",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::second",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "thrust": {
+          "featureName": "thrust",
+          "value": {
+            "quantity": {
+              "intMagnitude": "6770000",
+              "unit": "N",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -2
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "8400",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "8",
+      "typeSymbolId": "MassRollup::F-1",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "8400",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "specificImpulse": {
+          "featureName": "specificImpulse",
+          "value": {
+            "quantity": {
+              "intMagnitude": "263",
+              "unit": "s",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::second",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "thrust": {
+          "featureName": "thrust",
+          "value": {
+            "quantity": {
+              "intMagnitude": "6770000",
+              "unit": "N",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -2
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "8400",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "9",
+      "typeSymbolId": "MassRollup::F-1",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "8400",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "specificImpulse": {
+          "featureName": "specificImpulse",
+          "value": {
+            "quantity": {
+              "intMagnitude": "263",
+              "unit": "s",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::second",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "thrust": {
+          "featureName": "thrust",
+          "value": {
+            "quantity": {
+              "intMagnitude": "6770000",
+              "unit": "N",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -2
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "8400",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "3",
+      "typeSymbolId": "MassRollup::S-II",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "engine1": {
+          "featureName": "engine1",
+          "value": {
+            "instanceId": "10"
+          },
+          "materialized": true
+        },
+        "engine2": {
+          "featureName": "engine2",
+          "value": {
+            "instanceId": "11"
+          },
+          "materialized": true
+        },
+        "engine3": {
+          "featureName": "engine3",
+          "value": {
+            "instanceId": "12"
+          },
+          "materialized": true
+        },
+        "engine4": {
+          "featureName": "engine4",
+          "value": {
+            "instanceId": "13"
+          },
+          "materialized": true
+        },
+        "engine5": {
+          "featureName": "engine5",
+          "value": {
+            "instanceId": "14"
+          },
+          "materialized": true
+        },
+        "engines": {
+          "featureName": "engines",
+          "values": [
+            {
+              "instanceId": "10"
+            },
+            {
+              "instanceId": "11"
+            },
+            {
+              "instanceId": "12"
+            },
+            {
+              "instanceId": "13"
+            },
+            {
+              "instanceId": "14"
+            }
+          ],
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "36000",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "propellantMass": {
+          "featureName": "propellantMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "444000",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "values": [
+            {
+              "instanceId": "10"
+            },
+            {
+              "instanceId": "11"
+            },
+            {
+              "instanceId": "12"
+            },
+            {
+              "instanceId": "13"
+            },
+            {
+              "instanceId": "14"
+            }
+          ],
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "values": [
+            {
+              "instanceId": "10"
+            },
+            {
+              "instanceId": "11"
+            },
+            {
+              "instanceId": "12"
+            },
+            {
+              "instanceId": "13"
+            },
+            {
+              "instanceId": "14"
+            }
+          ],
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "values": [
+            {
+              "instanceId": "10"
+            },
+            {
+              "instanceId": "11"
+            },
+            {
+              "instanceId": "12"
+            },
+            {
+              "instanceId": "13"
+            },
+            {
+              "instanceId": "14"
+            }
+          ],
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "488940",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "10",
+      "typeSymbolId": "MassRollup::J-2",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "specificImpulse": {
+          "featureName": "specificImpulse",
+          "value": {
+            "quantity": {
+              "intMagnitude": "421",
+              "unit": "s",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::second",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "thrust": {
+          "featureName": "thrust",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1033000",
+              "unit": "N",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -2
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "11",
+      "typeSymbolId": "MassRollup::J-2",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "specificImpulse": {
+          "featureName": "specificImpulse",
+          "value": {
+            "quantity": {
+              "intMagnitude": "421",
+              "unit": "s",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::second",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "thrust": {
+          "featureName": "thrust",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1033000",
+              "unit": "N",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -2
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "12",
+      "typeSymbolId": "MassRollup::J-2",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "specificImpulse": {
+          "featureName": "specificImpulse",
+          "value": {
+            "quantity": {
+              "intMagnitude": "421",
+              "unit": "s",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::second",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "thrust": {
+          "featureName": "thrust",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1033000",
+              "unit": "N",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -2
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "13",
+      "typeSymbolId": "MassRollup::J-2",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "specificImpulse": {
+          "featureName": "specificImpulse",
+          "value": {
+            "quantity": {
+              "intMagnitude": "421",
+              "unit": "s",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::second",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "thrust": {
+          "featureName": "thrust",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1033000",
+              "unit": "N",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -2
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "14",
+      "typeSymbolId": "MassRollup::J-2",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "specificImpulse": {
+          "featureName": "specificImpulse",
+          "value": {
+            "quantity": {
+              "intMagnitude": "421",
+              "unit": "s",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::second",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "thrust": {
+          "featureName": "thrust",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1033000",
+              "unit": "N",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -2
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "4",
+      "typeSymbolId": "MassRollup::S-IVB",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "engine1": {
+          "featureName": "engine1",
+          "value": {
+            "instanceId": "15"
+          },
+          "materialized": true
+        },
+        "engines": {
+          "featureName": "engines",
+          "values": [
+            {
+              "instanceId": "15"
+            }
+          ],
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "10000",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "propellantMass": {
+          "featureName": "propellantMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "109000",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "values": [
+            {
+              "instanceId": "15"
+            }
+          ],
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "values": [
+            {
+              "instanceId": "15"
+            }
+          ],
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "values": [
+            {
+              "instanceId": "15"
+            }
+          ],
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "120788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "15",
+      "typeSymbolId": "MassRollup::J-2",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates",
+          "materialized": true
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "mass": {
+          "featureName": "mass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions",
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "specificImpulse": {
+          "featureName": "specificImpulse",
+          "value": {
+            "quantity": {
+              "intMagnitude": "421",
+              "unit": "s",
+              "unitTerm": {
+                "scaleNum": 1,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::second",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "subcomponents": {
+          "featureName": "subcomponents",
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "thrust": {
+          "featureName": "thrust",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1033000",
+              "unit": "N",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::metre",
+                    "exponent": 1
+                  },
+                  {
+                    "unitId": "SI::second",
+                    "exponent": -2
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "totalMass": {
+          "featureName": "totalMass",
+          "value": {
+            "quantity": {
+              "intMagnitude": "1788",
+              "unit": "kg",
+              "unitTerm": {
+                "scaleNum": 1000,
+                "scaleDen": 1,
+                "factors": [
+                  {
+                    "unitId": "SI::gram",
+                    "exponent": 1
+                  }
+                ]
+              }
+            }
+          },
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    }
+  ]
+}

@@ -81,8 +81,17 @@ const (
 	// SysMLServiceRunAnalysisProcedure is the fully-qualified name of the SysMLService's RunAnalysis
 	// RPC.
 	SysMLServiceRunAnalysisProcedure = "/sysml.SysMLService/RunAnalysis"
+	// SysMLServiceCheckBehaviorProcedure is the fully-qualified name of the SysMLService's
+	// CheckBehavior RPC.
+	SysMLServiceCheckBehaviorProcedure = "/sysml.SysMLService/CheckBehavior"
 	// SysMLServiceRunSweepProcedure is the fully-qualified name of the SysMLService's RunSweep RPC.
 	SysMLServiceRunSweepProcedure = "/sysml.SysMLService/RunSweep"
+	// SysMLServiceRunRunsProcedure is the fully-qualified name of the SysMLService's RunRuns RPC.
+	SysMLServiceRunRunsProcedure = "/sysml.SysMLService/RunRuns"
+	// SysMLServiceSelfCheckProcedure is the fully-qualified name of the SysMLService's SelfCheck RPC.
+	SysMLServiceSelfCheckProcedure = "/sysml.SysMLService/SelfCheck"
+	// SysMLServiceRecordRunProcedure is the fully-qualified name of the SysMLService's RecordRun RPC.
+	SysMLServiceRecordRunProcedure = "/sysml.SysMLService/RecordRun"
 	// SysMLServiceListEnginesProcedure is the fully-qualified name of the SysMLService's ListEngines
 	// RPC.
 	SysMLServiceListEnginesProcedure = "/sysml.SysMLService/ListEngines"
@@ -99,6 +108,11 @@ const (
 	// SysMLServiceExportGraphsProcedure is the fully-qualified name of the SysMLService's ExportGraphs
 	// RPC.
 	SysMLServiceExportGraphsProcedure = "/sysml.SysMLService/ExportGraphs"
+	// SysMLServiceImportDataProcedure is the fully-qualified name of the SysMLService's ImportData RPC.
+	SysMLServiceImportDataProcedure = "/sysml.SysMLService/ImportData"
+	// SysMLServiceCompareResultsProcedure is the fully-qualified name of the SysMLService's
+	// CompareResults RPC.
+	SysMLServiceCompareResultsProcedure = "/sysml.SysMLService/CompareResults"
 )
 
 // SysMLServiceClient is a client for the sysml.SysMLService service.
@@ -157,11 +171,29 @@ type SysMLServiceClient interface {
 	ValidateInstance(context.Context, *connect.Request[proto.ValidateInstanceRequest]) (*connect.Response[proto.ValidateInstanceResponse], error)
 	EvaluateCalc(context.Context, *connect.Request[proto.EvaluateCalcRequest]) (*connect.Response[proto.EvaluateCalcResponse], error)
 	RunAnalysis(context.Context, *connect.Request[proto.RunAnalysisRequest]) (*connect.Response[proto.RunAnalysisResponse], error)
+	// CheckBehavior searches every schedule of an action or state machine, as
+	// `sysml -check-property`/`-check-diverge` do: a violated property, a
+	// deadlock, a failure or a divergent feature is witnessed and replayed.
+	CheckBehavior(context.Context, *connect.Request[proto.CheckBehaviorRequest]) (*connect.Response[proto.CheckBehaviorResponse], error)
 	// Run one analysis case or calc once per row of a parameter sweep, as the
 	// CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
 	// swept parameter bound to that row's value. Reported as the "verification"
 	// capability.
 	RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error)
+	// Run an action, or a Simulation::MonteCarlo analysis case, a number of
+	// times, each run seeded from the request's seed, and table what the runs
+	// observed with each observable's distribution, as the CLI's -runs/-observe
+	// do. Reported as the "runs" capability.
+	RunRuns(context.Context, *connect.Request[proto.RunRunsRequest]) (*connect.Response[proto.RunRunsResponse], error)
+	// SelfCheck applies the SysMLValidation constraints, and those of any rule
+	// packages, reflectively to every element of the model, as `sysml -self-check`
+	// does. Reported as the "self_check" capability.
+	SelfCheck(context.Context, *connect.Request[proto.SelfCheckRequest]) (*connect.Response[proto.SelfCheckResponse], error)
+	// RecordRun runs an analysis case — once, over the rows of a sweep, or as a
+	// Monte Carlo sample — and records the runs into the model as AnalysisRecords
+	// declarations, as `sysml -record-run` does. Reported as the "record_run"
+	// capability.
+	RecordRun(context.Context, *connect.Request[proto.RecordRunRequest]) (*connect.Response[proto.RecordRunResponse], error)
 	// List the analysis engines this build registers, as the CLI's -engines and
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
@@ -189,6 +221,16 @@ type SysMLServiceClient interface {
 	// and every behavior it performs — as the canonical `graphs:<version>` JSON
 	// external analysis engines read. Reported as the "export_graphs" capability.
 	ExportGraphs(context.Context, *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error)
+	// Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+	// per element, as `sysml -import` does: a feature the element declares has its
+	// value set, one it inherits is redefined with the value; a dry run reports the
+	// values without changing the model. Reported as the "import_data" capability.
+	ImportData(context.Context, *connect.Request[proto.ImportDataRequest]) (*connect.Response[proto.ImportDataResponse], error)
+	// Run every configuration a SysML v1 tool's results sidecar indexes, as
+	// `sysml -compare-results` does, and table the tool's and OpenSysML's min,
+	// mean, p50, p90 and max of each observable with their relative difference.
+	// Reported as the "compare_results" capability.
+	CompareResults(context.Context, *connect.Request[proto.CompareResultsRequest]) (*connect.Response[proto.CompareResultsResponse], error)
 }
 
 // NewSysMLServiceClient constructs a client for the sysml.SysMLService service. By default, it uses
@@ -310,10 +352,34 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("RunAnalysis")),
 			connect.WithClientOptions(opts...),
 		),
+		checkBehavior: connect.NewClient[proto.CheckBehaviorRequest, proto.CheckBehaviorResponse](
+			httpClient,
+			baseURL+SysMLServiceCheckBehaviorProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("CheckBehavior")),
+			connect.WithClientOptions(opts...),
+		),
 		runSweep: connect.NewClient[proto.RunSweepRequest, proto.RunSweepResponse](
 			httpClient,
 			baseURL+SysMLServiceRunSweepProcedure,
 			connect.WithSchema(sysMLServiceMethods.ByName("RunSweep")),
+			connect.WithClientOptions(opts...),
+		),
+		runRuns: connect.NewClient[proto.RunRunsRequest, proto.RunRunsResponse](
+			httpClient,
+			baseURL+SysMLServiceRunRunsProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("RunRuns")),
+			connect.WithClientOptions(opts...),
+		),
+		selfCheck: connect.NewClient[proto.SelfCheckRequest, proto.SelfCheckResponse](
+			httpClient,
+			baseURL+SysMLServiceSelfCheckProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("SelfCheck")),
+			connect.WithClientOptions(opts...),
+		),
+		recordRun: connect.NewClient[proto.RecordRunRequest, proto.RecordRunResponse](
+			httpClient,
+			baseURL+SysMLServiceRecordRunProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("RecordRun")),
 			connect.WithClientOptions(opts...),
 		),
 		listEngines: connect.NewClient[proto.ListEnginesRequest, proto.ListEnginesResponse](
@@ -352,6 +418,18 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("ExportGraphs")),
 			connect.WithClientOptions(opts...),
 		),
+		importData: connect.NewClient[proto.ImportDataRequest, proto.ImportDataResponse](
+			httpClient,
+			baseURL+SysMLServiceImportDataProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("ImportData")),
+			connect.WithClientOptions(opts...),
+		),
+		compareResults: connect.NewClient[proto.CompareResultsRequest, proto.CompareResultsResponse](
+			httpClient,
+			baseURL+SysMLServiceCompareResultsProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("CompareResults")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -375,13 +453,19 @@ type sysMLServiceClient struct {
 	validateInstance   *connect.Client[proto.ValidateInstanceRequest, proto.ValidateInstanceResponse]
 	evaluateCalc       *connect.Client[proto.EvaluateCalcRequest, proto.EvaluateCalcResponse]
 	runAnalysis        *connect.Client[proto.RunAnalysisRequest, proto.RunAnalysisResponse]
+	checkBehavior      *connect.Client[proto.CheckBehaviorRequest, proto.CheckBehaviorResponse]
 	runSweep           *connect.Client[proto.RunSweepRequest, proto.RunSweepResponse]
+	runRuns            *connect.Client[proto.RunRunsRequest, proto.RunRunsResponse]
+	selfCheck          *connect.Client[proto.SelfCheckRequest, proto.SelfCheckResponse]
+	recordRun          *connect.Client[proto.RecordRunRequest, proto.RecordRunResponse]
 	listEngines        *connect.Client[proto.ListEnginesRequest, proto.ListEnginesResponse]
 	query              *connect.Client[proto.QueryRequest, proto.QueryResponse]
 	runDocumentQuery   *connect.Client[proto.RunDocumentQueryRequest, proto.RunDocumentQueryResponse]
 	renderDocument     *connect.Client[proto.RenderDocumentRequest, proto.RenderDocumentResponse]
 	renderView         *connect.Client[proto.RenderViewRequest, proto.RenderViewResponse]
 	exportGraphs       *connect.Client[proto.ExportGraphsRequest, proto.ExportGraphsResponse]
+	importData         *connect.Client[proto.ImportDataRequest, proto.ImportDataResponse]
+	compareResults     *connect.Client[proto.CompareResultsRequest, proto.CompareResultsResponse]
 }
 
 // GetServerInfo calls sysml.SysMLService.GetServerInfo.
@@ -474,9 +558,29 @@ func (c *sysMLServiceClient) RunAnalysis(ctx context.Context, req *connect.Reque
 	return c.runAnalysis.CallUnary(ctx, req)
 }
 
+// CheckBehavior calls sysml.SysMLService.CheckBehavior.
+func (c *sysMLServiceClient) CheckBehavior(ctx context.Context, req *connect.Request[proto.CheckBehaviorRequest]) (*connect.Response[proto.CheckBehaviorResponse], error) {
+	return c.checkBehavior.CallUnary(ctx, req)
+}
+
 // RunSweep calls sysml.SysMLService.RunSweep.
 func (c *sysMLServiceClient) RunSweep(ctx context.Context, req *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error) {
 	return c.runSweep.CallUnary(ctx, req)
+}
+
+// RunRuns calls sysml.SysMLService.RunRuns.
+func (c *sysMLServiceClient) RunRuns(ctx context.Context, req *connect.Request[proto.RunRunsRequest]) (*connect.Response[proto.RunRunsResponse], error) {
+	return c.runRuns.CallUnary(ctx, req)
+}
+
+// SelfCheck calls sysml.SysMLService.SelfCheck.
+func (c *sysMLServiceClient) SelfCheck(ctx context.Context, req *connect.Request[proto.SelfCheckRequest]) (*connect.Response[proto.SelfCheckResponse], error) {
+	return c.selfCheck.CallUnary(ctx, req)
+}
+
+// RecordRun calls sysml.SysMLService.RecordRun.
+func (c *sysMLServiceClient) RecordRun(ctx context.Context, req *connect.Request[proto.RecordRunRequest]) (*connect.Response[proto.RecordRunResponse], error) {
+	return c.recordRun.CallUnary(ctx, req)
 }
 
 // ListEngines calls sysml.SysMLService.ListEngines.
@@ -507,6 +611,16 @@ func (c *sysMLServiceClient) RenderView(ctx context.Context, req *connect.Reques
 // ExportGraphs calls sysml.SysMLService.ExportGraphs.
 func (c *sysMLServiceClient) ExportGraphs(ctx context.Context, req *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error) {
 	return c.exportGraphs.CallUnary(ctx, req)
+}
+
+// ImportData calls sysml.SysMLService.ImportData.
+func (c *sysMLServiceClient) ImportData(ctx context.Context, req *connect.Request[proto.ImportDataRequest]) (*connect.Response[proto.ImportDataResponse], error) {
+	return c.importData.CallUnary(ctx, req)
+}
+
+// CompareResults calls sysml.SysMLService.CompareResults.
+func (c *sysMLServiceClient) CompareResults(ctx context.Context, req *connect.Request[proto.CompareResultsRequest]) (*connect.Response[proto.CompareResultsResponse], error) {
+	return c.compareResults.CallUnary(ctx, req)
 }
 
 // SysMLServiceHandler is an implementation of the sysml.SysMLService service.
@@ -565,11 +679,29 @@ type SysMLServiceHandler interface {
 	ValidateInstance(context.Context, *connect.Request[proto.ValidateInstanceRequest]) (*connect.Response[proto.ValidateInstanceResponse], error)
 	EvaluateCalc(context.Context, *connect.Request[proto.EvaluateCalcRequest]) (*connect.Response[proto.EvaluateCalcResponse], error)
 	RunAnalysis(context.Context, *connect.Request[proto.RunAnalysisRequest]) (*connect.Response[proto.RunAnalysisResponse], error)
+	// CheckBehavior searches every schedule of an action or state machine, as
+	// `sysml -check-property`/`-check-diverge` do: a violated property, a
+	// deadlock, a failure or a divergent feature is witnessed and replayed.
+	CheckBehavior(context.Context, *connect.Request[proto.CheckBehaviorRequest]) (*connect.Response[proto.CheckBehaviorResponse], error)
 	// Run one analysis case or calc once per row of a parameter sweep, as the
 	// CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
 	// swept parameter bound to that row's value. Reported as the "verification"
 	// capability.
 	RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error)
+	// Run an action, or a Simulation::MonteCarlo analysis case, a number of
+	// times, each run seeded from the request's seed, and table what the runs
+	// observed with each observable's distribution, as the CLI's -runs/-observe
+	// do. Reported as the "runs" capability.
+	RunRuns(context.Context, *connect.Request[proto.RunRunsRequest]) (*connect.Response[proto.RunRunsResponse], error)
+	// SelfCheck applies the SysMLValidation constraints, and those of any rule
+	// packages, reflectively to every element of the model, as `sysml -self-check`
+	// does. Reported as the "self_check" capability.
+	SelfCheck(context.Context, *connect.Request[proto.SelfCheckRequest]) (*connect.Response[proto.SelfCheckResponse], error)
+	// RecordRun runs an analysis case — once, over the rows of a sweep, or as a
+	// Monte Carlo sample — and records the runs into the model as AnalysisRecords
+	// declarations, as `sysml -record-run` does. Reported as the "record_run"
+	// capability.
+	RecordRun(context.Context, *connect.Request[proto.RecordRunRequest]) (*connect.Response[proto.RecordRunResponse], error)
 	// List the analysis engines this build registers, as the CLI's -engines and
 	// the REPL's %engines do: each with the questions it answers, the strongest
 	// evidence it can produce and whether it can run. Reported as the "engines"
@@ -597,6 +729,16 @@ type SysMLServiceHandler interface {
 	// and every behavior it performs — as the canonical `graphs:<version>` JSON
 	// external analysis engines read. Reported as the "export_graphs" capability.
 	ExportGraphs(context.Context, *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error)
+	// Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+	// per element, as `sysml -import` does: a feature the element declares has its
+	// value set, one it inherits is redefined with the value; a dry run reports the
+	// values without changing the model. Reported as the "import_data" capability.
+	ImportData(context.Context, *connect.Request[proto.ImportDataRequest]) (*connect.Response[proto.ImportDataResponse], error)
+	// Run every configuration a SysML v1 tool's results sidecar indexes, as
+	// `sysml -compare-results` does, and table the tool's and OpenSysML's min,
+	// mean, p50, p90 and max of each observable with their relative difference.
+	// Reported as the "compare_results" capability.
+	CompareResults(context.Context, *connect.Request[proto.CompareResultsRequest]) (*connect.Response[proto.CompareResultsResponse], error)
 }
 
 // NewSysMLServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -714,10 +856,34 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("RunAnalysis")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceCheckBehaviorHandler := connect.NewUnaryHandler(
+		SysMLServiceCheckBehaviorProcedure,
+		svc.CheckBehavior,
+		connect.WithSchema(sysMLServiceMethods.ByName("CheckBehavior")),
+		connect.WithHandlerOptions(opts...),
+	)
 	sysMLServiceRunSweepHandler := connect.NewUnaryHandler(
 		SysMLServiceRunSweepProcedure,
 		svc.RunSweep,
 		connect.WithSchema(sysMLServiceMethods.ByName("RunSweep")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sysMLServiceRunRunsHandler := connect.NewUnaryHandler(
+		SysMLServiceRunRunsProcedure,
+		svc.RunRuns,
+		connect.WithSchema(sysMLServiceMethods.ByName("RunRuns")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sysMLServiceSelfCheckHandler := connect.NewUnaryHandler(
+		SysMLServiceSelfCheckProcedure,
+		svc.SelfCheck,
+		connect.WithSchema(sysMLServiceMethods.ByName("SelfCheck")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sysMLServiceRecordRunHandler := connect.NewUnaryHandler(
+		SysMLServiceRecordRunProcedure,
+		svc.RecordRun,
+		connect.WithSchema(sysMLServiceMethods.ByName("RecordRun")),
 		connect.WithHandlerOptions(opts...),
 	)
 	sysMLServiceListEnginesHandler := connect.NewUnaryHandler(
@@ -754,6 +920,18 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		SysMLServiceExportGraphsProcedure,
 		svc.ExportGraphs,
 		connect.WithSchema(sysMLServiceMethods.ByName("ExportGraphs")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sysMLServiceImportDataHandler := connect.NewUnaryHandler(
+		SysMLServiceImportDataProcedure,
+		svc.ImportData,
+		connect.WithSchema(sysMLServiceMethods.ByName("ImportData")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sysMLServiceCompareResultsHandler := connect.NewUnaryHandler(
+		SysMLServiceCompareResultsProcedure,
+		svc.CompareResults,
+		connect.WithSchema(sysMLServiceMethods.ByName("CompareResults")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/sysml.SysMLService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -794,8 +972,16 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceEvaluateCalcHandler.ServeHTTP(w, r)
 		case SysMLServiceRunAnalysisProcedure:
 			sysMLServiceRunAnalysisHandler.ServeHTTP(w, r)
+		case SysMLServiceCheckBehaviorProcedure:
+			sysMLServiceCheckBehaviorHandler.ServeHTTP(w, r)
 		case SysMLServiceRunSweepProcedure:
 			sysMLServiceRunSweepHandler.ServeHTTP(w, r)
+		case SysMLServiceRunRunsProcedure:
+			sysMLServiceRunRunsHandler.ServeHTTP(w, r)
+		case SysMLServiceSelfCheckProcedure:
+			sysMLServiceSelfCheckHandler.ServeHTTP(w, r)
+		case SysMLServiceRecordRunProcedure:
+			sysMLServiceRecordRunHandler.ServeHTTP(w, r)
 		case SysMLServiceListEnginesProcedure:
 			sysMLServiceListEnginesHandler.ServeHTTP(w, r)
 		case SysMLServiceQueryProcedure:
@@ -808,6 +994,10 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceRenderViewHandler.ServeHTTP(w, r)
 		case SysMLServiceExportGraphsProcedure:
 			sysMLServiceExportGraphsHandler.ServeHTTP(w, r)
+		case SysMLServiceImportDataProcedure:
+			sysMLServiceImportDataHandler.ServeHTTP(w, r)
+		case SysMLServiceCompareResultsProcedure:
+			sysMLServiceCompareResultsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -889,8 +1079,24 @@ func (UnimplementedSysMLServiceHandler) RunAnalysis(context.Context, *connect.Re
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RunAnalysis is not implemented"))
 }
 
+func (UnimplementedSysMLServiceHandler) CheckBehavior(context.Context, *connect.Request[proto.CheckBehaviorRequest]) (*connect.Response[proto.CheckBehaviorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.CheckBehavior is not implemented"))
+}
+
 func (UnimplementedSysMLServiceHandler) RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RunSweep is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) RunRuns(context.Context, *connect.Request[proto.RunRunsRequest]) (*connect.Response[proto.RunRunsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RunRuns is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) SelfCheck(context.Context, *connect.Request[proto.SelfCheckRequest]) (*connect.Response[proto.SelfCheckResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.SelfCheck is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) RecordRun(context.Context, *connect.Request[proto.RecordRunRequest]) (*connect.Response[proto.RecordRunResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RecordRun is not implemented"))
 }
 
 func (UnimplementedSysMLServiceHandler) ListEngines(context.Context, *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error) {
@@ -915,4 +1121,12 @@ func (UnimplementedSysMLServiceHandler) RenderView(context.Context, *connect.Req
 
 func (UnimplementedSysMLServiceHandler) ExportGraphs(context.Context, *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.ExportGraphs is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) ImportData(context.Context, *connect.Request[proto.ImportDataRequest]) (*connect.Response[proto.ImportDataResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.ImportData is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) CompareResults(context.Context, *connect.Request[proto.CompareResultsRequest]) (*connect.Response[proto.CompareResultsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.CompareResults is not implemented"))
 }

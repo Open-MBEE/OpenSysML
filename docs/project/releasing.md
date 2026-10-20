@@ -1,8 +1,8 @@
 # Releasing OpenSysML
 
 A release is cut by pushing a `v*` tag. Everything after that is CircleCI: the
-`release` workflow runs the test suite, cross-compiles `sysml`, `sysml-lsp` and
-`sysml-grpc` for five platforms, builds the combined `sysml-wasm` module and the
+`release` workflow runs the test suite, cross-compiles `sysml`, `sysml-lsp`,
+`sysml-grpc` and `sysml-mcp` for five platforms, builds the combined `sysml-wasm` module and the
 Python client's wheel and sdist; release assets go to GitHub and the Python
 package to PyPI. Nothing is
 published from a laptop.
@@ -102,11 +102,13 @@ The `release` workflow also runs on a branch — `release/X.Y.Z` — when the
 boolean pipeline parameter `release_rehearsal` is true. Every job runs with
 every pre-upload check live: the suite, the version lockstep, the registry
 availability checks, the credential checks, the npm `whoami`, the GitHub and
-Central token probes, the GPG key import and test-sign, the npm packs,
-`cargo package` and the Maven build-and-sign. Only the irreversible commands
+Central token probes, the Docker Hub login, the GPG key import and test-sign,
+the npm packs, `cargo package`, the Maven build-and-sign and the container
+image's build for both platforms. Only the irreversible commands
 are skipped: cosign keyless signing and attestation (which write to the public
 Rekor log), `ghr` (the GitHub release), `twine upload`, `npm publish`,
-`mvn deploy` and `cargo publish`. A rehearsal exports a stand-in `CIRCLE_TAG`
+`mvn deploy`, `cargo publish` and the `docker buildx build --push` of the
+container image. A rehearsal exports a stand-in `CIRCLE_TAG`
 from `_version.py` (`scripts/rehearsal-version.sh`) before any step reads it,
 so the version bumps must already be on the branch, and the Go suite's jobs tag
 their checkout locally as that release first: a tag build reports the tag as
@@ -127,8 +129,8 @@ curl -X POST "https://circleci.com/api/v2/project/<project-slug>/pipeline/run" \
 ```
 
 The project slug and the pipeline definition id are under *Project Settings →
-Project Setup*. Whoever triggers it must be authorized for all four contexts
-(`PyPI`, `npm`, `Maven Central`, `crates.io`), because the same jobs run with
+Project Setup*. Whoever triggers it must be authorized for all five contexts
+(`PyPI`, `npm`, `Maven Central`, `crates.io`, `DockerHub`), because the same jobs run with
 the same contexts. The built binaries are kept only as the pipeline's CircleCI
 artifacts; nothing reaches a registry or a GitHub release.
 
@@ -256,6 +258,14 @@ so that `dist/` holds:
 
 - per-binary archives — `sysml-<os>-<arch>.tar.gz`,
   `sysml-lsp-<os>-<arch>.tar.gz` (`.zip` on Windows);
+- `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows), the MCP server's own
+  archive: `sysml-mcp` under its plain name, the `LICENSE` and, in the Unix
+  archives, `share/man/man1/sysml-mcp.1`. It is deliberately neither in the
+  bundle (an editor install does not need it) nor a raw binary (no client
+  downloads it); `install.sh --tools sysml-mcp`, the Homebrew formula's
+  `sysml-mcp` resource, the Scoop manifest's second URL and the MSI's *MCP
+  server* feature take it from here, and `tests/hygiene`
+  (`TestMCPServerShipsAsItsOwnArchive`) holds every one of those to the asset;
 - bundle archives — `opensysml-<os>-<arch>.tar.gz` holding both binaries under
   their plain names, which is the layout Homebrew and a PATH install expect,
   plus their section 1 manual pages under `share/man/man1` (the Unix archives
@@ -288,6 +298,17 @@ so that `dist/` holds:
 - `provenance.intoto.json`, the SLSA provenance statement naming every artifact
   the manifest lists, and `provenance.intoto.json.bundle`, its cosign
   attestation (see [The release provenance](#the-release-provenance)).
+
+Beside `dist/`, `publish-docker` pushes the container image
+`openmbee/opensysml:<x.y.z>` — and `openmbee/opensysml:latest` unless the
+version is a pre-release — to Docker Hub as one manifest list for `linux/amd64`
+and `linux/arm64`, built from the same tag with the same version metadata as
+the binaries (see
+[Releasing the container image to Docker Hub](#releasing-the-container-image-to-docker-hub)).
+The image is not listed in `SHA256SUMS.txt`: the manifest covers the files the
+GitHub release serves, which `pin-release-digests` and the clients' digest
+tables read for the five `sysml-grpc` binaries; an image is addressed by the
+digest its registry reports, which the job prints.
 
 Platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64,
 windows/amd64.
@@ -634,7 +655,9 @@ included, together with `SHA256SUMS.txt` and its cosign bundle.
 
 The signed files are **additional** assets — `sysml-windows-amd64-signed.zip`,
 `sysml-lsp-windows-amd64-signed.zip`, `sysml-grpc-windows-amd64-signed.exe`
-(with a `.sha256` sidecar, as the unsigned one has) and
+(with a `.sha256` sidecar, as the unsigned one has),
+`sysml-mcp-windows-amd64-signed.zip` (the same layout as the unsigned archive:
+`sysml-mcp.exe` and `LICENSE`) and
 `opensysml-windows-amd64-signed.zip`, listed in `SHA256SUMS-windows-signed.txt`.
 They do not replace the unsigned ones, on purpose: the cosign-signed manifest is
 what the Python and Node clients trust, and its certificate identity is this
@@ -723,7 +746,7 @@ unsigned and again on the signed executables.
 `packaging/msi/opensysml.wxs` (WiX Toolset v5, plain MSI, no bootstrapper) and
 `scripts/build-msi.sh` produce `opensysml-<x.y.z>-windows-amd64.msi`: a
 per-machine x64 installer of `sysml.exe`, `sysml-lsp.exe`, `LICENSE.txt` and,
-as separately deselectable features, `sysml-grpc.exe` and the Z3 solver
+as separately deselectable features, `sysml-grpc.exe`, `sysml-mcp.exe` and the Z3 solver
 (`z3\z3.exe` with its runtime DLLs and `LICENSE-z3.txt`), both directories on
 the system `PATH`. `MajorUpgrade` makes a newer MSI replace an older install;
 the `ProductVersion` is the tag without `v` and without any pre-release suffix
@@ -868,8 +891,8 @@ and write` on this repository. A token lacking the latter fails the job at the
 pull request with HTTP 403 or 404 after the branch is pushed; grant the scope
 and re-run the job, which reuses the branch.
 
-`tests/hygiene` holds the table to this: every release `CHANGELOG.md` records
-is pinned for all five `sysml-grpc-*` assets, except the release the tree
+`tests/hygiene` holds the table to this: every release `CHANGELOG.md` or its archive
+(`docs/project/archive/CHANGELOG-0.0-0.8.md`) records is pinned for all five `sysml-grpc-*` assets, except the release the tree
 itself declares in `_version.py` until its tag exists (its digests are built by
 that tag), and the releases listed in the test as unpinnable — `v0.0.4`, which
 predates the service binaries, and `v0.0.9`, `v0.1.1` and `v0.1.2`, which
@@ -1738,3 +1761,98 @@ Once published the version is immutable — it cannot be replaced or deleted,
 and the availability check makes a re-run fail by design. A mistake is yanked
 (`cargo yank --version <version>`, which stops new resolutions while existing
 lockfiles keep working) and fixed in the next core patch release.
+
+## Releasing the container image to Docker Hub
+
+The `openmbee/opensysml` image is published on Docker Hub by the `release`
+workflow's `publish-docker` job from the core `v<version>` tag, after the suite
+and the GitHub release, beside the registry publishers. It is the `Dockerfile`
+at the repository root: a build stage on the Go toolchain `go.mod` pins
+(`tests/hygiene/container_image_test.go` holds the two in lockstep), running
+`make build-sysml build-lsp build-grpc` with the tag, commit and build time the
+archives' binaries carry, and a `gcr.io/distroless/static` runtime stage with
+the three binaries in `/usr/local/bin`, `sysml-grpc` as the entrypoint, and
+ports 50051 and 8081 exposed. `make docker` builds it locally as
+`openmbee/opensysml:dev`; [Container image](../guide/01-install.md#container-image)
+describes running it.
+
+### What a maintainer must obtain first
+
+A Docker Hub account that may push to the `openmbee` organization, with a
+personal access token of *Read & Write* scope, stored in the organization
+CircleCI context named `DockerHub` as `DOCKER_USERNAME` and `DOCKER_PASSWORD`
+(the token). The context name is matched exactly, as the workflow spells it; it
+is the context `flexo-mms-sysmlv2` publishes its images with, so an existing one
+serves both. The repository `openmbee/opensysml` is created on Docker Hub
+beforehand, under the `openmbee` organization: the job asks the registry
+whether the version tag exists before it pushes, and a repository that does not
+exist answers that question with a 401, which the job refuses to read as
+"absent".
+
+### The version and the tags
+
+The image tag is the release version without the `v`, as the clients'
+registries spell it: tag `v0.10.1` pushes `openmbee/opensysml:0.10.1` and
+`openmbee/opensysml:latest`. A pre-release (`v0.11.0-rc.1`) pushes
+`openmbee/opensysml:0.11.0-rc.1` alone and leaves `latest` on the last release,
+as `publish-npm` leaves npm's `latest` dist-tag. `latest` moves only to the
+newest release: immediately before the push the job fetches the repository's
+tags, and if a stable `v*` tag newer than the one being released exists — a
+patch tag published late, a release workflow re-run after the next release went
+out, or a newer tag cut while this job was building — it pushes the version tag
+alone and says so. Two stable releases pushing within the same minute could
+still race for `latest`; their version tags are unaffected, and the release
+procedure cuts one release at a time. Nothing in the tree declares
+the image's version; the tag is the version, and the image's `-version` output
+is checked against it before anything is pushed.
+
+### What the job does, in order
+
+1. Resolves the version from the tag, failing if `CIRCLE_TAG` is empty.
+2. Requires `DOCKER_USERNAME` and `DOCKER_PASSWORD`, naming only the missing
+   ones.
+3. Logs in with `docker login --password-stdin`, so a revoked token fails before
+   anything is built.
+4. Refuses to run if `openmbee/opensysml:<version>` is already on Docker Hub.
+   Docker Hub tags are mutable, so this is the job's own promise: a version tag
+   names one image, and a deployer who pinned it keeps what they pinned. The
+   question goes to the registry API with the job's own credentials, and only
+   a definite 404 (`MANIFEST_UNKNOWN`) lets the job continue: 200 is the
+   refusal, and any other answer — 401 for credentials that cannot read the
+   repository or a repository not yet created, 5xx or no answer for a registry
+   outage — fails the job rather than being taken for an absent tag, which a
+   later push would then have replaced.
+5. Creates a `docker-container` buildx builder on the remote Docker host.
+6. Builds the `linux/amd64` image with `VERSION=$CIRCLE_TAG`,
+   `COMMIT=$CIRCLE_SHA1` and the build time, loads it, and runs it: each of
+   `sysml-grpc`, `sysml` and `sysml-lsp` must report the tag in `-version`, and
+   with the service running, a second container on its network must get
+   `"status":"ok"` from `GET /health` on 8081 and the tag's version from a
+   Connect `GetServerInfo` call on 50051 — the call a sidecar consumer makes
+   first.
+7. Decides whether `latest` moves (a stable release, and no newer stable tag
+   in the just-fetched tag namespace), then builds `linux/amd64,linux/arm64`
+   once more, with the same arguments, and
+   pushes the result under every resolved tag as one manifest list, with
+   buildx's SLSA provenance (`mode=max`) and SBOM attestations attached. Then
+   prints `docker buildx imagetools inspect` for each tag — the manifest list's
+   digest and its two platforms — which is what a deployment pins
+   (`openmbee/opensysml@sha256:…`).
+
+A rehearsal runs steps 1–6 live, then builds both platforms without pushing
+and names the skipped push.
+
+### If a publish goes wrong
+
+`publish-docker` runs after `publish-github-release` and beside `publish-pypi`,
+`publish-npm`, `publish-maven` and `publish-crates`, so its failure leaves those
+in place and theirs leave the image in place. Before the push — an empty tag, a
+missing variable, a refused login, a build failure, a binary reporting the wrong
+version, a service not answering — nothing is on Docker Hub: fix the cause and
+*Rerun workflow from failed*.
+
+Once pushed, the refusal in step 4 makes a re-run fail by design. A published
+mistake needs the next core patch release; `latest` then moves to it if no
+newer release exists. Deleting a
+tag in the Docker Hub UI is possible and is not done: a deployment that pulled
+`<version>` by tag would stop resolving it.

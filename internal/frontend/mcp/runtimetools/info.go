@@ -68,9 +68,12 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityRenderDocumentHTML:             "render_model_document",
 	sysmlgrpc.CapabilityRenderView:                     "render_model_view",
 	sysmlgrpc.CapabilityExportGraphs:                   "export_graphs",
+	sysmlgrpc.CapabilityImportData:                     "import_data",
+	sysmlgrpc.CapabilityCompareResults:                 "compare_results",
 	sysmlgrpc.CapabilityConvert:                        "convert",
 	sysmlgrpc.CapabilityConvertDocuments:               "convert",
 	sysmlgrpc.CapabilityConvertCompact:                 "convert",
+	sysmlgrpc.CapabilityConvertCheckDiagnostics:        "convert",
 	sysmlgrpc.CapabilityMigrate:                        "migrate",
 	sysmlgrpc.CapabilityApplyEdits:                     "apply_edits",
 	sysmlgrpc.CapabilityEditDocuments:                  "apply_edits",
@@ -81,6 +84,9 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityMemberModifiers:                "apply_edits",
 	sysmlgrpc.CapabilityTransitionAuthoring:            "apply_edits",
 	sysmlgrpc.CapabilityVerificationObjectiveAuthoring: "apply_edits",
+	sysmlgrpc.CapabilityRuns:                           "run_runs",
+	sysmlgrpc.CapabilitySelfCheck:                      "self_check",
+	sysmlgrpc.CapabilityRecordRun:                      "record_run",
 	sysmlgrpc.CapabilityMetadataAuthoring:              "apply_edits",
 	sysmlgrpc.CapabilityMetadataPrefixAuthoring:        "apply_edits",
 	sysmlgrpc.CapabilityImplicitParameters:             "apply_edits",
@@ -91,6 +97,7 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityImportAuthoring:                "apply_edits",
 	sysmlgrpc.CapabilityDocumentationAuthoring:         "apply_edits",
 	sysmlgrpc.CapabilityCommentAuthoring:               "apply_edits",
+	sysmlgrpc.CapabilityCheck:                          "check_behavior",
 }
 
 // ListEnginesInput asks for the engines, probed or not.

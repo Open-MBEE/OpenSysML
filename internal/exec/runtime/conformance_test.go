@@ -1954,7 +1954,7 @@ func featureValueAtPath(t *testing.T, ctx *Context, inst *Instance, path string)
 	current := inst
 	parts := strings.Split(path, ".")
 	for i, name := range parts {
-		fv, err := current.GetFeatureValue(ctx, name)
+		fv, err := current.MemberValue(ctx, name)
 		if err != nil || i == len(parts)-1 {
 			return fv, err
 		}
@@ -2209,14 +2209,14 @@ func namedSymbol(idx *symbols.Index, fqn string, defKind ast.DefinitionKind, usa
 	return matches[0]
 }
 
-// behavioralKind reports whether a symbol declares the definition or usage kind
-// an entry point asks for.
+// behavioralKind reports whether a symbol declares the definition or usage kind an
+// entry point asks for; the action entry point takes every action kind, use cases included.
 func behavioralKind(sym *symbols.Symbol, defKind ast.DefinitionKind, usageKind ast.UsageKind) bool {
 	switch decl := sym.Decl.(type) {
 	case *ast.Definition:
-		return decl.Kind == defKind
+		return decl.Kind == defKind || (defKind == ast.DefAction && decl.Kind.IsAction())
 	case *ast.Usage:
-		return decl.Kind == usageKind
+		return decl.Kind == usageKind || (usageKind == ast.UsageAction && decl.Kind.IsAction())
 	default:
 		return false
 	}

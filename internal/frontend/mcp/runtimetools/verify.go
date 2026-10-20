@@ -65,7 +65,7 @@ type RunSweepInput struct {
 	SubjectSymbolID string                    `json:"subjectSymbolId,omitempty" jsonschema:"qualified name of a part/usage to instantiate as an analysis case's subject, or a path from one"`
 	Arguments       []map[string]any          `json:"arguments,omitempty" jsonschema:"positional values every row binds, each a protojson Value. Example arms: {\"intValue\":\"7\"}, {\"realValue\":1.5}, {\"boolValue\":true}, {\"stringValue\":\"x\"}, {\"quantity\":{\"realMagnitude\":5.0,\"unit\":\"m\"}}, {\"enumLiteral\":{\"literalId\":\"Colors::red\"}}"`
 	NamedArguments  map[string]map[string]any `json:"namedArguments,omitempty" jsonschema:"values every row binds by name, each a protojson Value. Example arms: {\"intValue\":\"7\"}, {\"realValue\":1.5}, {\"boolValue\":true}, {\"stringValue\":\"x\"}, {\"quantity\":{\"realMagnitude\":5.0,\"unit\":\"m\"}}, {\"enumLiteral\":{\"literalId\":\"Colors::red\"}}"`
-	Ranges          []map[string]any          `json:"ranges" jsonschema:"the ranges swept, each a protojson SweepRange {\"parameter\":name,\"start\":Value,\"end\":Value,\"step\":Value}; several make one row per point of their cartesian product"`
+	Ranges          []map[string]any          `json:"ranges,omitempty" jsonschema:"the ranges swept, each a protojson SweepRange {\"parameter\":name,\"start\":Value,\"end\":Value,\"step\":Value}; several make one row per point of their cartesian product"`
 	Samples         int64                     `json:"samples,omitempty" jsonschema:"rows to draw uniformly from each range instead of stepping through it; 0 steps, above 0 needs seed and refuses a range with a step"`
 	Seed            uint64                    `json:"seed,omitempty" jsonschema:"seed the draws are taken from; required with samples"`
 	Engine          string                    `json:"engine,omitempty" jsonschema:"the analysis engine asked; empty is auto"`
@@ -346,25 +346,33 @@ func (g *group) registerVerification(s *mcp.Server) {
 			if len(resp.GetRows()) > 0 {
 				fmt.Fprintf(&b, "%d rows over %s\n", len(resp.GetRows()), strings.Join(resp.GetParameters(), ", "))
 			}
-			for _, row := range resp.GetRows() {
-				cells := make([]string, 0, len(row.GetInputs())+len(row.GetOutputs()))
-				for _, in := range row.GetInputs() {
-					cells = append(cells, fmt.Sprintf("%s=%s", in.GetName(), valueText(in.GetValue())))
-				}
-				cells = append(cells, "->")
-				for _, out := range row.GetOutputs() {
-					cells = append(cells, fmt.Sprintf("%s=%s", out.GetName(), valueText(out.GetValue())))
-				}
-				for _, v := range row.GetVerdicts() {
-					cells = append(cells, verdictText(v))
-				}
-				if row.GetError() != "" {
-					cells = append(cells, "error: "+row.GetError())
-				}
-				b.WriteString(strings.Join(cells, " ") + "\n")
-			}
+			b.WriteString(sweepRowsText(resp.GetRows()))
 			b.WriteString(diagnosticsText(resp.GetDiagnostics()))
 			return b.String()
 		})
 	})
+}
+
+// sweepRowsText spells a table's rows one per line: what each bound, what it
+// produced and decided, and the error that stopped it where it failed.
+func sweepRowsText(rows []*pb.SweepRow) string {
+	var b strings.Builder
+	for _, row := range rows {
+		cells := make([]string, 0, len(row.GetInputs())+len(row.GetOutputs()))
+		for _, in := range row.GetInputs() {
+			cells = append(cells, fmt.Sprintf("%s=%s", in.GetName(), valueText(in.GetValue())))
+		}
+		cells = append(cells, "->")
+		for _, out := range row.GetOutputs() {
+			cells = append(cells, fmt.Sprintf("%s=%s", out.GetName(), valueText(out.GetValue())))
+		}
+		for _, v := range row.GetVerdicts() {
+			cells = append(cells, verdictText(v))
+		}
+		if row.GetError() != "" {
+			cells = append(cells, "error: "+row.GetError())
+		}
+		b.WriteString(strings.Join(cells, " ") + "\n")
+	}
+	return b.String()
 }
