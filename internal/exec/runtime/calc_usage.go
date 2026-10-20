@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -457,7 +458,7 @@ func boundInputs(shape *calcShape, env frame) []InputBinding {
 	var inputs []InputBinding
 	for i := range shape.Params {
 		param := &shape.Params[i]
-		if param.IsSubject {
+		if param.IsSubject || param.IsActor {
 			continue
 		}
 		if value, ok := env.lookup(param.Name); ok {
@@ -1254,6 +1255,9 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 	}
 	run, err := ec.ctx.calcUsageRun(ec, sym)
 	if err != nil {
+		if value, ok := ec.ctx.unboundSubjectRead(sym, parts[0].Text, err); ok {
+			return ec.chainMemberValue(value, parts[1:], parts[0].Text)
+		}
 		return Value{}, err
 	}
 	for {
@@ -1275,11 +1279,88 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 			)
 		}
 	}
-	value, err := run.output(ec.ctx, parts[0].Text)
+	value, err := run.member(ec.ctx, parts[0].Text)
+	if errors.Is(err, errUnknownOutput) {
+		if value, ok, readErr := ec.occurrenceMember(run, parts); ok {
+			return value, readErr
+		}
+	}
 	if err != nil {
 		return Value{}, err
 	}
 	return ec.chainMemberValue(value, parts[1:], parts[0].Text)
+}
+
+// member reads one feature of the usage from its run: an output it computed, else
+// any other feature the run bound. A case's subject, actors and inputs are features
+// of it as its return parameter is (SysML v2 §7.22.2), read by the name the run
+// holds them under.
+func (run *calcRun) member(ctx *Context, name string) (Value, error) {
+	value, err := run.output(ctx, name)
+	if err == nil || !errors.Is(err, errUnknownOutput) {
+		return value, err
+	}
+	if value, ok, readErr := run.boundMember(ctx, name); ok {
+		return value, readErr
+	}
+	return Value{}, err
+}
+
+// boundMember answers a feature of the usage that is no output from the run's
+// bindings: a parameter or local, by name. A parameter the run holds no value for
+// is undetermined. False for a name the run binds nothing under.
+func (run *calcRun) boundMember(ctx *Context, name string) (Value, bool, error) {
+	if value, ok := run.lookup(name); ok {
+		return value, true, nil
+	}
+	if !run.shape.hasParameter(name) {
+		return Value{}, false, nil
+	}
+	sym, _ := ctx.model.semantics.LookupMember(run.shape.Sym, name)
+	feat := ctx.effectiveFeature(name, sym, run.shape.Sym)
+	return undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", run.shape.Label, name), feat.Multiplicity, sym), true, nil
+}
+
+// unboundSubjectRead answers a read of the subject the case binds nothing to: the
+// case cannot run for want of it, but the subject is a feature of the case holding
+// no value, read as any unbound feature is. False for every other failure.
+func (ctx *Context) unboundSubjectRead(sym *symbols.Symbol, name string, err error) (Value, bool) {
+	var unbound *subjectUnboundError
+	if !errors.As(err, &unbound) || unbound.Subject != name {
+		return Value{}, false
+	}
+	shape, shapeErr := ctx.calcShapeOf(sym)
+	if shapeErr != nil || unbound.Element != shape.Name {
+		return Value{}, false
+	}
+	param, ok := shape.subjectParameter()
+	if !ok || param.Name != name {
+		return Value{}, false
+	}
+	feat := ctx.effectiveFeature(name, param.Sym, sym)
+	reason := fmt.Sprintf("%s binds no value to its subject %s", shape.Label, name)
+	return undeterminedFeatureValue(reason, feat.Multiplicity, param.Sym), true
+}
+
+// occurrenceMember reads a feature of the usage its run holds no binding for — its
+// objective, or a requirement or part its body declares — from the occurrence the
+// usage is, where it is a feature value as on any object. False when the usage
+// declares no such feature.
+func (ec *EvalContext) occurrenceMember(run *calcRun, parts []ast.NameSegment) (Value, bool, error) {
+	name := parts[0].Text
+	sym, found := ec.ctx.model.semantics.LookupMember(run.shape.Sym, name)
+	if !found || declaresType(sym) || run.occurrence == nil || run.occurrence.materialize == nil {
+		return Value{}, false, nil
+	}
+	inst, err := run.occurrence.materialize()
+	if err != nil {
+		return Value{}, true, err
+	}
+	if _, carried := inst.FeatureValues[name]; !carried {
+		return Value{}, false, nil
+	}
+	value, err := ec.chainFeatureValue(inst, name, parts[1:], name)
+	return value, true, err
 }
 
 // nestedUsage is the evaluation of a calc or analysis usage this run's body

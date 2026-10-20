@@ -1,0 +1,26 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::checkThree",
+  "verdict": "pass",
+  "verdicts": {
+    "obj": "satisfied"
+  },
+  "reads": {
+    "test::ownerSubject": {"type": "Integer", "value": 3},
+    "test::ownerVerdict": {"type": "EnumLiteral", "value": "VerdictKind::pass"},
+    "test::ownerActorId": {"type": "Integer", "value": 7},
+    "test::ownerLimit": {"type": "Integer", "value": 10},
+    "test::ownerScaledSubject": {"type": "Integer", "value": 3},
+    "test::ownerScaledResult": {"type": "Integer", "value": 6},
+    "test::ownerObjective": {"type": "Boolean", "value": true},
+    "test::packageSubject": {"type": "Integer", "value": 3},
+    "test::packageActorId": {"type": "Integer", "value": 7},
+    "test::packageVerdict": {"type": "EnumLiteral", "value": "VerdictKind::pass"},
+    "test::unboundSubject": {"type": "Undetermined"},
+    "test::unboundActor": {"type": "Undetermined"},
+    "test::scaledResult": {"type": "Integer", "value": 8},
+    "test::useCaseSubject": {"type": "Integer", "value": 3},
+    "test::useCaseActorId": {"type": "Integer", "value": 7}
+  }
+}

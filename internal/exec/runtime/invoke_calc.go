@@ -22,6 +22,9 @@ type calcParameter struct {
 	Decl    calcMemberDecl  // the declaration, closest to the invoked calc, a bound value answers to
 	// IsSubject marks a case's subject parameter, the object the case is about.
 	IsSubject bool
+	// IsActor marks an actor parameter (SysML v2 §7.19.2, §7.24.2): bound by name
+	// like the subject, never by position, and left unvalued when nothing binds it.
+	IsActor bool
 	// IsCalc marks a calc usage parameter (`in calc f`), which a function value binds.
 	IsCalc bool
 }
@@ -408,13 +411,14 @@ func (ctx *Context) calcParameters(chain []*symbols.Symbol, aliases *map[string]
 			if name == "" {
 				continue
 			}
-			if usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut {
+			actor := usage.Kind == ast.UsageActor
+			if !actor && usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut {
 				continue
 			}
 			sym := memberSymbol(DeclScope(link), usage)
 			param := calcParameter{
 				Name: name, Default: usage.Value, Owner: link,
-				Sym:  sym,
+				Sym: sym, IsActor: actor,
 				Decl: ctx.calcMemberDeclOf(link, sym, name), IsCalc: isCalcUsageSymbol(sym),
 			}
 			if at, seen := ctx.redeclaredIndex(index, sym, name); seen {
@@ -902,6 +906,12 @@ func (ctx *Context) bindCalcParameters(
 ) error {
 	for i := range shape.Params {
 		param := &shape.Params[i]
+		if param.IsActor && param.Default == nil {
+			// An actor nothing binds is a feature without a value, not a missing argument.
+			if _, supplied := args.named[param.Name]; !supplied {
+				continue
+			}
+		}
 		defaultScope := ctx.calcScope(param.Owner, shape.Sym, callerScope)
 		binder := ec
 		if nested != nil && param.Owner == shape.Sym {
