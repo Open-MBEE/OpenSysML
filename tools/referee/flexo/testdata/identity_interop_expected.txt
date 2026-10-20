@@ -4,7 +4,7 @@
 #
 # Regenerate against a running stack (see .agents/skills/flexo-interop):
 #   FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN=<jwt> \
-#     go test -C tools -count=1 ./referee/flexo -run TestFlexoInterop -update-flexo
+#     go test -C tools -count=1 ./referee/flexo -run 'TestFlexoInterop$' -update-flexo
 #
 # graph-load is the Turtle this project writes, loaded through Layer 1's graph
 # endpoint. json-commit is the same model posted through the SysML v2 service's
