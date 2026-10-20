@@ -95,10 +95,21 @@ type Runner struct {
 	MaxTokens   int
 	// MCP is the in-process server for the MCP arm; nil disables that arm.
 	MCP *MCPArm
+	// Tools are the specs offered to the model in the MCP arm; nil offers the
+	// server's own. A replay sets the fixture's, so the request is the one the
+	// model answered even after the server's descriptions changed.
+	Tools []ToolSpec
 	// Pilot runs the pilot validator over every final compiled document.
 	Pilot bool
 	// Log receives one line per event when non-nil.
 	Log func(format string, args ...any)
+}
+
+func (r *Runner) tools() []ToolSpec {
+	if r.Tools != nil {
+		return r.Tools
+	}
+	return r.MCP.Specs()
 }
 
 func (r *Runner) logf(format string, args ...any) {
@@ -127,7 +138,7 @@ func (r *Runner) RunCell(ctx context.Context, task Task, arm Arm, sample int) (r
 			res.Error = "mcp arm asked for without a server"
 			return res
 		}
-		req.Tools = r.MCP.Specs()
+		req.Tools = r.tools()
 	}
 	req.Messages = []Message{{Role: "user", Content: Primer(task)}}
 
@@ -218,7 +229,7 @@ func (r *Runner) generate(ctx context.Context, req *Request, round int) (string,
 			exhausted = true
 			req.Messages = append(req.Messages, Message{Role: "user", Content: "No more tool calls are available this round. Answer now with the complete document only."})
 			req.Tools = nil
-			defer func() { req.Tools = r.MCP.Specs() }()
+			defer func() { req.Tools = r.tools() }()
 		}
 	}
 }

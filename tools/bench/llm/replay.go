@@ -13,11 +13,15 @@ import (
 
 // Fixture is a recorded set of generations: for every cell, the answers the
 // model gave in order. Requests are kept only as digests so a fixture stays
-// small and carries no prompt text twice.
+// small and carries no prompt text twice; the one exception is the tool specs
+// the model was offered, kept once so a replay offers the same ones.
 type Fixture struct {
-	Provider string                 `json:"provider"`
-	Model    string                 `json:"model"`
-	Cells    map[string][]Recording `json:"cells"`
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+	// Tools are the MCP tool specs the model saw, as the server described them
+	// when the run was recorded; the request digests cover them.
+	Tools []ToolSpec             `json:"tools,omitempty"`
+	Cells map[string][]Recording `json:"cells"`
 }
 
 // Recording is one answer with the digest of the request that produced it.
@@ -135,6 +139,9 @@ func (r *Recorder) Complete(ctx context.Context, req Request) (Response, error) 
 	if cell, ok := cellOf(ctx); ok {
 		key := CellKey(cell)
 		r.mu.Lock()
+		if r.Fixture.Tools == nil && len(req.Tools) > 0 {
+			r.Fixture.Tools = req.Tools
+		}
 		r.Fixture.Cells[key] = append(r.Fixture.Cells[key], Recording{RequestDigest: RequestDigest(req), Response: resp})
 		r.mu.Unlock()
 	}
