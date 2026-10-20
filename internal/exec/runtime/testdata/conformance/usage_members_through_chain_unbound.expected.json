@@ -2,12 +2,45 @@
   "type": "instance",
   "instantiate": "test::Bench",
   "slots": {
-    "scaledW": {"type": "Undetermined", "value": "[1]"},
-    "scaledK": {"type": "Rational", "value": "2.0"},
-    "underLimit": {"type": "Undetermined", "value": "[1]"},
-    "underSlack": {"type": "Rational", "value": "1.0"},
-    "actIn": {"type": "Undetermined", "value": "[0..*]"},
-    "actOut": {"type": "Undetermined", "value": "[0..*]"},
-    "actK": {"type": "Integer", "value": 3}
+    "scaledW": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "scaledK": {
+      "type": "Rational",
+      "value": "2.0"
+    },
+    "underLimit": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "underSlack": {
+      "type": "Rational",
+      "value": "1.0"
+    },
+    "underVerdict": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "underResult": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "underInBody": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "actIn": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "actOut": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "actK": {
+      "type": "Integer",
+      "value": 3
+    }
   }
 }

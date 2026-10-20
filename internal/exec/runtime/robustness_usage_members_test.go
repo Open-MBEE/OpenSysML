@@ -25,6 +25,8 @@ const usageMembersProbeModel = `package Probe {
 		calc scaled { in w : ScalarValues::Real; in k : ScalarValues::Real = 2.0; return : ScalarValues::Real = w * k; }
 		constraint fits { in limit : ScalarValues::Real = 100.0; attribute margin : ScalarValues::Real = 5.0; base < limit }
 		constraint under { in limit : ScalarValues::Real; limit > base }
+		attribute fitsVerdict : ScalarValues::Boolean = fits;
+		attribute underVerdict : ScalarValues::Boolean = under;
 		action act { in i : ScalarValues::Integer; out o : ScalarValues::Integer; attribute k : ScalarValues::Integer = 3; }
 		state def M;
 		state sm : M { entry action e { attribute who = this; } state idle; state busy; transition idle then busy; }
@@ -86,6 +88,15 @@ func testUsageMembersUnboundConstraintInput(t *testing.T) {
 	}
 	if val, err := eval("Probe::rig.fits"); err != nil || FormatValue(val) != "true" {
 		t.Fatalf("Probe::rig.fits = %s, %v; want the verdict", FormatValue(val), err)
+	}
+	if val, err := eval("Probe::rig.fitsVerdict"); err != nil || FormatValue(val) != "true" {
+		t.Fatalf("Probe::rig.fitsVerdict = %s, %v; want the verdict the bare name reads in the owner's body", FormatValue(val), err)
+	}
+	for _, src := range []string{"Probe::rig.under", "Probe::rig.under.result", "Probe::rig.underVerdict", "new Probe::Rig().under", "new Probe::Rig().under.result", "new Probe::Rig().underVerdict"} {
+		val, err := eval(src)
+		if err != nil || val.Kind != ValUndetermined || !strings.Contains(val.Undetermined().reason, "no argument and no default") {
+			t.Fatalf("%s = %s, %v; want an undetermined verdict naming the input nothing binds, not a failed read", src, FormatValue(val), err)
+		}
 	}
 }
 

@@ -1446,6 +1446,12 @@ func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
 		}
 		return Value{}, false, nil
 	}
+	// A constraint usage of the object is the predicate it enacts, read as its
+	// verdict here as through a chain, not as the object standing for it.
+	if sym, ok := ec.enactedConstraint(ec.self, name); ok {
+		val, err := ec.constraintUsageRead(ec.self, sym)
+		return val, true, err
+	}
 	fv, open, err := ec.memberFeatureValue(ec.self, name)
 	if err != nil {
 		return Value{}, true, err

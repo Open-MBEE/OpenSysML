@@ -214,9 +214,9 @@ func impliesValue(assumptions, constraints Value) Value {
 }
 
 // unboundInput reports an evaluation that read an input nothing binds: an unbound
-// subject, an uninitialized feature, or a condition whose value is undetermined.
+// subject or parameter, an uninitialized feature, or a condition whose value is undetermined.
 func unboundInput(err error) bool {
-	return errors.Is(err, errUnboundSubject) || errors.Is(err, errUninitializedFeatureValue) ||
+	return errors.Is(err, errUnboundSubject) || errors.Is(err, errUnboundParameter) || errors.Is(err, errUninitializedFeatureValue) ||
 		errors.Is(err, ErrNoValue) || errors.Is(err, ErrNeedsObject)
 }
 

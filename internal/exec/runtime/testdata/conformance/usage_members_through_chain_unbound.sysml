@@ -4,6 +4,9 @@
 // alike; an input a default supplies beside it reads the default. A parameter of an
 // action usage nothing has invoked is bound at invocation (SysML v2 §7.16), so it reads
 // undetermined on the instance as at model level, while a body attribute reads its value.
+// A constraint usage whose input nothing binds reads as an undetermined verdict, itself
+// and through `result`, rather than failing the read; in the body of its owner the bare
+// name reads that verdict too, so a Boolean attribute may hold it.
 package test {
 	private import ScalarValues::*;
 
@@ -18,6 +21,7 @@ package test {
 			in slack : Real = 1.0;
 			limit > slack
 		}
+		attribute verdict : Boolean = under;
 		action act {
 			in i : Integer;
 			out o : Integer;
@@ -30,6 +34,9 @@ package test {
 		attribute scaledK = rig.scaled.k;
 		attribute underLimit = rig.under.limit;
 		attribute underSlack = rig.under.slack;
+		attribute underVerdict = rig.under;
+		attribute underResult = rig.under.result;
+		attribute underInBody = rig.verdict;
 		attribute actIn = rig.act.i;
 		attribute actOut = rig.act.o;
 		attribute actK = rig.act.k;
