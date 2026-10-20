@@ -1948,11 +1948,8 @@ func (p *Parser) parseDefinitionBody(def *ast.Definition) ([]ast.Node, bool) {
 	}
 }
 
-// skipParameterList reports a `( ... )` written after a declaration head and
-// skips the group, so the `;` or body that follows is read by the kind's own
-// body parser. No
-// production puts a parenthesised parameter list on a declaration: parameters
-// are directed features of the body (KerML.xtext ParameterMember).
+// skipParameterList reports and skips a `( ... )` after a declaration head, so the kind's
+// body parser reads what follows; parameters are body features (KerML.xtext ParameterMember).
 func (p *Parser) skipParameterList() {
 	if !p.at(lexer.LParen) {
 		return
