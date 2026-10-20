@@ -18,6 +18,7 @@ import { loadAvoid, reportAvoidFailure } from "./avoid";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
 import { dragHint, Drop, dropOn } from "./drop";
 import { emptyElement, emptyMessage, nothingLaidOut } from "./empty";
+import { markSelection, neighbourhood } from "./selection";
 import { tableOf } from "./table";
 import {
   canvasSize,
@@ -78,6 +79,8 @@ let style: DiagramStyle = styleOf(saved.style);
 let selectedNode: string | undefined;
 /** How far the canvas is zoomed and where it is scrolled to; kept per panel across reloads. */
 let viewport: Viewport = readViewport(saved.viewport);
+/** The node selected by a click, whose neighbourhood is emphasised; undefined when nothing is. */
+let focused: string | undefined;
 /** The layout on screen, which gestures act on; undefined while a table or nothing is shown. */
 let layout: CanvasLayout | undefined;
 /** What ELK placed for the rendering on screen; undefined until it answers, and for kinds it does not lay out. */
@@ -149,6 +152,7 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     hideMenu();
     cancelGesture();
+    select(undefined);
   } else if (event.key === "Shift" && !event.repeat) {
     drawDrag(true);
   } else if (!event.ctrlKey && !event.metaKey && !event.altKey && !inControl(event.target)) {
@@ -322,6 +326,9 @@ let emptyReason: string | undefined;
 function draw(result: RenderResult): boolean {
   unrouted = false;
   cancelGesture();
+  if (focused !== undefined && !result.nodes?.some((node) => node.id === focused)) {
+    focused = undefined;
+  }
   try {
     // A rendering with nothing to draw says why, where the drawing would be and
     // in the status line, rather than drawing an empty canvas.
@@ -382,6 +389,25 @@ function show(shown: CanvasLayout): void {
   diagram.replaceChildren(drawCanvas(shown));
   applyViewport();
   highlight(selectedNode);
+  applySelection();
+}
+
+// select makes a node the selection, or clears it, and shows the result.
+function select(id: string | undefined): void {
+  if (id === focused) {
+    return;
+  }
+  focused = id;
+  applySelection();
+}
+
+// applySelection marks the selection's neighbourhood on the canvas on screen.
+function applySelection(): void {
+  const svg = diagram.querySelector("svg");
+  if (!svg || !last) {
+    return;
+  }
+  markSelection(svg, focused === undefined ? undefined : neighbourhood(last, focused));
 }
 
 /** A pixel per line of a wheel that reports lines rather than pixels. */
@@ -641,6 +667,8 @@ function endGesture(event: PointerEvent): void {
   if (done.kind === "pan") {
     if (done.moved) {
       rememberSoon();
+    } else {
+      select(undefined);
     }
     return;
   }
@@ -659,6 +687,7 @@ function endGesture(event: PointerEvent): void {
   }
   if (done.kind === "node") {
     clickedWaypoint = undefined;
+    select(done.id);
     vscode.postMessage({ type: "reveal", id: done.id, drawn });
     return;
   }

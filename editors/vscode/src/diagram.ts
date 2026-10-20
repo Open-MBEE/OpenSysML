@@ -1519,6 +1519,16 @@ function html(
       #diagram .opensysml-selected > .shape, #diagram .opensysml-selected > g.shape > circle {
         stroke: var(--vscode-focusBorder); stroke-width: 3px;
       }
+      /* A clicked node is the focus: it, its neighbours and the edges between them stay; the rest dims. */
+      #diagram svg.has-focus g.opensysml-node:not(.related), #diagram svg.has-focus g.opensysml-edge:not(.related),
+      #diagram svg.has-focus g.edge-handles:not(.related) { opacity: 0.22; }
+      #diagram g.opensysml-node.related > .shape, #diagram g.opensysml-node.related > g.shape > circle {
+        stroke: var(--vscode-textLink-activeForeground, var(--vscode-focusBorder)); stroke-width: 2px;
+      }
+      #diagram g.opensysml-node.focus > .shape, #diagram g.opensysml-node.focus > g.shape > circle {
+        stroke: var(--vscode-textLink-activeForeground, var(--vscode-focusBorder)); stroke-width: 3.5px;
+      }
+      #diagram g.opensysml-edge.related .line { stroke: var(--vscode-textLink-activeForeground, var(--vscode-focusBorder)); stroke-width: 2px; }
       #diagram table.opensysml-table { border-collapse: collapse; font-size: 0.9em; }
       #diagram .opensysml-table th, #diagram .opensysml-table td { text-align: left; padding: 0.25rem 0.75rem; border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border)); white-space: nowrap; }
       #diagram .opensysml-table th { font-weight: 600; position: sticky; top: 0; background: var(--vscode-editor-background); }
