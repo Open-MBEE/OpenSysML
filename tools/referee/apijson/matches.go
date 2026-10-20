@@ -46,6 +46,7 @@ func (r *RootMatches) fate(key string) string {
 }
 
 func readMatches(path string) (*Matches, error) {
+	// #nosec G304 -- path is the -lost-against flag naming an earlier run's inventory.
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
