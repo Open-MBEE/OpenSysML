@@ -336,8 +336,7 @@ func (e *encoder) memberOfCandidates(ref resolve.Reference) [][]string {
 }
 
 // memberNameCandidates are the names a graph may key a member's references by:
-// the qualified name the encoder writes, and the position a graph stating no
-// effective names gives a member named by its naming feature.
+// the qualified name the encoder writes, or the one a graph stating no effective names gives it.
 func (e *encoder) memberNameCandidates(node ast.Node) []string {
 	fqn := e.fqn[node]
 	if positional, ok := e.positional[node]; ok {

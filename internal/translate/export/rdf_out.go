@@ -644,10 +644,8 @@ type encoder struct {
 	// fqn is the qualified name of each member node, which is how a succession
 	// end the notation leaves unnamed addresses the member it binds.
 	fqn map[ast.Node]string
-	// positional is, where it differs from fqn, the name a graph stating no
-	// effective names gives a member: a declared name claimed among declared
-	// names alone, else its position in its owner; positionalTaken holds the
-	// names so claimed.
+	// positional is the name a graph stating no effective names gives a member
+	// (a declared name claimed among declared names, else its position); positionalTaken holds those claimed.
 	positional      map[ast.Node]string
 	positionalTaken map[string]bool
 	// links is what each written reference resolves to, read with the rule of
@@ -974,8 +972,7 @@ func (e *encoder) provenance(subject rdf.Term, node ast.Node) {
 // declared twice in one namespace is not an identity: the first member keeps
 // the qualified name, as the language's own naming rule fixes it, and each
 // later one is identified by its position, like a member declared unnamed.
-// position is the owner's name in a graph that states no effective names,
-// under which a member named by its naming feature is addressed by position.
+// position is the owner's name in a graph that states no effective names.
 func (e *encoder) collect(members []ast.Node, owner, position string) error {
 	for i, member := range e.kept(members) {
 		node, _ := unwrapMember(member)
@@ -3533,10 +3530,8 @@ func declaredNameAndMembers(node ast.Node) (string, []ast.Node) {
 	return "", nil
 }
 
-// memberName is the name a member is known by in its namespace: the one it
-// declares, or the one its naming feature lends it (KerML Feature::effectiveName)
-// — `perform a;` is named a and a view's `render tree;` is named tree (SysML
-// RenderingUsage::namingFeature), like the symbol table resolves them.
+// memberName is a member's declared name, else the one its naming feature lends
+// it (KerML Feature::effectiveName): `render tree;` is tree, as the symbol table has it.
 func memberName(node ast.Node) string {
 	if name, _ := declaredNameAndMembers(node); name != "" {
 		return name
@@ -3549,8 +3544,7 @@ func memberName(node ast.Node) string {
 }
 
 // derivedName states sysml:name where the effective name is not the declared
-// one, so the graph carries the name the member answers to without a reader
-// re-deriving it from the naming feature.
+// one, so a reader need not re-derive it from the naming feature.
 func (e *encoder) derivedName(subject rdf.Term, node ast.Node) {
 	if declared, _ := declaredNameAndMembers(node); declared != "" {
 		return

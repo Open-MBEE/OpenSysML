@@ -257,8 +257,7 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 }
 
 // derivedNameOmitted reports a sysml:name the candidate derives for an element
-// the graph states no name for: the name is derived (KerML Element::name), so a
-// graph written without it states no less than its text.
+// the graph states none for: the name is derived (KerML Element::name), so the graph states no less.
 func derivedNameOmitted(graph *rdf.Graph, t rdf.Triple) bool {
 	return t.Predicate.Value == rdf.SysML+pName && !graph.HasProperty(t.Subject, rdf.SysML+pName)
 }
