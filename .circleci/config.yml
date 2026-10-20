@@ -848,6 +848,21 @@ jobs:
           destination: conformance-pkg-report.json
           when: always
 
+      # The same suite through sysml-mcp's runtime tools over stdio, so the tools
+      # are proven to serve the service the scenarios specify, not a re-implementation.
+      - run:
+          name: Conformance suite through sysml-mcp
+          command: make conformance-mcp
+
+      - store_artifacts:
+          path: bin/conformance-mcp-report.json
+          destination: conformance-mcp-report.json
+          when: always
+
+      - store_test_results:
+          path: bin/conformance-mcp-report.xml
+          when: always
+
       - run:
           name: Build binaries
           command: |

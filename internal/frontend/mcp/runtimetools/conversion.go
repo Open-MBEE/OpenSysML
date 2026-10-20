@@ -44,7 +44,7 @@ type MigrateInput struct {
 // ApplyEditsInput applies source-preserving edits to a parsed model.
 type ApplyEditsInput struct {
 	ModelInput
-	Operations      []map[string]any `json:"operations" jsonschema:"edits to apply, all or none, each a protojson EditOperation with one arm: {\"setValue\":{\"target\":qualified name,\"value\":expression text}}, {\"rename\":{\"target\":..,\"newName\":..}}, {\"addMember\":{\"owner\":..,\"kind\":\"part\",\"name\":..,...}}, {\"delete\":{\"target\":..}}, {\"move\":..}, {\"addConnection\":..}, {\"addSatisfy\":..}, {\"addRequirementConstraint\":..}, {\"addTransition\":..}, {\"addImport\":..}, {\"addDocumentation\":..}, {\"addVerify\":..}, {\"addMetadata\":..}, {\"addMetadataPrefix\":..}, {\"addSequence\":..}, {\"addComment\":..}, {\"addNote\":..}; see api/proto/sysml.proto for each arm's fields"`
+	Operations      []map[string]any `json:"operations,omitempty" jsonschema:"edits to apply, all or none, each a protojson EditOperation with one arm: {\"setValue\":{\"target\":qualified name,\"value\":expression text}}, {\"rename\":{\"target\":..,\"newName\":..}}, {\"addMember\":{\"owner\":..,\"kind\":\"part\",\"name\":..,...}}, {\"delete\":{\"target\":..}}, {\"move\":..}, {\"addConnection\":..}, {\"addSatisfy\":..}, {\"addRequirementConstraint\":..}, {\"addTransition\":..}, {\"addImport\":..}, {\"addDocumentation\":..}, {\"addVerify\":..}, {\"addMetadata\":..}, {\"addMetadataPrefix\":..}, {\"addSequence\":..}, {\"addComment\":..}, {\"addNote\":..}; see api/proto/sysml.proto for each arm's fields"`
 	Document        string           `json:"document,omitempty" jsonschema:"the document whose declarations the operations target, named as the parse named it; empty is the model's first document"`
 	AcceptDocuments bool             `json:"acceptDocuments,omitempty" jsonschema:"read the edited documents from the documents field, which a model of several documents needs; without it such a model is refused"`
 }
@@ -87,7 +87,7 @@ func (g *group) registerConversion(s *mcp.Server) {
 			path.FilePath = resolved
 		}
 		if layout, ok := req.GetLayout().(*pb.MigrateRequest_LayoutPath); ok {
-			resolved, err := g.path(layout.LayoutPath, nameIgnored)
+			resolved, err := g.path(layout.LayoutPath, toolkit.NameIgnored)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -250,9 +250,9 @@ func applyEditsText(resp *pb.ApplyEditsResponse) string {
 
 // sourceNameRole is what the service reads from a convert or migrate source's
 // name: its format and language, or only its language once fromFormat is given.
-func sourceNameRole(fromFormat string) nameRole {
+func sourceNameRole(fromFormat string) toolkit.NameRole {
 	if fromFormat != "" {
-		return nameLanguage
+		return toolkit.NameLanguage
 	}
-	return nameFormat
+	return toolkit.NameFormat
 }

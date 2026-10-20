@@ -55,7 +55,7 @@ type Summary struct {
 
 // runner executes scenarios against one service.
 type runner struct {
-	service      *service
+	service      string // the binary (or Go package) the client talks to, for the report
 	client       client
 	fixtures     string
 	capabilities []string
@@ -87,7 +87,7 @@ func (r *runner) readCapabilities(ctx context.Context) error {
 
 // runAll executes every scenario matching filter and reports as it goes.
 func (r *runner) runAll(ctx context.Context, scenarios []*Scenario, filter *regexp.Regexp) *Summary {
-	summary := &Summary{Protocol: r.client.protocol(), Service: r.service.binary, Capabilities: r.capabilities}
+	summary := &Summary{Protocol: r.client.protocol(), Service: r.service, Capabilities: r.capabilities}
 	for _, scenario := range scenarios {
 		if filter != nil && !filter.MatchString(scenario.ID) {
 			continue
