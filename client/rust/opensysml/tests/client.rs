@@ -410,7 +410,9 @@ const TRADE_STUDY: &str = "package Trade {
 fn instance_id(value: Option<&wire::Value>) -> i64 {
     match value.and_then(|v| v.kind.as_ref()) {
         Some(wire::value::Kind::InstanceId(id)) => *id,
-        Some(wire::value::Kind::Sequence(seq)) if seq.elements.len() == 1 => instance_id(seq.elements.first()),
+        Some(wire::value::Kind::Sequence(seq)) if seq.elements.len() == 1 => {
+            instance_id(seq.elements.first())
+        }
         other => panic!("expected an instance reference, got {other:?}"),
     }
 }
