@@ -437,6 +437,9 @@ type calcRun struct {
 	perf *actionFrame
 	// boundInputs are the values the run's input parameters were bound to.
 	boundInputs []InputBinding
+	// unsupplied names the parameters nothing bound: a read of one is undetermined,
+	// whatever the body ran with (SysML v2 §7.17.2: the caller binds a parameter).
+	unsupplied map[string]bool
 	// occurrence is the performance instance a definition invocation's `this`
 	// denotes, shared with the invocation so its output bindings see the one
 	// made there; nil for a usage, which materializes none.
@@ -597,6 +600,8 @@ type calcUsageStart struct {
 	// deferResults leaves the results ending the steps unrun, for a Monte Carlo to
 	// evaluate over its sample once the run's observation is in.
 	deferResults bool
+	// unsupplied names the parameters no argument and no default bound.
+	unsupplied map[string]bool
 	// inputs are the values each input parameter was bound to, captured before the
 	// body runs so a body's assignments cannot rewrite what it was given.
 	inputs []InputBinding
@@ -708,6 +713,7 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 		return nil, err
 	}
 	start.inputs = boundInputs(shape, start.env)
+	start.unsupplied = shape.unsuppliedParameters(args)
 	start.host = &calcStmtHost{ctx: ctx, shape: shape, self: reader.self, occ: start.occurrence}
 	// A usage nested in a behavior body computes over that body's bindings, as
 	// an invocation of it does.
@@ -954,6 +960,7 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 	run := newCalcRun(shape, reader.scope, reader.self, env)
 	run.outer = nested
 	run.activation, run.perf, run.boundInputs, run.occurrence = engine.activation, host.performance(), start.inputs, start.occurrence
+	run.unsupplied = start.unsupplied
 	// A definition's occurrence lives for the whole run: a run abandoned to an
 	// error has nothing left to read, so its occurrence ends here; one returned
 	// is its caller's to end after the outputs and verdicts are read.
@@ -1312,7 +1319,7 @@ func (run *calcRun) memberValue(ctx *Context, name string) (Value, bool, error) 
 		}
 		return Value{}, false, nil
 	}
-	if value, ok := run.lookup(name); ok && !(param != nil && param.Default == nil && value.Kind == ValNull) {
+	if value, ok := run.lookup(name); ok && !run.unsupplied[name] {
 		return value, true, nil
 	}
 	var member *symbols.Symbol
@@ -1324,6 +1331,26 @@ func (run *calcRun) memberValue(ctx *Context, name string) (Value, bool, error) 
 		count = ctx.effectiveFeature(name, member, run.shape.Sym).Multiplicity
 	}
 	return undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", run.shape.Label, name), count, member), true, nil
+}
+
+// unsuppliedParameters names the parameters args and the declared defaults leave
+// unbound; the subject binds through its own rule and is never among them.
+func (shape *calcShape) unsuppliedParameters(args calcArgs) map[string]bool {
+	var out map[string]bool
+	for i := range shape.Params {
+		param := &shape.Params[i]
+		if param.Default != nil || param.IsSubject || i < len(args.positional) {
+			continue
+		}
+		if _, named := args.named[param.Name]; named {
+			continue
+		}
+		if out == nil {
+			out = make(map[string]bool)
+		}
+		out[param.Name] = true
+	}
+	return out
 }
 
 // lookupBody answers a local the run's body statements left bound, never a parameter.

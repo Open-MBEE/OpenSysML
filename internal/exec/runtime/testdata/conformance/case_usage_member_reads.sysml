@@ -22,6 +22,7 @@ package test {
 		actor who : Operator;
 		in limit : Integer = 10;
 		in open : Integer;
+		in vals : Integer[0..*];
 		actor many : Operator[0..*];
 		attribute depth : Integer = n + 1;
 		part gear : Operator;
@@ -79,6 +80,8 @@ package test {
 	attribute manyVerdict = checkMany.verdict;
 	attribute suppliedOpen = checkMany.open;
 	attribute unsuppliedOpen = checkThree.open;
+	attribute unsuppliedVals = checkThree.vals;
+	attribute unboundMany = checkThree.many;
 	attribute bodyLocal = checkThree.depth;
 	attribute bodyPartId = checkThree.gear.id;
 	attribute calcInput = twoTimes.x;
