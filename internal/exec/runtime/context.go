@@ -1413,8 +1413,12 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 			continue
 		}
 		// A redeclaration valuing nothing reads the value the feature it redefines binds,
-		// under its own names too; so does a subject the `by` operand supersedes (§7.21.4).
-		if expr == nil || (isSubject && suppliedBy) {
+		// under its own names too; so does the subject the `by` operand supersedes (§7.21.4).
+		superseded := false
+		if isSubject && suppliedBy {
+			_, superseded = boundUnder(bindings, names)
+		}
+		if expr == nil || superseded {
 			if value, ok := boundUnder(bindings, names); ok {
 				if err := hold(member, what+" binding", value); err != nil {
 					rollback()
