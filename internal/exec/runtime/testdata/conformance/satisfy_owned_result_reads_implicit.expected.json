@@ -1,0 +1,8 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Craft",
+  "slots": {
+    "verdict": {"type": "Boolean", "value": true}
+  }
+}

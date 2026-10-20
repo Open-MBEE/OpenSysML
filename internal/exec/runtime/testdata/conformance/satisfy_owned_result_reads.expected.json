@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Mission",
+  "slots": {
+    "softVerdict": {"type": "Boolean", "value": true},
+    "roughVerdict": {"type": "Boolean", "value": false}
+  }
+}

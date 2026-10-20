@@ -77,7 +77,7 @@ func statesConditions(sym *symbols.Symbol) bool {
 		return decl.Kind == ast.DefRequirement || decl.Kind == ast.DefViewpoint || decl.Kind == ast.DefConcern
 	case *ast.Usage:
 		return decl.Kind == ast.UsageRequirement || decl.Kind == ast.UsageViewpoint || decl.Kind == ast.UsageConcern ||
-			(decl.Kind == ast.UsageSatisfy && !decl.IsVerifiedRequirement())
+			satisfyAssertionUsage(sym)
 	}
 	return false
 }
@@ -97,15 +97,21 @@ func (ctx *Context) ownResultParameter(typ, sym *symbols.Symbol) string {
 	return ""
 }
 
-// satisfactionResultSubject is the object a package-level satisfy usage's `by`
-// names, bound to every subject its requirement declares (SysML v2 §8.4.17.3). A
-// satisfaction a type owns binds it on the owning object, which no read instantiates.
-func (ctx *Context) satisfactionResultSubject(typ *symbols.Symbol) (*Instance, error) {
-	a := ctx.satisfyAssertionOf(typ)
-	if a == nil || a.SubjectRef == "" || a.StatingType() != nil {
-		return nil, nil
+// implicitSatisfactionSubject is the object holding inst, the subject of a satisfy
+// usage declared without `by` (SysML v2 §7.21.4); nil for any other read.
+func implicitSatisfactionSubject(typ *symbols.Symbol, inst *Instance) *Instance {
+	if !satisfyAssertionUsage(typ) || satisfiedBy(typ) != nil {
+		return nil
 	}
-	return ctx.SatisfySubject(a)
+	owner, _ := inst.Owner()
+	return owner
+}
+
+// satisfyAssertionUsage reports a `satisfy` usage asserting a satisfaction, not an
+// objective's `verify r;`.
+func satisfyAssertionUsage(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageSatisfy && !usage.IsVerifiedRequirement()
 }
 
 // conditionResultValue evaluates the result the library declares for a requirement
@@ -115,12 +121,8 @@ func (ctx *Context) satisfactionResultSubject(typ *symbols.Symbol) (*Instance, e
 // result reads an unbound input, negated for an element asserting the contrary.
 func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
 	defer ctx.beginRun()()
-	subject, err := ctx.satisfactionResultSubject(typ)
-	if err != nil {
-		return undeterminedFeatureValue(err.Error(), feat.Multiplicity, sym), nil
-	}
 	members := ctx.chainMembers(typ, typ.OwnerScope)
-	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, inst, subject, frame{})
+	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, inst, implicitSatisfactionSubject(typ, inst), frame{})
 	if err != nil {
 		return ctx.conditionResultOf(err, sym, feat)
 	}
@@ -150,12 +152,18 @@ func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sy
 		}
 		result = impliesValue(assumptions, constraints)
 	}
-	// A negated satisfaction's result is the requirement's own verdict; the negation
-	// asserts that verdict false (Requirements.sysml notSatisfiedRequirementChecks).
-	if NegatedDecl(typ) && result.Kind == ValConst && !isSatisfyUsage(typ) {
+	// A negated satisfy asserts the requirement's result false (Constraints.sysml
+	// `negatedConstraintChecks :> falseEvaluations`); the result read stays the requirement's.
+	if NegatedDecl(typ) && !isSatisfyUsage(typ) && result.Kind == ValConst {
 		result = boolValue(!result.Const.Bool)
 	}
 	return result, nil
+}
+
+// isSatisfyUsage reports a `satisfy` usage, a `verify` one included.
+func isSatisfyUsage(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageSatisfy
 }
 
 // requiredCondition is cond evaluated for its own truth, the body's nested
@@ -295,10 +303,4 @@ func constraintResultTail(rest []ast.NameSegment) []ast.NameSegment {
 		return nil
 	}
 	return rest
-}
-
-// isSatisfyUsage reports whether sym declares a satisfy usage.
-func isSatisfyUsage(sym *symbols.Symbol) bool {
-	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && usage.Kind == ast.UsageSatisfy
 }

@@ -1368,7 +1368,7 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 	if semantics.IsBehaviorParameter(feat.Symbol) && !ctx.model.semantics.IsDataType(feat.Type) {
 		return nil
 	}
-	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat)) {
+	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat) || satisfyAssertionUsage(feat.Symbol)) {
 		return feat.Symbol
 	}
 	return feat.Type
@@ -1376,6 +1376,7 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 
 // declaresFeatures reports whether a usage's body, or that of a feature it redefines or
 // directly subsets, declares features: a specializing feature inherits them (KerML 1.0 §7.3.4.5).
+// A satisfy usage binds its subject (`by`, or the owner without one) as a body member would.
 func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 	if declaresFeatures(feat.Symbol) {
 		return true
@@ -1428,6 +1429,13 @@ func isReferenceUsage(sym *symbols.Symbol) bool {
 // which the object it materializes has to carry.
 func declaresFeatures(sym *symbols.Symbol) bool {
 	for _, member := range unwrappedDeclMembers(sym.Decl) {
+		// A subject the body values (`subject = x;`, not a `default`) restates the inherited parameter.
+		if subject, ok := member.(*ast.SubjectMember); ok {
+			if subject.BindingExpr != nil && !subject.ValueIsDefault {
+				return true
+			}
+			continue
+		}
 		usage, ok := member.(*ast.Usage)
 		if !ok {
 			continue

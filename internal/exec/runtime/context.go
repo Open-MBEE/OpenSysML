@@ -1369,6 +1369,18 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 	}
 
 	commit, rollback := ctx.beginJournal()
+	// A satisfy usage's `by` is its subject's binding (SysML v2 §7.21.4), read like
+	// a body's `subject = x;` unless an object is supplied from outside.
+	if by := satisfiedBy(sym); by != nil && subject == nil {
+		value, err := evalIn(sym.OwnerScope).Eval(by)
+		if err != nil {
+			rollback()
+			return nil, fmt.Errorf("%s %s: subject binding evaluation failed: %w", kind, element, err)
+		}
+		for _, name := range ctx.subjectParameterNames(sym) {
+			bindings[name] = value
+		}
+	}
 	for _, member := range members {
 		var what string
 		var names []string
@@ -1489,6 +1501,24 @@ func (ctx *Context) memberNames(owner *symbols.Symbol, member scopedMember, name
 		for _, n := range bindingNames(redefined.Name, redefined.ShortName) {
 			if !seen[n] {
 				seen[n] = true
+				names = append(names, n)
+			}
+		}
+	}
+	return names
+}
+
+// subjectParameterNames are the names a condition of sym reads its subject parameter
+// by: the subject's own and those of the subjects it redefines.
+func (ctx *Context) subjectParameterNames(sym *symbols.Symbol) []string {
+	subject := ctx.model.semantics.SubjectParameterOf(sym)
+	if subject == nil {
+		return nil
+	}
+	names := bindingNames(subject.Name, subject.ShortName)
+	for _, redefined := range ctx.redefinedFeatures(subject, sym) {
+		for _, n := range bindingNames(redefined.Name, redefined.ShortName) {
+			if !slices.Contains(names, n) {
 				names = append(names, n)
 			}
 		}
