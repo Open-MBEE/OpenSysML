@@ -95,8 +95,8 @@ func siblings(t *testing.T, rel string) []string {
 
 // exampleFiles are the example models, the downloaded OMG corpora aside: the
 // training corpus is a separate gate (TestTrainingExamplesSemanticErrors) and
-// the corpora under pilot-corpora/ are inputs to the advisory differential
-// harness, not models this repository ships.
+// the corpora under pilot-corpora/ and spec-examples/ are inputs to the advisory
+// differential harness, not models this repository ships.
 func exampleFiles(t *testing.T) []string {
 	t.Helper()
 
@@ -111,7 +111,7 @@ func exampleFiles(t *testing.T) []string {
 		}
 		rel = filepath.ToSlash(rel)
 		if info.IsDir() {
-			if rel == "sysml-v2-training" || rel == "pilot-corpora" {
+			if rel == "sysml-v2-training" || rel == "pilot-corpora" || rel == "spec-examples" {
 				return filepath.SkipDir
 			}
 			return nil
