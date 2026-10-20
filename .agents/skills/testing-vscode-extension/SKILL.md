@@ -34,7 +34,7 @@ Restart VS Code after installing, otherwise the old extension host keeps running
 
 ```bash
 pkill -f "no-sandbox --disable-gpu /home"      # plain `pkill -f /usr/share/code` may miss it
-DISPLAY=:0 nohup code --no-sandbox --disable-gpu "$PWD" &   # $PWD = repo root, the workspace to open
+DISPLAY=:0 nohup code --no-sandbox --disable-gpu ~/vscode-scratch &   # scratch workspace outside the checkout (below)
 DISPLAY=:0 wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz
 ```
 
