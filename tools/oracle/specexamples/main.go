@@ -120,10 +120,8 @@ func clauseCount(blocks []Block) int {
 	return len(seen)
 }
 
-// install swaps the staged corpus into place, keeping the previous corpus as
-// `<out>.old` until the new one is in place. A run interrupted between the two
-// renames leaves only the backup, which the next run recovers before anything
-// is discarded.
+// install swaps the staged corpus into place, recovering an orphaned `<out>.old`
+// first and discarding a backup only once the new corpus is installed.
 func install(staging, out string) error {
 	backup := out + ".old"
 	if _, err := os.Stat(out); os.IsNotExist(err) {
