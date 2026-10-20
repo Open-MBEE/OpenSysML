@@ -671,6 +671,14 @@ jobs:
           ls -lh bin/
           make static-check
 
+      # The llm-bench tests drive the binary built above and skip without it;
+      # the replay of the committed recording is what keeps that recording
+      # reproducible.
+      - name: Run llm-bench tests
+        env:
+          OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN: "1"
+        run: go test -C tools -count=1 -v ./bench/llm
+
       - name: Upload binary artifacts
         uses: actions/upload-artifact@v4
         with:
