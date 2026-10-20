@@ -365,6 +365,12 @@ representable.
 
 ### The palette
 
+The VS Code panel no longer shows it: its **Add…** list and the node menu's add entries
+were withdrawn, since elements are created in the text, and the panel keeps **Rename…**,
+**Move to…**, **Delete…** and the drag gestures. `AddMember` and `AddConnection` stay on
+the server for `applyModelEdit`, gRPC and MCP clients, and the rendering's palette still marks it
+editable and says which drawn nodes may own a `subject`-like member.
+
 Which actions are offered is decided by the rendering's kind, not hardcoded:
 `interconnection` offers parts, ports and connections; `state` offers states,
 transitions, entry/exit; `action` offers action nodes, successions, forks and
@@ -379,8 +385,9 @@ palette rewritten.
   a cascade-delete test; an idempotence test through `format`.
 - `internal/frontend/lsp`: `applyModelEdit` returning a `WorkspaceEdit` whose application
   reproduces the golden output, a stale-version rejection, and a refusal shape.
-- GUI: add a part and a connection from the palette, check the file, `ctrl+z`, check
-  the file again.
+- GUI: rename, move and delete a declaration from the node menu, check the file,
+  `ctrl+z`, check the file again. `AddMember` and `AddConnection` are exercised through
+  `applyModelEdit`, gRPC and MCP, since the panel no longer offers them.
 
 ## Tier 3 — a drag-and-drop graphical editor
 
@@ -451,8 +458,8 @@ among them only when it changed.
 
 Dragging a node writes its `Layout`; dragging an edge's handle writes its `Route`.
 Every action that changes the model otherwise goes through tier 2's operations —
-the palette is `AddMember`, the node menu's connections `AddConnection`, its
-`Delete` and `Rename` the same. So tier 3 adds gestures whose outcome is an
+the node menu's **Rename…**, **Move to…** and **Delete…**; `AddMember` and
+`AddConnection` are reached from other clients, not the panel. So tier 3 adds gestures whose outcome is an
 annotation, over tier 2's vocabulary for everything else.
 
 A gesture is one edit. The canvas previews a drag by redrawing itself over the
@@ -620,7 +627,7 @@ panel asks for no palette, draws `pilot`, and says why under the diagram.
 - A drop re-parents within the requesting document only, as **Move to…** does: a
   node drawn from another file is neither dragged nor a drop target, and a
   declaration another file refers to is refused by the server.
-- The palette writes the notation OpenSysML's writer emits, which is
+- `AddMember` and `AddConnection` write the notation OpenSysML's writer emits, which is
   spec-conformant but not necessarily byte-identical to what a user would have
   typed. `format` makes it consistent with the file; it does not make it a
   particular author's style.

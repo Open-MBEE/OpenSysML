@@ -55,7 +55,7 @@
         "dir": "examples/spec-examples",
         "origin": "pinned",
         "files": 511,
-        "digest": "sha256:3e080a3b924b0f4497350430e5f6f3b5f130da2777cc4dc064aafbfdad7e0893"
+        "digest": "sha256:02f86f46546a1a4aa547c5cc7a3f21725fb4cefcef34b56ebc1896db986aa699"
       },
       {
         "name": "testdata",
@@ -91,12 +91,12 @@
   "totals": {
     "files": 912,
     "filesFullyAgreeing": 510,
-    "agreement": 1081,
+    "agreement": 1088,
     "severityMismatch": 7,
-    "openSysMLOnly": 387,
-    "pilotOnly": 2465,
-    "openSysMLDiagnostics": 1475,
-    "pilotDiagnostics": 3553
+    "openSysMLOnly": 370,
+    "pilotOnly": 2446,
+    "openSysMLDiagnostics": 1465,
+    "pilotDiagnostics": 3541
   },
   "roots": [
     {
@@ -723,12 +723,12 @@
       "totals": {
         "files": 511,
         "filesFullyAgreeing": 149,
-        "agreement": 1033,
+        "agreement": 1040,
         "severityMismatch": 2,
-        "openSysMLOnly": 71,
-        "pilotOnly": 2372,
-        "openSysMLDiagnostics": 1106,
-        "pilotDiagnostics": 3407
+        "openSysMLOnly": 54,
+        "pilotOnly": 2353,
+        "openSysMLDiagnostics": 1096,
+        "pilotDiagnostics": 3395
       },
       "files": [
         {
@@ -6986,18 +6986,11 @@
               "line": 5,
               "severity": "error",
               "category": "syntax",
-              "count": 2
+              "count": 1
             }
           ],
           "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 5,
-              "severity": "error",
-              "category": "syntax",
-              "count": 3
-            }
-          ],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
               "line": 4,
@@ -7009,6 +7002,12 @@
               "line": 4,
               "severity": "error",
               "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 5,
+              "severity": "error",
+              "category": "syntax",
               "count": 1
             },
             {
@@ -7457,16 +7456,22 @@
         },
         {
           "path": "sysml/7.17.10/1.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
+          "agreement": [
             {
-              "line": 11,
+              "line": 5,
               "severity": "error",
-              "category": "syntax",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 7,
+              "severity": "error",
+              "category": "unresolved-reference",
               "count": 1
             }
           ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
               "line": 5,
@@ -7475,21 +7480,9 @@
               "count": 1
             },
             {
-              "line": 5,
-              "severity": "error",
-              "category": "unresolved-reference",
-              "count": 1
-            },
-            {
               "line": 7,
               "severity": "error",
               "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 7,
-              "severity": "error",
-              "category": "unresolved-reference",
               "count": 1
             }
           ]
@@ -8983,111 +8976,27 @@
         },
         {
           "path": "sysml/7.17.8/2.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
+          "agreement": [
             {
-              "line": 11,
+              "line": 16,
               "severity": "error",
-              "category": "syntax",
-              "count": 3
-            },
-            {
-              "line": 12,
-              "severity": "error",
-              "category": "syntax",
+              "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 15,
+              "line": 20,
               "severity": "error",
-              "category": "syntax",
-              "count": 1
-            },
-            {
-              "line": 19,
-              "severity": "error",
-              "category": "syntax",
-              "count": 1
-            },
-            {
-              "line": 22,
-              "severity": "error",
-              "category": "syntax",
+              "category": "kind-mismatch",
               "count": 1
             }
           ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 5,
+              "line": 16,
               "severity": "error",
               "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 5,
-              "severity": "error",
-              "category": "unresolved-reference",
-              "count": 1
-            },
-            {
-              "line": 6,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 6,
-              "severity": "error",
-              "category": "unresolved-reference",
-              "count": 1
-            },
-            {
-              "line": 11,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 2
-            },
-            {
-              "line": 11,
-              "severity": "error",
-              "category": "unresolved-reference",
-              "count": 2
-            },
-            {
-              "line": 15,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 2
-            },
-            {
-              "line": 15,
-              "severity": "error",
-              "category": "unresolved-reference",
-              "count": 1
-            },
-            {
-              "line": 19,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 19,
-              "severity": "error",
-              "category": "unresolved-reference",
-              "count": 1
-            },
-            {
-              "line": 19,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 19,
-              "severity": "warning",
-              "category": "units",
               "count": 1
             }
           ]
@@ -12009,20 +11918,6 @@
           ]
         },
         {
-          "path": "sysml/7.6.4/1.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 9,
-              "severity": "error",
-              "category": "syntax",
-              "count": 2
-            }
-          ],
-          "pilotOnly": []
-        },
-        {
           "path": "sysml/7.6.5/1.sysml",
           "agreement": [],
           "severityMismatch": [],
@@ -13178,33 +13073,27 @@
         },
         {
           "path": "sysml/8.4.13.10/2.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
+          "agreement": [
             {
               "line": 7,
               "severity": "error",
-              "category": "syntax",
+              "category": "unresolved-reference",
               "count": 1
             },
             {
               "line": 13,
               "severity": "error",
-              "category": "syntax",
+              "category": "unresolved-reference",
               "count": 1
             }
           ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
               "line": 6,
               "severity": "error",
               "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 7,
-              "severity": "error",
-              "category": "unresolved-reference",
               "count": 1
             },
             {
@@ -13217,12 +13106,6 @@
               "line": 12,
               "severity": "error",
               "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 13,
-              "severity": "error",
-              "category": "unresolved-reference",
               "count": 1
             },
             {
@@ -14955,17 +14838,24 @@
         },
         {
           "path": "sysml/8.4.13.8/1.sysml",
-          "agreement": [
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 4,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            }
+          ],
+          "pilotOnly": [
             {
               "line": 4,
               "severity": "error",
               "category": "syntax",
               "count": 1
             }
-          ],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": []
+          ]
         },
         {
           "path": "sysml/8.4.13.8/2.sysml",
@@ -16884,28 +16774,28 @@
         },
         {
           "path": "sysml/8.4.9.1/4.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
+          "agreement": [
             {
               "line": 5,
               "severity": "error",
-              "category": "syntax",
+              "category": "unresolved-reference",
               "count": 1
             },
             {
               "line": 6,
               "severity": "error",
-              "category": "syntax",
+              "category": "unresolved-reference",
               "count": 1
             },
             {
               "line": 7,
               "severity": "error",
-              "category": "syntax",
+              "category": "unresolved-reference",
               "count": 1
             }
           ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
               "line": 5,
@@ -16914,25 +16804,7 @@
               "count": 1
             },
             {
-              "line": 5,
-              "severity": "error",
-              "category": "unresolved-reference",
-              "count": 1
-            },
-            {
               "line": 6,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 6,
-              "severity": "error",
-              "category": "unresolved-reference",
-              "count": 1
-            },
-            {
-              "line": 7,
               "severity": "error",
               "category": "kind-mismatch",
               "count": 1
@@ -16940,7 +16812,7 @@
             {
               "line": 7,
               "severity": "error",
-              "category": "unresolved-reference",
+              "category": "kind-mismatch",
               "count": 1
             }
           ]
@@ -25423,12 +25295,12 @@
     "totals": {
       "files": 912,
       "filesFullyAgreeing": 511,
-      "agreement": 1081,
+      "agreement": 1088,
       "severityMismatch": 7,
-      "openSysMLOnly": 386,
-      "pilotOnly": 2465,
-      "openSysMLDiagnostics": 1474,
-      "pilotDiagnostics": 3553
+      "openSysMLOnly": 369,
+      "pilotOnly": 2446,
+      "openSysMLDiagnostics": 1464,
+      "pilotDiagnostics": 3541
     },
     "findings": [
       {

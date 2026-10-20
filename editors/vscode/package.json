@@ -167,6 +167,32 @@
           },
           "markdownDescription": "Optional notation elements every diagram draws besides the ones its view's rendering shows and the default (port symbols, compartments and keywords), by the names the SysML v2 notation makes optional; `all` draws every one. Applies to the diagram panel and to exports, on a server that lists the elements (`openSysmlRenderElements`)."
         },
+        "opensysml.diagram.openIn": {
+          "type": "string",
+          "default": "beside",
+          "enum": [
+            "beside",
+            "newWindow"
+          ],
+          "enumDescriptions": [
+            "Open the diagram in the group beside its source editor.",
+            "Move the diagram out into a floating window of its own as soon as it opens."
+          ],
+          "markdownDescription": "Where the first diagram panel opens. Later diagrams join the group the open one is in, a floating window's included; **SysML: Move Diagram to New Window** moves an open diagram at any time."
+        },
+        "opensysml.diagram.routing": {
+          "type": "string",
+          "default": "model",
+          "enum": [
+            "model",
+            "router"
+          ],
+          "enumDescriptions": [
+            "Draw an edge along the `Route` its view states, and route only the edges without one.",
+            "Route every edge the automatic layout did not, including those with a stated `Route`, orthogonally around the boxes. The stated routes stay in the model but are not drawn, and the waypoint handles are hidden."
+          ],
+          "markdownDescription": "Whose routes the diagram panel draws its edges along. This is a drawing setting of the panel only: `sysml -render-lines` and the diagram exports keep drawing the stated routes."
+        },
         "opensysml.diagram.depth": {
           "type": "integer",
           "default": 0,
@@ -205,6 +231,11 @@
         "command": "opensysml.exportDiagram",
         "category": "SysML",
         "title": "Export Diagram"
+      },
+      {
+        "command": "opensysml.diagram.popOut",
+        "category": "SysML",
+        "title": "Move Diagram to New Window"
       },
       {
         "command": "opensysml.renderDocument",
@@ -248,6 +279,11 @@
           "command": "opensysml.exportDiagram",
           "group": "1_diagram",
           "when": "resourceLangId == sysml || resourceLangId == kerml"
+        },
+        {
+          "command": "opensysml.diagram.popOut",
+          "group": "1_diagram",
+          "when": "resourceLangId == sysml || resourceLangId == kerml || activeWebviewPanelId == opensysml.diagram"
         }
       ],
       "editor/context": [

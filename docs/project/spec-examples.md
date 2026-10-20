@@ -13,7 +13,7 @@ release `2026-08`, commit `fb97b754f29588b8e9c7a35f370880cd15eb29e7` (`scripts/p
 | `kerml` | `doc/1-Kernel_Modeling_Language.pdf` and the `// KerML` examples of the SysML clauses | 7 | `examples/spec-examples/kerml` | 170 `.kerml` |
 
 **Gate:** `TestSpecExamplesDiagnostics` in `tests/corpus/spec_examples_test.go`, a per-file ratchet
-over `tests/corpus/testdata/spec_examples_expected.txt` (398 of the 511 files report at least one
+over `tests/corpus/testdata/spec_examples_expected.txt` (397 of the 511 files report at least one
 diagnostic of ours). Run `go test -count=1 ./tests/corpus -run TestSpecExamples`.
 **Regenerate:** `go test ./tests/corpus -run TestSpecExamplesDiagnostics -update-spec-examples`, after
 adjudicating every moved line here.
@@ -77,15 +77,15 @@ Pilot `2026-08` (`0.62.0`), both validators, fresh cache:
 
 | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| 511 | 149 | 1106 | 3407 | 1033 | 2 | 71 | 2372 |
+| 511 | 149 | 1096 | 3395 | 1040 | 2 | 54 | 2353 |
 
 Of the pilot-only diagnostics, 1359 are the pilot's EMF `unmapped` records ("The feature 'type' of
-... is required"), 594 its `kind-mismatch` typing constraints ("A usage must be typed by
+... is required"), 587 its `kind-mismatch` typing constraints ("A usage must be typed by
 definitions.") and 50 multiplicity constraints: all three follow an unresolved cross-example name on
-the same lines, where we report the unresolved reference once and stop. Those 2003 are the same
+the same lines, where we report the unresolved reference once and stop. Those 1996 are the same
 finding counted differently, not disagreements about the examples. The remaining pilot-only
-categories are 195 syntax, 169 unresolved-reference and 5 units; the 71 ours-only diagnostics are
-37 unresolved-reference, 29 syntax, 3 kind-mismatch and 2 unmapped. Every file behind those two
+categories are 197 syntax, 156 unresolved-reference and 4 units; the 54 ours-only diagnostics are
+38 unresolved-reference, 11 syntax, 3 kind-mismatch and 2 unmapped. Every file behind those two
 groups is adjudicated below.
 
 ## Adjudication
@@ -101,6 +101,7 @@ needs context the text does not print) or **cascade** (a secondary diagnostic of
 | Clause | File | Example text | Grammar | Pilot | Ours | Class |
 |---|---|---|---|---|---|---|
 | SysML 8.4.13.4 | `sysml/8.4.13.4/1`–`9.sysml` | `succession s1 first a1[1..1] then j[1..1];` | `ConnectorEnd` (8.2.2.13.1) puts the multiplicity *before* the end name as `OwnedCrossMultiplicityMember`; nothing follows the reference | rejects (`no viable alternative at input 'then'`) | accepts silently | erratum; ours is also a gap, see below |
+| SysML 7.13.2 | `sysml/7.13.2/8.sysml` | `connect ( [1] hub ::> mainSwitch[1], [1] device ::> sensorFeed )` | the same: `ConnectorEnd` (8.2.2.13.1) opens with the `OwnedCrossMultiplicityMember`; nothing follows the referenced feature | rejects (`missing ',' at '['`, `no viable alternative at input ','`) | rejects (`a connector end's multiplicity precedes it … nothing follows that feature`, once, at the `[1]` after `mainSwitch`) | erratum, both right |
 | SysML 8.4.8.2, 8.4.18.1, 8.4.18.2, 8.4.20.2, 8.4.21.2 | `sysml/8.4.8.2/1`, `8.4.18.1/1`, `8.4.18.2/3`, `8.4.20.2/1`, `8.4.21.2/1.sysml` | `case cs2 specializes Cases::cases { ... }` | a usage specialises with `subsets`/`:>` (8.2.2.5.3 `FeatureSpecialization`); `specializes` is `OwnedSpecialization` of a definition | rejects (`no viable alternative at input 'specializes'`) | rejects (`only a definition may specialize; found a usage`) | erratum, both right |
 | SysML 8.4.19.1, 8.4.19.2, 8.4.20.1 | `sysml/8.4.19.1/1`, `8.4.19.2/1`, `8.4.20.1/1.sysml` | `analysis case def AC specializes ...`, `verification case V specializes ...` | the keywords are `analysis def` (8.2.2.22) and `verification def` (8.2.2.23); the text writes the metaclass name | rejects (`no viable alternative at input 'case'`) | accepts the keyword, then rejects `specializes` on the usage | erratum; ours also a gap (accepts `analysis case def`) |
 | SysML 8.4.15.1, 8.4.15.2 | `sysml/8.4.15.1/2`, `8.4.15.2/3.sysml` | `binding result = resultExpr.result; // Implied` followed by a bare `resultExpr` | `binding` is KerML; SysML writes `bind` (8.2.2.13.2); the trailing name is a placeholder | rejects (`no viable alternative at input 'binding'`) | rejects (`unresolved reference: resultExpr`) | erratum (semantics illustration, not notation) |
@@ -123,17 +124,12 @@ needs context the text does not print) or **cascade** (a secondary diagnostic of
 
 | Clause | File | Example text | Grammar | Pilot | Ours | Class |
 |---|---|---|---|---|---|---|
-| SysML 7.13.2 | `sysml/7.13.2/8.sysml` | `connect ( [1] hub ::> mainSwitch[1], [1] device ::> sensorFeed )` | `ConnectorEnd` (8.2.2.13.1) opens with an optional `OwnedCrossMultiplicityMember` | accepts | rejects (`expected '{' or ';' after declaration`) | ours |
-| SysML 8.4.9.1 | `sysml/8.4.9.1/4.sysml` | `end a_cross[1] ref a[1] : A;` inside `connection def Ternary` | the same cross multiplicity on a definition end (8.2.2.13.1) | accepts | rejects | ours |
-| SysML 7.17.10 | `sysml/7.17.10/1.sysml` | `action terminate1 terminate process;` | `TerminateNode = OccurrenceUsagePrefix ActionNodeUsageDeclaration? 'terminate' ...` (8.2.2.17.6) | accepts | rejects (`'terminate' closes the declaration ...`) | ours |
-| SysML 7.17.8 | `sysml/7.17.8/2.sysml` | `accept : ChangeSignal = Triggers::triggerWhen({ level > threshold });` | `AcceptParameterPart` payload is a `PayloadParameterMember` whose `PayloadFeature` may carry a typing and a value part (8.2.2.17.4) | accepts | rejects (`expected ';' after accept action`) | ours |
-| SysML 7.6.4 | `sysml/7.6.4/1.sysml` | `orderedContent ordered :>> content;` | `DefaultReferenceUsage` (8.2.2.5.4): `UsageDeclaration` admits `MultiplicityPart`'s `ordered`/`nonunique` after the name without a bracketed multiplicity | accepts | rejects (`expected a body member`) | ours |
-| SysML 8.4.13.10 | `sysml/8.4.13.10/2.sysml` | `in calc redefines Actions::WhileLoopAction::whileTest { test1 }` | a `CalculationUsage` body ends with a `ResultExpressionMember` (8.2.2.19.1) | accepts | rejects (`expected a body member`) | ours |
 | SysML 8.4.14.3 | `sysml/8.4.14.3/2.kerml` | `step trns subsets States::State::stateTransitions { alias s1 of SC::s1; ... }` | KerML `TypeBody` admits `AliasMember` (8.2.3.3.1) | accepts | rejects (`expected a body member`) | ours |
 | KerML 7.3.4.8 | `kerml/7.3.4.8/1.kerml` | `featuring ... of engine featured by Vehicle { doc /* ... */ }` | a relationship body (`RelationshipBody`, 8.2.2.1) owns annotating elements | accepts | rejects (`expected a namespace member`) | ours |
 | KerML 7.2.4.3, SysML 7.4.3 | `kerml/7.2.4.3/1.kerml`, `sysml/7.4.3/1.sysml` | `language "alf" /* c.x = newX; ... */` inside a behavior body | `TextualRepresentation = ( 'rep' Identification )? 'language' STRING_VALUE REGULAR_COMMENT` (KerML 8.2.2.2.3): `rep` is optional | accepts | rejects (`expected a namespace member`) | ours |
 | KerML 7.4.9.3 | `kerml/7.4.9.3/1`–`3.kerml` | `sensors.{in s: Sensor; s.reading}` as a namespace member | an expression is not a `NamespaceMember` (8.2.2.3); the text shows the expression alone | rejects (`no viable alternative at input '}'`) | silent | ours (we accept an expression statement as a member) |
 | SysML 7.17.4 | `sysml/7.17.4/7.sysml` (before the `then` rule above was added) | `then join1;` | `ActionTargetSuccessionMember` is an `ActionBodyItem` only (8.2.2.17.1) | rejects | silent at package level | ours (the completion now wraps it; the parser still accepts the form at package level) |
+| SysML 8.4.13.8 | `sysml/8.4.13.8/1.sysml` | `action trm terminate occ;` as a package member | `TerminateNode` is an `ActionNode`, an `ActionBodyItem` only (8.2.2.17.1) | rejects (`no viable alternative`) | reports only the unresolved `occ` | ours (the same gap: an action node accepted at package level) |
 | SysML 8.4.13.4, 7.21.2, 8.4.19.x | see the erratum table | `a1[1..1]` after an end name; `;` after a result expression; `analysis case def` | as above | rejects | silent | ours (accepted where the grammar has no production) |
 
 ### Fragments and cascades
@@ -164,35 +160,41 @@ example the resolutions did not reach.
 |---|---:|---:|---:|
 | Fixtures | 341 | 170 | 511 |
 | Excluded blocks | 20 | 4 | 24 |
-| Files reporting a diagnostic of ours | 262 | 136 | 398 |
+| Files reporting a diagnostic of ours | 261 | 136 | 397 |
 | Files fully agreeing with the pilot | | | 149 |
-| Files in the erratum table | 24 | 0 | 24 |
+| Files in the erratum table | 25 | 0 | 25 |
 | Files in the pilot table | 6 | 1 | 7 |
-| Files in the ours table | 9 | 5 | 14 |
+| Files in the ours table | 4 | 5 | 9 |
 
 ## Launch-ready gaps
 
 Each row is self-contained: clause, the extracted file that shows it, the behaviour the text requires,
 and a probe to reproduce it. The ratchet pins the current verdicts so each fix moves exactly its own
-lines; a row whose fix has landed says so in its probe column. The in-flight column records whether other work on the same rule was
-found open at the time of writing.
+lines. The in-flight column records whether other work on the same rule was found open at the time of
+writing.
+
+Closed: G1 (a cross feature before the `ref` of an end usage; `sysml/8.4.9.1/4.sysml` has no syntax
+diagnostic, while the `mainSwitch[1]` of `sysml/7.13.2/8.sysml` is the erratum above, rejected by both
+implementations), G2 (a terminate action usage naming the occurrence it terminates), G3 (an accept
+payload with a value part, a `TriggerWhen`/`TriggerAt`/`TriggerAfter` invocation waited on as the
+keyword form), G4 (`ordered`/`nonunique` without a bracketed multiplicity) and G5 (a directed
+calculation parameter whose body ends in a result expression). Their six files now report only the
+names the examples leave undeclared, which the pilot reports too (`sysml/7.17.8/2.sysml`, once it parsed,
+received the completion imports for `ChangeSignal`, `Real`, `s` and `Iso8601DateTime`); `sysml/8.4.13.8/1.sysml` moved from
+a syntax error given for the wrong reason to the package-level action node of G10. G14 (the document
+interface record): an undeclared metadata type or `about` target is the document's diagnostic, not an
+absent interface, so every file of the root has a record and the root is in `corpusRoots` in `tests/model`.
 
 | # | Clause | File | Expected behaviour | Probe | In-flight overlap |
 |---|---|---|---|---|---|
-| G1 | SysML 8.2.2.13.1 `ConnectorEnd` | `sysml/7.13.2/8.sysml`, `sysml/8.4.9.1/4.sysml` | A connector end or definition end accepts a leading cross multiplicity: `connect ([1] hub ::> mainSwitch[1], [1] device ::> sensorFeed)`, `end a_cross[1] ref a[1] : A;` parse clean. | `sysml -validate` on the two files: no `syntax` diagnostic. | none found |
-| G2 | SysML 8.2.2.17.6 `TerminateNode` | `sysml/7.17.10/1.sysml` | `action terminate1 terminate process;` is a named terminate node. | `sysml -validate`: no `'terminate' closes the declaration` diagnostic; the node is named `terminate1`. | none found |
-| G3 | SysML 8.2.2.17.4 `AcceptParameterPart` | `sysml/7.17.8/2.sysml` | `accept : ChangeSignal = Triggers::triggerWhen({ level > threshold });` parses: a typed payload with a value part. | `sysml -validate`: no `expected ';' after accept action`. | none found |
-| G4 | SysML 8.2.2.5.4 `DefaultReferenceUsage` | `sysml/7.6.4/1.sysml` | `orderedContent ordered :>> content;` parses: `ordered` without a bracketed multiplicity. | `sysml -validate`: no `expected a body member` at that line. | none found |
-| G5 | SysML 8.2.2.19.1 `CalculationBody` | `sysml/8.4.13.10/2.sysml` | A calculation *usage* body ends with a result expression: `in calc redefines ...::whileTest { test1 }`. | `sysml -validate`: no `expected a body member`. | none found |
 | G6 | KerML 8.2.3.3.1 `AliasMember` in a `TypeBody` | `sysml/8.4.14.3/2.kerml` | `alias s1 of SC::s1;` is accepted inside a `step` body. | `sysml -validate`: no `expected a body member` at line 9. | none found |
 | G7 | KerML 8.2.2.1 `RelationshipBody` | `kerml/7.3.4.8/1.kerml` | `featuring ... featured by Vehicle { doc /* ... */ }` accepts the documentation in the relationship body. | `sysml -validate`: no `expected a namespace member`. | none found |
 | G8 | KerML 8.2.2.2.3 `TextualRepresentation` | `kerml/7.2.4.3/1.kerml`, `sysml/7.4.3/1.sysml` | `language "alf" /* ... */` without `rep` is a textual representation. | `sysml -validate`: no `expected a namespace member` at the closing `*/`. | none found |
 | G9 | KerML 8.2.2.3 `NamespaceMember` | `kerml/7.4.9.3/1`–`3.kerml` | A bare expression such as `sensors.{in s: Sensor; s.reading}` is not a namespace member and is reported as a syntax error, as the pilot does. | `sysml -validate`: a `syntax` diagnostic on line 4; today the files are clean. | none found |
-| G10 | SysML 8.2.2.17.1 `ActionBodyItem` | `sysml/7.17.4/7.sysml` with the package wrapper | `then join1;` directly in a package is a syntax error, since target successions exist only in action bodies. | wrap the example in a package by hand and run `sysml -validate`: a `syntax` diagnostic; today it is clean. | none found |
+| G10 | SysML 8.2.2.17.1 `ActionBodyItem` | `sysml/7.17.4/7.sysml` with the package wrapper, `sysml/8.4.13.8/1.sysml` | `then join1;` directly in a package is a syntax error, since target successions exist only in action bodies. | wrap the example in a package by hand and run `sysml -validate`: a `syntax` diagnostic; today it is clean. | none found |
 | G11 | SysML 8.2.2.13.1 `ConnectorEnd` | `sysml/8.4.13.4/1`–`9.sysml` | A multiplicity *after* an end reference (`first a1[1..1] then j[1..1]`) has no production and is reported, as the pilot does; the project's nonstandard-notation policy decides whether as an error or a warning. | `sysml -validate`: a diagnostic on each succession line; today the files are clean. | none found |
 | G12 | SysML 8.2.2.19.1 `ResultExpressionMember` | `sysml/7.21.2/2.sysml` | A `;` after a body's result expression (`mass > 0[kg];`) is reported, as the pilot does. | `sysml -validate`: a diagnostic on line 9; today the file is clean. | none found |
 | G13 | SysML 8.2.2.22 / 8.2.2.23 keywords | `sysml/8.4.19.1/1`, `8.4.19.2/1`, `8.4.20.1/1.sysml` | `analysis case def` / `verification case def` are not SysML keywords (`analysis def`, `verification def` are) and are reported, as the pilot does. | `sysml -validate`: a `syntax` or `nonstandard-notation` diagnostic on the definition line; today only the usage `specializes` is reported. | none found |
-| G14 | KerML 7.4.13 metadata examples; SysML 7.27.2 | `kerml/7.4.13/3`, `11`, `12`, `14`, `15.kerml`, `sysml/7.27.2/3.sysml` | The document interface record (`tests/model/interface_record_test.go`) is derivable for every file of the root, so the root is in `corpusRoots` in `tests/model` and the incremental and interface-record differentials run over it. A reference no declaration answers is the document's diagnostic, not an absent interface: an annotation naming an undeclared metadata type (`@Command;` in `behavior Save`) contributes no supertype and leaves the supertypes settled rather than provisional, and an `about` usage naming undeclared elements (`metadata securityDesignAnnotation : SecurityRelated about SecurityDesign;`) is recorded as an `about` usage, so the record contributes to the workspace-wide `about` index as the loaded document did instead of being written off as stale. | **Fixed.** `go test ./tests/model -run 'TestInterfaceRecordDifferentialCorpora/spec-examples'`: every file of the root is recorded (6 failures before the fix: four `provisional supertypes of ... Save` refusals, two records "written among other documents"). | none found |
 
 The sweep for in-flight work covered the open pull requests and the remote branches without one that
 touch `internal/syntax/parser`, `internal/check` and the corpus gates; none of them addresses the

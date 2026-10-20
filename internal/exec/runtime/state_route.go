@@ -43,6 +43,10 @@ type route struct {
 	// terminate is the terminate action usage the route ends at, which ends the
 	// machine's performance in place of entering a state (SysML v2 §7.18.3).
 	terminate *ast.Usage
+	// performs are the behaviors of the terminate action usages naming an
+	// occurrence the route ends at, run after the segments' effects before the
+	// completion vertex target is entered (SysML v2 §8.3.17.16).
+	performs []lower.StateBehavior
 }
 
 // junctionDraw is a junction the route reached with several branches enabled, as
@@ -103,6 +107,9 @@ func (r route) effects(g *lower.StateGraph) []routeEffect {
 			effects = append(effects, routeEffect{behavior: behavior, within: within, segment: seg})
 		}
 	}
+	for _, behavior := range r.performs {
+		effects = append(effects, routeEffect{behavior: behavior, segment: r.segments[len(r.segments)-1]})
+	}
 	return effects
 }
 
@@ -139,8 +146,7 @@ func (e *StateExecutor) resolveRoute(trans *lower.Transition, event *Event) (rou
 		return r, nil
 	case *ast.Usage:
 		if lower.IsTerminateUsage(target) {
-			r.terminate = target
-			return r, nil
+			return e.terminateRoute(r, target), nil
 		}
 	}
 	return route{}, fmt.Errorf("transition target must be a state, pseudostate or terminate action, got %T", trans.Target)
@@ -264,11 +270,25 @@ func (e *StateExecutor) settleDraws(r route) (route, error) {
 	return r, nil
 }
 
+// terminateRoute ends r at the terminate action usage stop: one naming an
+// occurrence performs its behavior and enters the completion vertex of the body
+// declaring it, as a transition to `done` there does; any other ends the machine.
+func (e *StateExecutor) terminateRoute(r route, stop *ast.Usage) route {
+	if behavior, named := e.graph.TerminateBehaviors[stop]; named {
+		r.performs = append(r.performs, behavior)
+		r.target = e.graph.TerminateCompletion[stop]
+		return r
+	}
+	r.terminate = stop
+	return r
+}
+
 // onward is the route continued along beyond, settled from the pseudostate this
 // route is open at: its segments follow, and it ends where beyond does.
 func (r route) onward(beyond route) route {
 	r.segments = append(r.segments, beyond.segments...)
 	r.target, r.choice, r.draw, r.arrival, r.terminate = beyond.target, beyond.choice, beyond.draw, beyond.arrival, beyond.terminate
+	r.performs = append(r.performs, beyond.performs...)
 	r.crossed = beyond.crossed
 	r.notes = append(r.notes, beyond.notes...)
 	return r
@@ -288,8 +308,7 @@ func (e *StateExecutor) follow(from *ast.PseudostateNode, seg *lower.Transition,
 		return e.followOut(target, r)
 	case *ast.Usage:
 		if lower.IsTerminateUsage(target) {
-			r.terminate = target
-			return r, nil
+			return e.terminateRoute(r, target), nil
 		}
 	}
 	return r, fmt.Errorf("%s %s: target must be a state, pseudostate or terminate action, got %T", from.Kind, from.Name, seg.Target)
