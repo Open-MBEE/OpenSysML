@@ -603,10 +603,20 @@ func (m *Model) declaredReaches(from, want *symbols.Symbol, visiting map[*symbol
 const baseUsageFQN = "Base::things"
 
 // isKerMLTypeDecl reports whether sym declares a KerML type rather than a
-// feature — `class`, `struct`, `assoc`, `behavior`, `predicate`, `interaction` —
-// which the parser records as a usage node (KerML §8.3).
+// feature — `class`, `struct`, `assoc`, `behavior`, `predicate`, `interaction`,
+// `datatype`, `function`, `metaclass` — which the parser may record as a usage
+// node (KerML §8.3).
 func isKerMLTypeDecl(sym *symbols.Symbol) bool {
-	return sym != nil && sym.Kind == symbols.SymbolKerMLType
+	if sym == nil {
+		return false
+	}
+	if sym.Kind == symbols.SymbolKerMLType || sym.Kind == symbols.SymbolMetaclass {
+		return true
+	}
+	// A `datatype` or `function` is a type too, whatever kind the builder files
+	// it under (KerML 1.1 §8.3.2, §9.2.9).
+	_, ok := implicitKerMLBases[sym.Keyword()]
+	return ok
 }
 
 // implicitKerMLFeatureBase returns the base feature a KerML feature declaration
@@ -844,6 +854,11 @@ func (m *Model) AllDeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
+	}
+	// A record names the base usages its kind implied among its supertypes; the
+	// typing it implied is read from them as any other, the declaration being gone.
+	if sym.Recorded() {
+		return m.recordedElements(sym, sym.Facts.ImpliedSupers)
 	}
 	// The generals sym has otherwise are its direct supertypes less the base
 	// features its kind could imply, which DirectSupertypes appends last.

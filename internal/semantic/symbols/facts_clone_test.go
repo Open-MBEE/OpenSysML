@@ -16,6 +16,7 @@ func pathsOf(f LibraryFacts) [][]int32 {
 		}
 	}
 	add(f.Supers...)
+	add(f.ImpliedSupers...)
 	add(f.Redefines...)
 	add(f.About...)
 	add(f.Ends...)
@@ -40,6 +41,7 @@ func TestLibraryFactsCloneOwnsEveryPath(t *testing.T) {
 	ref := func(fqn string) ElementRef { return ElementRef{FQN: fqn, Path: []int32{1, 2}, Doc: "a.sysml"} }
 	facts := LibraryFacts{
 		Supers:          []ElementRef{ref("S")},
+		ImpliedSupers:   []ElementRef{ref("I")},
 		Redefines:       []ElementRef{ref("R")},
 		About:           []ElementRef{ref("A")},
 		Ends:            []ElementRef{ref("E")},
@@ -54,7 +56,7 @@ func TestLibraryFactsCloneOwnsEveryPath(t *testing.T) {
 	}
 	clone := facts.Clone()
 	cloned := pathsOf(clone)
-	if want := 13; len(cloned) != want {
+	if want := 14; len(cloned) != want {
 		t.Fatalf("the clone holds %d references, want %d", len(cloned), want)
 	}
 	for _, p := range cloned {

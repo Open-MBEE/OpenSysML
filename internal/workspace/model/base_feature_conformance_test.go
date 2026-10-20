@@ -124,3 +124,45 @@ func TestUsageSubsetsTheBaseUsageOfItsKind(t *testing.T) {
 		})
 	}
 }
+
+// TestKerMLTypeDeclarationsSubsetNoBaseFeature covers the KerML type
+// declarations the parser records as usage nodes and the builder files under a
+// definition kind — `datatype`, `function` — beside `class`: each specializes
+// the base type of its kind and subsets no base feature (KerML 1.1 §8.3.2,
+// §9.2.9), while a feature typed by a datatype subsets `Base::dataValues`
+// (KerML 1.1 §8.4.2).
+func TestKerMLTypeDeclarationsSubsetNoBaseFeature(t *testing.T) {
+	const kerml = `package K {
+		datatype D; function F; class C;
+		feature fd : D; feature fc : C;
+	}`
+	for _, tc := range []struct {
+		name, base, typ string
+	}{
+		{"D", "Base::DataValue", ""},
+		{"F", "Performances::Evaluation", ""},
+		{"C", "Occurrences::Occurrence", ""},
+		{"fd", "Base::dataValues", "K::D"},
+		{"fc", "Occurrences::occurrences", "K::C"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, ws, sym := baseFeatureModel(t, "file:///types.kerml", kerml, "K", tc.name)
+			base := libSymbol(t, ws, tc.base)
+			supers := m.DirectSupertypes(sym)
+			if !slices.Contains(supers, base) {
+				t.Errorf("DirectSupertypes(%s) = %v, want %s among them", tc.name, fqns(supers), tc.base)
+			}
+			if tc.typ == "" {
+				for _, super := range supers {
+					if super.IsFeature() {
+						t.Errorf("DirectSupertypes(%s) = %v: a type subsets no feature", tc.name, fqns(supers))
+					}
+				}
+				return
+			}
+			if types := fqns(m.FeatureTypeSet(sym)); !slices.Equal(types, []string{tc.typ}) {
+				t.Errorf("FeatureTypeSet(%s) = %v, want [%s]", tc.name, types, tc.typ)
+			}
+		})
+	}
+}

@@ -155,13 +155,18 @@ func (w *interfaceWriter) refs(of *symbols.Symbol, syms []*symbols.Symbol, what 
 // facts states what sym's declaration yields, as its record carries it.
 func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	m := w.model
+	supers := m.DirectSupertypes(sym)
+	implied := slices.DeleteFunc(slices.Clone(m.ImpliedBaseFeatures(sym)), func(base *symbols.Symbol) bool {
+		return !slices.Contains(supers, base)
+	})
 	facts := symbols.LibraryFacts{
-		Supers:    w.refs(sym, m.DirectSupertypes(sym), "supertype"),
-		Unit:      unitFactsEntry(unitFactsOf(sym, m, w.idx)),
-		Dimension: dimensionFactsEntry(dimensionFactsOf(sym, m, w.idx)),
-		Abstract:  symbols.IsAbstract(sym),
-		Redefines: w.refs(sym, m.RedefinedFeatures(sym), "redefined feature"),
-		About:     w.refs(sym, m.AnnotatedElementsOf(sym), "annotated element"),
+		Supers:        w.refs(sym, supers, "supertype"),
+		ImpliedSupers: w.refs(sym, implied, "implied supertype"),
+		Unit:          unitFactsEntry(unitFactsOf(sym, m, w.idx)),
+		Dimension:     dimensionFactsEntry(dimensionFactsOf(sym, m, w.idx)),
+		Abstract:      symbols.IsAbstract(sym),
+		Redefines:     w.refs(sym, m.RedefinedFeatures(sym), "redefined feature"),
+		About:         w.refs(sym, m.AnnotatedElementsOf(sym), "annotated element"),
 	}
 	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok {
 		facts.RelatedFeatures = w.refs(sym, related, "related feature")
