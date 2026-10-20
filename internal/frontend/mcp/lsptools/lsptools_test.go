@@ -866,7 +866,7 @@ func TestWritesCannotLeaveTheRoot(t *testing.T) {
 	// A path that leaves the root lexically or through a link the write finds
 	// in place is refused by the root the writes go through.
 	for _, name := range []string{"../outside-write.sysml", "up/outside-write.sysml"} {
-		if err := writeFile(root, name, []byte("package Hijacked;\n")); err == nil {
+		if err := toolkit.WriteFile(root, name, []byte("package Hijacked;\n"), 0o600); err == nil {
 			t.Errorf("writing %s through the root succeeded", name)
 		}
 	}
