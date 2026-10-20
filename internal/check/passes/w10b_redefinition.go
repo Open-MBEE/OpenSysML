@@ -91,9 +91,7 @@ func (cc *constraintChecker) sameFeaturingType(sym, redefined *symbols.Symbol) b
 // (owningType.oclIsKindOf(Association) or owningType.oclIsKindOf(Connector))
 // implies redefiningFeature.isEnd`).
 func (cc *constraintChecker) ownedByAssociationOrConnector(sym *symbols.Symbol) bool {
-	owner := w10bOwningType(sym)
-	return cc.model.MetaclassConforms(owner, "KerML::Kernel::Association") ||
-		cc.model.MetaclassConforms(owner, "KerML::Kernel::Connector")
+	return cc.model.IsAssociationOrConnector(w10bOwningType(sym))
 }
 
 // w10bIsEndFeature reports whether sym is an end feature: an `end` modifier, or
