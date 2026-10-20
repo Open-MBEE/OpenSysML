@@ -52,7 +52,8 @@ const sweepSystemsModel = `package Probe {
 		event occurrence ev;
 		perform action pa : A2;
 		exhibit state es : S1;
-		satisfy requirement sr : R1 by p2;
+		satisfy requirement sr : R1 by sub;
+		satisfy requirement srOne : R1 by p2;
 		assert constraint ac : C1 { in x :>> x = 1.0; in y :>> y = 2.0; }
 		include use case iu : U1;
 		attribute :>> mass = 3.0 [kg];
