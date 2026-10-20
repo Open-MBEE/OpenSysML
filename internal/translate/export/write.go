@@ -14,8 +14,8 @@ import (
 const newFileMode = 0o644
 
 // maxTempStemBytes bounds the destination's name inside the temporary file's, so
-// that with the dot, the separator and CreateTemp's random digits it still fits
-// a 255-byte path component wherever the destination itself does.
+// that with the dot, the separator and a random suffix of up to twelve bytes it
+// still fits a 255-byte path component wherever the destination itself does.
 const maxTempStemBytes = 240
 
 // WriteFile writes a converted model to path, reporting whether it replaced a
@@ -99,7 +99,7 @@ func stage(path, target string, mode os.FileMode, data []byte) (s *Staged, err e
 	case !info.IsDir():
 		return nil, fmt.Errorf("cannot write %s: %s is not a directory", path, dir)
 	}
-	tmp, err := os.CreateTemp(dir, "."+tempStem(filepath.Base(target))+".*")
+	tmp, err := os.CreateTemp(dir, "."+TempStem(filepath.Base(target))+".*")
 	if err != nil {
 		return nil, writeError(path, err)
 	}
@@ -146,8 +146,9 @@ func (s *Staged) Discard() {
 	_ = os.Remove(s.name)
 }
 
-// tempStem cuts a long file name to maxTempStemBytes without splitting a UTF-8 sequence.
-func tempStem(base string) string {
+// TempStem is base cut to fit a temporary file's name beside it, with a dot, a
+// separator and up to twelve random bytes added, without splitting a UTF-8 sequence.
+func TempStem(base string) string {
 	n := maxTempStemBytes
 	if len(base) <= n {
 		return base

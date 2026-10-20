@@ -35,6 +35,11 @@ type element struct {
 	iri         string
 	metaclass   string
 	memberIndex int
+	// indexStated marks a sysx:memberIndex the graph carries; positional marks
+	// an index taken instead from a positional qualifiedName (`Owner::@3`), the
+	// place the encoder named the member by.
+	indexStated bool
+	positional  bool
 	// trailing marks a result expression the graph gives no index: it follows
 	// every indexed member, as the grammar has it.
 	trailing bool
@@ -122,6 +127,12 @@ func toSysML(graph *rdf.Graph, warn func(string), owned bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	statedNames := map[string]bool{}
+	for _, subject := range graph.Subjects() {
+		if graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+			statedNames[subject.Value] = true
+		}
+	}
 	// A graph in the normative element form — the toolkit's interchange JSON —
 	// mints what this mapping collapses; complete it with the collapsed
 	// properties and qualified names the decoder reads before anything else.
@@ -158,7 +169,7 @@ func toSysML(graph *rdf.Graph, warn func(string), owned bool) ([]byte, error) {
 	// The first rendering writes every reference fully qualified; reading it
 	// chooses each the shortest spelling that reaches its element. Later
 	// renderings are re-read the same way until every spelling still does.
-	first := newDecoder(graph, metaclasses, nil, report)
+	first := newDecoder(graph, metaclasses, statedNames, nil, report)
 	text, roots, err := first.notation()
 	if err != nil {
 		return nil, err
@@ -172,7 +183,7 @@ func toSysML(graph *rdf.Graph, warn func(string), owned bool) ([]byte, error) {
 		return nil, err
 	}
 	for {
-		d := newDecoder(graph, metaclasses, names, report)
+		d := newDecoder(graph, metaclasses, statedNames, names, report)
 		if text, _, err = d.notation(); err != nil {
 			return nil, err
 		}
@@ -187,10 +198,11 @@ func toSysML(graph *rdf.Graph, warn func(string), owned bool) ([]byte, error) {
 	}
 }
 
-func newDecoder(graph *rdf.Graph, metaclasses map[rdf.Term]string, names *nameChoices, warn func(string)) *decoder {
+func newDecoder(graph *rdf.Graph, metaclasses map[rdf.Term]string, statedNames map[string]bool, names *nameChoices, warn func(string)) *decoder {
 	subjects := graph.Subjects()
 	meta := func(term rdf.Term) string { return rdf.LocalName(metaclasses[term]) }
 	d := &decoder{
+		statedNames:          statedNames,
 		graph:                graph,
 		metaclasses:          metaclasses,
 		warn:                 warn,
@@ -682,6 +694,10 @@ type membership struct {
 
 type decoder struct {
 	graph *rdf.Graph
+	// statedNames are the subjects whose sysml:qualifiedName the graph itself
+	// stated, as against one derived for it; only a stated positional name
+	// (`Owner::@3`) places its member.
+	statedNames map[string]bool
 	// metaclasses is the class each subject is written as, settled by checkTypes.
 	metaclasses map[rdf.Term]string
 	byIRI       map[string]*element
@@ -857,8 +873,14 @@ func (d *decoder) readElement(subject rdf.Term) (*element, error) {
 		metaclass:   metaclass,
 		memberIndex: intOf(d.graph, subject, rdf.OpenSysML+xMemberIndex),
 	}
-	el.trailing = !d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex) && d.isResultExpression(el)
+	el.indexStated = d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex)
+	el.trailing = !el.indexStated && d.isResultExpression(el)
 	el.qname, _ = d.stringOf(el, rdf.SysML+pQualifiedName)
+	if !el.indexStated && !el.trailing && d.statedNames[subject.Value] {
+		if n, ok := positionalIndex(d.graph, subject); ok {
+			el.memberIndex, el.positional = n, true
+		}
+	}
 	// The identity key. An old graph without sysml:elementId is keyed on
 	// the encoding of its name, which is what its IRIs carry.
 	if id, ok := d.stringOf(el, rdf.SysML+pElementID); ok {
@@ -1587,7 +1609,18 @@ func nameMembers(members []*element, owner string) {
 
 // sortByIndex orders members by sysx:memberIndex, a result expression stated
 // without one after them all; members alike in both keep the graph's order.
+// Where no member states an index, the ones named by their position take it,
+// and the others fill the remaining places in the graph's order: a store that
+// keeps no order on ownedRelationship would otherwise drift the positional names.
 func sortByIndex(elements []*element) {
+	stated := false
+	for _, el := range elements {
+		stated = stated || el.indexStated
+	}
+	if !stated {
+		seatPositional(elements)
+		return
+	}
 	sort.SliceStable(elements, func(i, j int) bool {
 		a, b := elements[i], elements[j]
 		if a.trailing != b.trailing {
@@ -1595,6 +1628,40 @@ func sortByIndex(elements []*element) {
 		}
 		return a.memberIndex < b.memberIndex
 	})
+}
+
+// seatPositional places each positionally named member at its stated index
+// among the non-trailing members, the rest keeping their order, in place.
+func seatPositional(elements []*element) {
+	var leading, trailing []*element
+	for _, el := range elements {
+		if el.trailing {
+			trailing = append(trailing, el)
+		} else {
+			leading = append(leading, el)
+		}
+	}
+	seats := map[int]*element{}
+	unseated := make([]*element, 0, len(leading))
+	for _, el := range leading {
+		if el.positional && el.memberIndex < len(leading) {
+			if _, taken := seats[el.memberIndex]; !taken {
+				seats[el.memberIndex] = el
+				continue
+			}
+		}
+		unseated = append(unseated, el)
+	}
+	next := 0
+	for i := range leading {
+		if el, ok := seats[i]; ok {
+			elements[i] = el
+			continue
+		}
+		elements[i] = unseated[next]
+		next++
+	}
+	copy(elements[len(leading):], trailing)
 }
 
 // print writes one element and, recursively, its members, recording where in

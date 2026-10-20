@@ -166,7 +166,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-330 case(s): 319 both reject, 0 only the pilot rejects, 11 only we reject, 0 both accept
+331 case(s): 320 both reject, 0 only the pilot rejects, 11 only we reject, 0 both accept
   of which 3 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -174,7 +174,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 12 | 12 | 0 | 0 | 0 |
 | grammar | 112 | 112 | 0 | 0 | 0 |
-| semantic | 171 | 160 | 0 | 11 | 0 |
+| semantic | 172 | 161 | 0 | 11 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the eleven ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -245,9 +245,9 @@ only features that have none, so both validators reject each end under
 `validateConnectorTypeFeaturing`) to 311, and `x10` (KerML's `connector` declared in a `.sysml` file, which the pinned SysML grammar has no production for — `no viable alternative at input 'c'` — and which we warn as `kerml-notation` by default and reject under strict) to 312, and `x11` (an indexed connector end, `connect s.y#(1) to k.u`, which the pinned grammar has no production for — `mismatched input '#' expecting 'to'` — and which we report as `nonstandard-notation` by default and reject under strict) to 313, and `s102`/`s103` (a part subsetting an attribute definition and a part redefining a part definition: KerML's `Subsetting::subsettedFeature` and `Redefinition::redefinedFeature` are typed Feature, a rule SysML usages inherit, so the pilot fails to link either — `Couldn't resolve reference to Feature` — and we report `subsets`/`redefines target must be a feature` at the same span, in `.sysml` sources as in `.kerml` ones) to 315, and `s104`–`s107` (a second objective in an analysis case definition and in an analysis case usage, `Only one objective is allowed.`, and a declared `exhibit state e references p;` / `perform action f references p;` naming a part, `Must reference a state.` / `Must reference an action.` at the `p` — each reported where the pilot reports it) to 319; `s20b` (an `include` whose target is a use case definition — `useCaseIncluded` is a reference subsetting, so a definition is no feature it can name; both validators report `Must reference a use case.` under `validateIncludeUseCaseUsageReference`) joined later, and the corpus stands at 323. The owning-body members `g82`–`g85`
 (`frame` in a view and a view def body, `filter` in a rendering def body, `accept` in a view body —
 each a syntax error under the pinned grammar, as our parser now reports them) and `x12` (`then
-<target>;` in a view body, a succession member no non-action body admits) brought it to 328, and
-the two definition-end usage cases (`connection-def-end-not-usage`, `flow-def-end-not-usage`), both
-ours-only, to 330.
+<target>;` in a view body, a succession member no non-action body admits) brought it to 328; `s108`
+(a usage subsetting a constant usage) to 329; and the two definition-end usage cases
+(`connection-def-end-not-usage`, `flow-def-end-not-usage`), both ours-only, to 331.
 The KerML constraints in that
 source reopened 14 gaps — all of them semantic rules the pilot enforces and we did not; the
 named-argument validation that landed alongside closed one of them (`k33`), the constructor
@@ -292,7 +292,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 330 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 331 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 
