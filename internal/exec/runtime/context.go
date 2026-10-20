@@ -261,6 +261,9 @@ type Context struct {
 	// deriving are the `=` values being derived, innermost last; every feature
 	// value read while one is records it as a dependent (see dependents.go).
 	deriving []derivation
+	// mirroringBodyCell counts the body-cell mirrors writing an occurrence feature, whose
+	// write the cell they mirror need not adopt.
+	mirroringBodyCell int
 	// tracing observes the derivations under way, innermost last, for the reads
 	// that decide whether each is one every occurrence of its shape shares.
 	tracing []derivationTrace

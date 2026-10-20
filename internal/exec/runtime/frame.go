@@ -190,6 +190,7 @@ func (f frame) read(ctx *Context, name string) (Value, bool, error) {
 		}
 	}
 	if held, ok := f.occurrenceValue(name, ok); ok {
+		f.set(name, held) // the run's data mirrors what its occurrence holds
 		return held, true, nil
 	}
 	if !ok && f.perf != nil && f.perf.unvalued[name] {

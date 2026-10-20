@@ -372,9 +372,17 @@ func (ctx *Context) mirrorBodyCell(inst *Instance, name string, cell *bodyCell, 
 	}
 	ctx.noteProbeWrite(fv)
 	fv.body = cell
+	// A write that landed on the occurrence feature is its value, not the cell's derivation.
+	if fv.Written {
+		ctx.listRead(&cell.fv, fv)
+		return fv.HeldValue(), nil
+	}
 	deriving := ctx.derivingValue(fv)
 	if !deriving {
-		if err := inst.BindFeatureValue(ctx, name, value); err != nil {
+		ctx.mirroringBodyCell++
+		err := inst.BindFeatureValue(ctx, name, value)
+		ctx.mirroringBodyCell--
+		if err != nil {
 			return value, err
 		}
 	}
@@ -384,6 +392,20 @@ func (ctx *Context) mirrorBodyCell(inst *Instance, name string, cell *bodyCell, 
 		return value, nil
 	}
 	return fv.HeldValue(), nil
+}
+
+// adoptBodyCellValue has the body cell exposed through an occurrence feature hold
+// what a write landed on that feature: the run's data mirrors its occurrence.
+func (ctx *Context) adoptBodyCellValue(fv *FeatureValue) {
+	cell := fv.body
+	if cell == nil || cell.owner == nil || ctx.mirroringBodyCell != 0 || ctx.derivingValue(&cell.fv) {
+		return
+	}
+	value := fv.HeldValue()
+	held := ctx.beforeWrite(&cell.fv)
+	cell.owner.vars[cell.name] = value
+	cell.fv.Value, cell.fv.Values, cell.fv.Materialized = value, Value{}, true
+	ctx.afterWrite(&cell.fv, held)
 }
 
 // clearBodyValue clears a stored value and invalidates its dependents.
