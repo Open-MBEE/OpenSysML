@@ -1452,15 +1452,26 @@ function html(
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SysML diagram</title>
     <style>
-      body { margin: 0; padding: 0.5rem; font-family: var(--vscode-font-family); color: var(--vscode-foreground); }
-      #bar { display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; }
+      body { margin: 0; padding: 0.5rem; font-family: var(--vscode-font-family); color: var(--vscode-foreground);
+        box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; }
+      #bar { display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; flex-wrap: wrap; }
+      #nav { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto; white-space: nowrap; }
+      #nav button { font: inherit; padding: 0 0.5rem; min-width: 1.75rem; height: 1.6rem; cursor: pointer;
+        color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+        background: var(--vscode-button-secondaryBackground, transparent);
+        border: 1px solid var(--vscode-button-border, var(--vscode-widget-border, transparent)); border-radius: 2px; }
+      #nav button:hover { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-toolbar-hoverBackground)); }
+      #nav button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+      #zoom { min-width: 3.2em; text-align: center; font-size: 0.9em; opacity: 0.8; font-variant-numeric: tabular-nums; }
       #view { flex: 1 1 auto; max-width: 30rem; }
       #style { max-width: 14rem; }
       #kind { opacity: 0.8; font-size: 0.9em; }
       #add { max-width: 14rem; }
       #status { color: var(--vscode-errorForeground); min-height: 1.2em; font-size: 0.9em; white-space: pre-wrap; }
       #status.hint { color: var(--vscode-descriptionForeground, var(--vscode-foreground)); }
-      #diagram { overflow: auto; }
+      /* The diagram is the scroll container, so the viewport is its scroll offsets and the toolbar stays put. */
+      #diagram { overflow: auto; flex: 1 1 auto; min-height: 0; }
+      #diagram.panning, #diagram.panning * { cursor: grabbing; }
       #menu { position: fixed; z-index: 10; min-width: 12rem; max-height: calc(100vh - 1rem); overflow-y: auto;
         padding: 0.25rem 0; margin: 0; list-style: none;
         background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
@@ -1584,6 +1595,13 @@ function html(
       <select id="style"></select>
       <span id="kind"></span>
       <select id="add" hidden aria-label="Add to the model"></select>
+      <span id="nav" role="group" aria-label="Zoom">
+        <button id="zoom-out" type="button" title="Zoom out (-)" aria-label="Zoom out">−</button>
+        <span id="zoom" aria-live="polite">100%</span>
+        <button id="zoom-in" type="button" title="Zoom in (+)" aria-label="Zoom in">+</button>
+        <button id="zoom-fit" type="button" title="Fit the whole diagram in view">Fit</button>
+        <button id="zoom-reset" type="button" title="Actual size (0)">1:1</button>
+      </span>
     </div>
     <div id="status"></div>
     <div id="diagram" tabindex="-1"></div>

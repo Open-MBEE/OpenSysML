@@ -129,6 +129,17 @@ test("liftNode grows the canvas right and down to keep a node lifted past its ed
   assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${width} ${height}`);
 });
 
+test("liftNode keeps the zoom a canvas is drawn at while it grows", () => {
+  const layout = layoutCanvas(result);
+  const svg = drawCanvas(layout);
+  svg.setAttribute("width", String(layout.width * 2));
+  svg.setAttribute("height", String(layout.height * 2));
+  liftNode(svg, layout, "a", 1000, 500);
+  const viewBox = (svg.getAttribute("viewBox") ?? "").split(" ").map(Number);
+  assert.ok(viewBox[2] > layout.width && viewBox[3] > layout.height);
+  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(viewBox[2] * 2), String(viewBox[3] * 2)]);
+});
+
 test("drawCanvas opens the view on geometry the model puts left of or above the origin", () => {
   const layout = layoutCanvas({ ...result, nodes: [node("a", "tank", { x: -120, y: 40, width: 100, height: 50 })], edges: [] });
   const svg = drawCanvas(layout);

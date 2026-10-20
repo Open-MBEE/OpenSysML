@@ -20,6 +20,18 @@ import { dragHint, Drop, dropOn } from "./drop";
 import { emptyElement, emptyMessage, nothingLaidOut } from "./empty";
 import { tableOf } from "./table";
 import {
+  canvasSize,
+  type ClientPoint,
+  fitZoom,
+  readViewport,
+  sizeCanvas,
+  type Viewport,
+  wheelFactor,
+  ZOOM_STEP,
+  zoomAbout,
+  zoomLabel,
+} from "./viewport";
+import {
   CanvasLayout,
   insertedWaypoint,
   layoutCanvas,
@@ -53,16 +65,19 @@ const undrawable = document.getElementById("undrawable") as HTMLDetailsElement;
 const undrawableList = document.getElementById("undrawable-list") as HTMLElement;
 const adder = document.getElementById("add") as HTMLSelectElement;
 const menu = document.getElementById("menu") as HTMLUListElement;
+const zoomReadout = document.getElementById("zoom") as HTMLElement;
 
 const state = JSON.parse(body.dataset.state ?? "{}") as { uri?: string; avoid?: string };
 const documentURI = state.uri ?? "";
-const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string };
+const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string; viewport?: unknown };
 let selected = saved.view ?? "";
 // A rendering saved by an older extension is normalized like a fresh one, and
 // drawn in the look it was, or the default when it saved none.
 let last: RenderResult | undefined = saved.last === undefined ? undefined : normalizeRender(saved.last);
 let style: DiagramStyle = styleOf(saved.style);
 let selectedNode: string | undefined;
+/** How far the canvas is zoomed and where it is scrolled to; kept per panel across reloads. */
+let viewport: Viewport = readViewport(saved.viewport);
 /** The layout on screen, which gestures act on; undefined while a table or nothing is shown. */
 let layout: CanvasLayout | undefined;
 /** What ELK placed for the rendering on screen; undefined until it answers, and for kinds it does not lay out. */
@@ -136,8 +151,44 @@ window.addEventListener("keydown", (event) => {
     cancelGesture();
   } else if (event.key === "Shift" && !event.repeat) {
     drawDrag(true);
+  } else if (!event.ctrlKey && !event.metaKey && !event.altKey && !inControl(event.target)) {
+    // Bare +, - and 0 zoom the canvas; with a modifier they are the editor's own zoom.
+    switch (event.key) {
+      case "+":
+      case "=":
+        zoomBy(ZOOM_STEP);
+        break;
+      case "-":
+        zoomBy(1 / ZOOM_STEP);
+        break;
+      case "0":
+        resetZoom();
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
   }
 });
+// Ctrl+wheel, which a trackpad pinch arrives as, zooms about the pointer; a plain
+// wheel scrolls the canvas as any overflowing element.
+diagram.addEventListener("wheel", (event) => {
+  if (!(event.ctrlKey || event.metaKey) || !layout) {
+    return;
+  }
+  event.preventDefault();
+  const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * WHEEL_LINE_PX : event.deltaY;
+  setViewport(zoomAbout(viewport, wheelFactor(delta), clientPoint(event)));
+}, { passive: false });
+// Scrolling, by wheel or scrollbar, is where the viewport is; it is remembered so a reload comes back there.
+diagram.addEventListener("scroll", () => {
+  viewport = { ...viewport, scrollLeft: diagram.scrollLeft, scrollTop: diagram.scrollTop };
+  rememberSoon();
+});
+document.getElementById("zoom-in")?.addEventListener("click", () => zoomBy(ZOOM_STEP));
+document.getElementById("zoom-out")?.addEventListener("click", () => zoomBy(1 / ZOOM_STEP));
+document.getElementById("zoom-fit")?.addEventListener("click", () => fitCanvas());
+document.getElementById("zoom-reset")?.addEventListener("click", () => resetZoom());
 window.addEventListener("keyup", (event) => {
   if (event.key === "Shift") {
     drawDrag(false);
@@ -329,14 +380,95 @@ function draw(result: RenderResult): boolean {
 // show puts a layout on screen in place of what was there, the cursor's node marked.
 function show(shown: CanvasLayout): void {
   diagram.replaceChildren(drawCanvas(shown));
+  applyViewport();
   highlight(selectedNode);
+}
+
+/** A pixel per line of a wheel that reports lines rather than pixels. */
+const WHEEL_LINE_PX = 16;
+
+// inControl is whether a key went to a toolbar control, whose own keys the canvas leaves alone.
+function inControl(target: EventTarget | null): boolean {
+  return target instanceof HTMLSelectElement || target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement || target instanceof HTMLButtonElement;
+}
+
+// clientPoint is where a pointer or wheel event is in the diagram's client area.
+function clientPoint(event: MouseEvent): ClientPoint {
+  const rect = diagram.getBoundingClientRect();
+  return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+}
+
+// applyViewport draws the canvas on screen at the viewport's zoom and scrolls to its offsets.
+function applyViewport(): void {
+  const svg = diagram.querySelector("svg");
+  if (!svg) {
+    return;
+  }
+  sizeCanvas(svg, viewport.zoom);
+  diagram.scrollLeft = viewport.scrollLeft;
+  diagram.scrollTop = viewport.scrollTop;
+  // The container may stop short of the offset asked for; what it settled on is the truth.
+  viewport = { ...viewport, scrollLeft: diagram.scrollLeft, scrollTop: diagram.scrollTop };
+  zoomReadout.textContent = zoomLabel(viewport.zoom);
+}
+
+// setViewport moves the viewport and keeps it.
+function setViewport(next: Viewport): void {
+  viewport = next;
+  applyViewport();
+  rememberSoon();
+}
+
+// zoomBy zooms about the centre of what is on screen.
+function zoomBy(factor: number): void {
+  setViewport(zoomAbout(viewport, factor, { x: diagram.clientWidth / 2, y: diagram.clientHeight / 2 }));
+}
+
+// resetZoom shows the canvas at 1:1, keeping the centre of what is on screen in view.
+function resetZoom(): void {
+  zoomBy(1 / viewport.zoom);
+}
+
+// fitCanvas zooms so the whole canvas is in view, from its top-left corner.
+function fitCanvas(): void {
+  const svg = diagram.querySelector("svg");
+  const size = svg && canvasSize(svg);
+  if (!size) {
+    return;
+  }
+  setViewport({ zoom: fitZoom(size, { width: diagram.clientWidth, height: diagram.clientHeight }), scrollLeft: 0, scrollTop: 0 });
+}
+
+let rememberTimer: ReturnType<typeof setTimeout> | undefined;
+
+// rememberSoon keeps the state once a burst of scrolling or zooming has settled.
+function rememberSoon(): void {
+  if (rememberTimer !== undefined) {
+    clearTimeout(rememberTimer);
+  }
+  rememberTimer = setTimeout(() => {
+    rememberTimer = undefined;
+    remember();
+  }, 150);
 }
 
 /** A drag in progress: what was pressed, where, and what it has moved to so far. */
 type Gesture =
   | NodeGesture
+  | PanGesture
   | { kind: "waypoint"; edge: number; point: number; start: RenderPoint; pointer: number; placements?: Placements }
   | { kind: "segment"; edge: number; segment: number; start: RenderPoint; pointer: number; placements?: Placements };
+
+// A press on empty canvas pans the view once it moves past the drag threshold;
+// released where it was pressed, it is a click on nothing.
+interface PanGesture {
+  kind: "pan";
+  pointer: number;
+  from: ClientPoint;
+  scroll: { left: number; top: number };
+  moved: boolean;
+}
 
 // A node drag also tracks what a release would do: `at` is where the pointer holds the
 // node, `drop` the node under it while Shift is held.
@@ -381,10 +513,17 @@ function beginGesture(event: PointerEvent): void {
   } else {
     const node = nodeAt(event.target, last);
     if (!node) {
-      return;
+      gesture = {
+        kind: "pan",
+        pointer: event.pointerId,
+        from: clientPoint(event),
+        scroll: { left: diagram.scrollLeft, top: diagram.scrollTop },
+        moved: false,
+      };
+    } else {
+      const entry = layout.nodes.get(node.id);
+      gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, fixed: !entry || !movable(layout, entry) };
     }
-    const entry = layout.nodes.get(node.id);
-    gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, fixed: !entry || !movable(layout, entry) };
   }
   event.preventDefault();
   // Captured so the release is seen wherever the pointer goes, a fixed node's too;
@@ -399,6 +538,10 @@ function moveGesture(event: PointerEvent): void {
     return;
   }
   if (gesture.kind === "node" && gesture.fixed) {
+    return;
+  }
+  if (gesture.kind === "pan") {
+    panTo(gesture, clientPoint(event));
     return;
   }
   const result = last;
@@ -494,7 +637,13 @@ function endGesture(event: PointerEvent): void {
   }
   const done = gesture;
   gesture = undefined;
-  diagram.classList.remove("dragging", "refused");
+  diagram.classList.remove("dragging", "refused", "panning");
+  if (done.kind === "pan") {
+    if (done.moved) {
+      rememberSoon();
+    }
+    return;
+  }
   if (done.placements) {
     clickedWaypoint = undefined;
     showStatus("");
@@ -530,15 +679,28 @@ function cancelGesture(): void {
   if (!gesture) {
     return;
   }
-  const moved = gesture.placements !== undefined;
+  const moved = gesture.kind !== "pan" && gesture.placements !== undefined;
   gesture = undefined;
-  diagram.classList.remove("dragging", "refused");
+  diagram.classList.remove("dragging", "refused", "panning");
   if (moved || unrouted) {
     settle();
   }
   if (moved) {
     showStatus("");
   }
+}
+
+// panTo scrolls the canvas by how far the pointer has come since the press, once past the drag threshold.
+function panTo(pan: PanGesture, at: ClientPoint): void {
+  const dx = at.x - pan.from.x;
+  const dy = at.y - pan.from.y;
+  if (!pan.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) {
+    return;
+  }
+  pan.moved = true;
+  diagram.classList.add("panning");
+  diagram.scrollLeft = pan.scroll.left - dx;
+  diagram.scrollTop = pan.scroll.top - dy;
 }
 
 // settle shows the model's layout after a gesture that made no edit, laid out again if the router loaded meanwhile.
@@ -749,5 +911,5 @@ function highlight(id: string | undefined): void {
 
 // remember keeps what the panel is showing, so a window reload restores it.
 function remember(): void {
-  vscode.setState({ uri: documentURI, view: selected, last, style });
+  vscode.setState({ uri: documentURI, view: selected, last, style, viewport });
 }
