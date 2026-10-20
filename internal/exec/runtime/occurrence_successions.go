@@ -58,6 +58,7 @@ func (ctx *Context) recordFiredSuccessions(behavior *ObjectBehavior) {
 			prior := ctx.fired[successor.ID]
 			ctx.fired[successor.ID] = append(slices.Clip(prior), predecessor.ID)
 			ctx.noteProbeUndo(func() { ctx.fired[successor.ID] = prior })
+			ctx.livesChanged()
 		}
 	}
 }
@@ -66,15 +67,16 @@ func (ctx *Context) recordFiredSuccessions(behavior *ObjectBehavior) {
 // fired: its immediate predecessors or successors, or all of them through the
 // chain; false for a member that is none of these.
 func (ctx *Context) successionValues(inst *Instance, sym *symbols.Symbol) ([]Value, bool, error) {
+	ctx.readsLives()
 	var ids []int64
 	switch {
-	case ctx.isLibraryMember(sym, occurrenceImmediatePredecessorsFQN):
+	case ctx.isLibraryMember(sym, inst.Type, occurrenceImmediatePredecessorsFQN):
 		ids = ctx.fired[inst.ID]
-	case ctx.isLibraryMember(sym, occurrencePredecessorsFQN):
+	case ctx.isLibraryMember(sym, inst.Type, occurrencePredecessorsFQN):
 		ids = ctx.firedClosure(inst.ID, func(id int64) []int64 { return ctx.fired[id] })
-	case ctx.isLibraryMember(sym, occurrenceImmediateSuccessorsFQN):
+	case ctx.isLibraryMember(sym, inst.Type, occurrenceImmediateSuccessorsFQN):
 		ids = ctx.firedSuccessors(inst.ID)
-	case ctx.isLibraryMember(sym, occurrenceSuccessorsFQN):
+	case ctx.isLibraryMember(sym, inst.Type, occurrenceSuccessorsFQN):
 		ids = ctx.firedClosure(inst.ID, ctx.firedSuccessors)
 	default:
 		return nil, false, nil
@@ -90,22 +92,31 @@ func (ctx *Context) successionValues(inst *Instance, sym *symbols.Symbol) ([]Val
 	return values, true, nil
 }
 
-// isLibraryMember reports whether sym is the library member fqn names, or a
-// member of the object's type that redefines it.
-func (ctx *Context) isLibraryMember(sym *symbols.Symbol, fqn string) bool {
+// isLibraryMember reports whether sym, a member of typ, is the library member
+// fqn names or redefines it through any chain of redefinitions.
+func (ctx *Context) isLibraryMember(sym, typ *symbols.Symbol, fqn string) bool {
 	lib := ctx.librarySymbol(fqn)
 	if lib == nil {
 		return false
 	}
-	if sym == lib {
-		return true
-	}
-	for _, redefined := range ctx.redefinedFeatures(sym, nil) {
-		if redefined == lib {
+	seen := map[*symbols.Symbol]bool{}
+	var redefines func(sym *symbols.Symbol) bool
+	redefines = func(sym *symbols.Symbol) bool {
+		if sym == lib {
 			return true
 		}
+		if sym == nil || seen[sym] {
+			return false
+		}
+		seen[sym] = true
+		for _, redefined := range ctx.redefinedFeatures(sym, typ) {
+			if redefines(redefined) {
+				return true
+			}
+		}
+		return false
 	}
-	return false
+	return redefines(sym)
 }
 
 // firedSuccessors are the performances the successions from id fired for, in

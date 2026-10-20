@@ -4861,7 +4861,9 @@ func (e *StateExecutor) deliverPendingSignal() (bool, error) {
 	if !ok {
 		return e.hasDueEvent(), nil
 	}
-	if err := e.ctx.recordTransfer(msg, e.occurrence, e.self); err != nil {
+	if accepting, err := e.materializeOccurrence(); err != nil {
+		return false, err
+	} else if err := e.ctx.recordTransfer(msg, accepting, e.self); err != nil {
 		return false, err
 	}
 	e.enqueueSignal(msg)

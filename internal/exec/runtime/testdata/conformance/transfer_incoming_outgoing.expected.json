@@ -1,0 +1,18 @@
+{
+  "type": "instance",
+  "instantiate": "test::Link",
+  "libraries": true,
+  "slots": {
+    "got": {"type": "Integer", "value": 1},
+    "sent": {"type": "Integer", "value": 1},
+    "sentByPart": {"type": "Integer", "value": 1},
+    "sentByPort": {"type": "Integer", "value": 1},
+    "received": {"type": "Integer", "value": 1},
+    "receivedByPort": {"type": "Integer", "value": 1},
+    "nothingIn": {"type": "Integer", "value": 0},
+    "sameTransfer": {"type": "Boolean", "value": true},
+    "fromSnd": {"type": "Boolean", "value": true},
+    "toRcv": {"type": "Boolean", "value": true},
+    "carried": {"type": "Integer", "value": 1}
+  }
+}

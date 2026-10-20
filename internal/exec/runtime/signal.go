@@ -465,7 +465,10 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 	if receiverObjects != nil && len(copies) == 0 {
 		return &unreachableSendReceiverError{Port: send.Target, Receiver: exprText(send.ReceiverExpr)}
 	}
-	performance := objectID(ec.occurrence)
+	var performance int64
+	if ec != nil {
+		performance = objectID(ec.occurrence)
+	}
 	port, _ := ctx.portInstanceID(holder, routed.Target)
 	for _, c := range copies {
 		c.msg.SenderPerformance, c.msg.SenderPort = performance, port

@@ -68,6 +68,7 @@ func (ctx *Context) recordTransfer(msg Message, receiver, receiverObject *Instan
 	before := len(ctx.transfers)
 	ctx.transfers = append(ctx.transfers, record)
 	ctx.noteProbeUndo(func() { ctx.transfers = ctx.transfers[:before] })
+	ctx.livesChanged()
 	return nil
 }
 
@@ -110,13 +111,14 @@ func nonzeroIDs(ids ...int64) []int64 {
 // run completed: those that reached it (`incomingTransfers`) or left it
 // (`outgoingTransfers`); false for a member that is neither.
 func (ctx *Context) transferValues(inst *Instance, sym *symbols.Symbol) ([]Value, bool, error) {
+	ctx.readsLives()
 	var ends func(transferRecord) []int64
 	switch {
-	case ctx.isLibraryMember(sym, occurrenceIncomingTransfersFQN):
+	case ctx.isLibraryMember(sym, inst.Type, occurrenceIncomingTransfersFQN):
 		ends = func(r transferRecord) []int64 { return r.targets }
-	case ctx.isLibraryMember(sym, occurrenceOutgoingTransfersFQN):
+	case ctx.isLibraryMember(sym, inst.Type, occurrenceOutgoingTransfersFQN):
 		ends = func(r transferRecord) []int64 { return r.sources }
-	case ctx.isLibraryMember(sym, transferFQN+"::payload"):
+	case ctx.isLibraryMember(sym, inst.Type, transferFQN+"::payload"):
 		// ends stays nil: the payload is the transfer object's own.
 	default:
 		return nil, false, nil
@@ -156,11 +158,12 @@ func (ctx *Context) recordedValues(inst *Instance, sym *symbols.Symbol) ([]Value
 // object the run recorded (Transfers.kerml: the occurrences the transfer is
 // from and to); false for any other read.
 func (ctx *Context) transferEndValue(inst *Instance, sym *symbols.Symbol) (Value, bool, error) {
+	ctx.readsLives()
 	var end func(transferRecord) int64
 	switch {
-	case ctx.isLibraryMember(sym, transferFQN+"::source"):
+	case ctx.isLibraryMember(sym, inst.Type, transferFQN+"::source"):
 		end = func(r transferRecord) int64 { return r.source }
-	case ctx.isLibraryMember(sym, transferFQN+"::target"):
+	case ctx.isLibraryMember(sym, inst.Type, transferFQN+"::target"):
 		end = func(r transferRecord) int64 { return r.target }
 	default:
 		return Value{}, false, nil

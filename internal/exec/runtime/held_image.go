@@ -71,6 +71,11 @@ type HeldImage struct {
 	clockRun  int              // index into runStates, -1 for none
 	behaviors []imagedBehavior // in the attachment order of the context imaged
 	messages  []Message
+	// What the run recorded of the held objects: their snapshots, the successions
+	// that fired between them and the transfers between them (occurrence_*.go).
+	shots     map[int64]occurrenceShots
+	fired     map[int64][]int64
+	transfers []transferRecord
 }
 
 // imagedObject is one object by value: its identity, types, owner, lifetime,
@@ -350,6 +355,7 @@ func (t *imaging) object(inst *Instance) error {
 	for _, id := range obj.anonymous {
 		t.reach(id)
 	}
+	t.reachRecorded(inst)
 	owed := make(map[*FeatureValue]*sharedDefault, len(inst.owed))
 	for _, o := range inst.owed {
 		owed[o.fv] = o.shared
@@ -531,6 +537,49 @@ func (t *imaging) finish() {
 	for _, msg := range ctx.messages {
 		if (msg.Object == 0 && t.carriesBus()) || img.held[msg.Object] {
 			img.messages = append(img.messages, msg)
+		}
+	}
+	img.shots, img.fired = make(map[int64]occurrenceShots), make(map[int64][]int64)
+	for id, shots := range ctx.shots {
+		if img.held[id] {
+			img.shots[id] = shots
+		}
+	}
+	for id, predecessors := range ctx.fired {
+		if img.held[id] {
+			img.fired[id] = slices.Clone(predecessors)
+		}
+	}
+	for _, record := range ctx.transfers {
+		if img.held[record.id] {
+			img.transfers = append(img.transfers, record)
+		}
+	}
+}
+
+// reachRecorded reaches what the run recorded of inst: its snapshots, the
+// performances the successions that fired join it to, and the transfers it is
+// an end of, with their ends and payload.
+func (t *imaging) reachRecorded(inst *Instance) {
+	ctx := t.ctx
+	shots := ctx.shots[inst.ID]
+	t.reach(shots.start)
+	t.reach(shots.end)
+	for _, id := range ctx.fired[inst.ID] {
+		t.reach(id)
+	}
+	for _, record := range ctx.transfers {
+		if !slices.Contains(record.sources, inst.ID) && !slices.Contains(record.targets, inst.ID) {
+			continue
+		}
+		t.reach(record.id)
+		for _, id := range append(append(nonzeroIDs(record.source, record.target), record.sources...), record.targets...) {
+			t.reach(id)
+		}
+		for _, elem := range elementsOf(record.payload) {
+			if elem.Kind == ValInstance {
+				t.reach(elem.Instance)
+			}
 		}
 	}
 }
@@ -758,6 +807,7 @@ func (m *materializing) run() error {
 		m.edges(obj)
 		m.records(obj)
 	}
+	m.recordedOccurrences()
 	// The objects made are lives of dst: what derived from the lives, imaged or dst's own, derives again.
 	dst.livesChanged()
 	dst.activations = max(dst.activations, img.activations)
@@ -984,4 +1034,60 @@ func (m *materializing) message(msg Message) (Message, error) {
 		out.Value = &v
 	}
 	return out, nil
+}
+
+// recordedOccurrences brings what the image recorded of its objects to dst: the
+// snapshots handed out, the successions that fired and the transfers completed,
+// under the identities the objects were made with.
+func (m *materializing) recordedOccurrences() {
+	made := func(id int64) int64 {
+		if inst, ok := m.made[id]; ok {
+			return inst.ID
+		}
+		return 0
+	}
+	madeAll := func(ids []int64) []int64 {
+		out := make([]int64, 0, len(ids))
+		for _, id := range ids {
+			if to := made(id); to != 0 {
+				out = append(out, to)
+			}
+		}
+		return out
+	}
+	for id, shots := range m.img.shots {
+		if to := made(id); to != 0 {
+			m.dst.shots[to] = occurrenceShots{start: made(shots.start), end: made(shots.end)}
+		}
+	}
+	for id, predecessors := range m.img.fired {
+		if to := made(id); to != 0 {
+			m.dst.fired[to] = madeAll(predecessors)
+		}
+	}
+	for _, record := range m.img.transfers {
+		to := made(record.id)
+		if to == 0 || slices.ContainsFunc(m.dst.transfers, func(r transferRecord) bool { return r.id == to }) {
+			continue
+		}
+		payload := record.payload
+		if elems := elementsOf(payload); len(elems) > 0 {
+			mapped := make([]Value, 0, len(elems))
+			for _, elem := range elems {
+				if elem.Kind == ValInstance {
+					elem = Value{Kind: ValInstance, Instance: made(elem.Instance)}
+				}
+				mapped = append(mapped, elem)
+			}
+			if payload.Kind == ValInstance {
+				payload = mapped[0]
+			} else {
+				payload = sequenceOf(mapped)
+			}
+		}
+		m.dst.transfers = append(m.dst.transfers, transferRecord{
+			id: to, source: made(record.source), target: made(record.target), payload: payload,
+			sources: madeAll(record.sources), targets: madeAll(record.targets),
+		})
+	}
 }

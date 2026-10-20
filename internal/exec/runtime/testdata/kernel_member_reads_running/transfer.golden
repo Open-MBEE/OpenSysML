@@ -814,7 +814,7 @@ enclosedPerformances: [object of Running::transfer::Recv::rcv::r]  [static-only 
 immediatePredecessors: empty  [static-only pilot=decl]
 immediateSuccessors: empty  [static-only pilot=decl]
 incomingTransferSort: undetermined <undetermined>  [undetermined pilot=decl]
-incomingTransfers: empty  [static-only pilot=decl]
+incomingTransfers: [object of Transfers::Transfer]  [populated pilot=decl]
 incomingTransfersToSelf: undetermined <undetermined>  [undetermined pilot=decl]
 innerSpaceDimension: undetermined <undetermined>  [undetermined pilot=decl]
 innerSpaceOccurrences: empty  [static-only pilot=decl]
@@ -890,7 +890,7 @@ y.rcv.predecessors->SequenceFunctions::includes(x.snd): constant false  [populat
 x.snd.timeEnclosedOccurrences->SequenceFunctions::includes(y.rcv): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 65
+populated: 66
 refused: 12
-static-only: 657
+static-only: 656
 undetermined: 134
