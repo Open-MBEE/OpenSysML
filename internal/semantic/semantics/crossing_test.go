@@ -343,3 +343,37 @@ func TestCrossFeatureOrderedNonunique(t *testing.T) {
 		})
 	}
 }
+
+// A `member` binding connector or metadata feature ahead of the real cross
+// feature is skipped: KerML 1.1 Feature::ownedCrossFeature rejects both kinds.
+func TestOwnedCrossFeatureSkipsBindingAndMetadata(t *testing.T) {
+	m, root := buildModelNamed(t, "t.kerml", `package P {
+		class A; class B; class C; metaclass M;
+		assoc Q {
+			end feature a : A[1] { feature x : A[1]; feature y : A[1]; member binding bx of x = y; member feature c : C[0..*]; }
+			end feature b : B[1];
+		}
+		assoc R {
+			end feature a : A[1] { member metadata mm : M; member feature c : C[0..*]; }
+			end feature b : B[1];
+		}
+		assoc S {
+			end feature a : A[1] { member binding bx of a = a; }
+			end feature b : B[1];
+		}
+	}`)
+	p := sym(t, root, "P")
+	for _, name := range []string{"Q", "R"} {
+		end := nested(t, p.Scope, name, "a")
+		want := nested(t, p.Scope, name, "a", "c")
+		if got := m.OwnedCrossFeature(end); got != want {
+			t.Errorf("%s: OwnedCrossFeature = %v, want c", name, got)
+		}
+		if got := m.CrossFeature(end); got != want {
+			t.Errorf("%s: CrossFeature = %v, want c", name, got)
+		}
+	}
+	if got := m.OwnedCrossFeature(nested(t, p.Scope, "S", "a")); got != nil {
+		t.Errorf("S: OwnedCrossFeature = %v, want nil", got)
+	}
+}

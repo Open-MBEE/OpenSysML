@@ -54,9 +54,12 @@ func (m *Model) CrossFeature(sym *symbols.Symbol) *symbols.Symbol {
 	return cross
 }
 
-// OwnedCrossFeature returns the feature the end sym declares inline ahead of
-// itself, else the first `member feature` in its body: its cross feature when
-// it crosses nothing explicitly.
+// OwnedCrossFeature returns the feature the end sym declares inline ahead of itself, else the
+// first `member` feature of its body that is neither a binding connector nor a metadata feature:
+// its cross feature when it crosses nothing explicitly. KerML 1.1 Feature::ownedCrossFeature:
+// `ownedMember->selectByKind(Feature)->reject(oclIsKindOf(Multiplicity) or oclIsKindOf(MetadataFeature) or
+// oclIsKindOf(BindingConnector))->reject(owningMembership.oclIsKindOf(FeatureMembership) or
+// owningMembership.oclIsKindOf(FeatureValue))->first()`.
 func (m *Model) OwnedCrossFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Scope == nil || !declaresEnd(sym) || ownerSymbol(sym) == nil {
 		return nil
@@ -69,11 +72,20 @@ func (m *Model) OwnedCrossFeature(sym *symbols.Symbol) *symbols.Symbol {
 		if !ok || !wrapper.IsTypeFeature {
 			continue
 		}
-		if usage, isUsage := wrapper.Member.(*ast.Usage); isUsage {
+		if usage, isUsage := wrapper.Member.(*ast.Usage); isUsage && canBeOwnedCrossFeature(usage) {
 			return memberSymbol(sym.Scope, usage)
 		}
 	}
 	return nil
+}
+
+// canBeOwnedCrossFeature reports whether a `member` usage is of a kind ownedCrossFeature keeps.
+func canBeOwnedCrossFeature(usage *ast.Usage) bool {
+	switch usage.Kind {
+	case ast.UsageBinding, ast.UsageMetadata:
+		return false
+	}
+	return true
 }
 
 // owningEndOf returns the end feature whose owned cross feature sym is, or nil.
