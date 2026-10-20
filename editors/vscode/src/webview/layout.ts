@@ -123,6 +123,8 @@ export interface Overrides {
   bounds?: Box;
   /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route. */
   held?: CanvasLayout;
+  /** Edge kinds the panel hides: their edges are laid out but not drawn, routed around or counted in the extents, as an edge at a hidden node is. */
+  hiddenKinds?: ReadonlySet<string>;
 }
 
 /** What one completed gesture puts in the model. */
@@ -242,7 +244,7 @@ export function layoutCanvas(
     reach(nodeBounds.x + nodeBounds.width, nodeBounds.y + nodeBounds.height);
   }
   const edges = (result.edges ?? []).map((edge, index) =>
-    routeEdge(edge, index, placed, overrides.routes, auto),
+    routeEdge(edge, index, placed, overrides.routes, auto, overrides.hiddenKinds),
   );
   rerouteAroundBoxes(edges, placed, roots, overrides, auto);
   for (const edge of edges) {
@@ -1354,10 +1356,12 @@ function routeEdge(
   placed: Map<string, PlacedNode>,
   routes: Map<number, RenderPoint[] | undefined> | undefined,
   auto?: AutoLayout,
+  hiddenKinds?: ReadonlySet<string>,
 ): PlacedEdge {
   const stated = routes?.has(index) ? routes.get(index) : edge.route;
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
+  const hidden = source?.hidden === true || target?.hidden === true || hiddenKinds?.has(edge.kind) === true;
   const routed = autoRoute(edge, index, routes, auto, source, target);
   if (routed !== undefined) {
     // ELK's anchors already lie on the boxes' borders, so its polyline is drawn
@@ -1368,7 +1372,7 @@ function routeEdge(
       points: routed,
       route: routed.slice(1, -1),
       label: midpoint(routed),
-      hidden: source?.hidden === true || target?.hidden === true,
+      hidden,
       rerouted: false,
     };
   }
@@ -1398,7 +1402,7 @@ function routeEdge(
     points,
     route,
     label: midpoint(points),
-    hidden: source?.hidden === true || target?.hidden === true,
+    hidden,
     rerouted: false,
   };
 }

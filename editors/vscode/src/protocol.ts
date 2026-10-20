@@ -397,7 +397,16 @@ export interface PickerEntry {
 
 /** A message the extension sends the webview; `drawn` counts the panel's drawings and names this one. */
 export type ToWebview =
-  | { type: "render"; result: RenderResult; selected: string; drawn: number; style: DiagramStyle; hint?: string }
+  | {
+    type: "render";
+    result: RenderResult;
+    selected: string;
+    drawn: number;
+    style: DiagramStyle;
+    hint?: string;
+    /** The relationship kinds the workspace hides by default; the panel's own filter, once set, takes precedence. */
+    hideRelations?: string[];
+  }
   | { type: "views"; views: PickerEntry[]; selected: string }
   /** The look to redraw the diagram on screen in, ahead of the rendering coloured for it. */
   | { type: "style"; style: DiagramStyle }

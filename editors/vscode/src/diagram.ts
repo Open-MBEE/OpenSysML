@@ -55,7 +55,7 @@ import {
 } from "./protocol";
 import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
 import { logsRender, renderSummary } from "./rendertrace";
-import { DEPTH_SETTING, depthOf, DiagramStyle, drawingStyleOf, paletteOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
+import { DEPTH_SETTING, depthOf, DiagramStyle, drawingStyleOf, HIDE_RELATIONS_SETTING, hiddenRelationsOf, paletteOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
 import {
   chooseView,
@@ -136,7 +136,8 @@ export class DiagramPanels implements vscode.Disposable {
         if (event.affectsConfiguration(AUTO_OPEN_SETTING)) {
           this.autoOpen(vscode.window.activeTextEditor);
         }
-        if (event.affectsConfiguration(STYLE_SETTING) || event.affectsConfiguration(SHOW_SETTING) || event.affectsConfiguration(DEPTH_SETTING)) {
+        if (event.affectsConfiguration(STYLE_SETTING) || event.affectsConfiguration(SHOW_SETTING) || event.affectsConfiguration(DEPTH_SETTING)
+          || event.affectsConfiguration(HIDE_RELATIONS_SETTING)) {
           for (const panel of this.panels.values()) {
             panel.restyle();
           }
@@ -584,6 +585,11 @@ function diagramShown(scope: vscode.Uri): string[] {
   return shownOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("show"));
 }
 
+/** diagramHiddenRelations is the relationship kinds the setting hides by default, as it applies to a document. */
+function diagramHiddenRelations(scope: vscode.Uri): string[] {
+  return hiddenRelationsOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("hideRelations"));
+}
+
 /** diagramDepth is how many levels the setting draws below each exposed element, as it applies to a document; 0 for every level. */
 function diagramDepth(scope: vscode.Uri): number {
   return depthOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("depth"));
@@ -832,6 +838,7 @@ class DiagramPanel {
         drawn: this.drawn,
         style,
         hint: renderHint(palette !== undefined && !colours, drawing !== undefined && !styled),
+        hideRelations: diagramHiddenRelations(this.docURI),
       });
       this.highlightActive();
     } catch (err) {
@@ -1462,6 +1469,17 @@ function html(
         border: 1px solid var(--vscode-button-border, var(--vscode-widget-border, transparent)); border-radius: 2px; }
       #nav button:hover { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-toolbar-hoverBackground)); }
       #nav button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+      #relations { position: relative; font-size: 0.9em; margin: 0; }
+      #relations > summary { cursor: pointer; list-style: none; padding: 0.15rem 0.5rem; border-radius: 2px;
+        border: 1px solid var(--vscode-button-border, var(--vscode-widget-border, transparent));
+        background: var(--vscode-button-secondaryBackground, transparent); color: var(--vscode-button-secondaryForeground, var(--vscode-foreground)); }
+      #relations > summary::-webkit-details-marker { display: none; }
+      #relations.filtered > summary { border-color: var(--vscode-focusBorder); }
+      #relation-list { position: absolute; z-index: 10; left: 0; top: calc(100% + 0.25rem); min-width: 14rem; max-height: 60vh; overflow-y: auto;
+        padding: 0.35rem 0.5rem; background: var(--vscode-editorWidget-background); color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
+        border: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border)); box-shadow: 0 2px 8px var(--vscode-widget-shadow); }
+      #relation-list label { display: flex; align-items: center; gap: 0.4rem; padding: 0.1rem 0; white-space: nowrap; cursor: pointer; }
+      #relation-list .count { margin-left: auto; opacity: 0.7; font-variant-numeric: tabular-nums; }
       #zoom { min-width: 3.2em; text-align: center; font-size: 0.9em; opacity: 0.8; font-variant-numeric: tabular-nums; }
       #view { flex: 1 1 auto; max-width: 30rem; }
       #style { max-width: 14rem; }
@@ -1605,6 +1623,10 @@ function html(
       <select id="style"></select>
       <span id="kind"></span>
       <select id="add" hidden aria-label="Add to the model"></select>
+      <details id="relations" hidden>
+        <summary title="Show or hide relationships by kind">Relations</summary>
+        <div id="relation-list" role="group" aria-label="Relationship kinds"></div>
+      </details>
       <span id="nav" role="group" aria-label="Zoom">
         <button id="zoom-out" type="button" title="Zoom out (-)" aria-label="Zoom out">−</button>
         <span id="zoom" aria-live="polite">100%</span>

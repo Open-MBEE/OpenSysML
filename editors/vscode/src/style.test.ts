@@ -11,6 +11,8 @@ import {
   PALETTES,
   pilotLook,
   SHOW_SETTING,
+  hiddenRelationsOf,
+  RELATION_KINDS,
   shownOf,
   STYLE_LABELS,
   STYLES,
@@ -60,4 +62,13 @@ test("only the cameo style asks the server for a drawing style and draws Cameo's
   assert.equal(drawingStyleOf("cameo"), "cameo");
   assert.equal(paletteOf("cameo"), undefined);
   assert.deepEqual(STYLES.filter(cameoLook), ["cameo"]);
+});
+
+test("hiddenRelationsOf reads the kinds listed, each once, and nothing from anything else", () => {
+  assert.deepEqual(hiddenRelationsOf(["typing", "flow", "typing"]), ["typing", "flow"]);
+  assert.deepEqual(hiddenRelationsOf("typing"), []);
+  assert.deepEqual(hiddenRelationsOf([3, "", "binding"]), ["binding"]);
+  // Every kind the view model names is offered by the setting.
+  assert.equal(new Set(RELATION_KINDS).size, RELATION_KINDS.length);
+  assert.ok(RELATION_KINDS.includes("specialization") && RELATION_KINDS.includes("anchor"));
 });

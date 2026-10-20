@@ -8,6 +8,21 @@ export const STYLE_SETTING = "opensysml.diagram.style";
 /** The setting naming the optional notation elements every diagram draws besides its view's own. */
 export const SHOW_SETTING = "opensysml.diagram.show";
 
+/** The setting naming the relationship kinds every diagram panel hides until its own filter says otherwise. */
+export const HIDE_RELATIONS_SETTING = "opensysml.diagram.hideRelations";
+
+/** The relationship kinds a rendering's edges carry, as the server's view model names them. */
+export const RELATION_KINDS = [
+  "connection", "transition", "succession", "flow", "binding", "specialization", "typing", "composition",
+  "reference", "containment", "import", "satisfy", "verify", "derive", "refine", "allocate", "association",
+  "include", "anchor",
+] as const;
+
+/** hiddenRelationsOf reads the hideRelations setting: the kinds it lists, each once, in order; anything else hides none. */
+export function hiddenRelationsOf(value: unknown): string[] {
+  return shownOf(value);
+}
+
 /** The setting bounding how many levels of nested elements a diagram draws below each exposed element. */
 export const DEPTH_SETTING = "opensysml.diagram.depth";
 

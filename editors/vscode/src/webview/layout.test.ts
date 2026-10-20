@@ -549,6 +549,23 @@ test("layoutCanvas moves nested siblings past a container grown around a placed 
   assert.ok(root.box.y + root.box.height >= d.box.y + d.box.height + 16);
 });
 
+test("layoutCanvas hides the edges of a hidden kind, which then count for nothing", () => {
+  const drawing = rendering(
+    [node("a", "a", { x: 10, y: 10 }), node("b", "b", { x: 200, y: 10 })],
+    [
+      { from: "a", to: "b", label: "", kind: "typing", route: [{ x: 500, y: 900 }] },
+      { from: "a", to: "b", label: "", kind: "connection" },
+    ],
+  );
+  const all = layoutCanvas(drawing);
+  assert.deepEqual(all.edges.map((edge) => edge.hidden), [false, false]);
+  const filtered = layoutCanvas(drawing, { hiddenKinds: new Set(["typing"]) });
+  assert.deepEqual(filtered.edges.map((edge) => edge.hidden), [true, false]);
+  // The hidden edge's far-flung waypoint no longer stretches the canvas.
+  assert.ok(filtered.height < all.height);
+  assert.deepEqual(filtered.nodes.get("a")!.box, all.nodes.get("a")!.box);
+});
+
 test("layoutCanvas hides the children of a collapsed node", () => {
   const layout = layoutCanvas(
     rendering(

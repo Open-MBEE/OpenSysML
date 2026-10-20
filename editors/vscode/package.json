@@ -167,6 +167,36 @@
           },
           "markdownDescription": "Optional notation elements every diagram draws besides the ones its view's rendering shows and the default (port symbols, compartments and keywords), by the names the SysML v2 notation makes optional; `all` draws every one. Applies to the diagram panel and to exports, on a server that lists the elements (`openSysmlRenderElements`)."
         },
+        "opensysml.diagram.hideRelations": {
+          "type": "array",
+          "default": [],
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "connection",
+              "transition",
+              "succession",
+              "flow",
+              "binding",
+              "specialization",
+              "typing",
+              "composition",
+              "reference",
+              "containment",
+              "import",
+              "satisfy",
+              "verify",
+              "derive",
+              "refine",
+              "allocate",
+              "association",
+              "include",
+              "anchor"
+            ]
+          },
+          "markdownDescription": "Relationship kinds the diagram panel hides by default, by the kind names the rendering's edges carry (for example `typing`, `specialization`, `composition`). Each panel's **Relations** list shows the kinds present in its diagram and overrides this for that panel alone; nothing is written to the model, and exports are unaffected."
+        },
         "opensysml.diagram.depth": {
           "type": "integer",
           "default": 0,

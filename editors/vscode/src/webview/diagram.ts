@@ -18,7 +18,7 @@ import { loadAvoid, reportAvoidFailure } from "./avoid";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
 import { dragHint, Drop, dropOn } from "./drop";
 import { emptyElement, emptyMessage, nothingLaidOut } from "./empty";
-import { markSelection, neighbourhood } from "./selection";
+import { markSelection, neighbourhood, relatedByKind } from "./selection";
 import { tableOf } from "./table";
 import {
   canvasSize,
@@ -41,6 +41,7 @@ import {
   movedWaypoint,
   nodeUnder,
   overridesOf,
+  type Overrides,
   Placements,
   removedWaypoint,
 } from "./layout";
@@ -67,10 +68,12 @@ const undrawableList = document.getElementById("undrawable-list") as HTMLElement
 const adder = document.getElementById("add") as HTMLSelectElement;
 const menu = document.getElementById("menu") as HTMLUListElement;
 const zoomReadout = document.getElementById("zoom") as HTMLElement;
+const relations = document.getElementById("relations") as HTMLDetailsElement;
+const relationList = document.getElementById("relation-list") as HTMLElement;
 
 const state = JSON.parse(body.dataset.state ?? "{}") as { uri?: string; avoid?: string };
 const documentURI = state.uri ?? "";
-const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string; viewport?: unknown };
+const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string; viewport?: unknown; hidden?: string[] };
 let selected = saved.view ?? "";
 // A rendering saved by an older extension is normalized like a fresh one, and
 // drawn in the look it was, or the default when it saved none.
@@ -81,6 +84,10 @@ let selectedNode: string | undefined;
 let viewport: Viewport = readViewport(saved.viewport);
 /** The node selected by a click, whose neighbourhood is emphasised; undefined when nothing is. */
 let focused: string | undefined;
+/** The relationship kinds this panel hides, once its filter has been set; until then the workspace default applies. */
+let hiddenKinds: Set<string> | undefined = Array.isArray(saved.hidden) ? new Set(saved.hidden.filter((kind) => typeof kind === "string")) : undefined;
+/** The kinds the `hideRelations` setting hides, from the latest rendering. */
+let defaultHidden: string[] = [];
 /** The layout on screen, which gestures act on; undefined while a table or nothing is shown. */
 let layout: CanvasLayout | undefined;
 /** What ELK placed for the rendering on screen; undefined until it answers, and for kinds it does not lay out. */
@@ -118,7 +125,7 @@ loadAvoid(state.avoid ?? "").then(
       return;
     }
     if (last && layout) {
-      layout = layoutCanvas(last, {}, auto);
+      layout = layoutCanvas(last, panelOverrides(), auto);
       show(layout);
     }
   },
@@ -227,6 +234,7 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
     case "render":
       // The number names what is on screen; a drawing that failed left the last one up.
       applyStyle(message.style);
+      defaultHidden = message.hideRelations ?? [];
       if (draw(message.result)) {
         drawn = message.drawn;
         if (message.hint !== undefined) {
@@ -337,7 +345,7 @@ function draw(result: RenderResult): boolean {
       // Mermaid is the machine form a diagram is exported in; the panel draws
       // the same nodes and edges itself, so their geometry is its own to edit.
       auto = undefined;
-      layout = layoutCanvas(result);
+      layout = layoutCanvas(result, panelOverrides());
       if (empty || nothingLaidOut(layout)) {
         layout = undefined;
         diagram.replaceChildren(emptyElement(result));
@@ -365,7 +373,7 @@ function draw(result: RenderResult): boolean {
           return;
         }
         auto = laid;
-        layout = layoutCanvas(result, {}, auto);
+        layout = layoutCanvas(result, panelOverrides(), auto);
         show(layout);
       });
     }
@@ -374,6 +382,7 @@ function draw(result: RenderResult): boolean {
     // An open menu names nodes of the drawing just replaced.
     hideMenu();
     showPalette(result.palette);
+    showRelations(result);
     kindLabel.textContent = describe(result);
     return true;
   } catch (err) {
@@ -407,8 +416,87 @@ function applySelection(): void {
   if (!svg || !last) {
     return;
   }
-  markSelection(svg, focused === undefined ? undefined : neighbourhood(last, focused));
+  markSelection(svg, focused === undefined ? undefined : neighbourhood(last, focused, hiddenSet()));
+  countRelations(last);
 }
+
+// hiddenSet is the relationship kinds hidden now: the panel's own filter, else the workspace default.
+function hiddenSet(): Set<string> {
+  return hiddenKinds ?? new Set(defaultHidden);
+}
+
+// panelOverrides is what the panel itself lays over every layout of the rendering.
+function panelOverrides(): Overrides {
+  return { hiddenKinds: hiddenSet() };
+}
+
+// showRelations lists the relationship kinds the rendering draws, each with a box to
+// show or hide it; a rendering with no edges, or a table, offers no list.
+function showRelations(result: RenderResult): void {
+  const kinds = new Map<string, number>();
+  for (const edge of result.edges ?? []) {
+    kinds.set(edge.kind, (kinds.get(edge.kind) ?? 0) + 1);
+  }
+  relations.hidden = result.form !== "mermaid" || kinds.size === 0;
+  const hidden = hiddenSet();
+  relationList.replaceChildren(...[...kinds.keys()].sort().map((kind) => {
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = !hidden.has(kind);
+    box.dataset.kind = kind;
+    const count = document.createElement("span");
+    count.className = "count";
+    const label = document.createElement("label");
+    label.append(box, ` ${kind} `, count);
+    return label;
+  }));
+  countRelations(result);
+}
+
+// countRelations writes each kind's count after its name: how many edges, and how many at the selected node.
+function countRelations(result: RenderResult): void {
+  const related = focused === undefined ? undefined : relatedByKind(result, focused);
+  const total = new Map<string, number>();
+  for (const edge of result.edges ?? []) {
+    total.set(edge.kind, (total.get(edge.kind) ?? 0) + 1);
+  }
+  for (const box of relationList.querySelectorAll<HTMLInputElement>("input[data-kind]")) {
+    const kind = box.dataset.kind ?? "";
+    const count = box.parentElement?.querySelector(".count");
+    if (count) {
+      const at = related?.get(kind) ?? 0;
+      count.textContent = related === undefined ? String(total.get(kind) ?? 0) : `${at} of ${total.get(kind) ?? 0} related`;
+    }
+  }
+  relations.classList.toggle("filtered", [...hiddenSet()].some((kind) => total.has(kind)));
+}
+
+// A box toggled hides or shows its kind for this panel alone, and lays the rendering out again without it.
+relationList.addEventListener("change", (event) => {
+  const box = event.target as HTMLInputElement | null;
+  const kind = box?.dataset.kind;
+  if (!box || kind === undefined) {
+    return;
+  }
+  const hidden = new Set(hiddenSet());
+  if (box.checked) {
+    hidden.delete(kind);
+  } else {
+    hidden.add(kind);
+  }
+  hiddenKinds = hidden;
+  remember();
+  if (last && layout) {
+    layout = layoutCanvas(last, panelOverrides(), auto);
+    show(layout);
+  }
+});
+// The list closes when the pointer goes elsewhere, as a menu does.
+window.addEventListener("click", (event) => {
+  if (!relations.contains(event.target as Node)) {
+    relations.open = false;
+  }
+});
 
 /** A pixel per line of a wheel that reports lines rather than pixels. */
 const WHEEL_LINE_PX = 16;
@@ -597,7 +685,7 @@ function moveGesture(event: PointerEvent): void {
     drawDrag(event.shiftKey);
     return;
   }
-  showDragged(layoutCanvas(result, { ...overridesOf(gesture.placements), held: layout }, auto));
+  showDragged(layoutCanvas(result, { ...panelOverrides(), ...overridesOf(gesture.placements), held: layout }, auto));
 }
 
 // showDragged puts the canvas a gesture has changed on screen. The pointer is captured by the
@@ -621,7 +709,7 @@ function drawDrag(shift: boolean): void {
     const svg = showDragged(layout);
     liftNode(svg, layout, gesture.id, gesture.at.x - gesture.start.x, gesture.at.y - gesture.start.y);
   } else {
-    showDragged(layoutCanvas(last, { ...overridesOf(gesture.placements), held: layout }, auto));
+    showDragged(layoutCanvas(last, { ...panelOverrides(), ...overridesOf(gesture.placements), held: layout }, auto));
   }
   previewDrop(shift);
 }
@@ -735,7 +823,7 @@ function panTo(pan: PanGesture, at: ClientPoint): void {
 // settle shows the model's layout after a gesture that made no edit, laid out again if the router loaded meanwhile.
 function settle(): void {
   if (unrouted && last && layout) {
-    layout = layoutCanvas(last, {}, auto);
+    layout = layoutCanvas(last, panelOverrides(), auto);
   }
   unrouted = false;
   if (layout) {
@@ -940,5 +1028,5 @@ function highlight(id: string | undefined): void {
 
 // remember keeps what the panel is showing, so a window reload restores it.
 function remember(): void {
-  vscode.setState({ uri: documentURI, view: selected, last, style, viewport });
+  vscode.setState({ uri: documentURI, view: selected, last, style, viewport, hidden: hiddenKinds === undefined ? undefined : [...hiddenKinds] });
 }
