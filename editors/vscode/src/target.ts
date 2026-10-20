@@ -44,7 +44,8 @@ export function isModelPath(path: string): boolean {
  * the active model editor's, else the one visible model editor's.
  */
 export function resolveTarget(context: CommandContext, verb: string): Target {
-  if (context.argument !== undefined) {
+  // A webview panel's own title-bar menu passes the panel's resource, not a file: the panel is the target.
+  if (context.argument !== undefined && !context.argument.startsWith("webview-panel:")) {
     if (isModelPath(context.argument)) {
       return { kind: "document", uri: context.argument, fromPanel: false };
     }

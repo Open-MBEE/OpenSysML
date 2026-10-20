@@ -68,3 +68,10 @@ test("model languages and paths", () => {
   assert.equal(isModelPath("file:///ws/a.sysmlx"), false);
   assert.equal(isModelPath("file:///ws/sysml"), false);
 });
+
+test("resolveTarget takes the diagram panel's own title-bar menu, which passes the panel's resource, as the focused panel", () => {
+  const panel = { argument: "webview-panel://webview-opensysml.diagram-1a2b/", focusedPanel: car.uri, visibleEditors: [car] };
+  assert.deepEqual(resolveTarget(panel, "draw"), { kind: "document", uri: car.uri, fromPanel: true });
+  const nobody = resolveTarget({ argument: "webview-panel://webview-opensysml.diagram-1a2b/", visibleEditors: [car] }, "draw");
+  assert.deepEqual(nobody, { kind: "document", uri: car.uri, fromPanel: false });
+});
