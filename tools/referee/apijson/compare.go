@@ -187,16 +187,12 @@ func unionProperties(a, b map[string]any) []string {
 	return sortedKeys(set)
 }
 
-// booleanDefaults lists the metamodel's Boolean attributes whose default is
-// not false (model/kerml.ecore and model/SysML.ecore in the pinned pilot jar,
-// defaultValueLiteral). Every other Boolean attribute there defaults to false,
-// except the ones undefaultedBooleans names.
+// booleanDefaults are the Boolean attributes whose defaultValueLiteral is not false in
+// the pinned jar's model/kerml.ecore and model/SysML.ecore; the rest default to false.
 var booleanDefaults = map[string]bool{"isUnique": true}
 
-// undefaultedBooleans are the Boolean properties the metamodel gives no
-// default: the derived ones (isConjugated, isLibraryElement,
-// isModelLevelEvaluable, isReference, mayTimeVary), isVariation and a
-// LiteralBoolean's value. Leaving one out states nothing.
+// undefaultedBooleans have no default in those models (the derived ones, isVariation
+// and a LiteralBoolean's value), so leaving one out states nothing.
 var undefaultedBooleans = map[string]bool{
 	"isConjugated": true, "isLibraryElement": true, "isModelLevelEvaluable": true,
 	"isReference": true, "mayTimeVary": true, "isVariation": true, "value": true,
@@ -211,13 +207,8 @@ func booleanDefault(property string) (value bool, ok bool) {
 	return booleanDefaults[property], true
 }
 
-// bucketOf classifies one property: null, a missing key and an empty collection
-// all state nothing, and so does a Boolean attribute written at its metamodel
-// default against a side that leaves it out; otherwise the normalized values
-// compare deeply, collections in order, and the comparison is indeterminate
-// only where a reference to a target neither key table addresses could still
-// decide it (two unknown targets are not known equal, but a provable
-// difference elsewhere in the value stands).
+// bucketOf classifies one property: null, a missing key, an empty collection and a
+// Boolean at its metamodel default state nothing; stated values go to compareValues.
 func bucketOf(property string, ours, pilot any) string {
 	if value, ok := booleanDefault(property); ok {
 		if pilot == value && ours == nil {
@@ -239,10 +230,8 @@ func bucketOf(property string, ours, pilot any) string {
 	return compareValues(ours, pilot)
 }
 
-// compareValues is present-equal, present-different or indeterminate for two
-// normalized values both sides state. A collection compares by length, then
-// position by position: any position that differs decides, and only when none
-// does do unknown targets leave the verdict open.
+// compareValues compares two stated values by length and position: a differing
+// position decides, and only when none does do unknown targets leave the verdict open.
 func compareValues(ours, pilot any) string {
 	switch o := ours.(type) {
 	case ref:

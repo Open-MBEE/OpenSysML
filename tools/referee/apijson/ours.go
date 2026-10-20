@@ -39,13 +39,8 @@ type oursExport struct {
 	Unkeyed   map[string]int
 }
 
-// exportOurs converts the files of one root together, so cross-file imports
-// resolve, and keys the elements the writer emits. Files in skip (the ones the
-// pilot failed on) are left out. A document that declares an element another
-// document of the root declares too (the interchange fixtures do) cannot share
-// a graph with it, so each such document is converted alone and the rest
-// together; only if the rest still do not convert as one model is every
-// document converted alone.
+// exportOurs converts a root's files together, less skip (the pilot's failures) and
+// the documents whose ids collide, which are converted alone; see the project record.
 func exportOurs(dir string, files []string, skip map[string]bool) (*oursExport, error) {
 	result := &oursExport{Unkeyed: make(map[string]int)}
 	documents := make([]export.ModelDocument, 0, len(files))
@@ -295,9 +290,8 @@ func (k *ourKeyer) ownedElements(owner map[string]any) []string {
 	return owned
 }
 
-// fileOf is the document an element comes from: the one a document's root
-// elements state, found up the owner chain. The writer's root Namespace, which
-// wraps a document's roots, states none itself, so it takes its members'.
+// fileOf is the document stated up an element's owner chain; the writer's root
+// Namespace states none itself, so it takes its members'.
 func (k *ourKeyer) fileOf(id string) string {
 	if file, ok := k.files[id]; ok {
 		return file
