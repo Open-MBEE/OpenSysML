@@ -2362,9 +2362,9 @@ func TestInvokeOperationPositionalSeedsOnlyTheConformingDefaultlessRef(t *testin
 	}
 }
 
-// defRunThisFixture is the Warm-style action definition run directly: `this`
-// inside its body denotes the run's own occurrence, materialized when first
-// denoted — and the occurrence is authoritative, so `this.delta` reads the
+// defRunThisFixture is the Warm-style action definition run directly, owned by
+// no object: `this` inside its body is the run's own occurrence, materialized
+// when first denoted — and the occurrence is authoritative, so `this.delta` reads the
 // value the run was seeded with.
 const defRunThisFixture = `
 	package test {
@@ -2641,7 +2641,7 @@ func TestCalcCallBindsContextBeforeItsInputs(t *testing.T) {
 }
 
 // defRunStateFixture is a state definition started without an exhibiting
-// usage: the entry action's `this` denotes the machine's own occurrence.
+// usage: owned by no object, the entry action's `this` is the machine itself.
 const defRunStateFixture = `
 	package test {
 		private import ScalarValues::*;
@@ -2699,8 +2699,9 @@ const defRunNoPerformerFixture = `
 	}
 `
 
-// A behavior definition run outside any object still denotes `this` as its own
-// occurrence: the check runs before the absent performer is reached.
+// A behavior definition run outside any object denotes `this` as its own
+// occurrence, the root performance: the check runs before the absent performer
+// is reached.
 func TestExecuteDefWithoutPerformerReadsThis(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunNoPerformerFixture))
 	touch := oneSymbol(t, idx, "test::Touch")
@@ -2723,7 +2724,7 @@ func TestExecuteDefWithoutPerformerReadsThis(t *testing.T) {
 
 // defRunMirrorFixture defaults `early` to a `this` read before `later` is
 // evaluated: materializing mid-loop makes the occurrence authoritative, so the
-// later default mirrors into it and `this.later` reads it back.
+// later default mirrors into it and the body reads it back by name.
 const defRunMirrorFixture = `
 	package test {
 		private import ScalarValues::*;
@@ -2732,7 +2733,7 @@ const defRunMirrorFixture = `
 			attribute later : Integer = 7;
 			out result : Integer[1];
 			first probe;
-			action probe { assign result := this.later; }
+			action probe { assign result := later; }
 			first probe then done;
 		}
 		state def Vivid {
@@ -2741,15 +2742,15 @@ const defRunMirrorFixture = `
 			out result : Integer[1];
 			entry; then work;
 			state work {
-				entry action check { assign result := this.later; }
+				entry action check { assign result := later; }
 			}
 		}
 	}
 `
 
 // An occurrence materialized by an early `this` default stays authoritative for
-// the defaults evaluated after it: they mirror into it, so a body reading
-// `this.<attr>` sees the value the loop stored later.
+// the defaults evaluated after it: they mirror into it, so a body reading the
+// attribute sees the value the loop stored later.
 func TestExecuteDefMirrorsDefaultsAfterEarlyThis(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunMirrorFixture))
 	probe := oneSymbol(t, idx, "test::Probe")
@@ -2770,35 +2771,35 @@ func TestExecuteDefMirrorsDefaultsAfterEarlyThis(t *testing.T) {
 	}
 }
 
-// calcDefThisFixture is a calculation run as a definition: `this` in its body
-// denotes the occurrence the invocation itself is, seeded with its parameters.
+// calcDefThisFixture is a calculation run as a definition no object owns: `this`
+// in its body is the invocation's own occurrence, seeded with its parameters.
 const calcDefThisFixture = `
 	package test {
 		private import ScalarValues::*;
 		calc def Identity { return : Boolean[1] = this == this; }
-		calc def Echo { in x : Integer[1]; return : Integer[1] = this.x; }
+		calc def Echo { in x : Integer[1]; return : Integer[1] = x; }
 		calc def EchoLate {
 			in early : Boolean[1] = this == this;
 			in x : Integer[1] = 4;
-			return : Integer[1] = this.x;
+			return : Integer[1] = x;
 		}
 		calc def SetBack {
 			in early : Boolean[1] = this == this;
 			attribute n : Integer = 0;
 			assign n := 5;
-			return : Integer[1] = this.n;
+			return : Integer[1] = n;
 		}
 		calc def Probe {
 			in early : Boolean[1] = this == this;
 			attribute n : Integer = 0;
 			assign Probe::n := 5;
-			return : Integer[1] = this.n;
+			return : Integer[1] = n;
 		}
 		calc def NestedProbe {
 			in early : Boolean[1] = this == this;
 			attribute n : Integer = 0;
 			if true { assign NestedProbe::n := 5; }
-			return : Integer[1] = this.n;
+			return : Integer[1] = n;
 		}
 		action def Step { out n : Integer[1] = 5; }
 		analysis def Shadow {
@@ -2808,13 +2809,13 @@ const calcDefThisFixture = `
 				attribute n : Integer = 1;
 				action step : Step;
 			}
-			return : Integer[1] = this.n;
+			return : Integer[1] = n;
 		}
 	}
 `
 
-// A calc definition's `this` is the occurrence of its own invocation: equality
-// holds for it, and a parameter bound into it reads back through it.
+// A calc definition invoked on its own has its invocation's occurrence as
+// `this`: equality holds for it, and a parameter bound into it reads back.
 func TestInvokeCalcDefReadsThis(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, calcDefThisFixture))
 	root := idx.DocumentRoot("<test>")
@@ -2834,11 +2835,11 @@ func TestInvokeCalcDefReadsThis(t *testing.T) {
 		t.Fatalf("Echo(5): %v", err)
 	}
 	if got.Const.Int != 5 {
-		t.Errorf("Echo(5) = %s, want 5: this.x read the bound parameter", FormatTraceValue(got))
+		t.Errorf("Echo(5) = %s, want 5: x read the bound parameter", FormatTraceValue(got))
 	}
 
 	// early's `this` materializes the occurrence before x binds; x's binding
-	// must still mirror into it, or this.x reads the declared default 4.
+	// must still mirror into it, or x reads the declared default 4.
 	late, lateScope := calcByName(t, root, "test", "EchoLate")
 	got, err = ctx.invokeCalcNamed(late, map[string]Value{"x": constInt(9)}, lateScope)
 	if err != nil {
@@ -2849,7 +2850,7 @@ func TestInvokeCalcDefReadsThis(t *testing.T) {
 	}
 
 	// A write to a declared feature after `this` materialized mirrors into the
-	// occurrence, or this.n reads the declared default 0.
+	// occurrence, or n reads the declared default 0.
 	setBack, setBackScope := calcByName(t, root, "test", "SetBack")
 	got, err = ctx.InvokeCalc(setBack, nil, setBackScope)
 	if err != nil {
@@ -2860,7 +2861,7 @@ func TestInvokeCalcDefReadsThis(t *testing.T) {
 	}
 
 	// A step's returned output lands in the shadowing block-local `n`, not in
-	// the occurrence's feature, or this.n reads 5 instead of the declared 0.
+	// the occurrence's feature, or n reads 5 instead of the declared 0.
 	shadow, shadowScope := calcByName(t, root, "test", "Shadow")
 	result, err := ctx.RunAnalysis(shadow, AnalysisArgs{}, shadowScope, nil)
 	if err != nil {
@@ -2871,7 +2872,7 @@ func TestInvokeCalcDefReadsThis(t *testing.T) {
 	}
 
 	// A qualified write to the body's own feature lands on the occurrence:
-	// Probe::n is the occurrence's n, which this.n then reads.
+	// Probe::n is the occurrence's n, which n then reads.
 	probe, probeScope := calcByName(t, root, "test", "Probe")
 	got, err = ctx.InvokeCalc(probe, nil, probeScope)
 	if err != nil {
@@ -2893,15 +2894,15 @@ func TestInvokeCalcDefReadsThis(t *testing.T) {
 	}
 }
 
-// Each run of a case definition is its own occurrence: `this.n` reads the input
-// that run bound, not the object a shared occurrence cached under the symbol.
-func TestAnalysisDefRunGetsItsOwnOccurrence(t *testing.T) {
+// Each run of a case definition is a fresh occurrence: `n` reads the input that
+// run bound, not the object a shared occurrence cached under the symbol.
+func TestAnalysisDefRunReadsItsOwnInputs(t *testing.T) {
 	src := `
 package test {
 	analysis def Occurrence {
 		in n : Integer[1];
 		out who = this;
-		return : Integer[1] = this.n;
+		return : Integer[1] = n;
 	}
 	analysis def Ready {
 		in ready : Boolean[1] = this == this;
@@ -2915,7 +2916,7 @@ package test {
 	analysis def Read {
 		in n : Integer[1];
 		in early : Boolean[1] = this == this;
-		return : Integer[1] = this.n;
+		return : Integer[1] = n;
 	}
 	analysis def Failing {
 		out who = this;
@@ -2995,7 +2996,7 @@ package test {
 
 	// A `this` materialized by a later parameter's default seeds the inputs the
 	// run bound first — early binds nothing so its default's `this` reads the
-	// occurrence while n is already bound — so this.n reads what the call passed.
+	// occurrence while n is already bound — so n reads what the call passed.
 	read, readScope := calcByName(t, root, "test", "Read")
 	readResult, err := ctx.RunAnalysis(read, AnalysisArgs{
 		Positional: []Value{constInt(7)},
@@ -3063,7 +3064,7 @@ const stateFlowThisFixture = `
 					first call;
 					action call : Observer { in ref :>> context = this; }
 					first call then note;
-					action note { assign result := this.flag; }
+					action note { assign result := flag; }
 				}
 			}
 		}
@@ -3077,18 +3078,38 @@ const stateFlowThisFixture = `
 					first call;
 					action call : EarlyObserver { in ref :>> context = this; }
 					first call then note;
-					action note { assign result := this.flag; }
+					action note { assign result := flag; }
+				}
+			}
+		}
+		action def ValuedObserver {
+			in ref context : ValuedLife[1];
+			first o;
+			action o { assign context.flag := true; }
+			first o then done;
+		}
+		state def ValuedLife {
+			attribute flag : Boolean = false;
+			out result : Boolean[1];
+			entry; then work;
+			state work {
+				entry action run {
+					first call;
+					action call : ValuedObserver { in ref :>> context = this; }
+					first call then note;
+					action note { assign result := flag; }
 				}
 			}
 		}
 	}
 `
 
-// `this` in a call's context binding inside a state behavior denotes the
-// machine's own occurrence whether or not an attribute default already made it.
+// `this` in a call's context binding inside a state behavior run by no object
+// denotes the machine's own occurrence whether or not an attribute default
+// already made it, and the body reads by name what the call wrote there.
 func TestStateBehaviorCallBindsThisToTheMachineOccurrence(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stateFlowThisFixture))
-	for _, name := range []string{"test::Life", "test::EarlyLife"} {
+	for _, name := range []string{"test::Life", "test::EarlyLife", "test::ValuedLife"} {
 		def := oneSymbol(t, idx, name)
 		outputs, _, err := ctx.ExecuteStatePerformedBy(def, nil, nil)
 		if err != nil {

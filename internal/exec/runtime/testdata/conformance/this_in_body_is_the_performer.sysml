@@ -15,24 +15,24 @@ package test {
 	private import ScalarValues::*;
 
 	action def A {
-		attribute who = this;
+		ref who = this;
 		action sub {
-			attribute w = this;
+			ref w = this;
 		}
 	}
 
 	state def M {
-		entry action e { attribute who = this; }
-		do action d { attribute who = this; }
-		exit action x { attribute who = this; }
+		entry action e { ref who = this; }
+		do action d { ref who = this; }
+		exit action x { ref who = this; }
 	}
 
 	part def Rig {
 		attribute id : Integer = 7;
 		action act {
 			attribute mine : Integer = this.id;
-			attribute me = this;
-			attribute meSelf = self.this;
+			ref me = this;
+			ref meSelf = self.this;
 		}
 		action tact : A;
 		state sm : M;
