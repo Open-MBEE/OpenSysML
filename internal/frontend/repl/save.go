@@ -31,7 +31,7 @@ func (s *Session) saveModel(path string) ([]string, bool, error) {
 	if !ok {
 		return lines, false, nil
 	}
-	return replext.Notation().Save(sessionOrigin, src, path)
+	return replext.Notation().Save(sessionOrigin, src, path, s.fileWriter)
 }
 
 // savePreview is the file saveModel would write to path and the lines it would
