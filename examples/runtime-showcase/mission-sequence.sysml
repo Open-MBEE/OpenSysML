@@ -13,8 +13,12 @@ package MissionSequence {
         action returnJourney;
     }
 
+    // Mission control's GO for powered descent: the landing waits for it.
+    item def GoForDescent;
+
     // The phases in order, each burn drawing on one budget. A decision after
-    // lunar orbit insertion checks what is left before committing to a landing.
+    // lunar orbit insertion checks what is left before committing to a landing,
+    // and the landing itself waits for the GO.
     action def LunarMission {
         in budget :> ISQ::speed;
         attribute remaining :> ISQ::speed = budget;
@@ -25,10 +29,11 @@ package MissionSequence {
         then action translunarInjection assign remaining := remaining - 3150 ['m/s'];
         then action lunarOrbitInsertion assign remaining := remaining - 900 ['m/s'];
         then decide landingGo;
-            if remaining >= 3970 ['m/s'] then descent;
+            if remaining >= 3970 ['m/s'] then awaitGo;
             else transEarthInjection;
 
-        action descent assign remaining := remaining - 2100 ['m/s'];
+        action awaitGo accept go : GoForDescent;
+        then action descent assign remaining := remaining - 2100 ['m/s'];
         then action surfaceOperations assign landed := true;
         then action ascent assign remaining := remaining - 1870 ['m/s'];
         then transEarthInjection;

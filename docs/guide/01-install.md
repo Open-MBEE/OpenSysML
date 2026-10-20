@@ -147,9 +147,11 @@ as a dependency.
 **Available binaries:**
 - `sysml` — Interactive REPL
 - `sysml-lsp` — Language Server Protocol server
-- `sysml-mcp` — Model Context Protocol server for coding agents, in its own
-  `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows) with its manual page and the LICENSE;
-  `--tools sysml-mcp` installs it, and `sysml-mcp -print-config <host>` configures the agent
+- `sysml-mcp` — Model Context Protocol server for coding agents. `npx -y @openmbee/sysml-mcp`
+  runs it from npm with nothing preinstalled (the package pins the release binary for the
+  platform); it is also in its own `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows) with its
+  manual page and the LICENSE, which `--tools sysml-mcp` installs, and
+  `sysml-mcp -print-config <host>` configures the agent either way
   ([MCP server reference](../reference/sysml-mcp.md))
 
 `sysml-grpc`, the service the Python bindings talk to, is published as a bare

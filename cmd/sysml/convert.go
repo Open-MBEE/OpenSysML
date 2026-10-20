@@ -48,6 +48,9 @@ func runConvert(files []string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	if stdlibModel {
+		return convertLibrary(to)
+	}
 	if len(files) == 0 {
 		return 0, errors.New("no model to convert; name the file to convert, as `sysml model.sysml -convert ttl`")
 	}
