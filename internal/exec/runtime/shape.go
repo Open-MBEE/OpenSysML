@@ -151,6 +151,13 @@ func (ctx *Context) parameterFeatures(typeSym *symbols.Symbol) []EffectiveFeatur
 	return out
 }
 
+// isBehaviorParameter reports a directed parameter or result usage: a value its
+// invocation binds, which the model alone never gives.
+func isBehaviorParameter(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && (usage.IsResult || usage.Direction != ast.DirNone)
+}
+
 // isInputParameter reports an `in` or `inout` parameter usage.
 func isInputParameter(sym *symbols.Symbol) bool {
 	usage, ok := sym.Decl.(*ast.Usage)

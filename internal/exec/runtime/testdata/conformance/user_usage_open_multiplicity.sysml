@@ -7,12 +7,15 @@
 // `spares[*]` and `nested[0..*] { part hub; }` are empty — while a lower bound of 1 or
 // more that nothing meets (`w[1..*]`, `r[2..4]`) leaves the count undetermined, carrying
 // the bounds and what they fix (`w` is not empty). A feature value (`= (w1, w2)`) and a
-// subsetting usage meeting the bound (`fl :> fitted[1..*]`) close the count.
+// subsetting usage meeting the bound (`fl :> fitted[1..*]`) close the count. A parameter of
+// a behavior usage nothing has invoked (`act.i`, `act.o`) is an unbound input whatever its
+// multiplicity: its caller supplies it (SysML v2 §7.16, KerML 1.0 §7.4.8).
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::*;
 
 	part def Wheel { attribute mass : Real = 1.0; }
+	action def Act { in i : Integer[0..1]; out o : Integer[0..1]; }
 	item def Box;
 	part def Car {
 		part wheels : Wheel[0..*];
@@ -26,6 +29,7 @@ package test {
 		part bound : Wheel[0..*] = (w1, w2);
 		part fitted : Wheel[1..*];
 		part fl : Wheel :> fitted;
+		action act : Act;
 		attribute nWheels : Integer = size(wheels);
 		attribute emptyWheels : Boolean = isEmpty(wheels);
 		attribute hasW1 : Boolean = includes(wheels, w1);
@@ -67,6 +71,8 @@ package test {
 	attribute pkgNested = nested;
 	attribute pkgW = w;
 	attribute pkgFitted = fitted;
+	attribute actIn = car.act.i;
+	attribute actOut = car.act.o;
 
 	calc probe { out one : Integer = size(car.wheels) + size(wheels) + size(car.nested.hub) + size(fitted); }
 }

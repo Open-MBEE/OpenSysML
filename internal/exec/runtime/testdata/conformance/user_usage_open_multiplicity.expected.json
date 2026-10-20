@@ -27,6 +27,8 @@
     "test::rModel": {"type": "Undetermined", "value": "[2..4]"},
     "test::nRModel": {"type": "Undetermined", "value": "[1]"},
     "test::pkgW": {"type": "Undetermined", "value": "[1..*]"},
-    "test::pkgFitted": {"type": "Sequence", "elements": [{"type": "Instance"}]}
+    "test::pkgFitted": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "test::actIn": {"type": "Undetermined", "value": "[0..1]"},
+    "test::actOut": {"type": "Undetermined", "value": "[0..1]"}
   }
 }

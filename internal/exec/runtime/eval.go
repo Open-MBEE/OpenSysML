@@ -1347,9 +1347,10 @@ func (ec *EvalContext) emptyDeclaredFeature(sym *symbols.Symbol) (Value, bool) {
 
 // emptyOptionalDeclaration reads a namespace usage of lower bound 0 that nothing
 // binds as what the usages subsetting it contribute, else the empty collection it
-// declares: a model declaring no value for it declares that it holds none.
+// declares: a model declaring no value for it declares that it holds none. A behavior's
+// parameter is excepted: its invocation supplies it, so nothing has bound it yet.
 func (ctx *Context) emptyOptionalDeclaration(sym *symbols.Symbol) (Value, bool, error) {
-	if !ctx.optionalValueless(sym) || ctx.model.semantics.IsVariationFeature(sym) {
+	if !ctx.optionalValueless(sym) || ctx.model.semantics.IsVariationFeature(sym) || isBehaviorParameter(sym) {
 		return Value{}, false, nil
 	}
 	if objs, subsetted, err := ctx.namespacedSubsetObjects(sym); err != nil {
