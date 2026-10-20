@@ -123,10 +123,8 @@ func TestMCPRunnerManifestAgreesWithTheClientVersion(t *testing.T) {
 	}
 }
 
-// TestMCPRunnerLockfileAgreesWithTheManifest: the npm runner's lockfile is committed so
-// its dependency resolution is reproducible, and npm ci refuses one that disagrees with
-// package.json, so it must carry the runner's own version and pin the five platform
-// packages at it; a platform package not yet on npm is absent from it, which is fine.
+// TestMCPRunnerLockfileAgreesWithTheManifest: npm ci refuses a lockfile that disagrees with
+// package.json, so the runner's lockfile must carry its version and platform pins.
 func TestMCPRunnerLockfileAgreesWithTheManifest(t *testing.T) {
 	var manifest struct {
 		Name                 string            `json:"name"`
