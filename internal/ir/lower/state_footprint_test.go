@@ -547,3 +547,57 @@ func TestBehaviorFootprintsCoverEveryBehavior(t *testing.T) {
 		}
 	}
 }
+
+// A transition into a terminate node naming the occurrence it ends performs the
+// node — its body, then the termination — and moves to the completion vertex of
+// the body declaring it: the footprint carries the body's places beside the
+// source's activity, and stays dynamic for the occurrence it ends.
+func TestTransitionFootprintsCoverNamedTerminateNode(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			attribute def Stop;
+			attribute def Go;
+			part worker;
+			state Machine {
+				attribute alarm : Integer = 0;
+				attribute level : Integer = 0;
+				entry; then busy;
+				state busy;
+				transition first busy accept Stop then halt;
+				transition first busy accept Go then quiet;
+				action halt terminate worker { assign alarm := level; }
+				action stop terminate;
+				state quiet;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	halt := graph.TransitionFootprints()[transitionOut(t, graph, "busy", 0)]
+	if !hasPlace(halt.Writes, "alarm") || !hasPlace(halt.Reads, "level") {
+		t.Fatalf("Stop reads %v writes %v, want the node body's level read and alarm written",
+			placeNames(halt.Reads), placeNames(halt.Writes))
+	}
+	if !hasPlace(halt.Writes, "busy") {
+		t.Fatalf("Stop writes %v, want the activity of the state it leaves", placeNames(halt.Writes))
+	}
+	if !halt.Dynamic {
+		t.Fatal("ending another occurrence reaches beyond the machine: the footprint must be dynamic")
+	}
+	halting := graph.TerminateBehaviors[terminateNamed(t, graph, "halt")]
+	if _, has := graph.BehaviorFootprints()[halting.Node]; !has {
+		t.Fatal("the named terminate node's behavior has no footprint")
+	}
+}
+
+func terminateNamed(t *testing.T, graph *StateGraph, name string) *ast.Usage {
+	t.Helper()
+	for usage := range graph.TerminateBehaviors {
+		if n, _ := ast.EffectiveName(usage); n == name {
+			return usage
+		}
+	}
+	t.Fatalf("no named terminate node %q", name)
+	return nil
+}

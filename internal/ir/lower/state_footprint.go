@@ -59,6 +59,9 @@ func (g *StateGraph) lowerFootprints() {
 				}
 			}
 		}
+		for _, behavior := range g.TerminateBehaviors {
+			g.behaviorFootprints[behavior.Node] = behaviorFootprint(g, behavior)
+		}
 		g.transitionFootprints = make(map[*Transition]Footprint)
 		g.branchFootprints = make(map[*Transition]Footprint)
 		for source, transitions := range g.Transitions {
@@ -309,9 +312,24 @@ func (b *stateFootprintBuilder) segment(source *ast.StateNode, seg *Transition) 
 		b.move(source, target)
 	case *ast.PseudostateNode:
 		b.pseudostate(source, seg, target)
+	case *ast.Usage:
+		b.terminate(source, target)
 	default:
 		b.footprint.Dynamic = true
 	}
+}
+
+// terminate adds what reaching a terminate node does: a node naming the occurrence
+// it ends performs its body and the termination, then moves to the completion
+// vertex of the body declaring it; one ending the performance itself reaches beyond it.
+func (b *stateFootprintBuilder) terminate(source *ast.StateNode, node *ast.Usage) {
+	behavior, named := b.graph.TerminateBehaviors[node]
+	if !named {
+		b.footprint.Dynamic = true
+		return
+	}
+	b.merge(b.graph.behaviorFootprints[behavior.Node])
+	b.move(source, b.graph.TerminateCompletion[node])
 }
 
 // pseudostate adds what a route through the pseudostate may do: every branch of
