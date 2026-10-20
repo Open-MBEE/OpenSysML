@@ -143,6 +143,7 @@ func TestParameterListRecoveryKeepsTheNextMember(t *testing.T) {
 		{"step.kerml", "package P { step s(x : T) { in feature y; } feature after; }"},
 		{"nested_semicolon.kerml", "package P { behavior B(f(x; y)) { feature inside; } feature after; }"},
 		{"unclosed.kerml", "package P { behavior B(x : T { feature inside; } feature after; }"},
+		{"unclosed_nested.kerml", "package P { behavior B(f(x; feature after; }"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := New(source.New(tc.name, []byte(tc.code)))

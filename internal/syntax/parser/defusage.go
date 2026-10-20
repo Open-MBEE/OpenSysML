@@ -1955,8 +1955,11 @@ func (p *Parser) skipParameterList() {
 		return
 	}
 	open := p.advance()
+	// A list that closes before the body is skipped whole, semicolons inside
+	// included; one that never closes ends at the first terminator.
+	closes := p.parenGroupCloses()
 	depth := 1
-	for depth > 0 && !p.atEOF() && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !(depth == 1 && p.at(lexer.Semicolon)) {
+	for depth > 0 && !p.atEOF() && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !(p.at(lexer.Semicolon) && (!closes || depth == 1)) {
 		switch p.advance().Kind {
 		case lexer.LParen:
 			depth++
@@ -1965,6 +1968,23 @@ func (p *Parser) skipParameterList() {
 		}
 	}
 	p.error(open.Span, "a declaration takes no parenthesised parameter list: declare each parameter as a directed feature of the body, `in <name> : <Type>;`")
+}
+
+// parenGroupCloses reports whether the `(` just consumed is matched by a `)`
+// before a brace or the end of the file.
+func (p *Parser) parenGroupCloses() bool {
+	depth := 1
+	for off := 0; depth > 0; off++ {
+		switch p.peekN(off).Kind {
+		case lexer.EOF, lexer.LBrace, lexer.RBrace:
+			return false
+		case lexer.LParen:
+			depth++
+		case lexer.RParen:
+			depth--
+		}
+	}
+	return true
 }
 
 // parseBodyOrSemicolon accepts the `;` of a bodiless declaration, else parses
