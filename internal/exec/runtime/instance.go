@@ -1393,15 +1393,27 @@ func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 	return false
 }
 
-// untypedOccurrenceUsage reports an occurrence or port usage declaring no type, which its
-// kind's implicit base still classifies (SysML v2 §7.9.2: an untyped `item` is an Items::Item,
-// an untyped `port` a Ports::Port).
+// untypedOccurrenceUsage reports an occurrence, port, action or state usage declaring no
+// type, which its kind's implicit base still classifies (SysML v2 §7.9.2: an untyped `item`
+// is an Items::Item, an untyped `port` a Ports::Port; §7.16.2, §7.17.2: an untyped `action`
+// an Actions::Action, an untyped `state` a States::StateAction).
 func untypedOccurrenceUsage(feat *EffectiveFeature) bool {
-	if feat.Type != nil || !(isOccurrenceUsage(feat.Symbol) || untypedPortUsage(feat.Symbol)) {
+	if feat.Type != nil || !(isOccurrenceUsage(feat.Symbol) || untypedPortUsage(feat.Symbol) || untypedPerformanceUsage(feat.Symbol)) {
 		return false
 	}
 	usage := feat.Symbol.Decl.(*ast.Usage)
 	return !usage.IsReference
+}
+
+// untypedPerformanceUsage reports an action or state usage declaring no type and no value,
+// a performance that exists for every instance of its owner (Parts.sysml `ownedActions`,
+// `ownedStates`; Actions.sysml `subactions`) as a typed one does.
+func untypedPerformanceUsage(sym *symbols.Symbol) bool {
+	if sym == nil || (sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage) {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Value == nil
 }
 
 // untypedPortUsage reports a port usage, whose object a binding connector can join to another's.

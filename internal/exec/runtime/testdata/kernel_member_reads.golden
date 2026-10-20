@@ -10,7 +10,7 @@ incomingTransfers: empty
 incomingTransfersToSelf: undetermined <undetermined>
 innerSpaceDimension: undetermined <undetermined>
 intersectionsOf: empty
-involvingPerformances: empty
+involvingPerformances: collection of 2
 isClosed: undetermined <undetermined>
 isDispatch: constant false
 isRunToCompletion: constant true
@@ -22,7 +22,7 @@ outerSpaceDimension: null
 outgoingTransfers: empty
 outgoingTransfersFromSelf: undetermined <undetermined>
 outsideOfOccurrences: empty
-ownedPerformances: empty
+ownedPerformances: collection of 2
 portionOf: collection of 1
 portionOfLife: object (the receiver)
 portions: collection of 1
@@ -46,14 +46,14 @@ spaceTimeEnclosedPoints: undetermined <undetermined>
 start: undetermined <undetermined>
 structuredSpaceBoundary: null
 subobjects: collection of 3
-suboccurrences: collection of 3
+suboccurrences: collection of 5
 successors: empty
 superoccurrence: null
 surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 2
+timeEnclosedOccurrences: collection of 4
 timeSliceOf: collection of 1
 timeSlices: collection of 1
 unionsOf: empty
@@ -381,7 +381,7 @@ withoutOccurrences: empty
 differencesOf: empty
 dispatchScope: object (the receiver)
 done: undetermined <undetermined>
-enclosedPerformances: empty
+enclosedPerformances: collection of 2
 immediatePredecessors: empty
 immediateSuccessors: empty
 incomingTransferSort: undetermined <undetermined>
@@ -425,15 +425,15 @@ spaceTimeCoincidentOccurrences: collection of 1
 spaceTimeEnclosedOccurrences: collection of 1
 spaceTimeEnclosedPoints: undetermined <undetermined>
 start: undetermined <undetermined>
-suboccurrences: empty
-subperformances: empty
+suboccurrences: collection of 2
+subperformances: collection of 2
 successors: empty
 superoccurrence: null
 surroundedByOccurrences: empty
 this: object (the receiver)
 thisPerformance: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 3
 timeSliceOf: collection of 1
 timeSlices: collection of 1
 unionsOf: empty
@@ -443,7 +443,7 @@ withoutOccurrences: empty
 differencesOf: empty
 dispatchScope: undetermined <undetermined>
 done: undetermined <undetermined>
-enclosedPerformances: empty
+enclosedPerformances: undetermined <undetermined>
 immediatePredecessors: empty
 immediateSuccessors: empty
 incomingTransferSort: undetermined <undetermined>
@@ -487,8 +487,8 @@ spaceTimeCoincidentOccurrences: undetermined <undetermined>
 spaceTimeEnclosedOccurrences: undetermined <undetermined>
 spaceTimeEnclosedPoints: undetermined <undetermined>
 start: undetermined <undetermined>
-suboccurrences: empty
-subperformances: empty
+suboccurrences: undetermined <undetermined>
+subperformances: undetermined <undetermined>
 successors: empty
 superoccurrence: null
 surroundedByOccurrences: empty
