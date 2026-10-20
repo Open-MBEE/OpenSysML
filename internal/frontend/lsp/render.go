@@ -70,6 +70,11 @@ const RenderElementsCapability = "openSysmlRenderElements"
 // a render request's depth bounds how many levels are drawn below each exposed element.
 const RenderDepthCapability = "openSysmlRenderDepth"
 
+// RenderIncludeCapability is the capability a server advertises when a render
+// request's `include` draws elements besides the view's own content, marking
+// each node drawn that way `included`.
+const RenderIncludeCapability = "openSysmlRenderInclude"
+
 // renderElementNames lists the optional notation elements, then "all".
 func renderElementNames() []string {
 	names := make([]string, 0, len(view.Elements())+1)
@@ -149,8 +154,11 @@ type RenderParams struct {
 	Lines        string                          `json:"lines,omitempty"`
 	Show         []string                        `json:"show,omitempty"`
 	Depth        int                             `json:"depth,omitempty"`
-	Overlay      string                          `json:"overlay,omitempty"`
-	LinkTemplate string                          `json:"linkTemplate,omitempty"`
+	// Include names elements drawn besides what the view exposes, each by
+	// qualified name, as if the view exposed them; nothing in the model changes.
+	Include      []string `json:"include,omitempty"`
+	Overlay      string   `json:"overlay,omitempty"`
+	LinkTemplate string   `json:"linkTemplate,omitempty"`
 }
 
 // RenderResult is one rendering: the artifact a client draws, plus the nodes and
@@ -210,6 +218,8 @@ type RenderNode struct {
 	Height          *float64        `json:"height,omitempty"`
 	Collapsed       bool            `json:"collapsed,omitempty"`
 	Verdict         string          `json:"verdict,omitempty"`
+	// Included marks a node the request's `include` drew rather than the view.
+	Included bool `json:"included,omitempty"`
 }
 
 // RenderOwner is a namespace declaring a node: its qualified name, and whether
@@ -402,7 +412,7 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 			}
 			verdicts = rt.RequirementVerdicts()
 		}
-		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts, params.Depth)
+		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts, params.Depth, params.Include)
 		if err == nil && params.LinkTemplate != "" {
 			r.LinkSites(rendering, snapshot)
 		}
@@ -479,7 +489,7 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 			out.Canvas.Width, out.Canvas.Height = &w, &h
 		}
 	}
-	s.renderNodes(out, snapshot, data.Nodes, fills)
+	s.renderNodes(out, snapshot, data.Nodes, fills, rendering.Included)
 	s.renderEdges(out, snapshot, data.Edges)
 	for _, row := range data.Rows {
 		out.Rows = append(out.Rows, RenderRow{Cells: row.Cells, Origin: origin(row.Origin)})
@@ -513,7 +523,7 @@ func analysisNotice(name string, doc *model.Document, d diag.Diagnostic) string 
 // renderNodes converts the rendering's nodes into out, each coloured as fills
 // says; a node the document declares confines the palette to its notation and
 // is admitted once all are known.
-func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes []view.NodeData, fills map[string]view.Fill) {
+func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes []view.NodeData, fills map[string]view.Fill, included []view.Origin) {
 	name := snapshot.Rendered.Name
 	var declared []declaredNode
 	for _, node := range nodes {
@@ -529,6 +539,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			Border:          fills[node.ID].Border,
 			Style:           wireStyle(node.Style),
 			Verdict:         node.Verdict,
+			Included:        node.Parent == "" && slices.Contains(included, node.Origin),
 		}
 		for _, port := range node.Ports {
 			n.Ports = append(n.Ports, RenderPort{

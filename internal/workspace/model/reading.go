@@ -136,14 +136,15 @@ func (r *Reading) DeclaredView(doc, fqn string) *symbols.Symbol {
 
 // RenderView is Workspace.RenderView of the documents as read.
 func (r *Reading) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, error) {
-	return r.w.renderViewLocked(doc, fqn, "", nil, 0)
+	return r.w.renderViewLocked(doc, fqn, "", nil, 0, nil)
 }
 
 // RenderOverlaidView is RenderView with overlay drawn over the rendering, its
-// verdicts answered by verdicts, and bounded by depth levels below each exposed
-// element when depth is above 0.
-func (r *Reading) RenderOverlaidView(doc, fqn string, overlay view.Overlay, verdicts view.Verdicts, depth int) (*view.Rendering, *Snapshot, error) {
-	return r.w.renderViewLocked(doc, fqn, overlay, verdicts, depth)
+// verdicts answered by verdicts, bounded by depth levels below each exposed
+// element when depth is above 0, and drawing the elements include names by
+// qualified name besides the view's own content.
+func (r *Reading) RenderOverlaidView(doc, fqn string, overlay view.Overlay, verdicts view.Verdicts, depth int, include []string) (*view.Rendering, *Snapshot, error) {
+	return r.w.renderViewLocked(doc, fqn, overlay, verdicts, depth, include)
 }
 
 // LinkSites is RenderViewLinked's source sites for a rendering made by this
