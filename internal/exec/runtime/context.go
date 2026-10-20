@@ -1424,7 +1424,19 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 			}
 			continue
 		}
-		value, err := evalIn(member.scope).Eval(expr)
+		var value Value
+		var err error
+		bound := false
+		if isSubject {
+			value, bound, err = ctx.qualifiedMemberOf(self, member.scope, expr)
+			// A subject defaulted to a member holding nothing determined stays unbound.
+			if bound && err == nil && (value.Kind == ValUndetermined || certainlyEmpty(value)) {
+				continue
+			}
+		}
+		if !bound && err == nil {
+			value, err = evalIn(member.scope).Eval(expr)
+		}
 		if err != nil {
 			rollback()
 			return nil, fmt.Errorf("%s %s: %s binding evaluation failed: %w", kind, element, what, err)

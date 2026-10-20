@@ -68,15 +68,15 @@ func (ctx *Context) returnParameterValue(inst *Instance, sym *symbols.Symbol, fe
 }
 
 // statesConditions reports whether sym is a definition or usage whose result is
-// the conjunction of the conditions it states: a requirement, viewpoint or
-// concern (SysML v2 §7.21, Requirements.sysml `RequirementCheck::result`).
+// the conjunction of the conditions it states: a requirement, viewpoint, concern
+// or a case's objective (SysML v2 §7.21, §7.22.2, Requirements.sysml `RequirementCheck::result`).
 func statesConditions(sym *symbols.Symbol) bool {
 	switch decl := sym.Decl.(type) {
 	case *ast.Definition:
 		return decl.Kind == ast.DefRequirement || decl.Kind == ast.DefViewpoint || decl.Kind == ast.DefConcern
 	case *ast.Usage:
 		return decl.Kind == ast.UsageRequirement || decl.Kind == ast.UsageViewpoint || decl.Kind == ast.UsageConcern ||
-			(decl.Kind == ast.UsageSatisfy && !decl.IsVerifiedRequirement())
+			decl.Kind == ast.UsageObjective || (decl.Kind == ast.UsageSatisfy && !decl.IsVerifiedRequirement())
 	}
 	return false
 }
@@ -104,12 +104,18 @@ func (ctx *Context) ownResultParameter(typ, sym *symbols.Symbol) string {
 func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
 	defer ctx.beginRun()()
 	members := ctx.chainMembers(typ, typ.OwnerScope)
-	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, inst, nil, frame{})
+	// A nested usage's bindings and conditions read the object owning it, as the
+	// check on that object evaluates them (`subject s :>> s = sub;` names the owner's sub).
+	self := inst
+	if owner, _ := inst.Owner(); owner != nil {
+		self = owner
+	}
+	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, self, nil, frame{})
 	if err != nil {
 		return ctx.conditionResultOf(err, sym, feat)
 	}
 	conds := ctx.conditionsOf(typ, members)
-	check := conditionCheck{sym: typ, kind: "requirement", what: "require condition", self: inst, bindings: mapFrame(bindings)}
+	check := conditionCheck{sym: typ, kind: "requirement", what: "require condition", self: self, bindings: mapFrame(bindings)}
 	if conflictingResultExpression(conds) != nil {
 		_, err := ctx.evaluateConditions(check, conds)
 		return Value{}, err
