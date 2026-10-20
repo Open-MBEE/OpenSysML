@@ -32,10 +32,6 @@ func mappingQualifiedNames(graph *rdf.Graph) map[string]string {
 	return mappingQualifiedNamesWithContext(graph, newMappingQualifiedNameContext(graph))
 }
 
-func mappingQualifiedNamesForAPIJSONImport(graph *rdf.Graph, context *mappingQualifiedNameContext) map[string]string {
-	return mappingQualifiedNamesWithPositionRule(graph, context, true)
-}
-
 type mappingQualifiedNameContext struct {
 	packageCache        map[string]bool
 	incomingMemberships map[string][]rdf.Term
@@ -74,14 +70,6 @@ func newMappingQualifiedNameContextWithMemberships(graph *rdf.Graph, incoming ma
 }
 
 func mappingQualifiedNamesWithContext(graph *rdf.Graph, context *mappingQualifiedNameContext) map[string]string {
-	return mappingQualifiedNamesWithPositionRule(graph, context, false)
-}
-
-func mappingQualifiedNamesWithPositionRule(
-	graph *rdf.Graph,
-	context *mappingQualifiedNameContext,
-	memberPositionsOnly bool,
-) map[string]string {
 	names := make(map[string]string)
 	if graph == nil {
 		return names
@@ -117,11 +105,7 @@ func mappingQualifiedNamesWithPositionRule(
 		name, hasName := mappingQualifiedNameLocalName(graph, subject, subjectParameters)
 		index, hasIndex := 0, false
 		if hasOwner {
-			if memberPositionsOnly {
-				index, hasIndex = mappingOwnedMemberRelationshipPosition(graph, subject, owner)
-			} else {
-				index, hasIndex = mappingOwnedRelationshipPosition(graph, subject, owner)
-			}
+			index, hasIndex = mappingOwnedRelationshipPosition(graph, subject, owner, context)
 		} else if memberIndex, ok := graph.Lexical(subject, rdf.OpenSysML+"memberIndex"); ok {
 			if parsed, err := strconv.Atoi(memberIndex); err == nil {
 				index, hasIndex = parsed, true
@@ -429,31 +413,11 @@ func mappingRelationshipMemberName(graph *rdf.Graph, subject rdf.Term) string {
 	return ""
 }
 
-func mappingOwnedRelationshipPosition(graph *rdf.Graph, subject, owner rdf.Term) (int, bool) {
-	relationships := graph.ObjectsView(owner, rdf.SysML+pOwnedRelationship)
-	if len(relationships) == 0 {
-		relationships = graph.ObjectsView(owner, rdf.SysML+pOwnedMembership)
-	}
-	owningRelationship, _ := graph.Object(subject, rdf.SysML+pOwningRelationship)
-	owningMembership, _ := graph.Object(subject, rdf.SysML+pOwningMembership)
-	for index, relationship := range relationships {
-		if relationship.Equal(subject) ||
-			owningRelationship.IsIRI() && relationship.Equal(owningRelationship) ||
-			owningMembership.IsIRI() && relationship.Equal(owningMembership) {
-			return index, true
-		}
-		for _, property := range mappingOwnedRelationshipPredicates {
-			for _, member := range graph.ObjectsView(relationship, property) {
-				if member.Equal(subject) {
-					return index, true
-				}
-			}
-		}
-	}
-	return 0, false
-}
-
-func mappingOwnedMemberRelationshipPosition(graph *rdf.Graph, subject, owner rdf.Term) (int, bool) {
+func mappingOwnedRelationshipPosition(
+	graph *rdf.Graph,
+	subject, owner rdf.Term,
+	context *mappingQualifiedNameContext,
+) (int, bool) {
 	relationships := graph.ObjectsView(owner, rdf.SysML+pOwnedRelationship)
 	if len(relationships) == 0 {
 		relationships = graph.ObjectsView(owner, rdf.SysML+pOwnedMembership)
@@ -462,9 +426,7 @@ func mappingOwnedMemberRelationshipPosition(graph *rdf.Graph, subject, owner rdf
 	owningMembership, _ := graph.Object(subject, rdf.SysML+pOwningMembership)
 	position := 0
 	for _, relationship := range relationships {
-		if !mappingTypeConforms(graph, owner, "Relationship") &&
-			!mappingTypeConforms(graph, relationship, "Membership") &&
-			!mappingTypeConforms(graph, relationship, "Import") {
+		if !mappingRelationshipContributesMemberPosition(graph, relationship, context) {
 			continue
 		}
 		if relationship.Equal(subject) ||
@@ -482,6 +444,47 @@ func mappingOwnedMemberRelationshipPosition(graph *rdf.Graph, subject, owner rdf
 		position++
 	}
 	return 0, false
+}
+
+// collect indexes kept source members; see rdf_out.go:969–992 and 1209–1217.
+func mappingRelationshipContributesMemberPosition(
+	graph *rdf.Graph,
+	relationship rdf.Term,
+	context *mappingQualifiedNameContext,
+) bool {
+	if mappingTypeConforms(graph, relationship, "Membership") ||
+		mappingTypeConforms(graph, relationship, "Import") {
+		return true
+	}
+	if mappingPositionElementSubject(graph, relationship, context) {
+		return true
+	}
+	if !mappingTypeConforms(graph, relationship, "Annotation") {
+		return false
+	}
+	for _, property := range []string{
+		rdf.SysML + pOwnedRelatedElement,
+		rdf.SysML + pAnnotatingElement,
+	} {
+		for _, member := range graph.ObjectsView(relationship, property) {
+			if mappingPositionElementSubject(graph, member, context) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func mappingPositionElementSubject(
+	graph *rdf.Graph,
+	subject rdf.Term,
+	context *mappingQualifiedNameContext,
+) bool {
+	if context == nil {
+		return MappingElementSubject(graph, subject)
+	}
+	clear(context.scratchElementSeen)
+	return mappingElementSubjectWithContext(graph, subject, context.scratchElementSeen, context)
 }
 
 func graphWithoutQualifiedNames(graph *rdf.Graph) *rdf.Graph {
