@@ -1716,9 +1716,7 @@ function contains(box: Box, at: RenderPoint): boolean {
 /**
  * movedNode is what dragging a node by (dx, dy) puts in the model: the node itself,
  * every descendant the model already places, and every stated route between nodes
- * of that subtree — all shifted together, so the subtree keeps its shape. With
- * `alone`, as under an auto layout whose places and routes are the panel's and not
- * the model's, it is the dragged node and nothing else.
+ * of that subtree — all shifted together; or, `alone` (under an auto layout), the node only.
  */
 export function movedNode(
   layout: CanvasLayout,
