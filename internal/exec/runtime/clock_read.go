@@ -39,20 +39,7 @@ func (ctx *Context) universalClockObject(fqn string) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	ctx.beganWithRun(inst)
 	return Value{Kind: ValInstance, Instance: inst.ID}, nil
-}
-
-// beganWithRun dates the universal clock's life from the run's first activation:
-// the clock the run is timed against exists throughout it, not from its first read.
-func (ctx *Context) beganWithRun(inst *Instance) {
-	l := ctx.lives[inst.ID]
-	if l.began <= 1 && l.reached <= 1 {
-		return
-	}
-	l.reached, l.began, l.beganAt = 1, 1, 0
-	ctx.lives[inst.ID] = l
-	ctx.livesChanged()
 }
 
 // clockMember answers a Clock object's currentTime from the shared clock every

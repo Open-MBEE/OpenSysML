@@ -422,6 +422,18 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 // occurrenceOf returns the object a usage denotes, materializing it once: a part
 // declared in a package names one occurrence, so reading its features twice
 // reads the same object.
+// beganWithRun dates the object a package-level usage denotes from the run's
+// first activation: it exists throughout the run, not from its first read.
+func (ctx *Context) beganWithRun(inst *Instance) {
+	l := ctx.lives[inst.ID]
+	if l.began <= 1 && l.reached <= 1 {
+		return
+	}
+	l.reached, l.began, l.beganAt = 1, 1, 0
+	ctx.lives[inst.ID] = l
+	ctx.livesChanged()
+}
+
 func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 	if objs, bound, err := ctx.namespaceBoundObjects(sym); err != nil {
 		return nil, err
@@ -446,6 +458,9 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 		return nil, err
 	}
 	ctx.occurrences[sym] = []int64{inst.ID}
+	if owner := sym.Owner(); owner == nil || owner.Kind == symbols.SymbolPackage {
+		ctx.beganWithRun(inst)
+	}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
 		return nil, err
 	}
