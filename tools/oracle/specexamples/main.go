@@ -47,7 +47,7 @@ func run(repoDir, textDir, out, release string, log io.Writer) error {
 	if out == "" {
 		out = filepath.Join(repoDir, "examples", "spec-examples")
 	}
-	pin, err := os.ReadFile(filepath.Join(textDir, ".pilot-pin"))
+	pin, err := os.ReadFile(filepath.Join(textDir, ".pilot-pin")) // #nosec G304 -- the directory is named on the command line.
 	if err != nil {
 		return fmt.Errorf("the text directory carries no pin stamp (run scripts/download-spec-examples.sh): %w", err)
 	}
