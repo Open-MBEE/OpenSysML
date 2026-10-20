@@ -105,6 +105,7 @@ const maxIndent = 12
 func Extract(doc Document, text string) Result {
 	var res Result
 	var cur *candidate
+	var comments commentStripper
 	depth := 0
 	clause := ""
 	page := ""
@@ -158,10 +159,11 @@ func Extract(doc Document, text string) Result {
 		}
 		if cur == nil {
 			cur = &candidate{clause: clause, page: page, line: i + 1, indent: indent}
+			comments = commentStripper{}
 		}
 		cur.lines = append(cur.lines, line)
 		if !isBullet(line) {
-			code := stripComments(line)
+			code := comments.strip(line)
 			depth += strings.Count(code, "{") - strings.Count(code, "}")
 		}
 	}
@@ -195,12 +197,13 @@ func classify(doc Document, c *candidate, counts map[string]int, res *Result) {
 		return
 	}
 	terminated := false
+	var comments commentStripper
 	for _, l := range c.lines {
 		t := strings.TrimSpace(l)
 		if isBullet(l) {
 			return
 		}
-		t = strings.TrimSpace(stripComments(t))
+		t = strings.TrimSpace(comments.strip(t))
 		if strings.HasSuffix(t, ";") || strings.HasSuffix(t, "{") || strings.HasSuffix(t, "}") || strings.HasSuffix(l, "*/") {
 			terminated = true
 		}
@@ -295,19 +298,34 @@ func trimProse(lines []string) []string {
 // stripComments blanks `//` line comments and `/* */` block comments so that
 // braces and ellipses inside them are not read as code.
 func stripComments(s string) string {
+	var cs commentStripper
+	return cs.strip(s)
+}
+
+// commentStripper strips comments line by line, carrying an open block comment
+// from one line to the next.
+type commentStripper struct {
+	inBlock bool
+}
+
+func (c *commentStripper) strip(s string) string {
 	var b strings.Builder
 	for i := 0; i < len(s); {
 		switch {
+		case c.inBlock:
+			end := strings.Index(s[i:], "*/")
+			if end < 0 {
+				return b.String()
+			}
+			i += end + 2
+			c.inBlock = false
 		case strings.HasPrefix(s[i:], "//"):
 			for i < len(s) && s[i] != '\n' {
 				i++
 			}
 		case strings.HasPrefix(s[i:], "/*"):
-			end := strings.Index(s[i+2:], "*/")
-			if end < 0 {
-				return b.String()
-			}
-			i += end + 4
+			c.inBlock = true
+			i += 2
 		default:
 			b.WriteByte(s[i])
 			i++

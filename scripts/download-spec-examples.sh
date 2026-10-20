@@ -41,20 +41,13 @@ for pdf in "$sysml_pdf" "$kerml_pdf"; do
 	fi
 done
 
+# The PDFs are cached by pin above; the extraction always reruns, since the
+# fixtures depend on the extractor and the library index as much as on the text.
 pin="$(cat "$docs/pdf/.pilot-pin")"
-extracted=0
-if [[ -d "$target" ]]; then
-	extracted="$(find "$target" -name '*.sysml' -o -name '*.kerml' | wc -l)"
-fi
-if [[ -f "$target/.pilot-pin" && "$(cat "$target/.pilot-pin")" == "$pin" && "$extracted" -gt 0 ]]; then
-	echo "Already extracted at $target (pin $pin)"
-	echo "Remove that directory to re-extract."
-else
-	pdftotext -layout "$sysml_pdf" "$docs/sysml.txt"
-	pdftotext -layout "$kerml_pdf" "$docs/kerml.txt"
-	printf '%s\n' "$pin" >"$docs/.pilot-pin"
-	(cd "$repo_root/tools" && go run ./cmd/spec-examples -repo "$repo_root" -text "$docs" -out "$target")
-fi
+pdftotext -layout "$sysml_pdf" "$docs/sysml.txt"
+pdftotext -layout "$kerml_pdf" "$docs/kerml.txt"
+printf '%s\n' "$pin" >"$docs/.pilot-pin"
+(cd "$repo_root/tools" && go run ./cmd/spec-examples -repo "$repo_root" -text "$docs" -out "$target")
 
 count="$(find "$target" -name '*.sysml' -o -name '*.kerml' | wc -l)"
 if [[ "$count" -eq 0 ]]; then

@@ -179,3 +179,27 @@ func TestCompleteImportsUniqueLibraryMembers(t *testing.T) {
 		t.Errorf("import placed after the example:\n%s", fixtures[0].Content)
 	}
 }
+
+// A block comment that spans lines hides its braces and ellipses from the
+// depth count and the completeness checks, like a one-line comment does.
+func TestExtractMultilineComment(t *testing.T) {
+	text := "" +
+		"\f20                    Systems Modeling Language v2.1, Beta 2, Part 1\n" +
+		"7 Language Description\n" +
+		"7.4.2 Comments and Documentation\n" +
+		"\n" +
+		"       part def P {\n" +
+		"           /* a note that mentions ... and {\n" +
+		"              an unbalanced } brace */\n" +
+		"           attribute x : Real;\n" +
+		"       }\n" +
+		"\n" +
+		"Prose follows.\n"
+	res := Extract(Documents[0], text)
+	if len(res.Excluded) != 0 {
+		t.Errorf("excluded %+v", res.Excluded)
+	}
+	if len(res.Blocks) != 1 || len(res.Blocks[0].Lines) != 5 {
+		t.Fatalf("blocks %+v", res.Blocks)
+	}
+}

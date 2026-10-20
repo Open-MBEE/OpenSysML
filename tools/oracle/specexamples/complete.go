@@ -41,30 +41,36 @@ var actionBodyKeywords = map[string]bool{
 // `first x then y;` succession that a package may own.
 func (b Block) IsActionBody() bool {
 	depth := 0
-	start := true
-	for _, l := range b.Lines {
-		code := stripComments(l)
-		for _, stmt := range strings.FieldsFunc(code, func(r rune) bool { return r == ';' || r == '{' || r == '}' }) {
-			fields := strings.Fields(stmt)
-			if depth == 0 && start && len(fields) > 0 {
-				if actionBodyKeywords[fields[0]] || fields[0] == "first" && !containsWord(fields, "then") {
-					return true
-				}
-			}
-			start = false
+	var stmt strings.Builder
+	var comments commentStripper
+	opens := func() bool {
+		fields := strings.Fields(stmt.String())
+		stmt.Reset()
+		if depth != 0 || len(fields) == 0 {
+			return false
 		}
-		for _, r := range code {
+		return actionBodyKeywords[fields[0]] || fields[0] == "first" && !containsWord(fields, "then")
+	}
+	for _, l := range b.Lines {
+		for _, r := range comments.strip(l) {
 			switch r {
 			case '{':
+				if opens() {
+					return true
+				}
 				depth++
-				start = true
 			case '}':
+				stmt.Reset()
 				depth--
-				start = true
 			case ';':
-				start = true
+				if opens() {
+					return true
+				}
+			default:
+				stmt.WriteRune(r)
 			}
 		}
+		stmt.WriteByte(' ')
 	}
 	return false
 }

@@ -105,10 +105,22 @@ func run(repoDir, textDir, out, release string, log io.Writer) error {
 	if err := os.WriteFile(filepath.Join(staging, ".pilot-pin"), pin, 0o600); err != nil {
 		return err
 	}
-	if err := os.RemoveAll(out); err != nil {
+	backup := out + ".old"
+	if err := os.RemoveAll(backup); err != nil {
 		return err
 	}
+	if _, err := os.Stat(out); err == nil {
+		if err := os.Rename(out, backup); err != nil {
+			return err
+		}
+	}
 	if err := os.Rename(staging, out); err != nil {
+		if restore := os.Rename(backup, out); restore != nil && !os.IsNotExist(restore) {
+			return fmt.Errorf("%w; restoring the previous corpus failed too: %v", err, restore)
+		}
+		return err
+	}
+	if err := os.RemoveAll(backup); err != nil {
 		return err
 	}
 	fmt.Fprintf(log, "Wrote %d fixture(s) to %s\n", len(fixtures), out)
