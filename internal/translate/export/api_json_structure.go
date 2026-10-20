@@ -98,10 +98,6 @@ func apiJSONEvaluationGraph(graph *rdf.Graph) *rdf.Graph {
 	return rdf.NewGraphOfWithIndexOverlay(triples, graph.Prefixes, graph, additions)
 }
 
-func newAPIJSONGraphStructure(graph *rdf.Graph) *apiJSONGraphStructure {
-	return newAPIJSONGraphStructureWithSubjectSlots(graph, nil)
-}
-
 func newAPIJSONGraphStructureWithSubjectSlots(graph *rdf.Graph, subjectSlots map[string]int) *apiJSONGraphStructure {
 	s := &apiJSONGraphStructure{
 		graph: graph,

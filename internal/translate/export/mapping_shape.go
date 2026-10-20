@@ -77,10 +77,6 @@ func mappingFeatureChain(graph *rdf.Graph, subject rdf.Term) bool {
 	return false
 }
 
-func mappingFilterPackageNode(graph *rdf.Graph, subject rdf.Term) bool {
-	return mappingFilterPackageNodeWithCache(graph, subject, nil)
-}
-
 func mappingFilterPackageNodes(graph *rdf.Graph) map[string]bool {
 	filtered := make(map[string]bool)
 	if graph == nil {
@@ -171,10 +167,6 @@ func mappingFilterPackageNodeWithCache(graph *rdf.Graph, subject rdf.Term, cache
 // rather than a reified membership edge.
 func MappingElementSubject(graph *rdf.Graph, subject rdf.Term) bool {
 	return mappingElementSubjectWithCache(graph, subject, map[string]bool{}, nil)
-}
-
-func mappingElementSubject(graph *rdf.Graph, subject rdf.Term, seen map[string]bool) bool {
-	return mappingElementSubjectWithCache(graph, subject, seen, nil)
 }
 
 func mappingElementSubjectWithCache(graph *rdf.Graph, subject rdf.Term, seen, packageCache map[string]bool) bool {
@@ -298,10 +290,6 @@ func mappingExpressionBodyMemberSubject(graph *rdf.Graph, subject rdf.Term) bool
 // membership's member as an Element rather than as an expression part.
 func MappingMembershipMemberIsElement(graph *rdf.Graph, membership, member rdf.Term) bool {
 	return mappingMembershipMemberIsElementWithCache(graph, membership, member, map[string]bool{}, nil)
-}
-
-func mappingMembershipMemberIsElement(graph *rdf.Graph, membership, member rdf.Term, seen map[string]bool) bool {
-	return mappingMembershipMemberIsElementWithCache(graph, membership, member, seen, nil)
 }
 
 func mappingMembershipMemberIsElementWithCache(graph *rdf.Graph, membership, member rdf.Term, seen, packageCache map[string]bool) bool {

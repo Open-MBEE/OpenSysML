@@ -66,13 +66,6 @@ func apiJSONExpressionTerm(term rdf.Term, expressionIDs map[string]bool) rdf.Ter
 	return term
 }
 
-func apiJSONReferenceTerm(subject rdf.Term, id string, expressionIDs map[string]bool) rdf.Term {
-	if expressionIDs[id] {
-		return rdf.IRI(rdf.Expression + id)
-	}
-	return rdf.ReferenceIRI(subject, id)
-}
-
 type apiJSONQualifiedNamePosition struct {
 	subject   rdf.Term
 	predicate string

@@ -412,14 +412,6 @@ func TestSequencesFromMatchesInitialMembershipReferent(t *testing.T) {
 	}
 }
 
-// jsonValues flattens a single value or an array of values.
-func jsonValues(v any) []any {
-	if arr, ok := v.([]any); ok {
-		return arr
-	}
-	return []any{v}
-}
-
 // assertEnds checks a materialized relationship element: its class, its
 // identity, its owner, and that the listed end properties reach the owner and
 // the collapsed target.

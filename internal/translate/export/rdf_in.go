@@ -1167,7 +1167,7 @@ func (d *decoder) ownerOf(el *element) (*element, error) {
 	}
 	parentIRI := ownerIRI
 	seenOwners := map[string]bool{}
-	for seenOwners[parentIRI] == false {
+	for !seenOwners[parentIRI] {
 		seenOwners[parentIRI] = true
 		if _, known := d.byIRI[parentIRI]; known {
 			break

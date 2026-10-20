@@ -758,19 +758,6 @@ func apiJSONGraphOwnedNames(
 	return index.ownedNames[apiJSONScopeName{scope: owner.Value, name: name}]
 }
 
-func apiJSONGraphNamedTarget(
-	graph *rdf.Graph,
-	index *apiJSONNameIndex,
-	scope rdf.Term,
-	name string,
-) rdf.Term {
-	matches := apiJSONGraphNamedTargets(graph, index, scope, name)
-	if len(matches) == 1 {
-		return matches[0]
-	}
-	return rdf.Term{}
-}
-
 func apiJSONGraphNamedTargetInType(
 	graph *rdf.Graph,
 	index *apiJSONNameIndex,

@@ -377,10 +377,6 @@ func mappingQualifiedNameOwnerWithCache(
 	return mappingQualifiedNameAncestorWithCache(graph, subject, seen, packageCache)
 }
 
-func mappingQualifiedNameAncestor(graph *rdf.Graph, subject rdf.Term, seen map[string]bool) (rdf.Term, bool) {
-	return mappingQualifiedNameAncestorWithCache(graph, subject, seen, nil)
-}
-
 func mappingQualifiedNameAncestorWithCache(
 	graph *rdf.Graph,
 	subject rdf.Term,

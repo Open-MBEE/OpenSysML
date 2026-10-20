@@ -49,10 +49,6 @@ var apiJSONOwnedAbsenceExtensionParents = map[string]string{
 	"Pseudostate": "StateUsage",
 }
 
-func appendAPIJSONOwnedAbsences(graph *rdf.Graph, subject rdf.Term, element apiJSONObject, typ rdf.Term) apiJSONObject {
-	return appendAPIJSONOwnedAbsencesWithScratch(graph, subject, element, typ, nil)
-}
-
 func appendAPIJSONOwnedAbsencesWithScratch(
 	graph *rdf.Graph,
 	subject rdf.Term,
@@ -263,8 +259,7 @@ func apiJSONOwnedAbsenceOntologyData() apiJSONOwnedAbsenceOntology {
 		}
 
 		lineageCache := make(map[string][]string, len(classes))
-		var lineage func(string) []string
-		lineage = func(name string) []string {
+		lineage := func(name string) []string {
 			if cached, ok := lineageCache[name]; ok {
 				return cached
 			}
