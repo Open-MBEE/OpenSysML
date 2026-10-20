@@ -892,7 +892,7 @@ func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args ca
 	// the usage or its definition declares, and one declaring none is left unsupplied.
 	unsupplied := shape.unsuppliedParameters(args)
 	var open map[string]bool
-	if nested == nil {
+	if shape.readsOpen(nested) {
 		open = unsupplied
 	}
 	if err := ctx.bindCalcParameters(shape, ec, args, reader.scope, env, nested, occurrence, open); err != nil {
@@ -1413,11 +1413,7 @@ func (run *calcRun) memberValue(ctx *Context, name string) (Value, bool, error) 
 // object; the usage computes nothing without it. A case usage runs without the
 // input, and a usage written in a behavior body binds from that body, so neither.
 func (start *calcUsageStart) openInput() string {
-	sym := start.shape.Sym
-	if sym.Kind != symbols.SymbolCalcUsage || start.nested != nil {
-		return ""
-	}
-	if owner := sym.Owner(); owner != nil && (isBehaviorDefKind(owner.Kind) || isCalcUsageSymbol(owner)) {
+	if !start.shape.readsOpen(start.nested) {
 		return ""
 	}
 	for i := range start.shape.Params {
@@ -1426,6 +1422,18 @@ func (start *calcUsageStart) openInput() string {
 		}
 	}
 	return ""
+}
+
+// readsOpen reports a calc usage read over an object, whose unsupplied inputs are
+// left open: not a case, which runs without them, nor a usage written in a behavior
+// body (nested reads it), which binds its inputs from that body's evaluation.
+func (shape *calcShape) readsOpen(nested *EvalContext) bool {
+	sym := shape.Sym
+	if sym.Kind != symbols.SymbolCalcUsage || nested != nil {
+		return false
+	}
+	owner := sym.Owner()
+	return owner == nil || !(isBehaviorDefKind(owner.Kind) || isCalcUsageSymbol(owner))
 }
 
 // openValue is the undetermined value an output or body local of an open run reads:
