@@ -151,10 +151,10 @@ var constraintCodes = []Entry{
 	},
 	{
 		Code: "redefinition-not-end", Tier: TierConstraint, Severity: "error",
-		Summary: "a non-end feature redefining an end feature",
-		Meaning: "A feature that redefines an end feature is itself an end feature. " +
+		Summary: "a non-end feature of an association or connector redefining an end feature",
+		Meaning: "A feature of an association or a connector that redefines an end feature is itself an end feature; a feature of any other type may redefine an end without being one. " +
 			"Write `end` before the redefining feature.",
-		Spec: "KerML 1.0 validateRedefinitionEndConformance",
+		Spec: "KerML 1.1 Beta 2 §8.3.3.3.8 validateRedefinitionEndConformance",
 	},
 	{
 		Code: "redefinition-package-level", Tier: TierConstraint, Severity: "error",

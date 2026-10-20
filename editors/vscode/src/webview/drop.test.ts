@@ -14,7 +14,7 @@ const motor: RenderNode = { id: "n3", kind: "part def", name: "Motor", type: "",
 const fit: RenderNode = { id: "n4", kind: "requirement def", name: "Fit", type: "", detail: "", fqn: "Rig::Fit", declaredHere: true, notation: "requirement def", owners: [rig] };
 const subject: RenderNode = { id: "n5", kind: "subject", name: "rig", type: "", detail: "", parent: "n4", fqn: "Rig::Fit::rig", declaredHere: true, notation: "subject", owners: [{ fqn: "Rig::Fit", feature: false }, rig] };
 const wheel: RenderNode = { id: "n6", kind: "part", name: "wheel", type: "Wheel", detail: "", parent: "n3" };
-const palette: EditPalette = { members: ["part", "subject"], connections: [], typed: ["part"], owners: { subject: ["n4"] } };
+const palette: EditPalette = { owners: { subject: ["n4"] } };
 
 function rendering(extra: Partial<RenderResult> = {}): RenderResult {
   return { view: "", kind: "interconnection", stated: "", form: "mermaid", artifact: "", nodes: [pump, valve, motor, fit, subject, wheel], edges: [], notices: [], version: 2, palette, ...extra };

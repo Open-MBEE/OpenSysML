@@ -72,6 +72,20 @@ var pilotCorporaGate = corpusGate{
 	skipHint:   "pilot corpora not downloaded (run ./scripts/download-pilot-corpora.sh)",
 }
 
+var specExamplesGate = corpusGate{
+	name: "spec-examples",
+	roots: []corpusRoot{
+		{name: "kerml", dir: "../../examples/spec-examples/kerml"},
+		{name: "sysml", dir: "../../examples/spec-examples/sysml"},
+	},
+	expected:   "testdata/spec_examples_expected.txt",
+	requireEnv: "OPENSYSML_REQUIRE_SPEC_EXAMPLES",
+	absent:     "The OMG specification examples are absent, so this run proves nothing about them.",
+	fetch:      "Fetch them with ./scripts/download-spec-examples.sh and re-run",
+	runPattern: "TestSpecExamples",
+	skipHint:   "specification examples not extracted (run ./scripts/download-spec-examples.sh)",
+}
+
 // skip skips locally but fails when the require-env is set, so the gate cannot
 // pass by skipping. Announced on stderr because -v-less runs hide skip reasons.
 func (g corpusGate) skip(t *testing.T, reason string) {
@@ -309,7 +323,7 @@ func (g corpusGate) writeExpected(t *testing.T, header string, files map[string]
 // Restoring the persistent library cache instead of parsing the library must not
 // change a diagnostic on any of the four roots: run each gate cold, then warm.
 func TestCorpusGatesCacheStateIndependent(t *testing.T) {
-	for _, gate := range []corpusGate{trainingGate, pilotCorporaGate} {
+	for _, gate := range []corpusGate{trainingGate, pilotCorporaGate, specExamplesGate} {
 		t.Run(gate.name, func(t *testing.T) {
 			files := gate.files(t)
 			t.Setenv("XDG_CACHE_HOME", t.TempDir())

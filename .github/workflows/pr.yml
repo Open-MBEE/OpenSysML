@@ -25,6 +25,7 @@ env:
   # Same for the three pinned OMG pilot corpora, which are downloaded below and
   # gated by tests/corpus/pilot_corpora_test.go.
   OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+  OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
   # Same for the pinned OMG PSSM test suite, gated by tools/referee/pssm and tools/cmd/pssm-referee.
   OPENSYSML_REQUIRE_PSSM_SUITE: "1"
   # Same for the pinned OMG SysML v1 to v2 transformation model, gated by tools/census/transformation.
@@ -377,6 +378,18 @@ jobs:
           grep -E 'pilot corpus files clean' pilot-corpora-gate.log
           if grep -qE '^\s*--- SKIP' pilot-corpora-gate.log; then
             echo "error: the pilot corpora gate skipped" >&2
+            exit 1
+          fi
+
+      # The specification-examples gate on its own, for the same reason.
+      - name: Run spec examples gate
+        if: needs.changes.outputs.tier == 'full'
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./tests/corpus -run 'TestSpecExamples' | tee spec-examples-gate.log
+          grep -E 'specification examples clean' spec-examples-gate.log
+          if grep -qE '^\s*--- SKIP' spec-examples-gate.log; then
+            echo "error: the spec examples gate skipped" >&2
             exit 1
           fi
 

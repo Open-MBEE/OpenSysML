@@ -276,7 +276,7 @@ func TestExprTypeCheckNoExampleFalsePositives(t *testing.T) {
 			// examples/, not models this repository ships; the advisory
 			// differential harness reports on those.
 			if info.IsDir() {
-				if info.Name() == "pilot-corpora" {
+				if info.Name() == "pilot-corpora" || info.Name() == "spec-examples" {
 					return filepath.SkipDir
 				}
 				return nil
