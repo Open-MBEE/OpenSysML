@@ -105,22 +105,7 @@ func run(repoDir, textDir, out, release string, log io.Writer) error {
 	if err := os.WriteFile(filepath.Join(staging, ".pilot-pin"), pin, 0o600); err != nil {
 		return err
 	}
-	backup := out + ".old"
-	if err := os.RemoveAll(backup); err != nil {
-		return err
-	}
-	if _, err := os.Stat(out); err == nil {
-		if err := os.Rename(out, backup); err != nil {
-			return err
-		}
-	}
-	if err := os.Rename(staging, out); err != nil {
-		if restore := os.Rename(backup, out); restore != nil && !os.IsNotExist(restore) {
-			return fmt.Errorf("%w; restoring the previous corpus failed too: %v", err, restore)
-		}
-		return err
-	}
-	if err := os.RemoveAll(backup); err != nil {
+	if err := install(staging, out); err != nil {
 		return err
 	}
 	fmt.Fprintf(log, "Wrote %d fixture(s) to %s\n", len(fixtures), out)
@@ -133,4 +118,32 @@ func clauseCount(blocks []Block) int {
 		seen[b.Clause] = true
 	}
 	return len(seen)
+}
+
+// install swaps the staged corpus into place, keeping the previous corpus as
+// `<out>.old` until the new one is in place. A run interrupted between the two
+// renames leaves only the backup, which the next run recovers before anything
+// is discarded.
+func install(staging, out string) error {
+	backup := out + ".old"
+	if _, err := os.Stat(out); os.IsNotExist(err) {
+		if err := os.Rename(backup, out); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	if _, err := os.Stat(out); err == nil {
+		if err := os.RemoveAll(backup); err != nil {
+			return err
+		}
+		if err := os.Rename(out, backup); err != nil {
+			return err
+		}
+	}
+	if err := os.Rename(staging, out); err != nil {
+		if restore := os.Rename(backup, out); restore != nil && !os.IsNotExist(restore) {
+			return fmt.Errorf("%w; restoring the previous corpus failed too: %v", err, restore)
+		}
+		return err
+	}
+	return os.RemoveAll(backup)
 }
