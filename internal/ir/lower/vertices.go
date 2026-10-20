@@ -26,7 +26,7 @@ func VertexDeclsResolving(stateMachineDecl ast.Node, scope *symbols.Scope, resol
 	}
 	body := append(append([]inheritedMember{}, inherited...), ownMembers(members, scope)...)
 	for _, group := range groupMembers(body) {
-		if err := collectVertices(graph, group.nodes, group.scope, parallel); err != nil {
+		if err := collectVertices(graph, group.nodes, group.scope, group.owner, parallel); err != nil {
 			return nil, err
 		}
 	}

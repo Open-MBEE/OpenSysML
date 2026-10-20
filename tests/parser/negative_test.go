@@ -531,6 +531,26 @@ func TestNegative(t *testing.T) {
 		{"sequence_index_comma_only", "package P { attribute s = (1, 2); attribute e = s#(,); }"},
 		{"argument_list_trailing_comma", "package P { attribute s = f(1,); }"},
 		{"named_argument_list_trailing_comma", "package P { attribute s = f(x = 1,); }"},
+		// A terminate action usage is an action usage (SysML.xtext TerminateNode);
+		// `terminate` closes no other kind of usage.
+		{"part_terminate", "package P { part p terminate; }"},
+		{"attribute_terminate", "package P { part def D { attribute x : Integer terminate; } }"},
+		{"state_terminate", "package P { state def S { state s terminate; } }"},
+		// The marker closes the declaration (`ActionNodeUsageDeclaration? 'terminate'
+		// NodeParameterMember? ActionBody`): only the occurrence it terminates may
+		// follow it, then the body.
+		{"terminate_repeated", "package P { action def A { first start; then stop; action stop terminate terminate; } }"},
+		{"terminate_then_typing", "package P { action def A { first start; then stop; action stop terminate : Brake; } }"},
+		{"terminate_then_ordered", "package P { action def A { first start; then stop; action stop terminate ordered; } }"},
+		{"terminate_then_value", "package P { action def A { first start; then stop; action stop terminate = 3; } }"},
+		// A connector end's multiplicity opens the end (SysML.xtext ConnectorEnd:
+		// `OwnedCrossMultiplicityMember? (NAME REFERENCES)? OwnedReferenceSubsetting`);
+		// none follows the feature it references.
+		{"connector_end_trailing_multiplicity", "package P { part def D; connection def DC { end hub : D; end device : D; } part s { part h : D; part d : D; connection c : DC connect ([1] hub ::> h[1], [1] device ::> d); } }"},
+		// A payload's value part takes an expression (SysML.xtext PayloadFeature).
+		{"accept_payload_value_missing", "package P { action def A { accept : ChangeSignal = ; } }"},
+		// `ordered` and `nonunique` are stated once each (SysML.xtext MultiplicityPart).
+		{"keywordless_ordered_repeated", "package P { part def S { ref part content[*]; } part def O :> S { c ordered ordered :>> content; } }"},
 	}
 
 	for _, tt := range tests {
@@ -736,18 +756,6 @@ func TestNegativeKerML(t *testing.T) {
 		// declaration so named is still reported.
 		{"feature_named_frame_no_type", "package P { feature frame : ; }"},
 		{"feature_named_state_no_terminator", "package P { feature state }"},
-		// A terminate action usage is an action usage (SysML.xtext TerminateNode);
-		// `terminate` closes no other kind of usage.
-		{"part_terminate", "package P { part p terminate; }"},
-		{"attribute_terminate", "package P { part def D { attribute x : Integer terminate; } }"},
-		{"state_terminate", "package P { state def S { state s terminate; } }"},
-		// The marker closes the declaration (`ActionNodeUsageDeclaration? 'terminate'
-		// ActionBody`): nothing but the body follows it.
-		{"terminate_repeated", "package P { action def A { first start; then stop; action stop terminate terminate; } }"},
-		{"terminate_then_typing", "package P { action def A { first start; then stop; action stop terminate : Brake; } }"},
-		{"terminate_then_ordered", "package P { action def A { first start; then stop; action stop terminate ordered; } }"},
-		{"terminate_then_value", "package P { action def A { first start; then stop; action stop terminate = 3; } }"},
-		{"terminate_then_target", "package P { action def A { first start; then stop; action stop terminate stop; } }"},
 	}
 
 	for _, tt := range tests {
