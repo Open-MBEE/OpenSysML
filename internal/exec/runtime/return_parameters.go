@@ -69,15 +69,28 @@ func (ctx *Context) returnParameterValue(inst *Instance, sym *symbols.Symbol, fe
 
 // statesConditions reports whether sym is a definition or usage whose result is
 // the conjunction of the conditions it states: a requirement, viewpoint or
-// concern (SysML v2 §7.21, Requirements.sysml `RequirementCheck::result`).
+// concern (SysML v2 §7.21, Requirements.sysml `RequirementCheck::result`). A
+// satisfy usage is a requirement usage (SysML v2 §7.20.5 SatisfyRequirementUsage).
 func statesConditions(sym *symbols.Symbol) bool {
 	switch decl := sym.Decl.(type) {
 	case *ast.Definition:
 		return decl.Kind == ast.DefRequirement || decl.Kind == ast.DefViewpoint || decl.Kind == ast.DefConcern
 	case *ast.Usage:
-		return decl.Kind == ast.UsageRequirement || decl.Kind == ast.UsageViewpoint || decl.Kind == ast.UsageConcern
+		return decl.Kind == ast.UsageRequirement || decl.Kind == ast.UsageViewpoint || decl.Kind == ast.UsageConcern ||
+			(decl.Kind == ast.UsageSatisfy && !decl.IsVerifiedRequirement())
 	}
 	return false
+}
+
+// satisfactionResultSubject is the object a satisfy usage's `by` names, which every
+// subject its requirement declares is bound to (SysML v2 §8.3.17.15); nil for a
+// requirement whose subject its own members bind.
+func (ctx *Context) satisfactionResultSubject(typ *symbols.Symbol) (*Instance, error) {
+	a := ctx.satisfyAssertionOf(typ)
+	if a == nil || a.SubjectRef == "" {
+		return nil, nil
+	}
+	return ctx.SatisfySubject(a)
 }
 
 // ownResultParameter is the name of the result parameter a type more specific than
@@ -102,8 +115,12 @@ func (ctx *Context) ownResultParameter(typ, sym *symbols.Symbol) string {
 // result reads an unbound input, negated for an element asserting the contrary.
 func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
 	defer ctx.beginRun()()
+	subject, err := ctx.satisfactionResultSubject(typ)
+	if err != nil {
+		return undeterminedFeatureValue(err.Error(), feat.Multiplicity, sym), nil
+	}
 	members := ctx.chainMembers(typ, typ.OwnerScope)
-	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, inst, nil, frame{})
+	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, inst, subject, frame{})
 	if err != nil {
 		return ctx.conditionResultOf(err, sym, feat)
 	}

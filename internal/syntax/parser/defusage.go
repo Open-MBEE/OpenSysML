@@ -2306,12 +2306,7 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 		// operand names the subject of the satisfaction, never the usage itself,
 		// so it is always recorded as a subject relationship.
 		if p.acceptKeyword("by") {
-			if subjTarget := p.parseRelationshipTarget(); subjTarget != nil {
-				u.Relationships = append(u.Relationships, &ast.Relationship{
-					Kind:   ast.RelSubject,
-					Target: subjTarget,
-				})
-			}
+			p.parseSatisfactionSubject(u)
 		}
 
 		// A satisfy usage is a requirement usage (SysML v2 §7.20), so its body
@@ -3899,6 +3894,29 @@ func (p *Parser) parseRelationshipTarget() ast.Node {
 	}
 
 	return operand
+}
+
+// parseSatisfactionSubject parses the operand of a satisfy usage's `by`: a feature
+// reference or feature chain (SysML.xtext SatisfactionReferenceExpression:
+// FeatureChainMember), never a wider expression. An operand that is not one is
+// reported once, where it stops being a chain, and skipped to the body or ';'.
+func (p *Parser) parseSatisfactionSubject(u *ast.Usage) {
+	if !p.atNameOrKeyword() && !(p.at(lexer.Dollar) && p.peekN(1).Kind == lexer.ColonColon) {
+		p.error(p.peek().Span, "expected a feature reference after 'by'")
+		p.skipToEndDelimiter()
+		return
+	}
+	if subjTarget := p.parseRelationshipTarget(); subjTarget != nil {
+		u.Relationships = append(u.Relationships, &ast.Relationship{
+			Kind:   ast.RelSubject,
+			Target: subjTarget,
+		})
+	}
+	if p.at(lexer.Semicolon) || p.at(lexer.LBrace) || p.at(lexer.RBrace) || p.atEOF() {
+		return
+	}
+	p.error(p.peek().Span, "expected ';' or '{' after the satisfaction subject: 'by' takes a feature reference or feature chain, not an expression")
+	p.skipToEndDelimiter()
 }
 
 // parsePreNameRelationships parses the specializations a declaration may state

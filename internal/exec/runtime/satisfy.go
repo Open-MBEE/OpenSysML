@@ -34,6 +34,11 @@ type SatisfyAssertion struct {
 	// one can be reported by name.
 	RequirementRef string
 
+	// Definition is the requirement definition a declared satisfaction is typed
+	// by (`satisfy requirement sr : R1 by s;`), whose conditions it inherits; nil
+	// when it declares no type or the type resolves to nothing.
+	Definition *symbols.Symbol
+
 	// Subject is the feature named by `by`, whose values the requirement is
 	// evaluated against. It is nil when the assertion names no subject, and
 	// when the name resolves to nothing. For a feature chain (`config.child`)
@@ -181,6 +186,10 @@ func (ctx *Context) satisfyAssertionOf(sym *symbols.Symbol) *SatisfyAssertion {
 		switch rel.Kind {
 		case ast.RelSubsets:
 			a.RequirementRef, a.Requirement = ctx.resolveRelationship(sym, rel)
+		case ast.RelTyping:
+			// `satisfy requirement sr : R1 by s;` declares a requirement usage typed
+			// by R1, whose conditions it inherits (SysML v2 7.20.5).
+			_, a.Definition = ctx.resolveRelationship(sym, rel)
 		case ast.RelSubject:
 			a.SubjectRef, a.Subject = ctx.resolveRelationship(sym, rel)
 			if chain, ok := rel.Target.(*ast.FeatureChainExpr); ok {
@@ -276,7 +285,7 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 	if a.Requirement == nil && a.RequirementRef != "" {
 		return CheckResult{Subject: subject}, fmt.Errorf("%s: %w: %s", a.Text(), ErrNoRequirement, a.RequirementRef)
 	}
-	if a.Requirement == nil && !ctx.declaresConditions(a.Symbol) {
+	if a.Requirement == nil && a.Definition == nil && !ctx.declaresConditions(a.Symbol) {
 		return CheckResult{Subject: subject}, fmt.Errorf("%s: %w", a.Text(), ErrNoRequirement)
 	}
 

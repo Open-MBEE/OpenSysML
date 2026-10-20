@@ -97,3 +97,29 @@ func violationErr(err error) bool {
 	var violation *ViolationError
 	return errors.As(err, &violation)
 }
+
+// TestSatisfyUsageResultAgreesWithItsCheck: the `result` of a satisfy usage declared
+// with its requirement definition as type reads what checking the satisfaction
+// decides, the subject `by` names bound to every subject the definition declares.
+func TestSatisfyUsageResultAgreesWithItsCheck(t *testing.T) {
+	for _, name := range []string{"satisfy_typed_declaration", "satisfy_typed_declaration_violated"} {
+		src, err := os.ReadFile(filepath.Join("testdata", "conformance", name+".sysml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, idx := libraryShapeContext(t, string(src))
+		root := idx.DocumentRoot("<test>")
+		assertions := ctx.SatisfyAssertionsIn(root)
+		if len(assertions) != 1 {
+			t.Fatalf("%s: found %d satisfaction assertions, want 1", name, len(assertions))
+		}
+		holds, err := ctx.EvaluateSatisfaction(assertions[0])
+		if err != nil && !violationErr(err) {
+			t.Fatalf("%s: EvaluateSatisfaction: %v", name, err)
+		}
+		read := mustEvalIn(t, ctx, root, "test::touchdown.result")
+		if read.Kind != ValConst || read.Const.Bool != holds {
+			t.Errorf("%s: test::touchdown.result = %s, want the satisfaction's %v", name, FormatValue(read), holds)
+		}
+	}
+}

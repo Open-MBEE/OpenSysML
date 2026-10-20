@@ -20,6 +20,7 @@ func TestRuntimeRobustnessConstraintsRequirements(t *testing.T) {
 	t.Run("requirement_features_valued_from_each_other", testRequirementFeaturesValuedFromEachOther)
 	t.Run("satisfy_unresolved_requirement", testSatisfyUnresolvedRequirement)
 	t.Run("satisfy_requirement_without_conditions", testSatisfyRequirementWithoutConditions)
+	t.Run("satisfy_typed_declaration_without_conditions", testSatisfyTypedDeclarationWithoutConditions)
 	t.Run("satisfy_bounded_by_the_step_budget", testSatisfyBoundedByTheStepBudget)
 }
 
@@ -84,6 +85,38 @@ func testSatisfyRequirementWithoutConditions(t *testing.T) {
 	}
 	if satisfied {
 		t.Error("a requirement with no condition must not report a verdict")
+	}
+}
+
+// testSatisfyTypedDeclarationWithoutConditions: a satisfaction declared with a
+// requirement definition as its type has that definition's conditions to check,
+// so one whose definition states none reports that, not a missing requirement.
+func testSatisfyTypedDeclarationWithoutConditions(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `
+		package test {
+			requirement def Documented {
+				doc /* stated in prose only */
+			}
+			part lander;
+			part context {
+				satisfy requirement documented : Documented by lander;
+			}
+		}
+	`))
+	assertions := ctx.SatisfyAssertionsIn(idx.DocumentRoot("<test>"))
+	if len(assertions) != 1 {
+		t.Fatalf("found %d satisfaction assertions, want 1", len(assertions))
+	}
+
+	satisfied, err := ctx.EvaluateSatisfaction(assertions[0])
+	if err == nil {
+		t.Fatalf("expected an error, got satisfied = %v", satisfied)
+	}
+	if !errors.Is(err, ErrNoConditions) {
+		t.Errorf("expected ErrNoConditions, got: %v", err)
+	}
+	if errors.Is(err, ErrNoRequirement) {
+		t.Error("a satisfaction typed by a requirement definition has a requirement")
 	}
 }
 
