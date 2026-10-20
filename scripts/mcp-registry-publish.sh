@@ -77,7 +77,7 @@ if ! $check; then
   packument="$BUILD_DIR/npm-$version.json"
   mkdir -p "$BUILD_DIR"
   deadline=$((SECONDS + NPM_TIMEOUT))
-  until curl -fsSL -o "$packument" "https://registry.npmjs.org/$encoded/$version" 2>/dev/null; do
+  until curl --proto '=https' --tlsv1.2 -fsSL -o "$packument" "https://registry.npmjs.org/$encoded/$version" 2>/dev/null; do
     if [[ "$SECONDS" -ge "$deadline" ]]; then
       fail "$identifier@$version is not on registry.npmjs.org after ${NPM_TIMEOUT}s; CircleCI's publish-npm job publishes it on tag $tag. Check that job, then re-run this workflow."
     fi
