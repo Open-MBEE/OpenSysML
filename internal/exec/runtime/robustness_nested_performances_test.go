@@ -91,6 +91,28 @@ func TestRuntimeRobustnessNestedPerformances(t *testing.T) {
 		}
 	})
 
+	t.Run("materialization_report_reads_whole_a_part_an_unperformed_usage_references", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+			part def Sub { attribute n : ScalarValues::Integer[2] = 1; }
+			part def Bad { part sub : Sub; }
+			part def P {
+				action a { ref part alias : Bad = bad; }
+				part bad : Bad;
+			}
+		}`))
+		inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::P"))
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		errs, bounded := ctx.MaterializationErrors(inst)
+		if bounded {
+			t.Errorf("materialization report bounded, want the referenced part read whole")
+		}
+		if len(errs) != 1 || !strings.Contains(errs[0].Error(), "n") {
+			t.Errorf("materialization errors = %v, want the one multiplicity failure of bad.sub.n", errs)
+		}
+	})
+
 	t.Run("missing_member_of_nested_performance_is_typed", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 		inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::P"))

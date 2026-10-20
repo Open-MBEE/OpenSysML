@@ -37,13 +37,14 @@ func (ctx *Context) MaterializationErrors(inst *Instance) (errs []error, bounded
 // materializationErrorsWithin is MaterializationErrors under a budget of its own.
 func (ctx *Context) materializationErrorsWithin(inst *Instance, budget int) (errs []error, bounded bool) {
 	w := &materializeWalk{
-		ctx:      ctx,
-		root:     inst,
-		onPath:   map[*symbols.Symbol]bool{inst.Type: true},
-		visited:  map[int64]bool{inst.ID: true},
-		read:     map[*FeatureValue]bool{},
-		reported: map[featureValueRef]bool{},
-		budget:   budget,
+		ctx:        ctx,
+		root:       inst,
+		onPath:     map[*symbols.Symbol]bool{inst.Type: true},
+		visited:    map[int64]bool{inst.ID: true},
+		restricted: map[int64]bool{},
+		read:       map[*FeatureValue]bool{},
+		reported:   map[featureValueRef]bool{},
+		budget:     budget,
 	}
 	w.walk(inst, 0, false)
 	return w.errs, w.bounded
@@ -56,20 +57,21 @@ func (ctx *Context) materializationErrorsWithin(inst *Instance, budget int) (err
 // features hold from being reported twice, read the one feature value a feature and
 // the feature redefining it share, and reported the feature values whose failure is recorded.
 type materializeWalk struct {
-	ctx      *Context
-	root     *Instance
-	onPath   map[*symbols.Symbol]bool
-	visited  map[int64]bool
-	read     map[*FeatureValue]bool
-	reported map[featureValueRef]bool
-	budget   int
-	bounded  bool
-	errs     []error
+	ctx     *Context
+	root    *Instance
+	onPath  map[*symbols.Symbol]bool
+	visited map[int64]bool
+	// restricted holds the objects read under unperformed only, which a full read may still reach.
+	restricted map[int64]bool
+	read       map[*FeatureValue]bool
+	reported   map[featureValueRef]bool
+	budget     int
+	bounded    bool
+	errs       []error
 }
 
-// walk reads inst's feature values; unperformed marks a performance nothing performs,
-// whose parameters, connectors and steps its run binds: only the values its own
-// declarations bind are read on it, and on what they hold.
+// walk reads inst's feature values; under unperformed (a performance nothing performs, and
+// what it holds) only the values its own declarations bind are read, not what its run binds.
 func (w *materializeWalk) walk(inst *Instance, depth int, unperformed bool) {
 	// A destroyed object holds no feature values to materialize any more.
 	if w.ctx.checkNotDestroyed(inst) != nil {
@@ -123,10 +125,16 @@ func (w *materializeWalk) walk(inst *Instance, depth int, unperformed bool) {
 				return
 			}
 			w.budget--
-			if w.visited[child.ID] {
+			// An object read whole is done; one read under unperformed is read whole
+			// when a feature of the structure holds it later.
+			if w.visited[child.ID] || (held && w.restricted[child.ID]) {
 				continue
 			}
-			w.visited[child.ID] = true
+			if held {
+				w.restricted[child.ID] = true
+			} else {
+				w.visited[child.ID] = true
+			}
 			w.onPath[child.Type] = true
 			w.walk(child, depth+1, held)
 			delete(w.onPath, child.Type)
