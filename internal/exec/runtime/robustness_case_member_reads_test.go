@@ -23,6 +23,7 @@ func TestRuntimeRobustnessCaseMemberReads(t *testing.T) {
 			actor many : Operator[0..*];
 			in limit : Integer = 10;
 			in open : Integer;
+			in vals : Integer[0..*];
 			return verdict : VerdictKind = PassIf(n > 0 and n <= limit);
 		}
 		verification checkThree : CheckPositive { subject n = 3; actor who = op; }
@@ -81,9 +82,11 @@ func TestRuntimeRobustnessCaseMemberReads(t *testing.T) {
 		}
 	})
 
-	t.Run("an input nothing supplies reads undetermined, not the run's null", func(t *testing.T) {
-		if read := mustEvalIn(t, ctx, root, "test::checkThree.open"); read.Kind != ValUndetermined {
-			t.Fatalf("checkThree.open = %s, want <undetermined>", FormatValue(read))
+	t.Run("a parameter nothing supplies reads undetermined whatever its lower bound", func(t *testing.T) {
+		for _, expr := range []string{"test::checkThree.open", "test::checkThree.vals", "test::checkThree.many"} {
+			if read := mustEvalIn(t, ctx, root, expr); read.Kind != ValUndetermined {
+				t.Errorf("%s = %s, want <undetermined> whatever the lower bound", expr, FormatValue(read))
+			}
 		}
 	})
 
