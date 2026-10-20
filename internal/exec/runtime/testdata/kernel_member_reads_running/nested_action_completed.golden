@@ -1,0 +1,153 @@
+# scenario nested_action_completed
+# pilot=decl: the OMG pilot evaluator cannot execute a performance; its evidence is declaration-level only
+
+## after completion (clock 0.0 [s])
+### root (type Running::nested_action_completed::Root)
+differencesOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+dispatchScope: root  [static-only pilot=decl]
+done: undetermined <undetermined>  [undetermined pilot=decl]
+enactedPerformances: [act]  [populated pilot=decl] (outside read: invalid <unknown>)
+immediatePredecessors: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+immediateSuccessors: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+incomingTransferSort: undetermined <undetermined>  [undetermined pilot=decl]
+incomingTransfers: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+incomingTransfersToSelf: undetermined <undetermined>  [undetermined pilot=decl]
+innerSpaceDimension: undetermined <undetermined>  [undetermined pilot=decl]
+intersectionsOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+involvingPerformances: [act]  [populated pilot=decl] (outside read: invalid <unknown>)
+isClosed: undetermined <undetermined>  [undetermined pilot=decl]
+isDispatch: constant false  [static-only pilot=decl]
+isRunToCompletion: constant true  [static-only pilot=decl]
+justOutsideOfOccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+localClock: object of Clocks::universalClock  [static-only pilot=decl]
+matingOccurrences: undetermined <undetermined>  [undetermined pilot=decl]
+middleTimeSlice: null  [static-only pilot=decl]
+outerSpaceDimension: null  [static-only pilot=decl]
+outgoingTransfers: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+outgoingTransfersFromSelf: undetermined <undetermined>  [undetermined pilot=decl]
+outsideOfOccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+ownedPerformances: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+portionOf: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+portionOfLife: root  [static-only pilot=decl]
+portions: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+predecessors: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+runToCompletionScope: root  [static-only pilot=decl]
+sameLifeOccurrences: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+self: root  [static-only pilot=decl]
+snapshotOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+snapshots: undetermined <undetermined>  [undetermined pilot=decl]
+spaceBoundaryOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceEnclosedOccurrences: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceInterior: null  [static-only pilot=decl]
+spaceInteriorOf: null  [static-only pilot=decl]
+spaceShotOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceShots: undetermined <undetermined>  [undetermined pilot=decl]
+spaceSliceOf: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceSlices: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceTimeCoincidentOccurrences: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceTimeEnclosedOccurrences: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceTimeEnclosedPoints: undetermined <undetermined>  [undetermined pilot=decl]
+start: undetermined <undetermined>  [undetermined pilot=decl]
+structuredSpaceBoundary: null  [static-only pilot=decl]
+subobjects: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+suboccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+successors: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+superoccurrence: null  [static-only pilot=decl]
+surroundedByOccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+this: root  [static-only pilot=decl]
+timeCoincidentOccurrences: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+timeEnclosedOccurrences: [root, act]  [populated pilot=decl] (outside read: invalid <unknown>)
+timeSliceOf: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+timeSlices: [root]  [static-only pilot=decl] (outside read: invalid <unknown>)
+unionsOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+withoutOccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+### act (type Running::nested_action_completed::Root::act)
+differencesOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+dispatchScope: act  [static-only pilot=decl]
+done: undetermined <undetermined>  [wrong pilot=decl] spec: object of Running::nested_action_completed::Root::act::done
+enclosedPerformances: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+immediatePredecessors: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+immediateSuccessors: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+incomingTransferSort: undetermined <undetermined>  [undetermined pilot=decl]
+incomingTransfers: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+incomingTransfersToSelf: undetermined <undetermined>  [undetermined pilot=decl]
+innerSpaceDimension: undetermined <undetermined>  [undetermined pilot=decl]
+innerSpaceOccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+intersectionsOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+involvedObjects: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+isClosed: undetermined <undetermined>  [undetermined pilot=decl]
+isDispatch: constant true  [static-only pilot=decl]
+isRunToCompletion: constant true  [static-only pilot=decl]
+justOutsideOfOccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+localClock: object of Clocks::universalClock  [static-only pilot=decl]
+matingOccurrences: undetermined <undetermined>  [undetermined pilot=decl]
+middleTimeSlice: null  [static-only pilot=decl]
+outerSpaceDimension: null  [static-only pilot=decl]
+outgoingTransfers: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+outgoingTransfersFromSelf: undetermined <undetermined>  [undetermined pilot=decl]
+outsideOfOccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+performers: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+portionOf: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+portionOfLife: act  [static-only pilot=decl]
+portions: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+predecessors: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+runToCompletionScope: act  [static-only pilot=decl]
+sameLifeOccurrences: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+self: act  [static-only pilot=decl]
+snapshotOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+snapshots: undetermined <undetermined>  [undetermined pilot=decl]
+spaceBoundary: null  [static-only pilot=decl]
+spaceBoundaryOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceEnclosedOccurrences: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceInterior: null  [static-only pilot=decl]
+spaceInteriorOf: null  [static-only pilot=decl]
+spaceShotOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceShots: undetermined <undetermined>  [undetermined pilot=decl]
+spaceSliceOf: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceSlices: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceTimeCoincidentOccurrences: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceTimeEnclosedOccurrences: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+spaceTimeEnclosedPoints: undetermined <undetermined>  [undetermined pilot=decl]
+suboccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+subperformances: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+successors: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+superoccurrence: null  [static-only pilot=decl]
+surroundedByOccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+that: undetermined <undetermined>  [undetermined pilot=decl]
+this: act  [static-only pilot=decl]
+thisPerformance: act  [static-only pilot=decl]
+timeCoincidentOccurrences: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+timeEnclosedOccurrences: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+timeSliceOf: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+timeSlices: [act]  [static-only pilot=decl] (outside read: invalid <unknown>)
+unionsOf: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+withoutOccurrences: empty  [static-only pilot=decl] (outside read: invalid <unknown>)
+### expressions on root
+n: constant 2  [populated pilot=decl]
+act.s1: refused: uninitialized feature value: s1  [refused pilot=decl]
+act.s2: refused: uninitialized feature value: s2  [refused pilot=decl]
+act.s1.startShot: refused: uninitialized feature value: s1  [refused pilot=decl]
+act.s2.predecessors: refused: uninitialized feature value: s2  [refused pilot=decl]
+act.start: refused: uninitialized feature value: start  [refused pilot=decl]
+act.done: undetermined <undetermined>  [wrong pilot=decl] spec: object of Running::nested_action_completed::Root::act::done
+Time::TimeOf(act): refused: no result expression: calc Time::TimeOf has no return expression: result parameter timeInstant binds no value; write the result as the trailing expression of the body, or bind it with `return : TimeInstantValue = <expr>;`  [refused pilot=decl]
+Time::DurationOf(act): refused: no result expression: calc Time::DurationOf has no return expression: result parameter duration binds no value; write the result as the trailing expression of the body, or bind it with `return : DurationValue = <expr>;`  [refused pilot=decl]
+Clocks::TimeOf(act, Clocks::universalClock): refused: no result expression: calc Clocks::TimeOf has no return expression: result parameter timeInstant binds no value; write the result as the trailing expression of the body, or bind it with `return : NumericalValue = <expr>;`  [refused pilot=decl]
+Clocks::DurationOf(act, Clocks::universalClock): refused: calc Clocks::DurationOf: evaluating the returned expression: object has no such feature: act has no member endShot: Actions::Action::done redefines it  [refused pilot=decl]
+act.localClock.currentTime: constant 0.0  [populated pilot=decl]
+Clocks::universalClock.currentTime: constant 0.0  [populated pilot=decl]
+Occurrences::HappensBefore(act, self): refused: not a calc: Occurrences::HappensBefore is an assoc usage, not a calc definition or usage  [refused pilot=decl]
+Occurrences::HappensDuring(act, self): refused: not a calc: Occurrences::HappensDuring is an assoc usage, not a calc definition or usage  [refused pilot=decl]
+Occurrences::Without(act, self): refused: not a calc: Occurrences::Without is an assoc usage, not a calc definition or usage  [refused pilot=decl]
+Occurrences::HappensWhile(act, self): refused: not a calc: Occurrences::HappensWhile is an assoc usage, not a calc definition or usage  [refused pilot=decl]
+Occurrences::HappensLink(act, self): refused: not a calc: Occurrences::HappensLink is an assoc usage, not a calc definition or usage  [refused pilot=decl]
+act.successors->SequenceFunctions::includes(self): constant false  [populated pilot=decl]
+self.predecessors->SequenceFunctions::includes(act): constant false  [populated pilot=decl]
+act.timeEnclosedOccurrences->SequenceFunctions::includes(self): constant false  [populated pilot=decl]
+
+## buckets
+populated: 9
+refused: 14
+static-only: 93
+undetermined: 21
+wrong: 2
