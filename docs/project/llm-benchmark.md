@@ -61,9 +61,10 @@ For each cell (task × arm × sample):
 
 Keys are read from the environment only. A provider whose key is unset exits with status 3 and a
 message naming the variable; nothing is logged. `-record <file>` wraps any provider and files
-every answer into a replay fixture keyed by cell, with the request kept only as a SHA-256 digest;
-`-provider replay -fixture <file>` plays it back (`Strict` replay refuses a request whose digest
-differs from the recording).
+every answer into a replay fixture keyed by cell, with the request kept only as a SHA-256 digest
+and the tool specs the model was offered kept once; `-provider replay -fixture <file>` plays it
+back, offering the recorded specs rather than the current server's (`Strict` replay refuses a
+request whose digest differs from the recording).
 
 ### Prompts
 
@@ -249,9 +250,11 @@ rates, repairs, the hallucinated name, fidelity 1 for a gold against itself, the
 the recorded tool calls and the paired comparison.
 
 `tools/bench/llm/testdata/replay/ollama-qwen2.5-coder-7b.json` is the recording of the live run
-above. `TestOllamaRecordingReplays` replays it with strict request digests — so the prompts,
-tool descriptions and feedback format must still produce the exact requests the model answered —
-and checks that every cell and the aggregates match the committed results file.
+above. `TestOllamaRecordingReplays` replays it with strict request digests — so the prompts and
+feedback format must still produce the exact requests the model answered, with the tool specs
+taken from the recording — and checks that every cell and the aggregates match the committed
+results file. The test logs each tool `sysml-mcp` now describes differently from the recording;
+the committed results are about the recorded descriptions, and a new live run refreshes them.
 
 ---
 

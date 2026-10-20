@@ -7,7 +7,7 @@
     "pilotTag": "2026-08",
     "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
     "pilotArtifact": "0.62.0",
-    "errataRegistry": "sha256:d5782936c5c92f29f24a077477b148fc5d178f83f174b143d1bb95c3693ab1b9",
+    "errataRegistry": "sha256:e92505147b15ab8e68a09f19632639383570f0cbe0fdc6f50fb76e03b8e04579",
     "tools": [
       {
         "name": "pilot-sysml-validator",
@@ -27,17 +27,17 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 329,
-        "digest": "sha256:bdc5e64b24dd900a814a27a1bf29da7f86037378e18ba7893016d427a660807a"
+        "files": 331,
+        "digest": "sha256:c32d762c69fb60aadf2008cfe79ce4ba62a70cd353242ae79525b9445f5c03c9"
       }
     ],
     "recorded": "2026-10-20"
   },
   "totals": {
-    "cases": 329,
+    "cases": 331,
     "bothReject": 320,
     "pilotOnlyRejects": 0,
-    "oursOnlyRejects": 9,
+    "oursOnlyRejects": 11,
     "bothAccept": 0
   },
   "strictOnlyAgreements": [
@@ -65,10 +65,10 @@
     },
     {
       "source": "semantic",
-      "cases": 170,
+      "cases": 172,
       "bothReject": 161,
       "pilotOnlyRejects": 0,
-      "oursOnlyRejects": 9,
+      "oursOnlyRejects": 11,
       "bothAccept": 0
     },
     {
@@ -1320,6 +1320,30 @@
       "pilotErrors": 0,
       "ours": [
         "line 9: succession out of decide d has target multiplicity [1]; successions out of a decision node must have target multiplicity [0..1]"
+      ]
+    },
+    {
+      "path": "semantic/connection-def-end-not-usage.sysml",
+      "source": "semantic",
+      "rule": "a connection definition end must be a usage, inherited ends included (SysML v2.1 Beta 2 8.3.13.3 connectionEnd : Usage redefines associationEnd; the pilot's master branch adds the check as ST6RI-974, after the 2026-08 pin, so this case lands in ours-only-rejects).",
+      "mode": "default",
+      "bucket": "ours-only-rejects",
+      "oursErrors": 1,
+      "pilotErrors": 0,
+      "ours": [
+        "line 4: A connection definition end must be a usage."
+      ]
+    },
+    {
+      "path": "semantic/flow-def-end-not-usage.sysml",
+      "source": "semantic",
+      "rule": "a flow definition end must be a usage, inherited ends included (SysML v2.1 Beta 2 8.3.16.2 flowEnd : Usage redefines associationEnd; the pilot's master branch adds the check as ST6RI-974, after the 2026-08 pin, so this case lands in ours-only-rejects).",
+      "mode": "default",
+      "bucket": "ours-only-rejects",
+      "oursErrors": 1,
+      "pilotErrors": 0,
+      "ours": [
+        "line 4: A flow definition end must be a usage."
       ]
     },
     {
@@ -3091,8 +3115,8 @@
     }
   ],
   "errata": {
-    "registryEntries": 13,
-    "corrections": 6,
+    "registryEntries": 16,
+    "corrections": 9,
     "documentedWithoutCorrection": 7,
     "correctionsApplied": 0,
     "entries": [
@@ -3199,13 +3223,37 @@
         "citation": "SysML v2 §9.8.9.1",
         "corrected": true,
         "derivation": "the unit postfix binds to PrimaryExpression (KerMLExpressions.xtext:308), below MultiplicativeExpression, so `[K]` qualifies 900 alone and the value is Θ^-1 where ThermodynamicTemperatureValue is Θ; the evident intent, 0 °F as a temperature in kelvin, is `(229835/900) [K]`."
+      },
+      {
+        "id": "Flows-46",
+        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
+        "line": 46,
+        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
+        "corrected": true,
+        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
+      },
+      {
+        "id": "Flows-99",
+        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
+        "line": 99,
+        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
+        "corrected": true,
+        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
+      },
+      {
+        "id": "Flows-103",
+        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
+        "line": 103,
+        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
+        "corrected": true,
+        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
       }
     ],
     "totals": {
-      "cases": 329,
+      "cases": 331,
       "bothReject": 320,
       "pilotOnlyRejects": 0,
-      "oursOnlyRejects": 9,
+      "oursOnlyRejects": 11,
       "bothAccept": 0
     },
     "note": "no declared correction lies under tools/referee/reject/testdata/negative, so the errata-applied corpus is byte-identical to the published one and both figures coincide"
