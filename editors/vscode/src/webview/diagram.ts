@@ -86,6 +86,8 @@ let selectedNode: string | undefined;
 let viewport: Viewport = readViewport(saved.viewport);
 /** The node selected by a click, whose neighbourhood is emphasised; undefined when nothing is. */
 let focused: string | undefined;
+/** True while applyViewport's own scrolling is settling, so the scroll listener does not record it. */
+let settling = false;
 /** The relationship kinds this panel hides, once its filter has been set; until then the workspace default applies. */
 let hiddenKinds: Set<string> | undefined = Array.isArray(saved.hidden) ? new Set(saved.hidden.filter((kind) => typeof kind === "string")) : undefined;
 /** The kinds the `hideRelations` setting hides, from the latest rendering. */
@@ -197,6 +199,10 @@ diagram.addEventListener("wheel", (event) => {
 }, { passive: false });
 // Scrolling, by wheel or scrollbar, is where the viewport is; it is remembered so a reload comes back there.
 diagram.addEventListener("scroll", () => {
+  // The scroll applyViewport asked for is not news; what it settled on is read once the layout has.
+  if (settling) {
+    return;
+  }
   viewport = { ...viewport, scrollLeft: diagram.scrollLeft, scrollTop: diagram.scrollTop };
   rememberSoon();
 });
@@ -578,11 +584,26 @@ function applyViewport(): void {
     return;
   }
   sizeCanvas(svg, viewport.zoom);
-  diagram.scrollLeft = viewport.scrollLeft;
-  diagram.scrollTop = viewport.scrollTop;
-  // The container may stop short of the offset asked for; what it settled on is the truth.
-  viewport = { ...viewport, scrollLeft: diagram.scrollLeft, scrollTop: diagram.scrollTop };
   zoomReadout.textContent = zoomLabel(viewport.zoom);
+  const want = viewport;
+  settling = true;
+  diagram.scrollLeft = want.scrollLeft;
+  diagram.scrollTop = want.scrollTop;
+  // The status line and list below the canvas may not have their height yet, so the container
+  // can stop short of the offset asked for; it is asked again once the layout has settled, and
+  // only then is what it settled on taken as the truth.
+  requestAnimationFrame(() => {
+    if (viewport === want) {
+      diagram.scrollLeft = want.scrollLeft;
+      diagram.scrollTop = want.scrollTop;
+    }
+    requestAnimationFrame(() => {
+      settling = false;
+      if (viewport === want) {
+        viewport = { ...viewport, scrollLeft: diagram.scrollLeft, scrollTop: diagram.scrollTop };
+      }
+    });
+  });
 }
 
 // setViewport moves the viewport and keeps it.
