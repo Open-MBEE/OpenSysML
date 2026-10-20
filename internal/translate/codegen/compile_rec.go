@@ -286,11 +286,14 @@ func (fc *funcCompiler) compileChain(n *ast.FeatureChainExpr) (Expr, error) {
 	if sym, ok := fc.c.resolver.ResolveTarget(fc.scope, n); ok && semantics.IsStateActivity(sym) {
 		return nil, fc.unsupported(fmt.Sprintf("%s: a read of a state's activity (StateActivity::isActive), which only the state machine running the state answers", chainText(n)))
 	}
-	x, err := fc.compileExpr(n.Operand)
+	// One chain is one read from its first operand, as the interpreter spends
+	// it: the chains on the way to the last member are not evaluated as their own.
+	operand, parts := ast.FeatureChainBase(n)
+	x, err := fc.compileExpr(operand)
 	if err != nil {
 		return nil, err
 	}
-	for _, part := range n.Member.Parts {
+	for _, part := range parts {
 		if x, err = fc.member(x, part.Text, chainText(n)); err != nil {
 			return nil, err
 		}

@@ -1471,7 +1471,7 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	if n.Member == nil || len(n.Member.Parts) == 0 {
 		return Value{}, fmt.Errorf("empty member chain")
 	}
-	base, parts := chainBase(n)
+	base, parts := ast.FeatureChainBase(n)
 
 	// A state's activity, `fill.isActive`, is read from the active configuration
 	// of the machine holding the state, not from a feature value.
@@ -1618,20 +1618,6 @@ func (ctx *Context) declaredMember(sym *symbols.Symbol, name string) (*symbols.S
 		}
 	}
 	return ctx.model.semantics.LookupMember(sym, name)
-}
-
-// chainBase flattens a nested feature chain: `lander.mass.mDry` is one chain of
-// members from `lander`, not a chain through the value of `lander.mass`.
-func chainBase(n *ast.FeatureChainExpr) (ast.Node, []ast.NameSegment) {
-	operand, parts := n.Operand, n.Member.Parts
-	for {
-		inner, ok := operand.(*ast.FeatureChainExpr)
-		if !ok || inner.Member == nil || len(inner.Member.Parts) == 0 {
-			return operand, parts
-		}
-		parts = append(append([]ast.NameSegment{}, inner.Member.Parts...), parts...)
-		operand = inner.Operand
-	}
 }
 
 // chainMemberValue reads the members named by parts from the object value names,
