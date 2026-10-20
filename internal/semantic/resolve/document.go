@@ -171,6 +171,9 @@ func (r *Resolver) resolveTypeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		} else {
 			r.resolveExpr(scope, d.Value)
 		}
+		if d.Terminates != nil {
+			r.resolveExpr(scope, d.Terminates.Target)
+		}
 		for _, end := range d.ConnectorEnds {
 			// ConnectorEnd has both Target and Reference fields
 			// Target: primary connector target (part being connected)

@@ -77,14 +77,14 @@ Pilot `2026-08` (`0.62.0`), both validators, fresh cache:
 
 | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| 511 | 149 | 1100 | 3407 | 1044 | 2 | 54 | 2361 |
+| 511 | 149 | 1096 | 3395 | 1040 | 2 | 54 | 2353 |
 
 Of the pilot-only diagnostics, 1359 are the pilot's EMF `unmapped` records ("The feature 'type' of
-... is required"), 594 its `kind-mismatch` typing constraints ("A usage must be typed by
+... is required"), 587 its `kind-mismatch` typing constraints ("A usage must be typed by
 definitions.") and 50 multiplicity constraints: all three follow an unresolved cross-example name on
-the same lines, where we report the unresolved reference once and stop. Those 2003 are the same
+the same lines, where we report the unresolved reference once and stop. Those 1996 are the same
 finding counted differently, not disagreements about the examples. The remaining pilot-only
-categories are 197 syntax, 156 unresolved-reference and 5 units; the 54 ours-only diagnostics are
+categories are 197 syntax, 156 unresolved-reference and 4 units; the 54 ours-only diagnostics are
 38 unresolved-reference, 11 syntax, 3 kind-mismatch and 2 unmapped. Every file behind those two
 groups is adjudicated below.
 
@@ -179,7 +179,8 @@ implementations), G2 (a terminate action usage naming the occurrence it terminat
 payload with a value part, a `TriggerWhen`/`TriggerAt`/`TriggerAfter` invocation waited on as the
 keyword form), G4 (`ordered`/`nonunique` without a bracketed multiplicity) and G5 (a directed
 calculation parameter whose body ends in a result expression). Their six files now report only the
-names the examples leave undeclared, which the pilot reports too; `sysml/8.4.13.8/1.sysml` moved from
+names the examples leave undeclared, which the pilot reports too (`sysml/7.17.8/2.sysml`, once it parsed,
+received the completion imports for `ChangeSignal`, `Real`, `s` and `Iso8601DateTime`); `sysml/8.4.13.8/1.sysml` moved from
 a syntax error given for the wrong reason to the package-level action node of G10.
 
 | # | Clause | File | Expected behaviour | Probe | In-flight overlap |
