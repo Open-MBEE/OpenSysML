@@ -491,7 +491,10 @@ func (fc *funcCompiler) declaredResult(sym *symbols.Symbol, body []ast.Node) (bi
 			if err != nil {
 				return binding{}, err
 			}
-			fc.fn.HeldResult = held
+			if held {
+				// The value fixes the count; one is held as a one-element sequence.
+				return binding{m: MultAny, shaped: true}, nil
+			}
 			return binding{m: MultOne}, nil
 		}
 		if anything, err := fc.typedAnything(sym.Scope, u, name); err != nil {
@@ -522,16 +525,17 @@ func (fc *funcCompiler) declaredResult(sym *symbols.Symbol, body []ast.Node) (bi
 		b.shaped = true
 		return fc.c.slotted(b, slot{key: fc.key}), nil
 	}
-	// No owned result: the inherited one, ultimately Evaluation::result `[0..*]`.
-	fc.fn.HeldResult = true
+	// No owned result: the inherited one, ultimately Evaluation::result `[0..*]`,
+	// holds the value in that shape.
+	held := true
 	if inherited := fc.c.model.ResultParameterOf(sym); inherited != nil {
 		m, err := fc.multFromRange(fc.c.model.EffectiveParameterRange(inherited), resultWhere)
 		if err != nil {
 			return binding{}, err
 		}
-		fc.fn.HeldResult = m.MultiValued()
+		held = m.MultiValued()
 	}
-	return binding{m: MultAny}, nil
+	return binding{m: MultAny, shaped: held}, nil
 }
 
 // resultHeld reports a result that states no multiplicity and whose effective one

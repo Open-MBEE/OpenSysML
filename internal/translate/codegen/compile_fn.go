@@ -184,6 +184,11 @@ func (fc *funcCompiler) compileFuncArg(node ast.Node, where string) (funcValue, 
 		if err != nil {
 			return funcValue{}, err
 		}
+		if v.Type().Many() && v.Type().Elem().IsFn() {
+			// A function value held in a sequence (a bare calc result) is its one element.
+			fc.c.collections = true
+			v = ToOne{X: v, Where: where}
+		}
 		if !v.Type().Scalar() || !v.Type().IsFn() {
 			return funcValue{}, fc.unsupported(fmt.Sprintf("%s: a %s where a function value is expected", where, v.Type()))
 		}

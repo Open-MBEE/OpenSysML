@@ -163,8 +163,8 @@ func TestSweepAnalysisThroughCLI(t *testing.T) {
 	want := strings.Join([]string{
 		"tax | total  | verdict            | time",
 		"-+-+-+-",
-		"0.0 | [5.0] | obj: satisfied     | <time>",
-		"0.5 | [7.5] | obj: satisfied     | <time>",
+		"0.0 | [5.0]  | obj: satisfied     | <time>",
+		"0.5 | [7.5]  | obj: satisfied     | <time>",
 		"1.0 | [10.0] | obj: not satisfied | <time>",
 	}, "\n")
 	if table := sweepTable(got.output()); !strings.Contains(table, want) {

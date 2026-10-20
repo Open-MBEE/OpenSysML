@@ -1283,7 +1283,11 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.linef("}")
 	result, res := "result", fn.Result
 	if res.MayUnset() {
-		e.linef("if (result.u) { puts(\"%s\"); return 0; }", runtime.UnsetText)
+		unset := runtime.UnsetText
+		if fn.HeldResult {
+			unset = "[" + unset + "]"
+		}
+		e.linef("if (result.u) { puts(\"%s\"); return 0; }", unset)
 		result, res = "result.v", res.Concrete()
 	}
 	// A held result is printed as the one-element sequence it is shaped into.
