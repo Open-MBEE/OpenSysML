@@ -99,6 +99,11 @@ func (ctx *Context) kernelMemberValue(inst *Instance, sym *symbols.Symbol, feat 
 	if val, stopped, ok, err := ctx.trackedKernelValue(inst, sym, feat, open); ok {
 		return val, stopped, err
 	}
+	// `this` is the context occurrence, read as a body evaluating it reads it.
+	if r := ctx.model.resolver; r != nil && r.IsOccurrenceThis(sym) {
+		val, err := ctx.objectValue(ctx.contextOccurrence(inst))
+		return val, false, err
+	}
 	if val, ok, err := ctx.kernelDeclaredValue(inst, feat); ok {
 		return val, false, nil
 	} else if err != nil {

@@ -1626,9 +1626,9 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 		scope = inst.Type.OwnerScope
 	}
 	ec := NewEvalContextIn(ctx, scope, inst)
-	if object := ctx.model.resolver.ThisContext(scope); object != nil && isBehaviorDefKind(object.Kind) {
-		// A feature default written in a behavior def sees `this` as the
-		// def's own occurrence, which the instance being evaluated is.
+	if isBehaviorDefKind(inst.Type.Kind) {
+		// A feature default of a behavior def is evaluated on the def's
+		// occurrence, which the instance being evaluated is.
 		ec.occurrence = inst
 	}
 	defer ec.beginStep()()

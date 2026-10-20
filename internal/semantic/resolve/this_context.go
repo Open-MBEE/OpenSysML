@@ -30,12 +30,12 @@ func (r *Resolver) IsOccurrenceThis(sym *symbols.Symbol) bool {
 
 // ThisContext returns the object `this` denotes where scope was written: the
 // innermost enclosing object, since an owned performance and its subperformances
-// take their owner's `this` ([KerML] Objects::ownedPerformances, [SysML]
-// Parts::Part::this, Actions::Action::subactions). A behavior usage is not its
-// own context — it keeps walking — but a behavior definition is the occurrence
-// it defines, so `this` inside one denotes that definition itself and the walk
-// stops there. Nil in a standalone behavior, where `this` is the performance
-// itself.
+// take their owner's `this` ([KerML] Objects::ownedPerformances,
+// Performances::subperformances; [SysML] Parts::Part::ownedActions::this,
+// Actions::Action::subactions). Neither a behavior usage nor a behavior
+// definition is its own context — the walk continues through both to the object
+// whose performances they declare. Nil in a standalone behavior, where `this` is
+// the performance itself.
 func (r *Resolver) ThisContext(scope *symbols.Scope) *symbols.Symbol {
 	for s := scope; s != nil; s = s.Parent() {
 		owner := s.Owner()
@@ -45,9 +45,7 @@ func (r *Resolver) ThisContext(scope *symbols.Scope) *symbols.Symbol {
 		switch {
 		case isObjectKind(owner.Kind):
 			return owner
-		case isBehaviorDefKind(owner.Kind):
-			return owner
-		case isBehaviorUsageKind(owner.Kind):
+		case isBehaviorDefKind(owner.Kind), isBehaviorUsageKind(owner.Kind):
 			continue
 		default:
 			return nil

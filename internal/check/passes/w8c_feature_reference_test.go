@@ -453,29 +453,24 @@ package Q { filter @Safety; }`,
 	}
 }
 
-// A behavior definition is the occurrence its `this` denotes: `this.<feature>`
-// inside a def reads the def's own features, so an enclosing object's feature
-// does not resolve through it — while a usage's bare feature read still reaches
-// the object lexically.
+// A behavior definition is no context of its own: `this` inside a def nested
+// in an object definition is the object owning the performance (Parts.sysml
+// `ownedActions::this = that as Part`), so `this.<feature>` reads the enclosing
+// object's feature, as it does in a usage, and the def's own features are
+// reached by name.
 func TestW8CFeatureReferenceThisInsideBehaviorDef(t *testing.T) {
 	src := `package P {
 	private import ScalarValues::*;
 	part def H {
 		attribute level : Integer = 0;
 		action def Nudge {
-			action step { assign this.level := 1; }
+			attribute own : Integer = 0;
+			action step { assign this.level := own; }
 		}
 	}
 }`
-	msgs := w8cLibraryErrorsIn(t, "<t>.sysml", src)
-	found := false
-	for _, m := range msgs {
-		if strings.Contains(m, "level") {
-			found = true
-		}
-	}
-	if !found || len(msgs) == 0 {
-		t.Errorf("this.level inside action def Nudge should not resolve to H's level, got %v", msgs)
+	if msgs := w8cLibraryErrorsIn(t, "<t>.sysml", src); len(msgs) != 0 {
+		t.Errorf("this.level inside action def Nudge should resolve to H's level, got %v", msgs)
 	}
 }
 
@@ -882,8 +877,7 @@ func TestW8CFeatureReferenceViaBoundaries(t *testing.T) {
 			part def Owner {
 				port x;
 				action def A {
-					in ref context : Owner;
-					action r accept e : E via this.context.x;
+					action r accept e : E via this.x;
 				}
 			}
 		}`,

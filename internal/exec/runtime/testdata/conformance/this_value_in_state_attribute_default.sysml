@@ -1,5 +1,5 @@
 // A state attribute default evaluated on the exhibited occurrence's
-// initialization sees `this` as that occurrence: `same` holds `this == this`
+// initialization sees `this` as the exhibiting part: `same` holds `this == this`
 // as true, and the entry action writes it through the context parameter.
 package test {
 	private import ScalarValues::*;
