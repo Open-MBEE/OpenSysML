@@ -382,16 +382,27 @@ model, objects and runs persist across the agent's calls. An agent asked to fix 
 part and calls `verify_requirement` instead of reasoning about the arithmetic.
 
 The server speaks the protocol over stdin and stdout, so it is never run at a prompt; the host
-starts it from a configuration block that `sysml-mcp -print-config <host>` writes:
+starts it. With nothing installed but Node, the command is `npx -y @openmbee/sysml-mcp`, which
+installs the release binary for the platform from npm on first use:
+
+```bash
+claude mcp add --transport stdio sysml -- npx -y @openmbee/sysml-mcp -root .
+codex mcp add sysml -- npx -y @openmbee/sysml-mcp -root .
+```
+
+An installed binary writes the configuration block for any host itself, with
+`sysml-mcp -print-config <host>`:
 
 ```bash
 sysml-mcp -print-config                 # opencode, claude-code, cursor, codex, vscode, gemini, devin
 sysml-mcp -print-config claude-code > .mcp.json
 sysml-mcp -print-config codex >> ~/.codex/config.toml
+sysml-mcp -print-config vscode -print-config-npx   # the npx form
 ```
 
-The block names the binary by its absolute path, or by the command `-print-config-command`
-gives; `-tools lsp,runtime` or `-root models` go into its `args`. The
+The block names the binary by its absolute path, by the command `-print-config-command`
+gives, or `npx -y @openmbee/sysml-mcp` with `-print-config-npx`; `-tools lsp,runtime` or
+`-root models` go into its `args`. The
 [MCP server reference](../reference/sysml-mcp.md) has every host's block, the full tool
 catalogue with what each tool does, and the conventions the tools share: 1-based line and
 column positions, paths relative to the root, and nothing written to disk without
