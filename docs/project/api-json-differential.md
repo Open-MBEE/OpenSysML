@@ -34,7 +34,13 @@ go run -C tools ./cmd/pilot-apijson-diff -update  # re-records docs/project/api-
 and `-timeout` override the launcher, the output directory and the per-root time allowed to the
 pilot. A run writes `pilot-apijson-diff.json` (the baseline's shape), `pilot-apijson-diff.txt`
 (the ranked scorecard with one concrete example per differing row, the unmatched elements by
-metaclass and the pilot's diagnostics) and `pilot-apijson-diff-examples.json`.
+metaclass and the pilot's diagnostics), `pilot-apijson-diff-examples.json` and
+`pilot-apijson-diff-matches.json`, the run's inventory of every key per root under the fate the
+matching gave it (matched, ours-only, pilot-only). `-lost-against <earlier run>/pilot-apijson-diff-matches.json`
+then names, in `pilot-apijson-diff-movements.txt` and `.json`, each element the earlier run matched
+and this one does not (*lost*) and the reverse (*gained*), grouped by root and metaclass, each with
+the key's fate in the run that does not match it; a change to either side's naming is read from
+that list rather than from a moved total.
 
 ### The pilot's exporter
 
@@ -201,6 +207,36 @@ The largest **present-different** rows, with the reading the examples support:
 | `AttributeUsage` | `value` | 1381 | see the `derive*` row for this property in `docs/project/constraint-manifest.json` |
 
 `owner` on every relationship is the pilot leaving `Relationship::owner` null where the metamodel derives `owningRelatedElement`; ours states it. The remaining pilot-missing rows are properties this repository writes outside the metamodel's spelling (`value` on usages) or states for unnamed elements the metamodel leaves null (`qualifiedName`).
+
+### Where the pilot cannot name a member
+
+A member that takes its name from a naming feature is keyed by that name on our side: KerML
+`Feature::effectiveName` is the effective name of `namingFeature()` when nothing is declared
+(8.3.3.3.4 Feature, `body: if declaredShortName <> null or declaredName <> null then declaredName
+else … namingFeature.effectiveName()`), and the default `namingFeature()` is
+`ownedRedefinition->at(1).redefinedFeature`; SysML redefines it for a variant (8.3.6.4 Usage,
+`ownedReferenceSubsetting.referencedFeature`), a transition payload (8.3.6.3 ReferenceUsage), a
+performed action (8.3.17.14 PerformActionUsage, `performedAction`), a requirement constraint
+(8.3.20.4 ConstraintUsage) and a view rendering (8.3.26.6 RenderingUsage). The pilot derives the
+same name — when it resolves the naming feature. It cannot resolve a feature of this repository's
+own libraries (`internal/workspace/libs/stdlib/OpenSysML Libraries/`, `DocumentQueries` among
+them): the bridge loads the pinned `sysml.library` alone, so `attribute redefines title = "…";` in a
+`Section` leaves the pilot's `Redefinition` pointing at nothing, its `name` and `qualifiedName`
+null, and its key structural (`…::coverage/AttributeUsage[0]`) where ours is `…::coverage::title`.
+
+Naming members by their naming feature moved `docs/manual/examples` from 6834 to 6663 matched
+elements while every other root gained: 357 matches lost, 186 gained. The 357 are 87 members —
+84 `AttributeUsage` and 3 `ReferenceUsage`, each an `attribute redefines caption|title|text|term|description|kind|direction|style|groupBy = …`
+or `ref redefines source|target = …` of a `DocumentQueries` feature — and the 270 elements they own
+(their `Redefinition`, `FeatureValue` and literal or `FeatureReferenceExpression` value); every one
+is now pilot-only under its structural key, while our named key is ours-only. The 186 gained are
+46 `attribute :>> x = …` redefinitions of features the model itself declares, with the 138 elements
+they own, plus `render asInterconnectionDiagram;` and its `ReferenceSubsetting`. Both sides state
+what the spec derives from what they resolved; the loss measures the pilot's library coverage, not
+a derivation, and is a limitation of this referee: a member whose naming feature lives in a
+library the pilot does not load cannot match. The eight files of `docs/manual/examples` and 11 of
+the 52 under `examples` import such a library; the pinned roots, `tests/testdata` and the probes
+import none.
 
 ## Launch-ready gaps
 
