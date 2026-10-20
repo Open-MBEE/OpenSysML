@@ -2056,20 +2056,23 @@ func (ctx *Context) directValueTypes(scope *symbols.Scope, value Value) ([]*symb
 		out, types = []*symbols.Symbol{value.Variant()}, inst.classifiers
 	}
 	for _, sym := range types {
-		if typ := ctx.directType(sym); !slices.Contains(out, typ) {
-			out = append(out, typ)
+		for _, typ := range ctx.directTypes(sym) {
+			if !slices.Contains(out, typ) {
+				out = append(out, typ)
+			}
 		}
 	}
 	return out, nil
 }
 
-// directType is the type an object is of for being of sym: the type a feature is typed
-// by, else sym itself.
-func (ctx *Context) directType(sym *symbols.Symbol) *symbols.Symbol {
-	if typ := ctx.extractType(sym); typ != nil {
-		return typ
+// directTypes names the types an object is of for being of sym: every type a feature is
+// typed by — stated, or inherited through what it subsets, redefines or references, the
+// most specific of each (KerML 1.0 §7.3.4.3–§7.3.4.4) — else sym itself.
+func (ctx *Context) directTypes(sym *symbols.Symbol) []*symbols.Symbol {
+	if types := ctx.effectiveTypes(sym); len(types) > 0 {
+		return types
 	}
-	return sym
+	return []*symbols.Symbol{sym}
 }
 
 // directValueType names the one type a value is of (see directValueTypes); an object
