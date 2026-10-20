@@ -23,6 +23,11 @@ sudo dpkg -i /tmp/code.deb        # takes ~1 min; then /usr/bin/code is the desk
 Launch it detached or it dies with the shell that started it:
 `DISPLAY=:0 setsid nohup /usr/bin/code --no-sandbox --disable-gpu <workspace> >/tmp/code.log 2>&1 </dev/null &`
 
+**In a fresh checkout or worktree, run `npm ci --ignore-scripts --prefix client/node` first** (CI does).
+`make vscode-package` only installs `editors/vscode`, but its typecheck compiles the browser client from
+`client/node/src` (the `src/webview` and `src/landing` tsconfigs); without that tree's `node_modules` it
+fails with `TS2307: Cannot find module '@connectrpc/connect'` and similar errors.
+
 ```bash
 make build                # produces bin/sysml-lsp (the server the client discovers)
 make vscode-package       # npm ci + typecheck + esbuild + vsce -> editors/vscode/opensysml-sysml.vsix
