@@ -121,7 +121,9 @@ func (m *Model) directionViolations(sym *symbols.Symbol, traits featureTraits,
 
 // restrictionViolations reports the uniqueness and constancy rules: a subsetting
 // or redefining feature may not be nonunique where the target is unique, nor
-// variable where the target is constant (KerML 8.3.3.3).
+// variable yet not constant where the target is constant (KerML 8.3.3.3.9).
+// Variability and constancy are the derived properties — a SysML usage is
+// variable by `Usage::mayTimeVary`, an end that may vary is constant unwritten.
 func (m *Model) restrictionViolations(sym *symbols.Symbol, traits featureTraits,
 	target *symbols.Symbol, ref ast.Node) []ConformanceViolation {
 	if _, ok := featureTraitsOf(target); !ok {
@@ -133,7 +135,7 @@ func (m *Model) restrictionViolations(sym *symbols.Symbol, traits featureTraits,
 			Kind: ViolationUniqueness, Feature: sym, Target: target, Ref: ref,
 		})
 	}
-	if traits.IsVariable && m.constantDeclaration(target, map[*symbols.Symbol]bool{}) != nil {
+	if m.FeatureIsVariable(sym) && !m.FeatureIsConstant(sym) && m.FeatureIsConstant(target) {
 		out = append(out, ConformanceViolation{
 			Kind: ViolationConstancy, Feature: sym, Target: target, Ref: ref,
 		})
@@ -175,8 +177,6 @@ func owningTypeOf(sym *symbols.Symbol) *symbols.Symbol {
 type featureTraits struct {
 	Direction   ast.FeatureDirection
 	IsNonunique bool
-	IsVariable  bool
-	IsConstant  bool
 }
 
 // featureTraitsOf returns the traits sym's declaration states, if it is a feature.
@@ -186,11 +186,9 @@ func featureTraitsOf(sym *symbols.Symbol) (featureTraits, bool) {
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:
-		return featureTraits{Direction: d.Direction, IsNonunique: d.IsNonunique,
-			IsVariable: d.IsVariable, IsConstant: d.IsConstant}, true
+		return featureTraits{Direction: d.Direction, IsNonunique: d.IsNonunique}, true
 	case *ast.CrossFeatureMember:
-		return featureTraits{Direction: d.Direction, IsNonunique: d.IsNonunique,
-			IsVariable: d.IsVariable, IsConstant: d.IsConstant}, true
+		return featureTraits{Direction: d.Direction, IsNonunique: d.IsNonunique}, true
 	}
 	return featureTraits{}, false
 }

@@ -3898,7 +3898,7 @@
       "checks": "A feature subsetting a constant feature is constant (`Subsetting/redefining feature must be constant if subsetted/redefined feature is constant`)",
       "implementation": "internal/check/passes/w8b_redefinition_conformance.go:RedefinitionConformancePass.Run",
       "message": "—",
-      "negativeCase": "`semantic/k14-variable-subsets-constant.kerml`",
+      "negativeCase": "`semantic/k14-variable-subsets-constant.kerml`, `semantic/s108-usage-subsets-constant-usage.sysml`",
       "codes": [
         "subsetting-constancy-conformance"
       ],
