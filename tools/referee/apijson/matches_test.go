@@ -2,6 +2,7 @@ package apijson
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,4 +95,47 @@ func jsonOf(t *testing.T, v any) string {
 		t.Fatal(err)
 	}
 	return string(encoded)
+}
+
+func TestWriteMatchesReadsTheEarlierInventoryFirst(t *testing.T) {
+	out := t.TempDir()
+	inventory := filepath.Join(out, toolName+"-matches.json")
+	first := Matches{Roots: map[string]*RootMatches{"r": {Matched: map[string]string{"P::a": "PartUsage", "P::b": "PartUsage"}}}}
+	second := Matches{Roots: map[string]*RootMatches{"r": {Matched: map[string]string{"P::a": "PartUsage"}, PilotOnly: map[string]string{"P::b": "PartUsage"}}}}
+	if err := writeMatches(options{out: out, log: io.Discard}, first); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeMatches(options{out: out, log: io.Discard, lostAgainst: inventory}, second); err != nil {
+		t.Fatal(err)
+	}
+	var movements struct {
+		Against string
+		Lost    []Movement
+		Gained  []Movement
+	}
+	encoded, err := os.ReadFile(filepath.Join(out, toolName+"-movements.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(encoded, &movements); err != nil {
+		t.Fatal(err)
+	}
+	if movements.Against != inventory || len(movements.Lost) != 1 || movements.Lost[0].Key != "P::b" || movements.Lost[0].Fate != "pilot-only" || len(movements.Gained) != 0 {
+		t.Fatalf("a run compared against the inventory it overwrites lost %v, gained %v", movements.Lost, movements.Gained)
+	}
+	now, err := readMatches(inventory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(now.Roots["r"].Matched) != 1 {
+		t.Fatalf("the inventory left behind is not this run's: %v", now.Roots["r"].Matched)
+	}
+	if err := writeMatches(options{out: out, log: io.Discard}, second); err != nil {
+		t.Fatal(err)
+	}
+	for _, ext := range []string{"json", "txt"} {
+		if _, err := os.Stat(filepath.Join(out, toolName+"-movements."+ext)); !os.IsNotExist(err) {
+			t.Fatalf("a run without -lost-against left %s-movements.%s behind (%v)", toolName, ext, err)
+		}
+	}
 }

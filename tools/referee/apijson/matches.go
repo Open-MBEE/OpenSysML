@@ -114,11 +114,15 @@ func renderMovements(lost, gained []Movement) string {
 		list  []Movement
 	}{{"Lost (matched before, not now; fate is where the key is now)", lost}, {"Gained (matched now, not before; fate is where the key was before)", gained}} {
 		fmt.Fprintf(&b, "\n== %s: %d\n", section.title, len(section.list))
+		sizes := make(map[string]int)
+		for _, m := range section.list {
+			sizes[m.Root+" / "+m.Metaclass]++
+		}
 		group := ""
 		for _, m := range section.list {
 			if g := m.Root + " / " + m.Metaclass; g != group {
 				group = g
-				fmt.Fprintf(&b, "\n-- %s (%d)\n", g, countGroup(section.list, m.Root, m.Metaclass))
+				fmt.Fprintf(&b, "\n-- %s (%d)\n", g, sizes[g])
 			}
 			fmt.Fprintf(&b, "%-15s %s\n", m.Fate, m.Key)
 		}
@@ -126,19 +130,17 @@ func renderMovements(lost, gained []Movement) string {
 	return b.String()
 }
 
-func countGroup(list []Movement, root, metaclass string) int {
-	n := 0
-	for _, m := range list {
-		if m.Root == root && m.Metaclass == metaclass {
-			n++
+// writeMatches records this run's inventory and, under -lost-against, the
+// movements from the earlier run's as <toolName>-movements.txt and .json; the
+// earlier inventory is read first, as it may be the file this run overwrites.
+func writeMatches(opts options, matches Matches) error {
+	var before *Matches
+	if opts.lostAgainst != "" {
+		var err error
+		if before, err = readMatches(opts.lostAgainst); err != nil {
+			return err
 		}
 	}
-	return n
-}
-
-// writeMatches records this run's inventory and, under -lost-against, the
-// movements from the earlier run's as <toolName>-movements.txt and .json.
-func writeMatches(opts options, matches Matches) error {
 	files, err := reports.Open(opts.out, toolName+"-matches")
 	if err != nil {
 		return err
@@ -147,18 +149,14 @@ func writeMatches(opts options, matches Matches) error {
 		return err
 	}
 	fmt.Fprintf(opts.log, "  %s\n", files.Path("json"))
-	if opts.lostAgainst == "" {
-		return nil
-	}
-	before, err := readMatches(opts.lostAgainst)
-	if err != nil {
-		return err
-	}
-	lost, gained := MatchMovements(before, &matches)
 	movements, err := reports.Open(opts.out, toolName+"-movements")
 	if err != nil {
 		return err
 	}
+	if before == nil {
+		return removeStale(movements.Path("json"), movements.Path("txt"))
+	}
+	lost, gained := MatchMovements(before, &matches)
 	if _, err := movements.JSON(struct {
 		Against string     `json:"against"`
 		Lost    []Movement `json:"lost"`
@@ -170,5 +168,16 @@ func writeMatches(opts options, matches Matches) error {
 		return err
 	}
 	fmt.Fprintf(opts.log, "  %s\n  %s\nmatches lost against %s: %d, gained: %d\n", movements.Path("json"), movements.Path("txt"), opts.lostAgainst, len(lost), len(gained))
+	return nil
+}
+
+// removeStale deletes an earlier run's movement files, so a run without
+// -lost-against leaves no movements beside its reports.
+func removeStale(paths ...string) error {
+	for _, path := range paths {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
 	return nil
 }
