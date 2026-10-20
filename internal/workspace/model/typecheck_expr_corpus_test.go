@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -97,8 +98,23 @@ var hiddenNameStdlibCorrections = []string{
 	"Domain Libraries/Quantities and Units/SI.sysml:303",
 }
 
+// validationStdlibCorrections are corrections neither the checker nor the
+// hidden-name list accounts for: lines whose correction, with the others naming
+// the same finding, clears a validation finding the published library reports.
+// Each is keyed by the corrected line and names that finding as "<file>:<line>:
+// <code>". The Flows.sysml lines are one repair: Message as published owns no
+// ends and inherits Transfer's KerML end features, which SysML v2.1 Beta 2
+// §8.3.16.2 (flowEnd : Usage) forbids, and the repair gives Message and messages
+// owned usage ends together.
+var validationStdlibCorrections = map[string]string{
+	"Systems Library/Flows.sysml:46":  "Systems Library/Flows.sysml:38: flow-def-end-not-usage",
+	"Systems Library/Flows.sysml:99":  "Systems Library/Flows.sysml:38: flow-def-end-not-usage",
+	"Systems Library/Flows.sysml:103": "Systems Library/Flows.sysml:38: flow-def-end-not-usage",
+}
+
 // TestStdlibCorrectionsAreAccountedFor pins the registry's library corrections as an exact
-// set: each is a line the checker rejects as published or a listed hidden-name correction.
+// set: each is a line the checker rejects as published, a listed hidden-name correction, or
+// a listed line of a repair that clears a validation finding.
 func TestStdlibCorrectionsAreAccountedFor(t *testing.T) {
 	t.Parallel()
 	overlay, err := errata.Library()
@@ -115,10 +131,16 @@ func TestStdlibCorrectionsAreAccountedFor(t *testing.T) {
 		}
 		accounted[line] = false
 	}
+	for line := range validationStdlibCorrections {
+		if _, dup := accounted[line]; dup {
+			t.Errorf("%s is listed twice over as a correction", line)
+		}
+		accounted[line] = false
+	}
 	for _, entry := range overlay.Corrections() {
 		at := fmt.Sprintf("%s:%d", strings.TrimPrefix(entry.Path, errata.LibraryRoot+"/"), entry.Line)
 		if _, ok := accounted[at]; !ok {
-			t.Errorf("correction %s at %s is neither a checker finding nor a hidden-name correction", entry.ID, at)
+			t.Errorf("correction %s at %s is neither a checker finding, a hidden-name correction nor a validation repair", entry.ID, at)
 			continue
 		}
 		accounted[at] = true
@@ -128,6 +150,55 @@ func TestStdlibCorrectionsAreAccountedFor(t *testing.T) {
 			t.Errorf("%s is listed as corrected, the registry declares no correction there", at)
 		}
 	}
+}
+
+// TestStdlibValidationCorrectionsClearTheirFindings pins the validation findings
+// the listed repairs answer: each is reported over the published text of its
+// file, and none over the bundled library.
+func TestStdlibValidationCorrectionsClearTheirFindings(t *testing.T) {
+	t.Parallel()
+	findings := map[string]bool{}
+	for _, finding := range validationStdlibCorrections {
+		findings[finding] = true
+	}
+	for finding := range findings {
+		name := finding[:strings.Index(finding, ":")]
+		published := stdlibFindingsAt(t, libs.EmbeddedSource(), name)
+		if !published[finding] {
+			t.Errorf("the published %s does not report %q; found %v", name, finding, sortedKeys(published))
+		}
+		if bundled := stdlibFindingsAt(t, libs.DefaultSource(), name); bundled[finding] {
+			t.Errorf("the bundled %s still reports %q", name, finding)
+		}
+	}
+}
+
+// stdlibFindingsAt opens the file name of src in the bundled file's place and
+// returns the diagnostics reported in it as "<file>:<line>: <code>".
+func stdlibFindingsAt(t *testing.T, src libs.Source, name string) map[string]bool {
+	t.Helper()
+	data, err := src.Read(name)
+	if err != nil {
+		t.Fatalf("read %s: %v", name, err)
+	}
+	ws := NewWorkspace()
+	ws.Open(name, data, 1)
+	defer ws.Close(name)
+	lines := source.New(name, data).Lines()
+	found := map[string]bool{}
+	for _, d := range ws.Diagnostics(name) {
+		found[fmt.Sprintf("%s:%d: %s", name, lines.PosAt(d.Span.Offset).Line, d.Code)] = true
+	}
+	return found
+}
+
+func sortedKeys(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // checkStdlibExprTypeFindings opens each file of src under its own name, which

@@ -6,14 +6,27 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Pilot SysMLValidator (2026-05) constraints validateInterfaceDefinitionEnd,
-// validateInterfaceUsageEnd and validateFlowConnectionDefinitionEnd.
+// validateInterfaceUsageEnd and validateFlowConnectionDefinitionEnd, and the
+// validateConnectionDefinitionEndsAreUsages and validateFlowDefinitionEndsAreUsages
+// of its master branch (SysML v2.1 Beta 2 §8.3.13.3, §8.3.16.2).
 const (
 	msgInterfaceDefEndPort = "An interface definition end must be a port."
 	msgInterfaceEndPort    = "An interface end must be a port."
 	msgFlowDefTooManyEnds  = "A flow connection definition can have at most two ends."
+)
+
+// SysML v2.1 Beta 2 §8.3.13.3 types `connectionEnd : Usage [0..*] {redefines
+// associationEnd}` and §8.3.16.2 `flowEnd : Usage [0..*] {redefines
+// associationEnd}`: every end feature of a connection or flow definition, owned
+// or inherited, is a Usage. A KerML `end feature` inherited from a kernel
+// association (Links::BinaryLink, Transfers::Transfer, ...) violates that.
+const (
+	msgConnectionDefEndUsage = "A connection definition end must be a usage."
+	msgFlowDefEndUsage       = "A flow definition end must be a usage."
 )
 
 // W10BEndKindPass checks the kind and the number of end features an interface or
@@ -32,14 +45,18 @@ func (W10BEndKindPass) Run(ctx *Context, name string, root *ast.RootNamespace) [
 	if rootScope == nil {
 		return nil
 	}
-	c := &w10bEndChecker{model: ctx.Model()}
+	c := &w10bEndChecker{model: ctx.Model(), index: ctx.Index, doc: name, kind: ctx.Kind}
 	kit.WalkSymbols(ctx, rootScope, func(sym *symbols.Symbol) {
 		switch sym.Kind {
+		case symbols.SymbolConnectionDef, symbols.SymbolAllocationDef:
+			c.checkEndsAreUsages(sym, msgConnectionDefEndUsage, "connection-def-end-not-usage")
 		case symbols.SymbolInterfaceDef:
+			c.checkEndsAreUsages(sym, msgConnectionDefEndUsage, "connection-def-end-not-usage")
 			c.checkEndsArePorts(sym, msgInterfaceDefEndPort)
 		case symbols.SymbolInterfaceUsage:
 			c.checkEndsArePorts(sym, msgInterfaceEndPort)
 		case symbols.SymbolFlowDef:
+			c.checkEndsAreUsages(sym, msgFlowDefEndUsage, "flow-def-end-not-usage")
 			c.checkFlowDefEndCount(sym)
 		}
 	})
@@ -48,6 +65,9 @@ func (W10BEndKindPass) Run(ctx *Context, name string, root *ast.RootNamespace) [
 
 type w10bEndChecker struct {
 	model *semantics.Model
+	index *symbols.Index
+	doc   string      // the document under analysis
+	kind  source.Kind // and its language
 	diags []diag.Diagnostic
 }
 
@@ -131,4 +151,43 @@ func w10bOwnedEnds(sym *symbols.Symbol) []*ast.Usage {
 		}
 	}
 	return ends
+}
+
+// checkEndsAreUsages reports once at the connection or flow definition sym when
+// an end feature of its is no SysML usage. A definition written in SysML can own
+// usages only, so the offending end is always an inherited one, and the report
+// sits where the reference puts it in that case: at the definition itself.
+func (c *w10bEndChecker) checkEndsAreUsages(sym *symbols.Symbol, msg, code string) {
+	if c.model == nil || sym.Decl == nil {
+		return
+	}
+	for _, end := range c.model.EndFeatures(sym) {
+		if !c.isUsage(end) {
+			c.report(sym.Decl, msg, code)
+			return
+		}
+	}
+}
+
+// isUsage reports whether end is a SysML Usage: a usage declared outside a KerML
+// document. A KerML `end feature`, parsed or restored from a record, is not.
+func (c *w10bEndChecker) isUsage(end *symbols.Symbol) bool {
+	if end == nil || c.docKind(end.DocName) == source.KindKerML {
+		return false
+	}
+	if end.Recorded() {
+		return end.Facts.Node == symbols.NodeUsage
+	}
+	_, ok := end.Decl.(*ast.Usage)
+	return ok
+}
+
+// docKind is the language of the document named doc: the analysed document's as
+// the context states it, any other's as the index records it, which honours a
+// language declared apart from the file name.
+func (c *w10bEndChecker) docKind(doc string) source.Kind {
+	if doc == c.doc {
+		return c.kind
+	}
+	return c.index.DocumentKind(doc)
 }

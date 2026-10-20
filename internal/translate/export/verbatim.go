@@ -249,11 +249,17 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 		}
 	}
 	for _, t := range check.Triples() {
-		if structural(t) && !graph.Has(t) {
+		if structural(t) && !graph.Has(t) && !derivedNameOmitted(graph, t) {
 			out = append(out, t)
 		}
 	}
 	return out
+}
+
+// derivedNameOmitted reports a sysml:name the candidate derives for an element
+// the graph states none for: the name is derived (KerML Element::name), so the graph states no less.
+func derivedNameOmitted(graph *rdf.Graph, t rdf.Triple) bool {
+	return t.Predicate.Value == rdf.SysML+pName && !graph.HasProperty(t.Subject, rdf.SysML+pName)
 }
 
 // blame returns the verbatim element a disagreement over iri falls in, or else

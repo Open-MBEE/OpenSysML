@@ -181,135 +181,12 @@ jobs:
           sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
           cvc5 --version | head -1
 
-      # Keyed on the download script and the shared pilot pin, so a change to the
-      # pinned tag or the layout invalidates the cache. A restored cache is still
-      # verified below.
-      - name: Cache the OMG training corpus
-        uses: actions/cache@v4
+      # Every corpus the suite's gates are required over, with the FMI gate's simulator
+      # and FMUs; see .github/actions/corpora.
+      - name: Provision the pinned corpora
+        uses: ./.github/actions/corpora
         with:
-          path: examples/sysml-v2-training
-          key: training-corpus-${{ hashFiles('scripts/download-training-examples.sh', 'scripts/pilot-pin.sh') }}
-
-      - name: Download the OMG training corpus
-        run: ./scripts/download-training-examples.sh
-
-      - name: Verify the OMG training corpus
-        run: |
-          count=$(find examples/sysml-v2-training -name '*.sysml' | wc -l)
-          echo "training corpus: $count .sysml files"
-          if [ "$count" -eq 0 ]; then
-            echo "error: the training corpus is empty; the corpus gate would not run" >&2
-            exit 1
-          fi
-
-      # Same keying as the training corpus: the download script plus the shared
-      # pilot pin. A restored cache is verified below rather than trusted.
-      - name: Cache the OMG pilot corpora
-        uses: actions/cache@v4
-        with:
-          path: examples/pilot-corpora
-          key: pilot-corpora-${{ hashFiles('scripts/download-pilot-corpora.sh', 'scripts/pilot-pin.sh') }}
-
-      - name: Download the OMG pilot corpora
-        run: ./scripts/download-pilot-corpora.sh
-
-      - name: Verify the OMG pilot corpora
-        run: |
-          for root in sysml-examples sysml-validation kerml-examples; do
-            count=$(find "examples/pilot-corpora/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
-            echo "pilot corpus $root: $count model files"
-            if [ "$count" -eq 0 ]; then
-              echo "error: pilot corpus $root is empty; the corpora gate would not run" >&2
-              exit 1
-            fi
-          done
-
-      # The specification examples, extracted from the two PDFs at the same pin:
-      # the PDFs are cached, the extraction reruns from them (it is the tree's
-      # own tool), and the result is verified rather than trusted.
-      - name: Cache the OMG specification documents
-        uses: actions/cache@v4
-        with:
-          path: build/spec-docs/pdf
-          key: spec-docs-${{ hashFiles('scripts/download-spec-examples.sh', 'scripts/pilot-pin.sh') }}
-
-      - name: Extract the OMG specification examples
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends poppler-utils
-          ./scripts/download-spec-examples.sh
-
-      - name: Verify the OMG specification examples
-        run: |
-          for root in sysml kerml; do
-            count=$(find "examples/spec-examples/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
-            echo "specification examples $root: $count model files"
-            if [ "$count" -eq 0 ]; then
-              echo "error: specification examples $root is empty; the spec-examples gate would not run" >&2
-              exit 1
-            fi
-          done
-
-      # The PSSM suite is one pinned file; keyed on its download script and pin.
-      - name: Cache the OMG PSSM test suite
-        uses: actions/cache@v4
-        with:
-          path: build/pssm
-          key: pssm-suite-${{ hashFiles('scripts/download-pssm-suite.sh', 'scripts/pssm-pin.sh') }}
-
-      - name: Download the OMG PSSM test suite
-        run: ./scripts/download-pssm-suite.sh
-
-      # The SysML v1 to v2 transformation model is one pinned file; keyed on its
-      # download script and pin.
-      - name: Cache the SysML v1 to v2 transformation model
-        uses: actions/cache@v4
-        with:
-          path: build/sysml-v1tov2
-          key: sysml-v1tov2-${{ hashFiles('scripts/download-sysml-v1tov2.sh', 'scripts/sysml-v1tov2-pin.sh') }}
-
-      - name: Download the SysML v1 to v2 transformation model
-        run: ./scripts/download-sysml-v1tov2.sh
-
-      # The fUML reference implementation's models and jar, checksummed; keyed
-      # on its download script and pin. Never run in CI: the Go tests read the
-      # committed expected-record (docs/project/fuml-referee.md).
-      - name: Cache the fUML reference-implementation suite
-        uses: actions/cache@v4
-        with:
-          path: build/fuml
-          key: fuml-suite-${{ hashFiles('scripts/download-fuml-suite.sh', 'scripts/fuml-pin.sh') }}
-
-      - name: Download the fUML reference-implementation suite
-        run: ./scripts/download-fuml-suite.sh
-
-      # The pilot's XMI of the standard library, one subtree of the release
-      # repository; keyed on its download script and the shared pilot pin.
-      - name: Cache the pilot library XMI
-        uses: actions/cache@v4
-        with:
-          path: build/pilot-library-xmi
-          key: pilot-library-xmi-${{ hashFiles('scripts/download-pilot-library-xmi.sh', 'scripts/pilot-pin.sh') }}
-
-      - name: Download the pilot library XMI
-        run: ./scripts/download-pilot-library-xmi.sh
-
-      # The FMI gate's simulator: the reference runner (client/python) is a
-      # Python subprocess, so the library it drives is installed here, pinned
-      # and wheel-only like every pip install of this workflow.
-      - name: Install fmpy
-        run: pip install --only-binary ":all:" fmpy==0.3.32
-
-      # The Modelica Reference-FMUs, checksummed; keyed on the download script
-      # and its pin. A restored cache is verified by the script's own check.
-      - name: Cache the Reference-FMUs
-        uses: actions/cache@v4
-        with:
-          path: examples/reference-fmus
-          key: reference-fmus-${{ hashFiles('scripts/download-reference-fmus.sh', 'scripts/reference-fmus-pin.sh') }}
-
-      - name: Download the Reference-FMUs
-        run: ./scripts/download-reference-fmus.sh
+          reference-fmus: 'true'
 
       # Per-package timeout: under -race the whole runtime package ran 31-57 minutes
       # on these runners, hence its two shards. Matches `make test-shard`.
@@ -427,124 +304,9 @@ jobs:
           make build-mcp
           scripts/npm-mcp-test.sh
 
-      - name: Cache the OMG training corpus
+      - name: Provision the pinned corpora
         if: needs.changes.outputs.tier == 'full'
-        uses: actions/cache@v4
-        with:
-          path: examples/sysml-v2-training
-          key: training-corpus-${{ hashFiles('scripts/download-training-examples.sh', 'scripts/pilot-pin.sh') }}
-
-      - name: Download the OMG training corpus
-        if: needs.changes.outputs.tier == 'full'
-        run: ./scripts/download-training-examples.sh
-
-      - name: Verify the OMG training corpus
-        if: needs.changes.outputs.tier == 'full'
-        run: |
-          count=$(find examples/sysml-v2-training -name '*.sysml' | wc -l)
-          echo "training corpus: $count .sysml files"
-          if [ "$count" -eq 0 ]; then
-            echo "error: the training corpus is empty; the corpus gate would not run" >&2
-            exit 1
-          fi
-
-      - name: Cache the OMG pilot corpora
-        if: needs.changes.outputs.tier == 'full'
-        uses: actions/cache@v4
-        with:
-          path: examples/pilot-corpora
-          key: pilot-corpora-${{ hashFiles('scripts/download-pilot-corpora.sh', 'scripts/pilot-pin.sh') }}
-
-      - name: Download the OMG pilot corpora
-        if: needs.changes.outputs.tier == 'full'
-        run: ./scripts/download-pilot-corpora.sh
-
-      - name: Verify the OMG pilot corpora
-        if: needs.changes.outputs.tier == 'full'
-        run: |
-          for root in sysml-examples sysml-validation kerml-examples; do
-            count=$(find "examples/pilot-corpora/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
-            echo "pilot corpus $root: $count model files"
-            if [ "$count" -eq 0 ]; then
-              echo "error: pilot corpus $root is empty; the corpora gate would not run" >&2
-              exit 1
-            fi
-          done
-
-      # The specification examples, extracted from the two PDFs at the same pin:
-      # the PDFs are cached, the extraction reruns from them (it is the tree's
-      # own tool), and the result is verified rather than trusted.
-      - name: Cache the OMG specification documents
-        if: needs.changes.outputs.tier == 'full'
-        uses: actions/cache@v4
-        with:
-          path: build/spec-docs/pdf
-          key: spec-docs-${{ hashFiles('scripts/download-spec-examples.sh', 'scripts/pilot-pin.sh') }}
-
-      - name: Extract the OMG specification examples
-        if: needs.changes.outputs.tier == 'full'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends poppler-utils
-          ./scripts/download-spec-examples.sh
-
-      - name: Verify the OMG specification examples
-        if: needs.changes.outputs.tier == 'full'
-        run: |
-          for root in sysml kerml; do
-            count=$(find "examples/spec-examples/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
-            echo "specification examples $root: $count model files"
-            if [ "$count" -eq 0 ]; then
-              echo "error: specification examples $root is empty; the spec-examples gate would not run" >&2
-              exit 1
-            fi
-          done
-
-      - name: Cache the OMG PSSM test suite
-        if: needs.changes.outputs.tier == 'full'
-        uses: actions/cache@v4
-        with:
-          path: build/pssm
-          key: pssm-suite-${{ hashFiles('scripts/download-pssm-suite.sh', 'scripts/pssm-pin.sh') }}
-
-      - name: Download the OMG PSSM test suite
-        if: needs.changes.outputs.tier == 'full'
-        run: ./scripts/download-pssm-suite.sh
-
-      - name: Cache the SysML v1 to v2 transformation model
-        if: needs.changes.outputs.tier == 'full'
-        uses: actions/cache@v4
-        with:
-          path: build/sysml-v1tov2
-          key: sysml-v1tov2-${{ hashFiles('scripts/download-sysml-v1tov2.sh', 'scripts/sysml-v1tov2-pin.sh') }}
-
-      - name: Download the SysML v1 to v2 transformation model
-        if: needs.changes.outputs.tier == 'full'
-        run: ./scripts/download-sysml-v1tov2.sh
-
-      - name: Cache the fUML reference-implementation suite
-        if: needs.changes.outputs.tier == 'full'
-        uses: actions/cache@v4
-        with:
-          path: build/fuml
-          key: fuml-suite-${{ hashFiles('scripts/download-fuml-suite.sh', 'scripts/fuml-pin.sh') }}
-
-      - name: Download the fUML reference-implementation suite
-        if: needs.changes.outputs.tier == 'full'
-        run: ./scripts/download-fuml-suite.sh
-
-      # The pilot's XMI of the standard library, one subtree of the release
-      # repository; keyed on its download script and the shared pilot pin.
-      - name: Cache the pilot library XMI
-        if: needs.changes.outputs.tier == 'full'
-        uses: actions/cache@v4
-        with:
-          path: build/pilot-library-xmi
-          key: pilot-library-xmi-${{ hashFiles('scripts/download-pilot-library-xmi.sh', 'scripts/pilot-pin.sh') }}
-
-      - name: Download the pilot library XMI
-        if: needs.changes.outputs.tier == 'full'
-        run: ./scripts/download-pilot-library-xmi.sh
+        uses: ./.github/actions/corpora
 
       - name: Check Go formatting
         run: |
@@ -921,6 +683,14 @@ jobs:
           ./bin/sysml-lsp --version
           ls -lh bin/
           make static-check
+
+      # The llm-bench tests drive the binary built above and skip without it;
+      # the replay of the committed recording is what keeps that recording
+      # reproducible.
+      - name: Run llm-bench tests
+        env:
+          OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN: "1"
+        run: go test -C tools -count=1 -v ./bench/llm
 
       - name: Upload binary artifacts
         uses: actions/upload-artifact@v4
