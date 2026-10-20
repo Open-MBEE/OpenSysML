@@ -454,7 +454,7 @@ package Q { filter @Safety; }`,
 }
 
 // `this` written in a behavior definition keeps its declared type
-// (Performances::Performance::this : Object), so `this.<feature>` inside a def
+// (Occurrences::Occurrence::this : Occurrence[1]), so `this.<feature>` inside a def
 // resolves no feature of the enclosing part def nor of the def itself, at
 // package level or nested — while a usage's `this` chain still reaches the
 // object lexically.

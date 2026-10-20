@@ -41,8 +41,8 @@ func (r *Resolver) ThisContext(scope *symbols.Scope) *symbols.Symbol {
 
 // thisChainContext is the object a chain `this.<member>` written in scope is
 // resolved against: the enclosing object of a usage body. A definition's `this`
-// keeps its declared type (Performances::Performance::this : Object), so a chain
-// written in a definition resolves against that type, not the lexical owner.
+// keeps its declared type (Occurrences::Occurrence::this : Occurrence[1] default self),
+// so a chain written in a definition resolves against that type, not the lexical owner.
 func (r *Resolver) thisChainContext(scope *symbols.Scope) *symbols.Symbol {
 	return thisContext(scope, false)
 }
