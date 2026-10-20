@@ -196,6 +196,9 @@ type Session struct {
 	// fileGuard, when set, is asked before the session reads or writes a file
 	// a command named, so a host can confine the session to a workspace.
 	fileGuard func(path string, exempt []string) error
+	// fileWriter, when set, writes the files the session saves, so a host can
+	// decide where the bytes land; nil writes each path directly.
+	fileWriter replext.FileWriter
 
 	// renderWidth is the width a text rendering's table is written to fit, 0 for
 	// as wide as its widest cell.
@@ -1650,6 +1653,13 @@ func rebasedFixes(fixes []diag.Fix, delta int) []diag.Fix {
 // the check.
 func (s *Session) SetFileGuard(guard func(path string, exempt []string) error) {
 	s.fileGuard = guard
+}
+
+// SetFileWriter installs the writer every file the session saves is written
+// with, so a host confining the session to a workspace can perform the write
+// through the workspace root itself. A nil writer writes each path directly.
+func (s *Session) SetFileWriter(write replext.FileWriter) {
+	s.fileWriter = write
 }
 
 // guardFiles asks the file guard about each file; with libraries true, the

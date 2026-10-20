@@ -6,8 +6,6 @@ package lsptools
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -265,7 +263,7 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	}
 	originals := make(map[string]original, len(writes))
 	for _, w := range writes {
-		target, err := h.target(w.name)
+		target, err := h.root.Target(w.name)
 		if err != nil {
 			return err
 		}
@@ -285,13 +283,13 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	}
 	var written []string
 	for _, w := range writes {
-		if err := writeFile(root, originals[w.name].target, w.content); err != nil {
+		if err := toolkit.WriteFile(root, originals[w.name].target, w.content, 0o600); err != nil {
 			var restore []string
 			for _, name := range written {
 				o := originals[name]
 				var rerr error
 				if o.existed {
-					rerr = writeFile(root, o.target, o.content)
+					rerr = toolkit.WriteFile(root, o.target, o.content, 0o600)
 				} else {
 					rerr = root.Remove(o.target)
 				}
@@ -316,51 +314,6 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	}
 	h.Refresh(ctx)
 	return nil
-}
-
-// target is the file a write to name reaches, relative to the resolved root:
-// name with symlinks resolved, checked at write time to lie under the root,
-// since a link may have been repointed after the path was resolved. A file not
-// yet on disk lands in its resolved directory.
-func (h *Host) target(name string) (string, error) {
-	res, err := h.root.Resolve(name)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Rel(h.root.Real, res.Real)
-}
-
-// writeFile replaces name, relative to root, with content in one step: the
-// bytes go to a temporary file beside it that is renamed over it, so a failure
-// part-way leaves the file as it was. An existing file keeps its mode.
-func writeFile(root *os.Root, name string, content []byte) error {
-	mode := os.FileMode(0o600)
-	if info, err := root.Stat(name); err == nil {
-		mode = info.Mode().Perm()
-	}
-	var suffix [6]byte
-	if _, err := rand.Read(suffix[:]); err != nil {
-		return err
-	}
-	tmp := filepath.Join(filepath.Dir(name), "."+filepath.Base(name)+"."+hex.EncodeToString(suffix[:])+".tmp")
-	f, err := root.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
-	if err != nil {
-		return err
-	}
-	_, err = f.Write(content)
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err == nil {
-		err = root.Chmod(tmp, mode)
-	}
-	if err == nil {
-		err = root.Rename(tmp, name)
-	}
-	if err != nil {
-		_ = root.Remove(tmp)
-	}
-	return err
 }
 
 // replace makes text the content of the open document name, as the next

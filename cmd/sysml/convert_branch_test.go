@@ -227,6 +227,30 @@ func TestConvertRefusesSyncStateWithoutABranch(t *testing.T) {
 	}
 }
 
+func TestStdlibRefusesSyncStateWithoutABranch(t *testing.T) {
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	dir := t.TempDir()
+	state := filepath.Join(dir, "state.json")
+	if err := os.WriteFile(state, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, args := range [][]string{
+		{"-stdlib", "-convert", "ttl", "-sync-state", state},
+		{"-stdlib", "-convert", "ttl", "-o", filepath.Join(dir, "lib.ttl"), "-sync-state", state},
+		{"-stdlib", "-convert", "ttl", "-o", state, "-sync-state", state},
+	} {
+		out, code := exitCode(t, syncCommand(stack, binary, args...))
+		if code != 2 || !strings.Contains(out, "-sync-state records a repository branch's head") {
+			t.Fatalf("%v: exit %d:\n%s", args, code, out)
+		}
+	}
+	if got, err := os.ReadFile(state); err != nil || string(got) != "{}" {
+		t.Fatalf("the state file after the refusals: %q, %v", got, err)
+	}
+}
+
 func TestMigratePushRefusesAMigrationReportOverTheInput(t *testing.T) {
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
