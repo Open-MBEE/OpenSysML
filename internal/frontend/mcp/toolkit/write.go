@@ -8,6 +8,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 // savedFileMode is the permission a saved file that did not exist yet is
@@ -86,7 +88,7 @@ func WriteFile(root *os.Root, name string, content []byte, created os.FileMode) 
 	if _, err := rand.Read(suffix[:]); err != nil {
 		return err
 	}
-	tmp := filepath.Join(filepath.Dir(name), "."+filepath.Base(name)+"."+hex.EncodeToString(suffix[:])+".tmp")
+	tmp := filepath.Join(filepath.Dir(name), "."+export.TempStem(filepath.Base(name))+"."+hex.EncodeToString(suffix[:]))
 	f, err := root.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 	if err != nil {
 		return err

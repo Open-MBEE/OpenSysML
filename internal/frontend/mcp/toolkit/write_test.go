@@ -137,3 +137,30 @@ func TestWriteFileFallsBackWhenTheDirectoryIsClosed(t *testing.T) {
 		t.Errorf("file = %q, want the new model with nothing of the old one left", data)
 	}
 }
+
+// A name near the 255-byte component limit is written: the temporary file
+// beside it is named from a shortened stem, as export.WriteFile names its own.
+func TestWriteFileWritesANameNearTheComponentLimit(t *testing.T) {
+	tr := newTree(t)
+	r, err := NewRoot(tr.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	long := strings.Repeat("m", 249) + ".sysml"
+	fresh := filepath.Join(tr.root, long)
+	if replaced, err := r.WriteFile(fresh, []byte("package New;")); err != nil || replaced {
+		t.Fatalf("WriteFile to a new long name = %v, %v", replaced, err)
+	}
+	if replaced, err := r.WriteFile(fresh, []byte("package Newer;")); err != nil || !replaced {
+		t.Fatalf("WriteFile over the long name = %v, %v", replaced, err)
+	}
+	if got, _ := os.ReadFile(fresh); string(got) != "package Newer;" {
+		t.Errorf("content = %q", got)
+	}
+	entries, _ := os.ReadDir(tr.root)
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			t.Errorf("temporary %s left behind", e.Name())
+		}
+	}
+}
