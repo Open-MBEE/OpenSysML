@@ -189,6 +189,7 @@ exclude_docs: |
   project/grammar-coverage.md
   project/grammar-metaclass-map.md
   project/validation-constraints.md
+  project/constraint-census-triage.md
   project/sysml-v1-transformation-census.md
   project/element-identity-annotations.md
   project/diagram-layout-annotations.md

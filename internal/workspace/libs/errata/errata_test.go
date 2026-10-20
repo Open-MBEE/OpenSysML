@@ -71,7 +71,7 @@ func TestEntryWithoutProvenanceIsRejected(t *testing.T) {
 		"no line":             func(e Entry) Entry { e.Line = 0; return e },
 		"no published text":   func(e Entry) Entry { e.AsPublished = "   "; return e },
 		"correction is a nop": func(e Entry) Entry { e.Corrected = e.AsPublished; return e },
-		"multi-line span":     func(e Entry) Entry { e.Corrected = "a\nb"; return e },
+		"multi-line span":     func(e Entry) Entry { e.AsPublished = "a\nb"; return e },
 	}
 	for name, mutate := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -293,5 +293,29 @@ func TestLibraryEntriesAreKeyedByLibraryPath(t *testing.T) {
 	}
 	if Count(all) <= Count(under) {
 		t.Errorf("EntriesUnder holds %d entries, Under %d: the documented-only library entries are not verified", Count(all), Count(under))
+	}
+}
+
+// A correction may replace its one published line by several; the lines after it
+// move down, and every entry is still checked against the published text.
+func TestApplyAllSplicesAMultiLineCorrection(t *testing.T) {
+	entries := []Entry{{
+		ID: "T1", Heading: "a test entry", Path: "examples/pilot-corpora/x/Sample.sysml", Line: 1,
+		AsPublished: "a", Corrected: "a\n  b\n  c", Citation: "KerML 7.4.9", Derivation: "d",
+	}, {
+		ID: "T2", Heading: "a test entry", Path: "examples/pilot-corpora/x/Sample.sysml", Line: 3,
+		AsPublished: "z", Corrected: "y", Citation: "KerML 7.4.9", Derivation: "d",
+	}}
+	for _, e := range entries {
+		if err := e.Validate(); err != nil {
+			t.Fatalf("%s: %v", e.ID, err)
+		}
+	}
+	got, err := ApplyAll(entries, []byte("a\nm\nz\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "a\n  b\n  c\nm\ny\n"; string(got) != want {
+		t.Errorf("ApplyAll = %q, want %q", got, want)
 	}
 }
