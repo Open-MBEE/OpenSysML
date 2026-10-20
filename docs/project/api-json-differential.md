@@ -154,7 +154,7 @@ The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
 **Scorecard:** 407 files; 79958 elements matched (27531 ours-only, 37653 pilot-only, 0 of them implied); properties: 552072 present-equal, 41595 present-different, 949470 ours-missing, 60714 pilot-missing, 1877737 absent-both, 19014 indeterminate.
 
-The pilot exported every file but 6 (`pilotFailed`: its own export throws on an element without a resource; the files are named in the run's text report), ours refused 0, left the pilot's 6 failed files out and converted 22 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 10815 (metaclass, property) rows carry a comparison; 78684 references compared through the unkeyed sentinel, 110175 of our `sysx:` annotations were left out, and 290/185 elements (ours/pilot) were dropped for ambiguous keys, 8129/30333 for having none.
+The pilot exported every file but 6 (`pilotFailed`: its own export throws on an element without a resource; the files are named in the run's text report), ours refused 0, left the pilot's 6 failed files out and converted 22 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 10843 (metaclass, property) rows carry a comparison; 91180 references compared through the unkeyed sentinel, 124507 of our `sysx:` annotations were left out, and 277/185 elements (ours/pilot) were dropped for ambiguous keys, 8023/30342 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
