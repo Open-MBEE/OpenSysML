@@ -693,7 +693,13 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 			if start.occurrence.inst != nil {
 				return start.occurrence.inst, nil
 			}
-			inst, err := ctx.occurrenceOf(start.key.sym)
+			var inst *Instance
+			var err error
+			if reader.self != nil {
+				inst, err = ctx.usageOccurrenceOf(start.key, reader.self)
+			} else {
+				inst, err = ctx.occurrenceOf(start.key.sym)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -1381,6 +1387,27 @@ func (ctx *Context) unboundSubjectRead(sym *symbols.Symbol, name string, err err
 	feat := ctx.effectiveFeature(name, param.Sym, sym)
 	reason := fmt.Sprintf("%s binds no value to its subject %s", shape.Label, name)
 	return undeterminedFeatureValue(reason, feat.Multiplicity, param.Sym), true
+}
+
+// usageOccurrenceOf returns the occurrence the usage is on the object it is a feature
+// of, materializing it once per object: two owners read two objectives, two parts.
+func (ctx *Context) usageOccurrenceOf(key calcUsageKey, owner *Instance) (*Instance, error) {
+	if id, ok := ctx.usageOccurrences[key]; ok {
+		if inst, live := ctx.instances[id]; live {
+			return inst, nil
+		}
+	}
+	mark := len(ctx.created)
+	inst, err := ctx.materialize(key.sym, 0, owner, key.sym.Name)
+	if err != nil {
+		ctx.abandonInstancesSince(mark)
+		return nil, err
+	}
+	ctx.usageOccurrences[key] = inst.ID
+	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
+		return nil, err
+	}
+	return inst, nil
 }
 
 // occurrenceMember reads a feature the run holds no binding for — the objective, a

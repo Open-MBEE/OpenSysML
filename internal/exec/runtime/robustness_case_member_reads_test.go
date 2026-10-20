@@ -14,9 +14,9 @@ func TestRuntimeRobustnessCaseMemberReads(t *testing.T) {
 	src := `package test {
 		private import ScalarValues::*;
 		private import VerificationCases::*;
-		part def Operator { attribute id : Integer = 7; }
+		part def Operator { attribute id : Integer default = 7; }
 		part op : Operator;
-		part op2 : Operator;
+		part op2 : Operator { attribute :>> id = 9; }
 		verification def CheckPositive {
 			subject n : Integer;
 			actor who : Operator;
@@ -35,6 +35,24 @@ func TestRuntimeRobustnessCaseMemberReads(t *testing.T) {
 			return r : Integer = n * 2;
 		}
 		analysis scaledFour : Scale { subject n = 4; }
+		verification def Crewed {
+			subject n : Integer;
+			actor pilot : Operator;
+			attribute pilotId : Integer = pilot.id;
+			return verdict : VerdictKind = PassIf(n > 0 and pilot.id > 0);
+		}
+		verification crewed : Crewed { subject n = 3; actor crew = op2; }
+		verification def Geared {
+			subject n : Integer;
+			part gear : Operator { attribute w : Integer = n * 2; }
+			return verdict : VerdictKind = PassIf(n > 0);
+		}
+		part def Holder {
+			attribute value : Integer default = 3;
+			verification check : Geared { subject n = value; }
+		}
+		part holder : Holder;
+		part other : Holder { :>> value = 5; }
 	}`
 	ctx, idx := libraryShapeContext(t, src)
 	root := idx.DocumentRoot("<test>")
@@ -87,6 +105,30 @@ func TestRuntimeRobustnessCaseMemberReads(t *testing.T) {
 			if read := mustEvalIn(t, ctx, root, expr); read.Kind != ValUndetermined {
 				t.Errorf("%s = %s, want <undetermined> whatever the lower bound", expr, FormatValue(read))
 			}
+		}
+	})
+
+	t.Run("an actor renamed at its position binds the actor it redefines", func(t *testing.T) {
+		for expr, want := range map[string]string{
+			"test::crewed.crew.id": "9",
+			"test::crewed.pilotId": "9",
+			"test::crewed.verdict": "VerdictKind::pass",
+		} {
+			if got := FormatValue(mustEvalIn(t, ctx, root, expr)); got != want {
+				t.Errorf("%s = %s, want %s", expr, got, want)
+			}
+		}
+	})
+
+	t.Run("a case on two owners reads two parts, each with its owner's values", func(t *testing.T) {
+		if got := FormatValue(mustEvalIn(t, ctx, root, "test::holder.check.gear.w")); got != "6" {
+			t.Errorf("holder.check.gear.w = %s, want 6", got)
+		}
+		if got := FormatValue(mustEvalIn(t, ctx, root, "test::other.check.gear.w")); got != "10" {
+			t.Errorf("other.check.gear.w = %s, want 10", got)
+		}
+		if got := FormatValue(mustEvalIn(t, ctx, root, "test::holder.check.gear != test::other.check.gear")); got != "true" {
+			t.Errorf("the two owners' gears compare %s, want distinct objects", got)
 		}
 	})
 

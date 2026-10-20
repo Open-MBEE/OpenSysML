@@ -82,6 +82,9 @@ type Context struct {
 	// occurrences holds the objects each usage carrying no value of its own denotes, in
 	// declaration order: one for a usage of one occurrence, its lower bound for a collection.
 	occurrences map[*symbols.Symbol][]int64
+	// usageOccurrences holds the occurrence a calc or case usage is on each object it
+	// is a feature of, keyed by the usage and that object.
+	usageOccurrences map[calcUsageKey]int64
 	// occurrenceTails holds, per usage whose lower bound is held lazily, the members past the recorded occurrences.
 	occurrenceTails map[*symbols.Symbol]*requiredMembers
 	// required holds the lazily held populations (required.go) by first identity, so an
@@ -422,6 +425,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		maxIntegerBits: DefaultMaxIntegerBits,
 
 		occurrences:       make(map[*symbols.Symbol][]int64),
+		usageOccurrences:  make(map[calcUsageKey]int64),
 		occurrenceTails:   make(map[*symbols.Symbol]*requiredMembers),
 		namespaceBindings: make(map[*symbols.Symbol]Value),
 		bindingReads:      make(map[*symbols.Symbol]*bindingReads),

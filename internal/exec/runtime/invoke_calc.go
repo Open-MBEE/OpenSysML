@@ -442,12 +442,18 @@ func (ctx *Context) calcParameters(chain []*symbols.Symbol, aliases *map[string]
 }
 
 // redeclaredIndex finds the flattened member the member sym, named name,
-// redeclares: the one of its own name, else one it redefines (`in y :>> x`).
+// redeclares: the one of its own name, one it redefines (`in y :>> x`), else
+// the one its role redefines by position (an actor over the general's actor).
 func (ctx *Context) redeclaredIndex(index map[string]int, sym *symbols.Symbol, name string) (int, bool) {
 	if at, seen := index[name]; seen {
 		return at, true
 	}
 	for _, redefined := range ctx.model.semantics.RedefinedFeatures(sym) {
+		if at, seen := index[redefined.Name]; seen {
+			return at, true
+		}
+	}
+	for _, redefined := range ctx.model.semantics.ImplicitRoleRedefinitions(sym) {
 		if at, seen := index[redefined.Name]; seen {
 			return at, true
 		}
