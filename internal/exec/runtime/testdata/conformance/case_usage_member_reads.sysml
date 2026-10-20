@@ -2,13 +2,15 @@
 // parameter is (SysML v2 §7.22.2, §7.24.2): read through the usage, each answers
 // the value the usage binds — on an instantiated owner and at package level alike —
 // its objective reads through the case's occurrence, and a subject or actor nothing
-// binds is undetermined rather than refused.
+// binds is undetermined rather than refused. The same read answers a plain calc
+// usage's input (§7.19.2) and a case body's own locals and parts.
 package test {
 	private import ScalarValues::*;
 	private import VerificationCases::*;
 
-	part def Operator { attribute id : Integer = 7; }
+	part def Operator { attribute id : Integer default = 7; }
 	part op : Operator;
+	part op2 : Operator { attribute :>> id = 9; }
 
 	requirement def Positive {
 		subject n : Integer;
@@ -19,6 +21,10 @@ package test {
 		subject n : Integer;
 		actor who : Operator;
 		in limit : Integer = 10;
+		in open : Integer;
+		actor many : Operator[0..*];
+		attribute depth : Integer = n + 1;
+		part gear : Operator;
 		objective { verify requirement pos : Positive { subject :>> n; } }
 		return verdict : VerdictKind = PassIf(n > 0 and n <= limit);
 	}
@@ -31,6 +37,11 @@ package test {
 		return r : Integer = n * k;
 	}
 
+	calc def Twice {
+		in x : Integer;
+		return : Integer = x * 2;
+	}
+
 	use case def Ride {
 		subject n : Integer;
 		actor who : Operator;
@@ -40,10 +51,13 @@ package test {
 		attribute value : Integer = 3;
 		verification check : CheckPositive { subject n = value; actor who = op; }
 		analysis scaled : Scale { subject n = value; actor who = op; }
+		calc twice : Twice { in x = value; }
 	}
 	part holder : Holder;
 
 	verification checkThree : CheckPositive { subject n = 3; actor who = op; }
+	verification checkMany : CheckPositive { subject n = 3; actor many = (op, op2); in open = 1; }
+	calc twoTimes : Twice { in x = 2; }
 	verification checkNothing : CheckPositive;
 	analysis scaledFour : Scale { subject n = 4; }
 	use case ride : Ride { subject n = 3; actor who = op; }
@@ -61,6 +75,14 @@ package test {
 	attribute unboundSubject = checkNothing.n;
 	attribute unboundActor = scaledFour.who;
 	attribute scaledResult = scaledFour.r;
+	attribute manyActors = checkMany.many;
+	attribute manyVerdict = checkMany.verdict;
+	attribute suppliedOpen = checkMany.open;
+	attribute unsuppliedOpen = checkThree.open;
+	attribute bodyLocal = checkThree.depth;
+	attribute bodyPartId = checkThree.gear.id;
+	attribute calcInput = twoTimes.x;
+	attribute ownerCalcInput = holder.twice.x;
 	attribute useCaseSubject = ride.n;
 	attribute useCaseActorId = ride.who.id;
 }

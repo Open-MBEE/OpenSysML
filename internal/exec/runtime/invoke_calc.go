@@ -927,7 +927,9 @@ func (ctx *Context) bindCalcParameters(
 			return fmt.Sprintf("%s: %s for parameter %q", shape.Label, source, param.Name)
 		}
 		decl := param.Decl
-		if decl.Target != nil && param.Sym != nil {
+		// An actor states no direction, so the parameter chain does not reach what it
+		// redefines; its range is the one the shape folded along the redeclarations.
+		if decl.Target != nil && param.Sym != nil && !param.IsActor {
 			target := *decl.Target
 			target.mult = ctx.model.semantics.EffectiveParameterRange(param.Sym)
 			decl.Target = &target
@@ -1126,12 +1128,17 @@ func (param *calcParameter) declaredOptional() bool {
 
 // hasParameter reports whether the calc declares an input parameter of that name.
 func (shape *calcShape) hasParameter(name string) bool {
-	for _, param := range shape.Params {
-		if param.Name == name {
-			return true
+	return shape.parameter(name) != nil
+}
+
+// parameter is the calc's parameter of that name, nil when it declares none.
+func (shape *calcShape) parameter(name string) *calcParameter {
+	for i := range shape.Params {
+		if shape.Params[i].Name == name {
+			return &shape.Params[i]
 		}
 	}
-	return false
+	return nil
 }
 
 // performs reports whether the body's action nodes are performed as steps: a case

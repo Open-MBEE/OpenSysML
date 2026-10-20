@@ -20,6 +20,14 @@
     "test::unboundSubject": {"type": "Undetermined"},
     "test::unboundActor": {"type": "Undetermined"},
     "test::scaledResult": {"type": "Integer", "value": 8},
+    "test::manyActors": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "test::manyVerdict": {"type": "EnumLiteral", "value": "VerdictKind::pass"},
+    "test::suppliedOpen": {"type": "Integer", "value": 1},
+    "test::unsuppliedOpen": {"type": "Undetermined"},
+    "test::bodyLocal": {"type": "Integer", "value": 4},
+    "test::bodyPartId": {"type": "Integer", "value": 7},
+    "test::calcInput": {"type": "Integer", "value": 2},
+    "test::ownerCalcInput": {"type": "Integer", "value": 3},
     "test::useCaseSubject": {"type": "Integer", "value": 3},
     "test::useCaseActorId": {"type": "Integer", "value": 7}
   }
