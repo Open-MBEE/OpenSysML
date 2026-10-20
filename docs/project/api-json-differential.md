@@ -143,7 +143,7 @@ The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
 ## Results (pilot `2026-08`, 407 files)
 
-**Scorecard:** 407 files; 66902 elements matched (42556 ours-only, 50701 pilot-only, 0 of them implied); properties: 445932 present-equal, 61789 present-different, 709664 ours-missing, 50776 pilot-missing, 1654235 absent-both.
+**Scorecard:** 407 files; 66910 elements matched (42562 ours-only, 50701 pilot-only, 0 of them implied); properties: 445989 present-equal, 61801 present-different, 709745 ours-missing, 50782 pilot-missing, 1654480 absent-both.
 
 The pilot exported every file but 6 (`pilotFailed`: its own export throws on an element without a resource; the files are named in the run's text report), ours refused 0 and converted 4 as separate documents. 10815 (metaclass, property) rows carry a comparison; 78684 references compared through the unkeyed sentinel, 110175 of our `sysx:` annotations were left out, and 290/185 elements (ours/pilot) were dropped for ambiguous keys, 8129/30333 for having none.
 
@@ -154,7 +154,7 @@ The pilot exported every file but 6 (`pilotFailed`: its own export throws on an 
 | `examples/pilot-corpora/sysml-validation` | 56 | 6884 | 5329 | 5703 | 45269 | 7591 | 71342 | 5290 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 5399 | 2618 | 2842 | 34536 | 4701 | 49436 | 4352 |
 | `tests/testdata` | 30 | 1122 | 154 | 524 | 7224 | 647 | 10805 | 817 |
-| `examples` | 52 | 21466 | 13238 | 17914 | 143050 | 20741 | 233495 | 16464 |
+| `examples` | 52 | 21474 | 13244 | 17914 | 143107 | 20753 | 233576 | 16470 |
 | `tools/referee/diff/testdata` | 4 | 28 | 25 | 25 | 176 | 41 | 155 | 28 |
 | `docs/manual/examples` | 8 | 6813 | 1154 | 2457 | 45300 | 5217 | 75914 | 4991 |
 
@@ -166,14 +166,14 @@ The largest **present-different** rows, with the reading the examples support:
 
 | metaclass | property | present-equal | present-different |
 |---|---|---:|---:|
-| `FeatureMembership` | `memberElement` | 6542 | 2726 |
-| `FeatureMembership` | `ownedMemberElement` | 6542 | 2726 |
-| `FeatureMembership` | `ownedMemberFeature` | 6542 | 2726 |
-| `FeatureMembership` | `ownedRelatedElement` | 6542 | 2726 |
-| `FeatureTyping` | `general` | 2685 | 2177 |
-| `FeatureTyping` | `relatedElement` | 2685 | 2177 |
-| `FeatureTyping` | `target` | 2685 | 2177 |
-| `FeatureTyping` | `type` | 2687 | 2177 |
+| `FeatureMembership` | `memberElement` | 6542 | 2728 |
+| `FeatureMembership` | `ownedMemberElement` | 6542 | 2728 |
+| `FeatureMembership` | `ownedMemberFeature` | 6542 | 2728 |
+| `FeatureMembership` | `ownedRelatedElement` | 6542 | 2728 |
+| `FeatureTyping` | `general` | 2686 | 2177 |
+| `FeatureTyping` | `relatedElement` | 2686 | 2177 |
+| `FeatureTyping` | `target` | 2686 | 2177 |
+| `FeatureTyping` | `type` | 2688 | 2177 |
 | `AttributeUsage` | `ownedRelationship` | 102 | 1571 |
 | `FeatureReferenceExpression` | `ownedMembership` | 29 | 1458 |
 
@@ -181,12 +181,12 @@ The largest **present-different** rows, with the reading the examples support:
 
 | metaclass | property | pilot-missing | clause |
 |---|---|---:|---|
-| `FeatureMembership` | `owner` | 9268 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `OwningMembership` | `owner` | 7150 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `FeatureMembership` | `owner` | 9270 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `OwningMembership` | `owner` | 7151 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
 | `FeatureValue` | `owner` | 4929 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `FeatureTyping` | `owner` | 4862 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `FeatureTyping` | `owner` | 4863 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
 | `ReturnParameterMembership` | `owner` | 3469 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `ParameterMembership` | `owner` | 3457 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `ParameterMembership` | `owner` | 3458 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
 | `Membership` | `owner` | 2304 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
 | `AttributeUsage` | `value` | 1000 | see the `derive*` row for this property in `docs/project/constraint-manifest.json` |
 
@@ -198,14 +198,14 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 
 | # | metaclass | property | ours-missing | present-different | in-flight overlap | derivation clause |
 |---:|---|---|---:|---:|---|---|
-| 1 | `FeatureMembership` | `memberElementId` | 9268 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberElementId = memberElement.elementId` (KerML 8.3.2.3.5, deriveMembershipMemberElementId) |
-| 2 | `FeatureMembership` | `ownedMemberElementId` | 9268 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberElementId = ownedMemberElement.elementId` (KerML 8.3.2.3.6) |
-| 3 | `FeatureMembership` | `relatedElement` | 9268 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::relatedElement = source->union(target)`, ordered (KerML 8.3.2.5.2, deriveRelationshipRelatedElement) |
-| 4 | `FeatureMembership` | `source` | 9268 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::source`, which Membership redefines as `[membershipOwningNamespace]` (KerML 8.3.2.3.5) |
-| 5 | `FeatureMembership` | `target` | 9268 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::target`, which Membership redefines as `[memberElement]` (KerML 8.3.2.3.5) |
-| 6 | `FeatureMembership` | `visibility` | 9208 | 1 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
-| 7 | `FeatureMembership` | `memberName` | 7659 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberName = memberElement.name` (KerML 8.3.2.3.5, deriveMembershipMemberName) |
-| 8 | `FeatureMembership` | `ownedMemberName` | 7659 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberName = ownedMemberElement.name` (KerML 8.3.2.3.6) |
+| 1 | `FeatureMembership` | `memberElementId` | 9270 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberElementId = memberElement.elementId` (KerML 8.3.2.3.5, deriveMembershipMemberElementId) |
+| 2 | `FeatureMembership` | `ownedMemberElementId` | 9270 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberElementId = ownedMemberElement.elementId` (KerML 8.3.2.3.6) |
+| 3 | `FeatureMembership` | `relatedElement` | 9270 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::relatedElement = source->union(target)`, ordered (KerML 8.3.2.5.2, deriveRelationshipRelatedElement) |
+| 4 | `FeatureMembership` | `source` | 9270 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::source`, which Membership redefines as `[membershipOwningNamespace]` (KerML 8.3.2.3.5) |
+| 5 | `FeatureMembership` | `target` | 9270 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::target`, which Membership redefines as `[memberElement]` (KerML 8.3.2.3.5) |
+| 6 | `FeatureMembership` | `visibility` | 9210 | 1 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
+| 7 | `FeatureMembership` | `memberName` | 7660 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberName = memberElement.name` (KerML 8.3.2.3.5, deriveMembershipMemberName) |
+| 8 | `FeatureMembership` | `ownedMemberName` | 7660 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberName = ownedMemberElement.name` (KerML 8.3.2.3.6) |
 | 9 | `Feature` | `featureTarget` | 7298 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::featureTarget`: the last `chainingFeature`, else the feature itself (KerML 8.3.3.3, deriveFeatureFeatureTarget; KERML11-1 crossFeature) |
 | 10 | `Feature` | `inheritedFeature` | 7298 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1, deriveTypeInheritedFeature) |
 | 11 | `Feature` | `inheritedMembership` | 7298 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Type::inheritedMembership = inheritedMemberships(excluded)` over the supertypes (KerML 8.3.3.1, deriveTypeInheritedMembership) |
@@ -214,12 +214,12 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | 14 | `Feature` | `isUnique` | 7294 | 0 | none found | owned attribute `Feature::isUnique : Boolean`, default `true` (KerML 8.3.3.3); not derived |
 | 15 | `Feature` | `feature` | 7293 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1, deriveTypeFeature) |
 | 16 | `Feature` | `featureMembership` | 7293 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1; KERML11-191 restricts the inherited part to the supertypes) |
-| 17 | `OwningMembership` | `memberElementId` | 7150 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberElementId = memberElement.elementId` (KerML 8.3.2.3.5, deriveMembershipMemberElementId) |
-| 18 | `OwningMembership` | `ownedMemberElementId` | 7150 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberElementId = ownedMemberElement.elementId` (KerML 8.3.2.3.6) |
-| 19 | `OwningMembership` | `relatedElement` | 7150 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::relatedElement = source->union(target)`, ordered (KerML 8.3.2.5.2, deriveRelationshipRelatedElement) |
-| 20 | `OwningMembership` | `source` | 7150 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::source`, which Membership redefines as `[membershipOwningNamespace]` (KerML 8.3.2.3.5) |
-| 21 | `OwningMembership` | `target` | 7150 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::target`, which Membership redefines as `[memberElement]` (KerML 8.3.2.3.5) |
-| 22 | `OwningMembership` | `visibility` | 7131 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
+| 17 | `OwningMembership` | `memberElementId` | 7151 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberElementId = memberElement.elementId` (KerML 8.3.2.3.5, deriveMembershipMemberElementId) |
+| 18 | `OwningMembership` | `ownedMemberElementId` | 7151 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberElementId = ownedMemberElement.elementId` (KerML 8.3.2.3.6) |
+| 19 | `OwningMembership` | `relatedElement` | 7151 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::relatedElement = source->union(target)`, ordered (KerML 8.3.2.5.2, deriveRelationshipRelatedElement) |
+| 20 | `OwningMembership` | `source` | 7151 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::source`, which Membership redefines as `[membershipOwningNamespace]` (KerML 8.3.2.3.5) |
+| 21 | `OwningMembership` | `target` | 7151 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::target`, which Membership redefines as `[memberElement]` (KerML 8.3.2.3.5) |
+| 22 | `OwningMembership` | `visibility` | 7132 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
 | 23 | `Feature` | `featuringType` | 7099 | 1 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::featuringType = typeFeaturing.featuringType`, plus the owning type of an owned feature (KerML 8.3.3.3, deriveFeatureFeaturingType; KERML11-3/4 multiplicity featuring) |
 | 24 | `Feature` | `owningFeatureMembership` | 6953 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningFeatureMembership = owningMembership->selectByKind(FeatureMembership)` (KerML 8.3.3.3) |
 | 25 | `Feature` | `owningType` | 6953 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningType = owningFeatureMembership.owningType` (KerML 8.3.3.3, deriveFeatureOwningType) |
@@ -232,9 +232,9 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | 32 | `FeatureValue` | `source` | 4929 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::source`, which Membership redefines as `[membershipOwningNamespace]` (KerML 8.3.2.3.5) |
 | 33 | `FeatureValue` | `target` | 4929 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::target`, which Membership redefines as `[memberElement]` (KerML 8.3.2.3.5) |
 | 34 | `FeatureValue` | `visibility` | 4929 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
-| 35 | `FeatureTyping` | `owningType` | 4862 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningType = owningFeatureMembership.owningType` (KerML 8.3.3.3, deriveFeatureOwningType) |
-| 36 | `OwningMembership` | `memberName` | 4291 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberName = memberElement.name` (KerML 8.3.2.3.5, deriveMembershipMemberName) |
-| 37 | `OwningMembership` | `ownedMemberName` | 4291 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberName = ownedMemberElement.name` (KerML 8.3.2.3.6) |
+| 35 | `FeatureTyping` | `owningType` | 4863 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningType = owningFeatureMembership.owningType` (KerML 8.3.3.3, deriveFeatureOwningType) |
+| 36 | `OwningMembership` | `memberName` | 4292 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberName = memberElement.name` (KerML 8.3.2.3.5, deriveMembershipMemberName) |
+| 37 | `OwningMembership` | `ownedMemberName` | 4292 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberName = ownedMemberElement.name` (KerML 8.3.2.3.6) |
 | 38 | `Feature` | `ownedElement` | 3702 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Element::ownedElement = ownedRelationship.ownedRelatedElement` (KerML 8.3.2.1, deriveElementOwnedElement) |
 | 39 | `Feature` | `ownedMember` | 3527 | 102 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Namespace::ownedMember = ownedMembership.ownedMemberElement` (KerML 8.3.2.4) |
 | 40 | `ReturnParameterMembership` | `memberElementId` | 3469 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberElementId = memberElement.elementId` (KerML 8.3.2.3.5, deriveMembershipMemberElementId) |
