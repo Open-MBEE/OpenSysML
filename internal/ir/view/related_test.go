@@ -183,3 +183,22 @@ func rootIndex(rendering *Rendering, id string) int {
 	}
 	return -1
 }
+
+// An action inherited from another document is looked up in that document, so a
+// succession between inherited actions never joins the owner's own actions whose
+// declarations happen to sit at the same spans.
+func TestInheritedSuccessionsDoNotJoinSameSpanActions(t *testing.T) {
+	base := "package B {\n action def Base            {\n  action x;\n  action y;\n  first x then y;\n }\n}\n"
+	next := "package N {\n action def Next :> B::Base {\n  action a;\n  action b;\n }\n}\n"
+	if strings.Index(base, "action x;") != strings.Index(next, "action a;") || strings.Index(base, "action y;") != strings.Index(next, "action b;") {
+		t.Fatalf("fixture: the declarations must share spans (%d/%d, %d/%d)", strings.Index(base, "action x;"), strings.Index(next, "action a;"), strings.Index(base, "action y;"), strings.Index(next, "action b;"))
+	}
+	r, idx := loadSources(t, []string{"base.sysml", "next.sysml"}, [][]byte{[]byte(base), []byte(next)})
+	rendering, err := r.RenderExposed([]*symbols.Symbol{lookup(t, idx, "N::Next::a"), lookup(t, idx, "N::Next::b")}, KindAction, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rendering.Roots) != 2 || len(rendering.Edges) != 0 {
+		t.Errorf("roots %d, edges %+v; want a and b unjoined: x -> y is Base's", len(rendering.Roots), rendering.Edges)
+	}
+}

@@ -590,11 +590,16 @@ func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.
 		if err != nil {
 			continue
 		}
-		root := r.documentRoot(owner.DocName)
-		if root == nil {
-			continue
+		// A node inherited from another document is looked up in that document:
+		// its span could equally be a declaration of the owner's own.
+		actionOf := func(node ast.Node) *Node {
+			doc := docOf(graph, node, owner.DocName)
+			root := r.documentRoot(doc)
+			if root == nil {
+				return nil
+			}
+			return actions[root.DeclaredAt(nodeOrigin(doc, node).Span)]
 		}
-		actionOf := func(node ast.Node) *Node { return actions[root.DeclaredAt(nodeOrigin(owner.DocName, node).Span)] }
 		for _, src := range graph.Nodes {
 			for _, edge := range graph.Edges[src] {
 				from, to := actionOf(src), actionOf(edge.Target)
