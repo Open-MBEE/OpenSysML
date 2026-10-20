@@ -25,9 +25,10 @@ var evidenceRoots = []corpusRoot{
 	{Name: "pilot-sysml-examples", Dir: "examples/pilot-corpora/sysml-examples"},
 	{Name: "pilot-sysml-validation", Dir: "examples/pilot-corpora/sysml-validation"},
 	{Name: "pilot-kerml-examples", Dir: "examples/pilot-corpora/kerml-examples"},
+	{Name: "spec-examples", Dir: "examples/spec-examples"},
 	{Name: "testdata", Dir: "tests/testdata"},
 	{Name: "parser-fixtures", Dir: "tests/parser/testdata/parse"},
-	{Name: "examples", Dir: "examples", Skip: []string{"sysml-v2-training", "pilot-corpora"}},
+	{Name: "examples", Dir: "examples", Skip: []string{"sysml-v2-training", "pilot-corpora", "spec-examples"}},
 }
 
 // RootStat records what a root contributed, so a report says which corpora were

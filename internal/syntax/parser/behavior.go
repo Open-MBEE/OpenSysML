@@ -505,27 +505,9 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 	usage.ValueIsDefault = valueOp.isDefault
 	usage.ValueIsInitial = valueOp.isInitial
 
-	// Optional body or semicolon
-	if p.accept2(lexer.Semicolon) {
-		usage.HasBody = false
-	} else if p.at(lexer.LBrace) {
-		p.advance() // consume '{'
-		// Parse body members generically
-		leave := p.pushBodyContext(bodyOther)
-		for !p.at(lexer.RBrace) && !p.atEOF() {
-			p.memberStart()
-			m := p.parseBodyMember()
-			if m != nil {
-				p.markAttached(m)
-				usage.Members = append(usage.Members, m)
-			}
-		}
-		leave()
-		p.expect(lexer.RBrace, "expected '}'")
-		usage.HasBody = true
-	} else {
-		p.expectBodyOrEnd("parameter")
-	}
+	// The body is the one the parameter's kind declares: `in calc c { x }`
+	// ends in a result expression as any calculation usage does.
+	p.parseUsageBody(usage, kind, start)
 	usage.NodeSpan = p.spanFrom(start)
 
 	// Wrap in Membership
@@ -2887,6 +2869,13 @@ func (p *Parser) parsePayloadParameter() *ast.Usage {
 		}
 		if p.atTriggerKeyword() {
 			param.Value = p.parseTriggerExpression()
+		} else if op, ok := p.acceptValueOperator(); ok {
+			// `accept : ChangeSignal = Triggers::TriggerWhen({ c })`: the
+			// payload's ValuePart (SysML.xtext PayloadFeature).
+			param.Value = p.ParseExpression()
+			param.ValueOperatorSpan = op.span
+			param.ValueIsDefault = op.isDefault
+			param.ValueIsInitial = op.isInitial
 		}
 	}
 
