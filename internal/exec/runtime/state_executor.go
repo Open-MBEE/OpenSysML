@@ -2687,9 +2687,6 @@ func (e *StateExecutor) completeMachine() error {
 // transition reached (SysML v2 §7.18.3): no state is exited and no exit behavior
 // runs; the do behaviors under way are abandoned, and no state stays active.
 func (e *StateExecutor) terminateMachine(fromName string, trigger ast.Node, stop *ast.Usage) error {
-	if behavior, named := e.graph.TerminateBehaviors[stop]; named {
-		return e.terminateNamed(fromName, trigger, behavior)
-	}
 	if err := e.ctx.freezeBodyCells(e.stateCells); err != nil {
 		return err
 	}
@@ -2704,24 +2701,6 @@ func (e *StateExecutor) terminateMachine(fromName string, trigger ast.Node, stop
 	e.state = StateTerminated
 	e.ctx.endPerformanceLife(e.occurrence)
 	return nil
-}
-
-// terminateNamed performs the terminate action a transition reached that names an
-// occurrence (SysML v2 §8.3.17.16): that occurrence ends, not the machine. The
-// source state was the machine's final one, as for any transition target that is
-// no state (§7.18.3), so the machine then completes — unless the occurrence named
-// was the machine itself or its performer, which the terminate ended.
-func (e *StateExecutor) terminateNamed(fromName string, trigger ast.Node, behavior lower.StateBehavior) error {
-	if e.trace() != nil {
-		e.trace().RecordStateTransition(e.traceOrigin(), fromName, behavior.Name, triggerName(trigger))
-	}
-	if err := e.executeBehaviors([]lower.StateBehavior{behavior}); err != nil {
-		return err
-	}
-	if e.state == StateTerminated {
-		return nil
-	}
-	return e.completeMachine()
 }
 
 // abandonMachine leaves no state active without exiting any: the do behaviors under

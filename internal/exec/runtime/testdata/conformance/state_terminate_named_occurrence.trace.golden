@@ -15,11 +15,12 @@ exit: busy (exit action)
 stmt action body
   stmt assign exits
     eval literal 1 -> 1
-transition: busy -> halt (event: accept Abort)
 stmt terminate
   eval feature worker -> instance#3
 terminate: Worker #3
 terminated with occurrence: Beating
+enter: done
+transition: busy -> done (event: accept Abort)
 eval literal 0 -> 0
 enter: alive (entry action)
 stmt action body

@@ -197,18 +197,30 @@ func performsAction(usage *ast.Usage) bool {
 }
 
 // terminateBehavior is the performance a transition ending at a terminate action
-// usage naming an occurrence (`action halt terminate worker;`) makes of it: the
-// one statement ending what the usage names, run with the attributes of owner,
-// the composite state declaring the usage, nil for the machine.
-func terminateBehavior(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode) StateBehavior {
+// usage naming an occurrence (`action halt terminate worker;`) makes of it: what
+// its body states, as a behavior's inline body runs, then the terminate ending
+// what the usage names, with the attributes of owner, the composite state
+// declaring the usage, nil for the machine.
+func terminateBehavior(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode, resolver *resolve.Resolver) StateBehavior {
 	name, _ := ast.EffectiveName(usage)
-	return StateBehavior{
+	var body []Statement
+	if usage.HasBody {
+		body = append(body, lowerBehaviorBody(usage, childScope(scope, usage), resolver))
+	}
+	behavior := StateBehavior{
 		Node:           usage,
 		Name:           name,
-		Body:           []Statement{terminateUsageEffect(usage, scope)},
+		Body:           append(body, terminateUsageEffect(usage, scope)),
 		Multiplicities: make(map[ast.Node]*ast.Multiplicity),
 		Multiplicity:   usage.Multiplicity,
 		Scope:          scope,
 		Owner:          owner,
 	}
+	behavior.Nodes = blockNodesOf(behavior.Body, nil)
+	for _, graph := range BlockFlows(behavior.Body) {
+		for node, multiplicity := range graph.Multiplicities {
+			behavior.Multiplicities[node] = multiplicity
+		}
+	}
+	return behavior
 }

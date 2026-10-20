@@ -111,9 +111,14 @@ type StateGraph struct {
 	TerminateOwner map[*ast.Usage]*ast.StateNode
 
 	// TerminateBehaviors: terminate action usage naming an occurrence (`action
-	// halt terminate worker;`) -> the behavior ending it, which a transition
-	// ending at the usage performs in place of ending the machine.
+	// halt terminate worker;`) -> the behavior a transition ending at the usage
+	// performs in place of ending the machine: the usage's body, then the terminate.
 	TerminateBehaviors map[*ast.Usage]StateBehavior
+
+	// TerminateCompletion: terminate action usage naming an occurrence -> the
+	// completion vertex of the body declaring it, which a transition ending at
+	// the usage enters once its behavior has run, as one to `done` does.
+	TerminateCompletion map[*ast.Usage]*ast.StateNode
 
 	// Transitions: source node (StateNode or PseudostateNode) → list of transitions
 	Transitions map[ast.Node][]*Transition
@@ -350,7 +355,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	graph.Machine = graph.machineState(stateMachineDecl, inherited, members, scope)
 
 	for _, group := range groupMembers(body) {
-		if err := collectVertices(graph, group.nodes, group.scope, parallelMachine); err != nil {
+		if err := collectVertices(graph, group.nodes, group.scope, group.owner, parallelMachine); err != nil {
 			return nil, err
 		}
 	}
@@ -666,6 +671,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		PseudostateRegion:    make(map[*ast.PseudostateNode]*ast.StateRegion),
 		TerminateOwner:       make(map[*ast.Usage]*ast.StateNode),
 		TerminateBehaviors:   make(map[*ast.Usage]StateBehavior),
+		TerminateCompletion:  make(map[*ast.Usage]*ast.StateNode),
 		Transitions:          make(map[ast.Node][]*Transition),
 		CompositeStates:      make(map[*ast.StateNode][]*ast.StateRegion),
 		CompositeStateOrder:  make([]*ast.StateNode, 0),
@@ -869,7 +875,7 @@ func machineMembers(stateMachineDecl ast.Node) ([]ast.Node, error) {
 
 // collectVertices records every state and pseudostate the machine body declares,
 // which are the vertices its transitions may name (UML 2.5.1 §14.2.3.9).
-func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope, parallel bool) error {
+func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope, body ast.Node, parallel bool) error {
 	if parallel {
 		regions, err := graph.parallelRegions(ownMembers(members, scope), nil)
 		if err != nil {
@@ -899,7 +905,7 @@ func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope
 			}
 		case *ast.Usage:
 			if IsTerminateUsage(n) {
-				graph.addTerminate(n, scope, nil)
+				graph.addTerminate(n, scope, nil, body)
 			}
 			// `state <name> { … }`, parsed as a usage rather than a state node.
 			if n.Kind == ast.UsageState {
@@ -999,7 +1005,7 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 			graph.PseudostateOwner[child] = state
 		case *ast.Usage:
 			if IsTerminateUsage(child) {
-				graph.addTerminate(child, scope, state)
+				graph.addTerminate(child, scope, state, state)
 			}
 		}
 	}
@@ -1097,7 +1103,7 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 				continue
 			}
 			if IsTerminateUsage(n) {
-				graph.addTerminate(n, scope, parent)
+				graph.addTerminate(n, scope, parent, region)
 			}
 			if n.Kind != ast.UsageState {
 				continue
@@ -1412,8 +1418,10 @@ func IsTerminateUsage(node ast.Node) bool {
 }
 
 // addTerminate records a terminate action usage declared in scope as a vertex of
-// the graph, owned by the composite state declaring it, nil for the machine.
-func (g *StateGraph) addTerminate(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode) {
+// the graph, owned by the composite state declaring it, nil for the machine; body
+// is the machine body, state or region it is written in, whose completion a
+// usage naming an occurrence hands the transition on to.
+func (g *StateGraph) addTerminate(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode, body ast.Node) {
 	g.Terminates = append(g.Terminates, usage)
 	g.putCopiedVertex(usage)
 	if g.declaredIn[usage] == nil {
@@ -1423,7 +1431,9 @@ func (g *StateGraph) addTerminate(usage *ast.Usage, scope *symbols.Scope, owner 
 		g.TerminateOwner[usage] = owner
 	}
 	if TerminatedOccurrence(usage) != nil {
-		g.TerminateBehaviors[usage] = terminateBehavior(usage, g.declaredIn[usage], owner)
+		declared := g.declaredIn[usage]
+		g.TerminateBehaviors[usage] = terminateBehavior(usage, declared, owner, g.resolver)
+		g.TerminateCompletion[usage] = g.completion(body, declared, usage.Span())
 	}
 }
 

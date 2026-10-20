@@ -6,7 +6,7 @@
 	"objects": [
 		{
 			"events": [{"signal": "Abort"}],
-			"stateVisits": ["busy"],
+			"stateVisits": ["busy", "done"],
 			"slots": {
 				"exits": {"type": "Integer", "value": 1}
 			}
