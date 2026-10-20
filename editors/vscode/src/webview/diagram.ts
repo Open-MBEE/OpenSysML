@@ -3,7 +3,6 @@
 import {
   normalizeRender,
   nothingToDraw,
-  type EditPalette,
   type FromWebview,
   type PickerEntry,
   type RenderNode,
@@ -12,7 +11,7 @@ import {
   type ToWebview,
 } from "../protocol";
 import { cameoLook, type DiagramStyle, pilotLook, type Routing, routingOf, STYLE_LABELS, STYLES, styleOf } from "../style";
-import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
+import { MenuCommand, nodeMenu } from "./actions";
 import { autoLayout, type AutoLayout } from "./autolayout";
 import { loadAvoid, reportAvoidFailure } from "./avoid";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
@@ -51,7 +50,6 @@ const notices = document.getElementById("notices") as HTMLDetailsElement;
 const noticeList = document.getElementById("notice-list") as HTMLElement;
 const undrawable = document.getElementById("undrawable") as HTMLDetailsElement;
 const undrawableList = document.getElementById("undrawable-list") as HTMLElement;
-const adder = document.getElementById("add") as HTMLSelectElement;
 const menu = document.getElementById("menu") as HTMLUListElement;
 
 const state = JSON.parse(body.dataset.state ?? "{}") as { uri?: string; avoid?: string };
@@ -78,7 +76,6 @@ const DOUBLE_CLICK_MS = 400;
 // The waypoint last clicked; the pointer is captured while pressed, so a dblclick
 // event would name the container rather than the handle, and clicks are paired here.
 let clickedWaypoint: { edge: number; point: number; at: number } | undefined;
-let paletteEntries: MenuItem[] = [];
 // The extension's number for the drawing shown; an action names the drawing its ids came from.
 let drawn = 0;
 
@@ -118,15 +115,6 @@ picker.addEventListener("change", () => {
   selected = picker.value;
   remember();
   vscode.postMessage({ type: "pick", view: selected });
-});
-
-// The list's entries are actions, so the prompt is reselected after one is chosen.
-adder.addEventListener("change", () => {
-  const item = paletteEntries[Number(adder.value)];
-  adder.selectedIndex = 0;
-  if (item?.command) {
-    run(item.command);
-  }
 });
 
 window.addEventListener("click", () => hideMenu());
@@ -333,7 +321,6 @@ function draw(result: RenderResult): boolean {
     showNotices(result);
     // An open menu names nodes of the drawing just replaced.
     hideMenu();
-    showPalette(result.palette);
     kindLabel.textContent = describe(result);
     return true;
   } catch (err) {
@@ -673,27 +660,6 @@ function showStatus(message: string): void {
 function showHint(message: string): void {
   status.textContent = message;
   status.classList.toggle("hint", message !== "");
-}
-
-// showPalette fills the toolbar's "Add" list, or hides it for a rendering that is not editable.
-function showPalette(palette: EditPalette | undefined): void {
-  paletteEntries = palette ? paletteItems(palette) : [];
-  adder.replaceChildren();
-  adder.hidden = paletteEntries.length === 0;
-  if (paletteEntries.length === 0) {
-    return;
-  }
-  const prompt = document.createElement("option");
-  prompt.value = "";
-  prompt.textContent = "Add…";
-  adder.append(prompt);
-  paletteEntries.forEach((item, index) => {
-    const option = document.createElement("option");
-    option.value = String(index);
-    option.textContent = item.label;
-    adder.append(option);
-  });
-  adder.selectedIndex = 0;
 }
 
 // showMenu opens a node's context menu where it was clicked, kept on screen;
