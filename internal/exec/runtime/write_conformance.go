@@ -255,8 +255,11 @@ func (ctx *Context) chargeShaped(value Value) error {
 	if !*shaped {
 		return nil
 	}
+	if err := ctx.chargeElements(int64(len(elementsOf(value)))); err != nil {
+		return err
+	}
 	*shaped = false
-	return ctx.chargeElements(int64(len(elementsOf(value))))
+	return nil
 }
 
 // writeCountRefusal says why the number of values written is outside the
