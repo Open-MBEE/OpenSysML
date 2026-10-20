@@ -983,9 +983,8 @@ func (inst *Instance) materializeBoundOrIntrinsic(ctx *Context, fv *FeatureValue
 	return nil
 }
 
-// bindingContext is the object a feature's value expression is read against: for a
-// case's or requirement's subject, the object owning the case (KerML 1.0 §7.4.11: the
-// value is bound in the featuring context, `subject subj default Case::result`); else inst.
+// bindingContext is the object a feature's value is read against: the owner of inst for a
+// case's or requirement's subject (KerML 1.0 §7.4.11, `subject subj default Case::result`).
 func (ctx *Context) bindingContext(inst *Instance, feat *EffectiveFeature) *Instance {
 	if feat == nil || !isSubjectUsage(feat.Symbol) {
 		return inst
