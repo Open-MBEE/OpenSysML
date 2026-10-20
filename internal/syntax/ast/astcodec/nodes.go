@@ -720,6 +720,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.node(n.Expression)
 		e.w.String(n.Name)
 		e.nodes(n.Body)
+		e.span(n.Terminator)
 	case *ast.ConstructorExpr:
 		e.base(&n.NodeBase)
 		e.node(n.Type)
@@ -1229,6 +1230,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.Expression = d.node()
 		n.Name = d.r.String()
 		n.Body = d.nodes()
+		n.Terminator = d.span()
 	case *ast.ConstructorExpr:
 		d.base(&n.NodeBase)
 		n.Type = typed[*ast.QualifiedName](d)
