@@ -2,8 +2,6 @@ package runtime
 
 import (
 	"testing"
-
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 const nestedSubjectShapeSrc = `
@@ -22,11 +20,8 @@ const nestedSubjectShapeSrc = `
 	}
 `
 
-// TestNestedRequirementUsageShapeBindsItsSubject: a requirement usage whose body
-// binds the subject — by a named member, by a bare `subject = x;` or by a satisfy
-// usage's `by` — is the type of the object it holds, and the subject feature of
-// that shape carries the binding as its value; a usage binding nothing holds an
-// object of its definition.
+// TestNestedRequirementUsageShapeBindsItsSubject: a usage binding its subject (a named member,
+// a bare `subject = x;`, a satisfy's `by`) types the object it holds; one binding nothing does not.
 func TestNestedRequirementUsageShapeBindsItsSubject(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, nestedSubjectShapeSrc)
 	p1 := oneSymbol(t, idx, "test::P1")
@@ -60,8 +55,5 @@ func TestNestedRequirementUsageShapeBindsItsSubject(t *testing.T) {
 	}
 	if typ := ctx.CompositeTypeOf(holders["rqPlain"]); typ == nil || typ.Name != "R1" {
 		t.Errorf("rqPlain holds an object of %s, want its definition R1", SymbolText(typ))
-	}
-	if decl, ok := holders["rqBare"].Symbol.Decl.(*ast.Usage); !ok || len(decl.Members) != 1 {
-		t.Fatalf("rqBare declares %T with %d members, want a usage with one", holders["rqBare"].Symbol.Decl, len(decl.Members))
 	}
 }

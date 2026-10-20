@@ -134,10 +134,18 @@ func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sy
 		}
 		result = impliesValue(assumptions, constraints)
 	}
-	if NegatedDecl(typ) && result.Kind == ValConst {
+	// A negated satisfy asserts the requirement's result false (Constraints.sysml
+	// `negatedConstraintChecks :> falseEvaluations`); the result read stays the requirement's.
+	if NegatedDecl(typ) && !isSatisfyUsage(typ) && result.Kind == ValConst {
 		result = boolValue(!result.Const.Bool)
 	}
 	return result, nil
+}
+
+// isSatisfyUsage reports a `satisfy` usage, a `verify` one included.
+func isSatisfyUsage(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageSatisfy
 }
 
 // requiredCondition is cond evaluated for its own truth, the body's nested

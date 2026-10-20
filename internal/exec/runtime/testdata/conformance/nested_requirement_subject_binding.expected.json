@@ -25,6 +25,15 @@
     "test::rqPkgS": {"type": "Integer", "value": 7},
     "test::rqPkgResult": {"type": "Boolean", "value": true},
     "test::satPkgV": {"type": "Integer", "value": 5},
-    "test::satPkgResult": {"type": "Boolean", "value": true}
+    "test::satPkgResult": {"type": "Boolean", "value": true},
+    "test::nsatV": {"type": "Integer", "value": 5},
+    "test::nsatResult": {"type": "Boolean", "value": true},
+    "test::nsatPkgResult": {"type": "Boolean", "value": true},
+    "test::ca2ObjSubj": {"type": "Undetermined"},
+    "test::ca2ObjResult": {"type": "Boolean", "value": true},
+    "test::u1ObjSubj": {"type": "Undetermined"},
+    "test::u1ObjResult": {"type": "Boolean", "value": true},
+    "test::hUqObjResult": {"type": "Boolean", "value": true},
+    "test::hCqObjResult": {"type": "Boolean", "value": true}
   }
 }

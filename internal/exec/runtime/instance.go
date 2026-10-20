@@ -1429,9 +1429,12 @@ func isReferenceUsage(sym *symbols.Symbol) bool {
 // which the object it materializes has to carry.
 func declaresFeatures(sym *symbols.Symbol) bool {
 	for _, member := range unwrappedDeclMembers(sym.Decl) {
-		// A body's subject restates the inherited subject parameter, named or not.
-		if _, ok := member.(*ast.SubjectMember); ok {
-			return true
+		// A subject the body values (`subject = x;`, not a `default`) restates the inherited parameter.
+		if subject, ok := member.(*ast.SubjectMember); ok {
+			if subject.BindingExpr != nil && !subject.ValueIsDefault {
+				return true
+			}
+			continue
 		}
 		usage, ok := member.(*ast.Usage)
 		if !ok {

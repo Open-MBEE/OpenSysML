@@ -24,12 +24,21 @@ package test {
 		requirement rqUnbound : R1 { subject s :>> s; }
 		requirement rqPlain : R1;
 		satisfy requirement sat : RP by pa;
+		not satisfy requirement nsat : RP by pa;
 	}
 	part p1 : P1;
+
+	case def Ca2 { subject s : PA; return rr : Integer = 7; }
+	case ca2 : Ca2;
+	use case def U1 { subject s : PA; }
+	use case u1 : U1;
+	part def Holder { use case uq : U1; case cq : Ca2; }
+	part h : Holder;
 
 	attribute top : Integer = 7;
 	requirement rqPkg : R1 { subject s :>> s = top; }
 	satisfy requirement satPkg : RP by p1.pa;
+	not satisfy requirement nsatPkg : RP by p1.pa;
 
 	attribute rqS = p1.rq.s;
 	attribute rqResult = p1.rq.result;
@@ -51,6 +60,15 @@ package test {
 	attribute rqPkgResult = rqPkg.result;
 	attribute satPkgV = satPkg.s.v;
 	attribute satPkgResult = satPkg.result;
+	attribute nsatV = p1.nsat.s.v;
+	attribute nsatResult = p1.nsat.result;
+	attribute nsatPkgResult = nsatPkg.result;
+	attribute ca2ObjSubj = ca2.obj.subj;
+	attribute ca2ObjResult = ca2.obj.result;
+	attribute u1ObjSubj = u1.obj.subj;
+	attribute u1ObjResult = u1.obj.result;
+	attribute hUqObjResult = h.uq.obj.result;
+	attribute hCqObjResult = h.cq.obj.result;
 
 	calc probe { out one : Integer = 1; }
 }

@@ -6,9 +6,8 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessNestedSubjectBinding covers a requirement usage nested in a
-// definition whose subject binding supplies nothing: the subject and the result
-// read through it stay undetermined or are typed refusals, never a verdict.
+// TestRuntimeRobustnessNestedSubjectBinding: a nested requirement usage whose subject binding
+// supplies nothing reads undetermined or a typed refusal, never a verdict.
 func TestRuntimeRobustnessNestedSubjectBinding(t *testing.T) {
 	t.Run("unbound_subject_stays_undetermined", testUnboundNestedSubjectStaysUndetermined)
 	t.Run("subject_binding_that_cannot_be_evaluated", testNestedSubjectBindingThatCannotBeEvaluated)
@@ -27,9 +26,8 @@ const nestedSubjectRobustnessSrc = `
 	}
 `
 
-// testUnboundNestedSubjectStaysUndetermined: a subject the usage redeclares without
-// binding reads undetermined at model level and uninitialized on an object, as
-// does the result through it, and the check names the unbound subject.
+// testUnboundNestedSubjectStaysUndetermined: an unbound redeclared subject reads undetermined
+// at model level and uninitialized on an object, and the check refuses it.
 func testUnboundNestedSubjectStaysUndetermined(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, nestedSubjectRobustnessSrc)
 	root := idx.DocumentRoot("<test>")

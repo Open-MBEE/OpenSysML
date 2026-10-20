@@ -12,6 +12,8 @@
     "rqFail.s": {"type": "Integer", "value": -2},
     "rqFail.result": {"type": "Boolean", "value": false},
     "sat.s.v": {"type": "Integer", "value": 5},
-    "sat.result": {"type": "Boolean", "value": true}
+    "sat.result": {"type": "Boolean", "value": true},
+    "nsat.result": {"type": "Boolean", "value": true},
+    "uq.obj.result": {"type": "Boolean", "value": true}
   }
 }

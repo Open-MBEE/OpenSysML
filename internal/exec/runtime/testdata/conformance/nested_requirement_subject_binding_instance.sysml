@@ -18,5 +18,8 @@ package test {
 		requirement rqFail : R1 { subject s :>> s = neg; }
 		requirement rqUnbound : R1 { subject s :>> s; }
 		satisfy requirement sat : RP by pa;
+		not satisfy requirement nsat : RP by pa;
+		use case uq : U1;
 	}
+	use case def U1 { subject s : PA; }
 }

@@ -1369,7 +1369,7 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 	}
 
 	commit, rollback := ctx.beginJournal()
-	// A satisfy usage's `by` is its subject's binding (SysML v2 §7.20.4), read like
+	// A satisfy usage's `by` is its subject's binding (SysML v2 §7.21.4), read like
 	// a body's `subject = x;` unless an object is supplied from outside.
 	if by := satisfiedBy(sym); by != nil && subject == nil {
 		value, err := evalIn(sym.OwnerScope).Eval(by)

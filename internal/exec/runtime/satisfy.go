@@ -498,7 +498,7 @@ func (ctx *Context) statesAnyCondition(sym *symbols.Symbol) bool {
 }
 
 // satisfiedBy is the `by` operand of a satisfy usage, the expression binding its
-// subject (SysML v2 §7.20.4); nil for any other element or a satisfy naming none.
+// subject (SysML v2 §7.21.4); nil for any other element or a satisfy naming none.
 func satisfiedBy(sym *symbols.Symbol) ast.Node {
 	ends, ok := semantics.SatisfyEndsOf(sym)
 	if !ok {

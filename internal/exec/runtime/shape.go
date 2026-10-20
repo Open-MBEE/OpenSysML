@@ -453,10 +453,8 @@ func (ctx *Context) redefinedDefault(sym, owner *symbols.Symbol) (ast.Node, *sym
 	return nil, nil
 }
 
-// roleRedefiningDefault is the value typeSym binds to sym by redefining it under no
-// name of its own: a body's `subject = x;` for the inherited subject (SysML v2
-// §7.20.2), or a satisfy usage's `by x` (§7.20.4), with the declaration binding it;
-// nil when none does.
+// roleRedefiningDefault is the value typeSym binds to sym under no name of its own — a
+// bare `subject = x;` (SysML v2 §7.21.2) or a satisfy usage's `by x` (§7.21.4) — and its declaration.
 func (ctx *Context) roleRedefiningDefault(sym, typeSym *symbols.Symbol) (ast.Node, *symbols.Symbol) {
 	if typeSym == nil || typeSym.Decl == nil {
 		return nil, nil
