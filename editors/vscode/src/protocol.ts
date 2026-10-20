@@ -207,7 +207,7 @@ export interface RenderResult {
   columns?: string[];
   notices: string[];
   canvas?: RenderCanvas;
-  /** What a diagram of this kind offers to add; absent when the rendering is not editable. */
+  /** What the server lets a diagram of this kind edit; absent when the rendering is not editable. */
   palette?: EditPalette;
   version: number;
 }
@@ -224,13 +224,9 @@ export interface LayoutGeometry {
 /** What a `setLayout` writes: a place, or a Layout that only folds and places nothing. */
 export type SetLayoutGeometry = LayoutGeometry | { collapsed: true };
 
-/** The member and connection kinds a rendering's kind offers, in the document's language. */
+/** Sent with every editable rendering; the server also lists the member and connection kinds a diagram of the kind may add, which the panel does not read. */
 export interface EditPalette {
-  members: string[];
-  connections: string[];
-  /** The members that take a type. */
-  typed: string[];
-  /** For each member only some bodies offer (`subject`), and each drawn notation that is one, the ids of the nodes that open one. */
+  /** For each member only some bodies declare (`subject`), and each drawn notation that is one, the ids of the nodes that open one. */
   owners?: Record<string, string[]>;
 }
 
@@ -279,8 +275,6 @@ export function reachable(element: RenderNode | RenderEdge): boolean {
 export type ModelEditOperation =
   | { kind: "setValue"; target: string; value: string }
   | { kind: "rename"; target: string; newName: string }
-  | { kind: "addMember"; owner: string; memberKind: string; name: string; type?: string; multiplicity?: string; value?: string; specializes?: string[] }
-  | { kind: "addConnection"; owner: string; memberKind: string; from: string; to: string; name?: string; type?: string }
   | { kind: "delete"; target: string; cascade?: boolean }
   | { kind: "move"; target: string; owner: string }
   /** Places `target` in `view`'s body, or inline in its own declaration without a view; no `layout` clears the annotation. `declaredIn` names the document declaring `target`, whose text `digest` fingerprints as its origin reported, so that a namesake declared since is answered stale rather than placed. */
@@ -408,8 +402,6 @@ export type ToWebview =
 
 /** A diagram action naming nodes by rendering id; the extension asks for the rest. */
 export type EditAction =
-  | { kind: "addMember"; memberKind: string; typed: boolean; owner?: string }
-  | { kind: "addConnection"; connectionKind: string; from?: string; to?: string }
   | { kind: "rename"; id: string }
   | { kind: "delete"; id: string }
   | { kind: "move"; id: string };
