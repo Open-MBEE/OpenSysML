@@ -2061,6 +2061,9 @@ func (p *Parser) parseConstraintMember() ast.Node {
 		IsNegated:  isNegated,
 		Expression: expr,
 	}
+	if hasSemi {
+		node.Terminator = semi.Span
+	}
 	node.NodeSpan = p.spanFrom(start)
 	return node
 }

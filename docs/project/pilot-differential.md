@@ -253,11 +253,11 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 88 | 261 | 0 | 0 | 0 | 261 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
-| `examples/spec-examples` | 511 | 149 | 1106 | 3407 | 1033 | 2 | 71 | 2372 |
+| `examples/spec-examples` | 511 | 149 | 1110 | 3407 | 1033 | 6 | 71 | 2368 |
 | `tests/testdata` | 30 | 17 | 66 | 85 | 48 | 5 | 13 | 32 |
 | `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **910** | **508** | **1475** | **3553** | **1081** | **7** | **387** | **2465** |
+| **Total** | **910** | **508** | **1479** | **3553** | **1081** | **11** | **387** | **2461** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -308,7 +308,7 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 `unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`; `spec-examples` 29 `syntax`,
 37 `unresolved-reference`, 3 `kind-mismatch`, 2 `unmapped`. Only-pilot: `testdata` 13 `kind-mismatch`, 14 `unmapped`,
 3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
-594 `kind-mismatch`, 195 `syntax`, 169 `unresolved-reference`, 50 `multiplicity`, 5 `units`.
+594 `kind-mismatch`, 191 `syntax`, 169 `unresolved-reference`, 50 `multiplicity`, 5 `units`.
 
 The `spec-examples` figures are dominated by fragments: the specification's examples leave
 cross-example names undeclared, and the pilot's typing and EMF cascade follows each one; every
@@ -977,9 +977,9 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **2465** |
+| only pilot | 82 | **2461** |
 | pilot diagnostics | 123 | **3553** |
-| severity-only | 9 | **7** |
+| severity-only | 9 | **11** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -1202,10 +1202,10 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **508 / 387 / 1475** |
-| only pilot | **2465** |
+| overall: fully agreeing / only ours / our diagnostics | **508 / 387 / 1479** |
+| only pilot | **2461** |
 | pilot diagnostics | **3553** |
-| severity-only | **7** |
+| severity-only | **11** |
 | unmapped, our side | **287** |
 | kerml-examples: only ours | **16** |
 | pilot-examples: only ours | **261** |

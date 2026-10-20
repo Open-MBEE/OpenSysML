@@ -1,0 +1,64 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="ConditionTerminators" library=false standard=false
+      (Import visibility="private" all=false kind=membership recursive=false imported="ScalarValues::Real" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="constraint" abstract=false variation=false name="Positive"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (ConstraintMember assert=true negated=false terminated=true
+            (OperatorExpr operator=">"
+              (FeatureReference name="x")
+              (LiteralReal value="0.0")))))
+      (Membership visibility="default"
+        (Definition kind="constraint" abstract=false variation=false name="Bounded"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (ConstraintMember assert=true negated=false
+            (OperatorExpr operator=">"
+              (FeatureReference name="x")
+              (LiteralReal value="0.0")))))
+      (Membership visibility="default"
+        (Usage kind="constraint" name="positive" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="m" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (ConstraintMember assert=true negated=false terminated=true
+            (OperatorExpr operator=">"
+              (FeatureReference name="m")
+              (LiteralReal value="0.0")))))
+      (Membership visibility="default"
+        (Definition kind="constraint" abstract=false variation=false name="Two"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (ConstraintMember assert=true negated=false terminated=true
+            (OperatorExpr operator=">"
+              (FeatureReference name="x")
+              (LiteralReal value="0.0")))
+          (ConstraintMember assert=true negated=false
+            (OperatorExpr operator="<"
+              (FeatureReference name="x")
+              (LiteralReal value="10.0")))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="P"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="m" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert"
+              (ConstraintMember assert=true negated=false terminated=true
+                (OperatorExpr operator=">"
+                  (FeatureReference name="m")
+                  (LiteralReal value="0.0")))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert"
+              (Relationship kind="typing" target=Positive
+                (*ast.QualifiedName)))))))))

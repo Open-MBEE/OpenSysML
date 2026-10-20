@@ -463,6 +463,9 @@ type ConstraintMember struct {
 	Expression Node   // the constraint expression, nil when stated through Body
 	Name       string // name of the nested constraint, when it has one
 	Body       []Node // conditions of a nested constraint: assert constraint { <expr> }
+	// Terminator is the `;` written after a bare condition, which no production
+	// admits after a body's result expression; zero where none was written.
+	Terminator source.Span
 }
 
 // Phase C2: Requirement Body Members

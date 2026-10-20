@@ -23,7 +23,7 @@
             (OperatorExpr operator="<"
               (FeatureReference name="temp")
               (LiteralInteger value="200")))))
-      (ConstraintMember assert=true negated=false
+      (ConstraintMember assert=true negated=false terminated=true
         (OperatorExpr operator="<"
           (OperatorExpr operator="*"
             (FeatureReference name="pressure")

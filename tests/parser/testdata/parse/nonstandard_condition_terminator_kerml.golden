@@ -1,0 +1,42 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="ConditionTerminators" library=false standard=false
+      (Import visibility="private" all=false kind=membership recursive=false imported="ScalarValues::Real" filtered=false)
+      (Membership visibility="default"
+        (Usage kind="predicate" name="Positive" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (ConstraintMember assert=true negated=false terminated=true
+            (OperatorExpr operator=">"
+              (FeatureReference name="x")
+              (LiteralReal value="0.0")))))
+      (Membership visibility="default"
+        (Usage kind="predicate" name="Bounded" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (ConstraintMember assert=true negated=false
+            (OperatorExpr operator=">"
+              (FeatureReference name="x")
+              (LiteralReal value="0.0")))))
+      (Membership visibility="default"
+        (Definition kind="class" abstract=false variation=false name="C"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="m" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="positive" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="inv"
+              (ConstraintMember assert=true negated=false terminated=true
+                (OperatorExpr operator=">"
+                  (FeatureReference name="m")
+                  (LiteralReal value="0.0")))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="bounded" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="inv"
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="<"
+                  (FeatureReference name="m")
+                  (LiteralReal value="10.0"))))))))))

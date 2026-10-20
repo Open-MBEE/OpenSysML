@@ -15,9 +15,9 @@
         (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
           (Relationship kind="typing" target=Real
             (*ast.QualifiedName))))
-      (ConstraintMember assert=true negated=false keyword="assert"
+      (ConstraintMember assert=true negated=false keyword="assert" terminated=true
         (FeatureReference name="Positive"))
-      (ConstraintMember assert=true negated=true keyword="assert"
+      (ConstraintMember assert=true negated=true keyword="assert" terminated=true
         (FeatureReference name="Positive"))
       (ConstraintMember assert=true negated=false keyword="assert" name="positive"
         (ConstraintMember assert=true negated=false

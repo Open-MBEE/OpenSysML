@@ -166,6 +166,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 			reported := w.kermlDeclaration(n, n.Keyword)
 			w.kermlRelationships(n.Relationships)
 			w.sysmlDeclaration(n, n.Keyword)
+			w.caseKeyword(n, n.Keyword, n.HasDefKeyword)
 			w.keywordAsName(n.Ident)
 			w.walkDeclaration(n.Members, n)
 			w.leaveKerMLDeclaration(reported)
@@ -176,6 +177,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 				w.kermlRelationships(n.CrossFeature.Relationships)
 			}
 			w.sysmlDeclaration(n, n.Keyword)
+			w.caseKeyword(n, n.Keyword, false)
 			w.keywordAsName(n.Ident)
 			w.indexedEnds(n)
 			w.walkDeclaration(n.Members, n)
@@ -195,6 +197,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.walk(n.Members)
 			w.leaveKerMLDeclaration(reported)
 		case *ast.ConstraintMember:
+			w.conditionTerminator(n)
 			w.walk(n.Body)
 		case *ast.AssumeMember:
 			w.walk(n.Body)
@@ -819,6 +822,69 @@ func (w *notationWalker) keywordAsName(id ast.Identification) {
 			"write '%s' to use it as a name", id.Name, id.Name),
 		Code:   CodeReservedKeywordName,
 		Source: "syntax",
+	})
+}
+
+// caseKeyword reports `analysis case` / `verification case` written as the kind
+// keyword. SysML v2 8.2.2.23 spells AnalysisCaseDefinition
+// `OccurrenceDefinitionPrefix 'analysis' 'def'` and AnalysisCaseUsage
+// `OccurrenceUsagePrefix 'analysis'`, and 8.2.2.24 the same for 'verification':
+// no production puts `case` after either word.
+func (w *notationWalker) caseKeyword(n ast.Node, keyword string, isDef bool) {
+	first, second, _ := strings.Cut(keyword, " ")
+	if !w.sysml || second != "case" || (first != "analysis" && first != "verification") {
+		return
+	}
+	span := w.declarationKeywordSpan(n, keyword)
+	written, standard, production := "`"+keyword+" <name>`", "`"+first+" <name>`", "OccurrenceUsagePrefix '"+first+"'"
+	if isDef {
+		written, standard, production = "`"+keyword+" def`", "`"+first+" def`", "OccurrenceDefinitionPrefix '"+first+"' 'def'"
+	}
+	d := diag.Diagnostic{
+		Severity: w.severity,
+		Span:     span,
+		Message: fmt.Sprintf("%s is an OpenSysML extension with no SysML v2 production: the keyword is %s (%s), "+
+			"so delete `case`", written, standard, production),
+		Code:   CodeNonstandardNotation,
+		Source: "syntax",
+	}
+	// The span is exact only where the source text located the two words.
+	if w.lookup != nil {
+		d.Fixes = []diag.Fix{{
+			Title:     "Write the standard keyword " + standard,
+			Edits:     []diag.Edit{diag.Replace(span, first)},
+			Preferred: true,
+		}}
+	}
+	w.diags = append(w.diags, d)
+}
+
+// conditionTerminator reports the `;` after a bare condition. The condition is
+// the body's result expression — SysML v2 8.2.2.19 CalculationBodyPart and
+// KerML 8.2.5.7.1 FunctionBodyPart end in `( ownedRelationship +=
+// ResultExpressionMember )?`, a `MemberPrefix? ownedRelatedElement +=
+// OwnedExpression` — and no production terminates it.
+func (w *notationWalker) conditionTerminator(n *ast.ConstraintMember) {
+	if n.Keyword != "" || n.Expression == nil || n.Terminator.Len == 0 {
+		return
+	}
+	// A `;` where the condition itself failed to parse is the parser's error.
+	if _, failed := n.Expression.(*ast.ErrorNode); failed {
+		return
+	}
+	w.diags = append(w.diags, diag.Diagnostic{
+		Severity: w.severity,
+		Span:     n.Terminator,
+		Message: "`;` after a body's condition is an OpenSysML extension with no SysML v2 or KerML production: " +
+			"a bare condition is the body's result expression (ResultExpressionMember), which no terminator follows, " +
+			"so delete the `;`",
+		Code:   CodeNonstandardNotation,
+		Source: "syntax",
+		Fixes: []diag.Fix{{
+			Title:     "Delete the `;`",
+			Edits:     []diag.Edit{diag.Replace(n.Terminator, "")},
+			Preferred: true,
+		}},
 	})
 }
 
