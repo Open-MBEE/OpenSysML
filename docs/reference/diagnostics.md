@@ -1041,7 +1041,7 @@ Specification: SysML v2 validatePortUsageIsReference
 | [`redefinition-multiplicity`](#redefinition-multiplicity) | warning | a redefining feature with a smaller lower bound than the redefined one |
 | [`redefinition-no-derived-name`](#redefinition-no-derived-name) | warning | an unnamed redefinition given a value in a context that names it differently |
 | [`redefinition-no-inherited`](#redefinition-no-inherited) | error | `:>>` naming a feature the owner does not inherit |
-| [`redefinition-not-end`](#redefinition-not-end) | error | a non-end feature redefining an end feature |
+| [`redefinition-not-end`](#redefinition-not-end) | error | a non-end feature of an association or connector redefining an end feature |
 | [`redefinition-package-level`](#redefinition-package-level) | error | a redefinition of a package-level feature |
 | [`redefinition-same-featuring`](#redefinition-same-featuring) | error | a redefinition between features of one featuring type |
 | [`redefinition-through-reference`](#redefinition-through-reference) | error | a chain redefinition stepping through a feature that owns no object |
@@ -1717,11 +1717,11 @@ Specification: KerML 1.0 §8.3.3.3.6 Redefinition
 
 #### `redefinition-not-end`
 
-**error** · Constraints · a non-end feature redefining an end feature
+**error** · Constraints · a non-end feature of an association or connector redefining an end feature
 
-A feature that redefines an end feature is itself an end feature. Write `end` before the redefining feature.
+A feature of an association or a connector that redefines an end feature is itself an end feature; a feature of any other type may redefine an end without being one. Write `end` before the redefining feature.
 
-Specification: KerML 1.0 validateRedefinitionEndConformance
+Specification: KerML 1.1 Beta 2 §8.3.3.3.8 validateRedefinitionEndConformance
 
 #### `redefinition-package-level`
 
