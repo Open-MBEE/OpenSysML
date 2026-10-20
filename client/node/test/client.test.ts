@@ -288,7 +288,7 @@ test("a trade study arrives with each alternative's evaluation, the selected one
     const held = response.outputs[0].value?.kind;
     assert.ok(held?.case === "sequence" && held.value.elements.length === 1);
     const selected = held.value.elements[0].kind;
-    assert.ok(selected?.case === "instanceId");
+    assert.ok(selected.case === "instanceId");
     assert.deepEqual(
       response.verdicts.map((v) => [v.element, v.holds]),
       [["tradeStudyObjective", true]],
