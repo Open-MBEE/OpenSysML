@@ -1446,12 +1446,6 @@ func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
 		}
 		return Value{}, false, nil
 	}
-	// A constraint usage of the object is the predicate it enacts, read as its
-	// verdict here as through a chain, not as the object standing for it.
-	if sym, ok := ec.enactedConstraint(ec.self, name); ok {
-		val, err := ec.constraintUsageRead(ec.self, sym)
-		return val, true, err
-	}
 	fv, open, err := ec.memberFeatureValue(ec.self, name)
 	if err != nil {
 		return Value{}, true, err
@@ -1511,9 +1505,8 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return ec.evalCalcUsageMembers(sym, parts)
 	}
 
-	// A constraint usage of the object being evaluated is the predicate that object
-	// enacts, read through the object (`fits.limit` as `self.fits.limit`), not an
-	// object of its own.
+	// A constraint usage of the object being evaluated is the predicate it enacts,
+	// read through the object (`fits.limit` as `self.fits.limit`).
 	if name := simpleEndName(base); name != "" && ec.self != nil {
 		if _, enacted := ec.enactedConstraint(ec.self, name); enacted {
 			if names, err := ec.namesValue(name); err != nil {
@@ -1545,10 +1538,8 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return ec.chainMemberValue(val, parts, sym.Name)
 	}
 
-	// Evaluate the operand (left side of the chain)
-	// One chain is read from its first operand through every member in turn (KerML
-	// 1.0 §7.4.3), so a member computed on the way — a calc usage's input — is
-	// read from the object before it rather than from the value of a shorter chain.
+	// One chain is one read from its first operand through every member in turn
+	// (KerML 1.0 §7.4.9.3), not a read off the value of a shorter chain.
 	operand, err := ec.Eval(base)
 	if err != nil {
 		var noValue *NoValueError

@@ -1,12 +1,11 @@
 // An input nothing supplies — no argument, no default, no same-named feature of
 // the object — stays undetermined when read through the chain, for a calc usage
-// (which reads as a function value, computing nothing) and for a constraint usage
+// (which reads as a function value, computing nothing, so its `result` is undetermined too) and for a constraint usage
 // alike; an input a default supplies beside it reads the default. A parameter of an
-// action usage nothing has invoked is bound at invocation (SysML v2 §7.16), so it reads
+// action usage nothing has invoked is bound at invocation (SysML v2 §7.17.2), so it reads
 // undetermined on the instance as at model level, while a body attribute reads its value.
 // A constraint usage whose input nothing binds reads as an undetermined verdict, itself
-// and through `result`, rather than failing the read; in the body of its owner the bare
-// name reads that verdict too, so a Boolean attribute may hold it.
+// and through `result`, rather than failing the read.
 package test {
 	private import ScalarValues::*;
 
@@ -21,7 +20,6 @@ package test {
 			in slack : Real = 1.0;
 			limit > slack
 		}
-		attribute verdict : Boolean = under;
 		action act {
 			in i : Integer;
 			out o : Integer;
@@ -32,11 +30,11 @@ package test {
 		part rig : Rig;
 		attribute scaledW = rig.scaled.w;
 		attribute scaledK = rig.scaled.k;
+		attribute scaledResult = rig.scaled.result;
 		attribute underLimit = rig.under.limit;
 		attribute underSlack = rig.under.slack;
 		attribute underVerdict = rig.under;
 		attribute underResult = rig.under.result;
-		attribute underInBody = rig.verdict;
 		attribute actIn = rig.act.i;
 		attribute actOut = rig.act.o;
 		attribute actK = rig.act.k;

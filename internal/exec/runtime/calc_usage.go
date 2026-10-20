@@ -334,6 +334,29 @@ func (shape *calcShape) declaresUsage(name string) bool {
 
 // declaresLocal reports whether the body's own statements declare a feature of
 // that name (`attribute scale = 10.0;`), one the run leaves a value for.
+// memberNames lists the features a usage of the calc has: its parameters, the
+// features its body declares and its outputs, in that order.
+func (shape *calcShape) memberNames() string {
+	var names []string
+	for _, param := range shape.Params {
+		names = append(names, param.Name)
+	}
+	for _, stmt := range shape.Body {
+		if decl, ok := stmt.(lower.Declare); ok && decl.Name != "" {
+			names = append(names, decl.Name)
+		}
+	}
+	for _, out := range shape.Outputs {
+		if out.Name != "" {
+			names = append(names, out.Name)
+		}
+	}
+	if len(names) == 0 {
+		return "none"
+	}
+	return strings.Join(names, ", ")
+}
+
 func (shape *calcShape) declaresLocal(name string) bool {
 	for _, stmt := range shape.Body {
 		if decl, ok := stmt.(lower.Declare); ok && decl.Name == name {
@@ -1068,8 +1091,8 @@ func (run *calcRun) output(ctx *Context, name string) (Value, error) {
 			return value, err
 		}
 		return Value{}, fmt.Errorf(
-			"%w: %s declares no output %s (it declares: %s)",
-			errUnknownOutput, run.shape.Label, name, run.shape.outputNames(),
+			"%w: %s declares no member %s (it declares: %s)",
+			errUnknownOutput, run.shape.Label, name, run.shape.memberNames(),
 		)
 	}
 	value, err := run.value(ctx, out)
@@ -1273,6 +1296,12 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 			}
 			return ec.chainMemberValue(value, parts[1:], parts[0].Text)
 		}
+		if value, ok, err := ec.unsuppliedCalcOutput(sym, parts[0].Text); ok && ec.calcRun == nil {
+			if err != nil {
+				return Value{}, err
+			}
+			return ec.chainMemberValue(value, parts[1:], parts[0].Text)
+		}
 	}
 	run, err := ec.ctx.calcUsageRun(ec, sym)
 	if err != nil {
@@ -1313,7 +1342,7 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 
 // memberValue reads a member of the calc that is no output — an input parameter
 // as the run bound it, or a usage the body declares as the run left it — which
-// are features of the usage as its outputs are (SysML v2 §7.17.2); undetermined
+// are features of the usage as its outputs are (SysML v2 §7.19.2); undetermined
 // where the run bound or left no value. Not ok for a name the calc declares
 // neither way, or declares as an output.
 func (run *calcRun) memberValue(ctx *Context, name string) (Value, bool, error) {
@@ -1363,6 +1392,32 @@ func (ec *EvalContext) unsuppliedCalcInput(sym *symbols.Symbol, name string) (Va
 		return Value{}, true, calcDefaultError(shape.Kind, shape.Name, name, err)
 	}
 	return value, true, nil
+}
+
+// unsuppliedCalcOutput is the read, over an object, of an output of a calc usage
+// with an input nothing supplies: the usage computes nothing, so the output is
+// undetermined, naming that input. Inside a calc's own evaluation the enclosing
+// invocation reports the unbound input instead.
+func (ec *EvalContext) unsuppliedCalcOutput(sym *symbols.Symbol, name string) (Value, bool, error) {
+	shape, err := ec.ctx.calcInterfaceOf(sym)
+	if err != nil {
+		return Value{}, true, err
+	}
+	out, ok := shape.output(name)
+	if !ok {
+		return Value{}, false, nil
+	}
+	for i := range shape.Params {
+		if param := &shape.Params[i]; param.Default == nil {
+			var count semantics.Range
+			var feature *symbols.Symbol
+			if target := out.Decl.Target; target != nil {
+				count, feature = target.mult, target.feature
+			}
+			return undeterminedFeatureValue(fmt.Sprintf("%s: nothing supplies parameter %q, so %s is not computed", shape.Label, param.Name, name), count, feature), true, nil
+		}
+	}
+	return Value{}, false, nil
 }
 
 // nestedUsage is the evaluation of a calc or analysis usage this run's body

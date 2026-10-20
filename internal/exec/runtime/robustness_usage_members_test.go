@@ -16,6 +16,7 @@ func TestRuntimeRobustnessUsageMembers(t *testing.T) {
 	t.Run("unbound constraint input is undetermined", testUsageMembersUnboundConstraintInput)
 	t.Run("state body members are features of the state", testUsageMembersStateBody)
 	t.Run("parameter of an uninvoked action is undetermined on an instance", testUsageMembersUninvokedParameter)
+	t.Run("bodiless entry action of an exhibited state is a known gap", testUsageMembersExhibitedState)
 }
 
 const usageMembersProbeModel = `package Probe {
@@ -25,8 +26,7 @@ const usageMembersProbeModel = `package Probe {
 		calc scaled { in w : ScalarValues::Real; in k : ScalarValues::Real = 2.0; return : ScalarValues::Real = w * k; }
 		constraint fits { in limit : ScalarValues::Real = 100.0; attribute margin : ScalarValues::Real = 5.0; base < limit }
 		constraint under { in limit : ScalarValues::Real; limit > base }
-		attribute fitsVerdict : ScalarValues::Boolean = fits;
-		attribute underVerdict : ScalarValues::Boolean = under;
+		constraint masked { in base : ScalarValues::Real; base > 1.0 }
 		action act { in i : ScalarValues::Integer; out o : ScalarValues::Integer; attribute k : ScalarValues::Integer = 3; }
 		state def M;
 		state sm : M { entry action e { attribute who = this; } state idle; state busy; transition idle then busy; }
@@ -57,6 +57,9 @@ func testUsageMembersUnsuppliedCalcInput(t *testing.T) {
 	val, err := eval("Probe::rig.scaled.w")
 	if err != nil || val.Kind != ValUndetermined || !strings.Contains(val.Undetermined().reason, "nothing supplies") {
 		t.Fatalf("Probe::rig.scaled.w = %s, %v; want undetermined for the input nothing supplies", FormatValue(val), err)
+	}
+	if val, err := eval("Probe::rig.scaled.result"); err != nil || val.Kind != ValUndetermined || !strings.Contains(val.Undetermined().reason, "nothing supplies") {
+		t.Fatalf("Probe::rig.scaled.result = %s, %v; want undetermined, the usage computing nothing without w", FormatValue(val), err)
 	}
 	if val, err := eval("Probe::rig.scaled.k"); err != nil || FormatValue(val) != "2.0" {
 		t.Fatalf("Probe::rig.scaled.k = %s, %v; want the default 2.0", FormatValue(val), err)
@@ -89,10 +92,10 @@ func testUsageMembersUnboundConstraintInput(t *testing.T) {
 	if val, err := eval("Probe::rig.fits"); err != nil || FormatValue(val) != "true" {
 		t.Fatalf("Probe::rig.fits = %s, %v; want the verdict", FormatValue(val), err)
 	}
-	if val, err := eval("Probe::rig.fitsVerdict"); err != nil || FormatValue(val) != "true" {
-		t.Fatalf("Probe::rig.fitsVerdict = %s, %v; want the verdict the bare name reads in the owner's body", FormatValue(val), err)
+	if val, err := eval("Probe::rig.masked.base"); err != nil || val.Kind != ValUndetermined {
+		t.Fatalf("Probe::rig.masked.base = %s, %v; want undetermined: the input, not the owner's same-named feature", FormatValue(val), err)
 	}
-	for _, src := range []string{"Probe::rig.under", "Probe::rig.under.result", "Probe::rig.underVerdict", "new Probe::Rig().under", "new Probe::Rig().under.result", "new Probe::Rig().underVerdict"} {
+	for _, src := range []string{"Probe::rig.under", "Probe::rig.under.result", "new Probe::Rig().under", "new Probe::Rig().under.result"} {
 		val, err := eval(src)
 		if err != nil || val.Kind != ValUndetermined || !strings.Contains(val.Undetermined().reason, "no argument and no default") {
 			t.Fatalf("%s = %s, %v; want an undetermined verdict naming the input nothing binds, not a failed read", src, FormatValue(val), err)
@@ -128,5 +131,30 @@ func testUsageMembersUninvokedParameter(t *testing.T) {
 		if val, err := eval(src); err != nil || FormatValue(val) != "3" {
 			t.Fatalf("%s = %s, %v; want the body attribute 3", src, FormatValue(val), err)
 		}
+	}
+}
+
+const usageMembersExhibitedModel = `package Probe {
+	part def P {
+		state def M;
+		exhibit state sm : M { entry action e; then idle; state idle; state busy; transition idle then busy; }
+	}
+	part p : P;
+}`
+
+// A bodiless, untyped entry action of an exhibited state is held as nested action
+// usages are held today: undetermined at model level, an uninitialized feature on a
+// constructed object. Pinned so that holding it as an unstarted performance object
+// moves this test rather than silently changing the read.
+func testUsageMembersExhibitedState(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, usageMembersExhibitedModel)
+	root := idx.DocumentRoot("<test>")
+	val, err := evalIn(t, ctx, root, "Probe::p.sm.e")
+	if err != nil || val.Kind != ValUndetermined {
+		t.Fatalf("Probe::p.sm.e = %s, %v; want undetermined", FormatValue(val), err)
+	}
+	_, err = evalIn(t, ctx, root, "new Probe::P().sm.e")
+	if !errors.Is(err, errUninitializedFeatureValue) {
+		t.Fatalf("new Probe::P().sm.e = %v, want errUninitializedFeatureValue", err)
 	}
 }

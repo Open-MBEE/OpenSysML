@@ -594,7 +594,7 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 	if from != "" {
 		spelled = from + "." + name
 	}
-	// A parameter is bound when its behavior is invoked (SysML v2 §7.16), so one of a
+	// A parameter is bound when its behavior is invoked (SysML v2 §7.17.2), so one of a
 	// usage nothing has invoked holds no value on an instance any more than at model level.
 	if ec.ctx.unboundParameter(fv) {
 		return unsetFeatureValue(spelled, feature.Multiplicity, feature.Symbol), true

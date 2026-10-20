@@ -1,8 +1,8 @@
 // A calc, constraint or state usage a part definition owns is a feature of the
 // object, and its own nested features — a calc's inputs and body locals, a
 // constraint's inputs and body locals, a state's entry action and substates — are
-// features of it (SysML v2 §7.17.2, §7.18.2, §7.19.2), read through a feature chain
-// as any other usage's members are (KerML 1.0 §7.4.3): `rig.area.w` is the input
+// features of it (SysML v2 §7.19.2, §7.20.2, §7.18.2), read through a feature chain
+// as any other usage's members are (KerML 1.0 §7.3.4.6, §7.4.9.3): `rig.area.w` is the input
 // the evaluation bound, `rig.fits.limit` the input the check binds, `rig.sm.e` the
 // entry action the state holds. The usage itself and its `result` keep reading as
 // the computation and the verdict.

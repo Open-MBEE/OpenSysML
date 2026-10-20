@@ -10,6 +10,10 @@
       "type": "Rational",
       "value": "2.0"
     },
+    "scaledResult": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
     "underLimit": {
       "type": "Undetermined",
       "value": "[1]"
@@ -23,10 +27,6 @@
       "value": "[1]"
     },
     "underResult": {
-      "type": "Undetermined",
-      "value": "[1]"
-    },
-    "underInBody": {
       "type": "Undetermined",
       "value": "[1]"
     },

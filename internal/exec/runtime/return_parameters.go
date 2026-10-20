@@ -279,9 +279,9 @@ func (ec *EvalContext) constraintUsageRead(inst *Instance, sym *symbols.Symbol) 
 
 // constraintMemberValue reads a member of the constraint usage sym on inst — an `in`
 // parameter or a feature its body declares, features of the usage as of any other
-// (SysML v2 §7.18.2) — as the check evaluates it: the value it declares over inst,
-// else the same-named feature of inst an unbound input reads in place of an
-// argument, else undetermined. Not found for a name the usage declares neither way.
+// (SysML v2 §7.20.2) — as the check evaluates it: the value it declares over inst,
+// else undetermined, an input nothing binds included. Not found for a name the
+// usage declares neither way.
 func (ec *EvalContext) constraintMemberValue(inst *Instance, sym *symbols.Symbol, name string) (Value, bool, error) {
 	features := ec.ctx.conditionFeatures(sym)
 	bound, declared := features[name]
@@ -299,10 +299,6 @@ func (ec *EvalContext) constraintMemberValue(inst *Instance, sym *symbols.Symbol
 			return Value{}, true, fmt.Errorf("constraint %s: %s: %w", sym.Name, name, err)
 		}
 		return val, true, nil
-	}
-	if fv, err := inst.GetFeatureValue(ec.ctx, name); err == nil && fv != nil {
-		val, err := ec.ctx.readFeatureValue(fv, name)
-		return val, true, err
 	}
 	var count semantics.Range
 	if bound.held != nil {

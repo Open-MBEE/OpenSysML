@@ -1432,7 +1432,7 @@ func declaresFeatures(sym *symbols.Symbol) bool {
 
 // declaresAFeature reports whether one of a body's members declares a feature: a
 // named or specializing usage, or a state body's named substate or entry, do or
-// exit action, each a feature of the state declaring it (SysML v2 §7.19).
+// exit action, each a feature of the state declaring it (SysML v2 §7.18.2).
 func declaresAFeature(members []ast.Node) bool {
 	for _, member := range members {
 		switch m := member.(type) {
