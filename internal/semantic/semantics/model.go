@@ -913,6 +913,16 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 	if len(types) > 0 {
 		return m.mostSpecificTypes(types)
 	}
+	// The definition its kind implies types the usage before the base feature's
+	// types stand in: an individual occurrence is a Life (SysML v2 §8.3.9.4).
+	for _, base := range m.implicitBases(sym) {
+		if !base.IsFeature() && !containsElement(types, base) {
+			types = append(types, base)
+		}
+	}
+	if len(types) > 0 {
+		return m.mostSpecificTypes(types)
+	}
 	fqn, ok := m.FeatureBaseFQN(sym)
 	if !ok || m.resolver == nil || m.resolver.Index() == nil {
 		return nil

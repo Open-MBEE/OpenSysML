@@ -92,9 +92,8 @@ func TestUsageSubsetsTheBaseUsageOfItsKind(t *testing.T) {
 		{"file:///base.sysml", sysml, "P", "u_viewpoint", "Views::viewpointChecks", "Views::ViewpointCheck"},
 		// A declared type displaces the base definition, not the base usage.
 		{"file:///base.sysml", sysml, "P", "typed", "Parts::parts", "P::D"},
-		// An individual occurrence is a Life and still an occurrence usage; its
-		// types are covered by TestImplicitUsageBaseTypes.
-		{"file:///base.sysml", sysml, "P", "life", "Occurrences::occurrences", "-"},
+		// An individual occurrence is a Life and still an occurrence usage.
+		{"file:///base.sysml", sysml, "P", "life", "Occurrences::occurrences", "Occurrences::Life"},
 		// A usage of no kind subsets Base::things, the most general base usage.
 		{"file:///base.sysml", sysml, "P", "plain", "Base::things", "Base::Anything"},
 		{"file:///base.kerml", kerml, "K", "cx", "Links::binaryLinks", "K::As"},
@@ -114,9 +113,6 @@ func TestUsageSubsetsTheBaseUsageOfItsKind(t *testing.T) {
 			}
 			if !slices.Contains(m.ImplicitGenerals(sym), base) {
 				t.Errorf("ImplicitGenerals(%s) = %v, want %s among them: the subsetting is implied", tc.name, fqns(m.ImplicitGenerals(sym)), tc.base)
-			}
-			if tc.typ == "-" {
-				return
 			}
 			if types := fqns(m.FeatureTypeSet(sym)); !slices.Equal(types, []string{tc.typ}) {
 				t.Errorf("FeatureTypeSet(%s) = %v, want [%s]: the base usage is subsetted, not a type", tc.name, types, tc.typ)
