@@ -430,10 +430,10 @@ y.rcv.r: object of Running::transfer::Recv::rcv::r  [populated pilot=decl]
 x.o.outgoingTransfers: empty  [populated pilot=decl]
 y.i.incomingTransfers: empty  [populated pilot=decl]
 x.snd.outgoingTransfers->SequenceFunctions::size(): constant 0  [populated pilot=decl]
-Time::TimeOf(x.snd): refused: no result expression: calc Time::TimeOf has no return expression: result parameter timeInstant binds no value; write the result as the trailing expression of the body, or bind it with `return : TimeInstantValue = <expr>;`  [refused pilot=decl]
-Time::DurationOf(x.snd): refused: no result expression: calc Time::DurationOf has no return expression: result parameter duration binds no value; write the result as the trailing expression of the body, or bind it with `return : DurationValue = <expr>;`  [refused pilot=decl]
-Clocks::TimeOf(x.snd, Clocks::universalClock): refused: no result expression: calc Clocks::TimeOf has no return expression: result parameter timeInstant binds no value; write the result as the trailing expression of the body, or bind it with `return : NumericalValue = <expr>;`  [refused pilot=decl]
-Clocks::DurationOf(x.snd, Clocks::universalClock): refused: calc Clocks::DurationOf: evaluating the returned expression: object has no such feature: snd has no member endShot: Actions::Action::done redefines it  [refused pilot=decl]
+Time::TimeOf(x.snd): quantity 0.0 [s]  [populated pilot=decl]
+Time::DurationOf(x.snd): undetermined <undetermined>  [undetermined pilot=decl]
+Clocks::TimeOf(x.snd, Clocks::universalClock): quantity 0.0 [s]  [populated pilot=decl]
+Clocks::DurationOf(x.snd, Clocks::universalClock): undetermined <undetermined>  [undetermined pilot=decl]
 x.snd.localClock.currentTime: constant 0.0  [populated pilot=decl]
 Clocks::universalClock.currentTime: constant 0.0  [populated pilot=decl]
 Occurrences::HappensBefore(x.snd, y.rcv): refused: not a calc: Occurrences::HappensBefore is an assoc usage, not a calc definition or usage  [refused pilot=decl]
@@ -874,10 +874,10 @@ y.rcv.r: object of Running::transfer::Recv::rcv::r  [populated pilot=decl]
 x.o.outgoingTransfers: empty  [populated pilot=decl]
 y.i.incomingTransfers: empty  [populated pilot=decl]
 x.snd.outgoingTransfers->SequenceFunctions::size(): constant 0  [populated pilot=decl]
-Time::TimeOf(x.snd): refused: no result expression: calc Time::TimeOf has no return expression: result parameter timeInstant binds no value; write the result as the trailing expression of the body, or bind it with `return : TimeInstantValue = <expr>;`  [refused pilot=decl]
-Time::DurationOf(x.snd): refused: no result expression: calc Time::DurationOf has no return expression: result parameter duration binds no value; write the result as the trailing expression of the body, or bind it with `return : DurationValue = <expr>;`  [refused pilot=decl]
-Clocks::TimeOf(x.snd, Clocks::universalClock): refused: no result expression: calc Clocks::TimeOf has no return expression: result parameter timeInstant binds no value; write the result as the trailing expression of the body, or bind it with `return : NumericalValue = <expr>;`  [refused pilot=decl]
-Clocks::DurationOf(x.snd, Clocks::universalClock): refused: calc Clocks::DurationOf: evaluating the returned expression: object has no such feature: snd has no member endShot: Actions::Action::done redefines it  [refused pilot=decl]
+Time::TimeOf(x.snd): quantity 0.0 [s]  [populated pilot=decl]
+Time::DurationOf(x.snd): quantity 2.0 [s]  [populated pilot=decl]
+Clocks::TimeOf(x.snd, Clocks::universalClock): quantity 0.0 [s]  [populated pilot=decl]
+Clocks::DurationOf(x.snd, Clocks::universalClock): quantity 2.0 [s]  [populated pilot=decl]
 x.snd.localClock.currentTime: constant 5.0  [populated pilot=decl]
 Clocks::universalClock.currentTime: constant 5.0  [populated pilot=decl]
 Occurrences::HappensBefore(x.snd, y.rcv): refused: not a calc: Occurrences::HappensBefore is an assoc usage, not a calc definition or usage  [refused pilot=decl]
@@ -890,7 +890,7 @@ y.rcv.predecessors->SequenceFunctions::includes(x.snd): constant false  [populat
 x.snd.timeEnclosedOccurrences->SequenceFunctions::includes(y.rcv): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 40
-refused: 20
+populated: 46
+refused: 12
 static-only: 654
-undetermined: 154
+undetermined: 156

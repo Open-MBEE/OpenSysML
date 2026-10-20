@@ -193,10 +193,10 @@ b.predecessors: empty  [populated pilot=decl]
 c.predecessors: refused: uninitialized feature value: c  [refused pilot=decl]
 a.successors: empty  [populated pilot=decl]
 b.immediateSuccessors: empty  [populated pilot=decl]
-Time::TimeOf(a): refused: no result expression: calc Time::TimeOf has no return expression: result parameter timeInstant binds no value; write the result as the trailing expression of the body, or bind it with `return : TimeInstantValue = <expr>;`  [refused pilot=decl]
-Time::DurationOf(a): refused: no result expression: calc Time::DurationOf has no return expression: result parameter duration binds no value; write the result as the trailing expression of the body, or bind it with `return : DurationValue = <expr>;`  [refused pilot=decl]
-Clocks::TimeOf(a, Clocks::universalClock): refused: no result expression: calc Clocks::TimeOf has no return expression: result parameter timeInstant binds no value; write the result as the trailing expression of the body, or bind it with `return : NumericalValue = <expr>;`  [refused pilot=decl]
-Clocks::DurationOf(a, Clocks::universalClock): refused: calc Clocks::DurationOf: evaluating the returned expression: object has no such feature: a has no member endShot: Actions::Action::done redefines it  [refused pilot=decl]
+Time::TimeOf(a): quantity 0.0 [s]  [populated pilot=decl]
+Time::DurationOf(a): quantity 0.0 [s]  [populated pilot=decl]
+Clocks::TimeOf(a, Clocks::universalClock): quantity 0.0 [s]  [populated pilot=decl]
+Clocks::DurationOf(a, Clocks::universalClock): quantity 0.0 [s]  [populated pilot=decl]
 a.localClock.currentTime: constant 0.0  [populated pilot=decl]
 Clocks::universalClock.currentTime: constant 0.0  [populated pilot=decl]
 Occurrences::HappensBefore(a, b): refused: not a calc: Occurrences::HappensBefore is an assoc usage, not a calc definition or usage  [refused pilot=decl]
@@ -462,10 +462,10 @@ b.predecessors: empty  [populated pilot=decl]
 c.predecessors: empty  [populated pilot=decl]
 a.successors: empty  [populated pilot=decl]
 b.immediateSuccessors: empty  [populated pilot=decl]
-Time::TimeOf(a): refused: no result expression: calc Time::TimeOf has no return expression: result parameter timeInstant binds no value; write the result as the trailing expression of the body, or bind it with `return : TimeInstantValue = <expr>;`  [refused pilot=decl]
-Time::DurationOf(a): refused: no result expression: calc Time::DurationOf has no return expression: result parameter duration binds no value; write the result as the trailing expression of the body, or bind it with `return : DurationValue = <expr>;`  [refused pilot=decl]
-Clocks::TimeOf(a, Clocks::universalClock): refused: no result expression: calc Clocks::TimeOf has no return expression: result parameter timeInstant binds no value; write the result as the trailing expression of the body, or bind it with `return : NumericalValue = <expr>;`  [refused pilot=decl]
-Clocks::DurationOf(a, Clocks::universalClock): refused: calc Clocks::DurationOf: evaluating the returned expression: object has no such feature: a has no member endShot: Actions::Action::done redefines it  [refused pilot=decl]
+Time::TimeOf(a): quantity 0.0 [s]  [populated pilot=decl]
+Time::DurationOf(a): quantity 0.0 [s]  [populated pilot=decl]
+Clocks::TimeOf(a, Clocks::universalClock): quantity 0.0 [s]  [populated pilot=decl]
+Clocks::DurationOf(a, Clocks::universalClock): quantity 0.0 [s]  [populated pilot=decl]
 a.localClock.currentTime: constant 5.0  [populated pilot=decl]
 Clocks::universalClock.currentTime: constant 5.0  [populated pilot=decl]
 Occurrences::HappensBefore(a, b): refused: not a calc: Occurrences::HappensBefore is an assoc usage, not a calc definition or usage  [refused pilot=decl]
@@ -478,7 +478,7 @@ b.predecessors->SequenceFunctions::includes(a): constant false  [populated pilot
 a.timeEnclosedOccurrences->SequenceFunctions::includes(b): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 30
-refused: 20
+populated: 38
+refused: 12
 static-only: 333
 undetermined: 80

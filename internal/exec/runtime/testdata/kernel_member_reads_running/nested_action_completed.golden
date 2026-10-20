@@ -130,10 +130,10 @@ act.s1.startShot: refused: uninitialized feature value: s1  [refused pilot=decl]
 act.s2.predecessors: refused: uninitialized feature value: s2  [refused pilot=decl]
 act.start: refused: uninitialized feature value: start  [refused pilot=decl]
 act.done: undetermined <undetermined>  [wrong pilot=decl] spec: object of Running::nested_action_completed::Root::act::done
-Time::TimeOf(act): refused: no result expression: calc Time::TimeOf has no return expression: result parameter timeInstant binds no value; write the result as the trailing expression of the body, or bind it with `return : TimeInstantValue = <expr>;`  [refused pilot=decl]
-Time::DurationOf(act): refused: no result expression: calc Time::DurationOf has no return expression: result parameter duration binds no value; write the result as the trailing expression of the body, or bind it with `return : DurationValue = <expr>;`  [refused pilot=decl]
-Clocks::TimeOf(act, Clocks::universalClock): refused: no result expression: calc Clocks::TimeOf has no return expression: result parameter timeInstant binds no value; write the result as the trailing expression of the body, or bind it with `return : NumericalValue = <expr>;`  [refused pilot=decl]
-Clocks::DurationOf(act, Clocks::universalClock): refused: calc Clocks::DurationOf: evaluating the returned expression: object has no such feature: act has no member endShot: Actions::Action::done redefines it  [refused pilot=decl]
+Time::TimeOf(act): quantity 0.0 [s]  [populated pilot=decl]
+Time::DurationOf(act): quantity 0.0 [s]  [populated pilot=decl]
+Clocks::TimeOf(act, Clocks::universalClock): quantity 0.0 [s]  [populated pilot=decl]
+Clocks::DurationOf(act, Clocks::universalClock): quantity 0.0 [s]  [populated pilot=decl]
 act.localClock.currentTime: constant 0.0  [populated pilot=decl]
 Clocks::universalClock.currentTime: constant 0.0  [populated pilot=decl]
 Occurrences::HappensBefore(act, self): refused: not a calc: Occurrences::HappensBefore is an assoc usage, not a calc definition or usage  [refused pilot=decl]
@@ -146,8 +146,8 @@ self.predecessors->SequenceFunctions::includes(act): constant false  [populated 
 act.timeEnclosedOccurrences->SequenceFunctions::includes(self): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 9
-refused: 14
+populated: 13
+refused: 10
 static-only: 93
 undetermined: 21
 wrong: 2
