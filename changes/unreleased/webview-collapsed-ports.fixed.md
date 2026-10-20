@@ -1,0 +1,1 @@
+- The VS Code diagram panel now draws a collapsed element as the CLI renders it: the ports on its boundary stay, with every edge that ends at them, and only what the element nests is folded away. The panel used to fold the ports along with the children, so a tree or interconnection diagram showed fewer nodes and edges than `sysml -render` did for the same view.

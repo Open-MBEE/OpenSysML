@@ -55,11 +55,9 @@ export interface PlacedNode {
   shape: Shape;
   /** The model, or a gesture in progress, states where the node goes. */
   pinned: boolean;
-  /** The node is drawn without its children. */
+  /** The model folds the node: the rendering keeps only its boundary ports and pins beneath it. */
   collapsed: boolean;
   ports: PlacedPort[];
-  /** An owner is collapsed, so the node is not drawn, nor any edge at it. */
-  hidden: boolean;
   children: PlacedNode[];
   parent?: PlacedNode;
   /** In a sequence, the y the node's lifeline runs down to from its box. */
@@ -76,8 +74,6 @@ export interface PlacedEdge {
   route: RenderPoint[];
   /** Where the label sits, on the polyline's midpoint. */
   label: RenderPoint;
-  /** An end is under a collapsed owner, so the edge is not drawn. */
-  hidden: boolean;
   /** The route was found around the other boxes at layout time; the model states none, so a move does not write it. */
   rerouted: boolean;
 }
@@ -183,7 +179,6 @@ export function layoutCanvas(
       shape: shapeOf(node.kind),
       pinned: false,
       collapsed: false,
-      hidden: false,
       children: [],
       ports: [],
     };
@@ -234,9 +229,6 @@ export function layoutCanvas(
     extent.bottom = Math.max(extent.bottom, y);
   };
   for (const entry of placed.values()) {
-    if (entry.hidden) {
-      continue;
-    }
     const nodeBounds = nodeExtent(entry);
     reach(nodeBounds.x, nodeBounds.y);
     reach(nodeBounds.x + nodeBounds.width, nodeBounds.y + nodeBounds.height);
@@ -246,9 +238,6 @@ export function layoutCanvas(
   );
   rerouteAroundBoxes(edges, placed, roots, overrides, auto);
   for (const edge of edges) {
-    if (edge.hidden) {
-      continue;
-    }
     for (const point of edge.points) {
       reach(point.x, point.y);
     }
@@ -311,7 +300,6 @@ function layoutSequence(
       points,
       route: [],
       label: midpoint(points),
-      hidden: false,
       rerouted: false,
     };
   });
@@ -395,7 +383,7 @@ function spread(
 }
 
 // placeAcross settles a node's x and width: the model's x, else the slot's; the
-// model's width, else its label's, widened to hold every child shown. The columns
+// model's width, else its label's, widened to hold every child. The columns
 // of its children are settled first, from inside its padding.
 function placeAcross(
   entry: PlacedNode,
@@ -404,12 +392,9 @@ function placeAcross(
 ): number {
   const { stated, pinned } = geometry(entry);
   entry.pinned = pinned;
-  entry.collapsed = stated?.collapsed === true;
-  if (entry.collapsed) {
-    hide(entry.children);
-  }
+  entry.collapsed = (stated?.collapsed ?? entry.node.collapsed) === true;
   entry.box.x = stated?.x ?? slot;
-  const shown = shownChildren(entry, stated);
+  const shown = entry.children;
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
   spread(lanes(shown, columns, true), entry.box.x + CONTAINER_PAD, (child, x) =>
     placeAcross(child, x, geometry),
@@ -438,7 +423,7 @@ function placeDown(
 ): number {
   const { stated } = geometry(entry);
   entry.box.y = stated?.y ?? slot;
-  const shown = shownChildren(entry, stated);
+  const shown = entry.children;
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
   const header = symbolSize(entry.shape) ?? labelSize(entry.lines);
   spread(
@@ -459,22 +444,6 @@ function placeDown(
   }
   entry.box.height = height;
   return height;
-}
-
-// shownChildren is the children drawn inside a node: none when it is collapsed.
-function shownChildren(
-  entry: PlacedNode,
-  stated: LayoutGeometry | undefined,
-): PlacedNode[] {
-  return stated?.collapsed ? [] : entry.children;
-}
-
-// hide marks a collapsed node's subtree as not drawn.
-function hide(entries: PlacedNode[]): void {
-  for (const entry of entries) {
-    entry.hidden = true;
-    hide(entry.children);
-  }
 }
 
 /**
@@ -733,7 +702,7 @@ export function freePlacement(
   const expandedAt = (point: RenderPoint): Box =>
     inflate(extentAt(node, point), CLEARANCE);
   const otherExtents = others
-    .filter((other) => other.node.id !== node.node.id && !other.hidden)
+    .filter((other) => other.node.id !== node.node.id)
     .map((other) => inflate(extentAt(other, other.box), CLEARANCE));
   const isFree = (point: RenderPoint): boolean => {
     const extent = expandedAt(point);
@@ -823,7 +792,7 @@ export function alignedPlacement(
   bounds: Box,
   portExitLeg: number | ((node: PlacedNode, port: PlacedPort) => number),
   others: PlacedNode[] = [...layout.nodes.values()].filter(
-    (entry) => entry.node.id !== node.node.id && !entry.hidden,
+    (entry) => entry.node.id !== node.node.id,
   ),
 ): RenderPoint {
   const nodeId = node.node.id;
@@ -834,9 +803,6 @@ export function alignedPlacement(
     axis: "x" | "y";
   }> = [];
   for (const placed of layout.edges) {
-    if (placed.hidden) {
-      continue;
-    }
     const edge = placed.edge;
     const fromIsNode = edge.from === nodeId;
     const toIsNode = edge.to === nodeId;
@@ -844,7 +810,7 @@ export function alignedPlacement(
       continue;
     }
     const otherNode = layout.nodes.get(fromIsNode ? edge.to : edge.from);
-    if (!otherNode || otherNode.hidden) {
+    if (!otherNode) {
       continue;
     }
     const ownPortId = fromIsNode ? edge.fromPort : edge.toPort;
@@ -1102,10 +1068,8 @@ export function keepOrthogonalRoutes(
     const edge = next.edges[index];
     const old = previous.edges[index];
     if (
-      edge.hidden ||
       orthogonalRoute(edge.points) ||
       !old ||
-      old.hidden ||
       !orthogonalRoute(old.points) ||
       edge.edge.from !== old.edge.from ||
       edge.edge.to !== old.edge.to ||
@@ -1183,9 +1147,6 @@ function placePorts(
   auto?: AutoLayout,
 ): void {
   for (const entry of placed.values()) {
-    if (entry.hidden) {
-      continue;
-    }
     const defaults = new Map<Side, PlacedPort[]>();
     entry.ports = (entry.node.ports ?? []).map((port) => {
       const laid = auto?.ports.get(port.id);
@@ -1222,7 +1183,7 @@ function defaultPortSide(
     return "south";
   }
   const other = placed.get(edge.from === entry.node.id ? edge.to : edge.from);
-  if (!other || other.hidden) {
+  if (!other) {
     return "south";
   }
   const here = center(entry.box);
@@ -1242,7 +1203,7 @@ function includePortExtent(layout: CanvasLayout): CanvasLayout {
   let bottom = layout.origin.y + layout.height;
   let hasPorts = false;
   for (const entry of layout.nodes.values()) {
-    if (entry.hidden || entry.ports.length === 0) {
+    if (entry.ports.length === 0) {
       continue;
     }
     hasPorts = true;
@@ -1368,7 +1329,6 @@ function routeEdge(
       points: routed,
       route: routed.slice(1, -1),
       label: midpoint(routed),
-      hidden: source?.hidden === true || target?.hidden === true,
       rerouted: false,
     };
   }
@@ -1398,7 +1358,6 @@ function routeEdge(
     points,
     route,
     label: midpoint(points),
-    hidden: source?.hidden === true || target?.hidden === true,
     rerouted: false,
   };
 }
@@ -1431,7 +1390,7 @@ function autoRoute(
 }
 
 // avoidable is an edge the panel routes around the boxes: nothing states its route,
-// the auto layout has none for it, and both ends are drawn, distinct and not hidden.
+// the auto layout has none for it, and both ends are drawn and distinct.
 function avoidable(
   edge: RenderEdge,
   index: number,
@@ -1447,8 +1406,6 @@ function avoidable(
     edge.from !== edge.to &&
     source !== undefined &&
     target !== undefined &&
-    !source.hidden &&
-    !target.hidden &&
     autoRoute(edge, index, routes, auto, source, target) === undefined
   );
 }
@@ -1504,10 +1461,7 @@ function rerouteAroundBoxes(
   const leaves = new Map<string, Box>();
   const containers = new Map<string, Box>();
   const visit = (entry: PlacedNode): void => {
-    if (entry.hidden) {
-      return;
-    }
-    const shown = entry.children.filter((child) => !child.hidden);
+    const shown = entry.children;
     (shown.length === 0 ? leaves : containers).set(entry.node.id, entry.box);
     for (const child of shown) {
       visit(child);
@@ -1664,7 +1618,7 @@ export function steerable(layout: CanvasLayout, edge: PlacedEdge): boolean {
 }
 
 // nodeUnder is the node drawn on top at a point: the innermost, latest-drawn box holding it,
-// passing over hidden nodes and the subtree of `except`, which a drag holds over the others.
+// passing over the subtree of `except`, which a drag holds over the others.
 export function nodeUnder(
   layout: CanvasLayout,
   at: RenderPoint,
@@ -1672,7 +1626,7 @@ export function nodeUnder(
 ): PlacedNode | undefined {
   let found: PlacedNode | undefined;
   const visit = (entry: PlacedNode): void => {
-    if (entry.hidden || entry.node.id === except) {
+    if (entry.node.id === except) {
       return;
     }
     if (contains(entry.box, at)) {
@@ -1774,7 +1728,7 @@ export function liftedEdges(
   for (const edge of layout.edges) {
     const from = subtree.has(edge.edge.from);
     const to = subtree.has(edge.edge.to);
-    if (edge.hidden || (!from && !to)) {
+    if (!from && !to) {
       continue;
     }
     const kept = edge.rerouted ? [] : edge.route;

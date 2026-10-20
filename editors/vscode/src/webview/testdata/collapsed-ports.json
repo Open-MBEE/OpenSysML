@@ -1,0 +1,1114 @@
+{
+  "tree": {
+    "view": "FoldedPorts::tree",
+    "kind": "tree",
+    "style": "pilot",
+    "stated": "render asTreeDiagram",
+    "shown": [
+      "port-symbols",
+      "compartments",
+      "keywords"
+    ],
+    "form": "mermaid",
+    "artifact": "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n  themeCSS: \".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }\"\n  themeVariables:\n    fontFamily: \"Helvetica, Arial, sans-serif\"\n    fontSize: \"14px\"\n    primaryColor: \"#FFFFFF\"\n    secondaryColor: \"#FFFFFF\"\n    tertiaryColor: \"#FFFFFF\"\n    background: \"#FFFFFF\"\n    primaryBorderColor: \"#181818\"\n    primaryTextColor: \"#000000\"\n    lineColor: \"#181818\"\n    textColor: \"#000000\"\n    noteBkgColor: \"#FEFFDD\"\n    noteBorderColor: \"#181818\"\n    noteTextColor: \"#000000\"\n    clusterBkg: \"#FFFFFF\"\n    clusterBorder: \"#181818\"\n    edgeLabelBackground: \"#FFFFFF\"\n---\n%% FoldedPorts::tree — tree rendering (render asTreeDiagram)\n%% layout: n1 collapsed\nflowchart TD\n  n0[\"`*«part def»*\n**Vehicle**`\"]\n    n1(\"`*«part»*\n**engine**`\")\n      n2(\"`*«port»*\n**fuelIn**`\")\n  n1 --- n2\n      n3(\"`*«port»*\n**shaftOut**`\")\n  n1 --- n3\n  n0 --- n1\n    n4(\"`*«part»*\n**tank**`\")\n      n5(\"`*«port»*\n**fuelOut**`\")\n  n4 --- n5\n  n0 --- n4\n    n6(\"`*«part»*\n**wheel**`\")\n      n7(\"`*«port»*\n**hub**`\")\n  n6 --- n7\n  n0 --- n6\n    n8(\"`**connect**`\")\n  n0 --- n8\n    n9(\"`**connect**`\")\n  n0 --- n9\n    n10(\"`**connect**`\")\n  n0 --- n10\n",
+    "nodes": [
+      {
+        "id": "n0",
+        "kind": "part def",
+        "name": "FoldedPorts::Vehicle",
+        "type": "",
+        "detail": "",
+        "fqn": "FoldedPorts::Vehicle",
+        "declaredHere": true,
+        "notation": "part def",
+        "owners": [
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 6,
+              "character": 1
+            },
+            "end": {
+              "line": 25,
+              "character": 2
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 6,
+              "character": 10
+            },
+            "end": {
+              "line": 6,
+              "character": 17
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n1",
+        "kind": "part",
+        "name": "engine",
+        "type": "",
+        "detail": "",
+        "parent": "n0",
+        "fqn": "FoldedPorts::Vehicle::engine",
+        "declaredHere": true,
+        "notation": "part",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 7,
+              "character": 2
+            },
+            "end": {
+              "line": 15,
+              "character": 3
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 7,
+              "character": 7
+            },
+            "end": {
+              "line": 7,
+              "character": 13
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        },
+        "collapsed": true
+      },
+      {
+        "id": "n2",
+        "kind": "port",
+        "name": "fuelIn",
+        "type": "",
+        "detail": "",
+        "parent": "n1",
+        "fqn": "FoldedPorts::Vehicle::engine::fuelIn",
+        "declaredHere": true,
+        "notation": "port",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle::engine",
+            "feature": true
+          },
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 8,
+              "character": 3
+            },
+            "end": {
+              "line": 8,
+              "character": 22
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 8,
+              "character": 8
+            },
+            "end": {
+              "line": 8,
+              "character": 14
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n3",
+        "kind": "port",
+        "name": "shaftOut",
+        "type": "",
+        "detail": "",
+        "parent": "n1",
+        "fqn": "FoldedPorts::Vehicle::engine::shaftOut",
+        "declaredHere": true,
+        "notation": "port",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle::engine",
+            "feature": true
+          },
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 9,
+              "character": 3
+            },
+            "end": {
+              "line": 9,
+              "character": 24
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 9,
+              "character": 8
+            },
+            "end": {
+              "line": 9,
+              "character": 16
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n4",
+        "kind": "part",
+        "name": "tank",
+        "type": "",
+        "detail": "",
+        "parent": "n0",
+        "fqn": "FoldedPorts::Vehicle::tank",
+        "declaredHere": true,
+        "notation": "part",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 16,
+              "character": 2
+            },
+            "end": {
+              "line": 18,
+              "character": 3
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 16,
+              "character": 7
+            },
+            "end": {
+              "line": 16,
+              "character": 11
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n5",
+        "kind": "port",
+        "name": "fuelOut",
+        "type": "",
+        "detail": "",
+        "parent": "n4",
+        "fqn": "FoldedPorts::Vehicle::tank::fuelOut",
+        "declaredHere": true,
+        "notation": "port",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle::tank",
+            "feature": true
+          },
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 17,
+              "character": 3
+            },
+            "end": {
+              "line": 17,
+              "character": 23
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 17,
+              "character": 8
+            },
+            "end": {
+              "line": 17,
+              "character": 15
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n6",
+        "kind": "part",
+        "name": "wheel",
+        "type": "",
+        "detail": "",
+        "parent": "n0",
+        "fqn": "FoldedPorts::Vehicle::wheel",
+        "declaredHere": true,
+        "notation": "part",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 19,
+              "character": 2
+            },
+            "end": {
+              "line": 21,
+              "character": 3
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 19,
+              "character": 7
+            },
+            "end": {
+              "line": 19,
+              "character": 12
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n7",
+        "kind": "port",
+        "name": "hub",
+        "type": "",
+        "detail": "",
+        "parent": "n6",
+        "fqn": "FoldedPorts::Vehicle::wheel::hub",
+        "declaredHere": true,
+        "notation": "port",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle::wheel",
+            "feature": true
+          },
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 20,
+              "character": 3
+            },
+            "end": {
+              "line": 20,
+              "character": 19
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 20,
+              "character": 8
+            },
+            "end": {
+              "line": 20,
+              "character": 11
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n8",
+        "kind": "connect",
+        "name": "",
+        "type": "",
+        "detail": "",
+        "parent": "n0",
+        "declaration": {
+          "start": {
+            "line": 22,
+            "character": 2
+          },
+          "end": {
+            "line": 22,
+            "character": 40
+          }
+        },
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 22,
+              "character": 2
+            },
+            "end": {
+              "line": 22,
+              "character": 40
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n9",
+        "kind": "connect",
+        "name": "",
+        "type": "",
+        "detail": "",
+        "parent": "n0",
+        "declaration": {
+          "start": {
+            "line": 23,
+            "character": 2
+          },
+          "end": {
+            "line": 23,
+            "character": 39
+          }
+        },
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 23,
+              "character": 2
+            },
+            "end": {
+              "line": 23,
+              "character": 39
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n10",
+        "kind": "connect",
+        "name": "",
+        "type": "",
+        "detail": "",
+        "parent": "n0",
+        "declaration": {
+          "start": {
+            "line": 24,
+            "character": 2
+          },
+          "end": {
+            "line": 24,
+            "character": 47
+          }
+        },
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 24,
+              "character": 2
+            },
+            "end": {
+              "line": 24,
+              "character": 47
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      }
+    ],
+    "edges": [],
+    "notices": [],
+    "palette": {
+      "members": [
+        "action",
+        "action def",
+        "actor",
+        "allocation def",
+        "analysis",
+        "analysis def",
+        "assert",
+        "assert constraint",
+        "assert not",
+        "assert not constraint",
+        "attribute",
+        "attribute def",
+        "binding def",
+        "calc",
+        "calc def",
+        "case",
+        "case def",
+        "concern",
+        "concern def",
+        "constraint",
+        "constraint def",
+        "decide",
+        "do action",
+        "entry action",
+        "enum",
+        "enum def",
+        "exhibit",
+        "exhibit state",
+        "exit action",
+        "fork",
+        "individual",
+        "individual def",
+        "item",
+        "item def",
+        "join",
+        "merge",
+        "metadata",
+        "metadata def",
+        "objective",
+        "occurrence",
+        "occurrence def",
+        "package",
+        "part",
+        "part def",
+        "perform",
+        "perform action",
+        "port",
+        "port def",
+        "ref",
+        "rendering",
+        "rendering def",
+        "requirement",
+        "requirement def",
+        "return",
+        "stakeholder",
+        "state",
+        "state def",
+        "subject",
+        "use case",
+        "use case def",
+        "verification",
+        "verification def",
+        "view",
+        "view def",
+        "viewpoint",
+        "viewpoint def"
+      ],
+      "connections": [
+        "allocation",
+        "binding",
+        "connection",
+        "flow",
+        "interface",
+        "succession",
+        "transition"
+      ],
+      "typed": [
+        "action",
+        "actor",
+        "analysis",
+        "assert constraint",
+        "assert not constraint",
+        "attribute",
+        "calc",
+        "case",
+        "concern",
+        "constraint",
+        "do action",
+        "entry action",
+        "enum",
+        "exhibit state",
+        "exit action",
+        "individual",
+        "item",
+        "metadata",
+        "objective",
+        "occurrence",
+        "part",
+        "perform action",
+        "port",
+        "ref",
+        "rendering",
+        "requirement",
+        "return",
+        "stakeholder",
+        "state",
+        "subject",
+        "use case",
+        "verification",
+        "view",
+        "viewpoint"
+      ],
+      "owners": {
+        "actor": [],
+        "do action": [],
+        "entry action": [],
+        "exit action": [],
+        "objective": [],
+        "stakeholder": [],
+        "subject": []
+      }
+    },
+    "version": 1
+  },
+  "wiring": {
+    "view": "FoldedPorts::wiring",
+    "kind": "interconnection",
+    "style": "pilot",
+    "stated": "render asInterconnectionDiagram",
+    "shown": [
+      "port-symbols",
+      "compartments",
+      "keywords"
+    ],
+    "form": "mermaid",
+    "artifact": "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n  themeCSS: \".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }\"\n  themeVariables:\n    fontFamily: \"Helvetica, Arial, sans-serif\"\n    fontSize: \"14px\"\n    primaryColor: \"#FFFFFF\"\n    secondaryColor: \"#FFFFFF\"\n    tertiaryColor: \"#FFFFFF\"\n    background: \"#FFFFFF\"\n    primaryBorderColor: \"#181818\"\n    primaryTextColor: \"#000000\"\n    lineColor: \"#181818\"\n    textColor: \"#000000\"\n    noteBkgColor: \"#FEFFDD\"\n    noteBorderColor: \"#181818\"\n    noteTextColor: \"#000000\"\n    clusterBkg: \"#FFFFFF\"\n    clusterBorder: \"#181818\"\n    edgeLabelBackground: \"#FFFFFF\"\n---\n%% FoldedPorts::wiring — interconnection rendering (render asInterconnectionDiagram)\n%% layout: n1 collapsed\nflowchart LR\n  subgraph n0 [\"`*«part def»* **Vehicle**`\"]\n    direction LR\n    subgraph n1 [\"`*«part»* **engine**`\"]\n      direction LR\n      n1_anchor[\" \"]\n      n2(\"`*«port»*\n**fuelIn**`\")\n      n3(\"`*«port»*\n**shaftOut**`\")\n    end\n    subgraph n4 [\"`*«part»* **tank**`\"]\n      direction LR\n      n5(\"`*«port»*\n**fuelOut**`\")\n    end\n    subgraph n6 [\"`*«part»* **wheel**`\"]\n      direction LR\n      n7(\"`*«port»*\n**hub**`\")\n    end\n  end\n  n5 === n2\n  n3 === n7\n  n1_anchor === n5\n  classDef anchor fill:none,stroke:none\n  class n1_anchor anchor\n  linkStyle 0 stroke-width:3px\n  linkStyle 1 stroke-width:3px\n  linkStyle 2 stroke-width:3px\n",
+    "nodes": [
+      {
+        "id": "n0",
+        "kind": "part def",
+        "name": "FoldedPorts::Vehicle",
+        "type": "",
+        "detail": "",
+        "fqn": "FoldedPorts::Vehicle",
+        "declaredHere": true,
+        "notation": "part def",
+        "owners": [
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 6,
+              "character": 1
+            },
+            "end": {
+              "line": 25,
+              "character": 2
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 6,
+              "character": 10
+            },
+            "end": {
+              "line": 6,
+              "character": 17
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n1",
+        "kind": "part",
+        "name": "engine",
+        "type": "",
+        "detail": "",
+        "parent": "n0",
+        "fqn": "FoldedPorts::Vehicle::engine",
+        "declaredHere": true,
+        "notation": "part",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 7,
+              "character": 2
+            },
+            "end": {
+              "line": 15,
+              "character": 3
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 7,
+              "character": 7
+            },
+            "end": {
+              "line": 7,
+              "character": 13
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        },
+        "collapsed": true
+      },
+      {
+        "id": "n2",
+        "kind": "port",
+        "name": "fuelIn",
+        "type": "",
+        "detail": "",
+        "parent": "n1",
+        "fqn": "FoldedPorts::Vehicle::engine::fuelIn",
+        "declaredHere": true,
+        "notation": "port",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle::engine",
+            "feature": true
+          },
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 8,
+              "character": 3
+            },
+            "end": {
+              "line": 8,
+              "character": 22
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 8,
+              "character": 8
+            },
+            "end": {
+              "line": 8,
+              "character": 14
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n3",
+        "kind": "port",
+        "name": "shaftOut",
+        "type": "",
+        "detail": "",
+        "parent": "n1",
+        "fqn": "FoldedPorts::Vehicle::engine::shaftOut",
+        "declaredHere": true,
+        "notation": "port",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle::engine",
+            "feature": true
+          },
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 9,
+              "character": 3
+            },
+            "end": {
+              "line": 9,
+              "character": 24
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 9,
+              "character": 8
+            },
+            "end": {
+              "line": 9,
+              "character": 16
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n4",
+        "kind": "part",
+        "name": "tank",
+        "type": "",
+        "detail": "",
+        "parent": "n0",
+        "fqn": "FoldedPorts::Vehicle::tank",
+        "declaredHere": true,
+        "notation": "part",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 16,
+              "character": 2
+            },
+            "end": {
+              "line": 18,
+              "character": 3
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 16,
+              "character": 7
+            },
+            "end": {
+              "line": 16,
+              "character": 11
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n5",
+        "kind": "port",
+        "name": "fuelOut",
+        "type": "",
+        "detail": "",
+        "parent": "n4",
+        "fqn": "FoldedPorts::Vehicle::tank::fuelOut",
+        "declaredHere": true,
+        "notation": "port",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle::tank",
+            "feature": true
+          },
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 17,
+              "character": 3
+            },
+            "end": {
+              "line": 17,
+              "character": 23
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 17,
+              "character": 8
+            },
+            "end": {
+              "line": 17,
+              "character": 15
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n6",
+        "kind": "part",
+        "name": "wheel",
+        "type": "",
+        "detail": "",
+        "parent": "n0",
+        "fqn": "FoldedPorts::Vehicle::wheel",
+        "declaredHere": true,
+        "notation": "part",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 19,
+              "character": 2
+            },
+            "end": {
+              "line": 21,
+              "character": 3
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 19,
+              "character": 7
+            },
+            "end": {
+              "line": 19,
+              "character": 12
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "id": "n7",
+        "kind": "port",
+        "name": "hub",
+        "type": "",
+        "detail": "",
+        "parent": "n6",
+        "fqn": "FoldedPorts::Vehicle::wheel::hub",
+        "declaredHere": true,
+        "notation": "port",
+        "owners": [
+          {
+            "fqn": "FoldedPorts::Vehicle::wheel",
+            "feature": true
+          },
+          {
+            "fqn": "FoldedPorts::Vehicle",
+            "feature": false
+          },
+          {
+            "fqn": "FoldedPorts",
+            "feature": false
+          }
+        ],
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 20,
+              "character": 3
+            },
+            "end": {
+              "line": 20,
+              "character": 19
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 20,
+              "character": 8
+            },
+            "end": {
+              "line": 20,
+              "character": 11
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "n5",
+        "to": "n2",
+        "label": "",
+        "kind": "connection",
+        "declaration": {
+          "start": {
+            "line": 22,
+            "character": 2
+          },
+          "end": {
+            "line": 22,
+            "character": 40
+          }
+        },
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 22,
+              "character": 2
+            },
+            "end": {
+              "line": 22,
+              "character": 40
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "from": "n3",
+        "to": "n7",
+        "label": "",
+        "kind": "connection",
+        "declaration": {
+          "start": {
+            "line": 23,
+            "character": 2
+          },
+          "end": {
+            "line": 23,
+            "character": 39
+          }
+        },
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 23,
+              "character": 2
+            },
+            "end": {
+              "line": 23,
+              "character": 39
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      },
+      {
+        "from": "n1",
+        "to": "n5",
+        "label": "",
+        "kind": "connection",
+        "declaration": {
+          "start": {
+            "line": 24,
+            "character": 2
+          },
+          "end": {
+            "line": 24,
+            "character": 47
+          }
+        },
+        "origin": {
+          "uri": "file:///collapsed-ports.sysml",
+          "range": {
+            "start": {
+              "line": 24,
+              "character": 2
+            },
+            "end": {
+              "line": 24,
+              "character": 47
+            }
+          },
+          "digest": "1ee49d5c824a879bb6486fe9c2cc2887"
+        }
+      }
+    ],
+    "notices": [],
+    "palette": {
+      "members": [
+        "attribute",
+        "item",
+        "part",
+        "port"
+      ],
+      "connections": [
+        "allocation",
+        "binding",
+        "connection",
+        "flow",
+        "interface"
+      ],
+      "typed": [
+        "attribute",
+        "item",
+        "part",
+        "port"
+      ]
+    },
+    "version": 1
+  }
+}
