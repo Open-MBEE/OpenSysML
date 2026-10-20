@@ -238,7 +238,9 @@ wrote /tmp/action-semantics.ttl (ttl, 247206 bytes)
 
 Two members of one namespace sharing a name export as separate elements: the first keeps the
 qualified name and each later one is identified by its position among the owner's members, the same
-name an element declared unnamed takes. The duplicate is still reported as a warning when the model
+name an element declared unnamed takes — unless its naming feature names it, as `part :>> engine;` or
+a view's `render tree;` is `engine` or `tree` (exported as `name`, with no `declaredName`). The
+duplicate is still reported as a warning when the model
 is analyzed — SysML has no reopening of a declaration within a namespace, so merge the declarations
 into one (or rename) rather than relying on the position. A member named `'@2'` is spelled
 `Demo::'@2'`, distinct from the positional identity `Demo::@2`.
