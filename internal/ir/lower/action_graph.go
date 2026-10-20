@@ -2233,11 +2233,7 @@ func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statemen
 // rejects as its own purity demands.
 func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
 	if m.IsTerminate {
-		if ts := TerminatedOccurrence(m); ts != nil {
-			target, terminates := terminateTarget(ts, scope)
-			return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: ts.Target}
-		}
-		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
+		return terminateUsageEffect(m, scope)
 	}
 	if stmt, ok := usageStatement(m, scope); ok {
 		return stmt
@@ -2249,6 +2245,17 @@ func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.R
 		return performEffect(m, scope)
 	}
 	return Unsupported{Description: usageDescription(m), Node: m, Scope: scope}
+}
+
+// terminateUsageEffect is the effect a terminate action usage declared in scope
+// performs: ending the occurrence it names, or else the performance its node is
+// a step of.
+func terminateUsageEffect(m *ast.Usage, scope *symbols.Scope) Effect {
+	if ts := TerminatedOccurrence(m); ts != nil {
+		target, terminates := terminateTarget(ts, scope)
+		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: ts.Target}
+	}
+	return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
 }
 
 // TerminatedOccurrence returns the occurrence a terminate action usage names

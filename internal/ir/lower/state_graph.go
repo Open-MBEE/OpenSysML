@@ -110,6 +110,11 @@ type StateGraph struct {
 	// it, absent for one declared directly in the machine.
 	TerminateOwner map[*ast.Usage]*ast.StateNode
 
+	// TerminateBehaviors: terminate action usage naming an occurrence (`action
+	// halt terminate worker;`) -> the behavior ending it, which a transition
+	// ending at the usage performs in place of ending the machine.
+	TerminateBehaviors map[*ast.Usage]StateBehavior
+
 	// Transitions: source node (StateNode or PseudostateNode) → list of transitions
 	Transitions map[ast.Node][]*Transition
 
@@ -660,6 +665,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		PseudostateOwner:     make(map[*ast.PseudostateNode]*ast.StateNode),
 		PseudostateRegion:    make(map[*ast.PseudostateNode]*ast.StateRegion),
 		TerminateOwner:       make(map[*ast.Usage]*ast.StateNode),
+		TerminateBehaviors:   make(map[*ast.Usage]StateBehavior),
 		Transitions:          make(map[ast.Node][]*Transition),
 		CompositeStates:      make(map[*ast.StateNode][]*ast.StateRegion),
 		CompositeStateOrder:  make([]*ast.StateNode, 0),
@@ -1416,6 +1422,9 @@ func (g *StateGraph) addTerminate(usage *ast.Usage, scope *symbols.Scope, owner 
 	if owner != nil {
 		g.TerminateOwner[usage] = owner
 	}
+	if TerminatedOccurrence(usage) != nil {
+		g.TerminateBehaviors[usage] = terminateBehavior(usage, g.declaredIn[usage], owner)
+	}
 }
 
 // recordDeclaredIn records the scope of the body a declaration was written in.
@@ -1655,7 +1664,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		return nil, err
 	}
 	via, viaSelf := ViaPortPath(member.Via)
-	trigger := classifyTrigger(member.Trigger)
+	trigger := classifyTrigger(member.Trigger, bodyScope, graph.resolver)
 	trans := &Transition{
 		Name:        member.Name,
 		Decl:        member,
@@ -1755,7 +1764,7 @@ func AcceptedNames(trigger ast.Node) []string {
 //
 // Payload typing and resolution come from the AST and resolver; the `when`
 // spelling retains its injected-signal interpretation.
-func classifyTrigger(trigger ast.Node) ast.Node {
+func classifyTrigger(trigger ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) ast.Node {
 	if trigger == nil {
 		return nil
 	}
@@ -1772,7 +1781,7 @@ func classifyTrigger(trigger ast.Node) ast.Node {
 	// parameter was parsed with (`accept when x > 1`).
 	if payload, ok := trigger.(*ast.Usage); ok {
 		if payload.Value != nil {
-			return classifyTrigger(payloadTrigger(payload.Value))
+			return classifyTrigger(payloadTrigger(payload.Value, scope, resolver), scope, resolver)
 		}
 		return &ast.AcceptEvent{
 			SignalType: typingTarget(payload),
@@ -1805,17 +1814,13 @@ func classifyTrigger(trigger ast.Node) ast.Node {
 // `when`, `at` and `after` forms are already events; a value invoking the
 // library's TriggerWhen, TriggerAt or TriggerAfter is the same event written in
 // full (SysML v2 §7.17.8: `accept : ChangeSignal = TriggerWhen({ c })`).
-func payloadTrigger(value ast.Node) ast.Node {
+func payloadTrigger(value ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) ast.Node {
 	inv, ok := value.(*ast.InvocationExpr)
 	if !ok || inv.Operand != nil || inv.Type == nil || len(inv.Args) != 1 || len(inv.NamedArgs) != 0 {
 		return value
 	}
-	parts := inv.Type.Parts
-	if len(parts) == 2 && parts[0].Text != "Triggers" || len(parts) > 2 {
-		return value
-	}
 	arg := inv.Args[0]
-	switch parts[len(parts)-1].Text {
+	switch libraryTrigger(inv.Type, scope, resolver) {
 	case "TriggerWhen":
 		// The condition is a bool parameter: a parameterless body expression
 		// states it directly.
@@ -1835,6 +1840,40 @@ func payloadTrigger(value ast.Node) ast.Node {
 		return evt
 	}
 	return value
+}
+
+// libraryTrigger names the Triggers library function an invocation's type
+// denotes from scope, "" for any other function: the one the resolver reaches
+// where there is one, else the spelling (`TriggerWhen`, `Triggers::TriggerWhen`)
+// taken at its word, as a model may shadow these names with functions of its own.
+func libraryTrigger(qn *ast.QualifiedName, scope *symbols.Scope, resolver *resolve.Resolver) string {
+	parts := qn.Parts
+	if len(parts) == 0 {
+		return ""
+	}
+	name := parts[len(parts)-1].Text
+	switch name {
+	case "TriggerWhen", "TriggerAt", "TriggerAfter":
+	default:
+		return ""
+	}
+	if resolver == nil || scope == nil {
+		if len(parts) == 1 || len(parts) == 2 && parts[0].Text == "Triggers" {
+			return name
+		}
+		return ""
+	}
+	sym, ok := resolver.ResolveQualified(scope, qn)
+	if !ok || sym == nil {
+		return ""
+	}
+	if target, isAlias := resolver.ResolveAliasTarget(sym); isAlias && target != nil {
+		sym = target
+	}
+	if !resolver.Index().IsLibraryDocument(sym.DocName) || symbols.FQNOf(sym) != "Triggers::"+name {
+		return ""
+	}
+	return name
 }
 
 // collectStateTransitions collects the transitions a state usage carries: those

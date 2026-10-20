@@ -195,3 +195,20 @@ func performsAction(usage *ast.Usage) bool {
 	}
 	return false
 }
+
+// terminateBehavior is the performance a transition ending at a terminate action
+// usage naming an occurrence (`action halt terminate worker;`) makes of it: the
+// one statement ending what the usage names, run with the attributes of owner,
+// the composite state declaring the usage, nil for the machine.
+func terminateBehavior(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode) StateBehavior {
+	name, _ := ast.EffectiveName(usage)
+	return StateBehavior{
+		Node:           usage,
+		Name:           name,
+		Body:           []Statement{terminateUsageEffect(usage, scope)},
+		Multiplicities: make(map[ast.Node]*ast.Multiplicity),
+		Multiplicity:   usage.Multiplicity,
+		Scope:          scope,
+		Owner:          owner,
+	}
+}

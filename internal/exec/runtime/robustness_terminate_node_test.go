@@ -11,6 +11,7 @@ import (
 func TestRuntimeRobustnessTerminateNode(t *testing.T) {
 	t.Run("terminate_node_of_an_unknown_name", testTerminateNodeOfAnUnknownName)
 	t.Run("terminate_node_of_an_ended_performance", testTerminateNodeOfAnEndedPerformance)
+	t.Run("state_transition_to_a_terminate_node_of_an_unknown_name", testStateTransitionToTerminateNodeOfAnUnknownName)
 }
 
 // testTerminateNodeOfAnUnknownName: a terminate node naming nothing declared
@@ -44,5 +45,22 @@ func testTerminateNodeOfAnEndedPerformance(t *testing.T) {
 	}`)
 	if !errors.Is(err, errPerformanceEnded) {
 		t.Fatalf("error = %v, want errPerformanceEnded", err)
+	}
+}
+
+// testStateTransitionToTerminateNodeOfAnUnknownName: a transition ending at a
+// terminate node naming nothing declared around the machine has no occurrence
+// to end, which the machine reports rather than ending itself.
+func testStateTransitionToTerminateNodeOfAnUnknownName(t *testing.T) {
+	_, _, err := executeStateSource(t, "M", `package test {
+		state def M {
+			entry; then s;
+			state s;
+			transition first s then halt;
+			action halt terminate nowhere;
+		}
+	}`)
+	if !errors.Is(err, errTerminateTarget) {
+		t.Fatalf("error = %v, want errTerminateTarget", err)
 	}
 }

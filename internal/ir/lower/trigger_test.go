@@ -339,28 +339,28 @@ func findStateUsage(root *ast.RootNamespace) *ast.Usage {
 func TestTriggerClassification_AlreadyTyped(t *testing.T) {
 	// Test that already-typed triggers pass through unchanged
 	timeEvent := &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "5"}}
-	result := classifyTrigger(timeEvent)
+	result := classifyTrigger(timeEvent, nil, nil)
 
 	if result != timeEvent {
 		t.Error("TimeEvent should pass through unchanged")
 	}
 
 	changeEvent := &ast.ChangeEvent{Condition: &ast.LiteralBool{Value: true}}
-	result = classifyTrigger(changeEvent)
+	result = classifyTrigger(changeEvent, nil, nil)
 
 	if result != changeEvent {
 		t.Error("ChangeEvent should pass through unchanged")
 	}
 
 	acceptEvent := &ast.AcceptEvent{SignalType: &ast.QualifiedName{}}
-	result = classifyTrigger(acceptEvent)
+	result = classifyTrigger(acceptEvent, nil, nil)
 
 	if result != acceptEvent {
 		t.Error("AcceptEvent should pass through unchanged")
 	}
 
 	callEvent := &ast.CallEvent{Operation: &ast.QualifiedName{}}
-	result = classifyTrigger(callEvent)
+	result = classifyTrigger(callEvent, nil, nil)
 
 	if result != callEvent {
 		t.Error("CallEvent should pass through unchanged")
