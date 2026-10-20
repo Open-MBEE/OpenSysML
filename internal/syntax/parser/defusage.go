@@ -1901,6 +1901,7 @@ func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword str
 // parseDefinitionBody parses a definition's body, or the `;` ending a bodiless
 // one, in the notation its kind declares members in.
 func (p *Parser) parseDefinitionBody(def *ast.Definition) ([]ast.Node, bool) {
+	p.skipParameterList()
 	switch def.Kind {
 	case ast.DefAction, ast.DefOccurrence:
 		// Action/occurrence def bodies: mixed (declarations + behavioral statements)
@@ -1945,6 +1946,28 @@ func (p *Parser) parseDefinitionBody(def *ast.Definition) ([]ast.Node, bool) {
 	default:
 		return p.parseDefUsageBody()
 	}
+}
+
+// skipParameterList reports a `( ... )` written after a declaration head and
+// skips the group, so the `;` or body that follows is read by the kind's own
+// body parser. No
+// production puts a parenthesised parameter list on a declaration: parameters
+// are directed features of the body (KerML.xtext ParameterMember).
+func (p *Parser) skipParameterList() {
+	if !p.at(lexer.LParen) {
+		return
+	}
+	open := p.advance()
+	depth := 1
+	for depth > 0 && !p.atEOF() && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !p.at(lexer.Semicolon) {
+		switch p.advance().Kind {
+		case lexer.LParen:
+			depth++
+		case lexer.RParen:
+			depth--
+		}
+	}
+	p.error(open.Span, "a declaration takes no parenthesised parameter list: declare each parameter as a directed feature of the body, `in <name> : <Type>;`")
 }
 
 // parseBodyOrSemicolon accepts the `;` of a bodiless declaration, else parses
@@ -2439,6 +2462,7 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 	p.parseTierBEnds(u, kind)
 
 	// Dispatch to specialized body parsers based on kind
+	p.skipParameterList()
 	var members []ast.Node
 	var hasBody bool
 	defer p.pushBodyContext(usageBodyContext(kind))()

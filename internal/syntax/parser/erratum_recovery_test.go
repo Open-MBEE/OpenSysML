@@ -114,6 +114,12 @@ func TestParameterListRecoveryKeepsTheNextMember(t *testing.T) {
 		{"bodiless.kerml", "package P { behavior B(x : Real); feature after; }"},
 		{"sysml.sysml", "package P { action def A(x : Real) { in y : Real; } part def After; }"},
 		{"nested.sysml", "package P { calc def C(f(x), y) { in y : Real; } part def After; }"},
+		{"action_usage.sysml", "package P { action a(x : T) { in item payload; } part after; }"},
+		{"constraint_usage.sysml", "package P { constraint c(x : T) { x > 0 } part after; }"},
+		{"state_usage.sysml", "package P { state s(x : T) { entry; then s2; state s2; } part after; }"},
+		{"requirement_usage.sysml", "package P { requirement r(x : T) { subject s; } part after; }"},
+		{"calc_usage.sysml", "package P { calc c(x : T) { in y : Real; y } part after; }"},
+		{"step.kerml", "package P { step s(x : T) { in feature y; } feature after; }"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := New(source.New(tc.name, []byte(tc.code)))
@@ -130,6 +136,19 @@ func TestParameterListRecoveryKeepsTheNextMember(t *testing.T) {
 			}
 			if _, ok := pkg.Members[1].(*ast.Membership); !ok {
 				t.Errorf("second member is %T, want a Membership", pkg.Members[1])
+			}
+			if strings.Contains(tc.code, ") {") {
+				first := pkg.Members[0].(*ast.Membership).Member
+				var body []ast.Node
+				switch d := first.(type) {
+				case *ast.Definition:
+					body = d.Members
+				case *ast.Usage:
+					body = d.Members
+				}
+				if len(body) == 0 {
+					t.Errorf("the declaration lost its body: %T %+v", first, first)
+				}
 			}
 		})
 	}
