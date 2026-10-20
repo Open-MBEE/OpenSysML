@@ -230,6 +230,16 @@ func ConvertModel(inputs []Input, to Format, opts Options) ([]byte, error) {
 	if to != FormatTurtle && to != FormatAPIJSON {
 		return nil, fmt.Errorf("a model of several documents converts to %s or %s, not %s", FormatTurtle, FormatAPIJSON, to)
 	}
+	graph, err := ModelGraph(inputs, opts)
+	if err != nil {
+		return nil, err
+	}
+	return FromGraphWith(graph, to, opts)
+}
+
+// ModelGraph parses several documents as one model and returns its RDF graph,
+// the one ConvertModel writes out; ids are spelled as opts.ID says.
+func ModelGraph(inputs []Input, opts Options) (*rdf.Graph, error) {
 	documents := make([]export.ModelDocument, 0, len(inputs))
 	for _, input := range inputs {
 		file := source.New(input.Name, input.Data)
@@ -240,11 +250,7 @@ func ConvertModel(inputs []Input, to Format, opts Options) ([]byte, error) {
 		}
 		documents = append(documents, export.ModelDocument{File: file, Root: root})
 	}
-	graph, err := export.ModelToRDFWith(documents, opts.ID)
-	if err != nil {
-		return nil, err
-	}
-	return FromGraphWith(graph, to, opts)
+	return export.ModelToRDFWith(documents, opts.ID)
 }
 
 // ConvertWith is Convert under non-default options.

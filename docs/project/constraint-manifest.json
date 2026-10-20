@@ -3258,7 +3258,7 @@
       "checks": "A feature of an association or a connector redefining an end feature is an end feature",
       "implementation": "internal/check/passes/w10b_redefinition.go:checkW10BRedefinition",
       "message": "—",
-      "negativeCase": "`semantic/k15-nonend-redefines-end.kerml`, `semantic/k75-nonend-redefines-end-in-connector.kerml`, `semantic/s108-nonend-redefines-end-in-connection-def.sysml`, `semantic/s109-nonend-redefines-end-in-connection-usage.sysml`",
+      "negativeCase": "`semantic/k15-nonend-redefines-end.kerml`, `semantic/k75-nonend-redefines-end-in-connector.kerml`, `semantic/s110-nonend-redefines-end-in-connection-def.sysml`, `semantic/s111-nonend-redefines-end-in-connection-usage.sysml`",
       "codes": [
         "redefinition-not-end"
       ],
@@ -3895,10 +3895,10 @@
         "clause": "8.3.3.3.10",
         "name": "validateSubsettingConstantConformance"
       },
-      "checks": "A feature subsetting a constant feature is constant (`Subsetting/redefining feature must be constant if subsetted/redefined feature is constant`)",
+      "checks": "A variable feature subsetting or redefining a constant feature is constant (`Subsetting/redefining feature must be constant if subsetted/redefined feature is constant`); variability and constancy are the derived properties (a SysML usage varies by `Usage::mayTimeVary`, a varying end is constant unwritten), and a parameter's implied redefinition of the general behavior's parameter at its position is held to the rule too, where the pinned pilot is silent",
       "implementation": "internal/check/passes/w8b_redefinition_conformance.go:RedefinitionConformancePass.Run",
       "message": "—",
-      "negativeCase": "`semantic/k14-variable-subsets-constant.kerml`",
+      "negativeCase": "`semantic/k14-variable-subsets-constant.kerml`, `semantic/s108-usage-subsets-constant-usage.sysml`",
       "codes": [
         "subsetting-constancy-conformance"
       ],

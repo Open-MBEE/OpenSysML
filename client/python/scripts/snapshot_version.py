@@ -53,6 +53,7 @@ check_version = _load_check_version()
 VersionError = check_version.VersionError
 VERSION_FILE = check_version.VERSION_FILE
 NODE_PACKAGE = check_version.NODE_PACKAGE
+MCP_PACKAGE = check_version.MCP_PACKAGE
 KERNEL_VERSION_FILE = check_version.KERNEL_VERSION_FILE
 REPO_ROOT = check_version.REPO_ROOT
 TAG_PREFIX = check_version.TAG_PREFIX
@@ -199,11 +200,12 @@ def stamp_version_file(version, version_file=VERSION_FILE):
         raise VersionError(f"{version_file} does not declare {version!r} after stamping it.")
 
 
-def stamp_node_manifest(version, package_json=NODE_PACKAGE):
-    """Write a version as the one client/node/package.json declares and pins.
+def stamp_node_manifest(version, package_json=NODE_PACKAGE, platform_prefix="{name}-sysml-grpc-"):
+    """Write a version as the one a Node manifest declares and pins.
 
-    The platform packages in optionalDependencies and the WASM peer are pinned at
-    the same version, as a release pins them; the file keeps npm's own layout.
+    The platform packages in optionalDependencies, named with platform_prefix
+    (formatted with the package's name), and the WASM peer are pinned at the same
+    version, as a release pins them; the file keeps npm's own layout.
 
     Raises:
         VersionError: If the manifest names no package, or pins no platform package
@@ -214,13 +216,14 @@ def stamp_node_manifest(version, package_json=NODE_PACKAGE):
     if not isinstance(name, str) or not name:
         raise VersionError(f"{package_json} declares no package name.")
     manifest["version"] = version
+    prefix = platform_prefix.format(name=name)
     platforms = [
         dependency
         for dependency in manifest.get("optionalDependencies", {})
-        if dependency.startswith(f"{name}-sysml-grpc-")
+        if dependency.startswith(prefix)
     ]
     if not platforms:
-        raise VersionError(f"{package_json} pins no {name}-sysml-grpc-* platform package.")
+        raise VersionError(f"{package_json} pins no {prefix}* platform package.")
     for dependency in platforms:
         manifest["optionalDependencies"][dependency] = version
     wasm = f"{name}-wasm"
@@ -235,11 +238,14 @@ def stamp(
     version_file=VERSION_FILE,
     package_json=NODE_PACKAGE,
     kernel_version_file=KERNEL_VERSION_FILE,
+    mcp_package_json=MCP_PACKAGE,
 ):
     """Write a snapshot's versions into every manifest the night publishes from."""
     stamp_version_file(versions["pypi"], version_file)
     stamp_node_manifest(versions["npm"], package_json)
     stamp_version_file(versions["pypi"], kernel_version_file)
+    # @openmbee/sysml-mcp pins its platform packages as @openmbee/sysml-mcp-<os>-<cpu>.
+    stamp_node_manifest(versions["npm"], mcp_package_json, platform_prefix="{name}-")
 
 
 def main(argv=None):

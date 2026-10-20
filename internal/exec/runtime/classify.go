@@ -20,9 +20,8 @@ func (ctx *Context) instanceConforms(inst *Instance, typ *symbols.Symbol) bool {
 // isDirectTypeOf reports whether typ is already a direct type of an object: one it was
 // declared by or held by, or a type one of those is typed by when typ declares no more.
 func (ctx *Context) isDirectTypeOf(inst *Instance, typ *symbols.Symbol) bool {
-	direct := ctx.directType(typ)
 	return slices.ContainsFunc(inst.types(), func(t *symbols.Symbol) bool {
-		return symbols.SameElement(t, typ) || (direct == typ && ctx.directType(t) == direct)
+		return symbols.SameElement(t, typ) || (!typ.IsFeature() && slices.Contains(ctx.directTypes(t), typ))
 	})
 }
 

@@ -353,6 +353,14 @@ func docNumberFiguresUsage() string {
 }
 
 // convertUsage is -convert's usage, naming the inputs this build reads.
+func stdlibUsage() string {
+	text := "With -convert ttl or api-json, convert the bundled standard library — every KerML and SysML file of it, as one model whose elements carry their normative ids — instead of a model file; -id defaults to uuid"
+	if syncFeature.linked {
+		text += ". -o may name a Flexo branch to publish the library to"
+	}
+	return text
+}
+
 func convertUsage() string {
 	text := "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle, rdf or api-json (RDF and the API element form are experimental)"
 	if syncFeature.linked {

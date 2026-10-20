@@ -1,5 +1,5 @@
 // Invalid: a usage redefining an end feature within a connection usage must be an end (KerML 8.3.3.3 validateRedefinitionEndConformance; pilot validateRedefinitionEndConformance).
-package S109NonendRedefinesEndInConnectionUsage {
+package S111NonendRedefinesEndInConnectionUsage {
     part def A;
     connection def Conn {
         end one : A;
