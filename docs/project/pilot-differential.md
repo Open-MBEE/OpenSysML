@@ -245,7 +245,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 910 files)
+## Results (pilot `2026-08`, 912 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -254,10 +254,10 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
 | `examples/spec-examples` | 511 | 149 | 1110 | 3407 | 1033 | 6 | 71 | 2368 |
-| `tests/testdata` | 30 | 17 | 66 | 85 | 48 | 5 | 13 | 32 |
+| `tests/testdata` | 32 | 19 | 66 | 85 | 48 | 5 | 13 | 32 |
 | `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **910** | **508** | **1479** | **3553** | **1081** | **11** | **387** | **2461** |
+| **Total** | **912** | **510** | **1479** | **3553** | **1081** | **11** | **387** | **2461** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -1202,7 +1202,7 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **508 / 387 / 1479** |
+| overall: fully agreeing / only ours / our diagnostics | **510 / 387 / 1479** |
 | only pilot | **2461** |
 | pilot diagnostics | **3553** |
 | severity-only | **11** |

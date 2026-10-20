@@ -510,6 +510,7 @@ Specification: KerML 1.0 §8.2.3.5 (name resolution)
 | [`comparison-constant`](#comparison-constant) | warning | a comparison of two values whose types never meet |
 | [`condition-boolean`](#condition-boolean) | error | a condition that is not Boolean |
 | [`conjugated-port-definition`](#conjugated-port-definition) | error | `~` applied to something other than a port definition, or typing something other than a port |
+| [`connection-def-end-not-usage`](#connection-def-end-not-usage) | error | a connection definition end that is no usage |
 | [`connector-end-index`](#connector-end-index) | error | a connector end selecting an element outside the feature's multiplicity |
 | [`constructor-argument`](#constructor-argument) | error | an argument of `new X(...)` that fits no feature of `X` |
 | [`constructor-expression-no-duplicate-feature-redefinition`](#constructor-expression-no-duplicate-feature-redefinition) | error | `new X(...)` binding one feature twice |
@@ -519,6 +520,7 @@ Specification: KerML 1.0 §8.2.3.5 (name resolution)
 | [`filter-not-boolean`](#filter-not-boolean) | error | an element filter whose condition is not Boolean |
 | [`filter-not-evaluable`](#filter-not-evaluable) | error | an element filter that is not model-level evaluable |
 | [`filter-not-evaluated`](#filter-not-evaluated) | warning | an element filter OpenSysML does not evaluate |
+| [`flow-def-end-not-usage`](#flow-def-end-not-usage) | error | a flow definition end that is no usage |
 | [`flow-def-too-many-ends`](#flow-def-too-many-ends) | error | a flow definition with more than two ends |
 | [`incommensurable-binding`](#incommensurable-binding) | error | a quantity bound to a feature typed by a quantity of another dimension |
 | [`incommensurable-operands`](#incommensurable-operands) | warning | an operator combining quantities whose dimensions do not fit |
@@ -607,6 +609,14 @@ Specification: KerML 1.0 §8.3.4.7 (a constraint's result is Boolean) and §8.3.
 
 Specification: SysML v2 §7.12.2 ConjugatedPortDefinition
 
+#### `connection-def-end-not-usage`
+
+**error** · Typing · a connection definition end that is no usage
+
+Every end feature of a connection, interface or allocation definition is a usage, the inherited ones included; this definition inherits a KerML end feature from a kernel association such as Links::BinaryLink or Occurrences::HappensLink. Specialize Connections::Connection or BinaryConnection instead, or declare usage ends that redefine the inherited ones.
+
+Specification: SysML v2.1 Beta 2 §8.3.13.3 (connectionEnd : Usage redefines associationEnd); pilot validateConnectionDefinitionEndsAreUsages
+
 #### `connector-end-index`
 
 **error** · Typing · a connector end selecting an element outside the feature's multiplicity
@@ -676,6 +686,14 @@ Specification: KerML 1.0 validateElementFilterMembershipIsModelLevelEvaluable an
 **warning** · Typing · an element filter OpenSysML does not evaluate
 
 The filter condition is well formed but uses a form OpenSysML's model-level evaluator does not implement yet, so every candidate is kept as if the filter were absent. Rewrite the condition with metadata tests and comparisons the evaluator covers, or expect the unfiltered members.
+
+#### `flow-def-end-not-usage`
+
+**error** · Typing · a flow definition end that is no usage
+
+Every end feature of a flow definition is a usage, the inherited ones included; this definition inherits a KerML end feature from a kernel association such as Transfers::Transfer. Specialize Flows::Flow or Flows::Message instead, or declare usage ends that redefine the inherited ones.
+
+Specification: SysML v2.1 Beta 2 §8.3.16.2 (flowEnd : Usage redefines associationEnd); pilot validateFlowDefinitionEndsAreUsages
 
 #### `flow-def-too-many-ends`
 
@@ -1023,7 +1041,7 @@ Specification: SysML v2 validatePortUsageIsReference
 | [`redefinition-multiplicity`](#redefinition-multiplicity) | warning | a redefining feature with a smaller lower bound than the redefined one |
 | [`redefinition-no-derived-name`](#redefinition-no-derived-name) | warning | an unnamed redefinition given a value in a context that names it differently |
 | [`redefinition-no-inherited`](#redefinition-no-inherited) | error | `:>>` naming a feature the owner does not inherit |
-| [`redefinition-not-end`](#redefinition-not-end) | error | a non-end feature redefining an end feature |
+| [`redefinition-not-end`](#redefinition-not-end) | error | a non-end feature of an association or connector redefining an end feature |
 | [`redefinition-package-level`](#redefinition-package-level) | error | a redefinition of a package-level feature |
 | [`redefinition-same-featuring`](#redefinition-same-featuring) | error | a redefinition between features of one featuring type |
 | [`redefinition-through-reference`](#redefinition-through-reference) | error | a chain redefinition stepping through a feature that owns no object |
@@ -1699,11 +1717,11 @@ Specification: KerML 1.0 §8.3.3.3.6 Redefinition
 
 #### `redefinition-not-end`
 
-**error** · Constraints · a non-end feature redefining an end feature
+**error** · Constraints · a non-end feature of an association or connector redefining an end feature
 
-A feature that redefines an end feature is itself an end feature. Write `end` before the redefining feature.
+A feature of an association or a connector that redefines an end feature is itself an end feature; a feature of any other type may redefine an end without being one. Write `end` before the redefining feature.
 
-Specification: KerML 1.0 validateRedefinitionEndConformance
+Specification: KerML 1.1 Beta 2 §8.3.3.3.8 validateRedefinitionEndConformance
 
 #### `redefinition-package-level`
 
