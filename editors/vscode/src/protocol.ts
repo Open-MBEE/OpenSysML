@@ -1,7 +1,7 @@
 // The custom methods the OpenSysML language server adds for diagrams, and the
 // payloads they carry. They mirror internal/frontend/lsp/render.go.
 
-import type { DiagramStyle } from "./style";
+import type { DiagramStyle, Routing } from "./style";
 
 export const RENDER_METHOD = "opensysml/render";
 export const VIEWS_METHOD = "opensysml/views";
@@ -397,6 +397,7 @@ export type ToWebview =
     selected: string;
     drawn: number;
     style: DiagramStyle;
+    routing: Routing;
     hint?: string;
     /** The relationship kinds the workspace hides by default; the panel's own filter, once set, takes precedence. */
     hideRelations?: string[];
@@ -404,6 +405,8 @@ export type ToWebview =
   | { type: "views"; views: PickerEntry[]; selected: string }
   /** The look to redraw the diagram on screen in, ahead of the rendering coloured for it. */
   | { type: "style"; style: DiagramStyle }
+  /** Whose routes to lay the edges on screen along: the model's stated ones, or the panel's router's. */
+  | { type: "routing"; routing: Routing }
   | { type: "error"; message: string }
   | { type: "highlight"; id: string | undefined }
   /** A drop the model did not take: the canvas goes back to the model's layout, the status line says why. */

@@ -26,6 +26,36 @@ export function hiddenRelationsOf(value: unknown): string[] {
 /** The setting bounding how many levels of nested elements a diagram draws below each exposed element. */
 export const DEPTH_SETTING = "opensysml.diagram.depth";
 
+/** The setting that picks whose routes the diagram panel draws its edges along. */
+export const ROUTING_SETTING = "opensysml.diagram.routing";
+
+/** The routings: `model` draws a stated `Route` verbatim, `router` sends every edge without an ELK route through libavoid. */
+export const ROUTINGS = ["model", "router"] as const;
+
+export type Routing = (typeof ROUTINGS)[number];
+
+export const DEFAULT_ROUTING: Routing = "model";
+
+/** routingOf reads the routing setting: the routing it names, or the default when it names none. */
+export function routingOf(value: unknown): Routing {
+  return typeof value === "string" && (ROUTINGS as readonly string[]).includes(value) ? (value as Routing) : DEFAULT_ROUTING;
+}
+
+/** The setting that says where a newly opened diagram panel goes. */
+export const OPEN_IN_SETTING = "opensysml.diagram.openIn";
+
+/** Where a new panel opens: in the diagram group beside the source, or moved out into a window of its own. */
+export const OPEN_INS = ["beside", "newWindow"] as const;
+
+export type OpenIn = (typeof OPEN_INS)[number];
+
+export const DEFAULT_OPEN_IN: OpenIn = "beside";
+
+/** openInOf reads the openIn setting: the place it names, or the default when it names none. */
+export function openInOf(value: unknown): OpenIn {
+  return typeof value === "string" && (OPEN_INS as readonly string[]).includes(value) ? (value as OpenIn) : DEFAULT_OPEN_IN;
+}
+
 /** depthOf reads the depth setting: a non-negative whole number, anything else 0, every level. */
 export function depthOf(value: unknown): number {
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;

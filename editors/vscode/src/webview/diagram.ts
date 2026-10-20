@@ -10,7 +10,7 @@ import {
   type RenderResult,
   type ToWebview,
 } from "../protocol";
-import { cameoLook, type DiagramStyle, pilotLook, STYLE_LABELS, STYLES, styleOf } from "../style";
+import { cameoLook, type DiagramStyle, pilotLook, type Routing, routingOf, STYLE_LABELS, STYLES, styleOf } from "../style";
 import { MenuCommand, nodeMenu } from "./actions";
 import { autoLayout, type AutoLayout } from "./autolayout";
 import { loadAvoid, reportAvoidFailure } from "./avoid";
@@ -73,12 +73,13 @@ const relationList = document.getElementById("relation-list") as HTMLElement;
 
 const state = JSON.parse(body.dataset.state ?? "{}") as { uri?: string; avoid?: string };
 const documentURI = state.uri ?? "";
-const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string; viewport?: unknown; hidden?: string[] };
+const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string; routing?: string; viewport?: unknown; hidden?: string[] };
 let selected = saved.view ?? "";
 // A rendering saved by an older extension is normalized like a fresh one, and
 // drawn in the look it was, or the default when it saved none.
 let last: RenderResult | undefined = saved.last === undefined ? undefined : normalizeRender(saved.last);
 let style: DiagramStyle = styleOf(saved.style);
+let routing: Routing = routingOf(saved.routing);
 let selectedNode: string | undefined;
 /** How far the canvas is zoomed and where it is scrolled to; kept per panel across reloads. */
 let viewport: Viewport = readViewport(saved.viewport);
@@ -234,6 +235,7 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
     case "render":
       // The number names what is on screen; a drawing that failed left the last one up.
       applyStyle(message.style);
+      applyRouting(message.routing);
       defaultHidden = message.hideRelations ?? [];
       if (draw(message.result)) {
         drawn = message.drawn;
@@ -249,6 +251,13 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
       return;
     case "style":
       applyStyle(message.style);
+      return;
+    case "routing":
+      applyRouting(message.routing);
+      if (last && layout && !gesture) {
+        layout = layoutCanvas(last, { routing }, auto);
+        show(layout);
+      }
       return;
     case "error":
       showError(message.message);
@@ -302,6 +311,15 @@ function applyStyle(chosen: DiagramStyle): void {
   styler.value = chosen;
   diagram.classList.toggle("pilot", pilotLook(chosen));
   diagram.classList.toggle("cameo", cameoLook(chosen));
+  remember();
+}
+
+// applyRouting picks whose routes the edges follow; the caller redraws where a drawing is up.
+function applyRouting(chosen: Routing): void {
+  if (chosen === routing) {
+    return;
+  }
+  routing = chosen;
   remember();
 }
 
@@ -431,7 +449,7 @@ function hiddenSet(): Set<string> {
 
 // panelOverrides is what the panel itself lays over every layout of the rendering.
 function panelOverrides(): Overrides {
-  return { hiddenKinds: hiddenSet(), unplaced: freeAuto !== undefined };
+  return { hiddenKinds: hiddenSet(), unplaced: freeAuto !== undefined, routing };
 }
 
 // currentAuto is the ELK layout in force: the free one while Auto layout is, else the one held to the model.
@@ -1082,5 +1100,5 @@ function highlight(id: string | undefined): void {
 
 // remember keeps what the panel is showing, so a window reload restores it.
 function remember(): void {
-  vscode.setState({ uri: documentURI, view: selected, last, style, viewport, hidden: hiddenKinds === undefined ? undefined : [...hiddenKinds] });
+    vscode.setState({ uri: documentURI, view: selected, last, style, routing, viewport, hidden: hiddenKinds === undefined ? undefined : [...hiddenKinds] });
 }
