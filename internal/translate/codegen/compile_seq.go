@@ -298,6 +298,15 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A function value held in a sequence (a bare calc result) compares as its one element.
+	where := fmt.Sprintf("'%s'", n.Operator)
+	if lt, rt := l.Type(), r.Type(); lt.Many() && lt.Elem().IsFn() && !rt.Many() {
+		fc.c.collections = true
+		l = ToOne{X: l, Where: where}
+	} else if rt.Many() && rt.Elem().IsFn() && !lt.Many() {
+		fc.c.collections = true
+		r = ToOne{X: r, Where: where}
+	}
 	if l.Type().MayUnset() || r.Type().MayUnset() {
 		neq := n.Operator == ast.OpNeq || n.Operator == ast.OpNeqEqEq
 		return fc.unsetEquality(func(l, r Expr) (Expr, error) { return fc.equality(n, l, r) }, l, r, neq)

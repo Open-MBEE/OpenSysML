@@ -1,8 +1,8 @@
 enter calc test::c
   eval literal 5 -> 5
-  bind n = (5) [default]
+  bind n = 5 [default]
 exit calc test::c
-  eval feature n -> (5)
+  eval feature n -> 5
   eval literal 1 -> 1
 eval operator + -> 6
 output test::c.a = (6)

@@ -4,9 +4,9 @@ stmt assign v
 stmt assign doubled
     enter calc test::CalcOrder::s::t
       eval feature v -> 2.0
-      bind k = (2.0) [default]
+      bind k = 2.0 [default]
     exit calc test::CalcOrder::s::t
-      eval feature k -> (2.0)
+      eval feature k -> 2.0
       eval literal 2.0 -> 2.0
     eval operator * -> 4.0
     output test::CalcOrder::s::t.d = (4.0)

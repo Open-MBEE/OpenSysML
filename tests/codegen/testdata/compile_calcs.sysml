@@ -714,7 +714,7 @@ package Compiled {
 		calc def Unique { in a : String; attribute x : String[0..*] = (a, "x"); return : String[0..*] = x; }
 		calc def Lengths { in x : String[0..*]; return : Integer[0..*] = x->collect {in s : String; Length(s)}; }
 		calc def Has { in a : String; return : Boolean = includes(("p", "q"), a); }
-		calc def Joined { in x : String[0..*]; return : String = x->reduce {in a : String; in b : String; a + "," + b}; }
+		calc def Joined { in x : String[0..*]; return : String[1] = x->reduce {in a : String; in b : String; a + "," + b}; }
 		calc def Build { in a : String; in n : Integer; attribute s : String = ""; while Length(s) < n { assign s := s + a; } return : String = s; }
 		calc def Names { in n : Integer; attribute keep : String[0..*] = (); while size(keep) < n { assign keep := including(keep, "n" + IntegerFunctions::ToString(size(keep))); } return : String[0..*] = keep; }
 		calc def ForS { in x : String[0..*]; attribute s : String = ""; for v in x { assign s := s + v + ";"; } return : String = s; }

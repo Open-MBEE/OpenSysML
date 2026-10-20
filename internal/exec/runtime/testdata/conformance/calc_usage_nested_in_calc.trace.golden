@@ -1,26 +1,26 @@
 enter calc test::rhsAt
   eval literal 150.0 -> 150.0
-  bind vx = (150.0) [default]
+  bind vx = 150.0 [default]
   eval operator - -> -20.0
-  bind vh = (-20.0) [default]
+  bind vh = -20.0 [default]
   eval literal 4.0 -> 4.0
-  bind thrust = (4.0) [default]
+  bind thrust = 4.0 [default]
   stmt declare calc st
 exit calc test::rhsAt
-  eval feature thrust -> (4.0)
+  eval feature thrust -> 4.0
     enter calc test::Rhs::st
-      eval feature vx -> (150.0)
-      bind svx = (150.0) [default]
-      eval feature vh -> (-20.0)
-      bind svh = (-20.0) [default]
+      eval feature vx -> 150.0
+      bind svx = 150.0 [default]
+      eval feature vh -> -20.0
+      bind svh = -20.0 [default]
     exit calc test::Rhs::st
       eval literal 0.0 -> 0.0
-        eval feature svx -> (150.0)
-                eval feature svx -> (150.0)
-                eval feature svx -> (150.0)
+        eval feature svx -> 150.0
+                eval feature svx -> 150.0
+                eval feature svx -> 150.0
               eval operator * -> 22500.0
-                eval feature svh -> (-20.0)
-                eval feature svh -> (-20.0)
+                eval feature svh -> -20.0
+                eval feature svh -> -20.0
               eval operator * -> 400.0
             eval operator + -> 22900.0
             enter calc RealFunctions::sqrt
@@ -34,10 +34,10 @@ exit calc test::rhsAt
   eval chain ux -> (-0.9912279006826346)
 eval operator * -> -3.964911602730538
 output test::rhsAt.dvx = (-3.964911602730538)
-    eval feature thrust -> (4.0)
+    eval feature thrust -> 4.0
       reuse calc test::Rhs::st
         eval literal 0.0 -> 0.0
-          eval feature svh -> (-20.0)
+          eval feature svh -> -20.0
           eval feature speed -> (151.32745950421557)
         eval operator / -> -0.13216372009101796
       eval operator - -> 0.13216372009101796

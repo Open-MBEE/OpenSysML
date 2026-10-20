@@ -1,8 +1,8 @@
 enter calc test::greeting
-  bind name = ("Ada") [argument]
+  bind name = "Ada" [argument]
   stmt return
         eval literal "Hello, " -> "Hello, "
-        eval feature name -> ("Ada")
+        eval feature name -> "Ada"
       eval operator + -> "Hello, Ada"
       eval literal "!" -> "!"
     eval operator + -> "Hello, Ada!"

@@ -24,10 +24,10 @@ enter: waiting
     eval index -> 0.375 [s]
 run: performed action cool of #1
     enter calc test::Tank::cool::getOutput
-      bind input = (⟨0.0⟩) [argument]
-      bind stateSpace = (⟨1.0⟩) [argument]
+      bind input = ⟨0.0⟩ [argument]
+      bind stateSpace = ⟨1.0⟩ [argument]
       stmt return
-              eval feature stateSpace -> (⟨1.0⟩)
+              eval feature stateSpace -> ⟨1.0⟩
             eval chain elements -> (1.0)
             eval literal 1 -> 1
           eval index -> 1.0
@@ -45,21 +45,21 @@ step 2: token 1@wait
 eval index -> 1.1 [s]
 run: performed action cool of #1
 enter calc test::Tank::cool::getDerivative
-  bind input = (⟨0.0⟩) [argument]
-  bind stateSpace = (⟨1.0⟩) [argument]
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨1.0⟩ [argument]
   stmt return
         eval operator - -> -2.0
-        eval feature stateSpace -> (⟨1.0⟩)
+        eval feature stateSpace -> ⟨1.0⟩
       eval operator * -> ⟨-2.0⟩
         eval literal 1 -> 1
       eval index -> 1 [s]
     eval operator / -> ⟨-2.0⟩ [1/s]
 exit calc test::Tank::cool::getDerivative -> (⟨-2.0⟩ [1/s])
 enter calc test::Tank::cool::getOutput
-  bind input = (⟨0.0⟩) [argument]
-  bind stateSpace = (⟨0.5⟩) [argument]
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.5⟩ [argument]
   stmt return
-          eval feature stateSpace -> (⟨0.5⟩)
+          eval feature stateSpace -> ⟨0.5⟩
         eval chain elements -> (0.5)
         eval literal 1 -> 1
       eval index -> 0.5
@@ -84,21 +84,21 @@ eval index -> 0.375 [s]
 transition: waiting -> sampledEarly (event: time)
 run: performed action cool of #1
 enter calc test::Tank::cool::getDerivative
-  bind input = (⟨0.0⟩) [argument]
-  bind stateSpace = (⟨0.5⟩) [argument]
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.5⟩ [argument]
   stmt return
         eval operator - -> -2.0
-        eval feature stateSpace -> (⟨0.5⟩)
+        eval feature stateSpace -> ⟨0.5⟩
       eval operator * -> ⟨-1.0⟩
         eval literal 1 -> 1
       eval index -> 1 [s]
     eval operator / -> ⟨-1.0⟩ [1/s]
 exit calc test::Tank::cool::getDerivative -> (⟨-1.0⟩ [1/s])
 enter calc test::Tank::cool::getOutput
-  bind input = (⟨0.0⟩) [argument]
-  bind stateSpace = (⟨0.25⟩) [argument]
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.25⟩ [argument]
   stmt return
-          eval feature stateSpace -> (⟨0.25⟩)
+          eval feature stateSpace -> ⟨0.25⟩
         eval chain elements -> (0.25)
         eval literal 1 -> 1
       eval index -> 0.25
@@ -112,21 +112,21 @@ step 3: token 1@cool
 choice at t=0.75: due action cool of object #1, state machine monitor of object #1 (unordered; ran action cool of object #1 first; order-dependent: late)
 run: performed action cool of #1
 enter calc test::Tank::cool::getDerivative
-  bind input = (⟨0.0⟩) [argument]
-  bind stateSpace = (⟨0.25⟩) [argument]
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.25⟩ [argument]
   stmt return
         eval operator - -> -2.0
-        eval feature stateSpace -> (⟨0.25⟩)
+        eval feature stateSpace -> ⟨0.25⟩
       eval operator * -> ⟨-0.5⟩
         eval literal 1 -> 1
       eval index -> 1 [s]
     eval operator / -> ⟨-0.5⟩ [1/s]
 exit calc test::Tank::cool::getDerivative -> (⟨-0.5⟩ [1/s])
 enter calc test::Tank::cool::getOutput
-  bind input = (⟨0.0⟩) [argument]
-  bind stateSpace = (⟨0.125⟩) [argument]
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.125⟩ [argument]
   stmt return
-          eval feature stateSpace -> (⟨0.125⟩)
+          eval feature stateSpace -> ⟨0.125⟩
         eval chain elements -> (0.125)
         eval literal 1 -> 1
       eval index -> 0.125
@@ -149,21 +149,21 @@ stmt assign late
 transition: sampledEarly -> sampledLate (event: time)
 run: performed action cool of #1
 enter calc test::Tank::cool::getDerivative
-  bind input = (⟨0.0⟩) [argument]
-  bind stateSpace = (⟨0.125⟩) [argument]
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.125⟩ [argument]
   stmt return
         eval operator - -> -2.0
-        eval feature stateSpace -> (⟨0.125⟩)
+        eval feature stateSpace -> ⟨0.125⟩
       eval operator * -> ⟨-0.25⟩
         eval literal 1 -> 1
       eval index -> 1 [s]
     eval operator / -> ⟨-0.25⟩ [1/s]
 exit calc test::Tank::cool::getDerivative -> (⟨-0.25⟩ [1/s])
 enter calc test::Tank::cool::getOutput
-  bind input = (⟨0.0⟩) [argument]
-  bind stateSpace = (⟨0.0625⟩) [argument]
+  bind input = ⟨0.0⟩ [argument]
+  bind stateSpace = ⟨0.0625⟩ [argument]
   stmt return
-          eval feature stateSpace -> (⟨0.0625⟩)
+          eval feature stateSpace -> ⟨0.0625⟩
         eval chain elements -> (0.0625)
         eval literal 1 -> 1
       eval index -> 0.0625

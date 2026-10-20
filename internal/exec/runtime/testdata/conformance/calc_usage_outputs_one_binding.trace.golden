@@ -5,16 +5,16 @@ enter calc test::Interleaved
   stmt declare ra
       enter calc test::Interleaved::p
         eval feature v -> 1.0
-        bind k = (1.0) [default]
+        bind k = 1.0 [default]
       exit calc test::Interleaved::p
-      eval feature k -> (1.0)
+      eval feature k -> 1.0
       output test::Interleaved::p.a = (1.0)
     eval chain a -> (1.0)
   stmt assign v
     eval literal 2.0 -> 2.0
   stmt declare rb
       reuse calc test::Interleaved::p
-        eval feature k -> (1.0)
+        eval feature k -> 1.0
         eval literal 10.0 -> 10.0
       eval operator * -> 10.0
       output test::Interleaved::p.b = (10.0)
@@ -22,9 +22,9 @@ enter calc test::Interleaved
   stmt return
             reuse calc test::Interleaved::p
           eval chain a -> (1.0)
-        eval feature ra -> (1.0)
+        eval feature ra -> 1.0
         eval literal 1000.0 -> 1000.0
       eval operator * -> 1000.0
-      eval feature rb -> (10.0)
+      eval feature rb -> 10.0
     eval operator + -> 1010.0
 exit calc test::Interleaved -> (1010.0)

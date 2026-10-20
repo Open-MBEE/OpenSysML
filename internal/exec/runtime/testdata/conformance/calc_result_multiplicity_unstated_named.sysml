@@ -1,4 +1,4 @@
-// A named result parameter stating no multiplicity holds its value as computed, as an anonymous one does.
+// A named result parameter stating no multiplicity is held in its effective `[0..*]`, as an anonymous one is.
 package test {
 	private import ScalarValues::*;
 

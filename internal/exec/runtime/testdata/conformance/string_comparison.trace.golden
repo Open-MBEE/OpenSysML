@@ -1,16 +1,16 @@
 enter calc test::precedes
-  bind earlier = ("apple") [argument]
-  bind later = ("banana") [argument]
+  bind earlier = "apple" [argument]
+  bind later = "banana" [argument]
   stmt return
-          eval feature earlier -> ("apple")
-          eval feature later -> ("banana")
+          eval feature earlier -> "apple"
+          eval feature later -> "banana"
         eval operator < -> true
           eval literal "" -> ""
-          eval feature earlier -> ("apple")
+          eval feature earlier -> "apple"
         eval operator < -> true
       eval operator and -> true
-        eval feature earlier -> ("apple")
-        eval feature earlier -> ("apple")
+        eval feature earlier -> "apple"
+        eval feature earlier -> "apple"
       eval operator <= -> true
     eval operator and -> true
 exit calc test::precedes -> (true)

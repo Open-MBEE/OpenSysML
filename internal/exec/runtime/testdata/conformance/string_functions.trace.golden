@@ -1,7 +1,7 @@
 enter calc test::firstTwo
-  bind text = ("héllo") [argument]
+  bind text = "héllo" [argument]
   stmt return
-      eval feature text -> ("héllo")
+      eval feature text -> "héllo"
       eval literal 1 -> 1
         eval literal "hé" -> "hé"
         enter calc StringFunctions::Length
@@ -9,7 +9,7 @@ enter calc test::firstTwo
         exit calc StringFunctions::Length -> 2
       eval invoke Length -> 2
       enter calc StringFunctions::Substring
-        bind x = ("héllo") [argument]
+        bind x = "héllo" [argument]
         bind lower = 1 [argument]
         bind upper = 2 [argument]
       exit calc StringFunctions::Substring -> "hé"

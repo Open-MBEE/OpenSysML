@@ -55,8 +55,8 @@ func TestCalcTraceIsStableAcrossRuns(t *testing.T) {
 	// argument order.
 	want := []string{
 		"enter calc test::combine",
-		"bind a = (3) [argument]",
-		"bind b = (4) [default]",
+		"bind a = 3 [argument]",
+		"bind b = 4 [default]",
 		"enter calc test::double",
 		"exit calc test::double -> (6)",
 		"enter calc test::double",
@@ -175,7 +175,7 @@ func TestCalcTraceRecordsFailure(t *testing.T) {
 	}
 
 	got := trace.String()
-	if !strings.Contains(got, "bind x = (3) [argument]") {
+	if !strings.Contains(got, "bind x = 3 [argument]") {
 		t.Errorf("trace is missing the successful binding:\n%s", got)
 	}
 	if !strings.Contains(got, "exit calc test::add -> error: unbound parameter") {

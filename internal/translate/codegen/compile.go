@@ -493,7 +493,11 @@ func (fc *funcCompiler) declaredResult(sym *symbols.Symbol, body []ast.Node) (bi
 			}
 			if held {
 				// The value fixes the count; one is held as a one-element sequence.
-				return binding{m: MultAny, shaped: true}, nil
+				unique, err := fc.uniqueOf(sym.Scope, u, name)
+				if err != nil {
+					return binding{}, err
+				}
+				return binding{m: MultAny, shaped: true, unique: unique}, nil
 			}
 			return binding{m: MultOne}, nil
 		}

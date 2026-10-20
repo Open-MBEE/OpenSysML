@@ -1,12 +1,12 @@
 enter calc test::b
   eval literal 7 -> 7
-  bind n = (7) [default]
+  bind n = 7 [default]
   stmt declare doubled
     eval literal 0 -> 0
   stmt while
     iteration 1
         eval feature doubled -> 0
-        eval feature n -> (7)
+        eval feature n -> 7
       eval operator < -> true
       stmt assign doubled
           eval feature doubled -> 0
@@ -14,7 +14,7 @@ enter calc test::b
         eval operator + -> 2
     iteration 2
         eval feature doubled -> 2
-        eval feature n -> (7)
+        eval feature n -> 7
       eval operator < -> true
       stmt assign doubled
           eval feature doubled -> 2
@@ -22,7 +22,7 @@ enter calc test::b
         eval operator + -> 4
     iteration 3
         eval feature doubled -> 4
-        eval feature n -> (7)
+        eval feature n -> 7
       eval operator < -> true
       stmt assign doubled
           eval feature doubled -> 4
@@ -30,7 +30,7 @@ enter calc test::b
         eval operator + -> 6
     iteration 4
         eval feature doubled -> 6
-        eval feature n -> (7)
+        eval feature n -> 7
       eval operator < -> true
       stmt assign doubled
           eval feature doubled -> 6
@@ -38,7 +38,7 @@ enter calc test::b
         eval operator + -> 8
     iteration 5
         eval feature doubled -> 8
-        eval feature n -> (7)
+        eval feature n -> 7
       eval operator < -> false
   stmt return
     eval feature doubled -> 8
@@ -46,7 +46,7 @@ exit calc test::b -> (8)
 eval feature doubled -> 8
 output test::b.reached = (8)
   eval feature reached -> (8)
-  eval feature n -> (7)
+  eval feature n -> 7
 eval operator - -> 1
 output test::b.margin = (1)
   eval feature reached -> (8)

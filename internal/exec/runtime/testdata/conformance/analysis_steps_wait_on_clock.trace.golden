@@ -3,7 +3,7 @@ materialize: ship #1
   eval feature ship -> instance#1
   bind boat = instance#1 [default]
   eval literal 60.0 -> 60.0
-  bind leg = (60.0) [default]
+  bind leg = 60.0 [default]
   stmt action body
 enter action node: analysis test::voyage
     stmt assign boat.log
@@ -12,7 +12,7 @@ enter action node: analysis test::voyage
         eval literal 1.0 -> 1.0
       eval operator + -> 1.0
       eval feature boat -> instance#1
-      eval feature leg -> (60.0)
+      eval feature leg -> 60.0
     eval index -> 60.0 [s]
     stmt assign boat.log
           eval feature boat -> instance#1

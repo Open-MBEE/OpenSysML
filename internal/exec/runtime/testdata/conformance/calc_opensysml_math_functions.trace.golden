@@ -1,22 +1,22 @@
 enter calc test::descentSteering
-  bind altitude = (3.0) [argument]
-  bind vy = (1.0) [argument]
-  bind vx = (1.0) [argument]
+  bind altitude = 3.0 [argument]
+  bind vy = 1.0 [argument]
+  bind vx = 1.0 [argument]
   stmt return
-            eval feature altitude -> (3.0)
+            eval feature altitude -> 3.0
             enter calc OpenSysMLMathFunctions::exp
-              bind x = (3.0) [argument]
+              bind x = 3.0 [argument]
             exit calc OpenSysMLMathFunctions::exp -> 20.085536923187668
           eval invoke exp -> 20.085536923187668
           enter calc OpenSysMLMathFunctions::ln
             bind x = 20.085536923187668 [argument]
           exit calc OpenSysMLMathFunctions::ln -> 3.0
         eval invoke ln -> 3.0
-            eval feature vy -> (1.0)
-            eval feature vx -> (1.0)
+            eval feature vy -> 1.0
+            eval feature vx -> 1.0
             enter calc OpenSysMLMathFunctions::atan2
-              bind y = (1.0) [argument]
-              bind x = (1.0) [argument]
+              bind y = 1.0 [argument]
+              bind x = 1.0 [argument]
             exit calc OpenSysMLMathFunctions::atan2 -> 0.7853981633974483
           eval invoke atan2 -> 0.7853981633974483
           eval literal 4.0 -> 4.0

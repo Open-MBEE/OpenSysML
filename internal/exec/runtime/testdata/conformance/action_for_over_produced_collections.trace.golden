@@ -48,11 +48,11 @@ stmt for x
 stmt for c
     eval literal 3 -> 3
     enter calc test::Above
-      bind n = (3) [argument]
+      bind n = 3 [argument]
       stmt return
           enter calc ControlFunctions::select
               eval literal 1 -> 1
-              eval feature n -> (3)
+              eval feature n -> 3
             eval operator .. -> (1, 2, 3)
             eval body -> expr(body)
             bind collection = (1, 2, 3) [argument]

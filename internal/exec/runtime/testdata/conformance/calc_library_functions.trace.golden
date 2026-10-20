@@ -1,11 +1,11 @@
 enter calc test::diagonalGain
-  bind x = (3.0) [argument]
-  bind y = (4.0) [argument]
+  bind x = 3.0 [argument]
+  bind y = 4.0 [argument]
   stmt return
-            eval feature x -> (3.0)
+            eval feature x -> 3.0
             eval literal 2 -> 2
           eval operator ** -> 9.0
-            eval feature y -> (4.0)
+            eval feature y -> 4.0
             eval literal 2 -> 2
           eval operator ** -> 16.0
         eval operator + -> 25.0

@@ -153,7 +153,9 @@ func (ctx *Context) calcMemberDeclOf(link *symbols.Symbol, sym *symbols.Symbol, 
 func (ctx *Context) calcMemberDeclFor(link, sym *symbols.Symbol, name string) calcMemberDecl {
 	mult, stated := ctx.extractMultiplicity(sym)
 	effective := false
-	if !stated && semantics.IsParameter(sym) {
+	if !stated && semantics.IsOutputParameter(sym) {
+		// What a calc answers with is held in its effective multiplicity (SysML v2 §7.6.3,
+		// §7.19.2); an input is bound as the argument came.
 		mult, effective = ctx.model.semantics.EffectiveParameterRange(sym), true
 	}
 	return calcMemberDecl{

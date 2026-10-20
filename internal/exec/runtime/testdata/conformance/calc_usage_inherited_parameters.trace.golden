@@ -1,11 +1,11 @@
 enter calc test::t
   eval literal 5 -> 5
-  bind x = (5) [default]
+  bind x = 5 [default]
   eval literal 3 -> 3
-  bind factor = (3) [default]
+  bind factor = 3 [default]
 exit calc test::t
-  eval feature x -> (5)
-  eval feature factor -> (3)
+  eval feature x -> 5
+  eval feature factor -> 3
 eval operator * -> 15
 output test::t.scaled = (15)
   eval feature scaled -> (15)

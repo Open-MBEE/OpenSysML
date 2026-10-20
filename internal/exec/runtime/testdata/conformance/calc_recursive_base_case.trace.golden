@@ -1,51 +1,51 @@
 enter calc test::factorial
-  bind n = (5) [argument]
+  bind n = 5 [argument]
   stmt if
-      eval feature n -> (5)
+      eval feature n -> 5
       eval literal 1 -> 1
     eval operator <= -> false
   stmt return
-      eval feature n -> (5)
-          eval feature n -> (5)
+      eval feature n -> 5
+          eval feature n -> 5
           eval literal 1 -> 1
         eval operator - -> 4
         enter calc test::factorial
-          bind n = (4) [argument]
+          bind n = 4 [argument]
           stmt if
-              eval feature n -> (4)
+              eval feature n -> 4
               eval literal 1 -> 1
             eval operator <= -> false
           stmt return
-              eval feature n -> (4)
-                  eval feature n -> (4)
+              eval feature n -> 4
+                  eval feature n -> 4
                   eval literal 1 -> 1
                 eval operator - -> 3
                 enter calc test::factorial
-                  bind n = (3) [argument]
+                  bind n = 3 [argument]
                   stmt if
-                      eval feature n -> (3)
+                      eval feature n -> 3
                       eval literal 1 -> 1
                     eval operator <= -> false
                   stmt return
-                      eval feature n -> (3)
-                          eval feature n -> (3)
+                      eval feature n -> 3
+                          eval feature n -> 3
                           eval literal 1 -> 1
                         eval operator - -> 2
                         enter calc test::factorial
-                          bind n = (2) [argument]
+                          bind n = 2 [argument]
                           stmt if
-                              eval feature n -> (2)
+                              eval feature n -> 2
                               eval literal 1 -> 1
                             eval operator <= -> false
                           stmt return
-                              eval feature n -> (2)
-                                  eval feature n -> (2)
+                              eval feature n -> 2
+                                  eval feature n -> 2
                                   eval literal 1 -> 1
                                 eval operator - -> 1
                                 enter calc test::factorial
-                                  bind n = (1) [argument]
+                                  bind n = 1 [argument]
                                   stmt if
-                                      eval feature n -> (1)
+                                      eval feature n -> 1
                                       eval literal 1 -> 1
                                     eval operator <= -> true
                                     stmt return

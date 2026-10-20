@@ -1,9 +1,9 @@
     eval literal 120 -> 120
     enter calc test::margin
-      bind speed = (120) [argument]
+      bind speed = 120 [argument]
       stmt return
           eval literal 130 -> 130
-          eval feature speed -> (120)
+          eval feature speed -> 120
         eval operator - -> 10
     exit calc test::margin -> (10)
   eval invoke test::margin -> (10)

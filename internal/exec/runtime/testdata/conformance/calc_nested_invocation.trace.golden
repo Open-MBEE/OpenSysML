@@ -1,21 +1,21 @@
 enter calc test::combine
-  bind a = (3) [argument]
-  bind b = (4) [argument]
+  bind a = 3 [argument]
+  bind b = 4 [argument]
   stmt return
-        eval feature a -> (3)
+        eval feature a -> 3
         enter calc test::double
-          bind x = (3) [argument]
+          bind x = 3 [argument]
           stmt return
-              eval feature x -> (3)
+              eval feature x -> 3
               eval literal 2 -> 2
             eval operator * -> 6
         exit calc test::double -> (6)
       eval invoke double -> (6)
-        eval feature b -> (4)
+        eval feature b -> 4
         enter calc test::double
-          bind x = (4) [argument]
+          bind x = 4 [argument]
           stmt return
-              eval feature x -> (4)
+              eval feature x -> 4
               eval literal 2 -> 2
             eval operator * -> 8
         exit calc test::double -> (8)

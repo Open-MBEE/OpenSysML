@@ -672,7 +672,7 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 					t.Errorf("Hypot(%q, 4.0): got %v %q, want not a Real and exit status 2", arg, err, out)
 				}
 			}
-			if out, err := exec.Command(exes["Hypot"], "--repeat", "3", "3.0", "4.0").Output(); err != nil || strings.TrimSpace(string(out)) != "5.0" {
+			if out, err := exec.Command(exes["Hypot"], "--repeat", "3", "3.0", "4.0").Output(); err != nil || strings.TrimSpace(string(out)) != "[5.0]" {
 				t.Errorf("--repeat 3: got %q, %v", out, err)
 			}
 		})

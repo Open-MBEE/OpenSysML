@@ -3,9 +3,9 @@ choice statements in action node s: next 1 assign v, 2 assign doubled (unordered
 stmt assign doubled
     enter calc test::CalcOrder::s::t
       eval feature v -> 1.0
-      bind k = (1.0) [default]
+      bind k = 1.0 [default]
     exit calc test::CalcOrder::s::t
-      eval feature k -> (1.0)
+      eval feature k -> 1.0
       eval literal 2.0 -> 2.0
     eval operator * -> 2.0
     output test::CalcOrder::s::t.d = (2.0)

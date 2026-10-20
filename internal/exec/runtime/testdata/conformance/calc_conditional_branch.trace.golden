@@ -1,7 +1,7 @@
 enter calc test::sign
-  bind n = (-7) [argument]
+  bind n = -7 [argument]
   stmt if
-      eval feature n -> (-7)
+      eval feature n -> -7
       eval literal 0 -> 0
     eval operator < -> true
     stmt return

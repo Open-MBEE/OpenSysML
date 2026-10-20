@@ -1,5 +1,5 @@
 enter calc test::factorial
-  bind n = (6) [argument]
+  bind n = 6 [argument]
   stmt declare acc
     eval literal 1 -> 1
   stmt declare i
@@ -7,7 +7,7 @@ enter calc test::factorial
   stmt while
     iteration 1
         eval feature i -> 1
-        eval feature n -> (6)
+        eval feature n -> 6
       eval operator <= -> true
       stmt assign acc
           eval feature acc -> 1
@@ -19,7 +19,7 @@ enter calc test::factorial
         eval operator + -> 2
     iteration 2
         eval feature i -> 2
-        eval feature n -> (6)
+        eval feature n -> 6
       eval operator <= -> true
       stmt assign acc
           eval feature acc -> 1
@@ -31,7 +31,7 @@ enter calc test::factorial
         eval operator + -> 3
     iteration 3
         eval feature i -> 3
-        eval feature n -> (6)
+        eval feature n -> 6
       eval operator <= -> true
       stmt assign acc
           eval feature acc -> 2
@@ -43,7 +43,7 @@ enter calc test::factorial
         eval operator + -> 4
     iteration 4
         eval feature i -> 4
-        eval feature n -> (6)
+        eval feature n -> 6
       eval operator <= -> true
       stmt assign acc
           eval feature acc -> 6
@@ -55,7 +55,7 @@ enter calc test::factorial
         eval operator + -> 5
     iteration 5
         eval feature i -> 5
-        eval feature n -> (6)
+        eval feature n -> 6
       eval operator <= -> true
       stmt assign acc
           eval feature acc -> 24
@@ -67,7 +67,7 @@ enter calc test::factorial
         eval operator + -> 6
     iteration 6
         eval feature i -> 6
-        eval feature n -> (6)
+        eval feature n -> 6
       eval operator <= -> true
       stmt assign acc
           eval feature acc -> 120
@@ -79,7 +79,7 @@ enter calc test::factorial
         eval operator + -> 7
     iteration 7
         eval feature i -> 7
-        eval feature n -> (6)
+        eval feature n -> 6
       eval operator <= -> false
   stmt return
     eval feature acc -> 720

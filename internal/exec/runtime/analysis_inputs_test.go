@@ -44,7 +44,7 @@ func TestAnalysisResultInputsAreTheBoundParameters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"burnTime=[3.0]", "margin=[1.5]", "flag=[true]"}
+	want := []string{"burnTime=3.0", "margin=1.5", "flag=true"}
 	if got := textOf(result.Inputs); !reflect.DeepEqual(got, want) {
 		t.Errorf("inputs %v, want %v", got, want)
 	}
@@ -56,7 +56,7 @@ func TestAnalysisResultInputsAreTheBoundParameters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want = []string{"burnTime=[4.0]", "margin=[0.25]", "flag=[true]"}
+	want = []string{"burnTime=4.0", "margin=0.25", "flag=true"}
 	if got := textOf(result.Inputs); !reflect.DeepEqual(got, want) {
 		t.Errorf("inputs %v, want %v", got, want)
 	}
