@@ -9,9 +9,8 @@ import (
 	"testing"
 )
 
-// TestMatchMovementsNameEveryMovedKey checks that a key matched in one run and
-// not the other is listed once, under the right side, with its fate in the run
-// that does not match it.
+// TestMatchMovementsNameEveryMovedKey checks that a key matched in only one run
+// is listed once, under the right side, with its fate in the other run.
 func TestMatchMovementsNameEveryMovedKey(t *testing.T) {
 	before := &Matches{Roots: map[string]*RootMatches{"probe": {
 		Matched:   map[string]string{"P::a": "PartUsage", "P::b": "PartUsage", "P::c": "ActionUsage"},
@@ -49,9 +48,8 @@ func TestMatchMovementsNameEveryMovedKey(t *testing.T) {
 	}
 }
 
-// TestCompareRootRecordsTheInventory checks that the comparison records each
-// key of a root under the fate it gave it, and that the inventory round-trips
-// through the file -lost-against reads.
+// TestCompareRootRecordsTheInventory checks that each key of a root is recorded
+// under its fate and that the inventory round-trips through the -lost-against file.
 func TestCompareRootRecordsTheInventory(t *testing.T) {
 	ours, document := probeSides(t)
 	c := newComparison()

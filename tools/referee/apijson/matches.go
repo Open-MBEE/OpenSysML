@@ -10,9 +10,8 @@ import (
 	reports "github.com/Open-MBEE/OpenSysML/tools/oracle/report"
 )
 
-// Matches is one run's element inventory by key: which keys matched and which
-// were left on one side, per root. The run writes it beside the report so a
-// later run can name, with -lost-against, exactly which matches it lost or gained.
+// Matches is one run's inventory per root of which keys matched and which were
+// left on one side, written beside the report for a later run's -lost-against.
 type Matches struct {
 	Roots map[string]*RootMatches `json:"roots"`
 }
@@ -58,9 +57,8 @@ func readMatches(path string) (*Matches, error) {
 	return &matches, nil
 }
 
-// Movement is one key that matched in exactly one of two runs: Lost when the
-// earlier run matched it and this one does not, Gained the other way round.
-// Fate is where the key is in the run that does not match it.
+// Movement is one key matched in exactly one of two runs (lost when only the
+// earlier run matched it, else gained); Fate is where the other run has it.
 type Movement struct {
 	Root      string `json:"root"`
 	Key       string `json:"key"`
@@ -130,9 +128,8 @@ func renderMovements(lost, gained []Movement) string {
 	return b.String()
 }
 
-// writeMatches records this run's inventory and, under -lost-against, the
-// movements from the earlier run's as <toolName>-movements.txt and .json; the
-// earlier inventory is read first, as it may be the file this run overwrites.
+// writeMatches records this run's inventory and, under -lost-against, the movements
+// since the earlier run's, which it reads first as it may be the file overwritten.
 func writeMatches(opts options, matches Matches) error {
 	var before *Matches
 	if opts.lostAgainst != "" {
