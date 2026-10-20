@@ -3,8 +3,6 @@ package repl
 import (
 	"regexp"
 	"testing"
-
-	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // measurementRefSession declares a part measured in kilometres whose unit
@@ -114,8 +112,8 @@ func TestEvalMeasurementReferenceDeclarationMembers(t *testing.T) {
 }
 
 // A model's own object typed by a library record carries the record's members, redefinitions
-// and defaults followed, an optional record whose body binds only at depth included; a
-// model's own reference answers the inherited `isBound default false`.
+// and defaults followed, an optional record whose body binds only at depth included and one
+// bound to nothing empty; a model's own reference answers the inherited `isBound default false`.
 func TestFeaturesOfModelOwnedLibraryRecords(t *testing.T) {
 	s := NewSession()
 	res := s.Submit(`package Lab {
@@ -141,8 +139,8 @@ func TestFeaturesOfModelOwnedLibraryRecords(t *testing.T) {
 	wants(t, run(t, s, "%eval QuantityCalculations::ConvertQuantity(2 [Lab::furlong], m)"), "= 402.336 [m]")
 	wants(t, run(t, s, "%eval Lab::deep.conv.prefix.conversionFactor"), "= 1000.0")
 	wants(t, run(t, s, "%eval Lab::deep.conv.conversionFactor"), "= 1000.0")
-	wants(t, run(t, s, "%eval Lab::bare.conv"), "= "+runtime.UndeterminedText)
-	wants(t, run(t, s, "%eval Lab::hollow.conv"), "= "+runtime.UndeterminedText)
+	wants(t, run(t, s, "%eval Lab::bare.conv"), "= []")
+	wants(t, run(t, s, "%eval Lab::hollow.conv"), "= []")
 	wants(t, run(t, s, "%eval Lab::stressRef.isBound"), "= false")
 	run(t, s, "%instantiate Lab::stressRef")
 	wantsInOrder(t, run(t, s, "%features Lab::stressRef"), "mRefs = [Pa, Pa]", "dimensions = [2]", "isBound = false")
