@@ -84,12 +84,8 @@ func (cc *constraintChecker) sameFeaturingType(sym, redefined *symbols.Symbol) b
 	return false
 }
 
-// ownedByAssociationOrConnector reports whether sym's owning type is an
-// Association or a Connector, the only owners a non-end redefinition of an end
-// feature is reported in (KerML 1.1 §8.3.3.3.8 validateRedefinitionEndConformance:
-// `redefinedFeature.isEnd and redefiningFeature.owningType <> null and
-// (owningType.oclIsKindOf(Association) or owningType.oclIsKindOf(Connector))
-// implies redefiningFeature.isEnd`).
+// ownedByAssociationOrConnector reports whether sym's owning type is an Association or a
+// Connector, the only owners a non-end redefinition of an end is reported in (KerML 1.1 §8.3.3.3.8).
 func (cc *constraintChecker) ownedByAssociationOrConnector(sym *symbols.Symbol) bool {
 	return cc.model.IsAssociationOrConnector(w10bOwningType(sym))
 }

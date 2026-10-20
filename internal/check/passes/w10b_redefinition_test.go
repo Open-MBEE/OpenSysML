@@ -91,9 +91,8 @@ func TestW10BInheritedRedefinitionIsClean(t *testing.T) {
 	}
 }
 
-// An end feature redefined from within an Association or a Connector can only be
-// redefined by an end feature (KerML 1.1 §8.3.3.3.8 validateRedefinitionEndConformance),
-// whatever notation declares the owner. The pinned pilot validators report every case.
+// Within an Association or a Connector an end is redefined only by an end (KerML 1.1
+// §8.3.3.3.8), whatever notation declares the owner; the pinned pilot reports every case.
 func TestW10BEndFeatureRedefinitionIsReported(t *testing.T) {
 	const kermlTypes = `class T; feature x : T; feature y : T;
 		assoc AS { end feature e1 : T; end feature e2 : T; }
@@ -135,11 +134,8 @@ func TestW10BEndFeatureRedefinitionIsReported(t *testing.T) {
 	}
 }
 
-// Outside an Association or a Connector the owner condition of KerML 1.1
-// §8.3.3.3.8 validateRedefinitionEndConformance is not met, so a non-end feature
-// may redefine an inherited end: a feature or usage typed by an association, a
-// step typed by an interaction, or a classifier that is not an association.
-// The pinned pilot validators report no end-conformance error on any of these.
+// Outside an Association or a Connector the owner condition of KerML 1.1 §8.3.3.3.8 is not
+// met, so a non-end may redefine an inherited end; the pinned pilot is silent on every case.
 func TestW10BNonEndRedefiningEndOutsideAssociationOrConnectorIsClean(t *testing.T) {
 	cases := []struct{ name, file, src string }{
 		{"kerml feature typed by assoc struct", "k.kerml",
