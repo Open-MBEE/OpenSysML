@@ -187,6 +187,12 @@ func TestBucketOfEquatesOnlyRepresentations(t *testing.T) {
 		{"unkeyed reference is indeterminate", "source", ref{unkeyed}, ref{"P::a"}, bucketIndeterminate},
 		{"two unkeyed references are not known equal", "source", ref{unkeyed}, ref{unkeyed}, bucketIndeterminate},
 		{"unkeyed reference inside a collection", "ownedMember", []any{ref{"P::a"}, ref{unkeyed}}, []any{ref{"P::a"}, ref{"P::b"}}, bucketIndeterminate},
+		{"a known position differs beside an unknown one", "ownedMember", []any{ref{"P::a"}, ref{unkeyed}}, []any{ref{"P::b"}, ref{unkeyed}}, bucketPresentDifferent},
+		{"known references reordered beside an unknown one", "ownedMember", []any{ref{"P::b"}, ref{"P::a"}, ref{unkeyed}}, []any{ref{"P::a"}, ref{"P::b"}, ref{unkeyed}}, bucketPresentDifferent},
+		{"lengths differ despite an unknown target", "ownedMember", []any{ref{unkeyed}}, []any{ref{"P::a"}, ref{"P::b"}}, bucketPresentDifferent},
+		{"same known positions, unknown ones left open", "ownedMember", []any{ref{"P::a"}, ref{unkeyed}}, []any{ref{"P::a"}, ref{unkeyed}}, bucketIndeterminate},
+		{"unkeyed id string", "memberElementId", unkeyed, "P::a", bucketIndeterminate},
+		{"a reference against a literal", "source", ref{"P::a"}, "P::a", bucketPresentDifferent},
 		{"unkeyed reference against absent", "source", ref{unkeyed}, nil, bucketPilotMissing},
 		{"numbers", "value", 1.0, 1.0, bucketPresentEqual},
 	} {

@@ -152,20 +152,20 @@ The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
 ## Results (pilot `2026-08`, 407 files)
 
-**Scorecard:** 407 files; 67274 elements matched (40208 ours-only, 50337 pilot-only, 0 of them implied); properties: 450166 present-equal, 40094 present-different, 801066 ours-missing, 50995 pilot-missing, 1568678 absent-both, 19050 indeterminate.
+**Scorecard:** 407 files; 67274 elements matched (40208 ours-only, 50337 pilot-only, 0 of them implied); properties: 450166 present-equal, 43405 present-different, 801066 ours-missing, 50995 pilot-missing, 1568678 absent-both, 15739 indeterminate.
 
 The pilot exported every file but 6 (`pilotFailed`: its own export throws on an element without a resource; the files are named in the run's text report), ours refused 0, left the pilot's 6 failed files out and converted 22 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 10815 (metaclass, property) rows carry a comparison; 78684 references compared through the unkeyed sentinel, 110175 of our `sysx:` annotations were left out, and 290/185 elements (ours/pilot) were dropped for ambiguous keys, 8129/30333 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 6097 | 3321 | 4063 | 40825 | 4002 | 72464 | 4393 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 19299 | 16517 | 16967 | 131395 | 11216 | 232130 | 14554 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 6997 | 5216 | 5590 | 45934 | 5589 | 81691 | 5351 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 5399 | 2618 | 2842 | 34810 | 3546 | 55283 | 4352 |
-| `tests/testdata` | 30 | 1124 | 132 | 522 | 7242 | 319 | 12288 | 818 |
-| `examples` | 52 | 21488 | 11254 | 17900 | 144295 | 12096 | 262173 | 16491 |
+| `examples/sysml-v2-training` | 100 | 6097 | 3321 | 4063 | 40825 | 4070 | 72464 | 4393 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 19299 | 16517 | 16967 | 131395 | 11348 | 232130 | 14554 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 6997 | 5216 | 5590 | 45934 | 5650 | 81691 | 5351 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 5399 | 2618 | 2842 | 34810 | 3556 | 55283 | 4352 |
+| `tests/testdata` | 30 | 1124 | 132 | 522 | 7242 | 347 | 12288 | 818 |
+| `examples` | 52 | 21488 | 11254 | 17900 | 144295 | 13871 | 262173 | 16491 |
 | `tools/referee/diff/testdata` | 4 | 36 | 17 | 17 | 224 | 19 | 249 | 32 |
-| `docs/manual/examples` | 8 | 6834 | 1133 | 2436 | 45441 | 3307 | 84788 | 5004 |
+| `docs/manual/examples` | 8 | 6834 | 1133 | 2436 | 45441 | 4544 | 84788 | 5004 |
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's five counts.
 
@@ -179,10 +179,10 @@ The largest **present-different** rows, with the reading the examples support:
 | `FeatureMembership` | `ownedMemberElement` | 6542 | 1971 |
 | `FeatureMembership` | `ownedMemberFeature` | 6542 | 1971 |
 | `FeatureMembership` | `ownedRelatedElement` | 6542 | 1971 |
-| `FeatureTyping` | `general` | 2971 | 5 |
-| `FeatureTyping` | `relatedElement` | 2971 | 5 |
-| `FeatureTyping` | `target` | 2971 | 5 |
-| `FeatureTyping` | `type` | 2973 | 5 |
+| `FeatureTyping` | `general` | 2971 | 180 |
+| `FeatureTyping` | `relatedElement` | 2971 | 180 |
+| `FeatureTyping` | `target` | 2971 | 180 |
+| `FeatureTyping` | `type` | 2973 | 180 |
 | `AttributeUsage` | `ownedRelationship` | 102 | 1571 |
 | `FeatureReferenceExpression` | `ownedMembership` | 29 | 1458 |
 

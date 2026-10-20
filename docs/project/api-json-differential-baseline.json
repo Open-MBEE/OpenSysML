@@ -102,11 +102,11 @@
     },
     "properties": {
       "presentEqual": 450166,
-      "presentDifferent": 40094,
+      "presentDifferent": 43405,
       "oursMissing": 801066,
       "pilotMissing": 50995,
       "absentBoth": 1568678,
-      "indeterminate": 19050
+      "indeterminate": 15739
     },
     "rows": 10815,
     "unkeyedReferences": 78687,
@@ -142,11 +142,11 @@
       },
       "properties": {
         "presentEqual": 40825,
-        "presentDifferent": 4002,
+        "presentDifferent": 4070,
         "oursMissing": 72464,
         "pilotMissing": 4393,
         "absentBoth": 147683,
-        "indeterminate": 1567
+        "indeterminate": 1499
       },
       "duplicateElements": {
         "ours": 107,
@@ -177,11 +177,11 @@
       },
       "properties": {
         "presentEqual": 131395,
-        "presentDifferent": 11216,
+        "presentDifferent": 11348,
         "oursMissing": 232130,
         "pilotMissing": 14554,
         "absentBoth": 458600,
-        "indeterminate": 5060
+        "indeterminate": 4928
       },
       "duplicateElements": {
         "ours": 0,
@@ -212,11 +212,11 @@
       },
       "properties": {
         "presentEqual": 45934,
-        "presentDifferent": 5589,
+        "presentDifferent": 5650,
         "oursMissing": 81691,
         "pilotMissing": 5351,
         "absentBoth": 166254,
-        "indeterminate": 1787
+        "indeterminate": 1726
       },
       "duplicateElements": {
         "ours": 0,
@@ -248,11 +248,11 @@
       },
       "properties": {
         "presentEqual": 34810,
-        "presentDifferent": 3546,
+        "presentDifferent": 3556,
         "oursMissing": 55283,
         "pilotMissing": 4352,
         "absentBoth": 98673,
-        "indeterminate": 881
+        "indeterminate": 871
       },
       "duplicateElements": {
         "ours": 0,
@@ -284,11 +284,11 @@
       },
       "properties": {
         "presentEqual": 7242,
-        "presentDifferent": 319,
+        "presentDifferent": 347,
         "oursMissing": 12288,
         "pilotMissing": 818,
         "absentBoth": 26220,
-        "indeterminate": 324
+        "indeterminate": 296
       },
       "duplicateElements": {
         "ours": 24,
@@ -320,11 +320,11 @@
       },
       "properties": {
         "presentEqual": 144295,
-        "presentDifferent": 12096,
+        "presentDifferent": 13871,
         "oursMissing": 262173,
         "pilotMissing": 16491,
         "absentBoth": 512884,
-        "indeterminate": 7567
+        "indeterminate": 5792
       },
       "duplicateElements": {
         "ours": 428,
@@ -390,11 +390,11 @@
       },
       "properties": {
         "presentEqual": 45441,
-        "presentDifferent": 3307,
+        "presentDifferent": 4544,
         "oursMissing": 84788,
         "pilotMissing": 5004,
         "absentBoth": 157733,
-        "indeterminate": 1858
+        "indeterminate": 621
       },
       "duplicateElements": {
         "ours": 0,
@@ -1613,11 +1613,11 @@
     ],
     "ActionDefinition.ownedFeature": [
       74,
-      2,
+      24,
       0,
       0,
       29,
-      27
+      5
     ],
     "ActionDefinition.ownedFeatureMembership": [
       103,
@@ -1669,11 +1669,11 @@
     ],
     "ActionDefinition.ownedMember": [
       74,
-      4,
+      26,
       1,
       0,
       26,
-      27
+      5
     ],
     "ActionDefinition.ownedMembership": [
       102,
@@ -2565,11 +2565,11 @@
     ],
     "ActionUsage.ownedFeature": [
       158,
-      14,
+      36,
       0,
       0,
       227,
-      36
+      14
     ],
     "ActionUsage.ownedFeatureChaining": [
       0,
@@ -2613,11 +2613,11 @@
     ],
     "ActionUsage.ownedMember": [
       156,
-      19,
+      42,
       36,
       0,
       188,
-      36
+      13
     ],
     "ActionUsage.ownedMembership": [
       232,
@@ -4389,11 +4389,11 @@
     ],
     "AllocationUsage.ownedFeature": [
       0,
-      6,
+      8,
       0,
       0,
       0,
-      2
+      0
     ],
     "AllocationUsage.ownedFeatureChaining": [
       0,
@@ -4437,11 +4437,11 @@
     ],
     "AllocationUsage.ownedMember": [
       0,
-      6,
+      8,
       0,
       0,
       0,
-      2
+      0
     ],
     "AllocationUsage.ownedMembership": [
       8,
@@ -5037,11 +5037,11 @@
     ],
     "AnalysisCaseDefinition.ownedFeature": [
       20,
-      3,
+      4,
       0,
       0,
       4,
-      1
+      0
     ],
     "AnalysisCaseDefinition.ownedFeatureMembership": [
       24,
@@ -5093,11 +5093,11 @@
     ],
     "AnalysisCaseDefinition.ownedMember": [
       20,
-      3,
+      4,
       1,
       0,
       3,
-      1
+      0
     ],
     "AnalysisCaseDefinition.ownedMembership": [
       24,
@@ -20453,11 +20453,11 @@
     ],
     "ConnectionUsage.type": [
       51,
-      0,
+      4,
       18,
       0,
       0,
-      4
+      0
     ],
     "ConnectionUsage.unioningType": [
       0,
@@ -28629,11 +28629,11 @@
     ],
     "ExhibitStateUsage.ownedFeature": [
       6,
-      1,
+      12,
       0,
       0,
       16,
-      11
+      0
     ],
     "ExhibitStateUsage.ownedFeatureChaining": [
       0,
@@ -28677,11 +28677,11 @@
     ],
     "ExhibitStateUsage.ownedMember": [
       6,
-      1,
+      12,
       0,
       0,
       16,
-      11
+      0
     ],
     "ExhibitStateUsage.ownedMembership": [
       18,
@@ -29237,11 +29237,11 @@
     ],
     "Expression.ownedFeature": [
       3,
-      25,
+      26,
       0,
       0,
       0,
-      1
+      0
     ],
     "Expression.ownedFeatureChaining": [
       0,
@@ -29285,11 +29285,11 @@
     ],
     "Expression.ownedMember": [
       3,
-      1,
+      2,
       24,
       0,
       0,
-      1
+      0
     ],
     "Expression.ownedMembership": [
       29,
@@ -31821,11 +31821,11 @@
     ],
     "FeatureTyping.general": [
       2971,
-      5,
+      180,
       2,
       0,
       0,
-      1887
+      1712
     ],
     "FeatureTyping.isImplied": [
       0,
@@ -31973,11 +31973,11 @@
     ],
     "FeatureTyping.relatedElement": [
       2971,
-      5,
+      180,
       2,
       0,
       0,
-      1887
+      1712
     ],
     "FeatureTyping.source": [
       4863,
@@ -31997,11 +31997,11 @@
     ],
     "FeatureTyping.target": [
       2971,
-      5,
+      180,
       2,
       0,
       0,
-      1887
+      1712
     ],
     "FeatureTyping.textualRepresentation": [
       0,
@@ -32013,11 +32013,11 @@
     ],
     "FeatureTyping.type": [
       2973,
-      5,
+      180,
       0,
       0,
       0,
-      1887
+      1712
     ],
     "FeatureTyping.typedFeature": [
       4865,
@@ -40573,11 +40573,11 @@
     ],
     "InterfaceUsage.ownedFeature": [
       1,
-      29,
+      31,
       0,
       0,
       1,
-      2
+      0
     ],
     "InterfaceUsage.ownedFeatureChaining": [
       0,
@@ -40621,11 +40621,11 @@
     ],
     "InterfaceUsage.ownedMember": [
       1,
-      29,
+      31,
       1,
       0,
       0,
-      2
+      0
     ],
     "InterfaceUsage.ownedMembership": [
       33,
@@ -47013,11 +47013,11 @@
     ],
     "Membership.memberElement": [
       1628,
-      122,
+      346,
       0,
       0,
       0,
-      554
+      330
     ],
     "Membership.memberElementId": [
       0,
@@ -47357,11 +47357,11 @@
     ],
     "MembershipImport.importedMembership": [
       105,
-      3,
+      5,
       0,
       0,
       0,
-      201
+      199
     ],
     "MembershipImport.isImplied": [
       0,
@@ -51565,11 +51565,11 @@
     ],
     "NamespaceImport.importedNamespace": [
       295,
-      3,
+      17,
       0,
       0,
       0,
-      339
+      325
     ],
     "NamespaceImport.isImplied": [
       0,
@@ -52781,11 +52781,11 @@
     ],
     "OccurrenceDefinition.ownedFeature": [
       6,
-      0,
+      3,
       5,
       0,
       28,
-      5
+      2
     ],
     "OccurrenceDefinition.ownedFeatureMembership": [
       11,
@@ -52837,11 +52837,11 @@
     ],
     "OccurrenceDefinition.ownedMember": [
       5,
-      6,
+      10,
       28,
       0,
       0,
-      5
+      1
     ],
     "OccurrenceDefinition.ownedMembership": [
       9,
@@ -53733,11 +53733,11 @@
     ],
     "OccurrenceUsage.ownedMember": [
       27,
-      48,
+      50,
       5,
       0,
       31,
-      2
+      0
     ],
     "OccurrenceUsage.ownedMembership": [
       66,
@@ -55477,11 +55477,11 @@
     ],
     "PartDefinition.ownedFeature": [
       332,
-      138,
+      140,
       0,
       0,
       356,
-      19
+      17
     ],
     "PartDefinition.ownedFeatureMembership": [
       489,
@@ -55533,11 +55533,11 @@
     ],
     "PartDefinition.ownedMember": [
       346,
-      145,
+      148,
       7,
       0,
       328,
-      19
+      16
     ],
     "PartDefinition.ownedMembership": [
       496,
@@ -56461,11 +56461,11 @@
     ],
     "PartUsage.ownedFeature": [
       484,
-      329,
+      366,
       0,
       0,
       737,
-      67
+      30
     ],
     "PartUsage.ownedFeatureChaining": [
       0,
@@ -56509,11 +56509,11 @@
     ],
     "PartUsage.ownedMember": [
       132,
-      734,
+      778,
       549,
       0,
       135,
-      67
+      23
     ],
     "PartUsage.ownedMembership": [
       520,
@@ -56701,11 +56701,11 @@
     ],
     "PartUsage.type": [
       945,
-      176,
+      179,
       493,
       0,
       0,
-      3
+      0
     ],
     "PartUsage.unioningType": [
       0,
@@ -57885,11 +57885,11 @@
     ],
     "PerformActionUsage.ownedFeature": [
       6,
-      0,
+      7,
       0,
       0,
       33,
-      10
+      3
     ],
     "PerformActionUsage.ownedFeatureChaining": [
       0,
@@ -57933,11 +57933,11 @@
     ],
     "PerformActionUsage.ownedMember": [
       7,
-      0,
+      7,
       2,
       0,
       30,
-      10
+      3
     ],
     "PerformActionUsage.ownedMembership": [
       19,
@@ -60285,11 +60285,11 @@
     ],
     "Redefinition.general": [
       202,
-      15,
+      309,
       1,
       0,
       0,
-      402
+      108
     ],
     "Redefinition.isImplied": [
       0,
@@ -60421,11 +60421,11 @@
     ],
     "Redefinition.redefinedFeature": [
       203,
-      15,
+      309,
       0,
       0,
       0,
-      402
+      108
     ],
     "Redefinition.redefiningFeature": [
       620,
@@ -60437,11 +60437,11 @@
     ],
     "Redefinition.relatedElement": [
       202,
-      15,
+      309,
       1,
       0,
       0,
-      402
+      108
     ],
     "Redefinition.source": [
       619,
@@ -60461,11 +60461,11 @@
     ],
     "Redefinition.subsettedFeature": [
       202,
-      15,
+      309,
       1,
       0,
       0,
-      402
+      108
     ],
     "Redefinition.subsettingFeature": [
       619,
@@ -60477,11 +60477,11 @@
     ],
     "Redefinition.target": [
       202,
-      15,
+      309,
       1,
       0,
       0,
-      402
+      108
     ],
     "Redefinition.textualRepresentation": [
       0,
@@ -60509,11 +60509,11 @@
     ],
     "ReferenceSubsetting.general": [
       107,
+      2,
       0,
       0,
       0,
-      0,
-      2
+      0
     ],
     "ReferenceSubsetting.isImplied": [
       0,
@@ -60605,11 +60605,11 @@
     ],
     "ReferenceSubsetting.referencedFeature": [
       107,
+      2,
       0,
       0,
       0,
-      0,
-      2
+      0
     ],
     "ReferenceSubsetting.referencingFeature": [
       109,
@@ -60621,11 +60621,11 @@
     ],
     "ReferenceSubsetting.relatedElement": [
       107,
+      2,
       0,
       0,
       0,
-      0,
-      2
+      0
     ],
     "ReferenceSubsetting.source": [
       109,
@@ -60645,11 +60645,11 @@
     ],
     "ReferenceSubsetting.subsettedFeature": [
       107,
+      2,
       0,
       0,
       0,
-      0,
-      2
+      0
     ],
     "ReferenceSubsetting.subsettingFeature": [
       109,
@@ -60661,11 +60661,11 @@
     ],
     "ReferenceSubsetting.target": [
       107,
+      2,
       0,
       0,
       0,
-      0,
-      2
+      0
     ],
     "ReferenceSubsetting.textualRepresentation": [
       0,
@@ -68933,11 +68933,11 @@
     ],
     "StateDefinition.ownedFeature": [
       2,
-      2,
+      20,
       0,
       0,
       11,
-      19
+      1
     ],
     "StateDefinition.ownedFeatureMembership": [
       4,
@@ -68989,11 +68989,11 @@
     ],
     "StateDefinition.ownedMember": [
       2,
-      2,
+      20,
       0,
       0,
       11,
-      19
+      1
     ],
     "StateDefinition.ownedMembership": [
       23,
@@ -70117,11 +70117,11 @@
     ],
     "StateUsage.ownedFeature": [
       16,
-      20,
+      45,
       23,
       0,
       202,
-      25
+      0
     ],
     "StateUsage.ownedFeatureChaining": [
       0,
@@ -70165,11 +70165,11 @@
     ],
     "StateUsage.ownedMember": [
       16,
-      22,
+      47,
       25,
       0,
       198,
-      25
+      0
     ],
     "StateUsage.ownedMembership": [
       79,
@@ -71165,11 +71165,11 @@
     ],
     "Structure.ownedFeature": [
       9,
-      16,
+      20,
       0,
       0,
       19,
-      4
+      0
     ],
     "Structure.ownedFeatureMembership": [
       18,
@@ -71197,11 +71197,11 @@
     ],
     "Structure.ownedMember": [
       10,
-      22,
+      26,
       0,
       0,
       12,
-      4
+      0
     ],
     "Structure.ownedMembership": [
       24,
@@ -71341,11 +71341,11 @@
     ],
     "Subclassification.general": [
       314,
-      1,
+      113,
       0,
       0,
       0,
-      201
+      89
     ],
     "Subclassification.isImplied": [
       0,
@@ -71477,11 +71477,11 @@
     ],
     "Subclassification.relatedElement": [
       312,
-      2,
+      114,
       1,
       0,
       0,
-      201
+      89
     ],
     "Subclassification.source": [
       515,
@@ -71509,19 +71509,19 @@
     ],
     "Subclassification.superclassifier": [
       313,
-      1,
+      113,
       1,
       0,
       0,
-      201
+      89
     ],
     "Subclassification.target": [
       313,
-      1,
+      113,
       1,
       0,
       0,
-      201
+      89
     ],
     "Subclassification.textualRepresentation": [
       0,
@@ -71773,11 +71773,11 @@
     ],
     "Subsetting.general": [
       245,
-      19,
+      29,
       1,
       0,
       0,
-      334
+      324
     ],
     "Subsetting.isImplied": [
       0,
@@ -71909,11 +71909,11 @@
     ],
     "Subsetting.relatedElement": [
       244,
-      20,
+      30,
       1,
       0,
       0,
-      334
+      324
     ],
     "Subsetting.source": [
       598,
@@ -71933,11 +71933,11 @@
     ],
     "Subsetting.subsettedFeature": [
       246,
-      19,
+      29,
       0,
       0,
       0,
-      334
+      324
     ],
     "Subsetting.subsettingFeature": [
       599,
@@ -71949,11 +71949,11 @@
     ],
     "Subsetting.target": [
       245,
-      19,
+      29,
       1,
       0,
       0,
-      334
+      324
     ],
     "Subsetting.textualRepresentation": [
       0,
@@ -76989,11 +76989,11 @@
     ],
     "TransitionUsage.ownedMember": [
       0,
-      0,
+      52,
       4,
       0,
       0,
-      52
+      0
     ],
     "TransitionUsage.ownedMembership": [
       0,
@@ -79565,11 +79565,11 @@
     ],
     "UseCaseDefinition.ownedFeature": [
       7,
-      5,
+      6,
       0,
       0,
       1,
-      1
+      0
     ],
     "UseCaseDefinition.ownedFeatureMembership": [
       13,
@@ -79621,11 +79621,11 @@
     ],
     "UseCaseDefinition.ownedMember": [
       7,
-      5,
+      6,
       0,
       0,
       1,
-      1
+      0
     ],
     "UseCaseDefinition.ownedMembership": [
       13,
@@ -80549,11 +80549,11 @@
     ],
     "UseCaseUsage.ownedFeature": [
       5,
-      5,
+      11,
       0,
       0,
       5,
-      6
+      0
     ],
     "UseCaseUsage.ownedFeatureChaining": [
       0,
@@ -80597,11 +80597,11 @@
     ],
     "UseCaseUsage.ownedMember": [
       6,
-      5,
+      11,
       0,
       0,
       4,
-      6
+      0
     ],
     "UseCaseUsage.ownedMembership": [
       17,
@@ -82349,11 +82349,11 @@
     ],
     "VerificationCaseUsage.ownedFeature": [
       19,
-      20,
+      22,
       0,
       0,
       2,
-      2
+      0
     ],
     "VerificationCaseUsage.ownedFeatureChaining": [
       0,
@@ -82397,11 +82397,11 @@
     ],
     "VerificationCaseUsage.ownedMember": [
       19,
-      20,
+      22,
       0,
       0,
       2,
-      2
+      0
     ],
     "VerificationCaseUsage.ownedMembership": [
       41,

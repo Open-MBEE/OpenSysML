@@ -213,10 +213,11 @@ func booleanDefault(property string) (value bool, ok bool) {
 
 // bucketOf classifies one property: null, a missing key and an empty collection
 // all state nothing, and so does a Boolean attribute written at its metamodel
-// default against a side that leaves it out; a reference whose target neither
-// key table addresses is indeterminate on either side, since two unknown
-// targets are not known equal; otherwise the normalized values compare deeply,
-// collections in order.
+// default against a side that leaves it out; otherwise the normalized values
+// compare deeply, collections in order, and the comparison is indeterminate
+// only where a reference to a target neither key table addresses could still
+// decide it (two unknown targets are not known equal, but a provable
+// difference elsewhere in the value stands).
 func bucketOf(property string, ours, pilot any) string {
 	if value, ok := booleanDefault(property); ok {
 		if pilot == value && ours == nil {
@@ -234,9 +235,55 @@ func bucketOf(property string, ours, pilot any) string {
 		return bucketOursMissing
 	case pilotAbsent:
 		return bucketPilotMissing
-	case mentionsUnkeyed(ours) || mentionsUnkeyed(pilot):
-		return bucketIndeterminate
-	case reflect.DeepEqual(ours, pilot):
+	}
+	return compareValues(ours, pilot)
+}
+
+// compareValues is present-equal, present-different or indeterminate for two
+// normalized values both sides state. A collection compares by length, then
+// position by position: any position that differs decides, and only when none
+// does do unknown targets leave the verdict open.
+func compareValues(ours, pilot any) string {
+	switch o := ours.(type) {
+	case ref:
+		p, ok := pilot.(ref)
+		switch {
+		case !ok:
+			return bucketPresentDifferent
+		case o.Key == unkeyed || p.Key == unkeyed:
+			return bucketIndeterminate
+		case o.Key == p.Key:
+			return bucketPresentEqual
+		}
+		return bucketPresentDifferent
+	case string:
+		p, ok := pilot.(string)
+		switch {
+		case !ok:
+			return bucketPresentDifferent
+		case o == unkeyed || p == unkeyed:
+			return bucketIndeterminate
+		case o == p:
+			return bucketPresentEqual
+		}
+		return bucketPresentDifferent
+	case []any:
+		p, ok := pilot.([]any)
+		if !ok || len(o) != len(p) {
+			return bucketPresentDifferent
+		}
+		verdict := bucketPresentEqual
+		for i := range o {
+			switch compareValues(o[i], p[i]) {
+			case bucketPresentDifferent:
+				return bucketPresentDifferent
+			case bucketIndeterminate:
+				verdict = bucketIndeterminate
+			}
+		}
+		return verdict
+	}
+	if reflect.DeepEqual(ours, pilot) {
 		return bucketPresentEqual
 	}
 	return bucketPresentDifferent
