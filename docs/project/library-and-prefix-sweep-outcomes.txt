@@ -1700,7 +1700,7 @@ prefix	abstract [0..*] + subsetter	connection Cn1	abstract connection x : Cn1[0.
 prefix	variation	attribute Integer	variation attribute x : Integer { variant attribute va : Integer; variant attribute vb : Integer; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	attribute At1	variation attribute x : At1 { variant attribute va : At1; variant attribute vb : At1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	enum E1	variation enum x : E1 { variant enum va : E1; variant enum vb : E1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
-prefix	variation	calc K1	variation calc x : K1 { variant calc va : K1; variant calc vb : K1; }	Probe::d.x => constant 4 ;; Probe::d.x.va => error unknown output: calc Probe::D::x declares no member va (it declares: none)
+prefix	variation	calc K1	variation calc x : K1 { variant calc va : K1; variant calc vb : K1; }	Probe::d.x => constant 4 ;; Probe::d.x.va => error unknown output: calc Probe::D::x declares no member va (it declares: result)
 prefix	variation	part P2	variation part x : P2 { variant part va : P2; variant part vb : P2; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	item I1	variation item x : I1 { variant item va : I1; variant item vb : I1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	port Pt	variation port x : Pt { variant port va : Pt; variant port vb : Pt; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va

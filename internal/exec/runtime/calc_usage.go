@@ -333,8 +333,6 @@ func (shape *calcShape) declaresUsage(name string) bool {
 	return false
 }
 
-// declaresLocal reports whether the body's own statements declare a feature of
-// that name (`attribute scale = 10.0;`), one the run leaves a value for.
 // memberNames lists the features a usage of the calc has: its parameters, the
 // features its body declares and its outputs, in that order.
 func (shape *calcShape) memberNames() string {
@@ -348,23 +346,17 @@ func (shape *calcShape) memberNames() string {
 		}
 	}
 	for _, out := range shape.Outputs {
-		if out.Name != "" {
+		switch {
+		case out.Name != "":
 			names = append(names, out.Name)
+		case out.IsResult:
+			names = append(names, shape.resultName())
 		}
 	}
 	if len(names) == 0 {
 		return "none"
 	}
 	return strings.Join(names, ", ")
-}
-
-func (shape *calcShape) declaresLocal(name string) bool {
-	for _, stmt := range shape.Body {
-		if decl, ok := stmt.(lower.Declare); ok && decl.Name == name {
-			return true
-		}
-	}
-	return false
 }
 
 // designatedOutput returns the output feature an invocation of the calc yields
@@ -1288,9 +1280,9 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 	if len(parts) == 0 {
 		return Value{}, fmt.Errorf("empty member chain")
 	}
-	// A usage with an input nothing supplies computes nothing to read; its
+	// A calc usage with an input nothing supplies computes nothing to read; its
 	// inputs still read as what binds them, which is nothing for that one.
-	if ec.ctx.readsAsFunction(sym) {
+	if sym.Kind == symbols.SymbolCalcUsage && ec.ctx.readsAsFunction(sym) {
 		if value, ok, err := ec.unsuppliedCalcInput(sym, parts[0].Text); ok {
 			if err != nil {
 				return Value{}, err
@@ -1464,17 +1456,16 @@ func (ec *EvalContext) unsuppliedCalcOutput(sym *symbols.Symbol, name string) (V
 	if !ok {
 		return Value{}, false, nil
 	}
-	for i := range shape.Params {
-		if param := &shape.Params[i]; param.Default == nil {
-			var count semantics.Range
-			var feature *symbols.Symbol
-			if target := out.Decl.Target; target != nil {
-				count, feature = target.mult, target.feature
-			}
-			return undeterminedFeatureValue(fmt.Sprintf("%s: nothing supplies parameter %q, so %s is not computed", shape.Label, param.Name, name), count, feature), true, nil
-		}
+	param := shape.unsuppliedInput()
+	if param == nil {
+		return Value{}, false, nil
 	}
-	return Value{}, false, nil
+	var count semantics.Range
+	var feature *symbols.Symbol
+	if target := out.Decl.Target; target != nil {
+		count, feature = target.mult, target.feature
+	}
+	return undeterminedFeatureValue(fmt.Sprintf("%s: nothing supplies parameter %q, so %s is not computed", shape.Label, param.Name, name), count, feature), true, nil
 }
 
 // nestedUsage is the evaluation of a calc or analysis usage this run's body
