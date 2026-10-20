@@ -30,15 +30,15 @@ func (b Block) PackageName() string {
 // actionBodyKeywords open the members the grammar admits only in an action body
 // (SysML 8.2.2.17.1 ActionBodyItem): action nodes and the initial node.
 var actionBodyKeywords = map[string]bool{
-	"merge": true, "decide": true, "join": true, "fork": true,
+	"merge": true, "decide": true, "join": true, "fork": true, "then": true,
 	"send": true, "accept": true, "assign": true, "terminate": true,
 	"if": true, "while": true, "loop": true, "for": true,
 }
 
 // IsActionBody reports whether the example is a fragment of an action body: a
-// top-level statement opens with an action-node keyword, or is `first x;`
-// naming an initial node rather than the `first x then y;` succession that a
-// package may own.
+// top-level statement opens with an action-node keyword or a `then` target
+// succession, or is `first x;` naming an initial node rather than the
+// `first x then y;` succession that a package may own.
 func (b Block) IsActionBody() bool {
 	depth := 0
 	start := true
@@ -150,7 +150,7 @@ func Complete(title, release string, blocks []Block) []Fixture {
 				continue
 			}
 			seen[name] = true
-			if fqn, ok := libraryMember(lib, packages, name); ok {
+			if fqn, ok := libraryMember(lib, packages, name, inUnitBrackets(text, d.Span.Offset)); ok {
 				fixtures[i].Imports = append(fixtures[i].Imports, fqn)
 			}
 		}
@@ -162,12 +162,35 @@ func Complete(title, release string, blocks []Block) []Fixture {
 	return fixtures
 }
 
+// inUnitBrackets reports whether the reference at offset follows a `[`, the
+// position of a unit in a quantity expression such as `0[kg]`.
+func inUnitBrackets(text []byte, offset int) bool {
+	for i := offset - 1; i >= 0; i-- {
+		switch text[i] {
+		case ' ', '\t':
+			continue
+		case '[':
+			return true
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+// extensionLibraries holds the OpenSysML extension libraries, which the
+// specification's examples cannot assume.
+const extensionLibraries = "OpenSysML Libraries/"
+
 // libraryPackages returns the shared standard-library index with the names of
-// its top-level packages, read from the library text it was built from.
+// its top-level standard packages, read from the library text it was built from.
 func libraryPackages() (*symbols.Index, []string) {
 	idx, src := libs.SharedLibrary()
 	var packages []string
 	for _, name := range src.List() {
+		if strings.HasPrefix(name, extensionLibraries) {
+			continue
+		}
 		content, err := src.Read(name)
 		if err != nil {
 			continue
@@ -183,11 +206,15 @@ func libraryPackages() (*symbols.Index, []string) {
 }
 
 // libraryMember returns `Package::name` when exactly one top-level library
-// package declares a direct member whose name or short name is name.
-func libraryMember(lib *symbols.Index, packages []string, name string) (string, bool) {
+// package declares a direct member called name; a member whose short name is
+// name counts only for a unit reference, where `0[kg]` and `5[min]` are read.
+func libraryMember(lib *symbols.Index, packages []string, name string, unit bool) (string, bool) {
 	var found []string
 	for _, pkg := range packages {
 		for _, sym := range lib.LookupDirectChildrenNamed(pkg, name) {
+			if sym.Name != name && !unit {
+				continue
+			}
 			// Visible through an import is not declared there.
 			if lib.Declaring(pkg+"::"+sym.Name) == sym {
 				found = append(found, pkg+"::"+name)

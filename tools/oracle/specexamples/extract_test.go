@@ -162,17 +162,17 @@ func TestActionBodyWrapper(t *testing.T) {
 
 func TestCompleteImportsUniqueLibraryMembers(t *testing.T) {
 	blocks := []Block{
-		{Document: "sysml", Clause: "7.4.2", Page: "20", Index: 1, Ext: "sysml", Lines: []string{"attribute a : Real;", "part p : Part;", "part q : Undeclared;", "attribute m = 1 [kg];", "attribute s = size(p);"}},
+		{Document: "sysml", Clause: "7.4.2", Page: "20", Index: 1, Ext: "sysml", Lines: []string{"attribute a : Real;", "part p : Part;", "part q : Undeclared;", "attribute m = 1 [kg];", "attribute s = size(p);", "part def A :> B;", "state s2 : StateActivity;"}},
 		{Document: "kerml", Clause: "7.3.4", Page: "30", Index: 1, Ext: "kerml", Lines: []string{"feature f : Boolean;"}},
 	}
 	fixtures := Complete("Title", "2026-08", blocks)
 	if got := strings.Join(fixtures[0].Imports, ","); got != "Parts::Part,SI::kg,ScalarValues::Real" {
-		t.Errorf("sysml imports %q (size is declared by more than one library package, kg is a short name)", got)
+		t.Errorf("sysml imports %q (size is declared by more than one library package, kg is a short name in a unit position, B is a short name outside one, StateActivity is an extension library)", got)
 	}
 	if got := strings.Join(fixtures[1].Imports, ","); got != "ScalarValues::Boolean" {
 		t.Errorf("kerml imports %q", got)
 	}
-	if !strings.Contains(fixtures[0].Content, "    private import Parts::Part;\n    private import ScalarValues::Real;\n") {
+	if !strings.Contains(fixtures[0].Content, "    private import Parts::Part;\n    private import SI::kg;\n    private import ScalarValues::Real;\n") {
 		t.Errorf("imports missing from content:\n%s", fixtures[0].Content)
 	}
 	if strings.Contains(fixtures[0].Content, "Undeclared;\n    private") {
