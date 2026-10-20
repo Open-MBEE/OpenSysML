@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -27,26 +28,21 @@ func behaviorOccurrence(behavior *ObjectBehavior) *Instance {
 	return nil
 }
 
-// recordFiredSuccessions records, for a behavior a succession order admitted,
-// the performances whose end let it start: each is an immediate predecessor of
-// the performance (Occurrences.kerml `predecessors`, `HappensBefore`), which the
-// succession fired for. An order that admitted it without a completed earlier
-// performance records none.
+// recordFiredSuccessions records the performances whose end let an admitted
+// behavior start: its immediate predecessors (Occurrences.kerml), one per fired order.
 func (ctx *Context) recordFiredSuccessions(behavior *ObjectBehavior) {
 	successor := behaviorOccurrence(behavior)
 	if successor == nil || behavior.member == nil {
 		return
 	}
-	seen := make(map[*Instance]bool)
 	for _, order := range ctx.behaviorOrdersFor(behavior.member, behavior.Object, true) {
 		if order.Refusal != nil {
 			continue
 		}
 		for _, featuring := range ctx.behaviorOrderMatches(behavior.Object, behavior.member, order, order.Later) {
-			if seen[featuring] || !ctx.laterEndIsUnique(order, featuring, nil, nil) {
+			if !ctx.laterEndIsUnique(order, featuring, nil, nil) {
 				continue
 			}
-			seen[featuring] = true
 			predecessors := ctx.behaviorOrderEndPerformances(order, order.Earlier, featuring)
 			if len(predecessors) != 1 || !ctx.behaviorPerformanceEnded(predecessors[0]) {
 				continue
@@ -63,23 +59,26 @@ func (ctx *Context) recordFiredSuccessions(behavior *ObjectBehavior) {
 	}
 }
 
-// successionValues answers a collection member of inst over the successions that
-// fired: its immediate predecessors or successors, or all of them through the
-// chain; false for a member that is none of these.
+// successionValues answers inst's immediate predecessors or successors from the
+// successions that fired, and all of them from the time order; false for any other.
 func (ctx *Context) successionValues(inst *Instance, sym *symbols.Symbol) ([]Value, bool, error) {
 	ctx.readsLives()
 	var ids []int64
+	var err error
 	switch {
 	case ctx.isLibraryMember(sym, inst.Type, occurrenceImmediatePredecessorsFQN):
 		ids = ctx.fired[inst.ID]
 	case ctx.isLibraryMember(sym, inst.Type, occurrencePredecessorsFQN):
-		ids = ctx.firedClosure(inst.ID, func(id int64) []int64 { return ctx.fired[id] })
+		ids, err = ctx.timeOrdered(inst, true)
 	case ctx.isLibraryMember(sym, inst.Type, occurrenceImmediateSuccessorsFQN):
 		ids = ctx.firedSuccessors(inst.ID)
 	case ctx.isLibraryMember(sym, inst.Type, occurrenceSuccessorsFQN):
-		ids = ctx.firedClosure(inst.ID, ctx.firedSuccessors)
+		ids, err = ctx.timeOrdered(inst, false)
 	default:
 		return nil, false, nil
+	}
+	if err != nil {
+		return nil, true, err
 	}
 	values := make([]Value, 0, len(ids))
 	for _, id := range ids {
@@ -90,6 +89,67 @@ func (ctx *Context) successionValues(inst *Instance, sym *symbols.Symbol) ([]Val
 		values = append(values, val)
 	}
 	return values, true, nil
+}
+
+// timeOrderOpen is the undetermined read of inst's predecessors before it began
+// or its successors before it ended, with the reason; false for any other member.
+func (ctx *Context) timeOrderOpen(inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, bool) {
+	l := ctx.lives[inst.ID]
+	switch {
+	case ctx.isLibraryMember(sym, inst.Type, occurrencePredecessorsFQN) && l.began == 0:
+		return undeterminedFeatureValue(fmt.Sprintf("%s has not started: its startShot has not happened", SymbolText(inst.Type)), feat.Multiplicity, sym), true
+	case ctx.isLibraryMember(sym, inst.Type, occurrenceSuccessorsFQN) && l.ended == 0:
+		return undeterminedFeatureValue(fmt.Sprintf("%s has not ended: its endShot has not happened", SymbolText(inst.Type)), feat.Multiplicity, sym), true
+	}
+	return Value{}, false
+}
+
+// timeOrdered lists the occurrences that ended before inst began (before) or
+// began after it ended (Occurrences.kerml `predecessors`, `successors`), each
+// with the shots of its own that did so, by object id.
+func (ctx *Context) timeOrdered(inst *Instance, before bool) ([]int64, error) {
+	l := ctx.lives[inst.ID]
+	ordered := func(o life) bool {
+		if before {
+			return o.ended != 0 && o.ended < l.began
+		}
+		return o.began != 0 && o.began > l.ended
+	}
+	ids := make([]int64, 0, len(ctx.instances))
+	for id := range ctx.instances {
+		if id != inst.ID && ordered(ctx.lives[id]) {
+			ids = append(ids, id)
+		}
+	}
+	slices.Sort(ids)
+	for _, id := range ids {
+		if _, isShot := ctx.shotOccurrence(id); isShot {
+			continue
+		}
+		for _, start := range [...]bool{true, false} {
+			other := ctx.instances[id]
+			fqn := occurrenceEndShotFQN
+			if start {
+				fqn = occurrenceStartShotFQN
+			}
+			member := ctx.shotMemberOf(other.Type, ctx.librarySymbol(fqn))
+			if member == nil {
+				continue
+			}
+			feat := ctx.effectiveFeature(member.Name, member, other.Type)
+			if _, err := ctx.shotOf(other, member, &feat, start); err != nil {
+				return nil, err
+			}
+		}
+	}
+	out := make([]int64, 0, len(ids))
+	for id := range ctx.instances {
+		if id != inst.ID && ordered(ctx.lives[id]) {
+			out = append(out, id)
+		}
+	}
+	slices.Sort(out)
+	return out, nil
 }
 
 // isLibraryMember reports whether sym, a member of typ, is the library member
@@ -129,24 +189,5 @@ func (ctx *Context) firedSuccessors(id int64) []int64 {
 		}
 	}
 	slices.Sort(out)
-	return out
-}
-
-// firedClosure walks next from id over the fired successions, each occurrence once.
-func (ctx *Context) firedClosure(id int64, next func(int64) []int64) []int64 {
-	var out []int64
-	seen := map[int64]bool{id: true}
-	queue := []int64{id}
-	for len(queue) > 0 {
-		at := queue[0]
-		queue = queue[1:]
-		for _, n := range next(at) {
-			if !seen[n] {
-				seen[n] = true
-				out = append(out, n)
-				queue = append(queue, n)
-			}
-		}
-	}
 	return out
 }

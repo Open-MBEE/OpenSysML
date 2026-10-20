@@ -5,10 +5,10 @@
   "slots": {
     "ran": {"type": "Integer", "value": 111},
     "aPredecessors": {"type": "Integer", "value": 0},
-    "bPredecessors": {"type": "Integer", "value": 1},
-    "cPredecessors": {"type": "Integer", "value": 2},
+    "bPredecessors": {"type": "Integer", "value": 3},
+    "cPredecessors": {"type": "Integer", "value": 6},
     "cImmediate": {"type": "Integer", "value": 1},
-    "aSuccessors": {"type": "Integer", "value": 2},
+    "aSuccessors": {"type": "Integer", "value": 6},
     "aImmediate": {"type": "Integer", "value": 1},
     "bAfterA": {"type": "Boolean", "value": true},
     "cAfterA": {"type": "Boolean", "value": true}

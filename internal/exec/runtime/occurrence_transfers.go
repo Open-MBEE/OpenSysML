@@ -13,27 +13,24 @@ const (
 	occurrenceOutgoingTransfersFQN = occurrenceFQN + "::outgoingTransfers"
 )
 
-// transferRecord is one Transfer performance the run completed: the object of
-// Transfers::Transfer standing for it, the occurrences it left (the sending
-// performance, object and port) and those it reached (the accepting
-// performance, object and port), as Occurrences.kerml `outgoingTransfers` and
-// `incomingTransfers` list them.
+// transferRecord is one Transfer performance of the run: its Transfers::Transfer
+// object, the occurrences it left (sending performance, object, port) and those
+// it reached (accepting performance, object, port), per Occurrences.kerml
+// `outgoingTransfers`/`incomingTransfers`.
 type transferRecord struct {
 	id      int64
 	source  int64 // the end feature `source`: the sending performance, else the sending object
-	target  int64 // the end feature `target`: the accepting performance, else its object
-	payload Value // what the transfer carried, none where the message carried nothing
+	target  int64 // the end feature `target`: the accepting performance, else the receiving object
+	payload Value // what the transfer carries, none where the message carries nothing
 	sources []int64
 	targets []int64
 }
 
-// recordTransfer records a message an accept took as a Transfer from what sent
-// it to the performance that accepted it: the transfer began when the message
-// was sent and ended now, its source is the sending performance (else the
-// sending object), its target the accepting performance, and its payload what
-// the message carried. A message from outside the run has no source and
-// records no transfer.
-func (ctx *Context) recordTransfer(msg Message, receiver, receiverObject *Instance) error {
+// beginTransfer records the message a send posts as a Transfer that began now
+// (Transfers.kerml: a Performance from the source to the target), from the
+// sending performance or object to the object the message is bound for. A
+// message from outside the run has no source and records none.
+func (ctx *Context) beginTransfer(msg *Message) error {
 	if msg.Sender == 0 && msg.SenderPerformance == 0 {
 		return nil
 	}
@@ -43,31 +40,62 @@ func (ctx *Context) recordTransfer(msg Message, receiver, receiverObject *Instan
 	}
 	transfer, err := ctx.materialize(sym, 0, nil, "")
 	if err != nil {
-		return fmt.Errorf("transfer of %s: %w", acceptedEventName(msg), err)
+		return fmt.Errorf("transfer of %s: %w", acceptedEventName(*msg), err)
 	}
 	source := msg.SenderPerformance
 	if source == 0 {
 		source = msg.Sender
 	}
-	target := objectID(receiver)
-	if target == 0 {
-		target = objectID(receiverObject)
-	}
 	prior := ctx.lives[transfer.ID]
-	ended := ctx.newActivation()
-	ctx.lives[transfer.ID] = life{reached: prior.reached, began: prior.began, ended: ended, beganAt: msg.SentAt, endedAt: ctx.clock.Now()}
-	ctx.livesChanged()
+	ctx.lives[transfer.ID] = life{reached: prior.reached, began: ctx.newActivation(), beganAt: msg.SentAt}
 	record := transferRecord{
 		id:      transfer.ID,
 		source:  source,
-		target:  target,
-		payload: acceptedPayload(msg),
+		target:  msg.Object,
+		payload: acceptedPayload(*msg),
 		sources: nonzeroIDs(msg.SenderPerformance, msg.Sender, msg.SenderPort),
-		targets: nonzeroIDs(objectID(receiver), objectID(receiverObject), msg.PortID),
+		targets: nonzeroIDs(msg.Object, msg.PortID),
 	}
 	before := len(ctx.transfers)
 	ctx.transfers = append(ctx.transfers, record)
 	ctx.noteProbeUndo(func() { ctx.transfers = ctx.transfers[:before] })
+	ctx.livesChanged()
+	msg.Transfer = transfer.ID
+	return nil
+}
+
+// recordTransfer completes the Transfer of a message an accept took: it ends
+// now, its target is the accepting performance (else its object) and it
+// reached that performance, its object and the port it came in through.
+func (ctx *Context) recordTransfer(msg Message, receiver, receiverObject *Instance) error {
+	at := slices.IndexFunc(ctx.transfers, func(r transferRecord) bool { return r.id == msg.Transfer && msg.Transfer != 0 })
+	if at < 0 {
+		if err := ctx.beginTransfer(&msg); err != nil || msg.Transfer == 0 {
+			return err
+		}
+		at = len(ctx.transfers) - 1
+	}
+	previous := ctx.transfers[at]
+	record := previous
+	record.sources, record.targets = slices.Clone(previous.sources), slices.Clone(previous.targets)
+	if target := objectID(receiver); target != 0 {
+		record.target = target
+	} else if target := objectID(receiverObject); target != 0 {
+		record.target = target
+	}
+	for _, id := range nonzeroIDs(objectID(receiver), objectID(receiverObject), msg.PortID) {
+		if !slices.Contains(record.targets, id) {
+			record.targets = append(record.targets, id)
+		}
+	}
+	if record.payload.Kind == ValInvalid {
+		record.payload = acceptedPayload(msg)
+	}
+	l := ctx.lives[record.id]
+	l.ended, l.endedAt = ctx.newActivation(), ctx.clock.Now()
+	ctx.lives[record.id] = l
+	ctx.transfers[at] = record
+	ctx.noteProbeUndo(func() { ctx.transfers[at] = previous })
 	ctx.livesChanged()
 	return nil
 }
@@ -107,9 +135,8 @@ func nonzeroIDs(ids ...int64) []int64 {
 	return out
 }
 
-// transferValues answers a collection member of inst over the transfers the
-// run completed: those that reached it (`incomingTransfers`) or left it
-// (`outgoingTransfers`); false for a member that is neither.
+// transferValues answers inst's `incomingTransfers` (the transfers that reached
+// it) or `outgoingTransfers` (those that left it); false for a member that is neither.
 func (ctx *Context) transferValues(inst *Instance, sym *symbols.Symbol) ([]Value, bool, error) {
 	ctx.readsLives()
 	var ends func(transferRecord) []int64
@@ -145,8 +172,8 @@ func (ctx *Context) transferValues(inst *Instance, sym *symbols.Symbol) ([]Value
 	return values, true, nil
 }
 
-// recordedValues answers a collection member of inst from what the run recorded:
-// the successions that fired or the transfers that completed; false for any other.
+// recordedValues answers a collection member of inst from the time order, the
+// successions that fired or the transfers; false for any other.
 func (ctx *Context) recordedValues(inst *Instance, sym *symbols.Symbol) ([]Value, bool, error) {
 	if values, ok, err := ctx.successionValues(inst, sym); ok {
 		return values, ok, err
@@ -154,9 +181,8 @@ func (ctx *Context) recordedValues(inst *Instance, sym *symbols.Symbol) ([]Value
 	return ctx.transferValues(inst, sym)
 }
 
-// transferEndValue answers the end feature `source` or `target` of a Transfer
-// object the run recorded (Transfers.kerml: the occurrences the transfer is
-// from and to); false for any other read.
+// transferEndValue answers the end feature `source` or `target` of a recorded
+// Transfer object (Transfers.kerml); false for any other read.
 func (ctx *Context) transferEndValue(inst *Instance, sym *symbols.Symbol) (Value, bool, error) {
 	ctx.readsLives()
 	var end func(transferRecord) int64

@@ -271,7 +271,7 @@ var runningScenarios = []runningScenario{
 			}
 		} }`,
 		expect: map[string]string{
-			"after completion/act.done": "object of Actions::Action::done",
+			"after completion/act.done": "object of Running::nested_action_completed::Root::act",
 		},
 		drive: func(t *testing.T, ctx *Context, root *Instance, point runningPoint) {
 			point("after completion", receiversOn(t, ctx, root, "act"),

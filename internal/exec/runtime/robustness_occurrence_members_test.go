@@ -70,8 +70,22 @@ func testOccurrenceShotsBeforeStart(t *testing.T) {
 			t.Errorf("%s: reason %q does not say the performance has not ended", expr, reason)
 		}
 	}
-	if got := FormatValue(mustEvalOn(t, ctx, h, "a.successors->SequenceFunctions::size()")); got != "0" {
-		t.Errorf("a.successors has %s elements, want none: the succession to b has not fired", got)
+	val, err := evalOn(t, ctx, h, "a.successors")
+	if reason := undeterminedReason(t, val, err, "a.successors"); !strings.Contains(reason, "has not ended") {
+		t.Errorf("a.successors: reason %q does not say a has not ended", reason)
+	}
+}
+
+// wantOpenSnapshots checks a read of the snapshots of an occurrence that began
+// and has not ended: open, with the start shot its one known member.
+func wantOpenSnapshots(t *testing.T, val Value, err error, what string) {
+	t.Helper()
+	reason := undeterminedReason(t, val, err, what)
+	if !strings.Contains(reason, "has not ended") {
+		t.Errorf("%s: reason %q does not say the occurrence has not ended", what, reason)
+	}
+	if u := val.Undetermined(); u != nil && (len(u.knownValues()) != 1 || fewestOf(u.Count()) != 2) {
+		t.Errorf("%s = %s, want the start snapshot known and at least one more", what, FormatValue(val))
 	}
 }
 
@@ -89,9 +103,8 @@ func testOccurrenceShotsParked(t *testing.T) {
 	if reason := undeterminedReason(t, val, err, "Time::DurationOf(act)"); !strings.Contains(reason, "has not ended") {
 		t.Errorf("DurationOf(act): reason %q does not say the performance has not ended", reason)
 	}
-	if got := FormatValue(mustEvalOn(t, ctx, p, "act.snapshots->SequenceFunctions::size()")); got != "1" {
-		t.Errorf("act.snapshots has %s elements, want the start snapshot alone", got)
-	}
+	val, err = evalOn(t, ctx, p, "act.snapshots")
+	wantOpenSnapshots(t, val, err, "act.snapshots")
 	if got := FormatValue(mustEvalOn(t, ctx, p, "act.predecessors->SequenceFunctions::size()")); got != "0" {
 		t.Errorf("act.predecessors has %s elements, want none: no succession fired", got)
 	}
@@ -114,9 +127,8 @@ func testOccurrenceReadsAfterStepBudget(t *testing.T) {
 	if reason := undeterminedReason(t, val, err, "act.done after the budget"); !strings.Contains(reason, "has not ended") {
 		t.Errorf("act.done after the budget: reason %q", reason)
 	}
-	if got := FormatValue(mustEvalOn(t, ctx, p, "act.snapshots->SequenceFunctions::size()")); got != "1" {
-		t.Errorf("act.snapshots after the budget has %s elements, want the start snapshot alone", got)
-	}
+	val, err = evalOn(t, ctx, p, "act.snapshots")
+	wantOpenSnapshots(t, val, err, "act.snapshots after the budget")
 }
 
 func testOccurrenceRestoreTakesBackShots(t *testing.T) {
@@ -147,9 +159,8 @@ func testOccurrenceRestoreTakesBackShots(t *testing.T) {
 	}
 	val, err = evalOn(t, ctx, p, "Time::DurationOf(act)")
 	undeterminedReason(t, val, err, "DurationOf(act) after the restore")
-	if got := FormatValue(mustEvalOn(t, ctx, p, "act.snapshots->SequenceFunctions::size()")); got != "1" {
-		t.Errorf("act.snapshots after the restore has %s elements, want the start snapshot alone", got)
-	}
+	val, err = evalOn(t, ctx, p, "act.snapshots")
+	wantOpenSnapshots(t, val, err, "act.snapshots after the restore")
 	if _, err := ctx.Advance(60); err != nil {
 		t.Fatalf("Advance after the restore: %v", err)
 	}

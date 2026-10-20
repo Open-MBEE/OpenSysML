@@ -71,8 +71,7 @@ type HeldImage struct {
 	clockRun  int              // index into runStates, -1 for none
 	behaviors []imagedBehavior // in the attachment order of the context imaged
 	messages  []Message
-	// What the run recorded of the held objects: their snapshots, the successions
-	// that fired between them and the transfers between them (occurrence_*.go).
+	// What the run recorded of the held objects: shots, fired successions, transfers.
 	shots     map[int64]occurrenceShots
 	fired     map[int64][]int64
 	transfers []transferRecord
@@ -431,7 +430,7 @@ func (t *imaging) carriesBus() bool {
 // message checks that a message carries, reaching the objects it names; one the
 // context does not hold is errImageRoot.
 func (t *imaging) message(msg Message) error {
-	for _, id := range []int64{msg.EventObject, msg.PortID} {
+	for _, id := range []int64{msg.EventObject, msg.PortID, msg.Transfer} {
 		if id == 0 {
 			continue
 		}
@@ -557,9 +556,8 @@ func (t *imaging) finish() {
 	}
 }
 
-// reachRecorded reaches what the run recorded of inst: its snapshots, the
-// performances the successions that fired join it to, and the transfers it is
-// an end of, with their ends and payload.
+// reachRecorded reaches inst's shots, the performances fired successions join it
+// to, and the transfers it is an end of, with their ends and payload.
 func (t *imaging) reachRecorded(inst *Instance) {
 	ctx := t.ctx
 	shots := ctx.shots[inst.ID]
@@ -1022,6 +1020,11 @@ func (m *materializing) message(msg Message) (Message, error) {
 		}
 		out.Serial = serial
 	}
+	if inst, ok := m.made[msg.Transfer]; ok {
+		out.Transfer = inst.ID
+	} else {
+		out.Transfer = 0
+	}
 	var err error
 	if out.Payload, err = m.values(msg.Payload); err != nil {
 		return Message{}, err
@@ -1036,9 +1039,8 @@ func (m *materializing) message(msg Message) (Message, error) {
 	return out, nil
 }
 
-// recordedOccurrences brings what the image recorded of its objects to dst: the
-// snapshots handed out, the successions that fired and the transfers completed,
-// under the identities the objects were made with.
+// recordedOccurrences brings the image's shots, fired successions and transfers
+// to dst under the identities the objects were made with.
 func (m *materializing) recordedOccurrences() {
 	made := func(id int64) int64 {
 		if inst, ok := m.made[id]; ok {

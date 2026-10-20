@@ -52,8 +52,8 @@ func testKernelMaskedNameNamesRedefinition(t *testing.T) {
 func testKernelMemberIsNoMissingFeature(t *testing.T) {
 	_, p1, _, eval := kernelProbeObjects(t)
 	for src, want := range map[string]ValueKind{
-		"Probe::p1.self": ValInstance, "Probe::p1.timeSlices": ValSequence, "Probe::p1.predecessors": ValSequence,
-		"Probe::p1.superoccurrence": ValNull, "Probe::p1.snapshots": ValSequence, "Probe::p1.localClock": ValInstance,
+		"Probe::p1.self": ValInstance, "Probe::p1.timeSlices": ValUndetermined, "Probe::p1.predecessors": ValSequence,
+		"Probe::p1.superoccurrence": ValNull, "Probe::p1.snapshots": ValUndetermined, "Probe::p1.localClock": ValInstance,
 	} {
 		val, err := eval(src)
 		if err != nil {

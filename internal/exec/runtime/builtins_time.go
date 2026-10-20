@@ -13,16 +13,14 @@ const (
 	timeDurationOfOp   = "Time::DurationOf"
 )
 
-// TimeOf and DurationOf read the shared clock's time when an occurrence began
-// and ended (Clocks.kerml: TimeOf is the time of the start snapshot, DurationOf
-// the time of the end snapshot minus it); the shared clock is the one clock
-// the runtime keeps, so a reading against another clock is undetermined.
+// TimeOf and DurationOf read the shared clock when an occurrence began and ended:
+// Clocks.kerml declares them NumericalValue, Time.sysml quantities of time.
 func init() {
 	for name, fn := range map[string]builtinFunc{
-		clocksTimeOfOp:     builtinTimeOf(clocksTimeOfOp),
-		clocksDurationOfOp: builtinDurationOf(clocksDurationOfOp),
-		timeTimeOfOp:       builtinTimeOf(timeTimeOfOp),
-		timeDurationOfOp:   builtinDurationOf(timeDurationOfOp),
+		clocksTimeOfOp:     builtinTimeOf(clocksTimeOfOp, false),
+		clocksDurationOfOp: builtinDurationOf(clocksDurationOfOp, false),
+		timeTimeOfOp:       builtinTimeOf(timeTimeOfOp, true),
+		timeDurationOfOp:   builtinDurationOf(timeDurationOfOp, true),
 	} {
 		builtins[name] = fn
 		builtinSignatures[name] = []declaredParam{param("o"), optionalParam("clock")}
@@ -55,8 +53,8 @@ func clockReading(ec *EvalContext, op string, args []Value) (*Instance, life, *V
 }
 
 // builtinTimeOf is `TimeOf(o, clock)`: the shared clock's time when o began,
-// undetermined until o has started.
-func builtinTimeOf(op string) builtinFunc {
+// undetermined until o has started; a quantity of seconds or a bare number.
+func builtinTimeOf(op string, quantity bool) builtinFunc {
 	return func(ec *EvalContext, args []Value) (Value, error) {
 		inst, l, undetermined, err := clockReading(ec, op, args)
 		if err != nil {
@@ -68,13 +66,13 @@ func builtinTimeOf(op string) builtinFunc {
 		if l.began == 0 {
 			return NewUndeterminedValue(fmt.Sprintf("object #%d (%s) has not started: its startShot has not happened", inst.ID, SymbolText(inst.Type)), semantics.CountRange(1)), nil
 		}
-		return ec.ctx.instantValue(l.beganAt), nil
+		return ec.ctx.timeValue(l.beganAt, quantity), nil
 	}
 }
 
 // builtinDurationOf is `DurationOf(o, clock)`: the shared clock's time when o
 // ended minus when it began, undetermined until o has ended.
-func builtinDurationOf(op string) builtinFunc {
+func builtinDurationOf(op string, quantity bool) builtinFunc {
 	return func(ec *EvalContext, args []Value) (Value, error) {
 		inst, l, undetermined, err := clockReading(ec, op, args)
 		if err != nil {
@@ -89,6 +87,15 @@ func builtinDurationOf(op string) builtinFunc {
 		case l.ended == 0:
 			return NewUndeterminedValue(fmt.Sprintf("object #%d (%s) has not ended: its endShot has not happened", inst.ID, SymbolText(inst.Type)), semantics.CountRange(1)), nil
 		}
-		return ec.ctx.instantValue(l.endedAt - l.beganAt), nil
+		return ec.ctx.timeValue(l.endedAt-l.beganAt, quantity), nil
 	}
+}
+
+// timeValue is the clock's time t as a quantity of seconds, or as the bare
+// NumericalValue the Kernel's Clock reads.
+func (ctx *Context) timeValue(t float64, quantity bool) Value {
+	if quantity {
+		return ctx.instantValue(t)
+	}
+	return realConst(t)
 }
