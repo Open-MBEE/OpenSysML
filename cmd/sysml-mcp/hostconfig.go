@@ -14,13 +14,45 @@ import (
 // prefix tool names with it, so an agent sees sysml/diagnostics and the like.
 const serverName = "sysml"
 
+// npmPackage is the npm package whose sysml-mcp command runs this server from
+// the release binary for the host's platform, so `npx -y` installs it on
+// first use with nothing preinstalled.
+const npmPackage = "@openmbee/sysml-mcp"
+
+// serverCommand is what a block tells the host to start: an executable and
+// the arguments before any the host adds.
+type serverCommand struct {
+	exe  string
+	args []string
+}
+
+// npxCommand is the serverCommand of the npm form: npx installs npmPackage
+// without asking and runs its sysml-mcp command.
+var npxCommand = serverCommand{exe: "npx", args: []string{"-y", npmPackage}}
+
+// binaryCommand is the serverCommand that starts exe with no arguments.
+func binaryCommand(exe string) serverCommand { return serverCommand{exe: exe} }
+
+// argv is the command as one array, the way OpenCode spells it.
+func (c serverCommand) argv() []string {
+	return append([]string{c.exe}, c.args...)
+}
+
+// arguments is the argument list, never nil, so it is written as [] not null.
+func (c serverCommand) arguments() []string {
+	if c.args == nil {
+		return []string{}
+	}
+	return c.args
+}
+
 // host is an agent host sysml-mcp writes a configuration block for.
 type host struct {
 	name string
 	// file is where the host reads the block, relative to the project unless noted.
 	file string
 	// render writes the block declaring command as the server.
-	render func(w io.Writer, command string) error
+	render func(w io.Writer, command serverCommand) error
 }
 
 // hosts lists the hosts -print-config knows, in the order the list is shown.
@@ -71,12 +103,13 @@ func printHostList(w io.Writer) {
 	for _, h := range hosts {
 		fmt.Fprintf(w, "  %-12s %s\n", h.name, h.file)
 	}
-	fmt.Fprintf(w, "Usage: %s -print-config HOST [-print-config-command CMD]\n", mcpCommand)
+	fmt.Fprintf(w, "Usage: %s -print-config HOST [-print-config-command CMD | -print-config-npx]\n", mcpCommand)
 }
 
-// printHostConfig writes the block declaring the server to host name, naming
-// command as the executable, or this binary's resolved path when it is empty.
-func printHostConfig(w io.Writer, name, command string) error {
+// printHostConfig writes the block declaring the server to host name. The
+// block names command as the executable; with npx instead, it names the npm
+// form; with neither, this binary's resolved path.
+func printHostConfig(w io.Writer, name, command string, npx bool) error {
 	var h *host
 	for i := range hosts {
 		if hosts[i].name == name {
@@ -86,13 +119,19 @@ func printHostConfig(w io.Writer, name, command string) error {
 	if h == nil {
 		return fmt.Errorf("unknown host %q; the hosts are %s", name, strings.Join(hostNames(), ", "))
 	}
-	if command == "" {
-		var err error
-		if command, err = executablePath(); err != nil {
-			return fmt.Errorf("resolving the path of this binary: %w (name the command with -print-config-command)", err)
-		}
+	switch {
+	case npx && command != "":
+		return fmt.Errorf("-print-config-npx names npx -y %s as the command, so it excludes -print-config-command %q", npmPackage, command)
+	case npx:
+		return h.render(w, npxCommand)
+	case command != "":
+		return h.render(w, binaryCommand(command))
 	}
-	return h.render(w, command)
+	exe, err := executablePath()
+	if err != nil {
+		return fmt.Errorf("resolving the path of this binary: %w (name the command with -print-config-command)", err)
+	}
+	return h.render(w, binaryCommand(exe))
 }
 
 // executablePath is the absolute path of the running binary, symlinks resolved,
@@ -157,13 +196,13 @@ func (o orderedObject) MarshalJSON() ([]byte, error) {
 
 // renderOpenCode writes the "mcp" block of opencode.json: a local server named
 // by its command array, enabled.
-func renderOpenCode(w io.Writer, command string) error {
+func renderOpenCode(w io.Writer, command serverCommand) error {
 	return writeJSON(w, orderedObject{
 		{"$schema", "https://opencode.ai/config.json"},
 		{"mcp", orderedObject{
 			{serverName, orderedObject{
 				{"type", "local"},
-				{"command", []string{command}},
+				{"command", command.argv()},
 				{"enabled", true},
 			}},
 		}},
@@ -172,8 +211,8 @@ func renderOpenCode(w io.Writer, command string) error {
 
 // renderMCPServers writes the "mcpServers" block Claude Code, Cursor, Gemini
 // CLI and Devin read, with a transport type when the host wants one spelled.
-func renderMCPServers(transport string) func(io.Writer, string) error {
-	return func(w io.Writer, command string) error {
+func renderMCPServers(transport string) func(io.Writer, serverCommand) error {
+	return func(w io.Writer, command serverCommand) error {
 		return writeJSON(w, orderedObject{
 			{"mcpServers", orderedObject{
 				{serverName, serverObject(transport, command)},
@@ -183,7 +222,7 @@ func renderMCPServers(transport string) func(io.Writer, string) error {
 }
 
 // renderVSCode writes the "servers" block of .vscode/mcp.json.
-func renderVSCode(w io.Writer, command string) error {
+func renderVSCode(w io.Writer, command serverCommand) error {
 	return writeJSON(w, orderedObject{
 		{"servers", orderedObject{
 			{serverName, serverObject("stdio", command)},
@@ -192,25 +231,30 @@ func renderVSCode(w io.Writer, command string) error {
 }
 
 // serverObject is the common stdio server declaration: a command and its
-// (empty) argument list, preceded by the transport type when one is wanted.
-func serverObject(transport, command string) orderedObject {
+// argument list, preceded by the transport type when one is wanted.
+func serverObject(transport string, command serverCommand) orderedObject {
 	var o orderedObject
 	if transport != "" {
 		o = append(o, orderedField{"type", transport})
 	}
 	return append(o,
-		orderedField{"command", command},
-		orderedField{"args", []string{}},
+		orderedField{"command", command.exe},
+		orderedField{"args", command.arguments()},
 	)
 }
 
 // renderCodex writes the [mcp_servers.sysml] table of Codex's config.toml. A
-// JSON string is a valid TOML basic string, so the command is quoted as one.
-func renderCodex(w io.Writer, command string) error {
-	quoted, err := json.Marshal(command)
+// JSON string is a valid TOML basic string and a JSON array of them a valid
+// TOML array, so the command and its arguments are written as those.
+func renderCodex(w io.Writer, command serverCommand) error {
+	quoted, err := json.Marshal(command.exe)
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(w, "[mcp_servers.%s]\ncommand = %s\nargs = []\n", serverName, quoted)
+	args, err := json.Marshal(command.arguments())
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(w, "[mcp_servers.%s]\ncommand = %s\nargs = %s\n", serverName, quoted, args)
 	return err
 }
