@@ -62,6 +62,7 @@ type HeldImage struct {
 	clock             float64
 
 	occurrences      map[*symbols.Symbol][]int64
+	usageOccurrences map[calcUsageKey]int64
 	occurrenceTails  map[*symbols.Symbol]*requiredMembers
 	metadataObjects  map[metadataAnnotation]int64
 	variantObjects   map[variantObject]int64
@@ -163,6 +164,7 @@ func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 		runs:             ctx.runs,
 		clock:            ctx.clock.now,
 		occurrences:      make(map[*symbols.Symbol][]int64),
+		usageOccurrences: make(map[calcUsageKey]int64),
 		occurrenceTails:  make(map[*symbols.Symbol]*requiredMembers),
 		metadataObjects:  make(map[metadataAnnotation]int64),
 		variantObjects:   make(map[variantObject]int64),
@@ -277,6 +279,11 @@ func (t *imaging) close() error {
 // drains; when none are new it opens the image, taking the bus's open messages.
 func (t *imaging) widen() error {
 	ctx := t.ctx
+	for key, id := range ctx.usageOccurrences {
+		if _, live := ctx.instances[id]; live && t.img.held[key.instance] {
+			t.reach(id)
+		}
+	}
 	for sym, ids := range ctx.occurrences {
 		if !t.declaredUnderHeld(sym) {
 			continue
@@ -499,6 +506,12 @@ func (t *imaging) finish() {
 			img.objects[i].features[j].readsLives = slices.Contains(fv.reads, &ctx.lifetimes)
 		}
 	}
+	// The occurrence a usage is on a held object goes with that object.
+	for key, id := range ctx.usageOccurrences {
+		if img.held[key.instance] && img.held[id] {
+			img.usageOccurrences[key] = id
+		}
+	}
 	// A usage's occurrences are imaged whole: an image holding some of them holds none.
 	for sym, ids := range ctx.occurrences {
 		if !slices.ContainsFunc(ids, func(id int64) bool { return !img.held[id] }) {
@@ -631,6 +644,11 @@ func (img *HeldImage) bindingsFree(dst *Context) error {
 				refuse(ids[0], fmt.Errorf("%w: usage %s denotes #%d", errImageBindingTaken, dst.QualifiedName(sym), prior))
 				break
 			}
+		}
+	}
+	for key, id := range img.usageOccurrences {
+		if prior, ok := dst.usageOccurrences[key]; ok && prior != id && dst.holds(prior) {
+			refuse(id, fmt.Errorf("%w: usage %s on #%d denotes #%d", errImageBindingTaken, dst.QualifiedName(key.sym), key.instance, prior))
 		}
 	}
 	for key, id := range img.metadataObjects {
@@ -801,6 +819,9 @@ func (m *materializing) run() error {
 	dst.workChanged()
 	for sym, ids := range img.occurrences {
 		dst.occurrences[sym] = slices.Clone(ids)
+	}
+	for key, id := range img.usageOccurrences {
+		dst.usageOccurrences[key] = id
 	}
 	for sym, r := range tails {
 		dst.recordOccurrenceTail(sym, r)

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"strings"
 	"testing"
 )
@@ -129,6 +130,63 @@ func TestRuntimeRobustnessCaseMemberReads(t *testing.T) {
 		}
 		if got := FormatValue(mustEvalIn(t, ctx, root, "test::holder.check.gear != test::other.check.gear")); got != "true" {
 			t.Errorf("the two owners' gears compare %s, want distinct objects", got)
+		}
+	})
+
+	t.Run("restoring a snapshot forgets the occurrence made since, so a reuse of its identity is not it", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, src)
+		root := idx.DocumentRoot("<test>")
+		holder := mustEvalIn(t, ctx, root, "test::holder")
+		before, err := ctx.Snapshot()
+		if err != nil {
+			t.Fatalf("Snapshot: %v", err)
+		}
+		gear := mustEvalIn(t, ctx, root, "test::holder.check.gear")
+		gearInst, _ := ctx.Instance(gear.Instance)
+		occurrence := gearInst.owner.ID
+		before.Restore()
+		if _, live := ctx.instances[occurrence]; live {
+			t.Fatalf("the check occurrence #%d survives the restore", occurrence)
+		}
+		taker, err := ctx.Instantiate(namedOrFoundSymbol(t, idx, "test::Operator", root, ast.DefPart, ast.UsagePart))
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		if taker.ID != occurrence {
+			t.Fatalf("the unrelated object is #%d, want it to take the freed #%d", taker.ID, occurrence)
+		}
+		if again := mustEvalIn(t, ctx, root, "test::holder"); again.Instance != holder.Instance {
+			t.Fatalf("holder after the restore = #%d, want #%d", again.Instance, holder.Instance)
+		}
+		again := mustEvalIn(t, ctx, root, "test::holder.check.gear")
+		againInst, _ := ctx.Instance(again.Instance)
+		if againInst.owner == nil || againInst.owner.ID == taker.ID || againInst.owner.Type != gearInst.owner.Type {
+			t.Fatalf("holder.check.gear after the restore is held by %s, want a fresh occurrence of the check",
+				FormatValue(Value{Kind: ValInstance, Instance: againInst.owner.ID}))
+		}
+		if got := FormatValue(mustEvalIn(t, ctx, root, "test::holder.check.gear.w")); got != "6" {
+			t.Errorf("holder.check.gear.w after the restore = %s, want 6", got)
+		}
+	})
+
+	t.Run("an image of the owner carries the occurrence its case is", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, src)
+		root := idx.DocumentRoot("<test>")
+		holder := mustEvalIn(t, ctx, root, "test::other")
+		gear := mustEvalIn(t, ctx, root, "test::other.check.gear")
+		owner, _ := ctx.Instance(holder.Instance)
+		dst := imageInto(t, ctx, owner)
+		if _, carried := dst.Instance(gear.Instance); !carried {
+			t.Fatalf("gear #%d is not in the image", gear.Instance)
+		}
+		made := len(dst.created)
+		copied := mustEvalIn(t, dst, root, "test::other.check.gear")
+		if copied.Instance != gear.Instance || len(dst.created) != made {
+			t.Fatalf("other.check.gear in the copy = #%d (%d objects made), want the imported #%d and none made",
+				copied.Instance, len(dst.created)-made, gear.Instance)
+		}
+		if got := FormatValue(mustEvalIn(t, dst, root, "test::other.check.gear.w")); got != "10" {
+			t.Errorf("other.check.gear.w in the copy = %s, want 10", got)
 		}
 	})
 

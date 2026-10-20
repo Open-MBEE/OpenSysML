@@ -1039,6 +1039,16 @@ func (a *adoption) carryDerived(adopted map[int64]bool) {
 			a.ctx.occurrences[found] = ids
 		}
 	}
+	for key, id := range a.prev.usageOccurrences {
+		if !adopted[id] || !adopted[key.instance] {
+			continue
+		}
+		if found, ok := a.rebound[key.sym]; ok {
+			a.ctx.usageOccurrences[calcUsageKey{sym: found, instance: key.instance}] = id
+		} else if found, err := a.rebind(key.sym, aUsageOfIt); err == nil {
+			a.ctx.usageOccurrences[calcUsageKey{sym: found, instance: key.instance}] = id
+		}
+	}
 	for sym := range a.prev.occurrenceTails {
 		a.carryOccurrenceTail(sym, adopted)
 	}
