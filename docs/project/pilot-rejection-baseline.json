@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 328,
-        "digest": "sha256:4b0ec62e3b1f9366a92474f8b89d5306a3e090b7e3e49160942110adb533ee5a"
+        "files": 329,
+        "digest": "sha256:bdc5e64b24dd900a814a27a1bf29da7f86037378e18ba7893016d427a660807a"
       }
     ],
-    "recorded": "2026-10-18"
+    "recorded": "2026-10-20"
   },
   "totals": {
-    "cases": 328,
-    "bothReject": 319,
+    "cases": 329,
+    "bothReject": 320,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 169,
-      "bothReject": 160,
+      "cases": 170,
+      "bothReject": 161,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -2169,6 +2169,15 @@
       "pilotErrors": 2
     },
     {
+      "path": "semantic/s108-usage-subsets-constant-usage.sysml",
+      "source": "semantic",
+      "rule": "a usage that may vary in time cannot subset or redefine a constant one unless it is constant (KerML 8.3.3.3.9 validateSubsettingConstantConformance; pilot validateSubsettingConstantConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/s11-case-two-objectives.sysml",
       "source": "semantic",
       "rule": "A case usage may have at most one objective (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneObjective).",
@@ -3193,8 +3202,8 @@
       }
     ],
     "totals": {
-      "cases": 328,
-      "bothReject": 319,
+      "cases": 329,
+      "bothReject": 320,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
