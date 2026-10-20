@@ -5,7 +5,7 @@ import { test } from "node:test";
 
 import * as manifest from "../package.json";
 import { AUTO_OPEN_SETTING } from "./autoopen";
-import { DEFAULT_STYLE, STYLE_SETTING, STYLES } from "./style";
+import { DEFAULT_OPEN_IN, DEFAULT_ROUTING, DEFAULT_STYLE, OPEN_IN_SETTING, OPEN_INS, ROUTING_SETTING, ROUTINGS, STYLE_SETTING, STYLES } from "./style";
 import { MODEL_LANGUAGES, PANEL_TYPE } from "./target";
 
 interface Keybinding {
@@ -23,6 +23,7 @@ interface MenuItem {
 
 const OPEN = "opensysml.openDiagram";
 const EXPORT = "opensysml.exportDiagram";
+const POP_OUT = "opensysml.diagram.popOut";
 
 const { commands, keybindings, menus } = manifest.contributes as {
   commands: { command: string; title: string; category?: string; icon?: string; enablement?: string }[];
@@ -52,7 +53,7 @@ test("keybindings and menus name declared commands only", () => {
 });
 
 test("the diagram commands are palette entries under the SysML category, not gated by a context key", () => {
-  for (const id of [OPEN, EXPORT]) {
+  for (const id of [OPEN, EXPORT, POP_OUT]) {
     const command = commands.find((entry) => entry.command === id);
     assert.ok(command, `${id} is declared`);
     assert.equal(command.category, "SysML");
@@ -107,6 +108,41 @@ test("Export Diagram sits next to Open Diagram in the editor menus, and nowhere 
     assert.ok(item.when, `${menu} export is scoped`);
   }
   assert.equal(menus["explorer/context"].some((item) => item.command === EXPORT), false);
+});
+
+test("Move Diagram to New Window is in the panel's title-bar menu and the source editor's, under its own title", () => {
+  const command = commands.find((entry) => entry.command === POP_OUT);
+  assert.equal(command?.title, "Move Diagram to New Window");
+  const item = menus["editor/title"].find((entry) => entry.command === POP_OUT);
+  assert.ok(item, "the title bar offers the move");
+  assert.ok(item.when?.includes(`activeWebviewPanelId == ${PANEL_TYPE}`), "the panel's own title bar offers it");
+  scopedToModels(item.when, "resourceLangId");
+  assert.equal(item.group, menus["editor/title"].find((entry) => entry.command === EXPORT)?.group);
+  for (const menu of ["editor/context", "explorer/context"]) {
+    assert.equal(menus[menu].some((entry) => entry.command === POP_OUT), false, `${menu} leaves the move to the title bar`);
+  }
+});
+
+test("the routing and openIn settings offer each choice the panel knows, described, with today's behaviour the default", () => {
+  const { properties } = manifest.contributes.configuration as {
+    properties: Record<string, { type: string; default: unknown; enum?: string[]; enumDescriptions?: string[]; markdownDescription?: string }>;
+  };
+  for (const [key, choices, fallback] of [
+    [ROUTING_SETTING, ROUTINGS, DEFAULT_ROUTING],
+    [OPEN_IN_SETTING, OPEN_INS, DEFAULT_OPEN_IN],
+  ] as const) {
+    const setting = properties[key];
+    assert.ok(setting, `${key} is declared`);
+    assert.equal(setting.type, "string");
+    assert.equal(setting.default, fallback);
+    assert.deepEqual(setting.enum, [...choices]);
+    assert.equal(setting.enumDescriptions?.length, choices.length);
+    assert.ok(setting.markdownDescription, `${key} is described`);
+  }
+  // The style, routing and openIn settings sit together, the routing one saying it is the panel's alone.
+  const keys = Object.keys(properties);
+  assert.ok(keys.indexOf(OPEN_IN_SETTING) < keys.indexOf(ROUTING_SETTING));
+  assert.match(properties[ROUTING_SETTING].markdownDescription ?? "", /render-lines/);
 });
 
 test("no menu item or keybinding is left without a when clause", () => {

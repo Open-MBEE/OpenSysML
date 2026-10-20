@@ -156,7 +156,7 @@
 2	sysml/7.13.2/5.sysml
 3	sysml/7.13.2/6.sysml
 3	sysml/7.13.2/7.sysml
-5	sysml/7.13.2/8.sysml
+1	sysml/7.13.2/8.sysml
 3	sysml/7.13.2/9.sysml
 2	sysml/7.13.3/1.sysml
 2	sysml/7.13.4/1.sysml
@@ -168,7 +168,7 @@
 3	sysml/7.16.2/1.sysml
 6	sysml/7.16.2/3.sysml
 2	sysml/7.16.2/4.sysml
-1	sysml/7.17.10/1.sysml
+2	sysml/7.17.10/1.sysml
 2	sysml/7.17.10/3.sysml
 3	sysml/7.17.11/1.sysml
 5	sysml/7.17.11/2.sysml
@@ -209,7 +209,7 @@
 3	sysml/7.17.7/4.sysml
 3	sysml/7.17.7/5.sysml
 2	sysml/7.17.8/1.sysml
-7	sysml/7.17.8/2.sysml
+2	sysml/7.17.8/2.sysml
 1	sysml/7.17.8/3.sysml
 1	sysml/7.17.8/4.sysml
 1	sysml/7.17.8/5.sysml
@@ -281,7 +281,6 @@
 4	sysml/7.6.3/2.sysml
 2	sysml/7.6.3/4.sysml
 3	sysml/7.6.3/5.sysml
-2	sysml/7.6.4/1.sysml
 3	sysml/7.6.5/1.sysml
 4	sysml/7.6.6/1.sysml
 3	sysml/7.6.7/1.sysml

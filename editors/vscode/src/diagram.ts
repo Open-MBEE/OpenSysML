@@ -49,7 +49,7 @@ import {
 } from "./protocol";
 import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
 import { logsRender, renderSummary } from "./rendertrace";
-import { DEPTH_SETTING, depthOf, DiagramStyle, drawingStyleOf, paletteOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
+import { DEPTH_SETTING, depthOf, DiagramStyle, drawingStyleOf, OpenIn, openInOf, paletteOf, Routing, ROUTING_SETTING, routingOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
 import {
   chooseView,
@@ -101,6 +101,7 @@ async function listViews(client: LanguageClient, uri: string, output: vscode.Out
 export class DiagramPanels implements vscode.Disposable {
   /** The panels, by panelKey of the document and the view each draws. */
   private readonly panels = new Map<string, DiagramPanel>();
+  private readonly moves = new Map<DiagramPanel, Promise<void>>();
   private readonly disposables: vscode.Disposable[] = [];
   private readonly dismissals: Dismissals;
   private readonly chosenViews: ChosenViews;
@@ -120,6 +121,7 @@ export class DiagramPanels implements vscode.Disposable {
     this.disposables.push(
       vscode.commands.registerCommand("opensysml.openDiagram", (target?: unknown) => this.open(target)),
       vscode.commands.registerCommand("opensysml.exportDiagram", (target?: unknown) => this.export(target)),
+      vscode.commands.registerCommand("opensysml.diagram.popOut", (target?: unknown) => this.popOut(target)),
       vscode.window.onDidChangeTextEditorSelection((event) => {
         for (const panel of this.panelsOf(event.textEditor.document.uri)) {
           panel.highlightAt(event.selections[0].active);
@@ -133,6 +135,10 @@ export class DiagramPanels implements vscode.Disposable {
         if (event.affectsConfiguration(STYLE_SETTING) || event.affectsConfiguration(SHOW_SETTING) || event.affectsConfiguration(DEPTH_SETTING)) {
           for (const panel of this.panels.values()) {
             panel.restyle();
+          }
+        } else if (event.affectsConfiguration(ROUTING_SETTING)) {
+          for (const panel of this.panels.values()) {
+            panel.reroute();
           }
         }
       }),
@@ -324,6 +330,48 @@ export class DiagramPanels implements vscode.Disposable {
     return views;
   }
 
+  /**
+   * popOut moves a diagram into a window of its own: the focused panel, else a
+   * panel of the active document, opened first when it has none. Run from an
+   * editor, it leaves focus there; the floating window takes the panel only.
+   */
+  async popOut(target?: unknown): Promise<void> {
+    const resolved = this.resolve(target, "move its diagram to a new window");
+    if (!resolved) {
+      return;
+    }
+    const { uri, fromPanel } = resolved;
+    const editor = fromPanel ? undefined : vscode.window.activeTextEditor;
+    let panel = fromPanel ? this.focusedPanel() : this.panelsOf(uri)[0];
+    if (!panel) {
+      await this.open(target);
+      panel = this.panelsOf(uri)[0];
+    }
+    if (panel) {
+      await this.moveToNewWindow(panel, editor);
+    }
+  }
+
+  // moveToNewWindow floats the panel's tab: the move takes the active editor, so
+  // the panel is focused first, and the source editor gets focus back afterwards.
+  // A panel already on its way (the openIn setting's move) is not moved twice.
+  private moveToNewWindow(panel: DiagramPanel, editor: vscode.TextEditor | undefined): Promise<void> {
+    let move = this.moves.get(panel);
+    if (!move) {
+      move = this.float(panel, editor).finally(() => this.moves.delete(panel));
+      this.moves.set(panel, move);
+    }
+    return move;
+  }
+
+  private async float(panel: DiagramPanel, editor: vscode.TextEditor | undefined): Promise<void> {
+    panel.reveal(panel.column(), false);
+    await vscode.commands.executeCommand("workbench.action.moveEditorToNewWindow");
+    if (editor && !editor.document.isClosed) {
+      await vscode.window.showTextDocument(editor.document, { viewColumn: editor.viewColumn, preserveFocus: false });
+    }
+  }
+
   // show reveals the panel drawing a view of a document, creating it in the
   // diagram column when there is none.
   private show(docURI: vscode.Uri, view: string): void {
@@ -335,15 +383,21 @@ export class DiagramPanels implements vscode.Disposable {
     this.create(docURI, view);
   }
 
-  // create opens a panel of a view of a document in the diagram column, leaving focus where it is.
-  private create(uri: vscode.Uri, selected = "", column = this.diagramColumn()): void {
+  // create opens a panel of a view of a document in the diagram column, leaving
+  // focus where it is. The first panel, with no group to join, goes where the
+  // setting says; a later one joins the group, floating or not.
+  private create(uri: vscode.Uri, selected = "", column?: vscode.ViewColumn): void {
+    const shared = this.panelColumn();
     const panel = vscode.window.createWebviewPanel(
       PANEL_TYPE,
       `Diagram: ${basename(uri)}`,
-      { viewColumn: column, preserveFocus: true },
+      { viewColumn: column ?? shared ?? vscode.ViewColumn.Beside, preserveFocus: true },
       webviewOptions(this.extensionUri),
     );
-    this.adopt(uri, panel, selected);
+    const diagram = this.adopt(uri, panel, selected);
+    if (column === undefined && shared === undefined && diagramOpenIn(uri) === "newWindow") {
+      void this.moveToNewWindow(diagram, vscode.window.activeTextEditor);
+    }
   }
 
   /** panelsOf is every panel drawing a view of the document. */
@@ -374,13 +428,19 @@ export class DiagramPanels implements vscode.Disposable {
   // diagramColumn is the one group the diagrams share: where a panel already
   // sits, else beside the source. One column of diagram tabs keeps the layout calm.
   private diagramColumn(): vscode.ViewColumn {
+    return this.panelColumn() ?? vscode.ViewColumn.Beside;
+  }
+
+  // panelColumn is the group an open panel sits in, a floating window's included;
+  // undefined when none is open or none reports its group.
+  private panelColumn(): vscode.ViewColumn | undefined {
     for (const panel of this.panels.values()) {
       const column = panel.column();
       if (column !== undefined) {
         return column;
       }
     }
-    return vscode.ViewColumn.Beside;
+    return undefined;
   }
 
   /** export writes the named document's diagram to a file, in the form the user picks among those the server writes. */
@@ -497,7 +557,7 @@ export class DiagramPanels implements vscode.Disposable {
   // adopt takes ownership of a panel, whether it was just created or restored. A
   // restored panel drawing what another already draws replaces it. Only a panel
   // whose tab the user closes is a dismissal, and only the document's last one.
-  private adopt(docURI: vscode.Uri, panel: vscode.WebviewPanel, selected: string): void {
+  private adopt(docURI: vscode.Uri, panel: vscode.WebviewPanel, selected: string): DiagramPanel {
     const key = panelKey(docURI.toString(), selected);
     this.panels.get(key)?.dispose();
     const diagram: DiagramPanel = new DiagramPanel(docURI, panel, selected, this.extensionUri, this.output, () => this.client, {
@@ -514,6 +574,7 @@ export class DiagramPanels implements vscode.Disposable {
     });
     this.panels.set(key, diagram);
     this.retitle(docURI, true);
+    return diagram;
   }
 
   // retarget re-keys a panel that moves to another view. When another panel
@@ -581,6 +642,16 @@ function diagramShown(scope: vscode.Uri): string[] {
 /** diagramDepth is how many levels the setting draws below each exposed element, as it applies to a document; 0 for every level. */
 function diagramDepth(scope: vscode.Uri): number {
   return depthOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("depth"));
+}
+
+/** diagramOpenIn is where the setting opens a document's first diagram panel. */
+function diagramOpenIn(scope: vscode.Uri): OpenIn {
+  return openInOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("openIn"));
+}
+
+/** diagramRouting is whose routes the setting draws a document's edges along: the model's stated ones, or the router's. */
+function diagramRouting(scope: vscode.Uri): Routing {
+  return routingOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("routing"));
 }
 
 /** supportedDepth is the depth to ask of a server that reads one; undefined when none is set or the server predates it. */
@@ -659,8 +730,8 @@ class DiagramPanel {
     });
   }
 
-  reveal(column: vscode.ViewColumn): void {
-    this.panel.reveal(column, true);
+  reveal(column: vscode.ViewColumn | undefined, preserveFocus = true): void {
+    this.panel.reveal(column, preserveFocus);
   }
 
   /** column is the editor group the panel sits in, if it is shown in one. */
@@ -825,6 +896,7 @@ class DiagramPanel {
         selected: this.selected,
         drawn: this.drawn,
         style,
+        routing: diagramRouting(this.docURI),
         hint: renderHint(palette !== undefined && !colours, drawing !== undefined && !styled),
       });
       this.highlightActive();
@@ -837,6 +909,11 @@ class DiagramPanel {
   restyle(): void {
     this.post({ type: "style", style: diagramStyle(this.docURI) });
     this.refresh();
+  }
+
+  /** reroute lays the drawing out again along the routes the setting now asks for; nothing is rendered anew. */
+  reroute(): void {
+    this.post({ type: "routing", routing: diagramRouting(this.docURI) });
   }
 
   /** highlightAt marks the node or table row whose declaration contains the cursor. */
