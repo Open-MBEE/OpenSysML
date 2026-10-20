@@ -506,6 +506,7 @@ func TestCaseKeywordIsAnExtension(t *testing.T) {
 		{"package P { analysis case ad; }", "`analysis case <name>` is an OpenSysML extension", "package P { analysis ad; }"},
 		{"package P { verification case vd; }", "`verification case <name>` is an OpenSysML extension", "package P { verification vd; }"},
 		{"package P { abstract analysis case def AD; }", "`analysis case def` is an OpenSysML extension", "package P { abstract analysis def AD; }"},
+		{"package P { analysis\n    case def AD; }", "`analysis case def` is an OpenSysML extension", "package P { analysis\n    def AD; }"},
 	} {
 		wantNotation(t, "a.sysml", tc.src, CodeNonstandardNotation, tc.want)
 		_, _, got := notationDiagnostics(t, "a.sysml", tc.src)

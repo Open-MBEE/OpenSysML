@@ -850,15 +850,42 @@ func (w *notationWalker) caseKeyword(n ast.Node, keyword string, isDef bool) {
 		Code:   CodeNonstandardNotation,
 		Source: "syntax",
 	}
-	// The span is exact only where the source text located the two words.
-	if w.lookup != nil {
+	// The fix deletes the word `case` and the blank after it, leaving any
+	// comment between the two words where it is; it needs the source text.
+	if caseWord, ok := w.trailingWordSpan(span, second); ok {
 		d.Fixes = []diag.Fix{{
 			Title:     "Write the standard keyword " + standard,
-			Edits:     []diag.Edit{diag.Replace(span, first)},
+			Edits:     []diag.Edit{diag.Replace(caseWord, "")},
 			Preferred: true,
 		}}
 	}
 	w.diags = append(w.diags, d)
+}
+
+// trailingWordSpan spans the keyword word that closes a keyword span together
+// with the whitespace following it inside the span's document, false without
+// the source text.
+func (w *notationWalker) trailingWordSpan(span source.Span, word string) (source.Span, bool) {
+	if w.lookup == nil {
+		return source.Span{}, false
+	}
+	text := w.lookup(w.doc, span)
+	lx := lexer.New(source.New(w.doc, []byte(text)))
+	var at source.Span
+	for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
+		if tok.Kind == lexer.Keyword && tok.KeywordID == word {
+			at = source.Span{Offset: span.Offset + tok.Span.Offset, Len: tok.Span.Len}
+		}
+	}
+	if at.Len == 0 {
+		return source.Span{}, false
+	}
+	after := w.lookup(w.doc, source.Span{Offset: at.End(), Len: 1})
+	for after == " " || after == "\t" {
+		at.Len++
+		after = w.lookup(w.doc, source.Span{Offset: at.End(), Len: 1})
+	}
+	return at, true
 }
 
 // conditionTerminator reports the `;` after a body's closing bare condition.
