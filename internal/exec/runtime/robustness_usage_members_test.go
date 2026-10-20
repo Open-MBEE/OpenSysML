@@ -15,6 +15,7 @@ func TestRuntimeRobustnessUsageMembers(t *testing.T) {
 	t.Run("constraint member nothing declares", testUsageMembersConstraintUndeclared)
 	t.Run("unbound constraint input is undetermined", testUsageMembersUnboundConstraintInput)
 	t.Run("state body members are features of the state", testUsageMembersStateBody)
+	t.Run("parameter of an uninvoked action is undetermined on an instance", testUsageMembersUninvokedParameter)
 }
 
 const usageMembersProbeModel = `package Probe {
@@ -24,6 +25,7 @@ const usageMembersProbeModel = `package Probe {
 		calc scaled { in w : ScalarValues::Real; in k : ScalarValues::Real = 2.0; return : ScalarValues::Real = w * k; }
 		constraint fits { in limit : ScalarValues::Real = 100.0; attribute margin : ScalarValues::Real = 5.0; base < limit }
 		constraint under { in limit : ScalarValues::Real; limit > base }
+		action act { in i : ScalarValues::Integer; out o : ScalarValues::Integer; attribute k : ScalarValues::Integer = 3; }
 		state def M;
 		state sm : M { entry action e { attribute who = this; } state idle; state busy; transition idle then busy; }
 	}
@@ -100,5 +102,20 @@ func testUsageMembersStateBody(t *testing.T) {
 	_, err := eval("Probe::rig.sm.nothing")
 	if !errors.Is(err, ErrNoSuchFeature) {
 		t.Fatalf("Probe::rig.sm.nothing = %v, want ErrNoSuchFeature", err)
+	}
+}
+
+func testUsageMembersUninvokedParameter(t *testing.T) {
+	eval := usageMembersEval(t)
+	for _, src := range []string{"Probe::rig.act.i", "Probe::rig.act.o", "new Probe::Rig().act.i", "new Probe::Rig().act.o"} {
+		val, err := eval(src)
+		if err != nil || val.Kind != ValUndetermined {
+			t.Fatalf("%s = %s, %v; want undetermined: nothing invoked act to bind its parameter", src, FormatValue(val), err)
+		}
+	}
+	for _, src := range []string{"Probe::rig.act.k", "new Probe::Rig().act.k"} {
+		if val, err := eval(src); err != nil || FormatValue(val) != "3" {
+			t.Fatalf("%s = %s, %v; want the body attribute 3", src, FormatValue(val), err)
+		}
 	}
 }
