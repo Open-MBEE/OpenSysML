@@ -4,5 +4,5 @@
   "inputs": [
     {"type": "String", "value": ""}
   ],
-  "result": {"type": "Boolean", "value": true}
+  "result": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]}
 }

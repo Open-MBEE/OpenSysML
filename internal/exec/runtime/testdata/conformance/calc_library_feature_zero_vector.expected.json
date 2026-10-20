@@ -2,9 +2,9 @@
   "libraries": true,
   "type": "calc",
   "evaluate": "test::displacement",
-  "result": {"type": "Vector", "elements": [
-    {"type": "Real", "value": 0.0},
-    {"type": "Real", "value": 0.0},
-    {"type": "Real", "value": 0.0}
-  ]}
+  "result": {"type": "Sequence", "elements": [{"type": "Vector", "elements": [
+      {"type": "Real", "value": 0.0},
+      {"type": "Real", "value": 0.0},
+      {"type": "Real", "value": 0.0}
+    ]}]}
 }

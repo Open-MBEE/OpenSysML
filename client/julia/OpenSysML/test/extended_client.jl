@@ -652,18 +652,18 @@ end
                 @test validation.summary.kind == "object"
                 @test !validation.summary.holds
                 @test evaluate(verification, "mass"; subject="Demo::sedan") == 1200.0
-                @test calc(verification, "Demo::add"; arguments=[2, 3]).value == 5
+                @test calc(verification, "Demo::add"; arguments=[2, 3]).value == [5]
 
                 analysis = parse_file(conn, joinpath(FIXTURES, "analysis.sysml"))
                 result = run_analysis(analysis, "An::plain")
-                @test result.outputs["x"] == 3.0
+                @test result.outputs["x"] == [3.0]
                 @test explore_analysis(analysis, "An::plain").complete
 
                 sweep_model = parse_file(conn, joinpath(FIXTURES, "sweep.sysml"))
                 table = run_sweep(sweep_model, "Sw::Ratio", Dict("b" => (1, 2));
                     named_arguments=Dict("a" => 4.0))
                 @test length(table) == 2
-                @test [row.outputs["result"] for row in table] == [4.0, 2.0]
+                @test [row.outputs["result"] for row in table] == [[4.0], [2.0]]
                 @test isempty(failures(table))
                 @test Bool(table)
                 @test !isempty(list_engines(conn))

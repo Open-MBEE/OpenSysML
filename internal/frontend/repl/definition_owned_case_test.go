@@ -13,10 +13,10 @@ func TestAnalysisRunsADefinitionOwnedCaseOnTheObjectGiven(t *testing.T) {
 	run(t, s, "%instantiate Cost::cheap")
 	run(t, s, "%instantiate Cost::dear")
 	wants(t, run(t, s, "%analysis Cost::Definition::costTest Cost::cheap"),
-		"verdict = VerdictKind::pass",
+		"verdict = [VerdictKind::pass]",
 		"✓ Verification Cost::Definition::costTest on Cost::cheap (object #1) verdict: pass")
 	wants(t, run(t, s, "%analysis Cost::Definition::costTest Cost::dear"),
-		"verdict = VerdictKind::fail",
+		"verdict = [VerdictKind::fail]",
 		"✗ Verification Cost::Definition::costTest on Cost::dear (object #2) verdict: fail")
 	// Two objects of the definition and none named: the case is not run on one
 	// picked at random.
@@ -32,7 +32,7 @@ func TestAnalysisRunsADefinitionOwnedCaseOnTheObjectGivenOverOneHeld(t *testing.
 	run(t, s, "%instantiate Cost::Definition")
 	run(t, s, "%instantiate Cost::dear")
 	wants(t, run(t, s, "%analysis Cost::Definition::costTest Cost::dear"),
-		"verdict = VerdictKind::fail",
+		"verdict = [VerdictKind::fail]",
 		"✗ Verification Cost::Definition::costTest on Cost::dear (object #2) verdict: fail")
 	wants(t, run(t, s, "%analysis Cost::Definition::costTest"),
 		"? Verification Cost::Definition::costTest on Instance(ID: 1) verdict: error", "no value for feature cost")

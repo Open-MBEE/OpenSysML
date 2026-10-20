@@ -4,7 +4,7 @@
   "evaluate": "test::lightest",
   "trace": true,
   "outputs": {
-    "selectedAlternative": {"type": "Instance", "value": "test::light"}
+    "selectedAlternative": {"type": "Sequence", "elements": [{"type": "Instance", "value": "test::light"}]}
   },
   "verdicts": {
     "tradeStudyObjective": "satisfied"
@@ -14,6 +14,6 @@
     {"function": "test::lightest::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::light"}], "result": {"type": "Real", "value": 10.0}, "selected": true}
   ],
   "reads": {
-    "test::pickedMass": {"type": "Real", "value": 10.0}
+    "test::pickedMass": {"type": "Sequence", "elements": [{"type": "Real", "value": 10.0}]}
   }
 }

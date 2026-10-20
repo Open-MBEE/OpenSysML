@@ -3,6 +3,6 @@
   "type": "analysis",
   "evaluate": "test::pipeline",
   "outputs": {
-    "total": {"type": "Real", "value": 16.0}
+    "total": {"type": "Sequence", "elements": [{"type": "Real", "value": 16.0}]}
   }
 }

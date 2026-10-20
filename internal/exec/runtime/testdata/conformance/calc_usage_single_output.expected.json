@@ -2,11 +2,11 @@
   "type": "calcUsage",
   "evaluate": "test::c",
   "outputs": {
-    "a": {"type": "Integer", "value": 6}
+    "a": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]}
   },
   "reads": {
-    "test::viaFeature": {"type": "Integer", "value": 6},
-    "test::viaInvocation": {"type": "Integer", "value": 6}
+    "test::viaFeature": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]},
+    "test::viaInvocation": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]}
   },
-  "result": {"type": "Integer", "value": 6}
+  "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]}
 }

@@ -9,12 +9,12 @@ import (
 // invocation with other arguments parses those, and both keep evaluating.
 func TestCalcReusesParsedArgumentsAcrossInvocations(t *testing.T) {
 	s := loadFixture(t, "testdata/vehicle_package.sysml")
-	wants(t, run(t, s, "%calc add 5 -3"), "✓ add(5, -3)", "= 2")
+	wants(t, run(t, s, "%calc add 5 -3"), "✓ add(5, -3)", "= [2]")
 	first := s.argMemo.entries["5 -3"]
 	if first.err != nil || len(first.exprs) != 2 {
 		t.Fatalf("parsed %q = %v, %v; want two expressions", "5 -3", first.exprs, first.err)
 	}
-	wants(t, run(t, s, "%calc add 5 -3"), "✓ add(5, -3)", "= 2")
+	wants(t, run(t, s, "%calc add 5 -3"), "✓ add(5, -3)", "= [2]")
 	if got := s.argMemo.entries["5 -3"]; got.exprs[0].expr != first.exprs[0].expr || got.exprs[1].expr != first.exprs[1].expr {
 		t.Error("a repeated invocation parsed its arguments again")
 	}
@@ -22,15 +22,15 @@ func TestCalcReusesParsedArgumentsAcrossInvocations(t *testing.T) {
 		t.Errorf("memo holds %d argument lists after one distinct invocation, want 1", len(s.argMemo.entries))
 	}
 
-	wants(t, run(t, s, "%calc add (2 + 3) -3"), "✓ add((2 + 3), -3)", "= 2")
-	wants(t, run(t, s, "%calc add 5, -3"), "✓ add(5, -3)", "= 2")
-	wants(t, run(t, s, "%calc add 10 20"), "✓ add(10, 20)", "= 30")
+	wants(t, run(t, s, "%calc add (2 + 3) -3"), "✓ add((2 + 3), -3)", "= [2]")
+	wants(t, run(t, s, "%calc add 5, -3"), "✓ add(5, -3)", "= [2]")
+	wants(t, run(t, s, "%calc add 10 20"), "✓ add(10, 20)", "= [30]")
 	if len(s.argMemo.entries) != 4 {
 		t.Errorf("memo holds %d argument lists after four distinct invocations, want 4", len(s.argMemo.entries))
 	}
 	// The exact text keys the memo: a spelling that differs only in spacing is
 	// its own entry, and both evaluate to what they say.
-	wants(t, run(t, s, "%calc add 10  20"), "✓ add(10, 20)", "= 30")
+	wants(t, run(t, s, "%calc add 10  20"), "✓ add(10, 20)", "= [30]")
 	if len(s.argMemo.entries) != 5 {
 		t.Errorf("memo holds %d argument lists, want 5: the exact text keys it", len(s.argMemo.entries))
 	}
@@ -45,16 +45,16 @@ func TestCalcEvaluatesReusedArgumentsAgainstCurrentState(t *testing.T) {
 		attribute k = 2;
 		calc def dbl { in x; return : Integer = x * 2; }
 	}`)
-	wants(t, run(t, s, "%calc dbl k"), "✓ dbl(k)", "= 4")
-	wants(t, run(t, s, "%calc dbl k + 1"), "✓ dbl(k + 1)", "= 6")
+	wants(t, run(t, s, "%calc dbl k"), "✓ dbl(k)", "= [4]")
+	wants(t, run(t, s, "%calc dbl k + 1"), "✓ dbl(k + 1)", "= [6]")
 	before := s.argMemo.entries["k"]
 
 	s.Submit(`package P {
 		attribute k = 5;
 		calc def dbl { in x; return : Integer = x * 2; }
 	}`)
-	wants(t, run(t, s, "%calc dbl k"), "✓ dbl(k)", "= 10")
-	wants(t, run(t, s, "%calc dbl k + 1"), "✓ dbl(k + 1)", "= 12")
+	wants(t, run(t, s, "%calc dbl k"), "✓ dbl(k)", "= [10]")
+	wants(t, run(t, s, "%calc dbl k + 1"), "✓ dbl(k + 1)", "= [12]")
 	if after := s.argMemo.entries["k"]; after.exprs[0].expr != before.exprs[0].expr {
 		t.Error("a submission made the same argument text parse again")
 	}
@@ -65,7 +65,7 @@ func TestCalcEvaluatesReusedArgumentsAgainstCurrentState(t *testing.T) {
 		attribute k : Real = 2.5;
 		calc def dbl { in x; return : Real = x * 2; }
 	}`)
-	wants(t, run(t, s, "%calc dbl k"), "✓ dbl(k)", "= 5.0")
+	wants(t, run(t, s, "%calc dbl k"), "✓ dbl(k)", "= [5.0]")
 
 	// After a reset the text is evaluated against the new session, where the
 	// name is gone until a submission declares it again.
@@ -78,7 +78,7 @@ func TestCalcEvaluatesReusedArgumentsAgainstCurrentState(t *testing.T) {
 		attribute k = 7;
 		calc def dbl { in x; return : Integer = x * 2; }
 	}`)
-	wants(t, run(t, s, "%calc dbl k"), "✓ dbl(k)", "= 14")
+	wants(t, run(t, s, "%calc dbl k"), "✓ dbl(k)", "= [14]")
 }
 
 // A malformed argument list is reported the same way every time it is typed,

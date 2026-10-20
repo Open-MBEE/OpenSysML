@@ -2,5 +2,5 @@
   "type": "analysis",
   "evaluate": "test::tally",
   "trace": true,
-  "result": {"type": "Integer", "value": 15}
+  "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 15}]}
 }

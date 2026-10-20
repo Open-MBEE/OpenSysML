@@ -55,7 +55,7 @@ func TestAnalysisOfATradeStudyReportsEachAlternative(t *testing.T) {
 	got := run(t, s, "%analysis Trade::weighted(powerWeight = 0.1)")
 	want := strings.Join([]string{
 		"✓ Trade::weighted(powerWeight = 0.1)",
-		"  selectedAlternative = Trade::strong (object #1)",
+		"  selectedAlternative = [Trade::strong (object #1)]",
 		"  objective tradeStudyObjective: satisfied",
 		"  evaluationFunction(Trade::strong (object #1)) = 0.0 [selected]",
 		"  evaluationFunction(Trade::light (object #2)) = -5.0",
@@ -111,11 +111,11 @@ func TestSweepOfATradeStudyReportsEachRunsEvaluations(t *testing.T) {
 	got := sweepTable(run(t, s, "%sweep Trade::weighted powerWeight=0.0..0.2:0.1"))
 	want := strings.Join([]string{
 		"sweep Trade::weighted — 3 run(s)",
-		"powerWeight | selectedAlternative       | verdict                        | evaluations                                                                                                            | time",
+		"powerWeight | selectedAlternative         | verdict                        | evaluations                                                                                                            | time",
 		"-+-+-+-+-",
-		"0.0         | Trade::light (object #2)  | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = -30.0; evaluationFunction(Trade::light (object #2)) = -10.0 [selected] | <time>",
-		"0.1         | Trade::strong (object #1) | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 0.0 [selected]; evaluationFunction(Trade::light (object #2)) = -5.0    | <time>",
-		"0.2         | Trade::strong (object #1) | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 30.0 [selected]; evaluationFunction(Trade::light (object #2)) = 0.0    | <time>",
+		"0.0         | [Trade::light (object #2)]  | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = -30.0; evaluationFunction(Trade::light (object #2)) = -10.0 [selected] | <time>",
+		"0.1         | [Trade::strong (object #1)] | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 0.0 [selected]; evaluationFunction(Trade::light (object #2)) = -5.0    | <time>",
+		"0.2         | [Trade::strong (object #1)] | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 30.0 [selected]; evaluationFunction(Trade::light (object #2)) = 0.0    | <time>",
 		"  standing: table (observed: 3 rows)",
 	}, "\n")
 	if got != want {

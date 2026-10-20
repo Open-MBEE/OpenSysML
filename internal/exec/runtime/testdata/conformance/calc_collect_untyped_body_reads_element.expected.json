@@ -11,14 +11,14 @@
     "heavyMasses": {"type": "Sequence", "elements": [{"type": "Real", "value": 2.5}, {"type": "Real", "value": 4.0}]},
     "lightMasses": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}]},
     "heaviestMass": {"type": "Sequence", "elements": [{"type": "Real", "value": 4.0}]},
-    "allWeigh": {"type": "Boolean", "value": true},
-    "anyHeavy": {"type": "Boolean", "value": true},
-    "total": {"type": "Real", "value": 8.0},
+    "allWeigh": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "anyHeavy": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "total": {"type": "Sequence", "elements": [{"type": "Real", "value": 8.0}]},
     "heaviest": {"type": "Sequence", "elements": [{"type": "Real", "value": 4.0}]},
     "firstMass": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}]},
     "lastMass": {"type": "Sequence", "elements": [{"type": "Real", "value": 4.0}]},
-    "lightest": {"type": "Real", "value": 1.5},
-    "heaviestOfAll": {"type": "Real", "value": 4.0},
+    "lightest": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}]},
+    "heaviestOfAll": {"type": "Sequence", "elements": [{"type": "Real", "value": 4.0}]},
     "nested": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}, {"type": "Real", "value": 4.0}, {"type": "Real", "value": 2.5}]}
   }
 }

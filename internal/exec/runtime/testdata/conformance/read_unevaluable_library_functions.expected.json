@@ -3,7 +3,7 @@
   "type": "calcUsage",
   "evaluate": "test::probe",
   "outputs": {
-    "one": {"type": "Integer", "value": 1}
+    "one": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
   },
   "reads": {
     "test::bracketOperator": {"type": "Quantity", "value": 2.0, "unit": "SI::m"},

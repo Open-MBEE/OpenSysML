@@ -38,12 +38,14 @@ func registerNamedOperatorBuiltins() {
 // expression as it was written, or the result of the parameterless body it is
 // or denotes.
 func (ec *EvalContext) evalDeferred(op string, val Value) (Value, error) {
+	val = soleElement(val)
 	if val.Kind != valExpr {
 		return val, nil
 	}
 	body, ok := val.expr().(*ast.BodyExpr)
 	if !ok {
 		denoted, err := ec.evalClosure(val)
+		denoted = soleElement(denoted)
 		if err != nil || denoted.Kind != valExpr {
 			return denoted, err
 		}
@@ -62,6 +64,7 @@ func (ec *EvalContext) evalDeferred(op string, val Value) (Value, error) {
 // deferredCount is how many values evalDeferred would yield for val, as far as the
 // declarations fix that without evaluating it: `[0..*]` where they leave it open.
 func (ec *EvalContext) deferredCount(val Value) semantics.Range {
+	val = soleElement(val)
 	if val.Kind != valExpr {
 		return countOf(val)
 	}

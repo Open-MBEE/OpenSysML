@@ -6,8 +6,8 @@
       "value": 9
     }
   ],
-  "result": {
-    "type": "Rational",
-    "value": "0.5625"
-  }
+  "result": {"type": "Sequence", "elements": [{
+      "type": "Rational",
+      "value": "0.5625"
+    }]}
 }

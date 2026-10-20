@@ -77,7 +77,7 @@ func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
 	if _, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "car")); err != nil {
 		t.Fatal(err)
 	}
-	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "counted"), nil, pkg.Scope)
+	got, err := invokeValue(ctx, resolveSymbol(t, pkg.Scope, "counted"), nil, pkg.Scope)
 	if err != nil || FormatValue(got) != "2" {
 		t.Errorf("size(all Wheel) = %s, %v; want 2", FormatValue(got), err)
 	}
@@ -128,7 +128,7 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	ctx := NewContext(typedModel(model, resolver), 1000)
 	for calc, want := range map[string]string{"wheelCount": "3", "hubCount": "1", "seatCount": "2"} {
 		for attempt := 1; attempt <= 2; attempt++ {
-			got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+			got, err := invokeValue(ctx, resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
 			if err != nil || FormatValue(got) != want {
 				t.Errorf("attempt %d: %s = %s, %v; want %s: the two wheels, the hub and its wheel, both packages' seats", attempt, calc, FormatValue(got), err, want)
 			}
@@ -157,11 +157,11 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 		t.Errorf("size(all Link) = %v, want %v naming the port link", err, errExtentUnavailable)
 	}
 	q := resolveSymbol(t, pkg.Scope, "Q")
-	got, err := ctx.InvokeCalc(resolveSymbol(t, q.Scope, "seatCount"), nil, q.Scope)
+	got, err := invokeValue(ctx, resolveSymbol(t, q.Scope, "seatCount"), nil, q.Scope)
 	if err != nil || FormatValue(got) != "2" {
 		t.Errorf("Q: size(all Seat) = %s, %v; want 2: both packages' seats, and the wheel collections hold no Seat", FormatValue(got), err)
 	}
-	got, err = ctx.InvokeCalc(resolveSymbol(t, q.Scope, "wheelCount"), nil, q.Scope)
+	got, err = invokeValue(ctx, resolveSymbol(t, q.Scope, "wheelCount"), nil, q.Scope)
 	if err != nil || FormatValue(got) != "3" {
 		t.Errorf("Q: size(all Wheel) = %s, %v; want 3: the enclosing package's wheels, once", FormatValue(got), err)
 	}
@@ -190,7 +190,7 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	}`)
 	r = resolveSymbol(t, root, "R")
 	ctx = NewContext(typedModel(model, resolver), 1000)
-	got, err = ctx.InvokeCalc(resolveSymbol(t, r.Scope, "linkCount"), nil, r.Scope)
+	got, err = invokeValue(ctx, resolveSymbol(t, r.Scope, "linkCount"), nil, r.Scope)
 	if err != nil || FormatValue(got) != "1" {
 		t.Errorf("R: size(all Link) = %s, %v; want 1: the rig's port, an optional one holding nothing", FormatValue(got), err)
 	}
@@ -241,7 +241,7 @@ func testNamespaceCollectionOfUnfixedCount(t *testing.T) {
 			t.Errorf("%s = %v, want %v naming %q", calc, err, errExtentUnavailable, want)
 		}
 	}
-	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
+	got, err := invokeValue(ctx, resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
 	if err != nil || FormatValue(got) != "1" {
 		t.Errorf("seatCount = %s, %v; want 1: the usages of unfixed count hold no Seat", FormatValue(got), err)
 	}
@@ -304,7 +304,7 @@ func testNamespaceCollectionThatCannotBeConstructed(t *testing.T) {
 			t.Fatalf("attempt %d: a refused construction left %d creations and %d behaviors", attempt, len(ctx.created), len(ctx.objectBehaviors))
 		}
 	}
-	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	got, err := invokeValue(ctx, resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
 	if err != nil || FormatValue(got) != "2" {
 		t.Errorf("size(all Wheel) = %s, %v; want 2: the bads hold no Wheel and are not read", FormatValue(got), err)
 	}
@@ -390,7 +390,7 @@ func testNamespaceCollectionOverBudget(t *testing.T) {
 	if got := len(ctx.instances); got != 0 {
 		t.Fatalf("a refused extent over 10000 left %d objects standing", got)
 	}
-	got, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "manyCount"), nil, pkg.Scope)
+	got, err = invokeValue(ctx, resolveSymbol(t, pkg.Scope, "manyCount"), nil, pkg.Scope)
 	if err != nil || FormatValue(got) != "10000" {
 		t.Fatalf("size(many) = %s, %v; want 10000", FormatValue(got), err)
 	}
@@ -398,6 +398,7 @@ func testNamespaceCollectionOverBudget(t *testing.T) {
 		t.Fatalf("the size of a collection of 10000 made %d of its objects", got)
 	}
 	got, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
+	got = soleElement(got)
 	if err != nil || FormatValue(got) != "2" {
 		t.Errorf("size(all Seat) = %s, %v; want 2: the wheels hold no Seat and are not read", FormatValue(got), err)
 	}
@@ -438,11 +439,12 @@ func testExtentOverAnObjectThatCannotBeRead(t *testing.T) {
 	ctx := NewContext(typedModel(model, resolver), 1000)
 	ctx.maxElements = 4
 	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	got = soleElement(got)
 	if !errors.Is(err, ErrElementLimitExceeded) || !strings.Contains(err.Error(), "wheels") {
 		t.Fatalf("size(all Wheel) = %s, %v; want %v naming wheels", FormatValue(got), err, ErrElementLimitExceeded)
 	}
 	for calc, want := range map[string]string{"seatCount": "2", "driverCount": "1"} {
-		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+		got, err := invokeValue(ctx, resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
 		if err != nil || FormatValue(got) != want {
 			t.Fatalf("%s = %s, %v; want %s: the wheels hold no such object and are not read", calc, FormatValue(got), err, want)
 		}
@@ -496,7 +498,7 @@ func testExtentReachingAFarUsageThatCannotBeRead(t *testing.T) {
 		}
 	}
 	for calc, want := range map[string]string{"driverCount": "1", "seatCount": "2"} {
-		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+		got, err := invokeValue(ctx, resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
 		if err != nil || FormatValue(got) != want {
 			t.Errorf("%s = %s, %v; want %s: the far car is not read, the far seats collection is counted", calc, FormatValue(got), err, want)
 		}
@@ -536,7 +538,7 @@ func testExtentOverFarUsagesUnderTheElementBudget(t *testing.T) {
 	if cars != 2 {
 		t.Errorf("cars materialized before the budget ran out = %d, want both far usages read in document order", cars)
 	}
-	got, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "driverCount"), nil, pkg.Scope)
+	got, err = invokeValue(ctx, resolveSymbol(t, pkg.Scope, "driverCount"), nil, pkg.Scope)
 	if err != nil || FormatValue(got) != "1" {
 		t.Errorf("size(all Driver) = %s, %v; want 1: the cars hold no Driver and are not read", FormatValue(got), err)
 	}
@@ -544,9 +546,9 @@ func testExtentOverFarUsagesUnderTheElementBudget(t *testing.T) {
 	ctx = contextOverDocs(t, docs)
 	pkg = lookupOne(t, ctx.Resolver().Index(), "P")
 	ctx.maxElements = 8
-	got, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	got, err = invokeValue(ctx, resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
 	if err != nil || FormatValue(got) != "4" {
-		t.Errorf("size(all Wheel) under a budget of eight = %s, %v; want 4: both cars' wheels and the extent holding them", FormatValue(got), err)
+		t.Errorf("size(all Wheel) under a budget of nine = %s, %v; want 4: both cars' wheels, the extent holding them and the one-element result", FormatValue(got), err)
 	}
 }
 
@@ -610,7 +612,7 @@ func testExtentOverRecursiveComposition(t *testing.T) {
 			}
 		}
 	}
-	if FormatValue(got) != fmt.Sprint(wheels) || wheels < 5 {
+	if FormatValue(soleElement(got)) != fmt.Sprint(wheels) || wheels < 5 {
 		t.Errorf("size(all Wheel) = %s with %d wheels materialized; want every wheel of the objects there are, the tree's and chain's leaves, the pair's two hubs and the fork's tine at least", FormatValue(got), wheels)
 	}
 	if len(ctx.instances) > 20 {
@@ -648,7 +650,7 @@ func testExtentThroughAValueRecursingAndNot(t *testing.T) {
 	if n := len(ctx.instances); n != 1 {
 		t.Errorf("%d objects after the refusal, want the fork alone: what mixed made is undone", n)
 	}
-	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
+	got, err := invokeValue(ctx, resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
 	if err != nil || FormatValue(got) != "1" {
 		t.Errorf("size(all Seat) = %s, %v; want 1: mixed holds no Seat and is left unread", FormatValue(got), err)
 	}

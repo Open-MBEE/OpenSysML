@@ -3,11 +3,11 @@
   "type": "calcUsage",
   "evaluate": "test::c",
   "outputs": {
-    "sizeOfNothing": {"type": "Integer", "value": 0},
-    "sumOfNothing": {"type": "Integer", "value": 0},
-    "productOfNothing": {"type": "Integer", "value": 1},
-    "nothingIsEmpty": {"type": "Boolean", "value": true},
-    "includesNothing": {"type": "Boolean", "value": true},
+    "sizeOfNothing": {"type": "Sequence", "elements": [{"type": "Integer", "value": 0}]},
+    "sumOfNothing": {"type": "Sequence", "elements": [{"type": "Integer", "value": 0}]},
+    "productOfNothing": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+    "nothingIsEmpty": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "includesNothing": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
     "untaken": {"type": "Null"},
     "untakenByName": {"type": "Null"},
     "coalescesNothing": {"type": "Null"},
@@ -33,8 +33,8 @@
     "collectsNothing": {"type": "Sequence", "elements": []},
     "reducesNothing": {"type": "Null"},
     "selectsNoOne": {"type": "Null"},
-    "allOfNothing": {"type": "Boolean", "value": true},
-    "anyOfNothing": {"type": "Boolean", "value": false},
+    "allOfNothing": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "anyOfNothing": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
     "unreadSelector": {"type": "Sequence", "elements": []},
     "unreadReducer": {"type": "Null"}
   }

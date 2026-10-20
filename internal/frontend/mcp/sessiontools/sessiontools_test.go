@@ -439,12 +439,12 @@ func TestSweepTablesEveryRow(t *testing.T) {
 	if v.Status != "holds" || len(v.Rows) != 3 {
 		t.Fatalf("sweep = %+v", v)
 	}
-	if !slices.Contains(v.Rows[2].Outputs, NamedValue{Name: "result", Value: "6.0"}) {
+	if !slices.Contains(v.Rows[2].Outputs, NamedValue{Name: "result", Value: "[6.0]"}) {
 		t.Errorf("third row = %+v", v.Rows[2])
 	}
 	var run Verdict
 	must(t, cs, "session_run", args("kind", "calc", "name", "Calcs::Double", "arguments", []string{"4.0"}), &run)
-	if run.Status != "holds" || !slices.Contains(run.Values, NamedValue{Name: "result", Value: "8.0"}) {
+	if run.Status != "holds" || !slices.Contains(run.Values, NamedValue{Name: "result", Value: "[8.0]"}) {
 		t.Errorf("run = %+v", run)
 	}
 	if res := call(t, cs, "session_run", args("kind", "dance", "name", "Calcs::Double"), nil); !res.IsError {

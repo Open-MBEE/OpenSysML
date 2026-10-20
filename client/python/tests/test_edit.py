@@ -2185,7 +2185,7 @@ class TestEditRoundTripAgainstRealService:
             )
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
-            assert again.calc("P::D", arguments=[3]).value == 6
+            assert again.calc("P::D", arguments=[3]).value == [6]
 
     def test_add_parameter_to_action_definition(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:

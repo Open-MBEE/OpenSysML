@@ -201,7 +201,7 @@ sysml> calc add { in x; in y; x + y }
 
 sysml> %calc add 10 20
 ✓ add(10, 20)
-  = 30
+  = [30]
   standing: value (observed: 1 run under reverse)
 
 sysml> constraint ValidSpeed { 65 <= 120 }

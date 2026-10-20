@@ -63,13 +63,13 @@ func TestSweepObservesATable(t *testing.T) {
 	}
 	for i, row := range table.Rows {
 		want := int64(2 * (i + 1))
-		if row.Err != nil || len(row.Outputs) != 1 || row.Outputs[0].Value.Const.Int != want {
+		if row.Err != nil || len(row.Outputs) != 1 || row.Outputs[0].Value.Sole().Const.Int != want {
 			t.Fatalf("row %d %+v, want result = %d", i, row, want)
 		}
 		if row.Context == nil || row.Context == ctx {
 			t.Fatalf("row %d ran in %p, want a context of its own", i, row.Context)
 		}
-		if result.Values[i].Row == nil || result.Values[i].Row.Outputs[0].Value.Const.Int != want || result.Values[i].Name != fmt.Sprintf("row %d", i+1) {
+		if result.Values[i].Row == nil || result.Values[i].Row.Outputs[0].Value.Sole().Const.Int != want || result.Values[i].Name != fmt.Sprintf("row %d", i+1) {
 			t.Fatalf("value %d %+v, want row %d", i, result.Values[i], i+1)
 		}
 	}

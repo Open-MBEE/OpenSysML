@@ -124,7 +124,7 @@ func TestQuotedNamesAcceptedByNameTakingCommands(t *testing.T) {
 		{"%eval 'My Pkg'::Car::m", []string{"= 5"}},
 		{"%eval 'My Pkg'::Car::'curb mass'", []string{"= 1200"}},
 		{"%eval in 'My Pkg'::Car : m * 2", []string{"= 10"}},
-		{"%calc 'My Pkg'::'add up' 2 3", []string{"= 5"}},
+		{"%calc 'My Pkg'::'add up' 2 3", []string{"= [5]"}},
 		{"%constraint 'My Pkg'::'light enough'", []string{"✓ Constraint 'My Pkg'::'light enough' passed"}},
 		{"%requirement 'My Pkg'::'Safe Mass'", []string{"✓ Requirement 'My Pkg'::'Safe Mass' satisfied"}},
 		{"%action 'My Pkg'::'run it'", []string{"run it"}},

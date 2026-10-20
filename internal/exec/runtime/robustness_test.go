@@ -678,3 +678,10 @@ func intOf(n int64) Value {
 func realOf(f float64) Value {
 	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: f}}
 }
+
+// invokeValue invokes a calc and reads the one value its result holds: a result stating
+// no multiplicity is `[0..*]` (SysML v2 §7.6.3) and holds that value as a one-element sequence.
+func invokeValue(ctx *Context, sym *symbols.Symbol, args []Value, scope *symbols.Scope) (Value, error) {
+	result, err := ctx.InvokeCalc(sym, args, scope)
+	return soleElement(result), err
+}

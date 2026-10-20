@@ -34,7 +34,7 @@ func TestAnalysisCaseStepOrderOutcomes(t *testing.T) {
 		if err != nil {
 			t.Fatalf("replay of %s: %v", FormatChoices(outcome.Witness), err)
 		}
-		if got := analysisResultValue(t, ctx, result, "result"); got != FormatValue(outcome.Outcome.Outputs["result"]) {
+		if got := analysisResultValue(t, ctx, result, "result"); got != FormatValue(soleElement(outcome.Outcome.Outputs["result"])) {
 			t.Errorf("replay of %s produced %s, want %s",
 				FormatChoices(outcome.Witness), got, FormatValue(outcome.Outcome.Outputs["result"]))
 		}
@@ -206,7 +206,7 @@ func analysisResultValue(t *testing.T, ctx *Context, result AnalysisResult, name
 	t.Helper()
 	for _, output := range result.Outputs {
 		if output.Name == name {
-			return FormatValue(output.Value)
+			return FormatValue(soleElement(output.Value))
 		}
 	}
 	t.Fatalf("analysis result has no output %q", name)

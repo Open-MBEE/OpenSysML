@@ -412,7 +412,7 @@ func testObjectLifecycleDestroyedHolderExtent(t *testing.T) {
 		t.Fatalf("#%d owned by %v; want released", loose.ID, loose.owner)
 	}
 	sym, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "more", "DestroyFleet")
-	if _, err := ctx.InvokeCalc(sym, []Value{objectValue(fleet)}, scope); err != nil {
+	if _, err := invokeValue(ctx, sym, []Value{objectValue(fleet)}, scope); err != nil {
 		t.Fatalf("destroy(fleet) = %v", err)
 	}
 	if l, _ := ctx.OccurrenceLife(loose.ID); !l.alive() {

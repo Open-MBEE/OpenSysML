@@ -3,12 +3,12 @@
   "type": "calcUsage",
   "evaluate": "test::c",
   "outputs": {
-    "nullEqualsEmpty": {"type": "Boolean", "value": true},
-    "emptyEqualsNull": {"type": "Boolean", "value": true},
-    "filteredEqualsNull": {"type": "Boolean", "value": true},
-    "emptyIdenticalToNull": {"type": "Boolean", "value": true},
-    "emptyNotUnequalToNull": {"type": "Boolean", "value": false},
-    "emptyNotZero": {"type": "Boolean", "value": false},
-    "emptyNotIdenticalToEmptyString": {"type": "Boolean", "value": true}
+    "nullEqualsEmpty": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "emptyEqualsNull": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "filteredEqualsNull": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "emptyIdenticalToNull": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "emptyNotUnequalToNull": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+    "emptyNotZero": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+    "emptyNotIdenticalToEmptyString": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]}
   }
 }

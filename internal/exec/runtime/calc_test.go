@@ -75,6 +75,7 @@ func TestCalcInvocation_SimpleCalc(t *testing.T) {
 
 	// Evaluate add(3, 5) with scope context from test package
 	result, err := ctx.EvalWithScope(invExpr, testPkg)
+	result = soleElement(result)
 	if err != nil {
 		t.Fatalf("Eval failed: %v", err)
 	}

@@ -24,8 +24,8 @@ package Demo {
     }
     part vehicle : Vehicle;
 
-    calc def Add { in a : Integer; in b : Integer; return : Integer = a + b; }
-    calc def Sum { in a : Real; in b : Real; return : Real = a + b; }
+    calc def Add { in a : Integer; in b : Integer; return : Integer[1] = a + b; }
+    calc def Sum { in a : Real; in b : Real; return : Real[1] = a + b; }
 
     part def Ship {
         attribute cost : Real default = 30.0;
@@ -132,6 +132,7 @@ fn demo() -> Option<Model> {
 fn real(value: Option<&Value>) -> f64 {
     match value {
         Some(Value::Real(v)) => *v,
+        Some(Value::Sequence(elements)) if elements.len() == 1 => real(elements.first()),
         other => panic!("expected a real, got {other:?}"),
     }
 }
@@ -673,11 +674,11 @@ const RUNS_MODEL: &str = r#"package MC {
         subject analysed : Probe;
         perform action run ::> analysed.settle;
         attribute :>> observed : Real = analysed.t;
-        return Mean : Real = mean;
+        return Mean : Real[1] = mean;
     }
     part def P { attribute m : Real = 2.0; }
     part p : P;
-    analysis def Cost { subject s : P; return total : Real = s.m * 3.0; }
+    analysis def Cost { subject s : P; return total : Real[1] = s.m * 3.0; }
 }"#;
 
 #[test]

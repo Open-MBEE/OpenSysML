@@ -117,7 +117,7 @@ func testCaseClockWaitDetachesAfterRun(t *testing.T) {
 		if err != nil {
 			t.Fatalf("run %d: %v", i, err)
 		}
-		if want := fmt.Sprintf("%d.0", i); len(res.Outputs) != 1 || FormatValue(res.Outputs[0].Value) != want {
+		if want := fmt.Sprintf("%d.0", i); len(res.Outputs) != 1 || FormatValue(soleElement(res.Outputs[0].Value)) != want {
 			t.Errorf("run %d: outputs = %+v, want total = %s", i, res.Outputs, want)
 		}
 		if got := len(ctx.clock.waiters); got != waiters {

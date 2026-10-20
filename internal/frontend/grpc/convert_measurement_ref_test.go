@@ -307,7 +307,7 @@ func TestMeasurementRefCrossesEveryValueSurface(t *testing.T) {
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc(toUnit): err = %v, error = %q", err, calc.GetError())
 	}
-	if got := calc.Result.GetQuantity(); got == nil || got.GetRealMagnitude() != 3000 || got.GetUnit() != "m" {
+	if got := soleElement(t, "toUnit", calc.Result).GetQuantity(); got == nil || got.GetRealMagnitude() != 3000 || got.GetUnit() != "m" {
 		t.Errorf("toUnit(3 [km], m) = %v, want 3000.0 [m]", calc.Result)
 	}
 
@@ -318,7 +318,7 @@ func TestMeasurementRefCrossesEveryValueSurface(t *testing.T) {
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc(measured): err = %v, error = %q", err, calc.GetError())
 	}
-	if got := calc.Result.GetQuantity(); got == nil || got.GetRealMagnitude() != 2.5 || got.GetUnit() != "SI::km" {
+	if got := soleElement(t, "measured", calc.Result).GetQuantity(); got == nil || got.GetRealMagnitude() != 2.5 || got.GetUnit() != "SI::km" {
 		t.Errorf("measured(2.5, SI::km) = %v, want 2.5 [SI::km]", calc.Result)
 	}
 
@@ -326,7 +326,7 @@ func TestMeasurementRefCrossesEveryValueSurface(t *testing.T) {
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc(unitOf): err = %v, error = %q", err, calc.GetError())
 	}
-	if got := calc.Result.GetMeasurementRef(); got == nil || got.GetUnit() != "km" || got.GetUnitId() != "SI::kilometre" {
+	if got := soleElement(t, "unitOf", calc.Result).GetMeasurementRef(); got == nil || got.GetUnit() != "km" || got.GetUnitId() != "SI::kilometre" {
 		t.Errorf("unitOf(3 [km]) = %v, want the reference km", calc.Result)
 	}
 

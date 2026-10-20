@@ -477,7 +477,7 @@ func TestRunAnalysisExploresOnANestedSubject(t *testing.T) {
 	if v.Status != VerdictHolds {
 		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
 	}
-	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Comms::Tally: 1 outcome", "n = 0", "complete (1 runs)")
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Comms::Tally: 1 outcome", "n = [0]", "complete (1 runs)")
 	v = s.RunAnalysis("Comms::Tally Comms::pair.tower")
 	wants(t, strings.Join(v.Lines, "\n"), `Comms::pair has no feature "tower"`)
 	v = s.RunAnalysis("Comms::Tally #1")

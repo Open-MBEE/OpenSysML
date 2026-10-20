@@ -81,6 +81,7 @@ func TestDimensionOneIdentityInProducts(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {
 			got, err := evalIn(t, ctx, scope, tc.src)
+			got = soleElement(got)
 			if err != nil {
 				t.Fatalf("%s: %v", tc.src, err)
 			}

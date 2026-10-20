@@ -103,7 +103,7 @@ func TestInvokeCalcNamedDispatchesBuiltins(t *testing.T) {
 func TestInvokeCalcDefersBodyArguments(t *testing.T) {
 	ctx, idx := libraryModelContext(t, directBuiltinModel)
 	body := func(calc string) Value {
-		val, err := ctx.InvokeCalc(lookupOne(t, idx, "test::"+calc), nil, nil)
+		val, err := invokeValue(ctx, lookupOne(t, idx, "test::"+calc), nil, nil)
 		if err != nil || val.Kind != valExpr {
 			t.Fatalf("%s = %s, %v; want a body", calc, FormatValue(val), err)
 		}

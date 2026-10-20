@@ -4,5 +4,5 @@
   "inputs": [
     {"type": "String", "value": "Ada"}
   ],
-  "result": {"type": "String", "value": "Hello, Ada!"}
+  "result": {"type": "Sequence", "elements": [{"type": "String", "value": "Hello, Ada!"}]}
 }

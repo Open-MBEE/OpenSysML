@@ -61,7 +61,7 @@ func TestStreamsAndStatus(t *testing.T) {
 		model:  behaviorModel,
 		args:   []string{"-calc", "Mission::Fall(3, 2)"},
 		status: exitHolds,
-		stdout: []string{"= 18"},
+		stdout: []string{"= [18]"},
 	}, {
 		name:   "a calculation that could not be invoked is reported",
 		model:  behaviorModel,

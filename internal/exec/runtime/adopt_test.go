@@ -1679,9 +1679,8 @@ func TestAdoptRebindsAFunctionValue(t *testing.T) {
 		"Fn(holder.scaled, 5.0)":               "10.0",
 		"holder.scaled == holder.scaler.scale": "true",
 	} {
-		got, err := evalIn(t, ctx, newScope, expr)
-		if err != nil || FormatValue(got) != want {
-			t.Errorf("%s after the carry-over = %s, %v; want %s", expr, FormatValue(got), err, want)
+		if got, err := evalIn(t, ctx, newScope, expr); err != nil || FormatValue(soleElement(got)) != want {
+			t.Errorf("%s after the carry-over = %s, %v; want %s", expr, FormatValue(soleElement(got)), err, want)
 		}
 	}
 
@@ -2124,7 +2123,7 @@ func TestAdoptRebindsWhenAWarmedCallGainsACandidate(t *testing.T) {
 		t.Helper()
 		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo::P")
 		val, err := evalIn(t, ctx, pkg.Scope, name)
-		if err != nil {
+		if val = soleElement(val); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 		id, ok := val.Object()

@@ -42,9 +42,9 @@ func analysisSession(t *testing.T) *Session {
 // declares and what its objective decided.
 func TestAnalysisUsageRuns(t *testing.T) {
 	s := analysisSession(t)
-	wants(t, run(t, s, "%analysis An::shipCost"), "✓ An::shipCost", "total = 12.0", "objective obj: satisfied")
-	wants(t, run(t, s, "%analysis An::plain"), "✓ An::plain", "x = 3.0")
-	wants(t, run(t, s, "%analysis An::dear"), "✗ An::dear", "total = 18.0", "objective obj: not satisfied: total <= limit")
+	wants(t, run(t, s, "%analysis An::shipCost"), "✓ An::shipCost", "total = [12.0]", "objective obj: satisfied")
+	wants(t, run(t, s, "%analysis An::plain"), "✓ An::plain", "x = [3.0]")
+	wants(t, run(t, s, "%analysis An::dear"), "✗ An::dear", "total = [18.0]", "objective obj: not satisfied: total <= limit")
 }
 
 // A definition is run on an object named as its subject, with positional and
@@ -52,10 +52,10 @@ func TestAnalysisUsageRuns(t *testing.T) {
 func TestAnalysisDefinitionOnAnObject(t *testing.T) {
 	s := analysisSession(t)
 	run(t, s, "%instantiate An::ship")
-	wants(t, run(t, s, "%analysis An::Priced(0.5) An::ship"), `✓ An::Priced(0.5) on object #1 of "An::ship"`, "total = 18.0")
-	wants(t, run(t, s, "%analysis An::Priced(tax = 0.25) #1"), "✓ An::Priced(tax = 0.25) on object #1", "total = 15.0")
+	wants(t, run(t, s, "%analysis An::Priced(0.5) An::ship"), `✓ An::Priced(0.5) on object #1 of "An::ship"`, "total = [18.0]")
+	wants(t, run(t, s, "%analysis An::Priced(tax = 0.25) #1"), "✓ An::Priced(tax = 0.25) on object #1", "total = [15.0]")
 	wants(t, run(t, s, "%analysis An::Priced(0.5, limit = 10.0) An::ship"), "✗ An::Priced(0.5, limit = 10.0)", "not satisfied")
-	wants(t, run(t, s, "%analysis An::Stepped An::ship"), "✓ An::Stepped", "result = 10.0")
+	wants(t, run(t, s, "%analysis An::Stepped An::ship"), "✓ An::Stepped", "result = [10.0]")
 }
 
 // A usage owned by a part def is a feature of the object the session holds for
@@ -63,7 +63,7 @@ func TestAnalysisDefinitionOnAnObject(t *testing.T) {
 func TestAnalysisUsageOfAnObject(t *testing.T) {
 	s := analysisSession(t)
 	run(t, s, "%instantiate An::Holder")
-	wants(t, run(t, s, "%analysis An::Holder::inner"), "✓ An::Holder::inner", "total = 12.0")
+	wants(t, run(t, s, "%analysis An::Holder::inner"), "✓ An::Holder::inner", "total = [12.0]")
 }
 
 // What stops a run is reported as an error naming the case, never as a value.
@@ -91,7 +91,7 @@ func TestRunAnalysisVerdict(t *testing.T) {
 	if v.Status != VerdictHolds || v.Subject != "An::shipCost" {
 		t.Fatalf("verdict = %+v", v)
 	}
-	if len(v.Values) != 2 || v.Values[0] != (NamedValue{Name: "total", Value: "12.0"}) ||
+	if len(v.Values) != 2 || v.Values[0] != (NamedValue{Name: "total", Value: "[12.0]"}) ||
 		v.Values[1] != (NamedValue{Name: "objective obj", Value: "satisfied"}) {
 		t.Errorf("values = %+v", v.Values)
 	}
@@ -122,7 +122,7 @@ func TestAnalysisUndecidedObjective(t *testing.T) {
 		part ship : Ship;
 		analysis budget : Budget { subject s = ship; }
 	}`)
-	wants(t, run(t, s, "%analysis U::budget"), "? U::budget", "total = 5.0", "objective obj: undecided")
+	wants(t, run(t, s, "%analysis U::budget"), "? U::budget", "total = [5.0]", "objective obj: undecided")
 	if v := s.RunAnalysis("U::budget"); v.Status != VerdictUnresolved {
 		t.Errorf("an undecided objective is unresolved, got %+v", v)
 	}

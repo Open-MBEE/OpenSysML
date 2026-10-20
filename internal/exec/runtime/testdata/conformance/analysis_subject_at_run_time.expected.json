@@ -4,7 +4,7 @@
   "evaluate": "test::CostAnalysis",
   "subject": "test::ship",
   "outputs": {
-    "total": {"type": "Real", "value": 12.0}
+    "total": {"type": "Sequence", "elements": [{"type": "Real", "value": 12.0}]}
   },
   "verdicts": {
     "affordable": "satisfied"

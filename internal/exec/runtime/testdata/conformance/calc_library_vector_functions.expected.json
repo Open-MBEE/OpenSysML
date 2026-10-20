@@ -4,8 +4,8 @@
   "inputs": [
     {"type": "Real", "value": 2.0}
   ],
-  "result": {"type": "Vector", "elements": [
-    {"type": "Real", "value": 8.0},
-    {"type": "Real", "value": 12.0}
-  ]}
+  "result": {"type": "Sequence", "elements": [{"type": "Vector", "elements": [
+      {"type": "Real", "value": 8.0},
+      {"type": "Real", "value": 12.0}
+    ]}]}
 }

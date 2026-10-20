@@ -158,7 +158,7 @@ func TestNestedCaseExplorationsAnswerAlikeBesideCompletion(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := strings.Join(s.RunAnalysis(nestedCase).Lines, "\n")
-	if !strings.Contains(want, "r = 3.0") || !strings.Contains(want, "complete (1 runs)") {
+	if !strings.Contains(want, "r = [3.0]") || !strings.Contains(want, "complete (1 runs)") {
 		t.Fatalf("exploration alone:\n%s", want)
 	}
 

@@ -1,5 +1,5 @@
 {
   "type": "calc",
   "libraries": true,
-  "result": {"type": "Quantity", "value": 3, "unit": "m"}
+  "result": {"type": "Sequence", "elements": [{"type": "Quantity", "value": 3, "unit": "m"}]}
 }

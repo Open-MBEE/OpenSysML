@@ -1,9 +1,9 @@
 {
   "libraries": true,
   "type": "calc",
-  "result": {"type": "Vector", "elements": [
-    {"type": "Rational", "value": "5.0"},
-    {"type": "Rational", "value": "7.0"},
-    {"type": "Rational", "value": "9.0"}
-  ]}
+  "result": {"type": "Sequence", "elements": [{"type": "Vector", "elements": [
+      {"type": "Rational", "value": "5.0"},
+      {"type": "Rational", "value": "7.0"},
+      {"type": "Rational", "value": "9.0"}
+    ]}]}
 }

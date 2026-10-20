@@ -23,7 +23,7 @@ package An {
     calc def Sum {
         in a : Real;
         in b : Real;
-        return : Real = a + b;
+        return : Real[1] = a + b;
     }
 
     analysis def CostAnalysis {

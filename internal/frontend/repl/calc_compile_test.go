@@ -35,21 +35,21 @@ func TestRunCalcRedefinitionReplacesCompiledBody(t *testing.T) {
 	if res := s.Submit(calcRedefinitionModel("2")); hasSyntaxError(res) {
 		t.Fatalf("model does not parse: %v", res.Diagnostics)
 	}
-	if got := runCalcValue(t, s, "M::Scale 4"); got != "8" {
-		t.Fatalf("Scale(4) = %s, want 8", got)
+	if got := runCalcValue(t, s, "M::Scale 4"); got != "[8]" {
+		t.Fatalf("Scale(4) = %s, want [8]", got)
 	}
-	if got := runCalcValue(t, s, "M::Twice 4"); got != "16" {
-		t.Fatalf("Twice(4) = %s, want 16", got)
+	if got := runCalcValue(t, s, "M::Twice 4"); got != "[16]" {
+		t.Fatalf("Twice(4) = %s, want [16]", got)
 	}
 
 	if res := s.Submit(calcRedefinitionModel("3")); hasSyntaxError(res) {
 		t.Fatalf("redefinition does not parse: %v", res.Diagnostics)
 	}
-	if got := runCalcValue(t, s, "M::Scale 4"); got != "12" {
-		t.Fatalf("Scale(4) after redefinition = %s, want 12", got)
+	if got := runCalcValue(t, s, "M::Scale 4"); got != "[12]" {
+		t.Fatalf("Scale(4) after redefinition = %s, want [12]", got)
 	}
-	if got := runCalcValue(t, s, "M::Twice 4"); got != "24" {
-		t.Fatalf("Twice(4) after redefinition = %s, want 24", got)
+	if got := runCalcValue(t, s, "M::Twice 4"); got != "[24]" {
+		t.Fatalf("Twice(4) after redefinition = %s, want [24]", got)
 	}
 }
 

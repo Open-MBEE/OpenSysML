@@ -39,7 +39,7 @@ func quotientCalc(t *testing.T, xType, yType string) (*Context, func(x, y semant
 		t.Fatal("divide calc not found")
 	}
 	return ctx, func(x, y semantics.Value) (Value, error) {
-		return ctx.InvokeCalc(sym, []Value{{Kind: ValConst, Const: x}, {Kind: ValConst, Const: y}}, rootScope)
+		return invokeValue(ctx, sym, []Value{{Kind: ValConst, Const: x}, {Kind: ValConst, Const: y}}, rootScope)
 	}
 }
 

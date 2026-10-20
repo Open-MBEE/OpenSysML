@@ -312,6 +312,7 @@ func TestInvocationsPropagateUndeterminedArguments(t *testing.T) {
 	}
 	for src, want := range map[string]string{"twice(known)": "4.0", "known * 2.0": "4.0"} {
 		val, err := evalIn(t, ctx, scope, src)
+		val = soleElement(val)
 		wantFormatted(t, src, val, err, want)
 	}
 }

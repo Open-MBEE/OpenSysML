@@ -31,6 +31,7 @@ func bigConst(t *testing.T, text string) Value {
 // int64 exactly when it fits.
 func wantInteger(t *testing.T, what string, got Value, want string) {
 	t.Helper()
+	got = soleElement(got)
 	if got.Kind != ValConst || got.Const.Kind != semantics.ValInt || got.Const.FormatInt() != want {
 		t.Fatalf("%s = %s, want %s", what, FormatValue(got), want)
 	}
@@ -61,7 +62,7 @@ func TestIntegerArithmeticPromotesBeyondInt64(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, tc.model)
 			ctx := NewContext(typedModel(model, resolver), 1000)
-			got, err := ctx.InvokeCalc(resolveSymbol(t, root, tc.calc), tc.args, root)
+			got, err := invokeValue(ctx, resolveSymbol(t, root, tc.calc), tc.args, root)
 			if err != nil {
 				t.Fatalf("%s%v: %v", tc.name, tc.args, err)
 			}

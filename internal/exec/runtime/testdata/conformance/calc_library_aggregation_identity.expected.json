@@ -3,12 +3,12 @@
   "type": "calcUsage",
   "evaluate": "test::c",
   "outputs": {
-    "total": {"type": "Integer", "value": 6},
-    "realTotal": {"type": "Rational", "value": "3.5"},
-    "emptyTotal": {"type": "Integer", "value": 0},
-    "emptyRealTotal": {"type": "Rational", "value": "0.0"},
-    "product": {"type": "Integer", "value": 24},
-    "emptyProduct": {"type": "Integer", "value": 1},
-    "unqualifiedTotal": {"type": "Integer", "value": 9}
+    "total": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]},
+    "realTotal": {"type": "Sequence", "elements": [{"type": "Rational", "value": "3.5"}]},
+    "emptyTotal": {"type": "Sequence", "elements": [{"type": "Integer", "value": 0}]},
+    "emptyRealTotal": {"type": "Sequence", "elements": [{"type": "Rational", "value": "0.0"}]},
+    "product": {"type": "Sequence", "elements": [{"type": "Integer", "value": 24}]},
+    "emptyProduct": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+    "unqualifiedTotal": {"type": "Sequence", "elements": [{"type": "Integer", "value": 9}]}
   }
 }

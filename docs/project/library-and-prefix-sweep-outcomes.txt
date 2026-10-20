@@ -24,7 +24,7 @@ read	Probe::p1.flq	model	Probe::P1::flq	object:Probe::Fl1
 read	Probe::p1.ifq	model	Probe::P1::ifq	object:Probe::If1
 read	Probe::p1.isSolid	systems	Items::Item::isSolid	constant true
 read	Probe::p1.iu	model	Probe::P1::iu	object:Probe::U1
-read	Probe::p1.kq	model	Probe::P1::kq	constant 6.0
+read	Probe::p1.kq	model	Probe::P1::kq	collection(1) [constant 6.0]
 read	Probe::p1.mass	model	Probe::P1::mass	collection(1) [quantity 3.0 [kg]]
 read	Probe::p1.mq	model	Probe::P1::mq	quantity 2.0 [kg]
 read	Probe::p1.n	model	Probe::P1::n	undetermined <undetermined>
@@ -480,7 +480,7 @@ object	Probe::p1.cq	object:Probe::P1::cq
 read	Probe::p1.cq.self	systemsFRAME	Constraints::ConstraintCheck::self	object:Probe::P1::cq
 read	Probe::p1.cq.x	model	Probe::P1::cq::x	collection(1) [constant 1.0]
 read	Probe::p1.cq.y	model	Probe::P1::cq::y	collection(1) [constant 2.0]
-object	Probe::p1.kq	constant 6.0
+object	Probe::p1.kq	collection(1) [constant 6.0]
 object	Probe::p1.caq	object:Probe::Ca1
 read	Probe::p1.caq.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
 read	Probe::p1.caq.actors	systems	Cases::Case::actors	empty
@@ -819,7 +819,7 @@ read	new Probe::P1().flq	model	Probe::P1::flq	object:Probe::Fl1
 read	new Probe::P1().ifq	model	Probe::P1::ifq	object:Probe::If1
 read	new Probe::P1().isSolid	systems	Items::Item::isSolid	constant true
 read	new Probe::P1().iu	model	Probe::P1::iu	object:Probe::U1
-read	new Probe::P1().kq	model	Probe::P1::kq	constant 6.0
+read	new Probe::P1().kq	model	Probe::P1::kq	collection(1) [constant 6.0]
 read	new Probe::P1().mass	model	Probe::P1::mass	collection(1) [quantity 3.0 [kg]]
 read	new Probe::P1().mq	model	Probe::P1::mq	quantity 2.0 [kg]
 read	new Probe::P1().n	model	Probe::P1::n	object:ScalarValues::Integer
@@ -1599,7 +1599,7 @@ call	VectorFunctions::scalarVectorMult	VectorFunctions::CartesianVectorOf((1.0, 
 prefix	(none)	attribute Integer	attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	(none)	attribute At1	attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	(none)	enum E1	enum x : E1;	Probe::d.x => undetermined <undetermined>
-prefix	(none)	calc K1	calc x : K1;	Probe::d.x => constant 4
+prefix	(none)	calc K1	calc x : K1;	Probe::d.x => collection(1) [constant 4]
 prefix	(none)	part P2	part x : P2;	Probe::d.x => object:Probe::P2
 prefix	(none)	item I1	item x : I1;	Probe::d.x => object:Probe::I1
 prefix	(none)	port Pt	port x : Pt;	Probe::d.x => object:Probe::Pt
@@ -1612,7 +1612,7 @@ prefix	(none)	connection Cn1	connection x : Cn1 connect sub1 to sub2;	Probe::d.x
 prefix	in	attribute Integer	in attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	in	attribute At1	in attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	in	enum E1	in enum x : E1;	Probe::d.x => undetermined <undetermined>
-prefix	in	calc K1	in calc x : K1;	Probe::d.x => constant 4
+prefix	in	calc K1	in calc x : K1;	Probe::d.x => collection(1) [constant 4]
 prefix	in	part P2	in part x : P2;	Probe::d.x => object:Probe::P2
 prefix	in	item I1	in item x : I1;	Probe::d.x => object:Probe::I1
 prefix	in	port Pt	in port x : Pt;	Probe::d.x => object:Probe::Pt
@@ -1625,7 +1625,7 @@ prefix	in	connection Cn1	in connection x : Cn1 connect sub1 to sub2;	Probe::d.x 
 prefix	out	attribute Integer	out attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	out	attribute At1	out attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	out	enum E1	out enum x : E1;	Probe::d.x => undetermined <undetermined>
-prefix	out	calc K1	out calc x : K1;	Probe::d.x => constant 4
+prefix	out	calc K1	out calc x : K1;	Probe::d.x => collection(1) [constant 4]
 prefix	out	part P2	out part x : P2;	Probe::d.x => object:Probe::P2
 prefix	out	item I1	out item x : I1;	Probe::d.x => object:Probe::I1
 prefix	out	port Pt	out port x : Pt;	Probe::d.x => object:Probe::Pt
@@ -1638,7 +1638,7 @@ prefix	out	connection Cn1	out connection x : Cn1 connect sub1 to sub2;	Probe::d.
 prefix	inout	attribute Integer	inout attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	inout	attribute At1	inout attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	inout	enum E1	inout enum x : E1;	Probe::d.x => undetermined <undetermined>
-prefix	inout	calc K1	inout calc x : K1;	Probe::d.x => constant 4
+prefix	inout	calc K1	inout calc x : K1;	Probe::d.x => collection(1) [constant 4]
 prefix	inout	part P2	inout part x : P2;	Probe::d.x => object:Probe::P2
 prefix	inout	item I1	inout item x : I1;	Probe::d.x => object:Probe::I1
 prefix	inout	port Pt	inout port x : Pt;	Probe::d.x => object:Probe::Pt
@@ -1651,7 +1651,7 @@ prefix	inout	connection Cn1	inout connection x : Cn1 connect sub1 to sub2;	Probe
 prefix	ref (unbound)	attribute Integer	ref attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	ref (unbound)	attribute At1	ref attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	ref (unbound)	enum E1	ref enum x : E1;	Probe::d.x => undetermined <undetermined>
-prefix	ref (unbound)	calc K1	ref calc x : K1;	Probe::d.x => constant 4
+prefix	ref (unbound)	calc K1	ref calc x : K1;	Probe::d.x => collection(1) [constant 4]
 prefix	ref (unbound)	part P2	ref part x : P2;	Probe::d.x => undetermined <undetermined>
 prefix	ref (unbound)	item I1	ref item x : I1;	Probe::d.x => undetermined <undetermined>
 prefix	ref (unbound)	port Pt	ref port x : Pt;	Probe::d.x => undetermined <undetermined>
@@ -1674,7 +1674,7 @@ prefix	ref (bound =)	occurrence O1	ref occurrence x : O1 = oc1;	Probe::d.x => ob
 prefix	abstract [0..*]	attribute Integer	abstract attribute x : Integer[0..*];	Probe::d.x => empty
 prefix	abstract [0..*]	attribute At1	abstract attribute x : At1[0..*];	Probe::d.x => empty
 prefix	abstract [0..*]	enum E1	abstract enum x : E1[0..*];	Probe::d.x => empty
-prefix	abstract [0..*]	calc K1	abstract calc x : K1[0..*];	Probe::d.x => constant 4
+prefix	abstract [0..*]	calc K1	abstract calc x : K1[0..*];	Probe::d.x => collection(1) [constant 4]
 prefix	abstract [0..*]	part P2	abstract part x : P2[0..*];	Probe::d.x => empty
 prefix	abstract [0..*]	item I1	abstract item x : I1[0..*];	Probe::d.x => empty
 prefix	abstract [0..*]	port Pt	abstract port x : Pt[0..*];	Probe::d.x => empty
@@ -1687,7 +1687,7 @@ prefix	abstract [0..*]	connection Cn1	abstract connection x : Cn1[0..*] connect 
 prefix	abstract [0..*] + subsetter	attribute Integer	abstract attribute x : Integer[0..*]; attribute y : Integer :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
 prefix	abstract [0..*] + subsetter	attribute At1	abstract attribute x : At1[0..*]; attribute y : At1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
 prefix	abstract [0..*] + subsetter	enum E1	abstract enum x : E1[0..*]; enum y : E1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
-prefix	abstract [0..*] + subsetter	calc K1	abstract calc x : K1[0..*]; calc y : K1 :> x;	Probe::d.x => constant 4 ;; Probe::d.y => constant 4
+prefix	abstract [0..*] + subsetter	calc K1	abstract calc x : K1[0..*]; calc y : K1 :> x;	Probe::d.x => collection(1) [constant 4] ;; Probe::d.y => collection(1) [constant 4]
 prefix	abstract [0..*] + subsetter	part P2	abstract part x : P2[0..*]; part y : P2 :> x;	Probe::d.x => collection(1) [object:Probe::P2#1] ;; Probe::d.y => object:Probe::P2
 prefix	abstract [0..*] + subsetter	item I1	abstract item x : I1[0..*]; item y : I1 :> x;	Probe::d.x => collection(1) [object:Probe::I1#1] ;; Probe::d.y => object:Probe::I1
 prefix	abstract [0..*] + subsetter	port Pt	abstract port x : Pt[0..*]; port y : Pt :> x;	Probe::d.x => collection(1) [object:Probe::Pt#1] ;; Probe::d.y => object:Probe::Pt
@@ -1700,7 +1700,7 @@ prefix	abstract [0..*] + subsetter	connection Cn1	abstract connection x : Cn1[0.
 prefix	variation	attribute Integer	variation attribute x : Integer { variant attribute va : Integer; variant attribute vb : Integer; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	attribute At1	variation attribute x : At1 { variant attribute va : At1; variant attribute vb : At1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	enum E1	variation enum x : E1 { variant enum va : E1; variant enum vb : E1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
-prefix	variation	calc K1	variation calc x : K1 { variant calc va : K1; variant calc vb : K1; }	Probe::d.x => constant 4 ;; Probe::d.x.va => error unknown output: calc Probe::D::x declares no output va (it declares: none)
+prefix	variation	calc K1	variation calc x : K1 { variant calc va : K1; variant calc vb : K1; }	Probe::d.x => collection(1) [constant 4] ;; Probe::d.x.va => error unknown output: calc Probe::D::x declares no output va (it declares: none)
 prefix	variation	part P2	variation part x : P2 { variant part va : P2; variant part vb : P2; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	item I1	variation item x : I1 { variant item va : I1; variant item vb : I1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	port Pt	variation port x : Pt { variant port va : Pt; variant port vb : Pt; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
@@ -1713,7 +1713,7 @@ prefix	variation	connection Cn1	variation connection x : Cn1 connect sub1 to sub
 prefix	constant	attribute Integer	constant attribute x : Integer = 1;	Probe::d.x => constant 1
 prefix	constant	attribute At1	constant attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	constant	enum E1	constant enum x : E1 = E1::a;	Probe::d.x => enumeration literal E1::a
-prefix	constant	calc K1	constant calc x : K1;	Probe::d.x => constant 4
+prefix	constant	calc K1	constant calc x : K1;	Probe::d.x => collection(1) [constant 4]
 prefix	constant	part P2	constant part x : P2 = sub1;	Probe::d.x => object:Probe::P2
 prefix	constant	item I1	constant item x : I1 = it1;	Probe::d.x => object:Probe::I1
 prefix	constant	port Pt	constant port x : Pt = pt1;	Probe::d.x => object:Probe::Pt
@@ -1726,7 +1726,7 @@ prefix	constant	connection Cn1	constant connection x : Cn1 connect sub1 to sub2;
 prefix	readonly	attribute Integer	readonly attribute x : Integer = 1;	Probe::d.x => constant 1
 prefix	readonly	attribute At1	readonly attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	readonly	enum E1	readonly enum x : E1 = E1::a;	Probe::d.x => enumeration literal E1::a
-prefix	readonly	calc K1	readonly calc x : K1;	Probe::d.x => constant 4
+prefix	readonly	calc K1	readonly calc x : K1;	Probe::d.x => collection(1) [constant 4]
 prefix	readonly	part P2	readonly part x : P2 = sub1;	Probe::d.x => object:Probe::P2
 prefix	readonly	item I1	readonly item x : I1 = it1;	Probe::d.x => object:Probe::I1
 prefix	readonly	port Pt	readonly port x : Pt = pt1;	Probe::d.x => object:Probe::Pt
@@ -1739,7 +1739,7 @@ prefix	readonly	connection Cn1	readonly connection x : Cn1 connect sub1 to sub2;
 prefix	derived	attribute Integer	derived attribute x : Integer = 1;	Probe::d.x => constant 1
 prefix	derived	attribute At1	derived attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	derived	enum E1	derived enum x : E1 = E1::a;	Probe::d.x => enumeration literal E1::a
-prefix	derived	calc K1	derived calc x : K1;	Probe::d.x => constant 4
+prefix	derived	calc K1	derived calc x : K1;	Probe::d.x => collection(1) [constant 4]
 prefix	derived	part P2	derived part x : P2 = sub1;	Probe::d.x => object:Probe::P2
 prefix	derived	item I1	derived item x : I1 = it1;	Probe::d.x => object:Probe::I1
 prefix	derived	port Pt	derived port x : Pt = pt1;	Probe::d.x => object:Probe::Pt
@@ -1752,7 +1752,7 @@ prefix	derived	connection Cn1	derived connection x : Cn1 connect sub1 to sub2;	P
 prefix	end	attribute Integer	end attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	end	attribute At1	end attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	end	enum E1	end enum x : E1;	Probe::d.x => undetermined <undetermined>
-prefix	end	calc K1	end calc x : K1;	Probe::d.x => constant 4
+prefix	end	calc K1	end calc x : K1;	Probe::d.x => collection(1) [constant 4]
 prefix	end	part P2	end part x : P2;	Probe::d.x => object:Probe::P2
 prefix	end	item I1	end item x : I1;	Probe::d.x => object:Probe::I1
 prefix	end	port Pt	end port x : Pt;	Probe::d.x => object:Probe::Pt
@@ -1765,7 +1765,7 @@ prefix	end	connection Cn1	end connection x : Cn1 connect sub1 to sub2;	Probe::d.
 prefix	portion	attribute Integer	portion attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	portion	attribute At1	portion attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	portion	enum E1	portion enum x : E1;	Probe::d.x => undetermined <undetermined>
-prefix	portion	calc K1	portion calc x : K1;	Probe::d.x => constant 4
+prefix	portion	calc K1	portion calc x : K1;	Probe::d.x => collection(1) [constant 4]
 prefix	portion	part P2	portion part x : P2;	Probe::d.x => object:Probe::P2
 prefix	portion	item I1	portion item x : I1;	Probe::d.x => object:Probe::I1
 prefix	portion	port Pt	portion port x : Pt;	Probe::d.x => object:Probe::Pt
@@ -1778,7 +1778,7 @@ prefix	portion	connection Cn1	portion connection x : Cn1 connect sub1 to sub2;	P
 prefix	individual	attribute Integer	individual attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	individual	attribute At1	individual attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	individual	enum E1	individual enum x : E1;	Probe::d.x => undetermined <undetermined>
-prefix	individual	calc K1	individual calc x : K1;	Probe::d.x => constant 4
+prefix	individual	calc K1	individual calc x : K1;	Probe::d.x => collection(1) [constant 4]
 prefix	individual	part P2	individual part x : P2;	Probe::d.x => object:Probe::P2
 prefix	individual	item I1	individual item x : I1;	Probe::d.x => object:Probe::I1
 prefix	individual	port Pt	individual port x : Pt;	Probe::d.x => object:Probe::Pt
@@ -1791,7 +1791,7 @@ prefix	individual	connection Cn1	individual connection x : Cn1 connect sub1 to s
 prefix	[2..4]	attribute Integer	attribute x : Integer[2..4];	Probe::d.x => undetermined <undetermined>
 prefix	[2..4]	attribute At1	attribute x : At1[2..4];	Probe::d.x => undetermined <undetermined>
 prefix	[2..4]	enum E1	enum x : E1[2..4];	Probe::d.x => undetermined <undetermined>
-prefix	[2..4]	calc K1	calc x : K1[2..4];	Probe::d.x => constant 4
+prefix	[2..4]	calc K1	calc x : K1[2..4];	Probe::d.x => collection(1) [constant 4]
 prefix	[2..4]	part P2	part x : P2[2..4];	Probe::d.x => undetermined <undetermined>
 prefix	[2..4]	item I1	item x : I1[2..4];	Probe::d.x => undetermined <undetermined>
 prefix	[2..4]	port Pt	port x : Pt[2..4];	Probe::d.x => undetermined <undetermined>
@@ -1849,7 +1849,7 @@ prefix	:>> redefinition masks	occurrence O1	occurrence x : O1 = oc1;	Probe::d.x 
 prefix	:> subsetting	attribute Integer	attribute x : Integer[0..*]; attribute y : Integer :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
 prefix	:> subsetting	attribute At1	attribute x : At1[0..*]; attribute y : At1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
 prefix	:> subsetting	enum E1	enum x : E1[0..*]; enum y : E1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined>
-prefix	:> subsetting	calc K1	calc x : K1[0..*]; calc y : K1 :> x;	Probe::d.x => constant 4 ;; Probe::d.y => constant 4
+prefix	:> subsetting	calc K1	calc x : K1[0..*]; calc y : K1 :> x;	Probe::d.x => collection(1) [constant 4] ;; Probe::d.y => collection(1) [constant 4]
 prefix	:> subsetting	part P2	part x : P2[0..*]; part y : P2 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => object:Probe::P2
 prefix	:> subsetting	item I1	item x : I1[0..*]; item y : I1 :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => object:Probe::I1
 prefix	:> subsetting	port Pt	port x : Pt[0..*]; port y : Pt :> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => object:Probe::Pt
@@ -1862,7 +1862,7 @@ prefix	:> subsetting	connection Cn1	connection x : Cn1[0..*] connect sub1 to sub
 prefix	::> reference subsetting	attribute Integer	attribute x : Integer; ref attribute y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined> ;; Probe::d.y == Probe::d.x => undetermined <undetermined>
 prefix	::> reference subsetting	attribute At1	attribute x : At1; ref attribute y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined> ;; Probe::d.y == Probe::d.x => undetermined <undetermined>
 prefix	::> reference subsetting	enum E1	enum x : E1; ref enum y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined> ;; Probe::d.y == Probe::d.x => undetermined <undetermined>
-prefix	::> reference subsetting	calc K1	calc x : K1; ref calc y ::> x;	Probe::d.x => constant 4 ;; Probe::d.y => constant 4 ;; Probe::d.y == Probe::d.x => constant true
+prefix	::> reference subsetting	calc K1	calc x : K1; ref calc y ::> x;	Probe::d.x => collection(1) [constant 4] ;; Probe::d.y => collection(1) [constant 4] ;; Probe::d.y == Probe::d.x => constant true
 prefix	::> reference subsetting	part P2	part x : P2; ref part y ::> x;	Probe::d.x => object:Probe::P2 ;; Probe::d.y => object:Probe::P2 ;; Probe::d.y == Probe::d.x => constant true
 prefix	::> reference subsetting	item I1	item x : I1; ref item y ::> x;	Probe::d.x => object:Probe::I1 ;; Probe::d.y => object:Probe::I1 ;; Probe::d.y == Probe::d.x => constant true
 prefix	::> reference subsetting	port Pt	port x : Pt; ref port y ::> x;	Probe::d.x => object:Probe::Pt ;; Probe::d.y => object:Probe::Pt ;; Probe::d.y == Probe::d.x => constant true

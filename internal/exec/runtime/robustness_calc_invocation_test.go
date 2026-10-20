@@ -169,6 +169,7 @@ func testCalcCallsAnUnimportedLibraryFunction(t *testing.T) {
 		t.Fatal("count calc not found")
 	}
 	result, err = ctx.InvokeCalc(sym, nil, rootScope)
+	result = soleElement(result)
 	if err != nil || result.Kind != ValConst || result.Const.Int != 4 {
 		t.Fatalf("wheels->size() under import SequenceFunctions::* = %+v, %v; want 4", result, err)
 	}

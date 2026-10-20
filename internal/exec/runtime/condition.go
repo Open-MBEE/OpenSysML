@@ -1173,6 +1173,7 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 		if u := result.Undetermined(); u != nil {
 			return false, fmt.Errorf("%w: condition is undetermined: %s", ErrNoValue, u.Reason())
 		}
+		result = soleElement(result)
 		if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
 			return false, fmt.Errorf("condition must evaluate to boolean, got %v", result.Kind)
 		}

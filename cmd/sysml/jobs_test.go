@@ -156,12 +156,12 @@ func TestSweepReportsAreTheSameOnOneJobAsOnEight(t *testing.T) {
 		args  []string
 		want  string
 	}{
-		{"calc", sweepCLIModel, []string{"-calc", "Sw::Twice", "-sweep", "n=1..4"}, "4 | 8 "},
+		{"calc", sweepCLIModel, []string{"-calc", "Sw::Twice", "-sweep", "n=1..4"}, "4 | [8] "},
 		{"failing row", sweepCLIModel, []string{"-calc", "Sw::Ratio(a = 4.0)", "-sweep", "b=-1..1"}, "division by zero"},
-		{"product", sweepCLIModel, []string{"-calc", "Sw::Ratio", "-sweep", "a=1.0..2.0:1.0", "-sweep", "b=2.0..4.0:2.0"}, "2.0 | 4.0 | 0.5 "},
+		{"product", sweepCLIModel, []string{"-calc", "Sw::Ratio", "-sweep", "a=1.0..2.0:1.0", "-sweep", "b=2.0..4.0:2.0"}, "2.0 | 4.0 | [0.5] "},
 		{"samples", sweepCLIModel, []string{"-calc", "Sw::Twice", "-samples", "5", "-seed", "42", "-sweep", "n=1..100"}, "5 run(s), seed 42"},
-		{"case on an object", sweepCLIModel, []string{"-instantiate", "Sw::ship", "-analysis", "Sw::Priced Sw::ship", "-sweep", "tax=0.0..1.0:0.5"}, "1.0 | 10.0 | obj: not satisfied "},
-		{"verification", sweepVerificationModel, []string{"-analysis", "Sw::checkScout", "-sweep", "limit=1.0..2.0:0.5"}, "1.0 | VerdictKind::fail | obj: not satisfied "},
+		{"case on an object", sweepCLIModel, []string{"-instantiate", "Sw::ship", "-analysis", "Sw::Priced Sw::ship", "-sweep", "tax=0.0..1.0:0.5"}, "1.0 | [10.0] | obj: not satisfied "},
+		{"verification", sweepVerificationModel, []string{"-analysis", "Sw::checkScout", "-sweep", "limit=1.0..2.0:0.5"}, "1.0 | [VerdictKind::fail] | obj: not satisfied "},
 		{"trade study", tradeStudyModel, []string{"-analysis", "Trade::perOffset", "-sweep", "offset=3..4"}, "evaluationFunction(Trade::a (object #1)) = 10.0 [selected]; evaluationFunction(Trade::b (object #2)) = 10.0 [tied]"},
 	}
 	for _, tc := range cases {

@@ -2,5 +2,5 @@
   "type": "calc",
   "evaluate": "test::UseOuter",
   "libraries": true,
-  "result": {"type": "Real", "value": 233.0}
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 233.0}]}
 }

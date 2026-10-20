@@ -46,7 +46,7 @@ func TestRecordRunReportsWhatItRecorded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("-record-run: %v\n%s", err, out)
 	}
-	for _, want := range []string{"x = 5.0", "recorded Records::timed_run1"} {
+	for _, want := range []string{"x = [5.0]", "recorded Records::timed_run1"} {
 		if !strings.Contains(string(out), want) {
 			t.Errorf("-record-run output is missing %q:\n%s", want, out)
 		}
@@ -69,7 +69,7 @@ func TestRecordRunConvertWritesTheRecords(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"part timed_run1 : TimedRun", `caseName = "Demo::timed"`, "attribute :>> x = 5.0"} {
+	for _, want := range []string{"part timed_run1 : TimedRun", `caseName = "Demo::timed"`, "attribute :>> x = (5.0)"} {
 		if !strings.Contains(string(written), want) {
 			t.Errorf("converted model is missing %q:\n%s", want, written)
 		}

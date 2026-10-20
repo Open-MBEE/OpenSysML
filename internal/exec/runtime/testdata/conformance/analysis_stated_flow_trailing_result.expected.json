@@ -2,6 +2,6 @@
   "type": "analysis",
   "evaluate": "test::top",
   "outputs": {
-    "r": {"type": "Integer", "value": 7}
+    "r": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]}
   }
 }

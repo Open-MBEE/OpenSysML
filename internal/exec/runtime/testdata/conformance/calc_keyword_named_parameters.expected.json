@@ -4,5 +4,5 @@
     {"type": "Integer", "value": 3},
     {"type": "Integer", "value": 4}
   ],
-  "result": {"type": "Integer", "value": 7}
+  "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]}
 }

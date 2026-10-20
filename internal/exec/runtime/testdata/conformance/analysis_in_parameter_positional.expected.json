@@ -7,7 +7,7 @@
     {"type": "Real", "value": 2.0}
   ],
   "outputs": {
-    "total": {"type": "Real", "value": 24.0}
+    "total": {"type": "Sequence", "elements": [{"type": "Real", "value": 24.0}]}
   },
   "verdicts": {
     "affordable": "not satisfied"

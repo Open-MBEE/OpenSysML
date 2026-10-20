@@ -203,7 +203,7 @@ func TestMetaobjectCrossesAsCalcArgument(t *testing.T) {
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc(nameOf): err = %v, error = %q", err, calc.GetError())
 	}
-	if calc.Result.GetStringValue() != "seatBelt" {
+	if soleElement(t, "nameOf", calc.Result).GetStringValue() != "seatBelt" {
 		t.Errorf("nameOf(meta) = %v, want \"seatBelt\"", calc.Result)
 	}
 	calc, err = srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{ModelHash: modelHash, SymbolId: "M::sameAs", Arguments: []*pb.Value{
@@ -212,7 +212,7 @@ func TestMetaobjectCrossesAsCalcArgument(t *testing.T) {
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc(sameAs): err = %v, error = %q", err, calc.GetError())
 	}
-	if !calc.Result.GetBoolValue() {
+	if !soleElement(t, "sameAs", calc.Result).GetBoolValue() {
 		t.Errorf("sameAs(meta) = %v, want true", calc.Result)
 	}
 	calc, err = srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{ModelHash: modelHash, SymbolId: "M::nameOf", Arguments: []*pb.Value{

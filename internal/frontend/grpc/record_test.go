@@ -38,7 +38,7 @@ func TestRecordRunRecordsOneRun(t *testing.T) {
 	if resp.Error != "" {
 		t.Fatalf("RecordRun reported %q", resp.Error)
 	}
-	if resp.Run == nil || resp.Run.Error != "" || len(resp.Run.Outputs) != 1 || resp.Run.Outputs[0].Value.GetRealValue() != 6 {
+	if resp.Run == nil || resp.Run.Error != "" || len(resp.Run.Outputs) != 1 || soleElement(t, "total", resp.Run.Outputs[0].Value).GetRealValue() != 6 {
 		t.Fatalf("run = %v; want total 6", resp.Run)
 	}
 	if resp.Package != "Records" || resp.Definition != "Records::CostRun" || strings.Join(resp.Records, ",") != "Records::Cost_run1" {

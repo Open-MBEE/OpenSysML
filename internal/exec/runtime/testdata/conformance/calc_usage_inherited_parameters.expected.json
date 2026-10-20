@@ -2,7 +2,7 @@
   "type": "calcUsage",
   "evaluate": "test::t",
   "outputs": {
-    "scaled": {"type": "Integer", "value": 15},
-    "doubled": {"type": "Integer", "value": 30}
+    "scaled": {"type": "Sequence", "elements": [{"type": "Integer", "value": 15}]},
+    "doubled": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]}
   }
 }

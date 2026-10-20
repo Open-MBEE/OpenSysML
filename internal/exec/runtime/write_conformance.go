@@ -211,6 +211,11 @@ func (ctx *Context) shapeForTarget(target *writeTarget, value *Value) error {
 		return nil
 	}
 	elements := elementsOf(*value)
+	if value.Kind != ValSequence && value.Kind != ValSet {
+		// One value held in its shape materializes nothing: it is not charged.
+		*value = ctx.collectionOf(&EffectiveFeature{HoldsSet: target.holdsSet}, elements)
+		return nil
+	}
 	if err := ctx.chargeElements(int64(len(elements))); err != nil {
 		return err
 	}

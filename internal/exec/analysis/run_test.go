@@ -28,7 +28,7 @@ func TestRunObservesAValue(t *testing.T) {
 	if result.Engine != RunEngineName || result.Claim != ClaimValue || result.Strength != Observed {
 		t.Fatalf("result %+v, want run's observed value", result)
 	}
-	if len(result.Values) != 1 || result.Values[0].Value.Const.Int != 42 {
+	if len(result.Values) != 1 || result.Values[0].Value.Sole().Const.Int != 42 {
 		t.Fatalf("values %+v, want result = 42", result.Values)
 	}
 	if steps, ok := result.Bounds.Limit("steps"); !ok || steps != 10000 || result.Bounds.Reached() {
@@ -161,7 +161,7 @@ func TestPerformReturnsWhatTheCallProduced(t *testing.T) {
 			return ValuesAnswer([]Evaluation{{Name: "result", Value: v}}, err)
 		},
 	)
-	if err != nil || value.Const.Int != 8 {
+	if err != nil || value.Sole().Const.Int != 8 {
 		t.Fatalf("perform: %v = %+v, want 8", err, value)
 	}
 	failed := errors.New("unbound parameter")

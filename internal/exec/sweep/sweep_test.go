@@ -233,10 +233,10 @@ func TestSweepIntegerRangeStepsByOne(t *testing.T) {
 	})
 	got := tableText(table)
 	want := strings.Join([]string{
-		"n=1 result -> 2",
-		"n=2 result -> 4",
-		"n=3 result -> 6",
-		"n=4 result -> 8",
+		"n=1 result -> [2]",
+		"n=2 result -> [4]",
+		"n=3 result -> [6]",
+		"n=4 result -> [8]",
 	}, "\n")
 	if got != want {
 		t.Errorf("table is\n%s\nwant\n%s", got, want)
@@ -311,12 +311,12 @@ func TestSweepSeveralRangesRunTheirCartesianProduct(t *testing.T) {
 	})
 	got := tableText(table)
 	want := strings.Join([]string{
-		"a=1 b=10 result -> 11",
-		"a=1 b=11 result -> 12",
-		"a=2 b=10 result -> 12",
-		"a=2 b=11 result -> 13",
-		"a=3 b=10 result -> 13",
-		"a=3 b=11 result -> 14",
+		"a=1 b=10 result -> [11]",
+		"a=1 b=11 result -> [12]",
+		"a=2 b=10 result -> [12]",
+		"a=2 b=11 result -> [13]",
+		"a=3 b=10 result -> [13]",
+		"a=3 b=11 result -> [14]",
 	}, "\n")
 	if got != want {
 		t.Errorf("table is\n%s\nwant\n%s", got, want)
@@ -549,10 +549,10 @@ func TestResolveSweepPlanTypesEachRangeByItsParameter(t *testing.T) {
 		t.Errorf("table reports types %+v; want Integers then reals", table.Types)
 	}
 	if got, want := tableText(table), strings.Join([]string{
-		"a=1 b=1.0 result -> 1.0",
-		"a=1 b=2.0 result -> 0.5",
-		"a=2 b=1.0 result -> 2.0",
-		"a=2 b=2.0 result -> 1.0",
+		"a=1 b=1.0 result -> [1.0]",
+		"a=1 b=2.0 result -> [0.5]",
+		"a=2 b=1.0 result -> [2.0]",
+		"a=2 b=2.0 result -> [1.0]",
 	}, "\n"); got != want {
 		t.Errorf("table is\n%s\nwant\n%s", got, want)
 	}
@@ -639,7 +639,7 @@ func TestSweepIntegerParameterTakesIntegersHoweverTheRangeIsWritten(t *testing.T
 		table := runSweepOver(t, ctx, scope, name, SweepPlan{
 			Ranges: []SweepRange{steppedRange("n", realOf(1), realOf(3), realOf(1))},
 		})
-		if got, want := tableText(table), "n=1 result -> 2\nn=2 result -> 4\nn=3 result -> 6"; got != want {
+		if got, want := tableText(table), "n=1 result -> [2]\nn=2 result -> [4]\nn=3 result -> [6]"; got != want {
 			t.Errorf("%s over 1.0..3.0:1.0 is\n%s\nwant\n%s", name, got, want)
 		}
 	}
@@ -652,7 +652,7 @@ func TestSweepIntegerParameterTakesIntegersHoweverTheRangeIsWritten(t *testing.T
 			t.Errorf("%s over 1.0..3.0 bound %v; want %v", name, got, want)
 		}
 		for _, row := range table.Rows {
-			if row.Err != nil || row.Outputs[0].Value.Kind != runtime.ValConst || row.Outputs[0].Value.Const.Kind != semantics.ValInt {
+			if held := row.Outputs[0].Value.Sole(); row.Err != nil || held.Kind != runtime.ValConst || held.Const.Kind != semantics.ValInt {
 				t.Errorf("%s row %+v; want an Integer result and no error", name, row)
 			}
 		}
@@ -732,10 +732,10 @@ func TestSweepRealParameterTakesRealsHoweverTheRangeIsWritten(t *testing.T) {
 		},
 	})
 	want := strings.Join([]string{
-		"a=1.0 b=2.0 result -> 0.5",
-		"a=2.0 b=2.0 result -> 1.0",
-		"a=3.0 b=2.0 result -> 1.5",
-		"a=4.0 b=2.0 result -> 2.0",
+		"a=1.0 b=2.0 result -> [0.5]",
+		"a=2.0 b=2.0 result -> [1.0]",
+		"a=3.0 b=2.0 result -> [1.5]",
+		"a=4.0 b=2.0 result -> [2.0]",
 	}, "\n")
 	if got := tableText(table); got != want {
 		t.Errorf("Ratio over 1..4:1 is\n%s\nwant\n%s", got, want)
@@ -843,13 +843,13 @@ func TestSweepOverAnUntypedParameterFollowsTheLiterals(t *testing.T) {
 		t.Errorf("v resolved as %+v; want untyped, as written", typ)
 	}
 	table := runSweepOver(t, ctx, scope, "Any", SweepPlan{Ranges: []SweepRange{rangeOf("v", intOf(1), intOf(3))}})
-	if got, want := tableText(table), "v=1 result -> 1\nv=2 result -> 2\nv=3 result -> 3"; got != want {
+	if got, want := tableText(table), "v=1 result -> [1]\nv=2 result -> [2]\nv=3 result -> [3]"; got != want {
 		t.Errorf("Any over 1..3 is\n%s\nwant\n%s", got, want)
 	}
 	table = runSweepOver(t, ctx, scope, "Any", SweepPlan{
 		Ranges: []SweepRange{steppedRange("v", realOf(1), realOf(2), realOf(0.5))},
 	})
-	if got, want := tableText(table), "v=1.0 result -> 1.0\nv=1.5 result -> 1.5\nv=2.0 result -> 2.0"; got != want {
+	if got, want := tableText(table), "v=1.0 result -> [1.0]\nv=1.5 result -> [1.5]\nv=2.0 result -> [2.0]"; got != want {
 		t.Errorf("Any over 1.0..2.0:0.5 is\n%s\nwant\n%s", got, want)
 	}
 	table = runSweepOver(t, ctx, scope, "Any", SweepPlan{
@@ -872,11 +872,11 @@ func TestSweepOverANumberParameterFollowsTheLiterals(t *testing.T) {
 		t.Errorf("n resolved as %+v; want as written, typed by Number", typ)
 	}
 	table := runSweepOver(t, ctx, scope, "Num", SweepPlan{Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(2))}})
-	if got, want := tableText(table), "n=1 result -> 1\nn=2 result -> 2"; got != want {
+	if got, want := tableText(table), "n=1 result -> [1]\nn=2 result -> [2]"; got != want {
 		t.Errorf("Num over 1..2 is\n%s\nwant\n%s", got, want)
 	}
 	table = runSweepOver(t, ctx, scope, "Num", SweepPlan{Ranges: []SweepRange{steppedRange("n", realOf(1), realOf(2), realOf(1))}})
-	if got, want := tableText(table), "n=1.0 result -> 1.0\nn=2.0 result -> 2.0"; got != want {
+	if got, want := tableText(table), "n=1.0 result -> [1.0]\nn=2.0 result -> [2.0]"; got != want {
 		t.Errorf("Num over 1.0..2.0:1.0 is\n%s\nwant\n%s", got, want)
 	}
 }
@@ -933,7 +933,7 @@ func TestSweepOverAQuantityParameterIsBoundedByItsNum(t *testing.T) {
 	table := runSweepOver(t, ctx, scope, "Crew", SweepPlan{
 		Ranges: []SweepRange{rangeOf("n", metres(0), metres(2))},
 	})
-	if got, want := tableText(table), "n=0 [SI::m] result -> 0 [SI::m]\nn=1 [SI::m] result -> 1 [SI::m]\nn=2 [SI::m] result -> 2 [SI::m]"; got != want {
+	if got, want := tableText(table), "n=0 [SI::m] result -> [0 [SI::m]]\nn=1 [SI::m] result -> [1 [SI::m]]\nn=2 [SI::m] result -> [2 [SI::m]]"; got != want {
 		t.Errorf("Crew over 0..2 [SI::m] is\n%s\nwant\n%s", got, want)
 	}
 	for _, tc := range []struct {

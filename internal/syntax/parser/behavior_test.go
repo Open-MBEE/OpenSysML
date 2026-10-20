@@ -954,3 +954,29 @@ func TestParseAction_KeywordlessGuardedSuccession(t *testing.T) {
 		t.Error("node 4: an unguarded `first a then b;` is no transition")
 	}
 }
+
+// A result declaration's kind keyword is recorded as written: `return attribute r`
+// declares an attribute usage, `return r` a usage of no kind.
+func TestParseResultMember_RecordsKindKeyword(t *testing.T) {
+	for _, tt := range []struct {
+		src     string
+		keyword string
+	}{
+		{"return attribute r : Real;", "attribute"},
+		{"return r : Real;", ""},
+	} {
+		t.Run(tt.src, func(t *testing.T) {
+			p, nodes := parseCalcBodyTest(t, "{\n\t\t"+tt.src+"\n\t}")
+			if len(p.Diagnostics) != 0 || len(nodes) != 1 {
+				t.Fatalf("nodes = %d, diagnostics = %v, want one node and none", len(nodes), p.Diagnostics)
+			}
+			u, ok := nodes[0].(*ast.Usage)
+			if !ok {
+				t.Fatalf("node 0 = %T, want *ast.Usage", nodes[0])
+			}
+			if !u.IsResult || u.Kind != ast.UsageAttribute || u.Keyword != tt.keyword {
+				t.Errorf("result kind %v keyword %q (isResult %v), want attribute %q", u.Kind, u.Keyword, u.IsResult, tt.keyword)
+			}
+		})
+	}
+}

@@ -269,7 +269,11 @@ type Func struct {
 	// ResultRange is checked on every return; a collection result's
 	// multiplicity is checked by the Checked the return wraps.
 	ResultRange Range
-	Body        []Stmt
+	// HeldResult shapes a scalar Result into a one-element sequence as it leaves
+	// the program: the result states no multiplicity, so it is held in the
+	// effective `[0..*]` of the result it redefines (SysML v2 §7.6.3, §7.19.2).
+	HeldResult bool
+	Body       []Stmt
 	// Captured is the count of trailing Params a closure's value carries, the
 	// bindings of its enclosing body it reads.
 	Captured int

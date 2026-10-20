@@ -1,29 +1,29 @@
 enter calc test::emptyIsAString
-  bind blank = "" [argument]
+  bind blank = ("") [argument]
   stmt return
-            eval feature blank -> ""
+            eval feature blank -> ("")
             enter calc StringFunctions::Length
-              bind x = "" [argument]
+              bind x = ("") [argument]
             exit calc StringFunctions::Length -> 0
           eval invoke Length -> 0
           eval literal 0 -> 0
         eval operator == -> true
-            eval feature blank -> ""
-            eval feature blank -> ""
+            eval feature blank -> ("")
+            eval feature blank -> ("")
           eval operator + -> ""
-          eval feature blank -> ""
+          eval feature blank -> ("")
         eval operator == -> true
       eval operator and -> true
-          eval feature blank -> ""
+          eval feature blank -> ("")
           eval literal 1 -> 1
           eval literal 0 -> 0
           enter calc StringFunctions::Substring
-            bind x = "" [argument]
+            bind x = ("") [argument]
             bind lower = 1 [argument]
             bind upper = 0 [argument]
           exit calc StringFunctions::Substring -> ""
         eval invoke Substring -> ""
-        eval feature blank -> ""
+        eval feature blank -> ("")
       eval operator == -> true
     eval operator and -> true
-exit calc test::emptyIsAString -> true
+exit calc test::emptyIsAString -> (true)

@@ -1,20 +1,20 @@
 enter calc test::classify
-  bind a = true [argument]
-  bind b = false [argument]
+  bind a = (true) [argument]
+  bind b = (false) [argument]
   stmt declare both
-      eval feature a -> true
-      eval feature b -> false
+      eval feature a -> (true)
+      eval feature b -> (false)
     eval operator and -> false
   stmt declare either
-      eval feature a -> true
+      eval feature a -> (true)
     eval operator or -> true
   stmt declare differ
-      eval feature a -> true
-      eval feature b -> false
+      eval feature a -> (true)
+      eval feature b -> (false)
     eval operator xor -> true
   stmt declare follows
-      eval feature a -> true
-      eval feature b -> false
+      eval feature a -> (true)
+      eval feature b -> (false)
     eval operator implies -> false
   stmt if
     eval feature both -> false
@@ -24,4 +24,4 @@ enter calc test::classify
     eval operator and -> true
     stmt return
       eval literal "one" -> "one"
-exit calc test::classify -> "one"
+exit calc test::classify -> ("one")

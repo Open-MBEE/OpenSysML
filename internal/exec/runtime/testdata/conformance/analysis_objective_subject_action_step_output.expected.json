@@ -3,7 +3,7 @@
   "type": "analysis",
   "evaluate": "test::weighedHeavy",
   "outputs": {
-    "r": {"type": "Real", "value": 5000.0}
+    "r": {"type": "Sequence", "elements": [{"type": "Real", "value": 5000.0}]}
   },
   "verdicts": {
     "obj": "not satisfied",

@@ -3,5 +3,5 @@
   "type": "analysis",
   "evaluate": "test::reordered",
   "trace": true,
-  "result": {"type": "Real", "value": 50.0}
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 50.0}]}
 }

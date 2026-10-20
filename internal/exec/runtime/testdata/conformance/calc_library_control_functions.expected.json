@@ -3,20 +3,20 @@
   "type": "calcUsage",
   "evaluate": "test::c",
   "outputs": {
-    "selectedThen": {"type": "Integer", "value": 1},
-    "selectedElse": {"type": "Integer", "value": 2},
+    "selectedThen": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+    "selectedElse": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
     "omittedElse": {"type": "Null"},
-    "bodyBranch": {"type": "Integer", "value": 2},
-    "andShortCircuits": {"type": "Boolean", "value": false},
-    "andEvaluates": {"type": "Boolean", "value": true},
-    "orShortCircuits": {"type": "Boolean", "value": true},
-    "orEvaluates": {"type": "Boolean", "value": true},
-    "impliesShortCircuits": {"type": "Boolean", "value": true},
-    "impliesEvaluates": {"type": "Boolean", "value": false},
-    "coalescesNull": {"type": "Integer", "value": 5},
-    "coalescesEmpty": {"type": "Integer", "value": 5},
-    "coalescesFiltered": {"type": "Integer", "value": 5},
-    "coalescesEmptyOperator": {"type": "Integer", "value": 5},
+    "bodyBranch": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+    "andShortCircuits": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+    "andEvaluates": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "orShortCircuits": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "orEvaluates": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "impliesShortCircuits": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "impliesEvaluates": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+    "coalescesNull": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+    "coalescesEmpty": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+    "coalescesFiltered": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+    "coalescesEmptyOperator": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
     "keepsNonEmpty": {
       "type": "Sequence",
       "elements": [
@@ -24,10 +24,10 @@
         {"type": "Integer", "value": 2}
       ]
     },
-    "keepsValue": {"type": "Integer", "value": 3},
-    "andDecidedByFirst": {"type": "Boolean", "value": false},
-    "orDecidedByFirst": {"type": "Boolean", "value": true},
-    "impliesDecidedByFirst": {"type": "Boolean", "value": true},
-    "coalescesAlone": {"type": "Integer", "value": 5}
+    "keepsValue": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+    "andDecidedByFirst": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+    "orDecidedByFirst": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "impliesDecidedByFirst": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "coalescesAlone": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]}
   }
 }

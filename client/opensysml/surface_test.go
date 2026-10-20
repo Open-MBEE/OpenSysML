@@ -498,7 +498,7 @@ func TestEvaluateCalcAppliesPositionalArguments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvaluateCalc: %v", err)
 	}
-	if got, ok := calculation.Result.(opensysml.Int); !ok || got != 5 {
+	if got, ok := sole(t, "add", calculation.Result).(opensysml.Int); !ok || got != 5 {
 		t.Errorf("result = %#v, want Int(5)", calculation.Result)
 	}
 }

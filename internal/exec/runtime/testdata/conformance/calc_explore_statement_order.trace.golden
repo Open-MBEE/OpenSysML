@@ -12,6 +12,6 @@ stmt assign r
         eval operator + -> 12
       stmt return
         eval feature y -> 12
-    exit calc test::Ord -> 12
-  eval invoke Ord -> 12
+    exit calc test::Ord -> (12)
+  eval invoke Ord -> (12)
 step 1: no active tokens

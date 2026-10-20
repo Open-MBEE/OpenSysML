@@ -65,7 +65,7 @@ func testProductBeyondALoweredSizeBudget(t *testing.T) {
 		t.Fatal("square calc not found")
 	}
 	square := func(x semantics.Value) (Value, error) {
-		return ctx.InvokeCalc(sym, []Value{{Kind: ValConst, Const: x}}, root)
+		return invokeValue(ctx, sym, []Value{{Kind: ValConst, Const: x}}, root)
 	}
 	if _, err := square(semantics.IntValue(1 << 60)); !errors.Is(err, ErrIntegerSizeLimit) {
 		t.Fatalf("square(2^60) under a 100-bit budget = %v, want %v", err, ErrIntegerSizeLimit)
@@ -106,7 +106,7 @@ func testConstantBeyondALoweredSizeBudget(t *testing.T) {
 			if sym == nil {
 				t.Fatalf("%s calc not found", tc.calc)
 			}
-			got, err := ctx.InvokeCalc(sym, nil, root)
+			got, err := invokeValue(ctx, sym, nil, root)
 			if maxBits == 64 {
 				if !errors.Is(err, ErrIntegerSizeLimit) {
 					t.Errorf("%s under a 64-bit budget = %s, %v; want %v", tc.calc, FormatValue(got), err, ErrIntegerSizeLimit)

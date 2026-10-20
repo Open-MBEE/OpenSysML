@@ -117,6 +117,7 @@ func TestRunAnalysisReportsEachAlternativesEvaluation(t *testing.T) {
 			if !ok {
 				t.Fatal("no selectedAlternative output")
 			}
+			picked = sole(t, "selectedAlternative", picked)
 			if picked != selected[0].Arguments[0] {
 				t.Errorf("selectedAlternative = %#v, want the selected evaluation's argument %#v",
 					picked, selected[0].Arguments[0])

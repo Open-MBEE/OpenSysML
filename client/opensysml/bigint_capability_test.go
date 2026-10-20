@@ -16,7 +16,7 @@ const bigIntCapabilitySource = `package B {
 	private import ScalarValues::*;
 	attribute wide = 2 ** 70;
 	attribute narrow = 2 ** 62;
-	calc def Same { in x; return : Anything = x; }
+	calc def Same { in x; return : Anything[1] = x; }
 }
 `
 

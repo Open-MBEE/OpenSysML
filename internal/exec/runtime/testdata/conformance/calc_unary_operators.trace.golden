@@ -1,6 +1,6 @@
 enter calc test::testNegation
-  bind x = 5 [argument]
+  bind x = (5) [argument]
   stmt return
-      eval feature x -> 5
+      eval feature x -> (5)
     eval operator - -> -5
-exit calc test::testNegation -> -5
+exit calc test::testNegation -> (-5)

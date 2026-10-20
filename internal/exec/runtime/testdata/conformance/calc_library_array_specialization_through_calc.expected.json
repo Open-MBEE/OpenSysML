@@ -2,5 +2,5 @@
   "libraries": true,
   "type": "calc",
   "evaluate": "test::labelled",
-  "result": {"type": "String", "value": "grid"}
+  "result": {"type": "Sequence", "elements": [{"type": "String", "value": "grid"}]}
 }

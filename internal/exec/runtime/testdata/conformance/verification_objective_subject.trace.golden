@@ -17,7 +17,7 @@ materialize: scout #1
           eval operator if -> VerdictKind::pass
       exit calc VerificationCases::PassIf -> VerdictKind::pass
     eval invoke VerificationCases::PassIf -> VerdictKind::pass
-exit verification test::checkScout -> VerdictKind::pass
+exit verification test::checkScout -> (VerdictKind::pass)
     eval feature lander -> instance#1
   eval chain touchdownSpeed -> 1.2
   eval feature limit -> 1.5

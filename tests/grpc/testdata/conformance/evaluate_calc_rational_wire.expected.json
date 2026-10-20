@@ -4,5 +4,5 @@
 	"arguments": [
 		{"kind": "rational_value", "value": "1/4"}
 	],
-	"expected_result": {"kind": "rational_value", "value": "1/12"}
+	"expected_result": {"kind": "sequence", "elements": [{"kind": "rational_value", "value": "1/12"}]}
 }

@@ -33,6 +33,8 @@ type calcMemberDecl struct {
 	Owner  *symbols.Symbol
 	// multStated: Target.mult is declared rather than the assumed 1..1.
 	multStated bool
+	// effective: Target.mult is a bare parameter's effective range (SysML v2 §7.6.3).
+	effective bool
 }
 
 // redeclaring refines the declaration d redeclares: a redeclaration stating no
@@ -47,15 +49,21 @@ func (d calcMemberDecl) redeclaring(redeclared calcMemberDecl) calcMemberDecl {
 	if d.Target.typ == nil {
 		d.Target.typ = redeclared.Target.typ
 	}
-	if !d.multStated {
-		d.Target.mult, d.multStated = redeclared.Target.mult, redeclared.multStated
+	if !d.multStated && !d.effective {
+		d.Target.mult, d.multStated, d.effective = redeclared.Target.mult, redeclared.multStated, redeclared.effective
 	}
 	return d
 }
 
-// holdsCollection reports whether the declaration states a multiplicity above one, so
-// holds its values as a collection rather than a scalar.
+// holdsCollection reports whether the declaration's effective multiplicity is above one,
+// so it holds its values as a collection rather than a scalar.
 func (d *calcMemberDecl) holdsCollection() bool {
+	return d.Target != nil && (d.multStated || d.effective) && !d.Target.mult.AtMostOne()
+}
+
+// statesCollection reports a declaration written with a multiplicity above one, whose
+// body is written over a collection; a bare parameter holds its one value as a scalar does.
+func (d *calcMemberDecl) statesCollection() bool {
 	return d.Target != nil && d.multStated && !d.Target.mult.AtMostOne()
 }
 
@@ -144,10 +152,15 @@ func (ctx *Context) calcMemberDeclOf(link *symbols.Symbol, sym *symbols.Symbol, 
 // calcMemberDeclFor is what the member sym of link declares for a value bound to it.
 func (ctx *Context) calcMemberDeclFor(link, sym *symbols.Symbol, name string) calcMemberDecl {
 	mult, stated := ctx.extractMultiplicity(sym)
+	effective := false
+	if !stated && semantics.IsParameter(sym) {
+		mult, effective = ctx.model.semantics.EffectiveParameterRange(sym), true
+	}
 	return calcMemberDecl{
 		Target:     ctx.newWriteTarget(sym, name, mult),
 		Owner:      link,
 		multStated: stated,
+		effective:  effective,
 	}
 }
 
@@ -188,6 +201,9 @@ type calcShape struct {
 	BodyOutputs map[string]bool
 	Bindings    []lower.Binding
 	ResultExpr  ast.Node
+	// ResultDecl is what the result answers to: its own `return`, else the result
+	// parameter it inherits (SysML v2 §7.19.2), ultimately Evaluation::result [0..*].
+	ResultDecl calcMemberDecl
 	// Uncomputed says why the calc computes nothing (no body, no bound output);
 	// the calc is still a function value, and invoking it reports this.
 	Uncomputed error
@@ -273,6 +289,14 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	shape.BodyOutputs = assignedOutputs(shape.Steps, shape.Outputs, shape.Aliases)
 	shape.Bindings = calcBindings(chain)
 	shape.ResultExpr = resultBindingExpr(shape.Bindings)
+	if out := shape.resultOutput(); out != nil {
+		shape.ResultDecl = out.Decl
+	} else if inherited := ctx.model.semantics.ResultParameterOf(sym); inherited != nil {
+		shape.ResultDecl = ctx.calcMemberDeclFor(sym, inherited, resultOutputName)
+	} else {
+		// Nothing to inherit (no library): the effective default is `[0..*]`.
+		shape.ResultDecl = calcMemberDecl{Target: &writeTarget{name: resultOutputName, mult: semantics.UnboundedRange()}, Owner: sym, effective: true}
+	}
 	// Only a calc computes by tool; a case always runs its body.
 	if kind == "calc" {
 		tool, err := ctx.toolExecutionOf(sym)
@@ -974,6 +998,9 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 	out, err := shape.designatedOutput()
 	if err != nil {
 		return Value{}, err
+	}
+	if out.IsResult && out.Decl.Target == nil {
+		out.Decl = shape.ResultDecl
 	}
 	// The designated output's binding may name the calc's other outputs, and one
 	// naming itself is a cycle rather than an evaluation, so it is evaluated

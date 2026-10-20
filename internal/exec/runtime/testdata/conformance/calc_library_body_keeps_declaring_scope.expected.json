@@ -6,6 +6,6 @@
     "aboveTwo": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}, {"type": "Integer", "value": 4}]},
     "aboveTwoShadowed": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}, {"type": "Integer", "value": 4}]},
     "aboveFour": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
-    "weighted": {"type": "Integer", "value": 51}
+    "weighted": {"type": "Sequence", "elements": [{"type": "Integer", "value": 51}]}
   }
 }

@@ -117,7 +117,7 @@ func TestRunSweepWithTablesRowsInPlanOrderWhateverTheirArrival(t *testing.T) {
 		t.Fatalf("sweep on one job: %v", err)
 	}
 	want := tableText(sequential)
-	if !strings.HasPrefix(want, "n=22 result -> 17711\n") || !strings.HasSuffix(want, "n=12 result -> 144") {
+	if !strings.HasPrefix(want, "n=22 result -> [17711]\n") || !strings.HasSuffix(want, "n=12 result -> [144]") {
 		t.Fatalf("one job's table:\n%s", want)
 	}
 	inPlanOrder := make([]int, len(sequential.Rows))
@@ -187,10 +187,10 @@ func TestRunSweepWithKeepsEachRowsWritesToItself(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := strings.Join([]string{
-		"tax=1.0 total -> 6.0",
-		"tax=2.0 total -> 7.0",
-		"tax=3.0 total -> 8.0",
-		"tax=4.0 total -> 9.0",
+		"tax=1.0 total -> [6.0]",
+		"tax=2.0 total -> [7.0]",
+		"tax=3.0 total -> [8.0]",
+		"tax=4.0 total -> [9.0]",
 	}, "\n")
 	for _, jobs := range []int{1, sweepJobs} {
 		table, err := RunSweepWith(context.Background(), SweepWorkers{First: firstOf(t, fresh), Jobs: jobs, Fresh: fresh}, "test::Bump", plan, 0, bumpRun(t, scope))
@@ -202,7 +202,7 @@ func TestRunSweepWithKeepsEachRowsWritesToItself(t *testing.T) {
 		}
 		for i, row := range table.Rows {
 			cost, ok := row.Subject.FeatureValues["cost"]
-			if !ok || !cost.Written || runtime.FormatValue(cost.Value) != runtime.FormatValue(row.Outputs[0].Value) {
+			if !ok || !cost.Written || runtime.FormatValue(cost.Value) != runtime.FormatValue(row.Outputs[0].Value.Sole()) {
 				t.Fatalf("row %d's subject in its context: cost %+v, want the row's total written", i, cost)
 			}
 			if err := row.Context.Pristine(row.Subject); err == nil {

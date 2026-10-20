@@ -798,3 +798,9 @@ func magnitudeOf(value Value) (semantics.Value, bool) {
 	}
 	return semantics.Value{}, false
 }
+
+// Sole is the one value a one-element sequence or set holds, or v itself for
+// any other value: what a consumer taking one value reads from a held result.
+func (v Value) Sole() Value {
+	return soleElement(v)
+}

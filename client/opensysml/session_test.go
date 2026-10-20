@@ -124,14 +124,14 @@ func TestSessionEvaluatesEachExpressionAfresh(t *testing.T) {
 	session, hero := openSession(t)
 
 	value, err := session.Evaluate("hero.twice", opensysml.WithContextSymbol("Play"))
-	if err != nil || value != opensysml.Int(20) {
+	if err != nil || sole(t, "hero.twice", value) != opensysml.Int(20) {
 		t.Fatalf("Evaluate hero.twice = %#v, %v; want Int(20)", value, err)
 	}
 	if err := session.SetFeature(hero, "gold", opensysml.Int(7)); err != nil {
 		t.Fatalf("SetFeature: %v", err)
 	}
 	value, err = session.Evaluate("hero.twice", opensysml.WithContextSymbol("Play"))
-	if err != nil || value != opensysml.Int(14) {
+	if err != nil || sole(t, "hero.twice", value) != opensysml.Int(14) {
 		t.Fatalf("Evaluate hero.twice after SetFeature = %#v, %v; want Int(14)", value, err)
 	}
 	for i := 0; i < 50; i++ {

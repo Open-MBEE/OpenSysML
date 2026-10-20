@@ -3,7 +3,7 @@
   "type": "analysis",
   "evaluate": "test::asserted",
   "outputs": {
-    "c": {"type": "Real", "value": 5.0}
+    "c": {"type": "Sequence", "elements": [{"type": "Real", "value": 5.0}]}
   },
   "verdicts": {
     "cheap": "not satisfied",

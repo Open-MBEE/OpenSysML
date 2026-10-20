@@ -84,7 +84,7 @@ func TestElementBudgetCountsElementsHeldNotProduced(t *testing.T) {
 	ctx.maxElements = 20
 	sym, scope := calcByName(t, idx.DocumentRoot("<test>"), "test", "Repeat")
 
-	result, err := ctx.InvokeCalc(sym, nil, scope)
+	result, err := invokeValue(ctx, sym, nil, scope)
 	if err != nil {
 		t.Fatalf("InvokeCalc: %v", err)
 	}

@@ -36,7 +36,7 @@ func TestSweepRowReleasesItsContextWhenAsked(t *testing.T) {
 		if err != nil {
 			t.Fatalf("release=%v: sweep of Twice: %v", release, err)
 		}
-		if got, want := tableText(table), "n=1 result -> 2\nn=2 result -> 4\nn=3 result -> 6"; got != want {
+		if got, want := tableText(table), "n=1 result -> [2]\nn=2 result -> [4]\nn=3 result -> [6]"; got != want {
 			t.Errorf("release=%v: table is\n%s\nwant\n%s", release, got, want)
 		}
 		if len(traces) != len(table.Rows) {

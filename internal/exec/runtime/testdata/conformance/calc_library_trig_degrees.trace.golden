@@ -1,13 +1,13 @@
 enter calc test::halfTurn
-  bind theta = 180.0 [argument]
+  bind theta = (180.0) [argument]
   stmt return
-        eval feature theta -> 180.0
+        eval feature theta -> (180.0)
         enter calc TrigFunctions::rad
-          bind theta_deg = 180.0 [argument]
+          bind theta_deg = (180.0) [argument]
         exit calc TrigFunctions::rad -> 3.141592653589793
       eval invoke rad -> 3.141592653589793
       enter calc TrigFunctions::deg
         bind theta_rad = 3.141592653589793 [argument]
       exit calc TrigFunctions::deg -> 180.0
     eval invoke deg -> 180.0
-exit calc test::halfTurn -> 180.0
+exit calc test::halfTurn -> (180.0)

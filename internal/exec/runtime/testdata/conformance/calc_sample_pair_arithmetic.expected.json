@@ -3,8 +3,8 @@
   "type": "calcUsage",
   "evaluate": "test::c",
   "outputs": {
-    "difference": {"type": "Rational", "value": "2.0"},
-    "product": {"type": "Rational", "value": "8.0"},
-    "interpolated": {"type": "Rational", "value": "5.0"}
+    "difference": {"type": "Sequence", "elements": [{"type": "Rational", "value": "2.0"}]},
+    "product": {"type": "Sequence", "elements": [{"type": "Rational", "value": "8.0"}]},
+    "interpolated": {"type": "Sequence", "elements": [{"type": "Rational", "value": "5.0"}]}
   }
 }

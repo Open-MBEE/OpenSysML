@@ -2222,7 +2222,8 @@ func guardResult(ec *EvalContext, guard ast.Node) (Value, error) {
 	if guard == nil {
 		return boolValue(true), nil
 	}
-	return ec.Eval(guard)
+	result, err := ec.Eval(guard)
+	return soleElement(result), err
 }
 
 // probeGuard reads the guard of the succession at position i out of a decision
@@ -3009,6 +3010,7 @@ func (e *ActionExecutor) triggerHolds(token *Token, accept lower.Accept) (bool, 
 			if err != nil {
 				return false, fmt.Errorf("eval accept condition: %w", err)
 			}
+			result = soleElement(result)
 			if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
 				return false, fmt.Errorf("%w: accept when: condition must evaluate to boolean, got %v", ErrTypeMismatch, result.Kind)
 			}

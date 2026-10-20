@@ -20,7 +20,13 @@
             {
               "name": "total",
               "value": {
-                "real_value": 12.0
+                "sequence": {
+                  "elements": [
+                    {
+                      "real_value": 12.0
+                    }
+                  ]
+                }
               }
             }
           ],
@@ -65,7 +71,13 @@
             {
               "name": "x",
               "value": {
-                "real_value": 3.0
+                "sequence": {
+                  "elements": [
+                    {
+                      "real_value": 3.0
+                    }
+                  ]
+                }
               }
             }
           ]
@@ -99,7 +111,13 @@
             {
               "name": "total",
               "value": {
-                "real_value": 37.0
+                "sequence": {
+                  "elements": [
+                    {
+                      "real_value": 37.0
+                    }
+                  ]
+                }
               }
             }
           ],

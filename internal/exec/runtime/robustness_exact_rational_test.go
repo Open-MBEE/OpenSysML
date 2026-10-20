@@ -45,7 +45,7 @@ func testDenominatorGrowthBeyondALoweredBudget(t *testing.T) {
 	if sym == nil {
 		t.Fatal("harmonic calc not found")
 	}
-	got, err := ctx.InvokeCalc(sym, []Value{{Kind: ValConst, Const: semantics.IntValue(10)}}, root)
+	got, err := invokeValue(ctx, sym, []Value{{Kind: ValConst, Const: semantics.IntValue(10)}}, root)
 	if err != nil || got.Kind != ValConst || got.Const.Kind != semantics.ValRational || got.Const.FormatRational() != "7381/2520" {
 		t.Fatalf("harmonic(10) = %s, %v; want 7381/2520", FormatValue(got), err)
 	}
@@ -106,7 +106,7 @@ func testRationalConversionBeyondALoweredBudget(t *testing.T) {
 	if sym == nil {
 		t.Fatal("read calc not found")
 	}
-	got, err := ctx.InvokeCalc(sym, []Value{NewStringValue("0.25")}, root)
+	got, err := invokeValue(ctx, sym, []Value{NewStringValue("0.25")}, root)
 	if err != nil || got.Kind != ValConst || got.Const.FormatRational() != "0.25" {
 		t.Fatalf("ToRational(\"0.25\") = %s, %v; want 0.25", FormatValue(got), err)
 	}

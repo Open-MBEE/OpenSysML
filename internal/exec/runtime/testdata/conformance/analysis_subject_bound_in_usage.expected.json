@@ -3,11 +3,11 @@
   "type": "analysis",
   "evaluate": "test::shipCost",
   "outputs": {
-    "total": {"type": "Real", "value": 12.0}
+    "total": {"type": "Sequence", "elements": [{"type": "Real", "value": 12.0}]}
   },
   "reads": {
-    "test::costRead": {"type": "Real", "value": 12.0},
-    "test::plainRead": {"type": "Real", "value": 3.0},
-    "test::innerRead": {"type": "Real", "value": 12.0}
+    "test::costRead": {"type": "Sequence", "elements": [{"type": "Real", "value": 12.0}]},
+    "test::plainRead": {"type": "Sequence", "elements": [{"type": "Real", "value": 3.0}]},
+    "test::innerRead": {"type": "Sequence", "elements": [{"type": "Real", "value": 12.0}]}
   }
 }

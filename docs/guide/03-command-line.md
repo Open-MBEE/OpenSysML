@@ -494,7 +494,7 @@ package An {
 $ sysml -analysis An::shipCost analysis.sysml
 ✓ package An
 ✓ An::shipCost
-  total = 12.0
+  total = [12.0]
   objective affordable: satisfied
   standing: value (observed: 1 run under reverse)
 
@@ -505,11 +505,11 @@ $ sysml -instantiate An::barge -analysis "An::CostAnalysis An::barge" \
   ID: 1
   Use %features An::barge to inspect
 ✗ An::CostAnalysis on object #1 of "An::barge"
-  total = 37.0
+  total = [37.0]
   objective affordable: not satisfied: total <= limit
   standing: value (observed: 1 run under reverse)
 ✓ An::CostAnalysis(limit = 50.0) on object #1 of "An::barge"
-  total = 37.0
+  total = [37.0]
   objective affordable: satisfied
   standing: value (observed: 1 run under reverse)
 exit=1

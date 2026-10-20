@@ -1,11 +1,11 @@
 enter calc test::halve
-  bind n = 9 [argument]
+  bind n = (9) [argument]
   stmt declare i
-    eval feature n -> 9
+    eval feature n -> (9)
   stmt loop until
     iteration 1
       stmt assign i
-          eval feature i -> 9
+          eval feature i -> (9)
           eval literal 2 -> 2
         eval operator / -> 4.5
         eval feature i -> 4.5
@@ -37,4 +37,4 @@ enter calc test::halve
       eval operator <= -> true
   stmt return
     eval feature i -> 0.5625
-exit calc test::halve -> 0.5625
+exit calc test::halve -> (0.5625)

@@ -699,6 +699,8 @@ func TestCompiledStringResultsRoundTrip(t *testing.T) {
 				if failure != "" {
 					t.Fatalf("%q: interpreter failed: %s", text, failure)
 				}
+				// A bare result is held as a one-element sequence; its text is the element's.
+				printed = strings.TrimSuffix(strings.TrimPrefix(printed, "["), "]")
 				if got := source.StringValue(printed); got != text || len(lexer.InvalidEscapes(source.Span{}, printed)) > 0 {
 					t.Errorf("%q printed as %s, which reads back as %q", text, printed, got)
 				}

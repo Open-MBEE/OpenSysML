@@ -3,11 +3,11 @@
   "type": "calcUsage",
   "evaluate": "test::c",
   "outputs": {
-    "numericEnumeration": {"type": "Boolean", "value": true},
-    "numericEnumerationReversed": {"type": "Boolean", "value": false},
-    "strings": {"type": "Boolean", "value": true},
-    "quantities": {"type": "Boolean", "value": true},
-    "mixedNumbers": {"type": "Boolean", "value": true}
+    "numericEnumeration": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "numericEnumerationReversed": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+    "strings": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "quantities": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "mixedNumbers": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]}
   },
   "reads": {
     "test::enumerationLess": {"error": "type mismatch: operator '<' is not defined for the enumeration literal Color::red and the enumeration literal Color::blue; DataFunctions::'<' is abstract and no library function declares '<' for the enumeration Color, which is no ScalarValue"},

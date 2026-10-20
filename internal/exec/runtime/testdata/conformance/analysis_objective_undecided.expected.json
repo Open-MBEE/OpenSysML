@@ -3,7 +3,7 @@
   "type": "analysis",
   "evaluate": "test::undecided",
   "outputs": {
-    "c": {"type": "Real", "value": 5.0}
+    "c": {"type": "Sequence", "elements": [{"type": "Real", "value": 5.0}]}
   },
   "verdicts": {
     "bounded": "undecided"

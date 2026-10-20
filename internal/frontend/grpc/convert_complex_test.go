@@ -243,13 +243,22 @@ func TestComplexInputNeedsComplexValues(t *testing.T) {
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc: err = %v, error = %q", err, calc.GetError())
 	}
-	if calc.Result.GetComplex() == nil || protoconv.ProtoToComplex(calc.Result.GetComplex()) != complex(2, 5) {
+	if echoed := soleElement(t, "echo", calc.Result); echoed.GetComplex() == nil || protoconv.ProtoToComplex(echoed.GetComplex()) != complex(2, 5) {
 		t.Errorf("echo(2 + 5i) = %v, want the complex back", calc.Result)
 	}
 }
 
 // soleElement is the one element a one-element sequence value carries; any other shape,
 // a bare scalar included, fails the test, so a multi-valued pin cannot regress to a scalar.
+// soleOrSelf is the one element a one-element sequence holds, or v itself for any
+// other value.
+func soleOrSelf(v *pb.Value) *pb.Value {
+	if seq := v.GetSequence(); seq != nil && len(seq.Elements) == 1 {
+		return seq.Elements[0]
+	}
+	return v
+}
+
 func soleElement(t *testing.T, name string, v *pb.Value) *pb.Value {
 	t.Helper()
 	els := v.GetSequence().GetElements()

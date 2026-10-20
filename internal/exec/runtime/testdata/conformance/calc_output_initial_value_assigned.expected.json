@@ -2,5 +2,5 @@
   "libraries": true,
   "type": "calc",
   "evaluate": "test::probe",
-  "result": {"type": "Integer", "value": 20}
+  "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 20}]}
 }

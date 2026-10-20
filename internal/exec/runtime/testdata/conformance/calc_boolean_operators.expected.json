@@ -10,8 +10,8 @@
       "value": false
     }
   ],
-  "result": {
-    "type": "String",
-    "value": "one"
-  }
+  "result": {"type": "Sequence", "elements": [{
+      "type": "String",
+      "value": "one"
+    }]}
 }

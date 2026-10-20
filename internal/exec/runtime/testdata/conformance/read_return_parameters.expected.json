@@ -3,7 +3,7 @@
   "type": "calcUsage",
   "evaluate": "test::probe",
   "outputs": {
-    "one": {"type": "Integer", "value": 1}
+    "one": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
   },
   "reads": {
     "test::r1New": {"type": "Undetermined", "value": "[1]"},
@@ -43,12 +43,12 @@
     "test::ca2Usage": {"type": "Undetermined", "value": "[0..*]"},
     "test::v1New": {"type": "Sequence", "elements": [{"type": "EnumLiteral", "value": "VerdictKind::pass"}]},
     "test::v1Result": {"type": "Sequence", "elements": [{"type": "EnumLiteral", "value": "VerdictKind::pass"}]},
-    "test::v1Usage": {"type": "EnumLiteral", "value": "VerdictKind::pass"},
+    "test::v1Usage": {"type": "Sequence", "elements": [{"type": "EnumLiteral", "value": "VerdictKind::pass"}]},
     "test::v2New": {"type": "Undetermined", "value": "[0..*]"},
     "test::v2Usage": {"type": "Undetermined", "value": "[0..*]"},
     "test::v2UsageResult": {"type": "Undetermined", "value": "[0..*]"},
     "test::v3New": {"type": "Sequence", "elements": [{"type": "EnumLiteral", "value": "VerdictKind::fail"}]},
-    "test::v3Usage": {"type": "EnumLiteral", "value": "VerdictKind::fail"},
-    "test::v3UsageResult": {"type": "EnumLiteral", "value": "VerdictKind::fail"}
+    "test::v3Usage": {"type": "Sequence", "elements": [{"type": "EnumLiteral", "value": "VerdictKind::fail"}]},
+    "test::v3UsageResult": {"type": "Sequence", "elements": [{"type": "EnumLiteral", "value": "VerdictKind::fail"}]}
   }
 }

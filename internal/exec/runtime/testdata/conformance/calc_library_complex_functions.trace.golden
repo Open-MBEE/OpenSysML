@@ -23,4 +23,4 @@ enter calc test::imaginaryUnitSquared
         bind x = -1.0 + 0.0i [argument]
       exit calc ComplexFunctions::re -> -1.0
     eval invoke re -> -1.0
-exit calc test::imaginaryUnitSquared -> -1.0
+exit calc test::imaginaryUnitSquared -> (-1.0)

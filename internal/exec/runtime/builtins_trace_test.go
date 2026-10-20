@@ -57,7 +57,7 @@ func TestBuiltinInvocationExpressionIsTraced(t *testing.T) {
 		"bind thenValue = expr(literal 1) [argument]",
 		"bind elseValue = expr(literal 2) [argument]",
 		"exit calc ControlFunctions::if -> 1",
-		"exit calc test::IfTrue -> 1",
+		"exit calc test::IfTrue -> (1)",
 	)
 	if strings.Contains(got, "eval literal 2 ->") {
 		t.Errorf("the branch not selected was evaluated:\n%s", got)

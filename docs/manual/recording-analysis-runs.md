@@ -32,7 +32,7 @@ package Demo {
 ```text
 %record Demo::timed
 ✓ Demo::timed
-  x = 5.0
+  x = [5.0]
   standing: value (observed: 1 run under reverse)
   recorded Records::timed_run1 (Records::TimedRun)
 ```
@@ -75,7 +75,7 @@ package Records {
         ref :>> 'subject' = Demo::probe;
         attribute :>> subjectName = "Demo::probe";
         attribute :>> gain = 2.0;
-        attribute :>> x = 5.0;
+        attribute :>> x = (5.0);
     }
 }
 ```
@@ -137,7 +137,7 @@ contains it:
 ```text
 %record Demo::timed into Demo::Log
 ✓ Demo::timed
-  x = 5.0
+  x = [5.0]
   standing: value (observed: 1 run under reverse)
   recorded Demo::Log::timed_run1 (Demo::Log::TimedRun)
 ```

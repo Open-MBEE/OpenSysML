@@ -264,10 +264,8 @@ func (h *calcStmtHost) orderStep() int {
 func (h *calcStmtHost) yieldsBetweenStatements() bool { return false }
 
 func (h *calcStmtHost) acceptReturn(value Value, _ lower.Return) error {
-	if out := h.shape.resultOutput(); out != nil {
-		if err := out.Decl.check(h.ctx, &value, func() string { return "result" }); err != nil {
-			return err
-		}
+	if err := h.shape.ResultDecl.check(h.ctx, &value, func() string { return "result" }); err != nil {
+		return err
 	}
 	h.result = value
 	return nil

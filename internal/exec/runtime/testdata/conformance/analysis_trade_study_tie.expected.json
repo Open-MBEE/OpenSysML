@@ -3,7 +3,7 @@
   "type": "analysis",
   "evaluate": "test::tied",
   "outputs": {
-    "selectedAlternative": {"type": "Instance", "value": "test::b"}
+    "selectedAlternative": {"type": "Sequence", "elements": [{"type": "Instance", "value": "test::b"}]}
   },
   "verdicts": {
     "tradeStudyObjective": "satisfied"

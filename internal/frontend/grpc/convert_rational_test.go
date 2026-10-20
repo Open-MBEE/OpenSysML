@@ -161,7 +161,7 @@ func TestEvaluateCalcTakesAndReturnsRationals(t *testing.T) {
 		if resp.Error != "" {
 			t.Fatalf("EvaluateCalc reported %q", resp.Error)
 		}
-		if r := resp.Result.GetRationalValue(); r.GetNumerator() != tc.num || r.GetDenominator() != tc.den {
+		if r := soleElement(t, "third", resp.Result).GetRationalValue(); r.GetNumerator() != tc.num || r.GetDenominator() != tc.den {
 			t.Errorf("third(%v) = %v, want rational_value %s/%s", tc.arg, resp.Result, tc.num, tc.den)
 		}
 	}

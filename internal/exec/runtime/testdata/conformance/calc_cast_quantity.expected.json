@@ -10,7 +10,7 @@
       {"type": "Quantity", "value": 5, "unit": "m"},
       {"type": "Quantity", "value": 2, "unit": "m"}
     ]},
-    "sumOfNoDurations": {"type": "Quantity", "value": 0, "unit": "m"},
+    "sumOfNoDurations": {"type": "Sequence", "elements": [{"type": "Quantity", "value": 0, "unit": "m"}]},
     "declaredAsSubtype": {"type": "Quantity", "value": 4, "unit": "m"},
     "declaredAsBaseQuantity": {"type": "Quantity", "value": 4, "unit": "m"},
     "declaredAsDuration": {"type": "Sequence", "elements": []},

@@ -635,9 +635,9 @@ package W {
     }
     attribute cube : TensorQuantityValue = TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0), cubeRef);
 
-    calc def SizeOf { in c : Integer[0..*]; return : Natural = SequenceFunctions::size(c); }
+    calc def SizeOf { in c : Integer[0..*]; return : Natural[1] = SequenceFunctions::size(c); }
     calc sizeOf : SizeOf;
-    calc def Corner { in t : TensorQuantityValue; return : ScalarQuantityValue = t#(2, 2, 2); }
+    calc def Corner { in t : TensorQuantityValue; return : ScalarQuantityValue[1] = t#(2, 2, 2); }
     calc corner : Corner;
 }
 """

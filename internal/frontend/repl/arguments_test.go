@@ -137,7 +137,7 @@ func sweepRows(out string) [][]float64 {
 		}
 		var row []float64
 		for _, f := range fields {
-			if v, err := strconv.ParseFloat(strings.TrimSpace(f), 64); err == nil {
+			if v, err := strconv.ParseFloat(strings.Trim(strings.TrimSpace(f), "[]"), 64); err == nil {
 				row = append(row, v)
 			}
 		}

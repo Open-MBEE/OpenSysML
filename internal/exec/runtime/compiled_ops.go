@@ -668,7 +668,7 @@ func (ctx *Context) libraryArgs(n int) []Value {
 // scalarOfResult unboxes a library function's result, which a function the
 // tier calls keeps on the scalar lattice.
 func scalarOfResult(name string, res Value) (scalar, error) {
-	out, ok := scalarOf(res)
+	out, ok := scalarOf(soleElement(res))
 	if !ok {
 		return scalar{}, fmt.Errorf("compiled call of %s produced a non-scalar %s", name, DescribeValue(res))
 	}

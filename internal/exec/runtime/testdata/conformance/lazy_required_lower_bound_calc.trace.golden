@@ -13,4 +13,4 @@ materialize: Component #2000
         exit calc SequenceFunctions::size -> 2000
       eval invoke size -> 2000
     eval operator * -> 4000.0
-exit calc test::pickMass -> 4000.0
+exit calc test::pickMass -> (4000.0)

@@ -15,4 +15,4 @@ enter action node: analysis test::reordered
 leave action node: analysis test::reordered
   stmt return
     eval chain w -> (50.0)
-exit analysis test::reordered -> 50.0
+exit analysis test::reordered -> (50.0)

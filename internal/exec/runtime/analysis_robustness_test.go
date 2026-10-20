@@ -348,7 +348,7 @@ func testAnalysisUnorderedSteps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if len(result.Outputs) != 1 || FormatValue(result.Outputs[0].Value) != "12.0" {
+	if len(result.Outputs) != 1 || FormatValue(soleElement(result.Outputs[0].Value)) != "12.0" {
 		t.Fatalf("outputs = %v, want 12.0: c reads a.v + b.w after both ran", result.Outputs)
 	}
 }

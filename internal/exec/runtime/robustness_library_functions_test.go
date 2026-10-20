@@ -453,7 +453,7 @@ func testStructuredValueOutsideTheDeclaredShape(t *testing.T) {
 	} {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 		sym, scope := calcByName(t, idx.DocumentRoot("<test>"), "test", calc)
-		got, err := ctx.InvokeCalc(sym, nil, scope)
+		got, err := invokeValue(ctx, sym, nil, scope)
 		if err != nil || FormatValue(got) != want {
 			t.Errorf("%s = (%s, %v), want %s", calc, FormatValue(got), err, want)
 		}

@@ -9,10 +9,10 @@
   "subject": "ProductPkg::bad",
   "verdict": "fail",
   "outputs": {
-    "verdict": {
-      "type": "EnumLiteral",
-      "value": "VerdictKind::fail"
-    }
+    "verdict": {"type": "Sequence", "elements": [{
+        "type": "EnumLiteral",
+        "value": "VerdictKind::fail"
+      }]}
   },
   "verdicts": {
     "costObjective": "satisfied"

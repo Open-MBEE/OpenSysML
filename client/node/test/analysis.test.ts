@@ -23,7 +23,7 @@ const MODEL = `package An {
     calc def Sum {
         in a : Real;
         in b : Real;
-        return : Real = a + b;
+        return : Real[1] = a + b;
     }
 
     analysis def CostAnalysis {
@@ -104,13 +104,13 @@ const SWEEP = `package Sw {
 
     calc def Twice {
         in n : Integer;
-        return : Integer = n * 2;
+        return : Integer[1] = n * 2;
     }
 
     calc def Ratio {
         in a : Real;
         in b : Real;
-        return : Real = a / b;
+        return : Real[1] = a / b;
     }
 
     analysis def CostAnalysis {
@@ -151,7 +151,7 @@ test("a stated step advances by it", async () => {
 
 test("several ranges run their cartesian product", async () => {
   await using connection = await connect();
-  const plus = `package Plus { private import ScalarValues::*; calc def Sum { in a : Integer; in b : Integer; return : Integer = a + b; } }`;
+  const plus = `package Plus { private import ScalarValues::*; calc def Sum { in a : Integer; in b : Integer; return : Integer[1] = a + b; } }`;
   const m = await connection.loads(plus);
   const table = await m.runSweep("Plus::Sum", { a: [1n, 2n], b: [10n, 11n] });
   assert.equal(table.length, 4);

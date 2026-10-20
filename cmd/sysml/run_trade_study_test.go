@@ -90,7 +90,7 @@ func TestRunTradeStudy(t *testing.T) {
 
 	wantReport(t, check(t, binary, tradeStudyModel, "-analysis", "Trade::lightest"), 0,
 		"✓ Trade::lightest",
-		"selectedAlternative = Trade::b (object #2)",
+		"selectedAlternative = [Trade::b (object #2)]",
 		"objective tradeStudyObjective: satisfied",
 		"evaluationFunction(Trade::a (object #1)) = 30.0",
 		"evaluationFunction(Trade::b (object #2)) = 10.0 [selected]",
@@ -127,7 +127,7 @@ func TestRunTradeStudy(t *testing.T) {
 			t.Errorf("evaluation %d = %+v, want %+v", i, e, want)
 		}
 	}
-	if v := report.Checks[0].Values[0]; v.Name != "selectedAlternative" || v.Value != "Trade::b (object #2)" {
+	if v := report.Checks[0].Values[0]; v.Name != "selectedAlternative" || v.Value != "[Trade::b (object #2)]" {
 		t.Errorf("selectedAlternative = %+v, want Trade::b", v)
 	}
 

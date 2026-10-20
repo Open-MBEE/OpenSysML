@@ -33,7 +33,7 @@ func invokeSumTo(t *testing.T, n int64, maxCalcDepth int64) (Value, error) {
 		t.Fatal("calc sumTo not found")
 	}
 	arg := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: n}}
-	return ctx.InvokeCalc(sym, []Value{arg}, rootScope)
+	return invokeValue(ctx, sym, []Value{arg}, rootScope)
 }
 
 // TestRecursiveCalcSpendsTheDepthBudget requires the calc depth budget to be
@@ -99,7 +99,7 @@ func TestMutuallyRecursiveCalcsEvaluate(t *testing.T) {
 		want bool
 	}{{n: 0, want: true}, {n: 7, want: false}, {n: 400, want: true}} {
 		arg := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: tc.n}}
-		result, err := ctx.InvokeCalc(sym, []Value{arg}, rootScope)
+		result, err := invokeValue(ctx, sym, []Value{arg}, rootScope)
 		if err != nil {
 			t.Fatalf("isEven(%d): %v", tc.n, err)
 		}

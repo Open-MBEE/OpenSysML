@@ -1,8 +1,8 @@
 enter calc test::testCoercion
-  bind intVal = 10 [argument]
-  bind realVal = 3.5 [argument]
+  bind intVal = (10) [argument]
+  bind realVal = (3.5) [argument]
   stmt return
-      eval feature intVal -> 10
-      eval feature realVal -> 3.5
+      eval feature intVal -> (10)
+      eval feature realVal -> (3.5)
     eval operator + -> 13.5
-exit calc test::testCoercion -> 13.5
+exit calc test::testCoercion -> (13.5)
