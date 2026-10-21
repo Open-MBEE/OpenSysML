@@ -1,0 +1,1 @@
+- `sysml` diagnostics count a diagnostic's UTF-16 column in place instead of encoding the line prefix, and convert a snippet's source to bytes once per snippet rather than once per diagnostic; same columns, fewer allocations per diagnostic.

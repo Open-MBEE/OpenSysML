@@ -192,7 +192,20 @@ func (ctx *Context) statedTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
 
 // effectiveTypes returns the most specific of the stated types conjoined with the types
 // of each subsetted, redefined or referenced feature (a positional parameter redefinition only when none is stated).
+// Computed once per feature; callers must not modify the returned slice.
 func (ctx *Context) effectiveTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
+	if types, ok := ctx.model.effectiveTypes[featureSym]; ok {
+		return types
+	}
+	types := ctx.computeEffectiveTypes(featureSym)
+	if ctx.model.effectiveTypes == nil {
+		ctx.model.effectiveTypes = map[*symbols.Symbol][]*symbols.Symbol{}
+	}
+	ctx.model.effectiveTypes[featureSym] = types
+	return types
+}
+
+func (ctx *Context) computeEffectiveTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
 	sem := ctx.model.semantics
 	stated := ctx.statedTypes(featureSym)
 	if len(stated) == 0 {
@@ -225,7 +238,7 @@ func (ctx *Context) effectiveTypes(featureSym *symbols.Symbol) []*symbols.Symbol
 // conjoinedTypes returns the effective types that typ, the type the feature's objects
 // are made as, does not stand for: `Panel :> frames : Framed` holds both (§7.3.4.3).
 func (ctx *Context) conjoinedTypes(featureSym, typ *symbols.Symbol) []*symbols.Symbol {
-	return slices.DeleteFunc(ctx.effectiveTypes(featureSym), func(other *symbols.Symbol) bool {
+	return slices.DeleteFunc(slices.Clone(ctx.effectiveTypes(featureSym)), func(other *symbols.Symbol) bool {
 		return other == typ || ctx.model.semantics.Conforms(typ, other)
 	})
 }
