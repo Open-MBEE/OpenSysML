@@ -4860,13 +4860,12 @@
       },
       "checks": "An AllocationUsage must directly or indirectly specialize the AllocationUsage Allocations::allocations from the Systems Model Library.",
       "ocl": "specializesFromLibrary('Allocations::allocations')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `new P::Holder().alx istype Allocations::Allocation` is true; the implied supertype is the type of `Allocations::allocations`, not `Allocations::allocations` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `new P::Holder().alx istype Allocations::allocations` is true; the usage directly specializes `Allocations::allocations` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Allocations::allocations`; the implementation types the usage by `Allocations::Allocation` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkAnalysisCaseDefinitionSpecialization",
@@ -5294,13 +5293,12 @@
       },
       "checks": "A CaseUsage must directly or indirectly specialize the base CaseUsage Cases::cases from the Systems Model Library.",
       "ocl": "specializesFromLibrary('Cases::cases')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `P::u_case istype Cases::Case` is true; the implied supertype is the type of `Cases::cases`, not `Cases::cases` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `P::u_case istype Cases::cases` is true; the usage directly specializes `Cases::cases` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Cases::cases`; the implementation types the usage by `Cases::Case` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkCaseUsageSubcaseSpecialization",
@@ -5392,13 +5390,12 @@
       },
       "checks": "A ConcernUsage must directly or indirectly specialize the base ConcernUsage Requirements::concernChecks from the Systems Model Library.",
       "ocl": "specializesFromLibrary('Requirements::concernChecks')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `P::u_concern istype Requirements::ConcernCheck` is true; the implied supertype is the type of `Requirements::concernChecks`, not `Requirements::concernChecks` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `P::u_concern istype Requirements::concernChecks` is true; the usage directly specializes `Requirements::concernChecks` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Requirements::concernChecks`; the implementation types the usage by `Requirements::ConcernCheck` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkConnectionDefinitionBinarySpecialization",
@@ -5471,13 +5468,12 @@
       },
       "checks": "A ConnectionUsage must directly or indirectly specialize the ConnectionUsage Connections::connections from the Systems Model Library.",
       "ocl": "specializesFromLibrary('Connections::connections')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `new P::Holder().cnx istype Connections::Connection` is true; the implied supertype is the type of `Connections::connections`, not `Connections::connections` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `new P::Holder().cnx istype Connections::connections` is true; the usage directly specializes `Connections::connections` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Connections::connections`; the implementation types the usage by `Connections::Connection` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkConnectorBinaryObjectSpecialization",
@@ -5551,13 +5547,12 @@
       },
       "checks": "A Connector must directly or indirectly specialize the base Connector Links::links from the Kernel Semantic Library.",
       "ocl": "specializesFromLibrary('Links::links')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `K::cx istype Links::Link` is true; the implied supertype is the type of `Links::links`, not `Links::links` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `Model.Conforms(K::cx, Links::links)` is true, `K::cx istype Links::Link` stays true; a two-ended connector also subsets `Links::binaryLinks` (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Links::links`; the implementation types the usage by `Links::Link` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkConnectorTypeFeaturing",
@@ -6787,13 +6782,12 @@
       },
       "checks": "An InterfaceUsage must directly or indirectly specialize the InterfaceUsage Interfaces::interfaces from the Systems Model Library.",
       "ocl": "specializesFromLibrary('Interfaces::interfaces')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `new P::Holder().ifx istype Interfaces::Interface` is true; the implied supertype is the type of `Interfaces::interfaces`, not `Interfaces::interfaces` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `new P::Holder().ifx istype Interfaces::interfaces` is true; the usage directly specializes `Interfaces::interfaces` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Interfaces::interfaces`; the implementation types the usage by `Interfaces::Interface` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkInvariantSpecialization",
@@ -6926,13 +6920,12 @@
       },
       "checks": "An ItemUsage must directly or indirectly specialize the Systems Model Library ItemUsage items.",
       "ocl": "specializesFromLibrary('Items::items')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `P::u_item istype Items::Item` is true; the implied supertype is the type of `Items::items`, not `Items::items` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `P::u_item istype Items::items` is true; the usage directly specializes `Items::items` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Items::items`; the implementation types the usage by `Items::Item` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkItemUsageSubitemSpecialization",
@@ -7404,13 +7397,12 @@
       },
       "checks": "An OccurrenceUsage must directly or indirectly specialize Occurrences::occurrences from the Kernel Semantic Library.",
       "ocl": "specializesFromLibrary('Occurrences::occurrences')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `P::u_occurrence istype Occurrences::Occurrence` is true; the implied supertype is the type of `Occurrences::occurrences`, not `Occurrences::occurrences` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `P::u_occurrence istype Occurrences::occurrences` is true; the usage directly specializes `Occurrences::occurrences` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Occurrences::occurrences`; the implementation types the usage by `Occurrences::Occurrence` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkOccurrenceUsageSuboccurrenceSpecialization",
@@ -7503,13 +7495,12 @@
       },
       "checks": "A PartUsage must directly or indirectly specialize the PartUsage Parts::parts from the Systems Model Library.",
       "ocl": "specializesFromLibrary('Parts::parts')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `P::u_part istype Parts::Part` is true; the implied supertype is the type of `Parts::parts`, not `Parts::parts` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `P::u_part istype Parts::parts` is true; the usage directly specializes `Parts::parts` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Parts::parts`; the implementation types the usage by `Parts::Part` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkPartUsageStakeholderSpecialization",
@@ -7642,13 +7633,12 @@
       },
       "checks": "A PortUsage must directly or indirectly specialize the PortUsage Ports::ports from the Systems Model Library.",
       "ocl": "specializesFromLibrary('Ports::ports')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `new P::Holder().q istype Ports::Port` is true; the implied supertype is the type of `Ports::ports`, not `Ports::ports` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `new P::Holder().q istype Ports::ports` is true; the usage directly specializes `Ports::ports` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Ports::ports`; the implementation types the usage by `Ports::Port` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkPortUsageSubportSpecialization",
@@ -7740,13 +7730,12 @@
       },
       "checks": "A RenderingUsage must directly or indirectly specialize the base RenderingUsage Views::renderings from the Systems Model Library.",
       "ocl": "specializesFromLibrary('Views::renderings')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `P::u_rendering istype Views::Rendering` is true; the implied supertype is the type of `Views::renderings`, not `Views::renderings` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `P::u_rendering istype Views::renderings` is true; the usage directly specializes `Views::renderings` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Views::renderings`; the implementation types the usage by `Views::Rendering` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkRenderingUsageSubrenderingSpecialization",
@@ -8535,13 +8524,12 @@
       },
       "checks": "A UseCaseUsage must directly or indirectly specializes the base UseCaseUsage UseCases::useCases from the Systems Model Library.",
       "ocl": "specializesFromLibrary('UseCases::useCases')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `P::u_usecase istype UseCases::UseCase` is true; the implied supertype is the type of `UseCases::useCases`, not `UseCases::useCases` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `P::u_usecase istype UseCases::useCases` is true; the usage directly specializes `UseCases::useCases` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `UseCases::useCases`; the implementation types the usage by `UseCases::UseCase` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkUseCaseUsageSubUseCaseSpecialization",
@@ -8654,13 +8642,12 @@
       },
       "checks": "A ViewUsage must directly or indirectly specialize the base ViewUsage Views::views from the Systems Model Library.",
       "ocl": "specializesFromLibrary('Views::views')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `P::u_view istype Views::View` is true; the implied supertype is the type of `Views::views`, not `Views::views` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `P::u_view istype Views::views` is true; the usage directly specializes `Views::views` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Views::views`; the implementation types the usage by `Views::View` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkViewUsageSubviewSpecialization",
@@ -8713,13 +8700,12 @@
       },
       "checks": "A ViewpointUsage must directly or indirectly specialize the base ViewpointUsage Views::viewpoints from the Systems Model Library.",
       "ocl": "specializesFromLibrary('Views::viewpoints')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
-      "message": "observed at model level: `P::u_viewpoint istype Views::ViewpointCheck` is true; the implied supertype is the type of `Views::viewpoints`, not `Views::viewpoints` itself — the base feature contributes members and is not a supertype (internal/semantic/semantics/implicit_test.go:TestImplicitBaseUsageContributesThat)",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: `P::u_viewpoint istype Views::viewpointChecks` is true; the usage directly specializes `Views::viewpointChecks` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "approximate",
-      "rationale": "the clause states a subsetting of `Views::viewpoints`; the implementation types the usage by `Views::ViewpointCheck` instead, and the base feature contributes members without being a supertype"
+      "status": "faithful"
     },
     {
       "name": "checkViewpointUsageViewpointSatisfactionSpecialization",

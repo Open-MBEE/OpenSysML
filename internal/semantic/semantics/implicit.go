@@ -168,7 +168,7 @@ var implicitKerMLFeatureBases = map[string]string{
 	"inv":         "Performances::trueEvaluations",
 	"interaction": "Transfers::transfers",
 	"flow":        "Transfers::flowTransfers",
-	"metaclass":   "Metaobjects::metaobjects",
+	"metaclass":   "Objects::objects", // a Metaclass is a Structure; only a MetadataFeature subsets metaobjects
 }
 
 // KindBaseFQNs returns the standard-library bases every declaration of sym's
@@ -366,6 +366,11 @@ func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:
+		// A usage with no kind keyword is a reference or plain usage, subsetting
+		// only Base::things, not an attribute's dataValues (SysML v2 §7.6.2).
+		if d.Keyword == "" && d.Kind == ast.UsageAttribute {
+			return "", false
+		}
 		if len(m.ownedEnds(sym)) == 2 {
 			switch d.Kind {
 			case ast.UsageConnection:
@@ -385,8 +390,13 @@ func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
 			}
 		}
 		fqn, ok := implicitUsageBases[d.Kind]
-		if !ok || fqn == lifeFQN {
+		if !ok {
 			return "", false
+		}
+		// An individual occurrence is typed by Life yet remains an occurrence
+		// usage, subsetting occurrences (SysML v2 §8.3.9.4).
+		if fqn == lifeFQN {
+			return implicitUsageBases[ast.UsageOccurrence], true
 		}
 		return fqn, true
 	case *ast.SubstateMember:
@@ -593,14 +603,24 @@ func (m *Model) declaredReaches(from, want *symbols.Symbol, visiting map[*symbol
 const baseUsageFQN = "Base::things"
 
 // isKerMLTypeDecl reports whether sym declares a KerML type rather than a
-// feature — `class`, `struct`, `assoc`, `behavior`, `predicate`, `interaction` —
-// which the parser records as a usage node (KerML §8.3).
+// feature — `class`, `struct`, `assoc`, `behavior`, `predicate`, `interaction`,
+// `datatype`, `function`, `metaclass` — which the parser may record as a usage
+// node (KerML §8.3).
 func isKerMLTypeDecl(sym *symbols.Symbol) bool {
-	return sym != nil && sym.Kind == symbols.SymbolKerMLType
+	if sym == nil {
+		return false
+	}
+	if sym.Kind == symbols.SymbolKerMLType || sym.Kind == symbols.SymbolMetaclass {
+		return true
+	}
+	// A `datatype` or `function` is a type too, whatever kind the builder files
+	// it under (KerML 1.1 §8.3.2, §9.2.9).
+	_, ok := implicitKerMLBases[sym.Keyword()]
+	return ok
 }
 
 // implicitKerMLFeatureBase returns the base feature a KerML feature declaration
-// subsets (KerML §8.4.2); it contributes members only, like implicitBaseUsage.
+// implicitly subsets (KerML §8.4.2), an implied general of the feature.
 func (m *Model) implicitKerMLFeatureBase(sym *symbols.Symbol) *symbols.Symbol {
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || m.resolver == nil || m.resolver.Index() == nil || !m.isKerMLDoc(sym) {
@@ -631,8 +651,9 @@ func (m *Model) implicitKerMLFeatureBase(sym *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
-// implicitUsageBaseFeature returns a usage's standard-library base feature as
-// a contributor and implicit general, never as a DirectSupertypes entry.
+// implicitUsageBaseFeature returns the standard-library base usage a SysML usage
+// implicitly subsets (SysML v2 §7.6, e.g. §8.3.11.3 checkPartUsageSpecialization):
+// an implied general beside the definition type its kind implies.
 func (m *Model) implicitUsageBaseFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil || m.resolver == nil || m.resolver.Index() == nil || m.isKerMLDoc(sym) {
 		return nil
@@ -728,6 +749,105 @@ func enclosedBy(sym, owner *symbols.Symbol) bool {
 	return false
 }
 
+// implicitBaseFeatures returns the library features sym implicitly subsets: the
+// base feature of its kind, or Base::things when its kind names none (SysML v2
+// §7.6, KerML §8.4.2). Each is an implied Subsetting, so a DirectSupertypes entry.
+// declared holds the generals sym has otherwise: a chain that already reaches
+// the base suppresses the edge, and any feature among them reaches Base::things.
+// A conjugated feature takes its generals from what it conjugates instead.
+func (m *Model) implicitBaseFeatures(sym *symbols.Symbol, declared []*symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || declaresConjugation(sym) {
+		return nil
+	}
+	var out []*symbols.Symbol
+	for _, base := range []*symbols.Symbol{m.implicitUsageBaseFeature(sym), m.implicitKerMLFeatureBase(sym)} {
+		if base != nil && base != sym && !slices.Contains(declared, base) {
+			out = append(out, base)
+		}
+	}
+	if len(out) > 0 || m.declaredChainReachesKindBase(sym) || slices.ContainsFunc(declared, (*symbols.Symbol).IsFeature) {
+		return out
+	}
+	if base := m.implicitBaseUsage(sym); base != nil && base != sym && !slices.Contains(declared, base) {
+		out = append(out, base)
+	}
+	return out
+}
+
+// ImpliedBaseFeatures returns the implied generals of sym that are features:
+// the base usage of its kind, or Base::things when its kind names none.
+func (m *Model) ImpliedBaseFeatures(sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, base := range m.ImplicitGenerals(sym) {
+		if base.IsFeature() {
+			out = append(out, base)
+		}
+	}
+	return out
+}
+
+// candidateBaseFeatures returns the library features sym's kind could imply,
+// whether or not a declared chain suppresses them.
+func (m *Model) candidateBaseFeatures(sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, base := range []*symbols.Symbol{m.implicitUsageBaseFeature(sym), m.implicitKerMLFeatureBase(sym), m.implicitBaseUsage(sym)} {
+		if base != nil {
+			out = append(out, base)
+		}
+	}
+	return out
+}
+
+// declaredChainReachesKindBase reports whether a declared specialization chain
+// already reaches the base feature of sym's kind, so sym needs no implied one —
+// not even Base::things, which that chain reaches too.
+func (m *Model) declaredChainReachesKindBase(sym *symbols.Symbol) bool {
+	var fqn string
+	var ok bool
+	if m.isKerMLDoc(sym) {
+		if fqn, ok = m.declaredTypeFeatureBase(sym); !ok {
+			fqn, ok = m.kermlFeatureBaseFQN(sym)
+		}
+	} else {
+		fqn, ok = m.usageBaseFeatureFQN(sym)
+	}
+	return ok && fqn != "" && m.declaredGeneralizationReaches(sym, fqn, nil)
+}
+
+// DeclaredSupertypes returns sym's direct supertypes without the generals its
+// kind implies: what a declaration states, directly or through a chain it names.
+func (m *Model) DeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
+	implicit := m.ImplicitGenerals(sym)
+	var out []*symbols.Symbol
+	for _, super := range m.DirectSupertypes(sym) {
+		if !slices.Contains(implicit, super) {
+			out = append(out, super)
+		}
+	}
+	return out
+}
+
+// AllDeclaredSupertypes returns the transitive closure of DeclaredSupertypes,
+// nearest first, leaving out every implied kind base along the way.
+func (m *Model) AllDeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	seen := map[*symbols.Symbol]bool{sym: true}
+	queue := []*symbols.Symbol{sym}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		for _, super := range m.DeclaredSupertypes(cur) {
+			if super == nil || seen[super] {
+				continue
+			}
+			seen[super] = true
+			out = append(out, super)
+			queue = append(queue, super)
+		}
+	}
+	return out
+}
+
 // ImplicitGenerals returns the general types sym has by its kind rather than by
 // declaration. A scope reached through a recursive import does not traverse them
 // (KerML 8.2.3.5).
@@ -735,12 +855,19 @@ func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
+	// A record names the base usages its kind implied among its supertypes; the
+	// typing it implied is read from them as any other, the declaration being gone.
+	if sym.Recorded() {
+		return m.recordedElements(sym, sym.Facts.ImpliedSupers)
+	}
+	// The generals sym has otherwise are its direct supertypes less the base
+	// features its kind could imply, which DirectSupertypes appends last.
+	candidates := m.candidateBaseFeatures(sym)
+	declared := slices.DeleteFunc(slices.Clone(m.DirectSupertypes(sym)), func(super *symbols.Symbol) bool {
+		return slices.Contains(candidates, super)
+	})
 	var out []*symbols.Symbol
-	for _, base := range slices.Concat(m.implicitBases(sym), []*symbols.Symbol{
-		m.implicitBaseUsage(sym),
-		m.implicitUsageBaseFeature(sym),
-		m.implicitKerMLFeatureBase(sym),
-	}) {
+	for _, base := range slices.Concat(m.implicitBases(sym), m.implicitBaseFeatures(sym, declared)) {
 		if base != nil && base != sym {
 			out = append(out, base)
 		}
