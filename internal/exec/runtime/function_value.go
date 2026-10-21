@@ -133,7 +133,7 @@ func (ctx *Context) readsAsFunction(sym *symbols.Symbol) bool {
 func (shape *calcShape) hasUnsuppliedInput() bool {
 	for i := range shape.Params {
 		param := &shape.Params[i]
-		if param.Default == nil && !param.IsSubject && !param.declaredOptional() {
+		if param.Default == nil && !param.IsSubject && !param.IsActor && !param.declaredOptional() {
 			return true
 		}
 	}

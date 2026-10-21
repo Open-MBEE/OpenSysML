@@ -68,7 +68,7 @@ func realOutput(t *testing.T, resp *pb.RunAnalysisResponse, name string) float64
 	t.Helper()
 	for _, out := range resp.Outputs {
 		if out.Name == name {
-			return out.Value.GetRealValue()
+			return soleElement(t, name, out.Value).GetRealValue()
 		}
 	}
 	t.Fatalf("no output %q in %v", name, resp.Outputs)
@@ -293,7 +293,7 @@ func TestRunAnalysisOnANestedSubject(t *testing.T) {
 			}
 			continue
 		}
-		if len(resp.Outcomes) != 1 || resp.Outcomes[0].Outputs["total"].GetRealValue() != 30.0 {
+		if len(resp.Outcomes) != 1 || soleElement(t, "total", resp.Outcomes[0].Outputs["total"]).GetRealValue() != 30.0 {
 			t.Errorf("explored outcomes = %v, want one with total 30", resp.Outcomes)
 		}
 	}

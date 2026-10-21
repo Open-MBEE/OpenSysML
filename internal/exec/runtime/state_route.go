@@ -118,7 +118,7 @@ func (r route) effects(g *lower.StateGraph) []routeEffect {
 // choice; a history stays unsettled.
 // The guards along it are read within trans's performance, as its own guard is.
 func (e *StateExecutor) resolveRoute(trans *lower.Transition, event *Event) (route, error) {
-	defer e.taking(trans, e.firingNotes)()
+	defer e.taking(trans, e.firingNotes).restore()
 	r := route{segments: []*lower.Transition{trans}}
 	r.origin, _ = trans.Source.(*ast.StateNode)
 	switch target := trans.Target.(type) {

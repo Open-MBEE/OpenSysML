@@ -10,4 +10,4 @@ enter calc test::halfTurn
         bind theta_rad = 3.141592653589793 [argument]
       exit calc TrigFunctions::deg -> 180.0
     eval invoke deg -> 180.0
-exit calc test::halfTurn -> 180.0
+exit calc test::halfTurn -> (180.0)

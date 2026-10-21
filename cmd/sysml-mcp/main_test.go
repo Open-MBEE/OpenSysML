@@ -6,6 +6,31 @@ import (
 	"testing"
 )
 
+// TestHTTPAddress checks how -http is read: a port alone or an address with
+// no host binds loopback, anything else is bound as written.
+func TestHTTPAddress(t *testing.T) {
+	for spec, want := range map[string]string{
+		"8765":                   "localhost:8765",
+		":8765":                  "localhost:8765",
+		"127.0.0.1:8765":         "127.0.0.1:8765",
+		"[::1]:8765":             "[::1]:8765",
+		"0.0.0.0:8765":           "0.0.0.0:8765",
+		"[::]:8765":              "[::]:8765",
+		"models.example.org:443": "models.example.org:443",
+		"localhost:0":            "localhost:0",
+	} {
+		got, err := httpAddress(spec)
+		if err != nil || got != want {
+			t.Errorf("httpAddress(%q) = %q, %v, want %q", spec, got, err, want)
+		}
+	}
+	for _, bad := range []string{"", "nope", "localhost", "localhost:", "localhost:70000", "localhost:http", "http://localhost:8765", "127.0.0.1:8765/mcp"} {
+		if got, err := httpAddress(bad); err == nil {
+			t.Errorf("httpAddress(%q) = %q, want an error", bad, got)
+		}
+	}
+}
+
 // TestCommandLine checks what the server does with a command line before it
 // speaks the protocol: every spelling of the version flag is answered, and
 // anything it could not read is a usage on stderr rather than protocol mode.
@@ -30,7 +55,7 @@ func TestCommandLine(t *testing.T) {
 		name:   "the help asked for is a result on stdout",
 		args:   []string{"-h"},
 		status: exitServed,
-		stdout: []string{"Usage: sysml-mcp [options]", "-tools", "-root", "-stdio"},
+		stdout: []string{"Usage: sysml-mcp [options]", "-tools", "-root", "-stdio", "-http", "-allow-origin", "-tls-cert", "-tls-key", "/mcp"},
 	}, {
 		name:   "a flag that is not defined is reported with the usage",
 		args:   []string{"-nosuchflag"},
@@ -61,6 +86,51 @@ func TestCommandLine(t *testing.T) {
 		args:   []string{"-log-level", "loud"},
 		status: exitUnservable,
 		stderr: []string{`sysml-mcp: -log-level: unknown level "loud"`, "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "an -http address that is not one is reported with the usage",
+		args:   []string{"-http", "nope"},
+		status: exitUnservable,
+		stderr: []string{`sysml-mcp: -http: "nope" is not a port or a host:port address`, "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "an -http port that is not one is reported with the usage",
+		args:   []string{"-http", "localhost:http-alt"},
+		status: exitUnservable,
+		stderr: []string{`sysml-mcp: -http: "http-alt" is not a port`, "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "-stdio beside -http is reported with the usage",
+		args:   []string{"-stdio", "-http", "8765"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -stdio and -http name different transports; give one", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "a TLS certificate without its key is reported with the usage",
+		args:   []string{"-http", "8765", "-tls-cert", "server.crt"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -tls-cert and -tls-key must be supplied together", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "a TLS pair that does not load is reported with the usage",
+		args:   []string{"-http", "8765", "-tls-cert", "nosuch.crt", "-tls-key", "nosuch.key"},
+		status: exitUnservable,
+		stderr: []string{`sysml-mcp: -tls-cert "nosuch.crt" with -tls-key "nosuch.key": `, "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "a TLS pair without -http is reported with the usage",
+		args:   []string{"-tls-cert", "server.crt", "-tls-key", "server.key"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -tls-cert applies to the HTTP transport; name its address with -http", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "-allow-origin without -http is reported with the usage",
+		args:   []string{"-allow-origin", "https://agents.example.org"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -allow-origin applies to the HTTP transport; name its address with -http", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "the wildcard origin is reported with the usage",
+		args:   []string{"-http", "8765", "-allow-origin", "*"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -allow-origin: the wildcard origin is not allowed; name each origin", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "an origin that is not one is reported with the usage",
+		args:   []string{"-http", "8765", "-allow-origin", "agents.example.org"},
+		status: exitUnservable,
+		stderr: []string{`sysml-mcp: -allow-origin: "agents.example.org" is not an origin`, "Usage: sysml-mcp [options]"},
 	}}
 
 	for _, tc := range cases {

@@ -143,7 +143,7 @@ func TestSweepRowsReadAlikeOnOneJobAndOnEight(t *testing.T) {
 		}
 	}
 	one, _ := onOneJobAndOnEight(t, s, "%sweep Rows::Fib n=20..8:-1")
-	wantsInOrder(t, one, "20 | 6765", "8 | 21")
+	wantsInOrder(t, one, "20 | [6765]", "8 | [21]")
 }
 
 // A case whose body writes a feature of its subject sees the declaration's value on
@@ -157,9 +157,9 @@ func TestSweepRowsWritingTheSubjectKeepTheWritesToThemselves(t *testing.T) {
 		"sweep Rows::Bump — 3 run(s)",
 		"tax | total | time",
 		"-+-+-",
-		"1.0 | 6.0 | <time>",
-		"2.0 | 7.0 | <time>",
-		"3.0 | 8.0 | <time>",
+		"1.0 | [6.0] | <time>",
+		"2.0 | [7.0] | <time>",
+		"3.0 | [8.0] | <time>",
 		"  standing: table (observed: 3 rows)",
 	}, "\n")
 	one, eight := onOneJobAndOnEight(t, s, "%sweep Rows::Bump Rows::ship tax=1.0..3.0:1.0")
@@ -195,7 +195,7 @@ func TestSweepOverAnObjectNotAsItsDeclarationMadeItRunsOnItsImage(t *testing.T) 
 	run(t, s, "%instantiate Rows::ship")
 	run(t, s, "%instantiate Rows::Fleet")
 	run(t, s, "%instantiate Rows::beacon")
-	fresh := []string{"3 run(s)", "1.0 | 6.0 |", "2.0 | 7.0 |", "3.0 | 8.0 |"}
+	fresh := []string{"3 run(s)", "1.0 | [6.0] |", "2.0 | [7.0] |", "3.0 | [8.0] |"}
 	sweepsAlike(t, s, "%sweep Rows::Bump #1 tax=1.0..3.0:1.0", fresh...)
 	wants(t, run(t, s, "%features Rows::ship"), "ID: 1", "cost = 5.0")
 	sweepsAlike(t, s, "%sweep Rows::Bump Rows::beacon tax=1.0..3.0:1.0", fresh...)
@@ -204,7 +204,7 @@ func TestSweepOverAnObjectNotAsItsDeclarationMadeItRunsOnItsImage(t *testing.T) 
 	wants(t, run(t, s, "%invoke Rows::ship bump"), "Invoked bump on object #1")
 	before := heldGraph(t, s, "Rows::ship")
 	wants(t, before, `"realValue":7`)
-	bumped := []string{"3 run(s)", "1.0 | 8.0 |", "2.0 | 9.0 |", "3.0 | 10.0 |"}
+	bumped := []string{"3 run(s)", "1.0 | [8.0] |", "2.0 | [9.0] |", "3.0 | [10.0] |"}
 	for _, object := range []string{"Rows::ship", "#1", "ship"} {
 		sweepsAlike(t, s, "%sweep Rows::Bump "+object+" tax=1.0..3.0:1.0", bumped...)
 	}
@@ -235,7 +235,7 @@ func TestSweepOverAnObjectNotAsItsDeclarationMadeItRunsOnItsImage(t *testing.T) 
 	wants(t, run(t, s, "%analysis Rows::Bump(tax=1.0) Rows::Fleet"), mismatch)
 
 	// The prompt's own run writes the held object, as a sweep never does.
-	wants(t, run(t, s, "%analysis Rows::Bump(tax=1.0) Rows::ship"), "total = 8.0")
+	wants(t, run(t, s, "%analysis Rows::Bump(tax=1.0) Rows::ship"), "total = [8.0]")
 	wants(t, run(t, s, "%features Rows::ship"), "cost = 8.0")
 }
 
@@ -252,7 +252,7 @@ func TestSweepOverAMovedStateMachineRunsOnItsImage(t *testing.T) {
 	wants(t, run(t, s, "%state beacon"), "Current state: off")
 	posted := run(t, s, "%events")
 	wants(t, posted, "Lit")
-	sweepsAlike(t, s, "%sweep Rows::Bump #1 tax=1.0..3.0:1.0", "3 run(s)", "1.0 | 6.0 |", "2.0 | 7.0 |", "3.0 | 8.0 |")
+	sweepsAlike(t, s, "%sweep Rows::Bump #1 tax=1.0..3.0:1.0", "3 run(s)", "1.0 | [6.0] |", "2.0 | [7.0] |", "3.0 | [8.0] |")
 	if again := run(t, s, "%events"); again != posted {
 		t.Errorf("the sweep left the posted signal as\n%s\nwas\n%s", again, posted)
 	}
@@ -263,7 +263,7 @@ func TestSweepOverAMovedStateMachineRunsOnItsImage(t *testing.T) {
 	wants(t, run(t, s, "%features Rows::beacon"), "cost = 15.0", "current state on")
 	held := s.heldIDs()
 
-	lit := []string{"3 run(s)", "1.0 | 16.0 |", "2.0 | 17.0 |", "3.0 | 18.0 |"}
+	lit := []string{"3 run(s)", "1.0 | [16.0] |", "2.0 | [17.0] |", "3.0 | [18.0] |"}
 	for _, object := range []string{"Rows::beacon", "#1"} {
 		sweepsAlike(t, s, "%sweep Rows::Bump "+object+" tax=1.0..3.0:1.0", lit...)
 	}
@@ -275,7 +275,7 @@ func TestSweepOverAMovedStateMachineRunsOnItsImage(t *testing.T) {
 	if ids := s.heldIDs(); !slices.Equal(ids, held) {
 		t.Errorf("the sweeps changed the session's held objects: %v, was %v", ids, held)
 	}
-	wants(t, run(t, s, "%analysis Rows::Bump(tax=1.0) Rows::beacon"), "total = 16.0")
+	wants(t, run(t, s, "%analysis Rows::Bump(tax=1.0) Rows::beacon"), "total = [16.0]")
 	wants(t, run(t, s, "%advance 5"), "Current state: off")
 }
 
@@ -286,7 +286,7 @@ func TestSweepOverAMovedStateMachineRunsOnItsImage(t *testing.T) {
 func TestSweepOverAnObjectNoImageCarriesIsRefused(t *testing.T) {
 	s := loadSource(t, sweepRowsModel)
 	run(t, s, "%instantiate Rows::watcher")
-	sweepsAlike(t, s, "%sweep Rows::Bump Rows::watcher tax=1.0..3.0:1.0", "3 run(s)", "1.0 | 6.0 |", "3.0 | 8.0 |")
+	sweepsAlike(t, s, "%sweep Rows::Bump Rows::watcher tax=1.0..3.0:1.0", "3 run(s)", "1.0 | [6.0] |", "3.0 | [8.0] |")
 	wants(t, run(t, s, "%invoke Rows::watcher bump"), "Invoked bump on object #1")
 	before := heldGraph(t, s, "Rows::watcher")
 	for _, object := range []string{"Rows::watcher", "#1"} {
@@ -336,7 +336,7 @@ func TestSweepOverAnObjectReachedThroughAnotherRunsOnItsLike(t *testing.T) {
 			wants(t, run(t, s, "%features Rows::Fleet.flagship"), "ID: 2", "cost = 5.0")
 			one, eight := onOneJobAndOnEight(t, s, tc.command)
 			for _, table := range []string{one, eight} {
-				wants(t, table, "3 run(s)", "1.0 | 6.0 |", "2.0 | 7.0 |", "3.0 | 8.0 |")
+				wants(t, table, "3 run(s)", "1.0 | [6.0] |", "2.0 | [7.0] |", "3.0 | [8.0] |")
 			}
 			if one != eight {
 				t.Errorf("tables differ on one job\n%s\nand on eight\n%s", one, eight)
@@ -359,7 +359,7 @@ func TestSweepArgumentsReadAsThePromptReadsThem(t *testing.T) {
 	wants(t, run(t, s, "%features Rows::ship"), "cost = 7.0")
 	one, eight := onOneJobAndOnEight(t, s, "%sweep Rows::Price(base = ship.cost) n=1.0..2.0:1.0")
 	for _, table := range []string{one, eight} {
-		wants(t, table, "2 run(s)", "1.0 | 7.0 |", "2.0 | 14.0 |")
+		wants(t, table, "2 run(s)", "1.0 | [7.0] |", "2.0 | [14.0] |")
 	}
 	if one != eight {
 		t.Errorf("tables differ on one job\n%s\nand on eight\n%s", one, eight)
@@ -377,7 +377,7 @@ func TestSweepArgumentsNamingAnObjectBindTheRowsOwn(t *testing.T) {
 	wants(t, run(t, s, "%features Rows::fleet.flagship"), "ID: 3", "cost = 5.0")
 	one, eight := onOneJobAndOnEight(t, s, "%sweep Rows::Compare(rival = fleet.flagship) Rows::ship scale=1.0..2.0:1.0")
 	for _, table := range []string{one, eight} {
-		wants(t, table, "2 run(s)", "1.0 | 11.0 |", "2.0 | 22.0 |")
+		wants(t, table, "2 run(s)", "1.0 | [11.0] |", "2.0 | [22.0] |")
 	}
 	if one != eight {
 		t.Errorf("tables differ on one job\n%s\nand on eight\n%s", one, eight)
@@ -388,7 +388,7 @@ func TestSweepArgumentsNamingAnObjectBindTheRowsOwn(t *testing.T) {
 	}
 
 	out := run(t, s, "%sweep Rows::Compare(rival = ship) Rows::ship scale=1.0..2.0:1.0")
-	wants(t, out, "2 run(s)", "1.0   | 12.0  |", "2.0   | 24.0  |")
+	wants(t, out, "2 run(s)", "1.0   | [12.0] |", "2.0   | [24.0] |")
 	wants(t, run(t, s, "%features Rows::ship"), "cost = 5.0")
 
 	// An argument naming an object a run wrote binds the row's copy of it, imaged as
@@ -396,7 +396,7 @@ func TestSweepArgumentsNamingAnObjectBindTheRowsOwn(t *testing.T) {
 	wants(t, run(t, s, "%invoke Rows::fleet.flagship bump"), "Invoked bump on object #3")
 	one, eight = onOneJobAndOnEight(t, s, "%sweep Rows::Compare(rival = fleet.flagship) Rows::ship scale=1.0..2.0:1.0")
 	for _, table := range []string{one, eight} {
-		wants(t, table, "2 run(s)", "1.0 | 13.0 |", "2.0 | 26.0 |")
+		wants(t, table, "2 run(s)", "1.0 | [13.0] |", "2.0 | [26.0] |")
 	}
 	if one != eight {
 		t.Errorf("tables differ on one job\n%s\nand on eight\n%s", one, eight)
@@ -404,7 +404,7 @@ func TestSweepArgumentsNamingAnObjectBindTheRowsOwn(t *testing.T) {
 	wants(t, run(t, s, "%features Rows::fleet.flagship"), "ID: 3", "cost = 7.0")
 	wants(t, run(t, s, "%features Rows::ship"), "cost = 5.0")
 	out = run(t, s, "%sweep Rows::Price(base = fleet.flagship.cost) n=1.0..2.0:1.0")
-	wants(t, out, "2 run(s)", "1.0 | 7.0    |", "2.0 | 14.0   |")
+	wants(t, out, "2 run(s)", "1.0 | [7.0]  |", "2.0 | [14.0] |")
 }
 
 // sweepOverlapModel declares a tug whose operation makes it refer to another held
@@ -443,7 +443,7 @@ func TestSweepArgumentsNamingAnObjectTheImageReachesBindTheImagedOne(t *testing.
 	before := heldGraph(t, s, "Tow::tug")
 	held := s.heldIDs()
 	for _, rival := range []string{"ship", "Tow::ship"} {
-		sweepsAlike(t, s, "%sweep Tow::Haul(rival = "+rival+") Tow::tug scale=1.0..2.0:1.0", "2 run(s)", "1.0 | 11.0 |", "2.0 | 22.0 |")
+		sweepsAlike(t, s, "%sweep Tow::Haul(rival = "+rival+") Tow::tug scale=1.0..2.0:1.0", "2 run(s)", "1.0 | [11.0] |", "2.0 | [22.0] |")
 	}
 	if after := heldGraph(t, s, "Tow::tug"); after != before {
 		t.Errorf("the sweeps left the held tug as\n%s\nwas\n%s", after, before)
@@ -452,7 +452,7 @@ func TestSweepArgumentsNamingAnObjectTheImageReachesBindTheImagedOne(t *testing.
 		t.Errorf("the sweeps changed the session's held objects: %v, was %v", ids, held)
 	}
 	wants(t, run(t, s, "%features Tow::ship"), "ID: 1", "cost = 5.0")
-	wants(t, run(t, s, "%analysis Tow::Haul(rival = ship, scale = 1.0) Tow::tug"), "total = 11.0")
+	wants(t, run(t, s, "%analysis Tow::Haul(rival = ship, scale = 1.0) Tow::tug"), "total = [11.0]")
 }
 
 // A sweep leaves a debugging session under way where it was: its rows run in contexts

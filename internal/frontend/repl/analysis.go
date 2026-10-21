@@ -209,6 +209,13 @@ func evaluationOf(ctx *runtime.Context, caseName string, e runtime.AnalysisEvalu
 // objectText spells a value as a report names it: an object that is the
 // occurrence of a usage by that usage, anything else as %eval prints it.
 func objectText(ctx *runtime.Context, val runtime.Value) string {
+	if held := heldElements(val); held != nil {
+		parts := make([]string, len(held))
+		for i, e := range held {
+			parts[i] = objectText(ctx, e)
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	}
 	if val.Kind == runtime.ValInstance {
 		if inst, ok := ctx.Instance(val.Instance); ok {
 			if usage := ctx.OccurrenceUsage(inst); usage != "" {
@@ -312,4 +319,19 @@ func (s *Session) runAnalysisIn(x execution, ctx *runtime.Context, inv analysisI
 		return run, fmt.Errorf("analysis run failed: %w", err)
 	}
 	return run, nil
+}
+
+// heldElements is what a sequence or set holds, nil for any other value.
+func heldElements(val runtime.Value) []runtime.Value {
+	switch val.Kind {
+	case runtime.ValSequence:
+		if seq := val.Sequence(); seq != nil {
+			return seq.Elements()
+		}
+	case runtime.ValSet:
+		if set := val.Set(); set != nil {
+			return set.Elements()
+		}
+	}
+	return nil
 }

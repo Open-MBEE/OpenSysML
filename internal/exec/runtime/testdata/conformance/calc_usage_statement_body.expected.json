@@ -2,9 +2,9 @@
   "type": "calcUsage",
   "evaluate": "test::b",
   "outputs": {
-    "reached": {"type": "Integer", "value": 8},
-    "margin": {"type": "Integer", "value": 1},
-    "summary": {"type": "Integer", "value": 9}
+    "reached": {"type": "Sequence", "elements": [{"type": "Integer", "value": 8}]},
+    "margin": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+    "summary": {"type": "Sequence", "elements": [{"type": "Integer", "value": 9}]}
   },
-  "result": {"type": "Integer", "value": 8}
+  "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 8}]}
 }

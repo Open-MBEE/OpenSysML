@@ -1530,6 +1530,8 @@ func (e *EvalContext) buildMessage(scope *symbols.Scope, send lower.Send) (Messa
 	if err != nil {
 		return Message{}, fmt.Errorf("eval send message: %w", err)
 	}
+	// A one-element sequence (a calc's bare result) is sent as the message it holds.
+	value = soleElement(value)
 	signalType := valueTypeName(value)
 	var signal *symbols.Symbol
 	if signalType == "" && value.Kind == ValInstance {
