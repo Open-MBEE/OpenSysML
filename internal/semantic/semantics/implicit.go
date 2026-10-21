@@ -873,9 +873,8 @@ func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// computeImplicitGenerals derives ImplicitGenerals for a declared symbol: the
-// generals sym has otherwise are its direct supertypes less the base features
-// its kind could imply, which DirectSupertypes appends last.
+// computeImplicitGenerals derives ImplicitGenerals for a declared symbol; its other
+// generals are its direct supertypes less the base features DirectSupertypes appends last.
 func (m *Model) computeImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 	candidates := m.candidateBaseFeatures(sym)
 	declared := slices.DeleteFunc(slices.Clone(m.DirectSupertypes(sym)), func(super *symbols.Symbol) bool {
