@@ -19,6 +19,11 @@ type options struct {
 	noRecordCache bool
 	cacheSize     int
 	logLevel      string
+	http          string
+	allowOrigin   string
+	stdio         bool
+	tlsCert       string
+	tlsKey        string
 	showVersion   bool
 	showHelp      bool
 	showMan       bool
@@ -30,7 +35,7 @@ type options struct {
 // registerFlags declares the server's flags on fs, so a run, the help and the
 // man page all read one declaration of each. -h/-help are flags rather than the
 // flag package's own so that help asked for is a result on stdout, and -stdio
-// names the only transport there is: agent hosts pass it, so it is accepted and
+// names the default transport: agent hosts pass it, so it is accepted and
 // documented rather than rejected.
 func registerFlags(fs *flag.FlagSet) *options {
 	var o options
@@ -44,7 +49,15 @@ func registerFlags(fs *flag.FlagSet) *options {
 		"Parse every document and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.IntVar(&o.cacheSize, "cache-size", 100, "Maximum number of parsed models the runtime tools hold; at least 1")
 	fs.StringVar(&o.logLevel, "log-level", "warn", "Lowest level logged to stderr: debug, info, warn or error")
-	fs.Bool("stdio", false, "Serve over stdin/stdout (the only transport; accepted for hosts that name it)")
+	fs.BoolVar(&o.stdio, "stdio", false, "Serve over stdin/stdout (the default transport; accepted for hosts that name it; not with -http)")
+	fs.StringVar(&o.http, "http", "",
+		"Serve over Streamable HTTP at the path /mcp of this address instead of stdin/stdout, as host:port or a port alone, which binds loopback; "+
+			"every client shares the one workspace, runtime cache and set of REPL sessions. The server authenticates no one, so bind loopback or front it with an authenticating proxy")
+	fs.StringVar(&o.allowOrigin, "allow-origin", "",
+		"Origins, comma-separated as scheme://host[:port], granted cross-origin access to the HTTP transport (the CORS headers and preflight answer a browser needs); "+
+			"loopback origins and requests with no Origin header are admitted without a grant, any other origin is refused")
+	fs.StringVar(&o.tlsCert, "tls-cert", "", "TLS certificate file for the HTTP transport; with -tls-key, the transport serves https")
+	fs.StringVar(&o.tlsKey, "tls-key", "", "TLS private key file for the HTTP transport")
 	fs.Var(&o.printConfig, "print-config",
 		"Write the configuration block declaring this server to an agent host — "+strings.Join(hostNames(), ", ")+" — to stdout and exit; alone, list the hosts")
 	fs.StringVar(&o.configCommand, "print-config-command", "",
@@ -83,7 +96,7 @@ func doc() usage.Doc {
 		Command:    mcpCommand,
 		ManSection: 1,
 		Summary:    "Model Context Protocol server for SysML v2 and KerML",
-		Synopsis:   []string{"[options]"},
+		Synopsis:   []string{"[options]", "-http ADDR [options]"},
 		Description: []string{
 			"sysml-mcp serves OpenSysML to coding agents over the Model Context " +
 				"Protocol, as tools an agent calls: the language server's " +
@@ -112,6 +125,42 @@ func doc() usage.Doc {
 					"working directory.",
 			},
 		}, {
+			Title: "Transports",
+			Lead: []string{
+				"Without -http the protocol is spoken over stdin and stdout: the host " +
+					"starts the server, which serves that one client and exits when " +
+					"the stream closes. With -http the server is started once and " +
+					"serves every client that connects to its address over the " +
+					"Streamable HTTP transport, at the path /mcp, until it is told to " +
+					"stop with SIGINT or SIGTERM; stopping closes the sessions and " +
+					"waits up to 30 seconds for the connections to drain. The clients " +
+					"share one workspace, one runtime cache and one set of REPL " +
+					"sessions, so a session_* name opened by one is the session every " +
+					"other sees under that name.",
+			},
+			Examples: []usage.Example{
+				usage.Ex("sysml-mcp -http 8765", "Serve http://localhost:8765/mcp to this machine"),
+				usage.Ex("sysml-mcp -http 0.0.0.0:8765 -allow-origin https://agents.example.org", "Serve every interface, answering one browser origin besides loopback"),
+				usage.Ex("sysml-mcp -http 0.0.0.0:8765 -tls-cert server.crt -tls-key server.key", "Serve https"),
+			},
+			Paragraphs: []string{
+				"The HTTP transport authenticates no one: every client that reaches " +
+					"the address may read and edit the workspace. An address with no " +
+					"host, or a port alone, binds loopback, which only this machine " +
+					"reaches; binding any other address is logged as a warning, and is " +
+					"for a trusted network or behind a proxy that authenticates. " +
+					"-tls-cert and -tls-key, both given, serve https; one without the " +
+					"other is refused.",
+				"A request is answered when its Origin header is absent, names a " +
+					"loopback origin (localhost, 127.0.0.0/8 or ::1 over any scheme " +
+					"and port) or names an origin listed in -allow-origin exactly; any " +
+					"other origin is refused with 403, which keeps a page on another " +
+					"site from reaching the server through a DNS name rebound to this " +
+					"machine. The wildcard origin is not accepted. A request whose " +
+					"MCP-Protocol-Version header names a version the server does not " +
+					"speak is refused with 400.",
+			},
+		}, {
 			Title: "Configuring a host",
 			Lead: []string{
 				"-print-config writes the block a host reads, naming this binary by " +
@@ -120,7 +169,9 @@ func doc() usage.Doc {
 					"sysml-mcp when it is on PATH, and -print-config-npx names " +
 					"npx -y " + npmPackage + ", which installs the release binary for the " +
 					"host's platform from npm on first use, so a machine with Node needs " +
-					"nothing else. The hosts, with the file each reads, are " +
+					"nothing else. With -http (and -tls-cert for https) the block names " +
+					"the URL of a server already serving that address instead; every host " +
+					"reads the URL form. The hosts, with the file each reads, are " +
 					hostList() + ".",
 			},
 			Examples: []usage.Example{
@@ -129,13 +180,14 @@ func doc() usage.Doc {
 				usage.Ex("sysml-mcp -print-config codex >> ~/.codex/config.toml", "Append the [mcp_servers.sysml] table"),
 				usage.Ex("sysml-mcp -print-config cursor -print-config-command sysml-mcp", "A block that finds the server on PATH"),
 				usage.Ex("sysml-mcp -print-config vscode -print-config-npx", "A block that runs the server from npm"),
+				usage.Ex("sysml-mcp -print-config vscode -http 8765", "A block reaching http://localhost:8765/mcp"),
 			},
 		}, toolsSection(), {
 			Title: "Exit status",
 			Lead:  []string{"The status reports how the session ended:"},
 			Items: []usage.Item{
 				usage.Entry("0", "The protocol was served to its end: the client closed the stream, or the process was told to stop."),
-				usage.Entry("1", "The server could not start, or the session ended in a protocol error."),
+				usage.Entry("1", "The server could not start, as when the -http address is in use, or the session ended in a protocol error."),
 				usage.Entry("2", "The command line could not be acted on."),
 			},
 		}, {
