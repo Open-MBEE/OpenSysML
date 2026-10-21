@@ -919,7 +919,7 @@ expr:Chains__ctx__x_pvalue
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__ctx__x_pvalue_pa0 ;
     sysml:ownedRelationship expr:Chains__ctx__x_pvalue_pin0_om, expr:Chains__ctx__x_pvalue_pout_om, expr:Chains__ctx__x_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:Chains__ctx__x_pvalue_pin0_om, expr:Chains__ctx__x_pvalue_pout_om ;
+    sysml:ownedMembership expr:Chains__ctx__x_pvalue_pin0_om, expr:Chains__ctx__x_pvalue_pout_om, expr:Chains__ctx__x_pvalue_ptargetFeature ;
     sysml:ownedFeatureMembership expr:Chains__ctx__x_pvalue_pin0_om, expr:Chains__ctx__x_pvalue_pout_om ;
     sysml:ownedFeature expr:Chains__ctx__x_pvalue_pin0, expr:Chains__ctx__x_pvalue_pout ;
     sysml:parameter expr:Chains__ctx__x_pvalue_pin0, expr:Chains__ctx__x_pvalue_pout ;
@@ -930,7 +930,7 @@ expr:Chains__ctx__x_pvalue
     sysml:owningRelationship expr:Chains__ctx__x_pvalue_om ;
     sysml:owningMembership expr:Chains__ctx__x_pvalue_om ;
     json:ownedRelationship "[{\"@id\":\"Chains__ctx__x_pvalue_pin0_om\"},{\"@id\":\"Chains__ctx__x_pvalue_pout_om\"},{\"@id\":\"Chains__ctx__x_pvalue_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Chains__ctx__x_pvalue_pin0_om\"},{\"@id\":\"Chains__ctx__x_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__ctx__x_pvalue_pin0_om\"},{\"@id\":\"Chains__ctx__x_pvalue_pout_om\"},{\"@id\":\"Chains__ctx__x_pvalue_ptargetFeature\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__ctx__x_pvalue_pin0_om\"},{\"@id\":\"Chains__ctx__x_pvalue_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__ctx__x_pvalue_pin0\"},{\"@id\":\"Chains__ctx__x_pvalue_pout\"}]" ;
     json:parameter "[{\"@id\":\"Chains__ctx__x_pvalue_pin0\"},{\"@id\":\"Chains__ctx__x_pvalue_pout\"}]" .
@@ -942,7 +942,7 @@ expr:Chains__ctx__x_pvalue_pa0
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__ctx__x_pvalue_pa0_pa0 ;
     sysml:ownedRelationship expr:Chains__ctx__x_pvalue_pa0_pin0_om, expr:Chains__ctx__x_pvalue_pa0_pout_om, expr:Chains__ctx__x_pvalue_pa0_ptargetFeature ;
-    sysml:ownedMembership expr:Chains__ctx__x_pvalue_pa0_pin0_om, expr:Chains__ctx__x_pvalue_pa0_pout_om ;
+    sysml:ownedMembership expr:Chains__ctx__x_pvalue_pa0_pin0_om, expr:Chains__ctx__x_pvalue_pa0_pout_om, expr:Chains__ctx__x_pvalue_pa0_ptargetFeature ;
     sysml:ownedFeatureMembership expr:Chains__ctx__x_pvalue_pa0_pin0_om, expr:Chains__ctx__x_pvalue_pa0_pout_om ;
     sysml:ownedFeature expr:Chains__ctx__x_pvalue_pa0_pin0, expr:Chains__ctx__x_pvalue_pa0_pout ;
     sysml:parameter expr:Chains__ctx__x_pvalue_pa0_pin0, expr:Chains__ctx__x_pvalue_pa0_pout ;
@@ -953,7 +953,7 @@ expr:Chains__ctx__x_pvalue_pa0
     sysml:owningRelationship expr:Chains__ctx__x_pvalue_pa0_om ;
     sysml:owningMembership expr:Chains__ctx__x_pvalue_pa0_om ;
     json:ownedRelationship "[{\"@id\":\"Chains__ctx__x_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__ctx__x_pvalue_pa0_pout_om\"},{\"@id\":\"Chains__ctx__x_pvalue_pa0_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Chains__ctx__x_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__ctx__x_pvalue_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__ctx__x_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__ctx__x_pvalue_pa0_pout_om\"},{\"@id\":\"Chains__ctx__x_pvalue_pa0_ptargetFeature\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__ctx__x_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__ctx__x_pvalue_pa0_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__ctx__x_pvalue_pa0_pin0\"},{\"@id\":\"Chains__ctx__x_pvalue_pa0_pout\"}]" ;
     json:parameter "[{\"@id\":\"Chains__ctx__x_pvalue_pa0_pin0\"},{\"@id\":\"Chains__ctx__x_pvalue_pa0_pout\"}]" .
@@ -963,9 +963,9 @@ expr:Chains__ctx__x_pvalue_pa0_pa0
     sysx:sourceText "launchVehicle" ;
     sysml:elementId "Chains__ctx__x_pvalue_pa0_pa0" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Chains__ctx__x_pvalue_pa0_pa0_preferent, expr:Chains__ctx__x_pvalue_pa0_pa0_pout_om ;
+    sysml:ownedMembership expr:Chains__ctx__x_pvalue_pa0_pa0_preferent, expr:Chains__ctx__x_pvalue_pa0_pa0_pout_om ;
     sysml:referent elmt:Chains__ctx__launchVehicle ;
-    sysml:ownedRelationship expr:Chains__ctx__x_pvalue_pa0_pa0_pout_om, expr:Chains__ctx__x_pvalue_pa0_pa0_preferent ;
-    sysml:ownedMembership expr:Chains__ctx__x_pvalue_pa0_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Chains__ctx__x_pvalue_pa0_pa0_pout_om ;
     sysml:ownedFeature expr:Chains__ctx__x_pvalue_pa0_pa0_pout ;
     sysml:parameter expr:Chains__ctx__x_pvalue_pa0_pa0_pout ;
@@ -973,7 +973,15 @@ expr:Chains__ctx__x_pvalue_pa0_pa0
     sysml:owner expr:Chains__ctx__x_pvalue_pa0_pin0 ;
     sysml:owningRelationship expr:Chains__ctx__x_pvalue_pa0_pa0_om ;
     sysml:owningMembership expr:Chains__ctx__x_pvalue_pa0_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Chains__ctx__x_pvalue_pa0_pa0_pout_om\"},{\"@id\":\"Chains__ctx__x_pvalue_pa0_pa0_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Chains__ctx__x_pvalue_pa0_pa0_preferent\"},{\"@id\":\"Chains__ctx__x_pvalue_pa0_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__ctx__x_pvalue_pa0_pa0_preferent\"},{\"@id\":\"Chains__ctx__x_pvalue_pa0_pa0_pout_om\"}]" .
+
+expr:Chains__ctx__x_pvalue_pa0_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Chains__ctx__x_pvalue_pa0_pa0_preferent" ;
+    sysml:memberElement elmt:Chains__ctx__launchVehicle ;
+    sysml:owner expr:Chains__ctx__x_pvalue_pa0_pa0 ;
+    sysml:owningRelatedElement expr:Chains__ctx__x_pvalue_pa0_pa0 .
 
 expr:Chains__ctx__x_pvalue_pa0_pa0_pout
     a sysml:Feature ;
@@ -1312,13 +1320,6 @@ expr:Chains__ctx__x_pvalue_pa0_ptargetFeature
     sysml:memberElement elmt:Chains__LV__instrumentUnit ;
     sysml:owner expr:Chains__ctx__x_pvalue_pa0 ;
     sysml:owningRelatedElement expr:Chains__ctx__x_pvalue_pa0 .
-
-expr:Chains__ctx__x_pvalue_pa0_pa0_preferent
-    a sysml:Membership ;
-    sysml:elementId "Chains__ctx__x_pvalue_pa0_pa0_preferent" ;
-    sysml:memberElement elmt:Chains__ctx__launchVehicle ;
-    sysml:owner expr:Chains__ctx__x_pvalue_pa0_pa0 ;
-    sysml:owningRelatedElement expr:Chains__ctx__x_pvalue_pa0_pa0 .
 
 elmt:Chains__ctx__r_rd0
     a sysml:Redefinition ;

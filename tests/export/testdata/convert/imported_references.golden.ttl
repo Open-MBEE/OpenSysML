@@ -489,9 +489,9 @@ expr:R90__A__t_pvalue
     sysx:sourceText "Tempo::operative" ;
     sysml:elementId "R90__A__t_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:R90__A__t_pvalue_preferent, expr:R90__A__t_pvalue_pout_om ;
+    sysml:ownedMembership expr:R90__A__t_pvalue_preferent, expr:R90__A__t_pvalue_pout_om ;
     sysml:referent elmt:OtherPkg__Tempo__operative ;
-    sysml:ownedRelationship expr:R90__A__t_pvalue_pout_om, expr:R90__A__t_pvalue_preferent ;
-    sysml:ownedMembership expr:R90__A__t_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:R90__A__t_pvalue_pout_om ;
     sysml:ownedFeature expr:R90__A__t_pvalue_pout ;
     sysml:parameter expr:R90__A__t_pvalue_pout ;
@@ -499,7 +499,15 @@ expr:R90__A__t_pvalue
     sysml:owner elmt:R90__A__t ;
     sysml:owningRelationship expr:R90__A__t_pvalue_om ;
     sysml:owningMembership expr:R90__A__t_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"R90__A__t_pvalue_pout_om\"},{\"@id\":\"R90__A__t_pvalue_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"R90__A__t_pvalue_preferent\"},{\"@id\":\"R90__A__t_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"R90__A__t_pvalue_preferent\"},{\"@id\":\"R90__A__t_pvalue_pout_om\"}]" .
+
+expr:R90__A__t_pvalue_preferent
+    a sysml:Membership ;
+    sysml:elementId "R90__A__t_pvalue_preferent" ;
+    sysml:memberElement elmt:OtherPkg__Tempo__operative ;
+    sysml:owner expr:R90__A__t_pvalue ;
+    sysml:owningRelatedElement expr:R90__A__t_pvalue .
 
 expr:R90__A__t_pvalue_pout
     a sysml:Feature ;
@@ -747,7 +755,7 @@ expr:R90__A__s_pvalue
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:R90__A__s_pvalue_pa0 ;
     sysml:ownedRelationship expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_pout_om, expr:R90__A__s_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_pout_om ;
+    sysml:ownedMembership expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_pout_om, expr:R90__A__s_pvalue_ptargetFeature ;
     sysml:ownedFeatureMembership expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_pout_om ;
     sysml:ownedFeature expr:R90__A__s_pvalue_pin0, expr:R90__A__s_pvalue_pout ;
     sysml:parameter expr:R90__A__s_pvalue_pin0, expr:R90__A__s_pvalue_pout ;
@@ -758,7 +766,7 @@ expr:R90__A__s_pvalue
     sysml:owningRelationship expr:R90__A__s_pvalue_om ;
     sysml:owningMembership expr:R90__A__s_pvalue_om ;
     json:ownedRelationship "[{\"@id\":\"R90__A__s_pvalue_pin0_om\"},{\"@id\":\"R90__A__s_pvalue_pout_om\"},{\"@id\":\"R90__A__s_pvalue_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"R90__A__s_pvalue_pin0_om\"},{\"@id\":\"R90__A__s_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"R90__A__s_pvalue_pin0_om\"},{\"@id\":\"R90__A__s_pvalue_pout_om\"},{\"@id\":\"R90__A__s_pvalue_ptargetFeature\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"R90__A__s_pvalue_pin0_om\"},{\"@id\":\"R90__A__s_pvalue_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"R90__A__s_pvalue_pin0\"},{\"@id\":\"R90__A__s_pvalue_pout\"}]" ;
     json:parameter "[{\"@id\":\"R90__A__s_pvalue_pin0\"},{\"@id\":\"R90__A__s_pvalue_pout\"}]" .
@@ -768,9 +776,9 @@ expr:R90__A__s_pvalue_pa0
     sysx:sourceText "w" ;
     sysml:elementId "R90__A__s_pvalue_pa0" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:R90__A__s_pvalue_pa0_preferent, expr:R90__A__s_pvalue_pa0_pout_om ;
+    sysml:ownedMembership expr:R90__A__s_pvalue_pa0_preferent, expr:R90__A__s_pvalue_pa0_pout_om ;
     sysml:referent elmt:R90__A__w ;
-    sysml:ownedRelationship expr:R90__A__s_pvalue_pa0_pout_om, expr:R90__A__s_pvalue_pa0_preferent ;
-    sysml:ownedMembership expr:R90__A__s_pvalue_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:R90__A__s_pvalue_pa0_pout_om ;
     sysml:ownedFeature expr:R90__A__s_pvalue_pa0_pout ;
     sysml:parameter expr:R90__A__s_pvalue_pa0_pout ;
@@ -778,7 +786,15 @@ expr:R90__A__s_pvalue_pa0
     sysml:owner expr:R90__A__s_pvalue_pin0 ;
     sysml:owningRelationship expr:R90__A__s_pvalue_pa0_om ;
     sysml:owningMembership expr:R90__A__s_pvalue_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"R90__A__s_pvalue_pa0_pout_om\"},{\"@id\":\"R90__A__s_pvalue_pa0_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"R90__A__s_pvalue_pa0_preferent\"},{\"@id\":\"R90__A__s_pvalue_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"R90__A__s_pvalue_pa0_preferent\"},{\"@id\":\"R90__A__s_pvalue_pa0_pout_om\"}]" .
+
+expr:R90__A__s_pvalue_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "R90__A__s_pvalue_pa0_preferent" ;
+    sysml:memberElement elmt:R90__A__w ;
+    sysml:owner expr:R90__A__s_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:R90__A__s_pvalue_pa0 .
 
 expr:R90__A__s_pvalue_pa0_pout
     a sysml:Feature ;
@@ -2031,13 +2047,6 @@ elmt:R90__A__t_ft0
     sysml:relatedElement elmt:R90__A__t, elmt:OtherPkg__Tempo ;
     json:relatedElement "[{\"@id\":\"R90__A__t\"},{\"@id\":\"OtherPkg__Tempo\"}]" .
 
-expr:R90__A__t_pvalue_preferent
-    a sysml:Membership ;
-    sysml:elementId "R90__A__t_pvalue_preferent" ;
-    sysml:memberElement elmt:OtherPkg__Tempo__operative ;
-    sysml:owner expr:R90__A__t_pvalue ;
-    sysml:owningRelatedElement expr:R90__A__t_pvalue .
-
 elmt:R90__A__b2_ft0
     a sysml:FeatureTyping ;
     sysml:elementId "R90__A__b2_ft0" ;
@@ -2121,13 +2130,6 @@ expr:R90__A__s_pvalue_ptargetFeature
     sysml:memberElement elmt:OtherPkg__Inner__Wheel__size ;
     sysml:owner expr:R90__A__s_pvalue ;
     sysml:owningRelatedElement expr:R90__A__s_pvalue .
-
-expr:R90__A__s_pvalue_pa0_preferent
-    a sysml:Membership ;
-    sysml:elementId "R90__A__s_pvalue_pa0_preferent" ;
-    sysml:memberElement elmt:R90__A__w ;
-    sysml:owner expr:R90__A__s_pvalue_pa0 ;
-    sysml:owningRelatedElement expr:R90__A__s_pvalue_pa0 .
 
 elmt:R90__A__unresolved_ft0
     a sysml:FeatureTyping ;

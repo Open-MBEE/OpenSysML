@@ -300,47 +300,22 @@ func (e *encoder) featureChainings(chain rdf.Term, links []rdf.Term) {
 	}
 }
 
-// materializeReferentMemberships emits the plain Membership through which an
-// expression node is related to the element it reaches: a FeatureReference-
-// Expression's referent and a FeatureChainExpression's target feature.
+// materializeReferentMemberships emits the plain Membership through which a
+// FeatureChainExpression is related to its target feature when the chain is not
+// a feature the expression owns; a FeatureReferenceExpression owns its referent
+// Membership from the start (featureReferent), in the position the notation gives it.
 func (e *encoder) materializeReferentMemberships(subject rdf.Term) {
-	var property, slot string
-	switch e.metaclassOf(subject) {
-	case mFeatureReference:
-		property, slot = pReferent, "referent"
-	case mFeatureChain:
-		property, slot = pTargetFeature, "targetFeature"
-	default:
+	if e.metaclassOf(subject) != mFeatureChain {
 		return
 	}
-	target, ok := e.graph.Object(subject, rdf.SysML+property)
+	target, ok := e.graph.Object(subject, rdf.SysML+pTargetFeature)
 	if !ok {
 		return
 	}
-	// A body expression the node owns is already its member through the
-	// FeatureMembership that owns it, as in the pilot's XMI.
 	if owner, owned := e.graph.Object(target, rdf.SysML+pOwner); owned && owner == subject {
 		return
 	}
-	var membership rdf.Term
-	if strings.HasPrefix(subject.Value, rdf.Expression) {
-		e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
-		membership = e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
-	} else {
-		membership = e.ids.minted(rdf.RelationshipIRI(subject, "_"+slot), subject, "_"+slot)
-		if prior, taken := e.claim(membership.Value, "the "+slot+" membership of "+membership.Value); taken && e.idErr == nil {
-			e.idErr = &UnsupportedError{
-				What: fmt.Sprintf("the %s membership <%s>", slot, membership.Value),
-				Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
-			}
-		}
-	}
-	e.typed(membership, mMembership)
-	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
-	e.graph.Add(membership, e.sysml(pMemberElement), target)
-	e.graph.Add(membership, e.sysml(pOwner), subject)
-	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
-	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.referenceMembershipAt(subject, target, e.referentMembershipNode(subject, "targetFeature"))
 }
 
 // conjugatedPortDefinition emits the conjugate of a port definition: the
