@@ -34,7 +34,13 @@ go run -C tools ./cmd/pilot-apijson-diff -update  # re-records docs/project/api-
 and `-timeout` override the launcher, the output directory and the per-root time allowed to the
 pilot. A run writes `pilot-apijson-diff.json` (the baseline's shape), `pilot-apijson-diff.txt`
 (the ranked scorecard with one concrete example per differing row, the unmatched elements by
-metaclass and the pilot's diagnostics) and `pilot-apijson-diff-examples.json`.
+metaclass and the pilot's diagnostics), `pilot-apijson-diff-examples.json` and
+`pilot-apijson-diff-matches.json`, the run's inventory of every key per root under the fate the
+matching gave it (matched, ours-only, pilot-only). `-lost-against <earlier run>/pilot-apijson-diff-matches.json`
+then names, in `pilot-apijson-diff-movements.txt` and `.json`, each element the earlier run matched
+and this one does not (*lost*) and the reverse (*gained*), grouped by root and metaclass, each with
+the key's fate in the run that does not match it; a change to either side's naming is read from
+that list rather than from a moved total.
 
 ### The pilot's exporter
 
@@ -142,11 +148,26 @@ metaclass when the two sides disagree on the metaclass (`typeMismatch`).
   in which one derived collection of `Derived Probe::Vehicle` is emptied (`ownedUsage` → exactly one
   ours-missing in that row, nowhere else) and one in which one attribute is flipped (`isAbstract` →
   exactly one present-different), each with one example naming the element.
-- **Provenance.** `TestCommittedBaselineStatesThisRepositorysProvenance` checks, without Java, that
-  the baseline's pin, bridge-source digest and every root's file digest are this checkout's, and
-  `TestProvenanceGuardFailsOnAMovedPin` that a moved pin is named with the refresh command.
-  `TestRecordStatesTheBaselinesFigures` (`make docs-counts`) ties this record's figures to the
-  baseline.
+- **Provenance.** The baseline's `provenance` block names both sides of the comparison: the pilot
+  pin (`pilotTag`, `pilotCommit`, `pilotArtifact`), the errata-registry digest, one `tools` entry
+  per side and every root's file digest. `pilot-json-exporter` digests the bridge source
+  `scripts/pilot-json-exporter/ExportJSON.java` against the pinned release; `api-json-writer`
+  digests this repository's writer, `internal/translate/export`: its non-test `.go` files, sorted by
+  file name, each hashed by name and content, so the digest is the same on any machine and in any
+  checkout path. It moves on any edit to a production source of the package (a renamed member, a
+  dropped property, a reordered emission) and stays put on edits to its tests, fixtures or prose. It
+  does not cover what the writer consumes — the parser, name resolution, the metamodel or the library
+  — so a semantic change upstream still surfaces as count movement with no named cause; it names
+  writer changes only. `TestCommittedBaselineStatesThisRepositorysProvenance` checks, without Java,
+  that every one of those fields is this checkout's; `-check` holds the same block to the baseline
+  before the counts, so a writer edit stops it at `provenance.tools[api-json-writer].sourceDigest:
+  baseline records …, repository now has …` rather than at bare count drift (the fresh report it
+  wrote still holds the moved buckets). The writer digested is the one linked into the referee —
+  the checkout it was built from — which `-repo` pointing elsewhere does not change; a `-trimpath`
+  build keeps no record of that checkout and is refused rather than guessed at. `TestProvenanceGuardFailsOnAMovedPin`
+  and `TestProvenanceGuardFailsOnAnEditedWriter` pin that a moved pin and an edited writer are each
+  named with the refresh command. `TestRecordStatesTheBaselinesFigures` (`make docs-counts`) ties
+  this record's figures to the baseline.
 
 The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
@@ -201,6 +222,42 @@ The largest **present-different** rows, with the reading the examples support:
 | `AttributeUsage` | `value` | 1381 | see the `derive*` row for this property in `docs/project/constraint-manifest.json` |
 
 `owner` on every relationship is the pilot leaving `Relationship::owner` null where the metamodel derives `owningRelatedElement`; ours states it. The remaining pilot-missing rows are properties this repository writes outside the metamodel's spelling (`value` on usages) or states for unnamed elements the metamodel leaves null (`qualifiedName`).
+
+### Where the pilot cannot name a member
+
+A member that takes its name from a naming feature is keyed by that name on our side: KerML
+`Feature::effectiveName` is the effective name of `namingFeature()` when nothing is declared
+(8.3.3.3.4 Feature, `body: if declaredShortName <> null or declaredName <> null then declaredName
+else … namingFeature.effectiveName()`), and the default `namingFeature()` is
+`ownedRedefinition->at(1).redefinedFeature`; SysML redefines it for a variant (8.3.6.4 Usage,
+`ownedReferenceSubsetting.referencedFeature`), a transition payload (8.3.6.3 ReferenceUsage), a
+performed action (8.3.17.14 PerformActionUsage, `performedAction`), a requirement constraint
+(8.3.20.4 ConstraintUsage) and a view rendering (8.3.26.6 RenderingUsage). The pilot derives the
+same name — when it resolves the naming feature. It cannot resolve a feature of this repository's
+own libraries (`internal/workspace/libs/stdlib/OpenSysML Libraries/`, `DocumentQueries` among
+them): the bridge loads the pinned `sysml.library` alone, so `attribute redefines title = "…";` in a
+`Section` leaves the pilot's `Redefinition` pointing at nothing, its `name` and `qualifiedName`
+null, and its key structural (`…::coverage/AttributeUsage[0]`) where ours is `…::coverage::title`.
+
+Naming members by their naming feature moved `docs/manual/examples` from 6834 to 6663 matched
+elements while every other root gained: 357 matches lost, 186 gained. The 357 are 87 members —
+84 `AttributeUsage` and 3 `ReferenceUsage`, each an `attribute redefines caption|title|text|term|description|kind|direction|style|groupBy = …`
+or `ref redefines source|target = …` of a `DocumentQueries` feature — and the 270 elements they own
+(their `Redefinition`, `FeatureValue` and literal or `FeatureReferenceExpression` value); every one
+is now pilot-only under its structural key, while our named key is ours-only. The 186 gained are
+46 `attribute :>> x = …` redefinitions of features the model itself declares, with the 138 elements
+they own, plus `render asInterconnectionDiagram;` and its `ReferenceSubsetting`. Both sides state
+what the spec derives from what they resolved; the loss measures the pilot's library coverage, not
+a derivation, and is a limitation of this referee: a member whose naming feature the pilot does not
+resolve cannot match. The same shape is the whole of what the other roots lost, masked there by
+their gains: `examples` lost 914 (2805 gained) — 205 such redefinitions of `DocumentQueries` and
+`AnalysisRecords` features and two `render` members of `OpenSysMLRenderings` renderings, with
+what they own — and `spec-examples` lost 57 (171 gained): 13 members whose naming feature the
+pinned excerpt leaves undeclared (`perform VehicleActions::move`, `individual timeslice redefines
+preflight`, `render asMyTreeDiagram` under an undefined view definition, …), which we name by the
+reference as written and the pilot, resolving nothing, does not name. `training`, `pilot-examples`,
+`pilot-validation`, `kerml-examples` and `tests/testdata` lost no match. A run's own list of such
+movements comes from `-lost-against`.
 
 ## Launch-ready gaps
 
