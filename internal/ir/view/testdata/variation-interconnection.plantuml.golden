@@ -44,7 +44,7 @@ rectangle "<size:10>//«part»//</size>\n**vehicleFamily**" as n0 <<part>> <<usa
   rectangle "<size:10>//«part»//</size>\n**engine**" as n1 <<part>> <<usage>>
   rectangle "<size:10>//«variation part»//</size>\n**transmission**" as n2 <<variation part>> <<usage>> {
     rectangle "<size:10>//«variant»//</size>\n**manual**" as n3 <<variant>> <<usage>>
-    rectangle "<size:10>//«variant»//</size>\n**automatic**" as n4 <<variant>> <<usage>>
+    rectangle "<size:10>//«variant part»//</size>\n**automatic**" as n4 <<variant part>> <<usage>>
   }
 }
 n1 -[thickness=3]- n2

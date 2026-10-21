@@ -32,7 +32,7 @@ flowchart LR
       n2_anchor[" "]
       n3("`*«variant»*
 **manual**`")
-      n4("`*«variant»*
+      n4("`*«variant part»*
 **automatic**`")
     end
   end

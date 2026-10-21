@@ -2146,8 +2146,12 @@ func MemberOwner(kw string) string {
 }
 
 // memberKeyword is the keyword a member notation opens with: `entry` of `entry action`.
+// The `variation`/`variant` modifiers qualify the keyword that follows rather than open a member.
 func memberKeyword(notation string) string {
-	kw, _, _ := strings.Cut(notation, " ")
+	kw, rest, _ := strings.Cut(notation, " ")
+	for rest != "" && (kw == "variation" || kw == "variant") {
+		kw, rest, _ = strings.Cut(rest, " ")
+	}
 	return kw
 }
 

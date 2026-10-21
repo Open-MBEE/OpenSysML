@@ -17,6 +17,10 @@ func Notation(node Node) string {
 		if decl.PrefixKeyword != "" {
 			kw = decl.PrefixKeyword + " " + kw
 		}
+		// `variant part x` keeps its kind keyword; the shorthand `variant x` is written `variant` alone.
+		if decl.IsVariant && decl.Keyword != "variant" && decl.PrefixKeyword != "variant" {
+			kw = "variant " + kw
+		}
 		return variationPrefixed(kw, decl.IsVariation)
 	case *RelationshipMember:
 		// Only `specialization Spec subtype C :> S` can be named, so the prefix is

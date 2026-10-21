@@ -18,6 +18,9 @@ func TestNotationVariation(t *testing.T) {
 		{"variation attribute", &Usage{Kind: UsageAttribute, Keyword: "attribute", IsVariation: true}, "variation attribute"},
 		{"variation with prefix", &Usage{Kind: UsagePart, Keyword: "part", PrefixKeyword: "ref", IsVariation: true}, "variation ref part"},
 		{"variant", &Usage{Kind: UsagePart, Keyword: "variant", IsVariant: true}, "variant"},
+		{"variant part", &Usage{Kind: UsagePart, Keyword: "part", IsVariant: true}, "variant part"},
+		{"variant attribute", &Usage{Kind: UsageAttribute, Keyword: "attribute", IsVariant: true}, "variant attribute"},
+		{"variant ref part", &Usage{Kind: UsagePart, Keyword: "part", PrefixKeyword: "ref", IsVariant: true}, "variant ref part"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

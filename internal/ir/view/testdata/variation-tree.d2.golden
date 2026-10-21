@@ -9,7 +9,7 @@ n0: "«part»\nvehicleFamily" { class: usage }
 n1: "«part»\nengine" { class: usage }
 n2: "«variation part»\ntransmission" { class: usage }
 n3: "«variant»\nmanual" { class: usage }
-n4: "«variant»\nautomatic" { class: usage }
+n4: "«variant part»\nautomatic" { class: usage }
 n5: "connect" { class: usage }
 n6: "«variation part def»\nEngineChoices" { class: definition }
 n7: "«variant»\nfourCylinder" { class: usage }

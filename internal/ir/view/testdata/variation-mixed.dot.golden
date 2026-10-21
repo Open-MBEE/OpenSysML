@@ -18,7 +18,7 @@ digraph "VariationViews::familyMixed" {
       penwidth=0.5;
       "n2" [shape=point, style=invis, width=0, height=0, label=""];
       "n3" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>manual</b>>];
-      "n4" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>automatic</b>>];
+      "n4" [style="rounded,filled", label=<<font point-size="10"><i>«variant part»</i></font><br/><b>automatic</b>>];
     }
   }
   subgraph "cluster_n5" {

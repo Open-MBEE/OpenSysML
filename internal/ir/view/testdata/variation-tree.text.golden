@@ -4,7 +4,7 @@ part vehicleFamily
   part engine
   variation part transmission
     variant manual
-    variant automatic
+    variant part automatic
   connect
 variation part def EngineChoices
   variant fourCylinder

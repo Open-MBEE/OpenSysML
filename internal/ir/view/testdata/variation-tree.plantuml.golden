@@ -48,7 +48,7 @@ n0 -- n1
 class "<size:10>//«variation part»//</size>\n**transmission**" as n2 <<variation part>> <<usage>>
 class "<size:10>//«variant»//</size>\n**manual**" as n3 <<variant>> <<usage>>
 n2 -- n3
-class "<size:10>//«variant»//</size>\n**automatic**" as n4 <<variant>> <<usage>>
+class "<size:10>//«variant part»//</size>\n**automatic**" as n4 <<variant part>> <<usage>>
 n2 -- n4
 n0 -- n2
 class "**connect**" as n5 <<connect>> <<usage>>

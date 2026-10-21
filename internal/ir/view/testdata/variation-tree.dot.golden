@@ -12,7 +12,7 @@ digraph "VariationViews::familyTree" {
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«variation part»</i></font><br/><b>transmission</b>>];
   "n3" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>manual</b>>];
   "n2" -> "n3" [arrowhead=none];
-  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>automatic</b>>];
+  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«variant part»</i></font><br/><b>automatic</b>>];
   "n2" -> "n4" [arrowhead=none];
   "n0" -> "n2" [arrowhead=none];
   "n5" [style="rounded,filled", label=<<b>connect</b>>];

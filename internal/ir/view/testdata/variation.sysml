@@ -21,7 +21,7 @@ package VariationViews {
 		part engine : EngineChoices;
 		variation part transmission : Transmission {
 			variant manual;
-			variant automatic;
+			variant part automatic;
 		}
 		connect engine to transmission;
 	}

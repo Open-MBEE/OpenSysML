@@ -33,7 +33,7 @@ flowchart TD
       n3("`*«variant»*
 **manual**`")
   n2 --- n3
-      n4("`*«variant»*
+      n4("`*«variant part»*
 **automatic**`")
   n2 --- n4
   n0 --- n2
