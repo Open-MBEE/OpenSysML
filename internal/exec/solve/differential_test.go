@@ -264,8 +264,8 @@ func (e diffElement) object(ctx *runtime.Context) *runtime.Instance {
 // for, which is a coverage gap rather than a disagreement.
 var errNoConcreteValue = errors.New("no concrete value")
 
-// values supplies the concrete value each variable of a query stands at.
-type values interface {
+// valueReader supplies the concrete value each variable of a query stands at.
+type valueReader interface {
 	// valueOf returns the value v is pinned to, wrapping errNoConcreteValue when
 	// the model declares none.
 	valueOf(v *Var) (runtime.Value, error)
@@ -511,7 +511,7 @@ type pin struct {
 // pins reads a concrete value for every variable of the query, refusing the
 // whole element when one is missing: a query with a free variable answers a
 // question the evaluator was not asked.
-func pinsOf(q *Query, from values) ([]pin, error) {
+func pinsOf(q *Query, from valueReader) ([]pin, error) {
 	unreadable := make(map[*Var]bool, len(q.Unreadable))
 	for _, u := range q.Unreadable {
 		unreadable[u.Var] = true
@@ -780,7 +780,7 @@ func (g *diffGate) check(t *testing.T, ctx *runtime.Context, el diffElement) dif
 // unreadableOf names the features whose declared value does not evaluate, as
 // FixedFor reports them: variables whose value read fails other than for want of
 // a concrete value, which pinsOf reports on its own.
-func unreadableOf(q *Query, from values) []Unfixed {
+func unreadableOf(q *Query, from valueReader) []Unfixed {
 	var out []Unfixed
 	for _, v := range q.Vars {
 		if v.Symbol == nil {
