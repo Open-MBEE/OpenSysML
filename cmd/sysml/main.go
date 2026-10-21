@@ -286,9 +286,8 @@ func resolveJobs() (int, error) {
 	return analysis.JobsFromEnv()
 }
 
-// modelRunRequested reports whether the run asked for work over a model: a
-// rendering, conversion, migration, sync, query, graph, evaluation, check or
-// listing, each of which a run that reads no model cannot stand in for.
+// modelRunRequested reports whether the run asked for work over a model (a rendering,
+// conversion, migration, sync, query, graph, evaluation, check or listing).
 func modelRunRequested() bool {
 	return renderDoc != "" || renderDocsDir != "" || renderView != "" || renderAllDir != "" ||
 		convertFormat != "" || migrateFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
