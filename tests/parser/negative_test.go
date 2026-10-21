@@ -16,9 +16,8 @@ func TestNegative(t *testing.T) {
 		input string
 	}{
 		{"unclosed_brace", "part {"},
-		// A `;` after a bare condition is kept as the member's terminator, but a
-		// second one terminates no condition, and `case` after `analysis case`
-		// is no name.
+		// One `;` after a condition is its terminator; a second ends nothing, and
+		// `case` after `analysis case` is no name.
 		{"doubled_condition_terminator", "constraint def K { in x : ScalarValues::Real; x > 0.0;; }"},
 		{"condition_terminator_without_condition", "constraint def K { in x : ScalarValues::Real; ; x > 0.0 }"},
 		{"case_keyword_twice", "package P { analysis case case def X; }"},

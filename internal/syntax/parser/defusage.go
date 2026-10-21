@@ -69,9 +69,8 @@ var compoundDefKinds = map[[2]string]bool{
 	{"verification", "case"}: true,
 }
 
-// isCaseKindCompound reports `analysis case` or `verification case`, whose
-// productions spell the first word alone (SysML v2 8.2.2.23, 8.2.2.24); the
-// pair is parsed as that kind and reported as notation.
+// isCaseKindCompound reports `analysis case` / `verification case`, parsed as
+// the first word's kind (SysML v2 8.2.2.23, 8.2.2.24) and reported as notation.
 func isCaseKindCompound(first, second string) bool {
 	return second == "case" && (first == "analysis" || first == "verification")
 }
