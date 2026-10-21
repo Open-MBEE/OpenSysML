@@ -99,7 +99,7 @@ let auto: AutoLayout | undefined;
 /** ELK's layout of the rendering free of the model's placements, while the Auto layout command is in force. */
 let freeAuto: AutoLayout | undefined;
 let gesture: Gesture | undefined;
-// The router loaded mid-gesture, so the layout on screen predates it.
+// The router loaded or the routing changed mid-gesture, so the layout on screen predates it.
 let unrouted = false;
 /** How far the pointer moves before a press becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 3;
@@ -315,12 +315,16 @@ function applyStyle(chosen: DiagramStyle): void {
   remember();
 }
 
-// applyRouting picks whose routes the edges follow; the caller redraws where a drawing is up.
+// applyRouting picks whose routes the edges follow; the caller redraws where a drawing is
+// up, unless a gesture holds the screen, in which case the gesture's end does.
 function applyRouting(chosen: Routing): void {
   if (chosen === routing) {
     return;
   }
   routing = chosen;
+  if (gesture) {
+    unrouted = true;
+  }
   remember();
 }
 
@@ -448,9 +452,10 @@ function hiddenSet(): Set<string> {
   return hiddenKinds ?? new Set(defaultHidden);
 }
 
-// panelOverrides is what the panel itself lays over every layout of the rendering.
+// panelOverrides is what the panel itself lays over every layout of the rendering; a
+// gesture in progress keeps the routing it began under, and its end lays out with the new one.
 function panelOverrides(): Overrides {
-  return { hiddenKinds: hiddenSet(), unplaced: freeAuto !== undefined, routing };
+  return { hiddenKinds: hiddenSet(), unplaced: freeAuto !== undefined, routing: gesture?.routing ?? routing };
 }
 
 // currentAuto is the ELK layout in force: the free one while Auto layout is, else the one held to the model.
@@ -663,26 +668,29 @@ function rememberSoon(): void {
 type Gesture =
   | NodeGesture
   | PanGesture
-  | { kind: "waypoint"; edge: number; point: number; start: RenderPoint; pointer: number; placements?: Placements }
-  | { kind: "segment"; edge: number; segment: number; start: RenderPoint; pointer: number; placements?: Placements };
+  | { kind: "waypoint"; edge: number; point: number; start: RenderPoint; pointer: number; routing: Routing; placements?: Placements }
+  | { kind: "segment"; edge: number; segment: number; start: RenderPoint; pointer: number; routing: Routing; placements?: Placements };
 
 // A press on empty canvas pans the view once it moves past the drag threshold;
 // released where it was pressed, it is a click on nothing.
 interface PanGesture {
   kind: "pan";
   pointer: number;
+  routing: Routing;
   from: ClientPoint;
   scroll: { left: number; top: number };
   moved: boolean;
 }
 
 // A node drag also tracks what a release would do: `at` is where the pointer holds the
-// node, `drop` the node under it while Shift is held.
+// node, `drop` the node under it while Shift is held. Every gesture keeps the routing it
+// began under, so what it draws stays on the layout it started from until it ends.
 interface NodeGesture {
   kind: "node";
   id: string;
   start: RenderPoint;
   pointer: number;
+  routing: Routing;
   fixed: boolean;
   placements?: Placements;
   at?: RenderPoint;
@@ -714,21 +722,22 @@ function beginGesture(event: PointerEvent): void {
   const handle = handleAt(event.target);
   if (handle) {
     gesture = handle.point !== undefined
-      ? { kind: "waypoint", edge: handle.edge, point: handle.point, start, pointer: event.pointerId }
-      : { kind: "segment", edge: handle.edge, segment: handle.segment ?? 0, start, pointer: event.pointerId };
+      ? { kind: "waypoint", edge: handle.edge, point: handle.point, start, pointer: event.pointerId, routing }
+      : { kind: "segment", edge: handle.edge, segment: handle.segment ?? 0, start, pointer: event.pointerId, routing };
   } else {
     const node = nodeAt(event.target, last);
     if (!node) {
       gesture = {
         kind: "pan",
         pointer: event.pointerId,
+        routing,
         from: clientPoint(event),
         scroll: { left: diagram.scrollLeft, top: diagram.scrollTop },
         moved: false,
       };
     } else {
       const entry = layout.nodes.get(node.id);
-      gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, fixed: !entry || !movable(layout, entry) };
+      gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, routing, fixed: !entry || !movable(layout, entry) };
     }
   }
   event.preventDefault();
@@ -847,6 +856,9 @@ function endGesture(event: PointerEvent): void {
   gesture = undefined;
   diagram.classList.remove("dragging", "refused", "panning");
   if (done.kind === "pan") {
+    if (unrouted) {
+      settle();
+    }
     if (done.moved) {
       rememberSoon();
     } else {
@@ -912,9 +924,13 @@ function panTo(pan: PanGesture, at: ClientPoint): void {
   diagram.classList.add("panning");
   diagram.scrollLeft = pan.scroll.left - dx;
   diagram.scrollTop = pan.scroll.top - dy;
+  // Recorded here rather than by the scroll listener, which hears of it a task later than
+  // the pan's end might redraw; a redraw puts the recorded viewport back.
+  viewport = scrolled();
 }
 
-// settle shows the model's layout after a gesture that made no edit, laid out again if the router loaded meanwhile.
+// settle shows the model's layout after a gesture that made no edit, laid out again if the
+// router loaded or the routing changed meanwhile.
 function settle(): void {
   if (unrouted && last && layout) {
     layout = layoutCanvas(last, panelOverrides(), currentAuto());

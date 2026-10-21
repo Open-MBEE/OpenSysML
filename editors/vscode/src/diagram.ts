@@ -48,6 +48,7 @@ import {
   WorkspaceEdit,
 } from "./protocol";
 import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
+import { PANEL_MARKUP } from "./markup";
 import { logsRender, renderSummary } from "./rendertrace";
 import { DEPTH_SETTING, depthOf, DiagramStyle, drawingStyleOf, hiddenRelationsOf, HIDE_RELATIONS_SETTING, OpenIn, openInOf, paletteOf, Routing, ROUTING_SETTING, routingOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
@@ -1571,37 +1572,7 @@ function html(
     </style>
   </head>
   <body data-state='${state}'>
-    <div id="bar">
-      <label for="view">View</label>
-      <select id="view"></select>
-      <label for="style">Style</label>
-      <select id="style"></select>
-      <span id="kind"></span>
-      <details id="relations" hidden>
-        <summary title="Show or hide relationships by kind">Relations</summary>
-        <div id="relation-list" role="group" aria-label="Relationship kinds"></div>
-      </details>
-      <span id="nav" role="group" aria-label="Zoom">
-        <button id="zoom-out" type="button" title="Zoom out (-)" aria-label="Zoom out">−</button>
-        <span id="zoom" aria-live="polite">100%</span>
-        <button id="zoom-in" type="button" title="Zoom in (+)" aria-label="Zoom in">+</button>
-        <button id="zoom-fit" type="button" title="Fit the whole diagram in view">Fit</button>
-        <button id="zoom-reset" type="button" title="Actual size (0)">1:1</button>
-        <button id="auto-layout" type="button" title="Lay the diagram out afresh, ignoring the model's Layout and Route annotations; nothing is written">Auto layout</button>
-        <button id="reset-layout" type="button" hidden title="Back to the layout the model states">Reset to model</button>
-      </span>
-    </div>
-    <div id="status"></div>
-    <div id="diagram" tabindex="-1"></div>
-    <ul id="menu" hidden role="menu"></ul>
-    <details id="notices" hidden>
-      <summary></summary>
-      <ul id="notice-list"></ul>
-    </details>
-    <details id="undrawable" hidden>
-      <summary></summary>
-      <ul id="undrawable-list"></ul>
-    </details>
+${PANEL_MARKUP}
     <script nonce="${nonce}" src="${script}"></script>
   </body>
 </html>`;

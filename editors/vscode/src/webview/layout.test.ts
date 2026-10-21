@@ -1480,6 +1480,27 @@ test("held keeps an unmoved rerouted edge's route and draws a moved end's straig
   assert.equal(preview.edges[1].rerouted, true);
 });
 
+test("held keeps the canvas it started from under a preview that draws less, and lets it grow", async () => {
+  await loadAvoid(WASM);
+  const result = rendering(
+    [node("a", "a", { x: 0, y: 0, width: 100, height: 40 }), node("b", "b", { x: 400, y: 200, width: 100, height: 40 })],
+    [{ from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab" }],
+  );
+  const layout = layoutCanvas(result);
+  const inward = overridesOf(movedNode(layout, "b", -200, -100)!);
+  const shrunk = layoutCanvas(result, inward);
+  assert.ok(shrunk.width < layout.width && shrunk.height < layout.height, "the moved node alone draws a smaller canvas");
+  const preview = layoutCanvas(result, { ...inward, held: layout });
+  assert.deepEqual(
+    { origin: preview.origin, width: preview.width, height: preview.height },
+    { origin: layout.origin, width: layout.width, height: layout.height },
+    "the preview's canvas is the held layout's",
+  );
+  const outward = layoutCanvas(result, { ...overridesOf(movedNode(layout, "a", -50, -50)!), held: layout });
+  assert.ok(outward.origin.x < layout.origin.x && outward.origin.y < layout.origin.y, "a preview beyond the held canvas grows it");
+  assert.equal(outward.origin.x + outward.width, layout.origin.x + layout.width, "and still covers it");
+});
+
 test("movedNode writes no route for a rerouted edge, and movedWaypoint writes one", async () => {
   await loadAvoid(WASM);
   const layout = layoutCanvas(

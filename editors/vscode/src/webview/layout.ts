@@ -124,7 +124,7 @@ export interface Overrides {
   routes?: Map<number, RenderPoint[] | undefined>;
   /** Rerouted edges stay inside this box. */
   bounds?: Box;
-  /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route. */
+  /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route; its canvas is covered, so the viewport is not clamped under the drag. */
   held?: CanvasLayout;
   /** `router` sends every edge ELK did not route through the router, a stated `Route` notwithstanding; `model` (the default) draws a stated route verbatim. */
   routing?: Routing;
@@ -267,17 +267,35 @@ export function layoutCanvas(
     x: extent.left < 0 ? extent.left - MARGIN : 0,
     y: extent.top < 0 ? extent.top - MARGIN : 0,
   };
+  return coveringHeld(
+    {
+      roots,
+      nodes: placed,
+      edges,
+      origin,
+      width:
+        Math.max(extent.right + MARGIN, result.canvas?.width ?? 0) - origin.x,
+      height:
+        Math.max(extent.bottom + MARGIN, result.canvas?.height ?? 0) - origin.y,
+      placeable: PLACEABLE_KINDS.has(result.kind),
+      routing,
+    },
+    overrides.held,
+  );
+}
+
+// coveringHeld is a layout's canvas grown to cover the held layout's, so a preview that draws
+// less than the layout it started from does not shrink the canvas under the viewport's offsets.
+function coveringHeld(layout: CanvasLayout, held: CanvasLayout | undefined): CanvasLayout {
+  if (!held) {
+    return layout;
+  }
+  const origin = { x: Math.min(layout.origin.x, held.origin.x), y: Math.min(layout.origin.y, held.origin.y) };
   return {
-    roots,
-    nodes: placed,
-    edges,
+    ...layout,
     origin,
-    width:
-      Math.max(extent.right + MARGIN, result.canvas?.width ?? 0) - origin.x,
-    height:
-      Math.max(extent.bottom + MARGIN, result.canvas?.height ?? 0) - origin.y,
-    placeable: PLACEABLE_KINDS.has(result.kind),
-    routing,
+    width: Math.max(layout.origin.x + layout.width, held.origin.x + held.width) - origin.x,
+    height: Math.max(layout.origin.y + layout.height, held.origin.y + held.height) - origin.y,
   };
 }
 
