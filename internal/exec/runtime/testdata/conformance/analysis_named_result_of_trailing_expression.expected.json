@@ -3,7 +3,7 @@
   "type": "analysis",
   "evaluate": "test::plan",
   "outputs": {
-    "mass": {"type": "Real", "value": 200.0},
-    "twice": {"type": "Real", "value": 42.0}
+    "mass": {"type": "Sequence", "elements": [{"type": "Real", "value": 200.0}]},
+    "twice": {"type": "Sequence", "elements": [{"type": "Real", "value": 42.0}]}
   }
 }

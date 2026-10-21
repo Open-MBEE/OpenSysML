@@ -6,4 +6,4 @@ enter calc test::scale
       eval feature x -> 5
       eval feature factor -> 3
     eval operator * -> 15
-exit calc test::scale -> 15
+exit calc test::scale -> (15)

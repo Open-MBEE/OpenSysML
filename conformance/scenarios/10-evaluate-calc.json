@@ -21,7 +21,13 @@
       "expect": {
         "response": {
           "result": {
-            "int_value": 5
+            "sequence": {
+              "elements": [
+                {
+                  "int_value": 5
+                }
+              ]
+            }
           }
         },
         "absent": [
@@ -79,7 +85,13 @@
       "expect": {
         "response": {
           "result": {
-            "real_value": 5.0
+            "sequence": {
+              "elements": [
+                {
+                  "real_value": 5.0
+                }
+              ]
+            }
           }
         },
         "absent": [
@@ -125,7 +137,13 @@
       "expect": {
         "response": {
           "result": {
-            "int_value": 3
+            "sequence": {
+              "elements": [
+                {
+                  "int_value": 3
+                }
+              ]
+            }
           }
         },
         "absent": [
@@ -279,19 +297,25 @@
       "expect": {
         "response": {
           "result": {
-            "quantity": {
-              "real_magnitude": 6.0,
-              "unit": "m",
-              "unit_term": {
-                "factors": [
-                  {
-                    "unit_id": "SI::metre",
-                    "exponent": 1
+            "sequence": {
+              "elements": [
+                {
+                  "quantity": {
+                    "real_magnitude": 6.0,
+                    "unit": "m",
+                    "unit_term": {
+                      "factors": [
+                        {
+                          "unit_id": "SI::metre",
+                          "exponent": 1
+                        }
+                      ],
+                      "scale_num": 1,
+                      "scale_den": 1
+                    }
                   }
-                ],
-                "scale_num": 1,
-                "scale_den": 1
-              }
+                }
+              ]
             }
           }
         },
@@ -355,9 +379,15 @@
       "expect": {
         "response": {
           "result": {
-            "quantity": {
-              "real_magnitude": 3000.0,
-              "unit": "m"
+            "sequence": {
+              "elements": [
+                {
+                  "quantity": {
+                    "real_magnitude": 3000.0,
+                    "unit": "m"
+                  }
+                }
+              ]
             }
           }
         },
@@ -480,7 +510,13 @@
       "expect": {
         "response": {
           "result": {
-            "real_value": 8.0
+            "sequence": {
+              "elements": [
+                {
+                  "real_value": 8.0
+                }
+              ]
+            }
           }
         },
         "absent": [
@@ -590,7 +626,13 @@
       "expect": {
         "response": {
           "result": {
-            "bool_value": true
+            "sequence": {
+              "elements": [
+                {
+                  "bool_value": true
+                }
+              ]
+            }
           }
         },
         "absent": [
@@ -626,7 +668,13 @@
       "expect": {
         "response": {
           "result": {
-            "string_value": "seatBelt"
+            "sequence": {
+              "elements": [
+                {
+                  "string_value": "seatBelt"
+                }
+              ]
+            }
           }
         },
         "absent": [

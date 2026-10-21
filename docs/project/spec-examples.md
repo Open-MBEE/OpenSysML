@@ -190,6 +190,9 @@ G6, G7 and G8 (an `alias` in a type body, a relationship body on a `featuring`, 
 representation without `rep`) were not gaps: the grammar productions are implemented, and what the printed
 examples add (`alias ... of`, `featured by` on the member form, a parenthesised parameter list) no production
 admits and the pilot rejects, so they sit in the erratum table above; the later labels keep their numbers.
+G14 (the document interface record): an undeclared metadata type or `about` target is the document's
+diagnostic, not an absent interface, so every file of the root has a record and the root is in
+`corpusRoots` in `tests/model`.
 
 | # | Clause | File | Expected behaviour | Probe | In-flight overlap |
 |---|---|---|---|---|---|
@@ -198,7 +201,6 @@ admits and the pilot rejects, so they sit in the erratum table above; the later 
 | G11 | SysML 8.2.2.13.1 `ConnectorEnd` | `sysml/8.4.13.4/1`–`9.sysml` | A multiplicity *after* an end reference (`first a1[1..1] then j[1..1]`) has no production and is reported, as the pilot does. | `sysml -validate`: `a connector end names a feature, not an expression; name the feature itself and put any multiplicity before it` on each such end; the pilot reports `no viable alternative at input 'then'`. Reported as a syntax error: the bracket makes the end an index expression, which no production parses as an end. | none found |
 | G12 | SysML 8.2.2.19 `ResultExpressionMember` | `sysml/7.21.2/2.sysml` | A `;` after a body's result expression (`mass > 0[kg];`) is reported, as the pilot does. | `sysml -validate`: `nonstandard-notation` on the `;` of line 9 (an error under `-strict`); the pilot reports `extraneous input ';' expecting '}'`. The terminator stays in the syntax tree. | none found |
 | G13 | SysML 8.2.2.23 / 8.2.2.24 keywords | `sysml/8.4.19.1/1`, `8.4.19.2/1`, `8.4.20.1/1.sysml` | `analysis case def` / `verification case def` are not SysML keywords (`analysis def`, `verification def` are) and are reported, as the pilot does. | `sysml -validate`: `nonstandard-notation` spanning the two words on the definition line (an error under `-strict`), besides the usage `specializes` error; the pilot reports `no viable alternative at input 'case'`. The declaration is read as the analysis or verification case its first word declares. | none found |
-| G14 | KerML 7.4.13 metadata examples; SysML 7.27.2 | `kerml/7.4.13/3`, `11`, `12`, `14`, `15.kerml`, `sysml/7.27.2/3.sysml` | The document interface record (`tests/model/interface_record_test.go`) is derivable for every file of the root: today `provisional supertypes of ... Save` refuses four files whose metadata definitions specialise an undeclared name, and two files are "written among other documents". Until then the root is left out of `corpusRoots` in `tests/model`, so the incremental and interface-record differentials do not run over it. | `go test ./tests/model -run TestInterfaceRecordDifferentialCorpora` with the root added to `corpusRoots`: 6 failures today. | none found |
 
 The sweep for in-flight work covered the open pull requests and the remote branches without one that
 touch `internal/syntax/parser`, `internal/check` and the corpus gates; none of them addresses the

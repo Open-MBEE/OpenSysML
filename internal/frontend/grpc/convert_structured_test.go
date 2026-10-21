@@ -412,14 +412,14 @@ func TestStructuredValuesCrossEveryValueSurface(t *testing.T) {
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc(length): err = %v, error = %q", err, calc.GetError())
 	}
-	if calc.Result.GetRealValue() != 5 {
+	if soleElement(t, "length", calc.Result).GetRealValue() != 5 {
 		t.Errorf("length(⟨3.0, 4.0⟩) = %v, want 5.0", calc.Result)
 	}
 	calc, err = srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{ModelHash: modelHash, SymbolId: "S::doubled", Arguments: []*pb.Value{sent}})
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc(doubled): err = %v, error = %q", err, calc.GetError())
 	}
-	if got := calc.Result.GetVector(); got == nil || got.Components[0].GetRealValue() != 6 || got.Components[1].GetRealValue() != 8 {
+	if got := soleElement(t, "doubled", calc.Result).GetVector(); got == nil || got.Components[0].GetRealValue() != 6 || got.Components[1].GetRealValue() != 8 {
 		t.Errorf("doubled(⟨3.0, 4.0⟩) = %v, want ⟨6.0, 8.0⟩", calc.Result)
 	}
 

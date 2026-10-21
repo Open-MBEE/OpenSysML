@@ -318,6 +318,7 @@ func TestLibraryFunctionUnqualifiedNames(t *testing.T) {
 			ctx, idx = libraryModelContext(t, model("\tprivate import "+tc.imported+"::*;"))
 			sym = lookupOne(t, idx, "test::f")
 			got, err := ctx.InvokeCalc(sym, []Value{constReal(4)}, nil)
+			got = soleElement(got)
 			if err != nil {
 				t.Fatalf("%s under import %s::*: %v", tc.call, tc.imported, err)
 			}
@@ -336,6 +337,7 @@ func TestLibraryFunctionQualifiedCallNeedsNoImport(t *testing.T) {
 	calc f { in x : Real; OpenSysMLMathFunctions::exp(0.0 * x) + RealFunctions::sqrt(x) + (x, x)->SequenceFunctions::size() }
 }`)
 	got, err := ctx.InvokeCalc(lookupOne(t, idx, "test::f"), []Value{constReal(4)}, nil)
+	got = soleElement(got)
 	if err != nil || FormatValue(got) != "5.0" {
 		t.Fatalf("qualified calls = %s, %v; want 5.0", FormatValue(got), err)
 	}
@@ -399,13 +401,14 @@ package mine {
 	if _, ok := ctx.libraryFunctionFor(libSym); ok {
 		t.Fatalf("a declaration with a body dispatched to the built-in implementation")
 	}
-	got, err := ctx.InvokeCalc(libSym, []Value{constReal(25)}, nil)
+	got, err := invokeValue(ctx, libSym, []Value{constReal(25)}, nil)
 	if err != nil || got.Const.AsReal() != 25 {
 		t.Fatalf("InvokeCalc(RealFunctions::sqrt, 25.0) = %+v, %v; want the declared body", got, err)
 	}
 
 	ownSym := lookupOne(t, idx, "mine::sqrt")
 	got, err = ctx.InvokeCalc(ownSym, []Value{constReal(25)}, nil)
+	got = soleElement(got)
 	if err != nil || got.Const.AsReal() != 42 {
 		t.Fatalf("InvokeCalc(mine::sqrt, 25.0) = %+v, %v; want the declared body", got, err)
 	}
@@ -1654,6 +1657,7 @@ func TestArraySpecializationKeepsOwnMembers(t *testing.T) {
 		{"plain.label", `"grid"`},
 	} {
 		got, err := evalIn(t, ctx, pkg.Scope, tc.src)
+		got = soleElement(got)
 		if err != nil {
 			t.Errorf("%s: %v", tc.src, err)
 			continue

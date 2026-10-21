@@ -4,5 +4,5 @@
   "inputs": [
     {"type": "Real", "value": 1.0}
   ],
-  "result": {"type": "Real", "value": 6.283185307179586}
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 6.283185307179586}]}
 }

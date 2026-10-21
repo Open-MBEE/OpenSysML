@@ -3,10 +3,10 @@
   "type": "analysis",
   "evaluate": "test::unnamed",
   "outputs": {
-    "doubled": {"type": "Real", "value": 10.0}
+    "doubled": {"type": "Sequence", "elements": [{"type": "Real", "value": 10.0}]}
   },
-  "result": {"type": "Real", "value": 20.0},
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 20.0}]},
   "reads": {
-    "test::namedRead": {"type": "Real", "value": 15.0}
+    "test::namedRead": {"type": "Sequence", "elements": [{"type": "Real", "value": 15.0}]}
   }
 }

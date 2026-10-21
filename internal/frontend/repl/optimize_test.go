@@ -265,7 +265,7 @@ func TestOptimizeRefusesATradeStudyOverListedAlternatives(t *testing.T) {
 		t.Errorf("status is %s, want unavailable", report.Status)
 	}
 	ran := run(t, s, "%analysis listed")
-	wants(t, ran, "✓ listed", "selectedAlternative = Trade::light (object #1)",
+	wants(t, ran, "✓ listed", "selectedAlternative = [Trade::light (object #1)]",
 		"evaluationFunction(Trade::light (object #1)) = 10.0 [selected]",
 		"evaluationFunction(Trade::heavy (object #2)) = 20.0")
 }
