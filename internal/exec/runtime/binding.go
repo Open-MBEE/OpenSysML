@@ -776,24 +776,19 @@ func (ctx *Context) withBoundMembers(inst, owner *Instance, feature string, feat
 	added := false
 	path := feature
 	for current := owner; current != nil; {
-		for _, typ := range current.types() {
-			for _, binding := range ctx.objectBindings(typ) {
-				for _, end := range binding.Ends {
-					name, ok := strings.CutPrefix(end.Path, path+".")
-					if !ok || strings.Contains(name, ".") || held[name] {
-						continue
-					}
-					member, typ := ctx.boundFrameMember(types, name)
-					if member == nil {
-						continue
-					}
-					if !added {
-						features, added = slices.Clone(features), true
-					}
-					held[name] = true
-					features = append(features, ctx.effectiveFeature(name, member, typ))
-				}
+		for _, name := range ctx.membersBoundThrough(current, path) {
+			if held[name] {
+				continue
 			}
+			member, typ := ctx.boundFrameMember(types, name)
+			if member == nil {
+				continue
+			}
+			if !added {
+				features, added = slices.Clone(features), true
+			}
+			held[name] = true
+			features = append(features, ctx.effectiveFeature(name, member, typ))
 		}
 		next, nextFeature := current.Owner()
 		if next == nil || nextFeature == "" {
@@ -803,6 +798,22 @@ func (ctx *Context) withBoundMembers(inst, owner *Instance, feature string, feat
 		current = next
 	}
 	return features
+}
+
+// membersBoundThrough names the members of the object at path below owner that
+// the bindings of owner's types reach directly, in binding order.
+func (ctx *Context) membersBoundThrough(owner *Instance, path string) []string {
+	var names []string
+	for _, typ := range owner.types() {
+		for _, binding := range ctx.objectBindings(typ) {
+			for _, end := range binding.Ends {
+				if name, ok := strings.CutPrefix(end.Path, path+"."); ok && !strings.Contains(name, ".") {
+					names = append(names, name)
+				}
+			}
+		}
+	}
+	return names
 }
 
 // boundFrameMember finds the Kernel frame member name of the first of types
