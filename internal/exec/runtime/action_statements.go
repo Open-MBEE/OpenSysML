@@ -166,9 +166,16 @@ func (h *actionStmtHost) statementOrder(stmts []lower.Statement) *lower.Statemen
 }
 
 func (h *actionStmtHost) statementFootprint(stmts []lower.Statement, i int) lower.Footprint {
-	fp := h.exec.statementOrder(h.graph, h.node, stmts).Footprint(i)
+	order := h.exec.statementOrder(h.graph, h.node, stmts)
+	fp := order.Footprint(i)
 	if h.perf == nil || h.perf.node == nil {
 		return fp
+	}
+	// The stamped footprint depends only on the statement and the performed
+	// node, so each performance of a node computes it once, not per execution.
+	key := stampedFootprint{order: order, i: i, node: h.perf.node}
+	if stamped, done := h.exec.stamped[key]; done {
+		return stamped
 	}
 	// The node's own features are this performance's places, as its pins are;
 	// another node's pin the body reads stays that node's.
@@ -177,15 +184,30 @@ func (h *actionStmtHost) statementFootprint(stmts []lower.Statement, i int) lowe
 		own[f.Node] = true
 	}
 	fp.Reads, fp.Writes = placesOf(fp.Reads, h.perf.node, own), placesOf(fp.Writes, h.perf.node, own)
+	if h.exec.stamped == nil {
+		h.exec.stamped = make(map[stampedFootprint]lower.Footprint)
+	}
+	h.exec.stamped[key] = fp
 	return fp
 }
 
+// stampedFootprint keys a statement's footprint stamped for one performed node.
+type stampedFootprint struct {
+	order *lower.StatementOrder
+	i     int
+	node  ast.Node
+}
+
 // placesOf is the places with those declared by node's own features, the
-// declarations in own, stamped as node's.
+// declarations in own, stamped as node's; the places themselves when none is.
 func placesOf(places []lower.Place, node ast.Node, own map[ast.Node]bool) []lower.Place {
+	stamps := func(p lower.Place) bool { return p.Node == nil && p.Sym != nil && own[p.Sym.Decl] }
+	if !slices.ContainsFunc(places, stamps) {
+		return places
+	}
 	out := slices.Clone(places)
 	for i := range out {
-		if out[i].Node == nil && out[i].Sym != nil && own[out[i].Sym.Decl] {
+		if stamps(out[i]) {
 			out[i].Node = node
 		}
 	}

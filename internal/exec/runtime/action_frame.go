@@ -37,6 +37,9 @@ type performances struct {
 	flow *ActionExecutor
 	// orders caches lower.BodyStatementOrder by the statement list's first element.
 	orders map[*lower.Statement]*lower.StatementOrder
+	// stamped caches a statement's footprint with a performance's own places
+	// stamped as its (see actionStmtHost.statementFootprint), per performance node.
+	stamped map[stampedFootprint]lower.Footprint
 }
 
 // statementOrder is lower.BodyStatementOrder of stmts, statements of node in graph.
