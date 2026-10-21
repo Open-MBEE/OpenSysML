@@ -171,14 +171,19 @@ test("a routing change during a pan is applied where the pan left the canvas whe
   assert.equal(diagram.scrollLeft, 40, "the redraw keeps the canvas where the pan left it");
 });
 
-test("a cancelled drag comes back at the viewport it began at, not where its preview clamped the scroll", async () => {
+test("a drag's preview keeps the canvas the drag began on, so the scroll is not clamped under it", async () => {
   post({ type: "render", result: statedDiagonal(), selected: "M::V", drawn: 7, style: "theme", routing: "model" });
   await settled();
-  const before = diagram.scrollLeft;
-  pointer("pointerdown", nodeElement("a"), { clientX: 50, clientY: 20 });
-  pointer("pointermove", diagram, { clientX: 60, clientY: 30 });
-  // A narrower preview would clamp the offset; jsdom lays nothing out, so it is clamped by hand.
-  diagram.scrollLeft = before + 7;
+  const canvas = (): string[] => {
+    const svg = diagram.querySelector("svg")!;
+    return ["viewBox", "width", "height"].map((name) => svg.getAttribute(name)!);
+  };
+  const before = canvas();
+  pointer("pointerdown", nodeElement("b"), { clientX: 450, clientY: 220 });
+  pointer("pointermove", diagram, { clientX: 250, clientY: 120 });
+  assert.ok(diagram.classList.contains("dragging"), "the preview is on screen");
+  assert.notEqual(diagram.querySelector("svg")!.innerHTML, "", "and drawn");
+  assert.deepEqual(canvas(), before, "the preview is drawn on the canvas the drag began on");
   window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" }));
-  assert.equal(diagram.scrollLeft, before, "the layout put back is scrolled as it was before the drag");
+  assert.deepEqual(canvas(), before, "as is the layout put back");
 });
