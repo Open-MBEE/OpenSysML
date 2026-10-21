@@ -102,7 +102,7 @@ named, not fixed.** Confirmed by the interleaved quiet-machine re-run
   expensive. Keeping what an import brings for the life of the resolver
   (a memo per namespace and member selection, journaled like the
   collisions memo) is the follow-up fix, branch
-  `perf/memoize-namespace-children`, which was not measured for this
+  `perf/memoize-namespace-children` (#1358), which was not measured for this
   record; **until it lands this is the one confirmed regression 0.11.0
   ships**. `ReferencesWarm`,
   `WorkspaceUpdate`, `FormatEdits` and `SpanToRangeLarge` are unchanged
@@ -607,7 +607,7 @@ deterministic: the machine moves time, not allocations.
 
 - **The language server's per-query cost after #1348.** The ~1 GiB the
   two cold rows still allocate is the per-query re-enumeration named in
-  the summary; its fix (`perf/memoize-namespace-children`) follows this
+  the summary; its fix (`perf/memoize-namespace-children`, #1358) follows this
   record and is not measured here.
 - **The executor fixes.** `perf/stamp-statement-footprint-once` (#1355)
   and `perf/take-transition-without-closures` (#1356) were written after
