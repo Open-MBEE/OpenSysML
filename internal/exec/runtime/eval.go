@@ -1667,9 +1667,8 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	return ec.chainObjectMember(value, parts, from)
 }
 
-// chainObjectMember continues a chain through a member of the object an instance
-// or selected variant value materialized: a reference value, shaped array or
-// clock answers from what it is, then the feature value or variant named.
+// chainObjectMember continues a chain through a member of the object an instance or
+// selected variant materialized: what the object is answers first, then its features.
 func (ec *EvalContext) chainObjectMember(value Value, parts []ast.NameSegment, from string) (Value, error) {
 	name, rest := parts[0].Text, parts[1:]
 	// A selected variant is chained through the object it materialized.
@@ -1732,10 +1731,8 @@ func (ec *EvalContext) chainObjectMember(value Value, parts []ast.NameSegment, f
 	return ec.chainFeatureValue(inst, name, rest, from)
 }
 
-// chainThroughStructured continues a chain through an array, vector, quantity,
-// measurement reference or frame value. An array or vector read from an object
-// keeps that object's members; a frame answers its own features from the value,
-// then from its object.
+// chainThroughStructured continues a chain through an array, vector, quantity or frame
+// value: its own features answer from the value, the rest from the object it was read from.
 func (ec *EvalContext) chainThroughStructured(value Value, parts []ast.NameSegment, from string) (Value, error) {
 	inst, ok := ec.ctx.structuredObject(value)
 	if !ok || !(isStructuredValue(&value) || value.Kind == ValQuantity) {
@@ -1752,9 +1749,8 @@ func (ec *EvalContext) chainThroughStructured(value Value, parts []ast.NameSegme
 	return ec.chainMemberValue(next, segments, label)
 }
 
-// chainUnheldMember continues a chain through a member the object holds no feature
-// value for: a calc usage's run, a Kernel collection derived on demand, a default
-// the holder governs, or a Kernel member.
+// chainUnheldMember continues a chain through a member no feature value holds: a calc
+// usage's run, a derived Kernel collection, a holder-governed default or a Kernel member.
 func (ec *EvalContext) chainUnheldMember(inst *Instance, name string, rest []ast.NameSegment, from string) (Value, error) {
 	// A calc usage is an evaluation rather than a feature value, so its outputs are
 	// read from a run of it against this object.
