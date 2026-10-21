@@ -197,8 +197,7 @@ func (r *Resolver) topCapture() *readCapture {
 }
 
 // capturing runs compute with a fresh capture on the stack and returns it
-// settled; an enclosing capture takes it as a child, its computation made the
-// same reads.
+// settled; an enclosing capture, whose computation made the same reads, adopts it.
 func (r *Resolver) capturing(compute func()) *readCapture {
 	c := &readCapture{}
 	r.captures = append(r.captures, c)
