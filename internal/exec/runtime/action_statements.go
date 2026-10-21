@@ -173,9 +173,10 @@ func (h *actionStmtHost) statementFootprint(stmts []lower.Statement, i int) lowe
 	}
 	// The stamped footprint depends only on the statement and the performed
 	// node, so each performance of a node computes it once, not per execution.
-	key := stampedFootprint{order: order, i: i, node: h.perf.node}
+	list, keyed := statementListKey(h.node, stmts)
+	key := stampedFootprint{list: list, i: i, node: h.perf.node}
 	model := h.exec.ctx.model
-	if stamped, done := model.stamped[key]; done {
+	if stamped, done := model.stamped[key]; done && keyed {
 		return stamped
 	}
 	// The node's own features are this performance's places, as its pins are;
@@ -185,6 +186,9 @@ func (h *actionStmtHost) statementFootprint(stmts []lower.Statement, i int) lowe
 		own[f.Node] = true
 	}
 	fp.Reads, fp.Writes = placesOf(fp.Reads, h.perf.node, own), placesOf(fp.Writes, h.perf.node, own)
+	if !keyed {
+		return fp
+	}
 	if model.stamped == nil {
 		model.stamped = make(map[stampedFootprint]lower.Footprint)
 	}

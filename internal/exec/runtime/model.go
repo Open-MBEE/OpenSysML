@@ -385,25 +385,31 @@ type footprintKey struct {
 }
 
 // orderKey names a statement list by the node whose body or block it is, its first
-// statement's syntax and its length: one list per model has those.
+// statement's syntax and its length: one list per model has those. A list whose
+// first statement has no syntax (keyed returns false) is not memoized.
 type orderKey struct {
 	node, first ast.Node
 	n           int
 }
 
+func statementListKey(node ast.Node, stmts []lower.Statement) (key orderKey, keyed bool) {
+	key = orderKey{node: node, first: lower.StatementNode(stmts[0]), n: len(stmts)}
+	return key, key.first != nil
+}
+
 // stampedFootprint keys a statement's footprint stamped for one performed node.
 type stampedFootprint struct {
-	order *lower.StatementOrder
-	i     int
-	node  ast.Node
+	list orderKey
+	i    int
+	node ast.Node
 }
 
 // statementOrder is lower.BodyStatementOrder of stmts, statements of node's body in
 // graph or of a block within it, computed once per model; graph may be nil for a
 // body lowered without one, whose statements resolve in scope.
 func (m *Model) statementOrder(graph *lower.ActionGraph, scope *symbols.Scope, node ast.Node, stmts []lower.Statement) *lower.StatementOrder {
-	key := orderKey{node: node, first: lower.StatementNode(stmts[0]), n: len(stmts)}
-	if order, known := m.orders[key]; known && key.first != nil {
+	key, keyed := statementListKey(node, stmts)
+	if order, known := m.orders[key]; known && keyed {
 		return order
 	}
 	var order *lower.StatementOrder
@@ -416,7 +422,7 @@ func (m *Model) statementOrder(graph *lower.ActionGraph, scope *symbols.Scope, n
 		}
 		order = lower.BodyStatementOrder(graph, node, stmts)
 	}
-	if key.first != nil {
+	if keyed {
 		if m.orders == nil {
 			m.orders = map[orderKey]*lower.StatementOrder{}
 		}

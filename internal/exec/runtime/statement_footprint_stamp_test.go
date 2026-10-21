@@ -160,3 +160,43 @@ func TestStateEntryOrderIsComputedOncePerModel(t *testing.T) {
 		t.Errorf("one more event allocates %.2f objects, want at most %v", got, bound)
 	}
 }
+
+// Running an action again adds nothing to the model's order and stamped-footprint
+// memos, an asserted constraint (a body of one Assert statement) included.
+func TestRunningAnActionAgainGrowsNoStatementMemo(t *testing.T) {
+	src := `package T {
+		private import ScalarValues::*;
+		action run {
+			attribute total : Integer = 0;
+			first start;
+			action step {
+				assert constraint { total >= 0 }
+				assign total := total + 1;
+			}
+			done;
+			succession first start then step;
+			succession first step then done;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "run", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action run not found")
+	}
+	var orders, stamped int
+	for run := 1; run <= 3; run++ {
+		if _, err := ctx.ExecuteAction(sym); err != nil {
+			t.Fatal(err)
+		}
+		if run == 1 {
+			orders, stamped = len(ctx.model.orders), len(ctx.model.stamped)
+			if stamped == 0 {
+				t.Fatal("the assignment's footprint was not stamped")
+			}
+			continue
+		}
+		if len(ctx.model.orders) != orders || len(ctx.model.stamped) != stamped {
+			t.Fatalf("run %d grew the memos: %d orders (was %d), %d stamped (was %d)", run, len(ctx.model.orders), orders, len(ctx.model.stamped), stamped)
+		}
+	}
+}
