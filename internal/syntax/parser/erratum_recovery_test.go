@@ -179,3 +179,39 @@ func TestParameterListRecoveryKeepsTheNextMember(t *testing.T) {
 		})
 	}
 }
+
+// An unclosed list ends at its terminator even when a later declaration
+// carries its own balanced list: that list closes its own `(`, not ours.
+func TestUnclosedParameterListStopsAtItsTerminator(t *testing.T) {
+	for _, tc := range []struct{ name, code string }{
+		{"bodiless.kerml", "package P { behavior B(x; behavior C(y); feature after; }"},
+		{"bodied.kerml", "package P { behavior B(x; behavior C(y) { feature inside; } feature after; }"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := New(source.New(tc.name, []byte(tc.code)))
+			file := p.ParseFile()
+			if len(p.Diagnostics) != 2 {
+				for _, d := range p.Diagnostics {
+					t.Errorf("offset %d: %s", d.Span.Offset, d.Message)
+				}
+				t.Fatalf("got %d diagnostics, want one per parameter list", len(p.Diagnostics))
+			}
+			for _, d := range p.Diagnostics {
+				if !strings.HasPrefix(d.Message, "a declaration takes no parenthesised parameter list") {
+					t.Errorf("offset %d: %s", d.Span.Offset, d.Message)
+				}
+			}
+			pkg := file.Members[0].(*ast.Membership).Member.(*ast.Package)
+			if len(pkg.Members) != 3 {
+				t.Fatalf("package has %d members, want B, C and the feature after them", len(pkg.Members))
+			}
+			c := pkg.Members[1].(*ast.Membership).Member.(*ast.Usage)
+			if got := c.Ident.Name; got != "C" {
+				t.Errorf("second member is %q, want behavior C", got)
+			}
+			if strings.Contains(tc.code, ") {") && len(c.Members) == 0 {
+				t.Errorf("behavior C lost its body")
+			}
+		})
+	}
+}
