@@ -1,0 +1,2 @@
+- The VS Code diagram panel applies a change of `opensysml.diagram.routing` made while a drag is in progress once the drag settles — a drag's preview and a pan's scroll position stay as they were until then — instead of keeping the routes it started on until a later render.
+- A drag's preview in the VS Code diagram panel is drawn on the canvas the drag began on, so a preview that draws less no longer clamps the scroll offsets, and a cancelled drag comes back where it was.

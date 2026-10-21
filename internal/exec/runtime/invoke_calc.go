@@ -22,6 +22,9 @@ type calcParameter struct {
 	Decl    calcMemberDecl  // the declaration, closest to the invoked calc, a bound value answers to
 	// IsSubject marks a case's subject parameter, the object the case is about.
 	IsSubject bool
+	// IsActor marks an actor parameter (SysML v2 §7.19.2, §7.24.2): bound by name
+	// like the subject, never by position, and left unvalued when nothing binds it.
+	IsActor bool
 	// IsCalc marks a calc usage parameter (`in calc f`), which a function value binds.
 	IsCalc bool
 }
@@ -408,13 +411,14 @@ func (ctx *Context) calcParameters(chain []*symbols.Symbol, aliases *map[string]
 			if name == "" {
 				continue
 			}
-			if usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut {
+			actor := usage.Kind == ast.UsageActor
+			if !actor && usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut {
 				continue
 			}
 			sym := memberSymbol(DeclScope(link), usage)
 			param := calcParameter{
 				Name: name, Default: usage.Value, Owner: link,
-				Sym:  sym,
+				Sym: sym, IsActor: actor,
 				Decl: ctx.calcMemberDeclOf(link, sym, name), IsCalc: isCalcUsageSymbol(sym),
 			}
 			if at, seen := ctx.redeclaredIndex(index, sym, name); seen {
@@ -438,12 +442,18 @@ func (ctx *Context) calcParameters(chain []*symbols.Symbol, aliases *map[string]
 }
 
 // redeclaredIndex finds the flattened member the member sym, named name,
-// redeclares: the one of its own name, else one it redefines (`in y :>> x`).
+// redeclares: the one of its own name, one it redefines (`in y :>> x`), else
+// the one its role redefines by position (an actor over the general's actor).
 func (ctx *Context) redeclaredIndex(index map[string]int, sym *symbols.Symbol, name string) (int, bool) {
 	if at, seen := index[name]; seen {
 		return at, true
 	}
 	for _, redefined := range ctx.model.semantics.RedefinedFeatures(sym) {
+		if at, seen := index[redefined.Name]; seen {
+			return at, true
+		}
+	}
+	for _, redefined := range ctx.model.semantics.ImplicitRoleRedefinitions(sym) {
 		if at, seen := index[redefined.Name]; seen {
 			return at, true
 		}
@@ -902,6 +912,12 @@ func (ctx *Context) bindCalcParameters(
 ) error {
 	for i := range shape.Params {
 		param := &shape.Params[i]
+		if param.IsActor && param.Default == nil {
+			// An actor nothing binds is a feature without a value, not a missing argument.
+			if _, supplied := args.named[param.Name]; !supplied {
+				continue
+			}
+		}
 		defaultScope := ctx.calcScope(param.Owner, shape.Sym, callerScope)
 		binder := ec
 		if nested != nil && param.Owner == shape.Sym {
@@ -917,7 +933,9 @@ func (ctx *Context) bindCalcParameters(
 			return fmt.Sprintf("%s: %s for parameter %q", shape.Label, source, param.Name)
 		}
 		decl := param.Decl
-		if decl.Target != nil && param.Sym != nil {
+		// An actor states no direction, so the parameter chain does not reach what it
+		// redefines; its range is the one the shape folded along the redeclarations.
+		if decl.Target != nil && param.Sym != nil && !param.IsActor {
 			target := *decl.Target
 			target.mult = ctx.model.semantics.EffectiveParameterRange(param.Sym)
 			decl.Target = &target
@@ -1116,12 +1134,17 @@ func (param *calcParameter) declaredOptional() bool {
 
 // hasParameter reports whether the calc declares an input parameter of that name.
 func (shape *calcShape) hasParameter(name string) bool {
-	for _, param := range shape.Params {
-		if param.Name == name {
-			return true
+	return shape.parameter(name) != nil
+}
+
+// parameter is the calc's parameter of that name, nil when it declares none.
+func (shape *calcShape) parameter(name string) *calcParameter {
+	for i := range shape.Params {
+		if shape.Params[i].Name == name {
+			return &shape.Params[i]
 		}
 	}
-	return false
+	return nil
 }
 
 // performs reports whether the body's action nodes are performed as steps: a case

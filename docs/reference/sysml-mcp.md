@@ -8,7 +8,8 @@ rendering over the documents under the workspace root; the runtime's one-shot pa
 evaluation, instantiation, execution, verification, querying and conversion; and named REPL
 sessions whose declarations, instances and runs persist across calls. The protocol is spoken over
 stdin and stdout, so the host starts the server itself; nothing is typed at it, and it has no
-port.
+port — unless `-http` names one, when a single long-lived server serves every agent that connects
+over the Streamable HTTP transport ([Transports](#transports)).
 
 The documents under the root (`-root`, the current directory by default, which a host sets to
 the project) are managed as one workspace, so a declaration in one resolves against the others,
@@ -357,6 +358,59 @@ without this page.
   host starts the server with; a run that exhausts one is reported as a runaway, with the budget
   named.
 
+## Transports
+
+Without `-http` the protocol is spoken over **stdin and stdout**: the host starts the server,
+which serves that one client and exits when the stream closes. Nothing but protocol messages is
+written to stdout; logs go to stderr.
+
+With `-http ADDR` the server is started once and speaks the **Streamable HTTP** transport at the
+path `/mcp` of that address to every client that connects — remote agents, or several agents over
+one project — until it is told to stop with SIGINT or SIGTERM. Stopping closes the clients'
+sessions, so their event streams end, and gives the connections up to 30 seconds to drain. The
+clients share one workspace, one runtime cache and one set of REPL sessions: a `session_*` name one
+client opens is the session every other client sees under that name, and `session_list` lists them
+all. A session's calls are served in turn, so two agents using one session interleave rather than
+collide; agents that want sessions of their own give them different names.
+
+```bash
+sysml-mcp -http 8765                                              # http://localhost:8765/mcp, this machine only
+sysml-mcp -http 0.0.0.0:8765 -allow-origin https://agents.example.org
+sysml-mcp -http 0.0.0.0:8765 -tls-cert server.crt -tls-key server.key
+```
+
+The stance is the one [`sysml-grpc`](service-transports.md) takes, and the two are kept the same:
+
+- **No authentication.** Every client that reaches the address may read and edit the workspace.
+  A port alone, or an address with no host, binds loopback, which only this machine reaches;
+  binding any other address (`0.0.0.0:8765`, a host name) is logged as a warning, and is for a
+  trusted network or behind a proxy that authenticates — a proxy terminates TLS as well as
+  authenticating, and then the server stays on loopback behind it.
+- **TLS.** `-tls-cert FILE` and `-tls-key FILE`, both given, serve `https` (TLS 1.2 or later);
+  one without the other, or a pair that does not load, is a usage error (exit status 2) before
+  anything is served. Cleartext is appropriate only on loopback, inside a trusted network or
+  behind a TLS-terminating proxy.
+- **Origins.** A browser page reaches a server on this machine only through the `Origin` header
+  the browser sets, and a page on another site can be pointed at a DNS name rebound to this
+  machine, so the server answers a request when its `Origin` header is **absent** (a
+  non-browser client), names a **loopback origin** (`localhost`, `127.0.0.0/8` or `::1`, over any
+  scheme and port) or names an origin **listed in `-allow-origin`** exactly
+  (`scheme://host[:port]`, comma-separated, compared case-insensitively on scheme and host); any
+  other origin is refused with 403. The wildcard origin is not accepted: name each one. Only a
+  listed origin is granted cross-origin access — the `Access-Control-Allow-Origin` header on its
+  responses and an answer to its browser's preflight — so a page served from another port of this
+  machine passes the check yet is still refused by its browser unless it is listed: a loopback
+  origin is admitted so that it is not mistaken for rebinding, not so that every local page may
+  edit the workspace. This is not authentication — it keeps browsers from being used as the way
+  in.
+- **Protocol version.** A request whose `MCP-Protocol-Version` header names a version the server
+  does not speak is refused with 400, as the protocol requires; a request with no header is read
+  as the version negotiated at `initialize`. The SDK's check that a loopback server is addressed
+  as loopback (the `Host` header) stays on as well.
+
+`-print-config HOST -http ADDR` writes the host's block in its URL form, so the host connects to a
+server already running rather than starting one ([Configuring a host](#configuring-a-host)).
+
 ## Command line
 
 | Flag | Default | Meaning |
@@ -367,14 +421,17 @@ without this page.
 | `-no-record-cache` | off | Parse every document and hold it loaded, reading and writing no interface record (also `OPENSYSML_RECORD_CACHE=0`) |
 | `-cache-size N` | `100` | Parsed models the runtime tools hold, at least 1 |
 | `-log-level LEVEL` | `warn` | Lowest level logged to stderr: `debug`, `info`, `warn` or `error` |
-| `-stdio` | — | Serve over stdin/stdout; the only transport, accepted for hosts that name it |
+| `-stdio` | — | Serve over stdin/stdout; the default transport, accepted for hosts that name it; not with `-http` |
+| `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace, runtime cache and REPL sessions |
+| `-allow-origin ORIGINS` | — | Origins (`scheme://host[:port]`, comma-separated) granted cross-origin access; loopback origins and requests with no `Origin` are admitted without a grant, others are refused |
+| `-tls-cert FILE`, `-tls-key FILE` | — | Serve `https`; both or neither |
 | `-print-config [HOST]` | — | Write a host's configuration block to stdout and exit; alone, list the hosts |
-| `-print-config-command CMD` | the binary's path | The command the block names |
+| `-print-config-command CMD` | the binary's path | The command the block names; with `-http ADDR` (and `-tls-cert` for `https`) the block names the server's URL instead |
 | `-version`, `-help`, `-man` | — | The build, this table, the manual page |
 
 The exit status is 0 when the protocol was served to its end (the client closed the stream or the
-process was told to stop), 1 when the server could not start or the session ended in a protocol
-error, and 2 when the command line could not be acted on. `man sysml-mcp` has the same content
+process was told to stop), 1 when the server could not start (the `-http` address in use, say) or
+the session ended in a protocol error, and 2 when the command line could not be acted on. `man sysml-mcp` has the same content
 once the manual page from the archive is installed.
 
 ## Troubleshooting
