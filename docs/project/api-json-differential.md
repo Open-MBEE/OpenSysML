@@ -166,7 +166,8 @@ metaclass when the two sides disagree on the metaclass (`typeMismatch`).
   exactly one present-different), each with one example naming the element.
 - **Provenance.** The baseline's `provenance` block names both sides of the comparison: the pilot
   pin (`pilotTag`, `pilotCommit`, `pilotArtifact`), the errata-registry digest, one `tools` entry
-  per side and every root's file digest. `pilot-json-exporter` digests the bridge source
+  per side, every root's file digest and, as the `opensysml-libraries` input, the digest of the
+  library directory the bridge reads beside the standard library. `pilot-json-exporter` digests the bridge source
   `scripts/pilot-json-exporter/ExportJSON.java` against the pinned release; `api-json-writer`
   digests this repository's writer, `internal/translate/export`: its non-test `.go` files, sorted by
   file name, each hashed by name and content, so the digest is the same on any machine and in any
