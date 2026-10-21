@@ -17,6 +17,8 @@ import {
   ROUTINGS,
   routingOf,
   SHOW_SETTING,
+  hiddenRelationsOf,
+  RELATION_KINDS,
   shownOf,
   STYLE_LABELS,
   STYLES,
@@ -85,4 +87,13 @@ test("the openIn setting is beside the source or a new window, and beside for an
   for (const value of [undefined, "", "floating", "newwindow", true]) {
     assert.equal(openInOf(value), "beside");
   }
+});
+
+test("hiddenRelationsOf reads the kinds listed, each once, and nothing from anything else", () => {
+  assert.deepEqual(hiddenRelationsOf(["typing", "flow", "typing"]), ["typing", "flow"]);
+  assert.deepEqual(hiddenRelationsOf("typing"), []);
+  assert.deepEqual(hiddenRelationsOf([3, "", "binding"]), ["binding"]);
+  // Every kind the view model names is offered by the setting.
+  assert.equal(new Set(RELATION_KINDS).size, RELATION_KINDS.length);
+  assert.ok(RELATION_KINDS.includes("specialization") && RELATION_KINDS.includes("anchor"));
 });

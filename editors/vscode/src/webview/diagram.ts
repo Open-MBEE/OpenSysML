@@ -17,7 +17,20 @@ import { loadAvoid, reportAvoidFailure } from "./avoid";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
 import { dragHint, Drop, dropOn } from "./drop";
 import { emptyElement, emptyMessage, nothingLaidOut } from "./empty";
+import { markSelection, neighbourhood, relatedByKind } from "./selection";
 import { tableOf } from "./table";
+import {
+  canvasSize,
+  type ClientPoint,
+  fitZoom,
+  readViewport,
+  sizeCanvas,
+  type Viewport,
+  wheelFactor,
+  ZOOM_STEP,
+  zoomAbout,
+  zoomLabel,
+} from "./viewport";
 import {
   CanvasLayout,
   insertedWaypoint,
@@ -27,6 +40,7 @@ import {
   movedWaypoint,
   nodeUnder,
   overridesOf,
+  type Overrides,
   Placements,
   removedWaypoint,
 } from "./layout";
@@ -51,10 +65,15 @@ const noticeList = document.getElementById("notice-list") as HTMLElement;
 const undrawable = document.getElementById("undrawable") as HTMLDetailsElement;
 const undrawableList = document.getElementById("undrawable-list") as HTMLElement;
 const menu = document.getElementById("menu") as HTMLUListElement;
+const zoomReadout = document.getElementById("zoom") as HTMLElement;
+const autoButton = document.getElementById("auto-layout") as HTMLButtonElement;
+const resetButton = document.getElementById("reset-layout") as HTMLButtonElement;
+const relations = document.getElementById("relations") as HTMLDetailsElement;
+const relationList = document.getElementById("relation-list") as HTMLElement;
 
 const state = JSON.parse(body.dataset.state ?? "{}") as { uri?: string; avoid?: string };
 const documentURI = state.uri ?? "";
-const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string; routing?: string };
+const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string; routing?: string; viewport?: unknown; hidden?: string[] };
 let selected = saved.view ?? "";
 // A rendering saved by an older extension is normalized like a fresh one, and
 // drawn in the look it was, or the default when it saved none.
@@ -62,10 +81,22 @@ let last: RenderResult | undefined = saved.last === undefined ? undefined : norm
 let style: DiagramStyle = styleOf(saved.style);
 let routing: Routing = routingOf(saved.routing);
 let selectedNode: string | undefined;
+/** How far the canvas is zoomed and where it is scrolled to; kept per panel across reloads. */
+let viewport: Viewport = readViewport(saved.viewport);
+/** The node selected by a click, whose neighbourhood is emphasised; undefined when nothing is. */
+let focused: string | undefined;
+/** How many applyViewport scrolls are still settling; while any is, the scroll listener leaves recording to them. */
+let settling = 0;
+/** The relationship kinds this panel hides, once its filter has been set; until then the workspace default applies. */
+let hiddenKinds: Set<string> | undefined = Array.isArray(saved.hidden) ? new Set(saved.hidden.filter((kind) => typeof kind === "string")) : undefined;
+/** The kinds the `hideRelations` setting hides, from the latest rendering. */
+let defaultHidden: string[] = [];
 /** The layout on screen, which gestures act on; undefined while a table or nothing is shown. */
 let layout: CanvasLayout | undefined;
 /** What ELK placed for the rendering on screen; undefined until it answers, and for kinds it does not lay out. */
 let auto: AutoLayout | undefined;
+/** ELK's layout of the rendering free of the model's placements, while the Auto layout command is in force. */
+let freeAuto: AutoLayout | undefined;
 let gesture: Gesture | undefined;
 // The router loaded mid-gesture, so the layout on screen predates it.
 let unrouted = false;
@@ -98,7 +129,7 @@ loadAvoid(state.avoid ?? "").then(
       return;
     }
     if (last && layout) {
-      layout = layoutCanvas(last, { routing }, auto);
+      layout = layoutCanvas(last, panelOverrides(), currentAuto());
       show(layout);
     }
   },
@@ -123,10 +154,53 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     hideMenu();
     cancelGesture();
+    select(undefined);
   } else if (event.key === "Shift" && !event.repeat) {
     drawDrag(true);
+  } else if (!event.ctrlKey && !event.metaKey && !event.altKey && !inControl(event.target)) {
+    // Bare +, - and 0 zoom the canvas; with a modifier they are the editor's own zoom.
+    switch (event.key) {
+      case "+":
+      case "=":
+        zoomBy(ZOOM_STEP);
+        break;
+      case "-":
+        zoomBy(1 / ZOOM_STEP);
+        break;
+      case "0":
+        resetZoom();
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
   }
 });
+// Ctrl+wheel, which a trackpad pinch arrives as, zooms about the pointer; a plain
+// wheel scrolls the canvas as any overflowing element.
+diagram.addEventListener("wheel", (event) => {
+  if (!(event.ctrlKey || event.metaKey) || !layout) {
+    return;
+  }
+  event.preventDefault();
+  const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * WHEEL_LINE_PX : event.deltaY;
+  setViewport(zoomAbout(scrolled(), wheelFactor(delta), clientPoint(event)));
+}, { passive: false });
+// Scrolling, by wheel or scrollbar, is where the viewport is; it is remembered so a reload comes back there.
+diagram.addEventListener("scroll", () => {
+  // The scroll applyViewport asked for is not news; what it settled on is read once the layout has.
+  if (settling > 0) {
+    return;
+  }
+  viewport = scrolled();
+  rememberSoon();
+});
+document.getElementById("zoom-in")?.addEventListener("click", () => zoomBy(ZOOM_STEP));
+document.getElementById("zoom-out")?.addEventListener("click", () => zoomBy(1 / ZOOM_STEP));
+document.getElementById("zoom-fit")?.addEventListener("click", () => fitCanvas());
+document.getElementById("zoom-reset")?.addEventListener("click", () => resetZoom());
+autoButton.addEventListener("click", () => autoLayoutPanel());
+resetButton.addEventListener("click", () => resetLayout());
 window.addEventListener("keyup", (event) => {
   if (event.key === "Shift") {
     drawDrag(false);
@@ -162,6 +236,7 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
       // The number names what is on screen; a drawing that failed left the last one up.
       applyStyle(message.style);
       applyRouting(message.routing);
+      defaultHidden = message.hideRelations ?? [];
       if (draw(message.result)) {
         drawn = message.drawn;
         if (message.hint !== undefined) {
@@ -180,7 +255,7 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
     case "routing":
       applyRouting(message.routing);
       if (last && layout && !gesture) {
-        layout = layoutCanvas(last, { routing }, auto);
+        layout = layoutCanvas(last, panelOverrides(), currentAuto());
         show(layout);
       }
       return;
@@ -277,6 +352,11 @@ let emptyReason: string | undefined;
 function draw(result: RenderResult): boolean {
   unrouted = false;
   cancelGesture();
+  freeAuto = undefined;
+  showLayoutMode();
+  if (focused !== undefined && !result.nodes?.some((node) => node.id === focused)) {
+    focused = undefined;
+  }
   try {
     // A rendering with nothing to draw says why, where the drawing would be and
     // in the status line, rather than drawing an empty canvas.
@@ -285,7 +365,7 @@ function draw(result: RenderResult): boolean {
       // Mermaid is the machine form a diagram is exported in; the panel draws
       // the same nodes and edges itself, so their geometry is its own to edit.
       auto = undefined;
-      layout = layoutCanvas(result, { routing });
+      layout = layoutCanvas(result, panelOverrides());
       if (empty || nothingLaidOut(layout)) {
         layout = undefined;
         diagram.replaceChildren(emptyElement(result));
@@ -313,7 +393,10 @@ function draw(result: RenderResult): boolean {
           return;
         }
         auto = laid;
-        layout = layoutCanvas(result, { routing }, auto);
+        if (freeAuto) {
+          return;
+        }
+        layout = layoutCanvas(result, panelOverrides(), auto);
         show(layout);
       });
     }
@@ -321,6 +404,7 @@ function draw(result: RenderResult): boolean {
     showNotices(result);
     // An open menu names nodes of the drawing just replaced.
     hideMenu();
+    showRelations(result);
     kindLabel.textContent = describe(result);
     return true;
   } catch (err) {
@@ -334,14 +418,262 @@ function draw(result: RenderResult): boolean {
 // show puts a layout on screen in place of what was there, the cursor's node marked.
 function show(shown: CanvasLayout): void {
   diagram.replaceChildren(drawCanvas(shown));
+  applyViewport();
   highlight(selectedNode);
+  applySelection();
+}
+
+// select makes a node the selection, or clears it, and shows the result.
+function select(id: string | undefined): void {
+  if (id === focused) {
+    return;
+  }
+  focused = id;
+  applySelection();
+}
+
+// applySelection marks the selection's neighbourhood on the canvas on screen.
+function applySelection(): void {
+  const svg = diagram.querySelector("svg");
+  if (!svg || !last) {
+    return;
+  }
+  markSelection(svg, focused === undefined ? undefined : neighbourhood(last, focused, hiddenSet()));
+  countRelations(last);
+}
+
+// hiddenSet is the relationship kinds hidden now: the panel's own filter, else the workspace default.
+function hiddenSet(): Set<string> {
+  return hiddenKinds ?? new Set(defaultHidden);
+}
+
+// panelOverrides is what the panel itself lays over every layout of the rendering.
+function panelOverrides(): Overrides {
+  return { hiddenKinds: hiddenSet(), unplaced: freeAuto !== undefined, routing };
+}
+
+// currentAuto is the ELK layout in force: the free one while Auto layout is, else the one held to the model.
+function currentAuto(): AutoLayout | undefined {
+  return freeAuto ?? auto;
+}
+
+// autoLayoutPanel lays the rendering on screen out afresh with ELK, the model's Layout and
+// Route annotations set aside for this panel until the next rendering or Reset to model.
+function autoLayoutPanel(): void {
+  const result = last;
+  if (!result || !layout || gesture) {
+    return;
+  }
+  showStatus("Laying out…");
+  void autoLayout(result, { free: true }).then((laid) => {
+    if (last !== result) {
+      return;
+    }
+    showStatus(laid ? "" : "Auto layout is not available for this diagram.");
+    if (!laid || !layout) {
+      return;
+    }
+    freeAuto = laid;
+    layout = layoutCanvas(result, panelOverrides(), laid);
+    show(layout);
+    showLayoutMode();
+  });
+}
+
+// resetLayout puts the model's layout back after Auto layout.
+function resetLayout(): void {
+  if (freeAuto === undefined) {
+    return;
+  }
+  freeAuto = undefined;
+  showLayoutMode();
+  if (last && layout) {
+    layout = layoutCanvas(last, panelOverrides(), auto);
+    show(layout);
+  }
+}
+
+// showLayoutMode offers Reset to model only while Auto layout is in force.
+function showLayoutMode(): void {
+  resetButton.hidden = freeAuto === undefined;
+  autoButton.disabled = freeAuto !== undefined;
+}
+
+// showRelations lists the relationship kinds the rendering draws, each with a box to
+// show or hide it; a rendering with no edges, or a table, offers no list.
+function showRelations(result: RenderResult): void {
+  const kinds = new Map<string, number>();
+  for (const edge of result.edges ?? []) {
+    kinds.set(edge.kind, (kinds.get(edge.kind) ?? 0) + 1);
+  }
+  relations.hidden = result.form !== "mermaid" || kinds.size === 0;
+  const hidden = hiddenSet();
+  relationList.replaceChildren(...[...kinds.keys()].sort().map((kind) => {
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = !hidden.has(kind);
+    box.dataset.kind = kind;
+    const count = document.createElement("span");
+    count.className = "count";
+    const label = document.createElement("label");
+    label.append(box, ` ${kind} `, count);
+    return label;
+  }));
+  countRelations(result);
+}
+
+// countRelations writes each kind's count after its name: how many edges, and how many at the selected node.
+function countRelations(result: RenderResult): void {
+  const related = focused === undefined ? undefined : relatedByKind(result, focused);
+  const total = new Map<string, number>();
+  for (const edge of result.edges ?? []) {
+    total.set(edge.kind, (total.get(edge.kind) ?? 0) + 1);
+  }
+  for (const box of relationList.querySelectorAll<HTMLInputElement>("input[data-kind]")) {
+    const kind = box.dataset.kind ?? "";
+    const count = box.parentElement?.querySelector(".count");
+    if (count) {
+      const at = related?.get(kind) ?? 0;
+      count.textContent = related === undefined ? String(total.get(kind) ?? 0) : `${at} of ${total.get(kind) ?? 0} related`;
+    }
+  }
+  relations.classList.toggle("filtered", [...hiddenSet()].some((kind) => total.has(kind)));
+}
+
+// A box toggled hides or shows its kind for this panel alone, and lays the rendering out again without it.
+relationList.addEventListener("change", (event) => {
+  const box = event.target as HTMLInputElement | null;
+  const kind = box?.dataset.kind;
+  if (!box || kind === undefined) {
+    return;
+  }
+  const hidden = new Set(hiddenSet());
+  if (box.checked) {
+    hidden.delete(kind);
+  } else {
+    hidden.add(kind);
+  }
+  hiddenKinds = hidden;
+  remember();
+  if (last && layout) {
+    layout = layoutCanvas(last, panelOverrides(), currentAuto());
+    show(layout);
+  }
+});
+// The list closes when the pointer goes elsewhere, as a menu does.
+window.addEventListener("click", (event) => {
+  if (!relations.contains(event.target as Node)) {
+    relations.open = false;
+  }
+});
+
+/** A pixel per line of a wheel that reports lines rather than pixels. */
+const WHEEL_LINE_PX = 16;
+
+// inControl is whether a key went to a toolbar control, whose own keys the canvas leaves alone.
+function inControl(target: EventTarget | null): boolean {
+  return target instanceof HTMLSelectElement || target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement || target instanceof HTMLButtonElement;
+}
+
+// clientPoint is where a pointer or wheel event is in the diagram's client area.
+function clientPoint(event: MouseEvent): ClientPoint {
+  const rect = diagram.getBoundingClientRect();
+  return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+}
+
+// applyViewport draws the canvas on screen at the viewport's zoom and scrolls to its offsets.
+function applyViewport(): void {
+  const svg = diagram.querySelector("svg");
+  if (!svg) {
+    return;
+  }
+  sizeCanvas(svg, viewport.zoom);
+  zoomReadout.textContent = zoomLabel(viewport.zoom);
+  const want = viewport;
+  settling++;
+  diagram.scrollLeft = want.scrollLeft;
+  diagram.scrollTop = want.scrollTop;
+  const stopped = { left: diagram.scrollLeft, top: diagram.scrollTop };
+  // The status line under the canvas may have no height yet and clamp the offset: ask again once
+  // the layout has settled, unless the user or a newer viewport has moved the container since.
+  requestAnimationFrame(() => {
+    if (viewport === want && diagram.scrollLeft === stopped.left && diagram.scrollTop === stopped.top) {
+      diagram.scrollLeft = want.scrollLeft;
+      diagram.scrollTop = want.scrollTop;
+    }
+    requestAnimationFrame(() => {
+      settling--;
+      if (settling === 0) {
+        viewport = scrolled();
+        rememberSoon();
+      }
+    });
+  });
+}
+
+// scrolled is the viewport at the container's own scroll offsets, which may be ahead of
+// what the scroll listener has recorded while an applied viewport settles.
+function scrolled(): Viewport {
+  return { ...viewport, scrollLeft: diagram.scrollLeft, scrollTop: diagram.scrollTop };
+}
+
+// setViewport moves the viewport and keeps it.
+function setViewport(next: Viewport): void {
+  viewport = next;
+  applyViewport();
+  rememberSoon();
+}
+
+// zoomBy zooms about the centre of what is on screen.
+function zoomBy(factor: number): void {
+  setViewport(zoomAbout(scrolled(), factor, { x: diagram.clientWidth / 2, y: diagram.clientHeight / 2 }));
+}
+
+// resetZoom shows the canvas at 1:1, keeping the centre of what is on screen in view.
+function resetZoom(): void {
+  zoomBy(1 / viewport.zoom);
+}
+
+// fitCanvas zooms so the whole canvas is in view, from its top-left corner.
+function fitCanvas(): void {
+  const svg = diagram.querySelector("svg");
+  const size = svg && canvasSize(svg);
+  if (!size) {
+    return;
+  }
+  setViewport({ zoom: fitZoom(size, { width: diagram.clientWidth, height: diagram.clientHeight }), scrollLeft: 0, scrollTop: 0 });
+}
+
+let rememberTimer: ReturnType<typeof setTimeout> | undefined;
+
+// rememberSoon keeps the state once a burst of scrolling or zooming has settled.
+function rememberSoon(): void {
+  if (rememberTimer !== undefined) {
+    clearTimeout(rememberTimer);
+  }
+  rememberTimer = setTimeout(() => {
+    rememberTimer = undefined;
+    remember();
+  }, 150);
 }
 
 /** A drag in progress: what was pressed, where, and what it has moved to so far. */
 type Gesture =
   | NodeGesture
+  | PanGesture
   | { kind: "waypoint"; edge: number; point: number; start: RenderPoint; pointer: number; placements?: Placements }
   | { kind: "segment"; edge: number; segment: number; start: RenderPoint; pointer: number; placements?: Placements };
+
+// A press on empty canvas pans the view once it moves past the drag threshold;
+// released where it was pressed, it is a click on nothing.
+interface PanGesture {
+  kind: "pan";
+  pointer: number;
+  from: ClientPoint;
+  scroll: { left: number; top: number };
+  moved: boolean;
+}
 
 // A node drag also tracks what a release would do: `at` is where the pointer holds the
 // node, `drop` the node under it while Shift is held.
@@ -386,10 +718,17 @@ function beginGesture(event: PointerEvent): void {
   } else {
     const node = nodeAt(event.target, last);
     if (!node) {
-      return;
+      gesture = {
+        kind: "pan",
+        pointer: event.pointerId,
+        from: clientPoint(event),
+        scroll: { left: diagram.scrollLeft, top: diagram.scrollTop },
+        moved: false,
+      };
+    } else {
+      const entry = layout.nodes.get(node.id);
+      gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, fixed: !entry || !movable(layout, entry) };
     }
-    const entry = layout.nodes.get(node.id);
-    gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, fixed: !entry || !movable(layout, entry) };
   }
   event.preventDefault();
   // Captured so the release is seen wherever the pointer goes, a fixed node's too;
@@ -406,6 +745,10 @@ function moveGesture(event: PointerEvent): void {
   if (gesture.kind === "node" && gesture.fixed) {
     return;
   }
+  if (gesture.kind === "pan") {
+    panTo(gesture, clientPoint(event));
+    return;
+  }
   const result = last;
   const at = canvasPoint(event);
   const dx = at.x - gesture.start.x;
@@ -415,7 +758,7 @@ function moveGesture(event: PointerEvent): void {
   }
   switch (gesture.kind) {
     case "node":
-      gesture.placements = movedNode(layout, gesture.id, dx, dy);
+      gesture.placements = movedNode(layout, gesture.id, dx, dy, freeAuto !== undefined);
       break;
     case "waypoint":
       gesture.placements = movedWaypoint(layout, gesture.edge, gesture.point, at);
@@ -433,7 +776,7 @@ function moveGesture(event: PointerEvent): void {
     drawDrag(event.shiftKey);
     return;
   }
-  showDragged(layoutCanvas(result, { ...overridesOf(gesture.placements), held: layout, routing }, auto));
+  showDragged(layoutCanvas(result, { ...panelOverrides(), ...overridesOf(gesture.placements), held: layout }, currentAuto()));
 }
 
 // showDragged puts the canvas a gesture has changed on screen. The pointer is captured by the
@@ -441,8 +784,10 @@ function moveGesture(event: PointerEvent): void {
 function showDragged(shown: CanvasLayout): SVGSVGElement {
   const svg = drawCanvas(shown);
   diagram.classList.add("dragging");
+  sizeCanvas(svg, viewport.zoom);
   diagram.replaceChildren(svg);
   highlight(selectedNode);
+  applySelection();
   return svg;
 }
 
@@ -457,7 +802,7 @@ function drawDrag(shift: boolean): void {
     const svg = showDragged(layout);
     liftNode(svg, layout, gesture.id, gesture.at.x - gesture.start.x, gesture.at.y - gesture.start.y);
   } else {
-    showDragged(layoutCanvas(last, { ...overridesOf(gesture.placements), held: layout, routing }, auto));
+    showDragged(layoutCanvas(last, { ...panelOverrides(), ...overridesOf(gesture.placements), held: layout }, currentAuto()));
   }
   previewDrop(shift);
 }
@@ -499,7 +844,15 @@ function endGesture(event: PointerEvent): void {
   }
   const done = gesture;
   gesture = undefined;
-  diagram.classList.remove("dragging", "refused");
+  diagram.classList.remove("dragging", "refused", "panning");
+  if (done.kind === "pan") {
+    if (done.moved) {
+      rememberSoon();
+    } else {
+      select(undefined);
+    }
+    return;
+  }
   if (done.placements) {
     clickedWaypoint = undefined;
     showStatus("");
@@ -515,6 +868,7 @@ function endGesture(event: PointerEvent): void {
   }
   if (done.kind === "node") {
     clickedWaypoint = undefined;
+    select(done.id);
     vscode.postMessage({ type: "reveal", id: done.id, drawn });
     return;
   }
@@ -535,9 +889,9 @@ function cancelGesture(): void {
   if (!gesture) {
     return;
   }
-  const moved = gesture.placements !== undefined;
+  const moved = gesture.kind !== "pan" && gesture.placements !== undefined;
   gesture = undefined;
-  diagram.classList.remove("dragging", "refused");
+  diagram.classList.remove("dragging", "refused", "panning");
   if (moved || unrouted) {
     settle();
   }
@@ -546,10 +900,23 @@ function cancelGesture(): void {
   }
 }
 
+// panTo scrolls the canvas by how far the pointer has come since the press, once past the drag threshold.
+function panTo(pan: PanGesture, at: ClientPoint): void {
+  const dx = at.x - pan.from.x;
+  const dy = at.y - pan.from.y;
+  if (!pan.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) {
+    return;
+  }
+  pan.moved = true;
+  diagram.classList.add("panning");
+  diagram.scrollLeft = pan.scroll.left - dx;
+  diagram.scrollTop = pan.scroll.top - dy;
+}
+
 // settle shows the model's layout after a gesture that made no edit, laid out again if the router loaded meanwhile.
 function settle(): void {
   if (unrouted && last && layout) {
-    layout = layoutCanvas(last, { routing }, auto);
+    layout = layoutCanvas(last, panelOverrides(), currentAuto());
   }
   unrouted = false;
   if (layout) {
@@ -733,5 +1100,5 @@ function highlight(id: string | undefined): void {
 
 // remember keeps what the panel is showing, so a window reload restores it.
 function remember(): void {
-  vscode.setState({ uri: documentURI, view: selected, last, style, routing });
+    vscode.setState({ uri: documentURI, view: selected, last, style, routing, viewport, hidden: hiddenKinds === undefined ? undefined : [...hiddenKinds] });
 }
