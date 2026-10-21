@@ -229,3 +229,33 @@ func TestReconcileRewritesOnlyWhatIsOutOfOrder(t *testing.T) {
 		t.Errorf("reconciling changed its input")
 	}
 }
+
+// ReorderObjects restates a property's objects in the order given, each
+// triple keeping its place, and leaves the graph as it was for any list that
+// is not a permutation of them.
+func TestReorderObjectsPermutesInPlace(t *testing.T) {
+	p := IRI(Element + "P")
+	owned := SysMLTerm("ownedRelationship")
+	a, b, c := IRI(Element+"P_a"), IRI(Element+"P_b"), IRI(Element+"P_c")
+	g := NewGraph()
+	g.Add(p, owned, a)
+	g.Add(p, SysMLTerm("declaredName"), String("P"))
+	g.Add(p, owned, b)
+	g.Add(p, owned, c)
+	g.ReorderObjects(p, SysML+"ownedRelationship", []Term{c, a, b})
+	if got := g.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{c, a, b}) {
+		t.Fatalf("Objects after ReorderObjects = %v", got)
+	}
+	if got := g.Triples()[1].Object; got != String("P") {
+		t.Errorf("the other triple moved: %v", got)
+	}
+	if !g.Has(Triple{Subject: p, Predicate: owned, Object: a}) || g.Len() != 4 {
+		t.Errorf("the graph lost or gained a triple: %d", g.Len())
+	}
+	for _, bad := range [][]Term{{a, b}, {a, b, b}, {a, b, IRI(Element + "P_d")}} {
+		g.ReorderObjects(p, SysML+"ownedRelationship", bad)
+		if got := g.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{c, a, b}) {
+			t.Errorf("ReorderObjects(%v) changed the graph: %v", bad, got)
+		}
+	}
+}

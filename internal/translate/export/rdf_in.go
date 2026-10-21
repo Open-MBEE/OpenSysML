@@ -4188,6 +4188,19 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 	mReferenceSubsetting:  {ast.RelReferences, ast.RelSubsets},
 }
 
+// headClauseTargets are the properties that state a relationship element's
+// target, by its metaclass, the specific end first: a graph that states no
+// derived `target` or `general` still names the end its own way.
+var headClauseTargets = map[string][]string{
+	mFeatureTyping:        {"type", pGeneral, pTarget},
+	mConjugatedPortTyping: {pPortDefinition},
+	mSubclassification:    {"superclassifier", pGeneral, pTarget},
+	mSpecialization:       {pGeneral, pTarget},
+	mSubsetting:           {pSubsettedFeature, pGeneral, pTarget},
+	mRedefinition:         {"redefinedFeature", pSubsettedFeature, pGeneral, pTarget},
+	mReferenceSubsetting:  {pReferencedFeature, pSubsettedFeature, pGeneral, pTarget},
+}
+
 // spelledHead reads the order el's head was spelled from what el owns in
 // ownedRelationship order: each relationship element as the clause of the
 // collapsed property whose target it relates, and the multiplicity range's
@@ -4209,24 +4222,26 @@ func (d *decoder) spelledHead(el *element) []headClause {
 			}
 			continue
 		}
-		target, ok := d.graph.Object(owned, rdf.SysML+pTarget)
-		if metaclass == mConjugatedPortTyping {
-			target, ok = d.graph.Object(owned, rdf.SysML+pPortDefinition)
+		var target rdf.Term
+		for _, property := range headClauseTargets[metaclass] {
+			if end, ok := d.graph.Object(owned, rdf.SysML+property); ok {
+				target = end
+				break
+			}
 		}
-		if !ok {
+		if target.Value == "" {
 			continue
 		}
+	kinds:
 		for _, kind := range headClauseKinds[metaclass] {
-			index := slices.IndexFunc(objects[kind], func(object rdf.Term) bool {
-				return object == target && !taken[headClause{kind: kind, index: slices.Index(objects[kind], object)}]
-			})
-			if index < 0 {
-				continue
+			for index, object := range objects[kind] {
+				clause := headClause{kind: kind, index: index}
+				if object == target && !taken[clause] {
+					taken[clause] = true
+					clauses = append(clauses, clause)
+					break kinds
+				}
 			}
-			clause := headClause{kind: kind, index: index}
-			taken[clause] = true
-			clauses = append(clauses, clause)
-			break
 		}
 	}
 	return clauses

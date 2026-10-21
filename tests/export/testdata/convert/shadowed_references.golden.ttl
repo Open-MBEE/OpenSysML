@@ -206,7 +206,7 @@ elmt:Shadowing__Thermal_20Packet
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Shadowing__Thermal_20Packet__packet_20data_20field, elmt:Shadowing__Thermal_20Packet__data_20field ;
     sysml:ownedMembership elmt:Shadowing__Thermal_20Packet__packet_20data_20field_om, elmt:Shadowing__Thermal_20Packet__data_20field_om ;
-    sysml:ownedRelationship elmt:Shadowing__Thermal_20Packet__packet_20data_20field_om, elmt:Shadowing__Thermal_20Packet__data_20field_om, elmt:Shadowing__Thermal_20Packet_sc0 ;
+    sysml:ownedRelationship elmt:Shadowing__Thermal_20Packet_sc0, elmt:Shadowing__Thermal_20Packet__packet_20data_20field_om, elmt:Shadowing__Thermal_20Packet__data_20field_om ;
     sysml:ownedFeature elmt:Shadowing__Thermal_20Packet__packet_20data_20field, elmt:Shadowing__Thermal_20Packet__data_20field ;
     sysml:ownedFeatureMembership elmt:Shadowing__Thermal_20Packet__packet_20data_20field_om, elmt:Shadowing__Thermal_20Packet__data_20field_om ;
     sysml:ownedSubclassification elmt:Shadowing__Thermal_20Packet_sc0 ;
@@ -215,7 +215,7 @@ elmt:Shadowing__Thermal_20Packet
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"Shadowing__Thermal_20Packet__packet_20data_20field\"},{\"@id\":\"Shadowing__Thermal_20Packet__data_20field\"}]" ;
     json:ownedMembership "[{\"@id\":\"Shadowing__Thermal_20Packet__packet_20data_20field_om\"},{\"@id\":\"Shadowing__Thermal_20Packet__data_20field_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Shadowing__Thermal_20Packet__packet_20data_20field_om\"},{\"@id\":\"Shadowing__Thermal_20Packet__data_20field_om\"},{\"@id\":\"Shadowing__Thermal_20Packet_sc0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Thermal_20Packet_sc0\"},{\"@id\":\"Shadowing__Thermal_20Packet__packet_20data_20field_om\"},{\"@id\":\"Shadowing__Thermal_20Packet__data_20field_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Shadowing__Thermal_20Packet__packet_20data_20field\"},{\"@id\":\"Shadowing__Thermal_20Packet__data_20field\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Shadowing__Thermal_20Packet__packet_20data_20field_om\"},{\"@id\":\"Shadowing__Thermal_20Packet__data_20field_om\"}]" .
 
@@ -283,7 +283,7 @@ elmt:Shadowing__Thermal_20Packet__data_20field
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Shadowing__Thermal_20Packet__data_20field__data_20field ;
     sysml:ownedMembership elmt:Shadowing__Thermal_20Packet__data_20field__data_20field_om ;
-    sysml:ownedRelationship elmt:Shadowing__Thermal_20Packet__data_20field__data_20field_om, elmt:Shadowing__Thermal_20Packet__data_20field_rd0 ;
+    sysml:ownedRelationship elmt:Shadowing__Thermal_20Packet__data_20field_rd0, elmt:Shadowing__Thermal_20Packet__data_20field__data_20field_om ;
     sysml:ownedFeature elmt:Shadowing__Thermal_20Packet__data_20field__data_20field ;
     sysml:ownedFeatureMembership elmt:Shadowing__Thermal_20Packet__data_20field__data_20field_om ;
     sysml:ownedRedefinition elmt:Shadowing__Thermal_20Packet__data_20field_rd0 ;
@@ -291,7 +291,7 @@ elmt:Shadowing__Thermal_20Packet__data_20field
     sysml:ownedSpecialization elmt:Shadowing__Thermal_20Packet__data_20field_rd0 ;
     sysx:sourceText "        attribute 'data field' :>> Packet::'data field' {\n" ;
     sysx:sourceTail "        }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Shadowing__Thermal_20Packet__data_20field__data_20field_om\"},{\"@id\":\"Shadowing__Thermal_20Packet__data_20field_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Thermal_20Packet__data_20field_rd0\"},{\"@id\":\"Shadowing__Thermal_20Packet__data_20field__data_20field_om\"}]" .
 
 elmt:Shadowing__Thermal_20Packet__data_20field_om
     a sysml:FeatureMembership ;
@@ -819,14 +819,14 @@ elmt:Shadowing__Bus__budgeted
     sysx:declaredPrefix "assert" ;
     sysml:type elmt:Shadowing__Budget ;
     sysml:subject elmt:Shadowing__Bus__payload ;
-    sysml:ownedRelationship elmt:Shadowing__Bus__budgeted_subject_om, elmt:Shadowing__Bus__budgeted_ft0 ;
+    sysml:ownedRelationship elmt:Shadowing__Bus__budgeted_ft0, elmt:Shadowing__Bus__budgeted_subject_om ;
     sysml:ownedMember elmt:Shadowing__Bus__budgeted_subject ;
     sysml:ownedMembership elmt:Shadowing__Bus__budgeted_subject_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Shadowing__Bus__budgeted_ft0 ;
     sysml:ownedSpecialization elmt:Shadowing__Bus__budgeted_ft0 ;
     sysx:sourceText "        assert satisfy requirement budgeted : Shadowing::Budget by payload;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__budgeted_subject_om\"},{\"@id\":\"Shadowing__Bus__budgeted_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__budgeted_ft0\"},{\"@id\":\"Shadowing__Bus__budgeted_subject_om\"}]" .
 
 elmt:Shadowing__Bus__budgeted_om
     a sysml:FeatureMembership ;
@@ -991,7 +991,7 @@ elmt:Shadowing___408
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:subsets elmt:Shadowing__budget ;
     sysml:subject elmt:Shadowing__payload ;
-    sysml:ownedRelationship elmt:Shadowing___408_subject_om, elmt:Shadowing___408_rs ;
+    sysml:ownedRelationship elmt:Shadowing___408_rs, elmt:Shadowing___408_subject_om ;
     sysml:ownedMember elmt:Shadowing___408_subject ;
     sysml:ownedMembership elmt:Shadowing___408_subject_om ;
     sysx:endForm "satisfy" ;
@@ -1000,7 +1000,7 @@ elmt:Shadowing___408
     sysml:ownedSubsetting elmt:Shadowing___408_rs ;
     sysml:ownedSpecialization elmt:Shadowing___408_rs ;
     sysx:sourceText "    satisfy budget by payload;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Shadowing___408_subject_om\"},{\"@id\":\"Shadowing___408_rs\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Shadowing___408_rs\"},{\"@id\":\"Shadowing___408_subject_om\"}]" .
 
 elmt:Shadowing___408_om
     a sysml:OwningMembership ;
@@ -1207,14 +1207,14 @@ elmt:Shadowing__study
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Shadowing__study__vehicle ;
     sysml:ownedMembership elmt:Shadowing__study__vehicle_om ;
-    sysml:ownedRelationship elmt:Shadowing__study__vehicle_om, elmt:Shadowing__study_ft0 ;
+    sysml:ownedRelationship elmt:Shadowing__study_ft0, elmt:Shadowing__study__vehicle_om ;
     sysml:ownedFeature elmt:Shadowing__study__vehicle ;
     sysml:ownedFeatureMembership elmt:Shadowing__study__vehicle_om ;
     sysml:ownedTyping elmt:Shadowing__study_ft0 ;
     sysml:ownedSpecialization elmt:Shadowing__study_ft0 ;
     sysx:sourceText "    analysis study : Study {\n" ;
     sysx:sourceTail "    }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Shadowing__study__vehicle_om\"},{\"@id\":\"Shadowing__study_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Shadowing__study_ft0\"},{\"@id\":\"Shadowing__study__vehicle_om\"}]" .
 
 elmt:Shadowing__study_om
     a sysml:OwningMembership ;
@@ -1245,14 +1245,14 @@ elmt:Shadowing__study__vehicle
     sysml:subsets elmt:Shadowing__bus ;
     sysml:redefines elmt:Shadowing__Study__vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedSubsetting elmt:Shadowing__study__vehicle_ss0, elmt:Shadowing__study__vehicle_rd0 ;
-    sysml:ownedSpecialization elmt:Shadowing__study__vehicle_ss0, elmt:Shadowing__study__vehicle_rd0 ;
-    sysml:ownedRelationship elmt:Shadowing__study__vehicle_ss0, elmt:Shadowing__study__vehicle_rd0 ;
     sysml:ownedRedefinition elmt:Shadowing__study__vehicle_rd0 ;
+    sysml:ownedSubsetting elmt:Shadowing__study__vehicle_rd0, elmt:Shadowing__study__vehicle_ss0 ;
+    sysml:ownedSpecialization elmt:Shadowing__study__vehicle_rd0, elmt:Shadowing__study__vehicle_ss0 ;
+    sysml:ownedRelationship elmt:Shadowing__study__vehicle_rd0, elmt:Shadowing__study__vehicle_ss0 ;
     sysx:sourceText "        subject :>> vehicle :> bus;\n" ;
-    json:ownedSubsetting "[{\"@id\":\"Shadowing__study__vehicle_ss0\"},{\"@id\":\"Shadowing__study__vehicle_rd0\"}]" ;
-    json:ownedSpecialization "[{\"@id\":\"Shadowing__study__vehicle_ss0\"},{\"@id\":\"Shadowing__study__vehicle_rd0\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Shadowing__study__vehicle_ss0\"},{\"@id\":\"Shadowing__study__vehicle_rd0\"}]" .
+    json:ownedSubsetting "[{\"@id\":\"Shadowing__study__vehicle_rd0\"},{\"@id\":\"Shadowing__study__vehicle_ss0\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"Shadowing__study__vehicle_rd0\"},{\"@id\":\"Shadowing__study__vehicle_ss0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__study__vehicle_rd0\"},{\"@id\":\"Shadowing__study__vehicle_ss0\"}]" .
 
 elmt:Shadowing__study__vehicle_om
     a sysml:SubjectMembership ;
@@ -1287,14 +1287,14 @@ elmt:Shadowing__deeper
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Shadowing__deeper__load ;
     sysml:ownedMembership elmt:Shadowing__deeper__load_om ;
-    sysml:ownedRelationship elmt:Shadowing__deeper__load_om, elmt:Shadowing__deeper_ss0 ;
+    sysml:ownedRelationship elmt:Shadowing__deeper_ss0, elmt:Shadowing__deeper__load_om ;
     sysml:ownedFeature elmt:Shadowing__deeper__load ;
     sysml:ownedFeatureMembership elmt:Shadowing__deeper__load_om ;
     sysml:ownedSubsetting elmt:Shadowing__deeper_ss0 ;
     sysml:ownedSpecialization elmt:Shadowing__deeper_ss0 ;
     sysx:sourceText "    analysis deeper :> study {\n" ;
     sysx:sourceTail "    }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Shadowing__deeper__load_om\"},{\"@id\":\"Shadowing__deeper_ss0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Shadowing__deeper_ss0\"},{\"@id\":\"Shadowing__deeper__load_om\"}]" .
 
 elmt:Shadowing__deeper_om
     a sysml:OwningMembership ;
@@ -2252,21 +2252,6 @@ elmt:Shadowing__study_ft0
     sysml:relatedElement elmt:Shadowing__study, elmt:Shadowing__Study ;
     json:relatedElement "[{\"@id\":\"Shadowing__study\"},{\"@id\":\"Shadowing__Study\"}]" .
 
-elmt:Shadowing__study__vehicle_ss0
-    a sysml:Subsetting ;
-    sysml:elementId "Shadowing__study__vehicle_ss0" ;
-    sysml:subsettingFeature elmt:Shadowing__study__vehicle ;
-    sysml:owningFeature elmt:Shadowing__study__vehicle ;
-    sysml:specific elmt:Shadowing__study__vehicle ;
-    sysml:source elmt:Shadowing__study__vehicle ;
-    sysml:owningRelatedElement elmt:Shadowing__study__vehicle ;
-    sysml:subsettedFeature elmt:Shadowing__bus ;
-    sysml:general elmt:Shadowing__bus ;
-    sysml:target elmt:Shadowing__bus ;
-    sysml:owner elmt:Shadowing__study__vehicle ;
-    sysml:relatedElement elmt:Shadowing__study__vehicle, elmt:Shadowing__bus ;
-    json:relatedElement "[{\"@id\":\"Shadowing__study__vehicle\"},{\"@id\":\"Shadowing__bus\"}]" .
-
 elmt:Shadowing__study__vehicle_rd0
     a sysml:Redefinition ;
     sysml:elementId "Shadowing__study__vehicle_rd0" ;
@@ -2283,6 +2268,21 @@ elmt:Shadowing__study__vehicle_rd0
     sysml:owner elmt:Shadowing__study__vehicle ;
     sysml:relatedElement elmt:Shadowing__study__vehicle, elmt:Shadowing__Study__vehicle ;
     json:relatedElement "[{\"@id\":\"Shadowing__study__vehicle\"},{\"@id\":\"Shadowing__Study__vehicle\"}]" .
+
+elmt:Shadowing__study__vehicle_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "Shadowing__study__vehicle_ss0" ;
+    sysml:subsettingFeature elmt:Shadowing__study__vehicle ;
+    sysml:owningFeature elmt:Shadowing__study__vehicle ;
+    sysml:specific elmt:Shadowing__study__vehicle ;
+    sysml:source elmt:Shadowing__study__vehicle ;
+    sysml:owningRelatedElement elmt:Shadowing__study__vehicle ;
+    sysml:subsettedFeature elmt:Shadowing__bus ;
+    sysml:general elmt:Shadowing__bus ;
+    sysml:target elmt:Shadowing__bus ;
+    sysml:owner elmt:Shadowing__study__vehicle ;
+    sysml:relatedElement elmt:Shadowing__study__vehicle, elmt:Shadowing__bus ;
+    json:relatedElement "[{\"@id\":\"Shadowing__study__vehicle\"},{\"@id\":\"Shadowing__bus\"}]" .
 
 elmt:Shadowing__deeper_ss0
     a sysml:Subsetting ;

@@ -323,7 +323,7 @@ elmt:Annotated__car
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Annotated__car__range, elmt:Annotated__car___401, elmt:Annotated__car___402, elmt:Annotated__car__checked, elmt:Annotated__car___404 ;
     sysml:ownedMembership elmt:Annotated__car__range_om, elmt:Annotated__car___401_om, elmt:Annotated__car___402_om, elmt:Annotated__car__checked_om, elmt:Annotated__car___404_om ;
-    sysml:ownedRelationship elmt:Annotated__car__range_om, elmt:Annotated__car___401_om, elmt:Annotated__car___402_om, elmt:Annotated__car__checked_om, elmt:Annotated__car___404_om, elmt:Annotated__car_ft0 ;
+    sysml:ownedRelationship elmt:Annotated__car_ft0, elmt:Annotated__car__range_om, elmt:Annotated__car___401_om, elmt:Annotated__car___402_om, elmt:Annotated__car__checked_om, elmt:Annotated__car___404_om ;
     sysml:ownedFeature elmt:Annotated__car__range ;
     sysml:ownedFeatureMembership elmt:Annotated__car__range_om ;
     sysml:ownedTyping elmt:Annotated__car_ft0 ;
@@ -332,7 +332,7 @@ elmt:Annotated__car
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"Annotated__car__range\"},{\"@id\":\"Annotated__car___401\"},{\"@id\":\"Annotated__car___402\"},{\"@id\":\"Annotated__car__checked\"},{\"@id\":\"Annotated__car___404\"}]" ;
     json:ownedMembership "[{\"@id\":\"Annotated__car__range_om\"},{\"@id\":\"Annotated__car___401_om\"},{\"@id\":\"Annotated__car___402_om\"},{\"@id\":\"Annotated__car__checked_om\"},{\"@id\":\"Annotated__car___404_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car__range_om\"},{\"@id\":\"Annotated__car___401_om\"},{\"@id\":\"Annotated__car___402_om\"},{\"@id\":\"Annotated__car__checked_om\"},{\"@id\":\"Annotated__car___404_om\"},{\"@id\":\"Annotated__car_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated__car_ft0\"},{\"@id\":\"Annotated__car__range_om\"},{\"@id\":\"Annotated__car___401_om\"},{\"@id\":\"Annotated__car___402_om\"},{\"@id\":\"Annotated__car__checked_om\"},{\"@id\":\"Annotated__car___404_om\"}]" .
 
 elmt:Annotated__car_om
     a sysml:OwningMembership ;
@@ -361,13 +361,13 @@ elmt:Annotated__car__range
     sysml:declaredName "range" ;
     sysml:type "Real" ;
     sysml:value expr:Annotated__car__range_pvalue ;
-    sysml:ownedRelationship expr:Annotated__car__range_pvalue_om, elmt:Annotated__car__range_ft0 ;
+    sysml:ownedRelationship elmt:Annotated__car__range_ft0, expr:Annotated__car__range_pvalue_om ;
     sysml:ownedMembership expr:Annotated__car__range_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Annotated__car__range_ft0 ;
     sysml:ownedSpecialization elmt:Annotated__car__range_ft0 ;
     sysx:sourceText "        attribute range : Real = 500.0;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car__range_pvalue_om\"},{\"@id\":\"Annotated__car__range_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated__car__range_ft0\"},{\"@id\":\"Annotated__car__range_pvalue_om\"}]" .
 
 elmt:Annotated__car__range_om
     a sysml:FeatureMembership ;
@@ -458,13 +458,13 @@ elmt:Annotated__car___401__level
     sysml:redefines elmt:Annotated__Safety__level ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
     sysml:value expr:Annotated__car___401__level_pvalue ;
-    sysml:ownedRelationship expr:Annotated__car___401__level_pvalue_om, elmt:Annotated__car___401__level_rd0 ;
+    sysml:ownedRelationship elmt:Annotated__car___401__level_rd0, expr:Annotated__car___401__level_pvalue_om ;
     sysml:ownedMembership expr:Annotated__car___401__level_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:Annotated__car___401__level_rd0 ;
     sysml:ownedSubsetting elmt:Annotated__car___401__level_rd0 ;
     sysml:ownedSpecialization elmt:Annotated__car___401__level_rd0 ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car___401__level_pvalue_om\"},{\"@id\":\"Annotated__car___401__level_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated__car___401__level_rd0\"},{\"@id\":\"Annotated__car___401__level_pvalue_om\"}]" .
 
 elmt:Annotated__car___401__level_om
     a sysml:FeatureMembership ;
@@ -560,14 +560,14 @@ elmt:Annotated__car___402__level
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:Annotated__Safety__level ;
     sysml:value expr:Annotated__car___402__level_pvalue ;
-    sysml:ownedRelationship expr:Annotated__car___402__level_pvalue_om, elmt:Annotated__car___402__level_rd0 ;
+    sysml:ownedRelationship elmt:Annotated__car___402__level_rd0, expr:Annotated__car___402__level_pvalue_om ;
     sysml:ownedMembership expr:Annotated__car___402__level_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:Annotated__car___402__level_rd0 ;
     sysml:ownedSubsetting elmt:Annotated__car___402__level_rd0 ;
     sysml:ownedSpecialization elmt:Annotated__car___402__level_rd0 ;
     sysx:sourceText "            :>> level = 3;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__level_pvalue_om\"},{\"@id\":\"Annotated__car___402__level_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__level_rd0\"},{\"@id\":\"Annotated__car___402__level_pvalue_om\"}]" .
 
 elmt:Annotated__car___402__level_om
     a sysml:FeatureMembership ;
@@ -621,14 +621,14 @@ elmt:Annotated__car___402__reviewer
     sysml:redefines elmt:Annotated__Safety__reviewer ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
     sysml:value expr:Annotated__car___402__reviewer_pvalue ;
-    sysml:ownedRelationship expr:Annotated__car___402__reviewer_pvalue_om, elmt:Annotated__car___402__reviewer_rd0 ;
+    sysml:ownedRelationship elmt:Annotated__car___402__reviewer_rd0, expr:Annotated__car___402__reviewer_pvalue_om ;
     sysml:ownedMembership expr:Annotated__car___402__reviewer_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:Annotated__car___402__reviewer_rd0 ;
     sysml:ownedSubsetting elmt:Annotated__car___402__reviewer_rd0 ;
     sysml:ownedSpecialization elmt:Annotated__car___402__reviewer_rd0 ;
     sysx:sourceText "            reviewer = \"ops\";\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__reviewer_pvalue_om\"},{\"@id\":\"Annotated__car___402__reviewer_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__reviewer_rd0\"},{\"@id\":\"Annotated__car___402__reviewer_pvalue_om\"}]" .
 
 elmt:Annotated__car___402__reviewer_om
     a sysml:FeatureMembership ;
@@ -682,14 +682,14 @@ elmt:Annotated__car___402__isSet
     sysml:redefines elmt:Annotated__Safety__isSet ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
     sysml:value expr:Annotated__car___402__isSet_pvalue ;
-    sysml:ownedRelationship expr:Annotated__car___402__isSet_pvalue_om, elmt:Annotated__car___402__isSet_rd0 ;
+    sysml:ownedRelationship elmt:Annotated__car___402__isSet_rd0, expr:Annotated__car___402__isSet_pvalue_om ;
     sysml:ownedMembership expr:Annotated__car___402__isSet_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:Annotated__car___402__isSet_rd0 ;
     sysml:ownedSubsetting elmt:Annotated__car___402__isSet_rd0 ;
     sysml:ownedSpecialization elmt:Annotated__car___402__isSet_rd0 ;
     sysx:sourceText "            isSet = true;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__isSet_pvalue_om\"},{\"@id\":\"Annotated__car___402__isSet_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__isSet_rd0\"},{\"@id\":\"Annotated__car___402__isSet_pvalue_om\"}]" .
 
 elmt:Annotated__car___402__isSet_om
     a sysml:FeatureMembership ;
@@ -745,14 +745,14 @@ elmt:Annotated__car___402__audit
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Annotated__car___402__audit__year ;
     sysml:ownedMembership elmt:Annotated__car___402__audit__year_om ;
-    sysml:ownedRelationship elmt:Annotated__car___402__audit__year_om, elmt:Annotated__car___402__audit_rd0 ;
+    sysml:ownedRelationship elmt:Annotated__car___402__audit_rd0, elmt:Annotated__car___402__audit__year_om ;
     sysml:ownedFeature elmt:Annotated__car___402__audit__year ;
     sysml:ownedFeatureMembership elmt:Annotated__car___402__audit__year_om ;
     sysml:ownedRedefinition elmt:Annotated__car___402__audit_rd0 ;
     sysml:ownedSubsetting elmt:Annotated__car___402__audit_rd0 ;
     sysml:ownedSpecialization elmt:Annotated__car___402__audit_rd0 ;
     sysx:sourceText "            audit { year = 2026; }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__audit__year_om\"},{\"@id\":\"Annotated__car___402__audit_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__audit_rd0\"},{\"@id\":\"Annotated__car___402__audit__year_om\"}]" .
 
 elmt:Annotated__car___402__audit_om
     a sysml:FeatureMembership ;
@@ -784,13 +784,13 @@ elmt:Annotated__car___402__audit__year
     sysml:redefines elmt:Annotated__Safety__audit__year ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
     sysml:value expr:Annotated__car___402__audit__year_pvalue ;
-    sysml:ownedRelationship expr:Annotated__car___402__audit__year_pvalue_om, elmt:Annotated__car___402__audit__year_rd0 ;
+    sysml:ownedRelationship elmt:Annotated__car___402__audit__year_rd0, expr:Annotated__car___402__audit__year_pvalue_om ;
     sysml:ownedMembership expr:Annotated__car___402__audit__year_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:Annotated__car___402__audit__year_rd0 ;
     sysml:ownedSubsetting elmt:Annotated__car___402__audit__year_rd0 ;
     sysml:ownedSpecialization elmt:Annotated__car___402__audit__year_rd0 ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__audit__year_pvalue_om\"},{\"@id\":\"Annotated__car___402__audit__year_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__audit__year_rd0\"},{\"@id\":\"Annotated__car___402__audit__year_pvalue_om\"}]" .
 
 elmt:Annotated__car___402__audit__year_om
     a sysml:FeatureMembership ;
@@ -953,14 +953,14 @@ elmt:Annotated___403__level
     sysml:redefines elmt:Annotated__Safety__level ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
     sysml:value expr:Annotated___403__level_pvalue ;
-    sysml:ownedRelationship expr:Annotated___403__level_pvalue_om, elmt:Annotated___403__level_rd0 ;
+    sysml:ownedRelationship elmt:Annotated___403__level_rd0, expr:Annotated___403__level_pvalue_om ;
     sysml:ownedMembership expr:Annotated___403__level_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:Annotated___403__level_rd0 ;
     sysml:ownedSubsetting elmt:Annotated___403__level_rd0 ;
     sysml:ownedSpecialization elmt:Annotated___403__level_rd0 ;
     sysx:sourceText "        level = car.range;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated___403__level_pvalue_om\"},{\"@id\":\"Annotated___403__level_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated___403__level_rd0\"},{\"@id\":\"Annotated___403__level_pvalue_om\"}]" .
 
 elmt:Annotated___403__level_om
     a sysml:FeatureMembership ;
@@ -1121,14 +1121,14 @@ elmt:Annotated___403__reviewer
     sysml:redefines elmt:Annotated__Safety__reviewer ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
     sysml:value expr:Annotated___403__reviewer_pvalue ;
-    sysml:ownedRelationship expr:Annotated___403__reviewer_pvalue_om, elmt:Annotated___403__reviewer_rd0 ;
+    sysml:ownedRelationship elmt:Annotated___403__reviewer_rd0, expr:Annotated___403__reviewer_pvalue_om ;
     sysml:ownedMembership expr:Annotated___403__reviewer_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:Annotated___403__reviewer_rd0 ;
     sysml:ownedSubsetting elmt:Annotated___403__reviewer_rd0 ;
     sysml:ownedSpecialization elmt:Annotated___403__reviewer_rd0 ;
     sysx:sourceText "        reviewer = Car::mass;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated___403__reviewer_pvalue_om\"},{\"@id\":\"Annotated___403__reviewer_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated___403__reviewer_rd0\"},{\"@id\":\"Annotated___403__reviewer_pvalue_om\"}]" .
 
 elmt:Annotated___403__reviewer_om
     a sysml:FeatureMembership ;
@@ -1276,14 +1276,14 @@ elmt:Annotated___406
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Annotated___406__level ;
     sysml:ownedMembership elmt:Annotated___406__level_om ;
-    sysml:ownedRelationship elmt:Annotated___406__level_om, elmt:Annotated___406_ft0 ;
+    sysml:ownedRelationship elmt:Annotated___406_ft0, elmt:Annotated___406__level_om ;
     sysml:ownedFeature elmt:Annotated___406__level ;
     sysml:ownedFeatureMembership elmt:Annotated___406__level_om ;
     sysml:ownedTyping elmt:Annotated___406_ft0 ;
     sysml:ownedSpecialization elmt:Annotated___406_ft0 ;
     sysx:sourceText "    metadata $::Annotated::Safety about Car {\n" ;
     sysx:sourceTail "    }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated___406__level_om\"},{\"@id\":\"Annotated___406_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated___406_ft0\"},{\"@id\":\"Annotated___406__level_om\"}]" .
 
 elmt:Annotated___406_om
     a sysml:OwningMembership ;
@@ -1313,14 +1313,14 @@ elmt:Annotated___406__level
     sysml:redefines elmt:Annotated__Safety__level ;
     sysx:isRedefinitionImplicit "true"^^xsd:boolean ;
     sysml:value expr:Annotated___406__level_pvalue ;
-    sysml:ownedRelationship expr:Annotated___406__level_pvalue_om, elmt:Annotated___406__level_rd0 ;
+    sysml:ownedRelationship elmt:Annotated___406__level_rd0, expr:Annotated___406__level_pvalue_om ;
     sysml:ownedMembership expr:Annotated___406__level_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:Annotated___406__level_rd0 ;
     sysml:ownedSubsetting elmt:Annotated___406__level_rd0 ;
     sysml:ownedSpecialization elmt:Annotated___406__level_rd0 ;
     sysx:sourceText "        level = 4;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated___406__level_pvalue_om\"},{\"@id\":\"Annotated___406__level_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated___406__level_rd0\"},{\"@id\":\"Annotated___406__level_pvalue_om\"}]" .
 
 elmt:Annotated___406__level_om
     a sysml:FeatureMembership ;

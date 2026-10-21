@@ -675,7 +675,7 @@ elmt:Chains__ctx__ic
     sysml:declaredName "ic" ;
     sysml:type elmt:Chains__II ;
     sysml:connectorEnd expr:Chains__ctx__ic_pend0, expr:Chains__ctx__ic_pend1 ;
-    sysml:ownedRelationship expr:Chains__ctx__ic_pend0_om, expr:Chains__ctx__ic_pend1_om, elmt:Chains__ctx__ic_ft0 ;
+    sysml:ownedRelationship elmt:Chains__ctx__ic_ft0, expr:Chains__ctx__ic_pend0_om, expr:Chains__ctx__ic_pend1_om ;
     sysml:ownedMembership expr:Chains__ctx__ic_pend0_om, expr:Chains__ctx__ic_pend1_om ;
     sysml:ownedMember expr:Chains__ctx__ic_pend0, expr:Chains__ctx__ic_pend1 ;
     sysml:ownedFeatureMembership expr:Chains__ctx__ic_pend0_om, expr:Chains__ctx__ic_pend1_om ;
@@ -688,7 +688,7 @@ elmt:Chains__ctx__ic
     sysml:ownedSpecialization elmt:Chains__ctx__ic_ft0 ;
     sysx:sourceText "        interface ic : II connect launchVehicle.instrumentUnit.pip to supplier.pip;\n" ;
     json:connectorEnd "[{\"@id\":\"Chains__ctx__ic_pend0\"},{\"@id\":\"Chains__ctx__ic_pend1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Chains__ctx__ic_pend0_om\"},{\"@id\":\"Chains__ctx__ic_pend1_om\"},{\"@id\":\"Chains__ctx__ic_ft0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__ctx__ic_ft0\"},{\"@id\":\"Chains__ctx__ic_pend0_om\"},{\"@id\":\"Chains__ctx__ic_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Chains__ctx__ic_pend0_om\"},{\"@id\":\"Chains__ctx__ic_pend1_om\"}]" ;
     json:ownedMember "[{\"@id\":\"Chains__ctx__ic_pend0\"},{\"@id\":\"Chains__ctx__ic_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__ctx__ic_pend0_om\"},{\"@id\":\"Chains__ctx__ic_pend1_om\"}]" ;
