@@ -264,7 +264,7 @@ func TestSyntaxCLIParity(t *testing.T) {
 // surface must not pull in: no protobuf or gRPC machinery, no semantic or
 // workspace layer, and no networking — which is what keeps the js build small.
 func TestSyntaxDependencies(t *testing.T) {
-	out, err := goFor(t, wasmTarget{name: "js", goos: "js"}, "list", "-deps", "./cmd/sysml-syntax")
+	out, err := goFor(wasmTarget{name: "js", goos: "js"}, "list", "-deps", "./cmd/sysml-syntax")
 	if err != nil {
 		t.Fatalf("go list -deps ./cmd/sysml-syntax: %v\n%s", err, out)
 	}
