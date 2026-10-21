@@ -57,6 +57,7 @@ REPO_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 NODE_PACKAGE = os.path.join(REPO_ROOT, "client", "node", "package.json")
+MCP_PACKAGE = os.path.join(REPO_ROOT, "packaging", "npm", "sysml-mcp", "package.json")
 JAVA_POM = os.path.join(REPO_ROOT, "client", "java", "pom.xml")
 RUST_CARGO = os.path.join(REPO_ROOT, "client", "rust", "opensysml", "Cargo.toml")
 KERNEL_VERSION_FILE = os.path.join(

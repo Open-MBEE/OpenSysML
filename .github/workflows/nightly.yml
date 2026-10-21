@@ -31,6 +31,8 @@ env:
   BUILD_SCRIPT: scripts/build-release-artifacts.sh
   KERNEL_DIST_SCRIPT: scripts/build-jupyter-kernel-dist.sh
   SNAPSHOT_SCRIPT: client/python/scripts/snapshot_version.py
+  # Present only in trees whose generator builds the @openmbee/sysml-mcp packages.
+  MCP_RUNNER_TEST: scripts/npm-mcp-test.sh
   PYPI_PROJECT: opensysml
   KERNEL_PYPI_PROJECT: jupyter-opensysml-kernel
   NPM_DIST_TAG: nightly
@@ -75,7 +77,7 @@ jobs:
           while read -r candidate; do
             state=$(gh api "repos/$GH_REPO/commits/$candidate/status" --jq .state)
             if [ "$state" = success ]; then
-              for script in "$BUILD_SCRIPT" "$KERNEL_DIST_SCRIPT" "$SNAPSHOT_SCRIPT"; do
+              for script in "$BUILD_SCRIPT" "$KERNEL_DIST_SCRIPT" "$SNAPSHOT_SCRIPT" "$MCP_RUNNER_TEST"; do
                 if ! git cat-file -e "$candidate:$script" 2>/dev/null; then
                   state="success, but has no $script"
                   break
@@ -197,7 +199,7 @@ jobs:
             echo "base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD)"
           } >> "$GITHUB_OUTPUT"
           git diff --stat -- client/python/opensysml/_version.py client/node/package.json \
-            client/jupyter-kernel/jupyter_opensysml_kernel/_version.py
+            client/jupyter-kernel/jupyter_opensysml_kernel/_version.py packaging/npm/sysml-mcp/package.json
 
       - name: Build the release artifacts
         env:
@@ -205,17 +207,19 @@ jobs:
         run: '"$BUILD_SCRIPT" dist'
 
       # The extension is side-loaded, not published to a marketplace, so the snapshot
-      # is its distribution. Its version is the manifest's with the snapshot version as
-      # the pre-release part, so two nights' builds are told apart in VS Code and any
-      # stable release of the extension ranks above them. The selected commit may be
-      # older than this workflow, so the version is passed to the extension's own
-      # package script rather than through a Makefile variable it may not have yet.
+      # is its distribution. Its version is the clients' snapshot core — the release the
+      # snapshot leads to, not the manifest's already-released one — with the snapshot
+      # version as the pre-release part, so two nights' builds are told apart in VS Code,
+      # every night ranks above the release it builds on, and the release it leads to
+      # ranks above them all. The selected commit may be older than this workflow, so the
+      # version is passed to the extension's own package script rather than through a
+      # Makefile variable it may not have yet.
       - name: Package the VS Code extension
         env:
+          CORE: ${{ steps.version.outputs.core }}
           VERSION: ${{ steps.version.outputs.tag }}
         run: |
-          base=$(node -p "require('./editors/vscode/package.json').version")
-          expected="${base}-${VERSION}"
+          expected="${CORE}-${VERSION}"
           (cd editors/vscode && npm ci --ignore-scripts && npm run package -- "$expected" --no-update-package-json)
           unzip -q -o editors/vscode/opensysml-sysml.vsix extension/package.json -d /tmp/vsix
           stamped=$(node -p "require('/tmp/vsix/extension/package.json').version")
@@ -446,29 +450,47 @@ jobs:
           (cd dist && sha256sum jupyter_opensysml_kernel-*.whl jupyter_opensysml_kernel-*.tar.gz >> SHA256SUMS.txt)
 
       # The platform packages carry the binaries built above, checked against their
-      # sidecars by the generator; the client's stamped manifest pins them at the
-      # snapshot version. All seven are packed as the tarballs the npm job publishes.
+      # sidecars by the generator; the stamped manifests of the client and of
+      # @openmbee/sysml-mcp pin them at the snapshot version. All thirteen are
+      # packed as the tarballs the npm job publishes.
       - name: Build and pack the Node client packages
         env:
           NPM_VERSION: ${{ steps.version.outputs.npm }}
         run: |
           cd client/node
           npm run build
-          npm run platform-packages -- --binaries ../../dist/grpc --wasm ../../dist/wasm --version "$NPM_VERSION"
+          npm run platform-packages -- --binaries ../../dist/grpc --mcp ../../dist/mcp --wasm ../../dist/wasm --version "$NPM_VERSION"
           generated=$(node -p "require('./packages/packages.json').version")
           if [ "$generated" != "$NPM_VERSION" ]; then
             echo "::error::The platform packages carry version '$generated', not the '$NPM_VERSION' being published."
             exit 1
           fi
           mkdir -p ../../dist/npm
-          npm pack --pack-destination ../../dist/npm ./packages/sysml-wasm ./packages/sysml-grpc-* .
+          npm pack --pack-destination ../../dist/npm ./packages/sysml-wasm ./packages/sysml-grpc-* ./packages/sysml-mcp-* . ../../packaging/npm/sysml-mcp
+          # The packed npm runner, beside this platform's package, must serve the protocol.
+          SYSML_MCP_PACKAGES="$(pwd)/packages" ../../scripts/npm-mcp-test.sh
           cd ../../dist/npm
           ls -l
           tarballs=(./*.tgz)
-          if [ "${#tarballs[@]}" -ne 7 ]; then
-            echo "::error::Expected 7 npm tarballs (client + 5 platform + WASM), packed ${#tarballs[@]}."
+          if [ "${#tarballs[@]}" -ne 13 ]; then
+            echo "::error::Expected 13 npm tarballs (client + 5 platform + WASM + sysml-mcp + 5 platform), packed ${#tarballs[@]}."
             exit 1
           fi
+          # @openmbee/sysml-mcp pins exactly the five platform packages packed beside it.
+          tar -xOf "openmbee-sysml-mcp-${NPM_VERSION}.tgz" package/package.json > mcp-package.json
+          node - "$NPM_VERSION" <<'EOF'
+          const fs = require("node:fs");
+          const [version] = process.argv.slice(2);
+          const pkg = JSON.parse(fs.readFileSync("mcp-package.json", "utf8"));
+          const pins = Object.entries(pkg.optionalDependencies || {});
+          const wrong = pins.filter(([, pinned]) => pinned !== version).map(([name, pinned]) => `${name}@${pinned}`);
+          if (pkg.version !== version || pins.length !== 5 || wrong.length > 0) {
+            console.error(`Error: ${pkg.name}@${pkg.version} pins ${pins.length} platform packages, wrong: ${wrong.join(", ") || "none"}; expected 5 at ${version}`);
+            process.exit(1);
+          }
+          console.log(`${pkg.name}@${pkg.version} pins its five platform packages at ${version}`);
+          EOF
+          rm mcp-package.json
           # The client tarball pins exactly what was packed beside it.
           tar -xOf "openmbee-opensysml-${NPM_VERSION}.tgz" package/package.json > client-package.json
           node - "$NPM_VERSION" <<'EOF'
@@ -847,10 +869,11 @@ jobs:
           name: npm-dist
           path: dist/npm/
 
-      # The platform and WASM packages go first, because the client pins them at this
-      # exact version. A version already on the registry is skipped, never replaced,
-      # so a second build of a day leaves the first published.
-      - name: Publish the seven packages under the nightly dist-tag
+      # The platform and WASM packages go first, because the client and
+      # @openmbee/sysml-mcp pin them at this exact version. A version already on
+      # the registry is skipped, never replaced, so a second build of a day leaves
+      # the first published.
+      - name: Publish the thirteen packages under the nightly dist-tag
         env:
           NPM_VERSION: ${{ needs.publish.outputs.npm }}
         run: |
@@ -860,9 +883,15 @@ jobs:
             openmbee-opensysml-wasm-"$NPM_VERSION".tgz
             openmbee-opensysml-sysml-grpc-*-"$NPM_VERSION".tgz
             openmbee-opensysml-"$NPM_VERSION".tgz
+            openmbee-sysml-mcp-darwin-arm64-"$NPM_VERSION".tgz
+            openmbee-sysml-mcp-darwin-x64-"$NPM_VERSION".tgz
+            openmbee-sysml-mcp-linux-arm64-"$NPM_VERSION".tgz
+            openmbee-sysml-mcp-linux-x64-"$NPM_VERSION".tgz
+            openmbee-sysml-mcp-win32-x64-"$NPM_VERSION".tgz
+            openmbee-sysml-mcp-"$NPM_VERSION".tgz
           )
-          if [ "${#tarballs[@]}" -ne 7 ]; then
-            echo "::error::Expected 7 tarballs at $NPM_VERSION, found ${#tarballs[@]}: ${tarballs[*]}"
+          if [ "${#tarballs[@]}" -ne 13 ]; then
+            echo "::error::Expected 13 tarballs at $NPM_VERSION, found ${#tarballs[@]}: ${tarballs[*]}"
             exit 1
           fi
           for tarball in "${tarballs[@]}"; do
@@ -878,10 +907,12 @@ jobs:
         env:
           NPM_VERSION: ${{ needs.publish.outputs.npm }}
         run: |
-          npm dist-tag ls @openmbee/opensysml
-          latest=$(npm view @openmbee/opensysml dist-tags.latest)
-          if [ "$latest" = "$NPM_VERSION" ]; then
-            echo "::error::@openmbee/opensysml's latest dist-tag now names the snapshot $NPM_VERSION; point it back at the stable release by hand."
-            exit 1
-          fi
-          echo "latest is $latest; $NPM_DIST_TAG is $(npm view @openmbee/opensysml "dist-tags.$NPM_DIST_TAG")"
+          for package in @openmbee/opensysml @openmbee/sysml-mcp; do
+            npm dist-tag ls "$package"
+            latest=$(npm view "$package" dist-tags.latest)
+            if [ "$latest" = "$NPM_VERSION" ]; then
+              echo "::error::$package's latest dist-tag now names the snapshot $NPM_VERSION; point it back at the stable release by hand."
+              exit 1
+            fi
+            echo "$package: latest is $latest; $NPM_DIST_TAG is $(npm view "$package" "dist-tags.$NPM_DIST_TAG")"
+          done

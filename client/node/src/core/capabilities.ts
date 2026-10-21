@@ -135,6 +135,8 @@ export const CAPABILITY_RATIONAL_VALUES = "rational_values";
 export const CAPABILITY_CONVERT_DOCUMENTS = "convert_documents";
 /** `ConvertRequest.compact`, `omitDerived` and `keepDerived`: api-json written as the compact document (an id table and handles), optionally without derived properties. */
 export const CAPABILITY_CONVERT_COMPACT = "convert_compact";
+/** `ConvertRequest.includeCheckDiagnostics`: the semantic check's diagnostics, each with its own severity, reported alongside the converted output. */
+export const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
 /** `ParseSourcesRequest.baseModelHash` and `ParseSourcesResponse.affected`: the documents whose results may differ from the base model's, so a client re-reads only those after an edit. */
 export const CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected";
 /** `RenderDocumentResponse.fileName`: the file a rendered set writes the document to, which the other documents' links to it name. */

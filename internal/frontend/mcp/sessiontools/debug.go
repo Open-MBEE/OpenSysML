@@ -96,7 +96,7 @@ type Output struct {
 }
 
 // debugTool registers a tool driving the debuggers, whose answer is where they stand.
-func debugTool[In named](s *mcp.Server, m *Manager, name, title, description string, mutating bool, step func(*repl.Session, In) (repl.DebugReport, error)) {
+func debugTool[In sessionNamer](s *mcp.Server, m *Manager, name, title, description string, mutating bool, step func(*repl.Session, In) (repl.DebugReport, error)) {
 	annotations := toolkit.ReadOnly(title)
 	if mutating {
 		annotations = toolkit.Mutating(title, false)

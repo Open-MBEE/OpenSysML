@@ -61,6 +61,13 @@ executors:
       - image: cimg/base:current
     resource_class: medium
 
+  # The Docker CLI with buildx, for the image publisher; the daemon is the
+  # remote one setup_remote_docker attaches.
+  docker-executor:
+    docker:
+      - image: cimg/base:current
+    resource_class: medium
+
 commands:
   # In a rehearsal (the release_rehearsal pipeline parameter) CIRCLE_TAG is
   # unset; this stands in for the tag the release steps read, before any of
@@ -182,6 +189,24 @@ commands:
           paths:
             - examples/pilot-corpora
 
+      # The specification examples, extracted from the two PDFs at the same pin;
+      # the PDFs are cached and the extraction reruns from them.
+      - restore_cache:
+          keys:
+            - spec-docs-v1-{{ checksum "scripts/download-spec-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+
+      - run:
+          name: Extract the OMG specification examples
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends poppler-utils
+            ./scripts/download-spec-examples.sh
+
+      - save_cache:
+          key: spec-docs-v1-{{ checksum "scripts/download-spec-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+          paths:
+            - build/spec-docs/pdf
+
       # The PSSM test suite, one pinned file, gated the same way by tools/referee/pssm.
       - restore_cache:
           keys:
@@ -263,6 +288,18 @@ commands:
               echo "pilot corpus $root: $count model files"
               if [ "$count" -eq 0 ]; then
                 echo "error: pilot corpus $root is empty; the corpora gate would not run" >&2
+                exit 1
+              fi
+            done
+
+      - run:
+          name: Verify the OMG specification examples
+          command: |
+            for root in sysml kerml; do
+              count=$(find "examples/spec-examples/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
+              echo "specification examples $root: $count model files"
+              if [ "$count" -eq 0 ]; then
+                echo "error: specification examples $root is empty; the spec-examples gate would not run" >&2
                 exit 1
               fi
             done
@@ -475,6 +512,7 @@ jobs:
             # GitHub Actions PR workflow already does.
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
             OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
@@ -520,6 +558,7 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
             OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
@@ -610,6 +649,20 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
 
+      # The specification-examples gate alone, for the same reason.
+      - run:
+          name: Run spec examples gate
+          command: |
+            set -o pipefail
+            go test -count=1 -v ./tests/corpus -run 'TestSpecExamples' | tee spec-examples-gate.log
+            grep -E 'specification examples clean' spec-examples-gate.log
+            if grep -qE '^\s*--- SKIP' spec-examples-gate.log; then
+              echo "error: the spec examples gate skipped" >&2
+              exit 1
+            fi
+          environment:
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
+
       # The normative-identity gate alone, for the same reason.
       - run:
           name: Run pilot library identity gate
@@ -639,6 +692,7 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
 
       # The same ratchet over the API's JSON element form, beside the RDF one.
       - run:
@@ -654,6 +708,7 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
 
       # The PSSM suite gates alone, then the referee's bucket-count check
       # (never pass/fail; see docs/project/pssm-referee.md).
@@ -839,6 +894,21 @@ jobs:
       - store_artifacts:
           path: bin/conformance-pkg-report.json
           destination: conformance-pkg-report.json
+          when: always
+
+      # The same suite through sysml-mcp's runtime tools over stdio, so the tools
+      # are proven to serve the service the scenarios specify, not a re-implementation.
+      - run:
+          name: Conformance suite through sysml-mcp
+          command: make conformance-mcp
+
+      - store_artifacts:
+          path: bin/conformance-mcp-report.json
+          destination: conformance-mcp-report.json
+          when: always
+
+      - store_test_results:
+          path: bin/conformance-mcp-report.xml
           when: always
 
       - run:
@@ -2367,6 +2437,9 @@ jobs:
 
             (cd dist/grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
             (cd dist/jupyter && for f in sysml-jupyter-kernel-*; do sha256sum "$f" > "$f.sha256"; done)
+            # @openmbee/sysml-mcp's platform packages are built from these,
+            # each checked against its sidecar the way the sysml-grpc ones are.
+            (cd dist/mcp && for f in sysml-mcp-*; do sha256sum "$f" > "$f.sha256"; done)
 
             # The Node client ships this combined WebAssembly module and matching Go runtime.
             mkdir -p dist/wasm
@@ -2525,6 +2598,7 @@ jobs:
             (cd grpc && sha256sum --check --strict sysml-grpc-*.sha256 && cat sysml-grpc-*.sha256 >> ../SHA256SUMS.txt)
             # And the raw kernel binaries, the only checksum jupyter-opensysml-kernel reads.
             (cd jupyter && sha256sum --check --strict sysml-jupyter-kernel-*.sha256 && cat sysml-jupyter-kernel-*.sha256 >> ../SHA256SUMS.txt)
+            (cd mcp && sha256sum --check --strict sysml-mcp-*.sha256)
             (cd wasm && sha256sum sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js >> ../SHA256SUMS.txt)
             (cd wasm && for f in sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
             cat SHA256SUMS.txt
@@ -2790,6 +2864,7 @@ jobs:
             echo "Publishing ${version} to the '${dist_tag}' dist-tag"
             # Proves the workspace carries the release binaries and sidecars.
             ls -l dist/grpc/sysml-grpc-*
+            ls -l dist/mcp/sysml-mcp-*
             ls -l dist/wasm/sysml-wasm.wasm dist/wasm/sysml-prod.wasm.gz dist/wasm/wasm_exec.js \
               dist/wasm/sysml-wasm.wasm.sha256 dist/wasm/sysml-prod.wasm.gz.sha256 dist/wasm/wasm_exec.js.sha256
 
@@ -2825,21 +2900,25 @@ jobs:
       - run:
           name: Refuse a version already on the registry
           command: |
-            # The package names come from package.json, not a literal list:
-            # the client, platform binaries and optional WASM peer. Anything
-            # but seven means the manifest drifted.
+            # The package names come from the two manifests, not a literal
+            # list: the client, its platform binaries and optional WASM peer,
+            # then @openmbee/sysml-mcp and its platform binaries. Anything
+            # but thirteen means a manifest drifted.
             names=$(node -e "
               const pkg = require('./client/node/package.json');
               const platforms = Object.keys(pkg.optionalDependencies || {})
                 .filter(n => n.startsWith(pkg.name + '-sysml-grpc-'));
               const wasm = Object.keys(pkg.peerDependencies || {})
                 .filter(n => n.startsWith(pkg.name + '-wasm'));
-              console.log([pkg.name, ...platforms, ...wasm].join('\n'));
+              const mcp = require('./packaging/npm/sysml-mcp/package.json');
+              const mcpPlatforms = Object.keys(mcp.optionalDependencies || {})
+                .filter(n => n.startsWith(mcp.name + '-'));
+              console.log([pkg.name, ...platforms, ...wasm, mcp.name, ...mcpPlatforms].join('\n'));
             ")
             count=$(echo "$names" | wc -l)
-            if [ "$count" -ne 7 ]; then
-              echo "Error: expected 7 packages to publish (client + 5 platform + WASM),"
-              echo "package.json yields $count:"
+            if [ "$count" -ne 13 ]; then
+              echo "Error: expected 13 packages to publish (client + 5 platform + WASM + sysml-mcp + 5 platform),"
+              echo "the manifests yield $count:"
               echo "$names"
               exit 1
             fi
@@ -2879,9 +2958,10 @@ jobs:
           name: Build the platform and WASM packages
           command: |
             # These are build-release's bytes; the generator checks each one
-            # against its .sha256 sidecar before packaging it.
+            # against its .sha256 sidecar before packaging it. The sysml-mcp
+            # packages are the ones @openmbee/sysml-mcp pins.
             cd client/node
-            npm run platform-packages -- --binaries ../../dist/grpc --wasm ../../dist/wasm
+            npm run platform-packages -- --binaries ../../dist/grpc --mcp ../../dist/mcp --wasm ../../dist/wasm
 
       - run:
           name: Pack the client and verify its pins
@@ -2942,6 +3022,38 @@ jobs:
             PY
 
       - run:
+          name: Pack @openmbee/sysml-mcp and prove it serves the protocol
+          command: |
+            # The shim tarball packed here is the one published below. It must
+            # be this tag's version and pin its five platform packages at it;
+            # then the packed shim, installed beside this platform's package
+            # from the generator's tree, must answer initialize and tools/list.
+            (cd packaging/npm/sysml-mcp && npm pack --pack-destination ../../../dist/npm)
+            tarball="dist/npm/openmbee-sysml-mcp-${NPM_VERSION}.tgz"
+            if [ ! -f "$tarball" ]; then
+              echo "Error: packaging/npm/sysml-mcp did not pack as ${tarball}:"
+              ls -l dist/npm
+              exit 1
+            fi
+            echo "export NPM_MCP_TARBALL=$(pwd)/${tarball}" >> "$BASH_ENV"
+            # The manifest goes through a file: the heredoc below is node's stdin.
+            tar -xOf "$tarball" package/package.json > dist/npm/mcp-package.json
+            node - "$NPM_VERSION" dist/npm/mcp-package.json \<<'JS'
+            const fs = require("node:fs");
+            const [version, manifest] = process.argv.slice(2);
+            const pkg = JSON.parse(fs.readFileSync(manifest, "utf8"));
+            const pins = Object.entries(pkg.optionalDependencies || {});
+            const wrong = pins.filter(([, pinned]) => pinned !== version).map(([name, pinned]) => `${name}@${pinned}`);
+            if (pkg.version !== version || pins.length !== 5 || wrong.length > 0 || pkg.dependencies !== undefined) {
+              console.error(`Error: ${pkg.name}@${pkg.version} pins ${pins.length} platform packages, wrong: ${wrong.join(", ") || "none"}; expected 5 at ${version} and no dependencies`);
+              process.exit(1);
+            }
+            console.log(`${pkg.name}@${pkg.version} pins its five platform packages at ${version}`);
+            JS
+            rm dist/npm/mcp-package.json
+            SYSML_MCP_PACKAGES="$(pwd)/client/node/packages" scripts/npm-mcp-test.sh
+
+      - run:
           name: Authenticate to npm
           command: |
             echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
@@ -2957,24 +3069,25 @@ jobs:
                 name: Publish the WASM and per-platform packages
                 command: |
                   npm publish client/node/packages/sysml-wasm --access public --tag "$NPM_DIST_TAG"
-                  for directory in client/node/packages/sysml-grpc-*; do
+                  for directory in client/node/packages/sysml-grpc-* client/node/packages/sysml-mcp-*; do
                     npm publish "$directory" --access public --tag "$NPM_DIST_TAG"
                   done
 
             - run:
-                name: Publish @openmbee/opensysml
+                name: Publish @openmbee/opensysml and @openmbee/sysml-mcp
                 command: |
-                  # The tarball verified above, not a fresh pack of the directory.
+                  # The tarballs verified above, not a fresh pack of the directories.
                   npm publish "$NPM_TARBALL" --access public --tag "$NPM_DIST_TAG"
+                  npm publish "$NPM_MCP_TARBALL" --access public --tag "$NPM_DIST_TAG"
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
             - run:
                 name: "REHEARSAL: pack every package"
                 command: |
-                  # The client itself was packed and verified above.
+                  # The client and @openmbee/sysml-mcp were packed and verified above.
                   npm pack client/node/packages/sysml-wasm --dry-run
-                  for directory in client/node/packages/sysml-grpc-*; do
+                  for directory in client/node/packages/sysml-grpc-* client/node/packages/sysml-mcp-*; do
                     npm pack "$directory" --dry-run
                   done
       - rehearsal-skip:
@@ -3349,6 +3462,192 @@ jobs:
                   echo "REHEARSAL: crates.io has no read-only token check (GET /api/v1/me accepts only a browser session); the token's presence was checked above."
       - rehearsal-skip:
           what: "cargo publish"
+
+  # Publishes openmbee/opensysml (linux/amd64,linux/arm64) to Docker Hub from the
+  # core v* tag with the 'DockerHub' context; everything that can fail runs first.
+  publish-docker:
+    executor: docker-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+
+      # The image is built on a remote Docker host; buildx cross-compiles the
+      # arm64 binaries there, so no emulator is installed.
+      - setup_remote_docker
+
+      - run:
+          name: Resolve the version from the tag
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a core v* tag."
+              exit 1
+            fi
+            # The image tag is the version without the v, as the clients' registries
+            # spell it; whether `latest` moves too is decided at the push.
+            version=${CIRCLE_TAG#v}
+            echo "export IMAGE_VERSION=${version}" >> "$BASH_ENV"
+            echo "Publishing openmbee/opensysml:${version}"
+
+      - run:
+          name: Require the publishing credentials
+          command: |
+            # Names only, never the values; the 'DockerHub' context supplies them.
+            missing=""
+            [ -n "${DOCKER_USERNAME:-}" ] || missing="${missing} DOCKER_USERNAME"
+            [ -n "${DOCKER_PASSWORD:-}" ] || missing="${missing} DOCKER_PASSWORD"
+            if [ -n "$missing" ]; then
+              echo "Error:${missing} not set; add them to the 'DockerHub' context (Organization Settings → Contexts)."
+              exit 1
+            fi
+
+      - run:
+          name: Authenticate to Docker Hub
+          command: |
+            # A bad or expired access token fails here, before anything is built.
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
+      # A published version tag is never replaced, so only the registry's definite
+      # 404 lets the push proceed; any other answer fails closed (releasing.md).
+      - run:
+          name: Refuse a version already on Docker Hub
+          command: |
+            image=openmbee/opensysml
+            # Credentials and token travel in curl config files, never on a command line.
+            token=$(curl -fsS --retry 3 --retry-all-errors \
+              -K <(printf 'user = "%s:%s"\n' "$DOCKER_USERNAME" "$DOCKER_PASSWORD") \
+              "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${image}:pull" \
+              | jq -r '.token // empty')
+            if [ -z "$token" ]; then
+              echo "Error: Docker Hub issued no registry token for ${image}; nothing was published."
+              exit 1
+            fi
+            accept='application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json'
+            rm -f /tmp/manifest-check.json
+            status=$(curl -sS --retry 3 --retry-all-errors -o /tmp/manifest-check.json -w '%{http_code}' \
+              -K <(printf 'header = "Authorization: Bearer %s"\n' "$token") -H "Accept: ${accept}" \
+              "https://registry-1.docker.io/v2/${image}/manifests/${IMAGE_VERSION}") || status=000
+            case "$status" in
+              404)
+                echo "ok: ${image}:${IMAGE_VERSION} is not on Docker Hub yet"
+                ;;
+              200)
+                echo "Error: ${image}:${IMAGE_VERSION} is already on Docker Hub;"
+                echo "a published image tag is not replaced. Cut the next core release."
+                exit 1
+                ;;
+              *)
+                echo "Error: Docker Hub answered ${status} for ${image}:${IMAGE_VERSION}, so whether the tag"
+                echo "exists is unknown and nothing is pushed. 401: the credentials cannot read the"
+                echo "repository, or it does not exist yet (create openmbee/opensysml on Docker Hub);"
+                echo "000 or 5xx: the registry was unreachable. Fix the cause and rerun from failed."
+                cat /tmp/manifest-check.json 2>/dev/null || true
+                exit 1
+                ;;
+            esac
+
+      # The same metadata build-release-binaries stamps into the archives'
+      # binaries; the Dockerfile passes it to the Makefile's -ldflags.
+      - run:
+          name: Create the multi-platform builder
+          command: |
+            echo "export BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> "$BASH_ENV"
+            docker buildx create --name opensysml --driver docker-container --use
+            docker buildx inspect --bootstrap
+
+      # The native platform's image is run before anything is pushed: the
+      # binaries report the tag, and the service answers /health and a Connect
+      # call from a second container on the service container's network, as a
+      # sidecar consumer will.
+      - run:
+          name: Build the linux/amd64 image and run it
+          command: |
+            docker buildx build --platform linux/amd64 --load \
+              --build-arg VERSION="${CIRCLE_TAG}" \
+              --build-arg COMMIT="${CIRCLE_SHA1}" \
+              --build-arg BUILD_TIME="${BUILD_TIME}" \
+              -t openmbee/opensysml:check .
+            for binary in sysml-grpc sysml sysml-lsp; do
+              reported=$(docker run --rm --entrypoint "$binary" openmbee/opensysml:check -version | head -n 1)
+              echo "$reported"
+              case "$reported" in
+                *"${CIRCLE_TAG}"*) ;;
+                *)
+                  echo "Error: ${binary} reports '${reported}', not the release tag ${CIRCLE_TAG}."
+                  exit 1 ;;
+              esac
+            done
+            docker run -d --name opensysml-check openmbee/opensysml:check
+            curl() {
+              docker run --rm --network container:opensysml-check curlimages/curl:8.11.1 \
+                -fsS --retry 10 --retry-connrefused --retry-delay 1 "$@"
+            }
+            health=$(curl http://localhost:8081/health)
+            echo "$health"
+            case "$health" in
+              *'"status":"ok"'*) ;;
+              *) echo "Error: /health did not answer ok."; exit 1 ;;
+            esac
+            info=$(curl -X POST -H 'Content-Type: application/json' -d '{}' \
+              http://localhost:50051/sysml.SysMLService/GetServerInfo)
+            case "$info" in
+              *"\"version\":\"${CIRCLE_TAG}\""*) echo "ok: GetServerInfo reports ${CIRCLE_TAG}" ;;
+              *) echo "Error: GetServerInfo answered '${info}', not version ${CIRCLE_TAG}."; exit 1 ;;
+            esac
+            docker rm -f opensysml-check >/dev/null
+
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # One build publishes both platforms under one manifest list per tag, with
+            # buildx's SLSA provenance and SBOM attached; the digest it reports is what a deployer pins.
+            - run:
+                name: Build and push the multi-platform image
+                command: |
+                  tags="openmbee/opensysml:${IMAGE_VERSION}"
+                  # `latest` moves only to the newest stable release, decided against the tag
+                  # namespace as fetched now, so a late or re-run publish cannot roll it back.
+                  case "$IMAGE_VERSION" in
+                    *-*) echo "pre-release: latest is not moved" ;;
+                    *)
+                      git fetch --tags --force --quiet origin
+                      newest=$( { git tag -l 'v[0-9]*' | grep -v -- -; echo "v${IMAGE_VERSION}"; } | sort -V | tail -n 1)
+                      if [ "$newest" = "v${IMAGE_VERSION}" ]; then
+                        tags="${tags} openmbee/opensysml:latest"
+                      else
+                        echo "${newest} is a newer release: latest is not moved to ${IMAGE_VERSION}"
+                      fi
+                      ;;
+                  esac
+                  echo "export IMAGE_TAGS='${tags}'" >> "$BASH_ENV"
+                  echo "Pushing ${tags}"
+                  tag_flags=""
+                  for tag in ${tags}; do tag_flags="${tag_flags} -t ${tag}"; done
+                  # shellcheck disable=SC2086
+                  docker buildx build --platform linux/amd64,linux/arm64 --push \
+                    --provenance=mode=max --sbom=true \
+                    --build-arg VERSION="${CIRCLE_TAG}" \
+                    --build-arg COMMIT="${CIRCLE_SHA1}" \
+                    --build-arg BUILD_TIME="${BUILD_TIME}" \
+                    ${tag_flags} .
+                  for tag in ${tags}; do
+                    docker buildx imagetools inspect "$tag"
+                  done
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # The login above already proved the credentials; this proves both
+            # platforms build from this tree, and leaves the result unpushed.
+            - run:
+                name: "REHEARSAL: build both platforms without pushing"
+                command: |
+                  docker buildx build --platform linux/amd64,linux/arm64 \
+                    --output type=image,push=false \
+                    --build-arg VERSION="${CIRCLE_TAG}" \
+                    --build-arg COMMIT="${CIRCLE_SHA1}" \
+                    --build-arg BUILD_TIME="${BUILD_TIME}" \
+                    -t openmbee/opensysml:rehearsal .
+      - rehearsal-skip:
+          what: "docker buildx build --push (the multi-platform image to Docker Hub)"
 
   publish-github-release:
     docker:
@@ -3828,6 +4127,20 @@ workflows:
           requires:
             - Publish GitHub release
             - Rust client tests
+          filters: *release-tags
+
+      - publish-docker:
+          name: Publish openmbee/opensysml to Docker Hub
+          # Last of all, with the registry publishers: a tag of the image names
+          # a release, so it waits for the GitHub release to exist. It is
+          # independent of them so neither registry refusing a re-run blocks
+          # the other. The organization context is named 'DockerHub' (the one
+          # flexo-mms-sysmlv2 publishes with); a context reference is matched
+          # exactly, so the case here has to match it.
+          context:
+            - DockerHub
+          requires:
+            - Publish GitHub release
           filters: *release-tags
 
       - pin-release-digests:

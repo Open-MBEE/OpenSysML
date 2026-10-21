@@ -285,7 +285,7 @@ func (g *generalGraph) node(sym *symbols.Symbol) *Node {
 	}
 	r := g.r
 	node := &Node{ID: g.ids.take(), Kind: declKind(sym), Name: r.notationName(sym), NameSynthesized: r.model.NameSynthesized(sym),
-		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym),
+		Type: r.headType(sym), Typings: r.headTypings(sym), Origin: symbolOrigin(sym),
 		Geometry: r.geometryOf(g.view, sym, g.out), Style: r.styleOf(g.view, sym, g.out)}
 	if g.kind == KindRequirement && isRequirement(sym) {
 		node.Detail = r.requirementDetail(sym)

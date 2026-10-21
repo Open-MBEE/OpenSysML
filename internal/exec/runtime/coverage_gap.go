@@ -63,7 +63,7 @@ func (c *Context) gaps() []CoverageGap {
 }
 
 // mergeGaps adds the gaps not yet in the list and returns it in canonical order.
-func mergeGaps(into []CoverageGap, gaps []CoverageGap) []CoverageGap {
+func mergeGaps(into, gaps []CoverageGap) []CoverageGap {
 	for _, gap := range gaps {
 		if !slices.Contains(into, gap) {
 			into = append(into, gap)

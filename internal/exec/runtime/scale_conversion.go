@@ -292,6 +292,7 @@ func (ctx *Context) convertToReference(q Quantity, target *CoordinateFrame) (Qua
 // conversionTarget reads ConvertQuantity's targetMRef: a unit or a scale, as the
 // one-axis frame either is; a frame of more axes is no scalar reference.
 func (ctx *Context) conversionTarget(name string, val Value) (*CoordinateFrame, error) {
+	val = soleElement(val)
 	switch val.Kind {
 	case ValMeasurementRef:
 		return scalarFrame(val.MeasurementRef()), nil

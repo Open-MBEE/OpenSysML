@@ -90,7 +90,7 @@ func testStepSetMidRunAppliesToTheWaitsSetAfterIt(t *testing.T) {
 	if !exec.State().Ended() {
 		t.Fatalf("the run is %v after 10 s, want ended", exec.State())
 	}
-	got := realOutputs(t, exec.Results(), "t1", "t2", "t3")
+	got := soleRealOutputs(t, exec.Results(), "t1", "t2", "t3")
 	for i, want := range []float64{2.3, 3.0, 6.0} {
 		if math.Abs(got[i]-want) > 1e-9 {
 			t.Errorf("t%d = %v, want %v: the pending wait keeps 2.3, the next tick from there is 3.0", i+1, got[i], want)
@@ -118,7 +118,7 @@ func testPastInstantFiresAtOnceUnderAStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := realOutputs(t, out, "at")[0]; got != 4.0 {
+	if got := soleRealOutputs(t, out, "at")[0]; got != 4.0 {
 		t.Errorf("at = %v, want 4.0: 2.5 rounds up to the tick 4.0 and the past instant waits no further", got)
 	}
 	if now := ctx.Clock().Now(); now != 4.0 {
@@ -169,7 +169,7 @@ func testPastInstantFiresAtOnceOffTheGrid(t *testing.T) {
 	if !exec.State().Ended() {
 		t.Fatalf("the run is %v after 10 s, want ended", exec.State())
 	}
-	got := realOutputs(t, exec.Results(), "at", "onward")
+	got := soleRealOutputs(t, exec.Results(), "at", "onward")
 	for i, want := range []float64{2.3, 3.0} {
 		if math.Abs(got[i]-want) > 1e-9 {
 			t.Errorf("%s = %v, want %v: the passed instant 1.0 waits no further at 2.3, and 2.5 ahead rounds up to the tick 3.0", []string{"at", "onward"}[i], got[i], want)
@@ -187,7 +187,7 @@ func testStepTooFineToTellApartLeavesTheWaitFinite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("step %v: %v", step, err)
 		}
-		got := realOutputs(t, out, "t1", "t2", "t3")
+		got := soleRealOutputs(t, out, "t1", "t2", "t3")
 		for i, want := range []float64{2.3, 2.7, 6.0} {
 			if math.Abs(got[i]-want) > 1e-9 {
 				t.Errorf("step %v: t%d = %v, want %v", step, i+1, got[i], want)

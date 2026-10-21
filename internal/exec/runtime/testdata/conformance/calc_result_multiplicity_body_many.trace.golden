@@ -1,0 +1,9 @@
+enter calc test::Shaped
+  bind x = 25.0 [argument]
+  stmt declare y
+      eval feature x -> 25.0
+      eval literal 1.0 -> 1.0
+    eval operator + -> 26.0
+  stmt return
+    eval feature y -> 26.0
+exit calc test::Shaped -> (26.0)

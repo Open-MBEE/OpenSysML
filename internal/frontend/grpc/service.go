@@ -217,6 +217,11 @@ const CapabilityConvertDocuments = "convert_documents"
 // handles, and optionally without the metamodel's derived properties.
 const CapabilityConvertCompact = "convert_compact"
 
+// CapabilityConvertCheckDiagnostics names ConvertRequest.include_check_diagnostics:
+// the semantic check's diagnostics, with their severities, reported alongside
+// the converted output.
+const CapabilityConvertCheckDiagnostics = "convert_check_diagnostics"
+
 // CapabilityParseSourcesAffected names ParseSourcesRequest.base_model_hash and
 // ParseSourcesResponse.affected: the documents whose results may differ from
 // the base model's, so a client re-reads only those after an edit.
@@ -374,6 +379,7 @@ var capabilities = []string{
 	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
+	CapabilityConvertCheckDiagnostics,
 	CapabilityParseSourcesAffected,
 	CapabilityRenderDocumentFileName,
 	CapabilityOrderDependence,
@@ -479,6 +485,23 @@ func NewService(cacheSize int, version string, opts ...Option) (*Service, error)
 	return newService(cacheSize, version, opts)
 }
 
+// TestWithholdCapabilitiesEnv names, comma-separated, the capabilities a
+// command's service deliberately lacks, so a conformance run can test a
+// client's fallback for each.
+const TestWithholdCapabilitiesEnv = "OPENSYSML_TEST_WITHHOLD_CAPABILITIES"
+
+// WithheldCapabilitiesForTesting reads TestWithholdCapabilitiesEnv, dropping
+// blanks; nil when it is unset.
+func WithheldCapabilitiesForTesting() []string {
+	var names []string
+	for _, name := range strings.Split(os.Getenv(TestWithholdCapabilitiesEnv), ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
 // NewServiceWithUnavailableCapabilitiesForTesting creates a service that
 // deliberately lacks named capabilities for conformance testing.
 func NewServiceWithUnavailableCapabilitiesForTesting(cacheSize int, version string, unavailable []string, opts ...Option) (*Service, error) {
@@ -570,6 +593,11 @@ func (s *Service) GetServerInfo(ctx context.Context, req *pb.ServerInfoRequest) 
 		Capabilities: s.capabilities.names(),
 	}, nil
 }
+
+// Supports reports whether the service has a capability, as GetServerInfo
+// lists it; an in-process caller asks before choosing an RPC the way a remote
+// client reads the advertised list first.
+func (s *Service) Supports(capability string) bool { return s.capabilities.has(capability) }
 
 func (s *Service) requireCapability(capability string) error {
 	if s.capabilities.has(capability) {

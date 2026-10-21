@@ -5,8 +5,8 @@
 		"total": {"type": "Integer", "value": 12},
 		"a": {"type": "Integer", "value": 100},
 		"b": {"type": "Integer", "value": 100},
-		"scaled.a": {"type": "Integer", "value": 3},
-		"scaled.b": {"type": "Integer", "value": 4},
-		"scaled.result": {"type": "Integer", "value": 12}
+		"scaled.a": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+		"scaled.b": {"type": "Sequence", "elements": [{"type": "Integer", "value": 4}]},
+		"scaled.result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 12}]}
 	}
 }

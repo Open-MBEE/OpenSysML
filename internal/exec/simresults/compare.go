@@ -434,16 +434,12 @@ func runValues(table sweep.SweepTable, feature string) (numbers []semantics.Valu
 				continue
 			}
 			produced = true
-			n, ok := runtime.MagnitudeValue(out.Value)
+			n, unit, ok := runtime.Magnitude(out.Value)
 			if !ok {
 				other++
 				continue
 			}
 			numbers = append(numbers, n)
-			unit := ""
-			if q := out.Value.Quantity(); q != nil {
-				unit = q.Unit.String()
-			}
 			if !slices.Contains(units, unit) {
 				units = append(units, unit)
 			}

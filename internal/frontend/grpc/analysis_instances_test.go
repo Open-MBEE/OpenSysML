@@ -79,8 +79,9 @@ func wantInstancesResolve(t *testing.T, outputs []*pb.CalcOutput, instances []*p
 	for _, out := range outputs {
 		switch out.Name {
 		case "pooled":
-			if out.GetValue().GetSet() == nil {
-				t.Errorf("pooled crossed as %v, want a set", out.GetValue())
+			// An Engine[*] attribute holds a sequence, whatever collection bound it.
+			if out.GetValue().GetSequence() == nil {
+				t.Errorf("pooled crossed as %v, want a sequence", out.GetValue())
 			}
 		case "gridded":
 			if out.GetValue().GetArray() == nil {

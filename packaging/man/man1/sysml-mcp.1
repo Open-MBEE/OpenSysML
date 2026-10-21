@@ -66,6 +66,11 @@ and exit; alone, list the hosts
 Command the \-print\-config block names instead of this binary's absolute
 path, such as sysml\-mcp when it is on PATH
 .TP
+.B \-print\-config\-npx
+Make the \-print\-config block start the server as npx \-y
+@openmbee/sysml\-mcp, which npm installs on first use, instead of naming this
+binary
+.TP
 .BI \-root " string"
 Workspace folder whose model documents the server indexes and edits; default
 the current directory, which an agent host sets to the project. The default is
@@ -151,12 +156,15 @@ is refused with 400.
 \-print\-config writes the block a host reads, naming this binary by its
 absolute path so the host finds it wherever it was installed;
 \-print\-config\-command names another command instead, such as sysml\-mcp
-when it is on PATH. With \-http (and \-tls\-cert for https) the block names
-the URL of a server already serving that address instead; every host reads the
-URL form. The hosts, with the file each reads, are opencode (opencode.json),
-claude\-code (.mcp.json), cursor (.cursor/mcp.json), codex
-(~/.codex/config.toml), vscode (.vscode/mcp.json), gemini
-(.gemini/settings.json), devin (Customize > MCPs > Add custom MCP).
+when it is on PATH, and \-print\-config\-npx names npx \-y
+@openmbee/sysml\-mcp, which installs the release binary for the host's
+platform from npm on first use, so a machine with Node needs nothing else.
+With \-http (and \-tls\-cert for https) the block names the URL of a server
+already serving that address instead; every host reads the URL form. The
+hosts, with the file each reads, are opencode (opencode.json), claude\-code
+(.mcp.json), cursor (.cursor/mcp.json), codex (~/.codex/config.toml), vscode
+(.vscode/mcp.json), gemini (.gemini/settings.json), devin (Customize > MCPs >
+Add custom MCP).
 .PP
 .RS 2
 .nf
@@ -168,6 +176,8 @@ sysml\-mcp \-print\-config opencode
 sysml\-mcp \-print\-config codex >> ~/.codex/config.toml
 # A block that finds the server on PATH
 sysml\-mcp \-print\-config cursor \-print\-config\-command sysml\-mcp
+# A block that runs the server from npm
+sysml\-mcp \-print\-config vscode \-print\-config\-npx
 # A block reaching http://localhost:8765/mcp
 sysml\-mcp \-print\-config vscode \-http 8765
 .fi

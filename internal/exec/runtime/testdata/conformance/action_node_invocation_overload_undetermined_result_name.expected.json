@@ -5,7 +5,7 @@
 	"outputs": {
 		"chosen": {"type": "Integer", "value": 2},
 		"marked": {"type": "Integer", "value": 1},
-		"byResult.result": {"type": "Integer", "value": 2},
-		"byMark.mark": {"type": "Integer", "value": 1}
+		"byResult.result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+		"byMark.mark": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
 	}
 }

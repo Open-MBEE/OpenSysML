@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.OptionalDouble;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -1482,7 +1481,11 @@ class ApiIntegrationTest {
         List.of("1", "2"),
         result.divergences().get(0).values().stream().map(CheckResult.DivergentValue::value).toList());
     assertEquals("check", result.standing().engine());
+  }
 
+  @Test
+  void checkActionHoldsACappedPropertyAndRefusesBadInputs() {
+    Model model = connection.load(fixture("tank.sysml"));
     CheckResult held =
         model.checkAction(
             "Plant::Tank::fill",
@@ -1495,19 +1498,17 @@ class ApiIntegrationTest {
     assertTrue(held.violations().isEmpty());
     assertTrue(held.divergences().isEmpty());
 
+    Map<String, Value> noInputs = Map.of();
+    CheckOptions defaults = CheckOptions.defaults();
     ModelException missing =
         assertThrows(
-            ModelException.class,
-            () -> model.checkAction("Plant::Tank::drain", Map.of(), CheckOptions.defaults()));
+            ModelException.class, () -> model.checkAction("Plant::Tank::drain", noInputs, defaults));
     assertTrue(missing.getMessage().contains("Plant::Tank::drain"), missing.getMessage());
+    CheckOptions negativeDepth = CheckOptions.defaults().withBounds(-1, 0, 0, 0);
     ServiceException negative =
         assertThrows(
             ServiceException.class,
-            () ->
-                model.checkAction(
-                    "Plant::Tank::fill",
-                    Map.of(),
-                    CheckOptions.defaults().withBounds(-1, 0, 0, 0)));
+            () -> model.checkAction("Plant::Tank::fill", noInputs, negativeDepth));
     assertTrue(negative.getMessage().contains("check_depth"), negative.getMessage());
   }
 
@@ -1759,14 +1760,13 @@ class ApiIntegrationTest {
     assertTrue(sample.unconcluded().isEmpty());
     assertTrue(sample.output("Mean").isPresent());
 
+    RunsOptions unseededOptions = RunsOptions.action("MC::Settle", 1);
     ServiceException unseeded =
-        assertThrows(
-            ServiceException.class, () -> model.runRuns(RunsOptions.action("MC::Settle", 1)));
+        assertThrows(ServiceException.class, () -> model.runRuns(unseededOptions));
     assertTrue(unseeded.getMessage().contains("seed"), unseeded.getMessage());
+    RunsOptions unknownOptions = RunsOptions.action("MC::Nope", 1).withDraws("min");
     ModelException unknown =
-        assertThrows(
-            ModelException.class,
-            () -> model.runRuns(RunsOptions.action("MC::Nope", 1).withDraws("min")));
+        assertThrows(ModelException.class, () -> model.runRuns(unknownOptions));
     assertTrue(unknown.getMessage().contains("MC::Nope"), unknown.getMessage());
   }
 
@@ -1777,8 +1777,9 @@ class ApiIntegrationTest {
     assertTrue(check.elements() > 0 && check.checks() > 0, check.toString());
     assertTrue(check.summary().startsWith("Self-model check: "), check.summary());
     assertFalse(check.applications().isEmpty());
+    List<String> unknownPackages = List.of("Nope");
     ModelException unknown =
-        assertThrows(ModelException.class, () -> model.selfCheck(List.of("Nope")));
+        assertThrows(ModelException.class, () -> model.selfCheck(unknownPackages));
     assertTrue(unknown.getMessage().contains("Nope"), unknown.getMessage());
   }
 
@@ -1798,7 +1799,8 @@ class ApiIntegrationTest {
             "MC::Mc", RecordOptions.defaults().withSubject("MC::probe").withRuns(2, 3));
     assertTrue(sample.sample().isPresent());
     assertEquals(3, sample.records().size());
-    assertThrows(ModelException.class, () -> model.recordRun("MC::Nope", RecordOptions.defaults()));
+    RecordOptions defaults = RecordOptions.defaults();
+    assertThrows(ModelException.class, () -> model.recordRun("MC::Nope", defaults));
   }
 
   private static final String IMPORT_MODEL =
@@ -1879,16 +1881,13 @@ class ApiIntegrationTest {
     assertEquals(1, dry.files().get(0).assignments().size());
     assertTrue(dry.content().isEmpty() && dry.documents().isEmpty());
 
+    List<DataImport> unresolved =
+        List.of(DataImport.of("fleet.csv", "element,count\nV::car,9\nV::Nowhere,1\n"));
     ModelException refused =
-        assertThrows(
-            ModelException.class,
-            () ->
-                model.importData(
-                    List.of(DataImport.of("fleet.csv", "element,count\nV::car,9\nV::Nowhere,1\n")),
-                    false,
-                    false));
+        assertThrows(ModelException.class, () -> model.importData(unresolved, false, false));
     assertTrue(refused.getMessage().contains("V::Nowhere"), refused.getMessage());
-    assertThrows(ServiceException.class, () -> model.importData(List.of(), false, false));
+    List<DataImport> none = List.of();
+    assertThrows(ServiceException.class, () -> model.importData(none, false, false));
   }
 
   @Test
@@ -1942,21 +1941,19 @@ class ApiIntegrationTest {
     assertEquals(1, selected.configurations().size());
     assertEquals(1, selected.configurations().get(0).runs());
 
+    CompareOptions negativeRuns =
+        new CompareOptions(
+            List.of(),
+            -1,
+            OptionalLong.empty(),
+            Optional.empty(),
+            OptionalDouble.empty(),
+            List.of(),
+            Optional.empty());
     assertThrows(
-        ServiceException.class,
-        () ->
-            model.compareResults(
-                PROBE_RESULTS,
-                new CompareOptions(
-                    List.of(),
-                    -1,
-                    OptionalLong.empty(),
-                    Optional.empty(),
-                    OptionalDouble.empty(),
-                    List.of(),
-                    Optional.empty())));
-    assertThrows(
-        ServiceException.class, () -> model.compareResults("not json", CompareOptions.defaults()));
+        ServiceException.class, () -> model.compareResults(PROBE_RESULTS, negativeRuns));
+    CompareOptions defaults = CompareOptions.defaults();
+    assertThrows(ServiceException.class, () -> model.compareResults("not json", defaults));
   }
 
   private static final String TIMED =
@@ -1990,12 +1987,12 @@ class ApiIntegrationTest {
     assertEquals(new Value.IntegerValue(1), completed.outputs().get("count"));
     assertEquals(OptionalDouble.of(10), completed.finalTime());
 
+    Map<String, Value> noInputs = Map.of();
+    ExecutionOptions shortAdvance = ExecutionOptions.defaults().withAdvance(2);
     ModelException waiting =
         assertThrows(
             ModelException.class,
-            () ->
-                model.executeAction(
-                    "Timed::delayed", Map.of(), ExecutionOptions.defaults().withAdvance(2)));
+            () -> model.executeAction("Timed::delayed", noInputs, shortAdvance));
     assertTrue(waiting.getMessage().contains("without completing"), waiting.getMessage());
     assertEquals(2, waiting.finalTime());
 
@@ -2004,12 +2001,11 @@ class ApiIntegrationTest {
             "Timed::delayed", Map.of(), ExecutionOptions.defaults().withClockStep(3));
     assertEquals(OptionalDouble.of(6), stepped.finalTime());
 
+    ExecutionOptions unknownDraws = ExecutionOptions.defaults().withDraws("often");
     ServiceException refused =
         assertThrows(
             ServiceException.class,
-            () ->
-                model.executeAction(
-                    "Timed::delayed", Map.of(), ExecutionOptions.defaults().withDraws("often")));
+            () -> model.executeAction("Timed::delayed", noInputs, unknownDraws));
     assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
   }
 
@@ -2025,10 +2021,9 @@ class ApiIntegrationTest {
             .containsAll(List.of("undeclared-signal", "rounded-real-literal")));
     assertEquals(
         List.of(), model.diagnostics(DiagnosticsOptions.defaults().disabling("undeclared-signal")));
+    DiagnosticsOptions unknownLint = DiagnosticsOptions.defaults().disabling("no-such-lint");
     ServiceException refused =
-        assertThrows(
-            ServiceException.class,
-            () -> model.diagnostics(DiagnosticsOptions.defaults().disabling("no-such-lint")));
+        assertThrows(ServiceException.class, () -> model.diagnostics(unknownLint));
     assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
   }
 

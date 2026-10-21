@@ -190,23 +190,34 @@ var Tools = []Entry{
 // listed here with a reason.
 var RPCsWithoutTools = map[string]string{}
 
+// The reasons several unserved operations and CLI-only flags share.
+const (
+	notDrawn       = "RenderViewRequest answers data, not a drawn form"
+	noListing      = "no RPC lists the documents and views of a model"
+	noHTMLStyling  = "RenderDocumentRequest has no HTML styling fields"
+	hostToolchain  = "drives a native toolchain on the host"
+	hostRepository = "talks to a remote SysML v2 API repository from the host"
+	hostProfiling  = "process profiling"
+)
+
 // Unserved names the sysml CLI operations and operation arguments that no
 // tool performs yet, each with the request or response the service lacks for
 // it. A flag listed here is an operation the CLI has and the service does not;
 // adding the field or RPC and the tool moves the flag into an entry.
 var Unserved = map[string]string{
+	"metaclass-graph":     "no RPC answers the metaclass hierarchy vocabulary graph",
 	"portable":            "MigrateRequest has no portable field",
 	"render-all":          "no RPC renders every declared view",
-	"render-form":         "RenderViewRequest answers data, not a drawn form",
-	"render-palette":      "RenderViewRequest answers data, not a drawn form",
-	"render-link":         "RenderViewRequest answers data, not a drawn form",
-	"render-unplaced":     "RenderViewRequest answers data, not a drawn form",
-	"render-style":        "RenderViewRequest answers data, not a drawn form",
-	"render-lines":        "RenderViewRequest answers data, not a drawn form",
-	"render-overlay":      "RenderViewRequest answers data, not a drawn form",
-	"list":                "no RPC lists the documents and views of a model",
-	"list-kind":           "no RPC lists the documents and views of a model",
-	"list-form":           "no RPC lists the documents and views of a model",
+	"render-form":         notDrawn,
+	"render-palette":      notDrawn,
+	"render-link":         notDrawn,
+	"render-unplaced":     notDrawn,
+	"render-style":        notDrawn,
+	"render-lines":        notDrawn,
+	"render-overlay":      notDrawn,
+	"list":                noListing,
+	"list-kind":           noListing,
+	"list-form":           noListing,
 	"render-documents":    "no RPC renders every document definition",
 	"diagram-form":        "RenderDocumentRequest has no diagram-form field",
 	"doc-title-page":      "RenderDocumentRequest has no title-page field",
@@ -214,13 +225,13 @@ var Unserved = map[string]string{
 	"doc-number-sections": "RenderDocumentRequest has no section-numbering field",
 	"doc-number-figures":  "RenderDocumentRequest has no figure-numbering field",
 	"pdf-engine":          "RenderDocumentRequest refuses the pdf form",
-	"html-default-css":    "RenderDocumentRequest has no HTML styling fields",
-	"html-no-default-css": "RenderDocumentRequest has no HTML styling fields",
-	"html-css":            "RenderDocumentRequest has no HTML styling fields",
-	"html-theme":          "RenderDocumentRequest has no HTML styling fields",
-	"html-fragment":       "RenderDocumentRequest has no HTML styling fields",
-	"html-math":           "RenderDocumentRequest has no HTML styling fields",
-	"html-mermaid":        "RenderDocumentRequest has no HTML styling fields",
+	"html-default-css":    noHTMLStyling,
+	"html-no-default-css": noHTMLStyling,
+	"html-css":            noHTMLStyling,
+	"html-theme":          noHTMLStyling,
+	"html-fragment":       noHTMLStyling,
+	"html-math":           noHTMLStyling,
+	"html-mermaid":        noHTMLStyling,
 	"trace":               "ExecuteActionRequest has no trace field",
 	"render-run":          "no RPC renders a recorded run as a timeline or sequence",
 }
@@ -239,21 +250,22 @@ var CLIOnly = map[string]string{
 	"bundle":               "archives a project directory on the host",
 	"unbundle":             "writes a project directory on the host",
 	"jobs":                 "host concurrency",
-	"compile":              "drives a native toolchain on the host",
-	"target":               "drives a native toolchain on the host",
-	"source":               "drives a native toolchain on the host",
-	"sync-diff":            "talks to a remote SysML v2 API repository from the host",
-	"sync-apply":           "talks to a remote SysML v2 API repository from the host",
-	"sync-base":            "talks to a remote SysML v2 API repository from the host",
-	"sync-state":           "talks to a remote SysML v2 API repository from the host",
-	"sync-annotate":        "talks to a remote SysML v2 API repository from the host",
-	"sync-confirm-deletes": "talks to a remote SysML v2 API repository from the host",
-	"sync-mint-ids":        "talks to a remote SysML v2 API repository from the host",
-	"debug":                "process logging (sysml-mcp -log)",
-	"quiet":                "process logging (sysml-mcp -log)",
-	"cpuprofile":           "process profiling",
-	"memprofile":           "process profiling",
-	"memstats":             "process profiling",
+	"compile":              hostToolchain,
+	"target":               hostToolchain,
+	"source":               hostToolchain,
+	"sync-diff":            hostRepository,
+	"sync-apply":           hostRepository,
+	"sync-base":            hostRepository,
+	"sync-state":           hostRepository,
+	"sync-annotate":        hostRepository,
+	"sync-confirm-deletes": hostRepository,
+	"sync-mint-ids":        hostRepository,
+	"stdlib":               hostRepository,
+	"debug":                "process logging (sysml-mcp -log-level)",
+	"quiet":                "process logging (sysml-mcp -log-level)",
+	"cpuprofile":           hostProfiling,
+	"memprofile":           hostProfiling,
+	"memstats":             hostProfiling,
 }
 
 // Groups lists the groups in catalog order.
@@ -285,16 +297,6 @@ func Names(groups ...Group) []string {
 	}
 	sort.Strings(names)
 	return names
-}
-
-// Lookup finds the entry of a tool.
-func Lookup(name string) (Entry, bool) {
-	for _, e := range Tools {
-		if e.Name == name {
-			return e, true
-		}
-	}
-	return Entry{}, false
 }
 
 // ToolFor answers the tool that serves an RPC of the service.

@@ -46,7 +46,7 @@ func testAcceptPayloadSpecializedSignalFlows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := intOutput(t, outputs, "total"); got != 16 {
+	if got := soleIntOutput(t, outputs, "total"); got != 16 {
 		t.Fatalf("total = %d, want 16 from the Calibrated level accepted as a Reading", got)
 	}
 }
@@ -78,7 +78,7 @@ func testAcceptPayloadSendToIdleObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := intOutput(t, outputs, "sent"); got != 4 {
+	if got := soleIntOutput(t, outputs, "sent"); got != 4 {
 		t.Fatalf("sent = %d, want 4", got)
 	}
 }

@@ -463,7 +463,7 @@ func TestNestedStageConditionsAreTranslated(t *testing.T) {
 	if bound < 0 {
 		t.Fatalf("the nested stage's condition is not translated:\n%s", script)
 	}
-	if first := strings.Index(script, "(minimize "); first < bound {
+	if strings.Index(script, "(minimize ") < bound {
 		t.Errorf("the nested stage's condition follows an objective:\n%s", script)
 	}
 }

@@ -763,3 +763,55 @@ func TestSharedTableIsPinnedAfterTheRelease(t *testing.T) {
 	const name = "Pin the release in the shared digest table"
 	requireAll(t, name, requiresOf(t, release, name), "Publish GitHub release")
 }
+
+// TestNpmRunnerIsPublishedWithTheClient checks the @openmbee/sysml-mcp
+// contract: build-release writes the sidecars its platform packages are built
+// against, publish-npm builds those packages from dist/mcp, packs the shim and
+// proves the packed shim serves the protocol before anything is published, and
+// publishes the platform packages before the shim that pins them.
+func TestNpmRunnerIsPublishedWithTheClient(t *testing.T) {
+	config := loadCircleConfig(t)
+	release, ok := config.Jobs["build-release-binaries"]
+	if !ok {
+		t.Fatal("no build-release-binaries job")
+	}
+	if stepIndex(runSteps(t, release.Steps), "cd dist/mcp", `for f in sysml-mcp-*; do sha256sum "$f" > "$f.sha256"; done`) < 0 {
+		t.Error("build-release-binaries writes no .sha256 sidecar beside the raw sysml-mcp binaries, so the platform packages cannot be verified")
+	}
+
+	npm, ok := config.Jobs["publish-npm"]
+	if !ok {
+		t.Fatal("no publish-npm job")
+	}
+	steps := runSteps(t, npm.Steps)
+	refuse := stepIndex(steps, "packaging/npm/sysml-mcp/package.json", "npm view", "-ne 13")
+	build := stepIndex(steps, "npm run platform-packages", "--mcp ../../dist/mcp")
+	prove := stepIndex(steps, "openmbee-sysml-mcp-${NPM_VERSION}.tgz", "NPM_MCP_TARBALL", "scripts/npm-mcp-test.sh")
+	whoami := stepIndex(steps, "npm whoami")
+	platforms := stepIndex(steps, "npm publish", "client/node/packages/sysml-mcp-*")
+	shim := stepIndex(steps, "npm publish", `"$NPM_MCP_TARBALL"`)
+	rehearsal := stepIndex(steps, "npm pack", "--dry-run", "client/node/packages/sysml-mcp-*")
+	switch {
+	case refuse < 0:
+		t.Error("publish-npm does not refuse a published version of @openmbee/sysml-mcp and its five platform packages (13 packages in all)")
+	case build < 0:
+		t.Error("publish-npm does not build the sysml-mcp platform packages from dist/mcp")
+	case prove < 0:
+		t.Error("publish-npm does not pack @openmbee/sysml-mcp and prove the packed shim serves the protocol")
+	case prove < build:
+		t.Errorf("the shim is packed and proved (step %d) before its platform packages are built (step %d)", prove, build)
+	case whoami < prove:
+		t.Errorf("npm whoami (step %d) runs before the shim is proved (step %d); everything that can fail runs first", whoami, prove)
+	case platforms < 0:
+		t.Error("publish-npm does not publish the sysml-mcp platform packages")
+	case shim < 0:
+		t.Error("publish-npm does not publish the verified @openmbee/sysml-mcp tarball")
+	case shim < platforms:
+		t.Errorf("@openmbee/sysml-mcp (step %d) is published before the platform packages it pins (step %d)", shim, platforms)
+	case rehearsal < 0:
+		t.Error("the release rehearsal does not pack the sysml-mcp platform packages")
+	}
+	if platforms >= 0 && shim >= 0 && stepIndex(steps[platforms:shim+1], `"$NPM_TARBALL"`) < 0 {
+		t.Error("@openmbee/opensysml is not published between the platform packages and @openmbee/sysml-mcp")
+	}
+}

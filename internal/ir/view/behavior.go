@@ -55,7 +55,7 @@ func (r *Renderer) renderState(view *symbols.Symbol, elem *symbols.Symbol, ids *
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), NameSynthesized: r.model.NameSynthesized(machine),
-		Type: declType(machine), Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
+		Type: r.headType(machine), Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
 	r.dress(view, machine, root, out)
 	if record != nil {
 		record(machine, root)
@@ -560,7 +560,7 @@ func (r *Renderer) renderAction(view *symbols.Symbol, elem *symbols.Symbol, ids 
 			declKind(elem), r.notationName(elem)))
 		return nil, false
 	}
-	subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem), typ: declType(elem),
+	subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem), typ: r.headType(elem),
 		scope: declScope(elem), doc: elem.DocName, view: view, elem: elem}
 	return r.actionNode(subject, ids, out, map[ast.Node]bool{}, map[ast.Node]*Node{}, 0, record)
 }

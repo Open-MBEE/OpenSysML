@@ -391,6 +391,8 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	if len(pending) > 0 {
 		features, inst.nested = ctx.applyNestedRedefinitions(sym, features, pending)
 	}
+	features = ctx.withConjoinedTypes(inst, owner, feature, features)
+	features = ctx.withBoundMembers(inst, owner, feature, features)
 
 	// Create feature value for each feature, allocated as one block.
 	values := make([]FeatureValue, len(features))
@@ -401,8 +403,8 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	}
 
 	// A redefining feature declares the feature it redefines again, so the two
-	// names read one feature value.
-	if err := ctx.aliasRedefinedFeatureValuesOf(inst, sym, nil, features); err != nil {
+	// names read one feature value, under every type of the object at once.
+	if err := ctx.aliasRedefinedFeatureValuesOf(inst, inst.types(), nil, features); err != nil {
 		return nil, err
 	}
 
@@ -605,7 +607,7 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 	if tail != nil {
 		held += tail.count
 	}
-	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); mult.AdmitsMore(held) && !symbols.IsAbstract(sym) {
+	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); held < fewestOf(mult) || (!ctx.libraryDeclared(sym) && mult.AdmitsMore(held) && !symbols.IsAbstract(sym)) {
 		spelled := ctx.QualifiedName(sym)
 		return undeterminedFeatureValue(openCountReason(spelled, mult), mult, sym), nil
 	}
@@ -837,6 +839,7 @@ type openPopulation struct {
 	Stopped     bool
 	Contributed []Value
 	AtLeast     int64
+	Fixed       int // the leading Contributed whose positions the model fixes
 }
 
 // openFeatureValue is GetFeatureValue for a model-level read: a collection whose count
@@ -860,7 +863,7 @@ func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopul
 	}
 	fv, err := inst.materializeFeatureValue(ctx, name, open)
 	if err != nil {
-		return nil, &FeatureValueError{Err: err}
+		return nil, &FeatureValueError{Err: err, Instance: inst, Feature: name}
 	}
 	return fv, nil
 }
@@ -1061,10 +1064,16 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 		return fv, err
 	}
 
+	// A `default` the holding declaration inherits and a body governs over supplies
+	// the features of the one object that body leaves unvalued (see default_body.go).
+	if held, err := inst.materializeFromHolderDefault(ctx, fv, name); err != nil || held {
+		return fv, err
+	}
+
 	// An abstract feature has no values of its own (KerML 1.0 §7.3.3.1) and an
 	// optional one demands none: each, a connector included, holds only contributions —
 	// unless the declaration's body binds a feature of the one object it then holds.
-	if fv.Feature.HoldsOnlyContributions() && !ctx.bodyBindsAFeature(fv.Feature) && (ctx.model.semantics.IsConnectorObjectUsage(fv.Feature.Symbol) || ctx.CompositeTypeOf(fv.Feature) != nil) {
+	if fv.Feature.HoldsOnlyContributions() && !ctx.bodyBindsAFeature(fv.Feature) && (symbols.IsAbstract(fv.Feature.Symbol) || ctx.model.semantics.IsConnectorObjectUsage(fv.Feature.Symbol) || ctx.CompositeTypeOf(fv.Feature) != nil) {
 		return inst.holdContributions(ctx, fv, name)
 	}
 
@@ -1109,7 +1118,13 @@ func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name st
 	if ctx.takeShared(inst, fv) {
 		return fv, nil
 	}
-	val, clean, reads, err := ctx.deriveFeatureValue(inst, fv, name)
+	return inst.holdDerived(ctx, fv, name, func() (Value, error) { return ctx.evalFeatureValueDefault(inst, fv, name) })
+}
+
+// holdDerived holds what derive states for the feature, recording what it reads, once
+// that conforms to the feature's multiplicity and type.
+func (inst *Instance) holdDerived(ctx *Context, fv *FeatureValue, name string, derive func() (Value, error)) (*FeatureValue, error) {
+	val, clean, reads, err := ctx.deriveFeatureValue(inst, fv, derive)
 	if err != nil {
 		return nil, err
 	}
@@ -1134,8 +1149,8 @@ func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name st
 // for a scalar, otherwise the members making up the collection's lower bound.
 func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name string, open *openPopulation, composite *symbols.Symbol) (*FeatureValue, error) {
 	mult := fv.Feature.Multiplicity
-	// A model-level read makes up no collection whose count the model leaves open;
-	// a body binding a feature of the one object an optional scalar holds fixes it at one.
+	// A model-level read holds what the model declares: it makes up no member for a
+	// lower bound the declared contributions leave unmet, and reports that instead.
 	_, exact := mult.Exactly()
 	if open != nil && !exact && !(fv.Feature.Scalar() && ctx.bodyBindsAFeature(fv.Feature)) {
 		release := ctx.elementScope()
@@ -1144,7 +1159,8 @@ func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name 
 		if err != nil {
 			return nil, err
 		}
-		if held := int64(len(contributed)); atLeast > held || mult.MayAdmitMore(held) {
+		held := int64(len(contributed))
+		if max(atLeast, fewestOf(mult)) > held || (!ctx.libraryDeclared(fv.Feature.Symbol) && mult.MayAdmitMore(held)) {
 			open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
 			return fv, nil
 		}

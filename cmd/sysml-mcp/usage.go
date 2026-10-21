@@ -29,6 +29,7 @@ type options struct {
 	showMan       bool
 	printConfig   hostFlag
 	configCommand string
+	configNpx     bool
 }
 
 // registerFlags declares the server's flags on fs, so a run, the help and the
@@ -61,6 +62,8 @@ func registerFlags(fs *flag.FlagSet) *options {
 		"Write the configuration block declaring this server to an agent host — "+strings.Join(hostNames(), ", ")+" — to stdout and exit; alone, list the hosts")
 	fs.StringVar(&o.configCommand, "print-config-command", "",
 		"Command the -print-config block names instead of this binary's absolute path, such as sysml-mcp when it is on PATH")
+	fs.BoolVar(&o.configNpx, "print-config-npx", false,
+		"Make the -print-config block start the server as npx -y "+npmPackage+", which npm installs on first use, instead of naming this binary")
 	fs.BoolVar(&o.showVersion, "version", false, "Show version information")
 	fs.BoolVar(&o.showVersion, "v", false, "Show version (shorthand)")
 	fs.BoolVar(&o.showHelp, "help", false, "Show this help and exit")
@@ -163,16 +166,20 @@ func doc() usage.Doc {
 				"-print-config writes the block a host reads, naming this binary by " +
 					"its absolute path so the host finds it wherever it was installed; " +
 					"-print-config-command names another command instead, such as " +
-					"sysml-mcp when it is on PATH. With -http (and -tls-cert for https) " +
-					"the block names the URL of a server already serving that address " +
-					"instead; every host reads the URL form. The hosts, with the file " +
-					"each reads, are " + hostList() + ".",
+					"sysml-mcp when it is on PATH, and -print-config-npx names " +
+					"npx -y " + npmPackage + ", which installs the release binary for the " +
+					"host's platform from npm on first use, so a machine with Node needs " +
+					"nothing else. With -http (and -tls-cert for https) the block names " +
+					"the URL of a server already serving that address instead; every host " +
+					"reads the URL form. The hosts, with the file each reads, are " +
+					hostList() + ".",
 			},
 			Examples: []usage.Example{
 				usage.Ex("sysml-mcp -print-config", "List the hosts"),
 				usage.Ex("sysml-mcp -print-config opencode", "The mcp block of opencode.json"),
 				usage.Ex("sysml-mcp -print-config codex >> ~/.codex/config.toml", "Append the [mcp_servers.sysml] table"),
 				usage.Ex("sysml-mcp -print-config cursor -print-config-command sysml-mcp", "A block that finds the server on PATH"),
+				usage.Ex("sysml-mcp -print-config vscode -print-config-npx", "A block that runs the server from npm"),
 				usage.Ex("sysml-mcp -print-config vscode -http 8765", "A block reaching http://localhost:8765/mcp"),
 			},
 		}, toolsSection(), {

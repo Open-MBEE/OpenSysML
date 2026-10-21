@@ -47,15 +47,6 @@ type Core struct {
 	Elapsed time.Duration
 }
 
-// Explain discovers a solver and asks it to explain the query.
-func Explain(ctx context.Context, q *Query) (*Result, error) {
-	solver, err := Discover()
-	if err != nil {
-		return nil, err
-	}
-	return solver.Explain(ctx, q)
-}
-
 // Explain asks the solver about the query and, when the verdict is unsat, for
 // the assertions that conflict: the solver's own unsat core, shrunk to a minimal
 // one while the budget lasts. sat and unknown carry no core, and a solver that

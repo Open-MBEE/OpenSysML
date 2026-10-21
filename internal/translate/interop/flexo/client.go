@@ -33,6 +33,7 @@ const (
 	EnvToken      = sysmlapi.EnvToken
 	EnvOrg        = "FLEXO_SYSMLV2_ORG"
 	EnvPlainHTTP  = sysmlapi.EnvPlainHTTP
+	EnvTimeout    = "FLEXO_TIMEOUT"
 )
 
 // Defaults matching flexo-mms-sysmlv2/docker-compose/docker-compose.yml, so a
@@ -41,6 +42,7 @@ const (
 	DefaultLayer1URL  = "http://localhost:8080"
 	DefaultSysMLV2URL = sysmlapi.DefaultBaseURL
 	DefaultOrg        = "sysmlv2"
+	DefaultTimeout    = sysmlapi.DefaultTimeout
 )
 
 // mediaTurtle is the RDF media type both services speak.
@@ -48,15 +50,16 @@ const mediaTurtle = "text/turtle"
 
 // Config addresses one running stack.
 type Config struct {
-	Layer1URL  string // Layer 1 service, which owns orgs, repos, branches and graphs
-	SysMLV2URL string // SysML v2 API, which owns projects, commits and elements
-	Token      string // bearer token accepted by both services
-	Org        string // Layer 1 org the SysML v2 service keeps its projects under
-	Timeout    time.Duration
+	Layer1URL  string        // Layer 1 service, which owns orgs, repos, branches and graphs
+	SysMLV2URL string        // SysML v2 API, which owns projects, commits and elements
+	Token      string        // bearer token accepted by both services
+	Org        string        // Layer 1 org the SysML v2 service keeps its projects under
+	Timeout    time.Duration // bound on one request; a whole-graph write of a large model needs more than the default
 }
 
 // ConfigFromEnv reads the stack's addresses from the environment, defaulting to
-// the published compose file's ports. The token has no default: it is a
+// the published compose file's ports, and the request bound from FLEXO_TIMEOUT
+// (a Go duration, 60s unless set). The token has no default: it is a
 // credential and is never written to the repository.
 func ConfigFromEnv() (Config, error) {
 	cfg := Config{
@@ -64,7 +67,14 @@ func ConfigFromEnv() (Config, error) {
 		SysMLV2URL: envOr(EnvSysMLV2URL, DefaultSysMLV2URL),
 		Token:      os.Getenv(EnvToken),
 		Org:        envOr(EnvOrg, DefaultOrg),
-		Timeout:    60 * time.Second,
+		Timeout:    DefaultTimeout,
+	}
+	if raw := os.Getenv(EnvTimeout); raw != "" {
+		timeout, err := time.ParseDuration(raw)
+		if err != nil || timeout <= 0 {
+			return cfg, fmt.Errorf("%s=%q is not a positive duration such as 60s or 10m", EnvTimeout, raw)
+		}
+		cfg.Timeout = timeout
 	}
 	if cfg.Token == "" {
 		return cfg, fmt.Errorf("%s is unset, so neither service will authorize the run", EnvToken)

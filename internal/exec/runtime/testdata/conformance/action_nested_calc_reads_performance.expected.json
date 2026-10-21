@@ -4,6 +4,6 @@
 	"libraries": true,
 	"outputs": {
 		"total": {"type": "Real", "value": 60.0},
-		"s.r": {"type": "Real", "value": 60.0}
+		"s.r": {"type": "Sequence", "elements": [{"type": "Real", "value": 60.0}]}
 	}
 }

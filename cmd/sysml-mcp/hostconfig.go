@@ -17,6 +17,38 @@ import (
 // prefix tool names with it, so an agent sees sysml/diagnostics and the like.
 const serverName = "sysml"
 
+// npmPackage is the npm package whose sysml-mcp command runs this server from
+// the release binary for the host's platform, so `npx -y` installs it on
+// first use with nothing preinstalled.
+const npmPackage = "@openmbee/sysml-mcp"
+
+// serverCommand is what a block tells the host to start: an executable and
+// the arguments before any the host adds.
+type serverCommand struct {
+	exe  string
+	args []string
+}
+
+// npxCommand is the serverCommand of the npm form: npx installs npmPackage
+// without asking and runs its sysml-mcp command.
+var npxCommand = serverCommand{exe: "npx", args: []string{"-y", npmPackage}}
+
+// binaryCommand is the serverCommand that starts exe with no arguments.
+func binaryCommand(exe string) serverCommand { return serverCommand{exe: exe} }
+
+// argv is the command as one array, the way OpenCode spells it.
+func (c serverCommand) argv() []string {
+	return append([]string{c.exe}, c.args...)
+}
+
+// arguments is the argument list, never nil, so it is written as [] not null.
+func (c serverCommand) arguments() []string {
+	if c.args == nil {
+		return []string{}
+	}
+	return c.args
+}
+
 // host is an agent host sysml-mcp writes a configuration block for.
 type host struct {
 	name string
@@ -29,7 +61,7 @@ type host struct {
 // endpoint is how a host reaches the server: a command it starts and speaks
 // stdio with, or the URL of one already serving over Streamable HTTP.
 type endpoint struct {
-	command string
+	command serverCommand
 	url     string
 }
 
@@ -81,12 +113,12 @@ func printHostList(w io.Writer) {
 	for _, h := range hosts {
 		fmt.Fprintf(w, "  %-12s %s\n", h.name, h.file)
 	}
-	fmt.Fprintf(w, "Usage: %s -print-config HOST [-print-config-command CMD | -http ADDR [-tls-cert FILE -tls-key FILE]]\n", mcpCommand)
+	fmt.Fprintf(w, "Usage: %s -print-config HOST [-print-config-command CMD | -print-config-npx | -http ADDR [-tls-cert FILE -tls-key FILE]]\n", mcpCommand)
 }
 
-// printHostConfig writes the block declaring the server (by command or URL) to
-// host name; an unknown name is an error listing the known ones.
-func printHostConfig(w io.Writer, name string, ep endpoint) error {
+// printHostConfig writes the block declaring the server to host name: at
+// ep.url, or started by ep.command, the npm form, or this binary's path.
+func printHostConfig(w io.Writer, name string, ep endpoint, npx bool) error {
 	var h *host
 	for i := range hosts {
 		if hosts[i].name == name {
@@ -96,11 +128,18 @@ func printHostConfig(w io.Writer, name string, ep endpoint) error {
 	if h == nil {
 		return fmt.Errorf("unknown host %q; the hosts are %s", name, strings.Join(hostNames(), ", "))
 	}
-	if ep.url == "" && ep.command == "" {
-		var err error
-		if ep.command, err = executablePath(); err != nil {
+	switch {
+	case ep.url != "":
+	case npx && ep.command.exe != "":
+		return fmt.Errorf("-print-config-npx names npx -y %s as the command, so it excludes -print-config-command %q", npmPackage, ep.command.exe)
+	case npx:
+		ep.command = npxCommand
+	case ep.command.exe == "":
+		exe, err := executablePath()
+		if err != nil {
 			return fmt.Errorf("resolving the path of this binary: %w (name the command with -print-config-command)", err)
 		}
+		ep.command = binaryCommand(exe)
 	}
 	return h.render(w, ep)
 }
@@ -182,7 +221,7 @@ func (o orderedObject) MarshalJSON() ([]byte, error) {
 // renderOpenCode writes the "mcp" block of opencode.json: a local server named
 // by its command array, or a remote one by its URL, enabled.
 func renderOpenCode(w io.Writer, ep endpoint) error {
-	server := orderedObject{{"type", "local"}, {"command", []string{ep.command}}}
+	server := orderedObject{{"type", "local"}, {"command", ep.command.argv()}}
 	if ep.url != "" {
 		server = orderedObject{{"type", "remote"}, {"url", ep.url}}
 	}
@@ -195,8 +234,7 @@ func renderOpenCode(w io.Writer, ep endpoint) error {
 }
 
 // renderMCPServers writes the "mcpServers" block Claude Code, Cursor, Gemini
-// CLI and Devin read: a stdio server typed stdioType when the host wants the
-// type spelled, or a URL under urlKey typed httpType when the host wants that.
+// CLI and Devin read: a stdio server typed stdioType, or a URL under urlKey typed httpType.
 func renderMCPServers(stdioType, httpType, urlKey string) func(io.Writer, endpoint) error {
 	return func(w io.Writer, ep endpoint) error {
 		return writeJSON(w, orderedObject{
@@ -217,7 +255,7 @@ func renderVSCode(w io.Writer, ep endpoint) error {
 }
 
 // serverObject is the common server declaration: a command and its arguments,
-// or a URL under key with an optional type.
+// or a URL under urlKey, each preceded by its type when the host wants one spelled.
 func serverObject(ep endpoint, stdioType, httpType, urlKey string) orderedObject {
 	var o orderedObject
 	if ep.url != "" {
@@ -230,13 +268,13 @@ func serverObject(ep endpoint, stdioType, httpType, urlKey string) orderedObject
 		o = append(o, orderedField{"type", stdioType})
 	}
 	return append(o,
-		orderedField{"command", ep.command},
-		orderedField{"args", []string{}},
+		orderedField{"command", ep.command.exe},
+		orderedField{"args", ep.command.arguments()},
 	)
 }
 
-// renderCodex writes the [mcp_servers.sysml] table of Codex's config.toml:
-// command and args for stdio, url for Streamable HTTP.
+// renderCodex writes the [mcp_servers.sysml] table of Codex's config.toml as
+// TOML basic strings and arrays, which JSON strings and arrays of them are.
 func renderCodex(w io.Writer, ep endpoint) error {
 	if ep.url != "" {
 		quoted, err := json.Marshal(ep.url)
@@ -246,10 +284,14 @@ func renderCodex(w io.Writer, ep endpoint) error {
 		_, err = fmt.Fprintf(w, "[mcp_servers.%s]\nurl = %s\n", serverName, quoted)
 		return err
 	}
-	quoted, err := json.Marshal(ep.command)
+	quoted, err := json.Marshal(ep.command.exe)
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(w, "[mcp_servers.%s]\ncommand = %s\nargs = []\n", serverName, quoted)
+	args, err := json.Marshal(ep.command.arguments())
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(w, "[mcp_servers.%s]\ncommand = %s\nargs = %s\n", serverName, quoted, args)
 	return err
 }

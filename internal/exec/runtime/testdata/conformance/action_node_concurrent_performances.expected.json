@@ -5,11 +5,11 @@
 	"outputs": {
 		"scaled": {"type": "Integer", "value": 30},
 		"collected": {"type": "Integer", "value": 30},
-		"left.v": {"type": "Integer", "value": 1},
-		"right.v": {"type": "Integer", "value": 2},
-		"stage.x1": {"type": "Integer", "value": 1},
-		"stage.x2": {"type": "Integer", "value": 2},
-		"stage.y": {"type": "Integer", "value": 30},
-		"collect.z": {"type": "Integer", "value": 30}
+		"left.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"right.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+		"stage.x1": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"stage.x2": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+		"stage.y": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]},
+		"collect.z": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]}
 	}
 }

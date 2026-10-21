@@ -75,6 +75,7 @@ turned out to rest on a clause after all — retained so it is not re-audited).
 | 26 | — | Five validation constraints the pilot source marks `TODO` | implemented under the `TODO` | implemented | no difference; the `TODO`s are stale |
 | 27 | Spurious error | An explicitly declared subject or return parameter of a variation usage | accepted: every `ParameterMembership` is exempt | rejected: only objectives are exempt | spec clear (`validateUsageVariationOwnedFeatureMembership`), both short for objectives; pilot short for parameters |
 | 28 | Cosmetic | A negative model-level-evaluable multiplicity bound (KERML-199) | rejected, by a `-2` marker the OCL does not have | rejected | spec OCL short of its prose; both follow the prose |
+| 29 | Missed diagnostic | A connection or flow definition whose end features, inherited ones included, are KerML features (`abstract connection def B :> Links::BinaryLink;`) | accepts (2026-08); rejected on master (ST6RI-974) | rejected (`connection-def-end-not-usage`, `flow-def-end-not-usage`), with the standard library's `Flows::Message` repaired by three declared errata | spec clear (SysML v2.1 Beta 2 §8.3.13.3, §8.3.16.2); pilot short at the pin, caught up on master |
 
 Grouped inventories follow the detailed items: [the `spec-compliance.md` rows whose
 justification is the pilot or nothing](#inventory-a--spec-compliancemd-rows-justified-by-the-pilot-or-by-nothing),
@@ -1404,6 +1405,46 @@ reading `valueOf`'s `null` as its `-2` marker. No difference.
 **Question for the authors:** should `validateMultiplicityRangeBoundResultTypes` test the
 evaluated bound directly, for example `bound.isModelLevelEvaluable implies valueOf(b) <> null`,
 so that its OCL rejects a negative bound as its prose does?
+
+### 29. Connection and flow definition ends that are not usages
+
+**Model text**
+
+```sysml
+abstract connection def CBin :> Links::BinaryLink;
+abstract interface def IBin :> Links::BinaryLink;
+abstract flow def FTransfer :> Transfers::Transfer;
+```
+
+and the clean counterparts `abstract connection def COk :> Connections::Connection;`,
+`abstract flow def FOk :> Flows::Message;`, `connection def CDeclared :> Links::BinaryLink { end a; end b; }`.
+
+**Pilot:** `validate-sysml-batch`, `2026-08` (observation): silent on every line (a `Duplicate of
+inherited member name 'payload'` warning on `FTransfer` only). The master branch adds
+`checkEndsAreUsages` to `SysMLValidator` (ST6RI-974): `A connection definition end must be a usage.`
+/ `A flow definition end must be a usage.`, reported at each owned non-usage end, else once at the
+definition — and, in the same change, restores the owned ends of `Flows::Message` and `Flows::messages`
+(OMG issue SYSML21-681), because without them the base flow definition fails its own new check.
+
+**OpenSysML:** `W10BEndKindPass` reports `connection-def-end-not-usage` on connection, interface and
+allocation definitions and `flow-def-end-not-usage` on flow definitions, once at the definition
+(a SysML definition owns usages only, so the offending end is always inherited); the clean
+counterparts stay clean. `abstract allocation def ABin :> Links::BinaryLink;` is clean on both
+sides: an allocation definition specializes `Allocations::Allocation`, a `BinaryConnection` whose
+usage ends redefine `BinaryLink`'s. `abstract connection def CLink :> Links::Link;` is clean too:
+`Link::participant` is a plain feature, so the definition has no end at all. The library repair is
+carried by the declared errata overlay (`Flows-46`, `Flows-99`, `Flows-103`, [omg-issues.md](omg-issues.md#defects-in-the-vendored-systems-library)).
+
+**Specification:** SysML v2.1 Beta 2 §8.3.13.3 ConnectionDefinition, "The end Features of a
+ConnectionDefinition must be Usages", `/connectionEnd : Usage [0..*] {redefines associationEnd,
+ordered}`; §8.3.16.2 FlowDefinition, `/flowEnd : Usage [0..*] {redefines associationEnd}`.
+Redefining `associationEnd` by a `Usage`-typed property constrains every end feature, owned or
+inherited. InterfaceDefinition and AllocationDefinition are ConnectionDefinitions.
+
+**Assessment:** spec clear; pilot short at the pin and caught up on master. Until the next re-pin
+the pilot referees class both diagnostics as ours-only: the reject corpus carries the two cases in
+ours-only-rejects by design, and the differential records no example file gaining either code.
+
 
 ## Inventory A — `spec-compliance.md` rows justified by the pilot or by nothing
 

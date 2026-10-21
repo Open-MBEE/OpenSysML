@@ -5,9 +5,9 @@
 		"seen": {"type": "Integer", "value": 14},
 		"legV": {"type": "Integer", "value": 1},
 		"restSaw": {"type": "Integer", "value": 15},
-		"leg.v": {"type": "Integer", "value": 1},
-		"leg.inner.w": {"type": "Integer", "value": 7},
-		"leg.inner.v": {"type": "Integer", "value": 14},
-		"leg.rest.n": {"type": "Integer", "value": 14}
+		"leg.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"leg.inner.w": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]},
+		"leg.inner.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 14}]},
+		"leg.rest.n": {"type": "Sequence", "elements": [{"type": "Integer", "value": 14}]}
 	}
 }

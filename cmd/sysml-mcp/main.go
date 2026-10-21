@@ -22,6 +22,7 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/all" // registers every REPL extension
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
@@ -73,20 +74,25 @@ func printConfig(opts *options, fs *flag.FlagSet, stdout, stderr io.Writer) int 
 		printHostList(stdout)
 		return exitServed
 	}
-	ep := endpoint{command: opts.configCommand}
+	ep := endpoint{}
+	if opts.configCommand != "" {
+		ep.command = binaryCommand(opts.configCommand)
+	}
 	over, err := readHTTPOptions(opts)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
 		return exitUnservable
 	}
 	if over != nil {
-		if opts.configCommand != "" {
-			fmt.Fprintf(stderr, "%s-print-config: -print-config-command and -http name different ways to reach the server; give one\n", commandPrefix)
-			return exitUnservable
+		for name, set := range map[string]bool{"-print-config-command": opts.configCommand != "", "-print-config-npx": opts.configNpx} {
+			if set {
+				fmt.Fprintf(stderr, "%s-print-config: %s and -http name different ways to reach the server; give one\n", commandPrefix, name)
+				return exitUnservable
+			}
 		}
 		ep.url = over.url()
 	}
-	if err := printHostConfig(stdout, name, ep); err != nil {
+	if err := printHostConfig(stdout, name, ep, opts.configNpx); err != nil {
 		fmt.Fprintf(stderr, "%s-print-config: %v\n", commandPrefix, err)
 		return exitUnservable
 	}
@@ -180,14 +186,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	info := build()
 	cfg := mcp.Config{
-		Root:         root,
-		Groups:       groups,
-		Version:      info.Version,
-		Workspace:    model.NewWorkspace(model.WithConformanceMode(diag.ConformanceModeOf(opts.strict)), model.WithRecordCache(cache)),
-		CacheSize:    opts.cacheSize,
-		NewSession:   sessionFactory(info, cache, stderr),
-		Logger:       logger,
-		Instructions: instructions,
+		Root:                    root,
+		Groups:                  groups,
+		Version:                 info.Version,
+		Workspace:               model.NewWorkspace(model.WithConformanceMode(diag.ConformanceModeOf(opts.strict)), model.WithRecordCache(cache)),
+		CacheSize:               opts.cacheSize,
+		UnavailableCapabilities: sysmlgrpc.WithheldCapabilitiesForTesting(),
+		NewSession:              sessionFactory(info, cache, stderr),
+		Logger:                  logger,
+		Instructions:            instructions,
 	}
 	return serve(stderr, cfg, httpOpts)
 }

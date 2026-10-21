@@ -114,6 +114,29 @@ class Model:
         """Get list of diagnostics."""
         return self._diagnostics
 
+    def refresh_diagnostics(self, disable_lint=(), enable_lint=()):
+        """Ask the service for this model's diagnostics now, under a lint selection.
+
+        ``diagnostics`` is what the parse answered under the default selection;
+        this asks again, leaving out the lints ``disable_lint`` names and
+        keeping the opt-in ones ``enable_lint`` names, as
+        ``sysml -disable-lint``/``-enable-lint`` select them.
+
+        Args:
+            disable_lint (Iterable[str]): Lint codes to leave out
+            enable_lint (Iterable[str]): Opt-in lint codes to keep
+
+        Returns:
+            list[Diagnostic]: The diagnostics under that selection
+
+        Raises:
+            InvalidRequestError: If a code names no lint
+            ModelNotFoundError: If the service no longer holds this model
+        """
+        return self.connection.diagnostics(
+            self._hash, disable_lint=disable_lint, enable_lint=enable_lint
+        )
+
     @property
     def errors(self):
         """The error-severity diagnostics, which are what makes a model unusable.

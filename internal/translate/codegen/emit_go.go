@@ -924,6 +924,9 @@ func (e *goEmitter) function(fn *Func) {
 	for _, p := range fn.Params {
 		switch {
 		case p.Type.Many():
+			if p.Held {
+				e.linef(goAssign, goLocal(p.Name), e.expr(Held{X: Var{Name: p.Name, T: p.Type}, Many: p.Mult.MultiValued()}))
+			}
 			if p.Mult != MultAny || p.Range != RangeAny || p.Unique {
 				v := e.checked(Checked{X: Var{Name: p.Name, T: p.Type}, M: p.Mult, R: p.Range, Unique: p.Unique, Where: paramWhere(p.Name)})
 				e.linef(goAssign, goLocal(p.Name), v)

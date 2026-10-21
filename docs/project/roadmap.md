@@ -132,7 +132,7 @@ tracks below carry the detail and what each pull request deliberately leaves.
   #640); a constraint asked whether it holds for all values or is satisfiable (#685, #712).
 
 The previous baselines' retirements — the `v0.6.0`–`v0.8.0` closures recorded in
-`CHANGELOG.md`'s 0.7.0 and 0.8.0 sections, native compilation's first phase, the wire contract,
+the 0.7.0 and 0.8.0 sections of `docs/project/archive/CHANGELOG-0.0-0.8.md`, native compilation's first phase, the wire contract,
 L3–L6, the nested-action frames, D3, Q4, the changelog fragments, the census and its gate, the
 enumeration rules (#907, #909) — stay retired and are not repeated.
 
@@ -224,12 +224,12 @@ already ran. The procedure and its post-tag verification are in `docs/project/re
 
 ## R1 — the changelog agrees with the tags (done)
 
-`CHANGELOG.md`'s **0.4.3** section holds what `99e02003` shipped (#877), its **0.5.0** section
-what `0fdeb11e` shipped (#894), its **0.5.1** section what `d7b3eb45` shipped, its **0.6.0**
-section what `30f103bb9` shipped (#988), its **0.7.0** section what `e0fbfea5b` shipped (#145,
-#154, #159), its **0.8.0** section what `238aed650` shipped (#268, #277), and its **0.9.0** and
-**0.9.1** sections what `ee54ea03e` (#564) and `b9de3b070` (#614) shipped, each dated to its
-tag; **Unreleased** is empty in the file because since #852 a change adds a fragment under
+In `docs/project/archive/CHANGELOG-0.0-0.8.md`, the **0.4.3** section holds what `99e02003`
+shipped (#877), its **0.5.0** section what `0fdeb11e` shipped (#894), its **0.5.1** section what
+`d7b3eb45` shipped, its **0.6.0** section what `30f103bb9` shipped (#988), its **0.7.0** section
+what `e0fbfea5b` shipped (#145, #154, #159) and its **0.8.0** section what `238aed650` shipped
+(#268, #277); `CHANGELOG.md`'s **0.9.0** and **0.9.1** sections hold what `ee54ea03e` (#564) and
+`b9de3b070` (#614) shipped, each dated to its tag; its **Unreleased** is empty in the file because since #852 a change adds a fragment under
 `changes/unreleased/` instead, and `python3 scripts/changelog.py release X.Y.Z` folds the
 fragments in at release time (`releasing.md`). The 0.5.0 fold was the first release cut that way
 and every release since followed it; under git-flow the fold rides the `release/x.y.z` pull
@@ -450,9 +450,9 @@ it declares, so that binding is partial — it relates the disc's edge to some v
 `runtime/binding.go` `partialBinding` now decides so from the declared bounds (`lower/binding.go`
 `Binding.Multiplicity`). What stays a typed error is what the library leaves open, not a runtime
 gap: the `[0..1]`-bound edge and vertex groups (`tfe`, `tflv`, and so `Box::vertices`), which no
-binding pins to a member, are `errBindingEnd` naming the binding; `be`/`ae` and `Cylinder::edges`/
-`vertices` reach `cf : Surface`, whose `edges`/`vertices` are the Kernel frame's, not the object's;
-and `matingOccurrences`/`spaceBoundary` are frame features of `Occurrences.kerml`. See the
+binding pins to a member, are `errBindingEnd` naming the binding; `be`/`ae` and `Cylinder::edges`
+reach `cf.edges` through `binding [1] bind [0..*] cf.edges = [0..*] be`, one link that pins no
+member, and are `errBindingEnd` naming it; and `matingOccurrences`/`spaceBoundary` are frame features of `Occurrences.kerml`. See the
 `ShapeItems` rows and Known Limitations in `spec-compliance.md` and the record in `omg-issues.md`.
 
 ---

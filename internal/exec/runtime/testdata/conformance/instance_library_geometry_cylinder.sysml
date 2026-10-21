@@ -1,5 +1,7 @@
 // A Cylinder inherits Items::Item through the Geometry domain library: the base
-// and lateral face edges resolve through the `binding [1]` partial bindings.
+// and lateral face edges resolve through the `binding [1]` partial bindings, and
+// the curved face `cf`, a Surface subsetting `faces : StructuredSurface`, carries
+// the `edges` those bindings connect.
 package test {
     private import ShapeItems::*;
     private import ISQ::*;

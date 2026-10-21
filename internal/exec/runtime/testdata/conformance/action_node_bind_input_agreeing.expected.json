@@ -3,8 +3,8 @@
 	"evaluate": "test::outer",
 	"outputs": {
 		"result": {"type": "Integer", "value": 11},
-		"add.a": {"type": "Integer", "value": 5},
-		"add.b": {"type": "Integer", "value": 6},
-		"add.sum": {"type": "Integer", "value": 11}
+		"add.a": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+		"add.b": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]},
+		"add.sum": {"type": "Sequence", "elements": [{"type": "Integer", "value": 11}]}
 	}
 }

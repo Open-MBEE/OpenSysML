@@ -65,9 +65,9 @@ curl -fsSL https://opensysml.org/install.sh | sh -s -- --tools all --verify-sign
 ```
 
 `all` is resolved against the chosen release's `SHA256SUMS.txt`: it installs the tools that
-release published for this platform, and says which of the four it lacks (`sysml-grpc` is
-published from v0.9.0, `sysml-jupyter-kernel` from v0.10.0). Naming such a tool explicitly on
-an older release fails instead.
+release published for this platform, and says which of the five it lacks (`sysml-grpc` is
+published from v0.9.0, `sysml-jupyter-kernel` from v0.10.0, `sysml-mcp` from the first release
+after v0.10.1). Naming such a tool explicitly on an older release fails instead.
 
 `--verify-signature` checks `SHA256SUMS.txt` against the signature the release pipeline
 publishes beside it (see [the signed checksum manifest](../project/releasing.md#the-signed-checksum-manifest)); it needs
@@ -147,9 +147,11 @@ as a dependency.
 **Available binaries:**
 - `sysml` — Interactive REPL
 - `sysml-lsp` — Language Server Protocol server
-- `sysml-mcp` — Model Context Protocol server for coding agents, in its own
-  `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows) with its manual page and the LICENSE;
-  `--tools sysml-mcp` installs it, and `sysml-mcp -print-config <host>` configures the agent
+- `sysml-mcp` — Model Context Protocol server for coding agents. `npx -y @openmbee/sysml-mcp`
+  runs it from npm with nothing preinstalled (the package pins the release binary for the
+  platform); it is also in its own `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows) with its
+  manual page and the LICENSE, which `--tools sysml-mcp` installs, and
+  `sysml-mcp -print-config <host>` configures the agent either way
   ([MCP server reference](../reference/sysml-mcp.md))
 
 `sysml-grpc`, the service the Python bindings talk to, is published as a bare
@@ -377,6 +379,62 @@ sysml> %check P::C
 error: no SMT solver found: install z3 (`apt install z3`, `brew install z3`) or cvc5, or set OPENSYSML_SMT to a solver executable; looked for [z3 cvc5] on PATH
 ```
 
+## Container image
+
+Every release publishes `openmbee/opensysml` to Docker Hub for `linux/amd64`
+and `linux/arm64`, tagged with the release version (`openmbee/opensysml:0.10.1`)
+and, for the newest release that is not a pre-release, `latest`. The image runs
+`sysml-grpc` as its entrypoint, and carries `sysml` and `sysml-lsp` beside it in
+`/usr/local/bin`, so a service that talks to `sysml-grpc` as a sidecar and then
+calls `sysml -convert` needs one image. It is built on
+`gcr.io/distroless/static`: static binaries, CA certificates, a non-root user
+and nothing else — no shell and no package manager.
+
+```bash
+docker run --rm -p 50051:50051 -p 8081:8081 openmbee/opensysml:latest
+curl -fsS http://localhost:8081/health
+# {"service":"sysml-grpc","status":"ok","version":"v0.10.1"}
+```
+
+Port 50051 serves gRPC, Connect and gRPC-Web (see
+[Service transports](../reference/service-transports.md)); port 8081 answers
+`GET /health`, which is also served on 50051, so a deployment that probes the
+main port can pass `-health-port 0` and expose one port. The arguments after
+the image name replace the defaults (`-port 50051 -health-port 8081`):
+
+```bash
+docker run --rm -p 9000:9000 openmbee/opensysml:latest -port 9000 -health-port 0
+```
+
+The knobs a deployment sets, as arguments or environment:
+
+- `-cors-allowed-origins <origin,…>` names the exact browser origins a Connect
+  or gRPC-Web client may call from; native clients need no entry.
+- `-serve-external-engines <name,…>` (or `all`) names the engines of the
+  [`OPENSYSML_ENGINES` manifest](../reference/external-engines.md) this service
+  runs for its clients. Without it
+  they are listed by `ListEngines` but a request naming one is refused, since
+  it would run a program on the server; pass the manifest with `-e
+  OPENSYSML_ENGINES=…` and the tools it names must be in the image's
+  filesystem, which carries none.
+- `OPENSYSML_LIBRARY_PATH` replaces the embedded standard library with a
+  directory, a `.kpar` archive, or a directory of archives; mount it into the
+  container and name the mount: `-v /srv/sysml-lib:/lib/sysml:ro -e
+  OPENSYSML_LIBRARY_PATH=/lib/sysml`.
+- `XDG_CACHE_HOME` (`/home/nonroot/.cache` in the image) holds the standard
+  library's symbol cache. Under a read-only root filesystem, mount a writable
+  volume there or the service runs uncached and logs so once.
+
+The other binaries run through `--entrypoint`:
+
+```bash
+docker run --rm -v "$PWD:/work" -w /work --entrypoint sysml \
+  openmbee/opensysml:latest -convert ttl model.sysml
+```
+
+`make docker` builds the same image locally as `openmbee/opensysml:dev`, with
+the version `git describe` reports, for the local platform.
+
 ## From source
 
 **Prerequisites:**
@@ -388,7 +446,7 @@ error: no SMT solver found: install z3 (`apt install z3`, `brew install z3`) or 
 ```bash
 git clone https://github.com/Open-MBEE/OpenSysML.git
 cd OpenSysML
-make build       # builds bin/sysml, bin/sysml-lsp, bin/sysml-grpc and bin/sysml-jupyter-kernel
+make build       # builds bin/sysml, bin/sysml-lsp, bin/sysml-grpc, bin/sysml-jupyter-kernel and bin/sysml-mcp
 # OR
 go build -o sysml ./cmd/sysml
 go build -o sysml-lsp ./cmd/sysml-lsp
@@ -398,7 +456,7 @@ go build -o sysml-lsp ./cmd/sysml-lsp
 ```bash
 make install     # installs to $GOPATH/bin
 # OR
-sudo mv bin/sysml bin/sysml-lsp bin/sysml-grpc /usr/local/bin/
+sudo mv bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel bin/sysml-mcp /usr/local/bin/
 ```
 
 **Install binaries and manual pages, the way a package does:**

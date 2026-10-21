@@ -1,4 +1,4 @@
-.PHONY: all build extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model
+.PHONY: all build docker extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -21,6 +21,9 @@ GO_INSTALL := CGO_ENABLED=0 go install -ldflags "$(LDFLAGS)"
 
 # Static-analysis tool versions, pinned so CI and local runs agree
 STATICCHECK_VERSION := 2025.1.1
+# Unbounded, staticcheck's heap on this module peaks near 4 GiB, which the 4 GiB CI
+# executor kills it for; the soft limit holds the peak near 2 GiB for ~10% more GC time.
+STATICCHECK_ENV := GOMEMLIMIT=2GiB
 GOSEC_VERSION := v2.22.5
 BUF_VERSION := v1.57.2
 GO_WINRES_VERSION := v0.3.3
@@ -128,6 +131,20 @@ build-grpc: ## Build sysml-grpc binary
 	$(call winres,sysml-grpc)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
 	@echo "✓ Built $(BIN_DIR)/sysml-grpc ($(VERSION))"
+
+# Container image: sysml-grpc as the entrypoint with sysml and sysml-lsp beside
+# it, built by the Dockerfile with the same -ldflags metadata as the binaries.
+IMAGE ?= openmbee/opensysml
+IMAGE_TAG ?= dev
+
+docker: ## Build the $(IMAGE):$(IMAGE_TAG) container image for the local platform
+	@echo "Building $(IMAGE):$(IMAGE_TAG)..."
+	DOCKER_BUILDKIT=1 docker build \
+	    --build-arg VERSION="$(VERSION)" \
+	    --build-arg COMMIT="$(COMMIT)" \
+	    --build-arg BUILD_TIME="$(BUILD_TIME)" \
+	    -t $(IMAGE):$(IMAGE_TAG) .
+	@echo "✓ Built $(IMAGE):$(IMAGE_TAG) ($(VERSION))"
 
 build-jupyter-kernel: ## Build sysml-jupyter-kernel binary
 	@echo "Building sysml-jupyter-kernel..."
@@ -284,6 +301,12 @@ conformance-pkg: ## Run the conformance suite through the public Go API (client/
 	go run -C $(TOOLS_DIR) ./cmd/conformance -protocols pkg,pkg-connect -allow-skips -report $(CURDIR)/$(BIN_DIR)/conformance-pkg-report.json
 	@echo "✓ Conformance suite passed through client/opensysml ($(BIN_DIR)/conformance-pkg-report.json)"
 
+conformance-mcp: ## Run the conformance suite through sysml-mcp's runtime tools
+	@echo "Running the conformance suite through sysml-mcp..."
+	@mkdir -p $(BIN_DIR)
+	go run -C $(TOOLS_DIR) ./cmd/conformance -protocols mcp -allow-skips -withhold-capabilities strict_conformance,oslc_query -report $(CURDIR)/$(BIN_DIR)/conformance-mcp-report.json -junit $(CURDIR)/$(BIN_DIR)/conformance-mcp-report.xml
+	@echo "✓ Conformance suite passed through sysml-mcp ($(BIN_DIR)/conformance-mcp-report.json, $(BIN_DIR)/conformance-mcp-report.xml)"
+
 test: ## Run Go tests with race detection and coverage
 	@echo "Running Go race tests..."
 	@# Per-package timeout: under -race the runtime package runs 31-47 minutes on CI runners.
@@ -356,8 +379,8 @@ coverage-merge: ## Merge the shard profiles coverage-runtime/model/export/rest/m
 
 lint: ## Run static analysis (staticcheck + gosec), as CI does
 	@echo "Running staticcheck..."
-	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
-	go run -C $(TOOLS_DIR) honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
+	$(STATICCHECK_ENV) go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
+	$(STATICCHECK_ENV) go run -C $(TOOLS_DIR) honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
 	@echo "Running gosec..."
 	@# Generated protobuf code is excluded: its unsafe.Pointer use (G103) comes
 	@# from protoc-gen-go and is not ours to change.
@@ -392,6 +415,13 @@ ontology-table-check: ## Verify the committed metamodel table matches the pinned
 	./scripts/download-pilot-metamodel.sh
 	go run -C $(TOOLS_DIR) ./gen/ontology -check
 	@echo "✓ internal/translate/rdf/ontology/table.go is current"
+
+metaclass-graph: build-sysml ## Regenerate the metaclass hierarchy Turtle from the committed metamodel table
+	./bin/sysml -metaclass-graph -o internal/translate/rdf/ontology/sysml-metaclasses.ttl
+
+metaclass-graph-check: ## Verify the committed metaclass hierarchy Turtle matches the metamodel table, as CI does
+	go test -count=1 -run TestMetaclassGraphIsCurrent ./internal/translate/rdf/ontology
+	@echo "✓ internal/translate/rdf/ontology/sysml-metaclasses.ttl is current"
 
 python-metamodel: ## Regenerate Python metaclass classes from the ontology table
 	go run -C $(TOOLS_DIR) ./gen/pymetamodel
@@ -428,6 +458,12 @@ install: build ## Install binaries to $GOPATH/bin
 
 # What a distribution's package build calls: staged under DESTDIR, into the
 # GNU-conventional paths, binaries and manual pages together.
+
+mcp-registry-check: ## Validate the MCP Registry listing (packaging/mcp/server.json) without credentials
+	@echo "Checking the MCP Registry listing..."
+	go test -count=1 -run 'TestMCPRegistry' ./tests/hygiene
+	scripts/mcp-registry-publish.sh --check
+
 install-tree: build ## Install binaries and manual pages under DESTDIR/prefix
 	@echo "Installing to $(DESTDIR)$(prefix)..."
 	$(INSTALL) -d "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)"
@@ -591,7 +627,7 @@ docs-counts: ## Regenerate and verify the committed documentation counts; the te
 	go run -C $(TOOLS_DIR) ./cmd/doc-counts -check
 	go run -C $(TOOLS_DIR) ./cmd/validation-census -check
 	go run -C $(TOOLS_DIR) ./cmd/transformation-census -check
-	go test -C $(TOOLS_DIR) -count=1 ./census/doccounts ./census/validation ./census/transformation ./referee/diff ./referee/reject
+	go test -C $(TOOLS_DIR) -count=1 ./census/doccounts ./census/validation ./census/transformation ./referee/diff ./referee/reject ./referee/apijson
 	@echo "✓ Documentation counts and refereed figures are current"
 
 diagnostics-catalogue: ## Regenerate the diagnostic code catalogue in docs/reference/diagnostics.md from the registry

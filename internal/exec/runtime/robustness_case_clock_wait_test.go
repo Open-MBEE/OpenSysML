@@ -172,8 +172,8 @@ func testCaseClockWaitListedByPerformingAction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExecuteAction: %v", err)
 	}
-	if got := FormatValue(out["ended"]); got != "60.0" {
-		t.Errorf("ended = %s, want 60.0: the step after the case runs at the case's instant", got)
+	if got := FormatValue(out["ended"]); got != "[60.0]" {
+		t.Errorf("ended = %s, want [60.0]: the step after the case runs at the case's instant", got)
 	}
 	if ctx.clock.now != 60.0 {
 		t.Errorf("clock = %v, want 60.0", ctx.clock.now)

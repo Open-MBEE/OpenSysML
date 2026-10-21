@@ -11,6 +11,8 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
@@ -53,6 +55,9 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	if err != nil {
 		return nil, err
 	}
+	if err := s.checkConvertCheckDiagnostics(req, from); err != nil {
+		return nil, err
+	}
 
 	resp := &pb.ConvertResponse{FromFormat: from.String(), ToFormat: to.String()}
 	// Marked on the response rather than left to the client to infer, so a caller
@@ -67,12 +72,77 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 		var broken *convert.SyntaxError
 		if errors.As(err, &broken) {
 			resp.Diagnostics = s.filterDiagnosticCapabilities(syntaxDiagnostics(broken))
+			return resp, nil
 		}
-		return resp, nil
+	} else {
+		resp.Content = string(out)
+		resp.Diagnostics = s.filterDiagnosticCapabilities(syntaxDiagnostics(syntax))
 	}
-	resp.Content = string(out)
-	resp.Diagnostics = s.filterDiagnosticCapabilities(syntaxDiagnostics(syntax))
+	// The passes run on a model that parsed whole, so a tolerated syntax error
+	// leaves the parse's diagnostics as the report, as ParseFile's would be; a
+	// conversion the writer refused still reports what the check found.
+	if req.IncludeCheckDiagnostics && syntax == nil {
+		checked, err := s.convertCheckDiagnostics(req, name, data)
+		if err != nil {
+			return nil, err
+		}
+		resp.Diagnostics = append(resp.Diagnostics, checked...)
+	}
 	return resp, nil
+}
+
+// checkConvertCheckDiagnostics refuses include_check_diagnostics for a source
+// that is not notation: the passes analyze a parse, and a graph has none.
+func (s *Service) checkConvertCheckDiagnostics(req *pb.ConvertRequest, from convert.Format) error {
+	if !req.IncludeCheckDiagnostics {
+		return nil
+	}
+	if err := s.requireCapability(CapabilityConvertCheckDiagnostics); err != nil {
+		return err
+	}
+	if from != convert.FormatSysML {
+		return statusError(connect.CodeInvalidArgument,
+			"include_check_diagnostics applies to notation sources, which are the ones the semantic check analyzes")
+	}
+	return nil
+}
+
+// convertCheckDiagnostics is the semantic check's report on one document of
+// notation, as ParseFile reports it: a model_hash's cached analysis, else the
+// very bytes the conversion read, analyzed as a parse analyzes them, without
+// caching a model the client did not ask to hold.
+func (s *Service) convertCheckDiagnostics(req *pb.ConvertRequest, name string, data []byte) ([]*pb.Diagnostic, error) {
+	if src, ok := req.Source.(*pb.ConvertRequest_ModelHash); ok {
+		if cached, ok := s.cache.Get(src.ModelHash); ok {
+			return s.modelDiagnostics(cached), nil
+		}
+		return nil, statusErrorf(connect.CodeNotFound,
+			"model %s is no longer cached: parse it again, or convert its file_path or content", src.ModelHash)
+	}
+	// The converter parses by the name's extension, as the parse RPCs do; inline
+	// content and a name with neither extension read as SysML unless kerml is asked.
+	kind := source.KindOf(name)
+	if kind == source.KindUnknown {
+		kind = source.KindSysML
+		if strings.EqualFold(req.FromFormat, "kerml") {
+			kind = source.KindKerML
+		}
+	}
+	input := sourceInput{name: name, content: string(data), kind: kind}
+	_, model := s.parseModelKeeping([]sourceInput{input}, diag.ConformanceModeOf(false), false, false)
+	return s.modelDiagnostics(model), nil
+}
+
+// cachedCheckDiagnostics is the check's report on the documents of a cached
+// model that a request writes: the documents it names, or all of them.
+func (s *Service) cachedCheckDiagnostics(req *pb.ConvertRequest, cached *CachedModel) []*pb.Diagnostic {
+	var pbDiags []*pb.Diagnostic
+	for _, doc := range cached.Documents {
+		if len(req.Documents) == 0 || slices.Contains(req.Documents, doc.Source.Name()) {
+			pbDiags = append(pbDiags, doc.protoDiagnostics(s.documentDiagnostics)...)
+		}
+	}
+	return pbDiags
 }
 
 // namesV1 reports whether a request names a SysML v1 model — by from_format,
@@ -487,6 +557,9 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 	if err != nil {
 		return nil, true, err
 	}
+	if err := s.checkConvertCheckDiagnostics(req, convert.FormatSysML); err != nil {
+		return nil, true, err
+	}
 	if to != convert.FormatTurtle && to != convert.FormatAPIJSON {
 		return nil, true, statusErrorf(connect.CodeFailedPrecondition,
 			"notation is written for one document, and this model has %d; convert it to %s or %s, or convert each document",
@@ -514,6 +587,10 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 		resp.Diagnostics = s.filterDiagnosticCapabilities(resp.Diagnostics)
 		resp.Error = strings.Join(refused, "\n")
 		return resp, true, nil
+	}
+	// A refusal of the graph still reports what the check found: the model parsed.
+	if req.IncludeCheckDiagnostics {
+		defer func() { resp.Diagnostics = append(resp.Diagnostics, s.cachedCheckDiagnostics(req, cached)...) }()
 	}
 	graph, err := export.ModelToRDFWith(documents, opts.ID)
 	if err != nil {

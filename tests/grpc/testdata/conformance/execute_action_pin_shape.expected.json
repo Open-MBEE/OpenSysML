@@ -1,0 +1,42 @@
+{
+	"rpc": "ExecuteAction",
+	"symbol_id": "test::Shape",
+	"inputs": {
+		"value": {
+			"kind": "int_value",
+			"value": 5
+		}
+	},
+	"expected_outputs": {
+		"value": {
+			"kind": "int_value",
+			"value": 5
+		},
+		"one": {
+			"kind": "int_value",
+			"value": 5
+		},
+		"bare": {
+			"kind": "sequence",
+			"elements": [
+				{
+					"kind": "int_value",
+					"value": 5
+				}
+			]
+		},
+		"many": {
+			"kind": "sequence",
+			"elements": [
+				{
+					"kind": "int_value",
+					"value": 5
+				},
+				{
+					"kind": "int_value",
+					"value": 6
+				}
+			]
+		}
+	}
+}

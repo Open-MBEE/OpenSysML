@@ -1,0 +1,25 @@
+{
+  "type": "instance",
+  "instantiate": "test::Wedge",
+  "slots": {
+    "left": {"type": "Instance"},
+    "right": {"type": "Instance"},
+    "ridge": {"type": "Sequence", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"},
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]},
+    "crest": {"type": "Sequence", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]},
+    "vertices": {"type": "Sequence", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"},
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]}
+  },
+  "materialization": {}
+}

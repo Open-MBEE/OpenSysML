@@ -31,7 +31,7 @@ func (s *Session) saveModel(path string) ([]string, bool, error) {
 	if !ok {
 		return lines, false, nil
 	}
-	return replext.Notation().Save(sessionOrigin, src, path)
+	return replext.Notation().Save(sessionOrigin, src, path, s.fileWriter)
 }
 
 // savePreview is the file saveModel would write to path and the lines it would
@@ -54,6 +54,9 @@ func (s *Session) saveSource(path string) ([]byte, string, []string, bool) {
 		return nil, path, []string{"nothing to save: the session is empty"}, false
 	}
 	path = expandHome(path)
+	if err := s.guardFiles([]string{path}, false); err != nil {
+		return nil, path, []string{"error: " + err.Error()}, false
+	}
 	if info, err := os.Stat(path); err == nil && info.IsDir() {
 		// Not a format complaint: the extension, if any, is beside the point.
 		return nil, path, []string{fmt.Sprintf("error: %s is a directory: name the file to write inside it", path)}, false

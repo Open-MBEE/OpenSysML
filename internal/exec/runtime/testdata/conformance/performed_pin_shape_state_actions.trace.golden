@@ -1,0 +1,33 @@
+choice at t=0.0: next do active, dispatch accept Go (unordered; took do active first; order-dependent: seen, seenOne)
+do: active
+stmt action body
+  stmt node d
+    eval feature worked -> 0
+    eval feature workedOne -> 0
+      eval feature level -> 3
+      eval literal 2 -> 2
+    eval operator * -> 6
+step 1: token 1@s
+    stmt assign seen
+      eval feature value -> (6)
+    stmt assign seenOne
+      eval feature value -> (6)
+step 2: token 1@done
+step 3: no active tokens
+exit: active (exit action)
+stmt action body
+  stmt node x
+    eval feature left -> 0
+    eval feature leftOne -> 0
+      eval feature level -> 3
+      eval literal 3 -> 3
+    eval operator * -> 9
+step 1: token 1@s
+    stmt assign seen
+      eval feature value -> (9)
+    stmt assign seenOne
+      eval feature value -> (9)
+step 2: token 1@done
+step 3: no active tokens
+enter: finished
+transition: active -> finished (event: accept Go)

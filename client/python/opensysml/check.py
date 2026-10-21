@@ -62,7 +62,7 @@ class CheckViolation:
     error: str = ""
     depth: int = 0
     probability: float = 0.0
-    witness: CheckWitness = None
+    witness: CheckWitness | None = None
     text: str = ""
 
     @classmethod
@@ -76,7 +76,7 @@ class CheckDivergentValue:
     """One final value a feature reaches and the schedule reaching it."""
 
     value: str
-    witness: CheckWitness = None
+    witness: CheckWitness | None = None
 
     @classmethod
     def of(cls, pb):
@@ -101,7 +101,7 @@ class CheckFinal:
 
     outcome: str
     values: dict = field(default_factory=dict)
-    witness: CheckWitness = None
+    witness: CheckWitness | None = None
 
     @classmethod
     def of(cls, pb):
@@ -151,15 +151,15 @@ class CheckResult:
 
     verdict: str
     lines: tuple = field(default_factory=tuple)
-    search: CheckSearch = None
+    search: CheckSearch | None = None
     violations: tuple = field(default_factory=tuple)
     divergences: tuple = field(default_factory=tuple)
     finals: tuple = field(default_factory=tuple)
     claim: str = ""
     free_inputs: tuple = field(default_factory=tuple)
     assumptions: tuple = field(default_factory=tuple)
-    witness: CheckWitness = None
-    contrast: CheckWitness = None
+    witness: CheckWitness | None = None
+    contrast: CheckWitness | None = None
     standing: Standing = field(default_factory=Standing)
     reason: str = ""
 

@@ -96,6 +96,16 @@ REPL's `%render` command prints, as an SVG canvas of its own, and redraws as you
   cursor in the editor highlights the node that contains it. A node built from a standard
   library declaration opens the library file it was declared in, read-only (see
   [the standard library in the editor](#the-standard-library-in-the-editor)).
+- **Viewing.** <kbd>Ctrl</kbd>+wheel (a trackpad pinch) zooms about the pointer, a plain wheel
+  scrolls, and dragging on empty canvas pans; the toolbar's **−**, **+**, **Fit** and **1:1**
+  buttons and the bare <kbd>+</kbd>, <kbd>-</kbd> and <kbd>0</kbd> keys do the same. Each panel
+  keeps its zoom and position, so a re-opened one comes back where it was. Clicking a node also
+  selects it: its relationships and the nodes at their other ends stay bright and the rest dims,
+  until <kbd>Esc</kbd> or a click on empty canvas. The toolbar's **Relations** list names the
+  relationship kinds the diagram draws, with a count of each (and, while a node is selected, how
+  many are at it), and hides or shows each kind for that panel alone; the setting
+  `opensysml.diagram.hideRelations` lists the kinds every panel starts with hidden. None of this
+  touches the model or the exports.
 - **Behavior while editing.** A keystroke that leaves the model unparseable dims the last valid
   diagram and reports the error in the status line beneath it; the panel is never blanked.
   Anything the rendering could not represent is listed below the diagram. A rendering with
@@ -106,17 +116,21 @@ REPL's `%render` command prints, as an SVG canvas of its own, and redraws as you
   burst of editing has settled. The panel draws its own SVG, so nothing is fetched from the
   network.
 
-The model is the only thing edited: the panel's **Add…** menu, a node's right-click menu and
-a drag on the canvas each become a source-preserving edit of the `.sysml` file, applied to the
-editor's buffer like typed text, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it and the diagram
-redraws from what the file now says.
+The model is the only thing edited, and new elements are written in the text: the panel
+creates nothing. A node's right-click menu (**Go to declaration**, **Rename…**, **Move to…**,
+**Delete…**) and a drag on the canvas each become a source-preserving edit of the `.sysml`
+file, applied to the editor's buffer like typed text, so <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it
+and the diagram redraws from what the file now says.
 
 Where a diagram's boxes go is the model's decision when it states one: a view whose body places
 its elements with the bundled `DiagramLayout` library (`metadata Layout about engine { x = 120;
 y = 80; }`, and `Route` for an edge's waypoints) is drawn exactly so, and a node the model does
 not place is laid out in layers under its owner by the ELK layered algorithm, its edges
 running orthogonally around the boxes (a rendering of more than 600 nodes falls back to a
-square grid). Dragging a node writes that annotation — into
+square grid). The toolbar's **Auto layout** button lays the whole diagram out that way for the
+panel alone, the model's `Layout` and `Route` annotations set aside until the next rendering or
+**Reset to model**; nothing is written unless you then drag a node, which writes that node's
+`Layout` as a drag always does. Dragging a node writes that annotation — into
 the view's body when a view is drawn, into the element's own when the document is drawn
 directly — as one edit when the pointer is released; dragging the handle on an edge bends it
 through a `Route` waypoint. An edge at a node the model places, which ELK's route no longer
@@ -130,6 +144,27 @@ The geometry is on every node and edge the server sends (`x`, `y`,
 `%% layout:` comments, so other clients can honor it; see
 [Diagram layout annotations](../project/diagram-layout-annotations.md). A drag applies to the
 tree, interconnection, state and action diagrams, which read the annotations back.
+
+The `opensysml.diagram.routing` setting decides whose routes the edges follow. Under `model`,
+the default, a stated `Route` is drawn through its waypoints exactly as above, so a diagonal
+migrated from another tool stays a diagonal. Under `router`, every edge ELK did not route —
+those with a stated `Route` included — is routed at right angles around the boxes by the
+panel's router; the stated routes stay in the model (`DiagramLayout` is layout metadata, not
+part of the language, so nothing about the model's meaning changes) but are not drawn, and the
+waypoint handles are hidden, since a route the panel draws is not one to bend by hand. A node
+drag still carries the stated routes between the nodes it moves. Changing the setting re-lays
+the open diagrams out at once. The setting is the panel's alone: `sysml -render-lines`, the
+Mermaid and DOT exports and the document pipeline keep the stated routes.
+
+#### The diagram in its own window
+
+`SysML: Move Diagram to New Window` (the panel's title bar `…` menu and a model file's offer
+it too, and the command palette) moves the diagram into a floating window of VS Code's own,
+which can be dragged to another screen. Run from the editor, the command leaves the cursor
+where it was; the moved panel keeps its drawing, its chosen view and its style. The diagrams
+share one group, and the group goes with the window: a second diagram opened afterwards joins
+the floating window beside the first. Set `opensysml.diagram.openIn` to `newWindow` to have
+the first diagram opened in a session move out on its own; later ones join it as before.
 
 #### Exporting a diagram
 
@@ -382,20 +417,31 @@ model, objects and runs persist across the agent's calls. An agent asked to fix 
 part and calls `verify_requirement` instead of reasoning about the arithmetic.
 
 The server speaks the protocol over stdin and stdout, so it is never run at a prompt; the host
-starts it from a configuration block that `sysml-mcp -print-config <host>` writes:
+starts it. With nothing installed but Node, the command is `npx -y @openmbee/sysml-mcp`, which
+installs the release binary for the platform from npm on first use:
+
+```bash
+claude mcp add --transport stdio sysml -- npx -y @openmbee/sysml-mcp -root .
+codex mcp add sysml -- npx -y @openmbee/sysml-mcp -root .
+```
+
+An installed binary writes the configuration block for any host itself, with
+`sysml-mcp -print-config <host>`:
 
 ```bash
 sysml-mcp -print-config                 # opencode, claude-code, cursor, codex, vscode, gemini, devin
 sysml-mcp -print-config claude-code > .mcp.json
 sysml-mcp -print-config codex >> ~/.codex/config.toml
+sysml-mcp -print-config vscode -print-config-npx   # the npx form
 ```
 
-The block names the binary by its absolute path, or by the command `-print-config-command`
-gives; `-tools lsp,runtime` or `-root models` go into its `args`. For remote agents, or several
-agents over one project, `sysml-mcp -http 8765` serves one long-lived server over the Streamable
-HTTP transport at `http://localhost:8765/mcp` (a port alone binds loopback; the server
-authenticates no one), and `sysml-mcp -print-config <host> -http 8765` writes the block that
-connects to it; the clients then share the workspace and the `session_*` names. The
+The block names the binary by its absolute path, by the command `-print-config-command`
+gives, or `npx -y @openmbee/sysml-mcp` with `-print-config-npx`; `-tools lsp,runtime` or
+`-root models` go into its `args`. For remote agents, or several agents over one project,
+`sysml-mcp -http 8765` serves one long-lived server over the Streamable HTTP transport at
+`http://localhost:8765/mcp` (a port alone binds loopback; the server authenticates no one), and
+`sysml-mcp -print-config <host> -http 8765` writes the block that connects to it; the clients
+then share the workspace and the `session_*` names. The
 [MCP server reference](../reference/sysml-mcp.md) has every host's block, the transports, the full tool
 catalogue with what each tool does, and the conventions the tools share: 1-based line and
 column positions, paths relative to the root, and nothing written to disk without

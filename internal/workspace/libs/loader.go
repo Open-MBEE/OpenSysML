@@ -132,15 +132,15 @@ var bundleTiers = []struct {
 	{"OpenSysML Libraries", symbols.TierOpenSysML},
 }
 
-// Tiered is a Source that knows the tier of its files better than their names
-// tell: an archive's is stated by the project it holds, not by a directory.
-type Tiered interface {
+// TierClassifier is a Source that knows the tier of its files better than their
+// names tell: an archive's is stated by the project it holds, not by a directory.
+type TierClassifier interface {
 	TierOf(name string) symbols.LibraryTier
 }
 
 // tierOf is the tier src states for the file, else the one its name shows.
 func tierOf(src Source, name string) symbols.LibraryTier {
-	if t, ok := src.(Tiered); ok {
+	if t, ok := src.(TierClassifier); ok {
 		return t.TierOf(name)
 	}
 	return TierOf(name)

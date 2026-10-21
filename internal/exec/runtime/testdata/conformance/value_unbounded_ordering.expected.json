@@ -1,0 +1,24 @@
+{
+  "type": "instance",
+  "instantiate": "test::Ordering",
+  "libraries": true,
+  "slots": {
+    "positive": {"type": "Infinity"},
+    "greater": {"type": "Boolean", "value": true},
+    "less": {"type": "Boolean", "value": false},
+    "atLeast": {"type": "Boolean", "value": true},
+    "equalsOne": {"type": "Boolean", "value": false},
+    "equalsItself": {"type": "Boolean", "value": true},
+    "largest": {"type": "Infinity"},
+    "least": {"type": "Integer", "value": 1},
+    "largestReal": {"type": "Infinity"},
+    "leastReal": {"type": "Real", "value": 2.0},
+    "leastRational": {"type": "Rational", "value": "2.5"},
+    "leastGeneric": {"type": "Integer", "value": 3},
+    "bothUnbounded": {"type": "Infinity"},
+    "magnitude": {"type": "Infinity"},
+    "realMagnitude": {"type": "Infinity"},
+    "text": {"type": "String", "value": "*"},
+    "realText": {"type": "String", "value": "*"}
+  }
+}

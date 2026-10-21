@@ -629,6 +629,13 @@ func (cache *apiJSONTermCache) referenceTarget(subject rdf.Term, object map[stri
 			if target, ok := cache.references[key]; ok {
 				return target, nil
 			}
+			if strings.HasPrefix(id, rdf.Expression) || strings.HasPrefix(id, rdf.Element) {
+				// A service that hands a reference back as the IRI itself names
+				// the element the IRI does.
+				target := rdf.IRI(id)
+				cache.references[key] = target
+				return target, nil
+			}
 			target := rdf.ReferenceIRI(subject, id)
 			if targetID, ok := rdf.SubjectID(target); ok && expressionIDs[targetID] {
 				target = rdf.IRI(rdf.Expression + targetID)

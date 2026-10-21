@@ -53,11 +53,10 @@ public record RunResult(
 
   /** The result with every outcome's label and element id renamed by {@code rename}. */
   public RunResult withOutcomeNames(java.util.function.UnaryOperator<String> rename) {
-    List<Outcome> renamed = new ArrayList<>(outcomes.size());
-    for (Outcome outcome : outcomes) {
-      renamed.add(new Outcome(rename.apply(outcome.label()), outcome.detail(), outcome.status(),
-          outcome.elementId() == null ? null : rename.apply(outcome.elementId())));
-    }
+    List<Outcome> renamed = outcomes.stream()
+        .map(outcome -> new Outcome(rename.apply(outcome.label()), outcome.detail(), outcome.status(),
+            outcome.elementId() == null ? null : rename.apply(outcome.elementId())))
+        .toList();
     return new RunResult(operation, path, subject, status, renamed, diagnostics, finalTime, schedule, elapsed);
   }
 

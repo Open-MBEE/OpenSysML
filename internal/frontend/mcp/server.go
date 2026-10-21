@@ -70,6 +70,9 @@ type Config struct {
 	// CacheSize bounds the runtime service's parsed-model cache; 0 is the
 	// service's default of 100.
 	CacheSize int
+	// UnavailableCapabilities are capabilities the runtime service deliberately
+	// lacks, for conformance testing of a client's fallbacks; nil lacks none.
+	UnavailableCapabilities []string
 	// NewSession makes a REPL session for the session group.
 	NewSession sessiontools.Factory
 	// Logger, if set, receives the server's log of protocol activity.
@@ -121,20 +124,34 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			if size == 0 {
 				size = 100
 			}
-			svc, err := sysmlgrpc.NewService(size, cfg.Version)
+			var svc *sysmlgrpc.Service
+			var err error
+			if len(cfg.UnavailableCapabilities) == 0 {
+				svc, err = sysmlgrpc.NewService(size, cfg.Version)
+			} else {
+				svc, err = sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(size, cfg.Version, cfg.UnavailableCapabilities)
+			}
 			if err != nil {
 				s.Close(ctx)
 				return nil, fmt.Errorf("starting the runtime service: %w", err)
 			}
 			svc.Prewarm()
 			s.runtime = svc
-			runtimetools.Register(s.sdk, svc, cfg.Root)
+			if err := runtimetools.Register(s.sdk, svc, cfg.Root); err != nil {
+				s.Close(ctx)
+				return nil, err
+			}
 		case GroupSession:
 			if cfg.NewSession == nil {
 				s.Close(ctx)
 				return nil, fmt.Errorf("the session group needs a session factory")
 			}
-			s.sessions = sessiontools.NewManager(cfg.Root, cfg.NewSession)
+			sessions, err := sessiontools.NewManager(cfg.Root, cfg.NewSession)
+			if err != nil {
+				s.Close(ctx)
+				return nil, err
+			}
+			s.sessions = sessions
 			sessiontools.Register(s.sdk, s.sessions)
 		default:
 			s.Close(ctx)

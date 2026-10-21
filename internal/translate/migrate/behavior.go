@@ -642,7 +642,7 @@ var assignment = regexp.MustCompile(`^([\p{L}_][\p{L}\p{N}_ ]*)\s*(\+\+|--|[-+*/
 func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines []string, ok bool, note string) {
 	body = strings.TrimSpace(body)
 	if body == "" {
-		return nil, false, "the body is empty"
+		return nil, false, emptyBodyNote
 	}
 	if dialectOf(lang).script() {
 		lines, note, otherwise, refused := m.translatedStatements(body, lang, scope)
@@ -727,7 +727,7 @@ func (m *migration) v2Assignments(body, lang string, scope *sysmlv1.Element) (as
 		assigns = append(assigns, a)
 	}
 	if len(assigns) == 0 {
-		return nil, false, "the body is empty"
+		return nil, false, emptyBodyNote
 	}
 	return assigns, true, ""
 }
@@ -1019,7 +1019,7 @@ func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	body, lang := opaqueBody(e)
 	lines, ok, note := m.statements(body, lang, scope)
 	if !ok {
-		if note == "the body is empty" && opaqueBodiesEmpty(e) {
+		if note == emptyBodyNote && opaqueBodiesEmpty(e) {
 			return
 		}
 		if r := m.resultRefusal(e); r != "" && r != note {

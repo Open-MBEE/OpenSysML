@@ -83,22 +83,23 @@ func TestMCPServerShipsAsItsOwnArchive(t *testing.T) {
 		t.Error("the tag check does not cover the sysml-mcp binaries")
 	}
 
-	// The raw binaries under dist/mcp are never published: only the archives
-	// in dist/ reach the release, through the dist/*.tar.gz and dist/*.zip
-	// globs every other per-binary archive travels by.
+	// The raw binaries under dist/mcp are never published as release assets:
+	// only the archives in dist/ reach the release, through the dist/*.tar.gz
+	// and dist/*.zip globs every other per-binary archive travels by. The one
+	// other job that reads them is publish-npm, which packages them, verified
+	// against their sidecars, as @openmbee/sysml-mcp's platform packages.
 	raw := readRepoFile(t, ".circleci/config.yml")
-	jobStart := strings.Index(raw, "\n  build-release-binaries:\n")
-	if jobStart < 0 {
-		t.Fatal("no build-release-binaries job header in .circleci/config.yml")
-	}
-	jobEnd := len(raw)
-	if next := nextJobHeader.FindStringIndex(raw[jobStart+1:]); next != nil {
-		jobEnd = jobStart + 1 + next[0]
-	}
+	allowed := [][2]int{jobSpan(t, raw, "build-release-binaries"), jobSpan(t, raw, "publish-npm")}
 	for i := strings.Index(raw, "dist/mcp"); i >= 0; {
-		if i < jobStart || i >= jobEnd {
+		inside := false
+		for _, span := range allowed {
+			if i >= span[0] && i < span[1] {
+				inside = true
+			}
+		}
+		if !inside {
 			line := 1 + strings.Count(raw[:i], "\n")
-			t.Errorf(".circleci/config.yml line %d touches dist/mcp outside build-release-binaries; the raw sysml-mcp binaries are not release assets", line)
+			t.Errorf(".circleci/config.yml line %d touches dist/mcp outside build-release-binaries and publish-npm; the raw sysml-mcp binaries are not release assets", line)
 		}
 		next := strings.Index(raw[i+1:], "dist/mcp")
 		if next < 0 {
@@ -106,7 +107,7 @@ func TestMCPServerShipsAsItsOwnArchive(t *testing.T) {
 		}
 		i += 1 + next
 	}
-	if i := stepIndex(runSteps(t, config.Jobs["publish-github-release"].Steps), "dist/*.tar.gz dist/*.zip dist/release/"); i < 0 {
+	if stepIndex(runSteps(t, config.Jobs["publish-github-release"].Steps), "dist/*.tar.gz dist/*.zip dist/release/") < 0 {
 		t.Error("publish-github-release no longer moves dist/*.tar.gz and dist/*.zip into the release, which is how the sysml-mcp archives are published")
 	}
 
@@ -189,4 +190,19 @@ func TestMCPServerShipsAsItsOwnArchive(t *testing.T) {
 	if !containsAll(strings.Join(scoop.Bin, " "), "sysml-mcp.exe") {
 		t.Errorf("the Scoop manifest's bin = %v does not shim sysml-mcp.exe", scoop.Bin)
 	}
+}
+
+// jobSpan is the byte range of the named job in the raw CircleCI config, from
+// its header to the next job's.
+func jobSpan(t *testing.T, raw, job string) [2]int {
+	t.Helper()
+	start := strings.Index(raw, "\n  "+job+":\n")
+	if start < 0 {
+		t.Fatalf("no %s job header in .circleci/config.yml", job)
+	}
+	end := len(raw)
+	if next := nextJobHeader.FindStringIndex(raw[start+1:]); next != nil {
+		end = start + 1 + next[0]
+	}
+	return [2]int{start, end}
 }

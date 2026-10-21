@@ -59,7 +59,7 @@ func testBehaviorConnectionEndRootedAtAValue(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostWiring(
 		"in snk : Integer;", "in snk = 4;",
 	), "test::Host")
-	if !errors.Is(err, errSendTargetNotObject) || !strings.Contains(err.Error(), `"snk" holds 4, which is no object to address "snk.local" to`) {
+	if !errors.Is(err, errSendTargetNotObject) || !strings.Contains(err.Error(), `"snk" holds [4], which is no object to address "snk.local" to`) {
 		t.Fatalf("error = %v, want errSendTargetNotObject over a number", err)
 	}
 }

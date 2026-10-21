@@ -1,5 +1,8 @@
 package codes
 
+// specStateSubactionKind is the constraint pair the state subaction codes cite.
+const specStateSubactionKind = "SysML v2 validateStateDefinitionSubactionKind and validateStateUsageSubactionKind"
+
 // typeCodes are the codes of the typing tier: what a declaration may be typed
 // by, reference or specialize, and what an expression evaluates to.
 var typeCodes = []Entry{
@@ -291,6 +294,22 @@ var typeCodes = []Entry{
 		Spec: "SysML v2 validateInterfaceDefinitionEnd and validateInterfaceUsageEnd",
 	},
 	{
+		Code: "connection-def-end-not-usage", Tier: TierType, Severity: "error",
+		Summary: "a connection definition end that is no usage",
+		Meaning: "Every end feature of a connection, interface or allocation definition is a usage, the inherited ones included; " +
+			"this definition inherits a KerML end feature from a kernel association such as Links::BinaryLink or Occurrences::HappensLink. " +
+			"Specialize Connections::Connection or BinaryConnection instead, or declare usage ends that redefine the inherited ones.",
+		Spec: "SysML v2.1 Beta 2 §8.3.13.3 (connectionEnd : Usage redefines associationEnd); pilot validateConnectionDefinitionEndsAreUsages",
+	},
+	{
+		Code: "flow-def-end-not-usage", Tier: TierType, Severity: "error",
+		Summary: "a flow definition end that is no usage",
+		Meaning: "Every end feature of a flow definition is a usage, the inherited ones included; " +
+			"this definition inherits a KerML end feature from a kernel association such as Transfers::Transfer. " +
+			"Specialize Flows::Flow or Flows::Message instead, or declare usage ends that redefine the inherited ones.",
+		Spec: "SysML v2.1 Beta 2 §8.3.16.2 (flowEnd : Usage redefines associationEnd); pilot validateFlowDefinitionEndsAreUsages",
+	},
+	{
 		Code: "flow-def-too-many-ends", Tier: TierType, Severity: "error",
 		Summary: "a flow definition with more than two ends",
 		Meaning: "A flow connection definition relates a source and a target: it can have at most two ends. " +
@@ -316,21 +335,21 @@ var typeCodes = []Entry{
 		Summary: "a state with more than one entry action",
 		Meaning: "A state definition or usage declares at most one `entry` action. " +
 			"Merge the entry actions into one, sequenced in its body.",
-		Spec: "SysML v2 validateStateDefinitionSubactionKind and validateStateUsageSubactionKind",
+		Spec: specStateSubactionKind,
 	},
 	{
 		Code: "state-do-action", Tier: TierType, Severity: "error",
 		Summary: "a state with more than one do action",
 		Meaning: "A state definition or usage declares at most one `do` action. " +
 			"Merge the do actions into one, with parallel or sequenced steps in its body.",
-		Spec: "SysML v2 validateStateDefinitionSubactionKind and validateStateUsageSubactionKind",
+		Spec: specStateSubactionKind,
 	},
 	{
 		Code: "state-exit-action", Tier: TierType, Severity: "error",
 		Summary: "a state with more than one exit action",
 		Meaning: "A state definition or usage declares at most one `exit` action. " +
 			"Merge the exit actions into one, sequenced in its body.",
-		Spec: "SysML v2 validateStateDefinitionSubactionKind and validateStateUsageSubactionKind",
+		Spec: specStateSubactionKind,
 	},
 	{
 		Code: "only-one-return-parameter", Tier: TierType, Severity: "error",

@@ -18,25 +18,28 @@ reviewed and released.
 ```bash
 git clone https://github.com/Open-MBEE/OpenSysML.git
 cd OpenSysML
-make build  # builds bin/sysml, bin/sysml-lsp, and bin/sysml-grpc with version info
+make build  # builds bin/sysml, bin/sysml-lsp, bin/sysml-grpc, bin/sysml-jupyter-kernel and bin/sysml-mcp with version info
 make test   # runs all tests
 make lint   # runs staticcheck and gosec, as CI does
 
 ./scripts/download-training-examples.sh   # fetch the OMG training corpus
 ./scripts/download-pilot-corpora.sh       # fetch the three OMG pilot corpora
+./scripts/download-spec-examples.sh       # extract the specification examples (needs pdftotext)
 ./scripts/download-pilot-library-xmi.sh   # fetch the pilot's XMI of the standard library
 ./scripts/download-pssm-suite.sh          # fetch the OMG PSSM test suite
 ```
 
 The gates over those downloads (`tests/corpus/training_examples_test.go`,
-`tests/corpus/pilot_corpora_test.go`, `tests/identity/pilot_library_xmi_test.go`,
-`tests/corpus/pssm_migration_test.go`)
-skip while their corpus is absent, so run the four scripts once before trusting a local
+`tests/corpus/pilot_corpora_test.go`, `tests/corpus/spec_examples_test.go`,
+`tests/identity/pilot_library_xmi_test.go`, `tests/corpus/pssm_migration_test.go`)
+skip while their corpus is absent, so run the five scripts once before trusting a local
 `make test`; a corpus already at the pin is left alone. CI runs the scripts itself and sets
 `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1`,
-`OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1` and `OPENSYSML_REQUIRE_PSSM_SUITE=1`, which make a
-missing corpus a failure there instead of a skip; an environment that sets any of them must run
-the matching script first. See [docs/project/pilot-corpora.md](docs/project/pilot-corpora.md)
+`OPENSYSML_REQUIRE_SPEC_EXAMPLES=1`, `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1` and
+`OPENSYSML_REQUIRE_PSSM_SUITE=1`, which make a missing corpus a failure there instead of a skip;
+an environment that sets any of them must run the matching script first. See
+[docs/project/pilot-corpora.md](docs/project/pilot-corpora.md),
+[docs/project/spec-examples.md](docs/project/spec-examples.md)
 and [docs/project/pssm-migration.md](docs/project/pssm-migration.md).
 
 ## Development Workflow

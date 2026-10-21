@@ -2,6 +2,6 @@
 	"type": "action",
 	"evaluate": "test::Derived",
 	"outputs": {
-		"result": {"type": "Integer", "value": 7}
+		"result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]}
 	}
 }

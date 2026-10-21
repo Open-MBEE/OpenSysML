@@ -15,14 +15,12 @@ import type {
   Value,
   Verdict as PbVerdict,
   VerificationVerdict as PbVerificationVerdict,
-} from "../generated/sysml_pb.js";
-import { FailureReason } from "../generated/sysml_pb.js";
-import type {
   ComparedDistribution as PbComparedDistribution,
   ImportDataResponse as PbImportDataResponse,
   CompareResultsResponse as PbCompareResultsResponse,
   Instance as PbInstance,
 } from "../generated/sysml_pb.js";
+import { FailureReason } from "../generated/sysml_pb.js";
 import {
   AnalysisRunError,
   ExecutionError,

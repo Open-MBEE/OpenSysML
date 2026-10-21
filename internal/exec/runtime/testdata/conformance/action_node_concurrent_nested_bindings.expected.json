@@ -4,12 +4,12 @@
 	"trace": true,
 	"outputs": {
 		"collected": {"type": "Integer", "value": 20},
-		"left.v": {"type": "Integer", "value": 1},
-		"right.v": {"type": "Integer", "value": 2},
-		"leg.x1": {"type": "Integer", "value": 1},
-		"leg.x2": {"type": "Integer", "value": 2},
-		"leg.inner.w": {"type": "Integer", "value": 1},
-		"leg.inner.v": {"type": "Integer", "value": 10},
-		"leg.rest.n": {"type": "Integer", "value": 10}
+		"left.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"right.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+		"leg.x1": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"leg.x2": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+		"leg.inner.w": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"leg.inner.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]},
+		"leg.rest.n": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]}
 	}
 }

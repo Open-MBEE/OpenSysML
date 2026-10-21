@@ -243,8 +243,8 @@ whose source text is stale for some element — cannot imply the id, so the
 reader writes it as an `@IdentityMetadata::ElementId` annotation instead and
 the id survives a further hop through notation as a declared one. The reader
 recognises a normative id only on the subject whose `sysml:qualifiedName` is the
-library element's (its effective name, or the exact positional name the writer
-gives an effectively named member); a user element that happens to carry a
+library element's (its effective name, which is also the name the writer gives
+a member named by its naming feature); a user element that happens to carry a
 library UUID without `sysx:declaredId` keeps it as a declared id, as any other
 foreign id. An explicit `@IdentityMetadata::ElementId` stating a different id
 still wins over the normative id when a library element carries one; an
@@ -379,6 +379,14 @@ triples come); a set of classes with no such member is refused, naming the subje
 - `sysml:declaredName`, `sysml:declaredShortName`, `sysml:qualifiedName` —
   on a requirement's `subject`, `assume constraint` and `require constraint`
   members as on any usage, so `subject <s> x : T;` comes back with its short name
+- `sysml:name` — on a member named by its naming feature rather than by a
+  declaration (KerML `Feature::effectiveName`): `part :>> engine;`,
+  `perform a;`, `exhibit s;`, `include uc;`, `frame c;`, `require r;`,
+  `assume r;`, a variant reference and a view's `render tree;` (SysML v2
+  `RenderingUsage::namingFeature`) carry the name they answer to as
+  `sysml:name` with no `sysml:declaredName`, and their `sysml:qualifiedName`
+  uses it (`Views::V::tree`), as the symbol table and the SysML v2 API name
+  them. A declared name is not restated as `sysml:name`
 - `sysml:elementId` — the id the element's own IRI ends in, which is what the
   SysML v2 API addresses it by. Every element carries one, including the
   memberships below and the expression nodes of
@@ -1947,8 +1955,11 @@ prefix carrying a name, an `about` clause or a body (the grammar's
 first member with the name keeps the qualified name, as the language's own
 naming rule fixes it, and each later one is identified by its position among
 the owner's members — `Demo::Dup` then `Demo::@2` for two `part def Dup` at
-positions 0 and 2 — the same name a member declared unnamed takes. Both are
-`sysml:declaredName "Dup"`, each its own element with its own membership, and
+positions 0 and 2 — the same name a member declared unnamed takes. A member
+declared unnamed but named by its naming feature (`part :>> engine;`,
+`perform a;`) is `Demo::car::engine`, not `Demo::car::@0`, and a later member
+deriving a name already taken is positioned like a later duplicate. Both
+duplicates are `sysml:declaredName "Dup"`, each its own element with its own membership, and
 the name resolution pass still reports the duplicate as a warning; SysML has
 no reopening of a declaration within a namespace, so merge the declarations
 into one (or rename) rather than rely on the position. A member named `'@2'`
@@ -2247,16 +2258,69 @@ model notation → `api-json` → notation → `api-json` and pins the verdict i
 are the Turtle gate's for every file but two, whose `.1` reals JSON respells as
 `0.1` (`graph-diff`).
 
+## Metaclass hierarchy graph
+
+A converted model states one `rdf:type` per element, its concrete metaclass
+(`sysml:PartUsage`), and nothing about what that metaclass specializes. The
+generalizations are a property of the metamodel, so they are published once,
+as an RDF vocabulary graph a store loads beside its models:
+
+```bash
+sysml -metaclass-graph                          # Turtle to stdout; no model is read
+sysml -metaclass-graph -o sysml-metaclasses.ttl
+```
+
+The graph is written from the metamodel table of
+`internal/translate/rdf/ontology` (`MetaclassGraph`), itself generated from the
+pinned pilot `SysML.ecore`, and is committed beside the table as
+`internal/translate/rdf/ontology/sysml-metaclasses.ttl`; `make metaclass-graph`
+regenerates it and `make metaclass-graph-check` fails when the committed file
+differs from what the table yields. For each metaclass it states:
+
+```turtle
+sysml:PartUsage
+    a rdfs:Class ;
+    rdfs:label "PartUsage" ;
+    rdfs:subClassOf sysml:ItemUsage .
+
+sysml:ControlNode
+    a rdfs:Class ;
+    rdfs:label "ControlNode" ;
+    rdfs:subClassOf sysml:ActionUsage ;
+    sysx:abstract true .
+```
+
+- The subject is the metaclass IRI `rdf:type` names on a converted element, so
+  the graph joins a model without translation.
+- One `rdfs:subClassOf` per general metaclass the pilot declares; the
+  transitive closure is left to the query (`rdfs:subClassOf*`), not materialized.
+- `sysx:abstract true` on the metaclasses the pilot's Ecore declares abstract
+  (eight of them, `ConnectorAsUsage` and `ControlNode` among them; KerML's
+  abstract types such as `Element` and `Feature` are not declared abstract
+  there and carry no mark).
+
+With the graph loaded, a store that holds one `rdf:type` per element answers a
+query for every usage, feature or element, which the type triple alone cannot:
+
+```sparql
+SELECT ?e WHERE { ?e rdf:type/rdfs:subClassOf* sysml:Feature }
+```
+
+finds every `PartUsage`, since `PartUsage ⊂ ItemUsage ⊂ OccurrenceUsage ⊂ Usage
+⊂ Feature`. Without it the same query matches only elements typed `sysml:Feature`
+exactly, which a converted model never contains.
+
 ## Where the code lives
 
 | Package | Role |
 |---------|------|
 | `internal/translate/rdf` | Triple/graph model, Turtle writer, Turtle parser |
+| `internal/translate/rdf/ontology` | The metamodel table generated from the pinned pilot `SysML.ecore`, and `MetaclassGraph` with its committed Turtle `sysml-metaclasses.ttl` |
 | `internal/translate/export` | `ToRDF` (AST → graph), `ToSysML` (graph → notation), `WriteAPIJSON`/`ReadAPIJSON` (graph ↔ the API element form) |
 | `internal/translate/convert` | The `Convert` entry point: format names, notation parsing, the SysML v1 migration |
 | `tests/corpus/roundtrip_test.go` | The per-file round-trip ratchets over every model under `examples/`, with their baselines in `testdata/corpus_roundtrip_expected.txt` (Turtle) and `testdata/api_json_roundtrip_expected.txt` (the API element form) ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)) |
 | `internal/frontend/repl` | `%save` |
-| `cmd/sysml` | `-convert`, `-from`, `-o` |
+| `cmd/sysml` | `-convert`, `-from`, `-o`, `-metaclass-graph` |
 
 The RDF layer is hand-written against the Turtle grammar rather than pulled in
 as a dependency: the subset needed here is small, and the parser rejects what it

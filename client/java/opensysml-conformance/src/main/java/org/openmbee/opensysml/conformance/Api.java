@@ -43,9 +43,7 @@ import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.StateRun;
 import org.openmbee.opensysml.RecordOptions;
 import org.openmbee.opensysml.Recording;
-import org.openmbee.opensysml.Runs;
 import org.openmbee.opensysml.RunsOptions;
-import org.openmbee.opensysml.SelfCheck;
 import org.openmbee.opensysml.SweepOptions;
 import org.openmbee.opensysml.SweepRange;
 import org.openmbee.opensysml.Symbol;
@@ -239,6 +237,16 @@ final class Api {
       case RPC_GET_SERVER_INFO -> ServerInfoRequest.newBuilder();
       case RPC_LIST_ENGINES -> ListEnginesRequest.newBuilder();
       case RPC_PARSE_FILE -> ParseFileRequest.newBuilder();
+      case RPC_PARSE_SOURCES -> ParseSourcesRequest.newBuilder();
+      case RPC_CONVERT -> ConvertRequest.newBuilder();
+      case RPC_MIGRATE -> MigrateRequest.newBuilder();
+      default -> modelRequest(method);
+    };
+  }
+
+  /** An empty request of a method that is called on a model the connection already holds. */
+  private static Message.Builder modelRequest(String method) {
+    return switch (method) {
       case RPC_GET_SYMBOL -> GetSymbolRequest.newBuilder();
       case RPC_GET_DIAGNOSTICS -> DiagnosticsRequest.newBuilder();
       case RPC_EVALUATE -> EvaluateRequest.newBuilder();
@@ -252,9 +260,6 @@ final class Api {
       case RPC_EVALUATE_CALC -> EvaluateCalcRequest.newBuilder();
       case RPC_RUN_ANALYSIS -> RunAnalysisRequest.newBuilder();
       case RPC_QUERY -> QueryRequest.newBuilder();
-      case RPC_PARSE_SOURCES -> ParseSourcesRequest.newBuilder();
-      case RPC_CONVERT -> ConvertRequest.newBuilder();
-      case RPC_MIGRATE -> MigrateRequest.newBuilder();
       case RPC_APPLY_EDITS -> ApplyEditsRequest.newBuilder();
       case RPC_RUN_SWEEP -> RunSweepRequest.newBuilder();
       case RPC_RUN_RUNS -> RunRunsRequest.newBuilder();
@@ -301,37 +306,10 @@ final class Api {
             case RPC_GET_SERVER_INFO -> serverInfo();
             case RPC_LIST_ENGINES -> listEngines((ListEnginesRequest) request);
             case RPC_PARSE_FILE -> parse((ParseFileRequest) request);
-            case RPC_GET_SYMBOL -> symbol((GetSymbolRequest) request);
-            case RPC_GET_DIAGNOSTICS -> diagnostics((DiagnosticsRequest) request);
-            case RPC_EVALUATE -> evaluate((EvaluateRequest) request);
-            case RPC_INSTANTIATE -> instantiate((InstantiateRequest) request);
-            case RPC_EXECUTE_ACTION -> executeAction((ExecuteActionRequest) request);
-            case RPC_EXECUTE_STATE -> executeState((ExecuteStateRequest) request);
-            case RPC_VERIFY_CONSTRAINT -> verifyConstraint((VerifyConstraintRequest) request);
-            case RPC_VERIFY_REQUIREMENT -> verifyRequirement((VerifyRequirementRequest) request);
-            case RPC_VERIFY_SATISFACTION ->
-                verifySatisfaction((VerifySatisfactionRequest) request);
-            case RPC_VALIDATE_INSTANCE -> validateInstance((ValidateInstanceRequest) request);
-            case RPC_EVALUATE_CALC -> evaluateCalc((EvaluateCalcRequest) request);
-            case RPC_RUN_ANALYSIS -> runAnalysis((RunAnalysisRequest) request);
-            case RPC_QUERY -> query((QueryRequest) request);
             case RPC_PARSE_SOURCES -> parseSources((ParseSourcesRequest) request);
             case RPC_CONVERT -> convert((ConvertRequest) request);
             case RPC_MIGRATE -> migrate((MigrateRequest) request);
-            case RPC_APPLY_EDITS -> applyEdits((ApplyEditsRequest) request);
-            case RPC_RUN_SWEEP -> runSweep((RunSweepRequest) request);
-            case RPC_RUN_RUNS -> runRuns((RunRunsRequest) request);
-            case RPC_SELF_CHECK -> selfCheck((SelfCheckRequest) request);
-            case RPC_RECORD_RUN -> recordRun((RecordRunRequest) request);
-            case RPC_RUN_DOCUMENT_QUERY ->
-                runDocumentQuery((RunDocumentQueryRequest) request);
-            case RPC_RENDER_DOCUMENT -> renderDocument((RenderDocumentRequest) request);
-            case RPC_RENDER_VIEW -> renderView((RenderViewRequest) request);
-            case RPC_EXPORT_GRAPHS -> exportGraphs((ExportGraphsRequest) request);
-            case RPC_IMPORT_DATA -> importData((ImportDataRequest) request);
-            case RPC_COMPARE_RESULTS -> compareResults((CompareResultsRequest) request);
-            case RPC_CHECK_BEHAVIOR -> checkBehavior((CheckBehaviorRequest) request);
-            default -> throw new IllegalStateException(method);
+            default -> callModel(method, request);
           });
     } catch (Unsupported e) {
       return new Answer.Unsupported(e.getMessage());
@@ -342,6 +320,40 @@ final class Api {
       // service would ignore the field rather than answer UNIMPLEMENTED.
       return new Answer.Refused("UNIMPLEMENTED", e.getMessage());
     }
+  }
+
+  /** Makes a call on a model the connection already holds. */
+  private Message callModel(String method, Message request) {
+    return switch (method) {
+      case RPC_GET_SYMBOL -> symbol((GetSymbolRequest) request);
+      case RPC_GET_DIAGNOSTICS -> diagnostics((DiagnosticsRequest) request);
+      case RPC_EVALUATE -> evaluate((EvaluateRequest) request);
+      case RPC_INSTANTIATE -> instantiate((InstantiateRequest) request);
+      case RPC_EXECUTE_ACTION -> executeAction((ExecuteActionRequest) request);
+      case RPC_EXECUTE_STATE -> executeState((ExecuteStateRequest) request);
+      case RPC_VERIFY_CONSTRAINT -> verifyConstraint((VerifyConstraintRequest) request);
+      case RPC_VERIFY_REQUIREMENT -> verifyRequirement((VerifyRequirementRequest) request);
+      case RPC_VERIFY_SATISFACTION ->
+          verifySatisfaction((VerifySatisfactionRequest) request);
+      case RPC_VALIDATE_INSTANCE -> validateInstance((ValidateInstanceRequest) request);
+      case RPC_EVALUATE_CALC -> evaluateCalc((EvaluateCalcRequest) request);
+      case RPC_RUN_ANALYSIS -> runAnalysis((RunAnalysisRequest) request);
+      case RPC_QUERY -> query((QueryRequest) request);
+      case RPC_APPLY_EDITS -> applyEdits((ApplyEditsRequest) request);
+      case RPC_RUN_SWEEP -> runSweep((RunSweepRequest) request);
+      case RPC_RUN_RUNS -> runRuns((RunRunsRequest) request);
+      case RPC_SELF_CHECK -> selfCheck((SelfCheckRequest) request);
+      case RPC_RECORD_RUN -> recordRun((RecordRunRequest) request);
+      case RPC_RUN_DOCUMENT_QUERY ->
+          runDocumentQuery((RunDocumentQueryRequest) request);
+      case RPC_RENDER_DOCUMENT -> renderDocument((RenderDocumentRequest) request);
+      case RPC_RENDER_VIEW -> renderView((RenderViewRequest) request);
+      case RPC_EXPORT_GRAPHS -> exportGraphs((ExportGraphsRequest) request);
+      case RPC_IMPORT_DATA -> importData((ImportDataRequest) request);
+      case RPC_COMPARE_RESULTS -> compareResults((CompareResultsRequest) request);
+      case RPC_CHECK_BEHAVIOR -> checkBehavior((CheckBehaviorRequest) request);
+      default -> throw new IllegalStateException(method);
+    };
   }
 
   /** A call the public API has no way to make, thrown where the request is read. */
@@ -1263,15 +1275,17 @@ final class Api {
 
   private ImportDataResponse importData(ImportDataRequest request) {
     Model model = connection.model(request.getModelHash());
-    List<DataImport> imports = new ArrayList<>(request.getImportsCount());
-    for (org.openmbee.opensysml.proto.DataImport dataImport : request.getImportsList()) {
-      imports.add(
-          new DataImport(
-              dataImport.getName(),
-              dataImport.getContent(),
-              Optional.of(dataImport.getImportFormat()).filter(Predicate.not(String::isEmpty)),
-              Optional.of(dataImport.getImportMap()).filter(Predicate.not(String::isEmpty))));
-    }
+    List<DataImport> imports =
+        request.getImportsList().stream()
+            .map(
+                dataImport ->
+                    new DataImport(
+                        dataImport.getName(),
+                        dataImport.getContent(),
+                        Optional.of(dataImport.getImportFormat())
+                            .filter(Predicate.not(String::isEmpty)),
+                        Optional.of(dataImport.getImportMap()).filter(Predicate.not(String::isEmpty))))
+            .toList();
     try {
       return model
           .importData(imports, request.getImportDryRun(), request.getAcceptDocuments())
@@ -1286,10 +1300,10 @@ final class Api {
 
   private CompareResultsResponse compareResults(CompareResultsRequest request) {
     Model model = connection.model(request.getModelHash());
-    List<CompareOptions.ObservablePair> observe = new ArrayList<>(request.getObserveCount());
-    for (ObservablePair pair : request.getObserveList()) {
-      observe.add(new CompareOptions.ObservablePair(pair.getStored(), pair.getFeature()));
-    }
+    List<CompareOptions.ObservablePair> observe =
+        request.getObserveList().stream()
+            .map(pair -> new CompareOptions.ObservablePair(pair.getStored(), pair.getFeature()))
+            .toList();
     CompareOptions options =
         new CompareOptions(
             request.getActionsList(),

@@ -92,6 +92,20 @@ rolls up to is determined: the runtime answers `<undetermined>` rather than a
 number it would have to invent. The model was never wrong; it was incomplete
 in a way only an attempt to use it reveals.
 
+The fix is where SysML puts it, in the usage: `saturnVComplete` is the same
+vehicle with `:>> mass = 2000 [kg]` on its `instrumentUnit`, and the rollup
+completes:
+
+```bash
+./bin/sysml -quiet -e MassRollup::saturnVComplete.totalMass \
+  examples/runtime-showcase/mass-rollup.sysml
+```
+
+```
+✓ MassRollup::saturnVComplete.totalMass
+  = 2943728 [kg]
+```
+
 ## Whether it reaches orbit
 
 `RocketEquation` is Tsiolkovsky's equation with typed inputs: specific impulse
@@ -251,34 +265,77 @@ sysml: calc invocation failed: calc Reliability::SurvivalProbabilityFromConstant
 `LunarMission` is an action definition: a `budget` in, a `remaining` attribute
 that starts at the budget, and a flow of burns that each subtract from it. After
 lunar orbit insertion a `decide` node checks whether enough remains to land and
-come back up; if not, the flow goes straight to trans-Earth injection. `Flight`
+come back up; if not, the flow goes straight to trans-Earth injection. If it
+does, the flow reaches `awaitGo`, an `accept` of a `GoForDescent` signal: the
+landing is mission control's call, and the model waits for it. `Flight`
 performs the action with its own budget, and `apollo11` and `apollo8` are two
 flights.
 
-An action a part performs runs on an instance of that part, so `-instantiate`
-makes the object and `-action` names the action and the object:
+An action a part performs runs on an instance of that part, so `%instantiate`
+makes the object — which performs its `mission` as it is created — and `%action`
+names the action and the object, attaching to that performance rather than
+starting a second one. Apollo 11 has burned its way to lunar orbit and is
+waiting: `%tokens` shows the one token parked at the accept, and `%step` cannot
+move it, since nothing in the model sends the GO. `%send` posts the signal to
+the object the session is attached to; the accept takes it on the next `%step`,
+and `%continue` flies the rest:
 
 ```bash
-./bin/sysml -quiet -instantiate MissionSequence::apollo11 \
-  -action "MissionSequence::Flight::mission MissionSequence::apollo11" \
-  examples/runtime-showcase/mission-sequence.sysml
+./bin/sysml -quiet examples/runtime-showcase/mission-sequence.sysml
+```
+
+```
+%instantiate MissionSequence::apollo11
+%action MissionSequence::Flight::mission MissionSequence::apollo11
+%tokens
+%step
+%send GoForDescent
+%step
+%continue
 ```
 
 ```
 ✓ Created instance of MissionSequence::apollo11
   ID: 1
   Use %features MissionSequence::apollo11 to inspect
-✓ Started action executor for "MissionSequence::Flight::mission"
+✓ Debugging action "mission" performed by object #1 of "MissionSequence::apollo11"
+note: object #1 of "MissionSequence::apollo11" already performs "MissionSequence::Flight::mission", so this session attaches to that running performance rather than starting a second one (as `%action MissionSequence::Flight::mission` would)
+  State: Waiting
+  Tokens: 1
+
+Use %step to advance, %tokens to inspect, %continue to run to completion
+Active tokens (1):
+  Token 1 @ awaitGo
+  Values:
+    budget = [9500 ['m/s']]
+    landed = [false]
+    remaining = 5450 ['m/s']
+    returned = [false]
+✓ Step complete
+  State: Waiting
+  Tokens: 1
+✓ Sent GoForDescent to object #1 of "MissionSequence::apollo11"
+  Accepted by performed action "mission" waiting at accept go
+
+Use %step or %advance <time> to dispatch it
+✓ Step complete
   State: Running
   Tokens: 1
 ✓ Action completed
   Final state: Completed
   Results:
-    landed = true
+    awaitGo.go = [Instance(ID: 3)]
+    budget = [9500 ['m/s']]
+    go = [Instance(ID: 3)]
+    landed = [true]
     remaining = 480 ['m/s']
-    returned = true
-  standing: value (observed: 1 run under reverse)
+    returned = [true]
 ```
+
+The same run from the command line, `-instantiate MissionSequence::apollo11
+-action "MissionSequence::Flight::mission MissionSequence::apollo11"`, has no
+one to send the GO, so it stops at the accept and reports the deadlock rather
+than inventing the signal.
 
 Apollo 8 carries 4 000 m/s less. The same flow, run on that object, takes the
 other branch of the decision:
@@ -291,9 +348,10 @@ other branch of the decision:
 
 ```
   Results:
-    landed = false
+    budget = [5500 ['m/s']]
+    landed = [false]
     remaining = 450 ['m/s']
-    returned = true
+    returned = [true]
 ```
 
 `MissionPhases` is the mission as a state machine on a clock in seconds, and

@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "instantiate": "test::rig",
+  "slots": {
+    "frontIsFace": {"type": "Boolean", "value": true},
+    "frontAtFace": {"type": "Boolean", "value": true},
+    "frontHasFace": {"type": "Boolean", "value": true},
+    "frontIsPanel": {"type": "Boolean", "value": true},
+    "frontHasPanel": {"type": "Boolean", "value": true},
+    "frontIsEdge": {"type": "Boolean", "value": false},
+    "frontAtEdge": {"type": "Boolean", "value": false},
+    "spareIsFace": {"type": "Boolean", "value": false},
+    "facesAreFaces": {"type": "Boolean", "value": true},
+    "frontArea": {"type": "Rational", "value": "2.0"},
+    "frontAsFace": {"type": "Instance"},
+    "frontAsEdge": {"type": "Sequence", "elements": []}
+  },
+  "materialization": {}
+}

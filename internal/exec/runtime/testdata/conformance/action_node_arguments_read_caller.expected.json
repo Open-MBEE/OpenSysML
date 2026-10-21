@@ -5,8 +5,8 @@
 		"a": {"type": "Integer", "value": 7},
 		"hundred": {"type": "Integer", "value": 100},
 		"result": {"type": "Integer", "value": 8},
-		"add.a": {"type": "Integer", "value": 7},
-		"add.b": {"type": "Integer", "value": 1},
-		"add.sum": {"type": "Integer", "value": 8}
+		"add.a": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]},
+		"add.b": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+		"add.sum": {"type": "Sequence", "elements": [{"type": "Integer", "value": 8}]}
 	}
 }

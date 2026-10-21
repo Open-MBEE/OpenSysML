@@ -5,8 +5,8 @@
 	"outputs": {
 		"mode": {"type": "Integer", "value": 1},
 		"total": {"type": "Integer", "value": 30},
-		"choose.split.sum": {"type": "Integer", "value": 30},
-		"choose.split.left.a": {"type": "Integer", "value": 10},
-		"choose.split.right.b": {"type": "Integer", "value": 20}
+		"choose.split.sum": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]},
+		"choose.split.left.a": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]},
+		"choose.split.right.b": {"type": "Sequence", "elements": [{"type": "Integer", "value": 20}]}
 	}
 }

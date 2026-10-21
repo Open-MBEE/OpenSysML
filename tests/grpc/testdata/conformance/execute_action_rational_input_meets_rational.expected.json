@@ -2,9 +2,20 @@
 	"rpc": "ExecuteAction",
 	"symbol_id": "test::addThird",
 	"inputs": {
-		"x": {"kind": "rational_value", "value": "1/4"}
+		"x": {
+			"kind": "rational_value",
+			"value": "1/4"
+		}
 	},
 	"expected_outputs": {
-		"y": {"kind": "rational_value", "value": "7/12"}
+		"y": {
+			"kind": "sequence",
+			"elements": [
+				{
+					"kind": "rational_value",
+					"value": "7/12"
+				}
+			]
+		}
 	}
 }

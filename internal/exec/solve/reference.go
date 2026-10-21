@@ -84,6 +84,7 @@ func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments [
 			}
 			chain = append(chain, t.within)
 		} else if sym, ok = t.localTo(t.stage, scope, segments[0]); ok {
+			// A member local to the stage is read as itself, like one local to the objective.
 		} else if sym, ok = t.model.LookupMember(t.stage, segments[0]); ok {
 			chain = append(chain, t.stage)
 		} else if sym, ok = t.features[segments[0]]; !ok {

@@ -1,0 +1,80 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::probe",
+  "outputs": {
+    "fromScalar": {
+      "type": "Integer",
+      "value": 5
+    },
+    "fromLoose": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 5
+        }
+      ]
+    },
+    "fromImplicit": {
+      "type": "Integer",
+      "value": 7
+    },
+    "implicitAgain": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 7
+        }
+      ]
+    },
+    "narrowedAgain": {
+      "type": "Integer",
+      "value": 8
+    },
+    "narrowedEcho": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 8
+        }
+      ]
+    },
+    "s.value": {
+      "type": "Integer",
+      "value": 5
+    },
+    "l.value": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 5
+        }
+      ]
+    },
+    "a.again": {
+      "type": "Integer",
+      "value": 7
+    },
+    "a.echo": {
+      "type": "Integer",
+      "value": 7
+    },
+    "n.again": {
+      "type": "Integer",
+      "value": 8
+    },
+    "n.echo": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 8
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::probe",
+  "outputs": {
+    "one": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 7
+        }
+      ]
+    },
+    "several": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 1
+        },
+        {
+          "type": "Integer",
+          "value": 2
+        },
+        {
+          "type": "Integer",
+          "value": 3
+        }
+      ]
+    },
+    "none": {
+      "type": "Sequence",
+      "elements": []
+    },
+    "oneCount": {
+      "type": "Integer",
+      "value": 1
+    },
+    "noneCount": {
+      "type": "Integer",
+      "value": 0
+    },
+    "head": {
+      "type": "Integer",
+      "value": 7
+    },
+    "g1.items": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 7
+        }
+      ]
+    },
+    "g1.count": {
+      "type": "Integer",
+      "value": 1
+    },
+    "g2.items": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 1
+        },
+        {
+          "type": "Integer",
+          "value": 2
+        },
+        {
+          "type": "Integer",
+          "value": 3
+        }
+      ]
+    },
+    "g3.items": {
+      "type": "Sequence",
+      "elements": []
+    },
+    "g3.kept": {
+      "type": "Sequence",
+      "elements": []
+    }
+  }
+}

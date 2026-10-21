@@ -480,7 +480,7 @@ func (m *Model) compileReference(scope *symbols.Scope, qn *ast.QualifiedName, sp
 }
 
 func (m *Model) filterMemberType(typeFQN, feature string) *symbols.Symbol {
-	typ := m.symbolByFQN(typeFQN)
+	typ := m.typeByFQN(typeFQN)
 	if typ == nil {
 		return nil
 	}
@@ -884,7 +884,7 @@ func candidateName(cand *symbols.Symbol) string {
 // read from an annotation the candidate does not carry, has an empty value
 // sequence, which leaves the comparison reading it false rather than unevaluable.
 func (m *Model) annotationFeatureValue(cand *symbols.Symbol, p *symbols.FilterPredicate) (symbols.FilterValue, error) {
-	typ := m.symbolByFQN(p.TypeFQN)
+	typ := m.typeByFQN(p.TypeFQN)
 	for _, a := range m.annotationsOf(cand) {
 		if !m.annotationConforms(a, typ, p.TypeFQN) {
 			continue
@@ -912,7 +912,7 @@ func (m *Model) annotationFeatureValue(cand *symbols.Symbol, p *symbols.FilterPr
 // select the part usages among the candidates. `@@T` tests the same metadata
 // (KerML 1.0 §7.4.9.2: its operand is `x.metadata`, annotations then metaobject).
 func (m *Model) annotatedBy(cand *symbols.Symbol, typeFQN string) bool {
-	typ := m.symbolByFQN(typeFQN)
+	typ := m.typeByFQN(typeFQN)
 	for _, a := range m.annotationsOf(cand) {
 		if m.annotationConforms(a, typ, typeFQN) {
 			return true
@@ -929,7 +929,7 @@ func (m *Model) metaclassConforms(cand *symbols.Symbol, typeFQN string) bool {
 	if meta == nil {
 		return false
 	}
-	if typ := m.symbolByFQN(typeFQN); typ != nil {
+	if typ := m.typeByFQN(typeFQN); typ != nil {
 		return m.Conforms(meta, typ) || m.conformsByName(meta, typeFQN)
 	}
 	// The metaclass library is not loaded, so conformance can only be judged on
@@ -1012,6 +1012,25 @@ func (m *Model) symbolByFQN(fqn string) *symbols.Symbol {
 	}
 	journal(m, m.filterTypes, fqn, nil)
 	m.filterTypes[fqn] = found
+	return found
+}
+
+// typeByFQN is the type a filter or classification names: the first element
+// under the qualified name, since copies of one library conform by name.
+func (m *Model) typeByFQN(fqn string) *symbols.Symbol {
+	if fqn == "" || m.resolver == nil || m.resolver.Index() == nil {
+		return nil
+	}
+	m.resolver.ReadName(fqn)
+	if sym, ok := m.typeElements[fqn]; ok {
+		return sym
+	}
+	var found *symbols.Symbol
+	if syms := m.resolver.Index().LookupQualified(fqn); len(syms) > 0 {
+		found = syms[0]
+	}
+	journal(m, m.typeElements, fqn, nil)
+	m.typeElements[fqn] = found
 	return found
 }
 

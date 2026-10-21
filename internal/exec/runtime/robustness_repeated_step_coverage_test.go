@@ -43,11 +43,12 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 			t.Errorf("execution error = %q, want the pin named", err)
 		}
 		for _, held := range []Value{conflict.LeftValue, conflict.RightValue} {
+			held = soleElement(held)
 			if held.Kind != ValConst || held.Const.Kind != semantics.ValInt {
 				t.Fatalf("conflict ends = %v and %v, want the two performance outputs", conflict.LeftValue, conflict.RightValue)
 			}
 		}
-		got := map[int64]bool{conflict.LeftValue.Const.Int: true, conflict.RightValue.Const.Int: true}
+		got := map[int64]bool{soleElement(conflict.LeftValue).Const.Int: true, soleElement(conflict.RightValue).Const.Int: true}
 		if !got[1] || !got[2] {
 			t.Errorf("conflict ends = %v and %v, want the outputs 1 and 2 of the two performances", conflict.LeftValue, conflict.RightValue)
 		}

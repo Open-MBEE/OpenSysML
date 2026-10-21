@@ -58,6 +58,21 @@ func sysmlManySeq[T sysmlElem](n int64) sysmlSeq[T] {
 	return sysmlSeq[T]{sysmlMany, make([]T, n)}
 }
 
+// sysmlHeld is s in the shape a feature's multiplicity gives its values: a
+// multi-valued feature holds a sequence, an at-most-one feature its sole element.
+func sysmlHeld[T sysmlElem](s sysmlSeq[T], many bool) sysmlSeq[T] {
+	switch {
+	case many && s.shape != sysmlMany:
+		sysmlCharge(int64(len(s.data)))
+		return sysmlSeq[T]{sysmlMany, s.data}
+	case !many && s.shape == sysmlMany && len(s.data) == 0:
+		return sysmlNullSeq[T]()
+	case !many && s.shape == sysmlMany && len(s.data) == 1:
+		return sysmlSeq[T]{sysmlOne, s.data}
+	}
+	return s
+}
+
 func sysmlConcat[T sysmlElem](parts ...sysmlSeq[T]) sysmlSeq[T] {
 	var total int64
 	for _, p := range parts {
@@ -96,7 +111,7 @@ func sysmlDescribe(shape sysmlShape, bare bool, one string) string {
 // sysmlScalar is the one scalar an operator needs; format takes the shape
 // found and, when other is non-empty, the other operand's description.
 func sysmlScalar[T sysmlElem](s sysmlSeq[T], format string, bare bool, other string) T {
-	if s.shape != sysmlOne {
+	if len(s.data) != 1 {
 		if other == "" {
 			sysmlFailf(format, sysmlDescribe(s.shape, bare, ""))
 		}
@@ -208,13 +223,13 @@ func sysmlAtLeastSeq(s sysmlSeq[sysmlInt], lo int64, typ string) sysmlSeq[sysmlI
 	return s
 }
 
-// sysmlEq is the '==' of collections: same shape, same elements in order;
-// every empty collection is null, whatever its shape.
+// sysmlEq is the '==' of collections: the same elements in order, a value being
+// the one-element collection holding it; every empty collection is null.
 func sysmlEq[T sysmlElem](a, b sysmlSeq[T]) bool {
 	if len(a.data) == 0 || len(b.data) == 0 {
 		return len(a.data) == 0 && len(b.data) == 0
 	}
-	return a.shape == b.shape && sysmlEquals(a, b)
+	return sysmlEquals(a, b)
 }
 
 // sysmlEquals is SequenceFunctions::equals: the elements in order,
@@ -255,7 +270,7 @@ func sysmlIdent[T sysmlElem](a, b sysmlSeq[T]) bool {
 	if len(a.data) == 0 || len(b.data) == 0 {
 		return len(a.data) == 0 && len(b.data) == 0
 	}
-	return a.shape == b.shape && sysmlSame(a, b)
+	return sysmlSame(a, b)
 }
 
 // sysmlPos is an index as a position: one beyond int64 addresses none.
@@ -618,6 +633,8 @@ func (e *goEmitter) seqExpr(x Expr) (string, bool) {
 		return e.seqLit(x), true
 	case ToMany:
 		return fmt.Sprintf("sysmlOneSeq[%s](%s)", goElem(x.X.Type()), e.expr(x.X)), true
+	case Held:
+		return fmt.Sprintf("sysmlHeld(%s, %t)", e.expr(x.X), x.Many), true
 	case ToOne:
 		if x.Where != "" {
 			return fmt.Sprintf("sysmlOneOf(%s, %s)", e.expr(x.X), strconv.Quote(x.Where)), true

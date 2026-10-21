@@ -1,0 +1,59 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::probe",
+  "outputs": {
+    "tally": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 11
+        }
+      ]
+    },
+    "exact": {
+      "type": "Integer",
+      "value": 11
+    },
+    "note": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 11
+        }
+      ]
+    },
+    "noteExact": {
+      "type": "Integer",
+      "value": 11
+    },
+    "a.tally": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 11
+        }
+      ]
+    },
+    "a.exact": {
+      "type": "Integer",
+      "value": 11
+    },
+    "a.note": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 11
+        }
+      ]
+    },
+    "a.noteExact": {
+      "type": "Integer",
+      "value": 11
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "type": "instance",
+  "instantiate": "test::beam",
+  "libraries": true,
+  "slots": {
+    "span": {"type": "Unset"},
+    "halfSpan": {"error": "no value for feature span"},
+    "end.offset": {"error": "no value for feature"}
+  },
+  "materialization": {}
+}

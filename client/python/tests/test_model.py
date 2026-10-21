@@ -676,7 +676,7 @@ class TestModelRuntimeCalls:
 #: Connection calls whose model-level counterpart is named differently:
 #: get_symbol is the raw protobuf lookup behind Model.get and model[name], and
 #: apply_edits is the call Model.edit()'s editor makes.
-MODEL_LEVEL_ALIASES = {"get_symbol": "get", "apply_edits": "edit"}
+MODEL_LEVEL_ALIASES = {"get_symbol": "get", "apply_edits": "edit", "diagnostics": "refresh_diagnostics"}
 
 
 def test_every_call_about_a_loaded_model_is_reachable_on_the_model():

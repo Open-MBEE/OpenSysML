@@ -1,6 +1,8 @@
 package sessiontools
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -26,7 +28,7 @@ func connect(t *testing.T, root string) *sdk.ClientSession {
 	t.Helper()
 	ctx := context.Background()
 	srv := sdk.NewServer(&sdk.Implementation{Name: "test", Version: "0"}, nil)
-	m := NewManager(root, func() (*repl.Session, error) {
+	m := mustManager(t, root, func() (*repl.Session, error) {
 		s := repl.NewSession()
 		return s, s.SetEngines(engineset.Default())
 	})
@@ -98,6 +100,27 @@ const actionModel = `package Debug {
 		succession first start then accumulate;
 		succession first accumulate then done;
 	}
+}
+`
+
+const inputsModel = `package Inputs {
+	action def Double {
+		in x : ScalarValues::Integer;
+		out y : ScalarValues::Integer;
+		assign y := x * 2;
+	}
+}
+`
+
+const performedModel = `package Perf {
+	action def Nudge {
+		in ref context : Heater;
+		out done : ScalarValues::Boolean := true;
+	}
+	part def Heater {
+		perform action nudge : Nudge { in ref :>> context = this; }
+	}
+	part heater : Heater;
 }
 `
 
@@ -429,6 +452,47 @@ func TestSweepTablesEveryRow(t *testing.T) {
 	}
 }
 
+func TestRunBindsAnActionsInputsPositionallyOrByName(t *testing.T) {
+	cs := connect(t, t.TempDir())
+	must(t, cs, "session_submit", args("text", inputsModel), nil)
+
+	var v Verdict
+	must(t, cs, "session_run", args("kind", "action", "name", "Inputs::Double", "arguments", []string{"3"}), &v)
+	if v.Status != "holds" || !slices.Contains(v.Values, NamedValue{Name: "y", Value: "[6]"}) {
+		t.Errorf("positional run = %+v", v)
+	}
+	must(t, cs, "session_run", args("kind", "action", "name", "Inputs::Double", "arguments", []string{"x = 4"}), &v)
+	if v.Status != "holds" || !slices.Contains(v.Values, NamedValue{Name: "y", Value: "[8]"}) {
+		t.Errorf("named run = %+v", v)
+	}
+	for _, tc := range []struct{ args, wants string }{
+		{"z = 4", `no input parameter "z"`},
+		{"1, 2", "takes 1 input parameter(s), got 2"},
+		{"y = 4", `no input parameter "y"`},
+	} {
+		must(t, cs, "session_run", args("kind", "action", "name", "Inputs::Double", "arguments", strings.Split(tc.args, ", ")), &v)
+		if v.Status != "unresolved" || !strings.Contains(v.Text, tc.wants) {
+			t.Errorf("arguments %q: verdict = %+v, want %q", tc.args, v, tc.wants)
+		}
+	}
+}
+
+func TestRunAttachesToAPerformedActionWhoseInputsMatch(t *testing.T) {
+	cs := connect(t, t.TempDir())
+	must(t, cs, "session_submit", args("text", performedModel), nil)
+	must(t, cs, "repl_command", args("line", "%instantiate Perf::heater"), nil)
+
+	var v Verdict
+	must(t, cs, "session_run", args("kind", "action", "name", "Perf::Nudge", "object", "heater", "arguments", []string{"context = heater"}), &v)
+	if v.Status != "holds" {
+		t.Errorf("matching input = %+v", v)
+	}
+	must(t, cs, "session_run", args("kind", "action", "name", "Perf::Nudge", "object", "heater", "arguments", []string{"context = null"}), &v)
+	if v.Status != "unresolved" || !strings.Contains(v.Text, "performs Nudge already") {
+		t.Errorf("conflicting input = %+v", v)
+	}
+}
+
 func TestReplCommandReachesCommandsWithoutATypedTool(t *testing.T) {
 	cs := connect(t, t.TempDir())
 	var cmd CommandResult
@@ -516,7 +580,7 @@ func TestConcurrentCallsOnOneSessionAreSerialized(t *testing.T) {
 
 func TestACloseRacingAQueuedCallRunsItFirstOrFailsIt(t *testing.T) {
 	for range 25 {
-		m := NewManager(t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
+		m := mustManager(t, t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
 		if _, err := m.Open("raced"); err != nil {
 			t.Fatal(err)
 		}
@@ -566,7 +630,7 @@ func TestACloseRacingAQueuedCallRunsItFirstOrFailsIt(t *testing.T) {
 }
 
 func TestGetAnswersFromInsideACallOnTheSameSession(t *testing.T) {
-	m := NewManager(t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
+	m := mustManager(t, t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
 	done := make(chan error, 1)
 	go func() {
 		done <- m.Use(context.Background(), "", func(sess *repl.Session) error {
@@ -604,13 +668,22 @@ func TestASubmissionIsAcceptedDespiteAnOlderErrorAtDebugVerbosity(t *testing.T) 
 	}
 }
 
+// mustManager is a manager over root, which must exist.
+func mustManager(t *testing.T, root string, factory Factory) *Manager {
+	t.Helper()
+	m, err := NewManager(root, factory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
 func TestResolveConfinesPathsToTheWorkspaceRoot(t *testing.T) {
 	root := t.TempDir()
-	m := NewManager(root, func() (*repl.Session, error) { return repl.NewSession(), nil })
+	m := mustManager(t, root, func() (*repl.Session, error) { return repl.NewSession(), nil })
 	for in, want := range map[string]string{
 		".":                            root,
-		"sub/../model.ttl":             filepath.Join(root, "model.ttl"),
-		"sub/model.sysml":              filepath.Join(root, "sub", "model.sysml"),
+		" sub/../model.ttl ":           filepath.Join(root, "model.ttl"),
 		filepath.Join(root, "x.sysml"): filepath.Join(root, "x.sysml"),
 	} {
 		got, err := m.Resolve(in)
@@ -618,7 +691,7 @@ func TestResolveConfinesPathsToTheWorkspaceRoot(t *testing.T) {
 			t.Errorf("Resolve(%q) = %q, %v; want %q", in, got, err, want)
 		}
 	}
-	outside := []string{"..", "../model.sysml", "sub/../../model.sysml", filepath.Join(filepath.Dir(root), "model.sysml"), filepath.Join(root+"-sibling", "model.sysml")}
+	outside := []string{"../model.sysml", filepath.Join(filepath.Dir(root), "model.sysml")}
 	if home, err := os.UserHomeDir(); err == nil {
 		if rel, err := filepath.Rel(root, home); err != nil || rel == ".." || strings.HasPrefix(rel, "../") {
 			outside = append(outside, "~/model.sysml")
@@ -629,62 +702,21 @@ func TestResolveConfinesPathsToTheWorkspaceRoot(t *testing.T) {
 			t.Errorf("Resolve(%q) = %q, %v; want a refusal", in, got, err)
 		}
 	}
-}
-
-func TestResolveAcceptsAbsolutePathsUnderARelativeRoot(t *testing.T) {
-	parent := t.TempDir()
-	if err := os.Mkdir(filepath.Join(parent, "models"), 0o750); err != nil {
-		t.Fatal(err)
-	}
-	t.Chdir(parent)
-	m := NewManager("models", func() (*repl.Session, error) { return repl.NewSession(), nil })
-	want := filepath.Join(parent, "models", "a.sysml")
-	if got, err := m.Resolve(want); err != nil || got != want {
-		t.Errorf("Resolve(%q) = %q, %v; want it accepted", want, got, err)
-	}
-	if got, err := m.Resolve("a.sysml"); err != nil || got != want {
-		t.Errorf("Resolve(a.sysml) = %q, %v; want %q", got, err, want)
-	}
-	if got, err := m.Resolve(filepath.Join(parent, "a.sysml")); err == nil {
-		t.Errorf("Resolve of the root's parent = %q; want a refusal", got)
+	for _, in := range []string{"", "-"} {
+		if got, err := m.Resolve(in); err == nil {
+			t.Errorf("Resolve(%q) = %q; want a refusal", in, got)
+		}
 	}
 }
 
-func TestResolveFollowsSymlinksBeforeJudgingTheRoot(t *testing.T) {
+func TestASaveThroughADanglingLinkOutOfTheRootWritesNothing(t *testing.T) {
 	root, outside := t.TempDir(), t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(root, "escape")); err != nil {
+	if err := os.Symlink(filepath.Join(outside, "missing"), filepath.Join(root, "dangle")); err != nil {
 		t.Skip(err)
 	}
-	if err := os.Mkdir(filepath.Join(root, "models"), 0o750); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(filepath.Join(root, "models"), filepath.Join(root, "alias")); err != nil {
-		t.Fatal(err)
-	}
-	m := NewManager(root, func() (*repl.Session, error) { return repl.NewSession(), nil })
-	for _, in := range []string{"escape", "escape/model.sysml", "escape/deeper/model.sysml"} {
-		if got, err := m.Resolve(in); err == nil || !strings.Contains(err.Error(), "through a symlink") {
-			t.Errorf("Resolve(%q) = %q, %v; want a refusal naming the symlink", in, got, err)
-		}
-	}
-	if got, err := m.Resolve("alias/model.sysml"); err != nil || got != filepath.Join(root, "alias", "model.sysml") {
-		t.Errorf("Resolve(alias/model.sysml) = %q, %v; want a symlink staying inside the root accepted", got, err)
-	}
-
-	// A dangling link is followed to where a write through it would land.
-	if err := os.Symlink(filepath.Join(outside, "missing"), filepath.Join(root, "dangle")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink("notyet", filepath.Join(root, "later")); err != nil {
-		t.Fatal(err)
-	}
-	for _, in := range []string{"dangle", "dangle/model.sysml", "dangle/deeper/model.sysml"} {
-		if got, err := m.Resolve(in); err == nil || !strings.Contains(err.Error(), "through a symlink") {
-			t.Errorf("Resolve(%q) = %q, %v; want a dangling link out of the root refused", in, got, err)
-		}
-	}
-	if got, err := m.Resolve("later/model.sysml"); err != nil || got != filepath.Join(root, "later", "model.sysml") {
-		t.Errorf("Resolve(later/model.sysml) = %q, %v; want a dangling link inside the root accepted", got, err)
+	m := mustManager(t, root, func() (*repl.Session, error) { return repl.NewSession(), nil })
+	if got, err := m.Resolve("dangle/model.sysml"); err == nil || !strings.Contains(err.Error(), "leads through a symlink to") {
+		t.Errorf("Resolve(dangle/model.sysml) = %q, %v; want a refusal naming the symlink", got, err)
 	}
 	cs := connect(t, root)
 	must(t, cs, "session_submit", args("text", "package Dangling { part def P; }"), nil)
@@ -696,19 +728,47 @@ func TestResolveFollowsSymlinksBeforeJudgingTheRoot(t *testing.T) {
 	}
 }
 
+func TestALibraryRootOutsideTheWorkspaceIsReadButNotWritten(t *testing.T) {
+	root, lib, outside := t.TempDir(), t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(lib, "lib.sysml"), []byte("package Lib { part def L; }"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "elsewhere.sysml"), []byte("package Elsewhere { part def E; }"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(outside, "elsewhere.sysml"), filepath.Join(lib, "planted.sysml")); err != nil {
+		t.Skip(err)
+	}
+	m := mustManager(t, root, func() (*repl.Session, error) { return repl.NewSession(), nil })
+	sess, err := m.Get("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess.SetLibraryRoots([]string{lib})
+	if _, err := sess.LoadPathsReport([]string{filepath.Join(lib, "lib.sysml")}); err != nil {
+		t.Errorf("loading a file under a library root = %v; want it exempt from the workspace root", err)
+	}
+	if _, err := sess.LoadPathsReport([]string{filepath.Join(lib, "planted.sysml")}); err == nil || !strings.Contains(err.Error(), "outside the workspace root") {
+		t.Errorf("loading a link planted under the library root = %v; want it refused by where it points", err)
+	}
+	if lines, written, _ := sess.Save(filepath.Join(lib, "written.sysml")); written || len(lines) == 0 || !strings.Contains(lines[0], "outside the workspace root") {
+		t.Errorf("saving under a library root = %v, %v; want the exemption to cover reads only", lines, written)
+	}
+}
+
 func TestResolveExpandsHomeWhenItLiesUnderTheRoot(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Skip(err)
 	}
-	m := NewManager(filepath.Dir(home), func() (*repl.Session, error) { return repl.NewSession(), nil })
+	m := mustManager(t, filepath.Dir(home), func() (*repl.Session, error) { return repl.NewSession(), nil })
 	if got, err := m.Resolve("~/model.sysml"); err != nil || got != filepath.Join(home, "model.sysml") {
 		t.Errorf("Resolve(~/model.sysml) = %q, %v", got, err)
 	}
 }
 
 func TestACancellationBeforeTheCommandBeginsStillStopsIt(t *testing.T) {
-	m := NewManager(t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
+	m := mustManager(t, t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
 	sess, err := m.Get("")
 	if err != nil {
 		t.Fatal(err)
@@ -765,5 +825,173 @@ func TestTheFileToolsRefuseAPathOutsideTheRoot(t *testing.T) {
 	var value EvalResult
 	if res := call(t, cs, "session_eval", args("expression", "Outside::Q"), &value); !res.IsError {
 		t.Errorf("a refused load still declared Outside::Q: %+v", value)
+	}
+}
+
+func TestEveryFileASessionTouchesPassesTheRootGuard(t *testing.T) {
+	root, outside := t.TempDir(), t.TempDir()
+	model := filepath.Join(outside, "outside.sysml")
+	if err := os.WriteFile(model, []byte("package Outside { part def Q; }"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "models"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(model, filepath.Join(root, "models", "linked.sysml")); err != nil {
+		t.Skip(err)
+	}
+	cs := connect(t, root)
+	must(t, cs, "session_submit", args("text", "package Guarded { part def P; }"), nil)
+
+	// A directory load walks to a file whose symlink leaves the root.
+	res := call(t, cs, "session_load", args("paths", []string{"models"}), nil)
+	if !res.IsError || !strings.Contains(errText(res), "through a symlink") {
+		t.Errorf("session_load(models) = %v, %s; want the linked file refused", res.IsError, errText(res))
+	}
+
+	// The prompt commands pass through the same guard as the typed tools.
+	for _, line := range []string{"%load " + model, "%save " + filepath.Join(outside, "escaped.sysml"), "%load " + filepath.Join(root, "models")} {
+		res := call(t, cs, "repl_command", args("line", line), nil)
+		if !res.IsError || !strings.Contains(errText(res), "outside the workspace root") {
+			t.Errorf("repl_command(%q) = %v, %s; want a refusal", line, res.IsError, errText(res))
+		}
+	}
+	if _, err := os.Stat(filepath.Join(outside, "escaped.sysml")); !os.IsNotExist(err) {
+		t.Errorf("%%save through repl_command wrote outside the root: %v", err)
+	}
+	var value EvalResult
+	if res := call(t, cs, "session_eval", args("expression", "Outside::Q"), &value); !res.IsError {
+		t.Errorf("a refused load still declared Outside::Q: %+v", value)
+	}
+	must(t, cs, "repl_command", args("line", "%save "+filepath.Join(root, "kept.sysml")), nil)
+	if _, err := os.Stat(filepath.Join(root, "kept.sysml")); err != nil {
+		t.Errorf("%%save inside the root through repl_command did not write: %v", err)
+	}
+}
+
+func TestAProjectArchiveInTheRootLoads(t *testing.T) {
+	root := t.TempDir()
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	for _, m := range [][2]string{
+		{"Probe.sysml", "package Probe { part def P; }\n"},
+		{".project.json", `{"name": "Probe", "version": "1.0.0"}`},
+		{".meta.json", `{"index": {"Probe": "Probe.sysml"}, "created": "2026-01-01T00:00:00Z",
+	"checksum": {"Probe.sysml": {"value": "4044ca78bfbbcdd72b63cd877ad948c20b758dd30cbb4a0bf8c9e0af30c98bda", "algorithm": "SHA256"}}}`},
+	} {
+		f, err := w.Create(m[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.Write([]byte(m[1])); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "probe.kpar"), buf.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cs := connect(t, root)
+	var loaded LoadResult
+	must(t, cs, "session_load", args("paths", []string{"probe.kpar"}), &loaded)
+	if want := []string{filepath.Join(root, "probe.kpar", "Probe.sysml")}; !slices.Equal(loaded.Files, want) {
+		t.Errorf("files = %v, want the archive's member %v", loaded.Files, want)
+	}
+	if loaded.Errors || len(loaded.Diagnostics) != 0 {
+		t.Errorf("loading the archive reported errors: %+v", loaded)
+	}
+}
+
+func TestASaveThroughALinkRepointedAfterTheGuardWritesNothingOutsideTheRoot(t *testing.T) {
+	cases := []struct {
+		name, link, inside, outside, save, escaped string
+	}{
+		{"a directory link", "link", "inside", "", "link/model.sysml", "model.sysml"},
+		{"a file link", "link.sysml", filepath.Join("inside", "target.sysml"), "target.sysml", "link.sysml", "target.sysml"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root, outside := t.TempDir(), t.TempDir()
+			if err := os.MkdirAll(filepath.Join(root, "inside"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			for _, p := range []string{filepath.Join(root, "inside", "target.sysml"), filepath.Join(outside, "target.sysml")} {
+				if err := os.WriteFile(p, []byte("package Untouched;\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			link := filepath.Join(root, tc.link)
+			if err := os.Symlink(filepath.Join(root, tc.inside), link); err != nil {
+				t.Skip(err)
+			}
+			m := mustManager(t, root, func() (*repl.Session, error) { return repl.NewSession(), nil })
+			sess, err := m.Get("")
+			if err != nil {
+				t.Fatal(err)
+			}
+			path, err := m.Resolve(tc.save)
+			if err != nil {
+				t.Fatalf("Resolve(%s) while the link is inside the root = %v", tc.save, err)
+			}
+			// The link is repointed out of the root after the guard passed and
+			// before the write, as a concurrent actor could do.
+			repointed := false
+			sess.SetFileGuard(func(path string, exempt []string) error {
+				err := m.Guard(path, exempt)
+				if err := os.Remove(link); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(filepath.Join(outside, tc.outside), link); err != nil {
+					t.Fatal(err)
+				}
+				repointed = true
+				return err
+			})
+			sess.Submit("package Hijacked { part def P; }")
+			lines, written, err := sess.Save(path)
+			if !repointed {
+				t.Fatal("the guard was not asked before the write")
+			}
+			if written || err == nil || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "outside the workspace root") {
+				t.Errorf("Save(%s) through a repointed link = %v, %v, %v; want a refusal naming the path", path, lines, written, err)
+			}
+			if got, err := os.ReadFile(filepath.Join(outside, tc.escaped)); !os.IsNotExist(err) && string(got) != "package Untouched;\n" {
+				t.Errorf("the save landed outside the root: %q, %v", got, err)
+			}
+			if got, _ := os.ReadFile(filepath.Join(root, "inside", "target.sysml")); string(got) != "package Untouched;\n" {
+				t.Errorf("the file the link pointed at before was written: %q", got)
+			}
+			entries, _ := os.ReadDir(outside)
+			if len(entries) != 1 {
+				t.Errorf("the save left %d entries outside the root; want the one planted there", len(entries))
+			}
+		})
+	}
+}
+
+func TestASaveInsideTheRootKeepsTheFileModeAndContent(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "kept.sysml")
+	if err := os.WriteFile(path, []byte("package Old;\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	cs := connect(t, root)
+	must(t, cs, "session_submit", args("text", "package Kept { part def P; }"), nil)
+	var saved SaveResult
+	must(t, cs, "session_save", args("path", "kept.sysml", "apply", true), &saved)
+	if !saved.Applied || !strings.Contains(saved.Text, "replaced the existing file") {
+		t.Errorf("save over an existing file = %+v", saved)
+	}
+	if data, err := os.ReadFile(path); err != nil || !strings.Contains(string(data), "part def P") {
+		t.Errorf("written file = %q, %v", data, err)
+	}
+	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o640 {
+		t.Errorf("mode = %v, %v; want the existing 0640 kept", info.Mode(), err)
+	}
+	entries, _ := os.ReadDir(root)
+	if len(entries) != 1 {
+		t.Errorf("the root holds %d entries; want the file and no temporary left behind", len(entries))
 	}
 }

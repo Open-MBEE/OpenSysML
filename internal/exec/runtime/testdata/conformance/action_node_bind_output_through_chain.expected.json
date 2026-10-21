@@ -4,8 +4,8 @@
 	"outputs": {
 		"total": {"type": "Integer", "value": 5},
 		"deep": {"type": "Integer", "value": 15},
-		"add.sum": {"type": "Integer", "value": 5},
-		"add2.a": {"type": "Integer", "value": 5},
-		"add2.sum": {"type": "Integer", "value": 15}
+		"add.sum": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+		"add2.a": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+		"add2.sum": {"type": "Sequence", "elements": [{"type": "Integer", "value": 15}]}
 	}
 }

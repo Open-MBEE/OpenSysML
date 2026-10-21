@@ -1,8 +1,13 @@
 function answer = executeAction(model, actionId, varargin)
 %EXECUTEACTION Run one action outcome.
+%   Options: inputs, schedule, performer, and the run options of the sysml
+%   command: advance (simulated seconds to run for, reported back in
+%   finalTime), seed (the model's own draws), draws ('random', 'min', 'max'
+%   or 'average') and clockStep.
 
     options = opensysml.internal.nameValueOptions(struct( ...
-        'inputs', struct(), 'schedule', '', 'performer', ''), varargin, 'executeAction');
+        'inputs', struct(), 'schedule', '', 'performer', '', ...
+        'advance', [], 'seed', [], 'draws', '', 'clockStep', 0), varargin, 'executeAction');
     schedule = char(options.schedule);
     rejectExplore(schedule, 'opensysml.exploreAction');
     capabilities = opensysml.internal.runCapabilities(model.connection, schedule, options.performer);
@@ -10,6 +15,7 @@ function answer = executeAction(model, actionId, varargin)
         'inputs', encodeInputs(options.inputs, model.connection));
     if ~isempty(schedule), request.schedule = schedule; end
     if ~isempty(options.performer), request.performerSymbolId = char(options.performer); end
+    request = opensysml.internal.runOptions(request, options, 'executeAction');
     raw = opensysml.internal.checkError(opensysml.call(model.connection, ...
         'ExecuteAction', request, capabilities), 'ExecuteAction');
     answer = struct('outputs', struct(), ...

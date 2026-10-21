@@ -351,7 +351,7 @@ func testActionCallNamesAParameterAsTheCheckerDoes(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", call, err)
 		}
-		if code := outputs["call.code"]; code.Kind != ValConst || code.Const.Int != 13 {
+		if code := outputs["call.code"]; heldInt(t, "call.code", code) != 13 {
 			t.Fatalf("%s: call.code = %+v, want 13", call, code)
 		}
 	}

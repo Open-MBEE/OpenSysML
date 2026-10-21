@@ -3,9 +3,36 @@
   "evaluate": "test::fly",
   "trace": true,
   "outputs": {
-    "x": {"type": "Integer", "value": 1},
-    "charge.level": {"type": "Integer", "value": 1},
-    "charge.charged": {"type": "Integer", "value": 11},
-    "y": {"type": "Integer", "value": 12}
+    "x": {
+      "type": "Integer",
+      "value": 1
+    },
+    "charge.level": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 1
+        }
+      ]
+    },
+    "charge.charged": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 11
+        }
+      ]
+    },
+    "y": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 12
+        }
+      ]
+    }
   }
 }

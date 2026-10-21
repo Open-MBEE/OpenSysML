@@ -66,6 +66,7 @@ func runStarter(t *testing.T, src string) (*Context, *Instance, error) {
 		return ctx, nil, err
 	}
 	made, ok := results["made"]
+	made = soleElement(made)
 	if !ok || made.Kind != ValInstance {
 		t.Fatalf("made = %v, want the Counter", results)
 	}

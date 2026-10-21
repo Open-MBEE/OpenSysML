@@ -81,7 +81,7 @@ func (d Discovery) DependenciesOf(sources []Source, known func(name string) bool
 	// A project's own directory and the projects it uses are where its
 	// imports are meant to be found, wherever in it the named files lie.
 	dirs = append(dirs, d.Around(dirs).Dirs()...)
-	byRoot := rootIndex(dirs, loaded)
+	byRoot := rootIndex(dirs, loaded, d.Guard)
 	var out []string
 	for len(wanted) > 0 {
 		names := make([]string, 0, len(wanted))
@@ -260,7 +260,7 @@ const maxDependencyDirs = 2000
 
 // rootIndex maps each root-declared name to the unloaded model files under dirs
 // declaring it, sorted by path; the walk is ModelFiles' but tolerant and bounded.
-func rootIndex(dirs []string, loaded map[string]bool) map[string][]*fileSummary {
+func rootIndex(dirs []string, loaded map[string]bool, guard func(path string) error) map[string][]*fileSummary {
 	var candidates []string
 	var archives []string
 	budget := maxDependencyDirs
@@ -286,7 +286,7 @@ func rootIndex(dirs []string, loaded map[string]bool) map[string][]*fileSummary 
 		}
 	}
 	for _, path := range candidates {
-		if loaded[absKey(path)] || seen[absKey(path)] {
+		if loaded[absKey(path)] || seen[absKey(path)] || (guard != nil && guard(path) != nil) {
 			continue
 		}
 		if summary, ok := summarize(path); ok {
@@ -295,6 +295,9 @@ func rootIndex(dirs []string, loaded map[string]bool) map[string][]*fileSummary 
 	}
 	sort.Strings(archives)
 	for _, path := range archives {
+		if guard != nil && guard(path) != nil {
+			continue
+		}
 		for _, summary := range summarizeArchive(path) {
 			add(summary)
 		}

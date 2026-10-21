@@ -52,7 +52,7 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 					name = localName(participant)
 				}
 				node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name, NameSynthesized: r.model.NameSynthesized(participant),
-					Type: declType(participant), Typings: r.declTypings(participant), Origin: symbolOrigin(participant)}
+					Type: r.headType(participant), Typings: r.headTypings(participant), Origin: symbolOrigin(participant)}
 				out.Roots = append(out.Roots, node)
 				lifelines[participant] = node
 			}
@@ -451,30 +451,7 @@ func (r *Renderer) orderMessages(messages []message, orders []order, out *Render
 	if placed, ok := stableTopological(eventsLater, eventsIndegree); !ok {
 		cyclic = r.cyclicOrders(stated, at, placed)
 	} else {
-		rowOf, row, rows := messageRows(messages, occurrences)
-		later := make([][]int, rows)
-		indegree := make([]int, rows)
-		for _, o := range stated {
-			if i, j := row[o.from], row[o.to]; i != j {
-				later[i] = append(later[i], j)
-				indegree[j]++
-			}
-		}
-		if sorted, ok := stableTopological(later, indegree); ok {
-			rank := make([]int, rows)
-			for place, i := range sorted {
-				rank[i] = place
-			}
-			place := make(map[*symbols.Symbol]int, len(messages))
-			for i, msg := range messages {
-				place[msg.flow] = rank[rowOf[i]]
-			}
-			sort.SliceStable(messages, func(i, j int) bool {
-				return place[messages[i].flow] < place[messages[j].flow]
-			})
-		} else {
-			cyclic = r.cyclicOrders(stated, row, sorted)
-		}
+		cyclic = r.sortMessageRows(messages, occurrences, stated)
 	}
 	if cyclic != nil {
 		out.Notices = append(out.Notices, fmt.Sprintf(
@@ -486,6 +463,36 @@ func (r *Renderer) orderMessages(messages []message, orders []order, out *Render
 		edges = append(edges, msg.edge)
 	}
 	return edges
+}
+
+// sortMessageRows sorts the messages by the orders between their rows, or
+// reports the orders forming a cycle and leaves the messages as declared.
+func (r *Renderer) sortMessageRows(messages []message, occurrences []*symbols.Symbol, stated []order) []string {
+	rowOf, row, rows := messageRows(messages, occurrences)
+	later := make([][]int, rows)
+	indegree := make([]int, rows)
+	for _, o := range stated {
+		if i, j := row[o.from], row[o.to]; i != j {
+			later[i] = append(later[i], j)
+			indegree[j]++
+		}
+	}
+	sorted, ok := stableTopological(later, indegree)
+	if !ok {
+		return r.cyclicOrders(stated, row, sorted)
+	}
+	rank := make([]int, rows)
+	for place, i := range sorted {
+		rank[i] = place
+	}
+	place := make(map[*symbols.Symbol]int, len(messages))
+	for i, msg := range messages {
+		place[msg.flow] = rank[rowOf[i]]
+	}
+	sort.SliceStable(messages, func(i, j int) bool {
+		return place[messages[i].flow] < place[messages[j].flow]
+	})
+	return nil
 }
 
 // messageRows numbers the rows the orders sort: events on no message first (one

@@ -3,7 +3,7 @@
   "type": "analysis",
   "evaluate": "test::performed",
   "outputs": {
-    "r": {"type": "Real", "value": 10.0}
+    "r": {"type": "Sequence", "elements": [{"type": "Real", "value": 10.0}]}
   },
   "result": {"type": "Real", "value": 10.0}
 }

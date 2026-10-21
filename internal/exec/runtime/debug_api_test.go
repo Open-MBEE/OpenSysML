@@ -543,7 +543,7 @@ func TestBreakpointPausesBeforeABranchNode(t *testing.T) {
 		t.Fatalf("expected one token at choose, got %v", tokens)
 	}
 	results := exec.Results()
-	if v, ok := results["choose.p.v"]; !ok || v.Const.Int != 7 {
+	if v, ok := results["choose.p.v"]; !ok || heldInt(t, "choose.p.v", v) != 7 {
 		t.Errorf("results = %v, want choose.p.v 7 (p performed before the pause)", results)
 	}
 	if _, ok := results["choose.q.n"]; ok {
@@ -717,7 +717,7 @@ func TestBreakpointPausesInsideABlockNodesOwnFlow(t *testing.T) {
 	if got := strings.Join(at, ","); got != "choose,gather" {
 		t.Errorf("tokens at %s, want choose,gather", got)
 	}
-	if a, ok := exec.Results()["choose.split.left.a"]; !ok || a.Const.Int != 10 {
+	if a, ok := exec.Results()["choose.split.left.a"]; !ok || heldInt(t, "choose.split.left.a", a) != 10 {
 		t.Errorf("results = %v, want choose.split.left.a 10", exec.Results())
 	}
 

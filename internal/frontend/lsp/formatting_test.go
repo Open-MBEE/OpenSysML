@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -443,26 +444,27 @@ func TestFormattingDiffIsCheaperThanFormatting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fastest := func(f func()) time.Duration {
-		best := time.Duration(1<<63 - 1)
-		for i := 0; i < 5; i++ {
-			start := time.Now()
-			f()
-			if d := time.Since(start); d < best {
-				best = d
-			}
-		}
-		return best
-	}
-	formatTime := fastest(func() { _, _ = format.Source("largest.sysml", mangled, format.DefaultOptions) })
-	diffTime := fastest(func() { formatEdits(mangled, formatted, allLines) })
-	t.Logf("%d bytes: format %v, diff %v", len(mangled), formatTime, diffTime)
 	// Coverage counters instrument this package but not the formatter's, so
 	// the two timings are only comparable in an uninstrumented build.
 	if mode := testing.CoverMode(); mode != "" {
 		t.Logf("coverage mode %q: timings not compared", mode)
-	} else if diffTime > formatTime {
-		t.Fatalf("diff took %v, formatter %v; the diff must not dominate", diffTime, formatTime)
+	} else {
+		timed := func(f func()) time.Duration {
+			start := time.Now()
+			f()
+			return time.Since(start)
+		}
+		// Each round times the formatter and then the diff, so a scheduling stall
+		// on a loaded runner hits both or neither; the best round of each survives it.
+		formatTime, diffTime := time.Duration(math.MaxInt64), time.Duration(math.MaxInt64)
+		for range 20 {
+			formatTime = min(formatTime, timed(func() { _, _ = format.Source("largest.sysml", mangled, format.DefaultOptions) }))
+			diffTime = min(diffTime, timed(func() { formatEdits(mangled, formatted, allLines) }))
+		}
+		t.Logf("%d bytes: format %v, diff %v", len(mangled), formatTime, diffTime)
+		if diffTime > formatTime {
+			t.Fatalf("diff took %v, formatter %v; the diff must not dominate", diffTime, formatTime)
+		}
 	}
 	edits := formatEdits(mangled, formatted, allLines)
 	if applyOrderedEdits(t, string(mangled), edits) != string(formatted) {

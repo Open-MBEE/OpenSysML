@@ -80,7 +80,7 @@ func TestComplexIsOneValueOverEveryTransport(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExecuteAction: %v", err)
 			}
-			if got := run.Outputs["w"]; got != opensysml.Complex(complex(2, -5)) {
+			if got := sole(t, "w", run.Outputs["w"]); got != opensysml.Complex(complex(2, -5)) {
 				t.Errorf("w = %#v, want Complex(2.0 - 5.0i)", got)
 			}
 
@@ -130,7 +130,7 @@ func TestComplexInputNeedsComplexValues(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExecuteAction with a Real: %v", err)
 			}
-			if got, ok := run.Outputs["w"].(opensysml.Null); !ok || !strings.Contains(string(got), "complex number") {
+			if got, ok := sole(t, "w", run.Outputs["w"]).(opensysml.Null); !ok || !strings.Contains(string(got), "complex number") {
 				t.Errorf("w = %#v, want the unsupported null the withheld capability reports", run.Outputs["w"])
 			}
 		})

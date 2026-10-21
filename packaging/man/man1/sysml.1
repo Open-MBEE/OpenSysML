@@ -246,6 +246,17 @@ input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b}
 of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph.
 A SysML v1 model is refused: it is migrated, with \-migrate
 .TP
+.B \-stdlib
+With \-convert ttl or api\-json, convert the bundled standard library \(em
+every KerML and SysML file of it, as one model whose elements carry their
+normative ids \(em instead of a model file; \-id defaults to uuid. \-o may
+name a Flexo branch to publish the library to
+.TP
+.B \-metaclass\-graph
+Write the SysML metaclass hierarchy of the pinned pilot metamodel as Turtle
+(rdfs:Class, rdfs:subClassOf, sysx:abstract) to stdout or \-o, without a
+model, and exit
+.TP
 .BR \-migrate " \fIformat\fP"
 Migrate the SysML v1 model (.xmi, .uml or .mdzip; \-from names the format when
 the extension does not) to SysML v2, written in this format: sysml, kerml,
@@ -663,6 +674,8 @@ per worker.
 sysml \-engines
 # Also start each external engine once
 sysml \-engines \-probe
+# Write the metaclass hierarchy as Turtle
+sysml \-metaclass\-graph \-o metaclasses.ttl
 # The same as \-schedule explore
 sysml \-engine explore \-action Drive m.sysml
 # Every engine that covers the question
@@ -859,6 +872,8 @@ sysml in.txt \-convert ttl \-from sysml
 sysml flexo://demo/main \-convert sysml
 # Push the graph to the branch
 sysml model.sysml \-convert ttl \-o flexo://demo/main
+# Publish the standard library
+sysml \-stdlib \-convert ttl \-o flexo://lib/main
 .fi
 .RE
 .PP
@@ -875,11 +890,17 @@ Either side may name a Flexo MMS project branch instead of a file:
 http(s)://host[:port][/base]/projects/{project}/branches/{branch}, or
 flexo://{project}/{branch}, both naming the endpoint FLEXO_SYSMLV2_URL
 configures. A branch input is read as its head commit's RDF graph; a branch
-\-o takes the \-convert ttl output as the branch's whole model graph,
-conditional on the branch's etag, and refuses a head the sync state says has
-moved. Both need the bearer token in FLEXO_INTEROP_TOKEN and record the head
-commit in the sync state (\-sync\-state, or <output>.sync.json on a read /
-<model>.sync.json on a push).
+\-o takes the \-convert ttl or api\-json graph as the branch's whole model
+graph, conditional on the branch's etag, and refuses a head the sync state
+says has moved. Both need the bearer token in FLEXO_INTEROP_TOKEN and record
+the head commit in the sync state (\-sync\-state, or <output>.sync.json on a
+read / <model>.sync.json on a push); FLEXO_TIMEOUT bounds one request (60s
+unless set), and a whole\-library graph needs minutes.
+.PP
+\-stdlib converts the bundled standard library instead \(em every KerML and
+SysML file as one model, each element under its normative id \(em to a file or
+to a branch, publishing the library as a project other projects type against
+by id.
 .PP
 RDF conversion \(em Turtle and the API's JSON element form alike \(em is
 experimental: the mapping covers model structure and the behavior its bodies

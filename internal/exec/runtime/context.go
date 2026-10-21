@@ -1960,35 +1960,110 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 	case 0:
 		return nil, nil
 	case 1:
-		conflicts := 0
-		for name, value := range inputs {
-			implicit := false
-			for _, param := range ctx.actionParametersOf(action) {
-				if param.Name != name || !param.IsReference {
-					continue
-				}
-				root := performed[0].Action.root
-				if bound, held := root.data[root.key(name)]; held {
-					implicit = ctx.valueEqual(bound, value)
-				} else {
-					implicit = value.Kind == ValInstance && value.Instance == self.ID
-				}
-				break
-			}
-			if !implicit {
-				conflicts++
-			}
+		if err := ctx.refusePerformedInputs(action, performed[0], inputs); err != nil {
+			return nil, err
 		}
-		if conflicts > 0 {
-			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, SymbolText(action))
-		}
-		return performed[0].Action, nil
+		return ctx.PerformedExecutor(performed[0])
 	default:
 		if member := sameBehaviorMember(performed); member != nil {
 			return nil, fmt.Errorf("%w: the object performs %s %d times, under %s", errAmbiguousAction, SymbolText(action), len(performed), member.Name)
 		}
 		return nil, fmt.Errorf("%w: the object performs %s as %s", errAmbiguousAction, SymbolText(action), strings.Join(behaviorUsages(performed), " and "))
 	}
+}
+
+// CheckPerformedInputs is refusePerformedInputs for a caller attaching to the
+// performance itself: inputs equal to the bindings the performance stored, or its
+// declaration states while it is held, pass; any other is refused.
+func (ctx *Context) CheckPerformedInputs(action *symbols.Symbol, behavior *ObjectBehavior, inputs map[string]Value) error {
+	return ctx.refusePerformedInputs(action, behavior, inputs)
+}
+
+// refusePerformedInputs refuses inputs for a performed action that are not the bindings
+// its declaration states, whether the performance has started or is still held.
+func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *ObjectBehavior, inputs map[string]Value) error {
+	conflicts := 0
+	for name, value := range inputs {
+		implicit := false
+		for _, param := range ctx.actionParametersOf(action) {
+			if param.Name != name || !param.IsReference {
+				continue
+			}
+			implicit = value.Kind == ValInstance && value.Instance == behavior.Object.ID
+			bound, held, err := ctx.performedBinding(behavior, name)
+			if err != nil {
+				return err
+			}
+			if held {
+				// A reference binding is the one-element sequence a bare pin holds.
+				implicit = ctx.valueEqual(soleElement(bound), soleElement(value))
+			}
+			break
+		}
+		if !implicit {
+			conflicts++
+		}
+	}
+	if conflicts > 0 {
+		return fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, SymbolText(action))
+	}
+	return nil
+}
+
+// performedBinding is the value a performance binds parameter name to: the one its
+// frame stores once started, else the one its declaration states while it is held.
+func (ctx *Context) performedBinding(behavior *ObjectBehavior, name string) (Value, bool, error) {
+	if behavior.Action != nil {
+		root := behavior.Action.root
+		bound, held := root.data[root.key(name)]
+		return bound, held, nil
+	}
+	if behavior.deferred == nil {
+		return Value{}, false, nil
+	}
+	return ctx.heldBinding(behavior, name)
+}
+
+// heldBinding evaluates the argument a held performance's declaration binds parameter
+// name with, in the performer's scope, as a probe: nothing the evaluation materializes
+// or starts outlives it, so the held performance is neither released nor rescheduled.
+// Outside a run it has a run's own budget, as the start it precedes would.
+func (ctx *Context) heldBinding(behavior *ObjectBehavior, name string) (Value, bool, error) {
+	decl := *behavior.deferred
+	scope := ctx.argumentScope(behavior.Object, decl)
+	for _, arg := range decl.behavior.Arguments {
+		if ctx.argumentParameter(scope, arg) != name {
+			continue
+		}
+		defer ctx.beginRun()()
+		defer ctx.beginProbe()()
+		value, err := ctx.classifierBehaviorArgument(behavior.Object, decl, scope, arg)
+		if err != nil {
+			return Value{}, false, err
+		}
+		return value, true, nil
+	}
+	return Value{}, false, nil
+}
+
+// PerformedExecutor is the executor of an action the object performs; one a succession
+// order holds back is started once the order admits it, as stateRunFor starts a held machine.
+func (ctx *Context) PerformedExecutor(behavior *ObjectBehavior) (*ActionExecutor, error) {
+	if behavior.deferred != nil {
+		if err := ctx.checkHeldBehaviorStart(behavior); err != nil {
+			return nil, err
+		}
+		if err := ctx.releaseDeferredBehavior(behavior); err != nil {
+			return nil, err
+		}
+	}
+	if behavior.Err != nil {
+		return nil, behavior.Err
+	}
+	if behavior.Action == nil {
+		return nil, fmt.Errorf("%s runs no action", behavior.Describe())
+	}
+	return behavior.Action, nil
 }
 
 // sameBehaviorMember is the usage every behavior is bound under when they
@@ -2166,6 +2241,20 @@ func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self 
 	return exec, nil
 }
 
+// StartActionPerformedBy is CreateActionExecutorWithInputs binding to the performance self
+// already runs of the action as performanceOf does; reused marks it, not the caller's to release.
+func (ctx *Context) StartActionPerformedBy(action *symbols.Symbol, self *Instance, inputs map[string]Value) (exec *ActionExecutor, reused bool, err error) {
+	exec, err = ctx.performanceOf(action, self, inputs)
+	if err != nil {
+		return nil, false, err
+	}
+	if exec != nil {
+		return exec, true, nil
+	}
+	exec, err = ctx.CreateActionExecutorWithInputs(action, self, inputs)
+	return exec, false, err
+}
+
 // CreateStateExecutor creates a state executor without starting execution.
 // For REPL debugging - allows step-by-step execution control.
 func (ctx *Context) CreateStateExecutor(stateMachine *symbols.Symbol) (*StateExecutor, error) {
@@ -2195,4 +2284,22 @@ func (ctx *Context) CreateStateExecutorFor(stateMachine *symbols.Symbol, self *I
 		return nil, err
 	}
 	return exec, nil
+}
+
+// StartStatePerformedBy is CreateStateExecutorFor binding to the machine self already
+// exhibits as stateRunFor does; reused marks it, not the caller's to release.
+func (ctx *Context) StartStatePerformedBy(stateMachine *symbols.Symbol, self *Instance) (exec *StateExecutor, reused bool, err error) {
+	if self != nil {
+		if err := ctx.checkPerformer(self); err != nil {
+			return nil, false, err
+		}
+	}
+	exec, reused, err = ctx.stateRunFor(stateMachine, self, true)
+	if err != nil {
+		if exec != nil && !reused {
+			exec.Release()
+		}
+		return nil, false, err
+	}
+	return exec, reused, nil
 }

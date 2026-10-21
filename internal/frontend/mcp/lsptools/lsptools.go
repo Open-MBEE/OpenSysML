@@ -6,8 +6,6 @@ package lsptools
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -25,6 +23,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 // stdlibResourcePrefix is the resource URI prefix of the bundled standard
@@ -42,7 +41,7 @@ type Host struct {
 	Server    *lsp.Server
 	Workspace *model.Workspace
 
-	realRoot string // Root with symlinks resolved, which every document must lie under
+	root toolkit.Root // Root as spelled and with its symlinks resolved, which every document must lie under
 
 	// mu holds the workspace for a tool: shared while it reads, exclusive
 	// while it edits, so an edit is computed and written over one revision.
@@ -78,7 +77,11 @@ func (d diskState) same(o diskState) bool {
 // NewHost starts a language server over root and indexes the model documents
 // under it.
 func NewHost(ctx context.Context, root string, ws *model.Workspace, version string) (*Host, error) {
-	srv := lsp.NewServer(ws, lsp.WithVersion(version))
+	r, err := toolkit.NewRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	srv := lsp.NewServer(ws, lsp.WithVersion(version), lsp.WithLibraryRoots(project.EnvLibraryRoots()))
 	params := &protocol.InitializeParams{
 		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(root)), Name: root}},
 		Capabilities: protocol.ClientCapabilities{
@@ -93,11 +96,7 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 	if err := srv.Initialized(ctx, &protocol.InitializedParams{}); err != nil {
 		return nil, fmt.Errorf("indexing %s: %w", root, err)
 	}
-	h := &Host{Root: root, Server: srv, Workspace: ws, realRoot: root, opened: map[string]diskState{}}
-	if real, err := filepath.EvalSymlinks(root); err == nil {
-		h.realRoot = real
-	}
-	return h, nil
+	return &Host{Root: root, Server: srv, Workspace: ws, root: r, opened: map[string]diskState{}}, nil
 }
 
 // Refresh reconciles the workspace with the root as it is on disk now. An
@@ -110,9 +109,6 @@ func (h *Host) Refresh(ctx context.Context) { h.Server.Rescan(ctx) }
 func (h *Host) Close(ctx context.Context) error {
 	return h.Server.Shutdown(ctx)
 }
-
-// URI is the document URI of a workspace path.
-func (h *Host) URI(path string) protocol.DocumentURI { return uri.File(path) }
 
 // docRef names a document the tools address: a workspace file by absolute
 // path, or a bundled library document by its library-relative name.
@@ -135,9 +131,6 @@ func (d docRef) uri() protocol.DocumentURI {
 // the standard library.
 func (h *Host) resolve(path string) (docRef, error) {
 	path = strings.TrimSpace(path)
-	if path == "" {
-		return docRef{}, errors.New("path is required")
-	}
 	if name, ok := strings.CutPrefix(path, stdlibResourcePrefix); ok {
 		name, err := url.PathUnescape(name)
 		if err != nil {
@@ -155,47 +148,11 @@ func (h *Host) resolve(path string) (docRef, error) {
 	if strings.HasPrefix(path, "file://") {
 		path = uri.URI(path).Filename()
 	}
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(h.Root, path)
-	}
-	path = filepath.Clean(path)
-	if !under(h.Root, path) {
-		return docRef{}, fmt.Errorf("%s is outside the workspace root %s", path, h.Root)
-	}
-	if err := h.contained(path); err != nil {
+	res, err := h.root.Resolve(path)
+	if err != nil {
 		return docRef{}, err
 	}
-	return docRef{name: path}, nil
-}
-
-// under reports whether path lies under root, both clean and absolute.
-func under(root, path string) bool {
-	rel, err := filepath.Rel(root, path)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
-// contained checks that path, with symlinks resolved, still lies under the
-// root, so a link inside the workspace cannot reach a file outside it. A path
-// that does not exist yet is checked through its nearest existing ancestor.
-func (h *Host) contained(path string) error {
-	probe := path
-	for {
-		real, err := filepath.EvalSymlinks(probe)
-		if err == nil {
-			if !under(h.realRoot, real) {
-				return fmt.Errorf("%s resolves to %s, outside the workspace root %s", path, real, h.Root)
-			}
-			return nil
-		}
-		if !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", path, err)
-		}
-		parent := filepath.Dir(probe)
-		if parent == probe {
-			return nil
-		}
-		probe = parent
-	}
+	return docRef{name: res.Path}, nil
 }
 
 func (h *Host) resolveLibrary(name string) (docRef, error) {
@@ -255,7 +212,8 @@ func (h *Host) display(u protocol.DocumentURI) string {
 	if ref.library {
 		return stdlibResourceURI(ref.name)
 	}
-	if rel, err := filepath.Rel(h.Root, ref.name); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if toolkit.Under(h.Root, ref.name) {
+		rel, _ := filepath.Rel(h.Root, ref.name)
 		return filepath.ToSlash(rel)
 	}
 	return ref.name
@@ -294,7 +252,7 @@ type pendingWrite struct {
 // change is in flight cannot carry a write outside it. The index, and an open
 // buffer of a written document, then follow the new text.
 func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
-	root, err := os.OpenRoot(h.realRoot)
+	root, err := os.OpenRoot(h.root.Real)
 	if err != nil {
 		return err
 	}
@@ -305,7 +263,7 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	}
 	originals := make(map[string]original, len(writes))
 	for _, w := range writes {
-		target, err := h.target(w.name)
+		target, err := h.root.Target(w.name)
 		if err != nil {
 			return err
 		}
@@ -325,13 +283,13 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	}
 	var written []string
 	for _, w := range writes {
-		if err := writeFile(root, originals[w.name].target, w.content); err != nil {
+		if err := toolkit.WriteFile(root, originals[w.name].target, w.content, 0o600); err != nil {
 			var restore []string
 			for _, name := range written {
 				o := originals[name]
 				var rerr error
 				if o.existed {
-					rerr = writeFile(root, o.target, o.content)
+					rerr = toolkit.WriteFile(root, o.target, o.content, 0o600)
 				} else {
 					rerr = root.Remove(o.target)
 				}
@@ -356,63 +314,6 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	}
 	h.Refresh(ctx)
 	return nil
-}
-
-// target is the file a write to name reaches, relative to the resolved root:
-// name with symlinks resolved, checked at write time to lie under the root,
-// since a link may have been repointed after the path was resolved. A file not
-// yet on disk lands in its resolved directory.
-func (h *Host) target(name string) (string, error) {
-	if !under(h.Root, name) {
-		return "", fmt.Errorf("%s is outside the workspace root %s", name, h.Root)
-	}
-	real, err := filepath.EvalSymlinks(name)
-	if errors.Is(err, fs.ErrNotExist) {
-		var dir string
-		if dir, err = filepath.EvalSymlinks(filepath.Dir(name)); err == nil {
-			real = filepath.Join(dir, filepath.Base(name))
-		}
-	}
-	if err != nil {
-		return "", fmt.Errorf("%s: %w", h.display(uri.File(name)), err)
-	}
-	if !under(h.realRoot, real) {
-		return "", fmt.Errorf("%s resolves to %s, outside the workspace root %s", h.display(uri.File(name)), real, h.Root)
-	}
-	return filepath.Rel(h.realRoot, real)
-}
-
-// writeFile replaces name, relative to root, with content in one step: the
-// bytes go to a temporary file beside it that is renamed over it, so a failure
-// part-way leaves the file as it was. An existing file keeps its mode.
-func writeFile(root *os.Root, name string, content []byte) error {
-	mode := os.FileMode(0o600)
-	if info, err := root.Stat(name); err == nil {
-		mode = info.Mode().Perm()
-	}
-	var suffix [6]byte
-	if _, err := rand.Read(suffix[:]); err != nil {
-		return err
-	}
-	tmp := filepath.Join(filepath.Dir(name), "."+filepath.Base(name)+"."+hex.EncodeToString(suffix[:])+".tmp")
-	f, err := root.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
-	if err != nil {
-		return err
-	}
-	_, err = f.Write(content)
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err == nil {
-		err = root.Chmod(tmp, mode)
-	}
-	if err == nil {
-		err = root.Rename(tmp, name)
-	}
-	if err != nil {
-		_ = root.Remove(tmp)
-	}
-	return err
 }
 
 // replace makes text the content of the open document name, as the next

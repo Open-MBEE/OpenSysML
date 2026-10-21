@@ -225,7 +225,7 @@ func declareStmt(s lower.Declare, slot int, value compiledExpr, check *scalarChe
 		if check != nil {
 			if !check.accepts(v) {
 				boxed := v.boxed()
-				if err := ctx.checkBodyDeclaration(s.Scope, calcBodyDescription, s.Name, &boxed); err != nil {
+				if err := ctx.checkBodyDeclarationHeld(s.Scope, func() string { return calcBodyDescription }, s.Name, &boxed, false); err != nil {
 					return scalar{}, false, err
 				}
 			}

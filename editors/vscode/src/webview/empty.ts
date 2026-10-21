@@ -11,9 +11,14 @@ export function emptyMessage(result: RenderResult): string {
   if (notices.length === 0) {
     return `Nothing to draw: ${NO_REASON}.`;
   }
-  const more = notices.length - 1;
-  const rest = more === 0 ? "" : more === 1 ? " (1 more notice below)" : ` (${more} more notices below)`;
-  return `Nothing to draw: ${notices[0]}${rest}`;
+  return `Nothing to draw: ${notices[0]}${moreNotices(notices.length - 1)}`;
+}
+
+function moreNotices(more: number): string {
+  if (more === 0) {
+    return "";
+  }
+  return more === 1 ? " (1 more notice below)" : ` (${more} more notices below)`;
 }
 
 /** emptyElement is what stands where the drawing would be: every notice, one per line. */

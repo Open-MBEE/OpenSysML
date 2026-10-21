@@ -28,7 +28,7 @@ var compiledFixtures = []struct {
 	{
 		file:       "body_locals.sysml",
 		eligible:   []string{"Chain", "MasksParameter", "Branches", "Clamp", "Shadow", "Sign", "FailsInLocal", "NaturalResult", "BadCondition", "CallsChain"},
-		ineligible: []string{"ReadsEarly", "NoValue", "MayFall", "StringLocal", "Assigns"},
+		ineligible: []string{"ReadsEarly", "NoValue", "MayFall", "StringLocal", "Assigns", "ManyResult", "ManyParameter"},
 	},
 	{
 		file:       "specialization.sysml",

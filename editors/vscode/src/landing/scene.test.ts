@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { MASS_ROLLUP_SCENE, SCENES, STACK_SCENE, chooseScene, forcedSceneId } from "./scene";
+import { MASS_ROLLUP_SCENE, SCENES, STACK_SCENE, chooseScene, forcedSceneId, requiredVariant, variantChain } from "./scene";
 
 test("the scenes declare distinct ids, controls, programs and snapshots", () => {
   assert.deepEqual(SCENES.map(({ id }) => id), ["stack", "mass"]);
@@ -15,6 +15,21 @@ test("the scenes declare distinct ids, controls, programs and snapshots", () => 
     assert.ok(Array.isArray(scene.snapshot.instances) && scene.snapshot.instances.length > 0, `${scene.id} has instances`);
     assert.ok(scene.pngName.endsWith(".png"));
   }
+});
+
+test("the roll-up's second variant builds on the first, and the chain unwinds through it", () => {
+  const [iu, valued] = MASS_ROLLUP_SCENE.variants;
+  assert.equal(iu?.rootSymbol, "MassRollup::saturnVWithIU");
+  assert.equal(valued?.rootSymbol, "MassRollup::saturnVComplete");
+  assert.equal(valued?.requires, iu?.id);
+  assert.equal(requiredVariant(MASS_ROLLUP_SCENE, iu!), undefined);
+  assert.equal(requiredVariant(MASS_ROLLUP_SCENE, valued!), iu);
+  assert.deepEqual(variantChain(MASS_ROLLUP_SCENE, undefined), []);
+  assert.deepEqual(variantChain(MASS_ROLLUP_SCENE, iu), [iu]);
+  assert.deepEqual(variantChain(MASS_ROLLUP_SCENE, valued), [valued, iu]);
+  const scene = { ...MASS_ROLLUP_SCENE, variants: [{ ...iu!, requires: "missing" }, { ...valued!, requires: "iu" }] };
+  assert.equal(requiredVariant(scene, scene.variants[0]), undefined, "a requirement that names no variant stands alone");
+  assert.deepEqual(variantChain(scene, scene.variants[1]).map(({ id }) => id), ["iu-mass", "iu"]);
 });
 
 test("forcedSceneId reads the scene from the query or the fragment", () => {

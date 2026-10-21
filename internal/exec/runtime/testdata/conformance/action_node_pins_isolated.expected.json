@@ -4,7 +4,7 @@
 	"trace": true,
 	"outputs": {
 		"total": {"type": "Integer", "value": 7},
-		"p.v": {"type": "Integer", "value": 3},
-		"q.v": {"type": "Integer", "value": 4}
+		"p.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+		"q.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 4}]}
 	}
 }

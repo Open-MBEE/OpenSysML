@@ -143,11 +143,8 @@ func Lower(idx *symbols.Index, resolver *resolve.Resolver, sem *semantics.Model,
 	if idx == nil {
 		return nil, Summary{}, errors.New("no model is loaded to import into")
 	}
-	var ops []Assignment
-	elements := map[string]bool{}
-	assigned := map[[2]string]string{}
-	redefined := map[string]bool{}
-	values := 0
+	l := &lowering{idx: idx, resolver: resolver, sem: sem,
+		elements: map[string]bool{}, assigned: map[[2]string]string{}, redefined: map[string]bool{}}
 	for _, row := range rows {
 		if len(row.Cells) == 0 {
 			continue
@@ -159,71 +156,102 @@ func Lower(idx *symbols.Index, resolver *resolve.Resolver, sem *semantics.Model,
 		if !own(t.anchor.DocName) {
 			return nil, Summary{}, fmt.Errorf("%s: %s is a library element, which an import does not change", row.Where, row.Element)
 		}
-		elements[t.fqn] = true
-		owner := source.QualifiedNameOf(symbols.NameChain(t.anchor))
-		path := idx.GetFQN(t.anchor)
-		for _, via := range t.via {
-			path += "::" + via.Name
-			if !redefined[path] {
-				kind, ok := redefinitionKeyword(via.Kind)
-				if !ok {
-					return nil, Summary{}, fmt.Errorf("%s: %s inherits %s, a %s an import cannot redefine", row.Where, strings.TrimSuffix(path, "::"+via.Name), via.Name, via.Kind)
-				}
-				op := sedit.AddMember(owner, kind, "")
-				op.Redefines = []string{source.NameText(via.Name)}
-				ops = append(ops, Assignment{
-					Op: op, Where: row.Where, Doc: t.anchor.DocName, At: t.anchor.DeclSpan.Offset,
-					Element: strings.TrimSuffix(path, "::"+via.Name), Feature: via.Name, Redefines: idx.GetFQN(via),
-				})
-				redefined[path] = true
-			}
-			owner += "::" + source.NameText(via.Name)
+		l.elements[t.fqn] = true
+		owner, err := l.redefineVia(row, t)
+		if err != nil {
+			return nil, Summary{}, err
 		}
 		for _, cell := range row.Cells {
-			if first, ok := assigned[[2]string{t.fqn, cell.Feature}]; ok {
-				return nil, Summary{}, fmt.Errorf("%s: %s::%s is already set at %s", cell.Where, t.fqn, cell.Feature, first)
+			if err := l.assign(t, owner, cell); err != nil {
+				return nil, Summary{}, err
 			}
-			assigned[[2]string{t.fqn, cell.Feature}] = cell.Where
-			feat, declared := feature(sem, resolver, t.sym, cell.Feature)
-			if feat == nil {
-				return nil, Summary{}, fmt.Errorf("%s: %s has no feature named %s", cell.Where, t.fqn, cell.Feature)
-			}
-			declared = declared && len(t.via) == 0
-			class, enum := valueClass(sem, idx, feat)
-			value, err := ingest.Literal(cell, class, enum)
-			if err != nil {
-				return nil, Summary{}, fmt.Errorf("%s: %w", cell.Where, err)
-			}
-			if class == ingest.ClassEnum && !enumValue(idx, enum, value) {
-				return nil, Summary{}, fmt.Errorf("%s: %s is not a value of %s", cell.Where, strings.TrimSpace(cell.Text), enum)
-			}
-			if err := checkDimension(sem, t.sym, feat, cell, value); err != nil {
-				return nil, Summary{}, fmt.Errorf("%s: %w", cell.Where, err)
-			}
-			values++
-			if declared {
-				target := idx.GetFQN(feat)
-				ops = append(ops, Assignment{
-					Op: sedit.SetValue(source.QualifiedNameOf(symbols.NameChain(feat)), value), Where: cell.Where,
-					Doc: feat.DocName, At: feat.DeclSpan.Offset,
-					Element: strings.TrimSuffix(target, "::"+feat.Name), Feature: feat.Name, Value: value,
-				})
-				continue
-			}
-			kind, ok := redefinitionKeyword(feat.Kind)
-			if !ok {
-				return nil, Summary{}, fmt.Errorf("%s: %s inherits %s, a %s an import cannot redefine", cell.Where, t.fqn, cell.Feature, feat.Kind)
-			}
-			op := sedit.AddMember(owner, kind, "")
-			op.Redefines = []string{source.NameText(feat.Name)}
-			op.Value = value
-			ops = append(ops, Assignment{
-				Op: op, Where: cell.Where, Doc: t.anchor.DocName, At: t.anchor.DeclSpan.Offset,
-				Element: t.fqn, Feature: feat.Name, Value: value, Redefines: idx.GetFQN(feat),
-			})
 		}
 	}
-	return ops, Summary{Values: values, Elements: len(elements)}, nil
+	return l.ops, Summary{Values: l.values, Elements: len(l.elements)}, nil
+}
+
+// lowering accumulates the edits of one import and what they have set so far.
+type lowering struct {
+	idx       *symbols.Index
+	resolver  *resolve.Resolver
+	sem       *semantics.Model
+	ops       []Assignment
+	elements  map[string]bool
+	assigned  map[[2]string]string
+	redefined map[string]bool
+	values    int
+}
+
+// redefineVia redefines, once each, the inherited features a row's element is
+// reached through, and names the body the row's own redefinitions go in.
+func (l *lowering) redefineVia(row ingest.Row, t target) (string, error) {
+	owner := source.QualifiedNameOf(symbols.NameChain(t.anchor))
+	path := l.idx.GetFQN(t.anchor)
+	for _, via := range t.via {
+		path += "::" + via.Name
+		if !l.redefined[path] {
+			kind, ok := redefinitionKeyword(via.Kind)
+			if !ok {
+				return "", fmt.Errorf("%s: %s inherits %s, a %s an import cannot redefine", row.Where, strings.TrimSuffix(path, "::"+via.Name), via.Name, via.Kind)
+			}
+			op := sedit.AddMember(owner, kind, "")
+			op.Redefines = []string{source.NameText(via.Name)}
+			l.ops = append(l.ops, Assignment{
+				Op: op, Where: row.Where, Doc: t.anchor.DocName, At: t.anchor.DeclSpan.Offset,
+				Element: strings.TrimSuffix(path, "::"+via.Name), Feature: via.Name, Redefines: l.idx.GetFQN(via),
+			})
+			l.redefined[path] = true
+		}
+		owner += "::" + source.NameText(via.Name)
+	}
+	return owner, nil
+}
+
+// assign lowers one cell of the element t: a feature it declares has its value
+// set, one it inherits is redefined with the value in the body named owner.
+func (l *lowering) assign(t target, owner string, cell ingest.Cell) error {
+	if first, ok := l.assigned[[2]string{t.fqn, cell.Feature}]; ok {
+		return fmt.Errorf("%s: %s::%s is already set at %s", cell.Where, t.fqn, cell.Feature, first)
+	}
+	l.assigned[[2]string{t.fqn, cell.Feature}] = cell.Where
+	feat, declared := feature(l.sem, l.resolver, t.sym, cell.Feature)
+	if feat == nil {
+		return fmt.Errorf("%s: %s has no feature named %s", cell.Where, t.fqn, cell.Feature)
+	}
+	declared = declared && len(t.via) == 0
+	class, enum := valueClass(l.sem, l.idx, feat)
+	value, err := ingest.Literal(cell, class, enum)
+	if err != nil {
+		return fmt.Errorf("%s: %w", cell.Where, err)
+	}
+	if class == ingest.ClassEnum && !enumValue(l.idx, enum, value) {
+		return fmt.Errorf("%s: %s is not a value of %s", cell.Where, strings.TrimSpace(cell.Text), enum)
+	}
+	if err := checkDimension(l.sem, t.sym, feat, cell, value); err != nil {
+		return fmt.Errorf("%s: %w", cell.Where, err)
+	}
+	l.values++
+	if declared {
+		target := l.idx.GetFQN(feat)
+		l.ops = append(l.ops, Assignment{
+			Op: sedit.SetValue(source.QualifiedNameOf(symbols.NameChain(feat)), value), Where: cell.Where,
+			Doc: feat.DocName, At: feat.DeclSpan.Offset,
+			Element: strings.TrimSuffix(target, "::"+feat.Name), Feature: feat.Name, Value: value,
+		})
+		return nil
+	}
+	kind, ok := redefinitionKeyword(feat.Kind)
+	if !ok {
+		return fmt.Errorf("%s: %s inherits %s, a %s an import cannot redefine", cell.Where, t.fqn, cell.Feature, feat.Kind)
+	}
+	op := sedit.AddMember(owner, kind, "")
+	op.Redefines = []string{source.NameText(feat.Name)}
+	op.Value = value
+	l.ops = append(l.ops, Assignment{
+		Op: op, Where: cell.Where, Doc: t.anchor.DocName, At: t.anchor.DeclSpan.Offset,
+		Element: t.fqn, Feature: feat.Name, Value: value, Redefines: l.idx.GetFQN(feat),
+	})
+	return nil
 }
 
 // target is the element a row names: anchor is the nearest declared element,
@@ -297,33 +325,8 @@ func feature(sem *semantics.Model, resolver *resolve.Resolver, elem *symbols.Sym
 			supers = append(supers, sem.AllSupertypes(t)...)
 		}
 	}
-	member := func(scope *symbols.Scope, local bool) (*symbols.Symbol, bool) {
-		m, ok := scope.LookupLocal(name)
-		if !ok {
-			return nil, false
-		}
-		if m.Kind == symbols.SymbolAlias {
-			m = resolver.AliasedElement(m)
-			if !m.IsFeature() {
-				return nil, false
-			}
-			if m.OwnerScope == elem.Scope {
-				return m, true
-			}
-			for _, sup := range supers {
-				if sup.Scope != nil && m.OwnerScope == sup.Scope {
-					return m, false
-				}
-			}
-			return nil, false
-		}
-		if !m.IsFeature() || (local && m.OwnerScope != elem.Scope) {
-			return nil, false
-		}
-		return m, local
-	}
 	if elem.Scope != nil {
-		if m, local := member(elem.Scope, true); m != nil {
+		if m, local := memberFeature(resolver, elem, supers, elem.Scope, name, true); m != nil {
 			return m, local
 		}
 	}
@@ -331,11 +334,40 @@ func feature(sem *semantics.Model, resolver *resolve.Resolver, elem *symbols.Sym
 		if sup.Scope == nil {
 			continue
 		}
-		if m, _ := member(sup.Scope, false); m != nil {
+		if m, _ := memberFeature(resolver, elem, supers, sup.Scope, name, false); m != nil {
 			return m, false
 		}
 	}
 	return nil, false
+}
+
+// memberFeature is the feature named name among scope's own members, nil for a
+// member that is none; local says whether scope is elem's own. An alias counts
+// when it names a feature of elem or of one of its supertypes supers.
+func memberFeature(resolver *resolve.Resolver, elem *symbols.Symbol, supers []*symbols.Symbol, scope *symbols.Scope, name string, local bool) (*symbols.Symbol, bool) {
+	m, ok := scope.LookupLocal(name)
+	if !ok {
+		return nil, false
+	}
+	if m.Kind == symbols.SymbolAlias {
+		m = resolver.AliasedElement(m)
+		if !m.IsFeature() {
+			return nil, false
+		}
+		if m.OwnerScope == elem.Scope {
+			return m, true
+		}
+		for _, sup := range supers {
+			if sup.Scope != nil && m.OwnerScope == sup.Scope {
+				return m, false
+			}
+		}
+		return nil, false
+	}
+	if !m.IsFeature() || (local && m.OwnerScope != elem.Scope) {
+		return nil, false
+	}
+	return m, local
 }
 
 // enumValue is whether value names an enumerated value of the enumeration enum.

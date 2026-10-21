@@ -184,9 +184,10 @@ func (ctx *Context) bodyVerdict(sym *symbols.Symbol, name string, run *calcRun, 
 }
 
 // verdictOf reads a value as a verdict: a literal of the library's VerdictKind
-// enumeration, or of an enumeration specializing it.
+// enumeration, or of an enumeration specializing it, held alone or as the one
+// element of a result declared to hold a collection.
 func (ctx *Context) verdictOf(value Value) (VerdictKind, bool) {
-	lit := value.Literal()
+	lit := soleElement(value).Literal()
 	if lit == nil {
 		return "", false
 	}

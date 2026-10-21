@@ -133,8 +133,8 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		); err != nil {
 			t.Fatalf("ExecuteActionWithInputs update: %v", err)
 		}
-		if got := FormatValue(exec.Results()["live"]); got != "2" {
-			t.Fatalf("live after target.n := 5 = %s, want termination-time value 2", got)
+		if got := FormatValue(exec.Results()["live"]); got != "[2]" {
+			t.Fatalf("live after target.n := 5 = %s, want termination-time value [2]", got)
 		}
 	})
 
@@ -171,7 +171,7 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if !ok {
 			t.Fatal("initialized stop parameter is missing")
 		}
-		if stop.Kind != ValQuantity {
+		if stop = soleElement(stop); stop.Kind != ValQuantity {
 			t.Fatalf("stop = %s, want a quantity", FormatValue(stop))
 		}
 		step, ok := exec.root.data[exec.root.key("timeStep")]
@@ -455,13 +455,8 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ResultsWithError: %v", err)
 		}
-		result := results["reader.result"]
-		if result.Kind != ValSequence || result.Sequence() == nil || result.Sequence().Size() != 1 {
-			t.Fatalf("imaged reader result = %s, want one value from performer z", FormatValue(result))
-		}
-		got, err := result.Sequence().At(0)
-		if err != nil || FormatValue(got) != "4" {
-			t.Fatalf("imaged reader result element = %s, %v; want 4", FormatValue(got), err)
+		if got := FormatValue(results["reader.result"]); got != "4" {
+			t.Fatalf("imaged reader result = %s, want the performer's z, 4, held by the [1] result", got)
 		}
 	})
 

@@ -15,6 +15,7 @@
 #   sysml-mcp-<os>-<arch>.tar.gz  (.zip on Windows; with its man page and LICENSE)
 #   opensysml-<os>-<arch>.tar.gz                              (.zip on Windows)
 #   grpc/sysml-grpc-<os>-<arch>[.exe] with a .sha256 sidecar
+#   mcp/sysml-mcp-<os>-<arch>[.exe] with a .sha256 sidecar (packaged for npm, not released)
 #   jupyter/sysml-jupyter-kernel-<os>-<arch>[.exe] with a .sha256 sidecar
 #   wasm/sysml-wasm.wasm, wasm/sysml-prod.wasm.gz and wasm/wasm_exec.js with .sha256 sidecars
 #   SHA256SUMS.txt
@@ -128,6 +129,9 @@ sha256sum ./*.tar.gz ./*.zip | sed 's|\./||' > SHA256SUMS.txt
 (cd grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
 (cd jupyter && sha256sum sysml-jupyter-kernel-* >> ../SHA256SUMS.txt)
 (cd jupyter && for f in sysml-jupyter-kernel-*; do sha256sum "$f" > "$f.sha256"; done)
+# The raw sysml-mcp binaries are not release assets, but @openmbee/sysml-mcp's
+# platform packages are built from them against these sidecars.
+(cd mcp && for f in sysml-mcp-*; do sha256sum "$f" > "$f.sha256"; done)
 (cd wasm && sha256sum sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js >> ../SHA256SUMS.txt)
 (cd wasm && for f in sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
 cat SHA256SUMS.txt

@@ -18,7 +18,22 @@ names another — the same workspace [`sysml-lsp`](lsp.md) serves an editor.
 
 ## Installing
 
-Every release publishes `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows) for linux/amd64,
+The quickest way is npm: `npx -y @openmbee/sysml-mcp` installs the server on first use, with
+nothing preinstalled but Node 20.11 or later, which is how the agent hosts' own documentation
+configures a server. [`@openmbee/sysml-mcp`](https://www.npmjs.com/package/@openmbee/sysml-mcp)
+has no dependencies; its `sysml-mcp` command picks the platform package
+`@openmbee/sysml-mcp-<os>-<cpu>` (linux/darwin × x64/arm64, win32 x64) for the machine, at
+exactly its own version, and runs the release binary that package carries — the same bytes as
+the release archive, verified against the release's `.sha256` sidecars when the package was
+built — with the arguments and stdio it was given. Its version is the OpenSysML release:
+`npx -y @openmbee/sysml-mcp@0.10.1` runs the `v0.10.1` server.
+
+```bash
+claude mcp add --transport stdio sysml -- npx -y @openmbee/sysml-mcp -root .
+codex mcp add sysml -- npx -y @openmbee/sysml-mcp -root .
+```
+
+Every release also publishes `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows) for linux/amd64,
 linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64: the binary under its plain name, the
 `LICENSE` and, on Unix, its manual page under `share/man/man1/`. It is its own archive, not part
 of the `opensysml-<os>-<arch>` bundle, so:
@@ -41,6 +56,17 @@ same on Windows, the Homebrew formula and the Scoop manifest install it beside `
 `make build-mcp` (into `bin/sysml-mcp`) or as part of `make build`. `sysml-mcp -version` reports
 the build.
 
+## Finding it in your host
+
+Each release is also listed in the official [MCP Registry](https://registry.modelcontextprotocol.io)
+as `org.opensysml/sysml-mcp`, pointing at the npm package `@openmbee/sysml-mcp`, so a host that
+browses the registry offers it without any of the above: the GitHub MCP Registry lists it, VS
+Code finds it under *MCP: Browse MCP Servers* (or the Extensions view's MCP Servers section),
+and third-party directories that mirror the registry carry the same entry. Installing from there
+configures `npx -y @openmbee/sysml-mcp`, which downloads the release binary for the platform
+and runs it; the `-root` argument the listing declares is the workspace folder, the current
+directory by default.
+
 ## Configuring a host
 
 Each host reads a configuration file of its own, and `-print-config <host>` writes the exact
@@ -56,16 +82,23 @@ The block names the server `sysml`, so its tools appear to the agent under that 
 (`sysml/diagnostics` or `mcp__sysml__diagnostics`, as the host spells it), and names the binary
 by its resolved absolute path (`os.Executable`, symlinks followed), so the host finds it wherever
 it was installed and however it starts the process. To name a command instead — `sysml-mcp` when
-the binary is on `PATH`, or a wrapper — give `-print-config-command`:
+the binary is on `PATH`, or a wrapper — give `-print-config-command`; to have the host run the
+server from npm instead, `npx -y @openmbee/sysml-mcp`, give `-print-config-npx`, which writes
+`npx` as the command and `-y @openmbee/sysml-mcp` as the first arguments:
 
 ```bash
 sysml-mcp -print-config cursor -print-config-command sysml-mcp
+sysml-mcp -print-config vscode -print-config-npx
 ```
 
-The blocks below were written with `-print-config-command /usr/local/bin/sysml-mcp`. A host that
-should serve fewer tools or another folder gets them as arguments: add `"-tools", "lsp,runtime"`
-or `"-root", "models"` to the `args` array (the `command` array in OpenCode's case). Hosts start
-the server with the project as its working directory, which is what `-root` defaults to.
+The blocks below were written with `-print-config-command /usr/local/bin/sysml-mcp`; with
+`-print-config-npx` the command is `"npx"` and the `args` array begins
+`"-y", "@openmbee/sysml-mcp"` (OpenCode's `command` array becomes
+`["npx", "-y", "@openmbee/sysml-mcp"]`, and Codex's `args = ["-y", "@openmbee/sysml-mcp"]`). A
+host that should serve fewer tools or another folder gets them as arguments: add
+`"-tools", "lsp,runtime"` or `"-root", "models"` to the `args` array (the `command` array in
+OpenCode's case). Hosts start the server with the project as its working directory, which is
+what `-root` defaults to.
 
 ### OpenCode — `opencode.json`
 
@@ -190,7 +223,9 @@ environment's setup installs it on `PATH`.
 The server offers three groups, chosen with `-tools lsp,runtime,session` (every group by
 default): `lsp` is the language server's workspace over the documents under the root, `runtime`
 the one-shot service also served by [`sysml-grpc`](service-transports.md) — one tool per RPC,
-with the RPC's request as the arguments and its response as the structured result — and
+with the RPC's request as the arguments and its response as the structured result (the
+[conformance suite](https://github.com/Open-MBEE/OpenSysML/tree/main/conformance) runs through these tools as protocol `mcp`,
+so they answer the scenarios the service does) — and
 `session` persistent REPL sessions, one tool per `%` command. Serving fewer groups keeps the
 catalogue small for an agent that needs only one of them. The catalogue below is the server's
 own `tools/list`, with each tool's description cut to its first sentence; the tool's full
@@ -294,7 +329,7 @@ without this page.
 | `session_load` | Load model files into a session, as %load does: files, directories or globs, resolved against the workspace root and refused outside it. | yes |
 | `session_open` | Open a named REPL session: an empty model that declarations, instances and runs accumulate into across calls. | yes |
 | `session_print` | Print a session's model as SysML notation, or one named element with its body, as %print does. | no |
-| `session_run` | Run a behavior in a session to completion and report what it produced: an action (%action then %continue), a state machine (%state, then %advance when a duration is given), a calc (%calc) or an analysis case (%analysis). | yes |
+| `session_run` | Run a behavior in a session to completion and report what it produced: an action (%action then %continue), a state machine (%state, then %advance when a duration is given), a calc (%calc) or an analysis case (%analysis). Its `arguments` are expressions evaluated together in one run, as the REPL evaluates an argument list, so a seeded draw in one continues the stream of the draw before it. | yes |
 | `session_save` | Write a session's model to a file under the workspace root, as %save does: .sysml notation with comments preserved, or .ttl/.json RDF (experimental). | yes |
 | `session_submit` | Submit SysML declarations to a session, as typing them at the prompt does: the text joins the model, the whole model is re-analyzed, and what it declared and the diagnostics about it come back. | yes |
 | `solve` | Ask an SMT solver for values satisfying an element's conditions (%solve, experimental), keeping the values the model already fixes; reports the conflict when the fixed values admit none. | no |
@@ -307,8 +342,9 @@ without this page.
 - **Paths** are absolute or relative to the workspace root (`-root`), and are resolved against
   it; a tool that takes `paths` accepts files, directories and globs. A path must stay under the
   root: one that leaves it, by its form (`../secret.sysml`, an absolute path elsewhere) or
-  through a symlink, is refused. The `lsp` tools can also work on text held open with
-  `open_document` instead of a file on disk.
+  through a symlink, is refused, and writes are performed through the resolved root itself, so
+  a link repointed after the check cannot carry one outside it. The `lsp` tools can also work on
+  text held open with `open_document` instead of a file on disk.
 - **Writing** happens only on request: a tool marked as writing (`format`, `rename`,
   `apply_model_edit`, `session_save`, ...) returns the edit or the file it would write and
   touches the disk only with `"apply": true`. The session tools that write change the session's

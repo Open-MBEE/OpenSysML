@@ -68,9 +68,11 @@ def test_check_action_sends_every_option_and_builds_the_result():
     assert request.engine == "check"
 
     assert isinstance(result, CheckResult)
-    assert result.verdict == "fails" and not result.holds
+    assert result.verdict == "fails"
+    assert not result.holds
     assert str(result).startswith("✗ Plant::Tank::fill: violation")
-    assert result.search.states == 11 and result.search.bounds_hit == ()
+    assert result.search.states == 11
+    assert result.search.bounds_hit == ()
     assert result.violations == (CheckViolation(
         kind="property", property="Plant::Tank::low", depth=3,
         witness=CheckWitness(schedule="replay", choices=("step 3: 3@b first of 2@a, 3@b",),
@@ -79,7 +81,8 @@ def test_check_action_sends_every_option_and_builds_the_result():
     assert result.divergences[0].feature == "this.level"
     assert [v.value for v in result.divergences[0].values] == ["1", "2"]
     assert result.divergences[0].values[0].witness is None
-    assert result.standing.engine == "check" and result.standing.strength == "proved"
+    assert result.standing.engine == "check"
+    assert result.standing.strength == "proved"
 
 
 def test_check_state_machine_names_the_state_machine():
@@ -88,8 +91,11 @@ def test_check_state_machine_names_the_state_machine():
     conn = make_connection(stub, CURRENT)
     result = conn.check_state_machine("M::machine", "hash", properties=["M::safe"])
     request = stub.CheckBehavior.call_args[0][0]
-    assert request.action_symbol_id == "" and request.state_machine_symbol_id == "M::machine"
-    assert result.holds and result.search is None and result.violations == ()
+    assert request.action_symbol_id == ""
+    assert request.state_machine_symbol_id == "M::machine"
+    assert result.holds
+    assert result.search is None
+    assert result.violations == ()
 
 
 def test_an_in_band_error_is_an_execution_error():

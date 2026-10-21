@@ -12,5 +12,5 @@ stmt assign runs
     eval literal 1 -> 1
   eval operator + -> 1
 stmt assign took
-  eval feature v -> 2
+  eval feature v -> (2)
 step 4: no active tokens

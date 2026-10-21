@@ -21,19 +21,8 @@ func (s *Service) ImportData(ctx context.Context, req *pb.ImportDataRequest) (*p
 	if err := s.requireCapability(CapabilityImportData); err != nil {
 		return nil, err
 	}
-	if req.ImportAs != "" && req.ImportAs != "values" {
-		return nil, statusErrorf(connect.CodeInvalidArgument, "import_as %q is not supported; only values is", req.ImportAs)
-	}
-	if len(req.Imports) == 0 {
-		return nil, statusError(connect.CodeInvalidArgument, "imports is required: name at least one data file")
-	}
-	for i, in := range req.Imports {
-		if in.GetName() == "" {
-			return nil, statusErrorf(connect.CodeInvalidArgument, "imports[%d].name is required: it names the file, and its format by extension", i)
-		}
-	}
-	if req.ModelHash == "" {
-		return nil, statusError(connect.CodeInvalidArgument, "model_hash is required")
+	if err := importRequestError(req); err != nil {
+		return nil, err
 	}
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
@@ -60,46 +49,19 @@ func (s *Service) ImportData(ctx context.Context, req *pb.ImportDataRequest) (*p
 		if err := ctx.Err(); err != nil {
 			return nil, statusError(connect.CodeCanceled, err.Error())
 		}
-		opts := dataimport.Options{Format: in.GetImportFormat()}
-		if in.GetImportMap() != "" {
-			opts.Mapping = []byte(in.GetImportMap())
-		}
-		rows, err := dataimport.Read(in.GetName(), []byte(in.GetContent()), opts)
-		if err != nil {
-			return importRefused(resp, err), nil
-		}
-		sc := current.SymbolContext()
-		unlock := sc.Lock()
-		ops, summary, err := dataimport.Lower(sc.Index, sc.Resolver, sc.Semantics, func(doc string) bool { return own[doc] }, rows)
-		unlock()
-		if err != nil {
-			return importRefused(resp, err), nil
-		}
-		file := &pb.ImportedFile{Name: in.GetName(), Values: int64(summary.Values), Elements: int64(summary.Elements)}
-		for _, op := range ops {
-			file.Assignments = append(file.Assignments, &pb.ImportedValue{
-				Element: op.Element, Feature: op.Feature, Value: op.Value, Redefines: op.Redefines,
-				Where: op.Where, Description: op.Description(),
-			})
-		}
-		if summary.Values == 0 {
-			resp.Files = append(resp.Files, file)
-			continue
-		}
-		inputs, err := s.importEdits(current, ops)
+		ops, file, err := lowerImport(current, own, in)
 		if err != nil {
 			return importRefused(resp, err), nil
 		}
 		resp.Files = append(resp.Files, file)
-		before := diagnosticErrorCounts(s.modelDiagnostics(current))
-		hash, model := s.parseModelKeeping(inputs, current.Mode, true, false)
-		after := s.modelDiagnostics(model)
-		if problems := addedErrors(before, after); len(problems) > 0 {
-			resp.Diagnostics = after
-			return importRefused(resp, fmt.Errorf("the imported values make the model invalid: %s", strings.Join(problems, "; "))), nil
+		if file.Values == 0 {
+			continue
 		}
-		current = model
-		resp.ModelHash = hash
+		model, hash, err := s.importAssignments(current, ops, resp)
+		if err != nil {
+			return importRefused(resp, err), nil
+		}
+		current, resp.ModelHash = model, hash
 	}
 	if req.ImportDryRun {
 		resp.ModelHash = ""
@@ -112,12 +74,7 @@ func (s *Service) ImportData(ctx context.Context, req *pb.ImportDataRequest) (*p
 	} else {
 		current = s.cache.Add(resp.ModelHash, current)
 	}
-	for i, doc := range current.Documents {
-		if i < len(cached.Documents) && string(doc.Source.Bytes()) == string(cached.Documents[i].Source.Bytes()) {
-			continue
-		}
-		resp.Documents = append(resp.Documents, &pb.EditedDocument{Name: doc.Source.Name(), Content: string(doc.Source.Bytes())})
-	}
+	resp.Documents = changedDocuments(cached, current)
 	if len(cached.Documents) == 1 && len(resp.Documents) == 1 {
 		resp.Content = resp.Documents[0].Content
 	}
@@ -125,6 +82,83 @@ func (s *Service) ImportData(ctx context.Context, req *pb.ImportDataRequest) (*p
 		resp.Documents = nil
 	}
 	return resp, nil
+}
+
+// importRequestError is the argument error of an import request, or nil.
+func importRequestError(req *pb.ImportDataRequest) error {
+	if req.ImportAs != "" && req.ImportAs != "values" {
+		return statusErrorf(connect.CodeInvalidArgument, "import_as %q is not supported; only values is", req.ImportAs)
+	}
+	if len(req.Imports) == 0 {
+		return statusError(connect.CodeInvalidArgument, "imports is required: name at least one data file")
+	}
+	for i, in := range req.Imports {
+		if in.GetName() == "" {
+			return statusErrorf(connect.CodeInvalidArgument, "imports[%d].name is required: it names the file, and its format by extension", i)
+		}
+	}
+	if req.ModelHash == "" {
+		return statusError(connect.CodeInvalidArgument, "model_hash is required")
+	}
+	return nil
+}
+
+// lowerImport reads one data file and lowers its rows to the assignments they
+// make on the model, reported per value in the file's entry of the response.
+func lowerImport(model *CachedModel, own map[string]bool, in *pb.DataImport) ([]dataimport.Assignment, *pb.ImportedFile, error) {
+	opts := dataimport.Options{Format: in.GetImportFormat()}
+	if in.GetImportMap() != "" {
+		opts.Mapping = []byte(in.GetImportMap())
+	}
+	rows, err := dataimport.Read(in.GetName(), []byte(in.GetContent()), opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	sc := model.SymbolContext()
+	unlock := sc.Lock()
+	ops, summary, err := dataimport.Lower(sc.Index, sc.Resolver, sc.Semantics, func(doc string) bool { return own[doc] }, rows)
+	unlock()
+	if err != nil {
+		return nil, nil, err
+	}
+	file := &pb.ImportedFile{Name: in.GetName(), Values: int64(summary.Values), Elements: int64(summary.Elements)}
+	for _, op := range ops {
+		file.Assignments = append(file.Assignments, &pb.ImportedValue{
+			Element: op.Element, Feature: op.Feature, Value: op.Value, Redefines: op.Redefines,
+			Where: op.Where, Description: op.Description(),
+		})
+	}
+	return ops, file, nil
+}
+
+// importAssignments applies one file's assignments and re-parses the model under its
+// hash; values that make the model invalid are refused with the diagnostics they raised.
+func (s *Service) importAssignments(current *CachedModel, ops []dataimport.Assignment, resp *pb.ImportDataResponse) (*CachedModel, string, error) {
+	inputs, err := s.importEdits(current, ops)
+	if err != nil {
+		return nil, "", err
+	}
+	before := diagnosticErrorCounts(s.modelDiagnostics(current))
+	hash, model := s.parseModelKeeping(inputs, current.Mode, true, false)
+	after := s.modelDiagnostics(model)
+	if problems := addedErrors(before, after); len(problems) > 0 {
+		resp.Diagnostics = after
+		return nil, "", fmt.Errorf("the imported values make the model invalid: %s", strings.Join(problems, "; "))
+	}
+	return model, hash, nil
+}
+
+// changedDocuments are the documents of edited whose content differs from the
+// document at the same place in the model before the import.
+func changedDocuments(before, edited *CachedModel) []*pb.EditedDocument {
+	var docs []*pb.EditedDocument
+	for i, doc := range edited.Documents {
+		if i < len(before.Documents) && string(doc.Source.Bytes()) == string(before.Documents[i].Source.Bytes()) {
+			continue
+		}
+		docs = append(docs, &pb.EditedDocument{Name: doc.Source.Name(), Content: string(doc.Source.Bytes())})
+	}
+	return docs
 }
 
 // importRefused answers an import the model refused: nothing was changed, so

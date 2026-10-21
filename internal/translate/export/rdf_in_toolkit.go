@@ -3,6 +3,7 @@ package export
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
@@ -484,6 +485,24 @@ func (n *normalizer) orderedMembersOf(owner string) []rdf.Term {
 		}
 	}
 	return ordered
+}
+
+// positionalIndex is the member position a qualifiedName of the form
+// `Owner::@n` states, for an anonymous member named by its place.
+func positionalIndex(graph *rdf.Graph, m rdf.Term) (int, bool) {
+	name, ok := graph.Lexical(m, rdf.SysML+pQualifiedName)
+	if !ok {
+		return 0, false
+	}
+	at := strings.LastIndex(name, "::@")
+	if at < 0 {
+		return 0, false
+	}
+	n, err := strconv.Atoi(name[at+3:])
+	if err != nil || n < 0 {
+		return 0, false
+	}
+	return n, true
 }
 
 // collapseRelationships collapses the minted relationship elements into the

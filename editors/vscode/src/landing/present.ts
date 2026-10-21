@@ -1,6 +1,6 @@
 import type { RenderResult } from "../protocol";
-import type { EngineQuantity, LandingModel } from "./model";
-import type { Scene } from "./scene";
+import type { EngineQuantity, LandingModel, LandingPart } from "./model";
+import type { Scene, SceneTone } from "./scene";
 
 /**
  * presentedStack is the landing model as the hero draws the stack: each project's box
@@ -28,6 +28,25 @@ export function presentedStack(model: LandingModel): RenderResult {
     }),
     edges: model.render.edges.map((edge) => ({ ...edge, label: "" })),
   };
+}
+
+const STACK_TONES: Record<string, SceneTone> = { runtime: "primary", reference: "secondary", "model store": "accent" };
+
+/** stackTone fills a project's box by the kind its model declares; a component stays plain. */
+export function stackTone(part: LandingPart): SceneTone | undefined {
+  return STACK_TONES[part.attrs.kind ?? ""];
+}
+
+/**
+ * rollupTone fills a top-level part's box as the stack fills its projects, and accents any
+ * part whose rolled-up feature the engine left undetermined; a nested, valued part stays plain.
+ */
+export function rollupTone(part: LandingPart, scene: Scene): SceneTone | undefined {
+  const feature = rolledUp(scene);
+  if (feature !== undefined && part.unvalued[feature] !== undefined) {
+    return "accent";
+  }
+  return part.owner === undefined ? "primary" : undefined;
 }
 
 /** quantityText is a quantity as the hero prints it: the engine's digits grouped, then the unit. */

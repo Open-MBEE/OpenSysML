@@ -143,6 +143,10 @@ classdef Model < handle
             result = opensysml.renderView(m, viewName, varargin{:});
         end
 
+        function diags = refreshDiagnostics(m, varargin)
+            diags = opensysml.refreshDiagnostics(m, varargin{:});
+        end
+
         function result = checkAction(m, actionId, varargin)
             result = opensysml.checkAction(m, actionId, varargin{:});
         end

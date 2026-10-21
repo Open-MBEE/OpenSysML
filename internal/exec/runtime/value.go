@@ -769,6 +769,25 @@ func (ctx *Context) setOf(elements []Value) Value {
 // MagnitudeValue is the number a value is as written, Integer or Real, a
 // quantity's magnitude included, and whether it is one.
 func MagnitudeValue(value Value) (semantics.Value, bool) {
+	n, _, ok := Magnitude(value)
+	return n, ok
+}
+
+// Magnitude is MagnitudeValue with the quantity's unit ("" for a bare number); a
+// one-element sequence is read as its element, so its unit is the element's.
+func Magnitude(value Value) (semantics.Value, string, bool) {
+	value = soleElement(value)
+	n, ok := magnitudeOf(value)
+	if !ok {
+		return semantics.Value{}, "", false
+	}
+	if q := value.Quantity(); q != nil {
+		return n, q.Unit.String(), true
+	}
+	return n, "", true
+}
+
+func magnitudeOf(value Value) (semantics.Value, bool) {
 	switch value.Kind {
 	case ValConst:
 		return value.Const, value.Const.IsNumeric()

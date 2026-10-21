@@ -233,15 +233,6 @@ func timeoutFromEnv() time.Duration {
 	return d
 }
 
-// Solve discovers a solver and asks it about the query.
-func Solve(ctx context.Context, q *Query) (*Result, error) {
-	solver, err := Discover()
-	if err != nil {
-		return nil, err
-	}
-	return solver.Solve(ctx, q)
-}
-
 // Solve writes the query's script to the solver and reads its verdict, plus the
 // model on `sat`. Failing to obtain a verdict is an error, not `unknown`, and a
 // backend lacking a feature the query needs refuses before it is run.

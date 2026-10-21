@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { RenderResult } from "../protocol";
 import { landingModel, rollupLevels, snapshotModel, valueText, type EngineInstance, type LandingModel } from "./model";
-import { presentedRollup, quantityText, valueLine } from "./present";
+import { presentedRollup, quantityText, rollupTone, valueLine } from "./present";
 import { MASS_ROLLUP_SCENE, STACK_SCENE } from "./scene";
 
 const STAGES = ["stage1", "stage2", "stage3"];
@@ -157,4 +157,21 @@ test("landingModel draws a listed object once, under the feature that lists it, 
   }
   assert.ok(model.render.nodes.every((node) => node.kind === "part"), "attributes are not drawn");
   assert.deepEqual(model.render.edges, [], "a wire to the folded collection goes with it");
+});
+
+test("rollupTone fills the top-level parts, leaves the engines plain and accents an undetermined roll-up", () => {
+  const model = massModel();
+  for (const stage of STAGES) {
+    assert.equal(rollupTone(model.parts.get(stage)!, MASS_ROLLUP_SCENE), "primary", stage);
+  }
+  for (const engine of ENGINES) {
+    assert.equal(rollupTone(model.parts.get(engine)!, MASS_ROLLUP_SCENE), undefined, engine);
+  }
+  const stage1 = model.parts.get("stage1")!;
+  const unvalued = { ...stage1, quantities: {}, unvalued: { totalMass: "mass has no value" } };
+  assert.equal(rollupTone(unvalued, MASS_ROLLUP_SCENE), "accent");
+  const engine = model.parts.get("stage1.engine1")!;
+  assert.equal(rollupTone({ ...engine, unvalued: { totalMass: "mass has no value" } }, MASS_ROLLUP_SCENE), "accent");
+  assert.equal(rollupTone({ ...engine, unvalued: { height: "no value" } }, MASS_ROLLUP_SCENE), undefined, "another feature's gap is not the roll-up's");
+  assert.equal(rollupTone(unvalued, STACK_SCENE), "primary", "a scene without a roll-up tones by level alone");
 });

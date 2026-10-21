@@ -9,7 +9,7 @@ import (
 func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 	response := &pb.RenderViewResponse{
 		View: "Demo::view", Kind: "interconnection", Stated: "rendered",
-		Columns: []string{"name"}, Notices: []string{"notice"},
+		Columns: []string{"name"}, Notices: []string{"notice"}, Shown: []string{"port-symbols", "edge-labels"},
 		Canvas: &pb.RenderCanvas{Unit: "px", Width: 800, Height: 400, HasSize: true},
 		Nodes: []*pb.RenderNode{{
 			Id: "n0", Kind: "part", Name: "root", NameSynthesized: true, Type: "Demo::Part",
@@ -57,7 +57,7 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 	if rendered.Columns[0] != "name" || rendered.Rows[0].Cells[0] != "x" ||
 		rendered.Rows[0].Origin == nil || rendered.Canvas == nil || !rendered.Canvas.HasSize ||
 		rendered.Notes[0].EdgeTo != "n0" || rendered.Notes[0].Origin == nil ||
-		rendered.Notices[0] != "notice" {
+		rendered.Notices[0] != "notice" || len(rendered.Shown) != 2 || rendered.Shown[1] != "edge-labels" {
 		t.Errorf("rendered remaining fields = %+v", rendered)
 	}
 	empty := renderedViewFromProto(&pb.RenderViewResponse{})

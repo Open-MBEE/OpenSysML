@@ -618,6 +618,17 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 	if _, exact := feature.Multiplicity.Exactly(); exact {
 		return Value{}, false
 	}
+	// A library collection the model values with nothing holds nothing: a lower
+	// bound of 0 is met by none, a higher one by nothing.
+	if fewestOf(feature.Multiplicity) == 0 && ec.ctx.libraryDeclared(feature.Symbol) {
+		if feature.Scalar() {
+			return nullValue(), true
+		}
+		if typed, ok := ec.ctx.emptyOfSymbol(feature.Symbol); ok {
+			return typed, true
+		}
+		return sequenceOf(nil), true
+	}
 	return undeterminedFeatureValue(openCountReason(spelled, feature.Multiplicity), feature.Multiplicity, feature.Symbol), true
 }
 
@@ -629,8 +640,12 @@ func openCollectionValue(spelled string, feature *EffectiveFeature, open *openPo
 	if fewest := max(int64(len(open.Contributed)), open.AtLeast); fewest > fewestOf(count) {
 		count.Lower = semantics.Bound{Value: fewest, Known: true}
 	}
+	var positions []Value
+	if open.Fixed > 0 {
+		positions = open.Contributed[:open.Fixed]
+	}
 	return Value{Kind: ValUndetermined, ref: &Undetermined{
-		reason: openCountReason(spelled, mult), count: count, known: open.Contributed, feature: feature.Symbol,
+		reason: openCountReason(spelled, mult), count: count, known: open.Contributed, feature: feature.Symbol, positions: positions,
 	}}
 }
 

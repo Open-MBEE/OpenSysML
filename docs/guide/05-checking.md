@@ -203,9 +203,15 @@ from a feature declared `Even` is kept, the declaration being what states it is 
 `Positive` are read the same way: their bounds refuse `-1` and `0`, and `7 as Natural` on a bare
 integer is reported, while `n as Natural` on `attribute n : Natural = 7` keeps `7`.
 
-**The unbounded value:** `*` is a value of its own, not a large number. It exceeds every finite
-number, equals itself and prints as `*`; arithmetic over it is refused with an error naming the
-operator.
+**The unbounded value:** `*` is a value of its own, not a large number (KerML types it as a
+`Positive` greater than all the integers). It exceeds every finite number, equals itself and prints
+as `*`, and whatever that ordering decides is answered, in the operator notation and the function
+notation alike: `* > 1`, `'>'(*, 1)`, `* == *`, `max(*, 1)` (`*`), `min(*, 1)` (`1`), `abs(*)`,
+`ToString(*)` (`"*"`) and unary `+`. Beside a feature the model leaves open, `max(*, u)` is still `*`
+and the ordering stays open. The Kernel Function Library defines no arithmetic result over
+it, so `+`, `-`, `*`, `/`, `%`, `**`, `^`, unary `-`, `..`, `sum` and `product` over `*` are well
+typed — the checker accepts them, as the pilot does — and evaluating one is an error naming the
+operator, as a division by zero is.
 
 ```sysml
 sysml> package Budget {

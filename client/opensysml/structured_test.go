@@ -121,7 +121,7 @@ func TestStructuredValuesCrossEveryTransport(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExecuteAction: %v", err)
 			}
-			if want := (opensysml.Vector{opensysml.Real(6), opensysml.Real(8)}); !reflect.DeepEqual(run.Outputs["y"], want) {
+			if want := (opensysml.Vector{opensysml.Real(6), opensysml.Real(8)}); !reflect.DeepEqual(sole(t, "y", run.Outputs["y"]), want) {
 				t.Errorf("y = %#v, want %#v", run.Outputs["y"], want)
 			}
 

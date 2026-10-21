@@ -259,7 +259,7 @@ func testConflictingWritersMarkTheFeatureTheyWrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
-	if got := FormatValue(exec.Results()["x"]); got != "1" && got != "2" && got != "3" {
+	if got := FormatValue(soleElement(exec.Results()["x"])); got != "1" && got != "2" && got != "3" {
 		t.Fatalf("x = %s, want a writer's value", got)
 	}
 	if n := ctx.UnresolvedChoices(); n != 2 {
@@ -295,7 +295,7 @@ func testCommutingBranchesMarkNothing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
-	if x, y := FormatValue(exec.Results()["x"]), FormatValue(exec.Results()["y"]); x != "1" || y != "2" {
+	if x, y := FormatValue(soleElement(exec.Results()["x"])), FormatValue(soleElement(exec.Results()["y"])); x != "1" || y != "2" {
 		t.Fatalf("x, y = %s, %s, want 1, 2", x, y)
 	}
 	if n := ctx.UnresolvedChoices(); n != 0 {

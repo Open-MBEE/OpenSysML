@@ -5,7 +5,7 @@ package sariftest
 
 import (
 	"bytes"
-	_ "embed"
+	_ "embed" // for the go:embed of the vendored schema
 	"fmt"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"

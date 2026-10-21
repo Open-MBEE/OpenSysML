@@ -140,32 +140,33 @@ def test_release_tags_cannot_be_read_outside_a_checkout(tmp_path):
 
 @pytest.fixture
 def manifests(tmp_path):
-    """Copies of both client manifests as the checkout has them."""
+    """Copies of every manifest a night stamps, as the checkout has them."""
     version_file = tmp_path / "_version.py"
     version_file.write_text(pathlib.Path(snapshot_version.VERSION_FILE).read_text(encoding="utf-8"), encoding="utf-8")
     package_json = tmp_path / "package.json"
     package_json.write_text(pathlib.Path(snapshot_version.NODE_PACKAGE).read_text(encoding="utf-8"), encoding="utf-8")
     kernel_file = tmp_path / "kernel_version.py"
     kernel_file.write_text(pathlib.Path(snapshot_version.KERNEL_VERSION_FILE).read_text(encoding="utf-8"), encoding="utf-8")
-    return version_file, package_json, kernel_file
+    mcp_package_json = tmp_path / "mcp-package.json"
+    mcp_package_json.write_text(pathlib.Path(snapshot_version.MCP_PACKAGE).read_text(encoding="utf-8"), encoding="utf-8")
+    return version_file, package_json, kernel_file, mcp_package_json
 
 
 def test_stamping_the_declared_versions_changes_nothing(manifests):
     """So a stamp rewrites only the versions, in the layout the files already have."""
-    version_file, package_json, kernel_file = manifests
     before = tuple(path.read_text(encoding="utf-8") for path in manifests)
     declared = snapshot_version.check_version.declared_version()
     node = snapshot_version.check_version.node_declared_version()
-    snapshot_version.stamp({"pypi": declared, "npm": node}, str(version_file), str(package_json), str(kernel_file))
+    snapshot_version.stamp({"pypi": declared, "npm": node}, *(str(path) for path in manifests))
     assert tuple(path.read_text(encoding="utf-8") for path in manifests) == before
 
 
-def test_stamping_writes_the_snapshot_into_both_manifests(manifests):
-    version_file, package_json, kernel_file = manifests
+def test_stamping_writes_the_snapshot_into_every_manifest(manifests):
+    version_file, package_json, kernel_file, mcp_package_json = manifests
     versions = snapshot_version.snapshot_versions(
         DATE, COMMIT, declared="0.9.2", node="0.9.2", kernel="0.9.2", released=released("v0.9.2")
     )
-    snapshot_version.stamp(versions, str(version_file), str(package_json), str(kernel_file))
+    snapshot_version.stamp(versions, *(str(path) for path in manifests))
 
     assert snapshot_version.check_version.declared_version(str(version_file)) == "0.9.3.dev20261006"
     assert "The one place the opensysml version is written" in version_file.read_text(encoding="utf-8")
@@ -185,6 +186,12 @@ def test_stamping_writes_the_snapshot_into_both_manifests(manifests):
     assert manifest["peerDependencies"][f"{manifest['name']}-wasm"] == npm
     # The stamped manifest is what the release gate reads, so it must still read as one.
     assert snapshot_version.check_version.node_declared_version(str(package_json)) == npm
+    # @openmbee/sysml-mcp is published at the npm version too, pinning its own platform packages.
+    mcp = json.loads(mcp_package_json.read_text(encoding="utf-8"))
+    assert mcp["version"] == npm
+    assert len(mcp["optionalDependencies"]) == 5
+    assert set(mcp["optionalDependencies"].values()) == {npm}
+    assert all(name.startswith(f"{mcp['name']}-") for name in mcp["optionalDependencies"])
 
 
 def test_stamping_a_version_file_without_a_version_fails(tmp_path):

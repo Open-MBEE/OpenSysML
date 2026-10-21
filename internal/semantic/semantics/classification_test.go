@@ -257,7 +257,10 @@ func TestKerMLFeatureMetaclassClassification(t *testing.T) {
 	path := filepath.Join("..", "..", "..", "examples", "pilot-corpora", "kerml-examples", "Vehicle Example", "VehicleUsages.kerml")
 	data, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("read VehicleUsages.kerml: %v", err)
+		if os.Getenv("OPENSYSML_REQUIRE_PILOT_CORPORA") != "" {
+			t.Fatalf("pilot corpora required but absent: %v", err)
+		}
+		t.Skipf("pilot corpora absent; run ./scripts/download-pilot-corpora.sh: %v", err)
 	}
 	vehicleModel, vehicleRoot := buildModelWithStdlibNamedKind(t, path, source.KindKerML, string(data))
 	vehiclePackage := sym(t, vehicleRoot, "VehicleUsages")

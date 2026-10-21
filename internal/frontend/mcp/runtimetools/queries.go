@@ -71,21 +71,7 @@ func (g *group) registerQueries(s *mcp.Server) {
 		if err != nil {
 			return nil, nil, toolError(err)
 		}
-		var b strings.Builder
-		fmt.Fprintf(&b, "%d elements\n", len(resp.GetElements()))
-		for _, e := range resp.GetElements() {
-			fmt.Fprintf(&b, "%s (%s)", e.GetId(), e.GetType())
-			names := make([]string, 0, len(e.GetProperties()))
-			for name := range e.GetProperties() {
-				names = append(names, name)
-			}
-			sortStrings(names)
-			for _, name := range names {
-				fmt.Fprintf(&b, " %s=%s", name, e.GetProperties()[name])
-			}
-			b.WriteByte('\n')
-		}
-		return answer(resp, m, b.String())
+		return answer(resp, m, queryText(resp))
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -107,24 +93,7 @@ func (g *group) registerQueries(s *mcp.Server) {
 		if err != nil {
 			return nil, nil, toolError(err)
 		}
-		var b strings.Builder
-		columns := make([]string, 0, len(resp.GetColumns()))
-		for _, c := range resp.GetColumns() {
-			columns = append(columns, c.GetName())
-		}
-		fmt.Fprintf(&b, "%d rows; columns: element | %s\n", len(resp.GetRows()), strings.Join(columns, " | "))
-		for _, row := range resp.GetRows() {
-			cells := []string{documentValueText(row.GetElement())}
-			for _, cell := range row.GetCells() {
-				values := make([]string, 0, len(cell.GetValues()))
-				for _, v := range cell.GetValues() {
-					values = append(values, documentValueText(v))
-				}
-				cells = append(cells, strings.Join(values, ", "))
-			}
-			b.WriteString(strings.Join(cells, " | ") + "\n")
-		}
-		return answer(resp, m, b.String())
+		return answer(resp, m, documentQueryText(resp))
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -164,42 +133,7 @@ func (g *group) registerQueries(s *mcp.Server) {
 		if err != nil {
 			return nil, nil, toolError(err)
 		}
-		var b strings.Builder
-		fmt.Fprintf(&b, "%s view %s: %d nodes, %d edges", resp.GetKind(), resp.GetView(), len(resp.GetNodes()), len(resp.GetEdges()))
-		if len(resp.GetRows()) > 0 {
-			fmt.Fprintf(&b, ", %d rows", len(resp.GetRows()))
-		}
-		b.WriteByte('\n')
-		for _, n := range resp.GetNodes() {
-			fmt.Fprintf(&b, "node %s: %s %s", n.GetId(), n.GetKind(), n.GetName())
-			if n.GetType() != "" {
-				fmt.Fprintf(&b, " : %s", n.GetType())
-			}
-			if n.GetParent() != "" {
-				fmt.Fprintf(&b, " in %s", n.GetParent())
-			}
-			b.WriteByte('\n')
-		}
-		for _, e := range resp.GetEdges() {
-			fmt.Fprintf(&b, "edge %s -> %s", e.GetFrom(), e.GetTo())
-			if e.GetKind() != "" {
-				fmt.Fprintf(&b, " (%s)", e.GetKind())
-			}
-			if e.GetLabel() != "" {
-				fmt.Fprintf(&b, " %q", e.GetLabel())
-			}
-			b.WriteByte('\n')
-		}
-		if len(resp.GetColumns()) > 0 {
-			b.WriteString(strings.Join(resp.GetColumns(), " | ") + "\n")
-		}
-		for _, r := range resp.GetRows() {
-			b.WriteString(strings.Join(r.GetCells(), " | ") + "\n")
-		}
-		for _, n := range resp.GetNotices() {
-			b.WriteString("notice: " + n + "\n")
-		}
-		return answer(resp, m, b.String())
+		return answer(resp, m, viewText(resp))
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -220,6 +154,87 @@ func (g *group) registerQueries(s *mcp.Server) {
 		}
 		return answer(resp, m, fmt.Sprintf("graphs:%d of %s\n%s", resp.GetVersion(), resp.GetSubject(), resp.GetContent()))
 	})
+}
+
+// queryText lists the elements a query matched, each with the properties selected.
+func queryText(resp *pb.QueryResponse) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d elements\n", len(resp.GetElements()))
+	for _, e := range resp.GetElements() {
+		fmt.Fprintf(&b, "%s (%s)", e.GetId(), e.GetType())
+		names := make([]string, 0, len(e.GetProperties()))
+		for name := range e.GetProperties() {
+			names = append(names, name)
+		}
+		sortStrings(names)
+		for _, name := range names {
+			fmt.Fprintf(&b, " %s=%s", name, e.GetProperties()[name])
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
+
+// documentQueryText tables the rows a document query answered.
+func documentQueryText(resp *pb.RunDocumentQueryResponse) string {
+	var b strings.Builder
+	columns := make([]string, 0, len(resp.GetColumns()))
+	for _, c := range resp.GetColumns() {
+		columns = append(columns, c.GetName())
+	}
+	fmt.Fprintf(&b, "%d rows; columns: element | %s\n", len(resp.GetRows()), strings.Join(columns, " | "))
+	for _, row := range resp.GetRows() {
+		cells := []string{documentValueText(row.GetElement())}
+		for _, cell := range row.GetCells() {
+			values := make([]string, 0, len(cell.GetValues()))
+			for _, v := range cell.GetValues() {
+				values = append(values, documentValueText(v))
+			}
+			cells = append(cells, strings.Join(values, ", "))
+		}
+		b.WriteString(strings.Join(cells, " | ") + "\n")
+	}
+	return b.String()
+}
+
+// viewText lists the nodes, edges, rows and notices of a rendered view.
+func viewText(resp *pb.RenderViewResponse) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s view %s: %d nodes, %d edges", resp.GetKind(), resp.GetView(), len(resp.GetNodes()), len(resp.GetEdges()))
+	if len(resp.GetRows()) > 0 {
+		fmt.Fprintf(&b, ", %d rows", len(resp.GetRows()))
+	}
+	b.WriteByte('\n')
+	for _, n := range resp.GetNodes() {
+		fmt.Fprintf(&b, "node %s: %s %s", n.GetId(), n.GetKind(), n.GetName())
+		if n.GetType() != "" {
+			fmt.Fprintf(&b, " : %s", n.GetType())
+		}
+		if n.GetParent() != "" {
+			fmt.Fprintf(&b, " in %s", n.GetParent())
+		}
+		b.WriteByte('\n')
+	}
+	for _, e := range resp.GetEdges() {
+		fmt.Fprintf(&b, "edge %s -> %s", e.GetFrom(), e.GetTo())
+		if e.GetKind() != "" {
+			fmt.Fprintf(&b, " (%s)", e.GetKind())
+		}
+		if e.GetLabel() != "" {
+			fmt.Fprintf(&b, " %q", e.GetLabel())
+		}
+		b.WriteByte('\n')
+	}
+	if len(resp.GetColumns()) > 0 {
+		b.WriteString(strings.Join(resp.GetColumns(), " | ") + "\n")
+	}
+	for _, r := range resp.GetRows() {
+		b.WriteString(strings.Join(r.GetCells(), " | ") + "\n")
+	}
+	for _, n := range resp.GetNotices() {
+		b.WriteString("notice: " + n + "\n")
+	}
+	return b.String()
 }
 
 // documentValueText spells a document-query value as %run-query prints one.

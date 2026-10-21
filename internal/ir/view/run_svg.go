@@ -17,6 +17,12 @@ const DefaultAnimationStep = time.Second
 // svgNamespace is the SVG document namespace, the only reference the form writes.
 const svgNamespace = "http://www.w3.org/2000/svg"
 
+// svgNoticePrefix opens each notice line under the title; svgGroupEnd closes a drawn group.
+const (
+	svgNoticePrefix = "not represented: "
+	svgGroupEnd     = "</g>\n"
+)
+
 // The SVG form's geometry, in user units at default zoom.
 const (
 	svgMargin         = 16.0
@@ -93,7 +99,7 @@ func (w *svgWriter) heading(notices []string) float64 {
 	fmt.Fprintf(&w.b, "<text x=%q y=%q font-weight=\"bold\">%s</text>\n", svgNumber(svgMargin), svgNumber(y), svgText(w.title()))
 	for _, notice := range notices {
 		y += svgLineHeight
-		fmt.Fprintf(&w.b, "<text x=%q y=%q fill=\"#666666\">not represented: %s</text>\n", svgNumber(svgMargin), svgNumber(y), svgText(notice))
+		fmt.Fprintf(&w.b, "<text x=%q y=%q fill=\"#666666\">%s%s</text>\n", svgNumber(svgMargin), svgNumber(y), svgNoticePrefix, svgText(notice))
 	}
 	return y + svgLineHeight
 }
@@ -109,7 +115,7 @@ func (w *svgWriter) empty() {
 	reason := w.r.EmptyReason()
 	width := svgMargin*2 + math.Max(svgTextWidth(w.title())+4*svgCharWidth, svgTextWidth(reason))
 	for _, notice := range notices {
-		width = math.Max(width, svgMargin*2+svgTextWidth("not represented: "+notice))
+		width = math.Max(width, svgMargin*2+svgTextWidth(svgNoticePrefix+notice))
 	}
 	height := headingHeight(notices) + svgLineHeight + svgMargin
 	w.open(width, height)
@@ -146,7 +152,7 @@ func (w *svgWriter) timeline() {
 	width := chartRight + svgMargin + 2*svgCharWidth
 	width = math.Max(width, svgMargin*2+svgTextWidth(w.title()))
 	for _, notice := range notices {
-		width = math.Max(width, svgMargin*2+svgTextWidth("not represented: "+notice))
+		width = math.Max(width, svgMargin*2+svgTextWidth(svgNoticePrefix+notice))
 	}
 	lanesTop := headingHeight(notices) + svgLineHeight/2
 	axisTop := lanesTop + float64(len(r.Lanes))*(svgLaneHeight+svgLaneGap)
@@ -156,10 +162,30 @@ func (w *svgWriter) timeline() {
 	w.timelineClock(until)
 	x := func(t float64) float64 { return chartLeft + t*scale }
 
+	w.timelineAxis(x, chartLeft, chartRight, axisTop, until)
+	for i, lane := range r.Lanes {
+		w.timelineLane(lane, x, lanesTop+float64(i)*(svgLaneHeight+svgLaneGap), chartLeft, chartWidth, until)
+	}
+
+	cursorX := x(until)
+	fmt.Fprintf(&w.b, "<line id=\"cursor\" x1=%q y1=%q x2=%q y2=%q stroke=\"#c0392b\" stroke-width=\"1.5\">",
+		svgNumber(cursorX), svgNumber(lanesTop-svgLaneGap/2), svgNumber(cursorX), svgNumber(axisTop))
+	if w.animated && w.play > 0 {
+		for _, attribute := range []string{"x1", "x2"} {
+			fmt.Fprintf(&w.b, "<animate attributeName=%q values=\"%s;%s;%s\" keyTimes=\"0;%s;1\" dur=%q repeatCount=\"indefinite\"/>",
+				attribute, svgNumber(chartLeft), svgNumber(chartRight), svgNumber(chartRight), svgFraction(w.fraction(until, until)), svgDuration(w.total))
+		}
+	}
+	w.b.WriteString("</line>\n</svg>\n")
+}
+
+// timelineAxis draws the time axis with a tick at each instant, labelling the
+// ticks that leave room for their label.
+func (w *svgWriter) timelineAxis(x func(float64) float64, chartLeft, chartRight, axisTop, until float64) {
 	fmt.Fprintf(&w.b, "<line x1=%q y1=%q x2=%q y2=%q stroke=\"#333333\"/>\n",
 		svgNumber(chartLeft), svgNumber(axisTop), svgNumber(chartRight), svgNumber(axisTop))
 	lastLabel := math.Inf(-1)
-	instants := timelineInstants(r.Lanes, until)
+	instants := timelineInstants(w.r.Lanes, until)
 	for i, t := range instants {
 		tx := x(t)
 		fmt.Fprintf(&w.b, "<line x1=%q y1=%q x2=%q y2=%q stroke=\"#333333\"/>\n",
@@ -173,79 +199,73 @@ func (w *svgWriter) timeline() {
 			svgNumber(tx), svgNumber(axisTop+svgFontSize+6), svgText(label))
 		lastLabel = tx
 	}
+}
 
-	for i, lane := range r.Lanes {
-		top := lanesTop + float64(i)*(svgLaneHeight+svgLaneGap)
-		fmt.Fprintf(&w.b, "<g id=%q>\n", lane.ID)
-		fmt.Fprintf(&w.b, "<rect x=%q y=%q width=%q height=%q fill=\"#f4f6f8\"/>\n",
-			svgNumber(chartLeft), svgNumber(top), svgNumber(chartWidth), svgNumber(svgLaneHeight))
-		w.linked(lane.Origin, func() {
-			fmt.Fprintf(&w.b, "<text x=%q y=%q>%s</text>", svgNumber(svgMargin), svgNumber(top+svgLaneHeight/2+svgFontSize/2-1), svgText(lane.Name))
-		})
-		w.b.WriteString("\n")
-		for j, span := range lane.Spans {
-			id := fmt.Sprintf("%ss%d", lane.ID, j)
-			label := timelineStateLabel(span)
-			when := "t = " + runInstant(span.From)
-			if span.To > span.From {
-				when += " to " + runInstant(span.To)
-			} else {
-				when += ", held for no time"
-			}
-			if span.Open {
-				when += " (open at the end of the run)"
-			}
-			if span.To <= span.From {
-				tx := x(span.From)
-				fmt.Fprintf(&w.b, "<g id=%q><title>%s</title>", id, svgText(label+"\n"+when))
-				fmt.Fprintf(&w.b, "<line x1=%q y1=%q x2=%q y2=%q stroke=\"#c0392b\" stroke-width=\"2\"/>",
-					svgNumber(tx), svgNumber(top), svgNumber(tx), svgNumber(top+svgLaneHeight))
-				w.appearAt(span.From, until, "opacity")
-				w.b.WriteString("</g>\n")
-				continue
-			}
-			left, right := x(span.From), x(span.To)
-			fmt.Fprintf(&w.b, "<g id=%q><title>%s</title>", id, svgText(label+"\n"+when))
-			w.linked(span.Origin, func() {
-				fmt.Fprintf(&w.b, "<rect x=%q y=%q width=%q height=%q rx=\"3\" fill=\"#8fb6e0\" stroke=\"#3b6ea5\">",
-					svgNumber(left), svgNumber(top+3), svgNumber(right-left), svgNumber(svgLaneHeight-6))
-				w.activeBetween(span.From, span.To, until)
-				w.b.WriteString("</rect>")
-				if text := svgFit(label, right-left-2*svgCharWidth); text != "" {
-					fmt.Fprintf(&w.b, "<text x=%q y=%q text-anchor=\"middle\">%s</text>",
-						svgNumber((left+right)/2), svgNumber(top+svgLaneHeight/2+svgFontSize/2-1), svgText(text))
-				}
-			})
-			w.b.WriteString("</g>\n")
-			if len(span.Through) > 0 {
-				fmt.Fprintf(&w.b, "<g><title>%s</title>", svgText("through "+strings.Join(span.Through, ", ")+"\nt = "+runInstant(span.From)))
-				fmt.Fprintf(&w.b, "<line x1=%q y1=%q x2=%q y2=%q stroke=\"#c0392b\" stroke-width=\"2\"/>",
-					svgNumber(left), svgNumber(top), svgNumber(left), svgNumber(top+svgLaneHeight))
-				w.appearAt(span.From, until, "opacity")
-				w.b.WriteString("</g>\n")
-			}
-		}
-		for _, mark := range lane.Marks {
-			mx, my := x(mark.At), top+svgLaneHeight/2
-			fmt.Fprintf(&w.b, "<g><title>%s</title>", svgText(mark.Kind+": "+mark.Text+"\nt = "+runInstant(mark.At)))
-			fmt.Fprintf(&w.b, "<path d=\"M%s %sl5 5l-5 5l-5 -5z\" fill=\"#f1c40f\" stroke=\"#7d6608\"/>",
-				svgNumber(mx), svgNumber(my-5))
-			w.appearAt(mark.At, until, "opacity")
-			w.b.WriteString("</g>\n")
-		}
-		w.b.WriteString("</g>\n")
+// timelineLane draws one machine's lane at top: its name, its state spans and its marks.
+func (w *svgWriter) timelineLane(lane Lane, x func(float64) float64, top, chartLeft, chartWidth, until float64) {
+	fmt.Fprintf(&w.b, "<g id=%q>\n", lane.ID)
+	fmt.Fprintf(&w.b, "<rect x=%q y=%q width=%q height=%q fill=\"#f4f6f8\"/>\n",
+		svgNumber(chartLeft), svgNumber(top), svgNumber(chartWidth), svgNumber(svgLaneHeight))
+	w.linked(lane.Origin, func() {
+		fmt.Fprintf(&w.b, "<text x=%q y=%q>%s</text>", svgNumber(svgMargin), svgNumber(top+svgLaneHeight/2+svgFontSize/2-1), svgText(lane.Name))
+	})
+	w.b.WriteString("\n")
+	for j, span := range lane.Spans {
+		w.timelineSpan(fmt.Sprintf("%ss%d", lane.ID, j), span, x, top, until)
 	}
+	for _, mark := range lane.Marks {
+		mx, my := x(mark.At), top+svgLaneHeight/2
+		fmt.Fprintf(&w.b, "<g><title>%s</title>", svgText(mark.Kind+": "+mark.Text+"\nt = "+runInstant(mark.At)))
+		fmt.Fprintf(&w.b, "<path d=\"M%s %sl5 5l-5 5l-5 -5z\" fill=\"#f1c40f\" stroke=\"#7d6608\"/>",
+			svgNumber(mx), svgNumber(my-5))
+		w.appearAt(mark.At, until, "opacity")
+		w.b.WriteString(svgGroupEnd)
+	}
+	w.b.WriteString(svgGroupEnd)
+}
 
-	cursorX := x(until)
-	fmt.Fprintf(&w.b, "<line id=\"cursor\" x1=%q y1=%q x2=%q y2=%q stroke=\"#c0392b\" stroke-width=\"1.5\">",
-		svgNumber(cursorX), svgNumber(lanesTop-svgLaneGap/2), svgNumber(cursorX), svgNumber(axisTop))
-	if w.animated && w.play > 0 {
-		for _, attribute := range []string{"x1", "x2"} {
-			fmt.Fprintf(&w.b, "<animate attributeName=%q values=\"%s;%s;%s\" keyTimes=\"0;%s;1\" dur=%q repeatCount=\"indefinite\"/>",
-				attribute, svgNumber(chartLeft), svgNumber(chartRight), svgNumber(chartRight), svgFraction(w.fraction(until, until)), svgDuration(w.total))
-		}
+// timelineSpan draws one state span in a lane: a bar between its instants (a
+// line where it was held for no time), marking an entry made through other states.
+func (w *svgWriter) timelineSpan(id string, span Span, x func(float64) float64, top, until float64) {
+	label := timelineStateLabel(span)
+	when := "t = " + runInstant(span.From)
+	if span.To > span.From {
+		when += " to " + runInstant(span.To)
+	} else {
+		when += ", held for no time"
 	}
-	w.b.WriteString("</line>\n</svg>\n")
+	if span.Open {
+		when += " (open at the end of the run)"
+	}
+	if span.To <= span.From {
+		tx := x(span.From)
+		fmt.Fprintf(&w.b, "<g id=%q><title>%s</title>", id, svgText(label+"\n"+when))
+		fmt.Fprintf(&w.b, "<line x1=%q y1=%q x2=%q y2=%q stroke=\"#c0392b\" stroke-width=\"2\"/>",
+			svgNumber(tx), svgNumber(top), svgNumber(tx), svgNumber(top+svgLaneHeight))
+		w.appearAt(span.From, until, "opacity")
+		w.b.WriteString(svgGroupEnd)
+		return
+	}
+	left, right := x(span.From), x(span.To)
+	fmt.Fprintf(&w.b, "<g id=%q><title>%s</title>", id, svgText(label+"\n"+when))
+	w.linked(span.Origin, func() {
+		fmt.Fprintf(&w.b, "<rect x=%q y=%q width=%q height=%q rx=\"3\" fill=\"#8fb6e0\" stroke=\"#3b6ea5\">",
+			svgNumber(left), svgNumber(top+3), svgNumber(right-left), svgNumber(svgLaneHeight-6))
+		w.activeBetween(span.From, span.To, until)
+		w.b.WriteString("</rect>")
+		if text := svgFit(label, right-left-2*svgCharWidth); text != "" {
+			fmt.Fprintf(&w.b, "<text x=%q y=%q text-anchor=\"middle\">%s</text>",
+				svgNumber((left+right)/2), svgNumber(top+svgLaneHeight/2+svgFontSize/2-1), svgText(text))
+		}
+	})
+	w.b.WriteString(svgGroupEnd)
+	if len(span.Through) > 0 {
+		fmt.Fprintf(&w.b, "<g><title>%s</title>", svgText("through "+strings.Join(span.Through, ", ")+"\nt = "+runInstant(span.From)))
+		fmt.Fprintf(&w.b, "<line x1=%q y1=%q x2=%q y2=%q stroke=\"#c0392b\" stroke-width=\"2\"/>",
+			svgNumber(left), svgNumber(top), svgNumber(left), svgNumber(top+svgLaneHeight))
+		w.appearAt(span.From, until, "opacity")
+		w.b.WriteString(svgGroupEnd)
+	}
 }
 
 // timelineClock sets the replay's duration: one step per instant at which
@@ -364,7 +384,7 @@ func (w *svgWriter) sequence() {
 	}
 	width = math.Max(width, svgMargin*2+svgTextWidth(w.title()))
 	for _, notice := range notices {
-		width = math.Max(width, svgMargin*2+svgTextWidth("not represented: "+notice))
+		width = math.Max(width, svgMargin*2+svgTextWidth(svgNoticePrefix+notice))
 	}
 	headTop := headingHeight(notices) + svgLineHeight/2
 	messagesTop := headTop + svgHeadHeight + svgMessageRow
@@ -419,7 +439,7 @@ func (w *svgWriter) sequence() {
 			}
 			w.marker(travel, start, end)
 		}
-		w.b.WriteString("</g>\n")
+		w.b.WriteString(svgGroupEnd)
 	}
 	w.b.WriteString("</svg>\n")
 }

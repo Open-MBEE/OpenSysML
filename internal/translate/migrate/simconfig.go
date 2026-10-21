@@ -400,7 +400,7 @@ func (m *migration) targetClassifiers(s *sysmlv1.Stereotype) (t *sysmlv1.Element
 	case catInstance:
 		kind, types, _, _ := m.instanceKind(t)
 		if kind != catPartDef && kind != catOccurrenceDef && kind != catItemDef {
-			return nil, nil, targetNote + describe(t) + " is written as " + kwArticle(kind.usageKeyword()) + ", which no part can subset, so the configuration runs no behavior"
+			return nil, nil, targetNote + describe(t) + isWrittenAs + kwArticle(kind.usageKeyword()) + ", which no part can subset, so the configuration runs no behavior"
 		}
 		classifiers = types
 	default:

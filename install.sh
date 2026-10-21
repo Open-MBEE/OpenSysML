@@ -387,6 +387,7 @@ want_bundle=false
 for tool in $tool_list; do
 	case "$tool" in
 	sysml | sysml-lsp) want_bundle=true ;;
+	*) ;;
 	esac
 done
 if [ "$want_bundle" = true ] || want sysml-mcp; then
@@ -400,7 +401,8 @@ if [ "$want_bundle" = true ] || want sysml-mcp; then
 fi
 from_label="  from:     "
 from() { # <url>: one line per asset, the first labelled
-	info "$from_label$1"
+	url=$1
+	info "$from_label$url"
 	from_label="            "
 }
 [ "$want_bundle" = false ] || from "$(asset_url "$bundle")"
@@ -418,11 +420,12 @@ info "Downloading..."
 [ -f "$work/SHA256SUMS.txt" ] || fetch_manifest
 
 verify() { # <asset>: against the manifest
-	expected=$(manifest_digest "$1")
-	[ -n "$expected" ] || fail "SHA256SUMS.txt of $release_name does not list $1; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.10.0, and sysml-mcp has its own archive only from the release that introduced it"
-	actual=$(sha256_of "$work/$1")
-	[ "$actual" = "$expected" ] || fail "$1 does not match SHA256SUMS.txt (expected $expected, got $actual); the download is corrupt or tampered with"
-	info "  $1 verified"
+	asset=$1
+	expected=$(manifest_digest "$asset")
+	[ -n "$expected" ] || fail "SHA256SUMS.txt of $release_name does not list $asset; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.10.0, and sysml-mcp has its own archive only from the release that introduced it"
+	actual=$(sha256_of "$work/$asset")
+	[ "$actual" = "$expected" ] || fail "$asset does not match SHA256SUMS.txt (expected $expected, got $actual); the download is corrupt or tampered with"
+	info "  $asset verified"
 }
 
 if [ "$want_bundle" = true ]; then
@@ -445,15 +448,17 @@ fi
 # --- install ----------------------------------------------------------------
 
 extract() { # <archive> <directory>: the archive's files into the directory
-	mkdir -p "$2"
+	archive=$1
+	directory=$2
+	mkdir -p "$directory"
 	if [ "$target_os" = windows ]; then
 		if have unzip; then
-			unzip -q "$work/$1" -d "$2"
+			unzip -q "$work/$archive" -d "$directory"
 		else
-			tar -xf "$work/$1" -C "$2"
+			tar -xf "$work/$archive" -C "$directory"
 		fi
 	else
-		tar -xzf "$work/$1" -C "$2"
+		tar -xzf "$work/$archive" -C "$directory"
 	fi
 }
 [ "$want_bundle" = false ] || extract "$bundle" "$work/bundle"

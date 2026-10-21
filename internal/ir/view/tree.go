@@ -129,7 +129,7 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 		}
 		rendered[sub] = true
 		node := &Node{ID: ids.take(), Kind: declKind(sub), Name: r.notationName(sub), NameSynthesized: r.model.NameSynthesized(sub),
-			Type: declType(sub), Typings: r.declTypings(sub), Origin: symbolOrigin(sub), Geometry: r.geometryOf(view, sub, out)}
+			Type: r.headType(sub), Typings: r.headTypings(sub), Origin: symbolOrigin(sub), Geometry: r.geometryOf(view, sub, out)}
 		r.dress(view, sub, node, out)
 		exposed, err := r.model.ExposedElements(sub)
 		if err == nil {
@@ -195,7 +195,7 @@ func (r *Renderer) treeNodeShallow(view, sym *symbols.Symbol, ids *nodeIDs, path
 		name = localName(sym)
 	}
 	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
-		Type: declType(sym), Typings: r.declTypings(sym), Value: r.declValue(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(view, sym, out),
+		Type: r.headType(sym), Typings: r.headTypings(sym), Value: r.declValue(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(view, sym, out),
 		Style: r.styleOf(view, sym, out), Referential: referenceRow(sym)}
 	out.noteTreeSite(node, view, sym)
 	if path[sym] {

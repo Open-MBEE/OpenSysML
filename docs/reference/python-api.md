@@ -56,6 +56,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_CONVERT_CHECK_DIAGNOSTICS
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_PARSE_SOURCES_AFFECTED
     options:
       heading_level: 3
@@ -192,8 +196,16 @@ Connections own or reach a service, and resolve their address and release.
 ## opensysml.model
 
 A parsed model is the entry point for symbol lookup, evaluation and execution.
-`Model.render_view(view_name, ports="minimal")` returns a typed `RenderedView`;
-pass `ports="full"` to include every declared port.
+`Model.render_view(view_name, ports="minimal", show=None, depth=0)` returns a typed
+`RenderedView`; pass `ports="full"` to include every declared port, `show` to draw
+optional notation elements (the result's `shown` lists the ones drawn) and `depth`
+to bound how deep nested elements are drawn.
+`Model.diagnostics` is what the parse answered under the default lint selection;
+`Model.refresh_diagnostics(disable_lint=(), enable_lint=())` asks the service again,
+leaving out the lints `disable_lint` names and keeping the opt-in ones `enable_lint`
+names, as `sysml -disable-lint`/`-enable-lint` select them (also
+`Connection.diagnostics(model_hash, ...)`). A code naming no lint raises
+`InvalidRequestError` naming the lints there are.
 `Model.export_graphs(subject)` returns a typed `Graphs`: the canonical `graphs:1`
 JSON of an action or state machine's lowered graph, its version and the subject
 as resolved.

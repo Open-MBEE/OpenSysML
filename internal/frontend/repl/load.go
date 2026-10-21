@@ -130,6 +130,9 @@ func (s *Session) expandPaths(paths []string) ([]string, error) {
 	if len(files) == 0 {
 		return nil, errors.New("no model files to load")
 	}
+	if err := s.guardFiles(files, true); err != nil {
+		return nil, err
+	}
 	return files, nil
 }
 
@@ -149,7 +152,11 @@ func (s *Session) LibraryRoots() []string {
 
 // discovery is the search for installed projects under the session's library roots.
 func (s *Session) discovery() project.Discovery {
-	return project.Discovery{Roots: s.libraryRoots}
+	d := project.Discovery{Roots: s.libraryRoots}
+	if s.fileGuard != nil {
+		d.Guard = func(path string) error { return s.guardFile(path, true) }
+	}
+	return d
 }
 
 // reading is what readSources read: the sources a load submits, and what the
@@ -173,6 +180,9 @@ func (s *Session) readWithDependencies(paths []string, opts loadOptions) (readin
 	deps := s.discovery().DependenciesOf(read.deps, s.ws.IsLibraryRoot)
 	if len(deps) == 0 {
 		return read, nil
+	}
+	if err := s.guardFiles(deps, true); err != nil {
+		return reading{}, err
 	}
 	more, err := s.readSources(deps, loadOptions{})
 	if err != nil {

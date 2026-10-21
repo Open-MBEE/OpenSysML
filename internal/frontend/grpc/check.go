@@ -104,14 +104,14 @@ func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorReques
 		}
 		inv := &runtime.Invocation{}
 		if action {
-			exec, err := rt.CreateActionExecutorWithInputs(sym, self, inputs)
+			exec, _, err := rt.StartActionPerformedBy(sym, self, inputs)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create executor: %w", err)
 			}
 			inv.Actions = append(inv.Actions, exec)
 			return inv, nil
 		}
-		exec, err := rt.CreateStateExecutorFor(sym, self)
+		exec, _, err := rt.StartStatePerformedBy(sym, self)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create executor: %w", err)
 		}

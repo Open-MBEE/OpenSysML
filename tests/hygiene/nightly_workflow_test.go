@@ -36,6 +36,7 @@ type actionsStep struct {
 	Run  string            `yaml:"run"`
 	If   string            `yaml:"if"`
 	With map[string]string `yaml:"with"`
+	Env  map[string]string `yaml:"env"`
 }
 
 func (j actionsJob) needs() []string {
@@ -82,7 +83,7 @@ func nightlyJob(t *testing.T, workflow actionsWorkflow, name string) actionsJob 
 
 func TestNightlyBuildsOnlyCommitsThatCarryItsScripts(t *testing.T) {
 	workflow, _ := loadNightlyWorkflow(t)
-	for _, key := range []string{"BUILD_SCRIPT", "KERNEL_DIST_SCRIPT", "SNAPSHOT_SCRIPT"} {
+	for _, key := range []string{"BUILD_SCRIPT", "KERNEL_DIST_SCRIPT", "SNAPSHOT_SCRIPT", "MCP_RUNNER_TEST"} {
 		script, ok := workflow.Env[key]
 		if !ok {
 			t.Fatalf("nightly.yml declares no %s", key)
@@ -92,8 +93,8 @@ func TestNightlyBuildsOnlyCommitsThatCarryItsScripts(t *testing.T) {
 		}
 	}
 	selectJob := nightlyJob(t, workflow, "select")
-	if stepIndex(selectJob.runSteps(), `"$BUILD_SCRIPT" "$KERNEL_DIST_SCRIPT" "$SNAPSHOT_SCRIPT"`, "git cat-file -e") < 0 {
-		t.Error("the select job does not skip a green commit that lacks the build, kernel-distribution or snapshot-version script, which it could not build")
+	if stepIndex(selectJob.runSteps(), `"$BUILD_SCRIPT" "$KERNEL_DIST_SCRIPT" "$SNAPSHOT_SCRIPT" "$MCP_RUNNER_TEST"`, "git cat-file -e") < 0 {
+		t.Error("the select job does not skip a green commit that lacks the build, kernel-distribution, snapshot-version or npm-runner script, which it could not build")
 	}
 }
 
@@ -389,5 +390,76 @@ func TestNightlyNeverRebuildsAPublishedNight(t *testing.T) {
 	}
 	if !containsAll(command, `gh release view "$VERSION" --json isDraft`, "already published", "exit 1") {
 		t.Error("the release step does not refuse to replace a published night")
+	}
+}
+
+// TestNightlyPublishesTheNpmRunnerWithTheClient checks that a night stamps,
+// builds, proves and publishes @openmbee/sysml-mcp and its five platform
+// packages beside the client's seven: thirteen tarballs, platform packages
+// before the shim that pins them.
+func TestNightlyPublishesTheNpmRunnerWithTheClient(t *testing.T) {
+	workflow, _ := loadNightlyWorkflow(t)
+	publish := nightlyJob(t, workflow, "publish").runSteps()
+	if stepIndex(publish, "git diff --stat", "packaging/npm/sysml-mcp/package.json") < 0 {
+		t.Error("the publish job does not show the stamped packaging/npm/sysml-mcp/package.json")
+	}
+	pack := stepIndex(publish, "npm run platform-packages", "--mcp ../../dist/mcp", "../../packaging/npm/sysml-mcp", "-ne 13")
+	switch {
+	case pack < 0:
+		t.Fatal("the publish job does not build the sysml-mcp platform packages and pack @openmbee/sysml-mcp as the thirteenth tarball")
+	case !strings.Contains(publish[pack].Command, "scripts/npm-mcp-test.sh"):
+		t.Error("the publish job does not prove the packed @openmbee/sysml-mcp serves the protocol")
+	case !strings.Contains(publish[pack].Command, "openmbee-sysml-mcp-${NPM_VERSION}.tgz"):
+		t.Error("the publish job does not check that @openmbee/sysml-mcp pins its platform packages at the snapshot version")
+	}
+
+	npm := nightlyJob(t, workflow, "npm").runSteps()
+	step := stepIndex(npm, "npm publish", `--tag "$NPM_DIST_TAG"`, "-ne 13")
+	if step < 0 {
+		t.Fatal("the npm job does not publish thirteen tarballs")
+	}
+	command := npm[step].Command
+	platforms := strings.Index(command, `openmbee-sysml-mcp-linux-x64-"$NPM_VERSION".tgz`)
+	shim := strings.Index(command, `openmbee-sysml-mcp-"$NPM_VERSION".tgz`)
+	switch {
+	case platforms < 0:
+		t.Error("the npm job does not publish the sysml-mcp platform packages")
+	case shim < 0:
+		t.Error("the npm job does not publish @openmbee/sysml-mcp")
+	case shim < platforms:
+		t.Error("the npm job publishes @openmbee/sysml-mcp before the platform packages it pins")
+	}
+	if stepIndex(npm, "dist-tags.latest", "@openmbee/sysml-mcp") < 0 {
+		t.Error("the npm job does not check, after publishing, that @openmbee/sysml-mcp's latest still names the stable release")
+	}
+}
+
+// The clients are versioned as development builds of the release the snapshot leads
+// to; the extension must be too, or a night's vsix (0.10.1-nightly-…) ranks below the
+// 0.10.1 already released and VS Code offers the release as an upgrade from it.
+func TestNightlyVSIXIsVersionedAsTheSnapshotCoreNotTheManifest(t *testing.T) {
+	workflow, _ := loadNightlyWorkflow(t)
+	publish := nightlyJob(t, workflow, "publish")
+	derive := stepIndex(publish.runSteps(), `"$SNAPSHOT_SCRIPT"`, `--stamp`)
+	if derive < 0 || !containsAll(publish.runSteps()[derive].Command, `echo "$versions"`, `>> "$GITHUB_OUTPUT"`) {
+		t.Fatalf("the publish job does not write the snapshot script's versions (core= included) to its outputs")
+	}
+	var packaged *actionsStep
+	for i := range publish.Steps {
+		if publish.Steps[i].Name == "Package the VS Code extension" {
+			packaged = &publish.Steps[i]
+		}
+	}
+	if packaged == nil {
+		t.Fatalf("the publish job has no 'Package the VS Code extension' step")
+	}
+	if packaged.Env["CORE"] != "${{ steps.version.outputs.core }}" {
+		t.Errorf("the vsix step reads CORE=%q, not the version step's core output", packaged.Env["CORE"])
+	}
+	if !containsAll(packaged.Run, `expected="${CORE}-${VERSION}"`, `"$stamped" != "$expected"`) {
+		t.Errorf("the vsix step does not package and check the extension as <core>-<snapshot tag>:\n%s", packaged.Run)
+	}
+	if strings.Contains(packaged.Run, "editors/vscode/package.json').version") {
+		t.Errorf("the vsix step still versions the extension from its manifest, which names the release already made:\n%s", packaged.Run)
 	}
 }

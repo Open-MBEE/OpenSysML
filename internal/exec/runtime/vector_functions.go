@@ -77,6 +77,7 @@ func vectorElements(name, param string, val Value) ([]semantics.Value, error) {
 // labelledVectorElements is vectorElements reporting the parameter by a
 // rendered label, which names an anonymous parameter by position.
 func labelledVectorElements(name, label string, val Value) ([]semantics.Value, error) {
+	val = soleElement(val)
 	switch val.Kind {
 	case ValVector:
 		return val.Vector().Elements, nil

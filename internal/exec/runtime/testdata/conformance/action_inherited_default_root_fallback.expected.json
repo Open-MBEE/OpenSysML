@@ -2,8 +2,8 @@
 	"type": "action",
 	"evaluate": "test::Derived",
 	"outputs": {
-		"x": {"type": "Integer", "value": 10},
+		"x": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]},
 		"z": {"type": "Integer", "value": 6},
-		"r": {"type": "Integer", "value": 6}
+		"r": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]}
 	}
 }

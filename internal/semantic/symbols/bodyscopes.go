@@ -125,6 +125,9 @@ func (w ExprWalker) Decl(scope *Scope, decl ast.Node) {
 		} else {
 			w.Expr(scope, d.Value)
 		}
+		if d.Terminates != nil {
+			w.Expr(scope, d.Terminates.Target)
+		}
 		for _, end := range d.ConnectorEnds {
 			if end == nil {
 				continue

@@ -25,8 +25,16 @@ STATUS_HEADING = "Status"
 
 # Python-Markdown's tables extension: pipes inside a code span or escaped do not split.
 _CODE_PIPES = re.compile(r"(?:(\\\\)|(\\`+)|(`+)|(\\\|)|(\|))")
-_END_BORDER = re.compile(r"(?<!\\)(?:\\\\)*\|$")
 _SEPARATOR_CHARS = set("|:- ")
+
+
+def _strip_end_border(row: str) -> str:
+    """Drop a closing pipe with the escaped backslashes before it, as Python-Markdown's RE_END_BORDER does."""
+    if not row.endswith("|"):
+        return row
+    body = row[:-1]
+    run = len(body) - len(body.rstrip("\\"))
+    return body[: len(body) - run] if run % 2 == 0 else row
 
 
 def split_cells(row: str) -> list[str]:
@@ -34,7 +42,7 @@ def split_cells(row: str) -> list[str]:
     row = row.strip(" ")
     if row.startswith("|"):
         row = row[1:]
-    row = _END_BORDER.sub("", row)
+    row = _strip_end_border(row)
     pipes: list[int] = []
     tics: list[int] = []
     tic_points: list[tuple[int, int, int]] = []

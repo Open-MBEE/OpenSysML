@@ -11,11 +11,13 @@ import (
 
 const (
 	sharedDigestTable = "../../client/release-digests.json"
+	changelog         = "../../CHANGELOG.md"
+	changelogArchive  = "../../docs/project/archive/CHANGELOG-0.0-0.8.md"
 	digestRepo        = "Open-MBEE/OpenSysML"
 	unsignedRelease   = "published before the pipeline signed its manifest; there is no bundle to verify a digest with"
 )
 
-// Releases CHANGELOG.md records that the shared table cannot pin, each with
+// Releases the changelog records that the shared table cannot pin, each with
 // the reason. Every other recorded release must be pinned.
 var unpinnableReleases = map[string]string{
 	"v0.0.4": "published before the service binaries existed; the release has no sysml-grpc assets",
@@ -37,20 +39,25 @@ var (
 // tree itself is cutting is the one exception, until it is tagged: its digests
 // exist only once its tag has built.
 //
-// CHANGELOG.md, not git, is the list of releases: a shallow clone has no tags,
-// and the heading is written on the release branch before any tag exists. git
+// CHANGELOG.md and the archive its older releases moved to, not git, are the
+// list of releases: a shallow clone has no tags, and the heading is written on
+// the release branch before any tag exists. git
 // is consulted only to tell that release, still being cut, from one already
 // tagged, whose pin is due; a clone without the tag reads as the former.
 func TestSharedDigestTablePinsEveryRecordedRelease(t *testing.T) {
 	table := sharedPins(t)
 	own := ownReleaseTag(t)
-	raw, err := os.ReadFile("../../CHANGELOG.md")
-	if err != nil {
-		t.Fatalf("read CHANGELOG.md: %v", err)
-	}
-	releases := changelogRelease.FindAllStringSubmatch(string(raw), -1)
-	if len(releases) == 0 {
-		t.Fatal("CHANGELOG.md records no release")
+	var releases [][]string
+	for _, path := range []string{changelog, changelogArchive} {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		found := changelogRelease.FindAllStringSubmatch(string(raw), -1)
+		if len(found) == 0 {
+			t.Fatalf("%s records no release", path)
+		}
+		releases = append(releases, found...)
 	}
 	for _, release := range releases {
 		if release[1] == "Unreleased" {
@@ -83,7 +90,7 @@ func TestSharedDigestTablePinsEveryRecordedRelease(t *testing.T) {
 		if tag == own && !tagExists(tag) {
 			continue
 		}
-		t.Errorf("CHANGELOG.md records %s as released, but client/release-digests.json does not pin it;\n"+
+		t.Errorf("the changelog records %s as released, but client/release-digests.json does not pin it;\n"+
 			"merge the chore/pin-%s pull request the tag's pipeline opened against develop, or run\n"+
 			"python3 client/python/scripts/pin_release_checksums.py --version %s --write", tag, tag, tag)
 	}

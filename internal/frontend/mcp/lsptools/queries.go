@@ -169,46 +169,36 @@ type CodeActionsResult struct {
 }
 
 func registerQueries(s *mcp.Server, h *Host) {
+	registerDiagnosticTools(s, h)
+	registerNavigationTools(s, h)
+	registerSymbolTools(s, h)
+	registerEditingTools(s, h)
+	registerAnnotationTools(s, h)
+}
+
+// registerDiagnosticTools adds the tool that analyzes a document or the workspace.
+func registerDiagnosticTools(s *mcp.Server, h *Host) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "workspace_diagnostics",
 		Description: "Analyze a SysML v2 / KerML document, or the whole workspace, and list the errors, warnings and hints: " +
 			"syntax, unresolved names, type and constraint violations. Positions are 1-based lines and columns.",
 		Annotations: toolkit.ReadOnly("Diagnostics"),
 	}, reading(h, func(ctx context.Context, _ *mcp.CallToolRequest, in DiagnosticsInput) (*mcp.CallToolResult, DiagnosticsResult, error) {
-		var refs []docRef
-		if strings.TrimSpace(in.Path) != "" {
-			ref, err := h.document(ctx, in.Path)
-			if err != nil {
-				return nil, DiagnosticsResult{}, err
-			}
-			if _, err := h.content(ref); err != nil {
-				return nil, DiagnosticsResult{}, err
-			}
-			refs = append(refs, ref)
-		} else {
-			h.Refresh(ctx)
-			names := h.Workspace.DocumentNames()
-			sort.Strings(names)
-			for _, name := range names {
-				if !h.Workspace.IsLibraryDocument(name) {
-					refs = append(refs, docRef{name: name})
-				}
-			}
+		refs, err := h.diagnosed(ctx, in.Path)
+		if err != nil {
+			return nil, DiagnosticsResult{}, err
 		}
 		res := DiagnosticsResult{Diagnostics: []Diagnostic{}, Documents: len(refs)}
 		for _, ref := range refs {
 			res.Diagnostics = append(res.Diagnostics, h.diagnosticsOf(ref)...)
 		}
-		for _, d := range res.Diagnostics {
-			switch d.Severity {
-			case "error":
-				res.Errors++
-			case "warning":
-				res.Warnings++
-			}
-		}
+		res.Errors, res.Warnings = countSeverities(res.Diagnostics)
 		return text(renderDiagnostics(res.Diagnostics, fmt.Sprintf("%d documents", len(refs)))), res, nil
 	}))
+}
+
+// registerNavigationTools adds the tools that explain and follow the name at a position.
+func registerNavigationTools(s *mcp.Server, h *Host) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "hover",
 		Description: "Explain the element at a position: its kind, qualified name, type, value and documentation, as Markdown.",
@@ -265,6 +255,10 @@ func registerQueries(s *mcp.Server, h *Host) {
 		}
 		return h.locations(locs)
 	}))
+}
+
+// registerSymbolTools adds the tools that outline a document and search the workspace.
+func registerSymbolTools(s *mcp.Server, h *Host) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:         "document_symbols",
 		Description:  "Outline a document: the elements it declares, nested as they are owned, with their kinds and ranges.",
@@ -325,6 +319,11 @@ func registerQueries(s *mcp.Server, h *Host) {
 		}
 		return text(strings.TrimSpace(b.String())), res, nil
 	}))
+}
+
+// registerEditingTools adds the tools an editor offers while typing: completion
+// and signature help.
+func registerEditingTools(s *mcp.Server, h *Host) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "completion",
 		Description: "Propose completions at a position: keywords, names in scope and members of the type being accessed.",
@@ -343,21 +342,8 @@ func registerQueries(s *mcp.Server, h *Host) {
 		if list != nil {
 			res.IsIncomplete = list.IsIncomplete
 			for _, item := range list.Items {
-				ci := CompletionItem{Label: item.Label, Detail: item.Detail, Documentation: docString(item.Documentation)}
-				if item.Kind != 0 {
-					ci.Kind = item.Kind.String()
-				}
-				if item.InsertText != "" && item.InsertText != item.Label {
-					ci.InsertText = item.InsertText
-				} else if item.TextEdit != nil && item.TextEdit.NewText != item.Label {
-					ci.InsertText = item.TextEdit.NewText
-				}
-				res.Items = append(res.Items, ci)
-				fmt.Fprintf(&b, "%s", item.Label)
-				if item.Detail != "" {
-					fmt.Fprintf(&b, "  %s", item.Detail)
-				}
-				b.WriteString("\n")
+				res.Items = append(res.Items, completionItem(item))
+				b.WriteString(completionLine(item))
 			}
 		}
 		return text(strings.TrimSpace(b.String())), res, nil
@@ -391,6 +377,11 @@ func registerQueries(s *mcp.Server, h *Host) {
 		}
 		return text(strings.TrimSpace(b.String())), res, nil
 	}))
+}
+
+// registerAnnotationTools adds the tools that annotate a document or range: inlay
+// hints and code actions.
+func registerAnnotationTools(s *mcp.Server, h *Host) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "inlay_hints",
 		Description: "List the inferred types and values the editor would show inline for the features of a document or range.",
@@ -428,20 +419,10 @@ func registerQueries(s *mcp.Server, h *Host) {
 		if err != nil {
 			return nil, CodeActionsResult{}, err
 		}
-		var diags []protocol.Diagnostic
-		_, raw, _ := h.Workspace.AnalyzedContent(ref.name)
-		for _, d := range raw {
-			start, end := offsetPosition(content, d.Span.Offset), offsetPosition(content, d.Span.End())
-			pr := protocol.Range{Start: toolkit.Position(start).ToProtocol(lineAt(content, uint32(start.Line-1))), End: toolkit.Position(end).ToProtocol(lineAt(content, uint32(end.Line-1)))} // #nosec G115 -- lines are 1-based counts
-			if pr.End.Line < r.Start.Line || pr.Start.Line > r.End.Line {
-				continue
-			}
-			diags = append(diags, protocol.Diagnostic{Range: pr, Severity: protocol.DiagnosticSeverity(int(d.Severity) + 1), Code: d.Code, Source: d.Source, Message: d.Message}) // #nosec G115 -- four severities
-		}
 		actions, err := h.Server.CodeAction(ctx, &protocol.CodeActionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: ref.uri()},
 			Range:        r,
-			Context:      protocol.CodeActionContext{Diagnostics: diags},
+			Context:      protocol.CodeActionContext{Diagnostics: h.diagnosticsWithin(ref, content, r)},
 		})
 		if err != nil {
 			return nil, CodeActionsResult{}, err
@@ -465,6 +446,83 @@ func registerQueries(s *mcp.Server, h *Host) {
 		}
 		return text(strings.TrimSpace(b.String())), res, nil
 	}))
+}
+
+// diagnosed lists the documents workspace_diagnostics analyzes: the one at path,
+// or every document of the workspace but the library's.
+func (h *Host) diagnosed(ctx context.Context, path string) ([]docRef, error) {
+	if strings.TrimSpace(path) != "" {
+		ref, err := h.document(ctx, path)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := h.content(ref); err != nil {
+			return nil, err
+		}
+		return []docRef{ref}, nil
+	}
+	h.Refresh(ctx)
+	names := h.Workspace.DocumentNames()
+	sort.Strings(names)
+	var refs []docRef
+	for _, name := range names {
+		if !h.Workspace.IsLibraryDocument(name) {
+			refs = append(refs, docRef{name: name})
+		}
+	}
+	return refs, nil
+}
+
+// countSeverities counts the errors and the warnings among diagnostics.
+func countSeverities(diags []Diagnostic) (errors, warnings int) {
+	for _, d := range diags {
+		switch d.Severity {
+		case "error":
+			errors++
+		case "warning":
+			warnings++
+		}
+	}
+	return errors, warnings
+}
+
+// completionItem converts a protocol completion item, keeping an insert text
+// only when it differs from the label.
+func completionItem(item protocol.CompletionItem) CompletionItem {
+	ci := CompletionItem{Label: item.Label, Detail: item.Detail, Documentation: docString(item.Documentation)}
+	if item.Kind != 0 {
+		ci.Kind = item.Kind.String()
+	}
+	if item.InsertText != "" && item.InsertText != item.Label {
+		ci.InsertText = item.InsertText
+	} else if item.TextEdit != nil && item.TextEdit.NewText != item.Label {
+		ci.InsertText = item.TextEdit.NewText
+	}
+	return ci
+}
+
+// completionLine is the text line of a completion item: its label and detail.
+func completionLine(item protocol.CompletionItem) string {
+	if item.Detail != "" {
+		return item.Label + "  " + item.Detail + "\n"
+	}
+	return item.Label + "\n"
+}
+
+// diagnosticsWithin converts the document's own diagnostics whose lines overlap
+// r into the protocol's form, for the code actions that address them.
+func (h *Host) diagnosticsWithin(ref docRef, content []byte, r protocol.Range) []protocol.Diagnostic {
+	var diags []protocol.Diagnostic
+	_, raw, _ := h.Workspace.AnalyzedContent(ref.name)
+	for _, d := range raw {
+		start, end := offsetPosition(content, d.Span.Offset), offsetPosition(content, d.Span.End())
+		pr := protocol.Range{Start: toolkit.Position(start).ToProtocol(lineAt(content, uint32(start.Line-1))), End: toolkit.Position(end).ToProtocol(lineAt(content, uint32(end.Line-1)))} // #nosec G115 -- lines are 1-based counts
+		if pr.End.Line < r.Start.Line || pr.Start.Line > r.End.Line {
+			continue
+		}
+		diags = append(diags, protocol.Diagnostic{Range: pr, Severity: protocol.DiagnosticSeverity(int(d.Severity) + 1), Code: d.Code, Source: d.Source, Message: d.Message}) // #nosec G115 -- four severities
+	}
+	return diags
 }
 
 // at resolves a document and converts a 1-based position into the protocol's.

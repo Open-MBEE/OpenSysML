@@ -102,48 +102,61 @@ func (c *layoutChecker) check(sym *symbols.Symbol) {
 	}
 	firstInView := map[viewKey]*semantics.LayoutSite{}
 	for _, site := range sites {
-		if site.View != nil && site.TypeFQN != semantics.NoteFQN && site.TypeFQN != semantics.PictureFQN {
-			key := viewKey{view: site.View.Decl, typeFQN: site.TypeFQN}
-			if owner := c.memberOwner(site, sym); owner != nil {
-				key.owner = owner.Decl
-			}
-			if site.General != nil {
-				key.general = site.General.Decl
-			}
-			if _, dup := firstInView[key]; !dup {
-				firstInView[key] = site
-			} else if c.inDoc(site.Scope) {
-				c.warnf(site.Node.Span(), layoutDuplicateCode,
-					"%s about %s is already stated in %s; the first stated applies",
-					layoutTypeName(site.TypeFQN), c.describe(sym), c.describe(site.View))
-			}
-		}
+		c.checkDuplicate(firstInView, site, sym)
 		if !c.inDoc(site.Scope) {
 			continue
 		}
 		for _, problem := range site.Problems {
 			c.errorf(problem.Node.Span(), layoutValueCode, "%s: %s", c.describe(sym), problem.Message)
 		}
-		switch site.TypeFQN {
-		case semantics.CanvasFQN:
-			if !semantics.IsView(sym) {
-				c.errorf(site.Node.Span(), layoutCanvasCode,
-					"Canvas annotates %s, which is no view; a Canvas belongs in the body of the view it sizes", c.describe(sym))
-			} else if !site.StatedInBodyOf(sym) {
-				c.errorf(site.Node.Span(), layoutCanvasCode,
-					"Canvas about %s is stated outside its body and sizes nothing; a Canvas belongs in the body of the view it sizes", c.describe(sym))
-			}
-		case semantics.PictureFQN:
-			if !semantics.IsView(sym) {
-				c.errorf(site.Node.Span(), layoutCanvasCode,
-					"Picture annotates %s, which is no view; a Picture is drawn on the surface of the view it annotates", c.describe(sym))
-			}
-		case semantics.LayoutFQN, semantics.RouteFQN, semantics.StyleFQN:
+		c.checkKind(site, sym)
+	}
+}
+
+// checkDuplicate warns when site restates, in one view's body, an annotation of
+// its kind already stated there about sym; firstInView keeps the first stated.
+func (c *layoutChecker) checkDuplicate(firstInView map[viewKey]*semantics.LayoutSite, site *semantics.LayoutSite, sym *symbols.Symbol) {
+	if site.View == nil || site.TypeFQN == semantics.NoteFQN || site.TypeFQN == semantics.PictureFQN {
+		return
+	}
+	key := viewKey{view: site.View.Decl, typeFQN: site.TypeFQN}
+	if owner := c.memberOwner(site, sym); owner != nil {
+		key.owner = owner.Decl
+	}
+	if site.General != nil {
+		key.general = site.General.Decl
+	}
+	if _, dup := firstInView[key]; !dup {
+		firstInView[key] = site
+	} else if c.inDoc(site.Scope) {
+		c.warnf(site.Node.Span(), layoutDuplicateCode,
+			"%s about %s is already stated in %s; the first stated applies",
+			layoutTypeName(site.TypeFQN), c.describe(sym), c.describe(site.View))
+	}
+}
+
+// checkKind checks what an annotation of the site's kind may be about: a Canvas
+// or Picture a view, a Layout, Route, Style or Note an element a rendering draws.
+func (c *layoutChecker) checkKind(site *semantics.LayoutSite, sym *symbols.Symbol) {
+	switch site.TypeFQN {
+	case semantics.CanvasFQN:
+		if !semantics.IsView(sym) {
+			c.errorf(site.Node.Span(), layoutCanvasCode,
+				"Canvas annotates %s, which is no view; a Canvas belongs in the body of the view it sizes", c.describe(sym))
+		} else if !site.StatedInBodyOf(sym) {
+			c.errorf(site.Node.Span(), layoutCanvasCode,
+				"Canvas about %s is stated outside its body and sizes nothing; a Canvas belongs in the body of the view it sizes", c.describe(sym))
+		}
+	case semantics.PictureFQN:
+		if !semantics.IsView(sym) {
+			c.errorf(site.Node.Span(), layoutCanvasCode,
+				"Picture annotates %s, which is no view; a Picture is drawn on the surface of the view it annotates", c.describe(sym))
+		}
+	case semantics.LayoutFQN, semantics.RouteFQN, semantics.StyleFQN:
+		c.checkPlaced(site, sym)
+	case semantics.NoteFQN:
+		if !semantics.IsView(sym) {
 			c.checkPlaced(site, sym)
-		case semantics.NoteFQN:
-			if !semantics.IsView(sym) {
-				c.checkPlaced(site, sym)
-			}
 		}
 	}
 }

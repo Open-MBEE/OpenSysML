@@ -13,15 +13,15 @@ stmt action body
           eval operator + -> 1
       stmt node q
         stmt assign v
-            eval chain v -> 1
+            eval chain v -> (1)
             eval literal 10 -> 10
           eval operator * -> 10
       stmt node fin
         stmt assign total
               eval feature total -> 0
-              eval chain v -> 1
+              eval chain v -> (1)
             eval operator + -> 1
-            eval chain v -> 10
+            eval chain v -> (10)
           eval operator + -> 11
       stmt assign i
           eval feature i -> 0
@@ -38,15 +38,15 @@ stmt action body
           eval operator + -> 2
       stmt node q
         stmt assign v
-            eval chain v -> 2
+            eval chain v -> (2)
             eval literal 10 -> 10
           eval operator * -> 20
       stmt node fin
         stmt assign total
               eval feature total -> 11
-              eval chain v -> 2
+              eval chain v -> (2)
             eval operator + -> 13
-            eval chain v -> 20
+            eval chain v -> (20)
           eval operator + -> 33
       stmt assign i
           eval feature i -> 1
@@ -63,15 +63,15 @@ stmt action body
           eval operator + -> 3
       stmt node q
         stmt assign v
-            eval chain v -> 3
+            eval chain v -> (3)
             eval literal 10 -> 10
           eval operator * -> 30
       stmt node fin
         stmt assign total
               eval feature total -> 33
-              eval chain v -> 3
+              eval chain v -> (3)
             eval operator + -> 36
-            eval chain v -> 30
+            eval chain v -> (30)
           eval operator + -> 66
       stmt assign i
           eval feature i -> 2

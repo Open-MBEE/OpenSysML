@@ -1647,21 +1647,8 @@ type InstanceGraph struct {
 	Errors []error
 }
 
-// InstanceGraphToProto converts inst and every instance reachable from it. The
-// root is returned first; runtime instances live only for the duration of a
-// request, so the whole reachable graph is serialized while the context is alive.
-//
-// Expansion stops at a child whose type is already on the path, at maxGraphDepth
-// and at maxGraphInstances: reading a composite feature value materializes the object it
-// holds, so a self-referential part would otherwise instantiate forever. An
-// unexpanded child stays a bare instance id.
-func InstanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index) (*pb.Instance, []*pb.Instance) {
-	g := InstanceGraphToProtoWithin(rt, inst, idx, DefaultGraphBounds())
-	return g.Root, g.All
-}
-
-// InstanceGraphToProtoWithin is InstanceGraphToProto under the given bounds; the
-// type cycle guard applies whatever the bounds.
+// InstanceGraphToProtoWithin converts inst and every instance reachable from it, root first,
+// stopping at bounds and at a type already on the path; an unexpanded child stays a bare id.
 func InstanceGraphToProtoWithin(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index, bounds GraphBounds) InstanceGraph {
 	var g InstanceGraph
 	seen := make(map[int64]bool)
@@ -1727,17 +1714,8 @@ func instanceRefs(fv *pb.FeatureValue) []int64 {
 	return ids
 }
 
-// InstanceToProto converts runtime.Instance to protobuf Instance. Feature values
-// are read through Instance.GetFeatureValue, so a derived default is evaluated against
-// the instance rather than reported as unmaterialized.
-// Features are read in name order, because reading one materializes the object it
-// holds, so map order would decide the ids those objects are given.
-func InstanceToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index) *pb.Instance {
-	return instanceToProto(rt, inst, idx, func(error) { /* unmaterialized features are silent */ })
-}
-
-// instanceToProto is InstanceToProto, handing each feature value it could not
-// read to failed as the runtime's typed error before reporting its text.
+// instanceToProto converts runtime.Instance to protobuf Instance, reading features in name
+// order through GetFeatureValue and handing each unreadable value's typed error to failed.
 func instanceToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index, failed func(error)) *pb.Instance {
 	pbValues := make(map[string]*pb.FeatureValue)
 

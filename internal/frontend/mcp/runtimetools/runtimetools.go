@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"path/filepath"
 	"sort"
@@ -29,30 +28,24 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 )
 
 // group holds what every runtime tool shares: the service and the workspace
 // root that relative paths are resolved against.
 type group struct {
 	svc  *sysmlgrpc.Service
-	root string
-	// realRoot is root with its symlinks resolved, which a resolved path is
-	// checked against.
-	realRoot string
+	root toolkit.Root
 }
 
 // Register adds the runtime tools to s over svc; root is the workspace folder a
-// relative path in a tool argument is resolved against.
-func Register(s *mcp.Server, svc *sysmlgrpc.Service, root string) {
-	if abs, err := filepath.Abs(root); err == nil {
-		root = abs
+// relative path in a tool argument is resolved against, which must exist.
+func Register(s *mcp.Server, svc *sysmlgrpc.Service, root string) error {
+	r, err := toolkit.NewRoot(root)
+	if err != nil {
+		return err
 	}
-	g := &group{svc: svc, root: root, realRoot: root}
-	if real, err := filepath.EvalSymlinks(root); err == nil {
-		g.realRoot = real
-	}
+	g := &group{svc: svc, root: r}
 	g.registerInfo(s)
 	g.registerExplain(s)
 	g.registerParse(s)
@@ -67,6 +60,7 @@ func Register(s *mcp.Server, svc *sysmlgrpc.Service, root string) {
 	g.registerConversion(s)
 	g.registerImportData(s)
 	g.registerCompareResults(s)
+	return nil
 }
 
 // Source is one document given inline.
@@ -121,7 +115,7 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 		if strings.TrimSpace(path) == "" {
 			return nil, argumentError("paths must not hold an empty path")
 		}
-		resolved, err := g.path(path, nameFormat)
+		resolved, err := g.path(path, toolkit.NameFormat)
 		if err != nil {
 			return nil, err
 		}
@@ -140,11 +134,53 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 			Name:     src.Path,
 		})
 	}
+	if single, ok := singleFileRequest(req); ok && !g.svc.Supports(sysmlgrpc.CapabilityParseSources) {
+		resp, err := g.svc.ParseFile(ctx, single)
+		if err != nil {
+			return nil, toolError(err)
+		}
+		return parseFileAsSources(resp), nil
+	}
 	resp, err := g.svc.ParseSources(ctx, req)
 	if err != nil {
 		return nil, toolError(err)
 	}
 	return resp, nil
+}
+
+// singleFileRequest spells a parse of one document as the ParseFile RPC, which
+// the tool stands for as well: a service without parse_sources answers that
+// much. ParseFile carries no base hash and names inline content <content>, so
+// a request with a base hash or another name (an unnamed source would be
+// <content-0>) is not one.
+func singleFileRequest(req *pb.ParseSourcesRequest) (*pb.ParseFileRequest, bool) {
+	if len(req.GetDocuments()) != 1 || req.GetBaseModelHash() != "" {
+		return nil, false
+	}
+	doc := req.GetDocuments()[0]
+	single := &pb.ParseFileRequest{Language: doc.GetLanguage(), StrictConformance: req.GetStrictConformance()}
+	switch src := doc.GetSource().(type) {
+	case *pb.SourceDocument_FilePath:
+		single.Source = &pb.ParseFileRequest_FilePath{FilePath: src.FilePath}
+	case *pb.SourceDocument_Content:
+		if doc.GetName() != "<content>" {
+			return nil, false
+		}
+		single.Source = &pb.ParseFileRequest_Content{Content: src.Content}
+	default:
+		return nil, false
+	}
+	return single, true
+}
+
+// parseFileAsSources reads a ParseFile answer as the ParseSources answer for the
+// same one document.
+func parseFileAsSources(resp *pb.ParseFileResponse) *pb.ParseSourcesResponse {
+	out := &pb.ParseSourcesResponse{ModelHash: resp.GetModelHash(), Diagnostics: resp.GetDiagnostics(), Error: resp.GetError()}
+	if root := resp.GetRoot(); root != nil {
+		out.Roots = []*pb.SymbolInfo{root}
+	}
+	return out
 }
 
 // path resolves a path argument against the workspace root and refuses one
@@ -153,84 +189,13 @@ func (g *group) parse(ctx context.Context, in ModelInput, base string) (*pb.Pars
 // service opens the file the check saw, not what a link is later pointed at;
 // where the service reads something from the name (role), a link whose name
 // means another format or language than its target's is refused rather than
-// read as the wrong one. A path that does not exist yet is resolved through
-// its nearest existing ancestor.
-func (g *group) path(p string, role nameRole) (string, error) {
-	p = strings.TrimSpace(p)
-	if p == "" {
-		return "", argumentError("a path is required")
+// read as the wrong one.
+func (g *group) path(p string, role toolkit.NameRole) (string, error) {
+	res, err := g.root.Resolve(p, toolkit.NameMeans(role))
+	if err != nil {
+		return "", argumentError("%s", err)
 	}
-	if !filepath.IsAbs(p) {
-		p = filepath.Join(g.root, p)
-	}
-	p = filepath.Clean(p)
-	if !under(g.root, p) {
-		return "", argumentError("%s is outside the workspace root %s", p, g.root)
-	}
-	probe := p
-	for {
-		real, err := filepath.EvalSymlinks(probe)
-		if err == nil {
-			if rest, err := filepath.Rel(probe, p); err == nil && rest != "." {
-				real = filepath.Join(real, rest)
-			}
-			if !under(g.realRoot, real) {
-				return "", argumentError("%s resolves to %s, outside the workspace root %s", p, real, g.root)
-			}
-			if !sameFormat(p, real, role) {
-				return "", argumentError("%s is a link to %s, whose extension names another format; name the file itself or a link with its extension", p, real)
-			}
-			return real, nil
-		}
-		if !errors.Is(err, fs.ErrNotExist) {
-			return "", argumentError("%s: %v", p, err)
-		}
-		parent := filepath.Dir(probe)
-		if parent == probe {
-			return p, nil
-		}
-		probe = parent
-	}
-}
-
-// nameRole is what the service reads from a path's name: the model format and
-// notation language (a source with no fromFormat), the language only (a source
-// with an explicit fromFormat, which still parses notation by its name), or
-// nothing (a layout).
-type nameRole int
-
-const (
-	nameIgnored nameRole = iota
-	nameLanguage
-	nameFormat
-)
-
-// sameFormat reports whether two names mean the same thing for the role: the
-// source kind the parser reads from each (a name with neither model extension
-// is its own kind) and, for nameFormat, the format convert infers from each
-// (or the same extension when it infers nothing).
-func sameFormat(a, b string, role nameRole) bool {
-	if role == nameIgnored {
-		return true
-	}
-	if source.KindOf(a) != source.KindOf(b) {
-		return false
-	}
-	if role == nameLanguage {
-		return true
-	}
-	fa, errA := convert.FormatOfPath(a)
-	fb, errB := convert.FormatOfPath(b)
-	if errA != nil || errB != nil {
-		return strings.EqualFold(filepath.Ext(a), filepath.Ext(b))
-	}
-	return fa == fb
-}
-
-// under reports whether path lies under root, both clean and absolute.
-func under(root, path string) bool {
-	rel, err := filepath.Rel(root, path)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	return res.Real, nil
 }
 
 // argumentError is a refused argument, reported as the service reports one.

@@ -3,6 +3,6 @@
 	"type": "action",
 	"evaluate": "test::MigratedLoopOwnedVariable",
 	"outputs": {
-		"acc.iOut": {"type": "Integer", "value": 4}
+		"acc.iOut": {"type": "Sequence", "elements": [{"type": "Integer", "value": 4}]}
 	}
 }

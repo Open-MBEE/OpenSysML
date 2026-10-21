@@ -1,8 +1,10 @@
-// Builds the per-platform sysml-grpc packages and optional WASM asset package
+// Builds the per-platform binary packages and the optional WASM asset package
 // from the release binaries the CI release job produces. Publishes nothing.
 //
-// Usage: node scripts/build-platform-packages.mjs --binaries <dir> [--wasm <dir>] [--version X.Y.Z] [--out <dir>]
-// The directories hold release assets with .sha256 sidecars.
+// Usage: node scripts/build-platform-packages.mjs [--binaries <dir>] [--mcp <dir>] [--wasm <dir>] [--version X.Y.Z] [--out <dir>]
+// The directories hold release assets with .sha256 sidecars: --binaries the
+// sysml-grpc binaries @openmbee/opensysml runs, --mcp the sysml-mcp binaries
+// @openmbee/sysml-mcp (packaging/npm/sysml-mcp) runs, --wasm the WASM assets.
 
 import { createHash } from "node:crypto";
 import {
@@ -19,19 +21,28 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const clientRoot = resolve(here, "..");
+const repoRoot = resolve(clientRoot, "..", "..");
+const mcpRoot = join(repoRoot, "packaging", "npm", "sysml-mcp");
 
 /** The platforms a release builds, mapped to npm's os/cpu names. */
 const PLATFORMS = [
-  { asset: "sysml-grpc-linux-amd64", os: "linux", cpu: "x64", binary: "sysml-grpc" },
-  { asset: "sysml-grpc-linux-arm64", os: "linux", cpu: "arm64", binary: "sysml-grpc" },
-  { asset: "sysml-grpc-darwin-amd64", os: "darwin", cpu: "x64", binary: "sysml-grpc" },
-  { asset: "sysml-grpc-darwin-arm64", os: "darwin", cpu: "arm64", binary: "sysml-grpc" },
-  { asset: "sysml-grpc-windows-amd64.exe", os: "win32", cpu: "x64", binary: "sysml-grpc.exe" },
+  { suffix: "linux-amd64", os: "linux", cpu: "x64" },
+  { suffix: "linux-arm64", os: "linux", cpu: "arm64" },
+  { suffix: "darwin-amd64", os: "darwin", cpu: "x64" },
+  { suffix: "darwin-arm64", os: "darwin", cpu: "arm64" },
+  { suffix: "windows-amd64.exe", os: "win32", cpu: "x64" },
 ];
+
+/** The release binary and the binary name inside a package, for a command on a platform. */
+function platformBinary(command, platform) {
+  const exe = platform.os === "win32" ? ".exe" : "";
+  return { asset: `${command}-${platform.suffix}`, binary: `${command}${exe}` };
+}
 
 function parseArgs(argv) {
   const args = {
     binaries: undefined,
+    mcp: undefined,
     wasm: undefined,
     out: join(clientRoot, "packages"),
     version: undefined,
@@ -43,15 +54,23 @@ function parseArgs(argv) {
       fail(`${flag} needs a value`);
     }
     if (flag === "--binaries") args.binaries = resolve(value);
+    else if (flag === "--mcp") args.mcp = resolve(value);
     else if (flag === "--wasm") args.wasm = resolve(value);
     else if (flag === "--out") args.out = resolve(value);
     else if (flag === "--version") args.version = value;
     else fail(`unknown flag ${flag}`);
   }
-  if (args.binaries === undefined) {
-    fail("--binaries <dir> is required: the directory holding the release binaries");
+  if (args.binaries === undefined && args.mcp === undefined && args.wasm === undefined) {
+    fail("nothing to build: give --binaries <dir> (sysml-grpc), --mcp <dir> (sysml-mcp) or --wasm <dir>");
   }
   args.pkg = JSON.parse(readFileSync(join(clientRoot, "package.json"), "utf8"));
+  args.mcpPkg = JSON.parse(readFileSync(join(mcpRoot, "package.json"), "utf8"));
+  if (args.version === undefined && args.mcp !== undefined && args.mcpPkg.version !== args.pkg.version) {
+    fail(
+      `${args.mcpPkg.name} is ${args.mcpPkg.version} but ${args.pkg.name} is ${args.pkg.version}; ` +
+        "both are published from one release tag at one version",
+    );
+  }
   args.version ??= args.pkg.version;
   return args;
 }
@@ -75,117 +94,166 @@ function verify(path) {
   return actual;
 }
 
+function writeManifest(directory, manifest) {
+  writeFileSync(join(directory, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+/**
+ * Builds one package per platform around a release binary: the binary under
+ * bin/, the family's extra files beside it, and a README naming the digest.
+ *
+ * @param {object} family
+ * @param {string} family.command the binary's command name, as the release asset is prefixed
+ * @param {(platform: object) => string} family.name the package name for a platform
+ * @param {string} family.directory the directory the package's source tree names
+ * @param {string} family.description what the binary is
+ * @param {string} family.parent the package whose optionalDependencies name these
+ * @param {{source: string, destination: string}[]} family.extras files copied into every package
+ */
+function buildBinaryPackages(args, binaries, family) {
+  const built = [];
+  for (const platform of PLATFORMS) {
+    const { asset, binary } = platformBinary(family.command, platform);
+    const source = join(binaries, asset);
+    if (!existsSync(source)) {
+      fail(`${source} is missing; run the release build first`);
+    }
+    const digest = verify(source);
+    const name = family.name(platform);
+    const directory = join(args.out, `${family.command}-${platform.os}-${platform.cpu}`);
+    mkdirSync(join(directory, "bin"), { recursive: true });
+    const destination = join(directory, "bin", binary);
+    copyFileSync(source, destination);
+    chmodSync(destination, 0o755);
+    for (const extra of family.extras) {
+      if (!existsSync(extra.source)) {
+        fail(`${extra.source} is missing; every ${family.command} package carries it`);
+      }
+      const target = join(directory, extra.destination);
+      mkdirSync(dirname(target), { recursive: true });
+      copyFileSync(extra.source, target);
+    }
+    const files = ["bin", ...new Set(family.extras.map((extra) => extra.destination.split("/")[0])), "README.md"];
+
+    writeManifest(directory, {
+      name,
+      version: args.version,
+      description: `${family.description} for ${platform.os}-${platform.cpu}`,
+      license: "Apache-2.0",
+      repository: {
+        type: "git",
+        url: "git+https://github.com/Open-MBEE/OpenSysML.git",
+        directory: family.directory,
+      },
+      os: [platform.os],
+      cpu: [platform.cpu],
+      files,
+    });
+    writeFileSync(
+      join(directory, "README.md"),
+      `# ${name}\n\n` +
+        `${family.description} for ${platform.os}-${platform.cpu}. Installed as an\n` +
+        `optional dependency of [\`${family.parent}\`](https://www.npmjs.com/package/${family.parent});\n` +
+        "there is nothing to import here.\n\n" +
+        `SHA-256 of \`bin/${binary}\`: \`${digest}\`\n`,
+    );
+    built.push({ name, directory, digest });
+  }
+  return built;
+}
+
+function buildWasmPackage(args) {
+  const assets = ["sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js"];
+  const digests = Object.fromEntries(
+    assets.map((asset) => {
+      const source = join(args.wasm, asset);
+      if (!existsSync(source)) {
+        fail(`${source} is missing; run the release build first`);
+      }
+      return [asset, verify(source)];
+    }),
+  );
+  const name = `${args.pkg.name}-wasm`;
+  const directory = join(args.out, "sysml-wasm");
+  mkdirSync(directory, { recursive: true });
+  for (const asset of assets) {
+    copyFileSync(join(args.wasm, asset), join(directory, asset));
+  }
+  writeManifest(directory, {
+    name,
+    version: args.version,
+    description: "Combined sysml-wasm WebAssembly module, the browser build of the sysml REPL and matching Go runtime",
+    license: "Apache-2.0",
+    repository: {
+      type: "git",
+      url: "git+https://github.com/Open-MBEE/OpenSysML.git",
+      directory: "client/node",
+    },
+    files: ["sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js", "README.md"],
+    exports: {
+      "./sysml-wasm.wasm": "./sysml-wasm.wasm",
+      "./sysml-prod.wasm.gz": "./sysml-prod.wasm.gz",
+      "./wasm_exec.js": "./wasm_exec.js",
+      "./package.json": "./package.json",
+    },
+  });
+  writeFileSync(
+    join(directory, "README.md"),
+    `# ${name}\n\n` +
+      "The combined `sysml-wasm` WebAssembly module and its matching Go runtime. " +
+      `Install this package alongside [\`${args.pkg.name}\`](https://www.npmjs.com/package/${args.pkg.name}); ` +
+      "Node's `connectWasm()` discovers it automatically when no module is supplied.\n\n" +
+      "`sysml-prod.wasm.gz` is the browser build of the `sysml` REPL (`-tags sysml_prod`), " +
+      "gzip-compressed; a page inflates it with `DecompressionStream` and runs it under `wasm_exec.js` " +
+      "with an emulated file system and stdin, the way the OpenSysML site's REPL page does.\n\n" +
+      `SHA-256 of \`sysml-wasm.wasm\`: \`${digests["sysml-wasm.wasm"]}\`\n\n` +
+      `SHA-256 of \`sysml-prod.wasm.gz\`: \`${digests["sysml-prod.wasm.gz"]}\`\n\n` +
+      `SHA-256 of \`wasm_exec.js\`: \`${digests["wasm_exec.js"]}\`\n`,
+  );
+  return { name, directory, digest: digests["sysml-wasm.wasm"], digests };
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   rmSync(args.out, { recursive: true, force: true });
   const built = [];
 
-  for (const platform of PLATFORMS) {
-    const source = join(args.binaries, platform.asset);
-    if (!existsSync(source)) {
-      fail(`${source} is missing; run the release build first`);
-    }
-    const digest = verify(source);
-    const name = `${args.pkg.name}-sysml-grpc-${platform.os}-${platform.cpu}`;
-    const directory = join(args.out, `sysml-grpc-${platform.os}-${platform.cpu}`);
-    mkdirSync(join(directory, "bin"), { recursive: true });
-    const destination = join(directory, "bin", platform.binary);
-    copyFileSync(source, destination);
-    chmodSync(destination, 0o755);
+  if (args.binaries !== undefined) {
+    built.push(
+      ...buildBinaryPackages(args, args.binaries, {
+        command: "sysml-grpc",
+        name: (platform) => `${args.pkg.name}-sysml-grpc-${platform.os}-${platform.cpu}`,
+        directory: "client/node",
+        description: "sysml-grpc service binary",
+        parent: args.pkg.name,
+        extras: [],
+      }),
+    );
+  }
 
-    writeFileSync(
-      join(directory, "package.json"),
-      `${JSON.stringify(
-        {
-          name,
-          version: args.version,
-          description: `sysml-grpc service binary for ${platform.os}-${platform.cpu}`,
-          license: "Apache-2.0",
-          repository: {
-            type: "git",
-            url: "git+https://github.com/Open-MBEE/OpenSysML.git",
-            directory: "client/node",
+  if (args.mcp !== undefined) {
+    // What the sysml-mcp release archive holds, so `npx` installs the same
+    // thing the archive does: the binary, its LICENSE and its man page.
+    built.push(
+      ...buildBinaryPackages(args, args.mcp, {
+        command: "sysml-mcp",
+        name: (platform) => `${args.mcpPkg.name}-${platform.os}-${platform.cpu}`,
+        directory: "packaging/npm/sysml-mcp",
+        description: "sysml-mcp Model Context Protocol server binary",
+        parent: args.mcpPkg.name,
+        extras: [
+          { source: join(repoRoot, "LICENSE"), destination: "LICENSE" },
+          {
+            source: join(repoRoot, "packaging", "man", "man1", "sysml-mcp.1"),
+            destination: "share/man/man1/sysml-mcp.1",
           },
-          os: [platform.os],
-          cpu: [platform.cpu],
-          files: ["bin", "README.md"],
-        },
-        null,
-        2,
-      )}\n`,
+        ],
+      }),
     );
-    writeFileSync(
-      join(directory, "README.md"),
-      `# ${name}\n\n` +
-        `The \`sysml-grpc\` service binary for ${platform.os}-${platform.cpu}. Installed as an\n` +
-        `optional dependency of [\`${args.pkg.name}\`](https://www.npmjs.com/package/${args.pkg.name});\n` +
-        "there is nothing to import here.\n\n" +
-        `SHA-256 of \`bin/${platform.binary}\`: \`${digest}\`\n`,
-    );
-    built.push({ name, directory, digest });
   }
 
   if (args.wasm !== undefined) {
-    const assets = ["sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js"];
-    const digests = Object.fromEntries(
-      assets.map((asset) => {
-        const source = join(args.wasm, asset);
-        if (!existsSync(source)) {
-          fail(`${source} is missing; run the release build first`);
-        }
-        return [asset, verify(source)];
-      }),
-    );
-    const name = `${args.pkg.name}-wasm`;
-    const directory = join(args.out, "sysml-wasm");
-    mkdirSync(directory, { recursive: true });
-    for (const asset of assets) {
-      copyFileSync(join(args.wasm, asset), join(directory, asset));
-    }
-    writeFileSync(
-      join(directory, "package.json"),
-      `${JSON.stringify(
-        {
-          name,
-          version: args.version,
-          description: "Combined sysml-wasm WebAssembly module, the browser build of the sysml REPL and matching Go runtime",
-          license: "Apache-2.0",
-          repository: {
-            type: "git",
-            url: "git+https://github.com/Open-MBEE/OpenSysML.git",
-            directory: "client/node",
-          },
-          files: ["sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js", "README.md"],
-          exports: {
-            "./sysml-wasm.wasm": "./sysml-wasm.wasm",
-            "./sysml-prod.wasm.gz": "./sysml-prod.wasm.gz",
-            "./wasm_exec.js": "./wasm_exec.js",
-            "./package.json": "./package.json",
-          },
-        },
-        null,
-        2,
-      )}\n`,
-    );
-    writeFileSync(
-      join(directory, "README.md"),
-      `# ${name}\n\n` +
-        "The combined `sysml-wasm` WebAssembly module and its matching Go runtime. " +
-        `Install this package alongside [\`${args.pkg.name}\`](https://www.npmjs.com/package/${args.pkg.name}); ` +
-        "Node's `connectWasm()` discovers it automatically when no module is supplied.\n\n" +
-        "`sysml-prod.wasm.gz` is the browser build of the `sysml` REPL (`-tags sysml_prod`), " +
-        "gzip-compressed; a page inflates it with `DecompressionStream` and runs it under `wasm_exec.js` " +
-        "with an emulated file system and stdin, the way the OpenSysML site's REPL page does.\n\n" +
-        `SHA-256 of \`sysml-wasm.wasm\`: \`${digests["sysml-wasm.wasm"]}\`\n\n` +
-        `SHA-256 of \`sysml-prod.wasm.gz\`: \`${digests["sysml-prod.wasm.gz"]}\`\n\n` +
-        `SHA-256 of \`wasm_exec.js\`: \`${digests["wasm_exec.js"]}\`\n`,
-    );
-    built.push({
-      name,
-      directory,
-      digest: digests["sysml-wasm.wasm"],
-      digests,
-    });
+    built.push(buildWasmPackage(args));
   }
 
   writeFileSync(

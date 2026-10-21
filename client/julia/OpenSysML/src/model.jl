@@ -371,8 +371,58 @@ function _check_schedule(schedule)
 end
 
 """Execute an action with encoded inputs and optional scheduling or performer."""
+const DRAWS = ("random", "min", "max", "average")
+
+# The run options of the sysml command, as ExecuteAction and ExecuteState carry them:
+# advance (simulated seconds), seed (the model's own draws), draws and clock_step.
+function _run_options!(request::Dict{String,Any}; advance=nothing, seed=nothing, draws=nothing,
+                       clock_step::Real=0.0)
+    if advance !== nothing
+        (isfinite(advance) && advance >= 0) ||
+            throw(ArgumentError("advance must be a finite non-negative number of seconds"))
+        request["advance"] = Float64(advance)
+    end
+    if seed !== nothing
+        (isinteger(seed) && 0 <= seed <= typemax(UInt64)) ||
+            throw(ArgumentError("seed must be a non-negative integer no larger than a UInt64"))
+        request["seed"] = string(UInt64(seed))
+    end
+    if draws !== nothing
+        String(draws) in DRAWS ||
+            throw(ArgumentError("draws must be one of $(join(repr.(DRAWS), ", "))"))
+        request["draws"] = String(draws)
+    end
+    (isfinite(clock_step) && clock_step >= 0) ||
+        throw(ArgumentError("clock_step must be a finite non-negative number of seconds"))
+    clock_step == 0 || (request["clockStep"] = Float64(clock_step))
+    request
+end
+
+"""
+    refresh_diagnostics(model; disable_lint=(), enable_lint=())
+
+Ask the service for the model's diagnostics now, under a lint selection: `model.diagnostics`
+is what the parse answered under the default selection; this leaves out the lints
+`disable_lint` names and keeps the opt-in ones `enable_lint` names, as
+`sysml -disable-lint`/`-enable-lint` select them. A code naming no lint is an
+`InvalidRequestError` naming the lints there are.
+"""
+function refresh_diagnostics(model::Model; disable_lint=(), enable_lint=())
+    conn = model.connection
+    request = Dict{String,Any}("modelHash" => model.hash,
+        "disableLint" => String[String(c) for c in disable_lint],
+        "enableLint" => String[String(c) for c in enable_lint])
+    answer = _translate(; connection=conn) do
+        call(conn, "GetDiagnostics", request)
+    end
+    message = String(get(answer, "error", ""))
+    isempty(message) || throw(ModelError(message))
+    Diagnostic[Diagnostic(d) for d in get(answer, "diagnostics", Any[])]
+end
+
 function execute_action(model::Model, action_id::AbstractString; inputs=Dict(),
-                        schedule::AbstractString="", performer=nothing)
+                        schedule::AbstractString="", performer=nothing, advance=nothing,
+                        seed=nothing, draws=nothing, clock_step::Real=0.0)
     _check_schedule(schedule)
     encoded = _encoded_inputs(model, inputs)
     _schedule_preflight(model.connection, schedule)
@@ -381,6 +431,7 @@ function execute_action(model::Model, action_id::AbstractString; inputs=Dict(),
     performer !== nothing && push!(needed, CAPABILITY_PERFORMER)
     request = Dict{String,Any}("modelHash" => model.hash, "actionSymbolId" => String(action_id),
                                "inputs" => encoded)
+    _run_options!(request; advance=advance, seed=seed, draws=draws, clock_step=clock_step)
     if !isempty(schedule)
         request["schedule"] = String(schedule)
     end
@@ -398,7 +449,8 @@ end
 
 """Execute a state machine with optional events, scheduling, performer, or trace."""
 function execute_state(model::Model, state_id::AbstractString; events=Any[],
-                       schedule::AbstractString="", performer=nothing, trace::Bool=false)
+                       schedule::AbstractString="", performer=nothing, trace::Bool=false,
+                       advance=nothing, seed=nothing, draws=nothing, clock_step::Real=0.0)
     _check_schedule(schedule)
     _schedule_preflight(model.connection, schedule)
     performer !== nothing && require_capability(model.connection, CAPABILITY_PERFORMER)
@@ -408,6 +460,7 @@ function execute_state(model::Model, state_id::AbstractString; events=Any[],
     trace && push!(needed, CAPABILITY_STATE_TRACE)
     request = Dict{String,Any}("modelHash" => model.hash, "stateMachineSymbolId" => String(state_id),
                                "events" => Any[String(e) for e in events])
+    _run_options!(request; advance=advance, seed=seed, draws=draws, clock_step=clock_step)
     if !isempty(schedule)
         request["schedule"] = String(schedule)
     end

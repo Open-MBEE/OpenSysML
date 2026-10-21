@@ -45,13 +45,29 @@ func decodeJSON(t *testing.T, block, path string) any {
 // TestPrintConfigBlocks checks that every host's block parses in the format
 // the host reads and declares the server under the keys the host looks up.
 func TestPrintConfigBlocks(t *testing.T) {
+	checkPrintConfigBlocks(t, []string{"-print-config-command", testCommand}, testCommand, []any{})
+}
+
+// TestPrintConfigNpxBlocks checks that -print-config-npx makes every host's
+// block start the server through npm: npx -y @openmbee/sysml-mcp, with the
+// package's arguments in the host's argument list.
+func TestPrintConfigNpxBlocks(t *testing.T) {
+	checkPrintConfigBlocks(t, []string{"-print-config-npx"}, "npx", []any{"-y", "@openmbee/sysml-mcp"})
+}
+
+// checkPrintConfigBlocks prints every host's block with the flags given and
+// checks each parses in the format the host reads and declares the server
+// under the keys the host looks up, as command with args.
+func checkPrintConfigBlocks(t *testing.T, flags []string, command string, args []any) {
+	t.Helper()
+	argv := append([]any{command}, args...)
 	server := func(block, path string) {
 		t.Helper()
-		if got := decodeJSON(t, block, path+".command"); got != testCommand {
-			t.Errorf("%s.command = %v, want %q", path, got, testCommand)
+		if got := decodeJSON(t, block, path+".command"); got != command {
+			t.Errorf("%s.command = %v, want %q", path, got, command)
 		}
-		if got := decodeJSON(t, block, path+".args"); !reflect.DeepEqual(got, []any{}) {
-			t.Errorf("%s.args = %v, want []", path, got)
+		if got := decodeJSON(t, block, path+".args"); !reflect.DeepEqual(got, args) {
+			t.Errorf("%s.args = %v, want %v", path, got, args)
 		}
 	}
 	cases := []struct {
@@ -65,8 +81,8 @@ func TestPrintConfigBlocks(t *testing.T) {
 			if got := decodeJSON(t, block, "mcp.sysml.type"); got != "local" {
 				t.Errorf("mcp.sysml.type = %v, want local", got)
 			}
-			if got := decodeJSON(t, block, "mcp.sysml.command"); !reflect.DeepEqual(got, []any{testCommand}) {
-				t.Errorf("mcp.sysml.command = %v, want [%q]", got, testCommand)
+			if got := decodeJSON(t, block, "mcp.sysml.command"); !reflect.DeepEqual(got, argv) {
+				t.Errorf("mcp.sysml.command = %v, want %v", got, argv)
 			}
 			if got := decodeJSON(t, block, "mcp.sysml.enabled"); got != true {
 				t.Errorf("mcp.sysml.enabled = %v, want true", got)
@@ -82,9 +98,7 @@ func TestPrintConfigBlocks(t *testing.T) {
 	}, {
 		"cursor", func(block string) { server(block, "mcpServers.sysml") },
 	}, {
-		"codex", func(block string) {
-			checkCodexTable(t, block, map[string]any{"command": testCommand, "args": []string{}})
-		},
+		"codex", func(block string) { checkCodexTable(t, block, map[string]any{"command": command, "args": args}) },
 	}, {
 		"vscode", func(block string) {
 			if got := decodeJSON(t, block, "servers.sysml.type"); got != "stdio" {
@@ -102,13 +116,13 @@ func TestPrintConfigBlocks(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.host, func(t *testing.T) {
-			block := printed(t, "-print-config", tc.host, "-print-config-command", testCommand)
+			block := printed(t, append([]string{"-print-config", tc.host}, flags...)...)
 			if !strings.HasSuffix(block, "\n") || strings.HasSuffix(block, "\n\n") {
 				t.Errorf("the block should end in exactly one newline:\n%q", block)
 			}
 			tc.check(block)
 			// The host may be given as the flag's value as well.
-			if again := printed(t, "-print-config="+tc.host, "-print-config-command", testCommand); again != block {
+			if again := printed(t, append([]string{"-print-config=" + tc.host}, flags...)...); again != block {
 				t.Errorf("-print-config=%s printed a different block:\n%s", tc.host, again)
 			}
 		})
@@ -116,8 +130,8 @@ func TestPrintConfigBlocks(t *testing.T) {
 }
 
 // checkCodexTable reads the TOML table the way Codex's parser does for this
-// shape: one table header, then key = value lines of basic strings and the
-// empty array, every key exactly once.
+// shape: one table header, then key = value lines of basic strings and arrays
+// of them, every key exactly once; want is the table as a map.
 func checkCodexTable(t *testing.T, block string, want map[string]any) {
 	t.Helper()
 	lines := strings.Split(strings.TrimSuffix(block, "\n"), "\n")
@@ -134,8 +148,13 @@ func checkCodexTable(t *testing.T, block string, want map[string]any) {
 			t.Fatalf("key %q is defined twice", key)
 		}
 		switch {
-		case raw == "[]":
-			values[key] = []string{}
+		case strings.HasPrefix(raw, "["):
+			// A TOML array of basic strings; a JSON array of strings is one.
+			var items []any
+			if err := json.Unmarshal([]byte(raw), &items); err != nil {
+				t.Fatalf("%s: not an array of basic strings: %v", key, err)
+			}
+			values[key] = items
 		case strings.HasPrefix(raw, `"`):
 			// TOML basic strings use the escapes Go's quoted strings do.
 			s, err := strconv.Unquote(raw)
@@ -144,7 +163,7 @@ func checkCodexTable(t *testing.T, block string, want map[string]any) {
 			}
 			values[key] = s
 		default:
-			t.Fatalf("%s: value %q is neither a basic string nor an empty array", key, raw)
+			t.Fatalf("%s: value %q is neither a basic string nor an array", key, raw)
 		}
 	}
 	if !reflect.DeepEqual(values, want) {
@@ -278,6 +297,8 @@ func TestPrintConfigCommandLine(t *testing.T) {
 		{[]string{"-print-config", "cursor", "-http", "8765", "-tls-cert", "server.crt"}, "-tls-cert and -tls-key must be supplied together"},
 		{[]string{"-print-config", "cursor", "-http", "8765", "-stdio"}, "-stdio and -http name different transports"},
 		{[]string{"-print-config", "cursor", "-tls-cert", "server.crt", "-tls-key", "server.key"}, "-tls-cert applies to the HTTP transport"},
+		{[]string{"-print-config", "cursor", "-print-config-npx", "-print-config-command", "sysml-mcp"}, `-print-config-npx names npx -y @openmbee/sysml-mcp as the command, so it excludes -print-config-command "sysml-mcp"`},
+		{[]string{"-print-config", "cursor", "-http", "8765", "-print-config-npx"}, "-print-config-npx and -http name different ways to reach the server"},
 	} {
 		var stdout, stderr bytes.Buffer
 		if status := run(tc.args, &stdout, &stderr); status != exitUnservable {

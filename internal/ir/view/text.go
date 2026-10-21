@@ -73,17 +73,7 @@ func (r *Rendering) textWith(options Options) string {
 	if len(r.Edges) > 0 {
 		fmt.Fprintf(&b, "\n%s:\n", edgeSectionName(r.Kind))
 		for _, edge := range r.Edges {
-			line := fmt.Sprintf("  %s %s %s", endLabel(labels, edge.From, edge.FromPort), edgeArrow(r.Kind, edge.Kind), endLabel(labels, edge.To, edge.ToPort))
-			if label := textEdgeLabel(edge, ports); label != "" {
-				line += ": " + label
-			}
-			if len(edge.Route) > 0 {
-				line += " via"
-				for _, p := range edge.Route {
-					line += fmt.Sprintf(" (%s, %s)", formatCoord(p.X), formatCoord(p.Y))
-				}
-			}
-			b.WriteString(line + "\n")
+			b.WriteString(edgeText(r.Kind, edge, labels, ports) + "\n")
 		}
 	}
 	if len(r.Notes) > 0 {
@@ -100,6 +90,21 @@ func (r *Rendering) textWith(options Options) string {
 	}
 	writeNotices(&b, slices.Concat(r.Notices, pictureNotices, r.visualNotices(noStyleInText, false)))
 	return b.String()
+}
+
+// edgeText is an edge as one line: its ends, its label, and its route when it has one.
+func edgeText(kind Kind, edge Edge, labels map[string]string, ports portView) string {
+	line := fmt.Sprintf("  %s %s %s", endLabel(labels, edge.From, edge.FromPort), edgeArrow(kind, edge.Kind), endLabel(labels, edge.To, edge.ToPort))
+	if label := textEdgeLabel(edge, ports); label != "" {
+		line += ": " + label
+	}
+	if len(edge.Route) > 0 {
+		line += " via"
+		for _, p := range edge.Route {
+			line += fmt.Sprintf(" (%s, %s)", formatCoord(p.X), formatCoord(p.Y))
+		}
+	}
+	return line
 }
 
 // pictureText is a picture as one line: its file, its corner and size, its

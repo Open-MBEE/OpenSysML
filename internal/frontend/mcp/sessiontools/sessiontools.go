@@ -24,12 +24,12 @@ type SessionName struct {
 
 func (n SessionName) sessionName() string { return n.Session }
 
-// named is a tool input naming the session it addresses.
-type named interface{ sessionName() string }
+// sessionNamer is a tool input naming the session it addresses.
+type sessionNamer interface{ sessionName() string }
 
 // handler adapts a function over a session to a tool handler: the session named
 // is used one call at a time, and the call's context interrupts a long run.
-func handler[In named, Out any](m *Manager, fn func(context.Context, *repl.Session, In) (Out, error)) func(context.Context, *mcp.CallToolRequest, In) (*mcp.CallToolResult, Out, error) {
+func handler[In sessionNamer, Out any](m *Manager, fn func(context.Context, *repl.Session, In) (Out, error)) func(context.Context, *mcp.CallToolRequest, In) (*mcp.CallToolResult, Out, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
 		var out Out
 		err := m.Use(ctx, in.sessionName(), func(s *repl.Session) error {

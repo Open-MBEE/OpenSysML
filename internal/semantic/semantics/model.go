@@ -91,6 +91,7 @@ type Model struct {
 	filterPreds    map[ast.Node]*symbols.FilterPredicate
 	filterVerdicts map[filterKey]filterVerdict
 	filterTypes    map[string]*symbols.Symbol
+	typeElements   map[string]*symbols.Symbol
 	annotations    map[*symbols.Symbol][]annotation
 	// metadataDefaults memoizes the values each metadata type declares for its features.
 	metadataDefaults map[*symbols.Symbol]map[string][]symbols.FilterValue
@@ -193,6 +194,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		filterPreds:      make(map[ast.Node]*symbols.FilterPredicate),
 		filterVerdicts:   make(map[filterKey]filterVerdict),
 		filterTypes:      make(map[string]*symbols.Symbol),
+		typeElements:     make(map[string]*symbols.Symbol),
 		annotations:      make(map[*symbols.Symbol][]annotation),
 		metadataDefaults: make(map[*symbols.Symbol]map[string][]symbols.FilterValue),
 		layoutSites:      make(map[*symbols.Symbol][]*LayoutSite),

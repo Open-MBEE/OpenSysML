@@ -3,7 +3,7 @@
 	"evaluate": "test::outer",
 	"outputs": {
 		"chosen": {"type": "Integer", "value": 1},
-		"call.label": {"type": "String", "value": "x"},
-		"call.code": {"type": "Integer", "value": 1}
+		"call.label": {"type": "Sequence", "elements": [{"type": "String", "value": "x"}]},
+		"call.code": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
 	}
 }

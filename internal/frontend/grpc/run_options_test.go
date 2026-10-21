@@ -126,11 +126,11 @@ func TestExecuteActionSeedAndDrawsResolveTheModelsDraws(t *testing.T) {
 		return resp
 	}
 	first, again := run(&pb.ExecuteActionRequest{Seed: u64(7)}), run(&pb.ExecuteActionRequest{Seed: u64(7)})
-	if first.Outputs["d"].GetRealValue() != again.Outputs["d"].GetRealValue() || first.Outputs["n"].GetIntValue() != again.Outputs["n"].GetIntValue() {
+	if soleElement(t, "d", first.Outputs["d"]).GetRealValue() != soleElement(t, "d", again.Outputs["d"]).GetRealValue() || soleElement(t, "n", first.Outputs["n"]).GetIntValue() != soleElement(t, "n", again.Outputs["n"]).GetIntValue() {
 		t.Errorf("seed 7 drew %v then %v", first.Outputs, again.Outputs)
 	}
 	other := run(&pb.ExecuteActionRequest{Seed: u64(8)})
-	if first.Outputs["d"].GetRealValue() == other.Outputs["d"].GetRealValue() {
+	if soleElement(t, "d", first.Outputs["d"]).GetRealValue() == soleElement(t, "d", other.Outputs["d"]).GetRealValue() {
 		t.Errorf("seeds 7 and 8 drew the same %v", first.Outputs)
 	}
 	for policy, want := range map[string]struct {
@@ -138,7 +138,7 @@ func TestExecuteActionSeedAndDrawsResolveTheModelsDraws(t *testing.T) {
 		n int64
 	}{"min": {0, 1}, "max": {1, 6}} {
 		resp := run(&pb.ExecuteActionRequest{Draws: policy})
-		if resp.Outputs["d"].GetRealValue() != want.d || resp.Outputs["n"].GetIntValue() != want.n {
+		if soleElement(t, "d", resp.Outputs["d"]).GetRealValue() != want.d || soleElement(t, "n", resp.Outputs["n"]).GetIntValue() != want.n {
 			t.Errorf("draws %s = %v, want d=%g n=%d", policy, resp.Outputs, want.d, want.n)
 		}
 	}

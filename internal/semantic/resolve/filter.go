@@ -390,36 +390,7 @@ func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbo
 	children := newElementList()
 	// Only an imported membership can be hidden (KerML 7.2.5.4): a namespace
 	// whose reachable members are all its own has no collisions to compute.
-	imported := false
-	if target.Scope != nil {
-		if includeUnnamed {
-			target.Scope.ForEachMember(func(sym *symbols.Symbol) bool {
-				children.add(sym)
-				return true
-			})
-		} else {
-			for _, sym := range target.Scope.Members() {
-				children.add(sym)
-			}
-		}
-		for _, childImp := range r.scopeImports(target.Scope) {
-			if !r.importVisibleFrom(target, scope, childImp) || r.importStack[childImp] {
-				continue
-			}
-			edge := enumEdge{imp: childImp, unnamed: includeUnnamed}
-			members, done := r.enumMembers[edge]
-			if !done {
-				r.importStack[childImp] = true
-				members = r.importedMembersInto(target.Scope, target.Scope, childImp, includeUnnamed)
-				delete(r.importStack, childImp)
-				r.enumMembers[edge] = members
-			}
-			for _, sym := range members {
-				children.add(sym)
-			}
-			imported = imported || len(members) > 0
-		}
-	}
+	imported := r.declaredChildren(scope, target, includeUnnamed, children)
 	if r.idx == nil {
 		return r.withoutHiddenMembers(target.Scope, children.elems, imported)
 	}
@@ -445,6 +416,43 @@ func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbo
 		children.add(sym)
 	}
 	return r.withoutHiddenMembers(target.Scope, children.elems, imported)
+}
+
+// declaredChildren adds target's own members and what its imports visible from
+// scope bring in, reporting whether any import brought a member.
+func (r *Resolver) declaredChildren(scope *symbols.Scope, target *symbols.Symbol, includeUnnamed bool, children *elementList) bool {
+	if target.Scope == nil {
+		return false
+	}
+	if includeUnnamed {
+		target.Scope.ForEachMember(func(sym *symbols.Symbol) bool {
+			children.add(sym)
+			return true
+		})
+	} else {
+		for _, sym := range target.Scope.Members() {
+			children.add(sym)
+		}
+	}
+	imported := false
+	for _, childImp := range r.scopeImports(target.Scope) {
+		if !r.importVisibleFrom(target, scope, childImp) || r.importStack[childImp] {
+			continue
+		}
+		edge := enumEdge{imp: childImp, unnamed: includeUnnamed}
+		members, done := r.enumMembers[edge]
+		if !done {
+			r.importStack[childImp] = true
+			members = r.importedMembersInto(target.Scope, target.Scope, childImp, includeUnnamed)
+			delete(r.importStack, childImp)
+			r.enumMembers[edge] = members
+		}
+		for _, sym := range members {
+			children.add(sym)
+		}
+		imported = imported || len(members) > 0
+	}
+	return imported
 }
 
 // reexportedUnder reports whether the index entry sym under prefix is a

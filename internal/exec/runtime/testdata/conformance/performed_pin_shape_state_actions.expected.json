@@ -1,0 +1,57 @@
+{
+  "type": "state",
+  "libraries": true,
+  "evaluate": "test::machine",
+  "events": [
+    {
+      "signal": "Go"
+    }
+  ],
+  "trace": true,
+  "finalState": "finished",
+  "stateVisits": [
+    "active",
+    "finished"
+  ],
+  "outputs": {
+    "entered": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 3
+        }
+      ]
+    },
+    "enteredOne": {
+      "type": "Integer",
+      "value": 3
+    },
+    "worked": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 6
+        }
+      ]
+    },
+    "workedOne": {
+      "type": "Integer",
+      "value": 6
+    },
+    "left": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 9
+        }
+      ]
+    },
+    "leftOne": {
+      "type": "Integer",
+      "value": 9
+    }
+  }
+}

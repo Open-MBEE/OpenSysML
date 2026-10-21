@@ -73,6 +73,7 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityConvert:                        "convert",
 	sysmlgrpc.CapabilityConvertDocuments:               "convert",
 	sysmlgrpc.CapabilityConvertCompact:                 "convert",
+	sysmlgrpc.CapabilityConvertCheckDiagnostics:        "convert",
 	sysmlgrpc.CapabilityMigrate:                        "migrate",
 	sysmlgrpc.CapabilityApplyEdits:                     "apply_edits",
 	sysmlgrpc.CapabilityEditDocuments:                  "apply_edits",

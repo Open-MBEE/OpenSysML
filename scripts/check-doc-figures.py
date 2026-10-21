@@ -40,9 +40,9 @@ DISCLAIMER = "not the current baseline"
 BLOCK_BEGIN = "doc-counts:begin"
 BLOCK_END = "doc-counts:end"
 
-# The changelog dates every figure by the release heading it sits under, and the
+# Both changelogs date every figure by the release heading it sits under, and the
 # agent skills tell their reader to read the number out of the baseline JSON.
-EXEMPT = {"CHANGELOG.md"}
+EXEMPT = {"CHANGELOG.md", "docs/project/archive/CHANGELOG-0.0-0.8.md"}
 EXEMPT_DIRS = {".agents"}
 
 

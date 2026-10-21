@@ -1,5 +1,5 @@
 {
 	"verdict": "divergent",
-	"divergent": {"x": ["1", "2"], "total": ["11", "12"], "msg": ["test::Reading#1{level = 1}", "test::Reading#1{level = 2}"]},
+	"divergent": {"x": ["1", "2"], "total": ["11", "12"], "msg": ["[test::Reading#1{level = 1}]", "[test::Reading#1{level = 2}]"]},
 	"agreed": {"count": "1"}
 }

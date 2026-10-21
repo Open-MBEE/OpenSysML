@@ -105,7 +105,7 @@ func TestRunRunsFixedDrawsNeedNoSeed(t *testing.T) {
 	if resp.Error != "" || len(resp.Rows) != 2 || resp.Seed != nil {
 		t.Fatalf("seedless average runs: error %q, %d row(s), seed %v", resp.Error, len(resp.Rows), resp.Seed)
 	}
-	if got := resp.Rows[0].Outputs[0].Value.GetRealValue(); got != 3 {
+	if got := soleElement(t, "t", resp.Rows[0].Outputs[0].Value).GetRealValue(); got != 3 {
 		t.Errorf("average draw of uniform(1, 5) = %v; want 3", got)
 	}
 	if strings.Join(resp.Observables, ",") != "t,clock" {

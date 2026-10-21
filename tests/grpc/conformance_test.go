@@ -26,8 +26,9 @@ import (
 // expectedValue is the fixture encoding of a pb.Value: the oneof field name
 // plus its JSON literal.
 type expectedValue struct {
-	Kind  string      `json:"kind"`
-	Value interface{} `json:"value"`
+	Kind     string          `json:"kind"`
+	Value    interface{}     `json:"value"`
+	Elements []expectedValue `json:"elements"`
 }
 
 // expectedFeatureValue is the fixture encoding of a pb.FeatureValue.
@@ -882,13 +883,14 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 	}
 
 	resp, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
-		ModelHash:      modelHash,
-		ActionSymbolId: tc.SymbolID,
-		Inputs:         inputs,
-		Advance:        tc.Advance,
-		Seed:           tc.Seed,
-		Draws:          tc.Draws,
-		ClockStep:      tc.ClockStep,
+		ModelHash:         modelHash,
+		ActionSymbolId:    tc.SymbolID,
+		PerformerSymbolId: tc.PerformerSymbolID,
+		Inputs:            inputs,
+		Advance:           tc.Advance,
+		Seed:              tc.Seed,
+		Draws:             tc.Draws,
+		ClockStep:         tc.ClockStep,
 	})
 	if err != nil {
 		t.Fatalf("ExecuteAction: %v", err)
@@ -1199,6 +1201,14 @@ func toProtoValue(t *testing.T, ev expectedValue) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_StringValue{StringValue: s}}
 	case "null":
 		return &pb.Value{Kind: &pb.Value_Null{Null: ""}}
+	case "instance_id":
+		return &pb.Value{Kind: &pb.Value_InstanceId{InstanceId: int64(mustFloat(t, ev))}}
+	case "sequence":
+		seq := &pb.ValueSequence{}
+		for _, element := range ev.Elements {
+			seq.Elements = append(seq.Elements, toProtoValue(t, element))
+		}
+		return &pb.Value{Kind: &pb.Value_Sequence{Sequence: seq}}
 	default:
 		t.Fatalf("unknown value kind %q", ev.Kind)
 		return nil
@@ -1232,6 +1242,15 @@ func checkValue(t *testing.T, label string, want expectedValue, got *pb.Value) {
 		}
 	case "null", "instance_id", "unset":
 		// The oneof arm carries all the information; ids are runtime-assigned.
+	case "sequence":
+		elements := got.GetSequence().GetElements()
+		if len(elements) != len(want.Elements) {
+			t.Errorf("%s: %d element(s), want %d", label, len(elements), len(want.Elements))
+			return
+		}
+		for i, element := range want.Elements {
+			checkValue(t, fmt.Sprintf("%s element %d", label, i+1), element, elements[i])
+		}
 	default:
 		if fmt.Sprint(gotValue) != fmt.Sprint(want.Value) {
 			t.Errorf("%s: value = %v, want %v", label, gotValue, want.Value)

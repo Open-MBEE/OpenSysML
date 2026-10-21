@@ -50,8 +50,8 @@ func splitAnalysisArgs(tail string) (analysisInvocation, error) {
 	return inv, nil
 }
 
-// analysisArgs are an invocation's arguments parsed and not yet evaluated:
-// positional ones in order, and the ones written as `<parameter> = <expr>`.
+// analysisArgs are an invocation's arguments parsed and not yet evaluated, positional
+// and `<parameter> = <expr>` ones, each at its position in the written list.
 type analysisArgs struct {
 	positional []argExpr
 	named      []argument
@@ -61,12 +61,13 @@ type analysisArgs struct {
 // one binding a parameter by name may be mixed, as a case's inputs allow.
 func parseAnalysisArgs(text string) (analysisArgs, error) {
 	var args analysisArgs
-	for _, arg := range splitArgs(text) {
+	for i, arg := range splitArgs(text) {
 		if isNamedArgument(arg) {
 			named, err := parseArguments([]string{arg})
 			if err != nil {
 				return analysisArgs{}, err
 			}
+			named[0].at = i
 			args.named = append(args.named, named...)
 			continue
 		}
@@ -74,7 +75,7 @@ func parseAnalysisArgs(text string) (analysisArgs, error) {
 		if err != nil {
 			return analysisArgs{}, err
 		}
-		args.positional = append(args.positional, argExpr{expr: expr, text: arg})
+		args.positional = append(args.positional, argExpr{expr: expr, text: arg, at: i})
 	}
 	return args, nil
 }
@@ -269,15 +270,7 @@ func (s *Session) runAnalysisIn(x execution, ctx *runtime.Context, inv analysisI
 		return caseRun{}, err
 	}
 	var args runtime.AnalysisArgs
-	scope := s.promptScope()
-	for _, arg := range parsed.positional {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return caseRun{}, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		args.Positional = append(args.Positional, val)
-	}
-	if args.Named, err = s.evalArguments(ctx, parsed.named); err != nil {
+	if args.Positional, args.Named, err = evalArgumentList(ctx, s.promptScope(), parsed.positional, parsed.named); err != nil {
 		return caseRun{}, err
 	}
 

@@ -6,7 +6,7 @@ import { landingModel, renderResult, sceneTarget } from "./model";
 import { renderedViewFromJson } from "@openmbee/opensysml/browser";
 import type { EngineInstance, LandingModel } from "./model";
 import { STACK_SCENE } from "./scene";
-import { presentedStack } from "./present";
+import { presentedStack, stackTone } from "./present";
 
 interface LandingFixture {
   hash: string;
@@ -98,4 +98,18 @@ test("presentedStack returns non-part nodes unchanged without mutating the input
 
   assert.strictEqual(result.nodes[result.nodes.length - 1], unmodeledNode);
   assert.equal(JSON.stringify(input.render), originalRender);
+});
+
+test("stackTone maps the model's kinds to the hero's tones and leaves a component plain", () => {
+  const model = fixtureModel();
+  const tones = Object.fromEntries([...model.parts.values()].map((part) => [part.feature, stackTone(part)]));
+  assert.equal(tones.flexo, "accent");
+  assert.equal(tones.opensysml, "primary");
+  assert.equal(tones.pilot, "secondary");
+  for (const part of model.parts.values()) {
+    if (part.owner !== undefined) {
+      assert.equal(stackTone(part), undefined, part.feature);
+    }
+  }
+  assert.equal(stackTone({ ...model.parts.get("flexo")!, attrs: {} }), undefined);
 });

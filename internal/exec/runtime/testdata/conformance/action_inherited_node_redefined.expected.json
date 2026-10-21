@@ -3,11 +3,11 @@
 	"libraries": true,
 	"evaluate": "test::Redefined",
 	"outputs": {
-		"result": {"type": "Integer", "value": 105},
+		"result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 105}]},
 		"x": {"type": "Integer", "value": 5},
-		"add.a": {"type": "Integer", "value": 5},
-		"add.b": {"type": "Integer", "value": 100},
-		"add.sum": {"type": "Integer", "value": 105},
-		"fin.n": {"type": "Integer", "value": 105}
+		"add.a": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+		"add.b": {"type": "Sequence", "elements": [{"type": "Integer", "value": 100}]},
+		"add.sum": {"type": "Sequence", "elements": [{"type": "Integer", "value": 105}]},
+		"fin.n": {"type": "Sequence", "elements": [{"type": "Integer", "value": 105}]}
 	}
 }

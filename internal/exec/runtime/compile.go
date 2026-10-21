@@ -306,6 +306,9 @@ func (c *calcCompiler) compile(cell *compiledCalc) error {
 		if param.IsCalc {
 			return ineligible(fmt.Sprintf("parameter %q binds a function value", param.Name))
 		}
+		if param.Decl.holdsCollection() {
+			return ineligible(fmt.Sprintf("parameter %q declares a multiplicity above one", param.Name))
+		}
 		check, ok := c.scalarCheckFor(&param.Decl)
 		if !ok {
 			return ineligible(fmt.Sprintf("parameter %q declares a type outside the scalar lattice", param.Name))
@@ -327,6 +330,9 @@ func (c *calcCompiler) compile(cell *compiledCalc) error {
 	}
 	var result *scalarCheck
 	if out := shape.resultOutput(); out != nil {
+		if out.Decl.holdsCollection() {
+			return ineligible("result declares a multiplicity above one")
+		}
 		check, ok := c.scalarCheckFor(&out.Decl)
 		if !ok {
 			return ineligible("result declares a type outside the scalar lattice")

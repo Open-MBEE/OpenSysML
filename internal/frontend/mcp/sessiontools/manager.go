@@ -4,14 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 )
 
@@ -26,7 +25,7 @@ const DefaultSession = "default"
 // Each session answers one call at a time: a second call on it waits for the
 // first, and a call whose context ends interrupts the command it is running.
 type Manager struct {
-	root     string
+	root     toolkit.Root
 	factory  Factory
 	mu       sync.Mutex
 	sessions map[string]*held
@@ -44,12 +43,13 @@ type held struct {
 }
 
 // NewManager returns a manager with no sessions open; root is the workspace
-// folder, made absolute, that tool paths resolve against and stay under.
-func NewManager(root string, factory Factory) *Manager {
-	if abs, err := filepath.Abs(root); err == nil {
-		root = abs
+// folder, which must exist, that tool paths resolve against and stay under.
+func NewManager(root string, factory Factory) (*Manager, error) {
+	r, err := toolkit.NewRoot(root)
+	if err != nil {
+		return nil, err
 	}
-	return &Manager{root: filepath.Clean(root), factory: factory, sessions: map[string]*held{}}
+	return &Manager{root: r, factory: factory, sessions: map[string]*held{}}, nil
 }
 
 // ErrNoSession reports a name no open session has.
@@ -70,6 +70,7 @@ func (m *Manager) Open(name string) (string, error) {
 	if err != nil {
 		return name, err
 	}
+	m.confine(sess)
 	m.sessions[name] = &held{name: name, sess: sess}
 	return name, nil
 }
@@ -110,6 +111,7 @@ func (m *Manager) get(name string) (*held, error) {
 	if err != nil {
 		return nil, err
 	}
+	m.confine(sess)
 	h := &held{name: name, sess: sess}
 	m.sessions[name] = h
 	return h, nil
@@ -206,71 +208,49 @@ func (m *Manager) Resolve(path string) (string, error) {
 	case path == "-":
 		return "", errors.New("standard input is not available to a tool; name a file")
 	}
-	path = repl.ExpandHome(path)
+	res, err := m.root.Resolve(repl.ExpandHome(path))
+	if err != nil {
+		return "", err
+	}
+	return res.Path, nil
+}
+
+// confine keeps every file sess reads or writes under the workspace root: its
+// paths are checked by Guard, and its saves are written through WriteFile.
+func (m *Manager) confine(sess *repl.Session) {
+	sess.SetFileGuard(m.Guard)
+	sess.SetFileWriter(m.WriteFile)
+}
+
+// WriteFile writes a file a session saves through the workspace root, so the
+// bytes land where the root's directory handle says, not where a path resolved
+// again at write time leads: a link repointed out of the root after Guard
+// passed it is refused. A relative path is taken from the working directory.
+func (m *Manager) WriteFile(path string, content []byte) (replaced bool, err error) {
 	if !filepath.IsAbs(path) {
-		path = filepath.Join(m.root, path)
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return false, fmt.Errorf("resolving %s: %w", path, err)
+		}
+		path = abs
 	}
-	path = filepath.Clean(path)
-	if escapes(m.root, path) {
-		return "", fmt.Errorf("%s is outside the workspace root %s; session tools only read and write under the root", path, m.root)
-	}
-	real, err := realPath(path)
-	if err != nil {
-		return "", fmt.Errorf("resolving %s: %w", path, err)
-	}
-	realRoot, err := realPath(m.root)
-	if err != nil {
-		return "", fmt.Errorf("resolving the workspace root %s: %w", m.root, err)
-	}
-	if escapes(realRoot, real) {
-		return "", fmt.Errorf("%s leads through a symlink to %s, outside the workspace root %s; session tools only read and write under the root", path, real, m.root)
-	}
-	return path, nil
+	return m.root.WriteFile(path, content)
 }
 
-// escapes reports whether the cleaned absolute path lies outside root.
-func escapes(root, path string) bool {
-	rel, err := filepath.Rel(root, path)
-	return err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
-// realPath follows the symlinks of the longest existing prefix of path and
-// keeps the rest as written, so a file not yet created is placed as well. A
-// dangling link on the way is followed to where it points, since a write
-// through it lands there.
-func realPath(path string) (string, error) {
-	return realPathHops(path, 0)
-}
-
-// maxLinkHops bounds the dangling links followed, as the symlink resolvers of
-// the operating systems bound theirs.
-const maxLinkHops = 40
-
-func realPathHops(path string, hops int) (string, error) {
-	rest := ""
-	for p := path; ; {
-		real, err := filepath.EvalSymlinks(p)
-		if err == nil {
-			return filepath.Join(real, rest), nil
+// Guard is the check every file a session reads or writes must pass, however
+// it was named — by a typed tool, by a %load or %save through repl_command, or
+// found by walking a directory or following a dependency: the file must lie
+// under the workspace root as spelled and once its symlinks are followed, or
+// really under one of the exempt directories (the library roots, for a load).
+// A relative path is taken from the working directory, as the prompt takes it.
+func (m *Manager) Guard(path string, exempt []string) error {
+	if !filepath.IsAbs(path) {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Errorf("resolving %s: %w", path, err)
 		}
-		parent := filepath.Dir(p)
-		if !errors.Is(err, fs.ErrNotExist) || parent == p {
-			return "", err
-		}
-		if info, lerr := os.Lstat(p); lerr == nil && info.Mode()&fs.ModeSymlink != 0 {
-			if hops >= maxLinkHops {
-				return "", fmt.Errorf("%s: too many links", path)
-			}
-			target, rerr := os.Readlink(p)
-			if rerr != nil {
-				return "", rerr
-			}
-			if !filepath.IsAbs(target) {
-				target = filepath.Join(parent, target)
-			}
-			return realPathHops(filepath.Join(target, rest), hops+1)
-		}
-		rest = filepath.Join(filepath.Base(p), rest)
-		p = parent
+		path = abs
 	}
+	_, err := m.root.Resolve(path, toolkit.Exempt(exempt...))
+	return err
 }

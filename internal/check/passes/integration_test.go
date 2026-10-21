@@ -80,3 +80,8 @@ func TestPassesGoldenDeferredKeeper(t *testing.T) { runPassesGolden(t, "deferred
 // `*` is a Positive: the numeric targets hold it, Boolean, String, an enumeration
 // and a non-scalar type refuse it, as the pinned validator judges the same fixture.
 func TestPassesGoldenLiteralInfinity(t *testing.T) { runPassesGolden(t, "literal_infinity") }
+
+// `*` as an operand is well typed under every arithmetic operator, comparison and
+// numeric library function, so the checker is silent, as the pinned validator is;
+// what the evaluator answers or refuses for it is the runtime's contract.
+func TestPassesGoldenUnboundedOperand(t *testing.T) { runPassesGolden(t, "unbounded_operand") }

@@ -3,6 +3,6 @@
   "type": "action",
   "evaluate": "test::Config",
   "outputs": {
-    "count": {"type": "Integer", "value": 1}
+    "count": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
   }
 }

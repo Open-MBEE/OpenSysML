@@ -237,6 +237,25 @@ func (m *Manifest) Validate() error {
 	if m.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("%s: schema version %d, this program reads %d", Path, m.SchemaVersion, SchemaVersion)
 	}
+	if err := m.validateSpecifications(); err != nil {
+		return err
+	}
+	seen, err := m.validateConstraints()
+	if err != nil {
+		return err
+	}
+	if err := m.validateExtensions(); err != nil {
+		return err
+	}
+	if err := m.validateErrata(); err != nil {
+		return err
+	}
+	return m.validateSpecIssues(seen)
+}
+
+// validateSpecifications checks the declared specifications and the formal
+// extraction record, which counts only against declared ones.
+func (m *Manifest) validateSpecifications() error {
 	for key, spec := range m.Specifications {
 		if spec.Name == "" || spec.Document == "" || spec.SHA256 == "" {
 			return fmt.Errorf("%s: specification %q names no document", Path, key)
@@ -252,71 +271,108 @@ func (m *Manifest) Validate() error {
 			}
 		}
 	}
+	return nil
+}
+
+// validateConstraints checks the rows' names, sources and order, then each row
+// on its own; it returns the names listed.
+func (m *Manifest) validateConstraints() (map[string]bool, error) {
 	seen := make(map[string]bool, len(m.Constraints))
 	for i, c := range m.Constraints {
 		if !constraintNamePattern.MatchString(c.Name) {
-			return fmt.Errorf("%s: %q is not a normalized constraint name", Path, c.Name)
+			return nil, fmt.Errorf("%s: %q is not a normalized constraint name", Path, c.Name)
 		}
 		if seen[c.Name] {
-			return fmt.Errorf("%s: %s is listed twice", Path, c.Name)
+			return nil, fmt.Errorf("%s: %s is listed twice", Path, c.Name)
 		}
 		seen[c.Name] = true
 		if _, ok := LanguageBySource[c.Source]; !ok && c.Source != SourceSpec {
-			return fmt.Errorf("%s: %s has source %q", Path, c.Name, c.Source)
+			return nil, fmt.Errorf("%s: %s has source %q", Path, c.Name, c.Source)
 		}
 		if i > 0 {
-			previous := m.Constraints[i-1]
-			switch {
-			case previous.Source == SourceSpec && c.Source != SourceSpec:
-				return fmt.Errorf("%s: %s is out of order (the pilot's rows precede the spec-sourced rows)", Path, c.Name)
-			case (previous.Source == SourceSpec) == (c.Source == SourceSpec) && previous.Name > c.Name:
-				return fmt.Errorf("%s: %s is out of order (each group is sorted by name)", Path, c.Name)
+			if err := validateOrder(m.Constraints[i-1], c); err != nil {
+				return nil, err
 			}
 		}
-		if !knownKind(c.Kind) {
-			return fmt.Errorf("%s: %s has kind %q", Path, c.Name, c.Kind)
-		}
-		if !strings.HasPrefix(c.Name, c.Kind) {
-			return fmt.Errorf("%s: %s has kind %q, which its name does not state", Path, c.Name, c.Kind)
-		}
-		if c.Source == SourceSpec {
-			if err := validateSpecSourced(c); err != nil {
-				return err
-			}
-		} else if c.OCL != "" {
-			return fmt.Errorf("%s: %s records OCL, which only a spec-sourced row carries", Path, c.Name)
-		}
-		if c.Metaclass == "" {
-			return fmt.Errorf("%s: %s names no metaclass", Path, c.Name)
-		}
-		if _, ok := MarkerFor(c.Status); !ok {
-			return fmt.Errorf("%s: %s has status %q", Path, c.Name, c.Status)
-		}
-		if c.Status != StatusFaithful && strings.TrimSpace(c.Rationale) == "" {
-			return fmt.Errorf("%s: %s is %s but states no rationale", Path, c.Name, c.Status)
-		}
-		if c.Spec != nil {
-			if _, ok := m.Specifications[c.Spec.Document]; !ok {
-				return fmt.Errorf("%s: %s cites specification %q, which is not declared", Path, c.Name, c.Spec.Document)
-			}
-			if !clausePattern.MatchString(c.Spec.Clause) {
-				return fmt.Errorf("%s: %s cites clause %q", Path, c.Name, c.Spec.Clause)
-			}
-			if c.Spec.Name != "" && c.Spec.Name != c.Name {
-				if !constraintNamePattern.MatchString(c.Spec.Name) {
-					return fmt.Errorf("%s: %s cites the spec name %q, which is not a constraint name", Path, c.Name, c.Spec.Name)
-				}
-				if other, ok := m.Constraint(c.Spec.Name); ok {
-					return fmt.Errorf("%s: %s cites the spec name %q, which is %s's own name", Path, c.Name, c.Spec.Name, other.Name)
-				}
-			}
-		}
-		for _, cell := range []string{c.Checks, c.Implementation, c.Message, c.NegativeCase, c.Rationale} {
-			if strings.ContainsAny(cell, "|\n") {
-				return fmt.Errorf("%s: %s holds a table cell with a pipe or line break", Path, c.Name)
-			}
+		if err := m.validateConstraint(c); err != nil {
+			return nil, err
 		}
 	}
+	return seen, nil
+}
+
+// validateOrder checks that c follows previous: the pilot's rows precede the
+// spec-sourced rows, and each group is sorted by name.
+func validateOrder(previous, c Constraint) error {
+	switch {
+	case previous.Source == SourceSpec && c.Source != SourceSpec:
+		return fmt.Errorf("%s: %s is out of order (the pilot's rows precede the spec-sourced rows)", Path, c.Name)
+	case (previous.Source == SourceSpec) == (c.Source == SourceSpec) && previous.Name > c.Name:
+		return fmt.Errorf("%s: %s is out of order (each group is sorted by name)", Path, c.Name)
+	}
+	return nil
+}
+
+// validateConstraint checks one row: its kind, what its source allows, its
+// metaclass, status and rationale, the clause it cites, and its cells.
+func (m *Manifest) validateConstraint(c Constraint) error {
+	if !knownKind(c.Kind) {
+		return fmt.Errorf("%s: %s has kind %q", Path, c.Name, c.Kind)
+	}
+	if !strings.HasPrefix(c.Name, c.Kind) {
+		return fmt.Errorf("%s: %s has kind %q, which its name does not state", Path, c.Name, c.Kind)
+	}
+	if c.Source == SourceSpec {
+		if err := validateSpecSourced(c); err != nil {
+			return err
+		}
+	} else if c.OCL != "" {
+		return fmt.Errorf("%s: %s records OCL, which only a spec-sourced row carries", Path, c.Name)
+	}
+	if c.Metaclass == "" {
+		return fmt.Errorf("%s: %s names no metaclass", Path, c.Name)
+	}
+	if _, ok := MarkerFor(c.Status); !ok {
+		return fmt.Errorf("%s: %s has status %q", Path, c.Name, c.Status)
+	}
+	if c.Status != StatusFaithful && strings.TrimSpace(c.Rationale) == "" {
+		return fmt.Errorf("%s: %s is %s but states no rationale", Path, c.Name, c.Status)
+	}
+	if c.Spec != nil {
+		if err := m.validateCitation(c); err != nil {
+			return err
+		}
+	}
+	for _, cell := range []string{c.Checks, c.Implementation, c.Message, c.NegativeCase, c.Rationale} {
+		if strings.ContainsAny(cell, "|\n") {
+			return fmt.Errorf("%s: %s holds a table cell with a pipe or line break", Path, c.Name)
+		}
+	}
+	return nil
+}
+
+// validateCitation checks the clause c cites: a declared specification, a
+// clause number, and a spec name that is a constraint name and no other row's own.
+func (m *Manifest) validateCitation(c Constraint) error {
+	if _, ok := m.Specifications[c.Spec.Document]; !ok {
+		return fmt.Errorf("%s: %s cites specification %q, which is not declared", Path, c.Name, c.Spec.Document)
+	}
+	if !clausePattern.MatchString(c.Spec.Clause) {
+		return fmt.Errorf("%s: %s cites clause %q", Path, c.Name, c.Spec.Clause)
+	}
+	if c.Spec.Name != "" && c.Spec.Name != c.Name {
+		if !constraintNamePattern.MatchString(c.Spec.Name) {
+			return fmt.Errorf("%s: %s cites the spec name %q, which is not a constraint name", Path, c.Name, c.Spec.Name)
+		}
+		if other, ok := m.Constraint(c.Spec.Name); ok {
+			return fmt.Errorf("%s: %s cites the spec name %q, which is %s's own name", Path, c.Name, c.Spec.Name, other.Name)
+		}
+	}
+	return nil
+}
+
+// validateExtensions checks each extension names a file, pass, note and basis, once.
+func (m *Manifest) validateExtensions() error {
 	files := make(map[string]bool, len(m.Extensions))
 	for _, e := range m.Extensions {
 		if e.File == "" || e.Pass == "" || strings.TrimSpace(e.Note) == "" {
@@ -330,6 +386,12 @@ func (m *Manifest) Validate() error {
 		}
 		files[e.File] = true
 	}
+	return nil
+}
+
+// validateErrata checks each erratum is complete, listed once, and cites a
+// well-formed OMG issue if any.
+func (m *Manifest) validateErrata() error {
 	ids := make(map[string]bool, len(m.Errata))
 	for _, e := range m.Errata {
 		if e.ID == "" || e.Heading == "" || e.Path == "" || e.Line <= 0 {
@@ -343,6 +405,12 @@ func (m *Manifest) Validate() error {
 			return fmt.Errorf("%s: erratum %s cites OMG issue %q", Path, e.ID, e.OMGIssue)
 		}
 	}
+	return nil
+}
+
+// validateSpecIssues checks each spec issue is complete, listed once, and bears
+// on rows the manifest lists.
+func (m *Manifest) validateSpecIssues(rows map[string]bool) error {
 	issues := make(map[string]bool, len(m.SpecIssues))
 	for _, issue := range m.SpecIssues {
 		if !omgIssuePattern.MatchString(issue.ID) || issue.URL == "" || strings.TrimSpace(issue.Summary) == "" || issue.Page == "" {
@@ -353,7 +421,7 @@ func (m *Manifest) Validate() error {
 		}
 		issues[issue.ID] = true
 		for _, name := range issue.BearsOn {
-			if !seen[name] {
+			if !rows[name] {
 				return fmt.Errorf("%s: spec issue %s bears on %s, which is not a row", Path, issue.ID, name)
 			}
 		}

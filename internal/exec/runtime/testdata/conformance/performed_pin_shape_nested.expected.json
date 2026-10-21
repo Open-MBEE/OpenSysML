@@ -1,0 +1,77 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::probe",
+  "outputs": {
+    "value": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 4
+        }
+      ]
+    },
+    "inner": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 8
+        }
+      ]
+    },
+    "innerOne": {
+      "type": "Integer",
+      "value": 8
+    },
+    "innerV": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 4
+        }
+      ]
+    },
+    "innerW": {
+      "type": "Integer",
+      "value": 4
+    },
+    "o.value": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 4
+        }
+      ]
+    },
+    "o.i.v": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 4
+        }
+      ]
+    },
+    "o.i.w": {
+      "type": "Integer",
+      "value": 4
+    },
+    "o.i.sum": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 8
+        }
+      ]
+    },
+    "o.i.sumOne": {
+      "type": "Integer",
+      "value": 8
+    }
+  }
+}

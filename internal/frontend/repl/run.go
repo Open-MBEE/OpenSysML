@@ -439,11 +439,31 @@ func (s *Session) RunAnalysis(invocation string) Verdict {
 // performer names when it names one. An action that could not be run, or that
 // stopped short of completing, is unresolved: it produced no outputs to judge.
 func (s *Session) RunAction(name string, performer ...string) Verdict {
+	return s.RunActionWithInputs(name, nil, performer...)
+}
+
+// RunActionWithInputs is RunAction with the action's input parameters bound
+// before it starts, from arguments written positionally, in parameter order, or
+// as `<parameter>=<expression>`, each evaluated where the prompt evaluates one.
+// Inputs bind a run only; under check or explore, which search every schedule
+// from the action's own start, the verdict is unresolved and says so.
+func (s *Session) RunActionWithInputs(name string, inputs []string, performer ...string) Verdict {
 	defer s.enter()()
+	parsed, err := parseInvokeArgumentList(inputs)
+	if err != nil {
+		return s.withTrace(unresolvedVerdict(name, err.Error()))
+	}
+	given := len(parsed.positional) + len(parsed.named)
 	if s.checking() {
+		if given > 0 {
+			return s.withTrace(unresolvedVerdict(name, "inputs are not bound under check: a check searches the action's schedules from its own start, so run it without inputs or under run mode"))
+		}
 		return s.checkAction(name, performer)
 	}
 	if _, explores := s.exploring(); explores {
+		if given > 0 {
+			return s.withTrace(unresolvedVerdict(name, "inputs are not bound under explore: an exploration searches the action's schedules from its own start, so run it without inputs or under run mode"))
+		}
 		return s.exploreAction(name, performer)
 	}
 	ctx, err := s.getOrCreateRuntime()
@@ -451,7 +471,7 @@ func (s *Session) RunAction(name string, performer ...string) Verdict {
 		return s.withTrace(unresolvedVerdict(name, fmt.Errorf("%w: %w", errRuntimeInit, err).Error()))
 	}
 	done, plan, err := evaluate(s.dispatched(), name, ctx, func(*runtime.Context) (performed, error) {
-		started, err := s.startAction(name, performer)
+		started, err := s.startActionWithInputs(name, performer, parsed)
 		if err != nil {
 			return performed{}, err
 		}

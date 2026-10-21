@@ -5,12 +5,22 @@
   "seed": 7,
   "expected_outputs": {
     "d": {
-      "kind": "real_value",
-      "value": 0.0
+      "kind": "sequence",
+      "elements": [
+        {
+          "kind": "real_value",
+          "value": 0.0
+        }
+      ]
     },
     "n": {
-      "kind": "int_value",
-      "value": 1
+      "kind": "sequence",
+      "elements": [
+        {
+          "kind": "int_value",
+          "value": 1
+        }
+      ]
     }
   }
 }

@@ -2,6 +2,8 @@ package opensysml
 
 import (
 	"context"
+	"fmt"
+	"math"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
@@ -11,11 +13,29 @@ type RenderViewOption func(*renderViewOptions)
 
 type renderViewOptions struct {
 	ports string
+	show  []string
+	depth int
 }
 
 // WithFullPorts includes ports whether or not a connector uses them.
 func WithFullPorts() RenderViewOption {
 	return func(options *renderViewOptions) { options.ports = "full" }
+}
+
+// WithShow draws the named optional notation elements besides those the
+// view's rendering shows: "parameter-symbols", "port-symbols", "compartments",
+// "edge-labels", "keywords", "multiplicities", "typings", "qualifiers" or
+// "all". The result's Shown lists the ones drawn; a name none of them has is
+// refused as an invalid request naming the elements there are.
+func WithShow(elements ...string) RenderViewOption {
+	return func(options *renderViewOptions) { options.show = append(options.show, elements...) }
+}
+
+// WithDepth draws this many levels of nested elements below each exposed
+// element, overriding the view's own depth; zero draws every level the view
+// allows.
+func WithDepth(depth int) RenderViewOption {
+	return func(options *renderViewOptions) { options.depth = depth }
 }
 
 // RenderedView is the lossless diagram data returned for a declared or
@@ -31,6 +51,9 @@ type RenderedView struct {
 	Canvas  *RenderCanvas
 	Notes   []RenderNote
 	Notices []string
+	// Shown lists the optional notation elements drawn, the view's own and
+	// those WithShow asked for.
+	Shown []string
 }
 
 // RenderNode is a view node with optional geometry and style.
@@ -130,7 +153,8 @@ type RenderNote struct {
 }
 
 // RenderView renders a named view. Ports are minimal unless WithFullPorts is
-// supplied.
+// supplied; WithShow adds optional notation elements and WithDepth limits how
+// deep nested elements are drawn.
 func (c *client) RenderView(ctx context.Context, model *Model, viewName string, opts ...RenderViewOption) (*RenderedView, error) {
 	hash, err := c.call(model)
 	if err != nil {
@@ -143,10 +167,15 @@ func (c *client) RenderView(ctx context.Context, model *Model, viewName string, 
 	for _, opt := range opts {
 		opt(&options)
 	}
+	if options.depth < 0 || options.depth > math.MaxInt32 {
+		return nil, &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf("depth must be between 0 and %d, got %d", math.MaxInt32, options.depth)}
+	}
 	response, err := c.caller.renderView(ctx, &pb.RenderViewRequest{
 		ModelHash: hash,
 		View:      viewName,
 		Ports:     options.ports,
+		Show:      append([]string(nil), options.show...),
+		Depth:     int32(options.depth),
 	})
 	if err != nil {
 		return nil, err
@@ -158,6 +187,7 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 	result := &RenderedView{
 		View: response.View, Kind: response.Kind, Stated: response.Stated,
 		Columns: append([]string(nil), response.Columns...), Notices: append([]string(nil), response.Notices...),
+		Shown: append([]string(nil), response.Shown...),
 	}
 	for _, node := range response.Nodes {
 		converted := RenderNode{

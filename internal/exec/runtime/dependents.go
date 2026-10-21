@@ -16,13 +16,13 @@ type derivation struct {
 	stale bool
 }
 
-// deriveFeatureValue evaluates fv's `=` expression, recording what it reads, over
+// deriveFeatureValue runs derive, fv's `=` expression, recording what it reads, over
 // again while a read wrote under it; the step limit bounds a run that never settles.
 // It reports whether the derivation read declared values within inst alone, and those reads.
-func (ctx *Context) deriveFeatureValue(inst *Instance, fv *FeatureValue, name string) (Value, bool, []sharedRead, error) {
+func (ctx *Context) deriveFeatureValue(inst *Instance, fv *FeatureValue, derive func() (Value, error)) (Value, bool, []sharedRead, error) {
 	if !ctx.derivable(fv) {
 		top := ctx.beginTrace(inst, fv)
-		val, err := ctx.evalFeatureValueDefault(inst, fv, name)
+		val, err := derive()
 		clean, reads := ctx.endTrace(top)
 		return val, clean, reads, err
 	}
@@ -30,7 +30,7 @@ func (ctx *Context) deriveFeatureValue(inst *Instance, fv *FeatureValue, name st
 	var reads []sharedRead
 	val, err := ctx.deriveWith(fv, func() (Value, error) {
 		top := ctx.beginTrace(inst, fv)
-		value, err := ctx.evalFeatureValueDefault(inst, fv, name)
+		value, err := derive()
 		clean, reads = ctx.endTrace(top)
 		return value, err
 	})

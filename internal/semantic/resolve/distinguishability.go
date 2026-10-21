@@ -218,17 +218,15 @@ func (r *Resolver) ownedNames(scope *symbols.Scope) []string {
 // be settled yet.
 func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) (*importCollisions, bool) {
 	complete := r.inCondition == 0
-	owned := map[string]bool{}
+	g := &importedGather{owned: map[string]bool{}, seen: map[boundName]bool{}, owners: map[ownedName]bool{}}
 	for _, name := range r.ownedNames(scope) {
-		owned[name] = true
+		g.owned[name] = true
 	}
 	c := &importCollisions{
 		byName:   map[string][]importedMember{},
 		hidden:   map[boundName]bool{},
 		collided: map[string][]importedMember{},
 	}
-	seen := map[boundName]bool{}
-	owners := map[ownedName]bool{}
 	for _, imp := range imports {
 		if r.resolvingImports[imp] {
 			complete = false
@@ -242,29 +240,50 @@ func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) 
 		if target == nil || r.idx.Library(target) {
 			continue
 		}
-		for _, sym := range r.importedMembersInto(scope, scope, imp, false) {
-			if sym.Name == "" || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
+		r.gatherImported(scope, imp, g, c)
+	}
+	r.hideImportCollisions(c)
+	return c, complete
+}
+
+// importedGather is the bookkeeping of one collectImported walk: the names
+// scope owns, and the memberships and owner-name pairs already gathered.
+type importedGather struct {
+	owned  map[string]bool
+	seen   map[boundName]bool
+	owners map[ownedName]bool
+}
+
+// gatherImported records, under each name it binds, every named member imp
+// brings into scope that no owned member hides and no earlier import brought.
+func (r *Resolver) gatherImported(scope *symbols.Scope, imp *ast.Import, g *importedGather, c *importCollisions) {
+	for _, sym := range r.importedMembersInto(scope, scope, imp, false) {
+		if sym.Name == "" || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
+			continue
+		}
+		key := symbols.KeyOf(r.aliasTarget(sym))
+		for _, name := range r.memberNames(sym) {
+			if name == "" {
 				continue
 			}
-			key := symbols.KeyOf(r.aliasTarget(sym))
-			for _, name := range r.memberNames(sym) {
-				if name == "" {
-					continue
-				}
-				bound := boundName{key: key, name: name}
-				owner := ownedName{owner: ownerKeyOf(sym.OwnerScope), name: name}
-				if owned[name] || seen[bound] || owners[owner] {
-					continue
-				}
-				seen[bound] = true
-				owners[owner] = true
-				if _, ok := c.byName[name]; !ok {
-					c.names = append(c.names, name)
-				}
-				c.byName[name] = append(c.byName[name], importedMember{sym: sym, imp: imp})
+			bound := boundName{key: key, name: name}
+			owner := ownedName{owner: ownerKeyOf(sym.OwnerScope), name: name}
+			if g.owned[name] || g.seen[bound] || g.owners[owner] {
+				continue
 			}
+			g.seen[bound] = true
+			g.owners[owner] = true
+			if _, ok := c.byName[name]; !ok {
+				c.names = append(c.names, name)
+			}
+			c.byName[name] = append(c.byName[name], importedMember{sym: sym, imp: imp})
 		}
 	}
+}
+
+// hideImportCollisions decides each name several imports bring in: the members
+// that are indistinguishable from one another collide and are hidden under every name they bind.
+func (r *Resolver) hideImportCollisions(c *importCollisions) {
 	for _, name := range c.names {
 		members := c.byName[name]
 		if len(members) < 2 {
@@ -289,7 +308,6 @@ func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) 
 			}
 		}
 	}
-	return c, complete
 }
 
 // hiddenImport reports whether sym, reached under name through an import of

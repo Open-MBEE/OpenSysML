@@ -45,7 +45,15 @@ From the repository root:
 ```bash
 make ontology-table          # ./scripts/download-pilot-metamodel.sh && go run -C tools ./gen/ontology
 make ontology-table-check    # the same with -check, as CI runs it
+make metaclass-graph         # sysml -metaclass-graph -o sysml-metaclasses.ttl, from the committed table
+make metaclass-graph-check   # TestMetaclassGraphIsCurrent, as CI runs it
 ```
+
+`sysml-metaclasses.ttl` is the table's class hierarchy as an RDF vocabulary graph, written by
+`MetaclassGraph` (`hierarchy.go`): one `rdfs:Class` per metaclass, `rdfs:subClassOf` per declared
+parent, `sysx:abstract true` on the abstract ones. It is regenerated from the table, so a table
+change is followed by `make metaclass-graph`; `TestMetaclassGraphIsCurrent` fails until it is. See
+[docs/reference/rdf-mapping.md](../../../../docs/reference/rdf-mapping.md) § Metaclass hierarchy graph.
 
 `scripts/download-pilot-metamodel.sh` fetches the pinned pilot's `org.omg.sysml/model` into
 `build/pilot-metamodel/` and stamps it with the pin; the generator refuses a download whose stamp

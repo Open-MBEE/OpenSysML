@@ -1,0 +1,30 @@
+{
+  "type": "instance",
+  "instantiate": "test::wedge",
+  "libraries": true,
+  "slots": {
+    "shape.length": {"type": "Quantity", "value": 3, "unit": "m"},
+    "shape.width": {"type": "Quantity", "value": 4, "unit": "m"},
+    "shape.height": {"type": "Quantity", "value": 1, "unit": "m"},
+    "shape.faces": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "shape.ff.length": {"type": "Quantity", "value": 3, "unit": "m"},
+    "shape.ff.width": {"type": "Quantity", "value": 4, "unit": "m"},
+    "shape.ff.xoffset": {"type": "Quantity", "value": 1.5, "unit": "m"},
+    "shape.ff.base.length": {"type": "Quantity", "value": 3, "unit": "m"},
+    "shape.ff.e2.length": {"type": "Quantity", "value": 4, "unit": "m"},
+    "shape.ff.hypotenuse.length": {"error": "type mismatch: cannot write 25 [SI::'m²'] (dimension L^2) to a feature typed by LengthValue (dimension L)"},
+    "shape.rf.length": {"type": "Quantity", "value": 3, "unit": "m"},
+    "shape.rf.width": {"error": "cyclic feature value dependency: rf.width"},
+    "shape.rf.xoffset": {"type": "Quantity", "value": 1.5, "unit": "m"},
+    "shape.rf.e2.length": {"error": "cyclic feature value dependency: rf.width"}
+  },
+  "materialization": {
+    "errors": [
+      "in shape.ff: feature value hypotenuse.length: type mismatch: cannot write 25 [SI::'m²'] (dimension L^2) to a feature typed by LengthValue (dimension L)",
+      "feature value rf.width: cyclic feature value dependency: rf.width"
+    ]
+  }
+}

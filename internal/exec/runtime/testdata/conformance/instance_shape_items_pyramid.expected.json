@@ -1,0 +1,23 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::P",
+  "slots": {
+    "shape": {"type": "Instance"},
+    "shape.height": {"type": "Quantity", "value": 1, "unit": "SI::m"},
+    "shape.wallNumber": {"type": "Integer", "value": 1},
+    "shape.apex": {"type": "Sequence", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]},
+    "shape.faces": {"type": "Sequence", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]},
+    "shape.vertices": {"type": "Sequence", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]}
+  },
+  "materialization": {}
+}

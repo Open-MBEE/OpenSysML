@@ -1296,8 +1296,8 @@ func TestCheckDivergeTellsAQuotedNameFromANodePath(t *testing.T) {
 		}
 	}
 	report := checkModel(t, m, "race", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"marker.tag"}})
-	if len(report.Divergent) != 0 || report.Finals[0].Values["marker.tag"] != "1" {
-		t.Fatalf("Diverge marker.tag: %s, finals %v; want marker.tag = 1 on every schedule", report.Status(), report.Finals)
+	if len(report.Divergent) != 0 || report.Finals[0].Values["marker.tag"] != "[1]" {
+		t.Fatalf("Diverge marker.tag: %s, finals %v; want marker.tag = [1] on every schedule", report.Status(), report.Finals)
 	}
 }
 
@@ -1326,8 +1326,8 @@ func TestCheckRejectsAnUnknownDivergeName(t *testing.T) {
 	if report.Verdict != CheckExhaustive || len(report.Finals) != 1 {
 		t.Fatalf("%s, want one final", report.Status())
 	}
-	if values := report.Finals[0].Values; values["later"] != UnsetText || values["marker.tag"] != "1" {
-		t.Fatalf("final values %v, want later unset and marker.tag = 1", values)
+	if values := report.Finals[0].Values; values["later"] != UnsetText || values["marker.tag"] != "[1]" {
+		t.Fatalf("final values %v, want later unset and marker.tag = [1]", values)
 	}
 }
 
@@ -1389,8 +1389,8 @@ func TestCheckKeepsABoundedReportWhenAPathUnderATiedCallIsUnreached(t *testing.T
 		}
 	}`)
 	report := checkModel(t, m, "outer", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"byResult.result"}})
-	if report.Verdict != CheckExhaustive || len(report.Finals) != 1 || report.Finals[0].Values["byResult.result"] != "2" {
-		t.Fatalf("%s, finals %+v: want the one final holding byResult.result = 2", report.Status(), report.Finals)
+	if report.Verdict != CheckExhaustive || len(report.Finals) != 1 || report.Finals[0].Values["byResult.result"] != "[2]" {
+		t.Fatalf("%s, finals %+v: want the one final holding byResult.result = [2]", report.Status(), report.Finals)
 	}
 	_, err := checkModelErr(t, m, "outer", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"byResult.mark"}})
 	var unknown *unknownCheckFeatureError

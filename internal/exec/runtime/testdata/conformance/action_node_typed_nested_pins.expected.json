@@ -2,9 +2,9 @@
 	"type": "action",
 	"evaluate": "test::outer",
 	"outputs": {
-		"total": {"type": "Integer", "value": 7},
-		"viaResult": {"type": "Integer", "value": 7},
-		"call.result": {"type": "Integer", "value": 7},
-		"call.inner.v": {"type": "Integer", "value": 7}
+		"total": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]},
+		"viaResult": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]},
+		"call.result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]},
+		"call.inner.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 7}]}
 	}
 }

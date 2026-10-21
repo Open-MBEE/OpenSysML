@@ -237,7 +237,7 @@ end
 
 function _analysis_request(model::Model, symbol_id; subject=nothing, arguments=Any[],
                            named_arguments=Dict(), schedule=nothing, engine=nothing,
-                           allow_exploration=false)
+                           allow_exploration=false, tool_dry_run::Bool=false)
     conn = model.connection
     _is_exploring(schedule) && !allow_exploration &&
         throw(ArgumentError("schedule $(repr(String(schedule))) answers with every outcome, not one run's result: use explore_analysis"))
@@ -263,6 +263,7 @@ function _analysis_request(model::Model, symbol_id; subject=nothing, arguments=A
         "arguments" => args, "namedArguments" => named,
         "schedule" => schedule === nothing ? "" : String(schedule),
         "engine" => engine === nothing || engine == "auto" ? "" : String(engine))
+    tool_dry_run && (request["toolDryRun"] = true)
     answer = _translate(; capabilities=Tuple(needed), connection=conn) do
         call(conn, "RunAnalysis", request)
     end
@@ -281,14 +282,24 @@ function _analysis_result(conn::Connection, answer)
         instances=instances, diagnostics=diags,
         verifications=verifications,
         evaluations=_case_evaluations(get(answer, "evaluations", Any[]), graph),
-        standing=Standing(answer))
+        standing=Standing(answer),
+        tool_dry_run=haskey(answer, "toolDryRun") ? ToolDryRun(answer["toolDryRun"]) : nothing)
 end
 
-"""Run an analysis case once and return outputs and verdicts."""
+"""
+    run_analysis(model, symbol_id; subject, arguments, named_arguments, schedule, engine,
+                 tool_dry_run=false)
+
+Run an analysis case once and return outputs and verdicts. `tool_dry_run=true` runs the case
+only to its first external tool call and answers what the tool would be given, as
+`sysml -tool-dry-run` does, in the result's `tool_dry_run` (a `ToolDryRun`) with no outputs.
+"""
 function run_analysis(model::Model, symbol_id::AbstractString; subject=nothing,
-                      arguments=Any[], named_arguments=Dict(), schedule=nothing, engine=nothing)
+                      arguments=Any[], named_arguments=Dict(), schedule=nothing, engine=nothing,
+                      tool_dry_run::Bool=false)
     answer = _analysis_request(model, symbol_id; subject=subject, arguments=arguments,
-        named_arguments=named_arguments, schedule=schedule, engine=engine)
+        named_arguments=named_arguments, schedule=schedule, engine=engine,
+        tool_dry_run=tool_dry_run)
     message = String(get(answer, "error", ""))
     partial = any(!isempty(get(answer, key, Any[])) for key in
                   ("outputs", "verdicts", "evaluations", "instances"))

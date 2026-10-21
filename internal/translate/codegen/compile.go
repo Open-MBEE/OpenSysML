@@ -174,10 +174,12 @@ type env struct {
 // fn it is specialized over, typed when that value is chosen at run time; an
 // attribute holding a SampledFunction is sampled and has no type.
 type binding struct {
-	t       Type
-	r       Range
-	m       Mult
-	unique  bool
+	t      Type
+	r      Range
+	m      Mult
+	unique bool
+	// shaped holds a parameter or result in the shape its multiplicity gives it (Held).
+	shaped  bool
 	inline  Expr
 	fn      *funcValue
 	sampled *sampledFn
@@ -349,7 +351,7 @@ func (c *Compiler) compileFuncWith(fn *Func, key specKey, sym *symbols.Symbol, b
 			c.nums[s] = true
 		}
 		b = c.slotted(b, s)
-		fn.Params = append(fn.Params, Param{Name: name, Type: b.t, Range: b.r, Mult: b.m, Unique: b.unique})
+		fn.Params = append(fn.Params, Param{Name: name, Type: b.t, Range: b.r, Mult: b.m, Unique: b.unique, Held: true})
 		fc.env.bind(name, b)
 	}
 	if nextFn != len(fargs) {
@@ -494,7 +496,7 @@ func (fc *funcCompiler) declaredResult(sym *symbols.Symbol, body []ast.Node) (bi
 			if err != nil {
 				return binding{}, err
 			}
-			b := binding{m: m}
+			b := binding{m: m, shaped: true}
 			if m != MultOne {
 				if b.unique, err = fc.uniqueOf(sym.Scope, u, name); err != nil {
 					return binding{}, err
@@ -506,6 +508,7 @@ func (fc *funcCompiler) declaredResult(sym *symbols.Symbol, body []ast.Node) (bi
 		if err != nil {
 			return binding{}, err
 		}
+		b.shaped = true
 		return fc.c.slotted(b, slot{key: fc.key}), nil
 	}
 	return binding{m: MultAny}, nil
@@ -803,7 +806,7 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 			if fc.result.m == MultOne {
 				t = v.Type().Elem()
 			}
-			fc.result = fc.c.slotted(binding{t: t, m: fc.result.m, unique: fc.result.unique}, slot{key: fc.key})
+			fc.result = fc.c.slotted(binding{t: t, m: fc.result.m, unique: fc.result.unique, shaped: fc.result.shaped}, slot{key: fc.key})
 			fc.fn.Result = fc.result.t
 		}
 		v, err = fc.bind(v, fc.result, resultWhere, resultWhere)

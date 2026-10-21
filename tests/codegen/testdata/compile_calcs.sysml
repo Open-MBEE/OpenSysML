@@ -433,6 +433,7 @@ package Compiled {
 		calc def Same { in calc f { in v : Real; return : Real; } in calc g { in v : Real; return : Real; } return : Boolean = f == g; }
 		calc def SameSq { in b : Boolean; return : Boolean = Same(Sq, if b ? Sq else Half); }
 		calc def Pair { return r : Anything[0..*] = (sqU, halfU); }
+		calc def AnyOne { in k : Integer; return r : Anything[0..*] = k; }
 		calc def PairUntyped { return r = (sqU, halfU); }
 		calc def PairApply { in a : Real; attribute s = (sqU, halfU); return : Real[0..*] = s->collect {in f; Apply(f, a)}; }
 		calc def MixedKind { in b : Boolean; in a : Real; return : Real = Apply(if b ? sqU else RealFunctions::sqrt, a); }

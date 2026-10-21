@@ -37,12 +37,13 @@ const (
 	testWithholdCapabilitiesEnv = "OPENSYSML_TEST_WITHHOLD_CAPABILITIES"
 )
 
-var knownProtocols = map[string]struct{}{"grpc": {}, "connect": {}, "connect-json": {}, "pkg": {}, "pkg-connect": {}}
+var knownProtocols = map[string]struct{}{"grpc": {}, "connect": {}, "connect-json": {}, "pkg": {}, "pkg-connect": {}, "mcp": {}}
 
 func main() {
 	var (
 		dir       = flag.String("dir", "", "conformance suite directory (scenarios/ and fixtures/; default: <repo>/conformance)")
 		binary    = flag.String("binary", "", "sysml-grpc binary to test; built from <repo>/cmd/sysml-grpc when empty")
+		mcpBinary = flag.String("mcp-binary", "", "sysml-mcp binary the mcp protocol tests; built from <repo>/cmd/sysml-mcp when empty")
 		repoRoot  = flag.String("repo", "", "repository root to build the service from (default: the product module root above the working directory)")
 		report    = flag.String("report", "", "write the machine-readable summary to this file (- for stdout)")
 		junitOut  = flag.String("junit", "", "also write the results as JUnit XML to this file")
@@ -70,6 +71,7 @@ func main() {
 	opts := options{
 		dir:       *dir,
 		binary:    repo.Resolve(root, *binary),
+		mcpBinary: repo.Resolve(root, *mcpBinary),
 		repoRoot:  root,
 		report:    *report,
 		junit:     repo.Resolve(root, *junitOut),
@@ -90,6 +92,7 @@ func main() {
 type options struct {
 	dir       string
 	binary    string
+	mcpBinary string
 	repoRoot  string
 	report    string
 	junit     string
@@ -142,12 +145,23 @@ func runSuite(opts options) error {
 	}
 	defer os.RemoveAll(workDir)
 
-	if opts.binary == "" {
-		built, err := buildService(opts.repoRoot, workDir)
+	// The mcp protocol runs its own server; the service is started only for
+	// the protocols that talk to it.
+	needsService := slices.ContainsFunc(protocols, func(protocol string) bool { return protocol != "mcp" })
+	if needsService && opts.binary == "" {
+		built, err := buildCommand(opts.repoRoot, workDir, "sysml-grpc")
 		if err != nil {
 			return err
 		}
 		opts.binary = built
+	}
+	testsMCP := slices.Contains(protocols, "mcp")
+	if testsMCP && opts.mcpBinary == "" {
+		built, err := buildCommand(opts.repoRoot, workDir, "sysml-mcp")
+		if err != nil {
+			return err
+		}
+		opts.mcpBinary = built
 	}
 	configurations := []configuration{{name: "default"}}
 	if len(unavailable) > 0 {
@@ -157,7 +171,13 @@ func runSuite(opts options) error {
 		})
 	}
 
-	reportData := &Report{Service: opts.binary}
+	reportData := &Report{}
+	if needsService {
+		reportData.Service = opts.binary
+	}
+	if testsMCP {
+		reportData.MCPServer = opts.mcpBinary
+	}
 	defaultCapabilities := map[string][]string{}
 	for _, config := range configurations {
 		fmt.Fprintf(os.Stdout, "\nConfiguration %s\n", config.name)
@@ -166,21 +186,39 @@ func runSuite(opts options) error {
 			UnavailableCapabilities: config.unavailable,
 		}
 		err := func() error {
-			logName := strings.ReplaceAll(config.name, string(os.PathSeparator), "-") + ".log"
-			svc, err := startServiceWithCapabilities(ctx, opts.binary, filepath.Join(workDir, logName),
-				len(scenarios)+16, opts.transport, config.unavailable)
-			if err != nil {
-				return err
+			logName := strings.ReplaceAll(config.name, string(os.PathSeparator), "-")
+			var svc *service
+			if needsService {
+				started, err := startServiceWithCapabilities(ctx, opts.binary, filepath.Join(workDir, logName+".log"),
+					len(scenarios)+16, opts.transport, config.unavailable)
+				if err != nil {
+					return err
+				}
+				defer started.stop()
+				svc = started
 			}
-			defer svc.stop()
 
 			for _, protocol := range protocols {
-				c, err := svc.client(protocol)
+				var c client
+				var err error
+				served := opts.binary
+				if protocol == "mcp" {
+					served = opts.mcpBinary
+					c, err = startMCP(ctx, &mcpSettings{
+						binary:      opts.mcpBinary,
+						root:        filepath.Join(opts.dir, "fixtures"),
+						logPath:     filepath.Join(workDir, logName+"-mcp.log"),
+						cacheSize:   len(scenarios) + 16,
+						unavailable: config.unavailable,
+					})
+				} else {
+					c, err = svc.client(protocol)
+				}
 				if err != nil {
 					return err
 				}
 				runner := &runner{
-					service: svc, client: c,
+					service: served, client: c,
 					fixtures: filepath.Join(opts.dir, "fixtures"),
 					models:   map[string]string{}, verbose: opts.verbose,
 					omitHandshakeScenarios: len(config.unavailable) > 0,
@@ -307,8 +345,8 @@ func validateFallbackExecution(summary *Summary, unavailable []string, allowSkip
 func validateProtocols(protocols []string, transport string) error {
 	if transport == transportGRPC {
 		for _, protocol := range protocols {
-			if protocol != "grpc" && protocol != "pkg" {
-				return fmt.Errorf("protocol %q requires -transport connect; grpc transport only supports grpc and pkg", protocol)
+			if protocol != "grpc" && protocol != "pkg" && protocol != "mcp" {
+				return fmt.Errorf("protocol %q requires -transport connect; grpc transport only supports grpc, pkg and mcp", protocol)
 			}
 		}
 	}
@@ -324,7 +362,7 @@ func parseProtocols(value string) ([]string, error) {
 			continue
 		}
 		if _, ok := knownProtocols[item]; !ok {
-			return nil, fmt.Errorf("unknown protocol %q; want grpc, connect, connect-json, pkg or pkg-connect", item)
+			return nil, fmt.Errorf("unknown protocol %q; want grpc, connect, connect-json, pkg, pkg-connect or mcp", item)
 		}
 		if _, ok := seen[item]; ok {
 			return nil, fmt.Errorf("protocol %q is listed more than once", item)
@@ -340,7 +378,9 @@ func parseProtocols(value string) ([]string, error) {
 
 // Report contains aggregate and per-configuration conformance results.
 type Report struct {
-	Service           string                  `json:"service"`
+	Service string `json:"service"`
+	// MCPServer is the sysml-mcp binary the mcp protocol tested, when selected.
+	MCPServer         string                  `json:"mcp_server,omitempty"`
 	Total             int                     `json:"total"`
 	Passed            int                     `json:"passed"`
 	Failed            int                     `json:"failed"`

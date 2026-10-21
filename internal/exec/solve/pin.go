@@ -442,6 +442,11 @@ const (
 // pinTerm builds the term a fixed value is asserted equal to, and the value as
 // the notation writes it. A value the variable's sort cannot hold refuses.
 func (t *translator) pinTerm(p Pin, v *Var) (*Term, string, error) {
+	// A one-element collection is its element (KerML 1.0 §7.4.8), so a multi-valued
+	// feature holding one value pins as that value.
+	if element, ok := soleHeld(p.Value); ok {
+		p.Value = element
+	}
 	text := pinText(t, p.Value)
 	// A literal of a scalar-valued enumeration pins a datatype variable by its
 	// identity, and an Integer or Real one by the scalar it equals.
@@ -891,6 +896,27 @@ func (q *Query) ReachedError() error {
 	}
 	return fmt.Errorf("%s %s reads %s under some assignment of its free features, whose values could not be read: %w",
 		q.Kind, q.Element, strings.Join(names, ", "), errors.Join(errs...))
+}
+
+// soleHeld is the one element a sequence or set of one holds, when it does.
+func soleHeld(v runtime.Value) (runtime.Value, bool) {
+	var elements []runtime.Value
+	switch v.Kind {
+	case runtime.ValSequence:
+		if v.Sequence() != nil {
+			elements = v.Sequence().Elements()
+		}
+	case runtime.ValSet:
+		if v.Set() != nil {
+			elements = v.Set().Elements()
+		}
+	default:
+		return runtime.Value{}, false
+	}
+	if len(elements) != 1 {
+		return runtime.Value{}, false
+	}
+	return elements[0], true
 }
 
 // unsetOutside is the first feature with no value u is open for that is none of the

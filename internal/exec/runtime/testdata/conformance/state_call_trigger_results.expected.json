@@ -8,7 +8,7 @@
         "value": {"type": "Integer", "value": 3}
       },
       "results": {
-        "result": {"type": "Integer", "value": -6}
+        "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": -6}]}
       }
     },
     {
@@ -17,7 +17,7 @@
         "value": {"type": "Integer", "value": 5}
       },
       "results": {
-        "result": {"type": "Integer", "value": 10}
+        "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]}
       }
     },
     {

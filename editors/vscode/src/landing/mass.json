@@ -1,5 +1,5 @@
 {
-  "hash": "7b5fc91e290eee7853cd5973628e839c73357832eb0a58bf84f48a1fd554bc57",
+  "hash": "1fbb4134073d10facd76005e86dc2a8f41191bd86af0960a11c29fbd2aa25360",
   "render": {
     "kind": "interconnection",
     "stated": "no view declared; rendering MassRollup::saturnV directly",
@@ -479,6 +479,7 @@
         "id": "n35",
         "kind": "part",
         "name": "engines",
+        "type": "Engine",
         "parent": "n2",
         "origin": {
           "file": "mass-rollup.sysml",
@@ -572,6 +573,7 @@
         "id": "n42",
         "kind": "part",
         "name": "subcomponents",
+        "type": "Component",
         "parent": "n2",
         "origin": {
           "file": "mass-rollup.sysml",
@@ -1071,6 +1073,7 @@
         "id": "n79",
         "kind": "part",
         "name": "engines",
+        "type": "Engine",
         "parent": "n46",
         "origin": {
           "file": "mass-rollup.sysml",
@@ -1164,6 +1167,7 @@
         "id": "n86",
         "kind": "part",
         "name": "subcomponents",
+        "type": "Component",
         "parent": "n46",
         "origin": {
           "file": "mass-rollup.sysml",
@@ -1339,6 +1343,7 @@
         "id": "n99",
         "kind": "part",
         "name": "engines",
+        "type": "Engine",
         "parent": "n90",
         "origin": {
           "file": "mass-rollup.sysml",
@@ -1432,6 +1437,7 @@
         "id": "n106",
         "kind": "part",
         "name": "subcomponents",
+        "type": "Component",
         "parent": "n90",
         "origin": {
           "file": "mass-rollup.sysml",
@@ -1486,6 +1492,7 @@
         "id": "n110",
         "kind": "part",
         "name": "subcomponents",
+        "type": "Component",
         "parent": "n0",
         "origin": {
           "file": "mass-rollup.sysml",
@@ -1653,7 +1660,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -1695,7 +1703,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -1869,7 +1878,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -1911,7 +1921,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "propellantMass": {
           "featureName": "propellantMass",
@@ -2046,7 +2057,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2088,7 +2100,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -2200,7 +2213,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2242,7 +2256,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -2354,7 +2369,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2396,7 +2412,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -2508,7 +2525,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2550,7 +2568,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -2662,7 +2681,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2704,7 +2724,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -2872,7 +2893,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -2914,7 +2936,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "propellantMass": {
           "featureName": "propellantMass",
@@ -3049,7 +3072,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3091,7 +3115,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -3203,7 +3228,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3245,7 +3271,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -3357,7 +3384,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3399,7 +3427,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -3511,7 +3540,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3553,7 +3583,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -3665,7 +3696,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3707,7 +3739,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",
@@ -3835,7 +3868,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -3877,7 +3911,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "propellantMass": {
           "featureName": "propellantMass",
@@ -3976,7 +4011,8 @@
           "materialized": true
         },
         "exhibitedStates": {
-          "featureName": "exhibitedStates"
+          "featureName": "exhibitedStates",
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -4018,7 +4054,8 @@
           "materialized": true
         },
         "performedActions": {
-          "featureName": "performedActions"
+          "featureName": "performedActions",
+          "materialized": true
         },
         "shape": {
           "featureName": "shape",

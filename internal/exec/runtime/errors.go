@@ -668,6 +668,9 @@ func (e *ViolationError) Unwrap() error { return ErrViolated }
 // ErrFeatureValueMaterialization, so a caller tests either.
 type FeatureValueError struct {
 	Err error
+	// Instance holds the feature value that did not materialize, as the feature named Feature.
+	Instance *Instance
+	Feature  string
 }
 
 func (e *FeatureValueError) Error() string { return e.Err.Error() }

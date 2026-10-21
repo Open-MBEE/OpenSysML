@@ -108,6 +108,25 @@ func goValidateFunctions(root string) (map[string]bool, error) {
 	return names, nil
 }
 
+// complianceCheck holds what the compliance map's citations are checked against
+// (manifest rows, library constraints, validate… functions, rule-row markers) and the problems found.
+type complianceCheck struct {
+	index    map[string]*manifest.Constraint
+	library  map[string]bool
+	goFuncs  map[string]bool
+	markers  map[int]string
+	problems []string
+}
+
+// citedLine is one line of the page: a rule row's marker when it is one, and
+// the census rows whose status it has claimed so far.
+type citedLine struct {
+	number  int
+	marker  string
+	isRow   bool
+	claimed map[string]bool
+}
+
 // checkCompliance holds the compliance map to the census: every validate… name
 // it cites is a manifest row (by pilot, raw or formal name), a `spec:` name the
 // validation library states, or a Go function of the tree; and a rule row's
@@ -129,76 +148,89 @@ func checkCompliance(root, content string, m *manifest.Manifest) error {
 	if err != nil {
 		return err
 	}
-	index := constraintIndex(m)
-	markers := make(map[int]string, len(rows))
+	check := &complianceCheck{index: constraintIndex(m), library: library, goFuncs: goFuncs, markers: make(map[int]string, len(rows))}
 	for _, row := range rows {
-		markers[row.Line] = row.Marker
+		check.markers[row.Line] = row.Marker
 	}
-	var problems []string
-	problem := func(number int, format string, args ...any) {
-		problems = append(problems, fmt.Sprintf("%s:%d: ", doccounts.SpecCompliancePath, number)+fmt.Sprintf(format, args...))
+	for i, text := range strings.Split(content, "\n") {
+		check.checkLine(i+1, text)
 	}
-	for i, line := range strings.Split(content, "\n") {
-		number := i + 1
-		marker, isRow := markers[number]
-		claimed := make(map[string]bool)
-		cite := func(isSpec bool, name, reference string) {
-			if isSpec {
-				if !library[name] {
-					problem(number, "`spec:%s` is not a constraint of %s", name, filepath.Base(validationLibraryPath))
-				} else if c, ok := index[name]; ok && c.Source != manifest.SourceSpec {
-					problem(number, "`spec:%s` names a pilot constraint; cite it bare so its census status is held", name)
-				}
-				return
-			}
-			c, ok := index[name]
-			if !ok {
-				if !goFuncs[name] {
-					problem(number, "`%s` is neither a constraint of %s nor a Go function of the tree", name, manifest.Path)
-				}
-				return
-			}
-			if c.Source == manifest.SourceSpec {
-				// A spec-sourced row is outside the census and states no verdict.
-				return
-			}
-			if reference != "" {
-				if want := statusWord(c.Status); reference != want {
-					problem(number, "`%s` is cited as (census %s) but the census row is %s", name, reference, want)
-				}
-				return
-			}
-			if !isRow || claimed[c.Name] {
-				return
-			}
-			claimed[c.Name] = true
-			if rowMarkerStatus[plainMarker(marker)] != c.Status {
-				problem(number, "a %s row cites `%s`, whose census status is %s; move one status or cite it as (census %s)", plainMarker(marker), name, c.Status, statusWord(c.Status))
-			}
-		}
-		for _, loc := range codeSpanPattern.FindAllStringSubmatchIndex(line, -1) {
-			span := line[loc[2]:loc[3]]
-			if !spanNamePattern.MatchString(span) {
-				continue
-			}
-			parts := spanCitationPattern.FindStringSubmatch(span)
-			if parts == nil {
-				problem(number, "`%s` is not a constraint citation (a name, a qualified Go function or a probe file)", span)
-				continue
-			}
-			reference := ""
-			if ref := censusReferencePat.FindStringSubmatch(line[loc[1]:]); ref != nil {
-				reference = ref[1]
-			}
-			cite(parts[1] != "", parts[2], reference)
-		}
-		for _, parts := range proseCitationPattern.FindAllStringSubmatch(codeSpanPattern.ReplaceAllString(line, " "), -1) {
-			cite(parts[1] != "", strings.TrimPrefix(parts[0], parts[1]), "")
-		}
-	}
-	if len(problems) == 0 {
+	if len(check.problems) == 0 {
 		return nil
 	}
-	sort.Strings(problems)
-	return fmt.Errorf("%s does not agree with %s:\n  %s", doccounts.SpecCompliancePath, manifest.Path, strings.Join(problems, "\n  "))
+	sort.Strings(check.problems)
+	return fmt.Errorf("%s does not agree with %s:\n  %s", doccounts.SpecCompliancePath, manifest.Path, strings.Join(check.problems, "\n  "))
+}
+
+func (k *complianceCheck) problem(number int, format string, args ...any) {
+	k.problems = append(k.problems, fmt.Sprintf("%s:%d: ", doccounts.SpecCompliancePath, number)+fmt.Sprintf(format, args...))
+}
+
+// checkLine checks the citations of one line: those in code spans, with the
+// `(census …)` reference that may follow each, then those in the prose between.
+func (k *complianceCheck) checkLine(number int, text string) {
+	marker, isRow := k.markers[number]
+	line := &citedLine{number: number, marker: marker, isRow: isRow, claimed: make(map[string]bool)}
+	for _, loc := range codeSpanPattern.FindAllStringSubmatchIndex(text, -1) {
+		span := text[loc[2]:loc[3]]
+		if !spanNamePattern.MatchString(span) {
+			continue
+		}
+		parts := spanCitationPattern.FindStringSubmatch(span)
+		if parts == nil {
+			k.problem(number, "`%s` is not a constraint citation (a name, a qualified Go function or a probe file)", span)
+			continue
+		}
+		reference := ""
+		if ref := censusReferencePat.FindStringSubmatch(text[loc[1]:]); ref != nil {
+			reference = ref[1]
+		}
+		k.cite(line, parts[1] != "", parts[2], reference)
+	}
+	for _, parts := range proseCitationPattern.FindAllStringSubmatch(codeSpanPattern.ReplaceAllString(text, " "), -1) {
+		k.cite(line, parts[1] != "", strings.TrimPrefix(parts[0], parts[1]), "")
+	}
+}
+
+// cite checks one citation on line: a `spec:` name against the library, any other against
+// the census rows and Go functions; a rule row is held to the status of the pilot rows it cites bare.
+func (k *complianceCheck) cite(line *citedLine, isSpec bool, name, reference string) {
+	if isSpec {
+		k.citeSpec(line.number, name)
+		return
+	}
+	c, ok := k.index[name]
+	if !ok {
+		if !k.goFuncs[name] {
+			k.problem(line.number, "`%s` is neither a constraint of %s nor a Go function of the tree", name, manifest.Path)
+		}
+		return
+	}
+	if c.Source == manifest.SourceSpec {
+		// A spec-sourced row is outside the census and states no verdict.
+		return
+	}
+	if reference != "" {
+		if want := statusWord(c.Status); reference != want {
+			k.problem(line.number, "`%s` is cited as (census %s) but the census row is %s", name, reference, want)
+		}
+		return
+	}
+	if !line.isRow || line.claimed[c.Name] {
+		return
+	}
+	line.claimed[c.Name] = true
+	if rowMarkerStatus[plainMarker(line.marker)] != c.Status {
+		k.problem(line.number, "a %s row cites `%s`, whose census status is %s; move one status or cite it as (census %s)", plainMarker(line.marker), name, c.Status, statusWord(c.Status))
+	}
+}
+
+// citeSpec checks a `spec:` citation names a library constraint, and no pilot
+// row, whose census status a bare citation would hold.
+func (k *complianceCheck) citeSpec(number int, name string) {
+	if !k.library[name] {
+		k.problem(number, "`spec:%s` is not a constraint of %s", name, filepath.Base(validationLibraryPath))
+	} else if c, ok := k.index[name]; ok && c.Source != manifest.SourceSpec {
+		k.problem(number, "`spec:%s` names a pilot constraint; cite it bare so its census status is held", name)
+	}
 }

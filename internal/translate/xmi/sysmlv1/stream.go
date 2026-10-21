@@ -720,30 +720,10 @@ func (m *Model) readStreams(entries map[string]*zip.File) {
 // visible symbol stands for or displays, then those the symbols stand for.
 // A listed element the stream hides is off the diagram, whatever its owner shows.
 func (m *Model) shownRefs(d *Diagram, syms *symbols) []ElementRef {
-	stood := map[*Element]bool{}
-	for _, id := range syms.shown {
-		if e := m.shown(id); e != nil {
-			stood[e] = true
-		}
-	}
-	// own marks the elements a visible symbol off every path stands for.
-	own := map[*Element]bool{}
-	for _, s := range syms.list {
-		if s.Hidden || s.OnPath() {
-			continue
-		}
-		if e := m.shown(s.ElementID); e != nil {
-			own[e] = true
-		}
-	}
-	hidden, hiddenIDs := map[*Element]bool{}, map[string]bool{}
-	for _, id := range syms.hidden {
-		if e := m.shown(id); e != nil {
-			hidden[e] = true
-		} else {
-			hiddenIDs[id] = true
-		}
-	}
+	stood := m.resolved(syms.shown, nil)
+	own := m.standingSymbols(syms.list)
+	hiddenIDs := map[string]bool{}
+	hidden := m.resolved(syms.hidden, hiddenIDs)
 	// Two spellings name one element when they resolve to it; ones resolving
 	// to none are the same only when spelled alike.
 	elements := map[*Element]bool{}
@@ -777,6 +757,34 @@ func (m *Model) shownRefs(d *Diagram, syms *symbols) []ElementRef {
 		add(id)
 	}
 	return shown
+}
+
+// resolved marks the elements the ids name; an id naming none is recorded in
+// unresolved when that is non-nil.
+func (m *Model) resolved(ids []string, unresolved map[string]bool) map[*Element]bool {
+	elements := map[*Element]bool{}
+	for _, id := range ids {
+		if e := m.shown(id); e != nil {
+			elements[e] = true
+		} else if unresolved != nil {
+			unresolved[id] = true
+		}
+	}
+	return elements
+}
+
+// standingSymbols marks the elements a visible symbol off every path stands for.
+func (m *Model) standingSymbols(list []*Symbol) map[*Element]bool {
+	own := map[*Element]bool{}
+	for _, s := range list {
+		if s.Hidden || s.OnPath() {
+			continue
+		}
+		if e := m.shown(s.ElementID); e != nil {
+			own[e] = true
+		}
+	}
+	return own
 }
 
 // displayed reports whether a symbol stands for e or an ancestor of it, which

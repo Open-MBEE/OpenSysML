@@ -1,0 +1,8 @@
+{
+  "libraries": true,
+  "type": "calc",
+  "evaluate": "test::Shaped",
+  "inputs": [{"type": "Real", "value": 25.0}],
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 25.0}, {"type": "Real", "value": 26.0}]},
+  "trace": true
+}

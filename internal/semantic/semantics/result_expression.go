@@ -90,6 +90,23 @@ func OwnedResultExpressions(sym *symbols.Symbol) []ResultExpression {
 	return out
 }
 
+// StatesOwnCondition reports whether sym's own body states a condition a check
+// evaluates: a result expression or a nested `assert`/`assume constraint` member.
+func StatesOwnCondition(sym *symbols.Symbol) bool {
+	if !FunctionLike(sym) {
+		return false
+	}
+	for _, member := range declMembers(sym) {
+		if m, ok := member.(*ast.Membership); ok {
+			member = m.Member
+		}
+		if _, ok := member.(*ast.ConstraintMember); ok || IsResultExpression(member) {
+			return true
+		}
+	}
+	return false
+}
+
 // ResultExpressionsOf lists the result expressions sym owns or inherits, its
 // own first and then those of every type contributing members to it —
 // specialized or reference-subsetted — in breadth-first order (KerML 8.3.4.6

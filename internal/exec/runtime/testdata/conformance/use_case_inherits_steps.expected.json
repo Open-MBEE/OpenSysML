@@ -4,7 +4,23 @@
   "evaluate": "test::Derived",
   "trace": true,
   "outputs": {
-    "n": {"type": "Integer", "value": 1},
-    "charge.charged": {"type": "Integer", "value": 10}
+    "n": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 1
+        }
+      ]
+    },
+    "charge.charged": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 10
+        }
+      ]
+    }
   }
 }

@@ -23,6 +23,11 @@ sudo dpkg -i /tmp/code.deb        # takes ~1 min; then /usr/bin/code is the desk
 Launch it detached or it dies with the shell that started it:
 `DISPLAY=:0 setsid nohup /usr/bin/code --no-sandbox --disable-gpu <workspace> >/tmp/code.log 2>&1 </dev/null &`
 
+**In a fresh checkout or worktree, run `npm ci --ignore-scripts --prefix client/node` first** (CI does).
+`make vscode-package` only installs `editors/vscode`, but its typecheck compiles the browser client from
+`client/node/src` (the `src/webview` and `src/landing` tsconfigs); without that tree's `node_modules` it
+fails with `TS2307: Cannot find module '@connectrpc/connect'` and similar errors.
+
 ```bash
 make build                # produces bin/sysml-lsp (the server the client discovers)
 make vscode-package       # npm ci + typecheck + esbuild + vsce -> editors/vscode/opensysml-sysml.vsix
@@ -34,7 +39,7 @@ Restart VS Code after installing, otherwise the old extension host keeps running
 
 ```bash
 pkill -f "no-sandbox --disable-gpu /home"      # plain `pkill -f /usr/share/code` may miss it
-DISPLAY=:0 nohup code --no-sandbox --disable-gpu "$PWD" &   # $PWD = repo root, the workspace to open
+DISPLAY=:0 nohup code --no-sandbox --disable-gpu ~/vscode-scratch &   # scratch workspace outside the checkout (below)
 DISPLAY=:0 wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz
 ```
 
@@ -67,6 +72,13 @@ path (or put it on PATH). Otherwise an empty Problems panel may merely mean no s
 In an empty window, use File > Open File and keep Explorer's "No Folder Opened" visible.
 Confirm a real server process and resolved symbol hover; mutate a reference to an undefined
 name and undo to prove diagnostics are live.
+
+**Run GUI tests in a scratch workspace outside the checkout** (e.g. copy the fixture to
+`~/vscode-scratch/` and set User `opensysml.server.path`). The repository root indexes thousands of
+fixture models (one shadows the standard library's `package Views`) plus the vendored stdlib
+`.project.json` files, and the extension's `**/{*.sysml,*.kerml,*.kpar,.project.json}` watcher
+sends every model a corpus download or `-update` run writes under the tree to the server as
+`workspace/didChangeWatchedFiles`, which re-reads it mid-test.
 
 For unsaved-buffer authority during sibling indexing, use `main.sysml` above a
 `parts/lib.sysml`. Open only the library, change its declaration without saving, then restart
@@ -282,6 +294,10 @@ main.sysml  package Main { import Lib::*; part w : Widget; }
   `document.querySelectorAll('#diagram svg g[data-opensysml-id]').length`,
   `document.querySelectorAll('#diagram .movable').length`, and after moving the cursor
   `document.querySelector('#diagram .opensysml-selected')?.dataset.opensysmlId`.
+- **The diagram SVG is `#diagram > svg.opensysml-canvas`** in the webview's inner `active-frame`
+  frame; an empty view (`p.empty`) or a table (`table`) leaves no such element. To query it
+  from the shell, launch VS Code with `--remote-debugging-port=9333`: the panel is the `iframe`
+  target in `curl -s localhost:9333/json`, and `Page.getFrameTree` names `active-frame` as its child.
 - **Drags are pointer-captured on `#diagram`**, so a `dblclick` there names the container, never the
   handle under it — waypoint removal is two quick clicks paired by the webview itself (`< 400 ms`,
   no movement between press and release). Deliver it as one double-click action (the computer
@@ -564,6 +580,10 @@ Record the VS Code window maximized (wmctrl above). Verify visual claims by `zoo
 (language indicator "SysML v2"/"KerML", problem counts) and the completion popup — the popup's detail
 column is too small to read in a 1024x768 full screenshot.
 
+Do not change the X display resolution (`xrandr`) mid-session: it breaks the running VS Code
+window's layout and any recording. For legible text, set User `"window.zoomLevel": 2` (Settings or
+`~/.config/Code/User/settings.json`); the open window rescales without a reload.
+
 ## Document-query authoring / `opensysml/renderDocument` (`internal/frontend/lsp/document.go`, `editors/vscode/src/document.ts`)
 
 - The fixture in `internal/frontend/lsp/document_test.go` (`package Observatory` with `DocumentQueries::*`,
@@ -641,25 +661,24 @@ column is too small to read in a 1024x768 full screenshot.
   rendered owner for a connection. `expose Car` retains the Car node and its children.
 - Keep the Problems panel visible: this fixture should start and remain at zero. An
   empty Problems panel alone is not sufficient; confirm the diagram and live server too.
-- Palette **Add part…** uses the source cursor owner. Put the cursor on the Car declaration
-  after its indentation, then verify the prompt title says `Add part to Vehicle::Car`
-  before typing a name. Part prompts for a type; connection prompts allow an empty name.
-- The custom context menu labels are **Connection from here…**, **Rename…**, **Delete…**.
-  Connection target quick-pick also matches type details: typing `engine` can match both
-  `engine : Engine` and `battery : Engine`, so explicitly choose the intended label.
+- The panel creates nothing: there is no **Add…** list in the toolbar and no add entry in
+  the node menu. New members and connections are typed into the source; the server's
+  `addMember`/`addConnection` operations stay for `opensysml/applyModelEdit`, gRPC and MCP.
+- The custom context menu labels are **Go to declaration**, **Rename…**, **Move to…**
+  (only on a node with a notation), **Delete…**, and only on a node the document declares.
 - All Delete actions first show a native confirmation dialog. Referenced deletion then
   shows a second dialog with **Delete all**. Unreferenced deletion should not show the
   second cascade dialog. Canceling the first dialog does not exercise server refusal.
 - Focus the source editor before Ctrl+Z / Ctrl+Y. One undo should remove one diagram
-  operation (e.g. connection), the next the preceding operation (e.g. added part); each
+  operation (e.g. a move), the next the preceding operation (e.g. a rename); each
   diagram update should arrive automatically, without Refresh.
 - For duplicate refusal, use the current name after any rename. Expect a bottom-right
   toast such as `Vehicle::Car already declares "motor"` and `Model edit refused:` in
   **Output: Show Output Channels… → SysML v2**. The displayed message need not include
   the protocol's failure-code spelling.
-- Table rendering is non-SVG, but may still receive a full member/connection palette.
-  Check the current palette table in `internal/frontend/lsp/render.go` rather than
-  assuming non-SVG means authoring is hidden.
+- Table rendering is non-SVG, but may still receive a palette, which is what marks a
+  rendering editable. Check the current palette table in `internal/frontend/lsp/render.go`
+  rather than assuming non-SVG means editing is hidden.
 
 ## Edit-latency and semantic-token comparisons
 

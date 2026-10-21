@@ -25,7 +25,8 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        QueryElement, build_query, as_dict,
        TypeFacts, Multiplicity, Specialization, AttributeFacts, SymbolFacts, SymbolInfo,
        Bound, Standing, EngineInfo, VerificationVerdict, WitnessAssignment, Verdict,
-       Validation, CalcResult, CaseEvaluation, AnalysisResult, SweepRow, SweepTable,
+       Validation, CalcResult, CaseEvaluation, AnalysisResult, ToolDryRun, ToolDryRunFile,
+       ToolDryRunInput, ToolDryRunOutput, refresh_diagnostics, SweepRow, SweepTable,
        holds, valid, violated, undecided, selected, failures, is_collection, is_optional, facts, children,
        attributes, attribute_facts, parts, get_attr, get_symbol, find, list_engines,
        ServerInfo, mismatch_reason, upgrade_remedy, require_capability,
@@ -134,7 +135,7 @@ for capability in (
     :CAPABILITY_FINAL_TIME,
     :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE, :CAPABILITY_BIG_INT_VALUES,
     :CAPABILITY_RATIONAL_VALUES, :CAPABILITY_CONVERT_DOCUMENTS, :CAPABILITY_CONVERT_COMPACT,
-    :CAPABILITY_PARSE_SOURCES_AFFECTED, :CAPABILITY_RENDER_DOCUMENT_FILE_NAME
+    :CAPABILITY_CONVERT_CHECK_DIAGNOSTICS, :CAPABILITY_PARSE_SOURCES_AFFECTED, :CAPABILITY_RENDER_DOCUMENT_FILE_NAME
 )
     @eval export $capability
 end

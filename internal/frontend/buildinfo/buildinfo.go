@@ -7,9 +7,9 @@ package buildinfo
 
 import (
 	"fmt"
-	"regexp"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"time"
 )
 
@@ -129,21 +129,138 @@ func Stamped(version string) bool {
 	return version != "" && version != "(devel)"
 }
 
-// pseudoVersion matches the versions the toolchain derives from a commit, in
-// the shape golang.org/x/mod/module documents: a base version, a timestamp and
-// a revision.
-var pseudoVersion = regexp.MustCompile(`^v[0-9]+\.(0\.0-|\d+\.\d+-([^+]*\.)?0\.)\d{14}-[A-Za-z0-9]+(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`)
-
-// semanticVersion matches a tag's version: vMAJOR.MINOR.PATCH with an optional
-// pre-release and build metadata, "+dirty" included.
-var semanticVersion = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
-
 // Released reports whether a module version names a release tag: one the
 // toolchain stamped that is a semantic version and not a pseudo-version, which
 // identifies a commit rather than a release.
 func Released(version string) bool {
-	return Stamped(version) && semanticVersion.MatchString(version) && !pseudoVersion.MatchString(version)
+	return Stamped(version) && semanticVersion(version) && !pseudoVersion(version)
 }
+
+// semanticVersion reports whether a version has a tag's shape: vMAJOR.MINOR.PATCH
+// with an optional pre-release and build metadata, "+dirty" included.
+func semanticVersion(version string) bool {
+	rest, ok := strings.CutPrefix(version, "v")
+	if !ok {
+		return false
+	}
+	for i := 0; i < 3; i++ {
+		if i > 0 {
+			if rest, ok = strings.CutPrefix(rest, "."); !ok {
+				return false
+			}
+		}
+		n := span(rest, isDigit)
+		if n == 0 {
+			return false
+		}
+		rest = rest[n:]
+	}
+	if pre, ok := strings.CutPrefix(rest, "-"); ok {
+		n := span(pre, isDottedIdent)
+		if n == 0 {
+			return false
+		}
+		rest = pre[n:]
+	}
+	if meta, ok := strings.CutPrefix(rest, "+"); ok {
+		n := span(meta, isDottedIdent)
+		if n == 0 {
+			return false
+		}
+		rest = meta[n:]
+	}
+	return rest == ""
+}
+
+// pseudoVersion matches a commit-derived module version as golang.org/x/mod/module
+// shapes it: a base version, a 14-digit timestamp, a revision and optional build metadata.
+func pseudoVersion(version string) bool {
+	body, meta, hasMeta := strings.Cut(version, "+")
+	if hasMeta && !buildMetadata(meta) {
+		return false
+	}
+	dash := strings.LastIndexByte(body, '-')
+	if dash < 0 {
+		return false
+	}
+	if revision := body[dash+1:]; revision == "" || span(revision, isAlnum) != len(revision) {
+		return false
+	}
+	stem := body[:dash]
+	if len(stem) < 14 || span(stem[len(stem)-14:], isDigit) != 14 {
+		return false
+	}
+	return pseudoBase(stem[:len(stem)-14])
+}
+
+// pseudoBase matches what precedes a pseudo-version's timestamp: "vN." then
+// either "0.0-" or "N.N-", an optional dotted pre-release, and "0.".
+func pseudoBase(base string) bool {
+	rest, ok := strings.CutPrefix(base, "v")
+	if !ok {
+		return false
+	}
+	n := span(rest, isDigit)
+	if n == 0 {
+		return false
+	}
+	if rest, ok = strings.CutPrefix(rest[n:], "."); !ok {
+		return false
+	}
+	if rest == "0.0-" {
+		return true
+	}
+	rest, ok = strings.CutSuffix(rest, "0.")
+	if !ok {
+		return false
+	}
+	for i := 0; i < 2; i++ {
+		if i > 0 {
+			if rest, ok = strings.CutPrefix(rest, "."); !ok {
+				return false
+			}
+		}
+		n := span(rest, isDigit)
+		if n == 0 {
+			return false
+		}
+		rest = rest[n:]
+	}
+	if rest, ok = strings.CutPrefix(rest, "-"); !ok {
+		return false
+	}
+	return rest == "" || strings.HasSuffix(rest, ".")
+}
+
+// buildMetadata matches semantic-version build metadata: dot-separated
+// non-empty identifiers of letters, digits and hyphens.
+func buildMetadata(meta string) bool {
+	for _, ident := range strings.Split(meta, ".") {
+		if ident == "" || span(ident, isIdent) != len(ident) {
+			return false
+		}
+	}
+	return true
+}
+
+// span returns the length of the longest prefix of s whose bytes all satisfy ok.
+func span(s string, ok func(byte) bool) int {
+	n := 0
+	for n < len(s) && ok(s[n]) {
+		n++
+	}
+	return n
+}
+
+func isDigit(c byte) bool { return '0' <= c && c <= '9' }
+
+func isAlnum(c byte) bool {
+	return isDigit(c) || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z'
+}
+
+func isIdent(c byte) bool { return isAlnum(c) || c == '-' }
+
+func isDottedIdent(c byte) bool { return isIdent(c) || c == '.' }
 
 // ShortRevision abbreviates a commit hash to the length it is reported at.
 func ShortRevision(revision string) string {

@@ -1,5 +1,11 @@
 package codes
 
+// The sources the identity and diagram-layout codes cite.
+const (
+	specElementIdentity = "SysML v2 API and Services (element identity)"
+	specDiagramLayout   = "OpenSysML diagram layout library"
+)
+
 // constraintCodes are the codes of the constraint tier: the well-formedness
 // rules of the KerML and SysML v2 semantics, checked once names and types hold.
 var constraintCodes = []Entry{
@@ -145,10 +151,10 @@ var constraintCodes = []Entry{
 	},
 	{
 		Code: "redefinition-not-end", Tier: TierConstraint, Severity: "error",
-		Summary: "a non-end feature redefining an end feature",
-		Meaning: "A feature that redefines an end feature is itself an end feature. " +
+		Summary: "a non-end feature of an association or connector redefining an end feature",
+		Meaning: "A feature of an association or a connector that redefines an end feature is itself an end feature; a feature of any other type may redefine an end without being one. " +
 			"Write `end` before the redefining feature.",
-		Spec: "KerML 1.0 validateRedefinitionEndConformance",
+		Spec: "KerML 1.1 Beta 2 §8.3.3.3.8 validateRedefinitionEndConformance",
 	},
 	{
 		Code: "redefinition-package-level", Tier: TierConstraint, Severity: "error",
@@ -582,14 +588,14 @@ var constraintCodes = []Entry{
 		Summary: "two elements with the same effective element id",
 		Meaning: "An `ElementId` annotation gives an element the identity it keeps across interchange; two elements here resolve to one id, so an API or XMI reader cannot tell them apart. " +
 			"Give each element its own id.",
-		Spec: "SysML v2 API and Services (element identity)",
+		Spec: specElementIdentity,
 	},
 	{
 		Code: "identity-conflicting-ids", Tier: TierConstraint, Severity: "error",
 		Summary: "one element annotated with several different ids",
 		Meaning: "Several `ElementId` annotations about one element disagree. " +
 			"Keep one id.",
-		Spec: "SysML v2 API and Services (element identity)",
+		Spec: specElementIdentity,
 	},
 	{
 		Code: "identity-conflicting-projects", Tier: TierConstraint, Severity: "error",
@@ -603,7 +609,7 @@ var constraintCodes = []Entry{
 		Summary: "an element id that is empty or holds a character outside [a-zA-Z0-9_-]",
 		Meaning: "An element id is a non-empty string of letters, digits, `_` and `-`, so it travels through URLs, XMI and the API unchanged. " +
 			"Write an id of that shape.",
-		Spec: "SysML v2 API and Services (element identity)",
+		Spec: specElementIdentity,
 	},
 	{
 		Code: "identity-unscoped-id", Tier: TierConstraint, Severity: "error",
@@ -617,28 +623,28 @@ var constraintCodes = []Entry{
 		Summary: "a layout annotation on an element no rendering draws",
 		Meaning: "A `Position`, `Size` or `Route` annotation places an element on a view, but no rendering of the view draws that element in the role the annotation assumes, so the layout applies to nothing. " +
 			"Annotate an element the rendering draws, or expose it in the view.",
-		Spec: "OpenSysML diagram layout library",
+		Spec: specDiagramLayout,
 	},
 	{
 		Code: "diagram-layout-value", Tier: TierConstraint, Severity: "error",
 		Summary: "a layout annotation with an ill-formed value",
 		Meaning: "The coordinates, size or route points of a layout annotation are not of the form the layout library declares (numbers in the view's units, a route of at least two points). " +
 			"Write the value the message names.",
-		Spec: "OpenSysML diagram layout library",
+		Spec: specDiagramLayout,
 	},
 	{
 		Code: "diagram-layout-canvas", Tier: TierConstraint, Severity: "error",
 		Summary: "a Canvas or Picture annotation outside the view it belongs to",
 		Meaning: "A `Canvas` sizes the view whose body it sits in, and a `Picture` is drawn on the surface of the view it annotates; this one annotates something that is no view, or sizes a view from outside its body. " +
 			"Move the annotation into the view's body.",
-		Spec: "OpenSysML diagram layout library",
+		Spec: specDiagramLayout,
 	},
 	{
 		Code: "diagram-layout-duplicate", Tier: TierConstraint, Severity: "warning",
 		Summary: "a layout annotation stated twice about one element",
 		Meaning: "Two annotations of one kind place the same element on the same view; the first stated applies. " +
 			"Drop the second.",
-		Spec: "OpenSysML diagram layout library",
+		Spec: specDiagramLayout,
 	},
 	{
 		Code: "control-node-owner", Tier: TierConstraint, Severity: "error",

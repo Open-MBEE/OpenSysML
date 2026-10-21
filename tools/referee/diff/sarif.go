@@ -6,15 +6,22 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/report/sarif"
 )
 
+// The three disagreement buckets' SARIF rule ids.
+const (
+	ruleOnlyOpenSysML    = "only-opensysml"
+	ruleOnlyPilot        = "only-pilot"
+	ruleSeverityMismatch = "severity-mismatch"
+)
+
 // The three disagreement buckets, as SARIF rules. Agreement rows are not
 // findings and are not emitted.
 var sarifRules = []sarif.Rule{
-	{ID: "only-opensysml", ShortDescription: sarif.Message{Text: "A diagnostic only OpenSysML reports (candidate false positive)."}},
-	{ID: "only-pilot", ShortDescription: sarif.Message{Text: "A diagnostic only the pilot reports (candidate gap)."}},
-	{ID: "severity-mismatch", ShortDescription: sarif.Message{Text: "Both report the same line and category with different severities."}},
+	{ID: ruleOnlyOpenSysML, ShortDescription: sarif.Message{Text: "A diagnostic only OpenSysML reports (candidate false positive)."}},
+	{ID: ruleOnlyPilot, ShortDescription: sarif.Message{Text: "A diagnostic only the pilot reports (candidate gap)."}},
+	{ID: ruleSeverityMismatch, ShortDescription: sarif.Message{Text: "Both report the same line and category with different severities."}},
 }
 
-var sarifRuleIndex = map[string]int{"only-opensysml": 0, "only-pilot": 1, "severity-mismatch": 2}
+var sarifRuleIndex = map[string]int{ruleOnlyOpenSysML: 0, ruleOnlyPilot: 1, ruleSeverityMismatch: 2}
 
 // sarifReport renders the disagreements as SARIF 2.1.0, one result per
 // disagreeing diagnostic group, located on the compared model file.
@@ -31,8 +38,8 @@ func sarifReport(report *Report) *sarif.Log {
 			uri := root.Dir + "/" + file.Path
 			for _, e := range file.SeverityMismatch {
 				run.Results = append(run.Results, sarif.Result{
-					RuleID:    "severity-mismatch",
-					RuleIndex: sarifRuleIndex["severity-mismatch"],
+					RuleID:    ruleSeverityMismatch,
+					RuleIndex: sarifRuleIndex[ruleSeverityMismatch],
 					Level:     sarif.Level(e.OpenSysML),
 					Message: sarif.Message{Text: fmt.Sprintf(
 						"%s: OpenSysML reports %s, the pilot %s (x%d)%s",
@@ -41,10 +48,10 @@ func sarifReport(report *Report) *sarif.Log {
 				})
 			}
 			for _, e := range file.OpenSysMLOnly {
-				run.Results = append(run.Results, sarifEntry("only-opensysml", "only OpenSysML reports", uri, e))
+				run.Results = append(run.Results, sarifEntry(ruleOnlyOpenSysML, "only OpenSysML reports", uri, e))
 			}
 			for _, e := range file.PilotOnly {
-				run.Results = append(run.Results, sarifEntry("only-pilot", "only the pilot reports", uri, e))
+				run.Results = append(run.Results, sarifEntry(ruleOnlyPilot, "only the pilot reports", uri, e))
 			}
 		}
 	}

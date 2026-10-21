@@ -67,7 +67,7 @@ func moduleGenerals(e *xmi.Element) []string {
 				if raw == "" {
 					continue
 				}
-				if i := strings.LastIndexByte(raw, '#'); i == 0 {
+				if strings.LastIndexByte(raw, '#') == 0 {
 					raw = raw[1:]
 				}
 				ids = append(ids, raw)
@@ -163,17 +163,17 @@ func (m *Model) moduleDefinition(s *Stereotype) (moduleStereotype, bool) {
 		return decl, ok
 	}
 	var found moduleStereotype
-	var any bool
+	var matched bool
 	for _, decl := range m.moduleStereotypes {
 		if !SameName(decl.name, s.Name) || !moduleProfileDenoted(s.Namespace, decl.profile) {
 			continue
 		}
-		if any && found.id != decl.id {
+		if matched && found.id != decl.id {
 			return moduleStereotype{}, false
 		}
-		found, any = decl, true
+		found, matched = decl, true
 	}
-	return found, any
+	return found, matched
 }
 
 // ModuleStereotypeAncestors is StereotypeAncestors for the stereotype name

@@ -1,6 +1,225 @@
 {
   "provider": "ollama",
   "model": "qwen2.5-coder:7b",
+  "tools": [
+    {
+      "name": "explain_diagnostic",
+      "description": "Explain a diagnostic code (as the CLI's -explain does): what it means, how to resolve it and the specification clause or validation constraint behind it. Every diagnostic the `parse`, `diagnostics` and LSP tools report carries one of these codes. With no code, list every code with its one-line summary.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "the diagnostic code, as a diagnostic's code field or a text line's error[code] carries it; empty lists every code with its one-line summary",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "name": "parse",
+      "description": "Parse SysML v2 / KerML documents as one model and return its modelHash, the root namespace of each document and every diagnostic (the ParseSources RPC). Parsing is content-addressed: the same documents give the same modelHash, and the hash is what every other runtime tool takes as modelHash, so parse once and pass the hash, or give those tools the same paths/sources and they parse implicitly. A model is only readable when no diagnostic has severity error. The result is the ParseSourcesResponse as protojson writes it; the text lists each root and the diagnostics as the CLI prints them.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "baseModelHash": {
+            "description": "the modelHash of an earlier parse of these documents; the answer's affected then lists the documents whose results may differ from it",
+            "type": "string"
+          },
+          "paths": {
+            "description": "model files to parse as one model, absolute or relative to the workspace root; a name declared in one resolves in the others",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "sources": {
+            "description": "documents given inline, parsed with paths as one model",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "language": {
+                  "description": "sysml or kerml; empty is inferred from path's extension, sysml when it has none",
+                  "type": "string"
+                },
+                "path": {
+                  "description": "name the document is reported by in diagnostics and indexed under; a .kerml extension makes it KerML unless language says otherwise",
+                  "type": "string"
+                },
+                "text": {
+                  "description": "the document's source text; empty is an empty document",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "text"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "strictConformance": {
+            "description": "judge the documents as conforming SysML v2: notation no pinned production admits is an error rather than a warning",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "name": "symbol",
+      "description": "Describe one element of a parsed model by qualified name (the GetSymbol RPC): its kind, metadata, children, attributes with their declared values, static type facts, multiplicity and specializations. An unknown name answers with `error` set rather than failing. The result is the SymbolResponse as protojson writes it.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "modelHash": {
+            "description": "the model_hash a parse answered; give this, or paths and/or sources to parse first",
+            "type": "string"
+          },
+          "paths": {
+            "description": "model files to parse as one model, absolute or relative to the workspace root",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "sources": {
+            "description": "documents given inline, parsed with paths as one model",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "language": {
+                  "description": "sysml or kerml; empty is inferred from path's extension, sysml when it has none",
+                  "type": "string"
+                },
+                "path": {
+                  "description": "name the document is reported by in diagnostics and indexed under; a .kerml extension makes it KerML unless language says otherwise",
+                  "type": "string"
+                },
+                "text": {
+                  "description": "the document's source text; empty is an empty document",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "text"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "strictConformance": {
+            "description": "judge the documents as conforming SysML v2: notation no pinned production admits is an error rather than a warning",
+            "type": "boolean"
+          },
+          "symbolId": {
+            "description": "the element's qualified name, as Demo::Vehicle::mass",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbolId"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "tool_catalog",
+      "description": "List the tools this server serves: each tool's name, group, the sysml-grpc RPC or `sysml` CLI flag it stands for, and a one-line summary. Pass `group` (lsp, runtime, session) to narrow the list. The same catalog generates the Tools section of the sysml-mcp manual page.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "description": "answer only this group's tools: lsp, runtime or session",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "name": "validate_instance",
+      "description": "Validate an object of a part as a whole (the ValidateInstance RPC, the REPL's %validate): every assertion about an object of symbolId and about the objects it holds — asserted constraints of their types, the requirements they carry, the satisfactions they are the subject of — each answered on the concrete object, with a `summary` verdict about the object as a whole. The result is the ValidateInstanceResponse as protojson writes it.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "engine": {
+            "description": "the analysis engine asked; empty is auto",
+            "type": "string"
+          },
+          "modelHash": {
+            "description": "the model_hash a parse answered; give this, or paths and/or sources to parse first",
+            "type": "string"
+          },
+          "paths": {
+            "description": "model files to parse as one model, absolute or relative to the workspace root",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "sources": {
+            "description": "documents given inline, parsed with paths as one model",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "language": {
+                  "description": "sysml or kerml; empty is inferred from path's extension, sysml when it has none",
+                  "type": "string"
+                },
+                "path": {
+                  "description": "name the document is reported by in diagnostics and indexed under; a .kerml extension makes it KerML unless language says otherwise",
+                  "type": "string"
+                },
+                "text": {
+                  "description": "the document's source text; empty is an empty document",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "text"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "strictConformance": {
+            "description": "judge the documents as conforming SysML v2: notation no pinned production admits is an error rather than a warning",
+            "type": "boolean"
+          },
+          "symbolId": {
+            "description": "qualified name of the part or usage an object of which is validated",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbolId"
+        ],
+        "type": "object"
+      }
+    }
+  ],
   "cells": {
     "B01/compiler/1": [
       {

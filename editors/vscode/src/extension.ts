@@ -15,6 +15,7 @@ import { DocumentRendering } from "./document";
 import { CROSS_DOCUMENT_CAPABILITY, STDLIB_SCHEME } from "./protocol";
 import { SHOW_REFERENCES_COMMAND, showReferencesArguments } from "./references";
 import { ElementRunner } from "./run";
+import { serverReport } from "./serverinfo";
 import { StdlibDocuments } from "./stdlib";
 
 const EXECUTABLE = process.platform === "win32" ? "sysml-lsp.exe" : "sysml-lsp";
@@ -42,6 +43,8 @@ let stdlib: StdlibDocuments;
 let runner: ElementRunner;
 // The server started last, which the `sysml` a code lens runs is looked for beside.
 let serverCommand: string | undefined;
+// The extension's own version, which the server it reaches is compared against.
+let extensionVersion = "";
 // Start/stop run one at a time: overlapping restarts would otherwise leave an
 // unreferenced client, and its server process, running forever.
 let queue: Promise<void> = Promise.resolve();
@@ -49,6 +52,7 @@ let queue: Promise<void> = Promise.resolve();
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   output = vscode.window.createOutputChannel("SysML v2");
   context.subscriptions.push(output);
+  extensionVersion = String((context.extension.packageJSON as { version?: unknown }).version ?? "");
 
   // One watcher for the whole session: a per-start watcher would outlive the
   // client that used it and pile up over restarts.
@@ -157,6 +161,7 @@ async function startClient(): Promise<void> {
   client.registerFeature(crossDocumentFeature);
   try {
     await client.start();
+    output.appendLine(serverReport(extensionVersion, client.initializeResult?.serverInfo));
   } catch (err) {
     client = undefined;
     void vscode.window.showErrorMessage(`SysML v2 language server failed to start: ${String(err)}`);

@@ -19,7 +19,8 @@ import (
 // from examples/runtime-showcase/mass-rollup.sysml through sysml-engine: a clean
 // parse, the Saturn V's composition rendered through RenderView, the instances
 // Instantiate materializes with their rolled-up masses, the three evaluations the
-// scene reports, and the roll-up the instrument unit leaves undetermined.
+// scene reports, the roll-up the instrument unit leaves undetermined, and the one that
+// completes once its usage values the mass.
 func TestLandingMassRollupModel(t *testing.T) {
 	src, err := os.ReadFile(filepath.Join("..", "..", "examples", "runtime-showcase", "mass-rollup.sysml"))
 	if err != nil {
@@ -99,9 +100,9 @@ func TestLandingMassRollupModel(t *testing.T) {
 		root + ".stage1.engine1": "'F-1'", root + ".stage1.engine5": "'F-1'",
 		root + ".stage2.engine1": "'J-2'", root + ".stage2.engine5": "'J-2'",
 		root + ".stage3.engine1": "'J-2'",
-		// The bound collections and the unvalued defaults are drawn too; the page folds them
-		// into the instances they refer to, so their presence is pinned here.
-		root + ".subcomponents": "", root + ".stage1.engines": "", root + ".stage1.engine1.subcomponents": "Component",
+		// The bound collections and the unvalued defaults are drawn too, a redefining one headed
+		// by the type it inherits; the page folds them into the instances they refer to.
+		root + ".subcomponents": "Component", root + ".stage1.engines": "Engine", root + ".stage1.engine1.subcomponents": "Component",
 	}
 	for path, typ := range wantParts {
 		if node, ok := partsByPath[path]; !ok || node.Type != typ {
@@ -234,8 +235,9 @@ func TestLandingMassRollupModel(t *testing.T) {
 		return response.Result
 	}
 	for expression, want := range map[string]string{
-		"MassRollup::saturnV.totalMass":        "2941728",
-		"MassRollup::saturnV.stage1.totalMass": "2332000",
+		"MassRollup::saturnV.totalMass":         "2941728",
+		"MassRollup::saturnV.stage1.totalMass":  "2332000",
+		"MassRollup::saturnVComplete.totalMass": "2943728",
 	} {
 		var result struct {
 			Quantity *quantity `json:"quantity"`
@@ -284,6 +286,45 @@ func TestLandingMassRollupModel(t *testing.T) {
 		if in.TypeSymbolID == "MassRollup::InstrumentUnit" {
 			if fv := in.FeatureValues["mass"]; fv.Value == nil || fv.Value.Quantity != nil {
 				t.Errorf("InstrumentUnit.mass = %+v, want unset", fv)
+			}
+		}
+	}
+
+	// The scene's last step values the mass on the usage, and the same roll-up completes; the
+	// redefining usage declares no typing, so its box is headed with the inherited one.
+	var completeDiagram engine.JRenderViewResponse
+	call("RenderView", map[string]any{
+		"modelHash": parsed.ModelHash,
+		"view":      "#interconnection:MassRollup::saturnVComplete",
+		"ports":     "minimal",
+		"depth":     3,
+		"show":      []string{"typings", "keywords"},
+	}, &completeDiagram)
+	var instrumentUnits []engine.JRenderNode
+	for _, node := range completeDiagram.Nodes {
+		if node.Name == "instrumentUnit" {
+			instrumentUnits = append(instrumentUnits, node)
+		}
+	}
+	if len(instrumentUnits) != 1 || instrumentUnits[0].Type != "InstrumentUnit" {
+		t.Errorf("saturnVComplete draws instrumentUnit as %+v, want one part typed InstrumentUnit", instrumentUnits)
+	}
+	_, complete := instantiate("MassRollup::saturnVComplete")
+	if len(complete) != 16 {
+		t.Fatalf("Instantiate saturnVComplete made %d instances, want 16", len(complete))
+	}
+	for _, in := range complete {
+		if fv := in.FeatureValues["totalMass"]; fv.Error != "" {
+			t.Errorf("saturnVComplete leaves %s.totalMass unvalued: %s", in.TypeSymbolID, fv.Error)
+		}
+		switch in.TypeSymbolID {
+		case "MassRollup::saturnVComplete":
+			if got := kilograms(in, "totalMass"); got != "2943728" {
+				t.Errorf("saturnVComplete.totalMass on the instance = %s kg, want 2943728", got)
+			}
+		case "MassRollup::InstrumentUnit":
+			if mass, total := kilograms(in, "mass"), kilograms(in, "totalMass"); mass != "2000" || total != "2000" {
+				t.Errorf("the valued instrument unit has mass %s kg and totalMass %s kg, want 2000 and 2000", mass, total)
 			}
 		}
 	}

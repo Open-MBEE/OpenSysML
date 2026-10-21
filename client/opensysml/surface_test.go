@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -719,6 +720,55 @@ func TestRenderViewAgainstService(t *testing.T) {
 	}
 	if !slices.Contains(names, "spare") {
 		t.Errorf("full ports = %v, want spare", names)
+	}
+	if !slices.Contains(rendered.Shown, "port-symbols") {
+		t.Errorf("shown = %v, want the view's own port-symbols", rendered.Shown)
+	}
+	labelled, err := client.RenderView(context.Background(), model, "RenderViewDemo::connections", opensysml.WithShow("edge-labels"))
+	if err != nil {
+		t.Fatalf("RenderView with edge labels: %v", err)
+	}
+	if !slices.Contains(labelled.Shown, "edge-labels") {
+		t.Errorf("shown = %v, want edge-labels", labelled.Shown)
+	}
+	if _, err := client.RenderView(context.Background(), model, "RenderViewDemo::connections", opensysml.WithShow("no-such-element")); err == nil {
+		t.Error("RenderView showing an unknown element returned no error")
+	}
+}
+
+func TestRenderViewDepthAgainstService(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, `package Deep {
+    private import Views::*;
+    part vehicle {
+        part wheel { part hub { part bearing; } }
+        part engine { part piston; }
+    }
+    view structure { expose vehicle; render asTreeDiagram; }
+}
+`)
+	whole, err := client.RenderView(context.Background(), model, "Deep::structure")
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	bounded, err := client.RenderView(context.Background(), model, "Deep::structure", opensysml.WithDepth(1))
+	if err != nil {
+		t.Fatalf("RenderView with depth 1: %v", err)
+	}
+	if len(whole.Nodes) != 6 || len(bounded.Nodes) != 3 {
+		t.Errorf("nodes = %d whole, %d at depth 1; want 6 and 3", len(whole.Nodes), len(bounded.Nodes))
+	}
+	if !strings.Contains(strings.Join(bounded.Notices, "\n"), "nested deeper than 1 level") {
+		t.Errorf("notices = %v, want the depth noticed", bounded.Notices)
+	}
+	if _, err := client.RenderView(context.Background(), model, "Deep::structure", opensysml.WithDepth(-1)); err == nil {
+		t.Error("RenderView with depth -1 returned no error")
+	}
+	tooDeep := math.MaxInt32
+	tooDeep++
+	var status *opensysml.StatusError
+	if _, err := client.RenderView(context.Background(), model, "Deep::structure", opensysml.WithDepth(tooDeep)); !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Errorf("RenderView with depth %d: err = %v, want CodeInvalidArgument before the request", tooDeep, err)
 	}
 }
 

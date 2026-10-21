@@ -100,6 +100,24 @@ or a FIFO, needs no extra flags.
 Converting to the same format rewrites the input: notation is reformatted, and
 Turtle is normalized (prefixes sorted, predicates grouped by subject).
 
+### The standard library as a model
+
+The standard library the command bundles converts too, as one model, with `-stdlib` in place
+of a model file:
+
+```bash
+sysml -stdlib -convert api-json -o stdlib.json        # every library file, one element set
+sysml -stdlib -convert ttl -o stdlib.ttl               # ...one graph
+```
+
+Its elements carry the ids the OMG pilot implementation gives them — `ScalarValues::Real` is
+`14c0aa22-5489-59b5-b438-ded26e83ba31` wherever the library is published — so a model stored
+elsewhere can type its parts by those ids and still mean the library. Published to a Flexo MMS
+branch (`-o flexo://StandardLibrary/main`, with the project created first and `FLEXO_TIMEOUT`
+raised to the minutes the write takes), the library is a project other
+projects reference; [the CLI reference](../reference/cli.md#publishing-the-standard-library)
+has the full procedure.
+
 ### Exit status
 
 The command exits non-zero and writes nothing for any input it cannot convert
@@ -126,6 +144,11 @@ a table of the element ids, each written once, and the elements with every refer
 index into it; `omit_derived` leaves out the metamodel's derived properties, except those
 `keep_derived` names. The service reports it as `convert_compact`; the shape is in the
 [Compact API JSON](../reference/api-json-compact.md).
+`include_check_diagnostics`, for a notation source, adds the semantic check's diagnostics to the
+response alongside the output, each with its own severity and code as `ParseFile` reports them,
+so a service that accepts notation can show its warnings — an unresolved type, a duplicate
+name, nonstandard notation — with what it wrote. Off, only syntax errors are reported, as before.
+The service reports it as `convert_check_diagnostics`.
 Which documents an edit reached is what `ParseSources` answers as `affected` when it is sent the
 previous model's hash (`parse_sources_affected`).
 
@@ -215,7 +238,9 @@ wrote /tmp/action-semantics.ttl (ttl, 247206 bytes)
 
 Two members of one namespace sharing a name export as separate elements: the first keeps the
 qualified name and each later one is identified by its position among the owner's members, the same
-name an element declared unnamed takes. The duplicate is still reported as a warning when the model
+name an element declared unnamed takes — unless its naming feature names it, as `part :>> engine;` or
+a view's `render tree;` is `engine` or `tree` (exported as `name`, with no `declaredName`). The
+duplicate is still reported as a warning when the model
 is analyzed — SysML has no reopening of a declaration within a namespace, so merge the declarations
 into one (or rename) rather than relying on the position. A member named `'@2'` is spelled
 `Demo::'@2'`, distinct from the positional identity `Demo::@2`.
