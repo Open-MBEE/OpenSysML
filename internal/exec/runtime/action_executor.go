@@ -2724,7 +2724,7 @@ func (e *ActionExecutor) guardsStanding(graph *lower.ActionGraph, successors []l
 		if successors[i].Guard == nil {
 			continue
 		}
-		by = unionSerials(by, e.ctx.standingOf(lower.ExpressionFootprint(graph.DeclScope(successors[i].Decl), successors[i].Guard), true))
+		by = unionSerials(by, e.ctx.standingOf(e.ctx.model.expressionFootprint(graph.DeclScope(successors[i].Decl), successors[i].Guard), true))
 	}
 	return by
 }
