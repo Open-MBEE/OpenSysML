@@ -84,7 +84,7 @@
         "digest": "sha256:c399daea865e29d2c056db2746eb3aad94ab26e591cf7669ffcb060583dfee0b"
       }
     ],
-    "recorded": "2026-10-20"
+    "recorded": "2026-10-21"
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
@@ -108,23 +108,23 @@
     "pilotFailed": 56,
     "pilotLibraryElements": 30926,
     "elements": {
-      "matched": 89957,
+      "matched": 90023,
       "oursOnly": 28511,
-      "pilotOnly": 38863,
+      "pilotOnly": 38797,
       "pilotOnlyImplied": 0,
       "typeMismatch": 1742
     },
     "properties": {
-      "presentEqual": 618674,
-      "presentDifferent": 50027,
-      "oursMissing": 1058325,
-      "pilotMissing": 68494,
-      "absentBoth": 2102500,
-      "indeterminate": 21034
+      "presentEqual": 619268,
+      "presentDifferent": 45688,
+      "oursMissing": 1058259,
+      "pilotMissing": 68560,
+      "absentBoth": 2103094,
+      "indeterminate": 25703
     },
     "rows": 11311,
-    "unkeyedReferences": 103180,
-    "extensionProperties": 146792,
+    "unkeyedReferences": 108366,
+    "extensionProperties": 146858,
     "duplicateElements": {
       "ours": 560,
       "pilot": 78022
@@ -297,11 +297,11 @@
       },
       "properties": {
         "presentEqual": 44282,
-        "presentDifferent": 6034,
+        "presentDifferent": 6029,
         "oursMissing": 71586,
         "pilotMissing": 5182,
         "absentBoth": 142032,
-        "indeterminate": 1853
+        "indeterminate": 1858
       },
       "duplicateElements": {
         "ours": 0,
@@ -333,11 +333,11 @@
       },
       "properties": {
         "presentEqual": 7820,
-        "presentDifferent": 393,
+        "presentDifferent": 383,
         "oursMissing": 13187,
         "pilotMissing": 877,
         "absentBoth": 28133,
-        "indeterminate": 316
+        "indeterminate": 326
       },
       "duplicateElements": {
         "ours": 25,
@@ -361,19 +361,19 @@
       "oursColliding": 3,
       "pilotLibraryElements": 13888,
       "elements": {
-        "matched": 26005,
+        "matched": 26071,
         "oursOnly": 8734,
-        "pilotOnly": 15010,
+        "pilotOnly": 14944,
         "pilotOnlyImplied": 0,
         "typeMismatch": 200
       },
       "properties": {
-        "presentEqual": 181279,
-        "presentDifferent": 13823,
-        "oursMissing": 316392,
-        "pilotMissing": 20267,
-        "absentBoth": 636241,
-        "indeterminate": 6231
+        "presentEqual": 181873,
+        "presentDifferent": 10948,
+        "oursMissing": 316326,
+        "pilotMissing": 20333,
+        "absentBoth": 636835,
+        "indeterminate": 9436
       },
       "duplicateElements": {
         "ours": 428,
@@ -439,11 +439,11 @@
       },
       "properties": {
         "presentEqual": 47574,
-        "presentDifferent": 4366,
+        "presentDifferent": 2917,
         "oursMissing": 88453,
         "pilotMissing": 4949,
         "absentBoth": 163532,
-        "indeterminate": 626
+        "indeterminate": 2075
       },
       "duplicateElements": {
         "ours": 0,
@@ -14782,11 +14782,11 @@
     ],
     "CalculationUsage.type": [
       72,
-      7,
+      3,
       35,
       0,
       0,
-      0
+      4
     ],
     "CalculationUsage.unioningType": [
       0,
@@ -33886,11 +33886,11 @@
     ],
     "FeatureReferenceExpression.referent": [
       1613,
-      99,
+      71,
       0,
       0,
       0,
-      436
+      464
     ],
     "FeatureReferenceExpression.result": [
       2148,
@@ -33950,11 +33950,11 @@
     ],
     "FeatureTyping.general": [
       3336,
-      668,
+      336,
       4,
       0,
       0,
-      1904
+      2236
     ],
     "FeatureTyping.isImplied": [
       0,
@@ -34102,11 +34102,11 @@
     ],
     "FeatureTyping.relatedElement": [
       3336,
-      668,
+      336,
       4,
       0,
       0,
-      1904
+      2236
     ],
     "FeatureTyping.source": [
       5908,
@@ -34126,11 +34126,11 @@
     ],
     "FeatureTyping.target": [
       3336,
-      668,
+      336,
       4,
       0,
       0,
-      1904
+      2236
     ],
     "FeatureTyping.textualRepresentation": [
       0,
@@ -34142,11 +34142,11 @@
     ],
     "FeatureTyping.type": [
       3338,
-      670,
+      338,
       0,
       0,
       0,
-      1904
+      2236
     ],
     "FeatureTyping.typedFeature": [
       5910,
@@ -44238,11 +44238,11 @@
     ],
     "InvocationExpression.function": [
       112,
-      245,
+      19,
       4,
       0,
       0,
-      107
+      333
     ],
     "InvocationExpression.importedMembership": [
       0,
@@ -46198,11 +46198,11 @@
     ],
     "ItemUsage.type": [
       243,
-      20,
+      16,
       87,
       0,
       0,
-      16
+      20
     ],
     "ItemUsage.unioningType": [
       0,
@@ -49686,11 +49686,11 @@
     ],
     "Membership.memberElement": [
       2145,
-      353,
+      99,
       0,
       0,
       0,
-      646
+      900
     ],
     "Membership.memberElementId": [
       0,
@@ -50030,11 +50030,11 @@
     ],
     "MembershipImport.importedMembership": [
       107,
-      15,
+      13,
       0,
       0,
       0,
-      265
+      267
     ],
     "MembershipImport.isImplied": [
       0,
@@ -53878,11 +53878,11 @@
     ],
     "MetadataUsage.type": [
       150,
-      147,
+      13,
       0,
       0,
       0,
-      82
+      216
     ],
     "MetadataUsage.unioningType": [
       0,
@@ -55326,11 +55326,11 @@
     ],
     "NamespaceImport.importedNamespace": [
       310,
-      25,
+      8,
       0,
       0,
       0,
-      331
+      348
     ],
     "NamespaceImport.isImplied": [
       0,
@@ -60510,11 +60510,11 @@
     ],
     "PartUsage.type": [
       1011,
-      235,
+      63,
       706,
       0,
       0,
-      0
+      172
     ],
     "PartUsage.unioningType": [
       0,
@@ -64105,7 +64105,7 @@
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.declaredName": [
@@ -64121,23 +64121,23 @@
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.general": [
       1575,
-      387,
+      57,
       2,
       0,
       0,
-      542
+      938
     ],
     "Redefinition.isImplied": [
       0,
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.isImpliedIncluded": [
@@ -64145,13 +64145,13 @@
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.isLibraryElement": [
       0,
       0,
-      2506,
+      2572,
       0,
       0,
       0
@@ -64169,7 +64169,7 @@
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.ownedElement": [
@@ -64177,7 +64177,7 @@
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.ownedRelatedElement": [
@@ -64185,7 +64185,7 @@
       0,
       0,
       0,
-      2498,
+      2564,
       0
     ],
     "Redefinition.ownedRelationship": [
@@ -64193,19 +64193,19 @@
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.owner": [
       2,
       0,
       0,
-      2504,
+      2570,
       0,
       0
     ],
     "Redefinition.owningFeature": [
-      2504,
+      2570,
       0,
       0,
       0,
@@ -64229,7 +64229,7 @@
       0
     ],
     "Redefinition.owningRelatedElement": [
-      2504,
+      2570,
       0,
       0,
       0,
@@ -64247,7 +64247,7 @@
     "Redefinition.owningType": [
       0,
       0,
-      2504,
+      2570,
       0,
       0,
       0
@@ -64262,14 +64262,14 @@
     ],
     "Redefinition.redefinedFeature": [
       1576,
-      388,
+      58,
       0,
       0,
       0,
-      542
+      938
     ],
     "Redefinition.redefiningFeature": [
-      2505,
+      2571,
       1,
       0,
       0,
@@ -64278,14 +64278,14 @@
     ],
     "Redefinition.relatedElement": [
       1575,
-      387,
+      57,
       2,
       0,
       0,
-      542
+      938
     ],
     "Redefinition.source": [
-      2504,
+      2570,
       0,
       2,
       0,
@@ -64293,7 +64293,7 @@
       0
     ],
     "Redefinition.specific": [
-      2504,
+      2570,
       0,
       2,
       0,
@@ -64302,14 +64302,14 @@
     ],
     "Redefinition.subsettedFeature": [
       1575,
-      387,
+      57,
       2,
       0,
       0,
-      542
+      938
     ],
     "Redefinition.subsettingFeature": [
-      2504,
+      2570,
       0,
       2,
       0,
@@ -64318,18 +64318,18 @@
     ],
     "Redefinition.target": [
       1575,
-      387,
+      57,
       2,
       0,
       0,
-      542
+      938
     ],
     "Redefinition.textualRepresentation": [
       0,
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "ReferenceSubsetting.aliasIds": [
@@ -64350,11 +64350,11 @@
     ],
     "ReferenceSubsetting.general": [
       316,
-      40,
+      38,
       0,
       0,
       0,
-      24
+      26
     ],
     "ReferenceSubsetting.isImplied": [
       0,
@@ -64446,11 +64446,11 @@
     ],
     "ReferenceSubsetting.referencedFeature": [
       316,
-      40,
+      38,
       0,
       0,
       0,
-      24
+      26
     ],
     "ReferenceSubsetting.referencingFeature": [
       380,
@@ -64462,11 +64462,11 @@
     ],
     "ReferenceSubsetting.relatedElement": [
       316,
-      40,
+      38,
       0,
       0,
       0,
-      24
+      26
     ],
     "ReferenceSubsetting.source": [
       380,
@@ -64486,11 +64486,11 @@
     ],
     "ReferenceSubsetting.subsettedFeature": [
       316,
-      40,
+      38,
       0,
       0,
       0,
-      24
+      26
     ],
     "ReferenceSubsetting.subsettingFeature": [
       380,
@@ -64502,11 +64502,11 @@
     ],
     "ReferenceSubsetting.target": [
       316,
-      40,
+      38,
       0,
       0,
       0,
-      24
+      26
     ],
     "ReferenceSubsetting.textualRepresentation": [
       0,
@@ -64552,7 +64552,7 @@
       1422,
       0,
       0,
-      70,
+      4,
       0,
       0
     ],
@@ -65229,9 +65229,9 @@
       0
     ],
     "ReferenceUsage.ownedRedefinition": [
-      642,
+      708,
       0,
-      70,
+      4,
       0,
       1482,
       0
@@ -65253,17 +65253,17 @@
       0
     ],
     "ReferenceUsage.ownedSpecialization": [
-      1584,
+      1650,
       75,
-      70,
+      4,
       0,
       465,
       0
     ],
     "ReferenceUsage.ownedSubsetting": [
-      742,
+      808,
       22,
-      72,
+      6,
       0,
       1358,
       0
@@ -65368,7 +65368,7 @@
       0,
       0,
       0,
-      642,
+      708,
       0,
       0
     ],
@@ -65398,11 +65398,11 @@
     ],
     "ReferenceUsage.type": [
       413,
-      48,
+      46,
       1232,
       0,
       0,
-      501
+      503
     ],
     "ReferenceUsage.unioningType": [
       0,
@@ -75246,11 +75246,11 @@
     ],
     "Subclassification.general": [
       349,
-      127,
+      14,
       0,
       0,
       0,
-      136
+      249
     ],
     "Subclassification.isImplied": [
       0,
@@ -75382,11 +75382,11 @@
     ],
     "Subclassification.relatedElement": [
       347,
-      127,
+      14,
       2,
       0,
       0,
-      136
+      249
     ],
     "Subclassification.source": [
       610,
@@ -75414,19 +75414,19 @@
     ],
     "Subclassification.superclassifier": [
       348,
-      126,
+      13,
       2,
       0,
       0,
-      136
+      249
     ],
     "Subclassification.target": [
       348,
-      126,
+      13,
       2,
       0,
       0,
-      136
+      249
     ],
     "Subclassification.textualRepresentation": [
       0,
@@ -75678,11 +75678,11 @@
     ],
     "Subsetting.general": [
       309,
-      43,
+      33,
       2,
       0,
       0,
-      425
+      435
     ],
     "Subsetting.isImplied": [
       0,
@@ -75814,11 +75814,11 @@
     ],
     "Subsetting.relatedElement": [
       308,
-      44,
+      34,
       2,
       0,
       0,
-      425
+      435
     ],
     "Subsetting.source": [
       777,
@@ -75838,11 +75838,11 @@
     ],
     "Subsetting.subsettedFeature": [
       310,
-      44,
+      34,
       0,
       0,
       0,
-      425
+      435
     ],
     "Subsetting.subsettingFeature": [
       778,
@@ -75854,11 +75854,11 @@
     ],
     "Subsetting.target": [
       309,
-      43,
+      33,
       2,
       0,
       0,
-      425
+      435
     ],
     "Subsetting.textualRepresentation": [
       0,
@@ -88334,11 +88334,11 @@
     ],
     "ViewUsage.type": [
       9,
-      19,
+      3,
       41,
       0,
       0,
-      29
+      45
     ],
     "ViewUsage.unioningType": [
       0,
