@@ -94,3 +94,56 @@ func TestFilterNamingANamesakeTypeSelectsByElement(t *testing.T) {
 		}
 	}
 }
+
+// A condition naming a library type is not satisfied by a workspace namesake of
+// that type, while a second library copy of the same declaration still is.
+func TestFilterNamingALibraryTypeTellsAWorkspaceNamesakeApart(t *testing.T) {
+	idx := symbols.NewIndex()
+	addTestDoc(t, idx, "lib.sysml", `package Meta { metadata def Safety; }`)
+	addTestDoc(t, idx, "lib2.sysml", `package Meta { metadata def Safety; }
+		package LibB { #Meta::Safety part strap; }`)
+	addTestDoc(t, idx, "ws.sysml", `package Meta { metadata def Safety; }
+		package LibA { #Meta::Safety part belt; }`)
+	idx.MarkLibrary("lib.sysml")
+	idx.MarkLibrary("lib2.sysml")
+	idx.ExpandWildcardImports()
+	r := resolve.New(idx)
+	m := NewModel(r)
+	r.SetModel(m)
+	belt := idx.LookupQualified("LibA::belt")[0]
+	strap := idx.LookupQualified("LibB::strap")[0]
+
+	f := filterIn(t, m, "lib.sysml", "@Meta::Safety")
+	if typ := m.CompileElementFilter(f).Type; typ == nil || typ.DocName != "lib.sysml" {
+		t.Fatalf("the condition must name the library's Safety, got %v", typ)
+	}
+	if verdict(t, m, f, belt) {
+		t.Fatalf("belt, annotated by the workspace's namesake Safety, must not conform to the library's")
+	}
+	if !verdict(t, m, f, strap) {
+		t.Fatalf("strap, annotated by another library copy of Safety, must conform to the library's")
+	}
+}
+
+// Base::Anything is the top type only as the library declares it; a workspace
+// type of that name admits no more than what it annotates (KerML 1.0 §9.2.2.2).
+func TestFilterNamingAWorkspaceAnythingIsNotTheTopType(t *testing.T) {
+	for _, library := range []bool{false, true} {
+		idx := symbols.NewIndex()
+		addTestDoc(t, idx, "base.sysml", `package Base { metadata def Anything; }`)
+		addTestDoc(t, idx, "ws.sysml", `package Meta { metadata def Tag; }
+			package LibA { #Meta::Tag part radio; }`)
+		if library {
+			idx.MarkLibrary("base.sysml")
+		}
+		idx.ExpandWildcardImports()
+		r := resolve.New(idx)
+		m := NewModel(r)
+		r.SetModel(m)
+		radio := idx.LookupQualified("LibA::radio")[0]
+		f := filterIn(t, m, "ws.sysml", "@Base::Anything")
+		if got := verdict(t, m, f, radio); got != library {
+			t.Errorf("library=%v: a part annotated by an unrelated type conforms to Base::Anything: got %v, want %v", library, got, library)
+		}
+	}
+}

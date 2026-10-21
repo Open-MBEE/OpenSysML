@@ -852,7 +852,7 @@ func (m *Model) conforms(a, b *symbols.Symbol, unioning map[*symbols.Symbol]bool
 	if a == nil || b == nil {
 		return false
 	}
-	if symbols.SameElement(a, b) || IsAnything(b) {
+	if symbols.SameElement(a, b) || m.isTopType(b) {
 		return true
 	}
 	for _, s := range m.AllSupertypes(a) {
@@ -861,6 +861,12 @@ func (m *Model) conforms(a, b *symbols.Symbol, unioning map[*symbols.Symbol]bool
 		}
 	}
 	return m.unionConforms(a, b, unioning)
+}
+
+// isTopType reports whether b is the library's Base::Anything, which every type
+// conforms to (KerML 1.0 §9.2.2.2); a workspace namesake of it is an ordinary type.
+func (m *Model) isTopType(b *symbols.Symbol) bool {
+	return IsAnything(b) && (m.resolver == nil || m.resolver.Index() == nil || m.isLibraryElement(b))
 }
 
 // unionConforms reports whether a is declared as the union of types that all

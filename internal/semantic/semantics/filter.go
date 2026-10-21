@@ -940,7 +940,7 @@ func (m *Model) metaclassConformsTo(cand, typ *symbols.Symbol, typeFQN string) b
 		return false
 	}
 	if typ != nil {
-		return m.Conforms(meta, typ) || m.conformsByName(meta, typeFQN)
+		return m.Conforms(meta, typ) || (m.isLibraryElement(typ) && m.conformsByLibraryName(meta, typeFQN))
 	}
 	// The metaclass library is not loaded, so conformance can only be judged on
 	// the name the candidate's metaclass has.
@@ -964,7 +964,7 @@ func (m *Model) annotationConforms(a annotation, typ *symbols.Symbol, typeFQN st
 	if typ == nil {
 		return m.conformsByName(a.typ, typeFQN)
 	}
-	return m.Conforms(a.typ, typ) || (m.isLibraryElement(typ) && m.conformsByName(a.typ, typeFQN))
+	return m.Conforms(a.typ, typ) || (m.isLibraryElement(typ) && m.conformsByLibraryName(a.typ, typeFQN))
 }
 
 // predicateType is the type a compiled condition names: the element it
@@ -1011,6 +1011,16 @@ func bodyLocalSymbol(sym *symbols.Symbol) bool {
 // symbol across generations, and a name identifies one element (symbolByFQN
 // answers nothing for an ambiguous one), so the name decides what identity cannot.
 func (m *Model) conformsByName(sym *symbols.Symbol, typeFQN string) bool {
+	return m.conformsByNameIn(sym, typeFQN, false)
+}
+
+// conformsByLibraryName is conformsByName where only a library element may match:
+// copies of one library declaration are one element, a workspace namesake is not.
+func (m *Model) conformsByLibraryName(sym *symbols.Symbol, typeFQN string) bool {
+	return m.conformsByNameIn(sym, typeFQN, true)
+}
+
+func (m *Model) conformsByNameIn(sym *symbols.Symbol, typeFQN string, libraryOnly bool) bool {
 	if sym == nil || typeFQN == "" {
 		return false
 	}
@@ -1031,11 +1041,11 @@ func (m *Model) conformsByName(sym *symbols.Symbol, typeFQN string) bool {
 	if i := strings.LastIndex(typeFQN, "::"); i >= 0 {
 		parent, leaf = typeFQN[:i], typeFQN[i+2:]
 	}
-	if symbols.FQNIs(sym, parent, leaf) {
+	if symbols.FQNIs(sym, parent, leaf) && (!libraryOnly || m.isLibraryElement(sym)) {
 		return true
 	}
 	for _, sup := range m.AllSupertypes(sym) {
-		if symbols.FQNIs(sup, parent, leaf) {
+		if symbols.FQNIs(sup, parent, leaf) && (!libraryOnly || m.isLibraryElement(sup)) {
 			return true
 		}
 	}
