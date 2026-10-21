@@ -36,9 +36,8 @@ const status = window.document.getElementById("status")!;
 
 const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
 
-// Two placed parts joined by a connection whose stated route is a diagonal: under
-// `model` routing it is drawn verbatim with a waypoint handle, under `router` it
-// is routed orthogonally and the handle is hidden, so the two are told apart on screen.
+// Two placed parts joined by a connection with a stated diagonal route: `model` routing
+// draws it verbatim with a waypoint handle, `router` routes orthogonally and hides the handle.
 function statedDiagonal(): RenderResult {
   return {
     view: "M::V",

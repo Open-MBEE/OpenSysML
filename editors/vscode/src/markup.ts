@@ -1,6 +1,5 @@
-// The diagram panel's controls and regions, which the panel script finds by id. The
-// extension serves them in its document; the panel script's tests load it into them.
-// Free of the vscode module for the webview.
+// The diagram panel's controls and regions, which its script finds by id: served by the
+// extension, loaded by the script's tests. Free of the vscode module for the webview.
 
 /** PANEL_MARKUP is the body of the diagram panel's document, less its state and script. */
 export const PANEL_MARKUP = `<div id="bar">

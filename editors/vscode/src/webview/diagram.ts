@@ -851,6 +851,8 @@ function endGesture(event: PointerEvent): void {
   diagram.classList.remove("dragging", "refused", "panning");
   if (done.kind === "pan") {
     if (unrouted) {
+      // The scroll listener may not have seen the pan's last offsets yet; a redraw must keep them.
+      viewport = scrolled();
       settle();
     }
     if (done.moved) {
