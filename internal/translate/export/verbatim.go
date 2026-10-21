@@ -154,10 +154,8 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 	}
 }
 
-// rebuildCandidate converts the candidate in the id form the document follows,
-// so an element's identity is the same identity on both sides of the compare;
-// a uuid root id does not say which, a library document mixing normative uuids
-// with derived ids, so the better-agreeing of the two forms is used.
+// rebuildCandidate encodes the candidate in the id form the document follows, so both
+// sides of the compare share identities; a uuid root tries both forms and keeps the closer.
 func (d *decoder) rebuildCandidate(file *source.SourceFile, root *ast.RootNamespace, roots []*element) (*encoder, error) {
 	first, second := IDQualifiedName, IDUUID
 	for _, root := range roots {
