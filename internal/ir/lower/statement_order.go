@@ -49,7 +49,7 @@ func statementPrecedence(members []ast.Node, stmts []Statement) ([][]bool, map[*
 				continue
 			}
 		}
-		if node := statementNode(stmt); node != nil {
+		if node := StatementNode(stmt); node != nil {
 			index[node] = i
 		}
 	}

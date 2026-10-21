@@ -102,6 +102,11 @@ type Model struct {
 	// footprints memoizes what an expression reads, by scope and expression: a
 	// loop re-reads its condition and a branch its guard on every pass.
 	footprints map[footprintKey]lower.Footprint
+	// orders memoizes lower.BodyStatementOrder by the body or block the statements
+	// are, and stamped a statement's footprint stamped for one performed node
+	// (actionStmtHost.statementFootprint): every execution of a body reads both.
+	orders  map[orderKey]*lower.StatementOrder
+	stamped map[stampedFootprint]lower.Footprint
 
 	// predicateShapes memoizes the invocation interfaces of constraints and
 	// requirements applied as predicates.
@@ -377,6 +382,47 @@ func (m *Model) resolvedName(scope *symbols.Scope, name string, excluding ast.No
 type footprintKey struct {
 	scope *symbols.Scope
 	expr  ast.Node
+}
+
+// orderKey names a statement list by the node whose body or block it is, its first
+// statement's syntax and its length: one list per model has those.
+type orderKey struct {
+	node, first ast.Node
+	n           int
+}
+
+// stampedFootprint keys a statement's footprint stamped for one performed node.
+type stampedFootprint struct {
+	order *lower.StatementOrder
+	i     int
+	node  ast.Node
+}
+
+// statementOrder is lower.BodyStatementOrder of stmts, statements of node's body in
+// graph or of a block within it, computed once per model; graph may be nil for a
+// body lowered without one, whose statements resolve in scope.
+func (m *Model) statementOrder(graph *lower.ActionGraph, scope *symbols.Scope, node ast.Node, stmts []lower.Statement) *lower.StatementOrder {
+	key := orderKey{node: node, first: lower.StatementNode(stmts[0]), n: len(stmts)}
+	if order, known := m.orders[key]; known && key.first != nil {
+		return order
+	}
+	var order *lower.StatementOrder
+	if graph != nil {
+		order = graph.StatementOrders[node]
+	}
+	if order == nil {
+		if graph == nil && scope != nil {
+			graph = &lower.ActionGraph{Scope: scope}
+		}
+		order = lower.BodyStatementOrder(graph, node, stmts)
+	}
+	if key.first != nil {
+		if m.orders == nil {
+			m.orders = map[orderKey]*lower.StatementOrder{}
+		}
+		m.orders[key] = order
+	}
+	return order
 }
 
 // expressionFootprint is lower.ExpressionFootprint, computed once per expression.
