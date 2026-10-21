@@ -10,9 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// importedMemberAllocs is what enumerating one more member a wildcard import
-// brings, re-exported through another namespace's wildcard import, costs in
-// allocations: the difference between enumerations of 2n and of n members, per member.
+// importedMemberAllocs is what one more member re-exported through two wildcard
+// imports costs to enumerate: enumerations of 2n and of n members, per member.
 func importedMemberAllocs(t *testing.T, n int) float64 {
 	t.Helper()
 	enumerate := func(members int) float64 {
@@ -43,10 +42,8 @@ func importedMemberAllocs(t *testing.T, n int) float64 {
 	return (enumerate(2*n) - enumerate(n)) / float64(n)
 }
 
-// Enumerating what a wildcard import brings costs each member its place in
-// the list, not a walk of the routes that re-exported it: a member no
-// namespace hides is admitted without building its route conditions, its
-// qualified name or a candidate list of one, so it costs at most the bound.
+// A member no namespace hides costs its place in the list, not a walk of the
+// routes that re-exported it (their conditions, its qualified name, a list of one).
 func TestImportedMemberEnumerationDoesNotWalkRoutesPerMember(t *testing.T) {
 	const bound = 3
 	got := importedMemberAllocs(t, 64)

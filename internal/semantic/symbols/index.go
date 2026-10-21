@@ -1296,10 +1296,8 @@ func (idx *Index) ReexportGates(doc, fqn string, sym *Symbol, from string) [][]E
 	return out
 }
 
-// EachReexportGate calls visit with the conditions of each route ReexportGates
-// would return, in its order, until visit answers true; it reports whether any
-// route was visited and whether one was accepted. Nothing is allocated, so a
-// lookup that admits the first unfiltered route pays no more than the walk.
+// EachReexportGate visits the routes ReexportGates would return, in order, until
+// visit accepts one, reporting whether any was visited and whether one was accepted.
 func (idx *Index) EachReexportGate(doc, fqn string, sym *Symbol, from string, visit func(filters []ElementFilter) bool) (routed, accepted bool) {
 	idx.readName(fqn)
 	claims := idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym})
