@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -393,8 +394,14 @@ func (c *w9cConflictChecker) libraryBases(sym *symbols.Symbol) w9cReach {
 			out.through = append(out.through, cur)
 		}
 		sups := c.model.DirectSupertypes(cur)
+		implied := c.model.ImplicitGenerals(cur)
 		for _, sup := range sups {
 			if sup == nil || seen[sup] {
+				continue
+			}
+			// The base usage a kind implies is typed by the kind's base definition,
+			// reached on its own, so the library chain above it draws no diamond.
+			if sup.IsFeature() && slices.Contains(implied, sup) {
 				continue
 			}
 			// A feature's implicit value typing is only added when nothing else

@@ -54,9 +54,9 @@ test("a node with no edges is a neighbourhood of itself", () => {
 });
 
 test("relatedByKind counts a node's incident edges by kind, hidden or not", () => {
-  assert.deepEqual([...relatedByKind(result, "a")], [["connection", 1], ["flow", 1], ["binding", 1]]);
-  assert.deepEqual([...relatedByKind(result, "c")], [["flow", 1], ["connection", 1]]);
-  assert.equal(relatedByKind(result, "zz").size, 0);
+  assert.deepEqual([...relatedByKind(result.edges ?? [], "a")], [["connection", 1], ["flow", 1], ["binding", 1]]);
+  assert.deepEqual([...relatedByKind(result.edges ?? [], "c")], [["flow", 1], ["connection", 1]]);
+  assert.equal(relatedByKind(result.edges ?? [], "zz").size, 0);
 });
 
 test("markSelection emphasises the selected node, its neighbours and incident edges, and dims under has-focus", () => {

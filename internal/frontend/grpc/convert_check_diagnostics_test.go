@@ -178,7 +178,7 @@ func TestConvertCheckDiagnosticsWithRefusedConversion(t *testing.T) {
 		if err != nil || resp.Error == "" || resp.Content != "" {
 			t.Fatalf("check %v: two declarations of P converted: %v, error %q", check, err, resp.GetError())
 		}
-		if warned := severitiesByCode(resp.Diagnostics)["name-conflict"] == "warning"; warned != check {
+		if (severitiesByCode(resp.Diagnostics)["name-conflict"] == "warning") != check {
 			t.Fatalf("check %v: diagnostics %v", check, resp.Diagnostics)
 		}
 	}

@@ -32,9 +32,11 @@ import {
   zoomLabel,
 } from "./viewport";
 import {
+  byCodeUnit,
   CanvasLayout,
   insertedWaypoint,
   layoutCanvas,
+  listedEdges,
   movable,
   movedNode,
   movedWaypoint,
@@ -98,7 +100,7 @@ let auto: AutoLayout | undefined;
 /** ELK's layout of the rendering free of the model's placements, while the Auto layout command is in force. */
 let freeAuto: AutoLayout | undefined;
 let gesture: Gesture | undefined;
-// The router loaded mid-gesture, so the layout on screen predates it.
+// The router loaded or the routing changed mid-gesture, so the layout on screen predates it.
 let unrouted = false;
 /** How far the pointer moves before a press becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 3;
@@ -314,12 +316,16 @@ function applyStyle(chosen: DiagramStyle): void {
   remember();
 }
 
-// applyRouting picks whose routes the edges follow; the caller redraws where a drawing is up.
+// applyRouting picks whose routes the edges follow; the caller redraws where a drawing is
+// up, unless a gesture holds the screen, in which case the gesture's end does.
 function applyRouting(chosen: Routing): void {
   if (chosen === routing) {
     return;
   }
   routing = chosen;
+  if (gesture) {
+    unrouted = true;
+  }
   remember();
 }
 
@@ -368,19 +374,21 @@ function draw(result: RenderResult): boolean {
       layout = layoutCanvas(result, panelOverrides());
       if (empty || nothingLaidOut(layout)) {
         layout = undefined;
-        diagram.replaceChildren(emptyElement(result));
-      } else {
-        show(layout);
       }
     } else {
       // A table is not drawn as geometry: it is drawn as a table from its rows.
       layout = undefined;
-      diagram.replaceChildren(tableOf(result));
+    }
+    // The rendering is current before it is shown: the selection's neighbourhood is read from it.
+    last = result;
+    if (layout !== undefined) {
+      show(layout);
+    } else {
+      diagram.replaceChildren(result.form === "mermaid" ? emptyElement(result) : tableOf(result));
     }
     diagram.classList.remove("stale");
     emptyReason = empty || (result.form === "mermaid" && layout === undefined) ? emptyMessage(result) : undefined;
     showStatus(emptyReason ?? "");
-    last = result;
     if (layout !== undefined) {
       // The grid answers at once; ELK's layered layout replaces it when it resolves.
       showStatus("Laying out…");
@@ -404,7 +412,7 @@ function draw(result: RenderResult): boolean {
     showNotices(result);
     // An open menu names nodes of the drawing just replaced.
     hideMenu();
-    showRelations(result);
+    showRelations(layout);
     kindLabel.textContent = describe(result);
     return true;
   } catch (err) {
@@ -435,11 +443,11 @@ function select(id: string | undefined): void {
 // applySelection marks the selection's neighbourhood on the canvas on screen.
 function applySelection(): void {
   const svg = diagram.querySelector("svg");
-  if (!svg || !last) {
+  if (!svg || !last || !layout) {
     return;
   }
   markSelection(svg, focused === undefined ? undefined : neighbourhood(last, focused, hiddenSet()));
-  countRelations(last);
+  countRelations(layout);
 }
 
 // hiddenSet is the relationship kinds hidden now: the panel's own filter, else the workspace default.
@@ -447,9 +455,10 @@ function hiddenSet(): Set<string> {
   return hiddenKinds ?? new Set(defaultHidden);
 }
 
-// panelOverrides is what the panel itself lays over every layout of the rendering.
+// panelOverrides is what the panel itself lays over every layout of the rendering; a
+// gesture in progress keeps the routing it began under, and its end lays out with the new one.
 function panelOverrides(): Overrides {
-  return { hiddenKinds: hiddenSet(), unplaced: freeAuto !== undefined, routing };
+  return { hiddenKinds: hiddenSet(), unplaced: freeAuto !== undefined, routing: gesture?.routing ?? routing };
 }
 
 // currentAuto is the ELK layout in force: the free one while Auto layout is, else the one held to the model.
@@ -501,14 +510,14 @@ function showLayoutMode(): void {
 
 // showRelations lists the relationship kinds the rendering draws, each with a box to
 // show or hide it; a rendering with no edges, or a table, offers no list.
-function showRelations(result: RenderResult): void {
+function showRelations(shown: CanvasLayout | undefined): void {
   const kinds = new Map<string, number>();
-  for (const edge of result.edges ?? []) {
+  for (const edge of shown ? listedEdges(shown) : []) {
     kinds.set(edge.kind, (kinds.get(edge.kind) ?? 0) + 1);
   }
-  relations.hidden = result.form !== "mermaid" || kinds.size === 0;
+  relations.hidden = shown === undefined || kinds.size === 0;
   const hidden = hiddenSet();
-  relationList.replaceChildren(...[...kinds.keys()].sort().map((kind) => {
+  relationList.replaceChildren(...[...kinds.keys()].sort(byCodeUnit).map((kind) => {
     const box = document.createElement("input");
     box.type = "checkbox";
     box.checked = !hidden.has(kind);
@@ -519,14 +528,17 @@ function showRelations(result: RenderResult): void {
     label.append(box, ` ${kind} `, count);
     return label;
   }));
-  countRelations(result);
+  if (shown) {
+    countRelations(shown);
+  }
 }
 
 // countRelations writes each kind's count after its name: how many edges, and how many at the selected node.
-function countRelations(result: RenderResult): void {
-  const related = focused === undefined ? undefined : relatedByKind(result, focused);
+function countRelations(shown: CanvasLayout): void {
+  const listed = listedEdges(shown);
+  const related = focused === undefined ? undefined : relatedByKind(listed, focused);
   const total = new Map<string, number>();
-  for (const edge of result.edges ?? []) {
+  for (const edge of listed) {
     total.set(edge.kind, (total.get(edge.kind) ?? 0) + 1);
   }
   for (const box of relationList.querySelectorAll<HTMLInputElement>("input[data-kind]")) {
@@ -662,26 +674,29 @@ function rememberSoon(): void {
 type Gesture =
   | NodeGesture
   | PanGesture
-  | { kind: "waypoint"; edge: number; point: number; start: RenderPoint; pointer: number; placements?: Placements }
-  | { kind: "segment"; edge: number; segment: number; start: RenderPoint; pointer: number; placements?: Placements };
+  | { kind: "waypoint"; edge: number; point: number; start: RenderPoint; pointer: number; routing: Routing; placements?: Placements }
+  | { kind: "segment"; edge: number; segment: number; start: RenderPoint; pointer: number; routing: Routing; placements?: Placements };
 
 // A press on empty canvas pans the view once it moves past the drag threshold;
 // released where it was pressed, it is a click on nothing.
 interface PanGesture {
   kind: "pan";
   pointer: number;
+  routing: Routing;
   from: ClientPoint;
   scroll: { left: number; top: number };
   moved: boolean;
 }
 
 // A node drag also tracks what a release would do: `at` is where the pointer holds the
-// node, `drop` the node under it while Shift is held.
+// node, `drop` the node under it while Shift is held. Every gesture keeps the routing it
+// began under, so what it draws stays on the layout it started from until it ends.
 interface NodeGesture {
   kind: "node";
   id: string;
   start: RenderPoint;
   pointer: number;
+  routing: Routing;
   fixed: boolean;
   placements?: Placements;
   at?: RenderPoint;
@@ -713,21 +728,22 @@ function beginGesture(event: PointerEvent): void {
   const handle = handleAt(event.target);
   if (handle) {
     gesture = handle.point !== undefined
-      ? { kind: "waypoint", edge: handle.edge, point: handle.point, start, pointer: event.pointerId }
-      : { kind: "segment", edge: handle.edge, segment: handle.segment ?? 0, start, pointer: event.pointerId };
+      ? { kind: "waypoint", edge: handle.edge, point: handle.point, start, pointer: event.pointerId, routing }
+      : { kind: "segment", edge: handle.edge, segment: handle.segment ?? 0, start, pointer: event.pointerId, routing };
   } else {
     const node = nodeAt(event.target, last);
     if (!node) {
       gesture = {
         kind: "pan",
         pointer: event.pointerId,
+        routing,
         from: clientPoint(event),
         scroll: { left: diagram.scrollLeft, top: diagram.scrollTop },
         moved: false,
       };
     } else {
       const entry = layout.nodes.get(node.id);
-      gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, fixed: !entry || !movable(layout, entry) };
+      gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, routing, fixed: !entry || !movable(layout, entry) };
     }
   }
   event.preventDefault();
@@ -846,6 +862,9 @@ function endGesture(event: PointerEvent): void {
   gesture = undefined;
   diagram.classList.remove("dragging", "refused", "panning");
   if (done.kind === "pan") {
+    if (unrouted) {
+      settle();
+    }
     if (done.moved) {
       rememberSoon();
     } else {
@@ -911,9 +930,13 @@ function panTo(pan: PanGesture, at: ClientPoint): void {
   diagram.classList.add("panning");
   diagram.scrollLeft = pan.scroll.left - dx;
   diagram.scrollTop = pan.scroll.top - dy;
+  // Recorded here rather than by the scroll listener, which hears of it a task later than
+  // the pan's end might redraw; a redraw puts the recorded viewport back.
+  viewport = scrolled();
 }
 
-// settle shows the model's layout after a gesture that made no edit, laid out again if the router loaded meanwhile.
+// settle shows the model's layout after a gesture that made no edit, laid out again if the
+// router loaded or the routing changed meanwhile.
 function settle(): void {
   if (unrouted && last && layout) {
     layout = layoutCanvas(last, panelOverrides(), currentAuto());

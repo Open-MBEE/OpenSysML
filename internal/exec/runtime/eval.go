@@ -1632,8 +1632,6 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		return value, nil
 	}
-	name, rest := parts[0].Text, parts[1:]
-
 	if literal := value.EnumerationLiteral(); literal != nil {
 		// A literal is an occurrence of its enumeration, so its own features are
 		// read from the object that literal stands for, whatever scalar it equals.
@@ -1651,20 +1649,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		return ec.chainOverElements(value, parts, from)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity, ValQuantity, ValMeasurementRef, ValCoordinateFrame, ValCoordinateTransformation:
-		// An array or vector read from an object keeps that object's members; a
-		// frame answers its own features from the value, then from its object.
-		if inst, ok := ec.ctx.structuredObject(value); ok && (isStructuredValue(&value) || value.Kind == ValQuantity) {
-			// A scalar quantity answers its own features (`num`, `mRef`) as the value it
-			// is; its object answers the members a specialization adds.
-			next, segments, label := Value{Kind: ValInstance, Instance: inst.ID}, parts, from
-			if value.Kind == ValQuantity {
-				if answer, ok, err := ec.ctx.quantityFeature(value, name); ok && err == nil {
-					next, segments, label = answer, rest, name
-				}
-			}
-			return ec.chainMemberValue(next, segments, label)
-		}
-		return ec.chainOwnFeature(value, parts, from)
+		return ec.chainThroughStructured(value, parts, from)
 	case ValInstance, ValVariant:
 		// handled below
 	case ValMetaobject:
@@ -1679,6 +1664,13 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		return Value{}, fmt.Errorf("cannot chain through non-instance member %s (%v)", from, value.Kind)
 	}
 
+	return ec.chainObjectMember(value, parts, from)
+}
+
+// chainObjectMember continues a chain through a member of the object an instance or
+// selected variant materialized: what the object is answers first, then its features.
+func (ec *EvalContext) chainObjectMember(value Value, parts []ast.NameSegment, from string) (Value, error) {
+	name, rest := parts[0].Text, parts[1:]
 	// A selected variant is chained through the object it materialized.
 	id, isObject := value.Object()
 	if !isObject {
@@ -1721,27 +1713,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	}
 	fvDecl, ok := inst.FeatureValues[name]
 	if !ok {
-		// A calc usage is an evaluation rather than a feature value, so its outputs are
-		// read from a run of it against this object.
-		if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
-			return ec.calcUsageMemberValue(sym, inst, rest)
-		}
-		if ec.ctx.derivesKernelCollection(inst, name) {
-			return ec.chainFeatureValue(inst, name, rest, from)
-		}
-		// A member the shape leaves out, which the default the holder governs over
-		// states; else a Kernel member.
-		val, answered, err := ec.ctx.holderDefaultMember(inst, name)
-		if !answered {
-			val, answered, err = ec.kernelMemberValue(inst, name, from)
-		}
-		if answered {
-			if err != nil {
-				return Value{}, err
-			}
-			return ec.chainMemberValue(val, rest, name)
-		}
-		return Value{}, fmt.Errorf("%w: member %s not found in instance", ErrNoSuchFeature, name)
+		return ec.chainUnheldMember(inst, name, rest, from)
 	}
 	// A variant named through the variation feature it belongs to is the choice
 	// itself, not a member of the variation's value.
@@ -1757,6 +1729,50 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		return ec.chainMemberValue(val, rest, variant.Name)
 	}
 	return ec.chainFeatureValue(inst, name, rest, from)
+}
+
+// chainThroughStructured continues a chain through an array, vector, quantity or frame
+// value: its own features answer from the value, the rest from the object it was read from.
+func (ec *EvalContext) chainThroughStructured(value Value, parts []ast.NameSegment, from string) (Value, error) {
+	inst, ok := ec.ctx.structuredObject(value)
+	if !ok || !(isStructuredValue(&value) || value.Kind == ValQuantity) {
+		return ec.chainOwnFeature(value, parts, from)
+	}
+	// A scalar quantity answers its own features (`num`, `mRef`) as the value it
+	// is; its object answers the members a specialization adds.
+	next, segments, label := Value{Kind: ValInstance, Instance: inst.ID}, parts, from
+	if value.Kind == ValQuantity {
+		if answer, ok, err := ec.ctx.quantityFeature(value, parts[0].Text); ok && err == nil {
+			next, segments, label = answer, parts[1:], parts[0].Text
+		}
+	}
+	return ec.chainMemberValue(next, segments, label)
+}
+
+// chainUnheldMember continues a chain through a member no feature value holds: a calc
+// usage's run, a derived Kernel collection, a holder-governed default or a Kernel member.
+func (ec *EvalContext) chainUnheldMember(inst *Instance, name string, rest []ast.NameSegment, from string) (Value, error) {
+	// A calc usage is an evaluation rather than a feature value, so its outputs are
+	// read from a run of it against this object.
+	if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
+		return ec.calcUsageMemberValue(sym, inst, rest)
+	}
+	if ec.ctx.derivesKernelCollection(inst, name) {
+		return ec.chainFeatureValue(inst, name, rest, from)
+	}
+	// A member the shape leaves out, which the default the holder governs over
+	// states; else a Kernel member.
+	val, answered, err := ec.ctx.holderDefaultMember(inst, name)
+	if !answered {
+		val, answered, err = ec.kernelMemberValue(inst, name, from)
+	}
+	if answered {
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(val, rest, name)
+	}
+	return Value{}, fmt.Errorf("%w: member %s not found in instance", ErrNoSuchFeature, name)
 }
 
 // chainFeatureValue continues a chain through the named feature value of inst.

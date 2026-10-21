@@ -159,11 +159,17 @@ func (m *Model) BehaviorParametersOf(sym *symbols.Symbol) []BehaviorParameter {
 func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.params[sym]; ok {
+		// The seed answers a re-entrant query with nothing, cutting that query short.
+		if depth := m.computingParams[sym]; depth != 0 {
+			m.resolver.CutShort(depth)
+		}
 		return cached
 	}
 	// Guard against re-entrancy on cyclic specialization graphs.
 	journal(m, m.params, sym, sym.Decl)
 	m.params[sym] = behaviorParameters{}
+	m.computingParams[sym] = m.resolver.Enter()
+	defer delete(m.computingParams, sym)
 
 	owned := ownedParameters(sym)
 	out := behaviorParameters{positional: positionalParameters(owned), result: resultParameter(owned)}
@@ -178,7 +184,7 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 		}
 	}
 	if len(generals) > 1 {
-		bases := m.implicitBases(sym)
+		bases := m.ImplicitGenerals(sym)
 		generals = slices.DeleteFunc(generals, func(sup *symbols.Symbol) bool { return slices.Contains(bases, sup) })
 	}
 	if len(generals) == 1 {
@@ -194,6 +200,12 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 		}
 	}
 
+	// A list derived while a guard cut a query short may have missed a
+	// parameter, so it is recomputed on the next query, not memoized.
+	if !m.resolver.Leave() {
+		delete(m.params, sym)
+		return out
+	}
 	m.params[sym] = out
 	return out
 }
@@ -391,7 +403,8 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 		return nil
 	}
 	position := -1
-	for i, p := range positionalParameters(ownedParameters(owner)) {
+	// The owner's memoized parameters list its owned ones first, in order.
+	for i, p := range m.parametersOf(owner).positional {
 		if p.sym == sym {
 			position = i
 			break
@@ -402,8 +415,11 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 	}
 
 	var out []*symbols.Symbol
+	// The base feature a kind implies owns no parameters; those of its type are
+	// reached through the kind's base definition or the declared chain already.
+	baseFeatures := m.ImpliedBaseFeatures(owner)
 	for _, sup := range m.DirectSupertypes(owner) {
-		if !behaviorLike(sup) {
+		if !behaviorLike(sup) || slices.Contains(baseFeatures, sup) {
 			continue
 		}
 		supParams := m.parametersOf(sup)

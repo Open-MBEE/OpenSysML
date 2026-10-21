@@ -1182,7 +1182,7 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 		ctx.abandonCreationSince(mark, attached)
 		return err
 	}
-	msg.dependence = ctx.standingOf(lower.ExpressionFootprint(scope, s.Message), true)
+	msg.dependence = ctx.standingOf(ctx.model.expressionFootprint(scope, s.Message), true)
 	receivers, err := ec.valuedReceivers(s)
 	if err != nil {
 		ctx.abandonCreationSince(mark, attached)

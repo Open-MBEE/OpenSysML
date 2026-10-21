@@ -983,6 +983,18 @@ func (inst *Instance) materializeBoundOrIntrinsic(ctx *Context, fv *FeatureValue
 	return nil
 }
 
+// bindingContext is the object a feature's value is read against: the owner of inst for a
+// case's or requirement's subject (KerML 1.0 §7.4.11, `subject subj default Case::result`).
+func (ctx *Context) bindingContext(inst *Instance, feat *EffectiveFeature) *Instance {
+	if feat == nil || !isSubjectUsage(feat.Symbol) {
+		return inst
+	}
+	if owner, _ := inst.Owner(); owner != nil {
+		return owner
+	}
+	return inst
+}
+
 // materializeFeatureValueIntrinsic evaluates a feature without following
 // binding connectors; binding resolution calls it to inspect an endpoint.
 func (inst *Instance) materializeFeatureValueIntrinsic(ctx *Context, name string) (*FeatureValue, error) {
@@ -1368,7 +1380,7 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 	if semantics.IsBehaviorParameter(feat.Symbol) && !ctx.model.semantics.IsDataType(feat.Type) {
 		return nil
 	}
-	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat)) {
+	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat) || satisfiedBy(feat.Symbol) != nil) {
 		return feat.Symbol
 	}
 	return feat.Type
@@ -1376,6 +1388,7 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 
 // declaresFeatures reports whether a usage's body, or that of a feature it redefines or
 // directly subsets, declares features: a specializing feature inherits them (KerML 1.0 §7.3.4.5).
+// A satisfy usage's `by` binds its subject as a body member would, so it declares one too.
 func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 	if declaresFeatures(feat.Symbol) {
 		return true
@@ -1385,7 +1398,7 @@ func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 			return true
 		}
 	}
-	for _, sup := range ctx.model.semantics.DirectSupertypes(feat.Symbol) {
+	for _, sup := range ctx.model.semantics.DeclaredSupertypes(feat.Symbol) {
 		if usageSymbol(sup) && declaresFeatures(sup) {
 			return true
 		}
@@ -1393,15 +1406,28 @@ func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 	return false
 }
 
-// untypedOccurrenceUsage reports an occurrence or port usage declaring no type, which its
-// kind's implicit base still classifies (SysML v2 §7.9.2: an untyped `item` is an Items::Item,
-// an untyped `port` a Ports::Port).
+// untypedOccurrenceUsage reports an occurrence, port, action or state usage declaring no
+// type, which its kind's implicit base still classifies (SysML v2 §7.9.2: an untyped `item`
+// is an Items::Item, an untyped `port` a Ports::Port; §7.16.2, §7.17.2: an untyped `action`
+// an Actions::Action, an untyped `state` a States::StateAction).
 func untypedOccurrenceUsage(feat *EffectiveFeature) bool {
-	if feat.Type != nil || !(isOccurrenceUsage(feat.Symbol) || untypedPortUsage(feat.Symbol)) {
+	if feat.Type != nil || !(isOccurrenceUsage(feat.Symbol) || untypedPortUsage(feat.Symbol) || untypedPerformanceUsage(feat.Symbol)) {
 		return false
 	}
 	usage := feat.Symbol.Decl.(*ast.Usage)
 	return !usage.IsReference
+}
+
+// untypedPerformanceUsage reports an action or state usage declaring no type and no value,
+// a performance its owner holds as it holds a typed one (Parts.sysml `ownedActions`,
+// `ownedStates`; Actions.sysml `subactions`): one object for a usage declaring no
+// multiplicity, as many as a fixed bound states, none made up for an open bound.
+func untypedPerformanceUsage(sym *symbols.Symbol) bool {
+	if sym == nil || (sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage) {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Value == nil
 }
 
 // untypedPortUsage reports a port usage, whose object a binding connector can join to another's.
@@ -1428,6 +1454,13 @@ func isReferenceUsage(sym *symbols.Symbol) bool {
 // which the object it materializes has to carry.
 func declaresFeatures(sym *symbols.Symbol) bool {
 	for _, member := range unwrappedDeclMembers(sym.Decl) {
+		// A subject the body values or defaults (`subject = x;`) restates the inherited parameter.
+		if subject, ok := member.(*ast.SubjectMember); ok {
+			if subject.BindingExpr != nil {
+				return true
+			}
+			continue
+		}
 		usage, ok := member.(*ast.Usage)
 		if !ok {
 			continue
@@ -1625,16 +1658,48 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 	if scope == nil {
 		scope = inst.Type.OwnerScope
 	}
-	ec := NewEvalContextIn(ctx, scope, inst)
+	ec := NewEvalContextIn(ctx, scope, ctx.bindingContext(inst, fv.Feature))
 	if object := ctx.model.resolver.ThisContext(scope); object != nil && isBehaviorDefKind(object.Kind) {
 		// A feature default written in a behavior def sees `this` as the
 		// def's own occurrence, which the instance being evaluated is.
 		ec.occurrence = inst
 	}
 	defer ec.beginStep()()
+	if val, ok, err := ctx.subjectMemberValue(fv.Feature, ec.self, scope, fv.Feature.DefaultValue); ok || err != nil {
+		if err != nil {
+			return Value{}, fmt.Errorf("feature value %s.%s: %w", inst.Type.Name, name, err)
+		}
+		return val, nil
+	}
 	val, err := ec.Eval(fv.Feature.DefaultValue)
 	if err != nil {
 		return Value{}, fmt.Errorf("feature value %s.%s: %w", inst.Type.Name, name, err)
 	}
 	return val, nil
+}
+
+// subjectMemberValue reads a subject's value expression that is a qualified feature name of
+// self's type (`subject subj default Case::result;` on a case object) as self's own member.
+func (ctx *Context) subjectMemberValue(feat *EffectiveFeature, self *Instance, scope *symbols.Scope, expr ast.Node) (Value, bool, error) {
+	if feat == nil || !isSubjectUsage(feat.Symbol) {
+		return Value{}, false, nil
+	}
+	return ctx.qualifiedMemberOf(self, scope, expr)
+}
+
+// qualifiedMemberOf reads a qualified feature name of self's type as self's own member.
+func (ctx *Context) qualifiedMemberOf(self *Instance, scope *symbols.Scope, expr ast.Node) (Value, bool, error) {
+	qn := ast.AsQualifiedName(expr)
+	if self == nil || qn == nil || len(qn.Parts) < 2 {
+		return Value{}, false, nil
+	}
+	feature, ok := ctx.readQualified(scope, qn).Symbol()
+	if !ok || feature == nil || !ctx.model.semantics.Conforms(self.Type, ctx.findOwnerType(feature)) {
+		return Value{}, false, nil
+	}
+	fv, err := self.MemberValue(ctx, feature.Name)
+	if err != nil {
+		return Value{}, true, err
+	}
+	return fv.HeldValue(), true, nil
 }

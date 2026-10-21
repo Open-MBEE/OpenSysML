@@ -343,7 +343,7 @@ func (m *Model) inheritedResultType(sym *symbols.Symbol, seen map[*symbols.Symbo
 	}
 	seen[sym] = true
 	var features []*symbols.Symbol
-	bases := m.implicitBases(sym)
+	bases := m.ImplicitGenerals(sym)
 	for _, super := range m.DirectSupertypes(sym) {
 		if alias, ok := m.resolver.ResolveAliasTarget(super); ok {
 			super = alias
@@ -494,7 +494,7 @@ func (m *Model) declaredTypes(sym *symbols.Symbol, seen map[*symbols.Symbol]bool
 	}
 	seen[sym] = true
 	var defs, features []*symbols.Symbol
-	bases := m.implicitBases(sym)
+	bases := m.ImplicitGenerals(sym)
 	baseParam := m.implicitBaseParameter(sym)
 	for _, super := range m.DirectSupertypes(sym) {
 		if alias, ok := m.resolver.ResolveAliasTarget(super); ok {
