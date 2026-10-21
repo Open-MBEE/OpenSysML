@@ -15,7 +15,7 @@ import { DocumentRendering } from "./document";
 import { CROSS_DOCUMENT_CAPABILITY, STDLIB_SCHEME } from "./protocol";
 import { SHOW_REFERENCES_COMMAND, showReferencesArguments } from "./references";
 import { ElementRunner } from "./run";
-import { serverReport } from "./serverinfo";
+import { declaredVersion, serverReport } from "./serverinfo";
 import { StdlibDocuments } from "./stdlib";
 
 const EXECUTABLE = process.platform === "win32" ? "sysml-lsp.exe" : "sysml-lsp";
@@ -52,8 +52,7 @@ let queue: Promise<void> = Promise.resolve();
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   output = vscode.window.createOutputChannel("SysML v2");
   context.subscriptions.push(output);
-  const declaredVersion = (context.extension.packageJSON as { version?: unknown }).version;
-  extensionVersion = typeof declaredVersion === "string" ? declaredVersion : "";
+  extensionVersion = declaredVersion(context.extension.packageJSON);
 
   // One watcher for the whole session: a per-start watcher would outlive the
   // client that used it and pile up over restarts.
