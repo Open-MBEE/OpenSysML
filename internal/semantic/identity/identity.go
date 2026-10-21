@@ -93,6 +93,9 @@ const (
 	SourceNormative
 	// SourceDeclared is the id an ElementId annotation declares.
 	SourceDeclared
+	// SourceExtension is the UUID this implementation fixes for a named element
+	// of its own extension libraries, derived as a normative id is under their URL.
+	SourceExtension
 )
 
 func (s Source) String() string {
@@ -101,9 +104,14 @@ func (s Source) String() string {
 		return "normative"
 	case SourceDeclared:
 		return "declared"
+	case SourceExtension:
+		return "extension"
 	}
 	return "derived"
 }
+
+// Fixed reports an id a bundled library fixes: normative or extension.
+func (s Source) Fixed() bool { return s == SourceNormative || s == SourceExtension }
 
 // Info is one symbol's identity: its effective id, where it came from, and
 // the project scope it resolves against.
@@ -111,12 +119,12 @@ type Info struct {
 	Symbol *symbols.Symbol
 	// FQN is the symbol's qualified name, which the derived id encodes.
 	FQN string
-	// EffectiveID is the annotated id when declared, the normative id of a
-	// standard library element otherwise, the derived id failing both.
+	// EffectiveID is the annotated id when declared, the fixed id of a bundled
+	// library element otherwise, the derived id failing both.
 	EffectiveID string
-	// Source is which of the three EffectiveID is.
+	// Source is which of the four EffectiveID is.
 	Source Source
-	// Language is the library half a normative id is minted under; zero otherwise.
+	// Language is the library a fixed id is minted under; zero otherwise.
 	Language Language
 	// Annotated reports an ElementId annotation on the element.
 	Annotated bool
@@ -137,10 +145,14 @@ type Info struct {
 // Normative reports an effective id the norm fixes for the element.
 func (i *Info) Normative() bool { return i.Source == SourceNormative }
 
-// OwningMembershipID is the normative id of the membership owning a standard
-// library element; "" for any other, whose membership id derives from its own.
+// Fixed reports an effective id a bundled library fixes for the element: the
+// norm's for a standard library element, this implementation's for an extension's.
+func (i *Info) Fixed() bool { return i.Source.Fixed() }
+
+// OwningMembershipID is the fixed id of the membership owning a bundled library
+// element; "" for any other, whose membership id derives from its own.
 func (i *Info) OwningMembershipID() string {
-	if !i.Normative() {
+	if !i.Fixed() {
 		return ""
 	}
 	return OwningMembershipID(i.Language, i.FQN)
@@ -245,6 +257,9 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 	info := &Info{Symbol: sym, FQN: fqn, EffectiveID: rdf.EncodeElementID(fqn)}
 	if lang, ok := b.norm.language(sym); ok {
 		info.Source, info.Language = SourceNormative, lang
+		if lang == OpenSysML {
+			info.Source = SourceExtension
+		}
 		info.EffectiveID = ElementID(lang, fqn)
 	}
 	for _, site := range b.model.AnnotationSitesOf(sym) {
@@ -268,8 +283,8 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 			if !d.Declared || d.ID == "" {
 				continue
 			}
-			// An annotation restating the norm's id declares nothing the norm does not.
-			if d.ID != info.EffectiveID || !info.Normative() {
+			// An annotation restating the library's fixed id declares nothing it does not.
+			if d.ID != info.EffectiveID || !info.Fixed() {
 				info.EffectiveID = d.ID
 				info.Source, info.Language = SourceDeclared, 0
 			}
