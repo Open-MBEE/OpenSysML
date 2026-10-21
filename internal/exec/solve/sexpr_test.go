@@ -42,9 +42,8 @@ func TestReadSexpr(t *testing.T) {
 	}
 }
 
-// A reply written back and read again is the same reply: a `|quoted|` symbol
-// keeps its bars, whatever a SysML name carries, so a value kept as the solver's
-// text decodes to the atom the solver gave rather than to its first word.
+// A reply written back and read again is the same reply: a `|quoted|` symbol keeps
+// its bars, so a value kept as the solver's text decodes to the atom the solver gave.
 func TestSexprStringReadsBackToTheSameAtom(t *testing.T) {
 	names := []string{
 		"Cfg Space::fam::engine::e4",
