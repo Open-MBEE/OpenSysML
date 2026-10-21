@@ -381,7 +381,11 @@ func (r configureRequest) ask(name string) analysis.Asking {
 			if q.Rounded() {
 				return nil, nil
 			}
-			return solver.Configurations(ctx, q, r.limit)
+			result, err := solver.Configurations(ctx, q, r.limit)
+			if err != nil || result == nil || len(result.Solutions) > 0 || result.Status == solve.StatusUnknown || !q.Fixes() {
+				return result, err
+			}
+			return withConflict(solver, ctx, q, result), nil
 		}
 		result, err := solver.Solve(ctx, q)
 		if err != nil || result.Status != solve.StatusUnsat || q.Rounded() || !q.Fixes() {
@@ -554,14 +558,7 @@ func configurationReport(name string, q *solve.Query, result *solve.Result) Solv
 				"  " + roundedUnsat,
 			}}
 		}
-		lines := []string{fmt.Sprintf("✗ %s permits no selection of variants (%s)", subject, solveDetail(result))}
-		if q.Fixes() {
-			lines[0] = fmt.Sprintf("✗ %s permits no selection of variants consistent with the %s it fixes (%s)",
-				subject, plural(len(q.Pinned), "value", "values"), solveDetail(result))
-			lines = append(lines, fixedLines(q)...)
-			lines = append(lines, conflictingFixed(q, result.Core)...)
-		}
-		return SolveReport{Subject: name, Status: SolveUnsat, Solver: result.Solver, Lines: lines}
+		return noSelectionReport(name, q, result)
 	default:
 		lines := []string{fmt.Sprintf("? whether %s permits a selection of variants is undecided (%s)",
 			subject, solveDetail(result))}
@@ -570,6 +567,21 @@ func configurationReport(name string, q *solve.Query, result *solve.Result) Solv
 		}
 		return SolveReport{Subject: name, Status: SolveUnknown, Solver: result.Solver, Lines: lines}
 	}
+}
+
+// noSelectionReport reports that no selection of variants is consistent: with the
+// values the element fixes, naming those in the conflict and the assertion refusing
+// them, or with its conditions on their own.
+func noSelectionReport(name string, q *solve.Query, result *solve.Result) SolveReport {
+	subject := solveSubject(q)
+	lines := []string{fmt.Sprintf("✗ %s permits no selection of variants (%s)", subject, solveDetail(result))}
+	if q.Fixes() {
+		lines[0] = fmt.Sprintf("✗ %s permits no selection of variants consistent with the %s it fixes (%s)",
+			subject, plural(len(q.Pinned), "value", "values"), solveDetail(result))
+		lines = append(lines, fixedLines(q)...)
+		lines = append(lines, conflictingFixed(q, result.Core)...)
+	}
+	return SolveReport{Subject: name, Status: SolveUnsat, Solver: result.Solver, Lines: lines}
 }
 
 // configurationsReport reports the consistent selections of variants up to the bound, saying
@@ -590,9 +602,7 @@ func configurationsReport(name string, q *solve.Query, result *solve.Result) Sol
 		return SolveReport{Subject: name, Status: SolveUnknown, Solver: result.Solver, Lines: lines}
 	}
 	if len(result.Solutions) == 0 {
-		return SolveReport{Subject: name, Status: SolveUnsat, Solver: result.Solver, Lines: []string{
-			fmt.Sprintf("✗ %s permits no selection of variants (%s)", subject, solveDetail(result)),
-		}}
+		return noSelectionReport(name, q, result)
 	}
 	lines := []string{fmt.Sprintf("✓ %s permits %d %s of variants%s (%s)",
 		subject, len(result.Solutions), plural(len(result.Solutions), "selection", "selections"),
