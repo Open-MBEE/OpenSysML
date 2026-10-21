@@ -176,6 +176,7 @@ exclude_docs: |
   project/demo.md
   project/training-examples.md
   project/pilot-corpora.md
+  project/spec-examples.md
   project/rdf-corpus-roundtrip.md
   project/pssm-migration.md
   project/pilot-xpect.md

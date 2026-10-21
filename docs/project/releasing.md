@@ -168,10 +168,11 @@ branch that moves the integration state onto `main`:
    `optionalDependencies` — to the SemVer spelling of the same version (`0.9.1`;
    `0.9.0-rc.1` for `0.9.0rc1`; `TestMCPRunnerManifestAgreesWithTheClientVersion` in
    `tests/hygiene` fails while the two manifests disagree), and run `npm install --package-lock-only` in
-   `client/node` so the lockfile agrees; the release workflow fails before
+   `client/node` and in `packaging/npm/sysml-mcp` so both lockfiles agree; the release workflow fails before
    building anything when package.json disagrees, and `npm ci` refuses a
    lockfile that still locks the platform packages at the previous version
-   (`TestNodeLockfileAgreesWithTheClientVersion` in `tests/hygiene` catches
+   (`TestNodeLockfileAgreesWithTheClientVersion` and
+   `TestMCPRunnerLockfileAgreesWithTheManifest` in `tests/hygiene` catch
    that without a Node toolchain). Before the tag the new platform packages
    are not on npm, so that run drops their entries from the lockfile; that is
    fine for `npm ci`, and the pin step below locks them once they exist. `client/java/pom.xml` follows
@@ -207,8 +208,9 @@ branch that moves the integration state onto `main`:
    `develop` (see [Pinned release digests](#pinned-release-digests)). Its Node
    client job fails until the lockfile names the platform packages the tag just
    published — `npm install --package-lock-only` in `client/node` could not lock
-   them before they existed — so run that on the pin branch and commit the
-   lockfile first. Then merge
+   them before they existed — so run that on the pin branch (and in
+   `packaging/npm/sysml-mcp`, whose lockfile pins the runner's platform packages
+   the same way) and commit both lockfiles first. Then merge
    `main` back into `develop` — a plain merge, no rebase — so the folded
    changelog, and any hotfix that landed on `main` in the meantime, flow down.
    When the release was a `hotfix/` branch, `develop`'s lockfile still locks
@@ -220,7 +222,8 @@ branch that moves the integration state onto `main`:
    git checkout develop && git pull
    git merge main
    (cd client/node && npm install --package-lock-only --ignore-scripts)   # after a hotfix
-   git commit -am "chore(node): lock the platform packages at the release"  # if it changed
+   (cd packaging/npm/sysml-mcp && npm install --package-lock-only --ignore-scripts)
+   git commit -am "chore(node): lock the platform packages at the release"  # if either changed
    git push origin develop
    ```
 

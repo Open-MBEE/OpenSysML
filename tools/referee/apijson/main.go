@@ -22,6 +22,7 @@ type options struct {
 	roots               []string
 	timeout             time.Duration
 	update, check       bool
+	lostAgainst         string
 	log                 io.Writer
 }
 
@@ -36,6 +37,7 @@ func Main(args []string, stderr io.Writer) int {
 	timeoutFlag := flags.Duration("timeout", 30*time.Minute, "time allowed for the pilot's export of one root")
 	updateFlag := flags.Bool("update", false, "re-record "+committedBaseline+" from this run")
 	checkFlag := flags.Bool("check", false, "fail unless this run reproduces "+committedBaseline)
+	lostAgainstFlag := flags.String("lost-against", "", "an earlier run's "+toolName+"-matches.json; list the element matches this run lost and gained against it")
 	if err := flags.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return 0
@@ -47,7 +49,7 @@ func Main(args []string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%s: %v\n", toolName, err)
 		return 1
 	}
-	opts := options{repo: root, timeout: *timeoutFlag, update: *updateFlag, check: *checkFlag, log: os.Stdout}
+	opts := options{repo: root, timeout: *timeoutFlag, update: *updateFlag, check: *checkFlag, lostAgainst: repo.Resolve(root, *lostAgainstFlag), log: os.Stdout}
 	opts.launcher = repo.Resolve(root, *launcherFlag)
 	if opts.launcher == "" {
 		opts.launcher = filepath.Join(root, "build", "pilot-json-exporter", "export-json")
@@ -79,7 +81,11 @@ func Main(args []string, stderr io.Writer) int {
 }
 
 func run(opts options) error {
-	record, err := provenance(opts.repo)
+	built, err := repo.BuildRoot()
+	if err != nil {
+		return err
+	}
+	record, err := provenance(opts.repo, built)
 	if err != nil {
 		return err
 	}
@@ -165,6 +171,9 @@ func run(opts options) error {
 	if err != nil {
 		return err
 	}
+	if err := writeMatches(opts, Matches{Roots: result.matches}); err != nil {
+		return err
+	}
 	committed := filepath.Join(opts.repo, filepath.FromSlash(committedBaseline))
 	if opts.update {
 		if len(opts.roots) > 0 {
@@ -173,6 +182,11 @@ func run(opts options) error {
 		return baseline.Write(committed, fresh, opts.log)
 	}
 	if opts.check {
+		// The provenance guard names what moved (a pin, the errata, a tool's
+		// source, a root) and whose it is before the counts are held to the baseline.
+		if err := baseline.CheckCommitted(committed, refreshCommand, record); err != nil {
+			return err
+		}
 		return baseline.Reproduces(committed, fresh)
 	}
 	return nil

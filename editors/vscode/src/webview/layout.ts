@@ -42,6 +42,7 @@ export {
   snap,
 } from "./geometry";
 export type { Box, PortPosition, Side } from "./geometry";
+import { DEFAULT_ROUTING, type Routing } from "../style";
 
 /** How a node is drawn: the label box of an element, or the symbol of a control node. */
 export type Shape =
@@ -104,6 +105,8 @@ export interface CanvasLayout {
   height: number;
   /** The rendering's kind reads DiagramLayout back, so gestures on it can be kept. */
   placeable: boolean;
+  /** Whose routes the edges follow: the model's stated ones, or the router's for every edge ELK did not route. */
+  routing: Routing;
 }
 
 /** The rendering kinds whose renderers position nodes and route edges from DiagramLayout. */
@@ -121,8 +124,14 @@ export interface Overrides {
   routes?: Map<number, RenderPoint[] | undefined>;
   /** Rerouted edges stay inside this box. */
   bounds?: Box;
-  /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route. */
+  /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route; its canvas is covered, so the viewport is not clamped under the drag. */
   held?: CanvasLayout;
+  /** `router` sends every edge ELK did not route through the router, a stated `Route` notwithstanding; `model` (the default) draws a stated route verbatim. */
+  routing?: Routing;
+  /** Lay out from the auto layout alone, the model's Layout and Route placements ignored; a node the auto layout did not place keeps a grid slot. */
+  unplaced?: boolean;
+  /** Edge kinds the panel hides: their edges are laid out but not drawn, routed around or counted in the extents, as an edge at a hidden node is. */
+  hiddenKinds?: ReadonlySet<string>;
 }
 
 /** What one completed gesture puts in the model. */
@@ -159,8 +168,8 @@ const SELF_MESSAGE_REACH = 28;
  * is what ELK laid out for the same rendering: it places a node the model does
  * not, without pinning it, and routes an edge whose ends are not placed.
  */
-// The order Array.prototype.sort gives strings: by code unit, in every locale.
-function byCodeUnit(a: string, b: string): number {
+// byCodeUnit orders strings by code unit, the same in every locale.
+export function byCodeUnit(a: string, b: string): number {
   if (a < b) {
     return -1;
   }
@@ -172,6 +181,7 @@ export function layoutCanvas(
   overrides: Overrides = {},
   auto?: AutoLayout,
 ): CanvasLayout {
+  const routing = overrides.routing ?? DEFAULT_ROUTING;
   const placed = new Map<string, PlacedNode>();
   const roots: PlacedNode[] = [];
   const names = simpleNames(result.nodes ?? []);
@@ -201,9 +211,9 @@ export function layoutCanvas(
     }
   }
   if (result.kind === "sequence") {
-    const layout = layoutSequence(result, roots, placed);
+    const layout = layoutSequence(result, roots, placed, overrides.hiddenKinds);
     placePorts(result.edges ?? [], placed, auto);
-    return includePortExtent(layout);
+    return includePortExtent({ ...layout, routing });
   }
   const geometry = (entry: PlacedNode): NodeGeometry => {
     const override = overrides.nodes?.get(entry.node.id);
@@ -211,7 +221,7 @@ export function layoutCanvas(
       return { stated: override, pinned: true };
     }
     const { x, y, width, height, collapsed } = entry.node;
-    if (x !== undefined && y !== undefined) {
+    if (x !== undefined && y !== undefined && overrides.unplaced !== true) {
       return { stated: { x, y, width, height, collapsed }, pinned: true };
     }
     // The auto layout's geometry is stated but not pinned: it is a guess, so
@@ -242,9 +252,9 @@ export function layoutCanvas(
     reach(nodeBounds.x + nodeBounds.width, nodeBounds.y + nodeBounds.height);
   }
   const edges = (result.edges ?? []).map((edge, index) =>
-    routeEdge(edge, index, placed, overrides.routes, auto),
+    routeEdge(edge, index, placed, overrides.routes, auto, routing, overrides.hiddenKinds, overrides.unplaced === true),
   );
-  rerouteAroundBoxes(edges, placed, roots, overrides, auto);
+  rerouteAroundBoxes(edges, placed, roots, overrides, auto, routing);
   for (const edge of edges) {
     if (edge.hidden) {
       continue;
@@ -257,16 +267,35 @@ export function layoutCanvas(
     x: extent.left < 0 ? extent.left - MARGIN : 0,
     y: extent.top < 0 ? extent.top - MARGIN : 0,
   };
+  return coveringHeld(
+    {
+      roots,
+      nodes: placed,
+      edges,
+      origin,
+      width:
+        Math.max(extent.right + MARGIN, result.canvas?.width ?? 0) - origin.x,
+      height:
+        Math.max(extent.bottom + MARGIN, result.canvas?.height ?? 0) - origin.y,
+      placeable: PLACEABLE_KINDS.has(result.kind),
+      routing,
+    },
+    overrides.held,
+  );
+}
+
+// coveringHeld is a layout's canvas grown to cover the held layout's, so a preview that draws
+// less than the layout it started from does not shrink the canvas under the viewport's offsets.
+function coveringHeld(layout: CanvasLayout, held: CanvasLayout | undefined): CanvasLayout {
+  if (!held) {
+    return layout;
+  }
+  const origin = { x: Math.min(layout.origin.x, held.origin.x), y: Math.min(layout.origin.y, held.origin.y) };
   return {
-    roots,
-    nodes: placed,
-    edges,
+    ...layout,
     origin,
-    width:
-      Math.max(extent.right + MARGIN, result.canvas?.width ?? 0) - origin.x,
-    height:
-      Math.max(extent.bottom + MARGIN, result.canvas?.height ?? 0) - origin.y,
-    placeable: PLACEABLE_KINDS.has(result.kind),
+    width: Math.max(layout.origin.x + layout.width, held.origin.x + held.width) - origin.x,
+    height: Math.max(layout.origin.y + layout.height, held.origin.y + held.height) - origin.y,
   };
 }
 
@@ -277,9 +306,13 @@ function layoutSequence(
   result: RenderResult,
   roots: PlacedNode[],
   placed: Map<string, PlacedNode>,
+  hiddenKinds?: ReadonlySet<string>,
 ): CanvasLayout {
   const edges = result.edges ?? [];
-  const bottom = MARGIN + headHeight(roots) + MESSAGE_GAP * (edges.length + 1);
+  // A hidden message takes no row of its own; the rows close up over it.
+  const hidden = edges.map((edge) => hiddenKinds?.has(edge.kind) === true);
+  const shown = hidden.filter((h) => !h).length;
+  const bottom = MARGIN + headHeight(roots) + MESSAGE_GAP * (shown + 1);
   let x = MARGIN;
   for (const root of roots) {
     const size = labelSize(root.lines);
@@ -287,8 +320,9 @@ function layoutSequence(
     root.lifeline = bottom;
     x += size.width + GAP;
   }
+  let row = 0;
   const routed = edges.map((edge, index): PlacedEdge => {
-    const y = MARGIN + headHeight(roots) + MESSAGE_GAP * (index + 1);
+    const y = MARGIN + headHeight(roots) + MESSAGE_GAP * (hidden[index] ? row : ++row);
     const from = placed.get(edge.from)?.box;
     const to = placed.get(edge.to)?.box;
     const fromX = from ? from.x + from.width / 2 : MARGIN;
@@ -311,7 +345,7 @@ function layoutSequence(
       points,
       route: [],
       label: midpoint(points),
-      hidden: false,
+      hidden: hidden[index],
       rerouted: false,
     };
   });
@@ -323,6 +357,7 @@ function layoutSequence(
     width: Math.max(x - GAP, MARGIN) + MARGIN,
     height: bottom + MARGIN,
     placeable: false,
+    routing: DEFAULT_ROUTING,
   };
 }
 
@@ -1344,6 +1379,20 @@ export function symbolSize(
   }
 }
 
+// statedRoute is the route the model or a gesture states for an edge, if one does;
+// under the router none is, since a stated route is metadata the panel does not draw.
+function statedRoute(
+  edge: RenderEdge,
+  index: number,
+  routes: Map<number, RenderPoint[] | undefined> | undefined,
+  routing: Routing,
+): RenderPoint[] | undefined {
+  if (routing === "router") {
+    return undefined;
+  }
+  return routes?.has(index) ? routes.get(index) : edge.route;
+}
+
 // routeEdge is an edge's polyline: from the border of its source, through the
 // route's waypoints, to the border of its target; a self-loop swings out to the right.
 // The auto layout's route applies only where neither end is placed, since an end
@@ -1354,11 +1403,15 @@ function routeEdge(
   placed: Map<string, PlacedNode>,
   routes: Map<number, RenderPoint[] | undefined> | undefined,
   auto?: AutoLayout,
+  routing: Routing = DEFAULT_ROUTING,
+  hiddenKinds?: ReadonlySet<string>,
+  unplaced = false,
 ): PlacedEdge {
-  const stated = routes?.has(index) ? routes.get(index) : edge.route;
+  const stated = unplaced && !routes?.has(index) ? undefined : statedRoute(edge, index, routes, routing);
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
-  const routed = autoRoute(edge, index, routes, auto, source, target);
+  const hidden = source?.hidden === true || target?.hidden === true || hiddenKinds?.has(edge.kind) === true;
+  const routed = autoRoute(stated, index, auto, source, target);
   if (routed !== undefined) {
     // ELK's anchors already lie on the boxes' borders, so its polyline is drawn
     // verbatim and a drag edits only the inner waypoints.
@@ -1368,7 +1421,7 @@ function routeEdge(
       points: routed,
       route: routed.slice(1, -1),
       label: midpoint(routed),
-      hidden: source?.hidden === true || target?.hidden === true,
+      hidden,
       rerouted: false,
     };
   }
@@ -1398,7 +1451,7 @@ function routeEdge(
     points,
     route,
     label: midpoint(points),
-    hidden: source?.hidden === true || target?.hidden === true,
+    hidden,
     rerouted: false,
   };
 }
@@ -1415,14 +1468,12 @@ function sameBox(a: Box | undefined, b: Box): boolean {
 // autoRoute is the auto layout's route for an edge, usable only where neither end
 // is placed: an end the model or a gesture moved is where the route was computed.
 function autoRoute(
-  edge: RenderEdge,
+  stated: RenderPoint[] | undefined,
   index: number,
-  routes: Map<number, RenderPoint[] | undefined> | undefined,
   auto: AutoLayout | undefined,
   source: PlacedNode | undefined,
   target: PlacedNode | undefined,
 ): RenderPoint[] | undefined {
-  const stated = routes?.has(index) ? routes.get(index) : edge.route;
   const routed =
     stated === undefined && source?.pinned === false && target?.pinned === false
       ? auto?.routes.get(index)
@@ -1430,26 +1481,30 @@ function autoRoute(
   return routed !== undefined && routed.length >= 2 ? routed : undefined;
 }
 
-// avoidable is an edge the panel routes around the boxes: nothing states its route,
-// the auto layout has none for it, and both ends are drawn, distinct and not hidden.
+// avoidable is an edge the panel routes around the boxes: nothing states its route
+// (or the router overrides what does), the auto layout has none for it, and both
+// ends are drawn, distinct and not hidden.
 function avoidable(
   edge: RenderEdge,
   index: number,
   placed: Map<string, PlacedNode>,
   routes: Map<number, RenderPoint[] | undefined> | undefined,
   auto: AutoLayout | undefined,
+  routing: Routing,
+  unplaced: boolean,
 ): boolean {
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
+  const stated = unplaced && !routes?.has(index) ? undefined : statedRoute(edge, index, routes, routing);
   return (
-    !routes?.has(index) &&
-    (edge.route?.length ?? 0) === 0 &&
+    (stated?.length ?? 0) === 0 &&
+    (routing === "router" || !routes?.has(index)) &&
     edge.from !== edge.to &&
     source !== undefined &&
     target !== undefined &&
     !source.hidden &&
     !target.hidden &&
-    autoRoute(edge, index, routes, auto, source, target) === undefined
+    autoRoute(stated, index, auto, source, target) === undefined
   );
 }
 
@@ -1463,10 +1518,13 @@ function rerouteAroundBoxes(
   roots: PlacedNode[],
   overrides: Overrides,
   auto: AutoLayout | undefined,
+  routing: Routing,
 ): void {
   const indices = edges
-    .filter((edge) =>
-      avoidable(edge.edge, edge.index, placed, overrides.routes, auto),
+    .filter(
+      (edge) =>
+        !edge.hidden &&
+        avoidable(edge.edge, edge.index, placed, overrides.routes, auto, routing, overrides.unplaced === true),
     )
     .map((edge) => edge.index);
   const held = overrides.held;
@@ -1658,8 +1716,13 @@ export function movable(layout: CanvasLayout, entry: PlacedNode): boolean {
   return layout.placeable && reachable(entry.node);
 }
 
-/** steerable reports whether an edge's route can be edited: a workspace document declares the connection. */
+/** steerable reports whether an edge's route can be edited by hand: the layout draws the model's routes and a workspace document declares the connection. */
 export function steerable(layout: CanvasLayout, edge: PlacedEdge): boolean {
+  return layout.routing === "model" && routable(layout, edge);
+}
+
+// routable reports whether a Route can be written for an edge: a workspace document declares the connection.
+function routable(layout: CanvasLayout, edge: PlacedEdge): boolean {
   return layout.placeable && reachable(edge.edge);
 }
 
@@ -1700,17 +1763,21 @@ function contains(box: Box, at: RenderPoint): boolean {
 /**
  * movedNode is what dragging a node by (dx, dy) puts in the model: the node itself,
  * every descendant the model already places, and every stated route between nodes
- * of that subtree — all shifted together, so the subtree keeps its shape.
+ * of that subtree — all shifted together; or, `alone` (under an auto layout), the node only.
  */
 export function movedNode(
   layout: CanvasLayout,
   id: string,
   dx: number,
   dy: number,
+  alone = false,
 ): Placements | undefined {
   const entry = layout.nodes.get(id);
   if (!entry || !movable(layout, entry)) {
     return undefined;
+  }
+  if (alone) {
+    return { nodes: [{ id, layout: shifted(entry, dx, dy) }], edges: [] };
   }
   const subtree = new Set<string>();
   const nodes: NodePlacement[] = [];
@@ -1724,18 +1791,20 @@ export function movedNode(
     }
   };
   visit(entry, true);
+  // Under `model` the drawn route moves with the subtree (the moved nodes are placed from now
+  // on); under `router` only the model's stated route does, drawn or not, never the router's.
   const edges: EdgePlacement[] = [];
   for (const edge of layout.edges) {
+    const stated = layout.routing === "router" ? (edge.edge.route ?? []) : edge.rerouted ? [] : edge.route;
     if (
-      edge.route.length > 0 &&
-      !edge.rerouted &&
-      steerable(layout, edge) &&
+      stated.length > 0 &&
+      routable(layout, edge) &&
       subtree.has(edge.edge.from) &&
       subtree.has(edge.edge.to)
     ) {
       edges.push({
         index: edge.index,
-        route: edge.route.map((p) => ({
+        route: stated.map((p) => ({
           x: snap(p.x + dx),
           y: snap(p.y + dy),
         })),

@@ -25,6 +25,7 @@ env:
   # Same for the three pinned OMG pilot corpora, which are downloaded below and
   # gated by tests/corpus/pilot_corpora_test.go.
   OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+  OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
   # Same for the pinned OMG PSSM test suite, gated by tools/referee/pssm and tools/cmd/pssm-referee.
   OPENSYSML_REQUIRE_PSSM_SUITE: "1"
   # Same for the pinned OMG SysML v1 to v2 transformation model, gated by tools/census/transformation.
@@ -380,6 +381,18 @@ jobs:
             exit 1
           fi
 
+      # The specification-examples gate on its own, for the same reason.
+      - name: Run spec examples gate
+        if: needs.changes.outputs.tier == 'full'
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./tests/corpus -run 'TestSpecExamples' | tee spec-examples-gate.log
+          grep -E 'specification examples clean' spec-examples-gate.log
+          if grep -qE '^\s*--- SKIP' spec-examples-gate.log; then
+            echo "error: the spec examples gate skipped" >&2
+            exit 1
+          fi
+
       # The normative-identity gate alone, for the same reason: its one verdict
       # line names the counts, and a skip cannot hide behind a green suite.
       - name: Run pilot library identity gate
@@ -547,6 +560,8 @@ jobs:
             }
           done
 
+  # The gate's test budget is the Makefile's (WASM_GATE_TIMEOUT); the job's limit sits
+  # above it so a timeout is go test's, which names the running test.
   wasm-gate:
     name: WebAssembly gate
     needs: changes
@@ -554,16 +569,30 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # Not setup-go's shared cache, which another Go job saves first without the wasm objects:
+      # the gate's own entry, saved by wasm-cache.yml on each develop push, is restored by prefix.
       - name: Set up Go
+        id: go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+
+      - name: Restore the WebAssembly build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -576,7 +605,7 @@ jobs:
         run: |
           set -o pipefail
           node --version
-          go test -count=1 -v ./tests/wasm | tee wasm-gate.log
+          make wasm-check 2>&1 | tee wasm-gate.log
           if grep -qE '^\s*--- SKIP' wasm-gate.log; then
             echo "error: the WebAssembly gate skipped" >&2
             exit 1
