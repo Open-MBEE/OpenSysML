@@ -164,11 +164,27 @@ metaclass when the two sides disagree on the metaclass (`typeMismatch`).
   in which one derived collection of `Derived Probe::Vehicle` is emptied (`ownedUsage` → exactly one
   ours-missing in that row, nowhere else) and one in which one attribute is flipped (`isAbstract` →
   exactly one present-different), each with one example naming the element.
-- **Provenance.** `TestCommittedBaselineStatesThisRepositorysProvenance` checks, without Java, that
-  the baseline's pin, bridge-source digest and every root's file digest are this checkout's, and
-  `TestProvenanceGuardFailsOnAMovedPin` that a moved pin is named with the refresh command.
-  `TestRecordStatesTheBaselinesFigures` (`make docs-counts`) ties this record's figures to the
-  baseline.
+- **Provenance.** The baseline's `provenance` block names both sides of the comparison: the pilot
+  pin (`pilotTag`, `pilotCommit`, `pilotArtifact`), the errata-registry digest, one `tools` entry
+  per side, every root's file digest and, as the `opensysml-libraries` input, the digest of the
+  library directory the bridge reads beside the standard library. `pilot-json-exporter` digests the bridge source
+  `scripts/pilot-json-exporter/ExportJSON.java` against the pinned release; `api-json-writer`
+  digests this repository's writer, `internal/translate/export`: its non-test `.go` files, sorted by
+  file name, each hashed by name and content, so the digest is the same on any machine and in any
+  checkout path. It moves on any edit to a production source of the package (a renamed member, a
+  dropped property, a reordered emission) and stays put on edits to its tests, fixtures or prose. It
+  does not cover what the writer consumes — the parser, name resolution, the metamodel or the library
+  — so a semantic change upstream still surfaces as count movement with no named cause; it names
+  writer changes only. `TestCommittedBaselineStatesThisRepositorysProvenance` checks, without Java,
+  that every one of those fields is this checkout's; `-check` holds the same block to the baseline
+  before the counts, so a writer edit stops it at `provenance.tools[api-json-writer].sourceDigest:
+  baseline records …, repository now has …` rather than at bare count drift (the fresh report it
+  wrote still holds the moved buckets). The writer digested is the one linked into the referee —
+  the checkout it was built from — which `-repo` pointing elsewhere does not change; a `-trimpath`
+  build keeps no record of that checkout and is refused rather than guessed at. `TestProvenanceGuardFailsOnAMovedPin`
+  and `TestProvenanceGuardFailsOnAnEditedWriter` pin that a moved pin and an edited writer are each
+  named with the refresh command. `TestRecordStatesTheBaselinesFigures` (`make docs-counts`) ties
+  this record's figures to the baseline.
 
 The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
