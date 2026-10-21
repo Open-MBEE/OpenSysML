@@ -366,6 +366,9 @@ func TestSymbolDescribesAnElement(t *testing.T) {
 	if resp.GetSymbol().GetKind() != "partDef" || !strings.Contains(out, "partDef Demo::Vehicle") {
 		t.Errorf("symbol = %v\n%s", resp.GetSymbol(), out)
 	}
+	if resp.GetSymbol().GetMetadata()["visibility"] != "default" || !strings.Contains(out, "metadata: visibility=default") {
+		t.Errorf("symbol metadata = %v\n%s", resp.GetSymbol().GetMetadata(), out)
+	}
 	if structured(t, res)["modelHash"] == "" {
 		t.Error("an implicit parse did not answer the model hash")
 	}

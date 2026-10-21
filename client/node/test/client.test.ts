@@ -93,6 +93,34 @@ test("the handshake reports the version and the capabilities to negotiate on", a
   }, MissingCapabilityError);
 });
 
+test("a variation point and its variants are told apart by their metadata", async () => {
+  await using model = await loads(`package PLE {
+    part def Engine;
+    part fourCyl : Engine;
+    variation part def EngineChoices :> Engine { variant fourCyl; }
+    part family { variation part transmission : Engine { variant fourCyl; } }
+    enum def Color { red; blue; }
+  }`);
+  assert.ok(!model.hasErrors);
+
+  const choices = await model.symbol("PLE::EngineChoices");
+  assert.equal(choices.metadata.variation, "true");
+  assert.equal(choices.metadata.abstract, "true");
+  assert.equal(choices.metadata.variant, undefined);
+  const transmission = await model.symbol("PLE::family::transmission");
+  assert.equal(transmission.metadata.variation, "true");
+  assert.equal(transmission.metadata.abstract, "true");
+  const variant = await model.symbol("PLE::EngineChoices::fourCyl");
+  assert.equal(variant.metadata.variant, "true");
+  assert.equal(variant.metadata.variation, undefined);
+  assert.equal((await model.symbol("PLE::Color")).metadata.variation, "true");
+  assert.equal((await model.symbol("PLE::Color::red")).metadata.variant, "true");
+  const plain = await model.symbol("PLE::fourCyl");
+  assert.equal(plain.metadata.variation, undefined);
+  assert.equal(plain.metadata.variant, undefined);
+  assert.equal(plain.metadata.abstract, undefined);
+});
+
 test("inline source parses, and its symbols, values and objects come back", async () => {
   await using model = await loads(SAMPLE);
   assert.notEqual(model.hash, "");
