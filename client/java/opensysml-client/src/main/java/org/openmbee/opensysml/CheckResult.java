@@ -39,7 +39,7 @@ public record CheckResult(
     Standing standing,
     String reason) {
 
-  private static final String WITNESS = "witness";
+  private static final String WITNESS_NAME = "witness";
 
   /** Creates a check result; every list is copied. */
   public CheckResult {
@@ -52,7 +52,7 @@ public record CheckResult(
     Objects.requireNonNull(claim, "claim");
     freeInputs = List.copyOf(freeInputs);
     assumptions = List.copyOf(assumptions);
-    Objects.requireNonNull(witness, WITNESS);
+    Objects.requireNonNull(witness, WITNESS_NAME);
     Objects.requireNonNull(contrast, "contrast");
     Objects.requireNonNull(standing, "standing");
     Objects.requireNonNull(reason, "reason");
@@ -120,7 +120,7 @@ public record CheckResult(
       Objects.requireNonNull(kind, "kind");
       Objects.requireNonNull(property, "property");
       Objects.requireNonNull(error, "error");
-      Objects.requireNonNull(witness, WITNESS);
+      Objects.requireNonNull(witness, WITNESS_NAME);
       Objects.requireNonNull(text, "text");
     }
   }
@@ -135,7 +135,7 @@ public record CheckResult(
     /** Creates a divergent value. */
     public DivergentValue {
       Objects.requireNonNull(value, "value");
-      Objects.requireNonNull(witness, WITNESS);
+      Objects.requireNonNull(witness, WITNESS_NAME);
     }
   }
 
@@ -165,7 +165,7 @@ public record CheckResult(
     public Final {
       Objects.requireNonNull(outcome, "outcome");
       values = Map.copyOf(values);
-      Objects.requireNonNull(witness, WITNESS);
+      Objects.requireNonNull(witness, WITNESS_NAME);
     }
   }
 

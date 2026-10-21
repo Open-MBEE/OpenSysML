@@ -1893,7 +1893,7 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	}
 	id := e.tokens[tokenIdx].ID
 	defer e.beginTokenStep(id)()
-	defer e.ctx.underControl(e.tokens[tokenIdx].controlSerials())()
+	defer e.ctx.releaseControl(e.ctx.underControl(e.tokens[tokenIdx].controlSerials()))
 	if err := e.stepTokenAt(tokenIdx); err != nil {
 		return e.endTerminatedFor(id, err)
 	}

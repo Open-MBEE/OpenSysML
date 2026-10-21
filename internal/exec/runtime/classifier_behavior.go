@@ -419,6 +419,11 @@ func (ctx *Context) forgetAbandoned(abandoned map[int64]bool, gone []*Instance) 
 			delete(ctx.occurrences, sym)
 		}
 	}
+	for key, id := range ctx.usageOccurrences {
+		if _, live := ctx.instances[id]; !live || abandoned[key.instance] {
+			delete(ctx.usageOccurrences, key)
+		}
+	}
 	for annotation, id := range ctx.metadataObjects {
 		if _, live := ctx.instances[id]; !live {
 			delete(ctx.metadataObjects, annotation)

@@ -11,7 +11,8 @@ import (
 )
 
 // importedMemberAllocs is what one more member re-exported through two wildcard
-// imports costs to enumerate: enumerations of 2n and of n members, per member.
+// imports costs to enumerate (the enumeration itself, not its kept result):
+// enumerations of 2n and of n members, per member.
 func importedMemberAllocs(t *testing.T, n int) float64 {
 	t.Helper()
 	enumerate := func(members int) float64 {
@@ -35,8 +36,9 @@ func importedMemberAllocs(t *testing.T, n int) float64 {
 		if got := len(r.importedMembersInto(scope, scope, imp, false)); got != members {
 			t.Fatalf("the import brings %d members, want %d", got, members)
 		}
+		admission := func() func(*symbols.Symbol) bool { return r.importAdmitsInto(scope, scope, imp) }
 		return testing.AllocsPerRun(20, func() {
-			r.importedMembersInto(scope, scope, imp, false)
+			r.enumerateImported(scope, imp, false, admission)
 		})
 	}
 	return (enumerate(2*n) - enumerate(n)) / float64(n)

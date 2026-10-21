@@ -103,72 +103,100 @@ const maxIndent = 12
 //     specification and is excluded, as is one whose braces do not balance.
 //   - An example opening with a `// KerML` comment is in KerML notation.
 func Extract(doc Document, text string) Result {
-	var res Result
-	var cur *candidate
-	var comments commentStripper
-	depth := 0
-	clause := ""
-	page := ""
-	body := false
-	counts := map[string]int{}
-
-	flush := func() {
-		if cur != nil {
-			classify(doc, cur, counts, &res)
-		}
-		cur = nil
-		depth = 0
-	}
-
+	x := &extractor{doc: doc, counts: map[string]int{}}
 	for i, raw := range strings.Split(text, "\n") {
-		line := strings.TrimRight(strings.TrimPrefix(raw, "\f"), " \t\r")
-		if m := pageHeader.FindStringSubmatch(line); m != nil {
-			if res.Title == "" {
-				res.Title = m[2]
-			}
-			if m[1] != "" {
-				page = m[1]
-			} else {
-				page = m[3]
-			}
-			continue
-		}
-		if m := heading.FindStringSubmatch(line); m != nil {
-			flush()
-			clause = m[1]
-			if clause == "7" && digits.MatchString(page) {
-				body = true
-			}
-			continue
-		}
-		if !body {
-			continue
-		}
-		if strings.TrimSpace(line) == "" {
-			if cur != nil && depth > 0 {
-				cur.lines = append(cur.lines, "")
-			} else {
-				flush()
-			}
-			continue
-		}
-		indent := len(line) - len(strings.TrimLeft(line, " "))
-		if indent == 0 {
-			flush()
-			continue
-		}
-		if cur == nil {
-			cur = &candidate{clause: clause, page: page, line: i + 1, indent: indent}
-			comments = commentStripper{}
-		}
-		cur.lines = append(cur.lines, line)
-		if !isBullet(line) {
-			code := comments.strip(line)
-			depth += strings.Count(code, "{") - strings.Count(code, "}")
-		}
+		x.scan(i+1, strings.TrimRight(strings.TrimPrefix(raw, "\f"), " \t\r"))
 	}
-	flush()
-	return res
+	x.flush()
+	return x.res
+}
+
+// extractor walks a rendering line by line, keeping the clause and page it is
+// in and the candidate example it is accumulating.
+type extractor struct {
+	doc      Document
+	res      Result
+	counts   map[string]int
+	cur      *candidate
+	comments commentStripper
+	depth    int
+	clause   string
+	page     string
+	body     bool
+}
+
+// scan reads one line: a page header or a heading moves the position, and in
+// the body an indented line belongs to an example while a flush-left one ends it.
+func (x *extractor) scan(line int, text string) {
+	if m := pageHeader.FindStringSubmatch(text); m != nil {
+		x.turnPage(m)
+		return
+	}
+	if m := heading.FindStringSubmatch(text); m != nil {
+		x.flush()
+		x.clause = m[1]
+		if x.clause == "7" && digits.MatchString(x.page) {
+			x.body = true
+		}
+		return
+	}
+	if !x.body {
+		return
+	}
+	if strings.TrimSpace(text) == "" {
+		x.blankLine()
+		return
+	}
+	indent := len(text) - len(strings.TrimLeft(text, " "))
+	if indent == 0 {
+		x.flush()
+		return
+	}
+	x.accumulate(line, text, indent)
+}
+
+// turnPage records the page a header names, and the document title from the first.
+func (x *extractor) turnPage(m []string) {
+	if x.res.Title == "" {
+		x.res.Title = m[2]
+	}
+	if m[1] != "" {
+		x.page = m[1]
+	} else {
+		x.page = m[3]
+	}
+}
+
+// blankLine continues an example whose braces are still open and ends any other.
+func (x *extractor) blankLine() {
+	if x.cur != nil && x.depth > 0 {
+		x.cur.lines = append(x.cur.lines, "")
+	} else {
+		x.flush()
+	}
+}
+
+// accumulate adds an indented line to the current candidate, opening one at
+// the line's indent if none is open, and tracks the brace depth of its code.
+func (x *extractor) accumulate(line int, text string, indent int) {
+	if x.cur == nil {
+		x.cur = &candidate{clause: x.clause, page: x.page, line: line, indent: indent}
+		x.comments = commentStripper{}
+	}
+	x.cur.lines = append(x.cur.lines, text)
+	if !isBullet(text) {
+		code := x.comments.strip(text)
+		x.depth += strings.Count(code, "{") - strings.Count(code, "}")
+	}
+}
+
+// flush classifies the current candidate, if any, and starts afresh.
+func (x *extractor) flush() {
+	if x.cur != nil {
+		classify(x.doc, x.cur, x.counts, &x.res)
+	}
+	x.cur = nil
+	x.depth = 0
 }
 
 type candidate struct {
