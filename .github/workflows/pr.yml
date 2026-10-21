@@ -560,6 +560,8 @@ jobs:
             }
           done
 
+  # The gate's test budget is the Makefile's (WASM_GATE_TIMEOUT); the job's limit sits
+  # above it so a timeout is go test's, which names the running test.
   wasm-gate:
     name: WebAssembly gate
     needs: changes
@@ -567,16 +569,32 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # Not setup-go's cache: that entry is shared by every Go job and saved by whichever
+      # finishes first, so it never held the wasm objects and the gate compiled both
+      # targets cold on every run. The gate's own cache is saved by wasm-cache.yml on
+      # each develop push and restored here by prefix, nearest develop state first.
       - name: Set up Go
+        id: go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+
+      - name: Restore the WebAssembly build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -589,7 +607,7 @@ jobs:
         run: |
           set -o pipefail
           node --version
-          go test -count=1 -v ./tests/wasm | tee wasm-gate.log
+          make wasm-check 2>&1 | tee wasm-gate.log
           if grep -qE '^\s*--- SKIP' wasm-gate.log; then
             echo "error: the WebAssembly gate skipped" >&2
             exit 1

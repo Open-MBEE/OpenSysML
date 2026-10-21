@@ -226,8 +226,12 @@ build-wasm-re: ## Build bin/wasm/{js,wasip1}/re/sysml.wasm, the RE build, with -
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/js/wasm_exec.js
 	@echo "✓ Built $(WASM_DIR)/{js,wasip1}/re/sysml.wasm ($(VERSION))"
 
+# Cold, the gate compiles and vets the whole tree for both targets: 7-11 minutes on a hosted CI
+# runner, past go test's default 10m. 25m is about twice that, so a slow run fails on an assertion.
+WASM_GATE_TIMEOUT ?= 25m
+
 wasm-check: ## Run the WebAssembly build-and-run gate (needs Node; fails rather than skipping)
-	OPENSYSML_REQUIRE_WASM=1 go test -count=1 -v ./tests/wasm
+	OPENSYSML_REQUIRE_WASM=1 go test -count=1 -v -timeout $(WASM_GATE_TIMEOUT) ./tests/wasm
 
 static-check: ## Check the built Linux binaries are statically linked (BINARIES=path...)
 	scripts/check-static-binaries.sh $(or $(BINARIES),$(addprefix $(BIN_DIR)/,$(COMMANDS)))

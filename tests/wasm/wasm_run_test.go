@@ -566,8 +566,12 @@ func TestWasmRuns(t *testing.T) {
 		t.Run(target.name, func(t *testing.T) {
 			r := newRunner(t, target)
 			bins := make(map[string]string, len(commands))
-			for _, name := range commands {
-				bins[name] = link(t, target, name, t.TempDir())
+			if !t.Run("links the commands", func(t *testing.T) {
+				for _, name := range commands {
+					bins[name] = link(t, target, name, "")
+				}
+			}) {
+				return
 			}
 
 			t.Run("version", func(t *testing.T) {

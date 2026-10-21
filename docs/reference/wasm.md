@@ -337,8 +337,10 @@ drop it.
 make wasm-check
 ```
 
-compiles and vets the whole tree for both targets, links each command, and runs them under Node
-— the WASI host above for `wasip1`, `wasm_exec` for `js`. Node 24 or later is required: Node 22's
+compiles and vets the whole tree for both targets, links each command once and shares the
+binaries between its tests, and runs them under Node — the WASI host above for `wasip1`,
+`wasm_exec` for `js`. Cold, the two compiles take 7-11 minutes on a CI runner, so the target
+runs `go test` with `-timeout $(WASM_GATE_TIMEOUT)`, 25 minutes by default. Node 24 or later is required: Node 22's
 WASI host crashes on the `wasip1` modules. Without Node, the run half skips with the reason, and
 `OPENSYSML_REQUIRE_WASM=1`, which both CI systems set, turns that skip into a failure so a green
 run cannot be a skipped one.
