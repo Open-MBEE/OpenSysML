@@ -86,7 +86,11 @@ func Main(args []string, stderr io.Writer) int {
 }
 
 func run(opts options) error {
-	record, err := provenance(opts.repo, opts.libraries)
+	built, err := repo.BuildRoot()
+	if err != nil {
+		return err
+	}
+	record, err := provenance(opts.repo, built, opts.libraries)
 	if err != nil {
 		return err
 	}

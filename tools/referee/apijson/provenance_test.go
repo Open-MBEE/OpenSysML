@@ -3,7 +3,6 @@ package apijson
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -56,9 +55,6 @@ func TestProvenanceStatesTheLibrariesTheBridgeReads(t *testing.T) {
 
 func currentProvenance(t *testing.T) (string, baseline.Record) {
 	t.Helper()
-	if _, file, _, _ := runtime.Caller(0); !filepath.IsAbs(file) {
-		t.Skip("a -trimpath build cannot name its checkout; TestBuildRootIsTheCheckoutHoldingThisTest pins that it says so")
-	}
 	root, err := repo.Choose("")
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +63,8 @@ func currentProvenance(t *testing.T) (string, baseline.Record) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	current, err := provenance(root, libraries)
+	// The test binary is compiled from the checkout it runs in: root is both.
+	current, err := provenance(root, root, libraries)
 	if err != nil {
 		t.Fatal(err)
 	}
