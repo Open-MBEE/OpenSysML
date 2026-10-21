@@ -41,9 +41,8 @@ func actionLoopPassAllocs(t *testing.T, n int) float64 {
 	return (run(2*n) - run(n)) / float64(n)
 }
 
-// A pass of an action's loop assigns through the statement's footprint stamped
-// for the performance once, not re-stamped (two slices cloned) on every pass, so
-// a pass costs no more than the bound below.
+// A pass of an action's loop assigns through a footprint stamped for the
+// performance once, not re-stamped (two slices cloned) per pass: bound below.
 func TestActionLoopPassDoesNotRestampStatementFootprint(t *testing.T) {
 	const bound = 4.5
 	got := actionLoopPassAllocs(t, 200)
