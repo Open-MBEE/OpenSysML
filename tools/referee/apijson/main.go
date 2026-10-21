@@ -81,7 +81,11 @@ func Main(args []string, stderr io.Writer) int {
 }
 
 func run(opts options) error {
-	record, err := provenance(opts.repo)
+	built, err := repo.BuildRoot()
+	if err != nil {
+		return err
+	}
+	record, err := provenance(opts.repo, built)
 	if err != nil {
 		return err
 	}
@@ -178,6 +182,11 @@ func run(opts options) error {
 		return baseline.Write(committed, fresh, opts.log)
 	}
 	if opts.check {
+		// The provenance guard names what moved (a pin, the errata, a tool's
+		// source, a root) and whose it is before the counts are held to the baseline.
+		if err := baseline.CheckCommitted(committed, refreshCommand, record); err != nil {
+			return err
+		}
 		return baseline.Reproduces(committed, fresh)
 	}
 	return nil
