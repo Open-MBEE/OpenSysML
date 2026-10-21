@@ -1829,7 +1829,7 @@ func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition,
 func (e *StateExecutor) taking(trans *lower.Transition, notes []RunNote) func() {
 	savedTrans, savedNotes := e.firingTrans, e.firingNotes
 	e.firingTrans, e.firingNotes = trans, notes
-	by := e.ctx.standingOf(lower.ExpressionFootprint(trans.BodyScope, trans.Guard), true)
+	by := e.ctx.standingOf(e.ctx.model.expressionFootprint(trans.BodyScope, trans.Guard), true)
 	for _, n := range notes {
 		if c, ok := n.(ChoicePoint); ok && !c.Independent && c.serial != 0 {
 			by = unionSerials(by, []int64{c.serial})
