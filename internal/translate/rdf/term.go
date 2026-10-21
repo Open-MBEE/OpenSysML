@@ -465,6 +465,32 @@ func (g *Graph) RewriteTriples(rewrite func(*Triple) bool) {
 	g.subjectsReady = true
 }
 
+// ReorderObjects restates the objects of (subject, predicate) in the order
+// given, each triple keeping its place in the graph; objects must be a
+// permutation of Objects(subject, predicate), and any other list leaves the
+// graph as it was.
+func (g *Graph) ReorderObjects(subject Term, predicate string, objects []Term) {
+	si := g.subjects()[subject]
+	if si == nil || len(si.objects[predicate]) != len(objects) {
+		return
+	}
+	found := si.objects[predicate]
+	current := make(map[Term]int, len(found))
+	for _, index := range found {
+		current[g.triples[index].Object]++
+	}
+	for _, object := range objects {
+		if current[object] == 0 {
+			return
+		}
+		current[object]--
+	}
+	g.settled = false
+	for i, index := range found {
+		g.triples[index].Object = objects[i]
+	}
+}
+
 // Len returns the number of triples.
 func (g *Graph) Len() int { return len(g.triples) }
 

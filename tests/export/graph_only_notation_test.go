@@ -268,8 +268,8 @@ func TestExpressionBodiesAndChainsFromTheGraphAlone(t *testing.T) {
 		"notEmpty(xs) implies sub.xs->size() > 0 xor false")
 }
 
-// A usage redefining a namesake keeps that target through the graph alone even
-// though the writer puts `redefines causes` after `subsets participant`.
+// A usage redefining a namesake keeps that target through the graph alone, in
+// the order the head spelled `redefines causes` and `subsets participant`.
 func TestSelfNamedRedefinitionTargetSurvivesTheGraphAlone(t *testing.T) {
 	src := `package P {
 	abstract occurrence causes[*];
@@ -282,7 +282,7 @@ func TestSelfNamedRedefinitionTargetSurvivesTheGraphAlone(t *testing.T) {
 }
 `
 	back := notationFromTheGraphAlone(t, "p.sysml", src)
-	wantFragments(t, back, "occurrence causes[1..*] subsets participant redefines causes;")
+	wantFragments(t, back, "occurrence causes[1..*] redefines causes subsets participant;")
 }
 
 // An unnamed usage takes its name from the first feature it redefines, so a

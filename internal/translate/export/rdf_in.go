@@ -2615,7 +2615,17 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	}
 	typedPart := ""
 	namedMult := false
+	placed, leads := d.multiplicityPlacement(el)
 	switch {
+	case leads && len(identWords) > 0 && multPart != "":
+		identWords[len(identWords)-1] += multPart
+		namedMult, multPart = true, ""
+	case leads && referenced && multPart != "":
+		words[len(words)-1] += multPart
+		multPart = ""
+	case placed:
+		// The owned relationships place the multiplicity among the clauses.
+		typedPart, multPart = multPart, ""
 	case len(typed) > 0:
 		typedPart, multPart = multPart, ""
 	case len(identWords) > 0 && multPart != "":
@@ -4071,35 +4081,155 @@ func (d *decoder) visibility(el *element) string {
 }
 
 // relationshipWords renders the typing and specialization clauses of a
-// declaration head, in the order the grammar expects. multPart, when given, is
-// the multiplicity part the typing clause carries.
+// declaration head in the order the head was spelled, which the relationship
+// elements el owns state in ownedRelationship order, and in relationshipOrder
+// for clauses no owned relationship places. multPart, when given, is the
+// multiplicity part, written where the multiplicity's membership stands among
+// those relationships, else with the typing clause.
 func (d *decoder) relationshipWords(el *element, multPart string, skip ...ast.RelationshipKind) ([]string, error) {
-	var words []string
+	targets := map[ast.RelationshipKind][]string{}
 	for _, kind := range relationshipOrder {
 		if slices.Contains(skip, kind) {
 			continue
 		}
-		targets, err := d.referenceList(el, rdf.SysML+relationshipProperty[kind])
+		names, err := d.referenceList(el, rdf.SysML+relationshipProperty[kind])
 		if err != nil {
 			return nil, err
-		}
-		if len(targets) == 0 {
-			continue
 		}
 		// Conjugation qualifies the type a feature is typed by, not the feature
 		// itself: the notation is `port p : ~P` (SysML v2 ConjugatedPortTyping).
 		if kind == ast.RelTyping && d.boolOf(el, rdf.OpenSysML+xConjugatedTyping) {
-			for i, target := range targets {
-				targets[i] = "~" + target
+			for i, name := range names {
+				names[i] = "~" + name
 			}
 		}
-		clause := strings.Join(targets, ", ")
-		if kind == ast.RelTyping {
-			clause += multPart
+		targets[kind] = names
+	}
+	spelled := d.spelledHead(el)
+	placed := slices.ContainsFunc(spelled, func(c headClause) bool { return c.multiplicity })
+	written := map[headClause]bool{}
+	var words []string
+	clause := func(kind ast.RelationshipKind, names []string) {
+		text := strings.Join(names, ", ")
+		if kind == ast.RelTyping && !placed {
+			text += multPart
 		}
-		words = append(words, relationshipSyntax[kind], clause)
+		words = append(words, relationshipSyntax[kind], text)
+	}
+	for i := 0; i < len(spelled); i++ {
+		c := spelled[i]
+		if c.multiplicity {
+			if multPart == "" {
+				continue
+			}
+			if len(words) == 0 {
+				words = append(words, strings.TrimSpace(multPart))
+			} else {
+				words[len(words)-1] += multPart
+			}
+			continue
+		}
+		if c.index >= len(targets[c.kind]) {
+			continue
+		}
+		// Consecutive clauses of one kind are one list (`:> a, b`).
+		var names []string
+		for ; i < len(spelled) && spelled[i].kind == c.kind && !spelled[i].multiplicity; i++ {
+			if spelled[i].index < len(targets[c.kind]) {
+				names = append(names, targets[c.kind][spelled[i].index])
+				written[spelled[i]] = true
+			}
+		}
+		i--
+		clause(c.kind, names)
+	}
+	for _, kind := range relationshipOrder {
+		var names []string
+		for index, name := range targets[kind] {
+			if !written[headClause{kind: kind, index: index}] {
+				names = append(names, name)
+			}
+		}
+		if len(names) > 0 {
+			clause(kind, names)
+		}
 	}
 	return words, nil
+}
+
+// multiplicityPlacement reports whether el's owned relationships place its
+// multiplicity among the head's clauses, for relationshipWords to write there,
+// and whether it leads them (`p[*] ordered : Fuel`), where it follows the name.
+func (d *decoder) multiplicityPlacement(el *element) (placed, leads bool) {
+	spelled := d.spelledHead(el)
+	placed = slices.ContainsFunc(spelled, func(c headClause) bool { return c.multiplicity })
+	return placed, placed && spelled[0].multiplicity
+}
+
+// headClause is one clause of a declaration head as the graph places it: the
+// kind and position of a collapsed property's target, or the multiplicity.
+type headClause struct {
+	kind         ast.RelationshipKind
+	index        int
+	multiplicity bool
+}
+
+// headClauseKinds are the collapsed properties a materialized relationship
+// element may state, by the element's metaclass; a Subsetting is a feature's
+// `subsets` or its `specializes`, a ReferenceSubsetting a `references` or an
+// end form's `subsets`, which the target tells apart.
+var headClauseKinds = map[string][]ast.RelationshipKind{
+	mFeatureTyping:        {ast.RelTyping},
+	mConjugatedPortTyping: {ast.RelTyping},
+	mSubclassification:    {ast.RelSpecializes},
+	mSpecialization:       {ast.RelSpecializes},
+	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
+	mRedefinition:         {ast.RelRedefines},
+	mReferenceSubsetting:  {ast.RelReferences, ast.RelSubsets},
+}
+
+// spelledHead reads the order el's head was spelled from what el owns in
+// ownedRelationship order: each relationship element as the clause of the
+// collapsed property whose target it relates, and the multiplicity range's
+// membership as the multiplicity. A graph stating the collapsed properties
+// alone yields none.
+func (d *decoder) spelledHead(el *element) []headClause {
+	subject := rdf.IRI(el.iri)
+	objects := map[ast.RelationshipKind][]rdf.Term{}
+	for _, kind := range relationshipOrder {
+		objects[kind] = d.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
+	}
+	taken := map[headClause]bool{}
+	var clauses []headClause
+	for _, owned := range d.graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+		metaclass := d.metaclass(owned)
+		if metaclass == mOwningMembership {
+			if member, ok := d.graph.Object(owned, rdf.SysML+pMemberElement); ok && d.metaclass(member) == mMultiplicityRange {
+				clauses = append(clauses, headClause{multiplicity: true})
+			}
+			continue
+		}
+		target, ok := d.graph.Object(owned, rdf.SysML+pTarget)
+		if metaclass == mConjugatedPortTyping {
+			target, ok = d.graph.Object(owned, rdf.SysML+pPortDefinition)
+		}
+		if !ok {
+			continue
+		}
+		for _, kind := range headClauseKinds[metaclass] {
+			index := slices.IndexFunc(objects[kind], func(object rdf.Term) bool {
+				return object == target && !taken[headClause{kind: kind, index: slices.Index(objects[kind], object)}]
+			})
+			if index < 0 {
+				continue
+			}
+			clause := headClause{kind: kind, index: index}
+			taken[clause] = true
+			clauses = append(clauses, clause)
+			break
+		}
+	}
+	return clauses
 }
 
 func (d *decoder) multiplicityText(el *element) string {
