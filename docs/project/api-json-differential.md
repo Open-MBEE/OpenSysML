@@ -180,7 +180,8 @@ metaclass when the two sides disagree on the metaclass (`typeMismatch`).
   before the counts, so a writer edit stops it at `provenance.tools[api-json-writer].sourceDigest:
   baseline records …, repository now has …` rather than at bare count drift (the fresh report it
   wrote still holds the moved buckets). The writer digested is the one linked into the referee —
-  the checkout it was built from — which `-repo` pointing elsewhere does not change. `TestProvenanceGuardFailsOnAMovedPin`
+  the checkout it was built from — which `-repo` pointing elsewhere does not change; a `-trimpath`
+  build keeps no record of that checkout and is refused rather than guessed at. `TestProvenanceGuardFailsOnAMovedPin`
   and `TestProvenanceGuardFailsOnAnEditedWriter` pin that a moved pin and an edited writer are each
   named with the refresh command. `TestRecordStatesTheBaselinesFigures` (`make docs-counts`) ties
   this record's figures to the baseline.

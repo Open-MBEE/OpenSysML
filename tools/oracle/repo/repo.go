@@ -59,9 +59,9 @@ func DevelopCommit(dir, given string) (string, error) {
 func BuildRoot() (string, error) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok || !filepath.IsAbs(file) {
-		// A -trimpath build keeps no checkout path; `go run -C tools` builds from
-		// the working directory's checkout, which Root finds.
-		return Root()
+		// A -trimpath build keeps no checkout path, and guessing one (the working
+		// directory's, say) would attribute the linked code to sources it may not be.
+		return "", fmt.Errorf("checkout this tool was built from is not recorded in the executable (built with -trimpath?); build it without -trimpath, as `go run -C tools` does")
 	}
 	root, err := RootFrom(filepath.Dir(file))
 	if err != nil {

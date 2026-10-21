@@ -3,6 +3,8 @@ package repo
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -95,6 +97,13 @@ func TestResolveAnchorsRelativePathsAtTheRoot(t *testing.T) {
 
 func TestBuildRootIsTheCheckoutHoldingThisTest(t *testing.T) {
 	root, err := BuildRoot()
+	if _, file, _, _ := runtime.Caller(0); !filepath.IsAbs(file) {
+		// Under -trimpath the build checkout is unknowable; the tool must say so.
+		if err == nil || !strings.Contains(err.Error(), "-trimpath") {
+			t.Fatalf("BuildRoot in a trimmed build = %q, %v; want an error naming -trimpath", root, err)
+		}
+		return
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
