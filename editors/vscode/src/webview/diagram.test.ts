@@ -4,6 +4,7 @@ import { test } from "node:test";
 
 import { JSDOM } from "jsdom";
 
+import { PANEL_MARKUP } from "../markup";
 import type { FromWebview, RenderResult, ToWebview } from "../protocol";
 import { loadAvoid } from "./avoid";
 
@@ -11,20 +12,14 @@ const WASM = path.resolve("node_modules/libavoid-js/dist/libavoid.wasm");
 
 // The panel script is loaded into the markup the extension serves it in, with the
 // extension's API faked, so the messages and gestures it answers are driven here.
-const dom = new JSDOM(
-  `<!DOCTYPE html><body data-state='{"uri":"file:///m.sysml"}'>
-    <div id="bar"><select id="view"></select><select id="style"></select><span id="kind"></span></div>
-    <div id="status"></div>
-    <div id="diagram" tabindex="-1"></div>
-    <ul id="menu" hidden role="menu"></ul>
-    <details id="notices" hidden><summary></summary><ul id="notice-list"></ul></details>
-    <details id="undrawable" hidden><summary></summary><ul id="undrawable-list"></ul></details>
-  </body>`,
-  { url: "https://webview.test/" },
-);
+const dom = new JSDOM(`<!DOCTYPE html><body data-state='{"uri":"file:///m.sysml"}'>${PANEL_MARKUP}</body>`, {
+  url: "https://webview.test/",
+  pretendToBeVisual: true,
+});
 const { window } = dom;
 globalThis.window = window;
 globalThis.document = window.document;
+globalThis.requestAnimationFrame = window.requestAnimationFrame;
 const posted: FromWebview[] = [];
 (globalThis as { acquireVsCodeApi?: unknown }).acquireVsCodeApi = () => ({
   postMessage: (message: FromWebview) => posted.push(message),
@@ -82,6 +77,10 @@ function waypointHandles(): number {
   return diagram.querySelectorAll("circle.waypoint").length;
 }
 
+function routes(): (string | null)[] {
+  return [...diagram.querySelectorAll("g.edges polyline")].map((line) => line.getAttribute("points"));
+}
+
 function nodeElement(id: string): Element {
   return diagram.querySelector(`g.opensysml-node[data-opensysml-id="${id}"]`)!;
 }
@@ -120,12 +119,27 @@ test("a routing change during a drag is applied when the drag is cancelled", asy
   assert.equal(waypointHandles(), 1, "model routing draws the stated waypoint's handle once the drag is cancelled");
 });
 
-test("a routing message during a drag that leaves the routing as it is changes nothing", async () => {
+test("a routing change during a pan is applied when the pan settles", async () => {
   post({ type: "render", result: statedDiagonal(), selected: "M::V", drawn: 3, style: "theme", routing: "model" });
   await settled();
-  const before = diagram.innerHTML;
+  assert.equal(waypointHandles(), 1);
+
+  const canvas = diagram.querySelector("svg")!;
+  pointer("pointerdown", canvas, { clientX: 300, clientY: 40 });
+  post({ type: "routing", routing: "router" });
+  assert.equal(waypointHandles(), 1, "a pan in progress keeps the layout it started on");
+  pointer("pointerup", canvas, { clientX: 300, clientY: 40 });
+  assert.equal(waypointHandles(), 0, "the router hides the stated waypoint's handle once the pan settles");
+});
+
+test("a routing message during a drag that leaves the routing as it is changes nothing", async () => {
+  post({ type: "render", result: statedDiagonal(), selected: "M::V", drawn: 4, style: "theme", routing: "model" });
+  await settled();
+  const canvas = diagram.querySelector("svg");
+  const before = routes();
   pointer("pointerdown", nodeElement("a"), { clientX: 50, clientY: 20 });
   post({ type: "routing", routing: "model" });
   pointer("pointerup", nodeElement("a"), { clientX: 50, clientY: 20 });
-  assert.equal(diagram.innerHTML, before);
+  assert.equal(diagram.querySelector("svg"), canvas, "the click settles nothing, so the canvas is not redrawn");
+  assert.deepEqual(routes(), before);
 });

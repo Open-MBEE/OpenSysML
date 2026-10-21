@@ -850,6 +850,9 @@ function endGesture(event: PointerEvent): void {
   gesture = undefined;
   diagram.classList.remove("dragging", "refused", "panning");
   if (done.kind === "pan") {
+    if (unrouted) {
+      settle();
+    }
     if (done.moved) {
       rememberSoon();
     } else {
