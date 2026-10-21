@@ -182,7 +182,7 @@ func (ctx *Context) statedTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
 	if types := ctx.declaredTypes(featureSym); len(types) > 0 {
 		return types
 	}
-	for _, sup := range ctx.model.semantics.AllSupertypes(featureSym) {
+	for _, sup := range ctx.model.semantics.AllDeclaredSupertypes(featureSym) {
 		if types := ctx.declaredTypes(sup); len(types) > 0 {
 			return types
 		}
@@ -207,7 +207,7 @@ func (ctx *Context) effectiveTypes(featureSym *symbols.Symbol) []*symbols.Symbol
 		}
 	}
 	implicit := sem.ImplicitParameterRedefinitions(featureSym)
-	for _, sup := range sem.DirectSupertypes(featureSym) {
+	for _, sup := range sem.DeclaredSupertypes(featureSym) {
 		if sup.IsFeature() && !slices.Contains(implicit, sup) {
 			add(sem.FeatureTypeSet(sup))
 		}
