@@ -228,13 +228,16 @@ func unionSerials(a, b []int64) []int64 {
 }
 
 // underControl runs what follows under the choice points the serials name — a
-// guard read standing on them, a branch drawn among alternatives — until the
-// function returned is called; every write made meanwhile stands on them too.
-func (ctx *Context) underControl(serials []int64) func() {
+// guard read standing on them, a branch drawn among alternatives — until
+// releaseControl of what it returns; every write made meanwhile stands on them too.
+func (ctx *Context) underControl(serials []int64) int {
 	n := len(ctx.controls)
 	ctx.controls = append(ctx.controls, serials...)
-	return func() { ctx.controls = ctx.controls[:n] }
+	return n
 }
+
+// releaseControl ends the control underControl returned n for.
+func (ctx *Context) releaseControl(n int) { ctx.controls = ctx.controls[:n] }
 
 // standingOf is what a move with the footprint reads stands on: the control it
 // runs under and the marks of every place it reads, every mark where the

@@ -30,6 +30,7 @@ arch="$(uname -m)"
 case "$arch" in
   x86_64) arch=amd64 ;;
   aarch64 | arm64) arch=arm64 ;;
+  *) ;; # any other machine name is looked up as uname spells it
 esac
 platform="${os}_${arch}"
 expected="${MCP_PUBLISHER_SHA256[$platform]:-}"

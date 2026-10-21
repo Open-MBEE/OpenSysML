@@ -68,7 +68,8 @@ const timer = setTimeout(() => fail(`no complete answer within ${timeout} ms`), 
 child.on("exit", (code, signal) => {
   clearTimeout(timer);
   if (verdict === 0 && code !== 0) {
-    process.stderr.write(`mcp-stdio-probe: the server ended with ${signal ?? `status ${code}`} after a clean probe\n`);
+    const ending = signal ?? `status ${code}`;
+    process.stderr.write(`mcp-stdio-probe: the server ended with ${ending} after a clean probe\n`);
     verdict = 1;
   }
   process.exit(verdict);

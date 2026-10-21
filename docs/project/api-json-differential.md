@@ -175,7 +175,7 @@ The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
 **Scorecard:** 920 files; 88416 elements matched (19688 ours-only, 38945 pilot-only, 0 of them implied); properties: 614966 present-equal, 37285 present-different, 1040223 ours-missing, 63966 pilot-missing, 2308499 absent-both, 23003 indeterminate.
 
-The pilot's export failed on 58 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 58 failed files out and converted 24 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11642 (metaclass, property) rows carry a comparison; 101262 references compared through the unkeyed sentinel, 149509 of our `sysx:` annotations were left out, and 291/345 elements (ours/pilot) were dropped for ambiguous keys, 16560/32521 for having none.
+The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 53 of them specification examples; the files are named in the run's text report), ours refused 40 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 24 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11311 (metaclass, property) rows carry a comparison; 100645 references compared through the unkeyed sentinel, 140342 of our `sysx:` annotations were left out, and 289/345 elements (ours/pilot) were dropped for ambiguous keys, 8198/32520 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -239,12 +239,25 @@ them): the bridge loads the pinned `sysml.library` alone, so `attribute redefine
 `Section` leaves the pilot's `Redefinition` pointing at nothing, its `name` and `qualifiedName`
 null, and its key structural (`…::coverage/AttributeUsage[0]`) where ours is `…::coverage::title`.
 
-The final comparison with the saved develop run records 830 lost and 617 gained matches. Lost by
-root: `examples` 225, `kerml-examples` 7, `manual-examples` 22, `pilot-examples` 374,
-`pilot-validation` 69, `spec-examples` 47 and `training` 86. Gained by root: `examples` 126,
-`kerml-examples` 5, `pilot-examples` 250, `pilot-validation` 86, `spec-examples` 60, `testdata`
-56 and `training` 34. The generated `-lost-against` artifacts list every moved key by root and
-metaclass.
+Naming members by their naming feature moved `docs/manual/examples` from 6834 to 6663 matched
+elements while every other root gained: 357 matches lost, 186 gained. The 357 are 87 members —
+84 `AttributeUsage` and 3 `ReferenceUsage`, each an `attribute redefines caption|title|text|term|description|kind|direction|style|groupBy = …`
+or `ref redefines source|target = …` of a `DocumentQueries` feature — and the 270 elements they own
+(their `Redefinition`, `FeatureValue` and literal or `FeatureReferenceExpression` value); every one
+is now pilot-only under its structural key, while our named key is ours-only. The 186 gained are
+46 `attribute :>> x = …` redefinitions of features the model itself declares, with the 138 elements
+they own, plus `render asInterconnectionDiagram;` and its `ReferenceSubsetting`. Both sides state
+what the spec derives from what they resolved; the loss measures the pilot's library coverage, not
+a derivation, and is a limitation of this referee: a member whose naming feature the pilot does not
+resolve cannot match. The same shape is the whole of what the other roots lost, masked there by
+their gains: `examples` lost 914 (2805 gained) — 205 such redefinitions of `DocumentQueries` and
+`AnalysisRecords` features and two `render` members of `OpenSysMLRenderings` renderings, with
+what they own — and `spec-examples` lost 57 (171 gained): 13 members whose naming feature the
+pinned excerpt leaves undeclared (`perform VehicleActions::move`, `individual timeslice redefines
+preflight`, `render asMyTreeDiagram` under an undefined view definition, …), which we name by the
+reference as written and the pilot, resolving nothing, does not name. `training`, `pilot-examples`,
+`pilot-validation`, `kerml-examples` and `tests/testdata` lost no match. A run's own list of such
+movements comes from `-lost-against`.
 
 ## Launch-ready gaps
 
@@ -291,6 +304,6 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | 37 | `FeatureValue` | `target` | 6675 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::target`, which Membership redefines as `[memberElement]` (KerML 8.3.2.3.5) |
 | 38 | `FeatureValue` | `visibility` | 6675 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
 | 39 | `FeatureTyping` | `isLibraryElement` | 5708 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
-| 40 | `FeatureTyping` | `owningType` | 5704 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Specialization::owningType` is opposite `Type::ownedSpecialization`; `FeatureTyping::owningFeature` redefines it as `typedFeature` (KerML Core, `FeatureTyping`) |
+| 40 | `FeatureTyping` | `owningType` | 5704 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningType = owningFeatureMembership.owningType` (KerML 8.3.3.3, deriveFeatureOwningType) |
 
 Rows an evaluator rule in PR #1232 (`internal/semantic/metamodel/rules.go`) already names are marked; that PR adds a lazy metamodel evaluator and layers its derived values into the API-JSON writer, so its merge is expected to move those rows from ours-missing to present-equal or present-different, and this referee is how that movement is measured.

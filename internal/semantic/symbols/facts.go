@@ -19,9 +19,8 @@ type LibraryFacts struct {
 	// by, which leaves the whole set to be derived from the declaration.
 	Supers []ElementRef
 
-	// ImpliedSupers are the entries of Supers that are base library usages the
-	// declaration's kind implies it subsets rather than states. The typing its
-	// kind implies stays an ordinary entry, its type being read from Supers.
+	// ImpliedSupers are the entries of Supers the declaration's kind implies
+	// rather than states: its base definition and the base usage it subsets.
 	ImpliedSupers []ElementRef
 
 	// Unit is the reduction of a measurement unit to base units. Nil for a
