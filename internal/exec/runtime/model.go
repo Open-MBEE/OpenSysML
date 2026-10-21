@@ -97,6 +97,9 @@ type Model struct {
 	// exclusion: a run reads the same names on every step. A plain map, under
 	// the Model's one-goroutine contract like the other memos.
 	names map[nameKey]nameHit
+	// footprints memoizes what an expression reads, by scope and expression: a
+	// loop re-reads its condition and a branch its guard on every pass.
+	footprints map[footprintKey]lower.Footprint
 
 	// predicateShapes memoizes the invocation interfaces of constraints and
 	// requirements applied as predicates.
@@ -367,4 +370,23 @@ func (m *Model) resolvedName(scope *symbols.Scope, name string, excluding ast.No
 	}
 	m.names[key] = nameHit{sym: sym, ok: ok}
 	return sym, ok
+}
+
+type footprintKey struct {
+	scope *symbols.Scope
+	expr  ast.Node
+}
+
+// expressionFootprint is lower.ExpressionFootprint, computed once per expression.
+func (m *Model) expressionFootprint(scope *symbols.Scope, expr ast.Node) lower.Footprint {
+	key := footprintKey{scope: scope, expr: expr}
+	if fp, ok := m.footprints[key]; ok {
+		return fp
+	}
+	fp := lower.ExpressionFootprint(scope, expr)
+	if m.footprints == nil {
+		m.footprints = map[footprintKey]lower.Footprint{}
+	}
+	m.footprints[key] = fp
+	return fp
 }

@@ -196,16 +196,10 @@ func (r *Resolver) admitsUnderName(doc, from, fqn string, cand *symbols.Symbol) 
 	if !r.idx.ReexportVisible(doc, fqn, cand) {
 		return false
 	}
-	routes := r.idx.ReexportGates(doc, fqn, cand, from)
-	if len(routes) == 0 {
-		return true
-	}
-	for _, route := range routes {
-		if r.admits(route, cand) {
-			return true
-		}
-	}
-	return false
+	routed, admitted := r.idx.EachReexportGate(doc, fqn, cand, from, func(route []symbols.ElementFilter) bool {
+		return r.admits(route, cand)
+	})
+	return !routed || admitted
 }
 
 // admittedUnder keeps the candidates a lookup of the name fqn may reach, i.e.
@@ -461,8 +455,7 @@ func (r *Resolver) reexportedUnder(prefix string, sym *symbols.Symbol) bool {
 	if r.idx == nil {
 		return false
 	}
-	fqn := r.idx.GetFQN(sym)
-	return fqn != "" && fqn != prefix+"::"+localNameOf(sym)
+	return !symbols.FQNIs(sym, prefix, localNameOf(sym))
 }
 
 // indexedNameOf is the qualified name the index keys target's children under. A

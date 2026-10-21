@@ -62,6 +62,8 @@ type Model struct {
 	referential map[*symbols.Symbol]bool
 	// implicitBase memoizes each declaration's kind bases once settled (see implicit.go).
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
+	// implicitGenerals memoizes ImplicitGenerals: the generals a declaration's kind implies, which every type query of a feature reads.
+	implicitGenerals map[*symbols.Symbol][]*symbols.Symbol
 	// implicitSubsettings memoizes the owner feature each nested usage implicitly
 	// subsets (see nested.go).
 	implicitSubsettings map[*symbols.Symbol][]*symbols.Symbol
@@ -178,6 +180,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		subtracting:         make(map[*symbols.Symbol]bool),
 		referential:         make(map[*symbols.Symbol]bool),
 		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
+		implicitGenerals:    make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitSubsettings: make(map[*symbols.Symbol][]*symbols.Symbol),
 		computingUsageBase:  make(map[*symbols.Symbol]bool),
 

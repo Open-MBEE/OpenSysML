@@ -1122,7 +1122,7 @@ func (e *stmtEngine) ifStatement(stmt lower.If) (stmtFlow, error) {
 		if !holds && stmt.Else == nil {
 			return flowNext, nil
 		}
-		f = &branchFrame{elseBranch: !holds, control: e.ctx.standingOf(lower.ExpressionFootprint(stmt.Scope, stmt.Condition), true)}
+		f = &branchFrame{elseBranch: !holds, control: e.ctx.standingOf(e.ctx.model.expressionFootprint(stmt.Scope, stmt.Condition), true)}
 		e.ctx.guardPerformed()
 	}
 	branch := stmt.Then
@@ -1493,7 +1493,7 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 			if !holds {
 				return flowNext, true, nil
 			}
-			f.control = e.ctx.standingOf(lower.ExpressionFootprint(stmt.Body.Scope, stmt.Condition), true)
+			f.control = e.ctx.standingOf(e.ctx.model.expressionFootprint(stmt.Body.Scope, stmt.Condition), true)
 		}
 		clear(f.locals)
 		e.syncLoopCells(f)
@@ -1518,7 +1518,7 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 		if err != nil {
 			return flowNext, true, err
 		}
-		f.control = unionSerials(f.control, e.ctx.standingOf(lower.ExpressionFootprint(stmt.Body.Scope, until), true))
+		f.control = unionSerials(f.control, e.ctx.standingOf(e.ctx.model.expressionFootprint(stmt.Body.Scope, until), true))
 		return flowNext, holds, nil
 	}
 	return flowNext, false, nil
@@ -1545,7 +1545,7 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 		if err != nil {
 			return flowNext, fmt.Errorf("%s: %w", e.host.describe(), err)
 		}
-		f = &loopFrame{elements: elements, control: e.ctx.standingOf(lower.ExpressionFootprint(stmt.Scope, stmt.Collection), true)}
+		f = &loopFrame{elements: elements, control: e.ctx.standingOf(e.ctx.model.expressionFootprint(stmt.Scope, stmt.Collection), true)}
 		if len(elements) == 0 {
 			e.bodyPerformed()
 		}

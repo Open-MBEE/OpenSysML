@@ -962,8 +962,22 @@ func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Recorded() {
 		return m.recordedElements(sym, sym.Facts.ImpliedSupers)
 	}
-	// The generals sym has otherwise are its direct supertypes less the base
-	// features its kind could imply, which DirectSupertypes appends last.
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.implicitGenerals[sym]; ok {
+		return cached
+	}
+	m.resolver.Enter()
+	out := m.computeImplicitGenerals(sym)
+	if m.resolver.Leave() {
+		journal(m, m.implicitGenerals, sym, sym.Decl)
+		m.implicitGenerals[sym] = out
+	}
+	return out
+}
+
+// computeImplicitGenerals derives ImplicitGenerals for a declared symbol; its other
+// generals are its direct supertypes less the base features DirectSupertypes appends last.
+func (m *Model) computeImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 	candidates := m.candidateBaseFeatures(sym)
 	declared := slices.DeleteFunc(slices.Clone(m.DirectSupertypes(sym)), func(super *symbols.Symbol) bool {
 		return slices.Contains(candidates, super)
