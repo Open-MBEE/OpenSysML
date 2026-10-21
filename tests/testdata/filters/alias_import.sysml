@@ -1,24 +1,24 @@
 // A filter naming a metadata type through a re-exporting import selects the
 // elements the imported type annotates: the import surfaces the same Type.
-package Meta {
+package ReexportMeta {
 	metadata def Safety;
 	metadata def Comfort;
 }
-package Lib {
-	#Meta::Safety part belt;
-	#Meta::Comfort part radio;
+package ReexportLib {
+	#ReexportMeta::Safety part belt;
+	#ReexportMeta::Comfort part radio;
 }
-package Reexport {
-	public import Meta::Safety;
+package ReexportNames {
+	public import ReexportMeta::Safety;
 }
-package ByImportFilter {
-	private import Lib::*[@Reexport::Safety];
+package ReexportByImportFilter {
+	private import ReexportLib::*[@ReexportNames::Safety];
 	part a :> belt;
 	part b :> radio;
 }
-package ByFilterMember {
-	private import Lib::*;
-	filter @Reexport::Safety;
+package ReexportByFilterMember {
+	private import ReexportLib::*;
+	filter @ReexportNames::Safety;
 	part a :> belt;
 	part b :> radio;
 }

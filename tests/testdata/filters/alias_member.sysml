@@ -1,30 +1,30 @@
 // A filter naming a metadata type through an `alias` member selects the
 // elements the aliased type annotates: the alias is another name for one Type.
-package Meta {
+package AliasMeta {
 	metadata def Safety;
 	metadata def Comfort;
 }
-package Lib {
-	#Meta::Safety part belt;
-	#Meta::Comfort part radio;
+package AliasLib {
+	#AliasMeta::Safety part belt;
+	#AliasMeta::Comfort part radio;
 }
-package Names {
-	alias S for Meta::Safety;
+package AliasNames {
+	alias S for AliasMeta::Safety;
 }
-package ByImportFilter {
-	private import Lib::*[@Names::S];
+package AliasByImportFilter {
+	private import AliasLib::*[@AliasNames::S];
 	part a :> belt;
 	part b :> radio;
 }
-package ByFilterMember {
-	private import Lib::*;
-	filter @Names::S;
+package AliasByFilterMember {
+	private import AliasLib::*;
+	filter @AliasNames::S;
 	part a :> belt;
 	part b :> radio;
 }
-package ByExpose {
+package AliasByExpose {
 	view v {
-		expose Lib::**[@Names::S];
+		expose AliasLib::**[@AliasNames::S];
 		part a :> belt;
 		part b :> radio;
 	}
