@@ -314,7 +314,26 @@ func (c *Stack) measureUserModel(ctx context.Context, fixture string, model []by
 		}
 	}
 
-	// Every typing written, followed by the id the service delivered for it.
+	user.Typings = c.followTypings(ctx, graph, written, delivered, libraryProjectID, libraryCommit, library)
+	user.readBackNotation(listing.Elements)
+	anyElement := ""
+	for _, id := range sortedIDs(written) {
+		if _, ok := delivered[id]; ok {
+			anyElement = id
+			break
+		}
+	}
+	if err := c.declareLibraryUsage(ctx, &user, projectID, libraryProjectID, libraryCommit, anyElement, library); err != nil {
+		return user, err
+	}
+	return user, nil
+}
+
+// followTypings reports every typing written, followed by the id the service
+// delivered for it and whether the library project answers for that id directly.
+func (c *Stack) followTypings(ctx context.Context, graph *rdf.Graph, written map[string]*writtenElement, delivered map[string]sysmlapi.Element,
+	libraryProjectID, libraryCommit string, library map[string]sysmlapi.Element) []TypingStat {
+	var typings []TypingStat
 	for _, triple := range graph.Triples() {
 		if triple.Predicate.Value != rdf.SysML+"type" || !triple.Subject.IsIRI() || !triple.Object.IsIRI() {
 			continue
@@ -337,36 +356,51 @@ func (c *Stack) measureUserModel(ctx context.Context, fixture string, model []by
 		} else {
 			stat.LibraryDirect = fmt.Sprintf("refused(%d)", sysmlapi.Status(err))
 		}
-		user.Typings = append(user.Typings, stat)
+		typings = append(typings, stat)
 	}
-	sort.Slice(user.Typings, func(i, j int) bool { return user.Typings[i].Feature < user.Typings[j].Feature })
+	sort.Slice(typings, func(i, j int) bool { return typings[i].Feature < typings[j].Feature })
+	return typings
+}
 
-	// What the service delivered, as notation: the library ids have to read back
-	// as the library names, since the ids are the pilot's.
-	readback, err := sysmlapi.ElementsGraph(listing.Elements)
+// readBackNotation re-converts what the service delivered to notation and records
+// which typings read back by the same ids: the library ids have to read back as
+// the library names, since the ids are the pilot's.
+func (user *UserModelReport) readBackNotation(elements []sysmlapi.Element) {
+	readback, err := sysmlapi.ElementsGraph(elements)
 	if err != nil {
 		user.NotationFailure = err.Error()
-	} else if notation, err := convert.FromGraph(readback, convert.FormatSysML); err != nil {
+		return
+	}
+	notation, err := convert.FromGraph(readback, convert.FormatSysML)
+	if err != nil {
 		user.NotationFailure = err.Error()
-	} else if reread, err := convert.ModelGraph([]convert.Input{{Name: user.Fixture, Data: notation}}, convert.Options{ID: export.IDUUID}); err != nil {
+		return
+	}
+	reread, err := convert.ModelGraph([]convert.Input{{Name: user.Fixture, Data: notation}}, convert.Options{ID: export.IDUUID})
+	if err != nil {
 		user.NotationFailure = "the notation does not read back: " + err.Error()
-	} else {
-		user.Notation = true
-		retyped := typingTargets(reread)
-		for i := range user.Typings {
-			t := &user.Typings[i]
-			switch id := retyped[t.Feature]; {
-			case id == t.TypeID:
-				t.Notation = "same-id"
-			case id == "":
-				t.Notation = "absent"
-			default:
-				t.Notation = "other-id:" + id
-			}
+		return
+	}
+	user.Notation = true
+	retyped := typingTargets(reread)
+	for i := range user.Typings {
+		t := &user.Typings[i]
+		switch id := retyped[t.Feature]; {
+		case id == t.TypeID:
+			t.Notation = "same-id"
+		case id == "":
+			t.Notation = "absent"
+		default:
+			t.Notation = "other-id:" + id
 		}
 	}
+}
 
-	// A ProjectUsage of the library project at the commit the library was read at.
+// declareLibraryUsage commits a ProjectUsage of the library project at the commit
+// the library was read at, then asks the usage back through anyElement, a user
+// element the service delivered, and lists what the usage reaches.
+func (c *Stack) declareLibraryUsage(ctx context.Context, user *UserModelReport, projectID, libraryProjectID, libraryCommit, anyElement string,
+	library map[string]sysmlapi.Element) error {
 	usage := map[string]any{
 		"@type": "Commit",
 		"change": []map[string]any{{
@@ -381,24 +415,17 @@ func (c *Stack) measureUserModel(ctx context.Context, fixture string, model []by
 	}
 	body, err := json.Marshal(usage)
 	if err != nil {
-		return user, err
+		return err
 	}
 	usageCommit, err := c.PostChanges(ctx, projectID, BranchID, body)
 	if err != nil {
 		user.ProjectUsage = refusalReason(err, projectID)
-		return user, nil
+		return nil
 	}
 	user.ProjectUsage = "accepted"
-	anyElement := ""
-	for _, id := range sortedIDs(written) {
-		if _, ok := delivered[id]; ok {
-			anyElement = id
-			break
-		}
-	}
 	if anyElement == "" {
 		user.ProjectUsageMissing = "no user element to ask the usage of"
-		return user, nil
+		return nil
 	}
 	target := fmt.Sprintf("%s/projects/%s/commits/%s/elements/%s/projectUsage",
 		c.API().BaseURL(), projectID, usageCommit.ID, anyElement)
@@ -414,7 +441,7 @@ func (c *Stack) measureUserModel(ctx context.Context, fixture string, model []by
 	}
 	after, err := c.Elements(ctx, projectID, usageCommit.ID, PageSize)
 	if err != nil {
-		return user, fmt.Errorf("list the elements of %s after its usage: %w", projectID, err)
+		return fmt.Errorf("list the elements of %s after its usage: %w", projectID, err)
 	}
 	user.ListedAfterUsage = len(after.Elements)
 	for _, element := range after.Elements {
@@ -422,7 +449,7 @@ func (c *Stack) measureUserModel(ctx context.Context, fixture string, model []by
 			user.LibraryViaUsage++
 		}
 	}
-	return user, nil
+	return nil
 }
 
 // randomUUID mints a version 4 uuid for the ProjectUsage element, the shape the
@@ -589,10 +616,15 @@ func libraryFindings(r *LibraryReport) []string {
 			out = append(out, fmt.Sprintf("%s is not readable directly: %s", a.QualifiedName, a.Direct))
 		}
 	}
-	u := r.User
+	return append(out, userModelFindings(r.User)...)
+}
+
+// userModelFindings states what loading the user model against the library found.
+func userModelFindings(u UserModelReport) []string {
 	if !u.Accepted {
-		return append(out, "the user model was refused: "+u.Refusal)
+		return []string{"the user model was refused: " + u.Refusal}
 	}
+	var out []string
 	resolved, byLibrary := 0, 0
 	for _, t := range u.Typings {
 		if !t.InLibrary {
