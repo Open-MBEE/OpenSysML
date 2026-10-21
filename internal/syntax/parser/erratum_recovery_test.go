@@ -142,6 +142,8 @@ func TestParameterListRecoveryKeepsTheNextMember(t *testing.T) {
 		{"calc_usage.sysml", "package P { calc c(x : T) { in y : Real; y } part after; }"},
 		{"step.kerml", "package P { step s(x : T) { in feature y; } feature after; }"},
 		{"nested_semicolon.kerml", "package P { behavior B(f(x; y)) { feature inside; } feature after; }"},
+		{"top_semicolon.kerml", "package P { behavior B(x : T; y : U) { feature inside; } feature after; }"},
+		{"top_semicolon.sysml", "package P { action def A(x : T; y : U) { in z : T; } part def After; }"},
 		{"unclosed.kerml", "package P { behavior B(x : T { feature inside; } feature after; }"},
 		{"unclosed_nested.kerml", "package P { behavior B(f(x; feature after; }"},
 	} {

@@ -495,10 +495,8 @@ func TestStateActivityImportIsReported(t *testing.T) {
 	wantSilent(t, "a.sysml", "package P { private import ScalarValues::*; private import States::*; state def S { state a; } }")
 }
 
-// `analysis case` and `verification case` are no keywords: the productions spell
-// `analysis def` / `analysis` and `verification def` / `verification`
-// (SysML v2 8.2.2.23, 8.2.2.24). Both words stay parsed as the written keyword
-// and the pair is reported at its span, with a fix that keeps the first word.
+// `analysis case` / `verification case` are no keywords (SysML v2 8.2.2.23,
+// 8.2.2.24): the pair stays parsed, is reported at its span and fixed to one word.
 func TestCaseKeywordIsAnExtension(t *testing.T) {
 	for _, tc := range []struct{ src, want, fixed string }{
 		{"package P { analysis case def AD; }", "`analysis case def` is an OpenSysML extension", "package P { analysis def AD; }"},
@@ -527,10 +525,8 @@ func TestCaseKeywordIsAnExtension(t *testing.T) {
 	}
 }
 
-// A body's closing bare condition is its result expression (SysML v2 8.2.2.19
-// CalculationBodyPart, KerML 8.2.5.7.1 FunctionBodyPart), which no `;` follows:
-// a written `;` is reported at its own span, in either notation, with a fix
-// that deletes it. A reference an `assert` states ends in `;` as every usage does.
+// A `;` after a body's closing condition (SysML v2 8.2.2.19, KerML 8.2.5.7.1) is
+// reported at its span in either notation and deleted by the fix; `assert c;` is not.
 func TestConditionTerminatorIsAnExtension(t *testing.T) {
 	const want = "`;` after a body's condition is an OpenSysML extension"
 	for _, tc := range []struct{ name, src string }{

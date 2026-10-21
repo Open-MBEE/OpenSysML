@@ -394,9 +394,8 @@ func TestNotationFixLeavesKerMLDeclarations(t *testing.T) {
 	}
 }
 
-// A document that ends in the keyword pair, with or without a blank after it
-// and inside an unterminated package, is still reported, and the fix reads no
-// text past the end of the document.
+// A document ending in the keyword pair (bare, blank after it, or in an open
+// package) is still reported, and the fix reads no text past the document.
 func TestCaseKeywordAtEndOfFileIsReported(t *testing.T) {
 	for _, src := range []string{
 		"analysis case", "analysis case ", "package P { analysis case",
