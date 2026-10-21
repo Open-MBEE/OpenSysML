@@ -85,11 +85,11 @@ func (r *Resolver) ShareCollisions(shared *SharedCollisions) {
 type readCapture struct {
 	names, namespaces, docs, segments, deps []string
 	all, spellings                          bool
-	// children are the captures settled or replayed inside this one, each
-	// recorded once however deep the computation nested; folded into the lists
-	// above the first time c is replayed (flatten).
+	// children are the captures settled or replayed inside this one; flat is
+	// their reads folded in with c's own, made on c's first replay (flatten).
 	children []*readCapture
-	flat     sync.Once
+	flat     *readCapture
+	once     sync.Once
 }
 
 // settle sorts and dedupes the capture once its computation is over.
@@ -119,9 +119,12 @@ func (c *readCapture) replay(r *Resolver) {
 	r.captures = open
 }
 
-// record replays c into the current frame, its children folded in.
+// record replays c and its children into the current frame.
 func (c *readCapture) record(r *Resolver) {
-	c.flat.Do(c.flatten)
+	c.once.Do(c.flatten)
+	if c.flat != nil {
+		c = c.flat
+	}
 	for _, doc := range c.deps {
 		r.Depend(doc)
 	}
@@ -145,10 +148,17 @@ func (c *readCapture) record(r *Resolver) {
 	}
 }
 
-// flatten folds the reads of c's children, each once, into c's own lists.
+// flatten makes c.flat: c's reads and those of its children, each once. A
+// settled capture is never written again (replays run on parallel batch
+// workers), so flatten reads the children's own lists and writes only c.flat.
 func (c *readCapture) flatten() {
 	if len(c.children) == 0 {
 		return
+	}
+	flat := &readCapture{
+		names: slices.Clip(c.names), namespaces: slices.Clip(c.namespaces),
+		docs: slices.Clip(c.docs), segments: slices.Clip(c.segments),
+		deps: slices.Clip(c.deps), all: c.all, spellings: c.spellings,
 	}
 	seen := map[*readCapture]bool{c: true}
 	var fold func(*readCapture)
@@ -158,19 +168,18 @@ func (c *readCapture) flatten() {
 				continue
 			}
 			seen[child] = true
-			c.names = append(c.names, child.names...)
-			c.namespaces = append(c.namespaces, child.namespaces...)
-			c.docs = append(c.docs, child.docs...)
-			c.segments = append(c.segments, child.segments...)
-			c.deps = append(c.deps, child.deps...)
-			c.all = c.all || child.all
-			c.spellings = c.spellings || child.spellings
+			flat.names = append(flat.names, child.names...)
+			flat.namespaces = append(flat.namespaces, child.namespaces...)
+			flat.docs = append(flat.docs, child.docs...)
+			flat.segments = append(flat.segments, child.segments...)
+			flat.deps = append(flat.deps, child.deps...)
+			flat.all = flat.all || child.all
+			flat.spellings = flat.spellings || child.spellings
 			fold(child)
 		}
 	}
 	fold(c)
-	c.children = nil
-	c.settle()
+	c.flat = flat.settle()
 }
 
 func (c *readCapture) adopt(child *readCapture) {
@@ -195,8 +204,9 @@ func (r *Resolver) capturing(compute func()) *readCapture {
 	r.captures = append(r.captures, c)
 	defer func() {
 		r.captures = r.captures[:len(r.captures)-1]
+		c.settle()
 		if top := r.topCapture(); top != nil {
-			top.adopt(c.settle())
+			top.adopt(c)
 		}
 	}()
 	compute()
