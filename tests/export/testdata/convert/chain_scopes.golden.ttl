@@ -456,8 +456,8 @@ expr:Chains__Car__a_pvalue
     sysml:elementId "Chains__Car__a_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__a_pvalue_pa0 ;
-    sysml:ownedRelationship expr:Chains__Car__a_pvalue_pin0_om, expr:Chains__Car__a_pvalue_pout_om, expr:Chains__Car__a_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:Chains__Car__a_pvalue_pin0_om, expr:Chains__Car__a_pvalue_pout_om, expr:Chains__Car__a_pvalue_ptargetFeature ;
+    sysml:ownedRelationship expr:Chains__Car__a_pvalue_pin0_om, expr:Chains__Car__a_pvalue_ptargetFeature, expr:Chains__Car__a_pvalue_pout_om ;
+    sysml:ownedMembership expr:Chains__Car__a_pvalue_pin0_om, expr:Chains__Car__a_pvalue_ptargetFeature, expr:Chains__Car__a_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:Chains__Car__a_pvalue_pin0_om, expr:Chains__Car__a_pvalue_pout_om ;
     sysml:ownedFeature expr:Chains__Car__a_pvalue_pin0, expr:Chains__Car__a_pvalue_pout ;
     sysml:parameter expr:Chains__Car__a_pvalue_pin0, expr:Chains__Car__a_pvalue_pout ;
@@ -467,8 +467,8 @@ expr:Chains__Car__a_pvalue
     sysml:owner elmt:Chains__Car__a ;
     sysml:owningRelationship expr:Chains__Car__a_pvalue_om ;
     sysml:owningMembership expr:Chains__Car__a_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Chains__Car__a_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__a_pvalue_pout_om\"},{\"@id\":\"Chains__Car__a_pvalue_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Chains__Car__a_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__a_pvalue_pout_om\"},{\"@id\":\"Chains__Car__a_pvalue_ptargetFeature\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__a_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__a_pvalue_ptargetFeature\"},{\"@id\":\"Chains__Car__a_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__a_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__a_pvalue_ptargetFeature\"},{\"@id\":\"Chains__Car__a_pvalue_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__Car__a_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__a_pvalue_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__Car__a_pvalue_pin0\"},{\"@id\":\"Chains__Car__a_pvalue_pout\"}]" ;
     json:parameter "[{\"@id\":\"Chains__Car__a_pvalue_pin0\"},{\"@id\":\"Chains__Car__a_pvalue_pout\"}]" .
@@ -554,6 +554,13 @@ expr:Chains__Car__a_pvalue_pa0_om
     sysml:featureWithValue expr:Chains__Car__a_pvalue_pin0 ;
     sysml:value expr:Chains__Car__a_pvalue_pa0 .
 
+expr:Chains__Car__a_pvalue_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Chains__Car__a_pvalue_ptargetFeature" ;
+    sysml:memberElement elmt:Gen__G1__x ;
+    sysml:owner expr:Chains__Car__a_pvalue ;
+    sysml:owningRelatedElement expr:Chains__Car__a_pvalue .
+
 expr:Chains__Car__a_pvalue_pout
     a sysml:Feature ;
     sysml:isComposite "false"^^xsd:boolean ;
@@ -626,8 +633,8 @@ expr:Chains__Car__b_pvalue
     sysml:elementId "Chains__Car__b_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__b_pvalue_pa0 ;
-    sysml:ownedRelationship expr:Chains__Car__b_pvalue_pin0_om, expr:Chains__Car__b_pvalue_pout_om, expr:Chains__Car__b_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:Chains__Car__b_pvalue_pin0_om, expr:Chains__Car__b_pvalue_pout_om, expr:Chains__Car__b_pvalue_ptargetFeature ;
+    sysml:ownedRelationship expr:Chains__Car__b_pvalue_pin0_om, expr:Chains__Car__b_pvalue_ptargetFeature, expr:Chains__Car__b_pvalue_pout_om ;
+    sysml:ownedMembership expr:Chains__Car__b_pvalue_pin0_om, expr:Chains__Car__b_pvalue_ptargetFeature, expr:Chains__Car__b_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:Chains__Car__b_pvalue_pin0_om, expr:Chains__Car__b_pvalue_pout_om ;
     sysml:ownedFeature expr:Chains__Car__b_pvalue_pin0, expr:Chains__Car__b_pvalue_pout ;
     sysml:parameter expr:Chains__Car__b_pvalue_pin0, expr:Chains__Car__b_pvalue_pout ;
@@ -637,8 +644,8 @@ expr:Chains__Car__b_pvalue
     sysml:owner elmt:Chains__Car__b ;
     sysml:owningRelationship expr:Chains__Car__b_pvalue_om ;
     sysml:owningMembership expr:Chains__Car__b_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Chains__Car__b_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__b_pvalue_pout_om\"},{\"@id\":\"Chains__Car__b_pvalue_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Chains__Car__b_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__b_pvalue_pout_om\"},{\"@id\":\"Chains__Car__b_pvalue_ptargetFeature\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__b_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__b_pvalue_ptargetFeature\"},{\"@id\":\"Chains__Car__b_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__b_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__b_pvalue_ptargetFeature\"},{\"@id\":\"Chains__Car__b_pvalue_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__Car__b_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__b_pvalue_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__Car__b_pvalue_pin0\"},{\"@id\":\"Chains__Car__b_pvalue_pout\"}]" ;
     json:parameter "[{\"@id\":\"Chains__Car__b_pvalue_pin0\"},{\"@id\":\"Chains__Car__b_pvalue_pout\"}]" .
@@ -724,6 +731,13 @@ expr:Chains__Car__b_pvalue_pa0_om
     sysml:featureWithValue expr:Chains__Car__b_pvalue_pin0 ;
     sysml:value expr:Chains__Car__b_pvalue_pa0 .
 
+expr:Chains__Car__b_pvalue_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Chains__Car__b_pvalue_ptargetFeature" ;
+    sysml:memberElement elmt:Gen__G2__x ;
+    sysml:owner expr:Chains__Car__b_pvalue ;
+    sysml:owningRelatedElement expr:Chains__Car__b_pvalue .
+
 expr:Chains__Car__b_pvalue_pout
     a sysml:Feature ;
     sysml:isComposite "false"^^xsd:boolean ;
@@ -796,8 +810,8 @@ expr:Chains__Car__c_pvalue
     sysml:elementId "Chains__Car__c_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__c_pvalue_pa0 ;
-    sysml:ownedRelationship expr:Chains__Car__c_pvalue_pin0_om, expr:Chains__Car__c_pvalue_pout_om, expr:Chains__Car__c_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:Chains__Car__c_pvalue_pin0_om, expr:Chains__Car__c_pvalue_pout_om, expr:Chains__Car__c_pvalue_ptargetFeature ;
+    sysml:ownedRelationship expr:Chains__Car__c_pvalue_pin0_om, expr:Chains__Car__c_pvalue_ptargetFeature, expr:Chains__Car__c_pvalue_pout_om ;
+    sysml:ownedMembership expr:Chains__Car__c_pvalue_pin0_om, expr:Chains__Car__c_pvalue_ptargetFeature, expr:Chains__Car__c_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:Chains__Car__c_pvalue_pin0_om, expr:Chains__Car__c_pvalue_pout_om ;
     sysml:ownedFeature expr:Chains__Car__c_pvalue_pin0, expr:Chains__Car__c_pvalue_pout ;
     sysml:parameter expr:Chains__Car__c_pvalue_pin0, expr:Chains__Car__c_pvalue_pout ;
@@ -807,8 +821,8 @@ expr:Chains__Car__c_pvalue
     sysml:owner elmt:Chains__Car__c ;
     sysml:owningRelationship expr:Chains__Car__c_pvalue_om ;
     sysml:owningMembership expr:Chains__Car__c_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Chains__Car__c_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__c_pvalue_pout_om\"},{\"@id\":\"Chains__Car__c_pvalue_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Chains__Car__c_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__c_pvalue_pout_om\"},{\"@id\":\"Chains__Car__c_pvalue_ptargetFeature\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__c_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__c_pvalue_ptargetFeature\"},{\"@id\":\"Chains__Car__c_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__c_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__c_pvalue_ptargetFeature\"},{\"@id\":\"Chains__Car__c_pvalue_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__Car__c_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__c_pvalue_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__Car__c_pvalue_pin0\"},{\"@id\":\"Chains__Car__c_pvalue_pout\"}]" ;
     json:parameter "[{\"@id\":\"Chains__Car__c_pvalue_pin0\"},{\"@id\":\"Chains__Car__c_pvalue_pout\"}]" .
@@ -894,6 +908,13 @@ expr:Chains__Car__c_pvalue_pa0_om
     sysml:featureWithValue expr:Chains__Car__c_pvalue_pin0 ;
     sysml:value expr:Chains__Car__c_pvalue_pa0 .
 
+expr:Chains__Car__c_pvalue_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Chains__Car__c_pvalue_ptargetFeature" ;
+    sysml:memberElement elmt:Gen__G1__y ;
+    sysml:owner expr:Chains__Car__c_pvalue ;
+    sysml:owningRelatedElement expr:Chains__Car__c_pvalue .
+
 expr:Chains__Car__c_pvalue_pout
     a sysml:Feature ;
     sysml:isComposite "false"^^xsd:boolean ;
@@ -966,8 +987,8 @@ expr:Chains__Car__d_pvalue
     sysml:elementId "Chains__Car__d_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__d_pvalue_pa0 ;
-    sysml:ownedRelationship expr:Chains__Car__d_pvalue_pin0_om, expr:Chains__Car__d_pvalue_pout_om, expr:Chains__Car__d_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:Chains__Car__d_pvalue_pin0_om, expr:Chains__Car__d_pvalue_pout_om, expr:Chains__Car__d_pvalue_ptargetFeature ;
+    sysml:ownedRelationship expr:Chains__Car__d_pvalue_pin0_om, expr:Chains__Car__d_pvalue_ptargetFeature, expr:Chains__Car__d_pvalue_pout_om ;
+    sysml:ownedMembership expr:Chains__Car__d_pvalue_pin0_om, expr:Chains__Car__d_pvalue_ptargetFeature, expr:Chains__Car__d_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:Chains__Car__d_pvalue_pin0_om, expr:Chains__Car__d_pvalue_pout_om ;
     sysml:ownedFeature expr:Chains__Car__d_pvalue_pin0, expr:Chains__Car__d_pvalue_pout ;
     sysml:parameter expr:Chains__Car__d_pvalue_pin0, expr:Chains__Car__d_pvalue_pout ;
@@ -977,8 +998,8 @@ expr:Chains__Car__d_pvalue
     sysml:owner elmt:Chains__Car__d ;
     sysml:owningRelationship expr:Chains__Car__d_pvalue_om ;
     sysml:owningMembership expr:Chains__Car__d_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Chains__Car__d_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__d_pvalue_pout_om\"},{\"@id\":\"Chains__Car__d_pvalue_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Chains__Car__d_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__d_pvalue_pout_om\"},{\"@id\":\"Chains__Car__d_pvalue_ptargetFeature\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__d_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__d_pvalue_ptargetFeature\"},{\"@id\":\"Chains__Car__d_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__d_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__d_pvalue_ptargetFeature\"},{\"@id\":\"Chains__Car__d_pvalue_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__Car__d_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__d_pvalue_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__Car__d_pvalue_pin0\"},{\"@id\":\"Chains__Car__d_pvalue_pout\"}]" ;
     json:parameter "[{\"@id\":\"Chains__Car__d_pvalue_pin0\"},{\"@id\":\"Chains__Car__d_pvalue_pout\"}]" .
@@ -989,8 +1010,8 @@ expr:Chains__Car__d_pvalue_pa0
     sysml:elementId "Chains__Car__d_pvalue_pa0" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__d_pvalue_pa0_pa0 ;
-    sysml:ownedRelationship expr:Chains__Car__d_pvalue_pa0_pin0_om, expr:Chains__Car__d_pvalue_pa0_pout_om, expr:Chains__Car__d_pvalue_pa0_ptargetFeature ;
-    sysml:ownedMembership expr:Chains__Car__d_pvalue_pa0_pin0_om, expr:Chains__Car__d_pvalue_pa0_pout_om, expr:Chains__Car__d_pvalue_pa0_ptargetFeature ;
+    sysml:ownedRelationship expr:Chains__Car__d_pvalue_pa0_pin0_om, expr:Chains__Car__d_pvalue_pa0_ptargetFeature, expr:Chains__Car__d_pvalue_pa0_pout_om ;
+    sysml:ownedMembership expr:Chains__Car__d_pvalue_pa0_pin0_om, expr:Chains__Car__d_pvalue_pa0_ptargetFeature, expr:Chains__Car__d_pvalue_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Chains__Car__d_pvalue_pa0_pin0_om, expr:Chains__Car__d_pvalue_pa0_pout_om ;
     sysml:ownedFeature expr:Chains__Car__d_pvalue_pa0_pin0, expr:Chains__Car__d_pvalue_pa0_pout ;
     sysml:parameter expr:Chains__Car__d_pvalue_pa0_pin0, expr:Chains__Car__d_pvalue_pa0_pout ;
@@ -1000,8 +1021,8 @@ expr:Chains__Car__d_pvalue_pa0
     sysml:owner expr:Chains__Car__d_pvalue_pin0 ;
     sysml:owningRelationship expr:Chains__Car__d_pvalue_pa0_om ;
     sysml:owningMembership expr:Chains__Car__d_pvalue_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Chains__Car__d_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__Car__d_pvalue_pa0_pout_om\"},{\"@id\":\"Chains__Car__d_pvalue_pa0_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Chains__Car__d_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__Car__d_pvalue_pa0_pout_om\"},{\"@id\":\"Chains__Car__d_pvalue_pa0_ptargetFeature\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__d_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__Car__d_pvalue_pa0_ptargetFeature\"},{\"@id\":\"Chains__Car__d_pvalue_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__d_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__Car__d_pvalue_pa0_ptargetFeature\"},{\"@id\":\"Chains__Car__d_pvalue_pa0_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__Car__d_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__Car__d_pvalue_pa0_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__Car__d_pvalue_pa0_pin0\"},{\"@id\":\"Chains__Car__d_pvalue_pa0_pout\"}]" ;
     json:parameter "[{\"@id\":\"Chains__Car__d_pvalue_pa0_pin0\"},{\"@id\":\"Chains__Car__d_pvalue_pa0_pout\"}]" .
@@ -1087,6 +1108,13 @@ expr:Chains__Car__d_pvalue_pa0_pa0_om
     sysml:featureWithValue expr:Chains__Car__d_pvalue_pa0_pin0 ;
     sysml:value expr:Chains__Car__d_pvalue_pa0_pa0 .
 
+expr:Chains__Car__d_pvalue_pa0_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Chains__Car__d_pvalue_pa0_ptargetFeature" ;
+    sysml:memberElement elmt:Chains__Axle__hub ;
+    sysml:owner expr:Chains__Car__d_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:Chains__Car__d_pvalue_pa0 .
+
 expr:Chains__Car__d_pvalue_pa0_pout
     a sysml:Feature ;
     sysml:isComposite "false"^^xsd:boolean ;
@@ -1142,6 +1170,13 @@ expr:Chains__Car__d_pvalue_pa0_om
     sysml:membershipOwningNamespace expr:Chains__Car__d_pvalue_pin0 ;
     sysml:featureWithValue expr:Chains__Car__d_pvalue_pin0 ;
     sysml:value expr:Chains__Car__d_pvalue_pa0 .
+
+expr:Chains__Car__d_pvalue_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Chains__Car__d_pvalue_ptargetFeature" ;
+    sysml:memberElement elmt:Gen__G2__x ;
+    sysml:owner expr:Chains__Car__d_pvalue ;
+    sysml:owningRelatedElement expr:Chains__Car__d_pvalue .
 
 expr:Chains__Car__d_pvalue_pout
     a sysml:Feature ;
@@ -1215,8 +1250,8 @@ expr:Chains__Car__e_pvalue
     sysml:elementId "Chains__Car__e_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__e_pvalue_pa0 ;
-    sysml:ownedRelationship expr:Chains__Car__e_pvalue_pin0_om, expr:Chains__Car__e_pvalue_pout_om, expr:Chains__Car__e_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:Chains__Car__e_pvalue_pin0_om, expr:Chains__Car__e_pvalue_pout_om, expr:Chains__Car__e_pvalue_ptargetFeature ;
+    sysml:ownedRelationship expr:Chains__Car__e_pvalue_pin0_om, expr:Chains__Car__e_pvalue_ptargetFeature, expr:Chains__Car__e_pvalue_pout_om ;
+    sysml:ownedMembership expr:Chains__Car__e_pvalue_pin0_om, expr:Chains__Car__e_pvalue_ptargetFeature, expr:Chains__Car__e_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:Chains__Car__e_pvalue_pin0_om, expr:Chains__Car__e_pvalue_pout_om ;
     sysml:ownedFeature expr:Chains__Car__e_pvalue_pin0, expr:Chains__Car__e_pvalue_pout ;
     sysml:parameter expr:Chains__Car__e_pvalue_pin0, expr:Chains__Car__e_pvalue_pout ;
@@ -1226,8 +1261,8 @@ expr:Chains__Car__e_pvalue
     sysml:owner elmt:Chains__Car__e ;
     sysml:owningRelationship expr:Chains__Car__e_pvalue_om ;
     sysml:owningMembership expr:Chains__Car__e_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Chains__Car__e_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__e_pvalue_pout_om\"},{\"@id\":\"Chains__Car__e_pvalue_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Chains__Car__e_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__e_pvalue_pout_om\"},{\"@id\":\"Chains__Car__e_pvalue_ptargetFeature\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__e_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__e_pvalue_ptargetFeature\"},{\"@id\":\"Chains__Car__e_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__e_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__e_pvalue_ptargetFeature\"},{\"@id\":\"Chains__Car__e_pvalue_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__Car__e_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__e_pvalue_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__Car__e_pvalue_pin0\"},{\"@id\":\"Chains__Car__e_pvalue_pout\"}]" ;
     json:parameter "[{\"@id\":\"Chains__Car__e_pvalue_pin0\"},{\"@id\":\"Chains__Car__e_pvalue_pout\"}]" .
@@ -1238,8 +1273,8 @@ expr:Chains__Car__e_pvalue_pa0
     sysml:elementId "Chains__Car__e_pvalue_pa0" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__e_pvalue_pa0_pa0 ;
-    sysml:ownedRelationship expr:Chains__Car__e_pvalue_pa0_pin0_om, expr:Chains__Car__e_pvalue_pa0_pout_om, expr:Chains__Car__e_pvalue_pa0_ptargetFeature ;
-    sysml:ownedMembership expr:Chains__Car__e_pvalue_pa0_pin0_om, expr:Chains__Car__e_pvalue_pa0_pout_om, expr:Chains__Car__e_pvalue_pa0_ptargetFeature ;
+    sysml:ownedRelationship expr:Chains__Car__e_pvalue_pa0_pin0_om, expr:Chains__Car__e_pvalue_pa0_ptargetFeature, expr:Chains__Car__e_pvalue_pa0_pout_om ;
+    sysml:ownedMembership expr:Chains__Car__e_pvalue_pa0_pin0_om, expr:Chains__Car__e_pvalue_pa0_ptargetFeature, expr:Chains__Car__e_pvalue_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Chains__Car__e_pvalue_pa0_pin0_om, expr:Chains__Car__e_pvalue_pa0_pout_om ;
     sysml:ownedFeature expr:Chains__Car__e_pvalue_pa0_pin0, expr:Chains__Car__e_pvalue_pa0_pout ;
     sysml:parameter expr:Chains__Car__e_pvalue_pa0_pin0, expr:Chains__Car__e_pvalue_pa0_pout ;
@@ -1249,8 +1284,8 @@ expr:Chains__Car__e_pvalue_pa0
     sysml:owner expr:Chains__Car__e_pvalue_pin0 ;
     sysml:owningRelationship expr:Chains__Car__e_pvalue_pa0_om ;
     sysml:owningMembership expr:Chains__Car__e_pvalue_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Chains__Car__e_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__Car__e_pvalue_pa0_pout_om\"},{\"@id\":\"Chains__Car__e_pvalue_pa0_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Chains__Car__e_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__Car__e_pvalue_pa0_pout_om\"},{\"@id\":\"Chains__Car__e_pvalue_pa0_ptargetFeature\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__e_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__Car__e_pvalue_pa0_ptargetFeature\"},{\"@id\":\"Chains__Car__e_pvalue_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__e_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__Car__e_pvalue_pa0_ptargetFeature\"},{\"@id\":\"Chains__Car__e_pvalue_pa0_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__Car__e_pvalue_pa0_pin0_om\"},{\"@id\":\"Chains__Car__e_pvalue_pa0_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__Car__e_pvalue_pa0_pin0\"},{\"@id\":\"Chains__Car__e_pvalue_pa0_pout\"}]" ;
     json:parameter "[{\"@id\":\"Chains__Car__e_pvalue_pa0_pin0\"},{\"@id\":\"Chains__Car__e_pvalue_pa0_pout\"}]" .
@@ -1336,6 +1371,13 @@ expr:Chains__Car__e_pvalue_pa0_pa0_om
     sysml:featureWithValue expr:Chains__Car__e_pvalue_pa0_pin0 ;
     sysml:value expr:Chains__Car__e_pvalue_pa0_pa0 .
 
+expr:Chains__Car__e_pvalue_pa0_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Chains__Car__e_pvalue_pa0_ptargetFeature" ;
+    sysml:memberElement elmt:Chains__Axle__hub ;
+    sysml:owner expr:Chains__Car__e_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:Chains__Car__e_pvalue_pa0 .
+
 expr:Chains__Car__e_pvalue_pa0_pout
     a sysml:Feature ;
     sysml:isComposite "false"^^xsd:boolean ;
@@ -1391,6 +1433,13 @@ expr:Chains__Car__e_pvalue_pa0_om
     sysml:membershipOwningNamespace expr:Chains__Car__e_pvalue_pin0 ;
     sysml:featureWithValue expr:Chains__Car__e_pvalue_pin0 ;
     sysml:value expr:Chains__Car__e_pvalue_pa0 .
+
+expr:Chains__Car__e_pvalue_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Chains__Car__e_pvalue_ptargetFeature" ;
+    sysml:memberElement elmt:Gen__G1__y ;
+    sysml:owner expr:Chains__Car__e_pvalue ;
+    sysml:owningRelatedElement expr:Chains__Car__e_pvalue .
 
 expr:Chains__Car__e_pvalue_pout
     a sysml:Feature ;
@@ -1498,8 +1547,8 @@ expr:Chains__Car__f_pvalue
     sysml:elementId "Chains__Car__f_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Chains__Car__f_pvalue_pa0 ;
-    sysml:ownedRelationship expr:Chains__Car__f_pvalue_pin0_om, expr:Chains__Car__f_pvalue_pout_om, expr:Chains__Car__f_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:Chains__Car__f_pvalue_pin0_om, expr:Chains__Car__f_pvalue_pout_om, expr:Chains__Car__f_pvalue_ptargetFeature ;
+    sysml:ownedRelationship expr:Chains__Car__f_pvalue_pin0_om, expr:Chains__Car__f_pvalue_ptargetFeature, expr:Chains__Car__f_pvalue_pout_om ;
+    sysml:ownedMembership expr:Chains__Car__f_pvalue_pin0_om, expr:Chains__Car__f_pvalue_ptargetFeature, expr:Chains__Car__f_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:Chains__Car__f_pvalue_pin0_om, expr:Chains__Car__f_pvalue_pout_om ;
     sysml:ownedFeature expr:Chains__Car__f_pvalue_pin0, expr:Chains__Car__f_pvalue_pout ;
     sysml:parameter expr:Chains__Car__f_pvalue_pin0, expr:Chains__Car__f_pvalue_pout ;
@@ -1509,8 +1558,8 @@ expr:Chains__Car__f_pvalue
     sysml:owner elmt:Chains__Car__f ;
     sysml:owningRelationship expr:Chains__Car__f_pvalue_om ;
     sysml:owningMembership expr:Chains__Car__f_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Chains__Car__f_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__f_pvalue_pout_om\"},{\"@id\":\"Chains__Car__f_pvalue_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Chains__Car__f_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__f_pvalue_pout_om\"},{\"@id\":\"Chains__Car__f_pvalue_ptargetFeature\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Chains__Car__f_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__f_pvalue_ptargetFeature\"},{\"@id\":\"Chains__Car__f_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Chains__Car__f_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__f_pvalue_ptargetFeature\"},{\"@id\":\"Chains__Car__f_pvalue_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__Car__f_pvalue_pin0_om\"},{\"@id\":\"Chains__Car__f_pvalue_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__Car__f_pvalue_pin0\"},{\"@id\":\"Chains__Car__f_pvalue_pout\"}]" ;
     json:parameter "[{\"@id\":\"Chains__Car__f_pvalue_pin0\"},{\"@id\":\"Chains__Car__f_pvalue_pout\"}]" .
@@ -1595,6 +1644,13 @@ expr:Chains__Car__f_pvalue_pa0_om
     sysml:membershipOwningNamespace expr:Chains__Car__f_pvalue_pin0 ;
     sysml:featureWithValue expr:Chains__Car__f_pvalue_pin0 ;
     sysml:value expr:Chains__Car__f_pvalue_pa0 .
+
+expr:Chains__Car__f_pvalue_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Chains__Car__f_pvalue_ptargetFeature" ;
+    sysml:memberElement elmt:Gen__G1__y ;
+    sysml:owner expr:Chains__Car__f_pvalue ;
+    sysml:owningRelatedElement expr:Chains__Car__f_pvalue .
 
 expr:Chains__Car__f_pvalue_pout
     a sysml:Feature ;
@@ -1704,55 +1760,6 @@ elmt:Chains__Car__axle_ft0
     sysml:relatedElement elmt:Chains__Car__axle, elmt:Chains__Axle ;
     json:relatedElement "[{\"@id\":\"Chains__Car__axle\"},{\"@id\":\"Chains__Axle\"}]" .
 
-expr:Chains__Car__a_pvalue_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Chains__Car__a_pvalue_ptargetFeature" ;
-    sysml:memberElement elmt:Gen__G1__x ;
-    sysml:owner expr:Chains__Car__a_pvalue ;
-    sysml:owningRelatedElement expr:Chains__Car__a_pvalue .
-
-expr:Chains__Car__b_pvalue_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Chains__Car__b_pvalue_ptargetFeature" ;
-    sysml:memberElement elmt:Gen__G2__x ;
-    sysml:owner expr:Chains__Car__b_pvalue ;
-    sysml:owningRelatedElement expr:Chains__Car__b_pvalue .
-
-expr:Chains__Car__c_pvalue_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Chains__Car__c_pvalue_ptargetFeature" ;
-    sysml:memberElement elmt:Gen__G1__y ;
-    sysml:owner expr:Chains__Car__c_pvalue ;
-    sysml:owningRelatedElement expr:Chains__Car__c_pvalue .
-
-expr:Chains__Car__d_pvalue_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Chains__Car__d_pvalue_ptargetFeature" ;
-    sysml:memberElement elmt:Gen__G2__x ;
-    sysml:owner expr:Chains__Car__d_pvalue ;
-    sysml:owningRelatedElement expr:Chains__Car__d_pvalue .
-
-expr:Chains__Car__d_pvalue_pa0_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Chains__Car__d_pvalue_pa0_ptargetFeature" ;
-    sysml:memberElement elmt:Chains__Axle__hub ;
-    sysml:owner expr:Chains__Car__d_pvalue_pa0 ;
-    sysml:owningRelatedElement expr:Chains__Car__d_pvalue_pa0 .
-
-expr:Chains__Car__e_pvalue_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Chains__Car__e_pvalue_ptargetFeature" ;
-    sysml:memberElement elmt:Gen__G1__y ;
-    sysml:owner expr:Chains__Car__e_pvalue ;
-    sysml:owningRelatedElement expr:Chains__Car__e_pvalue .
-
-expr:Chains__Car__e_pvalue_pa0_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Chains__Car__e_pvalue_pa0_ptargetFeature" ;
-    sysml:memberElement elmt:Chains__Axle__hub ;
-    sysml:owner expr:Chains__Car__e_pvalue_pa0 ;
-    sysml:owningRelatedElement expr:Chains__Car__e_pvalue_pa0 .
-
 elmt:Chains__Car__spare_ss0
     a sysml:Subsetting ;
     sysml:elementId "Chains__Car__spare_ss0" ;
@@ -1767,10 +1774,3 @@ elmt:Chains__Car__spare_ss0
     sysml:owner elmt:Chains__Car__spare ;
     sysml:relatedElement elmt:Chains__Car__spare, elmt:Chains__Car__w ;
     json:relatedElement "[{\"@id\":\"Chains__Car__spare\"},{\"@id\":\"Chains__Car__w\"}]" .
-
-expr:Chains__Car__f_pvalue_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Chains__Car__f_pvalue_ptargetFeature" ;
-    sysml:memberElement elmt:Gen__G1__y ;
-    sysml:owner expr:Chains__Car__f_pvalue ;
-    sysml:owningRelatedElement expr:Chains__Car__f_pvalue .

@@ -81,13 +81,9 @@ func (e *encoder) materializeNormative() {
 		// A node in the expression namespace is addressed by position, so an
 		// expression node's collapsed head properties stay collapsed; a feature
 		// an expression body declares owns its relationships as any feature does.
-		if strings.HasPrefix(subject.Value, rdf.Expression) {
-			e.materializeReferentMemberships(subject)
-			if !e.bodyDeclarationNode(subject) {
-				continue
-			}
+		if strings.HasPrefix(subject.Value, rdf.Expression) && !e.bodyDeclarationNode(subject) {
+			continue
 		}
-		e.materializeReferentMemberships(subject)
 		e.materializeRelationships(subject)
 	}
 }
@@ -298,24 +294,6 @@ func (e *encoder) featureChainings(chain rdf.Term, links []rdf.Term) {
 			e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position))
 		e.graph.Add(chain, e.sysml(pChainingFeature), link)
 	}
-}
-
-// materializeReferentMemberships emits the plain Membership through which a
-// FeatureChainExpression is related to its target feature when the chain is not
-// a feature the expression owns; a FeatureReferenceExpression owns its referent
-// Membership from the start (featureReferent), in the position the notation gives it.
-func (e *encoder) materializeReferentMemberships(subject rdf.Term) {
-	if e.metaclassOf(subject) != mFeatureChain {
-		return
-	}
-	target, ok := e.graph.Object(subject, rdf.SysML+pTargetFeature)
-	if !ok {
-		return
-	}
-	if owner, owned := e.graph.Object(target, rdf.SysML+pOwner); owned && owner == subject {
-		return
-	}
-	e.referenceMembershipAt(subject, target, e.referentMembershipNode(subject, "targetFeature"))
 }
 
 // conjugatedPortDefinition emits the conjugate of a port definition: the

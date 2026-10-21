@@ -215,7 +215,11 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 			e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 			e.graph.Add(subject, e.sysml(pTargetFeature), chain)
 		} else {
-			e.graph.Add(subject, e.sysml(pTargetFeature), e.reference(n.Member))
+			// A named member is the memberElement of a Membership the expression
+			// owns (FeatureChainMember); targetFeature is derived from it.
+			target := e.reference(n.Member)
+			e.referenceMembershipAt(subject, target, e.referentMembershipNode(subject, "targetFeature"))
+			e.graph.Add(subject, e.sysml(pTargetFeature), target)
 		}
 
 	case *ast.IndexExpr:
@@ -690,8 +694,9 @@ func (e *encoder) featureReferent(subject, target rdf.Term) {
 }
 
 // referentMembershipNode is the node of the Membership an expression owns to the
-// element it reaches: positioned under an expression node, minted beside an
-// expression element and claimed, so a declared id landing on it is refused.
+// feature it reaches (its referent or target feature): positioned under an
+// expression node, minted beside an expression element and claimed, so a
+// declared id landing on it is refused.
 func (e *encoder) referentMembershipNode(subject rdf.Term, slot string) rdf.Term {
 	if strings.HasPrefix(subject.Value, rdf.Expression) {
 		e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression

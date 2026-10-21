@@ -1041,8 +1041,8 @@ expr:Payloads__Ctx___404__cmd_pvalue
     sysml:elementId "Payloads__Ctx___404__cmd_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
-    sysml:ownedRelationship expr:Payloads__Ctx___404__cmd_pvalue_pin0_om, expr:Payloads__Ctx___404__cmd_pvalue_pout_om, expr:Payloads__Ctx___404__cmd_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:Payloads__Ctx___404__cmd_pvalue_pin0_om, expr:Payloads__Ctx___404__cmd_pvalue_pout_om, expr:Payloads__Ctx___404__cmd_pvalue_ptargetFeature ;
+    sysml:ownedRelationship expr:Payloads__Ctx___404__cmd_pvalue_pin0_om, expr:Payloads__Ctx___404__cmd_pvalue_ptargetFeature, expr:Payloads__Ctx___404__cmd_pvalue_pout_om ;
+    sysml:ownedMembership expr:Payloads__Ctx___404__cmd_pvalue_pin0_om, expr:Payloads__Ctx___404__cmd_pvalue_ptargetFeature, expr:Payloads__Ctx___404__cmd_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:Payloads__Ctx___404__cmd_pvalue_pin0_om, expr:Payloads__Ctx___404__cmd_pvalue_pout_om ;
     sysml:ownedFeature expr:Payloads__Ctx___404__cmd_pvalue_pin0, expr:Payloads__Ctx___404__cmd_pvalue_pout ;
     sysml:parameter expr:Payloads__Ctx___404__cmd_pvalue_pin0, expr:Payloads__Ctx___404__cmd_pvalue_pout ;
@@ -1052,8 +1052,8 @@ expr:Payloads__Ctx___404__cmd_pvalue
     sysml:owner elmt:Payloads__Ctx___404__cmd ;
     sysml:owningRelationship expr:Payloads__Ctx___404__cmd_pvalue_om ;
     sysml:owningMembership expr:Payloads__Ctx___404__cmd_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pin0_om\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pout_om\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pin0_om\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pout_om\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_ptargetFeature\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pin0_om\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_ptargetFeature\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pin0_om\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_ptargetFeature\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pin0_om\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pin0\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pout\"}]" ;
     json:parameter "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pin0\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pout\"}]" .
@@ -1138,6 +1138,13 @@ expr:Payloads__Ctx___404__cmd_pvalue_pa0_om
     sysml:membershipOwningNamespace expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
     sysml:featureWithValue expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
     sysml:value expr:Payloads__Ctx___404__cmd_pvalue_pa0 .
+
+expr:Payloads__Ctx___404__cmd_pvalue_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Payloads__Ctx___404__cmd_pvalue_ptargetFeature" ;
+    sysml:memberElement elmt:Payloads__Ctx__m__cmd ;
+    sysml:owner expr:Payloads__Ctx___404__cmd_pvalue ;
+    sysml:owningRelatedElement expr:Payloads__Ctx___404__cmd_pvalue .
 
 expr:Payloads__Ctx___404__cmd_pvalue_pout
     a sysml:Feature ;
@@ -1358,13 +1365,6 @@ elmt:Payloads__Ctx___404__cmd_ft0
     sysml:owner elmt:Payloads__Ctx___404__cmd ;
     sysml:relatedElement elmt:Payloads__Ctx___404__cmd, elmt:Payloads__Prio ;
     json:relatedElement "[{\"@id\":\"Payloads__Ctx___404__cmd\"},{\"@id\":\"Payloads__Prio\"}]" .
-
-expr:Payloads__Ctx___404__cmd_pvalue_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Payloads__Ctx___404__cmd_pvalue_ptargetFeature" ;
-    sysml:memberElement elmt:Payloads__Ctx__m__cmd ;
-    sysml:owner expr:Payloads__Ctx___404__cmd_pvalue ;
-    sysml:owningRelatedElement expr:Payloads__Ctx___404__cmd_pvalue .
 
 elmt:Payloads__Ctx___404__w_ft0
     a sysml:FeatureTyping ;
