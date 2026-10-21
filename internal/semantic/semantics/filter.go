@@ -185,7 +185,7 @@ func (m *Model) compileConstructor(scope *symbols.Scope, e *ast.ConstructorExpr)
 	if e.Type == nil {
 		return unsupported(span, "the constructor names no type")
 	}
-	typeFQN, ok := m.resolveFQN(scope, e.Type)
+	_, typeFQN, ok := m.resolveType(scope, e.Type)
 	if !ok {
 		return unsupported(span, fmt.Sprintf("the constructed type %s does not resolve", qnText(e.Type)))
 	}
@@ -265,11 +265,11 @@ func (m *Model) classificationPredicate(scope *symbols.Scope, e *ast.OperatorExp
 	if e.TypeRef == nil {
 		return unsupported(span, fmt.Sprintf("`%s` names no type", e.Operator))
 	}
-	typeFQN, ok := m.resolveFQN(scope, e.TypeRef)
+	typ, typeFQN, ok := m.resolveType(scope, e.TypeRef)
 	if !ok {
 		return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", qnText(e.TypeRef)))
 	}
-	return &symbols.FilterPredicate{Op: op, TypeFQN: typeFQN, Span: span}
+	return &symbols.FilterPredicate{Op: op, TypeFQN: typeFQN, Type: typ, Span: span}
 }
 
 // EvalClassification evaluates the classification `@T`/`@@T` that e writes
@@ -334,30 +334,32 @@ func (m *Model) compileFeatureChain(scope *symbols.Scope, e *ast.FeatureChainExp
 		if operand.TargetType == nil {
 			return unsupported(span, "the cast names no type")
 		}
-		typeFQN, ok := m.resolveFQN(scope, operand.TargetType)
+		typ, typeFQN, ok := m.resolveType(scope, operand.TargetType)
 		if !ok {
 			return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", qnText(operand.TargetType)))
 		}
 		return &symbols.FilterPredicate{
 			Op:         symbols.FilterFeature,
 			TypeFQN:    typeFQN,
+			Type:       typ,
 			Feature:    feature,
-			ResultType: m.filterMemberType(typeFQN, feature),
+			ResultType: m.filterMemberType(typ, feature),
 			Span:       span,
 		}
 	case *ast.OperatorExpr:
 		// `self.f` and `(self as T).f` are written this way too; only the
 		// annotation form carries a metadata type to read the feature from.
 		if operand.Operator == ast.OpAs && operand.TypeRef != nil {
-			typeFQN, ok := m.resolveFQN(scope, operand.TypeRef)
+			typ, typeFQN, ok := m.resolveType(scope, operand.TypeRef)
 			if !ok {
 				return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", qnText(operand.TypeRef)))
 			}
 			return &symbols.FilterPredicate{
 				Op:         symbols.FilterFeature,
 				TypeFQN:    typeFQN,
+				Type:       typ,
 				Feature:    feature,
-				ResultType: m.filterMemberType(typeFQN, feature),
+				ResultType: m.filterMemberType(typ, feature),
 				Span:       span,
 			}
 		}
@@ -459,6 +461,7 @@ func (m *Model) compileReference(scope *symbols.Scope, qn *ast.QualifiedName, sp
 		return &symbols.FilterPredicate{
 			Op:         symbols.FilterFeature,
 			TypeFQN:    ownerFQN,
+			Type:       owner,
 			Feature:    simpleSymbolName(sym),
 			ResultType: sym,
 			Span:       span,
@@ -479,8 +482,7 @@ func (m *Model) compileReference(scope *symbols.Scope, qn *ast.QualifiedName, sp
 	}
 }
 
-func (m *Model) filterMemberType(typeFQN, feature string) *symbols.Symbol {
-	typ := m.typeByFQN(typeFQN)
+func (m *Model) filterMemberType(typ *symbols.Symbol, feature string) *symbols.Symbol {
 	if typ == nil {
 		return nil
 	}
@@ -608,11 +610,8 @@ func (m *Model) evalPredicate(p *symbols.FilterPredicate, cand *symbols.Symbol) 
 	case symbols.FilterConst:
 		return p.Value, nil
 
-	case symbols.FilterClassify:
-		return boolValue(m.annotatedBy(cand, p.TypeFQN)), nil
-
-	case symbols.FilterMetaClassify:
-		return boolValue(m.annotatedBy(cand, p.TypeFQN)), nil
+	case symbols.FilterClassify, symbols.FilterMetaClassify:
+		return boolValue(m.annotatedByType(cand, m.predicateType(p), p.TypeFQN)), nil
 
 	case symbols.FilterFeature:
 		return m.featureValue(cand, p)
@@ -884,7 +883,7 @@ func candidateName(cand *symbols.Symbol) string {
 // read from an annotation the candidate does not carry, has an empty value
 // sequence, which leaves the comparison reading it false rather than unevaluable.
 func (m *Model) annotationFeatureValue(cand *symbols.Symbol, p *symbols.FilterPredicate) (symbols.FilterValue, error) {
-	typ := m.typeByFQN(p.TypeFQN)
+	typ := m.predicateType(p)
 	for _, a := range m.annotationsOf(cand) {
 		if !m.annotationConforms(a, typ, p.TypeFQN) {
 			continue
@@ -912,7 +911,12 @@ func (m *Model) annotationFeatureValue(cand *symbols.Symbol, p *symbols.FilterPr
 // select the part usages among the candidates. `@@T` tests the same metadata
 // (KerML 1.0 §7.4.9.2: its operand is `x.metadata`, annotations then metaobject).
 func (m *Model) annotatedBy(cand *symbols.Symbol, typeFQN string) bool {
-	typ := m.typeByFQN(typeFQN)
+	return m.annotatedByType(cand, m.typeByFQN(typeFQN), typeFQN)
+}
+
+// annotatedByType is annotatedBy for a type already resolved to its element,
+// which a compiled condition carries; typ is nil when the name resolved to none.
+func (m *Model) annotatedByType(cand, typ *symbols.Symbol, typeFQN string) bool {
 	for _, a := range m.annotationsOf(cand) {
 		if m.annotationConforms(a, typ, typeFQN) {
 			return true
@@ -943,13 +947,32 @@ func (m *Model) MetaclassConforms(cand *symbols.Symbol, typeFQN string) bool {
 }
 
 // annotationConforms reports whether an annotation's metadata type conforms to
-// the type a condition names. The types are compared as symbols where both are
-// indexed, and by qualified name otherwise.
+// the type a condition names: the element the name resolved to, through its
+// specialization closure, so an alias selects the same type and a namesake
+// does not. The name alone decides when it resolved to no element, and across
+// copies of a library, whose elements are the one normative element.
 func (m *Model) annotationConforms(a annotation, typ *symbols.Symbol, typeFQN string) bool {
-	if a.typ != nil && typ != nil && m.Conforms(a.typ, typ) {
-		return true
+	if a.typ == nil {
+		return false
 	}
-	return a.typ != nil && m.conformsByName(a.typ, typeFQN)
+	if typ == nil {
+		return m.conformsByName(a.typ, typeFQN)
+	}
+	return m.Conforms(a.typ, typ) || (m.isLibraryElement(typ) && m.conformsByName(a.typ, typeFQN))
+}
+
+// predicateType is the type a compiled condition names: the element it
+// resolved to, or the first declared under the name when only that is known.
+func (m *Model) predicateType(p *symbols.FilterPredicate) *symbols.Symbol {
+	if p.Type != nil {
+		return p.Type
+	}
+	return m.typeByFQN(p.TypeFQN)
+}
+
+// isLibraryElement reports whether sym is declared by a library document.
+func (m *Model) isLibraryElement(sym *symbols.Symbol) bool {
+	return sym != nil && m.resolver != nil && m.resolver.Index() != nil && m.resolver.Index().IsLibraryDocument(sym.DocName)
 }
 
 // indexedElement returns the symbol the index holds for sym's element, which is
@@ -1455,15 +1478,15 @@ func isSelfReference(n ast.Node) bool {
 	return ref.Name.Parts[0].Text == "self"
 }
 
-// resolveFQN resolves a qualified name written in scope to the name the element
-// it names is indexed under.
-func (m *Model) resolveFQN(scope *symbols.Scope, qn *ast.QualifiedName) (string, bool) {
+// resolveType resolves a qualified name written in scope to the element it
+// names and the name that element is indexed under.
+func (m *Model) resolveType(scope *symbols.Scope, qn *ast.QualifiedName) (*symbols.Symbol, string, bool) {
 	sym, ok := m.resolver.ResolveQualified(scope, qn)
 	if !ok || sym == nil {
-		return "", false
+		return nil, "", false
 	}
 	fqn := m.fqnOf(sym)
-	return fqn, fqn != ""
+	return sym, fqn, fqn != ""
 }
 
 // spanOf is a node's span, or the zero span for a missing node.
