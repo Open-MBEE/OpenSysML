@@ -3,8 +3,6 @@ import { test } from "node:test";
 
 import {
   ancestors,
-  connectionOwner,
-  describeOwner,
   describeRefusal,
   describeStale,
   fileLabel,
@@ -14,15 +12,10 @@ import {
   unopenedDocuments,
   DOCUMENT_ROOT,
   editParams,
-  endpointPath,
   moveDestinations,
   moveOperation,
-  nameSegments,
   offeredOn,
-  ownerOf,
-  ownersOf,
   placementOperations,
-  rootOwner,
   validName,
 } from "./edits";
 import { declaredHere, ownDeclarations, type ModelEditOperation, type RenderNode, type RenderOwner } from "./protocol";
@@ -54,30 +47,11 @@ test("ancestors stops at a parent cycle instead of looping", () => {
   assert.deepEqual(ancestors(a, [a, b]).map((node) => node.id), ["b"]);
 });
 
-test("ownerOf is the node itself when it is declared here", () => {
-  assert.equal(ownerOf(tank, nodes), tank);
-});
-
-test("ownerOf climbs past a node the document does not declare", () => {
-  assert.equal(ownerOf(imported, nodes), car);
-  assert.equal(ownerOf(undefined, nodes), undefined);
-});
-
-test("rootOwner is the single declared root, or nothing", () => {
-  assert.equal(rootOwner(nodes), car);
-  const other: RenderNode = { id: "n7", kind: "part def", name: "Bike", type: "", detail: "", fqn: "Vehicle::Bike", declaredHere: true, owners: [vehicle] };
-  assert.equal(rootOwner([...nodes, other]), undefined);
-  assert.equal(rootOwner([imported]), undefined);
-});
-
 // A node another workspace document declares: named, so a layout reaches it,
 // but not the document's own, so nothing else does.
 const foreign: RenderNode = { id: "n8", kind: "part def", name: "Wheel", type: "", detail: "", fqn: "Wheels::Wheel", notation: "part def", owners: [{ fqn: "Wheels", feature: false }] };
 
 test("a node another document declares owns nothing, moves nowhere, is no root", () => {
-  assert.equal(ownerOf(foreign, [...nodes, foreign]), undefined);
-  assert.equal(ownersOf(foreign), undefined);
-  assert.equal(rootOwner([foreign]), undefined);
   assert.equal(moveOperation(foreign, ""), undefined);
   assert.deepEqual(moveDestinations(foreign, { nodes: [...nodes, foreign], version: 1 }), []);
   assert.deepEqual(
@@ -86,136 +60,8 @@ test("a node another document declares owns nothing, moves nowhere, is no root",
   );
 });
 
-test("ownersOf ends at the document, and is nothing for a node the document does not declare", () => {
-  assert.deepEqual(ownersOf(fuelOut), [tankOwner, carOwner, vehicle, DOCUMENT_ROOT]);
-  assert.deepEqual(ownersOf({ ...car, owners: undefined }), [DOCUMENT_ROOT]);
-  assert.equal(ownersOf(imported), undefined);
-});
-
-test("connectionOwner is the nearest namespace declaring both ends", () => {
-  assert.deepEqual(connectionOwner(fuelOut, fuelIn), carOwner);
-  assert.deepEqual(connectionOwner(tank, engine), carOwner);
-});
-
-test("connectionOwner is the namespace declaring the container when one end contains the other", () => {
-  assert.deepEqual(connectionOwner(tank, fuelOut), carOwner);
-  assert.deepEqual(connectionOwner(fuelOut, tank), carOwner);
-  assert.equal(endpointPath(tank, carOwner), "tank");
-  assert.equal(endpointPath(fuelOut, carOwner), "tank.fuelOut");
-});
-
-test("connectionOwner reaches the package two roots are declared in", () => {
-  const other: RenderNode = { id: "n7", kind: "part def", name: "Bike", type: "", detail: "", fqn: "Vehicle::Bike", declaredHere: true, owners: [vehicle] };
-  assert.deepEqual(connectionOwner(car, other), vehicle);
-});
-
-test("connectionOwner is nothing when an end is not declared by the document", () => {
-  assert.equal(connectionOwner(fuelOut, imported), undefined);
-  assert.equal(connectionOwner(imported, fuelOut), undefined);
-});
-
-// The interconnection rendering of a view exposing Vehicle::Car::tank and
-// Vehicle::Car::engine: both are drawn as roots, Car is not drawn at all, yet
-// their owners still name it.
-const exposedTank: RenderNode = { ...tank, id: "e1", parent: undefined };
-const exposedFuelOut: RenderNode = { ...fuelOut, id: "e2", parent: "e1" };
-const exposedEngine: RenderNode = { ...engine, id: "e3", parent: undefined };
-const exposedFuelIn: RenderNode = { ...fuelIn, id: "e4", parent: "e3" };
-
-test("connectionOwner finds the declaration exposed siblings share even when it is not drawn", () => {
-  assert.deepEqual(connectionOwner(exposedFuelOut, exposedFuelIn), carOwner);
-  assert.deepEqual(connectionOwner(exposedTank, exposedEngine), carOwner);
-  assert.equal(endpointPath(exposedFuelOut, carOwner), "tank.fuelOut");
-  assert.equal(endpointPath(exposedEngine, carOwner), "engine");
-});
-
-// The tree rendering of
-//   part pump { port outlet; } part tank { port inlet; }
-const pumpOwner: RenderOwner = { fqn: "pump", feature: true };
-const topTankOwner: RenderOwner = { fqn: "tank", feature: true };
-const pump: RenderNode = { id: "r1", kind: "part", name: "pump", type: "", detail: "", fqn: "pump", declaredHere: true };
-const outlet: RenderNode = { id: "r2", kind: "port", name: "outlet", type: "", detail: "", parent: "r1", fqn: "pump::outlet", declaredHere: true, owners: [pumpOwner] };
-const topTank: RenderNode = { id: "r3", kind: "part", name: "tank", type: "", detail: "", fqn: "tank", declaredHere: true };
-const inlet: RenderNode = { id: "r4", kind: "port", name: "inlet", type: "", detail: "", parent: "r3", fqn: "tank::inlet", declaredHere: true, owners: [topTankOwner] };
-
-test("connectionOwner is the document root for two top-level declarations", () => {
-  assert.deepEqual(connectionOwner(pump, topTank), DOCUMENT_ROOT);
-  assert.deepEqual(connectionOwner(outlet, inlet), DOCUMENT_ROOT);
-  assert.deepEqual(connectionOwner(outlet, topTank), DOCUMENT_ROOT);
-});
-
-test("connectionOwner prefers a declared common owner to the document root", () => {
-  assert.deepEqual(connectionOwner(outlet, { ...inlet, owners: [pumpOwner] }), pumpOwner);
-  assert.deepEqual(connectionOwner(outlet, pump), DOCUMENT_ROOT);
-});
-
-test("connectionOwner is nothing when a root is not declared by the document", () => {
-  const library: RenderNode = { id: "r5", kind: "part", name: "lib", type: "", detail: "" };
-  assert.equal(connectionOwner(pump, library), undefined);
-});
-
-test("DOCUMENT_ROOT is named by the empty owner and described as the document", () => {
+test("DOCUMENT_ROOT is named by the empty owner", () => {
   assert.equal(DOCUMENT_ROOT.fqn, "");
-  assert.equal(describeOwner(DOCUMENT_ROOT), "the document");
-  assert.equal(describeOwner(carOwner), "Vehicle::Car");
-});
-
-test("endpointPath spells the feature chain below the owner", () => {
-  assert.equal(endpointPath(fuelOut, carOwner), "tank.fuelOut");
-  assert.equal(endpointPath(tank, carOwner), "tank");
-  assert.equal(endpointPath(fuelOut, tankOwner), "fuelOut");
-});
-
-test("endpointPath refuses the owner itself and a node outside it", () => {
-  assert.equal(endpointPath(car, carOwner), undefined);
-  assert.equal(endpointPath(fuelIn, tankOwner), undefined);
-  assert.equal(endpointPath(imported, carOwner), undefined);
-});
-
-test("endpointPath from the document root spells the whole chain", () => {
-  assert.equal(endpointPath(outlet, DOCUMENT_ROOT), "pump.outlet");
-  assert.equal(endpointPath(topTank, DOCUMENT_ROOT), "tank");
-});
-
-test("endpointPath steps into a namespace that is not a feature by ::", () => {
-  assert.equal(endpointPath(fuelOut, DOCUMENT_ROOT), "Vehicle::Car::tank.fuelOut");
-  assert.equal(endpointPath(fuelOut, vehicle), "Car::tank.fuelOut");
-});
-
-test("nameSegments splits at :: outside quotes only", () => {
-  assert.deepEqual(nameSegments("Vehicle::Car"), ["Vehicle", "Car"]);
-  assert.deepEqual(nameSegments("'P::Q'::tank"), ["'P::Q'", "tank"]);
-  assert.deepEqual(nameSegments("'fuel::out'"), ["'fuel::out'"]);
-  assert.deepEqual(nameSegments("'it\\'s::x'"), ["'it\\'s::x'"]);
-  assert.deepEqual(nameSegments(""), [""]);
-});
-
-// The tree rendering of
-//   part 'x::y' { port 'fuel::out'; } part def 'Top Def' { port in1; } package x { part y; }
-// The server quotes each name of an fqn on its own, so 'x::y' and x::y stay apart.
-const quotedPartOwner: RenderOwner = { fqn: "'x::y'", feature: true };
-const quotedDefOwner: RenderOwner = { fqn: "'Top Def'", feature: false };
-const quotedPart: RenderNode = { id: "q1", kind: "part", name: "'x::y'", type: "", detail: "", fqn: "'x::y'", declaredHere: true };
-const quotedPort: RenderNode = { id: "q2", kind: "port", name: "'fuel::out'", type: "", detail: "", parent: "q1", fqn: "'x::y'::'fuel::out'", declaredHere: true, owners: [quotedPartOwner] };
-const quotedDef: RenderNode = { id: "q3", kind: "part def", name: "'Top Def'", type: "", detail: "", fqn: "'Top Def'", declaredHere: true };
-const quotedIn: RenderNode = { id: "q4", kind: "port", name: "in1", type: "", detail: "", parent: "q3", fqn: "'Top Def'::in1", declaredHere: true, owners: [quotedDefOwner] };
-const nestedY: RenderNode = { id: "q6", kind: "part", name: "y", type: "", detail: "", parent: "q5", fqn: "x::y", declaredHere: true, owners: [{ fqn: "x", feature: false }] };
-
-test("endpointPath keeps a quoted name holding :: as one step", () => {
-  assert.equal(endpointPath(quotedPort, quotedPartOwner), "'fuel::out'");
-  assert.equal(endpointPath(quotedPort, DOCUMENT_ROOT), "'x::y'.'fuel::out'");
-  assert.equal(endpointPath(quotedIn, DOCUMENT_ROOT), "'Top Def'::in1");
-  assert.equal(endpointPath(nestedY, DOCUMENT_ROOT), "x::y");
-});
-
-test("connectionOwner takes a quoted top-level name holding :: as the document's", () => {
-  assert.deepEqual(connectionOwner(quotedPort, quotedIn), DOCUMENT_ROOT);
-  assert.deepEqual(connectionOwner(quotedPart, quotedDef), DOCUMENT_ROOT);
-});
-
-test("connectionOwner tells 'x::y' from x::y", () => {
-  assert.deepEqual(connectionOwner(quotedPort, nestedY), DOCUMENT_ROOT);
-  assert.deepEqual(connectionOwner(quotedPort, { ...quotedPort, id: "q7", name: "sink", fqn: "'x::y'::sink" }), quotedPartOwner);
 });
 
 test("editParams asks for the version the rendering drew, not the buffer's", () => {
@@ -270,7 +116,7 @@ test("moveDestinations keeps a confined notation to the nodes the palette admits
   const check: RenderNode = { id: "n9", kind: "requirement def", name: "Check", type: "", detail: "", fqn: "Vehicle::Check", declaredHere: true, notation: "requirement def", owners: [vehicle] };
   const subject: RenderNode = { id: "n10", kind: "subject", name: "car", type: "Car", detail: "", parent: "n8", fqn: "Vehicle::Fit::car", declaredHere: true, notation: "subject", owners: [{ fqn: "Vehicle::Fit", feature: false }, vehicle] };
   const all = [...notated, fit, check, subject];
-  const palette = { members: ["part"], connections: [], typed: [], owners: { subject: ["n8", "n9"] } };
+  const palette = { owners: { subject: ["n8", "n9"] } };
   assert.deepEqual(moveDestinations(subject, { nodes: all, version: 1, palette }), [{ fqn: "Vehicle::Check", node: check }]);
   // A part is not confined: every declared node but the document's own admits it, the document too.
   assert.deepEqual(
@@ -576,7 +422,7 @@ test("a layout edit reaching a document no buffer holds asks for it to be opened
 });
 
 // The placed rendering with each declaration's notation, as a server that serves moves sends it.
-const reparentable = { ...placed, nodes: [carN, tankN, engineN, fuelInN, imported], palette: { members: ["part"], connections: [], typed: [] } };
+const reparentable = { ...placed, nodes: [carN, tankN, engineN, fuelInN, imported], palette: {} };
 
 test("reparentOperations writes the drop's placements first, then the move, as one batch", () => {
   assert.deepEqual(
@@ -600,7 +446,7 @@ test("reparentOperations refuses a target Move to… would not offer: the owner,
   assert.equal(reparentOperations(reparentable, "n6", "n4", [{ id: "n6", layout: { x: 1, y: 2 } }], []), undefined);
   assert.equal(reparentOperations(reparentable, "n2", "missing", nodes, []), undefined);
   // A body the palette does not open for the notation.
-  const confined = { ...reparentable, palette: { members: ["part"], connections: [], typed: [], owners: { part: ["n1"] } } };
+  const confined = { ...reparentable, palette: { owners: { part: ["n1"] } } };
   assert.equal(reparentOperations(confined, "n2", "n4", nodes, []), undefined);
 });
 
@@ -653,10 +499,7 @@ test("ownDeclarations reads a rendering of an older server as declaring every na
   assert.equal(own[2], legacy[2]);
   assert.deepEqual(own.map((node) => node.declaredHere), [true, true, undefined]);
   assert.deepEqual(legacy.map((node) => node.declaredHere), [undefined, undefined, undefined]);
-  assert.equal(ownerOf(own[1], own), own[1]);
-  assert.equal(ownerOf(own[2], own), own[0]);
   assert.deepEqual(moveOperation(own[1], "Vehicle::Car"), { kind: "move", target: "Vehicle::Car::tank", owner: "Vehicle::Car" });
-  assert.equal(ownerOf(legacy[1], legacy), undefined);
 });
 
 // The scanner follows the lexer's UNRESTRICTED_NAME: a backslash escapes one

@@ -33,14 +33,14 @@ func TestVerifyIsARequirementVerificationMembership(t *testing.T) {
 	turtle, back := graphOnlyRoundTrip(t, "v.sysml", []byte(verifyModel))
 	graph := string(turtle)
 	for _, want := range []string{
-		"elmt:V__T___400___400\n    a sysml:RequirementUsage ;",
-		"elmt:V__T___400___400_om\n    a sysml:RequirementVerificationMembership ;",
+		"elmt:V__T___400__r\n    a sysml:RequirementUsage ;",
+		"elmt:V__T___400__r_om\n    a sysml:RequirementVerificationMembership ;",
 		"elmt:V__U__o__v\n    a sysml:RequirementUsage ;",
 		"elmt:V__U__o__v_om\n    a sysml:RequirementVerificationMembership ;",
 		// A reference's subsetting is a ReferenceSubsetting, a declaration's `:>` a Subsetting.
-		"elmt:V__W___400___400_rs\n    a sysml:ReferenceSubsetting ;",
+		"elmt:V__W___400__r_rs\n    a sysml:ReferenceSubsetting ;",
 		"elmt:V__X___400___400_ss0\n    a sysml:Subsetting ;",
-		"sysml:ownedRequirement elmt:V__T___400___400 ;",
+		"sysml:ownedRequirement elmt:V__T___400__r ;",
 		`sysml:kind "requirement" ;`,
 		"a sysml:SatisfyRequirementUsage ;",
 	} {

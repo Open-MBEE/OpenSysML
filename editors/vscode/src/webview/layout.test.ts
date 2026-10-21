@@ -549,6 +549,91 @@ test("layoutCanvas moves nested siblings past a container grown around a placed 
   assert.ok(root.box.y + root.box.height >= d.box.y + d.box.height + 16);
 });
 
+test("layoutCanvas with unplaced takes the auto layout over the model's Layout and Route, pinning nothing", () => {
+  const drawing = rendering(
+    [node("a", "a", { x: 10, y: 10 }), node("b", "b", { x: 400, y: 10 })],
+    [{ from: "a", to: "b", label: "", kind: "connection", route: [{ x: 500, y: 900 }] }],
+  );
+  const auto: AutoLayout = {
+    nodes: new Map([
+      ["a", { x: 24, y: 24, width: 96, height: 52 }],
+      ["b", { x: 52, y: 200, width: 96, height: 52 }],
+    ]),
+    routes: new Map([[0, [{ x: 72, y: 76 }, { x: 72, y: 140 }, { x: 100, y: 140 }, { x: 100, y: 200 }]]]),
+    ports: new Map(),
+  };
+  const stated = layoutCanvas(drawing, {}, auto);
+  assert.deepEqual([stated.nodes.get("a")!.box.x, stated.nodes.get("b")!.box.x], [10, 400]);
+  assert.deepEqual(stated.edges[0].route, [{ x: 500, y: 900 }]);
+  const free = layoutCanvas(drawing, { unplaced: true }, auto);
+  assert.deepEqual([free.nodes.get("a")!.box, free.nodes.get("b")!.box], [auto.nodes.get("a"), auto.nodes.get("b")]);
+  assert.deepEqual([free.nodes.get("a")!.pinned, free.nodes.get("b")!.pinned], [false, false]);
+  // The model's Route set aside, the edge follows the auto layout's bent route, not a straight line.
+  assert.deepEqual(free.edges[0].points, auto.routes.get(0));
+  assert.deepEqual(free.edges[0].route, [{ x: 72, y: 140 }, { x: 100, y: 140 }]);
+  // A gesture's own override still wins over the auto layout.
+  const dragged = layoutCanvas(drawing, { unplaced: true, nodes: new Map([["a", { x: 300, y: 300, width: 96, height: 52 }]]) }, auto);
+  assert.deepEqual(dragged.nodes.get("a")!.box, { x: 300, y: 300, width: 96, height: 52 });
+  assert.equal(dragged.nodes.get("a")!.pinned, true);
+});
+
+test("movedNode alone writes the dragged node and nothing of the auto layout under it", () => {
+  const drawing = rendering(
+    [node("box", "box", { x: 10, y: 10 }), node("a", "a", { parent: "box", x: 30, y: 40 }), node("b", "b", { parent: "box" })],
+    [{ from: "a", to: "b", label: "", kind: "connection", route: [{ x: 500, y: 900 }] }],
+  );
+  const auto: AutoLayout = {
+    nodes: new Map([
+      ["box", { x: 24, y: 24, width: 300, height: 200 }],
+      ["a", { x: 48, y: 60, width: 96, height: 52 }],
+      ["b", { x: 48, y: 150, width: 96, height: 52 }],
+    ]),
+    routes: new Map([[0, [{ x: 96, y: 112 }, { x: 96, y: 130 }, { x: 120, y: 130 }, { x: 120, y: 150 }]]]),
+    ports: new Map(),
+  };
+  const free = layoutCanvas(drawing, { unplaced: true }, auto);
+  const held = movedNode(free, "box", 20, 0)!;
+  assert.ok(held.nodes.length > 1 || held.edges.length > 0);
+  const alone = movedNode(free, "box", 20, 0, true)!;
+  assert.deepEqual(alone.nodes.map((placement) => placement.id), ["box"]);
+  assert.equal(alone.nodes[0].layout.x, 44);
+  assert.deepEqual(alone.edges, []);
+});
+
+test("layoutCanvas hides a sequence diagram's messages of a hidden kind and closes the rows over them", () => {
+  const drawing = rendering(
+    [node("a", "a"), node("b", "b")],
+    [
+      { from: "a", to: "b", label: "", kind: "flow" },
+      { from: "b", to: "a", label: "", kind: "succession" },
+      { from: "a", to: "b", label: "", kind: "flow" },
+    ],
+    { kind: "sequence" },
+  );
+  const all = layoutCanvas(drawing);
+  const filtered = layoutCanvas(drawing, { hiddenKinds: new Set(["flow"]) });
+  assert.deepEqual(filtered.edges.map((edge) => edge.hidden), [true, false, true]);
+  assert.equal(filtered.edges[1].points[0].y, all.edges[0].points[0].y);
+  assert.ok(filtered.height < all.height);
+});
+
+test("layoutCanvas hides the edges of a hidden kind, which then count for nothing", () => {
+  const drawing = rendering(
+    [node("a", "a", { x: 10, y: 10 }), node("b", "b", { x: 200, y: 10 })],
+    [
+      { from: "a", to: "b", label: "", kind: "typing", route: [{ x: 500, y: 900 }] },
+      { from: "a", to: "b", label: "", kind: "connection" },
+    ],
+  );
+  const all = layoutCanvas(drawing);
+  assert.deepEqual(all.edges.map((edge) => edge.hidden), [false, false]);
+  const filtered = layoutCanvas(drawing, { hiddenKinds: new Set(["typing"]) });
+  assert.deepEqual(filtered.edges.map((edge) => edge.hidden), [true, false]);
+  // The hidden edge's far-flung waypoint no longer stretches the canvas.
+  assert.ok(filtered.height < all.height);
+  assert.deepEqual(filtered.nodes.get("a")!.box, all.nodes.get("a")!.box);
+});
+
 test("layoutCanvas hides the children of a collapsed node", () => {
   const layout = layoutCanvas(
     rendering(
@@ -3425,4 +3510,155 @@ test("resettle carries a re-clamped project's boxes, so later projects stay clea
     dropped && dropped.x > 270,
     `b should be pushed clear of the carried box: ${JSON.stringify(dropped)}`,
   );
+});
+
+// A route the model states as a diagonal: drawn verbatim under `model`, routed around the boxes under `router`.
+function statedDiagonal(): RenderResult {
+  return rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 40 }),
+      node("b", "b", { x: 400, y: 200, width: 100, height: 40 }),
+      node("c", "c", { x: 180, y: -20, width: 60, height: 80 }),
+    ],
+    [
+      {
+        from: "a",
+        to: "b",
+        label: "",
+        kind: "connection",
+        fqn: "M::ab",
+        route: [{ x: 250, y: 150 }],
+      },
+    ],
+  );
+}
+
+test("layoutCanvas draws a stated route verbatim under model routing and orthogonally under the router", async () => {
+  await loadAvoid(WASM);
+  const result = statedDiagonal();
+  const stated = layoutCanvas(result).edges[0];
+  assert.equal(stated.rerouted, false);
+  assert.deepEqual(stated.route, [{ x: 250, y: 150 }]);
+  assert.equal(orthogonal(stated.points), false);
+  assert.equal(layoutCanvas(result).routing, "model");
+  assert.deepEqual(layoutCanvas(result, { routing: "model" }).edges[0], stated);
+
+  const layout = layoutCanvas(result, { routing: "router" });
+  assert.equal(layout.routing, "router");
+  const [routed] = layout.edges;
+  assert.equal(routed.rerouted, true);
+  assert.ok(orthogonal(routed.points), `router route is not orthogonal: ${JSON.stringify(routed.points)}`);
+  assert.ok(!routed.points.some((point) => point.x === 250 && point.y === 150));
+  assert.deepEqual(routed.route, routed.points.slice(1, -1));
+  // A gesture's own override routes the same way: the router draws, the model's points do not.
+  const overridden = layoutCanvas(result, { routing: "router", routes: new Map([[0, [{ x: 10, y: 300 }]]]) }).edges[0];
+  assert.equal(overridden.rerouted, true);
+  assert.ok(orthogonal(overridden.points));
+});
+
+test("the router leaves the auto layout's routes, hidden edges and self-loops as they are", async () => {
+  await loadAvoid(WASM);
+  const auto: AutoLayout = {
+    nodes: new Map([
+      ["a", { x: 100, y: 50, width: 140, height: 60 }],
+      ["b", { x: 300, y: 200, width: 140, height: 60 }],
+    ]),
+    routes: new Map([
+      [0, [{ x: 240, y: 80 }, { x: 300, y: 80 }, { x: 300, y: 230 }]],
+    ]),
+    ports: new Map(),
+  };
+  const elk = rendering(
+    [node("a", "a"), node("b", "b")],
+    [{ from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab" }],
+  );
+  for (const routing of ["model", "router"] as const) {
+    const [edge] = layoutCanvas(elk, { routing }, auto).edges;
+    assert.equal(edge.rerouted, false, routing);
+    assert.deepEqual(edge.points, auto.routes.get(0), routing);
+  }
+
+  const collapsed = rendering(
+    [
+      node("a", "a", { x: 10, y: 10, collapsed: true }),
+      node("b", "b", { parent: "a" }),
+      node("c", "c", { parent: "b" }),
+      node("d", "d", { x: 200, y: 5 }),
+    ],
+    [
+      { from: "b", to: "c", label: "", kind: "connection", route: [{ x: 900, y: 900 }] },
+      { from: "c", to: "d", label: "", kind: "connection" },
+      { from: "d", to: "d", label: "", kind: "connection", route: [{ x: 700, y: 700 }] },
+    ],
+  );
+  const hidden = layoutCanvas(collapsed, { routing: "router" });
+  assert.deepEqual(hidden.edges.map((edge) => edge.hidden), [true, true, false]);
+  assert.deepEqual(hidden.edges.map((edge) => edge.rerouted), [false, false, false]);
+  // A self-loop's stated route is advisory too: the loop swings out to the right as an unrouted one does.
+  const loop = hidden.edges[2];
+  const d = hidden.nodes.get("d")!.box;
+  assert.deepEqual(loop.route, []);
+  assert.equal(loop.points.length, 4);
+  assert.ok(loop.points.slice(1, -1).every((point) => point.x > d.x + d.width));
+  assert.equal(hidden.height, 10 + 52 + MARGIN);
+});
+
+test("the router hides the waypoint handles and keeps a moved subtree's stated routes with it", async () => {
+  await loadAvoid(WASM);
+  const result = statedDiagonal();
+  const layout = layoutCanvas(result, { routing: "router" });
+  const [edge] = layout.edges;
+  assert.equal(steerable(layoutCanvas(result), layoutCanvas(result).edges[0]), true);
+  assert.equal(steerable(layout, edge), false);
+  assert.equal(movedWaypoint(layout, 0, 0, { x: 1, y: 1 }), undefined);
+
+  const nested = layoutCanvas(
+    rendering(
+      [
+        node("a", "a", { x: 0, y: 0 }),
+        node("b", "b", { parent: "a", x: 20, y: 60 }),
+        node("c", "c", { parent: "a", x: 300, y: 60 }),
+      ],
+      [{ from: "b", to: "c", label: "", kind: "connection", fqn: "M::bc", route: [{ x: 150, y: 200 }] }],
+    ),
+    { routing: "router" },
+  );
+  assert.equal(nested.edges[0].rerouted, true);
+  // The model's route, undrawn, still follows the nodes it runs between, so it is not left behind.
+  assert.deepEqual(movedNode(nested, "a", 100, 0)!.edges, [{ index: 0, route: [{ x: 250, y: 200 }] }]);
+});
+
+test("a container drag under the router writes only the model's stated routes, a self-loop's included", async () => {
+  await loadAvoid(WASM);
+  const auto: AutoLayout = {
+    nodes: new Map([
+      ["p", { x: 0, y: 0, width: 400, height: 200 }],
+      ["a", { x: 20, y: 60, width: 100, height: 40 }],
+      ["b", { x: 280, y: 60, width: 100, height: 40 }],
+    ]),
+    routes: new Map([[0, [{ x: 120, y: 80 }, { x: 200, y: 80 }, { x: 200, y: 90 }, { x: 280, y: 90 }]]]),
+    ports: new Map(),
+  };
+  const elk = rendering(
+    [node("p", "p"), node("a", "a", { parent: "p" }), node("b", "b", { parent: "p" })],
+    [{ from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab" }],
+  );
+  const underModel = layoutCanvas(elk, { routing: "model" }, auto);
+  assert.deepEqual(movedNode(underModel, "p", 10, 0)!.edges, [
+    { index: 0, route: [{ x: 210, y: 80 }, { x: 210, y: 90 }] },
+  ]);
+  const underRouter = layoutCanvas(elk, { routing: "router" }, auto);
+  assert.equal(underRouter.edges[0].rerouted, false);
+  assert.deepEqual(movedNode(underRouter, "p", 10, 0)!.edges, []);
+
+  const loop = layoutCanvas(
+    rendering(
+      [node("a", "a", { x: 20, y: 0 })],
+      [{ from: "a", to: "a", label: "", kind: "connection", fqn: "M::aa", route: [{ x: 150, y: 10 }, { x: 150, y: 30 }] }],
+    ),
+    { routing: "router" },
+  );
+  assert.equal(loop.edges[0].rerouted, false);
+  assert.deepEqual(loop.edges[0].route, []);
+  assert.deepEqual(movedNode(loop, "a", 100, 0)!.edges, [{ index: 0, route: [{ x: 250, y: 10 }, { x: 250, y: 30 }] }]);
 });

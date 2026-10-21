@@ -249,20 +249,21 @@ elmt:StateMachine__VehicleStates__off___400
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__off ;
     sysml:kind "entry" ;
     sysx:subactionKind "entry" ;
-    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__off___400___400 ;
-    sysml:memberElement elmt:StateMachine__VehicleStates__off___400___400 ;
-    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__off___400___400 ;
-    sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__off___400___400 ;
+    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__off___400__Warm ;
+    sysml:memberElement elmt:StateMachine__VehicleStates__off___400__Warm ;
+    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__off___400__Warm ;
+    sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__off___400__Warm ;
     sysx:sourceText "            entry perform Warm;\n" .
 
-elmt:StateMachine__VehicleStates__off___400___400
+elmt:StateMachine__VehicleStates__off___400__Warm
     a sysml:PerformActionUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::off::@0::@0" ;
+    sysml:name "Warm" ;
+    sysml:qualifiedName "StateMachine::VehicleStates::off::@0::Warm" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "19"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
     sysx:sourceEndColumn "32"^^xsd:integer ;
-    sysml:elementId "StateMachine__VehicleStates__off___400___400" ;
+    sysml:elementId "StateMachine__VehicleStates__off___400__Warm" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owner elmt:StateMachine__VehicleStates__off___400 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__off___400 ;
@@ -271,10 +272,10 @@ elmt:StateMachine__VehicleStates__off___400___400
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedReferenceSubsetting elmt:StateMachine__VehicleStates__off___400___400_rs ;
-    sysml:ownedSubsetting elmt:StateMachine__VehicleStates__off___400___400_rs ;
-    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__off___400___400_rs ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__off___400___400_rs .
+    sysml:ownedReferenceSubsetting elmt:StateMachine__VehicleStates__off___400__Warm_rs ;
+    sysml:ownedSubsetting elmt:StateMachine__VehicleStates__off___400__Warm_rs ;
+    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__off___400__Warm_rs ;
+    sysml:ownedRelationship elmt:StateMachine__VehicleStates__off___400__Warm_rs .
 
 elmt:StateMachine__VehicleStates__starting
     a sysml:StateUsage ;
@@ -408,20 +409,21 @@ elmt:StateMachine__VehicleStates__starting___402
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__starting ;
     sysml:kind "exit" ;
     sysx:subactionKind "exit" ;
-    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__starting___402___400 ;
-    sysml:memberElement elmt:StateMachine__VehicleStates__starting___402___400 ;
-    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__starting___402___400 ;
-    sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__starting___402___400 ;
+    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__starting___402__Warm ;
+    sysml:memberElement elmt:StateMachine__VehicleStates__starting___402__Warm ;
+    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__starting___402__Warm ;
+    sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__starting___402__Warm ;
     sysx:sourceText "            exit perform Warm;\n" .
 
-elmt:StateMachine__VehicleStates__starting___402___400
+elmt:StateMachine__VehicleStates__starting___402__Warm
     a sysml:PerformActionUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::starting::@2::@0" ;
+    sysml:name "Warm" ;
+    sysml:qualifiedName "StateMachine::VehicleStates::starting::@2::Warm" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "18"^^xsd:integer ;
     sysx:sourceEndLine "13"^^xsd:integer ;
     sysx:sourceEndColumn "31"^^xsd:integer ;
-    sysml:elementId "StateMachine__VehicleStates__starting___402___400" ;
+    sysml:elementId "StateMachine__VehicleStates__starting___402__Warm" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owner elmt:StateMachine__VehicleStates__starting___402 ;
     sysml:owningRelationship elmt:StateMachine__VehicleStates__starting___402 ;
@@ -430,10 +432,10 @@ elmt:StateMachine__VehicleStates__starting___402___400
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedReferenceSubsetting elmt:StateMachine__VehicleStates__starting___402___400_rs ;
-    sysml:ownedSubsetting elmt:StateMachine__VehicleStates__starting___402___400_rs ;
-    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__starting___402___400_rs ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__starting___402___400_rs .
+    sysml:ownedReferenceSubsetting elmt:StateMachine__VehicleStates__starting___402__Warm_rs ;
+    sysml:ownedSubsetting elmt:StateMachine__VehicleStates__starting___402__Warm_rs ;
+    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__starting___402__Warm_rs ;
+    sysml:ownedRelationship elmt:StateMachine__VehicleStates__starting___402__Warm_rs .
 
 elmt:StateMachine__VehicleStates__active
     a sysml:StateUsage ;
@@ -1833,20 +1835,21 @@ elmt:StateMachine__Nested__idle__substate___400
     sysml:membershipOwningNamespace elmt:StateMachine__Nested__idle__substate ;
     sysml:kind "entry" ;
     sysx:subactionKind "entry" ;
-    sysml:ownedRelatedElement elmt:StateMachine__Nested__idle__substate___400___400 ;
-    sysml:memberElement elmt:StateMachine__Nested__idle__substate___400___400 ;
-    sysml:ownedMemberElement elmt:StateMachine__Nested__idle__substate___400___400 ;
-    sysml:ownedMemberFeature elmt:StateMachine__Nested__idle__substate___400___400 ;
+    sysml:ownedRelatedElement elmt:StateMachine__Nested__idle__substate___400__Warm ;
+    sysml:memberElement elmt:StateMachine__Nested__idle__substate___400__Warm ;
+    sysml:ownedMemberElement elmt:StateMachine__Nested__idle__substate___400__Warm ;
+    sysml:ownedMemberFeature elmt:StateMachine__Nested__idle__substate___400__Warm ;
     sysx:sourceText "                entry perform Warm;\n" .
 
-elmt:StateMachine__Nested__idle__substate___400___400
+elmt:StateMachine__Nested__idle__substate___400__Warm
     a sysml:PerformActionUsage ;
-    sysml:qualifiedName "StateMachine::Nested::idle::substate::@0::@0" ;
+    sysml:name "Warm" ;
+    sysml:qualifiedName "StateMachine::Nested::idle::substate::@0::Warm" ;
     sysx:sourceLine "27"^^xsd:integer ;
     sysx:sourceColumn "23"^^xsd:integer ;
     sysx:sourceEndLine "27"^^xsd:integer ;
     sysx:sourceEndColumn "36"^^xsd:integer ;
-    sysml:elementId "StateMachine__Nested__idle__substate___400___400" ;
+    sysml:elementId "StateMachine__Nested__idle__substate___400__Warm" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owner elmt:StateMachine__Nested__idle__substate___400 ;
     sysml:owningRelationship elmt:StateMachine__Nested__idle__substate___400 ;
@@ -1855,10 +1858,10 @@ elmt:StateMachine__Nested__idle__substate___400___400
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedReferenceSubsetting elmt:StateMachine__Nested__idle__substate___400___400_rs ;
-    sysml:ownedSubsetting elmt:StateMachine__Nested__idle__substate___400___400_rs ;
-    sysml:ownedSpecialization elmt:StateMachine__Nested__idle__substate___400___400_rs ;
-    sysml:ownedRelationship elmt:StateMachine__Nested__idle__substate___400___400_rs .
+    sysml:ownedReferenceSubsetting elmt:StateMachine__Nested__idle__substate___400__Warm_rs ;
+    sysml:ownedSubsetting elmt:StateMachine__Nested__idle__substate___400__Warm_rs ;
+    sysml:ownedSpecialization elmt:StateMachine__Nested__idle__substate___400__Warm_rs ;
+    sysml:ownedRelationship elmt:StateMachine__Nested__idle__substate___400__Warm_rs .
 
 elmt:StateMachine__Composite
     a sysml:StateDefinition ;
@@ -2040,45 +2043,46 @@ elmt:StateMachine__Composite___404___400
     sysml:owningMembership elmt:StateMachine__Composite___404 ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:StateMachine__Composite___404___400___400 ;
-    sysml:ownedMembership elmt:StateMachine__Composite___404___400___400_om ;
-    sysml:ownedRelationship elmt:StateMachine__Composite___404___400___400_om ;
-    sysml:ownedFeature elmt:StateMachine__Composite___404___400___400 ;
-    sysml:ownedFeatureMembership elmt:StateMachine__Composite___404___400___400_om .
+    sysml:ownedMember elmt:StateMachine__Composite___404___400__Warm ;
+    sysml:ownedMembership elmt:StateMachine__Composite___404___400__Warm_om ;
+    sysml:ownedRelationship elmt:StateMachine__Composite___404___400__Warm_om ;
+    sysml:ownedFeature elmt:StateMachine__Composite___404___400__Warm ;
+    sysml:ownedFeatureMembership elmt:StateMachine__Composite___404___400__Warm_om .
 
-elmt:StateMachine__Composite___404___400___400
+elmt:StateMachine__Composite___404___400__Warm
     a sysml:PerformActionUsage ;
-    sysml:qualifiedName "StateMachine::Composite::@4::@0::@0" ;
+    sysml:name "Warm" ;
+    sysml:qualifiedName "StateMachine::Composite::@4::@0::Warm" ;
     sysx:sourceLine "37"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "37"^^xsd:integer ;
     sysx:sourceEndColumn "26"^^xsd:integer ;
-    sysml:elementId "StateMachine__Composite___404___400___400" ;
+    sysml:elementId "StateMachine__Composite___404___400__Warm" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite___404___400 ;
     sysml:owner elmt:StateMachine__Composite___404___400 ;
-    sysml:owningRelationship elmt:StateMachine__Composite___404___400___400_om ;
-    sysml:owningMembership elmt:StateMachine__Composite___404___400___400_om ;
+    sysml:owningRelationship elmt:StateMachine__Composite___404___400__Warm_om ;
+    sysml:owningMembership elmt:StateMachine__Composite___404___400__Warm_om ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedReferenceSubsetting elmt:StateMachine__Composite___404___400___400_rs ;
-    sysml:ownedSubsetting elmt:StateMachine__Composite___404___400___400_rs ;
-    sysml:ownedSpecialization elmt:StateMachine__Composite___404___400___400_rs ;
-    sysml:ownedRelationship elmt:StateMachine__Composite___404___400___400_rs ;
+    sysml:ownedReferenceSubsetting elmt:StateMachine__Composite___404___400__Warm_rs ;
+    sysml:ownedSubsetting elmt:StateMachine__Composite___404___400__Warm_rs ;
+    sysml:ownedSpecialization elmt:StateMachine__Composite___404___400__Warm_rs ;
+    sysml:ownedRelationship elmt:StateMachine__Composite___404___400__Warm_rs ;
     sysx:sourceText "            perform Warm;\n" .
 
-elmt:StateMachine__Composite___404___400___400_om
+elmt:StateMachine__Composite___404___400__Warm_om
     a sysml:FeatureMembership ;
-    sysml:elementId "StateMachine__Composite___404___400___400_om" ;
+    sysml:elementId "StateMachine__Composite___404___400__Warm_om" ;
     sysml:owner elmt:StateMachine__Composite___404___400 ;
-    sysml:memberElement elmt:StateMachine__Composite___404___400___400 ;
-    sysml:ownedMemberElement elmt:StateMachine__Composite___404___400___400 ;
-    sysml:ownedRelatedElement elmt:StateMachine__Composite___404___400___400 ;
+    sysml:memberElement elmt:StateMachine__Composite___404___400__Warm ;
+    sysml:ownedMemberElement elmt:StateMachine__Composite___404___400__Warm ;
+    sysml:ownedRelatedElement elmt:StateMachine__Composite___404___400__Warm ;
     sysml:owningRelatedElement elmt:StateMachine__Composite___404___400 ;
     sysml:membershipOwningNamespace elmt:StateMachine__Composite___404___400 ;
-    sysml:ownedMemberFeature elmt:StateMachine__Composite___404___400___400 ;
+    sysml:ownedMemberFeature elmt:StateMachine__Composite___404___400__Warm ;
     sysml:owningType elmt:StateMachine__Composite___404___400 .
 
 elmt:StateMachine__Composite__pick
@@ -2316,22 +2320,22 @@ elmt:StateMachine__Composite__primary__ready_om
     sysml:ownedMemberFeature elmt:StateMachine__Composite__primary__ready ;
     sysml:owningType elmt:StateMachine__Composite__primary .
 
-elmt:StateMachine__VehicleStates__off___400___400_rs
+elmt:StateMachine__VehicleStates__off___400__Warm_rs
     a sysml:ReferenceSubsetting ;
-    sysml:elementId "StateMachine__VehicleStates__off___400___400_rs" ;
-    sysml:referencingFeature elmt:StateMachine__VehicleStates__off___400___400 ;
-    sysml:subsettingFeature elmt:StateMachine__VehicleStates__off___400___400 ;
-    sysml:owningFeature elmt:StateMachine__VehicleStates__off___400___400 ;
-    sysml:specific elmt:StateMachine__VehicleStates__off___400___400 ;
-    sysml:source elmt:StateMachine__VehicleStates__off___400___400 ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__off___400___400 ;
+    sysml:elementId "StateMachine__VehicleStates__off___400__Warm_rs" ;
+    sysml:referencingFeature elmt:StateMachine__VehicleStates__off___400__Warm ;
+    sysml:subsettingFeature elmt:StateMachine__VehicleStates__off___400__Warm ;
+    sysml:owningFeature elmt:StateMachine__VehicleStates__off___400__Warm ;
+    sysml:specific elmt:StateMachine__VehicleStates__off___400__Warm ;
+    sysml:source elmt:StateMachine__VehicleStates__off___400__Warm ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__off___400__Warm ;
     sysml:referencedFeature elmt:StateMachine__Warm ;
     sysml:subsettedFeature elmt:StateMachine__Warm ;
     sysml:general elmt:StateMachine__Warm ;
     sysml:target elmt:StateMachine__Warm ;
-    sysml:owner elmt:StateMachine__VehicleStates__off___400___400 ;
-    sysml:relatedElement elmt:StateMachine__VehicleStates__off___400___400, elmt:StateMachine__Warm ;
-    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__off___400___400\"},{\"@id\":\"StateMachine__Warm\"}]" .
+    sysml:owner elmt:StateMachine__VehicleStates__off___400__Warm ;
+    sysml:relatedElement elmt:StateMachine__VehicleStates__off___400__Warm, elmt:StateMachine__Warm ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__off___400__Warm\"},{\"@id\":\"StateMachine__Warm\"}]" .
 
 elmt:StateMachine__VehicleStates__starting___400__ready_ft0
     a sysml:FeatureTyping ;
@@ -2363,22 +2367,22 @@ elmt:StateMachine__VehicleStates__starting___401__running_ft0
     sysml:relatedElement elmt:StateMachine__VehicleStates__starting___401__running, elmt:StateMachine__Warm ;
     json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__starting___401__running\"},{\"@id\":\"StateMachine__Warm\"}]" .
 
-elmt:StateMachine__VehicleStates__starting___402___400_rs
+elmt:StateMachine__VehicleStates__starting___402__Warm_rs
     a sysml:ReferenceSubsetting ;
-    sysml:elementId "StateMachine__VehicleStates__starting___402___400_rs" ;
-    sysml:referencingFeature elmt:StateMachine__VehicleStates__starting___402___400 ;
-    sysml:subsettingFeature elmt:StateMachine__VehicleStates__starting___402___400 ;
-    sysml:owningFeature elmt:StateMachine__VehicleStates__starting___402___400 ;
-    sysml:specific elmt:StateMachine__VehicleStates__starting___402___400 ;
-    sysml:source elmt:StateMachine__VehicleStates__starting___402___400 ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting___402___400 ;
+    sysml:elementId "StateMachine__VehicleStates__starting___402__Warm_rs" ;
+    sysml:referencingFeature elmt:StateMachine__VehicleStates__starting___402__Warm ;
+    sysml:subsettingFeature elmt:StateMachine__VehicleStates__starting___402__Warm ;
+    sysml:owningFeature elmt:StateMachine__VehicleStates__starting___402__Warm ;
+    sysml:specific elmt:StateMachine__VehicleStates__starting___402__Warm ;
+    sysml:source elmt:StateMachine__VehicleStates__starting___402__Warm ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting___402__Warm ;
     sysml:referencedFeature elmt:StateMachine__Warm ;
     sysml:subsettedFeature elmt:StateMachine__Warm ;
     sysml:general elmt:StateMachine__Warm ;
     sysml:target elmt:StateMachine__Warm ;
-    sysml:owner elmt:StateMachine__VehicleStates__starting___402___400 ;
-    sysml:relatedElement elmt:StateMachine__VehicleStates__starting___402___400, elmt:StateMachine__Warm ;
-    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__starting___402___400\"},{\"@id\":\"StateMachine__Warm\"}]" .
+    sysml:owner elmt:StateMachine__VehicleStates__starting___402__Warm ;
+    sysml:relatedElement elmt:StateMachine__VehicleStates__starting___402__Warm, elmt:StateMachine__Warm ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__starting___402__Warm\"},{\"@id\":\"StateMachine__Warm\"}]" .
 
 elmt:StateMachine__VehicleStates__active___400__monitor_ft0
     a sysml:FeatureTyping ;
@@ -2491,36 +2495,36 @@ elmt:StateMachine__VehicleStates__lane_ft0
     sysml:relatedElement elmt:StateMachine__VehicleStates__lane, elmt:StateMachine__Bus ;
     json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__lane\"},{\"@id\":\"StateMachine__Bus\"}]" .
 
-elmt:StateMachine__Nested__idle__substate___400___400_rs
+elmt:StateMachine__Nested__idle__substate___400__Warm_rs
     a sysml:ReferenceSubsetting ;
-    sysml:elementId "StateMachine__Nested__idle__substate___400___400_rs" ;
-    sysml:referencingFeature elmt:StateMachine__Nested__idle__substate___400___400 ;
-    sysml:subsettingFeature elmt:StateMachine__Nested__idle__substate___400___400 ;
-    sysml:owningFeature elmt:StateMachine__Nested__idle__substate___400___400 ;
-    sysml:specific elmt:StateMachine__Nested__idle__substate___400___400 ;
-    sysml:source elmt:StateMachine__Nested__idle__substate___400___400 ;
-    sysml:owningRelatedElement elmt:StateMachine__Nested__idle__substate___400___400 ;
+    sysml:elementId "StateMachine__Nested__idle__substate___400__Warm_rs" ;
+    sysml:referencingFeature elmt:StateMachine__Nested__idle__substate___400__Warm ;
+    sysml:subsettingFeature elmt:StateMachine__Nested__idle__substate___400__Warm ;
+    sysml:owningFeature elmt:StateMachine__Nested__idle__substate___400__Warm ;
+    sysml:specific elmt:StateMachine__Nested__idle__substate___400__Warm ;
+    sysml:source elmt:StateMachine__Nested__idle__substate___400__Warm ;
+    sysml:owningRelatedElement elmt:StateMachine__Nested__idle__substate___400__Warm ;
     sysml:referencedFeature elmt:StateMachine__Warm ;
     sysml:subsettedFeature elmt:StateMachine__Warm ;
     sysml:general elmt:StateMachine__Warm ;
     sysml:target elmt:StateMachine__Warm ;
-    sysml:owner elmt:StateMachine__Nested__idle__substate___400___400 ;
-    sysml:relatedElement elmt:StateMachine__Nested__idle__substate___400___400, elmt:StateMachine__Warm ;
-    json:relatedElement "[{\"@id\":\"StateMachine__Nested__idle__substate___400___400\"},{\"@id\":\"StateMachine__Warm\"}]" .
+    sysml:owner elmt:StateMachine__Nested__idle__substate___400__Warm ;
+    sysml:relatedElement elmt:StateMachine__Nested__idle__substate___400__Warm, elmt:StateMachine__Warm ;
+    json:relatedElement "[{\"@id\":\"StateMachine__Nested__idle__substate___400__Warm\"},{\"@id\":\"StateMachine__Warm\"}]" .
 
-elmt:StateMachine__Composite___404___400___400_rs
+elmt:StateMachine__Composite___404___400__Warm_rs
     a sysml:ReferenceSubsetting ;
-    sysml:elementId "StateMachine__Composite___404___400___400_rs" ;
-    sysml:referencingFeature elmt:StateMachine__Composite___404___400___400 ;
-    sysml:subsettingFeature elmt:StateMachine__Composite___404___400___400 ;
-    sysml:owningFeature elmt:StateMachine__Composite___404___400___400 ;
-    sysml:specific elmt:StateMachine__Composite___404___400___400 ;
-    sysml:source elmt:StateMachine__Composite___404___400___400 ;
-    sysml:owningRelatedElement elmt:StateMachine__Composite___404___400___400 ;
+    sysml:elementId "StateMachine__Composite___404___400__Warm_rs" ;
+    sysml:referencingFeature elmt:StateMachine__Composite___404___400__Warm ;
+    sysml:subsettingFeature elmt:StateMachine__Composite___404___400__Warm ;
+    sysml:owningFeature elmt:StateMachine__Composite___404___400__Warm ;
+    sysml:specific elmt:StateMachine__Composite___404___400__Warm ;
+    sysml:source elmt:StateMachine__Composite___404___400__Warm ;
+    sysml:owningRelatedElement elmt:StateMachine__Composite___404___400__Warm ;
     sysml:referencedFeature elmt:StateMachine__Warm ;
     sysml:subsettedFeature elmt:StateMachine__Warm ;
     sysml:general elmt:StateMachine__Warm ;
     sysml:target elmt:StateMachine__Warm ;
-    sysml:owner elmt:StateMachine__Composite___404___400___400 ;
-    sysml:relatedElement elmt:StateMachine__Composite___404___400___400, elmt:StateMachine__Warm ;
-    json:relatedElement "[{\"@id\":\"StateMachine__Composite___404___400___400\"},{\"@id\":\"StateMachine__Warm\"}]" .
+    sysml:owner elmt:StateMachine__Composite___404___400__Warm ;
+    sysml:relatedElement elmt:StateMachine__Composite___404___400__Warm, elmt:StateMachine__Warm ;
+    json:relatedElement "[{\"@id\":\"StateMachine__Composite___404___400__Warm\"},{\"@id\":\"StateMachine__Warm\"}]" .

@@ -303,7 +303,7 @@ func addParserAlias(aliases map[string]string, parsed, identity string) {
 // declaration itself, or the one whose expression body declares that declaration.
 func (e *encoder) memberOf(ref resolve.Reference) string {
 	if ref.Within != nil {
-		return e.qualifiedMemberName(ref.Within)
+		return e.fqn[ref.Within]
 	}
 	if member := e.triggerMembers[ref.Member]; member != "" {
 		return member
@@ -313,10 +313,10 @@ func (e *encoder) memberOf(ref resolve.Reference) string {
 	if u, ok := ref.Member.(*ast.Usage); ok && u.FlowEnds != nil && u.FlowEnds.PayloadDecl == nil &&
 		ref.QN != nil && ast.Node(ref.QN) == u.FlowEnds.Payload {
 		if payload := e.payloadOf(u); payload != nil {
-			return e.qualifiedMemberName(payload)
+			return e.fqn[payload]
 		}
 	}
-	return e.qualifiedMemberName(ref.Member)
+	return e.fqn[ref.Member]
 }
 
 func (e *encoder) memberOfCandidates(ref resolve.Reference) [][]string {
@@ -335,42 +335,14 @@ func (e *encoder) memberOfCandidates(ref resolve.Reference) [][]string {
 	return [][]string{e.memberNameCandidates(ref.Member)}
 }
 
+// memberNameCandidates are the names a graph may key a member's references by:
+// the qualified name the encoder writes, or the one a graph stating no effective names gives it.
 func (e *encoder) memberNameCandidates(node ast.Node) []string {
-	qualified, positional := e.qualifiedMemberName(node), e.fqn[node]
-	if qualified != positional {
-		return []string{qualified, positional}
-	}
-	return []string{qualified}
-}
-
-func (e *encoder) qualifiedMemberName(node ast.Node) string {
 	fqn := e.fqn[node]
-	sym := e.ids.declSym[node]
-	if sym == nil || fqn == "" {
-		return fqn
+	if positional, ok := e.positional[node]; ok {
+		return []string{fqn, positional}
 	}
-	var chain []*symbols.Symbol
-	for current := sym; current != nil; {
-		chain = append(chain, current)
-		if current.OwnerScope == nil {
-			break
-		}
-		owner := current.OwnerScope.Owner()
-		if owner == current {
-			break
-		}
-		current = owner
-	}
-	segments := identitySegments(fqn)
-	if len(segments) != len(chain) {
-		return fqn
-	}
-	for i, current := range chain {
-		if current.EffectiveName() {
-			segments[len(chain)-1-i] = identitySegment(current.Name)
-		}
-	}
-	return strings.Join(segments, "::")
+	return []string{fqn}
 }
 
 // writtenKeys indexes the wanted references by the member and the spelling
