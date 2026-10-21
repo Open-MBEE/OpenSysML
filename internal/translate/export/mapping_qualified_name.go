@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -486,14 +487,18 @@ func mappingOwnedReferenceTarget(graph *rdf.Graph, subject rdf.Term) (rdf.Term, 
 }
 
 func mappingOwnedRelationships(graph *rdf.Graph, subject rdf.Term) []rdf.Term {
-	relationships := graph.ObjectsView(subject, rdf.SysML+pOwnedRelationship)
-	if len(relationships) > 0 {
-		return relationships
+	var relationships []rdf.Term
+	seen := make(map[rdf.Term]struct{})
+	for _, property := range []string{pOwnedRelationship, "ownedRedefinition", pOwnedMembership} {
+		for _, relationship := range graph.ObjectsView(subject, rdf.SysML+property) {
+			if _, ok := seen[relationship]; ok {
+				continue
+			}
+			seen[relationship] = struct{}{}
+			relationships = append(relationships, relationship)
+		}
 	}
-	if relationships = graph.ObjectsView(subject, rdf.SysML+"ownedRedefinition"); len(relationships) > 0 {
-		return relationships
-	}
-	return graph.ObjectsView(subject, rdf.SysML+pOwnedMembership)
+	return relationships
 }
 
 func mappingRelationshipTarget(graph *rdf.Graph, relationship rdf.Term, properties ...string) (rdf.Term, bool) {
@@ -544,30 +549,19 @@ func mappingLastWrittenName(name string) string {
 	if name == "" {
 		return ""
 	}
-	quoted := false
-	last, width := -1, 0
-	for i := 0; i < len(name); i++ {
-		switch name[i] {
-		case '\'':
-			quoted = !quoted
-		case '.':
-			if !quoted {
-				last, width = i, 1
-			}
-		case ':':
-			if !quoted && i+1 < len(name) && name[i+1] == ':' {
-				last, width = i, 2
-				i++
-			}
-		}
+	endName := source.ReferenceEndNames(name)
+	if segments, ok := source.MemberPathSegments(endName); ok && len(segments) > 0 {
+		return source.Unescape(segments[len(segments)-1])
 	}
-	if last >= 0 {
-		name = name[last+width:]
+	qualified := identitySegments(name)
+	if len(qualified) == 0 {
+		return ""
 	}
-	if len(name) >= 2 && name[0] == '\'' && name[len(name)-1] == '\'' {
-		name = name[1 : len(name)-1]
+	segment := qualified[len(qualified)-1]
+	if segments, ok := source.MemberPathSegments(segment); ok && len(segments) > 0 {
+		segment = segments[len(segments)-1]
 	}
-	return name
+	return source.Unescape(identityName(segment))
 }
 
 func mappingQualifiedNameOwner(

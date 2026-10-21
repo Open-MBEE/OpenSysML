@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:fc410020fc324ea1325b4eb0349e73e92efa398682294f0ed3a077e934b1d0f3"
+        "sourceDigest": "sha256:538041fc0d56e9c56238b22b2ee021ba45262abfa4d218ff19aa3ac33c63fc86"
       }
     ],
     "inputs": [
