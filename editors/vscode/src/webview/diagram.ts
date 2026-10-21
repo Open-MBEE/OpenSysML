@@ -67,7 +67,7 @@ let layout: CanvasLayout | undefined;
 /** What ELK placed for the rendering on screen; undefined until it answers, and for kinds it does not lay out. */
 let auto: AutoLayout | undefined;
 let gesture: Gesture | undefined;
-// The router loaded mid-gesture, so the layout on screen predates it.
+// The router loaded or the routing changed mid-gesture, so the layout on screen predates it.
 let unrouted = false;
 /** How far the pointer moves before a press becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 3;
@@ -239,12 +239,16 @@ function applyStyle(chosen: DiagramStyle): void {
   remember();
 }
 
-// applyRouting picks whose routes the edges follow; the caller redraws where a drawing is up.
+// applyRouting picks whose routes the edges follow; the caller redraws where a drawing is
+// up, unless a gesture holds the screen, in which case the gesture's end does.
 function applyRouting(chosen: Routing): void {
   if (chosen === routing) {
     return;
   }
   routing = chosen;
+  if (gesture) {
+    unrouted = true;
+  }
   remember();
 }
 

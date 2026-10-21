@@ -1,0 +1,131 @@
+import assert from "node:assert/strict";
+import path from "node:path";
+import { test } from "node:test";
+
+import { JSDOM } from "jsdom";
+
+import type { FromWebview, RenderResult, ToWebview } from "../protocol";
+import { loadAvoid } from "./avoid";
+
+const WASM = path.resolve("node_modules/libavoid-js/dist/libavoid.wasm");
+
+// The panel script is loaded into the markup the extension serves it in, with the
+// extension's API faked, so the messages and gestures it answers are driven here.
+const dom = new JSDOM(
+  `<!DOCTYPE html><body data-state='{"uri":"file:///m.sysml"}'>
+    <div id="bar"><select id="view"></select><select id="style"></select><span id="kind"></span></div>
+    <div id="status"></div>
+    <div id="diagram" tabindex="-1"></div>
+    <ul id="menu" hidden role="menu"></ul>
+    <details id="notices" hidden><summary></summary><ul id="notice-list"></ul></details>
+    <details id="undrawable" hidden><summary></summary><ul id="undrawable-list"></ul></details>
+  </body>`,
+  { url: "https://webview.test/" },
+);
+const { window } = dom;
+globalThis.window = window;
+globalThis.document = window.document;
+const posted: FromWebview[] = [];
+(globalThis as { acquireVsCodeApi?: unknown }).acquireVsCodeApi = () => ({
+  postMessage: (message: FromWebview) => posted.push(message),
+  setState: () => undefined,
+  getState: () => undefined,
+});
+// jsdom captures no pointers and lays no SVG out: the panel captures one for every
+// gesture, and with no screen matrix it reads the pointer in the event's own offsets.
+window.HTMLElement.prototype.setPointerCapture = () => undefined;
+(window.SVGSVGElement.prototype as { getScreenCTM: () => DOMMatrix | null }).getScreenCTM = () => null;
+
+const diagram = window.document.getElementById("diagram")!;
+const status = window.document.getElementById("status")!;
+
+const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
+
+// Two placed parts joined by a connection whose stated route is a diagonal: under
+// `model` routing it is drawn verbatim with a waypoint handle, under `router` it
+// is routed orthogonally and the handle is hidden, so the two are told apart on screen.
+function statedDiagonal(): RenderResult {
+  return {
+    view: "M::V",
+    kind: "interconnection",
+    stated: "",
+    form: "mermaid",
+    artifact: "",
+    nodes: [
+      { id: "a", kind: "part", name: "a", type: "", detail: "", fqn: "M::a", origin, x: 0, y: 0, width: 100, height: 40 },
+      { id: "b", kind: "part", name: "b", type: "", detail: "", fqn: "M::b", origin, x: 400, y: 200, width: 100, height: 40 },
+      { id: "c", kind: "part", name: "c", type: "", detail: "", fqn: "M::c", origin, x: 180, y: -20, width: 60, height: 80 },
+    ],
+    edges: [{ from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab", route: [{ x: 250, y: 150 }] }],
+    notices: [],
+    version: 7,
+  };
+}
+
+function post(message: ToWebview): void {
+  window.dispatchEvent(new window.MessageEvent("message", { data: message, origin: window.origin }));
+}
+
+function pointer(type: string, target: Element, init: MouseEventInit = {}): void {
+  const event = new window.MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ...init });
+  Object.defineProperty(event, "pointerId", { value: 1 });
+  target.dispatchEvent(event);
+}
+
+async function settled(): Promise<void> {
+  while (status.textContent === "Laying out…") {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+function waypointHandles(): number {
+  return diagram.querySelectorAll("circle.waypoint").length;
+}
+
+function nodeElement(id: string): Element {
+  return diagram.querySelector(`g.opensysml-node[data-opensysml-id="${id}"]`)!;
+}
+
+await loadAvoid(WASM);
+await import("./diagram");
+await new Promise((resolve) => setTimeout(resolve, 0));
+
+test("a routing change during a drag is applied when the drag settles", async () => {
+  post({ type: "render", result: statedDiagonal(), selected: "M::V", drawn: 1, style: "theme", routing: "model" });
+  await settled();
+  assert.equal(waypointHandles(), 1, "model routing draws the stated waypoint's handle");
+
+  // The routing changes to the router while the pointer holds a node; the panel must
+  // not redraw under the pointer, so the routes on screen are still the model's.
+  pointer("pointerdown", nodeElement("a"), { clientX: 50, clientY: 20 });
+  assert.equal(diagram.classList.contains("dragging"), false);
+  post({ type: "routing", routing: "router" });
+  assert.equal(waypointHandles(), 1, "a drag in progress keeps the layout it started on");
+
+  // Released as a click, the routes the setting now asks for are drawn.
+  pointer("pointerup", nodeElement("a"), { clientX: 50, clientY: 20 });
+  assert.equal(waypointHandles(), 0, "the router hides the stated waypoint's handle once the drag settles");
+  assert.ok(posted.some((message) => message.type === "reveal" && message.id === "a"), "the click still reveals the node");
+});
+
+test("a routing change during a drag is applied when the drag is cancelled", async () => {
+  post({ type: "render", result: statedDiagonal(), selected: "M::V", drawn: 2, style: "theme", routing: "router" });
+  await settled();
+  assert.equal(waypointHandles(), 0);
+
+  pointer("pointerdown", nodeElement("a"), { clientX: 50, clientY: 20 });
+  post({ type: "routing", routing: "model" });
+  assert.equal(waypointHandles(), 0, "a drag in progress keeps the layout it started on");
+  window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" }));
+  assert.equal(waypointHandles(), 1, "model routing draws the stated waypoint's handle once the drag is cancelled");
+});
+
+test("a routing message during a drag that leaves the routing as it is changes nothing", async () => {
+  post({ type: "render", result: statedDiagonal(), selected: "M::V", drawn: 3, style: "theme", routing: "model" });
+  await settled();
+  const before = diagram.innerHTML;
+  pointer("pointerdown", nodeElement("a"), { clientX: 50, clientY: 20 });
+  post({ type: "routing", routing: "model" });
+  pointer("pointerup", nodeElement("a"), { clientX: 50, clientY: 20 });
+  assert.equal(diagram.innerHTML, before);
+});
