@@ -69,6 +69,12 @@ var compoundDefKinds = map[[2]string]bool{
 	{"verification", "case"}: true,
 }
 
+// isCaseKindCompound reports `analysis case` / `verification case`, parsed as
+// the first word's kind (SysML v2 8.2.2.23, 8.2.2.24) and reported as notation.
+func isCaseKindCompound(first, second string) bool {
+	return second == "case" && (first == "analysis" || first == "verification")
+}
+
 // kindPrefixKeywords are keywords that qualify a following kind keyword rather
 // than naming the declaration, even when no name follows the kind:
 // `assert constraint { ... }` is an asserted anonymous constraint, not a
@@ -240,6 +246,7 @@ type featureMods struct {
 	isOrdered     bool
 	isNonunique   bool
 	isTerminate   bool                    // `terminate` closing an action usage head: a terminate action usage
+	terminated    *ast.TerminateStatement // the occurrence a terminate action usage names, nil for its own container
 	cross         *ast.CrossFeatureMember // the cross feature declared right after `end`
 	defPrefix     lexer.Token             // first abstract/variation/individual definition prefix
 	usageOnly     lexer.Token             // first prefix keyword only a usage prefix admits (`ref`, a direction, …)
@@ -366,7 +373,9 @@ func (p *Parser) tryParseCrossFeature() *ast.CrossFeatureMember {
 	}
 	declared := cross.Ident.Name != "" || cross.Ident.ShortName != "" ||
 		len(cross.Relationships) > 0 || cross.Multiplicity != nil || cross.IsOrdered || cross.IsNonunique
-	if !declared || !p.isKindKeyword(p.peek()) {
+	// `end a_cross[1] ref a[1] : A;`: the end's own usage may be a ReferenceUsage,
+	// whose `ref` follows the EndUsagePrefix (SysML.xtext ReferenceUsage).
+	if !declared || !(p.isKindKeyword(p.peek()) || p.atKeyword("ref")) {
 		p.restore(cp)
 		// `end [2] nonunique ref e : C`: the multiplicity part alone is still the crossing one.
 		if p.at(lexer.LBracket) {
@@ -834,7 +843,9 @@ func (p *Parser) keywordlessDeclarationTailAt(off int) bool {
 	case lexer.LBracket, lexer.Semicolon, lexer.LBrace:
 		return true
 	default:
-		return beginsDeclarationTail(next, p.peekN(off+1))
+		// `orderedContent ordered :>> content;`: a MultiplicityPart is its
+		// `ordered`/`nonunique` alone when no bracketed multiplicity precedes them.
+		return isPostModifierKeyword(next) || beginsDeclarationTail(next, p.peekN(off+1))
 	}
 }
 
@@ -1330,7 +1341,7 @@ func (p *Parser) parsePostModifiers(kind ast.UsageKind) featureMods {
 				continue
 			}
 			m.isTerminate = true
-			p.skipPastTerminateMarker()
+			m.terminated = p.parseTerminatedOccurrence(t)
 			return m
 		default:
 			return m
@@ -1338,17 +1349,28 @@ func (p *Parser) parsePostModifiers(kind ast.UsageKind) featureMods {
 	}
 }
 
-// skipPastTerminateMarker diagnoses and skips whatever a terminate action usage
-// states between its `terminate` and its body: the marker takes no clause after it.
-func (p *Parser) skipPastTerminateMarker() {
+// parseTerminatedOccurrence reads the occurrence the `terminate` at kw names
+// (SysML.xtext TerminateNode's NodeParameterMember); nil when the usage
+// terminates the occurrence containing it.
+func (p *Parser) parseTerminatedOccurrence(kw lexer.Token) *ast.TerminateStatement {
 	if p.at(lexer.Semicolon) || p.at(lexer.LBrace) || p.at(lexer.RBrace) || p.atEOF() {
-		return
+		return nil
 	}
-	p.error(p.peek().Span, "'terminate' closes the declaration of a terminate action usage: only its body follows")
-	for !p.at(lexer.Semicolon) && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !p.atEOF() {
-		p.advance()
+	if !p.atUnaryExprStart() || isPostModifierKeyword(p.peek()) || p.atKeyword("terminate") {
+		p.error(p.peek().Span, msgTerminateClause)
+		for !p.at(lexer.Semicolon) && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !p.atEOF() {
+			p.advance()
+		}
+		return nil
 	}
+	ts := &ast.TerminateStatement{Target: p.ParseExpression()}
+	ts.NodeSpan = p.spanFrom(kw.Span.Offset)
+	return ts
 }
+
+// msgTerminateClause diagnoses a clause after `terminate` that is no occurrence
+// expression: the marker closes the declaration (SysML.xtext TerminateNode).
+const msgTerminateClause = "'terminate' closes the declaration of a terminate action usage: the occurrence it terminates (`terminate process`) or only its body follows"
 
 // modifierImpliedKind gives the kind an occurrence modifier declares with no kind
 // keyword after it (SysML.xtext IndividualUsage, PortionUsage, EventOccurrenceUsage).
@@ -1826,6 +1848,12 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	if p.atSecondaryKind(kw) {
 		kindKeyword = p.peek().KeywordID
 		defKind = p.definitionKindOf(kindKeyword)
+		// `analysis case` keeps the kind its first word declares and both words
+		// as the keyword written: the production spells `analysis` alone.
+		if isCaseKindCompound(kw, kindKeyword) {
+			kindKeyword = kw + " " + kindKeyword
+			defKind = p.definitionKindOf(kw)
+		}
 		p.advance() // consume secondary keyword
 	}
 
@@ -1855,6 +1883,9 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	keyword := kw
 	if kw == "assoc" && kindKeyword == "struct" {
 		keyword = "assoc struct"
+	}
+	if strings.Contains(kindKeyword, " ") {
+		keyword = kindKeyword
 	}
 	// A KerML classifier is read as a usage and classified later, but its
 	// prefix is still TypePrefix (KerML.xtext:313).
@@ -2437,8 +2468,15 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 
 	p.parseUsageValue(u)
 	p.parseTierBEnds(u, kind)
+	p.parseUsageBody(u, kind, start)
+	u.NodeSpan = p.spanFrom(start)
+	return u
+}
 
-	// Dispatch to specialized body parsers based on kind
+// parseUsageBody reads the body a usage of kind ends in, or the `;` of a
+// bodiless one, in the notation its kind declares members in; start is the
+// offset the usage's declaration began at.
+func (p *Parser) parseUsageBody(u *ast.Usage, kind ast.UsageKind, start int) {
 	var members []ast.Node
 	var hasBody bool
 	defer p.pushBodyContext(usageBodyContext(kind))()
@@ -2599,8 +2637,6 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 	// parsed, so the body members are appended rather than replacing it.
 	u.Members = append(u.Members, members...)
 	u.HasBody = hasBody
-	u.NodeSpan = p.spanFrom(start)
-	return u
 }
 
 // parseSuccessionAsUsage parses a succession stated without the `succession`
@@ -3929,6 +3965,9 @@ func (p *Parser) parseSpecializationsAfterMultiplicity(u *ast.Usage, seen *relCl
 	u.IsOrdered = u.IsOrdered || post.isOrdered
 	u.IsNonunique = u.IsNonunique || post.isNonunique
 	u.IsTerminate = u.IsTerminate || post.isTerminate
+	if post.terminated != nil {
+		u.Terminates = post.terminated
+	}
 	u.Relationships = append(u.Relationships, p.parseRelationshipsInto(p.usageDeclShape(u.Keyword), seen)...)
 }
 
@@ -4416,12 +4455,23 @@ func (p *Parser) parseFeatureEnd() (*ast.ConnectorEnd, bool) {
 				end.NodeSpan = p.spanFrom(end.NodeSpan.Offset)
 				return end, true
 			}
+		} else if p.at(lexer.LBracket) {
+			// `hub ::> mainSwitch[1]`: a written end whose multiplicity trails the
+			// feature it references, where ConnectorEnd admits none.
+			p.error(p.peek().Span, msgConnectorEndTrailingMultiplicity)
+			p.parseMultiplicity()
+			end.NodeSpan = p.spanFrom(end.NodeSpan.Offset)
+			return end, true
 		}
 		p.restore(cp)
 		return nil, false
 	}
 	return end, true
 }
+
+// msgConnectorEndTrailingMultiplicity diagnoses a multiplicity after the feature a
+// connector end references: an end's multiplicity opens it (SysML.xtext ConnectorEnd).
+const msgConnectorEndTrailingMultiplicity = "a connector end's multiplicity precedes it, before the feature it references (`[1] hub ::> mainSwitch`); nothing follows that feature"
 
 // admitsIndexedEnd reports whether a usage of the kind states the ends an
 // indexed end may be written as: the connectors that attach to features. A
