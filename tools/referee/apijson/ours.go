@@ -43,52 +43,15 @@ type oursExport struct {
 // the documents whose ids collide, which are converted alone; see the project record.
 func exportOurs(dir string, files []string, skip map[string]bool) (*oursExport, error) {
 	result := &oursExport{Unkeyed: make(map[string]int)}
-	documents := make([]export.ModelDocument, 0, len(files))
-	for _, rel := range files {
-		if skip[rel] {
-			result.Skipped++
-			continue
-		}
-		// #nosec G304 -- the corpus root to compare is named on the command line.
-		content, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
-		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", rel, err)
-		}
-		file := source.New(rel, content)
-		p := parser.New(file)
-		root := p.ParseFile()
-		if len(p.Diagnostics) > 0 {
-			result.Refused++
-			continue
-		}
-		documents = append(documents, export.ModelDocument{File: file, Root: root})
+	documents, err := result.parseDocuments(dir, files, skip)
+	if err != nil {
+		return nil, err
 	}
 	if len(documents) == 0 {
 		return result, nil
 	}
-	alone := make([][]map[string]any, len(documents))
-	declaring := make(map[string][]int)
-	for i, document := range documents {
-		raw, err := convertOurs([]export.ModelDocument{document})
-		if err != nil {
-			result.Unconvertible++
-			continue
-		}
-		alone[i] = raw
-		for _, el := range raw {
-			if id, ok := el["@id"].(string); ok {
-				declaring[id] = append(declaring[id], i)
-			}
-		}
-	}
-	colliding := make([]bool, len(documents))
-	for _, indexes := range declaring {
-		if len(indexes) > 1 {
-			for _, i := range indexes {
-				colliding[i] = true
-			}
-		}
-	}
+	alone := result.convertAlone(documents)
+	colliding := collidingIDs(alone)
 	var shared []export.ModelDocument
 	for i, document := range documents {
 		switch {
@@ -114,6 +77,69 @@ func exportOurs(dir string, files []string, skip map[string]bool) (*oursExport, 
 	}
 	result.Elements, result.Duplicates, result.Ambiguous, result.Shared = dropAmbiguous(result.Elements)
 	return result, nil
+}
+
+// parseDocuments reads and parses the root's files, counting the skipped ones
+// and those the parser refuses.
+func (r *oursExport) parseDocuments(dir string, files []string, skip map[string]bool) ([]export.ModelDocument, error) {
+	documents := make([]export.ModelDocument, 0, len(files))
+	for _, rel := range files {
+		if skip[rel] {
+			r.Skipped++
+			continue
+		}
+		// #nosec G304 -- the corpus root to compare is named on the command line.
+		content, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", rel, err)
+		}
+		file := source.New(rel, content)
+		p := parser.New(file)
+		root := p.ParseFile()
+		if len(p.Diagnostics) > 0 {
+			r.Refused++
+			continue
+		}
+		documents = append(documents, export.ModelDocument{File: file, Root: root})
+	}
+	return documents, nil
+}
+
+// convertAlone converts each document by itself, counting the unconvertible
+// ones, whose entry stays nil.
+func (r *oursExport) convertAlone(documents []export.ModelDocument) [][]map[string]any {
+	alone := make([][]map[string]any, len(documents))
+	for i, document := range documents {
+		raw, err := convertOurs([]export.ModelDocument{document})
+		if err != nil {
+			r.Unconvertible++
+			continue
+		}
+		alone[i] = raw
+	}
+	return alone
+}
+
+// collidingIDs marks the documents whose elements declare an id another
+// document declares too.
+func collidingIDs(alone [][]map[string]any) []bool {
+	declaring := make(map[string][]int)
+	for i, raw := range alone {
+		for _, el := range raw {
+			if id, ok := el["@id"].(string); ok {
+				declaring[id] = append(declaring[id], i)
+			}
+		}
+	}
+	colliding := make([]bool, len(alone))
+	for _, indexes := range declaring {
+		if len(indexes) > 1 {
+			for _, i := range indexes {
+				colliding[i] = true
+			}
+		}
+	}
+	return colliding
 }
 
 // key adds the writer's elements of one conversion, keyed.
