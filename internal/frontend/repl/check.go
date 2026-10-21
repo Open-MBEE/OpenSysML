@@ -220,6 +220,17 @@ func (s *Session) solveQueriesWith(name string, pins pinner) ([]*solve.Query, []
 		q, qerr := solve.SatisfactionWith(target.ctx, a, fixed)
 		return oneQuery(name, q, unfixed, qerr)
 	}
+	// A part or definition states the conjunction of every assertion about its
+	// objects, the way validating one of them checks it.
+	if runtime.RequireObject(target.sym) == nil {
+		if pins == nil {
+			// With no object to read, the values its own features declare are
+			// what distinguishes a configuration from the family it specializes.
+			fixed, unfixed = solve.FixedFor(target.ctx, solve.Fixing{Element: target.sym, Owner: owningElement(target.sym)})
+		}
+		q, err := solve.AssertedWith(target.ctx, target.sym, target.scope, fixed)
+		return oneQuery(name, q, unfixed, err)
+	}
 	return s.satisfactionQueries(name, target, pins)
 }
 

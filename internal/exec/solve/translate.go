@@ -142,6 +142,57 @@ func SatisfactionViolation(ctx *runtime.Context, assertion *runtime.SatisfyAsser
 	return TranslateWith(ctx, subject, ctx.ConditionsOf(assertion.Symbol, assertion.Symbol.OwnerScope), pins)
 }
 
+// Asserted translates every assertion a part or definition states about its
+// objects — asserted constraints, carried requirements and satisfactions, owned
+// and inherited — as one conjunction: the collection validating one of its
+// objects checks, so what the solver permits is what validation would accept.
+func Asserted(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope) (*Query, error) {
+	return AssertedWith(ctx, sym, scope, nil)
+}
+
+// AssertedWith translates what a part or definition asserts with values already
+// fixed. With no pins it is Asserted.
+func AssertedWith(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope, pins []Pin) (*Query, error) {
+	if err := runtime.RequireObject(sym); err != nil {
+		return nil, err
+	}
+	if ctx == nil {
+		return nil, fmt.Errorf("solve: no runtime context")
+	}
+	assertions := ctx.AssertionsOf(sym, scope)
+	if len(assertions) == 0 {
+		return nil, fmt.Errorf("%s %s: %w", sym.Notation(), sym.Name, ErrNothingAsserted)
+	}
+	var conds []runtime.Condition
+	for _, a := range assertions {
+		group, negated, err := assertedConditions(ctx, a)
+		if err != nil {
+			return nil, err
+		}
+		// An assertion stating no condition is an empty conjunction, which holds;
+		// each other is one conjunct, denied as a whole by `assert not`.
+		if len(group) == 0 {
+			continue
+		}
+		conds = append(conds, runtime.Condition{Group: group, Negated: negated, Required: true})
+	}
+	subject := Subject{Kind: sym.Notation(), Name: sym.Name, Symbol: sym}
+	return TranslateWith(ctx, subject, conds, pins)
+}
+
+// assertedConditions are the conditions one assertion states, read as the
+// evaluator reads them: a satisfaction's through the requirement it names.
+func assertedConditions(ctx *runtime.Context, a runtime.Asserted) ([]runtime.Condition, bool, error) {
+	if a.Kind != runtime.AssertionSatisfaction {
+		return ctx.ConditionsOf(a.Symbol, a.Scope), runtime.NegatedDecl(a.Symbol), nil
+	}
+	sa, err := ctx.SatisfyAssertionOf(a.Symbol)
+	if err != nil {
+		return nil, false, err
+	}
+	return ctx.ConditionsOf(sa.Symbol, sa.Symbol.OwnerScope), sa.Negated, nil
+}
+
 // TranslateWith builds a query whose pinned features are asserted equal to the
 // values given, leaving the rest free. A value that cannot be fixed refuses, as
 // an untranslatable condition does; a value no condition reads is reported in

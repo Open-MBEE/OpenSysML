@@ -174,10 +174,32 @@ func conflictingFixed(q *solve.Query, core *solve.Core) []string {
 			}
 		}
 	}
-	if len(conflicting) == 0 {
-		return []string{"  No fixed value is part of the conflict: the conditions conflict among themselves."}
+	lines := []string{"  No fixed value is part of the conflict: the conditions conflict among themselves."}
+	if len(conflicting) > 0 {
+		lines = []string{fmt.Sprintf("  In the conflict: %s", strings.Join(conflicting, ", "))}
 	}
-	return []string{fmt.Sprintf("  In the conflict: %s", strings.Join(conflicting, ", "))}
+	return append(lines, conflictingConditions(core)...)
+}
+
+// conflictingConditions names the conditions taking part in a conflict, each by
+// the element that declared it and where, so a selection a family refuses is
+// traced to the assertion refusing it.
+func conflictingConditions(core *solve.Core) []string {
+	var lines []string
+	for _, m := range core.Members {
+		if m.From.Role != solve.RoleRequired && m.From.Role != solve.RoleAssumed {
+			continue
+		}
+		line := fmt.Sprintf("  Against: %s %s", m.From.Role, m.From.Condition)
+		if m.From.Declared != nil && m.From.Declared.Name != "" {
+			line += " of " + notationName(m.From.Declared.Name)
+		}
+		if m.From.Location != "" {
+			line += " at " + m.From.Location
+		}
+		lines = append(lines, line)
+	}
+	return lines
 }
 
 // fixedLines lists the values a query fixed, and where each came from.
@@ -361,7 +383,11 @@ func (r configureRequest) ask(name string) analysis.Asking {
 			}
 			return solver.Configurations(ctx, q, r.limit)
 		}
-		return solver.Solve(ctx, q)
+		result, err := solver.Solve(ctx, q)
+		if err != nil || result.Status != solve.StatusUnsat || q.Rounded() || !q.Fixes() {
+			return result, err
+		}
+		return withConflict(solver, ctx, q, result), nil
 	}
 }
 
@@ -517,6 +543,7 @@ func configurationReport(name string, q *solve.Query, result *solve.Result) Solv
 	switch result.Status {
 	case solve.StatusSat:
 		lines := []string{fmt.Sprintf("✓ %s permits a selection of variants (%s)", subject, solveDetail(result))}
+		lines = append(lines, fixedLines(q)...)
 		lines = append(lines, selectionLines(selectionOf(result.Model, q.Variations()))...)
 		lines = append(lines, fmt.Sprintf("  One witness: use %%configure %s all for every consistent selection.", name))
 		return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver, Lines: lines}
@@ -527,9 +554,14 @@ func configurationReport(name string, q *solve.Query, result *solve.Result) Solv
 				"  " + roundedUnsat,
 			}}
 		}
-		return SolveReport{Subject: name, Status: SolveUnsat, Solver: result.Solver, Lines: []string{
-			fmt.Sprintf("✗ %s permits no selection of variants (%s)", subject, solveDetail(result)),
-		}}
+		lines := []string{fmt.Sprintf("✗ %s permits no selection of variants (%s)", subject, solveDetail(result))}
+		if q.Fixes() {
+			lines[0] = fmt.Sprintf("✗ %s permits no selection of variants consistent with the %s it fixes (%s)",
+				subject, plural(len(q.Pinned), "value", "values"), solveDetail(result))
+			lines = append(lines, fixedLines(q)...)
+			lines = append(lines, conflictingFixed(q, result.Core)...)
+		}
+		return SolveReport{Subject: name, Status: SolveUnsat, Solver: result.Solver, Lines: lines}
 	default:
 		lines := []string{fmt.Sprintf("? whether %s permits a selection of variants is undecided (%s)",
 			subject, solveDetail(result))}
