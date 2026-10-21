@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// A library usage's implied generals — the base definition its kind implies and
-// the base usage it subsets — are recorded with its facts, so every model reads
-// them from the record instead of deriving them again over the library.
+// A library usage's record carries the generals its kind implies (base definition
+// and base usage), so every model reads them instead of deriving them again.
 func TestLibraryImpliedGeneralsAreRecordedWithTheDefinition(t *testing.T) {
 	ws := NewWorkspace()
 	m := semantics.NewModel(resolve.New(ws.index))
