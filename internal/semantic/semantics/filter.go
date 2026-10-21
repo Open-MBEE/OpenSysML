@@ -851,7 +851,7 @@ func (m *Model) metaclassFeatureValue(cand *symbols.Symbol, p *symbols.FilterPre
 			Span:   p.Span,
 		}
 	}
-	if !m.metaclassConforms(cand, p.TypeFQN) {
+	if !m.metaclassConformsTo(cand, m.predicateType(p), p.TypeFQN) {
 		return emptyValue(), nil // not an instance of that metaclass: nothing to read
 	}
 	if v, ok := m.reflectiveFeatureValue(cand, p.Feature); ok {
@@ -922,18 +922,24 @@ func (m *Model) annotatedByType(cand, typ *symbols.Symbol, typeFQN string) bool 
 			return true
 		}
 	}
-	return m.metaclassConforms(cand, typeFQN)
+	return m.metaclassConformsTo(cand, typ, typeFQN)
 }
 
 // metaclassConforms reports whether the candidate's own metaclass — the KerML
 // metaclass of the declaration, `SysML::PartUsage` for a part usage — conforms to
 // the named type: the reflective metaobject among the element's metadata.
 func (m *Model) metaclassConforms(cand *symbols.Symbol, typeFQN string) bool {
+	return m.metaclassConformsTo(cand, m.typeByFQN(typeFQN), typeFQN)
+}
+
+// metaclassConformsTo is metaclassConforms against the element the name already
+// resolved to, so a compiled condition is not re-resolved per candidate.
+func (m *Model) metaclassConformsTo(cand, typ *symbols.Symbol, typeFQN string) bool {
 	meta := m.metaclassOf(cand)
 	if meta == nil {
 		return false
 	}
-	if typ := m.typeByFQN(typeFQN); typ != nil {
+	if typ != nil {
 		return m.Conforms(meta, typ) || m.conformsByName(meta, typeFQN)
 	}
 	// The metaclass library is not loaded, so conformance can only be judged on
