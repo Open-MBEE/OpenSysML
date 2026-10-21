@@ -153,6 +153,25 @@ test("autoLayout leaves a routed edge and a self-loop alone", async () => {
   assert.equal(laid.routes.has(2), false);
 });
 
+test("autoLayout with free ignores the model's placements and routes an edge the model routed", async () => {
+  const drawing = rendering(
+    [node("a", "a", { x: 1000, y: 1000 }), node("b", "b", { x: 10, y: 10 }), node("c", "c")],
+    [
+      { from: "a", to: "b", label: "", kind: "connection", route: [{ x: 5000, y: 5000 }] },
+      { from: "b", to: "c", label: "", kind: "connection" },
+    ],
+  );
+  const held = (await autoLayout(drawing))!;
+  const free = (await autoLayout(drawing, { free: true }))!;
+  // Held to the model, a moves to its stated place and its routed edge is left alone.
+  assert.deepEqual([held.nodes.get("a")!.x, held.nodes.get("a")!.y], [1000, 1000]);
+  assert.equal(held.routes.has(0), false);
+  // Free of it, a is laid out with the others and every edge has ELK's route.
+  assert.ok(free.nodes.get("a")!.x < 1000 && free.nodes.get("a")!.y < 1000);
+  assert.ok(free.routes.has(0) && free.routes.has(1));
+  assert.ok(free.nodes.get("a")!.y < free.nodes.get("b")!.y && free.nodes.get("b")!.y < free.nodes.get("c")!.y);
+});
+
 test("autoLayout declines a kind with no canvas and a rendering over the limit", async () => {
   assert.equal(await autoLayout(rendering([node("a", "a")], [], { kind: "sequence" })), undefined);
   const many = Array.from({ length: AUTO_LAYOUT_LIMIT + 1 }, (_, i) => node(`n${i}`, `n${i}`));

@@ -106,8 +106,10 @@ export function liftNode(svg: SVGSVGElement, layout: CanvasLayout, id: string, d
   }
   const width = right - layout.origin.x;
   const height = bottom - layout.origin.y;
-  svg.setAttribute("width", String(width));
-  svg.setAttribute("height", String(height));
+  // The canvas is drawn at its viewBox's size times the zoom; growing keeps that zoom.
+  const zoom = Number(svg.getAttribute("width")) / layout.width || 1;
+  svg.setAttribute("width", String(width * zoom));
+  svg.setAttribute("height", String(height * zoom));
   svg.setAttribute("viewBox", `${layout.origin.x} ${layout.origin.y} ${width} ${height}`);
 }
 
