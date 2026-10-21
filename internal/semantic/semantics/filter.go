@@ -985,24 +985,28 @@ func (m *Model) conformsByName(sym *symbols.Symbol, typeFQN string) bool {
 	if sym == nil || typeFQN == "" {
 		return false
 	}
-	// The one element registered under the name is compared by identity; a
-	// name no or several elements carry falls back to the names themselves.
-	if target := m.symbolByFQN(typeFQN); target != nil {
-		if symbols.SameElement(sym, target) {
+	if m.resolver == nil || m.resolver.Index() == nil {
+		if sym.Name == typeFQN {
 			return true
 		}
 		for _, sup := range m.AllSupertypes(sym) {
-			if symbols.SameElement(sup, target) {
+			if sup.Name == typeFQN {
 				return true
 			}
 		}
 		return false
 	}
-	if m.fqnOf(sym) == typeFQN {
+	// The names are compared segment by segment against the owner chain, so
+	// no qualified name is built for the candidate or any supertype.
+	parent, leaf := "", typeFQN
+	if i := strings.LastIndex(typeFQN, "::"); i >= 0 {
+		parent, leaf = typeFQN[:i], typeFQN[i+2:]
+	}
+	if symbols.FQNIs(sym, parent, leaf) {
 		return true
 	}
 	for _, sup := range m.AllSupertypes(sym) {
-		if m.fqnOf(sup) == typeFQN {
+		if symbols.FQNIs(sup, parent, leaf) {
 			return true
 		}
 	}

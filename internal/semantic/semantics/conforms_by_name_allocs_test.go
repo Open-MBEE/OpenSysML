@@ -7,8 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// A conformance check against a named type compares the candidate and its
-// memoized supertypes to the element registered under the name: no names are built.
+// A conformance check against a named type compares the candidate's and its
+// memoized supertypes' owner chains to the name: no qualified name is built.
 func TestConformsByNameDoesNotBuildNames(t *testing.T) {
 	idx := symbols.NewIndex()
 	addTestDoc(t, idx, "d.sysml", `package T {
@@ -26,7 +26,7 @@ func TestConformsByNameDoesNotBuildNames(t *testing.T) {
 	cases := []struct {
 		fqn  string
 		want bool
-	}{{"T::Base", true}, {"T::Mid", true}, {"T::Leaf", true}, {"T::Other", false}}
+	}{{"T::Base", true}, {"T::Mid", true}, {"T::Leaf", true}, {"T::Other", false}, {"T::Absent", false}, {"Base", false}}
 	for _, c := range cases {
 		if got := m.conformsByName(leaf, c.fqn); got != c.want {
 			t.Fatalf("conformsByName(Leaf, %s) = %v, want %v", c.fqn, got, c.want)
@@ -34,9 +34,5 @@ func TestConformsByNameDoesNotBuildNames(t *testing.T) {
 		if allocs := testing.AllocsPerRun(20, func() { m.conformsByName(leaf, c.fqn) }); allocs != 0 {
 			t.Errorf("a repeated conformsByName(Leaf, %s) allocates %.0f objects, want 0", c.fqn, allocs)
 		}
-	}
-	// A name nothing is registered under is compared by name, and conforms to nothing here.
-	if m.conformsByName(leaf, "T::Absent") {
-		t.Error("Leaf conforms to the unregistered T::Absent")
 	}
 }
