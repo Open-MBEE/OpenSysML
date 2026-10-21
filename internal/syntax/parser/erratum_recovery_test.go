@@ -180,9 +180,8 @@ func TestParameterListRecoveryKeepsTheNextMember(t *testing.T) {
 	}
 }
 
-// An unclosed list ends at its declaration's terminator even when a later
-// declaration carries a balanced list of its own: that list is matched to its
-// own `(`, so the later declaration stays a member.
+// An unclosed list ends at its terminator even when a later declaration
+// carries its own balanced list: that list closes its own `(`, not ours.
 func TestUnclosedParameterListStopsAtItsTerminator(t *testing.T) {
 	for _, tc := range []struct{ name, code string }{
 		{"bodiless.kerml", "package P { behavior B(x; behavior C(y); feature after; }"},
