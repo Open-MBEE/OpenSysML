@@ -14,16 +14,6 @@ type qualifiedNameCountingStructure struct {
 	owningRelationships map[ElementKey]int
 }
 
-type qualifiedNameEffectiveStructure struct {
-	Structure
-	effectiveNames map[ElementKey]string
-}
-
-func (s qualifiedNameEffectiveStructure) EffectiveName(element Element) (string, bool) {
-	name, ok := s.effectiveNames[element.Key()]
-	return name, ok
-}
-
 func (s *qualifiedNameCountingStructure) OwnedRelationships(element Element) ([]Element, bool) {
 	s.mu.Lock()
 	s.ownedRelationships[element.Key()]++
@@ -79,33 +69,5 @@ func TestStructureQualifiedNameMemoizesNamespaceAndOwner(t *testing.T) {
 	}
 	if calls := counting.calls(counting.owningRelationships, namespace); calls != 1 {
 		t.Errorf("namespace owner queried %d times; want one memoized owner qualifiedName", calls)
-	}
-}
-
-func TestStructureQualifiedNameEffectiveNameUsesNearestBaseOwner(t *testing.T) {
-	evaluator, root := newTestEvaluator(t, "qualified-name-effective-owner.sysml", `package P {}`)
-	pkg := testSymbol(t, root, "P")
-	first := Element{Aspect: "first-repeated"}
-	second := Element{Aspect: "second-repeated"}
-	structure := testDocumentStructure(evaluator, root, pkg)
-	namespace := ElementOf(pkg)
-	addTestOwnedMembership(&structure, namespace, first, "PartDefinition")
-	addTestOwnedMembership(&structure, namespace, second, "PartDefinition")
-	structure.attributes[testRelatedKey{element: first.Key(), property: "declaredName"}] = stringValue("Repeated")
-	structure.attributes[testRelatedKey{element: second.Key(), property: "declaredName"}] = stringValue("Repeated")
-	evaluator.options.Structure = qualifiedNameEffectiveStructure{
-		Structure: structure,
-		effectiveNames: map[ElementKey]string{
-			second.Key(): "kind",
-		},
-	}
-
-	got := testProperty(t, evaluator, second, "Element", "qualifiedName")
-	if got.Kind != StringValue || got.String != "P::kind" {
-		t.Fatalf("effective Element::qualifiedName = %#v; want %q", got, "P::kind")
-	}
-	base, handled, ok := evaluator.structureQualifiedNameBase(second, make(map[ElementKey]bool))
-	if !handled || !ok || base.Kind != NullValue {
-		t.Fatalf("base qualifiedName = %#v, %t, %t; want null", base, handled, ok)
 	}
 }

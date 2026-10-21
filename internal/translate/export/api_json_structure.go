@@ -239,6 +239,14 @@ func (s *apiJSONGraphStructure) Metaclass(element metamodel.Element) (string, bo
 	return s.metaclass(subject)
 }
 
+func (s *apiJSONGraphStructure) DerivedName(element metamodel.Element) (string, bool) {
+	subject, ok := s.subject(element)
+	if !ok {
+		return "", false
+	}
+	return s.graph.Lexical(subject, rdf.SysML+"name")
+}
+
 func (*apiJSONGraphStructure) Specializes(sub, super string) bool {
 	return ontology.IsAncestorOrSelf(sub, super)
 }
@@ -556,12 +564,4 @@ func (s *apiJSONGraphStructure) QualifiedName(element metamodel.Element) (string
 		return "", false
 	}
 	return s.graph.Lexical(subject, rdf.SysML+pQualifiedName)
-}
-
-func (s *apiJSONGraphStructure) EffectiveName(element metamodel.Element) (string, bool) {
-	subject, ok := s.subject(element)
-	if !ok || !s.graph.BoolValue(subject, rdf.OpenSysML+"isKindImplicit") {
-		return "", false
-	}
-	return "kind", true
 }

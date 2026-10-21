@@ -157,11 +157,6 @@ type QualifiedNameStructure interface {
 	QualifiedName(Element) (string, bool)
 }
 
-// EffectiveNameStructure supplies names implied by graph-level semantic facts.
-type EffectiveNameStructure interface {
-	EffectiveName(Element) (string, bool)
-}
-
 // Options supplies graph-stated structure used by the evaluator. When Structure
 // is nil, the evaluator serves properties derivable from the semantic model.
 type Options struct {

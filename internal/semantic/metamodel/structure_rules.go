@@ -26,6 +26,10 @@ type statedRelatedElementsStructure interface {
 	StatedRelatedElements(Element, string) ([]Element, bool)
 }
 
+type derivedNameStructure interface {
+	DerivedName(Element) (string, bool)
+}
+
 func (e *Evaluator) hasUnresolvedRelatedElement(element Element, property string) bool {
 	structure, ok := e.options.Structure.(unresolvedRelatedElementStructure)
 	return ok && structure.HasUnresolvedRelatedElement(element, property)
@@ -2049,8 +2053,8 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 			return nullValue(), true, true
 		}
 		if property == "name" {
-			if structure, ok := e.options.Structure.(EffectiveNameStructure); ok {
-				if name, ok := structure.EffectiveName(element); ok && name != "" {
+			if structure, ok := e.options.Structure.(derivedNameStructure); ok {
+				if name, present := structure.DerivedName(element); present && name != "" {
 					return stringValue(name), true, true
 				}
 			}
@@ -2064,6 +2068,22 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 		}
 		if value, handled, ok := e.structureUnmaterializedEndName(element, property); handled {
 			return value, true, ok
+		}
+		if element.Symbol == nil && !element.IsMembership &&
+			(property == "name" || property == "shortName") {
+			if target, handled, ok := e.structureNamingFeature(element); handled {
+				if !ok {
+					e.recordUnsupportedReason(element, "Element", property, Reason{
+						Category: ReasonIncompleteStructure,
+						Detail:   "unnamed feature's naming feature is unavailable",
+					})
+					return Value{}, true, false
+				}
+				if target.Symbol != nil || target.Node != nil || target.IsMembership || target.Aspect != "" {
+					return e.structureNameWithSeen(target, effectiveProperty, seen)
+				}
+				return nullValue(), true, true
+			}
 		}
 	}
 	if element.Symbol != nil && !element.IsMembership {
@@ -2454,7 +2474,45 @@ func astDeclaredNames(node ast.Node) (string, string, bool) {
 func (e *Evaluator) structureNamingFeature(element Element) (Element, bool, bool) {
 	symbol := element.Symbol
 	if symbol == nil || e.model == nil {
-		return Element{}, true, false
+		if e.options.Structure == nil {
+			return Element{}, true, false
+		}
+		isFeature, known := e.isMetaclass(element, "Feature")
+		if !known {
+			return Element{}, true, false
+		}
+		if !isFeature {
+			return Element{}, false, false
+		}
+		if target, handled, ok := e.structureReferenceNamingFeature(element); handled {
+			if !ok {
+				return Element{}, true, false
+			}
+			return target, true, true
+		}
+		redefinitions, handled, ok := e.structureOwnedFilter(element, "Redefinition", false)
+		if !handled || !ok {
+			return Element{}, true, false
+		}
+		if len(redefinitions.Values) == 0 {
+			return Element{}, false, true
+		}
+		redefinition := redefinitions.Values[0]
+		if redefinition.Kind != ElementValue {
+			return Element{}, true, false
+		}
+		targets, ok := e.relationshipEndpoints(redefinition.Element, "redefinedFeature")
+		if !ok || len(targets) == 0 || targets[0].Kind != ElementValue {
+			return Element{}, true, false
+		}
+		isFeatureChain, known := e.isMetaclass(targets[0].Element, "FeatureChainExpression")
+		if !known {
+			return Element{}, true, false
+		}
+		if isFeatureChain {
+			return Element{}, true, true
+		}
+		return targets[0].Element, true, true
 	}
 	isPerformAction, known := e.isMetaclass(element, "PerformActionUsage")
 	if !known {
@@ -2633,6 +2691,88 @@ func (e *Evaluator) structureNamingFeature(element Element) (Element, bool, bool
 	default:
 		return Element{}, true, true
 	}
+}
+
+func (e *Evaluator) structureReferenceNamingFeature(element Element) (Element, bool, bool) {
+	for _, metaclass := range []string{
+		"PerformActionUsage", "ExhibitStateUsage", "IncludeUseCaseUsage",
+		"RenderingUsage",
+	} {
+		named, known := e.isMetaclass(element, metaclass)
+		if !known {
+			return Element{}, true, false
+		}
+		if named {
+			target, handled, ok := e.structureReferencedFeature(element)
+			if !handled || !ok {
+				return Element{}, true, false
+			}
+			return e.structureReferenceNamingTarget(target)
+		}
+	}
+
+	membership, handled, ok := e.structureOwningMembership(element)
+	if !handled || !ok {
+		return Element{}, true, false
+	}
+	membershipClass := ""
+	switch membership.Kind {
+	case ElementValue:
+		membershipClass, ok = e.options.Structure.Metaclass(membership.Element)
+		if !ok {
+			return Element{}, true, false
+		}
+	case MembershipValue:
+		membershipClass = membership.Membership.Metaclass()
+		if membershipClass == "" {
+			membershipClass, ok = e.options.Structure.Metaclass(MembershipElement(membership.Membership))
+			if !ok {
+				return Element{}, true, false
+			}
+		}
+	case NullValue:
+		membershipClass = element.Membership.Metaclass()
+	default:
+		return Element{}, true, false
+	}
+	switch membershipClass {
+	case "FramedConcernMembership", "RequirementConstraintMembership",
+		"RequirementVerificationMembership", "StateSubactionMembership", "VariantMembership",
+		"ViewRenderingMembership":
+		target, handled, ok := e.structureReferencedFeature(element)
+		if !handled || !ok {
+			return Element{}, true, false
+		}
+		return e.structureReferenceNamingTarget(target)
+	default:
+		return Element{}, false, true
+	}
+}
+
+func (e *Evaluator) structureReferenceNamingTarget(target Element) (Element, bool, bool) {
+	isChain, known := e.isMetaclass(target, "FeatureChainExpression")
+	if !known {
+		return Element{}, true, false
+	}
+	if !isChain {
+		return target, true, true
+	}
+	chains, handled, ok := e.structureOwnedFilter(target, "FeatureChaining", false)
+	if !handled || !ok {
+		return Element{}, true, false
+	}
+	if len(chains.Values) == 0 {
+		return Element{}, true, true
+	}
+	last := chains.Values[len(chains.Values)-1]
+	if last.Kind != ElementValue {
+		return Element{}, true, false
+	}
+	features, ok := e.relationshipEndpoints(last.Element, "chainingFeature")
+	if !ok || len(features) == 0 || features[len(features)-1].Kind != ElementValue {
+		return Element{}, true, false
+	}
+	return features[len(features)-1].Element, true, true
 }
 
 func (e *Evaluator) structurePayloadFeatureNamingTarget() (Element, bool) {
@@ -2933,7 +3073,7 @@ func (e *Evaluator) structureQualifiedName(element Element, seen map[ElementKey]
 	if known {
 		return cloneValue(cached.value), cached.handled, cached.ok
 	}
-	value, handled, ok := e.deriveStructureQualifiedName(element, seen)
+	value, handled, ok := e.structureQualifiedNameBase(element, seen)
 	if !handled {
 		return value, false, ok
 	}
@@ -2950,45 +3090,6 @@ func (e *Evaluator) structureQualifiedName(element Element, seen map[ElementKey]
 	}
 	e.mu.Unlock()
 	return value, handled, ok
-}
-
-func (e *Evaluator) deriveStructureQualifiedName(element Element, seen map[ElementKey]bool) (Value, bool, bool) {
-	if structure, available := e.options.Structure.(EffectiveNameStructure); available {
-		if effectiveName, known := structure.EffectiveName(element); known && effectiveName != "" {
-			if ownerName, found := e.structureQualifiedNameEffectiveOwner(element, seen); found {
-				return stringValue(ownerName + "::" + identity.EscapeName(effectiveName)), true, true
-			}
-		}
-	}
-	return e.structureQualifiedNameBase(element, seen)
-}
-
-func (e *Evaluator) structureQualifiedNameEffectiveOwner(
-	element Element,
-	seen map[ElementKey]bool,
-) (string, bool) {
-	owner, handled, ok := e.structureOwner(element)
-	if !handled || !ok {
-		return "", false
-	}
-	seenOwners := make(map[ElementKey]bool)
-	for owner.Kind == ElementValue {
-		current := owner.Element
-		key := current.Key()
-		if seenOwners[key] {
-			return "", false
-		}
-		seenOwners[key] = true
-		qualifiedName, handled, ok := e.structureQualifiedNameBase(current, seen)
-		if handled && ok && qualifiedName.Kind == StringValue && qualifiedName.String != "" {
-			return qualifiedName.String, true
-		}
-		owner, handled, ok = e.structureOwner(current)
-		if !handled || !ok {
-			return "", false
-		}
-	}
-	return "", false
 }
 
 func (e *Evaluator) structureQualifiedNameBase(element Element, seen map[ElementKey]bool) (Value, bool, bool) {
@@ -3034,15 +3135,7 @@ func (e *Evaluator) deriveStructureQualifiedNameBase(element Element, seen map[E
 		}
 	}
 	var name Value
-	handled, ok := false, false
-	if structure, available := e.options.Structure.(EffectiveNameStructure); available {
-		if effectiveName, known := structure.EffectiveName(element); known && effectiveName != "" {
-			name, handled, ok = stringValue(effectiveName), true, true
-		}
-	}
-	if !handled {
-		name, handled, ok = e.structureName(element, "name")
-	}
+	name, handled, ok := e.structureName(element, "name")
 	if !handled || !ok {
 		reason := Reason{
 			Category:   ReasonDependsOnUnsupported,

@@ -68,8 +68,8 @@ func TestVerificationMethodBodyIsAMetadataBodyUsage(t *testing.T) {
 	}
 }
 
-// The API element form carries the same facts: no declaredName, an
-// ownedRedefinition, a qualifiedName ending ::kind.
+// The API element form carries the same facts: no declaredName and an
+// ownedRedefinition of the library's kind feature.
 func TestVerificationMethodBodyInAPIJSON(t *testing.T) {
 	doc, err := convert.Convert("m.sysml", []byte(verificationMethodModel), convert.FormatSysML, convert.FormatAPIJSON)
 	if err != nil {
@@ -79,14 +79,81 @@ func TestVerificationMethodBodyInAPIJSON(t *testing.T) {
 	if err := json.Unmarshal(doc, &elements); err != nil {
 		t.Fatalf("api-json: %v", err)
 	}
-	var member map[string]any
+	// The ids are the pinned pilot library's elementIds of
+	// VerificationCases::VerificationMethod and its kind feature.
+	const methodID, kindID = "0066c1c7-55af-52b8-8197-37c386a91db1", "d25bc7f4-eb89-5940-be2a-3a17de3e856b"
+	byID := make(map[string]map[string]any, len(elements))
 	for _, el := range elements {
-		if qn, _ := el["qualifiedName"].(string); strings.HasSuffix(qn, "::kind") {
-			member = el
+		if id, _ := el["@id"].(string); id != "" {
+			byID[id] = el
 		}
 	}
+	referenceID := func(value any) string {
+		switch reference := value.(type) {
+		case map[string]any:
+			id, _ := reference["@id"].(string)
+			return id
+		case string:
+			return reference
+		}
+		return ""
+	}
+	referenceIDs := func(value any) []string {
+		if references, ok := value.([]any); ok {
+			ids := make([]string, 0, len(references))
+			for _, reference := range references {
+				if id := referenceID(reference); id != "" {
+					ids = append(ids, id)
+				}
+			}
+			return ids
+		}
+		if id := referenceID(value); id != "" {
+			return []string{id}
+		}
+		return nil
+	}
+	metadataIDs := make(map[string]bool)
+	redefinitionIDs := make(map[string]bool)
+	for _, el := range elements {
+		switch el["@type"] {
+		case "MetadataUsage":
+			if types := referenceIDs(el["type"]); len(types) == 1 && types[0] == methodID {
+				metadataIDs[referenceID(el)] = true
+			}
+		case "Redefinition":
+			if referenceID(el["redefinedFeature"]) == kindID {
+				redefinitionIDs[referenceID(el)] = true
+			}
+		}
+	}
+	if len(metadataIDs) == 0 {
+		t.Errorf("no MetadataUsage typed by VerificationMethod (%s)", methodID)
+	}
+	if len(redefinitionIDs) == 0 {
+		t.Errorf("no Redefinition of VerificationMethod::kind (%s)", kindID)
+	}
+	var member map[string]any
+	for _, el := range elements {
+		if el["@type"] != "ReferenceUsage" {
+			continue
+		}
+		ownsKindRedefinition := false
+		for _, id := range referenceIDs(el["ownedRedefinition"]) {
+			ownsKindRedefinition = ownsKindRedefinition || redefinitionIDs[id]
+		}
+		if !ownsKindRedefinition {
+			continue
+		}
+		membership := byID[referenceID(el["owningMembership"])]
+		if membership == nil || !metadataIDs[referenceID(membership["owner"])] {
+			continue
+		}
+		member = el
+		break
+	}
 	if member == nil {
-		t.Fatalf("no member qualified *::kind in %s", doc)
+		t.Fatalf("no ReferenceUsage under the VerificationMethod MetadataUsage redefines kind in %s", doc)
 	}
 	if declaredName, ok := member["declaredName"]; !ok || declaredName != nil {
 		t.Errorf("the body member declaredName = %v, want present null", declaredName)
@@ -97,28 +164,8 @@ func TestVerificationMethodBodyInAPIJSON(t *testing.T) {
 	if member["@type"] != "ReferenceUsage" {
 		t.Errorf("@type = %v, want ReferenceUsage", member["@type"])
 	}
-	// The ids are the pinned pilot library's elementIds of
-	// VerificationCases::VerificationMethod and its kind feature.
-	const methodID, kindID = "0066c1c7-55af-52b8-8197-37c386a91db1", "d25bc7f4-eb89-5940-be2a-3a17de3e856b"
-	var meta, redefined bool
-	for _, el := range elements {
-		switch el["@type"] {
-		case "MetadataUsage":
-			types, _ := el["type"].([]any)
-			if len(types) == 1 && types[0].(map[string]any)["@id"] == methodID {
-				meta = true
-			}
-		case "Redefinition":
-			if target, _ := el["redefinedFeature"].(map[string]any); target["@id"] == kindID {
-				redefined = true
-			}
-		}
-	}
-	if !meta {
-		t.Errorf("no MetadataUsage typed by VerificationMethod (%s)", methodID)
-	}
-	if !redefined {
-		t.Errorf("no Redefinition of VerificationMethod::kind (%s)", kindID)
+	if qualifiedName, ok := member["qualifiedName"]; ok && qualifiedName != nil {
+		t.Errorf("the body member qualifiedName = %v, want absent because its owning namespace has null qualifiedName", qualifiedName)
 	}
 }
 

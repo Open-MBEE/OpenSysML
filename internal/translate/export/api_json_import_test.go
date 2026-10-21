@@ -628,7 +628,7 @@ func TestUUIDRoundTrip(t *testing.T) {
 	if !bytes.Equal(uuid, qualified) {
 		t.Fatalf("the uuid form decoded differently than the qualified form:\n%s", uuid)
 	}
-	subject := rdf.IRI(rdf.Expression + "P10__car___400_pvalue_pa1")
+	subject := rdf.IRI(rdf.Expression + "P10__car__mass_pvalue_pa1")
 	beforeTriples, afterTriples := map[rdf.Triple]bool{}, map[rdf.Triple]bool{}
 	for _, triple := range before.Triples() {
 		if triple.Subject == subject {
