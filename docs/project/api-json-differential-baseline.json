@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:0f409cf056b724f12c7a19ba55649418cf10a845df23fbea4e3183eb0f604b3a"
+        "sourceDigest": "sha256:224aacba9a7bf5b165dbf87444095c9e3d500c78ee45f9b14da72fb8facd7509"
       }
     ],
     "inputs": [
@@ -82,7 +82,7 @@
         "digest": "sha256:5d61ce061ac3bd8946d385966ff2dd77b5906ba90babc3030db21fc956c84c8e"
       }
     ],
-    "recorded": "2026-10-20"
+    "recorded": "2026-10-21"
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
@@ -110,7 +110,7 @@
       "oursOnly": 29497,
       "pilotOnly": 40387,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 1742
+      "typeMismatch": 1743
     },
     "properties": {
       "presentEqual": 596664,
@@ -122,7 +122,7 @@
     },
     "rows": 11311,
     "unkeyedReferences": 100873,
-    "extensionProperties": 140676,
+    "extensionProperties": 140679,
     "duplicateElements": {
       "ours": 560,
       "pilot": 78022
@@ -291,7 +291,7 @@
         "oursOnly": 1966,
         "pilotOnly": 2728,
         "pilotOnlyImplied": 0,
-        "typeMismatch": 390
+        "typeMismatch": 391
       },
       "properties": {
         "presentEqual": 44282,

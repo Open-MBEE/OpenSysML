@@ -13,6 +13,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
+// pinStamp names the file in the text directory that records the release the
+// PDFs were fetched at.
+const pinStamp = ".pilot-pin"
+
 // Main is the spec-examples command; it returns the process exit status.
 func Main(args []string, stderr io.Writer) int {
 	flags := flag.NewFlagSet("spec-examples", flag.ContinueOnError)
@@ -47,14 +51,14 @@ func run(repoDir, textDir, out, release string, log io.Writer) error {
 	if out == "" {
 		out = filepath.Join(repoDir, "examples", "spec-examples")
 	}
-	pin, err := os.ReadFile(filepath.Join(textDir, ".pilot-pin")) // #nosec G304 -- the directory is named on the command line.
+	pin, err := os.ReadFile(filepath.Join(textDir, pinStamp)) // #nosec G304 -- the directory is named on the command line.
 	if err != nil {
 		return fmt.Errorf("the text directory carries no pin stamp (run scripts/download-spec-examples.sh): %w", err)
 	}
 	if release == "" {
 		fields := strings.Fields(string(pin))
 		if len(fields) == 0 {
-			return fmt.Errorf("%s: empty pin stamp", filepath.Join(textDir, ".pilot-pin"))
+			return fmt.Errorf("%s: empty pin stamp", filepath.Join(textDir, pinStamp))
 		}
 		release = fields[0]
 	}
@@ -102,7 +106,7 @@ func run(repoDir, textDir, out, release string, log io.Writer) error {
 	if err := os.WriteFile(filepath.Join(staging, "manifest.txt"), []byte(manifest.String()), 0o600); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(staging, ".pilot-pin"), pin, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(staging, pinStamp), pin, 0o600); err != nil {
 		return err
 	}
 	if err := install(staging, out); err != nil {

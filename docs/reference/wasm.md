@@ -41,7 +41,7 @@ input and output as its WASI build does. They are opt-in as well: `make build` a
 `make install` leave them out of the native executables; the combined JavaScript
 WebAssembly module is published separately.
 
-The `sysml` command comes in two builds, named after the two halves of the REDK: the **DK**
+The `sysml` command comes in two builds, named after the two halves of the Runtime Environment and Development Kit: the **DK**
 (Development Kit) build is the default `sysml` with every feature group, and the **RE** (Runtime
 Environment) build leaves the optional and developer-only groups out. Both builds produce a binary named
 `sysml`; the RE's goes in a `re/` directory (`bin/re/sysml`, `bin/wasm/{js,wasip1}/re/sysml.wasm`),

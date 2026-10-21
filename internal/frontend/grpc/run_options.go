@@ -111,7 +111,7 @@ func (o runOptions) startAction(rt *runtime.Context, name string, action *symbol
 	}
 	release := exec.Release
 	if reused {
-		release = func() {}
+		release = func() { /* a reused performance is the run's own; nothing was started for the call */ }
 	}
 	if _, err := rt.Advance(*o.advance); err != nil {
 		release()

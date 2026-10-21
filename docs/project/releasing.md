@@ -1436,7 +1436,13 @@ Everything below is already in place; it is recorded so it can be re-created.
 
 1. The **`@openmbee` scope** on npm, with the publishing account a member of the
    org with publish rights on its packages. A new package under the scope is
-   created by its first `npm publish --access public`.
+   created by its first `npm publish --access public` with this token; the
+   nightly's trusted publishing cannot create one (its `npm publish` fails with
+   `404 Not Found - PUT`), so after the release that first publishes a package,
+   register the nightly on it on npmjs.com (package *Settings → Trusted
+   publishing*: GitHub Actions, repository `Open-MBEE/OpenSysML`, workflow
+   `nightly.yml`, environment `nightly`). `@openmbee/sysml-mcp` and its five
+   platform packages ship this way first.
 2. A **granular access token** stored as `NPM_TOKEN` in the CircleCI restricted
    context `npm` (lower-case, matched exactly, restricted to a security group).
    The token was created on npmjs.com → *Access Tokens* → *Generate New Token*
@@ -1726,9 +1732,11 @@ names the npm package `@openmbee/sysml-mcp`, whose `package.json` declares
 workflow `.github/workflows/mcp-registry.yml` runs on the tag, and
 `scripts/mcp-registry-publish.sh` does the work, in this order:
 
-1. Wait, for at most an hour (`MCP_REGISTRY_NPM_TIMEOUT`), for `@openmbee/sysml-mcp@<version>`
-   on registry.npmjs.org, which CircleCI's `publish-npm` job publishes on the same tag, and
-   check that it declares the `mcpName` above; the registry rejects a listing otherwise.
+1. Wait, for at most three hours (`MCP_REGISTRY_NPM_TIMEOUT`, 10800 seconds), for
+   `@openmbee/sysml-mcp@<version>` on registry.npmjs.org, which CircleCI's `publish-npm` job
+   publishes on the same tag only after the suite and the GitHub release (the v0.10.0 and
+   v0.10.1 tags took 84 and 72 minutes to reach npm), and check that it declares the
+   `mcpName` above; the registry rejects a listing otherwise.
 2. Install the pinned `mcp-publisher` release (`scripts/install-mcp-publisher.sh`, which
    verifies the archive's SHA-256 against the one recorded there).
 3. Fill the tag's version into a copy of `server.json` (the committed file carries the

@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { serverBuildOf, serverReport } from "./serverinfo";
+import { declaredVersion, serverBuildOf, serverReport } from "./serverinfo";
+
+test("the extension's version is the string its package.json declares, and nothing else", () => {
+  assert.equal(declaredVersion({ version: "0.10.1" }), "0.10.1");
+  assert.equal(declaredVersion({}), "");
+  assert.equal(declaredVersion(undefined), "");
+  assert.equal(declaredVersion({ version: { major: 1 } }), "");
+  assert.equal(declaredVersion({ version: 1 }), "");
+});
 
 test("a release's extension is packaged with the release's server", () => {
   assert.equal(serverBuildOf("0.10.1"), "v0.10.1");

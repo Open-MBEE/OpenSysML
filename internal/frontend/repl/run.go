@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"unicode/utf16"
+	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -295,14 +295,20 @@ func (s *Session) locate(diags []diag.Diagnostic) []Diagnostic {
 		return nil
 	}
 	out := make([]Diagnostic, 0, len(diags))
-	indexes := make(map[int]*source.LineIndex, len(s.snippets))
+	type indexed struct {
+		src   []byte
+		lines *source.LineIndex
+	}
+	indexes := make(map[int]indexed, len(s.snippets))
 	for _, d := range diags {
 		sn, start := s.snippetAt(d.Span.Offset)
-		lines, ok := indexes[start]
+		idx, ok := indexes[start]
 		if !ok {
-			lines = source.New(docName, []byte(sn.src)).Lines()
-			indexes[start] = lines
+			idx.src = []byte(sn.src)
+			idx.lines = source.New(docName, idx.src).Lines()
+			indexes[start] = idx
 		}
+		lines := idx.lines
 		p := lines.PosAt(d.Span.Offset - start)
 		out = append(out, Diagnostic{
 			Severity:    d.Severity.String(),
@@ -310,10 +316,10 @@ func (s *Session) locate(diags []diag.Diagnostic) []Diagnostic {
 			File:        sn.origin,
 			Line:        p.Line,
 			Column:      p.Col,
-			UTF16Column: utf16Column([]byte(sn.src), d.Span.Offset-start, p.Col),
+			UTF16Column: utf16Column(idx.src, d.Span.Offset-start, p.Col),
 			Pass:        d.Source,
 			Code:        d.Code,
-			Fixes:       locatedFixes(d.Fixes, []byte(sn.src), lines, start),
+			Fixes:       locatedFixes(d.Fixes, idx.src, lines, start),
 		})
 	}
 	return out
@@ -350,7 +356,23 @@ func utf16Column(content []byte, offset, col int) int {
 	if col < 1 || lineStart < 0 || offset > len(content) {
 		return col
 	}
-	return len(utf16.Encode([]rune(string(content[lineStart:offset])))) + 1
+	return utf16Units(content[lineStart:offset]) + 1
+}
+
+// utf16Units counts the UTF-16 code units of b without encoding it; an invalid
+// byte counts as the one unit of the replacement character, as utf16.Encode does.
+func utf16Units(b []byte) int {
+	n := 0
+	for len(b) > 0 {
+		r, size := utf8.DecodeRune(b)
+		b = b[size:]
+		if r >= 0x10000 {
+			n += 2
+		} else {
+			n++
+		}
+	}
+	return n
 }
 
 // Suppress keeps the diagnostics the predicate accepts out of everything the

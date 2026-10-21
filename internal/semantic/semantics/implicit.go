@@ -630,6 +630,11 @@ func (m *Model) implicitKerMLFeatureBase(sym *symbols.Symbol) *symbols.Symbol {
 	if isKerMLTypeDecl(sym) {
 		return nil
 	}
+	return m.kindBaseSymbol(m.kermlBase, sym, func() *symbols.Symbol { return m.computeImplicitKerMLFeatureBase(sym, usage) })
+}
+
+// computeImplicitKerMLFeatureBase derives implicitKerMLFeatureBase for a KerML feature.
+func (m *Model) computeImplicitKerMLFeatureBase(sym *symbols.Symbol, usage *ast.Usage) *symbols.Symbol {
 	fqn, ok := implicitKerMLFeatureBases[usage.Keyword]
 	// A typed feature subsets the base feature of its type's kind, not of its own
 	// keyword: `feature f : C` with C a class subsets Occurrences::occurrences.
@@ -658,14 +663,34 @@ func (m *Model) implicitUsageBaseFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil || m.resolver == nil || m.resolver.Index() == nil || m.isKerMLDoc(sym) {
 		return nil
 	}
-	if declaresConjugation(sym) {
+	if declaresConjugation(sym) || m.computingUsageBase[sym] {
 		return nil
 	}
-	if m.computingUsageBase[sym] {
-		return nil
+	return m.kindBaseSymbol(m.usageBase, sym, func() *symbols.Symbol {
+		m.computingUsageBase[sym] = true
+		defer delete(m.computingUsageBase, sym)
+		return m.computeImplicitUsageBaseFeature(sym)
+	})
+}
+
+// kindBaseSymbol memoizes one kind-base lookup of sym in table once the chains
+// it reads settle, journaled against sym's declaration like its other generals.
+func (m *Model) kindBaseSymbol(table map[*symbols.Symbol]*symbols.Symbol, sym *symbols.Symbol, compute func() *symbols.Symbol) *symbols.Symbol {
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := table[sym]; ok {
+		return cached
 	}
-	m.computingUsageBase[sym] = true
-	defer delete(m.computingUsageBase, sym)
+	m.resolver.Enter()
+	out := compute()
+	if m.resolver.Leave() {
+		journal(m, table, sym, sym.Decl)
+		table[sym] = out
+	}
+	return out
+}
+
+// computeImplicitUsageBaseFeature derives implicitUsageBaseFeature for a usage.
+func (m *Model) computeImplicitUsageBaseFeature(sym *symbols.Symbol) *symbols.Symbol {
 	fqn, ok := m.usageBaseFeatureFQN(sym)
 	if !ok {
 		return nil
@@ -723,6 +748,11 @@ func (m *Model) implicitBaseUsage(sym *symbols.Symbol) *symbols.Symbol {
 	if m.resolver == nil || m.resolver.Index() == nil {
 		return nil
 	}
+	return m.kindBaseSymbol(m.thingsBase, sym, func() *symbols.Symbol { return m.computeImplicitBaseUsage(sym) })
+}
+
+// computeImplicitBaseUsage derives implicitBaseUsage for a usage.
+func (m *Model) computeImplicitBaseUsage(sym *symbols.Symbol) *symbols.Symbol {
 	// A KerML feature typed by a kind with its own base subsets that base instead.
 	if typed, ok := m.declaredTypeFeatureBase(sym); ok && typed != baseUsageFQN && m.isKerMLDoc(sym) {
 		return nil
@@ -802,6 +832,24 @@ func (m *Model) candidateBaseFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 // already reaches the base feature of sym's kind, so sym needs no implied one —
 // not even Base::things, which that chain reaches too.
 func (m *Model) declaredChainReachesKindBase(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.chainReachesBase[sym]; ok {
+		return cached
+	}
+	m.resolver.Enter()
+	out := m.computeDeclaredChainReachesKindBase(sym)
+	if m.resolver.Leave() {
+		journal(m, m.chainReachesBase, sym, sym.Decl)
+		m.chainReachesBase[sym] = out
+	}
+	return out
+}
+
+// computeDeclaredChainReachesKindBase derives declaredChainReachesKindBase for a declaration.
+func (m *Model) computeDeclaredChainReachesKindBase(sym *symbols.Symbol) bool {
 	var fqn string
 	var ok bool
 	if m.isKerMLDoc(sym) {
@@ -855,13 +903,30 @@ func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
-	// A record names the base usages its kind implied among its supertypes; the
-	// typing it implied is read from them as any other, the declaration being gone.
-	if sym.Recorded() {
-		return m.recordedElements(sym, sym.Facts.ImpliedSupers)
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.implicitGenerals[sym]; ok {
+		return cached
 	}
-	// The generals sym has otherwise are its direct supertypes less the base
-	// features its kind could imply, which DirectSupertypes appends last.
+	// A record names the generals its kind implied among its supertypes, so a
+	// library symbol answers from its facts in every model instead of deriving them.
+	if sym.Facts != nil && (sym.Facts.Supers != nil || sym.Facts.Recorded) {
+		out := m.recordedElements(sym, sym.Facts.ImpliedSupers)
+		journal(m, m.implicitGenerals, sym, sym.Decl)
+		m.implicitGenerals[sym] = out
+		return out
+	}
+	m.resolver.Enter()
+	out := m.computeImplicitGenerals(sym)
+	if m.resolver.Leave() {
+		journal(m, m.implicitGenerals, sym, sym.Decl)
+		m.implicitGenerals[sym] = out
+	}
+	return out
+}
+
+// computeImplicitGenerals derives ImplicitGenerals for a declared symbol; its other
+// generals are its direct supertypes less the base features DirectSupertypes appends last.
+func (m *Model) computeImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 	candidates := m.candidateBaseFeatures(sym)
 	declared := slices.DeleteFunc(slices.Clone(m.DirectSupertypes(sym)), func(super *symbols.Symbol) bool {
 		return slices.Contains(candidates, super)

@@ -31,7 +31,7 @@
         "digest": "sha256:5be97688302b2f0a9ca94f2e86d0d981f39c294c919b06eed1bfc9ad509593e5"
       }
     ],
-    "recorded": "2026-10-20"
+    "recorded": "2026-10-21"
   },
   "totals": {
     "cases": 334,
@@ -1784,7 +1784,7 @@
       "rule": "a binding connector is binary, so its ends must reference exactly two features (KerML 8.3.4.7.2 validateBindingConnectorIsBinary; pilot validateBindingConnectorIsBinary).",
       "mode": "default",
       "bucket": "both-reject",
-      "oursErrors": 2,
+      "oursErrors": 3,
       "pilotErrors": 2
     },
     {

@@ -238,15 +238,18 @@ func calcSuccessionEnd(member ast.Node, name *ast.QualifiedName, stmts []Stateme
 				continue
 			}
 		}
-		if statementDeclares(statementNode(stmt), target) {
+		if statementDeclares(StatementNode(stmt), target) {
 			return i, true
 		}
 	}
 	return 0, false
 }
 
-func statementNode(stmt Statement) ast.Node {
+// StatementNode is the syntax a lowered statement came from, nil for none.
+func StatementNode(stmt Statement) ast.Node {
 	switch s := stmt.(type) {
+	case Assert:
+		return s.Node
 	case Assign:
 		return s.Node
 	case Block:
