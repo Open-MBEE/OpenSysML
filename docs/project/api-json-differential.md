@@ -190,21 +190,21 @@ The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
 ## Results (pilot `2026-08`, 920 files)
 
-**Scorecard:** 920 files; 90023 elements matched (28511 ours-only, 38797 pilot-only, 0 of them implied); properties: 619268 present-equal, 45688 present-different, 1058259 ours-missing, 68560 pilot-missing, 2103094 absent-both, 25703 indeterminate.
+**Scorecard:** 920 files; 90023 elements matched (28511 ours-only, 38797 pilot-only, 0 of them implied); properties: 624752 present-equal, 40210 present-different, 1058253 ours-missing, 68560 pilot-missing, 2103094 absent-both, 25703 indeterminate.
 
 The pilot's export failed on 56 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples and 4 test fixtures; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 56 failed files out and converted 24 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11311 (metaclass, property) rows carry a comparison; 108366 references compared through the unkeyed sentinel, 146858 of our `sysx:` annotations were left out, and 289/345 elements (ours/pilot) were dropped for ambiguous keys, 8198/31310 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7287 | 2131 | 2873 | 50135 | 4171 | 86942 | 5306 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 25778 | 10038 | 10488 | 180567 | 11831 | 308696 | 19510 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9246 | 2967 | 3341 | 63000 | 6100 | 108814 | 7092 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6387 | 1637 | 1854 | 43671 | 3292 | 63793 | 5268 |
-| `examples/spec-examples` | 511 | 6980 | 1966 | 2728 | 44282 | 6029 | 71586 | 5182 |
-| `tests/testdata` | 32 | 1201 | 91 | 487 | 7820 | 383 | 13187 | 877 |
-| `examples` | 52 | 26071 | 8734 | 14944 | 181873 | 10948 | 316326 | 20333 |
-| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 346 | 17 | 462 | 43 |
-| `docs/manual/examples` | 8 | 7020 | 947 | 2082 | 47574 | 2917 | 88453 | 4949 |
+| `examples/sysml-v2-training` | 100 | 7287 | 2131 | 2873 | 50698 | 3608 | 86942 | 5306 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 25778 | 10038 | 10488 | 182464 | 9934 | 308696 | 19510 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 9246 | 2967 | 3341 | 63665 | 5435 | 108814 | 7092 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6387 | 1637 | 1854 | 43853 | 3110 | 63793 | 5268 |
+| `examples/spec-examples` | 511 | 6980 | 1966 | 2728 | 44427 | 5885 | 71585 | 5182 |
+| `tests/testdata` | 32 | 1201 | 91 | 487 | 7837 | 366 | 13187 | 877 |
+| `examples` | 52 | 26071 | 8734 | 14944 | 183276 | 9550 | 316321 | 20333 |
+| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 348 | 15 | 462 | 43 |
+| `docs/manual/examples` | 8 | 7020 | 947 | 2082 | 48184 | 2307 | 88453 | 4949 |
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's five counts.
 
@@ -217,13 +217,13 @@ The largest **present-different** rows, with the reading the examples support:
 | `AttributeUsage` | `ownedRelationship` | 113 | 2323 |
 | `Feature` | `ownedRelationship` | 3670 | 1781 |
 | `PartUsage` | `ownedRelationship` | 309 | 1551 |
-| `FeatureMembership` | `memberElement` | 9181 | 592 |
-| `FeatureMembership` | `ownedMemberElement` | 9181 | 592 |
-| `FeatureMembership` | `ownedMemberFeature` | 9181 | 592 |
-| `FeatureMembership` | `ownedRelatedElement` | 9181 | 592 |
 | `ReferenceUsage` | `qualifiedName` | 983 | 882 |
 | `ReferenceUsage` | `ownedRelationship` | 1255 | 838 |
 | `PartUsage` | `qualifiedName` | 1119 | 830 |
+| `Package` | `qualifiedName` | 460 | 723 |
+| `PartUsage` | `ownedMember` | 362 | 702 |
+| `PartUsage` | `ownedMembership` | 716 | 634 |
+| `AttributeUsage` | `ownedMembership` | 1178 | 622 |
 
 ### Where the pilot states nothing and we do
 
@@ -268,7 +268,7 @@ diagnostic on any library file (its batch validator reads the sixteen as one res
 an error). The members that gained a match disagreed with the pilot in three shapes when the libraries were
 first loaded, none of them a derivation this repository gets wrong and none new — each a shape the
 scorecard already carried for the standard library or for members the model declares itself, now
-measured on library-backed members too. The first is closed (next section); the other two remain:
+measured on library-backed members too. The first and the third are closed (the first in the next section, the third by the writer owning the referent `Membership`, below); the second remains:
 
 - a reference to an element of this repository's libraries was spelled as a name, `{"@ref":
   "caption"}`, where the pilot writes the element: `Redefinition::redefinedFeature` (KerML
