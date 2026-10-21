@@ -85,7 +85,7 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 			}
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.ownedRelationship->isEmpty();
+				element.aliasIds->isEmpty();
 			}
 			part def P { part c; }
 		}
@@ -139,7 +139,7 @@ func TestSelfCheckUnevaluatedOnlyDoesNotFailSummary(t *testing.T) {
 			private import SequenceFunctions::*;
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.ownedRelationship->isEmpty();
+				element.aliasIds->isEmpty();
 			}
 			part def P;
 		}
