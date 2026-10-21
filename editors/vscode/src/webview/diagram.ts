@@ -923,18 +923,19 @@ function panTo(pan: PanGesture, at: ClientPoint): void {
   diagram.classList.add("panning");
   diagram.scrollLeft = pan.scroll.left - dx;
   diagram.scrollTop = pan.scroll.top - dy;
+  // Recorded here rather than by the scroll listener, which hears of it a task later than
+  // the pan's end might redraw; a redraw puts the recorded viewport back.
+  viewport = scrolled();
 }
 
 // settle shows the model's layout after a gesture that made no edit, laid out again if the
-// router loaded or the routing changed meanwhile, where the gesture left the canvas scrolled.
+// router loaded or the routing changed meanwhile.
 function settle(): void {
   if (unrouted && last && layout) {
     layout = layoutCanvas(last, panelOverrides(), currentAuto());
   }
   unrouted = false;
   if (layout) {
-    // The scroll listener may not have seen a pan's last offsets yet; the redraw must keep them.
-    viewport = scrolled();
     show(layout);
   }
 }

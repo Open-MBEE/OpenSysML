@@ -170,3 +170,15 @@ test("a routing change during a pan is applied where the pan left the canvas whe
   assert.equal(waypointHandles(), 0, "the router hides the stated waypoint's handle once the pan is cancelled");
   assert.equal(diagram.scrollLeft, 40, "the redraw keeps the canvas where the pan left it");
 });
+
+test("a cancelled drag comes back at the viewport it began at, not where its preview clamped the scroll", async () => {
+  post({ type: "render", result: statedDiagonal(), selected: "M::V", drawn: 7, style: "theme", routing: "model" });
+  await settled();
+  const before = diagram.scrollLeft;
+  pointer("pointerdown", nodeElement("a"), { clientX: 50, clientY: 20 });
+  pointer("pointermove", diagram, { clientX: 60, clientY: 30 });
+  // A narrower preview would clamp the offset; jsdom lays nothing out, so it is clamped by hand.
+  diagram.scrollLeft = before + 7;
+  window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" }));
+  assert.equal(diagram.scrollLeft, before, "the layout put back is scrolled as it was before the drag");
+});
