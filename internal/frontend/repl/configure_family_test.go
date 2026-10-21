@@ -1,6 +1,9 @@
 package repl
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // familyModel is a product line the spec's way: an anonymous assertion owned by the
 // abstract family, a definition asserting over its own variation, and configurations
@@ -93,4 +96,62 @@ func TestConfigureAPartReadingNoVariation(t *testing.T) {
 	wants(t, out, "Part noVariation: ", "Use %check Fam::noVariation for satisfiability")
 	checked := run(t, s, "%check Fam::noVariation")
 	wants(t, checked, "✓ Part noVariation")
+}
+
+// assertedModel carries the other assertion kinds a family may state: a requirement
+// with an assumption, satisfactions binding a requirement's subject, and a nested
+// part asserting about its own objects.
+const assertedModel = `
+package Asserted {
+    private import ScalarValues::*;
+    part def T;
+    requirement def Bounded { subject s; attribute x : Integer; assume constraint { x > 0 } require constraint { x < 10 } }
+    part vacuous { attribute x : Integer = 0; requirement bounded : Bounded { attribute :>> x = vacuous::x; } }
+    part within { attribute x : Integer = 5; requirement bounded : Bounded { attribute :>> x = within::x; } }
+    part beyond { attribute x : Integer = 20; requirement bounded : Bounded { attribute :>> x = beyond::x; } }
+
+    part def Lander { attribute verticalSpeed : Real; }
+    requirement def Touchdown { subject craft : Lander; require constraint { craft.verticalSpeed <= 1.5 } }
+    requirement touchdown : Touchdown;
+    part soft { part lander : Lander { attribute :>> verticalSpeed = 1.0; } assert satisfy touchdown by lander; }
+    part hard { part lander : Lander { attribute :>> verticalSpeed = 2.0; } assert satisfy touchdown by lander; }
+
+    part def Engine { attribute power : Integer; assert constraint { power > 0 } }
+    abstract part nested {
+        variation part trans : T { variant man : T; variant auto : T; }
+        part engine : Engine;
+        assert constraint { trans == trans::man }
+    }
+}
+`
+
+func TestConfigureAppliesARequirementUnderItsAssumption(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, assertedModel)
+	wants(t, run(t, s, "%solve Asserted::vacuous"), "✓ Part vacuous has values satisfying it", "Asserted::vacuous::x = 0  (declared)")
+	wants(t, run(t, s, "%solve Asserted::within"), "✓ Part within has values satisfying it")
+	wants(t, run(t, s, "%solve Asserted::beyond"), "✗ Part beyond has no values consistent with the value already fixed",
+		"In the conflict: Asserted::beyond::x = 20",
+		"Against: required condition not { x > 0; not { x < 10 } } of Bounded at ")
+}
+
+func TestConfigureBindsASatisfactionsSubject(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, assertedModel)
+	wants(t, run(t, s, "%solve Asserted::soft"), "✓ Part soft has values satisfying it", "Asserted::soft::'lander.verticalSpeed' = 1.0  (declared)")
+	wants(t, run(t, s, "%solve Asserted::hard"), "✗ Part hard has no values consistent with the value already fixed",
+		"In the conflict: Asserted::hard::'lander.verticalSpeed' = 2.0",
+		"Against: required condition { craft.verticalSpeed <= 1.5 } of Touchdown at ")
+}
+
+func TestConfigureNamesTheNestedAssertionsItLeavesOut(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, assertedModel)
+	out := run(t, s, "%configure Asserted::nested all")
+	wants(t, out, "✓ Part nested permits 1 selection of variants, which are all of them",
+		"Not in the query: what engine asserts about its own objects; %instantiate and %validate an object to check it")
+	plain := run(t, s, "%solve Asserted::within")
+	if strings.Contains(plain, "Not in the query") {
+		t.Errorf("a part holding no asserting object is reported as leaving assertions out:\n%s", plain)
+	}
 }

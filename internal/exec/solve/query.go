@@ -262,6 +262,10 @@ type Query struct {
 	// query reads, reported rather than dropped.
 	Unread []Unread
 
+	// Uncovered are the object-holding features of the element whose objects carry
+	// assertions of their own, which a query about the element does not state.
+	Uncovered []*symbols.Symbol
+
 	// Unreadable are the features the query reads whose value could not be read,
 	// each guarded so that no model reaches the read; nil when it reads none.
 	Unreadable []UnreadableRead

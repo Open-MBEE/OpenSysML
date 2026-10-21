@@ -98,6 +98,11 @@ func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments [
 		}
 		return nil, t.refuse(node, msgReferencePrefix+joinPath(segments)+"`", "it resolves to nothing")
 	}
+	if by, bound := t.subjects[sym]; bound {
+		// A requirement's subject is the object `by` names (SysML v2 §7.21).
+		chain = append(chain, by[:len(by)-1]...)
+		sym = by[len(by)-1]
+	}
 	chain = append(chain, sym)
 	for _, segment := range segments[1:] {
 		next, ok := t.model.LookupMember(sym, segment)

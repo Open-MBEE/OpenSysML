@@ -164,25 +164,72 @@ func AssertedWith(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scop
 		return nil, fmt.Errorf("%s %s: %w", sym.Notation(), sym.Name, ErrNothingAsserted)
 	}
 	var conds []runtime.Condition
+	subjects := map[*symbols.Symbol][]*symbols.Symbol{}
 	for _, a := range assertions {
-		group, negated, err := assertedConditions(ctx, a)
+		group, negated, err := assertedConditions(ctx, a, subjects)
 		if err != nil {
 			return nil, err
 		}
-		// An assertion stating no condition is an empty conjunction, which holds;
-		// each other is one conjunct, denied as a whole by `assert not`.
-		if len(group) == 0 {
-			continue
+		if cond, states := assertedCondition(group, negated); states {
+			conds = append(conds, cond)
 		}
-		conds = append(conds, runtime.Condition{Group: group, Negated: negated, Required: true})
 	}
 	subject := Subject{Kind: sym.Notation(), Name: sym.Name, Symbol: sym}
-	return TranslateWith(ctx, subject, conds, pins)
+	translate := func(pins []Pin) (*Query, error) {
+		if len(conds) == 0 {
+			return nil, fmt.Errorf("%s %s: %w", subject.Kind, subject.Name, ErrNoConditions)
+		}
+		t := newTranslator(ctx, subject)
+		t.subjects = subjects
+		if err := t.translate(conds); err != nil {
+			return nil, err
+		}
+		if err := t.fix(pins); err != nil {
+			return nil, err
+		}
+		q := t.query()
+		q.Uncovered = ctx.NestedAsserting(sym)
+		return q, nil
+	}
+	q, err := translate(pins)
+	if err != nil {
+		return nil, err
+	}
+	// A feature read through one object of sym (`lander.verticalSpeed`) holds the
+	// value that object's declaration states, as the evaluator reads it.
+	if nested := nestedDeclared(ctx, q); len(nested) > 0 {
+		return translate(append(pins, nested...))
+	}
+	return q, nil
+}
+
+// assertedCondition is one assertion as a conjunct of the query, false for one
+// requiring nothing. A requirement's required conditions apply only where its
+// assumptions hold (SysML v2 §7.21.2), so an assertion stating both is the
+// implication A ⇒ R, written ¬(A ∧ ¬R); `assert not` denies it as a whole.
+func assertedCondition(group []runtime.Condition, negated bool) (runtime.Condition, bool) {
+	var assumed, required []runtime.Condition
+	for _, cond := range group {
+		if cond.Required {
+			required = append(required, cond)
+		} else {
+			assumed = append(assumed, cond)
+		}
+	}
+	if len(required) == 0 {
+		return runtime.Condition{}, false
+	}
+	if len(assumed) == 0 {
+		return runtime.Condition{Group: required, Negated: negated, Required: true}, true
+	}
+	denied := runtime.Condition{Group: required, Negated: true, Required: true}
+	return runtime.Condition{Group: append(assumed, denied), Negated: !negated, Required: true}, true
 }
 
 // assertedConditions are the conditions one assertion states, read as the
-// evaluator reads them: a satisfaction's through the requirement it names.
-func assertedConditions(ctx *runtime.Context, a runtime.Asserted) ([]runtime.Condition, bool, error) {
+// evaluator reads them. A satisfaction's are its requirement's, each subject the
+// requirement declares reading the feature `by` names (SysML v2 §7.21).
+func assertedConditions(ctx *runtime.Context, a runtime.Asserted, subjects map[*symbols.Symbol][]*symbols.Symbol) ([]runtime.Condition, bool, error) {
 	if a.Kind != runtime.AssertionSatisfaction {
 		return ctx.ConditionsOf(a.Symbol, a.Scope), runtime.NegatedDecl(a.Symbol), nil
 	}
@@ -190,7 +237,72 @@ func assertedConditions(ctx *runtime.Context, a runtime.Asserted) ([]runtime.Con
 	if err != nil {
 		return nil, false, err
 	}
-	return ctx.ConditionsOf(sa.Symbol, sa.Symbol.OwnerScope), sa.Negated, nil
+	conds := ctx.ConditionsOf(sa.Symbol, sa.Symbol.OwnerScope)
+	if len(conds) == 0 {
+		return nil, sa.Negated, nil
+	}
+	by, err := satisfiedBy(ctx, sa)
+	if err != nil {
+		return nil, false, err
+	}
+	target := sa.Requirement
+	if target == nil {
+		target = sa.Symbol
+	}
+	for _, member := range ctx.SubjectMembersOf(target) {
+		subjects[member] = by
+	}
+	return conds, sa.Negated, nil
+}
+
+// satisfiedBy is the feature chain `by` names, root first, which the requirement's
+// subject stands for in the query.
+func satisfiedBy(ctx *runtime.Context, sa *runtime.SatisfyAssertion) ([]*symbols.Symbol, error) {
+	unread := fmt.Errorf("satisfaction %s: `by %s` names nothing the query can read", sa.Text(), sa.SubjectRef)
+	if sa.Subject == nil {
+		return nil, unread
+	}
+	if sa.SubjectRoot == nil {
+		return []*symbols.Symbol{sa.Subject}, nil
+	}
+	chain := []*symbols.Symbol{sa.SubjectRoot}
+	sym := sa.SubjectRoot
+	model := ctx.Semantics()
+	for _, name := range sa.SubjectPath {
+		next, ok := model.LookupMember(sym, name)
+		if !ok {
+			next, ok = model.VariantOf(sym, name)
+		}
+		if !ok {
+			return nil, unread
+		}
+		sym = next
+		chain = append(chain, sym)
+	}
+	return chain, nil
+}
+
+// nestedDeclared fixes each variable reading a feature through one object of the
+// element to the value that object's declaration states, when it states one.
+func nestedDeclared(ctx *runtime.Context, q *Query) []Pin {
+	pinned := make(map[string]bool, len(q.Pinned))
+	for _, p := range q.Pinned {
+		pinned[p.Var.Name] = true
+	}
+	var out []Pin
+	for _, v := range q.Vars {
+		if len(v.Steps) != 2 || v.Root == nil || v.Root == v.Symbol || pinned[v.Name] {
+			continue
+		}
+		found, _ := Fixed(ctx, v.Root, nil)
+		for _, p := range found {
+			if p.Feature == v.Symbol || p.Name == v.Symbol.Name {
+				out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: p.Value, Source: PinDeclared})
+				break
+			}
+		}
+	}
+	return out
 }
 
 // TranslateWith builds a query whose pinned features are asserted equal to the
@@ -271,6 +383,10 @@ type translator struct {
 	// stage is the nested analysis whose conditions or objectives are being
 	// translated, nil for the case itself: its members shadow the case's.
 	stage *symbols.Symbol
+
+	// subjects maps a requirement's subject member to the feature chain `by`
+	// names in a satisfaction being translated: the subject reads that object.
+	subjects map[*symbols.Symbol][]*symbols.Symbol
 
 	nonlinear bool
 	intDiv    bool
