@@ -386,9 +386,8 @@ package 'Cfg Space' {
 }
 `
 
-// TestConfigureReadsQuotedNamesBack: a variant whose qualified name the solver
-// writes as a |quoted| symbol is read back whole, so a family in a package named
-// with a space is configured, solved and checked like any other.
+// TestConfigureReadsQuotedNamesBack: a variant the solver writes as a |quoted| symbol
+// is read back whole, so a family in a package named with a space configures like any other.
 func TestConfigureReadsQuotedNamesBack(t *testing.T) {
 	requireSolver(t)
 	s := checkSession(t, quotedFamilyModel)

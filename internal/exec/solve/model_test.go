@@ -71,9 +71,8 @@ func TestUnrenderedAssignments(t *testing.T) {
 	}
 }
 
-// A variant or literal whose qualified name a simple symbol cannot carry — a
-// space, a hyphen, a quoted name, a non-ASCII letter — is read back from the
-// solver's text as the value the sort declares, through a model and a witness.
+// A variant or literal whose qualified name needs a |quoted| symbol (a space, a
+// hyphen, a quoted name, a non-ASCII letter) is read back whole from a model or witness.
 func TestDecodeValueReadsEveryNameASortDeclares(t *testing.T) {
 	values := []string{
 		"Cfg Space::fam::engine::e4",
