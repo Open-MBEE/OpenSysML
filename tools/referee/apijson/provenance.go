@@ -6,7 +6,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/errata"
-	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/diff"
 )
 
@@ -26,9 +25,9 @@ var manualExamples = diff.Root{Name: "manual-examples", Dir: "docs/manual/exampl
 // roots are the differential's corpus roots plus the manual's examples.
 func roots() []diff.Root { return append(diff.Roots(), manualExamples) }
 
-// provenance identifies the run's inputs: the pilot pin, the sources the pilot
-// exporter and our writer are compiled from, and every non-empty root's digest.
-func provenance(checkout string) (baseline.Record, error) {
+// provenance identifies the run's inputs: checkout's pin, bridge and corpora, and
+// the writer linked into this executable, digested in built, its build checkout.
+func provenance(checkout, built string) (baseline.Record, error) {
 	pin, err := baseline.ReadPin(checkout)
 	if err != nil {
 		return baseline.Record{}, err
@@ -37,7 +36,10 @@ func provenance(checkout string) (baseline.Record, error) {
 	if err != nil {
 		return baseline.Record{}, fmt.Errorf("digest %s: %w", bridgeSource, err)
 	}
-	writerDigest, err := writerProvenance()
+	writerDigest, err := baseline.DigestPackage(filepath.Join(built, filepath.FromSlash(writerSource)))
+	if err != nil {
+		return baseline.Record{}, fmt.Errorf("digest %s: %w", writerSource, err)
+	}
 	if err != nil {
 		return baseline.Record{}, err
 	}
@@ -74,18 +76,4 @@ func provenance(checkout string) (baseline.Record, error) {
 		record.Inputs = append(record.Inputs, baseline.Input{Name: root.Name, Dir: root.Dir, Origin: origin, Files: len(files), Digest: digest})
 	}
 	return record, nil
-}
-
-// writerProvenance digests the writer linked into this executable: the one in
-// the checkout it was built from, which -repo pointing elsewhere does not change.
-func writerProvenance() (string, error) {
-	built, err := repo.BuildRoot()
-	if err != nil {
-		return "", fmt.Errorf("digest %s: %w", writerSource, err)
-	}
-	digest, err := baseline.DigestPackage(filepath.Join(built, filepath.FromSlash(writerSource)))
-	if err != nil {
-		return "", fmt.Errorf("digest %s: %w", writerSource, err)
-	}
-	return digest, nil
 }
