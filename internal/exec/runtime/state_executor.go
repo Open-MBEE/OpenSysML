@@ -1817,7 +1817,7 @@ func lessPath(a, b []int) bool {
 // moves the machine's single active hierarchy. notes are recorded only if it fires;
 // r is the transition's route as resolveRoute settled it.
 func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition, notes []RunNote, r route) (bool, error) {
-	defer e.taking(trans, notes)()
+	defer e.taking(trans, notes).restore()
 	if region := e.activeRegionOf(source); region != nil {
 		return e.fireTransitionInRegion(region, trans, r)
 	}
@@ -1825,9 +1825,9 @@ func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition,
 }
 
 // taking puts the executor in the middle of taking trans, selected with notes,
-// and returns the function putting it back where it was.
-func (e *StateExecutor) taking(trans *lower.Transition, notes []RunNote) func() {
-	savedTrans, savedNotes := e.firingTrans, e.firingNotes
+// and returns what puts it back where it was.
+func (e *StateExecutor) taking(trans *lower.Transition, notes []RunNote) taken {
+	t := taken{exec: e, trans: e.firingTrans, notes: e.firingNotes}
 	e.firingTrans, e.firingNotes = trans, notes
 	by := e.ctx.standingOf(e.ctx.model.expressionFootprint(trans.BodyScope, trans.Guard), true)
 	for _, n := range notes {
@@ -1835,11 +1835,23 @@ func (e *StateExecutor) taking(trans *lower.Transition, notes []RunNote) func() 
 			by = unionSerials(by, []int64{c.serial})
 		}
 	}
-	restore := e.ctx.underControl(by)
-	return func() {
-		restore()
-		e.firingTrans, e.firingNotes = savedTrans, savedNotes
-	}
+	t.control = e.ctx.underControl(by)
+	return t
+}
+
+// taken is where an executor was before taking a transition: the transition
+// and notes it was firing, and the control it ran under.
+type taken struct {
+	exec    *StateExecutor
+	trans   *lower.Transition
+	notes   []RunNote
+	control int
+}
+
+// restore puts the executor back where it was before taking the transition.
+func (t taken) restore() {
+	t.exec.ctx.releaseControl(t.control)
+	t.exec.firingTrans, t.exec.firingNotes = t.trans, t.notes
 }
 
 // resolveAndFire takes a transition outside a dispatch, a timer come due, resolving
@@ -1858,7 +1870,7 @@ func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Trans
 	if source != nil {
 		return e.fireFrom(source, trans, notes, r)
 	}
-	defer e.taking(trans, notes)()
+	defer e.taking(trans, notes).restore()
 	return e.fireTransition(trans, r)
 }
 
@@ -3504,7 +3516,7 @@ func (e *StateExecutor) fireJoinIncoming(join *ast.PseudostateNode, plan *lower.
 // arguments its own trigger takes from the occurrence bound; it is recorded as taken.
 func (e *StateExecutor) fireJoinSegment(trans *lower.Transition, plan *lower.JoinPlan) error {
 	source := trans.Source.(*ast.StateNode)
-	defer e.taking(trans, e.firingNotes)()
+	defer e.taking(trans, e.firingNotes).restore()
 	if e.firingEvent != nil && trans.Trigger != nil {
 		unbind, err := e.bindTriggerArguments(trans, e.firingEvent)
 		if err != nil {

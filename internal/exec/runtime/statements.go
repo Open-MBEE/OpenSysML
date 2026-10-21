@@ -845,7 +845,7 @@ func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int, order *l
 // on the choice the draw made, where the order of the statements may matter.
 func (e *stmtEngine) statementUnder(stmts []lower.Statement, i int, f *stmtListFrame, resumed bool) (stmtFlow, error) {
 	if f.under != 0 {
-		defer e.ctx.underControl([]int64{f.under})()
+		defer e.ctx.releaseControl(e.ctx.underControl([]int64{f.under}))
 	}
 	return e.statement(stmts, i, f, resumed)
 }
@@ -1129,7 +1129,7 @@ func (e *stmtEngine) ifStatement(stmt lower.If) (stmtFlow, error) {
 	if f.elseBranch {
 		branch = *stmt.Else
 	}
-	defer e.ctx.underControl(f.control)()
+	defer e.ctx.releaseControl(e.ctx.underControl(f.control))
 	flow, err := e.block(branch)
 	return flow, e.ctx.pausing(f, err)
 }
@@ -1499,9 +1499,9 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 		e.syncLoopCells(f)
 		e.ctx.resetBodyCells(f.cells)
 	}
-	restore := e.ctx.underControl(f.control)
+	control := e.ctx.underControl(f.control)
 	flow, err = e.runBlock(stmt.Body)
-	restore()
+	e.ctx.releaseControl(control)
 	e.syncLoopCells(f)
 	if err != nil || flow == flowReturn {
 		return flow, true, err
@@ -1587,9 +1587,9 @@ func (e *stmtEngine) forIteration(stmt lower.Loop, f *loopFrame, resumed bool) (
 		e.ctx.resetBodyCells(f.cells)
 		f.locals[stmt.Variable] = f.elements[f.iteration-1]
 	}
-	restore := e.ctx.underControl(f.control)
+	control := e.ctx.underControl(f.control)
 	flow, err = e.runBlock(stmt.Body)
-	restore()
+	e.ctx.releaseControl(control)
 	e.syncLoopCells(f)
 	return flow, err
 }
