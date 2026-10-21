@@ -52,7 +52,8 @@ let queue: Promise<void> = Promise.resolve();
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   output = vscode.window.createOutputChannel("SysML v2");
   context.subscriptions.push(output);
-  extensionVersion = String((context.extension.packageJSON as { version?: unknown }).version ?? "");
+  const declaredVersion = (context.extension.packageJSON as { version?: unknown }).version;
+  extensionVersion = typeof declaredVersion === "string" ? declaredVersion : "";
 
   // One watcher for the whole session: a per-start watcher would outlive the
   // client that used it and pile up over restarts.
