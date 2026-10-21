@@ -41,6 +41,8 @@ type Model struct {
 	resolver  *resolve.Resolver
 
 	features map[*symbols.Symbol][]EffectiveFeature
+	// effectiveTypes memoizes effectiveTypes by feature symbol.
+	effectiveTypes map[*symbols.Symbol][]*symbols.Symbol
 	// declaresChains memoizes, by type, whether it or a member source of it
 	// declares a nested redefinition chain (see pendingNestedRedefinitions).
 	declaresChains map[*symbols.Symbol]bool
