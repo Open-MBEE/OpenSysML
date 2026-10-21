@@ -28,7 +28,7 @@ jobs:
   publish:
     name: Publish to the MCP Registry
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 200
     env:
       TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
       REGISTRY: ${{ github.event_name == 'workflow_dispatch' && inputs.registry || 'production' }}
