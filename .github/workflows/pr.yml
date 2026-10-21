@@ -574,10 +574,8 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # Not setup-go's cache: that entry is shared by every Go job and saved by whichever
-      # finishes first, so it never held the wasm objects and the gate compiled both
-      # targets cold on every run. The gate's own cache is saved by wasm-cache.yml on
-      # each develop push and restored here by prefix, nearest develop state first.
+      # Not setup-go's shared cache, which another Go job saves first without the wasm objects:
+      # the gate's own entry, saved by wasm-cache.yml on each develop push, is restored by prefix.
       - name: Set up Go
         id: go
         uses: actions/setup-go@v5

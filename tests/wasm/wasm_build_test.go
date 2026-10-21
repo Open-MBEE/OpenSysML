@@ -72,9 +72,8 @@ type artifact struct {
 	err    error
 }
 
-// artifacts are the linked commands of this run. The first test to ask for one links
-// it; every later test shares the binary, so TestWasmBuilds, TestWasmRuns and the
-// browser REPL walkthrough never link the same command twice.
+// artifacts are the linked commands of this run: the first test to ask links one and
+// every later test shares the binary, so no command is linked twice.
 var artifacts = struct {
 	mu   sync.Mutex
 	dir  string

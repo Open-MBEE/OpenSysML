@@ -1,9 +1,7 @@
 name: WebAssembly build cache
 
-# Pull-request caches are private to their branch, so the WebAssembly gate in pr.yml
-# can only start warm from a cache saved on develop. This runs the gate itself on each
-# develop push and saves the Go build and module caches it leaves behind under a key
-# the gate restores by prefix; every push saves a fresh entry and the older ones age out.
+# Pull-request caches are private to their branch, so the gate in pr.yml can only start warm
+# from an entry saved on develop: this runs the gate on each develop push and saves what it built.
 on:
   push:
     branches: [develop]
