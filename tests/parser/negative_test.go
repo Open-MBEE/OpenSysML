@@ -562,6 +562,7 @@ func TestNegative(t *testing.T) {
 		// ParameterMember). The group is reported and the body still read.
 		{"action_def_parameter_list", "package P { action def A(x : Integer) { in y : Integer; } }"},
 		{"calc_def_parameter_list_bodiless", "package P { calc def C(x : Integer); }"},
+		{"action_def_parameter_list_semicolons", "package P { action def A(x : Integer; y : Integer) { in z : Integer; } }"},
 		{"part_def_parameter_list_unclosed", "package P { part def D(x : Integer { } }"},
 	}
 
@@ -778,6 +779,7 @@ func TestNegativeKerML(t *testing.T) {
 		{"featuring_featured_by_body", "package P { class T; feature f; featuring f featured by T { doc /* d */ } }"},
 		{"featuring_featured_no_by", "package P { class T; feature f; featuring f featured T; }"},
 		{"behavior_parameter_list", "package P { behavior B(x : Real) { language \"alf\" /* x */ } }"},
+		{"behavior_parameter_list_semicolons", "package P { behavior B(x : T; y : U) { in a : T; } behavior C; }"},
 	}
 
 	for _, tt := range tests {

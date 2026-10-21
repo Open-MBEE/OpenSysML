@@ -1991,7 +1991,7 @@ func (p *Parser) skipParameterList() {
 	// included; one that never closes ends at the first terminator.
 	closes := p.parenGroupCloses()
 	depth := 1
-	for depth > 0 && !p.atEOF() && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !(p.at(lexer.Semicolon) && (!closes || depth == 1)) {
+	for depth > 0 && !p.atEOF() && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !(p.at(lexer.Semicolon) && !closes) {
 		switch p.advance().Kind {
 		case lexer.LParen:
 			depth++
