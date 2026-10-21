@@ -7,7 +7,7 @@
     <version>0.10.1</version>
   </parent>
   <artifactId>opensysml-mdk-bridge</artifactId>
-  <name>OpenSysML MDK DocGen extension</name>
+  <name>OpenSysML MDK for Cameo DocGen extension</name>
   <dependencies>
     <dependency>
       <groupId>org.openmbee</groupId>
