@@ -438,7 +438,7 @@ read	Probe::p1.st.decisionTransitions	systems	Actions::Action::decisionTransitio
 read	Probe::p1.st.decisions	systems	Actions::Action::decisions	empty
 read	Probe::p1.st.doAction	systems	States::StateAction::doAction	object:Actions::Action
 read	Probe::p1.st.done	systemsFRAME	States::StateAction::done	undetermined <undetermined>
-read	Probe::p1.st.entryAction	systems	States::StateAction::entryAction	undetermined <undetermined>
+read	Probe::p1.st.entryAction	systems	States::StateAction::entryAction	object:States::StateAction::entryAction
 read	Probe::p1.st.exclusiveStates	systems	States::StateAction::exclusiveStates	empty
 read	Probe::p1.st.exitAction	systems	States::StateAction::exitAction	object:Actions::Action
 read	Probe::p1.st.forLoops	systems	Actions::Action::forLoops	empty
@@ -725,7 +725,7 @@ read	Probe::p1.es.decisionTransitions	systems	Actions::Action::decisionTransitio
 read	Probe::p1.es.decisions	systems	Actions::Action::decisions	empty
 read	Probe::p1.es.doAction	systems	States::StateAction::doAction	object:Actions::Action
 read	Probe::p1.es.done	systemsFRAME	States::StateAction::done	undetermined <undetermined>
-read	Probe::p1.es.entryAction	systems	States::StateAction::entryAction	undetermined <undetermined>
+read	Probe::p1.es.entryAction	systems	States::StateAction::entryAction	object:States::StateAction::entryAction
 read	Probe::p1.es.exclusiveStates	systems	States::StateAction::exclusiveStates	empty
 read	Probe::p1.es.exitAction	systems	States::StateAction::exitAction	object:Actions::Action
 read	Probe::p1.es.forLoops	systems	Actions::Action::forLoops	empty
@@ -922,7 +922,7 @@ read	new Probe::S1().decisionTransitions	systems	Actions::Action::decisionTransi
 read	new Probe::S1().decisions	systems	Actions::Action::decisions	empty
 read	new Probe::S1().doAction	systems	States::StateAction::doAction	object:Actions::Action
 read	new Probe::S1().done	systemsFRAME	States::StateAction::done	undetermined <undetermined>
-read	new Probe::S1().entryAction	systems	States::StateAction::entryAction	error uninitialized feature value: entryAction
+read	new Probe::S1().entryAction	systems	States::StateAction::entryAction	object:States::StateAction::entryAction
 read	new Probe::S1().exclusiveStates	systems	States::StateAction::exclusiveStates	empty
 read	new Probe::S1().exitAction	systems	States::StateAction::exitAction	object:Actions::Action
 read	new Probe::S1().forLoops	systems	Actions::Action::forLoops	empty
