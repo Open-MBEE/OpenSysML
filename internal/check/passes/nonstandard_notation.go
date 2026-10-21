@@ -852,7 +852,7 @@ func (w *notationWalker) caseKeyword(n ast.Node, keyword string, isDef bool) {
 	}
 	// The fix deletes the word `case` and the blank after it, leaving any
 	// comment between the two words where it is; it needs the source text.
-	if caseWord, ok := w.trailingWordSpan(span, second); ok {
+	if caseWord, ok := w.trailingWordSpan(span, second, n.Span().End()); ok {
 		d.Fixes = []diag.Fix{{
 			Title:     "Write the standard keyword " + standard,
 			Edits:     []diag.Edit{diag.Replace(caseWord, "")},
@@ -863,9 +863,10 @@ func (w *notationWalker) caseKeyword(n ast.Node, keyword string, isDef bool) {
 }
 
 // trailingWordSpan spans the keyword word that closes a keyword span together
-// with the whitespace following it inside the span's document, false without
-// the source text.
-func (w *notationWalker) trailingWordSpan(span source.Span, word string) (source.Span, bool) {
+// with the blanks following it before limit, the end of the declaration that
+// wrote it, so no text past the declaration (or the document) is read; false
+// without the source text.
+func (w *notationWalker) trailingWordSpan(span source.Span, word string, limit int) (source.Span, bool) {
 	if w.lookup == nil {
 		return source.Span{}, false
 	}
@@ -880,10 +881,11 @@ func (w *notationWalker) trailingWordSpan(span source.Span, word string) (source
 	if at.Len == 0 {
 		return source.Span{}, false
 	}
-	after := w.lookup(w.doc, source.Span{Offset: at.End(), Len: 1})
-	for after == " " || after == "\t" {
+	for at.End() < limit {
+		if after := w.lookup(w.doc, source.Span{Offset: at.End(), Len: 1}); after != " " && after != "\t" {
+			break
+		}
 		at.Len++
-		after = w.lookup(w.doc, source.Span{Offset: at.End(), Len: 1})
 	}
 	return at, true
 }
