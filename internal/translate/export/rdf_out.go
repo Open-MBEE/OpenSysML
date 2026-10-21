@@ -142,6 +142,7 @@ const (
 	xEndElement                   = "endElement"
 	xSourceMultiplicityBeforeThen = "sourceMultiplicityBeforeThen"
 	xConjugatedTyping             = "conjugatedTyping"
+	xHeadClause                   = "headClause"
 	xEndVerb                      = "endVerb"
 	xSourceMember                 = "sourceMember"
 	xTargetMember                 = "targetMember"

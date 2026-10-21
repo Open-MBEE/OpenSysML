@@ -4252,11 +4252,8 @@ func (d *decoder) spelledHead(el *element) []headClause {
 	return clauses
 }
 
-// headClauseOf picks the clause a relationship element states among the
-// candidates its metaclass admits: one candidate is it; between several (a
-// feature that both specializes and subsets x owns two Subsettings of x) the
-// suffix this writer mints decides, else the kinds' fixed order, which invents
-// no order a graph of another writer does not state.
+// headClauseOf picks the clause a relationship element states among the candidates its
+// metaclass admits: the keyword it carries decides between several, else the kinds' fixed order.
 func (d *decoder) headClauseOf(owned rdf.Term, candidates []headClause) (headClause, bool) {
 	switch len(candidates) {
 	case 0:
@@ -4264,9 +4261,9 @@ func (d *decoder) headClauseOf(owned rdf.Term, candidates []headClause) (headCla
 	case 1:
 		return candidates[0], true
 	}
-	if kind, ok := mintedRelationshipKind(rdf.LocalName(owned.Value)); ok {
+	if keyword, ok := d.graph.Object(owned, rdf.OpenSysML+xHeadClause); ok {
 		for _, clause := range candidates {
-			if clause.kind == kind {
+			if relationshipSyntax[clause.kind] == keyword.Value {
 				return clause, true
 			}
 		}
@@ -4279,23 +4276,6 @@ func (d *decoder) headClauseOf(owned rdf.Term, candidates []headClause) (headCla
 		}
 	}
 	return candidates[0], true
-}
-
-// mintedRelationshipSuffixes are the suffixes relationshipSpec mints a
-// relationship element's IRI with, by the clause kind they materialize.
-var mintedRelationshipSuffixes = map[string]ast.RelationshipKind{
-	"_sp": ast.RelSpecializes, "_ss": ast.RelSubsets, "_rs": ast.RelReferences,
-}
-
-// mintedRelationshipKind reads the clause kind off a local name this writer
-// minted (`P__f_sp0`), if it carries one of the suffixes.
-func mintedRelationshipKind(local string) (ast.RelationshipKind, bool) {
-	trimmed := strings.TrimRight(local, "0123456789")
-	if i := strings.LastIndex(trimmed, "_"); i >= 0 {
-		kind, ok := mintedRelationshipSuffixes[trimmed[i:]]
-		return kind, ok
-	}
-	return 0, false
 }
 
 func (d *decoder) multiplicityText(el *element) string {

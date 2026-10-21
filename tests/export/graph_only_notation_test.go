@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 // notationFromTheGraphAlone converts src to Turtle, strips the source text and
@@ -313,23 +314,29 @@ func TestNameFromTheFirstOfSeveralRedefinitionsFromTheGraphAlone(t *testing.T) {
 		"attribute dim = base.innerSpaceDimension;")
 }
 
-// A feature that both specializes and subsets one target owns two Subsettings
-// of it; the graph-only hop keeps the order they were spelled in either way
-// round, rather than the fixed kind order.
+// Two Subsettings of one target (`specializes x subsets x`) keep the order they were
+// spelled in from the graph alone, under either id form, rather than the fixed kind order.
 func TestSameTargetSpecializesAndSubsetsKeepTheirSpelledOrder(t *testing.T) {
-	for _, head := range []string{"specializes x subsets x", "subsets x specializes x"} {
-		src := "package P {\n\tfeature x;\n\tfeature f " + head + ";\n}\n"
-		_, back := graphOnlyRoundTrip(t, "m.kerml", []byte(src))
-		if want := "feature f " + head + ";"; !strings.Contains(string(back), want) {
-			t.Errorf("want %q in the notation from the graph alone:\n%s", want, back)
+	for _, id := range []export.IDForm{export.IDQualifiedName, export.IDUUID} {
+		for _, head := range []string{"specializes x subsets x", "subsets x specializes x"} {
+			src := []byte("package P {\n\tfeature x;\n\tfeature f " + head + ";\n}\n")
+			turtle, err := convert.ConvertWith("m.kerml", src, convert.FormatSysML, convert.FormatTurtle, convert.Options{ID: id})
+			if err != nil {
+				t.Fatalf("to turtle: %v", err)
+			}
+			back, err := convert.Convert("m.ttl", withoutLayout(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("back to notation from the graph alone: %v", err)
+			}
+			if want := "feature f " + head + ";"; !strings.Contains(string(back), want) {
+				t.Errorf("id form %v: want %q in the notation from the graph alone:\n%s", id, want, back)
+			}
 		}
 	}
 }
 
-// A graph that states a head's typings as relationship elements but owns no
-// membership for its multiplicity (an older writer's) gets the multiplicity
-// written once, with the first typing clause, however the other clauses split
-// the typings.
+// A graph that owns no membership for a head's multiplicity (an older writer's) gets
+// it written once, with the first typing clause, however other clauses split the typings.
 func TestUnplacedMultiplicityIsWrittenOnceAcrossSplitTypings(t *testing.T) {
 	src := "package P {\n\tpart def A;\n\tpart def B;\n\tpart x;\n\tpart p : A :> x : B [2];\n}\n"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)

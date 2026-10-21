@@ -182,7 +182,11 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 			block = append(block, e.emitConjugatedPortTyping(subject, p.target, spec))
 			return
 		}
-		block = append(block, e.emitRelationship(subject, p.target, spec))
+		relation := e.emitRelationship(subject, p.target, spec)
+		if e.headClauseAmbiguous(subject, p.kind, p.target) {
+			e.graph.Add(relation, e.sysx(xHeadClause), rdf.String(relationshipSyntax[p.kind]))
+		}
+		block = append(block, relation)
 	}
 	head := e.heads[subject]
 	if head != nil {
@@ -202,6 +206,26 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 	if head != nil {
 		e.seatHead(subject, head.anchor, block)
 	}
+}
+
+// headClauseAmbiguous reports whether subject states target under another
+// clause kind that materializes as the same relationship class as kind.
+func (e *encoder) headClauseAmbiguous(subject rdf.Term, kind ast.RelationshipKind, target rdf.Term) bool {
+	for _, other := range headClauseSiblings[kind] {
+		if slices.Contains(e.graph.Objects(subject, rdf.SysML+relationshipProperty[other]), target) {
+			return true
+		}
+	}
+	return false
+}
+
+// headClauseSiblings are the clause kinds a feature materializes as one
+// relationship class: specializes and subsets as Subsetting, references and an
+// end form's subsets as ReferenceSubsetting.
+var headClauseSiblings = map[ast.RelationshipKind][]ast.RelationshipKind{
+	ast.RelSpecializes: {ast.RelSubsets},
+	ast.RelSubsets:     {ast.RelSpecializes, ast.RelReferences},
+	ast.RelReferences:  {ast.RelSubsets},
 }
 
 // spelled is the head's clauses in the order the notation spelled them; a
