@@ -22,6 +22,7 @@ type options struct {
 	roots               []string
 	timeout             time.Duration
 	update, check       bool
+	lostAgainst         string
 	log                 io.Writer
 }
 
@@ -36,6 +37,7 @@ func Main(args []string, stderr io.Writer) int {
 	timeoutFlag := flags.Duration("timeout", 30*time.Minute, "time allowed for the pilot's export of one root")
 	updateFlag := flags.Bool("update", false, "re-record "+committedBaseline+" from this run")
 	checkFlag := flags.Bool("check", false, "fail unless this run reproduces "+committedBaseline)
+	lostAgainstFlag := flags.String("lost-against", "", "an earlier run's "+toolName+"-matches.json; list the element matches this run lost and gained against it")
 	if err := flags.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return 0
@@ -47,7 +49,7 @@ func Main(args []string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%s: %v\n", toolName, err)
 		return 1
 	}
-	opts := options{repo: root, timeout: *timeoutFlag, update: *updateFlag, check: *checkFlag, log: os.Stdout}
+	opts := options{repo: root, timeout: *timeoutFlag, update: *updateFlag, check: *checkFlag, lostAgainst: repo.Resolve(root, *lostAgainstFlag), log: os.Stdout}
 	opts.launcher = repo.Resolve(root, *launcherFlag)
 	if opts.launcher == "" {
 		opts.launcher = filepath.Join(root, "build", "pilot-json-exporter", "export-json")
@@ -163,6 +165,9 @@ func run(opts options) error {
 	examples := Examples{Examples: result.exampleList(rows), Unmatched: result.unmatchedList(), Unkeyed: unkeyed, Shared: shared}
 	fresh, err := writeReports(opts.out, report, examples, logs, opts.log)
 	if err != nil {
+		return err
+	}
+	if err := writeMatches(opts, Matches{Roots: result.matches}); err != nil {
 		return err
 	}
 	committed := filepath.Join(opts.repo, filepath.FromSlash(committedBaseline))

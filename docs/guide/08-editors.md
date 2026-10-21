@@ -96,6 +96,16 @@ REPL's `%render` command prints, as an SVG canvas of its own, and redraws as you
   cursor in the editor highlights the node that contains it. A node built from a standard
   library declaration opens the library file it was declared in, read-only (see
   [the standard library in the editor](#the-standard-library-in-the-editor)).
+- **Viewing.** <kbd>Ctrl</kbd>+wheel (a trackpad pinch) zooms about the pointer, a plain wheel
+  scrolls, and dragging on empty canvas pans; the toolbar's **−**, **+**, **Fit** and **1:1**
+  buttons and the bare <kbd>+</kbd>, <kbd>-</kbd> and <kbd>0</kbd> keys do the same. Each panel
+  keeps its zoom and position, so a re-opened one comes back where it was. Clicking a node also
+  selects it: its relationships and the nodes at their other ends stay bright and the rest dims,
+  until <kbd>Esc</kbd> or a click on empty canvas. The toolbar's **Relations** list names the
+  relationship kinds the diagram draws, with a count of each (and, while a node is selected, how
+  many are at it), and hides or shows each kind for that panel alone; the setting
+  `opensysml.diagram.hideRelations` lists the kinds every panel starts with hidden. None of this
+  touches the model or the exports.
 - **Behavior while editing.** A keystroke that leaves the model unparseable dims the last valid
   diagram and reports the error in the status line beneath it; the panel is never blanked.
   Anything the rendering could not represent is listed below the diagram. A rendering with
@@ -117,7 +127,10 @@ its elements with the bundled `DiagramLayout` library (`metadata Layout about en
 y = 80; }`, and `Route` for an edge's waypoints) is drawn exactly so, and a node the model does
 not place is laid out in layers under its owner by the ELK layered algorithm, its edges
 running orthogonally around the boxes (a rendering of more than 600 nodes falls back to a
-square grid). Dragging a node writes that annotation — into
+square grid). The toolbar's **Auto layout** button lays the whole diagram out that way for the
+panel alone, the model's `Layout` and `Route` annotations set aside until the next rendering or
+**Reset to model**; nothing is written unless you then drag a node, which writes that node's
+`Layout` as a drag always does. Dragging a node writes that annotation — into
 the view's body when a view is drawn, into the element's own when the document is drawn
 directly — as one edit when the pointer is released; dragging the handle on an edge bends it
 through a `Route` waypoint. An edge at a node the model places, which ELK's route no longer
