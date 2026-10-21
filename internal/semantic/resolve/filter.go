@@ -312,6 +312,13 @@ type enumEdge struct {
 
 // enumResult is an enumeration asked for: imp of scope surfacing into into (nil
 // for the members before any filter), with the member kinds asked of it.
+// keptMembers is an enumeration kept across enumerations with what it read,
+// replayed into a later reader's frame so an edit of a document read drops it.
+type keptMembers struct {
+	members []*symbols.Symbol
+	reads   *readCapture
+}
+
 type enumResult struct {
 	into, scope *symbols.Scope
 	imp         *ast.Import
@@ -344,8 +351,9 @@ func (r *Resolver) importedMembersAdmitting(into, scope *symbols.Scope, imp *ast
 		return nil
 	}
 	key := enumResult{into: into, scope: scope, imp: imp, unnamed: includeUnnamed}
-	if members, done := r.enumResults[key]; done {
-		return members
+	if kept, done := r.enumResults[key]; done && r.inCondition == 0 {
+		kept.reads.replay(r)
+		return kept.members
 	}
 	r.enumDepth++
 	defer func() {
@@ -355,10 +363,13 @@ func (r *Resolver) importedMembersAdmitting(into, scope *symbols.Scope, imp *ast
 		}
 	}()
 	cut := r.enumCut
-	members := r.enumerateImported(scope, imp, includeUnnamed, admission)
+	var members []*symbols.Symbol
+	reads := r.capturing(func() {
+		members = r.enumerateImported(scope, imp, includeUnnamed, admission)
+	})
 	if r.enumCut == cut && len(r.resolvingImports) == 0 && r.inCondition == 0 {
 		journalNew(r, r.enumResults, key, imp)
-		r.enumResults[key] = members
+		r.enumResults[key] = keptMembers{members: members, reads: reads}
 	}
 	return members
 }
@@ -461,19 +472,22 @@ func (r *Resolver) declaredChildren(scope *symbols.Scope, target *symbols.Symbol
 			continue
 		}
 		edge := enumEdge{imp: childImp, unnamed: includeUnnamed}
-		members, done := r.enumKept[edge]
-		if !done {
-			members, done = r.enumMembers[edge]
+		members, done := r.enumMembers[edge]
+		if kept, had := r.enumKept[edge]; !done && had && r.inCondition == 0 {
+			kept.reads.replay(r)
+			members, done = kept.members, true
 		}
 		if !done {
 			cut := r.enumCut
 			r.importStack[childImp] = true
-			members = r.importedMembersInto(target.Scope, target.Scope, childImp, includeUnnamed)
+			reads := r.capturing(func() {
+				members = r.importedMembersInto(target.Scope, target.Scope, childImp, includeUnnamed)
+			})
 			delete(r.importStack, childImp)
 			r.enumMembers[edge] = members
 			if r.enumCut == cut && len(r.resolvingImports) == 0 && r.inCondition == 0 {
 				journalNew(r, r.enumKept, edge, childImp)
-				r.enumKept[edge] = members
+				r.enumKept[edge] = keptMembers{members: members, reads: reads}
 			}
 		}
 		for _, sym := range members {

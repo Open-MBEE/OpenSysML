@@ -1,6 +1,8 @@
 package resolve
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -57,5 +59,56 @@ func TestImportedMembersKeptAreDroppedOnEdit(t *testing.T) {
 	w.put("l.sysml", "package L { part def A; part def B; }")
 	if got := len(w.r.ImportedMembersInto(scope, scope, imp)); got != 2 {
 		t.Fatalf("after the edit the import brings %d members, want 2", got)
+	}
+}
+
+// A document reading an enumeration another document kept depends on what that
+// enumeration read: an edit of the imported package drops the reader too.
+func TestImportedMembersKeptMakeTheirReaderDepend(t *testing.T) {
+	w := newTrackedIndex(t, map[string]string{
+		"l.sysml": "package L { part def A; }",
+		"q.sysml": "package Q { public import L::*; part def C; }",
+		"r.sysml": "package R { public import Q::*; }",
+		"s.sysml": "package S { public import Q::*; }",
+	})
+	for _, doc := range []string{"r.sysml", "s.sysml"} {
+		scope := w.idx.LookupQualified(strings.ToUpper(doc[:1]))[0].Scope
+		imp := w.r.scopeImports(scope)[0]
+		w.r.InDocument(doc, func() {
+			if got := len(w.r.ImportedMembersInto(scope, scope, imp)); got != 2 {
+				t.Fatalf("%s: the import brings %d members, want 2", doc, got)
+			}
+		})
+	}
+	if deps := w.r.Dependents("l.sysml"); !slices.Contains(deps, "s.sysml") {
+		t.Errorf("l.sysml's dependents are %v, want s.sysml among them", deps)
+	}
+	dropped := w.put("l.sysml", "package L { part def A; part def C; }")
+	if !slices.Contains(dropped, "s.sysml") {
+		t.Errorf("editing L dropped %v, want s.sysml among them", dropped)
+	}
+}
+
+// A filter condition's own names resolve unfiltered (KerML 8.2.4): enumerating
+// a filtered import inside a condition surfaces every member, not the kept
+// filtered enumeration.
+func TestImportedMembersInAConditionAreNotTheFilteredOnes(t *testing.T) {
+	idx := expandedIndexOf(t, map[string]string{
+		"lib.sysml": "package Lib { part def SafeBelt; part def Wheel; }",
+		"app.sysml": "package App { public import Lib::*[@Safety]; }",
+	})
+	r := judgingResolver(idx)
+	scope := idx.LookupQualified("App")[0].Scope
+	imp := r.scopeImports(scope)[0]
+	if got := len(r.importedMembersInto(scope, scope, imp, false)); got != 1 {
+		t.Fatalf("the filtered import brings %d members, want 1", got)
+	}
+	var inCondition int
+	r.InCondition(func() { inCondition = len(r.importedMembersInto(scope, scope, imp, false)) })
+	if inCondition != 2 {
+		t.Errorf("in a condition the import brings %d members, want 2", inCondition)
+	}
+	if got := len(r.importedMembersInto(scope, scope, imp, false)); got != 1 {
+		t.Errorf("after the condition the filtered import brings %d members, want 1", got)
 	}
 }
