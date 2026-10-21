@@ -10,9 +10,122 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
+
+func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
+	tests := []struct {
+		name       string
+		source     string
+		targetName string
+	}{
+		{
+			name:       "perform raw backslash n",
+			source:     `package P { part p { perform 'a-b\n'; } }`,
+			targetName: `a-b\n`,
+		},
+		{
+			name:       "perform escaped apostrophe",
+			source:     `package P { part p { perform 'it\'s'; } }`,
+			targetName: `it\'s`,
+		},
+		{
+			name:       "redefinition in externally typed part",
+			source:     `package P { part p : External::Vehicle { attribute :>> 'x y'; } }`,
+			targetName: "x y",
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			graph, err := convert.SysMLToRDF(test.name+".sysml", []byte(test.source))
+			if err != nil {
+				t.Fatalf("SysMLToRDF: %v", err)
+			}
+
+			var subject rdf.Term
+			var turtleName string
+			var qualifiedNames []string
+			for _, candidate := range graph.Subjects() {
+				name, ok := graph.Object(candidate, rdf.SysML+"qualifiedName")
+				if !ok {
+					continue
+				}
+				qualifiedNames = append(qualifiedNames, name.Value)
+				if !strings.HasSuffix(name.Value, "::"+test.targetName) {
+					continue
+				}
+				if subject.Value != "" {
+					t.Fatalf("multiple elements have qualifiedName ending in %q", test.targetName)
+				}
+				subject, turtleName = candidate, name.Value
+			}
+			if subject.Value == "" {
+				t.Fatalf("no Turtle graph qualifiedName ends in %q; got %v", test.targetName, qualifiedNames)
+			}
+			for _, candidate := range graph.Subjects() {
+				if candidate == subject {
+					continue
+				}
+				if name, ok := graph.Lexical(candidate, rdf.SysML+"declaredName"); ok && name == test.targetName {
+					t.Fatalf("target %q unexpectedly has a declared element", test.targetName)
+				}
+			}
+
+			document, err := export.WriteAPIJSON(graph)
+			if err != nil {
+				t.Fatalf("WriteAPIJSON: %v", err)
+			}
+			var elements []map[string]json.RawMessage
+			if err := json.Unmarshal(document, &elements); err != nil {
+				t.Fatalf("decode API JSON: %v", err)
+			}
+			id, ok := rdf.SubjectID(subject)
+			if !ok {
+				t.Fatalf("subject %s has no element ID", subject.Value)
+			}
+			var mappingNameFound bool
+			for _, element := range elements {
+				var elementID string
+				if err := json.Unmarshal(element["@id"], &elementID); err != nil {
+					continue
+				}
+				if elementID != id {
+					continue
+				}
+				var mappingName string
+				if err := json.Unmarshal(element["sysx:mappingQualifiedName"], &mappingName); err != nil {
+					t.Fatalf("decode mappingQualifiedName: %v", err)
+				}
+				if mappingName != turtleName {
+					t.Errorf("API JSON mappingQualifiedName = %q, want Turtle graph name %q", mappingName, turtleName)
+				}
+				mappingNameFound = true
+				delete(element, "qualifiedName")
+				delete(element, "sysx:mappingQualifiedName")
+				delete(element, "name")
+				break
+			}
+			if !mappingNameFound {
+				t.Fatalf("API JSON has no mapping name for element %q", id)
+			}
+			document, err = json.Marshal(elements)
+			if err != nil {
+				t.Fatalf("encode API JSON without spec qualifiedName: %v", err)
+			}
+			imported, err := export.ReadAPIJSON(document)
+			if err != nil {
+				t.Fatalf("ReadAPIJSON: %v", err)
+			}
+			importedName, ok := imported.Object(subject, rdf.SysML+"qualifiedName")
+			if !ok || importedName.Value != turtleName {
+				t.Errorf("imported mapping name = %q, %t; want Turtle graph name %q", importedName.Value, ok, turtleName)
+			}
+		})
+	}
+}
 
 func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 	paths, exampleRoot := apiJSONQualifiedNamePaths(t)

@@ -551,7 +551,11 @@ func mappingLastWrittenName(name string) string {
 	}
 	endName := source.ReferenceEndNames(name)
 	if segments, ok := source.MemberPathSegments(endName); ok && len(segments) > 0 {
-		return source.Unescape(segments[len(segments)-1])
+		segment := segments[len(segments)-1]
+		if len(endName) > 0 && endName[0] == '\'' {
+			return source.Unescape(segment)
+		}
+		return segment
 	}
 	qualified := identitySegments(name)
 	if len(qualified) == 0 {
@@ -560,8 +564,11 @@ func mappingLastWrittenName(name string) string {
 	segment := qualified[len(qualified)-1]
 	if segments, ok := source.MemberPathSegments(segment); ok && len(segments) > 0 {
 		segment = segments[len(segments)-1]
+		if len(qualified[len(qualified)-1]) > 0 && qualified[len(qualified)-1][0] == '\'' {
+			return source.Unescape(segment)
+		}
 	}
-	return source.Unescape(identityName(segment))
+	return identityName(segment)
 }
 
 func mappingQualifiedNameOwner(

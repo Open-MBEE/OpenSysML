@@ -21,6 +21,13 @@ func TestMappingLastWrittenNameDecodesLastSegment(t *testing.T) {
 	}
 }
 
+func TestMappingLastWrittenNamePreservesRawInvalidSegment(t *testing.T) {
+	const name = `a-b\n`
+	if got := mappingLastWrittenName(name); got != name {
+		t.Errorf("mappingLastWrittenName(%q) = %q, want the raw segment", name, got)
+	}
+}
+
 func TestMappingOwnedRelationshipsIncludesNamingRedefinition(t *testing.T) {
 	graph := rdf.NewGraph()
 	feature := rdf.ElementIRIForID("feature")
