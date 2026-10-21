@@ -391,7 +391,8 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 		return nil
 	}
 	position := -1
-	for i, p := range positionalParameters(ownedParameters(owner)) {
+	// The owner's memoized parameters list its owned ones first, in order.
+	for i, p := range m.parametersOf(owner).positional {
 		if p.sym == sym {
 			position = i
 			break

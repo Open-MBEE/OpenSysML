@@ -41,6 +41,7 @@ type Model struct {
 	lookupOrder   map[*symbols.Symbol][]lookupSource    // name-lookup order
 	contributed   map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
 	nestedRedefs  map[*symbols.Symbol][]NestedRedefinition
+	allRedefined  map[*symbols.Symbol][]*symbols.Symbol // memoized redefinition closure
 	primTypes     map[*symbols.Symbol]PrimType
 	scalars       map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
 	params        map[*symbols.Symbol]behaviorParameters
@@ -168,6 +169,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		lookupOrder:         make(map[*symbols.Symbol][]lookupSource),
 		contributed:         make(map[*symbols.Symbol][]*symbols.Symbol),
 		nestedRedefs:        make(map[*symbols.Symbol][]NestedRedefinition),
+		allRedefined:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		primTypes:           make(map[*symbols.Symbol]PrimType),
 		params:              make(map[*symbols.Symbol]behaviorParameters),
 		invocations:         make(map[invocationKey]*InvocationSelection),
