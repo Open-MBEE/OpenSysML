@@ -1,10 +1,5 @@
 # Performance: release 0.11.0 against release 0.10.1
 
-> **Work in progress.** The quiet re-run of the 32-satellite stress rows
-> and the bisect of the unattributed executor rows are still running;
-> the cells marked `STRESS32` and the "not yet attributed" list are
-> filled in when they complete.
-
 The release-gate measurement of the 0.11.0 candidate — the head of
 `develop` at `d8b60ed62c0740722e041c59f752cc5c0c4cdddf` (2026-10-20), from
 which `release/0.11.0` is to be cut, with the head of #1350
@@ -20,7 +15,7 @@ machine, and whole-binary timings on generated and real models. See
 [performance](../internals/performance.md) for what the figures mean and
 where the remaining cost is.
 
-0.11.0 is a minor release: 227 pull requests merged to `develop` since
+0.11.0 is a minor release: 227 merges to `develop` since
 the 0.10.1 tag, among them the hiding of colliding imports (#1062),
 objects typed by every type they inherit through subsetting (#1276), the
 subsetting of a usage's base features (#1319), transitive order
@@ -40,9 +35,11 @@ moved there, on the candidate with every fix below merged locally
 (`5bcaa4265`), so the tables show three columns: 0.10.1, the 0.11.0
 candidate, and the candidate with the fixes. Each fix is its own pull
 request against `develop`, with a test that fails before it and a
-benchmark A/B against the merge that introduced the cost; none is merged
-as this is written, and whether 0.11.0 carries them is the maintainer's
-decision. The fixes, by the change in the history:
+benchmark A/B against the merge that introduced the cost. As this record
+is finished, #1347, #1348, #1351, #1352 and #1353 have merged to
+`develop` (`a662c2bce`) and #1349 is open against it, so the third
+column is the head 0.11.0 is cut from, less #1349. The fixes, by the
+change in the history:
 
 - the execution runtime computes an expression's footprint once per
   model instead of on every loop pass, guard and send (`internal/exec/runtime`,
@@ -102,9 +99,12 @@ named, not fixed.** Confirmed by the interleaved quiet-machine re-run
   every wildcard import's members per document (references) or per
   occurrence (rename), because the per-edge enumeration memo is cleared
   when the outermost enumeration returns and #1062 made each enumeration
-  expensive. Keeping that enumeration across a query is a design change
-  in `namespaceChildren`, left to the maintainer; **this is the one cost
-  this record carries unfixed by decision**. `ReferencesWarm`,
+  expensive. Keeping what an import brings for the life of the resolver
+  (a memo per namespace and member selection, journaled like the
+  collisions memo) is the follow-up fix, branch
+  `perf/memoize-namespace-children`, which was not measured for this
+  record; **until it lands this is the one confirmed regression 0.11.0
+  ships**. `ReferencesWarm`,
   `WorkspaceUpdate`, `FormatEdits` and `SpanToRangeLarge` are unchanged
   to the allocation.
 - **Analysis and the import graph** (`ImportValues/*` +59–72%
@@ -155,17 +155,30 @@ named, not fixed.** Confirmed by the interleaved quiet-machine re-run
   path of those diagnostics and the enumeration cost above; #1348 takes
   them to 924k and 1 014k (pre-#1062 877k and 941k).
 
-What moved and is not yet attributed to a merge as this is written, each
-beyond noise by allocation and each carried to its fix or verdict in a
-follow-up: the executor's lowered-graph rows (`ActionLoop/for1000`
-4 231 → 6 266 allocs/op, `ActionChain/chain1000` 65.0k → 80.8k and
-17.0 → 31.0 ms, `StateLoop/count5000` 1.176M → 1.381M, `ExecuteState`
-12.13k → 14.20k, `ExecuteAction` 245 → 299, `ExecuteActionFreshContext`
-340 → 403), `GRPCVerifyConstraint` 9 786 → 10 770,
-`ConnectParseFileHTTPCached` 1 017 → 1 151, the gRPC service's
-`InstantiateWarmModel` 1 833 → 2 238 (2 006 with the fixes), and the
-bytes of `MaterializePlainAttributes` (43.6 → 51.2 KiB) and
-`SetFeatureValueNoDependents` (352 → 416 B, allocations equal).
+- **The executor's statements** (`ActionLoop/for1000` 4 231 → 6 266
+  allocs/op, `ActionChain/chain1000` 65.0k → 80.8k and 17.0 → 31.0 ms,
+  `StateLoop/count5000` 1.176M → 1.381M, `ExecuteState` 12.13k → 14.20k,
+  `ExecuteAction` 245 → 299, `ExecuteActionFreshContext` 340 → 403, and
+  the bytes of `MaterializePlainAttributes` 43.6 → 51.2 KiB and
+  `SetFeatureValueNoDependents` 352 → 416 B): all bisect to #1136, whose
+  second cost — beside the loop footprints #1347 fixed — is that an
+  assignment's footprint is stamped with the performance's own places on
+  every execution, cloning the statement's read and write places each
+  time (two allocations per executed statement; `placesOf`, 2 007 of the
+  2 035 new objects per `ActionLoop/for1000` operation). The follow-up
+  fix, `perf/stamp-statement-footprint-once`, computes the stamped
+  footprint once per statement and performed node; its failing-before
+  test puts one more loop pass at 6.00 allocations on `develop` and 4.00
+  with the fix. It was written after the tables above and is not in the
+  third column.
+- **Three small rows with their cause named and carried**:
+  `GRPCVerifyConstraint` 9 786 → 10 770 and the REPL's `Instantiate`
+  56 → 59 are #1276's (the wider type set; #1351 takes the first to
+  10 690); `ConnectParseFileHTTPCached` 1 017 → 1 151 is #1062's
+  collision bookkeeping on the parse path (the same +0.6% the gRPC parse
+  rows show); the gRPC `InstantiateWarmModel` 1 833 → 2 238 (2 006 with
+  the fixes) is #1325's API JSON writer provenance on the instantiate
+  reply; the REPL's `RunStateMachine` 224 → 228 is #1315's.
 
 What the quiet re-run cleared: `Parse/synthetic` and `Parse/vehicle`
 (+16–19% time in the loaded rounds with identical allocations; eight
@@ -275,7 +288,7 @@ return to 0.10.1's count. `DerivedReadWriteRead` 65 → 73 bisects to
 #1276; #1351 recovers four of the eight and the other two are the wider
 type set each read consults (inherent). `MaterializePlainAttributes`
 (+3 allocations, +7.6 KiB) and `SetFeatureValueNoDependents` (+64 B at
-nine allocations) are listed among the unattributed rows in the summary.
+nine allocations) are #1136's stamping too (see the summary).
 
 ### `internal/frontend/repl`
 
@@ -296,8 +309,8 @@ nine allocations) are listed among the unattributed rows in the summary.
 fixed by #1349, and #1276/#1319's remainder); its time moves under 1%
 because the load is dominated by the library index. `Diagnostics` is
 #1205 (fixed by #1352) and #1161; the bytes per diagnostic go
-755 → 1 044 → 1 022 at 50 attributes. `Instantiate` 56 → 59 and
-`RunStateMachine` 224 → 228 are the executor's unattributed rows.
+755 → 1 044 → 1 022 at 50 attributes. `Instantiate` 56 → 59 is #1276's and
+`RunStateMachine` 224 → 228 is #1315's; both are carried.
 
 ### `internal/frontend/grpc`
 
@@ -308,8 +321,8 @@ because the load is dominated by the library index. `Diagnostics` is
 | `ParseFileColdInline` | 8.14 \| 8.16 \| 8.12 ms | 31.81k \| 32.01k \| 32.00k | 4.97 \| 4.98 \| 4.98 MiB |
 
 `InstantiateWarmModel` is the instantiation path: #1351 recovers 232 of
-its 405 allocations and the rest is listed as unattributed in the
-summary. The two parse rows are +0.6% allocations (the resolver's
+its 405 allocations and the rest is #1325's writer provenance on the
+reply, carried. The two parse rows are +0.6% allocations (the resolver's
 collision bookkeeping, #1062) and at parity on time.
 
 ### `internal/frontend/lsp`
@@ -419,12 +432,12 @@ The rows group by cause as in the summary: the import graph and analysis
 (#1298 → #1349, #1276/#1319 carried), instantiation and constraints
 (#1276 → #1351, remainder carried), the vehicle rows and
 `GRPCParseFileUncached` (#1062 → #1348, remainder carried), and the
-lowered-graph executor rows (`ActionLoop`, `ActionChain`, `StateLoop`,
-`ExecuteState`, `ExecuteAction*`), `GRPCVerifyConstraint`,
-`ConnectParseFileHTTPCached` and `LowerStateGraph`, which none of the
-six fixes addresses and which are the unattributed set. `ActionChain/chain1000`
-is the one row whose time moved more than its allocations (+82% against
-+24%), and it moves the same with the fixes applied.
+executor's statement rows (`ActionLoop`, `ActionChain`, `StateLoop`,
+`ExecuteState`, `ExecuteAction*`: #1136's footprint stamping, fixed
+after the tables by `perf/stamp-statement-footprint-once`), and the
+three small carried rows. `ActionChain/chain1000` is the one row whose
+time moved more than its allocations (+82% against +24%), and it moves
+the same with the six fixes applied.
 
 ## Stress constellation (`tests/stressmodel`)
 
@@ -435,33 +448,33 @@ run. `ConvertAPIJSON/satellites=512` was skipped as before.
 
 | benchmark | time (s) | allocs/op | B/op |
 | --------- | -------- | --------- | ---- |
-| `Load/satellites=32` | STRESS32 | 2.228M \| 3.293M \| STRESS32A | 165 \| 206 MiB |
+| `Load/satellites=32` | 0.548 \| 0.666 (+22%) \| 0.575 (~) | 2.228M \| 3.293M \| 2.382M | 165 \| 206 MiB |
 | `Load/satellites=128` | 1.93 \| 2.61 (~) | 8.491M \| 12.78M | 585 \| 774 MiB |
 | `Load/satellites=512` | 9.15 \| 11.35 (+24%) | 33.55M \| 50.74M | 2.13 \| 2.84 GiB |
-| `LoadFiles/satellites=32` | STRESS32 | 2.234M \| 3.296M \| STRESS32A | 181 \| 220 MiB |
+| `LoadFiles/satellites=32` | 0.634 \| 0.846 (~) \| 0.690 (~) | 2.234M \| 3.296M \| 2.385M | 181 \| 220 MiB |
 | `LoadFiles/satellites=128` | 2.57 \| 3.12 (~) | 7.885M \| 12.17M | 581 \| 760 MiB |
 | `LoadFiles/satellites=512` | 9.79 \| 13.41 (+37%) | 30.48M \| 47.65M | 2.08 \| 2.77 GiB |
-| `ValidateSplit/satellites=32/jobs=1` | STRESS32 | 2.780M \| 4.011M \| STRESS32A | 225 \| 280 MiB |
-| `ValidateSplit/satellites=32/jobs=8` | STRESS32 | 2.796M \| 4.026M \| STRESS32A | 227 \| 283 MiB |
+| `ValidateSplit/satellites=32/jobs=1` | 0.794 \| 0.997 (+26%) \| 0.840 (~) | 2.780M \| 4.011M \| 3.099M | 225 \| 280 MiB |
+| `ValidateSplit/satellites=32/jobs=8` | 0.290 \| 0.431 (+49%) \| 0.387 (+33%) | 2.796M \| 4.026M \| 3.114M | 227 \| 283 MiB |
 | `ValidateSplit/satellites=128/jobs=1` | 2.70 \| 3.80 (~) | 9.683M \| 14.58M | 723 \| 964 MiB |
 | `ValidateSplit/satellites=512/jobs=1` | 10.8 \| 13.5 (~) | 37.29M \| 56.86M | 2.58 \| 3.51 GiB |
-| `OpenSplit/satellites=32/cold` | STRESS32 | 2.655M \| 3.889M \| STRESS32A | 206 \| 262 MiB |
-| `OpenSplit/satellites=32/warm` | STRESS32 | 696.3k \| 723.6k \| STRESS32A | 83.8 \| 84.5 MiB |
+| `OpenSplit/satellites=32/cold` | 0.264 \| 0.447 (+69%) \| 0.374 (+42%) | 2.655M \| 3.889M \| 2.974M | 206 \| 262 MiB |
+| `OpenSplit/satellites=32/warm` | 0.138 \| 0.151 (~) \| 0.143 (~) | 696.3k \| 723.6k \| 723.6k | 83.8 \| 84.5 MiB |
 | `OpenSplit/satellites=512/cold` | 3.95 \| 5.35 (~) | 35.20M \| 54.76M | 2.29 \| 3.21 GiB |
 | `OpenSplit/satellites=512/warm` | 1.11 \| 1.05 (~) | 5.806M \| 6.143M | 934 \| 940 MiB |
-| `EditImported/satellites=32` | STRESS32 | 2.268M \| 3.347M \| STRESS32A | 139 \| 186 MiB |
+| `EditImported/satellites=32` | 0.607 \| 0.790 (+30%) \| 0.741 (+22%) | 2.268M \| 3.347M \| 2.435M | 139 \| 186 MiB |
 | `EditImported/satellites=512` | 9.45 \| 11.9 (~) | 29.56M \| 46.71M | 1.67 \| 2.39 GiB |
-| `EditBeside/satellites=32` (ms) | STRESS32 | 4 541 \| 4 961 \| STRESS32A | 572 \| 604 KiB |
+| `EditBeside/satellites=32` (ms) | 1.48 \| 1.50 (~) \| 1.48 (~) | 4 541 \| 4 961 \| 4 629 | 572 \| 604 KiB |
 | `EditBeside/satellites=512` (ms) | 16.3 \| 19.7 (~) | 41.69k \| 47.03k | 6.99 \| 7.41 MiB |
-| `Satisfy/satellites=32` (ms) | STRESS32 | 33.42k \| 54.48k \| STRESS32A | 1.85 \| 2.30 MiB |
+| `Satisfy/satellites=32` (ms) | 5.78 \| 7.22 (+25%) \| 5.93 (~) | 33.42k \| 54.48k \| 41.07k | 1.85 \| 2.30 MiB |
 | `Satisfy/satellites=512` (ms) | 117 \| 153 (~) | 530.9k \| 867.8k | 29.6 \| 36.8 MiB |
-| `FleetSatisfy/satellites=32` (ms) | STRESS32 | 8 852 \| 15 180 \| STRESS32A | 492 \| 621 KiB |
+| `FleetSatisfy/satellites=32` (ms) | 1.41 \| 2.06 (+46%) \| 1.54 (~) | 8 852 \| 15 180 \| 11.26k | 492 \| 621 KiB |
 | `FleetSatisfy/satellites=512` (ms) | 6.13 \| 8.51 (~) | 41.55k \| 74.12k | 2.33 \| 2.98 MiB |
-| `FleetInstantiate/satellites=32` (ms) | STRESS32 | 14.39k \| 16.69k \| STRESS32A | 9.58 \| 8.83 MiB |
+| `FleetInstantiate/satellites=32` (ms) | 4.99 \| 6.18 (~) \| 5.15 (~) | 14.39k \| 16.69k \| 15.45k | 9.58 \| 8.83 MiB |
 | `FleetInstantiate/satellites=512` (ms) | 77.7 \| 74.8 (~) | 216.1k \| 248.7k | 177 \| 155 MiB |
-| `HydratePlane/satellites=32` (ms) | STRESS32 | 253.0k \| 278.3k \| STRESS32A | 21.7 \| 22.5 MiB |
+| `HydratePlane/satellites=32` (ms) | 87.6 \| 87.7 (~) \| 88.3 (~) | 253.0k \| 278.3k \| 278.2k | 21.7 \| 22.5 MiB |
 | `HydratePlane/satellites=512` (ms) | 847 \| 957 (~) | 2.231M \| 2.648M | 217 \| 229 MiB |
-| `ConvertAPIJSON/satellites=32` | STRESS32 | 25.26M \| 29.20M \| STRESS32A | 4.69 \| 5.49 GiB |
+| `ConvertAPIJSON/satellites=32` | 8.21 \| 8.32 (~) \| 9.35 (~) | 25.26M \| 29.20M \| 29.20M | 4.69 \| 5.49 GiB |
 | `ConvertAPIJSON/satellites=128` | 32.3 \| 37.5 (+16%) | 99.04M \| 114.7M | 18.3 \| 22.3 GiB |
 
 The load, validation and edit rows carry the analysis cost (+44–58%
@@ -472,8 +485,18 @@ allocations, +21–42% bytes, growing with the constellation): `LoadFiles/32`
 at that merge, then #1319's share) and #1351 recovers 60% of them. The
 warm `OpenSplit` rows (+4–6%) and `HydratePlane` (+10–19%) move with the
 model's type sets. `ConvertAPIJSON` is #1253's larger element form:
-+16% allocations and +17–22% bytes on both sizes, and its time moves
-with the bytes. `FleetInstantiate` allocates 15% more but no more bytes.
++16% allocations and +17–22% bytes on both sizes; its time is not
+significant on the quiet machine at 32 satellites (8.21 against 8.32 s,
+spreads ±19–35%) and the loaded +16% at 128 is read with that in mind.
+`FleetInstantiate` allocates 15% more but no more bytes.
+
+On the quiet machine the fixes return `Load`, `LoadFiles`,
+`ValidateSplit/jobs=1`, `Satisfy`, `FleetSatisfy` and the warm rows to
+0.10.1's time (not significant, p ≥ 0.13) with +7–12% allocations left;
+`EditImported` (+22%), `OpenSplit/cold` (+42%) and `ValidateSplit/jobs=8`
+(+33%) stay slower with the fixes, and are the rows where the analysis
+remainder is paid per file on a cold index or across eight workers at
+once.
 `AnalyzeSplitPerDocument` and `PlaneResidency` fail on both revisions, as
 in the earlier records.
 
@@ -511,8 +534,8 @@ analysis bytes above, which at these sizes are a few megabytes.
 | `bin/sysml-lsp` size | 26.00 MiB | 27.16 MiB | 27.18 MiB |
 
 The floor is the standard library's bundled index decoded at start, 1–2
-MiB higher; the binaries are 1.6 MiB and 1.2 MiB larger (227 pull
-requests of code, among them the API JSON element form, the CI formats
+MiB higher; the binaries are 1.6 MiB and 1.2 MiB larger (227 merges
+of code, among them the API JSON element form, the CI formats
 and the document backends). The start time's one tick is at the timer's
 resolution.
 
@@ -563,12 +586,11 @@ deterministic: the machine moves time, not allocations.
 
 - **The language server's per-query cost after #1348.** The ~1 GiB the
   two cold rows still allocate is the per-query re-enumeration named in
-  the summary; a fix is a design change to the enumeration memo and is
-  not measured here.
-- **The executor's lowered-graph rows' cause.** `ActionLoop`,
-  `ActionChain`, `StateLoop` and `ExecuteState` are confirmed movements
-  without an attributed merge as this is written; their bisect follows
-  the record.
+  the summary; its fix (`perf/memoize-namespace-children`) follows this
+  record and is not measured here.
+- **The statement-stamping fix.** `perf/stamp-statement-footprint-once`
+  was written after the six-round tables; its A/B against the parent of
+  #1136 is in its own pull request, not here.
 - **Concurrent analysis.** `ValidateSplit/jobs=8` and `OpenSplit` run on
   8 CPUs; their loaded spreads are the machine's, and only the quiet
   32-satellite rows' time is stated.
