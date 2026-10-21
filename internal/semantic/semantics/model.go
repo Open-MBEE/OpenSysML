@@ -69,6 +69,12 @@ type Model struct {
 	// implicitSubsettings memoizes the owner feature each nested usage implicitly
 	// subsets (see nested.go).
 	implicitSubsettings map[*symbols.Symbol][]*symbols.Symbol
+	// usageBase, kermlBase and thingsBase memoize the base feature a declaration's
+	// kind implies; chainReachesBase whether a declared chain already reaches it.
+	usageBase        map[*symbols.Symbol]*symbols.Symbol
+	kermlBase        map[*symbols.Symbol]*symbols.Symbol
+	thingsBase       map[*symbols.Symbol]*symbols.Symbol
+	chainReachesBase map[*symbols.Symbol]bool
 	// computingUsageBase breaks implicitUsageBaseFeature ->
 	// declaredGeneralizationReaches -> relationshipTarget/resolver lookup ->
 	// collectContributors -> implicitUsageBaseFeature recursion.
@@ -186,6 +192,10 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitGenerals:    make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitSubsettings: make(map[*symbols.Symbol][]*symbols.Symbol),
+		usageBase:           make(map[*symbols.Symbol]*symbols.Symbol),
+		kermlBase:           make(map[*symbols.Symbol]*symbols.Symbol),
+		thingsBase:          make(map[*symbols.Symbol]*symbols.Symbol),
+		chainReachesBase:    make(map[*symbols.Symbol]bool),
 		computingUsageBase:  make(map[*symbols.Symbol]bool),
 
 		superEdgeCache: make(map[*symbols.Symbol][]superEdge),
