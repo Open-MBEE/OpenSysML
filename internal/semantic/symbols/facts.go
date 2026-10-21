@@ -19,6 +19,11 @@ type LibraryFacts struct {
 	// by, which leaves the whole set to be derived from the declaration.
 	Supers []ElementRef
 
+	// ImpliedSupers are the entries of Supers that are base library usages the
+	// declaration's kind implies it subsets rather than states. The typing its
+	// kind implies stays an ordinary entry, its type being read from Supers.
+	ImpliedSupers []ElementRef
+
 	// Unit is the reduction of a measurement unit to base units. Nil for a
 	// symbol that is not a measurement unit.
 	Unit *UnitFacts
@@ -192,6 +197,7 @@ func NodeKindOf(decl ast.Node) NodeKind {
 // Clone returns a copy of f sharing no slice or pointer with it.
 func (f LibraryFacts) Clone() LibraryFacts {
 	f.Supers = cloneRefs(f.Supers)
+	f.ImpliedSupers = cloneRefs(f.ImpliedSupers)
 	f.Redefines = cloneRefs(f.Redefines)
 	f.About = cloneRefs(f.About)
 	f.Ends = cloneRefs(f.Ends)

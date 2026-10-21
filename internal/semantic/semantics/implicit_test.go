@@ -28,13 +28,16 @@ func TestImplicitBaseResolvesThroughIndex(t *testing.T) {
 	m, root := buildModel(t, "package Parts { part def Part; abstract part parts : Part[*]; } part p; part q : Parts::Part;")
 	parts := sym(t, root, "Parts")
 	part, _ := parts.Scope.LookupLocal("Part")
+	partsUsage, _ := parts.Scope.LookupLocal("parts")
 
+	// The kind's base definition types the usage and its base usage is subsetted
+	// (SysML v2 §8.3.11.3 checkPartUsageSpecialization), typed or not.
 	supers := m.DirectSupertypes(sym(t, root, "p"))
-	if len(supers) != 1 || supers[0] != part {
-		t.Fatalf("DirectSupertypes(p) = %v, want [Parts::Part]", supers)
+	if len(supers) != 2 || supers[0] != part || supers[1] != partsUsage {
+		t.Fatalf("DirectSupertypes(p) = %v, want [Parts::Part Parts::parts]", supers)
 	}
-	if supers := m.DirectSupertypes(sym(t, root, "q")); len(supers) != 1 || supers[0] != part {
-		t.Fatalf("DirectSupertypes(q) = %v, want the declared [Parts::Part] only", supers)
+	if supers := m.DirectSupertypes(sym(t, root, "q")); len(supers) != 2 || supers[0] != part || supers[1] != partsUsage {
+		t.Fatalf("DirectSupertypes(q) = %v, want the declared [Parts::Part] and the implied [Parts::parts]", supers)
 	}
 }
 
@@ -57,7 +60,7 @@ func TestUsageKindsWithoutImplicitBase(t *testing.T) {
 
 // TestImplicitBaseUsageContributesThat covers SysML v2 §7.6: every usage element
 // subsets the most general base usage, which is what makes `that` visible in a
-// usage body. The base usage contributes members only — it is not a supertype.
+// usage body. The subsetting is an implied general, so the usage conforms to it.
 func TestImplicitBaseUsageContributesThat(t *testing.T) {
 	m, root := buildModel(t, `package Base { abstract feature things { feature that; } }
 		package Parts { part def Part; }
@@ -69,13 +72,16 @@ func TestImplicitBaseUsageContributesThat(t *testing.T) {
 	}
 	parts := sym(t, root, "Parts")
 	part, _ := parts.Scope.LookupLocal("Part")
-	if supers := m.DirectSupertypes(p); len(supers) != 1 || supers[0] != part {
-		t.Errorf("DirectSupertypes(p) = %v, want the declared [Parts::Part] only", supers)
-	}
 	base := sym(t, root, "Base")
 	things, _ := base.Scope.LookupLocal("things")
-	if m.Conforms(p, things) {
-		t.Errorf("a usage reported conforming to the base usage")
+	if supers := m.DirectSupertypes(p); len(supers) != 2 || supers[0] != part || supers[1] != things {
+		t.Errorf("DirectSupertypes(p) = %v, want the declared [Parts::Part] then the implied [Base::things]", supers)
+	}
+	if !m.Conforms(p, things) {
+		t.Errorf("a usage does not conform to the base usage it subsets")
+	}
+	if types := m.FeatureTypeSet(p); len(types) != 1 || types[0] != part {
+		t.Errorf("FeatureTypeSet(p) = %v, want [Parts::Part]: the base usage is subsetted, not a type", types)
 	}
 	// A definition is not a usage element and takes nothing from the base usage.
 	if _, ok := m.LookupMember(part, "that"); ok {
@@ -433,8 +439,8 @@ func TestW7AKerMLFeatureBaseContributesMembers(t *testing.T) {
 		t.Errorf("a KerML step does not inherit members of Performances::performances")
 	}
 	performances, _ := sym(t, root, "Performances").Scope.LookupLocal("performances")
-	if m.Conforms(s, performances) {
-		t.Errorf("a feature reported conforming to its base feature")
+	if !m.Conforms(s, performances) {
+		t.Errorf("a step does not conform to the base feature it subsets (KerML §8.4.2)")
 	}
 }
 
@@ -472,9 +478,10 @@ func TestW7ASysMLSuppressionMatchesKerML(t *testing.T) {
 	if _, ok := m.LookupContributedMember(sym(t, root, "p"), "endShot"); !ok {
 		t.Errorf("a part usage specializing a non-part lost Parts::Part")
 	}
+	partsUsage, _ := sym(t, root, "Parts").Scope.LookupLocal("parts")
 	supers := m.DirectSupertypes(sym(t, root, "q"))
-	if len(supers) != 1 || supers[0] != part {
-		t.Errorf("DirectSupertypes(q) = %v, want the declared [Parts::Part] only", supers)
+	if len(supers) != 2 || supers[0] != part || supers[1] != partsUsage {
+		t.Errorf("DirectSupertypes(q) = %v, want the declared [Parts::Part] and the implied [Parts::parts]", supers)
 	}
 }
 
@@ -613,9 +620,6 @@ func TestKerMLBinaryBaseFollowsEffectiveEnds(t *testing.T) {
 			var got []string
 			for _, super := range m.DirectSupertypes(s) {
 				got = append(got, m.resolver.Index().GetFQN(super))
-			}
-			if base := m.implicitKerMLFeatureBase(s); base != nil {
-				got = append(got, m.resolver.Index().GetFQN(base))
 			}
 			if strings.Join(got, " ") != strings.Join(tc.want, " ") {
 				t.Fatalf("supertypes of %s = %v, want %v", tc.name, got, tc.want)

@@ -508,6 +508,16 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 
+	// A usage also subsets the base usage of its kind, or Base::things when its
+	// kind names none — an implied Subsetting beside the typing (SysML v2 §7.6,
+	// §8.3.11.3 checkPartUsageSpecialization; KerML §8.4.2, §8.3.4.5.3).
+	for _, base := range m.implicitBaseFeatures(sym, out) {
+		if !seen[base] {
+			seen[base] = true
+			out = append(out, base)
+		}
+	}
+
 	// An answer derived while a guard cut a query short saw fewer members than
 	// the finished model has, so it is recomputed on the next query, not memoized.
 	if !m.resolver.Leave() || !metadataComplete {
@@ -887,7 +897,7 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 			return
 		}
 		seen[f] = true
-		bases := m.implicitBases(f)
+		bases := m.ImplicitGenerals(f)
 		for _, super := range m.DirectSupertypes(f) {
 			switch {
 			case containsElement(bases, super):
@@ -900,6 +910,16 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 		visit(m.ReferencedFeature(f))
 	}
 	visit(sym)
+	if len(types) > 0 {
+		return m.mostSpecificTypes(types)
+	}
+	// The definition its kind implies types the usage before the base feature's
+	// types stand in: an individual occurrence is a Life (SysML v2 §8.3.9.4).
+	for _, base := range m.implicitBases(sym) {
+		if !base.IsFeature() && !containsElement(types, base) {
+			types = append(types, base)
+		}
+	}
 	if len(types) > 0 {
 		return m.mostSpecificTypes(types)
 	}
@@ -960,7 +980,7 @@ func (m *Model) featureTypes(sym *symbols.Symbol, visiting map[*symbols.Symbol]b
 		return nil
 	}
 	visiting[sym] = true
-	bases := m.implicitBases(sym)
+	bases := m.ImplicitGenerals(sym)
 	var types, features []*symbols.Symbol
 	for _, super := range m.DirectSupertypes(sym) {
 		switch {
