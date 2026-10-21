@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"path/filepath"
 	"slices"
@@ -564,38 +565,58 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 				n.Border = node.Style.Line
 			}
 		}
-		declaring := s.declaring(snapshot, node.Origin)
-		n.Origin = s.originOf(declaring, node.Origin)
-		if sym := nodeSymbol(s.targetable(snapshot, declaring), node.Origin); sym != nil {
-			if owners, ok := nodeOwners(sym); ok {
-				n.FQN = notationName(sym)
-				n.Notation = sym.Notation()
-				n.Owners = owners
-				n.DeclaredHere = declaring.Name == name
-				if out.Palette != nil && n.DeclaredHere {
-					out.Palette.confine(n.Notation)
-					declared = append(declared, declaredNode{node.ID, sym.Decl})
-				}
-			} else {
-				decl := positionsOf(declaring).rangeOf(sym.DeclSpan)
-				n.Declaration = &decl
-			}
+		if decl := s.nameNode(&n, snapshot, node.Origin, name, out.Palette); decl != nil {
+			declared = append(declared, declaredNode{node.ID, decl})
 		}
-		if g := node.Geometry; g != nil {
-			n.Collapsed = g.Collapsed
-		}
-		if g := node.Geometry; g != nil && !g.Unplaced {
-			x, y := g.X, g.Y
-			n.X, n.Y = &x, &y
-			if g.HasSize {
-				w, h := g.Width, g.Height
-				n.Width, n.Height = &w, &h
-			}
-		}
+		placeNode(&n, node.Geometry)
 		out.Nodes = append(out.Nodes, n)
 	}
 	for _, d := range declared {
 		out.Palette.admit(d.id, d.decl)
+	}
+}
+
+// nameNode fills in the node's origin, names and declaration from its symbol; it
+// returns the declaration of a node the document named here, which palette confines to.
+func (s *Server) nameNode(n *RenderNode, snapshot *model.Snapshot, origin view.Origin, name string, palette *EditPalette) ast.Node {
+	declaring := s.declaring(snapshot, origin)
+	n.Origin = s.originOf(declaring, origin)
+	sym := nodeSymbol(s.targetable(snapshot, declaring), origin)
+	if sym == nil {
+		return nil
+	}
+	owners, ok := nodeOwners(sym)
+	if !ok {
+		decl := positionsOf(declaring).rangeOf(sym.DeclSpan)
+		n.Declaration = &decl
+		return nil
+	}
+	n.FQN = notationName(sym)
+	n.Notation = sym.Notation()
+	n.Owners = owners
+	n.DeclaredHere = declaring.Name == name
+	if palette != nil && n.DeclaredHere {
+		palette.confine(n.Notation)
+		return sym.Decl
+	}
+	return nil
+}
+
+// placeNode copies the node's geometry onto the wire node: collapsed state, and
+// position and size for a placed node.
+func placeNode(n *RenderNode, g *view.Geometry) {
+	if g == nil {
+		return
+	}
+	n.Collapsed = g.Collapsed
+	if g.Unplaced {
+		return
+	}
+	x, y := g.X, g.Y
+	n.X, n.Y = &x, &y
+	if g.HasSize {
+		w, h := g.Width, g.Height
+		n.Width, n.Height = &w, &h
 	}
 }
 
