@@ -176,11 +176,13 @@ exclude_docs: |
   project/demo.md
   project/training-examples.md
   project/pilot-corpora.md
+  project/spec-examples.md
   project/rdf-corpus-roundtrip.md
   project/pssm-migration.md
   project/pilot-xpect.md
   project/pilot-rejection.md
   project/pilot-execution-referee.md
+  project/api-json-differential.md
   project/pssm-referee.md
   project/llm-benchmark.md
   project/fuml-referee.md

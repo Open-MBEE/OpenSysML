@@ -356,6 +356,9 @@ func (c *refCollector) usage(scope *symbols.Scope, d *ast.Usage) {
 	} else {
 		c.expr(scope, d.Value)
 	}
+	if d.Terminates != nil {
+		c.expr(scope, d.Terminates.Target)
+	}
 	c.connectorEnds(scope, child, d)
 	if d.FlowEnds != nil {
 		c.expr(scope, d.FlowEnds.From)

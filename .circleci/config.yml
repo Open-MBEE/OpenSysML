@@ -189,6 +189,24 @@ commands:
           paths:
             - examples/pilot-corpora
 
+      # The specification examples, extracted from the two PDFs at the same pin;
+      # the PDFs are cached and the extraction reruns from them.
+      - restore_cache:
+          keys:
+            - spec-docs-v1-{{ checksum "scripts/download-spec-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+
+      - run:
+          name: Extract the OMG specification examples
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends poppler-utils
+            ./scripts/download-spec-examples.sh
+
+      - save_cache:
+          key: spec-docs-v1-{{ checksum "scripts/download-spec-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+          paths:
+            - build/spec-docs/pdf
+
       # The PSSM test suite, one pinned file, gated the same way by tools/referee/pssm.
       - restore_cache:
           keys:
@@ -270,6 +288,18 @@ commands:
               echo "pilot corpus $root: $count model files"
               if [ "$count" -eq 0 ]; then
                 echo "error: pilot corpus $root is empty; the corpora gate would not run" >&2
+                exit 1
+              fi
+            done
+
+      - run:
+          name: Verify the OMG specification examples
+          command: |
+            for root in sysml kerml; do
+              count=$(find "examples/spec-examples/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
+              echo "specification examples $root: $count model files"
+              if [ "$count" -eq 0 ]; then
+                echo "error: specification examples $root is empty; the spec-examples gate would not run" >&2
                 exit 1
               fi
             done
@@ -482,6 +512,7 @@ jobs:
             # GitHub Actions PR workflow already does.
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
             OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
@@ -527,6 +558,7 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
             OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
@@ -617,6 +649,20 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
 
+      # The specification-examples gate alone, for the same reason.
+      - run:
+          name: Run spec examples gate
+          command: |
+            set -o pipefail
+            go test -count=1 -v ./tests/corpus -run 'TestSpecExamples' | tee spec-examples-gate.log
+            grep -E 'specification examples clean' spec-examples-gate.log
+            if grep -qE '^\s*--- SKIP' spec-examples-gate.log; then
+              echo "error: the spec examples gate skipped" >&2
+              exit 1
+            fi
+          environment:
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
+
       # The normative-identity gate alone, for the same reason.
       - run:
           name: Run pilot library identity gate
@@ -646,6 +692,7 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
 
       # The same ratchet over the API's JSON element form, beside the RDF one.
       - run:
@@ -661,6 +708,7 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
 
       # The PSSM suite gates alone, then the referee's bucket-count check
       # (never pass/fail; see docs/project/pssm-referee.md).

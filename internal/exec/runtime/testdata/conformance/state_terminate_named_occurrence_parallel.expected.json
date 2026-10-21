@@ -1,0 +1,24 @@
+{
+	"type": "instance",
+	"libraries": true,
+	"trace": true,
+	"instantiate": "test::Controller",
+	"objects": [
+		{
+			"events": [{"signal": "Abort"}, {"signal": "Ready"}],
+			"slots": {
+				"alarm": {"type": "Integer", "value": 1},
+				"exits": {"type": "Integer", "value": 1},
+				"readied": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"path": "worker",
+			"terminated": true,
+			"stateVisits": ["alive"],
+			"slots": {
+				"rhythm.beats": {"type": "Integer", "value": 1}
+			}
+		}
+	]
+}

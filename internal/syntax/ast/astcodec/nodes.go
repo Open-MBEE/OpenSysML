@@ -720,6 +720,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.node(n.Expression)
 		e.w.String(n.Name)
 		e.nodes(n.Body)
+		e.span(n.Terminator)
 	case *ast.ConstructorExpr:
 		e.base(&n.NodeBase)
 		e.node(n.Type)
@@ -1124,6 +1125,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.rels(n.Relationships)
 		e.node(n.Multiplicity)
 		e.node(n.CrossFeature)
+		e.node(n.Terminates)
 		e.node(n.Value)
 		e.span(n.ValueOperatorSpan)
 		e.w.Bool(n.ValueIsDefault)
@@ -1228,6 +1230,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.Expression = d.node()
 		n.Name = d.r.String()
 		n.Body = d.nodes()
+		n.Terminator = d.span()
 	case *ast.ConstructorExpr:
 		d.base(&n.NodeBase)
 		n.Type = typed[*ast.QualifiedName](d)
@@ -1632,6 +1635,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.Relationships = d.rels()
 		n.Multiplicity = typed[*ast.Multiplicity](d)
 		n.CrossFeature = typed[*ast.CrossFeatureMember](d)
+		n.Terminates = typed[*ast.TerminateStatement](d)
 		n.Value = d.node()
 		n.ValueOperatorSpan = d.span()
 		n.ValueIsDefault = d.r.Bool()
