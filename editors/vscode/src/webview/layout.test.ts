@@ -549,6 +549,91 @@ test("layoutCanvas moves nested siblings past a container grown around a placed 
   assert.ok(root.box.y + root.box.height >= d.box.y + d.box.height + 16);
 });
 
+test("layoutCanvas with unplaced takes the auto layout over the model's Layout and Route, pinning nothing", () => {
+  const drawing = rendering(
+    [node("a", "a", { x: 10, y: 10 }), node("b", "b", { x: 400, y: 10 })],
+    [{ from: "a", to: "b", label: "", kind: "connection", route: [{ x: 500, y: 900 }] }],
+  );
+  const auto: AutoLayout = {
+    nodes: new Map([
+      ["a", { x: 24, y: 24, width: 96, height: 52 }],
+      ["b", { x: 52, y: 200, width: 96, height: 52 }],
+    ]),
+    routes: new Map([[0, [{ x: 72, y: 76 }, { x: 72, y: 140 }, { x: 100, y: 140 }, { x: 100, y: 200 }]]]),
+    ports: new Map(),
+  };
+  const stated = layoutCanvas(drawing, {}, auto);
+  assert.deepEqual([stated.nodes.get("a")!.box.x, stated.nodes.get("b")!.box.x], [10, 400]);
+  assert.deepEqual(stated.edges[0].route, [{ x: 500, y: 900 }]);
+  const free = layoutCanvas(drawing, { unplaced: true }, auto);
+  assert.deepEqual([free.nodes.get("a")!.box, free.nodes.get("b")!.box], [auto.nodes.get("a"), auto.nodes.get("b")]);
+  assert.deepEqual([free.nodes.get("a")!.pinned, free.nodes.get("b")!.pinned], [false, false]);
+  // The model's Route set aside, the edge follows the auto layout's bent route, not a straight line.
+  assert.deepEqual(free.edges[0].points, auto.routes.get(0));
+  assert.deepEqual(free.edges[0].route, [{ x: 72, y: 140 }, { x: 100, y: 140 }]);
+  // A gesture's own override still wins over the auto layout.
+  const dragged = layoutCanvas(drawing, { unplaced: true, nodes: new Map([["a", { x: 300, y: 300, width: 96, height: 52 }]]) }, auto);
+  assert.deepEqual(dragged.nodes.get("a")!.box, { x: 300, y: 300, width: 96, height: 52 });
+  assert.equal(dragged.nodes.get("a")!.pinned, true);
+});
+
+test("movedNode alone writes the dragged node and nothing of the auto layout under it", () => {
+  const drawing = rendering(
+    [node("box", "box", { x: 10, y: 10 }), node("a", "a", { parent: "box", x: 30, y: 40 }), node("b", "b", { parent: "box" })],
+    [{ from: "a", to: "b", label: "", kind: "connection", route: [{ x: 500, y: 900 }] }],
+  );
+  const auto: AutoLayout = {
+    nodes: new Map([
+      ["box", { x: 24, y: 24, width: 300, height: 200 }],
+      ["a", { x: 48, y: 60, width: 96, height: 52 }],
+      ["b", { x: 48, y: 150, width: 96, height: 52 }],
+    ]),
+    routes: new Map([[0, [{ x: 96, y: 112 }, { x: 96, y: 130 }, { x: 120, y: 130 }, { x: 120, y: 150 }]]]),
+    ports: new Map(),
+  };
+  const free = layoutCanvas(drawing, { unplaced: true }, auto);
+  const held = movedNode(free, "box", 20, 0)!;
+  assert.ok(held.nodes.length > 1 || held.edges.length > 0);
+  const alone = movedNode(free, "box", 20, 0, true)!;
+  assert.deepEqual(alone.nodes.map((placement) => placement.id), ["box"]);
+  assert.equal(alone.nodes[0].layout.x, 44);
+  assert.deepEqual(alone.edges, []);
+});
+
+test("layoutCanvas hides a sequence diagram's messages of a hidden kind and closes the rows over them", () => {
+  const drawing = rendering(
+    [node("a", "a"), node("b", "b")],
+    [
+      { from: "a", to: "b", label: "", kind: "flow" },
+      { from: "b", to: "a", label: "", kind: "succession" },
+      { from: "a", to: "b", label: "", kind: "flow" },
+    ],
+    { kind: "sequence" },
+  );
+  const all = layoutCanvas(drawing);
+  const filtered = layoutCanvas(drawing, { hiddenKinds: new Set(["flow"]) });
+  assert.deepEqual(filtered.edges.map((edge) => edge.hidden), [true, false, true]);
+  assert.equal(filtered.edges[1].points[0].y, all.edges[0].points[0].y);
+  assert.ok(filtered.height < all.height);
+});
+
+test("layoutCanvas hides the edges of a hidden kind, which then count for nothing", () => {
+  const drawing = rendering(
+    [node("a", "a", { x: 10, y: 10 }), node("b", "b", { x: 200, y: 10 })],
+    [
+      { from: "a", to: "b", label: "", kind: "typing", route: [{ x: 500, y: 900 }] },
+      { from: "a", to: "b", label: "", kind: "connection" },
+    ],
+  );
+  const all = layoutCanvas(drawing);
+  assert.deepEqual(all.edges.map((edge) => edge.hidden), [false, false]);
+  const filtered = layoutCanvas(drawing, { hiddenKinds: new Set(["typing"]) });
+  assert.deepEqual(filtered.edges.map((edge) => edge.hidden), [true, false]);
+  // The hidden edge's far-flung waypoint no longer stretches the canvas.
+  assert.ok(filtered.height < all.height);
+  assert.deepEqual(filtered.nodes.get("a")!.box, all.nodes.get("a")!.box);
+});
+
 test("layoutCanvas hides the children of a collapsed node", () => {
   const layout = layoutCanvas(
     rendering(
