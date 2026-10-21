@@ -11,4 +11,7 @@ package VariantKindInconsistentWithVariation {
         variant attribute size;
         variant part p2 : P;
     }
+    variation attribute def SizeChoices {
+        variant snapshot part s1;
+    }
 }

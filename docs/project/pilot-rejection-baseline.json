@@ -28,7 +28,7 @@
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
         "files": 335,
-        "digest": "sha256:97cc3817ae9361eca587df9a7d485bb577121bd0ab4cad213e4cc7e70cad88f6"
+        "digest": "sha256:27877cbf7c0ea7b283eb2ddea921e231a72eb8d706d29016caed70c1d95c887f"
       }
     ],
     "recorded": "2026-10-21"
@@ -2831,8 +2831,8 @@
       "rule": "the kind of a variant usage must be consistent with the kind of its owning variation (SysML 7.6.7; checkUsageVariationDefinitionSpecialization, checkUsageVariationUsageSpecialization; pilot SysMLValidator checkActionUsage typing).",
       "mode": "default",
       "bucket": "both-reject",
-      "oursErrors": 3,
-      "pilotErrors": 3
+      "oursErrors": 6,
+      "pilotErrors": 5
     },
     {
       "path": "xpect/p01-public-root-import.kerml",

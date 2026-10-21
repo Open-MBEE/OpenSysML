@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -69,13 +70,18 @@ func (c *variantKindChecker) check(sym *symbols.Symbol) {
 		sym:          sym,
 	}
 	msg, _, ok := pilotTypingMessage(decl)
+	// An `individual`/`snapshot`/`timeslice` variant is an occurrence whatever
+	// its keyword, judged by the occurrence rule (§8.3.9.7 validateOccurrenceUsageType).
+	if !ok && decl.isOccurrenceUsage() && !decl.conjugated {
+		msg, ok = msgOccurrenceUsageType, true
+	}
 	if !ok {
 		return
 	}
 	declared := c.declaredTypes(sym, u)
 	for _, typ := range c.variationTypes(variation) {
-		// A declared typing is the type checker's; an unresolved or KerML type
-		// constrains nothing.
+		// A declared typing is the type checker's; an unresolved type constrains
+		// nothing. A KerML type is judged by the metaclass its keyword names.
 		if typ == nil || typ.Kind == symbols.SymbolUnknown || !isDefKind(typ.Kind) || containsSameElement(declared, typ) {
 			continue
 		}
@@ -85,7 +91,7 @@ func (c *variantKindChecker) check(sym *symbols.Symbol) {
 		c.diags = append(c.diags, diag.Diagnostic{
 			Severity: diag.SeverityError,
 			Span:     u.Span(),
-			Message:  variantKindMessage(msg, decl.keyword, sym, variation, typ),
+			Message:  variantKindMessage(msg, strings.TrimSpace(decl.occurrenceModifier()+" "+decl.keyword), sym, variation, typ),
 			Code:     "variant-kind",
 			Source:   "constraint",
 		})

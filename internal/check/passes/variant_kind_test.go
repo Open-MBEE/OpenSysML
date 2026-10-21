@@ -3,6 +3,9 @@ package passes
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 func TestVariantKindInconsistentWithVariation(t *testing.T) {
@@ -95,5 +98,72 @@ func TestVariantKindMessageNamesUnnamedVariation(t *testing.T) {
 	diags := only(w8dDiags(t, src), "variant-kind")
 	if len(diags) != 1 || !strings.Contains(diags[0].Message, "owning variation part (unnamed)") {
 		t.Fatalf("got %v", diags)
+	}
+}
+
+// An occurrence-prefixed variant is an occurrence whatever its keyword, so a
+// variation that is a data type cannot own one (validateOccurrenceUsageType).
+func TestVariantKindOccurrencePrefixedVariants(t *testing.T) {
+	const src = `package Occ {
+		attribute def V; part def P; action def A;
+		variation attribute def VC :> V {
+			variant snapshot part s1;
+			variant timeslice part t1;
+			variant individual part i1;
+		}
+		variation attribute va : V {
+			variant snapshot part s2;
+		}
+		variation part def PC :> P {
+			variant snapshot part s3;
+			variant timeslice item t3;
+			variant individual part i3;
+		}
+		variation action av : A {
+			variant snapshot action s4;
+		}
+	}`
+	// An individual variant is the one-type rule's (neither VC nor PC is an
+	// individual definition), and its error gates this pass off it.
+	w8dWantLines(t, src, "variant-kind", 4, 5, 9)
+	w8dWantLines(t, src, "individual-typing", 6, 14)
+	want := "An occurrence, item or part must be typed by occurrence definitions. variant snapshot part `s1` specializes its owning variation attribute def `VC`."
+	for _, d := range only(w8dDiags(t, src), "variant-kind") {
+		if d.Message == want {
+			return
+		}
+	}
+	t.Errorf("missing message %q", want)
+}
+
+// A variation usage typed by a KerML type gives its variants that type, judged
+// by the metaclass the keyword names (a behavior is a Class, not a DataType).
+func TestVariantKindJudgesKerMLVariationTypes(t *testing.T) {
+	const kerml = `package K { behavior B; datatype D; struct S; }`
+	const src = `package A {
+		private import K::*;
+		variation part v : B {
+			variant attribute va;
+			variant part vp;
+			variant action vact;
+		}
+		variation attribute x : D {
+			variant part vx;
+			variant attribute ax;
+		}
+		variation item w : S {
+			variant item wi;
+		}
+	}`
+	idx := newTestIndex()
+	idx.AddDocument("k.kerml", parser.New(source.New("k.kerml", []byte(kerml))).ParseFile())
+	root := parser.New(source.New("a.sysml", []byte(src))).ParseFile()
+	idx.AddDocument("a.sysml", root)
+	var got []int
+	for _, d := range only(Analyze("a.sysml", root, nil, idx), "variant-kind") {
+		got = append(got, w8dLine(src, d.Span))
+	}
+	if want := []int{4, 9}; !sameLines(got, want) {
+		t.Fatalf("variant-kind on lines %v, want %v", got, want)
 	}
 }
