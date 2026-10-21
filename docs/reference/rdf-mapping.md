@@ -251,6 +251,22 @@ still wins over the normative id when a library element carries one; an
 annotation restating the norm's own id declares nothing, so the id stays
 normative and `sysx:declaredId` is not written.
 
+**OpenSysML's own libraries have fixed ids too.** The bundled extension
+libraries (`OpenSysML Libraries/`: `DocumentQueries`, `MOSA`, `OOSEM`, …) are
+not normative — no specification fixes ids for them — so this implementation
+fixes them the same way, deterministic and the same on every run: a library
+package's id is `uuid5(URL name space,
+"https://github.com/Open-MBEE/OpenSysML-Extensions-Library/" + package name)`,
+and every named element under it is `uuid5(package id, escaped qualified name)`,
+as a normative id is under the OMG specification URL. A reference into one (an
+`#consensusStandard` metadata usage, a `redefines caption`) therefore links by
+id — `elmt:<uuid>` in Turtle, `{"@id": …}` in the element form — with the element
+named by a library stub as below, instead of carrying the name as text. These
+are **extension** ids, not normative ones: hover says `(extension, OpenSysML)`,
+and they are not the ids the OMG pilot mints when it loads the same files as a
+library directory (it hashes any library under the SysML specification URL), so
+no specification makes two tools agree on them; only the derivation above is fixed.
+
 **A converted model names the library elements it references.** A normative
 id is a hash of a name, and cannot be turned back into one. So for each standard
 library element the output references, the writer states the element under its

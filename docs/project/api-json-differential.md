@@ -190,9 +190,9 @@ The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
 ## Results (pilot `2026-08`, 920 files)
 
-**Scorecard:** 920 files; 89957 elements matched (28511 ours-only, 38863 pilot-only, 0 of them implied); properties: 623436 present-equal, 45265 present-different, 1058325 ours-missing, 68494 pilot-missing, 2102500 absent-both, 21034 indeterminate.
+**Scorecard:** 920 files; 90023 elements matched (28511 ours-only, 38797 pilot-only, 0 of them implied); properties: 619268 present-equal, 45688 present-different, 1058259 ours-missing, 68560 pilot-missing, 2103094 absent-both, 25703 indeterminate.
 
-The pilot's export failed on 56 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples and 4 test fixtures; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 56 failed files out and converted 24 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11311 (metaclass, property) rows carry a comparison; 103180 references compared through the unkeyed sentinel, 146792 of our `sysx:` annotations were left out, and 289/345 elements (ours/pilot) were dropped for ambiguous keys, 8198/31310 for having none.
+The pilot's export failed on 56 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples and 4 test fixtures; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 56 failed files out and converted 24 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11311 (metaclass, property) rows carry a comparison; 108366 references compared through the unkeyed sentinel, 146858 of our `sysx:` annotations were left out, and 289/345 elements (ours/pilot) were dropped for ambiguous keys, 8198/31310 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -200,11 +200,11 @@ The pilot's export failed on 56 files (`pilotFailed`: its own export throws on a
 | `examples/pilot-corpora/sysml-examples` | 99 | 25778 | 10038 | 10488 | 180567 | 11831 | 308696 | 19510 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 9246 | 2967 | 3341 | 63000 | 6100 | 108814 | 7092 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 6387 | 1637 | 1854 | 43671 | 3292 | 63793 | 5268 |
-| `examples/spec-examples` | 511 | 6980 | 1966 | 2728 | 44282 | 6034 | 71586 | 5182 |
-| `tests/testdata` | 32 | 1201 | 91 | 487 | 7820 | 393 | 13187 | 877 |
-| `examples` | 52 | 26005 | 8734 | 15010 | 181279 | 13823 | 316392 | 20267 |
+| `examples/spec-examples` | 511 | 6980 | 1966 | 2728 | 44282 | 6029 | 71586 | 5182 |
+| `tests/testdata` | 32 | 1201 | 91 | 487 | 7820 | 383 | 13187 | 877 |
+| `examples` | 52 | 26071 | 8734 | 14944 | 181873 | 10948 | 316326 | 20333 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 346 | 17 | 462 | 43 |
-| `docs/manual/examples` | 8 | 7020 | 947 | 2082 | 47574 | 4366 | 88453 | 4949 |
+| `docs/manual/examples` | 8 | 7020 | 947 | 2082 | 47574 | 2917 | 88453 | 4949 |
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's five counts.
 
@@ -265,22 +265,23 @@ in six files the pilot already exported, and the 1712 elements of `mosa-demo/mos
 without a resource) while `MOSA` and `OOSEM` were unloaded. `tests/testdata` matched the same 1201
 elements with two more properties present-equal; no other root moved, and the pilot reported no
 diagnostic on any library file (its batch validator reads the sixteen as one resource set without
-an error). The members that gained a match disagree with the pilot in three shapes, none of them a
-derivation this repository gets wrong and none new — each is a shape the scorecard already carried
-for the standard library or for members the model declares itself, now measured on library-backed
-members too:
+an error). The members that gained a match disagreed with the pilot in three shapes when the libraries were
+first loaded, none of them a derivation this repository gets wrong and none new — each a shape the
+scorecard already carried for the standard library or for members the model declares itself, now
+measured on library-backed members too. The first is closed (next section); the other two remain:
 
-- a reference to an element of this repository's libraries is spelled as a name, `{"@ref":
+- a reference to an element of this repository's libraries was spelled as a name, `{"@ref":
   "caption"}`, where the pilot writes the element: `Redefinition::redefinedFeature` (KerML
   8.3.3.3.8) on all 327 of those redefinitions, `FeatureTyping::type` (8.3.3.3.7) on 157, the `type`
   of 123 `MetadataUsage` and 16 `ViewUsage` typed by `MOSA` and `OOSEM` metadata and view
   definitions, `FeatureReferenceExpression::referent` (8.3.4.8.5) and the `memberElement` of its
   `Membership` on 28 enumeration literals, and `ReferenceSubsetting::referencedFeature` on the two
-  `render` members. The writer gives a library element an id only where the pilot's XMI of the
+  `render` members. The writer gave a library element an id only where the pilot's XMI of the
   standard library fixes one; this repository's libraries have no such norm, so a reference to one
-  of their elements falls back to the name as written, and the library element itself is not
+  of their elements fell back to the name as written, and the library element itself was not
   stated. Every `Element` has an `elementId` (KerML 8.3.2.1.2) and the API's JSON refers to an
-  element by it, so the pilot's reading is the metamodel's;
+  element by it, so the pilot's reading is the metamodel's — the writer now fixes an id for these
+  elements too;
 - the order of `ownedRelationship` on a usage that both redefines and has a value: the pilot listed
   the `Redefinition` before the `FeatureValue`, in the order the notation declares them, where ours
   listed the value first (275 `AttributeUsage`, 97 `ReferenceUsage`, 2 `RenderingUsage`).
@@ -303,6 +304,60 @@ keys were of the first kind too: `spec-examples` names 13 members by a naming fe
 excerpt leaves undeclared (`perform VehicleActions::move`, `individual timeslice redefines
 preflight`, `render asMyTreeDiagram` under an undefined view definition, …), which the pilot,
 resolving nothing, does not name. A run's own list of such movements comes from `-lost-against`.
+
+### References into this repository's libraries link by id
+
+Every named element of this repository's own libraries (`DocumentQueries`, `MOSA`, `OOSEM`, …)
+now carries a fixed id, derived as a standard library element's normative id is — a library
+package's id is `uuid5(URL name space, "https://github.com/Open-MBEE/OpenSysML-Extensions-Library/" +
+package)`, each named element under it `uuid5(package id, escaped qualified name)` — so a reference
+to one is written by id, `{"@id": …}`, the element itself named by a library stub in the graph, and
+never as `{"@ref": "name"}` ([the RDF mapping](../reference/rdf-mapping.md#normative-library-identity)).
+Those ids are deterministic and the same on every run, but they are **not the pilot's**: no
+specification fixes ids for a non-normative library, and the pilot, reading the same files as a
+library directory, hashes every library package under `https://www.omg.org/spec/SysML/`, so the two
+sides' ids for `MOSA::ConsensusStandard` differ by that prefix alone. The referee cannot therefore
+call such a reference equal: our side writes no element for a library target (the element form
+carries the model's own elements only, [above](#our-side)), so the id has no key and the comparison
+is **indeterminate** — the bucket that already holds references to standard library elements —
+rather than equal or different. What this measures is presence and shape: the property is stated,
+as an element reference, where it was stated as a name.
+
+Movement on the same 920 files, pilot and keys unchanged (the exact movement a `-check` after this
+change reports): present-different 50027 → 45688 (−4339), indeterminate 21034 → 25703 (+4669),
+present-equal 618674 → 619268 (+594), absent-both 2102500 → 2103094 (+594), elements matched 89957
+→ 90023 (+66, pilot-only 38863 → 38797), ours-missing 1058325 → 1058259 (−66), pilot-missing
+68494 → 68560 (+66); no row's present-equal count fell, and no root but `examples/spec-examples`
+(−5 present-different), `tests/testdata` (−10), `examples` (−2875) and `docs/manual/examples` (−1449)
+moved. By row, present-different → indeterminate, one movement per site, the end properties of a
+relationship (`target`, `relatedElement`, `general`, `subsettedFeature`) moving with the end they
+restate:
+
+| row | present-different | indeterminate | what moved |
+|---|---:|---:|---|
+| `Redefinition.redefinedFeature` (and `target`, `relatedElement`, `general`, `subsettedFeature`) | 388 → 58 | 542 → 938 | 330 redefinitions of a library feature (`attribute redefines caption = …`, `:>> organization = …`), plus 66 redefinitions newly matched (below); the 58 left are redefinitions the writer cannot link inside the model itself (`vehicle_b_1::providePower` redefining the feature inherited through `vehicle_b`) |
+| `FeatureTyping.type` (and `target`, `relatedElement`, `general`) | 670 → 338 | 1904 → 2236 | 332 features typed by a library definition (`item ethernet : ConsensusStandard`, metadata typed by `MOSA` and `OOSEM` definitions) |
+| `MetadataUsage.type` | 147 → 13 | 82 → 216 | 134 metadata usages typed by a library metadata definition (`#majorSystemComponent`, `@MOSAPackage`) |
+| `ViewUsage.type` | 19 → 3 | 29 → 45 | 16 views typed by a `MOSA` or `OOSEM` view definition |
+| `FeatureReferenceExpression.referent` | 99 → 71 | 436 → 464 | 28 references to a library enumeration literal (`MOSAPillar::openStandards`) |
+| `Membership.memberElement` | 353 → 99 | 646 → 900 | 254 memberships of a referenced library element, the `referent` memberships among them |
+| `InvocationExpression.function` | 245 → 19 | 107 → 333 | 226 calls of a calculation or function of these libraries |
+| `Subclassification.superclassifier` (and `target`, `relatedElement`, `general`) | 126 → 13 | 136 → 249 | 113 definitions specializing a library definition (`:> MOSA::Standard`) |
+| `PartUsage.type` | 235 → 63 | 0 → 172 | 172 parts typed by a definition of these libraries |
+| `Subsetting.subsettedFeature` (and `target`, `relatedElement`, `general`) | 44 → 34 | 425 → 435 | 10 features subsetting a library feature |
+| `NamespaceImport.importedNamespace`, `MembershipImport.importedMembership` | 25 → 8, 15 → 13 | 331 → 348, 265 → 267 | 17 imports of a library package, 2 of a library member |
+| `CalculationUsage.type`, `ItemUsage.type`, `ReferenceUsage.type`, `ReferenceSubsetting.referencedFeature` (and its ends) | 7 → 3, 20 → 16, 48 → 46, 40 → 38 | 0 → 4, 16 → 20, 501 → 503, 24 → 26 | 4, 4, 2 and 2 references to a library element |
+
+The 66 newly matched elements are `Redefinition`s: a feature in a metadata usage's body that
+binds a feature of the metadata definition by name (`@MOSAPackage { pillar = MOSAPillar::openStandards; }`,
+which redefines `MOSAPackage::pillar`) was written as a
+`ReferenceUsage` with the declared name `pillar` and a value, because its redefinition reached a
+library feature the writer could not link; it is now written as the pilot writes it — unnamed, with
+an owned `Redefinition` of `MOSAPackage::pillar` — so `ReferenceUsage.declaredName` falls from 70
+to 4 pilot-missing, `ReferenceUsage.ownedRedefinition`/`ownedSpecialization`/`ownedSubsetting`
+gain 66 present-equal each, and the 66 `Redefinition`s match the pilot's, carrying every shape the
+`Redefinition` rows already carry (`isLibraryElement`, `owningType` ours-missing; `owner`
+pilot-missing; `redefinedFeature` indeterminate).
 
 ## Launch-ready gaps
 
@@ -350,7 +405,7 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | 38 | `FeatureValue` | `visibility` | 7048 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
 | 39 | `FeatureTyping` | `isLibraryElement` | 5912 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
 | 40 | `FeatureTyping` | `owningType` | 5908 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningType = owningFeatureMembership.owningType` (KerML 8.3.3.3, deriveFeatureOwningType) |
-| 41 | `Redefinition` | `redefinedFeature` | 0 | 388 | none found | `Redefinition::redefinedFeature : Feature` (KerML 8.3.3.3.8) is an element reference, and every `Element` carries an `elementId` (KerML 8.3.2.1.2) the API's JSON refers to it by; where the redefined feature is an element of this repository's libraries ours spells the name as written, `{"@ref": "caption"}`, because the writer fixes an id only for elements the pilot's standard-library XMI identifies — the same spelling as `FeatureTyping::type`, `MetadataUsage::type`, `FeatureReferenceExpression::referent` and `ReferenceSubsetting::referencedFeature` into those libraries |
+| 41 | `Redefinition` | `redefinedFeature` | 0 | 58 | closed for this repository's libraries (above) | `Redefinition::redefinedFeature : Feature` (KerML 8.3.3.3.8) is an element reference, and every `Element` carries an `elementId` (KerML 8.3.2.1.2) the API's JSON refers to it by; the 330 redefinitions of a feature of this repository's libraries once spelled as a name, `{"@ref": "caption"}`, now link by the element's fixed id — the same movement for `FeatureTyping::type`, `MetadataUsage::type`, `FeatureReferenceExpression::referent` and `ReferenceSubsetting::referencedFeature` into those libraries — and the 58 left are redefinitions of a feature inherited within the model itself that the writer spells as a name (`vehicle_b_1::providePower`) |
 | 42 | `AttributeUsage` | `ownedRelationship` | 36 | 1194 | none found | `Element::ownedRelationship : Relationship [0..*] {ordered}` (KerML 8.3.2.1.2), in the order the notation adds them (KerML 8.2.1 Table 3; `FeatureSpecializationPart`, then `ValuePart`, then the body): a head's typings, specializations and multiplicity as spelled, then its `FeatureValue`, then its members. The writer seated the materialized relationships last, in a fixed kind order; it now owns them as spelled, which moved 4762 properties over 101 rows (67 `ownedRelationship`, 22 `ownedSpecialization`, 12 `ownedSubsetting`) from present-different to present-equal (this row 2323 → 1194, `ReferenceUsage` 838 → 154, `PartDefinition` 216 → 21, `PartUsage` 1551 → 1002, `Feature` 1781 → 1381). What remains is a different shape: on a usage that writes no multiplicity part (`attribute cargoMass : MassValue;`) the pilot owns an `OwningMembership` of a `Multiplicity`, not implied, after the `FeatureTyping`; ours states none |
 | 43 | `FeatureReferenceExpression` | `ownedMembership` | 0 | 2110 | none found | `FeatureReferenceExpression::referent` is the `memberElement` of the first `ownedMembership` that is not a `ParameterMembership` (KerML 8.3.4.8.5, deriveFeatureReferenceExpressionReferent); the pilot owns that `Membership`, ours writes the `referent` without it |
 

@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:5dedb6579aa8df8486b14026e4b6a978ef69853bad2b7d8f29e3e665d202f981"
+        "sourceDigest": "sha256:54757c5957897eb6f02f64d8eccb8136cd49bc54a7e42300532f1d37d03a37cb"
       }
     ],
     "inputs": [
@@ -113,23 +113,23 @@
     "pilotFailed": 56,
     "pilotLibraryElements": 30926,
     "elements": {
-      "matched": 89957,
+      "matched": 90023,
       "oursOnly": 28511,
-      "pilotOnly": 38863,
+      "pilotOnly": 38797,
       "pilotOnlyImplied": 0,
       "typeMismatch": 1742
     },
     "properties": {
-      "presentEqual": 623436,
-      "presentDifferent": 45265,
-      "oursMissing": 1058325,
-      "pilotMissing": 68494,
-      "absentBoth": 2102500,
-      "indeterminate": 21034
+      "presentEqual": 619268,
+      "presentDifferent": 45688,
+      "oursMissing": 1058259,
+      "pilotMissing": 68560,
+      "absentBoth": 2103094,
+      "indeterminate": 25703
     },
     "rows": 11311,
-    "unkeyedReferences": 103180,
-    "extensionProperties": 146792,
+    "unkeyedReferences": 108366,
+    "extensionProperties": 146858,
     "duplicateElements": {
       "ours": 560,
       "pilot": 78022
@@ -160,8 +160,8 @@
         "typeMismatch": 12
       },
       "properties": {
-        "presentEqual": 50458,
-        "presentDifferent": 3848,
+        "presentEqual": 50135,
+        "presentDifferent": 4171,
         "oursMissing": 86942,
         "pilotMissing": 5306,
         "absentBoth": 176892,
@@ -195,8 +195,8 @@
         "typeMismatch": 61
       },
       "properties": {
-        "presentEqual": 182086,
-        "presentDifferent": 10312,
+        "presentEqual": 180567,
+        "presentDifferent": 11831,
         "oursMissing": 308696,
         "pilotMissing": 19510,
         "absentBoth": 615071,
@@ -230,8 +230,8 @@
         "typeMismatch": 17
       },
       "properties": {
-        "presentEqual": 63503,
-        "presentDifferent": 5597,
+        "presentEqual": 63000,
+        "presentDifferent": 6100,
         "oursMissing": 108814,
         "pilotMissing": 7092,
         "absentBoth": 221634,
@@ -266,8 +266,8 @@
         "typeMismatch": 1032
       },
       "properties": {
-        "presentEqual": 44200,
-        "presentDifferent": 2763,
+        "presentEqual": 43671,
+        "presentDifferent": 3292,
         "oursMissing": 63793,
         "pilotMissing": 5268,
         "absentBoth": 117922,
@@ -301,12 +301,12 @@
         "typeMismatch": 390
       },
       "properties": {
-        "presentEqual": 44526,
-        "presentDifferent": 5790,
+        "presentEqual": 44282,
+        "presentDifferent": 6029,
         "oursMissing": 71586,
         "pilotMissing": 5182,
         "absentBoth": 142032,
-        "indeterminate": 1853
+        "indeterminate": 1858
       },
       "duplicateElements": {
         "ours": 0,
@@ -337,12 +337,12 @@
         "typeMismatch": 30
       },
       "properties": {
-        "presentEqual": 7878,
-        "presentDifferent": 335,
+        "presentEqual": 7820,
+        "presentDifferent": 383,
         "oursMissing": 13187,
         "pilotMissing": 877,
         "absentBoth": 28133,
-        "indeterminate": 316
+        "indeterminate": 326
       },
       "duplicateElements": {
         "ours": 25,
@@ -366,19 +366,19 @@
       "oursColliding": 3,
       "pilotLibraryElements": 13888,
       "elements": {
-        "matched": 26005,
+        "matched": 26071,
         "oursOnly": 8734,
-        "pilotOnly": 15010,
+        "pilotOnly": 14944,
         "pilotOnlyImplied": 0,
         "typeMismatch": 200
       },
       "properties": {
-        "presentEqual": 182540,
-        "presentDifferent": 12562,
-        "oursMissing": 316392,
-        "pilotMissing": 20267,
-        "absentBoth": 636241,
-        "indeterminate": 6231
+        "presentEqual": 181873,
+        "presentDifferent": 10948,
+        "oursMissing": 316326,
+        "pilotMissing": 20333,
+        "absentBoth": 636835,
+        "indeterminate": 9436
       },
       "duplicateElements": {
         "ours": 428,
@@ -408,8 +408,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 348,
-        "presentDifferent": 15,
+        "presentEqual": 346,
+        "presentDifferent": 17,
         "oursMissing": 462,
         "pilotMissing": 43,
         "absentBoth": 1043,
@@ -443,12 +443,12 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 47897,
-        "presentDifferent": 4043,
+        "presentEqual": 47574,
+        "presentDifferent": 2917,
         "oursMissing": 88453,
         "pilotMissing": 4949,
         "absentBoth": 163532,
-        "indeterminate": 626
+        "indeterminate": 2075
       },
       "duplicateElements": {
         "ours": 0,
@@ -1778,8 +1778,8 @@
       0
     ],
     "ActionDefinition.ownedRelationship": [
-      147,
-      4,
+      136,
+      15,
       0,
       0,
       26,
@@ -2698,24 +2698,24 @@
       0
     ],
     "ActionUsage.ownedRelationship": [
-      330,
-      12,
+      232,
+      110,
       3,
       3,
       157,
       0
     ],
     "ActionUsage.ownedSpecialization": [
-      169,
-      0,
+      166,
+      3,
       0,
       1,
       335,
       0
     ],
     "ActionUsage.ownedSubsetting": [
-      41,
-      0,
+      40,
+      1,
       0,
       0,
       464,
@@ -3602,8 +3602,8 @@
       0
     ],
     "AllocationDefinition.ownedRelationship": [
-      7,
-      0,
+      5,
+      2,
       0,
       0,
       1,
@@ -4546,8 +4546,8 @@
       0
     ],
     "AllocationUsage.ownedRelationship": [
-      10,
-      0,
+      3,
+      7,
       0,
       0,
       0,
@@ -5234,8 +5234,8 @@
       0
     ],
     "AnalysisCaseDefinition.ownedRelationship": [
-      26,
-      1,
+      20,
+      7,
       0,
       0,
       3,
@@ -6194,16 +6194,16 @@
       0
     ],
     "AnalysisCaseUsage.ownedRelationship": [
-      37,
       3,
+      37,
       0,
       0,
       1,
       0
     ],
     "AnalysisCaseUsage.ownedSpecialization": [
-      37,
-      0,
+      25,
+      12,
       0,
       0,
       4,
@@ -7258,24 +7258,24 @@
       0
     ],
     "AssertConstraintUsage.ownedRelationship": [
-      79,
-      0,
+      61,
+      18,
       0,
       0,
       0,
       0
     ],
     "AssertConstraintUsage.ownedSpecialization": [
-      19,
-      0,
+      18,
+      1,
       0,
       0,
       60,
       0
     ],
     "AssertConstraintUsage.ownedSubsetting": [
-      9,
-      0,
+      8,
+      1,
       0,
       0,
       70,
@@ -9666,8 +9666,8 @@
       0
     ],
     "AttributeDefinition.ownedRelationship": [
-      109,
-      0,
+      48,
+      61,
       0,
       0,
       99,
@@ -10578,16 +10578,16 @@
       0
     ],
     "AttributeUsage.ownedRelationship": [
-      1242,
-      1194,
+      113,
+      2323,
       36,
       0,
       19,
       0
     ],
     "AttributeUsage.ownedSpecialization": [
-      2328,
-      0,
+      2298,
+      30,
       0,
       0,
       163,
@@ -11610,8 +11610,8 @@
       0
     ],
     "BindingConnector.ownedRelationship": [
-      8,
-      0,
+      7,
+      1,
       0,
       0,
       0,
@@ -12466,8 +12466,8 @@
       0
     ],
     "BindingConnectorAsUsage.ownedRelationship": [
-      3,
-      0,
+      2,
+      1,
       0,
       0,
       0,
@@ -13082,8 +13082,8 @@
       0
     ],
     "BooleanExpression.ownedRelationship": [
-      2,
-      2,
+      1,
+      3,
       0,
       0,
       0,
@@ -13714,8 +13714,8 @@
       0
     ],
     "CalculationDefinition.ownedRelationship": [
-      172,
-      1,
+      70,
+      103,
       0,
       0,
       0,
@@ -14626,8 +14626,8 @@
       0
     ],
     "CalculationUsage.ownedRelationship": [
-      113,
-      1,
+      40,
+      74,
       0,
       0,
       0,
@@ -14787,11 +14787,11 @@
     ],
     "CalculationUsage.type": [
       72,
-      7,
+      3,
       35,
       0,
       0,
-      0
+      4
     ],
     "CalculationUsage.unioningType": [
       0,
@@ -15314,8 +15314,8 @@
       0
     ],
     "CaseDefinition.ownedRelationship": [
-      3,
-      0,
+      1,
+      2,
       0,
       0,
       0,
@@ -16250,8 +16250,8 @@
       0
     ],
     "CaseUsage.ownedRelationship": [
-      2,
       0,
+      2,
       0,
       3,
       0,
@@ -17154,8 +17154,8 @@
       0
     ],
     "Classifier.ownedRelationship": [
-      59,
-      6,
+      47,
+      18,
       10,
       0,
       29,
@@ -19418,8 +19418,8 @@
       0
     ],
     "ConcernUsage.ownedRelationship": [
-      18,
-      0,
+      15,
+      3,
       0,
       0,
       3,
@@ -21138,8 +21138,8 @@
       0
     ],
     "ConnectionDefinition.ownedRelationship": [
-      43,
-      0,
+      36,
+      7,
       0,
       0,
       0,
@@ -22098,8 +22098,8 @@
       0
     ],
     "ConnectionUsage.ownedRelationship": [
-      79,
-      0,
+      18,
+      61,
       0,
       0,
       0,
@@ -22762,16 +22762,16 @@
       0
     ],
     "Connector.ownedRelationship": [
-      35,
-      1,
+      6,
+      30,
       0,
       0,
       0,
       0
     ],
     "Connector.ownedSpecialization": [
-      29,
-      0,
+      25,
+      4,
       0,
       0,
       7,
@@ -23410,8 +23410,8 @@
       0
     ],
     "ConstraintDefinition.ownedRelationship": [
-      25,
-      0,
+      24,
+      1,
       0,
       0,
       1,
@@ -24306,8 +24306,8 @@
       0
     ],
     "ConstraintUsage.ownedRelationship": [
-      165,
-      5,
+      153,
+      17,
       10,
       0,
       2,
@@ -28226,8 +28226,8 @@
       0
     ],
     "EnumerationDefinition.ownedRelationship": [
-      24,
-      0,
+      16,
+      8,
       0,
       0,
       1,
@@ -29074,8 +29074,8 @@
       0
     ],
     "EnumerationUsage.ownedRelationship": [
-      27,
-      0,
+      25,
+      2,
       0,
       0,
       40,
@@ -29906,24 +29906,24 @@
       0
     ],
     "EventOccurrenceUsage.ownedRelationship": [
-      94,
-      0,
+      40,
+      54,
       0,
       0,
       85,
       0
     ],
     "EventOccurrenceUsage.ownedSpecialization": [
-      77,
-      0,
+      49,
+      28,
       0,
       0,
       102,
       0
     ],
     "EventOccurrenceUsage.ownedSubsetting": [
-      77,
-      0,
+      53,
+      24,
       0,
       0,
       102,
@@ -30810,24 +30810,24 @@
       0
     ],
     "ExhibitStateUsage.ownedRelationship": [
-      41,
-      3,
+      35,
+      9,
       0,
       0,
       5,
       0
     ],
     "ExhibitStateUsage.ownedSpecialization": [
-      26,
-      0,
+      19,
+      7,
       0,
       0,
       23,
       0
     ],
     "ExhibitStateUsage.ownedSubsetting": [
-      17,
-      0,
+      10,
+      7,
       0,
       0,
       32,
@@ -31434,8 +31434,8 @@
       0
     ],
     "Expression.ownedRelationship": [
-      39,
-      0,
+      33,
+      6,
       0,
       0,
       0,
@@ -32098,24 +32098,24 @@
       0
     ],
     "Feature.ownedRelationship": [
-      4070,
-      1381,
+      3670,
+      1781,
       124,
       88,
       4347,
       0
     ],
     "Feature.ownedSpecialization": [
-      866,
-      20,
+      756,
+      130,
       657,
       29,
       8438,
       0
     ],
     "Feature.ownedSubsetting": [
-      363,
-      8,
+      354,
+      17,
       645,
       6,
       8988,
@@ -33891,11 +33891,11 @@
     ],
     "FeatureReferenceExpression.referent": [
       1613,
-      99,
+      71,
       0,
       0,
       0,
-      436
+      464
     ],
     "FeatureReferenceExpression.result": [
       2148,
@@ -33955,11 +33955,11 @@
     ],
     "FeatureTyping.general": [
       3336,
-      668,
+      336,
       4,
       0,
       0,
-      1904
+      2236
     ],
     "FeatureTyping.isImplied": [
       0,
@@ -34107,11 +34107,11 @@
     ],
     "FeatureTyping.relatedElement": [
       3336,
-      668,
+      336,
       4,
       0,
       0,
-      1904
+      2236
     ],
     "FeatureTyping.source": [
       5908,
@@ -34131,11 +34131,11 @@
     ],
     "FeatureTyping.target": [
       3336,
-      668,
+      336,
       4,
       0,
       0,
-      1904
+      2236
     ],
     "FeatureTyping.textualRepresentation": [
       0,
@@ -34147,11 +34147,11 @@
     ],
     "FeatureTyping.type": [
       3338,
-      670,
+      338,
       0,
       0,
       0,
-      1904
+      2236
     ],
     "FeatureTyping.typedFeature": [
       5910,
@@ -35482,8 +35482,8 @@
       0
     ],
     "FlowDefinition.ownedRelationship": [
-      6,
-      0,
+      3,
+      3,
       0,
       0,
       1,
@@ -36474,16 +36474,16 @@
       0
     ],
     "FlowUsage.ownedRelationship": [
-      59,
-      47,
+      37,
+      69,
       0,
       0,
       0,
       0
     ],
     "FlowUsage.ownedSpecialization": [
-      25,
-      0,
+      19,
+      6,
       0,
       0,
       81,
@@ -38970,8 +38970,8 @@
       0
     ],
     "Function.ownedRelationship": [
-      11,
-      0,
+      10,
+      1,
       0,
       0,
       0,
@@ -40682,24 +40682,24 @@
       0
     ],
     "IncludeUseCaseUsage.ownedRelationship": [
-      19,
-      0,
+      7,
+      12,
       0,
       0,
       0,
       0
     ],
     "IncludeUseCaseUsage.ownedSpecialization": [
-      18,
-      0,
+      17,
+      1,
       0,
       0,
       1,
       0
     ],
     "IncludeUseCaseUsage.ownedSubsetting": [
-      12,
-      0,
+      11,
+      1,
       0,
       0,
       7,
@@ -42370,8 +42370,8 @@
       0
     ],
     "InterfaceDefinition.ownedRelationship": [
-      30,
-      1,
+      28,
+      3,
       0,
       0,
       0,
@@ -43338,8 +43338,8 @@
       0
     ],
     "InterfaceUsage.ownedRelationship": [
-      39,
       4,
+      39,
       0,
       0,
       0,
@@ -44243,11 +44243,11 @@
     ],
     "InvocationExpression.function": [
       112,
-      245,
+      19,
       4,
       0,
       0,
-      107
+      333
     ],
     "InvocationExpression.importedMembership": [
       0,
@@ -45138,8 +45138,8 @@
       0
     ],
     "ItemDefinition.ownedRelationship": [
-      60,
-      6,
+      55,
+      11,
       0,
       0,
       101,
@@ -46050,16 +46050,16 @@
       0
     ],
     "ItemUsage.ownedRelationship": [
-      89,
-      234,
+      36,
+      287,
       33,
       0,
       10,
       0
     ],
     "ItemUsage.ownedSpecialization": [
-      307,
-      2,
+      291,
+      18,
       0,
       0,
       57,
@@ -46203,11 +46203,11 @@
     ],
     "ItemUsage.type": [
       243,
-      20,
+      16,
       87,
       0,
       0,
-      16
+      20
     ],
     "ItemUsage.unioningType": [
       0,
@@ -49691,11 +49691,11 @@
     ],
     "Membership.memberElement": [
       2145,
-      353,
+      99,
       0,
       0,
       0,
-      646
+      900
     ],
     "Membership.memberElementId": [
       0,
@@ -50035,11 +50035,11 @@
     ],
     "MembershipImport.importedMembership": [
       107,
-      15,
+      13,
       0,
       0,
       0,
-      265
+      267
     ],
     "MembershipImport.isImplied": [
       0,
@@ -51314,8 +51314,8 @@
       0
     ],
     "Metaclass.ownedRelationship": [
-      8,
-      0,
+      4,
+      4,
       0,
       0,
       2,
@@ -52370,8 +52370,8 @@
       0
     ],
     "MetadataDefinition.ownedRelationship": [
-      18,
-      0,
+      12,
+      6,
       0,
       0,
       18,
@@ -53786,8 +53786,8 @@
       0
     ],
     "MetadataUsage.ownedRelationship": [
-      269,
-      110,
+      262,
+      117,
       0,
       0,
       0,
@@ -53883,11 +53883,11 @@
     ],
     "MetadataUsage.type": [
       150,
-      147,
+      13,
       0,
       0,
       0,
-      82
+      216
     ],
     "MetadataUsage.unioningType": [
       0,
@@ -55331,11 +55331,11 @@
     ],
     "NamespaceImport.importedNamespace": [
       310,
-      25,
+      8,
       0,
       0,
       0,
-      331
+      348
     ],
     "NamespaceImport.isImplied": [
       0,
@@ -56658,8 +56658,8 @@
       0
     ],
     "OccurrenceDefinition.ownedRelationship": [
-      17,
-      35,
+      15,
+      37,
       2,
       0,
       1,
@@ -57538,24 +57538,24 @@
       0
     ],
     "OccurrenceUsage.ownedRelationship": [
-      114,
-      17,
+      69,
+      62,
       0,
       0,
       13,
       0
     ],
     "OccurrenceUsage.ownedSpecialization": [
-      80,
-      6,
+      74,
+      12,
       0,
       0,
       58,
       0
     ],
     "OccurrenceUsage.ownedSubsetting": [
-      21,
-      6,
+      17,
+      10,
       0,
       0,
       117,
@@ -59378,8 +59378,8 @@
       0
     ],
     "PartDefinition.ownedRelationship": [
-      618,
-      21,
+      423,
+      216,
       1,
       0,
       279,
@@ -60346,24 +60346,24 @@
       0
     ],
     "PartUsage.ownedRelationship": [
-      858,
-      1002,
+      309,
+      1551,
       52,
       0,
       40,
       0
     ],
     "PartUsage.ownedSpecialization": [
-      1549,
-      2,
+      1514,
+      37,
       0,
       0,
       401,
       0
     ],
     "PartUsage.ownedSubsetting": [
-      371,
-      0,
+      359,
+      12,
       2,
       0,
       1579,
@@ -60515,11 +60515,11 @@
     ],
     "PartUsage.type": [
       1011,
-      235,
+      63,
       706,
       0,
       0,
-      0
+      172
     ],
     "PartUsage.unioningType": [
       0,
@@ -60946,8 +60946,8 @@
       0
     ],
     "PayloadFeature.ownedRelationship": [
-      5,
-      0,
+      4,
+      1,
       0,
       0,
       0,
@@ -61778,24 +61778,24 @@
       0
     ],
     "PerformActionUsage.ownedRelationship": [
-      129,
-      2,
+      96,
+      35,
       2,
       0,
       24,
       0
     ],
     "PerformActionUsage.ownedSpecialization": [
-      114,
-      0,
+      97,
+      17,
       2,
       0,
       41,
       0
     ],
     "PerformActionUsage.ownedSubsetting": [
-      105,
-      0,
+      88,
+      17,
       2,
       0,
       50,
@@ -62602,8 +62602,8 @@
       0
     ],
     "PortDefinition.ownedRelationship": [
-      77,
-      48,
+      74,
+      51,
       0,
       0,
       0,
@@ -63490,16 +63490,16 @@
       0
     ],
     "PortUsage.ownedRelationship": [
-      99,
-      336,
+      20,
+      415,
       30,
       1,
       2,
       0
     ],
     "PortUsage.ownedSpecialization": [
-      418,
-      4,
+      412,
+      10,
       0,
       1,
       45,
@@ -64110,7 +64110,7 @@
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.declaredName": [
@@ -64126,23 +64126,23 @@
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.general": [
       1575,
-      387,
+      57,
       2,
       0,
       0,
-      542
+      938
     ],
     "Redefinition.isImplied": [
       0,
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.isImpliedIncluded": [
@@ -64150,13 +64150,13 @@
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.isLibraryElement": [
       0,
       0,
-      2506,
+      2572,
       0,
       0,
       0
@@ -64174,7 +64174,7 @@
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.ownedElement": [
@@ -64182,7 +64182,7 @@
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.ownedRelatedElement": [
@@ -64190,7 +64190,7 @@
       0,
       0,
       0,
-      2498,
+      2564,
       0
     ],
     "Redefinition.ownedRelationship": [
@@ -64198,19 +64198,19 @@
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "Redefinition.owner": [
       2,
       0,
       0,
-      2504,
+      2570,
       0,
       0
     ],
     "Redefinition.owningFeature": [
-      2504,
+      2570,
       0,
       0,
       0,
@@ -64234,7 +64234,7 @@
       0
     ],
     "Redefinition.owningRelatedElement": [
-      2504,
+      2570,
       0,
       0,
       0,
@@ -64252,7 +64252,7 @@
     "Redefinition.owningType": [
       0,
       0,
-      2504,
+      2570,
       0,
       0,
       0
@@ -64267,14 +64267,14 @@
     ],
     "Redefinition.redefinedFeature": [
       1576,
-      388,
+      58,
       0,
       0,
       0,
-      542
+      938
     ],
     "Redefinition.redefiningFeature": [
-      2505,
+      2571,
       1,
       0,
       0,
@@ -64283,14 +64283,14 @@
     ],
     "Redefinition.relatedElement": [
       1575,
-      387,
+      57,
       2,
       0,
       0,
-      542
+      938
     ],
     "Redefinition.source": [
-      2504,
+      2570,
       0,
       2,
       0,
@@ -64298,7 +64298,7 @@
       0
     ],
     "Redefinition.specific": [
-      2504,
+      2570,
       0,
       2,
       0,
@@ -64307,14 +64307,14 @@
     ],
     "Redefinition.subsettedFeature": [
       1575,
-      387,
+      57,
       2,
       0,
       0,
-      542
+      938
     ],
     "Redefinition.subsettingFeature": [
-      2504,
+      2570,
       0,
       2,
       0,
@@ -64323,18 +64323,18 @@
     ],
     "Redefinition.target": [
       1575,
-      387,
+      57,
       2,
       0,
       0,
-      542
+      938
     ],
     "Redefinition.textualRepresentation": [
       0,
       0,
       0,
       0,
-      2506,
+      2572,
       0
     ],
     "ReferenceSubsetting.aliasIds": [
@@ -64355,11 +64355,11 @@
     ],
     "ReferenceSubsetting.general": [
       316,
-      40,
+      38,
       0,
       0,
       0,
-      24
+      26
     ],
     "ReferenceSubsetting.isImplied": [
       0,
@@ -64451,11 +64451,11 @@
     ],
     "ReferenceSubsetting.referencedFeature": [
       316,
-      40,
+      38,
       0,
       0,
       0,
-      24
+      26
     ],
     "ReferenceSubsetting.referencingFeature": [
       380,
@@ -64467,11 +64467,11 @@
     ],
     "ReferenceSubsetting.relatedElement": [
       316,
-      40,
+      38,
       0,
       0,
       0,
-      24
+      26
     ],
     "ReferenceSubsetting.source": [
       380,
@@ -64491,11 +64491,11 @@
     ],
     "ReferenceSubsetting.subsettedFeature": [
       316,
-      40,
+      38,
       0,
       0,
       0,
-      24
+      26
     ],
     "ReferenceSubsetting.subsettingFeature": [
       380,
@@ -64507,11 +64507,11 @@
     ],
     "ReferenceSubsetting.target": [
       316,
-      40,
+      38,
       0,
       0,
       0,
-      24
+      26
     ],
     "ReferenceSubsetting.textualRepresentation": [
       0,
@@ -64557,7 +64557,7 @@
       1422,
       0,
       0,
-      70,
+      4,
       0,
       0
     ],
@@ -65234,9 +65234,9 @@
       0
     ],
     "ReferenceUsage.ownedRedefinition": [
-      642,
+      708,
       0,
-      70,
+      4,
       0,
       1482,
       0
@@ -65250,25 +65250,25 @@
       0
     ],
     "ReferenceUsage.ownedRelationship": [
-      1939,
-      154,
+      1255,
+      838,
       3,
       0,
       98,
       0
     ],
     "ReferenceUsage.ownedSpecialization": [
-      1641,
-      18,
-      70,
+      1650,
+      75,
+      4,
       0,
       465,
       0
     ],
     "ReferenceUsage.ownedSubsetting": [
-      748,
-      16,
-      72,
+      808,
+      22,
+      6,
       0,
       1358,
       0
@@ -65373,7 +65373,7 @@
       0,
       0,
       0,
-      642,
+      708,
       0,
       0
     ],
@@ -65403,11 +65403,11 @@
     ],
     "ReferenceUsage.type": [
       413,
-      48,
+      46,
       1232,
       0,
       0,
-      501
+      503
     ],
     "ReferenceUsage.unioningType": [
       0,
@@ -65898,8 +65898,8 @@
       0
     ],
     "RenderingDefinition.ownedRelationship": [
-      1,
       0,
+      1,
       0,
       0,
       1,
@@ -66778,8 +66778,8 @@
       0
     ],
     "RenderingUsage.ownedRelationship": [
-      4,
-      30,
+      1,
+      33,
       1,
       0,
       0,
@@ -67706,8 +67706,8 @@
       0
     ],
     "RequirementDefinition.ownedRelationship": [
-      98,
-      2,
+      84,
+      16,
       0,
       0,
       9,
@@ -68714,16 +68714,16 @@
       0
     ],
     "RequirementUsage.ownedRelationship": [
-      243,
-      9,
+      113,
+      139,
       0,
       0,
       19,
       0
     ],
     "RequirementUsage.ownedSpecialization": [
-      179,
-      0,
+      161,
+      18,
       0,
       0,
       92,
@@ -70386,16 +70386,16 @@
       0
     ],
     "SatisfyRequirementUsage.ownedRelationship": [
-      77,
-      3,
+      11,
+      69,
       0,
       0,
       0,
       0
     ],
     "SatisfyRequirementUsage.ownedSpecialization": [
-      78,
-      2,
+      77,
+      3,
       0,
       0,
       0,
@@ -72922,8 +72922,8 @@
       0
     ],
     "StateDefinition.ownedRelationship": [
-      35,
-      0,
+      31,
+      4,
       0,
       0,
       11,
@@ -74082,24 +74082,24 @@
       0
     ],
     "StateUsage.ownedRelationship": [
-      89,
-      8,
+      80,
+      17,
       1,
       0,
       208,
       0
     ],
     "StateUsage.ownedSpecialization": [
-      19,
-      0,
+      18,
+      1,
       0,
       0,
       287,
       0
     ],
     "StateUsage.ownedSubsetting": [
-      10,
-      0,
+      9,
+      1,
       0,
       0,
       296,
@@ -74698,16 +74698,16 @@
       0
     ],
     "Step.ownedRelationship": [
-      69,
-      7,
+      25,
+      51,
       0,
       0,
       2,
       0
     ],
     "Step.ownedSpecialization": [
-      64,
-      0,
+      49,
+      15,
       0,
       0,
       14,
@@ -75251,11 +75251,11 @@
     ],
     "Subclassification.general": [
       349,
-      127,
+      14,
       0,
       0,
       0,
-      136
+      249
     ],
     "Subclassification.isImplied": [
       0,
@@ -75387,11 +75387,11 @@
     ],
     "Subclassification.relatedElement": [
       347,
-      127,
+      14,
       2,
       0,
       0,
-      136
+      249
     ],
     "Subclassification.source": [
       610,
@@ -75419,19 +75419,19 @@
     ],
     "Subclassification.superclassifier": [
       348,
-      126,
+      13,
       2,
       0,
       0,
-      136
+      249
     ],
     "Subclassification.target": [
       348,
-      126,
+      13,
       2,
       0,
       0,
-      136
+      249
     ],
     "Subclassification.textualRepresentation": [
       0,
@@ -75683,11 +75683,11 @@
     ],
     "Subsetting.general": [
       309,
-      43,
+      33,
       2,
       0,
       0,
-      425
+      435
     ],
     "Subsetting.isImplied": [
       0,
@@ -75819,11 +75819,11 @@
     ],
     "Subsetting.relatedElement": [
       308,
-      44,
+      34,
       2,
       0,
       0,
-      425
+      435
     ],
     "Subsetting.source": [
       777,
@@ -75843,11 +75843,11 @@
     ],
     "Subsetting.subsettedFeature": [
       310,
-      44,
+      34,
       0,
       0,
       0,
-      425
+      435
     ],
     "Subsetting.subsettingFeature": [
       778,
@@ -75859,11 +75859,11 @@
     ],
     "Subsetting.target": [
       309,
-      43,
+      33,
       2,
       0,
       0,
-      425
+      435
     ],
     "Subsetting.textualRepresentation": [
       0,
@@ -76306,16 +76306,16 @@
       0
     ],
     "Succession.ownedRelationship": [
-      25,
-      1,
+      15,
+      11,
       0,
       0,
       0,
       0
     ],
     "Succession.ownedSpecialization": [
-      10,
       1,
+      10,
       0,
       0,
       15,
@@ -77186,8 +77186,8 @@
       0
     ],
     "SuccessionAsUsage.ownedRelationship": [
-      11,
-      1,
+      10,
+      2,
       0,
       0,
       0,
@@ -82018,8 +82018,8 @@
       0
     ],
     "Type.ownedRelationship": [
-      11,
-      30,
+      4,
+      37,
       0,
       0,
       0,
@@ -82954,8 +82954,8 @@
       0
     ],
     "Usage.ownedRelationship": [
-      21,
-      9,
+      20,
+      10,
       0,
       0,
       0,
@@ -83626,8 +83626,8 @@
       0
     ],
     "UseCaseDefinition.ownedRelationship": [
-      18,
-      0,
+      16,
+      2,
       0,
       0,
       1,
@@ -84586,24 +84586,24 @@
       0
     ],
     "UseCaseUsage.ownedRelationship": [
-      23,
-      0,
+      15,
+      8,
       0,
       1,
       3,
       0
     ],
     "UseCaseUsage.ownedSpecialization": [
-      11,
-      0,
+      10,
+      1,
       0,
       1,
       15,
       0
     ],
     "UseCaseUsage.ownedSubsetting": [
-      3,
-      0,
+      2,
+      1,
       0,
       1,
       23,
@@ -86410,8 +86410,8 @@
       0
     ],
     "VerificationCaseUsage.ownedRelationship": [
-      42,
-      0,
+      1,
+      41,
       0,
       1,
       1,
@@ -87058,8 +87058,8 @@
       0
     ],
     "ViewDefinition.ownedRelationship": [
-      10,
-      2,
+      6,
+      6,
       0,
       1,
       3,
@@ -88178,8 +88178,8 @@
       0
     ],
     "ViewUsage.ownedRelationship": [
-      90,
-      8,
+      33,
+      65,
       0,
       0,
       0,
@@ -88339,11 +88339,11 @@
     ],
     "ViewUsage.type": [
       9,
-      19,
+      3,
       41,
       0,
       0,
-      29
+      45
     ],
     "ViewUsage.unioningType": [
       0,
@@ -89842,8 +89842,8 @@
       0
     ],
     "ViewpointUsage.ownedRelationship": [
-      9,
-      0,
+      7,
+      2,
       0,
       0,
       0,
