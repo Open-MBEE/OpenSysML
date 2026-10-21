@@ -240,53 +240,63 @@ public final class ExportJSON extends SysMLUtil {
         if (memo.containsKey(element)) {
             return memo.get(element);
         }
-        String key = null;
+        String key;
         if (element.getQualifiedName() != null) {
             key = element.getQualifiedName();
         } else {
             Element owner = element instanceof Relationship
                     ? ((Relationship) element).getOwningRelatedElement()
                     : element.getOwner();
-            if (owner == null) {
-                // A document's root elements are addressed by the document; any other
-                // ownerless unnamed element (a synthesized connector) stays unkeyed.
-                Resource resource = element.eResource();
-                int index = resource == null ? -1 : resource.getContents().indexOf(element);
-                String file = resource == null ? null : resourceNames.get(resource);
-                if (index >= 0 && file != null) {
-                    int ordinal = 0;
-                    for (EObject sibling : resource.getContents().subList(0, index)) {
-                        if (sibling.eClass() == element.eClass()) {
-                            ordinal++;
-                        }
-                    }
-                    key = "/" + file + "/" + element.eClass().getName() + "#" + ordinal;
-                }
-            } else {
-                String ownerKey = keyOf(owner, memo);
-                if (ownerKey != null) {
-                    List<? extends Element> siblings = element instanceof Relationship
-                            ? owner.getOwnedRelationship()
-                            : owner.getOwnedElement();
-                    int index = 0;
-                    boolean found = false;
-                    for (Element sibling : siblings) {
-                        if (sibling == element) {
-                            found = true;
-                            break;
-                        }
-                        if (sibling.eClass() == element.eClass()) {
-                            index++;
-                        }
-                    }
-                    if (found) {
-                        key = ownerKey + "/" + element.eClass().getName() + "[" + index + "]";
-                    }
-                }
-            }
+            key = owner == null ? rootKeyOf(element) : ownedKeyOf(element, owner, memo);
         }
         memo.put(element, key);
         return key;
+    }
+
+    /**
+     * rootKeyOf keys an unnamed ownerless element by its document and its ordinal among the
+     * document's root elements of its metaclass; any other such element (a synthesized
+     * connector) stays unkeyed.
+     */
+    private String rootKeyOf(Element element) {
+        Resource resource = element.eResource();
+        int index = resource == null ? -1 : resource.getContents().indexOf(element);
+        String file = resource == null ? null : resourceNames.get(resource);
+        if (index < 0 || file == null) {
+            return null;
+        }
+        int ordinal = 0;
+        for (EObject sibling : resource.getContents().subList(0, index)) {
+            if (sibling.eClass() == element.eClass()) {
+                ordinal++;
+            }
+        }
+        return "/" + file + "/" + element.eClass().getName() + "#" + ordinal;
+    }
+
+    /**
+     * ownedKeyOf keys an unnamed owned element under its owner's key by its ordinal among
+     * the owner's owned relationships or elements of its metaclass; null when the owner
+     * has no key or does not list the element.
+     */
+    private String ownedKeyOf(Element element, Element owner, Map<Element, String> memo) {
+        String ownerKey = keyOf(owner, memo);
+        if (ownerKey == null) {
+            return null;
+        }
+        List<? extends Element> siblings = element instanceof Relationship
+                ? owner.getOwnedRelationship()
+                : owner.getOwnedElement();
+        int index = 0;
+        for (Element sibling : siblings) {
+            if (sibling == element) {
+                return ownerKey + "/" + element.eClass().getName() + "[" + index + "]";
+            }
+            if (sibling.eClass() == element.eClass()) {
+                index++;
+            }
+        }
+        return null;
     }
 
     private void fail(Path file, String stage, RuntimeException e) {
@@ -310,25 +320,28 @@ public final class ExportJSON extends SysMLUtil {
             Path out = null;
             List<Path> extensions = new ArrayList<>();
             List<Path> files = new ArrayList<>();
-            for (int i = 0; i < args.length; i++) {
-                switch (args[i]) {
+            // An option with a value consumes the argument after it.
+            int next = 0;
+            while (next < args.length) {
+                String arg = args[next++];
+                switch (arg) {
                     case "--library":
-                        library = value(args, ++i, "--library");
+                        library = value(args, next++, "--library");
                         break;
                     case "--root":
-                        root = value(args, ++i, "--root");
+                        root = value(args, next++, "--root");
                         break;
                     case "--out":
-                        out = value(args, ++i, "--out");
+                        out = value(args, next++, "--out");
                         break;
                     case "--extension-library":
-                        extensions.add(value(args, ++i, "--extension-library"));
+                        extensions.add(value(args, next++, "--extension-library"));
                         break;
                     default:
-                        if (args[i].startsWith("--")) {
-                            throw new IllegalArgumentException("unknown option: " + args[i]);
+                        if (arg.startsWith("--")) {
+                            throw new IllegalArgumentException("unknown option: " + arg);
                         }
-                        files.add(Paths.get(args[i]).toAbsolutePath().normalize());
+                        files.add(Paths.get(arg).toAbsolutePath().normalize());
                 }
             }
             if (library == null || out == null) {
