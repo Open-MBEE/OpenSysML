@@ -231,8 +231,8 @@ func idByte(c byte) bool {
 	return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-'
 }
 
-// libraryName reports whether fqn names a standard library element the norm
-// fixes an id for, so a reference to it links rather than carries text.
+// libraryName reports whether fqn names a bundled library element with a fixed
+// id, so a reference to it links rather than carries text.
 func (f *identityFacts) libraryName(fqn string) bool {
 	if _, declared := f.byFQN[fqn]; declared {
 		return true
@@ -241,8 +241,8 @@ func (f *identityFacts) libraryName(fqn string) bool {
 	return ok
 }
 
-// libraryElement records the normative identity of a bundled library symbol on
-// first sight and returns its qualified name; false where the norm fixes no id.
+// libraryElement records the fixed identity of a bundled library symbol on
+// first sight and returns its qualified name; false where its library fixes no id.
 func (f *identityFacts) libraryElement(sym *symbols.Symbol) (string, bool) {
 	if fqn, seen := f.library[sym]; seen {
 		return fqn, fqn != ""
@@ -252,7 +252,7 @@ func (f *identityFacts) libraryElement(sym *symbols.Symbol) (string, bool) {
 		return "", false
 	}
 	info, ok := identity.Of(f.model, f.res, sym)
-	if !ok || info.Source != identity.SourceNormative {
+	if !ok || !info.Fixed() {
 		return "", false
 	}
 	if _, taken := f.byFQN[info.FQN]; taken {
