@@ -108,7 +108,7 @@ func encodeLibraryNames(doc string) any {
 	}
 	names := make(map[string]string)
 	for node, el := range e.ids.byNode {
-		if el.source != identity.SourceNormative {
+		if !el.source.Fixed() {
 			continue
 		}
 		if fqn, ok := e.fqn[node]; ok {
