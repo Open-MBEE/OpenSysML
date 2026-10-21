@@ -68,6 +68,7 @@ elmt:OtherPkg__Tempo
     sysml:owningRelationship elmt:OtherPkg__Tempo_om ;
     sysml:owningMembership elmt:OtherPkg__Tempo_om ;
     sysml:declaredName "Tempo" ;
+    sysml:isAbstract "true"^^xsd:boolean ;
     sysml:isVariation "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:OtherPkg__Tempo__operative, elmt:OtherPkg__Tempo__planning ;
