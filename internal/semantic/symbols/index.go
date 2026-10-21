@@ -1284,11 +1284,38 @@ func (idx *Index) ReexportGates(doc, fqn string, sym *Symbol, from string) [][]E
 		return claims[doc].gateRoutes(true)
 	}
 	inside := withinNamespace(from, parent)
+	if len(claims) == 1 {
+		for _, claim := range claims {
+			return claim.gateRoutes(inside)
+		}
+	}
 	var out [][]ElementFilter
 	for _, claim := range claims {
 		out = append(out, claim.gateRoutes(inside)...)
 	}
 	return out
+}
+
+// EachReexportGate calls visit with the conditions of each route ReexportGates
+// would return, in its order, until visit answers true; it reports whether any
+// route was visited and whether one was accepted. Nothing is allocated, so a
+// lookup that admits the first unfiltered route pays no more than the walk.
+func (idx *Index) EachReexportGate(doc, fqn string, sym *Symbol, from string, visit func(filters []ElementFilter) bool) (routed, accepted bool) {
+	idx.readName(fqn)
+	claims := idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym})
+	parent, _ := splitFQN(fqn)
+	if parent == "" {
+		return claims[doc].eachGateRoute(true, visit)
+	}
+	inside := withinNamespace(from, parent)
+	for _, claim := range claims {
+		r, a := claim.eachGateRoute(inside, visit)
+		routed = routed || r
+		if a {
+			return true, true
+		}
+	}
+	return routed, false
 }
 
 // ReexportVisible reports whether a lookup made in doc reaches sym under the
@@ -1308,12 +1335,21 @@ func (idx *Index) ReexportVisible(doc, fqn string, sym *Symbol) bool {
 }
 
 // gateRoutes returns the conditions of the routes a claim recorded that a lookup
-// may take, and none for an absent claim.
+// may take, and none for an absent claim or one no route of which the lookup may take.
 func (c *reexportClaim) gateRoutes(private bool) [][]ElementFilter {
 	if c == nil {
 		return nil
 	}
-	out := make([][]ElementFilter, 0, len(c.routes))
+	n := 0
+	for _, route := range c.routes {
+		if private || !route.private {
+			n++
+		}
+	}
+	if n == 0 {
+		return nil
+	}
+	out := make([][]ElementFilter, 0, n)
 	for _, route := range c.routes {
 		if route.private && !private {
 			continue
@@ -1321,6 +1357,24 @@ func (c *reexportClaim) gateRoutes(private bool) [][]ElementFilter {
 		out = append(out, route.filters)
 	}
 	return out
+}
+
+// eachGateRoute is gateRoutes as a walk: visit sees each route's conditions
+// until it answers true.
+func (c *reexportClaim) eachGateRoute(private bool, visit func(filters []ElementFilter) bool) (routed, accepted bool) {
+	if c == nil {
+		return false, false
+	}
+	for _, route := range c.routes {
+		if route.private && !private {
+			continue
+		}
+		routed = true
+		if visit(route.filters) {
+			return true, true
+		}
+	}
+	return routed, false
 }
 
 // nonZeroFilters drops the absent conditions of an unfiltered import.
@@ -1992,6 +2046,30 @@ func (idx *Index) LookupDirectChildrenFrom(prefix, fromFQN string) []*Symbol {
 // Returns the local name if the symbol has no owner scope (root-level symbol).
 func (idx *Index) GetFQN(sym *Symbol) string {
 	return FQNOf(sym)
+}
+
+// FQNIs reports whether FQNOf(sym) is parent::leaf, comparing the owner scope
+// chain against parent segment by segment without building the name.
+func FQNIs(sym *Symbol, parent, leaf string) bool {
+	if sym == nil || sym.Name != leaf {
+		return false
+	}
+	rest := parent
+	scope := sym.OwnerScope
+	for scope != nil && scope.Owner() != nil {
+		owner := scope.Owner()
+		if owner.Name != "" {
+			if rest == owner.Name {
+				rest = ""
+			} else if strings.HasSuffix(rest, fqnSeparator+owner.Name) {
+				rest = rest[:len(rest)-len(owner.Name)-len(fqnSeparator)]
+			} else {
+				return false
+			}
+		}
+		scope = owner.OwnerScope
+	}
+	return rest == ""
 }
 
 // FQNOf returns a symbol's fully-qualified name from its owner scope chain, so
