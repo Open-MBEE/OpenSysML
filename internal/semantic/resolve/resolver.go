@@ -531,6 +531,8 @@ func (r *Resolver) lookupContributedMember(sym *symbols.Symbol, name string, hid
 // Must be called before resolving feature chains if inherited members are needed.
 func (r *Resolver) SetModel(model MemberLookup) {
 	r.model = model
+	clear(r.enumKept)
+	clear(r.enumResults)
 }
 
 // ResolveQualified resolves a qualified-name reference against the given scope.
