@@ -1,0 +1,10 @@
+VariationViews::familyLinks - interconnection rendering (render asInterconnectionDiagram)
+
+part vehicleFamily
+  part engine
+  variation part transmission
+    variant manual
+    variant automatic
+
+connections:
+  engine -- transmission

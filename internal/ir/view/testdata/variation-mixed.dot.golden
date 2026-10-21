@@ -1,0 +1,34 @@
+// view: VariationViews::familyMixed
+// kind: mixed
+// stated: render asMixedDiagram
+// layout: dot
+digraph "VariationViews::familyMixed" {
+  graph [fontname="Helvetica", compound=true];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«part»</i></font><br/><b>vehicleFamily</b>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>engine</b>>];
+    subgraph "cluster_n2" {
+      label=<<font point-size="10"><i>«variation part»</i></font><br/><b>transmission</b>>;
+      color=black;
+      penwidth=0.5;
+      "n2" [shape=point, style=invis, width=0, height=0, label=""];
+      "n3" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>manual</b>>];
+      "n4" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>automatic</b>>];
+    }
+  }
+  subgraph "cluster_n5" {
+    label=<<font point-size="10"><i>«variation part def»</i></font><br/><b>EngineChoices</b>>;
+    color=black;
+    penwidth=0.5;
+    "n5" [shape=point, style=invis, width=0, height=0, label=""];
+    "n6" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>fourCylinder</b>>];
+    "n7" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>sixCylinder</b>>];
+  }
+  "n1" -> "n2" [arrowhead=none, penwidth=3, lhead="cluster_n2"];
+  "n1" -> "n5" [style=dashed, arrowhead=open, lhead="cluster_n5"];
+}

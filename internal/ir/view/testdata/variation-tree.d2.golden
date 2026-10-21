@@ -1,0 +1,24 @@
+# VariationViews::familyTree — tree rendering (render asTreeDiagram)
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«part»\nvehicleFamily" { class: usage }
+n1: "«part»\nengine" { class: usage }
+n2: "«variation part»\ntransmission" { class: usage }
+n3: "«variant»\nmanual" { class: usage }
+n4: "«variant»\nautomatic" { class: usage }
+n5: "connect" { class: usage }
+n6: "«variation part def»\nEngineChoices" { class: definition }
+n7: "«variant»\nfourCylinder" { class: usage }
+n8: "«variant»\nsixCylinder" { class: usage }
+n0 -- n1: { class: edge }
+n0 -- n2: { class: edge }
+n2 -- n3: { class: edge }
+n2 -- n4: { class: edge }
+n0 -- n5: { class: edge }
+n6 -- n7: { class: edge }
+n6 -- n8: { class: edge }
+n0 <- n6: { class: composition; target-arrowhead: { label: "engine" } }

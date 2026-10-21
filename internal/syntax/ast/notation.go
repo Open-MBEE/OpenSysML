@@ -8,16 +8,16 @@ func Notation(node Node) string {
 	case *Definition:
 		kw := writtenKeyword(decl.Keyword, decl.Kind.String())
 		// A KerML classifier is written without the `def` a SysML definition takes.
-		if !decl.HasDefKeyword {
-			return kw
+		if decl.HasDefKeyword {
+			kw += " def"
 		}
-		return kw + " def"
+		return variationPrefixed(kw, decl.IsVariation)
 	case *Usage:
 		kw := writtenKeyword(decl.Keyword, decl.Kind.String())
 		if decl.PrefixKeyword != "" {
-			return decl.PrefixKeyword + " " + kw
+			kw = decl.PrefixKeyword + " " + kw
 		}
-		return kw
+		return variationPrefixed(kw, decl.IsVariation)
 	case *RelationshipMember:
 		// Only `specialization Spec subtype C :> S` can be named, so the prefix is
 		// the keyword the name follows; without one the kind keyword stands alone.
@@ -53,6 +53,15 @@ func Notation(node Node) string {
 		return "rep"
 	}
 	return ""
+}
+
+// variationPrefixed writes a variation's kind the way the notation declares it,
+// `variation` before the kind keyword (SysML v2 §7.6.7), which also says it is abstract.
+func variationPrefixed(kw string, isVariation bool) string {
+	if isVariation {
+		return "variation " + kw
+	}
+	return kw
 }
 
 // writtenKeyword prefers the keyword a declaration was written with, since

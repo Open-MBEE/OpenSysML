@@ -1,0 +1,14 @@
+VariationViews::familyMixed - mixed rendering (render asMixedDiagram)
+
+part vehicleFamily
+  part engine
+  variation part transmission
+    variant manual
+    variant automatic
+variation part def EngineChoices
+  variant fourCylinder
+  variant sixCylinder
+
+relationships:
+  engine -- transmission
+  engine ..> EngineChoices
