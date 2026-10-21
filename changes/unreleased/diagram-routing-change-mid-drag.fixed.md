@@ -1,1 +1,1 @@
-- The VS Code diagram panel applies a change of `opensysml.diagram.routing` made while a drag is in progress once the drag settles, instead of keeping the routes it started on until a later render.
+- The VS Code diagram panel applies a change of `opensysml.diagram.routing` made while a drag is in progress once the drag settles — a drag's preview and a pan's scroll position stay as they were until then — instead of keeping the routes it started on until a later render.

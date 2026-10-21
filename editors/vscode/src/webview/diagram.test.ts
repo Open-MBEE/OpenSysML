@@ -142,3 +142,31 @@ test("a routing message during a drag that leaves the routing as it is changes n
   assert.equal(diagram.querySelector("svg"), canvas, "the click settles nothing, so the canvas is not redrawn");
   assert.deepEqual(routes(), before);
 });
+
+test("a drag's preview keeps the routing the drag began under until the drag ends", async () => {
+  post({ type: "render", result: statedDiagonal(), selected: "M::V", drawn: 5, style: "theme", routing: "model" });
+  await settled();
+  pointer("pointerdown", nodeElement("a"), { clientX: 50, clientY: 20 });
+  pointer("pointermove", diagram, { clientX: 60, clientY: 30 });
+  assert.equal(waypointHandles(), 1, "the preview draws the stated waypoint's handle under model routing");
+
+  post({ type: "routing", routing: "router" });
+  pointer("pointermove", diagram, { clientX: 70, clientY: 40 });
+  assert.equal(waypointHandles(), 1, "the preview stays on the routing the drag began under");
+  window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" }));
+  assert.equal(waypointHandles(), 0, "the router takes over once the drag ends");
+});
+
+test("a routing change during a pan is applied where the pan left the canvas when the pan is cancelled", async () => {
+  post({ type: "render", result: statedDiagonal(), selected: "M::V", drawn: 6, style: "theme", routing: "model" });
+  await settled();
+  const canvas = diagram.querySelector("svg")!;
+  pointer("pointerdown", canvas, { clientX: 300, clientY: 40 });
+  pointer("pointermove", canvas, { clientX: 260, clientY: 40 });
+  assert.equal(diagram.scrollLeft, 40, "the pan scrolls the canvas by how far the pointer came");
+
+  post({ type: "routing", routing: "router" });
+  window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" }));
+  assert.equal(waypointHandles(), 0, "the router hides the stated waypoint's handle once the pan is cancelled");
+  assert.equal(diagram.scrollLeft, 40, "the redraw keeps the canvas where the pan left it");
+});

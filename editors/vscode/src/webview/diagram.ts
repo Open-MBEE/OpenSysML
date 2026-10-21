@@ -451,9 +451,10 @@ function hiddenSet(): Set<string> {
   return hiddenKinds ?? new Set(defaultHidden);
 }
 
-// panelOverrides is what the panel itself lays over every layout of the rendering.
+// panelOverrides is what the panel itself lays over every layout of the rendering; a
+// gesture in progress keeps the routing it began under, and its end lays out with the new one.
 function panelOverrides(): Overrides {
-  return { hiddenKinds: hiddenSet(), unplaced: freeAuto !== undefined, routing };
+  return { hiddenKinds: hiddenSet(), unplaced: freeAuto !== undefined, routing: gesture?.routing ?? routing };
 }
 
 // currentAuto is the ELK layout in force: the free one while Auto layout is, else the one held to the model.
@@ -666,26 +667,29 @@ function rememberSoon(): void {
 type Gesture =
   | NodeGesture
   | PanGesture
-  | { kind: "waypoint"; edge: number; point: number; start: RenderPoint; pointer: number; placements?: Placements }
-  | { kind: "segment"; edge: number; segment: number; start: RenderPoint; pointer: number; placements?: Placements };
+  | { kind: "waypoint"; edge: number; point: number; start: RenderPoint; pointer: number; routing: Routing; placements?: Placements }
+  | { kind: "segment"; edge: number; segment: number; start: RenderPoint; pointer: number; routing: Routing; placements?: Placements };
 
 // A press on empty canvas pans the view once it moves past the drag threshold;
 // released where it was pressed, it is a click on nothing.
 interface PanGesture {
   kind: "pan";
   pointer: number;
+  routing: Routing;
   from: ClientPoint;
   scroll: { left: number; top: number };
   moved: boolean;
 }
 
 // A node drag also tracks what a release would do: `at` is where the pointer holds the
-// node, `drop` the node under it while Shift is held.
+// node, `drop` the node under it while Shift is held. Every gesture keeps the routing it
+// began under, so what it draws stays on the layout it started from until it ends.
 interface NodeGesture {
   kind: "node";
   id: string;
   start: RenderPoint;
   pointer: number;
+  routing: Routing;
   fixed: boolean;
   placements?: Placements;
   at?: RenderPoint;
@@ -717,21 +721,22 @@ function beginGesture(event: PointerEvent): void {
   const handle = handleAt(event.target);
   if (handle) {
     gesture = handle.point !== undefined
-      ? { kind: "waypoint", edge: handle.edge, point: handle.point, start, pointer: event.pointerId }
-      : { kind: "segment", edge: handle.edge, segment: handle.segment ?? 0, start, pointer: event.pointerId };
+      ? { kind: "waypoint", edge: handle.edge, point: handle.point, start, pointer: event.pointerId, routing }
+      : { kind: "segment", edge: handle.edge, segment: handle.segment ?? 0, start, pointer: event.pointerId, routing };
   } else {
     const node = nodeAt(event.target, last);
     if (!node) {
       gesture = {
         kind: "pan",
         pointer: event.pointerId,
+        routing,
         from: clientPoint(event),
         scroll: { left: diagram.scrollLeft, top: diagram.scrollTop },
         moved: false,
       };
     } else {
       const entry = layout.nodes.get(node.id);
-      gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, fixed: !entry || !movable(layout, entry) };
+      gesture = { kind: "node", id: node.id, start, pointer: event.pointerId, routing, fixed: !entry || !movable(layout, entry) };
     }
   }
   event.preventDefault();
@@ -851,8 +856,6 @@ function endGesture(event: PointerEvent): void {
   diagram.classList.remove("dragging", "refused", "panning");
   if (done.kind === "pan") {
     if (unrouted) {
-      // The scroll listener may not have seen the pan's last offsets yet; a redraw must keep them.
-      viewport = scrolled();
       settle();
     }
     if (done.moved) {
@@ -922,13 +925,16 @@ function panTo(pan: PanGesture, at: ClientPoint): void {
   diagram.scrollTop = pan.scroll.top - dy;
 }
 
-// settle shows the model's layout after a gesture that made no edit, laid out again if the router loaded meanwhile.
+// settle shows the model's layout after a gesture that made no edit, laid out again if the
+// router loaded or the routing changed meanwhile, where the gesture left the canvas scrolled.
 function settle(): void {
   if (unrouted && last && layout) {
     layout = layoutCanvas(last, panelOverrides(), currentAuto());
   }
   unrouted = false;
   if (layout) {
+    // The scroll listener may not have seen a pan's last offsets yet; the redraw must keep them.
+    viewport = scrolled();
     show(layout);
   }
 }
