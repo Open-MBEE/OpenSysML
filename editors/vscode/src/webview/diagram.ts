@@ -32,6 +32,7 @@ import {
   zoomLabel,
 } from "./viewport";
 import {
+  byCodeUnit,
   CanvasLayout,
   insertedWaypoint,
   layoutCanvas,
@@ -508,7 +509,7 @@ function showRelations(result: RenderResult): void {
   }
   relations.hidden = result.form !== "mermaid" || kinds.size === 0;
   const hidden = hiddenSet();
-  relationList.replaceChildren(...[...kinds.keys()].sort().map((kind) => {
+  relationList.replaceChildren(...[...kinds.keys()].sort(byCodeUnit).map((kind) => {
     const box = document.createElement("input");
     box.type = "checkbox";
     box.checked = !hidden.has(kind);
