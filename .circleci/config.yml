@@ -460,11 +460,11 @@ jobs:
             git diff --exit-code api/proto
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
-  # it gets the larger class and five executors, one named package shard each.
+  # it gets the larger class and six executors, one named package shard each.
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 5
+    parallelism: 6
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -485,7 +485,7 @@ jobs:
           name: Run Go race tests
           command: |
             set -o pipefail
-            shards=(runtime model export rest migrate)
+            shards=(runtime model export rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
               exit 1
@@ -529,11 +529,13 @@ jobs:
   # A second, race-free pass, because the profile the scan reads is written
   # with -coverpkg, which is too slow to instrument under -race. Serially the
   # instrumented suite overran the 60-minute job limit even on large, so it runs
-  # as the race test's five package shards, and go-coverage-merge joins them.
+  # as the race test's six package shards, and go-coverage-merge joins them.
+  # cmd/sysml's exploration budgets alone took 23-30 of the 30 minutes while sharing
+  # the rest node under -coverpkg=./..., so the command has a node of its own.
   go-coverage:
     executor: go-executor
     resource_class: large
-    parallelism: 5
+    parallelism: 6
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -548,7 +550,7 @@ jobs:
       - run:
           name: Write this shard's coverage profile
           command: |
-            shards=(runtime model export rest migrate)
+            shards=(runtime model export rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
               exit 1

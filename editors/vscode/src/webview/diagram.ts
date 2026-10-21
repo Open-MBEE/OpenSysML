@@ -36,6 +36,7 @@ import {
   CanvasLayout,
   insertedWaypoint,
   layoutCanvas,
+  listedEdges,
   movable,
   movedNode,
   movedWaypoint,
@@ -373,19 +374,21 @@ function draw(result: RenderResult): boolean {
       layout = layoutCanvas(result, panelOverrides());
       if (empty || nothingLaidOut(layout)) {
         layout = undefined;
-        diagram.replaceChildren(emptyElement(result));
-      } else {
-        show(layout);
       }
     } else {
       // A table is not drawn as geometry: it is drawn as a table from its rows.
       layout = undefined;
-      diagram.replaceChildren(tableOf(result));
+    }
+    // The rendering is current before it is shown: the selection's neighbourhood is read from it.
+    last = result;
+    if (layout !== undefined) {
+      show(layout);
+    } else {
+      diagram.replaceChildren(result.form === "mermaid" ? emptyElement(result) : tableOf(result));
     }
     diagram.classList.remove("stale");
     emptyReason = empty || (result.form === "mermaid" && layout === undefined) ? emptyMessage(result) : undefined;
     showStatus(emptyReason ?? "");
-    last = result;
     if (layout !== undefined) {
       // The grid answers at once; ELK's layered layout replaces it when it resolves.
       showStatus("Laying out…");
@@ -409,7 +412,7 @@ function draw(result: RenderResult): boolean {
     showNotices(result);
     // An open menu names nodes of the drawing just replaced.
     hideMenu();
-    showRelations(result);
+    showRelations(layout);
     kindLabel.textContent = describe(result);
     return true;
   } catch (err) {
@@ -440,11 +443,11 @@ function select(id: string | undefined): void {
 // applySelection marks the selection's neighbourhood on the canvas on screen.
 function applySelection(): void {
   const svg = diagram.querySelector("svg");
-  if (!svg || !last) {
+  if (!svg || !last || !layout) {
     return;
   }
   markSelection(svg, focused === undefined ? undefined : neighbourhood(last, focused, hiddenSet()));
-  countRelations(last);
+  countRelations(layout);
 }
 
 // hiddenSet is the relationship kinds hidden now: the panel's own filter, else the workspace default.
@@ -507,12 +510,12 @@ function showLayoutMode(): void {
 
 // showRelations lists the relationship kinds the rendering draws, each with a box to
 // show or hide it; a rendering with no edges, or a table, offers no list.
-function showRelations(result: RenderResult): void {
+function showRelations(shown: CanvasLayout | undefined): void {
   const kinds = new Map<string, number>();
-  for (const edge of result.edges ?? []) {
+  for (const edge of shown ? listedEdges(shown) : []) {
     kinds.set(edge.kind, (kinds.get(edge.kind) ?? 0) + 1);
   }
-  relations.hidden = result.form !== "mermaid" || kinds.size === 0;
+  relations.hidden = shown === undefined || kinds.size === 0;
   const hidden = hiddenSet();
   relationList.replaceChildren(...[...kinds.keys()].sort(byCodeUnit).map((kind) => {
     const box = document.createElement("input");
@@ -525,14 +528,17 @@ function showRelations(result: RenderResult): void {
     label.append(box, ` ${kind} `, count);
     return label;
   }));
-  countRelations(result);
+  if (shown) {
+    countRelations(shown);
+  }
 }
 
 // countRelations writes each kind's count after its name: how many edges, and how many at the selected node.
-function countRelations(result: RenderResult): void {
-  const related = focused === undefined ? undefined : relatedByKind(result, focused);
+function countRelations(shown: CanvasLayout): void {
+  const listed = listedEdges(shown);
+  const related = focused === undefined ? undefined : relatedByKind(listed, focused);
   const total = new Map<string, number>();
-  for (const edge of result.edges ?? []) {
+  for (const edge of listed) {
     total.set(edge.kind, (total.get(edge.kind) ?? 0) + 1);
   }
   for (const box of relationList.querySelectorAll<HTMLInputElement>("input[data-kind]")) {

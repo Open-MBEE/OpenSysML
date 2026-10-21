@@ -50,6 +50,7 @@ func (e *ActionExecutor) holds(sym *symbols.Symbol, scope *symbols.Scope) (bool,
 			return false, err
 		}
 		check.bindings = mapFrame(bindings)
+		check.self = e.ctx.conditionSelf(sym, subject.instance)
 	}
 	holds, err := e.ctx.evaluateConditions(check, e.ctx.conditionsOf(sym, members))
 	if err != nil {

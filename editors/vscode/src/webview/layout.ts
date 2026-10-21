@@ -77,7 +77,7 @@ export interface PlacedEdge {
   route: RenderPoint[];
   /** Where the label sits, on the polyline's midpoint. */
   label: RenderPoint;
-  /** An end is under a collapsed owner, so the edge is not drawn. */
+  /** An end is under a collapsed owner, or the kind is hidden, so the edge is not drawn. */
   hidden: boolean;
   /** The route was found around the other boxes at layout time; the model states none, so a move does not write it. */
   rerouted: boolean;
@@ -1395,6 +1395,16 @@ function statedRoute(
 
 // routeEdge is an edge's polyline: from the border of its source, through the
 // route's waypoints, to the border of its target; a self-loop swings out to the right.
+// folded is whether an end of the edge is under a collapsed owner: the edge is then not drawn, whatever kinds the panel shows.
+function folded(placed: ReadonlyMap<string, PlacedNode>, edge: RenderEdge): boolean {
+  return placed.get(edge.from)?.hidden === true || placed.get(edge.to)?.hidden === true;
+}
+
+/** listedEdges is the rendering's edges at drawn nodes, those of a hidden kind included: what the canvas draws or its relation filter could, which the Relations list counts. */
+export function listedEdges(layout: CanvasLayout): RenderEdge[] {
+  return layout.edges.filter((edge) => !folded(layout.nodes, edge.edge)).map((edge) => edge.edge);
+}
+
 // The auto layout's route applies only where neither end is placed, since an end
 // the model or a gesture moved is where the route was computed around it.
 function routeEdge(
@@ -1410,7 +1420,7 @@ function routeEdge(
   const stated = unplaced && !routes?.has(index) ? undefined : statedRoute(edge, index, routes, routing);
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
-  const hidden = source?.hidden === true || target?.hidden === true || hiddenKinds?.has(edge.kind) === true;
+  const hidden = folded(placed, edge) || hiddenKinds?.has(edge.kind) === true;
   const routed = autoRoute(stated, index, auto, source, target);
   if (routed !== undefined) {
     // ELK's anchors already lie on the boxes' borders, so its polyline is drawn

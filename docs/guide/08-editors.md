@@ -437,8 +437,12 @@ sysml-mcp -print-config vscode -print-config-npx   # the npx form
 
 The block names the binary by its absolute path, by the command `-print-config-command`
 gives, or `npx -y @openmbee/sysml-mcp` with `-print-config-npx`; `-tools lsp,runtime` or
-`-root models` go into its `args`. The
-[MCP server reference](../reference/sysml-mcp.md) has every host's block, the full tool
+`-root models` go into its `args`. For remote agents, or several agents over one project,
+`sysml-mcp -http 8765` serves one long-lived server over the Streamable HTTP transport at
+`http://localhost:8765/mcp` (a port alone binds loopback; the server authenticates no one), and
+`sysml-mcp -print-config <host> -http 8765` writes the block that connects to it; the clients
+then share the workspace and the `session_*` names. The
+[MCP server reference](../reference/sysml-mcp.md) has every host's block, the transports, the full tool
 catalogue with what each tool does, and the conventions the tools share: 1-based line and
 column positions, paths relative to the root, and nothing written to disk without
 `"apply": true`.

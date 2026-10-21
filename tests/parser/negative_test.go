@@ -556,6 +556,13 @@ func TestNegative(t *testing.T) {
 		{"accept_payload_value_missing", "package P { action def A { accept : ChangeSignal = ; } }"},
 		// `ordered` and `nonunique` are stated once each (SysML.xtext MultiplicityPart).
 		{"keywordless_ordered_repeated", "package P { part def S { ref part content[*]; } part def O :> S { c ordered ordered :>> content; } }"},
+		// No production puts a parenthesised parameter list on a declaration:
+		// parameters are directed features of the body (SysML.xtext
+		// ParameterMember). The group is reported and the body still read.
+		{"action_def_parameter_list", "package P { action def A(x : Integer) { in y : Integer; } }"},
+		{"calc_def_parameter_list_bodiless", "package P { calc def C(x : Integer); }"},
+		{"action_def_parameter_list_semicolons", "package P { action def A(x : Integer; y : Integer) { in z : Integer; } }"},
+		{"part_def_parameter_list_unclosed", "package P { part def D(x : Integer { } }"},
 	}
 
 	for _, tt := range tests {
@@ -761,6 +768,17 @@ func TestNegativeKerML(t *testing.T) {
 		// declaration so named is still reported.
 		{"feature_named_frame_no_type", "package P { feature frame : ; }"},
 		{"feature_named_state_no_terminator", "package P { feature state }"},
+		// AliasMember spells `for` (KerML.xtext:161) and TypeFeaturing `by`
+		// (KerML.xtext:651); the mis-spelt keyword is reported and the member
+		// kept, so the body around it is still read.
+		{"alias_of", "package P { feature f; alias g of f; }"},
+		{"alias_of_in_type_body", "package P { feature f; class C { alias g of f; } }"},
+		{"alias_of_no_target", "package P { feature f; alias g of ; }"},
+		{"featuring_featured_by", "package P { class T; feature f; featuring f featured by T; }"},
+		{"featuring_featured_by_body", "package P { class T; feature f; featuring f featured by T { doc /* d */ } }"},
+		{"featuring_featured_no_by", "package P { class T; feature f; featuring f featured T; }"},
+		{"behavior_parameter_list", "package P { behavior B(x : Real) { language \"alf\" /* x */ } }"},
+		{"behavior_parameter_list_semicolons", "package P { behavior B(x : T; y : U) { in a : T; } behavior C; }"},
 	}
 
 	for _, tt := range tests {

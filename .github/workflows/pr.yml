@@ -88,10 +88,10 @@ jobs:
         run: |
           if [ "$DRAFT" != true ] || [ "$CI_FULL_LABEL" = true ]; then
             echo "tier=full"
-            echo 'go_shards=["runtime","runtime-corpus","model","export","rest","migrate"]'
+            echo 'go_shards=["runtime","runtime-corpus","model","export","rest","migrate","cli"]'
           else
             echo "tier=quick"
-            echo 'go_shards=["runtime","model export","rest migrate"]'
+            echo 'go_shards=["runtime","model export","rest migrate cli"]'
           fi | tee -a "$GITHUB_OUTPUT"
 
       - name: Decide which areas to run
@@ -230,7 +230,7 @@ jobs:
           set -euo pipefail
           profiles=(shards/coverage-*/coverage.txt)
           # One per go-tests shard.
-          if [ "${#profiles[@]}" -ne 6 ]; then echo "error: expected 6 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
+          if [ "${#profiles[@]}" -ne 7 ]; then echo "error: expected 7 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
           for f in "${profiles[@]}"; do
             [ "$(head -n 1 "$f")" = "mode: atomic" ] || { echo "error: $f is not an atomic-mode profile" >&2; exit 1; }
           done
@@ -974,7 +974,7 @@ jobs:
           if-no-files-found: error
 
   mdk-plugin:
-    name: OpenSysML MDK plugin
+    name: OpenSysML MDK for Cameo plugin
     needs: [changes, build]
     if: needs.changes.outputs.mdk == 'true'
     runs-on: ubuntu-latest
