@@ -1987,6 +1987,21 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 	}
 	seen[key] = true
 	defer delete(seen, key)
+	if property == "name" || property == "shortName" {
+		name, shortName, declared := e.structureDeclaredIdentifiers(element)
+		if !element.IsMembership && declared {
+			if property == "name" {
+				if name != "" {
+					return stringValue(name), true, true
+				}
+				return nullValue(), true, true
+			}
+			if shortName != "" {
+				return stringValue(shortName), true, true
+			}
+			return nullValue(), true, true
+		}
+	}
 	if property == "name" {
 		isExhibitStateUsage, known := e.isMetaclass(element, "ExhibitStateUsage")
 		if known && isExhibitStateUsage {
@@ -2012,28 +2027,8 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 			}
 			return stringValue("~" + name.String), true, true
 		}
-		if !element.IsMembership {
-			if name, _, declared := structureDeclaredNames(element); declared && name != "" &&
-				(element.Symbol == nil || element.Symbol.Naming != symbols.NamedByRedefinition) {
-				return stringValue(name), true, true
-			}
-		}
 		if !known {
 			return Value{}, true, false
-		}
-	}
-	if property == "shortName" {
-		if !element.IsMembership {
-			if _, shortName, declared := structureDeclaredNames(element); declared {
-				if shortName != "" &&
-					(element.Symbol == nil || element.Symbol.Naming != symbols.NamedByRedefinition) {
-					return stringValue(shortName), true, true
-				}
-				if shortName == "" && element.Symbol != nil &&
-					element.Symbol.Naming == symbols.NamedByDeclaration {
-					return nullValue(), true, true
-				}
-			}
 		}
 	}
 	if (property == "name" || property == "shortName") && e.options.Structure != nil {
@@ -2073,10 +2068,17 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 			(property == "name" || property == "shortName") {
 			if target, handled, ok := e.structureNamingFeature(element); handled {
 				if !ok {
-					e.recordUnsupportedReason(element, "Element", property, Reason{
+					reason := Reason{
 						Category: ReasonIncompleteStructure,
 						Detail:   "unnamed feature's naming feature is unavailable",
-					})
+					}
+					if e.structureNamingReferenceUnresolved(element) {
+						reason = Reason{
+							Category: ReasonUnresolvedReference,
+							Detail:   "Element::" + property + " naming reference target is unresolved",
+						}
+					}
+					e.recordUnsupportedReason(element, "Element", property, reason)
 					return Value{}, true, false
 				}
 				if target.Symbol != nil || target.Node != nil || target.IsMembership || target.Aspect != "" {
@@ -2430,6 +2432,25 @@ func structureDeclaredNames(element Element) (string, string, bool) {
 	return astDeclaredNames(element.Node)
 }
 
+func (e *Evaluator) structureDeclaredIdentifiers(element Element) (string, string, bool) {
+	name, shortName, known := structureDeclaredNames(element)
+	if known && (name != "" || shortName != "") {
+		return name, shortName, true
+	}
+	if e.options.Structure == nil || element.IsMembership {
+		return name, shortName, false
+	}
+	if value, ok := e.options.Structure.Attribute(element, "declaredName"); ok &&
+		value.Kind == StringValue && value.String != "" {
+		name = value.String
+	}
+	if value, ok := e.options.Structure.Attribute(element, "declaredShortName"); ok &&
+		value.Kind == StringValue && value.String != "" {
+		shortName = value.String
+	}
+	return name, shortName, name != "" || shortName != ""
+}
+
 func astDeclaredNames(node ast.Node) (string, string, bool) {
 	switch declaration := node.(type) {
 	case *ast.Usage:
@@ -2749,7 +2770,31 @@ func (e *Evaluator) structureReferenceNamingFeature(element Element) (Element, b
 	}
 }
 
+func (e *Evaluator) structureNamingReferenceUnresolved(element Element) bool {
+	references, handled, ok := e.structureOwnedFilter(element, "ReferenceSubsetting", false)
+	if !handled || !ok {
+		return false
+	}
+	for _, reference := range references.Values {
+		if reference.Kind != ElementValue {
+			continue
+		}
+		targets, represented := e.relationshipEndpoints(reference.Element, "referencedFeature")
+		if represented && len(targets) == 1 && targets[0].Kind == ElementValue {
+			continue
+		}
+		if e.hasUnresolvedRelatedElement(reference.Element, "referencedFeature") ||
+			e.hasStatedRelatedElement(reference.Element, "referencedFeature") {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Evaluator) structureReferenceNamingTarget(target Element) (Element, bool, bool) {
+	if target.Symbol == nil && target.Node == nil && !target.IsMembership && target.Aspect == "" {
+		return Element{}, false, true
+	}
 	isChain, known := e.isMetaclass(target, "FeatureChainExpression")
 	if !known {
 		return Element{}, true, false
@@ -3052,7 +3097,7 @@ type structureQualifiedNameCacheEntry struct {
 type structureQualifiedNameSiblingNames struct {
 	computed  bool
 	supported bool
-	first     map[string]ElementKey
+	members   []Element
 	reason    Reason
 }
 
@@ -3199,12 +3244,14 @@ func (e *Evaluator) deriveStructureQualifiedNameBase(element Element, seen map[E
 	escapedName := nullValue()
 	if name.Kind == StringValue {
 		escapedName = stringValue(identity.EscapeName(name.String))
-		firstNames, reason, supported := e.structureQualifiedNameFirstNames(namespace.Element, element.IsMembership)
+		duplicate, reason, supported := e.structureQualifiedNameHasEarlierName(
+			namespace.Element, element, name.String, element.IsMembership,
+		)
 		if !supported {
 			e.recordUnsupportedReason(element, "Element", "qualifiedName", reason)
 			return Value{}, true, false
 		}
-		if firstNames[name.String] != structureElementKey(element, e.options.Structure) {
+		if duplicate {
 			return nullValue(), true, true
 		}
 	}
@@ -3284,10 +3331,66 @@ func (e *Evaluator) structureQualifiedNameNamespaceOwner(namespace Element) (Val
 	return value, handled, ok
 }
 
-func (e *Evaluator) structureQualifiedNameFirstNames(
+func (e *Evaluator) structureQualifiedNameHasEarlierName(
+	namespace Element,
+	element Element,
+	name string,
+	memberships bool,
+) (bool, Reason, bool) {
+	members, reason, supported := e.structureQualifiedNameMembers(namespace, memberships)
+	if !supported {
+		return false, reason, false
+	}
+	targetKey := structureElementKey(element, e.options.Structure)
+	for _, member := range members {
+		if structureElementKey(member, e.options.Structure) == targetKey {
+			return false, Reason{}, true
+		}
+		memberName, handled, ok := e.structureName(member, "name")
+		if !handled || !ok {
+			label := e.structureIdentityLabel(member)
+			if metaclass, known := e.options.Structure.Metaclass(member); known {
+				label = metaclass + " " + label
+			}
+			if label == "" && member.Symbol != nil {
+				label = member.Symbol.Name
+			}
+			if label == "" {
+				label = member.Aspect
+			}
+			if label == "" {
+				label = "unnamed member"
+			}
+			return false, Reason{
+				Category:   ReasonDependsOnUnsupported,
+				Dependency: "Element::name",
+				Detail:     "Namespace::ownedMember for " + label,
+			}, false
+		}
+		switch memberName.Kind {
+		case NullValue:
+			continue
+		case StringValue:
+			if memberName.String == name {
+				return true, Reason{}, true
+			}
+		default:
+			return false, Reason{
+				Category: ReasonUnrepresentedElement,
+				Detail:   "Namespace::ownedMember Element::name has an unsupported value",
+			}, false
+		}
+	}
+	return false, Reason{
+		Category: ReasonMissingStructure,
+		Detail:   "Element is not present in its owning namespace membership order",
+	}, false
+}
+
+func (e *Evaluator) structureQualifiedNameMembers(
 	namespace Element,
 	memberships bool,
-) (map[string]ElementKey, Reason, bool) {
+) ([]Element, Reason, bool) {
 	key := namespace.Key()
 	e.mu.Lock()
 	namespaceCache := e.qualifiedNameNamespaceCaches[key]
@@ -3297,10 +3400,10 @@ func (e *Evaluator) structureQualifiedNameFirstNames(
 	}
 	e.mu.Unlock()
 	if cached.computed {
-		return cached.first, cached.reason, cached.supported
+		return cached.members, cached.reason, cached.supported
 	}
 
-	computed := e.deriveStructureQualifiedNameFirstNames(namespace, memberships)
+	computed := e.deriveStructureQualifiedNameMembers(namespace, memberships)
 	e.mu.Lock()
 	if e.qualifiedNameNamespaceCaches == nil {
 		e.qualifiedNameNamespaceCaches = make(map[ElementKey]structureQualifiedNameNamespaceCache)
@@ -3320,18 +3423,16 @@ func (e *Evaluator) structureQualifiedNameFirstNames(
 		e.qualifiedNameNamespaceCaches[key] = namespaceCache
 	}
 	e.mu.Unlock()
-	return cached.first, cached.reason, cached.supported
+	return cached.members, cached.reason, cached.supported
 }
 
-func (e *Evaluator) deriveStructureQualifiedNameFirstNames(
+func (e *Evaluator) deriveStructureQualifiedNameMembers(
 	namespace Element,
 	memberships bool,
 ) structureQualifiedNameSiblingNames {
 	result := structureQualifiedNameSiblingNames{computed: true}
-	membersProperty := "Namespace::ownedMember"
 	var members []Element
 	if memberships {
-		membersProperty = "Namespace::ownedMembership"
 		ownedMemberships, handled, ok := e.structureOwnedFilter(namespace, "Membership", true)
 		if !handled || !ok || ownedMemberships.Kind != SequenceValue {
 			result.reason = Reason{
@@ -3372,45 +3473,7 @@ func (e *Evaluator) deriveStructureQualifiedNameFirstNames(
 			members = append(members, member.Element)
 		}
 	}
-	result.first = make(map[string]ElementKey)
-	for _, member := range members {
-		memberName, handled, ok := e.structureName(member, "name")
-		if !handled || !ok {
-			label := e.structureIdentityLabel(member)
-			if metaclass, known := e.options.Structure.Metaclass(member); known {
-				label = metaclass + " " + label
-			}
-			if label == "" && member.Symbol != nil {
-				label = member.Symbol.Name
-			}
-			if label == "" {
-				label = member.Aspect
-			}
-			if label == "" {
-				label = "unnamed member"
-			}
-			result.reason = Reason{
-				Category:   ReasonDependsOnUnsupported,
-				Dependency: "Element::name",
-				Detail:     membersProperty + " for " + label,
-			}
-			return result
-		}
-		switch memberName.Kind {
-		case NullValue:
-			continue
-		case StringValue:
-			if _, exists := result.first[memberName.String]; !exists {
-				result.first[memberName.String] = structureElementKey(member, e.options.Structure)
-			}
-		default:
-			result.reason = Reason{
-				Category: ReasonUnrepresentedElement,
-				Detail:   membersProperty + " Element::name has an unsupported value",
-			}
-			return result
-		}
-	}
+	result.members = members
 	result.supported = true
 	return result
 }
@@ -5450,6 +5513,9 @@ func (e *Evaluator) structureUnmaterializedEndName(element Element, property str
 				return Value{}, true, false
 			}
 			if len(redefinitions.Values) == 0 {
+				if name, ok := e.structureFlowEndName(owningType.Element, element, property); ok {
+					return name, true, true
+				}
 				e.recordUnsupportedReason(
 					element,
 					"Element",
@@ -5479,6 +5545,162 @@ func (e *Evaluator) structureUnmaterializedEndName(element Element, property str
 		return Value{}, false, false
 	}
 	return nullValue(), true, true
+}
+
+func (e *Evaluator) structureFlowEndName(flow, flowEnd Element, property string) (Value, bool) {
+	flowEnds, handled, ok := e.structureFlowProperty(flow, "flowEnd")
+	if !handled || !ok {
+		return Value{}, false
+	}
+	position := -1
+	for index, value := range flowEnds.Values {
+		if value.Kind == ElementValue &&
+			sameStructureElement(value.Element, flowEnd, e.options.Structure) {
+			position = index
+			break
+		}
+	}
+	if position < 0 {
+		return Value{}, false
+	}
+
+	types, ok := e.structureFlowEndTypes(flow)
+	if !ok || len(types) == 0 {
+		return Value{}, false
+	}
+	var result Value
+	for _, typ := range types {
+		name, ok := e.structureTypedEndName(typ, position, property)
+		if !ok {
+			return Value{}, false
+		}
+		if result.Kind == 0 {
+			result = name
+			continue
+		}
+		if result.Kind != name.Kind || result.String != name.String {
+			return Value{}, false
+		}
+	}
+	return result, result.Kind != 0
+}
+
+func (e *Evaluator) structureFlowEndTypes(flow Element) ([]Element, bool) {
+	typings, handled, ok := e.structureOwnedFilter(flow, "FeatureTyping", false)
+	if !handled || !ok {
+		return nil, false
+	}
+	if len(typings.Values) > 0 {
+		var types []Element
+		hasStatedType := false
+		for _, typing := range typings.Values {
+			if typing.Kind != ElementValue {
+				return nil, false
+			}
+			targets, ok := e.relationshipEndpoints(typing.Element, "type")
+			if !ok && e.hasUnresolvedRelatedElement(typing.Element, "type") {
+				return nil, false
+			}
+			if len(targets) == 0 {
+				if e.hasUnresolvedRelatedElement(typing.Element, "type") {
+					return nil, false
+				}
+				continue
+			}
+			filtered, ok := e.structureFilterValues(targets, "Type")
+			if !ok || len(filtered) == 0 {
+				return nil, false
+			}
+			hasStatedType = true
+			for _, target := range filtered {
+				if target.Kind != ElementValue {
+					return nil, false
+				}
+				types = append(types, target.Element)
+			}
+		}
+		if hasStatedType {
+			return uniqueStructureElements(types, e.options.Structure), true
+		}
+	}
+	if e.model == nil || e.resolver == nil || e.resolver.Index() == nil {
+		return nil, false
+	}
+	metaclass, known := e.options.Structure.Metaclass(flow)
+	if !known {
+		return nil, false
+	}
+	kind := source.KindSysML
+	if documentKind, known := e.elementDocumentKind(flow); known {
+		kind = documentKind
+	}
+	bases := e.model.ImpliedBaseFQNsForMetaclass(metaclass, kind)
+	var types []Element
+	for _, fqn := range bases {
+		for _, base := range e.resolver.Index().LookupQualified(fqn) {
+			if base == nil || !base.IsFeature() {
+				continue
+			}
+			for _, typ := range e.model.FeatureTypes(base) {
+				if typ != nil {
+					types = append(types, ElementOf(typ))
+				}
+			}
+			break
+		}
+	}
+	return uniqueStructureElements(types, e.options.Structure), len(types) > 0
+}
+
+func (e *Evaluator) structureTypedEndName(typ Element, position int, property string) (Value, bool) {
+	if symbol := e.structureFlowTypeSymbol(typ); symbol != nil && e.model != nil {
+		ends := e.model.EndFeatures(symbol)
+		if position >= len(ends) || ends[position] == nil {
+			return Value{}, false
+		}
+		end := ends[position]
+		name := e.model.EffectiveNameOf(end)
+		if property == "shortName" {
+			name = e.model.EffectiveShortNameOf(end)
+		}
+		if name == "" {
+			return nullValue(), true
+		}
+		return stringValue(name), true
+	}
+
+	ends, handled, ok := e.structureProperty(typ, "Type", "endFeature")
+	if !handled || !ok || ends.Kind != SequenceValue || position >= len(ends.Values) {
+		return Value{}, false
+	}
+	end := ends.Values[position]
+	if end.Kind != ElementValue {
+		return Value{}, false
+	}
+	name, handled, ok := e.structureName(end.Element, property)
+	return name, handled && ok
+}
+
+func (e *Evaluator) structureFlowTypeSymbol(element Element) *symbols.Symbol {
+	if element.Symbol != nil {
+		return element.Symbol
+	}
+	if e.options.Structure == nil || e.resolver == nil || e.resolver.Index() == nil {
+		return nil
+	}
+	structure, ok := e.options.Structure.(ElementIdentityStructure)
+	if !ok {
+		return nil
+	}
+	id, ok := structure.ElementIdentity(element)
+	if !ok {
+		return nil
+	}
+	library, ok := identity.LibraryCatalog(e.resolver.Index()).Element(id)
+	if !ok {
+		return nil
+	}
+	return library.Symbol
 }
 
 func (e *Evaluator) structureFeatureTarget(element Element) (Value, bool, bool) {

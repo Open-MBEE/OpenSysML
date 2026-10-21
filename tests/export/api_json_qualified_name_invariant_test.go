@@ -71,6 +71,7 @@ func TestAPIJSONDeclaredQualifiedNamesMatchOwningNamespace(t *testing.T) {
 			}
 
 			var localOffenders []string
+			namespaceDuplicateMembers := make(map[string]map[string]bool)
 			localKindQualifiedNames := 0
 			for _, element := range elements {
 				declaredName, hasDeclaredName := apiJSONString(element["declaredName"])
@@ -78,16 +79,45 @@ func TestAPIJSONDeclaredQualifiedNamesMatchOwningNamespace(t *testing.T) {
 				if hasQualifiedName && strings.HasSuffix(qualifiedName, "::kind") {
 					localKindQualifiedNames++
 				}
-				if !hasDeclaredName || !hasQualifiedName {
+				if !hasDeclaredName {
+					continue
+				}
+				id, _ := apiJSONString(element["@id"])
+				namespaceID, namespace := apiJSONOwningNamespace(element, byID)
+				_, hasNamespaceQualifiedName := apiJSONString(namespace["qualifiedName"])
+				if hasNamespaceQualifiedName {
+					if _, known := namespaceDuplicateMembers[namespaceID]; !known {
+						namespaceDuplicateMembers[namespaceID] = apiJSONDuplicateMemberIDs(namespace, byID)
+					}
+					if namespaceDuplicateMembers[namespaceID][id] {
+						if hasQualifiedName {
+							localOffenders = append(localOffenders, fmt.Sprintf(
+								"%s @id=%q declaredName=%q qualifiedName=%q: later duplicate member must not have qualifiedName",
+								filepath.ToSlash(path), id, declaredName, qualifiedName,
+							))
+						}
+						continue
+					}
+				}
+				if !hasNamespaceQualifiedName && !hasQualifiedName {
 					continue
 				}
 				expected, reason := apiJSONExpectedQualifiedName(element, byID, declaredName)
-				id, _ := apiJSONString(element["@id"])
 				if reason != "" {
 					localOffenders = append(localOffenders, fmt.Sprintf(
 						"%s @id=%q declaredName=%q qualifiedName=%q: %s",
 						filepath.ToSlash(path), id, declaredName, qualifiedName, reason,
 					))
+					continue
+				}
+				if hasNamespaceQualifiedName && !hasQualifiedName {
+					localOffenders = append(localOffenders, fmt.Sprintf(
+						"%s @id=%q declaredName=%q qualifiedName is missing; want=%q",
+						filepath.ToSlash(path), id, declaredName, expected,
+					))
+					continue
+				}
+				if !hasQualifiedName {
 					continue
 				}
 				if qualifiedName != expected {
@@ -109,6 +139,57 @@ func TestAPIJSONDeclaredQualifiedNamesMatchOwningNamespace(t *testing.T) {
 			offenders = append(offenders, localOffenders...)
 		})
 	}
+}
+
+func apiJSONOwningNamespace(
+	element map[string]json.RawMessage,
+	byID map[string]map[string]json.RawMessage,
+) (string, map[string]json.RawMessage) {
+	relationship, ok := byID[apiJSONReferenceID(element["owningRelationship"])]
+	if !ok {
+		return "", nil
+	}
+	for _, property := range []string{"membershipOwningNamespace", "owner", "owningRelatedElement"} {
+		if namespaceID := apiJSONReferenceID(relationship[property]); namespaceID != "" {
+			if namespace, ok := byID[namespaceID]; ok {
+				return namespaceID, namespace
+			}
+		}
+	}
+	return "", nil
+}
+
+func apiJSONDuplicateMemberIDs(
+	namespace map[string]json.RawMessage,
+	byID map[string]map[string]json.RawMessage,
+) map[string]bool {
+	firstByName := make(map[string]string)
+	duplicates := make(map[string]bool)
+	for _, membershipID := range apiJSONReferenceIDs(namespace["ownedMembership"]) {
+		membership, ok := byID[membershipID]
+		if !ok {
+			continue
+		}
+		memberID := apiJSONReferenceID(membership["memberElement"])
+		if memberID == "" {
+			memberID = apiJSONReferenceID(membership["ownedMemberElement"])
+		}
+		member, ok := byID[memberID]
+		if !ok {
+			continue
+		}
+		name, hasName := apiJSONString(member["declaredName"])
+		if !hasName {
+			continue
+		}
+		firstID, exists := firstByName[name]
+		if !exists {
+			firstByName[name] = memberID
+		} else if firstID != memberID {
+			duplicates[memberID] = true
+		}
+	}
+	return duplicates
 }
 
 func apiJSONExpectedQualifiedName(
@@ -179,4 +260,24 @@ func apiJSONReferenceID(raw json.RawMessage) string {
 		return apiJSONReferenceID(references[0])
 	}
 	return ""
+}
+
+func apiJSONReferenceIDs(raw json.RawMessage) []string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var references []json.RawMessage
+	if err := json.Unmarshal(raw, &references); err == nil {
+		ids := make([]string, 0, len(references))
+		for _, reference := range references {
+			if id := apiJSONReferenceID(reference); id != "" {
+				ids = append(ids, id)
+			}
+		}
+		return ids
+	}
+	if id := apiJSONReferenceID(raw); id != "" {
+		return []string{id}
+	}
+	return nil
 }

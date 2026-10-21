@@ -190,6 +190,46 @@ func TestStructureQualifiedNameUsesOwnedNamespacesAndRejectsDuplicateNames(t *te
 	}
 }
 
+func TestStructureQualifiedNameDependsOnlyOnEarlierMembers(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "qualified-name-earlier-members.sysml", `package P {
+		part def A;
+	}`)
+	pkg := testSymbol(t, root, "P")
+	namespace := ElementOf(pkg)
+	named := Element{Aspect: "named-member"}
+	unavailable := Element{Aspect: "unavailable-member"}
+
+	makeStructure := func(members ...Element) testStructure {
+		structure := testDocumentStructure(evaluator, root, pkg)
+		structure.unknownOwnedRelations = make(map[ElementKey]bool)
+		for _, member := range members {
+			addTestOwnedMembership(&structure, namespace, member, "Feature")
+		}
+		structure.attributes[testRelatedKey{element: named.Key(), property: "declaredName"}] =
+			stringValue("named")
+		structure.unknownOwnedRelations[unavailable.Key()] = true
+		return structure
+	}
+
+	evaluator.options.Structure = makeStructure(named, unavailable)
+	if got := testProperty(t, evaluator, named, "Element", "qualifiedName"); got.Kind != StringValue ||
+		got.String != "P::named" {
+		t.Fatalf("qualifiedName with a later unavailable sibling = %#v; want %q", got, "P::named")
+	}
+
+	evaluator = New(evaluator.resolver, evaluator.model)
+	evaluator.options.Structure = makeStructure(unavailable, named)
+	value, ok := evaluator.Property(named, "Element", "qualifiedName")
+	if ok {
+		t.Fatalf("qualifiedName with an earlier unavailable sibling = %#v, %t; want unsupported", value, ok)
+	}
+	reason, explained := evaluator.Explain(named, "Element", "qualifiedName")
+	if !explained || reason.Category != ReasonDependsOnUnsupported ||
+		reason.Dependency != "Element::name" {
+		t.Fatalf("qualifiedName reason = %#v, %t; want unsupported Element::name dependency", reason, explained)
+	}
+}
+
 func TestStructureQualifiedNameFallsBackToShortName(t *testing.T) {
 	evaluator, root := newTestEvaluator(t, "qualified-name-short-name.sysml", `package P {
 		requirement def R {

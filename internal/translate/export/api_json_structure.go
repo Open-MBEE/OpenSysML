@@ -6,6 +6,8 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -35,9 +37,10 @@ func newAPIJSONEvaluation(graph *rdf.Graph, subjectSlots ...map[string]int) *api
 		slots = subjectSlots[0]
 	}
 	structure := newAPIJSONGraphStructureWithSubjectSlots(graph, slots)
+	resolver := resolve.New(libs.SharedBase())
 	return &apiJSONEvaluation{
 		structure: structure,
-		evaluator: metamodel.New(nil, nil, metamodel.Options{Structure: structure}),
+		evaluator: metamodel.New(resolver, semantics.NewModel(resolver), metamodel.Options{Structure: structure}),
 	}
 }
 
