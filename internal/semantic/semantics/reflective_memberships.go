@@ -62,13 +62,37 @@ func ownedThroughAnnotation(owner, member *symbols.Symbol) bool {
 }
 
 // isPrefixMetadataSymbol reports whether sym is the metadata feature a `#M`
-// prefix declares on the element it annotates.
+// prefix declares on the element it annotates: the symbol OwnedAnnotations
+// synthesizes for it, since the builder registers none (a body `@M;` is a
+// member, exactly as the `metadata` spelling is).
 func isPrefixMetadataSymbol(sym *symbols.Symbol) bool {
-	if sym.Recorded() {
-		return sym.Facts.Node == symbols.NodePrefixMetadata
-	}
-	_, ok := sym.Decl.(*ast.PrefixMetadata)
+	return sym.OwnerScope == nil && sym.Kind == symbols.SymbolMetadataUsage && !sym.Recorded() &&
+		sym.Decl != nil && isPrefixMetadataDecl(sym.Decl)
+}
+
+func isPrefixMetadataDecl(decl ast.Node) bool {
+	_, ok := decl.(*ast.PrefixMetadata)
 	return ok
+}
+
+// prefixMetadataSymbols synthesizes the metadata feature of each `#M` prefix
+// written on sym, once per element, in prefix order.
+func (m *Model) prefixMetadataSymbols(sym *symbols.Symbol) []*symbols.Symbol {
+	prefixes, _, ok := ast.DeclaredMetadata(sym.Decl)
+	if !ok {
+		return nil
+	}
+	var out []*symbols.Symbol
+	for _, prefix := range prefixes {
+		if prefix == nil {
+			continue
+		}
+		out = append(out, &symbols.Symbol{
+			Name: prefix.Ident.Name, Kind: symbols.SymbolMetadataUsage, Decl: prefix,
+			DocName: sym.DocName, DeclSpan: prefix.Span(), NameSpan: prefix.Ident.NameSpan,
+		})
+	}
+	return out
 }
 
 // isAnnotatingSymbol reports whether sym declares a KerML AnnotatingElement:
@@ -164,8 +188,21 @@ func scopeImportDecls(scope *symbols.Scope) []*ast.Import {
 	if scope.Recorded() {
 		return scope.Imports()
 	}
+	var members []ast.Node
+	switch n := scope.Node().(type) {
+	case *ast.Package:
+		members = n.Members
+	case *ast.Namespace:
+		members = n.Members
+	case *ast.RootNamespace:
+		members = n.Members
+	case *ast.Definition:
+		members = n.Members
+	case *ast.Usage:
+		members = n.Members
+	}
 	var out []*ast.Import
-	for _, member := range ast.NodeBodyMembers(scope.Node()) {
+	for _, member := range members {
 		if imp, ok := member.(*ast.Import); ok {
 			out = append(out, imp)
 		}
@@ -222,16 +259,18 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if !member.IsFeature() || !m.reflectiveMetaclassConforms(owner, "Type") {
 		return "OwningMembership"
 	}
-	if member.Kind == symbols.SymbolConnectorEnd || usageFlag(member, func(u *ast.Usage) bool { return u.IsEnd }) {
+	if member.Kind == symbols.SymbolConnectorEnd || usageFlag(member, func(u *ast.Usage) bool { return u.IsEnd }) ||
+		containsElement(m.EndFeatures(owner), member) {
 		return "EndFeatureMembership"
 	}
-	if usageFlag(member, func(u *ast.Usage) bool { return u.IsResult }) {
-		return "ReturnParameterMembership"
-	}
-	if behaviorLike(owner) || m.reflectiveMetaclassConforms(owner, "Step") {
-		if direction, ok := ReflectiveDirection(member); ok && direction != ast.DirNone {
-			return "ParameterMembership"
+	for _, parameter := range m.BehaviorParametersOf(owner) {
+		if parameter.Symbol != member {
+			continue
 		}
+		if parameter.IsResult {
+			return "ReturnParameterMembership"
+		}
+		return "ParameterMembership"
 	}
 	return "FeatureMembership"
 }
@@ -244,6 +283,11 @@ func (m *Model) sysmlMembershipMetaclassName(owner, member *symbols.Symbol) stri
 	}
 	if isMetadataBodyMember(member) {
 		return ""
+	}
+	if member.Kind == symbols.SymbolMetadataUsage {
+		// A metadata usage in a body annotates the element owning the body
+		// through an OwningMembership (SysML.xtext AnnotatingMember).
+		return "OwningMembership"
 	}
 	if _, ok := requirementConstraintKind(member); ok {
 		if kind, _ := member.UsageKind(); kind == ast.UsageFramedConcern {
@@ -496,7 +540,11 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 		return m.visibilityValue(rel.Member.Visibility), true
 	case "kind":
 		if m.reflectiveMetaclassConforms(sym, "RequirementConstraintMembership") {
-			kind, _ := requirementConstraintKind(rel.Member)
+			// A RequirementVerificationMembership has kind = requirement (SysML 8.3.19).
+			kind, ok := requirementConstraintKind(rel.Member)
+			if !ok {
+				kind = "requirement"
+			}
 			return m.enumLiteralValue(m.sysmlMetaclass("RequirementConstraintKind"), kind)
 		}
 		if m.reflectiveMetaclassConforms(sym, "StateSubactionMembership") {
@@ -754,13 +802,13 @@ func (m *Model) aliasMembershipElements(sym *symbols.Symbol, feature string) ([]
 	case "source", "membershipOwningNamespace", "owningRelatedElement", "owner":
 		return owners, true
 	case "target", "memberElement":
-		if target, ok := m.resolver.ResolveAliasTarget(sym); ok && target != nil {
+		if target := m.aliasMemberElement(sym); target != nil {
 			return []*symbols.Symbol{target}, true
 		}
 		return nil, false
 	case "relatedElement":
-		target, ok := m.resolver.ResolveAliasTarget(sym)
-		if !ok || target == nil {
+		target := m.aliasMemberElement(sym)
+		if target == nil {
 			return nil, false
 		}
 		return append(owners, target), true
@@ -782,4 +830,15 @@ func (m *Model) aliasMembershipValue(sym *symbols.Symbol, feature string) (symbo
 		return m.visibilityValue(sym.Visibility), true
 	}
 	return symbols.FilterValue{}, false
+}
+
+// aliasMemberElement is the element an alias names, from its declaration or its record.
+func (m *Model) aliasMemberElement(sym *symbols.Symbol) *symbols.Symbol {
+	if sym.Recorded() {
+		return m.recordedElement(sym.Facts.Alias)
+	}
+	if target, ok := m.resolver.ResolveAliasTarget(sym); ok {
+		return target
+	}
+	return nil
 }

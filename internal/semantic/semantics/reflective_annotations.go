@@ -12,7 +12,7 @@ import (
 // in a namespace body is owned through a membership and annotates the
 // namespace through no Annotation (8.3.2.3.2 deriveAnnotatingElementAnnotatedElement).
 func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Scope == nil {
+	if m == nil || sym == nil || sym.Implicit != nil || sym.Recorded() && sym.Scope == nil {
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()
@@ -21,6 +21,16 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	journal(m, m.ownedAnnotations, sym, sym.Decl)
 	var out []*symbols.Symbol
+	for _, prefix := range m.prefixMetadataSymbols(sym) {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  sym.DocName,
+			DeclSpan: prefix.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: len(out), Form: symbols.ImplicitOwnedAnnotation, Member: prefix,
+			},
+		})
+	}
 	seen := make(map[*symbols.Symbol]bool)
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
 		if member == nil || seen[member] || !ownedThroughAnnotation(sym, member) {
@@ -103,6 +113,9 @@ func (m *Model) owningAnnotatingRelationship(sym *symbols.Symbol) *symbols.Symbo
 		return nil
 	}
 	owner := m.ownerOf(sym)
+	if isPrefixMetadataSymbol(sym) {
+		owner = m.prefixMetadataOwner(sym)
+	}
 	if owner == nil {
 		return nil
 	}
@@ -130,6 +143,9 @@ func (m *Model) annotationsOfAnnotatingElement(sym *symbols.Symbol) []*symbols.S
 func (m *Model) annotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	annotations := m.annotationsOfAnnotatingElement(sym)
 	if len(annotations) == 0 {
+		if isPrefixMetadataSymbol(sym) {
+			return []*symbols.Symbol{}
+		}
 		if owner := m.ownerOf(sym); owner != nil && m.reflectiveMetaclassConforms(owner, "Namespace") {
 			return []*symbols.Symbol{owner}
 		}
@@ -230,4 +246,17 @@ func (m *Model) annotationElements(sym *symbols.Symbol, feature string) ([]*symb
 		return empty, true
 	}
 	return nil, false
+}
+
+// prefixMetadataOwner is the element a synthesized prefix metadata feature is
+// written on, found through the annotation that owns it.
+func (m *Model) prefixMetadataOwner(sym *symbols.Symbol) *symbols.Symbol {
+	for owner, annotations := range m.ownedAnnotations {
+		for _, ann := range annotations {
+			if ann.Implicit.Member == sym {
+				return owner
+			}
+		}
+	}
+	return nil
 }
