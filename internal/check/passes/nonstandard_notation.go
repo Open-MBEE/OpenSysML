@@ -827,11 +827,8 @@ func (w *notationWalker) keywordAsName(id ast.Identification) {
 	})
 }
 
-// caseKeyword reports `analysis case` / `verification case` written as the kind
-// keyword. SysML v2 8.2.2.23 spells AnalysisCaseDefinition
-// `OccurrenceDefinitionPrefix 'analysis' 'def'` and AnalysisCaseUsage
-// `OccurrenceUsagePrefix 'analysis'`, and 8.2.2.24 the same for 'verification':
-// no production puts `case` after either word.
+// caseKeyword reports `analysis case` / `verification case`: SysML v2 8.2.2.23
+// and 8.2.2.24 spell `analysis` / `verification` alone before `def` or the name.
 func (w *notationWalker) caseKeyword(n ast.Node, keyword string, isDef bool) {
 	first, second, _ := strings.Cut(keyword, " ")
 	if !w.sysml || second != "case" || (first != "analysis" && first != "verification") {
@@ -862,10 +859,8 @@ func (w *notationWalker) caseKeyword(n ast.Node, keyword string, isDef bool) {
 	w.diags = append(w.diags, d)
 }
 
-// trailingWordSpan spans the keyword word that closes a keyword span together
-// with the blanks following it before limit, the end of the declaration that
-// wrote it, so no text past the declaration (or the document) is read; false
-// without the source text.
+// trailingWordSpan spans the last word of a keyword span plus the blanks after
+// it up to limit, the declaration's end; false without the source text.
 func (w *notationWalker) trailingWordSpan(span source.Span, word string, limit int) (source.Span, bool) {
 	if w.lookup == nil {
 		return source.Span{}, false
@@ -890,13 +885,8 @@ func (w *notationWalker) trailingWordSpan(span source.Span, word string, limit i
 	return at, true
 }
 
-// conditionTerminator reports the `;` after a body's closing bare condition.
-// That condition is the body's result expression — SysML v2 8.2.2.19
-// CalculationBodyPart and KerML 8.2.5.7.1 FunctionBodyPart end in
-// `( ownedRelationship += ResultExpressionMember )?`, a `MemberPrefix?
-// ownedRelatedElement += OwnedExpression` — and no production terminates it.
-// A `;` between two conditions separates members of the conjunction OpenSysML
-// reads, which is not the result position.
+// conditionTerminator reports the `;` after a body's closing condition, its
+// ResultExpressionMember (SysML v2 8.2.2.19, KerML 8.2.5.7.1), which none ends.
 func (w *notationWalker) conditionTerminator(n *ast.ConstraintMember) {
 	if n.Keyword != "" || n.Expression == nil || n.Terminator.Len == 0 {
 		return
