@@ -15,20 +15,7 @@ import (
 )
 
 func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
-	paths := modelFiles(t)
-	exampleRoot := filepath.Join("..", "..", "examples")
-	if err := filepath.WalkDir(exampleRoot, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !entry.IsDir() && filepath.Ext(path) == ".sysml" {
-			paths = append(paths, path)
-		}
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	sort.Strings(paths)
+	paths, exampleRoot := apiJSONQualifiedNamePaths(t)
 
 	fixtures, fixtureKeys := 0, 0
 	examples, exampleKeys, skippedExamples := 0, 0, 0
@@ -97,6 +84,25 @@ func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 			}
 		})
 	}
+}
+
+func apiJSONQualifiedNamePaths(t *testing.T) ([]string, string) {
+	t.Helper()
+	paths := modelFiles(t)
+	exampleRoot := filepath.Join("..", "..", "examples")
+	if err := filepath.WalkDir(exampleRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !entry.IsDir() && filepath.Ext(path) == ".sysml" {
+			paths = append(paths, path)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(paths)
+	return paths, exampleRoot
 }
 
 func apiJSONGraphWithoutLibraryReferences(graph *rdf.Graph) *rdf.Graph {

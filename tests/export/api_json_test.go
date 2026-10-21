@@ -242,19 +242,7 @@ func firstDifferentByte(got, want []byte) int {
 }
 
 func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
-	paths := apiJSONModels(t)
-	if err := filepath.Walk(filepath.Join("..", "..", "examples"), func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		ext := filepath.Ext(path)
-		if !info.IsDir() && (ext == ".sysml" || ext == ".kerml") {
-			paths = append(paths, path)
-		}
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
+	paths, examplesRoot := apiJSONQualifiedNamePaths(t)
 	filesWithMappingValues := 0
 	convertedFiles := 0
 	fixtureFilesWithMappingValues := 0
@@ -263,7 +251,7 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 	convertedExamples := 0
 	mappingPropertyEntries := make(map[string]int)
 	mappingValueEntries := make(map[string]int)
-	examplesRoot := filepath.Clean(filepath.Join("..", "..", "examples"))
+	examplesRoot = filepath.Clean(examplesRoot)
 	var metricsMu sync.Mutex
 	t.Cleanup(func() {
 		metricsMu.Lock()
@@ -291,13 +279,13 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 				t.Fatal(err)
 			}
 			graph, err := cachedSysMLToRDF(path, source)
-			var unsupported *export.UnsupportedError
-			if errors.As(err, &unsupported) {
-				t.Skipf("SysMLToRDF refuses this model: %v", err)
-			}
 			if err != nil {
+				if strings.HasPrefix(filepath.Clean(path), examplesRoot+string(filepath.Separator)) {
+					t.Skipf("example does not convert: %v", err)
+				}
 				t.Fatal(err)
 			}
+			var unsupported *export.UnsupportedError
 			semantic, err := cachedAPIJSON(path, source, "standard", "semantic")
 			if errors.As(err, &unsupported) {
 				t.Skipf("semantic API JSON refuses this model: %v", err)

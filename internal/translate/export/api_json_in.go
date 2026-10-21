@@ -482,8 +482,9 @@ func apiJSONExpressionIDs(data []byte) (*apiJSONImportPlan, error) {
 	if err != nil {
 		return nil, err
 	}
-	mappingContext := newMappingQualifiedNameContextWithMemberships(graph, incomingMemberships)
-	reconstructedNames := mappingQualifiedNamesWithContext(graph, mappingContext)
+	mappingGraph := apiJSONEvaluationGraph(graph)
+	mappingContext := newMappingQualifiedNameContextWithMemberships(mappingGraph, incomingMemberships)
+	reconstructedNames := mappingQualifiedNamesWithContext(mappingGraph, mappingContext)
 	index, err := newAPIJSONIndex(objects)
 	if err != nil {
 		return nil, err

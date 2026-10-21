@@ -387,11 +387,12 @@ func TestModelWritesOnlyItsUnreferencedDocuments(t *testing.T) {
 		}
 	}
 	for id, element := range whole {
-		if !sameAPIJSONElementWithUnavailableQualifiedName(element, parts[id]) {
-			wholeMapping, wholeDefault := apiJSONMappingNamesForElement(t, whole, id)
-			documentMapping, documentDefault := apiJSONMappingNamesForElement(
-				t, partsByDocument[documentByElement[id]], id,
-			)
+		wholeMapping, wholeDefault := apiJSONMappingNamesForElement(t, whole, id)
+		documentMapping, documentDefault := apiJSONMappingNamesForElement(
+			t, partsByDocument[documentByElement[id]], id,
+		)
+		if !sameAPIJSONElementWithUnavailableQualifiedName(element, parts[id]) ||
+			wholeMapping != documentMapping {
 			t.Errorf("%s: the whole model writes\n%s\nthe document declaring it writes\n%s\nmapping names: whole=%q document=%q; defaults: whole=%q document=%q",
 				id, element, parts[id], wholeMapping, documentMapping, wholeDefault, documentDefault)
 		}
@@ -423,6 +424,8 @@ func sameAPIJSONElementWithUnavailableQualifiedName(whole, document string) bool
 	} else if documentHasName {
 		return false
 	}
+	delete(wholeElement, "sysx:mappingQualifiedName")
+	delete(documentElement, "sysx:mappingQualifiedName")
 	return reflect.DeepEqual(wholeElement, documentElement)
 }
 

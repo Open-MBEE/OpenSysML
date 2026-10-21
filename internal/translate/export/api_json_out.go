@@ -1002,7 +1002,9 @@ func apiJSONMappingQualifiedName(
 		}
 		graphName := objects[0].Value
 		if defaultName, hasDefault := defaults.name(subject); hasDefault && defaultName == graphName {
-			return nil, false, nil
+			if specName, hasSpecName := specName.(string); !hasSpecName || specName == graphName {
+				return nil, false, nil
+			}
 		}
 		if graph.BoolValue(subject, rdf.SysML+"isLibraryElement") && specName == graphName {
 			return nil, false, nil
