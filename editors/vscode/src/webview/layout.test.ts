@@ -25,6 +25,7 @@ import {
   GAP,
   freePlacement,
   keepOrthogonalRoutes,
+  byCodeUnit,
   insertedWaypoint,
   labelLines,
   simpleName,
@@ -347,6 +348,13 @@ function assertOrthogonalRoutes(
     }
   }
 }
+
+test("byCodeUnit orders strings by code unit, unlike a locale-aware comparison", () => {
+  const kinds = ["succession", "Transition", "binding", "ownership"];
+  assert.deepEqual([...kinds].sort(byCodeUnit), ["Transition", "binding", "ownership", "succession"]);
+  assert.notDeepEqual([...kinds].sort(byCodeUnit), [...kinds].sort((a, b) => a.localeCompare(b, "en")));
+  assert.equal(byCodeUnit("a", "a"), 0);
+});
 
 test("layoutCanvas draws a pinned node's edge straight until the router has loaded", () => {
   const layout = layoutCanvas(

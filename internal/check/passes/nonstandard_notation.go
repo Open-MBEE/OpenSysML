@@ -148,7 +148,7 @@ func hasParseError(diags []diag.Diagnostic) bool {
 // bodies its members carry.
 func (w *notationWalker) walk(members []ast.Node) {
 	var previous ast.Node
-	for _, member := range members {
+	for i, member := range members {
 		unwrapped := kit.UnwrapMembership(member)
 		w.targetSuccession(unwrapped, previous)
 		if !isMemberAttachedSuccession(unwrapped) {
@@ -166,6 +166,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 			reported := w.kermlDeclaration(n, n.Keyword)
 			w.kermlRelationships(n.Relationships)
 			w.sysmlDeclaration(n, n.Keyword)
+			w.caseKeyword(n, n.Keyword, n.HasDefKeyword)
 			w.keywordAsName(n.Ident)
 			w.walkDeclaration(n.Members, n)
 			w.leaveKerMLDeclaration(reported)
@@ -176,6 +177,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 				w.kermlRelationships(n.CrossFeature.Relationships)
 			}
 			w.sysmlDeclaration(n, n.Keyword)
+			w.caseKeyword(n, n.Keyword, false)
 			w.keywordAsName(n.Ident)
 			w.indexedEnds(n)
 			w.walkDeclaration(n.Members, n)
@@ -195,6 +197,9 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.walk(n.Members)
 			w.leaveKerMLDeclaration(reported)
 		case *ast.ConstraintMember:
+			if i == len(members)-1 {
+				w.conditionTerminator(n)
+			}
 			w.walk(n.Body)
 		case *ast.AssumeMember:
 			w.walk(n.Body)
@@ -819,6 +824,90 @@ func (w *notationWalker) keywordAsName(id ast.Identification) {
 			"write '%s' to use it as a name", id.Name, id.Name),
 		Code:   CodeReservedKeywordName,
 		Source: "syntax",
+	})
+}
+
+// caseKeyword reports `analysis case` / `verification case`: SysML v2 8.2.2.23
+// and 8.2.2.24 spell `analysis` / `verification` alone before `def` or the name.
+func (w *notationWalker) caseKeyword(n ast.Node, keyword string, isDef bool) {
+	first, second, _ := strings.Cut(keyword, " ")
+	if !w.sysml || second != "case" || (first != "analysis" && first != "verification") {
+		return
+	}
+	span := w.declarationKeywordSpan(n, keyword)
+	written, standard, production := "`"+keyword+" <name>`", "`"+first+" <name>`", "OccurrenceUsagePrefix '"+first+"'"
+	if isDef {
+		written, standard, production = "`"+keyword+" def`", "`"+first+" def`", "OccurrenceDefinitionPrefix '"+first+"' 'def'"
+	}
+	d := diag.Diagnostic{
+		Severity: w.severity,
+		Span:     span,
+		Message: fmt.Sprintf("%s is an OpenSysML extension with no SysML v2 production: the keyword is %s (%s), "+
+			"so delete `case`", written, standard, production),
+		Code:   CodeNonstandardNotation,
+		Source: "syntax",
+	}
+	// The fix deletes the word `case` and the blank after it, leaving any
+	// comment between the two words where it is; it needs the source text.
+	if caseWord, ok := w.trailingWordSpan(span, second, n.Span().End()); ok {
+		d.Fixes = []diag.Fix{{
+			Title:     "Write the standard keyword " + standard,
+			Edits:     []diag.Edit{diag.Replace(caseWord, "")},
+			Preferred: true,
+		}}
+	}
+	w.diags = append(w.diags, d)
+}
+
+// trailingWordSpan spans the last word of a keyword span plus the blanks after
+// it up to limit, the declaration's end; false without the source text.
+func (w *notationWalker) trailingWordSpan(span source.Span, word string, limit int) (source.Span, bool) {
+	if w.lookup == nil {
+		return source.Span{}, false
+	}
+	text := w.lookup(w.doc, span)
+	lx := lexer.New(source.New(w.doc, []byte(text)))
+	var at source.Span
+	for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
+		if tok.Kind == lexer.Keyword && tok.KeywordID == word {
+			at = source.Span{Offset: span.Offset + tok.Span.Offset, Len: tok.Span.Len}
+		}
+	}
+	if at.Len == 0 {
+		return source.Span{}, false
+	}
+	for at.End() < limit {
+		if after := w.lookup(w.doc, source.Span{Offset: at.End(), Len: 1}); after != " " && after != "\t" {
+			break
+		}
+		at.Len++
+	}
+	return at, true
+}
+
+// conditionTerminator reports the `;` after a body's closing condition, its
+// ResultExpressionMember (SysML v2 8.2.2.19, KerML 8.2.5.7.1), which none ends.
+func (w *notationWalker) conditionTerminator(n *ast.ConstraintMember) {
+	if n.Keyword != "" || n.Expression == nil || n.Terminator.Len == 0 {
+		return
+	}
+	// A `;` where the condition itself failed to parse is the parser's error.
+	if _, failed := n.Expression.(*ast.ErrorNode); failed {
+		return
+	}
+	w.diags = append(w.diags, diag.Diagnostic{
+		Severity: w.severity,
+		Span:     n.Terminator,
+		Message: "`;` after a body's condition is an OpenSysML extension with no SysML v2 or KerML production: " +
+			"a bare condition is the body's result expression (ResultExpressionMember), which no terminator follows, " +
+			"so delete the `;`",
+		Code:   CodeNonstandardNotation,
+		Source: "syntax",
+		Fixes: []diag.Fix{{
+			Title:     "Delete the `;`",
+			Edits:     []diag.Edit{diag.Replace(n.Terminator, "")},
+			Preferred: true,
+		}},
 	})
 }
 
