@@ -218,9 +218,8 @@ func buildMissingBinaries(opts *options, plan suitePlan, workDir string) error {
 	return nil
 }
 
-// runConfiguration runs every protocol against one capability configuration,
-// starting the service it needs; the default configuration records the
-// capabilities a withholding configuration is checked against.
+// runConfiguration runs every protocol against one capability configuration; the
+// default configuration records the capabilities a withholding one is checked against.
 func runConfiguration(ctx context.Context, opts options, plan suitePlan, config configuration, scenarios []*Scenario,
 	workDir string, defaultCapabilities map[string][]string) (*ConfigurationSummary, error) {
 	configReport := &ConfigurationSummary{

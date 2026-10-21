@@ -362,9 +362,8 @@ func (c *Stack) followTypings(ctx context.Context, graph *rdf.Graph, written map
 	return typings
 }
 
-// readBackNotation re-converts what the service delivered to notation and records
-// which typings read back by the same ids: the library ids have to read back as
-// the library names, since the ids are the pilot's.
+// readBackNotation re-converts what the service delivered to notation and records which
+// typings read back by the same ids (the pilot's, so they must read as the library names).
 func (user *UserModelReport) readBackNotation(elements []sysmlapi.Element) {
 	readback, err := sysmlapi.ElementsGraph(elements)
 	if err != nil {
@@ -396,9 +395,8 @@ func (user *UserModelReport) readBackNotation(elements []sysmlapi.Element) {
 	}
 }
 
-// declareLibraryUsage commits a ProjectUsage of the library project at the commit
-// the library was read at, then asks the usage back through anyElement, a user
-// element the service delivered, and lists what the usage reaches.
+// declareLibraryUsage commits a ProjectUsage of the library at the commit it was read
+// at, asks it back through anyElement (a delivered user element) and lists what it reaches.
 func (c *Stack) declareLibraryUsage(ctx context.Context, user *UserModelReport, projectID, libraryProjectID, libraryCommit, anyElement string,
 	library map[string]sysmlapi.Element) error {
 	usage := map[string]any{
