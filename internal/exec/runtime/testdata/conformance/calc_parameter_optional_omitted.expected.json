@@ -3,7 +3,7 @@
   "type": "calcUsage",
   "evaluate": "test::c",
   "outputs": {
-    "omitted": {"type": "Integer", "value": 5},
-    "given": {"type": "Integer", "value": 15}
+    "omitted": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+    "given": {"type": "Sequence", "elements": [{"type": "Integer", "value": 15}]}
   }
 }

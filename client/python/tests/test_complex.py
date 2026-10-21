@@ -193,7 +193,7 @@ package C {
         attribute z : Complex = rect(1.5, -2.0);
         attribute zs : Complex[2] = (rect(1.0, 2.0), rect(3.0, 4.0));
     }
-    calc def Echo { in z : Complex; return : Complex = z; }
+    calc def Echo { in z : Complex; return : Complex[1] = z; }
     calc echo : Echo;
 }
 """

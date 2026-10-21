@@ -19,4 +19,4 @@ leave action node: analysis test::tally
       eval operator * -> 10
       eval feature got -> 5
     eval operator + -> 15
-exit analysis test::tally -> 15
+exit analysis test::tally -> (15)

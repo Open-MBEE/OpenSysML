@@ -111,10 +111,17 @@ func (ctx *Context) buildFeatures(typeSym *symbols.Symbol) []EffectiveFeature {
 // effectiveFeature is the member memberSym of typeSym as name, with the value it
 // states or inherits from what it redefines.
 func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Symbol) EffectiveFeature {
-	defaultVal := ctx.extractDefaultValue(memberSym)
-	defaultDecl := memberSym
+	// A satisfy usage's `by` is its subject's most specific value (SysML v2 §7.21.4),
+	// over a value or default the subject it binds declares or inherits.
+	defaultVal, defaultDecl := ctx.satisfiedByValue(memberSym, typeSym)
+	if defaultVal == nil {
+		defaultVal, defaultDecl = ctx.extractDefaultValue(memberSym), memberSym
+	}
 	if defaultVal == nil {
 		defaultVal, defaultDecl = ctx.redefinedDefault(memberSym, typeSym)
+	}
+	if defaultVal == nil {
+		defaultVal, defaultDecl = ctx.roleRedefiningDefault(memberSym, typeSym)
 	}
 	mult := ctx.featureMultiplicity(memberSym, typeSym)
 	return EffectiveFeature{
@@ -459,6 +466,38 @@ func (ctx *Context) redefinedDefault(sym, owner *symbols.Symbol) (ast.Node, *sym
 			}
 			queue = append(queue, redefined)
 		}
+	}
+	return nil, nil
+}
+
+// satisfiedByValue is the `by` operand of the satisfy usage typeSym when sym is its subject.
+func (ctx *Context) satisfiedByValue(sym, typeSym *symbols.Symbol) (ast.Node, *symbols.Symbol) {
+	if typeSym == nil || typeSym.Decl == nil {
+		return nil, nil
+	}
+	if by := satisfiedBy(typeSym); by != nil && ctx.model.semantics.SubjectParameterOf(typeSym) == sym {
+		return by, typeSym
+	}
+	return nil, nil
+}
+
+// roleRedefiningDefault is the value typeSym binds to sym under no name of its own, a
+// bare `subject = x;` (SysML v2 §7.21.2, §8.3.21.11), and its declaration.
+func (ctx *Context) roleRedefiningDefault(sym, typeSym *symbols.Symbol) (ast.Node, *symbols.Symbol) {
+	if typeSym == nil || typeSym.Decl == nil {
+		return nil, nil
+	}
+	scope := bodyScope(typeSym, typeSym.OwnerScope)
+	for _, node := range unwrappedDeclMembers(typeSym.Decl) {
+		member := memberSymbol(scope, node)
+		if member == nil || member == sym || member.Name != "" {
+			continue
+		}
+		val := ctx.extractDefaultValue(member)
+		if val == nil || !slices.Contains(ctx.redefinedFeatures(member, typeSym), sym) {
+			continue
+		}
+		return val, member
 	}
 	return nil, nil
 }

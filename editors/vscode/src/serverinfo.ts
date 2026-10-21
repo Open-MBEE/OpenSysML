@@ -4,6 +4,12 @@ export interface ServerInfo {
   version?: string;
 }
 
+/** declaredVersion is the version an extension's package.json declares, or "" when it declares no string. */
+export function declaredVersion(packageJSON: unknown): string {
+  const version = (packageJSON as { version?: unknown } | undefined)?.version;
+  return typeof version === "string" ? version : "";
+}
+
 /**
  * serverBuildOf is the version the `sysml-lsp` packaged alongside an extension
  * reports: a release's `vX.Y.Z` for an extension at `X.Y.Z` (a pre-release

@@ -327,8 +327,8 @@ package Compiled {
 		calc def IxS { in x : Integer[0..*]; in i : Integer; return : Integer = x#(i); }
 		calc def PowS { in x : Integer[0..*]; return : Integer = x ** 2; }
 		calc def WhS { in x : Boolean[0..*]; attribute n : Integer = 0; while x { assign n := n + 1; } return : Integer = n; }
-		calc def RetS { in x : Integer[0..*]; return : Integer = x; }
-		calc def LocS { in x : Integer[0..*]; attribute y : Integer = x; return : Integer = y; }
+		calc def RetS { in x : Integer[0..*]; return : Integer[1] = x; }
+		calc def LocS { in x : Integer[0..*]; attribute y : Integer = x; return : Integer[1] = y; }
 		calc def LocU { in x : Integer[0..*]; attribute y : Integer; return : Integer[0..*] = y; }
 		calc def LocU2 { in x : Integer; attribute y : Integer[0..*]; assign y := x; return : Integer[0..*] = y; }
 		calc def MinE { in x : Integer[0..*]; return : Integer = x->minimize {in v; v}; }
@@ -337,7 +337,7 @@ package Compiled {
 		calc def FA { in x : Integer[0..*]; return : Boolean = x->forAll {in v; v > 0 or v / 0 > 1}; }
 		calc def Col2 { in x : Integer[0..*]; return : Integer[0..*] nonunique = x->collect {in v; (v, v)}; }
 		calc def Sz { in x : Integer[0..*]; return : Integer = size(x) + x->size(); }
-		calc def Hd { in x : Integer[0..*]; return : Integer = head(x); }
+		calc def Hd { in x : Integer[0..*]; return : Integer[1] = head(x); }
 		calc def Hd2 { in x : Integer[0..*]; return : Integer[0..1] = head(x); }
 		calc def CmpS { in x : Integer[0..*]; in y : Integer[0..*] nonunique; return : Boolean = x == y; }
 		calc def Nst { in x : Integer[0..*]; return : Integer[0..*] nonunique = x->collect {in v; x->select {in w; w > v}}; }
@@ -350,7 +350,7 @@ package Compiled {
 		calc def LocAny2 { in x : Integer[0..*]; attribute y[2] = x; return : Integer = size(y); }
 		calc def Ret1 { in x : Integer[0..*]; return : Integer[1] = x; }
 		calc def RetN { in x : Integer[0..*]; return : Natural[0..*] = x; }
-		calc def Coal { in x : Integer[0..*]; return : Integer = x ?? 5; }
+		calc def Coal { in x : Integer[0..*]; return : Integer[1] = x ?? 5; }
 		calc def Tern { in b : Boolean; in x : Integer[0..*]; return : Integer[0..*] = if b ? x else 7; }
 		calc def Big { in n : Integer; return : Integer = size((1..n)->collect {in v; (v, v)}); }
 		calc def Big2 { in n : Integer; attribute s : Integer[0..*] = 1..n; attribute t : Integer[0..*] = 1..n; return : Integer = size(s) + size(t); }
@@ -714,7 +714,7 @@ package Compiled {
 		calc def Unique { in a : String; attribute x : String[0..*] = (a, "x"); return : String[0..*] = x; }
 		calc def Lengths { in x : String[0..*]; return : Integer[0..*] = x->collect {in s : String; Length(s)}; }
 		calc def Has { in a : String; return : Boolean = includes(("p", "q"), a); }
-		calc def Joined { in x : String[0..*]; return : String = x->reduce {in a : String; in b : String; a + "," + b}; }
+		calc def Joined { in x : String[0..*]; return : String[1] = x->reduce {in a : String; in b : String; a + "," + b}; }
 		calc def Build { in a : String; in n : Integer; attribute s : String = ""; while Length(s) < n { assign s := s + a; } return : String = s; }
 		calc def Names { in n : Integer; attribute keep : String[0..*] = (); while size(keep) < n { assign keep := including(keep, "n" + IntegerFunctions::ToString(size(keep))); } return : String[0..*] = keep; }
 		calc def ForS { in x : String[0..*]; attribute s : String = ""; for v in x { assign s := s + v + ";"; } return : String = s; }

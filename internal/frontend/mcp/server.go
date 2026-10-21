@@ -84,6 +84,7 @@ type Config struct {
 // Server is an MCP server over the OpenSysML surfaces its groups need.
 type Server struct {
 	sdk      *sdk.Server
+	logger   *slog.Logger
 	lsp      *lsptools.Host
 	runtime  *sysmlgrpc.Service
 	sessions *sessiontools.Manager
@@ -102,7 +103,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		Title:      "OpenSysML",
 		Version:    cfg.Version,
 		WebsiteURL: "https://github.com/Open-MBEE/OpenSysML",
-	}, &sdk.ServerOptions{Logger: cfg.Logger, Instructions: cfg.Instructions})}
+	}, &sdk.ServerOptions{Logger: cfg.Logger, Instructions: cfg.Instructions}), logger: cfg.Logger}
 
 	for _, g := range groups {
 		switch g {
@@ -162,7 +163,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 }
 
 // Run serves one client over t until the client ends the session or ctx is
-// cancelled.
+// cancelled; ServeStreamableHTTP serves many over a listener.
 func (s *Server) Run(ctx context.Context, t sdk.Transport) error {
 	return s.sdk.Run(ctx, t)
 }

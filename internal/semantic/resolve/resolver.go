@@ -159,12 +159,13 @@ type Resolver struct {
 	// own (see freshImportVisits).
 	importVisits map[importVisit]bool
 	importDepth  int
-	// enumMembers are the members each import edge surfaces, kept while the
-	// enumeration in progress nests (enumDepth): the members an import brings
-	// do not depend on the path that reached its namespace, so a cycle of
-	// re-imports is enumerated once per edge, not once per path (issue #633).
+	// enumMembers memoizes each import edge's members within one enumeration (issue
+	// #633); enumKept/enumResults keep uncut ones across enumerations, journaled.
 	enumMembers map[enumEdge][]*symbols.Symbol
 	enumDepth   int
+	enumKept    map[enumEdge]keptMembers
+	enumResults map[enumResult]keptMembers
+	enumCut     int
 	Diagnostics []Diagnostic
 	// quiet is nonzero while a lookup is made on behalf of a semantic query
 	// rather than a reference in the document being resolved.
@@ -294,7 +295,7 @@ func (r *Resolver) MemoSize() int {
 		len(r.parts) + len(r.aliasNames) + len(r.endpoints) + len(r.readings) +
 		len(r.invocationNames) + len(r.ambiguities) + len(r.reportedQualified) +
 		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets) +
-		len(r.collisions)
+		len(r.collisions) + len(r.enumKept) + len(r.enumResults)
 }
 
 // New creates a resolver over the given index.
@@ -314,6 +315,8 @@ func New(idx *symbols.Index) *Resolver {
 		imports:               map[ast.Node][]*ast.Import{},
 		importStack:           map[*ast.Import]bool{},
 		enumMembers:           map[enumEdge][]*symbols.Symbol{},
+		enumKept:              map[enumEdge]keptMembers{},
+		enumResults:           map[enumResult]keptMembers{},
 		resolvingImports:      map[*ast.Import]bool{},
 		naming:                map[*symbols.Symbol]bool{},
 		valuesInProgress:      map[*ast.Usage]bool{},

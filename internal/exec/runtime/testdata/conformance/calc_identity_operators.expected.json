@@ -10,8 +10,8 @@
       "value": 4
     }
   ],
-  "result": {
-    "type": "Integer",
-    "value": 1
-  }
+  "result": {"type": "Sequence", "elements": [{
+      "type": "Integer",
+      "value": 1
+    }]}
 }

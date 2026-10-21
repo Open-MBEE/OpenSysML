@@ -8,8 +8,8 @@ stmt assign doubled
       eval feature k -> 1.0
       eval literal 2.0 -> 2.0
     eval operator * -> 2.0
-    output test::CalcOrder::s::t.d = 2.0
-  eval chain d -> 2.0
+    output test::CalcOrder::s::t.d = (2.0)
+  eval chain d -> (2.0)
 stmt assign v
   eval literal 2.0 -> 2.0
 step 2: token 1@done
