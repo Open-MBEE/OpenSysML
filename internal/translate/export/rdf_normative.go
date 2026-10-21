@@ -83,13 +83,9 @@ func (e *encoder) materializeNormative() {
 		// A node in the expression namespace is addressed by position, so an
 		// expression node's collapsed head properties stay collapsed; a feature
 		// an expression body declares owns its relationships as any feature does.
-		if strings.HasPrefix(subject.Value, rdf.Expression) {
-			e.materializeReferentMemberships(subject)
-			if !e.bodyDeclarationNode(subject) {
-				continue
-			}
+		if strings.HasPrefix(subject.Value, rdf.Expression) && !e.bodyDeclarationNode(subject) {
+			continue
 		}
-		e.materializeReferentMemberships(subject)
 		e.materializeRelationships(subject)
 	}
 }
@@ -434,49 +430,6 @@ func (e *encoder) featureChainings(chain rdf.Term, links []rdf.Term) {
 			e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position))
 		e.graph.Add(chain, e.sysml(pChainingFeature), link)
 	}
-}
-
-// materializeReferentMemberships emits the plain Membership through which an
-// expression node is related to the element it reaches: a FeatureReference-
-// Expression's referent and a FeatureChainExpression's target feature.
-func (e *encoder) materializeReferentMemberships(subject rdf.Term) {
-	var property, slot string
-	switch e.metaclassOf(subject) {
-	case mFeatureReference:
-		property, slot = pReferent, "referent"
-	case mFeatureChain:
-		property, slot = pTargetFeature, "targetFeature"
-	default:
-		return
-	}
-	target, ok := e.graph.Object(subject, rdf.SysML+property)
-	if !ok {
-		return
-	}
-	// A body expression the node owns is already its member through the
-	// FeatureMembership that owns it, as in the pilot's XMI.
-	if owner, owned := e.graph.Object(target, rdf.SysML+pOwner); owned && owner == subject {
-		return
-	}
-	var membership rdf.Term
-	if strings.HasPrefix(subject.Value, rdf.Expression) {
-		e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
-		membership = e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
-	} else {
-		membership = e.ids.minted(rdf.RelationshipIRI(subject, "_"+slot), subject, "_"+slot)
-		if prior, taken := e.claim(membership.Value, "the "+slot+" membership of "+membership.Value); taken && e.idErr == nil {
-			e.idErr = &UnsupportedError{
-				What: fmt.Sprintf("the %s membership <%s>", slot, membership.Value),
-				Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
-			}
-		}
-	}
-	e.typed(membership, mMembership)
-	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
-	e.graph.Add(membership, e.sysml(pMemberElement), target)
-	e.graph.Add(membership, e.sysml(pOwner), subject)
-	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
-	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 }
 
 // conjugatedPortDefinition emits the conjugate of a port definition: the
