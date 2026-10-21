@@ -252,7 +252,12 @@ export function layoutCanvas(
     reach(nodeBounds.x + nodeBounds.width, nodeBounds.y + nodeBounds.height);
   }
   const edges = (result.edges ?? []).map((edge, index) =>
-    routeEdge(edge, index, placed, overrides.routes, auto, routing, overrides.hiddenKinds, overrides.unplaced === true),
+    routeEdge(edge, index, placed, overrides.routes, {
+      auto,
+      routing,
+      hiddenKinds: overrides.hiddenKinds,
+      unplaced: overrides.unplaced === true,
+    }),
   );
   rerouteAroundBoxes(edges, placed, roots, overrides, auto, routing);
   for (const edge of edges) {
@@ -286,16 +291,26 @@ export function layoutCanvas(
 
 // coveringHeld is a layout's canvas grown to cover the held layout's, so a preview that draws
 // less than the layout it started from does not shrink the canvas under the viewport's offsets.
-function coveringHeld(layout: CanvasLayout, held: CanvasLayout | undefined): CanvasLayout {
+function coveringHeld(
+  layout: CanvasLayout,
+  held: CanvasLayout | undefined,
+): CanvasLayout {
   if (!held) {
     return layout;
   }
-  const origin = { x: Math.min(layout.origin.x, held.origin.x), y: Math.min(layout.origin.y, held.origin.y) };
+  const origin = {
+    x: Math.min(layout.origin.x, held.origin.x),
+    y: Math.min(layout.origin.y, held.origin.y),
+  };
   return {
     ...layout,
     origin,
-    width: Math.max(layout.origin.x + layout.width, held.origin.x + held.width) - origin.x,
-    height: Math.max(layout.origin.y + layout.height, held.origin.y + held.height) - origin.y,
+    width:
+      Math.max(layout.origin.x + layout.width, held.origin.x + held.width) -
+      origin.x,
+    height:
+      Math.max(layout.origin.y + layout.height, held.origin.y + held.height) -
+      origin.y,
   };
 }
 
@@ -322,7 +337,8 @@ function layoutSequence(
   }
   let row = 0;
   const routed = edges.map((edge, index): PlacedEdge => {
-    const y = MARGIN + headHeight(roots) + MESSAGE_GAP * (hidden[index] ? row : ++row);
+    const y =
+      MARGIN + headHeight(roots) + MESSAGE_GAP * (hidden[index] ? row : ++row);
     const from = placed.get(edge.from)?.box;
     const to = placed.get(edge.to)?.box;
     const fromX = from ? from.x + from.width / 2 : MARGIN;
@@ -546,7 +562,10 @@ export type LabelLineClass = "keyword" | "head" | "detail";
  * labelLineClass is the part of its label the i-th of `lines` is: a leading «kind»
  * over a head is the keyword, the line after it (or the first) the head, the rest detail.
  */
-export function labelLineClass(lines: readonly string[], i: number): LabelLineClass {
+export function labelLineClass(
+  lines: readonly string[],
+  i: number,
+): LabelLineClass {
   const keyworded = lines.length > 1 && /^«.+»$/u.test(lines[0]);
   if (keyworded && i === 0) {
     return "keyword";
@@ -839,13 +858,17 @@ function facingAxis(
   ownFace: RenderPoint,
   otherFace: RenderPoint,
 ): "x" | "y" | undefined {
-  const facesEast = port.side === "east" && other.side === "west" && otherFace.x > ownFace.x;
-  const facesWest = port.side === "west" && other.side === "east" && otherFace.x < ownFace.x;
+  const facesEast =
+    port.side === "east" && other.side === "west" && otherFace.x > ownFace.x;
+  const facesWest =
+    port.side === "west" && other.side === "east" && otherFace.x < ownFace.x;
   if (facesEast || facesWest) {
     return "y";
   }
-  const facesSouth = port.side === "south" && other.side === "north" && otherFace.y > ownFace.y;
-  const facesNorth = port.side === "north" && other.side === "south" && otherFace.y < ownFace.y;
+  const facesSouth =
+    port.side === "south" && other.side === "north" && otherFace.y > ownFace.y;
+  const facesNorth =
+    port.side === "north" && other.side === "south" && otherFace.y < ownFace.y;
   return facesSouth || facesNorth ? "x" : undefined;
 }
 
@@ -1326,7 +1349,8 @@ export function labelSize(lines: string[]): { width: number; height: number } {
   lines.forEach((line, i) => {
     width = Math.max(
       width,
-      [...line].length * (labelLineClass(lines, i) === "head" ? BOLD_GLYPH_WIDTH : GLYPH_WIDTH),
+      [...line].length *
+        (labelLineClass(lines, i) === "head" ? BOLD_GLYPH_WIDTH : GLYPH_WIDTH),
     );
   });
   return {
@@ -1393,16 +1417,32 @@ function statedRoute(
   return routes?.has(index) ? routes.get(index) : edge.route;
 }
 
+/** EdgeRouting is how the edges of one layout are routed: the auto layout, if any, the routing mode, the hidden kinds and whether the nodes are unplaced. */
+interface EdgeRouting {
+  auto?: AutoLayout;
+  routing?: Routing;
+  hiddenKinds?: ReadonlySet<string>;
+  unplaced?: boolean;
+}
+
 // routeEdge is an edge's polyline: from the border of its source, through the
 // route's waypoints, to the border of its target; a self-loop swings out to the right.
 // folded is whether an end of the edge is under a collapsed owner: the edge is then not drawn, whatever kinds the panel shows.
-function folded(placed: ReadonlyMap<string, PlacedNode>, edge: RenderEdge): boolean {
-  return placed.get(edge.from)?.hidden === true || placed.get(edge.to)?.hidden === true;
+function folded(
+  placed: ReadonlyMap<string, PlacedNode>,
+  edge: RenderEdge,
+): boolean {
+  return (
+    placed.get(edge.from)?.hidden === true ||
+    placed.get(edge.to)?.hidden === true
+  );
 }
 
 /** listedEdges is the rendering's edges at drawn nodes, those of a hidden kind included: what the canvas draws or its relation filter could, which the Relations list counts. */
 export function listedEdges(layout: CanvasLayout): RenderEdge[] {
-  return layout.edges.filter((edge) => !folded(layout.nodes, edge.edge)).map((edge) => edge.edge);
+  return layout.edges
+    .filter((edge) => !folded(layout.nodes, edge.edge))
+    .map((edge) => edge.edge);
 }
 
 // The auto layout's route applies only where neither end is placed, since an end
@@ -1412,12 +1452,17 @@ function routeEdge(
   index: number,
   placed: Map<string, PlacedNode>,
   routes: Map<number, RenderPoint[] | undefined> | undefined,
-  auto?: AutoLayout,
-  routing: Routing = DEFAULT_ROUTING,
-  hiddenKinds?: ReadonlySet<string>,
-  unplaced = false,
+  {
+    auto,
+    routing = DEFAULT_ROUTING,
+    hiddenKinds,
+    unplaced = false,
+  }: EdgeRouting = {},
 ): PlacedEdge {
-  const stated = unplaced && !routes?.has(index) ? undefined : statedRoute(edge, index, routes, routing);
+  const stated =
+    unplaced && !routes?.has(index)
+      ? undefined
+      : statedRoute(edge, index, routes, routing);
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
   const hidden = folded(placed, edge) || hiddenKinds?.has(edge.kind) === true;
@@ -1468,10 +1513,7 @@ function routeEdge(
 
 function sameBox(a: Box | undefined, b: Box): boolean {
   return (
-    a?.x === b.x &&
-    a.y === b.y &&
-    a.width === b.width &&
-    a.height === b.height
+    a?.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
   );
 }
 
@@ -1505,7 +1547,10 @@ function avoidable(
 ): boolean {
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
-  const stated = unplaced && !routes?.has(index) ? undefined : statedRoute(edge, index, routes, routing);
+  const stated =
+    unplaced && !routes?.has(index)
+      ? undefined
+      : statedRoute(edge, index, routes, routing);
   return (
     (stated?.length ?? 0) === 0 &&
     (routing === "router" || !routes?.has(index)) &&
@@ -1534,7 +1579,15 @@ function rerouteAroundBoxes(
     .filter(
       (edge) =>
         !edge.hidden &&
-        avoidable(edge.edge, edge.index, placed, overrides.routes, auto, routing, overrides.unplaced === true),
+        avoidable(
+          edge.edge,
+          edge.index,
+          placed,
+          overrides.routes,
+          auto,
+          routing,
+          overrides.unplaced === true,
+        ),
     )
     .map((edge) => edge.index);
   const held = overrides.held;
@@ -1805,7 +1858,14 @@ export function movedNode(
   // on); under `router` only the model's stated route does, drawn or not, never the router's.
   const edges: EdgePlacement[] = [];
   for (const edge of layout.edges) {
-    const stated = layout.routing === "router" ? (edge.edge.route ?? []) : edge.rerouted ? [] : edge.route;
+    let stated: RenderPoint[];
+    if (layout.routing === "router") {
+      stated = edge.edge.route ?? [];
+    } else if (edge.rerouted) {
+      stated = [];
+    } else {
+      stated = edge.route;
+    }
     if (
       stated.length > 0 &&
       routable(layout, edge) &&
@@ -1857,7 +1917,8 @@ export function liftedEdges(
       continue;
     }
     const kept = edge.rerouted ? [] : edge.route;
-    const route = from && to ? edge.route.map((p) => ({ x: p.x + dx, y: p.y + dy })) : kept;
+    const route =
+      from && to ? edge.route.map((p) => ({ x: p.x + dx, y: p.y + dy })) : kept;
     out.push(
       routeEdge(edge.edge, edge.index, placed, new Map([[edge.index, route]])),
     );
