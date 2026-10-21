@@ -84,7 +84,7 @@
         "digest": "sha256:c399daea865e29d2c056db2746eb3aad94ab26e591cf7669ffcb060583dfee0b"
       }
     ],
-    "recorded": "2026-10-20"
+    "recorded": "2026-10-21"
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
@@ -115,9 +115,9 @@
       "typeMismatch": 1742
     },
     "properties": {
-      "presentEqual": 618674,
-      "presentDifferent": 50027,
-      "oursMissing": 1058325,
+      "presentEqual": 624158,
+      "presentDifferent": 44549,
+      "oursMissing": 1058319,
       "pilotMissing": 68494,
       "absentBoth": 2102500,
       "indeterminate": 21034
@@ -155,8 +155,8 @@
         "typeMismatch": 12
       },
       "properties": {
-        "presentEqual": 50135,
-        "presentDifferent": 4171,
+        "presentEqual": 50698,
+        "presentDifferent": 3608,
         "oursMissing": 86942,
         "pilotMissing": 5306,
         "absentBoth": 176892,
@@ -190,8 +190,8 @@
         "typeMismatch": 61
       },
       "properties": {
-        "presentEqual": 180567,
-        "presentDifferent": 11831,
+        "presentEqual": 182464,
+        "presentDifferent": 9934,
         "oursMissing": 308696,
         "pilotMissing": 19510,
         "absentBoth": 615071,
@@ -225,8 +225,8 @@
         "typeMismatch": 17
       },
       "properties": {
-        "presentEqual": 63000,
-        "presentDifferent": 6100,
+        "presentEqual": 63665,
+        "presentDifferent": 5435,
         "oursMissing": 108814,
         "pilotMissing": 7092,
         "absentBoth": 221634,
@@ -261,8 +261,8 @@
         "typeMismatch": 1032
       },
       "properties": {
-        "presentEqual": 43671,
-        "presentDifferent": 3292,
+        "presentEqual": 43853,
+        "presentDifferent": 3110,
         "oursMissing": 63793,
         "pilotMissing": 5268,
         "absentBoth": 117922,
@@ -296,9 +296,9 @@
         "typeMismatch": 390
       },
       "properties": {
-        "presentEqual": 44282,
-        "presentDifferent": 6034,
-        "oursMissing": 71586,
+        "presentEqual": 44427,
+        "presentDifferent": 5890,
+        "oursMissing": 71585,
         "pilotMissing": 5182,
         "absentBoth": 142032,
         "indeterminate": 1853
@@ -332,8 +332,8 @@
         "typeMismatch": 30
       },
       "properties": {
-        "presentEqual": 7820,
-        "presentDifferent": 393,
+        "presentEqual": 7837,
+        "presentDifferent": 376,
         "oursMissing": 13187,
         "pilotMissing": 877,
         "absentBoth": 28133,
@@ -368,9 +368,9 @@
         "typeMismatch": 200
       },
       "properties": {
-        "presentEqual": 181279,
-        "presentDifferent": 13823,
-        "oursMissing": 316392,
+        "presentEqual": 182682,
+        "presentDifferent": 12425,
+        "oursMissing": 316387,
         "pilotMissing": 20267,
         "absentBoth": 636241,
         "indeterminate": 6231
@@ -403,8 +403,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 346,
-        "presentDifferent": 17,
+        "presentEqual": 348,
+        "presentDifferent": 15,
         "oursMissing": 462,
         "pilotMissing": 43,
         "absentBoth": 1043,
@@ -438,8 +438,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 47574,
-        "presentDifferent": 4366,
+        "presentEqual": 48184,
+        "presentDifferent": 3756,
         "oursMissing": 88453,
         "pilotMissing": 4949,
         "absentBoth": 163532,
@@ -24893,8 +24893,8 @@
       0
     ],
     "ConstructorExpression.ownedMembership": [
-      0,
-      57,
+      3,
+      54,
       0,
       0,
       0,
@@ -32677,8 +32677,8 @@
       0
     ],
     "FeatureChainExpression.ownedMembership": [
-      0,
-      504,
+      415,
+      89,
       0,
       0,
       0,
@@ -32693,8 +32693,8 @@
       0
     ],
     "FeatureChainExpression.ownedRelationship": [
-      0,
-      504,
+      415,
+      89,
       0,
       0,
       0,
@@ -33757,8 +33757,8 @@
       0
     ],
     "FeatureReferenceExpression.ownedMembership": [
-      38,
-      2110,
+      2141,
+      7,
       0,
       0,
       0,
@@ -33773,8 +33773,8 @@
       0
     ],
     "FeatureReferenceExpression.ownedRelationship": [
-      38,
-      2110,
+      2141,
+      7,
       0,
       0,
       0,
@@ -44533,8 +44533,8 @@
       0
     ],
     "InvocationExpression.ownedMembership": [
-      0,
-      468,
+      439,
+      29,
       0,
       0,
       0,
@@ -51781,9 +51781,9 @@
       0
     ],
     "MetadataAccessExpression.ownedMembership": [
-      0,
-      0,
       6,
+      0,
+      0,
       0,
       0,
       0

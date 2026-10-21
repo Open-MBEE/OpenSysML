@@ -174,21 +174,21 @@ The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
 ## Results (pilot `2026-08`, 920 files)
 
-**Scorecard:** 920 files; 89957 elements matched (28511 ours-only, 38863 pilot-only, 0 of them implied); properties: 618674 present-equal, 50027 present-different, 1058325 ours-missing, 68494 pilot-missing, 2102500 absent-both, 21034 indeterminate.
+**Scorecard:** 920 files; 89957 elements matched (28511 ours-only, 38863 pilot-only, 0 of them implied); properties: 624158 present-equal, 44549 present-different, 1058319 ours-missing, 68494 pilot-missing, 2102500 absent-both, 21034 indeterminate.
 
 The pilot's export failed on 56 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples and 4 test fixtures; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 56 failed files out and converted 24 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11311 (metaclass, property) rows carry a comparison; 103180 references compared through the unkeyed sentinel, 146792 of our `sysx:` annotations were left out, and 289/345 elements (ours/pilot) were dropped for ambiguous keys, 8198/31310 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7287 | 2131 | 2873 | 50135 | 4171 | 86942 | 5306 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 25778 | 10038 | 10488 | 180567 | 11831 | 308696 | 19510 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9246 | 2967 | 3341 | 63000 | 6100 | 108814 | 7092 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6387 | 1637 | 1854 | 43671 | 3292 | 63793 | 5268 |
-| `examples/spec-examples` | 511 | 6980 | 1966 | 2728 | 44282 | 6034 | 71586 | 5182 |
-| `tests/testdata` | 32 | 1201 | 91 | 487 | 7820 | 393 | 13187 | 877 |
-| `examples` | 52 | 26005 | 8734 | 15010 | 181279 | 13823 | 316392 | 20267 |
-| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 346 | 17 | 462 | 43 |
-| `docs/manual/examples` | 8 | 7020 | 947 | 2082 | 47574 | 4366 | 88453 | 4949 |
+| `examples/sysml-v2-training` | 100 | 7287 | 2131 | 2873 | 50698 | 3608 | 86942 | 5306 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 25778 | 10038 | 10488 | 182464 | 9934 | 308696 | 19510 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 9246 | 2967 | 3341 | 63665 | 5435 | 108814 | 7092 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6387 | 1637 | 1854 | 43853 | 3110 | 63793 | 5268 |
+| `examples/spec-examples` | 511 | 6980 | 1966 | 2728 | 44427 | 5890 | 71585 | 5182 |
+| `tests/testdata` | 32 | 1201 | 91 | 487 | 7837 | 376 | 13187 | 877 |
+| `examples` | 52 | 26005 | 8734 | 15010 | 182682 | 12425 | 316387 | 20267 |
+| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 348 | 15 | 462 | 43 |
+| `docs/manual/examples` | 8 | 7020 | 947 | 2082 | 48184 | 3756 | 88453 | 4949 |
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's five counts.
 
@@ -199,8 +199,6 @@ The largest **present-different** rows, with the reading the examples support:
 | metaclass | property | present-equal | present-different |
 |---|---|---:|---:|
 | `AttributeUsage` | `ownedRelationship` | 113 | 2323 |
-| `FeatureReferenceExpression` | `ownedMembership` | 38 | 2110 |
-| `FeatureReferenceExpression` | `ownedRelationship` | 38 | 2110 |
 | `Feature` | `ownedRelationship` | 3670 | 1781 |
 | `PartUsage` | `ownedRelationship` | 309 | 1551 |
 | `FeatureMembership` | `memberElement` | 9181 | 592 |
@@ -208,6 +206,8 @@ The largest **present-different** rows, with the reading the examples support:
 | `FeatureMembership` | `ownedMemberFeature` | 9181 | 592 |
 | `FeatureMembership` | `ownedRelatedElement` | 9181 | 592 |
 | `ReferenceUsage` | `qualifiedName` | 983 | 882 |
+| `ReferenceUsage` | `ownedRelationship` | 1255 | 838 |
+| `PartUsage` | `qualifiedName` | 1119 | 830 |
 
 ### Where the pilot states nothing and we do
 
@@ -271,11 +271,17 @@ members too:
   is ordered (KerML 8.3.2.1.2 Element, `ownedRelationship : Relationship [0..*] {ordered}`), and the
   textual notation adds an element's owned relationships as it parses them, so the pilot's order is
   the notation's, a shape the `AttributeUsage` `ownedRelationship` row already carried;
-- a `FeatureReferenceExpression` owns, on the pilot's side, a `Membership` of its referent that ours
-  does not write (74 expressions): `referent` is derived as the `memberElement` of the first
-  `ownedMembership` that is not a `ParameterMembership` (KerML 8.3.4.8.5,
-  deriveFeatureReferenceExpressionReferent), so that `Membership` is part of the abstract syntax,
-  and its absence is the shape the `FeatureReferenceExpression` `ownedMembership` row carries.
+- a `FeatureReferenceExpression` owns a `Membership` of its referent, which both sides now write:
+  `referent` is derived as the `memberElement` of the first `ownedMembership` that is not a
+  `ParameterMembership` (KerML 8.3.4.8.5, deriveFeatureReferenceExpressionReferent), and the
+  notation maps the reference to that owned `Membership` (8.2.5.8.3, `FeatureReferenceMember`), so
+  the `Membership` is part of the abstract syntax; the writer owns it before the result parameter
+  and lists it under `ownedMembership`, as it does the target-feature `Membership` of a
+  `FeatureChainExpression` (8.3.4.8.4) and the callee `Membership` of an invocation. The
+  `FeatureReferenceExpression` `ownedMembership` row keeps 7 differing elements, all of them a
+  function named as an argument (`->reduce '+'`), which the pilot owns as a `FeatureMembership` of
+  an `Expression` typed by the function (8.2.5.8.3, `FunctionReferenceMember`) where ours writes a
+  `Membership` of the function itself.
 
 The two files the pilot now exports add, besides those three shapes, every shape the scorecard
 already carries for user models (the pilot quoting a `qualifiedName` segment that holds a space,
@@ -334,7 +340,7 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | 40 | `FeatureTyping` | `owningType` | 5908 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningType = owningFeatureMembership.owningType` (KerML 8.3.3.3, deriveFeatureOwningType) |
 | 41 | `Redefinition` | `redefinedFeature` | 0 | 388 | none found | `Redefinition::redefinedFeature : Feature` (KerML 8.3.3.3.8) is an element reference, and every `Element` carries an `elementId` (KerML 8.3.2.1.2) the API's JSON refers to it by; where the redefined feature is an element of this repository's libraries ours spells the name as written, `{"@ref": "caption"}`, because the writer fixes an id only for elements the pilot's standard-library XMI identifies — the same spelling as `FeatureTyping::type`, `MetadataUsage::type`, `FeatureReferenceExpression::referent` and `ReferenceSubsetting::referencedFeature` into those libraries |
 | 42 | `AttributeUsage` | `ownedRelationship` | 36 | 2323 | none found | `Element::ownedRelationship : Relationship [0..*] {ordered}` (KerML 8.3.2.1.2) in the order the notation declares them: a usage's `Redefinition` (`redefines x`) before its `FeatureValue` (`= …`); ours lists the value first |
-| 43 | `FeatureReferenceExpression` | `ownedMembership` | 0 | 2110 | none found | `FeatureReferenceExpression::referent` is the `memberElement` of the first `ownedMembership` that is not a `ParameterMembership` (KerML 8.3.4.8.5, deriveFeatureReferenceExpressionReferent); the pilot owns that `Membership`, ours writes the `referent` without it |
+| 43 | `FeatureReferenceExpression` | `ownedMembership` | 0 | 7 | the writer owns the `Membership` (`export/rdf_expr.go` `featureReferent`); the 7 left are the `FunctionReferenceMember` shape, a `FeatureMembership` owning an `Expression` typed by the named function (KerML 8.2.5.8.3), which ours writes as a `Membership` of the function | `FeatureReferenceExpression::referent` is the `memberElement` of the first `ownedMembership` that is not a `ParameterMembership` (KerML 8.3.4.8.5, deriveFeatureReferenceExpressionReferent); the notation maps a feature reference to that owned `Membership` (8.2.5.8.3, `FeatureReferenceMember`) |
 
 Rows an evaluator rule in PR #1232 (`internal/semantic/metamodel/rules.go`) already names are marked; that PR adds a lazy metamodel evaluator and layers its derived values into the API-JSON writer, so its merge is expected to move those rows from ours-missing to present-equal or present-different, and this referee is how that movement is measured.
 
