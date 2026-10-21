@@ -208,7 +208,7 @@ def test_a_document_binding_a_double_holds_reaches_an_older_service_as_that_doub
 RATIONAL_MODEL = """
 package R {
     private import ScalarValues::*;
-    calc def Third { in x : Rational; return : Rational = x / 3; }
+    calc def Third { in x : Rational; return : Rational[1] = x / 3; }
     calc third : Third;
     action addThird {
         in x;

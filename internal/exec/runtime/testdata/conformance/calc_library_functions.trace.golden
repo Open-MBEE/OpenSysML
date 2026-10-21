@@ -21,4 +21,4 @@ enter calc test::diagonalGain
         eval literal 10.0 -> 10.0
       eval operator * -> 0.0
     eval operator + -> 5.0
-exit calc test::diagonalGain -> 5.0
+exit calc test::diagonalGain -> (5.0)

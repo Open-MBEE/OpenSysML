@@ -60,10 +60,10 @@ func TestSweepOverIntegersRunsEveryValue(t *testing.T) {
 		"sweep Sw::Twice — 4 run(s)",
 		"n | result | time",
 		"-+-+-",
-		"1 | 2      | <time>",
-		"2 | 4      | <time>",
-		"3 | 6      | <time>",
-		"4 | 8      | <time>",
+		"1 | [2]    | <time>",
+		"2 | [4]    | <time>",
+		"3 | [6]    | <time>",
+		"4 | [8]    | <time>",
 		"  standing: table (observed: 4 rows)",
 	}, "\n")
 	if got != want {
@@ -80,10 +80,10 @@ func TestSweepSeveralRangesRunTheirProduct(t *testing.T) {
 		"sweep Sw::Plus — 4 run(s)",
 		"a | b  | result | time",
 		"-+-+-+-",
-		"1 | 10 | 11     | <time>",
-		"1 | 12 | 13     | <time>",
-		"2 | 10 | 12     | <time>",
-		"2 | 12 | 14     | <time>",
+		"1 | 10 | [11]   | <time>",
+		"1 | 12 | [13]   | <time>",
+		"2 | 10 | [12]   | <time>",
+		"2 | 12 | [14]   | <time>",
 		"  standing: table (observed: 4 rows)",
 	}, "\n")
 	if got != want {
@@ -99,11 +99,11 @@ func TestSweepAnalysisCaseOnItsSubject(t *testing.T) {
 	got := sweepTable(run(t, s, "%sweep Sw::Priced Sw::ship tax=0.0..1.0:0.5"))
 	want := strings.Join([]string{
 		"sweep Sw::Priced — 3 run(s)",
-		"tax | total | verdict            | time",
+		"tax | total  | verdict            | time",
 		"-+-+-+-",
-		"0.0 | 5.0   | obj: satisfied     | <time>",
-		"0.5 | 7.5   | obj: satisfied     | <time>",
-		"1.0 | 10.0  | obj: not satisfied | <time>",
+		"0.0 | [5.0]  | obj: satisfied     | <time>",
+		"0.5 | [7.5]  | obj: satisfied     | <time>",
+		"1.0 | [10.0] | obj: not satisfied | <time>",
 		"  standing: table (observed: 3 rows)",
 	}, "\n")
 	if got != want {
@@ -122,7 +122,7 @@ func TestSweepFailedRunIsARowOfTheTable(t *testing.T) {
 	if !strings.Contains(got, "division by zero") {
 		t.Errorf("table is\n%s\nwant the failed run's error on its row", got)
 	}
-	for _, want := range []string{"| -4.0", "| 4.0"} {
+	for _, want := range []string{"| [-4.0]", "| [4.0]"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("table is\n%s\nwant a row reporting %s", got, want)
 		}
@@ -139,9 +139,9 @@ func TestSweepEndpointsCarryUnits(t *testing.T) {
 		"sweep Sw::Reach — 3 run(s)",
 		"v    | result | time",
 		"-+-+-",
-		"0.0  | 0.0    | <time>",
-		"5.0  | 10.0   | <time>",
-		"10.0 | 20.0   | <time>",
+		"0.0  | [0.0]  | <time>",
+		"5.0  | [10.0] | <time>",
+		"10.0 | [20.0] | <time>",
 		"  standing: table (observed: 3 rows)",
 	}, "\n")
 	if got != want {
@@ -176,10 +176,10 @@ func TestSamplesTableIsPinned(t *testing.T) {
 		"samples Sw::Twice — 4 run(s), seed 42",
 		"n   | result | time",
 		"-+-+-",
-		"454 | 908    | <time>",
-		"972 | 1944   | <time>",
-		"719 | 1438   | <time>",
-		"345 | 690    | <time>",
+		"454 | [908]  | <time>",
+		"972 | [1944] | <time>",
+		"719 | [1438] | <time>",
+		"345 | [690]  | <time>",
 		"  standing: table (observed: 4 rows)",
 	}, "\n")
 	if got != want {
@@ -197,10 +197,10 @@ func TestSweepBindsInTheParameterType(t *testing.T) {
 		"sweep Sw::Ratio — 4 run(s)",
 		"a   | result | time",
 		"-+-+-",
-		"1.0 | 0.5    | <time>",
-		"2.0 | 1.0    | <time>",
-		"3.0 | 1.5    | <time>",
-		"4.0 | 2.0    | <time>",
+		"1.0 | [0.5]  | <time>",
+		"2.0 | [1.0]  | <time>",
+		"3.0 | [1.5]  | <time>",
+		"4.0 | [2.0]  | <time>",
 	}, "\n")
 	if !strings.Contains(got, want) {
 		t.Errorf("table is\n%s\nwant it to carry\n%s", got, want)
@@ -210,9 +210,9 @@ func TestSweepBindsInTheParameterType(t *testing.T) {
 		"sweep Sw::Twice — 3 run(s)",
 		"n | result | time",
 		"-+-+-",
-		"1 | 2      | <time>",
-		"2 | 4      | <time>",
-		"3 | 6      | <time>",
+		"1 | [2]    | <time>",
+		"2 | [4]    | <time>",
+		"3 | [6]    | <time>",
 	}, "\n")
 	if !strings.Contains(got, want) {
 		t.Errorf("table is\n%s\nwant it to carry\n%s", got, want)
@@ -237,15 +237,15 @@ func TestSweepOverAnUntypedParameterIsReadAsWritten(t *testing.T) {
 		"sweep Sw::Echo — 2 run(s)",
 		"v | result | time",
 		"-+-+-",
-		"1 | 1      | <time>",
-		"2 | 2      | <time>",
+		"1 | [1]    | <time>",
+		"2 | [2]    | <time>",
 		"note: v declares no type; its range is read as written",
 	}, "\n")
 	if !strings.Contains(got, want) {
 		t.Errorf("table is\n%s\nwant it to carry\n%s", got, want)
 	}
 	got = sweepTable(run(t, s, "%sweep Sw::Echo v=1.0..2.0:1.0"))
-	if !strings.Contains(got, "1.0 | 1.0    | <time>") || !strings.Contains(got, "note: v declares no type") {
+	if !strings.Contains(got, "1.0 | [1.0]  | <time>") || !strings.Contains(got, "note: v declares no type") {
 		t.Errorf("table is\n%s\nwant reals read as written and the note", got)
 	}
 }
@@ -316,7 +316,7 @@ func TestRunSweepVerdict(t *testing.T) {
 	if len(v.Rows) != 3 || len(v.Rows[0].Inputs) != 1 || v.Rows[0].Inputs[0].Value != "1" {
 		t.Fatalf("rows = %+v", v.Rows)
 	}
-	if v.Rows[0].Outputs[0] != (NamedValue{Name: "result", Value: "2"}) {
+	if v.Rows[0].Outputs[0] != (NamedValue{Name: "result", Value: "[2]"}) {
 		t.Errorf("first row's outputs = %+v", v.Rows[0].Outputs)
 	}
 	if len(v.Values) != 2 || v.Values[0] != (NamedValue{Name: "runs", Value: "3"}) ||
@@ -356,9 +356,9 @@ func TestSweepOverAnUnrestrictedParameterName(t *testing.T) {
 		"sweep Sw::Lift — 3 run(s)",
 		"launch mass | result | time",
 		"-+-+-",
-		"1           | 2      | <time>",
-		"2           | 4      | <time>",
-		"3           | 6      | <time>",
+		"1           | [2]    | <time>",
+		"2           | [4]    | <time>",
+		"3           | [6]    | <time>",
 		"  standing: table (observed: 3 rows)",
 	}, "\n")
 	if got != want {

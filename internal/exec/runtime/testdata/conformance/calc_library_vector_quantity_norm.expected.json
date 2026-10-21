@@ -1,5 +1,5 @@
 {
   "libraries": true,
   "type": "calc",
-  "result": {"type": "Real", "value": 30.0}
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 30.0}]}
 }

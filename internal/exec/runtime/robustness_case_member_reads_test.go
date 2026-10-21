@@ -73,8 +73,8 @@ func TestRuntimeRobustnessCaseMemberReads(t *testing.T) {
 		if read := mustEvalIn(t, ctx, root, "test::scaledFour.who"); read.Kind != ValUndetermined {
 			t.Fatalf("scaledFour.who = %s, want <undetermined>", FormatValue(read))
 		}
-		if read := mustEvalIn(t, ctx, root, "test::scaledFour.r"); FormatValue(read) != "8" {
-			t.Fatalf("scaledFour.r = %s, want 8", FormatValue(read))
+		if read := mustEvalIn(t, ctx, root, "test::scaledFour.r"); FormatValue(read) != "[8]" {
+			t.Fatalf("scaledFour.r = %s, want [8]", FormatValue(read))
 		}
 	})
 
@@ -83,7 +83,7 @@ func TestRuntimeRobustnessCaseMemberReads(t *testing.T) {
 			"test::checkThree.n":       "3",
 			"test::checkThree.who.id":  "7",
 			"test::checkThree.limit":   "10",
-			"test::checkThree.verdict": "VerdictKind::pass",
+			"test::checkThree.verdict": "[VerdictKind::pass]",
 		} {
 			if got := FormatValue(mustEvalIn(t, ctx, root, expr)); got != want {
 				t.Errorf("%s = %s, want %s", expr, got, want)
@@ -92,8 +92,8 @@ func TestRuntimeRobustnessCaseMemberReads(t *testing.T) {
 	})
 
 	t.Run("an actor bound to several values keeps the range it redefines", func(t *testing.T) {
-		if got := FormatValue(mustEvalIn(t, ctx, root, "test::checkMany.verdict")); got != "VerdictKind::pass" {
-			t.Fatalf("checkMany.verdict = %s, want pass", got)
+		if got := FormatValue(mustEvalIn(t, ctx, root, "test::checkMany.verdict")); got != "[VerdictKind::pass]" {
+			t.Fatalf("checkMany.verdict = %s, want [pass]", got)
 		}
 		many := mustEvalIn(t, ctx, root, "test::checkMany.many")
 		if many.Kind != ValSequence || len(elementsOf(many)) != 2 {
@@ -113,7 +113,7 @@ func TestRuntimeRobustnessCaseMemberReads(t *testing.T) {
 		for expr, want := range map[string]string{
 			"test::crewed.crew.id": "9",
 			"test::crewed.pilotId": "9",
-			"test::crewed.verdict": "VerdictKind::pass",
+			"test::crewed.verdict": "[VerdictKind::pass]",
 		} {
 			if got := FormatValue(mustEvalIn(t, ctx, root, expr)); got != want {
 				t.Errorf("%s = %s, want %s", expr, got, want)

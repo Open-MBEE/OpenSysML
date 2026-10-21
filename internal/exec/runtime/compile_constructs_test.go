@@ -190,6 +190,7 @@ func TestCompiledConstructs(t *testing.T) {
 
 func wantOutcomeReal(t *testing.T, name string, got calcOutcome, want float64) {
 	t.Helper()
+	got.value = soleElement(got.value)
 	if got.err != nil {
 		t.Fatalf("%s: %v", name, got.err)
 	}
@@ -324,7 +325,7 @@ func TestCompiledIntrinsics(t *testing.T) {
 		t.Errorf("OwnPi: eligible %v, reason %q", ok, why)
 	}
 
-	if str := f.same(t, "Length", NewStringValue("abc")); str.err != nil || str.value.Const.Int != 3 {
+	if str := f.same(t, "Length", NewStringValue("abc")); str.err != nil || soleElement(str.value).Const.Int != 3 {
 		t.Errorf("Length(\"abc\") = %s, %v", FormatTraceValue(str.value), str.err)
 	}
 }

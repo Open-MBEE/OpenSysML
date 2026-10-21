@@ -30,4 +30,4 @@ enter calc test::descentSteering
         exit calc OpenSysMLMathFunctions::log -> 3.0
       eval invoke log -> 3.0
     eval operator + -> 9.141592653589793
-exit calc test::descentSteering -> 9.141592653589793
+exit calc test::descentSteering -> (9.141592653589793)

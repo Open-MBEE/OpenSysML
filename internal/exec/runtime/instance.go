@@ -814,6 +814,8 @@ func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (
 		val = ctx.collectionOf(feat, elements)
 	} else if feat.Scalar() {
 		val = soleElement(val)
+	} else if err := ctx.chargeShaped(val); err != nil {
+		return Value{}, err
 	}
 	if how == admitDeclared {
 		if err := ctx.classifyHeld(feat.heldBy(), val); err != nil {

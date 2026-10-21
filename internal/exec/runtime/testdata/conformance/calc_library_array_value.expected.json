@@ -1,10 +1,10 @@
 {
   "libraries": true,
   "type": "calc",
-  "result": {"type": "Array", "dimensions": [2, 2], "elements": [
-    {"type": "Integer", "value": 1},
-    {"type": "Integer", "value": 2},
-    {"type": "Integer", "value": 3},
-    {"type": "Integer", "value": 4}
-  ]}
+  "result": {"type": "Sequence", "elements": [{"type": "Array", "dimensions": [2, 2], "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 3},
+      {"type": "Integer", "value": 4}
+    ]}]}
 }

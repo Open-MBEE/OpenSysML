@@ -18,8 +18,8 @@ stmt loop until
   iteration 1
 enter action node: loop body of action node iterate
 enter action node: test
-    eval feature i -> (0)
-    eval feature s -> (0)
+    eval feature i -> 0
+    eval feature s -> 0
     eval chain r -> (0)
     stmt assign r
         eval feature x -> (0)
@@ -35,13 +35,13 @@ leave action node: test
       eval operator not -> false
 enter action node: branch body of loop body of action node iterate
 enter action node: body
-      eval feature s -> (0)
+      eval feature s -> 0
       eval chain k -> (0)
       stmt assign r
           eval feature x -> (0)
           eval feature y -> (0)
         eval operator + -> 0
-      eval feature i -> (0)
+      eval feature i -> 0
       stmt assign r
           eval feature x -> (0)
           eval literal 1 -> 1

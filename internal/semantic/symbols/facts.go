@@ -394,7 +394,7 @@ type BoundFacts struct {
 
 // Modifiers is the set of boolean modifiers a declaration states, as a
 // recorded fact reads them.
-type Modifiers uint32
+type Modifiers uint64
 
 // The modifiers a declaration can state (KerML 8.3.3, SysML v2 8.3.9).
 const (
@@ -436,6 +436,9 @@ const (
 	ModValued
 	// ModMayTimeVary marks a SysML usage whose derived Usage::mayTimeVary holds (SysML v2 §8.3.6.4).
 	ModMayTimeVary
+	// ModAnnotatesOthers marks a metadata usage written with an `about` clause,
+	// whether or not the elements it names resolve (see AnnotatesOthers).
+	ModAnnotatesOthers
 )
 
 // Has reports whether every modifier of mask is set.
