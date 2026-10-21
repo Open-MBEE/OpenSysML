@@ -160,17 +160,36 @@ named, not fixed.** Confirmed by the interleaved quiet-machine re-run
   `StateLoop/count5000` 1.176M → 1.381M, `ExecuteState` 12.13k → 14.20k,
   `ExecuteAction` 245 → 299, `ExecuteActionFreshContext` 340 → 403, and
   the bytes of `MaterializePlainAttributes` 43.6 → 51.2 KiB and
-  `SetFeatureValueNoDependents` 352 → 416 B): all bisect to #1136, whose
-  second cost — beside the loop footprints #1347 fixed — is that an
-  assignment's footprint is stamped with the performance's own places on
-  every execution, cloning the statement's read and write places each
-  time (two allocations per executed statement; `placesOf`, 2 007 of the
-  2 035 new objects per `ActionLoop/for1000` operation). The follow-up
-  fix, `perf/stamp-statement-footprint-once`, computes the stamped
-  footprint once per statement and performed node; its failing-before
-  test puts one more loop pass at 6.00 allocations on `develop` and 4.00
-  with the fix. It was written after the tables above and is not in the
-  third column.
+  `SetFeatureValueNoDependents` 352 → 416 B): all bisect to #1136, which
+  beside the loop footprints #1347 fixed has three more per-execution
+  costs on the statement path. An assignment's footprint is stamped with
+  the performance's own places on every execution, cloning the
+  statement's read and write places each time (two allocations per
+  executed statement; `placesOf`, 2 007 of the 2 035 new objects per
+  `ActionLoop/for1000` operation). A body's statement order was memoized
+  per executor, not per model, so a chain of a thousand actions rebuilt
+  every body's order on every run (all of `ActionChain/chain1000`'s
+  growth) and a state's entry behavior rebuilt its order on every entry
+  (half of `StateLoop`'s and `ExecuteState`'s). And taking a transition
+  made two closures (`taking`/`underControl`; the other half of the
+  state rows). The first two are fixed by
+  `perf/stamp-statement-footprint-once` (#1355), the third by
+  `perf/take-transition-without-closures` (#1356); their failing-before
+  tests put one more loop pass at 6.00 → 4.00 allocations, one more
+  chained action at 84.58 → 70.54, one more state event at 133.50 →
+  126.00 (#1355) → 120.00 (both), and taking a transition at 2 → 0.
+  #1355's six-round A/B (pre-#1136 d5e2317de | develop | #1355,
+  allocs/op) puts `ActionLoop/for1000` at 4 238 | 6 256 | 4 241,
+  `ActionChain/chain1000` 65.97k | 80.77k | 66.42k, `ExecuteAction`
+  252 | 289 | 254, `StateLoop/count5000` 1.191M | 1.336M | 1.261M and
+  `ExecuteState` 12.29k | 13.75k | 13.00k; #1356 takes the state rows'
+  remainder, and the last object per event is #1276's declared-types
+  lookup. `ExecuteActionFreshContext` (347 | 394 | 376) keeps what a
+  fresh context's first run computes for its model. The bytes of
+  `MaterializePlainAttributes` and `SetFeatureValueNoDependents` are
+  #1136's but none of these three costs (both fixes leave them), and are
+  carried. Both fixes were written after the tables above and are not in
+  the third column.
 - **Three small rows with their cause named and carried**:
   `GRPCVerifyConstraint` 9 786 → 10 770 and the REPL's `Instantiate`
   56 → 59 are #1276's (the wider type set; #1351 takes the first to
@@ -288,7 +307,8 @@ return to 0.10.1's count. `DerivedReadWriteRead` 65 → 73 bisects to
 #1276; #1351 recovers four of the eight and the other two are the wider
 type set each read consults (inherent). `MaterializePlainAttributes`
 (+3 allocations, +7.6 KiB) and `SetFeatureValueNoDependents` (+64 B at
-nine allocations) are #1136's stamping too (see the summary).
+nine allocations) bisect to #1136 as well but are none of its three
+per-execution costs — #1355 and #1356 leave them — and are carried.
 
 ### `internal/frontend/repl`
 
@@ -433,11 +453,12 @@ The rows group by cause as in the summary: the import graph and analysis
 (#1276 → #1351, remainder carried), the vehicle rows and
 `GRPCParseFileUncached` (#1062 → #1348, remainder carried), and the
 executor's statement rows (`ActionLoop`, `ActionChain`, `StateLoop`,
-`ExecuteState`, `ExecuteAction*`: #1136's footprint stamping, fixed
-after the tables by `perf/stamp-statement-footprint-once`), and the
-three small carried rows. `ActionChain/chain1000` is the one row whose
-time moved more than its allocations (+82% against +24%), and it moves
-the same with the six fixes applied.
+`ExecuteState`, `ExecuteAction*`: #1136's per-execution stamping, order
+rebuilding and transition closures, fixed after the tables by #1355 and
+#1356), and the three small carried rows. `ActionChain/chain1000` is the
+one row whose time moved more than its allocations (+82% against +24%):
+each rebuilt order is few objects but much work, and it moves the same
+with the six fixes applied.
 
 ## Stress constellation (`tests/stressmodel`)
 
@@ -588,9 +609,10 @@ deterministic: the machine moves time, not allocations.
   two cold rows still allocate is the per-query re-enumeration named in
   the summary; its fix (`perf/memoize-namespace-children`) follows this
   record and is not measured here.
-- **The statement-stamping fix.** `perf/stamp-statement-footprint-once`
-  was written after the six-round tables; its A/B against the parent of
-  #1136 is in its own pull request, not here.
+- **The executor fixes.** `perf/stamp-statement-footprint-once` (#1355)
+  and `perf/take-transition-without-closures` (#1356) were written after
+  the six-round tables; their A/Bs against the parent of #1136 are in
+  their own pull requests, not here.
 - **Concurrent analysis.** `ValidateSplit/jobs=8` and `OpenSplit` run on
   8 CPUs; their loaded spreads are the machine's, and only the quiet
   32-satellite rows' time is stated.
