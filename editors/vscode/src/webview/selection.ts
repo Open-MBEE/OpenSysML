@@ -2,7 +2,7 @@
 // and the nodes at their other ends. Everything else is dimmed by the classes
 // below, which drawing marks onto the groups the canvas already carries.
 
-import type { RenderResult } from "../protocol";
+import type { RenderEdge, RenderResult } from "../protocol";
 
 /** The groups a selection emphasises: node ids and edge indices into the rendering's edges. */
 export interface Neighbourhood {
@@ -40,9 +40,9 @@ export function neighbourhood(result: RenderResult, id: string, hiddenKinds: Rea
 }
 
 /** relatedByKind counts a node's incident edges by kind, hidden kinds included, so a filter can say what it hides. */
-export function relatedByKind(result: RenderResult, id: string): Map<string, number> {
+export function relatedByKind(edges: readonly RenderEdge[], id: string): Map<string, number> {
   const counts = new Map<string, number>();
-  for (const edge of result.edges ?? []) {
+  for (const edge of edges) {
     if (edge.from === id || edge.to === id) {
       counts.set(edge.kind, (counts.get(edge.kind) ?? 0) + 1);
     }
