@@ -174,7 +174,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 12 | 12 | 0 | 0 | 0 |
 | grammar | 112 | 112 | 0 | 0 | 0 |
-| semantic | 175 | 164 | 0 | 11 | 0 |
+| semantic | 176 | 165 | 0 | 11 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the eleven ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
