@@ -985,6 +985,19 @@ func (m *Model) conformsByName(sym *symbols.Symbol, typeFQN string) bool {
 	if sym == nil || typeFQN == "" {
 		return false
 	}
+	// The one element registered under the name is compared by identity; a
+	// name no or several elements carry falls back to the names themselves.
+	if target := m.symbolByFQN(typeFQN); target != nil {
+		if symbols.SameElement(sym, target) {
+			return true
+		}
+		for _, sup := range m.AllSupertypes(sym) {
+			if symbols.SameElement(sup, target) {
+				return true
+			}
+		}
+		return false
+	}
 	if m.fqnOf(sym) == typeFQN {
 		return true
 	}
