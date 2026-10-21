@@ -78,6 +78,7 @@ func (m *Model) AllRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	if cached, ok := m.allRedefined[sym]; ok {
 		return cached
 	}
+	m.resolver.Enter()
 	var out []*symbols.Symbol
 	seen := map[*symbols.Symbol]bool{sym: true}
 	var visit func(*symbols.Symbol)
@@ -92,6 +93,11 @@ func (m *Model) AllRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 	visit(sym)
+	// A closure walked while a guard cut a query short may lack a target, so it
+	// is recomputed on the next query, not memoized.
+	if !m.resolver.Leave() {
+		return out
+	}
 	journal(m, m.allRedefined, sym, sym.Decl)
 	m.allRedefined[sym] = out
 	return out

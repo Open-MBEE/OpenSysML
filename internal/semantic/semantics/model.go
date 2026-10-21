@@ -34,21 +34,22 @@ type Model struct {
 	computingSupers map[*symbols.Symbol]int
 	// valuing holds the features whose typing value is being judged, so a value
 	// that leads back to its own feature is not followed again.
-	valuing       map[*symbols.Symbol]bool
-	referenced    map[*symbols.Symbol]*symbols.Symbol
-	resolvingRef  map[*symbols.Symbol]bool
-	memberSources map[*symbols.Symbol][]*symbols.Symbol
-	lookupOrder   map[*symbols.Symbol][]lookupSource    // name-lookup order
-	contributed   map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
-	nestedRedefs  map[*symbols.Symbol][]NestedRedefinition
-	allRedefined  map[*symbols.Symbol][]*symbols.Symbol // memoized redefinition closure
-	primTypes     map[*symbols.Symbol]PrimType
-	scalars       map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
-	params        map[*symbols.Symbol]behaviorParameters
-	invocations   map[invocationKey]*InvocationSelection
-	arguments     ArgumentTyper // the checker's argument typing, nil when no checker runs
-	sourceText    source.Lookup // notation of the loaded documents, nil when unavailable
-	sourceFile    source.Locate // the files the documents were read from, nil for source.FileNamed
+	valuing         map[*symbols.Symbol]bool
+	referenced      map[*symbols.Symbol]*symbols.Symbol
+	resolvingRef    map[*symbols.Symbol]bool
+	memberSources   map[*symbols.Symbol][]*symbols.Symbol
+	lookupOrder     map[*symbols.Symbol][]lookupSource    // name-lookup order
+	contributed     map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
+	nestedRedefs    map[*symbols.Symbol][]NestedRedefinition
+	allRedefined    map[*symbols.Symbol][]*symbols.Symbol // memoized redefinition closure
+	primTypes       map[*symbols.Symbol]PrimType
+	scalars         map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
+	params          map[*symbols.Symbol]behaviorParameters
+	computingParams map[*symbols.Symbol]int // lookup depth of a params entry being computed
+	invocations     map[invocationKey]*InvocationSelection
+	arguments       ArgumentTyper // the checker's argument typing, nil when no checker runs
+	sourceText      source.Lookup // notation of the loaded documents, nil when unavailable
+	sourceFile      source.Locate // the files the documents were read from, nil for source.FileNamed
 	// typingArgs holds the calls whose arguments are being typed, so an argument
 	// whose type leads back to its own call is not typed again.
 	typingArgs map[*ast.InvocationExpr]bool
@@ -172,6 +173,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		allRedefined:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		primTypes:           make(map[*symbols.Symbol]PrimType),
 		params:              make(map[*symbols.Symbol]behaviorParameters),
+		computingParams:     make(map[*symbols.Symbol]int),
 		invocations:         make(map[invocationKey]*InvocationSelection),
 		typingArgs:          make(map[*ast.InvocationExpr]bool),
 		composed:            make(map[composedKey][]*symbols.Symbol),
