@@ -40,9 +40,6 @@ func provenance(checkout, built string) (baseline.Record, error) {
 	if err != nil {
 		return baseline.Record{}, fmt.Errorf("digest %s: %w", writerSource, err)
 	}
-	if err != nil {
-		return baseline.Record{}, err
-	}
 	overlay, err := errata.Load()
 	if err != nil {
 		return baseline.Record{}, err
