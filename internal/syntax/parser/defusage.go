@@ -69,6 +69,12 @@ var compoundDefKinds = map[[2]string]bool{
 	{"verification", "case"}: true,
 }
 
+// isCaseKindCompound reports `analysis case` / `verification case`, parsed as
+// the first word's kind (SysML v2 8.2.2.23, 8.2.2.24) and reported as notation.
+func isCaseKindCompound(first, second string) bool {
+	return second == "case" && (first == "analysis" || first == "verification")
+}
+
 // kindPrefixKeywords are keywords that qualify a following kind keyword rather
 // than naming the declaration, even when no name follows the kind:
 // `assert constraint { ... }` is an asserted anonymous constraint, not a
@@ -1842,6 +1848,12 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	if p.atSecondaryKind(kw) {
 		kindKeyword = p.peek().KeywordID
 		defKind = p.definitionKindOf(kindKeyword)
+		// `analysis case` keeps the kind its first word declares and both words
+		// as the keyword written: the production spells `analysis` alone.
+		if isCaseKindCompound(kw, kindKeyword) {
+			kindKeyword = kw + " " + kindKeyword
+			defKind = p.definitionKindOf(kw)
+		}
 		p.advance() // consume secondary keyword
 	}
 
@@ -1871,6 +1883,9 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	keyword := kw
 	if kw == "assoc" && kindKeyword == "struct" {
 		keyword = "assoc struct"
+	}
+	if strings.Contains(kindKeyword, " ") {
+		keyword = kindKeyword
 	}
 	// A KerML classifier is read as a usage and classified later, but its
 	// prefix is still TypePrefix (KerML.xtext:313).

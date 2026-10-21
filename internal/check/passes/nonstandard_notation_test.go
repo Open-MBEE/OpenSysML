@@ -494,3 +494,71 @@ func TestStateActivityImportIsReported(t *testing.T) {
 	}
 	wantSilent(t, "a.sysml", "package P { private import ScalarValues::*; private import States::*; state def S { state a; } }")
 }
+
+// `analysis case` / `verification case` are no keywords (SysML v2 8.2.2.23,
+// 8.2.2.24): the pair stays parsed, is reported at its span and fixed to one word.
+func TestCaseKeywordIsAnExtension(t *testing.T) {
+	for _, tc := range []struct{ src, want, fixed string }{
+		{"package P { analysis case def AD; }", "`analysis case def` is an OpenSysML extension", "package P { analysis def AD; }"},
+		{"package P { verification case def VD; }", "`verification case def` is an OpenSysML extension", "package P { verification def VD; }"},
+		{"package P { analysis case ad; }", "`analysis case <name>` is an OpenSysML extension", "package P { analysis ad; }"},
+		{"package P { verification case vd; }", "`verification case <name>` is an OpenSysML extension", "package P { verification vd; }"},
+		{"package P { abstract analysis case def AD; }", "`analysis case def` is an OpenSysML extension", "package P { abstract analysis def AD; }"},
+		{"package P { analysis\n    case def AD; }", "`analysis case def` is an OpenSysML extension", "package P { analysis\n    def AD; }"},
+	} {
+		wantNotation(t, "a.sysml", tc.src, CodeNonstandardNotation, tc.want)
+		_, _, got := notationDiagnostics(t, "a.sysml", tc.src)
+		if len(got) != 1 || len(got[0].Fixes) != 1 || len(got[0].Fixes[0].Edits) != 1 {
+			t.Fatalf("%s: want one diagnostic with one single-edit fix, got %+v", tc.src, got)
+		}
+		edit := got[0].Fixes[0].Edits[0]
+		if fixed := tc.src[:edit.Span.Offset] + edit.NewText + tc.src[edit.Span.End():]; fixed != tc.fixed {
+			t.Errorf("%s: fix gives %q, want %q", tc.src, fixed, tc.fixed)
+		}
+	}
+	for _, src := range []string{
+		"package P { analysis def AD; analysis ad : AD; }",
+		"package P { verification def VD; verification vd : VD; }",
+		"package P { use case def U; use case u : U; case def C; case c : C; }",
+	} {
+		wantSilent(t, "a.sysml", src)
+	}
+}
+
+// A `;` after a body's closing condition (SysML v2 8.2.2.19, KerML 8.2.5.7.1) is
+// reported at its span in either notation and deleted by the fix; `assert c;` is not.
+func TestConditionTerminatorIsAnExtension(t *testing.T) {
+	const want = "`;` after a body's condition is an OpenSysML extension"
+	for _, tc := range []struct{ name, src string }{
+		{"a.sysml", "constraint def K { in x : ScalarValues::Real; x > 0.0; }"},
+		{"a.sysml", "part def P { attribute m : ScalarValues::Real; constraint k { m > 0.0; } }"},
+		{"a.sysml", "part def P { attribute m : ScalarValues::Real; assert constraint { m > 0.0; } }"},
+		{"a.kerml", "predicate Q { in x : ScalarValues::Real; x > 0.0; }"},
+		{"a.kerml", "classifier C { feature m : ScalarValues::Real; inv positive { m > 0.0; } }"},
+	} {
+		wantNotation(t, tc.name, tc.src, CodeNonstandardNotation, want)
+		root, pd, idx := analyzeInputs(t, tc.name, tc.src)
+		got := NonstandardNotationPass{}.Run(NewContext(tc.name, idx, pd), tc.name, root)
+		if len(got) != 1 || tc.src[got[0].Span.Offset:got[0].Span.End()] != ";" {
+			t.Fatalf("%s: want the diagnostic at the `;`, got %+v", tc.src, got)
+		}
+		if len(got[0].Fixes) != 1 || len(got[0].Fixes[0].Edits) != 1 || got[0].Fixes[0].Edits[0].Span != got[0].Span || got[0].Fixes[0].Edits[0].NewText != "" {
+			t.Errorf("%s: want a fix deleting the `;`, got %+v", tc.src, got[0].Fixes)
+		}
+	}
+	// Only the closing condition is the result expression: the `;` between two
+	// conditions separates them, and only a `;` after the last one is reported.
+	wantNotation(t, "a.sysml", "constraint def K { in x : ScalarValues::Real; x > 0.0; x < 1.0; }",
+		CodeNonstandardNotation, want)
+	wantSilent(t, "a.sysml", "constraint def K { in x : ScalarValues::Real; x > 0.0; x < 1.0 }")
+	for _, tc := range []struct{ name, src string }{
+		{"a.sysml", "constraint def K { in x : ScalarValues::Real; x > 0.0 }"},
+		{"a.sysml", "part def P { attribute m : ScalarValues::Real; constraint k { m > 0.0 } }"},
+		{"a.sysml", "constraint def K; part def P { assert constraint c : K; assert c; }"},
+		{"a.sysml", "calc def C { in x : ScalarValues::Real; x * 2.0 }"},
+		{"a.kerml", "predicate Q { in x : ScalarValues::Real; x > 0.0 }"},
+		{"a.kerml", "classifier C { feature m : ScalarValues::Real; inv positive { m > 0.0 } }"},
+	} {
+		wantSilent(t, tc.name, tc.src)
+	}
+}
