@@ -310,11 +310,26 @@ type enumEdge struct {
 	unnamed bool
 }
 
+// enumResult is an enumeration asked for: imp of scope surfacing into into (nil
+// for the members before any filter), with the member kinds asked of it.
+// keptMembers is an enumeration kept across enumerations with what it read,
+// replayed into a later reader's frame so an edit of a document read drops it.
+type keptMembers struct {
+	members []*symbols.Symbol
+	reads   *readCapture
+}
+
+type enumResult struct {
+	into, scope *symbols.Scope
+	imp         *ast.Import
+	unnamed     bool
+}
+
 func (r *Resolver) importedMembersInto(into, scope *symbols.Scope, imp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
 	if into == nil {
 		into = scope
 	}
-	return r.importedMembersAdmitting(scope, imp, includeUnnamed, func() func(*symbols.Symbol) bool {
+	return r.importedMembersAdmitting(into, scope, imp, includeUnnamed, func() func(*symbols.Symbol) bool {
 		return r.importAdmitsInto(into, scope, imp)
 	})
 }
@@ -323,16 +338,22 @@ func (r *Resolver) importedMembersInto(into, scope *symbols.Scope, imp *ast.Impo
 // element filter is applied — what a filter had to choose from — the unnamed
 // ones too when asked, as ImportedMembersInto lists them.
 func (r *Resolver) ImportedMembersUnfiltered(scope *symbols.Scope, imp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
-	return r.importedMembersAdmitting(scope, imp, includeUnnamed, func() func(*symbols.Symbol) bool {
+	return r.importedMembersAdmitting(nil, scope, imp, includeUnnamed, func() func(*symbols.Symbol) bool {
 		return func(*symbols.Symbol) bool { return true }
 	})
 }
 
-// importedMembersAdmitting enumerates what imp surfaces, admitting members as
-// the predicate admission builds once the target is known.
-func (r *Resolver) importedMembersAdmitting(scope *symbols.Scope, imp *ast.Import, includeUnnamed bool, admission func() func(*symbols.Symbol) bool) []*symbols.Symbol {
+// importedMembersAdmitting enumerates what imp surfaces into into (nil before
+// any filter), admitting members as the predicate admission builds once the
+// target is known; the result is kept for the next enumeration asking the same.
+func (r *Resolver) importedMembersAdmitting(into, scope *symbols.Scope, imp *ast.Import, includeUnnamed bool, admission func() func(*symbols.Symbol) bool) []*symbols.Symbol {
 	if scope == nil || imp == nil || imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return nil
+	}
+	key := enumResult{into: into, scope: scope, imp: imp, unnamed: includeUnnamed}
+	if kept, done := r.enumResults[key]; done && r.inCondition == 0 {
+		kept.reads.replay(r)
+		return kept.members
 	}
 	r.enumDepth++
 	defer func() {
@@ -341,6 +362,19 @@ func (r *Resolver) importedMembersAdmitting(scope *symbols.Scope, imp *ast.Impor
 			clear(r.enumMembers)
 		}
 	}()
+	cut := r.enumCut
+	var members []*symbols.Symbol
+	reads := r.capturing(func() {
+		members = r.enumerateImported(scope, imp, includeUnnamed, admission)
+	})
+	if r.enumCut == cut && len(r.resolvingImports) == 0 && r.inCondition == 0 {
+		journalNew(r, r.enumResults, key, imp)
+		r.enumResults[key] = keptMembers{members: members, reads: reads}
+	}
+	return members
+}
+
+func (r *Resolver) enumerateImported(scope *symbols.Scope, imp *ast.Import, includeUnnamed bool, admission func() func(*symbols.Symbol) bool) []*symbols.Symbol {
 	target, ok := r.resolveImportTarget(scope, imp)
 	if !ok || target == nil {
 		return nil
@@ -430,16 +464,31 @@ func (r *Resolver) declaredChildren(scope *symbols.Scope, target *symbols.Symbol
 	}
 	imported := false
 	for _, childImp := range r.scopeImports(target.Scope) {
-		if !r.importVisibleFrom(target, scope, childImp) || r.importStack[childImp] {
+		if !r.importVisibleFrom(target, scope, childImp) {
+			continue
+		}
+		if r.importStack[childImp] {
+			r.enumCut++
 			continue
 		}
 		edge := enumEdge{imp: childImp, unnamed: includeUnnamed}
 		members, done := r.enumMembers[edge]
+		if kept, had := r.enumKept[edge]; !done && had && r.inCondition == 0 {
+			kept.reads.replay(r)
+			members, done = kept.members, true
+		}
 		if !done {
+			cut := r.enumCut
 			r.importStack[childImp] = true
-			members = r.importedMembersInto(target.Scope, target.Scope, childImp, includeUnnamed)
+			reads := r.capturing(func() {
+				members = r.importedMembersInto(target.Scope, target.Scope, childImp, includeUnnamed)
+			})
 			delete(r.importStack, childImp)
 			r.enumMembers[edge] = members
+			if r.enumCut == cut && len(r.resolvingImports) == 0 && r.inCondition == 0 {
+				journalNew(r, r.enumKept, edge, childImp)
+				r.enumKept[edge] = keptMembers{members: members, reads: reads}
+			}
 		}
 		for _, sym := range members {
 			children.add(sym)
