@@ -42,7 +42,7 @@ archive="mcp-publisher_${platform}.tar.gz"
 url="https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/${archive}"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-curl -fsSL --retry 3 -o "$tmp/$archive" "$url"
+curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o "$tmp/$archive" "$url"
 if command -v sha256sum >/dev/null 2>&1; then
   actual="$(sha256sum "$tmp/$archive" | cut -d' ' -f1)"
 else
