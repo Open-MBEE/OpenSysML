@@ -92,3 +92,21 @@ func TestResolveAnchorsRelativePathsAtTheRoot(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildRootIsTheCheckoutHoldingThisTest(t *testing.T) {
+	root, err := BuildRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := RootFrom(wd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root != want {
+		t.Fatalf("BuildRoot = %s, want the checkout under test %s", root, want)
+	}
+}

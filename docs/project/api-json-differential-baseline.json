@@ -10,6 +10,11 @@
         "source": "scripts/pilot-json-exporter/ExportJSON.java",
         "sourceDigest": "sha256:366acec8fd58c0df0f6d61cc123b31ef5477dce327e32f1144b52eea199b6178",
         "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
+      },
+      {
+        "name": "api-json-writer",
+        "source": "internal/translate/export",
+        "sourceDigest": "sha256:0f409cf056b724f12c7a19ba55649418cf10a845df23fbea4e3183eb0f604b3a"
       }
     ],
     "inputs": [

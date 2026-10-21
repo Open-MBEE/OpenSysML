@@ -87,6 +87,57 @@ func TestDigestFilesIdentifiesTheSetNotTheOrder(t *testing.T) {
 	}
 }
 
+// A package digest moves on a byte of a production .go file and on nothing
+// else: tests, other kinds of file and subdirectories change freely.
+func TestDigestPackageCoversOnlyProductionGoSources(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, content string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("write.go", "package p\n")
+	write("names.go", "package p\n\nvar n = 1\n")
+	write("write_test.go", "package p\n")
+	write("README.md", "writer\n")
+	if err := os.Mkdir(filepath.Join(dir, "testdata"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	write(filepath.Join("testdata", "a.go"), "package a\n")
+	recorded, err := DigestPackage(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	production, err := DigestFiles(dir, []string{"names.go", "write.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recorded != production {
+		t.Fatalf("package digest %s differs from the production-source digest %s", recorded, production)
+	}
+	write("write_test.go", "package p\n\nfunc f() {}\n")
+	write("README.md", "the writer\n")
+	write(filepath.Join("testdata", "a.go"), "package b\n")
+	if again, err := DigestPackage(dir); err != nil || again != recorded {
+		t.Fatalf("tests, fixtures and prose moved the digest: %s -> %s (%v)", recorded, again, err)
+	}
+	write("names.go", "package p\r\n\r\nvar n = 1\r\n")
+	if again, err := DigestPackage(dir); err != nil || again != recorded {
+		t.Fatalf("a CRLF checkout moved the digest: %s -> %s (%v)", recorded, again, err)
+	}
+	write("names.go", "package p\n\nvar n = 2\n")
+	if moved, err := DigestPackage(dir); err != nil || moved == recorded {
+		t.Fatalf("a one-byte edit to a production source left the digest at %s (%v)", moved, err)
+	}
+	if _, err := DigestPackage(filepath.Join(dir, "testdata", "..", "README.md")); err == nil {
+		t.Fatal("want an error digesting a file as a package")
+	}
+	if _, err := DigestPackage(t.TempDir()); err == nil || !strings.Contains(err.Error(), "no Go sources") {
+		t.Fatalf("want an empty directory refused, got %v", err)
+	}
+}
+
 func TestValidateNamesWhatARecordFailsToState(t *testing.T) {
 	complete := Record{
 		PilotTag:      "2026-05",
