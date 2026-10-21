@@ -855,14 +855,17 @@ func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
-	// A record names the base usages its kind implied among its supertypes; the
-	// typing it implied is read from them as any other, the declaration being gone.
-	if sym.Recorded() {
-		return m.recordedElements(sym, sym.Facts.ImpliedSupers)
-	}
 	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.implicitGenerals[sym]; ok {
 		return cached
+	}
+	// A record names the generals its kind implied among its supertypes, so a
+	// library symbol answers from its facts in every model instead of deriving them.
+	if sym.Facts != nil && (sym.Facts.Supers != nil || sym.Facts.Recorded) {
+		out := m.recordedElements(sym, sym.Facts.ImpliedSupers)
+		journal(m, m.implicitGenerals, sym, sym.Decl)
+		m.implicitGenerals[sym] = out
+		return out
 	}
 	m.resolver.Enter()
 	out := m.computeImplicitGenerals(sym)

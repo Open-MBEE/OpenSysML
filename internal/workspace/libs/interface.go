@@ -156,7 +156,7 @@ func (w *interfaceWriter) refs(of *symbols.Symbol, syms []*symbols.Symbol, what 
 func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	m := w.model
 	supers := m.DirectSupertypes(sym)
-	implied := slices.DeleteFunc(slices.Clone(m.ImpliedBaseFeatures(sym)), func(base *symbols.Symbol) bool {
+	implied := slices.DeleteFunc(slices.Clone(m.ImplicitGenerals(sym)), func(base *symbols.Symbol) bool {
 		return !slices.Contains(supers, base)
 	})
 	facts := symbols.LibraryFacts{
