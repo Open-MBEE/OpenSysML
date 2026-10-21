@@ -116,6 +116,13 @@ package Asserted {
     part soft { part lander : Lander { attribute :>> verticalSpeed = 1.0; } assert satisfy touchdown by lander; }
     part hard { part lander : Lander { attribute :>> verticalSpeed = 2.0; } assert satisfy touchdown by lander; }
 
+    requirement def Documented;
+    requirement documented : Documented;
+    abstract part free {
+        variation part trans : T { variant man : T; variant auto : T; }
+        assert satisfy documented by trans;
+    }
+
     part def Engine { attribute power : Integer; assert constraint { power > 0 } }
     abstract part nested {
         variation part trans : T { variant man : T; variant auto : T; }
@@ -154,4 +161,11 @@ func TestConfigureNamesTheNestedAssertionsItLeavesOut(t *testing.T) {
 	if strings.Contains(plain, "Not in the query") {
 		t.Errorf("a part holding no asserting object is reported as leaving assertions out:\n%s", plain)
 	}
+}
+
+func TestConfigureAFamilyWhoseAssertionsStateNoCondition(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, assertedModel)
+	wants(t, run(t, s, "%configure Asserted::free all"),
+		"error: part free: every assertion about its objects states no condition, so every selection of its variants is permitted")
 }

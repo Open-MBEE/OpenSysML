@@ -177,7 +177,9 @@ func AssertedWith(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scop
 	subject := Subject{Kind: sym.Notation(), Name: sym.Name, Symbol: sym}
 	translate := func(pins []Pin) (*Query, error) {
 		if len(conds) == 0 {
-			return nil, fmt.Errorf("%s %s: %w", subject.Kind, subject.Name, ErrNoConditions)
+			// Nothing constrains the selection, so every one is permitted; a query
+			// stating nothing reads no variation point to enumerate.
+			return nil, fmt.Errorf("%s %s: every assertion about its objects %w, so every selection of its variants is permitted", subject.Kind, subject.Name, ErrNoConditions)
 		}
 		t := newTranslator(ctx, subject)
 		t.subjects = subjects
