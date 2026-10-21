@@ -218,8 +218,9 @@ func TestNamespaceOwnedMemberNamesResolveForQualifiedName(t *testing.T) {
 			t.Errorf("Namespace::ownedMember[%d] Element::name = %#v; want string or null", index, name)
 		}
 	}
-	if name, ok := evaluator.Property(exhibit, "Element", "name"); !ok || name.Kind != NullValue {
-		t.Fatalf("ExhibitStateUsage::name = %#v, %t; want a computable null name", name, ok)
+	if name, ok := evaluator.Property(exhibit, "Element", "name"); !ok ||
+		name.Kind != StringValue || name.String != "idling" {
+		t.Fatalf("ExhibitStateUsage::name = %#v, %t; want declared name %q", name, ok, "idling")
 	}
 	var safe Element
 	for _, member := range members.Values {

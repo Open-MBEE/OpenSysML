@@ -1080,12 +1080,12 @@ func TestStructureDeclaredNamePrecedesUnresolvedRedefinitionNaming(t *testing.T)
 			t.Errorf("%s::%s = %#v, %t; want %#v", property.class, property.name, value, ok, property.want)
 		}
 	}
-	if _, ok := evaluator.Property(element, "Element", "shortName"); ok {
-		t.Fatal("Element::shortName was emitted without a resolved naming feature")
+	shortName, ok := evaluator.Property(element, "Element", "shortName")
+	if !ok || shortName.Kind != NullValue {
+		t.Fatalf("Element::shortName = %#v, %t; want a computable null short name", shortName, ok)
 	}
-	if got, ok := evaluator.Explain(element, "Element", "shortName"); !ok ||
-		got.Category != ReasonUnresolvedReference {
-		t.Fatalf("Explain for unresolved shortName = %#v, %t; want unresolved-reference", got, ok)
+	if got, ok := evaluator.Explain(element, "Element", "shortName"); ok {
+		t.Fatalf("Explain for declared shortName = %#v, %t; want no unsupported reason", got, ok)
 	}
 }
 
@@ -1289,8 +1289,9 @@ func TestStructureFlowUsageEndsRedefineStandardLibraryEnds(t *testing.T) {
 	semanticEnds := evaluator.model.EndFeatures(flowSymbol)
 	ownedSemanticEnds, hasOwnedEnds := evaluator.model.OwnedConnectorEnds(flowSymbol)
 	flow := ElementOf(flowSymbol)
-	if len(semanticEnds) != 2 || semanticEnds[0] == nil || semanticEnds[1] == nil {
-		t.Fatalf("semantic flow ends = %#v, want the two inherited library ends", semanticEnds)
+	if len(semanticEnds) != 2 || semanticEnds[0] == nil || semanticEnds[0].Name != "source" ||
+		semanticEnds[1] == nil || semanticEnds[1].Name != "target" {
+		t.Fatalf("semantic flow ends = %#v, want the inherited source and target ends", semanticEnds)
 	}
 	firstEnd := Element{Aspect: "library-flow-end-source"}
 	secondEnd := Element{Aspect: "library-flow-end-target"}
@@ -1340,22 +1341,23 @@ func TestStructureFlowUsageEndsRedefineStandardLibraryEnds(t *testing.T) {
 			ends, names(semanticEnds), names(ownedSemanticEnds), hasOwnedEnds)
 	}
 	for index, end := range []Element{firstEnd, secondEnd} {
-		for _, property := range []string{"name", "shortName"} {
-			if _, handled, ok := evaluator.structureName(end, property); !handled || ok {
-				t.Errorf("FlowEnd[%d] %s is handled=%t, ok=%t; want unsupported until its implied Redefinition is materialized",
-					index, property, handled, ok)
-			}
-			reason, ok := evaluator.Explain(end, "Element", property)
-			if !ok || reason.Category != ReasonImpliedRelationshipNotMaterialized {
-				t.Errorf("FlowEnd[%d] %s omission reason = %#v, %t; want implied-relationship-not-materialized",
-					index, property, reason, ok)
-			}
+		want := []string{"source", "target"}[index]
+		name, handled, ok := evaluator.structureName(end, "name")
+		if !handled || !ok || name.Kind != StringValue || name.String != want {
+			t.Errorf("FlowEnd[%d] name = %#v, handled=%t, ok=%t; want library end name %q",
+				index, name, handled, ok, want)
+		}
+		shortName, handled, ok := evaluator.structureName(end, "shortName")
+		if !handled || !ok || shortName.Kind != NullValue {
+			t.Errorf("FlowEnd[%d] shortName = %#v, handled=%t, ok=%t; want null",
+				index, shortName, handled, ok)
 		}
 	}
-	for _, membership := range []Element{firstMembership, secondMembership} {
-		if _, handled, ok := evaluator.structureMemberName(membership, "", "shortName"); !handled || ok {
-			t.Errorf("%s::ownedMemberShortName is handled=%t, ok=%t; want unsupported while the member's implied Redefinition is absent",
-				membership.Membership.Metaclass(), handled, ok)
+	for index, membership := range []Element{firstMembership, secondMembership} {
+		shortName, handled, ok := evaluator.structureMemberName(membership, "", "shortName")
+		if !handled || !ok || shortName.Kind != NullValue {
+			t.Errorf("%s::ownedMemberShortName = %#v, handled=%t, ok=%t; want null for end %d",
+				membership.Membership.Metaclass(), shortName, handled, ok, index)
 		}
 	}
 }

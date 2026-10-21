@@ -2077,6 +2077,11 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 							Category: ReasonUnresolvedReference,
 							Detail:   "Element::" + property + " naming reference target is unresolved",
 						}
+					} else if e.structureNamingRedefinitionUnresolved(element) {
+						reason = Reason{
+							Category: ReasonUnresolvedReference,
+							Detail:   "Element::" + property + " naming Redefinition::redefinedFeature target is unresolved",
+						}
 					}
 					e.recordUnsupportedReason(element, "Element", property, reason)
 					return Value{}, true, false
@@ -2789,6 +2794,15 @@ func (e *Evaluator) structureNamingReferenceUnresolved(element Element) bool {
 		}
 	}
 	return false
+}
+
+func (e *Evaluator) structureNamingRedefinitionUnresolved(element Element) bool {
+	redefinitions, handled, ok := e.structureOwnedFilter(element, "Redefinition", false)
+	if !handled || !ok || len(redefinitions.Values) == 0 ||
+		redefinitions.Values[0].Kind != ElementValue {
+		return false
+	}
+	return e.hasUnresolvedRelatedElement(redefinitions.Values[0].Element, "redefinedFeature")
 }
 
 func (e *Evaluator) structureReferenceNamingTarget(target Element) (Element, bool, bool) {
