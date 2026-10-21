@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 331,
-        "digest": "sha256:c32d762c69fb60aadf2008cfe79ce4ba62a70cd353242ae79525b9445f5c03c9"
+        "files": 334,
+        "digest": "sha256:5be97688302b2f0a9ca94f2e86d0d981f39c294c919b06eed1bfc9ad509593e5"
       }
     ],
     "recorded": "2026-10-20"
   },
   "totals": {
-    "cases": 331,
-    "bothReject": 320,
+    "cases": 334,
+    "bothReject": 323,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 11,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 172,
-      "bothReject": 161,
+      "cases": 175,
+      "bothReject": 164,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0
@@ -2013,6 +2013,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/k75-nonend-redefines-end-in-connector.kerml",
+      "source": "semantic",
+      "rule": "a feature redefining an end feature within a connector must be an end (KerML 8.3.3.3 validateRedefinitionEndConformance; pilot validateRedefinitionEndConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s01-action-typed-by-part-def.sysml",
       "source": "semantic",
       "rule": "An action must be typed by action definitions (SysML 7.16 Actions; pilot validateActionUsageType).",
@@ -2205,6 +2214,24 @@
       "path": "semantic/s11-case-two-objectives.sysml",
       "source": "semantic",
       "rule": "A case usage may have at most one objective (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneObjective).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s110-nonend-redefines-end-in-connection-def.sysml",
+      "source": "semantic",
+      "rule": "a usage redefining an end feature within a connection definition must be an end (KerML 8.3.3.3 validateRedefinitionEndConformance; pilot validateRedefinitionEndConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "semantic/s111-nonend-redefines-end-in-connection-usage.sysml",
+      "source": "semantic",
+      "rule": "a usage redefining an end feature within a connection usage must be an end (KerML 8.3.3.3 validateRedefinitionEndConformance; pilot validateRedefinitionEndConformance).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -3250,8 +3277,8 @@
       }
     ],
     "totals": {
-      "cases": 331,
-      "bothReject": 320,
+      "cases": 334,
+      "bothReject": 323,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0

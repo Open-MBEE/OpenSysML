@@ -393,3 +393,39 @@ func TestNotationFixLeavesKerMLDeclarations(t *testing.T) {
 		}
 	}
 }
+
+// A document ending in the keyword pair (bare, blank after it, or in an open
+// package) is still reported, and the fix reads no text past the document.
+func TestCaseKeywordAtEndOfFileIsReported(t *testing.T) {
+	for _, src := range []string{
+		"analysis case", "analysis case ", "package P { analysis case",
+		"verification case", "verification case ", "package P { verification case",
+	} {
+		name := "a.sysml"
+		sf := source.New(name, []byte(src))
+		p := parser.New(sf)
+		root := p.ParseFile()
+		if len(p.Diagnostics) == 0 {
+			t.Fatalf("%q: the parser should report the missing declaration", src)
+		}
+		ctx := NewContext(name, newTestIndexFromDoc(name, root), parser.AsDiagnostics(p.Diagnostics, p.Warnings))
+		ctx.InBatch(&kit.Batch{
+			Documents: []string{name},
+			Source:    source.TextOf(map[string]*source.SourceFile{name: sf}, nil),
+		})
+		got := (NonstandardNotationPass{}).Run(ctx, name, root)
+		if len(got) != 1 || got[0].Code != CodeNonstandardNotation {
+			t.Fatalf("%q: want one nonstandard-notation diagnostic, got %+v", src, got)
+		}
+		if len(got[0].Fixes) != 1 || len(got[0].Fixes[0].Edits) != 1 {
+			t.Fatalf("%q: want one single-edit fix, got %+v", src, got[0].Fixes)
+		}
+		edit := got[0].Fixes[0].Edits[0]
+		if edit.Span.End() > len(src) {
+			t.Fatalf("%q: the fix %+v reaches past the end of the document", src, edit.Span)
+		}
+		if fixed := src[:edit.Span.Offset] + edit.NewText + src[edit.Span.End():]; strings.Contains(fixed, "case") {
+			t.Errorf("%q: fix gives %q, want `case` deleted", src, fixed)
+		}
+	}
+}
