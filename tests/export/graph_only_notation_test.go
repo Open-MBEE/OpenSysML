@@ -1,6 +1,7 @@
 package export_test
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -310,4 +311,42 @@ func TestNameFromTheFirstOfSeveralRedefinitionsFromTheGraphAlone(t *testing.T) {
 	wantFragments(t, back,
 		"attribute redefines innerSpaceDimension, faces::innerSpaceDimension;",
 		"attribute dim = base.innerSpaceDimension;")
+}
+
+// A feature that both specializes and subsets one target owns two Subsettings
+// of it; the graph-only hop keeps the order they were spelled in either way
+// round, rather than the fixed kind order.
+func TestSameTargetSpecializesAndSubsetsKeepTheirSpelledOrder(t *testing.T) {
+	for _, head := range []string{"specializes x subsets x", "subsets x specializes x"} {
+		src := "package P {\n\tfeature x;\n\tfeature f " + head + ";\n}\n"
+		_, back := graphOnlyRoundTrip(t, "m.kerml", []byte(src))
+		if want := "feature f " + head + ";"; !strings.Contains(string(back), want) {
+			t.Errorf("want %q in the notation from the graph alone:\n%s", want, back)
+		}
+	}
+}
+
+// A graph that states a head's typings as relationship elements but owns no
+// membership for its multiplicity (an older writer's) gets the multiplicity
+// written once, with the first typing clause, however the other clauses split
+// the typings.
+func TestUnplacedMultiplicityIsWrittenOnceAcrossSplitTypings(t *testing.T) {
+	src := "package P {\n\tpart def A;\n\tpart def B;\n\tpart x;\n\tpart p : A :> x : B [2];\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	stripped := withoutLayout(t, turtle)
+	legacy := bytes.ReplaceAll(stripped, []byte("elmt:P__p_ft1, expr:P__p_pmultiplicity_om ;"), []byte("elmt:P__p_ft1 ;"))
+	legacy = bytes.ReplaceAll(legacy, []byte(`{\"@id\":\"P__p_ft1\"},{\"@id\":\"P__p_pmultiplicity_om\"}]`), []byte(`{\"@id\":\"P__p_ft1\"}]`))
+	if bytes.Equal(legacy, stripped) {
+		t.Fatalf("the multiplicity's membership was not where expected in\n%s", stripped)
+	}
+	back, err := convert.Convert("m.ttl", legacy, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the graph alone: %v", err)
+	}
+	if want := "part p : A[2] subsets x : B;"; !strings.Contains(string(back), want) {
+		t.Errorf("want %q in the notation from the graph alone:\n%s", want, back)
+	}
 }

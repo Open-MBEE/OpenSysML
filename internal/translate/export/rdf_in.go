@@ -4111,8 +4111,10 @@ func (d *decoder) relationshipWords(el *element, multPart string, skip ...ast.Re
 	var words []string
 	clause := func(kind ast.RelationshipKind, names []string) {
 		text := strings.Join(names, ", ")
+		// A multiplicity no membership places follows the first typing clause.
 		if kind == ast.RelTyping && !placed {
 			text += multPart
+			placed = true
 		}
 		words = append(words, relationshipSyntax[kind], text)
 	}
@@ -4232,19 +4234,68 @@ func (d *decoder) spelledHead(el *element) []headClause {
 		if target.Value == "" {
 			continue
 		}
-	kinds:
+		var candidates []headClause
 		for _, kind := range headClauseKinds[metaclass] {
 			for index, object := range objects[kind] {
 				clause := headClause{kind: kind, index: index}
 				if object == target && !taken[clause] {
-					taken[clause] = true
-					clauses = append(clauses, clause)
-					break kinds
+					candidates = append(candidates, clause)
+					break
 				}
 			}
 		}
+		if clause, ok := d.headClauseOf(owned, candidates); ok {
+			taken[clause] = true
+			clauses = append(clauses, clause)
+		}
 	}
 	return clauses
+}
+
+// headClauseOf picks the clause a relationship element states among the
+// candidates its metaclass admits: one candidate is it; between several (a
+// feature that both specializes and subsets x owns two Subsettings of x) the
+// suffix this writer mints decides, else the kinds' fixed order, which invents
+// no order a graph of another writer does not state.
+func (d *decoder) headClauseOf(owned rdf.Term, candidates []headClause) (headClause, bool) {
+	switch len(candidates) {
+	case 0:
+		return headClause{}, false
+	case 1:
+		return candidates[0], true
+	}
+	if kind, ok := mintedRelationshipKind(rdf.LocalName(owned.Value)); ok {
+		for _, clause := range candidates {
+			if clause.kind == kind {
+				return clause, true
+			}
+		}
+	}
+	for _, kind := range relationshipOrder {
+		for _, clause := range candidates {
+			if clause.kind == kind {
+				return clause, true
+			}
+		}
+	}
+	return candidates[0], true
+}
+
+// mintedRelationshipSuffixes are the suffixes relationshipSpec mints a
+// relationship element's IRI with, by the clause kind they materialize.
+var mintedRelationshipSuffixes = map[string]ast.RelationshipKind{
+	"_sp": ast.RelSpecializes, "_ss": ast.RelSubsets, "_rs": ast.RelReferences,
+}
+
+// mintedRelationshipKind reads the clause kind off a local name this writer
+// minted (`P__f_sp0`), if it carries one of the suffixes.
+func mintedRelationshipKind(local string) (ast.RelationshipKind, bool) {
+	trimmed := strings.TrimRight(local, "0123456789")
+	if i := strings.LastIndex(trimmed, "_"); i >= 0 {
+		kind, ok := mintedRelationshipSuffixes[trimmed[i:]]
+		return kind, ok
+	}
+	return 0, false
 }
 
 func (d *decoder) multiplicityText(el *element) string {
