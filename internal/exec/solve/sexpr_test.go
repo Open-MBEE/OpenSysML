@@ -28,7 +28,7 @@ func TestReadSexpr(t *testing.T) {
 		{"empty list", "()\n", "()"},
 		{"nested list", "((x 1) (y (- 2)))\n", "((x 1) (y (- 2)))"},
 		{"leading comment", "; thinking\nunsat\n", "unsat"},
-		{"quoted symbol", "|Check::C::a b|\n", "Check::C::a b"},
+		{"quoted symbol", "|Check::C::a b|\n", "|Check::C::a b|"},
 		{"string literal", `"a ""quoted"" reply"` + "\n", `"a ""quoted"" reply"`},
 		{"comment inside a list", "(x ; note\n 1)\n", "(x 1)"},
 		{"decimal", "(/ 1.0 3.0)\n", "(/ 1.0 3.0)"},
@@ -39,6 +39,36 @@ func TestReadSexpr(t *testing.T) {
 				t.Errorf("read %q as %q, want %q", c.in, got, c.want)
 			}
 		})
+	}
+}
+
+// A reply written back and read again is the same reply: a `|quoted|` symbol
+// keeps its bars, whatever a SysML name carries, so a value kept as the solver's
+// text decodes to the atom the solver gave rather than to its first word.
+func TestSexprStringReadsBackToTheSameAtom(t *testing.T) {
+	names := []string{
+		"Cfg Space::fam::engine::e4",
+		"7b-Variant Configurations::VariabilityModel::'engine-transmission selection constraint'",
+		"Fahrzeug::Größe::große",
+		"Vehicle::engine's::v8",
+		"with|bar", `with\backslash`, "with!bang", "a::b::c", "(parens)", `"quotes"`, "",
+	}
+	for _, name := range names {
+		symbol := smtSymbol(name)
+		for _, text := range []string{symbol, "(x " + symbol + ")", "((|P::v| " + symbol + "))"} {
+			first := parse(t, text)
+			again := parse(t, first.String())
+			if again.String() != first.String() {
+				t.Errorf("%q read as %q, which reads as %q", text, first.String(), again.String())
+			}
+		}
+		atom := parse(t, symbol)
+		if atom.IsList || atom.Quoted || smtName(atom.Atom) != name {
+			t.Errorf("%q read as %+v, want the atom %q", symbol, atom, name)
+		}
+		if atom.Symbol != strings.HasPrefix(symbol, "|") {
+			t.Errorf("%q read with Symbol=%v, want %v", symbol, atom.Symbol, !atom.Symbol)
+		}
 	}
 }
 
