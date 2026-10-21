@@ -2523,55 +2523,7 @@ func (p *Parser) parseUsageBody(u *ast.Usage, kind ast.UsageKind, start int) {
 	defer p.pushBodyContext(usageBodyContext(kind))()
 	switch kind {
 	case ast.UsageAction:
-		// Action usage bodies: mixed (declarations + behavioral statements)
-		// Support THREE forms:
-		// 1. action name; (no body)
-		// 2. action name { in item x; action nested {...}; first ...; } (braced mixed body)
-		// 3. action name \n statements (inline behavioral body without braces)
-		if p.atTransitionEffectStatement(start) && p.atEffectEnd() {
-			// 4. action written as a transition's effect: no body of its own, and
-			// the transition owns the ';' (`do action alarm : Alarm;`).
-			hasBody = false
-		} else if p.accept2(lexer.Semicolon) {
-			hasBody = false
-		} else if p.at(lexer.LBrace) {
-			// Braced body - use mixed parser (handles declarations + behavioral)
-			_, ok := p.expect(lexer.LBrace, "expected '{'")
-			if ok {
-				members = p.parseActionBodyMixed()
-				hasBody = true
-			}
-		} else if p.isBehavioralKeyword() {
-			// Inline behavioral body without braces: action name\n assign ...;
-			// The body is a single statement plus any 'then'-chained continuations;
-			// a following statement that is not chained belongs to the enclosing body.
-			// EXCEPT: a 'then' chaining to a declaration is namespace-level
-			// succession, not behavioral succession - stop parsing body
-			//
-			// An unbraced body written as a transition's effect ends where the
-			// transition does, so the transition owns its statement's ';'.
-			inEffect := p.atTransitionEffectStatement(start)
-			savedEffectStmtStart := p.effectStmtStart
-			for !p.atEOF() && !p.atNamespaceSuccession() {
-				p.memberStart()
-				if inEffect {
-					p.effectStmtStart = p.peek().Span.Offset
-				}
-				member := p.parseActionMember()
-				p.markAttached(member)
-				members = append(members, member)
-				// Only an inline statement continues the body; a succession names
-				// members of the enclosing body.
-				if !p.atKeyword("then") || !startsInlineSuccessionStatement(p.peekN(1)) {
-					break
-				}
-			}
-			p.effectStmtStart = savedEffectStmtStart
-			hasBody = true
-			u.IsActionNode = true
-		} else {
-			p.expectBodyOrEnd("action declaration")
-		}
+		members, hasBody = p.parseActionUsageBody(u, start)
 	case ast.UsageCalc:
 		// Calculation usage bodies: mixed (parameters + return statements)
 		if p.accept2(lexer.Semicolon) {
@@ -2581,54 +2533,9 @@ func (p *Parser) parseUsageBody(u *ast.Usage, kind ast.UsageKind, start int) {
 			hasBody = true
 		}
 	case ast.UsageBool:
-		// Bool usage bodies: can be calc-style (with return) OR constraint-style (single expression)
-		// Lookahead: if body starts with 'in' or 'return' → calcBody, otherwise → constraint-style expression
-		if p.accept2(lexer.Semicolon) {
-			hasBody = false
-		} else if p.expectBodyOrEnd("declaration") {
-			// Peek at first token in body
-			firstTok := p.peek()
-			if firstTok.Kind == lexer.Keyword && (firstTok.KeywordID == "in" || firstTok.KeywordID == "return") {
-				// Structured calc body with parameters/return
-				members = p.parseCalcBody()
-			} else {
-				// Single expression body (constraint-style)
-				members = p.parseConstraintBody()
-			}
-			hasBody = true
-		}
+		members, hasBody = p.parseBoolUsageBody()
 	case ast.UsageConstraint, ast.UsagePredicate:
-		// Constraint bodies: { assert/assume expr; ... }
-		// Bool and predicate usages also use constraint-style bodies with expressions
-		// Special case: if body starts with 'in' or 'return' keyword, parse as calc body (structured parameters)
-		if p.accept2(lexer.Semicolon) {
-			hasBody = false
-		} else if p.at(lexer.LBrace) {
-			// Check if this is a typed predicate with input/return parameters
-			// Peek ahead past the '{' and any 'doc' keywords to see if body has 'in' or 'return'
-			hasCalcBody := false
-			for i := 1; i < 10; i++ { // Look ahead up to 10 tokens
-				tok := p.peekN(i)
-				if tok.KeywordID == "doc" {
-					continue // Skip doc keywords
-				}
-				if tok.KeywordID == "in" || tok.KeywordID == "return" {
-					hasCalcBody = true
-				}
-				break // Stop at first non-doc keyword
-			}
-
-			p.advance() // {
-			if hasCalcBody {
-				// Parse as calc body with structured parameters
-				members = p.parseConstraintCalcBody()
-			} else {
-				members = p.parseConstraintBody()
-			}
-			hasBody = true
-		} else {
-			p.expectBodyOrEnd("declaration")
-		}
+		members, hasBody = p.parseConstraintUsageBody()
 	case ast.UsageRequirement, ast.UsageConcern, ast.UsageViewpoint, ast.UsageFramedConcern, ast.UsageObjective:
 		// Requirement bodies: { subject/assume/require/actor ... }. A concern
 		// usage is a requirement usage and a viewpoint usage a concern usage
@@ -2652,24 +2559,7 @@ func (p *Parser) parseUsageBody(u *ast.Usage, kind ast.UsageKind, start int) {
 			hasBody = true
 		}
 	case ast.UsageState:
-		// State usage bodies: always use parseStateBody (it handles both state-specific and generic members)
-		// `parallel` marks the substates orthogonal, and only a body may follow it
-		// (SysML.xtext StateUsageBody).
-		if p.atKeyword("parallel") {
-			u.IsParallel = true
-			p.advance()
-			if _, ok := p.expect(lexer.LBrace, "expected '{' after 'parallel'"); ok {
-				members = p.parseStateBody()
-				hasBody = true
-			}
-			break
-		}
-		if p.accept2(lexer.Semicolon) {
-			hasBody = false
-		} else if p.expectBodyOrEnd("declaration") {
-			members = p.parseStateBody()
-			hasBody = true
-		}
+		members, hasBody = p.parseStateUsageBody(u)
 	default:
 		members, hasBody = p.parseDefUsageBody()
 	}
@@ -2678,6 +2568,144 @@ func (p *Parser) parseUsageBody(u *ast.Usage, kind ast.UsageKind, start int) {
 	// parsed, so the body members are appended rather than replacing it.
 	u.Members = append(u.Members, members...)
 	u.HasBody = hasBody
+}
+
+// parseActionUsageBody reads an action usage's body: none (`;` or a transition
+// effect's end), a braced mixed body, or unbraced inline statements.
+func (p *Parser) parseActionUsageBody(u *ast.Usage, start int) (members []ast.Node, hasBody bool) {
+	// Action usage bodies: mixed (declarations + behavioral statements)
+	// Support THREE forms:
+	// 1. action name; (no body)
+	// 2. action name { in item x; action nested {...}; first ...; } (braced mixed body)
+	// 3. action name \n statements (inline behavioral body without braces)
+	if p.atTransitionEffectStatement(start) && p.atEffectEnd() {
+		// 4. action written as a transition's effect: no body of its own, and
+		// the transition owns the ';' (`do action alarm : Alarm;`).
+		hasBody = false
+	} else if p.accept2(lexer.Semicolon) {
+		hasBody = false
+	} else if p.at(lexer.LBrace) {
+		// Braced body - use mixed parser (handles declarations + behavioral)
+		_, ok := p.expect(lexer.LBrace, "expected '{'")
+		if ok {
+			members = p.parseActionBodyMixed()
+			hasBody = true
+		}
+	} else if p.isBehavioralKeyword() {
+		// Inline behavioral body without braces: action name\n assign ...;
+		// The body is a single statement plus any 'then'-chained continuations;
+		// a following statement that is not chained belongs to the enclosing body.
+		// EXCEPT: a 'then' chaining to a declaration is namespace-level
+		// succession, not behavioral succession - stop parsing body
+		//
+		// An unbraced body written as a transition's effect ends where the
+		// transition does, so the transition owns its statement's ';'.
+		inEffect := p.atTransitionEffectStatement(start)
+		savedEffectStmtStart := p.effectStmtStart
+		for !p.atEOF() && !p.atNamespaceSuccession() {
+			p.memberStart()
+			if inEffect {
+				p.effectStmtStart = p.peek().Span.Offset
+			}
+			member := p.parseActionMember()
+			p.markAttached(member)
+			members = append(members, member)
+			// Only an inline statement continues the body; a succession names
+			// members of the enclosing body.
+			if !p.atKeyword("then") || !startsInlineSuccessionStatement(p.peekN(1)) {
+				break
+			}
+		}
+		p.effectStmtStart = savedEffectStmtStart
+		hasBody = true
+		u.IsActionNode = true
+	} else {
+		p.expectBodyOrEnd("action declaration")
+	}
+	return members, hasBody
+}
+
+// parseBoolUsageBody reads a bool usage's body, which is a calc body when it
+// opens with `in` or `return` and a single constraint expression otherwise.
+func (p *Parser) parseBoolUsageBody() (members []ast.Node, hasBody bool) {
+	// Bool usage bodies: can be calc-style (with return) OR constraint-style (single expression)
+	// Lookahead: if body starts with 'in' or 'return' → calcBody, otherwise → constraint-style expression
+	if p.accept2(lexer.Semicolon) {
+		hasBody = false
+	} else if p.expectBodyOrEnd("declaration") {
+		// Peek at first token in body
+		firstTok := p.peek()
+		if firstTok.Kind == lexer.Keyword && (firstTok.KeywordID == "in" || firstTok.KeywordID == "return") {
+			// Structured calc body with parameters/return
+			members = p.parseCalcBody()
+		} else {
+			// Single expression body (constraint-style)
+			members = p.parseConstraintBody()
+		}
+		hasBody = true
+	}
+	return members, hasBody
+}
+
+// parseConstraintUsageBody reads a constraint or predicate usage's body: a calc
+// body when `in` or `return` follows the brace (past any `doc`), else expressions.
+func (p *Parser) parseConstraintUsageBody() (members []ast.Node, hasBody bool) {
+	// Constraint bodies: { assert/assume expr; ... }
+	// Bool and predicate usages also use constraint-style bodies with expressions
+	// Special case: if body starts with 'in' or 'return' keyword, parse as calc body (structured parameters)
+	if p.accept2(lexer.Semicolon) {
+		hasBody = false
+	} else if p.at(lexer.LBrace) {
+		// Check if this is a typed predicate with input/return parameters
+		// Peek ahead past the '{' and any 'doc' keywords to see if body has 'in' or 'return'
+		hasCalcBody := false
+		for i := 1; i < 10; i++ { // Look ahead up to 10 tokens
+			tok := p.peekN(i)
+			if tok.KeywordID == "doc" {
+				continue // Skip doc keywords
+			}
+			if tok.KeywordID == "in" || tok.KeywordID == "return" {
+				hasCalcBody = true
+			}
+			break // Stop at first non-doc keyword
+		}
+
+		p.advance() // {
+		if hasCalcBody {
+			// Parse as calc body with structured parameters
+			members = p.parseConstraintCalcBody()
+		} else {
+			members = p.parseConstraintBody()
+		}
+		hasBody = true
+	} else {
+		p.expectBodyOrEnd("declaration")
+	}
+	return members, hasBody
+}
+
+// parseStateUsageBody reads a state usage's body; `parallel` marks the substates
+// orthogonal, and only a body may follow it (SysML.xtext StateUsageBody).
+func (p *Parser) parseStateUsageBody(u *ast.Usage) (members []ast.Node, hasBody bool) {
+	// State usage bodies: always use parseStateBody (it handles both state-specific and generic members)
+	// `parallel` marks the substates orthogonal, and only a body may follow it
+	// (SysML.xtext StateUsageBody).
+	if p.atKeyword("parallel") {
+		u.IsParallel = true
+		p.advance()
+		if _, ok := p.expect(lexer.LBrace, "expected '{' after 'parallel'"); ok {
+			members = p.parseStateBody()
+			hasBody = true
+		}
+		return members, hasBody
+	}
+	if p.accept2(lexer.Semicolon) {
+		hasBody = false
+	} else if p.expectBodyOrEnd("declaration") {
+		members = p.parseStateBody()
+		hasBody = true
+	}
+	return members, hasBody
 }
 
 // parseSuccessionAsUsage parses a succession stated without the `succession`
