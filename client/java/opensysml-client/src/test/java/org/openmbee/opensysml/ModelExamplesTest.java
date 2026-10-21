@@ -75,7 +75,7 @@ class ModelExamplesTest {
           assert constraint notOverfull { level <= 1.0 }
         }
         requirement def Safe { subject t : Tank; require constraint { t.level < 1.0 } }
-        calc def Total { in a : ScalarValues::Real; in b : ScalarValues::Real; return : ScalarValues::Real = a + b; }
+        calc def Total { in a : ScalarValues::Real; in b : ScalarValues::Real; return : ScalarValues::Real[1] = a + b; }
         action def Fill { in amount : ScalarValues::Real; }
         state def Operating { state idle; state running; transition idle then running; }
         part tank : Tank { attribute :>> level = 0.9; }

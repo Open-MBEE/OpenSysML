@@ -449,14 +449,14 @@ func TestSetAndTensorCrossEveryValueSurface(t *testing.T) {
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc(corner): err = %v, error = %q", err, calc.GetError())
 	}
-	if got := calc.Result.GetQuantity(); got == nil || got.GetRealMagnitude() != 8 || got.GetUnit() != "Pa" {
+	if got := soleElement(t, "corner", calc.Result).GetQuantity(); got == nil || got.GetRealMagnitude() != 8 || got.GetUnit() != "Pa" {
 		t.Errorf("corner(cube) = %v, want 8.0 [Pa]", calc.Result)
 	}
 	calc, err = srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{ModelHash: modelHash, SymbolId: "W::rank", Arguments: []*pb.Value{cube}})
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc(rank): err = %v, error = %q", err, calc.GetError())
 	}
-	if calc.Result.GetIntValue() != 3 {
+	if soleElement(t, "rank", calc.Result).GetIntValue() != 3 {
 		t.Errorf("rank(cube) = %v, want 3", calc.Result)
 	}
 
@@ -468,7 +468,7 @@ func TestSetAndTensorCrossEveryValueSurface(t *testing.T) {
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc(sizeOf): err = %v, error = %q", err, calc.GetError())
 	}
-	if calc.Result.GetIntValue() != 3 {
+	if soleElement(t, "rank", calc.Result).GetIntValue() != 3 {
 		t.Errorf("sizeOf({3, 1, 2}) = %v, want 3", calc.Result)
 	}
 

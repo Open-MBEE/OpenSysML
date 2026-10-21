@@ -5,4 +5,4 @@ enter calc test::testCoercion
       eval feature intVal -> 10
       eval feature realVal -> 3.5
     eval operator + -> 13.5
-exit calc test::testCoercion -> 13.5
+exit calc test::testCoercion -> (13.5)

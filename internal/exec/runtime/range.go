@@ -116,6 +116,7 @@ func (ec *EvalContext) bigRangeSequence(lower, upper semantics.Value) (Value, er
 // `Integer[1]`, so a Real bound does not conform and is reported rather than
 // truncated to the integer it is nearest.
 func rangeBound(op, which string, val Value) (semantics.Value, error) {
+	val = soleElement(val)
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValInt {
 		return semantics.Value{}, fmt.Errorf(
 			"%w: %s requires Integer bounds (IntegerFunctions::'..' declares in %s: Integer[1]), got %s",

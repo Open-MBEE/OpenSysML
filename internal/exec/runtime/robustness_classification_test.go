@@ -142,7 +142,7 @@ func testTypeClassificationUndeterminedValueType(t *testing.T) {
 		t.Errorf("error = %v, want the type the model has no name for", err)
 	}
 	empty := resolveSymbol(t, pkg.Scope, "empty")
-	got, err := NewContext(typedModel(model, resolver), 1000).InvokeCalc(empty, nil, pkg.Scope)
+	got, err := invokeValue(NewContext(typedModel(model, resolver), 1000), empty, nil, pkg.Scope)
 	if err != nil {
 		t.Fatalf("null istype Integer: %v", err)
 	}

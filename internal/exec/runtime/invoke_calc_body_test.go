@@ -64,7 +64,7 @@ func TestInheritedCalcBodyRunsInDeclaringScope(t *testing.T) {
 	stated, statedScope := calcByName(t, root, "lib", "Scale")
 	inherited, inheritedScope := calcByName(t, root, "app", "Scale")
 
-	statedValue, err := ctx.InvokeCalc(stated, []Value{constInt(3)}, statedScope)
+	statedValue, err := invokeValue(ctx, stated, []Value{constInt(3)}, statedScope)
 	if err != nil {
 		t.Fatalf("lib::Scale: %v", err)
 	}
@@ -73,6 +73,7 @@ func TestInheritedCalcBodyRunsInDeclaringScope(t *testing.T) {
 	}
 
 	inheritedValue, err := ctx.InvokeCalc(inherited, []Value{constInt(3)}, inheritedScope)
+	inheritedValue = soleElement(inheritedValue)
 	if err != nil {
 		t.Fatalf("app::Scale: %v", err)
 	}
@@ -98,6 +99,7 @@ package test {
 	for _, name := range []string{"one", "two", "three"} {
 		sym, scope := calcByName(t, root, "test", name)
 		got, err := ctx.InvokeCalc(sym, []Value{constInt(1)}, scope)
+		got = soleElement(got)
 		if err != nil {
 			t.Fatalf("test::%s: %v", name, err)
 		}
@@ -140,7 +142,7 @@ func TestCalcStatementBodyFromEveryEntryPoint(t *testing.T) {
 	factorial, scope := calcByName(t, root, "test", "factorial")
 	twice, _ := calcByName(t, root, "test", "twice")
 
-	positional, err := ctx.InvokeCalc(factorial, []Value{constInt(6)}, scope)
+	positional, err := invokeValue(ctx, factorial, []Value{constInt(6)}, scope)
 	if err != nil {
 		t.Fatalf("InvokeCalc: %v", err)
 	}
@@ -149,6 +151,7 @@ func TestCalcStatementBodyFromEveryEntryPoint(t *testing.T) {
 	}
 
 	named, err := ctx.invokeCalcNamed(factorial, map[string]Value{"n": constInt(6)}, scope)
+	named = soleElement(named)
 	if err != nil {
 		t.Fatalf("invokeCalcNamed: %v", err)
 	}
@@ -157,6 +160,7 @@ func TestCalcStatementBodyFromEveryEntryPoint(t *testing.T) {
 	}
 
 	nested, err := ctx.InvokeCalc(twice, []Value{constInt(6)}, scope)
+	nested = soleElement(nested)
 	if err != nil {
 		t.Fatalf("nested invocation: %v", err)
 	}
@@ -220,7 +224,7 @@ package test {
 	root := idx.DocumentRoot("<test>")
 	total, scope := calcByName(t, root, "test", "total")
 
-	value, err := ctx.InvokeCalc(total, []Value{constSequence(1, 2, 3, 4)}, scope)
+	value, err := invokeValue(ctx, total, []Value{constSequence(1, 2, 3, 4)}, scope)
 	if err != nil {
 		t.Fatalf("InvokeCalc: %v", err)
 	}
@@ -288,7 +292,7 @@ func TestCalcResultIsAnsweredAfterTheSteps(t *testing.T) {
 	root := idx.DocumentRoot("<test>")
 
 	factorial, scope := calcByName(t, root, "test", "factorial")
-	value, err := ctx.InvokeCalc(factorial, []Value{constInt(6)}, scope)
+	value, err := invokeValue(ctx, factorial, []Value{constInt(6)}, scope)
 	if err != nil {
 		t.Fatalf("InvokeCalc: %v", err)
 	}
@@ -298,6 +302,7 @@ func TestCalcResultIsAnsweredAfterTheSteps(t *testing.T) {
 
 	twice, twiceScope := calcByName(t, root, "test", "twice")
 	doubled, err := ctx.InvokeCalc(twice, []Value{constInt(4)}, twiceScope)
+	doubled = soleElement(doubled)
 	if err != nil {
 		t.Fatalf("InvokeCalc: %v", err)
 	}
@@ -327,7 +332,7 @@ func TestCalcBodySuccessionIsNotAStep(t *testing.T) {
 	root := idx.DocumentRoot("<test>")
 
 	sequenced, scope := calcByName(t, root, "test", "sequenced")
-	value, err := ctx.InvokeCalc(sequenced, []Value{constInt(3)}, scope)
+	value, err := invokeValue(ctx, sequenced, []Value{constInt(3)}, scope)
 	if err != nil {
 		t.Fatalf("InvokeCalc: %v", err)
 	}

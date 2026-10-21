@@ -7,8 +7,8 @@ exit calc test::t
   eval feature x -> 5
   eval feature factor -> 3
 eval operator * -> 15
-output test::t.scaled = 15
-  eval feature scaled -> 15
-  eval feature scaled -> 15
+output test::t.scaled = (15)
+  eval feature scaled -> (15)
+  eval feature scaled -> (15)
 eval operator + -> 30
-output test::t.doubled = 30
+output test::t.doubled = (30)

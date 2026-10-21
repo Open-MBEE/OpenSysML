@@ -5,5 +5,5 @@
     {"type": "Integer", "value": 17},
     {"type": "Integer", "value": -5}
   ],
-  "result": {"type": "Integer", "value": 9007199254740987}
+  "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 9007199254740987}]}
 }
