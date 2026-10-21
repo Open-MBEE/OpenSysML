@@ -344,12 +344,12 @@ func (r *Resolver) depend(from *frame, doc string) {
 	back[from.doc] = true
 }
 
-// captureDep notes, for the captures open, that the computation depends on doc.
+// captureDep notes, for the capture open, that the computation depends on doc.
 func (r *Resolver) captureDep(doc string) {
 	if doc == "" {
 		return
 	}
-	for _, c := range r.captures {
+	if c := r.topCapture(); c != nil {
 		if n := len(c.deps); n == 0 || c.deps[n-1] != doc {
 			c.deps = append(c.deps, doc)
 		}
@@ -368,7 +368,7 @@ func (r *Resolver) ReadName(fqn string) {
 		}
 		f.names[fqn] = true
 	}
-	for _, c := range r.captures {
+	if c := r.topCapture(); c != nil {
 		c.names = append(c.names, fqn)
 	}
 }
@@ -383,7 +383,7 @@ func (r *Resolver) ReadNamespace(fqn string) {
 		}
 		f.namespaces[fqn] = true
 	}
-	for _, c := range r.captures {
+	if c := r.topCapture(); c != nil {
 		c.namespaces = append(c.namespaces, fqn)
 	}
 }
@@ -398,7 +398,7 @@ func (r *Resolver) ReadDocument(name string) {
 		}
 		f.docs[name] = true
 	}
-	for _, c := range r.captures {
+	if c := r.topCapture(); c != nil {
 		c.docs = append(c.docs, name)
 	}
 }
@@ -410,7 +410,7 @@ func (r *Resolver) ReadAllNames() {
 	if f := r.cur; f != nil {
 		f.all = true
 	}
-	for _, c := range r.captures {
+	if c := r.topCapture(); c != nil {
 		c.all = true
 	}
 }
@@ -425,7 +425,7 @@ func (r *Resolver) ReadSpellings() {
 	if f := r.cur; f != nil {
 		f.spellings = true
 	}
-	for _, c := range r.captures {
+	if c := r.topCapture(); c != nil {
 		c.spellings = true
 	}
 }
@@ -442,7 +442,7 @@ func (r *Resolver) ReadSegment(name string) {
 		}
 		f.segments[name] = true
 	}
-	for _, c := range r.captures {
+	if c := r.topCapture(); c != nil {
 		c.segments = append(c.segments, name)
 	}
 }
