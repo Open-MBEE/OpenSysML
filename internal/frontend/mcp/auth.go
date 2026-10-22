@@ -18,7 +18,7 @@ const ProtectedResourceMetadataPath = "/.well-known/oauth-protected-resource" + 
 
 // TokenEnv is the environment variable a bearer token is read from when no
 // flag names one.
-const TokenEnv = "OPENSYSML_MCP_TOKEN"
+const TokenEnv = "OPENSYSML_MCP_TOKEN" // #nosec G101 -- a variable name, not a credential
 
 // BearerToken is the one access token the HTTP transport accepts: the server
 // is an OAuth 2.1 resource server (RFC 6750) whose token is issued out of band
