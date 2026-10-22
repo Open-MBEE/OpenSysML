@@ -1,0 +1,10 @@
+{
+  "type": "satisfy",
+  "evaluate": "test::analysisContext",
+  "assertions": {
+    "satisfy documented by lander": true,
+    "not satisfy documented by lander": false,
+    "satisfy assumed by lander": true,
+    "not satisfy assumed by lander": false
+  }
+}

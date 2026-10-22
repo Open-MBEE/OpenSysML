@@ -631,6 +631,9 @@ func pinnedQuery(q *Query, pins []pin, deny bool) *Query {
 		out.Assertions = append(out.Assertions, pinAssertion(p))
 	}
 	switch {
+	case len(checked) == 0 && deny:
+		// A query checking nothing claims true (a requirement over no constraint), whose denial is false.
+		out.Assertions = append(out.Assertions, Assertion{Term: BoolTerm(false), From: Provenance{Role: RoleDenied, Condition: "not (true)"}})
 	case len(checked) == 0:
 	case deny:
 		terms := make([]*Term, 0, len(checked))
@@ -741,7 +744,7 @@ func (g *diffGate) check(t *testing.T, ctx *runtime.Context, el diffElement) dif
 		case errors.As(err, &refusal):
 			g.summary.refused(refusal.Construct + ": " + refusal.Reason)
 			return diffNotTranslated
-		case errors.Is(err, ErrNotTranslatable), errors.Is(err, ErrNoConditions):
+		case errors.Is(err, ErrNotTranslatable), errors.Is(err, ErrNoConditions), errors.Is(err, runtime.ErrNoRequirement):
 			g.summary.refused(err.Error())
 			return diffNotTranslated
 		}

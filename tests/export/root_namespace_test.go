@@ -99,10 +99,13 @@ func TestAPIJSONRootNamespaceShape(t *testing.T) {
 			if rootString(t, first["@type"]) != "Namespace" || rootString(t, first["@id"]) != form.ns {
 				t.Fatalf("the document does not open with the root Namespace %s:\n%s", form.ns, out)
 			}
-			for _, key := range []string{"owner", "owningRelationship", "declaredName", "declaredShortName"} {
-				if _, ok := first[key]; ok {
-					t.Errorf("the root Namespace states %s", key)
+			for _, key := range []string{"owningRelationship", "declaredName", "declaredShortName"} {
+				if value, ok := first[key]; !ok || string(value) != "null" {
+					t.Errorf("the root Namespace %s = %s, want present null", key, value)
 				}
+			}
+			if _, ok := first["owner"]; ok {
+				t.Errorf("the root Namespace states owner")
 			}
 			if got := rootRefs(t, first["ownedRelationship"]); len(got) != 1 || got[0] != form.om {
 				t.Errorf("root ownedRelationship = %v, want [%s]", got, form.om)

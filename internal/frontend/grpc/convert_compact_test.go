@@ -185,6 +185,35 @@ func TestConvertCompactOmitsDerived(t *testing.T) {
 			t.Errorf("omit_derived changes %s: %d against %d", key, leanKeys[key], allKeys[key])
 		}
 	}
+	ownershipProperties := []string{"owningMembership", "membershipOwningNamespace", "ownedMemberElement"}
+	for _, key := range ownershipProperties {
+		if allKeys[key] == 0 || leanKeys[key] != allKeys[key] {
+			t.Errorf("omit_derived writes %s %d times, want the standard count %d", key, leanKeys[key], allKeys[key])
+		}
+	}
+	for _, element := range lean.expand(t) {
+		for _, key := range ownershipProperties {
+			value, ok := element[key]
+			if !ok {
+				continue
+			}
+			checkReference := func(value any) {
+				reference, ok := value.(map[string]any)
+				id, hasID := reference["@id"].(string)
+				if !ok || len(reference) != 1 || !hasID || id == "" {
+					t.Errorf("%s = %v, want a real @id reference", key, value)
+				}
+			}
+			switch values := value.(type) {
+			case []any:
+				for _, member := range values {
+					checkReference(member)
+				}
+			default:
+				checkReference(values)
+			}
+		}
+	}
 	if len(lean.Elements) != len(all.Elements) || !slices.Equal(lean.IDs[:lean.ElementCount], all.IDs[:all.ElementCount]) {
 		t.Error("omit_derived changes which elements are written")
 	}
