@@ -275,3 +275,61 @@ func TestCollectionElementsHandlesSetAndSequence(t *testing.T) {
 		t.Errorf("non-collection: got %v, %v, want nil", got, err)
 	}
 }
+
+// TestConvertSymbolVariability verifies a variation point reports `variation`
+// and `abstract`, a variant `variant`, an enumeration definition and its values
+// likewise, and an ordinary part none of them.
+func TestConvertSymbolVariability(t *testing.T) {
+	content := `package PLE {
+		part def Engine;
+		part fourCyl : Engine;
+		variation part def EngineChoices :> Engine {
+			variant fourCyl;
+		}
+		part def Transmission;
+		part manual : Transmission;
+		part family {
+			variation part transmission : Transmission {
+				variant manual;
+			}
+		}
+		enum def Color { red; blue; }
+		attribute paint : Color;
+	}`
+	sf := source.New("test.sysml", []byte(content))
+	p := parser.New(sf)
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse: %v", p.Diagnostics)
+	}
+	idx := symbols.NewIndex()
+	idx.AddDocument("test.sysml", root)
+	sc := NewSymbolContext(idx)
+
+	cases := []struct {
+		fqn                          string
+		variation, variant, abstract bool
+	}{
+		{"PLE::EngineChoices", true, false, true},
+		{"PLE::EngineChoices::fourCyl", false, true, false},
+		{"PLE::family::transmission", true, false, true},
+		{"PLE::family::transmission::manual", false, true, false},
+		{"PLE::Color", true, false, true},
+		{"PLE::Color::red", false, true, false},
+		{"PLE::fourCyl", false, false, false},
+		{"PLE::paint", false, false, false},
+	}
+	for _, tc := range cases {
+		syms := idx.LookupQualified(tc.fqn)
+		if len(syms) != 1 {
+			t.Fatalf("%s: found %d symbols", tc.fqn, len(syms))
+		}
+		meta := SymbolToProtoIn(syms[0], sc).Metadata
+		for key, want := range map[string]bool{"variation": tc.variation, "variant": tc.variant, "abstract": tc.abstract} {
+			got, present := meta[key]
+			if present != want || (present && got != "true") {
+				t.Errorf("%s metadata[%s] = %q (present %v), want present %v", tc.fqn, key, got, present, want)
+			}
+		}
+	}
+}
