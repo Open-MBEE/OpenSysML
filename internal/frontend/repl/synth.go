@@ -257,17 +257,13 @@ func unfixedLines(unfixed []solve.Unfixed) []string {
 }
 
 // uncoveredLines names the nested parts whose own assertions the query does not
-// state, so a selection it permits is not taken for one validation accepts.
+// state, and why, so a selection it permits is not taken for one validation accepts.
 func uncoveredLines(q *solve.Query) []string {
-	if len(q.Uncovered) == 0 {
-		return nil
+	lines := make([]string, 0, len(q.Uncovered))
+	for _, r := range q.Uncovered {
+		lines = append(lines, fmt.Sprintf("  Not in the query: what %s asserts about its own objects, as %s; %%instantiate and %%validate an object to check it", r.Path, r.Reason))
 	}
-	names := make([]string, 0, len(q.Uncovered))
-	for _, sym := range q.Uncovered {
-		names = append(names, sym.Name)
-	}
-	return []string{fmt.Sprintf("  Not in the query: what %s %s about %s own objects; %%instantiate and %%validate an object to check it",
-		strings.Join(names, ", "), plural(len(names), "asserts", "assert"), plural(len(names), "its", "their"))}
+	return lines
 }
 
 // unreadLines says which fixed values no condition reads, so a value asked for
@@ -430,6 +426,7 @@ func configureReport(name string, q *solve.Query, configured analysis.Evaluation
 // offer. A name that matches none, or matches several, is refused rather than
 // guessed at.
 func chooseVariants(q *solve.Query, variations []*solve.Var, request configureRequest) error {
+	chosen := make(map[*solve.Var]string, len(request.order))
 	for _, written := range request.order {
 		v, err := matchVariation(variations, written)
 		if err != nil {
@@ -442,8 +439,9 @@ func chooseVariants(q *solve.Query, variations []*solve.Var, request configureRe
 		if err := q.FixValue(v, variant, solve.PinChosen); err != nil {
 			return err
 		}
+		chosen[v] = variant
 	}
-	return nil
+	return q.ChooseLive(chosen)
 }
 
 // matchVariation is the variation point a written name denotes: the variable whose
@@ -662,6 +660,9 @@ func selectionOf(model []solve.Assignment, variations []*solve.Var) []solve.Assi
 func selectionLines(selection []solve.Assignment) []string {
 	lines := make([]string, 0, len(selection))
 	for _, a := range selection {
+		if a.Dead {
+			continue
+		}
 		lines = append(lines, fmt.Sprintf("  %s = %s", notationName(a.Var.Name), notationName(a.Value)))
 	}
 	return lines
