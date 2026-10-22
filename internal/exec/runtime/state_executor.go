@@ -710,6 +710,38 @@ func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error
 	return fv.HeldValue(), nil
 }
 
+// mirrorOccurrenceWrite carries a write to one of the occurrence's declared
+// features, made by any performance holding the occurrence, into the machine's
+// data, which mirrors the occurrence; it reports whether fv was such a feature.
+func (e *StateExecutor) mirrorOccurrenceWrite(fv *FeatureValue) bool {
+	if e.occurrence == nil || !fv.Materialized {
+		return false
+	}
+	for _, attr := range e.graph.Attributes {
+		if attr.Shadowed || e.occurrence.FeatureValues[attr.Name] != fv {
+			continue
+		}
+		value := fv.HeldValue()
+		if held, ok := e.stateData[attr.Name]; ok && heldSame(held, value) && !e.endsLiveBinding(attr.Name, fv) {
+			return false
+		}
+		e.ctx.writeBodyValue(e.stateCells, e.stateData, attr.Name, value)
+		return true
+	}
+	return false
+}
+
+// endsLiveBinding reports whether a write to the occurrence's fv is an assignment
+// over a machine attribute whose cell still derives its binding, which the
+// assignment ends even when it carries the value the binding derived.
+func (e *StateExecutor) endsLiveBinding(name string, fv *FeatureValue) bool {
+	if !fv.Written {
+		return false
+	}
+	cell := e.stateCells.existingCell(name)
+	return cell != nil && cell.binding != nil && !cell.fv.Written
+}
+
 // mirrorBindingOccurrence exposes a tracked state feature through its occurrence.
 func (e *StateExecutor) mirrorBindingOccurrence(name string, value Value, cell *bodyCell) (Value, error) {
 	if e.occurrence == nil || !e.declaresAttribute(name) {
@@ -6505,7 +6537,27 @@ func (e *StateExecutor) HasDueEvent() bool {
 // an event is queued, a signal this machine accepts is in flight, or a state's
 // do behavior has actions left to run.
 func (e *StateExecutor) HasPendingWork() bool {
-	return e.completionDue || len(e.held) > 0 || e.eventQueue.Len() > 0 || len(e.doActions) > 0 || e.hasPendingSignal()
+	return e.completionDue || len(e.held) > 0 || e.eventQueue.Len() > 0 || len(e.doActions) > 0 ||
+		e.hasPendingSignal() || e.hasPendingChange()
+}
+
+// hasPendingChange reports whether a change condition out of the active
+// configuration rose on a write since the machine last polled, which its next
+// run takes (see observeChangedValue and observeChangeConditions).
+func (e *StateExecutor) hasPendingChange() bool {
+	if len(e.changePending) == 0 || !e.driven.settled() {
+		return false // mid-call, the machine's own run polls when its step ends
+	}
+	for _, leaf := range e.activeLeaves() {
+		for _, source := range e.getParentChain(leaf) {
+			for _, trans := range e.graph.Transitions[source] {
+				if e.changePending[trans] {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // RunDoRound advances every active state's do behavior by one action, without

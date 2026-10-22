@@ -1,0 +1,40 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Monitors" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="item" abstract=false variation=false name="Abort"))
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Guard"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="missDistance" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (LiteralReal value="20000.0")))
+          (SubstateMember name="cruise")
+          (SubstateMember name="aborting")
+          (TransitionMember source="cruise" target="aborting"
+            (ChangeEvent
+              (OperatorExpr operator="<"
+                (FeatureReference name="missDistance")
+                (LiteralReal value="10000.0"))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Flight"
+          (Membership visibility="default"
+            (Usage kind="state" name="g" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="exhibit state"
+              (Relationship kind="typing" target=Guard
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="action" name="nav" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+              (InitialNode name="start" successor="")
+              (Membership visibility="default"
+                (Usage kind="action" name="degrade" ref=false direction="none" composite=false derived=false ordered=false nonunique=false node=true
+                  (*ast.AssignmentActionNode)))
+              (SuccessionEdge source="start" target="degrade")
+              (Membership visibility="default"
+                (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false node=true
+                  (SendStatement via=false
+                    (ConstructorExpr type="Abort"))))
+              (SuccessionEdge source="degrade" target="a")
+              (FinalNode)
+              (SuccessionEdge source="a" target="@done"))))))))
