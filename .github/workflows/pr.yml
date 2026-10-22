@@ -1500,12 +1500,19 @@ jobs:
 
       # Octave is 195 MB of archives, which a trickling mirror has held for over ten
       # minutes; a run that got them keeps them for the next one on the same image.
+      - name: Note the runner image
+        id: image
+        run: echo "version=$ImageVersion" >> "$GITHUB_OUTPUT"
+
       - name: Restore the archives Octave was installed from
-        uses: actions/cache@v4
+        id: apt-archives
+        uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/apt-archives
-          key: apt-octave-${{ runner.os }}-${{ env.ImageVersion }}
-          restore-keys: apt-octave-${{ runner.os }}-
+          key: apt-octave-${{ runner.os }}-${{ steps.image.outputs.version }}-
+          restore-keys: |
+            apt-octave-${{ runner.os }}-${{ steps.image.outputs.version }}-
+            apt-octave-${{ runner.os }}-
 
       - name: Install GNU Octave
         # 31 s to 7 min on recent green runs, depending on the mirror.
@@ -1514,6 +1521,18 @@ jobs:
           CI_APT_DEADLINE_SECONDS: 780
           CI_APT_ARCHIVES: ${{ runner.temp }}/apt-archives
         run: scripts/ci-apt-install.sh octave
+
+      # The key names the archive set, so a changed set is saved and an unchanged one is not.
+      - name: Name the archive set
+        id: archives
+        run: echo "digest=$(ls "$RUNNER_TEMP/apt-archives" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the archives for the next run
+        if: steps.apt-archives.outputs.cache-matched-key != format('apt-octave-{0}-{1}-{2}', runner.os, steps.image.outputs.version, steps.archives.outputs.digest)
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: apt-octave-${{ runner.os }}-${{ steps.image.outputs.version }}-${{ steps.archives.outputs.digest }}
 
       - name: Start sysml-grpc
         run: |
