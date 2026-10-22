@@ -36,7 +36,7 @@ func TestVariantKindInconsistentWithVariation(t *testing.T) {
 	for _, want := range []string{
 		"An action must be typed by action definitions. variant action `a1` specializes its owning variation part def `PC`.",
 		"An attribute must be typed by attribute definitions. variant attribute `x` specializes its owning variation part `pv`, which is typed by part def `P`.",
-		"An action must be typed by action definitions. variant action `a4` specializes its owning variation part `pu`, which is typed by part def `Part`.",
+		"An action must be typed by action definitions. variant action `a4` specializes its owning variation part `pu`, which is typed by abstract part def `Part`.",
 		"An occurrence, item or part must be typed by occurrence definitions. variant part `p5` specializes its owning variation attribute def `VC`.",
 	} {
 		found := false

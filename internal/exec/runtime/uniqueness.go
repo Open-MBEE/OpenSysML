@@ -13,6 +13,10 @@ func (ctx *Context) uniquenessRefusal(unique, holdsSet bool, value *Value) strin
 		return ""
 	}
 	elements := elementsOf(*value)
+	if len(elements) < 2 {
+		// One value repeats nothing; a held result's one-element shape is checked here.
+		return ""
+	}
 	seen := NewSetIn(ctx)
 	for i, element := range elements {
 		if !seen.Contains(element) {

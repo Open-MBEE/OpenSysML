@@ -94,7 +94,7 @@ const (
 	// SourceDeclared is the id an ElementId annotation declares.
 	SourceDeclared
 	// SourceExtension is the UUID this implementation fixes for a named element
-	// of its own extension libraries, derived as a normative id is under their URL.
+	// of its own extension libraries, derived as a normative id under their URL.
 	SourceExtension
 )
 

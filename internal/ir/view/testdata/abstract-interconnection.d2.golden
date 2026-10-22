@@ -1,0 +1,13 @@
+# AbstractViews::familyLinks — interconnection rendering (render asInterconnectionDiagram)
+classes: {
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  connection: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 3 } }
+}
+n0: "«abstract part»\nvehicleFamily" {
+  class: usage
+  n1: "«abstract port»\nfuel" { class: usage }
+  n2: "«abstract part»\nengine" { class: usage }
+  n3: "«part»\nchassis" { class: usage }
+  n4: "«attribute»\nmass" { class: usage }
+}
+n0.n2 -- n0.n3: { class: connection }

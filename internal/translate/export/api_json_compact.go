@@ -15,6 +15,12 @@ import (
 // CompactAPIJSONFormat names the document WriteAPIJSONCompact writes.
 const CompactAPIJSONFormat = "api-json-compact/1"
 
+var compactOwnershipSurvivors = []string{
+	"owningMembership",
+	"membershipOwningNamespace",
+	"ownedMemberElement",
+}
+
 // CompactAPIJSONOptions chooses what the compact form leaves out.
 type CompactAPIJSONOptions struct {
 	// OmitDerived leaves out every property the metamodel derives, except the
@@ -24,6 +30,8 @@ type CompactAPIJSONOptions struct {
 	OmitDerived bool
 	// KeepDerived names the derived properties still written when OmitDerived is set.
 	KeepDerived []string
+	Omitted     func(APIJSONOmission)
+	Diagnostic  func(string)
 }
 
 // WriteAPIJSONCompact writes the elements WriteAPIJSON writes in a form built
@@ -40,17 +48,28 @@ type CompactAPIJSONOptions struct {
 // Element i has the id ids[i], so it carries no "@id". Under a reference key a
 // reference is the integer index into ids (an array of them for a collection);
 // anywhere else it is {"@id": <index>}. ids beyond elementCount are elements
-// the conversion references but does not write. Everything else, scalars and
-// {"@ref": name} included, is spelled as in the element form. When every
+// the conversion references but does not write. Unresolved object-property
+// names are null or omitted, as in the element form. When every
 // element's "elementId" is its "@id", as it is unless a document declared
 // another, "elementId" is left out and "elementIdsAreIds" says so: a reader
 // restores it from the table.
 func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, error) {
-	elements, err := apiJSONElements(graph)
+	elements, err := apiJSONElementsWithOptions(graph, APIJSONOptions{
+		Omitted: opts.Omitted, Diagnostic: opts.Diagnostic,
+	})
 	if err != nil {
 		return nil, err
 	}
-	keep := make(map[string]bool, len(opts.KeepDerived))
+	keepSize := len(opts.KeepDerived)
+	if opts.OmitDerived {
+		keepSize += len(compactOwnershipSurvivors)
+	}
+	keep := make(map[string]bool, keepSize)
+	if opts.OmitDerived {
+		for _, name := range compactOwnershipSurvivors {
+			keep[name] = true
+		}
+	}
 	for _, name := range opts.KeepDerived {
 		keep[name] = true
 	}
@@ -105,8 +124,27 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 		members := make(apiJSONObject, 0, len(element))
 		members = append(members, element[0])
 		for _, member := range element[2:] {
+			if member.key == "qualifiedName" && member.value == nil {
+				continue
+			}
 			if elementIDsAreIDs && member.key == "elementId" {
 				continue
+			}
+			if member.key == "sysx:mappingValues" && opts.OmitDerived && metaclass != "" {
+				if values, ok := member.value.(apiJSONObject); ok {
+					filtered := make(apiJSONObject, 0, len(values))
+					for _, value := range values {
+						if property, ok := ontology.PropertyOf(metaclass, value.key); ok &&
+							property.Derived && !keep[value.key] {
+							continue
+						}
+						filtered = append(filtered, value)
+					}
+					if len(filtered) == 0 {
+						continue
+					}
+					member.value = filtered
+				}
 			}
 			if opts.OmitDerived && metaclass != "" && !keep[member.key] {
 				if property, ok := ontology.PropertyOf(metaclass, member.key); ok && property.Derived {
@@ -118,7 +156,9 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 				switch v := value.(type) {
 				case apiJSONReference:
 					handle(v.ID)
-					references[member.key] = true
+					if member.key != "sysx:mappingValues" {
+						references[member.key] = true
+					}
 				case json.Number:
 					numbers[member.key] = true
 				}
@@ -187,13 +227,22 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 
 // walkCompactValue visits a member's value, or each member of its collection.
 func walkCompactValue(value any, visit func(any)) {
-	if values, ok := value.([]any); ok {
+	switch values := value.(type) {
+	case []any:
 		for _, v := range values {
-			visit(v)
+			walkCompactValue(v, visit)
 		}
-		return
+	case map[string]any:
+		for _, v := range values {
+			walkCompactValue(v, visit)
+		}
+	case apiJSONObject:
+		for _, member := range values {
+			walkCompactValue(member.value, visit)
+		}
+	default:
+		visit(value)
 	}
-	visit(value)
 }
 
 // writeCompactValue spells a value in the compact form: a reference by its
@@ -218,6 +267,43 @@ func writeCompactValue(w apiJSONWriter, value any, bare bool, handles map[string
 			}
 		}
 		w.buf.WriteByte(']')
+		return nil
+	case map[string]any:
+		keys := make([]string, 0, len(v))
+		for key := range v {
+			keys = append(keys, key)
+		}
+		slices.Sort(keys)
+		w.buf.WriteByte('{')
+		for i, key := range keys {
+			if i > 0 {
+				w.buf.WriteByte(',')
+			}
+			if err := w.value(key); err != nil {
+				return err
+			}
+			w.buf.WriteByte(':')
+			if err := writeCompactValue(w, v[key], false, handles); err != nil {
+				return err
+			}
+		}
+		w.buf.WriteByte('}')
+		return nil
+	case apiJSONObject:
+		w.buf.WriteByte('{')
+		for i, member := range v {
+			if i > 0 {
+				w.buf.WriteByte(',')
+			}
+			if err := w.value(member.key); err != nil {
+				return err
+			}
+			w.buf.WriteByte(':')
+			if err := writeCompactValue(w, member.value, false, handles); err != nil {
+				return err
+			}
+		}
+		w.buf.WriteByte('}')
 		return nil
 	}
 	return w.value(value)

@@ -1326,6 +1326,10 @@ type CheckResult struct {
 	Subject     *Instance
 	SubjectRoot *Instance
 	SubjectPath []string
+
+	// Vacuous says why a holding requirement check judged no condition: it
+	// states no required constraint. Empty for a verdict about conditions.
+	Vacuous string
 }
 
 // checkResultOf reports a verdict about the object a check resolved to.
@@ -1695,18 +1699,23 @@ func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 
 	// Second pass: evaluate the assumed and required conditions.
 	conds := ctx.conditionsOf(sym, members)
-	holds, err := ctx.evaluateConditions(conditionCheck{
+	check := conditionCheck{
 		sym:      sym,
 		kind:     "requirement",
 		what:     "require condition",
 		self:     ctx.conditionSelf(sym, subject.instance),
 		bindings: mapFrame(reqBindings),
 		negated:  NegatedDecl(sym),
-	}, conds)
+	}
+	holds, err := ctx.evaluateConditions(check, conds)
 	if err != nil {
 		err = unboundSubjectError(err, "requirement", sym.Name, ctx.unboundSubjectNames(sym, members, subject.instance))
 	}
-	return ctx.checkResultOf(holds, subject), err
+	result := ctx.checkResultOf(holds, subject)
+	if err == nil && holds {
+		result.Vacuous = vacuity(check, conds)
+	}
+	return result, err
 }
 
 // unboundSubjectNames are the subjects the members declare that nothing supplies

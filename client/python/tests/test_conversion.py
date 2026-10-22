@@ -416,7 +416,8 @@ class TestRoundTripAgainstRealService:
             ]
             assert len(defs) == 2
             assert defs[0]["@id"] != defs[1]["@id"]
-            assert {defs[0]["qualifiedName"], defs[1]["qualifiedName"]} == {"P::A", "P::@2"}
+            assert defs[0]["qualifiedName"] == "P::A"
+            assert "qualifiedName" not in defs[1]
 
     def test_positional_looking_name_and_position_export_separately(self, real_service):
         """A name spelling a position does not share its element identity."""
@@ -436,12 +437,16 @@ class TestRoundTripAgainstRealService:
             defs = [
                 el for el in elements
                 if el.get("@type") == "PartDefinition"
-                and el.get("qualifiedName") in {"P::A", "P::'@2'", "P::@2"}
+                and el.get("declaredName") in {"A", "@2"}
             ]
 
         assert len(defs) == 3
         assert len({el["@id"] for el in defs}) == 3
-        assert {el["qualifiedName"] for el in defs} == {"P::A", "P::'@2'", "P::@2"}
+        duplicates = [el for el in defs if el["declaredName"] == "A"]
+        positional_name = next(el for el in defs if el["declaredName"] == "@2")
+        assert duplicates[0]["qualifiedName"] == "P::A"
+        assert "qualifiedName" not in duplicates[1]
+        assert positional_name["qualifiedName"] == "P::'@2'"
 
     def test_unreadable_notation_fails_with_spans(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:
