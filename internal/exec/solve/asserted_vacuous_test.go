@@ -3,6 +3,8 @@ package solve
 import (
 	"errors"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // TestAssertedDeniedVacuousSatisfactionIsFalse: a part asserting `not satisfy` of a
@@ -21,6 +23,12 @@ func TestAssertedDeniedVacuousSatisfactionIsFalse(t *testing.T) {
 			part affirmed {
 				assert satisfy documented by lander;
 			}
+			part emptyConstraint {
+				assert not constraint empty;
+			}
+			part missing {
+				assert not satisfy nosuch by lander;
+			}
 		}
 	`)
 	denied := symbolNamed(t, idx, "test::denied")
@@ -34,5 +42,15 @@ func TestAssertedDeniedVacuousSatisfactionIsFalse(t *testing.T) {
 	affirmed := symbolNamed(t, idx, "test::affirmed")
 	if _, err := Asserted(ctx, affirmed, affirmed.OwnerScope); !errors.Is(err, ErrNoConditions) {
 		t.Fatalf("translate affirmed: %v, want ErrNoConditions", err)
+	}
+	// A negated constraint stating nothing has no claim to deny, and a satisfaction
+	// naming no requirement is refused, so neither becomes a contradiction.
+	empty := symbolNamed(t, idx, "test::emptyConstraint")
+	if _, err := Asserted(ctx, empty, empty.OwnerScope); !errors.Is(err, ErrNoConditions) {
+		t.Fatalf("translate emptyConstraint: %v, want ErrNoConditions", err)
+	}
+	missing := symbolNamed(t, idx, "test::missing")
+	if _, err := Asserted(ctx, missing, missing.OwnerScope); !errors.Is(err, runtime.ErrNoRequirement) {
+		t.Fatalf("translate missing: %v, want ErrNoRequirement", err)
 	}
 }

@@ -198,7 +198,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 		if err != nil {
 			return nil, err
 		}
-		if cond, states := assertedCondition(group, negated); states {
+		if cond, states := assertedCondition(group, negated, a.Kind != runtime.AssertionConstraint); states {
 			conds = append(conds, cond)
 			bound = append(bound, subjects)
 		}
@@ -244,9 +244,10 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 // assertedCondition is one assertion as a conjunct of the query, false for one
 // requiring nothing. A requirement's required conditions apply only where its
 // assumptions hold (SysML v2 §7.21.2), so an assertion stating both is the
-// implication A ⇒ R, written ¬(A ∧ ¬R); `assert not` denies it as a whole. One
-// requiring nothing claims true, so its denial is the denial of the empty conjunction.
-func assertedCondition(group []runtime.Condition, negated bool) (runtime.Condition, bool) {
+// implication A ⇒ R, written ¬(A ∧ ¬R); `assert not` denies it as a whole. A
+// requirement requiring nothing claims true, so its denial is the denial of the
+// empty conjunction; a constraint requiring nothing has no claim to deny.
+func assertedCondition(group []runtime.Condition, negated, requirement bool) (runtime.Condition, bool) {
 	var assumed, required []runtime.Condition
 	for _, cond := range group {
 		if cond.Required {
@@ -256,7 +257,7 @@ func assertedCondition(group []runtime.Condition, negated bool) (runtime.Conditi
 		}
 	}
 	if len(required) == 0 {
-		if negated {
+		if negated && requirement {
 			return runtime.Condition{Group: []runtime.Condition{}, Negated: true, Required: true}, true
 		}
 		return runtime.Condition{}, false
@@ -279,7 +280,10 @@ func assertedConditions(ctx *runtime.Context, a runtime.Asserted) ([]runtime.Con
 	if err != nil {
 		return nil, false, nil, err
 	}
-	conds := ctx.ConditionsOf(sa.Symbol, sa.Symbol.OwnerScope)
+	conds, err := satisfiedConditions(ctx, sa)
+	if err != nil {
+		return nil, false, nil, err
+	}
 	if len(conds) == 0 {
 		return nil, sa.Negated, nil, nil
 	}
