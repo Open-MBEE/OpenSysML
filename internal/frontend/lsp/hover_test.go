@@ -423,3 +423,34 @@ func TestHoverLibraryDeclarationStatesNormativeIdentity(t *testing.T) {
 		t.Errorf("hover = %+v, want the norm's id for ScalarValues::Real", res)
 	}
 }
+
+// TestHoverWritesTheAbstractKeyword pins hover's signature as the notation
+// writes it: `abstract part def`, `abstract part`, and `variation part def`
+// alone for a variation, which is abstract without the keyword (§7.6.7).
+func TestHoverWritesTheAbstractKeyword(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	name := uri.File("/tmp/abstract-hover.sysml").Filename()
+	src := "package P { abstract part def Vehicle; abstract part fleet : Vehicle; variation part def Models :> Vehicle; part car : Vehicle; }"
+	ws.Open(name, []byte(src), 1)
+	for marker, want := range map[string]string{
+		"Vehicle;": "abstract part def Vehicle",
+		"fleet":    "abstract part fleet",
+		"Models":   "variation part def Models",
+		"car":      "part car",
+	} {
+		pos := offsetToPosition([]byte(src), strings.Index(src, marker))
+		res, err := s.Hover(context.Background(), &protocol.HoverParams{
+			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
+				Position:     pos,
+			},
+		})
+		if err != nil || res == nil {
+			t.Fatalf("Hover(%s) = %v, %v", marker, res, err)
+		}
+		if !strings.Contains(res.Contents.Value, want) || strings.Contains(res.Contents.Value, "abstract variation") {
+			t.Errorf("hover at %s = %q, want %q", marker, res.Contents.Value, want)
+		}
+	}
+}

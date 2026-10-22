@@ -457,7 +457,7 @@ selections, the four-cylinder one listing no port or bore, and asking for
 
 ```text
 sysml> %configure VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily all
-✓ Part vehicleFamily permits 3 selections of variants, which are all of them (z3, 17ms)
+✓ Abstract part vehicleFamily permits 3 selections of variants, which are all of them (z3, 17ms)
   1.
     VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::engine = VehicleVariabilityModel::'150% Model'::PartsTree::EngineChoices::'4cylEngine'
     VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::transmission = VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::transmission::manualTransmission
@@ -524,7 +524,7 @@ variation part def EngineChoices
       attribute diameter
   part cylinder
     attribute diameter
-part vehicleFamily
+abstract part vehicleFamily
   part engine
     part cylinder
       attribute diameter
@@ -554,7 +554,7 @@ is the parts alone:
 sysml> %render 'Variation Views'::familyInterconnection
 'Variation Views'::familyInterconnection - interconnection rendering (render asInterconnectionDiagram)
 
-part vehicleFamily
+abstract part vehicleFamily
   part engine
     part cylinder
       attribute diameter
