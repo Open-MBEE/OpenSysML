@@ -131,6 +131,9 @@ type actionFrame struct {
 	// callee is the action a `Callee(...)` node performs, resolved or settled by its
 	// arguments' values as they were bound; nil for a node performing no such call.
 	callee *symbols.Symbol
+	// step is the usage a typed node performs as the action it is, its performance
+	// being a tool's or dynamics rather than its merged body's flow; nil otherwise.
+	step *symbols.Symbol
 	// performs is the flow of the action a typed or invoked node performed, whose
 	// subactions the node's performance adopted as its own. nil otherwise.
 	performs *lower.ActionGraph
@@ -454,14 +457,22 @@ func (e *performances) beginPerformance(
 		perf.scope = parent.scope
 	}
 	if sub, owns := e.subflowOf(flow, node); owns {
-		graph, err := unfoldSubflow(sub, node)
+		step, err := e.performedStep(flow, node)
 		if err != nil {
 			return nil, err
 		}
-		perf.graph = graph
-		perf.live = 1
-		perf.connections = joinConnections(parent.connections, graph.Connections)
-		perf.subactions = make(map[ast.Node]*actionFrame)
+		if step != nil {
+			perf.step = step
+		} else {
+			graph, err := unfoldSubflow(sub, node)
+			if err != nil {
+				return nil, err
+			}
+			perf.graph = graph
+			perf.live = 1
+			perf.connections = joinConnections(parent.connections, graph.Connections)
+			perf.subactions = make(map[ast.Node]*actionFrame)
+		}
 	}
 	pins, err := e.nodePins(flow, node)
 	if err != nil {
@@ -545,7 +556,7 @@ func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGr
 
 func (e *performances) checkMergedTypedInputs(perf *actionFrame) error {
 	usage, ok := perf.node.(*ast.Usage)
-	if !ok {
+	if !ok || perf.step != nil {
 		return nil
 	}
 	inv, merged := mergedTypedSubflowInvocation(perf.flow, usage)
@@ -2021,7 +2032,10 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 // beginInvocation starts the action a node names as a subperformance of perf,
 // its inputs bound from the node's pins, and returns it to be run to completion.
 func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) (*calleeFrame, error) {
-	sym := perf.callee
+	sym := perf.step
+	if sym == nil {
+		sym = perf.callee
+	}
 	if sym == nil {
 		var err error
 		if sym, err = resolveActionSymbol(e.ctx, nodeScope(perf.flow, perf.node), inv); err != nil {

@@ -1685,6 +1685,16 @@ func (e *ActionExecutor) hasFlow() bool {
 		e.dynamicsKind != lower.NotStateSpace)
 }
 
+// performedByFlow reports whether a performance of sym runs the flow its body
+// states, rather than the tool or state-space dynamics initialize dispatches to.
+func (ctx *Context) performedByFlow(sym *symbols.Symbol) (bool, error) {
+	_, tool, err := ctx.toolPerformance(sym, sym)
+	if err != nil || tool != nil {
+		return false, err
+	}
+	return ctx.stateSpaceKindOf(sym) == lower.NotStateSpace, nil
+}
+
 // completeRoot freezes the root bindings and ends its performance.
 func (e *ActionExecutor) completeRoot() error {
 	if err := e.ctx.freezeBodyCells(e.root.cells); err != nil {
@@ -2852,7 +2862,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	work := &usageWork{exec: e, token: token.ID, perf: perf, graph: graph, usage: usage}
 	if isCaseStep(usage) {
 		work.isCase = true
-	} else if inv, ok := nestedInvocationInGraph(graph, usage); ok {
+	} else if inv, ok := nodeInvocation(graph, perf, usage); ok {
 		work.inv, work.performs = inv, true
 	}
 	return e.runBody(tokenIdx, work)
