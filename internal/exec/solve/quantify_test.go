@@ -41,6 +41,7 @@ func TestQuantifierRefusedWithItsReason(t *testing.T) {
 		"spareNarrow":   "spareChoice may hold no object, so the quantifier says nothing about the selection",
 		"wheelIsEngine": "not a variant of wheelChoice",
 		"twoWheels":     "invocation",
+		"ownForAll":     "invocation",
 	}
 	for element, reason := range cases {
 		_, err := quantifiedQuery(t, element)
@@ -50,5 +51,16 @@ func TestQuantifierRefusedWithItsReason(t *testing.T) {
 		if !strings.Contains(err.Error(), reason) {
 			t.Errorf("%s: %v, want %q in the reason", element, err, reason)
 		}
+	}
+}
+
+// TestQuantifierOverAnUnresolvedBoundIsRefused: a lower bound the model does not
+// state as at least one is not proof the point holds an object.
+func TestQuantifierOverAnUnresolvedBoundIsRefused(t *testing.T) {
+	ctx, idx := fixtureFile(t, "quantified_variants.sysml")
+	sym := symbolNamed(t, idx, "test::fleet::unknownBound")
+	_, err := Constraint(ctx, sym, sym.OwnerScope)
+	if !errors.Is(err, ErrNotTranslatable) || !strings.Contains(err.Error(), "does not state that it holds an object") {
+		t.Fatalf("error %v, want a refusal naming the unstated bound", err)
 	}
 }

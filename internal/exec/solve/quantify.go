@@ -11,8 +11,8 @@ import (
 // quantifier states the selection itself: `P == V` (`P != V` for `w != V`),
 // provided P holds at least one object. Every other invocation is refused.
 func (t *translator) quantified(n *ast.InvocationExpr, scope *symbols.Scope) (*Term, error) {
-	name := quantifierName(n.Type)
-	if n.Operand == nil || (name != "forAll" && name != "exists") {
+	name := t.quantifierName(n, scope)
+	if n.Operand == nil || name == "" {
 		return nil, t.refuse(n, describe(n), "it is outside the subset")
 	}
 	construct := "`->" + name + "` expression"
@@ -49,8 +49,10 @@ func (t *translator) quantified(n *ast.InvocationExpr, scope *symbols.Scope) (*T
 	if !t.model.IsVariationFeature(point) {
 		return nil, t.refuse(n, construct, "its receiver "+point.Name+" is not a variation point")
 	}
-	if t.model.GoverningMultiplicityOf(point).AllowsNone() {
+	if r := t.model.GoverningMultiplicityOf(point); r.AllowsNone() {
 		return nil, t.refuse(n, construct, "its receiver "+point.Name+" may hold no object, so the quantifier says nothing about the selection")
+	} else if !r.Lower.Known || r.Lower.Infinite || r.Lower.Value < 1 {
+		return nil, t.refuse(n, construct, "the multiplicity of its receiver "+point.Name+" does not state that it holds an object")
 	}
 	left, err := t.reference(n.Operand, scope)
 	if err != nil {
@@ -70,12 +72,25 @@ func (t *translator) quantified(n *ast.InvocationExpr, scope *symbols.Scope) (*T
 	return Binary(op, Bool, left, right), nil
 }
 
-// quantifierName is the invoked function's own name, `forAll` for `ControlFunctions::forAll`.
-func quantifierName(qn *ast.QualifiedName) string {
-	if qn == nil || len(qn.Parts) == 0 {
+// quantifierName is "forAll" or "exists" when the invoked function resolves to
+// the ControlFunctions one of that name, read through the same resolution the
+// evaluator invokes by; "" for any other function, a model's own `forAll` included.
+func (t *translator) quantifierName(n *ast.InvocationExpr, scope *symbols.Scope) string {
+	segments, ok := nameSegments(n.Type)
+	if !ok || len(segments) == 0 {
 		return ""
 	}
-	return qn.Parts[len(qn.Parts)-1].Text
+	chain, err := t.resolvePath(n, scope, segments)
+	if err != nil || len(chain) == 0 {
+		return ""
+	}
+	switch t.fqn(chain[len(chain)-1]) {
+	case "ControlFunctions::forAll":
+		return "forAll"
+	case "ControlFunctions::exists":
+		return "exists"
+	}
+	return ""
 }
 
 // namesParam reports whether node is a bare reference to the body parameter name.

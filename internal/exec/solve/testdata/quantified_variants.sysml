@@ -47,5 +47,20 @@ package test {
 		assert constraint twoWheels {
 			wheelChoice->size() == 2
 		}
+		assert constraint ownForAll {
+			wheelChoice->Own::forAll { in ref w; w == wheelChoice::narrow }
+		}
+	}
+
+	package Own {
+		calc def forAll { in ref seq : Anything[0..*]; in expr; return : Boolean = false; }
+	}
+
+	part def Fleet { in attribute n : Natural; part cars : Car[n..3]; }
+	part fleet : Fleet {
+		variation part carChoice :>> cars { variant part sedan : Car; variant part wagon : Car; }
+		assert constraint unknownBound {
+			carChoice->forAll { in ref c; c == carChoice::sedan }
+		}
 	}
 }
