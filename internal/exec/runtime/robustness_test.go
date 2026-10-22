@@ -685,3 +685,13 @@ func invokeValue(ctx *Context, sym *symbols.Symbol, args []Value, scope *symbols
 	result, err := ctx.InvokeCalc(sym, args, scope)
 	return soleElement(result), err
 }
+
+// readGo reads the Boolean `go` feature of an object; shared by the robustness suites that bind it.
+func readGo(t *testing.T, ctx *Context, self *Instance) Value {
+	t.Helper()
+	fv, err := self.GetFeatureValue(ctx, "go")
+	if err != nil {
+		t.Fatalf("read go of object #%d: %v", self.ID, err)
+	}
+	return soleElement(fv.HeldValue())
+}

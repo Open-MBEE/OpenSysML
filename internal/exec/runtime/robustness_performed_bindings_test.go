@@ -76,15 +76,6 @@ const performedBindingFixture = `package test {
 	}
 }`
 
-func readGo(t *testing.T, ctx *Context, self *Instance) Value {
-	t.Helper()
-	fv, err := self.GetFeatureValue(ctx, "go")
-	if err != nil {
-		t.Fatalf("read go of object #%d: %v", self.ID, err)
-	}
-	return soleElement(fv.HeldValue())
-}
-
 func TestRuntimeRobustnessPerformedBindings(t *testing.T) {
 	t.Run("bound_pin_holds_the_performers_value", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedBindingFixture))
