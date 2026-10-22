@@ -4,7 +4,7 @@
     "outDir": "out",
     "rootDir": ".",
     "declaration": false,
-    "sourceMap": false,
+    "sourceMap": true,
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "src/**/*.json", "test/**/*.ts"]

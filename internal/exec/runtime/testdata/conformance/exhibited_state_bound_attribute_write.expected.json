@@ -1,0 +1,16 @@
+{
+  "type": "instance",
+  "trace": true,
+  "instantiate": "test::Flight",
+  "objects": [
+    {
+      "finalState": "safe",
+      "stateVisits": ["cruise", "aborting", "safe"],
+      "slots": {
+        "missDistance": {"type": "Rational", "value": "20000.0"},
+        "g.missDistance": {"type": "Rational", "value": "5000.0"},
+        "g.aborted": {"type": "Boolean", "value": true}
+      }
+    }
+  ]
+}

@@ -22,6 +22,7 @@
     <junit.version>5.11.4</junit.version>
     <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
     <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
+    <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
     <opensysml.client.version>0.10.1</opensysml.client.version>
   </properties>
   <dependencyManagement>
@@ -46,6 +47,11 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>${maven.surefire.plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>${jacoco.plugin.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>

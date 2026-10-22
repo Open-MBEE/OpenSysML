@@ -1,6 +1,7 @@
 package queryexec
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -396,5 +397,82 @@ requirement def Tagged {
 	}
 	if present {
 		t.Fatal("undeclared literal metadata feature is present")
+	}
+}
+
+// A metadata def in a property string or Column path may be named as
+// WhereMetadata names it: by its qualified name, or by a name unique over the
+// model, so a query beside `metadata def Properties` writes `Properties::key`.
+func TestExecuteMetadataPathResolvesUniqueShortName(t *testing.T) {
+	fixture := loadExecutionFixture(t, metadataColumnsBody+`
+	calc def Short :> Query {
+		Project(
+			source = WhereType(source = OwnedElements(source = Named(qualifiedName = "Observatory::Reqs")), type = "RequirementDefinition"),
+			properties = ("shortName", "Properties::key"),
+			columns = (Column(name = "driving", path = "Properties::driving"))
+		)
+	}
+	calc def ByShortKey :> Query {
+		OrderBy(
+			source = WhereType(source = OwnedElements(source = Named(qualifiedName = "Observatory::Reqs")), type = "RequirementDefinition"),
+			property = "Properties::key", direction = "ascending", missing = "last", multiple = "first")
+	}
+`)
+	result, err := fixture.execute(t, "Short", nil, Options{})
+	if err != nil {
+		t.Fatalf("Short: %v", err)
+	}
+	var got []string
+	for _, row := range result.Rows() {
+		var cells []string
+		for _, cell := range row.Cells() {
+			cells = append(cells, cellText(cell))
+		}
+		got = append(got, strings.Join(cells, " | "))
+	}
+	want := []string{"8 | Key | Not Driving; Driver - Cost", "9 |  | ", "10 |  | "}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("Short rows:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	ordered, err := fixture.execute(t, "ByShortKey", nil, Options{})
+	if err != nil {
+		t.Fatalf("ByShortKey: %v", err)
+	}
+	var names []string
+	for _, row := range ordered.Rows() {
+		sym, _ := row.Element().Element()
+		names = append(names, sym.Name)
+	}
+	if strings.Join(names, " ") != "Blank Alignment Plain" {
+		t.Fatalf("ByShortKey = %v", names)
+	}
+}
+
+// A short name two metadata defs share names neither, so the property stays
+// unknown rather than reading whichever def was declared first.
+func TestExecuteMetadataPathAmbiguousShortNameIsUnknown(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+	package A { metadata def Tag { attribute key : String; } }
+	package B { metadata def Tag { attribute key : String; } }
+	requirement def Marked { @A::Tag { key = "a"; } @B::Tag { key = "b"; } }
+	calc def Ambiguous :> Query {
+		Project(source = Named(qualifiedName = "Observatory::Marked"), properties = ("name", "Tag::key"))
+	}
+	calc def Qualified :> Query {
+		Project(source = Named(qualifiedName = "Observatory::Marked"), properties = ("Observatory::A::Tag::key", "B::Tag::key"))
+	}
+`)
+	_, err := fixture.execute(t, "Ambiguous", nil, Options{})
+	var typed *Error
+	if !errors.As(err, &typed) || typed.Kind != ErrorUnknownProperty || typed.Property != "Tag::key" {
+		t.Fatalf("Ambiguous error = %v, want unknown property Tag::key", err)
+	}
+	result, err := fixture.execute(t, "Qualified", nil, Options{})
+	if err != nil {
+		t.Fatalf("Qualified: %v", err)
+	}
+	rows := result.Rows()
+	if len(rows) != 1 || cellText(rows[0].Cells()[0]) != "a" || cellText(rows[0].Cells()[1]) != "b" {
+		t.Fatalf("Qualified rows = %v, want a | b", rows)
 	}
 }

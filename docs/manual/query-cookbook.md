@@ -532,6 +532,7 @@ are always projectable:
 | `multiplicityLower`, `multiplicityUpper` | Integers, `*` as unbounded |
 | `satisfiedRequirement` | The requirement a satisfy usage names, or the usage itself when it declares the requirement |
 | `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; a feature chain (`by v.heater`) reports the feature the chain ends at |
+| `valuation` | What the row's own feature value binds (KerML `Feature::valuation`): the value an attribute or other usage is declared with (`attribute mass : MassValue = 5 [kg]`), the one a redefinition binds (`attribute :>> open = 7.5`), or an expression's result evaluated as [derived values](#derived-values) are; a quantity keeps its unit and an enumeration literal or other named element is held as `general` holds one. Absent on a usage bound to nothing and on a row that is not a feature |
 
 For example, the model's `satisfy massRequirement by telescope;` reports
 `satisfyingFeature = Cookbook::telescope` and
@@ -581,6 +582,33 @@ names an element of the model — an enumeration literal, a part, a unit — hol
 that element, printed by name like `general`, whether the value is written on
 the feature or bound by a redefinition (`attribute :>> beam = Beam::'650mm';`);
 a name the model does not resolve stays the text as written.
+
+The other properties read a feature *of* the row; `valuation` reads the row
+itself, which is how a table over the attributes of an interface definition
+shows each parameter's bound number beside its name and type:
+
+```sysml
+calc def Parameters :> Query {
+	in icd : String;
+	Project(
+		source = WhereType(source = OwnedElements(source = Named(qualifiedName = icd)), type = "AttributeUsage"),
+		properties = ("name", "type", "valuation")
+	)
+}
+```
+
+A feature of a **metadata definition** is projectable too, spelled by the
+definition and the feature — `Control::document`, or `Icd::Control::document`
+by qualified name — and reads what the row's annotations of that definition
+(or of one specializing it) bind the feature to, one value per annotation
+value; a row carrying no such annotation has an empty cell. The definition
+is named as [`WhereMetadata`](#metadata-filters) names one: by its qualified
+name, or by a name no other element of the model ends in — an ambiguous short
+name names nothing and the property is unknown. The same spelling works in a
+`Column(path = …)` and as `OrderBy`'s `property`; a `Column(expression = …)`
+names the feature the same way (`Control::document ?? ""`). `Control.document`
+is not this: a period walks the named members of the row, and an annotation
+is not one of them.
 
 ### Quantity cells
 

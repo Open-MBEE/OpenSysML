@@ -1,0 +1,11 @@
+{
+  "rpc": "RunDocumentQuery",
+  "query_id": "Icd::Controlled",
+  "expected_columns": ["name", "Control::document", "status"],
+  "expected_rows": [
+    {
+      "element": {"kind": "element_id", "value": "Icd::Link (PartDefinition)"},
+      "cells": [[{"kind": "string_value", "value": "Link"}], [{"kind": "string_value", "value": "ICD-001"}], [{"kind": "element_id", "value": "Icd::Status::baselined (EnumerationUsage)"}]]
+    }
+  ]
+}

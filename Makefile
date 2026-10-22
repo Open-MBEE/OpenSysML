@@ -1,4 +1,4 @@
-.PHONY: all build docker extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
+.PHONY: all build docker extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -57,6 +57,7 @@ NODE_DIR := client/node
 PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
 VSCODE_DIR := editors/vscode
 JUPYTERLAB_DIR := editors/jupyterlab
+MCP_NPM_DIR := packaging/npm/sysml-mcp
 PYTHON ?= python3
 # api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
@@ -580,6 +581,24 @@ node-coverage: ## Run Node client tests and write coverage-node.lcov
 	cd $(NODE_DIR) && npm run test:coverage
 	sed -e 's|^SF:|SF:$(NODE_DIR)/|' $(NODE_DIR)/coverage/lcov.info > coverage-node.lcov
 	@echo "✓ Wrote coverage-node.lcov"
+
+vscode-coverage: ## Run the VS Code extension's tests and write coverage-vscode.lcov
+	@echo "Running the VS Code extension tests with coverage..."
+	cd $(VSCODE_DIR) && npm ci && npm run test:coverage
+	sed -e 's|^SF:|SF:$(VSCODE_DIR)/|' $(VSCODE_DIR)/coverage/lcov.info > coverage-vscode.lcov
+	@echo "✓ Wrote coverage-vscode.lcov"
+
+jupyterlab-coverage: ## Run the JupyterLab extension's tests and write coverage-jupyterlab.lcov
+	@echo "Running the JupyterLab extension tests with coverage..."
+	cd $(JUPYTERLAB_DIR) && npm ci && npm run test:coverage
+	sed -e 's|^SF:|SF:$(JUPYTERLAB_DIR)/|' $(JUPYTERLAB_DIR)/coverage/lcov.info > coverage-jupyterlab.lcov
+	@echo "✓ Wrote coverage-jupyterlab.lcov"
+
+mcp-npm-coverage: ## Run the sysml-mcp npm package's tests and write coverage-mcp-npm.lcov
+	@echo "Running the sysml-mcp npm package tests with coverage..."
+	cd $(MCP_NPM_DIR) && npm run test:coverage
+	sed -e 's|^SF:|SF:$(MCP_NPM_DIR)/|' $(MCP_NPM_DIR)/coverage/lcov.info > coverage-mcp-npm.lcov
+	@echo "✓ Wrote coverage-mcp-npm.lcov"
 
 vscode-grammar: ## Regenerate the VS Code TextMate grammars and the JupyterLab CodeMirror syntax table from the keyword lists
 	@echo "Generating TextMate grammars and the CodeMirror syntax table..."

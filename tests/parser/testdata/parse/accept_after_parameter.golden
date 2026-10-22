@@ -1,0 +1,29 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Waits" library=false standard=false
+      (Import visibility="private" all=false kind=membership recursive=false imported="ISQ::DurationValue" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Wait"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="howLong" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=DurationValue
+                (*ast.QualifiedName))))
+          (InitialNode name="start" successor="")
+          (Membership visibility="default"
+            (Usage kind="action" name="w" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (TimeEvent absolute=false
+                    (FeatureReference name="howLong"))))))
+          (SuccessionEdge source="start" target="w")
+          (FinalNode)
+          (SuccessionEdge source="w" target="@done")))
+      (Membership visibility="default"
+        (Usage kind="action" name="wait" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Wait
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="howLong" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (IndexExpr bracket=true
+                (LiteralReal value="20.0")
+                (FeatureReference name="s")))))))))
