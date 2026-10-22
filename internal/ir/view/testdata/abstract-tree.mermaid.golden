@@ -1,0 +1,70 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% AbstractViews::familyTree — tree rendering (render asTreeDiagram)
+flowchart TD
+  n0["`*«abstract part def»*
+**Vehicle**`"]
+    n1("`*«attribute»*
+**mass**`")
+  n0 --- n1
+  n2("`*«abstract part»*
+**vehicleFamily**`")
+    n3("`*«abstract port»*
+**fuel**`")
+  n2 --- n3
+    n4("`*«abstract part»*
+**engine**`")
+  n2 --- n4
+    n5("`*«part»*
+**chassis**`")
+  n2 --- n5
+    n6("`**connect**`")
+  n2 --- n6
+    n7("`*«attribute»*
+**mass**`")
+  n2 --- n7
+  n8["`*«variation part def»*
+**Models**`"]
+    n9("`*«variant»*
+**sedan**`")
+      n10("`*«attribute»*
+**mass**`")
+  n9 --- n10
+      n11("`*«abstract port»*
+**fuel**`")
+  n9 --- n11
+      n12("`*«abstract part»*
+**engine**`")
+  n9 --- n12
+      n13("`*«part»*
+**chassis**`")
+  n9 --- n13
+      n14("`**connect**`")
+  n9 --- n14
+  n8 --- n9
+    n15("`*«attribute»*
+**mass**`")
+  n8 --- n15
+  n2 -.->|"typing"| n0
+  n8 -->|"specialization"| n0

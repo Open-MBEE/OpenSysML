@@ -38,19 +38,19 @@ func TestConfigureAFamilyOverItsAssertions(t *testing.T) {
 	requireSolver(t)
 	s := checkSession(t, familyModel)
 	all := run(t, s, "%configure Fam::fam all")
-	wants(t, all, "✓ Part fam permits 2 selections of variants, which are all of them",
+	wants(t, all, "✓ Abstract part fam permits 2 selections of variants, which are all of them",
 		"Fam::fam::engine = Fam::EngineChoices::e4", "Fam::fam::trans = Fam::fam::trans::man",
 		"Fam::fam::engine = Fam::EngineChoices::e6", "Fam::fam::trans = Fam::fam::trans::auto")
 
 	one := run(t, s, "%configure Fam::fam")
-	wants(t, one, "✓ Part fam permits a selection of variants", "One witness: use %configure Fam::fam all")
+	wants(t, one, "✓ Abstract part fam permits a selection of variants", "One witness: use %configure Fam::fam all")
 }
 
 func TestConfigureAFamilyNamesTheRefusingAssertion(t *testing.T) {
 	requireSolver(t)
 	s := checkSession(t, familyModel)
 	chosen := run(t, s, "%configure Fam::fam engine=e6 trans=man")
-	wants(t, chosen, "✗ the chosen variants are not consistent with Part fam",
+	wants(t, chosen, "✗ the chosen variants are not consistent with Abstract part fam",
 		"In the conflict: Fam::fam::engine = Fam::EngineChoices::e6, Fam::fam::trans = Fam::fam::trans::man",
 		"Against: required condition { engine == EngineChoices::e4 and trans == trans::man xor engine == EngineChoices::e6 and trans == trans::auto } of fam at ")
 }
@@ -166,7 +166,7 @@ func TestConfigureStatesTheNestedAssertions(t *testing.T) {
 	requireSolver(t)
 	s := checkSession(t, assertedModel)
 	out := run(t, s, "%configure Asserted::nested all")
-	wants(t, out, "✓ Part nested permits 1 selection of variants, which are all of them")
+	wants(t, out, "✓ Abstract part nested permits 1 selection of variants, which are all of them")
 	rejects(t, out, "Not in the query")
 	plain := run(t, s, "%solve Asserted::within")
 	rejects(t, plain, "Not in the query")
@@ -176,7 +176,7 @@ func TestConfigureAFamilyWhoseAssertionsStateNoCondition(t *testing.T) {
 	requireSolver(t)
 	s := checkSession(t, assertedModel)
 	wants(t, run(t, s, "%configure Asserted::free all"),
-		"error: part free: every assertion about its objects states no condition, so every selection of its variants is permitted")
+		"error: abstract part free: every assertion about its objects states no condition, so every selection of its variants is permitted")
 }
 
 func TestConfigureBindsEachSatisfactionToItsOwnSubject(t *testing.T) {

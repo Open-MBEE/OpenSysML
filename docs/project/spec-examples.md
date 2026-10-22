@@ -13,7 +13,7 @@ release `2026-08`, commit `fb97b754f29588b8e9c7a35f370880cd15eb29e7` (`scripts/p
 | `kerml` | `doc/1-Kernel_Modeling_Language.pdf` and the `// KerML` examples of the SysML clauses | 7 | `examples/spec-examples/kerml` | 170 `.kerml` |
 
 **Gate:** `TestSpecExamplesDiagnostics` in `tests/corpus/spec_examples_test.go`, a per-file ratchet
-over `tests/corpus/testdata/spec_examples_expected.txt` (397 of the 511 files report at least one
+over `tests/corpus/testdata/spec_examples_expected.txt` (398 of the 511 files report at least one
 diagnostic of ours). Run `go test -count=1 ./tests/corpus -run TestSpecExamples`.
 **Regenerate:** `go test ./tests/corpus -run TestSpecExamplesDiagnostics -update-spec-examples`, after
 adjudicating every moved line here.
@@ -77,7 +77,7 @@ Pilot `2026-08` (`0.62.0`), both validators, fresh cache:
 
 | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| 511 | 149 | 1093 | 3395 | 1037 | 6 | 50 | 2352 |
+| 511 | 150 | 1094 | 3395 | 1038 | 6 | 50 | 2351 |
 
 Of the pilot-only diagnostics, 1359 are the pilot's EMF `unmapped` records ("The feature 'type' of
 ... is required"), 587 its `kind-mismatch` typing constraints ("A usage must be typed by
@@ -162,8 +162,8 @@ example the resolutions did not reach.
 |---|---:|---:|---:|
 | Fixtures | 341 | 170 | 511 |
 | Excluded blocks | 20 | 4 | 24 |
-| Files reporting a diagnostic of ours | 261 | 136 | 397 |
-| Files fully agreeing with the pilot | | | 149 |
+| Files reporting a diagnostic of ours | 262 | 136 | 398 |
+| Files fully agreeing with the pilot | | | 150 |
 | Files in the erratum table | 27 | 2 | 29 |
 | Files in the pilot table | 6 | 1 | 7 |
 | Files in the ours table | 2 | 3 | 5 |

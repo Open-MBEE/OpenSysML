@@ -166,6 +166,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 			reported := w.kermlDeclaration(n, n.Keyword)
 			w.kermlRelationships(n.Relationships)
 			w.sysmlDeclaration(n, n.Keyword)
+			w.prefixBeforeIndividual(n.Prefixes, n.IndividualKeyword)
 			w.caseKeyword(n, n.Keyword, n.HasDefKeyword)
 			w.keywordAsName(n.Ident)
 			w.walkDeclaration(n.Members, n)
@@ -177,6 +178,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 				w.kermlRelationships(n.CrossFeature.Relationships)
 			}
 			w.sysmlDeclaration(n, n.Keyword)
+			w.prefixBeforeIndividual(n.Prefixes, n.IndividualKeyword)
 			w.caseKeyword(n, n.Keyword, false)
 			w.keywordAsName(n.Ident)
 			w.indexedEnds(n)
@@ -909,6 +911,28 @@ func (w *notationWalker) conditionTerminator(n *ast.ConstraintMember) {
 			Preferred: true,
 		}},
 	})
+}
+
+// prefixBeforeIndividual reports prefix metadata written ahead of `individual`: the
+// productions (SysML.xtext IndividualDefinition, IndividualUsage) put it after the keyword.
+func (w *notationWalker) prefixBeforeIndividual(prefixes []*ast.PrefixMetadata, individual source.Span) {
+	if !w.sysml || individual.Len == 0 {
+		return
+	}
+	var before []*ast.PrefixMetadata
+	for _, prefix := range prefixes {
+		if prefix.Span().Offset < individual.Offset {
+			before = append(before, prefix)
+		}
+	}
+	if len(before) == 0 {
+		return
+	}
+	first, last := before[0].Span(), before[len(before)-1].Span()
+	tag := "#" + qualifiedNameText(before[0].Type)
+	w.extension(source.Span{Offset: first.Offset, Len: last.End() - first.Offset},
+		fmt.Sprintf("prefix metadata before `individual` (`%s individual …`)", tag),
+		fmt.Sprintf("the metadata follows the keyword, so write `individual %s …`", tag))
 }
 
 // extension reports one construct as an OpenSysML extension.
