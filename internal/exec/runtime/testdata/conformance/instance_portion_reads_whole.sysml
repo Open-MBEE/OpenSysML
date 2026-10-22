@@ -27,10 +27,11 @@ package test {
         snapshot other : Other;
         part :>> own { attribute :>> id = 1; }
         part :>> components { attribute :>> id = 9; }
-        snapshot restated : Panel { attribute :>> width; }
+        snapshot restated : Panel { attribute :>> width; attribute :>> depth; }
         snapshot ownOwn : Panel { part :>> own { attribute :>> id = 5; } }
         assert constraint restatedWidth { restated.width == 3 }
         assert constraint restatedProduct { restated.product == 6 }
+        assert constraint restatedDepth { restated.depth == 4 }
         assert constraint viaFollowsPortionOwn { ownOwn.via.id == 5 }
         assert constraint viaFollowsWholeOwn { plain.via.id == 1 }
         assert constraint snapshotComponents { SequenceFunctions::size(atReview.components) == 2 }

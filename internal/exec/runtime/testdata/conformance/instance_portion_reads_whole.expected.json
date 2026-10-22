@@ -18,6 +18,7 @@
     "otherWidth": true,
     "restatedWidth": true,
     "restatedProduct": true,
+    "restatedDepth": true,
     "viaFollowsPortionOwn": true,
     "viaFollowsWholeOwn": true,
     "snapshotComponents": true,

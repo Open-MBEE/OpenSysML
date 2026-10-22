@@ -66,7 +66,7 @@ func (ctx *Context) portionReadsWhole(inst *Instance, feat *EffectiveFeature) bo
 // own (`attribute :>> width;`): restated, it is still read from wherever width is valued.
 func bareRestatement(feat *EffectiveFeature) bool {
 	usage, ok := feat.Symbol.Decl.(*ast.Usage)
-	return ok && feat.DefaultValue == nil && len(usage.Members) == 0
+	return ok && usage.Value == nil && len(usage.Members) == 0
 }
 
 // redefineInCommon reports whether two features redefine one feature: a portion's bare
