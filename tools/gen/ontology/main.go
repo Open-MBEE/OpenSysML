@@ -222,14 +222,17 @@ type eLiteral struct {
 }
 
 type eFeature struct {
-	Type        string        `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr"`
-	Name        string        `xml:"name,attr"`
-	EType       string        `xml:"eType,attr"`
-	UpperBound  string        `xml:"upperBound,attr"`
-	Ordered     string        `xml:"ordered,attr"`
-	Derived     bool          `xml:"derived,attr"`
-	Opposite    string        `xml:"eOpposite,attr"`
-	Annotations []eAnnotation `xml:"eAnnotations"`
+	Type                string        `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr"`
+	Name                string        `xml:"name,attr"`
+	EType               string        `xml:"eType,attr"`
+	LowerBound          string        `xml:"lowerBound,attr"`
+	UpperBound          string        `xml:"upperBound,attr"`
+	DefaultValueLiteral *string       `xml:"defaultValueLiteral,attr"`
+	Ordered             string        `xml:"ordered,attr"`
+	Unique              string        `xml:"unique,attr"`
+	Derived             bool          `xml:"derived,attr"`
+	Opposite            string        `xml:"eOpposite,attr"`
+	Annotations         []eAnnotation `xml:"eAnnotations"`
 }
 
 type eAnnotation struct {
@@ -260,7 +263,9 @@ func parseEcore(path string) (ePackage, error) {
 // the package they live in does not compile until this has run.
 type property struct {
 	name, definingClass, iri, kind, rangeIRI, opposite string
-	many, ordered, derived                             bool
+	lower                                              int
+	defaultValue                                       string
+	hasDefault, many, ordered, nonunique, derived      bool
 	redefines, subsets                                 []string
 }
 
@@ -356,14 +361,21 @@ func newProperty(defining string, f eFeature, kinds map[string]string, features 
 	if err != nil {
 		return property{}, err
 	}
+	lower, err := lowerBound(f.LowerBound)
+	if err != nil {
+		return property{}, err
+	}
 	p := property{
 		name:          f.Name,
 		definingClass: defining,
 		iri:           sysmlNS + defining + "_" + f.Name,
+		lower:         lower,
 		many:          many,
 		derived:       f.Derived,
 	}
+	// Like ordered, unique only means something on a multi-valued feature.
 	p.ordered = p.many && f.Ordered != "false"
+	p.nonunique = p.many && f.Unique == "false"
 	local, isLocal := strings.CutPrefix(f.EType, "#//")
 	switch {
 	case f.Type == ecoreReference && isLocal && kinds[local] == ecoreClass:
@@ -378,6 +390,9 @@ func newProperty(defining string, f eFeature, kinds map[string]string, features 
 		p.kind = "DatatypeProperty"
 	default:
 		return property{}, fmt.Errorf("a %s typed %q, which the table cannot range over", f.Type, f.EType)
+	}
+	if f.Type == ecoreAttribute {
+		p.defaultValue, p.hasDefault = defaultValue(f.DefaultValueLiteral, p.rangeIRI)
 	}
 	if f.Opposite != "" {
 		var opposite []string
@@ -416,6 +431,32 @@ func isMany(upperBound string) (bool, error) {
 	return n > 1 || n == -1, nil
 }
 
+// lowerBound is the ecore lowerBound, whose absence means 0; EcoreValidator rejects a negative one.
+func lowerBound(bound string) (int, error) {
+	if bound == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(bound)
+	if err != nil || n < 0 {
+		return 0, fmt.Errorf("lowerBound %q is not a non-negative integer, as ecore requires", bound)
+	}
+	return n, nil
+}
+
+// defaultValue is EMF's EStructuralFeature.getDefaultValue for an attribute: its
+// defaultValueLiteral when it states one, else the datatype's own default, which
+// of the primitives the table maps only boolean has (false); strings and
+// enumerations default to nothing.
+func defaultValue(literal *string, rangeIRI string) (value string, ok bool) {
+	if literal != nil {
+		return *literal, true
+	}
+	if rangeIRI == xsdNS+"boolean" {
+		return "false", true
+	}
+	return "", false
+}
+
 // featureRefs turns "#//Class/feature ..." references into "Class::feature" names, each a declared feature.
 func featureRefs(refs string, features map[string]bool) ([]string, error) {
 	var out []string
@@ -435,10 +476,16 @@ func propertyLiterals(properties []property) string {
 	for _, p := range properties {
 		fmt.Fprintf(&b, "\t{Name: %q, DefiningClass: %q, IRI: %q, Kind: %s, Range: %q",
 			p.name, p.definingClass, p.iri, p.kind, p.rangeIRI)
+		if p.lower > 0 {
+			fmt.Fprintf(&b, ", Lower: %d", p.lower)
+		}
+		if p.hasDefault {
+			fmt.Fprintf(&b, ", Default: %q, HasDefault: true", p.defaultValue)
+		}
 		for _, flag := range []struct {
 			name string
 			set  bool
-		}{{"Many", p.many}, {"Ordered", p.ordered}, {"Derived", p.derived}} {
+		}{{"Many", p.many}, {"Ordered", p.ordered}, {"Nonunique", p.nonunique}, {"Derived", p.derived}} {
 			if flag.set {
 				fmt.Fprintf(&b, ", %s: true", flag.name)
 			}
