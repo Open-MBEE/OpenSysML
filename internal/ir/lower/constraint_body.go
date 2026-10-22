@@ -79,7 +79,8 @@ func ConstraintStep(member ast.Node, scope *symbols.Scope, resolvers ...*resolve
 		// another kind states something the check's environment holds rather
 		// than a step performing.
 		return nil, false
-	case *ast.Definition, *ast.Documentation, *ast.Comment, *ast.Import, *ast.Alias:
+	case *ast.Definition, *ast.Documentation, *ast.Comment, *ast.TextualRepresentation, *ast.PrefixMetadata, *ast.Import, *ast.Alias:
+		// An annotation or declaration describes the constraint, not a step of it.
 		return nil, false
 	default:
 		if ast.IsExpression(member) {
