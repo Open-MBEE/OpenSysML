@@ -1,0 +1,14 @@
+VariationViews::familyTree - tree rendering (render asTreeDiagram)
+
+part vehicleFamily
+  part engine
+  variation part transmission
+    variant manual
+    variant part automatic
+  connect
+variation part def EngineChoices
+  variant fourCylinder
+  variant sixCylinder
+
+relationships:
+  vehicleFamily *-- EngineChoices: engine
