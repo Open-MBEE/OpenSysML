@@ -6530,12 +6530,20 @@ func (e *StateExecutor) HasPendingWork() bool {
 		e.hasPendingSignal() || e.hasPendingChange()
 }
 
-// hasPendingChange reports whether a change condition rose on a write made since
-// the machine last polled, which its next run takes (see observeChangedValue).
+// hasPendingChange reports whether a change condition out of the active
+// configuration rose on a write since the machine last polled, which its next
+// run takes (see observeChangedValue and observeChangeConditions).
 func (e *StateExecutor) hasPendingChange() bool {
-	for _, pending := range e.changePending {
-		if pending {
-			return true
+	if len(e.changePending) == 0 || !e.driven.settled() {
+		return false // mid-call, the machine's own run polls when its step ends
+	}
+	for _, leaf := range e.activeLeaves() {
+		for _, source := range e.getParentChain(leaf) {
+			for _, trans := range e.graph.Transitions[source] {
+				if e.changePending[trans] {
+					return true
+				}
+			}
 		}
 	}
 	return false
