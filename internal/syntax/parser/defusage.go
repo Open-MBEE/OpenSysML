@@ -1932,6 +1932,7 @@ func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword str
 // parseDefinitionBody parses a definition's body, or the `;` ending a bodiless
 // one, in the notation its kind declares members in.
 func (p *Parser) parseDefinitionBody(def *ast.Definition) ([]ast.Node, bool) {
+	p.skipParameterList()
 	switch def.Kind {
 	case ast.DefAction, ast.DefOccurrence:
 		// Action/occurrence def bodies: mixed (declarations + behavioral statements)
@@ -1976,6 +1977,45 @@ func (p *Parser) parseDefinitionBody(def *ast.Definition) ([]ast.Node, bool) {
 	default:
 		return p.parseDefUsageBody()
 	}
+}
+
+// skipParameterList reports and skips a `( ... )` after a declaration head, so the kind's
+// body parser reads what follows; parameters are body features (KerML.xtext ParameterMember).
+func (p *Parser) skipParameterList() {
+	if !p.at(lexer.LParen) {
+		return
+	}
+	open := p.advance()
+	// A list that closes before the body is skipped whole, semicolons inside
+	// included; one that never closes ends at the first terminator.
+	closes := p.parenGroupCloses()
+	depth := 1
+	for depth > 0 && !p.atEOF() && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !(p.at(lexer.Semicolon) && !closes) {
+		switch p.advance().Kind {
+		case lexer.LParen:
+			depth++
+		case lexer.RParen:
+			depth--
+		}
+	}
+	p.error(open.Span, "a declaration takes no parenthesised parameter list: declare each parameter as a directed feature of the body, `in <name> : <Type>;`")
+}
+
+// parenGroupCloses reports whether the `(` just consumed is matched by a `)`
+// before a brace or the end of the file.
+func (p *Parser) parenGroupCloses() bool {
+	depth := 1
+	for off := 0; depth > 0; off++ {
+		switch p.peekN(off).Kind {
+		case lexer.EOF, lexer.LBrace, lexer.RBrace:
+			return false
+		case lexer.LParen:
+			depth++
+		case lexer.RParen:
+			depth--
+		}
+	}
+	return true
 }
 
 // parseBodyOrSemicolon accepts the `;` of a bodiless declaration, else parses
@@ -2477,6 +2517,7 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 // bodiless one, in the notation its kind declares members in; start is the
 // offset the usage's declaration began at.
 func (p *Parser) parseUsageBody(u *ast.Usage, kind ast.UsageKind, start int) {
+	p.skipParameterList()
 	var members []ast.Node
 	var hasBody bool
 	defer p.pushBodyContext(usageBodyContext(kind))()

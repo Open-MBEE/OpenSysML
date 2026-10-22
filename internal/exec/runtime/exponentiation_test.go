@@ -57,7 +57,7 @@ func TestExponentiationRuntimeMatchesFolding(t *testing.T) {
 				t.Fatalf("folded %q = %+v, want %+v", tc.src, folded, tc.want)
 			}
 
-			evaluated, err := ctx.InvokeCalc(power, tc.args, root)
+			evaluated, err := invokeValue(ctx, power, tc.args, root)
 			if err != nil {
 				t.Fatalf("evaluating %q: %v", tc.src, err)
 			}

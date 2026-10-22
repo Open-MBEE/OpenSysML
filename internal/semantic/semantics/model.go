@@ -34,20 +34,22 @@ type Model struct {
 	computingSupers map[*symbols.Symbol]int
 	// valuing holds the features whose typing value is being judged, so a value
 	// that leads back to its own feature is not followed again.
-	valuing       map[*symbols.Symbol]bool
-	referenced    map[*symbols.Symbol]*symbols.Symbol
-	resolvingRef  map[*symbols.Symbol]bool
-	memberSources map[*symbols.Symbol][]*symbols.Symbol
-	lookupOrder   map[*symbols.Symbol][]lookupSource    // name-lookup order
-	contributed   map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
-	nestedRedefs  map[*symbols.Symbol][]NestedRedefinition
-	primTypes     map[*symbols.Symbol]PrimType
-	scalars       map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
-	params        map[*symbols.Symbol]behaviorParameters
-	invocations   map[invocationKey]*InvocationSelection
-	arguments     ArgumentTyper // the checker's argument typing, nil when no checker runs
-	sourceText    source.Lookup // notation of the loaded documents, nil when unavailable
-	sourceFile    source.Locate // the files the documents were read from, nil for source.FileNamed
+	valuing         map[*symbols.Symbol]bool
+	referenced      map[*symbols.Symbol]*symbols.Symbol
+	resolvingRef    map[*symbols.Symbol]bool
+	memberSources   map[*symbols.Symbol][]*symbols.Symbol
+	lookupOrder     map[*symbols.Symbol][]lookupSource    // name-lookup order
+	contributed     map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
+	nestedRedefs    map[*symbols.Symbol][]NestedRedefinition
+	allRedefined    map[*symbols.Symbol][]*symbols.Symbol // memoized redefinition closure
+	primTypes       map[*symbols.Symbol]PrimType
+	scalars         map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
+	params          map[*symbols.Symbol]behaviorParameters
+	computingParams map[*symbols.Symbol]int // lookup depth of a params entry being computed
+	invocations     map[invocationKey]*InvocationSelection
+	arguments       ArgumentTyper // the checker's argument typing, nil when no checker runs
+	sourceText      source.Lookup // notation of the loaded documents, nil when unavailable
+	sourceFile      source.Locate // the files the documents were read from, nil for source.FileNamed
 	// typingArgs holds the calls whose arguments are being typed, so an argument
 	// whose type leads back to its own call is not typed again.
 	typingArgs map[*ast.InvocationExpr]bool
@@ -62,9 +64,17 @@ type Model struct {
 	referential map[*symbols.Symbol]bool
 	// implicitBase memoizes each declaration's kind bases once settled (see implicit.go).
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
+	// implicitGenerals memoizes ImplicitGenerals: the generals a declaration's kind implies, which every type query of a feature reads.
+	implicitGenerals map[*symbols.Symbol][]*symbols.Symbol
 	// implicitSubsettings memoizes the owner feature each nested usage implicitly
 	// subsets (see nested.go).
 	implicitSubsettings map[*symbols.Symbol][]*symbols.Symbol
+	// usageBase, kermlBase and thingsBase memoize the base feature a declaration's
+	// kind implies; chainReachesBase whether a declared chain already reaches it.
+	usageBase        map[*symbols.Symbol]*symbols.Symbol
+	kermlBase        map[*symbols.Symbol]*symbols.Symbol
+	thingsBase       map[*symbols.Symbol]*symbols.Symbol
+	chainReachesBase map[*symbols.Symbol]bool
 	// computingUsageBase breaks implicitUsageBaseFeature ->
 	// declaredGeneralizationReaches -> relationshipTarget/resolver lookup ->
 	// collectContributors -> implicitUsageBaseFeature recursion.
@@ -168,8 +178,10 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		lookupOrder:         make(map[*symbols.Symbol][]lookupSource),
 		contributed:         make(map[*symbols.Symbol][]*symbols.Symbol),
 		nestedRedefs:        make(map[*symbols.Symbol][]NestedRedefinition),
+		allRedefined:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		primTypes:           make(map[*symbols.Symbol]PrimType),
 		params:              make(map[*symbols.Symbol]behaviorParameters),
+		computingParams:     make(map[*symbols.Symbol]int),
 		invocations:         make(map[invocationKey]*InvocationSelection),
 		typingArgs:          make(map[*ast.InvocationExpr]bool),
 		composed:            make(map[composedKey][]*symbols.Symbol),
@@ -178,7 +190,12 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		subtracting:         make(map[*symbols.Symbol]bool),
 		referential:         make(map[*symbols.Symbol]bool),
 		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
+		implicitGenerals:    make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitSubsettings: make(map[*symbols.Symbol][]*symbols.Symbol),
+		usageBase:           make(map[*symbols.Symbol]*symbols.Symbol),
+		kermlBase:           make(map[*symbols.Symbol]*symbols.Symbol),
+		thingsBase:          make(map[*symbols.Symbol]*symbols.Symbol),
+		chainReachesBase:    make(map[*symbols.Symbol]bool),
 		computingUsageBase:  make(map[*symbols.Symbol]bool),
 
 		superEdgeCache: make(map[*symbols.Symbol][]superEdge),
@@ -423,8 +440,7 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	// Semantic metadata annotating this element — a `#keyword` prefix — adds the
 	// implicit specialization of its baseType (SysML v2 §7.27.3, §7.27.4).
 	fromMetadata := false
-	metadataBases, metadataComplete := m.semanticMetadataBases(sym)
-	for _, base := range metadataBases {
+	for _, base := range m.semanticMetadataBases(sym) {
 		if base == nil || base == sym || seen[base] {
 			continue
 		}
@@ -508,9 +524,19 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 
+	// A usage also subsets the base usage of its kind, or Base::things when its
+	// kind names none — an implied Subsetting beside the typing (SysML v2 §7.6,
+	// §8.3.11.3 checkPartUsageSpecialization; KerML §8.4.2, §8.3.4.5.3).
+	for _, base := range m.implicitBaseFeatures(sym, out) {
+		if !seen[base] {
+			seen[base] = true
+			out = append(out, base)
+		}
+	}
+
 	// An answer derived while a guard cut a query short saw fewer members than
 	// the finished model has, so it is recomputed on the next query, not memoized.
-	if !m.resolver.Leave() || !metadataComplete {
+	if !m.resolver.Leave() {
 		delete(m.directSupers, sym)
 		journal(m, m.provisionalSupers, sym, sym.Decl)
 		m.provisionalSupers[sym] = true
@@ -887,7 +913,7 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 			return
 		}
 		seen[f] = true
-		bases := m.implicitBases(f)
+		bases := m.ImplicitGenerals(f)
 		for _, super := range m.DirectSupertypes(f) {
 			switch {
 			case containsElement(bases, super):
@@ -900,6 +926,16 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 		visit(m.ReferencedFeature(f))
 	}
 	visit(sym)
+	if len(types) > 0 {
+		return m.mostSpecificTypes(types)
+	}
+	// The definition its kind implies types the usage before the base feature's
+	// types stand in: an individual occurrence is a Life (SysML v2 §8.3.9.4).
+	for _, base := range m.implicitBases(sym) {
+		if !base.IsFeature() && !containsElement(types, base) {
+			types = append(types, base)
+		}
+	}
 	if len(types) > 0 {
 		return m.mostSpecificTypes(types)
 	}
@@ -960,7 +996,7 @@ func (m *Model) featureTypes(sym *symbols.Symbol, visiting map[*symbols.Symbol]b
 		return nil
 	}
 	visiting[sym] = true
-	bases := m.implicitBases(sym)
+	bases := m.ImplicitGenerals(sym)
 	var types, features []*symbols.Symbol
 	for _, super := range m.DirectSupertypes(sym) {
 		switch {

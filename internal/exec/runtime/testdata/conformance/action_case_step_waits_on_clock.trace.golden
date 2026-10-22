@@ -21,10 +21,10 @@ materialize: universalClock #2
 leave action node: verification test::Config::run
   stmt return
     eval feature VerdictKind::pass -> VerdictKind::pass
-exit verification test::Config::run -> VerdictKind::pass
+exit verification test::Config::run -> (VerdictKind::pass)
 step 1: token 1@after
 stmt assign verdict
-  eval chain verdict -> VerdictKind::pass
+  eval chain verdict -> (VerdictKind::pass)
 stmt assign ended
       eval feature universalClock -> instance#2
     eval feature localClock -> instance#2

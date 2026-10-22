@@ -77,7 +77,7 @@ export interface PlacedEdge {
   route: RenderPoint[];
   /** Where the label sits, on the polyline's midpoint. */
   label: RenderPoint;
-  /** An end is under a collapsed owner, so the edge is not drawn. */
+  /** An end is under a collapsed owner, or the kind is hidden, so the edge is not drawn. */
   hidden: boolean;
   /** The route was found around the other boxes at layout time; the model states none, so a move does not write it. */
   rerouted: boolean;
@@ -124,7 +124,7 @@ export interface Overrides {
   routes?: Map<number, RenderPoint[] | undefined>;
   /** Rerouted edges stay inside this box. */
   bounds?: Box;
-  /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route. */
+  /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route; its canvas is covered, so the viewport is not clamped under the drag. */
   held?: CanvasLayout;
   /** `router` sends every edge ELK did not route through the router, a stated `Route` notwithstanding; `model` (the default) draws a stated route verbatim. */
   routing?: Routing;
@@ -168,8 +168,8 @@ const SELF_MESSAGE_REACH = 28;
  * is what ELK laid out for the same rendering: it places a node the model does
  * not, without pinning it, and routes an edge whose ends are not placed.
  */
-// The order Array.prototype.sort gives strings: by code unit, in every locale.
-function byCodeUnit(a: string, b: string): number {
+// byCodeUnit orders strings by code unit, the same in every locale.
+export function byCodeUnit(a: string, b: string): number {
   if (a < b) {
     return -1;
   }
@@ -267,17 +267,35 @@ export function layoutCanvas(
     x: extent.left < 0 ? extent.left - MARGIN : 0,
     y: extent.top < 0 ? extent.top - MARGIN : 0,
   };
+  return coveringHeld(
+    {
+      roots,
+      nodes: placed,
+      edges,
+      origin,
+      width:
+        Math.max(extent.right + MARGIN, result.canvas?.width ?? 0) - origin.x,
+      height:
+        Math.max(extent.bottom + MARGIN, result.canvas?.height ?? 0) - origin.y,
+      placeable: PLACEABLE_KINDS.has(result.kind),
+      routing,
+    },
+    overrides.held,
+  );
+}
+
+// coveringHeld is a layout's canvas grown to cover the held layout's, so a preview that draws
+// less than the layout it started from does not shrink the canvas under the viewport's offsets.
+function coveringHeld(layout: CanvasLayout, held: CanvasLayout | undefined): CanvasLayout {
+  if (!held) {
+    return layout;
+  }
+  const origin = { x: Math.min(layout.origin.x, held.origin.x), y: Math.min(layout.origin.y, held.origin.y) };
   return {
-    roots,
-    nodes: placed,
-    edges,
+    ...layout,
     origin,
-    width:
-      Math.max(extent.right + MARGIN, result.canvas?.width ?? 0) - origin.x,
-    height:
-      Math.max(extent.bottom + MARGIN, result.canvas?.height ?? 0) - origin.y,
-    placeable: PLACEABLE_KINDS.has(result.kind),
-    routing,
+    width: Math.max(layout.origin.x + layout.width, held.origin.x + held.width) - origin.x,
+    height: Math.max(layout.origin.y + layout.height, held.origin.y + held.height) - origin.y,
   };
 }
 
@@ -1377,6 +1395,16 @@ function statedRoute(
 
 // routeEdge is an edge's polyline: from the border of its source, through the
 // route's waypoints, to the border of its target; a self-loop swings out to the right.
+// folded is whether an end of the edge is under a collapsed owner: the edge is then not drawn, whatever kinds the panel shows.
+function folded(placed: ReadonlyMap<string, PlacedNode>, edge: RenderEdge): boolean {
+  return placed.get(edge.from)?.hidden === true || placed.get(edge.to)?.hidden === true;
+}
+
+/** listedEdges is the rendering's edges at drawn nodes, those of a hidden kind included: what the canvas draws or its relation filter could, which the Relations list counts. */
+export function listedEdges(layout: CanvasLayout): RenderEdge[] {
+  return layout.edges.filter((edge) => !folded(layout.nodes, edge.edge)).map((edge) => edge.edge);
+}
+
 // The auto layout's route applies only where neither end is placed, since an end
 // the model or a gesture moved is where the route was computed around it.
 function routeEdge(
@@ -1392,7 +1420,7 @@ function routeEdge(
   const stated = unplaced && !routes?.has(index) ? undefined : statedRoute(edge, index, routes, routing);
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
-  const hidden = source?.hidden === true || target?.hidden === true || hiddenKinds?.has(edge.kind) === true;
+  const hidden = folded(placed, edge) || hiddenKinds?.has(edge.kind) === true;
   const routed = autoRoute(stated, index, auto, source, target);
   if (routed !== undefined) {
     // ELK's anchors already lie on the boxes' borders, so its polyline is drawn

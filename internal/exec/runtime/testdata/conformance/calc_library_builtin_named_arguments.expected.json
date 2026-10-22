@@ -3,17 +3,17 @@
   "type": "calcUsage",
   "evaluate": "test::n",
   "outputs": {
-    "reorderedIf": {"type": "Integer", "value": 1},
+    "reorderedIf": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
     "omittedElse": {"type": "Null"},
-    "reorderedAnd": {"type": "Boolean", "value": false},
-    "reorderedOr": {"type": "Boolean", "value": true},
-    "reorderedImplies": {"type": "Boolean", "value": true},
-    "reorderedCoalesce": {"type": "Integer", "value": 3},
-    "reorderedSum0": {"type": "Integer", "value": 6},
-    "emptySum0": {"type": "Integer", "value": 0},
-    "reorderedProduct1": {"type": "Integer", "value": 24},
+    "reorderedAnd": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+    "reorderedOr": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "reorderedImplies": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "reorderedCoalesce": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+    "reorderedSum0": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]},
+    "emptySum0": {"type": "Sequence", "elements": [{"type": "Integer", "value": 0}]},
+    "reorderedProduct1": {"type": "Sequence", "elements": [{"type": "Integer", "value": 24}]},
     "reorderedSelect": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}, {"type": "Integer", "value": 3}]},
-    "reorderedIndex": {"type": "Integer", "value": 20},
-    "namedSize": {"type": "Integer", "value": 3}
+    "reorderedIndex": {"type": "Sequence", "elements": [{"type": "Integer", "value": 20}]},
+    "namedSize": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]}
   }
 }

@@ -286,6 +286,15 @@ func resolveJobs() (int, error) {
 	return analysis.JobsFromEnv()
 }
 
+// modelRunRequested reports whether the run asked for work over a model (a rendering,
+// conversion, migration, sync, query, graph, evaluation, check or listing).
+func modelRunRequested() bool {
+	return renderDoc != "" || renderDocsDir != "" || renderView != "" || renderAllDir != "" ||
+		convertFormat != "" || migrateFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
+		queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || modelChecks.requested() ||
+		flagGiven("list") || flagGiven("list-kind") || flagGiven("list-form")
+}
+
 // flagGiven reports whether the run named this flag, which an empty value
 // cannot be told apart from otherwise.
 func flagGiven(name string) bool {
@@ -485,10 +494,7 @@ func runCLI() int {
 		case len(args) > 0:
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet, which no model shapes; ask for it without model files")
 			return 2
-		case renderDoc != "" || renderDocsDir != "" || renderView != "" || renderAllDir != "" ||
-			convertFormat != "" || migrateFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
-			queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || modelChecks.requested() ||
-			flagGiven("list") || flagGiven("list-kind") || flagGiven("list-form") || metaclassGraph:
+		case modelRunRequested() || metaclassGraph:
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet and nothing else; ask for it in its own run")
 			return 2
 		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven():
@@ -512,10 +518,7 @@ func runCLI() int {
 		case len(args) > 0:
 			fmt.Fprintln(os.Stderr, "sysml: -metaclass-graph writes the metaclass hierarchy of the pinned metamodel, which no model shapes; ask for it without model files")
 			return 2
-		case renderDoc != "" || renderDocsDir != "" || renderView != "" || renderAllDir != "" ||
-			convertFormat != "" || migrateFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
-			queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || modelChecks.requested() ||
-			flagGiven("list") || flagGiven("list-kind") || flagGiven("list-form") || htmlShowCSS:
+		case modelRunRequested() || htmlShowCSS:
 			fmt.Fprintln(os.Stderr, "sysml: -metaclass-graph writes the metaclass hierarchy and nothing else; ask for it in its own run")
 			return 2
 		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven() ||

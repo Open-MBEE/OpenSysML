@@ -1,0 +1,15 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="TypeFeaturingBody" library=false standard=false
+      (Membership visibility="default"
+        (Usage kind="class" name="Vehicle" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="engine" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="power" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"))
+      (RelationshipMember visibility="default" kind="featured by" name="engine_by_Vehicle" keyword="featuring" source="engine" target="Vehicle" conjugated=false)
+      (RelationshipMember visibility="default" kind="featured by" name="" keyword="featuring" source="power" target="engine" conjugated=false
+        (Membership visibility="default"
+          (Documentation locale=""))
+        (Membership visibility="default"
+          (Comment about="" locale=""))))))

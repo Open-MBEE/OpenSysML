@@ -1640,7 +1640,7 @@ sample's records — a `ref` to the subject and
 ```bash
 $ sysml model.sysml -record-run "Demo::timed"
 ✓ Demo::timed
-  x = 5.0
+  x = [5.0]
   standing: value (observed: 1 run under reverse)
   recorded Records::timed_run1 (Records::TimedRun)
 ```

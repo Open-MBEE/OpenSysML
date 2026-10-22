@@ -43,7 +43,7 @@ func TestRuntimeRobustnessCaseBindings(t *testing.T) {
 		if _, err := run.outputValues(ctx); err != nil {
 			t.Fatal(err)
 		}
-		if value, ok := run.env.lookup("limit"); !ok || FormatValue(value) != "10.0" {
+		if value, ok := run.env.lookup("limit"); !ok || FormatValue(soleElement(value)) != "10.0" {
 			t.Fatalf("limit bound to %s, %v; want 10.0", FormatValue(value), ok)
 		}
 		// The body left limit declared and unvalued, as a constraint body's

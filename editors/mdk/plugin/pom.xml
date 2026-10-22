@@ -7,7 +7,7 @@
     <version>0.10.1</version>
   </parent>
   <artifactId>opensysml-mdk-plugin</artifactId>
-  <name>OpenSysML MDK</name>
+  <name>OpenSysML MDK for Cameo</name>
   <dependencies>
     <dependency>
       <groupId>org.openmbee</groupId>

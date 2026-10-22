@@ -8,7 +8,7 @@
   </parent>
   <artifactId>opensysml-mdk-dist</artifactId>
   <packaging>pom</packaging>
-  <name>OpenSysML MDK distribution</name>
+  <name>OpenSysML MDK for Cameo distribution</name>
   <dependencies>
     <dependency>
       <groupId>org.openmbee</groupId>

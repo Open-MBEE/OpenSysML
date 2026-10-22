@@ -21,10 +21,7 @@ const replGzipBudget = 15000000
 func TestBrowserREPLWalkthroughs(t *testing.T) {
 	requireNode(t)
 	js := wasmTarget{name: "js", goos: "js"}
-	bin := filepath.Join(t.TempDir(), "sysml-repl.wasm")
-	if out, err := goFor(t, js, "build", "-tags", "sysml_re", "-ldflags", ldflags, "-o", bin, "./cmd/sysml"); err != nil {
-		t.Fatalf("building cmd/sysml -tags sysml_re for js: %v\n%s", err, out)
-	}
+	bin := link(t, js, "sysml", "sysml_re")
 	assets := filepath.Join("..", "..", "docs", "assets")
 	toursFile := filepath.Join(assets, "repl-walkthroughs.json")
 	raw, err := os.ReadFile(toursFile)

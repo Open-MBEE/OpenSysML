@@ -420,7 +420,7 @@ func (nw *nameWalk) searchChain(
 			cur, implicit = implicit[0], implicit[1:]
 		}
 		general := map[*symbols.Symbol]bool{}
-		for _, g := range nw.sem.DirectSupertypes(cur) {
+		for _, g := range nw.sem.DeclaredSupertypes(cur) {
 			general[g] = true
 		}
 		for _, src := range nw.sem.DirectMemberSources(cur) {
@@ -589,7 +589,7 @@ func (nw *nameWalk) expand(prefix string, sym *symbols.Symbol, depth int) {
 	// A path through an element ends where every type it would inherit from is
 	// already on the path: what it declares there is not reachable again, but
 	// the implicit members its own kind supplies still are.
-	if sup := nw.sem.DirectSupertypes(sym); depth > 2 && len(sup) > 0 {
+	if sup := nw.sem.DeclaredSupertypes(sym); depth > 2 && len(sup) > 0 {
 		blocked := 0
 		for _, s := range sup {
 			if nw.traversed[s] > 0 {

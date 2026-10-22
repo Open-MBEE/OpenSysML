@@ -76,7 +76,7 @@ TOOLS_DIR := tools
 COVERAGE_PACKAGES ?= ./...
 COVERAGE_TOOLS ?= ./...
 COVERAGE_PROFILE ?= coverage.txt
-COVERAGE_SHARDS := runtime model export rest migrate
+COVERAGE_SHARDS := runtime model export rest migrate cli
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
@@ -226,8 +226,12 @@ build-wasm-re: ## Build bin/wasm/{js,wasip1}/re/sysml.wasm, the RE build, with -
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/js/wasm_exec.js
 	@echo "✓ Built $(WASM_DIR)/{js,wasip1}/re/sysml.wasm ($(VERSION))"
 
+# Cold, the gate compiles and vets the whole tree for both targets: 7-11 minutes on a hosted CI
+# runner, past go test's default 10m. 25m is about twice that, so a slow run fails on an assertion.
+WASM_GATE_TIMEOUT ?= 25m
+
 wasm-check: ## Run the WebAssembly build-and-run gate (needs Node; fails rather than skipping)
-	OPENSYSML_REQUIRE_WASM=1 go test -count=1 -v ./tests/wasm
+	OPENSYSML_REQUIRE_WASM=1 go test -count=1 -v -timeout $(WASM_GATE_TIMEOUT) ./tests/wasm
 
 static-check: ## Check the built Linux binaries are statically linked (BINARIES=path...)
 	scripts/check-static-binaries.sh $(or $(BINARIES),$(addprefix $(BIN_DIR)/,$(COMMANDS)))
@@ -321,7 +325,7 @@ RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStat
 RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
-test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|rest|migrate)
+test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|rest|migrate|cli)
 	@echo "Running Go race tests, shard $(SHARD)..."
 	@# 55m per package; its job's ceiling is 60. Whole, internal/exec/runtime took 31-57 minutes
 	@# under -race on the CI runners, so it runs as two shards of about half that each.
@@ -332,10 +336,10 @@ test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|
 	esac
 	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./...; fi
 
-test-quick: ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export" | "rest migrate")
+test-quick: ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export" | "rest migrate cli")
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
 	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race, no coverage.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime model export rest migrate"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime model export rest migrate cli"; exit 1; }
 	pkgs=$$(for shard in $(SHARDS); do scripts/race-shard.sh $$shard || exit 1; done) && \
 	go test -skip '$(RACE_SHARD_SKIP)' -v -timeout 45m $$pkgs
 	case " $(SHARDS) " in *" rest "*) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -timeout 45m ./... ;; esac
@@ -365,14 +369,14 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	python3 scripts/dedupe-coverage.py $(COVERAGE_PROFILE)
 	@go tool cover -func=$(COVERAGE_PROFILE) | tail -n 1
 
-coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|rest|migrate)
+coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|rest|migrate|cli)
 	@# The race shards' packages; tests/wasm and the tools, which no race shard runs, go with runtime.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && \
 	$(MAKE) --no-print-directory coverage COVERAGE_PROFILE=coverage-$(SHARD).txt \
 		COVERAGE_PACKAGES="$$(echo $$pkgs) $(if $(filter runtime,$(SHARD)),./tests/wasm)" \
 		COVERAGE_TOOLS="$(if $(filter runtime,$(SHARD)),./...)"
 
-coverage-merge: ## Merge the shard profiles coverage-runtime/model/export/rest/migrate.txt into coverage.txt
+coverage-merge: ## Merge the shard profiles coverage-runtime/model/export/rest/migrate/cli.txt into coverage.txt
 	{ echo "mode: atomic"; for shard in $(COVERAGE_SHARDS); do tail -n +2 coverage-$$shard.txt || exit 1; done; } > coverage.txt
 	python3 scripts/dedupe-coverage.py coverage.txt
 	@go tool cover -func=coverage.txt | tail -n 1

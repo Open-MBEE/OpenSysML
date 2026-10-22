@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# OpenSysML REDK — Runtime Environment and Development Kit (MDK2)
+# OpenSysML MDK — Runtime Environment and Development Kit
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/Open-MBEE/OpenSysML/tree/main.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/gh/Open-MBEE/OpenSysML/tree/main)
 [![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=Open-MBEE_OpenSysML&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Open-MBEE_OpenSysML)
@@ -21,16 +21,16 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-runtime.opensysml.org-blue)](https://runtime.opensysml.org/)
 
-The OpenSysML Runtime Environment and Development Kit (OpenSysML REDK) is a SysML v2 and
+The OpenSysML Runtime Environment and Development Kit (OpenSysML MDK) is a SysML v2 and
 KerML 1.1 implementation in Go. It provides a language server, an interactive REPL, an execution
 runtime, an embeddable Go API, and Python, Node/TypeScript, Java, Rust, Julia and MATLAB client libraries,
 covering the lifecycle from authoring through execution with the integrated tooling systems
 engineers expect from a modern language ecosystem. It is the runtime of
 [OpenSysML](https://opensysml.org/), the open source SysML v2 suite of the
-[OpenMBEE](https://www.openmbee.org) community; this repository is the REDK, and the pages
-below use "OpenSysML" for it where no confusion with the suite is possible. The REDK is
-the second generation of OpenMBEE's Model Development Kit (MDK2), expanded and updated for
-SysML v2; its [Cameo plugin](editors/mdk/README.md) carries the OpenSysML MDK name.
+[OpenMBEE](https://www.openmbee.org) community; this repository is the MDK, and the pages
+below use "OpenSysML" for it where no confusion with the suite is possible. The MDK is
+the second generation of OpenMBEE's Model Development Kit, expanded and updated for
+SysML v2; its [Cameo plugin](editors/mdk/README.md) is OpenSysML MDK for Cameo.
 
 **It runs the model.** A validator reads declarations; an expression evaluator computes a value
 from the ones it is handed. OpenSysML materializes the instances a model describes, evaluates
@@ -201,7 +201,7 @@ sysml> calc add { in x; in y; x + y }
 
 sysml> %calc add 10 20
 ✓ add(10, 20)
-  = 30
+  = [30]
   standing: value (observed: 1 run under reverse)
 
 sysml> constraint ValidSpeed { 65 <= 120 }
@@ -286,7 +286,7 @@ SysML v2:
 - **Language Server** — A standard LSP server (`sysml-lsp`) with live diagnostics, semantic hover, go-to-definition, find references, completion, signature help, workspace-wide symbol search, formatting, rename, semantic tokens, quick fixes, code lenses and inlay hints. A VS Code extension with TextMate grammars for `.sysml` and `.kerml` ships in [editors/vscode](editors/vscode) — its diagram panel draws the model beside the editor with zoom, pan and fit, click-to-select highlighting, show/hide of relationship kinds, drag-to-layout and an ELK auto layout that writes nothing — and any editor with a generic LSP client can drive the server directly — [guide chapter 8](docs/guide/08-editors.md) walks through both. *Not yet:* the extension is not on a marketplace — install the nightly `opensysml-sysml.vsix` or build it from source — and the server answers no semantic token delta requests.
 - **Interactive REPL** — An exploratory modeling environment: define models incrementally, evaluate expressions interactively, instantiate parts, run calculations and inspect runtime state, comparable to IPython or Jupyter for systems engineering.
 - **Jupyter Kernel** — `sysml-jupyter-kernel` runs the REPL session behind the Jupyter protocol, so notebook cells hold SysML: declarations accumulate across cells, expressions evaluate, every `%` command works as at the prompt, and views and documents render as Mermaid, SVG, Markdown, tables, HTML or JSON. `pip install jupyter-opensysml-kernel && python -m jupyter_opensysml_kernel install` registers it ([guide chapter 12](docs/guide/12-jupyter.md)).
-- **MCP Server for Coding Agents** — `sysml-mcp` serves the toolchain to OpenCode, Claude Code, Cursor, Codex, VS Code Copilot, Gemini CLI, Devin and any other Model Context Protocol host over stdio: the language server's workspace, the runtime's one-shot service and persistent REPL sessions as tools an agent calls. `npx -y @openmbee/sysml-mcp` runs it with nothing preinstalled, and `sysml-mcp -print-config <host>` writes the host's configuration block ([MCP server reference](docs/reference/sysml-mcp.md)).
+- **MCP Server for Coding Agents** — `sysml-mcp` serves the toolchain to OpenCode, Claude Code, Cursor, Codex, VS Code Copilot, Gemini CLI, Devin and any other Model Context Protocol host over stdio: the language server's workspace, the runtime's one-shot service and persistent REPL sessions as tools an agent calls. `npx -y @openmbee/sysml-mcp` runs it with nothing preinstalled, `sysml-mcp -http 8765` serves one long-lived server over Streamable HTTP for remote agents or several agents over one workspace, and `sysml-mcp -print-config <host>` writes the host's configuration block, in URL form with `-http` ([MCP server reference](docs/reference/sysml-mcp.md)).
 - **Constraint Solving** *(experimental)* — In addition to evaluating what holds of an object, an external SMT solver determines whether a constraint, requirement or satisfaction assertion *can* hold, which conditions conflict when it cannot, which values would satisfy it, which variants a model permits, and what optimizes an `analysis def`'s objectives. The solver is optional and discovered at runtime. [The REPL command reference](docs/reference/repl-commands.md) documents each command, and [installing a solver](docs/guide/01-install.md#installing-a-solver-optional) describes how to obtain one. The design follows OpenMBEE's [HMF](https://github.com/hivecore-dev/hmf) (see [Acknowledgements](#acknowledgements)).
 - **Embeddable Go API** — `client/opensysml` is the public Go surface: parse, look up symbols, evaluate expressions and instantiate parts from Go code, answered in process by the engine the calling binary already links (no port, no child process and no serialization round trip), or over the Connect protocol against an externally hosted service. See [client/opensysml/README.md](client/opensysml/README.md).
 - **Python Client Library** — gRPC-based Python bindings for programmatic access: parse models, resolve symbols, evaluate expressions, instantiate parts, execute actions/state machines. Includes IPython display hooks for Jupyter notebooks and pandas DataFrame integration. Constraint, requirement, satisfaction and calc verdicts are available as RPCs (`verify_constraint`, `verify_requirement`, `verify_satisfaction`, `calc`).
@@ -346,11 +346,11 @@ The project is under active development, with the core infrastructure operationa
 <!-- doc-counts:begin refereed-figures -->
 **Measured against the pinned reference** (`PILOT_TAG=2026-08`, artifact `0.62.0`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.
 
-- **Corpus agreement:** 510 of 912 files agree diagnostic-by-diagnostic; 370 diagnostics are ours alone and 2442 the reference's alone, and the first number must be read by root: the aggregate includes candidate conformance differences, intentional execution-scope warnings on reference corpora and diagnostics from our own examples ([differential](docs/project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
+- **Corpus agreement:** 510 of 912 files agree diagnostic-by-diagnostic; 366 diagnostics are ours alone and 2445 the reference's alone, and the first number must be read by root: the aggregate includes candidate conformance differences, intentional execution-scope warnings on reference corpora and diagnostics from our own examples ([differential](docs/project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
 - **Declared-diagnostic silence:** of the 512 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 245 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](docs/project/pilot-xpect.md), `go run -C tools ./cmd/pilot-xpect`).
 - **Scope agreement:** 230 of 230 declared scope assertions match exactly (same source).
 - **Permissiveness gaps:** of 334 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 319 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](docs/project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
-- **Declared errata:** the registry declares 16 defect(s) in the published reference material — 9 with a specification-derived correction, 7 documented without one, since no intended reading can be inferred ([OMG issues](docs/project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 511 of 912 files agreeing, 369 diagnostics ours alone and 2442 the reference's alone, 0 declared rows we are silent on, and 0 of 334 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
+- **Declared errata:** the registry declares 16 defect(s) in the published reference material — 9 with a specification-derived correction, 7 documented without one, since no intended reading can be inferred ([OMG issues](docs/project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 511 of 912 files agreeing, 365 diagnostics ours alone and 2445 the reference's alone, 0 declared rows we are silent on, and 0 of 334 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
 - **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance](docs/project/spec-compliance.md) counts them.
 
 What these numbers cannot show: the OMG corpora are demonstrations rather than an official conformance suite; the differential is one-directional, comparing the diagnostics the two implementations report on the same files; the Xpect suites are the pilot authors' test intent rather than a certification oracle; and none of these is a percentage of the specification — no global compliance figure is claimed anywhere.

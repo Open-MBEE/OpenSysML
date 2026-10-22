@@ -85,6 +85,11 @@ func (r *Resolver) ShareCollisions(shared *SharedCollisions) {
 type readCapture struct {
 	names, namespaces, docs, segments, deps []string
 	all, spellings                          bool
+	// children are the captures settled or replayed inside this one; flat is
+	// their reads folded in with c's own, made on c's first replay (flatten).
+	children []*readCapture
+	flat     *readCapture
+	once     sync.Once
 }
 
 // settle sorts and dedupes the capture once its computation is over.
@@ -96,9 +101,29 @@ func (c *readCapture) settle() *readCapture {
 	return c
 }
 
+// replay records c's reads into the current frame and hands c to the capture
+// open, if any, as a child: the capture's own lists stay the size of its reads.
 func (c *readCapture) replay(r *Resolver) {
 	if c == nil {
 		return
+	}
+	if top := r.topCapture(); top != nil {
+		top.adopt(c)
+	}
+	if r.cur == nil {
+		return
+	}
+	open := r.captures
+	r.captures = nil
+	c.record(r)
+	r.captures = open
+}
+
+// record replays c and its children into the current frame.
+func (c *readCapture) record(r *Resolver) {
+	c.once.Do(c.flatten)
+	if c.flat != nil {
+		c = c.flat
 	}
 	for _, doc := range c.deps {
 		r.Depend(doc)
@@ -123,12 +148,66 @@ func (c *readCapture) replay(r *Resolver) {
 	}
 }
 
-// capturing runs compute with a fresh capture on the stack and returns it; an
-// enclosing capture sees the same reads, as its computation made them too.
+// flatten makes c.flat: c's reads and those of its children, each once. A
+// settled capture is never written again (replays run on parallel batch
+// workers), so flatten reads the children's own lists and writes only c.flat.
+func (c *readCapture) flatten() {
+	if len(c.children) == 0 {
+		return
+	}
+	flat := &readCapture{
+		names: slices.Clip(c.names), namespaces: slices.Clip(c.namespaces),
+		docs: slices.Clip(c.docs), segments: slices.Clip(c.segments),
+		deps: slices.Clip(c.deps), all: c.all, spellings: c.spellings,
+	}
+	seen := map[*readCapture]bool{c: true}
+	var fold func(*readCapture)
+	fold = func(d *readCapture) {
+		for _, child := range d.children {
+			if seen[child] {
+				continue
+			}
+			seen[child] = true
+			flat.names = append(flat.names, child.names...)
+			flat.namespaces = append(flat.namespaces, child.namespaces...)
+			flat.docs = append(flat.docs, child.docs...)
+			flat.segments = append(flat.segments, child.segments...)
+			flat.deps = append(flat.deps, child.deps...)
+			flat.all = flat.all || child.all
+			flat.spellings = flat.spellings || child.spellings
+			fold(child)
+		}
+	}
+	fold(c)
+	c.flat = flat.settle()
+}
+
+func (c *readCapture) adopt(child *readCapture) {
+	if n := len(c.children); n == 0 || c.children[n-1] != child {
+		c.children = append(c.children, child)
+	}
+}
+
+// topCapture is the innermost read capture open, nil outside one.
+func (r *Resolver) topCapture() *readCapture {
+	if n := len(r.captures); n > 0 {
+		return r.captures[n-1]
+	}
+	return nil
+}
+
+// capturing runs compute with a fresh capture on the stack and returns it
+// settled; an enclosing capture, whose computation made the same reads, adopts it.
 func (r *Resolver) capturing(compute func()) *readCapture {
 	c := &readCapture{}
 	r.captures = append(r.captures, c)
-	defer func() { r.captures = r.captures[:len(r.captures)-1] }()
+	defer func() {
+		r.captures = r.captures[:len(r.captures)-1]
+		c.settle()
+		if top := r.topCapture(); top != nil {
+			top.adopt(c)
+		}
+	}()
 	compute()
-	return c.settle()
+	return c
 }

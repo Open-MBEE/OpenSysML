@@ -1,0 +1,77 @@
+name: WebAssembly build cache
+
+# Pull-request caches are private to their branch, so the gate in pr.yml can only start warm
+# from an entry saved on develop: this runs the gate on each develop push and saves what it built.
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '**.go'
+      - go.mod
+      - go.sum
+      - Makefile
+      - .github/workflows/wasm-cache.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wasm-cache
+  cancel-in-progress: true
+
+env:
+  OPENSYSML_REQUIRE_WASM: "1"
+
+jobs:
+  warm:
+    name: Warm the WebAssembly build cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        id: go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore the WebAssembly build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run the WebAssembly gate
+        run: |
+          set -o pipefail
+          node --version
+          make wasm-check 2>&1 | tee wasm-gate.log
+          if grep -qE '^\s*--- SKIP' wasm-gate.log; then
+            echo "error: the WebAssembly gate skipped" >&2
+            exit 1
+          fi
+
+      # The objects a failed gate compiled are as good as a passing one's, so a red
+      # develop still warms the next pull request.
+      - name: Save the WebAssembly build cache
+        if: success() || failure()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}

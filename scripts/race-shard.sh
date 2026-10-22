@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Prints the root-module package paths assigned to one race-test shard.
-# Usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|rest|migrate
+# Usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|rest|migrate|cli
 # runtime and runtime-corpus are one package, split by test name in make test-shard.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 if [[ $# -ne 1 ]]; then
-  echo "usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|rest|migrate" >&2
+  echo "usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|rest|migrate|cli" >&2
   exit 2
 fi
 
@@ -25,12 +25,15 @@ passes="$module/internal/check/passes"
 migrate="$module/tests/migrate"
 # tests/wasm runs in the WebAssembly gate job, not a race shard.
 wasm="$module/tests/wasm"
-named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$passes" "$wasm" "$migrate")
+# cmd/sysml's exploration budgets take 23-30 of the coverage job's 30 minutes under
+# -coverpkg=./... while sharing a node, so the command is a shard of its own.
+cli="$module/cmd/sysml"
+named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$passes" "$wasm" "$migrate" "$cli")
 
 case "$shard" in
-  runtime|runtime-corpus|model|export|rest|migrate) ;;
+  runtime|runtime-corpus|model|export|rest|migrate|cli) ;;
   *)
-    echo "usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|rest|migrate" >&2
+    echo "usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|rest|migrate|cli" >&2
     exit 2
     ;;
 esac
@@ -55,6 +58,9 @@ case "$shard" in
     ;;
   migrate)
     printf '%s\n' "$migrate"
+    ;;
+  cli)
+    printf '%s\n' "$cli"
     ;;
   rest)
     while IFS= read -r package; do

@@ -3,11 +3,11 @@
   "type": "calcUsage",
   "evaluate": "test::c",
   "outputs": {
-    "sum": {"type": "Integer", "value": 4},
-    "negated": {"type": "Integer", "value": -3},
-    "less": {"type": "Boolean", "value": true},
-    "quotient": {"type": "Integer", "value": 2},
-    "negation": {"type": "Boolean", "value": false},
-    "smallest": {"type": "Integer", "value": 3}
+    "sum": {"type": "Sequence", "elements": [{"type": "Integer", "value": 4}]},
+    "negated": {"type": "Sequence", "elements": [{"type": "Integer", "value": -3}]},
+    "less": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "quotient": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+    "negation": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+    "smallest": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]}
   }
 }

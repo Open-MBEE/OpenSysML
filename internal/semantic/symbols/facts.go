@@ -19,6 +19,10 @@ type LibraryFacts struct {
 	// by, which leaves the whole set to be derived from the declaration.
 	Supers []ElementRef
 
+	// ImpliedSupers are the entries of Supers the declaration's kind implies
+	// rather than states: its base definition and the base usage it subsets.
+	ImpliedSupers []ElementRef
+
 	// Unit is the reduction of a measurement unit to base units. Nil for a
 	// symbol that is not a measurement unit.
 	Unit *UnitFacts
@@ -192,6 +196,7 @@ func NodeKindOf(decl ast.Node) NodeKind {
 // Clone returns a copy of f sharing no slice or pointer with it.
 func (f LibraryFacts) Clone() LibraryFacts {
 	f.Supers = cloneRefs(f.Supers)
+	f.ImpliedSupers = cloneRefs(f.ImpliedSupers)
 	f.Redefines = cloneRefs(f.Redefines)
 	f.About = cloneRefs(f.About)
 	f.Ends = cloneRefs(f.Ends)
@@ -389,7 +394,7 @@ type BoundFacts struct {
 
 // Modifiers is the set of boolean modifiers a declaration states, as a
 // recorded fact reads them.
-type Modifiers uint32
+type Modifiers uint64
 
 // The modifiers a declaration can state (KerML 8.3.3, SysML v2 8.3.9).
 const (
@@ -431,6 +436,9 @@ const (
 	ModValued
 	// ModMayTimeVary marks a SysML usage whose derived Usage::mayTimeVary holds (SysML v2 §8.3.6.4).
 	ModMayTimeVary
+	// ModAnnotatesOthers marks a metadata usage written with an `about` clause,
+	// whether or not the elements it names resolve (see AnnotatesOthers).
+	ModAnnotatesOthers
 )
 
 // Has reports whether every modifier of mask is set.

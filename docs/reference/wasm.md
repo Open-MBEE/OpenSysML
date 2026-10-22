@@ -41,7 +41,7 @@ input and output as its WASI build does. They are opt-in as well: `make build` a
 `make install` leave them out of the native executables; the combined JavaScript
 WebAssembly module is published separately.
 
-The `sysml` command comes in two builds, named after the two halves of the REDK: the **DK**
+The `sysml` command comes in two builds, named after the two halves of the Runtime Environment and Development Kit: the **DK**
 (Development Kit) build is the default `sysml` with every feature group, and the **RE** (Runtime
 Environment) build leaves the optional and developer-only groups out. Both builds produce a binary named
 `sysml`; the RE's goes in a `re/` directory (`bin/re/sysml`, `bin/wasm/{js,wasip1}/re/sysml.wasm`),
@@ -337,8 +337,11 @@ drop it.
 make wasm-check
 ```
 
-compiles and vets the whole tree for both targets, links each command, and runs them under Node
-— the WASI host above for `wasip1`, `wasm_exec` for `js`. Node 24 or later is required: Node 22's
+compiles and vets the whole tree for both targets, links each command once and shares the
+binaries between its tests, and runs them under Node — the WASI host above for `wasip1`,
+`wasm_exec` for `js`. The two cold compiles outlast `go test`'s default ten-minute budget on a
+CI runner, so the target runs with `-timeout $(WASM_GATE_TIMEOUT)`; the Makefile states the measured
+budget. Node 24 or later is required: Node 22's
 WASI host crashes on the `wasip1` modules. Without Node, the run half skips with the reason, and
 `OPENSYSML_REQUIRE_WASM=1`, which both CI systems set, turns that skip into a failure so a green
 run cannot be a skipped one.

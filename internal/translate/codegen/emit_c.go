@@ -1283,26 +1283,40 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.linef("}")
 	result, res := "result", fn.Result
 	if res.MayUnset() {
-		e.linef("if (result.u) { puts(\"%s\"); return 0; }", runtime.UnsetText)
+		unset := runtime.UnsetText
+		if fn.HeldResult {
+			unset = "[" + unset + "]"
+		}
+		e.linef("if (result.u) { puts(\"%s\"); return 0; }", unset)
 		result, res = "result.v", res.Concrete()
+	}
+	// A held result is printed as the one-element sequence it is shaped into.
+	held := fn.HeldResult && !res.Many()
+	if held {
+		e.linef("fputc('[', stdout);")
 	}
 	switch {
 	case res.IsEnum() && !res.Many():
-		e.linef("sysml_print_enum(%s);", result)
+		e.linef("sysml_print_enum_value(%s);", result)
 	case res.IsFn() && !res.Many():
-		e.linef("sysml_print_fn(%s);", result)
+		e.linef("sysml_print_fn_value(%s);", result)
 	case res == TypeInt:
-		e.linef("printf(\"%%\" PRId64 \"\\n\", %s);", result)
+		e.linef("printf(\"%%\" PRId64, %s);", result)
 	case res == TypeReal:
-		e.linef("sysml_print_real(%s);", result)
+		e.linef("sysml_print_real_value(%s);", result)
 	case res == TypeBool:
-		e.linef("puts(%s ? \"true\" : \"false\");", result)
+		e.linef("fputs(%s ? \"true\" : \"false\", stdout);", result)
 	case res == TypeNum:
-		e.linef("sysml_print_num(%s);", result)
+		e.linef("sysml_print_num_value(%s);", result)
 	case res == TypeString:
-		e.linef("sysml_print_str(%s);", result)
+		e.linef("sysml_print_str_value(%s);", result)
 	default:
 		e.linef("sysml_print_seq_%s(%s);", cSeqSuffix(res), result)
+	}
+	if held {
+		e.linef("puts(\"]\");")
+	} else if !res.Many() {
+		e.linef("fputc('\\n', stdout);")
 	}
 	e.linef("return 0;")
 	e.indent--
