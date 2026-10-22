@@ -360,11 +360,8 @@ func (m *Model) ImplicitParameterRedefinitions(sym *symbols.Symbol) []*symbols.S
 	return m.implicitParameterTargets(sym, true)
 }
 
-// implicitParameterCounterparts returns the parameters at sym's position in the
-// general behaviors whatever their direction, which is what a direction
-// conformance check needs: a disagreeing direction is a violation there rather
-// than an absent redefinition. A parameter redefines its position's counterpart
-// beside whatever it redefines by clause (KerML 8.4.4.6 checkFeatureParameterRedefinition).
+// implicitParameterCounterparts returns the parameters at sym's position in the general
+// behaviors whatever their direction (KerML 8.4.4.6): a disagreeing one is a violation there.
 func (m *Model) implicitParameterCounterparts(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.implicitParameterTargets(sym, false)
 }
