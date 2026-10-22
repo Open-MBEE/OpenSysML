@@ -536,10 +536,8 @@ func (g *Graph) detachSharedIndexes() {
 	g.sharedIndex = nil
 }
 
-// ReorderObjects restates the objects of (subject, predicate) in the order
-// given, each triple keeping its place in the graph; objects must be a
-// permutation of Objects(subject, predicate), and any other list leaves the
-// graph as it was.
+// ReorderObjects restates (subject, predicate)'s objects in the order given, each
+// triple keeping its place; anything but a permutation leaves the graph as it was.
 func (g *Graph) ReorderObjects(subject Term, predicate string, objects []Term) {
 	si := g.subjects()[subject]
 	if si == nil || len(si.objects[predicate]) != len(objects) {
@@ -572,9 +570,8 @@ func (g *Graph) ReorderObjects(subject Term, predicate string, objects []Term) {
 	copy(si.objects[predicate], objects)
 }
 
-// statementPositions returns, per subject, where the graph's statements of
-// predicate sit in triples, in order; built on first use for that predicate
-// and kept current as triples are added (see AddTriple, RewriteTriples).
+// statementPositions locates predicate's statements in triples, per subject, in
+// order; built on first use, appended to by AddTriple, reset by RewriteTriples.
 func (g *Graph) statementPositions(predicate string) map[Term][]int {
 	if g.positions == nil {
 		g.positions = make(map[string]map[Term][]int)
