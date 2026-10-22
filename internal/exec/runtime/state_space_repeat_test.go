@@ -3,6 +3,7 @@ package runtime
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -41,5 +42,49 @@ func TestStateSpacePerformedAgainIntegratesAfresh(t *testing.T) {
 		if got != want {
 			t.Errorf("performance %d ended at %s, want %s", i+1, got, want)
 		}
+	}
+}
+
+// A performance begun after the clock advanced far reads the same time at each stage
+// and step as one begun at zero: time is the duration stepped, not the clock's
+// instant less the start, which rounds at microsecond steps past 1e8 s.
+func TestStateSpaceTimeExactAfterLongClockAdvance(t *testing.T) {
+	src := stateSpaceSource("ContinuousStateSpaceDynamics, FixedStepDynamics, RungeKutta4Integrator", `
+		:>> stateSpace = VectorOf((0.0));
+		:>> timeStep = 0.000001 [s];
+		:>> stopTime = 0.000003 [s];
+		calc :>> getDerivative {
+			in input : Input;
+			in stateSpace : StateSpace;
+			return : StateDerivative = (time / 1 [s]) * VectorOf((1000000.0)) / 1 [s];
+		}
+		calc :>> getOutput {
+			in input : Input;
+			in stateSpace : StateSpace;
+			return : Output = stateSpace;
+		}
+	`)
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "dyn", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action dyn not found")
+	}
+	perform := func() string {
+		exec, err := ctx.CreateActionExecutor(sym)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatal(err)
+		}
+		return FormatValue(exec.Results()["stateSpace"]) + " at " + FormatValue(exec.Results()["time"])
+	}
+	first := perform()
+	ctx.clock.now = 1e8
+	if later := perform(); later != first {
+		t.Errorf("performance from clock 1e8 ended at %s, the one from zero at %s", later, first)
+	}
+	if want := " at 3e-06 [s]"; !strings.HasSuffix(first, want) {
+		t.Errorf("time after three microsecond steps: %s, want%s", first, want)
 	}
 }

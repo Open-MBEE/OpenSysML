@@ -78,9 +78,9 @@ type stateSpaceRun struct {
 // settled reports whether the run has sampled its start, which its first step does.
 func (run *stateSpaceRun) settled() bool { return run.guards != nil }
 
-// elapsed is the clock's instant t as the run's own time: the duration since it
-// began, so a performance reads and stops at the same times whenever it starts.
-func (run *stateSpaceRun) elapsed(t float64) float64 { return t - run.start }
+// soFar is the duration the run has stepped from its own start: the time feature's
+// value, exact where the clock's instant less the start would round at a late start.
+func (run *stateSpaceRun) soFar() float64 { return float64(run.steps) * run.step }
 
 // pastStop reports a run whose next step would end past the duration it stops at.
 func (run *stateSpaceRun) pastStop() bool {
@@ -319,11 +319,11 @@ func (e *ActionExecutor) parkDynamics(run *stateSpaceRun, token *Token) error {
 }
 
 // settleStep records the state reached at the clock's instant: the time feature as the
-// run's own time, the output, the trace line and the zero crossings, true when one ends the run.
+// duration stepped so far, the output, the trace line and the zero crossings, true when one ends the run.
 func (e *ActionExecutor) settleStep(run *stateSpaceRun, state Value, input *Value) (bool, error) {
 	now := e.ctx.clock.now
 	if run.dyn.Time != nil {
-		if err := e.setFeature(lower.TimeFeature, e.instantValue(run.elapsed(now))); err != nil {
+		if err := e.setFeature(lower.TimeFeature, e.instantValue(run.soFar())); err != nil {
 			return false, err
 		}
 	}
@@ -399,13 +399,13 @@ func (e *ActionExecutor) eulerStep(run *stateSpaceRun, state Value, input *Value
 
 // rk4Step advances the state by the classical Runge-Kutta scheme: the derivative
 // at the start, twice at the midpoint and at the end, each stage at its own
-// instant of the step, weighted 1:2:2:1.
+// duration into the step, weighted 1:2:2:1.
 func (e *ActionExecutor) rk4Step(run *stateSpaceRun, state Value, input *Value) (Value, error) {
 	half, err := e.vectorOp(ast.OpMul, run.stepValue, realConst(0.5))
 	if err != nil {
 		return Value{}, err
 	}
-	start := run.stepStart()
+	start := run.soFar()
 	mid, end := start+run.step/2, start+run.step
 	k1, err := e.derivative(run, input, state)
 	if err != nil {
@@ -461,17 +461,17 @@ func (e *ActionExecutor) derivativeAt(run *stateSpaceRun, input *Value, state, s
 	return e.atInstant(run, t, func() (Value, error) { return e.derivative(run, input, at) })
 }
 
-// atInstant evaluates a stage with the time feature holding the clock's instant t
-// as the run's time, then restores the step's start; without a time feature it just evaluates.
+// atInstant evaluates a stage with the time feature holding t, a duration from the
+// run's start, then restores the step's start; without a time feature it just evaluates.
 func (e *ActionExecutor) atInstant(run *stateSpaceRun, t float64, stage func() (Value, error)) (Value, error) {
 	if run.dyn.Time == nil {
 		return stage()
 	}
 	saved, held := e.root.data[e.root.key(lower.TimeFeature)]
 	if !held {
-		saved = e.instantValue(run.elapsed(run.stepStart()))
+		saved = e.instantValue(run.soFar())
 	}
-	if err := e.setFeature(lower.TimeFeature, e.instantValue(run.elapsed(t))); err != nil {
+	if err := e.setFeature(lower.TimeFeature, e.instantValue(t)); err != nil {
 		return Value{}, err
 	}
 	val, err := stage()

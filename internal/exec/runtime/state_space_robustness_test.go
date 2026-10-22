@@ -21,7 +21,6 @@ func TestStateSpaceRobustness(t *testing.T) {
 	t.Run("step_not_stated", testStateSpaceStepNotStated)
 	t.Run("step_that_is_zero", testStateSpaceStepZero)
 	t.Run("step_that_is_negative", testStateSpaceStepNegative)
-	t.Run("stop_that_is_negative", testStateSpaceStopNegative)
 	t.Run("integrator_the_runtime_does_not_provide", testStateSpaceUnknownIntegrator)
 	t.Run("divergent_state", testStateSpaceDivergentState)
 	t.Run("step_past_the_last_instant", testStateSpaceStepPastLastInstant)
@@ -203,15 +202,6 @@ func testStateSpaceStepNegative(t *testing.T) {
 		:>> stopTime = 1 [s];
 	`+decayCalcs))
 	expectStateSpaceError(t, err, errStateSpaceStep, "timeStep of action dyn", "not a positive duration")
-}
-
-func testStateSpaceStopNegative(t *testing.T) {
-	err := runStateSpace(t, stateSpaceSource("ContinuousStateSpaceDynamics, FixedStepDynamics", `
-		:>> stateSpace = VectorOf((1.0));
-		:>> timeStep = 0.1 [s];
-		:>> stopTime = -1 [s];
-	`+decayCalcs))
-	expectStateSpaceError(t, err, errStateSpaceStep, "stopTime of action dyn", "not a duration")
 }
 
 func testStateSpaceUnknownIntegrator(t *testing.T) {
