@@ -424,9 +424,8 @@ func TestHoverLibraryDeclarationStatesNormativeIdentity(t *testing.T) {
 	}
 }
 
-// TestHoverWritesTheAbstractKeyword pins hover's signature as the notation
-// writes it: `abstract part def`, `abstract part`, and `variation part def`
-// alone for a variation, which is abstract without the keyword (§7.6.7).
+// TestHoverWritesTheAbstractKeyword pins hover's signature as the notation writes
+// it: `abstract part def`, `abstract part`, and `variation part def` alone (§7.6.7).
 func TestHoverWritesTheAbstractKeyword(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)

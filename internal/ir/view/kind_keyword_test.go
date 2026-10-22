@@ -2,9 +2,8 @@ package view
 
 import "testing"
 
-// A kind-keyed decision reads the keyword behind a written `abstract` or
-// `variation`: the Cameo frame type, the palette family and the case and
-// requirement node families are those of the plain kind.
+// A kind-keyed decision — Cameo frame type, palette family, case and requirement
+// node families — reads the keyword behind a written `abstract` or `variation`.
 func TestKindDecisionsReadTheKeywordBehindTheModifier(t *testing.T) {
 	for kind, want := range map[string]string{
 		"part def": "Block", "abstract part def": "Block", "variation part def": "Block",
@@ -33,9 +32,8 @@ func TestKindDecisionsReadTheKeywordBehindTheModifier(t *testing.T) {
 	}
 }
 
-// Cameo leaves the keyword line off a plain state or action, whose shape says
-// the kind; a written modifier is the only mark of an abstract or variation
-// one, so that line stays.
+// Cameo leaves the keyword line off a plain state or action, whose shape says the
+// kind; a written modifier is the only mark of an abstract or variation one.
 func TestCameoKeepsTheModifierLineOnStatesAndActions(t *testing.T) {
 	l := labeller{skin: skinOf(StyleCameo), shown: AllShown()}
 	for kind, want := range map[string]string{

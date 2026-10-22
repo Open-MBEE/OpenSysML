@@ -464,8 +464,7 @@ func TestRenderNodesCarryTheTypeApartFromTheDetail(t *testing.T) {
 }
 
 // TestRenderNodesCarryTheAbstractKeyword pins the diagram payload's kind as the
-// notation writes it: `abstract part def`, `abstract part`, and a variation
-// `variation part def` with no `abstract` (SysML v2.1 §7.6.2, §7.6.3, §7.6.7).
+// notation writes it: `abstract part def`, `abstract part`, `variation part def`.
 func TestRenderNodesCarryTheAbstractKeyword(t *testing.T) {
 	src := "package Kit {\n\tabstract part def Widget {\n\t\tabstract part cog : Cog;\n\t\tpart gear;\n\t}\n\tpart def Cog;\n\tvariation part def Cogs :> Cog;\n}\n"
 	s, docURI := renderServer(t, "kit.sysml", src)

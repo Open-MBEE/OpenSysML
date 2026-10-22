@@ -1,6 +1,5 @@
-// An abstract definition or usage is drawn with the «abstract» keyword before
-// its kind (SysML v2.1 §7.6.2, §7.6.3, Table 4); a variation is drawn with
-// «variation» alone, abstract without that keyword being written (§7.6.7).
+// An abstract definition or usage is drawn with «abstract» before its kind (SysML
+// v2.1 §7.6.2, §7.6.3, Table 4); a variation with «variation» alone (§7.6.7).
 package AbstractViews {
 	private import Views::*;
 	private import OpenSysMLRenderings::*;

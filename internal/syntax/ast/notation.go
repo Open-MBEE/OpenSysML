@@ -62,9 +62,8 @@ func Notation(node Node) string {
 	return ""
 }
 
-// modifierPrefixed writes the modifier the notation declares before the kind
-// keyword: `variation`, which also says the element is abstract, so `abstract`
-// is never written on a variation (SysML v2 §7.6.7); else `abstract` (§7.6.2, §7.6.3).
+// modifierPrefixed writes the modifier before the kind keyword: `variation`, which
+// says abstract too so `abstract` is never written on one (§7.6.7); else `abstract`.
 func modifierPrefixed(kw string, isAbstract, isVariation bool) string {
 	switch {
 	case isVariation:

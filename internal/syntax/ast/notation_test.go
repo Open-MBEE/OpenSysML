@@ -32,8 +32,7 @@ func TestNotationVariation(t *testing.T) {
 }
 
 // TestNotationAbstract checks an abstract definition or usage is named with
-// `abstract` before its kind keyword, and that a variation — abstract by
-// definition — is still named `variation` alone.
+// `abstract` before its kind keyword, and a variation with `variation` alone.
 func TestNotationAbstract(t *testing.T) {
 	cases := []struct {
 		name string
