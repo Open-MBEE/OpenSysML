@@ -3,6 +3,7 @@ package solve
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -170,7 +171,7 @@ func pathName(path []*symbols.Symbol) string {
 		if i > 0 {
 			name += "."
 		}
-		name += step.Name
+		name += source.QualifiedNameText(step.Name)
 	}
 	return name
 }
@@ -260,7 +261,7 @@ func (t *translator) selectionLabel() string {
 		if i > 0 {
 			label += " and "
 		}
-		label += pathName(s.holder) + " == " + s.variant.Name
+		label += pathName(s.holder) + " == " + source.QualifiedNameText(s.variant.Name)
 	}
 	return label
 }
