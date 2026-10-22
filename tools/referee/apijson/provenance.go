@@ -25,9 +25,11 @@ var manualExamples = diff.Root{Name: "manual-examples", Dir: "docs/manual/exampl
 // roots are the differential's corpus roots plus the manual's examples.
 func roots() []diff.Root { return append(diff.Roots(), manualExamples) }
 
-// provenance identifies the run's inputs: checkout's pin, bridge and corpora, and
-// the writer linked into this executable, digested in built, its build checkout.
-func provenance(checkout, built string) (baseline.Record, error) {
+// provenance identifies the run's inputs: checkout's pin, bridge and corpora, the
+// writer linked into this executable, digested in built, its build checkout, and
+// the libraries (an absolute directory inside checkout) the bridge reads beside
+// the standard library.
+func provenance(checkout, built, libraries string) (baseline.Record, error) {
 	pin, err := baseline.ReadPin(checkout)
 	if err != nil {
 		return baseline.Record{}, err
@@ -72,5 +74,18 @@ func provenance(checkout, built string) (baseline.Record, error) {
 		}
 		record.Inputs = append(record.Inputs, baseline.Input{Name: root.Name, Dir: root.Dir, Origin: origin, Files: len(files), Digest: digest})
 	}
+	libraryRoot := diff.Root{Name: diff.LibrariesInput, Dir: diff.RelativeTo(checkout, libraries)}
+	files, err := diff.CollectFiles(checkout, libraryRoot)
+	if err != nil {
+		return baseline.Record{}, err
+	}
+	if len(files) == 0 {
+		return baseline.Record{}, fmt.Errorf("no .sysml or .kerml files under the library directory %s", libraries)
+	}
+	libraryDigest, err := baseline.DigestFiles(libraries, files)
+	if err != nil {
+		return baseline.Record{}, fmt.Errorf("digest %s: %w", libraries, err)
+	}
+	record.Inputs = append(record.Inputs, baseline.Input{Name: libraryRoot.Name, Dir: libraryRoot.Dir, Origin: baseline.OriginOurs, Files: len(files), Digest: libraryDigest})
 	return record, nil
 }

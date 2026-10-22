@@ -251,6 +251,22 @@ still wins over the normative id when a library element carries one; an
 annotation restating the norm's own id declares nothing, so the id stays
 normative and `sysx:declaredId` is not written.
 
+**OpenSysML's own libraries have fixed ids too.** The bundled extension
+libraries (`OpenSysML Libraries/`: `DocumentQueries`, `MOSA`, `OOSEM`, …) are
+not normative — no specification fixes ids for them — so this implementation
+fixes them the same way, deterministic and the same on every run: a library
+package's id is `uuid5(URL name space,
+"https://github.com/Open-MBEE/OpenSysML-Extensions-Library/" + package name)`,
+and every named element under it is `uuid5(package id, escaped qualified name)`,
+as a normative id is under the OMG specification URL. A reference into one (an
+`#consensusStandard` metadata usage, a `redefines caption`) therefore links by
+id — `elmt:<uuid>` in Turtle, `{"@id": …}` in the element form — with the element
+named by a library stub as below, instead of carrying the name as text. These
+are **extension** ids, not normative ones: hover says `(extension, OpenSysML)`,
+and they are not the ids the OMG pilot mints when it loads the same files as a
+library directory (it hashes any library under the SysML specification URL), so
+no specification makes two tools agree on them; only the derivation above is fixed.
+
 **A converted model names the library elements it references.** A normative
 id is a hash of a name, and cannot be turned back into one. So for each standard
 library element the output references, the writer states the element under its
@@ -747,7 +763,7 @@ sees the same relationships SysML.xtext produces.
 | `objective { verify r; }` | a `sysml:RequirementVerificationMembership` owning a `sysml:RequirementUsage` that references `r` (its `sysml:ReferenceSubsetting`), with `sysml:kind "requirement"` |
 | `{ in y : Real; y + x }` | a `sysml:ResultExpressionMembership` owning the result expression |
 | `filter <expr>;`, `import P::*[@T]` | a `sysml:ElementFilterMembership` carrying `sysml:condition` |
-| an expression's `referent`/`targetFeature` link | a `sysml:Membership` minted beside it (`<S>_referent`, `_preferent`, `_targetFeature`) restating the referent edge as `memberElement`/`owner`, the shape interchange readers navigate (KerML 1.0 § 8.3.4.8.5 `FeatureReferenceExpression::referent` is derived from that membership). A body expression the reference owns (`cars->select { in c : V; c == c }`) is its member through the `FeatureMembership` that owns it, as in the pilot's XMI, so no second membership is minted for it |
+| an expression's `referent`/`targetFeature` link | the `sysml:Membership` the expression owns to the feature it names (`<S>_referent`, `_preferent`, `_targetFeature`), listed under `sysml:ownedRelationship` and `sysml:ownedMembership` where the notation places it: before the result parameter of a `FeatureReferenceExpression` (KerML 1.1 § 8.2.5.8.3 `FeatureReferenceMember`), between the operand and the result of a `FeatureChainExpression` (`FeatureChainMember`); `referent` and `targetFeature` are derived from it (§ 8.3.4.8.5, § 8.3.4.8.4). A body expression the reference owns (`cars->select { in c : V; c == c }`) is its member through the `FeatureMembership` that owns it, as in the pilot's XMI, so no second membership is minted for it |
 | `f(1)`, `T(q = 1)`, `a + b`, `s.twice(2)`, `ts.q`, `ts[1]`, `ts->select { … }` | the `InvocationExpression`/`ConstructorExpression`/`OperatorExpression`/`FeatureChainExpression`/`IndexExpression`/`CollectExpression`/`SelectExpression`; per operand a `sysml:ParameterMembership` (`<S>_pin<i>_om`) owning a `sysml:Feature` with `direction "in"` (`<S>_pin<i>`) that owns a `sysml:FeatureValue` (`<S>_pa<i>_om`) whose `value` is the operand tree; a `sysml:ReturnParameterMembership` (`<S>_pout_om`) owning the `direction "out"` result `Feature` (`<S>_pout`); and for an invocation a `sysml:Membership` (`<S>_pfunction`) whose `memberElement` is the invoked function or constructed type — the pilot serializes `InstantiationExpression::instantiatedType` through that membership, not a `FeatureTyping` (KerML 1.0 § 8.3.4.8.8 `InvocationExpression`, § 8.3.4.6.4 `ParameterMembership`, § 8.3.4.7.8 `ReturnParameterMembership`, § 8.3.4.10.2 `FeatureValue`). `sysml:function`, `sysml:argument`, `sysml:parameter`, `sysml:input` and `sysml:result` are written beside as the derived properties they are ([Expressions](#expressions)) |
 | `view v : VD { expose a; expose P::*; render r; filter @T; view sub : VD; }`, `viewpoint vp : VPD { frame concern c; }` | `sysml:ViewUsage`/`ViewDefinition`/`ViewpointUsage`/`ViewpointDefinition`/`RenderingUsage`/`RenderingDefinition`, a `sysml:MembershipExpose` or `sysml:NamespaceExpose` per `expose`, a `sysml:ViewRenderingMembership` owning the `RenderingUsage` a `render` names (through a `ReferenceSubsetting` of it), a `sysml:ElementFilterMembership` per `filter`, a `sysml:FramedConcernMembership` owning the `ConcernUsage` a `frame` names, and a nested view as a `ViewUsage` member (SysML v2 1.0 § 8.3.26 Views and Viewpoints) |
 | the document itself, in the API element form | an unnamed `sysml:Namespace` (`<root>_ns`) owning each top-level element through an `OwningMembership` (`<root>_om`); see [The API element form](#the-api-element-form) |

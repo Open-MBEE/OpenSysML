@@ -22,15 +22,26 @@ const (
 	KerML Language = iota + 1
 	// SysML is the Systems and Domain libraries.
 	SysML
+	// OpenSysML is this implementation's own extension libraries, whose ids it
+	// fixes the same way under their upstream URL.
+	OpenSysML
 )
 
-// Prefix is the specification URL the language's library package ids hash under.
+// ExtensionPrefix is the URL the OpenSysML extension-library package ids hash
+// under: the libraries' upstream home, as the OMG libraries hash under their
+// specification URL. Not the pilot's choice: loaded as a library directory, the
+// pilot hashes any library under the SysML specification URL.
+const ExtensionPrefix = "https://github.com/Open-MBEE/OpenSysML-Extensions-Library/"
+
+// Prefix is the URL the language's library package ids hash under.
 func (l Language) Prefix() string {
 	switch l {
 	case KerML:
 		return "https://www.omg.org/spec/KerML/"
 	case SysML:
 		return "https://www.omg.org/spec/SysML/"
+	case OpenSysML:
+		return ExtensionPrefix
 	}
 	return ""
 }
@@ -41,6 +52,8 @@ func (l Language) String() string {
 		return "KerML"
 	case SysML:
 		return "SysML"
+	case OpenSysML:
+		return "OpenSysML"
 	}
 	return "unknown"
 }
@@ -75,8 +88,9 @@ const Separator = "::"
 // owningMembershipPath is the path suffix an owning membership's id hashes.
 const owningMembershipPath = "/owningMembership"
 
-// ElementID is the normative id of the library element with the given qualified
+// ElementID is the fixed id of the library element with the given qualified
 // name (segments as declared, the first its library package); "" for none.
+// Normative for a KerML or SysML element, this implementation's for an OpenSysML one.
 func ElementID(lang Language, qualifiedName string) string {
 	pkg, path, top, ok := split(lang, qualifiedName)
 	if !ok {
@@ -88,7 +102,7 @@ func ElementID(lang Language, qualifiedName string) string {
 	return uuid5(pkg, path).String()
 }
 
-// OwningMembershipID is the normative id of the OwningMembership owning the
+// OwningMembershipID is the fixed id of the OwningMembership owning the
 // library element with the given qualified name, a library package included.
 func OwningMembershipID(lang Language, qualifiedName string) string {
 	pkg, path, _, ok := split(lang, qualifiedName)

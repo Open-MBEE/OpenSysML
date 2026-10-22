@@ -871,9 +871,9 @@ expr:Shadowing__Bus__budgeted_subject_pvalue
     sysx:sourceText "payload" ;
     sysml:elementId "Shadowing__Bus__budgeted_subject_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Shadowing__Bus__budgeted_subject_pvalue_preferent, expr:Shadowing__Bus__budgeted_subject_pvalue_pout_om ;
+    sysml:ownedMembership expr:Shadowing__Bus__budgeted_subject_pvalue_preferent, expr:Shadowing__Bus__budgeted_subject_pvalue_pout_om ;
     sysml:referent elmt:Shadowing__Bus__payload ;
-    sysml:ownedRelationship expr:Shadowing__Bus__budgeted_subject_pvalue_pout_om, expr:Shadowing__Bus__budgeted_subject_pvalue_preferent ;
-    sysml:ownedMembership expr:Shadowing__Bus__budgeted_subject_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:Shadowing__Bus__budgeted_subject_pvalue_pout_om ;
     sysml:ownedFeature expr:Shadowing__Bus__budgeted_subject_pvalue_pout ;
     sysml:parameter expr:Shadowing__Bus__budgeted_subject_pvalue_pout ;
@@ -881,7 +881,15 @@ expr:Shadowing__Bus__budgeted_subject_pvalue
     sysml:owner elmt:Shadowing__Bus__budgeted_subject ;
     sysml:owningRelationship expr:Shadowing__Bus__budgeted_subject_pvalue_om ;
     sysml:owningMembership expr:Shadowing__Bus__budgeted_subject_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__budgeted_subject_pvalue_pout_om\"},{\"@id\":\"Shadowing__Bus__budgeted_subject_pvalue_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__budgeted_subject_pvalue_preferent\"},{\"@id\":\"Shadowing__Bus__budgeted_subject_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadowing__Bus__budgeted_subject_pvalue_preferent\"},{\"@id\":\"Shadowing__Bus__budgeted_subject_pvalue_pout_om\"}]" .
+
+expr:Shadowing__Bus__budgeted_subject_pvalue_preferent
+    a sysml:Membership ;
+    sysml:elementId "Shadowing__Bus__budgeted_subject_pvalue_preferent" ;
+    sysml:memberElement elmt:Shadowing__Bus__payload ;
+    sysml:owner expr:Shadowing__Bus__budgeted_subject_pvalue ;
+    sysml:owningRelatedElement expr:Shadowing__Bus__budgeted_subject_pvalue .
 
 expr:Shadowing__Bus__budgeted_subject_pvalue_pout
     a sysml:Feature ;
@@ -1043,9 +1051,9 @@ expr:Shadowing___408_subject_pvalue
     sysx:sourceText "payload" ;
     sysml:elementId "Shadowing___408_subject_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Shadowing___408_subject_pvalue_preferent, expr:Shadowing___408_subject_pvalue_pout_om ;
+    sysml:ownedMembership expr:Shadowing___408_subject_pvalue_preferent, expr:Shadowing___408_subject_pvalue_pout_om ;
     sysml:referent elmt:Shadowing__payload ;
-    sysml:ownedRelationship expr:Shadowing___408_subject_pvalue_pout_om, expr:Shadowing___408_subject_pvalue_preferent ;
-    sysml:ownedMembership expr:Shadowing___408_subject_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:Shadowing___408_subject_pvalue_pout_om ;
     sysml:ownedFeature expr:Shadowing___408_subject_pvalue_pout ;
     sysml:parameter expr:Shadowing___408_subject_pvalue_pout ;
@@ -1053,7 +1061,15 @@ expr:Shadowing___408_subject_pvalue
     sysml:owner elmt:Shadowing___408_subject ;
     sysml:owningRelationship expr:Shadowing___408_subject_pvalue_om ;
     sysml:owningMembership expr:Shadowing___408_subject_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Shadowing___408_subject_pvalue_pout_om\"},{\"@id\":\"Shadowing___408_subject_pvalue_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Shadowing___408_subject_pvalue_preferent\"},{\"@id\":\"Shadowing___408_subject_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadowing___408_subject_pvalue_preferent\"},{\"@id\":\"Shadowing___408_subject_pvalue_pout_om\"}]" .
+
+expr:Shadowing___408_subject_pvalue_preferent
+    a sysml:Membership ;
+    sysml:elementId "Shadowing___408_subject_pvalue_preferent" ;
+    sysml:memberElement elmt:Shadowing__payload ;
+    sysml:owner expr:Shadowing___408_subject_pvalue ;
+    sysml:owningRelatedElement expr:Shadowing___408_subject_pvalue .
 
 expr:Shadowing___408_subject_pvalue_pout
     a sysml:Feature ;
@@ -1345,8 +1361,8 @@ expr:Shadowing__deeper__load_pvalue
     sysml:elementId "Shadowing__deeper__load_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Shadowing__deeper__load_pvalue_pa0 ;
-    sysml:ownedRelationship expr:Shadowing__deeper__load_pvalue_pin0_om, expr:Shadowing__deeper__load_pvalue_pout_om, expr:Shadowing__deeper__load_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:Shadowing__deeper__load_pvalue_pin0_om, expr:Shadowing__deeper__load_pvalue_pout_om ;
+    sysml:ownedRelationship expr:Shadowing__deeper__load_pvalue_pin0_om, expr:Shadowing__deeper__load_pvalue_ptargetFeature, expr:Shadowing__deeper__load_pvalue_pout_om ;
+    sysml:ownedMembership expr:Shadowing__deeper__load_pvalue_pin0_om, expr:Shadowing__deeper__load_pvalue_ptargetFeature, expr:Shadowing__deeper__load_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:Shadowing__deeper__load_pvalue_pin0_om, expr:Shadowing__deeper__load_pvalue_pout_om ;
     sysml:ownedFeature expr:Shadowing__deeper__load_pvalue_pin0, expr:Shadowing__deeper__load_pvalue_pout ;
     sysml:parameter expr:Shadowing__deeper__load_pvalue_pin0, expr:Shadowing__deeper__load_pvalue_pout ;
@@ -1356,8 +1372,8 @@ expr:Shadowing__deeper__load_pvalue
     sysml:owner elmt:Shadowing__deeper__load ;
     sysml:owningRelationship expr:Shadowing__deeper__load_pvalue_om ;
     sysml:owningMembership expr:Shadowing__deeper__load_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Shadowing__deeper__load_pvalue_pin0_om\"},{\"@id\":\"Shadowing__deeper__load_pvalue_pout_om\"},{\"@id\":\"Shadowing__deeper__load_pvalue_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Shadowing__deeper__load_pvalue_pin0_om\"},{\"@id\":\"Shadowing__deeper__load_pvalue_pout_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__deeper__load_pvalue_pin0_om\"},{\"@id\":\"Shadowing__deeper__load_pvalue_ptargetFeature\"},{\"@id\":\"Shadowing__deeper__load_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadowing__deeper__load_pvalue_pin0_om\"},{\"@id\":\"Shadowing__deeper__load_pvalue_ptargetFeature\"},{\"@id\":\"Shadowing__deeper__load_pvalue_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Shadowing__deeper__load_pvalue_pin0_om\"},{\"@id\":\"Shadowing__deeper__load_pvalue_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Shadowing__deeper__load_pvalue_pin0\"},{\"@id\":\"Shadowing__deeper__load_pvalue_pout\"}]" ;
     json:parameter "[{\"@id\":\"Shadowing__deeper__load_pvalue_pin0\"},{\"@id\":\"Shadowing__deeper__load_pvalue_pout\"}]" .
@@ -1367,9 +1383,9 @@ expr:Shadowing__deeper__load_pvalue_pa0
     sysx:sourceText "vehicle" ;
     sysml:elementId "Shadowing__deeper__load_pvalue_pa0" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Shadowing__deeper__load_pvalue_pa0_preferent, expr:Shadowing__deeper__load_pvalue_pa0_pout_om ;
+    sysml:ownedMembership expr:Shadowing__deeper__load_pvalue_pa0_preferent, expr:Shadowing__deeper__load_pvalue_pa0_pout_om ;
     sysml:referent elmt:Shadowing__study__vehicle ;
-    sysml:ownedRelationship expr:Shadowing__deeper__load_pvalue_pa0_pout_om, expr:Shadowing__deeper__load_pvalue_pa0_preferent ;
-    sysml:ownedMembership expr:Shadowing__deeper__load_pvalue_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Shadowing__deeper__load_pvalue_pa0_pout_om ;
     sysml:ownedFeature expr:Shadowing__deeper__load_pvalue_pa0_pout ;
     sysml:parameter expr:Shadowing__deeper__load_pvalue_pa0_pout ;
@@ -1377,7 +1393,15 @@ expr:Shadowing__deeper__load_pvalue_pa0
     sysml:owner expr:Shadowing__deeper__load_pvalue_pin0 ;
     sysml:owningRelationship expr:Shadowing__deeper__load_pvalue_pa0_om ;
     sysml:owningMembership expr:Shadowing__deeper__load_pvalue_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Shadowing__deeper__load_pvalue_pa0_pout_om\"},{\"@id\":\"Shadowing__deeper__load_pvalue_pa0_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Shadowing__deeper__load_pvalue_pa0_preferent\"},{\"@id\":\"Shadowing__deeper__load_pvalue_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadowing__deeper__load_pvalue_pa0_preferent\"},{\"@id\":\"Shadowing__deeper__load_pvalue_pa0_pout_om\"}]" .
+
+expr:Shadowing__deeper__load_pvalue_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Shadowing__deeper__load_pvalue_pa0_preferent" ;
+    sysml:memberElement elmt:Shadowing__study__vehicle ;
+    sysml:owner expr:Shadowing__deeper__load_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:Shadowing__deeper__load_pvalue_pa0 .
 
 expr:Shadowing__deeper__load_pvalue_pa0_pout
     a sysml:Feature ;
@@ -1434,6 +1458,13 @@ expr:Shadowing__deeper__load_pvalue_pa0_om
     sysml:membershipOwningNamespace expr:Shadowing__deeper__load_pvalue_pin0 ;
     sysml:featureWithValue expr:Shadowing__deeper__load_pvalue_pin0 ;
     sysml:value expr:Shadowing__deeper__load_pvalue_pa0 .
+
+expr:Shadowing__deeper__load_pvalue_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Shadowing__deeper__load_pvalue_ptargetFeature" ;
+    sysml:memberElement elmt:Shadowing__Bus__cargo ;
+    sysml:owner expr:Shadowing__deeper__load_pvalue ;
+    sysml:owningRelatedElement expr:Shadowing__deeper__load_pvalue .
 
 expr:Shadowing__deeper__load_pvalue_pout
     a sysml:Feature ;
@@ -2161,13 +2192,6 @@ elmt:Shadowing__Bus__budgeted_ft0
     sysml:relatedElement elmt:Shadowing__Bus__budgeted, elmt:Shadowing__Budget ;
     json:relatedElement "[{\"@id\":\"Shadowing__Bus__budgeted\"},{\"@id\":\"Shadowing__Budget\"}]" .
 
-expr:Shadowing__Bus__budgeted_subject_pvalue_preferent
-    a sysml:Membership ;
-    sysml:elementId "Shadowing__Bus__budgeted_subject_pvalue_preferent" ;
-    sysml:memberElement elmt:Shadowing__Bus__payload ;
-    sysml:owner expr:Shadowing__Bus__budgeted_subject_pvalue ;
-    sysml:owningRelatedElement expr:Shadowing__Bus__budgeted_subject_pvalue .
-
 elmt:Shadowing__budget_ft0
     a sysml:FeatureTyping ;
     sysml:elementId "Shadowing__budget_ft0" ;
@@ -2199,13 +2223,6 @@ elmt:Shadowing___408_rs
     sysml:owner elmt:Shadowing___408 ;
     sysml:relatedElement elmt:Shadowing___408, elmt:Shadowing__budget ;
     json:relatedElement "[{\"@id\":\"Shadowing___408\"},{\"@id\":\"Shadowing__budget\"}]" .
-
-expr:Shadowing___408_subject_pvalue_preferent
-    a sysml:Membership ;
-    sysml:elementId "Shadowing___408_subject_pvalue_preferent" ;
-    sysml:memberElement elmt:Shadowing__payload ;
-    sysml:owner expr:Shadowing___408_subject_pvalue ;
-    sysml:owningRelatedElement expr:Shadowing___408_subject_pvalue .
 
 elmt:Shadowing__bus_ft0
     a sysml:FeatureTyping ;
@@ -2298,20 +2315,6 @@ elmt:Shadowing__deeper_ss0
     sysml:owner elmt:Shadowing__deeper ;
     sysml:relatedElement elmt:Shadowing__deeper, elmt:Shadowing__study ;
     json:relatedElement "[{\"@id\":\"Shadowing__deeper\"},{\"@id\":\"Shadowing__study\"}]" .
-
-expr:Shadowing__deeper__load_pvalue_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Shadowing__deeper__load_pvalue_ptargetFeature" ;
-    sysml:memberElement elmt:Shadowing__Bus__cargo ;
-    sysml:owner expr:Shadowing__deeper__load_pvalue ;
-    sysml:owningRelatedElement expr:Shadowing__deeper__load_pvalue .
-
-expr:Shadowing__deeper__load_pvalue_pa0_preferent
-    a sysml:Membership ;
-    sysml:elementId "Shadowing__deeper__load_pvalue_pa0_preferent" ;
-    sysml:memberElement elmt:Shadowing__study__vehicle ;
-    sysml:owner expr:Shadowing__deeper__load_pvalue_pa0 ;
-    sysml:owningRelatedElement expr:Shadowing__deeper__load_pvalue_pa0 .
 
 elmt:Shadowing__Frame__packet_20data_20field_ft0
     a sysml:FeatureTyping ;
