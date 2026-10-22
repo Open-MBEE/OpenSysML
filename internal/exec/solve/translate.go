@@ -439,13 +439,13 @@ func TranslateWith(ctx *runtime.Context, subject Subject, conds []runtime.Condit
 	return t.query(), nil
 }
 
-// vacuousSubject reports whether a subject over no condition still has a
-// claim to translate: a requirement's result over no constraint is true
+// vacuousSubject reports whether a subject over no required condition still has
+// a claim to translate: a requirement's result over no constraint is true
 // (Requirements::RequirementConstraintCheck), so its plain query asserts nothing
-// and every assignment meets it; a denial or a violation of it has nothing to
-// deny, and a constraint states no result at all.
+// and every assignment meets it, and a violation of it asserts false; a denial
+// of it has nothing to deny, and a constraint states no result at all.
 func vacuousSubject(subject Subject) bool {
-	if subject.Negated || subject.Violation {
+	if subject.Negated {
 		return false
 	}
 	switch subject.Kind {
@@ -571,6 +571,9 @@ func effectiveFeatures(ctx *runtime.Context, sym *symbols.Symbol) map[string]*sy
 func (t *translator) translate(conds []runtime.Condition) error {
 	var required []*Term
 	var labels []string
+	// A requirement's assumptions are the antecedent of its claim, never asserted
+	// on their own: over no required condition the claim holds vacuously.
+	vacuous := vacuousSubject(t.subject) && !requiresAny(conds)
 	// The evaluator stops at the first required condition that does not hold,
 	// so a later condition is evaluated only where every earlier one held.
 	var before []*Term
@@ -581,6 +584,9 @@ func (t *translator) translate(conds []runtime.Condition) error {
 		t.frame = frame{}
 		if i < len(t.frames) {
 			t.frame = t.frames[i]
+		}
+		if vacuous {
+			continue
 		}
 		owner, span := conditionOrigin(cond)
 		t.condLabel = cond.Label()
@@ -631,14 +637,19 @@ func (t *translator) translate(conds []runtime.Condition) error {
 // violated asserts the denial of the element's claim as a whole, which for a
 // negated element is the denial of its denial: all of its required conditions.
 // Assumed conditions stay assumptions — hypotheses of the claim, not of the
-// violation — and a violation stating no required condition has no claim to
-// violate.
+// violation. A requirement stating no required condition holds vacuously, so its
+// violation is false; a constraint stating none has no claim to violate.
 func (t *translator) violated(required []*Term, labels []string) error {
-	if len(required) == 0 {
+	if len(required) == 0 && !vacuousSubject(t.subject) {
 		return fmt.Errorf("%s %s: %w to violate", t.subject.Kind, t.subject.Name, ErrNoConditions)
 	}
 	claim := required
 	claimLabels := labels
+	if len(required) == 0 {
+		// A claim over no required condition holds vacuously, so nothing violates it.
+		claim = []*Term{BoolTerm(true)}
+		claimLabels = []string{"true"}
+	}
 	if t.subject.Negated {
 		claim = []*Term{Not(And(required...))}
 		claimLabels = []string{"not (" + strings.Join(labels, " and ") + ")"}
@@ -1465,4 +1476,14 @@ func (t *translator) refuse(node ast.Node, construct, reason string) error {
 		Span:      span,
 		Location:  t.ctx.SourceLocation(t.condFile, span),
 	}
+}
+
+// requiresAny reports whether any of conds is required rather than assumed.
+func requiresAny(conds []runtime.Condition) bool {
+	for _, cond := range conds {
+		if cond.Required {
+			return true
+		}
+	}
+	return false
 }
