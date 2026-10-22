@@ -304,7 +304,15 @@ func (c *Clock) instantAfter(duration float64, what string) (float64, error) {
 
 // timeMagnitude reads a time trigger's duration or instant as a number of clock
 // units: a bare number is already one, a quantity is converted from its unit.
+// A feature's value is a sequence, so one holding a single element is read as it.
 func (ctx *Context) timeMagnitude(val Value, what string) (float64, error) {
+	if val.Kind == ValSequence || val.Kind == ValSet {
+		elements := elementsOf(val)
+		if len(elements) != 1 {
+			return 0, fmt.Errorf("%w: %s must be one value, got %d", ErrTypeMismatch, what, len(elements))
+		}
+		val = elements[0]
+	}
 	switch val.Kind {
 	case ValConst:
 		switch val.Const.Kind {
