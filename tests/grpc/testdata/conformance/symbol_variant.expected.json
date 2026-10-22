@@ -1,0 +1,8 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "PLE::EngineChoices::fourCyl",
+	"expected_metadata": {
+		"variant": "true"
+	},
+	"absent_metadata": ["variation", "abstract"]
+}

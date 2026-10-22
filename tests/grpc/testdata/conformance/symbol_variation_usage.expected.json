@@ -1,0 +1,10 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "PLE::family::transmission",
+	"expected_metadata": {
+		"variation": "true",
+		"abstract": "true",
+		"type": "Transmission"
+	},
+	"absent_metadata": ["variant"]
+}

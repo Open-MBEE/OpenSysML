@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:99cfc9ef69ad0d04414002da17c6b823d4c24774284a10ae3a2f2a952e655d09"
+        "sourceDigest": "sha256:b715d8db18f35cfd8ec15482fd3e45d533ef3d08fc1a3a6ca1d955b17c405406"
       }
     ],
     "inputs": [
@@ -65,7 +65,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 52,
-        "digest": "sha256:b4cd7f2c1ac685f38d0a63f41de7f9f3a920019d58b13c7f41b6ed00a4a4748b"
+        "digest": "sha256:f87d08a6aaecbe1017dd38c2e140705f6d08b1acd455bba297b0b75b884152b9"
       },
       {
         "name": "probes",
@@ -113,26 +113,26 @@
     "pilotFailed": 56,
     "pilotLibraryElements": 30926,
     "elements": {
-      "matched": 91708,
+      "matched": 91721,
       "oursOnly": 18392,
-      "pilotOnly": 37333,
+      "pilotOnly": 37335,
       "pilotOnlyImplied": 0,
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 644784,
-      "presentDifferent": 31663,
-      "oursMissing": 1079696,
-      "pilotMissing": 66533,
-      "absentBoth": 2405996,
+      "presentEqual": 644960,
+      "presentDifferent": 31668,
+      "oursMissing": 1079787,
+      "pilotMissing": 66545,
+      "absentBoth": 2406377,
       "indeterminate": 26031
     },
     "rows": 11718,
-    "unkeyedReferences": 110959,
-    "extensionProperties": 157858,
+    "unkeyedReferences": 110971,
+    "extensionProperties": 157882,
     "duplicateElements": {
       "ours": 525,
-      "pilot": 78031
+      "pilot": 78121
     },
     "ambiguousKeys": {
       "ours": 285,
@@ -160,9 +160,9 @@
         "typeMismatch": 10
       },
       "properties": {
-        "presentEqual": 53050,
+        "presentEqual": 53056,
         "presentDifferent": 2136,
-        "oursMissing": 88049,
+        "oursMissing": 88043,
         "pilotMissing": 5126,
         "absentBoth": 200267,
         "indeterminate": 1594
@@ -195,9 +195,9 @@
         "typeMismatch": 59
       },
       "properties": {
-        "presentEqual": 191588,
+        "presentEqual": 191619,
         "presentDifferent": 9050,
-        "oursMissing": 318717,
+        "oursMissing": 318686,
         "pilotMissing": 19458,
         "absentBoth": 714824,
         "indeterminate": 6812
@@ -230,9 +230,9 @@
         "typeMismatch": 15
       },
       "properties": {
-        "presentEqual": 66554,
+        "presentEqual": 66569,
         "presentDifferent": 3631,
-        "oursMissing": 110562,
+        "oursMissing": 110547,
         "pilotMissing": 6811,
         "absentBoth": 251999,
         "indeterminate": 2194
@@ -301,9 +301,9 @@
         "typeMismatch": 397
       },
       "properties": {
-        "presentEqual": 47046,
+        "presentEqual": 47050,
         "presentDifferent": 1732,
-        "oursMissing": 75016,
+        "oursMissing": 75012,
         "pilotMissing": 5041,
         "absentBoth": 163772,
         "indeterminate": 1985
@@ -337,9 +337,9 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 9218,
+        "presentEqual": 9219,
         "presentDifferent": 459,
-        "oursMissing": 15673,
+        "oursMissing": 15672,
         "pilotMissing": 997,
         "absentBoth": 36926,
         "indeterminate": 376
@@ -366,23 +366,23 @@
       "oursColliding": 3,
       "pilotLibraryElements": 13888,
       "elements": {
-        "matched": 26241,
+        "matched": 26254,
         "oursOnly": 5956,
-        "pilotOnly": 14774,
+        "pilotOnly": 14776,
         "pilotOnlyImplied": 0,
         "typeMismatch": 186
       },
       "properties": {
-        "presentEqual": 184735,
-        "presentDifferent": 9313,
-        "oursMissing": 318830,
-        "pilotMissing": 19315,
-        "absentBoth": 717424,
+        "presentEqual": 184854,
+        "presentDifferent": 9318,
+        "oursMissing": 318978,
+        "pilotMissing": 19327,
+        "absentBoth": 717805,
         "indeterminate": 9561
       },
       "duplicateElements": {
         "ours": 423,
-        "pilot": 59615
+        "pilot": 59705
       },
       "ambiguousKeys": {
         "ours": 176,
@@ -1482,9 +1482,9 @@
       0
     ],
     "ActionDefinition.isAbstract": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       176,
       0
@@ -2202,9 +2202,9 @@
       0
     ],
     "ActionUsage.isAbstract": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       515,
       0
@@ -5818,9 +5818,9 @@
       0
     ],
     "AnalysisCaseUsage.isAbstract": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       40,
       0
@@ -9594,9 +9594,9 @@
       0
     ],
     "AttributeDefinition.isAbstract": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       206,
       0
@@ -10102,13 +10102,13 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.attributeDefinition": [
       0,
       0,
-      2498,
+      2500,
       0,
       0,
       0
@@ -10118,7 +10118,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.declaredName": [
@@ -10126,7 +10126,7 @@
       0,
       0,
       0,
-      980,
+      982,
       0
     ],
     "AttributeUsage.declaredShortName": [
@@ -10134,13 +10134,13 @@
       0,
       0,
       0,
-      2491,
+      2493,
       0
     ],
     "AttributeUsage.definition": [
       0,
       0,
-      2498,
+      2500,
       0,
       0,
       0
@@ -10150,7 +10150,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.directedFeature": [
@@ -10158,7 +10158,7 @@
       0,
       2,
       0,
-      2496,
+      2498,
       0
     ],
     "AttributeUsage.directedUsage": [
@@ -10166,7 +10166,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.direction": [
@@ -10174,7 +10174,7 @@
       0,
       0,
       0,
-      2418,
+      2420,
       0
     ],
     "AttributeUsage.documentation": [
@@ -10182,7 +10182,7 @@
       0,
       8,
       0,
-      2490,
+      2492,
       0
     ],
     "AttributeUsage.endFeature": [
@@ -10190,13 +10190,13 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.feature": [
       0,
       0,
-      2498,
+      2500,
       0,
       0,
       0
@@ -10204,7 +10204,7 @@
     "AttributeUsage.featureMembership": [
       0,
       0,
-      2498,
+      2500,
       0,
       0,
       0
@@ -10212,7 +10212,7 @@
     "AttributeUsage.featureTarget": [
       0,
       0,
-      2498,
+      2500,
       0,
       0,
       0
@@ -10220,7 +10220,7 @@
     "AttributeUsage.featuringType": [
       0,
       0,
-      2344,
+      2346,
       0,
       154,
       0
@@ -10230,13 +10230,13 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.inheritedFeature": [
       0,
       0,
-      2498,
+      2500,
       0,
       0,
       0
@@ -10244,7 +10244,7 @@
     "AttributeUsage.inheritedMembership": [
       0,
       0,
-      2498,
+      2500,
       0,
       0,
       0
@@ -10254,7 +10254,7 @@
       0,
       2,
       0,
-      2496,
+      2498,
       0
     ],
     "AttributeUsage.intersectingType": [
@@ -10262,19 +10262,19 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.isAbstract": [
-      1,
+      8,
       0,
-      7,
       0,
-      2490,
+      0,
+      2492,
       0
     ],
     "AttributeUsage.isComposite": [
-      2498,
+      2500,
       0,
       0,
       0,
@@ -10284,7 +10284,7 @@
     "AttributeUsage.isConjugated": [
       0,
       0,
-      2498,
+      2500,
       0,
       0,
       0
@@ -10294,7 +10294,7 @@
       0,
       0,
       0,
-      2496,
+      2498,
       0
     ],
     "AttributeUsage.isDefault": [
@@ -10310,7 +10310,7 @@
       0,
       0,
       0,
-      2496,
+      2498,
       0
     ],
     "AttributeUsage.isEnd": [
@@ -10318,7 +10318,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.isImpliedIncluded": [
@@ -10326,7 +10326,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.isInitial": [
@@ -10340,7 +10340,7 @@
     "AttributeUsage.isLibraryElement": [
       0,
       0,
-      2498,
+      2500,
       0,
       0,
       0
@@ -10350,7 +10350,7 @@
       0,
       0,
       0,
-      2488,
+      2490,
       0
     ],
     "AttributeUsage.isPortion": [
@@ -10358,13 +10358,13 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.isReference": [
       4,
       0,
-      2494,
+      2496,
       0,
       0,
       0
@@ -10382,7 +10382,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.isUnique": [
@@ -10390,13 +10390,13 @@
       0,
       0,
       0,
-      2494,
+      2496,
       0
     ],
     "AttributeUsage.isVariable": [
       0,
       0,
-      2157,
+      2159,
       0,
       341,
       0
@@ -10412,7 +10412,7 @@
     "AttributeUsage.isVariation": [
       7,
       0,
-      2491,
+      2493,
       0,
       0,
       0
@@ -10428,7 +10428,7 @@
     "AttributeUsage.mayTimeVary": [
       0,
       0,
-      2498,
+      2500,
       0,
       0,
       0
@@ -10436,7 +10436,7 @@
     "AttributeUsage.member": [
       0,
       0,
-      2498,
+      2500,
       0,
       0,
       0
@@ -10444,7 +10444,7 @@
     "AttributeUsage.membership": [
       0,
       0,
-      2498,
+      2500,
       0,
       0,
       0
@@ -10458,7 +10458,7 @@
       0
     ],
     "AttributeUsage.name": [
-      973,
+      975,
       0,
       1518,
       0,
@@ -10470,7 +10470,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedAllocation": [
@@ -10478,7 +10478,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedAnalysisCase": [
@@ -10486,7 +10486,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedAttribute": [
@@ -10494,7 +10494,7 @@
       0,
       32,
       0,
-      2466,
+      2468,
       0
     ],
     "AttributeUsage.nestedCalculation": [
@@ -10502,7 +10502,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedCase": [
@@ -10510,7 +10510,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedConcern": [
@@ -10518,7 +10518,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedConnection": [
@@ -10526,7 +10526,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedConstraint": [
@@ -10534,7 +10534,7 @@
       0,
       2,
       0,
-      2496,
+      2498,
       0
     ],
     "AttributeUsage.nestedEnumeration": [
@@ -10542,7 +10542,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedFlow": [
@@ -10550,7 +10550,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedInterface": [
@@ -10558,7 +10558,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedItem": [
@@ -10566,7 +10566,7 @@
       0,
       4,
       0,
-      2494,
+      2496,
       0
     ],
     "AttributeUsage.nestedMetadata": [
@@ -10574,7 +10574,7 @@
       0,
       9,
       0,
-      2489,
+      2491,
       0
     ],
     "AttributeUsage.nestedOccurrence": [
@@ -10582,7 +10582,7 @@
       0,
       6,
       0,
-      2492,
+      2494,
       0
     ],
     "AttributeUsage.nestedPart": [
@@ -10590,7 +10590,7 @@
       0,
       1,
       0,
-      2497,
+      2499,
       0
     ],
     "AttributeUsage.nestedPort": [
@@ -10598,7 +10598,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedReference": [
@@ -10606,7 +10606,7 @@
       0,
       65,
       0,
-      2433,
+      2435,
       0
     ],
     "AttributeUsage.nestedRendering": [
@@ -10614,7 +10614,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedRequirement": [
@@ -10622,7 +10622,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedState": [
@@ -10630,7 +10630,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedTransition": [
@@ -10638,7 +10638,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedUsage": [
@@ -10646,7 +10646,7 @@
       0,
       97,
       0,
-      2401,
+      2403,
       0
     ],
     "AttributeUsage.nestedUseCase": [
@@ -10654,7 +10654,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedVerificationCase": [
@@ -10662,7 +10662,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedView": [
@@ -10670,7 +10670,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.nestedViewpoint": [
@@ -10678,7 +10678,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.output": [
@@ -10686,7 +10686,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.ownedAnnotation": [
@@ -10694,7 +10694,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.ownedDifferencing": [
@@ -10702,7 +10702,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.ownedDisjoining": [
@@ -10710,13 +10710,13 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.ownedElement": [
       0,
       0,
-      2415,
+      2417,
       0,
       83,
       0
@@ -10726,7 +10726,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.ownedFeature": [
@@ -10734,7 +10734,7 @@
       0,
       0,
       0,
-      2401,
+      2403,
       0
     ],
     "AttributeUsage.ownedFeatureChaining": [
@@ -10742,7 +10742,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.ownedFeatureInverting": [
@@ -10750,7 +10750,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.ownedFeatureMembership": [
@@ -10758,7 +10758,7 @@
       0,
       0,
       0,
-      2401,
+      2403,
       0
     ],
     "AttributeUsage.ownedImport": [
@@ -10766,7 +10766,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.ownedIntersecting": [
@@ -10774,19 +10774,19 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.ownedMember": [
       62,
       54,
-      2299,
+      2301,
       0,
       83,
       0
     ],
     "AttributeUsage.ownedMembership": [
-      1182,
+      1184,
       624,
       609,
       0,
@@ -10794,7 +10794,7 @@
       0
     ],
     "AttributeUsage.ownedRedefinition": [
-      1024,
+      1026,
       0,
       0,
       0,
@@ -10811,14 +10811,14 @@
     ],
     "AttributeUsage.ownedRelationship": [
       113,
-      2330,
+      2332,
       36,
       0,
       19,
       0
     ],
     "AttributeUsage.ownedSpecialization": [
-      2305,
+      2307,
       30,
       0,
       0,
@@ -10826,7 +10826,7 @@
       0
     ],
     "AttributeUsage.ownedSubsetting": [
-      1236,
+      1238,
       0,
       0,
       0,
@@ -10838,7 +10838,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.ownedTyping": [
@@ -10846,7 +10846,7 @@
       0,
       0,
       0,
-      1362,
+      1364,
       0
     ],
     "AttributeUsage.ownedUnioning": [
@@ -10854,11 +10854,11 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.owner": [
-      2498,
+      2500,
       0,
       0,
       0,
@@ -10876,13 +10876,13 @@
     "AttributeUsage.owningFeatureMembership": [
       0,
       0,
-      2330,
+      2332,
       0,
       0,
       0
     ],
     "AttributeUsage.owningMembership": [
-      2482,
+      2484,
       16,
       0,
       0,
@@ -10890,7 +10890,7 @@
       0
     ],
     "AttributeUsage.owningNamespace": [
-      2496,
+      2498,
       0,
       2,
       0,
@@ -10898,7 +10898,7 @@
       0
     ],
     "AttributeUsage.owningRelationship": [
-      2482,
+      2484,
       16,
       0,
       0,
@@ -10908,7 +10908,7 @@
     "AttributeUsage.owningType": [
       0,
       0,
-      2330,
+      2332,
       0,
       0,
       0
@@ -10916,13 +10916,13 @@
     "AttributeUsage.owningUsage": [
       0,
       0,
-      934,
+      936,
       0,
       0,
       0
     ],
     "AttributeUsage.qualifiedName": [
-      2482,
+      2484,
       0,
       0,
       0,
@@ -10933,7 +10933,7 @@
       0,
       0,
       0,
-      1024,
+      1026,
       0,
       0
     ],
@@ -10966,13 +10966,13 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.type": [
       114,
       0,
-      1369,
+      1371,
       0,
       0,
       1015
@@ -10982,7 +10982,7 @@
       0,
       0,
       0,
-      2498,
+      2500,
       0
     ],
     "AttributeUsage.upperBound": [
@@ -10998,14 +10998,14 @@
       0,
       710,
       0,
-      1788,
+      1790,
       0
     ],
     "AttributeUsage.value": [
       0,
       0,
       0,
-      1656,
+      1658,
       0,
       0
     ],
@@ -11014,7 +11014,7 @@
       0,
       0,
       0,
-      2491,
+      2493,
       0
     ],
     "AttributeUsage.variantMembership": [
@@ -11022,7 +11022,7 @@
       0,
       0,
       0,
-      2491,
+      2493,
       0
     ],
     "AttributeUsage.visibility": [
@@ -28682,9 +28682,9 @@
       0
     ],
     "EnumerationDefinition.isAbstract": [
-      0,
-      0,
       25,
+      0,
+      0,
       0,
       0,
       0
@@ -34062,7 +34062,7 @@
       0,
       0,
       0,
-      10844,
+      10847,
       0
     ],
     "FeatureMembership.declaredName": [
@@ -34070,7 +34070,7 @@
       0,
       0,
       0,
-      10844,
+      10847,
       0
     ],
     "FeatureMembership.declaredShortName": [
@@ -34078,7 +34078,7 @@
       0,
       0,
       0,
-      10844,
+      10847,
       0
     ],
     "FeatureMembership.documentation": [
@@ -34086,7 +34086,7 @@
       0,
       0,
       0,
-      10844,
+      10847,
       0
     ],
     "FeatureMembership.isImplied": [
@@ -34094,7 +34094,7 @@
       0,
       0,
       0,
-      10844,
+      10847,
       0
     ],
     "FeatureMembership.isImpliedIncluded": [
@@ -34102,19 +34102,19 @@
       0,
       0,
       0,
-      10844,
+      10847,
       0
     ],
     "FeatureMembership.isLibraryElement": [
       0,
       0,
-      10844,
+      10847,
       0,
       0,
       0
     ],
     "FeatureMembership.memberElement": [
-      9378,
+      9381,
       570,
       0,
       0,
@@ -34124,7 +34124,7 @@
     "FeatureMembership.memberElementId": [
       0,
       0,
-      10844,
+      10847,
       0,
       0,
       0
@@ -34132,7 +34132,7 @@
     "FeatureMembership.memberName": [
       0,
       0,
-      9295,
+      9298,
       0,
       0,
       0
@@ -34146,7 +34146,7 @@
       0
     ],
     "FeatureMembership.membershipOwningNamespace": [
-      10844,
+      10847,
       0,
       0,
       0,
@@ -34158,7 +34158,7 @@
       0,
       0,
       0,
-      10844,
+      10847,
       0
     ],
     "FeatureMembership.ownedElement": [
@@ -34166,11 +34166,11 @@
       0,
       0,
       0,
-      10844,
+      10847,
       0
     ],
     "FeatureMembership.ownedMemberElement": [
-      9378,
+      9381,
       570,
       0,
       0,
@@ -34180,13 +34180,13 @@
     "FeatureMembership.ownedMemberElementId": [
       0,
       0,
-      10844,
+      10847,
       0,
       0,
       0
     ],
     "FeatureMembership.ownedMemberFeature": [
-      9284,
+      9287,
       568,
       96,
       0,
@@ -34196,7 +34196,7 @@
     "FeatureMembership.ownedMemberName": [
       0,
       0,
-      9295,
+      9298,
       0,
       0,
       0
@@ -34210,7 +34210,7 @@
       0
     ],
     "FeatureMembership.ownedRelatedElement": [
-      9378,
+      9381,
       570,
       0,
       0,
@@ -34222,19 +34222,19 @@
       0,
       0,
       0,
-      10844,
+      10847,
       0
     ],
     "FeatureMembership.owner": [
       0,
       0,
       0,
-      10844,
+      10847,
       0,
       0
     ],
     "FeatureMembership.owningRelatedElement": [
-      10844,
+      10847,
       0,
       0,
       0,
@@ -34246,11 +34246,11 @@
       0,
       0,
       0,
-      10844,
+      10847,
       0
     ],
     "FeatureMembership.owningType": [
-      10680,
+      10683,
       0,
       164,
       0,
@@ -34260,7 +34260,7 @@
     "FeatureMembership.relatedElement": [
       0,
       0,
-      10844,
+      10847,
       0,
       0,
       0
@@ -34268,7 +34268,7 @@
     "FeatureMembership.source": [
       0,
       0,
-      10844,
+      10847,
       0,
       0,
       0
@@ -34276,7 +34276,7 @@
     "FeatureMembership.target": [
       0,
       0,
-      10844,
+      10847,
       0,
       0,
       0
@@ -34286,13 +34286,13 @@
       0,
       0,
       0,
-      10844,
+      10847,
       0
     ],
     "FeatureMembership.visibility": [
       63,
       1,
-      10780,
+      10783,
       0,
       0,
       0
@@ -34862,7 +34862,7 @@
       0,
       0,
       0,
-      5981,
+      5982,
       0
     ],
     "FeatureTyping.declaredName": [
@@ -34870,7 +34870,7 @@
       0,
       0,
       0,
-      5977,
+      5978,
       0
     ],
     "FeatureTyping.declaredShortName": [
@@ -34878,7 +34878,7 @@
       0,
       0,
       0,
-      5981,
+      5982,
       0
     ],
     "FeatureTyping.documentation": [
@@ -34886,11 +34886,11 @@
       0,
       1,
       0,
-      5980,
+      5981,
       0
     ],
     "FeatureTyping.general": [
-      3398,
+      3399,
       0,
       328,
       0,
@@ -34902,7 +34902,7 @@
       0,
       0,
       0,
-      5981,
+      5982,
       0
     ],
     "FeatureTyping.isImpliedIncluded": [
@@ -34910,13 +34910,13 @@
       0,
       0,
       0,
-      5981,
+      5982,
       0
     ],
     "FeatureTyping.isLibraryElement": [
       0,
       0,
-      5981,
+      5982,
       0,
       0,
       0
@@ -34934,7 +34934,7 @@
       0,
       1,
       0,
-      5980,
+      5981,
       0
     ],
     "FeatureTyping.ownedElement": [
@@ -34942,7 +34942,7 @@
       0,
       1,
       0,
-      5980,
+      5981,
       0
     ],
     "FeatureTyping.ownedRelatedElement": [
@@ -34950,7 +34950,7 @@
       0,
       0,
       1,
-      5980,
+      5981,
       0
     ],
     "FeatureTyping.ownedRelationship": [
@@ -34958,7 +34958,7 @@
       1,
       0,
       3,
-      5977,
+      5978,
       0
     ],
     "FeatureTyping.ownedSpecialization": [
@@ -34981,12 +34981,12 @@
       4,
       0,
       0,
-      5977,
+      5978,
       0,
       0
     ],
     "FeatureTyping.owningFeature": [
-      5977,
+      5978,
       0,
       0,
       0,
@@ -35010,7 +35010,7 @@
       0
     ],
     "FeatureTyping.owningRelatedElement": [
-      5977,
+      5978,
       0,
       0,
       0,
@@ -35022,13 +35022,13 @@
       0,
       0,
       0,
-      5977,
+      5978,
       0
     ],
     "FeatureTyping.owningType": [
       0,
       0,
-      5977,
+      5978,
       0,
       0,
       0
@@ -35042,7 +35042,7 @@
       0
     ],
     "FeatureTyping.relatedElement": [
-      3398,
+      3399,
       0,
       328,
       0,
@@ -35050,7 +35050,7 @@
       2255
     ],
     "FeatureTyping.source": [
-      5977,
+      5978,
       0,
       4,
       0,
@@ -35058,7 +35058,7 @@
       0
     ],
     "FeatureTyping.specific": [
-      5977,
+      5978,
       0,
       4,
       0,
@@ -35066,7 +35066,7 @@
       0
     ],
     "FeatureTyping.target": [
-      3398,
+      3399,
       0,
       328,
       0,
@@ -35078,11 +35078,11 @@
       0,
       0,
       0,
-      5981,
+      5982,
       0
     ],
     "FeatureTyping.type": [
-      3400,
+      3401,
       0,
       326,
       0,
@@ -35090,7 +35090,7 @@
       2255
     ],
     "FeatureTyping.typedFeature": [
-      5979,
+      5980,
       0,
       2,
       0,
@@ -35102,7 +35102,7 @@
       0,
       0,
       0,
-      7080,
+      7082,
       0
     ],
     "FeatureValue.declaredName": [
@@ -35110,7 +35110,7 @@
       0,
       0,
       0,
-      7080,
+      7082,
       0
     ],
     "FeatureValue.declaredShortName": [
@@ -35118,7 +35118,7 @@
       0,
       0,
       0,
-      7080,
+      7082,
       0
     ],
     "FeatureValue.documentation": [
@@ -35126,11 +35126,11 @@
       0,
       0,
       0,
-      7080,
+      7082,
       0
     ],
     "FeatureValue.featureWithValue": [
-      7080,
+      7082,
       0,
       0,
       0,
@@ -35142,7 +35142,7 @@
       0,
       0,
       0,
-      7013,
+      7015,
       0
     ],
     "FeatureValue.isImplied": [
@@ -35150,7 +35150,7 @@
       0,
       0,
       0,
-      7080,
+      7082,
       0
     ],
     "FeatureValue.isImpliedIncluded": [
@@ -35158,7 +35158,7 @@
       0,
       0,
       0,
-      7080,
+      7082,
       0
     ],
     "FeatureValue.isInitial": [
@@ -35166,19 +35166,19 @@
       0,
       0,
       0,
-      7065,
+      7067,
       0
     ],
     "FeatureValue.isLibraryElement": [
       0,
       0,
-      7080,
+      7082,
       0,
       0,
       0
     ],
     "FeatureValue.memberElement": [
-      6774,
+      6776,
       306,
       0,
       0,
@@ -35188,13 +35188,13 @@
     "FeatureValue.memberElementId": [
       0,
       0,
-      7080,
+      7082,
       0,
       0,
       0
     ],
     "FeatureValue.membershipOwningNamespace": [
-      7080,
+      7082,
       0,
       0,
       0,
@@ -35206,7 +35206,7 @@
       0,
       0,
       0,
-      7080,
+      7082,
       0
     ],
     "FeatureValue.ownedElement": [
@@ -35214,11 +35214,11 @@
       0,
       0,
       0,
-      7080,
+      7082,
       0
     ],
     "FeatureValue.ownedMemberElement": [
-      6774,
+      6776,
       306,
       0,
       0,
@@ -35228,13 +35228,13 @@
     "FeatureValue.ownedMemberElementId": [
       0,
       0,
-      7080,
+      7082,
       0,
       0,
       0
     ],
     "FeatureValue.ownedRelatedElement": [
-      6774,
+      6776,
       306,
       0,
       0,
@@ -35246,19 +35246,19 @@
       0,
       0,
       0,
-      7080,
+      7082,
       0
     ],
     "FeatureValue.owner": [
       0,
       0,
       0,
-      7080,
+      7082,
       0,
       0
     ],
     "FeatureValue.owningRelatedElement": [
-      7080,
+      7082,
       0,
       0,
       0,
@@ -35270,13 +35270,13 @@
       0,
       0,
       0,
-      7080,
+      7082,
       0
     ],
     "FeatureValue.relatedElement": [
       0,
       0,
-      7080,
+      7082,
       0,
       0,
       0
@@ -35284,7 +35284,7 @@
     "FeatureValue.source": [
       0,
       0,
-      7080,
+      7082,
       0,
       0,
       0
@@ -35292,7 +35292,7 @@
     "FeatureValue.target": [
       0,
       0,
-      7080,
+      7082,
       0,
       0,
       0
@@ -35302,11 +35302,11 @@
       0,
       0,
       0,
-      7080,
+      7082,
       0
     ],
     "FeatureValue.value": [
-      6774,
+      6776,
       306,
       0,
       0,
@@ -35316,7 +35316,7 @@
     "FeatureValue.visibility": [
       0,
       0,
-      7080,
+      7082,
       0,
       0,
       0
@@ -48974,13 +48974,13 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.behavior": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -48990,7 +48990,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.declaredName": [
@@ -48998,7 +48998,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.declaredShortName": [
@@ -49006,7 +49006,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.differencingType": [
@@ -49014,13 +49014,13 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.directedFeature": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49030,7 +49030,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.documentation": [
@@ -49038,7 +49038,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.endFeature": [
@@ -49046,13 +49046,13 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.feature": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49060,7 +49060,7 @@
     "LiteralBoolean.featureMembership": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49068,7 +49068,7 @@
     "LiteralBoolean.featureTarget": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49078,13 +49078,13 @@
       0,
       90,
       0,
-      287,
+      288,
       0
     ],
     "LiteralBoolean.function": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49094,13 +49094,13 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.inheritedFeature": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49108,7 +49108,7 @@
     "LiteralBoolean.inheritedMembership": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49118,7 +49118,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.intersectingType": [
@@ -49126,7 +49126,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.isAbstract": [
@@ -49134,11 +49134,11 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.isComposite": [
-      377,
+      378,
       0,
       0,
       0,
@@ -49148,7 +49148,7 @@
     "LiteralBoolean.isConjugated": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49158,7 +49158,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.isDerived": [
@@ -49166,7 +49166,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.isEnd": [
@@ -49174,7 +49174,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.isImpliedIncluded": [
@@ -49182,13 +49182,13 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.isLibraryElement": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49196,7 +49196,7 @@
     "LiteralBoolean.isModelLevelEvaluable": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49206,7 +49206,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.isPortion": [
@@ -49214,7 +49214,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.isSufficient": [
@@ -49222,7 +49222,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.isUnique": [
@@ -49230,7 +49230,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.isVariable": [
@@ -49238,13 +49238,13 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.member": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49252,7 +49252,7 @@
     "LiteralBoolean.membership": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49260,7 +49260,7 @@
     "LiteralBoolean.output": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49270,7 +49270,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedDifferencing": [
@@ -49278,7 +49278,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedDisjoining": [
@@ -49286,7 +49286,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedElement": [
@@ -49294,7 +49294,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedEndFeature": [
@@ -49302,7 +49302,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedFeature": [
@@ -49310,7 +49310,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedFeatureChaining": [
@@ -49318,7 +49318,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedFeatureInverting": [
@@ -49326,7 +49326,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedFeatureMembership": [
@@ -49334,7 +49334,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedImport": [
@@ -49342,7 +49342,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedIntersecting": [
@@ -49350,7 +49350,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedMember": [
@@ -49358,7 +49358,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedMembership": [
@@ -49366,7 +49366,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedRedefinition": [
@@ -49374,7 +49374,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedRelationship": [
@@ -49382,7 +49382,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedSpecialization": [
@@ -49390,7 +49390,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedSubsetting": [
@@ -49398,7 +49398,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedTypeFeaturing": [
@@ -49406,7 +49406,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedTyping": [
@@ -49414,7 +49414,7 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.ownedUnioning": [
@@ -49422,11 +49422,11 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.owner": [
-      377,
+      378,
       0,
       0,
       0,
@@ -49434,7 +49434,7 @@
       0
     ],
     "LiteralBoolean.owningMembership": [
-      377,
+      378,
       0,
       0,
       0,
@@ -49444,13 +49444,13 @@
     "LiteralBoolean.owningNamespace": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
     ],
     "LiteralBoolean.owningRelationship": [
-      377,
+      378,
       0,
       0,
       0,
@@ -49460,7 +49460,7 @@
     "LiteralBoolean.parameter": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49468,7 +49468,7 @@
     "LiteralBoolean.result": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49478,13 +49478,13 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.type": [
       0,
       0,
-      377,
+      378,
       0,
       0,
       0
@@ -49494,11 +49494,11 @@
       0,
       0,
       0,
-      377,
+      378,
       0
     ],
     "LiteralBoolean.value": [
-      377,
+      378,
       0,
       0,
       0,
@@ -51110,13 +51110,13 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.behavior": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51126,7 +51126,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.declaredName": [
@@ -51134,7 +51134,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.declaredShortName": [
@@ -51142,7 +51142,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.differencingType": [
@@ -51150,13 +51150,13 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.directedFeature": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51166,7 +51166,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.documentation": [
@@ -51174,7 +51174,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.endFeature": [
@@ -51182,13 +51182,13 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.feature": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51196,7 +51196,7 @@
     "LiteralString.featureMembership": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51204,7 +51204,7 @@
     "LiteralString.featureTarget": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51214,13 +51214,13 @@
       0,
       388,
       0,
-      704,
+      705,
       0
     ],
     "LiteralString.function": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51230,13 +51230,13 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.inheritedFeature": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51244,7 +51244,7 @@
     "LiteralString.inheritedMembership": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51254,7 +51254,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.intersectingType": [
@@ -51262,7 +51262,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.isAbstract": [
@@ -51270,11 +51270,11 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.isComposite": [
-      1092,
+      1093,
       0,
       0,
       0,
@@ -51284,7 +51284,7 @@
     "LiteralString.isConjugated": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51294,7 +51294,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.isDerived": [
@@ -51302,7 +51302,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.isEnd": [
@@ -51310,7 +51310,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.isImpliedIncluded": [
@@ -51318,13 +51318,13 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.isLibraryElement": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51332,7 +51332,7 @@
     "LiteralString.isModelLevelEvaluable": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51342,7 +51342,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.isPortion": [
@@ -51350,7 +51350,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.isSufficient": [
@@ -51358,7 +51358,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.isUnique": [
@@ -51366,7 +51366,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.isVariable": [
@@ -51374,13 +51374,13 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.member": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51388,7 +51388,7 @@
     "LiteralString.membership": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51396,7 +51396,7 @@
     "LiteralString.output": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51406,7 +51406,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedDifferencing": [
@@ -51414,7 +51414,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedDisjoining": [
@@ -51422,7 +51422,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedElement": [
@@ -51430,7 +51430,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedEndFeature": [
@@ -51438,7 +51438,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedFeature": [
@@ -51446,7 +51446,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedFeatureChaining": [
@@ -51454,7 +51454,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedFeatureInverting": [
@@ -51462,7 +51462,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedFeatureMembership": [
@@ -51470,7 +51470,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedImport": [
@@ -51478,7 +51478,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedIntersecting": [
@@ -51486,7 +51486,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedMember": [
@@ -51494,7 +51494,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedMembership": [
@@ -51502,7 +51502,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedRedefinition": [
@@ -51510,7 +51510,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedRelationship": [
@@ -51518,7 +51518,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedSpecialization": [
@@ -51526,7 +51526,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedSubsetting": [
@@ -51534,7 +51534,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedTypeFeaturing": [
@@ -51542,7 +51542,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedTyping": [
@@ -51550,7 +51550,7 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.ownedUnioning": [
@@ -51558,11 +51558,11 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.owner": [
-      1092,
+      1093,
       0,
       0,
       0,
@@ -51570,7 +51570,7 @@
       0
     ],
     "LiteralString.owningMembership": [
-      1092,
+      1093,
       0,
       0,
       0,
@@ -51580,13 +51580,13 @@
     "LiteralString.owningNamespace": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
     ],
     "LiteralString.owningRelationship": [
-      1092,
+      1093,
       0,
       0,
       0,
@@ -51596,7 +51596,7 @@
     "LiteralString.parameter": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51604,7 +51604,7 @@
     "LiteralString.result": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51614,13 +51614,13 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.type": [
       0,
       0,
-      1092,
+      1093,
       0,
       0,
       0
@@ -51630,11 +51630,11 @@
       0,
       0,
       0,
-      1092,
+      1093,
       0
     ],
     "LiteralString.value": [
-      1092,
+      1093,
       0,
       0,
       0,
@@ -61338,9 +61338,9 @@
       0
     ],
     "PartDefinition.isAbstract": [
-      20,
+      26,
       0,
-      6,
+      0,
       0,
       893,
       0
@@ -61870,7 +61870,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.chainingFeature": [
@@ -61878,7 +61878,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.crossFeature": [
@@ -61898,7 +61898,7 @@
       0
     ],
     "PartUsage.declaredName": [
-      1789,
+      1790,
       0,
       0,
       0,
@@ -61910,13 +61910,13 @@
       0,
       0,
       0,
-      1967,
+      1968,
       0
     ],
     "PartUsage.definition": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -61926,13 +61926,13 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.directedFeature": [
       0,
       0,
-      137,
+      138,
       0,
       1832,
       0
@@ -61940,7 +61940,7 @@
     "PartUsage.directedUsage": [
       0,
       0,
-      137,
+      138,
       0,
       1832,
       0
@@ -61950,7 +61950,7 @@
       0,
       0,
       0,
-      1867,
+      1868,
       0
     ],
     "PartUsage.documentation": [
@@ -61958,7 +61958,7 @@
       0,
       10,
       0,
-      1959,
+      1960,
       0
     ],
     "PartUsage.endFeature": [
@@ -61966,7 +61966,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.endOwningType": [
@@ -61980,7 +61980,7 @@
     "PartUsage.feature": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -61988,7 +61988,7 @@
     "PartUsage.featureMembership": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -61996,7 +61996,7 @@
     "PartUsage.featureTarget": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -62004,7 +62004,7 @@
     "PartUsage.featuringType": [
       0,
       0,
-      1519,
+      1520,
       0,
       450,
       0
@@ -62014,7 +62014,7 @@
       0,
       3,
       0,
-      1966,
+      1967,
       0
     ],
     "PartUsage.individualDefinition": [
@@ -62028,7 +62028,7 @@
     "PartUsage.inheritedFeature": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -62036,7 +62036,7 @@
     "PartUsage.inheritedMembership": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -62046,7 +62046,7 @@
       0,
       56,
       0,
-      1913,
+      1914,
       0
     ],
     "PartUsage.intersectingType": [
@@ -62054,19 +62054,19 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.isAbstract": [
-      11,
+      27,
       0,
-      16,
       0,
-      1942,
+      0,
+      1943,
       0
     ],
     "PartUsage.isComposite": [
-      1969,
+      1970,
       0,
       0,
       0,
@@ -62076,7 +62076,7 @@
     "PartUsage.isConjugated": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -62086,7 +62086,7 @@
       0,
       21,
       0,
-      1946,
+      1947,
       0
     ],
     "PartUsage.isDefault": [
@@ -62102,7 +62102,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.isEnd": [
@@ -62110,7 +62110,7 @@
       0,
       0,
       0,
-      1948,
+      1949,
       0
     ],
     "PartUsage.isImpliedIncluded": [
@@ -62118,7 +62118,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.isIndividual": [
@@ -62126,13 +62126,13 @@
       0,
       0,
       0,
-      1962,
+      1963,
       0
     ],
     "PartUsage.isLibraryElement": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -62142,7 +62142,7 @@
       0,
       0,
       0,
-      1959,
+      1960,
       0
     ],
     "PartUsage.isPortion": [
@@ -62150,13 +62150,13 @@
       0,
       0,
       0,
-      1961,
+      1962,
       0
     ],
     "PartUsage.isReference": [
       45,
       0,
-      1924,
+      1925,
       0,
       0,
       0
@@ -62174,7 +62174,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.isUnique": [
@@ -62182,13 +62182,13 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.isVariable": [
       0,
       0,
-      1487,
+      1488,
       0,
       482,
       0
@@ -62204,7 +62204,7 @@
     "PartUsage.isVariation": [
       16,
       0,
-      1953,
+      1954,
       0,
       0,
       0
@@ -62212,7 +62212,7 @@
     "PartUsage.itemDefinition": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -62228,7 +62228,7 @@
     "PartUsage.mayTimeVary": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -62236,7 +62236,7 @@
     "PartUsage.member": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -62244,7 +62244,7 @@
     "PartUsage.membership": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -62252,7 +62252,7 @@
     "PartUsage.multiplicity": [
       272,
       0,
-      1033,
+      1034,
       0,
       0,
       0
@@ -62260,7 +62260,7 @@
     "PartUsage.name": [
       180,
       0,
-      1789,
+      1790,
       0,
       0,
       0
@@ -62270,7 +62270,7 @@
       0,
       208,
       0,
-      1761,
+      1762,
       0
     ],
     "PartUsage.nestedAllocation": [
@@ -62278,7 +62278,7 @@
       0,
       2,
       0,
-      1967,
+      1968,
       0
     ],
     "PartUsage.nestedAnalysisCase": [
@@ -62286,13 +62286,13 @@
       0,
       9,
       0,
-      1960,
+      1961,
       0
     ],
     "PartUsage.nestedAttribute": [
       0,
       0,
-      437,
+      438,
       0,
       1532,
       0
@@ -62302,7 +62302,7 @@
       0,
       69,
       0,
-      1900,
+      1901,
       0
     ],
     "PartUsage.nestedCase": [
@@ -62310,7 +62310,7 @@
       0,
       12,
       0,
-      1957,
+      1958,
       0
     ],
     "PartUsage.nestedConcern": [
@@ -62318,7 +62318,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.nestedConnection": [
@@ -62326,7 +62326,7 @@
       0,
       97,
       0,
-      1872,
+      1873,
       0
     ],
     "PartUsage.nestedConstraint": [
@@ -62334,7 +62334,7 @@
       0,
       63,
       0,
-      1906,
+      1907,
       0
     ],
     "PartUsage.nestedEnumeration": [
@@ -62342,7 +62342,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.nestedFlow": [
@@ -62350,7 +62350,7 @@
       0,
       23,
       0,
-      1946,
+      1947,
       0
     ],
     "PartUsage.nestedInterface": [
@@ -62358,7 +62358,7 @@
       0,
       18,
       0,
-      1951,
+      1952,
       0
     ],
     "PartUsage.nestedItem": [
@@ -62366,7 +62366,7 @@
       0,
       399,
       0,
-      1570,
+      1571,
       0
     ],
     "PartUsage.nestedMetadata": [
@@ -62374,7 +62374,7 @@
       0,
       151,
       0,
-      1818,
+      1819,
       0
     ],
     "PartUsage.nestedOccurrence": [
@@ -62382,7 +62382,7 @@
       0,
       714,
       0,
-      1255,
+      1256,
       0
     ],
     "PartUsage.nestedPart": [
@@ -62390,7 +62390,7 @@
       0,
       373,
       0,
-      1596,
+      1597,
       0
     ],
     "PartUsage.nestedPort": [
@@ -62398,7 +62398,7 @@
       0,
       114,
       0,
-      1855,
+      1856,
       0
     ],
     "PartUsage.nestedReference": [
@@ -62406,7 +62406,7 @@
       0,
       85,
       0,
-      1884,
+      1885,
       0
     ],
     "PartUsage.nestedRendering": [
@@ -62414,7 +62414,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.nestedRequirement": [
@@ -62422,7 +62422,7 @@
       0,
       42,
       0,
-      1927,
+      1928,
       0
     ],
     "PartUsage.nestedState": [
@@ -62430,7 +62430,7 @@
       0,
       18,
       0,
-      1951,
+      1952,
       0
     ],
     "PartUsage.nestedTransition": [
@@ -62438,13 +62438,13 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.nestedUsage": [
       0,
       0,
-      1008,
+      1009,
       0,
       961,
       0
@@ -62454,7 +62454,7 @@
       0,
       2,
       0,
-      1967,
+      1968,
       0
     ],
     "PartUsage.nestedVerificationCase": [
@@ -62462,7 +62462,7 @@
       0,
       1,
       0,
-      1968,
+      1969,
       0
     ],
     "PartUsage.nestedView": [
@@ -62470,7 +62470,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.nestedViewpoint": [
@@ -62478,13 +62478,13 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.occurrenceDefinition": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -62492,7 +62492,7 @@
     "PartUsage.output": [
       0,
       0,
-      122,
+      123,
       0,
       1847,
       0
@@ -62502,7 +62502,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.ownedCrossSubsetting": [
@@ -62518,7 +62518,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.ownedDisjoining": [
@@ -62526,13 +62526,13 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.ownedElement": [
       0,
       0,
-      1777,
+      1778,
       0,
       192,
       0
@@ -62542,11 +62542,11 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.ownedFeature": [
-      931,
+      932,
       31,
       0,
       0,
@@ -62558,7 +62558,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.ownedFeatureInverting": [
@@ -62566,11 +62566,11 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.ownedFeatureMembership": [
-      1008,
+      1009,
       0,
       0,
       0,
@@ -62582,7 +62582,7 @@
       0,
       0,
       0,
-      1966,
+      1967,
       0
     ],
     "PartUsage.ownedIntersecting": [
@@ -62590,12 +62590,12 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.ownedMember": [
       368,
-      701,
+      702,
       679,
       0,
       192,
@@ -62603,7 +62603,7 @@
     ],
     "PartUsage.ownedMembership": [
       722,
-      633,
+      634,
       422,
       0,
       192,
@@ -62614,7 +62614,7 @@
       0,
       0,
       0,
-      1759,
+      1760,
       0
     ],
     "PartUsage.ownedReferenceSubsetting": [
@@ -62627,14 +62627,14 @@
     ],
     "PartUsage.ownedRelationship": [
       324,
-      1553,
+      1554,
       52,
       0,
       40,
       0
     ],
     "PartUsage.ownedSpecialization": [
-      1526,
+      1527,
       37,
       0,
       0,
@@ -62646,7 +62646,7 @@
       12,
       2,
       0,
-      1584,
+      1585,
       0
     ],
     "PartUsage.ownedTypeFeaturing": [
@@ -62654,11 +62654,11 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.ownedTyping": [
-      1246,
+      1247,
       0,
       0,
       0,
@@ -62670,11 +62670,11 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.owner": [
-      1969,
+      1970,
       0,
       0,
       0,
@@ -62684,7 +62684,7 @@
     "PartUsage.owningDefinition": [
       0,
       0,
-      604,
+      605,
       0,
       0,
       0
@@ -62692,13 +62692,13 @@
     "PartUsage.owningFeatureMembership": [
       0,
       0,
-      1499,
+      1500,
       0,
       0,
       0
     ],
     "PartUsage.owningMembership": [
-      1955,
+      1956,
       14,
       0,
       0,
@@ -62706,7 +62706,7 @@
       0
     ],
     "PartUsage.owningNamespace": [
-      1969,
+      1970,
       0,
       0,
       0,
@@ -62714,7 +62714,7 @@
       0
     ],
     "PartUsage.owningRelationship": [
-      1955,
+      1956,
       14,
       0,
       0,
@@ -62724,7 +62724,7 @@
     "PartUsage.owningType": [
       0,
       0,
-      1499,
+      1500,
       0,
       0,
       0
@@ -62740,7 +62740,7 @@
     "PartUsage.partDefinition": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -62750,11 +62750,11 @@
       0,
       0,
       0,
-      1961,
+      1962,
       0
     ],
     "PartUsage.qualifiedName": [
-      1966,
+      1967,
       0,
       0,
       0,
@@ -62790,11 +62790,11 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.type": [
-      1011,
+      1012,
       16,
       770,
       0,
@@ -62806,7 +62806,7 @@
       0,
       0,
       0,
-      1969,
+      1970,
       0
     ],
     "PartUsage.upperBound": [
@@ -62820,7 +62820,7 @@
     "PartUsage.usage": [
       0,
       0,
-      1969,
+      1970,
       0,
       0,
       0
@@ -62838,7 +62838,7 @@
       0,
       0,
       0,
-      1953,
+      1954,
       0
     ],
     "PartUsage.variantMembership": [
@@ -62846,7 +62846,7 @@
       0,
       0,
       0,
-      1953,
+      1954,
       0
     ],
     "PayloadFeature.aliasIds": [
@@ -63578,9 +63578,9 @@
       0
     ],
     "PerformActionUsage.isAbstract": [
-      1,
+      2,
       0,
-      1,
+      0,
       0,
       234,
       0
@@ -65338,9 +65338,9 @@
       0
     ],
     "PortUsage.isAbstract": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       487,
       0
@@ -66494,7 +66494,7 @@
       0,
       0,
       0,
-      2683,
+      2685,
       0
     ],
     "Redefinition.declaredName": [
@@ -66502,7 +66502,7 @@
       0,
       0,
       0,
-      2681,
+      2683,
       0
     ],
     "Redefinition.declaredShortName": [
@@ -66510,7 +66510,7 @@
       0,
       0,
       0,
-      2683,
+      2685,
       0
     ],
     "Redefinition.documentation": [
@@ -66518,11 +66518,11 @@
       0,
       0,
       0,
-      2683,
+      2685,
       0
     ],
     "Redefinition.general": [
-      1666,
+      1668,
       20,
       53,
       0,
@@ -66534,7 +66534,7 @@
       0,
       0,
       0,
-      2683,
+      2685,
       0
     ],
     "Redefinition.isImpliedIncluded": [
@@ -66542,13 +66542,13 @@
       0,
       0,
       0,
-      2683,
+      2685,
       0
     ],
     "Redefinition.isLibraryElement": [
       0,
       0,
-      2683,
+      2685,
       0,
       0,
       0
@@ -66566,7 +66566,7 @@
       0,
       0,
       0,
-      2683,
+      2685,
       0
     ],
     "Redefinition.ownedElement": [
@@ -66574,7 +66574,7 @@
       0,
       0,
       0,
-      2683,
+      2685,
       0
     ],
     "Redefinition.ownedRelatedElement": [
@@ -66582,7 +66582,7 @@
       0,
       0,
       0,
-      2675,
+      2677,
       0
     ],
     "Redefinition.ownedRelationship": [
@@ -66590,19 +66590,19 @@
       0,
       0,
       0,
-      2683,
+      2685,
       0
     ],
     "Redefinition.owner": [
       2,
       0,
       0,
-      2681,
+      2683,
       0,
       0
     ],
     "Redefinition.owningFeature": [
-      2681,
+      2683,
       0,
       0,
       0,
@@ -66626,7 +66626,7 @@
       0
     ],
     "Redefinition.owningRelatedElement": [
-      2681,
+      2683,
       0,
       0,
       0,
@@ -66638,13 +66638,13 @@
       0,
       0,
       0,
-      2681,
+      2683,
       0
     ],
     "Redefinition.owningType": [
       0,
       0,
-      2681,
+      2683,
       0,
       0,
       0
@@ -66658,7 +66658,7 @@
       0
     ],
     "Redefinition.redefinedFeature": [
-      1667,
+      1669,
       20,
       52,
       0,
@@ -66666,7 +66666,7 @@
       944
     ],
     "Redefinition.redefiningFeature": [
-      2682,
+      2684,
       0,
       1,
       0,
@@ -66674,7 +66674,7 @@
       0
     ],
     "Redefinition.relatedElement": [
-      1666,
+      1668,
       20,
       53,
       0,
@@ -66682,7 +66682,7 @@
       944
     ],
     "Redefinition.source": [
-      2681,
+      2683,
       0,
       2,
       0,
@@ -66690,7 +66690,7 @@
       0
     ],
     "Redefinition.specific": [
-      2681,
+      2683,
       0,
       2,
       0,
@@ -66698,7 +66698,7 @@
       0
     ],
     "Redefinition.subsettedFeature": [
-      1666,
+      1668,
       20,
       53,
       0,
@@ -66706,7 +66706,7 @@
       944
     ],
     "Redefinition.subsettingFeature": [
-      2681,
+      2683,
       0,
       2,
       0,
@@ -66714,7 +66714,7 @@
       0
     ],
     "Redefinition.target": [
-      1666,
+      1668,
       20,
       53,
       0,
@@ -66726,7 +66726,7 @@
       0,
       0,
       0,
-      2683,
+      2685,
       0
     ],
     "ReferenceSubsetting.aliasIds": [
@@ -70658,9 +70658,9 @@
       0
     ],
     "RequirementUsage.isAbstract": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       269,
       0
@@ -87114,9 +87114,9 @@
       0
     ],
     "UseCaseUsage.isAbstract": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       26,
       0
@@ -89010,9 +89010,9 @@
       0
     ],
     "VerificationCaseUsage.isAbstract": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       43,
       0

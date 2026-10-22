@@ -1071,6 +1071,7 @@ Specification: SysML v2 validatePortUsageIsReference
 | [`type-unioning-not-one`](#type-unioning-not-one) | error | `unions` with one type only |
 | [`type-unioning-self`](#type-unioning-self) | error | a type unioning itself |
 | [`variable-feature-owner`](#variable-feature-owner) | error | a variable (`var`) feature owned by a non-occurrence type |
+| [`variant-kind`](#variant-kind) | error | a variant whose kind is inconsistent with its owning variation |
 | [`variant-outside-variation`](#variant-outside-variation) | error | a variant that is not an owned member of a variation |
 | [`variation-member-not-variant`](#variation-member-not-variant) | error | a variation owning a usage that is no variant |
 | [`variation-specialization`](#variation-specialization) | error | a variation specializing another variation |
@@ -1954,6 +1955,14 @@ Specification: KerML 1.0 validateTypeUnioningTypesNotSelf
 A feature that varies over time (`var`) is owned by an occurrence type, whose instances have a lifetime for it to vary over. Drop `var`, or move the feature into an occurrence, item or part definition.
 
 Specification: KerML 1.0 validateFeatureIsVariable
+
+#### `variant-kind`
+
+**error** · Constraints · a variant whose kind is inconsistent with its owning variation
+
+A variant specializes the variation it is a variant of, so the variation definition, or the types of the variation usage, type the variant; here the variant's kind does not take a type of that kind (an action variant of a part variation, an attribute variant of an action variation). Declare the variant with the variation's kind, or move it to a variation of its own kind.
+
+Specification: SysML v2 §7.6.7 and checkUsageVariationDefinitionSpecialization, checkUsageVariationUsageSpecialization
 
 #### `variant-outside-variation`
 

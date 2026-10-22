@@ -1134,13 +1134,13 @@
         "name": "validateDefinitionVariationIsAbstract"
       },
       "checks": "A variation definition is abstract (`validateDefinitionVariationIsAbstract`, constant declared in `SysMLValidator`, no `@Check` uses it; `DefinitionAdapter.postProcess` sets `isAbstract` on every `variation` definition). Unobservable in text. Tried, pilot silent on this rule: `variation part def V { variant part a; }`, a variation definition specialized by a non-variation, a non-variation adding `variant part b` (`validateVariationMembershipOwningNamespace` instead), nested variations",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/semantic/semantics/annotations.go:Model.reflectiveFeatureValue (`isAbstract`); internal/semantic/semantics/annotations.go:Model.reflectiveFeatureFlags; internal/translate/export/rdf_out.go:encoder.encodeMember (`isAbstract`)",
+      "message": "unobservable in text; api-json `isAbstract: true` on `variation part def V { variant part a; }` and on `enum def E { a; }`",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "no case and no identifiable pass yet"
+      "status": "deliberate",
+      "rationale": "a variation declares no `abstract`: the grammar admits `abstract` or `variation` but not both (the pilot grammar's `isAbstract ?= 'abstract'` or `isVariation ?= 'variation'`), so no textual model violates the rule; the model holds it as derived truth instead — `IsVariation` makes the semantic abstract flag true and api-json/Turtle state `isAbstract` for every variation"
     },
     {
       "name": "validateDefinitionVariationMembership",
@@ -1279,13 +1279,13 @@
         "name": "validateEnumerationDefinitionIsVariation"
       },
       "checks": "An enumeration definition is always a variation; `EnumerationDefinition` admits no definition prefix, so the parser rejects `abstract`, `variation` and `individual` prefixes as syntax errors in line with the pilot grammar. The variation rule remains unobservable in valid text",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/semantic/semantics/variation.go:IsVariation; internal/translate/export/rdf_out.go:encoder.encodeMember (`isVariation`)",
+      "message": "unobservable in text; api-json `isVariation: true` on `enum def Color { red; green; }` and `isVariant: true` on each enumerated value",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "no case and no identifiable pass yet"
+      "status": "deliberate",
+      "rationale": "`enum def` admits no prefix and every enumeration definition is a variation by the metamodel (SysML v2 7.6.7), so no textual model violates the rule; the model derives it: `IsVariation` is true of every enumeration definition, its values are variants, and api-json/Turtle state `isVariation`/`isVariant`"
     },
     {
       "name": "validateEnumerationUsageType",
@@ -4384,13 +4384,13 @@
         "name": "validateUsageVariationIsAbstract"
       },
       "checks": "A variation usage is abstract (`checkUsage`, active). Unobservable in text: `UsageAdapter.postProcess` sets `isAbstract` on every `variation` usage. Tried, pilot silent on this rule: `variation part v { variant part a; }` at package level and in a part definition, a redefining `part :>> v { }` of a variation, nested variations, `variation attribute`, `variation event occurrence`, `variation port`",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/semantic/semantics/annotations.go:Model.reflectiveFeatureValue (`isAbstract`); internal/semantic/semantics/annotations.go:Model.reflectiveFeatureFlags; internal/translate/export/rdf_out.go:encoder.encodeMember (`isAbstract`); internal/exec/runtime/instance.go:Context.namesOneObject",
+      "message": "unobservable in text; api-json `isAbstract: true` on `variation part v : P { variant part a : P; }`, and the runtime holds no object for a variation feature until a variant is bound",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "no case and no identifiable pass yet"
+      "status": "deliberate",
+      "rationale": "a variation declares no `abstract`: the grammar admits `abstract` or `variation` but not both (the pilot grammar's `isAbstract ?= 'abstract'` or `isVariation ?= 'variation'`), so no textual model violates the rule; the model holds it as derived truth instead — `IsVariation` makes the semantic abstract flag true and api-json/Turtle state `isAbstract` for every variation"
     },
     {
       "name": "validateUsageVariationMembership",
@@ -8445,13 +8445,16 @@
       },
       "checks": "If a Usage has an owningVariationDefinition, then it must directly or indirectly specialize that Definition.",
       "ocl": "owningVariationDefinition <> null implies\n    specializes(owningVariationDefinition)",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/semantic/semantics/model.go:Model.DirectSupertypes; internal/check/passes/variant_kind.go:VariantKindPass.Run",
+      "message": "observed at model level: `variant part a1 : P` in `variation part def PC :> P` specializes `PC`; the typing rules judge the implied supertype, so `variant action a1;` in `PC` is `An action must be typed by action definitions.`",
       "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
+      "codes": [
+        "variant-kind"
+      ],
+      "passes": [
+        "constraint"
+      ],
+      "status": "faithful"
     },
     {
       "name": "checkUsageVariationUsageSpecialization",
@@ -8465,13 +8468,16 @@
       },
       "checks": "If a Usage has an owningVariationUsage, then it must directly or indirectly specialize that Usage.",
       "ocl": "owningVariationUsage <> null implies\n    specializes(owningVariationUsage)",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/semantic/semantics/model.go:Model.DirectSupertypes; internal/check/passes/variant_kind.go:VariantKindPass.Run",
+      "message": "observed at model level: `variant part p2 : P` in `variation part pv : P` specializes `pv`; the typing rules judge the types `pv` gives it, so `variant attribute x;` in `pv` is `An attribute must be typed by attribute definitions.`",
       "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
+      "codes": [
+        "variant-kind"
+      ],
+      "passes": [
+        "constraint"
+      ],
+      "status": "faithful"
     },
     {
       "name": "checkUsageVariationUsageTypeFeaturing",
@@ -8485,13 +8491,12 @@
       },
       "checks": "If a Usage has an owningVariationUsage, then it must have the same featuringTypes as that Usage.",
       "ocl": "owningVariationUsage <> null implies\n    featuringType->asSet() = owningVariationUsage.featuringType->asSet()",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/semantic/semantics/annotations.go:Model.variantFeaturingTypes",
+      "message": "observed at model level: `variant part e1 : E` in `part def Car { variation part engine : E { ... } }` has featuringType `Car`, as `engine` does, not `engine`",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
+      "status": "faithful"
     },
     {
       "name": "checkUseCaseDefinitionSpecialization",
@@ -10039,13 +10044,12 @@
       },
       "checks": "The variants of a Definition are the ownedVariantUsages of its variantMemberships.",
       "ocl": "variant = variantMembership.ownedVariantUsage",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/semantic/semantics/variation.go:Model.VariantsOf; internal/translate/export/rdf_out.go:encoder.owningMembership (`variant`)",
+      "message": "observed in api-json/Turtle: `variation part def PC { variant part p1; variant part p2; }` states `variant` = [p1, p2], as `enum def Color { red; green; }` states `variant` = [red, green]",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
+      "status": "faithful"
     },
     {
       "name": "deriveDefinitionVariantMembership",
@@ -10059,13 +10063,12 @@
       },
       "checks": "The variantMemberships of a Definition are those ownedMemberships that are VariantMemberships.",
       "ocl": "variantMembership = ownedMembership->selectByKind(VariantMembership)",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/translate/export/rdf_out.go:encoder.owningMembership (`VariantMembership`, `variantMembership`, `ownedVariantUsage`)",
+      "message": "observed in api-json/Turtle: each `variant` of a variation definition is owned through a `VariantMembership` whose `ownedVariantUsage` is the variant, and `variantMembership` lists exactly those memberships",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
+      "status": "faithful"
     },
     {
       "name": "deriveElementDocumentation",
@@ -13099,13 +13102,12 @@
       },
       "checks": "The variants of a Usage are the ownedVariantUsages of its variantMemberships.",
       "ocl": "variant = variantMembership.ownedVariantUsage",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/semantic/semantics/variation.go:Model.VariantsOf; internal/translate/export/rdf_out.go:encoder.owningMembership (`variant`)",
+      "message": "observed in api-json/Turtle: `variation part pv : P { variant part q1 : P; variant part q2 : P; }` states `variant` = [q1, q2]",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
+      "status": "faithful"
     },
     {
       "name": "deriveUsageVariantMembership",
@@ -13119,13 +13121,12 @@
       },
       "checks": "The variantMemberships of a Usage are those ownedMemberships that are VariantMemberships.",
       "ocl": "variantMembership = ownedMembership->selectByKind(VariantMembership)",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/translate/export/rdf_out.go:encoder.owningMembership (`VariantMembership`, `variantMembership`, `ownedVariantUsage`)",
+      "message": "observed in api-json/Turtle: each `variant` of a variation usage is owned through a `VariantMembership` whose `ownedVariantUsage` is the variant, and `variantMembership` lists exactly those memberships",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
+      "status": "faithful"
     },
     {
       "name": "deriveUseCaseDefinitionIncludedUseCase",
