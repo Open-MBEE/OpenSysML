@@ -203,6 +203,10 @@ type derivationEnd struct {
 func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 	var ends []derivationEnd
 	for _, attachment := range m.ConnectorEndAttachments(sym) {
+		// A body end is read below with the role its own declaration states.
+		if _, clause := attachment.End.(*ast.ConnectorEnd); !clause {
+			continue
+		}
 		end := derivationEnd{role: m.derivationRoleOf(attachment.EndFeature)}
 		if attachment.Attachment != nil {
 			if target, ok := m.resolver.ResolveTarget(sym.OwnerScope, attachment.Attachment); ok && target != nil {

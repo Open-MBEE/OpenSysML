@@ -108,6 +108,22 @@ func parserQualifiedName(qname string) string {
 	return out
 }
 
+func mappingQualifiedNameFromSpec(qname string) string {
+	global := strings.HasPrefix(qname, "$::")
+	if global {
+		qname = strings.TrimPrefix(qname, "$::")
+	}
+	segments := identitySegments(qname)
+	for i, segment := range segments {
+		segments[i] = identitySegment(identityName(segment))
+	}
+	out := strings.Join(segments, "::")
+	if global {
+		return "$::" + out
+	}
+	return out
+}
+
 func positionalSegment(segment string) bool {
 	if len(segment) < 2 || segment[0] != '@' {
 		return false
