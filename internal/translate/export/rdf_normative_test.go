@@ -899,9 +899,8 @@ func TestReferentMembershipIDCollisionIsRefused(t *testing.T) {
 	}
 	fre := rdf.ElementIRIForID("N__x")
 	e.graph.Add(fre, rdf.IRI(rdf.RDFType), rdf.IRI(rdf.SysML+mFeatureReference))
-	e.graph.Add(fre, rdf.IRI(rdf.SysML+pReferent), elmt("N__p"))
 	e.claim("urn:sysmlv2:element:N__x_referent", "N::d")
-	e.materializeReferentMemberships(fre)
+	e.featureReferent(fre, elmt("N__p"))
 	if e.idErr == nil {
 		t.Fatal("the id collision on the minted membership was not refused")
 	}

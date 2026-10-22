@@ -7,19 +7,22 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// LibraryLanguage is the half of the standard library a bundled tier belongs to:
-// Kernel is KerML, Systems and Domain are SysML; extensions and workspace are neither.
+// LibraryLanguage is the library a bundled tier's ids are fixed under: Kernel
+// is KerML, Systems and Domain are SysML, this implementation's extensions are
+// OpenSysML; an unplaced library tier and the workspace are none.
 func LibraryLanguage(tier symbols.LibraryTier) (Language, bool) {
 	switch tier {
 	case symbols.TierKernelSemantic, symbols.TierKernelDataType, symbols.TierKernelFunction:
 		return KerML, true
 	case symbols.TierSystems, symbols.TierDomain:
 		return SysML, true
+	case symbols.TierOpenSysML:
+		return OpenSysML, true
 	}
 	return 0, false
 }
 
-// qualifier decides which library symbols the norm gives a qualified name, and so an id.
+// qualifier decides which library symbols their library gives a qualified name, and so an id.
 type qualifier struct {
 	idx  libraryView
 	memo map[*symbols.Symbol]bool
@@ -29,7 +32,7 @@ func newQualifier(idx libraryView) *qualifier {
 	return &qualifier{idx: idx, memo: make(map[*symbols.Symbol]bool)}
 }
 
-// language is the language whose norm fixes sym's id, if any.
+// language is the library whose scheme fixes sym's id, if any.
 func (q *qualifier) language(sym *symbols.Symbol) (Language, bool) {
 	lang, ok := LibraryLanguage(q.idx.LibraryTier(sym))
 	if !ok || !q.qualified(sym) {
@@ -68,8 +71,9 @@ func firstSoNamed(sym *symbols.Symbol) bool {
 	return false
 }
 
-// LibraryElement is one named element of the standard library and the ids the
-// norm fixes for it and for the membership that owns it.
+// LibraryElement is one named element of a bundled library and the ids fixed
+// for it and for the membership that owns it: the norm's for the standard
+// library, this implementation's for its extension libraries.
 type LibraryElement struct {
 	Symbol             *symbols.Symbol
 	FQN                string
@@ -316,7 +320,7 @@ func newCatalog() *Catalog {
 	}
 }
 
-// buildCatalog fixes the id of every element the norm names in idx's library documents.
+// buildCatalog fixes the id of every named element of idx's library documents.
 func buildCatalog(idx libraryView) *Catalog {
 	q := newQualifier(idx)
 	return buildCatalogWithLanguage(idx, q.language)

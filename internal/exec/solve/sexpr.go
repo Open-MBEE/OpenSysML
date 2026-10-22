@@ -17,6 +17,10 @@ type sexpr struct {
 	// Quoted marks an atom that was written as a string literal.
 	Quoted bool
 
+	// Symbol marks an atom that was written as a `|quoted|` symbol, so String
+	// writes it back quoted: an atom read back from String must be the same atom.
+	Symbol bool
+
 	// List holds the elements of a list, nil for an atom.
 	List []sexpr
 
@@ -33,6 +37,9 @@ func (s sexpr) String() string {
 	if !s.IsList {
 		if s.Quoted {
 			return `"` + strings.ReplaceAll(s.Atom, `"`, `""`) + `"`
+		}
+		if s.Symbol {
+			return "|" + s.Atom + "|"
 		}
 		return s.Atom
 	}
@@ -78,7 +85,7 @@ func readSexpr(r *bufio.Reader) (sexpr, error) {
 		if err != nil {
 			return sexpr{}, err
 		}
-		return sexpr{Atom: text}, nil
+		return sexpr{Atom: text, Symbol: true}, nil
 	default:
 		if err := r.UnreadByte(); err != nil {
 			return sexpr{}, ioError(err)

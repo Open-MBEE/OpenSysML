@@ -8,6 +8,7 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -334,14 +335,14 @@ func TestHoverBindingConnectorEnds(t *testing.T) {
 	}
 }
 
-// An id fixed by an annotation or by the norm is stated; a derived id, which is
-// just the encoded name, is not.
+// An id fixed by an annotation, by the norm or by one of OpenSysML's own
+// libraries is stated; a derived id, which is just the encoded name, is not.
 func TestHoverStatesDeclaredAndNormativeIdentity(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
 	name := uri.File("/tmp/hid.sysml").Filename()
-	src := "package P {\n    part def Wheel {\n        @IdentityMetadata::ElementId { id = \"wheel-id\"; }\n    }\n    attribute mass : ScalarValues::Real;\n    part w : Wheel;\n}\n"
+	src := "package P {\n    part def Wheel {\n        @IdentityMetadata::ElementId { id = \"wheel-id\"; }\n    }\n    attribute mass : ScalarValues::Real;\n    item std : MOSA::ConsensusStandard;\n    part w : Wheel;\n}\n"
 	ws.Open(name, []byte(src), 1)
 
 	for _, tc := range []struct {
@@ -350,6 +351,7 @@ func TestHoverStatesDeclaredAndNormativeIdentity(t *testing.T) {
 	}{
 		{at: "Wheel {", want: "\n\nElement id `wheel-id` (declared)"},
 		{at: "Real;", want: "\n\nElement id `14c0aa22-5489-59b5-b438-ded26e83ba31` (normative, KerML)"},
+		{at: "ConsensusStandard;", want: "\n\nElement id `" + identity.ElementID(identity.OpenSysML, "MOSA::ConsensusStandard") + "` (extension, OpenSysML)"},
 	} {
 		res := hoverInSrc(t, s, name, src, strings.Index(src, tc.at))
 		if !strings.HasSuffix(res.Contents.Value, tc.want) {
