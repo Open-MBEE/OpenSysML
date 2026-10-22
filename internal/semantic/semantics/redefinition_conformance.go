@@ -105,16 +105,15 @@ func (m *Model) conformanceTarget(sym *symbols.Symbol, rel *ast.Relationship) *s
 	return found
 }
 
-// directionViolations reports a redefinition whose declared direction differs
-// from the redefined feature's. An undeclared direction takes the redefined
-// one's, and a redefined `inout` admits any direction.
+// directionViolations reports a redefinition whose direction does not conform (KerML 8.3.3.3.8):
+// a redefined `in`/`out` must be restated as such, `inout` by some direction, none by none only.
 func (m *Model) directionViolations(sym *symbols.Symbol, traits featureTraits,
 	target *symbols.Symbol, ref ast.Node) []ConformanceViolation {
-	if traits.Direction == ast.DirNone {
+	targetDir := m.directionThrough(owningTypeOf(sym), target)
+	if targetDir == ast.DirNone || targetDir == traits.Direction {
 		return nil
 	}
-	targetDir := m.directionThrough(owningTypeOf(sym), target)
-	if targetDir == ast.DirNone || targetDir == ast.DirInOut || targetDir == traits.Direction {
+	if targetDir == ast.DirInOut && traits.Direction != ast.DirNone {
 		return nil
 	}
 	return []ConformanceViolation{{

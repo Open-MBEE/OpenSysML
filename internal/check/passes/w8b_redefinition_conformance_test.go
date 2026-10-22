@@ -68,17 +68,100 @@ func TestW8BDirectionConformanceThroughConjugation(t *testing.T) {
 	}
 }
 
-func TestW8BDirectionConformanceAdmitsInoutAndUndeclared(t *testing.T) {
-	// A redefined `inout` admits any direction, and a redefinition declaring no
-	// direction takes the redefined one's.
+func TestW8BDirectionConformanceAdmitsAnyDirectionForInout(t *testing.T) {
+	// A redefined `inout` admits any declared direction (KerML 8.3.3.3.8).
 	diags := conformanceDiags(t, `
 		package P {
-			class C { inout y; in x; }
-			class D specializes C { out :>> y; feature :>> x; }
+			class C { inout y; inout z; in x; }
+			class D specializes C { out :>> y; in :>> z; in :>> x; }
 		}
 	`)
 	if len(diags) != 0 {
 		t.Fatalf("expected no violation, got %v", codes(diags))
+	}
+}
+
+// Redefinition_DirectionConformance_invalid.kerml.xt: a redefined `in`, `out`
+// or `inout` is not conformed to by a redefinition declaring no direction.
+func TestW8BDirectionConformanceRejectsUndeclaredDirection(t *testing.T) {
+	for _, dir := range []string{"in", "out", "inout"} {
+		t.Run(dir, func(t *testing.T) {
+			diags := conformanceDiags(t, `
+				package P {
+					class C { `+dir+` x; }
+					class D specializes C { feature :>> x; }
+				}
+			`)
+			if len(diags) != 1 || diags[0].Code != "redefinition-direction-conformance" {
+				t.Fatalf("got %v, want one direction violation", codes(diags))
+			}
+		})
+	}
+}
+
+// A feature with no direction may be redefined with or without one.
+func TestW8BDirectionConformanceUndirectedTargetAdmitsAny(t *testing.T) {
+	diags := conformanceDiags(t, `
+		package P {
+			class C { feature x; feature y; }
+			class D specializes C { feature :>> x; in :>> y; }
+		}
+	`)
+	if len(diags) != 0 {
+		t.Fatalf("expected no violation, got %v", codes(diags))
+	}
+}
+
+// directionDiags returns the direction-conformance findings of a SysML source.
+func directionDiags(t *testing.T, src string) []diag.Diagnostic {
+	t.Helper()
+	root := parser.New(source.New("<t>.sysml", []byte(src))).ParseFile()
+	idx := newTestIndex()
+	idx.AddDocument("<t>.sysml", root)
+	var out []diag.Diagnostic
+	for _, d := range Analyze("<t>.sysml", root, nil, idx) {
+		if d.Code == "redefinition-direction-conformance" {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// A usage body redefining an `in` parameter without restating the direction
+// declares none, which does not conform; `in :>> …` does.
+func TestW8BDirectionConformanceUsageBodyMustRestateDirection(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::*;
+		action def Burn { in durationS : Real; }
+		action burn : Burn { :>> durationS = 3.0; }
+		action burns : Burn { in :>> durationS = 3.0; }
+	}`
+	diags := directionDiags(t, src)
+	if len(diags) != 1 {
+		t.Fatalf("got %d direction diagnostics, want one: %v", len(diags), diags)
+	}
+	if got := spanText(src, diags[0]); got != "durationS" {
+		t.Errorf("reported at %q, want the redefined name", got)
+	}
+}
+
+// A step's first parameter redefines its behavior's first parameter by position as well
+// as what its clause names, so an `out` written first under `in input; out output;` conflicts.
+func TestW8BDirectionConformancePositionalParameterRedefinition(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::*;
+		action def Step { in input : Integer; out output : Integer; }
+		action def Chain {
+			action stepA : Step { out :>> output; }
+			action stepB : Step { in :>> input; out :>> output; }
+		}
+	}`
+	diags := directionDiags(t, src)
+	if len(diags) != 1 {
+		t.Fatalf("got %d direction diagnostics, want one: %v", len(diags), diags)
+	}
+	if got := spanText(src, diags[0]); got != "out :>> output;" {
+		t.Errorf("reported at %q, want the conflicting parameter declaration", got)
 	}
 }
 

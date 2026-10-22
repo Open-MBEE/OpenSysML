@@ -34,13 +34,13 @@
               (Relationship kind="references" target=massLimitation
                 (*ast.QualifiedName))
               (Membership visibility="default"
-                (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (Usage kind="attribute" name="" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
                   (Relationship kind="redefines" target=mass
                     (*ast.QualifiedName))
                   (FeatureChainExpr member="mass"
                     (FeatureReference name="vehicle3"))))
               (Membership visibility="default"
-                (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (Usage kind="attribute" name="" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
                   (Relationship kind="redefines" target=massLimit
                     (*ast.QualifiedName))
                   (FeatureChainExpr member="mass"

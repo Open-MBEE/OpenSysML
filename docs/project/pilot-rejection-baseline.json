@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 335,
-        "digest": "sha256:27877cbf7c0ea7b283eb2ddea921e231a72eb8d706d29016caed70c1d95c887f"
+        "files": 338,
+        "digest": "sha256:7b1ec2dde31f5eb225adb3fff6958d9e1f025be90bf46627d51388570e5f8e4c"
       }
     ],
-    "recorded": "2026-10-21"
+    "recorded": "2026-10-22"
   },
   "totals": {
-    "cases": 335,
-    "bothReject": 324,
+    "cases": 338,
+    "bothReject": 327,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 11,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 176,
-      "bothReject": 165,
+      "cases": 179,
+      "bothReject": 168,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0
@@ -2022,6 +2022,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/k76-undirected-redefinition-of-directed-feature.kerml",
+      "source": "semantic",
+      "rule": "a redefinition declaring no direction does not conform to a redefined `in`, `out` or `inout` feature (KerML 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/s01-action-typed-by-part-def.sysml",
       "source": "semantic",
       "rule": "An action must be typed by action definitions (SysML 7.16 Actions; pilot validateActionUsageType).",
@@ -2232,6 +2241,24 @@
       "path": "semantic/s111-nonend-redefines-end-in-connection-usage.sysml",
       "source": "semantic",
       "rule": "a usage redefining an end feature within a connection usage must be an end (KerML 8.3.3.3 validateRedefinitionEndConformance; pilot validateRedefinitionEndConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s112-undirected-redefinition-of-in-parameter.sysml",
+      "source": "semantic",
+      "rule": "a redefinition of an `in` parameter that declares no direction does not conform to it (KerML 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s113-positional-parameter-direction-conflict.sysml",
+      "source": "semantic",
+      "rule": "the first parameter of a step redefines its behavior's first parameter by position, so an `out` written first under `in input; out output;` conflicts with `input` (KerML 8.4.4.6 checkFeatureParameterRedefinition, 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -3286,8 +3313,8 @@
       }
     ],
     "totals": {
-      "cases": 335,
-      "bothReject": 324,
+      "cases": 338,
+      "bothReject": 327,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0
