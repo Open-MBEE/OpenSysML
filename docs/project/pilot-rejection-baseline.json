@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 338,
-        "digest": "sha256:7b1ec2dde31f5eb225adb3fff6958d9e1f025be90bf46627d51388570e5f8e4c"
+        "files": 339,
+        "digest": "sha256:930a8c4fe76e4845dcf59de8435cc61d8a803987d052a243b4425b792c69f099"
       }
     ],
     "recorded": "2026-10-22"
   },
   "totals": {
-    "cases": 338,
-    "bothReject": 327,
+    "cases": 339,
+    "bothReject": 328,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 11,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 179,
-      "bothReject": 168,
+      "cases": 180,
+      "bothReject": 169,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0
@@ -2022,13 +2022,13 @@
       "pilotErrors": 1
     },
     {
-      "path": "semantic/k76-undirected-redefinition-of-directed-feature.kerml",
+      "path": "semantic/k77-standalone-subsetting-inaccessible-feature.kerml",
       "source": "semantic",
-      "rule": "a redefinition declaring no direction does not conform to a redefined `in`, `out` or `inout` feature (KerML 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
+      "rule": "a subsetted feature must be accessible from the subsetting feature, whether the Subsetting is written inline or as a `specialization subset` member of its own (KerML 8.3.3.3.10 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
       "mode": "default",
       "bucket": "both-reject",
-      "oursErrors": 2,
-      "pilotErrors": 2
+      "oursErrors": 1,
+      "pilotErrors": 1
     },
     {
       "path": "semantic/s01-action-typed-by-part-def.sysml",
@@ -2247,22 +2247,31 @@
       "pilotErrors": 1
     },
     {
-      "path": "semantic/s115-undirected-redefinition-of-in-parameter.sysml",
+      "path": "semantic/s112-concern-def-stakeholder-before-implicit-subject.sysml",
       "source": "semantic",
-      "rule": "a redefinition of an `in` parameter that declares no direction does not conform to it (KerML 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
+      "rule": "A stakeholder declared before any subject is the first input of a concern definition, displacing the subject it inherits (SysML 8.3.21.8 validateRequirementDefinitionSubjectParameterPosition; pilot validateRequirementDefinitionSubjectParameterPosition).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 1
     },
     {
-      "path": "semantic/s116-positional-parameter-direction-conflict.sysml",
+      "path": "semantic/s113-framed-concern-stakeholder-before-inherited-subject.sysml",
       "source": "semantic",
-      "rule": "the first parameter of a step redefines its behavior's first parameter by position, so an `out` written first under `in input; out output;` conflicts with `input` (KerML 8.4.4.6 checkFeatureParameterRedefinition, 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
+      "rule": "A stakeholder a framed concern declares precedes the subject it inherits from its definition (SysML 8.3.21.9 validateRequirementUsageSubjectParameterPosition; pilot validateRequirementUsageSubjectParameterPosition).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s114-constructor-argument-overrides-bound-value.sysml",
+      "source": "semantic",
+      "rule": "a constructor argument binds a feature whose value is written with `=`, which every feature redefining it inherits; only a `default =` value may be overridden (KerML 8.3.4.10.2 validateFeatureValueOverriding; pilot validateFeatureValueOverriding).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
     },
     {
       "path": "semantic/s12-case-two-subjects.sysml",
@@ -3313,8 +3322,8 @@
       }
     ],
     "totals": {
-      "cases": 338,
-      "bothReject": 327,
+      "cases": 339,
+      "bothReject": 328,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0

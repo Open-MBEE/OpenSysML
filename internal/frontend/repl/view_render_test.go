@@ -362,6 +362,7 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
         succession first start then finish;
     }
     use case def Mission {
+        subject network : Network;
         actor operator : Person;
     }
     view missionView {
