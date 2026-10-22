@@ -1343,9 +1343,16 @@ func (run *calcRun) memberValue(ctx *Context, name string) (Value, bool, error) 
 // unbound; the subject binds through its own rule and is never among them.
 func (shape *calcShape) unsuppliedParameters(args calcArgs) map[string]bool {
 	var out map[string]bool
+	positional := 0
 	for i := range shape.Params {
 		param := &shape.Params[i]
-		if param.Default != nil || param.IsSubject || i < len(args.positional) {
+		// An actor takes no positional slot, so the cursor passes it by.
+		supplied := false
+		if !param.IsActor {
+			supplied = positional < len(args.positional)
+			positional++
+		}
+		if param.Default != nil || param.IsSubject || supplied {
 			continue
 		}
 		if _, named := args.named[param.Name]; named {

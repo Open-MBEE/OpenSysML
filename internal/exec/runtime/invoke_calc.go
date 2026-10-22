@@ -936,8 +936,16 @@ func (ctx *Context) bindCalcParameters(
 	nested *EvalContext,
 	occurrence *calcOccurrence,
 ) error {
+	positional := 0
 	for i := range shape.Params {
 		param := &shape.Params[i]
+		// An actor binds by name only, so it takes no positional slot: the positional
+		// arguments fall on the other parameters in declaration order.
+		position := -1
+		if !param.IsActor {
+			position = positional
+			positional++
+		}
 		if param.IsActor && param.Default == nil {
 			// An actor nothing binds is a feature without a value, not a missing argument.
 			if _, supplied := args.named[param.Name]; !supplied {
@@ -949,7 +957,7 @@ func (ctx *Context) bindCalcParameters(
 		if nested != nil && param.Owner == shape.Sym {
 			binder = nested
 		}
-		value, source, err := binder.evalIn(defaultScope).bindCalcParameter(shape, param, args, i, nested)
+		value, source, err := binder.evalIn(defaultScope).bindCalcParameter(shape, param, args, position, nested)
 		if err != nil {
 			return err
 		}
@@ -1124,10 +1132,10 @@ func (shape *calcShape) observationSteps() (steps, results []lower.Statement) {
 // checkArgs rejects an argument list that cannot bind to the parameters at all:
 // more positional arguments than parameters, or a name that is not one.
 func (shape *calcShape) checkArgs(args calcArgs) error {
-	if len(args.positional) > len(shape.Params) {
+	if arity := shape.positionalArity(); len(args.positional) > arity {
 		return fmt.Errorf(
 			"%w: %s takes %d argument(s), got %d",
-			errCalcArity, shape.Label, len(shape.Params), len(args.positional),
+			errCalcArity, shape.Label, arity, len(args.positional),
 		)
 	}
 
@@ -1147,6 +1155,18 @@ func (shape *calcShape) checkArgs(args calcArgs) error {
 		}
 	}
 	return nil
+}
+
+// positionalArity counts the parameters a positional argument can bind: every
+// parameter but the actors, which bind by name only.
+func (shape *calcShape) positionalArity() int {
+	arity := 0
+	for i := range shape.Params {
+		if !shape.Params[i].IsActor {
+			arity++
+		}
+	}
+	return arity
 }
 
 // optional reports whether the parameter may go without an argument: its
@@ -1200,7 +1220,8 @@ func (shape *calcShape) bodyScope() *symbols.Scope {
 // position or by name), else its declared default, else null for one whose
 // multiplicity admits no value. A parameter with none of these is unbound,
 // which is a modeling error rather than a null value. A subject with none of
-// these takes the enclosing case's subject, read from enclosing.
+// these takes the enclosing case's subject, read from enclosing. A position
+// below zero is a parameter no positional argument binds, as an actor is.
 func (ec *EvalContext) bindCalcParameter(
 	shape *calcShape,
 	param *calcParameter,
@@ -1208,7 +1229,7 @@ func (ec *EvalContext) bindCalcParameter(
 	position int,
 	enclosing *EvalContext,
 ) (Value, string, error) {
-	if position < len(args.positional) {
+	if position >= 0 && position < len(args.positional) {
 		return args.positional[position], "argument", nil
 	}
 	if value, ok := args.named[param.Name]; ok {
