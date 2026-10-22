@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 339,
-        "digest": "sha256:930a8c4fe76e4845dcf59de8435cc61d8a803987d052a243b4425b792c69f099"
+        "files": 342,
+        "digest": "sha256:abeb99e636e9ea06667f8b1f4071b95e10817a5e3a861f388bbcc242fd7ff10f"
       }
     ],
     "recorded": "2026-10-22"
   },
   "totals": {
-    "cases": 339,
-    "bothReject": 328,
+    "cases": 342,
+    "bothReject": 331,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 11,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 180,
-      "bothReject": 169,
+      "cases": 183,
+      "bothReject": 172,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0
@@ -2022,6 +2022,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/k76-undirected-redefinition-of-directed-feature.kerml",
+      "source": "semantic",
+      "rule": "a redefinition declaring no direction does not conform to a redefined `in`, `out` or `inout` feature (KerML 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/k77-standalone-subsetting-inaccessible-feature.kerml",
       "source": "semantic",
       "rule": "a subsetted feature must be accessible from the subsetting feature, whether the Subsetting is written inline or as a `specialization subset` member of its own (KerML 8.3.3.3.10 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
@@ -2272,6 +2281,24 @@
       "bucket": "both-reject",
       "oursErrors": 2,
       "pilotErrors": 2
+    },
+    {
+      "path": "semantic/s115-undirected-redefinition-of-in-parameter.sysml",
+      "source": "semantic",
+      "rule": "a redefinition of an `in` parameter that declares no direction does not conform to it (KerML 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s116-positional-parameter-direction-conflict.sysml",
+      "source": "semantic",
+      "rule": "the first parameter of a step redefines its behavior's first parameter by position, so an `out` written first under `in input; out output;` conflicts with `input` (KerML 8.4.4.6 checkFeatureParameterRedefinition, 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
     },
     {
       "path": "semantic/s12-case-two-subjects.sysml",
@@ -3322,8 +3349,8 @@
       }
     ],
     "totals": {
-      "cases": 339,
-      "bothReject": 328,
+      "cases": 342,
+      "bothReject": 331,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0
