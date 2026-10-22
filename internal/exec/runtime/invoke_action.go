@@ -122,6 +122,40 @@ func mergedTypedSubflowInvocation(graph *lower.ActionGraph, usage *ast.Usage) (a
 	return actionInvocation{target: typed.Target, scope: typed.Scope}, true
 }
 
+// nodeInvocation is the action a node's performance invokes: the one it names, or
+// the step it performs as itself (performedStep) in place of its merged body.
+func nodeInvocation(graph *lower.ActionGraph, perf *actionFrame, usage *ast.Usage) (actionInvocation, bool) {
+	if inv, ok := nestedInvocationInGraph(graph, usage); ok {
+		return inv, true
+	}
+	if perf.step == nil {
+		return actionInvocation{}, false
+	}
+	return mergedTypedSubflowInvocation(graph, usage)
+}
+
+// performedStep is the usage a merged typed node performs as the action it is, as
+// it would standalone: one a tool or state-space dynamics performs rather than the
+// flow its merged body states. nil for a node whose typed body runs inline.
+func (e *performances) performedStep(graph *lower.ActionGraph, node ast.Node) (*symbols.Symbol, error) {
+	usage, ok := node.(*ast.Usage)
+	if !ok {
+		return nil, nil
+	}
+	if _, merged := mergedTypedSubflowInvocation(graph, usage); !merged {
+		return nil, nil
+	}
+	step, _ := stepSymbol(graph, node)
+	if step == nil {
+		return nil, nil
+	}
+	byFlow, err := e.ctx.performedByFlow(step)
+	if err != nil || byFlow {
+		return nil, err
+	}
+	return step, nil
+}
+
 // referencedInvocation reports the action a usage's reference subsetting performs:
 // `perform a;`, or `include uc;`, which includes a use case the way a perform does.
 func referencedInvocation(usage *ast.Usage) (actionInvocation, bool) {

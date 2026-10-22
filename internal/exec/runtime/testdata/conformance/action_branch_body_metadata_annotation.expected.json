@@ -1,0 +1,14 @@
+{
+  "type": "action",
+  "outputs": {
+    "n": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 1
+        }
+      ]
+    }
+  }
+}

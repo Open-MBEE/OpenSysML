@@ -112,6 +112,37 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void tellsVariationPointsAndVariantsApartByMetadata() {
+    Model model =
+        connection.parse(
+            """
+            package PLE {
+              part def Engine;
+              part fourCyl : Engine;
+              variation part def EngineChoices :> Engine { variant fourCyl; }
+              part family { variation part transmission : Engine { variant fourCyl; } }
+              enum def Color { red; blue; }
+            }
+            """);
+    Map<String, String> choices = model.symbol("PLE::EngineChoices").metadata();
+    assertEquals("true", choices.get("variation"));
+    assertEquals("true", choices.get("abstract"));
+    assertFalse(choices.containsKey("variant"));
+    Map<String, String> transmission = model.symbol("PLE::family::transmission").metadata();
+    assertEquals("true", transmission.get("variation"));
+    assertEquals("true", transmission.get("abstract"));
+    Map<String, String> variant = model.symbol("PLE::EngineChoices::fourCyl").metadata();
+    assertEquals("true", variant.get("variant"));
+    assertFalse(variant.containsKey("variation"));
+    assertEquals("true", model.symbol("PLE::Color").metadata().get("variation"));
+    assertEquals("true", model.symbol("PLE::Color::red").metadata().get("variant"));
+    Map<String, String> plain = model.symbol("PLE::fourCyl").metadata();
+    assertFalse(plain.containsKey("variation"));
+    assertFalse(plain.containsKey("variant"));
+    assertFalse(plain.containsKey("abstract"));
+  }
+
+  @Test
   void looksUpSymbols() {
     Model model = connection.parse(VEHICLE);
     Symbol vehicle = model.symbol("Demo::Vehicle");

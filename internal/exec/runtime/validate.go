@@ -691,28 +691,37 @@ func (ctx *Context) SubjectMembersOf(requirement *symbols.Symbol) []*symbols.Sym
 	return out
 }
 
-// NestedAsserting are the object-holding features of typ whose objects carry
-// assertions of their own — stated by the feature, its type or a variant of
-// either — which validating an object of typ checks object by object.
-func (ctx *Context) NestedAsserting(typ *symbols.Symbol) []*symbols.Symbol {
-	var out []*symbols.Symbol
+// HeldFeature is an object-holding feature the model declares on an element,
+// with what else may state assertions its objects carry: the feature's composite
+// type, and the variants of the feature or of that type, each applying only to
+// an object of the variant the feature selects.
+type HeldFeature struct {
+	Feature   EffectiveFeature
+	Composite *symbols.Symbol
+	Variants  []*symbols.Symbol
+}
+
+// HeldObjectDepth is how many objects deep validating an object reaches: a
+// feature held deeper is cut, as materializing it would be.
+const HeldObjectDepth = maxMaterializeDepth
+
+// HeldFeatures lists the object-holding features of typ the model declares,
+// library-declared ones left out, each with the elements whose assertions an
+// object it holds carries besides the feature's own: what validating an object
+// of typ checks object by object (ValidateObject).
+func (ctx *Context) HeldFeatures(typ *symbols.Symbol) []HeldFeature {
+	var out []HeldFeature
 	for _, feat := range ctx.FeaturesOf(typ) {
 		feature := feat
 		if feature.Name == "" || feature.Symbol == nil || !holdsObjects(&feature) || ctx.libraryDeclared(feature.Symbol) {
 			continue
 		}
-		composite := ctx.CompositeTypeOf(&feature)
-		candidates := []*symbols.Symbol{feature.Symbol, composite}
-		candidates = append(candidates, ctx.model.semantics.VariantsOf(feature.Symbol)...)
-		if composite != nil {
-			candidates = append(candidates, ctx.model.semantics.VariantsOf(composite)...)
+		held := HeldFeature{Feature: feature, Composite: ctx.CompositeTypeOf(&feature)}
+		held.Variants = append(held.Variants, ctx.model.semantics.VariantsOf(feature.Symbol)...)
+		if held.Composite != nil {
+			held.Variants = append(held.Variants, ctx.model.semantics.VariantsOf(held.Composite)...)
 		}
-		for _, candidate := range candidates {
-			if candidate != nil && len(ctx.AssertionsOf(candidate, candidate.OwnerScope)) > 0 {
-				out = append(out, feature.Symbol)
-				break
-			}
-		}
+		out = append(out, held)
 	}
 	return out
 }

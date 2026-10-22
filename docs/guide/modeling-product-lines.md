@@ -418,10 +418,12 @@ sysml> %configure 'Variation Configuration'::vehicle6Cyl
 The query is the conjunction of every assertion *about the named part's
 objects* — its own and inherited asserted constraints, the requirements it
 carries and the satisfactions it states, the same collection `%validate`
-checks. What a nested part asserts about *its* objects is not in it, and the
-report says so. 7b's `anyVehicleConfig` ties an engine, a transmission and a
-performance requirement together, and owns a `rearAxleAssembly` whose own
-`rearWheelChoice` is asserted one level down:
+checks — what its nested parts' own objects assert included, read through the
+holding feature, as deep as `%validate` reaches. A nested part the query
+cannot read as one object is named with the reason instead. 7b's
+`anyVehicleConfig` ties an engine, a transmission and a performance
+requirement together, and owns a `rearAxleAssembly` whose own
+`rearWheelChoice` is asserted one level down with `->forAll`:
 
 ```text
 sysml> %configure '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig all
@@ -434,17 +436,43 @@ sysml> %configure '7b-Variant Configurations'::VariabilityModel::anyVehicleConfi
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice::'6cylEngine'
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice::highPerformanceRequirement
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice::automaticTransmission
-  Not in the query: what rearAxleAssembly asserts about its own objects; %instantiate and %validate an object to check it
+  Not in the query: what rearAxleAssembly asserts about its own objects, as invocation is not translatable for solving: it is outside the subset; %instantiate and %validate an object to check it
   standing: satisfiable (witnessed: 1 query by solve)
 ```
 
-The two selections are complete *for the three variation points the
-family's own assertions mention*. The rear-axle choice is a question about
-the axle's objects, so it is not solved here; the advisory names the part
-and the way to check it — instantiate a configuration and `%validate` it,
-which evaluates every nested assertion on the objects actually created.
-`VehicleVariabilityModel.sysml` gives the same advisory for `engine`, whose
-six-cylinder variant asserts over its own port and bore.
+The two selections are complete for every assertion the solver can state.
+The rear-axle constraint quantifies with `->forAll`, which is outside the
+solver's subset, so that part is refused by name with the reason and the way
+to check it — instantiate a configuration and `%validate` it, which evaluates
+every nested assertion on the objects actually created. Nothing is left out
+silently: a nested part is either in the query or named here.
+
+`VehicleVariabilityModel.sysml` shows the nested case the solver does state.
+Its `'6cylEngine'` variant alone declares the `autoPort` variation and the
+bore's `DiameterChoices`, and asserts over them, so those are variation
+points only where `engine` selects that variant: the family permits three
+selections, the four-cylinder one listing no port or bore, and asking for
+`engine='4cylEngine' engine.autoPort=autoPort1` is refused with
+`engine.autoPort is a variation point only when engine selects '6cylEngine'`.
+
+```text
+sysml> %configure VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily all
+✓ Part vehicleFamily permits 3 selections of variants, which are all of them (z3, 17ms)
+  1.
+    VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::engine = VehicleVariabilityModel::'150% Model'::PartsTree::EngineChoices::'4cylEngine'
+    VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::transmission = VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::transmission::manualTransmission
+  2.
+    VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::engine = VehicleVariabilityModel::'150% Model'::PartsTree::EngineChoices::'6cylEngine'
+    VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::'engine.autoPort' = VehicleVariabilityModel::'150% Model'::PartsTree::EngineChoices::'6cylEngine'::autoPort::autoPort1
+    VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::'engine.cylinder.diameter' = VehicleVariabilityModel::'150% Model'::PartsTree::DiameterChoices::diameterSmall
+    VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::transmission = VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::transmission::automaticTransmission
+  3.
+    VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::engine = VehicleVariabilityModel::'150% Model'::PartsTree::EngineChoices::'6cylEngine'
+    VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::'engine.autoPort' = VehicleVariabilityModel::'150% Model'::PartsTree::EngineChoices::'6cylEngine'::autoPort::autoPort2
+    VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::'engine.cylinder.diameter' = VehicleVariabilityModel::'150% Model'::PartsTree::DiameterChoices::diameterLarge
+    VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::transmission = VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::transmission::automaticTransmission
+  standing: satisfiable (witnessed: 1 query by solve)
+```
 
 The same solver is reachable from an agent as the MCP `configure` tool
 ([sysml-mcp reference](../reference/sysml-mcp.md)), and from a notebook
@@ -456,8 +484,9 @@ MCP.
 What you have learned: `%configure <family>` finds one consistent selection,
 `<variation>=<variant>` fixes some and solves the rest or names the refusing
 assertion, `all` enumerates with a completeness verdict, a configuration is
-solved over the values it declares, and the query stops at the named part's
-own objects — the advisory tells you where `%validate` has to take over.
+solved over the values it declares, nested parts' own assertions are in the
+query with a variant's applying only under that variant, and what the solver
+cannot state is named with the reason — that is where `%validate` takes over.
 
 ## Seeing variability
 

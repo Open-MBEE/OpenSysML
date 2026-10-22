@@ -43,7 +43,7 @@ func (VariantOwnerPass) Run(ctx *Context, name string, root *ast.RootNamespace) 
 // variantOwnerDiagnostic judges one declared variant. An enumeration body admits
 // no `variant` keyword: its values are variants already.
 func variantOwnerDiagnostic(ctx *Context, model *semantics.Model, sym *symbols.Symbol) (diag.Diagnostic, bool) {
-	if !semantics.DeclaresVariant(sym) || ctx.DownstreamOfFailure(sym.Decl) {
+	if !semantics.DeclaresVariant(sym) || variantHeadUnsound(ctx, sym.Decl) {
 		return diag.Diagnostic{}, false
 	}
 	msg := msgVariantOutsideVariation
@@ -59,6 +59,17 @@ func variantOwnerDiagnostic(ctx *Context, model *semantics.Model, sym *symbols.S
 		Code:     "variant-outside-variation",
 		Source:   "constraint",
 	}, true
+}
+
+// variantHeadUnsound reports whether a lower tier faulted the variant's own
+// declaration head (its kind, typing and modifiers), which is all the variant
+// rules read; a fault confined to its body or on an enclosing declaration does
+// not bear on them. A typing fault is anchored at the declaration's start.
+func variantHeadUnsound(ctx *Context, decl ast.Node) bool {
+	if head, ok := w8cOwnerHead(decl); ok {
+		return ctx.DownstreamAnchoredIn(head)
+	}
+	return ctx.DownstreamOfFailure(decl)
 }
 
 // variantOwnerUnsound reports whether a lower tier faulted a specialization the

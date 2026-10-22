@@ -1,0 +1,8 @@
+{
+  "type": "instance",
+  "instantiate": "test::site",
+  "slots": {
+    "nearGo": {"type": "Boolean", "value": true},
+    "farGo": {"type": "Boolean", "value": false}
+  }
+}

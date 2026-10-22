@@ -317,8 +317,9 @@ jobs:
               check("the sdist", json.load(sdist.extractfile(name)))
           print(f"opensysml {version}, built against {tag}, imported from the built wheel")
           EOF
-          cp client/python/dist/opensysml-*.whl client/python/dist/opensysml-*.tar.gz dist/
-          (cd dist && sha256sum opensysml-*.whl opensysml-*.tar.gz >> SHA256SUMS.txt)
+          # Named exactly: `opensysml-*.tar.gz` would also match the bundles and list them twice.
+          cp client/python/dist/"opensysml-${PYPI_VERSION}-py3-none-any.whl" client/python/dist/"opensysml-${PYPI_VERSION}.tar.gz" dist/
+          (cd dist && sha256sum "opensysml-${PYPI_VERSION}-py3-none-any.whl" "opensysml-${PYPI_VERSION}.tar.gz" >> SHA256SUMS.txt)
 
       # jupyter-opensysml-kernel's platform wheels bundle this night's
       # `sysml-jupyter-kernel`, and its sdist downloads it by the digests it ships, so
@@ -507,6 +508,28 @@ jobs:
           console.log(`${pkg.name}@${pkg.version} pins its six packages at ${version}`);
           EOF
           rm client-package.json
+
+      # The manifest is assembled by appends, so before it is signed every asset must be
+      # listed once (the installers compare one digest) and present with that digest.
+      - name: Check the checksum manifest
+        run: |
+          cd dist
+          repeated=$(awk '{ print $2 }' SHA256SUMS.txt | sort | uniq -d)
+          if [[ -n "$repeated" ]]; then
+            echo "::error::SHA256SUMS.txt lists more than once: $(echo "$repeated" | tr '\n' ' ')"
+            exit 1
+          fi
+          : > "$RUNNER_TEMP/manifest-check"
+          while read -r digest name; do
+            found=""
+            for dir in . grpc jupyter wasm; do
+              [[ -f "$dir/$name" ]] && found="$dir/$name" && break
+            done
+            [[ -n "$found" ]] || { echo "::error::SHA256SUMS.txt lists $name, which is nowhere under dist/"; exit 1; }
+            echo "$digest  $found" >> "$RUNNER_TEMP/manifest-check"
+          done < SHA256SUMS.txt
+          sha256sum --check --strict "$RUNNER_TEMP/manifest-check"
+          echo "ok: SHA256SUMS.txt lists $(wc -l < SHA256SUMS.txt) assets, each once, each present with the digest it names"
 
       # Keyless, like the stable release; the identity is this workflow's OIDC identity.
       - name: Install cosign

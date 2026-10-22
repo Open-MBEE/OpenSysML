@@ -164,6 +164,9 @@ func solveReason(result *solve.Result, q *solve.Query) string {
 func assignmentLines(model []solve.Assignment) []string {
 	out := make([]string, 0, len(model))
 	for _, a := range model {
+		if a.Dead {
+			continue
+		}
 		line := fmt.Sprintf("  %s = %s", notationName(a.Var.Name), a.Value)
 		if !a.Rendered {
 			line += "  (as the solver wrote it)"

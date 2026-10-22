@@ -8,15 +8,21 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// metadataType is the metadata definition the qualified name names; nil when
-// it names none, or something other than a metadata def.
+// metadataType is the metadata definition name names — its qualified name, or
+// a name that is unique over the model, as WhereMetadata accepts; nil when it
+// names none, several, or something other than a metadata def.
 func (e *executor) metadataType(name string) *symbols.Symbol {
-	for _, sym := range e.context.Index.LookupQualified(name) {
-		if sym.Kind == symbols.SymbolMetadataDef {
-			return sym
-		}
+	if sym, ok := e.metadataTypes[name]; ok {
+		return sym
 	}
-	return nil
+	var found *symbols.Symbol
+	if sym := e.resolveClassification(name); sym != nil && sym.Kind == symbols.SymbolMetadataDef {
+		found = sym
+	}
+	if e.metadataTypes != nil {
+		e.metadataTypes[name] = found
+	}
+	return found
 }
 
 // annotationFeatureValues reads what the metadata annotating sym binds feature
@@ -63,16 +69,16 @@ func (e *executor) metadataConforms(actual, declaring string) bool {
 	return false
 }
 
-// metadataPathValues reads a property spelled <metadata def>::<feature>, the
-// qualified name of a feature of a metadata def: what the annotations of that
-// def on the row bind the feature to. Not such a spelling: present is false.
+// metadataPathValues reads a property spelled <metadata def>::<feature>, a
+// feature of a metadata def named as metadataType resolves it: what the
+// annotations of that def on the row bind the feature to. Not such a
+// spelling: present is false.
 func (e *executor) metadataPathValues(sym *symbols.Symbol, property string) ([]Value, bool, error) {
 	metadataSegments, feature, ok := source.MetadataPathSegments(property)
 	if !ok {
 		return nil, false, nil
 	}
-	declaring := strings.Join(metadataSegments, "::")
-	metadata := e.metadataType(declaring)
+	metadata := e.metadataType(strings.Join(metadataSegments, "::"))
 	if metadata == nil {
 		return nil, false, nil
 	}
@@ -80,5 +86,5 @@ func (e *executor) metadataPathValues(sym *symbols.Symbol, property string) ([]V
 	if !ok || member == nil || !member.IsFeature() {
 		return nil, false, nil
 	}
-	return e.annotationFeatureValues(sym, declaring, feature)
+	return e.annotationFeatureValues(sym, symbols.FQNOf(metadata), feature)
 }
