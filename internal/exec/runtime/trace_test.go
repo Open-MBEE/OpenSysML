@@ -188,17 +188,7 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 		if len(expected.Performers) > 0 {
 			traceActionPerformers(t, ctx, idx, trace, actionSym, expected.Performers)
 		} else {
-			exec, err := ctx.CreateActionExecutor(actionSym)
-			if err != nil {
-				t.Fatalf("create action executor: %v", err)
-			}
-			exec.SetTrace(trace)
-
-			// Drive the traced executor itself: ctx.ExecuteAction would build a
-			// second, untraced one and leave the recorder empty.
-			if err := exec.RunToCompletion(); err != nil {
-				t.Fatalf("action execution: %v", err)
-			}
+			traceAction(t, ctx, idx, rootScope, trace, actionSym, expected)
 		}
 		traceOutput = trace.String()
 	}
@@ -431,6 +421,24 @@ func tracePerformers(t *testing.T, ctx *Context, idx *symbols.Index, trace *Trac
 
 // traceActionPerformers performs the action once per listed object, as the
 // conformance harness does, so the trace records each owner-bound run.
+// traceAction traces one performance of the case's action after the untraced
+// performances its before list asks for, so a golden records the repeated one.
+func traceAction(t *testing.T, ctx *Context, idx *symbols.Index, rootScope *symbols.Scope, trace *TraceRecorder, actionSym *symbols.Symbol, expected ExpectedOutcome) {
+	t.Helper()
+	performBefore(t, ctx, idx, rootScope, actionSym, expected)
+	exec, err := ctx.CreateActionExecutor(actionSym)
+	if err != nil {
+		t.Fatalf("create action executor: %v", err)
+	}
+	exec.SetTrace(trace)
+
+	// Drive the traced executor itself: ctx.ExecuteAction would build a
+	// second, untraced one and leave the recorder empty.
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("action execution: %v", err)
+	}
+}
+
 func traceActionPerformers(t *testing.T, ctx *Context, idx *symbols.Index, trace *TraceRecorder, actionSym *symbols.Symbol, performers []Performer) {
 	t.Helper()
 	ctx.SetTrace(trace)

@@ -1,6 +1,9 @@
 package runtime
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -67,5 +70,29 @@ func runActionPerformers(t *testing.T, ctx *Context, idx *symbols.Index, actionS
 				validateValue(t, ctx, path, expectedVal, value)
 			}
 		})
+	}
+}
+
+// The trace runner honours before as the conformance runner does: the trace of
+// fall performed after fall is the repeated performance's, not the first's.
+func TestTraceOfPerformanceAfterAnotherIsItsOwn(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_space_performed_twice.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	traceOf := func(before ...string) string {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, string(src)))
+		rootScope := idx.DocumentRoot("<test>")
+		sym := namedOrFoundSymbol(t, idx, "test::fall", rootScope, ast.DefAction, ast.UsageAction)
+		trace := NewTraceRecorder()
+		traceAction(t, ctx, idx, rootScope, trace, sym, ExpectedOutcome{Type: "action", Evaluate: "test::fall", Before: before})
+		return trace.String()
+	}
+	first, repeated := traceOf(), traceOf("test::fall")
+	if first == repeated {
+		t.Fatalf("the trace after a prior performance repeats the first's:\n%s", first)
+	}
+	if a, b := strings.Count(first, "\n"), strings.Count(repeated, "\n"); a != b {
+		t.Errorf("the prior performance left %d lines in the trace of the repeated one (%d against %d)", b-a, b, a)
 	}
 }
