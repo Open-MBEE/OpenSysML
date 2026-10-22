@@ -621,7 +621,8 @@ func (f viewForm) drawsEdge(keyword string) bool {
 	if f.nativeEdge(keyword) {
 		return true
 	}
-	return dependencyKeyword(keyword) && (f.definition != "" || f.rendering == interconnectionRendering || f.rendering == treeRendering)
+	// The action, state and tree renderings draw them; the interconnection one does not yet.
+	return dependencyKeyword(keyword) && (f.definition != "" || f.rendering == treeRendering)
 }
 
 // nativeEdge reports whether an edge member of the keyword is of the kind the
