@@ -245,7 +245,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 912 files)
+## Results (pilot `2026-08`, 916 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -254,10 +254,10 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
 | `examples/spec-examples` | 511 | 149 | 1093 | 3395 | 1037 | 6 | 50 | 2352 |
-| `tests/testdata` | 32 | 19 | 66 | 85 | 48 | 5 | 13 | 32 |
+| `tests/testdata` | 36 | 23 | 72 | 91 | 54 | 5 | 13 | 32 |
 | `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **912** | **510** | **1462** | **3541** | **1085** | **11** | **366** | **2445** |
+| **Total** | **916** | **514** | **1468** | **3547** | **1091** | **11** | **366** | **2445** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -978,7 +978,7 @@ cascades through the rest of the file. The movement is entirely one file,
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
 | only pilot | 82 | **2445** |
-| pilot diagnostics | 123 | **3541** |
+| pilot diagnostics | 123 | **3547** |
 | severity-only | 9 | **11** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1202,9 +1202,9 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **510 / 366 / 1462** |
+| overall: fully agreeing / only ours / our diagnostics | **514 / 366 / 1468** |
 | only pilot | **2445** |
-| pilot diagnostics | **3541** |
+| pilot diagnostics | **3547** |
 | severity-only | **11** |
 | unmapped, our side | **287** |
 | kerml-examples: only ours | **16** |

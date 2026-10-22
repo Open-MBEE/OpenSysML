@@ -308,6 +308,10 @@ func (c *calcCompiler) compile(cell *compiledCalc) error {
 		if param.IsCalc {
 			return ineligible(fmt.Sprintf("parameter %q binds a function value", param.Name))
 		}
+		// The compiled frame binds arguments by position, which an actor never takes.
+		if param.IsActor {
+			return ineligible(fmt.Sprintf("parameter %q is an actor, bound by name only", param.Name))
+		}
 		if param.Decl.statesCollection() {
 			return ineligible(fmt.Sprintf("parameter %q declares a multiplicity above one", param.Name))
 		}

@@ -246,6 +246,7 @@ nav:
       - guide/11-migrating-from-sysml-v1.md
       - guide/12-jupyter.md
       - guide/modeling-fleets.md
+      - guide/modeling-product-lines.md
   - Document generation:
       - manual/README.md
       - Introduction and concepts: manual/introduction.md

@@ -246,6 +246,7 @@ func TestAllSupertypesSafeOnCycle(t *testing.T) {
 func TestConformsToAnything(t *testing.T) {
 	m, root := buildModel(t, `package Base { part def Anything; }
 		part def Engine; part def X;`)
+	m.resolver.Index().MarkLibrary("t.sysml") // Anything is the top type as the library declares it
 	base := sym(t, root, "Base")
 	anything := sym(t, base.Scope, "Anything")
 	engine := sym(t, root, "Engine")
