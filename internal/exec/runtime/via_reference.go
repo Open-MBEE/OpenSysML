@@ -38,11 +38,11 @@ func (ec *EvalContext) viaSender(send lower.Send, self *Instance) (lower.Send, *
 	return send, holder, nil
 }
 
-// occurrencePortHolder answers the holder of a via port that is the behavior's own, not
-// self's: the performance occurrence, or the object whose port the occurrence's is bound to.
+// occurrencePortHolder answers the holder of a via port, not written from `this`, that is the
+// behavior's own: the performance occurrence, or the object whose port the occurrence's is bound to.
 func (ec *EvalContext) occurrencePortHolder(send lower.Send, self *Instance) (*Instance, string, error) {
 	occurrence := ec.occurrence
-	if occurrence == nil || occurrence == self || send.TargetSym == nil || strings.Contains(send.Target, ".") {
+	if send.ViaSelf || occurrence == nil || occurrence == self || send.TargetSym == nil || strings.Contains(send.Target, ".") {
 		return nil, "", nil
 	}
 	fv, ok := occurrence.FeatureValues[send.Target]
