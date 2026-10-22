@@ -133,6 +133,18 @@ func TestInteractionParameterDefaultsAreKept(t *testing.T) {
 			t.Errorf("%v", d)
 		}
 	})
+	t.Run("reads another behavior's parameter", func(t *testing.T) {
+		changed := bytes.Replace(data, param, append(append([]byte{}, param...), []byte(`<defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_suRpm0"><body>Motor::spin::rpm + 1</body></defaultValue>`)...), 1)
+		r, err := migrate.Migrate("interaction_use.xmi", changed)
+		if err != nil {
+			t.Fatalf("Migrate: %v", err)
+		}
+		wantLine(t, r.Notation, "attribute rpm : ScalarValues::Real;")
+		wantLine(t, r.Notation, "/* default value not migrated: Motor::spin::rpm + 1 — reads Motor::spin::rpm of the interaction's context, which its occurrence def has no access to */")
+		for _, d := range errors(t, "interaction_use.sysml", r.Notation) {
+			t.Errorf("%v", d)
+		}
+	})
 	t.Run("reads the context", func(t *testing.T) {
 		changed := bytes.Replace(data, param, append(append([]byte{}, param...), []byte(`<defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_suRpm0"><body>limit</body></defaultValue>`)...), 1)
 		r, err := migrate.Migrate("interaction_use.xmi", changed)

@@ -964,10 +964,14 @@ func (s *scenario) inaccessible(expr string, line *lifelineRef) string {
 	return ""
 }
 
-// isFeature reports whether e is a feature of a classifier, which an expression
-// reads from an instance, unlike a namespace or type it names by qualified name.
+// isFeature reports whether e is a feature of a classifier or behavior, which an
+// expression reads from an instance, unlike a namespace or type it names by qualified name.
 func isFeature(e *sysmlv1.Element) bool {
-	return e.Type == "Property" || e.Type == "Port" || e.Type == "ExtensionEnd"
+	switch e.Type {
+	case "Property", "Port", "ExtensionEnd", "Parameter":
+		return true
+	}
+	return false
 }
 
 // parameterNamed reports whether the interaction's own parameters are written as an attribute of the name.
