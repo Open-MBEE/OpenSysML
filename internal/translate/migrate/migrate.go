@@ -251,6 +251,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		layoutJoined:      map[string]bool{},
 		shownEdges:        map[*sysmlv1.Element]bool{},
 		edgeMembers:       map[*sysmlv1.Element]edgeMember{},
+		sequenceBindings:  map[*sysmlv1.Element][]lifelineBinding{},
 		objectives:        map[*sysmlv1.Element]string{},
 		routeKinds:        routeKinds{},
 	}
@@ -584,7 +585,10 @@ type migration struct {
 	// edgeMembers the member each was written as, routeKinds the routes by kind and reason.
 	shownEdges  map[*sysmlv1.Element]bool
 	edgeMembers map[*sysmlv1.Element]edgeMember
-	routeKinds  routeKinds
+	// sequenceBindings gives each interaction the bindings of its lifeline usages to
+	// the features of its context, written in the context's occurrence usage of it.
+	sequenceBindings map[*sysmlv1.Element][]lifelineBinding
+	routeKinds       routeKinds
 	// objectives names a test case's objective when a diagram shows a verify
 	// it holds, since a member of an anonymous objective cannot be exposed.
 	objectives map[*sysmlv1.Element]string
@@ -1507,7 +1511,7 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 		})
 		return
 	}
-	if behaviorCategory(cat) {
+	if behaviorCategory(cat) || e.Type == "Interaction" {
 		m.w.block(header, func() { m.behaviorBody(e, cat) })
 		if c := m.contexts[e]; c != nil {
 			// Written now: a context parameter can no longer be declared.
@@ -1521,6 +1525,7 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 	m.w.block(header, func() {
 		m.body(e)
 		m.classifierBehavior(e)
+		m.interactionOccurrences(e)
 		m.stereotypeAnnotations(e)
 	})
 }
@@ -2179,7 +2184,7 @@ func (m *migration) verificationBody(e *sysmlv1.Element) {
 		if s, note := m.scenario(e, subject); note == "" {
 			m.w.line("subject " + writeName(subject) + " : " + m.ref(s.context, e) + ";")
 			m.parameters(e, e)
-			s.write()
+			s.writeSequence()
 		}
 	}
 	m.views(e)
