@@ -155,10 +155,8 @@ func qualified(parts ...string) *ast.QualifiedName {
 	return q
 }
 
-// A `require` member takes the short name of the requirement it references,
-// and deriving it asks the group for every sibling's short name while its own
-// is still under way: the sibling asked then settles on no short name only for
-// that derivation, and the member keeps the short name its referent declares.
+// Deriving a `require` member's short name asks its siblings' while its own is
+// under way; each member still ends with the short name its referent declares.
 func TestRequirementGroupMemberShortNamesDeriveIndependently(t *testing.T) {
 	r, _, rootScope := resolvedDoc(t, `package P {
 	requirement <q> r0;

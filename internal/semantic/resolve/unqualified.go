@@ -153,9 +153,8 @@ func symbolShortName(sym *symbols.Symbol) string {
 type shortNaming struct {
 	derived map[*symbols.Symbol]string // every short name this derivation settled on
 	guarded map[*symbols.Symbol]bool   // features asked for while their naming was under way
-	// hits counts the answers that may not hold: a guard's, or a derivation's
-	// reused before it is memoized; dependent are the complete derivations
-	// that met one, memoized once every guarded feature proves to have no name.
+	// hits counts answers that may not hold (a guard's, or one reused before it
+	// is memoized); dependent are complete derivations that met one.
 	hits      int
 	dependent []*symbols.Symbol
 }
