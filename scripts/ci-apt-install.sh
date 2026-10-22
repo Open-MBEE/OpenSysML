@@ -3,7 +3,8 @@
 # step within minutes instead of holding it until the job's limit cancels it.
 #
 # Usage: scripts/ci-apt-install.sh [apt-get install options] <package>...
-# CI_APT_TIMEOUT_SECONDS bounds one apt-get update, CI_APT_DEADLINE_SECONDS all fetching.
+# CI_APT_TIMEOUT_SECONDS bounds one apt-get update, CI_APT_DEADLINE_SECONDS all fetching;
+# CI_APT_ARCHIVES names a directory of .deb files to seed apt's cache from and refill.
 set -euo pipefail
 
 [[ $# -gt 0 ]] || { echo "usage: $0 [apt-get install options] <package>..." >&2; exit 2; }
@@ -40,5 +41,16 @@ run_apt() {
 run_apt "$budget" update -o APT::Update::Error-Mode=any
 # Archives are fetched under the deadline (Octave is ~200 MB) and a cut-off attempt is
 # resumed by the next, so dpkg, which must not be interrupted, runs on local files.
+# Archives kept from an earlier run spare the mirror; apt re-fetches any whose hash
+# no longer matches the index, so a stale copy costs nothing but its download.
+archives=/var/cache/apt/archives
+if [[ -n ${CI_APT_ARCHIVES:-} ]] && compgen -G "$CI_APT_ARCHIVES/*.deb" >/dev/null; then
+  sudo cp "$CI_APT_ARCHIVES"/*.deb "$archives"/
+fi
 run_apt "$deadline" install -y --download-only "$@"
 sudo apt-get "${acquire[@]}" install -y "$@"
+if [[ -n ${CI_APT_ARCHIVES:-} ]]; then
+  mkdir -p "$CI_APT_ARCHIVES"
+  sudo find "$archives" -maxdepth 1 -name '*.deb' -exec cp -t "$CI_APT_ARCHIVES" {} +
+  sudo chown -R "$(id -u):$(id -g)" "$CI_APT_ARCHIVES"
+fi

@@ -1498,11 +1498,21 @@ jobs:
       - name: Install the sysml-grpc binary
         run: chmod +x bin/sysml-grpc
 
+      # Octave is 195 MB of archives, which a trickling mirror has held for over ten
+      # minutes; a run that got them keeps them for the next one on the same image.
+      - name: Restore the archives Octave was installed from
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: apt-octave-${{ runner.os }}-${{ env.ImageVersion }}
+          restore-keys: apt-octave-${{ runner.os }}-
+
       - name: Install GNU Octave
-        # 195 MB of archives: 31 s to 7 min on recent green runs, depending on the mirror.
+        # 31 s to 7 min on recent green runs, depending on the mirror.
         timeout-minutes: 15
         env:
           CI_APT_DEADLINE_SECONDS: 780
+          CI_APT_ARCHIVES: ${{ runner.temp }}/apt-archives
         run: scripts/ci-apt-install.sh octave
 
       - name: Start sysml-grpc
