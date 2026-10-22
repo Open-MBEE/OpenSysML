@@ -118,7 +118,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 331
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 338
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -166,7 +166,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-336 case(s): 325 both reject, 0 only the pilot rejects, 11 only we reject, 0 both accept
+339 case(s): 328 both reject, 0 only the pilot rejects, 11 only we reject, 0 both accept
   of which 3 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -174,7 +174,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 12 | 12 | 0 | 0 | 0 |
 | grammar | 112 | 112 | 0 | 0 | 0 |
-| semantic | 177 | 166 | 0 | 11 | 0 |
+| semantic | 180 | 169 | 0 | 11 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the eleven ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -247,7 +247,7 @@ only features that have none, so both validators reject each end under
 each a syntax error under the pinned grammar, as our parser now reports them) and `x12` (`then
 <target>;` in a view body, a succession member no non-action body admits) brought it to 328; `s108`
 (a usage subsetting a constant usage) to 329; and the two definition-end usage cases
-(`connection-def-end-not-usage`, `flow-def-end-not-usage`), both ours-only, to 331; the end-feature owner cases `k75`, `s110` and `s111` (a non-end feature redefining an inherited end from inside a KerML connector, a SysML connection definition and a connection usage — the owners KerML 1.1 §8.3.3.3.8 `validateRedefinitionEndConformance` names — `Redefining feature must be an end feature` at the redefinition on both sides) brought it to 334; the variant-kind case (`variant-kind-inconsistent-with-variation`, an action variant of a part variation definition and an action and an attribute variant of a part variation usage, which the variant's implied specialization of its variation types — SysML v2 §7.6.7, `checkUsageVariationDefinitionSpecialization`, `checkUsageVariationUsageSpecialization` — `An action must be typed by action definitions.` on both sides) brought it to 335; the standalone-subsetting case `k77` (`specialization subset fu :> A::a;` naming a feature of another struct — KerML 1.1 §8.3.3.3.10 `validateSubsettingFeaturingTypes`, `Must be an accessible feature (use dot notation for nesting)` at the subsetted name on both sides) brought it to 336.
+(`connection-def-end-not-usage`, `flow-def-end-not-usage`), both ours-only, to 331; the end-feature owner cases `k75`, `s110` and `s111` (a non-end feature redefining an inherited end from inside a KerML connector, a SysML connection definition and a connection usage — the owners KerML 1.1 §8.3.3.3.8 `validateRedefinitionEndConformance` names — `Redefining feature must be an end feature` at the redefinition on both sides) brought it to 334; the variant-kind case (`variant-kind-inconsistent-with-variation`, an action variant of a part variation definition and an action and an attribute variant of a part variation usage, which the variant's implied specialization of its variation types — SysML v2 §7.6.7, `checkUsageVariationDefinitionSpecialization`, `checkUsageVariationUsageSpecialization` — `An action must be typed by action definitions.` on both sides) brought it to 335; the subject-position cases `s112` and `s113` (a stakeholder written before the subject a concern definition, or a framed concern, inherits — SysML v2 §8.3.21.8 `validateRequirementDefinitionSubjectParameterPosition` and §8.3.21.9 `validateRequirementUsageSubjectParameterPosition`, rejected on both sides) brought it to 337; the constructor-argument case `s114` (`new A(x = 2)` and `new A(3)` under `attribute x : Integer = 1`, each argument a feature of the result redefining `x` with a value of its own — KerML 1.1 §8.3.4.10.2 `validateFeatureValueOverriding`, `Cannot override a binding feature value` at the argument values on both sides) brought it to 338; the standalone-subsetting case `k77` (`specialization subset fu :> A::a;` naming a feature of another struct — KerML 1.1 §8.3.3.3.10 `validateSubsettingFeaturingTypes`, `Must be an accessible feature (use dot notation for nesting)` at the subsetted name on both sides) brought it to 339.
 The KerML constraints in that
 source reopened 14 gaps — all of them semantic rules the pilot enforces and we did not; the
 named-argument validation that landed alongside closed one of them (`k33`), the constructor
@@ -292,7 +292,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 336 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 339 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 
