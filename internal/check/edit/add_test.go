@@ -289,7 +289,7 @@ var memberKindTypes = map[string]string{
 // memberKindOwners pairs each kind only some bodies offer with a member of P
 // whose body does; every other kind goes into P itself.
 var memberKindOwners = map[string]string{
-	"subject": "P::R", "actor": "P::R", "stakeholder": "P::R", "objective": "P::U",
+	"subject": "P::R", "actor": "P::RS", "stakeholder": "P::RS", "objective": "P::U",
 	"assert constraint": "P::Host", "assert not constraint": "P::Host",
 	"assert": "P::Host", "assert not": "P::Host",
 	"exhibit state": "P::Host", "exhibit": "P::Vehicle",
@@ -307,7 +307,7 @@ func TestEveryMemberKindWrites(t *testing.T) {
 		}
 		for _, kind := range kinds {
 			t.Run(name+"/"+kind, func(t *testing.T) {
-				src := "package P {\n    action def A {\n        action a0;\n    }\n    constraint def Assertion;\n    state def State { state child; }\n    part def Base { state s : State; }\n    part def Vehicle :> Base;\n    part def Host { constraint addedTarget; }\n    calc def C {}\n    requirement def R;\n    use case def U;\n}\n"
+				src := "package P {\n    action def A {\n        action a0;\n    }\n    constraint def Assertion;\n    state def State { state child; }\n    part def Base { state s : State; }\n    part def Vehicle :> Base;\n    part def Host { constraint addedTarget; }\n    calc def C {}\n    requirement def R;\n    requirement def RS {\n        subject b : Base;\n    }\n    use case def U;\n}\n"
 				if lang == source.KindKerML {
 					src = "package P {\n    behavior A {\n        step s0;\n    }\n}\n"
 				}
@@ -477,18 +477,21 @@ func TestOwnerBoundMemberKinds(t *testing.T) {
 			t.Errorf("%q is owner-bound", kind)
 		}
 	}
+	// An actor or stakeholder is an input parameter, so it is added behind a subject.
 	src := "part def Driver;\nrequirement def Goal;\npart def Car;\n" +
-		"requirement def R;\nverification def V;\nrequirement r : R;\nconcern def C;\n"
+		"requirement def R;\nverification def V;\nrequirement r : R;\nconcern def C;\n" +
+		"requirement def RS {\n    subject car : Car;\n}\nverification def VS {\n    subject car : Car;\n}\n" +
+		"concern def CS {\n    subject car : Car;\n}\n"
 	for _, tc := range []struct {
 		owner, kind, typ, want string
 	}{
 		{"R", "subject", "Car", "requirement def R {\n    subject added : Car;\n}"},
-		{"R", "actor", "Driver", "requirement def R {\n    actor added : Driver;\n}"},
-		{"R", "stakeholder", "Driver", "requirement def R {\n    stakeholder added : Driver;\n}"},
+		{"RS", "actor", "Driver", "requirement def RS {\n    subject car : Car;\n    actor added : Driver;\n}"},
+		{"RS", "stakeholder", "Driver", "requirement def RS {\n    subject car : Car;\n    stakeholder added : Driver;\n}"},
 		{"r", "subject", "Car", "requirement r : R {\n    subject added : Car;\n}"},
-		{"C", "stakeholder", "Driver", "concern def C {\n    stakeholder added : Driver;\n}"},
+		{"CS", "stakeholder", "Driver", "concern def CS {\n    subject car : Car;\n    stakeholder added : Driver;\n}"},
 		{"V", "subject", "Car", "verification def V {\n    subject added : Car;\n}"},
-		{"V", "actor", "Driver", "verification def V {\n    actor added : Driver;\n}"},
+		{"VS", "actor", "Driver", "verification def VS {\n    subject car : Car;\n    actor added : Driver;\n}"},
 		{"V", "objective", "Goal", "verification def V {\n    objective added : Goal;\n}"},
 	} {
 		m := loadContent(t, "bound.sysml", src)

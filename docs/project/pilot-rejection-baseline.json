@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 336,
-        "digest": "sha256:4340e93b00e4db6865cfd0ac0b5678126397fef0211c9db6547a366acbcf7e07"
+        "files": 338,
+        "digest": "sha256:8da1cf1cb93466f0703720b98c5b5f465fcc54b5136f2b59a7e78beb5ae17afa"
       }
     ],
     "recorded": "2026-10-22"
   },
   "totals": {
-    "cases": 336,
-    "bothReject": 325,
+    "cases": 338,
+    "bothReject": 327,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 11,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 177,
-      "bothReject": 166,
+      "cases": 179,
+      "bothReject": 168,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0
@@ -2238,6 +2238,24 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/s112-concern-def-stakeholder-before-implicit-subject.sysml",
+      "source": "semantic",
+      "rule": "A stakeholder declared before any subject is the first input of a concern definition, displacing the subject it inherits (SysML 8.3.21.8 validateRequirementDefinitionSubjectParameterPosition; pilot validateRequirementDefinitionSubjectParameterPosition).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s113-framed-concern-stakeholder-before-inherited-subject.sysml",
+      "source": "semantic",
+      "rule": "A stakeholder a framed concern declares precedes the subject it inherits from its definition (SysML 8.3.21.9 validateRequirementUsageSubjectParameterPosition; pilot validateRequirementUsageSubjectParameterPosition).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s114-constructor-argument-overrides-bound-value.sysml",
       "source": "semantic",
       "rule": "a constructor argument binds a feature whose value is written with `=`, which every feature redefining it inherits; only a `default =` value may be overridden (KerML 8.3.4.10.2 validateFeatureValueOverriding; pilot validateFeatureValueOverriding).",
@@ -3295,8 +3313,8 @@
       }
     ],
     "totals": {
-      "cases": 336,
-      "bothReject": 325,
+      "cases": 338,
+      "bothReject": 327,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0

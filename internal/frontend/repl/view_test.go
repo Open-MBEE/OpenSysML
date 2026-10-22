@@ -148,6 +148,7 @@ const conformanceModel = `package Demo {
     concern def Modularity { subject s : Vehicle; require constraint { s.mass > 1.0 } }
     concern def Documented { subject s : Vehicle; }
     viewpoint def StructurePerspective {
+        subject s : Vehicle;
         stakeholder engineer;
         frame concern budget : MassBudget;
         frame concern modularity : Modularity;
