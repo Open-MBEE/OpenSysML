@@ -18,7 +18,11 @@ func (ec *EvalContext) viaSender(send lower.Send, self *Instance) (lower.Send, *
 		return send, self, err
 	}
 	if holder == self && port == send.Target {
-		if holder, port := ec.occurrencePortHolder(send, self); holder != nil {
+		holder, port, err := ec.occurrencePortHolder(send, self)
+		if err != nil {
+			return send, self, err
+		}
+		if holder != nil {
 			send.Target, send.TargetPath = port, false
 			if fv, ok := holder.FeatureValues[port]; ok && fv.Feature != nil && fv.Feature.Symbol != nil {
 				send.TargetSym = fv.Feature.Symbol
@@ -34,35 +38,36 @@ func (ec *EvalContext) viaSender(send lower.Send, self *Instance) (lower.Send, *
 	return send, holder, nil
 }
 
-// occurrencePortHolder answers the object whose port a via names when that port
-// is the behavior's own — its resolved symbol a port the performance occurrence
-// holds and not one self holds under the name: the occurrence, or the object
-// whose port the occurrence's is bound to, so the message leaves through the
-// performance's port, routed by what binds or connects it; nil otherwise.
-func (ec *EvalContext) occurrencePortHolder(send lower.Send, self *Instance) (*Instance, string) {
+// occurrencePortHolder answers the holder of a via port that is the behavior's own, not
+// self's: the performance occurrence, or the object whose port the occurrence's is bound to.
+func (ec *EvalContext) occurrencePortHolder(send lower.Send, self *Instance) (*Instance, string, error) {
 	occurrence := ec.occurrence
 	if occurrence == nil || occurrence == self || send.TargetSym == nil || strings.Contains(send.Target, ".") {
-		return nil, ""
+		return nil, "", nil
 	}
 	fv, ok := occurrence.FeatureValues[send.Target]
 	if !ok || fv.Feature == nil || send.TargetSym.Kind != symbols.SymbolPortUsage ||
 		(fv.Feature.Symbol != send.TargetSym && !ec.ctx.modelConforms(fv.Feature.Symbol, send.TargetSym)) {
-		return nil, "" // the occurrence's feature is that port or redefines it
+		return nil, "", nil // the occurrence's feature is that port or redefines it
 	}
 	if own, ok := self.FeatureValues[send.Target]; ok && own.Feature != nil && own.Feature.Symbol == send.TargetSym {
-		return nil, ""
+		return nil, "", nil
 	}
-	if read, err := occurrence.GetFeatureValue(ec.ctx, send.Target); err == nil && read != nil {
+	read, err := occurrence.GetFeatureValue(ec.ctx, send.Target)
+	if err != nil {
+		return nil, "", err
+	}
+	if read != nil {
 		fv = read
 	}
 	if held := fv.HeldValue(); held.Kind == ValInstance {
 		if port, found := ec.ctx.Instance(held.Instance); found {
 			if owner, name, ok := portOwner(port); ok && owner != occurrence {
-				return owner, name
+				return owner, name, nil
 			}
 		}
 	}
-	return occurrence, send.Target
+	return occurrence, send.Target, nil
 }
 
 // viaHolder returns the object whose port a via path names and the port's name: self and
