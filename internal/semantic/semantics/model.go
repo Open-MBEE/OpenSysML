@@ -131,8 +131,11 @@ type Model struct {
 	// redefMaskInherited is the same mask counting inherited redefinitions only.
 	redefMaskInherited map[*symbols.Symbol]map[*symbols.Symbol]bool
 	// redefMaskOwn is the same mask counting the type's own redefinitions only.
-	redefMaskOwn               map[*symbols.Symbol]map[*symbols.Symbol]bool
-	redefClosure               map[*symbols.Symbol]map[*symbols.Symbol]bool
+	redefMaskOwn map[*symbols.Symbol]map[*symbols.Symbol]bool
+	redefClosure map[*symbols.Symbol]map[*symbols.Symbol]bool
+	// restatesFrameRoot and restatesReferenceRoot memoize restatesRoot per symbol (shape.go).
+	restatesFrameRoot          map[*symbols.Symbol]bool
+	restatesReferenceRoot      map[*symbols.Symbol]bool
 	computingRedefClosure      map[*symbols.Symbol]bool
 	computingRedefinedFeatures int
 	// unique memoizes each feature's effective uniqueness (see uniqueness.go).
@@ -223,6 +226,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		redefMaskInherited:    make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		redefMaskOwn:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		redefClosure:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
+		restatesFrameRoot:     make(map[*symbols.Symbol]bool),
+		restatesReferenceRoot: make(map[*symbols.Symbol]bool),
 		computingRedefClosure: make(map[*symbols.Symbol]bool),
 		unique:                make(map[*symbols.Symbol]bool),
 		readOnly:              make(map[*symbols.Symbol]ReadOnly),
