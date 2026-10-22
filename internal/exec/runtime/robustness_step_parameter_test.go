@@ -49,21 +49,22 @@ func TestRuntimeRobustnessStepParameter(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Instantiate context: %v", err)
 		}
+		theGauge := instanceAtPath(t, ctx, self, "theGauge")
 		run := instanceAtPath(t, ctx, self, "run")
 		fv, err := run.GetFeatureValue(ctx, "system")
 		if err != nil {
 			t.Fatalf("read run.system: %v", err)
 		}
-		if system := soleElement(fv.HeldValue()); system.Kind != ValInstance {
-			t.Fatalf("run.system = %s, want the gauge", FormatValue(system))
+		if system := soleElement(fv.HeldValue()); system.Kind != ValInstance || system.Instance != theGauge.ID {
+			t.Fatalf("run.system = %s, want theGauge (#%d)", FormatValue(system), theGauge.ID)
 		}
 		decision := instanceAtPath(t, ctx, self, "run.decision")
 		fv, err = decision.GetFeatureValue(ctx, "gauge")
 		if err != nil {
 			t.Fatalf("read run.decision.gauge: %v", err)
 		}
-		if gauge := soleElement(fv.HeldValue()); gauge.Kind != ValInstance {
-			t.Errorf("run.decision.gauge = %s, want the gauge run.system holds", FormatValue(gauge))
+		if gauge := soleElement(fv.HeldValue()); gauge.Kind != ValInstance || gauge.Instance != theGauge.ID {
+			t.Errorf("run.decision.gauge = %s, want theGauge (#%d), the gauge run.system holds", FormatValue(gauge), theGauge.ID)
 		}
 		if got := readGo(t, ctx, self); !valueEqual(got, boolValue(true)) {
 			t.Errorf("go = %v, want true", got)
