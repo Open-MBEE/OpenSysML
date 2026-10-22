@@ -54,13 +54,13 @@ func TestConfigureWritesEveryNameAsTheNotationDoes(t *testing.T) {
 	requireSolver(t)
 	s := checkSession(t, quotedModel)
 	all := run(t, s, "%configure 'Cfg Space'::'the family' all")
-	wants(t, all, "✓ Part 'the family' permits 2 selections of variants, which are all of them",
+	wants(t, all, "✓ Abstract part 'the family' permits 2 selections of variants, which are all of them",
 		"'Cfg Space'::'the family'::engine = 'Cfg Space'::'Engine Choices'::'4cyl'",
 		"'Cfg Space'::'the family'::trans = 'Cfg Space'::'the family'::trans::'auto box'")
 	rejectsPlainNames(t, all)
 
 	refused := run(t, s, "%configure 'Cfg Space'::'the family' engine='6cyl' trans=man")
-	wants(t, refused, "✗ the chosen variants are not consistent with Part 'the family'",
+	wants(t, refused, "✗ the chosen variants are not consistent with Abstract part 'the family'",
 		"In the conflict: 'Cfg Space'::'the family'::engine = 'Cfg Space'::'Engine Choices'::'6cyl', 'Cfg Space'::'the family'::trans = 'Cfg Space'::'the family'::trans::man",
 		"Against: required condition {", "of 'the family' at ")
 	rejectsPlainNames(t, refused)

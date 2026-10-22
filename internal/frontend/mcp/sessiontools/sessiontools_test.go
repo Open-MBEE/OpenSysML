@@ -309,7 +309,7 @@ func TestConfigureWritesNamesAsTheNotationDoes(t *testing.T) {
 
 	var res SolveResult
 	must(t, cs, "configure", args("name", "'Cfg Space'::'the family'", "all", true), &res)
-	for _, want := range []string{"Part 'the family' permits 2 selections", "'Cfg Space'::'the family'::engine = 'Cfg Space'::'Engine Choices'::'4cyl'", "'Cfg Space'::'the family'::trans = 'Cfg Space'::'the family'::trans::'auto box'"} {
+	for _, want := range []string{"Abstract part 'the family' permits 2 selections", "'Cfg Space'::'the family'::engine = 'Cfg Space'::'Engine Choices'::'4cyl'", "'Cfg Space'::'the family'::trans = 'Cfg Space'::'the family'::trans::'auto box'"} {
 		if !strings.Contains(res.Text, want) {
 			t.Errorf("configure all lacks %q:\n%s", want, res.Text)
 		}
