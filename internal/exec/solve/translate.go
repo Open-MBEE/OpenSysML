@@ -572,8 +572,9 @@ func (t *translator) translate(conds []runtime.Condition) error {
 	var required []*Term
 	var labels []string
 	// A requirement's assumptions are the antecedent of its claim, never asserted
-	// on their own: over no required condition the claim holds vacuously.
-	vacuous := vacuousSubject(t.subject) && !requiresAny(conds)
+	// on their own: over no required condition the claim holds vacuously — unless
+	// a condition is malformed, which the evaluator refuses before judging vacuity.
+	vacuous := vacuousSubject(t.subject) && !requiresAny(conds) && !conflicting(conds)
 	// The evaluator stops at the first required condition that does not hold,
 	// so a later condition is evaluated only where every earlier one held.
 	var before []*Term
@@ -1484,6 +1485,16 @@ func (t *translator) refuse(node ast.Node, construct, reason string) error {
 func requiresAny(conds []runtime.Condition) bool {
 	for _, cond := range conds {
 		if cond.Required {
+			return true
+		}
+	}
+	return false
+}
+
+// conflicting reports whether any of conds carries a conflicting result expression.
+func conflicting(conds []runtime.Condition) bool {
+	for _, cond := range conds {
+		if cond.Conflict != nil {
 			return true
 		}
 	}

@@ -2,6 +2,7 @@ package solve
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -76,4 +77,28 @@ func TestAssumptionOnlyRequirementSolverVerdicts(t *testing.T) {
 	}
 	solved(t, solver, plain, StatusSat)
 	solved(t, solver, violation, StatusUnsat)
+}
+
+// TestAssumedConflictingConstraintStillRefuses: an assumption carrying a
+// conflicting result expression is refused before vacuity is judged, as the
+// evaluator refuses it, so neither the plain nor the violation query answers.
+func TestAssumedConflictingConstraintStillRefuses(t *testing.T) {
+	ctx, idx := fixture(t, "<test>", `
+		package test {
+			constraint def A { true }
+			constraint def B { false }
+			constraint def C :> A, B;
+			requirement r { assume constraint c : C; }
+		}
+	`)
+	r := symbolNamed(t, idx, "test::r")
+	for name, translate := range map[string]func() (*Query, error){
+		"plain":     func() (*Query, error) { return Requirement(ctx, r, r.OwnerScope) },
+		"violation": func() (*Query, error) { return RequirementViolation(ctx, r, r.OwnerScope, nil) },
+	} {
+		_, err := translate()
+		if !errors.Is(err, ErrNotTranslatable) || !strings.Contains(err.Error(), "conflicting result expression") {
+			t.Errorf("%s: %v, want a refusal for the conflicting result expression", name, err)
+		}
+	}
 }
