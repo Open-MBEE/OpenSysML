@@ -106,7 +106,7 @@ func usageTypeAllowed(model *semantics.Model, resolver *resolve.Resolver, decl d
 // metaclass its keyword names, a definition by its kind.
 func typeOfKindAllowed(decl declKind, typ *symbols.Symbol) bool {
 	if typ.Kind == symbols.SymbolKerMLType {
-		return kermlTypeTypesUsage(decl, typ.Notation())
+		return kermlTypeTypesUsage(decl, ast.NotationKeyword(typ.Notation()))
 	}
 	return isCompatibleTyping(decl.useKind, decl.direction, typ.Kind, decl.isOccurrenceUsage())
 }

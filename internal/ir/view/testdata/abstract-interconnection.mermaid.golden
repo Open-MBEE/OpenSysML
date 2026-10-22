@@ -1,0 +1,38 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% AbstractViews::familyLinks — interconnection rendering (render asInterconnectionDiagram)
+flowchart LR
+  subgraph n0 ["`*«abstract part»* **vehicleFamily**`"]
+    direction LR
+    n1("`*«abstract port»*
+**fuel**`")
+    n2("`*«abstract part»*
+**engine**`")
+    n3("`*«part»*
+**chassis**`")
+    n4("`*«attribute»*
+**mass**`")
+  end
+  n2 === n3
+  linkStyle 0 stroke-width:3px
