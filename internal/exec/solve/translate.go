@@ -205,9 +205,16 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 		return nil, err
 	}
 	// A feature read through one object of sym (`lander.verticalSpeed`) holds the
-	// value that object's declaration states, as the evaluator reads it.
-	if nested := nestedDeclared(ctx, q, self); len(nested) > 0 {
-		return translate(append(pins, nested...))
+	// value that object's declaration states, as the evaluator reads it; one whose
+	// read fails is guarded or refused as a direct read is, never left to the solver.
+	nested, unfixed := nestedDeclared(ctx, q, self)
+	if len(nested) > 0 {
+		if q, err = translate(append(pins, nested...)); err != nil {
+			return nil, err
+		}
+	}
+	if err := UnfixedRead(ctx, q, unfixed); err != nil {
+		return nil, err
 	}
 	return q, nil
 }
@@ -298,26 +305,34 @@ func satisfiedBy(ctx *runtime.Context, sa *runtime.SatisfyAssertion) ([]*symbols
 
 // nestedDeclared fixes each variable reading a feature through one object of the
 // element to the value self's nested object holds, else the one that object's
-// declaration states, when there is one.
-func nestedDeclared(ctx *runtime.Context, q *Query, self *runtime.Instance) []Pin {
+// declaration states, when there is one; a read that fails is an Unfixed naming
+// the variable.
+func nestedDeclared(ctx *runtime.Context, q *Query, self *runtime.Instance) ([]Pin, []Unfixed) {
 	pinned := make(map[string]bool, len(q.Pinned))
 	for _, p := range q.Pinned {
 		pinned[p.Var.Name] = true
 	}
 	var out []Pin
+	var unfixed []Unfixed
 	for _, v := range q.Vars {
 		if len(v.Steps) != 2 || v.Root == nil || v.Root == v.Symbol || pinned[v.Name] {
 			continue
 		}
-		found, _ := Fixed(ctx, v.Root, nestedObject(ctx, self, v.Root.Name))
+		found, notRead := Fixed(ctx, v.Root, nestedObject(ctx, self, v.Root.Name))
 		for _, p := range found {
 			if p.Feature == v.Symbol || p.Name == v.Symbol.Name {
 				out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: p.Value, Source: p.Source, Object: p.Object})
 				break
 			}
 		}
+		for _, u := range notRead {
+			if u.Feature == v.Symbol || u.Name == v.Symbol.Name {
+				unfixed = append(unfixed, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: u.Reason, Err: u.Err})
+				break
+			}
+		}
 	}
-	return out
+	return out, unfixed
 }
 
 // nestedObject is the object self holds for feature name, nil when self is nil or
