@@ -2,9 +2,8 @@ package runtime
 
 import "testing"
 
-// A sequence of one value written to a unique feature repeats nothing, so the check
-// answers without building the set it judges repeats by: a calculation's result held
-// in its one-element shape pays nothing to be read into a unique feature.
+// One value written to a unique feature repeats nothing, so the check answers
+// without building the set it judges repeats by: the write allocates nothing.
 func TestUniquenessOfOneValueAllocatesNothing(t *testing.T) {
 	ctx := emptyRuntimeContext()
 	one := sequenceOf([]Value{integerValue(7)})
