@@ -1093,24 +1093,10 @@ func (e *executor) resolveType(name string) *symbols.Symbol {
 	return e.resolveClassification(name)
 }
 
+// resolveClassification names a type by qualified name or by a name unique
+// over the model, the spelling WhereType, WhereMetadata and metadata paths share.
 func (e *executor) resolveClassification(name string) *symbols.Symbol {
-	if matches := e.context.Index.LookupQualified(name); len(matches) == 1 {
-		return matches[0]
-	}
-	var match *symbols.Symbol
-	for _, fqn := range e.context.Index.FQNs() {
-		if fqn != name && !strings.HasSuffix(fqn, "::"+name) {
-			continue
-		}
-		candidates := e.context.Index.LookupQualified(fqn)
-		for _, candidate := range candidates {
-			if match != nil && !symbols.SameElement(match, candidate) {
-				return nil
-			}
-			match = candidate
-		}
-	}
-	return match
+	return e.context.Index.LookupUnique(name)
 }
 
 // filtered starts a filter's result, keeping the source's projected columns
