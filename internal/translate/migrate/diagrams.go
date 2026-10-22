@@ -28,7 +28,7 @@ var renderings = []struct {
 }{
 	{[]string{"table", "matrix"}, tableRendering},
 	{[]string{"internal block", "parametric", "composite structure", "interconnection"}, interconnectionRendering},
-	{[]string{"block definition", "class", "package", "object", "component", "deployment", "profile", "structure"}, treeRendering},
+	{[]string{"block definition", "class", "package", "object", "component", "deployment", "profile", "structure", "requirement"}, treeRendering},
 }
 
 const (
@@ -453,6 +453,41 @@ func (m *migration) draws(x exposures, f viewForm, host, el *sysmlv1.Element, re
 		return !m.writtenHidden(prop) && x.exposed(m.exposure(prop.Parent, host)) && x.exposed(m.exposure(m.model.Ref(prop, "type"), host))
 	}
 	return x.exposed(ref) || m.graphPins(f, el)
+}
+
+// endsDrawn reports whether the view draws both ends of a dependency-like edge
+// member its form is not made of, which the notation draws only between two
+// shown nodes; true for the form's own edges, whose ends its rendering resolves.
+func (m *migration) endsDrawn(x exposures, f viewForm, host, el *sysmlv1.Element) bool {
+	em, ok := m.edgeMembers[el]
+	if !ok || f.nativeEdge(em.keyword) || !dependencyKeyword(em.keyword) {
+		return true
+	}
+	ends := m.edgeEnds(el)
+	if len(ends) < 2 {
+		return true
+	}
+	for _, end := range ends {
+		if !m.draws(x, f, host, end, m.exposure(end, host)) {
+			return false
+		}
+	}
+	return true
+}
+
+// edgeEnds are the elements a dependency-like edge joins: a dependency's
+// clients and suppliers, the roles of a connector's ends.
+func (m *migration) edgeEnds(el *sysmlv1.Element) []*sysmlv1.Element {
+	if el.Type != "Connector" {
+		return append(m.model.Refs(el, "client"), m.model.Refs(el, "supplier")...)
+	}
+	var ends []*sysmlv1.Element
+	for _, end := range el.Owned("end") {
+		if role := m.model.Ref(end, "role"); role != nil {
+			ends = append(ends, role)
+		}
+	}
+	return ends
 }
 
 // drawsAsEdge reports whether the rendering of form f draws el as an edge, which no
@@ -1389,7 +1424,7 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 		var points [][]float64
 		general, why := "", ""
 		if refs, general, why = m.routeTarget(el, v.host, p.form); why == "" {
-			if !m.draws(p.x, p.form, v.host, el, refs[0]) || general != "" && !p.x.exposed(general) {
+			if !m.draws(p.x, p.form, v.host, el, refs[0]) || general != "" && !p.x.exposed(general) || !m.endsDrawn(p.x, p.form, v.host, el) {
 				why = routeNotExposed
 			}
 			refs, points = m.routeLines(el, p.form, refs, m.linePoints(el, c, boxes))

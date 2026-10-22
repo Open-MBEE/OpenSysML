@@ -353,7 +353,7 @@ func (m *migration) refEdge(p edgePlace, scope *sysmlv1.Element) string {
 const (
 	routeWritten    = "written"      // pinned to a member the form draws
 	routeNotDrawn   = "not drawn"    // the form draws no edge of the member's kind
-	routeNotExposed = "not exposed"  // no qualified name reaches the member
+	routeNotExposed = "not exposed"  // no qualified name reaches the member, or the view shows not both of its ends
 	routeUnnamed    = "unnamed"      // the edge was written anonymously
 	routeNotWritten = "not written"  // the edge is not migrated
 	routeNoMember   = "no v2 member" // the kind is realized by no member of its own
@@ -618,6 +618,16 @@ func graphNames(definition string) (view, kind string) {
 // drawsEdge reports whether the form draws a member declared by keyword as an
 // edge, so a route pinned to it shapes the drawing.
 func (f viewForm) drawsEdge(keyword string) bool {
+	if f.nativeEdge(keyword) {
+		return true
+	}
+	return dependencyKeyword(keyword) && (f.definition != "" || f.rendering == interconnectionRendering || f.rendering == treeRendering)
+}
+
+// nativeEdge reports whether an edge member of the keyword is of the kind the
+// rendering of form f is made of: its graph's own edges, which it draws between
+// the nodes it resolves their ends to, exposed or nested in an exposed node.
+func (f viewForm) nativeEdge(keyword string) bool {
 	switch f.definition {
 	case "ActionFlowView":
 		return keyword == "succession" || keyword == "flow"
@@ -629,6 +639,17 @@ func (f viewForm) drawsEdge(keyword string) bool {
 		return keyword == "connection" || keyword == "binding" || keyword == "flow"
 	case treeRendering:
 		return keyword == "connection def" || keyword == "attribute" || keyword == "specialization"
+	}
+	return false
+}
+
+// dependencyKeyword reports whether keyword writes a dependency-like member —
+// a dependency, satisfy, verify, allocation, derivation or connection — which
+// the graphical notation draws between any two element nodes a view shows.
+func dependencyKeyword(keyword string) bool {
+	switch keyword {
+	case "dependency", "satisfy", "verify", "allocation", "derivation", "connection":
+		return true
 	}
 	return false
 }

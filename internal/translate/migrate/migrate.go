@@ -4395,6 +4395,7 @@ func (m *migration) derive(d *sysmlv1.Element, name string, derived, original *s
 		m.w.line("end #RequirementDerivation::derive derivedRequirement" + m.typing(derived) + m.ref(derived, d) + ";")
 		m.stereotypeAnnotations(d)
 	})
+	m.wroteEdgeAlso(d, m.scope, "derivation", nil, name)
 	segs := append(m.segments(m.scope), name)
 	if m.scope == nil {
 		segs = []string{name}

@@ -220,6 +220,8 @@ const (
 	EdgeInclude
 	// EdgeAnchor attaches an objective to a case.
 	EdgeAnchor
+	// EdgeDependency is a dependency of no particular kind, from the client.
+	EdgeDependency
 )
 
 // String names an edge kind the way the notation speaks of it.
@@ -263,6 +265,8 @@ func (k EdgeKind) String() string {
 		return "include"
 	case EdgeAnchor:
 		return "anchor"
+	case EdgeDependency:
+		return "dependency"
 	}
 	return "edge"
 }
