@@ -223,9 +223,9 @@ declaration order. Each `satisfy` gets a verdict of `conforms`, `violated` or `u
 followed by a verdict for each concern the viewpoint frames; a concern whose condition fails
 names the exposed element it failed for and the reason. A `satisfy` inherited from a
 specialized view is marked `(from <view>)`. The view restates no framing: every concern the
-viewpoint frames is checked against what the view exposes. A concern that states no condition,
-or names one that does not resolve, is reported as `unevaluable` with the reason, not as a
-pass. These verdicts are this implementation's own decisions, because SysML v2 leaves
+viewpoint frames is checked against what the view exposes. A concern that states no condition
+`conforms` vacuously — a requirement check over no constraint is true — while one that names a
+concern that does not resolve is reported as `unevaluable` with the reason. These verdicts are this implementation's own decisions, because SysML v2 leaves
 verification verdict semantics non-normative. (The extension
 libraries these documents name are maintained upstream at
 [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library)

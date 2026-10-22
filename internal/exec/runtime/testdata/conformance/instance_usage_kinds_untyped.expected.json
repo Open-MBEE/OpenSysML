@@ -16,7 +16,7 @@
   "materialization": {},
   "validation": {
     "verdicts": [
-      {"kind": "satisfaction", "assertion": "satisfy safe", "status": "undecided"},
+      {"kind": "satisfaction", "assertion": "satisfy safe", "status": "holds"},
       {"kind": "constraint", "assertion": "assert constraint shallow", "object": "overview",
        "status": "violated", "error": "evaluated to false"},
       {"kind": "constraint", "assertion": "assert constraint repeated", "object": "inspection",
