@@ -422,9 +422,9 @@ expr:Accepts__Watch__framed___401_pvalue
     sysx:sourceText "lens" ;
     sysml:elementId "Accepts__Watch__framed___401_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Accepts__Watch__framed___401_pvalue_preferent, expr:Accepts__Watch__framed___401_pvalue_pout_om ;
+    sysml:ownedMembership expr:Accepts__Watch__framed___401_pvalue_preferent, expr:Accepts__Watch__framed___401_pvalue_pout_om ;
     sysml:referent elmt:Accepts__Watch__lens ;
-    sysml:ownedRelationship expr:Accepts__Watch__framed___401_pvalue_pout_om, expr:Accepts__Watch__framed___401_pvalue_preferent ;
-    sysml:ownedMembership expr:Accepts__Watch__framed___401_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:Accepts__Watch__framed___401_pvalue_pout_om ;
     sysml:ownedFeature expr:Accepts__Watch__framed___401_pvalue_pout ;
     sysml:parameter expr:Accepts__Watch__framed___401_pvalue_pout ;
@@ -432,7 +432,15 @@ expr:Accepts__Watch__framed___401_pvalue
     sysml:owner elmt:Accepts__Watch__framed___401 ;
     sysml:owningRelationship expr:Accepts__Watch__framed___401_pvalue_om ;
     sysml:owningMembership expr:Accepts__Watch__framed___401_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Accepts__Watch__framed___401_pvalue_pout_om\"},{\"@id\":\"Accepts__Watch__framed___401_pvalue_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Accepts__Watch__framed___401_pvalue_preferent\"},{\"@id\":\"Accepts__Watch__framed___401_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Accepts__Watch__framed___401_pvalue_preferent\"},{\"@id\":\"Accepts__Watch__framed___401_pvalue_pout_om\"}]" .
+
+expr:Accepts__Watch__framed___401_pvalue_preferent
+    a sysml:Membership ;
+    sysml:elementId "Accepts__Watch__framed___401_pvalue_preferent" ;
+    sysml:memberElement elmt:Accepts__Watch__lens ;
+    sysml:owner expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:owningRelatedElement expr:Accepts__Watch__framed___401_pvalue .
 
 expr:Accepts__Watch__framed___401_pvalue_pout
     a sysml:Feature ;
@@ -511,10 +519,3 @@ elmt:Accepts__Watch__framed__scene_ft0
     sysml:owner elmt:Accepts__Watch__framed__scene ;
     sysml:relatedElement elmt:Accepts__Watch__framed__scene, elmt:Accepts__Scene ;
     json:relatedElement "[{\"@id\":\"Accepts__Watch__framed__scene\"},{\"@id\":\"Accepts__Scene\"}]" .
-
-expr:Accepts__Watch__framed___401_pvalue_preferent
-    a sysml:Membership ;
-    sysml:elementId "Accepts__Watch__framed___401_pvalue_preferent" ;
-    sysml:memberElement elmt:Accepts__Watch__lens ;
-    sysml:owner expr:Accepts__Watch__framed___401_pvalue ;
-    sysml:owningRelatedElement expr:Accepts__Watch__framed___401_pvalue .
