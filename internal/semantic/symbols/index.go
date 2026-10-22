@@ -1790,6 +1790,28 @@ func (idx *Index) shortNamedScan(name string) bool {
 	return shortRegistered(name)
 }
 
+// LookupUnique returns the element name denotes: the one registered under it
+// as a fully-qualified name, or the only one whose fully-qualified name ends
+// in `::name`. Nil when nothing, or more than one element, answers.
+func (idx *Index) LookupUnique(name string) *Symbol {
+	if matches := idx.LookupQualified(name); len(matches) == 1 {
+		return matches[0]
+	}
+	var match *Symbol
+	for _, fqn := range idx.FQNs() {
+		if fqn != name && !strings.HasSuffix(fqn, "::"+name) {
+			continue
+		}
+		for _, candidate := range idx.LookupQualified(fqn) {
+			if match != nil && !SameElement(match, candidate) {
+				return nil
+			}
+			match = candidate
+		}
+	}
+	return match
+}
+
 // FQNsEndingIn returns up to limit registered fully-qualified names whose last
 // segment is name, in name order. Used to suggest a candidate for a reference
 // whose qualifying namespace is not loaded.
