@@ -165,6 +165,24 @@ func TestSubjectsCachesInsertionOrderAcrossGraphGrowth(t *testing.T) {
 	}
 }
 
+func TestGraphViewsPreserveQueryOrder(t *testing.T) {
+	a, b := IRI(Element+"A"), IRI(Element+"B")
+	first := Triple{Subject: a, Predicate: SysMLTerm("declaredName"), Object: String("A")}
+	second := Triple{Subject: a, Predicate: SysMLTerm("ownedMember"), Object: b}
+	third := Triple{Subject: b, Predicate: SysMLTerm("declaredName"), Object: String("B")}
+	graph := NewGraphOf([]Triple{first, second, third}, nil)
+
+	if got, want := graph.SubjectsView(), graph.Subjects(); !slices.Equal(got, want) {
+		t.Fatalf("subject view = %v, want %v", got, want)
+	}
+	if got, want := graph.PredicatesView(a), graph.Predicates(a); !slices.Equal(got, want) {
+		t.Fatalf("predicate view = %v, want %v", got, want)
+	}
+	if got, want := graph.ObjectsView(a, second.Predicate.Value), graph.Objects(a, second.Predicate.Value); !slices.Equal(got, want) {
+		t.Fatalf("object view = %v, want %v", got, want)
+	}
+}
+
 func TestSubjectsDeduplicatesBySubjectValue(t *testing.T) {
 	iri := IRI(Element + "same")
 	literal := String(iri.Value)
@@ -186,6 +204,58 @@ func TestSubjectsDeduplicatesBySubjectValue(t *testing.T) {
 	})
 	if got, want := graph.Subjects(), []Term{iri}; !slices.Equal(got, want) {
 		t.Fatalf("Subjects after rewrite = %v, want %v", got, want)
+	}
+}
+
+func TestNewGraphOfWithIndexOverlayCopiesOnlyChangedSubjects(t *testing.T) {
+	p := IRI(Element + "P")
+	q := IRI(Element + "Q")
+	a := IRI(Element + "P__A")
+	b := IRI(Element + "P__B")
+	first := Triple{Subject: p, Predicate: SysMLTerm("declaredName"), Object: String("P")}
+	existing := Triple{Subject: p, Predicate: SysMLTerm("ownedMember"), Object: a}
+	unmodified := Triple{Subject: q, Predicate: SysMLTerm("declaredName"), Object: String("Q")}
+	base := NewGraphOf([]Triple{first, existing, unmodified}, map[string]string{"sysml": SysML})
+	base.ObjectsView(p, SysML+"declaredName")
+	base.ObjectsView(q, SysML+"declaredName")
+
+	added := []Triple{
+		{Subject: p, Predicate: SysMLTerm("ownedMember"), Object: b},
+		{Subject: p, Predicate: SysMLTerm("owner"), Object: q},
+		{Subject: IRI(Element + "M"), Predicate: SysMLTerm("memberElement"), Object: p},
+	}
+	triples := []Triple{added[1], first, added[0], existing, unmodified, added[2]}
+	graph := NewGraphOfWithIndexOverlay(triples, base.Prefixes, base, added)
+	if graph.index[q] != base.index[q] {
+		t.Error("the graph copied an unchanged subject index")
+	}
+	if graph.index[p] == base.index[p] {
+		t.Error("the graph reused an index it needed to update")
+	}
+	if got := graph.PredicatesView(p); !slices.Equal(got, []string{SysML + "owner", SysML + "declaredName", SysML + "ownedMember"}) {
+		t.Errorf("predicates = %v", got)
+	}
+	if got := graph.ObjectsView(p, SysML+"ownedMember"); !slices.Equal(got, []Term{b, a}) {
+		t.Errorf("ownedMember = %v, want [B A]", got)
+	}
+	if got := graph.ObjectsView(p, SysML+"owner"); !slices.Equal(got, []Term{q}) {
+		t.Errorf("owner = %v, want [Q]", got)
+	}
+	if got := graph.SubjectsView(); !slices.Equal(got, []Term{p, q, IRI(Element + "M")}) {
+		t.Errorf("subjects = %v", got)
+	}
+	if got := base.ObjectsView(p, SysML+"ownedMember"); !slices.Equal(got, []Term{a}) {
+		t.Errorf("base ownedMember was changed: %v", got)
+	}
+	if base.Has(added[0]) || base.Has(added[1]) {
+		t.Error("the base graph acquired an added statement")
+	}
+	graph.Add(p, SysMLTerm("ownedMember"), IRI(Element+"P__C"))
+	if got := graph.ObjectsView(p, SysML+"ownedMember"); !slices.Equal(got, []Term{b, a, IRI(Element + "P__C")}) {
+		t.Errorf("ownedMember after append = %v", got)
+	}
+	if base.Has(Triple{Subject: p, Predicate: SysMLTerm("ownedMember"), Object: IRI(Element + "P__C")}) {
+		t.Error("adding to the overlay changed the base graph's index")
 	}
 }
 
@@ -257,5 +327,71 @@ func TestReorderObjectsPermutesInPlace(t *testing.T) {
 		if got := g.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{c, a, b}) {
 			t.Errorf("ReorderObjects(%v) changed the graph: %v", bad, got)
 		}
+	}
+}
+
+// A reorder withdraws the settled claim, sees a statement added after an
+// earlier reorder, and follows the triples through a rewrite.
+func TestReorderObjectsTracksLaterStatements(t *testing.T) {
+	p, q := IRI(Element+"P"), IRI(Element+"Q")
+	owned := SysMLTerm("ownedRelationship")
+	a, b, c := IRI(Element+"P_a"), IRI(Element+"P_b"), IRI(Element+"P_c")
+	g := NewGraph()
+	g.Add(p, owned, a)
+	g.Add(q, owned, c)
+	g.Add(p, owned, b)
+	g.MarkCollectionsSettled()
+	g.ReorderObjects(p, SysML+"ownedRelationship", []Term{b, a})
+	if g.CollectionsSettled() {
+		t.Error("the graph still vouches for its collections after a reorder")
+	}
+	g.Add(p, owned, c)
+	g.ReorderObjects(p, SysML+"ownedRelationship", []Term{c, b, a})
+	if got := g.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{c, b, a}) {
+		t.Fatalf("Objects after adding and reordering = %v", got)
+	}
+	want := []Triple{{p, owned, c}, {q, owned, c}, {p, owned, b}, {p, owned, a}}
+	if got := g.Triples(); !slices.Equal(got, want) {
+		t.Errorf("triples = %v, want %v", got, want)
+	}
+	g.RewriteTriples(func(tr *Triple) bool { return tr.Subject != q })
+	g.ReorderObjects(p, SysML+"ownedRelationship", []Term{a, c, b})
+	want = []Triple{{p, owned, a}, {p, owned, c}, {p, owned, b}}
+	if got := g.Triples(); !slices.Equal(got, want) {
+		t.Errorf("triples after rewrite and reorder = %v, want %v", got, want)
+	}
+	if got := g.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{a, c, b}) {
+		t.Errorf("Objects after rewrite and reorder = %v", got)
+	}
+}
+
+// Reordering a subject whose index an overlay graph shares with its base
+// detaches that entry: the base keeps its order and its index.
+func TestReorderObjectsLeavesASharedBaseAlone(t *testing.T) {
+	p, q := IRI(Element+"P"), IRI(Element+"Q")
+	owned := SysMLTerm("ownedRelationship")
+	a, b := IRI(Element+"P_a"), IRI(Element+"P_b")
+	base := NewGraph()
+	base.Add(p, owned, a)
+	base.Add(p, owned, b)
+	base.Add(q, owned, a)
+	added := []Triple{{q, SysMLTerm("declaredName"), String("Q")}}
+	triples := append(slices.Clone(base.Triples()), added...)
+	graph := NewGraphOfWithIndexOverlay(triples, base.Prefixes, base, added)
+	graph.ReorderObjects(p, SysML+"ownedRelationship", []Term{b, a})
+	if got := graph.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{b, a}) {
+		t.Fatalf("overlay Objects = %v", got)
+	}
+	if got := graph.Triples()[:2]; !slices.Equal(got, []Triple{{p, owned, b}, {p, owned, a}}) {
+		t.Errorf("overlay triples = %v", got)
+	}
+	if got := base.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{a, b}) {
+		t.Errorf("base Objects changed: %v", got)
+	}
+	if got := base.Triples()[:2]; !slices.Equal(got, []Triple{{p, owned, a}, {p, owned, b}}) {
+		t.Errorf("base triples changed: %v", got)
+	}
+	if graph.index[p] == base.index[p] {
+		t.Error("the overlay still shares the reordered subject's index with its base")
 	}
 }

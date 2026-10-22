@@ -1,0 +1,1 @@
+- API-JSON import mapping-name reconstruction decodes escaped final qualified-name segments and combines owned relationships, redefinitions, and memberships in graph order.
