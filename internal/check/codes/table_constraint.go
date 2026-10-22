@@ -500,6 +500,13 @@ var constraintCodes = []Entry{
 		Spec: "SysML v2 validateRequirementVerificationMembershipOwningType",
 	},
 	{
+		Code: "variant-kind", Tier: TierConstraint, Severity: "error",
+		Summary: "a variant whose kind is inconsistent with its owning variation",
+		Meaning: "A variant specializes the variation it is a variant of, so the variation definition, or the types of the variation usage, type the variant; here the variant's kind does not take a type of that kind (an action variant of a part variation, an attribute variant of an action variation). " +
+			"Declare the variant with the variation's kind, or move it to a variation of its own kind.",
+		Spec: "SysML v2 §7.6.7 and checkUsageVariationDefinitionSpecialization, checkUsageVariationUsageSpecialization",
+	},
+	{
 		Code: "variant-outside-variation", Tier: TierConstraint, Severity: "error",
 		Summary: "a variant that is not an owned member of a variation",
 		Meaning: "`variant` marks a member of a variation definition or usage; this one is declared elsewhere, or in an enumeration definition, whose enumerated values are variants already. " +
