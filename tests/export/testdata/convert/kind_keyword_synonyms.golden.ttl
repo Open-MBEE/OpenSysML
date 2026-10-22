@@ -503,14 +503,14 @@ elmt:Synonyms__Vehicle__idling
     sysml:type elmt:Synonyms__Idle ;
     sysml:references "idling" ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedTyping elmt:Synonyms__Vehicle__idling_ft0 ;
-    sysml:ownedSpecialization elmt:Synonyms__Vehicle__idling_ft0, elmt:Synonyms__Vehicle__idling_rs ;
-    sysml:ownedRelationship elmt:Synonyms__Vehicle__idling_ft0, elmt:Synonyms__Vehicle__idling_rs ;
     sysml:ownedReferenceSubsetting elmt:Synonyms__Vehicle__idling_rs ;
     sysml:ownedSubsetting elmt:Synonyms__Vehicle__idling_rs ;
+    sysml:ownedSpecialization elmt:Synonyms__Vehicle__idling_rs, elmt:Synonyms__Vehicle__idling_ft0 ;
+    sysml:ownedRelationship elmt:Synonyms__Vehicle__idling_rs, elmt:Synonyms__Vehicle__idling_ft0 ;
+    sysml:ownedTyping elmt:Synonyms__Vehicle__idling_ft0 ;
     sysx:sourceText "        exhibit idling : Idle;\n" ;
-    json:ownedSpecialization "[{\"@id\":\"Synonyms__Vehicle__idling_ft0\"},{\"@id\":\"Synonyms__Vehicle__idling_rs\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Synonyms__Vehicle__idling_ft0\"},{\"@id\":\"Synonyms__Vehicle__idling_rs\"}]" .
+    json:ownedSpecialization "[{\"@id\":\"Synonyms__Vehicle__idling_rs\"},{\"@id\":\"Synonyms__Vehicle__idling_ft0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Synonyms__Vehicle__idling_rs\"},{\"@id\":\"Synonyms__Vehicle__idling_ft0\"}]" .
 
 elmt:Synonyms__Vehicle__idling_om
     a sysml:FeatureMembership ;
@@ -744,21 +744,6 @@ elmt:Synonyms__reading_ft0
     sysml:relatedElement elmt:Synonyms__reading, elmt:Synonyms__Temperature ;
     json:relatedElement "[{\"@id\":\"Synonyms__reading\"},{\"@id\":\"Synonyms__Temperature\"}]" .
 
-elmt:Synonyms__Vehicle__idling_ft0
-    a sysml:FeatureTyping ;
-    sysml:elementId "Synonyms__Vehicle__idling_ft0" ;
-    sysml:typedFeature elmt:Synonyms__Vehicle__idling ;
-    sysml:owningFeature elmt:Synonyms__Vehicle__idling ;
-    sysml:specific elmt:Synonyms__Vehicle__idling ;
-    sysml:source elmt:Synonyms__Vehicle__idling ;
-    sysml:owningRelatedElement elmt:Synonyms__Vehicle__idling ;
-    sysml:type elmt:Synonyms__Idle ;
-    sysml:general elmt:Synonyms__Idle ;
-    sysml:target elmt:Synonyms__Idle ;
-    sysml:owner elmt:Synonyms__Vehicle__idling ;
-    sysml:relatedElement elmt:Synonyms__Vehicle__idling, elmt:Synonyms__Idle ;
-    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle__idling\"},{\"@id\":\"Synonyms__Idle\"}]" .
-
 elmt:Synonyms__Vehicle__idling_rs
     a sysml:ReferenceSubsetting ;
     sysml:elementId "Synonyms__Vehicle__idling_rs" ;
@@ -775,6 +760,21 @@ elmt:Synonyms__Vehicle__idling_rs
     sysml:owner elmt:Synonyms__Vehicle__idling ;
     sysml:relatedElement elmt:Synonyms__Vehicle__idling, "idling" ;
     json:relatedElement "[{\"@id\":\"Synonyms__Vehicle__idling\"},\"idling\"]" .
+
+elmt:Synonyms__Vehicle__idling_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Synonyms__Vehicle__idling_ft0" ;
+    sysml:typedFeature elmt:Synonyms__Vehicle__idling ;
+    sysml:owningFeature elmt:Synonyms__Vehicle__idling ;
+    sysml:specific elmt:Synonyms__Vehicle__idling ;
+    sysml:source elmt:Synonyms__Vehicle__idling ;
+    sysml:owningRelatedElement elmt:Synonyms__Vehicle__idling ;
+    sysml:type elmt:Synonyms__Idle ;
+    sysml:general elmt:Synonyms__Idle ;
+    sysml:target elmt:Synonyms__Idle ;
+    sysml:owner elmt:Synonyms__Vehicle__idling ;
+    sysml:relatedElement elmt:Synonyms__Vehicle__idling, elmt:Synonyms__Idle ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle__idling\"},{\"@id\":\"Synonyms__Idle\"}]" .
 
 elmt:Synonyms__Vehicle__safe_ft0
     a sysml:FeatureTyping ;
