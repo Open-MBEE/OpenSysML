@@ -97,7 +97,7 @@ func (cc *constraintChecker) checkSubjectParameterPosition(sym *symbols.Symbol, 
 		return
 	}
 
-	if firstInput := cc.firstInputParameter(sym); firstInput != nil && !isSubjectDecl(firstInput.Decl) {
+	if firstInput := cc.firstInputParameter(sym); firstInput != nil && !isSubjectSymbol(firstInput) {
 		cc.reportSubjectParameterPosition(sym, members)
 	}
 }
@@ -108,7 +108,7 @@ func (cc *constraintChecker) firstInputParameter(sym *symbols.Symbol) *symbols.S
 	var first *symbols.Symbol
 	scan := func(scope *symbols.Scope) {
 		scope.ForEachMember(func(member *symbols.Symbol) bool {
-			if isSubjectDecl(member.Decl) || isInputParameterDecl(member.Decl) {
+			if isSubjectSymbol(member) || isInputParameterSymbol(member) {
 				first = member
 			}
 			return first == nil
@@ -122,6 +122,30 @@ func (cc *constraintChecker) firstInputParameter(sym *symbols.Symbol) *symbols.S
 		scan(src.Scope)
 	}
 	return first
+}
+
+// isSubjectSymbol reads the declaration of a loaded symbol and the recorded facts
+// of one whose document is held as a record.
+func isSubjectSymbol(s *symbols.Symbol) bool {
+	if !s.Recorded() {
+		return isSubjectDecl(s.Decl)
+	}
+	return s.Facts.Node == symbols.NodeSubject || (s.Facts.Node == symbols.NodeUsage && s.Facts.UsageKind == ast.UsageSubject)
+}
+
+// isInputParameterSymbol is isInputParameterDecl over a loaded or recorded symbol.
+func isInputParameterSymbol(s *symbols.Symbol) bool {
+	if !s.Recorded() {
+		return isInputParameterDecl(s.Decl)
+	}
+	if s.Facts.Node != symbols.NodeUsage {
+		return false
+	}
+	switch s.Facts.UsageKind {
+	case ast.UsageActor, ast.UsageStakeholder:
+		return true
+	}
+	return s.Facts.Direction == ast.DirIn || s.Facts.Direction == ast.DirInOut
 }
 
 func isParameterDecl(u *ast.Usage) bool {
