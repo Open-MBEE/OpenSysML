@@ -109,7 +109,7 @@ func (c *heldCollector) collect(
 				if err != nil {
 					return err
 				}
-				if cond, states := assertedCondition(conds, negated); states {
+				if cond, states := assertedCondition(conds, negated, a.Kind != runtime.AssertionConstraint); states {
 					group.conds = append(group.conds, cond)
 					group.bound = append(group.bound, subjects)
 					group.frames = append(group.frames, frame{path: fpath, levels: own, selections: under})
@@ -188,7 +188,7 @@ func (c *heldCollector) states(sym *symbols.Symbol) bool {
 		if err != nil {
 			return true
 		}
-		if _, states := assertedCondition(conds, negated); states {
+		if _, states := assertedCondition(conds, negated, a.Kind != runtime.AssertionConstraint); states {
 			return true
 		}
 	}
