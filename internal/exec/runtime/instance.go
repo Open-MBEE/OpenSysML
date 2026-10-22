@@ -296,7 +296,7 @@ func (ctx *Context) newFeatureValue(inst *Instance, feat *EffectiveFeature) *Fea
 func (ctx *Context) initFeatureValue(inst *Instance, fv *FeatureValue, feat *EffectiveFeature) {
 	*fv = FeatureValue{Feature: feat}
 	if ctx.valueBinds(feat) && feat.Scalar() && !ctx.model.semantics.IsVariationFeature(feat.Symbol) &&
-		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) {
+		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) && !ctx.portionReadsWhole(inst, feat) {
 		if semVal, ok := ctx.model.semantics.EvalWithin(feat.DefaultValue, ctx.maxIntegerBits); ok {
 			val := Value{Kind: ValConst, Const: semVal}
 			if ctx.checkDefault(inst, fv, feat.Name, &val, admitDeclared) == nil {
@@ -1034,6 +1034,11 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// bound: it classifies its variants abstractly, so it is no object of itself.
 	if ctx.model.semantics.IsVariationFeature(fv.Feature.Symbol) {
 		return inst.materializeVariation(ctx, fv, name)
+	}
+
+	// A portion holds the whole's value of a feature its own body does not value (portion.go).
+	if held, err := inst.materializeFromWhole(ctx, fv, name); err != nil || held {
+		return fv, err
 	}
 
 	// A bound value supplies the feature's own features, so a body restating one
