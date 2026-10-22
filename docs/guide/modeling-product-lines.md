@@ -168,7 +168,7 @@ variation part def MoreEngineChoices :> EngineChoices {
 ```
 
 ```text
-p1.sysml:7:45: error[variation-specialization]: A variation must not specialize another variation.
+/tmp/ple/p1.sysml:7:45: error[variation-specialization]: A variation must not specialize another variation.
     variation part def MoreEngineChoices :> EngineChoices {
                                             ^~~~~~~~~~~~~
 ```
@@ -187,7 +187,7 @@ part def Vehicle {
 ```
 
 ```text
-p2.sysml:4:9: error[variant-outside-variation]: A variant must be an owned member of a variation.
+/tmp/ple/p2.sysml:4:9: error[variant-outside-variation]: A variant must be an owned member of a variation.
         variant part spare : Engine;
         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
@@ -203,7 +203,7 @@ variation part def EngineChoices :> Engine {
 ```
 
 ```text
-p3.sysml:5:9: error[variation-member-not-variant]: An owned usage of a variation must be a variant.
+/tmp/ple/p3.sysml:5:9: error[variation-member-not-variant]: An owned usage of a variation must be a variant.
         part big : Engine;
         ^~~~~~~~~~~~~~~~~~
 ```
@@ -221,10 +221,10 @@ enum def Shade :> Color { dark; }
 ```
 
 ```text
-p4.sysml:4:45: error[variation-specialization]: variation `ColorChoices` must not specialize enumeration definition `Color`: every enumeration definition is a variation whose enumerated values are its variants, and a variation must not specialize another variation
+/tmp/ple/p4.sysml:4:45: error[variation-specialization]: variation `ColorChoices` must not specialize enumeration definition `Color`: every enumeration definition is a variation whose enumerated values are its variants, and a variation must not specialize another variation
     variation attribute def ColorChoices :> Color {
                                             ^~~~~
-p4.sysml:7:23: error[variation-specialization]: enumeration definition `Shade` must not specialize enumeration definition `Color`: every enumeration definition is a variation whose enumerated values are its variants, and a variation must not specialize another variation; declare the enumerated values of `Shade` directly
+/tmp/ple/p4.sysml:7:23: error[variation-specialization]: enumeration definition `Shade` must not specialize enumeration definition `Color`: every enumeration definition is a variation whose enumerated values are its variants, and a variation must not specialize another variation; declare the enumerated values of `Shade` directly
     enum def Shade :> Color { dark; }
                       ^~~~~
 ```
@@ -233,7 +233,7 @@ One more is caught by the parser, from the sentence of §7.6.7 that a
 variation "is always abstract, so the `abstract` keyword is not used":
 
 ```text
-p5.sysml:3:14: error[syntax]: 'variation' cannot follow 'abstract': a prefix says 'abstract' or 'variation', not both
+/tmp/ple/p5.sysml:3:14: error[syntax]: 'variation' cannot follow 'abstract': a prefix says 'abstract' or 'variation', not both
     abstract variation part def EngineChoices :> Engine {
              ^~~~~~~~~
 ```
@@ -241,7 +241,8 @@ p5.sysml:3:14: error[syntax]: 'variation' cannot follow 'abstract': a prefix say
 Each of these ends `sysml: <file> did not analyse cleanly; no check was
 made`, with exit status 2: a file that breaks a variability rule is not
 checked further. The probe files are a few lines each and worth having
-students write themselves; the paths above are theirs.
+students write themselves; the ones above were run as `/tmp/ple/p1.sysml`
+to `p5.sysml`, each a package around the lines shown.
 
 What you have learned: the validator holds the shape of a product line —
 variations do not specialize variations (enumerations included), variants
