@@ -1157,16 +1157,22 @@ func (shape *calcShape) checkArgs(args calcArgs) error {
 	return nil
 }
 
-// positionalArity counts the parameters a positional argument can bind: every
-// parameter but the actors, which bind by name only.
-func (shape *calcShape) positionalArity() int {
-	arity := 0
+// positionalIndexes are the indexes in Params of the parameters a positional
+// argument can bind, in declaration order: every parameter but the actors,
+// which bind by name only.
+func (shape *calcShape) positionalIndexes() []int {
+	indexes := make([]int, 0, len(shape.Params))
 	for i := range shape.Params {
 		if !shape.Params[i].IsActor {
-			arity++
+			indexes = append(indexes, i)
 		}
 	}
-	return arity
+	return indexes
+}
+
+// positionalArity counts the parameters a positional argument can bind.
+func (shape *calcShape) positionalArity() int {
+	return len(shape.positionalIndexes())
 }
 
 // optional reports whether the parameter may go without an argument: its

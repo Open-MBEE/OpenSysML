@@ -72,7 +72,18 @@ func (log *evaluationLog) pick(element Value) {
 // argumentsByPosition lists an application's arguments by parameter position,
 // null where the application binds none before a later one; unknown names follow, sorted.
 func (shape *calcShape) argumentsByPosition(args calcArgs) []Value {
-	arguments := append(make([]Value, 0, len(shape.ParamNames)), args.positional...)
+	arguments := make([]Value, 0, len(shape.ParamNames))
+	indexes := shape.positionalIndexes()
+	for k, value := range args.positional {
+		position := len(arguments)
+		if k < len(indexes) {
+			position = indexes[k]
+		}
+		for len(arguments) <= position {
+			arguments = append(arguments, nullValue())
+		}
+		arguments[position] = value
+	}
 	var unknown []string
 	for name := range args.named {
 		position := slices.Index(shape.ParamNames, name)

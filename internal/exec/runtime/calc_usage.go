@@ -387,6 +387,9 @@ func (shape *calcShape) usageSpelling(output string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s c : %s {", shape.Kind, shape.Name)
 	for _, param := range shape.Params {
+		if param.IsActor {
+			continue
+		}
 		fmt.Fprintf(&b, " in %s = ...;", param.Name)
 	}
 	fmt.Fprintf(&b, " } then read c.%s", output)
