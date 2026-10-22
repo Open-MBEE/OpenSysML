@@ -344,7 +344,7 @@
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/webview/tsconfig.json && tsc --noEmit -p src/landing/tsconfig.json",
     "test": "node tools/test.mjs",
-    "test:coverage": "c8 --reporter=text --reporter=lcovonly --exclude-after-remap node tools/test.mjs",
+    "test:coverage": "node tools/test.mjs --coverage",
     "package": "npm run typecheck && npm test && npm run build -- --production && vsce package --no-dependencies --out opensysml-sysml.vsix"
   },
   "dependencies": {
