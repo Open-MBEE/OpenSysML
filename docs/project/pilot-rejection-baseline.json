@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 335,
-        "digest": "sha256:27877cbf7c0ea7b283eb2ddea921e231a72eb8d706d29016caed70c1d95c887f"
+        "files": 336,
+        "digest": "sha256:9c8db71e013b733ad39128c8e6429222b5402e6f02f300e0f3e693e6d1be3afe"
       }
     ],
-    "recorded": "2026-10-21"
+    "recorded": "2026-10-22"
   },
   "totals": {
-    "cases": 335,
-    "bothReject": 324,
+    "cases": 336,
+    "bothReject": 325,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 11,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 176,
-      "bothReject": 165,
+      "cases": 177,
+      "bothReject": 166,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0
@@ -2022,6 +2022,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/k77-standalone-subsetting-inaccessible-feature.kerml",
+      "source": "semantic",
+      "rule": "a subsetted feature must be accessible from the subsetting feature, whether the Subsetting is written inline or as a `specialization subset` member of its own (KerML 8.3.3.3.10 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s01-action-typed-by-part-def.sysml",
       "source": "semantic",
       "rule": "An action must be typed by action definitions (SysML 7.16 Actions; pilot validateActionUsageType).",
@@ -3286,8 +3295,8 @@
       }
     ],
     "totals": {
-      "cases": 335,
-      "bothReject": 324,
+      "cases": 336,
+      "bothReject": 325,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0
