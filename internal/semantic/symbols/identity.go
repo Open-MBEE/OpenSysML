@@ -13,7 +13,8 @@ type ElementKey struct {
 	doc     string
 	span    source.Span
 	sym     *Symbol
-	ordinal int  // which written relationship of the owner, 0 for the element itself
+	ordinal int  // which relationship of the owner, 0 for the element itself
+	form    int  // the ImplicitForm of that relationship
 	chain   bool // the feature that relationship's chain target denotes
 }
 
@@ -27,6 +28,7 @@ func KeyOf(sym *Symbol) ElementKey {
 	case sym.Implicit != nil:
 		key := KeyOf(sym.Implicit.Owner)
 		key.ordinal = sym.Implicit.Ordinal + 1
+		key.form = int(sym.Implicit.Form)
 		return key
 	case sym.Chain != nil:
 		key := KeyOf(sym.Chain.Relationship)
@@ -48,6 +50,9 @@ func (k ElementKey) String() string {
 	}
 	if k.ordinal != 0 {
 		base = fmt.Sprintf("%s\x00%d", base, k.ordinal)
+		if k.form != 0 {
+			base = fmt.Sprintf("%s\x00f%d", base, k.form)
+		}
 	}
 	if k.chain {
 		return base + "\x00chain"

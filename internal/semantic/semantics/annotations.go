@@ -1019,6 +1019,9 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 		return m.kermlMetaclass("TextualRepresentation")
 	case symbols.SymbolDependency:
 		return m.kermlMetaclass("Dependency")
+	case symbols.SymbolAlias:
+		// `alias` declares a Membership of the aliased element (KerML 8.2.3.5.2).
+		return m.kermlMetaclass("Membership")
 	}
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
@@ -1350,6 +1353,20 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 	}
 	if elems, ok := m.implicitOwnerElements(sym, feature); ok {
+		return elems, true
+	}
+	if sym.Kind == symbols.SymbolAlias {
+		if elems, ok := m.aliasMembershipElements(sym, feature); ok {
+			return elems, true
+		}
+	}
+	if elems, ok := m.namespaceRelationshipElements(sym, feature); ok {
+		return elems, true
+	}
+	if elems, ok := m.annotatingElementElements(sym, feature); ok {
+		return elems, true
+	}
+	if elems, ok := m.requirementElements(sym, feature); ok {
 		return elems, true
 	}
 	switch feature {
@@ -2028,6 +2045,11 @@ func (m *Model) ReflectiveFeatureValues(sym *symbols.Symbol, feature string) ([]
 		}
 		return values, true
 	}
+	if feature == "text" {
+		if values, ok := m.requirementTexts(sym); ok {
+			return values, true
+		}
+	}
 	if elements, ok := m.ReflectiveElements(sym, feature); ok {
 		values := make([]symbols.FilterValue, 0, len(elements))
 		for _, element := range elements {
@@ -2054,9 +2076,14 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 	if sym.Implicit != nil {
 		return m.implicitRelationshipValue(sym, feature)
 	}
+	if sym.Kind == symbols.SymbolAlias {
+		if value, ok := m.aliasMembershipValue(sym, feature); ok {
+			return value, true
+		}
+	}
 	switch feature {
 	case "isImplied":
-		if _, ok := sym.RelationshipDecl(); ok {
+		if _, ok := sym.RelationshipDecl(); ok || sym.Kind == symbols.SymbolAlias {
 			return boolValue(false), true
 		}
 	case "isConjugated":
