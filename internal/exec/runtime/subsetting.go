@@ -476,12 +476,11 @@ func (ctx *Context) collectRedefinedFeatures(sym, owner *symbols.Symbol) []*symb
 	for queue := []*symbols.Symbol{sym}; len(queue) > 0; {
 		cur := queue[0]
 		queue = queue[1:]
-		// An end of a connector redefines the end at its position of each
-		// connector its owner specializes, and a subject or objective redefines
-		// the one its owner inherits, without naming it: the two names read one
-		// feature value as an explicit redefinition's do.
+		// A connector end, a behavior or step parameter, and a subject or objective redefine by
+		// position or role without naming it (KerML 1.0 §7.3.4.5): the two names read one feature value.
 		redefines := append(ctx.relatedFeatures(cur, owner, ast.RelRedefines),
 			ctx.model.semantics.ImplicitEndRedefinitions(cur)...)
+		redefines = append(redefines, ctx.model.semantics.ImplicitParameterRedefinitions(cur)...)
 		redefines = append(redefines, ctx.model.semantics.ImplicitRoleRedefinitions(cur)...)
 		for _, redefined := range redefines {
 			if seen[redefined] {
