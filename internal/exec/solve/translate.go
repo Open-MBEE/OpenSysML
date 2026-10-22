@@ -153,6 +153,12 @@ func Asserted(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope) (
 // AssertedWith translates what a part or definition asserts with values already
 // fixed. With no pins it is Asserted.
 func AssertedWith(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope, pins []Pin) (*Query, error) {
+	return AssertedOn(ctx, sym, scope, pins, nil)
+}
+
+// AssertedOn is AssertedWith about one object of sym, whose held values the
+// features read through its nested objects are fixed to.
+func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope, pins []Pin, self *runtime.Instance) (*Query, error) {
 	if err := runtime.RequireObject(sym); err != nil {
 		return nil, err
 	}
@@ -164,14 +170,15 @@ func AssertedWith(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scop
 		return nil, fmt.Errorf("%s %s: %w", sym.Notation(), sym.Name, ErrNothingAsserted)
 	}
 	var conds []runtime.Condition
-	subjects := map[*symbols.Symbol][]*symbols.Symbol{}
+	var bound []map[*symbols.Symbol][]*symbols.Symbol
 	for _, a := range assertions {
-		group, negated, err := assertedConditions(ctx, a, subjects)
+		group, negated, subjects, err := assertedConditions(ctx, a)
 		if err != nil {
 			return nil, err
 		}
 		if cond, states := assertedCondition(group, negated); states {
 			conds = append(conds, cond)
+			bound = append(bound, subjects)
 		}
 	}
 	subject := Subject{Kind: sym.Notation(), Name: sym.Name, Symbol: sym}
@@ -182,7 +189,7 @@ func AssertedWith(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scop
 			return nil, fmt.Errorf("%s %s: every assertion about its objects %w, so every selection of its variants is permitted", subject.Kind, subject.Name, ErrNoConditions)
 		}
 		t := newTranslator(ctx, subject)
-		t.subjects = subjects
+		t.bound = bound
 		if err := t.translate(conds); err != nil {
 			return nil, err
 		}
@@ -199,7 +206,7 @@ func AssertedWith(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scop
 	}
 	// A feature read through one object of sym (`lander.verticalSpeed`) holds the
 	// value that object's declaration states, as the evaluator reads it.
-	if nested := nestedDeclared(ctx, q); len(nested) > 0 {
+	if nested := nestedDeclared(ctx, q, self); len(nested) > 0 {
 		return translate(append(pins, nested...))
 	}
 	return q, nil
@@ -231,35 +238,40 @@ func assertedCondition(group []runtime.Condition, negated bool) (runtime.Conditi
 // assertedConditions are the conditions one assertion states, read as the
 // evaluator reads them. A satisfaction's are its requirement's, each subject the
 // requirement declares reading the feature `by` names (SysML v2 §7.21).
-func assertedConditions(ctx *runtime.Context, a runtime.Asserted, subjects map[*symbols.Symbol][]*symbols.Symbol) ([]runtime.Condition, bool, error) {
+func assertedConditions(ctx *runtime.Context, a runtime.Asserted) ([]runtime.Condition, bool, map[*symbols.Symbol][]*symbols.Symbol, error) {
 	if a.Kind != runtime.AssertionSatisfaction {
-		return ctx.ConditionsOf(a.Symbol, a.Scope), runtime.NegatedDecl(a.Symbol), nil
+		return ctx.ConditionsOf(a.Symbol, a.Scope), runtime.NegatedDecl(a.Symbol), nil, nil
 	}
 	sa, err := ctx.SatisfyAssertionOf(a.Symbol)
 	if err != nil {
-		return nil, false, err
+		return nil, false, nil, err
 	}
 	conds := ctx.ConditionsOf(sa.Symbol, sa.Symbol.OwnerScope)
 	if len(conds) == 0 {
-		return nil, sa.Negated, nil
+		return nil, sa.Negated, nil, nil
 	}
 	by, err := satisfiedBy(ctx, sa)
 	if err != nil {
-		return nil, false, err
+		return nil, false, nil, err
 	}
 	target := sa.Requirement
 	if target == nil {
 		target = sa.Symbol
 	}
+	subjects := map[*symbols.Symbol][]*symbols.Symbol{}
 	for _, member := range ctx.SubjectMembersOf(target) {
 		subjects[member] = by
 	}
-	return conds, sa.Negated, nil
+	return conds, sa.Negated, subjects, nil
 }
 
 // satisfiedBy is the feature chain `by` names, root first, which the requirement's
-// subject stands for in the query.
+// subject stands for in the query; empty when there is no `by`, the subject then
+// being the stating element's own object.
 func satisfiedBy(ctx *runtime.Context, sa *runtime.SatisfyAssertion) ([]*symbols.Symbol, error) {
+	if sa.SubjectRef == "" {
+		return []*symbols.Symbol{}, nil
+	}
 	unread := fmt.Errorf("satisfaction %s: `by %s` names nothing the query can read", sa.Text(), sa.SubjectRef)
 	if sa.Subject == nil {
 		return nil, unread
@@ -285,8 +297,9 @@ func satisfiedBy(ctx *runtime.Context, sa *runtime.SatisfyAssertion) ([]*symbols
 }
 
 // nestedDeclared fixes each variable reading a feature through one object of the
-// element to the value that object's declaration states, when it states one.
-func nestedDeclared(ctx *runtime.Context, q *Query) []Pin {
+// element to the value self's nested object holds, else the one that object's
+// declaration states, when there is one.
+func nestedDeclared(ctx *runtime.Context, q *Query, self *runtime.Instance) []Pin {
 	pinned := make(map[string]bool, len(q.Pinned))
 	for _, p := range q.Pinned {
 		pinned[p.Var.Name] = true
@@ -296,15 +309,33 @@ func nestedDeclared(ctx *runtime.Context, q *Query) []Pin {
 		if len(v.Steps) != 2 || v.Root == nil || v.Root == v.Symbol || pinned[v.Name] {
 			continue
 		}
-		found, _ := Fixed(ctx, v.Root, nil)
+		found, _ := Fixed(ctx, v.Root, nestedObject(ctx, self, v.Root.Name))
 		for _, p := range found {
 			if p.Feature == v.Symbol || p.Name == v.Symbol.Name {
-				out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: p.Value, Source: PinDeclared})
+				out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: p.Value, Source: p.Source, Object: p.Object})
 				break
 			}
 		}
 	}
 	return out
+}
+
+// nestedObject is the object self holds for feature name, nil when self is nil or
+// holds none yet.
+func nestedObject(ctx *runtime.Context, self *runtime.Instance, name string) *runtime.Instance {
+	if self == nil {
+		return nil
+	}
+	fv, ok := self.FeatureValues[name]
+	if !ok || fv == nil || !fv.Materialized {
+		return nil
+	}
+	held := fv.HeldValue()
+	if held.Kind != runtime.ValInstance {
+		return nil
+	}
+	child, _ := ctx.Instance(held.Instance)
+	return child
 }
 
 // TranslateWith builds a query whose pinned features are asserted equal to the
@@ -387,8 +418,11 @@ type translator struct {
 	stage *symbols.Symbol
 
 	// subjects maps a requirement's subject member to the feature chain `by`
-	// names in a satisfaction being translated: the subject reads that object.
+	// names in the satisfaction being translated: the subject reads that object;
+	// an empty chain is the stating element's own object. bound holds one such
+	// map per top-level condition, so each satisfaction reads its own subject.
 	subjects map[*symbols.Symbol][]*symbols.Symbol
+	bound    []map[*symbols.Symbol][]*symbols.Symbol
 
 	nonlinear bool
 	intDiv    bool
@@ -438,7 +472,10 @@ func (t *translator) translate(conds []runtime.Condition) error {
 	// The evaluator stops at the first required condition that does not hold,
 	// so a later condition is evaluated only where every earlier one held.
 	var before []*Term
-	for _, cond := range conds {
+	for i, cond := range conds {
+		if i < len(t.bound) {
+			t.subjects = t.bound[i]
+		}
 		owner, span := conditionOrigin(cond)
 		t.condLabel = cond.Label()
 		t.condFile = ""

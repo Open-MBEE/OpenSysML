@@ -99,7 +99,14 @@ func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments [
 		return nil, t.refuse(node, msgReferencePrefix+joinPath(segments)+"`", "it resolves to nothing")
 	}
 	if by, bound := t.subjects[sym]; bound {
-		// A requirement's subject is the object `by` names (SysML v2 §7.21).
+		// A requirement's subject is the object `by` names (SysML v2 §7.21), or
+		// the stating element's own object when there is no `by`.
+		if len(by) == 0 {
+			if len(segments) == 1 {
+				return nil, t.refuse(node, msgReferencePrefix+joinPath(segments)+"`", "it names the object the requirement is about rather than a value of it")
+			}
+			return t.resolvePath(node, scope, segments[1:])
+		}
 		chain = append(chain, by[:len(by)-1]...)
 		sym = by[len(by)-1]
 	}

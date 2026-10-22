@@ -123,6 +123,18 @@ package Asserted {
         assert satisfy documented by trans;
     }
 
+    part def Powered { attribute power : Integer; }
+    requirement def Limit { subject p : Powered; require constraint { p.power < 10 } }
+    requirement limit : Limit;
+    part pair {
+        part slow : Powered { attribute :>> power = 20; }
+        part fast : Powered { attribute :>> power = 5; }
+        assert satisfy limit by slow;
+        assert satisfy limit by fast;
+    }
+    part def Car { attribute mass : Integer = 5; requirement light { require constraint { mass < 10 } } assert satisfy light; }
+    part def Truck { attribute mass : Integer = 50; requirement light { require constraint { mass < 10 } } assert satisfy light; }
+
     part def Engine { attribute power : Integer; assert constraint { power > 0 } }
     abstract part nested {
         variation part trans : T { variant man : T; variant auto : T; }
@@ -168,4 +180,20 @@ func TestConfigureAFamilyWhoseAssertionsStateNoCondition(t *testing.T) {
 	s := checkSession(t, assertedModel)
 	wants(t, run(t, s, "%configure Asserted::free all"),
 		"error: part free: every assertion about its objects states no condition, so every selection of its variants is permitted")
+}
+
+func TestConfigureBindsEachSatisfactionToItsOwnSubject(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, assertedModel)
+	wants(t, run(t, s, "%solve Asserted::pair"), "✗ Part pair has no values consistent with the values already fixed",
+		"Asserted::pair::'slow.power' = 20  (declared)", "Asserted::pair::'fast.power' = 5  (declared)",
+		"In the conflict: Asserted::pair::'slow.power' = 20")
+}
+
+func TestConfigureASatisfactionWithoutBy(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, assertedModel)
+	wants(t, run(t, s, "%solve Asserted::Car"), "✓ Part def Car has values satisfying it")
+	wants(t, run(t, s, "%solve Asserted::Truck"), "✗ Part def Truck has no values consistent with the value already fixed",
+		"In the conflict: Asserted::Truck::mass = 50")
 }
