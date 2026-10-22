@@ -139,7 +139,8 @@ func variantKindMessage(rule, keyword string, variant, variation, typ *symbols.S
 	if keyword == "" {
 		keyword = variant.Notation()
 	}
-	head := fmt.Sprintf("%s variant %s %s specializes its owning variation %s %s", rule, keyword, w8dSymbolName(variant), variation.Notation(), w8dSymbolName(variation))
+	// Notation spells the variation's kind as written, `variation part def`.
+	head := fmt.Sprintf("%s variant %s %s specializes its owning %s %s", rule, keyword, w8dSymbolName(variant), variation.Notation(), w8dSymbolName(variation))
 	if symbols.SameElement(variation, typ) {
 		return head + "."
 	}
