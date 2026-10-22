@@ -1,0 +1,30 @@
+materialize: Tug #1
+start: exhibited state machine m of #1
+materialize: Responder #2
+enter: idle
+start: performed action kick of #1
+materialize: kick #3
+run: exhibited state machine m of #1
+run: performed action kick of #1
+step 1: token 1@p
+stmt send
+materialize: Ping #4
+materialize: CommandPort #5
+step 2: token 1@done
+step 3: no active tokens
+run: exhibited state machine m of #1
+exit: idle
+stmt send
+materialize: Pong #6
+materialize: CommandPort #7
+enter: replied
+transition: idle -> replied (event: accept Ping)
+exit: replied
+stmt assign replies
+    eval feature replies -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+enter: idle
+transition: replied -> idle (event: accept Pong)
+eval literal 0 -> 0
+enter: idle
