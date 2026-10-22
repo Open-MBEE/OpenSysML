@@ -1,8 +1,11 @@
 // Runs the extension's unit tests: every src/**/*.test.ts is bundled with esbuild,
 // the way the extension itself is built, and handed to node's own test runner.
 // The bundles land under out/ so a test's jsdom resolves from node_modules.
+// With --coverage the runner goes through c8, which maps the bundles back to
+// src/ through their inline source maps and writes coverage/lcov.info.
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
@@ -37,7 +40,14 @@ try {
   });
 
   const compiled = tests.map((path) => join(outdir, relative(sourceDir, path).replace(/\.ts$/, ".js")));
-  const result = spawnSync(process.execPath, ["--test", "--enable-source-maps", ...compiled], { stdio: "inherit" });
+  const args = ["--test", "--enable-source-maps", ...compiled];
+  if (process.argv.includes("--coverage")) {
+    // The bundles are *.test.js, which c8 excludes by default; excluding after the
+    // remap drops the tests themselves and keeps the src/ files they bundle.
+    const c8 = createRequire(import.meta.url).resolve("c8/bin/c8.js");
+    args.unshift(c8, "--reporter=text", "--reporter=lcovonly", "--exclude-after-remap", process.execPath);
+  }
+  const result = spawnSync(process.execPath, args, { stdio: "inherit" });
   process.exitCode = result.status ?? 1;
 } finally {
   await rm(outdir, { recursive: true, force: true });

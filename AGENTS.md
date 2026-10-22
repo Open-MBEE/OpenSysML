@@ -3,7 +3,7 @@
 > **Prime directive:** If I wanted hacks, I'd write it myself. **Don't ever choose hacky over correct.**
 > Fix root causes upstream, not symptoms. Never weaken, skip, or delete tests to make them pass.
 
-The OpenSysML REDK (Runtime Environment and Development Kit) is a production-grade SysML v2 implementation in **Go 1.23+** (module `github.com/Open-MBEE/OpenSysML`).
+The OpenSysML MDK (Runtime Environment and Development Kit) is a production-grade SysML v2 implementation in **Go 1.23+** (module `github.com/Open-MBEE/OpenSysML`).
 It provides a hand-written lexer/parser, semantic engine, execution runtime, LSP server (`sysml-lsp`), and REPL (`sysml`).
 
 ---
@@ -59,6 +59,12 @@ The three OMG pilot corpora are gated the same way: fetch them with
 `go test -count=1 ./tests/corpus -run TestPilotCorpora`. CI sets
 `OPENSYSML_REQUIRE_PILOT_CORPORA=1`. See `docs/project/pilot-corpora.md`.
 
+So are the textual-notation examples of the SysML and KerML specifications themselves:
+`./scripts/download-spec-examples.sh` fetches the two PDFs at the same pin, renders them with
+`pdftotext -layout` (poppler-utils) and extracts one fixture per example into
+`examples/spec-examples/`; run `go test -count=1 ./tests/corpus -run TestSpecExamples`. CI sets
+`OPENSYSML_REQUIRE_SPEC_EXAMPLES=1`. See `docs/project/spec-examples.md`.
+
 So is the pilot's XMI of the standard library, which the identity gate reads: fetch it with
 `./scripts/download-pilot-library-xmi.sh` and run
 `go test -count=1 ./tests/identity -run TestPilotLibraryXMI`. CI sets
@@ -75,10 +81,11 @@ the runner's simulator with `pip install fmpy`, and run
 `go test -count=1 ./tests/fmi -run TestReferenceFMUs`. CI sets
 `OPENSYSML_REQUIRE_REFERENCE_FMUS=1`.
 
-All four roots share one mechanism (`tests/corpus/corpus_gate_test.go`) but two
-policies, and the difference is deliberate: the training corpus is **asserted** clean, so its
-expectation file holds no per-file counts and `-update-training` refuses to record one, while
-the other three are a **per-file ratchet** whose every movement must be adjudicated. Do not
+The training, pilot and specification-example roots share one mechanism
+(`tests/corpus/corpus_gate_test.go`) but two policies, and the difference is deliberate: the
+training corpus is **asserted** clean, so its expectation file holds no per-file counts and
+`-update-training` refuses to record one, while the others are a **per-file ratchet** whose
+every movement must be adjudicated. Do not
 turn the assertion into a ratchet.
 
 `sysml -render-document -doc-form pdf` drives external converters (WeasyPrint, pandoc, mermaid-cli)

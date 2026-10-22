@@ -5,8 +5,8 @@ package MixedInheritedActor {
 	part def Vehicle;
 
 	use case def Base {
-		actor driver : Person;
 		subject vehicle : Vehicle;
+		actor driver : Person;
 	}
 
 	use case def A :> Base;

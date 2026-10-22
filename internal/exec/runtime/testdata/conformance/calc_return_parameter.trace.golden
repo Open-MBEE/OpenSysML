@@ -7,4 +7,4 @@ enter calc test::acc
       eval feature tp -> 1.0
       eval feature tm -> 4.0
     eval operator / -> 0.25
-exit calc test::acc -> 0.25
+exit calc test::acc -> (0.25)

@@ -406,7 +406,23 @@ body is a Boolean expression over the element's reflective features (`name`,
 `qualifiedName`, `documentation`, `ownedMember`, `direction`, `isComposite`, …). A
 metaclass feature is read by the name of its most specific redefinition, since a
 redefinition hides the name it redefines (KerML §7.4.7, §8.3.3.3): on a
-`SysML::PortUsage` that is `portDefinition`, not `type`. Import
+`SysML::PortUsage` that is `portDefinition`, not `type`.
+
+Besides the intrinsic features (`name`, `shortName`, `documentation`, `ownedMember`,
+`ownedFeature`, `direction`, the `is…` flags, the `nested*`/`owned*` usage projections), a rule
+may read the relationship-valued ones: `ownedRelationship`, `ownedAnnotation`, `ownedMembership`,
+`ownedImport`, `ownedFeatureMembership`, `featureMembership`, `inheritedMembership`,
+`owningMembership`, `owningRelationship`, `textualRepresentation`; on an annotating element
+`annotation`, `annotatedElement` (`documentedElement` on a `doc`), `ownedAnnotatingRelationship`;
+and the requirement properties derived through memberships — `text`, `requiredConstraint`,
+`assumedConstraint`, `framedConcern`, `actorParameter`, `stakeholderParameter` on a requirement,
+`verifiedRequirement` on a verification case (not on a requirement: the metamodel declares no
+inverse), `satisfiedRequirement` and `satisfyingFeature` on a `satisfy`. Each Membership,
+Annotation or Import read this way is a metaobject answering the ends and attributes its
+metaclass declares (`memberElement`, `memberName`, `visibility`, `kind`, `annotatedElement`,
+`importedNamespace`, …). A feature the metaclass declares but the model cannot derive
+(`aliasIds`, `elementId`, `membership`, a `filter` member's `ElementFilterMembership`) is reported
+as unevaluated, never answered empty. Import
 `SequenceFunctions::*` for `->isEmpty()` and friends:
 
 ```sysml
@@ -1640,7 +1656,7 @@ sample's records — a `ref` to the subject and
 ```bash
 $ sysml model.sysml -record-run "Demo::timed"
 ✓ Demo::timed
-  x = 5.0
+  x = [5.0]
   standing: value (observed: 1 run under reverse)
   recorded Records::timed_run1 (Records::TimedRun)
 ```

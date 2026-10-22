@@ -26,4 +26,4 @@ enter calc test::emptyIsAString
         eval feature blank -> ""
       eval operator == -> true
     eval operator and -> true
-exit calc test::emptyIsAString -> true
+exit calc test::emptyIsAString -> (true)

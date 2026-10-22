@@ -487,6 +487,18 @@ func (fc *funcCompiler) declaredResult(sym *symbols.Symbol, body []ast.Node) (bi
 			} else if m != MultOne {
 				return binding{}, fc.unsupported("an untyped result declaring a multiplicity")
 			}
+			held, err := fc.resultHeld(sym.Scope, u)
+			if err != nil {
+				return binding{}, err
+			}
+			if held {
+				// The value fixes the count; one is held as a one-element sequence.
+				unique, err := fc.uniqueOf(sym.Scope, u, name)
+				if err != nil {
+					return binding{}, err
+				}
+				return binding{m: MultAny, shaped: true, unique: unique}, nil
+			}
 			return binding{m: MultOne}, nil
 		}
 		if anything, err := fc.typedAnything(sym.Scope, u, name); err != nil {
@@ -494,6 +506,9 @@ func (fc *funcCompiler) declaredResult(sym *symbols.Symbol, body []ast.Node) (bi
 		} else if anything {
 			m, err := fc.multOf(u, resultWhere)
 			if err != nil {
+				return binding{}, err
+			}
+			if fc.fn.HeldResult, err = fc.resultHeld(sym.Scope, u); err != nil {
 				return binding{}, err
 			}
 			b := binding{m: m, shaped: true}
@@ -508,10 +523,41 @@ func (fc *funcCompiler) declaredResult(sym *symbols.Symbol, body []ast.Node) (bi
 		if err != nil {
 			return binding{}, err
 		}
+		if fc.fn.HeldResult, err = fc.resultHeld(sym.Scope, u); err != nil {
+			return binding{}, err
+		}
 		b.shaped = true
 		return fc.c.slotted(b, slot{key: fc.key}), nil
 	}
-	return binding{m: MultAny}, nil
+	// No owned result: the inherited one, ultimately Evaluation::result `[0..*]`,
+	// holds the value in that shape.
+	held := true
+	if inherited := fc.c.model.ResultParameterOf(sym); inherited != nil {
+		m, err := fc.multFromRange(fc.c.model.EffectiveParameterRange(inherited), resultWhere)
+		if err != nil {
+			return binding{}, err
+		}
+		held = m.MultiValued()
+	}
+	return binding{m: MultAny, shaped: held}, nil
+}
+
+// resultHeld reports a result that states no multiplicity and whose effective one
+// is multi-valued: the compiled value stays the scalar the body computes, held
+// as a one-element sequence when it leaves the program (Func.HeldResult).
+func (fc *funcCompiler) resultHeld(scope *symbols.Scope, u *ast.Usage) (bool, error) {
+	if _, stated := fc.c.model.RangeOf(u.Multiplicity); stated {
+		return false, nil
+	}
+	sym := fc.symbolOf(scope, u, resultWhere)
+	if sym == nil || !semantics.IsParameter(sym) {
+		return false, nil
+	}
+	m, err := fc.multFromRange(fc.c.model.EffectiveParameterRange(sym), resultWhere)
+	if err != nil {
+		return false, err
+	}
+	return m.MultiValued(), nil
 }
 
 // typedAnything reports a usage typed by Base::Anything, which classifies every
@@ -533,6 +579,11 @@ func (fc *funcCompiler) multOf(u *ast.Usage, what string) (Mult, error) {
 	if !ok {
 		return MultOne, nil
 	}
+	return fc.multFromRange(rng, what)
+}
+
+// multFromRange is rng as a compiled multiplicity.
+func (fc *funcCompiler) multFromRange(rng semantics.Range, what string) (Mult, error) {
 	bound := func(b semantics.Bound) (int64, error) {
 		switch {
 		case b.Infinite:
@@ -581,21 +632,29 @@ func (fc *funcCompiler) declaredBinding(scope *symbols.Scope, u *ast.Usage, name
 // uniqueOf is the effective uniqueness of the feature a usage declares: what
 // the interpreter checks when the feature is written (semantics.Model.IsUnique).
 func (fc *funcCompiler) uniqueOf(scope *symbols.Scope, u *ast.Usage, name string) (bool, error) {
-	if sym, ok := fc.c.resolver.LookupName(scope, name); ok && sym != nil && sym.Decl == u {
+	if sym := fc.symbolOf(scope, u, name); sym != nil {
 		return fc.c.model.IsUnique(sym), nil
-	}
-	// An anonymous `return` is declared without a name to look up.
-	for s := scope; s != nil; s = s.Parent() {
-		for _, sym := range s.AllMembers() {
-			if sym.Decl == u {
-				return fc.c.model.IsUnique(sym), nil
-			}
-		}
 	}
 	if name == "" {
 		name = resultWhere
 	}
 	return false, fc.unsupported(fmt.Sprintf("%s: the declaration does not resolve in its scope", name))
+}
+
+// symbolOf is the symbol a usage declares in scope, nil where none resolves.
+func (fc *funcCompiler) symbolOf(scope *symbols.Scope, u *ast.Usage, name string) *symbols.Symbol {
+	if sym, ok := fc.c.resolver.LookupName(scope, name); ok && sym != nil && sym.Decl == u {
+		return sym
+	}
+	// An anonymous `return` is declared without a name to look up.
+	for s := scope; s != nil; s = s.Parent() {
+		for _, sym := range s.AllMembers() {
+			if sym.Decl == u {
+				return sym
+			}
+		}
+	}
+	return nil
 }
 
 // inheritsShape reports a usage redefining or subsetting another feature, whose type,

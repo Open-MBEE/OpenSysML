@@ -5,6 +5,9 @@ sysml\-mcp \- Model Context Protocol server for SysML v2 and KerML
 .SH SYNOPSIS
 .B sysml\-mcp
 [options]
+.br
+.B sysml\-mcp
+\-http ADDR [options]
 .SH DESCRIPTION
 sysml\-mcp serves OpenSysML to coding agents over the Model Context Protocol,
 as tools an agent calls: the language server's diagnostics, navigation,
@@ -12,12 +15,19 @@ editing and rendering over the model documents under the workspace root; the
 runtime's one\-shot parsing, evaluation, instantiation, execution,
 verification, querying and conversion; and named REPL sessions whose
 declarations, instances and runs persist across calls; the protocol is spoken
-over stdin/stdout, so an agent host starts this server rather than a shell.
+over stdin/stdout, so an agent host starts this server rather than a shell, or
+over Streamable HTTP at the address \-http names.
 .PP
 The documents under the root are managed as one workspace, so a declaration in
 one resolves against the others, and the standard library is the copy embedded
 in this binary unless OPENSYSML_LIBRARY_PATH names another.
 .SH OPTIONS
+.TP
+.BI \-allow\-origin " string"
+Origins, comma\-separated as scheme://host[:port], granted cross\-origin
+access to the HTTP transport (the CORS headers and preflight answer a browser
+needs); loopback origins and requests with no Origin header are admitted
+without a grant, any other origin is refused
 .TP
 .BI \-cache\-size " int"
 Maximum number of parsed models the runtime tools hold; at least 1. The
@@ -28,6 +38,13 @@ Show this help (shorthand)
 .TP
 .B \-help
 Show this help and exit
+.TP
+.BI \-http " string"
+Serve over Streamable HTTP at the path /mcp of this address instead of
+stdin/stdout, as host:port or a port alone, which binds loopback; every client
+shares the one workspace, runtime cache and set of REPL sessions. An address
+other machines reach is served only with a bearer token (\-token\-file,
+\-token or OPENSYSML_MCP_TOKEN)
 .TP
 .BI \-log\-level " string"
 Lowest level logged to stderr: debug, info, warn or error. The default is
@@ -54,17 +71,41 @@ Make the \-print\-config block start the server as npx \-y
 @openmbee/sysml\-mcp, which npm installs on first use, instead of naming this
 binary
 .TP
+.BI \-public\-url " string"
+URL clients reach the HTTP transport at when a proxy in front terminates TLS
+or rewrites the path, as https://models.example.org/mcp (a plain path, no
+query); named as the protected resource and in the bearer challenge, and by
+the \-print\-config block; default each request's own scheme and Host
+.TP
 .BI \-root " string"
 Workspace folder whose model documents the server indexes and edits; default
 the current directory, which an agent host sets to the project. The default is
 \&..
 .TP
 .B \-stdio
-Serve over stdin/stdout (the only transport; accepted for hosts that name it)
+Serve over stdin/stdout (the default transport; accepted for hosts that name
+it; not with \-http)
 .TP
 .B \-strict
 Serve strict conformance from the start: notation no pinned SysML v2
 production admits is an error
+.TP
+.BI \-tls\-cert " string"
+TLS certificate file for the HTTP transport; with \-tls\-key, the transport
+serves https
+.TP
+.BI \-tls\-key " string"
+TLS private key file for the HTTP transport
+.TP
+.BI \-token " string"
+The bearer token itself, for a shell whose command line is private;
+\-token\-file keeps it out of the process list, and OPENSYSML_MCP_TOKEN is
+read when neither flag names one
+.TP
+.BI \-token\-file " string"
+File holding the bearer token every HTTP request must carry as Authorization:
+Bearer TOKEN (a trailing line break is not part of it); required for an
+address other machines reach, enforced on loopback too when given
 .TP
 .BI \-tools " string"
 Tool groups to serve, comma\-separated: lsp (diagnostics, navigation, editing,
@@ -92,17 +133,70 @@ sysml\-mcp \-tools lsp,runtime
 An agent host declares the server in its configuration, as {"mcp": {"sysml":
 {"type": "local", "command": ["sysml\-mcp"]}}} in OpenCode's opencode.json,
 and starts it with the project as the working directory.
+.SH TRANSPORTS
+Without \-http the protocol is spoken over stdin and stdout: the host starts
+the server, which serves that one client and exits when the stream closes.
+With \-http the server is started once and serves every client that connects
+to its address over the Streamable HTTP transport, at the path /mcp, until it
+is told to stop with SIGINT or SIGTERM; stopping closes the sessions and waits
+up to 30 seconds for the connections to drain. The clients share one
+workspace, one runtime cache and one set of REPL sessions, so a session_* name
+opened by one is the session every other sees under that name.
+.PP
+.RS 2
+.nf
+sysml\-mcp \-http 8765  # Serve http://localhost:8765/mcp to this machine
+# Serve every interface over https to clients that hold the token
+sysml\-mcp \-http 0.0.0.0:8765 \-token\-file mcp.token \-tls\-cert \e
+    server.crt \-tls\-key server.key
+# Answer one browser origin besides loopback
+sysml\-mcp \-http 0.0.0.0:8765 \-token\-file mcp.token \-allow\-origin \e
+    https://agents.example.org
+# Serve loopback behind a proxy that terminates TLS at that URL
+sysml\-mcp \-http 8765 \-token\-file mcp.token \-public\-url \e
+    https://models.example.org/mcp
+.fi
+.RE
+.PP
+An address with no host, or a port alone, binds loopback, which only this
+machine reaches, and is served as it is. Any other address is served only with
+a bearer token, named by \-token\-file, \-token or OPENSYSML_MCP_TOKEN: the
+server is an OAuth 2.1 resource server in the minimal form, with one token
+issued by whoever runs it, so every request must carry Authorization: Bearer
+TOKEN, and one that does not is refused with 401 and a WWW\-Authenticate
+challenge naming the resource metadata at
+/.well\-known/oauth\-protected\-resource/mcp, both naming the endpoint as the
+request reached it, or as \-public\-url says when a proxy in front terminates
+TLS. Starting on such an address with no token is refused. A token given for a
+loopback address is enforced the same way. The token is letters, digits and
+\-._~+/ (RFC 6750), is never logged, and is best generated, as by openssl rand
+\-base64 32, and kept in a file only the server's user reads. \-tls\-cert and
+\-tls\-key, both given, serve https, which a token sent over a network needs;
+one without the other is refused.
+.PP
+A request is answered when its Origin header is absent, names a loopback
+origin (localhost, 127.0.0.0/8 or ::1 over any scheme and port) or names an
+origin listed in \-allow\-origin exactly; any other origin is refused with
+403, which keeps a page on another site from reaching the server through a DNS
+name rebound to this machine. The wildcard origin is not accepted. A request
+whose MCP\-Protocol\-Version header names a version the server does not speak
+is refused with 400.
 .SH CONFIGURING A HOST
 \-print\-config writes the block a host reads, naming this binary by its
 absolute path so the host finds it wherever it was installed;
 \-print\-config\-command names another command instead, such as sysml\-mcp
 when it is on PATH, and \-print\-config\-npx names npx \-y
 @openmbee/sysml\-mcp, which installs the release binary for the host's
-platform from npm on first use, so a machine with Node needs nothing else. The
-hosts, with the file each reads, are opencode (opencode.json), claude\-code
-(.mcp.json), cursor (.cursor/mcp.json), codex (~/.codex/config.toml), vscode
-(.vscode/mcp.json), gemini (.gemini/settings.json), devin (Settings > MCP
-Marketplace > Add custom).
+platform from npm on first use, so a machine with Node needs nothing else.
+With \-http (and \-tls\-cert for https) the block names the URL of a server
+already serving that address instead, and with its token (\-token\-file,
+\-token or OPENSYSML_MCP_TOKEN) the Authorization header the host sends,
+written in clear, so such a block belongs in a file the host reads privately,
+not in version control; every host reads the URL form. The hosts, with the
+file each reads, are opencode (opencode.json), claude\-code (.mcp.json),
+cursor (.cursor/mcp.json), codex (~/.codex/config.toml), vscode
+(.vscode/mcp.json), gemini (.gemini/settings.json), devin (Customize > MCPs >
+Add custom MCP).
 .PP
 .RS 2
 .nf
@@ -116,6 +210,11 @@ sysml\-mcp \-print\-config codex >> ~/.codex/config.toml
 sysml\-mcp \-print\-config cursor \-print\-config\-command sysml\-mcp
 # A block that runs the server from npm
 sysml\-mcp \-print\-config vscode \-print\-config\-npx
+# A block reaching http://localhost:8765/mcp
+sysml\-mcp \-print\-config vscode \-http 8765
+# A block reaching a remote server with its token
+sysml\-mcp \-print\-config cursor \-http models.example.org:8443 \e
+    \-tls\-cert server.crt \-tls\-key server.key \-token\-file mcp.token
 .fi
 .RE
 .SH TOOLS
@@ -447,7 +546,8 @@ The protocol was served to its end: the client closed the stream, or the
 process was told to stop.
 .TP
 .B 1
-The server could not start, or the session ended in a protocol error.
+The server could not start, as when the \-http address is in use, or the
+session ended in a protocol error.
 .TP
 .B 2
 The command line could not be acted on.

@@ -1,0 +1,28 @@
+materialize: Controller #1
+start: exhibited state machine control of #1
+materialize: control #2
+enter: busy
+materialize: Worker #3
+start: exhibited state machine rhythm of #3
+materialize: Beating #4
+enter: alive (entry action)
+stmt action body
+  stmt assign beats
+    eval literal 1 -> 1
+run: exhibited state machine control of #1
+run: exhibited state machine rhythm of #3
+exit: busy (exit action)
+stmt action body
+  stmt assign exits
+    eval literal 1 -> 1
+stmt terminate
+  eval feature worker -> instance#3
+terminate: Worker #3
+terminated with occurrence: Beating
+enter: done
+transition: busy -> done (event: accept Abort)
+eval literal 0 -> 0
+enter: alive (entry action)
+stmt action body
+  stmt assign beats
+    eval literal 1 -> 1

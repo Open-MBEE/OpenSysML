@@ -6,8 +6,8 @@
       "value": 10
     }
   ],
-  "result": {
-    "type": "Integer",
-    "value": 55
-  }
+  "result": {"type": "Sequence", "elements": [{
+      "type": "Integer",
+      "value": 55
+    }]}
 }

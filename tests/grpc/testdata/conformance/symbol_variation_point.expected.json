@@ -1,0 +1,10 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "PLE::EngineChoices",
+	"expected_metadata": {
+		"variation": "true",
+		"abstract": "true",
+		"specializes": "Engine"
+	},
+	"absent_metadata": ["variant"]
+}

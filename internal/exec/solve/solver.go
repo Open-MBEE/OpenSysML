@@ -95,6 +95,10 @@ type Assignment struct {
 	// Var is the variable the solver assigned, naming the feature it stands for.
 	Var *Var
 
+	// Dead marks a variable the model gives no meaning: a variation point of a
+	// variant the model does not select (Var.Live is false in it).
+	Dead bool
+
 	// Value renders the value as the notation writes it: a quantity with its
 	// unit, an enumeration value by name, a number, a boolean or a string.
 	Value string
@@ -379,6 +383,9 @@ func (s *session) run(q *Query) (*Result, error) {
 	switch status {
 	case StatusSat:
 		model, err := s.values(q.Vars)
+		if err == nil {
+			err = s.liveness(model)
+		}
 		if err != nil {
 			return nil, err
 		}

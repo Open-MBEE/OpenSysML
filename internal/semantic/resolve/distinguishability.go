@@ -445,7 +445,7 @@ func (r *Resolver) withoutHiddenReexports(scope *symbols.Scope, prefix, name str
 // namespace, reaches scope only through a namespace that hides it, under any
 // name sym binds (see withoutHiddenImports).
 func (r *Resolver) hiddenOnRoute(scope *symbols.Scope, sym *symbols.Symbol) bool {
-	if scope == nil || sym == nil {
+	if scope == nil || sym == nil || !r.hidesBelow(scope) {
 		return false
 	}
 	for _, name := range r.memberNames(sym) {

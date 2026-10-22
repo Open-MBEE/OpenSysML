@@ -84,7 +84,7 @@ public final class DocGenExtensions {
           "MDK's \"" + MDK_PROFILE + "\" profile has no «" + BASE_STEREOTYPE + "» stereotype.");
     }
     SessionManager sessions = SessionManager.getInstance();
-    sessions.createSession(project, "OpenSysML MDK: add DocGen extension stereotypes");
+    sessions.createSession(project, "OpenSysML MDK for Cameo: add DocGen extension stereotypes");
     try {
       Report report = create(project, base);
       sessions.closeSession(project);

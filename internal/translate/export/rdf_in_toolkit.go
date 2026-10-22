@@ -1488,6 +1488,9 @@ func newDefaultDropper(graph *rdf.Graph, meta func(rdf.Term) string, chainIndex 
 // a membership owns, an implied one, or an unresolved-name annotation.
 func (d *defaultDropper) dropped(v string) bool {
 	subject := rdf.IRI(v)
+	if d.implied[v] && d.membershipSubjects[v] {
+		return false
+	}
 	if d.implied[v] && d.meta(subject) == mReferenceSubsetting {
 		referencing := firstIRI(d.graph, subject, pReferencingFeature, pOwningFeature, pOwningRelatedElement, pOwner)
 		if d.meta(referencing) == mReferenceUsage &&

@@ -18,4 +18,4 @@ enter calc test::scaledSum
         bind x = 2.0 [argument]
       exit calc VectorFunctions::cartesianVectorScalarMult -> ⟨8.0, 12.0⟩
     eval invoke VectorFunctions::cartesianVectorScalarMult -> ⟨8.0, 12.0⟩
-exit calc test::scaledSum -> ⟨8.0, 12.0⟩
+exit calc test::scaledSum -> (⟨8.0, 12.0⟩)

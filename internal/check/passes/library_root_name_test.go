@@ -69,7 +69,7 @@ func TestLibraryRootNameCorpus(t *testing.T) {
 			}
 			if entry.IsDir() {
 				switch entry.Name() {
-				case "pilot-corpora", "sysml-v2-training", "pssm":
+				case "pilot-corpora", "sysml-v2-training", "spec-examples", "pssm":
 					return filepath.SkipDir
 				}
 				return nil

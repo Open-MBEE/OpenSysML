@@ -35,7 +35,8 @@ const bodyLibrary = `package Lib {
 // slice that persists a new family without rendering it here fails that test
 // rather than silently narrowing the proof.
 var factRenderers = map[string]func(*symbols.LibraryFacts) string{
-	"Supers": func(f *symbols.LibraryFacts) string { return fmt.Sprint(f.Supers) },
+	"Supers":  func(f *symbols.LibraryFacts) string { return fmt.Sprint(f.Supers) },
+	"Implied": func(f *symbols.LibraryFacts) string { return fmt.Sprint(f.ImpliedSupers) },
 	"Unit": func(f *symbols.LibraryFacts) string {
 		if f.Unit == nil {
 			return "none"

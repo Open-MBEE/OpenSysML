@@ -112,6 +112,37 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void tellsVariationPointsAndVariantsApartByMetadata() {
+    Model model =
+        connection.parse(
+            """
+            package PLE {
+              part def Engine;
+              part fourCyl : Engine;
+              variation part def EngineChoices :> Engine { variant fourCyl; }
+              part family { variation part transmission : Engine { variant fourCyl; } }
+              enum def Color { red; blue; }
+            }
+            """);
+    Map<String, String> choices = model.symbol("PLE::EngineChoices").metadata();
+    assertEquals("true", choices.get("variation"));
+    assertEquals("true", choices.get("abstract"));
+    assertFalse(choices.containsKey("variant"));
+    Map<String, String> transmission = model.symbol("PLE::family::transmission").metadata();
+    assertEquals("true", transmission.get("variation"));
+    assertEquals("true", transmission.get("abstract"));
+    Map<String, String> variant = model.symbol("PLE::EngineChoices::fourCyl").metadata();
+    assertEquals("true", variant.get("variant"));
+    assertFalse(variant.containsKey("variation"));
+    assertEquals("true", model.symbol("PLE::Color").metadata().get("variation"));
+    assertEquals("true", model.symbol("PLE::Color::red").metadata().get("variant"));
+    Map<String, String> plain = model.symbol("PLE::fourCyl").metadata();
+    assertFalse(plain.containsKey("variation"));
+    assertFalse(plain.containsKey("variant"));
+    assertFalse(plain.containsKey("abstract"));
+  }
+
+  @Test
   void looksUpSymbols() {
     Model model = connection.parse(VEHICLE);
     Symbol vehicle = model.symbol("Demo::Vehicle");
@@ -369,7 +400,7 @@ class ApiIntegrationTest {
                 RunAnalysisResponse.getDefaultInstance());
         assertEquals("", response.getError());
         assertEquals(1, response.getOutputsCount());
-        long selected = response.getOutputs(0).getValue().getInstanceId();
+        long selected = response.getOutputs(0).getValue().getSequence().getElements(0).getInstanceId();
         assertEquals(1, response.getVerdictsCount());
         assertEquals("tradeStudyObjective", response.getVerdicts(0).getElement());
         assertTrue(response.getVerdicts(0).getHolds());
@@ -511,14 +542,14 @@ class ApiIntegrationTest {
       """
       package Demo {
         private import ScalarValues::*;
-        calc def Sq { in v : Real; return : Real = v * v; }
-        calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
-        calc def Identity { in calc f { in v : Real; return : Real; } return r = f; }
+        calc def Sq { in v : Real; return : Real[1] = v * v; }
+        calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real[1] = f(a); }
+        calc def Identity { in calc f { in v : Real; return : Real[1]; } return r = f; }
         attribute pick = Identity(Sq);
         attribute nine = Fn(Sq, 3.0);
         part def Scaler {
           attribute k : Real = 2.0;
-          calc scale { in x : Real; return : Real = x * k; }
+          calc scale { in x : Real; return : Real[1] = x * k; }
         }
         part holder : Scaler;
         attribute scaler = holder.scale;
@@ -1000,8 +1031,10 @@ class ApiIntegrationTest {
     Calculation sum =
         model.evaluateCalc(
             "Demo::add", List.of(new Value.IntegerValue(2), new Value.IntegerValue(3)));
-    assertEquals(Optional.of(new Value.IntegerValue(5)), sum.value());
-    assertEquals(Optional.of(new Value.IntegerValue(5)), sum.result());
+    assertEquals(
+        Optional.of(new Value.Sequence(List.of(new Value.IntegerValue(5)))), sum.value());
+    assertEquals(
+        Optional.of(new Value.Sequence(List.of(new Value.IntegerValue(5)))), sum.result());
     ModelException wrongKind =
         assertThrows(ModelException.class, () -> model.evaluateCalc("Demo::sedan", List.of()));
     assertEquals(FailureReason.WRONG_KIND, wrongKind.failureReason());
@@ -1013,7 +1046,8 @@ class ApiIntegrationTest {
     Analysis analysis = model.runAnalysis("Trade::lightest");
     assertTrue(analysis.holds());
     assertEquals("tradeStudyObjective", analysis.objective().orElseThrow().element());
-    Value selected = analysis.outputs().get("selectedAlternative");
+    Value selected =
+        ((Value.Sequence) analysis.outputs().get("selectedAlternative")).elements().get(0);
     assertInstanceOf(Value.InstanceReference.class, selected);
     assertEquals(
         "Trade::b",
@@ -1368,7 +1402,8 @@ class ApiIntegrationTest {
     assertEquals(3, sweep.rows().size());
     assertFalse(sweep.sampled());
     assertEquals(
-        new Value.RealValue(1.0), sweep.rows().get(0).outputs().get("result"));
+        new Value.Sequence(List.of(new Value.RealValue(1.0))),
+        sweep.rows().get(0).outputs().get("result"));
     assertFalse(sweep.rows().get(0).failed());
   }
 
@@ -1737,7 +1772,7 @@ class ApiIntegrationTest {
           }
           part def P { attribute m : Real = 2.0; }
           part p : P;
-          analysis def Cost { subject s : P; return total : Real = s.m * 3.0; }
+          analysis def Cost { subject s : P; return total : Real[1] = s.m * 3.0; }
       }
       """;
 

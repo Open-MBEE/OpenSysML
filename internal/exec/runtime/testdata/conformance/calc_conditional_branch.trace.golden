@@ -6,4 +6,4 @@ enter calc test::sign
     eval operator < -> true
     stmt return
       eval operator - -> -1
-exit calc test::sign -> -1
+exit calc test::sign -> (-1)

@@ -71,6 +71,30 @@ func TestFilteredImportHidesARejectedElement(t *testing.T) {
 	}
 }
 
+func TestSetModelInvalidatesCachedFilteredImports(t *testing.T) {
+	idx := expandedIndexOf(t, map[string]string{
+		"lib.sysml": filterLib,
+		"app.sysml": "package App { public import Lib::*[@Safety]; }",
+	})
+	app := scopeOf(t, idx.DocumentRoot("app.sysml"), "App")
+	r := New(idx)
+	r.SetModel(stubJudge{marker: ""})
+
+	imports := r.scopeImports(app)
+	if len(imports) != 1 {
+		t.Fatalf("App imports = %d, want one", len(imports))
+	}
+	if got := r.ImportedElements(app, imports[0]); len(got) != 2 {
+		t.Fatalf("unfiltered model admitted %v, want two members", got)
+	}
+
+	r.SetModel(stubJudge{marker: "Safe"})
+	got := r.ImportedElements(app, imports[0])
+	if len(got) != 1 || localNameOf(got[0]) != "SafeBelt" {
+		t.Fatalf("filtered model admitted %v, want only SafeBelt", got)
+	}
+}
+
 func TestFilteredRecursiveReexportHidesRejectedElement(t *testing.T) {
 	idx := expandedIndexOf(t, map[string]string{
 		"lib.sysml": filterLib,

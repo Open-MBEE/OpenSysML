@@ -1606,7 +1606,12 @@ func lowerPinBindings(graph *ActionGraph, nodes nodeLookup, u *ast.Usage, scope 
 // is nil for an end addressing no node; a path reaching into a node that holds no
 // such nested action is an error.
 func pinPath(graph *ActionGraph, nodes nodeLookup, end ast.Node) (node ast.Node, path []ast.Node, pin string, err error) {
-	segments := endSegments(end)
+	return pinPathOf(graph, nodes, end, endSegments(end))
+}
+
+// pinPathOf is pinPath over segments, the names of end left once a prefix the
+// graph is reached through is dropped.
+func pinPathOf(graph *ActionGraph, nodes nodeLookup, end ast.Node, segments []string) (node ast.Node, path []ast.Node, pin string, err error) {
 	if len(segments) == 0 {
 		return nil, nil, "", nil
 	}
@@ -2233,7 +2238,7 @@ func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statemen
 // rejects as its own purity demands.
 func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
 	if m.IsTerminate {
-		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
+		return terminateUsageEffect(m, scope)
 	}
 	if stmt, ok := usageStatement(m, scope); ok {
 		return stmt
@@ -2245,6 +2250,26 @@ func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.R
 		return performEffect(m, scope)
 	}
 	return Unsupported{Description: usageDescription(m), Node: m, Scope: scope}
+}
+
+// terminateUsageEffect is the effect a terminate action usage declared in scope
+// performs: ending the occurrence it names, or else the performance its node is
+// a step of.
+func terminateUsageEffect(m *ast.Usage, scope *symbols.Scope) Effect {
+	if ts := TerminatedOccurrence(m); ts != nil {
+		target, terminates := terminateTarget(ts, scope)
+		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: ts.Target}
+	}
+	return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
+}
+
+// TerminatedOccurrence returns the occurrence a terminate action usage names
+// (`action stop terminate process;`), nil when it terminates its own container.
+func TerminatedOccurrence(m *ast.Usage) *ast.TerminateStatement {
+	if m == nil || !m.IsTerminate {
+		return nil
+	}
+	return m.Terminates
 }
 
 // SendPayload returns the message a send with no argument carries: the value
@@ -2320,7 +2345,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolv
 // stating a step of it.
 func isAnnotation(n ast.Node) bool {
 	switch n.(type) {
-	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation:
+	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation, *ast.PrefixMetadata:
 		return true
 	}
 	if usage, ok := n.(*ast.Usage); ok && usage.Kind == ast.UsageMetadata {

@@ -34,25 +34,47 @@ go run -C tools ./cmd/pilot-apijson-diff -update  # re-records docs/project/api-
 and `-timeout` override the launcher, the output directory and the per-root time allowed to the
 pilot. A run writes `pilot-apijson-diff.json` (the baseline's shape), `pilot-apijson-diff.txt`
 (the ranked scorecard with one concrete example per differing row, the unmatched elements by
-metaclass and the pilot's diagnostics) and `pilot-apijson-diff-examples.json`.
+metaclass and the pilot's diagnostics), `pilot-apijson-diff-examples.json` and
+`pilot-apijson-diff-matches.json`, the run's inventory of every key per root under the fate the
+matching gave it (matched, ours-only, pilot-only). `-lost-against <earlier run>/pilot-apijson-diff-matches.json`
+then names, in `pilot-apijson-diff-movements.txt` and `.json`, each element the earlier run matched
+and this one does not (*lost*) and the reverse (*gained*), grouped by root and metaclass, each with
+the key's fate in the run that does not match it; a change to either side's naming is read from
+that list rather than from a moved total.
 
 ### The pilot's exporter
 
 `scripts/download-pilot-json-exporter.sh` shares `scripts/pilot-pin.sh` with the validators,
 compiles `scripts/pilot-json-exporter/ExportJSON.java` against the pinned shaded jar and writes the
 launcher `build/pilot-json-exporter/export-json --library <sysml.library> --root <dir> --out <dir>
-<files>` (the library defaults to the pinned one). The bridge is the pilot's own export path, the
-one the Jupyter kernel's `%export` magic runs (`SysMLInteractive.export`):
+[--extension-library <dir>]... <files>` (the library defaults to the pinned one). The bridge is the
+pilot's own export path, the one the Jupyter kernel's `%export` magic runs
+(`SysMLInteractive.export`):
 
-- the files of one corpus root are read into one resource set with the standard library
+- the standard library is read first, as `SysMLInteractive.loadLibrary` reads it (`Kernel
+  Libraries` as KerML, then `Systems Library` and `Domain Libraries` as SysML, all as library
+  resources); then each `--extension-library` directory is read the same way — its `.kerml` files, then
+  its `.sysml` files, as library resources — which is how the pilot's command-line utilities read
+  the library paths that follow their input. The referee passes this repository's own libraries,
+  `internal/workspace/libs/stdlib/OpenSysML Libraries/`, the directory the [pilot
+  differential](pilot-differential.md) hands its validators: the one inside the standard-library
+  root OpenSysML itself loads (the bundled tree unless `OPENSYSML_LIBRARY_PATH` names another),
+  never a free command-line choice, so both sides resolve the same library text; the baseline
+  records it as the `opensysml-libraries` input. A member whose naming feature, type or redefined
+  feature lives in `DocumentQueries`, `AnalysisRecords` or `OpenSysMLRenderings` thus resolves on
+  the pilot's side as it does on ours;
+- the files of one corpus root are read into one resource set with those libraries
   (`org.omg.sysml.io.SysMLUtil`, the KerML and SysML Xtext setups both registered, so `.kerml` and
-  `.sysml` inputs alike resolve), then `transformAll(true)` adds the implied relationships the
-  pilot's validation adds, as `%export` runs after validation;
+  `.sysml` inputs alike resolve), then `transformAll(false)` runs the pilot's model transformation
+  as its validation does before an export, without adding the implied relationships as elements
+  (the traversal otherwise adds them while it iterates);
 - each input resource's root elements are visited by
   `org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade` with
   `setIsIncludeDerived(true)` through `org.omg.sysml.util.traversal.Traversal`, and the tree is
   `toJsonTree(true)` — the exact calls `SysMLInteractive.export` makes; standard-library elements
-  are referenced, never written, as in the pilot;
+  are referenced, never written, as in the pilot, and the elements of this repository's libraries
+  are written as library elements (`isLibraryElement` true, the `library package` keyword deciding
+  it) and left out of the comparison like the standard library's;
 - one document per input file is written under `--out`, mirroring the file's path:
   `{"file", "elements": [{"payload": {…}, "identity": {"@id"}}], "keys": {"<elementId>": "<key>"}}`,
   `keys` resolving every id the elements mention, library elements included, to the stable key
@@ -142,30 +164,47 @@ metaclass when the two sides disagree on the metaclass (`typeMismatch`).
   in which one derived collection of `Derived Probe::Vehicle` is emptied (`ownedUsage` → exactly one
   ours-missing in that row, nowhere else) and one in which one attribute is flipped (`isAbstract` →
   exactly one present-different), each with one example naming the element.
-- **Provenance.** `TestCommittedBaselineStatesThisRepositorysProvenance` checks, without Java, that
-  the baseline's pin, bridge-source digest and every root's file digest are this checkout's, and
-  `TestProvenanceGuardFailsOnAMovedPin` that a moved pin is named with the refresh command.
-  `TestRecordStatesTheBaselinesFigures` (`make docs-counts`) ties this record's figures to the
-  baseline.
+- **Provenance.** The baseline's `provenance` block names both sides of the comparison: the pilot
+  pin (`pilotTag`, `pilotCommit`, `pilotArtifact`), the errata-registry digest, one `tools` entry
+  per side, every root's file digest and, as the `opensysml-libraries` input, the digest of the
+  library directory the bridge reads beside the standard library. `pilot-json-exporter` digests the bridge source
+  `scripts/pilot-json-exporter/ExportJSON.java` against the pinned release; `api-json-writer`
+  digests this repository's writer, `internal/translate/export`: its non-test `.go` files, sorted by
+  file name, each hashed by name and content, so the digest is the same on any machine and in any
+  checkout path. It moves on any edit to a production source of the package (a renamed member, a
+  dropped property, a reordered emission) and stays put on edits to its tests, fixtures or prose. It
+  does not cover what the writer consumes — the parser, name resolution, the metamodel or the library
+  — so a semantic change upstream still surfaces as count movement with no named cause; it names
+  writer changes only. `TestCommittedBaselineStatesThisRepositorysProvenance` checks, without Java,
+  that every one of those fields is this checkout's; `-check` holds the same block to the baseline
+  before the counts, so a writer edit stops it at `provenance.tools[api-json-writer].sourceDigest:
+  baseline records …, repository now has …` rather than at bare count drift (the fresh report it
+  wrote still holds the moved buckets). The writer digested is the one linked into the referee —
+  the checkout it was built from — which `-repo` pointing elsewhere does not change; a `-trimpath`
+  build keeps no record of that checkout and is refused rather than guessed at. `TestProvenanceGuardFailsOnAMovedPin`
+  and `TestProvenanceGuardFailsOnAnEditedWriter` pin that a moved pin and an edited writer are each
+  named with the refresh command. `TestRecordStatesTheBaselinesFigures` (`make docs-counts`) ties
+  this record's figures to the baseline.
 
 The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
-## Results (pilot `2026-08`, 407 files)
+## Results (pilot `2026-08`, 924 files)
 
-**Scorecard:** 407 files; 67274 elements matched (40208 ours-only, 50337 pilot-only, 0 of them implied); properties: 450166 present-equal, 43405 present-different, 801066 ours-missing, 50995 pilot-missing, 1568678 absent-both, 15739 indeterminate.
+**Scorecard:** 924 files; 91721 elements matched (18392 ours-only, 37335 pilot-only, 0 of them implied); properties: 644960 present-equal, 31668 present-different, 1079787 ours-missing, 66545 pilot-missing, 2406377 absent-both, 26031 indeterminate.
 
-The pilot exported every file but 6 (`pilotFailed`: its own export throws on an element without a resource; the files are named in the run's text report), ours refused 0, left the pilot's 6 failed files out and converted 22 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 10815 (metaclass, property) rows carry a comparison; 78684 references compared through the unkeyed sentinel, 110175 of our `sysx:` annotations were left out, and 290/185 elements (ours/pilot) were dropped for ambiguous keys, 8129/30333 for having none.
+The pilot's export failed on 56 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples and 4 test fixtures; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 56 failed files out and converted 26 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11718 (metaclass, property) rows carry a comparison; 110971 references compared through the unkeyed sentinel, 157882 of our `sysx:` annotations were left out, and 285/347 elements (ours/pilot) were dropped for ambiguous keys, 16850/31316 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 6097 | 3321 | 4063 | 40825 | 4070 | 72464 | 4393 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 19299 | 16517 | 16967 | 131395 | 11348 | 232130 | 14554 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 6997 | 5216 | 5590 | 45934 | 5650 | 81691 | 5351 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 5399 | 2618 | 2842 | 34810 | 3556 | 55283 | 4352 |
-| `tests/testdata` | 30 | 1124 | 132 | 522 | 7242 | 347 | 12288 | 818 |
-| `examples` | 52 | 21488 | 11254 | 17900 | 144295 | 13871 | 262173 | 16491 |
-| `tools/referee/diff/testdata` | 4 | 36 | 17 | 17 | 224 | 19 | 249 | 32 |
-| `docs/manual/examples` | 8 | 6834 | 1133 | 2436 | 45441 | 4544 | 84788 | 5004 |
+| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2769 | 53056 | 2136 | 88043 | 5126 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 26739 | 6157 | 9527 | 191619 | 9050 | 318686 | 19458 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3210 | 66569 | 3631 | 110547 | 6811 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6399 | 1166 | 1842 | 44047 | 3034 | 63934 | 5065 |
+| `examples/spec-examples` | 511 | 7074 | 990 | 2634 | 47050 | 1732 | 75012 | 5041 |
+| `tests/testdata` | 36 | 1414 | 171 | 495 | 9219 | 459 | 15672 | 997 |
+| `examples` | 52 | 26254 | 5956 | 14776 | 184854 | 9318 | 318978 | 19327 |
+| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 360 | 3 | 462 | 41 |
+| `docs/manual/examples` | 8 | 7020 | 920 | 2082 | 48186 | 2305 | 88453 | 4679 |
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's five counts.
 
@@ -175,31 +214,154 @@ The largest **present-different** rows, with the reading the examples support:
 
 | metaclass | property | present-equal | present-different |
 |---|---|---:|---:|
-| `FeatureMembership` | `memberElement` | 6542 | 1971 |
-| `FeatureMembership` | `ownedMemberElement` | 6542 | 1971 |
-| `FeatureMembership` | `ownedMemberFeature` | 6542 | 1971 |
-| `FeatureMembership` | `ownedRelatedElement` | 6542 | 1971 |
-| `FeatureTyping` | `general` | 2971 | 180 |
-| `FeatureTyping` | `relatedElement` | 2971 | 180 |
-| `FeatureTyping` | `target` | 2971 | 180 |
-| `FeatureTyping` | `type` | 2973 | 180 |
-| `AttributeUsage` | `ownedRelationship` | 102 | 1571 |
-| `FeatureReferenceExpression` | `ownedMembership` | 29 | 1458 |
+| `AttributeUsage` | `ownedRelationship` | 113 | 2332 |
+| `Feature` | `ownedRelationship` | 3758 | 1802 |
+| `PartUsage` | `ownedRelationship` | 324 | 1554 |
+| `ReferenceUsage` | `ownedRelationship` | 1354 | 852 |
+| `PartUsage` | `ownedMember` | 368 | 702 |
+| `PartUsage` | `ownedMembership` | 722 | 634 |
+| `AttributeUsage` | `ownedMembership` | 1184 | 624 |
+| `FeatureMembership` | `memberElement` | 9381 | 570 |
+| `FeatureMembership` | `ownedMemberElement` | 9381 | 570 |
+| `FeatureMembership` | `ownedRelatedElement` | 9381 | 570 |
 
 ### Where the pilot states nothing and we do
 
 | metaclass | property | pilot-missing | clause |
 |---|---|---:|---|
-| `FeatureMembership` | `owner` | 9270 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `OwningMembership` | `owner` | 7328 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `FeatureValue` | `owner` | 4929 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `FeatureTyping` | `owner` | 4863 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `ReturnParameterMembership` | `owner` | 3469 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `ParameterMembership` | `owner` | 3467 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `Membership` | `owner` | 2304 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `AttributeUsage` | `value` | 1000 | see the `derive*` row for this property in `docs/project/constraint-manifest.json` |
+| `FeatureMembership` | `owner` | 10847 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `OwningMembership` | `owner` | 9596 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `FeatureValue` | `owner` | 7082 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `FeatureTyping` | `owner` | 5978 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `ReturnParameterMembership` | `owner` | 4764 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `ParameterMembership` | `owner` | 4410 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `Membership` | `owner` | 3201 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `Redefinition` | `owner` | 2683 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
 
 `owner` on every relationship is the pilot leaving `Relationship::owner` null where the metamodel derives `owningRelatedElement`; ours states it. The remaining pilot-missing rows are properties this repository writes outside the metamodel's spelling (`value` on usages) or states for unnamed elements the metamodel leaves null (`qualifiedName`).
+
+### Where a member is named by a library feature
+
+A member that takes its name from a naming feature is keyed by that name on both sides: KerML
+`Feature::effectiveName` is the effective name of `namingFeature()` when nothing is declared
+(8.3.3.3.4 Feature, `body: if declaredShortName <> null or declaredName <> null then declaredName
+else … namingFeature.effectiveName()`), and the default `namingFeature()` is
+`ownedRedefinition->at(1).redefinedFeature`; SysML redefines it for a variant (8.3.6.4 Usage,
+`ownedReferenceSubsetting.referencedFeature`), a transition payload (8.3.6.3 ReferenceUsage), a
+performed action (8.3.17.14 PerformActionUsage, `performedAction`), a requirement constraint
+(8.3.20.4 ConstraintUsage) and a view rendering (8.3.26.6 RenderingUsage). The pilot derives the
+same name when it resolves the naming feature, which is why the bridge reads this repository's
+own libraries beside the standard one: `attribute redefines title = "…";` in a `Section` names
+`DocumentQueries::Section::title` on both sides and is keyed `…::coverage::title` on both.
+
+Reading those libraries moved 2983 elements from unmatched to matched and lost none:
+`docs/manual/examples` from 6663 to 7020 (87 members — 84 `AttributeUsage` and 3 `ReferenceUsage`,
+each an `attribute redefines caption|title|text|term|description|kind|direction|style|groupBy = …`
+or `ref redefines source|target = …` of a `DocumentQueries` feature — with the 270 elements they
+own) and `examples` from 23379 to 26005: 914 such members and owned elements of `DocumentQueries`
+and `AnalysisRecords` features, with the two `render` members of `OpenSysMLRenderings` renderings,
+in six files the pilot already exported, and the 1712 elements of `mosa-demo/mosa-demo.sysml` and
+`oosem-demo/oosem-demo.sysml`, whose export the pilot had abandoned (`pilotFailed`, an element
+without a resource) while `MOSA` and `OOSEM` were unloaded. `tests/testdata` matched the same 1201
+elements with two more properties present-equal; no other root moved, and the pilot reported no
+diagnostic on any library file (its batch validator reads the sixteen as one resource set without
+an error). The members that gained a match disagreed with the pilot in three shapes when the libraries were
+first loaded, none of them a derivation this repository gets wrong and none new — each a shape the
+scorecard already carried for the standard library or for members the model declares itself, now
+measured on library-backed members too. The first and the third are closed (the first in the next section, the third by the writer owning the referent `Membership`, below); the second remains:
+
+- a reference to an element of this repository's libraries was spelled as a name, `{"@ref":
+  "caption"}`, where the pilot writes the element: `Redefinition::redefinedFeature` (KerML
+  8.3.3.3.8) on all 327 of those redefinitions, `FeatureTyping::type` (8.3.3.3.7) on 157, the `type`
+  of 123 `MetadataUsage` and 16 `ViewUsage` typed by `MOSA` and `OOSEM` metadata and view
+  definitions, `FeatureReferenceExpression::referent` (8.3.4.8.5) and the `memberElement` of its
+  `Membership` on 28 enumeration literals, and `ReferenceSubsetting::referencedFeature` on the two
+  `render` members. The writer gave a library element an id only where the pilot's XMI of the
+  standard library fixes one; this repository's libraries have no such norm, so a reference to one
+  of their elements fell back to the name as written, and the library element itself was not
+  stated. Every `Element` has an `elementId` (KerML 8.3.2.1.2) and the API's JSON refers to an
+  element by it, so the pilot's reading is the metamodel's — the writer now fixes an id for these
+  elements too;
+- the order of `ownedRelationship` on a usage that both redefines and has a value: the pilot lists
+  the `Redefinition` before the `FeatureValue`, in the order the notation declares them; ours lists
+  the value first (275 `AttributeUsage`, 97 `ReferenceUsage`, 2 `RenderingUsage`). `ownedRelationship`
+  is ordered (KerML 8.3.2.1.2 Element, `ownedRelationship : Relationship [0..*] {ordered}`), and the
+  textual notation adds an element's owned relationships as it parses them, so the pilot's order is
+  the notation's, a shape the `AttributeUsage` `ownedRelationship` row already carried;
+- a `FeatureReferenceExpression` owns a `Membership` of its referent, which both sides now write:
+  `referent` is derived as the `memberElement` of the first `ownedMembership` that is not a
+  `ParameterMembership` (KerML 8.3.4.8.5, deriveFeatureReferenceExpressionReferent), and the
+  notation maps the reference to that owned `Membership` (8.2.5.8.3, `FeatureReferenceMember`), so
+  the `Membership` is part of the abstract syntax; the writer owns it before the result parameter
+  and lists it under `ownedMembership`, as it does the target-feature `Membership` of a
+  `FeatureChainExpression` (8.3.4.8.4) and the callee `Membership` of an invocation. The
+  `FeatureReferenceExpression` `ownedMembership` row keeps 7 differing elements, all of them a
+  function named as an argument (`->reduce '+'`), which the pilot owns as a `FeatureMembership` of
+  an `Expression` typed by the function (8.2.5.8.3, `FunctionReferenceMember`) where ours writes a
+  `Membership` of the function itself.
+
+The two files the pilot now exports add, besides those three shapes, every shape the scorecard
+already carries for user models (the pilot quoting a `qualifiedName` segment that holds a space,
+`'Modular Ground Vehicle'::vehicle`, where ours does not; the structural ordinals of unnamed
+members; the naming of connector ends). The other roots' movements under earlier changes to the
+keys were of the first kind too: `spec-examples` names 13 members by a naming feature the pinned
+excerpt leaves undeclared (`perform VehicleActions::move`, `individual timeslice redefines
+preflight`, `render asMyTreeDiagram` under an undefined view definition, …), which the pilot,
+resolving nothing, does not name. A run's own list of such movements comes from `-lost-against`.
+
+### References into this repository's libraries link by id
+
+Every named element of this repository's own libraries (`DocumentQueries`, `MOSA`, `OOSEM`, …)
+now carries a fixed id, derived as a standard library element's normative id is — a library
+package's id is `uuid5(URL name space, "https://github.com/Open-MBEE/OpenSysML-Extensions-Library/" +
+package)`, each named element under it `uuid5(package id, escaped qualified name)` — so a reference
+to one is written by id, `{"@id": …}`, the element itself named by a library stub in the graph, and
+never as `{"@ref": "name"}` ([the RDF mapping](../reference/rdf-mapping.md#normative-library-identity)).
+Those ids are deterministic and the same on every run, but they are **not the pilot's**: no
+specification fixes ids for a non-normative library, and the pilot, reading the same files as a
+library directory, hashes every library package under `https://www.omg.org/spec/SysML/`, so the two
+sides' ids for `MOSA::ConsensusStandard` differ by that prefix alone. The referee cannot therefore
+call such a reference equal: our side writes no element for a library target (the element form
+carries the model's own elements only, [above](#our-side)), so the id has no key and the comparison
+is **indeterminate** — the bucket that already holds references to standard library elements —
+rather than equal or different. What this measures is presence and shape: the property is stated,
+as an element reference, where it was stated as a name.
+
+Movement on the same 920 files, pilot and keys unchanged (the exact movement a `-check` after this
+change reports): present-different 50027 → 45688 (−4339), indeterminate 21034 → 25703 (+4669),
+present-equal 618674 → 619268 (+594), absent-both 2102500 → 2103094 (+594), elements matched 89957
+→ 90023 (+66, pilot-only 38863 → 38797), ours-missing 1058325 → 1058259 (−66), pilot-missing
+68494 → 68560 (+66); no row's present-equal count fell, and no root but `examples/spec-examples`
+(−5 present-different), `tests/testdata` (−10), `examples` (−2875) and `docs/manual/examples` (−1449)
+moved. By row, present-different → indeterminate, one movement per site, the end properties of a
+relationship (`target`, `relatedElement`, `general`, `subsettedFeature`) moving with the end they
+restate:
+
+| row | present-different | indeterminate | what moved |
+|---|---:|---:|---|
+| `Redefinition.redefinedFeature` (and `target`, `relatedElement`, `general`, `subsettedFeature`) | 388 → 58 | 542 → 938 | 330 redefinitions of a library feature (`attribute redefines caption = …`, `:>> organization = …`), plus 66 redefinitions newly matched (below); the 58 left are redefinitions the writer cannot link inside the model itself (`vehicle_b_1::providePower` redefining the feature inherited through `vehicle_b`) |
+| `FeatureTyping.type` (and `target`, `relatedElement`, `general`) | 670 → 338 | 1904 → 2236 | 332 features typed by a library definition (`item ethernet : ConsensusStandard`, metadata typed by `MOSA` and `OOSEM` definitions) |
+| `MetadataUsage.type` | 147 → 13 | 82 → 216 | 134 metadata usages typed by a library metadata definition (`#majorSystemComponent`, `@MOSAPackage`) |
+| `ViewUsage.type` | 19 → 3 | 29 → 45 | 16 views typed by a `MOSA` or `OOSEM` view definition |
+| `FeatureReferenceExpression.referent` | 99 → 71 | 436 → 464 | 28 references to a library enumeration literal (`MOSAPillar::openStandards`) |
+| `Membership.memberElement` | 353 → 99 | 646 → 900 | 254 memberships of a referenced library element, the `referent` memberships among them |
+| `InvocationExpression.function` | 245 → 19 | 107 → 333 | 226 calls of a calculation or function of these libraries |
+| `Subclassification.superclassifier` (and `target`, `relatedElement`, `general`) | 126 → 13 | 136 → 249 | 113 definitions specializing a library definition (`:> MOSA::Standard`) |
+| `PartUsage.type` | 235 → 63 | 0 → 172 | 172 parts typed by a definition of these libraries |
+| `Subsetting.subsettedFeature` (and `target`, `relatedElement`, `general`) | 44 → 34 | 425 → 435 | 10 features subsetting a library feature |
+| `NamespaceImport.importedNamespace`, `MembershipImport.importedMembership` | 25 → 8, 15 → 13 | 331 → 348, 265 → 267 | 17 imports of a library package, 2 of a library member |
+| `CalculationUsage.type`, `ItemUsage.type`, `ReferenceUsage.type`, `ReferenceSubsetting.referencedFeature` (and its ends) | 7 → 3, 20 → 16, 48 → 46, 40 → 38 | 0 → 4, 16 → 20, 501 → 503, 24 → 26 | 4, 4, 2 and 2 references to a library element |
+
+The 66 newly matched elements are `Redefinition`s: a feature in a metadata usage's body that
+binds a feature of the metadata definition by name (`@MOSAPackage { pillar = MOSAPillar::openStandards; }`,
+which redefines `MOSAPackage::pillar`) was written as a
+`ReferenceUsage` with the declared name `pillar` and a value, because its redefinition reached a
+library feature the writer could not link; it is now written as the pilot writes it — unnamed, with
+an owned `Redefinition` of `MOSAPackage::pillar` — so `ReferenceUsage.declaredName` falls from 70
+to 4 pilot-missing, `ReferenceUsage.ownedRedefinition`/`ownedSpecialization`/`ownedSubsetting`
+gain 66 present-equal each, and the 66 `Redefinition`s match the pilot's, carrying every shape the
+`Redefinition` rows already carry (`isLibraryElement`, `owningType` ours-missing; `owner`
+pilot-missing; `redefinedFeature` indeterminate).
 
 ## Launch-ready gaps
 
@@ -207,46 +369,49 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 
 | # | metaclass | property | ours-missing | present-different | in-flight overlap | derivation clause |
 |---:|---|---|---:|---:|---|---|
-| 1 | `FeatureMembership` | `isLibraryElement` | 9270 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
-| 2 | `FeatureMembership` | `memberElementId` | 9270 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberElementId = memberElement.elementId` (KerML 8.3.2.3.5, deriveMembershipMemberElementId) |
-| 3 | `FeatureMembership` | `ownedMemberElementId` | 9270 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberElementId = ownedMemberElement.elementId` (KerML 8.3.2.3.6) |
-| 4 | `FeatureMembership` | `relatedElement` | 9270 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::relatedElement = source->union(target)`, ordered (KerML 8.3.2.5.2, deriveRelationshipRelatedElement) |
-| 5 | `FeatureMembership` | `source` | 9270 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::source`, which Membership redefines as `[membershipOwningNamespace]` (KerML 8.3.2.3.5) |
-| 6 | `FeatureMembership` | `target` | 9270 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::target`, which Membership redefines as `[memberElement]` (KerML 8.3.2.3.5) |
-| 7 | `FeatureMembership` | `visibility` | 9210 | 1 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
-| 8 | `FeatureMembership` | `memberName` | 7660 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberName = memberElement.name` (KerML 8.3.2.3.5, deriveMembershipMemberName) |
-| 9 | `FeatureMembership` | `ownedMemberName` | 7660 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberName = ownedMemberElement.name` (KerML 8.3.2.3.6) |
-| 10 | `OwningMembership` | `isLibraryElement` | 7328 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
-| 11 | `OwningMembership` | `memberElementId` | 7328 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberElementId = memberElement.elementId` (KerML 8.3.2.3.5, deriveMembershipMemberElementId) |
-| 12 | `OwningMembership` | `ownedMemberElementId` | 7328 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberElementId = ownedMemberElement.elementId` (KerML 8.3.2.3.6) |
-| 13 | `OwningMembership` | `relatedElement` | 7328 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::relatedElement = source->union(target)`, ordered (KerML 8.3.2.5.2, deriveRelationshipRelatedElement) |
-| 14 | `OwningMembership` | `source` | 7328 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::source`, which Membership redefines as `[membershipOwningNamespace]` (KerML 8.3.2.3.5) |
-| 15 | `OwningMembership` | `target` | 7328 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::target`, which Membership redefines as `[memberElement]` (KerML 8.3.2.3.5) |
-| 16 | `OwningMembership` | `visibility` | 7309 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
-| 17 | `Feature` | `featureTarget` | 7307 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::featureTarget`: the last `chainingFeature`, else the feature itself (KerML 8.3.3.3, deriveFeatureFeatureTarget; KERML11-1 crossFeature) |
-| 18 | `Feature` | `inheritedFeature` | 7307 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1, deriveTypeInheritedFeature) |
-| 19 | `Feature` | `inheritedMembership` | 7307 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Type::inheritedMembership = inheritedMemberships(excluded)` over the supertypes (KerML 8.3.3.1, deriveTypeInheritedMembership) |
-| 20 | `Feature` | `isConjugated` | 7307 | 0 | none found | `Type::isConjugated = ownedConjugator <> null` (KerML 8.3.3.1 Type; a derived attribute without a named derive constraint); the pilot writes `false` on every type |
-| 21 | `Feature` | `isLibraryElement` | 7307 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
-| 22 | `Feature` | `member` | 7307 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Namespace::member = membership.memberElement` (KerML 8.3.2.4, deriveNamespaceMember) |
-| 23 | `Feature` | `membership` | 7307 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Namespace::membership = ownedMembership->union(importedMembership)`, and for a Type also `inheritedMembership` (KerML 8.3.2.4, 8.3.3.1) |
-| 24 | `Feature` | `feature` | 7302 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1, deriveTypeFeature) |
-| 25 | `Feature` | `featureMembership` | 7302 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1; KERML11-191 restricts the inherited part to the supertypes) |
-| 26 | `Feature` | `featuringType` | 7108 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::featuringType = typeFeaturing.featuringType`, plus the owning type of an owned feature (KerML 8.3.3.3, deriveFeatureFeaturingType; KERML11-3/4 multiplicity featuring) |
-| 27 | `Feature` | `owningFeatureMembership` | 6962 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningFeatureMembership = owningMembership->selectByKind(FeatureMembership)` (KerML 8.3.3.3) |
-| 28 | `Feature` | `owningType` | 6962 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningType = owningFeatureMembership.owningType` (KerML 8.3.3.3, deriveFeatureOwningType) |
-| 29 | `Feature` | `type` | 6936 | 7 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::type = typing.type` with the types inherited through chaining and redefinition (KerML 8.3.3.3, deriveFeatureType) |
-| 30 | `Feature` | `name` | 6583 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Element::name = effectiveName()`: the declared name, or for a feature the name of the feature it redefines (KerML 8.3.2.1, deriveElementName) |
-| 31 | `Feature` | `owningNamespace` | 6577 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Element::owningNamespace = owningMembership.membershipOwningNamespace` (KerML 8.3.2.1, deriveElementOwningNamespace) |
-| 32 | `FeatureValue` | `isLibraryElement` | 4929 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
-| 33 | `FeatureValue` | `memberElementId` | 4929 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberElementId = memberElement.elementId` (KerML 8.3.2.3.5, deriveMembershipMemberElementId) |
-| 34 | `FeatureValue` | `ownedMemberElementId` | 4929 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberElementId = ownedMemberElement.elementId` (KerML 8.3.2.3.6) |
-| 35 | `FeatureValue` | `relatedElement` | 4929 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::relatedElement = source->union(target)`, ordered (KerML 8.3.2.5.2, deriveRelationshipRelatedElement) |
-| 36 | `FeatureValue` | `source` | 4929 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::source`, which Membership redefines as `[membershipOwningNamespace]` (KerML 8.3.2.3.5) |
-| 37 | `FeatureValue` | `target` | 4929 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::target`, which Membership redefines as `[memberElement]` (KerML 8.3.2.3.5) |
-| 38 | `FeatureValue` | `visibility` | 4929 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
-| 39 | `FeatureTyping` | `isLibraryElement` | 4865 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
-| 40 | `FeatureTyping` | `owningType` | 4863 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningType = owningFeatureMembership.owningType` (KerML 8.3.3.3, deriveFeatureOwningType) |
+| 1 | `FeatureMembership` | `isLibraryElement` | 10847 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
+| 2 | `FeatureMembership` | `memberElementId` | 10847 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberElementId = memberElement.elementId` (KerML 8.3.2.3.5, deriveMembershipMemberElementId) |
+| 3 | `FeatureMembership` | `ownedMemberElementId` | 10847 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberElementId = ownedMemberElement.elementId` (KerML 8.3.2.3.6) |
+| 4 | `FeatureMembership` | `relatedElement` | 10847 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::relatedElement = source->union(target)`, ordered (KerML 8.3.2.5.2, deriveRelationshipRelatedElement) |
+| 5 | `FeatureMembership` | `source` | 10847 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::source`, which Membership redefines as `[membershipOwningNamespace]` (KerML 8.3.2.3.5) |
+| 6 | `FeatureMembership` | `target` | 10847 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::target`, which Membership redefines as `[memberElement]` (KerML 8.3.2.3.5) |
+| 7 | `FeatureMembership` | `visibility` | 10783 | 1 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
+| 8 | `Feature` | `featureTarget` | 10148 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::featureTarget`: the last `chainingFeature`, else the feature itself (KerML 8.3.3.3, deriveFeatureFeatureTarget; KERML11-1 crossFeature) |
+| 9 | `Feature` | `inheritedFeature` | 10148 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1, deriveTypeInheritedFeature) |
+| 10 | `Feature` | `inheritedMembership` | 10148 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Type::inheritedMembership = inheritedMemberships(excluded)` over the supertypes (KerML 8.3.3.1, deriveTypeInheritedMembership) |
+| 11 | `Feature` | `isConjugated` | 10148 | 0 | none found | `Type::isConjugated = ownedConjugator <> null` (KerML 8.3.3.1 Type; a derived attribute without a named derive constraint); the pilot writes `false` on every type |
+| 12 | `Feature` | `isLibraryElement` | 10148 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
+| 13 | `Feature` | `member` | 10148 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Namespace::member = membership.memberElement` (KerML 8.3.2.4, deriveNamespaceMember) |
+| 14 | `Feature` | `membership` | 10148 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Namespace::membership = ownedMembership->union(importedMembership)`, and for a Type also `inheritedMembership` (KerML 8.3.2.4, 8.3.3.1) |
+| 15 | `Feature` | `feature` | 10142 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1, deriveTypeFeature) |
+| 16 | `Feature` | `featureMembership` | 10142 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1; KERML11-191 restricts the inherited part to the supertypes) |
+| 17 | `Feature` | `featuringType` | 9846 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::featuringType = typeFeaturing.featuringType`, plus the owning type of an owned feature (KerML 8.3.3.3, deriveFeatureFeaturingType; KERML11-3/4 multiplicity featuring) |
+| 18 | `Feature` | `type` | 9615 | 14 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::type = typing.type` with the types inherited through chaining and redefinition (KerML 8.3.3.3, deriveFeatureType) |
+| 19 | `OwningMembership` | `isLibraryElement` | 9596 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
+| 20 | `OwningMembership` | `relatedElement` | 9596 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::relatedElement = source->union(target)`, ordered (KerML 8.3.2.5.2, deriveRelationshipRelatedElement) |
+| 21 | `OwningMembership` | `source` | 9596 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::source`, which Membership redefines as `[membershipOwningNamespace]` (KerML 8.3.2.3.5) |
+| 22 | `OwningMembership` | `memberElementId` | 9593 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberElementId = memberElement.elementId` (KerML 8.3.2.3.5, deriveMembershipMemberElementId) |
+| 23 | `OwningMembership` | `ownedMemberElementId` | 9593 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberElementId = ownedMemberElement.elementId` (KerML 8.3.2.3.6) |
+| 24 | `OwningMembership` | `target` | 9593 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::target`, which Membership redefines as `[memberElement]` (KerML 8.3.2.3.5) |
+| 25 | `OwningMembership` | `visibility` | 9571 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
+| 26 | `Feature` | `name` | 9538 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Element::name = effectiveName()`: the declared name, or for a feature the name of the feature it redefines (KerML 8.3.2.1, deriveElementName) |
+| 27 | `Feature` | `owningFeatureMembership` | 9497 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningFeatureMembership = owningMembership->selectByKind(FeatureMembership)` (KerML 8.3.3.3) |
+| 28 | `Feature` | `owningType` | 9497 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningType = owningFeatureMembership.owningType` (KerML 8.3.3.3, deriveFeatureOwningType) |
+| 29 | `FeatureMembership` | `memberName` | 9298 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberName = memberElement.name` (KerML 8.3.2.3.5, deriveMembershipMemberName) |
+| 30 | `FeatureMembership` | `ownedMemberName` | 9298 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberName = ownedMemberElement.name` (KerML 8.3.2.3.6) |
+| 31 | `Feature` | `owningNamespace` | 8757 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Element::owningNamespace = owningMembership.membershipOwningNamespace` (KerML 8.3.2.1, deriveElementOwningNamespace) |
+| 32 | `FeatureValue` | `isLibraryElement` | 7082 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
+| 33 | `FeatureValue` | `memberElementId` | 7082 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Membership::memberElementId = memberElement.elementId` (KerML 8.3.2.3.5, deriveMembershipMemberElementId) |
+| 34 | `FeatureValue` | `ownedMemberElementId` | 7082 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberElementId = ownedMemberElement.elementId` (KerML 8.3.2.3.6) |
+| 35 | `FeatureValue` | `relatedElement` | 7082 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::relatedElement = source->union(target)`, ordered (KerML 8.3.2.5.2, deriveRelationshipRelatedElement) |
+| 36 | `FeatureValue` | `source` | 7082 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::source`, which Membership redefines as `[membershipOwningNamespace]` (KerML 8.3.2.3.5) |
+| 37 | `FeatureValue` | `target` | 7082 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Relationship::target`, which Membership redefines as `[memberElement]` (KerML 8.3.2.3.5) |
+| 38 | `FeatureValue` | `visibility` | 7082 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | owned attribute `Membership::visibility : VisibilityKind`, default `public` (KerML 8.3.2.3.5); not derived |
+| 39 | `FeatureTyping` | `isLibraryElement` | 5982 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
+| 40 | `FeatureTyping` | `owningType` | 5978 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::owningType = owningFeatureMembership.owningType` (KerML 8.3.3.3, deriveFeatureOwningType) |
+| 41 | `Redefinition` | `redefinedFeature` | 52 | 20 | closed for this repository's libraries (above) | `Redefinition::redefinedFeature : Feature` (KerML 8.3.3.3.8) is an element reference, and every `Element` carries an `elementId` (KerML 8.3.2.1.2) the API's JSON refers to it by; the 330 redefinitions of a feature of this repository's libraries once spelled as a name, `{"@ref": "caption"}`, now link by the element's fixed id — the same movement for `FeatureTyping::type`, `MetadataUsage::type`, `FeatureReferenceExpression::referent` and `ReferenceSubsetting::referencedFeature` into those libraries — and the 58 left are redefinitions of a feature inherited within the model itself that the writer spells as a name (`vehicle_b_1::providePower`) |
+| 42 | `AttributeUsage` | `ownedRelationship` | 36 | 2332 | none found | `Element::ownedRelationship : Relationship [0..*] {ordered}` (KerML 8.3.2.1.2) in the order the notation declares them: a usage's `Redefinition` (`redefines x`) before its `FeatureValue` (`= …`); ours lists the value first |
+| 43 | `FeatureReferenceExpression` | `ownedMembership` | 0 | 7 | the writer owns the `Membership` (`export/rdf_expr.go` `featureReferent`); the 7 left are the `FunctionReferenceMember` shape, a `FeatureMembership` owning an `Expression` typed by the named function (KerML 8.2.5.8.3), which ours writes as a `Membership` of the function | `FeatureReferenceExpression::referent` is the `memberElement` of the first `ownedMembership` that is not a `ParameterMembership` (KerML 8.3.4.8.5, deriveFeatureReferenceExpressionReferent); the notation maps a feature reference to that owned `Membership` (8.2.5.8.3, `FeatureReferenceMember`) |
 
 Rows an evaluator rule in PR #1232 (`internal/semantic/metamodel/rules.go`) already names are marked; that PR adds a lazy metamodel evaluator and layers its derived values into the API-JSON writer, so its merge is expected to move those rows from ours-missing to present-equal or present-different, and this referee is how that movement is measured.
 
