@@ -397,3 +397,17 @@ func libraryIdentity(t *testing.T) string {
 	}
 	return identity
 }
+
+// An undeclared metadata type or `about` target is a diagnostic, not an absent
+// interface: the record is written and joins the `about` index as when loaded.
+func TestInterfaceRecordOfUnresolvedMetadataReferences(t *testing.T) {
+	t.Parallel()
+	docs := map[string][]byte{
+		"decl.kerml":  []byte("package Decl { metaclass SecurityRelated { feature level : Base::Anything; } }\n"),
+		"about.kerml": []byte("package About { metadata securityDesignAnnotation : SecurityRelated about SecurityDesign; }\n"),
+		"save.kerml":  []byte("package Annot { behavior Save { @Command; } metadata Note : Command about Save; }\n"),
+	}
+	if recorded := recordDifferential(t, docs); recorded != len(docs) {
+		t.Fatalf("%d of %d documents recorded, want every one", recorded, len(docs))
+	}
+}

@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // diagnoseSource opens src in a stdlib-loaded workspace and returns its
@@ -188,5 +190,47 @@ func TestMetadataUsageMemberResolvesItsType(t *testing.T) {
 		if !strings.Contains(msg, "unresolved reference: Securty") {
 			t.Errorf("unexpected diagnostic %q", msg)
 		}
+	}
+}
+
+// An undeclared semantic metadata keyword leaves the usage's supertypes settled;
+// opening its declaration later recomputes them and its baseType appears.
+func TestSemanticMetadataTypeDeclaredLaterContributesItsBase(t *testing.T) {
+	const car, wheels = "file:///car.sysml", "file:///wheels.sysml"
+	ws := NewWorkspace()
+	ws.Open(car, []byte(`package P {
+		private import Q::*;
+		part def Car { #wheel frontLeft; }
+	}`), 1)
+	defer ws.Close(car)
+	supertypesOf := func() []string {
+		t.Helper()
+		ws.Diagnostics(car)
+		matches := ws.index.LookupQualified("P::Car::frontLeft")
+		if len(matches) != 1 {
+			t.Fatalf("P::Car::frontLeft resolves to %d symbols, want 1", len(matches))
+		}
+		var names []string
+		for _, sup := range ws.model.AllSupertypes(matches[0]) {
+			names = append(names, symbols.FQNOf(sup))
+		}
+		if ws.model.SupertypesProvisional(matches[0]) {
+			t.Fatalf("supertypes of frontLeft %v are provisional, want settled", names)
+		}
+		return names
+	}
+	if got := supertypesOf(); slices.Contains(got, "Q::wheels") {
+		t.Fatalf("supertypes of frontLeft before wheel is declared = %v", got)
+	}
+
+	ws.Open(wheels, []byte(`package Q {
+		private import Metaobjects::SemanticMetadata;
+		part def Wheel;
+		part wheels : Wheel[*];
+		metadata def wheel :> SemanticMetadata { :>> baseType = wheels meta SysML::Usage; }
+	}`), 1)
+	defer ws.Close(wheels)
+	if got := supertypesOf(); !slices.Contains(got, "Q::wheels") {
+		t.Fatalf("supertypes of frontLeft once wheel is declared = %v, want Q::wheels among them", got)
 	}
 }

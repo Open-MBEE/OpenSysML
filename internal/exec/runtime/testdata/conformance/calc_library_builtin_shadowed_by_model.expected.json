@@ -3,9 +3,9 @@
   "type": "calcUsage",
   "evaluate": "test::p",
   "outputs": {
-    "ownByPosition": {"type": "Integer", "value": 42},
-    "ownByName": {"type": "Integer", "value": 42},
-    "ownLocal": {"type": "Integer", "value": 40},
-    "librarySize": {"type": "Integer", "value": 3}
+    "ownByPosition": {"type": "Sequence", "elements": [{"type": "Integer", "value": 42}]},
+    "ownByName": {"type": "Sequence", "elements": [{"type": "Integer", "value": 42}]},
+    "ownLocal": {"type": "Sequence", "elements": [{"type": "Integer", "value": 40}]},
+    "librarySize": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]}
   }
 }

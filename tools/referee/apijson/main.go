@@ -23,6 +23,7 @@ type options struct {
 	timeout             time.Duration
 	update, check       bool
 	lostAgainst         string
+	libraries           string
 	log                 io.Writer
 }
 
@@ -61,6 +62,10 @@ func Main(args []string, stderr io.Writer) int {
 	if *rootsFlag != "" {
 		opts.roots = strings.Split(*rootsFlag, ",")
 	}
+	if opts.libraries, err = diff.LibrariesHandedOver(root); err != nil {
+		fmt.Fprintf(stderr, "%s: %v\n", toolName, err)
+		return 1
+	}
 	if _, err := os.Stat(opts.launcher); os.IsNotExist(err) {
 		message := fmt.Sprintf("pilot JSON exporter is absent at %s; run ./scripts/download-pilot-json-exporter.sh to provision it", opts.launcher)
 		if opts.check {
@@ -85,7 +90,7 @@ func run(opts options) error {
 	if err != nil {
 		return err
 	}
-	record, err := provenance(opts.repo, built)
+	record, err := provenance(opts.repo, built, opts.libraries)
 	if err != nil {
 		return err
 	}
@@ -108,7 +113,7 @@ func run(opts options) error {
 		}
 		dir := filepath.Join(opts.repo, filepath.FromSlash(root.Dir))
 		fmt.Fprintf(opts.log, "%s: %d files\n", root.Name, len(files))
-		pilot, err := runPilot(opts.launcher, dir, files, opts.timeout)
+		pilot, err := runPilot(opts.launcher, dir, []string{opts.libraries}, files, opts.timeout)
 		if err != nil {
 			return err
 		}

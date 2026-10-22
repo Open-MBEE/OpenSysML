@@ -62,6 +62,7 @@ func escapedRun(t *testing.T, body Value) *calcRun {
 func TestEscapedBodyReadsCalcOutputsAfterFrameReuse(t *testing.T) {
 	scope, ctx := detachRuntime(t)
 	body, err := invokeInts(t, ctx, scope, "Window", 2)
+	body = soleElement(body)
 	if err != nil {
 		t.Fatalf("Window(2): %v", err)
 	}

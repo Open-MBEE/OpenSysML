@@ -1752,9 +1752,10 @@ func (p *Parser) parseResultMember() ast.Node {
 	// Parse optional usage kind keyword (e.g., 'attribute')
 	// Default to UsageAttribute if not specified
 	usageKind := ast.UsageAttribute
+	keyword := ""
 	if p.at(lexer.Keyword) {
 		if kind, ok := p.usageKind(p.peek().KeywordID); ok {
-			usageKind = kind
+			usageKind, keyword = kind, p.peek().KeywordID
 			p.advance() // consume kind keyword
 		}
 	}
@@ -1769,6 +1770,7 @@ func (p *Parser) parseResultMember() ast.Node {
 		u := &ast.Usage{
 			Prefixes:    prefixes,
 			Kind:        usageKind,
+			Keyword:     keyword,
 			Direction:   ast.DirOut,
 			IsResult:    true,
 			IsAbstract:  mods.isAbstract,

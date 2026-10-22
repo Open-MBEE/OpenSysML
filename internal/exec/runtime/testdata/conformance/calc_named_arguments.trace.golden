@@ -7,7 +7,7 @@
           eval feature x -> 3
           eval feature factor -> 4
         eval operator * -> 12
-    exit calc test::scale -> 12
-  eval invoke test::scale -> 12
+    exit calc test::scale -> (12)
+  eval invoke test::scale -> (12)
   eval literal 12 -> 12
 eval operator == -> true

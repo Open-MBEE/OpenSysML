@@ -6,6 +6,6 @@
     "factor": {"type": "Real", "value": 3.0}
   },
   "outputs": {
-    "total": {"type": "Real", "value": 36.0}
+    "total": {"type": "Sequence", "elements": [{"type": "Real", "value": 36.0}]}
   }
 }

@@ -188,8 +188,8 @@ func TestEvalExtentAndUsageReadOneObject(t *testing.T) {
 		for _, expr := range order {
 			evalOK(t, s, expr)
 		}
-		if got := evalOK(t, s, "Demo::N()"); !strings.Contains(got, "= 1") {
-			t.Errorf("%s: Demo::N() = %q, want 1", name, got)
+		if got := evalOK(t, s, "Demo::N()"); !strings.Contains(got, "= [1]") {
+			t.Errorf("%s: Demo::N() = %q, want [1]", name, got)
 		}
 		if got := evalOK(t, s, "all Demo::Car"); strings.Count(got, "Instance(") != 1 {
 			t.Errorf("%s: all Demo::Car = %q, want the one car", name, got)

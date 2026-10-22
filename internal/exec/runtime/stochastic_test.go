@@ -332,14 +332,14 @@ func TestWeightedCaseStepsKeepTheirWeights(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RunAnalysis: %v", err)
 		}
-		if len(run.Outputs) != 1 || run.Outputs[0].Value.Const.Kind != semantics.ValInt {
+		if len(run.Outputs) != 1 || soleElement(run.Outputs[0].Value).Const.Kind != semantics.ValInt {
 			t.Fatalf("outputs = %+v, want the one Integer result", run.Outputs)
 		}
 		choices := ctx.Choices()
 		if len(choices) != 1 || !choices[0].weighted() {
 			t.Fatalf("choices %v, want one weighted decision", choices)
 		}
-		return run.Outputs[0].Value.Const.Int, choices[0]
+		return soleElement(run.Outputs[0].Value).Const.Int, choices[0]
 	}
 
 	for _, policy := range []string{"declared", "reverse"} {

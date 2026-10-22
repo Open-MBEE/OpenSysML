@@ -419,6 +419,20 @@ func IsParameter(sym *symbols.Symbol) bool {
 	return ok && (usage.Direction != ast.DirNone || usage.IsResult)
 }
 
+// IsOutputParameter reports whether sym is a parameter a behavior answers with: an
+// `out` or `inout` parameter, or a `return` result.
+func IsOutputParameter(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if sym.Recorded() {
+		return sym.DeclaresUsage() &&
+			(sym.Facts.Direction == ast.DirOut || sym.Facts.Direction == ast.DirInOut || sym.Facts.Modifiers.Has(symbols.ModResult))
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && (usage.Direction == ast.DirOut || usage.Direction == ast.DirInOut || usage.IsResult)
+}
+
 // IsBehaviorParameter reports whether sym is a parameter a behavior or step owns; a
 // port's directed feature (`in item cmd`) is a flow item of the port, not a parameter.
 func IsBehaviorParameter(sym *symbols.Symbol) bool {
