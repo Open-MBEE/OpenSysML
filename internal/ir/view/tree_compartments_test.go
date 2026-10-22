@@ -221,3 +221,36 @@ func TestCollapseSpaceKeepsLiterals(t *testing.T) {
 		}
 	}
 }
+
+// TestTreeCompartmentVariantForms pins the two variation compartments of the
+// graphical notation (SysML v2.1 §8.2.3.6, `compartment`): a shorthand
+// `variant x` files under "variants", a typed `variant part x` under
+// "variant parts" with no prefix on its row, while `variation` is a modifier
+// kept on the row of an ordinary "parts" compartment.
+func TestTreeCompartmentVariantForms(t *testing.T) {
+	rows := []*Node{
+		{ID: "a", Kind: "variant", Name: "manual"},
+		{ID: "b", Kind: "variant part", Name: "automatic", Type: "Transmission"},
+		{ID: "c", Kind: "variation part", Name: "transmission", Type: "Transmission"},
+		{ID: "d", Kind: "part", Name: "engine", Type: "Engine"},
+		{ID: "e", Kind: "variant attribute", Name: "large", Value: "100[mm]"},
+	}
+	labels := labeller{shown: Shown{ElementCompartments: true, ElementTypings: true}}
+	var got []string
+	for _, compartment := range compartmentsOf(rows) {
+		var texts []string
+		for _, row := range compartment.Rows {
+			texts = append(texts, labels.rowText(row))
+		}
+		got = append(got, compartment.Name+": "+strings.Join(texts, " | "))
+	}
+	want := []string{
+		"parts: variation transmission : Transmission | engine : Engine",
+		"variants: manual",
+		"variant parts: automatic : Transmission",
+		"variant attributes: large = 100[mm]",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("compartments:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}

@@ -35,7 +35,7 @@ func TestAnalysisRunsADefinitionOwnedCaseOnTheObjectGivenOverOneHeld(t *testing.
 		"verdict = [VerdictKind::fail]",
 		"✗ Verification Cost::Definition::costTest on Cost::dear (object #2) verdict: fail")
 	wants(t, run(t, s, "%analysis Cost::Definition::costTest"),
-		"? Verification Cost::Definition::costTest on Instance(ID: 1) verdict: error", "no value for feature cost")
+		"? Verification Cost::Definition::costTest on Instance(ID: 1) verdict: error", "no value for feature product.cost")
 }
 
 // TestAnalysisOfADefinitionOwnedCaseWithoutAnObject checks that the case runs
