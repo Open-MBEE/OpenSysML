@@ -1486,6 +1486,9 @@ func (m *migration) linePoints(el *sysmlv1.Element, c mtip.Connector, boxes map[
 		return m.connectorLinePoints(el, c)
 	}
 	first, second := m.lineEnds(el)
+	if first == nil && second == nil {
+		return m.pairLinePoints(el, c, boxes)
+	}
 	if first == nil || second == nil || first == second {
 		return c.Points
 	}
@@ -1517,6 +1520,23 @@ func lineReversed(c mtip.Connector, first, second string, boxes map[string]mtip.
 		return false, true
 	}
 	return false, false
+}
+
+// pairLinePoints is the line run of a dependency with several clients or
+// suppliers, oriented client to supplier by the pair the stream drew it between;
+// as drawn when the stream names no pair of its ends.
+func (m *migration) pairLinePoints(el *sysmlv1.Element, c mtip.Connector, boxes map[string]mtip.Placement) []float64 {
+	for _, client := range m.model.Refs(el, "client") {
+		for _, supplier := range m.model.Refs(el, "supplier") {
+			if reversed, known := lineReversed(c, client.ID, supplier.ID, boxes); known {
+				if reversed {
+					return reversePoints(c.Points)
+				}
+				return c.Points
+			}
+		}
+	}
+	return c.Points
 }
 
 // lineEnds are the elements at the ends of the line el is drawn as, in the order its
