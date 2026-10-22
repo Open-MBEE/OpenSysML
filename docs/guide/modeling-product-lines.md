@@ -509,9 +509,11 @@ relationships:
 ```
 
 The text form writes the keywords; the diagram forms (`mermaid`, `dot`,
-`plantuml`, `svg`) write them as stereotype rows, `«variation part def»` and
+`plantuml`, `d2`) write them as stereotype rows, `«variation part def»` and
 `«variant»`, on the box, and the [editor diagram panel](08-editors.md) renders
-the same views. `cylinder` appears under `EngineChoices` and under
+the same views. A tree is not written as `svg` directly — that form is for
+run renderings — so a slide takes the Mermaid or DOT source through its own
+converter. `cylinder` appears under `EngineChoices` and under
 each variant because every engine has cylinders and each variant redefines
 how many. The interconnection rendering keeps the variation rows and draws
 the connections between the exposed parts; this family declares none, so it
@@ -532,9 +534,8 @@ part vehicleFamily
 ```
 
 The same views render from the command line with `-render <view>` and
-`-render-form <form>` ([CLI reference](../reference/cli.md)), which is how a
-slide gets its SVG; the forms and what each draws are listed with
-[`%render`](../reference/repl-commands.md).
+`-render-form <form>` ([CLI reference](../reference/cli.md)); the forms and
+what each draws are listed with [`%render`](../reference/repl-commands.md).
 
 What you have learned: a view that exposes the family draws every variation
 point and its variants as rows marked `variation` and `variant`, in text or as
