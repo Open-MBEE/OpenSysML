@@ -85,7 +85,7 @@ func testMetaCastFailureModes(t *testing.T) {
 		{"an unresolved subject", "test::nope meta KerML::Feature", "nope", ErrUnresolvedReference},
 		{"an unresolved type", "test::seatBelt meta KerML::Nonexistent", "KerML::Nonexistent", errUnresolvedType},
 		{"a feature the metaclass lacks", "(test::seatBelt meta KerML::Feature).wheels", "wheels", ErrNoSuchFeature},
-		{"a feature the runtime does not derive", "(test::seatBelt meta KerML::Feature).ownedRelationship", "ownedRelationship", ErrReflectiveFeatureUnsupported},
+		{"a feature the runtime does not derive", "(test::seatBelt meta KerML::Feature).aliasIds", "aliasIds", ErrReflectiveFeatureUnsupported},
 		{"a documentation body without the notation", "(test::Vehicle meta KerML::Element).documentation.body", "body", ErrReflectiveFeatureUnsupported},
 	} {
 		_, got, err := evalDeclaredExpr(t, model, tc.expr)
