@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -84,6 +85,15 @@ func qualifiedText(qn *ast.QualifiedName) string {
 // surface quotes with, `%render` included.
 func notationName(fqn string) string {
 	return source.QualifiedNameText(fqn)
+}
+
+// notationValue writes a value a report states for v as the notation does: a
+// datatype's value is a qualified name; any other is already written as the notation does.
+func notationValue(v *solve.Var, value string) string {
+	if v != nil && v.Sort.Kind == solve.SortDatatype {
+		return notationName(value)
+	}
+	return value
 }
 
 // declaredName spells the name an object is held under from its declaration, segment by

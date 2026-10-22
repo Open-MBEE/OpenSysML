@@ -135,7 +135,7 @@ func roundedUnsatReport(name, subject string, result *solve.Result, q *solve.Que
 
 // solveSubject names the element a report is about, as a verdict about it would.
 func solveSubject(q *solve.Query) string {
-	subject := strings.ToUpper(q.Kind[:1]) + q.Kind[1:] + " " + q.Element
+	subject := strings.ToUpper(q.Kind[:1]) + q.Kind[1:] + " " + notationName(q.Element)
 	if q.Negated {
 		return subject + " (negated)"
 	}
@@ -168,7 +168,9 @@ func assignmentLines(model []solve.Assignment) []string {
 			continue
 		}
 		line := fmt.Sprintf("  %s = %s", notationName(a.Var.Name), a.Value)
-		if !a.Rendered {
+		if a.Rendered {
+			line = fmt.Sprintf("  %s = %s", notationName(a.Var.Name), notationValue(a.Var, a.Value))
+		} else {
 			line += "  (as the solver wrote it)"
 		}
 		out = append(out, line)

@@ -170,7 +170,7 @@ func conflictingFixed(q *solve.Query, core *solve.Core) []string {
 	for _, i := range core.Indices {
 		for _, pinned := range q.Pinned {
 			if pinned.Index == i {
-				conflicting = append(conflicting, notationName(pinned.Var.Name)+" = "+pinned.Value)
+				conflicting = append(conflicting, notationName(pinned.Var.Name)+" = "+notationValue(pinned.Var, pinned.Value))
 			}
 		}
 	}
@@ -209,7 +209,7 @@ func fixedLines(q *solve.Query) []string {
 	}
 	lines := []string{"  Already fixed:"}
 	for _, p := range q.Pinned {
-		lines = append(lines, fmt.Sprintf("    %s = %s  (%s)", notationName(p.Var.Name), p.Value, fixedFrom(p)))
+		lines = append(lines, fmt.Sprintf("    %s = %s  (%s)", notationName(p.Var.Name), notationValue(p.Var, p.Value), fixedFrom(p)))
 	}
 	return lines
 }
@@ -251,7 +251,7 @@ func unfixedLines(unfixed []solve.Unfixed) []string {
 	}
 	lines := []string{"  Left free, since their declared value could not be read:"}
 	for _, u := range unfixed {
-		lines = append(lines, fmt.Sprintf("    %s: %s", u.Name, u.Reason))
+		lines = append(lines, fmt.Sprintf("    %s: %s", notationName(u.Name), u.Reason))
 	}
 	return lines
 }
@@ -275,7 +275,7 @@ func unreadLines(q *solve.Query) []string {
 			// A declared value the conditions do not read says nothing about them.
 			continue
 		}
-		lines = append(lines, fmt.Sprintf("  %s was not used: %s", u.Pin.Name, u.Reason))
+		lines = append(lines, fmt.Sprintf("  %s was not used: %s", notationName(u.Pin.Name), u.Reason))
 	}
 	return lines
 }
@@ -663,7 +663,7 @@ func selectionLines(selection []solve.Assignment) []string {
 		if a.Dead {
 			continue
 		}
-		lines = append(lines, fmt.Sprintf("  %s = %s", notationName(a.Var.Name), notationName(a.Value)))
+		lines = append(lines, fmt.Sprintf("  %s = %s", notationName(a.Var.Name), notationValue(a.Var, a.Value)))
 	}
 	return lines
 }

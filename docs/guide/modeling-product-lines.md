@@ -350,7 +350,7 @@ Named with the family alone, `%configure` returns one consistent selection:
 
 ```text
 sysml> %configure 'Variation Usages'::vehicleFamily
-✓ Part vehicleFamily permits a selection of variants (z3, 16ms)
+✓ Part vehicleFamily permits a selection of variants (z3, 20ms)
   'Variation Usages'::vehicleFamily::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'
   'Variation Usages'::vehicleFamily::transmission = 'Variation Usages'::vehicleFamily::transmission::manualTransmission
   One witness: use %configure 'Variation Usages'::vehicleFamily all for every consistent selection.
@@ -364,12 +364,12 @@ transmission is refused:
 
 ```text
 sysml> %configure 'Variation Usages'::vehicleFamily engine='4cylEngine' transmission=automaticTransmission
-✗ the chosen variants are not consistent with Part vehicleFamily (z3, 14ms)
+✗ the chosen variants are not consistent with Part vehicleFamily (z3, 15ms)
   Already fixed:
-    'Variation Usages'::vehicleFamily::engine = Variation Definitions::EngineChoices::4cylEngine  (chosen)
-    'Variation Usages'::vehicleFamily::transmission = Variation Usages::vehicleFamily::transmission::automaticTransmission  (chosen)
-  In the conflict: 'Variation Usages'::vehicleFamily::engine = Variation Definitions::EngineChoices::4cylEngine, 'Variation Usages'::vehicleFamily::transmission = Variation Usages::vehicleFamily::transmission::automaticTransmission
-  Against: required condition { engine == engine::4cylEngine and transmission == transmission::manualTransmission xor engine == engine::6cylEngine and transmission == transmission::automaticTransmission } of vehicleFamily at examples/sysml-v2-training/36. Variability/Variation Usages.sysml:18:4
+    'Variation Usages'::vehicleFamily::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'  (chosen)
+    'Variation Usages'::vehicleFamily::transmission = 'Variation Usages'::vehicleFamily::transmission::automaticTransmission  (chosen)
+  In the conflict: 'Variation Usages'::vehicleFamily::engine = 'Variation Definitions'::EngineChoices::'4cylEngine', 'Variation Usages'::vehicleFamily::transmission = 'Variation Usages'::vehicleFamily::transmission::automaticTransmission
+  Against: required condition { engine == engine::'4cylEngine' and transmission == transmission::manualTransmission xor engine == engine::'6cylEngine' and transmission == transmission::automaticTransmission } of vehicleFamily at examples/sysml-v2-training/36. Variability/Variation Usages.sysml:18:4
   standing: unsatisfiable (proved over inputs: 1 query by solve)
 ```
 
@@ -379,7 +379,7 @@ catalogue, derived from the superset model rather than maintained beside it:
 
 ```text
 sysml> %configure 'Variation Usages'::vehicleFamily all
-✓ Part vehicleFamily permits 2 selections of variants, which are all of them (z3, 15ms)
+✓ Part vehicleFamily permits 2 selections of variants, which are all of them (z3, 17ms)
   1.
     'Variation Usages'::vehicleFamily::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'
     'Variation Usages'::vehicleFamily::transmission = 'Variation Usages'::vehicleFamily::transmission::manualTransmission
@@ -397,10 +397,10 @@ selection is consistent with them. For `vehicle4Cyl` there is one; for
 
 ```text
 sysml> %configure 'Variation Configuration'::vehicle4Cyl
-✓ Part vehicle4Cyl permits a selection of variants (z3, 14ms)
+✓ Part vehicle4Cyl permits a selection of variants (z3, 15ms)
   Already fixed:
-    'Variation Configuration'::vehicle4Cyl::engine = Variation Definitions::EngineChoices::4cylEngine  (declared)
-    'Variation Configuration'::vehicle4Cyl::transmission = Variation Usages::vehicleFamily::transmission::manualTransmission  (declared)
+    'Variation Configuration'::vehicle4Cyl::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'  (declared)
+    'Variation Configuration'::vehicle4Cyl::transmission = 'Variation Usages'::vehicleFamily::transmission::manualTransmission  (declared)
   'Variation Configuration'::vehicle4Cyl::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'
   'Variation Configuration'::vehicle4Cyl::transmission = 'Variation Usages'::vehicleFamily::transmission::manualTransmission
   One witness: use %configure 'Variation Configuration'::vehicle4Cyl all for every consistent selection.
@@ -408,10 +408,10 @@ sysml> %configure 'Variation Configuration'::vehicle4Cyl
 sysml> %configure 'Variation Configuration'::vehicle6Cyl
 ✗ Part vehicle6Cyl permits no selection of variants consistent with the values it fixes (z3, 14ms)
   Already fixed:
-    'Variation Configuration'::vehicle6Cyl::engine = Variation Definitions::EngineChoices::6cylEngine  (declared)
-    'Variation Configuration'::vehicle6Cyl::transmission = Variation Usages::vehicleFamily::transmission::manualTransmission  (declared)
-  In the conflict: 'Variation Configuration'::vehicle6Cyl::engine = Variation Definitions::EngineChoices::6cylEngine, 'Variation Configuration'::vehicle6Cyl::transmission = Variation Usages::vehicleFamily::transmission::manualTransmission
-  Against: required condition { engine == engine::4cylEngine and transmission == transmission::manualTransmission xor engine == engine::6cylEngine and transmission == transmission::automaticTransmission } of vehicleFamily at examples/sysml-v2-training/36. Variability/Variation Usages.sysml:18:4
+    'Variation Configuration'::vehicle6Cyl::engine = 'Variation Definitions'::EngineChoices::'6cylEngine'  (declared)
+    'Variation Configuration'::vehicle6Cyl::transmission = 'Variation Usages'::vehicleFamily::transmission::manualTransmission  (declared)
+  In the conflict: 'Variation Configuration'::vehicle6Cyl::engine = 'Variation Definitions'::EngineChoices::'6cylEngine', 'Variation Configuration'::vehicle6Cyl::transmission = 'Variation Usages'::vehicleFamily::transmission::manualTransmission
+  Against: required condition { engine == engine::'4cylEngine' and transmission == transmission::manualTransmission xor engine == engine::'6cylEngine' and transmission == transmission::automaticTransmission } of vehicleFamily at examples/sysml-v2-training/36. Variability/Variation Usages.sysml:18:4
   standing: unsatisfiable (proved over inputs: 1 query by solve)
 ```
 
@@ -427,7 +427,7 @@ requirement together, and owns a `rearAxleAssembly` whose own
 
 ```text
 sysml> %configure '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig all
-✓ Part anyVehicleConfig permits 2 selections of variants, which are all of them (z3, 15ms)
+✓ Part anyVehicleConfig permits 2 selections of variants, which are all of them (z3, 16ms)
   1.
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice::'4cylEngine'
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice::normalPerformanceRequirement

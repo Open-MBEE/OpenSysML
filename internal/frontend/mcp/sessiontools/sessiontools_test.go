@@ -288,6 +288,43 @@ func TestConfigureRefusesSelectionsWithAll(t *testing.T) {
 	}
 }
 
+// quotedFamily is a product line whose names the notation quotes, so the configure
+// tool's text must write them as the notation does.
+const quotedFamily = `package 'Cfg Space' {
+	part def E; part def T;
+	variation part def 'Engine Choices' :> E { variant part '4cyl' : E; variant part '6cyl' : E; }
+	abstract part 'the family' {
+		part engine : 'Engine Choices'[1];
+		variation part trans : T { variant man : T; variant 'auto box' : T; }
+		assert constraint { (engine == 'Engine Choices'::'4cyl' and trans == trans::man) xor (engine == 'Engine Choices'::'6cyl' and trans == trans::'auto box') }
+	}
+}`
+
+func TestConfigureWritesNamesAsTheNotationDoes(t *testing.T) {
+	if _, err := solve.Discover(); err != nil {
+		t.Skipf("no SMT solver installed: %v", err)
+	}
+	cs := connect(t, t.TempDir())
+	must(t, cs, "session_submit", args("text", quotedFamily), nil)
+
+	var res SolveResult
+	must(t, cs, "configure", args("name", "'Cfg Space'::'the family'", "all", true), &res)
+	for _, want := range []string{"Part 'the family' permits 2 selections", "'Cfg Space'::'the family'::engine = 'Cfg Space'::'Engine Choices'::'4cyl'", "'Cfg Space'::'the family'::trans = 'Cfg Space'::'the family'::trans::'auto box'"} {
+		if !strings.Contains(res.Text, want) {
+			t.Errorf("configure all lacks %q:\n%s", want, res.Text)
+		}
+	}
+	must(t, cs, "configure", args("name", "'Cfg Space'::'the family'", "selections", []string{"engine='6cyl'", "trans=man"}), &res)
+	if res.Reports[0].Status != "unsat" || !strings.Contains(res.Text, "In the conflict: 'Cfg Space'::'the family'::engine = 'Cfg Space'::'Engine Choices'::'6cyl', 'Cfg Space'::'the family'::trans = 'Cfg Space'::'the family'::trans::man") {
+		t.Errorf("a refused selection = %+v", res)
+	}
+	for _, plain := range []string{"Cfg Space::", "::Engine Choices", "::the family", "::6cyl", "::4cyl", "::auto box", "Part the family"} {
+		if strings.Contains(res.Text, plain) {
+			t.Errorf("a name written without its quotes: %q in\n%s", plain, res.Text)
+		}
+	}
+}
+
 func TestDebuggerStepsAnActionToCompletion(t *testing.T) {
 	cs := connect(t, t.TempDir())
 	must(t, cs, "session_submit", args("text", actionModel), nil)
