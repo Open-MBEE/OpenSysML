@@ -1,0 +1,26 @@
+{
+  "type": "instance",
+  "instantiate": "test::tree",
+  "libraries": true,
+  "slots": {
+    "gate": {"type": "Instance"},
+    "namedGate": {"type": "Instance"},
+    "pair": {"type": "Instance"}
+  },
+  "identical": [
+    ["pair.one", "a"],
+    ["pair.two", "b"],
+    ["namedGate.c1", "a"],
+    ["namedGate.e1", "top"]
+  ],
+  "constraints": {
+    "gateCauses": true,
+    "gateEffects": true,
+    "gateParticipants": true,
+    "namedGateCauses": true,
+    "namedGateEnd": true,
+    "pairOne": true,
+    "pairTwo": true
+  },
+  "materialization": {}
+}
