@@ -486,3 +486,20 @@ func TestW8BConstancyConformanceImplicitParameters(t *testing.T) {
 		t.Fatalf("one finding each for Spec, SpecExplicit and SpecSubsets (written `:>` and implied `:>>` share the target), got %v", got)
 	}
 }
+
+// A clause naming the parameter at its own position is one redefinition, so a
+// direction conflict there is reported once, at the clause.
+func TestW8BDirectionConformanceWrittenPositionalTargetReportedOnce(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::*;
+		action def A { in x : Integer; }
+		action a : A { out :>> x; }
+	}`
+	diags := directionDiags(t, src)
+	if len(diags) != 1 {
+		t.Fatalf("got %d direction diagnostics, want one: %v", len(diags), diags)
+	}
+	if got := spanText(src, diags[0]); got != "x" {
+		t.Errorf("reported at %q, want the redefined name", got)
+	}
+}

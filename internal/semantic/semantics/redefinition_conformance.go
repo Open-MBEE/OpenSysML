@@ -76,10 +76,11 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 	// A parameter redefines the parameter at its position implicitly (KerML 7.4.7.2),
 	// and that Redefinition is held to the direction and restriction rules like a written one.
 	for _, target := range m.implicitParameterCounterparts(sym) {
-		out = append(out, m.directionViolations(sym, traits, target, sym.Decl)...)
-		if !written[target] {
-			out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
+		if written[target] {
+			continue // the written clause names it, and was judged above
 		}
+		out = append(out, m.directionViolations(sym, traits, target, sym.Decl)...)
+		out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
 	}
 	return out
 }

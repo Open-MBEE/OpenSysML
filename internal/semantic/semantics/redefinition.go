@@ -369,9 +369,8 @@ func (m *Model) implicitParameterCounterparts(sym *symbols.Symbol) []*symbols.Sy
 	return m.implicitParameterTargets(sym, false)
 }
 
-// implicitParameterTargets is the shared walk: matchDirection keeps only the
-// positions whose direction agrees with sym's, and leaves a parameter that
-// redefines by clause to that clause.
+// implicitParameterTargets is the shared walk: matchDirection keeps only the positions
+// whose direction agrees with sym's and leaves a parameter redefining by clause to it.
 func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection bool) []*symbols.Symbol {
 	if sym == nil {
 		return nil
