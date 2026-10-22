@@ -110,7 +110,7 @@ package Model {
             metadata DiagramLayout::Layout about Engine { x = 120; y = 160; width = 100; height = 80; }
             metadata DiagramLayout::Layout about Wheel { x = 230; y = 160; width = 100; height = 80; }
             metadata DiagramLayout::Route about Engine { points = (170, 160, 170, 80); ref :>> general : Component; }
-            metadata DiagramLayout::Route about 'Vehicle to Engine' { points = (120, 200, 110, 200); }
+            metadata DiagramLayout::Route about 'Vehicle to Engine' { points = (110, 200, 120, 200); }
             metadata DiagramLayout::Route about 'Engine to Component', 'Wheel to Component' { points = (160, 180, 60, 60); }
             metadata DiagramLayout::Route about WheelToVehicle { points = (260, 220, 210, 260, 160, 220); }
             render Views::asTreeDiagram;
@@ -175,8 +175,8 @@ package Model {
             metadata DiagramLayout::Layout about 'Mass Limit' { x = 120; y = 10; width = 100; height = 40; }
             metadata DiagramLayout::Layout about Structure::Vehicle { x = 10; y = 100; width = 100; height = 40; }
             metadata DiagramLayout::Layout about 'Mass Test' { x = 230; y = 100; width = 100; height = 40; }
-            metadata DiagramLayout::Route about Structure::Vehicle::'satisfy Mass Limit' { points = (120, 50, 110, 120); }
-            metadata DiagramLayout::Route about Requirements::'Mass Test'::'objective'::'verify Mass Limit' { points = (220, 50, 230, 120); }
+            metadata DiagramLayout::Route about Structure::Vehicle::'satisfy Mass Limit' { points = (110, 120, 120, 50); }
+            metadata DiagramLayout::Route about Requirements::'Mass Test'::'objective'::'verify Mass Limit' { points = (230, 120, 220, 50); }
             render Views::asTreeDiagram;
         }
     }

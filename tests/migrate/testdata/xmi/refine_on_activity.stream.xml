@@ -54,8 +54,8 @@
   </mdElement>
   <mdElement elementClass='Abstraction' xmi:id='_sym_refine_pump'>
     <elementID xmi:idref='_dep_refine_pump'></elementID>
-    <linkFirstEndID xmi:idref='_sym_pump'></linkFirstEndID>
-    <linkSecondEndID xmi:idref='_sym_req'></linkSecondEndID>
-    <geometry>150, 170; 250, 170; </geometry>
+    <linkFirstEndID xmi:idref='_sym_req'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_pump'></linkSecondEndID>
+    <geometry>250, 170; 150, 170; </geometry>
   </mdElement>
 </mdOwnedViews>

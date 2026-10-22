@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -463,31 +464,31 @@ func (m *migration) endsDrawn(x exposures, f viewForm, host, el *sysmlv1.Element
 	if !ok || f.nativeEdge(em.keyword) || !dependencyKeyword(em.keyword) {
 		return true
 	}
-	ends := m.edgeEnds(el)
-	if len(ends) < 2 {
+	from, to := m.edgeEnds(el)
+	if len(from) == 0 || len(to) == 0 {
 		return true
 	}
-	for _, end := range ends {
-		if !m.draws(x, f, host, end, m.exposure(end, host)) {
-			return false
-		}
+	drawn := func(ends []*sysmlv1.Element) bool {
+		return slices.ContainsFunc(ends, func(end *sysmlv1.Element) bool { return m.draws(x, f, host, end, m.exposure(end, host)) })
 	}
-	return true
+	return drawn(from) && drawn(to)
 }
 
-// edgeEnds are the elements a dependency-like edge joins: a dependency's
-// clients and suppliers, the roles of a connector's ends.
-func (m *migration) edgeEnds(el *sysmlv1.Element) []*sysmlv1.Element {
+// edgeEnds are the elements a dependency-like edge joins, by side: a
+// dependency's clients and suppliers (a pair of a dependency with several is
+// drawn when one of each side is shown), the roles of a connector's two ends.
+func (m *migration) edgeEnds(el *sysmlv1.Element) (from, to []*sysmlv1.Element) {
 	if el.Type != "Connector" {
-		return append(m.model.Refs(el, "client"), m.model.Refs(el, "supplier")...)
+		return m.model.Refs(el, "client"), m.model.Refs(el, "supplier")
 	}
-	var ends []*sysmlv1.Element
-	for _, end := range el.Owned("end") {
-		if role := m.model.Ref(end, "role"); role != nil {
-			ends = append(ends, role)
-		}
+	ends := el.Owned("end")
+	if len(ends) != 2 {
+		return nil, nil
 	}
-	return ends
+	if a, b := m.model.Ref(ends[0], "role"), m.model.Ref(ends[1], "role"); a != nil && b != nil {
+		return []*sysmlv1.Element{a}, []*sysmlv1.Element{b}
+	}
+	return nil, nil
 }
 
 // drawsAsEdge reports whether the rendering of form f draws el as an edge, which no
@@ -1519,11 +1520,14 @@ func lineReversed(c mtip.Connector, first, second string, boxes map[string]mtip.
 }
 
 // lineEnds are the elements at the ends of the line el is drawn as, in the order its
-// member names them: a flow's or transition's source then target, a connection def's end
-// types, or a backed attribute's owner then its type.
+// member names them: a flow's or transition's source then target, a binary dependency's
+// client then supplier, a connection def's end types, or a backed attribute's owner then its type.
 func (m *migration) lineEnds(el *sysmlv1.Element) (first, second *sysmlv1.Element) {
 	if el.Role == "edge" || el.Type == "Transition" {
 		return m.model.Ref(el, "source"), m.model.Ref(el, "target")
+	}
+	if clients, suppliers := m.model.Refs(el, "client"), m.model.Refs(el, "supplier"); len(clients) == 1 && len(suppliers) == 1 {
+		return clients[0], suppliers[0]
 	}
 	if prop := m.backedProperty(el); prop != nil {
 		return prop.Parent, m.model.Ref(prop, "type")

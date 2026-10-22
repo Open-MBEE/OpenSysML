@@ -8,7 +8,8 @@
 
     <!-- Fill: an activity owned by a use case, drawn on an activity diagram that
          also shows the use case, a requirement, and two «Refine» abstractions:
-         one from the use case to the requirement, one from an action to it. -->
+         one from the use case to the requirement, one from an action to it; the
+         tool drew the second from the requirement's symbol back to the action's. -->
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_ops" name="Ops">
       <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_fill" name="Fill Tank">
         <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_fill" name="Fill">

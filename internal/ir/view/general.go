@@ -312,7 +312,9 @@ func (g *generalGraph) drawn(sym *symbols.Symbol) *Node {
 // add records an edge once: an import edge once per import declaration.
 func (g *generalGraph) add(edge Edge) {
 	key := generalEdgeKey{from: edge.From, to: edge.To, label: edge.text(), kind: edge.Kind}
-	if edge.Kind == EdgeImport {
+	// Distinct declarations draw distinct import edges, and distinct exposed
+	// relationships distinct edges, each with its own route.
+	if edge.Kind == EdgeImport || g.exposed != nil {
 		key.origin = edge.Origin
 	}
 	if g.edges[key] {
@@ -1027,6 +1029,10 @@ func (r *Renderer) exposedRelationships(view *symbols.Symbol, exposed []*symbols
 			continue
 		}
 		used[sym] = true
+		if len(edges) == 0 {
+			out.Notices = append(out.Notices, fmt.Sprintf("%s %s is drawn between the nodes of its ends; the view does not show both, so no edge is drawn",
+				declKind(sym), r.notationName(sym)))
+		}
 		for _, edge := range edges {
 			edge.Route = r.routeOf(view, sym, out)
 			edge.Style = r.edgeDress(view, sym, edge.From, edge.To, out)
