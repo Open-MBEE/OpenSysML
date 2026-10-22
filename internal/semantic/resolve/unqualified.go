@@ -153,8 +153,10 @@ func symbolShortName(sym *symbols.Symbol) string {
 type shortNaming struct {
 	derived map[*symbols.Symbol]string // every short name this derivation settled on
 	guarded map[*symbols.Symbol]bool   // features asked for while their naming was under way
-	// dependent are complete derivations that asked for a guarded feature,
-	// memoized once every guarded feature proves to have no short name.
+	// hits counts the answers that may not hold: a guard's, or a derivation's
+	// reused before it is memoized; dependent are the complete derivations
+	// that met one, memoized once every guarded feature proves to have no name.
+	hits      int
 	dependent []*symbols.Symbol
 }
 
@@ -168,18 +170,29 @@ func (r *Resolver) derivedShortName(sym *symbols.Symbol) string {
 	if sym.Naming == symbols.NamedByDeclaration || sym.ShortName != "" {
 		return sym.ShortName
 	}
-	if short, done := r.shortNames[sym]; done {
-		return short
-	}
+	// A filter condition and an `import all` resolve unfiltered (see memoize),
+	// so what they derive is theirs alone.
+	ordinary := r.inCondition == 0 && r.allVisible == 0
 	run := r.shortNaming
-	if run != nil {
-		if short, done := run.derived[sym]; done {
+	if ordinary {
+		// Deriving the name reads sym's document (see namingFeatureOf), whose
+		// frame owns the memo, so a reader of the memo depends on it the same.
+		if short, done := r.shortNames[sym]; done {
+			r.Depend(sym.DocName)
 			return short
+		}
+		if run != nil {
+			if short, done := run.derived[sym]; done {
+				run.hits++
+				r.Depend(sym.DocName)
+				return short
+			}
 		}
 	}
 	if r.naming[sym] != 0 {
 		if run != nil {
 			run.guarded[sym] = true
+			run.hits++
 		}
 		return ""
 	}
@@ -188,19 +201,22 @@ func (r *Resolver) derivedShortName(sym *symbols.Symbol) string {
 		run = &shortNaming{derived: map[*symbols.Symbol]string{}, guarded: map[*symbols.Symbol]bool{}}
 		r.shortNaming = run
 	}
-	guarded := len(run.guarded)
+	hits := run.hits
 	r.naming[sym] = r.Enter()
 	next := r.namingFeatureOf(sym)
 	short := r.derivedShortName(next)
 	delete(r.naming, sym)
-	run.derived[sym] = short
 	// A naming feature a semantic query could not reach is asked for again, as
 	// a failed reference is (see resolveQualified).
-	switch complete := r.Leave() && next != nil; {
-	case complete && len(run.guarded) == guarded:
-		r.memoShortName(sym, short)
-	case complete:
-		run.dependent = append(run.dependent, sym)
+	complete := r.Leave() && next != nil
+	if ordinary {
+		run.derived[sym] = short
+		switch {
+		case complete && run.hits == hits:
+			r.memoShortName(sym, short)
+		case complete:
+			run.dependent = append(run.dependent, sym)
+		}
 	}
 	if outermost {
 		r.shortNaming = nil
@@ -224,7 +240,11 @@ func (run *shortNaming) truthful() bool {
 	return true
 }
 
+// memoShortName records sym's derived short name under the frame of sym's
+// document, which read what the derivation read and is dropped with it.
 func (r *Resolver) memoShortName(sym *symbols.Symbol, short string) {
+	r.EnterDoc(sym.DocName)
+	defer r.LeaveDoc()
 	journalNew(r, r.shortNames, sym, sym.Decl)
 	r.shortNames[sym] = short
 }

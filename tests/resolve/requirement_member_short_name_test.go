@@ -154,3 +154,35 @@ func qualified(parts ...string) *ast.QualifiedName {
 	}
 	return q
 }
+
+// A `require` member takes the short name of the requirement it references,
+// and deriving it asks the group for every sibling's short name while its own
+// is still under way: the sibling asked then settles on no short name only for
+// that derivation, and the member keeps the short name its referent declares.
+func TestRequirementGroupMemberShortNamesDeriveIndependently(t *testing.T) {
+	r, _, rootScope := resolvedDoc(t, `package P {
+	requirement <q> r0;
+	requirement r1;
+	requirement <s> r2;
+	requirement grp {
+		require r1;
+		require r0;
+		require r2;
+	}
+}`)
+	if len(r.Diagnostics) != 0 {
+		t.Fatalf("resolution diagnostics: %v", r.Diagnostics)
+	}
+	grp := local(t, local(t, rootScope, "P").Scope, "grp")
+	for _, short := range []string{"q", "s"} {
+		for range 2 {
+			got, ok := r.ResolveQualified(rootScope, qualified("P", "grp", short))
+			if !ok || got == nil || got.OwnerScope != grp.Scope {
+				t.Fatalf("P::grp::%s = %v, %v; want the require member of grp named by it", short, got, ok)
+			}
+		}
+	}
+	if got, ok := r.ResolveQualified(rootScope, qualified("P", "grp", "r1")); !ok || got == nil || got.OwnerScope != grp.Scope {
+		t.Fatalf("P::grp::r1 = %v, %v; want the require member named by r1", got, ok)
+	}
+}

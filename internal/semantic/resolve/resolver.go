@@ -241,8 +241,8 @@ type Resolver struct {
 	// name: see (*Resolver).BindsName.
 	effNames map[*symbols.Symbol]bool
 	// shortNames memoizes the short name a feature derives from its naming
-	// feature; shortNaming is the outermost derivation under way, which holds
-	// the ones it met that depend on a naming in progress: see derivedShortName.
+	// feature, owned by the feature's document; shortNaming is the outermost
+	// derivation under way: see derivedShortName.
 	shortNames  map[*symbols.Symbol]string
 	shortNaming *shortNaming
 	model       MemberLookup // Optional *semantics.Model for inheritance-aware member lookup
