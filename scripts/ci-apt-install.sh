@@ -38,8 +38,7 @@ run_apt() {
 # Without Error-Mode=any a failed index fetch is a warning and update exits 0,
 # so the stall would only surface later, in install, against stale lists.
 run_apt "$budget" update -o APT::Update::Error-Mode=any
-# The archives are fetched on their own, bounded by the deadline rather than the
-# update budget (Octave is ~200 MB) and resumed by the next attempt, so that dpkg,
-# which must not be interrupted, runs below with everything already local.
+# Archives are fetched under the deadline (Octave is ~200 MB) and a cut-off attempt is
+# resumed by the next, so dpkg, which must not be interrupted, runs on local files.
 run_apt "$deadline" install -y --download-only "$@"
 sudo apt-get "${acquire[@]}" install -y "$@"
