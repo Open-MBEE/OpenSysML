@@ -507,7 +507,7 @@ func (e *performances) performNodeBody(f *performFrame, graph *lower.ActionGraph
 		return e.performCase(perf)
 	}
 	if f.phase == performInvoking {
-		if inv, ok := nestedInvocationInGraph(graph, node); ok {
+		if inv, ok := nodeInvocation(graph, perf, node); ok {
 			if err := e.performInvocation(perf, inv); err != nil {
 				return err
 			}
