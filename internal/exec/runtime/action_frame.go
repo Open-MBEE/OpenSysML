@@ -35,6 +35,16 @@ type performances struct {
 	// flow is the executor holding the tokens these performances run under, which a
 	// terminate drops when it ends one of them.
 	flow *ActionExecutor
+	// through are the bindings the performer writes through the performed feature to
+	// pins of the root flow's nodes (`bind run.measure.report = theReport;`).
+	through []throughBinding
+}
+
+// throughBinding is a binding an object writes through a feature it performs, with
+// the object it is written on.
+type throughBinding struct {
+	lower.PinBinding
+	on *Instance
 }
 
 // statementOrder is lower.BodyStatementOrder of stmts, statements of node in graph
@@ -219,6 +229,9 @@ type nestedDelivery struct {
 type boundEnd struct {
 	lower.PinBinding
 	at *actionFrame
+	// on is the object whose binding reaches through the performed feature to this
+	// pin, on which a name at the other end is read and written; nil for a flow's own.
+	on *Instance
 }
 
 // pinText renders the bound end as written: the node path and the pin.
@@ -1485,6 +1498,12 @@ func (e *performances) evalContextAround(perf *actionFrame, scope *symbols.Scope
 // bindingEndContext evaluates the other end of a binding at a pin as written around
 // the node, with that pin known to be the one being valued.
 func (e *performances) bindingEndContext(end boundEnd) *EvalContext {
+	if end.on != nil {
+		// A performer's binding is a statement of the object that wrote it, read there.
+		ec := NewEvalContextIn(e.ctx, end.Scope, end.on)
+		ec.valuing = pinSymbol(end)
+		return ec
+	}
 	ec := e.evalContextAround(end.at, end.Scope)
 	ec.valuing = pinSymbol(end)
 	return ec
@@ -1619,6 +1638,9 @@ func (e *performances) bindInputPins(perf *actionFrame, activation int64) error 
 			return err
 		}
 		if dir == ast.DirOut {
+			if err := e.seedOutputPin(perf, end); err != nil {
+				return err
+			}
 			continue
 		}
 		earlier, alreadyBound := bound[end.Pin]
@@ -1656,6 +1678,22 @@ func (e *performances) bindInputPins(perf *actionFrame, activation int64) error 
 		bound[end.Pin] = end
 	}
 	return nil
+}
+
+// seedOutputPin gives an out pin the value the performer's feature bound to it through
+// the performed feature holds: a fact of the object, standing before the performance.
+func (e *performances) seedOutputPin(perf *actionFrame, end boundEnd) error {
+	if end.on == nil || end.OtherNode != nil {
+		return nil
+	}
+	if _, held := perf.data[perf.key(end.Pin)]; held {
+		return nil
+	}
+	value, held, err := e.otherEndHeld(perf, end)
+	if err != nil || !held {
+		return err
+	}
+	return e.setFrameFeature(perf, end.Pin, value)
 }
 
 // bindOutputPins carries what a performance's output pins hold to the other ends of the
@@ -1785,6 +1823,13 @@ func (e *performances) writeNamedEnd(end boundEnd, value Value) error {
 		return fmt.Errorf("%w: %s is bound to %s, which names no feature to hold its value",
 			errBindingEnd, end.pinText(), bindingEndText(end.Other))
 	}
+	if end.on != nil {
+		if err := end.on.BindFeatureValue(e.ctx, name, value); err != nil {
+			return boundEndError(end, err)
+		}
+		e.ctx.noteObjectWrite(end.on, name, value)
+		return nil
+	}
 	written, err := e.assignEnclosing(end.at, name, value)
 	if err != nil {
 		return err
@@ -1808,6 +1853,7 @@ func (e *performances) writeNamedEnd(end boundEnd, value Value) error {
 func (e *performances) bindingsAt(perf *actionFrame) []boundEnd {
 	var at []boundEnd
 	var path []ast.Node
+	root := perf
 	for anc := perf; anc.parent != nil; anc = anc.parent {
 		for _, binding := range anc.flow.Bindings {
 			if binding.Node == anc.node && slices.Equal(binding.Path, path) {
@@ -1815,6 +1861,13 @@ func (e *performances) bindingsAt(perf *actionFrame) []boundEnd {
 			}
 		}
 		path = append([]ast.Node{anc.node}, path...)
+		root = anc.parent
+	}
+	// The performer's bindings through the performed feature hold as the root's own.
+	for _, binding := range e.through {
+		if len(path) > 0 && binding.Node == path[0] && slices.Equal(binding.Path, path[1:]) {
+			at = append(at, boundEnd{PinBinding: binding.PinBinding, at: root, on: binding.on})
+		}
 	}
 	return at
 }
@@ -1836,6 +1889,9 @@ func (e *performances) boundPin(perf *actionFrame, end boundEnd) (ast.FeatureDir
 // perf as far as it names their nodes, so it keeps to perf's own run of each, not the latest.
 func otherEnd(perf *actionFrame, end boundEnd) (holder *actionFrame, node ast.Node, path []ast.Node) {
 	if end.OtherNode != end.at.node {
+		if end.at.parent == nil {
+			return end.at, end.OtherNode, end.OtherPath // a performer's binding between two nodes of the root
+		}
 		return end.at.parent, end.OtherNode, end.OtherPath
 	}
 	holder, path = end.at, end.OtherPath
@@ -1891,7 +1947,9 @@ func (e *performances) writeOtherEnd(perf *actionFrame, end boundEnd, value Valu
 		return e.setFrameFeature(holder, end.OtherPin, value)
 	}
 	flow := end.at.flow
-	if holder != end.at.parent {
+	if holder.parent == nil {
+		flow = holder.graph // the root's own nodes, named by a performer's binding
+	} else if holder != end.at.parent {
 		flow = lower.NestedFlow(holder.flow, holder.node, node)
 		if flow == nil {
 			return fmt.Errorf("%w: %s holds no nested action %s", errNodePin, holder.describe(), ActionNodeName(node))
@@ -1912,6 +1970,17 @@ func (e *performances) bindingOtherValue(perf *actionFrame, end boundEnd, activa
 		value, err := other.pin(end.OtherPin)
 		if err != nil {
 			return Value{}, fmt.Errorf("%w: bound to %s", err, end.pinText())
+		}
+		return value, nil
+	}
+	if name := simpleEndName(end.Other); name != "" && end.on != nil {
+		value, held, err := e.ctx.objectEndHeld(end.on, name)
+		if err == nil && !held {
+			err = &NoValueError{Feature: name}
+		}
+		if err != nil {
+			return Value{}, fmt.Errorf("%w: %s is bound to %s: %w",
+				errBindingEnd, end.pinText(), bindingEndText(end.Other), err)
 		}
 		return value, nil
 	}
@@ -1936,6 +2005,9 @@ func (e *performances) otherEndHeld(perf *actionFrame, end boundEnd) (Value, boo
 		return e.ctx.readBodyValue(other.cells, other.data, other.key(end.OtherPin))
 	}
 	if name := simpleEndName(end.Other); name != "" {
+		if end.on != nil {
+			return e.ctx.objectEndHeld(end.on, name)
+		}
 		value, held, err := e.bindingEndContext(end).Lookup(name)
 		if err != nil && e.unheldEnd(end, err) {
 			return Value{}, false, nil // an enclosing feature declared unvalued holds nothing yet
