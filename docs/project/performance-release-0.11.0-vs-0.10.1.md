@@ -1,8 +1,8 @@
 # Performance: release 0.11.0 against release 0.10.1
 
 The release-gate measurement of the 0.11.0 candidate — the head of
-`develop` at `5db0f74158f1ecd43509d90141e5055cb0c3e539` (2026-10-21), from
-which `release/0.11.0` is to be cut — measured against the `v0.10.1` tag
+`develop` at `5cd37f288fef171d62737d6045f4caff772b6014` (2026-10-22), the
+cut point of `release/0.11.0` — measured against the `v0.10.1` tag
 on `main` (`1c45b6e1749fc8adc9b82d4af22fbe180b56a0e2`, 2026-10-15). It
 follows the method of the
 [0.10.1 against 0.10.0](performance-release-0.10.1-vs-0.10.0.md) record
@@ -19,10 +19,14 @@ and three columns; between that measurement and this one every fix it
 named merged and `develop` advanced by 23 more merges, so the candidate
 here is `develop` itself and the tables have one candidate column, with
 a third column only on the rows the two fixes written for this record
-touch.
+touch. The tables measure `develop` at `5db0f74158f1ecd43509d90141e5055cb0c3e539`
+(2026-10-21); the cut point chosen afterwards, 32 merges later, was
+re-probed on every row that could move and is reported in
+[the cut point](#the-cut-point): one executor row moved, and its fix is
+the third column there.
 
-0.11.0 is a minor release: 256 merges to `develop` since the 0.10.1
-tag, among them the hiding of colliding imports (#1062), objects typed
+0.11.0 is a minor release: 288 merges to `develop` since the 0.10.1
+tag (256 to the measured head, 32 more to the cut point), among them the hiding of colliding imports (#1062), objects typed
 by every type they inherit through subsetting (#1276), the subsetting of
 a usage's base features (#1319), transitive order dependence in the
 executor (#1136), constancy conformance (#1298), the redefinition
@@ -128,7 +132,8 @@ times are the quiet re-run's.
 - **The executor** (`internal/exec/runtime`): every loop row, the root
   frame and the statement rows are at 0.10.1's count — `IntegerArithmeticLoop`
   9 072, `IntegerArithmeticNestedLoop` 26.08k, `RationalHarmonicLoop`
-  4 652, `AssignmentLoopStep` 7 328, `NewRootFrame` 36, `ActionLoop/for1000`
+  4 652, `AssignmentLoopStep` 7 328 (10 532 at [the cut point](#the-cut-point),
+  #1308's, with #1396 as its fix), `NewRootFrame` 36, `ActionLoop/for1000`
   4 231 → 4 241, `ActionChain/chain1000` 64.98k → 66.30k, `StateLoop/count5000`
   1.176M → 1.201M (+2%), `ExecuteState` 12.13k → 12.39k — after #1347,
   #1353, #1355 and #1356, which the earlier candidate motivated (that
@@ -507,6 +512,104 @@ Everything in this section that a user of the binary would notice is the
 resident set, which is the bundled index and the wider type sets, not a
 regression in time.
 
+## The cut point
+
+`release/0.11.0` is cut from `develop` at
+`5cd37f288fef171d62737d6045f4caff772b6014` (2026-10-22), 32 first-parent
+merges after the head the tables above measure
+(`5db0f74158f1ecd43509d90141e5055cb0c3e539`). Among the 32 are this
+record (#1371) and its two fixes (#1368, #1369); a calculation's result
+held in its effective multiplicity (#1308); the solver's variation family
+(#1362, #1363, #1364, #1375, with #1361 and #1374); nested and performed
+action bindings (#1380, #1386), reads through variants (#1381), an
+exhibited state's attribute write (#1387), the actor's positional binding
+(#1372) and a requirement group's constraint set (#1382); the feature
+reference membership (#1331); the API JSON bridge to the libraries
+(#1328); conformance by element (#1365); the self-check of derived
+reflective features (#1370); the parser's metadata in body steps and
+`accept` after a parameter (#1383, #1384); and tooling (#1314, #1360,
+#1366, #1367, #1373, #1376–#1379, #1385). Rather than re-measure every
+package, the rows those merges could move were re-probed: six rounds
+interleaved over 0.10.1, the measured head with #1368 and #1369, and the
+cut point, on `internal/exec/runtime` and `internal/frontend/lsp` whole,
+the `tests/perf` instantiation, constraint, import, workspace, REPL,
+gRPC, executor and analysis rows, and the 32-satellite stress rows, on
+the loaded machine (allocations exact; times only as a check that no row
+moved beyond the loaded spread).
+
+**One row moved: `AssignmentLoopStep`, 7 329 → 10 532 allocs/op (+44%),
+831 KiB → 1 156 KiB.** Every other row is within 1.5% of the measured
+head, and no row is slower at p < 0.05. Columns: 0.10.1 | measured head
+with #1368 and #1369 | cut point; the fourth figure, where present, is
+the cut point with #1396.
+
+| benchmark | allocs/op |
+| --------- | --------- |
+| runtime `AssignmentLoopStep` | 7 329 \| 7 329 \| 10 532 (+44%) \| #1396: 8 531 |
+| runtime `IntegerCollectionSum` | 44 \| 44 \| 47 |
+| runtime `DerivedReadWriteRead` | 65 \| 67 \| 67 |
+| runtime `IntegerArithmeticLoop` | 9 072 \| 9 072 \| 9 075 |
+| runtime `NewRootFrame` | 36 \| 36 \| 36 |
+| runtime `BehaviorOrdersLibraryModel` | 1 927 \| 1 738 \| 1 743 |
+| lsp `ReferencesCold` | 44.65k \| 124.79k \| 124.75k |
+| lsp `RenameWarm` | 14.84k \| 4 902 \| 4 900 |
+| perf `Instantiate` | 3.081M \| 2.898M \| 2.565M |
+| perf `BatchSatisfy` | 4.301M \| 4.336M \| 4.344M |
+| perf `FeaturesOf` | 4.130M \| 2.267M \| 2.271M |
+| perf `GRPCVerifyConstraint` | 9 786 \| 14 664 \| 14 664 |
+| perf `GRPCEvaluate` | 118 \| 118 \| 125 |
+| perf `ActionLoop/for1000` | 4 231 \| 4 241 \| 4 241 |
+| perf `StateLoop/count5000` | 1.176M \| 1.201M \| 1.201M |
+| perf `ExecuteState` | 12.13k \| 12.39k \| 12.39k |
+| perf `WorkspaceEdit/vehicle/reindex+diagnostics` | 857.7k \| 876.4k \| 889.7k (+1.5%) |
+| perf `Analyze/synthetic` | 4.452M \| 4.841M \| 4.849M |
+| stress `Satisfy/satellites=32` | 33.42k \| 40.04k \| 40.04k |
+| stress `FleetSatisfy/satellites=32` | 8 852 \| 11 002 \| 11 002 |
+| stress `FleetInstantiate/satellites=32` | 14.39k \| 15.29k \| 15.29k |
+
+The 32-satellite `Load`, `LoadFiles`, `ValidateSplit` and `OpenSplit/cold`
+rows allocate 0.9–1.1% more on the cut point (2.306M → 2.327M on `Load`;
+the variation family's metadata on the library-backed model), `ImportValues`
+0.2–0.5% less; `GRPCEvaluate`'s seven allocations are #1308's held
+result. The attributions in the tables above hold on the cut point to
+the allocation.
+
+`AssignmentLoopStep` is #1308's: a calculation's result is now held in
+its effective multiplicity — a one-element `[0..*]` sequence rather than
+a bare scalar — so a loop stepping a calculation usage reads a sequence
+into a unique feature at every step, and `uniquenessRefusal` built a
+`Set` to judge repeats in a sequence of one value (five allocations per
+read). #1396 answers for fewer than two elements without building the
+set, with the test that the one-value write allocates nothing: six
+rounds interleaved with the cut point, 10 531 → 8 531 allocs/op
+(p = 0.002; 0.10.1 and the measured head 7 328), time unchanged within
+the loaded spread. The remaining three allocations per held result
+(`elementsOf`, `NewSequence`, `Append`) are the shape #1308 introduced so
+that a result's multiplicity is its feature's, and are carried as that
+correctness change's cost.
+
+Whole-binary on the cut point, by the method of the section above (nine
+interleaved runs on the quiet machine, median of the eight warm runs,
+every run exiting 0):
+
+| model | 0.10.1 | cut point |
+| ----- | ------ | --------- |
+| 3 254 declarations | 0.12 s / 101 MiB | 0.12 s / 104 MiB |
+| 6 198 declarations | 0.17 s / 114 MiB | 0.18 s / 118 MiB |
+| 12 086 declarations | 0.32 s / 157 MiB | 0.32 s / 162 MiB |
+| `examples/action-executor-demo.sysml` | 0.03 s / 70 MiB | 0.03 s / 73 MiB |
+| `examples/disposal-robot-demo/robot.sysml` | 0.04 s / 77 MiB | 0.05 s / 80 MiB |
+| Apollo 11 (28 files) | 0.35 s / 164 MiB | 0.35 s / 169 MiB |
+| `sysml -e 1` (start, session floor) | 0.02 s / 69 MiB | 0.02 s / 71 MiB |
+| `bin/sysml` / `bin/sysml-lsp` size | 47.60 / 26.00 MiB | 49.53 / 27.41 MiB |
+
+Parity on time at every size to the 10 ms timer, the resident set 3–5 MiB
+higher as before, the binaries 0.2 MiB larger than the measured head's.
+The cut point's binary was built just before the pass, so its first run
+on each generated model was its cold run (0.5–1.9 s against 0.11–0.30 s
+warm); 0.10.1's binary had run before. Those cold runs are the ones the
+odd count excludes.
+
 ## Re-runs
 
 Two quiet passes were made for this candidate, each with nothing else on
@@ -566,3 +669,8 @@ as a regression attributed to a change.
 - **The intermediate heads.** `d8b60ed62`, `a662c2bce` and `c5eb6cc30`
   are measured only as far as the earlier record and the probes above
   state; none is a release candidate.
+- **The cut point beyond its probe.** `5cd37f288` is measured on the
+  packages and rows [the cut point](#the-cut-point) names and on the
+  whole binary; `internal/frontend/{repl,grpc}`, `internal/translate/migrate`,
+  `internal/workspace/{libs,model}` and `tests/codegen` were not re-run
+  on it, and #1396's six rounds cover the executor rows it moves.
