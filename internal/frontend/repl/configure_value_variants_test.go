@@ -33,7 +33,7 @@ func TestConfigurePermitsWhatValidateAccepts(t *testing.T) {
 		"Valued::gearFamily::ratioChoice = Valued::gearFamily::ratioChoice::low",
 		"Valued::gearFamily::ratioChoice = Valued::gearFamily::ratioChoice::lowAgain")
 	wants(t, run(t, s, "%configure Valued::gearFamily ratioChoice=high"),
-		"✗ the chosen variants are not consistent with Part gearFamily",
+		"✗ the chosen variants are not consistent with Abstract part gearFamily",
 		"Against: required condition { ratioChoice == ratioChoice::low } of isLow")
 	run(t, s, "%instantiate Valued::again")
 	wants(t, run(t, s, "%validate again"),
