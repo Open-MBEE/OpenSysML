@@ -1,6 +1,7 @@
 package migrate_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
@@ -42,4 +43,35 @@ func TestGoldenUseCaseSequence(t *testing.T) {
 	wantNote(t, r, "_lOperator", migrate.Mapped, "the interaction's own 'operator'")
 	wantNote(t, r, "_mNew", migrate.Approximated, "v2 sequence notation has no creation message")
 	wantNote(t, r, "_mLog", migrate.Approximated, "the call names no operation")
+}
+
+// The migrated sequence view renders as a sequence diagram: the renderer draws the
+// lifelines as the occurrence def's usages and the messages between their events in
+// the modelled order, which is the order the interaction's occurrences state.
+func TestUseCaseSequenceRendersInModelledOrder(t *testing.T) {
+	r := migrateFixtureFile(t, "usecase_sequence")
+	s := session(t, r)
+	out := meta(t, s, "%render Model::'Acquire Images'::'Acquire Images'::'Acquire Images' text")
+	if !strings.Contains(out, "sequence rendering") {
+		t.Fatalf("the view is not rendered as a sequence:\n%s", out)
+	}
+	last := -1
+	for _, want := range []string{
+		"part operator", "part stage", "part vacuum", "part image", "part log",
+		"messages:",
+		"operator => stage: move",
+		"stage => vacuum: pumpDown",
+		"vacuum => image: 'new'",
+		"image => log: record",
+	} {
+		at := strings.Index(out, want)
+		if at < 0 {
+			t.Errorf("the rendering lacks %q:\n%s", want, out)
+			continue
+		}
+		if at < last {
+			t.Errorf("%q is drawn out of order:\n%s", want, out)
+		}
+		last = at
+	}
 }

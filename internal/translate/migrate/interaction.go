@@ -1,7 +1,6 @@
 package migrate
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -26,6 +25,8 @@ type scenario struct {
 	order map[*sysmlv1.Element]int
 	lines map[*sysmlv1.Element]*lifelineRef
 	used  map[string]bool
+	// params are the attribute (or in parameter) lines the interaction's own in parameters are written as.
+	params []string
 	// placed holds each message some occurrence has already stepped.
 	placed map[*sysmlv1.Element]bool
 	steps  []*scenarioStep
@@ -49,7 +50,9 @@ type scenario struct {
 // lifelineRef is a lifeline resolved to the usage written for it: the object it
 // stands for, how the usage is declared, and the event occurrences it holds.
 type lifelineRef struct {
-	line *sysmlv1.Element
+	// after is the occurrence usage of an interaction use the lifeline's next event follows.
+	after string
+	line  *sysmlv1.Element
 	// rep is the element the lifeline represents.
 	rep *sysmlv1.Element
 	// name is the usage's name; kw, prefix, mult and typing spell its declaration.
@@ -180,6 +183,7 @@ func (m *migration) scenario(e *sysmlv1.Element, self string) (*scenario, string
 			return nil, "the lifeline " + describe(line) + " " + note
 		}
 	}
+	s.declareParameters()
 	steps, note := s.resolve(e.Owned("fragment"), e.Owned("message"), &s.steps)
 	if note == "" {
 		note = gatesAdjoin(steps)
@@ -310,9 +314,6 @@ func (s *scenario) use(f *sysmlv1.Element, body *[]*scenarioStep) (*scenarioStep
 		return nil, refersToWord + describe(ref) + noV2Declaration
 	}
 	step := &scenarioStep{kind: stepUse, frag: f, use: ref, body: body, target: " : " + s.m.ref(ref, s.e)}
-	if n := len(f.Owned("argument")); n > 0 {
-		step.note = fmt.Sprintf("its %d argument(s) are not bound: an occurrence usage declares no parameter", n)
-	}
 	base := lowerFirst(s.m.nameFor(ref))
 	if n := s.m.nameOf(f); n != "" {
 		base = n
@@ -399,12 +400,13 @@ func (s *scenario) invariant(f *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 	cond, note, ok := "", "", false
 	if lines[0].typ != nil && spec.Type == "OpaqueExpression" {
 		text, lang := opaqueBody(spec)
-		on, read, lost := s.m.onObject(strings.TrimSpace(text), lines[0].from, lines[0].typ)
+		_, read, lost := s.m.onObject(strings.TrimSpace(text), lines[0].from, lines[0].typ)
 		switch {
 		case lost != "":
 			return nil, stateInvariantCondition + describeValue(spec) + "] reads " + lost + " of the lifeline's object " + lines[0].path + noV2Declaration
 		case read:
-			cond, ok, note = s.m.behaviorExpr(on, lang, s.e)
+			// The assertion sits in the lifeline usage's body, where the object's features are in scope.
+			cond, ok, note = s.m.behaviorExpr(strings.TrimSpace(text), lang, lines[0].typ)
 			if !ok {
 				return nil, stateInvariantCondition + describeValue(spec) + "] is not written: " + note
 			}
@@ -939,12 +941,22 @@ func (s *scenario) inaccessible(expr string, line *lifelineRef) string {
 			continue
 		}
 		first := r.steps[0].name
-		if s.lifelineNamed(first) != nil || line != nil && s.attributeNamed(line, first) != nil {
+		if s.lifelineNamed(first) != nil || line != nil && s.attributeNamed(line, first) != nil || s.parameterNamed(first) {
 			continue
 		}
 		return first
 	}
 	return ""
+}
+
+// parameterNamed reports whether the interaction's own parameters are written as an attribute of the name.
+func (s *scenario) parameterNamed(name string) bool {
+	for _, p := range sequenceParameters(s.e) {
+		if s.m.sequenceParams[p] == name {
+			return true
+		}
+	}
+	return false
 }
 
 // lifelineNamed finds the lifeline usage of the given name.
@@ -1197,6 +1209,7 @@ func (s *scenario) writeSequence() {
 	s.m.self = s.self
 	defer func() { s.m.self = saved }()
 	s.place(s.steps)
+	s.m.w.lines(s.params)
 	var bindings []lifelineBinding
 	for _, line := range s.e.Owned("lifeline") {
 		ref := s.lines[line]
@@ -1261,7 +1274,11 @@ func (s *scenario) ownMembers() {
 			s.m.add(p, Approximated, s.m.v2Name(s.e)+"::"+ref.name, "the parameter is the object the lifeline "+describe(ref.line)+" stands for, written as the usage "+ref.name+"; an occurrence def declares no parameter")
 			continue
 		}
-		s.m.unmapped(p, "an occurrence def declares no parameter, and no lifeline stands for it")
+		if name, ok := s.m.sequenceParams[p]; ok {
+			s.m.add(p, Approximated, s.m.v2Name(s.e)+"::"+name, "written as the attribute "+name+" of the occurrence def, which declares no parameter; the occurrence usages of the def bind it")
+			continue
+		}
+		s.m.unmapped(p, "an occurrence def declares no parameter, and no lifeline stands for its "+p.Attrs["direction"]+" parameter")
 	}
 	for _, p := range s.e.Owned("ownedAttribute") {
 		if ref, ok := represented[p]; ok {
@@ -1319,6 +1336,10 @@ func (s *scenario) event(ref *lifelineRef, ev *sysmlv1.Element, fallback string)
 	}
 	e := &sequenceEvent{name: freshIn(ref.used, name)}
 	ref.events = append(ref.events, e)
+	if ref.after != "" {
+		s.body = append(s.body, "succession first "+ref.after+" then "+endRef(ref, e)+";")
+		ref.after = ""
+	}
 	return e
 }
 
@@ -1376,8 +1397,115 @@ func (s *scenario) placeFragment(step *scenarioStep) {
 // placeUse writes an interaction use as an occurrence usage of the referenced
 // interaction's def; the messages entering its gates reach the usage.
 func (s *scenario) placeUse(step *scenarioStep) {
-	s.body = append(s.body, "occurrence "+step.name+step.target+";")
-	s.m.add(step.frag, verdictFor(step.note), step.name, joinNotes("written as the occurrence usage "+step.name+" of "+describe(step.use), step.note))
+	bindings, note := s.useArguments(step)
+	line := "occurrence " + step.name + step.target
+	if len(bindings) > 0 {
+		line += " { " + strings.Join(bindings, " ") + " }"
+	} else {
+		line += ";"
+	}
+	var ordered []string
+	for _, covered := range s.m.model.Refs(step.frag, "covered") {
+		ref := s.lines[covered]
+		if ref == nil {
+			continue
+		}
+		if n := len(ref.events); n > 0 {
+			at := endRef(ref, ref.events[n-1])
+			s.body = append(s.body, "succession first "+at+" then "+step.name+";")
+			ordered = append(ordered, at)
+		}
+		ref.after = step.name
+	}
+	if len(ordered) > 0 {
+		note = joinNotes(note, "ordered after "+strings.Join(ordered, ", ")+" and before the covered lifelines' next events by successions")
+	}
+	s.body = append(s.body, line)
+	s.m.add(step.frag, verdictFor(step.note), step.name, joinNotes("written as the occurrence usage "+step.name+" of "+describe(step.use), joinNotes(note, step.note)))
+}
+
+// useArguments binds an interaction use's arguments to the attributes the referenced
+// interaction's parameters are written as, by name or position, in the occurrence usage.
+func (s *scenario) useArguments(step *scenarioStep) (bindings []string, note string) {
+	args := step.frag.Owned("argument")
+	if len(args) == 0 {
+		return nil, ""
+	}
+	targets := sequenceParameters(step.use)
+	bound := map[*sysmlv1.Element]bool{}
+	for i, t := range s.pairArguments(args, targets) {
+		arg := args[i]
+		switch {
+		case t == nil:
+			note = joinNotes(note, theArgument+describeValue(arg)+" has no parameter of "+step.use.Name+" to bind to and is dropped")
+			continue
+		case bound[t]:
+			note = joinNotes(note, theArgument+describeValue(arg)+" binds "+s.m.nameOf(t)+" a second time and is dropped")
+			continue
+		}
+		name, ok := s.m.sequenceParams[t]
+		if !ok {
+			note = joinNotes(note, theArgument+describeValue(arg)+" for "+s.m.nameOf(t)+" is dropped: the parameter has no v2 declaration")
+			continue
+		}
+		expr, ok, vnote := s.m.typedBehaviorValue(arg, t, s.e)
+		if !ok {
+			note = joinNotes(note, theArgument+describeValue(arg)+" for "+s.m.nameOf(t)+" is not written, which stays unbound: "+vnote)
+			continue
+		}
+		if s.def {
+			if lost := s.inaccessible(expr, nil); lost != "" {
+				note = joinNotes(note, theArgument+describeValue(arg)+" for "+s.m.nameOf(t)+" reads "+lost+" of the interaction's context, which its occurrence def has no access to; the parameter stays unbound")
+				continue
+			}
+		}
+		bound[t] = true
+		bindings = append(bindings, "attribute :>> "+writeName(name)+" = "+expr+";")
+	}
+	return bindings, note
+}
+
+// sequenceParameters are an interaction's parameters that take a value in: those
+// its occurrence def declares as attributes.
+func sequenceParameters(e *sysmlv1.Element) []*sysmlv1.Element {
+	var in []*sysmlv1.Element
+	for _, p := range e.Owned("ownedParameter") {
+		switch p.Attrs["direction"] {
+		case "", "in", "inout":
+			in = append(in, p)
+		}
+	}
+	return in
+}
+
+// declareParameters names the attributes the interaction's in parameters are written
+// as, before the lifelines take their names; a parameter a lifeline stands for is that usage.
+func (s *scenario) declareParameters() {
+	for _, p := range sequenceParameters(s.e) {
+		represented := false
+		for _, ref := range s.lines {
+			if ref.rep == p {
+				represented = true
+			}
+		}
+		if represented {
+			continue
+		}
+		name := freshIn(s.used, s.m.nameOf(p))
+		s.m.sequenceParams[p] = name
+		kw := "attribute "
+		if !s.def {
+			kw = "in "
+		}
+		line := kw + writeName(name)
+		if mult, _ := s.m.multiplicity(p); mult != "" {
+			line += mult
+		}
+		if typ, _ := s.m.typeRef(s.m.model.Ref(p, "type"), s.e); typ != "" {
+			line += s.m.typing(s.m.model.Ref(p, "type")) + typ
+		}
+		s.params = append(s.params, line+";")
+	}
 }
 
 // placeAssert writes a state invariant as an event occurrence of the covered

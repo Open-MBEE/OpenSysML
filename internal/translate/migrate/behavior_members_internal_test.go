@@ -64,7 +64,7 @@ func TestBehaviorMembersUnwritten(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			[]string{"_p"}, nil, 0,
-			[]string{"occurrence def Spin {\n        view Rules {\n            expose Spin;\n            render Views::asTextualNotation;\n        }\n        ref part c : Sys::Pump {\n            event occurrence goSent;\n            then event occurrence goReceived;\n        }\n        message go of Go[1] from c.goSent to c.goReceived;\n        /* not migrated: Property 'p' — owned by an Interaction, whose v2 body is its lifelines and messages, not a place for a Property no lifeline stands for */"}},
+			[]string{"occurrence def Spin {\n            ref part c : Sys::Pump {\n                event occurrence goSent;\n                then event occurrence goReceived;\n            }\n            message go of Go[1] from c.goSent to c.goReceived;\n            /* not migrated: Property 'p' — owned by an Interaction, whose v2 body is its lifelines and messages, not a place for a Property no lifeline stands for */\n            view Rules {\n                expose Spin;\n                render Views::asTextualNotation;\n            }\n        }"}},
 		{"an activity writes its constraint and attribute, and has no place for a port",
 			`<packagedElement xmi:type="uml:Activity" xmi:id="_b" name="Run">` + rule("_r", "keep") + `
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p"/>

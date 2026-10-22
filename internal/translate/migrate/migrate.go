@@ -252,6 +252,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		shownEdges:        map[*sysmlv1.Element]bool{},
 		edgeMembers:       map[*sysmlv1.Element]edgeMember{},
 		sequenceBindings:  map[*sysmlv1.Element][]lifelineBinding{},
+		sequenceParams:    map[*sysmlv1.Element]string{},
 		objectives:        map[*sysmlv1.Element]string{},
 		routeKinds:        routeKinds{},
 	}
@@ -588,7 +589,9 @@ type migration struct {
 	// sequenceBindings gives each interaction the bindings of its lifeline usages to
 	// the features of its context, written in the context's occurrence usage of it.
 	sequenceBindings map[*sysmlv1.Element][]lifelineBinding
-	routeKinds       routeKinds
+	// sequenceParams names the attribute each interaction's in parameter is written as.
+	sequenceParams map[*sysmlv1.Element]string
+	routeKinds     routeKinds
 	// objectives names a test case's objective when a diagram shows a verify
 	// it holds, since a member of an anonymous objective cannot be exposed.
 	objectives map[*sysmlv1.Element]string
