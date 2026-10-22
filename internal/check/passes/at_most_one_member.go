@@ -193,9 +193,8 @@ func isSubjectDecl(decl ast.Node) bool {
 	return false
 }
 
-// isInputParameterDecl reports an `in`/`inout` parameter, an actor or a
-// stakeholder: ActorMembership and StakeholderMembership are ParameterMemberships
-// whose parameterDirection() is `in` (SysML 8.3.19, KerML 8.3.3.1).
+// isInputParameterDecl reports an `in`/`inout` usage, an actor or a stakeholder:
+// Actor/StakeholderMembership are ParameterMemberships directed `in` (SysML 8.3.19).
 func isInputParameterDecl(decl ast.Node) bool {
 	u, ok := decl.(*ast.Usage)
 	if !ok {

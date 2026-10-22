@@ -320,9 +320,8 @@ func TestW7GRequirementWithNoParameterIsSilent(t *testing.T) {
 	}
 }
 
-// A stakeholder or actor is an `in` parameter, so one declared before any
-// subject displaces the inherited subject from first position: reported on the
-// declaration, and again on a framed concern that inherits that order.
+// A stakeholder is an `in` parameter: declared before any subject it displaces the
+// inherited subject, reported on the declaration and on a concern framing it.
 func TestW7GStakeholderBeforeAnImplicitSubjectIsReported(t *testing.T) {
 	const src = `package C {
 		part def P;
