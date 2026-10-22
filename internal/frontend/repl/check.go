@@ -135,7 +135,7 @@ func roundedUnsatReport(name, subject string, result *solve.Result, q *solve.Que
 
 // solveSubject names the element a report is about, as a verdict about it would.
 func solveSubject(q *solve.Query) string {
-	subject := strings.ToUpper(q.Kind[:1]) + q.Kind[1:] + " " + notationName(q.Element)
+	subject := strings.ToUpper(q.Kind[:1]) + q.Kind[1:] + " " + q.Element
 	if q.Negated {
 		return subject + " (negated)"
 	}

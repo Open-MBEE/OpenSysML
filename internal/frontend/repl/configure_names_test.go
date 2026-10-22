@@ -20,6 +20,18 @@ package 'Cfg Space' {
         part redefines engine = 'Engine Choices'::'6cyl';
         part redefines trans = trans::man;
     }
+    private import ScalarValues::*;
+    part def 'Space Craft' { attribute 'vertical speed' : Real; }
+    requirement def 'Touchdown Rule' { subject craft : 'Space Craft'; require constraint { craft.'vertical speed' <= 1.5 } }
+    requirement 'the touchdown' : 'Touchdown Rule';
+    part 'slow craft' {
+        part lander : 'Space Craft' { attribute :>> 'vertical speed' = 1.0; }
+        assert satisfy requirement 'soft landing' : 'Touchdown Rule' by lander;
+    }
+    part 'fast craft' {
+        part 'the lander' : 'Space Craft' { attribute :>> 'vertical speed' = 2.0; }
+        assert satisfy 'the touchdown' by 'the lander';
+    }
 }
 `
 
@@ -27,7 +39,7 @@ package 'Cfg Space' {
 func rejectsPlainNames(t *testing.T, out string) {
 	t.Helper()
 	for _, line := range strings.Split(out, "\n") {
-		for _, plain := range []string{"Cfg Space::", "::Engine Choices", "::the family", "::4cyl", "::6cyl", "::auto box", "Part bad one", "Part the family"} {
+		for _, plain := range []string{"Cfg Space::", "::Engine Choices", "::the family", "::4cyl", "::6cyl", "::auto box", "Part bad one", "Part the family", "satisfy soft landing", "Part fast craft", "of Touchdown Rule"} {
 			if strings.Contains(line, plain) {
 				t.Errorf("a name written without its quotes in %q", line)
 			}
@@ -57,4 +69,20 @@ func TestConfigureWritesEveryNameAsTheNotationDoes(t *testing.T) {
 		"'Cfg Space'::'bad one'::trans = 'Cfg Space'::'the family'::trans::man  (declared)",
 		"In the conflict: 'Cfg Space'::'bad one'::engine = 'Cfg Space'::'Engine Choices'::'6cyl', 'Cfg Space'::'bad one'::trans = 'Cfg Space'::'the family'::trans::man")
 	rejectsPlainNames(t, bad)
+}
+
+// A satisfaction's subject is the assertion as written, its names quoted as the
+// notation quotes them; a verdict about a part names the part the same way.
+func TestSolveWritesASatisfactionsSubjectAsTheNotationDoes(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, quotedModel)
+	soft := run(t, s, "%solve 'Cfg Space'::'slow craft'::'soft landing'")
+	wants(t, soft, "✓ Satisfaction satisfy 'soft landing' by lander has values satisfying it")
+	rejectsPlainNames(t, soft)
+
+	fast := run(t, s, "%solve 'Cfg Space'::'fast craft'")
+	wants(t, fast, "✗ Part 'fast craft' has no values consistent with the value already fixed",
+		"'Cfg Space'::'fast craft'::'the lander.vertical speed' = 2.0  (declared)",
+		"Against: required condition { craft.'vertical speed' <= 1.5 } of 'Touchdown Rule' at ")
+	rejectsPlainNames(t, fast)
 }
