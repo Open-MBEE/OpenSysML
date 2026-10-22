@@ -32,6 +32,8 @@ package 'Cfg Space' {
         part 'the lander' : 'Space Craft' { attribute :>> 'vertical speed' = 2.0; }
         assert satisfy 'the touchdown' by 'the lander';
     }
+    requirement def 'Base Rule' { subject s; attribute x : Integer; require constraint { x > 10 } }
+    requirement def 'Derived Rule' :> 'Base Rule' { require constraint { x < 1 } }
 }
 `
 
@@ -39,7 +41,7 @@ package 'Cfg Space' {
 func rejectsPlainNames(t *testing.T, out string) {
 	t.Helper()
 	for _, line := range strings.Split(out, "\n") {
-		for _, plain := range []string{"Cfg Space::", "::Engine Choices", "::the family", "::4cyl", "::6cyl", "::auto box", "Part bad one", "Part the family", "satisfy soft landing", "Part fast craft", "of Touchdown Rule"} {
+		for _, plain := range []string{"Cfg Space::", "::Engine Choices", "::the family", "::4cyl", "::6cyl", "::auto box", "Part bad one", "Part the family", "satisfy soft landing", "Part fast craft", "of Touchdown Rule", "requirement Derived Rule", "declared by Base Rule"} {
 			if strings.Contains(line, plain) {
 				t.Errorf("a name written without its quotes in %q", line)
 			}
@@ -85,4 +87,17 @@ func TestSolveWritesASatisfactionsSubjectAsTheNotationDoes(t *testing.T) {
 		"'Cfg Space'::'fast craft'::'the lander.vertical speed' = 2.0  (declared)",
 		"Against: required condition { craft.'vertical speed' <= 1.5 } of 'Touchdown Rule' at ")
 	rejectsPlainNames(t, fast)
+}
+
+// An explanation names the element each condition came from as the notation does,
+// and a condition the explained element declares itself names no other declarer.
+func TestExplainWritesTheDeclaringElementAsTheNotationDoes(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, quotedModel)
+	got := run(t, s, "%explain 'Cfg Space'::'Derived Rule'")
+	wants(t, got, "✗ Requirement 'Derived Rule' is unsatisfiable",
+		"`x > 10` — requirement 'Derived Rule', declared by 'Base Rule'",
+		"`x < 1` — requirement 'Derived Rule',")
+	rejects(t, got, "`x < 1` — requirement 'Derived Rule', declared by")
+	rejectsPlainNames(t, got)
 }
