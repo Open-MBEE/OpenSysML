@@ -43,12 +43,20 @@ type Property struct {
 	// Range is the rdfs:range IRI: a metaclass or enumeration in the SysML
 	// namespace, or the XSD/OWL datatype of an ecore primitive.
 	Range string
+	// Lower is the ecore lowerBound; an absent bound is zero.
+	Lower int
+	// Default is the ecore defaultValueLiteral, when HasDefault is true.
+	Default string
+	// HasDefault distinguishes an absent default from an explicit empty value.
+	HasDefault bool
 	// Many reports an upper multiplicity above 1 or unbounded (ecore upperBound
 	// -1): the API JSON shape is an array.
 	Many bool
 	// Ordered reports a Many property whose values are ordered (ecore
 	// ordered, which defaults to true); a single-valued property is never Ordered.
 	Ordered bool
+	// Nonunique reports an ecore multi-valued property with unique="false".
+	Nonunique bool
 	// Derived reports a property the metamodel computes (ecore derived="true")
 	// rather than one an element owns.
 	Derived bool
@@ -153,7 +161,7 @@ func LookupEnumeration(name string) (Enumeration, bool) {
 // reports false when no declaration qualifies.
 func PropertyOf(metaclass, name string) (Property, bool) {
 	// The ontology is fixed once indexed, so an answer is computed once.
-	key := metaclass + "\x00" + name
+	key := propertyOfKey{metaclass: metaclass, name: name}
 	if known, ok := propertyOfCache.Load(key); ok {
 		answer := known.(propertyAnswer)
 		return answer.property, answer.found
@@ -167,6 +175,11 @@ func PropertyOf(metaclass, name string) (Property, bool) {
 type propertyAnswer struct {
 	property Property
 	found    bool
+}
+
+type propertyOfKey struct {
+	metaclass string
+	name      string
 }
 
 // propertyOfCache holds PropertyOf's answers by metaclass and name.
