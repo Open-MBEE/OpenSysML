@@ -3458,11 +3458,8 @@ func (a *activity) reducerFunc(n *sysmlv1.Element) (fn, why string) {
 	return a.m.ref(reducer, a.def), ""
 }
 
-// raiseException writes a raise exception action: its pins and a sibling
-// terminate action the succession after it leads to, since v2 has no
-// exceptions — with no handler, raising ends the activity. The action's own
-// outgoing edges carry no token; successions reports each. A handler body
-// raising one gets no terminate: the activity never performs the body.
+// raiseException writes a raise exception action and, as v2 has no exceptions, a sibling terminate its
+// succession leads to (none for a handler body, which the activity never performs); successions reports its edges.
 func (a *activity) raiseException(n *sysmlv1.Element, name string) {
 	a.m.w.block(actionKw+name, func() { a.pins(n, nil) })
 	if hs := a.handlers[n]; hs != nil {
