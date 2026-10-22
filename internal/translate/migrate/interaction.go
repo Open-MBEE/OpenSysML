@@ -1185,9 +1185,20 @@ func (s *scenario) writeSequence() {
 	for _, line := range s.e.Owned("lifeline") {
 		ref := s.lines[line]
 		s.writeLifeline(ref)
-		if ref.bound != "" {
-			bindings = append(bindings, lifelineBinding{kw: ref.kw, name: ref.name, path: ref.bound})
+		if ref.name != line.Name {
+			s.m.names[line] = ref.name
 		}
+		note := "written as the " + strings.TrimSpace(ref.prefix+ref.kw) + " usage " + ref.name + " holding its " + plural(len(ref.events), "event occurrence")
+		switch {
+		case ref.bound != "":
+			bindings = append(bindings, lifelineBinding{kw: ref.kw, name: ref.name, path: ref.bound})
+			note += ", bound to " + ref.bound + " of " + qualifiedName(s.context) + " where the def occurs"
+		case ref.rep.Parent == s.e:
+			note += ", the interaction's own " + describe(ref.rep)
+		case ref.path != "":
+			note += ", subsetting " + ref.path
+		}
+		s.m.add(line, Mapped, s.m.v2Name(s.e)+"::"+ref.name, note)
 	}
 	s.m.w.lines(s.body)
 	if s.def {

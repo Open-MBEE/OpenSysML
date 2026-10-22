@@ -93,6 +93,8 @@ func (m *migration) behaviorWritesMember(b, c *sysmlv1.Element) bool {
 		return m.declaresVariable(b)
 	case "ownedOperation", "connectionPoint":
 		return b.Type == "StateMachine"
+	case "lifeline", "message":
+		return b.Type == "Interaction"
 	}
 	return false
 }
@@ -139,8 +141,11 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
-	// Views open the body: a calc def's must end in its result expression.
-	m.views(e)
+	// Views open the body: a calc def's must end in its result expression. An
+	// interaction's follow its lifelines, which its sequence view lays out.
+	if e.Type != "Interaction" {
+		m.views(e)
+	}
 	switch {
 	case m.contextLeads(e, cat):
 		if e.Type == "Operation" {
@@ -152,6 +157,7 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 		m.stateMachineBody(e)
 	case e.Type == "Interaction":
 		m.interactionBody(e)
+		m.views(e)
 	case e.Type == "Activity":
 		m.parameters(e, e)
 		m.bodyWithContext(e, func() { m.activityBody(e, e) })

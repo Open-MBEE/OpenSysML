@@ -2986,6 +2986,11 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	if m.isBuried(e) {
 		return false
 	}
+	if e.Type == "Lifeline" {
+		// A lifeline is its usage once the interaction's sequence is written.
+		v, ok := m.verdicts[e]
+		return ok && v != Unmapped
+	}
 	if written, decided := m.memberWritten(e); decided {
 		return written
 	}

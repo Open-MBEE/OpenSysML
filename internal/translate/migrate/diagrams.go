@@ -618,7 +618,9 @@ func (m *migration) writeViewBody(v *view, form viewForm) {
 		for _, line := range geo.lines {
 			m.w.line(line)
 		}
-		m.w.line("render " + prefix + form.rendering + ";")
+		if form.rendering != "" {
+			m.w.line("render " + prefix + form.rendering + ";")
+		}
 	})
 	for _, td := range v.tables {
 		m.writeTable(td)
