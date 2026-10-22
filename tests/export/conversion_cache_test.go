@@ -37,9 +37,8 @@ type writtenAPIJSON struct {
 	err      error
 }
 
-// A conversionCache shares one file's RDF graph, and the API JSON documents
-// written from it, between the readers of the same file. It keeps every entry
-// until the file is released, so each cache lives only as long as its readers.
+// A conversionCache shares each file's RDF graph and the API JSON documents
+// written from it between the file's readers, until the file is released.
 type conversionCache struct {
 	mu        sync.Mutex
 	graphs    map[sysMLGraphCacheKey]*convertedSysMLGraph
@@ -57,11 +56,8 @@ func newConversionCache() *conversionCache {
 // under testdata, which many tests read in turn.
 var fixtureConversions = newConversionCache()
 
-// corpusConversions is the cache of one sweep over the examples corpus. A sweep
-// reads each file in one subtest, which releases the file when it is done, so
-// a sweep holds the graphs and documents of its in-flight files only: under the
-// race detector, keeping every example's conversion for the whole run exhausted
-// the memory of the CI runner.
+// corpusConversions is one sweep's cache over the examples corpus: each per-file
+// subtest releases its file when done, so only in-flight files are held.
 func corpusConversions(t *testing.T) *conversionCache {
 	t.Helper()
 	cache := newConversionCache()
