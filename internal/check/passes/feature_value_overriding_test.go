@@ -338,3 +338,15 @@ func TestFeatureValueOverridingConstructorInCollectionBody(t *testing.T) {
 	}`
 	overridingDiags(t, src, "2", "3", "4")
 }
+
+func TestFeatureValueOverridingConstructorUnderTypeOperator(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::*;
+		item def A { attribute x : Integer = 1; }
+		attribute b : Boolean = new A(x = 2) istype A;
+		attribute c : Boolean = new A(x = 3) hastype A;
+		item d = new A(x = 4) as A;
+		item e = new A(x = 5) @ A;
+	}`
+	overridingDiags(t, src, "2", "3", "4", "5")
+}

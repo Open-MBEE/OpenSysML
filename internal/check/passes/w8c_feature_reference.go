@@ -37,6 +37,9 @@ func (FeatureReferencePass) Run(ctx *Context, name string, root *ast.RootNamespa
 	return append(c.diags, c.cc.diags...)
 }
 
+// Operators whose operand may name any element, a type included (`all T`, `x meta T`, `x @@ T`).
+var w8cElementOperators = map[ast.OperatorKind]bool{ast.OpAll: true, ast.OpMeta: true, ast.OpMetaAt: true}
+
 // Operators taking a type, not a feature, as an operand.
 var w8cTypeOperators = map[ast.OperatorKind]bool{
 	ast.OpMeta:    true,
@@ -404,8 +407,9 @@ func (c *featureReferenceChecker) walkExpr(site refSite, scope *symbols.Scope, n
 		}
 		c.checkReferent(site, scope, e, span)
 	case *ast.OperatorExpr:
-		// These operators name types rather than features.
-		if w8cTypeOperators[e.Operator] {
+		// These take an element, a type's name included; a classification or cast
+		// keeps its type in TypeRef, so its operand is an expression to walk.
+		if w8cElementOperators[e.Operator] {
 			return
 		}
 		for _, o := range e.Operands {
