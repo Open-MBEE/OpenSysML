@@ -161,9 +161,8 @@ func (c *Context) DownstreamSpan(span source.Span) bool {
 	return false
 }
 
-// DownstreamAnchoredIn reports whether a blocking failure begins inside span:
-// one within it, or one anchored on the declaration span is the head of. A
-// fault on an enclosing declaration begins before span and does not count.
+// DownstreamAnchoredIn reports whether a blocking failure begins inside span (within it, or
+// anchored on the declaration it heads); a fault on an enclosing declaration begins before it.
 func (c *Context) DownstreamAnchoredIn(span source.Span) bool {
 	if c == nil {
 		return false
