@@ -392,6 +392,9 @@ func TestBodyAdmitsMember(t *testing.T) {
 		{decl("part def P;"), "variant actor", false},
 		{decl("requirement def R;"), "variant actor", true},
 		{decl("part def P;"), "variant", true},
+		{decl("part def P;"), "abstract part", true},
+		{decl("part def P;"), "abstract subject", false},
+		{decl("requirement def R;"), "variant abstract actor", true},
 	} {
 		if got := BodyAdmitsMember(tc.owner, tc.kw); got != tc.want {
 			t.Errorf("BodyAdmitsMember(%T, %q) = %v, want %v", tc.owner, tc.kw, got, tc.want)

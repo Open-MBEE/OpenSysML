@@ -30,3 +30,48 @@ func TestNotationVariation(t *testing.T) {
 		})
 	}
 }
+
+// TestNotationAbstract checks an abstract definition or usage is named with
+// `abstract` before its kind keyword, and that a variation — abstract by
+// definition — is still named `variation` alone.
+func TestNotationAbstract(t *testing.T) {
+	cases := []struct {
+		name string
+		node Node
+		want string
+	}{
+		{"abstract part def", &Definition{Kind: DefPart, Keyword: "part", HasDefKeyword: true, IsAbstract: true}, "abstract part def"},
+		{"abstract classifier", &Definition{Kind: DefPart, Keyword: "classifier", IsAbstract: true}, "abstract classifier"},
+		{"abstract variation part def", &Definition{Kind: DefPart, Keyword: "part", HasDefKeyword: true, IsAbstract: true, IsVariation: true}, "variation part def"},
+		{"abstract part", &Usage{Kind: UsagePart, Keyword: "part", IsAbstract: true}, "abstract part"},
+		{"abstract attribute", &Usage{Kind: UsageAttribute, Keyword: "attribute", IsAbstract: true}, "abstract attribute"},
+		{"abstract with prefix", &Usage{Kind: UsagePart, Keyword: "part", PrefixKeyword: "ref", IsAbstract: true}, "abstract ref part"},
+		{"abstract variation part", &Usage{Kind: UsagePart, Keyword: "part", IsAbstract: true, IsVariation: true}, "variation part"},
+		{"variant abstract part", &Usage{Kind: UsagePart, Keyword: "part", IsVariant: true, IsAbstract: true}, "variant abstract part"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := Notation(tc.node); got != tc.want {
+				t.Errorf("Notation = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestNotationKeyword(t *testing.T) {
+	for notation, want := range map[string]string{
+		"part def":              "part def",
+		"abstract part def":     "part def",
+		"variation part def":    "part def",
+		"abstract classifier":   "classifier",
+		"variant":               "variant",
+		"variant ref part":      "ref part",
+		"variant abstract part": "part",
+		"entry action":          "entry action",
+		"":                      "",
+	} {
+		if got := NotationKeyword(notation); got != want {
+			t.Errorf("NotationKeyword(%q) = %q, want %q", notation, got, want)
+		}
+	}
+}

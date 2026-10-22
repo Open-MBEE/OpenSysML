@@ -3,6 +3,7 @@ package view
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"math"
 	"slices"
 	"strconv"
@@ -337,7 +338,7 @@ var kermlClassifierKinds = map[string]bool{
 // isDefinitionKind reports whether a node kind is a definition's notation, a
 // `… def` keyword or a KerML classifier, as against a usage's.
 func isDefinitionKind(kind string) bool {
-	return strings.HasSuffix(kind, " def") || kermlClassifierKinds[kind]
+	return strings.HasSuffix(kind, " def") || kermlClassifierKinds[ast.NotationKeyword(kind)]
 }
 
 // The tint a usage's fill is lightened by, and the contrast black text on a
