@@ -39,28 +39,44 @@ func (t *translator) valueTypedVariation(node ast.Node, construct string, term *
 
 // selectionValue is the value a term of a value-typed variation sort stands
 // for: a variant, the value it declares; the point itself, the value of
-// whichever variant it selects.
+// whichever variant it selects, each variant's value translated under its
+// selection, as the evaluator reads only the selected one.
 func (t *translator) selectionValue(node ast.Node, construct string, variation *symbols.Symbol, term *Term) (*Term, error) {
 	variants := t.model.VariantsOf(variation)
+	if term.Op == OpValue {
+		for _, variant := range variants {
+			if term.Str == t.fqn(variant) {
+				return t.expr(semantics.VariantValue(variant), variant.OwnerScope)
+			}
+		}
+		return nil, t.refuse(node, construct, term.Str+" is not a variant of "+variation.Name)
+	}
 	values := make([]*Term, 0, len(variants))
-	for i, variant := range variants {
-		value, err := t.expr(semantics.VariantValue(variant), variant.OwnerScope)
+	t.branched++
+	defer func() { t.branched-- }()
+	for _, variant := range variants {
+		value, err := t.under(Binary(OpEq, Bool, term, ValueTerm(term.Sort, t.fqn(variant))), func() (*Term, error) {
+			return t.expr(semantics.VariantValue(variant), variant.OwnerScope)
+		})
 		if err != nil {
 			return nil, err
 		}
-		if i > 0 {
-			value, values[0] = promote(value, values[0])
-			if !value.Sort.Equal(values[0].Sort) {
-				return nil, t.refuse(node, construct, "the variants of "+variation.Name+" declare values of "+values[0].Sort.Name+" and "+value.Sort.Name)
-			}
-		}
 		values = append(values, value)
-		if term.Op == OpValue && term.Str == t.fqn(variant) {
-			return value, nil
+	}
+	sort := values[0].Sort
+	for _, value := range values[1:] {
+		if value.Sort.Kind == SortReal && sort.Kind == SortInt {
+			sort = Real
 		}
 	}
-	if term.Op == OpValue {
-		return nil, t.refuse(node, construct, term.Str+" is not a variant of "+variation.Name)
+	for i, value := range values {
+		if value.Sort.Kind == SortInt && sort.Kind == SortReal {
+			value = ToReal(value)
+		}
+		if !value.Sort.Equal(sort) {
+			return nil, t.refuse(node, construct, "the variants of "+variation.Name+" declare values of "+sort.Name+" and "+value.Sort.Name)
+		}
+		values[i] = value
 	}
 	selected := values[len(values)-1]
 	for i := len(values) - 2; i >= 0; i-- {
@@ -70,11 +86,24 @@ func (t *translator) selectionValue(node ast.Node, construct string, variation *
 	return selected, nil
 }
 
+// choice reports whether a term of a variation sort denotes a variant itself —
+// a variant named, or a conditional choosing among variants — rather than the
+// value a variation point holds. Two choices compare as choices.
+func choice(term *Term) bool {
+	switch term.Op {
+	case OpValue:
+		return true
+	case OpIte:
+		return len(term.Args) == 3 && choice(term.Args[1]) && choice(term.Args[2])
+	}
+	return false
+}
+
 // equalityOf builds `==` or `!=` of two translated operands. Two variants compare
 // as the choice itself; a value-typed variation point, or one of its variants
 // against anything else, compares by the value it stands for.
 func (t *translator) equalityOf(n ast.Node, scope *symbols.Scope, construct string, op Op, left, right *Term) (*Term, error) {
-	if left.Op != OpValue || right.Op != OpValue {
+	if !choice(left) || !choice(right) {
 		var err error
 		if left, err = t.asSelectionValue(n, construct, left); err != nil {
 			return nil, err
