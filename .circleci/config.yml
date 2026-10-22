@@ -555,7 +555,16 @@ jobs:
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
               exit 1
             fi
-            make coverage-shard SHARD="${shards[$CIRCLE_NODE_INDEX]}"
+            shard="${shards[$CIRCLE_NODE_INDEX]}"
+            if [ "$shard" = runtime ]; then
+              # The tools' tests run on this node (make coverage-shard), and the
+              # LLM bench's run the models through bin/sysml: without the binary
+              # they skip and tools/bench/llm measures as uncovered. Required,
+              # so a missing binary fails here rather than skips.
+              make build-sysml
+              export OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN=1
+            fi
+            make coverage-shard SHARD="$shard"
           no_output_timeout: 30m
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
