@@ -179,3 +179,14 @@ func TestVariantKindReportedDespiteFaultyNestedMember(t *testing.T) {
 	w8dWantLines(t, src, "unresolved", 4, 5)
 	w8dWantLines(t, src, "variant-kind", 4)
 }
+
+func TestVariantKindDefersToHeadTypingFaultOfBodiedVariant(t *testing.T) {
+	const src = `package Nested {
+		part def P;
+		variation part def PC :> P {
+			variant action a : P { part child; }
+		}
+	}`
+	w8dWantLines(t, src, "usage-typing", 4)
+	w8dWantLines(t, src, "variant-kind")
+}

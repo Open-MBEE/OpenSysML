@@ -63,10 +63,11 @@ func variantOwnerDiagnostic(ctx *Context, model *semantics.Model, sym *symbols.S
 
 // variantHeadUnsound reports whether a lower tier faulted the variant's own
 // declaration head (its kind, typing and modifiers), which is all the variant
-// rules read; a fault inside its body does not bear on them.
+// rules read; a fault confined to its body does not bear on them. A typing
+// fault is anchored on the whole declaration, so overlap with the head counts.
 func variantHeadUnsound(ctx *Context, decl ast.Node) bool {
 	if head, ok := w8cOwnerHead(decl); ok {
-		return ctx.DownstreamSpan(head)
+		return ctx.DownstreamOverlaps(head)
 	}
 	return ctx.DownstreamOfFailure(decl)
 }

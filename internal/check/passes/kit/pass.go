@@ -161,6 +161,20 @@ func (c *Context) DownstreamSpan(span source.Span) bool {
 	return false
 }
 
+// DownstreamOverlaps reports whether a blocking failure overlaps span: one
+// inside it, or one anchored on a declaration that span is the head of.
+func (c *Context) DownstreamOverlaps(span source.Span) bool {
+	if c == nil {
+		return false
+	}
+	for _, f := range c.failures {
+		if f.Offset < span.End() && f.End() > span.Offset {
+			return true
+		}
+	}
+	return false
+}
+
 // Resolver returns the shared resolver for this context, creating it on first
 // use so multiple passes reuse one memoized instance.
 func (c *Context) Resolver() *resolve.Resolver {
