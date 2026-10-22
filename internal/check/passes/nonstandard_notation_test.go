@@ -562,3 +562,67 @@ func TestConditionTerminatorIsAnExtension(t *testing.T) {
 		wantSilent(t, tc.name, tc.src)
 	}
 }
+
+// Prefix metadata belongs between `individual` and the declaration keyword
+// (SysML.xtext IndividualDefinition, IndividualUsage); written ahead of
+// `individual` it is reported once per declaration, on the metadata.
+func TestPrefixMetadataBeforeIndividualIsAnExtension(t *testing.T) {
+	const prelude = "package P { metadata def Tag; metadata def Other; occurrence def O; part def B; "
+	for _, member := range []string{
+		"#Tag individual def F :> O;",
+		"#Tag individual part def A :> B;",
+		"#Tag individual f : F;",
+		"#Tag individual part a : A;",
+		"#Tag individual occurrence o : O;",
+		"#Tag #Other individual part a : A;",
+		"#Tag individual #Other part a : A;",
+		"part def Q { #Tag individual part a : A; }",
+	} {
+		wantNotation(t, "a.sysml", prelude+member+" }", CodeNonstandardNotation,
+			"prefix metadata before `individual` (`#Tag individual …`) is an OpenSysML extension with no SysML v2 production: the metadata follows the keyword, so write `individual #Tag …`")
+	}
+	src := prelude + "\n#Tag #Other individual part a : A;\n#Tag individual part def A2 :> B; }"
+	root, pd, idx := analyzeInputs(t, "a.sysml", src)
+	if len(pd) != 0 {
+		t.Fatalf("%s: parse errors %+v", src, pd)
+	}
+	got := (NonstandardNotationPass{}).Run(NewContext("a.sysml", idx, pd), "a.sysml", root)
+	if len(got) != 2 {
+		t.Fatalf("%s: got %d diagnostics %+v, want 2", src, len(got), got)
+	}
+	for i, want := range []struct {
+		line int
+		text string
+	}{
+		{2, "#Tag #Other"},
+		{3, "#Tag"},
+	} {
+		if line := strings.Count(src[:got[i].Span.Offset], "\n") + 1; line != want.line {
+			t.Errorf("diagnostic %d is on line %d, want %d", i, line, want.line)
+		}
+		if text := src[got[i].Span.Offset:got[i].Span.End()]; text != want.text {
+			t.Errorf("diagnostic %d spans %q, want %q", i, text, want.text)
+		}
+	}
+}
+
+// The standard order and the forms without `individual` stay silent, as the
+// pinned validator accepts each of them.
+func TestPrefixMetadataAfterIndividualIsSilent(t *testing.T) {
+	const prelude = "package P { metadata def Tag; metadata def Other; occurrence def O; part def B; "
+	for _, member := range []string{
+		"individual #Tag def F :> O;",
+		"abstract individual #Tag def F :> O;",
+		"individual #Tag #Other def F :> O;",
+		"individual #Tag part def A :> B;",
+		"individual #Tag f : O;",
+		"individual #Tag part a : B;",
+		"individual #Tag occurrence o : O;",
+		"individual def F :> O; individual f : F;",
+		"#Tag part def A :> B; #Tag part a : A;",
+		"abstract #Tag part def A :> B;",
+		"part def Q { individual #Tag part a : B; }",
+	} {
+		wantSilent(t, "a.sysml", prelude+member+" }")
+	}
+}

@@ -410,6 +410,8 @@ type Definition struct {
 	IsConstant    bool // 'constant' feature modifier
 	IsEvent       bool // 'event' modifier for event-driven occurrences
 	IsIndividual  bool // 'individual' modifier: `individual part def` (SysML v2 8.3.9.11)
+	// IndividualKeyword spans the `individual` written, zero when none was.
+	IndividualKeyword source.Span
 	// IsParallel is the `parallel` before a state body: the state's substates
 	// are orthogonal (SysML v2 StateDefinition::isParallel).
 	IsParallel    bool
@@ -446,6 +448,8 @@ type Usage struct {
 	IsConstant    bool // 'constant' feature modifier
 	IsEvent       bool // 'event' modifier for event-driven occurrences
 	IsIndividual  bool // 'individual' modifier: OccurrenceUsage::isIndividual
+	// IndividualKeyword spans the `individual` written, zero when none was.
+	IndividualKeyword source.Span
 	// Portion is the `snapshot` or `timeslice` prefix of an occurrence usage
 	// (OccurrenceUsage::portionKind, SysML v2 8.3.9.11).
 	Portion  PortionKind
