@@ -604,22 +604,20 @@ func (c conditionCheck) name() string {
 // one holds, or — for a negated element — whether one of them fails. check.self
 // is the subject already, as checkSubject resolved it.
 func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) (bool, error) {
-	if cycle := circularReference(conds); cycle != nil {
-		return false, fmt.Errorf("%s %s: %w: require %s names the requirement being checked",
-			check.kind, check.name(), ErrNoConditions, cycle.Name)
+	if conflict := conflictingResultExpression(conds); conflict != nil {
+		return false, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
+			check.kind, check.name(), check.what, conflictText(conflict), errConflictingResultExpressions)
 	}
-	if len(conds) == 0 {
-		if !check.isRequirementCheck() {
-			return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
-		}
+	// A requirement over no required constraint is true whatever its assumptions
+	// read, so they are not evaluated; a constraint stating nothing has no verdict.
+	if check.isRequirementCheck() && !requiresAny(conds) {
 		if check.negated {
 			return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: vacuousClaim(check.claimed())}
 		}
 		return true, nil
 	}
-	if conflict := conflictingResultExpression(conds); conflict != nil {
-		return false, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
-			check.kind, check.name(), check.what, conflictText(conflict), errConflictingResultExpressions)
+	if len(conds) == 0 {
+		return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
 	}
 	features := ctx.conditionFeatures(check.sym)
 	self := check.self
@@ -633,6 +631,9 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 	required := false
 	for _, cond := range conds {
 		required = required || cond.Required
+		if err := ctx.circularCondition(check, cond); err != nil {
+			return false, err
+		}
 		if cond.Steps != nil && !cond.Negated {
 			// The body's steps ran once; each condition it left is judged on its
 			// own Required, as the conditions of a body stating no steps are.
@@ -659,17 +660,35 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 		}
 	}
 	if check.negated {
-		// A requirement stating only assumptions holds vacuously, so denying it fails;
-		// a constraint's assumption is trusted, not checked, so its denial denies nothing.
+		// A constraint's assumption is trusted rather than checked, so a negated
+		// constraint stating only assumptions denies nothing.
 		if !required {
-			if check.isRequirementCheck() {
-				return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: vacuousClaim(check.claimed())}
-			}
 			return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
 		}
 		return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: negatedText(conds)}
 	}
 	return true, nil
+}
+
+// circularCondition is the error for a condition that, reached in order, names
+// the requirement being checked; nil for one that does not.
+func (ctx *Context) circularCondition(check conditionCheck, cond Condition) error {
+	cycle := circularReference([]Condition{cond})
+	if cycle == nil {
+		return nil
+	}
+	return fmt.Errorf("%s %s: %w: require %s names the requirement being checked",
+		check.kind, check.name(), ErrNoConditions, cycle.Name)
+}
+
+// requiresAny reports whether any of conds is required rather than assumed.
+func requiresAny(conds []Condition) bool {
+	for _, cond := range conds {
+		if cond.Required {
+			return true
+		}
+	}
+	return false
 }
 
 // isRequirementCheck reports whether the checked element is a requirement
@@ -688,13 +707,8 @@ func (c conditionCheck) isRequirementCheck() bool {
 // true (SysML v2 9.2.11 Requirements; KerML 9.2.3 ControlFunctions::allTrue over
 // an empty sequence). "" for a check that is not vacuous.
 func vacuity(check conditionCheck, conds []Condition) string {
-	if !check.isRequirementCheck() {
+	if !check.isRequirementCheck() || requiresAny(conds) {
 		return ""
-	}
-	for _, cond := range conds {
-		if cond.Required {
-			return ""
-		}
 	}
 	return "vacuous: " + vacuousClaim(check.claimed())
 }
@@ -764,6 +778,9 @@ func (ctx *Context) evaluateStepsConditions(activation int64, check conditionChe
 			check.kind, check.name(), check.what, ErrNoConditions)
 	}
 	for _, sub := range cond.Group {
+		if err := ctx.circularCondition(check, sub); err != nil {
+			return false, err
+		}
 		holds, err := ctx.conditionHoldsAt(activation, sub, scoped, self, check.frames, bindings, &stepFrame)
 		if err != nil {
 			return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)

@@ -9,12 +9,16 @@ import (
 // TestRuntimeRobustnessVacuousRequirement covers the edges of a requirement check
 // over no required constraint: the denial of one is a violation, a requirement
 // stating only an assumption holds, two requirements requiring each other are a
-// cycle rather than a vacuous pass, and a constraint stating nothing still has no
-// verdict. Each is a typed error or a verdict, never a panic.
+// cycle rather than a vacuous pass, a required condition failing before a
+// self-reference is still the violation it is, an assumption that cannot be read
+// does not keep a requirement without constraint from holding, and a constraint
+// stating nothing still has no verdict. Each is a typed error or a verdict, never a panic.
 func TestRuntimeRobustnessVacuousRequirement(t *testing.T) {
 	t.Run("denying_a_requirement_without_conditions", testDenyingARequirementWithoutConditions)
 	t.Run("assumption_only_requirement", testAssumptionOnlyRequirement)
 	t.Run("requirements_requiring_each_other", testRequirementsRequiringEachOther)
+	t.Run("violation_before_a_self_reference", testViolationBeforeASelfReference)
+	t.Run("unreadable_assumption_without_constraint", testUnreadableAssumptionWithoutConstraint)
 	t.Run("constraint_without_conditions_stays_undecided", testConstraintWithoutConditionsStaysUndecided)
 }
 
@@ -120,5 +124,40 @@ func testConstraintWithoutConditionsStaysUndecided(t *testing.T) {
 		if holds, err := ctx.EvaluateConstraintOn(sym, sym.OwnerScope, nil); holds || !errors.Is(err, ErrNoConditions) {
 			t.Errorf("%s: holds = %v, err = %v, want ErrNoConditions", name, holds, err)
 		}
+	}
+}
+
+func testViolationBeforeASelfReference(t *testing.T) {
+	ctx, pkg := conditionFixture(t, `
+		package test {
+			requirement cyclic {
+				require constraint { false }
+				require cyclic;
+			}
+		}
+	`)
+	cyclic := requirementNamed(t, pkg, "cyclic")
+	holds, err := ctx.EvaluateRequirementOn(cyclic, cyclic.OwnerScope, nil)
+	var violation *ViolationError
+	if holds || !errors.As(err, &violation) || violation.Condition != "false" {
+		t.Fatalf("cyclic: holds = %v, err = %v, want the violation at false", holds, err)
+	}
+}
+
+func testUnreadableAssumptionWithoutConstraint(t *testing.T) {
+	ctx, pkg := conditionFixture(t, `
+		package test {
+			part def Craft { attribute ready : Boolean; }
+			requirement def Assumed {
+				subject craft : Craft;
+				assume constraint { craft.ready }
+			}
+			requirement assumed : Assumed;
+		}
+	`)
+	assumed := requirementNamed(t, pkg, "assumed")
+	result, err := ctx.CheckRequirementOn(assumed, assumed.OwnerScope, nil)
+	if err != nil || !result.Holds || !strings.Contains(result.Vacuous, "requirement assumed states no required constraint") {
+		t.Fatalf("assumed: holds = %v, vacuity %q, err = %v, want a vacuous pass", result.Holds, result.Vacuous, err)
 	}
 }
