@@ -743,6 +743,8 @@ func (t *translator) expr(node ast.Node, scope *symbols.Scope) (*Term, error) {
 		return t.quantity(n, scope)
 	case *ast.OperatorExpr:
 		return t.operator(n, scope)
+	case *ast.InvocationExpr:
+		return t.quantified(n, scope)
 	case *ast.SequenceExpr:
 		if len(n.Elements) == 1 {
 			return t.expr(n.Elements[0], scope)
