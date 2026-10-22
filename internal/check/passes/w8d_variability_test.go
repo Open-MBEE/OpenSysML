@@ -183,3 +183,11 @@ func TestW8DLegalVariationStaysSilent(t *testing.T) {
 		}
 	}
 }
+
+func TestVariantOutsideVariationReportedDespiteFaultyNestedMember(t *testing.T) {
+	const src = `package Nested {
+		part def P { variant part x : P { part r : Missing; } }
+	}`
+	w8dWantLines(t, src, "unresolved", 2)
+	w8dWantLines(t, src, "variant-outside-variation", 2)
+}

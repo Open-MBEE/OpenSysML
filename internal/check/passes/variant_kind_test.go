@@ -167,3 +167,15 @@ func TestVariantKindJudgesKerMLVariationTypes(t *testing.T) {
 		t.Fatalf("variant-kind on lines %v, want %v", got, want)
 	}
 }
+
+func TestVariantKindReportedDespiteFaultyNestedMember(t *testing.T) {
+	const src = `package Nested {
+		part def P;
+		variation part def PC :> P {
+			variant action a1 { part q : Missing; }
+			variant part p1 : P { part r : Missing; }
+		}
+	}`
+	w8dWantLines(t, src, "unresolved", 4, 5)
+	w8dWantLines(t, src, "variant-kind", 4)
+}
