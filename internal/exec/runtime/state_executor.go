@@ -710,6 +710,27 @@ func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error
 	return fv.HeldValue(), nil
 }
 
+// mirrorOccurrenceWrite carries a write to one of the occurrence's declared
+// features, made by any performance holding the occurrence, into the machine's
+// data, which mirrors the occurrence; it reports whether fv was such a feature.
+func (e *StateExecutor) mirrorOccurrenceWrite(fv *FeatureValue) bool {
+	if e.occurrence == nil || !fv.Materialized {
+		return false
+	}
+	for _, attr := range e.graph.Attributes {
+		if attr.Shadowed || e.occurrence.FeatureValues[attr.Name] != fv {
+			continue
+		}
+		value := fv.HeldValue()
+		if held, ok := e.stateData[attr.Name]; ok && heldSame(held, value) {
+			return false
+		}
+		e.ctx.writeBodyValue(e.stateCells, e.stateData, attr.Name, value)
+		return true
+	}
+	return false
+}
+
 // mirrorBindingOccurrence exposes a tracked state feature through its occurrence.
 func (e *StateExecutor) mirrorBindingOccurrence(name string, value Value, cell *bodyCell) (Value, error) {
 	if e.occurrence == nil || !e.declaresAttribute(name) {
@@ -6505,7 +6526,19 @@ func (e *StateExecutor) HasDueEvent() bool {
 // an event is queued, a signal this machine accepts is in flight, or a state's
 // do behavior has actions left to run.
 func (e *StateExecutor) HasPendingWork() bool {
-	return e.completionDue || len(e.held) > 0 || e.eventQueue.Len() > 0 || len(e.doActions) > 0 || e.hasPendingSignal()
+	return e.completionDue || len(e.held) > 0 || e.eventQueue.Len() > 0 || len(e.doActions) > 0 ||
+		e.hasPendingSignal() || e.hasPendingChange()
+}
+
+// hasPendingChange reports whether a change condition rose on a write made since
+// the machine last polled, which its next run takes (see observeChangedValue).
+func (e *StateExecutor) hasPendingChange() bool {
+	for _, pending := range e.changePending {
+		if pending {
+			return true
+		}
+	}
+	return false
 }
 
 // RunDoRound advances every active state's do behavior by one action, without
