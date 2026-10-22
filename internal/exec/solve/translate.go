@@ -571,9 +571,8 @@ func effectiveFeatures(ctx *runtime.Context, sym *symbols.Symbol) map[string]*sy
 func (t *translator) translate(conds []runtime.Condition) error {
 	var required []*Term
 	var labels []string
-	// A requirement's assumptions are the antecedent of its claim, never asserted
-	// on their own: over no required condition the claim holds vacuously — unless
-	// a condition is malformed, which the evaluator refuses before judging vacuity.
+	// Assumptions are the antecedent of a requirement's claim, never asserted alone:
+	// over no required condition it holds vacuously, a malformed condition refused first.
 	vacuous := vacuousSubject(t.subject) && !requiresAny(conds) && !conflicting(conds)
 	// The evaluator stops at the first required condition that does not hold,
 	// so a later condition is evaluated only where every earlier one held.

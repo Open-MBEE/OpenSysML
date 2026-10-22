@@ -79,9 +79,8 @@ func TestAssumptionOnlyRequirementSolverVerdicts(t *testing.T) {
 	solved(t, solver, violation, StatusUnsat)
 }
 
-// TestAssumedConflictingConstraintStillRefuses: an assumption carrying a
-// conflicting result expression is refused before vacuity is judged, as the
-// evaluator refuses it, so neither the plain nor the violation query answers.
+// TestAssumedConflictingConstraintStillRefuses: an assumed conflicting result
+// expression is refused before vacuity is judged, as the evaluator refuses it.
 func TestAssumedConflictingConstraintStillRefuses(t *testing.T) {
 	ctx, idx := fixture(t, "<test>", `
 		package test {
