@@ -338,6 +338,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | ControlFlow, ObjectFlow, Transition, Connector, Dependency, Extend, «Satisfy», «Verify» shown by a diagram and unnamed in v1 | the member is written with a name spelled from its written ends — `succession 'start to call' first start then call;`, `flow 'a.out to b.in' from a.out to b.in;`, `transition 'Wait accept Sig then Run' first Wait accept Sig then Run;`, `connection 'a.p to b.q' connect a.p to b.q;`, `binding 'a.p = b.q' bind a.p = b.q;`, `dependency 'A to B' from A to B;`, `satisfy requirement 'satisfy R' : R;`, `verify requirement 'verify R' : R;` inside a named `objective` — so the view can `expose` it; a name already taken in the body is numbered (`'a to b 2'`); an edge no diagram shows is written as before, anonymous (see [Edges a diagram shows](#edges-a-diagram-shows)) | mapped |
 | Diagram whose owner has no v2 body (a region, a property, an enumeration, an action node, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the action def (or the operation whose method it is) an action node belongs to, the package, or the document's top level — and the note says where | approximated |
 | Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates, and the note says what the diagram draws — nothing at all, free symbols only, or elements the tool's list omits — when the archive's stream tells; a diagram of pasted pictures alone is a view drawing them (see [Pictures pasted onto a diagram](#pictures-pasted-onto-a-diagram)) | approximated |
+| Requirement Table or Refine Requirement Matrix whose representation lists no element and names no symbol stream (Cameo stores none for these kinds) | the view exposes the `requirement`s, or the «Refine» connections and the usages they join, written under the diagram's owner; the note says the tool stored no rows (cells) and that the view is reconstructed from the owning scope, counting what it exposes | approximated |
 | Diagram named like a member of the body it is written in — a «View» class's `view` usage of the same name in the same package, a state, an action | renamed `Name 2`, `Name 3`… past the taken names | approximated |
 | Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists — nothing when there is none | approximated |
 | Diagram no written element can hold: every ancestor is library content or otherwise unwritten | comment | **unmapped** |
@@ -416,6 +417,24 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 | an activity diagram whose owner is written as an `action def`, a state machine (or statechart) diagram whose owner is written as a `state def`, showing a node or edge of its graph | `view : StandardViewDefinitions::ActionFlowView` / `StateTransitionView`, rendered `Views::asInterconnectionDiagram` |
 | a use case diagram | `Views::asInterconnectionDiagram` over the actors' `part` usages, the `use case` and `requirement` usages and the connections written for the actor associations, includes, extends and «Refine»s it shows; the renderer draws a use case's subject and `actor` parameters as pins on its node, not as nested nodes, so an actor is one node and its association one line ending at the use case |
 | other behavior diagrams (sequence, an activity diagram of a package or one showing nothing of its activity's graph), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
+
+A Cameo **Requirement Table** or **Refine Requirement Matrix** is stored without its content:
+the tool computes the table's rows and the matrix's cells from the diagram's owner each time it
+opens the diagram, and its `DiagramRepresentationObject` carries a `binaryObject` with no
+`streamContentID` (no symbol stream) and no `usedObjects`, while the scope is serialized nowhere
+in the model file either — unlike a Generic Table, whose rows are its `usedObjects`. The view of
+such a diagram is *reconstructed* from the owning scope by rule rather than migrated: a
+Requirement Table owned by `P` exposes every `requirement` written under `P` (nested and
+contained, one `expose` each, in document order); a Refine Requirement Matrix owned by `P`
+exposes every «Refine» written under `P` — the `connection 'A refines B'` and the two usages it
+joins, or the `dependency` when no connection is written for it. The report row says so: `the
+tool stored no rows for this table; reconstructed from the owning scope: 4 requirements exposed`
+(`… no cells for this matrix; … 2 refinements exposed with the usages they join`), or that no
+requirement is written under the owner, and the view is approximated. A diagram of either kind
+that does list `usedObjects` or has a symbol stream is migrated from what it lists, as any other;
+one that carries a «DiagramTable» or «DependencyMatrix» application is lowered from that
+application's `scope`, which is the tool's real source, as [Tables, matrices and relation
+maps](#tables-matrices-and-relation-maps) describes.
 
 A qualified name is written from the root Model's package — `Catalog::Parts::Wheel`, or just
 `Parts::Wheel` where no scope between the reference and the package declares a `Parts` of its own —

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_reqs" name="Requirements">
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_flow" name="Flow Requirement">
+        <nestedClassifier xmi:type="uml:Class" xmi:id="_req_margin" name="Flow Margin"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_seal" name="Seal Requirement"/>
+      <packagedElement xmi:type="uml:Package" xmi:id="_pkg_mass" name="Mass">
+        <packagedElement xmi:type="uml:Class" xmi:id="_req_mass" name="Mass Requirement"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_pump" name="Pump"/>
+      <xmi:Extension extender="Example UML Tool 1.0">
+        <modelExtension>
+          <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_req_table" name="Requirement Table" ownerOfDiagram="_pkg_reqs">
+            <xmi:Extension extender="Example UML Tool 1.0">
+              <diagramRepresentation>
+                <diagram:DiagramRepresentationObject type="Requirement Table" umlType="Class Diagram">
+                  <diagramContents/>
+                  <binaryObject/>
+                </diagram:DiagramRepresentationObject>
+              </diagramRepresentation>
+            </xmi:Extension>
+          </ownedDiagram>
+        </modelExtension>
+      </xmi:Extension>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_uc" name="Use Cases">
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_pump" name="Pump Fluid"/>
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_seal" name="Seal Valve"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_refine_pump" client="_uc_pump" supplier="_req_flow"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_refine_seal" client="_uc_seal" supplier="_req_seal"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_trace_mass" client="_uc_seal" supplier="_req_mass"/>
+      <xmi:Extension extender="Example UML Tool 1.0">
+        <modelExtension>
+          <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_refine_matrix" name="Refine Requirement Matrix" ownerOfDiagram="_pkg_uc">
+            <xmi:Extension extender="Example UML Tool 1.0">
+              <diagramRepresentation>
+                <diagram:DiagramRepresentationObject type="Refine Requirement Matrix" umlType="Class Diagram">
+                  <diagramContents/>
+                  <binaryObject/>
+                </diagram:DiagramRepresentationObject>
+              </diagramRepresentation>
+            </xmi:Extension>
+          </ownedDiagram>
+          <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_uc_reqs" name="Use Case Requirements" ownerOfDiagram="_pkg_uc">
+            <xmi:Extension extender="Example UML Tool 1.0">
+              <diagramRepresentation>
+                <diagram:DiagramRepresentationObject type="Requirement Table" umlType="Class Diagram">
+                  <diagramContents/>
+                  <binaryObject/>
+                </diagram:DiagramRepresentationObject>
+              </diagramRepresentation>
+            </xmi:Extension>
+          </ownedDiagram>
+        </modelExtension>
+      </xmi:Extension>
+    </packagedElement>
+
+  </uml:Model>
+
+  <sysml:Requirement xmi:id="_st_req_flow" base_Class="_req_flow" Id="R-1" Text="The pump keeps the flow above the minimum."/>
+  <sysml:Requirement xmi:id="_st_req_margin" base_Class="_req_margin" Id="R-1.1" Text="The flow keeps a margin over the minimum."/>
+  <sysml:Requirement xmi:id="_st_req_seal" base_Class="_req_seal" Id="R-2" Text="Every valve seals when closed."/>
+  <sysml:Requirement xmi:id="_st_req_mass" base_Class="_req_mass" Id="R-3" Text="The pump mass stays under the limit."/>
+  <sysml:Block xmi:id="_st_blk_pump" base_Class="_blk_pump"/>
+  <sysml:Refine xmi:id="_st_refine_pump" base_Abstraction="_dep_refine_pump"/>
+  <sysml:Refine xmi:id="_st_refine_seal" base_Abstraction="_dep_refine_seal"/>
+  <sysml:Trace xmi:id="_st_trace_mass" base_Abstraction="_dep_trace_mass"/>
+</xmi:XMI>
