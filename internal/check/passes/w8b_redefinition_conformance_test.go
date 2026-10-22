@@ -503,3 +503,16 @@ func TestW8BDirectionConformanceWrittenPositionalTargetReportedOnce(t *testing.T
 		t.Errorf("reported at %q, want the redefined name", got)
 	}
 }
+
+// A parameter subsetting its positional counterpart still redefines it by
+// position, so an opposing direction is reported from that redefinition.
+func TestW8BDirectionConformancePositionalCounterpartSubsetted(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::*;
+		action def A { in x : Integer; }
+		action a : A { out y :> x; }
+	}`
+	if diags := directionDiags(t, src); len(diags) != 1 {
+		t.Fatalf("got %d direction diagnostics, want one: %v", len(diags), diags)
+	}
+}

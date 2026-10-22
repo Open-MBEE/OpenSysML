@@ -45,6 +45,7 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 	}
 	var out []ConformanceViolation
 	written := map[*symbols.Symbol]bool{}
+	redefined := map[*symbols.Symbol]bool{}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil {
 			continue
@@ -59,6 +60,7 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 		written[target] = true
 		ref := ast.Node(rel.Target)
 		if rel.Kind == ast.RelRedefines {
+			redefined[target] = true
 			out = append(out, m.directionViolations(sym, traits, target, ref)...)
 		}
 		out = append(out, m.restrictionViolations(sym, traits, target, ref)...)
@@ -75,12 +77,15 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 	}
 	// A parameter redefines the parameter at its position implicitly (KerML 7.4.7.2),
 	// and that Redefinition is held to the direction and restriction rules like a written one.
+	// A written clause naming the counterpart was judged above: for direction only a
+	// redefinition is, since a subsetting one is not held to it.
 	for _, target := range m.implicitParameterCounterparts(sym) {
-		if written[target] {
-			continue // the written clause names it, and was judged above
+		if !redefined[target] {
+			out = append(out, m.directionViolations(sym, traits, target, sym.Decl)...)
 		}
-		out = append(out, m.directionViolations(sym, traits, target, sym.Decl)...)
-		out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
+		if !written[target] {
+			out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
+		}
 	}
 	return out
 }
