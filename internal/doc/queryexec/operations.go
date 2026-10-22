@@ -716,6 +716,10 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 		}
 		return result, true, nil
 	}
+	if property == PropertyValuation {
+		values, err := e.valuationValues(sym)
+		return values, true, err
+	}
 	if values, present, err := e.declaredFeatureValues(sym, property); present || err != nil {
 		return values, present, err
 	}

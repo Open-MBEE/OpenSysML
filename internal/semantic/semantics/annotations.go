@@ -873,6 +873,17 @@ func (m *Model) DeclaredFeatureValues(sym *symbols.Symbol, feature string) ([]sy
 	return m.constantFeatureValues(member, make(map[*symbols.Symbol]bool))
 }
 
+// OwnFeatureValues returns the ordered constant values a feature's own
+// valuation binds (KerML Feature::valuation): what its declaration writes, or
+// what the features it redefines write when it writes none. Not a feature: ok
+// is false. The error is a symbols.NeedsHydration for a recorded declaration.
+func (m *Model) OwnFeatureValues(sym *symbols.Symbol) ([]symbols.FilterValue, bool, error) {
+	if m == nil || sym == nil || !sym.IsFeature() {
+		return nil, false, nil
+	}
+	return m.constantFeatureValues(sym, make(map[*symbols.Symbol]bool))
+}
+
 // constantFeatureValues reads the values member's declaration writes, or those
 // of the features it redefines when it writes none. A recorded feature's record
 // says whether it writes a value but not what: that reading needs its tree.
