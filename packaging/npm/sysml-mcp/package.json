@@ -32,7 +32,8 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:coverage": "node -e \"fs.mkdirSync('coverage',{recursive:true})\" && node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info"
   },
   "optionalDependencies": {
     "@openmbee/sysml-mcp-darwin-arm64": "0.10.1",

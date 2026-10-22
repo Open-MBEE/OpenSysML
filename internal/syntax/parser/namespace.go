@@ -737,14 +737,29 @@ func (p *Parser) parseAlias(start int, vis ast.Visibility) *ast.Alias {
 	p.advance() // 'alias'
 	id := p.parseIdentification()
 	al := &ast.Alias{Visibility: vis, Ident: id}
-	if !p.acceptKeyword("for") {
-		p.error(p.peek().Span, "expected 'for' in alias")
-	} else {
+	switch {
+	case p.acceptKeyword("for"):
 		al.For = p.parseQualifiedName()
+	case p.atKeyword("of") && p.atQualifiedNameAt(1):
+		// `alias a of b` reads as the alias meant, with the keyword corrected
+		// (KerML.xtext AliasMember spells only `for`).
+		p.error(p.advance().Span, "expected 'for' in alias: write `alias "+id.Name+" for <qualified name>`")
+		al.For = p.parseQualifiedName()
+	default:
+		p.error(p.peek().Span, "expected 'for' in alias")
 	}
 	al.Body, al.HasBody = p.parseNamespaceBody(bodyOther)
 	al.NodeSpan = p.spanFrom(start)
 	return al
+}
+
+// atQualifiedNameAt reports whether a qualified name, global `$::` prefix
+// included, starts at off (KerML.xtext QualifiedName).
+func (p *Parser) atQualifiedNameAt(off int) bool {
+	if p.peekN(off).Kind == lexer.Dollar && p.peekN(off+1).Kind == lexer.ColonColon {
+		off += 2
+	}
+	return p.atNameAt(off)
 }
 
 // parseQualifiedNameList parses `QualifiedName (, QualifiedName)*`.

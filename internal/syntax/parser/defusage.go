@@ -69,6 +69,12 @@ var compoundDefKinds = map[[2]string]bool{
 	{"verification", "case"}: true,
 }
 
+// isCaseKindCompound reports `analysis case` / `verification case`, parsed as
+// the first word's kind (SysML v2 8.2.2.23, 8.2.2.24) and reported as notation.
+func isCaseKindCompound(first, second string) bool {
+	return second == "case" && (first == "analysis" || first == "verification")
+}
+
 // kindPrefixKeywords are keywords that qualify a following kind keyword rather
 // than naming the declaration, even when no name follows the kind:
 // `assert constraint { ... }` is an asserted anonymous constraint, not a
@@ -228,6 +234,7 @@ type featureMods struct {
 	constantSeen  bool            // a constant prefix in the file kind's own spelling was read
 	isEvent       bool            // event modifier for occurrences
 	isIndividual  bool            // individual modifier for individuals/snapshots
+	individual    lexer.Token     // the `individual` token read
 	portion       ast.PortionKind // 'snapshot' / 'timeslice' portion prefix
 	isNegated     bool            // `not` of `assert not <kind>`: the conditions are asserted to be false
 	prefixKeyword string          // keyword qualifying the kind that follows it: the `assert` of `assert constraint c`
@@ -538,6 +545,7 @@ func applyFeatureMods(decl ast.Node, mods featureMods) {
 		}
 		if mods.isIndividual {
 			d.IsIndividual = true
+			d.IndividualKeyword = mods.individual.Span
 		}
 		if mods.portion != ast.PortionNone {
 			d.Portion = mods.portion
@@ -1230,6 +1238,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			}
 			m.noteDefinitionPrefix(t)
 			m.isIndividual = true
+			m.individual = t
 		case "snapshot":
 			// The portion loop in parseDefUsage reads a portion prefix the same way
 			// for either keyword; only another modifier after it is handled here.
@@ -1784,6 +1793,11 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	// This handles patterns like `#scenario def X` where prefix acts as semantic annotation
 	if p.atKeyword("def") {
 		p.advance() // consume 'def'
+		// `individual #Tag def F` is an IndividualDefinition, not a generic class: the
+		// metadata sits between the two words (SysML.xtext IndividualDefinition).
+		if mods.isIndividual {
+			return applyPrefixes(p.parseDefinition(start, ast.DefIndividual, "individual", mods, false, true))
+		}
 		// Use generic definition kind (or could extract from prefix)
 		return applyPrefixes(p.parseDefinition(start, ast.DefClass, "", mods, false, true))
 	}
@@ -1823,6 +1837,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	// handled with the usage-only keywords above.
 	if kw == "individual" {
 		mods.isIndividual = true
+		mods.individual = t
 	}
 
 	// Parse 'all' modifier if present (appears after keyword, before name)
@@ -1842,6 +1857,12 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	if p.atSecondaryKind(kw) {
 		kindKeyword = p.peek().KeywordID
 		defKind = p.definitionKindOf(kindKeyword)
+		// `analysis case` keeps the kind its first word declares and both words
+		// as the keyword written: the production spells `analysis` alone.
+		if isCaseKindCompound(kw, kindKeyword) {
+			kindKeyword = kw + " " + kindKeyword
+			defKind = p.definitionKindOf(kw)
+		}
 		p.advance() // consume secondary keyword
 	}
 
@@ -1871,6 +1892,9 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	keyword := kw
 	if kw == "assoc" && kindKeyword == "struct" {
 		keyword = "assoc struct"
+	}
+	if strings.Contains(kindKeyword, " ") {
+		keyword = kindKeyword
 	}
 	// A KerML classifier is read as a usage and classified later, but its
 	// prefix is still TypePrefix (KerML.xtext:313).
@@ -1903,6 +1927,9 @@ func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword str
 		Visibility:    mods.visibility,
 		Ident:         p.parseIdentification(),
 	}
+	if mods.isIndividual {
+		def.IndividualKeyword = mods.individual.Span
+	}
 	if !defKeywordConsumed && isKerMLClassifierDefinitionKeyword(keyword) && p.at(lexer.LBracket) {
 		def.Multiplicity = p.parseMultiplicity()
 	}
@@ -1917,6 +1944,7 @@ func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword str
 // parseDefinitionBody parses a definition's body, or the `;` ending a bodiless
 // one, in the notation its kind declares members in.
 func (p *Parser) parseDefinitionBody(def *ast.Definition) ([]ast.Node, bool) {
+	p.skipParameterList()
 	switch def.Kind {
 	case ast.DefAction, ast.DefOccurrence:
 		// Action/occurrence def bodies: mixed (declarations + behavioral statements)
@@ -1961,6 +1989,45 @@ func (p *Parser) parseDefinitionBody(def *ast.Definition) ([]ast.Node, bool) {
 	default:
 		return p.parseDefUsageBody()
 	}
+}
+
+// skipParameterList reports and skips a `( ... )` after a declaration head, so the kind's
+// body parser reads what follows; parameters are body features (KerML.xtext ParameterMember).
+func (p *Parser) skipParameterList() {
+	if !p.at(lexer.LParen) {
+		return
+	}
+	open := p.advance()
+	// A list that closes before the body is skipped whole, semicolons inside
+	// included; one that never closes ends at the first terminator.
+	closes := p.parenGroupCloses()
+	depth := 1
+	for depth > 0 && !p.atEOF() && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !(p.at(lexer.Semicolon) && !closes) {
+		switch p.advance().Kind {
+		case lexer.LParen:
+			depth++
+		case lexer.RParen:
+			depth--
+		}
+	}
+	p.error(open.Span, "a declaration takes no parenthesised parameter list: declare each parameter as a directed feature of the body, `in <name> : <Type>;`")
+}
+
+// parenGroupCloses reports whether the `(` just consumed is matched by a `)`
+// before a brace or the end of the file.
+func (p *Parser) parenGroupCloses() bool {
+	depth := 1
+	for off := 0; depth > 0; off++ {
+		switch p.peekN(off).Kind {
+		case lexer.EOF, lexer.LBrace, lexer.RBrace:
+			return false
+		case lexer.LParen:
+			depth++
+		case lexer.RParen:
+			depth--
+		}
+	}
+	return true
 }
 
 // parseBodyOrSemicolon accepts the `;` of a bodiless declaration, else parses
@@ -2091,8 +2158,9 @@ func MemberOwner(kw string) string {
 }
 
 // memberKeyword is the keyword a member notation opens with: `entry` of `entry action`.
+// The `abstract`/`variation`/`variant` modifiers qualify the keyword that follows rather than open a member.
 func memberKeyword(notation string) string {
-	kw, _, _ := strings.Cut(notation, " ")
+	kw, _, _ := strings.Cut(ast.NotationKeyword(notation), " ")
 	return kw
 }
 
@@ -2258,29 +2326,30 @@ func (p *Parser) atGuardedSuccession() bool {
 // token stream, kept for the same reason as in parseDefinition.
 func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods featureMods, isAll bool) *ast.Usage {
 	u := &ast.Usage{
-		Kind:          kind,
-		Keyword:       keyword,
-		PrefixKeyword: mods.prefixKeyword,
-		IsNegated:     mods.isNegated,
-		IsAbstract:    mods.isAbstract,
-		IsVariation:   mods.isVariation,
-		IsVariant:     mods.isVariant,
-		IsReference:   mods.isReference,
-		IsVariable:    mods.isVariable,
-		IsAll:         isAll,
-		IsEnd:         mods.isEnd,
-		IsChain:       mods.isChain,
-		IsConstant:    mods.isConstant,
-		IsEvent:       mods.isEvent,
-		IsIndividual:  mods.isIndividual,
-		Portion:       mods.portion,
-		Visibility:    mods.visibility,
-		Direction:     mods.direction,
-		IsComposite:   mods.isComposite,
-		IsPortion:     mods.isPortion,
-		IsDerived:     mods.isDerived,
-		IsOrdered:     mods.isOrdered,
-		IsNonunique:   mods.isNonunique,
+		Kind:              kind,
+		Keyword:           keyword,
+		PrefixKeyword:     mods.prefixKeyword,
+		IsNegated:         mods.isNegated,
+		IsAbstract:        mods.isAbstract,
+		IsVariation:       mods.isVariation,
+		IsVariant:         mods.isVariant,
+		IsReference:       mods.isReference,
+		IsVariable:        mods.isVariable,
+		IsAll:             isAll,
+		IsEnd:             mods.isEnd,
+		IsChain:           mods.isChain,
+		IsConstant:        mods.isConstant,
+		IsEvent:           mods.isEvent,
+		IsIndividual:      mods.isIndividual,
+		IndividualKeyword: mods.individual.Span,
+		Portion:           mods.portion,
+		Visibility:        mods.visibility,
+		Direction:         mods.direction,
+		IsComposite:       mods.isComposite,
+		IsPortion:         mods.isPortion,
+		IsDerived:         mods.isDerived,
+		IsOrdered:         mods.isOrdered,
+		IsNonunique:       mods.isNonunique,
 	}
 
 	u.CrossFeature = mods.cross
@@ -2462,6 +2531,7 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 // bodiless one, in the notation its kind declares members in; start is the
 // offset the usage's declaration began at.
 func (p *Parser) parseUsageBody(u *ast.Usage, kind ast.UsageKind, start int) {
+	p.skipParameterList()
 	var members []ast.Node
 	var hasBody bool
 	defer p.pushBodyContext(usageBodyContext(kind))()
@@ -3278,27 +3348,28 @@ func (p *Parser) parseBodyMember() ast.Node {
 				kind = p.anonymousUsageKind(mods)
 			}
 			u := &ast.Usage{
-				Kind:         kind,
-				Keyword:      keyword,
-				Ident:        id,
-				Visibility:   mods.visibility,
-				IsAbstract:   mods.isAbstract,
-				IsVariation:  mods.isVariation,
-				IsVariant:    mods.isVariant,
-				IsReference:  mods.isReference,
-				IsIndividual: mods.isIndividual,
-				IsEvent:      mods.isEvent,
-				Portion:      mods.portion,
-				IsVariable:   mods.isVariable,
-				IsConstant:   mods.isConstant,
-				IsDerived:    mods.isDerived,
-				IsComposite:  mods.isComposite,
-				IsPortion:    mods.isPortion,
-				IsEnd:        mods.isEnd,
-				IsChain:      mods.isChain,
-				Direction:    mods.direction,
-				IsOrdered:    mods.isOrdered,
-				IsNonunique:  mods.isNonunique,
+				Kind:              kind,
+				Keyword:           keyword,
+				Ident:             id,
+				Visibility:        mods.visibility,
+				IsAbstract:        mods.isAbstract,
+				IsVariation:       mods.isVariation,
+				IsVariant:         mods.isVariant,
+				IsReference:       mods.isReference,
+				IsIndividual:      mods.isIndividual,
+				IndividualKeyword: mods.individual.Span,
+				IsEvent:           mods.isEvent,
+				Portion:           mods.portion,
+				IsVariable:        mods.isVariable,
+				IsConstant:        mods.isConstant,
+				IsDerived:         mods.isDerived,
+				IsComposite:       mods.isComposite,
+				IsPortion:         mods.isPortion,
+				IsEnd:             mods.isEnd,
+				IsChain:           mods.isChain,
+				Direction:         mods.direction,
+				IsOrdered:         mods.isOrdered,
+				IsNonunique:       mods.isNonunique,
 			}
 
 			if hasTypeOnly {

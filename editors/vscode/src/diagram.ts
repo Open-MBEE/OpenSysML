@@ -48,8 +48,9 @@ import {
   WorkspaceEdit,
 } from "./protocol";
 import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
+import { PANEL_MARKUP } from "./markup";
 import { logsRender, renderSummary } from "./rendertrace";
-import { DEPTH_SETTING, depthOf, DiagramStyle, drawingStyleOf, OpenIn, openInOf, paletteOf, Routing, ROUTING_SETTING, routingOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
+import { DEPTH_SETTING, depthOf, DiagramStyle, drawingStyleOf, hiddenRelationsOf, HIDE_RELATIONS_SETTING, OpenIn, openInOf, paletteOf, Routing, ROUTING_SETTING, routingOf, SHOW_SETTING, shownOf, STYLE_SETTING, styleOf } from "./style";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
 import {
   chooseView,
@@ -132,7 +133,8 @@ export class DiagramPanels implements vscode.Disposable {
         if (event.affectsConfiguration(AUTO_OPEN_SETTING)) {
           this.autoOpen(vscode.window.activeTextEditor);
         }
-        if (event.affectsConfiguration(STYLE_SETTING) || event.affectsConfiguration(SHOW_SETTING) || event.affectsConfiguration(DEPTH_SETTING)) {
+        if (event.affectsConfiguration(STYLE_SETTING) || event.affectsConfiguration(SHOW_SETTING) || event.affectsConfiguration(DEPTH_SETTING)
+          || event.affectsConfiguration(HIDE_RELATIONS_SETTING)) {
           for (const panel of this.panels.values()) {
             panel.restyle();
           }
@@ -639,6 +641,11 @@ function diagramShown(scope: vscode.Uri): string[] {
   return shownOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("show"));
 }
 
+/** diagramHiddenRelations is the relationship kinds the setting hides by default, as it applies to a document. */
+function diagramHiddenRelations(scope: vscode.Uri): string[] {
+  return hiddenRelationsOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("hideRelations"));
+}
+
 /** diagramDepth is how many levels the setting draws below each exposed element, as it applies to a document; 0 for every level. */
 function diagramDepth(scope: vscode.Uri): number {
   return depthOf(vscode.workspace.getConfiguration("opensysml.diagram", scope).get<unknown>("depth"));
@@ -898,6 +905,7 @@ class DiagramPanel {
         style,
         routing: diagramRouting(this.docURI),
         hint: renderHint(palette !== undefined && !colours, drawing !== undefined && !styled),
+        hideRelations: diagramHiddenRelations(this.docURI),
       });
       this.highlightActive();
     } catch (err) {
@@ -1407,14 +1415,37 @@ function html(
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SysML diagram</title>
     <style>
-      body { margin: 0; padding: 0.5rem; font-family: var(--vscode-font-family); color: var(--vscode-foreground); }
-      #bar { display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; }
+      body { margin: 0; padding: 0.5rem; font-family: var(--vscode-font-family); color: var(--vscode-foreground);
+        box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; }
+      #bar { display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; flex-wrap: wrap; }
+      #nav { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto; white-space: nowrap; }
+      #nav button { font: inherit; padding: 0 0.5rem; min-width: 1.75rem; height: 1.6rem; cursor: pointer;
+        color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+        background: var(--vscode-button-secondaryBackground, transparent);
+        border: 1px solid var(--vscode-button-border, var(--vscode-widget-border, transparent)); border-radius: 2px; }
+      #nav button:hover { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-toolbar-hoverBackground)); }
+      #nav button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+      #relations { position: relative; font-size: 0.9em; margin: 0; }
+      #relations > summary { cursor: pointer; list-style: none; padding: 0.15rem 0.5rem; border-radius: 2px;
+        border: 1px solid var(--vscode-button-border, var(--vscode-widget-border, transparent));
+        background: var(--vscode-button-secondaryBackground, transparent); color: var(--vscode-button-secondaryForeground, var(--vscode-foreground)); }
+      #relations > summary::-webkit-details-marker { display: none; }
+      #relations.filtered > summary { border-color: var(--vscode-focusBorder); }
+      #relation-list { position: absolute; z-index: 10; left: 0; top: calc(100% + 0.25rem); min-width: 14rem; max-height: 60vh; overflow-y: auto;
+        padding: 0.35rem 0.5rem; background: var(--vscode-editorWidget-background); color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
+        border: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border)); box-shadow: 0 2px 8px var(--vscode-widget-shadow); }
+      #relation-list label { display: flex; align-items: center; gap: 0.4rem; padding: 0.1rem 0; white-space: nowrap; cursor: pointer; }
+      #relation-list .count { margin-left: auto; opacity: 0.7; font-variant-numeric: tabular-nums; }
+      #nav button#auto-layout, #nav button#reset-layout { margin-left: 0.25rem; }
+      #zoom { min-width: 3.2em; text-align: center; font-size: 0.9em; opacity: 0.8; font-variant-numeric: tabular-nums; }
       #view { flex: 1 1 auto; max-width: 30rem; }
       #style { max-width: 14rem; }
       #kind { opacity: 0.8; font-size: 0.9em; }
       #status { color: var(--vscode-errorForeground); min-height: 1.2em; font-size: 0.9em; white-space: pre-wrap; }
       #status.hint { color: var(--vscode-descriptionForeground, var(--vscode-foreground)); }
-      #diagram { overflow: auto; }
+      /* The diagram is the scroll container, so the viewport is its scroll offsets and the toolbar stays put. */
+      #diagram { overflow: auto; flex: 1 1 auto; min-height: 0; }
+      #diagram.panning, #diagram.panning * { cursor: grabbing; }
       #menu { position: fixed; z-index: 10; min-width: 12rem; max-height: calc(100vh - 1rem); overflow-y: auto;
         padding: 0.25rem 0; margin: 0; list-style: none;
         background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
@@ -1462,6 +1493,16 @@ function html(
       #diagram .opensysml-selected > .shape, #diagram .opensysml-selected > g.shape > circle {
         stroke: var(--vscode-focusBorder); stroke-width: 3px;
       }
+      /* A clicked node is the focus: it, its neighbours and the edges between them stay; the rest dims. */
+      #diagram svg.has-focus g.opensysml-node:not(.related), #diagram svg.has-focus g.opensysml-edge:not(.related),
+      #diagram svg.has-focus g.edge-handles:not(.related) { opacity: 0.22; }
+      #diagram g.opensysml-node.related > .shape, #diagram g.opensysml-node.related > g.shape > circle {
+        stroke: var(--vscode-textLink-activeForeground, var(--vscode-focusBorder)); stroke-width: 2px;
+      }
+      #diagram g.opensysml-node.focus > .shape, #diagram g.opensysml-node.focus > g.shape > circle {
+        stroke: var(--vscode-textLink-activeForeground, var(--vscode-focusBorder)); stroke-width: 3.5px;
+      }
+      #diagram g.opensysml-edge.related .line { stroke: var(--vscode-textLink-activeForeground, var(--vscode-focusBorder)); stroke-width: 2px; }
       #diagram table.opensysml-table { border-collapse: collapse; font-size: 0.9em; }
       #diagram .opensysml-table th, #diagram .opensysml-table td { text-align: left; padding: 0.25rem 0.75rem; border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border)); white-space: nowrap; }
       #diagram .opensysml-table th { font-weight: 600; position: sticky; top: 0; background: var(--vscode-editor-background); }
@@ -1531,24 +1572,7 @@ function html(
     </style>
   </head>
   <body data-state='${state}'>
-    <div id="bar">
-      <label for="view">View</label>
-      <select id="view"></select>
-      <label for="style">Style</label>
-      <select id="style"></select>
-      <span id="kind"></span>
-    </div>
-    <div id="status"></div>
-    <div id="diagram" tabindex="-1"></div>
-    <ul id="menu" hidden role="menu"></ul>
-    <details id="notices" hidden>
-      <summary></summary>
-      <ul id="notice-list"></ul>
-    </details>
-    <details id="undrawable" hidden>
-      <summary></summary>
-      <ul id="undrawable-list"></ul>
-    </details>
+${PANEL_MARKUP}
     <script nonce="${nonce}" src="${script}"></script>
   </body>
 </html>`;

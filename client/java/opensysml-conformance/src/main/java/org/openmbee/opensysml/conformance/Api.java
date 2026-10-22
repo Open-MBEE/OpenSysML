@@ -91,7 +91,6 @@ import org.openmbee.opensysml.proto.CompareResultsRequest;
 import org.openmbee.opensysml.proto.CompareResultsResponse;
 import org.openmbee.opensysml.proto.ImportDataRequest;
 import org.openmbee.opensysml.proto.ImportDataResponse;
-import org.openmbee.opensysml.proto.ObservablePair;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import org.openmbee.opensysml.proto.CheckBehaviorRequest;

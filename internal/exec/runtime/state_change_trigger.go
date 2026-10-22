@@ -327,7 +327,14 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 }
 
 func (e *StateExecutor) observeFeatureWrite(fv *FeatureValue) {
-	if !e.hasChangeTriggers || fv == nil || e.ctx.probes > 0 || e.changeEvaluating {
+	if fv == nil || e.ctx.probes > 0 {
+		return
+	}
+	if e.mirrorOccurrenceWrite(fv) {
+		e.observeStateDataWrite()
+		return
+	}
+	if !e.hasChangeTriggers || e.changeEvaluating {
 		return
 	}
 	e.observeChangedValue(func(reads []*FeatureValue) bool {

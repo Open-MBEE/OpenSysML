@@ -168,10 +168,11 @@ branch that moves the integration state onto `main`:
    `optionalDependencies` — to the SemVer spelling of the same version (`0.9.1`;
    `0.9.0-rc.1` for `0.9.0rc1`; `TestMCPRunnerManifestAgreesWithTheClientVersion` in
    `tests/hygiene` fails while the two manifests disagree), and run `npm install --package-lock-only` in
-   `client/node` so the lockfile agrees; the release workflow fails before
+   `client/node` and in `packaging/npm/sysml-mcp` so both lockfiles agree; the release workflow fails before
    building anything when package.json disagrees, and `npm ci` refuses a
    lockfile that still locks the platform packages at the previous version
-   (`TestNodeLockfileAgreesWithTheClientVersion` in `tests/hygiene` catches
+   (`TestNodeLockfileAgreesWithTheClientVersion` and
+   `TestMCPRunnerLockfileAgreesWithTheManifest` in `tests/hygiene` catch
    that without a Node toolchain). Before the tag the new platform packages
    are not on npm, so that run drops their entries from the lockfile; that is
    fine for `npm ci`, and the pin step below locks them once they exist. `client/java/pom.xml` follows
@@ -207,8 +208,9 @@ branch that moves the integration state onto `main`:
    `develop` (see [Pinned release digests](#pinned-release-digests)). Its Node
    client job fails until the lockfile names the platform packages the tag just
    published — `npm install --package-lock-only` in `client/node` could not lock
-   them before they existed — so run that on the pin branch and commit the
-   lockfile first. Then merge
+   them before they existed — so run that on the pin branch (and in
+   `packaging/npm/sysml-mcp`, whose lockfile pins the runner's platform packages
+   the same way) and commit both lockfiles first. Then merge
    `main` back into `develop` — a plain merge, no rebase — so the folded
    changelog, and any hotfix that landed on `main` in the meantime, flow down.
    When the release was a `hotfix/` branch, `develop`'s lockfile still locks
@@ -220,7 +222,8 @@ branch that moves the integration state onto `main`:
    git checkout develop && git pull
    git merge main
    (cd client/node && npm install --package-lock-only --ignore-scripts)   # after a hotfix
-   git commit -am "chore(node): lock the platform packages at the release"  # if it changed
+   (cd packaging/npm/sysml-mcp && npm install --package-lock-only --ignore-scripts)
+   git commit -am "chore(node): lock the platform packages at the release"  # if either changed
    git push origin develop
    ```
 
@@ -1433,7 +1436,13 @@ Everything below is already in place; it is recorded so it can be re-created.
 
 1. The **`@openmbee` scope** on npm, with the publishing account a member of the
    org with publish rights on its packages. A new package under the scope is
-   created by its first `npm publish --access public`.
+   created by its first `npm publish --access public` with this token; the
+   nightly's trusted publishing cannot create one (its `npm publish` fails with
+   `404 Not Found - PUT`), so after the release that first publishes a package,
+   register the nightly on it on npmjs.com (package *Settings → Trusted
+   publishing*: GitHub Actions, repository `Open-MBEE/OpenSysML`, workflow
+   `nightly.yml`, environment `nightly`). `@openmbee/sysml-mcp` and its five
+   platform packages ship this way first.
 2. A **granular access token** stored as `NPM_TOKEN` in the CircleCI restricted
    context `npm` (lower-case, matched exactly, restricted to a security group).
    The token was created on npmjs.com → *Access Tokens* → *Generate New Token*
@@ -1723,9 +1732,11 @@ names the npm package `@openmbee/sysml-mcp`, whose `package.json` declares
 workflow `.github/workflows/mcp-registry.yml` runs on the tag, and
 `scripts/mcp-registry-publish.sh` does the work, in this order:
 
-1. Wait, for at most an hour (`MCP_REGISTRY_NPM_TIMEOUT`), for `@openmbee/sysml-mcp@<version>`
-   on registry.npmjs.org, which CircleCI's `publish-npm` job publishes on the same tag, and
-   check that it declares the `mcpName` above; the registry rejects a listing otherwise.
+1. Wait, for at most three hours (`MCP_REGISTRY_NPM_TIMEOUT`, 10800 seconds), for
+   `@openmbee/sysml-mcp@<version>` on registry.npmjs.org, which CircleCI's `publish-npm` job
+   publishes on the same tag only after the suite and the GitHub release (the v0.10.0 and
+   v0.10.1 tags took 84 and 72 minutes to reach npm), and check that it declares the
+   `mcpName` above; the registry rejects a listing otherwise.
 2. Install the pinned `mcp-publisher` release (`scripts/install-mcp-publisher.sh`, which
    verifies the archive's SHA-256 against the one recorded there).
 3. Fill the tag's version into a copy of `server.json` (the committed file carries the

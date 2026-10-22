@@ -164,6 +164,9 @@ func solveReason(result *solve.Result, q *solve.Query) string {
 func assignmentLines(model []solve.Assignment) []string {
 	out := make([]string, 0, len(model))
 	for _, a := range model {
+		if a.Dead {
+			continue
+		}
 		line := fmt.Sprintf("  %s = %s", notationName(a.Var.Name), a.Value)
 		if !a.Rendered {
 			line += "  (as the solver wrote it)"
@@ -219,6 +222,20 @@ func (s *Session) solveQueriesWith(name string, pins pinner) ([]*solve.Query, []
 		}
 		q, qerr := solve.SatisfactionWith(target.ctx, a, fixed)
 		return oneQuery(name, q, unfixed, qerr)
+	}
+	// A part or definition states the conjunction of every assertion about its
+	// objects, the way validating one of them checks it.
+	if runtime.RequireObject(target.sym) == nil {
+		var self *runtime.Instance
+		if pins == nil {
+			// With no object to read, the values its own features declare are
+			// what distinguishes a configuration from the family it specializes.
+			fixed, unfixed = solve.FixedFor(target.ctx, solve.Fixing{Element: target.sym, Owner: owningElement(target.sym)})
+		} else if inst, _, bad := s.checkSubject(name, target); bad == nil {
+			self = inst
+		}
+		q, err := solve.AssertedOn(target.ctx, target.sym, target.scope, fixed, self)
+		return oneQuery(name, q, unfixed, err)
 	}
 	return s.satisfactionQueries(name, target, pins)
 }

@@ -419,6 +419,11 @@ func (ctx *Context) forgetAbandoned(abandoned map[int64]bool, gone []*Instance) 
 			delete(ctx.occurrences, sym)
 		}
 	}
+	for key, id := range ctx.usageOccurrences {
+		if _, live := ctx.instances[id]; !live || abandoned[key.instance] {
+			delete(ctx.usageOccurrences, key)
+		}
+	}
 	for annotation, id := range ctx.metadataObjects {
 		if _, live := ctx.instances[id]; !live {
 			delete(ctx.metadataObjects, annotation)
@@ -1179,8 +1184,8 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 }
 
 // hasPendingWork reports whether running the behavior again would advance it: a
-// machine woken by an event due now or a signal in flight, or an action whose
-// awaited message a sibling has since sent. An event scheduled for a later time
+// machine woken by an event due now, a signal in flight or a change condition a
+// write raised, or an action whose awaited message a sibling has since sent. An event scheduled for a later time
 // is not work materialization waits for, and an execution that reached its end
 // takes no step whatever is left addressed to it.
 func (b *ObjectBehavior) hasPendingWork() bool {
@@ -1192,7 +1197,7 @@ func (b *ObjectBehavior) hasPendingWork() bool {
 	}
 	switch {
 	case b.State != nil:
-		return !b.State.State().Ended() && (b.State.hasDueEvent() || b.State.HasPendingSignal())
+		return !b.State.State().Ended() && (b.State.hasDueEvent() || b.State.HasPendingSignal() || b.State.hasPendingChange())
 	case b.Action != nil:
 		return !b.Action.State().Ended() && b.Action.HasPendingSignal()
 	default:

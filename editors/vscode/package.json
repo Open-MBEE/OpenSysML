@@ -193,6 +193,36 @@
           ],
           "markdownDescription": "Whose routes the diagram panel draws its edges along. This is a drawing setting of the panel only: `sysml -render-lines` and the diagram exports keep drawing the stated routes."
         },
+        "opensysml.diagram.hideRelations": {
+          "type": "array",
+          "default": [],
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "connection",
+              "transition",
+              "succession",
+              "flow",
+              "binding",
+              "specialization",
+              "typing",
+              "composition",
+              "reference",
+              "containment",
+              "import",
+              "satisfy",
+              "verify",
+              "derive",
+              "refine",
+              "allocate",
+              "association",
+              "include",
+              "anchor"
+            ]
+          },
+          "markdownDescription": "Relationship kinds the diagram panel hides by default, by the kind names the rendering's edges carry (for example `typing`, `specialization`, `composition`). Each panel's **Relations** list shows the kinds present in its diagram and overrides this for that panel alone; nothing is written to the model, and exports are unaffected."
+        },
         "opensysml.diagram.depth": {
           "type": "integer",
           "default": 0,
@@ -314,6 +344,7 @@
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/webview/tsconfig.json && tsc --noEmit -p src/landing/tsconfig.json",
     "test": "node tools/test.mjs",
+    "test:coverage": "node tools/test.mjs --coverage",
     "package": "npm run typecheck && npm test && npm run build -- --production && vsce package --no-dependencies --out opensysml-sysml.vsix"
   },
   "dependencies": {
@@ -325,6 +356,7 @@
     "@types/node": "22.10.5",
     "@types/vscode": "1.86.0",
     "@vscode/vsce": "3.2.2",
+    "c8": "11.0.0",
     "esbuild": "0.25.0",
     "jsdom": "26.1.0",
     "type-fest": "4.41.0",

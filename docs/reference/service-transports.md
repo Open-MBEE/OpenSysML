@@ -225,7 +225,12 @@ The stdio transport this project does support is a different protocol for a diff
 [`sysml-mcp`](sysml-mcp.md) serves the Model Context Protocol over stdin/stdout to a coding
 agent's host, which starts the process itself — the one situation where a child process is the
 right shape. Its `runtime` tool group is this service's RPC surface, one tool per RPC with the
-RPC's request and response, so an agent gets the same contract the clients on this page do.
+RPC's request and response, so an agent gets the same contract the clients on this page do. Its
+`-http` flag serves the same protocol over a port to many agents, with the TLS and origin
+stance this page takes — loopback unless the address says otherwise, TLS from a certificate and
+key pair, an origin allow-list that is not authentication — and one difference the Model Context
+Protocol asks for: an address other machines reach is served only with a bearer token
+(`-token-file`), which every request must carry; loopback alone is served without one.
 
 ## Every protocol is tested, not merely served
 

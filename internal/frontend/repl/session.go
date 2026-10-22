@@ -1499,8 +1499,10 @@ func (s *Session) symbolIndex() *symbols.Index {
 		}
 	}
 	s.idxDocs = s.idxDocs[:0]
+	// The index holds each document's own tree rather than one built again from its
+	// AST, so a declaration the runtime reaches through either is one symbol.
 	for _, doc := range docs {
-		s.idx.AddDocument(doc.Name, doc.AST)
+		s.idx.AddDocumentScopeWithKind(doc.Name, doc.AST, doc.Scope, doc.Kind())
 		s.idxDocs = append(s.idxDocs, doc.Name)
 	}
 	s.idx.ExpandWildcardImports()

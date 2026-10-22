@@ -369,3 +369,37 @@ package Debug {
 	run(t, s, "%configure variantsAgree all")
 	rejects(t, run(t, s, "%tokens"), "no active")
 }
+
+// quotedFamilyModel is a product line in a package whose name carries a space,
+// as every OMG teaching model's does: the solver quotes the variants' names.
+const quotedFamilyModel = `
+package 'Cfg Space' {
+	part def E; part e4 : E; part e6 : E;
+	part def T; part man : T; part auto : T;
+	abstract part fam {
+		variation part engine : E { variant e4; variant e6; }
+		variation part trans : T { variant man; variant auto; }
+		assert constraint sel {
+			(engine == engine::e4 and trans == trans::man) xor (engine == engine::e6 and trans == trans::auto)
+		}
+	}
+}
+`
+
+// TestConfigureReadsQuotedNamesBack: a variant the solver writes as a |quoted| symbol
+// is read back whole, so a family in a package named with a space configures like any other.
+func TestConfigureReadsQuotedNamesBack(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, quotedFamilyModel)
+	all := run(t, s, "%configure 'Cfg Space'::fam::sel all")
+	wants(t, all, "✓ Constraint sel permits 2 selections of variants, which are all of them",
+		"'Cfg Space'::fam::engine = ", "::e4", "::e6", "::man", "::auto")
+	rejects(t, all, "error:", "is not a value of")
+
+	solved := run(t, s, "%solve 'Cfg Space'::fam::sel")
+	wants(t, solved, "✓ Constraint sel has values satisfying it", "Synthesised:", "'Cfg Space'::fam::engine = ")
+	rejects(t, solved, "cannot hold the value")
+
+	chosen := run(t, s, "%configure 'Cfg Space'::fam::sel engine=e6 trans=man")
+	wants(t, chosen, "✗ the chosen variants are not consistent with Constraint sel", "In the conflict:")
+}

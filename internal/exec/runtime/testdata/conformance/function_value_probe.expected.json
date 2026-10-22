@@ -2,6 +2,6 @@
   "type": "calc",
   "evaluate": "test::UseFn",
   "libraries": true,
-  "result": {"type": "Real", "value": 9.0},
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 9.0}]},
   "trace": true
 }

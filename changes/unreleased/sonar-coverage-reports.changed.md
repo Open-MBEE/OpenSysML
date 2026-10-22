@@ -1,0 +1,1 @@
+- CI now reports to SonarCloud the coverage of the SysON backend and MDK plugin tests (JaCoCo), of the VS Code, JupyterLab and sysml-mcp npm package tests (lcov; new `make vscode-coverage`, `jupyterlab-coverage` and `mcp-npm-coverage` targets), and of the LLM bench's tests, which the coverage job ran without `bin/sysml` and so skipped; the job now builds it and requires it.

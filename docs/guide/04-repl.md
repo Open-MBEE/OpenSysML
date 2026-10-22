@@ -223,9 +223,9 @@ declaration order. Each `satisfy` gets a verdict of `conforms`, `violated` or `u
 followed by a verdict for each concern the viewpoint frames; a concern whose condition fails
 names the exposed element it failed for and the reason. A `satisfy` inherited from a
 specialized view is marked `(from <view>)`. The view restates no framing: every concern the
-viewpoint frames is checked against what the view exposes. A concern that states no condition,
-or names one that does not resolve, is reported as `unevaluable` with the reason, not as a
-pass. These verdicts are this implementation's own decisions, because SysML v2 leaves
+viewpoint frames is checked against what the view exposes. A concern that states no condition
+`conforms` vacuously — a requirement check over no constraint is true — while one that names a
+concern that does not resolve is reported as `unevaluable` with the reason. These verdicts are this implementation's own decisions, because SysML v2 leaves
 verification verdict semantics non-normative. (The extension
 libraries these documents name are maintained upstream at
 [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library)
@@ -521,7 +521,7 @@ completes them: `#` offers the ids there are, `car.` the objects `car` holds.
 | which conditions conflict when it cannot (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%explain` | [reference](../reference/repl-commands.md) |
 | what a diagnostic code means and how to resolve it | `%explain-code` | [3](03-command-line.md#checking-as-a-gate) |
 | what values satisfy it, keeping what is already fixed (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%solve` | [reference](../reference/repl-commands.md) |
-| which variants its conditions permit (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%configure` | [reference](../reference/repl-commands.md) |
+| which variants its conditions permit — of one assertion, or of a variation family or configuration over every assertion about it (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional); walkthrough in [Modeling product lines and variability](modeling-product-lines.md#solving-the-family)) | `%configure` | [reference](../reference/repl-commands.md) |
 | which values are best for an analysis case's objectives (experimental, needs [z3](01-install.md#installing-a-solver-optional)) | `%optimize` | [reference](../reference/repl-commands.md) |
 | what a behavior does, step by step | `%action`, `%state`, `%step`, `%tokens`, `%advance` | [6](06-behavior.md) |
 | whether a result depends on the order the run happened to take, and how to replay another | `%schedule`, `%trace` | [6](06-behavior.md#when-a-model-has-more-than-one-valid-run) |

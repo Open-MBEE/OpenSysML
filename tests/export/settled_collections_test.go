@@ -49,11 +49,11 @@ func TestSettledCollectionsAreWhatReconcilingWouldFind(t *testing.T) {
 			t.Errorf("%s: reconciling rewrote the encoder's collections, so they were not settled", name)
 			continue
 		}
-		fast, err := export.WriteAPIJSON(graph)
+		fast, err := cachedAPIJSONForGraph(name, "standard", "settled-fast", graph)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		checkedOut, err := export.WriteAPIJSON(unvouched)
+		checkedOut, err := cachedAPIJSONForGraph(name, "standard", "settled-checked", unvouched)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}

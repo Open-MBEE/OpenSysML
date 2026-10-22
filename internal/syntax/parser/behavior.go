@@ -434,10 +434,11 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 
 	// Check for optional individual/portion/event modifiers
 	isIndividual := false
+	var individualKeyword source.Span
 	portion := ast.PortionNone
 	isEvent := false
 	if p.atKeyword("individual") {
-		p.advance()
+		individualKeyword = p.advance().Span
 		isIndividual = true
 	} else if p.atKeyword("snapshot") {
 		p.advance()
@@ -482,14 +483,15 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 
 	// Create Usage node with direction
 	usage := &ast.Usage{
-		Kind:         kind,
-		Keyword:      kindKeyword,
-		Ident:        ident,
-		IsReference:  isRef,
-		Direction:    direction,
-		IsEvent:      isEvent,
-		IsIndividual: isIndividual,
-		Portion:      portion,
+		Kind:              kind,
+		Keyword:           kindKeyword,
+		Ident:             ident,
+		IsReference:       isRef,
+		Direction:         direction,
+		IsEvent:           isEvent,
+		IsIndividual:      isIndividual,
+		IndividualKeyword: individualKeyword,
+		Portion:           portion,
 	}
 
 	// A parameter specializes and states its multiplicity as any usage does
@@ -1752,9 +1754,10 @@ func (p *Parser) parseResultMember() ast.Node {
 	// Parse optional usage kind keyword (e.g., 'attribute')
 	// Default to UsageAttribute if not specified
 	usageKind := ast.UsageAttribute
+	keyword := ""
 	if p.at(lexer.Keyword) {
 		if kind, ok := p.usageKind(p.peek().KeywordID); ok {
-			usageKind = kind
+			usageKind, keyword = kind, p.peek().KeywordID
 			p.advance() // consume kind keyword
 		}
 	}
@@ -1769,6 +1772,7 @@ func (p *Parser) parseResultMember() ast.Node {
 		u := &ast.Usage{
 			Prefixes:    prefixes,
 			Kind:        usageKind,
+			Keyword:     keyword,
 			Direction:   ast.DirOut,
 			IsResult:    true,
 			IsAbstract:  mods.isAbstract,
@@ -2042,6 +2046,9 @@ func (p *Parser) parseConstraintMember() ast.Node {
 		Keyword:    keyword,
 		IsNegated:  isNegated,
 		Expression: expr,
+	}
+	if hasSemi {
+		node.Terminator = semi.Span
 	}
 	node.NodeSpan = p.spanFrom(start)
 	return node

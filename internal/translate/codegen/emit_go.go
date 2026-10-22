@@ -1279,9 +1279,12 @@ func (e *goEmitter) main(fn *Func) {
 	e.linef("\t\tos.Exit(1)")
 	e.linef("\t}")
 	e.linef("}")
-	if fn.Result.Many() {
+	switch {
+	case fn.Result.Many():
 		e.linef("fmt.Println(sysmlFormatSeq(result))")
-	} else {
+	case fn.HeldResult:
+		e.linef("fmt.Println(\"[\" + sysmlFormat(result) + \"]\")")
+	default:
 		e.linef("fmt.Println(sysmlFormat(result))")
 	}
 	e.indent--

@@ -186,7 +186,7 @@ func testWriteOfARepeatedValueLeavesTheFeature(t *testing.T) {
 	}
 	cidx, _, cctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, calcSrc))
 	sym, scope := calcByName(t, cidx.DocumentRoot("<test>"), "test", "LocalRepeats")
-	if result, err := cctx.InvokeCalc(sym, []Value{repeated}, scope); err != nil || FormatTraceValue(result) != "3" {
+	if result, err := invokeValue(cctx, sym, []Value{repeated}, scope); err != nil || FormatTraceValue(result) != "3" {
 		t.Errorf("LocalRepeats = %s, %v; want 3: a nonunique local takes the repeat", FormatTraceValue(result), err)
 	}
 }

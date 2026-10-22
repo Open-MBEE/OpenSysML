@@ -88,10 +88,10 @@ jobs:
         run: |
           if [ "$DRAFT" != true ] || [ "$CI_FULL_LABEL" = true ]; then
             echo "tier=full"
-            echo 'go_shards=["runtime","runtime-corpus","model","export","rest","migrate"]'
+            echo 'go_shards=["runtime","runtime-corpus","model","export","rest","migrate","cli"]'
           else
             echo "tier=quick"
-            echo 'go_shards=["runtime","model export","rest migrate"]'
+            echo 'go_shards=["runtime","model export","rest migrate cli"]'
           fi | tee -a "$GITHUB_OUTPUT"
 
       - name: Decide which areas to run
@@ -188,12 +188,20 @@ jobs:
         with:
           reference-fmus: 'true'
 
+      # The tools' tests run with the rest shard, and the LLM bench's run the
+      # models through bin/sysml: without the binary they skip. Required below,
+      # so a missing binary fails rather than skips.
+      - name: Build bin/sysml for the tools' tests
+        if: contains(matrix.shard, 'rest')
+        run: make build-sysml
+
       # Per-package timeout: under -race the whole runtime package ran 31-57 minutes
       # on these runners, hence its two shards. Matches `make test-shard`.
       - name: Run Go tests
         env:
           TIER: ${{ needs.changes.outputs.tier }}
           SHARD: ${{ matrix.shard }}
+          OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN: ${{ contains(matrix.shard, 'rest') && '1' || '' }}
         run: |
           if [ "$TIER" = full ]; then make test-shard SHARD="$SHARD"; else make test-quick SHARDS="$SHARD"; fi
 
@@ -230,7 +238,7 @@ jobs:
           set -euo pipefail
           profiles=(shards/coverage-*/coverage.txt)
           # One per go-tests shard.
-          if [ "${#profiles[@]}" -ne 6 ]; then echo "error: expected 6 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
+          if [ "${#profiles[@]}" -ne 7 ]; then echo "error: expected 7 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
           for f in "${profiles[@]}"; do
             [ "$(head -n 1 "$f")" = "mode: atomic" ] || { echo "error: $f is not an atomic-mode profile" >&2; exit 1; }
           done
@@ -560,6 +568,8 @@ jobs:
             }
           done
 
+  # The gate's test budget is the Makefile's (WASM_GATE_TIMEOUT); the job's limit sits
+  # above it so a timeout is go test's, which names the running test.
   wasm-gate:
     name: WebAssembly gate
     needs: changes
@@ -567,16 +577,30 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # Not setup-go's shared cache, which another Go job saves first without the wasm objects:
+      # the gate's own entry, saved by wasm-cache.yml on each develop push, is restored by prefix.
       - name: Set up Go
+        id: go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+
+      - name: Restore the WebAssembly build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -589,7 +613,7 @@ jobs:
         run: |
           set -o pipefail
           node --version
-          go test -count=1 -v ./tests/wasm | tee wasm-gate.log
+          make wasm-check 2>&1 | tee wasm-gate.log
           if grep -qE '^\s*--- SKIP' wasm-gate.log; then
             echo "error: the WebAssembly gate skipped" >&2
             exit 1
@@ -958,7 +982,7 @@ jobs:
           if-no-files-found: error
 
   mdk-plugin:
-    name: OpenSysML MDK plugin
+    name: OpenSysML MDK for Cameo plugin
     needs: [changes, build]
     if: needs.changes.outputs.mdk == 'true'
     runs-on: ubuntu-latest

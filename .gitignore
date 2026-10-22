@@ -52,6 +52,12 @@ coverage-scripts.xml
 .coverage-scripts
 coverage-node.lcov
 /client/node/coverage/
+coverage-vscode.lcov
+/editors/vscode/coverage/
+coverage-jupyterlab.lcov
+/editors/jupyterlab/coverage/
+coverage-mcp-npm.lcov
+/packaging/npm/sysml-mcp/coverage/
 .coverage
 
 # Generated stubs for the upcoming clients (make proto-ts / proto-rust)

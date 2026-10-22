@@ -145,7 +145,7 @@ func TestANamedEngineAnswers(t *testing.T) {
 	if calculation.Standing.Engine != "run" || calculation.Standing.Strength != "observed" {
 		t.Errorf("calculation standing = %+v, want run at observed", calculation.Standing)
 	}
-	if got, ok := calculation.Result.(opensysml.Real); !ok || float64(got) != 3 {
+	if got, ok := sole(t, "add", calculation.Result).(opensysml.Real); !ok || float64(got) != 3 {
 		t.Errorf("calculation result = %#v, want Real(3)", calculation.Result)
 	}
 }

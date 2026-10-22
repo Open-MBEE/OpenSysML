@@ -7,7 +7,7 @@
     <version>0.10.1</version>
   </parent>
   <artifactId>opensysml-mdk-bridge</artifactId>
-  <name>OpenSysML MDK DocGen extension</name>
+  <name>OpenSysML MDK for Cameo DocGen extension</name>
   <dependencies>
     <dependency>
       <groupId>org.openmbee</groupId>
@@ -27,4 +27,23 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals><goal>prepare-agent</goal></goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>test</phase>
+            <goals><goal>report</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>

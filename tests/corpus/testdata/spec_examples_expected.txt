@@ -9,7 +9,7 @@
 3	kerml/7.2.3.2/2.kerml
 3	kerml/7.2.3.2/3.kerml
 2	kerml/7.2.4.2/4.kerml
-3	kerml/7.2.4.3/1.kerml
+1	kerml/7.2.4.3/1.kerml
 4	kerml/7.2.5.4/1.kerml
 1	kerml/7.2.5.4/2.kerml
 2	kerml/7.2.5.4/4.kerml
@@ -58,7 +58,7 @@
 2	kerml/7.3.4.7/1.kerml
 2	kerml/7.3.4.7/2.kerml
 2	kerml/7.3.4.7/4.kerml
-3	kerml/7.3.4.8/1.kerml
+2	kerml/7.3.4.8/1.kerml
 1	kerml/7.3.4.8/2.kerml
 2	kerml/7.4.10.2/1.kerml
 2	kerml/7.4.10.3/1.kerml
@@ -230,7 +230,7 @@
 2	sysml/7.19.2/4.sysml
 2	sysml/7.19.2/5.sysml
 4	sysml/7.20.2/1.sysml
-2	sysml/7.21.2/2.sysml
+3	sysml/7.21.2/2.sysml
 5	sysml/7.21.2/3.sysml
 4	sysml/7.21.2/4.sysml
 5	sysml/7.21.2/5.sysml
@@ -271,7 +271,7 @@
 2	sysml/7.3.2/1.sysml
 3	sysml/7.3.2/2.sysml
 3	sysml/7.3.2/3.sysml
-3	sysml/7.4.3/1.sysml
+1	sysml/7.4.3/1.sysml
 3	sysml/7.5.3/1.sysml
 1	sysml/7.5.3/2.sysml
 4	sysml/7.5.4/1.sysml
@@ -352,7 +352,7 @@
 3	sysml/8.4.14.2/1.sysml
 1	sysml/8.4.14.2/3.sysml
 2	sysml/8.4.14.3/1.sysml
-3	sysml/8.4.14.3/2.kerml
+1	sysml/8.4.14.3/2.kerml
 1	sysml/8.4.14.4/2.sysml
 3	sysml/8.4.14.4/3.sysml
 2	sysml/8.4.15.1/2.sysml
@@ -362,6 +362,7 @@
 2	sysml/8.4.16.2/1.sysml
 2	sysml/8.4.16.2/2.sysml
 8	sysml/8.4.16.3/1.sysml
+1	sysml/8.4.17.1/3.sysml
 1	sysml/8.4.17.2/1.sysml
 2	sysml/8.4.17.2/2.sysml
 2	sysml/8.4.17.2/3.sysml
@@ -376,9 +377,9 @@
 4	sysml/8.4.18.2/1.sysml
 1	sysml/8.4.18.2/2.sysml
 1	sysml/8.4.18.2/3.sysml
-4	sysml/8.4.19.1/1.sysml
-5	sysml/8.4.19.2/1.sysml
-2	sysml/8.4.20.1/1.sysml
+5	sysml/8.4.19.1/1.sysml
+6	sysml/8.4.19.2/1.sysml
+3	sysml/8.4.20.1/1.sysml
 2	sysml/8.4.20.2/1.sysml
 1	sysml/8.4.21.2/1.sysml
 2	sysml/8.4.21.3/3.sysml

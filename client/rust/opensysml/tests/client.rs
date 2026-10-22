@@ -169,7 +169,7 @@ fn children_leave_out_a_child_the_service_cannot_resolve() {
     };
     let model = connection
         .parse_content(
-            "package P { calc def Add { in a : Integer; in b : Integer; return : Integer = a + b; } }",
+            "package P { calc def Add { in a : Integer; in b : Integer; return : Integer[1] = a + b; } }",
             &Default::default(),
         )
         .unwrap_or_else(|error| panic!("parse failed: {error}"));
@@ -410,6 +410,9 @@ const TRADE_STUDY: &str = "package Trade {
 fn instance_id(value: Option<&wire::Value>) -> i64 {
     match value.and_then(|v| v.kind.as_ref()) {
         Some(wire::value::Kind::InstanceId(id)) => *id,
+        Some(wire::value::Kind::Sequence(seq)) if seq.elements.len() == 1 => {
+            instance_id(seq.elements.first())
+        }
         other => panic!("expected an instance reference, got {other:?}"),
     }
 }
@@ -660,14 +663,14 @@ fn a_calc_held_as_a_value_arrives_as_the_function_it_names() {
     let model = match connection.parse_content(
         "package Demo {
             private import ScalarValues::*;
-            calc def Sq { in v : Real; return : Real = v * v; }
-            calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+            calc def Sq { in v : Real; return : Real[1] = v * v; }
+            calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real[1] = f(a); }
             calc def Identity { in calc f { in v : Real; return : Real; } return r = f; }
             attribute pick = Identity(Sq);
             attribute nine = Fn(Sq, 3.0);
             part def Scaler {
                 attribute k : Real = 2.0;
-                calc scale { in x : Real; return : Real = x * k; }
+                calc scale { in x : Real; return : Real[1] = x * k; }
             }
             part holder : Scaler;
             attribute scaler = holder.scale;

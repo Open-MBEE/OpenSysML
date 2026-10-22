@@ -99,8 +99,11 @@ type executor struct {
 	calls      *visitBudget
 	related    *RelationshipTables
 	derived    *derivedValues
-	depthLeft  int
-	stack      []string
+	// metadataTypes memoizes the metadata def each property-string spelling
+	// names, shared by every executor of one execution.
+	metadataTypes map[string]*symbols.Symbol
+	depthLeft     int
+	stack         []string
 	// cell is the computed cell being evaluated, whose variables query
 	// operations invoked inside it read; nil outside a cell.
 	cell *cellContext
@@ -143,17 +146,18 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 		related = NewRelationshipTables()
 	}
 	execution := &executor{
-		definition: definition,
-		context:    context,
-		reader:     query.NewPropertyReader(context.Index, context.Resolver, context.Model),
-		bindings:   make(map[string]sequence),
-		program:    compiled,
-		budget:     &visitBudget{remaining: budget},
-		calls:      &visitBudget{remaining: calls},
-		related:    related,
-		derived:    &derivedValues{},
-		depthLeft:  depth,
-		stack:      []string{definition.Name()},
+		definition:    definition,
+		context:       context,
+		reader:        query.NewPropertyReader(context.Index, context.Resolver, context.Model),
+		bindings:      make(map[string]sequence),
+		program:       compiled,
+		budget:        &visitBudget{remaining: budget},
+		calls:         &visitBudget{remaining: calls},
+		related:       related,
+		derived:       &derivedValues{},
+		metadataTypes: make(map[string]*symbols.Symbol),
+		depthLeft:     depth,
+		stack:         []string{definition.Name()},
 	}
 	if err := execution.bind(bindings); err != nil {
 		return nil, err
@@ -507,17 +511,18 @@ func (e *executor) evaluateInvoke(expression queryplan.Expression) (sequence, er
 		bindings[argument.Name] = value.values
 	}
 	callee := &executor{
-		definition: definition,
-		context:    e.context,
-		reader:     e.reader,
-		bindings:   make(map[string]sequence),
-		program:    e.program,
-		budget:     e.budget,
-		calls:      e.calls,
-		related:    e.related,
-		derived:    e.derived,
-		depthLeft:  e.depthLeft - 1,
-		stack:      append(append([]string(nil), e.stack...), target),
+		definition:    definition,
+		context:       e.context,
+		reader:        e.reader,
+		bindings:      make(map[string]sequence),
+		program:       e.program,
+		budget:        e.budget,
+		calls:         e.calls,
+		related:       e.related,
+		derived:       e.derived,
+		metadataTypes: e.metadataTypes,
+		depthLeft:     e.depthLeft - 1,
+		stack:         append(append([]string(nil), e.stack...), target),
 	}
 	if err := callee.bind(bindings); err != nil {
 		return sequence{}, err

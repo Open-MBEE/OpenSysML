@@ -3,5 +3,5 @@
   "evaluate": "test::Describe",
   "libraries": true,
   "trace": true,
-  "result": {"type": "String", "value": "test::seatBelt/2"}
+  "result": {"type": "Sequence", "elements": [{"type": "String", "value": "test::seatBelt/2"}]}
 }

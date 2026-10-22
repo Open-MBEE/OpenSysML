@@ -32,7 +32,9 @@ declaration order until an `OrderBy` says otherwise, which is what makes a
 document regenerate byte-identically.
 
 What it reads is the *declared* model: an element's name, type, multiplicity,
-documentation, the value an attribute is declared with or redefined to, and
+documentation, the value an attribute is declared with or redefined to — a
+member's by its name, the row's own as `valuation` — the features of the
+metadata annotating it (`Control::status`), and
 the relationships the model draws (`RelatedElements`). A derived value the
 declaration does not spell out is not there — a `WhereFeature` on `mass`
 reads the declared or redefined `mass`, not an expression's result — unless

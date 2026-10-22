@@ -1453,7 +1453,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.flags(subject, []boolProperty{
-			{"isAbstract", n.IsAbstract},
+			{"isAbstract", n.IsAbstract || n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isVariation", n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isAll", n.IsAll},
 			{"isConstant", n.IsConstant},
@@ -1599,7 +1599,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(subject, e.sysx(xDeclaredPrefix), rdf.String(n.PrefixKeyword))
 		}
 		e.flags(subject, []boolProperty{
-			{"isAbstract", n.IsAbstract},
+			{"isAbstract", n.IsAbstract || n.IsVariation},
 			{"isVariation", n.IsVariation},
 			{"isVariant", e.variantMember(n, ownerTerm)},
 			{"isNegated", n.IsNegated},
@@ -2738,22 +2738,22 @@ func (e *encoder) symbolTerm(target *symbols.Symbol) rdf.Term {
 	if decl, fqn, ok := e.linked(target, true); ok {
 		return e.ids.subjectForNode(decl, fqn)
 	}
-	// The member's own identity already claims a normative target's qualified
+	// The member's own identity already claims a library target's qualified
 	// name, which linked refuses to repeat; name its IRI as a reference does.
 	info, ok := identity.Of(e.ids.model, e.res, target)
-	if !ok || info.Source != identity.SourceNormative {
+	if !ok || !info.Fixed() {
 		return rdf.Term{}
 	}
 	el := elementIdentity{id: info.EffectiveID, source: info.Source, membership: info.OwningMembershipID()}
 	return e.ids.subjectOf(el, info.FQN)
 }
 
-// normativeFQN is the qualified name a symbol carries in the norm, or "" for
-// any other element: linked hides a library element whose qualified name the
-// element stating it already claimed, which this answers anyway.
+// normativeFQN is the qualified name a symbol carries in its library's fixed
+// scheme, or "" for any other element: linked hides a library element whose
+// qualified name the element stating it already claimed, which this answers anyway.
 func (e *encoder) normativeFQN(sym *symbols.Symbol) string {
 	info, ok := identity.Of(e.ids.model, e.res, sym)
-	if !ok || info.Source != identity.SourceNormative {
+	if !ok || !info.Fixed() {
 		return ""
 	}
 	return info.FQN
