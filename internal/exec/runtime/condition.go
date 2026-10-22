@@ -58,6 +58,10 @@ type Condition struct {
 	// their types, outermost first: each one's parameter values mask the
 	// enclosing ones', which mask the checked element's. empty reads the latter alone.
 	Constraints []*symbols.Symbol
+
+	// Circular is the requirement a `require r` names while r's own conditions
+	// are being collected: a reference back into the check, stating nothing evaluable.
+	Circular *symbols.Symbol
 }
 
 // BodySteps is the statements one constraint body performs before its
@@ -144,7 +148,7 @@ type conditionEnv struct {
 // A member states its condition either directly (`require x < y;`, `assert x < y;`)
 // or through the body of an anonymous nested constraint (`require constraint { x < y }`).
 func (ctx *Context) conditionsOf(sym *symbols.Symbol, members []scopedMember) []Condition {
-	return ctx.appendMemberConditions(nil, sym, members, true, nil)
+	return ctx.appendMemberConditions(nil, sym, members, true, map[*symbols.Symbol]bool{sym: true})
 }
 
 // appendMemberConditions appends the conditions sym's members state, leaving out
@@ -498,7 +502,7 @@ func (ctx *Context) appendReferencedConditions(out []Condition, decl ast.Node, r
 		return ctx.appendOwnedConditions(out, decl, body, scope, required, seen)
 	}
 	if seen[sym] {
-		return out
+		return append(out, Condition{Scope: scope, Required: required, Circular: sym})
 	}
 	if seen == nil {
 		seen = map[*symbols.Symbol]bool{}
@@ -583,6 +587,9 @@ type conditionCheck struct {
 	// negated inverts the verdict: the element asserts that its required
 	// conditions do not all hold (`assert not …`, Invariant::isNegated).
 	negated bool
+
+	// about is the requirement whose claim a satisfaction judges; nil reads sym.
+	about *symbols.Symbol
 }
 
 // name returns how the checked element is named in messages.
@@ -597,8 +604,18 @@ func (c conditionCheck) name() string {
 // one holds, or — for a negated element — whether one of them fails. check.self
 // is the subject already, as checkSubject resolved it.
 func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) (bool, error) {
+	if cycle := circularReference(conds); cycle != nil {
+		return false, fmt.Errorf("%s %s: %w: require %s names the requirement being checked",
+			check.kind, check.name(), ErrNoConditions, cycle.Name)
+	}
 	if len(conds) == 0 {
-		return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
+		if !check.isRequirementCheck() {
+			return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
+		}
+		if check.negated {
+			return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: vacuousClaim(check.claimed())}
+		}
+		return true, nil
 	}
 	if conflict := conflictingResultExpression(conds); conflict != nil {
 		return false, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
@@ -642,14 +659,89 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 		}
 	}
 	if check.negated {
-		// An assumption is trusted rather than checked, so a negated element
-		// stating only assumptions denies nothing.
+		// A requirement stating only assumptions holds vacuously, so denying it fails;
+		// a constraint's assumption is trusted, not checked, so its denial denies nothing.
 		if !required {
+			if check.isRequirementCheck() {
+				return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: vacuousClaim(check.claimed())}
+			}
 			return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
 		}
 		return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: negatedText(conds)}
 	}
 	return true, nil
+}
+
+// isRequirementCheck reports whether the checked element is a requirement
+// (a requirement, concern, viewpoint or objective usage, or a satisfaction of
+// one), whose verdict is Requirements::RequirementConstraintCheck::result.
+func (c conditionCheck) isRequirementCheck() bool {
+	switch c.kind {
+	case "requirement", "satisfaction", "objective":
+		return true
+	}
+	return false
+}
+
+// vacuity is why a requirement check over no required condition is true:
+// `allTrue(assumptions()) implies allTrue(constraints())` over no constraint is
+// true (SysML v2 9.2.11 Requirements; KerML 9.2.3 ControlFunctions::allTrue over
+// an empty sequence). "" for a check that is not vacuous.
+func vacuity(check conditionCheck, conds []Condition) string {
+	if !check.isRequirementCheck() {
+		return ""
+	}
+	for _, cond := range conds {
+		if cond.Required {
+			return ""
+		}
+	}
+	return "vacuous: " + vacuousClaim(check.claimed())
+}
+
+// claimed is the requirement whose claim the check judges.
+func (c conditionCheck) claimed() *symbols.Symbol {
+	if c.about != nil {
+		return c.about
+	}
+	return c.sym
+}
+
+// vacuousClaim says what a requirement over no required condition claims.
+func vacuousClaim(sym *symbols.Symbol) string {
+	return fmt.Sprintf("%s %s states no required constraint, so it holds vacuously", requirementKeyword(sym), sym.Name)
+}
+
+// requirementKeyword is the keyword a requirement was declared with
+// (`requirement`, `concern`, `viewpoint`, `objective`), `requirement` when it has none.
+func requirementKeyword(sym *symbols.Symbol) string {
+	if sym != nil {
+		switch d := sym.Decl.(type) {
+		case *ast.Usage:
+			if d.Keyword != "" {
+				return d.Keyword
+			}
+		case *ast.Definition:
+			if d.Keyword != "" {
+				return d.Keyword
+			}
+		}
+	}
+	return "requirement"
+}
+
+// circularReference is the requirement a condition of conds names back into the
+// check, nil when none does.
+func circularReference(conds []Condition) *symbols.Symbol {
+	for _, cond := range conds {
+		if cond.Circular != nil {
+			return cond.Circular
+		}
+		if nested := circularReference(cond.Group); nested != nil {
+			return nested
+		}
+	}
+	return nil
 }
 
 // evaluateStepsConditions is the loop of evaluateConditions for one body that
@@ -1310,6 +1402,9 @@ func conditionLabel(cond Condition) string {
 	}
 	if cond.Conflict != nil {
 		return "conflicting result expression"
+	}
+	if cond.Circular != nil {
+		return "require " + cond.Circular.Name
 	}
 	text := conditionText(cond.Expr)
 	if cond.Group != nil {

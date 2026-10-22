@@ -121,7 +121,25 @@ func SatisfactionWith(ctx *runtime.Context, assertion *runtime.SatisfyAssertion,
 		Symbol:  assertion.Symbol,
 		Negated: assertion.Negated,
 	}
-	return TranslateWith(ctx, subject, ctx.ConditionsOf(assertion.Symbol, assertion.Symbol.OwnerScope), pins)
+	conds, err := satisfiedConditions(ctx, assertion)
+	if err != nil {
+		return nil, err
+	}
+	return TranslateWith(ctx, subject, conds, pins)
+}
+
+// satisfiedConditions are the conditions a satisfaction asserts, refused as the
+// evaluator refuses them: a reference naming no requirement, or an assertion that
+// neither names nor declares one and states nothing, has no requirement to satisfy.
+func satisfiedConditions(ctx *runtime.Context, assertion *runtime.SatisfyAssertion) ([]runtime.Condition, error) {
+	if assertion.Requirement == nil && assertion.RequirementRef != "" {
+		return nil, fmt.Errorf("%s: %w: %s", assertion.Text(), runtime.ErrNoRequirement, assertion.RequirementRef)
+	}
+	conds := ctx.ConditionsOf(assertion.Symbol, assertion.Symbol.OwnerScope)
+	if len(conds) == 0 && assertion.Requirement == nil && assertion.AssertedRequirement() == nil {
+		return nil, fmt.Errorf("%s: %w", assertion.Text(), runtime.ErrNoRequirement)
+	}
+	return conds, nil
 }
 
 // SatisfactionViolation translates an `assert satisfy` as a violation query:
@@ -139,7 +157,11 @@ func SatisfactionViolation(ctx *runtime.Context, assertion *runtime.SatisfyAsser
 		Negated:   assertion.Negated,
 		Violation: true,
 	}
-	return TranslateWith(ctx, subject, ctx.ConditionsOf(assertion.Symbol, assertion.Symbol.OwnerScope), pins)
+	conds, err := satisfiedConditions(ctx, assertion)
+	if err != nil {
+		return nil, err
+	}
+	return TranslateWith(ctx, subject, conds, pins)
 }
 
 // Asserted translates every assertion a part or definition states about its
@@ -363,7 +385,7 @@ func TranslateWith(ctx *runtime.Context, subject Subject, conds []runtime.Condit
 	if ctx == nil {
 		return nil, fmt.Errorf("solve: no runtime context")
 	}
-	if len(conds) == 0 {
+	if len(conds) == 0 && !vacuousSubject(subject) {
 		return nil, fmt.Errorf("%s %s: %w", subject.Kind, subject.Name, ErrNoConditions)
 	}
 	t := newTranslator(ctx, subject)
@@ -374,6 +396,22 @@ func TranslateWith(ctx *runtime.Context, subject Subject, conds []runtime.Condit
 		return nil, err
 	}
 	return t.query(), nil
+}
+
+// vacuousSubject reports whether a subject over no condition still has a
+// claim to translate: a requirement's result over no constraint is true
+// (Requirements::RequirementConstraintCheck), so its plain query asserts nothing
+// and every assignment meets it; a denial or a violation of it has nothing to
+// deny, and a constraint states no result at all.
+func vacuousSubject(subject Subject) bool {
+	if subject.Negated || subject.Violation {
+		return false
+	}
+	switch subject.Kind {
+	case "requirement", "satisfaction", "objective":
+		return true
+	}
+	return false
 }
 
 // translator holds the state of one translation: the variables and sorts the
@@ -630,6 +668,9 @@ func (t *translator) condition(cond runtime.Condition) (*Term, error) {
 	}
 	if cond.Conflict != nil {
 		return nil, t.refuse(cond.Conflict.Node, "conflicting result expression", "only one owned or inherited result expression is allowed")
+	}
+	if cond.Circular != nil {
+		return nil, t.refuse(nil, "require "+cond.Circular.Name, "it names the requirement being translated")
 	}
 	if cond.Negated {
 		t.branched++

@@ -80,8 +80,8 @@ func TestOwnedConstraintValueMaterializesAndRedefines(t *testing.T) {
 }
 
 // The value is not the condition: a value-only constraint states nothing to
-// check, exactly as `constraint plain = false;` does, so the check is no verdict
-// rather than a vacuous pass.
+// check, exactly as `constraint plain = false;` does, so the constraint check is
+// no verdict, while a requirement over no required constraint holds vacuously.
 func TestOwnedConstraintValueIsNotACondition(t *testing.T) {
 	ctx, pkg := ownedConstraintValueFixture(t)
 	base := requirementNamed(t, pkg, "Base")
@@ -102,8 +102,12 @@ func TestOwnedConstraintValueIsNotACondition(t *testing.T) {
 	}
 	for _, name := range []string{"Base", "Sub", "base", "sub"} {
 		sym := requirementNamed(t, pkg, name)
-		if _, err := ctx.EvaluateRequirementOn(sym, sym.OwnerScope, nil); !errors.Is(err, ErrNoConditions) {
-			t.Errorf("%s: err = %v, want ErrNoConditions", name, err)
+		result, err := ctx.CheckRequirementOn(sym, sym.OwnerScope, nil)
+		if err != nil || !result.Holds {
+			t.Errorf("%s: holds = %v, err = %v, want a vacuous pass", name, result.Holds, err)
+		}
+		if want := "vacuous: requirement " + name + " states no required constraint"; !strings.Contains(result.Vacuous, want) {
+			t.Errorf("%s: vacuity %q, want %q", name, result.Vacuous, want)
 		}
 	}
 }
