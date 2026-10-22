@@ -16,6 +16,11 @@ var ErrNotTranslatable = errors.New("not translatable for solving")
 // translate, as evaluating it reports the same.
 var ErrNoConditions = errors.New("states no condition")
 
+// ErrNothingAsserted is returned for a part or definition that asserts nothing
+// about its objects — no asserted constraint, requirement or satisfaction, owned
+// or inherited — so there is no conjunction to configure or solve.
+var ErrNothingAsserted = errors.New("asserts nothing about its objects")
+
 // ErrNoObjective is returned for an analysis case that states no objective, so
 // there is nothing to optimize: what it permits is still a satisfiability
 // question, which checking it plainly answers.

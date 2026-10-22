@@ -1,0 +1,21 @@
+VariationViews::familyTable - table rendering (render asElementTable)
+
+Element                                                 Kind                Type           Declared in
+------------------------------------------------------  ------------------  -------------  -------------------------------------------
+VariationViews::vehicleFamily                           part
+engine                                                  part                EngineChoices  VariationViews::vehicleFamily
+transmission                                            variation part      Transmission   VariationViews::vehicleFamily
+manual                                                  variant                            transmission
+automatic                                               variant part                       transmission
+                                                        connect                            VariationViews::vehicleFamily
+VariationViews::vehicleFamily::engine                   part                EngineChoices
+VariationViews::vehicleFamily::transmission             variation part      Transmission
+manual                                                  variant                            VariationViews::vehicleFamily::transmission
+automatic                                               variant part                       VariationViews::vehicleFamily::transmission
+VariationViews::vehicleFamily::transmission::manual     variant
+VariationViews::vehicleFamily::transmission::automatic  variant part
+VariationViews::EngineChoices                           variation part def
+fourCylinder                                            variant                            VariationViews::EngineChoices
+sixCylinder                                             variant                            VariationViews::EngineChoices
+VariationViews::EngineChoices::fourCylinder             variant
+VariationViews::EngineChoices::sixCylinder              variant
