@@ -97,20 +97,31 @@ func (cc *constraintChecker) checkSubjectParameterPosition(sym *symbols.Symbol, 
 		return
 	}
 
-	var firstInput *symbols.Symbol
-	for _, member := range cc.model.MembersOf(sym) {
-		if member == nil {
-			continue
-		}
-		if isSubjectDecl(member.Decl) || isInputParameterDecl(member.Decl) {
-			firstInput = member
+	if firstInput := cc.firstInputParameter(sym); firstInput != nil && !isSubjectDecl(firstInput.Decl) {
+		cc.reportSubjectParameterPosition(sym, members)
+	}
+}
+
+// firstInputParameter is the first subject or input parameter in featureMembership
+// order, owned then inherited (KerML 8.3.3.1); an anonymous `subject;` counts too.
+func (cc *constraintChecker) firstInputParameter(sym *symbols.Symbol) *symbols.Symbol {
+	var first *symbols.Symbol
+	scan := func(scope *symbols.Scope) {
+		scope.ForEachMember(func(member *symbols.Symbol) bool {
+			if isSubjectDecl(member.Decl) || isInputParameterDecl(member.Decl) {
+				first = member
+			}
+			return first == nil
+		})
+	}
+	scan(sym.Scope)
+	for _, src := range cc.model.MemberSources(sym) {
+		if first != nil {
 			break
 		}
+		scan(src.Scope)
 	}
-	if firstInput == nil || isSubjectDecl(firstInput.Decl) {
-		return
-	}
-	cc.reportSubjectParameterPosition(sym, members)
+	return first
 }
 
 func isParameterDecl(u *ast.Usage) bool {
@@ -182,9 +193,19 @@ func isSubjectDecl(decl ast.Node) bool {
 	return false
 }
 
+// isInputParameterDecl reports an `in`/`inout` parameter, an actor or a
+// stakeholder: ActorMembership and StakeholderMembership are ParameterMemberships
+// whose parameterDirection() is `in` (SysML 8.3.19, KerML 8.3.3.1).
 func isInputParameterDecl(decl ast.Node) bool {
 	u, ok := decl.(*ast.Usage)
-	return ok && (u.Direction == ast.DirIn || u.Direction == ast.DirInOut)
+	if !ok {
+		return false
+	}
+	switch u.Kind {
+	case ast.UsageActor, ast.UsageStakeholder:
+		return true
+	}
+	return u.Direction == ast.DirIn || u.Direction == ast.DirInOut
 }
 
 // reportExtraMembers errors on every member after the first, the reference's
@@ -240,12 +261,30 @@ func stateLikeDecl(decl ast.Node) bool {
 	return false
 }
 
+// subjectOwnerDecl reports a requirement or case declaration; concerns and
+// viewpoints are requirements (SysML 8.3.19 ConcernDefinition, ViewpointDefinition).
 func subjectOwnerDecl(decl ast.Node) bool {
 	switch d := decl.(type) {
 	case *ast.Definition:
-		return d.Kind == ast.DefRequirement || isCaseDefKind(d.Kind)
+		return requirementLikeDefKind(d.Kind) || isCaseDefKind(d.Kind)
 	case *ast.Usage:
-		return d.Kind == ast.UsageRequirement || isCaseUsageKind(d.Kind)
+		return requirementLikeUsageKind(d.Kind) || isCaseUsageKind(d.Kind)
+	}
+	return false
+}
+
+func requirementLikeDefKind(k ast.DefinitionKind) bool {
+	switch k {
+	case ast.DefRequirement, ast.DefConcern, ast.DefViewpoint:
+		return true
+	}
+	return false
+}
+
+func requirementLikeUsageKind(k ast.UsageKind) bool {
+	switch k {
+	case ast.UsageRequirement, ast.UsageConcern, ast.UsageFramedConcern, ast.UsageViewpoint:
+		return true
 	}
 	return false
 }

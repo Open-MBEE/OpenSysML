@@ -1,6 +1,7 @@
 package passes
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -316,6 +317,55 @@ func TestW7GRequirementWithNoParameterIsSilent(t *testing.T) {
 	}`
 	if diags := constraintDiags(t, src); len(diags) != 0 {
 		t.Fatalf("a requirement with no parameter has an implicit subject, got %v", diags)
+	}
+}
+
+// A stakeholder or actor is an `in` parameter, so one declared before any
+// subject displaces the inherited subject from first position: reported on the
+// declaration, and again on a framed concern that inherits that order.
+func TestW7GStakeholderBeforeAnImplicitSubjectIsReported(t *testing.T) {
+	const src = `package C {
+		part def P;
+		concern def Rejected {
+			stakeholder owner : P;
+		}
+		viewpoint def AlsoRejected {
+			frame concern c : Rejected;
+		}
+		concern def Accepted {
+			subject s : P;
+			stakeholder owner : P;
+		}
+	}`
+	diags := constraintDiags(t, src)
+	if len(diags) != 2 {
+		t.Fatalf("want 2 subject-parameter-position diagnostics, got %v", diags)
+	}
+	for i, want := range []string{"3:3", "7:4"} {
+		if diags[i].Code != "subject-parameter-position" {
+			t.Fatalf("diag %d code = %q, want %q", i, diags[i].Code, "subject-parameter-position")
+		}
+		if line, col := lineCol(src, diags[i].Span.Offset); fmt.Sprintf("%d:%d", line, col) != want {
+			t.Fatalf("diag %d at %d:%d, want %s: %v", i, line, col, want, diags[i])
+		}
+	}
+}
+
+// An actor before an owned subject is reported on the subject, the pilot's placement.
+func TestW7GActorBeforeTheSubjectIsReportedOnTheSubject(t *testing.T) {
+	const src = `package U {
+		part def P;
+		use case def Run {
+			actor driver : P;
+			subject car : P;
+		}
+	}`
+	diags := constraintDiags(t, src)
+	if len(diags) != 1 || diags[0].Code != "subject-parameter-position" {
+		t.Fatalf("want one subject-parameter-position diagnostic, got %v", diags)
+	}
+	if line, _ := lineCol(src, diags[0].Span.Offset); line != 5 {
+		t.Fatalf("reported on line %d, want the subject on line 5", line)
 	}
 }
 

@@ -617,7 +617,7 @@
         "clause": "8.3.22.2",
         "name": "validateCaseDefinitionSubjectParameterPosition"
       },
-      "checks": "A case definition's subject is its first parameter",
+      "checks": "A case definition's subject is its first parameter; an `actor` is an `in` parameter, so one declared before the subject is out of order",
       "implementation": "internal/check/passes/at_most_one_member.go:checkSubjectParameterPosition",
       "message": "—",
       "negativeCase": "`semantic/s10-case-def-subject-not-first.sysml`",
@@ -683,7 +683,7 @@
         "clause": "8.3.22.3",
         "name": "validateCaseUsageSubjectParameterPosition"
       },
-      "checks": "A case usage's subject is its first parameter",
+      "checks": "A case usage's subject is its first parameter, an owned `actor` counting as an `in` parameter",
       "implementation": "internal/check/passes/at_most_one_member.go:checkSubjectParameterPosition",
       "message": "—",
       "negativeCase": "`semantic/s13-case-subject-not-first.sysml`",
@@ -3444,10 +3444,10 @@
         "clause": "8.3.21.8",
         "name": "validateRequirementDefinitionSubjectParameterPosition"
       },
-      "checks": "A requirement definition's subject is its first parameter",
+      "checks": "A requirement definition's subject is its first parameter; an `actor` or `stakeholder` is an `in` parameter, so one declared before any subject displaces the subject the definition would inherit (concern and viewpoint definitions included)",
       "implementation": "internal/check/passes/at_most_one_member.go:checkSubjectParameterPosition",
       "message": "—",
-      "negativeCase": "`semantic/s28-requirement-def-subject-not-first.sysml`",
+      "negativeCase": "`semantic/s28-requirement-def-subject-not-first.sysml`, `semantic/s112-concern-def-stakeholder-before-implicit-subject.sysml`",
       "codes": [
         "subject-parameter-position"
       ],
@@ -3488,10 +3488,10 @@
         "clause": "8.3.21.9",
         "name": "validateRequirementUsageSubjectParameterPosition"
       },
-      "checks": "A requirement usage's subject is its first parameter",
+      "checks": "A requirement usage's subject is its first parameter, counting an owned `actor` or `stakeholder` as an `in` parameter and an inherited (possibly anonymous) subject at its inherited position (concern, framed concern and viewpoint usages included)",
       "implementation": "internal/check/passes/at_most_one_member.go:checkSubjectParameterPosition",
       "message": "—",
-      "negativeCase": "`semantic/s30-requirement-subject-not-first.sysml`",
+      "negativeCase": "`semantic/s30-requirement-subject-not-first.sysml`, `semantic/s113-framed-concern-stakeholder-before-inherited-subject.sysml`",
       "codes": [
         "subject-parameter-position"
       ],
