@@ -90,6 +90,7 @@ func (c *heldCollector) collect(
 		}
 		group := heldGroup{feature: feature, path: fpath}
 		seen := map[*symbols.Symbol]bool{}
+		reason, cut := c.unreachable(held, depth)
 		state := func(candidate, variant *symbols.Symbol, recurse bool) error {
 			if candidate == nil {
 				return nil
@@ -114,7 +115,7 @@ func (c *heldCollector) collect(
 					group.frames = append(group.frames, frame{path: fpath, levels: own, selections: under})
 				}
 			}
-			if !recurse {
+			if !recurse || cut {
 				return nil
 			}
 			return sub.collect(candidate, fpath, own, under, depth+1)
@@ -135,7 +136,7 @@ func (c *heldCollector) collect(
 		if len(group.conds) == 0 && len(sub.groups) == 0 && len(sub.refused) == 0 {
 			continue
 		}
-		if reason := c.unreachable(held, depth); reason != "" {
+		if reason != "" {
 			c.refused = append(c.refused, Refused{Feature: feature, Path: pathName(fpath), Reason: reason})
 			continue
 		}
@@ -149,19 +150,23 @@ func (c *heldCollector) collect(
 }
 
 // unreachable says why the objects held under a feature are not read as one
-// object each: the feature may hold several, or validation itself would not
-// reach them; empty when they are.
-func (c *heldCollector) unreachable(held runtime.HeldFeature, depth int) string {
-	if !singleValued(c.ctx.Semantics().EffectiveMultiplicityOf(held.Feature.Symbol)) {
-		return "it may hold more than one object"
+// object each: the feature may hold several or none, or validation itself would
+// not reach them; empty when they are. A cut is a reason below which the walk
+// does not descend: the type recurs on the path, or the depth is spent, so what
+// lies below is either stated above already or beyond what validation reaches.
+func (c *heldCollector) unreachable(held runtime.HeldFeature, depth int) (reason string, cut bool) {
+	r := c.ctx.Semantics().EffectiveMultiplicityOf(held.Feature.Symbol)
+	switch {
+	case !singleValued(r):
+		return "it may hold more than one object", false
+	case r.AllowsNone():
+		return "it may hold no object", false
+	case held.Composite != nil && c.onPath[held.Composite]:
+		return fmt.Sprintf("its type %s holds an object of its own type, which validation does not follow", held.Composite.Name), true
+	case depth >= runtime.HeldObjectDepth:
+		return fmt.Sprintf("it is held %d objects deep, further than validation reaches", depth+1), true
 	}
-	if held.Composite != nil && c.onPath[held.Composite] {
-		return fmt.Sprintf("its type %s holds an object of its own type, which validation does not follow", held.Composite.Name)
-	}
-	if depth >= runtime.HeldObjectDepth {
-		return fmt.Sprintf("it is held %d objects deep, further than validation reaches", depth+1)
-	}
-	return ""
+	return "", false
 }
 
 // pathName writes a chain of holding features as the element's conditions
@@ -258,10 +263,12 @@ func (t *translator) framed(cond runtime.Condition) (*Term, error) {
 	if sel == nil {
 		return t.condition(cond)
 	}
-	before := make(map[string]bool, len(t.vars))
-	for name := range t.vars {
-		before[name] = true
+	before := make(map[*Var]bool, len(t.vars))
+	for _, v := range t.vars {
+		before[v] = true
 	}
+	t.touched = map[*Var]bool{}
+	defer func() { t.touched = nil }()
 	term, err := t.under(sel, func() (*Term, error) { return t.condition(cond) })
 	if err != nil {
 		return nil, err
@@ -270,13 +277,14 @@ func (t *translator) framed(cond runtime.Condition) (*Term, error) {
 	return Not(And(sel, Not(term))), nil
 }
 
-// liven records under which selections the variables the condition introduced
-// exist: a feature declared for one variant is a variation point only where the
-// holding variation selects that variant (SysML v2 §7.6.7), so a variable of it
-// is live under that selection alone; one every variant has is always live.
-func (t *translator) liven(terms []*Term, before map[string]bool) {
-	for name, v := range t.vars {
-		if before[name] && v.Live == nil {
+// liven records under which selections the variables the condition read exist:
+// a feature declared for one variant is a variation point only where the holding
+// variation selects that variant (SysML v2 §7.6.7), so a variable of it is live
+// under that selection alone; one every variant has is always live. A variable
+// the condition does not read keeps the liveness its own conditions gave it.
+func (t *translator) liven(terms []*Term, before map[*Var]bool) {
+	for v := range t.touched {
+		if before[v] && v.Live == nil {
 			continue
 		}
 		var guards []*Term
@@ -289,7 +297,7 @@ func (t *translator) liven(terms []*Term, before map[string]bool) {
 		switch {
 		case guard == nil:
 			v.Live = nil
-		case before[name]:
+		case before[v]:
 			v.Live = Or(v.Live, guard)
 		default:
 			v.Live = guard

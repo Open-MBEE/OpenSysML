@@ -55,6 +55,29 @@ package Nested {
         part engine : Engines;
         assert constraint { trans == trans::man }
     }
+    variation part def Motors :> Block {
+        variant part big : Block {
+            variation port :>> autoPort { variant port a1; variant port a2; }
+            assert constraint { autoPort == autoPort::a2 }
+        }
+        variant part small : Block { attribute w : Integer = 1; assert constraint { w > 0 } }
+    }
+    part garage {
+        variation part trans : T { variant man : T; variant auto : T; }
+        part motor : Motors;
+        assert constraint { trans == trans::man }
+    }
+    part def Node { attribute n : Integer; part next : Node; assert constraint { n > 0 } }
+    part chain {
+        variation part trans : T { variant man : T; variant auto : T; }
+        part head : Node;
+        assert constraint { trans == trans::man }
+    }
+    part sparse {
+        variation part trans : T { variant man : T; variant auto : T; }
+        part spare : Gear[0..1];
+        assert constraint { trans == trans::man }
+    }
     part many {
         variation part trans : T { variant man : T; variant auto : T; }
         part gear : Gear[2];
@@ -126,4 +149,34 @@ func TestConfigureSelectsAVariantsOwnVariationOnlyUnderIt(t *testing.T) {
 		"engine.autoPort is a variation point only when engine selects six")
 	wants(t, run(t, s, "%configure Nested::fleet engine.autoPort=a1"),
 		"✗ the chosen variants are not consistent with Part fleet")
+}
+
+func TestConfigureKeepsAVariationPointsLivenessPastAnotherVariantsAssertion(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, nestedModel)
+	out := run(t, s, "%configure Nested::garage all")
+	wants(t, out, "✓ Part garage permits 2 selections of variants, which are all of them",
+		"Nested::garage::motor = Nested::Motors::small",
+		"Nested::garage::'motor.autoPort' = Nested::Motors::big::autoPort::a2")
+	for _, sel := range strings.Split(out, "\n  ") {
+		if strings.Contains(sel, "Motors::small") && strings.Contains(sel, "autoPort") {
+			t.Errorf("small has no autoPort variation, yet its selection lists one:\n%s", sel)
+		}
+	}
+}
+
+func TestConfigureCutsARecursivePartAndNamesIt(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, nestedModel)
+	wants(t, run(t, s, "%configure Nested::chain all"),
+		"✓ Part chain permits 1 selection of variants, which are all of them",
+		"Not in the query: what head.next asserts about its own objects, as its type Node holds an object of its own type, which validation does not follow; %instantiate and %validate an object to check it")
+}
+
+func TestConfigureRefusesAnOptionalNestedPartByName(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, nestedModel)
+	wants(t, run(t, s, "%configure Nested::sparse all"),
+		"✓ Part sparse permits 1 selection of variants, which are all of them",
+		"Not in the query: what spare asserts about its own objects, as it may hold no object; %instantiate and %validate an object to check it")
 }

@@ -477,6 +477,8 @@ type translator struct {
 	// one per top-level condition; the zero frame is the element itself.
 	frame  frame
 	frames []frame
+	// touched are the variables the condition being translated has read.
+	touched map[*Var]bool
 
 	nonlinear bool
 	intDiv    bool
@@ -972,6 +974,9 @@ func conjunction(terms []*Term) *Term {
 // so far are the ones the evaluator has checked by the first conditional
 // reference, in its left-to-right, condition-by-condition order.
 func (t *translator) read(v *Var) {
+	if t.touched != nil {
+		t.touched[v] = true
+	}
 	if t.always[v] {
 		return
 	}
