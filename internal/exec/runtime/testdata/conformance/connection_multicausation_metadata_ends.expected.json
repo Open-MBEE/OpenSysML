@@ -5,14 +5,17 @@
   "slots": {
     "gate": {"type": "Instance"},
     "explicitGate": {"type": "Instance"},
-    "typedGate": {"type": "Instance"}
+    "typedGate": {"type": "Instance"},
+    "inheritedGate": {"type": "Instance"}
   },
   "constraints": {
     "gateCauses": true,
     "gateEffects": true,
     "explicitGateCauses": true,
     "typedGateCauses": true,
-    "typedGateEffects": true
+    "typedGateEffects": true,
+    "inheritedGateCauses": true,
+    "inheritedGateEnd": true
   },
   "materialization": {}
 }

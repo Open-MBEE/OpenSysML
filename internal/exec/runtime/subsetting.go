@@ -505,6 +505,7 @@ func (ctx *Context) subsettedNames(sym, owner *symbols.Symbol) []string {
 	names := ctx.relatedFeatureNames(sym, owner, ast.RelSubsets)
 	for _, redefined := range ctx.redefinedFeatures(sym, owner) {
 		names = append(names, ctx.relatedFeatureNames(redefined, owner, ast.RelSubsets)...)
+		names = append(names, ctx.metadataSubsettingNames(redefined, owner)...)
 	}
 	// A nested usage also subsets the feature of its owner its kind nests under
 	// (SysML v2 §8.3): a part in an item one of its `subparts`.

@@ -5,6 +5,7 @@
 // the ends fill it with or without an explicit `:> causes`.
 package test {
     private import CauseAndEffect::*;
+    connection def Gate :> Multicausation { end #cause original; }
     occurrence tree {
         #cause event occurrence a;
         #cause event occurrence b;
@@ -22,6 +23,12 @@ package test {
             end #cause ::> b;
             end #effect ::> top;
         }
+        connection inheritedGate : Gate {
+            end :>> original ::> a;
+            end #effect ::> top;
+        }
+        assert constraint inheritedGateCauses { SequenceFunctions::size(inheritedGate.causes) == 1 }
+        assert constraint inheritedGateEnd { inheritedGate.original == a }
         assert constraint gateCauses { SequenceFunctions::size(gate.causes) == 2 }
         assert constraint gateEffects { SequenceFunctions::size(gate.effects) == 1 }
         assert constraint explicitGateCauses { SequenceFunctions::size(explicitGate.causes) == 1 }
