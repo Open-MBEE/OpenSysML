@@ -326,3 +326,15 @@ func TestFeatureValueOverridingConstructorInheritedBinding(t *testing.T) {
 	}`
 	overridingDiags(t, src, "default = 5", "2", "3")
 }
+
+// A constructor is reached inside a collect or select body too.
+func TestFeatureValueOverridingConstructorInCollectionBody(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::Integer;
+		item def A { attribute x : Integer = 1; }
+		attribute xs : Integer[*];
+		item ys = xs.{in i : Integer; new A(x = 2)};
+		item zs = xs.?{in i : Integer; new A(3) == new A(x = 4)};
+	}`
+	overridingDiags(t, src, "2", "3", "4")
+}

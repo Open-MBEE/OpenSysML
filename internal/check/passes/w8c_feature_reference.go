@@ -446,6 +446,12 @@ func (c *featureReferenceChecker) walkExpr(site refSite, scope *symbols.Scope, n
 		for _, el := range e.Elements {
 			c.walkExpr(site, scope, el)
 		}
+	case *ast.CollectExpr:
+		c.walkExpr(site, scope, e.Operand)
+		c.walkExpr(site, scope, e.Body)
+	case *ast.SelectExpr:
+		c.walkExpr(site, scope, e.Operand)
+		c.walkExpr(site, scope, e.Body)
 	case *ast.BodyExpr:
 		body := symbols.BodyExprScope(scope, e)
 		for i := range e.Params {
