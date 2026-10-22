@@ -722,13 +722,24 @@ func (e *StateExecutor) mirrorOccurrenceWrite(fv *FeatureValue) bool {
 			continue
 		}
 		value := fv.HeldValue()
-		if held, ok := e.stateData[attr.Name]; ok && heldSame(held, value) {
+		if held, ok := e.stateData[attr.Name]; ok && heldSame(held, value) && !e.endsLiveBinding(attr.Name, fv) {
 			return false
 		}
 		e.ctx.writeBodyValue(e.stateCells, e.stateData, attr.Name, value)
 		return true
 	}
 	return false
+}
+
+// endsLiveBinding reports whether a write to the occurrence's fv is an assignment
+// over a machine attribute whose cell still derives its binding, which the
+// assignment ends even when it carries the value the binding derived.
+func (e *StateExecutor) endsLiveBinding(name string, fv *FeatureValue) bool {
+	if !fv.Written {
+		return false
+	}
+	cell := e.stateCells.existingCell(name)
+	return cell != nil && cell.binding != nil && !cell.fv.Written
 }
 
 // mirrorBindingOccurrence exposes a tracked state feature through its occurrence.

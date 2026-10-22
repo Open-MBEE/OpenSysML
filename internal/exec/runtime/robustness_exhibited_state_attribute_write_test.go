@@ -15,6 +15,7 @@ func TestRuntimeRobustnessExhibitedStateAttributeWrite(t *testing.T) {
 	t.Run("inadmissible_write_through_the_exhibit_usage_is_refused", testInadmissibleWriteThroughTheExhibitUsageIsRefused)
 	t.Run("like_named_part_attribute_stays_the_parts_own", testLikeNamedPartAttributeStaysThePartsOwn)
 	t.Run("each_write_re_polls_the_change_trigger", testEachWriteRePollsTheChangeTrigger)
+	t.Run("same_value_assignment_ends_the_binding", testSameValueAssignmentEndsTheBinding)
 }
 
 // exhibitedCountOf reads the exhibited machine's `count` through the part's `g`.
@@ -140,5 +141,56 @@ func testEachWriteRePollsTheChangeTrigger(t *testing.T) {
 	}
 	if got := fv.HeldValue(); got.Kind != ValConst || !got.Const.Bool {
 		t.Errorf("g.tripped = %v, want true", got)
+	}
+}
+
+// testSameValueAssignmentEndsTheBinding: a machine attribute bound to the
+// part's, assigned through the exhibit usage the value the binding derived, is
+// the assignment's from then on; a later change of the part's attribute no
+// longer reaches it, so the guard on it does not fire.
+func testSameValueAssignmentEndsTheBinding(t *testing.T) {
+	src := `
+	package test {
+		private import ScalarValues::*;
+		state def Guard {
+			attribute distance : Integer = 0;
+			attribute tripped : Boolean = false;
+			entry; then cruise;
+			state cruise;
+			state aborting { entry assign tripped := true; }
+			transition first cruise accept when distance < 10 then aborting;
+		}
+		part def Flight {
+			attribute distance : Integer = 20;
+			exhibit state g : Guard { :>> distance = Flight::distance; }
+			perform action nav {
+				first start;
+				then action hold assign g.distance := 20;
+				then action close assign distance := 5;
+				then done;
+			}
+		}
+	}`
+	ctx, inst, err := instantiateWithLibraries(t, src, "test::Flight")
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, ok, err := ctx.fvObject(inst, "g")
+	if err != nil || !ok {
+		t.Fatalf("g: ok=%v err=%v", ok, err)
+	}
+	fv, err := g.GetFeatureValue(ctx, "distance")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fv.HeldValue(); got.Kind != ValConst || int64(got.Const.AsReal()) != 20 {
+		t.Errorf("g.distance = %v, want 20 (the assignment ended the binding)", got)
+	}
+	fv, err = g.GetFeatureValue(ctx, "tripped")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fv.HeldValue(); got.Kind != ValConst || got.Const.Bool {
+		t.Errorf("g.tripped = %v, want false", got)
 	}
 }
