@@ -6,6 +6,7 @@
     "viaDef": {"type": "Real", "value": 2.0},
     "viaValued": {"type": "Real", "value": 3.0},
     "viaChosen": {"type": "Real", "value": 1.0},
-    "viaHeld": {"type": "Real", "value": 2.0}
+    "viaHeld": {"type": "Real", "value": 2.0},
+    "viaIndirect": {"type": "Real", "value": 3.0}
   }
 }

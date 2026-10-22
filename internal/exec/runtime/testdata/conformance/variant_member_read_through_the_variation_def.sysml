@@ -11,11 +11,14 @@ package test {
 		variant attribute lightCase = light;
 	}
 	part chosen : Case = Case::small;
+	attribute pick = Masses::lightCase;
+	attribute picked : Masses = pick;
 	part holder {
 		attribute viaDef : Real = Case::big.m;
 		attribute viaValued : Real = Masses::lightCase.kg;
 		attribute viaChosen : Real = chosen.m;
 		part held : Body = Case::big;
 		attribute viaHeld : Real = held.m;
+		attribute viaIndirect : Real = picked.kg;
 	}
 }

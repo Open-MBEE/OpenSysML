@@ -97,7 +97,7 @@ func (ctx *Context) selectVariant(selection variantSelection, variant string) {
 // whether the variation is read through an object or through its declaration.
 func (ec *EvalContext) bindVariationOf(sym *symbols.Symbol, val Value) (Value, error) {
 	if !ec.ctx.model.semantics.IsVariationFeature(sym) {
-		return ec.heldVariantsStandFor(val)
+		return val, nil
 	}
 	owner := int64(0)
 	if ec.self != nil {
@@ -212,12 +212,8 @@ func (ctx *Context) variantAsValue(v Value) (Value, error) {
 	return ctx.variantValue(nil, v.Variant(), 0)
 }
 
-// variantStandsFor resolves a variant named with no selecting object — `Case::big`
-// read in a chain, or held by a feature that is not a variation — to what it stands
-// for: the value it declares, else an object of it, materialized once for the object
-// evaluating. A variant is a usage of its variation (SysML v2 §7.20), so a chain
-// through it reads that usage's values (KerML §7.3.4.6). A variant already standing
-// for an object, or any other value, is left as it is.
+// variantStandsFor resolves a variant named with no selecting object (`Case::big`) to the
+// value it declares, else an object of it materialized once for the object evaluating.
 func (ec *EvalContext) variantStandsFor(v Value) (Value, error) {
 	variant := v.Variant()
 	if v.Kind != ValVariant || variant == nil || v.Instance != 0 {
@@ -251,37 +247,6 @@ func (ec *EvalContext) chainThroughNamedVariant(variation *symbols.Symbol, parts
 	}
 	val, err = ec.chainMemberValue(val, rest, variant.Name)
 	return val, true, err
-}
-
-// heldVariantsStandFor is variantStandsFor over a value a feature that is not a
-// variation holds: a variant it names, alone or among the elements of a collection,
-// stands for its object there, as one `all` lists does.
-func (ec *EvalContext) heldVariantsStandFor(val Value) (Value, error) {
-	switch val.Kind {
-	case ValVariant:
-		return ec.variantStandsFor(val)
-	case ValSequence, ValSet:
-	default:
-		return val, nil
-	}
-	elements := elementsOf(val)
-	resolved := make([]Value, 0, len(elements))
-	changed := false
-	for _, el := range elements {
-		stood, err := ec.variantStandsFor(el)
-		if err != nil {
-			return Value{}, err
-		}
-		changed = changed || stood != el
-		resolved = append(resolved, stood)
-	}
-	if !changed {
-		return val, nil
-	}
-	if val.Kind == ValSet {
-		return ec.ctx.setOf(resolved), nil
-	}
-	return ec.newSequence(resolved)
 }
 
 // variantObject keys the object a variant stands for by the selection that made
