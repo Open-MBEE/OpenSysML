@@ -1,0 +1,18 @@
+AbstractViews::familyTable - table rendering (render asElementTable)
+
+Element                                Kind                Type                Declared in
+-------------------------------------  ------------------  ------------------  ----------------------------
+AbstractViews::Vehicle                 abstract part def
+mass                                   attribute           ScalarValues::Real  AbstractViews::Vehicle
+AbstractViews::Vehicle::mass           attribute           ScalarValues::Real
+AbstractViews::vehicleFamily           abstract part       Vehicle
+fuel                                   abstract port       FuelPort            AbstractViews::vehicleFamily
+engine                                 abstract part       Engine              AbstractViews::vehicleFamily
+chassis                                part                                    AbstractViews::vehicleFamily
+                                       connect                                 AbstractViews::vehicleFamily
+AbstractViews::vehicleFamily::fuel     abstract port       FuelPort
+AbstractViews::vehicleFamily::engine   abstract part       Engine
+AbstractViews::vehicleFamily::chassis  part
+AbstractViews::Models                  variation part def
+sedan                                  variant                                 AbstractViews::Models
+AbstractViews::Models::sedan           variant

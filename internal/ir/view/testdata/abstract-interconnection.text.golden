@@ -1,0 +1,10 @@
+AbstractViews::familyLinks - interconnection rendering (render asInterconnectionDiagram)
+
+abstract part vehicleFamily
+  abstract port fuel
+  abstract part engine
+  part chassis
+  attribute mass
+
+connections:
+  engine -- chassis
