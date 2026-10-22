@@ -302,7 +302,7 @@ func (r *Resolver) MemoSize() int {
 		len(r.parts) + len(r.aliasNames) + len(r.endpoints) + len(r.readings) +
 		len(r.invocationNames) + len(r.ambiguities) + len(r.reportedQualified) +
 		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets) +
-		len(r.collisions) + len(r.enumKept) + len(r.enumResults)
+		len(r.collisions) + len(r.enumKept) + len(r.enumResults) + len(r.shortNames)
 }
 
 // New creates a resolver over the given index.

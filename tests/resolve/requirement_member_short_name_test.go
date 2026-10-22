@@ -155,8 +155,7 @@ func qualified(parts ...string) *ast.QualifiedName {
 	return q
 }
 
-// Deriving a `require` member's short name asks its siblings' while its own is
-// under way; each member still ends with the short name its referent declares.
+// A `require` member keeps its referent's short name even when derived while a sibling's was under way.
 func TestRequirementGroupMemberShortNamesDeriveIndependently(t *testing.T) {
 	r, _, rootScope := resolvedDoc(t, `package P {
 	requirement <q> r0;

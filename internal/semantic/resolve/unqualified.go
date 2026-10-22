@@ -151,12 +151,10 @@ func symbolShortName(sym *symbols.Symbol) string {
 // shortNaming is one outermost derivation of a derived short name with the
 // derivations nested in it, which ask the same scopes for their siblings' names.
 type shortNaming struct {
-	derived map[*symbols.Symbol]string // every short name this derivation settled on
-	guarded map[*symbols.Symbol]bool   // features asked for while their naming was under way
-	// hits counts answers that may not hold (a guard's, or one reused before it
-	// is memoized); dependent are complete derivations that met one.
-	hits      int
-	dependent []*symbols.Symbol
+	derived   map[*symbols.Symbol]string // every short name this derivation settled on
+	guarded   map[*symbols.Symbol]bool   // features asked for while their naming was under way
+	hits      int                        // answers that may not hold: a guard's, or one reused unmemoized
+	dependent []*symbols.Symbol          // complete derivations that met such an answer
 }
 
 // derivedShortName is the short name sym takes from its naming feature (KerML
