@@ -3255,7 +3255,7 @@
       "checks": "A redefining feature has a direction compatible with the redefined feature",
       "implementation": "internal/check/passes/w8b_redefinition_conformance.go:RedefinitionDirectionPass.Run",
       "message": "—",
-      "negativeCase": "`xpect/p31-redefinition-incompatible-direction.sysml`, `semantic/s112-undirected-redefinition-of-in-parameter.sysml`, `semantic/s113-positional-parameter-direction-conflict.sysml`, `semantic/k76-undirected-redefinition-of-directed-feature.kerml`",
+      "negativeCase": "`xpect/p31-redefinition-incompatible-direction.sysml`, `semantic/s115-undirected-redefinition-of-in-parameter.sysml`, `semantic/s116-positional-parameter-direction-conflict.sysml`, `semantic/k76-undirected-redefinition-of-directed-feature.kerml`",
       "codes": [
         "redefinition-direction-conformance"
       ],

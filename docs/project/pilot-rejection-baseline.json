@@ -2247,7 +2247,7 @@
       "pilotErrors": 1
     },
     {
-      "path": "semantic/s112-undirected-redefinition-of-in-parameter.sysml",
+      "path": "semantic/s115-undirected-redefinition-of-in-parameter.sysml",
       "source": "semantic",
       "rule": "a redefinition of an `in` parameter that declares no direction does not conform to it (KerML 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
       "mode": "default",
@@ -2256,7 +2256,7 @@
       "pilotErrors": 1
     },
     {
-      "path": "semantic/s113-positional-parameter-direction-conflict.sysml",
+      "path": "semantic/s116-positional-parameter-direction-conflict.sysml",
       "source": "semantic",
       "rule": "the first parameter of a step redefines its behavior's first parameter by position, so an `out` written first under `in input; out output;` conflicts with `input` (KerML 8.4.4.6 checkFeatureParameterRedefinition, 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
       "mode": "default",
