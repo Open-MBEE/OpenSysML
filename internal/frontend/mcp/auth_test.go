@@ -153,11 +153,23 @@ func TestBearerTokenAt(t *testing.T) {
 	if err != nil || none.PublicURL() != "" || !none.Set() {
 		t.Errorf("At(\"\") = %q, %v", none.PublicURL(), err)
 	}
-	for _, origin := range []string{"https://models.example.org", "https://models.example.org/"} {
-		bare, err := tok.At(origin)
-		if err != nil || bare.PublicURL() != "https://models.example.org/mcp" {
-			t.Errorf("At(%q) = %q, %v; want the endpoint path appended", origin, bare.PublicURL(), err)
-		}
+	bare, err := tok.At("https://models.example.org")
+	if err != nil || bare.PublicURL() != "https://models.example.org/mcp" {
+		t.Errorf("At with no path = %q, %v; want the endpoint path appended", bare.PublicURL(), err)
+	}
+	// A proxy may expose the endpoint at the root, whose metadata is at the
+	// bare well-known URI.
+	root, err := tok.At("https://models.example.org/")
+	if err != nil || root.PublicURL() != "https://models.example.org/" {
+		t.Errorf("At(root) = %q, %v", root.PublicURL(), err)
+	}
+	if got := root.MetadataPaths(); !slices.Equal(got, []string{ProtectedResourceMetadataPath, "/.well-known/oauth-protected-resource"}) {
+		t.Errorf("root MetadataPaths() = %v", got)
+	}
+	rec := httptest.NewRecorder()
+	root.Handler(http.NotFoundHandler()).ServeHTTP(rec, httptest.NewRequest(http.MethodPost, HTTPPath, nil))
+	if _, params := challengeOf(t, rec); params["resource_metadata"] != "https://models.example.org/.well-known/oauth-protected-resource" {
+		t.Errorf("root resource_metadata = %q", params["resource_metadata"])
 	}
 	public, err := tok.At("https://models.example.org/agents/mcp")
 	if err != nil {
@@ -166,7 +178,7 @@ func TestBearerTokenAt(t *testing.T) {
 	// The request arrives over cleartext from the proxy, with its own Host.
 	req := httptest.NewRequest(http.MethodPost, HTTPPath, nil)
 	req.Host = "127.0.0.1:8765"
-	rec := httptest.NewRecorder()
+	rec = httptest.NewRecorder()
 	public.Handler(http.NotFoundHandler()).ServeHTTP(rec, req)
 	if _, params := challengeOf(t, rec); params["resource_metadata"] != "https://models.example.org/.well-known/oauth-protected-resource/agents/mcp" {
 		t.Errorf("resource_metadata = %q", params["resource_metadata"])

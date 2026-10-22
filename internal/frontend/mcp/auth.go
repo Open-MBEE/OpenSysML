@@ -46,8 +46,8 @@ func NewBearerToken(s string) (BearerToken, error) {
 // Set reports whether a token is configured.
 func (t BearerToken) Set() bool { return len(t.secret) > 0 }
 
-// At names the URL clients reach the endpoint at behind a proxy, for the
-// resource identifier and the challenge; empty derives both from each request.
+// At names the URL clients reach the endpoint at behind a proxy (an origin
+// alone means its /mcp, / the root); empty derives it from each request.
 func (t BearerToken) At(publicURL string) (BearerToken, error) {
 	if publicURL == "" {
 		t.public = nil
@@ -57,11 +57,11 @@ func (t BearerToken) At(publicURL string) (BearerToken, error) {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
 		return t, fmt.Errorf("%q is not the URL of the endpoint; it is http(s)://host[:port]/path with no user, query or fragment, as https://models.example.org/mcp", publicURL)
 	}
-	if u.Path == "" || u.Path == "/" {
+	if u.Path == "" {
 		u.Path = HTTPPath
 	}
-	if !isPlainPath(u.Path) || u.EscapedPath() != u.Path || strings.HasSuffix(u.Path, "/") {
-		return t, fmt.Errorf("%q has a path that is not a plain one; it is segments of letters, digits and -._~ with no trailing slash, as /agents/mcp", publicURL)
+	if !isPlainPath(u.Path) || u.EscapedPath() != u.Path || (u.Path != "/" && strings.HasSuffix(u.Path, "/")) {
+		return t, fmt.Errorf("%q has a path that is not a plain one; it is / or segments of letters, digits and -._~ with no trailing slash, as /agents/mcp", publicURL)
 	}
 	t.public = u
 	return t, nil
@@ -191,7 +191,7 @@ func (t BearerToken) resourceURL(r *http.Request) string {
 // the well-known prefix with the endpoint's path appended (RFC 9728 § 3.1).
 func (t BearerToken) resourceMetadataURL(r *http.Request) string {
 	u := *t.endpoint(r)
-	u.Path = wellKnownPrefix + u.Path
+	u.Path = wellKnownPrefix + strings.TrimSuffix(u.Path, "/")
 	return u.String()
 }
 
@@ -200,7 +200,7 @@ func (t BearerToken) resourceMetadataURL(r *http.Request) string {
 func (t BearerToken) MetadataPaths() []string {
 	paths := []string{ProtectedResourceMetadataPath}
 	if t.public != nil && t.public.Path != HTTPPath {
-		paths = append(paths, wellKnownPrefix+t.public.Path)
+		paths = append(paths, wellKnownPrefix+strings.TrimSuffix(t.public.Path, "/"))
 	}
 	return paths
 }
