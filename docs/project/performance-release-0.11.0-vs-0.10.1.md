@@ -545,7 +545,7 @@ the cut point with #1396.
 
 | benchmark | allocs/op |
 | --------- | --------- |
-| runtime `AssignmentLoopStep` | 7 329 \| 7 329 \| 10 532 (+44%) \| #1396: 8 664 (twenty iterations on two CPUs; its six rounds are in its pull request) |
+| runtime `AssignmentLoopStep` | 7 329 \| 7 329 \| 10 532 (+44%) \| #1396: 8 531 |
 | runtime `IntegerCollectionSum` | 44 \| 44 \| 47 |
 | runtime `DerivedReadWriteRead` | 65 \| 67 \| 67 |
 | runtime `IntegerArithmeticLoop` | 9 072 \| 9 072 \| 9 075 |
@@ -580,9 +580,10 @@ a bare scalar — so a loop stepping a calculation usage reads a sequence
 into a unique feature at every step, and `uniquenessRefusal` built a
 `Set` to judge repeats in a sequence of one value (five allocations per
 read). #1396 answers for fewer than two elements without building the
-set, with the test that the one-value write allocates nothing:
-10 665 → 8 664 allocs/op at twenty iterations on two CPUs, the parent of
-#1308 at 7 461. The remaining three allocations per held result
+set, with the test that the one-value write allocates nothing: six
+rounds interleaved with the cut point, 10 531 → 8 531 allocs/op
+(p = 0.002; 0.10.1 and the measured head 7 328), time unchanged within
+the loaded spread. The remaining three allocations per held result
 (`elementsOf`, `NewSequence`, `Append`) are the shape #1308 introduced so
 that a result's multiplicity is its feature's, and are carried as that
 correctness change's cost.
