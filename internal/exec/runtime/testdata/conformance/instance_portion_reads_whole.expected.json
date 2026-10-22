@@ -15,7 +15,13 @@
     "plainProduct": true,
     "plainDepth": true,
     "timesliceProduct": true,
-    "otherWidth": true
+    "otherWidth": true,
+    "restatedWidth": true,
+    "restatedProduct": true,
+    "viaFollowsPortionOwn": true,
+    "viaFollowsWholeOwn": true,
+    "snapshotComponents": true,
+    "snapshotComponentId": true
   },
   "materialization": {}
 }

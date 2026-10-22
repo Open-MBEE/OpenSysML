@@ -6,7 +6,11 @@
 // height`) is evaluated over the portion's own values.
 package test {
     private import ScalarValues::*;
+    part def Node { attribute id : Natural; }
     part def Panel {
+        part own : Node;
+        ref part via ::> own;
+        part components : Node[2];
         attribute width : Natural;
         attribute height : Natural;
         attribute depth : Natural default 7;
@@ -21,6 +25,16 @@ package test {
         snapshot plain : Panel;
         timeslice during : Panel { attribute :>> height = 9; }
         snapshot other : Other;
+        part :>> own { attribute :>> id = 1; }
+        part :>> components { attribute :>> id = 9; }
+        snapshot restated : Panel { attribute :>> width; }
+        snapshot ownOwn : Panel { part :>> own { attribute :>> id = 5; } }
+        assert constraint restatedWidth { restated.width == 3 }
+        assert constraint restatedProduct { restated.product == 6 }
+        assert constraint viaFollowsPortionOwn { ownOwn.via.id == 5 }
+        assert constraint viaFollowsWholeOwn { plain.via.id == 1 }
+        assert constraint snapshotComponents { SequenceFunctions::size(atReview.components) == 2 }
+        assert constraint snapshotComponentId { atReview.components#(1).id == 9 }
         assert constraint ownProduct { product == 6 }
         assert constraint snapshotWidth { atReview.width == 3 }
         assert constraint snapshotHeight { atReview.height == 5 }

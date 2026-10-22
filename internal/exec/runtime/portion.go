@@ -40,19 +40,44 @@ func isPortionUsage(sym *symbols.Symbol) bool {
 }
 
 // portionReadsWhole reports whether feat of inst, a portion, is read from the whole: the
-// portion's own body does not declare it, its type binds it to nothing or a `default` (a
-// binding the type states, `product = width * height`, holds over the portion's own values),
-// and the whole's feature of the name is the same feature or a redefinition on either side.
+// portion's own body does not value it (a bare `:>> width;` restates it, no more), its type binds
+// it to nothing or a `default` (a binding the type states, `product = width * height`, holds over
+// the portion's own values), nothing of the portion subsets it, and the whole's feature of the
+// name is the same feature or a redefinition on either side.
 func (ctx *Context) portionReadsWhole(inst *Instance, feat *EffectiveFeature) bool {
 	if feat.Symbol == nil || ctx.valueBinds(feat) && !feat.defaultIsFallback() {
 		return false
 	}
 	_, portion, wfv, ok := ctx.wholeOf(inst, feat.Name)
-	if !ok || wfv.Feature.Symbol == nil || feat.Symbol.OwnerScope == portion.Scope {
+	if !ok || wfv.Feature.Symbol == nil || feat.Symbol.OwnerScope == portion.Scope && !bareRestatement(feat) {
+		return false
+	}
+	if source := ctx.referencedFeatureName(inst, feat.Symbol); source != "" && source != feat.Name {
+		return false
+	}
+	if len(ctx.SubsettingFeatures(nil, inst.Type, feat.Name)) > 0 {
 		return false
 	}
 	return wfv.Feature.Symbol == feat.Symbol || ctx.redefinesTransitively(wfv.Feature.Symbol, feat.Symbol) ||
-		ctx.redefinesTransitively(feat.Symbol, wfv.Feature.Symbol)
+		ctx.redefinesTransitively(feat.Symbol, wfv.Feature.Symbol) || ctx.redefineInCommon(feat.Symbol, wfv.Feature.Symbol)
+}
+
+// bareRestatement reports whether a feature declaration states no value and no body of its
+// own (`attribute :>> width;`): restated, it is still read from wherever width is valued.
+func bareRestatement(feat *EffectiveFeature) bool {
+	usage, ok := feat.Symbol.Decl.(*ast.Usage)
+	return ok && feat.DefaultValue == nil && len(usage.Members) == 0
+}
+
+// redefineInCommon reports whether two features redefine one feature: a portion's bare
+// `:>> width;` and its whole's `:>> width = 3` are both the type's width.
+func (ctx *Context) redefineInCommon(a, b *symbols.Symbol) bool {
+	for _, redefined := range ctx.model.semantics.AllRedefinedFeatures(a) {
+		if ctx.redefinesTransitively(b, redefined) {
+			return true
+		}
+	}
+	return false
 }
 
 // materializeFromWhole holds in fv the whole's value of the feature inst, a portion, does not
@@ -77,7 +102,11 @@ func (inst *Instance) materializeFromWhole(ctx *Context, fv *FeatureValue, name 
 	if val, err = ctx.holdDeclared(inst, fv, val); err != nil {
 		return false, err
 	}
-	fv.Value = val
+	if fv.Feature.Scalar() {
+		fv.Value = val
+	} else {
+		fv.Values = val
+	}
 	fv.Materialized = true
 	return true, nil
 }
