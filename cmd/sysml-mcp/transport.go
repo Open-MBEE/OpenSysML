@@ -12,9 +12,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 )
 
-// httpOptions is what the -http, -allow-origin, -token, -token-file,
-// -public-url, -tls-cert and -tls-key flags resolve to once read together;
-// nil when -http was not given.
+// httpOptions is what -http and its qualifiers (-allow-origin, -token,
+// -token-file, -public-url, -tls-cert, -tls-key) resolve to; nil without -http.
 type httpOptions struct {
 	addr    string
 	origins mcp.OriginPolicy
@@ -64,10 +63,8 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 // tokenValue is the token a -print-config block carries; empty without one.
 func (h *httpOptions) tokenValue() string { return h.tokenText }
 
-// readToken reads the bearer token from -token-file, -token or the
-// environment, in that order of preference; the two flags together are
-// refused, a file's one trailing line break is not part of the token, and an
-// empty flag or variable names none.
+// readToken reads the token from -token-file (one trailing line break dropped),
+// -token or the environment, in that order; both flags together are refused.
 func readToken(o *options) (mcp.BearerToken, string, error) {
 	if o.token != "" && o.tokenFile != "" {
 		return mcp.BearerToken{}, "", errors.New("-token and -token-file both name the bearer token; give one")
@@ -106,9 +103,8 @@ func (h *httpOptions) loadTLS() error {
 	return nil
 }
 
-// url is where a client reaches the server: -public-url when given, else
-// https with a TLS pair, and localhost where the address binds every
-// interface or loopback alone.
+// url is where a client reaches the server: -public-url when given, else the
+// bound address (localhost for every interface), https with a TLS pair.
 func (h *httpOptions) url() string {
 	if public := h.token.PublicURL(); public != "" {
 		return public

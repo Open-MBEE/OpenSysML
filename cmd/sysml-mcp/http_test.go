@@ -419,9 +419,8 @@ func TestTheHTTPTransportRefusesOffLoopbackWithoutAToken(t *testing.T) {
 	}
 }
 
-// TestTheHTTPTransportRequiresTheToken checks the binary serves every
-// interface with a token from a file, answering only clients that send it,
-// challenging the rest as RFC 6750 says, and serving the resource metadata.
+// TestTheHTTPTransportRequiresTheToken checks every interface is served with a
+// file's token to clients that send it, with the RFC 6750 challenge and metadata.
 func TestTheHTTPTransportRequiresTheToken(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()

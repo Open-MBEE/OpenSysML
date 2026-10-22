@@ -263,8 +263,7 @@ func TestPrintConfigURLBlocks(t *testing.T) {
 }
 
 // TestPrintConfigURLBlocksCarryTheToken checks that with a token every host's
-// URL block sends it as the Authorization header, and none mentions headers
-// without one.
+// URL block sends the Authorization header, and none names headers without one.
 func TestPrintConfigURLBlocksCarryTheToken(t *testing.T) {
 	tokenFile := filepath.Join(t.TempDir(), "mcp.token")
 	if err := os.WriteFile(tokenFile, []byte("s3cret-token\n"), 0o600); err != nil {

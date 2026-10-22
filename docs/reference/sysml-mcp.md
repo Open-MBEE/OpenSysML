@@ -410,7 +410,11 @@ authentication the Model Context Protocol asks of a server on a network:
   proxy that terminates TLS or rewrites the path, a request no longer shows the URL the client
   used, so `-public-url https://models.example.org/mcp` names it: the challenge, the metadata
   and the `-print-config` block then carry that URL rather than the request's own scheme and
-  `Host`.
+  `Host`. The proxy must forward the well-known URI as well as the endpoint: with
+  `-public-url https://models.example.org/agents/mcp` the server answers the metadata at both
+  `/.well-known/oauth-protected-resource/agents/mcp` and
+  `/.well-known/oauth-protected-resource/mcp`, so a proxy that forwards the path unchanged and
+  one that strips the `/agents` prefix both reach it.
 - **The token itself** is letters, digits and `-._~+/` with trailing `=` (RFC 6750 `b64token`), so
   a client can send what the server was given; generate one (`openssl rand -base64 32`) and keep
   it in a file only the server's user reads. Over a network it needs TLS, below: a token served

@@ -175,14 +175,15 @@ func IsLoopbackAddr(addr net.Addr) bool {
 }
 
 // Handler is the Streamable HTTP transport of this server, mounted at HTTPPath
-// behind origins and token; every request is served by the one SDK server.
-// With a token, the endpoint's resource metadata is served beside it, open.
+// behind origins and token, with the token's resource metadata served open.
 func (s *Server) Handler(origins OriginPolicy, token BearerToken) http.Handler {
 	streamable := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return s.sdk }, &sdk.StreamableHTTPOptions{Logger: s.logger})
 	mux := http.NewServeMux()
 	mux.Handle(HTTPPath, origins.Handler(token.Handler(streamable)))
 	if token.Set() {
-		mux.Handle(ProtectedResourceMetadataPath, origins.Handler(http.HandlerFunc(token.ServeMetadata)))
+		for _, path := range token.MetadataPaths() {
+			mux.Handle(path, origins.Handler(http.HandlerFunc(token.ServeMetadata)))
+		}
 	}
 	return mux
 }

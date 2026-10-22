@@ -12,29 +12,27 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
 )
 
-// ProtectedResourceMetadataPath is where the OAuth 2.0 protected resource
-// metadata (RFC 9728 § 3) of the MCP endpoint is served: the well-known path
-// with the endpoint's path appended, the form the protocol names first.
-const ProtectedResourceMetadataPath = "/.well-known/oauth-protected-resource" + HTTPPath
+// wellKnownPrefix heads the protected resource metadata path (RFC 9728 § 3):
+// the endpoint's path is appended, the form the protocol names first.
+const wellKnownPrefix = "/.well-known/oauth-protected-resource"
+
+// ProtectedResourceMetadataPath is where the MCP endpoint's metadata is served.
+const ProtectedResourceMetadataPath = wellKnownPrefix + HTTPPath
 
 // TokenEnv is the environment variable a bearer token is read from when no
 // flag names one.
 const TokenEnv = "OPENSYSML_MCP_TOKEN" // #nosec G101 -- a variable name, not a credential
 
-// BearerToken is the one access token the HTTP transport accepts: the server
-// is an OAuth 2.1 resource server (RFC 6750) whose token is issued out of band
-// by whoever runs it, rather than by an authorization server. The zero value
-// is no token, which only a loopback listener may serve without.
+// BearerToken is the one access token the HTTP transport accepts (RFC 6750),
+// issued out of band by whoever runs the server; the zero value is no token.
 type BearerToken struct {
 	secret []byte
-	// public is the endpoint's URL as clients reach it, when configured;
-	// otherwise each request's scheme and Host name it.
+	// public is the endpoint's URL as clients reach it; nil reads each request.
 	public *url.URL
 }
 
-// NewBearerToken reads a token the way RFC 6750 § 2.1 spells one (b64token:
-// letters, digits, -._~+/ and trailing =), so a client can send what the
-// server was given; an empty token or one with other characters is refused.
+// NewBearerToken reads a token as RFC 6750 § 2.1 spells one (b64token), so a
+// client can send what the server was given; anything else is refused.
 func NewBearerToken(s string) (BearerToken, error) {
 	if s == "" {
 		return BearerToken{}, errors.New("the token is empty")
@@ -48,10 +46,8 @@ func NewBearerToken(s string) (BearerToken, error) {
 // Set reports whether a token is configured.
 func (t BearerToken) Set() bool { return len(t.secret) > 0 }
 
-// At names the URL clients reach the endpoint at — behind a proxy that
-// terminates TLS or rewrites the path, where a request no longer shows it —
-// for the resource identifier and the challenge's metadata URL. Empty keeps
-// deriving both from each request.
+// At names the URL clients reach the endpoint at behind a proxy, for the
+// resource identifier and the challenge; empty derives both from each request.
 func (t BearerToken) At(publicURL string) (BearerToken, error) {
 	if publicURL == "" {
 		t.public = nil
@@ -98,11 +94,8 @@ func isB64Token(s string) bool {
 	return true
 }
 
-// Handler requires every request to carry the token as RFC 6750 § 2.1
-// spells it (Authorization: Bearer TOKEN) and refuses any other with 401 and
-// a WWW-Authenticate challenge naming the resource metadata (RFC 6750 § 3,
-// RFC 9728 § 5.1), or 400 when the header is malformed; with no token
-// configured, next is served as is.
+// Handler requires Authorization: Bearer TOKEN of every request (RFC 6750
+// § 2.1), answering 401 with a challenge or 400 otherwise; no token serves next.
 func (t BearerToken) Handler(next http.Handler) http.Handler {
 	if !t.Set() {
 		return next
@@ -125,9 +118,8 @@ func (t BearerToken) Handler(next http.Handler) http.Handler {
 	})
 }
 
-// challenge writes the refusal: the WWW-Authenticate header a client reads
-// to find the resource metadata, with the error code RFC 6750 § 3.1 gives
-// the failure, and none when no credentials were presented.
+// challenge writes the refusal with the WWW-Authenticate header naming the
+// metadata and the RFC 6750 § 3.1 error code (none when nothing was presented).
 func (t BearerToken) challenge(w http.ResponseWriter, r *http.Request, status int, code, description string) {
 	params := []string{`realm="sysml-mcp"`, fmt.Sprintf("resource_metadata=%q", t.resourceMetadataURL(r))}
 	if code != "" {
@@ -142,9 +134,8 @@ func (t BearerToken) challenge(w http.ResponseWriter, r *http.Request, status in
 	http.Error(w, message, status)
 }
 
-// ServeMetadata answers the protected resource metadata (RFC 9728 § 3.2) of
-// the MCP endpoint: its identifier and that the token is sent in the header.
-// There is no authorization server to list; the token is issued out of band.
+// ServeMetadata answers the endpoint's protected resource metadata (RFC 9728
+// § 3.2); there is no authorization server to list, the token being out of band.
 func (t BearerToken) ServeMetadata(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
@@ -161,8 +152,8 @@ func (t BearerToken) ServeMetadata(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// endpoint is the URL of the MCP endpoint as the client reached it: the one
-// At named, or the scheme the connection used and the Host header it sent.
+// endpoint is the MCP endpoint's URL as the client reached it: the one At
+// named, or the connection's scheme and the request's Host.
 func (t BearerToken) endpoint(r *http.Request) *url.URL {
 	if t.public != nil {
 		return t.public
@@ -179,10 +170,20 @@ func (t BearerToken) resourceURL(r *http.Request) string {
 	return t.endpoint(r).String()
 }
 
-// resourceMetadataURL is where the client finds the resource metadata of the
-// endpoint: the well-known path with the endpoint's path appended (RFC 9728 § 3.1).
+// resourceMetadataURL is where the client finds the endpoint's metadata:
+// the well-known prefix with the endpoint's path appended (RFC 9728 § 3.1).
 func (t BearerToken) resourceMetadataURL(r *http.Request) string {
 	u := *t.endpoint(r)
-	u.Path = "/.well-known/oauth-protected-resource" + u.Path
+	u.Path = wellKnownPrefix + u.Path
 	return u.String()
+}
+
+// MetadataPaths lists where the metadata is served: ProtectedResourceMetadataPath,
+// and the public path's well-known URI when At named another path.
+func (t BearerToken) MetadataPaths() []string {
+	paths := []string{ProtectedResourceMetadataPath}
+	if t.public != nil && t.public.Path != HTTPPath {
+		paths = append(paths, wellKnownPrefix+t.public.Path)
+	}
+	return paths
 }

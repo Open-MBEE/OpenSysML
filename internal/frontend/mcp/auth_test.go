@@ -140,9 +140,8 @@ func TestBearerTokenHandler(t *testing.T) {
 	}
 }
 
-// TestBearerTokenAt checks a public URL stands in for the request's scheme
-// and host in the challenge and the metadata, and that only an endpoint URL
-// is accepted.
+// TestBearerTokenAt checks a public URL stands in for the request's scheme and
+// host in the challenge and the metadata, and that only an endpoint URL is taken.
 func TestBearerTokenAt(t *testing.T) {
 	tok, _ := NewBearerToken("s3cret")
 	for _, bad := range []string{"models.example.org", "ftp://models.example.org/mcp", "https://", "https://user@models.example.org/mcp", "https://models.example.org/mcp?x=1", "https://models.example.org/mcp#f", "mailto:a@b"} {
@@ -240,11 +239,28 @@ func TestHandlerMountsTheMetadataOnlyWithAToken(t *testing.T) {
 	if rec := get(without, ProtectedResourceMetadataPath); rec.Code != http.StatusNotFound {
 		t.Errorf("metadata without a token: status %d", rec.Code)
 	}
+
+	// Behind a proxy exposing another path, the metadata is served at that
+	// path's well-known URI too, whether or not the proxy rewrites it.
+	public, _ := tok.At("https://models.example.org/agents/mcp")
+	if got := public.MetadataPaths(); !slices.Equal(got, []string{ProtectedResourceMetadataPath, "/.well-known/oauth-protected-resource/agents/mcp"}) {
+		t.Errorf("MetadataPaths() = %v", got)
+	}
+	proxied := srv.Handler(OriginPolicy{}, public)
+	for _, path := range public.MetadataPaths() {
+		rec := get(proxied, path)
+		var meta map[string]any
+		if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &meta) != nil || meta["resource"] != "https://models.example.org/agents/mcp" {
+			t.Errorf("metadata at %s: status %d, body %s", path, rec.Code, rec.Body)
+		}
+	}
+	if got := tok.MetadataPaths(); !slices.Equal(got, []string{ProtectedResourceMetadataPath}) {
+		t.Errorf("MetadataPaths() with no public URL = %v", got)
+	}
 }
 
 // TestServeStreamableHTTPEnforcesTheTokenOnLoopback checks the protocol is
-// served only to a client sending the token, on loopback too, and that the
-// token is logged nowhere.
+// served only to a client sending the token, on loopback too, and never logs it.
 func TestServeStreamableHTTPEnforcesTheTokenOnLoopback(t *testing.T) {
 	var logs bytes.Buffer
 	tok, _ := NewBearerToken("s3cret-token")
