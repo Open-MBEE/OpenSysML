@@ -167,3 +167,42 @@ func TestVariantKindJudgesKerMLVariationTypes(t *testing.T) {
 		t.Fatalf("variant-kind on lines %v, want %v", got, want)
 	}
 }
+
+func TestVariantKindReportedDespiteFaultyNestedMember(t *testing.T) {
+	const src = `package Nested {
+		part def P;
+		variation part def PC :> P {
+			variant action a1 { part q : Missing; }
+			variant part p1 : P { part r : Missing; }
+		}
+	}`
+	w8dWantLines(t, src, "unresolved", 4, 5)
+	w8dWantLines(t, src, "variant-kind", 4)
+}
+
+func TestVariantKindDefersToHeadTypingFaultOfBodiedVariant(t *testing.T) {
+	const src = `package Nested {
+		part def P;
+		variation part def PC :> P {
+			variant action a : P { part child; }
+		}
+	}`
+	w8dWantLines(t, src, "usage-typing", 4)
+	w8dWantLines(t, src, "variant-kind")
+}
+
+func TestVariantKindReportedUnderAncestorTypingFault(t *testing.T) {
+	const src = `package Nested {
+		part def P;
+		action outer : P {
+			variation part inner : P {
+				variant action a;
+				variant part p : P;
+			}
+		}
+		part def Q { action o2 : P { variant part x : P; } }
+	}`
+	w8dWantLines(t, src, "usage-typing", 3, 9)
+	w8dWantLines(t, src, "variant-kind", 5)
+	w8dWantLines(t, src, "variant-outside-variation", 9)
+}

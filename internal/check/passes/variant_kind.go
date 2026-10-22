@@ -50,7 +50,7 @@ type variantKindChecker struct {
 // A bare `variant x;` restates a separately declared usage and declares no kind.
 func (c *variantKindChecker) check(sym *symbols.Symbol) {
 	u, ok := sym.Decl.(*ast.Usage)
-	if !ok || !u.IsVariant || u.IsVariantReference() || c.ctx.DownstreamOfFailure(u) {
+	if !ok || !u.IsVariant || u.IsVariantReference() || variantHeadUnsound(c.ctx, u) {
 		return
 	}
 	variation := c.model.VariationPointOwning(sym)
