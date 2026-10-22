@@ -932,12 +932,15 @@ func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Elemen
 }
 
 // inaccessible names the first feature expr reads that the occurrence def cannot
-// reach: neither a lifeline usage nor, within line's body, a feature of its object.
+// reach: a feature of the interaction's context that is neither a lifeline usage, a
+// parameter nor, within line's body, a feature of its object; a namespace or type
+// read by qualified name is reachable from anywhere.
 func (s *scenario) inaccessible(expr string, line *lifelineRef) string {
 	refs, ok := exprRefs(expr)
 	if !ok {
 		return ""
 	}
+	var visible map[string]*sysmlv1.Element
 	for _, r := range refs {
 		if r.global || r.local != "" || len(r.steps) == 0 || r.steps[0].chain {
 			continue
@@ -946,9 +949,25 @@ func (s *scenario) inaccessible(expr string, line *lifelineRef) string {
 		if s.lifelineNamed(first) != nil || line != nil && s.attributeNamed(line, first) != nil || s.parameterNamed(first) {
 			continue
 		}
-		return first
+		if visible == nil {
+			visible, _ = s.m.visibleFrom(s.e)
+		}
+		e, n := visible[first], 1
+		for e != nil && n < len(r.steps) && !r.steps[n].chain && !isFeature(e) {
+			e, _ = s.m.memberNamed(e, r.steps[n].name, chainKind(false))
+			n++
+		}
+		if e != nil && isFeature(e) {
+			return r.text(n)
+		}
 	}
 	return ""
+}
+
+// isFeature reports whether e is a feature of a classifier, which an expression
+// reads from an instance, unlike a namespace or type it names by qualified name.
+func isFeature(e *sysmlv1.Element) bool {
+	return e.Type == "Property" || e.Type == "Port" || e.Type == "ExtensionEnd"
 }
 
 // parameterNamed reports whether the interaction's own parameters are written as an attribute of the name.

@@ -110,6 +110,29 @@ func TestInteractionParameterDefaultsAreKept(t *testing.T) {
 			t.Errorf("%v", d)
 		}
 	})
+	t.Run("library function", func(t *testing.T) {
+		changed := bytes.Replace(data, param, append(append([]byte{}, param...), []byte(`<defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_suRpm0"><body>RealFunctions::min(2, 5)</body></defaultValue>`)...), 1)
+		r, err := migrate.Migrate("interaction_use.xmi", changed)
+		if err != nil {
+			t.Fatalf("Migrate: %v", err)
+		}
+		wantLine(t, r.Notation, "attribute rpm : ScalarValues::Real default = RealFunctions::min(2, 5);")
+		for _, d := range errors(t, "interaction_use.sysml", r.Notation) {
+			t.Errorf("%v", d)
+		}
+	})
+	t.Run("reads the context by qualified name", func(t *testing.T) {
+		changed := bytes.Replace(data, param, append(append([]byte{}, param...), []byte(`<defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_suRpm0"><body>Rig::limit + 1</body></defaultValue>`)...), 1)
+		r, err := migrate.Migrate("interaction_use.xmi", changed)
+		if err != nil {
+			t.Fatalf("Migrate: %v", err)
+		}
+		wantLine(t, r.Notation, "attribute rpm : ScalarValues::Real;")
+		wantLine(t, r.Notation, "/* default value not migrated: Rig::limit + 1 — reads Rig::limit of the interaction's context, which its occurrence def has no access to */")
+		for _, d := range errors(t, "interaction_use.sysml", r.Notation) {
+			t.Errorf("%v", d)
+		}
+	})
 	t.Run("reads the context", func(t *testing.T) {
 		changed := bytes.Replace(data, param, append(append([]byte{}, param...), []byte(`<defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_suRpm0"><body>limit</body></defaultValue>`)...), 1)
 		r, err := migrate.Migrate("interaction_use.xmi", changed)
