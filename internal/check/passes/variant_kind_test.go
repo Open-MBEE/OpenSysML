@@ -190,3 +190,19 @@ func TestVariantKindDefersToHeadTypingFaultOfBodiedVariant(t *testing.T) {
 	w8dWantLines(t, src, "usage-typing", 4)
 	w8dWantLines(t, src, "variant-kind")
 }
+
+func TestVariantKindReportedUnderAncestorTypingFault(t *testing.T) {
+	const src = `package Nested {
+		part def P;
+		action outer : P {
+			variation part inner : P {
+				variant action a;
+				variant part p : P;
+			}
+		}
+		part def Q { action o2 : P { variant part x : P; } }
+	}`
+	w8dWantLines(t, src, "usage-typing", 3, 9)
+	w8dWantLines(t, src, "variant-kind", 5)
+	w8dWantLines(t, src, "variant-outside-variation", 9)
+}

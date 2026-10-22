@@ -161,14 +161,15 @@ func (c *Context) DownstreamSpan(span source.Span) bool {
 	return false
 }
 
-// DownstreamOverlaps reports whether a blocking failure overlaps span: one
-// inside it, or one anchored on a declaration that span is the head of.
-func (c *Context) DownstreamOverlaps(span source.Span) bool {
+// DownstreamAnchoredIn reports whether a blocking failure begins inside span:
+// one within it, or one anchored on the declaration span is the head of. A
+// fault on an enclosing declaration begins before span and does not count.
+func (c *Context) DownstreamAnchoredIn(span source.Span) bool {
 	if c == nil {
 		return false
 	}
 	for _, f := range c.failures {
-		if f.Offset < span.End() && f.End() > span.Offset {
+		if f.Offset >= span.Offset && f.Offset < span.End() {
 			return true
 		}
 	}
