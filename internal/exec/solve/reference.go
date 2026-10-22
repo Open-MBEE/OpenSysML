@@ -67,6 +67,9 @@ const msgReferencePrefix = "reference `"
 // conditions are stated by, else in scope, each further one as a member or a
 // variant of what the previous named.
 func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments []string) ([]*symbols.Symbol, error) {
+	if len(segments) == 0 {
+		return nil, t.refuse(node, "reference", "it names nothing this translation can ground")
+	}
 	if scope == nil {
 		return nil, t.refuse(node, msgReferencePrefix+joinPath(segments)+"`", "it is written in no scope")
 	}
