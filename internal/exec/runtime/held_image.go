@@ -873,7 +873,7 @@ func (m *materializing) object(obj imagedObject) error {
 			if err != nil {
 				return fmt.Errorf("connector end %s: %w", end.Name, err)
 			}
-			inst.Ends[i] = ConnectorEnd{Name: end.Name, Value: v}
+			inst.Ends[i] = ConnectorEnd{Name: end.Name, Feature: end.Feature, Value: v}
 		}
 	}
 	return nil

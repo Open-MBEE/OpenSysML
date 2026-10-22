@@ -178,6 +178,100 @@ func (m *Model) KindBaseFQNs(sym *symbols.Symbol, isKerML bool) []string {
 	return m.kindBaseDefinitionFQNs(sym, isKerML)
 }
 
+// ImpliedBaseFQNs returns standard-library bases implied by an AST-backed
+// declaration when its semantic symbol is unavailable.
+func (m *Model) ImpliedBaseFQNs(node ast.Node, kind source.Kind) []string {
+	var bases []string
+	switch declaration := node.(type) {
+	case *ast.Usage:
+		if kind == source.KindKerML {
+			if base, ok := implicitKerMLBases[declaration.Keyword]; ok {
+				bases = append(bases, base)
+			}
+			if base, ok := implicitKerMLBehaviorBases[declaration.Keyword]; ok {
+				bases = append(bases, base)
+			}
+			break
+		}
+		usageKind := declaration.Kind
+		if declaration.IsIndividual {
+			usageKind = ast.UsageIndividual
+		}
+		if base, ok := implicitUsageBases[usageKind]; ok {
+			bases = append(bases, base)
+		}
+	case *ast.Definition:
+		if kind == source.KindKerML {
+			if base, ok := implicitKerMLBases[declaration.Keyword]; ok {
+				bases = append(bases, base)
+			}
+			if base, ok := implicitKerMLBehaviorBases[declaration.Keyword]; ok {
+				bases = append(bases, base)
+			}
+			break
+		}
+		if declaration.IsIndividual {
+			bases = append(bases, lifeFQN)
+		} else if base, ok := implicitDefinitionBases[declaration.Kind]; ok {
+			bases = append(bases, base)
+		}
+	case *ast.SubstateMember:
+		if base, ok := implicitUsageBases[ast.UsageState]; ok {
+			bases = append(bases, base)
+		}
+	case *ast.TransitionMember:
+		if base, ok := implicitUsageBases[ast.UsageTransition]; ok {
+			bases = append(bases, base)
+		}
+	}
+	return slices.Compact(bases)
+}
+
+// ImpliedBaseFQNsForMetaclass returns standard-library bases implied by a
+// graph element's metaclass when its semantic symbol is unavailable.
+func (m *Model) ImpliedBaseFQNsForMetaclass(metaclass string, kind source.Kind) []string {
+	usageKind, ok := impliedUsageKinds[metaclass]
+	if !ok {
+		return nil
+	}
+	return m.ImpliedBaseFQNs(&ast.Usage{Kind: usageKind}, kind)
+}
+
+var impliedUsageKinds = map[string]ast.UsageKind{
+	"ActionUsage":             ast.UsageAction,
+	"AllocationUsage":         ast.UsageAllocation,
+	"AnalysisCaseUsage":       ast.UsageAnalysisCase,
+	"AttributeUsage":          ast.UsageAttribute,
+	"BindingConnectorAsUsage": ast.UsageBinding,
+	"CalculationUsage":        ast.UsageCalc,
+	"CaseUsage":               ast.UsageCase,
+	"ConcernUsage":            ast.UsageConcern,
+	"ConnectionUsage":         ast.UsageConnection,
+	"ConstraintUsage":         ast.UsageConstraint,
+	"EnumerationUsage":        ast.UsageEnumeration,
+	"Expression":              ast.UsageExpr,
+	"FlowUsage":               ast.UsageFlow,
+	"IndividualUsage":         ast.UsageIndividual,
+	"InterfaceUsage":          ast.UsageInterface,
+	"InteractionUsage":        ast.UsageInteraction,
+	"ItemUsage":               ast.UsageItem,
+	"MetadataUsage":           ast.UsageMetadata,
+	"OccurrenceUsage":         ast.UsageOccurrence,
+	"PartUsage":               ast.UsagePart,
+	"PortUsage":               ast.UsagePort,
+	"ReferenceUsage":          ast.UsageAttribute,
+	"RenderingUsage":          ast.UsageRendering,
+	"RequirementUsage":        ast.UsageRequirement,
+	"StateUsage":              ast.UsageState,
+	"Step":                    ast.UsageStep,
+	"SuccessionAsUsage":       ast.UsageSuccession,
+	"TransitionUsage":         ast.UsageTransition,
+	"UseCaseUsage":            ast.UsageUseCase,
+	"VerificationCaseUsage":   ast.UsageVerificationCase,
+	"ViewUsage":               ast.UsageView,
+	"ViewpointUsage":          ast.UsageViewpoint,
+}
+
 // DeclaresKerMLClassifier reports whether sym is a KerML classifier declaration
 // the symbol table records as a usage, such as `datatype D;` or `function F;`.
 func (m *Model) DeclaresKerMLClassifier(sym *symbols.Symbol) bool {
@@ -439,6 +533,14 @@ func (m *Model) implicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 		m.implicitBase[sym] = out
 	}
 	return out
+}
+
+// ImplicitBases returns the implicit base types and features for sym.
+func (m *Model) ImplicitBases(sym *symbols.Symbol) []*symbols.Symbol {
+	if m == nil || sym == nil {
+		return nil
+	}
+	return m.implicitBases(sym)
 }
 
 // computeImplicitBases derives implicitBases' answer.

@@ -1,5 +1,6 @@
-// A concern stating no condition cannot be evaluated of an exposed element: the
-// evaluation says so rather than reporting a vacuous conformance.
+// A concern stating no condition is a requirement check over no constraint, which
+// is true (Requirements::RequirementConstraintCheck::result over an empty
+// `constraints`): an exposed element satisfies it vacuously.
 package test {
     part def Vehicle {
         attribute mass;

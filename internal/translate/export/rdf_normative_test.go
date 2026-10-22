@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -411,14 +412,6 @@ func TestSequencesFromMatchesInitialMembershipReferent(t *testing.T) {
 	}
 }
 
-// jsonValues flattens a single value or an array of values.
-func jsonValues(v any) []any {
-	if arr, ok := v.([]any); ok {
-		return arr
-	}
-	return []any{v}
-}
-
 // assertEnds checks a materialized relationship element: its class, its
 // identity, its owner, and that the listed end properties reach the owner and
 // the collapsed target.
@@ -597,12 +590,17 @@ func TestNormativeRelationshipElementsAreMaterialized(t *testing.T) {
 }
 
 // TestNormativeAPIJSONHasNoExtensionMetaclasses asserts the API element form
-// carries no sysx: @type and spells name-literal targets as {"@ref"}.
+// carries no sysx: @type and omits unresolved required targets.
 func TestNormativeAPIJSONHasNoExtensionMetaclasses(t *testing.T) {
 	graph := normativeGraph(t, `package N {
 		part p : Missing;
 	}`)
-	data, err := WriteAPIJSON(graph)
+	var omissions []APIJSONOmission
+	data, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{
+		Omitted: func(omission APIJSONOmission) {
+			omissions = append(omissions, omission)
+		},
+	})
 	if err != nil {
 		t.Fatalf("WriteAPIJSON: %v", err)
 	}
@@ -616,32 +614,39 @@ func TestNormativeAPIJSONHasNoExtensionMetaclasses(t *testing.T) {
 			elements = append(elements, raw.(map[string]any))
 		}
 	}
-	ref := false
+	omitted := false
 	for _, el := range elements {
 		if tpe, _ := el["@type"].(string); strings.HasPrefix(tpe, "sysx:") {
 			t.Fatalf("extension metaclass in API JSON: %v", el)
 		}
-		if el["@type"] == "PartUsage" {
-			for _, v := range jsonValues(el["type"]) {
-				if m, ok := v.(map[string]any); ok && m["@ref"] == "Missing" {
-					ref = true
-				}
-			}
+		if el["@type"] == "FeatureTyping" {
+			_, present := el["type"]
+			omitted = !present
 		}
 	}
-	if !ref {
-		t.Fatalf("no PartUsage carries the literal type as @ref: %s", data)
+	if !omitted {
+		t.Fatalf("no FeatureTyping omits its unresolved required type: %s", data)
+	}
+	typeOmitted := false
+	for _, omission := range omissions {
+		if omission.Subject == "N__p_ft0" && omission.Property == "type" &&
+			omission.Reason.Category == metamodel.ReasonUnresolvedReference &&
+			omission.Reason.Detail == "Missing" {
+			typeOmitted = true
+			break
+		}
+	}
+	if !typeOmitted {
+		t.Fatalf("omissions = %v, want unresolved FeatureTyping.type Missing", omissions)
 	}
 	back, err := ReadAPIJSON(data)
 	if err != nil {
 		t.Fatalf("ReadAPIJSON: %v", err)
 	}
-	found := false
-	for _, o := range back.Objects(elmt("N__p"), rdf.SysML+"type") {
-		found = found || o.Value == "Missing"
-	}
-	if !found {
-		t.Fatalf("the API JSON round trip lost the literal type")
+	if !back.Has(rdf.Triple{
+		Subject: elmt("N__p_ft0"), Predicate: rdf.SysMLTerm("type"), Object: rdf.String("Missing"),
+	}) {
+		t.Fatal("mappingValues did not restore the unresolved source value")
 	}
 }
 

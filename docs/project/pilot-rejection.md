@@ -166,7 +166,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-336 case(s): 324 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
+338 case(s): 326 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
   of which 3 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -174,7 +174,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 12 | 12 | 0 | 0 | 0 |
 | grammar | 112 | 112 | 0 | 0 | 0 |
-| semantic | 177 | 165 | 0 | 12 | 0 |
+| semantic | 179 | 167 | 0 | 12 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the twelve ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -295,7 +295,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 336 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 338 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 

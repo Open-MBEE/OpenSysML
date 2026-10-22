@@ -1,0 +1,1 @@
+- Report unresolved naming redefinitions with a typed unresolved-reference reason during qualified-name evaluation.

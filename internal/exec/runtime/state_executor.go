@@ -5306,7 +5306,25 @@ func (e *StateExecutor) transitionReached(trans *lower.Transition, msg Message) 
 	if err != nil {
 		return false, err
 	}
+	if occurrence := e.occurrenceViaPort(holder, port, trans.ViaSelf); occurrence != nil {
+		holder = occurrence
+	}
 	return e.ctx.messageReaches(msg, e.stateMachine.Name, port, holder)
+}
+
+// occurrenceViaPort is the performance occurrence when a via not written from `this`
+// names a port the state definition owns and the performer holds none by that name.
+func (e *StateExecutor) occurrenceViaPort(holder *Instance, port string, viaSelf bool) *Instance {
+	if viaSelf || holder != e.self || e.occurrence == nil || e.occurrence == e.self || strings.Contains(port, ".") {
+		return nil
+	}
+	if fv, ok := e.self.FeatureValues[port]; ok && isPortFeature(fv.Feature) {
+		return nil
+	}
+	if fv, ok := e.occurrence.FeatureValues[port]; !ok || !isPortFeature(fv.Feature) {
+		return nil
+	}
+	return e.occurrence
 }
 
 // triggerSignalMatches reports whether the message carries the signal an
