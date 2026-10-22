@@ -196,15 +196,15 @@ The pilot's export failed on 56 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7287 | 2131 | 2873 | 50698 | 3608 | 86942 | 5306 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 25864 | 9952 | 10402 | 182942 | 10084 | 309788 | 19572 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9246 | 2967 | 3341 | 63665 | 5435 | 108814 | 7092 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6387 | 1637 | 1854 | 43853 | 3110 | 63793 | 5268 |
-| `examples/spec-examples` | 511 | 6980 | 1966 | 2728 | 44427 | 5885 | 71585 | 5182 |
-| `tests/testdata` | 36 | 1357 | 97 | 552 | 8800 | 485 | 14752 | 1015 |
-| `examples` | 52 | 26071 | 8734 | 14944 | 183276 | 9550 | 316321 | 20333 |
-| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 348 | 15 | 462 | 43 |
-| `docs/manual/examples` | 8 | 7020 | 947 | 2082 | 48184 | 2307 | 88453 | 4949 |
+| `examples/sysml-v2-training` | 100 | 7287 | 2131 | 2873 | 51021 | 3285 | 86942 | 5306 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 25864 | 9952 | 10402 | 184461 | 8565 | 309788 | 19572 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 9246 | 2967 | 3341 | 64168 | 4932 | 108814 | 7092 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6387 | 1637 | 1854 | 44382 | 2581 | 63793 | 5268 |
+| `examples/spec-examples` | 511 | 6980 | 1966 | 2728 | 44671 | 5641 | 71585 | 5182 |
+| `tests/testdata` | 36 | 1357 | 97 | 552 | 8858 | 427 | 14752 | 1015 |
+| `examples` | 52 | 26071 | 8734 | 14944 | 184603 | 8223 | 316321 | 20333 |
+| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 350 | 13 | 462 | 43 |
+| `docs/manual/examples` | 8 | 7020 | 947 | 2082 | 48507 | 1984 | 88453 | 4949 |
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's five counts.
 
@@ -214,29 +214,29 @@ The largest **present-different** rows, with the reading the examples support:
 
 | metaclass | property | present-equal | present-different |
 |---|---|---:|---:|
-| `Feature` | `ownedRelationship` | 4078 | 1389 |
+| `Feature` | `ownedRelationship` | 4078 | 1394 |
 | `AttributeUsage` | `ownedRelationship` | 1242 | 1196 |
-| `PartUsage` | `ownedRelationship` | 858 | 1002 |
+| `PartUsage` | `ownedRelationship` | 873 | 1004 |
 | `ReferenceUsage` | `qualifiedName` | 983 | 882 |
-| `ReferenceUsage` | `ownedRelationship` | 1255 | 838 |
-| `PartUsage` | `qualifiedName` | 1119 | 830 |
-| `Package` | `qualifiedName` | 460 | 723 |
-| `PartUsage` | `ownedMember` | 362 | 702 |
-| `PartUsage` | `ownedMembership` | 716 | 634 |
-| `AttributeUsage` | `ownedMembership` | 1178 | 622 |
+| `PartUsage` | `qualifiedName` | 1136 | 830 |
+| `Package` | `qualifiedName` | 474 | 723 |
+| `PartUsage` | `ownedMember` | 367 | 702 |
+| `PartUsage` | `ownedMembership` | 721 | 634 |
+| `AttributeUsage` | `ownedMembership` | 1178 | 624 |
+| `FeatureMembership` | `memberElement` | 9183 | 592 |
 
 ### Where the pilot states nothing and we do
 
 | metaclass | property | pilot-missing | clause |
 |---|---|---:|---|
-| `FeatureMembership` | `owner` | 10630 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `OwningMembership` | `owner` | 9518 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `FeatureValue` | `owner` | 7048 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `FeatureTyping` | `owner` | 5908 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `ReturnParameterMembership` | `owner` | 4735 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `ParameterMembership` | `owner` | 4376 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `Membership` | `owner` | 3144 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
-| `AttributeUsage` | `value` | 1650 | see the `derive*` row for this property in `docs/project/constraint-manifest.json` |
+| `FeatureMembership` | `owner` | 10632 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `OwningMembership` | `owner` | 9560 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `FeatureValue` | `owner` | 7066 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `FeatureTyping` | `owner` | 5915 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `ReturnParameterMembership` | `owner` | 4750 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `ParameterMembership` | `owner` | 4397 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `Membership` | `owner` | 3146 | `Element::owner = owningRelationship.owningRelatedElement`, and `Relationship::owner = owningRelatedElement` (KerML 8.3.2.1, 8.3.2.5.2) |
+| `AttributeUsage` | `value` | 1652 | see the `derive*` row for this property in `docs/project/constraint-manifest.json` |
 
 `owner` on every relationship is the pilot leaving `Relationship::owner` null where the metamodel derives `owningRelatedElement`; ours states it. The remaining pilot-missing rows are properties this repository writes outside the metamodel's spelling (`value` on usages) or states for unnamed elements the metamodel leaves null (`qualifiedName`).
 
