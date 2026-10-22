@@ -20,7 +20,11 @@ func (ctx *Context) performedPinBindings(performed *symbols.Symbol, graph *lower
 	for current := self; current != nil; {
 		var bindings []lower.Binding
 		for _, typ := range current.types() {
-			bindings = append(bindings, ctx.objectBindings(typ)...)
+			for _, binding := range ctx.objectBindings(typ) {
+				if !ctx.bindingLinksNothing(binding) {
+					bindings = append(bindings, binding)
+				}
+			}
 		}
 		lowered, err := lower.PerformedPinBindings(graph, prefix, bindings)
 		if err == nil {

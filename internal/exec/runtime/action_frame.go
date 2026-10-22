@@ -1487,6 +1487,12 @@ func (e *performances) evalContextAround(perf *actionFrame, scope *symbols.Scope
 // bindingEndContext evaluates the other end of a binding at a pin as written around
 // the node, with that pin known to be the one being valued.
 func (e *performances) bindingEndContext(end boundEnd) *EvalContext {
+	if end.on != nil {
+		// A performer's binding is a statement of the object that wrote it, read there.
+		ec := NewEvalContextIn(e.ctx, end.Scope, end.on)
+		ec.valuing = pinSymbol(end)
+		return ec
+	}
 	ec := e.evalContextAround(end.at, end.Scope)
 	ec.valuing = pinSymbol(end)
 	return ec
@@ -1872,6 +1878,9 @@ func (e *performances) boundPin(perf *actionFrame, end boundEnd) (ast.FeatureDir
 // perf as far as it names their nodes, so it keeps to perf's own run of each, not the latest.
 func otherEnd(perf *actionFrame, end boundEnd) (holder *actionFrame, node ast.Node, path []ast.Node) {
 	if end.OtherNode != end.at.node {
+		if end.at.parent == nil {
+			return end.at, end.OtherNode, end.OtherPath // a performer's binding between two nodes of the root
+		}
 		return end.at.parent, end.OtherNode, end.OtherPath
 	}
 	holder, path = end.at, end.OtherPath
@@ -1927,7 +1936,9 @@ func (e *performances) writeOtherEnd(perf *actionFrame, end boundEnd, value Valu
 		return e.setFrameFeature(holder, end.OtherPin, value)
 	}
 	flow := end.at.flow
-	if holder != end.at.parent {
+	if holder.parent == nil {
+		flow = holder.graph // the root's own nodes, named by a performer's binding
+	} else if holder != end.at.parent {
 		flow = lower.NestedFlow(holder.flow, holder.node, node)
 		if flow == nil {
 			return fmt.Errorf("%w: %s holds no nested action %s", errNodePin, holder.describe(), ActionNodeName(node))
