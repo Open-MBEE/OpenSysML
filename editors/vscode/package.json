@@ -344,6 +344,7 @@
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/webview/tsconfig.json && tsc --noEmit -p src/landing/tsconfig.json",
     "test": "node tools/test.mjs",
+    "test:coverage": "node tools/test.mjs --coverage",
     "package": "npm run typecheck && npm test && npm run build -- --production && vsce package --no-dependencies --out opensysml-sysml.vsix"
   },
   "dependencies": {
@@ -355,6 +356,7 @@
     "@types/node": "22.10.5",
     "@types/vscode": "1.86.0",
     "@vscode/vsce": "3.2.2",
+    "c8": "11.0.0",
     "esbuild": "0.25.0",
     "jsdom": "26.1.0",
     "type-fest": "4.41.0",
