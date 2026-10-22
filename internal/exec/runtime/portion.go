@@ -7,10 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// A snapshot or timeslice usage nested in an occurrence is a portion of that occurrence
-// (SysML v2 §7.9.3: it subsets its owner's `snapshots`/`timeSlices`, `Occurrences.kerml`
-// `portion feature`), the same thing occurring with the same identity (KerML 1.0 §7.4.5), so
-// a feature the portion's own body does not value is read from the whole.
+// A snapshot or timeslice usage nested in an occurrence is a portion of it (SysML v2 §7.9.3), the
+// same thing occurring (KerML 1.0 §7.4.5): a feature its own body does not value is read from the whole.
 
 // wholeOf is the object inst is a portion of, the portion usage holding inst and the whole's
 // feature value of name, when inst is held by a portion usage and the whole holds that feature.
@@ -39,11 +37,8 @@ func isPortionUsage(sym *symbols.Symbol) bool {
 	return ok && usage.Portion != ast.PortionNone
 }
 
-// portionReadsWhole reports whether feat of inst, a portion, is read from the whole: the
-// portion's own body does not value it (a bare `:>> width;` restates it, no more), its type binds
-// it to nothing or a `default` (a binding the type states, `product = width * height`, holds over
-// the portion's own values), nothing of the portion subsets it, and the whole's feature of the
-// name is the same feature or a redefinition on either side.
+// portionReadsWhole: feat of the portion inst is read from the whole when its own body does not
+// value it, its type binds at most a `default`, nothing of it subsets it, and the whole has the feature.
 func (ctx *Context) portionReadsWhole(inst *Instance, feat *EffectiveFeature) bool {
 	if feat.Symbol == nil || ctx.valueBinds(feat) && !feat.defaultIsFallback() {
 		return false

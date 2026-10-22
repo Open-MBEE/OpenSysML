@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
-// A portion (snapshot, timeslice) reads the whole's value of a feature its own
-// body leaves unvalued: what the whole cannot answer is reported through the
-// portion as the whole's typed error, and a portion of a different type reads nothing.
+// A portion (snapshot, timeslice) reads the whole's value of a feature its own body leaves unvalued:
+// the whole's typed error is reported through the portion; a portion of another type reads nothing.
 func TestRuntimeRobustnessPortionReadsWhole(t *testing.T) {
 	t.Run("whole_feature_error_is_reported_through_the_portion", func(t *testing.T) {
 		inst, ctx := instantiatePart(t, "Sys", `
