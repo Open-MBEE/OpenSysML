@@ -1,12 +1,10 @@
 # Performance: release 0.11.0 against release 0.10.1
 
 The release-gate measurement of the 0.11.0 candidate — the head of
-`develop` at `d8b60ed62c0740722e041c59f752cc5c0c4cdddf` (2026-10-20), from
-which `release/0.11.0` is to be cut, with the head of #1350
-(`1ceae965cd07f8b9afb849da3b217d9018d9881f`, the memoization of a
-symbol's implied generals) merged on top as `df3341e65` — measured against
-the `v0.10.1` tag on `main` (`1c45b6e1749fc8adc9b82d4af22fbe180b56a0e2`,
-2026-10-15). It follows the method of the
+`develop` at `5db0f74158f1ecd43509d90141e5055cb0c3e539` (2026-10-21), from
+which `release/0.11.0` is to be cut — measured against the `v0.10.1` tag
+on `main` (`1c45b6e1749fc8adc9b82d4af22fbe180b56a0e2`, 2026-10-15). It
+follows the method of the
 [0.10.1 against 0.10.0](performance-release-0.10.1-vs-0.10.0.md) record
 and of the [0.10.0 against 0.9.2](archive/performance-release-0.10.0-vs-0.9.2.md)
 record before it: every benchmark on both revisions, `benchstat` over six
@@ -15,223 +13,66 @@ machine, and whole-binary timings on generated and real models. See
 [performance](../internals/performance.md) for what the figures mean and
 where the remaining cost is.
 
-0.11.0 is a minor release: 227 merges to `develop` since
-the 0.10.1 tag, among them the hiding of colliding imports (#1062),
-objects typed by every type they inherit through subsetting (#1276), the
-subsetting of a usage's base features (#1319), transitive order
-dependence in the executor (#1136), constancy conformance (#1298), the
-redefinition closure in the executor's root frame (#1057) and the API
-JSON element form (#1253). **The expectation going in was not parity**,
-and the measurement does not find it: parsing, lexing, indexing,
-formatting, the migrator, the library index, the lowering of graphs and
-the whole binary are at parity to the allocation or within the machine's
-noise, while name resolution over wildcard imports, analysis, the
-constraint and instantiation paths, the executor and the language
-server's cross-file queries moved, some of them far. This record says by
-how much, why, and which part of it is fixed.
+This record supersedes the one first merged for 0.11.0, which measured
+an earlier candidate (`develop` at `d8b60ed62` with #1350 merged on top)
+and three columns; between that measurement and this one every fix it
+named merged and `develop` advanced by 23 more merges, so the candidate
+here is `develop` itself and the tables have one candidate column, with
+a third column only on the rows the two fixes written for this record
+touch.
 
-The measurement was taken on the candidate as it stands and, where a row
-moved there, on the candidate with every fix below merged locally
-(`5bcaa4265`), so the tables show three columns: 0.10.1, the 0.11.0
-candidate, and the candidate with the fixes. Each fix is its own pull
-request against `develop`, with a test that fails before it and a
-benchmark A/B against the merge that introduced the cost. As this record
-is finished, #1347, #1348, #1351, #1352 and #1353 have merged to
-`develop` (`a662c2bce`) and #1349 is open against it, so the third
-column is the head 0.11.0 is cut from, less #1349. The fixes, by the
-change in the history:
+0.11.0 is a minor release: 256 merges to `develop` since the 0.10.1
+tag, among them the hiding of colliding imports (#1062), objects typed
+by every type they inherit through subsetting (#1276), the subsetting of
+a usage's base features (#1319), transitive order dependence in the
+executor (#1136), constancy conformance (#1298), the redefinition
+closure in the executor's root frame (#1057), the API JSON element form
+(#1253), nested performances counted among an item's `ownedPerformances`
+(#1310) and a nested requirement's subject bound to its enclosing part
+(#1312). **The expectation going in was not parity**, and the
+measurement does not find it: parsing, lexing, indexing, formatting, the
+migrator, the library index, the lowering of graphs and the whole binary
+are at parity to the allocation or within the machine's noise; the
+executor is back at 0.10.1 to the allocation after the fixes the earlier
+candidate motivated (#1347, #1351, #1353, #1355, #1356); name resolution
+over wildcard imports, analysis and the instantiation and constraint
+paths still cost more, and the language server's two cross-file queries
+cost much more. This record says by how much, why, and which part of it
+is fixed.
 
-- the execution runtime computes an expression's footprint once per
-  model instead of on every loop pass, guard and send (`internal/exec/runtime`,
-  #1347; the cost came with #1136);
-- name resolution enumerates a namespace's imported members without
-  building each member's qualified name, candidate slice and route
-  conditions (`internal/semantic/resolve`, #1348; the cost came with
-  #1062);
-- the constancy check conforms a usage to a named library type by the
-  element the name resolves to instead of the qualified-name string of
-  every supertype (`internal/semantic/semantics`, #1349, stacked on
-  #1348; the cost came with #1298);
-- the execution runtime computes a feature's effective types once per
-  model instead of on every object made as it (`internal/exec/runtime`,
-  #1351; the cost came with #1276);
-- the REPL counts a diagnostic's UTF-16 column without encoding the line
-  (`internal/frontend/repl`, #1352; the cost came with #1205);
-- the semantic model computes a feature's redefinition closure once per
-  symbol and reads an implicit parameter's position from the memoized
-  parameter list (`internal/semantic/semantics`, #1353; the cost came
-  with #1057's use of the closure in the root frame);
-- and, already in the candidate, the semantic model computes a symbol's
-  implied generals once per symbol (`internal/semantic/semantics`,
-  #1350; the cost came with #1319 and was what made the bare `develop`
-  head unmeasurable — see the summary).
+The nine fixes the earlier candidate motivated are all in the candidate
+(#1347, #1348, #1349, #1350, #1351, #1352, #1353, #1355, #1356, #1358;
+their A/Bs against the merges that introduced each cost are in their
+pull requests). Two more were written for this measurement, against the
+costs of two merges that landed after the earlier candidate, and are the
+third column where it appears:
 
-## Summary
-
-**Nothing here blocks the release on time, and the fixes return the
-executor to 0.10.1 to the allocation; what remains after them is the
-inherent cost of four correctness changes and one design cost that is
-named, not fixed.** Confirmed by the interleaved quiet-machine re-run
-(six rounds, 0.10.1 | candidate | candidate + fixes, allocations exact):
-
-- **The executor's loop rows** (`internal/exec/runtime`): two allocations
-  per iteration on every arithmetic loop (`IntegerArithmeticLoop`
-  9 072 → 11 073 allocs/op, 280 → 483 KiB; `RationalDecimalLoop`,
-  `RealDecimalLoop` and `IntegerArithmeticLoopBeyondInt64` the same;
-  `IntegerArithmeticNestedLoop` 26.08k → 30.08k; `RationalHarmonicLoop`
-  4 652 → 5 052; `AssignmentLoopStep` 7 328 → 7 529) and +9–18% time.
-  #1136 (transitive order dependence) made the statement engine rebuild
-  the loop condition's footprint on every pass. #1347 restores every row
-  to 0.10.1's count (9 072, 26.08k, 4 652, 7 328) and the time to within
-  +5–6% on two rows and the noise on the rest.
-- **The root frame** (`NewRootFrame` 36 → 55 allocs/op, 11.2 → 18.4 µs):
-  since #1057 the root frame asks for every held feature's transitive
-  redefinition closure, which was rebuilt per call. #1353 takes it back
-  to 36 allocations and 10.8 µs.
-- **The language server's cross-file queries** (`internal/frontend/lsp`):
-  `ReferencesCold` 44.6k → 6.28M allocs/op, 9.8 MiB → 1 010 MiB,
-  44 ms → 1 207 ms; `RenameWarm` 13.7k → 12.41M, 1.35 MiB → 1 668 MiB,
-  20 ms → 2 004 ms. #1062 (hidden colliding imports) made the
-  enumeration of a wildcard import's members build, per member, its
-  qualified name, a one-candidate slice and its route conditions. #1348
-  removes that (1.94M and 3.74M allocations, −69% and −70%) but the rows
-  still allocate ~1 GiB and take ~1–1.7 s: each query re-enumerates
-  every wildcard import's members per document (references) or per
-  occurrence (rename), because the per-edge enumeration memo is cleared
-  when the outermost enumeration returns and #1062 made each enumeration
-  expensive. Keeping what an import brings for the life of the resolver
-  (a memo per namespace and member selection, journaled like the
-  collisions memo) is the follow-up fix, branch
-  `perf/memoize-namespace-children` (#1358), which was not measured for this
-  record; **until it lands this is the one confirmed regression 0.11.0
-  ships**. `ReferencesWarm`,
-  `WorkspaceUpdate`, `FormatEdits` and `SpanToRangeLarge` are unchanged
-  to the allocation.
-- **Analysis and the import graph** (`ImportValues/*` +59–72%
-  allocations, `Analyze/synthetic` 4.38M → 5.85M, `WorkspaceEdit/synthetic
-  reindex+diagnostics` 4.83M → 6.29M, the REPL's `LoadModel` +27–29%,
-  the workspace model's `AnalyseResolved` 5.6k → 10.6k): three causes
-  stacked. #1298 (constancy conformance) built the qualified name of a
-  usage's every supertype four times per usage (+29% on `ImportValues`,
-  +10% on `Analyze`); #1349 restores those exactly (`ImportValues/flat/100`
-  135.5k → 175.2k → 135.5k against the pre-#1298 merge). #1276 and #1319
-  type each feature by every type it inherits through subsetting and
-  subset a usage's base features, which is more semantic work per usage
-  by design; with #1350 in the candidate and #1351 applied the rows end
-  +15–21% over 0.10.1 (`ImportValues` +15–21%, `Analyze/synthetic` +15%,
-  `AnalyseResolved` +89%, the REPL's `LoadModel` +11–12%), and that
-  remainder is carried as the inherent cost of the two changes.
-- **Instantiation and constraint checking** (`Instantiate`
-  1.94M → 4.73M allocs/op, `FeaturesOf` 4.13M → 6.73M, `BatchSatisfy`
-  4.30M → 6.81M, `BatchConstraints` 68.1k → 84.6k,
-  `SameConstraintManyInstances` 35 → 47, the stress constellation's
-  `Satisfy` +63% and `FleetSatisfy` +72–78%): #1276 made the runtime
-  re-resolve a feature's declared types on every object made as it.
-  #1351 memoizes them per feature and recovers about 60% of the growth
-  (`Instantiate` 4.03M, `FeaturesOf` 5.16M, `BatchSatisfy` 5.66M,
-  `BatchConstraints` 72.5k, `SameConstraintManyInstances` 38; against
-  the pre-#1276 merge, `Satisfy/32` 33.8k → 54.5k → 41.1k); the rest is
-  the type-set work #1276 and #1319 add, carried as inherent.
-- **The REPL's diagnostics** (`Diagnostics` 561 → 691 allocs/op at 50
-  attributes, +38–46% bytes): #1205 (CI formats) encoded the line prefix
-  to UTF-16 per diagnostic to read its length and copied the snippet's
-  source twice; #1352 removes that (645; 1 → 0 allocations per column).
-  The other +50 came with #1161 (project interchange dependencies) and
-  is in the supertype walk the diagnostic's formatting makes; it is
-  carried.
-- **The API JSON conversion** (`ConvertAPIJSON` 25.26M → 29.20M
-  allocs/op and 4.69 → 5.49 GiB at 32 satellites, +16% / +22% at 128):
-  #1253 states `isComposite` on every feature in the element form. The
-  output is larger; inherent.
-- **The vehicle rows** (`WorkspaceEdit/vehicle reindex+diagnostics`
-  858k → 1 206k allocs/op, `GRPCParseFileUncached` 901k → 1 331k, and
-  `Analyze/vehicle`, which fails on the candidate): since #1062 the
-  Annex A `SimpleVehicleModel` reports 20 unresolved references
-  (`vehicle_b`, `providePower`, `cost`, `ignitionCmdPort`, …) that
-  0.10.1 resolved by binding the first match of a colliding import; the
-  merge moved the pilot ratchet for that file 134 → 154 and the
-  benchmark asserts an error-free analysis, so the row cannot be
-  measured on 0.11.0. The two rows that still run pay the suggestion
-  path of those diagnostics and the enumeration cost above; #1348 takes
-  them to 924k and 1 014k (pre-#1062 877k and 941k).
-
-- **The executor's statements** (`ActionLoop/for1000` 4 231 → 6 266
-  allocs/op, `ActionChain/chain1000` 65.0k → 80.8k and 17.0 → 31.0 ms,
-  `StateLoop/count5000` 1.176M → 1.381M, `ExecuteState` 12.13k → 14.20k,
-  `ExecuteAction` 245 → 299, `ExecuteActionFreshContext` 340 → 403, and
-  the bytes of `MaterializePlainAttributes` 43.6 → 51.2 KiB and
-  `SetFeatureValueNoDependents` 352 → 416 B): all bisect to #1136, which
-  beside the loop footprints #1347 fixed has three more per-execution
-  costs on the statement path. An assignment's footprint is stamped with
-  the performance's own places on every execution, cloning the
-  statement's read and write places each time (two allocations per
-  executed statement; `placesOf`, 2 007 of the 2 035 new objects per
-  `ActionLoop/for1000` operation). A body's statement order was memoized
-  per executor, not per model, so a chain of a thousand actions rebuilt
-  every body's order on every run (all of `ActionChain/chain1000`'s
-  growth) and a state's entry behavior rebuilt its order on every entry
-  (half of `StateLoop`'s and `ExecuteState`'s). And taking a transition
-  made two closures (`taking`/`underControl`; the other half of the
-  state rows). The first two are fixed by
-  `perf/stamp-statement-footprint-once` (#1355), the third by
-  `perf/take-transition-without-closures` (#1356); their failing-before
-  tests put one more loop pass at 6.00 → 4.00 allocations, one more
-  chained action at 84.58 → 70.54, one more state event at 133.50 →
-  126.00 (#1355) → 120.00 (both), and taking a transition at 2 → 0.
-  #1355's six-round A/B (pre-#1136 d5e2317de | develop | #1355,
-  allocs/op) puts `ActionLoop/for1000` at 4 238 | 6 256 | 4 241,
-  `ActionChain/chain1000` 65.97k | 80.77k | 66.42k, `ExecuteAction`
-  252 | 289 | 254, `StateLoop/count5000` 1.191M | 1.336M | 1.261M and
-  `ExecuteState` 12.29k | 13.75k | 13.00k; #1356 takes the state rows'
-  remainder, and the last object per event is #1276's declared-types
-  lookup. `ExecuteActionFreshContext` (347 | 394 | 376) keeps what a
-  fresh context's first run computes for its model. The bytes of
-  `MaterializePlainAttributes` and `SetFeatureValueNoDependents` are
-  #1136's but none of these three costs (both fixes leave them), and are
-  carried. Both fixes were written after the tables above and are not in
-  the third column.
-- **Three small rows with their cause named and carried**:
-  `GRPCVerifyConstraint` 9 786 → 10 770 and the REPL's `Instantiate`
-  56 → 59 are #1276's (the wider type set; #1351 takes the first to
-  10 690); `ConnectParseFileHTTPCached` 1 017 → 1 151 is #1062's
-  collision bookkeeping on the parse path (the same +0.6% the gRPC parse
-  rows show); the gRPC `InstantiateWarmModel` 1 833 → 2 238 (2 006 with
-  the fixes) is #1325's API JSON writer provenance on the instantiate
-  reply; the REPL's `RunStateMachine` 224 → 228 is #1315's.
-
-What the quiet re-run cleared: `Parse/synthetic` and `Parse/vehicle`
-(+16–19% time in the loaded rounds with identical allocations; eight
-isolated rounds: 99.7 → 103.8 ms, p = 0.13, and 2.65 → 2.80 ms,
-p = 0.065 — the machine), `WorkspaceUpdate`, `FormatEdits`,
-`IndexAddExpand`, `FQNOf`, `LookupQualified`, `REPLEvalExpr`,
-`LowerChain`, `GRPCEvaluate`, `ConnectEvaluateHTTP`, `FleetInstantiate`'s
-time and the stress constellation's `HydratePlane` and `EditBeside` time.
-
-What improved: `BehaviorOrdersLibraryModel` 1 927 → 1 721 allocs/op
-(−11%, −15% bytes, −20% time with the fixes), the REPL's `RunCalc`
-79 → 74, `IndexAddExpand/vehicle` and `WorkspaceEdit/vehicle` −1%
-allocations with the fixes.
-
-Known from the earlier records and unchanged: `AnalyzeSplitPerDocument`
-and `PlaneResidency` in `tests/stressmodel` fail on both revisions and
-are not measured.
+- the semantic model decides once per member whether it restates a frame
+  root or a coordinate frame's featuring reference, instead of walking its
+  redefinition chain and building every feature's qualified name each
+  time a type's shape is computed (`internal/semantic/semantics`, #1368;
+  the cost came with #1310);
+- the runtime reads the member a declaration registered from its scope's
+  declaration index instead of collecting the scope's members and
+  scanning them for each member of each instantiated type
+  (`internal/exec/runtime`, #1369; the cost came with #1312).
 
 ## Method
 
-Three detached worktrees, one per column, each built with `make build`
+Two detached worktrees, one per revision, each built with `make build`
 (`go1.25.11 linux/amd64`), with the pilot and training corpora linked in
 so the corpus-backed rows (`*/vehicle`, `ConnectEvaluateHTTP`,
-`GRPCParseFile*`, `InstantiateWarmModel`) run on every side. Every
+`GRPCParseFile*`, `InstantiateWarmModel`) run on both sides. Every
 benchmark package is run with `-run '^$' -bench . -benchmem -count 1`,
-0.10.1 then the candidate, six rounds in a row, so the two revisions see
-the same machine state round by round; each round's output is an
-append-only file and `benchstat` compares the six files per revision.
-`tests/stressmodel` runs the same way with `ConvertAPIJSON/satellites=512`
-skipped, as the previous records did. The first-round findings were
-attributed while the later rounds ran — a first-parent bisect over the
-227 merges by allocation count, then a profile of the first bad merge —
-so the time column of those rounds is loaded and is not what the tables
-show; the times come from the quiet re-run below.
+six rounds per revision; each round's output is an append-only file and
+`benchstat` compares the six files per revision. `tests/stressmodel` runs
+the same way with `ConvertAPIJSON/satellites=512` skipped, as the
+previous records did. The 0.10.1 rounds are the ones taken for the
+earlier candidate (the tag did not move); the candidate's six rounds
+were taken on `5db0f7415` after it, alone on the machine. The 0.10.1
+rounds ran while that candidate's findings were bisected beside them, so
+their time column is loaded and is not what the tables show; the times
+come from the quiet re-run below.
 
 The machine is an 8-vCPU `Intel(R) Xeon(R) Processor` (GenuineIntel, one
 thread per core, 320 MiB L3, 31 GiB), `GOMAXPROCS=8`. It is not the host
@@ -239,383 +80,489 @@ of the 0.10.1 record, so sec/op is comparable only between the columns
 of this record, never with the earlier records; allocations and bytes
 are exact and comparable across hosts.
 
-The candidate moved once while the first six rounds ran: `develop`
-advanced from `b60a18c20` to `d8b60ed62` with #1319, whose first two
-rounds showed `tests/stressmodel`'s `Load`/`LoadFiles`/`ValidateSplit`/
-`OpenSplit`/`EditImported` at +200–245% allocations (`Load/512` 44.3M →
-143.0M, 14.1 → 28.6 s), `Satisfy`/`FleetSatisfy` at +350–395% and
-`tests/perf`'s `Instantiate` at 3.75M → 36.5M (1.36 → 7.2 s): the
-symbol's implied generals were re-derived on every feature-type query.
-#1350 memoizes them, was already open, and is what the release needs
-before it can be measured, so the run was restarted on `d8b60ed62` with
-#1350's head merged locally and that is the candidate of every table.
-With it the rows return to the `b60a18c20` level or better on time
-(`Instantiate` 1.43 s, `ImportValues/nested/2000` −27%, `AnalyseResolved`
-−42%, `NewRootFrame` back to 55 allocations) while a residual allocation
-cost of #1319 remains and is accounted for above (`Instantiate` 4.73M
-against 3.75M, `AnalyseResolved` 10.6k against 5.6k). No `release/0.11.0`
-branch exists on `origin` as this is written and `develop` has not moved
-since.
+The candidate moved three times under this measurement. The first
+candidate, `d8b60ed62` with #1350 merged locally, is the one the earlier
+record measured; its first bare rounds showed #1319 re-deriving a
+symbol's implied generals on every feature-type query (`Load/512` 44.3M →
+143.0M allocations, `Instantiate` 3.75M → 36.5M), which #1350 removed,
+and the fixes that record motivated were written against it. `develop`
+then advanced to `c5eb6cc30` (#1354, the base feature a declaration's
+kind implies memoized) and, while those rounds ran, to `5db0f7415` with
+the record itself, every one of its fixes and seventeen other merges; the
+rounds were restarted there and that head is the candidate of every
+table. No `release/0.11.0` branch exists on `origin` as this is written.
 
 ### What is and is not comparable
 
 - **Allocations and bytes per operation** are deterministic on every row
-  but `RenameWarm` (±9% on 0.10.1) and the gRPC `InstantiateWarmModel`
-  (±1–3%) and agree to the unit between the main run and the quiet
+  but `RenameWarm` (±9% on 0.10.1), the gRPC `InstantiateWarmModel`
+  (±1–3%) and `Analyze/synthetic` (±2% between passes) and agree to the unit between the main run and the quiet
   re-run; a movement there is the code's.
-- **Time** is the quiet re-run's: six rounds of the three binaries
+- **Time** is the quiet re-run's: six rounds of the two binaries
   interleaved with nothing else on the machine, over
   `internal/exec/runtime`, `internal/frontend/{repl,lsp,grpc}`,
-  `internal/workspace/model`, `tests/perf` and the 32-satellite rows of
-  `tests/stressmodel`; `Parse/*` alone for eight rounds. The 128- and
-  512-satellite stress rows carry the main run's time with that caveat.
+  `internal/workspace/model`, the rows of `tests/perf` whose loaded time
+  moved and the 32-satellite rows of `tests/stressmodel`. The 128- and
+  512-satellite stress rows and the `tests/perf` rows at parity carry the
+  main run's time with that caveat; `Parse/*` carry the earlier
+  candidate's eight isolated rounds, which cleared them.
+- **The third column** (candidate with #1368 and #1369) exists only on
+  the rows those fixes move and comes from its own six interleaved quiet
+  rounds (candidate | #1368 | #1369 | both).
 - **`tests/codegen`** has benchmarks only on the candidate
   (`CompiledCalc/*`, added with #1226); it is reported but has no 0.10.1
-  column.
+  column, and five of its rows fail on the candidate by design of the
+  benchmark (the C target does not take unbounded integers; `SumTo` at a
+  million exceeds the interpreter's step budget).
 - **`Analyze/vehicle`** has no candidate column: the benchmark fails
   (see the summary).
+
+## Summary
+
+**Nothing here blocks the release on time; the executor is at 0.10.1 to
+the allocation; what remains is the inherent cost of six correctness
+changes, one design cost that is named, and two costs fixed in the two
+pull requests this record adds.** Allocations are exact (six rounds);
+times are the quiet re-run's.
+
+- **The executor** (`internal/exec/runtime`): every loop row, the root
+  frame and the statement rows are at 0.10.1's count — `IntegerArithmeticLoop`
+  9 072, `IntegerArithmeticNestedLoop` 26.08k, `RationalHarmonicLoop`
+  4 652, `AssignmentLoopStep` 7 328, `NewRootFrame` 36, `ActionLoop/for1000`
+  4 231 → 4 241, `ActionChain/chain1000` 64.98k → 66.30k, `StateLoop/count5000`
+  1.176M → 1.201M (+2%), `ExecuteState` 12.13k → 12.39k — after #1347,
+  #1353, #1355 and #1356, which the earlier candidate motivated (that
+  candidate had them at +22% to +65%). What is left is #1276's
+  declared-types lookup, one object per event (`DerivedReadWriteRead`
+  65 → 67, `ExecuteAction` 245 → 254, `ExecuteActionFreshContext`
+  340 → 377), and the bytes of `MaterializePlainAttributes` (43.6 → 51.1
+  KiB) and `SetFeatureValueNoDependents` (352 → 416 B), which are #1136's
+  wider footprint records; both carried. `BehaviorOrdersLibraryModel`
+  improved, 1 927 → 1 736 (−10%, −14% bytes).
+- **The language server's cross-file queries** (`internal/frontend/lsp`):
+  `ReferencesCold` 44.6k → 124.7k allocs/op, 9.8 → 135 MiB, 43 → 255 ms
+  (loaded; the quiet figure is in the table); `RenameWarm` 13.5k → 4.9k
+  allocations and 1.37 MiB → 957 KiB, 21 → 57 ms. The earlier candidate
+  had these at 6.28M / 1 010 MiB and 12.41M / 1 668 MiB: #1062 (hidden
+  colliding imports) made the enumeration of a wildcard import's members
+  build, per member, its qualified name, a one-candidate slice and its
+  route conditions, and re-enumerated every import per document or per
+  rename occurrence. #1348 removed the per-member work and #1358 keeps an
+  import's members for the resolver's life (journaled with the import's
+  document), which is why `RenameWarm` now allocates less than 0.10.1.
+  `ReferencesCold` still allocates 2.8× and takes longer: the first
+  enumeration of each import is #1062's, by design (every colliding
+  import's members must be enumerated to know what is hidden), and the
+  kept results are built once per query. **This is the one row 0.11.0
+  ships above 0.10.1 by more than its correctness changes explain in
+  work**, and it is a design cost, named: a references query over a
+  cold workspace enumerates every wildcard import once. `ReferencesWarm`,
+  `WorkspaceUpdate`, `FormatEdits` and `SpanToRangeLarge` are unchanged
+  to the allocation.
+- **Analysis and the import graph** (`ImportValues/*` +12–18%
+  allocations, `Analyze/synthetic` 4.38M → 4.77M (+9%),
+  `WorkspaceEdit/synthetic reindex+diagnostics` 4.83M → 5.21M, the REPL's
+  `LoadModel` +4–7%, `REPLLoadFile` 5.33M → 5.72M, `REPLSubmitSnippet`
+  4.70M → 5.45M, the workspace model's `AnalyseResolved` 5.6k → 7.6k): the
+  earlier candidate had these at +59–72%, +33%, +30%, +27–29% and +89%;
+  #1349 (the conformance by the element a name resolves to), #1350,
+  #1351 and #1354 took back what #1298, #1319 and #1276 had added
+  avoidably. The remainder is #1276 and #1319 typing each feature by
+  every type it inherits through subsetting and subsetting a usage's base
+  features — more semantic work per usage by design — and is carried as
+  the inherent cost of the two changes.
+- **Instantiation and constraint checking** (`Instantiate` 2.51M → 6.34M
+  allocs/op, `FeaturesOf` 4.13M → 6.45M, `BatchSatisfy` 4.30M → 8.30M,
+  `GRPCVerifyConstraint` 9 786 → 14 668, `SameConstraintManyInstances`
+  35 → 38, the stress constellation's `Satisfy` +26% and `FleetSatisfy`
+  +30–33%): the earlier candidate, with #1351, had `Instantiate` at 4.03M
+  and the rest of its growth attributed to #1276; this candidate is
+  worse, and the first-parent probe over the 23 merges since puts the
+  difference at two: #1310 (`Instantiate` 3.82M → 4.94M) and #1312
+  (4.94M → 6.34M). Neither is the change's own work. #1310 made each
+  type's shape computation ask, for every library member, whether it
+  restates a frame root, and that walk built every feature's qualified
+  name on every shape — once per type, a thousand types in the
+  benchmark; #1312 looks up a nested requirement's redefining default
+  for each member of each instantiated type by collecting the scope's
+  members and scanning them. #1368 memoizes the first per symbol and
+  #1369 reads the second from the scope's declaration index; six quiet
+  rounds (candidate | #1368 | #1369 | both) put `Instantiate` at 6.34M |
+  4.22M | 5.01M | 2.22M, `BatchSatisfy` at 8.30M | 5.67M | 6.97M | 4.34M
+  and `FeaturesOf` at 6.45M | 3.68M | 5.03M | 2.26M — with both,
+  `Instantiate` and `FeaturesOf` are below 0.10.1 (2.51M, 4.13M: the
+  memo also serves the shapes 0.10.1 computed per type) and `BatchSatisfy`
+  is at parity (4.30M). The stress constellation's `Satisfy/32` 33.4k →
+  42.0k → 40.0k and `FleetSatisfy/32` 8.85k → 11.50k → 11.00k keep +20–24%
+  after #1369 (#1368 does not reach them: the plane's types are few):
+  that remainder is #1276's and #1319's wider type set, which the earlier
+  candidate measured at the same level (`Satisfy/32` 41.1k with #1351),
+  and is carried.
+  `GRPCVerifyConstraint`'s +4 900 is #1310's own work — a verification
+  now begins a run for each nested performance it counts
+  (`beginRun`/`resolveBindings`/`beginJournal` per performance) — and is
+  carried as inherent.
+- **The REPL's diagnostics** (`Diagnostics` 561 → 657 allocs/op at 50
+  attributes, +37–42% bytes): #1205 (CI formats) encoded the line prefix
+  to UTF-16 per diagnostic to read its length and copied the snippet's
+  source twice; #1352 removed that (the earlier candidate had 691). The
+  remaining +96 per 50 attributes is the supertype walk the diagnostic's
+  formatting makes since #1161 (project interchange dependencies) over
+  #1276's wider type set; carried.
+- **The API JSON conversion** (`ConvertAPIJSON` 25.26M → 29.20M
+  allocs/op and 4.69 → 5.49 GiB at 32 satellites, +16% / +22% at 128,
+  +16–17% time): #1253 states `isComposite` on every feature in the
+  element form. The output is larger; inherent.
+- **The stress constellation's load and analysis rows**
+  (`Load`/`LoadFiles`/`EditImported` +3.5–5.7% allocations,
+  `ValidateSplit` +5.6–7.9%, `OpenSplit/cold` +6–8%, `HydratePlane`
+  +9–17%): the earlier candidate had `Load/512` at +200% before #1350
+  and +11% after; #1354 took it to this. The remainder is #1319's
+  subsetting of a usage's base features over a constellation of
+  thousands of usages; carried.
+- **The vehicle rows** (`WorkspaceEdit/vehicle reindex+diagnostics`
+  858k → 876k allocs/op, `GRPCParseFileUncached` 903k → 983k, and
+  `Analyze/vehicle`, which fails on the candidate): since #1062 the
+  Annex A `SimpleVehicleModel` reports 20 unresolved references
+  (`vehicle_b`, `providePower`, `cost`, `ignitionCmdPort`, …) that
+  0.10.1 resolved by binding the first match of a colliding import; the
+  merge moved the pilot ratchet for that file 134 → 154 and the
+  benchmark asserts an error-free analysis, so the row cannot be
+  measured on 0.11.0. The two rows that still run pay the suggestion
+  path of those diagnostics (the earlier candidate had them at 1 206k
+  and 1 331k before #1348 and #1358).
+- **The library index** (`DecodeSnapshot` 67.6k → 72.1k allocs/op,
+  +2.4% bytes): #1357 records each library symbol's implied generals in
+  the bundled snapshot (3 950 367 → 3 974 247 bytes) so the resolver
+  reads them instead of re-deriving them; more recorded data, decoded at
+  every start; inherent and 0.1 ms.
+- **Small rows with their cause named and carried**: the REPL's
+  `Instantiate` 56 → 59 is #1276's (the wider type set);
+  `ConnectParseFileHTTPCached` 1 017 → 1 151 is #1062's collision
+  bookkeeping on the parse path; the gRPC `InstantiateWarmModel`
+  1 835 → 2 015 is #1325's API JSON writer provenance on the instantiate
+  reply; the REPL's `RunStateMachine` 224 → 228 is #1315's;
+  `SetDigest` 1 004 → 1 029 and `LowerStateGraph` 149 → 152 are within
+  the changes' own work.
+
+What improved: `BehaviorOrdersLibraryModel` 1 927 → 1 736 allocs/op, the
+REPL's `RunCalc` 79 → 74, `RenameWarm` 13.5k → 4.9k, `IndexAddExpand/vehicle`
+and `WorkspaceEdit/vehicle` −1%, and with #1368 and #1369 `FeaturesOf`
+4.13M → 2.26M and `Instantiate` 2.51M → 2.22M.
+
+Known from the earlier records and unchanged: `AnalyzeSplitPerDocument`
+and `PlaneResidency` in `tests/stressmodel` fail on both revisions and
+are not measured.
 
 ## Package benchmarks
 
 Allocations and bytes are from the six main rounds (exact); times are the
-quiet re-run's medians. Columns: 0.10.1 | 0.11.0 candidate | candidate +
-fixes.
+quiet re-run's medians where that pass covered the row and the main
+run's otherwise (marked †). Columns: 0.10.1 → 0.11.0 candidate, with the
+`benchstat` verdict in parentheses (`~` is not significant at p < 0.05
+over six rounds); a third figure, where present, is the candidate with
+#1368 and #1369.
 
 ### `internal/exec/runtime`
 
-| benchmark | time (µs) | allocs/op | B/op |
-| --------- | --------- | --------- | ---- |
-| `IntegerArithmeticLoop` | 3 745 \| 4 229 (+13%) \| 3 957 (+6%) | 9 072 \| 11 073 \| 9 073 | 280 \| 483 \| 296 KiB |
-| `IntegerArithmeticLoopBeyondInt64` | 3 984 \| 4 704 (+18%) \| 4 305 (~) | 13.07k \| 15.07k \| 13.07k | 514 \| 718 \| 530 KiB |
-| `IntegerArithmeticNestedLoop` | 5 300 \| 5 999 (+13%) \| 5 684 (~) | 26.08k \| 30.08k \| 26.08k | 915 \| 1 335 \| 1 023 KiB |
-| `RationalDecimalLoop` | 4 126 \| 4 498 (+9%) \| 4 331 (+5%) | 9 070 \| 11 072 \| 9 072 | 280 \| 483 \| 296 KiB |
-| `RationalHarmonicLoop` | 1 019 \| 1 047 (~) \| 1 019 (~) | 4 652 \| 5 052 \| 4 652 | 179 \| 220 \| 182 KiB |
-| `RealDecimalLoop` | 4 080 \| 4 617 (+13%) \| 4 164 (~) | 9 070 \| 11 072 \| 9 071 | 280 \| 483 \| 296 KiB |
-| `AssignmentLoopStep` | 1 667 \| 1 722 (~) \| 1 694 (~) | 7 328 \| 7 529 \| 7 328 | 827 \| 849 \| 830 KiB |
-| `IntegerCollectionSum` | 910 \| 949 (~) \| 932 (~) | 44 \| 44 \| 44 | 4.96 MiB on all |
-| `NewRootFrame` | 11.17 \| 18.38 (+65%) \| 10.82 (~) | 36 \| 55 \| 36 | 12.48 \| 13.79 \| 12.54 KiB |
-| `DerivedReadWriteRead` | 6.63 \| 7.22 (~) \| 6.69 (~) | 65 \| 73 \| 67 | 2.48 \| 2.67 \| 2.63 KiB |
-| `MaterializePlainAttributes` | 58.0 \| 61.6 (~) \| 60.9 (~) | 618 \| 621 \| 621 | 43.6 \| 51.2 \| 51.2 KiB |
-| `SetFeatureValueNoDependents` | 0.446 \| 0.465 (~) \| 0.461 (~) | 9 \| 9 \| 9 | 352 \| 416 \| 416 B |
-| `BehaviorOrdersLibraryModel` | 359 \| 300 (~) \| 288 (−20%) | 1 927 \| 1 721 \| 1 723 | 164 \| 140 \| 140 KiB |
+| benchmark | time | allocs/op | B/op |
+| --------- | ---- | --------- | ---- |
+| `MaterializePlainAttributes` | 56.84µ → 67.44µ (~) | 618.0 → 621.0 (+0%) | 43.60Ki → 51.14Ki (+17%) |
+| `SetFeatureValueNoDependents` | 438.7n → 496.1n (~) | 9.000 → 9.000 (~) | 352.0 → 416.0 (+18%) |
+| `DerivedReadWriteRead` | 6.582µ → 7.918µ (+20%) | 65.00 → 67.00 (+3%) | 2.484Ki → 2.625Ki (+6%) |
+| `IntegerArithmeticLoop` | 3.758m → 4.449m (~) | 9.072k → 9.072k (~) | 279.9Ki → 295.5Ki (+6%) |
+| `IntegerArithmeticLoopBeyondInt64` | 4.003m → 4.096m (~) | 13.07k → 13.07k (~) | 514.3Ki → 529.9Ki (+3%) |
+| `IntegerArithmeticNestedLoop` | 5.365m → 6.072m (~) | 26.08k → 26.08k (~) | 915.0Ki → 1022.5Ki (+12%) |
+| `BehaviorOrdersLibraryModel` | 352.9µ → 344.4µ (~) | 1.927k → 1.736k (-10%) | 164.4Ki → 141.5Ki (-14%) |
+| `RationalDecimalLoop` | 4.117m → 4.775m (+16%) | 9.070k → 9.070k (~) | 279.9Ki → 295.5Ki (+6%) |
+| `RationalHarmonicLoop` | 988.2µ → 1015.7µ (~) | 4.652k → 4.651k (~) | 179.0Ki → 182.2Ki (+2%) |
+| `RealDecimalLoop` | 3.986m → 4.066m (+2%) | 9.070k → 9.070k (~) | 279.9Ki → 295.5Ki (+6%) |
 
-Package geomean: time +9.9% on the candidate, +1.2% with the fixes;
-allocations +11.6% and −0.6%; bytes +25% and +4.4%.
-
-The loop rows and the root frame are the subject of #1347 and #1353 and
-return to 0.10.1's count. `DerivedReadWriteRead` 65 → 73 bisects to
-#1276; #1351 recovers four of the eight and the other two are the wider
-type set each read consults (inherent). `MaterializePlainAttributes`
-(+3 allocations, +7.6 KiB) and `SetFeatureValueNoDependents` (+64 B at
-nine allocations) bisect to #1136 as well but are none of its three
-per-execution costs — #1355 and #1356 leave them — and are carried.
+Every loop row, `NewRootFrame` and the lowered-graph rows are at 0.10.1's
+count; the bytes of the loop rows (+3–12%) and of `MaterializePlainAttributes`
+and `SetFeatureValueNoDependents` are #1136's footprint records and
+#1276's wider type set, carried. Rows not listed are unchanged to the
+allocation and not significant on time.
 
 ### `internal/frontend/repl`
 
 | benchmark | time | allocs/op | B/op |
 | --------- | ---- | --------- | ---- |
-| `LoadModel/elements=250` | 1.96 \| 1.98 \| 1.98 ms | 125.8k \| 159.9k \| 139.5k | 14.09 \| 15.02 \| 14.44 MiB |
-| `LoadModel/elements=1000` | 7.52 \| 7.57 \| 7.61 ms | 482.5k \| 620.5k \| 538.7k | 55.8 \| 59.5 \| 57.3 MiB |
-| `LoadModel/elements=4000` | 29.9 \| 30.2 \| 30.2 ms | 1.909M \| 2.462M \| 2.135M | 223 \| 238 \| 229 MiB |
-| `Diagnostics/attributes=50` | 93.1 \| 105.3 (+13%) \| 104.4 (~) µs | 561 \| 691 \| 645 | 73.7 \| 102.0 \| 99.8 KiB |
-| `Diagnostics/attributes=200` | 317 \| 368 (+16%) \| 352 (~) µs | 1 469 \| 1 903 \| 1 707 | 249 \| 363 \| 354 KiB |
-| `Diagnostics/attributes=800` | 1.22 \| 1.41 (+16%) \| 1.48 (+22%) ms | 5 623 \| 7 261 \| 6 465 | 896 \| 1 296 \| 1 258 KiB |
-| `Instantiate/elements=*` | 8.1–8.7 \| 8.6–9.4 \| 8.6–9.4 µs | 56 \| 59 \| 59 | 7.3 \| 8.4 \| 8.4 KiB |
-| `RunStateMachine/elements=*` | 14.4–15.1 \| 14.7–15.7 \| 14.3–14.7 µs | 224 \| 228 \| 228 | 16.4 \| 16.7 \| 16.7 KiB |
-| `RunCalc/elements=*` | 5.0–5.3 \| 5.0–5.3 \| 5.0–5.1 µs | 79 \| 74 \| 74 | 4.56 \| 4.54 \| 4.54 KiB |
-| `LoadModel/elements=0` | 38.5 \| 38.6 \| 38.6 µs | 1 938 \| 1 974 \| 1 980 | 228 \| 230 \| 231 KiB |
+| `LoadModel/elements=0` | 442.3µ → 512.3µ (+16%) | 1.938k → 2.019k (+4%) | 222.4Ki → 228.0Ki (+3%) |
+| `LoadModel/elements=250` | 30.17m → 33.52m (+11%) | 125.8k → 133.8k (+6%) | 13.44Mi → 13.78Mi (+3%) |
+| `LoadModel/elements=1000` | 129.3m → 149.5m (~) | 482.5k → 516.8k (+7%) | 53.14Mi → 54.84Mi (+3%) |
+| `LoadModel/elements=4000` | 539.7m → 640.3m (+19%) | 1.909M → 2.049M (+7%) | 212.6Mi → 219.5Mi (+3%) |
+| `RunStateMachine/elements=250` | 13.94µ → 15.44µ (~) | 224.0 → 228.0 (+2%) | 15.98Ki → 16.31Ki (+2%) |
+| `RunStateMachine/elements=1000` | 14.61µ → 14.38µ (~) | 224.0 → 228.0 (+2%) | 15.98Ki → 16.31Ki (+2%) |
+| `RunStateMachine/elements=4000` | 14.13µ → 16.41µ (~) | 224.0 → 228.0 (+2%) | 15.98Ki → 16.31Ki (+2%) |
+| `RunCalc/elements=250` | 5.000µ → 4.937µ (~) | 79.00 → 74.00 (-6%) | 4.453Ki → 4.438Ki (-0%) |
+| `RunCalc/elements=1000` | 5.225µ → 4.956µ (~) | 79.00 → 74.00 (-6%) | 4.453Ki → 4.438Ki (-0%) |
+| `RunCalc/elements=4000` | 5.099µ → 4.883µ (~) | 79.00 → 74.00 (-6%) | 4.453Ki → 4.438Ki (-0%) |
+| `Instantiate/elements=250` | 8.635µ → 9.272µ (+7%) | 56.00 → 59.00 (+5%) | 7.121Ki → 8.189Ki (+15%) |
+| `Instantiate/elements=1000` | 7.905µ → 8.638µ (+9%) | 56.00 → 59.00 (+5%) | 7.168Ki → 8.127Ki (+13%) |
+| `Instantiate/elements=4000` | 8.122µ → 8.498µ (~) | 56.00 → 59.00 (+5%) | 7.184Ki → 8.157Ki (+14%) |
+| `Diagnostics/attributes=50` | 91.52µ → 103.56µ (~) | 561.0 → 657.0 (+17%) | 73.69Ki → 100.63Ki (+37%) |
+| `Diagnostics/attributes=200` | 317.4µ → 354.7µ (~) | 1.469k → 1.719k (+17%) | 249.0Ki → 354.3Ki (+42%) |
+| `Diagnostics/attributes=800` | 1.269m → 1.372m (~) | 5.623k → 6.477k (+15%) | 896.3Ki → 1259.0Ki (+40%) |
 
-`LoadModel`'s +27–29% allocations are the analysis cost above (#1298,
-fixed by #1349, and #1276/#1319's remainder); its time moves under 1%
-because the load is dominated by the library index. `Diagnostics` is
-#1205 (fixed by #1352) and #1161; the bytes per diagnostic go
-755 → 1 044 → 1 022 at 50 attributes. `Instantiate` 56 → 59 is #1276's and
-`RunStateMachine` 224 → 228 is #1315's; both are carried.
+`LoadModel` carries #1276/#1319 (+4–7%), `Diagnostics` the formatting
+walk named in the summary, `Instantiate` the wider type set,
+`RunStateMachine` #1315's; `RunCalc` improved. The seven other rows
+(`Eval*`, `Complete*`, `Render*`, …) are unchanged to the allocation.
 
 ### `internal/frontend/grpc`
 
 | benchmark | time | allocs/op | B/op |
 | --------- | ---- | --------- | ---- |
-| `InstantiateWarmModel` | 193 \| 266 (+38%) \| 220 (+14%) µs | 1 833 \| 2 238 \| 2 006 | 104 \| 133 \| 122 KiB |
-| `ParseFileColdShared` | 7.81 \| 7.88 \| 8.11 ms | 31.39k \| 31.58k \| 31.57k | 4.72 \| 4.73 \| 4.73 MiB |
-| `ParseFileColdInline` | 8.14 \| 8.16 \| 8.12 ms | 31.81k \| 32.01k \| 32.00k | 4.97 \| 4.98 \| 4.98 MiB |
+| `InstantiateWarmModel` | 193.4µ → 222.5µ (+15%) | 1.835k → 2.015k (+10%) | 104.4Ki → 123.1Ki (+18%) |
 
-`InstantiateWarmModel` is the instantiation path: #1351 recovers 232 of
-its 405 allocations and the rest is #1325's writer provenance on the
-reply, carried. The two parse rows are +0.6% allocations (the resolver's
-collision bookkeeping, #1062) and at parity on time.
+`InstantiateWarmModel` is #1325's writer provenance on the reply; the
+parse rows are at parity (−0.4–0.6% allocations, the collision
+bookkeeping of #1062 being offset by #1348).
 
 ### `internal/frontend/lsp`
 
 | benchmark | time | allocs/op | B/op |
 | --------- | ---- | --------- | ---- |
-| `ReferencesCold` | 44.1 \| 1 207 (+2 636%) \| 1 028 (+2 230%) ms | 44.64k \| 6 279k \| 1 944k | 9.79 \| 1 010 \| 950 MiB |
-| `RenameWarm` | 20.5 \| 2 004 (+9 684%) \| 1 685 (+8 124%) ms | 13.73k \| 12 410k \| 3 740k | 1.35 \| 1 668 \| 1 549 MiB |
-| `ReferencesWarm` | 200 \| 205 \| 203 µs | 1 017 on all | 339 KiB on all |
-| `WorkspaceUpdate` | 244 \| 281 (~) \| 254 (~) ms | 710.3k \| 710.3k \| 710.0k | 57.2 MiB on all |
-| `FormatEdits` | 940 \| 924 \| 919 µs | 85 on all | 704 KiB on all |
-| `SpanToRangeLarge` | 2.98 \| 2.91 \| 2.86 ms | 0 | 0 |
+| `ReferencesCold` | 44.47m → 190.60m (+329%) | 44.64k → 124.74k (+179%) | 9.786Mi → 134.799Mi (+1277%) |
+| `RenameWarm` | 21.91m → 49.10m (+124%) | 13.533k → 4.901k (-64%) | 1370.1Ki → 956.9Ki (-30%) |
 
-The two cold rows are #1062's enumeration (fixed in part by #1348) and
-the per-query re-enumeration the summary names as carried: with the fix
-the allocations fall 3.2× but the bytes only 6–7%, because what remains
-is the enumerated member sets themselves, rebuilt per document or per
-occurrence. The warm rows and the workspace update are at parity to the
-allocation.
+See the summary for the two cold rows. `RenameWarm`'s 0.10.1 count varies
+±9% between rounds (its mean is shown); the candidate's does not.
 
 ### `internal/translate/migrate`, `internal/workspace/libs`, `internal/workspace/model`, `tests/codegen`
 
 | benchmark | time | allocs/op | B/op |
 | --------- | ---- | --------- | ---- |
-| migrate `WriterSiblingBlocks` | 1.93 \| 1.95 ms | 20.02k \| 20.02k | 1.906 MiB on both |
-| libs `ExpandWildcardImports` | 32.6 \| 30.9 ms | 145.7k \| 145.7k | 15.36 MiB on both |
-| libs `IndexLibrary` | 16.9 \| 15.4 ms | 108.2k \| 108.3k | 14.07 \| 14.09 MiB |
-| libs `ExpandModelImports` | 7.00 \| 6.70 ms | 38.15k \| 38.15k | 4.376 MiB on both |
-| libs `DecodeSnapshot` | 16.4 \| 14.9 ms | 67.45k \| 67.64k | 37.85 \| 38.47 MiB |
-| libs `SetDigest` | 1.32 \| 1.36 ms | 1 004 \| 1 029 | 1.737 \| 1.775 MiB |
-| model `AnalyseResolved` | 1.37 \| 2.32 (+69%) \| 2.29 (+67%) ms | 5 597 \| 10 552 \| 10 554 | 585 \| 713 \| 713 KiB |
-| model `AnalyseUnresolved` | 20.4 \| 21.4 \| 21.8 ms | 150.4k \| 151.1k \| 151.1k | 13.79 \| 13.84 \| 13.84 MiB |
+| benchmark | time | allocs/op | B/op |
+| --------- | ---- | --------- | ---- |
+| `DecodeSnapshot` | 16.42m → 16.35m (~) † | 67.45k → 72.06k (+7%) | 37.85Mi → 38.76Mi (+2%) |
+| `SetDigest` | 1.322m → 1.144m (~) † | 1.004k → 1.029k (+2%) | 1.737Mi → 1.775Mi (+2%) |
+| benchmark | time | allocs/op | B/op |
+| --------- | ---- | --------- | ---- |
+| `AnalyseResolved` | 1.376m → 1.753m (+27%) | 5.597k → 7.600k (+36%) | 584.7Ki → 646.0Ki (+10%) |
 
-The migrator and the library index are at parity (the library's
-+0.1–2.5% allocations are the bundled index's new entries: the snapshot
-is 1.6% larger). `AnalyseResolved` is #1319's residual with #1350
-(5.6k → 17.1k on the bare head, 10.6k with it) and none of the fixes
-touches it: it is the base-feature subsetting's work on a resolved
-model, carried as inherent. `tests/codegen`'s `CompiledCalc/*` rows
-(`Fib(25)`, `Collatz(27)`, `Hypot` interpreted, Go and C) exist only on
-the candidate: 375, 2 344 and 86 allocs/op interpreted, 0 compiled.
+The migrator and the library index are at parity (`DecodeSnapshot` and
+`SetDigest` carry #1357's recorded implied generals); `AnalyseResolved`
+carries #1276/#1319 (+36% allocations, the earlier candidate +89%).
+`tests/codegen` (`CompiledCalc/*`, candidate only) runs seven of its
+twelve rows: `Fib(25)` interpreted 6.8 ms and compiled to Go 1.8 ms,
+`Collatz(27)` 1.16 ms and 12 µs; the C target of each is not compilable
+(it holds `int64`, the interpreter's integers are unbounded) and
+`SumTo(1000000)` exceeds the interpreter's step budget; no 0.10.1 column
+exists.
 
 ### `tests/perf`
 
 | benchmark | time | allocs/op | B/op |
 | --------- | ---- | --------- | ---- |
-| `ImportValues/flat/parts=100/attrs=3` | 25.3 \| 25.3 \| 25.3 ms | 131.2k \| 208.9k \| 157.2k | 11.0 \| 13.8 \| 12.8 MiB |
-| `ImportValues/flat/parts=500/attrs=3` | 132 \| 132 \| 132 ms | 616.4k \| 1 001k \| 742.4k | 61.8 \| 73.3 \| 68.2 MiB |
-| `ImportValues/flat/parts=2000/attrs=3` | 0.53 \| 0.53 \| 0.53 s | 2.439M \| 3.972M \| 2.940M | 260 \| 307 \| 286 MiB |
-| `ImportValues/flat/parts=2000/attrs=5` | 0.88 \| 0.88 \| 0.88 s | 3.682M \| 6.144M \| 4.424M | 366 \| 438 \| 404 MiB |
-| `ImportValues/nested/parts=100/attrs=3` | 27.5 \| 27.5 \| 27.5 ms | 175.5k \| 294.9k \| 202.7k | 15.5 \| 19.3 \| 17.5 MiB |
-| `ImportValues/nested/parts=500/attrs=3` | 142 \| 142 \| 142 ms | 830.7k \| 1 424k \| 963.6k | 76.9 \| 92.6 \| 83.5 MiB |
-| `ImportValues/nested/parts=2000/attrs=3` | 0.58 \| 0.58 \| 0.58 s | 3.290M \| 5.659M \| 3.819M | 319 \| 382 \| 346 MiB |
-| `ImportValues/nested/parts=2000/attrs=5` | 0.96 \| 0.96 \| 0.96 s | 4.578M \| 7.796M \| 5.252M | 439 \| 525 \| 475 MiB |
-| `Lex/synthetic` | 7.70 \| 7.85 \| 7.80 ms | 0 | 0 |
-| `Lex/vehicle` | 283 \| 283 \| 271 µs | 0 | 16 B |
-| `Parse/synthetic` | 101 \| 101 \| 95.6 ms | 293.2k on all | 39.6 MiB on all |
-| `Parse/vehicle` | 2.44 \| 2.79 (~, 8 rounds) \| 2.59 ms | 7 560 on all | 1.063 MiB on all |
-| `IndexAddExpand/synthetic` | 48.8 \| 53.5 \| 50.8 ms | 316.7k \| 318.3k \| 317.3k | 44.7 \| 44.9 \| 44.8 MiB |
-| `IndexAddExpand/vehicle` | 27.5 \| 28.3 \| 26.7 ms | 139.7k \| 139.7k \| 137.7k | 16.0 \| 16.0 \| 15.9 MiB |
-| `IndexAddOnly/synthetic` | 45.4 \| 47.9 \| 45.5 ms | 306.6k \| 307.7k \| 307.3k | 42.4 \| 42.6 \| 42.5 MiB |
-| `IndexAddOnly/vehicle` | 1.13 \| 1.14 \| 1.10 ms | 9 633 on all | 1.19 MiB on all |
-| `Analyze/synthetic` | 1.38 \| 1.68 (+22%) \| 1.58 (+15%) s | 4.382M \| 5.847M \| 5.055M | 509 \| 550 \| 530 MiB |
-| `Analyze/vehicle` | 207 ms \| fails \| fails | 856.6k \| — \| — | 136 MiB \| — \| — |
-| `WorkspaceEdit/synthetic` | 284 \| 280 \| 283 ms | 680.5k on all | 90.0 MiB on all |
-| `WorkspaceEdit/synthetic/reindex+diagnostics` | 1.80 \| 2.13 (+18%) \| 2.09 (+16%) s | 4.828M \| 6.293M \| 5.501M | 541 \| 577 \| 556 MiB |
-| `WorkspaceEdit/vehicle` | 59.6 \| 62.4 \| 62.1 ms | 168.1k \| 168.1k \| 166.1k | 15.3 \| 15.3 \| 15.2 MiB |
-| `WorkspaceEdit/vehicle/reindex+diagnostics` | 235 \| 285 (+21%) \| 278 (+18%) ms | 857.7k \| 1 206k \| 923.7k | 127 \| 182 \| 160 MiB |
-| `WorkspaceEditSmallDocBesideLarge` | 53.6 \| 52.4 \| 55.6 ms | 114.6k \| 122.7k \| 114.6k | 24.8 \| 25.4 \| 25.3 MiB |
-| `FQNOf` | 1.71 \| 1.66 \| 1.68 ms | 40.0k on all | 735 KiB on all |
-| `LookupQualified` | 1.16 \| 1.36 \| 1.18 ms | 0 | 0 |
-| `FeaturesOf` | 1.11 \| 1.49 \| 1.30 s | 4.130M \| 6.730M \| 5.160M | 357 \| 433 \| 390 MiB |
-| `REPLLoadFile` | 1.70 \| 2.07 \| 1.84 s | 5.333M \| 6.799M \| 6.007M | 644 \| 684 \| 665 MiB |
-| `REPLSubmitSnippet` | 1.35 \| 1.49 (+11%) \| 1.49 (+11%) s | 4.695M \| 6.829M \| 6.023M | 570 \| 625 \| 606 MiB |
-| `REPLEvalExpr` | 5.55 \| 5.68 \| 5.48 ms | 106 on all | 7.14 MiB on all |
-| `LowerActionGraph` | 3.49 \| 3.31 \| 3.24 µs | 38 on all | 3.93 \| 4.01 \| 4.01 KiB |
-| `LowerStateGraph` | 9.20 \| 9.13 \| 9.29 µs | 149 \| 152 \| 152 | 12.4 \| 12.8 \| 12.8 KiB |
-| `LowerChain/chain1000` | 10.3 \| 10.4 \| 9.95 ms | 7 223 \| 7 225 \| 7 224 | 1.90 MiB on all |
-| `ExecuteAction` | 86.4 \| 101 (+17%) \| 96.0 (+11%) µs | 245 \| 299 \| 289 | 200 \| 184 \| 191 KiB |
-| `ExecuteActionFreshContext` | 47.8 \| 59.9 (+25%) \| 58.3 (+22%) µs | 340 \| 403 \| 393 | 40.8 \| 47.1 \| 48.6 KiB |
-| `ExecuteState` | 1.12 \| 1.28 (+14%) \| 1.19 (+6%) ms | 12.13k \| 14.20k \| 13.74k | 865 \| 950 \| 974 KiB |
-| `BatchConstraints` | 12.6 \| 14.6 (+16%) \| 13.3 (~) ms | 68.08k \| 84.64k \| 72.51k | 3.37 \| 3.71 \| 3.58 MiB |
-| `SameConstraintManyInstances` | 5.42 \| 6.20 (+15%) \| 5.39 (~) µs | 35 \| 47 \| 38 | 1 440 \| 1 600 \| 1 528 B |
-| `BatchSatisfy` | 1.46 \| 1.94 (+32%) \| 1.68 (+15%) s | 4.301M \| 6.811M \| 5.658M | 454 \| 535 \| 504 MiB |
-| `Instantiate` | 0.66 \| 1.28 (+93%) \| 1.15 (+73%) s | 1.937M \| 4.730M \| 4.030M | 194 \| 349 \| 332 MiB |
-| `GRPCParseFileCached` | 172 \| 181 \| 186 µs | 24 on all | 223 KiB on all |
-| `GRPCParseFileUncached` | 224 \| 274 (+23%) \| 265 (+18%) ms | 900.9k \| 1 331k \| 1 014k | 149 \| 213 \| 189 MiB |
-| `GRPCEvaluate` | 10.7 \| 10.6 \| 11.2 µs | 117 on all | 9.85 \| 9.88 \| 9.91 KiB |
-| `GRPCVerifyConstraint` | 0.99 \| 1.23 (+24%) \| 1.20 (+22%) ms | 9 786 \| 10 770 \| 10 690 | 556 \| 629 \| 628 KiB |
-| `ConnectEvaluateHTTP` | 176 \| 173 \| 177 µs | 207 on all | 22.9 \| 23.0 \| 22.8 KiB |
-| `ConnectParseFileHTTPCached` | 1.04 \| 1.12 (+7%) \| 1.15 (+10%) ms | 1 017 \| 1 151 \| 1 151 | 476 \| 507 \| 504 KiB |
-| `ActionLoop/for10` | 39.5 \| 51.2 (+30%) \| 45.3 (+15%) µs | 264 \| 318 \| 308 | 33.2 \| 39.1 \| 39.0 KiB |
-| `ActionLoop/for100` | 173 \| 199 (+15%) \| 193 (+11%) µs | 627 \| 861 \| 851 | 72.5 \| 97.1 \| 97.0 KiB |
-| `ActionLoop/for1000` | 1.43 \| 1.64 (+15%) \| 1.75 (+22%) ms | 4 231 \| 6 266 \| 6 256 | 425 \| 637 \| 637 KiB |
-| `ActionChain/chain10` | 130 \| 160 (+24%) \| 162 (+25%) µs | 803 \| 978 \| 968 | 198 \| 213 \| 212 KiB |
-| `ActionChain/chain100` | 0.85 \| 1.18 (+38%) \| 1.16 (+36%) ms | 6 632 \| 8 166 \| 8 155 | 794 \| 918 \| 918 KiB |
-| `ActionChain/chain1000` | 17.0 \| 31.0 (+82%) \| 31.2 (+83%) ms | 64.96k \| 80.75k \| 80.68k | 8.34 \| 9.83 \| 9.84 MiB |
-| `StateLoop/count50` | 1.04 \| 1.17 (+13%) \| 1.14 (~) ms | 12.11k \| 14.18k \| 13.72k | 923 \| 1 003 \| 1 007 KiB |
-| `StateLoop/count500` | 8.72 \| 10.5 \| 10.0 ms | 117.9k \| 138.5k \| 133.9k | 6.57 \| 7.66 \| 7.56 MiB |
-| `StateLoop/count5000` | 85.6 \| 97.5 (~) \| 96.5 (+13%) ms | 1.176M \| 1.381M \| 1.336M | 63.3 \| 74.7 \| 73.5 MiB |
+| `ImportValues/flat/parts=100/attrs=3` | 22.71m → 27.19m (+20%) | 131.2k → 153.1k (+17%) | 10.51Mi → 12.24Mi (+16%) |
+| `ImportValues/flat/parts=500/attrs=3` | 108.0m → 138.1m (+28%) | 616.4k → 724.0k (+17%) | 58.96Mi → 65.54Mi (+11%) |
+| `ImportValues/flat/parts=2000/attrs=3` | 499.3m → 634.7m (+27%) | 2.439M → 2.868M (+18%) | 248.0Mi → 274.8Mi (+11%) |
+| `ImportValues/flat/parts=2000/attrs=5` | 745.2m → 893.9m (+20%) | 3.682M → 4.328M (+18%) | 348.7Mi → 387.1Mi (+11%) |
+| `ImportValues/nested/parts=100/attrs=3` | 30.89m → 37.29m (~) | 175.5k → 198.3k (+13%) | 14.81Mi → 16.80Mi (+13%) |
+| `ImportValues/nested/parts=500/attrs=3` | 148.9m → 181.4m (+22%) | 830.7k → 943.7k (+14%) | 73.35Mi → 80.31Mi (+9%) |
+| `ImportValues/nested/parts=2000/attrs=3` | 700.6m → 781.6m (+12%) | 3.290M → 3.741M (+14%) | 304.4Mi → 332.7Mi (+9%) |
+| `ImportValues/nested/parts=2000/attrs=5` | 1.041 → 1.100 (~) | 4.578M → 5.150M (+12%) | 418.6Mi → 455.8Mi (+9%) |
+| `IndexAddExpand/vehicle` | 28.00m → 32.54m (~) † | 139.7k → 137.7k (-1%) | 15.24Mi → 15.15Mi (-1%) |
+| `Analyze/synthetic` | 1.515 → 1.807 (+19%) † | 4.382M → 4.766M (+9%) | 485.6Mi → 504.3Mi (+4%) |
+| `WorkspaceEdit/synthetic/reindex+diagnostics` | 1.981 → 2.082 (~) | 4.828M → 5.214M (+8%) | 515.6Mi → 528.1Mi (+2%) |
+| `WorkspaceEdit/vehicle` | 70.57m → 59.45m (~) | 168.1k → 166.1k (-1%) | 14.59Mi → 14.50Mi (-1%) |
+| `WorkspaceEdit/vehicle/reindex+diagnostics` | 237.0m → 276.2m (~) | 857.7k → 876.4k (+2%) | 120.8Mi → 141.6Mi (+17%) |
+| `WorkspaceEditSmallDocBesideLarge` | 51.41m → 51.80m (~) | 114.6k → 114.7k (+0%) | 23.67Mi → 24.14Mi (+2%) |
+| `FeaturesOf` | 1.065 → 1.223 (+15%) → 668.0m | 4.130M → 6.450M (+56%) → 2.263M | 340.1Mi → 412.9Mi (+21%) → 261.0Mi |
+| `REPLLoadFile` | 1.632 → 1.753 (+7%) | 5.333M → 5.717M (+7%) | 613.8Mi → 632.8Mi (+3%) |
+| `REPLSubmitSnippet` | 1.182 → 1.377 (+17%) | 4.695M → 5.446M (+16%) | 543.0Mi → 575.9Mi (+6%) |
+| `LowerActionGraph` | 3.372µ → 3.179µ (~) † | 38.00 → 38.00 (~) | 3.836Ki → 3.914Ki (+2%) |
+| `LowerStateGraph` | 10.096µ → 9.313µ (~) † | 149.0 → 152.0 (+2%) | 12.12Ki → 12.45Ki (+3%) |
+| `ExecuteAction` | 82.83µ → 91.12µ (+10%) | 245.0 → 254.0 (+4%) | 177.9Ki → 193.3Ki (~) |
+| `ExecuteActionFreshContext` | 46.70µ → 55.99µ (+20%) | 340.5 → 377.0 (+11%) | 39.93Ki → 47.72Ki (+20%) |
+| `ExecuteState` | 1.181m → 1.315m (~) † | 12.13k → 12.39k (+2%) | 843.5Ki → 846.7Ki (~) |
+| `SameConstraintManyInstances` | 5.248µ → 5.315µ (~) | 35.00 → 38.00 (+9%) | 1.406Ki → 1.492Ki (+6%) |
+| `BatchSatisfy` | 1.448 → 1.996 (+38%) → 1.418 | 4.301M → 8.301M (+93%) → 4.336M | 432.6Mi → 601.6Mi (+39%) → 455.9Mi |
+| `Instantiate` | 683.2m → 1416.3m (+107%) → 727.9m | 2.509M → 6.338M (+153%) → 2.219M | 235.0Mi → 425.4Mi (+81%) → 206.7Mi |
+| `GRPCParseFileUncached` | 227.7m → 247.8m (~) | 902.7k → 983.2k (+9%) | 143.0Mi → 176.9Mi (+24%) |
+| `GRPCEvaluate` | 10.48µ → 10.95µ (~) | 117.0 → 118.0 (+1%) | 9.465Ki → 9.708Ki (+3%) |
+| `GRPCVerifyConstraint` | 1.026m → 1.651m (+61%) → 1.559m | 9.786k → 14.668k (+50%) → 14.66k | 543.4Ki → 854.3Ki (+57%) → 854.2Ki |
+| `ConnectParseFileHTTPCached` | 1.015m → 1.229m (+21%) | 1.017k → 1.151k (+13%) | 464.2Ki → 493.5Ki (+6%) |
+| `ActionLoop/for10` | 41.12µ → 49.05µ (~) † | 264.0 → 273.0 (+3%) | 32.41Ki → 35.40Ki (+9%) |
+| `ActionLoop/for100` | 169.3µ → 192.3µ (~) † | 627.0 → 636.0 (+1%) | 70.79Ki → 75.18Ki (+6%) |
+| `ActionLoop/for1000` | 1.493m → 1.787m (~) † | 4.231k → 4.241k (+0%) | 414.7Ki → 433.2Ki (+4%) |
+| `ActionChain/chain10` | 118.8µ → 137.2µ (+16%) | 803.0 → 823.0 (+2%) | 193.1Ki → 200.6Ki (~) |
+| `ActionChain/chain100` | 818.9µ → 916.6µ (+12%) | 6.632k → 6.744k (+2%) | 774.9Ki → 831.7Ki (+7%) |
+| `ActionChain/chain1000` | 16.92m → 18.42m (+9%) | 64.98k → 66.30k (+2%) | 7.958Mi → 8.655Mi (+9%) |
+| `StateLoop/count50` | 1.013m → 1.141m (+13%) | 12.11k → 12.37k (+2%) | 877.5Ki → 889.2Ki (~) |
+| `StateLoop/count500` | 8.816m → 9.297m (+5%) | 117.9k → 120.4k (+2%) | 6.272Mi → 6.369Mi (+2%) |
+| `StateLoop/count5000` | 83.92m → 92.31m (+10%) | 1.176M → 1.201M (+2%) | 60.34Mi → 61.40Mi (+2%) |
 
-Package geomean: allocations +19.5% on the candidate, +15.8% with the
-fixes; bytes +11.0% and +8.3%. (`ImportValues`' time is the
-benchmark's fixed per-value budget and does not move.)
-
-The rows group by cause as in the summary: the import graph and analysis
-(#1298 → #1349, #1276/#1319 carried), instantiation and constraints
-(#1276 → #1351, remainder carried), the vehicle rows and
-`GRPCParseFileUncached` (#1062 → #1348, remainder carried), and the
-executor's statement rows (`ActionLoop`, `ActionChain`, `StateLoop`,
-`ExecuteState`, `ExecuteAction*`: #1136's per-execution stamping, order
-rebuilding and transition closures, fixed after the tables by #1355 and
-#1356), and the three small carried rows. `ActionChain/chain1000` is the
-one row whose time moved more than its allocations (+82% against +24%):
-each rebuilt order is few objects but much work, and it moves the same
-with the six fixes applied.
+Rows at parity to the allocation and not significant on time are
+omitted: the lexer and parser rows (`Lex*`, `Parse*` — eight isolated
+rounds, p = 0.13 and 0.065), `Index*`, `FQNOf`, `LookupQualified`,
+`Format*`, `Lower*`, `REPLEvalExpr`, `GRPCEvaluate`, `ConnectEvaluateHTTP`
+and the executor rows #1347/#1355/#1356 returned. The instantiation and
+constraint rows have the third column; the import-graph rows carry
+#1276/#1319.
 
 ## Stress constellation (`tests/stressmodel`)
 
-Six rounds on both revisions, allocations exact; the 32-satellite rows'
-times and third column are from the quiet re-run (six rounds, three
-binaries interleaved), the 128- and 512-satellite times from the main
-run. `ConvertAPIJSON/satellites=512` was skipped as before.
+| benchmark | time | allocs/op | B/op |
+| --------- | ---- | --------- | ---- |
+| `Load/satellites=32/elements=6227` | 478.5m → 562.3m (+18%) | 2.228M → 2.306M (+4%) | 157.0Mi → 165.1Mi (+5%) |
+| `Load/satellites=128/elements=24167` | 1.928 → 2.281 (~) † | 8.491M → 8.896M (+5%) | 558.2Mi → 613.6Mi (+10%) |
+| `Load/satellites=512/elements=95927` | 9.149 → 9.828 (~) † | 33.55M → 35.26M (+5%) | 2.126Gi → 2.355Gi (+11%) |
+| `Satisfy/satellites=32/assertions=96` | 5.249m → 6.184m (+18%) → 6.151m | 33.42k → 42.03k (+26%) → 40.04k | 1.768Mi → 2.229Mi (+26%) → 2.201Mi |
+| `Satisfy/satellites=128/assertions=384` | 25.16m → 28.79m (~) → 28.61m † | 132.9k → 167.3k (+26%) → 159.4k | 7.064Mi → 8.911Mi (+26%) → 8.797Mi |
+| `Satisfy/satellites=512/assertions=1536` | 116.5m → 139.9m (~) † | 530.9k → 668.6k (+26%) | 28.26Mi → 35.65Mi (+26%) |
+| `FleetInstantiate/satellites=32/elements=1179` | 4.629m → 4.972m (+7%) → 5.051m | 14.39k → 15.45k (+7%) → 15.29k | 9.136Mi → 8.711Mi (~) → 7.471Mi |
+| `FleetInstantiate/satellites=128/elements=1715` | 16.17m → 16.89m (~) → 17.46m † | 54.74k → 58.59k (+7%) → 57.95k | 31.38Mi → 32.15Mi (+2%) → 32.12Mi |
+| `FleetInstantiate/satellites=512/elements=3947` | 77.73m → 89.79m (~) † | 216.1k → 231.3k (+7%) | 169.2Mi → 184.6Mi (~) |
+| `FleetSatisfy/satellites=32/assertions=24` | 1.243m → 1.651m (+33%) → 1.507m | 8.852k → 11.496k (+30%) → 11.00k | 480.2Ki → 608.7Ki (+27%) → 601.4Ki |
+| `FleetSatisfy/satellites=128/assertions=36` | 2.006m → 2.947m (~) → 2.503m † | 13.65k → 17.87k (+31%) → 17.12k | 743.6Ki → 941.6Ki (+27%) → 930.8Ki |
+| `FleetSatisfy/satellites=512/assertions=108` | 6.126m → 7.491m (~) † | 41.55k → 55.30k (+33%) | 2.222Mi → 2.825Mi (+27%) |
+| `EditBeside/satellites=32` | 1.374m → 1.508m (~) † | 4.541k → 4.630k (+2%) | 558.7Ki → 576.4Ki (+3%) |
+| `EditBeside/satellites=128` | 4.193m → 4.607m (+10%) † | 11.98k → 12.07k (+1%) | 1.756Mi → 1.804Mi (+3%) |
+| `EditBeside/satellites=512` | 16.30m → 16.50m (~) † | 41.69k → 41.78k (+0%) | 6.663Mi → 6.831Mi (+3%) |
+| `ValidateSplit/satellites=32/files=6/jobs=1` | 667.5m → 763.9m (~) | 2.780M → 2.934M (+6%) | 214.5Mi → 229.2Mi (+7%) |
+| `ValidateSplit/satellites=32/files=6/jobs=8` | 287.8m → 367.9m (+28%) | 2.796M → 2.949M (~) | 216.5Mi → 231.1Mi (+7%) |
+| `ValidateSplit/satellites=128/files=6/jobs=1` | 2.700 → 3.389 (~) † | 9.683M → 10.396M (+7%) | 689.4Mi → 771.1Mi (+12%) |
+| `ValidateSplit/satellites=128/files=6/jobs=8` | 1.036 → 1.354 (~) † | 9.692M → 10.411M (+7%) | 690.2Mi → 772.7Mi (+12%) |
+| `ValidateSplit/satellites=512/files=6/jobs=1` | 10.84 → 13.62 (~) † | 37.29M → 40.24M (+8%) | 2.579Gi → 2.929Gi (+14%) |
+| `ValidateSplit/satellites=512/files=6/jobs=8` | 4.085 → 5.663 (~) † | 37.30M → 40.24M (+8%) | 2.580Gi → 2.930Gi (+14%) |
+| `LoadFiles/satellites=32/files=6` | 592.5m → 644.8m (+9%) | 2.234M → 2.309M (+3%) | 172.9Mi → 180.5Mi (+4%) |
+| `LoadFiles/satellites=128/files=6` | 2.569 → 2.691 (~) † | 7.885M → 8.281M (+5%) | 554.5Mi → 608.1Mi (+10%) |
+| `LoadFiles/satellites=512/files=6` | 9.790 → 11.430 (~) † | 30.48M → 32.16M (+6%) | 2.080Gi → 2.321Gi (+12%) |
+| `EditImported/satellites=32/files=6` | 633.2m → 697.3m (~) † | 2.268M → 2.363M (+4%) | 132.4Mi → 146.5Mi (+11%) |
+| `EditImported/satellites=128/files=6` | 2.248 → 2.550 (~) † | 7.727M → 8.137M (+5%) | 436.0Mi → 495.2Mi (+14%) |
+| `EditImported/satellites=512/files=6` | 9.453 → 11.878 (~) † | 29.56M → 31.23M (+6%) | 1.675Gi → 1.911Gi (+14%) |
+| `OpenSplit/satellites=32/files=6/cold` | 283.5m → 346.8m (~) | 2.655M → 2.814M (+6%) | 196.3Mi → 211.7Mi (+8%) |
+| `OpenSplit/satellites=32/files=6/warm` | 130.9m → 137.8m (~) | 696.3k → 709.4k (+2%) | 79.96Mi → 81.16Mi (+2%) |
+| `OpenSplit/satellites=128/files=6/cold` | 1.078 → 1.323 (~) † | 9.166M → 9.881M (+8%) | 615.0Mi → 697.7Mi (+13%) |
+| `OpenSplit/satellites=128/files=6/warm` | 300.2m → 344.3m (~) † | 1.719M → 1.769M (+3%) | 208.9Mi → 214.5Mi (+3%) |
+| `OpenSplit/satellites=512/files=6/cold` | 3.946 → 5.194 (~) † | 35.20M → 38.14M (+8%) | 2.287Gi → 2.636Gi (+15%) |
+| `OpenSplit/satellites=512/files=6/warm` | 1.107 → 1.037 (~) † | 5.806M → 6.006M (+3%) | 890.3Mi → 910.8Mi (+2%) |
+| `HydratePlane/satellites=32/files=6` | 89.63m → 82.26m (~) | 253.0k → 276.6k (+9%) | 20.72Mi → 21.97Mi (+6%) |
+| `HydratePlane/satellites=128/files=6` | 242.6m → 249.2m (~) † | 648.8k → 742.1k (+14%) | 57.24Mi → 62.10Mi (+8%) |
+| `HydratePlane/satellites=512/files=6` | 847.4m → 943.8m (~) † | 2.231M → 2.603M (+17%) | 206.7Mi → 225.2Mi (+9%) |
+| `ConvertAPIJSON/satellites=32/elements=6227` | 7.751 → 8.174 (~) | 25.26M → 29.20M (+16%) | 4.688Gi → 5.490Gi (+17%) |
+| `ConvertAPIJSON/satellites=128/elements=24167` | 32.33 → 37.89 (+17%) † | 99.04M → 114.66M (+16%) | 18.33Gi → 22.34Gi (+22%) |
 
-| benchmark | time (s) | allocs/op | B/op |
-| --------- | -------- | --------- | ---- |
-| `Load/satellites=32` | 0.548 \| 0.666 (+22%) \| 0.575 (~) | 2.228M \| 3.293M \| 2.382M | 165 \| 206 MiB |
-| `Load/satellites=128` | 1.93 \| 2.61 (~) | 8.491M \| 12.78M | 585 \| 774 MiB |
-| `Load/satellites=512` | 9.15 \| 11.35 (+24%) | 33.55M \| 50.74M | 2.13 \| 2.84 GiB |
-| `LoadFiles/satellites=32` | 0.634 \| 0.846 (~) \| 0.690 (~) | 2.234M \| 3.296M \| 2.385M | 181 \| 220 MiB |
-| `LoadFiles/satellites=128` | 2.57 \| 3.12 (~) | 7.885M \| 12.17M | 581 \| 760 MiB |
-| `LoadFiles/satellites=512` | 9.79 \| 13.41 (+37%) | 30.48M \| 47.65M | 2.08 \| 2.77 GiB |
-| `ValidateSplit/satellites=32/jobs=1` | 0.794 \| 0.997 (+26%) \| 0.840 (~) | 2.780M \| 4.011M \| 3.099M | 225 \| 280 MiB |
-| `ValidateSplit/satellites=32/jobs=8` | 0.290 \| 0.431 (+49%) \| 0.387 (+33%) | 2.796M \| 4.026M \| 3.114M | 227 \| 283 MiB |
-| `ValidateSplit/satellites=128/jobs=1` | 2.70 \| 3.80 (~) | 9.683M \| 14.58M | 723 \| 964 MiB |
-| `ValidateSplit/satellites=512/jobs=1` | 10.8 \| 13.5 (~) | 37.29M \| 56.86M | 2.58 \| 3.51 GiB |
-| `OpenSplit/satellites=32/cold` | 0.264 \| 0.447 (+69%) \| 0.374 (+42%) | 2.655M \| 3.889M \| 2.974M | 206 \| 262 MiB |
-| `OpenSplit/satellites=32/warm` | 0.138 \| 0.151 (~) \| 0.143 (~) | 696.3k \| 723.6k \| 723.6k | 83.8 \| 84.5 MiB |
-| `OpenSplit/satellites=512/cold` | 3.95 \| 5.35 (~) | 35.20M \| 54.76M | 2.29 \| 3.21 GiB |
-| `OpenSplit/satellites=512/warm` | 1.11 \| 1.05 (~) | 5.806M \| 6.143M | 934 \| 940 MiB |
-| `EditImported/satellites=32` | 0.607 \| 0.790 (+30%) \| 0.741 (+22%) | 2.268M \| 3.347M \| 2.435M | 139 \| 186 MiB |
-| `EditImported/satellites=512` | 9.45 \| 11.9 (~) | 29.56M \| 46.71M | 1.67 \| 2.39 GiB |
-| `EditBeside/satellites=32` (ms) | 1.48 \| 1.50 (~) \| 1.48 (~) | 4 541 \| 4 961 \| 4 629 | 572 \| 604 KiB |
-| `EditBeside/satellites=512` (ms) | 16.3 \| 19.7 (~) | 41.69k \| 47.03k | 6.99 \| 7.41 MiB |
-| `Satisfy/satellites=32` (ms) | 5.78 \| 7.22 (+25%) \| 5.93 (~) | 33.42k \| 54.48k \| 41.07k | 1.85 \| 2.30 MiB |
-| `Satisfy/satellites=512` (ms) | 117 \| 153 (~) | 530.9k \| 867.8k | 29.6 \| 36.8 MiB |
-| `FleetSatisfy/satellites=32` (ms) | 1.41 \| 2.06 (+46%) \| 1.54 (~) | 8 852 \| 15 180 \| 11.26k | 492 \| 621 KiB |
-| `FleetSatisfy/satellites=512` (ms) | 6.13 \| 8.51 (~) | 41.55k \| 74.12k | 2.33 \| 2.98 MiB |
-| `FleetInstantiate/satellites=32` (ms) | 4.99 \| 6.18 (~) \| 5.15 (~) | 14.39k \| 16.69k \| 15.45k | 9.58 \| 8.83 MiB |
-| `FleetInstantiate/satellites=512` (ms) | 77.7 \| 74.8 (~) | 216.1k \| 248.7k | 177 \| 155 MiB |
-| `HydratePlane/satellites=32` (ms) | 87.6 \| 87.7 (~) \| 88.3 (~) | 253.0k \| 278.3k \| 278.2k | 21.7 \| 22.5 MiB |
-| `HydratePlane/satellites=512` (ms) | 847 \| 957 (~) | 2.231M \| 2.648M | 217 \| 229 MiB |
-| `ConvertAPIJSON/satellites=32` | 8.21 \| 8.32 (~) \| 9.35 (~) | 25.26M \| 29.20M \| 29.20M | 4.69 \| 5.49 GiB |
-| `ConvertAPIJSON/satellites=128` | 32.3 \| 37.5 (+16%) | 99.04M \| 114.7M | 18.3 \| 22.3 GiB |
-
-The load, validation and edit rows carry the analysis cost (+44–58%
-allocations, +21–42% bytes, growing with the constellation): `LoadFiles/32`
-2.239M → 2.882M bisects to #1298 and #1349 restores it (2.239M, and
-`EditImported/32` 2.296M); the rest is #1276 and #1319 with #1350. The
-`Satisfy` and `FleetSatisfy` rows are #1276 (`Satisfy/32` 33.8k → 42.7k
-at that merge, then #1319's share) and #1351 recovers 60% of them. The
-warm `OpenSplit` rows (+4–6%) and `HydratePlane` (+10–19%) move with the
-model's type sets. `ConvertAPIJSON` is #1253's larger element form:
-+16% allocations and +17–22% bytes on both sizes; its time is not
-significant on the quiet machine at 32 satellites (8.21 against 8.32 s,
-spreads ±19–35%) and the loaded +16% at 128 is read with that in mind.
-`FleetInstantiate` allocates 15% more but no more bytes.
-
-On the quiet machine the fixes return `Load`, `LoadFiles`,
-`ValidateSplit/jobs=1`, `Satisfy`, `FleetSatisfy` and the warm rows to
-0.10.1's time (not significant, p ≥ 0.13) with +7–12% allocations left;
-`EditImported` (+22%), `OpenSplit/cold` (+42%) and `ValidateSplit/jobs=8`
-(+33%) stay slower with the fixes, and are the rows where the analysis
-remainder is paid per file on a cold index or across eight workers at
-once.
-`AnalyzeSplitPerDocument` and `PlaneResidency` fail on both revisions, as
-in the earlier records.
+The load and analysis rows carry #1319 (+3.5–8%), `Satisfy`/`FleetSatisfy`
+the #1310/#1312 costs with the third column from the fixes' quiet rounds,
+`HydratePlane` #1319 over the plane's usages, `ConvertAPIJSON` #1253's
+larger element form. `EditBeside`, `OpenSplit/warm` and `FleetInstantiate`
+are within +2–7%; `AnalyzeSplitPerDocument` and `PlaneResidency` fail on
+both revisions and are not measured. The 128- and 512-satellite rows
+carry the main run's time (†).
 
 ## Whole-binary scaling
 
 `sysml -validate` over generated compliant models (the satellite-network
 generator at 3 254, 6 198 and 12 086 declarations) that report no
-errors, nine runs each with the three binaries interleaved; median wall
-seconds of the eight warm runs and median maximum resident set, every
-run exiting 0; the first run of each binary on each model is excluded
-by the odd count as the cold run, though none was slow here (0.11–0.12 s
-on the smallest model, 0.34–0.36 s on Apollo 11): all three binaries
-had been run before the timing pass, so there was no cold round.
+errors, nine runs each with the two binaries interleaved on the quiet
+machine; median wall seconds of the eight warm runs and median maximum
+resident set, every run exiting 0; the first run of each binary on each
+model is excluded by the odd count as the cold run.
 
-| declarations | 0.10.1 | 0.11.0 candidate | candidate + fixes |
-| ------------ | ------ | ---------------- | ----------------- |
-| 3 254 | 0.155 s / 100 MiB | 0.150 s / 103 MiB | 0.185 s / 104 MiB |
-| 6 198 | 0.190 s / 115 MiB | 0.180 s / 117 MiB | 0.200 s / 118 MiB |
-| 12 086 | 0.310 s / 158 MiB | 0.325 s / 160 MiB | 0.330 s / 160 MiB |
+| declarations | 0.10.1 | 0.11.0 candidate |
+| ------------ | ------ | ---------------- |
+| 3 254 | 0.12 s / 101 MiB | 0.12 s / 104 MiB |
+| 6 198 | 0.17 s / 114 MiB | 0.17 s / 118 MiB |
+| 12 086 | 0.31 s / 158 MiB | 0.31 s / 162 MiB |
 
-Linear in the declarations on all three binaries, as before, and at
-parity on time: the differences are one to three ticks of the 10 ms
-timer inside the 0.06–0.11 s spread of the warm runs (0.10.1's own runs
-on the smallest model span 0.13–0.19 s). The resident set is 2–3 MiB
-higher on the candidate at every size: the larger binary and the
-analysis bytes above, which at these sizes are a few megabytes.
+Linear in the declarations on both binaries, as before, and at parity
+on time to the 10 ms timer at every size (the warm runs of each binary
+on each model span 0.11–0.13 s, 0.17–0.18 s and 0.30–0.35 s). The
+resident set is 3–4 MiB higher on the candidate at every size: the
+larger binary, the recorded implied generals in the snapshot and the
+analysis bytes above, which at these sizes are a few megabytes. The cold
+first runs were 0.11–0.32 s on both binaries: both had been run before
+the timing pass, so there was no cold round.
 
 ### Process start and session floor
 
-| measure | 0.10.1 | 0.11.0 candidate | candidate + fixes |
-| ------- | ------ | ---------------- | ----------------- |
-| `sysml -e 1` wall time | 0.02 s | 0.03 s | 0.03 s |
-| `sysml -e 1` max RSS (session floor) | 69 MiB | 70 MiB | 71 MiB |
-| `bin/sysml` size | 47.60 MiB | 49.20 MiB | 49.21 MiB |
-| `bin/sysml-lsp` size | 26.00 MiB | 27.16 MiB | 27.18 MiB |
+| measure | 0.10.1 | 0.11.0 candidate |
+| ------- | ------ | ---------------- |
+| `sysml -e 1` wall time | 0.02 s | 0.02 s |
+| `sysml -e 1` max RSS (session floor) | 69 MiB | 71 MiB |
+| `bin/sysml` size | 47.60 MiB | 49.32 MiB |
+| `bin/sysml-lsp` size | 26.00 MiB | 27.28 MiB |
 
-The floor is the standard library's bundled index decoded at start, 1–2
-MiB higher; the binaries are 1.6 MiB and 1.2 MiB larger (227 merges
-of code, among them the API JSON element form, the CI formats
-and the document backends). The start time's one tick is at the timer's
-resolution.
+The floor is the standard library's bundled index decoded at start; the
+binaries are 1.7 MiB and 1.3 MiB larger (256 merges of code, among them
+the API JSON element form, the CI formats, the document backends and the
+recorded implied generals in the snapshot).
 
 ### Example models and the Apollo 11 model
 
-| model | 0.10.1 | 0.11.0 candidate | candidate + fixes |
-| ----- | ------ | ---------------- | ----------------- |
-| `examples/action-executor-demo.sysml` | 0.03 s / 70 MiB | 0.03 s / 72 MiB | 0.03 s / 73 MiB |
-| `examples/disposal-robot-demo/robot.sysml` | 0.05 s / 77 MiB | 0.05 s / 79 MiB | 0.05 s / 79 MiB |
-| Apollo 11 (28 files, `scripts/download-apollo11.sh`) | 0.350 s / 162 MiB | 0.350 s / 168 MiB | 0.345 s / 168 MiB |
+| model | 0.10.1 | 0.11.0 candidate |
+| ----- | ------ | ---------------- |
+| `examples/action-executor-demo.sysml` | 0.03 s / 70 MiB | 0.03 s / 73 MiB |
+| `examples/disposal-robot-demo/robot.sysml` | 0.06 s / 77 MiB | 0.05 s / 80 MiB |
+| Apollo 11 (28 files, `scripts/download-apollo11.sh`) | 0.35 s / 162 MiB | 0.35 s / 169 MiB |
 
-The two small examples sit on the session floor and move with it; the
-Apollo 11 model validates in the same time on all three binaries holding
-6 MiB more, and every file validates with the same report on all three
-(three `incommensurable-operands` warnings, no error). Everything in
-this section that a user of the binary would notice is the resident set:
-+1–6 MiB, which is the bundled index and the wider type sets, not a
+The two small examples sit on the session floor and move with it; every
+file of the Apollo 11 model validates with the same report on both
+binaries (three `incommensurable-operands` warnings, no error).
+Everything in this section that a user of the binary would notice is the
+resident set, which is the bundled index and the wider type sets, not a
 regression in time.
 
 ## Re-runs
 
-Three quiet passes were made after the six main rounds, each with
-nothing else on the machine. The first re-ran `Parse/synthetic` and
-`Parse/vehicle` alone, eight rounds of 0.10.1 and the candidate
-alternating. The second re-ran `internal/exec/runtime`,
-`internal/frontend/repl`, `internal/frontend/lsp`,
-`internal/frontend/grpc`, `internal/workspace/model` and `tests/perf`
-whole, six rounds of 0.10.1, the candidate and the candidate with the
-fixes alternating; the third re-ran the 32-satellite rows of
-`tests/stressmodel` the same way. Every time in the tables above comes
-from these passes except the 128- and 512-satellite stress rows.
+Two quiet passes were made for this candidate, each with nothing else on
+the machine. The first ran the rows #1310 and #1312 moved six rounds
+interleaved over the candidate, #1368, #1369 and both together
+(`tests/perf`'s `Instantiate`, `BatchSatisfy`, `FeaturesOf`,
+`GRPCVerifyConstraint`, `SameConstraintManyInstances`,
+`ExecuteActionFreshContext`, `Analyze/synthetic`; the 32- and
+128-satellite `Satisfy`, `FleetSatisfy` and `FleetInstantiate`; the REPL's
+`Instantiate`) and is the third column. The second ran `internal/exec/runtime`,
+`internal/frontend/{repl,lsp,grpc}` and `internal/workspace/model` whole,
+the `tests/perf` rows whose loaded time had moved and the 32-satellite
+stress rows, six rounds of 0.10.1 and the candidate alternating, and is
+every time in the tables not marked †. The earlier candidate's eight
+isolated `Parse/*` rounds stand (allocations identical to the unit on
+this candidate too).
 
-What the loaded rounds flagged that the quiet passes cleared: the two
-`Parse` rows (+16–19% time with allocations identical to the unit: eight
-quiet rounds put them at p = 0.13 and p = 0.065 with spreads of ±5–31%);
-`WorkspaceUpdate` (+15% loaded, not significant quiet); `AnalyseUnresolved`;
-`FleetInstantiate`, `HydratePlane` and `EditBeside`'s time; and the
-stress rows' time generally, whose loaded spreads (±23–374% on the
-concurrent rows) exceeded their differences. What the quiet passes
-confirmed: every executor loop row and the root frame (p = 0.002 on
-each, returned by the fixes), the language server's two cold rows, the
-analysis and instantiation rows, `ConvertAPIJSON`'s time with its bytes,
-and the lowered-graph executor rows. Allocation counts agreed between
-the main run and every quiet pass on every row whose count is
-deterministic: the machine moves time, not allocations.
+What the quiet pass confirmed: the language server's two cold rows
+(`ReferencesCold` 44 → 191 ms, `RenameWarm` 22 → 49 ms, p = 0.002), the
+analysis rows (`AnalyseResolved` 1.38 → 1.75 ms, `ImportValues` +12–28%,
+`REPLSubmitSnippet` +17%), the instantiation and constraint rows
+(`Instantiate` 0.68 → 1.42 s, `BatchSatisfy` 1.45 → 2.00 s,
+`GRPCVerifyConstraint` 1.03 → 1.65 ms — the three the fixes' own rounds
+then return to 0.73 s, 1.42 s and parity), the REPL's `LoadModel`
+(+11–19%), `ConnectParseFileHTTPCached` (+21%) and the 32-satellite
+`Load`, `Satisfy` and `FleetSatisfy` with their allocations. What it
+cleared: `AnalyseUnresolved`, `WorkspaceUpdate`, `FormatEdits`,
+`ReferencesWarm`, the gRPC parse rows, `NewRootFrame`, `Analyze/synthetic`
+(p = 0.18), `HydratePlane`, `EditBeside` and `ConvertAPIJSON/32`'s time
+(p = 0.09; its 128-satellite row carries the main run's +17% with its
++16% allocations).
+
+What it leaves in doubt, stated rather than resolved: four executor rows
+whose allocation counts are identical on both revisions moved on time at
+p = 0.009–0.026 — `AssignmentLoopStep` 1.70 → 2.11 ms, `IntegerCollectionSum`
+0.87 → 1.08 ms, `RationalDecimalLoop` 4.12 → 4.78 ms, `DerivedReadWriteRead`
+6.6 → 7.9 µs — while the other loop rows with the same bytes (`IntegerArithmeticLoop`,
+`RealDecimalLoop` +2%, `IntegerArithmeticNestedLoop`) did not; the
+executor statement rows (`ActionChain` +9–16%, `StateLoop` +5–13%,
+`ExecuteAction` +10%) moved likewise on counts within +2% of 0.10.1. The
+earlier candidate's quiet pass, with the same executor code after its
+fixes, had these rows within +5–6% or the noise. The bytes those rows do
+carry (+5.6% on the loops, #1136's footprint records) are the one
+difference in their work; the rest is the machine or the collector, and
+this record carries them as time unexplained by allocation rather than
+as a regression attributed to a change.
 
 ## What this does not measure
 
-- **The language server's per-query cost after #1348.** The ~1 GiB the
-  two cold rows still allocate is the per-query re-enumeration named in
-  the summary; its fix (`perf/memoize-namespace-children`, #1358) follows this
-  record and is not measured here.
-- **The executor fixes.** `perf/stamp-statement-footprint-once` (#1355)
-  and `perf/take-transition-without-closures` (#1356) were written after
-  the six-round tables; their A/Bs against the parent of #1136 are in
-  their own pull requests, not here.
+- **The two fixes' effect beyond their rows.** #1368 and #1369 were
+  written after the six main rounds; their six quiet rounds cover the
+  rows the probe showed moving, not every package, and the record's
+  single candidate column is `develop` without them.
 - **Concurrent analysis.** `ValidateSplit/jobs=8` and `OpenSplit` run on
   8 CPUs; their loaded spreads are the machine's, and only the quiet
   32-satellite rows' time is stated.
-- **The bare `develop` head.** `d8b60ed62` without #1350 is measured only
-  far enough (two rounds) to state what #1350 restores; it is not a
-  release candidate.
+- **The intermediate heads.** `d8b60ed62`, `a662c2bce` and `c5eb6cc30`
+  are measured only as far as the earlier record and the probes above
+  state; none is a release candidate.

@@ -421,15 +421,33 @@ func (ctx *Context) carriedVerdicts(obj *validatedObject) ([]ObjectVerdict, []*S
 	return verdicts, stated
 }
 
-// carriedVerdictsOf checks the assertions one type of the object states about it,
-// skipping those seen through an earlier type and recording the ones it checks.
-func (ctx *Context) carriedVerdictsOf(typ *symbols.Symbol, obj *validatedObject, seen map[*ast.Usage]bool) ([]ObjectVerdict, []*SatisfyAssertion) {
-	var verdicts []ObjectVerdict
-	var stated []*SatisfyAssertion
+// Asserted is one assertion a type states about every object of it: an
+// asserted or invariant constraint, a requirement it carries, or a satisfy usage.
+type Asserted struct {
+	Kind AssertionKind
+	// Symbol is the asserting usage and Scope the scope its conditions resolve in.
+	Symbol *symbols.Symbol
+	Scope  *symbols.Scope
+	// Text is the assertion as written, so an anonymous one can be named.
+	Text  string
+	usage *ast.Usage
+}
+
+// AssertionsOf lists the assertions typ states about its objects, inherited ones
+// first, a named one a closer member shadows or redefines left out: the same
+// collection validating an object of typ checks. scope stands in for typ's own.
+func (ctx *Context) AssertionsOf(typ *symbols.Symbol, scope *symbols.Scope) []Asserted {
+	if typ == nil {
+		return nil
+	}
+	if scope == nil {
+		scope = typ.OwnerScope
+	}
+	var out []Asserted
 	var effective map[*symbols.Symbol]bool
-	for _, member := range ctx.chainMembers(typ, typ.OwnerScope) {
+	for _, member := range ctx.chainMembers(typ, scope) {
 		usage, ok := member.node.(*ast.Usage)
-		if !ok || seen[usage] {
+		if !ok {
 			continue
 		}
 		kind, asserted := assertionKindOf(usage)
@@ -448,19 +466,33 @@ func (ctx *Context) carriedVerdictsOf(typ *symbols.Symbol, obj *validatedObject,
 				continue
 			}
 		}
-		seen[usage] = true
-		switch kind {
+		out = append(out, Asserted{Kind: kind, Symbol: sym, Scope: member.scope, Text: assertionText(usage, sym), usage: usage})
+	}
+	return out
+}
+
+// carriedVerdictsOf checks the assertions one type of the object states about it,
+// skipping those seen through an earlier type and recording the ones it checks.
+func (ctx *Context) carriedVerdictsOf(typ *symbols.Symbol, obj *validatedObject, seen map[*ast.Usage]bool) ([]ObjectVerdict, []*SatisfyAssertion) {
+	var verdicts []ObjectVerdict
+	var stated []*SatisfyAssertion
+	for _, a := range ctx.AssertionsOf(typ, typ.OwnerScope) {
+		if seen[a.usage] {
+			continue
+		}
+		seen[a.usage] = true
+		switch a.Kind {
 		case AssertionSatisfaction:
-			if a := ctx.satisfyAssertionOf(sym); a != nil {
-				stated = append(stated, a)
+			if sa := ctx.satisfyAssertionOf(a.Symbol); sa != nil {
+				stated = append(stated, sa)
 			}
 		case AssertionConstraint:
-			result, err := ctx.CheckConstraintOn(sym, member.scope, obj.inst)
-			verdicts = append(verdicts, ctx.objectVerdict(kind, sym, assertionText(usage, sym), obj, result, err))
+			result, err := ctx.CheckConstraintOn(a.Symbol, a.Scope, obj.inst)
+			verdicts = append(verdicts, ctx.objectVerdict(a.Kind, a.Symbol, a.Text, obj, result, err))
 		case AssertionRequirement:
-			result, err := ctx.CheckRequirementOn(sym, member.scope, obj.inst)
-			v := ctx.objectVerdict(kind, sym, assertionText(usage, sym), obj, result, err)
-			v.Requirement = sym
+			result, err := ctx.CheckRequirementOn(a.Symbol, a.Scope, obj.inst)
+			v := ctx.objectVerdict(a.Kind, a.Symbol, a.Text, obj, result, err)
+			v.Requirement = a.Symbol
 			verdicts = append(verdicts, v)
 		}
 	}
@@ -633,4 +665,54 @@ func (ctx *Context) objectVerdict(kind AssertionKind, sym *symbols.Symbol, text 
 func isViolation(err error) bool {
 	var violation *ViolationError
 	return errors.As(err, &violation) || errors.Is(err, ErrViolated)
+}
+
+// SubjectMembersOf are the subject members requirement declares or inherits: what
+// a satisfaction binds to the object `by` names.
+func (ctx *Context) SubjectMembersOf(requirement *symbols.Symbol) []*symbols.Symbol {
+	if requirement == nil {
+		return nil
+	}
+	var out []*symbols.Symbol
+	for _, member := range ctx.chainMembers(requirement, requirement.OwnerScope) {
+		switch node := member.node.(type) {
+		case *ast.SubjectMember:
+		case *ast.Usage:
+			if node.Kind != ast.UsageSubject {
+				continue
+			}
+		default:
+			continue
+		}
+		if sym := memberSymbol(member.scope, member.node); sym != nil {
+			out = append(out, sym)
+		}
+	}
+	return out
+}
+
+// NestedAsserting are the object-holding features of typ whose objects carry
+// assertions of their own — stated by the feature, its type or a variant of
+// either — which validating an object of typ checks object by object.
+func (ctx *Context) NestedAsserting(typ *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, feat := range ctx.FeaturesOf(typ) {
+		feature := feat
+		if feature.Name == "" || feature.Symbol == nil || !holdsObjects(&feature) || ctx.libraryDeclared(feature.Symbol) {
+			continue
+		}
+		composite := ctx.CompositeTypeOf(&feature)
+		candidates := []*symbols.Symbol{feature.Symbol, composite}
+		candidates = append(candidates, ctx.model.semantics.VariantsOf(feature.Symbol)...)
+		if composite != nil {
+			candidates = append(candidates, ctx.model.semantics.VariantsOf(composite)...)
+		}
+		for _, candidate := range candidates {
+			if candidate != nil && len(ctx.AssertionsOf(candidate, candidate.OwnerScope)) > 0 {
+				out = append(out, feature.Symbol)
+				break
+			}
+		}
+	}
+	return out
 }
