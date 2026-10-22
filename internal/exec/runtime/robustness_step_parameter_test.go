@@ -33,15 +33,6 @@ const stepParameterFixture = `package test {
 	}
 }`
 
-func readGo(t *testing.T, ctx *Context, self *Instance) Value {
-	t.Helper()
-	fv, err := self.GetFeatureValue(ctx, "go")
-	if err != nil {
-		t.Fatalf("read go of object #%d: %v", self.ID, err)
-	}
-	return soleElement(fv.HeldValue())
-}
-
 func TestRuntimeRobustnessStepParameter(t *testing.T) {
 	t.Run("nested_pin_reads_the_steps_parameter_at_model_level", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stepParameterFixture))

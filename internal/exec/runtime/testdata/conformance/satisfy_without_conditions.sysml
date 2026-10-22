@@ -1,5 +1,6 @@
-// A requirement that states no condition carries no verdict, so satisfying it
-// reports that rather than claiming a check that never ran.
+// A requirement that states no condition holds vacuously: its result is
+// `allTrue(assumptions()) implies allTrue(constraints())` over no constraint,
+// which is true, so satisfying it holds.
 package test {
     requirement def Documented {
         doc /* stated in prose only */
