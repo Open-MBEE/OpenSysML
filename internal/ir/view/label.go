@@ -1,6 +1,7 @@
 package view
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"slices"
 	"strings"
 
@@ -297,7 +298,7 @@ func headed(node *Node) bool {
 // keyworded reports whether the skin writes a node's keyword line: Cameo shows
 // none on a state or an action, whose notation says their kind already.
 func (l labeller) keyworded(node *Node) bool {
-	if l.skin.cameo && (node.Kind == "state" || node.Kind == "action") {
+	if kw := ast.NotationKeyword(node.Kind); l.skin.cameo && (kw == "state" || kw == "action") {
 		return false
 	}
 	return keyworded(node)
@@ -318,7 +319,7 @@ func (l labeller) details(node *Node) []string {
 	switch {
 	case node.Detail == "" || !l.shown.Has(ElementCompartments):
 		return nil
-	case l.skin.cameo && node.Kind == "state":
+	case l.skin.cameo && ast.NotationKeyword(node.Kind) == "state":
 		return cameoStateDetails(node.Detail)
 	case l.skin.cameo:
 		return []string{bareNames(node.Detail)}

@@ -322,10 +322,10 @@ func familyRank(family string) int {
 	return len(paletteFamilies)
 }
 
-// definitionKeyword is a node kind without the `def` a SysML definition ends
-// in, `part` for `part def`; a usage's kind is returned as it is.
+// definitionKeyword is a node kind's keyword without its modifier and the `def`
+// a SysML definition ends in: `part` for `part def` and `abstract part def`.
 func definitionKeyword(kind string) string {
-	return strings.TrimSuffix(kind, " def")
+	return strings.TrimSuffix(ast.NotationKeyword(kind), " def")
 }
 
 // kermlClassifierKinds are the KerML classifier keywords, definitions the
