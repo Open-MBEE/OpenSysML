@@ -57,19 +57,30 @@ func readPilotDocument(content []byte) (pilotDocument, error) {
 	return document, nil
 }
 
+// pilotArgs spells the bridge's command line: the pinned standard library is
+// the launcher's, every extra library directory is named explicitly, then the
+// root's files.
+func pilotArgs(dir, out string, libraries, files []string) []string {
+	args := []string{"--root", dir, "--out", out}
+	for _, library := range libraries {
+		args = append(args, "--extension-library", library)
+	}
+	for _, rel := range files {
+		args = append(args, filepath.Join(dir, filepath.FromSlash(rel)))
+	}
+	return args
+}
+
 // runPilot exports one root's files in one pilot process, so the pilot
 // resolves cross-file imports the way it resolves ours, then reads the per-file
 // documents it wrote.
-func runPilot(launcher, dir string, files []string, timeout time.Duration) (*pilotExport, error) {
+func runPilot(launcher, dir string, libraries, files []string, timeout time.Duration) (*pilotExport, error) {
 	out, err := os.MkdirTemp("", toolName+"-pilot-*")
 	if err != nil {
 		return nil, fmt.Errorf("create pilot output: %w", err)
 	}
 	defer os.RemoveAll(out)
-	args := []string{"--root", dir, "--out", out}
-	for _, rel := range files {
-		args = append(args, filepath.Join(dir, filepath.FromSlash(rel)))
-	}
+	args := pilotArgs(dir, out, libraries, files)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	// #nosec G204 -- launcher is an explicit CLI override or repo-local artifact.
