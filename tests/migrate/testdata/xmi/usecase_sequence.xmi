@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Actor" xmi:id="_operator" name="Operator"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_pumpDown" name="PumpDown">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pdTarget" name="target">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_stage" name="Sample Stage">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_position" name="position">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_position0" value="0.0"/>
+      </ownedAttribute>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_move" name="move">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_moveTo" name="to" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedOperation>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_vacuum" name="Vacuum Subsystem">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pressure" name="pressure">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_image" name="Image"/>
+    <packagedElement xmi:type="uml:UseCase" xmi:id="_acquire" name="Acquire Images">
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_seq" name="Acquire Images">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_pOperator" name="operator" type="_operator"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_pStage" name="stage" type="_stage"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_pVacuum" name="vacuum" type="_vacuum"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_pImage" name="image" type="_image"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_pLog" name="log"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_lOperator" name="operator" represents="_pOperator"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_lStage" name="stage" represents="_pStage"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_lVacuum" name="vacuum" represents="_pVacuum"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_lImage" name="image" represents="_pImage"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_lLog" name="log" represents="_pLog"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sMove" covered="_lOperator" message="_mMove"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rMove" covered="_lStage" message="_mMove"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sPump" covered="_lStage" message="_mPump"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rPump" covered="_lVacuum" message="_mPump"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sNew" covered="_lVacuum" message="_mNew"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rNew" covered="_lImage" message="_mNew"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sLog" covered="_lImage" message="_mLog"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rLog" covered="_lLog" message="_mLog"/>
+        <message xmi:type="uml:Message" xmi:id="_mMove" name="move" messageSort="synchCall" signature="_move" sendEvent="_sMove" receiveEvent="_rMove">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_mMoveTo" value="2.5"/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_mPump" name="pumpDown" messageSort="asynchSignal" signature="_pumpDown" sendEvent="_sPump" receiveEvent="_rPump">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_mPumpTarget" value="0.1"/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_mNew" name="new" messageSort="createMessage" sendEvent="_sNew" receiveEvent="_rNew"/>
+        <message xmi:type="uml:Message" xmi:id="_mLog" name="record" messageSort="synchCall" sendEvent="_sLog" receiveEvent="_rLog"/>
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <modelExtension>
+            <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_seq" name="Acquire Images" ownerOfDiagram="_seq">
+              <xmi:Extension extender="Example UML Tool 1.0">
+                <diagramRepresentation>
+                  <diagram:DiagramRepresentationObject type="SysML Sequence Diagram" umlType="Sequence Diagram">
+                    <diagramContents>
+                      <usedElements>_lOperator</usedElements>
+                      <usedElements>_lStage</usedElements>
+                      <usedElements>_lVacuum</usedElements>
+                      <usedElements>_lImage</usedElements>
+                      <usedElements>_lLog</usedElements>
+                      <usedElements>_mMove</usedElements>
+                      <usedElements>_mPump</usedElements>
+                      <usedElements>_mNew</usedElements>
+                      <usedElements>_mLog</usedElements>
+                    </diagramContents>
+                    <binaryObject streamContentID="BINARY-usecase_sequence"/>
+                  </diagram:DiagramRepresentationObject>
+                </diagramRepresentation>
+              </xmi:Extension>
+            </ownedDiagram>
+          </modelExtension>
+        </xmi:Extension>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_stage"/>
+  <sysml:Block xmi:id="_s2" base_Class="_vacuum"/>
+  <sysml:Block xmi:id="_s3" base_Class="_image"/>
+</xmi:XMI>

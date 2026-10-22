@@ -510,6 +510,8 @@ func (s *scenario) lifeline(line *sysmlv1.Element) (*lifelineRef, string) {
 		ref.kw, ref.typing = s.lifelineTyping(ref.typ)
 	case "Property", "Port":
 		if rep.Parent == s.e {
+			// The lifeline is the property's own usage, under the property's name.
+			name = s.m.nameOf(rep)
 			s.ownLifeline(ref)
 			break
 		}
@@ -552,6 +554,16 @@ func (s *scenario) ownLifeline(ref *lifelineRef) {
 	}
 	if typ, _ := s.m.typeRef(ref.typ, s.e); typ != "" {
 		ref.typing = s.m.typing(ref.typ) + typ
+	}
+	switch ref.kw {
+	case "part", "item", "occurrence", "port":
+	default:
+		// A lifeline is an occurrence: an untyped property is a part, one typed by a value an occurrence of no type.
+		ref.kw = "occurrence"
+		if ref.typ == nil {
+			ref.kw = "part"
+		}
+		ref.typing = ""
 	}
 	ref.mult, _ = s.m.multiplicity(ref.rep)
 }
@@ -705,14 +717,18 @@ func (s *scenario) send(step *scenarioStep) (*scenarioStep, string) {
 // which its receiving event performs with the arguments bound to its in parameters.
 func (s *scenario) call(step *scenarioStep) (*scenarioStep, string) {
 	op := s.m.model.Ref(step.msg, "signature")
+	if step.receiver == nil {
+		return nil, noLifeline
+	}
 	if op == nil {
-		return nil, "names no operation" + suffixNote(s.m.dangling(step.msg, "signature"))
+		// A call of no operation is still a message between its events; it performs nothing.
+		step.kind = stepCall
+		step.note = "the call names no operation" + suffixNote(s.m.dangling(step.msg, "signature")) + ", so its receiving event performs nothing"
+		step.base, step.name = s.stepName(step.msg, "call")
+		return step, ""
 	}
 	if op.Type != "Operation" || !s.m.written(op) {
 		return nil, "names " + describe(op) + ", which is not a migrated operation"
-	}
-	if step.receiver == nil {
-		return nil, noLifeline
 	}
 	switch {
 	case step.receiver.typ == nil:
@@ -1185,9 +1201,7 @@ func (s *scenario) writeSequence() {
 	for _, line := range s.e.Owned("lifeline") {
 		ref := s.lines[line]
 		s.writeLifeline(ref)
-		if ref.name != line.Name {
-			s.m.names[line] = ref.name
-		}
+		s.m.names[line] = ref.name
 		note := "written as the " + strings.TrimSpace(ref.prefix+ref.kw) + " usage " + ref.name + " holding its " + plural(len(ref.events), "event occurrence")
 		switch {
 		case ref.bound != "":
@@ -1439,7 +1453,7 @@ func (s *scenario) payload(step *scenarioStep, received *sequenceEvent) (payload
 		}
 		return writeName(name) + " : " + sig + " = new " + sig + "(" + strings.Join(step.args, ", ") + ")", ""
 	case stepCall:
-		if received == nil {
+		if received == nil || step.op == nil {
 			return "", ""
 		}
 		usage := writeName(s.m.operationUsage(step.op))

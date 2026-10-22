@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag_seq'></elementID>
+    <geometry>0, 0, 900, 400</geometry>
+  </mdElement>
+  <mdElement elementClass='Lifeline' xmi:id='_sym_operator'>
+    <elementID xmi:idref='_lOperator'></elementID>
+    <geometry>20, 20, 120, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Lifeline' xmi:id='_sym_stage'>
+    <elementID xmi:idref='_lStage'></elementID>
+    <geometry>200, 20, 120, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Lifeline' xmi:id='_sym_vacuum'>
+    <elementID xmi:idref='_lVacuum'></elementID>
+    <geometry>380, 20, 140, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Lifeline' xmi:id='_sym_image'>
+    <elementID xmi:idref='_lImage'></elementID>
+    <geometry>580, 20, 100, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Lifeline' xmi:id='_sym_log'>
+    <elementID xmi:idref='_lLog'></elementID>
+    <geometry>740, 20, 100, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Message' xmi:id='_sym_move'>
+    <elementID xmi:idref='_mMove'></elementID>
+    <linkFirstEndID xmi:idref='_sym_operator'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_stage'></linkSecondEndID>
+    <geometry>80, 120; 260, 120; </geometry>
+  </mdElement>
+  <mdElement elementClass='Message' xmi:id='_sym_pump'>
+    <elementID xmi:idref='_mPump'></elementID>
+    <linkFirstEndID xmi:idref='_sym_stage'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_vacuum'></linkSecondEndID>
+    <geometry>260, 180; 450, 180; </geometry>
+  </mdElement>
+  <mdElement elementClass='Message' xmi:id='_sym_new'>
+    <elementID xmi:idref='_mNew'></elementID>
+    <linkFirstEndID xmi:idref='_sym_vacuum'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_image'></linkSecondEndID>
+    <geometry>450, 240; 630, 240; </geometry>
+  </mdElement>
+  <mdElement elementClass='Message' xmi:id='_sym_log'>
+    <elementID xmi:idref='_mLog'></elementID>
+    <linkFirstEndID xmi:idref='_sym_image'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_log'></linkSecondEndID>
+    <geometry>630, 300; 790, 300; </geometry>
+  </mdElement>
+</mdOwnedViews>
