@@ -298,7 +298,7 @@ func headed(node *Node) bool {
 // keyworded reports whether the skin writes a node's keyword line: Cameo shows
 // none on a state or an action, whose notation says their kind already.
 func (l labeller) keyworded(node *Node) bool {
-	if kw := ast.NotationKeyword(node.Kind); l.skin.cameo && (kw == "state" || kw == "action") {
+	if l.skin.cameo && (node.Kind == "state" || node.Kind == "action") {
 		return false
 	}
 	return keyworded(node)

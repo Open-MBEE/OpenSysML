@@ -32,3 +32,19 @@ func TestKindDecisionsReadTheKeywordBehindTheModifier(t *testing.T) {
 		t.Error("isDefinitionKind reads the kind keyword behind abstract")
 	}
 }
+
+// Cameo leaves the keyword line off a plain state or action, whose shape says
+// the kind; a written modifier is the only mark of an abstract or variation
+// one, so that line stays.
+func TestCameoKeepsTheModifierLineOnStatesAndActions(t *testing.T) {
+	l := labeller{skin: skinOf(StyleCameo), shown: AllShown()}
+	for kind, want := range map[string]string{
+		"state": "", "action": "", "action def": "«action def»",
+		"abstract action": "«abstract action»", "abstract state": "«abstract state»",
+		"variation action": "«variation action»", "variant action": "«variant action»",
+	} {
+		if got := l.keyword(&Node{Kind: kind, Name: "n"}); got != want {
+			t.Errorf("Cameo keyword line of a %q = %q, want %q", kind, got, want)
+		}
+	}
+}
