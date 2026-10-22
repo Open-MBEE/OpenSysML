@@ -419,8 +419,6 @@ func tracePerformers(t *testing.T, ctx *Context, idx *symbols.Index, trace *Trac
 	}
 }
 
-// traceActionPerformers performs the action once per listed object, as the
-// conformance harness does, so the trace records each owner-bound run.
 // traceAction traces one performance of the case's action after the untraced
 // performances its before list asks for, so a golden records the repeated one.
 func traceAction(t *testing.T, ctx *Context, idx *symbols.Index, rootScope *symbols.Scope, trace *TraceRecorder, actionSym *symbols.Symbol, expected ExpectedOutcome) {
@@ -439,6 +437,8 @@ func traceAction(t *testing.T, ctx *Context, idx *symbols.Index, rootScope *symb
 	}
 }
 
+// traceActionPerformers performs the action once per listed object, as the
+// conformance harness does, so the trace records each owner-bound run.
 func traceActionPerformers(t *testing.T, ctx *Context, idx *symbols.Index, trace *TraceRecorder, actionSym *symbols.Symbol, performers []Performer) {
 	t.Helper()
 	ctx.SetTrace(trace)
