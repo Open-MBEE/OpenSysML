@@ -470,8 +470,10 @@ function test_surface_live()
         'name', 'analysis.sysml');
     result = opensysml.runAnalysis(analysis, 'An::plain');
     resultMethod = analysis.runAnalysis('An::plain');
-    assert_equal(result.outputs.x, 3, 'runAnalysis');
-    assert_equal(resultMethod.outputs.x, 3, 'Model.runAnalysis');
+    % `out x : Real` states no multiplicity, so the analysis holds x in its
+    % effective [0..*]: a one-element sequence, decoded as a cell.
+    assert_equal(result.outputs.x, {3}, 'runAnalysis');
+    assert_equal(resultMethod.outputs.x, {3}, 'Model.runAnalysis');
     try
         opensysml.runAnalysis(analysis, 'An::CostAnalysis');
         error('assert:error', 'runAnalysis without a subject returned normally');

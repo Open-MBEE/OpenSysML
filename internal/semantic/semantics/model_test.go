@@ -418,19 +418,19 @@ func TestDirectSupertypesKeptAcrossOwnerCycleGuard(t *testing.T) {
 	})
 }
 
-// A closure built while a metadata annotation type is unresolved must not be
-// memoized, or the base type it contributes never appears once it resolves.
-func TestAllSupertypesNotMemoizedWhileMetadataProvisional(t *testing.T) {
+// A closure built while a metadata annotation type is undeclared is memoized: the
+// lookup read the name, so a later declaration invalidates it (Resolver.Invalidate).
+func TestAllSupertypesMemoizedWhileMetadataTypeUnresolved(t *testing.T) {
 	m, root := buildModel(t, "part def A; #Unknown part def B specializes A;")
 	b := sym(t, root, "B")
 	if got := m.AllSupertypes(b); len(got) != 1 || got[0] != sym(t, root, "A") {
 		t.Fatalf("AllSupertypes(B) = %v, want [A]", got)
 	}
-	if !m.provisionalSupers[b] {
-		t.Fatalf("B's supertypes should be provisional while #Unknown is unresolved")
+	if m.provisionalSupers[b] {
+		t.Fatalf("B's supertypes should be settled while #Unknown names no declaration")
 	}
-	if _, cached := m.allSupers[b]; cached {
-		t.Fatalf("a provisional closure must not be memoized")
+	if _, cached := m.allSupers[b]; !cached {
+		t.Fatalf("a settled closure should be memoized")
 	}
 
 	m2, root2 := buildModel(t, "metadata def Safety :> Base::Metaobject; part def A; #Safety part def B specializes A;")

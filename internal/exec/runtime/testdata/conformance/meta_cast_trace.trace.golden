@@ -18,4 +18,4 @@ materialize: Safety #1
         exit calc BaseFunctions::ToString -> "2"
       eval invoke BaseFunctions::ToString -> "2"
     eval operator + -> "test::seatBelt/2"
-exit calc test::Describe -> "test::seatBelt/2"
+exit calc test::Describe -> ("test::seatBelt/2")

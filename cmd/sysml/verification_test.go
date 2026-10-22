@@ -39,10 +39,10 @@ func TestRunVerification(t *testing.T) {
 	binary := buildCLI(t)
 
 	wantReport(t, check(t, binary, verificationModel, "-analysis", "Ver::checkSlow"), 0,
-		"✓ Ver::checkSlow", "result = VerdictKind::pass",
+		"✓ Ver::checkSlow", "result = [VerdictKind::pass]",
 		"✓ Verification Ver::checkSlow verdict: pass")
 	wantReport(t, check(t, binary, verificationModel, "-analysis", "Ver::checkFast"), 1,
-		"✗ Ver::checkFast", "result = VerdictKind::fail",
+		"✗ Ver::checkFast", "result = [VerdictKind::fail]",
 		"✗ Verification Ver::checkFast verdict: fail")
 	wantReport(t, check(t, binary, verificationModel, "-analysis", "Ver::silent"), 2,
 		"? Verification Ver::silent verdict: inconclusive")
@@ -189,12 +189,12 @@ func TestVerificationObjectiveDecidesOnEverySurface(t *testing.T) {
 
 	scout := check(t, binary, objectiveSubjectModel, "-analysis", "Ver::checkScout")
 	wantReport(t, scout, 0,
-		"✓ Ver::checkScout", "result = VerdictKind::pass",
+		"✓ Ver::checkScout", "result = [VerdictKind::pass]",
 		"objective obj: satisfied",
 		"✓ Verification Ver::checkScout verdict: pass")
 	heavy := check(t, binary, objectiveSubjectModel, "-analysis", "Ver::checkHeavy")
 	wantReport(t, heavy, 1,
-		"✗ Ver::checkHeavy", "result = VerdictKind::fail",
+		"✗ Ver::checkHeavy", "result = [VerdictKind::fail]",
 		"objective obj: not satisfied: lander.touchdownSpeed <= limit",
 		"✗ Verification Ver::checkHeavy verdict: fail")
 	for _, got := range []runOutcome{scout, heavy} {
@@ -245,10 +245,10 @@ func TestRunVerificationOnADefinitionOwnedCase(t *testing.T) {
 	// case's status is the body's verdict, reported beside it.
 	wantReport(t, check(t, binary, definitionOwnedModel, "-instantiate", "Cost::cheap", "-analysis", "Cost::Definition::costTest Cost::cheap"), 0,
 		"✓ Cost::Definition::costTest", "objective costObjective: satisfied",
-		"verdict = VerdictKind::pass",
+		"verdict = [VerdictKind::pass]",
 		"✓ Verification Cost::Definition::costTest on Cost::cheap (object #1) verdict: pass")
 	wantReport(t, check(t, binary, definitionOwnedModel, "-instantiate", "Cost::dear", "-analysis", "Cost::Definition::costTest Cost::dear"), 1,
-		"✗ Cost::Definition::costTest", "verdict = VerdictKind::fail",
+		"✗ Cost::Definition::costTest", "verdict = [VerdictKind::fail]",
 		"✗ Verification Cost::Definition::costTest on Cost::dear (object #1) verdict: fail")
 	wantReport(t, check(t, binary, definitionOwnedModel, "-instantiate", "Cost::dear", "-validate=Cost::dear"), 1,
 		"✗ satisfy costReq fails (on Cost::dear ID: 1)",

@@ -211,6 +211,7 @@ func (e *ActionExecutor) inputVector() (*Value, error) {
 
 // checkVector refuses a value that is no vector, naming the protocol feature it stood for.
 func (e *ActionExecutor) checkVector(what string, val Value) (Value, error) {
+	val = soleElement(val)
 	if !isVectorKind(val) {
 		return Value{}, fmt.Errorf("%w: %s of action %s is %s, not a vector",
 			errStateSpaceValue, what, SymbolText(e.action), DescribeValue(val))
@@ -357,7 +358,8 @@ func (e *ActionExecutor) nextState(run *stateSpaceRun, state Value, input *Value
 		if err != nil {
 			return Value{}, err
 		}
-		if _, err := e.checkVector(lower.GetDifferenceCalc, diff); err != nil {
+		diff, err = e.checkVector(lower.GetDifferenceCalc, diff)
+		if err != nil {
 			return Value{}, err
 		}
 		return e.vectorOp(ast.OpAdd, state, diff)

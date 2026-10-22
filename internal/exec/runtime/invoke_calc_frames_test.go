@@ -84,6 +84,7 @@ func wantInvokedInt(t *testing.T, ctx *Context, scope *symbols.Scope, name strin
 	if err != nil {
 		t.Fatalf("%s(%v): %v", name, args, err)
 	}
+	result = soleElement(result)
 	if result.Kind != ValConst || result.Const.Kind != semantics.ValInt || result.Const.Int != want {
 		t.Fatalf("%s(%v) = %s, want %d", name, args, FormatTraceValue(result), want)
 	}
@@ -211,7 +212,7 @@ func TestRecursiveCalcTraceNestsPerInvocation(t *testing.T) {
 	if enters, exits := strings.Count(trace, "enter calc test::Fib"), strings.Count(trace, "exit calc test::Fib ->"); enters != 9 || exits != 9 {
 		t.Errorf("Fib(4) traced %d enters and %d exits, want 9 of each:\n%s", enters, exits, trace)
 	}
-	if !strings.Contains(trace, "bind k = 4 [argument]") || !strings.Contains(trace, "exit calc test::Fib -> 3") {
+	if !strings.Contains(trace, "bind k = 4 [argument]") || !strings.Contains(trace, "exit calc test::Fib -> (3)") {
 		t.Errorf("trace does not bind the outermost argument and yield its result:\n%s", trace)
 	}
 	wantFramesReleased(t, ctx)

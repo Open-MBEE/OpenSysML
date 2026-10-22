@@ -325,17 +325,17 @@ sysml> package Orbit {
 
 sysml> %calc Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])
 ✓ Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])
-  = 3049.86815 [SI::'m/s']
+  = [3049.86815 [SI::'m/s']]
   standing: value (observed: 1 run under reverse)
 
 sysml> %calc Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])
 ✓ Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])
-  = 7793.229127559948 [SI::'m/s']
+  = [7793.229127559948 [SI::'m/s']]
   standing: value (observed: 1 run under reverse)
 
 sysml> %calc Orbit::perMass(10 [SI::N], 2 [SI::kg])
 ✓ Orbit::perMass(10 [SI::N], 2 [SI::kg])
-  = 5.0 [SI::'m⋅s⁻²']
+  = [5.0 [SI::'m⋅s⁻²']]
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -512,7 +512,7 @@ sysml> calc distance {
 
 sysml> %calc distance 3 4
 ✓ distance(3, 4)
-  = 25
+  = [25]
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -582,7 +582,7 @@ sysml> package Gains {
 
 sysml> %calc Gains::Apply(Gains::square, 3.0)
 ✓ Gains::Apply(Gains::square, 3.0)
-  = 9.0
+  = [9.0]
   standing: value (observed: 1 run under reverse)
 
 sysml> %eval Gains::square

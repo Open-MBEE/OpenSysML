@@ -4,7 +4,7 @@
   "evaluate": "test::steps",
   "trace": true,
   "outputs": {
-    "total": {"type": "Real", "value": 66.0}
+    "total": {"type": "Sequence", "elements": [{"type": "Real", "value": 66.0}]}
   },
-  "result": {"type": "Real", "value": 60.0}
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 60.0}]}
 }

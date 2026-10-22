@@ -386,9 +386,9 @@ expr:AnonymousFeatures__v__engine_pvalue
     sysx:sourceText "e" ;
     sysml:elementId "AnonymousFeatures__v__engine_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:AnonymousFeatures__v__engine_pvalue_preferent, expr:AnonymousFeatures__v__engine_pvalue_pout_om ;
+    sysml:ownedMembership expr:AnonymousFeatures__v__engine_pvalue_preferent, expr:AnonymousFeatures__v__engine_pvalue_pout_om ;
     sysml:referent elmt:AnonymousFeatures__e ;
-    sysml:ownedRelationship expr:AnonymousFeatures__v__engine_pvalue_pout_om, expr:AnonymousFeatures__v__engine_pvalue_preferent ;
-    sysml:ownedMembership expr:AnonymousFeatures__v__engine_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:AnonymousFeatures__v__engine_pvalue_pout_om ;
     sysml:ownedFeature expr:AnonymousFeatures__v__engine_pvalue_pout ;
     sysml:parameter expr:AnonymousFeatures__v__engine_pvalue_pout ;
@@ -396,7 +396,15 @@ expr:AnonymousFeatures__v__engine_pvalue
     sysml:owner elmt:AnonymousFeatures__v__engine ;
     sysml:owningRelationship expr:AnonymousFeatures__v__engine_pvalue_om ;
     sysml:owningMembership expr:AnonymousFeatures__v__engine_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"AnonymousFeatures__v__engine_pvalue_pout_om\"},{\"@id\":\"AnonymousFeatures__v__engine_pvalue_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"AnonymousFeatures__v__engine_pvalue_preferent\"},{\"@id\":\"AnonymousFeatures__v__engine_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"AnonymousFeatures__v__engine_pvalue_preferent\"},{\"@id\":\"AnonymousFeatures__v__engine_pvalue_pout_om\"}]" .
+
+expr:AnonymousFeatures__v__engine_pvalue_preferent
+    a sysml:Membership ;
+    sysml:elementId "AnonymousFeatures__v__engine_pvalue_preferent" ;
+    sysml:memberElement elmt:AnonymousFeatures__e ;
+    sysml:owner expr:AnonymousFeatures__v__engine_pvalue ;
+    sysml:owningRelatedElement expr:AnonymousFeatures__v__engine_pvalue .
 
 expr:AnonymousFeatures__v__engine_pvalue_pout
     a sysml:Feature ;
@@ -571,13 +579,6 @@ elmt:AnonymousFeatures__v__engine_rd0
     sysml:owner elmt:AnonymousFeatures__v__engine ;
     sysml:relatedElement elmt:AnonymousFeatures__v__engine, elmt:AnonymousFeatures__Part__engine ;
     json:relatedElement "[{\"@id\":\"AnonymousFeatures__v__engine\"},{\"@id\":\"AnonymousFeatures__Part__engine\"}]" .
-
-expr:AnonymousFeatures__v__engine_pvalue_preferent
-    a sysml:Membership ;
-    sysml:elementId "AnonymousFeatures__v__engine_pvalue_preferent" ;
-    sysml:memberElement elmt:AnonymousFeatures__e ;
-    sysml:owner expr:AnonymousFeatures__v__engine_pvalue ;
-    sysml:owningRelatedElement expr:AnonymousFeatures__v__engine_pvalue .
 
 elmt:AnonymousFeatures__v___403_rd0
     a sysml:Redefinition ;

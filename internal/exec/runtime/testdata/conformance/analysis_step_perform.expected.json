@@ -5,5 +5,5 @@
   "outputs": {
     "r": {"type": "Sequence", "elements": [{"type": "Real", "value": 10.0}]}
   },
-  "result": {"type": "Real", "value": 10.0}
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 10.0}]}
 }

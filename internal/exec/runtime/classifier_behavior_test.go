@@ -2938,9 +2938,9 @@ package test {
 		for _, out := range result.Outputs {
 			switch out.Name {
 			case "who":
-				selfID = out.Value.Instance
+				selfID = soleElement(out.Value).Instance
 			default:
-				got = out.Value
+				got = soleElement(out.Value)
 			}
 		}
 		if got.Const.Int != n {
@@ -2971,7 +2971,7 @@ package test {
 	var failID int64
 	for _, out := range result.Outputs {
 		if out.Name == "who" {
-			failID = out.Value.Instance
+			failID = soleElement(out.Value).Instance
 		}
 	}
 	if failID == 0 {

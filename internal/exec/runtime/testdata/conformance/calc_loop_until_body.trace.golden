@@ -37,4 +37,4 @@ enter calc test::halve
       eval operator <= -> true
   stmt return
     eval feature i -> 0.5625
-exit calc test::halve -> 0.5625
+exit calc test::halve -> (0.5625)

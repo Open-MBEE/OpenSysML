@@ -24,4 +24,4 @@ enter calc test::classify
     eval operator and -> true
     stmt return
       eval literal "one" -> "one"
-exit calc test::classify -> "one"
+exit calc test::classify -> ("one")

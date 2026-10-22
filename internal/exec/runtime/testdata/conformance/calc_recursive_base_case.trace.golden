@@ -50,16 +50,16 @@ enter calc test::factorial
                                     eval operator <= -> true
                                     stmt return
                                       eval literal 1 -> 1
-                                exit calc test::factorial -> 1
-                              eval invoke factorial -> 1
+                                exit calc test::factorial -> (1)
+                              eval invoke factorial -> (1)
                             eval operator * -> 2
-                        exit calc test::factorial -> 2
-                      eval invoke factorial -> 2
+                        exit calc test::factorial -> (2)
+                      eval invoke factorial -> (2)
                     eval operator * -> 6
-                exit calc test::factorial -> 6
-              eval invoke factorial -> 6
+                exit calc test::factorial -> (6)
+              eval invoke factorial -> (6)
             eval operator * -> 24
-        exit calc test::factorial -> 24
-      eval invoke factorial -> 24
+        exit calc test::factorial -> (24)
+      eval invoke factorial -> (24)
     eval operator * -> 120
-exit calc test::factorial -> 120
+exit calc test::factorial -> (120)

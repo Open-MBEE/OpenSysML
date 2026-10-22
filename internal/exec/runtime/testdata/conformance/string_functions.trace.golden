@@ -14,4 +14,4 @@ enter calc test::firstTwo
         bind upper = 2 [argument]
       exit calc StringFunctions::Substring -> "hé"
     eval invoke Substring -> "hé"
-exit calc test::firstTwo -> "hé"
+exit calc test::firstTwo -> ("hé")
