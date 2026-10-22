@@ -427,25 +427,30 @@ requirement together, and owns a `rearAxleAssembly` whose own
 
 ```text
 sysml> %configure '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig all
-✓ Part anyVehicleConfig permits 2 selections of variants, which are all of them (z3, 15ms)
+✓ Part anyVehicleConfig permits 2 selections of variants, which are all of them (z3, 20ms)
   1.
-    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice::'4cylEngine'
-    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice::normalPerformanceRequirement
-    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice::manualTransmission
-  2.
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice::'6cylEngine'
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice::highPerformanceRequirement
+    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::'rearAxleAssembly.rearWheelChoice' = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::rearAxleAssembly::rearWheelChoice::wideRimWheel
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice::automaticTransmission
-  Not in the query: what rearAxleAssembly asserts about its own objects, as invocation is not translatable for solving: it is outside the subset; %instantiate and %validate an object to check it
+  2.
+    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice::'4cylEngine'
+    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice::normalPerformanceRequirement
+    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::'rearAxleAssembly.rearWheelChoice' = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::rearAxleAssembly::rearWheelChoice::narrowRimWheel
+    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice::manualTransmission
   standing: satisfiable (witnessed: 1 query by solve)
 ```
 
-The two selections are complete for every assertion the solver can state.
-The rear-axle constraint quantifies with `->forAll`, which is outside the
-solver's subset, so that part is refused by name with the reason and the way
-to check it — instantiate a configuration and `%validate` it, which evaluates
-every nested assertion on the objects actually created. Nothing is left out
-silently: a nested part is either in the query or named here.
+The two selections are the whole configuration: the rear-axle constraint
+quantifies with `->forAll` over `rearWheelChoice`, and a configuration holds
+only the variant a variation point selects (SysML v2.1 §8.3.6, §7.6.7), so
+`rearWheelChoice->forAll { in ref w; w == rearWheelChoice::narrowRimWheel }`
+is the selection `rearWheelChoice == rearWheelChoice::narrowRimWheel`, read
+through the holding part as `'rearAxleAssembly.rearWheelChoice'`. The solver
+states that only for a point holding at least one object; one whose
+multiplicity admits none is refused by name with that reason, as is a
+quantifier body comparing the iterate with anything but a variant. Nothing is
+left out silently: a nested part is either in the query or named with why not.
 
 `VehicleVariabilityModel.sysml` shows the nested case the solver does state.
 Its `'6cylEngine'` variant alone declares the `autoPort` variation and the
