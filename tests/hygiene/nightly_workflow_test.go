@@ -465,11 +465,8 @@ func TestNightlyVSIXIsVersionedAsTheSnapshotCoreNotTheManifest(t *testing.T) {
 	}
 }
 
-// The manifest is assembled by appends, and the installers compare the one digest a
-// manifest lists for an asset: an append whose glob also matched the bundles once
-// listed them twice and broke every nightly install. So no append may use a pattern
-// that matches an asset the build script already listed, and the assembled manifest
-// is checked for repeats and against the files before it is signed.
+// An append whose glob matched the bundles once listed them twice and broke every nightly
+// install: no append may match an asset already listed, and the manifest is checked before signing.
 func TestNightlyManifestListsEachAssetOnce(t *testing.T) {
 	workflow, _ := loadNightlyWorkflow(t)
 	steps := nightlyJob(t, workflow, "publish").runSteps()
