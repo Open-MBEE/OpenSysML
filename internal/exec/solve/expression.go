@@ -122,7 +122,7 @@ func (x *Translator) Condition(cond runtime.Condition) (*Expression, error) {
 // later one need be defined only while those before it hold.
 func (x *Translator) Conditions(conds []runtime.Condition) (*Expression, error) {
 	t := x.t
-	if len(conds) == 0 {
+	if len(conds) == 0 && !vacuousSubject(t.subject) {
 		return nil, fmt.Errorf("%s %s: %w", t.subject.Kind, t.subject.Name, ErrNoConditions)
 	}
 	var required []*Term

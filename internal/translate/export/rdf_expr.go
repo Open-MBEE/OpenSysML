@@ -832,6 +832,10 @@ func (d *decoder) isExpressionNode(subject rdf.Term) bool {
 	if !subject.IsIRI() {
 		return false
 	}
+	if mappingExpressionBodyMemberSubject(d.graph, subject) {
+		d.expressionNodes[subject.Value] = false
+		return false
+	}
 	if known, ok := d.expressionNodes[subject.Value]; ok {
 		return known
 	}

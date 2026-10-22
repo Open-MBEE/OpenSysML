@@ -296,7 +296,7 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 	if a.Requirement == nil && a.RequirementRef != "" {
 		return CheckResult{Subject: subject}, fmt.Errorf("%s: %w: %s", a.Text(), ErrNoRequirement, a.RequirementRef)
 	}
-	if a.Requirement == nil && !ctx.statesAnyCondition(a.Symbol) {
+	if a.Requirement == nil && a.AssertedRequirement() == nil && !ctx.statesAnyCondition(a.Symbol) {
 		return CheckResult{Subject: subject}, fmt.Errorf("%s: %w", a.Text(), ErrNoRequirement)
 	}
 
@@ -368,7 +368,7 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	}
 
 	conds := ctx.conditionsOf(target, members)
-	holds, err := ctx.evaluateConditions(conditionCheck{
+	check := conditionCheck{
 		sym:  target,
 		kind: "satisfaction",
 		what: "require condition",
@@ -379,8 +379,14 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 		element:  a.Text(),
 		bindings: mapFrame(bindings),
 		negated:  a.Negated,
-	}, conds)
-	return ctx.satisfactionResult(holds, subject, reached), err
+		about:    a.AssertedRequirement(),
+	}
+	holds, err := ctx.evaluateConditions(check, conds)
+	result := ctx.satisfactionResult(holds, subject, reached)
+	if err == nil && holds {
+		result.Vacuous = vacuity(check, conds)
+	}
+	return result, err
 }
 
 // satisfactionBindings are the members of target's requirement chain and the values

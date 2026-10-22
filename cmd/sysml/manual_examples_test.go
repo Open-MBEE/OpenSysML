@@ -289,7 +289,7 @@ func TestManualTraceabilityLadder(t *testing.T) {
 				"| L-2.1 | thrust | engine | hotFire |",
 				"| L-4 | beacon | transponder |  |",
 				"| verification | hotFire | LanderHierarchy::lander.propulsion.engine | violated |",
-				"| satisfaction |  | LanderHierarchy::lander.avionics.transponder | undecided |",
+				"| satisfaction |  | LanderHierarchy::lander.avionics.transponder | holds |",
 			},
 			html: []string{
 				`data-element="LanderHierarchy::weighLander"`,

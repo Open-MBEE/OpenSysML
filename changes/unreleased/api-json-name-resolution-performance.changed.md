@@ -1,0 +1,1 @@
+- API-JSON writing now caches namespace and library-name lookups, reducing repeated name-resolution work without changing standard or compact output.

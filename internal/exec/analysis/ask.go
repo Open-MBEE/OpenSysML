@@ -84,7 +84,7 @@ func CheckAnswer(result runtime.CheckResult, err error) Answer {
 	case err != nil:
 		return Answer{Err: err}
 	case result.Holds:
-		return Answer{Claim: ClaimHolds}
+		return Answer{Claim: ClaimHolds, Reason: result.Vacuous}
 	}
 	return Answer{Claim: ClaimViolated}
 }

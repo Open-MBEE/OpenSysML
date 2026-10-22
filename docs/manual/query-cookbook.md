@@ -1642,11 +1642,11 @@ calc def Checks :> Query {
 $ sysml cookbook.sysml -run-query "Cookbook::Checks root=telescope"
 ✓ Query Cookbook::Checks returned 6 rows
   Columns: path, name, verdict, reason
-  Row 1: satisfy massRequirement by telescope on Cookbook::telescope: undecided
+  Row 1: satisfy massRequirement by telescope on Cookbook::telescope: holds
     path = "Cookbook::telescope"
     name = (none)
-    verdict = "undecided"
-    reason = "satisfaction satisfy massRequirement by telescope: no condition to evaluate"
+    verdict = "holds"
+    reason = (none)
   Row 2: verification Cookbook::massVerification on Cookbook::telescope: undecided
     path = "Cookbook::telescope"
     name = "massVerification"
@@ -1670,9 +1670,10 @@ $ sysml cookbook.sysml -run-query "Cookbook::Checks root=telescope"
 
 Rows come in the order the objects are walked — the root first, then each
 part in declaration order — with the assertions on one object together. The
-`massRequirement` has no `require constraint`, so satisfying it decides
-nothing, and its verification case binds no verdict; both are `undecided` with
-the reason saying so. Written over the element `telescope`, the query checks
+`massRequirement` has no `require constraint`, so satisfying it holds
+vacuously (a requirement check over no constraint is true), while its
+verification case binds no verdict and is `undecided` with the reason saying
+so. Written over the element `telescope`, the query checks
 the declared object — definition defaults and `:>>` redefinitions — exactly as
 the derived `mass` recipes above read it. With `-instantiate Cookbook::telescope`
 the same binding is the held object and the verdicts are about its values
