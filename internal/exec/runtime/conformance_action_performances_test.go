@@ -16,9 +16,8 @@ func beforeSchemaProblems(expected ExpectedOutcome) []string {
 	return nil
 }
 
-// performBefore performs the actions a case lists before its own on the same
-// runtime, so the case's performance follows them as a later `-action` follows
-// an earlier one; a prior performance of the case's action must yield its outputs.
+// performBefore performs the actions a case lists before its own on the same runtime,
+// as a later `-action` follows an earlier; a prior performance of its action must yield its outputs.
 func performBefore(t *testing.T, ctx *Context, idx *symbols.Index, rootScope *symbols.Scope, actionSym *symbols.Symbol, expected ExpectedOutcome) {
 	t.Helper()
 	for _, name := range expected.Before {

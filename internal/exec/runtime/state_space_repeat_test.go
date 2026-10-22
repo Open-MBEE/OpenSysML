@@ -9,9 +9,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// A second performance of a dynamics action on a runtime whose clock the first
-// advanced steps the same number of steps from its own bound state: stopTime and
-// time are durations from the performance's start, not instants of the clock.
+// A second performance of a dynamics action on a runtime whose clock the first advanced
+// steps as many steps from its own bound state: stopTime and time are its own durations.
 func TestStateSpacePerformedAgainIntegratesAfresh(t *testing.T) {
 	src, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_space_performed_twice.sysml"))
 	if err != nil {
@@ -45,9 +44,8 @@ func TestStateSpacePerformedAgainIntegratesAfresh(t *testing.T) {
 	}
 }
 
-// A performance begun after the clock advanced far reads the same time at each stage
-// and step as one begun at zero: time is the duration stepped, not the clock's
-// instant less the start, which rounds at microsecond steps past 1e8 s.
+// A late-starting performance reads time as its own stepped duration at each stage and
+// step, not the clock's instant less its start, which rounds at microsecond steps past 1e8 s.
 func TestStateSpaceTimeExactAfterLongClockAdvance(t *testing.T) {
 	src := stateSpaceSource("ContinuousStateSpaceDynamics, FixedStepDynamics, RungeKutta4Integrator", `
 		:>> stateSpace = VectorOf((0.0));
