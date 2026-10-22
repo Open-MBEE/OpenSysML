@@ -29,6 +29,7 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 )
 
@@ -399,16 +400,132 @@ func TestTheHTTPTransportServesTLS(t *testing.T) {
 	}
 }
 
-func TestTheHTTPTransportWarnsOffLoopback(t *testing.T) {
+func TestTheHTTPTransportRefusesOffLoopbackWithoutAToken(t *testing.T) {
 	// A bound address that is not loopback is reachable from other machines,
-	// which the server has no way to tell apart, so it says so once.
-	s := startHTTPServer(t, "http", "-http", "0.0.0.0:0")
-	if log := s.stderr.String(); !strings.Contains(log, "no authentication") {
-		t.Errorf("binding every interface was not warned about:\n%s", log)
+	// so it is served only to clients that hold the token.
+	cmd := exec.Command(serverBinary(t), "-http", "0.0.0.0:0", "-root", t.TempDir())
+	cmd.Env = append(os.Environ(), mcp.TokenEnv+"=")
+	out, err := cmd.CombinedOutput()
+	if code := cmd.ProcessState.ExitCode(); err == nil || code != exitUnservable {
+		t.Errorf("exit status = %d, want %d:\n%s", code, exitUnservable, out)
+	}
+	for _, want := range []string{"sysml-mcp: -http 0.0.0.0:0 binds an address other machines reach", "-token-file", "-token", mcp.TokenEnv, "bind loopback"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("the refusal is missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(string(out), "serving the Model Context Protocol") {
+		t.Errorf("the server served before refusing:\n%s", out)
+	}
+}
+
+// TestTheHTTPTransportRequiresTheToken checks the binary serves every
+// interface with a token from a file, answering only clients that send it,
+// challenging the rest as RFC 6750 says, and serving the resource metadata.
+func TestTheHTTPTransportRequiresTheToken(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	tokenFile := filepath.Join(t.TempDir(), "mcp.token")
+	if err := os.WriteFile(tokenFile, []byte("s3cret-token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := startHTTPServer(t, "http", "-http", "0.0.0.0:0", "-token-file", tokenFile)
+	if log := s.stderr.String(); !strings.Contains(log, "auth=bearer") || strings.Contains(log, "s3cret") {
+		t.Errorf("log:\n%s", log)
+	}
+	// The bound address is every interface; the client reaches it by loopback.
+	_, port, err := net.SplitHostPort(strings.TrimSuffix(strings.TrimPrefix(s.url, "http://"), mcp.HTTPPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.url = "http://" + net.JoinHostPort("127.0.0.1", port) + mcp.HTTPPath
+
+	cs := connectHTTP(ctx, t, s.url, &http.Client{Transport: headerTransport{"Authorization", "Bearer s3cret-token"}})
+	var server struct {
+		Version string `json:"version"`
+	}
+	callHTTP(ctx, t, cs, "server_info", map[string]any{}, &server)
+	if server.Version == "" {
+		t.Error("server_info reported no version")
+	}
+
+	for _, bad := range []string{"", "Bearer wrong", "Basic czNjcmV0"} {
+		c := sdk.NewClient(&sdk.Implementation{Name: "test", Version: "0"}, nil)
+		var client *http.Client
+		if bad != "" {
+			client = &http.Client{Transport: headerTransport{"Authorization", bad}}
+		}
+		if cs, err := c.Connect(ctx, &sdk.StreamableClientTransport{Endpoint: s.url, HTTPClient: client}, nil); err == nil {
+			_ = cs.Close()
+			t.Errorf("Authorization %q was served", bad)
+		}
+	}
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, s.url, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set("Authorization", "Bearer wrong")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	metadataURL := strings.TrimSuffix(s.url, mcp.HTTPPath) + mcp.ProtectedResourceMetadataPath
+	challenge := resp.Header.Get("WWW-Authenticate")
+	if resp.StatusCode != http.StatusUnauthorized || !strings.HasPrefix(challenge, "Bearer ") || !strings.Contains(challenge, `error="invalid_token"`) || !strings.Contains(challenge, `resource_metadata="`+metadataURL+`"`) {
+		t.Errorf("status %d, WWW-Authenticate %q, body %q", resp.StatusCode, challenge, body)
+	}
+
+	resp, err = http.Get(metadataURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var meta struct {
+		Resource string   `json:"resource"`
+		Methods  []string `json:"bearer_methods_supported"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&meta)
+	resp.Body.Close()
+	if err != nil || resp.StatusCode != http.StatusOK || meta.Resource != s.url || !slices.Equal(meta.Methods, []string{"header"}) {
+		t.Errorf("metadata: status %d, %+v, %v", resp.StatusCode, meta, err)
 	}
 	if code := s.stop(t); code != exitServed {
 		t.Errorf("exit status = %d, want %d:\n%s", code, exitServed, s.stderr)
 	}
+	if strings.Contains(s.stderr.String(), "s3cret") {
+		t.Errorf("the token was logged:\n%s", s.stderr)
+	}
+}
+
+// TestTheHTTPTransportReadsTheTokenFromTheEnvironment checks the environment
+// variable stands in for the flags, on loopback too.
+func TestTheHTTPTransportReadsTheTokenFromTheEnvironment(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	t.Setenv(mcp.TokenEnv, "from-env")
+	s := startHTTPServer(t, "http")
+	c := sdk.NewClient(&sdk.Implementation{Name: "test", Version: "0"}, nil)
+	if cs, err := c.Connect(ctx, &sdk.StreamableClientTransport{Endpoint: s.url}, nil); err == nil {
+		_ = cs.Close()
+		t.Error("a client with no token was served on loopback with the variable set")
+	}
+	cs := connectHTTP(ctx, t, s.url, &http.Client{Transport: headerTransport{"Authorization", "Bearer from-env"}})
+	if _, err := cs.ListTools(ctx, nil); err != nil {
+		t.Errorf("ListTools with the token: %v", err)
+	}
+	if code := s.stop(t); code != exitServed {
+		t.Errorf("exit status = %d, want %d:\n%s", code, exitServed, s.stderr)
+	}
+}
+
+// headerTransport sends one header on every request.
+type headerTransport struct{ name, value string }
+
+func (h headerTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	r = r.Clone(r.Context())
+	r.Header.Set(h.name, h.value)
+	return http.DefaultTransport.RoundTrip(r)
 }
 
 func TestTheHTTPAddressIsRefusedWhenInUse(t *testing.T) {

@@ -59,10 +59,23 @@ type host struct {
 }
 
 // endpoint is how a host reaches the server: a command it starts and speaks
-// stdio with, or the URL of one already serving over Streamable HTTP.
+// stdio with, or the URL of one already serving over Streamable HTTP, with
+// the bearer token it must send when the server requires one.
 type endpoint struct {
 	command serverCommand
 	url     string
+	token   string
+}
+
+// authorization is the header a host sends a server that requires the token.
+func (ep endpoint) authorization() string { return "Bearer " + ep.token }
+
+// headersObject is the headers block of a URL form, nil without a token.
+func (ep endpoint) headersObject() orderedObject {
+	if ep.token == "" {
+		return nil
+	}
+	return orderedObject{{"Authorization", ep.authorization()}}
 }
 
 // hosts lists the hosts -print-config knows, in the order the list is shown.
@@ -113,7 +126,7 @@ func printHostList(w io.Writer) {
 	for _, h := range hosts {
 		fmt.Fprintf(w, "  %-12s %s\n", h.name, h.file)
 	}
-	fmt.Fprintf(w, "Usage: %s -print-config HOST [-print-config-command CMD | -print-config-npx | -http ADDR [-tls-cert FILE -tls-key FILE]]\n", mcpCommand)
+	fmt.Fprintf(w, "Usage: %s -print-config HOST [-print-config-command CMD | -print-config-npx | -http ADDR [-tls-cert FILE -tls-key FILE] [-token-file FILE | -token TOKEN]]\n", mcpCommand)
 }
 
 // printHostConfig writes the block declaring the server to host name: at
@@ -219,11 +232,14 @@ func (o orderedObject) MarshalJSON() ([]byte, error) {
 }
 
 // renderOpenCode writes the "mcp" block of opencode.json: a local server named
-// by its command array, or a remote one by its URL, enabled.
+// by its command array, or a remote one by its URL and headers, enabled.
 func renderOpenCode(w io.Writer, ep endpoint) error {
 	server := orderedObject{{"type", "local"}, {"command", ep.command.argv()}}
 	if ep.url != "" {
 		server = orderedObject{{"type", "remote"}, {"url", ep.url}}
+		if headers := ep.headersObject(); headers != nil {
+			server = append(server, orderedField{"headers", headers})
+		}
 	}
 	return writeJSON(w, orderedObject{
 		{"$schema", "https://opencode.ai/config.json"},
@@ -255,14 +271,19 @@ func renderVSCode(w io.Writer, ep endpoint) error {
 }
 
 // serverObject is the common server declaration: a command and its arguments,
-// or a URL under urlKey, each preceded by its type when the host wants one spelled.
+// or a URL under urlKey with the headers the server requires, each preceded
+// by its type when the host wants one spelled.
 func serverObject(ep endpoint, stdioType, httpType, urlKey string) orderedObject {
 	var o orderedObject
 	if ep.url != "" {
 		if httpType != "" {
 			o = append(o, orderedField{"type", httpType})
 		}
-		return append(o, orderedField{urlKey, ep.url})
+		o = append(o, orderedField{urlKey, ep.url})
+		if headers := ep.headersObject(); headers != nil {
+			o = append(o, orderedField{"headers", headers})
+		}
+		return o
 	}
 	if stdioType != "" {
 		o = append(o, orderedField{"type", stdioType})
@@ -274,14 +295,22 @@ func serverObject(ep endpoint, stdioType, httpType, urlKey string) orderedObject
 }
 
 // renderCodex writes the [mcp_servers.sysml] table of Codex's config.toml as
-// TOML basic strings and arrays, which JSON strings and arrays of them are.
+// TOML basic strings, arrays and inline tables, which JSON strings, arrays
+// of them and flat objects are.
 func renderCodex(w io.Writer, ep endpoint) error {
 	if ep.url != "" {
 		quoted, err := json.Marshal(ep.url)
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(w, "[mcp_servers.%s]\nurl = %s\n", serverName, quoted)
+		if _, err = fmt.Fprintf(w, "[mcp_servers.%s]\nurl = %s\n", serverName, quoted); err != nil || ep.token == "" {
+			return err
+		}
+		header, err := json.Marshal(ep.authorization())
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(w, "http_headers = { Authorization = %s }\n", header)
 		return err
 	}
 	quoted, err := json.Marshal(ep.command.exe)

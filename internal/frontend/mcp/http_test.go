@@ -3,6 +3,7 @@ package mcp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"net"
 	"net/http"
@@ -172,6 +173,12 @@ func TestOriginPolicyHandlerGrantsCORSByName(t *testing.T) {
 // stop function is called, which also waits for ServeStreamableHTTP to return.
 func serveHTTP(t *testing.T, cfg Config, logs *bytes.Buffer, addr string) (url string, stop func() error) {
 	t.Helper()
+	return serveHTTPWith(t, cfg, logs, addr, BearerToken{})
+}
+
+// serveHTTPWith is serveHTTP requiring token of every request.
+func serveHTTPWith(t *testing.T, cfg Config, logs *bytes.Buffer, addr string, token BearerToken) (url string, stop func() error) {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	cfg.NewSession = func() (*repl.Session, error) { return repl.NewSession(), nil }
 	cfg.Logger = slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -186,7 +193,7 @@ func serveHTTP(t *testing.T, cfg Config, logs *bytes.Buffer, addr string) (url s
 	}
 	done := make(chan error, 1)
 	go func() {
-		done <- srv.ServeStreamableHTTP(ctx, HTTPConfig{Listener: lis, ShutdownTimeout: 20 * time.Second})
+		done <- srv.ServeStreamableHTTP(ctx, HTTPConfig{Listener: lis, Token: token, ShutdownTimeout: 20 * time.Second})
 	}()
 	return "http://" + lis.Addr().String() + HTTPPath, func() error {
 		cancel()
@@ -240,19 +247,26 @@ func TestServeStreamableHTTPSharesTheServerAndStopsWithLiveSessions(t *testing.T
 			t.Errorf("client %d was served after the server stopped", i)
 		}
 	}
-	if log := logs.String(); !strings.Contains(log, "path=/mcp") || !strings.Contains(log, "security=cleartext") || strings.Contains(log, "no authentication") || !strings.Contains(log, "stopped serving") {
+	if log := logs.String(); !strings.Contains(log, "path=/mcp") || !strings.Contains(log, "security=cleartext") || !strings.Contains(log, "auth=none") || !strings.Contains(log, "stopped serving") {
 		t.Errorf("log:\n%s", log)
 	}
 }
 
-func TestServeStreamableHTTPWarnsOffLoopback(t *testing.T) {
-	var logs bytes.Buffer
-	_, stop := serveHTTP(t, Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test"}, &logs, "0.0.0.0:0")
-	if err := stop(); err != nil {
+func TestServeStreamableHTTPRefusesOffLoopbackWithoutAToken(t *testing.T) {
+	srv, err := New(context.Background(), Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test",
+		NewSession: func() (*repl.Session, error) { return repl.NewSession(), nil }})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if log := logs.String(); !strings.Contains(log, "level=WARN") || !strings.Contains(log, "no authentication") {
-		t.Errorf("binding every interface was not warned about:\n%s", log)
+	defer srv.Close(context.Background())
+	lis, err := net.Listen("tcp", "0.0.0.0:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lis.Close()
+	err = srv.ServeStreamableHTTP(context.Background(), HTTPConfig{Listener: lis})
+	if !errors.Is(err, ErrNoToken) || !strings.Contains(err.Error(), "-token-file") || !strings.Contains(err.Error(), TokenEnv) {
+		t.Errorf("ServeStreamableHTTP on every interface with no token: %v", err)
 	}
 }
 

@@ -375,17 +375,41 @@ collide; agents that want sessions of their own give them different names.
 
 ```bash
 sysml-mcp -http 8765                                              # http://localhost:8765/mcp, this machine only
-sysml-mcp -http 0.0.0.0:8765 -allow-origin https://agents.example.org
-sysml-mcp -http 0.0.0.0:8765 -tls-cert server.crt -tls-key server.key
+sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -tls-cert server.crt -tls-key server.key
+sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -allow-origin https://agents.example.org
 ```
 
-The stance is the one [`sysml-grpc`](service-transports.md) takes, and the two are kept the same:
+The stance is the one [`sysml-grpc`](service-transports.md) takes for TLS and origins, with the
+authentication the Model Context Protocol asks of a server on a network:
 
-- **No authentication.** Every client that reaches the address may read and edit the workspace.
-  A port alone, or an address with no host, binds loopback, which only this machine reaches;
-  binding any other address (`0.0.0.0:8765`, a host name) is logged as a warning, and is for a
-  trusted network or behind a proxy that authenticates — a proxy terminates TLS as well as
-  authenticating, and then the server stays on loopback behind it.
+- **Loopback needs no token.** A port alone, or an address with no host, binds loopback, which
+  only this machine reaches, and is served as it is: every local client may read and edit the
+  workspace, as the stdio transport lets the host that starts the server do.
+- **Any other address needs a bearer token.** The protocol's authorization specification makes
+  an HTTP server an OAuth 2.1 resource server; this server is one in the minimal form, with one
+  access token issued out of band by whoever runs it rather than by an authorization server,
+  since a single binary has none to delegate to. The token is named by `-token-file FILE`
+  (preferred: the file's trailing line break is not part of it, and the token stays out of the
+  process list), `-token TOKEN`, or the `OPENSYSML_MCP_TOKEN` environment variable when neither
+  flag is given. Starting on an address other machines reach (`0.0.0.0:8765`, a host name) with no
+  token is refused with exit status 2 and a message naming the flags — not served with a warning.
+  A token given for a loopback address is enforced the same way, for a machine shared with others.
+- **Every request carries the token** as `Authorization: Bearer TOKEN` (RFC 6750 § 2.1, the only
+  form the protocol allows; a token in the query string is never read). The comparison is
+  constant-time. A request without it is refused with `401 Unauthorized` and a
+  `WWW-Authenticate: Bearer realm="sysml-mcp", resource_metadata="…"` challenge (RFC 6750 § 3,
+  RFC 9728 § 5.1); one with a wrong token adds `error="invalid_token"`, one with another scheme
+  `error="invalid_request"`, and a malformed `Bearer` header is `400 Bad Request`. The refusal
+  never repeats the token, and the token is logged nowhere.
+- **Resource metadata.** With a token, the protected resource metadata of RFC 9728 is served at
+  `/.well-known/oauth-protected-resource/mcp` — the endpoint's `resource` identifier as the
+  client reached it and `bearer_methods_supported: ["header"]`, with no `authorization_servers`
+  to list — so a client following the challenge learns that the token is preconfigured rather
+  than obtained by a flow. An authorization server that issues tokens by OAuth 2.1 (user consent,
+  scopes, expiry) is a proxy's job in front of the server, as it is for `sysml-grpc`.
+- **The token itself** is letters, digits and `-._~+/` with trailing `=` (RFC 6750 `b64token`), so
+  a client can send what the server was given; generate one (`openssl rand -base64 32`) and keep
+  it in a file only the server's user reads. Over a network it needs TLS, below.
 - **TLS.** `-tls-cert FILE` and `-tls-key FILE`, both given, serve `https` (TLS 1.2 or later);
   one without the other, or a pair that does not load, is a usage error (exit status 2) before
   anything is served. Cleartext is appropriate only on loopback, inside a trusted network or
@@ -409,7 +433,11 @@ The stance is the one [`sysml-grpc`](service-transports.md) takes, and the two a
   as loopback (the `Host` header) stays on as well.
 
 `-print-config HOST -http ADDR` writes the host's block in its URL form, so the host connects to a
-server already running rather than starting one ([Configuring a host](#configuring-a-host)).
+server already running rather than starting one, and with the server's token (`-token-file`,
+`-token` or `OPENSYSML_MCP_TOKEN`) the block carries the `Authorization` header the host sends
+([Configuring a host](#configuring-a-host)). The token is written in clear, so such a block belongs
+in a file the host reads privately — a user-level configuration, or a project file kept out of
+version control — or is edited to the host's own reference to a secret where it has one.
 
 ## Command line
 
@@ -424,9 +452,11 @@ server already running rather than starting one ([Configuring a host](#configuri
 | `-stdio` | — | Serve over stdin/stdout; the default transport, accepted for hosts that name it; not with `-http` |
 | `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace, runtime cache and REPL sessions |
 | `-allow-origin ORIGINS` | — | Origins (`scheme://host[:port]`, comma-separated) granted cross-origin access; loopback origins and requests with no `Origin` are admitted without a grant, others are refused |
+| `-token-file FILE` | — | File holding the bearer token every request must carry as `Authorization: Bearer TOKEN`; required for an address other machines reach, enforced on loopback too when given |
+| `-token TOKEN` | — | The token itself; `OPENSYSML_MCP_TOKEN` is read when neither flag names one |
 | `-tls-cert FILE`, `-tls-key FILE` | — | Serve `https`; both or neither |
 | `-print-config [HOST]` | — | Write a host's configuration block to stdout and exit; alone, list the hosts |
-| `-print-config-command CMD` | the binary's path | The command the block names; with `-http ADDR` (and `-tls-cert` for `https`) the block names the server's URL instead |
+| `-print-config-command CMD` | the binary's path | The command the block names; with `-http ADDR` (and `-tls-cert` for `https`) the block names the server's URL instead, with the `Authorization` header when a token is given |
 | `-version`, `-help`, `-man` | — | The build, this table, the manual page |
 
 The exit status is 0 when the protocol was served to its end (the client closed the stream or the

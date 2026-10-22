@@ -29,6 +29,9 @@ type HTTPConfig struct {
 	Listener net.Listener
 	// Origins decides which Origin headers are admitted.
 	Origins OriginPolicy
+	// Token is the bearer token every request must carry; the zero value
+	// requires none, which only a loopback listener may serve.
+	Token BearerToken
 	// CertFile and KeyFile, both set, serve TLS; neither serves cleartext.
 	CertFile, KeyFile string
 	// ShutdownTimeout bounds the graceful shutdown; 0 is DefaultShutdownTimeout.
@@ -164,21 +167,28 @@ func isLoopbackHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-// isLoopbackAddr reports whether a bound address can be reached from this
+// IsLoopbackAddr reports whether a bound address can be reached from this
 // machine only; an address on every interface cannot.
-func isLoopbackAddr(addr net.Addr) bool {
+func IsLoopbackAddr(addr net.Addr) bool {
 	tcp, ok := addr.(*net.TCPAddr)
 	return ok && tcp.IP != nil && tcp.IP.IsLoopback()
 }
 
 // Handler is the Streamable HTTP transport of this server, mounted at HTTPPath
-// behind origins; every request is served by the one SDK server.
-func (s *Server) Handler(origins OriginPolicy) http.Handler {
+// behind origins and token; every request is served by the one SDK server.
+// With a token, the endpoint's resource metadata is served beside it, open.
+func (s *Server) Handler(origins OriginPolicy, token BearerToken) http.Handler {
 	streamable := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return s.sdk }, &sdk.StreamableHTTPOptions{Logger: s.logger})
 	mux := http.NewServeMux()
-	mux.Handle(HTTPPath, origins.Handler(streamable))
+	mux.Handle(HTTPPath, origins.Handler(token.Handler(streamable)))
+	if token.Set() {
+		mux.Handle(ProtectedResourceMetadataPath, origins.Handler(http.HandlerFunc(token.ServeMetadata)))
+	}
 	return mux
 }
+
+// ErrNoToken is why a listener other machines reach is refused with no token.
+var ErrNoToken = errors.New("no bearer token is configured; name one with -token-file, -token or " + TokenEnv + ", or bind loopback")
 
 // ServeStreamableHTTP serves clients over cfg.Listener until ctx ends, then
 // closes the live sessions and drains the connections within the timeout.
@@ -186,19 +196,22 @@ func (s *Server) ServeStreamableHTTP(ctx context.Context, cfg HTTPConfig) error 
 	if (cfg.CertFile == "") != (cfg.KeyFile == "") {
 		return errors.New("a certificate file and a key file are both needed for TLS")
 	}
-	srv := &http.Server{Handler: s.Handler(cfg.Origins), ReadHeaderTimeout: 10 * time.Second}
+	addr := cfg.Listener.Addr()
+	if !IsLoopbackAddr(addr) && !cfg.Token.Set() {
+		return fmt.Errorf("%s is an address other machines reach: %w", addr, ErrNoToken)
+	}
+	srv := &http.Server{Handler: s.Handler(cfg.Origins, cfg.Token), ReadHeaderTimeout: 10 * time.Second}
 	security := "cleartext"
 	if cfg.CertFile != "" {
 		security = "TLS"
 		srv.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, NextProtos: []string{"h2", "http/1.1"}}
 	}
-	addr := cfg.Listener.Addr()
-	if !isLoopbackAddr(addr) {
-		s.log().Warn("serving on a non-loopback address with no authentication: every client that reaches it may read and edit the workspace; bind loopback or put an authenticating proxy in front",
-			"addr", addr.String())
+	auth := "none"
+	if cfg.Token.Set() {
+		auth = "bearer"
 	}
 	s.log().Info("serving the Model Context Protocol over Streamable HTTP",
-		"addr", addr.String(), "path", HTTPPath, "security", security, "allowed_origins", cfg.Origins.Allowed())
+		"addr", addr.String(), "path", HTTPPath, "security", security, "auth", auth, "allowed_origins", cfg.Origins.Allowed())
 
 	errs := make(chan error, 1)
 	go func() {

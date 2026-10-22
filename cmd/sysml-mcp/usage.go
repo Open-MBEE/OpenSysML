@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
@@ -21,6 +22,8 @@ type options struct {
 	logLevel      string
 	http          string
 	allowOrigin   string
+	token         string
+	tokenFile     string
 	stdio         bool
 	tlsCert       string
 	tlsKey        string
@@ -52,10 +55,15 @@ func registerFlags(fs *flag.FlagSet) *options {
 	fs.BoolVar(&o.stdio, "stdio", false, "Serve over stdin/stdout (the default transport; accepted for hosts that name it; not with -http)")
 	fs.StringVar(&o.http, "http", "",
 		"Serve over Streamable HTTP at the path /mcp of this address instead of stdin/stdout, as host:port or a port alone, which binds loopback; "+
-			"every client shares the one workspace, runtime cache and set of REPL sessions. The server authenticates no one, so bind loopback or front it with an authenticating proxy")
+			"every client shares the one workspace, runtime cache and set of REPL sessions. An address other machines reach is served only with a bearer token (-token-file, -token or "+mcp.TokenEnv+")")
 	fs.StringVar(&o.allowOrigin, "allow-origin", "",
 		"Origins, comma-separated as scheme://host[:port], granted cross-origin access to the HTTP transport (the CORS headers and preflight answer a browser needs); "+
 			"loopback origins and requests with no Origin header are admitted without a grant, any other origin is refused")
+	fs.StringVar(&o.tokenFile, "token-file", "",
+		"File holding the bearer token every HTTP request must carry as Authorization: Bearer TOKEN (a trailing line break is not part of it); "+
+			"required for an address other machines reach, enforced on loopback too when given")
+	fs.StringVar(&o.token, "token", "",
+		"The bearer token itself, for a shell whose command line is private; -token-file keeps it out of the process list, and "+mcp.TokenEnv+" is read when neither flag names one")
 	fs.StringVar(&o.tlsCert, "tls-cert", "", "TLS certificate file for the HTTP transport; with -tls-key, the transport serves https")
 	fs.StringVar(&o.tlsKey, "tls-key", "", "TLS private key file for the HTTP transport")
 	fs.Var(&o.printConfig, "print-config",
@@ -140,16 +148,24 @@ func doc() usage.Doc {
 			},
 			Examples: []usage.Example{
 				usage.Ex("sysml-mcp -http 8765", "Serve http://localhost:8765/mcp to this machine"),
-				usage.Ex("sysml-mcp -http 0.0.0.0:8765 -allow-origin https://agents.example.org", "Serve every interface, answering one browser origin besides loopback"),
-				usage.Ex("sysml-mcp -http 0.0.0.0:8765 -tls-cert server.crt -tls-key server.key", "Serve https"),
+				usage.Ex("sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -tls-cert server.crt -tls-key server.key", "Serve every interface over https to clients that hold the token"),
+				usage.Ex("sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -allow-origin https://agents.example.org", "Answer one browser origin besides loopback"),
 			},
 			Paragraphs: []string{
-				"The HTTP transport authenticates no one: every client that reaches " +
-					"the address may read and edit the workspace. An address with no " +
-					"host, or a port alone, binds loopback, which only this machine " +
-					"reaches; binding any other address is logged as a warning, and is " +
-					"for a trusted network or behind a proxy that authenticates. " +
-					"-tls-cert and -tls-key, both given, serve https; one without the " +
+				"An address with no host, or a port alone, binds loopback, which only " +
+					"this machine reaches, and is served as it is. Any other address is " +
+					"served only with a bearer token, named by -token-file, -token or " +
+					mcp.TokenEnv + ": the server is an OAuth 2.1 resource server in the " +
+					"minimal form, with one token issued by whoever runs it, so every " +
+					"request must carry Authorization: Bearer TOKEN, and one that does " +
+					"not is refused with 401 and a WWW-Authenticate challenge naming the " +
+					"resource metadata at /.well-known/oauth-protected-resource/mcp. " +
+					"Starting on such an address with no token is refused. A token given " +
+					"for a loopback address is enforced the same way. The token is " +
+					"letters, digits and -._~+/ (RFC 6750), is never logged, and is best " +
+					"generated, as by openssl rand -base64 32, and kept in a file only " +
+					"the server's user reads. -tls-cert and -tls-key, both given, serve " +
+					"https, which a token sent over a network needs; one without the " +
 					"other is refused.",
 				"A request is answered when its Origin header is absent, names a " +
 					"loopback origin (localhost, 127.0.0.0/8 or ::1 over any scheme " +
@@ -170,9 +186,12 @@ func doc() usage.Doc {
 					"npx -y " + npmPackage + ", which installs the release binary for the " +
 					"host's platform from npm on first use, so a machine with Node needs " +
 					"nothing else. With -http (and -tls-cert for https) the block names " +
-					"the URL of a server already serving that address instead; every host " +
-					"reads the URL form. The hosts, with the file each reads, are " +
-					hostList() + ".",
+					"the URL of a server already serving that address instead, and with " +
+					"its token (-token-file, -token or " + mcp.TokenEnv + ") the " +
+					"Authorization header the host sends, written in clear, so such a " +
+					"block belongs in a file the host reads privately, not in version " +
+					"control; every host reads the URL form. The hosts, with the file " +
+					"each reads, are " + hostList() + ".",
 			},
 			Examples: []usage.Example{
 				usage.Ex("sysml-mcp -print-config", "List the hosts"),
@@ -181,6 +200,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml-mcp -print-config cursor -print-config-command sysml-mcp", "A block that finds the server on PATH"),
 				usage.Ex("sysml-mcp -print-config vscode -print-config-npx", "A block that runs the server from npm"),
 				usage.Ex("sysml-mcp -print-config vscode -http 8765", "A block reaching http://localhost:8765/mcp"),
+				usage.Ex("sysml-mcp -print-config cursor -http models.example.org:8443 -tls-cert server.crt -tls-key server.key -token-file mcp.token", "A block reaching a remote server with its token"),
 			},
 		}, toolsSection(), {
 			Title: "Exit status",

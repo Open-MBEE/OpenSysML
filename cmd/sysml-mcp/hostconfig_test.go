@@ -3,11 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 )
 
 const testCommand = `C:\Tools\OpenSysML\sysml-mcp.exe`
@@ -259,6 +262,61 @@ func TestPrintConfigURLBlocks(t *testing.T) {
 	}
 }
 
+// TestPrintConfigURLBlocksCarryTheToken checks that with a token every host's
+// URL block sends it as the Authorization header, and none mentions headers
+// without one.
+func TestPrintConfigURLBlocksCarryTheToken(t *testing.T) {
+	tokenFile := filepath.Join(t.TempDir(), "mcp.token")
+	if err := os.WriteFile(tokenFile, []byte("s3cret-token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	const header = "Bearer s3cret-token"
+	paths := map[string]string{
+		"opencode":    "mcp.sysml.headers.Authorization",
+		"claude-code": "mcpServers.sysml.headers.Authorization",
+		"cursor":      "mcpServers.sysml.headers.Authorization",
+		"vscode":      "servers.sysml.headers.Authorization",
+		"gemini":      "mcpServers.sysml.headers.Authorization",
+		"devin":       "mcpServers.sysml.headers.Authorization",
+	}
+	if len(paths)+1 != len(hosts) {
+		t.Fatalf("%d hosts are checked, %d are known", len(paths)+1, len(hosts))
+	}
+	for host, path := range paths {
+		t.Run(host, func(t *testing.T) {
+			block := printed(t, "-print-config", host, "-http", "8765", "-token-file", tokenFile)
+			if got := decodeJSON(t, block, path); got != header {
+				t.Errorf("%s = %v, want %q:\n%s", path, got, header, block)
+			}
+			if again := printed(t, "-print-config", host, "-http", "8765", "-token", "s3cret-token"); again != block {
+				t.Errorf("-token printed a different block:\n%s", again)
+			}
+			if plain := printed(t, "-print-config", host, "-http", "8765"); strings.Contains(plain, "headers") || strings.Contains(plain, "Authorization") {
+				t.Errorf("a block without a token names headers:\n%s", plain)
+			}
+		})
+	}
+	t.Run("codex", func(t *testing.T) {
+		block := printed(t, "-print-config", "codex", "-http", "8765", "-token-file", tokenFile)
+		if want := "[mcp_servers.sysml]\nurl = \"http://localhost:8765/mcp\"\nhttp_headers = { Authorization = \"Bearer s3cret-token\" }\n"; block != want {
+			t.Errorf("block:\n%s\nwant:\n%s", block, want)
+		}
+		if plain := printed(t, "-print-config", "codex", "-http", "8765"); strings.Contains(plain, "http_headers") {
+			t.Errorf("a block without a token names headers:\n%s", plain)
+		}
+	})
+	t.Run("environment", func(t *testing.T) {
+		t.Setenv(mcp.TokenEnv, "from-env")
+		block := printed(t, "-print-config", "cursor", "-http", "8765")
+		if got := decodeJSON(t, block, "mcpServers.sysml.headers.Authorization"); got != "Bearer from-env" {
+			t.Errorf("Authorization = %v:\n%s", got, block)
+		}
+		if stdio := printed(t, "-print-config", "cursor"); strings.Contains(stdio, "from-env") {
+			t.Errorf("the stdio block carries the token:\n%s", stdio)
+		}
+	})
+}
+
 // TestPrintConfigNamesThisBinary checks the default command is the running
 // binary's absolute path, as the hosts need to start it from any directory.
 func TestPrintConfigNamesThisBinary(t *testing.T) {
@@ -295,6 +353,8 @@ func TestPrintConfigCommandLine(t *testing.T) {
 		{[]string{"-print-config", "cursor", "-http", "nope"}, `-http: "nope" is not a port or a host:port address`},
 		{[]string{"-print-config", "cursor", "-http", "8765", "-print-config-command", "sysml-mcp"}, "-print-config-command and -http name different ways to reach the server"},
 		{[]string{"-print-config", "cursor", "-http", "8765", "-tls-cert", "server.crt"}, "-tls-cert and -tls-key must be supplied together"},
+		{[]string{"-print-config", "cursor", "-http", "8765", "-token", "not a token"}, "-token: a token is letters, digits and -._~+/"},
+		{[]string{"-print-config", "cursor", "-token", "s3cret"}, "-token applies to the HTTP transport"},
 		{[]string{"-print-config", "cursor", "-http", "8765", "-stdio"}, "-stdio and -http name different transports"},
 		{[]string{"-print-config", "cursor", "-tls-cert", "server.crt", "-tls-key", "server.key"}, "-tls-cert applies to the HTTP transport"},
 		{[]string{"-print-config", "cursor", "-print-config-npx", "-print-config-command", "sysml-mcp"}, `-print-config-npx names npx -y @openmbee/sysml-mcp as the command, so it excludes -print-config-command "sysml-mcp"`},
