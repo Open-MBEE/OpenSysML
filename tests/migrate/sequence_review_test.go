@@ -110,6 +110,19 @@ func TestInteractionParameterDefaultsAreKept(t *testing.T) {
 			t.Errorf("%v", d)
 		}
 	})
+	t.Run("reads the context", func(t *testing.T) {
+		changed := bytes.Replace(data, param, append(append([]byte{}, param...), []byte(`<defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_suRpm0"><body>limit</body></defaultValue>`)...), 1)
+		r, err := migrate.Migrate("interaction_use.xmi", changed)
+		if err != nil {
+			t.Fatalf("Migrate: %v", err)
+		}
+		wantLine(t, r.Notation, "attribute rpm : ScalarValues::Real;")
+		wantLine(t, r.Notation, "/* default value not migrated: limit — reads limit of the interaction's context, which its occurrence def has no access to */")
+		wantNote(t, r, "_suRpm", migrate.Approximated, "reads limit of the interaction's context, which its occurrence def has no access to")
+		for _, d := range errors(t, "interaction_use.sysml", r.Notation) {
+			t.Errorf("%v", d)
+		}
+	})
 	t.Run("untranslatable", func(t *testing.T) {
 		changed := bytes.Replace(data, param, append(append([]byte{}, param...), []byte(`<defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_suRpm0"><language>JavaScript</language><body>a + "!"</body></defaultValue>`)...), 1)
 		r, err := migrate.Migrate("interaction_use.xmi", changed)

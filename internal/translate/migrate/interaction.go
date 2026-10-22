@@ -1512,6 +1512,9 @@ func (s *scenario) declareParameters() {
 		}
 		if dv := firstOwned(p, "defaultValue"); dv != nil {
 			expr, ok, vnote := s.m.typedBehaviorValue(dv, p, s.e)
+			if lost := s.inaccessible(expr, nil); ok && lost != "" {
+				ok, vnote = false, "reads "+lost+" of the interaction's context, which its occurrence def has no access to"
+			}
 			if ok {
 				line += " default = " + expr
 			} else {
