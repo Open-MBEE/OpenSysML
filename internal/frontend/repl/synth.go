@@ -426,6 +426,7 @@ func configureReport(name string, q *solve.Query, configured analysis.Evaluation
 // offer. A name that matches none, or matches several, is refused rather than
 // guessed at.
 func chooseVariants(q *solve.Query, variations []*solve.Var, request configureRequest) error {
+	chosen := make(map[*solve.Var]string, len(request.order))
 	for _, written := range request.order {
 		v, err := matchVariation(variations, written)
 		if err != nil {
@@ -438,8 +439,9 @@ func chooseVariants(q *solve.Query, variations []*solve.Var, request configureRe
 		if err := q.FixValue(v, variant, solve.PinChosen); err != nil {
 			return err
 		}
+		chosen[v] = variant
 	}
-	return nil
+	return q.ChooseLive(chosen)
 }
 
 // matchVariation is the variation point a written name denotes: the variable whose
@@ -658,6 +660,9 @@ func selectionOf(model []solve.Assignment, variations []*solve.Var) []solve.Assi
 func selectionLines(selection []solve.Assignment) []string {
 	lines := make([]string, 0, len(selection))
 	for _, a := range selection {
+		if a.Dead {
+			continue
+		}
 		lines = append(lines, fmt.Sprintf("  %s = %s", notationName(a.Var.Name), notationName(a.Value)))
 	}
 	return lines

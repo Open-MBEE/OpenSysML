@@ -42,6 +42,19 @@ package Nested {
         variation part trans : T { variant man : T; variant auto : T; }
         part box { assert constraint { trans == trans::auto } }
     }
+    part def Block { port autoPort; }
+    variation part def Engines :> Block {
+        variant part four : Block;
+        variant part six : Block {
+            variation port :>> autoPort { variant port a1; variant port a2; }
+            assert constraint { autoPort == autoPort::a2 }
+        }
+    }
+    part fleet {
+        variation part trans : T { variant man : T; variant auto : T; }
+        part engine : Engines;
+        assert constraint { trans == trans::man }
+    }
     part many {
         variation part trans : T { variant man : T; variant auto : T; }
         part gear : Gear[2];
@@ -94,4 +107,23 @@ func TestConfigureRefusesAMultiValuedNestedPartByName(t *testing.T) {
 	wants(t, run(t, s, "%configure Nested::many all"),
 		"✓ Part many permits 1 selection of variants, which are all of them",
 		"Not in the query: what gear asserts about its own objects, as it may hold more than one object; %instantiate and %validate an object to check it")
+}
+
+func TestConfigureSelectsAVariantsOwnVariationOnlyUnderIt(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, nestedModel)
+	out := run(t, s, "%configure Nested::fleet all")
+	wants(t, out, "✓ Part fleet permits 2 selections of variants, which are all of them",
+		"Nested::fleet::engine = Nested::Engines::four",
+		"Nested::fleet::engine = Nested::Engines::six",
+		"Nested::fleet::'engine.autoPort' = Nested::Engines::six::autoPort::a2")
+	for _, sel := range strings.Split(out, "\n  ") {
+		if strings.Contains(sel, "Engines::four") && strings.Contains(sel, "autoPort") {
+			t.Errorf("four has no autoPort variation, yet its selection lists one:\n%s", sel)
+		}
+	}
+	wants(t, run(t, s, "%configure Nested::fleet engine=four engine.autoPort=a1"),
+		"engine.autoPort is a variation point only when engine selects six")
+	wants(t, run(t, s, "%configure Nested::fleet engine.autoPort=a1"),
+		"✗ the chosen variants are not consistent with Part fleet")
 }

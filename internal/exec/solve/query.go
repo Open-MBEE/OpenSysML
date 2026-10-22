@@ -109,6 +109,12 @@ type Var struct {
 	// operations an evaluation failing at the read never performs.
 	Preceding []*Term
 
+	// Live is the selection of variants under which the variable exists: a
+	// feature declared for one variant is a variation point only where the
+	// holding variation selects that variant. Nil where it exists in every
+	// configuration.
+	Live *Term
+
 	// Dimension is the quantity dimension its magnitude is expressed in, over
 	// base units, empty for a value that has none.
 	Dimension string

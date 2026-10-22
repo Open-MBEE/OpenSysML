@@ -34,8 +34,9 @@ type frame struct {
 // selection is a variant a holding feature, named by its chain from the
 // element, must select for a condition to apply: one a variant states.
 type selection struct {
-	holder  []*symbols.Symbol
-	variant *symbols.Symbol
+	holder    []*symbols.Symbol
+	variant   *symbols.Symbol
+	composite *symbols.Symbol
 }
 
 // heldGroup is the conditions the objects one held feature holds carry — stated
@@ -96,7 +97,7 @@ func (c *heldCollector) collect(
 			own := append(append([]map[string]*symbols.Symbol(nil), levels...), effectiveFeatures(c.ctx, candidate))
 			under := selections
 			if variant != nil {
-				under = append(append([]selection(nil), selections...), selection{holder: fpath, variant: variant})
+				under = append(append([]selection(nil), selections...), selection{holder: fpath, variant: variant, composite: held.Composite})
 			}
 			for _, a := range c.ctx.AssertionsOf(candidate, candidate.OwnerScope) {
 				if seen[a.Symbol] {
@@ -206,6 +207,15 @@ func (t *translator) refusalOf(group heldGroup) (string, error) {
 // always. A holder is read as the variable its selection is, declared here if
 // no condition reads it.
 func (t *translator) selected() (*Term, error) {
+	terms, err := t.selectedTerms()
+	if err != nil {
+		return nil, err
+	}
+	return conjunction(terms), nil
+}
+
+// selectedTerms is one `holder == variant` term per selection of the current frame.
+func (t *translator) selectedTerms() ([]*Term, error) {
 	var terms []*Term
 	for _, s := range t.frame.selections {
 		holder := s.holder[len(s.holder)-1]
@@ -233,25 +243,89 @@ func (t *translator) selected() (*Term, error) {
 		}
 		terms = append(terms, Binary(OpEq, Bool, VarTerm(v), ValueTerm(sort, value)))
 	}
-	return conjunction(terms), nil
+	return terms, nil
 }
 
 // framed translates cond where its frame applies it: a condition a variant
 // states holds only of an object of that variant, so it is stated as the
 // implication `holder == variant ⇒ cond`, evaluated only under the selection.
 func (t *translator) framed(cond runtime.Condition) (*Term, error) {
-	sel, err := t.selected()
+	terms, err := t.selectedTerms()
 	if err != nil {
 		return nil, err
 	}
+	sel := conjunction(terms)
 	if sel == nil {
 		return t.condition(cond)
+	}
+	before := make(map[string]bool, len(t.vars))
+	for name := range t.vars {
+		before[name] = true
 	}
 	term, err := t.under(sel, func() (*Term, error) { return t.condition(cond) })
 	if err != nil {
 		return nil, err
 	}
+	t.liven(terms, before)
 	return Not(And(sel, Not(term))), nil
+}
+
+// liven records under which selections the variables the condition introduced
+// exist: a feature declared for one variant is a variation point only where the
+// holding variation selects that variant (SysML v2 §7.6.7), so a variable of it
+// is live under that selection alone; one every variant has is always live.
+func (t *translator) liven(terms []*Term, before map[string]bool) {
+	for name, v := range t.vars {
+		if before[name] && v.Live == nil {
+			continue
+		}
+		var guards []*Term
+		for i, s := range t.frame.selections {
+			if t.declaredForVariant(v.Symbol, s) {
+				guards = append(guards, terms[i])
+			}
+		}
+		guard := conjunction(guards)
+		switch {
+		case guard == nil:
+			v.Live = nil
+		case before[name]:
+			v.Live = Or(v.Live, guard)
+		default:
+			v.Live = guard
+		}
+	}
+}
+
+// declaredForVariant reports whether a feature is declared for one variant alone:
+// within the variant's body, or within a type of the variant that the holding
+// feature's own types do not share, so that no other variant has it.
+func (t *translator) declaredForVariant(sym *symbols.Symbol, s selection) bool {
+	if sym == nil || s.variant == nil {
+		return false
+	}
+	common := map[*symbols.Symbol]bool{}
+	for _, shared := range []*symbols.Symbol{s.composite, s.holder[len(s.holder)-1]} {
+		if shared == nil {
+			continue
+		}
+		common[shared] = true
+		for _, typ := range t.model.AllSupertypes(shared) {
+			common[typ] = true
+		}
+	}
+	own := map[*symbols.Symbol]bool{s.variant: true}
+	for _, typ := range t.model.AllSupertypes(s.variant) {
+		if !common[typ] {
+			own[typ] = true
+		}
+	}
+	for a := sym; a != nil; a = a.Owner() {
+		if own[a] {
+			return true
+		}
+	}
+	return false
 }
 
 // selectionLabel writes the selections a frame applies its conditions under.
