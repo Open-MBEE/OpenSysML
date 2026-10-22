@@ -1499,7 +1499,10 @@ jobs:
         run: chmod +x bin/sysml-grpc
 
       - name: Install GNU Octave
-        timeout-minutes: 10
+        # 195 MB of archives: 31 s to 7 min on recent green runs, depending on the mirror.
+        timeout-minutes: 15
+        env:
+          CI_APT_DEADLINE_SECONDS: 780
         run: scripts/ci-apt-install.sh octave
 
       - name: Start sysml-grpc
