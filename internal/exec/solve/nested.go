@@ -253,18 +253,6 @@ func (t *translator) refusalOf(group heldGroup) (string, error) {
 	return "", err
 }
 
-// selected is the condition under which the current frame's conditions apply:
-// each holding variation selects the variant stating them, nil for one applying
-// always. A holder is read as the variable its selection is, declared here if
-// no condition reads it.
-func (t *translator) selected() (*Term, error) {
-	terms, err := t.selectedTerms()
-	if err != nil {
-		return nil, err
-	}
-	return conjunction(terms), nil
-}
-
 // selectedTerms is one `holder == variant` term per selection of the current frame.
 func (t *translator) selectedTerms() ([]*Term, error) {
 	var terms []*Term
