@@ -72,12 +72,12 @@ class PipelineEndToEndTest {
       assertEquals(AnnotationPlan.Severity.INFO, plans.get(0).severity());
 
       RunResult requirementResult = run(Operation.VERIFY, source, "Requirements::'Mass Requirement'");
-      // The v1 text requirement carries no evaluable condition, so the engine reports an error verdict
-      // that still maps back onto the Cameo requirement element as a warning annotation.
-      assertEquals(Status.ERROR, requirementResult.status(), requirementResult.toString());
+      // The v1 text requirement states no required constraint, so it holds vacuously and
+      // maps back onto the Cameo requirement element as an info annotation.
+      assertEquals(Status.PASSED, requirementResult.status(), requirementResult.toString());
       List<AnnotationPlan> requirementPlans = AnnotationPlanner.plan(requirementResult, index);
       assertEquals("requirement", requirementPlans.get(0).target().handle());
-      assertEquals(AnnotationPlan.Severity.WARNING, requirementPlans.get(0).severity());
+      assertEquals(AnnotationPlan.Severity.INFO, requirementPlans.get(0).severity());
     }
     assertFalse(Files.exists(mdzip), "temporary export is deleted with the source");
     assertFalse(Files.exists(directory));
