@@ -1243,7 +1243,7 @@ func (s *scenario) ownMembers() {
 			s.m.add(p, Mapped, s.m.v2Name(s.e)+"::"+ref.name, "written as the usage "+ref.name+", the lifeline "+describe(ref.line)+" that stands for it")
 			continue
 		}
-		s.m.unmapped(p, "owned by an Interaction, whose v2 body is its lifelines and messages; no lifeline stands for it")
+		s.m.unmapped(p, "owned by an Interaction, whose v2 body is its lifelines and messages, not a place for a "+kindOf(p)+" no lifeline stands for")
 	}
 }
 
