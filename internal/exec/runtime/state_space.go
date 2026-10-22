@@ -140,6 +140,9 @@ func (e *ActionExecutor) readStep(run *stateSpaceRun) error {
 		return fmt.Errorf("%w: action %s states no %s; specialize %s or declare one",
 			errStateSpaceStep, SymbolText(e.action), lower.TimeStepFeature, lower.FixedStepDynamicsFQN)
 	}
+	// A bound parameter holds the step as a one-element sequence; the rate is
+	// scaled by the duration itself.
+	step = soleElement(step)
 	magnitude, err := e.ctx.timeMagnitude(step, what)
 	if err != nil {
 		return fmt.Errorf("%w: %w", errStateSpaceStep, err)

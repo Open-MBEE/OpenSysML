@@ -1,7 +1,6 @@
 package repl
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -163,16 +162,14 @@ func TestConfigureBindsASatisfactionsSubject(t *testing.T) {
 		"Against: required condition { craft.verticalSpeed <= 1.5 } of Touchdown at ")
 }
 
-func TestConfigureNamesTheNestedAssertionsItLeavesOut(t *testing.T) {
+func TestConfigureStatesTheNestedAssertions(t *testing.T) {
 	requireSolver(t)
 	s := checkSession(t, assertedModel)
 	out := run(t, s, "%configure Asserted::nested all")
-	wants(t, out, "✓ Part nested permits 1 selection of variants, which are all of them",
-		"Not in the query: what engine asserts about its own objects; %instantiate and %validate an object to check it")
+	wants(t, out, "✓ Part nested permits 1 selection of variants, which are all of them")
+	rejects(t, out, "Not in the query")
 	plain := run(t, s, "%solve Asserted::within")
-	if strings.Contains(plain, "Not in the query") {
-		t.Errorf("a part holding no asserting object is reported as leaving assertions out:\n%s", plain)
-	}
+	rejects(t, plain, "Not in the query")
 }
 
 func TestConfigureAFamilyWhoseAssertionsStateNoCondition(t *testing.T) {

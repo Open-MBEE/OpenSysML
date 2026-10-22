@@ -3,6 +3,8 @@ package runtimetools
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -87,6 +89,13 @@ func symbolText(resp *pb.SymbolResponse) string {
 	sym := resp.GetSymbol()
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s %s\n", sym.GetKind(), sym.GetId())
+	if meta := sym.GetMetadata(); len(meta) > 0 {
+		keys := slices.Sorted(maps.Keys(meta))
+		for i, k := range keys {
+			keys[i] = k + "=" + meta[k]
+		}
+		fmt.Fprintf(&b, "metadata: %s\n", strings.Join(keys, ", "))
+	}
 	if ti := sym.GetTypeInfo(); ti != nil && ti.GetDeclared() != "" {
 		fmt.Fprintf(&b, "type: %s", ti.GetDeclared())
 		if ti.GetResolvedId() != "" && ti.GetResolvedId() != ti.GetDeclared() {

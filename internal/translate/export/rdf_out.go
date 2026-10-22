@@ -1458,7 +1458,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.flags(subject, []boolProperty{
-			{"isAbstract", n.IsAbstract},
+			{"isAbstract", n.IsAbstract || n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isVariation", n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isAll", n.IsAll},
 			{"isConstant", n.IsConstant},
@@ -1604,7 +1604,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(subject, e.sysx(xDeclaredPrefix), rdf.String(n.PrefixKeyword))
 		}
 		e.flags(subject, []boolProperty{
-			{"isAbstract", n.IsAbstract},
+			{"isAbstract", n.IsAbstract || n.IsVariation},
 			{"isVariation", n.IsVariation},
 			{"isVariant", e.variantMember(n, ownerTerm)},
 			{"isNegated", n.IsNegated},

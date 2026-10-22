@@ -117,7 +117,7 @@ func calcStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver)
 			return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}, true
 		}
 		return usageStatement(m, scope)
-	case *ast.Definition, *ast.Documentation, *ast.Comment, *ast.TextualRepresentation, *ast.Import, *ast.Alias:
+	case *ast.Definition, *ast.Documentation, *ast.Comment, *ast.TextualRepresentation, *ast.PrefixMetadata, *ast.Import, *ast.Alias:
 		// An annotation or declaration describes the calculation, not a step of it.
 		return nil, false
 	case *ast.SuccessionEdge:

@@ -188,12 +188,20 @@ jobs:
         with:
           reference-fmus: 'true'
 
+      # The tools' tests run with the rest shard, and the LLM bench's run the
+      # models through bin/sysml: without the binary they skip. Required below,
+      # so a missing binary fails rather than skips.
+      - name: Build bin/sysml for the tools' tests
+        if: contains(matrix.shard, 'rest')
+        run: make build-sysml
+
       # Per-package timeout: under -race the whole runtime package ran 31-57 minutes
       # on these runners, hence its two shards. Matches `make test-shard`.
       - name: Run Go tests
         env:
           TIER: ${{ needs.changes.outputs.tier }}
           SHARD: ${{ matrix.shard }}
+          OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN: ${{ contains(matrix.shard, 'rest') && '1' || '' }}
         run: |
           if [ "$TIER" = full ]; then make test-shard SHARD="$SHARD"; else make test-quick SHARDS="$SHARD"; fi
 

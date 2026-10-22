@@ -555,7 +555,16 @@ jobs:
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
               exit 1
             fi
-            make coverage-shard SHARD="${shards[$CIRCLE_NODE_INDEX]}"
+            shard="${shards[$CIRCLE_NODE_INDEX]}"
+            if [ "$shard" = runtime ]; then
+              # The tools' tests run on this node (make coverage-shard), and the
+              # LLM bench's run the models through bin/sysml: without the binary
+              # they skip and tools/bench/llm measures as uncovered. Required,
+              # so a missing binary fails here rather than skips.
+              make build-sysml
+              export OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN=1
+            fi
+            make coverage-shard SHARD="$shard"
           no_output_timeout: 30m
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
@@ -985,8 +994,13 @@ jobs:
           name: Show the reports and Java binaries the scan reads
           command: |
             ls -l coverage.txt coverage-python.xml coverage-scripts.xml coverage-node.lcov \
+              coverage-vscode.lcov coverage-jupyterlab.lcov coverage-mcp-npm.lcov \
               client/java/opensysml-client/target/site/jacoco/jacoco.xml \
-              client/java/opensysml-conformance/target/site/jacoco/jacoco.xml
+              client/java/opensysml-conformance/target/site/jacoco/jacoco.xml \
+              editors/syson/backend/target/site/jacoco/jacoco.xml \
+              editors/mdk/tools/target/site/jacoco/jacoco.xml \
+              editors/mdk/plugin/target/site/jacoco/jacoco.xml \
+              editors/mdk/mdk-bridge/target/site/jacoco/jacoco.xml
             head -n 3 coverage.txt
             for module in opensysml-client opensysml-conformance; do
               for dir in classes test-classes dependency; do
@@ -1594,6 +1608,130 @@ jobs:
             make proto-ts BUF=buf
             git add -N client/node/src/generated
             git diff --exit-code client/node/src/generated
+
+  # The SysON backend's gate (editors/syson): its tests, with the JaCoCo report
+  # the scan reads; without it every line of the backend counts as uncovered.
+  # SysON runs on Java 21 and the module compiles at release 17, so the test
+  # JVM is 21. The service binary comes from the workspace, as for the clients.
+  syson-test:
+    docker:
+      - image: cimg/openjdk:21.0
+    resource_class: medium
+    steps:
+      - checkout
+
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Make the service binary executable
+          command: chmod +x bin/sysml-grpc
+
+      - restore_cache:
+          keys:
+            - maven-syson-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/syson/pom.xml" }}-{{ checksum "editors/syson/backend/pom.xml" }}
+            - maven-syson-v1-
+
+      # The backend builds against this revision's client, so it is installed
+      # on every run; the cache only spares the download of the rest.
+      - run:
+          name: Install the client dependency
+          command: mvn -B -q -f client/java/pom.xml install -DskipTests -Dmaven.javadoc.skip=true
+
+      - run:
+          name: Test and install the SysON backend
+          command: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
+
+      - save_cache:
+          key: maven-syson-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/syson/pom.xml" }}-{{ checksum "editors/syson/backend/pom.xml" }}
+          paths:
+            - ~/.m2/repository
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - editors/syson/backend/target/site/jacoco/jacoco.xml
+
+      - store_test_results:
+          path: editors/syson/backend/target/surefire-reports
+
+  # The MDK for Cameo plugin's gate (editors/mdk): the tests of its three
+  # tested modules, with the JaCoCo report of each for the scan. The stub
+  # modules have no tests and are not instrumented.
+  mdk-test:
+    executor: java-executor
+    steps:
+      - checkout
+
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Make the service binary executable
+          command: chmod +x bin/sysml-grpc
+
+      - restore_cache:
+          keys:
+            - maven-mdk-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/mdk/pom.xml" }}-{{ checksum "editors/mdk/plugin/pom.xml" }}
+            - maven-mdk-v1-
+
+      - run:
+          name: Install the Java client the plugin builds against
+          command: mvn -B -q -f client/java/pom.xml -pl :opensysml -am install -DskipTests
+
+      - run:
+          name: Build and test the plugin
+          command: mvn -B -f editors/mdk/pom.xml verify -Dopensysml.requireService=true
+
+      - save_cache:
+          key: maven-mdk-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/mdk/pom.xml" }}-{{ checksum "editors/mdk/plugin/pom.xml" }}
+          paths:
+            - ~/.m2/repository
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - editors/mdk/tools/target/site/jacoco/jacoco.xml
+            - editors/mdk/plugin/target/site/jacoco/jacoco.xml
+            - editors/mdk/mdk-bridge/target/site/jacoco/jacoco.xml
+
+      - store_test_results:
+          path: editors/mdk/plugin/target/surefire-reports
+
+  # The editors' and the npm package's Node tests (editors/vscode,
+  # editors/jupyterlab, packaging/npm/sysml-mcp), each under c8 for the lcov
+  # report the scan reads; without them every line of theirs counts as
+  # uncovered. The VS Code tests bundle the browser client from source, so its
+  # dependencies are installed first. Nothing here needs the service binary.
+  editors-node-test:
+    executor: node-executor
+    steps:
+      - checkout
+
+      - run:
+          name: Install the browser client's dependencies
+          command: |
+            cd client/node
+            npm ci --ignore-scripts
+
+      - run:
+          name: Test the VS Code extension with coverage
+          command: make vscode-coverage
+
+      - run:
+          name: Test the JupyterLab extension with coverage
+          command: make jupyterlab-coverage
+
+      - run:
+          name: Test the sysml-mcp npm package with coverage
+          command: make mcp-npm-coverage
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - coverage-vscode.lcov
+            - coverage-jupyterlab.lcov
+            - coverage-mcp-npm.lcov
 
   # Builds the opensysml wheel and sdist on a core `v<version>` tag, which must name
   # the declared version; build-release and publish-pypi ship exactly these bytes.
@@ -3940,6 +4078,18 @@ workflows:
           name: Node client tests
           requires: *scan-inputs
           filters: *integration-branches
+      - syson-test:
+          name: SysON backend tests
+          requires: *scan-inputs
+          filters: *integration-branches
+      - mdk-test:
+          name: MDK plugin tests
+          requires: *scan-inputs
+          filters: *integration-branches
+      - editors-node-test:
+          name: Editor and npm package tests
+          requires: *scan-inputs
+          filters: *integration-branches
       - scan:
           name: SonarCloud scan
           # Matched exactly, like PyPI below; this context holds SONAR_TOKEN.
@@ -3955,6 +4105,9 @@ workflows:
             - Python client tests
             - Java client tests
             - Node client tests
+            - SysON backend tests
+            - MDK plugin tests
+            - Editor and npm package tests
           filters: *integration-branches
 
   # Build and release on tags. The suite runs here too: a tag can point at any

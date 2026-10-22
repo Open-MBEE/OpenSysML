@@ -1,0 +1,8 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::viaVariant",
+  "outputs": {
+    "mass": {"type": "Sequence", "elements": [{"type": "Real", "value": 2.0}]}
+  }
+}

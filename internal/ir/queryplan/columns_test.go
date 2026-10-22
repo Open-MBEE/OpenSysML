@@ -152,6 +152,33 @@ calc def Tags :> Query {
 	}
 }
 
+// A Column path names the metadata def as WhereMetadata does: a name unique
+// over the model is accepted beside the qualified one.
+func TestCompileMetadataPathColumnByUniqueName(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def TagMetadata {
+	attribute tag : String;
+}
+calc def Tags :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "tag", path = "TagMetadata::tag"))
+	)
+}
+`)
+	program, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "Tags"))
+	if err != nil {
+		t.Fatalf("compile Tags: %v", err)
+	}
+	project := entryDefinition(t, program).Expression()
+	columns, _ := argumentOf(t, project, "columns")
+	column, _ := argumentOf(t, columns.Arguments()[0].Value, "expression")
+	if column.Operation() != OperationRowMember || column.Target() != "TagMetadata::tag" {
+		t.Fatalf("metadata path = %s %q, want row member TagMetadata::tag", column.Operation(), column.Target())
+	}
+}
+
 func TestCompileQuotedMetadataDefinitionPathColumn(t *testing.T) {
 	fixture := loadQueryFixture(t, `
 metadata def 'My Meta' {

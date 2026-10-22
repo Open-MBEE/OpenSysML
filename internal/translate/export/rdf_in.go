@@ -2123,10 +2123,11 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	if keyword := d.visibility(el); keyword != "" {
 		words = append(words, keyword)
 	}
-	if d.boolOf(el, rdf.SysML+"isAbstract") && kind != ast.DefEnumeration {
+	// A variation is always abstract, so the notation has no `abstract` on it
+	// (SysML v2 §7.6.7); the enumeration grammar has neither prefix.
+	if d.boolOf(el, rdf.SysML+"isAbstract") && !d.boolOf(el, rdf.SysML+"isVariation") && kind != ast.DefEnumeration {
 		words = append(words, "abstract")
 	}
-	// The enumeration grammar has no `abstract` or `variation` prefix.
 	if d.boolOf(el, rdf.SysML+"isVariation") && kind != ast.DefEnumeration {
 		words = append(words, "variation")
 	}
@@ -2196,7 +2197,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if keyword := d.visibility(el); keyword != "" {
 		words = append(words, keyword)
 	}
-	if d.boolOf(el, rdf.SysML+"isAbstract") {
+	if d.boolOf(el, rdf.SysML+"isAbstract") && !d.boolOf(el, rdf.SysML+"isVariation") {
 		words = append(words, "abstract")
 	}
 	// A result parameter is declared with `return`, which carries its out

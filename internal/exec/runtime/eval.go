@@ -1505,6 +1505,14 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return ec.evalCalcUsageMembers(sym, parts)
 	}
 
+	// A variant named through the variation usage it belongs to is that variant,
+	// `engine.electric.power`, not a member of what the usage selects.
+	if sym, ok := ec.chainBaseSymbol(base); ok {
+		if val, ok, err := ec.chainThroughNamedVariant(sym, parts, ec.readingObject()); ok {
+			return val, err
+		}
+	}
+
 	// A part carries no value of its own: it denotes an occurrence, whose features
 	// `lander.mass.mDry` reads, so the chain is read from that object.
 	if sym, ok, err := ec.occurrenceOperand(base); err != nil {
@@ -1650,8 +1658,19 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		return ec.chainOverElements(value, parts, from)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity, ValQuantity, ValMeasurementRef, ValCoordinateFrame, ValCoordinateTransformation:
 		return ec.chainThroughStructured(value, parts, from)
-	case ValInstance, ValVariant:
+	case ValInstance:
 		// handled below
+	case ValVariant:
+		// A variant named with no selecting object stands for its value or an object of it.
+		if value.Instance == 0 {
+			stood, err := ec.variantStandsFor(value)
+			if err != nil {
+				return Value{}, err
+			}
+			if stood.Kind != ValVariant || stood.Instance != 0 {
+				return ec.chainMemberValue(stood, parts, from)
+			}
+		}
 	case ValMetaobject:
 		// A metaobject answers its metaclass's features for the element it denotes.
 		return ec.chainOwnFeature(value, parts, from)
@@ -1717,16 +1736,10 @@ func (ec *EvalContext) chainObjectMember(value Value, parts []ast.NameSegment, f
 	}
 	// A variant named through the variation feature it belongs to is the choice
 	// itself, not a member of the variation's value.
-	if variant, rest, ok := ec.variantSegment(fvDecl.Feature, rest); ok {
-		if len(rest) == 0 {
-			return variantReference(variant), nil
+	if fvDecl.Feature != nil {
+		if val, ok, err := ec.chainThroughNamedVariant(fvDecl.Feature.Symbol, rest, inst.ID); ok {
+			return val, err
 		}
-		// Members are read from the object the variant stands for.
-		val, err := ec.ctx.variantValue(fvDecl.Feature.Symbol, variant, inst.ID)
-		if err != nil {
-			return Value{}, err
-		}
-		return ec.chainMemberValue(val, rest, variant.Name)
 	}
 	return ec.chainFeatureValue(inst, name, rest, from)
 }
