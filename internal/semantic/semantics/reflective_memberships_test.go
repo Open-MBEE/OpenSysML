@@ -163,15 +163,20 @@ func TestOwnedAnnotationsAndAnnotatingElements(t *testing.T) {
 		dep := relFixtureSymbol(t, fixture, "Dep")
 		c := relFixtureSymbol(t, fixture, "C")
 		// The #Tag prefix is D's one owned annotation; it owns the metadata feature.
-		// A record carries no prefix metadata, so the recorded D owns none.
+		// A record keeps the prefix as a fact, so the recorded D owns the Annotation
+		// but there is no metadata feature to read through it.
 		owned := model.OwnedAnnotations(d)
-		if want := 1; d.Recorded() {
-			want = 0
-		} else if len(owned) != want {
-			t.Fatalf("D owns %d annotations, want %d", len(owned), want)
+		if len(owned) != 1 {
+			t.Fatalf("D owns %d annotations, want 1", len(owned))
 		}
 		if d.Recorded() {
-			assertRelFeature(t, model, d, "ownedAnnotation")
+			tag := owned[0]
+			assertRelMetaclass(t, model, tag, "Annotation")
+			assertRelFeature(t, model, d, "ownedAnnotation", tag)
+			assertRelFeature(t, model, tag, "annotatedElement", d)
+			assertRelFeature(t, model, tag, "owningAnnotatedElement", d)
+			assertRelUnsupported(t, model, tag, "annotatingElement")
+			assertRelUnsupported(t, model, tag, "ownedAnnotatingElement")
 		} else {
 			tag := owned[0]
 			assertRelMetaclass(t, model, tag, "Annotation")
@@ -508,5 +513,46 @@ feature g : A inverse of D::f;`
 		assertRelMetaclass(t, model, gRels[1], "FeatureInverting")
 		assertRelFeature(t, model, gRels[1], "featureInverted", g)
 		assertRelFeature(t, model, gRels[1], "invertingFeature", f)
+	}
+}
+
+// TestMembershipImportTargetIsTheMembership pins KerML 8.3.2.5 MembershipImport:
+// importedMembership redefines target, so both are the Membership the import
+// names (an alias being one itself) and importedElement is its member.
+func TestMembershipImportTargetIsTheMembership(t *testing.T) {
+	const src = `package A { part def X; alias Y for X; }
+package B { private import A::X; private import A::Y; }`
+	for _, fixture := range reflectiveFixtures(t, "membership-import.sysml", source.KindSysML, src) {
+		model := fixture.model
+		a := relFixtureSymbol(t, fixture, "A")
+		b := relFixtureSymbol(t, fixture, "B")
+		x := relFixtureSymbol(t, fixture, "X")
+		imports := model.OwnedImports(b)
+		if len(imports) != 2 {
+			t.Fatalf("B owns %d imports, want 2", len(imports))
+		}
+		xMembership := model.OwningMembership(x)
+		if xMembership == nil {
+			t.Fatal("X has no owning membership")
+		}
+		assertRelMetaclass(t, model, imports[0], "MembershipImport")
+		assertRelFeature(t, model, imports[0], "importedMembership", xMembership)
+		assertRelFeature(t, model, imports[0], "target", xMembership)
+		assertRelFeature(t, model, imports[0], "importedElement", x)
+		assertRelFeature(t, model, imports[0], "relatedElement", b, xMembership)
+		assertRelUnsupported(t, model, imports[0], "importedNamespace")
+		var alias *symbols.Symbol
+		a.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+			if member.Kind == symbols.SymbolAlias {
+				alias = member
+			}
+			return true
+		})
+		if alias == nil {
+			t.Fatal("A has no alias member")
+		}
+		assertRelFeature(t, model, imports[1], "importedMembership", alias)
+		assertRelFeature(t, model, imports[1], "target", alias)
+		assertRelFeature(t, model, imports[1], "importedElement", x)
 	}
 }

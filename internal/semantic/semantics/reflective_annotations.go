@@ -3,6 +3,7 @@ package semantics
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // OwnedAnnotations returns the Annotations sym owns as their annotated element
@@ -12,7 +13,7 @@ import (
 // in a namespace body is owned through a membership and annotates the
 // namespace through no Annotation (8.3.2.3.2 deriveAnnotatingElementAnnotatedElement).
 func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Recorded() && sym.Scope == nil {
+	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()
@@ -21,6 +22,18 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	journal(m, m.ownedAnnotations, sym, sym.Decl)
 	var out []*symbols.Symbol
+	// A record keeps each prefix annotation as a fact, not as a symbol: the
+	// Annotation is reflected with no annotating element to read through it.
+	for _, span := range m.recordedPrefixAnnotationSpans(sym) {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  sym.DocName,
+			DeclSpan: span,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: len(out), Form: symbols.ImplicitOwnedAnnotation,
+			},
+		})
+	}
 	for _, prefix := range m.prefixMetadataSymbols(sym) {
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
@@ -48,6 +61,29 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 		return true
 	})
 	m.ownedAnnotations[sym] = out
+	return out
+}
+
+// recordedPrefixAnnotationSpans locates the `#M` prefixes of a recorded symbol:
+// its record states every annotation its declaration made, the metadata usages
+// in its body among them, and those are recorded members located by the same span.
+func (m *Model) recordedPrefixAnnotationSpans(sym *symbols.Symbol) []source.Span {
+	if !sym.Recorded() {
+		return nil
+	}
+	body := make(map[source.Span]bool)
+	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member != nil && member.Kind == symbols.SymbolMetadataUsage {
+			body[member.DeclSpan] = true
+		}
+		return true
+	})
+	var out []source.Span
+	for _, fact := range sym.Facts.Annotations {
+		if !body[fact.Span] {
+			out = append(out, fact.Span)
+		}
+	}
 	return out
 }
 
@@ -214,16 +250,11 @@ func (m *Model) annotatingElementElements(sym *symbols.Symbol, feature string) (
 // annotationElements is ReflectiveElements for a reflected Annotation object.
 func (m *Model) annotationElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
 	annotated := []*symbols.Symbol{m.annotationAnnotatedElement(sym)}
-	annotating := []*symbols.Symbol{m.annotationAnnotatingElement(sym)}
 	owned := sym.Implicit.Form == symbols.ImplicitOwnedAnnotation
 	empty := []*symbols.Symbol{}
 	switch feature {
 	case "annotatedElement", "target":
 		return annotated, true
-	case "annotatingElement", "source":
-		return annotating, true
-	case "relatedElement":
-		return append(annotating, annotated...), true
 	case "owningRelatedElement", "owner":
 		return []*symbols.Symbol{sym.Implicit.Owner}, true
 	case "owningAnnotatedElement":
@@ -231,6 +262,20 @@ func (m *Model) annotationElements(sym *symbols.Symbol, feature string) ([]*symb
 			return annotated, true
 		}
 		return empty, true
+	case "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship", "owningMembership",
+		"owningNamespace", "documentation", "textualRepresentation":
+		return empty, true
+	}
+	annotatingElement := m.annotationAnnotatingElement(sym)
+	if annotatingElement == nil {
+		return nil, false
+	}
+	annotating := []*symbols.Symbol{annotatingElement}
+	switch feature {
+	case "annotatingElement", "source":
+		return annotating, true
+	case "relatedElement":
+		return append(annotating, annotated...), true
 	case "owningAnnotatingElement":
 		if owned {
 			return empty, true
@@ -240,9 +285,6 @@ func (m *Model) annotationElements(sym *symbols.Symbol, feature string) ([]*symb
 		if owned {
 			return annotating, true
 		}
-		return empty, true
-	case "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship", "owningMembership",
-		"owningNamespace", "documentation", "textualRepresentation":
 		return empty, true
 	}
 	return nil, false

@@ -167,7 +167,7 @@ func (m *Model) OwnedImports(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	journal(m, m.ownedImports, sym, sym.Decl)
 	var out []*symbols.Symbol
-	for ordinal, imp := range scopeImportDecls(sym.Scope) {
+	for ordinal, imp := range sym.Scope.Imports() {
 		out = append(out, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    sym.DocName,
@@ -182,34 +182,6 @@ func (m *Model) OwnedImports(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// scopeImportDecls returns the import declarations directly in a scope's body:
-// a recorded scope holds them itself, a parsed one reads its node.
-func scopeImportDecls(scope *symbols.Scope) []*ast.Import {
-	if scope.Recorded() {
-		return scope.Imports()
-	}
-	var members []ast.Node
-	switch n := scope.Node().(type) {
-	case *ast.Package:
-		members = n.Members
-	case *ast.Namespace:
-		members = n.Members
-	case *ast.RootNamespace:
-		members = n.Members
-	case *ast.Definition:
-		members = n.Members
-	case *ast.Usage:
-		members = n.Members
-	}
-	var out []*ast.Import
-	for _, member := range members {
-		if imp, ok := member.(*ast.Import); ok {
-			out = append(out, imp)
-		}
-	}
-	return out
-}
-
 // OwnedRelationships returns the relationships sym owns (KerML 8.3.2.1
 // Element::ownedRelationship): the Annotations of its prefix metadata, the
 // relationship clauses written on it, and its body's imports, memberships and
@@ -221,24 +193,27 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Implicit != nil {
 		return m.implicitOwnedRelationships(sym)
 	}
-	var out []*symbols.Symbol
+	var out, body []*symbols.Symbol
 	for _, ann := range m.OwnedAnnotations(sym) {
-		if ann.Implicit.Member != nil && isPrefixMetadataSymbol(ann.Implicit.Member) {
+		if isPrefixAnnotation(ann) {
 			out = append(out, ann)
-		}
-	}
-	out = append(out, m.ImplicitRelationships(sym)...)
-	var body []*symbols.Symbol
-	for _, ann := range m.OwnedAnnotations(sym) {
-		if ann.Implicit.Member == nil || !isPrefixMetadataSymbol(ann.Implicit.Member) {
+		} else {
 			body = append(body, ann)
 		}
 	}
+	out = append(out, m.ImplicitRelationships(sym)...)
 	body = append(body, m.OwnedImports(sym)...)
 	body = append(body, m.OwnedMemberships(sym)...)
 	body = append(body, m.AnnotatingRelationships(sym)...)
 	sort.SliceStable(body, func(i, j int) bool { return body[i].DeclSpan.Offset < body[j].DeclSpan.Offset })
 	return append(out, body...)
+}
+
+// isPrefixAnnotation reports whether an owned Annotation is one a `#M` prefix
+// writes: its annotating element is the prefix's metadata feature, or — on a
+// recorded element, whose record keeps the prefix as a fact — no symbol at all.
+func isPrefixAnnotation(ann *symbols.Symbol) bool {
+	return ann.Implicit.Member == nil || isPrefixMetadataSymbol(ann.Implicit.Member)
 }
 
 // implicitOwnedRelationships is OwnedRelationships for a reflected relationship
@@ -612,33 +587,45 @@ func (m *Model) importElements(sym *symbols.Symbol, feature string) ([]*symbols.
 		return empty, true
 	}
 	target := m.importTarget(rel.Owner, imp)
-	switch feature {
-	case "importedElement", "importedNamespace", "target":
-		if feature == "importedNamespace" && imp.Kind != ast.ImportNamespace {
+	if target == nil {
+		return nil, false
+	}
+	if imp.Kind == ast.ImportMembership {
+		// KerML 8.3.2.5 MembershipImport: importedMembership redefines target and
+		// importedElement is its memberElement.
+		membership := m.importedMembership(target)
+		if membership == nil {
 			return nil, false
 		}
-		if target == nil {
-			return nil, false
-		}
-		return []*symbols.Symbol{target}, true
-	case "importedMembership":
-		if imp.Kind != ast.ImportMembership || target == nil {
-			return nil, false
-		}
-		if target.Kind == symbols.SymbolAlias {
-			return []*symbols.Symbol{target}, true
-		}
-		if membership := m.OwningMembership(target); membership != nil {
+		switch feature {
+		case "importedMembership", "target":
 			return []*symbols.Symbol{membership}, true
+		case "importedElement":
+			if membership.Kind == symbols.SymbolAlias {
+				return m.aliasMembershipElements(membership, "memberElement")
+			}
+			return m.membershipElements(membership, "memberElement")
+		case "relatedElement":
+			return []*symbols.Symbol{rel.Owner, membership}, true
 		}
 		return nil, false
+	}
+	switch feature {
+	case "importedElement", "importedNamespace", "target":
+		return []*symbols.Symbol{target}, true
 	case "relatedElement":
-		if target == nil {
-			return nil, false
-		}
 		return []*symbols.Symbol{rel.Owner, target}, true
 	}
 	return nil, false
+}
+
+// importedMembership is the Membership a membership import names: an alias is
+// itself a Membership, any other element is reached through its owning one.
+func (m *Model) importedMembership(target *symbols.Symbol) *symbols.Symbol {
+	if target.Kind == symbols.SymbolAlias {
+		return target
+	}
+	return m.OwningMembership(target)
 }
 
 // importTarget resolves the element an import names, in the importing namespace.
@@ -646,18 +633,36 @@ func (m *Model) importTarget(owner *symbols.Symbol, imp *ast.Import) *symbols.Sy
 	if imp == nil || imp.Imported == nil || owner.Scope == nil {
 		return nil
 	}
+	if imp.Kind == ast.ImportMembership {
+		// A membership import names the membership: the member the namespace
+		// declares under that name, which an alias is itself.
+		if member := m.declaredMember(owner.Scope, imp.Imported); member != nil {
+			return member
+		}
+	}
 	target, ok := m.resolver.ResolveQualified(owner.Scope, imp.Imported)
 	if !ok || target == nil {
 		return nil
-	}
-	if imp.Kind == ast.ImportMembership {
-		// A membership import names the membership, which an alias is itself.
-		return target
 	}
 	if resolved, ok := m.resolver.ResolveAliasTarget(target); ok && resolved != nil {
 		return resolved
 	}
 	return target
+}
+
+// declaredMember is the member a qualified name's namespace declares under its
+// last segment, an alias unfollowed; nil when the namespace does not resolve.
+func (m *Model) declaredMember(scope *symbols.Scope, qn *ast.QualifiedName) *symbols.Symbol {
+	if qn == nil || len(qn.Parts) < 2 {
+		return nil
+	}
+	prefix := &ast.QualifiedName{Global: qn.Global, Parts: qn.Parts[:len(qn.Parts)-1]}
+	namespace, ok := m.resolver.ResolveQualified(scope, prefix)
+	if !ok || namespace == nil || namespace.Scope == nil {
+		return nil
+	}
+	member, _ := namespace.Scope.LookupLocal(qn.Parts[len(qn.Parts)-1].Text)
+	return member
 }
 
 // importValue is reflectiveFeatureValue for a reflected Import object.
