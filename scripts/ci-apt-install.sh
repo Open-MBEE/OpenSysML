@@ -3,6 +3,7 @@
 # step within minutes instead of holding it until the job's limit cancels it.
 #
 # Usage: scripts/ci-apt-install.sh [apt-get install options] <package>...
+# CI_APT_TIMEOUT_SECONDS bounds one apt-get command, CI_APT_DEADLINE_SECONDS the script.
 set -euo pipefail
 
 [[ $# -gt 0 ]] || { echo "usage: $0 [apt-get install options] <package>..." >&2; exit 2; }
@@ -10,10 +11,10 @@ set -euo pipefail
 # A fetch that sends nothing for 30 s is abandoned and retried by apt itself; each
 # command is bounded too, so a trickling mirror cannot hold it either.
 acquire=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
-budget=${CI_APT_TIMEOUT:-180}
+budget=${CI_APT_TIMEOUT_SECONDS:-180}
 # The whole script ends inside the steps' ten-minute timeout-minutes, so a slow
 # update cannot leave the install without time for its attempts and its report.
-deadline=$((SECONDS + ${CI_APT_DEADLINE:-540}))
+deadline=$((SECONDS + ${CI_APT_DEADLINE_SECONDS:-540}))
 
 run_apt() {
   local attempt left
