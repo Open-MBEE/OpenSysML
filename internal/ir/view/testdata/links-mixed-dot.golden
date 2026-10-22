@@ -76,8 +76,8 @@ digraph "MixedExamples::mixedDiagram" {
       "n8" [shape=doublecircle, fillcolor=black, label="", width=0.2, URL="https://example.test/src/mixed.sysml#L37", tooltip="mixed.sysml:37:3"];
     }
     "n9" [shape=ellipse, label=<<font point-size="10"><i>«use case def»</i></font><br/><b>Inspection</b>>, URL="https://example.test/src/mixed.sysml#L42", tooltip="MixedExamples::Inspection"];
-    "n10" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>operator</b>>, URL="https://example.test/src/mixed.sysml#L43", tooltip="MixedExamples::Inspection::operator"];
-    "n11" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>plant</b>>, URL="https://example.test/src/mixed.sysml#L44", tooltip="MixedExamples::Inspection::plant"];
+    "n10" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>plant</b>>, URL="https://example.test/src/mixed.sysml#L43", tooltip="MixedExamples::Inspection::plant"];
+    "n11" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>operator</b>>, URL="https://example.test/src/mixed.sysml#L44", tooltip="MixedExamples::Inspection::operator"];
     "n12" [shape=note, label=<<b>objective</b><br/>Inspect the plant and report its operating state.>, URL="https://example.test/src/mixed.sysml#L45", tooltip="mixed.sysml:45:3"];
     "n13" [style="rounded,filled", label=<<font point-size="10"><i>«perform action»</i></font><br/><b>run</b><br/>declares no nodes>, URL="https://example.test/src/mixed.sysml#L48", tooltip="MixedExamples::Inspection::run"];
     subgraph "cluster_n14" {
@@ -97,14 +97,14 @@ digraph "MixedExamples::mixedDiagram" {
   "n4" -> "n3" [URL="https://example.test/src/mixed.sysml#L30", tooltip="mixed.sysml:30:10"];
   "n6" -> "n7" [URL="https://example.test/src/mixed.sysml#L38", tooltip="mixed.sysml:38:3"];
   "n7" -> "n8" [URL="https://example.test/src/mixed.sysml#L39", tooltip="mixed.sysml:39:3"];
-  "n10" -> "n9" [dir=none, URL="https://example.test/src/mixed.sysml#L43", tooltip="MixedExamples::Inspection::operator"];
-  "n9" -> "n11" [label="«subject»", dir=none, URL="https://example.test/src/mixed.sysml#L44", tooltip="MixedExamples::Inspection::plant"];
+  "n9" -> "n10" [label="«subject»", dir=none, URL="https://example.test/src/mixed.sysml#L43", tooltip="MixedExamples::Inspection::plant"];
+  "n11" -> "n9" [dir=none, URL="https://example.test/src/mixed.sysml#L44", tooltip="MixedExamples::Inspection::operator"];
   "n9" -> "n12" [dir=none, style=dashed, URL="https://example.test/src/mixed.sysml#L45", tooltip="mixed.sysml:45:3"];
   "n16" -> "n15" [URL="https://example.test/src/mixed.sysml#L30", tooltip="mixed.sysml:30:10"];
   "n26":"n26.0" -> "n27":"n27.0" [arrowhead=none, penwidth=3, URL="https://example.test/src/mixed.sysml#L19", tooltip="MixedExamples::Plant::supply"];
   "n3" -> "n1" [style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L31", tooltip="MixedExamples::Modes::ready"];
-  "n10" -> "n31" [style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L43", tooltip="MixedExamples::Inspection::operator"];
-  "n11" -> "n25" [style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L44", tooltip="MixedExamples::Inspection::plant", lhead="cluster_n25"];
+  "n10" -> "n25" [style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L43", tooltip="MixedExamples::Inspection::plant", lhead="cluster_n25"];
+  "n11" -> "n31" [style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L44", tooltip="MixedExamples::Inspection::operator"];
   "n13" -> "n5" [label="«perform»", style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L48", tooltip="MixedExamples::Inspection::run", lhead="cluster_n5"];
   "n14" -> "n2" [label="«exhibit»", style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L49", tooltip="MixedExamples::Inspection::mode", ltail="cluster_n14", lhead="cluster_n2"];
   "n21" -> "n20" [label="«specializes»", arrowhead=empty, URL="https://example.test/src/mixed.sysml#L8", tooltip="MixedExamples::Pump", ltail="cluster_n21"];
