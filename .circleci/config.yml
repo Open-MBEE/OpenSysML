@@ -994,6 +994,7 @@ jobs:
           name: Show the reports and Java binaries the scan reads
           command: |
             ls -l coverage.txt coverage-python.xml coverage-scripts.xml coverage-node.lcov \
+              coverage-vscode.lcov coverage-jupyterlab.lcov coverage-mcp-npm.lcov \
               client/java/opensysml-client/target/site/jacoco/jacoco.xml \
               client/java/opensysml-conformance/target/site/jacoco/jacoco.xml \
               editors/syson/backend/target/site/jacoco/jacoco.xml \
@@ -1696,6 +1697,41 @@ jobs:
 
       - store_test_results:
           path: editors/mdk/plugin/target/surefire-reports
+
+  # The editors' and the npm package's Node tests (editors/vscode,
+  # editors/jupyterlab, packaging/npm/sysml-mcp), each under c8 for the lcov
+  # report the scan reads; without them every line of theirs counts as
+  # uncovered. The VS Code tests bundle the browser client from source, so its
+  # dependencies are installed first. Nothing here needs the service binary.
+  editors-node-test:
+    executor: node-executor
+    steps:
+      - checkout
+
+      - run:
+          name: Install the browser client's dependencies
+          command: |
+            cd client/node
+            npm ci --ignore-scripts
+
+      - run:
+          name: Test the VS Code extension with coverage
+          command: make vscode-coverage
+
+      - run:
+          name: Test the JupyterLab extension with coverage
+          command: make jupyterlab-coverage
+
+      - run:
+          name: Test the sysml-mcp npm package with coverage
+          command: make mcp-npm-coverage
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - coverage-vscode.lcov
+            - coverage-jupyterlab.lcov
+            - coverage-mcp-npm.lcov
 
   # Builds the opensysml wheel and sdist on a core `v<version>` tag, which must name
   # the declared version; build-release and publish-pypi ship exactly these bytes.
@@ -4050,6 +4086,10 @@ workflows:
           name: MDK plugin tests
           requires: *scan-inputs
           filters: *integration-branches
+      - editors-node-test:
+          name: Editor and npm package tests
+          requires: *scan-inputs
+          filters: *integration-branches
       - scan:
           name: SonarCloud scan
           # Matched exactly, like PyPI below; this context holds SONAR_TOKEN.
@@ -4067,6 +4107,7 @@ workflows:
             - Node client tests
             - SysON backend tests
             - MDK plugin tests
+            - Editor and npm package tests
           filters: *integration-branches
 
   # Build and release on tags. The suite runs here too: a tag can point at any

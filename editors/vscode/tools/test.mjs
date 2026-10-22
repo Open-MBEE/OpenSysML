@@ -40,5 +40,9 @@ try {
   const result = spawnSync(process.execPath, ["--test", "--enable-source-maps", ...compiled], { stdio: "inherit" });
   process.exitCode = result.status ?? 1;
 } finally {
-  await rm(outdir, { recursive: true, force: true });
+  // Under c8 the bundles must outlive the run: it maps them back to src/ through
+  // their inline source maps when it reports.
+  if (!process.env.NODE_V8_COVERAGE) {
+    await rm(outdir, { recursive: true, force: true });
+  }
 }
