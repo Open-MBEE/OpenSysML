@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: rig_interactions.xmi
-# migrated 84 element(s): 61 mapped, 17 approximated, 6 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 88 element(s): 65 mapped, 17 approximated, 6 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (6)
 Interaction	Rig::Astray	_astray	(the lifeline 'o' stands for 'motor' of Other, which no part of Rig reaches)
@@ -28,7 +28,7 @@ Message	Rig::Spinup::new	_mNew	-> 'new'	(the message creates m: v2 sequence nota
 Message	Rig::Spinup::spin	_mSpin	-> spin	(the call is the message; its receiving event performs spin on m)
 Message	Rig::Spinup::spun	_mRet	-> spun	(the reply carries the result result of the call as its payload; the caller's got is not assigned the result result: a sequence states transfers, not assignments; the value 30.0 the reply states for result is the operation's own result, which the call computes)
 
-## mapped (61)
+## mapped (65)
 «Block» Class	Controller	_ctrl	-> Model::Controller
 Property	Controller::got	_got	-> Model::Controller::got
 Signal	Done	_done	-> Model::Done
@@ -64,7 +64,9 @@ Property	Other::motor	_oMotor	-> Model::Other::motor
 Interaction	Rig::Spinup	_spinup	-> Model::Rig::Spinup	(written as an occurrence def of 2 lifeline usages and 8 messages between their event occurrences in occurrence order; its lifelines are bound to the features of Rig they stand for in the occurrence usage spinup)
 «TestCase» Interaction	Rig::Spinup Test	_tc	-> Model::Rig::'Spinup Test'	(written as a verification def of 1 lifeline usage and 1 message between their event occurrences in occurrence order, the lifelines bound to the subject's parts; the test case has no return parameter, so the verification case states no verdict and is inconclusive once its events complete)
 MessageOccurrenceSpecification	Rig::Spinup Test::<MessageOccurrenceSpecification>	_tRSpin	-> m.spinReceived	(written as the event occurrence m.spinReceived, which the message spin reaches)
+Lifeline	Rig::Spinup Test::m	_tlm	-> Model::Rig::'Spinup Test'::m	(written as the ref part usage m holding its 1 event occurrence, subsetting context.drive.motor)
 Interaction	Rig::Spinup at 12.01	_trace	-> Model::Rig::'Spinup at 12.01'	(written as an occurrence def of 1 lifeline usage and 0 messages between their event occurrences in occurrence order; its lifelines are bound to the features of Rig they stand for in the occurrence usage spinup at 12.01)
+Lifeline	Rig::Spinup at 12.01::motor	_trl	-> Model::Rig::'Spinup at 12.01'::motor	(written as the ref part usage motor holding its 0 event occurrences, bound to drive.motor of Rig where the def occurs)
 MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sGo	-> c.goSent	(written as the event occurrence c.goSent, which the message go leaves)
 MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rGo	-> m.goReceived	(written as the event occurrence m.goReceived, which the message go reaches)
 MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sBrake	-> c.brakeSent	(written as the event occurrence c.brakeSent, which the message brake leaves)
@@ -81,7 +83,9 @@ MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_sS
 MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_rSpin	-> m.spinReceived	(written as the event occurrence m.spinReceived, which the message spin reaches)
 MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_sRet	-> m.spunSent	(written as the event occurrence m.spunSent, which the message spun leaves)
 MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_rRet	-> c.spunReceived	(written as the event occurrence c.spunReceived, which the message spun reaches)
+Lifeline	Rig::Spinup::c	_lc	-> Model::Rig::Spinup::c	(written as the ref part usage c holding its 8 event occurrences, bound to ctrl of Rig where the def occurs)
 Message	Rig::Spinup::go	_mGo	-> go
+Lifeline	Rig::Spinup::m	_lm	-> Model::Rig::Spinup::m	(written as the ref part usage m holding its 8 event occurrences, bound to drive.motor of Rig where the def occurs)
 Message	Rig::Spinup::parEnd	_mGo2	-> parEnd
 Message	Rig::Spinup::parOp1	_mDone	-> parOp1
 Property	Rig::ctrl	_rCtrl	-> Model::Rig::ctrl
