@@ -244,7 +244,8 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 // assertedCondition is one assertion as a conjunct of the query, false for one
 // requiring nothing. A requirement's required conditions apply only where its
 // assumptions hold (SysML v2 §7.21.2), so an assertion stating both is the
-// implication A ⇒ R, written ¬(A ∧ ¬R); `assert not` denies it as a whole.
+// implication A ⇒ R, written ¬(A ∧ ¬R); `assert not` denies it as a whole. One
+// requiring nothing claims true, so its denial is the denial of the empty conjunction.
 func assertedCondition(group []runtime.Condition, negated bool) (runtime.Condition, bool) {
 	var assumed, required []runtime.Condition
 	for _, cond := range group {
@@ -255,6 +256,9 @@ func assertedCondition(group []runtime.Condition, negated bool) (runtime.Conditi
 		}
 	}
 	if len(required) == 0 {
+		if negated {
+			return runtime.Condition{Group: []runtime.Condition{}, Negated: true, Required: true}, true
+		}
 		return runtime.Condition{}, false
 	}
 	if len(assumed) == 0 {
