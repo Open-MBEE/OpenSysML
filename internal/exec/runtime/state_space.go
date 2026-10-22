@@ -65,7 +65,7 @@ type stateSpaceRun struct {
 	start float64
 	steps int
 	step  float64
-	// stop is the instant the run stops at, stops false where it runs while driven.
+	// stop is the duration the run lasts from its start, stops false where it runs while driven.
 	stop  float64
 	stops bool
 	// stepValue is timeStep as the action holds it, what the state's rate is scaled by.
@@ -77,6 +77,15 @@ type stateSpaceRun struct {
 
 // settled reports whether the run has sampled its start, which its first step does.
 func (run *stateSpaceRun) settled() bool { return run.guards != nil }
+
+// elapsed is the clock's instant t as the run's own time: the duration since it
+// began, so a performance reads and stops at the same times whenever it starts.
+func (run *stateSpaceRun) elapsed(t float64) float64 { return t - run.start }
+
+// pastStop reports a run whose next step would end past the duration it stops at.
+func (run *stateSpaceRun) pastStop() bool {
+	return run.stops && float64(run.steps+1)*run.step > run.stop+run.step*1e-9
+}
 
 // ownsFeature reports a feature the run writes itself, whose declared default the
 // action leaves unevaluated: the output, sampled by getOutput as each step settles.
@@ -128,7 +137,7 @@ func (e *ActionExecutor) initializeDynamics() error {
 	return nil
 }
 
-// readStep reads the step the dynamics advance by and the instant they stop at, in clock units.
+// readStep reads the step the dynamics advance by and the duration they run for, in clock units.
 func (e *ActionExecutor) readStep(run *stateSpaceRun) error {
 	dyn := run.dyn
 	what := fmt.Sprintf("%s of action %s", lower.TimeStepFeature, SymbolText(e.action))
@@ -165,8 +174,8 @@ func (e *ActionExecutor) readStep(run *stateSpaceRun) error {
 	if run.stop, err = e.ctx.timeMagnitude(stop, what); err != nil {
 		return fmt.Errorf("%w: %w", errStateSpaceStep, err)
 	}
-	if math.IsNaN(run.stop) {
-		return fmt.Errorf("%w: %s is not a number", errStateSpaceStep, what)
+	if math.IsNaN(run.stop) || run.stop < 0 {
+		return fmt.Errorf("%w: %s is %s, not a duration", errStateSpaceStep, what, FormatValue(stop))
 	}
 	run.stops = true
 	return nil
@@ -256,7 +265,7 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 		if err != nil {
 			return err
 		}
-		if ended || (run.stops && run.due() > run.stop+run.step*1e-9) {
+		if ended || run.pastStop() {
 			return e.retireToken(tokenIdx)
 		}
 		return e.parkDynamics(run, &e.tokens[tokenIdx])
@@ -276,7 +285,7 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 	if err != nil {
 		return err
 	}
-	if ended || (run.stops && run.due() > run.stop+run.step*1e-9) {
+	if ended || run.pastStop() {
 		return e.retireToken(tokenIdx)
 	}
 	return e.parkDynamics(run, &e.tokens[tokenIdx])
@@ -309,12 +318,12 @@ func (e *ActionExecutor) parkDynamics(run *stateSpaceRun, token *Token) error {
 	return nil
 }
 
-// settleStep records the state reached at the clock's instant: the time feature,
-// the output, the trace line and the zero crossings, true when one ends the run.
+// settleStep records the state reached at the clock's instant: the time feature as the
+// run's own time, the output, the trace line and the zero crossings, true when one ends the run.
 func (e *ActionExecutor) settleStep(run *stateSpaceRun, state Value, input *Value) (bool, error) {
 	now := e.ctx.clock.now
 	if run.dyn.Time != nil {
-		if err := e.setFeature(lower.TimeFeature, e.instantValue(now)); err != nil {
+		if err := e.setFeature(lower.TimeFeature, e.instantValue(run.elapsed(now))); err != nil {
 			return false, err
 		}
 	}
@@ -452,17 +461,17 @@ func (e *ActionExecutor) derivativeAt(run *stateSpaceRun, input *Value, state, s
 	return e.atInstant(run, t, func() (Value, error) { return e.derivative(run, input, at) })
 }
 
-// atInstant evaluates a stage with the time feature holding instant t, then
-// restores the instant the step started from; without a time feature it just evaluates.
+// atInstant evaluates a stage with the time feature holding the clock's instant t
+// as the run's time, then restores the step's start; without a time feature it just evaluates.
 func (e *ActionExecutor) atInstant(run *stateSpaceRun, t float64, stage func() (Value, error)) (Value, error) {
 	if run.dyn.Time == nil {
 		return stage()
 	}
 	saved, held := e.root.data[e.root.key(lower.TimeFeature)]
 	if !held {
-		saved = e.instantValue(run.stepStart())
+		saved = e.instantValue(run.elapsed(run.stepStart()))
 	}
-	if err := e.setFeature(lower.TimeFeature, e.instantValue(t)); err != nil {
+	if err := e.setFeature(lower.TimeFeature, e.instantValue(run.elapsed(t))); err != nil {
 		return Value{}, err
 	}
 	val, err := stage()

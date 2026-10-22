@@ -187,6 +187,10 @@ type ExpectedOutcome struct {
 	// Evaluate names the element to execute or evaluate: a qualified path
 	// ("test::p::a") also reaches one nested in a part. empty searches the model.
 	Evaluate string `json:"evaluate,omitempty"`
+	// Before names actions performed to completion on the case's runtime before
+	// its own, each a prior performance; one that is the case's action must leave
+	// the outputs the case expects, as its last performance must.
+	Before []string `json:"before,omitempty"`
 	// Trace opts a case into a golden trace it does not carry yet, so
 	// -update-traces writes one. A case already carrying a golden needs no opt-in.
 	Trace bool `json:"trace,omitempty"`
@@ -809,6 +813,9 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 			problems = append(problems, "exploreBudget: "+err.Error())
 		}
 	}
+	if len(expected.Before) > 0 && (expected.Type != "action" || len(expected.Performers) > 0 || expected.Error != "") {
+		problems = append(problems, "before applies to an action case run to completion by no object")
+	}
 	if len(expected.Outcomes) == 0 {
 		if expected.Admissible != "" {
 			problems = append(problems, "admissible is stated without outcomes to admit")
@@ -1044,6 +1051,7 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 		runActionPerformers(t, ctx, idx, actionSym, expected.Performers)
 		return
 	}
+	performBefore(t, ctx, idx, rootScope, actionSym, expected)
 
 	// Execute action
 	outcome, err := ctx.ActionOutcomePerformedBy(actionSym, nil, nil)
@@ -1085,6 +1093,23 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 		// Token count validation requires instrumentation in executor
 		// For now, skip - can add later if needed
 		t.Logf("token count validation not yet implemented (expected %d)", *expected.TokenCount)
+	}
+}
+
+// performBefore performs the actions a case lists before its own on the same
+// runtime, so the case's performance follows them as a later `-action` follows
+// an earlier one; a prior performance of the case's action must yield its outputs.
+func performBefore(t *testing.T, ctx *Context, idx *symbols.Index, rootScope *symbols.Scope, actionSym *symbols.Symbol, expected ExpectedOutcome) {
+	t.Helper()
+	for _, name := range expected.Before {
+		sym := namedOrFoundSymbol(t, idx, name, rootScope, ast.DefAction, ast.UsageAction)
+		outcome, err := ctx.ActionOutcomePerformedBy(sym, nil, nil)
+		if err != nil {
+			t.Fatalf("performance of %s before the case's: %v", name, err)
+		}
+		if sym == actionSym {
+			validateOutputs(t, ctx, expected.Outputs, outcome.Outputs)
+		}
 	}
 }
 
