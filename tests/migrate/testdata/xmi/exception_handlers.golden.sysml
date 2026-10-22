@@ -23,6 +23,7 @@ package Model {
                     metadata DiagramLayout::Layout about 'Position Not Correct' { x = 240; y = 200; width = 180; height = 130; }
                     metadata DiagramLayout::Layout about Imaging::Camera::Inspect::'Position Not Correct'::adjust { x = 260; y = 230; width = 142; height = 33; }
                     metadata DiagramLayout::Layout about Imaging::Camera::Inspect::'Position Not Correct'::recapture { x = 260; y = 280; width = 142; height = 33; }
+                    metadata DiagramLayout::Layout about rethrow { x = 460; y = 100; width = 142; height = 33; }
                     metadata DiagramLayout::Route about 'start to capture' { points = (92, 55, 92, 100); }
                     metadata DiagramLayout::Route about 'capture to store' { points = (92, 133, 92, 200); }
                     metadata DiagramLayout::Route about 'store to final' { points = (92, 233, 92, 300); }
@@ -35,7 +36,10 @@ package Model {
                 action capture : Capture;
                 succession 'capture to store' first capture then store;
                 action store;
+                /* not migrated: ObjectFlow (_eh_e6) — the edge leads to 'Position Not Correct', the handler body of (_eh_h2), which v1 starts only on an exception */
                 succession 'store to final' first store then final;
+                /* not migrated: ExceptionHandler (_eh_h3) — SysML v2 has no exception handler: UML runs the handler body 'rethrow' only when its protected node 'capture' raises a matching exception of type 'CaptureFault'; the body is written as a reference action usage the activity does not perform */
+                ref action rethrow;
                 action final terminate;
                 /* not migrated: ExceptionHandler (_eh_h1) — SysML v2 has no exception handler: UML runs the handler body 'Image Capture Fails' only when its protected node 'capture' raises a matching exception of type 'CaptureFault'; the body is written as a reference action usage the activity does not perform */
                 ref action 'Image Capture Fails' {

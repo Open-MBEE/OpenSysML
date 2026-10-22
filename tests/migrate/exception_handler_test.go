@@ -14,11 +14,12 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-// testdata/xmi/exception_handlers.xmi: the call 'capture' owns two UML
-// exception handlers whose bodies are structured nodes no edge leads to. SysML
-// v2 has no exception handler, so each handler is diagnosed and its body is
-// written as a reference action usage: nothing starts it and the activity does
-// not perform it, where it used to start with the activity.
+// testdata/xmi/exception_handlers.xmi: the call 'capture' owns three UML
+// exception handlers whose bodies no edge leads to: two structured nodes and a
+// raise exception action; an object flow feeds one body's pin and an observation
+// times another. SysML v2 has no exception handler, so each handler is diagnosed
+// and its body is written as a reference action usage: nothing starts it and the
+// activity does not perform it, where it used to start with the activity.
 func TestExceptionHandlerBodyIsNeverStarted(t *testing.T) {
 	r := migrateStream(t, "exception_handlers")
 	checkGolden(t, "testdata/xmi/exception_handlers.golden.sysml", r.Notation)
@@ -36,12 +37,22 @@ func TestExceptionHandlerBodyIsNeverStarted(t *testing.T) {
 	wantLine(t, r.Notation, "/* not migrated: ExceptionHandler (_eh_h2) — SysML v2 has no exception handler: UML runs the handler body 'Position Not Correct' only when its protected node 'capture' raises a matching exception; no exception type: catches nothing in UML */")
 	wantLine(t, r.Notation, "ref action 'Image Capture Fails' {")
 	wantLine(t, r.Notation, "ref action 'Position Not Correct' {")
-	for _, body := range []string{"'Image Capture Fails'", "'Position Not Correct'"} {
-		for _, start := range []string{"first start then " + body, "then " + body + ";", "succession 'start to " + strings.Trim(body, "'") + "'"} {
+	wantLine(t, r.Notation, "ref action rethrow;")
+	for _, body := range []string{"'Image Capture Fails'", "'Position Not Correct'", "rethrow"} {
+		for _, start := range []string{"first start then " + body, "then " + body + ";", "then " + body + "\n", "succession 'start to " + strings.Trim(body, "'") + "'", "succession flow", "stamp"} {
 			if strings.Contains(notation, start) {
-				t.Errorf("a succession starts the handler body %s:\n%s", body, notation)
+				t.Errorf("%q starts the handler body %s:\n%s", start, body, notation)
 			}
 		}
+	}
+	// The raise in a handler body gets no terminate of its own: only the finals'.
+	if n := strings.Count(notation, " terminate;"); n != 2 || strings.Contains(notation, "action terminate ") {
+		t.Errorf("%d terminate actions, want the two activity finals' alone:\n%s", n, notation)
+	}
+	// The object flow into the body's pin is not written, and forks nothing off store.
+	wantNote(t, r, "_eh_e6", migrate.Unmapped, "the edge leads to 'Position Not Correct', the handler body of (_eh_h2)")
+	if strings.Contains(notation, "fork") {
+		t.Errorf("a fork is written for the unwritable edge:\n%s", notation)
 	}
 	// The bodies' own steps and the main flow survive, nested as before.
 	wantLine(t, r.Notation, "succession 'retry to log failure' first retry then 'log failure';")
@@ -53,6 +64,9 @@ func TestExceptionHandlerBodyIsNeverStarted(t *testing.T) {
 	wantNote(t, r, "_eh_faultIn", migrate.Unmapped, "the exception input of (_eh_h1)")
 	wantNote(t, r, "_eh_fails", migrate.Approximated, "the handler body of (_eh_h1): written as a reference action usage, which the activity does not perform")
 	wantNote(t, r, "_eh_pos", migrate.Approximated, "the handler body of (_eh_h2)")
+	wantNote(t, r, "_eh_h3", migrate.Unmapped, "the handler body 'rethrow'")
+	wantNote(t, r, "_eh_rethrow", migrate.Approximated, "raising ends nothing")
+	wantNote(t, r, "_eh_obs", migrate.Unmapped, "is the handler body of (_eh_h1), which the activity does not perform")
 	for _, id := range []string{"_eh_fails", "_eh_pos"} {
 		for _, e := range entriesFor(r, id) {
 			if strings.Contains(e.Note, "starts with the activity") {
@@ -67,8 +81,8 @@ func TestExceptionHandlerBodyIsNeverStarted(t *testing.T) {
 	for _, k := range r.Report.Layout.RoutesByKind {
 		if k.Kind == "ExceptionHandler" {
 			found = true
-			if k.Reason != "no v2 member" || k.Count != 2 {
-				t.Errorf("ExceptionHandler routes = %+v, want 2 no v2 member", k)
+			if k.Reason != "no v2 member" || k.Count != 3 {
+				t.Errorf("ExceptionHandler routes = %+v, want 3 no v2 member", k)
 			}
 		}
 	}
@@ -108,7 +122,7 @@ func TestExceptionHandlerBodyIsNeverPerformed(t *testing.T) {
 			t.Errorf("the trace does not perform %s:\n%s", step, trace)
 		}
 	}
-	for _, step := range []string{"Image Capture Fails", "retry", "log failure", "Position Not Correct", "adjust", "recapture"} {
+	for _, step := range []string{"Image Capture Fails", "retry", "log failure", "Position Not Correct", "adjust", "recapture", "rethrow"} {
 		if strings.Contains(trace, step) {
 			t.Errorf("the trace performs the handler body step %s:\n%s", step, trace)
 		}

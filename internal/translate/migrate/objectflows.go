@@ -21,6 +21,8 @@ func (a *activity) successionFlow(e *sysmlv1.Element) bool {
 	var v bool
 	_, stamped := a.after[ownerNode(src)]
 	switch {
+	case a.handlers[ownerNode(src)] != nil || a.handlers[ownerNode(tgt)] != nil:
+		// The handler body never fires, so no flow orders it or follows it.
 	case stamped:
 	case a.through[src] || a.through[tgt]:
 		v = e.Type == "ObjectFlow" && !realGuard(e) && !a.dataOnly[e] && slices.Contains(a.succ[ownerNode(src)], e)

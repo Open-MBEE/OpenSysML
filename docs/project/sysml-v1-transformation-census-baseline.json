@@ -220,7 +220,7 @@
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 125
+        "fixtures": 126
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -260,7 +260,7 @@
       },
       "uml:RaiseExceptionAction": {
         "pssm": 0,
-        "fixtures": 2
+        "fixtures": 3
       },
       "uml:ReadExtentAction": {
         "pssm": 0,

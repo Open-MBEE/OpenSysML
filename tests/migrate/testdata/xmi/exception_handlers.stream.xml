@@ -44,6 +44,10 @@
     <elementID xmi:idref='_eh_recapture'></elementID>
     <geometry>260, 280, 142, 33</geometry>
   </mdElement>
+  <mdElement elementClass='RaiseExceptionAction' xmi:id='_sym_rethrow'>
+    <elementID xmi:idref='_eh_rethrow'></elementID>
+    <geometry>460, 100, 142, 33</geometry>
+  </mdElement>
   <mdElement elementClass='ControlFlow' xmi:id='_sym_e1'>
     <elementID xmi:idref='_eh_e1'></elementID>
     <linkFirstEndID xmi:idref='_sym_init'></linkFirstEndID>
@@ -85,5 +89,11 @@
     <linkFirstEndID xmi:idref='_sym_capture'></linkFirstEndID>
     <linkSecondEndID xmi:idref='_sym_pos'></linkSecondEndID>
     <geometry>163, 125; 240, 260; </geometry>
+  </mdElement>
+  <mdElement elementClass='ExceptionHandler' xmi:id='_sym_h3'>
+    <elementID xmi:idref='_eh_h3'></elementID>
+    <linkFirstEndID xmi:idref='_sym_capture'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_rethrow'></linkSecondEndID>
+    <geometry>163, 105; 460, 110; </geometry>
   </mdElement>
 </mdOwnedViews>

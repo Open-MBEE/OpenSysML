@@ -1079,6 +1079,10 @@ func (a *activity) successions(n *sysmlv1.Element) {
 	var outs []*sysmlv1.Element
 	entry := map[*sysmlv1.Element]string{}
 	for _, e := range a.succ[n] {
+		if a.handlers[ownerNode(a.m.model.Ref(e, "target"))] != nil {
+			a.unwritableEdge(e) // no token travels into a handler body, so no fork carries the edge
+			continue
+		}
 		if a.successionFlow(e) {
 			if entry[e] = a.flowEntry(ownerNode(a.m.model.Ref(e, "target"))); entry[e] == "" {
 				continue
@@ -3457,9 +3461,14 @@ func (a *activity) reducerFunc(n *sysmlv1.Element) (fn, why string) {
 // raiseException writes a raise exception action: its pins and a sibling
 // terminate action the succession after it leads to, since v2 has no
 // exceptions — with no handler, raising ends the activity. The action's own
-// outgoing edges carry no token; successions reports each.
+// outgoing edges carry no token; successions reports each. A handler body
+// raising one gets no terminate: the activity never performs the body.
 func (a *activity) raiseException(n *sysmlv1.Element, name string) {
 	a.m.w.block(actionKw+name, func() { a.pins(n, nil) })
+	if hs := a.handlers[n]; hs != nil {
+		a.m.add(n, Approximated, name, "v2 has no exceptions, and the action is the handler body of "+describe(hs[0])+", which the activity never performs, so raising ends nothing")
+		return
+	}
 	end := writeName(a.fresh("terminate"))
 	a.m.w.line(actionKw + end + " terminate;")
 	a.madeUp(end)
