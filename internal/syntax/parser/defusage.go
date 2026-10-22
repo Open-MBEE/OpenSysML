@@ -234,6 +234,7 @@ type featureMods struct {
 	constantSeen  bool            // a constant prefix in the file kind's own spelling was read
 	isEvent       bool            // event modifier for occurrences
 	isIndividual  bool            // individual modifier for individuals/snapshots
+	individual    lexer.Token     // the `individual` token read
 	portion       ast.PortionKind // 'snapshot' / 'timeslice' portion prefix
 	isNegated     bool            // `not` of `assert not <kind>`: the conditions are asserted to be false
 	prefixKeyword string          // keyword qualifying the kind that follows it: the `assert` of `assert constraint c`
@@ -544,6 +545,7 @@ func applyFeatureMods(decl ast.Node, mods featureMods) {
 		}
 		if mods.isIndividual {
 			d.IsIndividual = true
+			d.IndividualKeyword = mods.individual.Span
 		}
 		if mods.portion != ast.PortionNone {
 			d.Portion = mods.portion
@@ -1236,6 +1238,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			}
 			m.noteDefinitionPrefix(t)
 			m.isIndividual = true
+			m.individual = t
 		case "snapshot":
 			// The portion loop in parseDefUsage reads a portion prefix the same way
 			// for either keyword; only another modifier after it is handled here.
@@ -1790,6 +1793,11 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	// This handles patterns like `#scenario def X` where prefix acts as semantic annotation
 	if p.atKeyword("def") {
 		p.advance() // consume 'def'
+		// `individual #Tag def F` is an IndividualDefinition, not a generic class: the
+		// metadata sits between the two words (SysML.xtext IndividualDefinition).
+		if mods.isIndividual {
+			return applyPrefixes(p.parseDefinition(start, ast.DefIndividual, "individual", mods, false, true))
+		}
 		// Use generic definition kind (or could extract from prefix)
 		return applyPrefixes(p.parseDefinition(start, ast.DefClass, "", mods, false, true))
 	}
@@ -1829,6 +1837,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	// handled with the usage-only keywords above.
 	if kw == "individual" {
 		mods.isIndividual = true
+		mods.individual = t
 	}
 
 	// Parse 'all' modifier if present (appears after keyword, before name)
@@ -1917,6 +1926,9 @@ func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword str
 		IsIndividual:  mods.isIndividual,
 		Visibility:    mods.visibility,
 		Ident:         p.parseIdentification(),
+	}
+	if mods.isIndividual {
+		def.IndividualKeyword = mods.individual.Span
 	}
 	if !defKeywordConsumed && isKerMLClassifierDefinitionKeyword(keyword) && p.at(lexer.LBracket) {
 		def.Multiplicity = p.parseMultiplicity()
@@ -2317,29 +2329,30 @@ func (p *Parser) atGuardedSuccession() bool {
 // token stream, kept for the same reason as in parseDefinition.
 func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods featureMods, isAll bool) *ast.Usage {
 	u := &ast.Usage{
-		Kind:          kind,
-		Keyword:       keyword,
-		PrefixKeyword: mods.prefixKeyword,
-		IsNegated:     mods.isNegated,
-		IsAbstract:    mods.isAbstract,
-		IsVariation:   mods.isVariation,
-		IsVariant:     mods.isVariant,
-		IsReference:   mods.isReference,
-		IsVariable:    mods.isVariable,
-		IsAll:         isAll,
-		IsEnd:         mods.isEnd,
-		IsChain:       mods.isChain,
-		IsConstant:    mods.isConstant,
-		IsEvent:       mods.isEvent,
-		IsIndividual:  mods.isIndividual,
-		Portion:       mods.portion,
-		Visibility:    mods.visibility,
-		Direction:     mods.direction,
-		IsComposite:   mods.isComposite,
-		IsPortion:     mods.isPortion,
-		IsDerived:     mods.isDerived,
-		IsOrdered:     mods.isOrdered,
-		IsNonunique:   mods.isNonunique,
+		Kind:              kind,
+		Keyword:           keyword,
+		PrefixKeyword:     mods.prefixKeyword,
+		IsNegated:         mods.isNegated,
+		IsAbstract:        mods.isAbstract,
+		IsVariation:       mods.isVariation,
+		IsVariant:         mods.isVariant,
+		IsReference:       mods.isReference,
+		IsVariable:        mods.isVariable,
+		IsAll:             isAll,
+		IsEnd:             mods.isEnd,
+		IsChain:           mods.isChain,
+		IsConstant:        mods.isConstant,
+		IsEvent:           mods.isEvent,
+		IsIndividual:      mods.isIndividual,
+		IndividualKeyword: mods.individual.Span,
+		Portion:           mods.portion,
+		Visibility:        mods.visibility,
+		Direction:         mods.direction,
+		IsComposite:       mods.isComposite,
+		IsPortion:         mods.isPortion,
+		IsDerived:         mods.isDerived,
+		IsOrdered:         mods.isOrdered,
+		IsNonunique:       mods.isNonunique,
 	}
 
 	u.CrossFeature = mods.cross
@@ -3338,27 +3351,28 @@ func (p *Parser) parseBodyMember() ast.Node {
 				kind = p.anonymousUsageKind(mods)
 			}
 			u := &ast.Usage{
-				Kind:         kind,
-				Keyword:      keyword,
-				Ident:        id,
-				Visibility:   mods.visibility,
-				IsAbstract:   mods.isAbstract,
-				IsVariation:  mods.isVariation,
-				IsVariant:    mods.isVariant,
-				IsReference:  mods.isReference,
-				IsIndividual: mods.isIndividual,
-				IsEvent:      mods.isEvent,
-				Portion:      mods.portion,
-				IsVariable:   mods.isVariable,
-				IsConstant:   mods.isConstant,
-				IsDerived:    mods.isDerived,
-				IsComposite:  mods.isComposite,
-				IsPortion:    mods.isPortion,
-				IsEnd:        mods.isEnd,
-				IsChain:      mods.isChain,
-				Direction:    mods.direction,
-				IsOrdered:    mods.isOrdered,
-				IsNonunique:  mods.isNonunique,
+				Kind:              kind,
+				Keyword:           keyword,
+				Ident:             id,
+				Visibility:        mods.visibility,
+				IsAbstract:        mods.isAbstract,
+				IsVariation:       mods.isVariation,
+				IsVariant:         mods.isVariant,
+				IsReference:       mods.isReference,
+				IsIndividual:      mods.isIndividual,
+				IndividualKeyword: mods.individual.Span,
+				IsEvent:           mods.isEvent,
+				Portion:           mods.portion,
+				IsVariable:        mods.isVariable,
+				IsConstant:        mods.isConstant,
+				IsDerived:         mods.isDerived,
+				IsComposite:       mods.isComposite,
+				IsPortion:         mods.isPortion,
+				IsEnd:             mods.isEnd,
+				IsChain:           mods.isChain,
+				Direction:         mods.direction,
+				IsOrdered:         mods.isOrdered,
+				IsNonunique:       mods.isNonunique,
 			}
 
 			if hasTypeOnly {
