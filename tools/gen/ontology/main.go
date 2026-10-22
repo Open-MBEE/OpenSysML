@@ -443,10 +443,8 @@ func lowerBound(bound string) (int, error) {
 	return n, nil
 }
 
-// defaultValue is EMF's EStructuralFeature.getDefaultValue for an attribute: its
-// defaultValueLiteral when it states one, else the datatype's own default, which
-// of the primitives the table maps only boolean has (false); strings and
-// enumerations default to nothing.
+// defaultValue is EMF's getDefaultValue for an attribute: its defaultValueLiteral, else the
+// datatype's own default, which among the mapped primitives only boolean has (false).
 func defaultValue(literal *string, rangeIRI string) (value string, ok bool) {
 	if literal != nil {
 		return *literal, true

@@ -17,10 +17,8 @@ const (
 
 var testPin = baseline.Pin{Tag: testTag, Commit: testCommitSHA}
 
-// sampleEcore is a SysML.ecore excerpt: an abstract root, a class with two
-// supertypes, an enumeration, every primitive spelling, and every flag and bound
-// the table records, including unique="false" on a single-valued feature, which
-// means nothing, and a Boolean without a defaultValueLiteral, which defaults to false.
+// sampleEcore is a SysML.ecore excerpt: an abstract root, a class with two supertypes,
+// an enumeration, every primitive spelling, and every flag, bound and default the table records.
 const sampleEcore = `<?xml version="1.0" encoding="UTF-8"?>
 <ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="sysml" nsURI="https://www.omg.org/spec/SysML/20250201" nsPrefix="sysml">
