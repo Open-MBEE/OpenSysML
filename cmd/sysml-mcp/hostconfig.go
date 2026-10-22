@@ -126,7 +126,7 @@ func printHostList(w io.Writer) {
 	for _, h := range hosts {
 		fmt.Fprintf(w, "  %-12s %s\n", h.name, h.file)
 	}
-	fmt.Fprintf(w, "Usage: %s -print-config HOST [-print-config-command CMD | -print-config-npx | -http ADDR [-tls-cert FILE -tls-key FILE] [-token-file FILE | -token TOKEN]]\n", mcpCommand)
+	fmt.Fprintf(w, "Usage: %s -print-config HOST [-print-config-command CMD | -print-config-npx | -http ADDR [-tls-cert FILE -tls-key FILE] [-token-file FILE | -token TOKEN] [-public-url URL]]\n", mcpCommand)
 }
 
 // printHostConfig writes the block declaring the server to host name: at

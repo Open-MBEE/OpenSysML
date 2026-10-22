@@ -12,8 +12,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 )
 
-// httpOptions is what the -http, -allow-origin, -token, -token-file, -tls-cert
-// and -tls-key flags resolve to once read together; nil when -http was not given.
+// httpOptions is what the -http, -allow-origin, -token, -token-file,
+// -public-url, -tls-cert and -tls-key flags resolve to once read together;
+// nil when -http was not given.
 type httpOptions struct {
 	addr    string
 	origins mcp.OriginPolicy
@@ -29,7 +30,7 @@ type httpOptions struct {
 // loadTLS loads the pair.
 func readHTTPOptions(o *options) (*httpOptions, error) {
 	if o.http == "" {
-		for _, f := range []struct{ name, value string }{{"-allow-origin", o.allowOrigin}, {"-token", o.token}, {"-token-file", o.tokenFile}, {"-tls-cert", o.tlsCert}, {"-tls-key", o.tlsKey}} {
+		for _, f := range []struct{ name, value string }{{"-allow-origin", o.allowOrigin}, {"-token", o.token}, {"-token-file", o.tokenFile}, {"-public-url", o.publicURL}, {"-tls-cert", o.tlsCert}, {"-tls-key", o.tlsKey}} {
 			if f.value != "" {
 				return nil, fmt.Errorf("%s applies to the HTTP transport; name its address with -http", f.name)
 			}
@@ -51,6 +52,9 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 	if err != nil {
 		return nil, err
 	}
+	if token, err = token.At(o.publicURL); err != nil {
+		return nil, fmt.Errorf("-public-url: %w", err)
+	}
 	if (o.tlsCert == "") != (o.tlsKey == "") {
 		return nil, errors.New("-tls-cert and -tls-key must be supplied together")
 	}
@@ -62,7 +66,7 @@ func (h *httpOptions) tokenValue() string { return h.tokenText }
 
 // readToken reads the bearer token from -token-file, -token or the
 // environment, in that order of preference; the two flags together are
-// refused, a file's trailing line break is not part of the token, and an
+// refused, a file's one trailing line break is not part of the token, and an
 // empty flag or variable names none.
 func readToken(o *options) (mcp.BearerToken, string, error) {
 	if o.token != "" && o.tokenFile != "" {
@@ -75,7 +79,7 @@ func readToken(o *options) (mcp.BearerToken, string, error) {
 		if err != nil {
 			return mcp.BearerToken{}, "", fmt.Errorf("-token-file: %w", err)
 		}
-		source, value = fmt.Sprintf("-token-file %q", o.tokenFile), strings.TrimRight(string(raw), "\r\n")
+		source, value = fmt.Sprintf("-token-file %q", o.tokenFile), strings.TrimSuffix(strings.TrimSuffix(string(raw), "\n"), "\r")
 	case o.token == "":
 		env := os.Getenv(mcp.TokenEnv)
 		if env == "" {
@@ -102,9 +106,13 @@ func (h *httpOptions) loadTLS() error {
 	return nil
 }
 
-// url is where a client reaches the server: https with a TLS pair, and
-// localhost where the address binds every interface or loopback alone.
+// url is where a client reaches the server: -public-url when given, else
+// https with a TLS pair, and localhost where the address binds every
+// interface or loopback alone.
 func (h *httpOptions) url() string {
+	if public := h.token.PublicURL(); public != "" {
+		return public
+	}
 	return serverURL(h.addr, h.certFile != "")
 }
 

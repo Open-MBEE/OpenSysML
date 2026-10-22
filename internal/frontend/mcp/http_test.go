@@ -270,6 +270,25 @@ func TestServeStreamableHTTPRefusesOffLoopbackWithoutAToken(t *testing.T) {
 	}
 }
 
+// TestServeStreamableHTTPWarnsOfATokenOverCleartext checks a token served
+// off loopback without TLS is warned about, and on loopback is not.
+func TestServeStreamableHTTPWarnsOfATokenOverCleartext(t *testing.T) {
+	tok, _ := NewBearerToken("s3cret")
+	for addr, warned := range map[string]bool{"0.0.0.0:0": true, "127.0.0.1:0": false} {
+		var logs bytes.Buffer
+		_, stop := serveHTTPWith(t, Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test"}, &logs, addr, tok)
+		if err := stop(); err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Contains(logs.String(), "level=WARN") && strings.Contains(logs.String(), "over cleartext"); got != warned {
+			t.Errorf("%s: warned %v, want %v:\n%s", addr, got, warned, logs.String())
+		}
+		if strings.Contains(logs.String(), "s3cret") {
+			t.Errorf("%s: the token was logged:\n%s", addr, logs.String())
+		}
+	}
+}
+
 func TestServeStreamableHTTPRefusesHalfATLSPair(t *testing.T) {
 	srv, err := New(context.Background(), Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test",
 		NewSession: func() (*repl.Session, error) { return repl.NewSession(), nil }})

@@ -305,6 +305,15 @@ func TestPrintConfigURLBlocksCarryTheToken(t *testing.T) {
 			t.Errorf("a block without a token names headers:\n%s", plain)
 		}
 	})
+	t.Run("public URL", func(t *testing.T) {
+		block := printed(t, "-print-config", "cursor", "-http", "8765", "-token-file", tokenFile, "-public-url", "https://models.example.org/mcp")
+		if got := decodeJSON(t, block, "mcpServers.sysml.url"); got != "https://models.example.org/mcp" {
+			t.Errorf("url = %v, want the public URL:\n%s", got, block)
+		}
+		if got := decodeJSON(t, block, "mcpServers.sysml.headers.Authorization"); got != header {
+			t.Errorf("Authorization = %v:\n%s", got, block)
+		}
+	})
 	t.Run("environment", func(t *testing.T) {
 		t.Setenv(mcp.TokenEnv, "from-env")
 		block := printed(t, "-print-config", "cursor", "-http", "8765")

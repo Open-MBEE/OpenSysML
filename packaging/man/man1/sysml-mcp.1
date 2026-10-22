@@ -71,6 +71,12 @@ Make the \-print\-config block start the server as npx \-y
 @openmbee/sysml\-mcp, which npm installs on first use, instead of naming this
 binary
 .TP
+.BI \-public\-url " string"
+URL clients reach the HTTP transport at when a proxy in front terminates TLS
+or rewrites the path, as https://models.example.org/mcp; named as the
+protected resource and in the bearer challenge, and by the \-print\-config
+block; default each request's own scheme and Host
+.TP
 .BI \-root " string"
 Workspace folder whose model documents the server indexes and edits; default
 the current directory, which an agent host sets to the project. The default is
@@ -146,6 +152,9 @@ sysml\-mcp \-http 0.0.0.0:8765 \-token\-file mcp.token \-tls\-cert \e
 # Answer one browser origin besides loopback
 sysml\-mcp \-http 0.0.0.0:8765 \-token\-file mcp.token \-allow\-origin \e
     https://agents.example.org
+# Serve loopback behind a proxy that terminates TLS at that URL
+sysml\-mcp \-http 8765 \-token\-file mcp.token \-public\-url \e
+    https://models.example.org/mcp
 .fi
 .RE
 .PP
@@ -156,12 +165,14 @@ server is an OAuth 2.1 resource server in the minimal form, with one token
 issued by whoever runs it, so every request must carry Authorization: Bearer
 TOKEN, and one that does not is refused with 401 and a WWW\-Authenticate
 challenge naming the resource metadata at
-/.well\-known/oauth\-protected\-resource/mcp. Starting on such an address with
-no token is refused. A token given for a loopback address is enforced the same
-way. The token is letters, digits and \-._~+/ (RFC 6750), is never logged, and
-is best generated, as by openssl rand \-base64 32, and kept in a file only the
-server's user reads. \-tls\-cert and \-tls\-key, both given, serve https,
-which a token sent over a network needs; one without the other is refused.
+/.well\-known/oauth\-protected\-resource/mcp, both naming the endpoint as the
+request reached it, or as \-public\-url says when a proxy in front terminates
+TLS. Starting on such an address with no token is refused. A token given for a
+loopback address is enforced the same way. The token is letters, digits and
+\-._~+/ (RFC 6750), is never logged, and is best generated, as by openssl rand
+\-base64 32, and kept in a file only the server's user reads. \-tls\-cert and
+\-tls\-key, both given, serve https, which a token sent over a network needs;
+one without the other is refused.
 .PP
 A request is answered when its Origin header is absent, names a loopback
 origin (localhost, 127.0.0.0/8 or ::1 over any scheme and port) or names an

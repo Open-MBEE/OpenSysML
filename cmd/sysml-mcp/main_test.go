@@ -151,6 +151,16 @@ func TestCommandLine(t *testing.T) {
 		status: exitUnservable,
 		stderr: []string{"sysml-mcp: -token: a token is letters, digits and -._~+/ with trailing = only (RFC 6750 b64token)", "Usage: sysml-mcp [options]"},
 	}, {
+		name:   "-public-url without -http is reported with the usage",
+		args:   []string{"-public-url", "https://models.example.org/mcp"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -public-url applies to the HTTP transport; name its address with -http", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "a public URL that is not an endpoint URL is reported with the usage",
+		args:   []string{"-http", "8765", "-public-url", "models.example.org"},
+		status: exitUnservable,
+		stderr: []string{`sysml-mcp: -public-url: "models.example.org" is not the URL of the endpoint`, "Usage: sysml-mcp [options]"},
+	}, {
 		name:   "the wildcard origin is reported with the usage",
 		args:   []string{"-http", "8765", "-allow-origin", "*"},
 		status: exitUnservable,
@@ -216,6 +226,8 @@ func TestReadToken(t *testing.T) {
 		{name: "file with no line break", opts: options{tokenFile: write("bare", "s3cret")}, value: "s3cret"},
 		{name: "empty file", opts: options{tokenFile: write("empty", "\n")}, err: "the token is empty"},
 		{name: "file with two lines", opts: options{tokenFile: write("two", "a\nb\n")}, err: "no spaces or line breaks"},
+		{name: "file with two trailing line breaks", opts: options{tokenFile: write("double", "s3cret\n\n")}, err: "no spaces or line breaks"},
+		{name: "file with a leading line break", opts: options{tokenFile: write("leading", "\ns3cret\n")}, err: "no spaces or line breaks"},
 		{name: "environment", env: ptr("from-env"), value: "from-env"},
 		{name: "empty environment", env: ptr("")},
 		{name: "environment with a space", env: ptr("not a token"), err: mcp.TokenEnv + ": a token is letters"},

@@ -140,6 +140,47 @@ func TestBearerTokenHandler(t *testing.T) {
 	}
 }
 
+// TestBearerTokenAt checks a public URL stands in for the request's scheme
+// and host in the challenge and the metadata, and that only an endpoint URL
+// is accepted.
+func TestBearerTokenAt(t *testing.T) {
+	tok, _ := NewBearerToken("s3cret")
+	for _, bad := range []string{"models.example.org", "ftp://models.example.org/mcp", "https://", "https://user@models.example.org/mcp", "https://models.example.org/mcp?x=1", "https://models.example.org/mcp#f", "mailto:a@b"} {
+		if _, err := tok.At(bad); err == nil {
+			t.Errorf("At(%q) accepted it", bad)
+		}
+	}
+	none, err := tok.At("")
+	if err != nil || none.PublicURL() != "" || !none.Set() {
+		t.Errorf("At(\"\") = %q, %v", none.PublicURL(), err)
+	}
+	bare, err := tok.At("https://models.example.org")
+	if err != nil || bare.PublicURL() != "https://models.example.org/mcp" {
+		t.Errorf("At with no path = %q, %v; want the endpoint path appended", bare.PublicURL(), err)
+	}
+	public, err := tok.At("https://models.example.org/agents/mcp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The request arrives over cleartext from the proxy, with its own Host.
+	req := httptest.NewRequest(http.MethodPost, HTTPPath, nil)
+	req.Host = "127.0.0.1:8765"
+	rec := httptest.NewRecorder()
+	public.Handler(http.NotFoundHandler()).ServeHTTP(rec, req)
+	if _, params := challengeOf(t, rec); params["resource_metadata"] != "https://models.example.org/.well-known/oauth-protected-resource/agents/mcp" {
+		t.Errorf("resource_metadata = %q", params["resource_metadata"])
+	}
+	rec = httptest.NewRecorder()
+	public.ServeMetadata(rec, httptest.NewRequest(http.MethodGet, ProtectedResourceMetadataPath, nil))
+	var meta map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &meta); err != nil {
+		t.Fatal(err)
+	}
+	if meta["resource"] != "https://models.example.org/agents/mcp" {
+		t.Errorf("resource = %v", meta["resource"])
+	}
+}
+
 func TestBearerTokenServeMetadata(t *testing.T) {
 	tok, _ := NewBearerToken("s3cret")
 	req := httptest.NewRequest(http.MethodGet, ProtectedResourceMetadataPath, nil)

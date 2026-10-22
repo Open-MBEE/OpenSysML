@@ -406,10 +406,16 @@ authentication the Model Context Protocol asks of a server on a network:
   client reached it and `bearer_methods_supported: ["header"]`, with no `authorization_servers`
   to list — so a client following the challenge learns that the token is preconfigured rather
   than obtained by a flow. An authorization server that issues tokens by OAuth 2.1 (user consent,
-  scopes, expiry) is a proxy's job in front of the server, as it is for `sysml-grpc`.
+  scopes, expiry) is a proxy's job in front of the server, as it is for `sysml-grpc`. Behind a
+  proxy that terminates TLS or rewrites the path, a request no longer shows the URL the client
+  used, so `-public-url https://models.example.org/mcp` names it: the challenge, the metadata
+  and the `-print-config` block then carry that URL rather than the request's own scheme and
+  `Host`.
 - **The token itself** is letters, digits and `-._~+/` with trailing `=` (RFC 6750 `b64token`), so
   a client can send what the server was given; generate one (`openssl rand -base64 32`) and keep
-  it in a file only the server's user reads. Over a network it needs TLS, below.
+  it in a file only the server's user reads. Over a network it needs TLS, below: a token served
+  in cleartext on an address other machines reach is logged as a warning, since the one case it
+  is right for is a TLS-terminating proxy on the same host or private network.
 - **TLS.** `-tls-cert FILE` and `-tls-key FILE`, both given, serve `https` (TLS 1.2 or later);
   one without the other, or a pair that does not load, is a usage error (exit status 2) before
   anything is served. Cleartext is appropriate only on loopback, inside a trusted network or
@@ -454,6 +460,7 @@ version control — or is edited to the host's own reference to a secret where i
 | `-allow-origin ORIGINS` | — | Origins (`scheme://host[:port]`, comma-separated) granted cross-origin access; loopback origins and requests with no `Origin` are admitted without a grant, others are refused |
 | `-token-file FILE` | — | File holding the bearer token every request must carry as `Authorization: Bearer TOKEN`; required for an address other machines reach, enforced on loopback too when given |
 | `-token TOKEN` | — | The token itself; `OPENSYSML_MCP_TOKEN` is read when neither flag names one |
+| `-public-url URL` | the request's scheme and `Host` | The URL clients reach the endpoint at behind a proxy that terminates TLS or rewrites the path; named as the resource, in the bearer challenge and by the `-print-config` block |
 | `-tls-cert FILE`, `-tls-key FILE` | — | Serve `https`; both or neither |
 | `-print-config [HOST]` | — | Write a host's configuration block to stdout and exit; alone, list the hosts |
 | `-print-config-command CMD` | the binary's path | The command the block names; with `-http ADDR` (and `-tls-cert` for `https`) the block names the server's URL instead, with the `Authorization` header when a token is given |

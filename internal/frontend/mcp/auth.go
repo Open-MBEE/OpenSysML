@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
@@ -26,6 +27,9 @@ const TokenEnv = "OPENSYSML_MCP_TOKEN" // #nosec G101 -- a variable name, not a 
 // is no token, which only a loopback listener may serve without.
 type BearerToken struct {
 	secret []byte
+	// public is the endpoint's URL as clients reach it, when configured;
+	// otherwise each request's scheme and Host name it.
+	public *url.URL
 }
 
 // NewBearerToken reads a token the way RFC 6750 § 2.1 spells one (b64token:
@@ -43,6 +47,34 @@ func NewBearerToken(s string) (BearerToken, error) {
 
 // Set reports whether a token is configured.
 func (t BearerToken) Set() bool { return len(t.secret) > 0 }
+
+// At names the URL clients reach the endpoint at — behind a proxy that
+// terminates TLS or rewrites the path, where a request no longer shows it —
+// for the resource identifier and the challenge's metadata URL. Empty keeps
+// deriving both from each request.
+func (t BearerToken) At(publicURL string) (BearerToken, error) {
+	if publicURL == "" {
+		t.public = nil
+		return t, nil
+	}
+	u, err := url.Parse(publicURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
+		return t, fmt.Errorf("%q is not the URL of the endpoint; it is http(s)://host[:port]/path with no user, query or fragment, as https://models.example.org/mcp", publicURL)
+	}
+	if u.Path == "" {
+		u.Path = HTTPPath
+	}
+	t.public = u
+	return t, nil
+}
+
+// PublicURL is the endpoint's URL as At named it, or empty.
+func (t BearerToken) PublicURL() string {
+	if t.public == nil {
+		return ""
+	}
+	return t.public.String()
+}
 
 // matches compares a presented token in constant time.
 func (t BearerToken) matches(presented string) bool {
@@ -97,7 +129,7 @@ func (t BearerToken) Handler(next http.Handler) http.Handler {
 // to find the resource metadata, with the error code RFC 6750 § 3.1 gives
 // the failure, and none when no credentials were presented.
 func (t BearerToken) challenge(w http.ResponseWriter, r *http.Request, status int, code, description string) {
-	params := []string{`realm="sysml-mcp"`, fmt.Sprintf("resource_metadata=%q", resourceMetadataURL(r))}
+	params := []string{`realm="sysml-mcp"`, fmt.Sprintf("resource_metadata=%q", t.resourceMetadataURL(r))}
 	if code != "" {
 		params = append(params, fmt.Sprintf("error=%q", code), fmt.Sprintf("error_description=%q", description))
 	}
@@ -122,25 +154,35 @@ func (t BearerToken) ServeMetadata(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(&oauthex.ProtectedResourceMetadata{
-		Resource:               resourceURL(r),
+		Resource:               t.resourceURL(r),
 		BearerMethodsSupported: []string{"header"},
 		ResourceName:           "sysml-mcp",
 		ResourceDocumentation:  "https://github.com/Open-MBEE/OpenSysML/blob/main/docs/reference/sysml-mcp.md",
 	})
 }
 
-// resourceURL is the identifier of the MCP endpoint as the client reached
-// it: the scheme the connection used and the Host header it sent.
-func resourceURL(r *http.Request) string {
+// endpoint is the URL of the MCP endpoint as the client reached it: the one
+// At named, or the scheme the connection used and the Host header it sent.
+func (t BearerToken) endpoint(r *http.Request) *url.URL {
+	if t.public != nil {
+		return t.public
+	}
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	return scheme + "://" + r.Host + HTTPPath
+	return &url.URL{Scheme: scheme, Host: r.Host, Path: HTTPPath}
+}
+
+// resourceURL is the identifier of the MCP endpoint (RFC 8707 § 2).
+func (t BearerToken) resourceURL(r *http.Request) string {
+	return t.endpoint(r).String()
 }
 
 // resourceMetadataURL is where the client finds the resource metadata of the
-// endpoint it reached.
-func resourceMetadataURL(r *http.Request) string {
-	return strings.TrimSuffix(resourceURL(r), HTTPPath) + ProtectedResourceMetadataPath
+// endpoint: the well-known path with the endpoint's path appended (RFC 9728 § 3.1).
+func (t BearerToken) resourceMetadataURL(r *http.Request) string {
+	u := *t.endpoint(r)
+	u.Path = "/.well-known/oauth-protected-resource" + u.Path
+	return u.String()
 }

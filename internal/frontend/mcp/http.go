@@ -209,6 +209,10 @@ func (s *Server) ServeStreamableHTTP(ctx context.Context, cfg HTTPConfig) error 
 	auth := "none"
 	if cfg.Token.Set() {
 		auth = "bearer"
+		if cfg.CertFile == "" && !IsLoopbackAddr(addr) {
+			s.log().Warn("serving the bearer token over cleartext on an address other machines reach: a network observer can read and reuse it; serve TLS with -tls-cert and -tls-key, or terminate TLS in front",
+				"addr", addr.String())
+		}
 	}
 	s.log().Info("serving the Model Context Protocol over Streamable HTTP",
 		"addr", addr.String(), "path", HTTPPath, "security", security, "auth", auth, "allowed_origins", cfg.Origins.Allowed())
