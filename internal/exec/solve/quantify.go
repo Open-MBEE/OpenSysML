@@ -74,7 +74,7 @@ func (t *translator) quantified(n *ast.InvocationExpr, scope *symbols.Scope) (*T
 
 // quantifierName is "forAll" or "exists" when the invoked function resolves to
 // the ControlFunctions one of that name, read through the same resolution the
-// evaluator invokes by; "" for any other function, a model's own `forAll` included.
+// evaluator invokes by, an alias through its target; "" for any other function.
 func (t *translator) quantifierName(n *ast.InvocationExpr, scope *symbols.Scope) string {
 	segments, ok := nameSegments(n.Type)
 	if !ok || len(segments) == 0 {
@@ -84,7 +84,11 @@ func (t *translator) quantifierName(n *ast.InvocationExpr, scope *symbols.Scope)
 	if err != nil || len(chain) == 0 {
 		return ""
 	}
-	switch t.fqn(chain[len(chain)-1]) {
+	callee := chain[len(chain)-1]
+	if target, ok := t.ctx.Resolver().ResolveAliasTarget(callee); ok && target != nil {
+		callee = target
+	}
+	switch t.fqn(callee) {
 	case "ControlFunctions::forAll":
 		return "forAll"
 	case "ControlFunctions::exists":

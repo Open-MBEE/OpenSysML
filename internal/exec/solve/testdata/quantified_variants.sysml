@@ -4,6 +4,7 @@
 // iterate with something other than a variant, stays outside the subset.
 package test {
 	private import ControlFunctions::*;
+	alias each for ControlFunctions::forAll;
 	part def Wheel;
 	part def NarrowWheel :> Wheel;
 	part def WideWheel :> Wheel;
@@ -37,6 +38,9 @@ package test {
 		}
 		assert constraint noneWide {
 			engineChoice == engineChoice::small implies wheelChoice->forAll { in ref w; wheelChoice::wide != w }
+		}
+		assert constraint aliasedAll {
+			wheelChoice->each { in ref w; w == wheelChoice::narrow }
 		}
 		assert constraint spareNarrow {
 			spareChoice->forAll { in ref w; w == spareChoice::narrowSpare }

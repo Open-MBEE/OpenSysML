@@ -16,7 +16,8 @@ func quantifiedQuery(t *testing.T, element string) (*Query, error) {
 
 // TestQuantifierOverAVariationPointIsItsSelection: `->forAll` and `->exists`
 // over a variation point holding at least one object compare the point's
-// selection with the variant, so the query reads the point as a variation.
+// selection with the variant, an alias of the quantifier included, so the
+// query reads the point as a variation.
 func TestQuantifierOverAVariationPointIsItsSelection(t *testing.T) {
 	for _, element := range []string{"allNarrow", "someWide", "noneWide"} {
 		q, err := quantifiedQuery(t, element)
@@ -30,6 +31,18 @@ func TestQuantifierOverAVariationPointIsItsSelection(t *testing.T) {
 		if got := strings.Join(names, ","); got != "test::carFamily::engineChoice,test::carFamily::wheelChoice" {
 			t.Errorf("%s reads %s, want the engine and the wheel choice", element, got)
 		}
+	}
+}
+
+// TestQuantifierThroughAnAliasIsTheLibraryQuantifier: an alias of
+// ControlFunctions::forAll is the quantifier it names, read through its target.
+func TestQuantifierThroughAnAliasIsTheLibraryQuantifier(t *testing.T) {
+	q, err := quantifiedQuery(t, "aliasedAll")
+	if err != nil {
+		t.Fatalf("aliasedAll: %v", err)
+	}
+	if vs := q.Variations(); len(vs) != 1 || vs[0].Name != "test::carFamily::wheelChoice" {
+		t.Errorf("aliasedAll reads %v, want the wheel choice", vs)
 	}
 }
 
