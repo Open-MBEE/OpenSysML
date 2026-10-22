@@ -257,17 +257,13 @@ func unfixedLines(unfixed []solve.Unfixed) []string {
 }
 
 // uncoveredLines names the nested parts whose own assertions the query does not
-// state, so a selection it permits is not taken for one validation accepts.
+// state, and why, so a selection it permits is not taken for one validation accepts.
 func uncoveredLines(q *solve.Query) []string {
-	if len(q.Uncovered) == 0 {
-		return nil
+	lines := make([]string, 0, len(q.Uncovered))
+	for _, r := range q.Uncovered {
+		lines = append(lines, fmt.Sprintf("  Not in the query: what %s asserts about its own objects, as %s; %%instantiate and %%validate an object to check it", r.Path, r.Reason))
 	}
-	names := make([]string, 0, len(q.Uncovered))
-	for _, sym := range q.Uncovered {
-		names = append(names, sym.Name)
-	}
-	return []string{fmt.Sprintf("  Not in the query: what %s %s about %s own objects; %%instantiate and %%validate an object to check it",
-		strings.Join(names, ", "), plural(len(names), "asserts", "assert"), plural(len(names), "its", "their"))}
+	return lines
 }
 
 // unreadLines says which fixed values no condition reads, so a value asked for

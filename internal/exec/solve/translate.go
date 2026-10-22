@@ -166,9 +166,6 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 		return nil, fmt.Errorf("solve: no runtime context")
 	}
 	assertions := ctx.AssertionsOf(sym, scope)
-	if len(assertions) == 0 {
-		return nil, fmt.Errorf("%s %s: %w", sym.Notation(), sym.Name, ErrNothingAsserted)
-	}
 	var conds []runtime.Condition
 	var bound []map[*symbols.Symbol][]*symbols.Symbol
 	for _, a := range assertions {
@@ -182,22 +179,45 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 		}
 	}
 	subject := Subject{Kind: sym.Notation(), Name: sym.Name, Symbol: sym}
+	// What the objects its parts hold assert is part of what validating an
+	// object of sym checks, so the query states it too, each condition read
+	// from the object stating it.
+	groups, refused, err := heldGroups(ctx, sym, effectiveFeatures(ctx, sym))
+	if err != nil {
+		return nil, err
+	}
+	if len(assertions) == 0 && len(groups) == 0 && len(refused) == 0 {
+		return nil, fmt.Errorf("%s %s: %w", sym.Notation(), sym.Name, ErrNothingAsserted)
+	}
 	translate := func(pins []Pin) (*Query, error) {
-		if len(conds) == 0 {
-			// Nothing constrains the selection, so every one is permitted; a query
-			// stating nothing reads no variation point to enumerate.
-			return nil, fmt.Errorf("%s %s: every assertion about its objects %w, so every selection of its variants is permitted", subject.Kind, subject.Name, ErrNoConditions)
-		}
 		t := newTranslator(ctx, subject)
 		t.bound = bound
 		if err := t.translate(conds); err != nil {
 			return nil, err
 		}
+		uncovered := append([]Refused(nil), refused...)
+		for _, group := range groups {
+			reason, err := t.refusalOf(group)
+			if err != nil {
+				return nil, err
+			}
+			if reason != "" {
+				uncovered = append(uncovered, Refused{Feature: group.feature, Path: pathName(group.path), Reason: reason})
+				continue
+			}
+			t.bound, t.frames = group.bound, group.frames
+			if err := t.translate(group.conds); err != nil {
+				return nil, err
+			}
+		}
+		if len(t.asserts) == 0 {
+			return nil, fmt.Errorf("%s %s: every assertion about its objects %w, so every selection of its variants is permitted", subject.Kind, subject.Name, ErrNoConditions)
+		}
 		if err := t.fix(pins); err != nil {
 			return nil, err
 		}
 		q := t.query()
-		q.Uncovered = ctx.NestedAsserting(sym)
+		q.Uncovered = uncovered
 		return q, nil
 	}
 	q, err := translate(pins)
@@ -315,10 +335,11 @@ func nestedDeclared(ctx *runtime.Context, q *Query, self *runtime.Instance) ([]P
 	var out []Pin
 	var unfixed []Unfixed
 	for _, v := range q.Vars {
-		if len(v.Steps) != 2 || v.Root == nil || v.Root == v.Symbol || pinned[v.Name] {
+		if len(v.Steps) < 2 || v.Steps[len(v.Steps)-1] != v.Symbol || pinned[v.Name] {
 			continue
 		}
-		found, notRead := Fixed(ctx, v.Root, nestedObject(ctx, self, v.Root.Name))
+		holding := v.Steps[:len(v.Steps)-1]
+		found, notRead := Fixed(ctx, holding[len(holding)-1], nestedObjectAt(ctx, self, holding))
 		for _, p := range found {
 			if p.Feature == v.Symbol || p.Name == v.Symbol.Name {
 				out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: p.Value, Source: p.Source, Object: p.Object})
@@ -333,6 +354,18 @@ func nestedDeclared(ctx *runtime.Context, q *Query, self *runtime.Instance) ([]P
 		}
 	}
 	return out, unfixed
+}
+
+// nestedObjectAt is the object self holds down a chain of features, nil when
+// self is nil or a step of the chain holds none yet.
+func nestedObjectAt(ctx *runtime.Context, self *runtime.Instance, chain []*symbols.Symbol) *runtime.Instance {
+	for _, step := range chain {
+		self = nestedObject(ctx, self, step.Name)
+		if self == nil {
+			return nil
+		}
+	}
+	return self
 }
 
 // nestedObject is the object self holds for feature name, nil when self is nil or
@@ -439,6 +472,12 @@ type translator struct {
 	subjects map[*symbols.Symbol][]*symbols.Symbol
 	bound    []map[*symbols.Symbol][]*symbols.Symbol
 
+	// frame is where the condition being translated is read from — the held
+	// object stating it and the selections it applies under — and frames holds
+	// one per top-level condition; the zero frame is the element itself.
+	frame  frame
+	frames []frame
+
 	nonlinear bool
 	intDiv    bool
 
@@ -491,13 +530,20 @@ func (t *translator) translate(conds []runtime.Condition) error {
 		if i < len(t.bound) {
 			t.subjects = t.bound[i]
 		}
+		t.frame = frame{}
+		if i < len(t.frames) {
+			t.frame = t.frames[i]
+		}
 		owner, span := conditionOrigin(cond)
 		t.condLabel = cond.Label()
+		if sel := t.selectionLabel(); sel != "" {
+			t.condLabel = sel + " implies " + t.condLabel
+		}
 		t.condFile = ""
 		if owner != nil {
 			t.condFile = owner.DocName
 		}
-		term, err := t.under(conjunction(before), func() (*Term, error) { return t.condition(cond) })
+		term, err := t.under(conjunction(before), func() (*Term, error) { return t.framed(cond) })
 		if err != nil {
 			return err
 		}
