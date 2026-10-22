@@ -619,7 +619,6 @@ func (t *translator) pinRefusal(p Pin, v *Var, text, reason string) error {
 	return err
 }
 
-// pinText renders a fixed value as the notation writes it.
 // ValueText writes a value stated for v as the notation does: a datatype's value is
 // a qualified name, quoted where it needs quoting; any other is already written so.
 func ValueText(v *Var, value string) string {
@@ -629,6 +628,7 @@ func ValueText(v *Var, value string) string {
 	return value
 }
 
+// pinText renders a fixed value as the notation writes it.
 func pinText(t *translator, val runtime.Value) string {
 	if lit := val.EnumerationLiteral(); lit != nil {
 		return runtime.NewEnumLiteral(lit).LiteralText()
