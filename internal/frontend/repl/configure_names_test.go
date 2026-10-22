@@ -34,6 +34,7 @@ package 'Cfg Space' {
     }
     requirement def 'Base Rule' { subject s; attribute x : Integer; require constraint { x > 10 } }
     requirement def 'Derived Rule' :> 'Base Rule' { require constraint { x < 1 } }
+    constraint def 'Nat Rule' { in 'the speed' : Natural; assert constraint { 'the speed' < 0 } }
 }
 `
 
@@ -41,7 +42,7 @@ package 'Cfg Space' {
 func rejectsPlainNames(t *testing.T, out string) {
 	t.Helper()
 	for _, line := range strings.Split(out, "\n") {
-		for _, plain := range []string{"Cfg Space::", "::Engine Choices", "::the family", "::4cyl", "::6cyl", "::auto box", "Part bad one", "Part the family", "satisfy soft landing", "Part fast craft", "of Touchdown Rule", "requirement Derived Rule", "declared by Base Rule"} {
+		for _, plain := range []string{"Cfg Space::", "::Engine Choices", "::the family", "::4cyl", "::6cyl", "::auto box", "Part bad one", "Part the family", "satisfy soft landing", "Part fast craft", "of Touchdown Rule", "requirement Derived Rule", "declared by Base Rule", "::bad one", "::Nat Rule", "::the speed", "declared by the speed"} {
 			if strings.Contains(line, plain) {
 				t.Errorf("a name written without its quotes in %q", line)
 			}
@@ -100,4 +101,24 @@ func TestExplainWritesTheDeclaringElementAsTheNotationDoes(t *testing.T) {
 		"`x < 1` — requirement 'Derived Rule',")
 	rejects(t, got, "`x < 1` — requirement 'Derived Rule', declared by")
 	rejectsPlainNames(t, got)
+}
+
+// Every row of an explanation names its element, its declarer and the values it
+// states as the notation does: a feature's own domain names no other declarer,
+// and a fixed value writes the variant it was fixed at the way the model did.
+func TestExplainWritesEveryRowAsTheNotationDoes(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, quotedModel)
+	nat := run(t, s, "%explain 'Cfg Space'::'Nat Rule'")
+	wants(t, nat, "✗ Constraint 'Nat Rule' is unsatisfiable",
+		"declared domain: `a Natural is not negative` — declaration 'Cfg Space'::'Nat Rule'::'the speed', at ",
+		"required condition: `'the speed' < 0` — constraint 'Nat Rule', at ")
+	rejectsPlainNames(t, nat)
+
+	bad := run(t, s, "%explain 'Cfg Space'::'bad one'")
+	wants(t, bad, "✗ Part 'bad one' is unsatisfiable",
+		"fixed value: `'Cfg Space'::'bad one'::engine == 'Cfg Space'::'Engine Choices'::'6cyl', declared by the model` — feature 'Cfg Space'::'bad one'::engine, at ",
+		"fixed value: `'Cfg Space'::'bad one'::trans == 'Cfg Space'::'the family'::trans::man, declared by the model` — feature 'Cfg Space'::'bad one'::trans, at ",
+		"— part 'bad one', declared by 'the family', at ")
+	rejectsPlainNames(t, bad)
 }
