@@ -4,10 +4,8 @@
   "instantiate": "test::Tug",
   "objects": [
     {
-      "finalState": "idle",
-      "stateVisits": ["idle", "replied", "idle"],
       "slots": {
-        "m.replies": {"type": "Integer", "value": 1}
+        "n.heard": {"type": "Integer", "value": 1}
       }
     }
   ]

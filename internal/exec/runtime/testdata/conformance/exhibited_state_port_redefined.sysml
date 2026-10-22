@@ -9,21 +9,29 @@ package test {
 	state def Responder {
 		port command : CommandPort;
 		port response : ~CommandPort;
-		attribute replies : Integer = 0;
 		entry; then idle;
 		state idle;
 		state replied;
 		transition first idle accept Ping via command
 			do send new Pong() via response
 			then replied;
-		transition first replied accept Pong via command
-			do assign replies := replies + 1
-			then idle;
+	}
+
+	state def Counter {
+		port command : CommandPort;
+		attribute heard : Integer = 0;
+		entry; then waiting;
+		state waiting;
+		state counted;
+		transition first waiting accept Pong via command
+			do assign heard := heard + 1
+			then counted;
 	}
 
 	part def Tug {
 		port command : CommandPort;
 		port response : ~CommandPort;
+		exhibit state n : Counter;
 		exhibit state m : Responder {
 			:>> response = Tug::response;
 		}
