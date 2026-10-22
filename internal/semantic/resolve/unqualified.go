@@ -133,8 +133,6 @@ func (r *Resolver) shortNamedMembers(scope *symbols.Scope, name string, hide *re
 	return out
 }
 
-// derivedShortName is the short name sym takes from its naming feature (KerML
-// 8.3.3.3 effectiveShortName): none past a declared name or a naming under way.
 // shortNameOf is the short name sym is referable by: declared, or derived.
 func (r *Resolver) shortNameOf(sym *symbols.Symbol) string {
 	if sym == nil || sym.ShortName != "" {
@@ -150,22 +148,85 @@ func symbolShortName(sym *symbols.Symbol) string {
 	return sym.ShortName
 }
 
+// shortNaming is one outermost derivation of a derived short name with the
+// derivations nested in it, which ask the same scopes for their siblings' names.
+type shortNaming struct {
+	derived map[*symbols.Symbol]string // every short name this derivation settled on
+	guarded map[*symbols.Symbol]bool   // features asked for while their naming was under way
+	// dependent are complete derivations that asked for a guarded feature,
+	// memoized once every guarded feature proves to have no short name.
+	dependent []*symbols.Symbol
+}
+
+// derivedShortName is the short name sym takes from its naming feature (KerML
+// 8.3.3.3 effectiveShortName): none past a declared name or a naming under way.
+// Memoized, as deriving each sibling anew per sibling was exponential in them.
 func (r *Resolver) derivedShortName(sym *symbols.Symbol) string {
-	seen := map[*symbols.Symbol]bool{}
-	for sym != nil && !seen[sym] {
-		if sym.Naming == symbols.NamedByDeclaration || sym.ShortName != "" {
-			return sym.ShortName
-		}
-		if r.naming[sym] {
-			return ""
-		}
-		seen[sym] = true
-		r.naming[sym] = true
-		next := r.namingFeatureOf(sym)
-		delete(r.naming, sym)
-		sym = next
+	if sym == nil {
+		return ""
 	}
-	return ""
+	if sym.Naming == symbols.NamedByDeclaration || sym.ShortName != "" {
+		return sym.ShortName
+	}
+	if short, done := r.shortNames[sym]; done {
+		return short
+	}
+	run := r.shortNaming
+	if run != nil {
+		if short, done := run.derived[sym]; done {
+			return short
+		}
+	}
+	if r.naming[sym] != 0 {
+		if run != nil {
+			run.guarded[sym] = true
+		}
+		return ""
+	}
+	outermost := run == nil
+	if outermost {
+		run = &shortNaming{derived: map[*symbols.Symbol]string{}, guarded: map[*symbols.Symbol]bool{}}
+		r.shortNaming = run
+	}
+	guarded := len(run.guarded)
+	r.naming[sym] = r.Enter()
+	next := r.namingFeatureOf(sym)
+	short := r.derivedShortName(next)
+	delete(r.naming, sym)
+	run.derived[sym] = short
+	// A naming feature a semantic query could not reach is asked for again, as
+	// a failed reference is (see resolveQualified).
+	switch complete := r.Leave() && next != nil; {
+	case complete && len(run.guarded) == guarded:
+		r.memoShortName(sym, short)
+	case complete:
+		run.dependent = append(run.dependent, sym)
+	}
+	if outermost {
+		r.shortNaming = nil
+		if run.truthful() {
+			for _, dep := range run.dependent {
+				r.memoShortName(dep, run.derived[dep])
+			}
+		}
+	}
+	return short
+}
+
+// truthful reports whether every feature asked for while its naming was under
+// way has, as it answered, no short name, so the answers that depended on it hold.
+func (run *shortNaming) truthful() bool {
+	for sym := range run.guarded {
+		if short, done := run.derived[sym]; !done || short != "" {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *Resolver) memoShortName(sym *symbols.Symbol, short string) {
+	journalNew(r, r.shortNames, sym, sym.Decl)
+	r.shortNames[sym] = short
 }
 
 // namingFeatureOf resolves the feature sym takes its name from as BindsName
@@ -245,12 +306,11 @@ func (r *Resolver) BindsName(sym *symbols.Symbol) bool {
 	if named, done := r.effNames[sym]; done {
 		return named
 	}
-	if r.naming[sym] {
+	if r.naming[sym] != 0 {
 		return true
 	}
-	r.naming[sym] = true
+	r.naming[sym] = r.Enter()
 	defer delete(r.naming, sym)
-	r.Enter()
 	named := true
 	r.aside(func() {
 		if sym.Naming == symbols.NamedByReference {
@@ -344,10 +404,10 @@ func (r *Resolver) implicitlyNamedMember(scope *symbols.Scope, name string, hide
 	}
 	var found *symbols.Symbol
 	for _, sym := range r.implicitParameters(scope) {
-		if r.naming[sym] || hide.hides(sym) {
+		if r.naming[sym] != 0 || hide.hides(sym) {
 			continue
 		}
-		r.naming[sym] = true
+		r.naming[sym] = r.Enter()
 		var redefined *symbols.Symbol
 		count := 0
 		for _, sup := range model.DirectSupertypes(sym) {
@@ -357,6 +417,7 @@ func (r *Resolver) implicitlyNamedMember(scope *symbols.Scope, name string, hide
 			}
 		}
 		delete(r.naming, sym)
+		r.Leave()
 		// One redefinition names the feature; several need not agree on a
 		// name, so the feature stays anonymous (KerML 7.3.4.5).
 		if count == 1 && simpleName(redefined) == name {

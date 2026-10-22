@@ -240,8 +240,15 @@ type Resolver struct {
 	// effNames memoizes whether a feature named by a redefinition binds that
 	// name: see (*Resolver).BindsName.
 	effNames map[*symbols.Symbol]bool
-	model    MemberLookup             // Optional *semantics.Model for inheritance-aware member lookup
-	naming   map[*symbols.Symbol]bool // effective names being computed, for cycle detection
+	// shortNames memoizes the short name a feature derives from its naming
+	// feature; shortNaming is the outermost derivation under way, which holds
+	// the ones it met that depend on a naming in progress: see derivedShortName.
+	shortNames  map[*symbols.Symbol]string
+	shortNaming *shortNaming
+	model       MemberLookup // Optional *semantics.Model for inheritance-aware member lookup
+	// naming holds the features whose effective names are being computed, each
+	// at the depth of its lookup, for cycle detection.
+	naming map[*symbols.Symbol]int
 	// inheritedImports are the declarations whose supertypes' imports are being
 	// searched, so a specialization cycle ends the walk.
 	inheritedImports map[*symbols.Symbol]bool
@@ -318,7 +325,7 @@ func New(idx *symbols.Index) *Resolver {
 		enumKept:              map[enumEdge]keptMembers{},
 		enumResults:           map[enumResult]keptMembers{},
 		resolvingImports:      map[*ast.Import]bool{},
-		naming:                map[*symbols.Symbol]bool{},
+		naming:                map[*symbols.Symbol]int{},
 		valuesInProgress:      map[*ast.Usage]bool{},
 		nsFilters:             map[*symbols.Scope][]symbols.ElementFilter{},
 		viewFilters:           map[*symbols.Scope][]symbols.ElementFilter{},
@@ -335,6 +342,7 @@ func New(idx *symbols.Index) *Resolver {
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
 		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},
 		effNames:              map[*symbols.Symbol]bool{},
+		shortNames:            map[*symbols.Symbol]string{},
 
 		suggestions: map[suggestKey]suggestion{},
 		suggesting:  map[suggestKey]bool{},
