@@ -66,7 +66,7 @@ func registerFlags(fs *flag.FlagSet) *options {
 	fs.StringVar(&o.token, "token", "",
 		"The bearer token itself, for a shell whose command line is private; -token-file keeps it out of the process list, and "+mcp.TokenEnv+" is read when neither flag names one")
 	fs.StringVar(&o.publicURL, "public-url", "",
-		"URL clients reach the HTTP transport at when a proxy in front terminates TLS or rewrites the path, as https://models.example.org/mcp; "+
+		"URL clients reach the HTTP transport at when a proxy in front terminates TLS or rewrites the path, as https://models.example.org/mcp (a plain path, no query); "+
 			"named as the protected resource and in the bearer challenge, and by the -print-config block; default each request's own scheme and Host")
 	fs.StringVar(&o.tlsCert, "tls-cert", "", "TLS certificate file for the HTTP transport; with -tls-key, the transport serves https")
 	fs.StringVar(&o.tlsKey, "tls-key", "", "TLS private key file for the HTTP transport")

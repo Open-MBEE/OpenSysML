@@ -57,11 +57,28 @@ func (t BearerToken) At(publicURL string) (BearerToken, error) {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
 		return t, fmt.Errorf("%q is not the URL of the endpoint; it is http(s)://host[:port]/path with no user, query or fragment, as https://models.example.org/mcp", publicURL)
 	}
-	if u.Path == "" {
+	if u.Path == "" || u.Path == "/" {
 		u.Path = HTTPPath
+	}
+	if !isPlainPath(u.Path) || u.EscapedPath() != u.Path || strings.HasSuffix(u.Path, "/") {
+		return t, fmt.Errorf("%q has a path that is not a plain one; it is segments of letters, digits and -._~ with no trailing slash, as /agents/mcp", publicURL)
 	}
 	t.public = u
 	return t, nil
+}
+
+// isPlainPath reports whether p is /-separated segments of unreserved
+// characters, which a mux pattern and a well-known URI both take as written.
+func isPlainPath(p string) bool {
+	for _, r := range p {
+		switch {
+		case 'A' <= r && r <= 'Z', 'a' <= r && r <= 'z', '0' <= r && r <= '9':
+		case r == '-', r == '.', r == '_', r == '~', r == '/':
+		default:
+			return false
+		}
+	}
+	return strings.HasPrefix(p, "/") && !strings.Contains(p, "//")
 }
 
 // PublicURL is the endpoint's URL as At named it, or empty.

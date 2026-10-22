@@ -144,7 +144,7 @@ func TestBearerTokenHandler(t *testing.T) {
 // host in the challenge and the metadata, and that only an endpoint URL is taken.
 func TestBearerTokenAt(t *testing.T) {
 	tok, _ := NewBearerToken("s3cret")
-	for _, bad := range []string{"models.example.org", "ftp://models.example.org/mcp", "https://", "https://user@models.example.org/mcp", "https://models.example.org/mcp?x=1", "https://models.example.org/mcp#f", "mailto:a@b"} {
+	for _, bad := range []string{"models.example.org", "ftp://models.example.org/mcp", "https://", "https://user@models.example.org/mcp", "https://models.example.org/mcp?x=1", "https://models.example.org/mcp#f", "mailto:a@b", "https://models.example.org/team%25a/mcp", "https://models.example.org/{team}/mcp", "https://models.example.org/a b/mcp", "https://models.example.org/agents/mcp/", "https://models.example.org//mcp"} {
 		if _, err := tok.At(bad); err == nil {
 			t.Errorf("At(%q) accepted it", bad)
 		}
@@ -153,9 +153,11 @@ func TestBearerTokenAt(t *testing.T) {
 	if err != nil || none.PublicURL() != "" || !none.Set() {
 		t.Errorf("At(\"\") = %q, %v", none.PublicURL(), err)
 	}
-	bare, err := tok.At("https://models.example.org")
-	if err != nil || bare.PublicURL() != "https://models.example.org/mcp" {
-		t.Errorf("At with no path = %q, %v; want the endpoint path appended", bare.PublicURL(), err)
+	for _, origin := range []string{"https://models.example.org", "https://models.example.org/"} {
+		bare, err := tok.At(origin)
+		if err != nil || bare.PublicURL() != "https://models.example.org/mcp" {
+			t.Errorf("At(%q) = %q, %v; want the endpoint path appended", origin, bare.PublicURL(), err)
+		}
 	}
 	public, err := tok.At("https://models.example.org/agents/mcp")
 	if err != nil {
