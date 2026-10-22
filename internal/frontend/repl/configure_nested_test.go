@@ -78,6 +78,27 @@ package Nested {
         part spare : Gear[0..1];
         assert constraint { trans == trans::man }
     }
+    variation part def Drives :> Block {
+        variant part bigDrive : Block {
+            attribute pressure : Integer;
+            variation part clutch : T {
+                variant part wet : T { assert constraint { pressure > 1 } }
+                variant part dry : T { assert constraint { pressure < 100 } }
+            }
+        }
+        variant part smallDrive : Block;
+    }
+    part rig {
+        variation part trans : T { variant man : T; variant auto : T; }
+        part drive : Drives;
+        assert constraint { trans == trans::man }
+    }
+    part def Link { part gear : Gear; part next : Link; }
+    part links {
+        variation part trans : T { variant man : T; variant auto : T; }
+        part head : Link;
+        assert constraint { trans == trans::man }
+    }
     part many {
         variation part trans : T { variant man : T; variant auto : T; }
         part gear : Gear[2];
@@ -179,4 +200,30 @@ func TestConfigureRefusesAnOptionalNestedPartByName(t *testing.T) {
 	wants(t, run(t, s, "%configure Nested::sparse all"),
 		"✓ Part sparse permits 1 selection of variants, which are all of them",
 		"Not in the query: what spare asserts about its own objects, as it may hold no object; %instantiate and %validate an object to check it")
+}
+
+func TestConfigureKeepsANestedVariationUnderItsVariantAlone(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, nestedModel)
+	out := run(t, s, "%configure Nested::rig all")
+	wants(t, out, "✓ Part rig permits 3 selections of variants, which are all of them",
+		"Nested::rig::drive = Nested::Drives::smallDrive",
+		"Nested::rig::'drive.clutch' = Nested::Drives::bigDrive::clutch::wet",
+		"Nested::rig::'drive.clutch' = Nested::Drives::bigDrive::clutch::dry")
+	for _, sel := range strings.Split(out, "\n  ") {
+		if strings.Contains(sel, "Drives::smallDrive") && strings.Contains(sel, "clutch") {
+			t.Errorf("smallDrive has no clutch variation, yet its selection lists one:\n%s", sel)
+		}
+	}
+	wants(t, run(t, s, "%configure Nested::rig drive=smallDrive drive.clutch=wet"),
+		"drive.clutch is a variation point only when drive selects bigDrive")
+}
+
+func TestConfigureNamesARecursivePartWhoseDescendantsAssert(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, nestedModel)
+	out := run(t, s, "%configure Nested::links all")
+	wants(t, out, "✓ Part links permits 1 selection of variants, which are all of them",
+		"Not in the query: what head.next asserts about its own objects, as its type Link holds an object of its own type, which validation does not follow; %instantiate and %validate an object to check it")
+	rejects(t, out, "what head.gear asserts")
 }

@@ -134,7 +134,9 @@ func (c *heldCollector) collect(
 			}
 		}
 		if len(group.conds) == 0 && len(sub.groups) == 0 && len(sub.refused) == 0 {
-			continue
+			if !cut || !sub.asserting(feature, depth+1) {
+				continue
+			}
 		}
 		if reason != "" {
 			c.refused = append(c.refused, Refused{Feature: feature, Path: pathName(fpath), Reason: reason})
@@ -147,6 +149,50 @@ func (c *heldCollector) collect(
 		c.refused = append(c.refused, sub.refused...)
 	}
 	return nil
+}
+
+// asserting reports whether the objects held under a type's features carry any
+// assertion within the bounds collect walks, so that a feature the walk cuts is
+// refused by name when something below the cut would otherwise go unstated.
+func (c *heldCollector) asserting(stating *symbols.Symbol, depth int) bool {
+	for _, held := range c.ctx.HeldFeatures(stating) {
+		for _, typ := range append([]*symbols.Symbol{held.Feature.Symbol, held.Composite}, held.Variants...) {
+			if c.states(typ) {
+				return true
+			}
+		}
+		if _, cut := c.unreachable(held, depth); cut {
+			continue
+		}
+		sub := &heldCollector{ctx: c.ctx, onPath: map[*symbols.Symbol]bool{}}
+		for typ := range c.onPath {
+			sub.onPath[typ] = true
+		}
+		if held.Composite != nil {
+			sub.onPath[held.Composite] = true
+		}
+		if sub.asserting(held.Feature.Symbol, depth+1) {
+			return true
+		}
+	}
+	return false
+}
+
+// states reports whether a type or feature carries an assertion stating a condition.
+func (c *heldCollector) states(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	for _, a := range c.ctx.AssertionsOf(sym, sym.OwnerScope) {
+		conds, negated, _, err := assertedConditions(c.ctx, a)
+		if err != nil {
+			return true
+		}
+		if _, states := assertedCondition(conds, negated); states {
+			return true
+		}
+	}
+	return false
 }
 
 // unreachable says why the objects held under a feature are not read as one
@@ -255,12 +301,7 @@ func (t *translator) selectedTerms() ([]*Term, error) {
 // states holds only of an object of that variant, so it is stated as the
 // implication `holder == variant ⇒ cond`, evaluated only under the selection.
 func (t *translator) framed(cond runtime.Condition) (*Term, error) {
-	terms, err := t.selectedTerms()
-	if err != nil {
-		return nil, err
-	}
-	sel := conjunction(terms)
-	if sel == nil {
+	if len(t.frame.selections) == 0 {
 		return t.condition(cond)
 	}
 	before := make(map[*Var]bool, len(t.vars))
@@ -269,6 +310,11 @@ func (t *translator) framed(cond runtime.Condition) (*Term, error) {
 	}
 	t.touched = map[*Var]bool{}
 	defer func() { t.touched = nil }()
+	terms, err := t.selectedTerms()
+	if err != nil {
+		return nil, err
+	}
+	sel := conjunction(terms)
 	term, err := t.under(sel, func() (*Term, error) { return t.condition(cond) })
 	if err != nil {
 		return nil, err
