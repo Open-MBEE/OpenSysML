@@ -18,8 +18,11 @@ import (
 // held at an end is the very object the connected feature holds, not a copy of
 // it (KerML 1.0 §7.4.6) — so writing through one is read through the other.
 type ConnectorEnd struct {
-	Name  string
-	Value Value
+	Name string
+	// Feature is the end's own declaration, when the model registers one: through
+	// it the end's value is a value of every feature the end subsets.
+	Feature *symbols.Symbol
+	Value   Value
 }
 
 // participantEndName is the feature the ends of a connector occupy when they
@@ -149,7 +152,7 @@ func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbo
 			abandon()
 			return err
 		}
-		inst.Ends = append(inst.Ends, ConnectorEnd{Name: end.Name, Value: val})
+		inst.Ends = append(inst.Ends, ConnectorEnd{Name: end.Name, Feature: end.Declared, Value: val})
 		if end.Name == "" {
 			unnamed = append(unnamed, val)
 			continue

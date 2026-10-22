@@ -434,10 +434,11 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 
 	// Check for optional individual/portion/event modifiers
 	isIndividual := false
+	var individualKeyword source.Span
 	portion := ast.PortionNone
 	isEvent := false
 	if p.atKeyword("individual") {
-		p.advance()
+		individualKeyword = p.advance().Span
 		isIndividual = true
 	} else if p.atKeyword("snapshot") {
 		p.advance()
@@ -482,14 +483,15 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 
 	// Create Usage node with direction
 	usage := &ast.Usage{
-		Kind:         kind,
-		Keyword:      kindKeyword,
-		Ident:        ident,
-		IsReference:  isRef,
-		Direction:    direction,
-		IsEvent:      isEvent,
-		IsIndividual: isIndividual,
-		Portion:      portion,
+		Kind:              kind,
+		Keyword:           kindKeyword,
+		Ident:             ident,
+		IsReference:       isRef,
+		Direction:         direction,
+		IsEvent:           isEvent,
+		IsIndividual:      isIndividual,
+		IndividualKeyword: individualKeyword,
+		Portion:           portion,
 	}
 
 	// A parameter specializes and states its multiplicity as any usage does

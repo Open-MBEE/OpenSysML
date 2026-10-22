@@ -20,7 +20,7 @@ const renderModel = `package Demo {
     part def Vehicle { part wheel : Wheel; }
     part def Wheel;
     part def Person;
-    use case def Mission { actor pilot : Person; }
+    use case def Mission { subject vehicle : Vehicle; actor pilot : Person; }
     view overview { expose Demo::Vehicle; }
     view cases { expose Demo::Mission; render asCaseDiagram; }
     view mixed { expose Demo; render asMixedDiagram; }
