@@ -592,7 +592,14 @@ func (m *Model) importElements(sym *symbols.Symbol, feature string) ([]*symbols.
 	}
 	if imp.Kind == ast.ImportMembership {
 		// KerML 8.3.2.5 MembershipImport: importedMembership redefines target and
-		// importedElement is its memberElement.
+		// importedElement is its memberElement. A document root is reflected as
+		// no element, so the membership of a root-level member is not derived.
+		if feature == "importedElement" {
+			if target.Kind == symbols.SymbolAlias {
+				return m.aliasMembershipElements(target, "memberElement")
+			}
+			return []*symbols.Symbol{target}, true
+		}
 		membership := m.importedMembership(target)
 		if membership == nil {
 			return nil, false
@@ -600,11 +607,6 @@ func (m *Model) importElements(sym *symbols.Symbol, feature string) ([]*symbols.
 		switch feature {
 		case "importedMembership", "target":
 			return []*symbols.Symbol{membership}, true
-		case "importedElement":
-			if membership.Kind == symbols.SymbolAlias {
-				return m.aliasMembershipElements(membership, "memberElement")
-			}
-			return m.membershipElements(membership, "memberElement")
 		case "relatedElement":
 			return []*symbols.Symbol{rel.Owner, membership}, true
 		}

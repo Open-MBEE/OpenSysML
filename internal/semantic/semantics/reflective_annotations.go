@@ -266,21 +266,19 @@ func (m *Model) annotationElements(sym *symbols.Symbol, feature string) ([]*symb
 		"owningNamespace", "documentation", "textualRepresentation":
 		return empty, true
 	}
+	if owned && feature == "owningAnnotatingElement" {
+		return empty, true
+	}
 	annotatingElement := m.annotationAnnotatingElement(sym)
 	if annotatingElement == nil {
 		return nil, false
 	}
 	annotating := []*symbols.Symbol{annotatingElement}
 	switch feature {
-	case "annotatingElement", "source":
+	case "annotatingElement", "source", "owningAnnotatingElement":
 		return annotating, true
 	case "relatedElement":
 		return append(annotating, annotated...), true
-	case "owningAnnotatingElement":
-		if owned {
-			return empty, true
-		}
-		return annotating, true
 	case "ownedAnnotatingElement", "ownedRelatedElement":
 		if owned {
 			return annotating, true

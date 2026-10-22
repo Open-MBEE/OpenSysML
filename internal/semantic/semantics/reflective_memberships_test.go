@@ -177,6 +177,7 @@ func TestOwnedAnnotationsAndAnnotatingElements(t *testing.T) {
 			assertRelFeature(t, model, tag, "owningAnnotatedElement", d)
 			assertRelUnsupported(t, model, tag, "annotatingElement")
 			assertRelUnsupported(t, model, tag, "ownedAnnotatingElement")
+			assertRelFeature(t, model, tag, "owningAnnotatingElement")
 		} else {
 			tag := owned[0]
 			assertRelMetaclass(t, model, tag, "Annotation")
@@ -554,5 +555,26 @@ package B { private import A::X; private import A::Y; }`
 		assertRelFeature(t, model, imports[1], "importedMembership", alias)
 		assertRelFeature(t, model, imports[1], "target", alias)
 		assertRelFeature(t, model, imports[1], "importedElement", x)
+	}
+}
+
+// TestRootLevelMembershipImport pins `import X;` of a root-level package: the
+// imported element is X, while the membership through which the document root
+// owns X is not derived, a root being reflected as no element.
+func TestRootLevelMembershipImport(t *testing.T) {
+	const src = `package X; package P { private import X; }`
+	for _, fixture := range reflectiveFixtures(t, "root-import.sysml", source.KindSysML, src) {
+		model := fixture.model
+		p := relFixtureSymbol(t, fixture, "P")
+		x := relFixtureSymbol(t, fixture, "X")
+		imports := model.OwnedImports(p)
+		if len(imports) != 1 {
+			t.Fatalf("P owns %d imports, want 1", len(imports))
+		}
+		assertRelMetaclass(t, model, imports[0], "MembershipImport")
+		assertRelFeature(t, model, imports[0], "importedElement", x)
+		assertRelUnsupported(t, model, imports[0], "importedMembership")
+		assertRelUnsupported(t, model, imports[0], "target")
+		assertRelFeature(t, model, x, "owningMembership")
 	}
 }
