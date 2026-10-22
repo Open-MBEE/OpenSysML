@@ -1,0 +1,9 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "PLE::Color",
+	"expected_metadata": {
+		"variation": "true",
+		"abstract": "true"
+	},
+	"absent_metadata": ["variant"]
+}

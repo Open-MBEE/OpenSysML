@@ -1394,7 +1394,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		var out []*symbols.Symbol
 		if owner := m.ownerOf(sym); owner != nil && m.reflectiveMetaclassConforms(owner, "Type") {
-			out = append(out, owner)
+			out = append(out, m.variantFeaturingTypes(sym, owner)...)
 		}
 		if sym.Recorded() {
 			for _, target := range m.RecordedRelationshipTargets(sym, ast.RelFeaturedBy) {
@@ -2351,6 +2351,22 @@ func reflectiveMessageFlowUsage(sym *symbols.Symbol) bool {
 	}
 	kind, ok := sym.UsageKind()
 	return ok && kind == ast.UsageFlow && sym.Keyword() == "message"
+}
+
+// variantFeaturingTypes are the featuringTypes a feature takes from its owner:
+// the owner itself, except that a variant is an owned member but not an owned
+// feature of its variation, so it shares the featuringTypes of a variation
+// usage (SysML v2 checkUsageVariationUsageTypeFeaturing) and takes none from a
+// variation definition.
+func (m *Model) variantFeaturingTypes(sym, owner *symbols.Symbol) []*symbols.Symbol {
+	if !IsVariant(sym) || !IsVariation(owner) {
+		return []*symbols.Symbol{owner}
+	}
+	if !m.reflectiveMetaclassConforms(owner, "Usage") {
+		return nil
+	}
+	featuring, _ := m.ReflectiveElements(owner, "featuringType")
+	return featuring
 }
 
 func (m *Model) reflectiveUsageHasFeaturingType(sym *symbols.Symbol) bool {

@@ -132,6 +132,10 @@ type conformanceCase struct {
 	// MinWithheldLibraryAttributes requires the response to state at least this
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
+	// ExpectedMetadata are metadata entries the symbol must carry with these
+	// values; AbsentMetadata are keys it must not carry.
+	ExpectedMetadata map[string]string `json:"expected_metadata,omitempty"`
+	AbsentMetadata   []string          `json:"absent_metadata,omitempty"`
 
 	// ImportData: the imports, in order.
 	Imports      []conformanceImport `json:"imports,omitempty"`
@@ -792,6 +796,16 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 		}
 		if strings.Join(got, ",") != strings.Join(tc.ExpectedAttributeNames, ",") {
 			t.Errorf("attributes = %v, want %v", got, tc.ExpectedAttributeNames)
+		}
+	}
+	for key, want := range tc.ExpectedMetadata {
+		if got, ok := resp.Symbol.GetMetadata()[key]; !ok || got != want {
+			t.Errorf("metadata[%s] = %q (present %v), want %q", key, got, ok, want)
+		}
+	}
+	for _, key := range tc.AbsentMetadata {
+		if got, ok := resp.Symbol.GetMetadata()[key]; ok {
+			t.Errorf("metadata[%s] = %q, want it absent", key, got)
 		}
 	}
 	if want := tc.MinWithheldLibraryAttributes; want > 0 {

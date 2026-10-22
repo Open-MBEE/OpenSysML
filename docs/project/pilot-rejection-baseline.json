@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 336,
-        "digest": "sha256:fdc02106b390f9cd78acdef79e41f269b2504728d32aca2d0b8e302ef4673cd0"
+        "files": 337,
+        "digest": "sha256:ef34e4f9728db0e4c3bb30bb9fb632ddb9283971443d9b6f2dca4fdeed16180c"
       }
     ],
     "recorded": "2026-10-22"
   },
   "totals": {
-    "cases": 336,
-    "bothReject": 325,
+    "cases": 337,
+    "bothReject": 326,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 11,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 177,
-      "bothReject": 166,
+      "cases": 178,
+      "bothReject": 167,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0
@@ -2844,6 +2844,15 @@
       "pilotErrors": 6
     },
     {
+      "path": "semantic/variant-kind-inconsistent-with-variation.sysml",
+      "source": "semantic",
+      "rule": "the kind of a variant usage must be consistent with the kind of its owning variation (SysML 7.6.7; checkUsageVariationDefinitionSpecialization, checkUsageVariationUsageSpecialization; pilot SysMLValidator checkActionUsage typing).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 6,
+      "pilotErrors": 5
+    },
+    {
       "path": "xpect/p01-public-root-import.kerml",
       "source": "xpect",
       "rule": "a root-namespace import must be private (KerML 8.2.3.5.2 validateImportTopLevelVisibility; pilot Import_RootNamspace_invalid.kerml.xt).",
@@ -3295,8 +3304,8 @@
       }
     ],
     "totals": {
-      "cases": 336,
-      "bothReject": 325,
+      "cases": 337,
+      "bothReject": 326,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 11,
       "bothAccept": 0

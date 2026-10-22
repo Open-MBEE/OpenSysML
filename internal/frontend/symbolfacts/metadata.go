@@ -1,13 +1,15 @@
 package symbolfacts
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // extractMetadata populates the metadata map from the symbol's AST node.
-// Extracts: multiplicity, type, direction, abstract.
+// Extracts: multiplicity, type, direction, abstract, variation, variant.
 func extractMetadata(sym *symbols.Symbol, meta map[string]string) {
+	extractVariability(sym, meta)
 	if sym.Decl == nil {
 		return
 	}
@@ -113,5 +115,18 @@ func visibilityToString(v ast.Visibility) string {
 		return "default"
 	default:
 		return "default"
+	}
+}
+
+// extractVariability records a variation point (`variation`, and `abstract`,
+// since a variation is always abstract) and a variant (`variant`); an
+// enumeration definition is a variation and its values are variants (SysML v2 §8.3).
+func extractVariability(sym *symbols.Symbol, meta map[string]string) {
+	if semantics.IsVariation(sym) {
+		meta["variation"] = "true"
+		meta["abstract"] = "true"
+	}
+	if semantics.IsVariant(sym) {
+		meta["variant"] = "true"
 	}
 }

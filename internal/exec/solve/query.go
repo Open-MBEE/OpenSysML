@@ -109,6 +109,12 @@ type Var struct {
 	// operations an evaluation failing at the read never performs.
 	Preceding []*Term
 
+	// Live is the selection of variants under which the variable exists: a
+	// feature declared for one variant is a variation point only where the
+	// holding variation selects that variant. Nil where it exists in every
+	// configuration.
+	Live *Term
+
 	// Dimension is the quantity dimension its magnitude is expressed in, over
 	// base units, empty for a value that has none.
 	Dimension string
@@ -262,9 +268,10 @@ type Query struct {
 	// query reads, reported rather than dropped.
 	Unread []Unread
 
-	// Uncovered are the object-holding features of the element whose objects carry
-	// assertions of their own, which a query about the element does not state.
-	Uncovered []*symbols.Symbol
+	// Uncovered are the object-holding features of the element whose objects'
+	// own assertions the query does not state, each with the reason; nil when it
+	// states them all.
+	Uncovered []Refused
 
 	// Unreadable are the features the query reads whose value could not be read,
 	// each guarded so that no model reaches the read; nil when it reads none.
