@@ -677,7 +677,8 @@ func (m *migration) graphSubject(owner *sysmlv1.Element, f viewForm) *sysmlv1.El
 		if decl == nil {
 			return nil
 		}
-		if cat, _ := m.classify(decl); cat == want {
+		cat, _ := m.classify(decl)
+		if cat == want || want == catOccurrenceDef && cat == catVerificationDef {
 			return cur
 		}
 		return nil

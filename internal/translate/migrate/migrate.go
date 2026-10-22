@@ -2185,7 +2185,7 @@ func (m *migration) verificationBody(e *sysmlv1.Element) {
 	if e.Type == "Interaction" {
 		subject := m.subjectName(e)
 		if s, note := m.scenario(e, subject); note == "" {
-			m.w.line("subject " + writeName(subject) + " : " + m.ref(s.context, e) + ";")
+			m.w.line("subject " + writeName(subject) + m.typing(s.context) + m.ref(s.context, e) + ";")
 			m.parameters(e, e)
 			s.writeSequence()
 		}

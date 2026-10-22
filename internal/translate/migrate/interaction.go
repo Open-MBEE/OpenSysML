@@ -26,7 +26,8 @@ type scenario struct {
 	lines map[*sysmlv1.Element]*lifelineRef
 	used  map[string]bool
 	// params are the attribute (or in parameter) lines the interaction's own in parameters are written as.
-	params []string
+	params     []string
+	paramNotes map[*sysmlv1.Element]string
 	// placed holds each message some occurrence has already stepped.
 	placed map[*sysmlv1.Element]bool
 	steps  []*scenarioStep
@@ -167,13 +168,14 @@ func (m *migration) scenario(e *sysmlv1.Element, self string) (*scenario, string
 	defer func() { m.self = saved }()
 	s := &scenario{
 		m: m, e: e, context: context, self: self,
-		order:     map[*sysmlv1.Element]int{},
-		lines:     map[*sysmlv1.Element]*lifelineRef{},
-		used:      map[string]bool{},
-		placed:    map[*sysmlv1.Element]bool{},
-		unwritten: map[*sysmlv1.Element]string{},
-		uses:      map[*sysmlv1.Element]*scenarioStep{},
-		def:       self == "this",
+		order:      map[*sysmlv1.Element]int{},
+		lines:      map[*sysmlv1.Element]*lifelineRef{},
+		used:       map[string]bool{},
+		placed:     map[*sysmlv1.Element]bool{},
+		unwritten:  map[*sysmlv1.Element]string{},
+		uses:       map[*sysmlv1.Element]*scenarioStep{},
+		def:        self == "this",
+		paramNotes: map[*sysmlv1.Element]string{},
 	}
 	for i, f := range e.Owned("fragment") {
 		s.order[f] = i
@@ -1003,7 +1005,8 @@ func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenari
 	case "seq", "strict":
 		step.kind = stepSeq
 	default:
-		return nil, "is a " + kind + " fragment, which has no v2 form"
+		// critical, neg, assert, ignore, consider, break: one operand written in order under comments.
+		step.kind = stepSeq
 	}
 	if step.kind != stepAlt && step.kind != stepSeq && step.kind != stepPar && len(operands) > 1 {
 		return nil, "is a " + kind + " fragment with " + strconv.Itoa(len(operands)) + " operands; it takes one"
@@ -1275,7 +1278,7 @@ func (s *scenario) ownMembers() {
 			continue
 		}
 		if name, ok := s.m.sequenceParams[p]; ok {
-			s.m.add(p, Approximated, s.m.v2Name(s.e)+"::"+name, "written as the attribute "+name+" of the occurrence def, which declares no parameter; the occurrence usages of the def bind it")
+			s.m.add(p, Approximated, s.m.v2Name(s.e)+"::"+name, joinNotes("written as the attribute "+name+" of the occurrence def, which declares no parameter; the occurrence usages of the def bind it", s.paramNotes[p]))
 			continue
 		}
 		s.m.unmapped(p, "an occurrence def declares no parameter, and no lifeline stands for its "+p.Attrs["direction"]+" parameter")
@@ -1398,6 +1401,7 @@ func (s *scenario) placeFragment(step *scenarioStep) {
 // interaction's def; the messages entering its gates reach the usage.
 func (s *scenario) placeUse(step *scenarioStep) {
 	bindings, note := s.useArguments(step)
+	note = joinNotes(note, step.note)
 	line := "occurrence " + step.name + step.target
 	if len(bindings) > 0 {
 		line += " { " + strings.Join(bindings, " ") + " }"
@@ -1417,11 +1421,12 @@ func (s *scenario) placeUse(step *scenarioStep) {
 		}
 		ref.after = step.name
 	}
+	report := "written as the occurrence usage " + step.name + " of " + describe(step.use)
 	if len(ordered) > 0 {
-		note = joinNotes(note, "ordered after "+strings.Join(ordered, ", ")+" and before the covered lifelines' next events by successions")
+		report = joinNotes(report, "ordered after "+strings.Join(ordered, ", ")+" and before the covered lifelines' next events by successions")
 	}
 	s.body = append(s.body, line)
-	s.m.add(step.frag, verdictFor(step.note), step.name, joinNotes("written as the occurrence usage "+step.name+" of "+describe(step.use), joinNotes(note, step.note)))
+	s.m.add(step.frag, verdictFor(note), step.name, joinNotes(report, note))
 }
 
 // useArguments binds an interaction use's arguments to the attributes the referenced
@@ -1491,18 +1496,29 @@ func (s *scenario) declareParameters() {
 		if represented {
 			continue
 		}
+		if !s.def {
+			// verificationBody writes a test case's parameters; the bindings name them.
+			s.m.sequenceParams[p] = s.m.nameFor(p)
+			continue
+		}
 		name := freshIn(s.used, s.m.nameOf(p))
 		s.m.sequenceParams[p] = name
-		kw := "attribute "
-		if !s.def {
-			kw = "in "
-		}
-		line := kw + writeName(name)
+		line := "attribute " + writeName(name)
 		if mult, _ := s.m.multiplicity(p); mult != "" {
 			line += mult
 		}
 		if typ, _ := s.m.typeRef(s.m.model.Ref(p, "type"), s.e); typ != "" {
 			line += s.m.typing(s.m.model.Ref(p, "type")) + typ
+		}
+		if dv := firstOwned(p, "defaultValue"); dv != nil {
+			expr, ok, vnote := s.m.typedBehaviorValue(dv, p, s.e)
+			if ok {
+				line += " default = " + expr
+			} else {
+				vnote = "default value not migrated: " + describeValue(dv) + " — " + vnote
+				s.params = append(s.params, commentLines(vnote)...)
+			}
+			s.paramNotes[p] = vnote
 		}
 		s.params = append(s.params, line+";")
 	}
