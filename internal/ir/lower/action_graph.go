@@ -2340,7 +2340,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolv
 // stating a step of it.
 func isAnnotation(n ast.Node) bool {
 	switch n.(type) {
-	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation:
+	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation, *ast.PrefixMetadata:
 		return true
 	}
 	if usage, ok := n.(*ast.Usage); ok && usage.Kind == ast.UsageMetadata {
