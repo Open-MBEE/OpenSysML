@@ -109,6 +109,9 @@ type activity struct {
 	fed map[*sysmlv1.Element]bool
 	// starved maps each action that never fires to the input pin no value reaches.
 	starved map[*sysmlv1.Element]*sysmlv1.Element
+	// handlers maps each node some ExceptionHandler names as its handlerBody to
+	// those handlers: v1 runs the body only on an exception, which v2 has no form for.
+	handlers map[*sysmlv1.Element][]*sysmlv1.Element
 	// pinType is the classifier an untyped pin is declared with, when what
 	// the pin feeds settles it.
 	pinType map[*sysmlv1.Element]*sysmlv1.Element
@@ -192,6 +195,7 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		selfFed:     map[*sysmlv1.Element]bool{},
 		fed:         map[*sysmlv1.Element]bool{},
 		starved:     map[*sysmlv1.Element]*sysmlv1.Element{},
+		handlers:    map[*sysmlv1.Element][]*sysmlv1.Element{},
 		pinType:     map[*sysmlv1.Element]*sysmlv1.Element{},
 		payload:     map[*sysmlv1.Element]*sysmlv1.Element{},
 		sources:     map[*sysmlv1.Element][]*sysmlv1.Element{},
@@ -231,6 +235,13 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 	// Every action inherits start and done, which shadow outer names.
 	m.take(def, "start")
 	m.take(def, "done")
+	for _, n := range a.nodes {
+		for _, h := range n.Owned("handler") {
+			if body := m.model.Ref(h, "handlerBody"); body != nil && slices.Contains(a.nodes, body) {
+				a.handlers[body] = append(a.handlers[body], h)
+			}
+		}
+	}
 	return a
 }
 
@@ -649,7 +660,7 @@ func (a *activity) entries(n *sysmlv1.Element) {
 	if nodeKind(n) != nodeFlowFinal && !a.sink[n] {
 		name = writeName(a.name(n, baseName(n)))
 	}
-	if a.starved[n] != nil {
+	if a.starved[n] != nil || a.handlers[n] != nil {
 		a.entry[n] = name
 		return
 	}
@@ -695,15 +706,15 @@ func (a *activity) endpointIn(n *sysmlv1.Element) string {
 			return e
 		}
 		return "done"
-	case k == nodeInitial || k == nodeParam || k == nodePin || a.starved[n] != nil:
+	case k == nodeInitial || k == nodeParam || k == nodePin || a.starved[n] != nil || a.handlers[n] != nil:
 		return ""
 	}
 	return a.entry[n]
 }
 
 // startTargets lists the nodes start successions lead to: the initial nodes'
-// targets, then every node no edge leads to (a starved one only marked, never a
-// target). seen marks either.
+// targets, then every node no edge leads to (a starved one or an exception
+// handler's body only marked, never a target). seen marks either.
 func (a *activity) startTargets() (targets []*sysmlv1.Element, seen map[*sysmlv1.Element]bool) {
 	seen = map[*sysmlv1.Element]bool{}
 	for _, n := range a.nodes {
@@ -726,7 +737,7 @@ func (a *activity) startTargets() (targets []*sysmlv1.Element, seen map[*sysmlv1
 			// A join or merge nothing leads to would never fire.
 			continue
 		}
-		if a.starved[n] == nil {
+		if a.starved[n] == nil && a.handlers[n] == nil {
 			targets = append(targets, n)
 			a.m.add(n, Mapped, "", "no edge leads to the node, so it starts with the activity")
 		}
@@ -750,6 +761,8 @@ func (a *activity) unwritableTarget(e *sysmlv1.Element) string {
 		return "an initial node, which nothing may lead to"
 	case a.starved[n] != nil:
 		return "which never fires: no value reaches its input pin " + describe(a.starved[n])
+	case a.handlers[n] != nil:
+		return "the handler body of " + describe(a.handlers[n][0]) + ", which v1 starts only on an exception"
 	case a.entry[n] == "":
 		return "which is not a node of the activity"
 	}
@@ -914,6 +927,40 @@ func (a *activity) starvation(n *sysmlv1.Element) {
 	a.m.add(n, Approximated, "", "the action never fires: its input pin "+describe(pin)+" must hold a value, but "+why+"; no succession leads to it or leaves it, where v1 would wait on it forever, and it is written as a reference action usage, which the activity does not perform")
 }
 
+// handled diagnoses the exception handlers whose body n is, next to n: UML runs
+// the body only when the protected node raises a matching exception, which SysML
+// v2 has no form for, so the body is written referential and nothing starts it.
+func (a *activity) handled(n *sysmlv1.Element) {
+	hs := a.handlers[n]
+	if hs == nil {
+		return
+	}
+	for _, h := range hs {
+		a.m.unmapped(h, handlerNote(a.m, h, n))
+		if pin := a.m.model.Ref(h, "exceptionInput"); pin != nil {
+			a.m.add(pin, Unmapped, "", "the exception input of "+describe(h)+": v2 has no exception to hold")
+		}
+	}
+	a.m.add(n, Approximated, "", "the handler body of "+describe(hs[0])+": written as a reference action usage, which the activity does not perform, since v1 runs it only on an exception; no succession leads to it")
+}
+
+// handlerNote words why handler h, whose body is body, is not migrated.
+func handlerNote(m *migration, h, body *sysmlv1.Element) string {
+	note := "SysML v2 has no exception handler: UML runs the handler body " + describe(body) + " only when its protected node "
+	if p := h.Parent; p != nil {
+		note += describe(p) + " "
+	}
+	note += "raises a matching exception"
+	var types []string
+	for _, t := range m.model.Refs(h, "exceptionType") {
+		types = append(types, describe(t))
+	}
+	if len(types) == 0 {
+		return note + "; no exception type: catches nothing in UML"
+	}
+	return note + " of type " + strings.Join(types, ", ") + "; the body is written as a reference action usage the activity does not perform"
+}
+
 // waitFor writes the delay a duration constraint on e stands for: a fixed
 // delay for a point interval and a uniform draw over the interval otherwise.
 func (a *activity) waitFor(e *sysmlv1.Element) (string, bool) {
@@ -1006,6 +1053,12 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		a.starvation(n)
 		for _, e := range a.succ[n] {
 			a.m.add(e, Unmapped, "", "the edge leaves "+describe(n)+", which never fires, so no token travels it")
+		}
+		return
+	}
+	if a.handlers[n] != nil {
+		for _, e := range a.succ[n] {
+			a.m.add(e, Unmapped, "", "the edge leaves "+describe(n)+", the handler body of "+describe(a.handlers[n][0])+", which the activity does not perform, so no token travels it")
 		}
 		return
 	}
@@ -1548,6 +1601,7 @@ func finiteNumber(text string) (string, bool) {
 func (a *activity) declare(n *sysmlv1.Element) {
 	name := writeName(a.name(n, baseName(n)))
 	a.leadIn(n, name)
+	a.handled(n)
 	a.declareNode(n, name)
 	a.m.madeUp(n, name)
 	a.m.declared[n] = true
@@ -1582,10 +1636,11 @@ func (a *activity) leadIn(n *sysmlv1.Element, into string) {
 }
 
 // declareNode writes the declaration of n itself, named name. An action v1
-// never fires is written referential: as a composite action usage no succession
-// reaches it would be a subaction performed with the activity (Actions::subactions).
+// never fires, or runs only as an exception handler's body, is written referential:
+// as a composite action usage no succession reaches it would be a subaction
+// performed with the activity (Actions::subactions).
 func (a *activity) declareNode(n *sysmlv1.Element, name string) {
-	if a.starved[n] != nil {
+	if a.starved[n] != nil || a.handlers[n] != nil {
 		a.m.w.prefixed("ref ", actionKw, func() { a.declareKind(n, name) })
 		return
 	}

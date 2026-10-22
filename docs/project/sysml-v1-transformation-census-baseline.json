@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 124
+        "files": 125
       }
     ],
     "counts": {
@@ -120,7 +120,7 @@
       },
       "uml:CallBehaviorAction": {
         "pssm": 1170,
-        "fixtures": 240
+        "fixtures": 241
       },
       "uml:CallEvent": {
         "pssm": 8,
@@ -140,7 +140,7 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 570
+        "fixtures": 571
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
@@ -228,7 +228,7 @@
       },
       "uml:OpaqueAction": {
         "pssm": 0,
-        "fixtures": 160
+        "fixtures": 166
       },
       "uml:OpaqueBehavior": {
         "pssm": 0,
@@ -22520,6 +22520,15 @@
       ],
       "tests": [
         "tests/migrate/library_test.go:TestLibraryCallsComputeThroughTheV2Library"
+      ]
+    },
+    {
+      "behaviour": "UML ExceptionHandler, which the OMG mapping has no class for: each handler is diagnosed as having no v2 form (protected node, body, exception type or none) and its handlerBody is written as a reference action usage the migrated action never starts or performs",
+      "implementation": [
+        "internal/translate/migrate/activity.go:handled"
+      ],
+      "tests": [
+        "tests/migrate/exception_handler_test.go:TestExceptionHandlerBodyIsNeverStarted"
       ]
     }
   ]

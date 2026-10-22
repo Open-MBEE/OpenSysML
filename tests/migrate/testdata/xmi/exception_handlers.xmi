@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- Inspect: an activity whose call 'capture' owns two exception handlers.
+         Each handler's body is a structured node of two steps owned by the
+         activity itself, with no edge leading to it: UML runs it only when
+         'capture' raises a matching exception. One handler names the signal
+         CaptureFault as its exception type; the other names none. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_imaging" name="Imaging">
+      <packagedElement xmi:type="uml:Signal" xmi:id="_sig_fault" name="CaptureFault"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_camera" name="Camera">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_capture" name="Capture">
+          <node xmi:type="uml:InitialNode" xmi:id="_cp_init"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_cp_expose" name="expose"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_cp_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cp_e1" source="_cp_init" target="_cp_expose"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cp_e2" source="_cp_expose" target="_cp_final"/>
+        </ownedBehavior>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_inspect" name="Inspect">
+          <node xmi:type="uml:InitialNode" xmi:id="_eh_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_eh_capture" name="capture" behavior="_act_capture">
+            <handler xmi:type="uml:ExceptionHandler" xmi:id="_eh_h1" handlerBody="_eh_fails" exceptionInput="_eh_faultIn">
+              <exceptionType xmi:idref="_sig_fault"/>
+            </handler>
+            <handler xmi:type="uml:ExceptionHandler" xmi:id="_eh_h2" handlerBody="_eh_pos"/>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_eh_store" name="store"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_eh_final"/>
+          <node xmi:type="uml:StructuredActivityNode" xmi:id="_eh_fails" name="Image Capture Fails">
+            <structuredNodeInput xmi:type="uml:InputPin" xmi:id="_eh_faultIn" name="fault"/>
+            <node xmi:type="uml:OpaqueAction" xmi:id="_eh_retry" name="retry"/>
+            <node xmi:type="uml:OpaqueAction" xmi:id="_eh_log" name="log failure"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_eh_e4" source="_eh_retry" target="_eh_log"/>
+          </node>
+          <node xmi:type="uml:StructuredActivityNode" xmi:id="_eh_pos" name="Position Not Correct">
+            <node xmi:type="uml:OpaqueAction" xmi:id="_eh_adjust" name="adjust"/>
+            <node xmi:type="uml:OpaqueAction" xmi:id="_eh_recapture" name="recapture"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_eh_e5" source="_eh_adjust" target="_eh_recapture"/>
+          </node>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_eh_e1" source="_eh_init" target="_eh_capture"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_eh_e2" source="_eh_capture" target="_eh_store"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_eh_e3" source="_eh_store" target="_eh_final"/>
+        </ownedBehavior>
+      </packagedElement>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_inspect" name="Inspect" ownerOfDiagram="_act_inspect">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_eh_init</usedElements>
+                  <usedElements>_eh_capture</usedElements>
+                  <usedElements>_eh_store</usedElements>
+                  <usedElements>_eh_final</usedElements>
+                  <usedElements>_eh_fails</usedElements>
+                  <usedElements>_eh_retry</usedElements>
+                  <usedElements>_eh_log</usedElements>
+                  <usedElements>_eh_pos</usedElements>
+                  <usedElements>_eh_adjust</usedElements>
+                  <usedElements>_eh_recapture</usedElements>
+                  <usedElements>_eh_e1</usedElements>
+                  <usedElements>_eh_e2</usedElements>
+                  <usedElements>_eh_e3</usedElements>
+                  <usedElements>_eh_e4</usedElements>
+                  <usedElements>_eh_e5</usedElements>
+                  <usedElements>_eh_h1</usedElements>
+                  <usedElements>_eh_h2</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-exception_handlers"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+</xmi:XMI>
