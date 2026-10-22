@@ -962,6 +962,16 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 		Abstract: symbols.IsAbstract(sym),
 		Supers:   []symbols.ElementRef{},
 	}
+	facts.Annotations = model.DeclaredAnnotationFactsOf(sym)
+	if sym.Kind == symbols.SymbolAlias {
+		if target, ok := model.resolver.ResolveAliasTarget(sym); ok {
+			if ref, found := idx.RefTo(target); found {
+				facts.Alias = ref
+			} else {
+				facts.Alias = symbols.ElementRef{FQN: model.fqnOf(target)}
+			}
+		}
+	}
 	for _, super := range model.DirectSupertypes(sym) {
 		if ref, ok := idx.RefTo(super); ok {
 			facts.Supers = append(facts.Supers, ref)

@@ -91,6 +91,7 @@ func printConfig(opts *options, fs *flag.FlagSet, stdout, stderr io.Writer) int 
 			}
 		}
 		ep.url = over.url()
+		ep.token = over.tokenValue()
 	}
 	if err := printHostConfig(stdout, name, ep, opts.configNpx); err != nil {
 		fmt.Fprintf(stderr, "%s-print-config: %v\n", commandPrefix, err)
@@ -219,6 +220,11 @@ func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 			fmt.Fprintf(stderr, "%s-http %s: %v\n", commandPrefix, over.addr, err)
 			return exitProtocol
 		}
+		if !mcp.IsLoopbackAddr(lis.Addr()) && !over.token.Set() {
+			_ = lis.Close()
+			fmt.Fprintf(stderr, "%s-http %s binds an address other machines reach: %v\n", commandPrefix, over.addr, mcp.ErrNoToken)
+			return exitUnservable
+		}
 	}
 	srv, err := mcp.New(ctx, cfg)
 	if err != nil {
@@ -228,7 +234,7 @@ func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 	defer srv.Close(context.Background())
 
 	if lis != nil {
-		err = srv.ServeStreamableHTTP(ctx, mcp.HTTPConfig{Listener: lis, Origins: over.origins, CertFile: over.certFile, KeyFile: over.keyFile})
+		err = srv.ServeStreamableHTTP(ctx, mcp.HTTPConfig{Listener: lis, Origins: over.origins, Token: over.token, CertFile: over.certFile, KeyFile: over.keyFile})
 		if err != nil {
 			fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
 			return exitProtocol

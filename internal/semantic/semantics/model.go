@@ -160,6 +160,13 @@ type Model struct {
 	// implicitRels memoizes each element's reflected relationship objects
 	// (see reflective_relationships.go).
 	implicitRels map[*symbols.Symbol][]*symbols.Symbol
+	// memberships, ownedAnnotations, annotatingRels and ownedImports memoize
+	// the Membership, Annotation and Import objects each element implies
+	// (see reflective_memberships.go, reflective_annotations.go).
+	memberships      map[*symbols.Symbol][]*symbols.Symbol
+	ownedAnnotations map[*symbols.Symbol][]*symbols.Symbol
+	annotatingRels   map[*symbols.Symbol][]*symbols.Symbol
+	ownedImports     map[*symbols.Symbol][]*symbols.Symbol
 }
 
 // NewModel creates a semantic model backed by the given name resolver. The
@@ -239,6 +246,10 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		bodyIndexed:           make(map[*symbols.Scope]bool),
 		assumedSupers:         make(map[*symbols.Symbol]assumedSupertypes),
 		implicitRels:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		memberships:           make(map[*symbols.Symbol][]*symbols.Symbol),
+		ownedAnnotations:      make(map[*symbols.Symbol][]*symbols.Symbol),
+		annotatingRels:        make(map[*symbols.Symbol][]*symbols.Symbol),
+		ownedImports:          make(map[*symbols.Symbol][]*symbols.Symbol),
 	}
 	if resolver != nil {
 		resolver.SetModel(m)
@@ -857,7 +868,7 @@ func (m *Model) conforms(a, b *symbols.Symbol, unioning map[*symbols.Symbol]bool
 	if a == nil || b == nil {
 		return false
 	}
-	if symbols.SameElement(a, b) || IsAnything(b) {
+	if symbols.SameElement(a, b) || m.isTopType(b) {
 		return true
 	}
 	for _, s := range m.AllSupertypes(a) {
@@ -866,6 +877,12 @@ func (m *Model) conforms(a, b *symbols.Symbol, unioning map[*symbols.Symbol]bool
 		}
 	}
 	return m.unionConforms(a, b, unioning)
+}
+
+// isTopType reports whether b is the library's Base::Anything, which every type
+// conforms to (KerML 1.0 §9.2.2.2); a workspace namesake of it is an ordinary type.
+func (m *Model) isTopType(b *symbols.Symbol) bool {
+	return IsAnything(b) && (m.resolver == nil || m.resolver.Index() == nil || m.isLibraryElement(b))
 }
 
 // unionConforms reports whether a is declared as the union of types that all

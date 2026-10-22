@@ -27,12 +27,13 @@ func (fn *functionValue) arity() (low, high int) {
 	if fn.library != nil {
 		return fn.library.leastPositional(), len(fn.library.params)
 	}
-	for i := len(fn.shape.Params) - 1; i >= 0; i-- {
-		if fn.shape.Params[i].Default == nil {
-			return i + 1, len(fn.shape.Params)
+	indexes := fn.shape.positionalIndexes()
+	for k := len(indexes) - 1; k >= 0; k-- {
+		if fn.shape.Params[indexes[k]].Default == nil {
+			return k + 1, len(indexes)
 		}
 	}
-	return 0, len(fn.shape.Params)
+	return 0, len(indexes)
 }
 
 // function is the payload of a ValFunction; nil for every other kind.
