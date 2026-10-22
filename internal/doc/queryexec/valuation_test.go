@@ -2,9 +2,11 @@ package queryexec
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
@@ -75,6 +77,9 @@ func valuationCellText(cell Cell) string {
 		case value.Kind() == ValueReal:
 			real, _ := value.Real()
 			parts = append(parts, semantics.FormatReal(real))
+		case value.Kind() == ValueInteger:
+			integer, _ := value.Integer()
+			parts = append(parts, strconv.FormatInt(integer, 10))
 		default:
 			parts = append(parts, cellText(cell))
 		}
@@ -164,5 +169,66 @@ func TestExecuteOrderByValuationSortsQuantities(t *testing.T) {
 	}
 	if strings.Join(names, " ") != "wet payload dry" {
 		t.Fatalf("Heaviest = %v", names)
+	}
+}
+
+// A parameter that redefines its definition's parameter by position, without
+// a `:>>` clause, takes that parameter's binding: valuation on the parameter
+// row and the member form on its owner's row read the same value.
+func TestExecuteValuationFollowsImplicitParameterRedefinition(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+	action def Focus { in level : Integer = 3; in gain : Integer; }
+	action focus : Focus { in level; in :>> gain = 2; }
+	calc def Params :> Query {
+		Project(source = OwnedElements(source = Named(qualifiedName = "Observatory::focus")), properties = ("name", "valuation"))
+	}
+	calc def Member :> Query {
+		Project(source = Named(qualifiedName = "Observatory::focus"), properties = ("level", "gain"))
+	}
+`)
+	if got := valuationRows(t, fixture, "Params"); strings.Join(got, "\n") != "level | 3\ngain | 2" {
+		t.Fatalf("Params rows = %q", got)
+	}
+	if got := valuationRows(t, fixture, "Member"); strings.Join(got, "\n") != "3 | 2" {
+		t.Fatalf("Member rows = %q", got)
+	}
+}
+
+// An object row is no feature: valuation is an empty cell rather than an
+// unknown property, unless the object holds a member spelled valuation.
+func TestExecuteValuationOverObjectRowsIsAbsent(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+	part def Held;
+	part def Car :> Held { attribute mass : Integer = 1200; }
+	part def Ledger :> Held { attribute valuation : Integer = 7; }
+	part car : Car;
+	part ledger : Ledger;
+	calc def HeldObjects :> Query {
+		Project(source = Objects(type = "Held"), properties = ("name", "valuation"))
+	}
+`)
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
+	car, err := ctx.Instantiate(fixture.symbol(t, "car"))
+	if err != nil {
+		t.Fatalf("Instantiate car: %v", err)
+	}
+	ledger, err := ctx.Instantiate(fixture.symbol(t, "ledger"))
+	if err != nil {
+		t.Fatalf("Instantiate ledger: %v", err)
+	}
+	context := Context{
+		Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Runtime: ctx,
+		Roots: []Root{{Label: "car", Object: car}, {Label: "ledger", Object: ledger}},
+	}
+	result, err := Execute(fixture.program(t, "HeldObjects"), context, nil, Options{})
+	if err != nil {
+		t.Fatalf("HeldObjects: %v", err)
+	}
+	var got []string
+	for _, row := range result.Rows() {
+		got = append(got, valuationCellText(row.Cells()[0])+" | "+valuationCellText(row.Cells()[1]))
+	}
+	if strings.Join(got, "\n") != "car | \nledger | 7" {
+		t.Fatalf("Held rows = %q", got)
 	}
 }

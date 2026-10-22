@@ -903,7 +903,12 @@ func (m *Model) constantFeatureValues(member *symbols.Symbol, seen map[*symbols.
 	if usage == nil || usage.Value == nil {
 		var values []symbols.FilterValue
 		found := false
-		for _, redefined := range m.RedefinedFeatures(member) {
+		redefined := m.RedefinedFeatures(member)
+		if len(redefined) == 0 {
+			// A parameter redefines its general's parameter by position.
+			redefined = m.ImplicitParameterRedefinitions(member)
+		}
+		for _, redefined := range redefined {
 			inherited, ok, err := m.constantFeatureValues(redefined, seen)
 			if err != nil {
 				return nil, false, err

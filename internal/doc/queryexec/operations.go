@@ -693,7 +693,13 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 
 func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([]Value, bool, error) {
 	if _, _, isObject := row.Object(); isObject {
-		return e.objectPropertyValues(row, property)
+		values, present, err := e.objectPropertyValues(row, property)
+		if !present && err == nil && property == PropertyValuation {
+			// An object is no feature: its valuation is absent unless it
+			// holds a member so named.
+			return nil, true, nil
+		}
+		return values, present, err
 	}
 	if _, isVerdict := row.Verdict(); isVerdict {
 		return e.verdictPropertyValues(row, property)
