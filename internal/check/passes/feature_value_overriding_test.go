@@ -281,3 +281,48 @@ func TestFeatureValueOverridingOwnedConstraintParameters(t *testing.T) {
 	}`
 	overridingDiags(t, src, "= 200.0", "= m", "= 200.0", "= m")
 }
+
+// A constructor argument is a feature of the result redefining the type's, so one
+// bound to a feature written with `=` overrides it, by label or by position alike.
+func TestFeatureValueOverridingConstructorArgumentIsReported(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::Integer;
+		item def A { attribute x : Integer = 1; attribute y : Integer; }
+		part def Receiver;
+		part receiver : Receiver;
+		action def Make {
+			action s1 send new A(x = 2) to receiver;
+			action s2 send new A(3) to receiver;
+			action s3 send new A(y = 4) to receiver;
+		}
+		item a1 = new A(x = 5);
+	}`
+	diags := overridingDiags(t, src, "2", "3", "5")
+	if !strings.Contains(diags[0].Message, "cannot override the binding value of P::A::x") {
+		t.Errorf("message %q does not name the bound feature", diags[0].Message)
+	}
+}
+
+// A `default` value and an unvalued feature take a constructor argument.
+func TestFeatureValueOverridingConstructorDefaultIsClean(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::Integer;
+		item def A { attribute x : Integer default = 1; attribute y : Integer; }
+		item a1 = new A(x = 2, y = 3);
+		item a2 = new A(4, 5);
+	}`
+	overridingDiags(t, src)
+}
+
+// The binding is inherited by every specialization, a `default` redefinition included.
+func TestFeatureValueOverridingConstructorInheritedBinding(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::Integer;
+		item def A { attribute x : Integer = 1; }
+		item def B :> A;
+		item def C :> A { attribute :>> x default = 5; }
+		item b = new B(x = 2);
+		item c = new C(x = 3);
+	}`
+	overridingDiags(t, src, "default = 5", "2", "3")
+}

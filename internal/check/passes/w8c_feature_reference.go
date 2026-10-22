@@ -34,7 +34,7 @@ func (FeatureReferencePass) Run(ctx *Context, name string, root *ast.RootNamespa
 	w := &kit.Walker{Ctx: ctx}
 	w.Walk(rootScope, c.checkSymbol)
 	c.walkFilters(rootScope, make(map[*symbols.Scope]bool))
-	return c.diags
+	return append(c.diags, c.cc.diags...)
 }
 
 // Operators taking a type, not a feature, as an operand.
@@ -433,6 +433,9 @@ func (c *featureReferenceChecker) walkExpr(site refSite, scope *symbols.Scope, n
 			c.walkExpr(argSite, scope, arg.Value)
 		}
 	case *ast.ConstructorExpr:
+		// The arguments are features of the result redefining the type's; one
+		// binding a feature bound with `=` overrides it (validateFeatureValueOverriding).
+		c.cc.checkConstructorValueOverriding(scope, e)
 		for _, a := range e.Args {
 			c.walkExpr(site, scope, a)
 		}

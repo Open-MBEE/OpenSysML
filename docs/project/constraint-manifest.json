@@ -1924,7 +1924,7 @@
       "checks": "A feature value does not override a binding feature value inherited from a redefined feature (`Cannot override a binding feature value`)",
       "implementation": "internal/check/passes/feature_value_overriding.go:constraintChecker.checkFeatureValueOverriding (run by ConstraintPass.Run)",
       "message": "`cannot override the binding value of P::a: a value written with `` = `` is fixed for every feature redefining it; write it as `` default = `` on P::a to allow overriding, or remove this value`",
-      "negativeCase": "`semantic/s46-feature-value-overriding.sysml`",
+      "negativeCase": "`semantic/s46-feature-value-overriding.sysml`, `semantic/s114-constructor-argument-overrides-bound-value.sysml`",
       "codes": [
         "feature-value-overriding"
       ],
