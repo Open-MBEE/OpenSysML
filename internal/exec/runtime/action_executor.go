@@ -263,6 +263,7 @@ func newActionExecutorOn(
 	exec.performances.thisOccurrence = exec.materializeOccurrence
 	exec.features = exec.performanceFeatures()
 	exec.root = exec.newRootFrame()
+	exec.through = ctx.performedPinBindings(performed, graph, self)
 	exec.owner = exec
 	exec.flow = exec
 	exec.driven.exec = exec

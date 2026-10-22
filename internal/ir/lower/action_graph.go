@@ -1606,7 +1606,12 @@ func lowerPinBindings(graph *ActionGraph, nodes nodeLookup, u *ast.Usage, scope 
 // is nil for an end addressing no node; a path reaching into a node that holds no
 // such nested action is an error.
 func pinPath(graph *ActionGraph, nodes nodeLookup, end ast.Node) (node ast.Node, path []ast.Node, pin string, err error) {
-	segments := endSegments(end)
+	return pinPathOf(graph, nodes, end, endSegments(end))
+}
+
+// pinPathOf is pinPath over segments, the names of end left once a prefix the
+// graph is reached through is dropped.
+func pinPathOf(graph *ActionGraph, nodes nodeLookup, end ast.Node, segments []string) (node ast.Node, path []ast.Node, pin string, err error) {
 	if len(segments) == 0 {
 		return nil, nil, "", nil
 	}
