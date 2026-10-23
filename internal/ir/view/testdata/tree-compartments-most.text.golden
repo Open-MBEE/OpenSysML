@@ -14,4 +14,4 @@ relationships:
   Controller *-- Sensor: sensor
 
 not represented:
-  - 4 member(s) drawn as compartment rows of their owner, and 2 node(s) under them left undrawn
+  - 4 member(s) drawn as compartment rows of their owner

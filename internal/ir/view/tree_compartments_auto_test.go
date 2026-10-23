@@ -64,7 +64,7 @@ func TestTreeCompartmentsMostFold(t *testing.T) {
 	if len(folded.Edges) != 1 || folded.Edges[0].Kind != EdgeComposition || folded.Edges[0].From != folded.Roots[1].ID || folded.Edges[0].To != folded.Roots[0].ID || folded.Edges[0].ToLabel != "sensor" {
 		t.Errorf("edges = %+v, want one composition Controller -> Sensor labelled sensor", folded.Edges)
 	}
-	want := "4 member(s) drawn as compartment rows of their owner, and 2 node(s) under them left undrawn"
+	want := "4 member(s) drawn as compartment rows of their owner"
 	if len(folded.Notices) != 1 || folded.Notices[0] != want {
 		t.Errorf("notices = %q, want %q", folded.Notices, want)
 	}
@@ -93,7 +93,7 @@ func TestTreeCompartmentsFoldKeepsNodes(t *testing.T) {
 	if got := compartmentText(ports.Roots[0]); got != "ports: input : DataPort, input.clock : ClockPort, output : DataPort, output.sync : ClockPort, output.clock : ClockPort" {
 		t.Errorf("ports Hub compartments = %q", got)
 	}
-	want := "5 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn"
+	want := "5 member(s) drawn as compartment rows of their owner"
 	if len(ports.Notices) != 1 || ports.Notices[0] != want {
 		t.Errorf("ports notices = %q, want %q", ports.Notices, want)
 	}

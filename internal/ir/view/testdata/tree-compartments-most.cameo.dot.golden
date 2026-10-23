@@ -1,7 +1,7 @@
 // view: CompartmentDemoViews::controllers
 // kind: tree
 // stated: render asTreeDiagram
-// not represented: 4 member(s) drawn as compartment rows of their owner, and 2 node(s) under them left undrawn
+// not represented: 4 member(s) drawn as compartment rows of their owner
 // layout: dot
 digraph "CompartmentDemoViews::controllers" {
   graph [fontname="Arial", fontcolor="#424242"];
