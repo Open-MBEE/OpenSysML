@@ -65,6 +65,30 @@ def test_expand_sources_reads_a_directory_as_the_sysml_command_does(tmp_path):
     ]
 
 
+def test_expand_sources_orders_a_directory_by_full_path(tmp_path):
+    """``a.sysml`` sorts before ``a/inner.sysml``, as under the ``sysml`` command."""
+    (tmp_path / "a").mkdir()
+    (tmp_path / "a" / "inner.sysml").write_text("package Inner;")
+    (tmp_path / "a.sysml").write_text("package A;")
+    (tmp_path / "b.sysml").write_text("package B;")
+
+    assert expand_sources([str(tmp_path)]) == [
+        str(tmp_path / "a.sysml"),
+        str(tmp_path / "a" / "inner.sysml"),
+        str(tmp_path / "b.sysml"),
+    ]
+
+
+def test_expand_sources_refuses_a_directory_without_model_files(tmp_path):
+    (tmp_path / "models").mkdir()
+    (tmp_path / "models" / "a.sysml").write_text("package A;")
+    (tmp_path / "empty").mkdir()
+    (tmp_path / "empty" / "notes.md").write_text("no model here")
+
+    with pytest.raises(ValueError, match=f"no .sysml or .kerml file under {tmp_path / 'empty'}"):
+        expand_sources([str(tmp_path / "empty"), str(tmp_path / "models")])
+
+
 def test_expand_sources_keeps_a_missing_path_for_the_reader_to_report(tmp_path):
     missing = str(tmp_path / "missing.sysml")
     assert expand_sources([missing]) == [missing]
@@ -118,6 +142,13 @@ def test_select_packages_keeps_a_package_and_what_it_nests():
     ]
 
 
+@pytest.mark.parametrize("packages", [["Top", "Top::Parts"], ["Top::Parts", "Top"], ["Top", "Top"]])
+def test_select_packages_overlapping_selections_count_each_once(packages):
+    assert [d.id for d in select_packages(_definitions(), packages)] == [
+        "Top::Car", "Top::Parts::Wheel"
+    ]
+
+
 def test_select_packages_refuses_a_package_that_owns_nothing():
     with pytest.raises(ValueError, match="owned by package 'Nope'"):
         select_packages(_definitions(), ["Top", "Nope"])
@@ -139,13 +170,15 @@ def test_a_missing_file_among_several_is_refused_before_the_service_is_contacted
     assert not (tmp_path / "out.py").exists()
 
 
-def test_a_directory_without_model_files_is_refused(tmp_path, capsys, monkeypatch):
+def test_a_directory_without_model_files_is_refused_even_beside_a_model(
+    tmp_path, capsys, monkeypatch
+):
     import opensysml
 
     monkeypatch.setattr(opensysml, "connect", lambda *a, **k: pytest.fail("connected"))
     (tmp_path / "notes.md").write_text("no model here")
 
-    assert generate_main([str(tmp_path)]) == 2
+    assert generate_main([str(FIXTURE_DIR), str(tmp_path)]) == 2
     assert capsys.readouterr().err == f"error: no .sysml or .kerml file under {tmp_path}\n"
 
 
@@ -225,14 +258,16 @@ class TestSeveralFilesAgainstRealService:
         assert result.returncode == 1
         assert result.stderr == "error: no definition in the model is owned by package 'Nope'\n"
 
-    def test_check_names_every_source_and_the_package_to_regenerate_with(self, tmp_path):
+    def test_check_names_every_source_package_and_service_option_to_regenerate_with(self, tmp_path):
         output = tmp_path / "top_types.py"
         sources = [str(path) for path in FIXTURE_FILES]
-        result = _run_cli(*sources, "--package", "FleetTop", "--check", "-o", str(output))
+        result = _run_cli(
+            *sources, "--package", "FleetTop", "--port", "50051", "--check", "-o", str(output)
+        )
         assert result.returncode == 1
         assert result.stderr == (
             f"error: {output} does not exist; regenerate with: python -m opensysml.generate "
-            f"{' '.join(sources)} --package FleetTop -o {output}\n"
+            f"{' '.join(sources)} --package FleetTop --port 50051 -o {output}\n"
         )
 
     def test_a_diagnostic_of_several_files_names_its_file(self, tmp_path):

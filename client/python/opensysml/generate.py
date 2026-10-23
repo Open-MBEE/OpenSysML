@@ -416,6 +416,10 @@ def expand_sources(paths: Iterable[str]) -> List[str]:
     ``.kerml`` file beneath it in path order, hidden directories skipped and a
     directory reached twice through links read once. A path named twice is read
     once. A path that does not exist is kept so the reader reports it.
+
+    Raises:
+        ValueError: If a directory contains no model file: it names nothing, so
+            it is a mistake rather than a model of nothing.
     """
     out: List[str] = []
     seen: set = set()
@@ -428,26 +432,28 @@ def expand_sources(paths: Iterable[str]) -> List[str]:
 
     for path in paths:
         if os.path.isdir(path):
-            for file in _model_files(path, set()):
+            files: List[str] = []
+            _model_files(path, set(), files)
+            if not files:
+                raise ValueError(f"no .sysml or .kerml file under {path}")
+            for file in sorted(files):
                 add(file)
         else:
             add(path)
     return out
 
 
-def _model_files(directory: str, visited: set) -> List[str]:
+def _model_files(directory: str, visited: set, out: List[str]) -> None:
     resolved = os.path.realpath(directory)
     if resolved in visited:
-        return []
+        return
     visited.add(resolved)
-    files: List[str] = []
-    for entry in sorted(os.scandir(directory), key=lambda entry: entry.name):
+    for entry in os.scandir(directory):
         if entry.is_dir():
             if not entry.name.startswith("."):
-                files.extend(_model_files(entry.path, visited))
+                _model_files(entry.path, visited, out)
         elif entry.is_file() and entry.name.endswith(MODEL_FILE_SUFFIXES):
-            files.append(entry.path)
-    return files
+            out.append(entry.path)
 
 
 def select_packages(
@@ -465,11 +471,10 @@ def select_packages(
     selected: List[Definition] = []
     matched: set = set()
     for definition in definitions:
-        for package in packages:
-            if definition.id.startswith(package + "::"):
-                matched.add(package)
-                selected.append(definition)
-                break
+        owners = [p for p in packages if definition.id.startswith(p + "::")]
+        if owners:
+            matched.update(owners)
+            selected.append(definition)
     missing = [package for package in packages if package not in matched]
     if missing:
         raise ValueError(
@@ -754,12 +759,10 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         print("error: --check requires -o/--output", file=sys.stderr)
         return 2
 
-    sources = expand_sources(args.sources)
-    if not sources:
-        print(
-            f"error: no .sysml or .kerml file under {' '.join(args.sources)}",
-            file=sys.stderr,
-        )
+    try:
+        sources = expand_sources(args.sources)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
         return 2
     source_texts = []
     for path in sources:
@@ -813,6 +816,10 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         reason = "does not exist" if existing is None else "is out of date"
         command = ["python -m opensysml.generate", *args.sources]
         command.extend(f"--package {package}" for package in args.package)
+        if args.host != "localhost":
+            command.append(f"--host {args.host}")
+        if args.port is not None:
+            command.append(f"--port {args.port}")
         print(
             f"error: {args.output} {reason}; regenerate with: "
             f"{' '.join(command)} -o {args.output}",
