@@ -117,8 +117,7 @@ func TestFailuresAreNamedByWhatFailed(t *testing.T) {
 		"1 +":                                "SubmissionError",
 	}
 	for code, want := range cases {
-		// Each in its own session: as at the prompt, a snippet that did not parse
-		// stays in the buffer and holds back the deeper checks of what follows.
+		// Each in its own session, so a failure is judged on its own.
 		e := newEngine(t)
 		if got := mustFail(t, e, code); got.Name != want {
 			t.Errorf("Execute(%q) failed as %s (%s), want %s", code, got.Name, got.Value, want)
@@ -504,4 +503,24 @@ func TestLoadingAPythonNotebookIsACommandError(t *testing.T) {
 	if failure.Name != "CommandError" || !strings.Contains(failure.Value, "a python notebook") {
 		t.Errorf("failure = %+v, want a CommandError naming the python notebook", failure)
 	}
+}
+
+// A cell the session rejects leaves nothing behind: the corrected expression
+// of the next cell evaluates as it did before the rejected one.
+func TestARejectedCellDoesNotHoldBackTheNextOne(t *testing.T) {
+	e := newEngine(t)
+	mustRun(t, e, "calc add { in x; in y; x + y }")
+	mustRun(t, e, "private import SI::*;")
+	answer := func(cell string) {
+		t.Helper()
+		out := mustRun(t, e, cell)
+		if len(out.results) != 1 || !strings.Contains(out.results[0][mimeText].(string), "10.02 [m]") {
+			t.Fatalf("Execute(%q) results = %v, want 10.02 [m]", cell, out.results)
+		}
+	}
+	answer("add(10 [m], 20 [mm])")
+	if got := mustFail(t, e, "add(10 [m], 20 [mm]);"); got.Name != "SubmissionError" {
+		t.Fatalf("the trailing semicolon failed as %s (%s), want SubmissionError", got.Name, got.Value)
+	}
+	answer("add(10 [m], 20 [mm])")
 }

@@ -48,6 +48,10 @@ type Result struct {
 	// foreign locates the snippets analyzed in another document than this
 	// submission's, whose findings gated none of its validation tiers.
 	foreign []source.Span
+
+	// buffer lays out the submissions the diagnostics were reported over when one
+	// of them was dropped once reported; nil while the session's buffer is still it.
+	buffer []bufferPart
 }
 
 // Member is one top-level member of a session document; Offset is where the
