@@ -168,7 +168,9 @@ func assignmentLines(model []solve.Assignment) []string {
 			continue
 		}
 		line := fmt.Sprintf("  %s = %s", notationName(a.Var.Name), a.Value)
-		if !a.Rendered {
+		if a.Rendered {
+			line = fmt.Sprintf("  %s = %s", notationName(a.Var.Name), solve.ValueText(a.Var, a.Value))
+		} else {
 			line += "  (as the solver wrote it)"
 		}
 		out = append(out, line)

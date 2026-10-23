@@ -493,18 +493,21 @@ jobs:
             shard=${shards[$CIRCLE_NODE_INDEX]}
             pkgs=$(scripts/race-shard.sh "$shard")
             echo "shard $shard:"; echo "$pkgs"
+            # -v over several packages is held back until each finishes, which the
+            # no_output_timeout below reads as a hang; -json streams, the script re-emits -v.
+            stream() { python3 scripts/go-test-stream.py; }
             if [ "$shard" = runtime ]; then
               exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
-              go test -v -race -pgo=off -timeout 30m -run "$exploration" $pkgs
-              go test -v -race -pgo=off -timeout 30m -skip "$exploration" $pkgs
-              go test -v -race -pgo=off -timeout 30m ./tests/wasm
-              go test -C tools -v -race -pgo=off -timeout 30m ./...
+              go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream
+              go test -json -race -pgo=off -timeout 30m -skip "$exploration" $pkgs | stream
+              go test -json -race -pgo=off -timeout 30m ./tests/wasm | stream
+              go test -C tools -json -race -pgo=off -timeout 30m ./... | stream
             else
               # tests/migrate alone runs 23-32 minutes under -race on this class and
               # tests/model (in the export shard) 25-30, so those shards get the
               # Makefile's per-package timeout (see make test-shard).
               timeout=30m; case "$shard" in migrate|export) timeout=55m ;; esac
-              go test -v -race -pgo=off -timeout "$timeout" $pkgs
+              go test -json -race -pgo=off -timeout "$timeout" $pkgs | stream
             fi
           no_output_timeout: 30m
           environment:
