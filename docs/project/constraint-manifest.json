@@ -3943,7 +3943,7 @@
       "checks": "A subsetted feature is accessible from the subsetting feature's featuring types",
       "implementation": "internal/check/passes/subsetting_featuring.go:checkSubsettingFeaturingTypes, internal/check/passes/constraint.go:checkPackageLevelRedefinition",
       "message": "—",
-      "negativeCase": "`semantic/k13-subsets-inaccessible-feature.kerml`, `semantic/s105-package-level-redefines-type-feature.sysml`, `semantic/k74-package-level-redefines-featured-feature.kerml`",
+      "negativeCase": "`semantic/k13-subsets-inaccessible-feature.kerml`, `semantic/k77-standalone-subsetting-inaccessible-feature.kerml`, `semantic/s105-package-level-redefines-type-feature.sysml`, `semantic/k74-package-level-redefines-featured-feature.kerml`",
       "codes": [
         "subsetting-featuring-types"
       ],
