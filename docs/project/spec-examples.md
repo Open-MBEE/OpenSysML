@@ -82,7 +82,7 @@ Pilot `2026-08` (`0.62.0`), both validators, fresh cache:
 Of the pilot-only diagnostics, 1359 are the pilot's EMF `unmapped` records ("The feature 'type' of
 ... is required"), 586 its `kind-mismatch` typing constraints ("A usage must be typed by
 definitions.") and 50 multiplicity constraints: all three follow an unresolved cross-example name on
-the same lines, where we report the unresolved reference once and stop. Those 1996 are the same
+the same lines, where we report the unresolved reference once and stop. Those 1995 are the same
 finding counted differently, not disagreements about the examples. The remaining pilot-only
 categories are 196 syntax, 156 unresolved-reference and 4 units; the 50 ours-only diagnostics are
 38 unresolved-reference, 7 syntax, 3 kind-mismatch and 2 unmapped. Every file behind those two
