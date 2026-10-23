@@ -30,8 +30,10 @@ type PerformedTransfer struct {
 }
 
 var (
-	// errLifelineUnbound is a lifeline whose feature value holds no object to send from or to.
-	errLifelineUnbound = errors.New("lifeline holds no object")
+	// errLifelineUnbound is a lifeline, or the usage of a nested interaction, holding no object.
+	errLifelineUnbound = errors.New("holds no object")
+	// errNestedRecursion is an interaction using itself, directly or through another.
+	errNestedRecursion = errors.New("the interaction uses itself")
 	// errUnboundPayload is a message whose payload cannot be built from its `of` clause.
 	errUnboundPayload = errors.New("message payload is unbound")
 	// errTransferLost is a transfer posted onto the bus that could not be taken off it again.
@@ -41,12 +43,16 @@ var (
 // ExecuteOccurrence performs an occurrence definition or usage as the interaction
 // its body states (SysML v2.1 §7.16.1: a message "may be realized … using
 // transfers from send actions to accept actions"): the occurrence is materialized,
-// and each message, in the order the events admit, is posted as a message typed by
-// its payload from the lifeline object holding its source event to the one holding
-// its target event, taken there, and the action the receiving event performs is
-// performed on that object. The trace records each transfer as a send and an accept.
+// and its nodes are visited in the order the events admit. At an event the
+// messages reaching it are taken off the bus by the lifeline object holding it,
+// the actions the event performs are performed once on that object, the
+// constraints it asserts are checked there, and the messages leaving it are
+// posted, typed by their payloads, to the objects holding their target events;
+// at an occurrence usage of a nested interaction, that interaction is performed
+// on the object the usage holds. The trace records each transfer as a send and
+// an accept.
 func (ctx *Context) ExecuteOccurrence(sym *symbols.Symbol) (*OccurrenceRun, error) {
-	graph, err := lower.ToSequenceGraph(sym.Decl, DeclScope(sym), ctx.Resolver())
+	graph, err := lower.ToSequenceGraph(sym, ctx.Resolver())
 	if err != nil {
 		return nil, err
 	}
@@ -55,45 +61,219 @@ func (ctx *Context) ExecuteOccurrence(sym *symbols.Symbol) (*OccurrenceRun, erro
 	if err != nil {
 		return nil, fmt.Errorf("materialize %s: %w", SymbolText(sym), err)
 	}
-	objects := make(map[*symbols.Symbol]*Instance, len(graph.Lifelines))
-	for _, line := range graph.Lifelines {
-		obj, err := ctx.lifelineObject(inst, line)
-		if err != nil {
-			return nil, err
-		}
-		objects[line] = obj
-	}
 	run := &OccurrenceRun{Occurrence: inst}
-	posted := make(map[*lower.Transfer]uint64, len(graph.Transfers))
-	for _, ev := range graph.Order {
-		for _, t := range ev.Sends {
-			serial, err := ctx.postTransfer(sym, inst, t, objects[t.From.Lifeline], objects[t.To.Lifeline])
-			if err != nil {
-				return run, err
-			}
-			posted[t] = serial
-		}
-		for _, t := range ev.Receives {
-			performed, err := ctx.takeTransfer(sym, inst, t, posted[t], objects[t.From.Lifeline], objects[t.To.Lifeline])
-			if err != nil {
-				return run, err
-			}
-			run.Transfers = append(run.Transfers, performed)
-		}
+	if err := ctx.runSequence(sym, inst, graph, run, nil, map[*symbols.Symbol]bool{sym: true}); err != nil {
+		return run, err
 	}
 	return run, nil
 }
 
-// eventText names an event as a lifeline's member.
-func eventText(ev *lower.SequenceEvent) string {
-	return ev.Lifeline.Name + "." + ev.Symbol.Name
+// runSequence realizes a lowered interaction on the object holding its lifelines.
+// outer holds the lifeline objects of the interaction using this one by name: a
+// lifeline the use leaves unbound is the outer lifeline of its name, as an
+// interaction use covers the lifelines of the interaction using it. active holds
+// the occurrences being performed, so a use of one of them is refused rather than
+// recursed into.
+func (ctx *Context) runSequence(sym *symbols.Symbol, inst *Instance, graph *lower.SequenceGraph, run *OccurrenceRun, outer map[string]*Instance, active map[*symbols.Symbol]bool) error {
+	objects := make(map[*symbols.Symbol]*Instance, len(graph.Lifelines))
+	byName := make(map[string]*Instance, len(graph.Lifelines))
+	for _, line := range graph.Lifelines {
+		if o := outer[line.Name]; o != nil && !declaresMember(graph.Scope, line.Name) {
+			// The use leaves the lifeline unbound: it is the outer lifeline of its name.
+			if err := inst.BindFeatureValue(ctx, line.Name, Value{Kind: ValInstance, Instance: o.ID}); err != nil {
+				return fmt.Errorf("lifeline %s %w: %w", line.Name, errLifelineUnbound, err)
+			}
+		}
+		obj, err := ctx.heldUsageObject(inst, line, "lifeline", outer[line.Name])
+		if err != nil {
+			return err
+		}
+		objects[line] = obj
+		byName[line.Name] = obj
+	}
+	posted := make(map[*lower.Transfer]uint64, len(graph.Transfers))
+	post := func(t *lower.Transfer) error {
+		serial, err := ctx.postTransfer(sym, inst, t, objects[t.From.Lifeline], objects[t.To.Lifeline])
+		if err != nil {
+			return err
+		}
+		posted[t] = serial
+		return nil
+	}
+	for _, ev := range graph.Order {
+		if ev.Use {
+			if err := ctx.performUse(inst, ev.Symbol, run, byName, active); err != nil {
+				return err
+			}
+			continue
+		}
+		obj := objects[ev.Lifeline]
+		// A message an event sends to itself is posted before the event takes it.
+		for _, t := range ev.Sends {
+			if t.To == ev {
+				if err := post(t); err != nil {
+					return err
+				}
+			}
+		}
+		first := len(run.Transfers)
+		for _, t := range ev.Receives {
+			performed, err := ctx.takeTransfer(sym, t, posted[t], objects[t.From.Lifeline], obj)
+			if err != nil {
+				return err
+			}
+			run.Transfers = append(run.Transfers, performed)
+		}
+		for _, perform := range ev.Performs {
+			exec, err := ctx.performAtEvent(inst, ev, perform, obj)
+			if err != nil {
+				return err
+			}
+			for i := first; i < len(run.Transfers); i++ {
+				if run.Transfers[i].Performed == nil {
+					run.Transfers[i].Performed = exec
+				}
+			}
+		}
+		for _, a := range ev.Asserts {
+			if err := ctx.assertAtEvent(ev, a, obj); err != nil {
+				return err
+			}
+		}
+		for _, t := range ev.Sends {
+			if t.To != ev {
+				if err := post(t); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
-// lifelineObject is the object a lifeline usage of the occurrence holds.
-func (ctx *Context) lifelineObject(inst *Instance, line *symbols.Symbol) (*Instance, error) {
-	fv, err := inst.GetFeatureValue(ctx, line.Name)
+// performUse performs a nested interaction at its place in the order: the object
+// the occurrence usage holds runs the interaction its type states, with its
+// lifelines bound as the usage binds them.
+func (ctx *Context) performUse(inst *Instance, use *symbols.Symbol, run *OccurrenceRun, outer map[string]*Instance, active map[*symbols.Symbol]bool) error {
+	if active[use] {
+		return fmt.Errorf("%w: %s", errNestedRecursion, SymbolText(use))
+	}
+	graph, err := lower.ToSequenceGraph(use, ctx.Resolver())
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s: %w", errLifelineUnbound, line.Name, err)
+		return fmt.Errorf("occurrence %s: %w", use.Name, err)
+	}
+	obj, err := ctx.heldUsageObject(inst, use, "occurrence", nil)
+	if err != nil {
+		return err
+	}
+	if ctx.trace != nil {
+		ctx.trace.line("perform occurrence " + use.Name)
+	}
+	active[use] = true
+	defer delete(active, use)
+	return ctx.runSequence(use, obj, graph, run, outer, active)
+}
+
+// performAtEvent performs an action the event states, on the lifeline object: the
+// event is on the lifeline's timeline, so the action reads and writes that
+// object's features. On an object of the lifeline usage, the event occurrence it
+// holds holds the performance (`m.spinReceived.spinCall.result` reads its
+// result); an object standing for the lifeline without being its usage's own (an
+// outer interaction's object a use covers) holds nothing of the event. The `in`
+// bindings are evaluated on the interaction as arguments.
+func (ctx *Context) performAtEvent(inst *Instance, ev *lower.SequenceEvent, perform *symbols.Symbol, obj *Instance) (*ActionExecutor, error) {
+	fail := func(err error) (*ActionExecutor, error) {
+		return nil, fmt.Errorf("%s performs %s: %w", ev.Text(), SymbolText(perform), err)
+	}
+	var exec *ActionExecutor
+	if objectOf(obj, ev.Lifeline) {
+		event, err := ctx.heldUsageObject(obj, ev.Symbol, "event", nil)
+		if err != nil {
+			return nil, err
+		}
+		var decl classifierBehaviorDecl
+		for _, candidate := range ctx.classifierBehaviorsOf(ev.Symbol) {
+			if candidate.member == perform {
+				decl = candidate
+			}
+		}
+		if decl.member == nil {
+			return fail(errUnsupportedClassifierBehavior)
+		}
+		ctx.attachBehavior(event, decl.member)
+		behavior, err := ctx.attachClassifierBehaviorWith(event, obj, decl, 0, func() (map[string]Value, error) {
+			return ctx.classifierBehaviorArguments(inst, decl)
+		})
+		ctx.behaviorAttached(event, decl.member)
+		if err != nil {
+			return fail(err)
+		}
+		exec = behavior.Action
+		if err := ctx.runPerformance(exec, ctx.runDepth == 0); err != nil {
+			return fail(err)
+		}
+	} else {
+		inputs, err := ctx.performInputs(perform, inst)
+		if err != nil {
+			return fail(err)
+		}
+		if exec, err = ctx.performAction(perform, obj, inputs); err != nil {
+			return fail(err)
+		}
+	}
+	if ctx.trace != nil {
+		ctx.trace.line(fmt.Sprintf("perform %s at %s", SymbolText(perform), ev.Text()))
+	}
+	return exec, nil
+}
+
+// objectOf reports whether the object is one of the usage's own.
+func objectOf(obj *Instance, usage *symbols.Symbol) bool {
+	for _, typ := range obj.types() {
+		if typ == usage {
+			return true
+		}
+	}
+	return false
+}
+
+// declaresMember reports whether a body declares a member of the name.
+func declaresMember(scope *symbols.Scope, name string) bool {
+	if scope == nil {
+		return false
+	}
+	for _, member := range scope.Members() {
+		if member.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// assertAtEvent checks a constraint the event asserts holds on the lifeline object
+// holding the event, whose features the constraint's names read; a violation is
+// the run's error.
+func (ctx *Context) assertAtEvent(ev *lower.SequenceEvent, a lower.Assert, obj *Instance) error {
+	if a.Sym == nil {
+		return fmt.Errorf("%w: %s: the assertion is not declared where it was written", ErrNoConditions, ev.Text())
+	}
+	check := conditionCheck{sym: a.Sym, kind: "constraint", what: "assertion", self: obj, negated: a.Node.IsNegated}
+	if _, err := ctx.evaluateConditions(check, ctx.conditionsOf(a.Sym, ctx.chainMembers(a.Sym, a.Scope))); err != nil {
+		return fmt.Errorf("%s: %w", ev.Text(), err)
+	}
+	if ctx.trace != nil {
+		ctx.trace.line("assert at " + ev.Text())
+	}
+	return nil
+}
+
+// heldUsageObject is the object a usage of the occurrence holds: a lifeline, or the
+// occurrence usage of a nested interaction. One holding nothing is bound to the
+// outer object given, else to a fresh object of its type.
+func (ctx *Context) heldUsageObject(inst *Instance, usage *symbols.Symbol, what string, outer *Instance) (*Instance, error) {
+	fv, err := inst.GetFeatureValue(ctx, usage.Name)
+	if err != nil {
+		return nil, fmt.Errorf("%s %s %w: %w", what, usage.Name, errLifelineUnbound, err)
 	}
 	value := fv.Value
 	if _, ok := value.Object(); !ok {
@@ -102,31 +282,37 @@ func (ctx *Context) lifelineObject(inst *Instance, line *symbols.Symbol) (*Insta
 		}
 	}
 	id, ok := value.Object()
+	if !ok && outer != nil {
+		if err := inst.BindFeatureValue(ctx, usage.Name, Value{Kind: ValInstance, Instance: outer.ID}); err != nil {
+			return nil, fmt.Errorf("%s %s %w: %w", what, usage.Name, errLifelineUnbound, err)
+		}
+		return outer, nil
+	}
 	if !ok {
 		// A referenced lifeline the occurrence's usages bind (`ref part :>> c = ctrl`)
 		// holds nothing in a run of the def alone: it stands for an object of its type.
-		return ctx.standInLifeline(inst, line, fv)
+		return ctx.standIn(inst, usage, fv, what)
 	}
 	obj, ok := ctx.Instance(id)
 	if !ok {
-		return nil, fmt.Errorf("%w: %s holds object #%d, which the context does not", errLifelineUnbound, line.Name, id)
+		return nil, fmt.Errorf("%s %s %w: object #%d is not in the context", what, usage.Name, errLifelineUnbound, id)
 	}
 	return obj, nil
 }
 
-// standInLifeline materializes the object a referenced lifeline stands for in a
-// run of the occurrence alone, and binds the lifeline to it.
-func (ctx *Context) standInLifeline(inst *Instance, line *symbols.Symbol, fv *FeatureValue) (*Instance, error) {
-	typ := line
+// standIn materializes the object a referenced usage stands for in a run of the
+// occurrence alone, and binds the usage to it.
+func (ctx *Context) standIn(inst *Instance, usage *symbols.Symbol, fv *FeatureValue, what string) (*Instance, error) {
+	typ := usage
 	if fv.Feature != nil && fv.Feature.Type != nil {
 		typ = fv.Feature.Type
 	}
 	obj, err := ctx.Instantiate(typ)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s: %w", errLifelineUnbound, line.Name, err)
+		return nil, fmt.Errorf("%s %s %w: %w", what, usage.Name, errLifelineUnbound, err)
 	}
-	if err := inst.BindFeatureValue(ctx, line.Name, Value{Kind: ValInstance, Instance: obj.ID}); err != nil {
-		return nil, fmt.Errorf("%w: %s: %w", errLifelineUnbound, line.Name, err)
+	if err := inst.BindFeatureValue(ctx, usage.Name, Value{Kind: ValInstance, Instance: obj.ID}); err != nil {
+		return nil, fmt.Errorf("%s %s %w: %w", what, usage.Name, errLifelineUnbound, err)
 	}
 	return obj, nil
 }
@@ -140,16 +326,15 @@ func (ctx *Context) postTransfer(sym *symbols.Symbol, inst *Instance, t *lower.T
 	}
 	ctx.postFrom(msg, from, sym)
 	if ctx.trace != nil {
-		ctx.trace.line(fmt.Sprintf("send %s from %s", t.Name, eventText(t.From)))
+		ctx.trace.line(fmt.Sprintf("send %s from %s", t.Name, t.From.Text()))
 	}
 	return ctx.messageSerial, nil
 }
 
-// takeTransfer realizes the receiving half of a transfer at its target event: the message
-// is taken off the bus by the target lifeline object, which performs the action the
-// event states on it.
-func (ctx *Context) takeTransfer(sym *symbols.Symbol, inst *Instance, t *lower.Transfer, serial uint64, from, to *Instance) (PerformedTransfer, error) {
-	performed := PerformedTransfer{Name: t.Name, From: from, To: to, FromEvent: eventText(t.From), ToEvent: eventText(t.To)}
+// takeTransfer realizes the receiving half of a transfer at its target event: the
+// message is taken off the bus by the target lifeline object.
+func (ctx *Context) takeTransfer(sym *symbols.Symbol, t *lower.Transfer, serial uint64, from, to *Instance) (PerformedTransfer, error) {
+	performed := PerformedTransfer{Name: t.Name, From: from, To: to, FromEvent: t.From.Text(), ToEvent: t.To.Text()}
 	taken, ok := ctx.takeMessage(func(m Message) bool { return m.Serial == serial })
 	if !ok {
 		return performed, fmt.Errorf("%w: message %s", errTransferLost, t.Name)
@@ -158,17 +343,6 @@ func (ctx *Context) takeTransfer(sym *symbols.Symbol, inst *Instance, t *lower.T
 	if ctx.trace != nil {
 		ctx.trace.RecordAccept(TraceOrigin{At: ctx.clock.now, Object: to, Behavior: sym}, taken.Serial, acceptedEventName(taken), taken.Payload)
 		ctx.trace.line(fmt.Sprintf("accept %s at %s", t.Name, performed.ToEvent))
-	}
-	if t.To.Perform != nil {
-		inputs, err := ctx.performInputs(t.To.Perform, inst)
-		if err != nil {
-			return performed, fmt.Errorf("message %s: %s performs %s: %w", t.Name, performed.ToEvent, SymbolText(t.To.Perform), err)
-		}
-		exec, err := ctx.performAction(t.To.Perform, to, inputs)
-		if err != nil {
-			return performed, fmt.Errorf("message %s: %s performs %s: %w", t.Name, performed.ToEvent, SymbolText(t.To.Perform), err)
-		}
-		performed.Performed = exec
 	}
 	return performed, nil
 }

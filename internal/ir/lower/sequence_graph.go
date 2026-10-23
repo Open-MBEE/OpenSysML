@@ -13,37 +13,49 @@ import (
 
 // SequenceGraph is an occurrence definition or usage lowered as an interaction:
 // the lifelines (the usages of its body holding event occurrences), the events
-// each holds, the orders the model states between events, and its messages as
-// transfers in the order the events admit. A message is abstract (SysML v2.1
-// §7.16.2) and is realized by a transfer between its two ends (§7.16.1).
+// each holds, the nested interactions its body uses, the orders the model states
+// between them, and its messages as transfers in the order the events admit. A
+// message is abstract (SysML v2.1 §7.16.2) and is realized by a transfer between
+// its two ends (§7.16.1). A usage typed by an occurrence def (`occurrence spinup :
+// Spinup { ref part :>> c = ctrl; }`) inherits the def's lifelines, events and
+// messages; a member of its own body hides the inherited member of its name.
 type SequenceGraph struct {
-	Decl      ast.Node
-	Scope     *symbols.Scope
+	Decl  ast.Node
+	Scope *symbols.Scope
+	// Bodies are the bodies the occurrence's members are read from: its own, then
+	// those of the types it is typed by or specializes, nearest first.
+	Bodies    []*symbols.Scope
 	Lifelines []*symbols.Symbol
-	Events    []*SequenceEvent
-	Orders    []SequenceOrder
-	// Order is the events in realization order: topological over the stated
+	// Events are the nodes of the interaction in declaration order: the event
+	// occurrences of the lifelines and the occurrence usages of nested interactions.
+	Events []*SequenceEvent
+	Orders []SequenceOrder
+	// Order is the nodes in realization order: topological over the stated
 	// orders and each message's own send-before-receive, ties broken by
 	// declaration order. A transfer is posted at its source event and taken at
-	// its target event.
+	// its target event; a nested interaction is performed at its place.
 	Order []*SequenceEvent
 	// Transfers are the messages in the order they are taken, which is the order
 	// of their target events.
 	Transfers []*Transfer
 }
 
-// SequenceEvent is one event occurrence a lifeline holds, with the action its
-// body performs when the event occurs (`perform action spinCall ::> Motor::spin`), if any.
+// SequenceEvent is one node of the interaction: an event occurrence a lifeline
+// holds, with the actions its body performs when the event occurs (`perform action
+// spinCall ::> Motor::spin`) and the constraints it asserts hold there; or, with
+// Use set, an occurrence usage of a nested interaction performed at its place.
 type SequenceEvent struct {
 	Symbol   *symbols.Symbol
-	Lifeline *symbols.Symbol
-	Perform  *symbols.Symbol
+	Lifeline *symbols.Symbol // nil for a nested interaction use
+	Use      bool
+	Performs []*symbols.Symbol
+	Asserts  []Assert
 	// Sends and Receives are the transfers leaving and reaching the event, in declaration order.
 	Sends, Receives []*Transfer
 	position        int
 }
 
-// SequenceOrder is one order stated between two events: a member-attached `then`
+// SequenceOrder is one order stated between two nodes: a member-attached `then`
 // or a `succession first a then b;`.
 type SequenceOrder struct {
 	From, To *SequenceEvent
@@ -70,38 +82,57 @@ var (
 )
 
 // ToSequenceGraph lowers an occurrence definition or usage read as an interaction.
-// Resolution of the ends needs the resolver; nil lowers a body whose ends are all
-// simple names of the occurrence's own members.
-func ToSequenceGraph(decl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*SequenceGraph, error) {
-	if scope == nil {
-		return nil, fmt.Errorf("%w: %s declares no body", ErrNoSequence, occurrenceText(decl))
+// The resolver resolves the ends and the typing; nil lowers a body whose ends are
+// all simple names of the occurrence's own members and reads no inherited body.
+func ToSequenceGraph(sym *symbols.Symbol, resolver *resolve.Resolver) (*SequenceGraph, error) {
+	g := &SequenceGraph{Decl: sym.Decl, Scope: sym.Scope}
+	l := &sequenceLowerer{graph: g, resolver: resolver, events: map[*symbols.Symbol]*SequenceEvent{}, byName: map[string]*SequenceEvent{}}
+	g.Bodies = l.bodies(sym)
+	if len(g.Bodies) == 0 {
+		return nil, fmt.Errorf("%w: %s declares no body", ErrNoSequence, occurrenceText(sym.Decl))
 	}
-	g := &SequenceGraph{Decl: decl, Scope: scope}
-	l := &sequenceLowerer{graph: g, resolver: resolver, events: map[*symbols.Symbol]*SequenceEvent{}}
-	for _, member := range scope.Members() {
-		if sequenceLifeline(member) {
-			l.lifeline(member)
+	named := map[string]bool{}
+	for _, body := range g.Bodies {
+		for _, member := range body.Members() {
+			if !sequenceLifeline(member) || named[member.Name] {
+				continue
+			}
+			if l.lifeline(member) {
+				named[member.Name] = true
+			}
 		}
 	}
 	if len(g.Events) == 0 {
-		return nil, fmt.Errorf("%w: %s", ErrNoSequence, occurrenceText(decl))
+		return nil, fmt.Errorf("%w: %s", ErrNoSequence, occurrenceText(sym.Decl))
+	}
+	for _, body := range g.Bodies {
+		for _, member := range body.Members() {
+			if member.Kind == symbols.SymbolOccurrenceUsage && !named[member.Name] && l.interactionUse(member) {
+				named[member.Name] = true
+				l.use(member)
+			}
+		}
 	}
 	// A succession or a message may be anonymous, which Members leaves out.
-	for _, member := range scope.AllMembers() {
-		if usage, ok := member.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageSuccession {
-			l.successionUsage(member, usage)
+	for _, body := range g.Bodies {
+		for _, member := range body.AllMembers() {
+			if usage, ok := member.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageSuccession {
+				l.successionUsage(member, usage)
+			}
 		}
 	}
 	for _, line := range g.Lifelines {
 		l.successionEdges(line)
 	}
-	for _, member := range scope.AllMembers() {
-		usage, ok := member.Decl.(*ast.Usage)
-		if !ok || usage.Kind != ast.UsageFlow || usage.FlowEnds == nil {
-			continue
-		}
-		if err := l.message(member, usage); err != nil {
-			return nil, err
+	for _, body := range g.Bodies {
+		for _, member := range body.AllMembers() {
+			usage, ok := member.Decl.(*ast.Usage)
+			if !ok || usage.Kind != ast.UsageFlow || usage.FlowEnds == nil {
+				continue
+			}
+			if err := l.message(member, usage); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := l.order(); err != nil {
@@ -114,22 +145,81 @@ type sequenceLowerer struct {
 	graph    *SequenceGraph
 	resolver *resolve.Resolver
 	events   map[*symbols.Symbol]*SequenceEvent
+	// byName finds an event by `lifeline.event` where an inherited end resolves to
+	// the general's member and a member of the specialization's own body hides it.
+	byName map[string]*SequenceEvent
+}
+
+// bodies are the bodies the occurrence's members are read from: its own, then
+// those of the types its declaration is typed by, specializes, subsets or
+// redefines, nearest first and each once.
+func (l *sequenceLowerer) bodies(sym *symbols.Symbol) []*symbols.Scope {
+	var bodies []*symbols.Scope
+	seen := map[*symbols.Scope]bool{}
+	add := func(scope *symbols.Scope) {
+		if scope != nil && !seen[scope] {
+			seen[scope] = true
+			bodies = append(bodies, scope)
+		}
+	}
+	add(sym.Scope)
+	if l.resolver == nil {
+		return bodies
+	}
+	for _, general := range l.generals(sym) {
+		add(general.Scope)
+		for _, body := range resolve.GeneralBodies(general.Scope) {
+			add(body)
+		}
+	}
+	return bodies
+}
+
+// generals are the types the occurrence's declaration names as its generals, in
+// declaration order.
+func (l *sequenceLowerer) generals(sym *symbols.Symbol) []*symbols.Symbol {
+	var rels []*ast.Relationship
+	switch d := sym.Decl.(type) {
+	case *ast.Definition:
+		rels = d.Relationships
+	case *ast.Usage:
+		rels = d.Relationships
+	}
+	var generals []*symbols.Symbol
+	for _, rel := range rels {
+		if rel == nil {
+			continue
+		}
+		switch rel.Kind {
+		case ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences:
+		default:
+			continue
+		}
+		target := rel.Target
+		if fr, ok := target.(*ast.FeatureReference); ok {
+			target = fr.Name
+		}
+		if general, ok := l.resolver.ResolveTarget(sym.OwnerScope, target); ok && general != nil && general != sym {
+			generals = append(generals, general)
+		}
+	}
+	return generals
 }
 
 // sequenceLifeline reports whether a member of the occurrence can hold the events
-// of a lifeline: a part, item, occurrence or individual usage.
+// of a lifeline: a part, item, port, occurrence or individual usage.
 func sequenceLifeline(sym *symbols.Symbol) bool {
 	switch sym.Kind {
-	case symbols.SymbolPartUsage, symbols.SymbolItemUsage,
+	case symbols.SymbolPartUsage, symbols.SymbolItemUsage, symbols.SymbolPortUsage,
 		symbols.SymbolOccurrenceUsage, symbols.SymbolIndividualUsage:
 		return sym.Scope != nil
 	}
 	return false
 }
 
-// lifeline records the lifeline's event occurrences in declaration order; a
-// usage holding none is structure, not a lifeline.
-func (l *sequenceLowerer) lifeline(line *symbols.Symbol) {
+// lifeline records a usage holding event occurrences as a lifeline with its
+// events, and reports whether it held any.
+func (l *sequenceLowerer) lifeline(line *symbols.Symbol) bool {
 	var events []*SequenceEvent
 	for _, member := range line.Scope.Members() {
 		usage, ok := member.Decl.(*ast.Usage)
@@ -138,28 +228,78 @@ func (l *sequenceLowerer) lifeline(line *symbols.Symbol) {
 		}
 		ev := &SequenceEvent{Symbol: member, Lifeline: line, position: len(l.graph.Events) + len(events)}
 		if member.Scope != nil {
-			for _, nested := range member.Scope.Members() {
-				if nested.Kind == symbols.SymbolActionUsage {
-					ev.Perform = nested
-					break
+			for _, nested := range member.Scope.AllMembers() {
+				switch u, ok := nested.Decl.(*ast.Usage); {
+				case !ok:
+				case nested.Kind == symbols.SymbolActionUsage:
+					ev.Performs = append(ev.Performs, nested)
+				case resolve.IsAssertion(u):
+					ev.Asserts = append(ev.Asserts, Assert{Node: u, Sym: nested, Scope: member.Scope})
 				}
 			}
 		}
 		events = append(events, ev)
 	}
 	if len(events) == 0 {
-		return
+		return false
 	}
 	l.graph.Lifelines = append(l.graph.Lifelines, line)
 	for _, ev := range events {
 		l.events[ev.Symbol] = ev
+		l.byName[line.Name+"."+ev.Symbol.Name] = ev
 		l.graph.Events = append(l.graph.Events, ev)
 	}
+	return true
+}
+
+// interactionUse reports whether an occurrence usage of the body uses a nested
+// interaction: it holds no events itself and a type it is typed by holds a
+// lifeline with events.
+func (l *sequenceLowerer) interactionUse(sym *symbols.Symbol) bool {
+	if l.resolver == nil {
+		return false
+	}
+	for _, general := range l.generals(sym) {
+		if holdsEvents(general.Scope) {
+			return true
+		}
+		for _, body := range resolve.GeneralBodies(general.Scope) {
+			if holdsEvents(body) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// holdsEvents reports whether a body holds a lifeline with an event occurrence.
+func holdsEvents(scope *symbols.Scope) bool {
+	if scope == nil {
+		return false
+	}
+	for _, member := range scope.Members() {
+		if !sequenceLifeline(member) {
+			continue
+		}
+		for _, nested := range member.Scope.Members() {
+			if usage, ok := nested.Decl.(*ast.Usage); ok && usage.IsEvent {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// use records an occurrence usage of a nested interaction as a node performed
+// at its place in the order.
+func (l *sequenceLowerer) use(sym *symbols.Symbol) {
+	ev := &SequenceEvent{Symbol: sym, Use: true, position: len(l.graph.Events)}
+	l.events[sym] = ev
+	l.graph.Events = append(l.graph.Events, ev)
 }
 
 // successionUsage records the order a `succession first a then b;` of the
-// occurrence states, where both ends are events; one between anything else
-// (an occurrence usage of a nested interaction) orders no transfer.
+// occurrence states between two nodes; one between anything else orders nothing.
 func (l *sequenceLowerer) successionUsage(sym *symbols.Symbol, usage *ast.Usage) {
 	if len(usage.ConnectorEnds) != 2 {
 		return
@@ -202,24 +342,33 @@ func (l *sequenceLowerer) edgeEnd(line *symbols.Symbol, name *ast.QualifiedName,
 	return nil
 }
 
-// event is the event an end names, resolved where the end is written: the whole
-// chain (`producer.publish_source_event`), else nothing.
+// event is the node an end names, resolved where the end is written: the whole
+// chain (`producer.publish_source_event`) or a nested use's name, else nothing.
 func (l *sequenceLowerer) event(scope *symbols.Scope, end ast.Node) *SequenceEvent {
 	if end == nil {
 		return nil
 	}
+	segments := endSegments(end)
 	if l.resolver != nil {
 		if target, ok := l.resolver.ResolveTarget(scope, end); ok {
-			return l.events[target]
+			if ev := l.events[target]; ev != nil {
+				return ev
+			}
+			if len(segments) >= 2 {
+				return l.byName[strings.Join(segments[len(segments)-2:], ".")]
+			}
+			return nil
 		}
 		return nil
 	}
-	segments := endSegments(end)
 	if len(segments) == 0 {
 		return nil
 	}
 	for sym, ev := range l.events {
-		if sym.Name == segments[len(segments)-1] && (len(segments) == 1 || ev.Lifeline.Name == segments[len(segments)-2]) {
+		if sym.Name != segments[len(segments)-1] {
+			continue
+		}
+		if len(segments) == 1 || (ev.Lifeline != nil && ev.Lifeline.Name == segments[len(segments)-2]) {
 			return ev
 		}
 	}
@@ -233,7 +382,7 @@ func (l *sequenceLowerer) message(sym *symbols.Symbol, usage *ast.Usage) error {
 	from := l.event(sym.OwnerScope, ast.EndTarget(usage.FlowEnds.From))
 	to := l.event(sym.OwnerScope, ast.EndTarget(usage.FlowEnds.To))
 	for i, end := range []*SequenceEvent{from, to} {
-		if end == nil {
+		if end == nil || end.Use {
 			which, text := "source", usage.FlowEnds.From
 			if i == 1 {
 				which, text = "target", usage.FlowEnds.To
@@ -248,7 +397,7 @@ func (l *sequenceLowerer) message(sym *symbols.Symbol, usage *ast.Usage) error {
 	return nil
 }
 
-// order places the events in a stable topological order over the stated orders
+// order places the nodes in a stable topological order over the stated orders
 // and each message's send-before-receive, and sorts the transfers by the
 // position of the event each reaches, declaration order breaking ties.
 func (l *sequenceLowerer) order() error {
@@ -294,7 +443,7 @@ func (l *sequenceLowerer) order() error {
 		var stuck []string
 		for i := 0; i < n; i++ {
 			if indegree[i] > 0 {
-				stuck = append(stuck, g.Events[i].Lifeline.Name+"."+g.Events[i].Symbol.Name)
+				stuck = append(stuck, g.Events[i].Text())
 			}
 		}
 		return fmt.Errorf("%w: %s", ErrSequenceCycle, strings.Join(stuck, ", "))
@@ -307,6 +456,14 @@ func (l *sequenceLowerer) order() error {
 		return a.position < b.position
 	})
 	return nil
+}
+
+// Text names the node: an event as its lifeline's member, a use by its name.
+func (ev *SequenceEvent) Text() string {
+	if ev.Lifeline == nil {
+		return ev.Symbol.Name
+	}
+	return ev.Lifeline.Name + "." + ev.Symbol.Name
 }
 
 // bodyMembers are the members a declaration's body writes, edges included, each

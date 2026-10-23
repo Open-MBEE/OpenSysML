@@ -108,6 +108,35 @@ func TestMigratedInteractionsExecuteInModelledOrder(t *testing.T) {
 			t.Errorf("the run renders %d messages %v, want %d", len(edges), edges, len(want))
 		}
 	})
+	t.Run("typed usage of the block-owned interaction", func(t *testing.T) {
+		// `occurrence spinup : Spinup { ref part :>> c = ctrl; … }` inherits the def's
+		// lifelines, events and messages; the usage alone binds nothing, so each
+		// lifeline stands for an object of its type.
+		names, _, transfers := newMigratedRun(t, "rig_interactions").perform(t, "Model::Rig::spinup")
+		want := []string{"spin", "spun", "go", "brake", "callSpin", "parEnd", "parOp1", "new"}
+		if !slices.Equal(names, want) {
+			t.Errorf("transfers = %v, want %v", names, want)
+		}
+		if transfers["spin"].Performed == nil {
+			t.Error("the call message spin did not perform Motor::spin on the receiving event")
+		}
+	})
+	t.Run("interaction using another and asserting an invariant", func(t *testing.T) {
+		// Run uses 'Spin Up' as `occurrence warm : 'Spin Up' { attribute :>> rpm = 30.0; }`
+		// before m.at30 asserts `speed == 30.0`, then sends slow: the nested use's
+		// message transfers first, between Run's own lifeline objects.
+		names, edges, transfers := newMigratedRun(t, "interaction_use").perform(t, "Model::Rig::Run")
+		want := []string{"spin", "slow"}
+		if !slices.Equal(names, want) {
+			t.Errorf("transfers = %v, want %v", names, want)
+		}
+		if transfers["spin"].To != transfers["slow"].To || transfers["spin"].From != transfers["slow"].From {
+			t.Errorf("the nested use's spin runs between %v and %v, want Run's own lifeline objects %v and %v", transfers["spin"].From, transfers["spin"].To, transfers["slow"].From, transfers["slow"].To)
+		}
+		if len(edges) != len(want) {
+			t.Errorf("the run renders %d messages %v, want %d", len(edges), edges, len(want))
+		}
+	})
 	t.Run("use-case-owned interaction", func(t *testing.T) {
 		names, edges, _ := newMigratedRun(t, "usecase_sequence").perform(t, "Model::Acquire Images::Acquire Images")
 		want := []string{"move", "pumpDown", "new", "record"}

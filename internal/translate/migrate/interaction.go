@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -914,7 +915,9 @@ func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Elemen
 		}
 		bound[t] = true
 		if kind == "parameter" {
-			if !s.def {
+			if s.def {
+				expr = s.qualifyParameters(expr, targets)
+			} else {
 				expr = s.m.callBodyExpr(expr, s.e)
 			}
 			args = append(args, s.m.parameterBinding(t, s.m.nameOf(t), expr))
@@ -929,6 +932,39 @@ func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Elemen
 		}
 	}
 	return args, note
+}
+
+// qualifyParameters spells an interaction parameter a perform's argument reads
+// through the occurrence def where the performed action has a parameter of the
+// same name, which the bare name would resolve to inside the perform's body
+// (`in rpm[1] = 'Spin Up'::rpm`, not the self-binding `in rpm[1] = rpm`).
+func (s *scenario) qualifyParameters(expr string, targets []*sysmlv1.Element) string {
+	refs, ok := exprRefs(expr)
+	if !ok {
+		return expr
+	}
+	shadowing := map[string]bool{}
+	for _, t := range targets {
+		shadowing[s.m.nameOf(t)] = true
+	}
+	var starts []int
+	for _, r := range refs {
+		if r.global || r.local != "" || len(r.steps) == 0 || r.steps[0].chain {
+			continue
+		}
+		if first := r.steps[0].name; shadowing[first] && s.parameterNamed(first) {
+			starts = append(starts, r.start)
+		}
+	}
+	if len(starts) == 0 {
+		return expr
+	}
+	prefix := s.m.ref(s.e, s.e) + "::"
+	sort.Sort(sort.Reverse(sort.IntSlice(starts)))
+	for _, at := range starts {
+		expr = expr[:at] + prefix + expr[at:]
+	}
+	return expr
 }
 
 // inaccessible names the first feature expr reads that the occurrence def cannot

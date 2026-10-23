@@ -99,4 +99,49 @@ func TestRuntimeRobustnessSequence(t *testing.T) {
 			t.Fatalf("error = %v, want errUnboundPayload", err)
 		}
 	})
+	t.Run("constraint an event asserts does not hold", func(t *testing.T) {
+		err := occurrenceRunError(t, "Seq", `package test {
+			part def Node { attribute ready : ScalarValues::Boolean = false; }
+			occurrence def Seq {
+				part a : Node { event occurrence sent; }
+				part b : Node { event occurrence got { assert constraint { ready } } }
+				message m from a.sent to b.got;
+			}
+		}`)
+		var violation *ViolationError
+		if !errors.As(err, &violation) {
+			t.Fatalf("error = %v, want a ViolationError", err)
+		}
+	})
+	t.Run("message reaching a nested interaction use", func(t *testing.T) {
+		err := occurrenceRunError(t, "Seq", `package test {
+			occurrence def Inner {
+				part a { event occurrence sent; }
+				part b { event occurrence got; }
+				message m from a.sent to b.got;
+			}
+			occurrence def Seq {
+				part a { event occurrence sent; }
+				occurrence inner : Inner;
+				message m from a.sent to inner;
+			}
+		}`)
+		if !errors.Is(err, lower.ErrMessageEndUnowned) {
+			t.Fatalf("error = %v, want ErrMessageEndUnowned", err)
+		}
+	})
+	t.Run("interaction using itself", func(t *testing.T) {
+		err := occurrenceRunError(t, "Seq", `package test {
+			occurrence def Seq {
+				part a { event occurrence sent; }
+				part b { event occurrence got; }
+				message m from a.sent to b.got;
+				occurrence again : Seq;
+				succession first b.got then again;
+			}
+		}`)
+		if !errors.Is(err, errNestedRecursion) {
+			t.Fatalf("error = %v, want errNestedRecursion", err)
+		}
+	})
 }

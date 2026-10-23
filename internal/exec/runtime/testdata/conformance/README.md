@@ -80,20 +80,31 @@ top-level one is. `instantiate` names an instance case's type the same way.
 }
 ```
 
-An occurrence def whose body states an interaction — usages holding `event
-occurrence`s, ordered by `then`, and `message`s between those events — is
-performed as the transfers its messages are realized by (SysML v2.1 §7.16.1):
-the occurrence is materialized, and each message is posted, typed by its
-payload, from the lifeline object holding the event it leaves to the one holding
-the event it reaches, in a topological order over the stated orders (declaration
-order breaking ties), and the action the receiving event performs is performed on
-that object.
+An occurrence def or usage whose body states an interaction — usages (`part`,
+`item`, `port`, `occurrence`, `individual`) holding `event occurrence`s, ordered by
+`then`, and `message`s between those events — is performed as the transfers its
+messages are realized by (SysML v2.1 §7.16.1): the occurrence is materialized, and
+its nodes are visited in a topological order over the stated orders (declaration
+order breaking ties). At an event the messages reaching it are taken by the
+lifeline object holding it, the actions the event's body performs are performed
+once on that object (an event reached by two messages performs them once), the
+constraints it asserts are checked on that object, and the messages leaving it are
+posted, typed by their payloads. A typed usage (`occurrence spinup : Spinup {
+ref part :>> c = ctrl; }`) inherits its def's lifelines, events and messages; an
+occurrence usage of a nested interaction (`occurrence shake : Handshake;`) is
+performed at its place in the order, its lifelines bound as the usage binds them,
+else to the outer lifelines of their names.
 
-- `transfers`: the messages realized, by name, in the order they were taken.
+- `evaluate`: the occurrence def or usage, by qualified name.
+- `transfers`: the messages realized, by name, in the order they were taken, a
+  nested interaction's among them.
 - `error`: text the run must fail with instead — an end naming no event of a
-  lifeline, or orders forming a cycle.
+  lifeline, orders forming a cycle, an asserted constraint that does not hold, an
+  interaction using itself.
 - The golden trace records each transfer as a `send` line at its source event and
-  an `accept` line at its target event.
+  an `accept` line at its target event, a `perform … at` line for each action an
+  event performs, an `assert at` line for each constraint it checks, and a
+  `perform occurrence` line where a nested interaction starts.
 
 ### For States (`ExecuteState`)
 

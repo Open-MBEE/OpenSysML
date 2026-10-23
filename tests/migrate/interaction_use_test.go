@@ -20,7 +20,7 @@ func TestInteractionUsesAndStateInvariants(t *testing.T) {
 	for _, line := range []string{
 		"occurrence def 'Spin Up' {",
 		"attribute rpm : ScalarValues::Real;",
-		"perform action spinCall ::> Motor::spin { in rpm[1] = rpm; }",
+		"perform action spinCall ::> Motor::spin { in rpm[1] = 'Spin Up'::rpm; }",
 		"message spin from c.spinSent to m.spinReceived;",
 		"occurrence def Run {",
 		"event occurrence at30 {",
