@@ -272,6 +272,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%break", group: groupAction, args: "<node>", desc: "set breakpoint at node"},
 	{name: "%stop", group: groupAction, desc: "stop current debugging session"},
 
+	{name: "%occurrence", group: groupBehavioral, args: argName, desc: "perform an occurrence def as the interaction its body states: each message transferred between its lifelines in the order their events admit"},
 	{name: "%state", group: groupState, args: "<name> [<object>]", desc: "debug the machine an object exhibits (naming that machine alone attaches to the one object exhibiting it; with none or several, name the object), or a state machine performed by an object; an object is named, #<id>, or a path such as car.fl"},
 	{name: "%send", group: groupState, args: "<signal>[(<p>=<expr>, ...)] [to <object>]", desc: "send a signal to an object's machine, by default the one being debugged; an object is named, #<id>, or a path such as car.fl"},
 	{name: "%events", group: groupState, desc: "show event queue and signals in flight"},
@@ -834,6 +835,11 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 		return metaOut(s.doBreak(nameText(fields[1]))), true
 	case "%stop":
 		return metaOut(s.doStop()), true
+	case "%occurrence":
+		if len(fields) < 2 {
+			return metaOut([]string{"usage: %occurrence <name>"}, false, nil), true
+		}
+		return metaOut(s.withTrace(s.runOccurrence(nameText(fields[1]))).Lines, false, nil), true
 	// State machine debugging
 	case "%state":
 		if len(fields) < 2 {
