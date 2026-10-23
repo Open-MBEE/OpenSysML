@@ -140,6 +140,19 @@ impl Model {
         self.connection
             .render_view_bounded(self.hash(), view_name, ports, show, depth)
     }
+    /// Render a named view as `render_view_bounded` does, folding a tree's owned
+    /// members into compartment rows of their owner as `compartments` says.
+    pub fn render_view_folded(
+        &self,
+        view_name: &str,
+        ports: crate::document::RenderViewPorts,
+        show: &[&str],
+        depth: u32,
+        compartments: crate::document::RenderViewCompartments,
+    ) -> Result<crate::document::RenderedView, Error> {
+        self.connection
+            .render_view_folded(self.hash(), view_name, ports, show, depth, compartments)
+    }
 
     /// Search every schedule of an action for a violated property, a deadlock, a
     /// failure or a divergent value, as `sysml -check-property` does.

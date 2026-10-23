@@ -1622,7 +1622,7 @@
       "checks": "A cross feature has the same types as its feature (KerML `Feature::type`: declared, subsetted, redefined and referenced features' types, the most specific kept), an untyped feature being typed by `Anything` and an owned cross feature by its end",
       "implementation": "internal/check/passes/w10b_cross_features.go:checkW10BCrossFeatures",
       "message": "—",
-      "negativeCase": "`semantic/k18-cross-feature-type-differs.kerml`, `semantic/k54-cross-feature-typed-narrower-than-end.kerml`, `semantic/s88-cross-feature-typed-narrower-than-end.sysml`",
+      "negativeCase": "`semantic/k18-cross-feature-type-differs.kerml`, `semantic/k54-cross-feature-typed-narrower-than-end.kerml`, `semantic/k78-cross-feature-after-member-binding-type-differs.kerml`, `semantic/s88-cross-feature-typed-narrower-than-end.sysml`",
       "codes": [
         "cross-feature-type"
       ],
@@ -1924,7 +1924,7 @@
       "checks": "A feature value does not override a binding feature value inherited from a redefined feature (`Cannot override a binding feature value`)",
       "implementation": "internal/check/passes/feature_value_overriding.go:constraintChecker.checkFeatureValueOverriding (run by ConstraintPass.Run)",
       "message": "`cannot override the binding value of P::a: a value written with `` = `` is fixed for every feature redefining it; write it as `` default = `` on P::a to allow overriding, or remove this value`",
-      "negativeCase": "`semantic/s46-feature-value-overriding.sysml`",
+      "negativeCase": "`semantic/s46-feature-value-overriding.sysml`, `semantic/s114-constructor-argument-overrides-bound-value.sysml`",
       "codes": [
         "feature-value-overriding"
       ],
@@ -3255,7 +3255,7 @@
       "checks": "A redefining feature has a direction compatible with the redefined feature",
       "implementation": "internal/check/passes/w8b_redefinition_conformance.go:RedefinitionDirectionPass.Run",
       "message": "—",
-      "negativeCase": "`xpect/p31-redefinition-incompatible-direction.sysml`",
+      "negativeCase": "`xpect/p31-redefinition-incompatible-direction.sysml`, `semantic/s115-undirected-redefinition-of-in-parameter.sysml`, `semantic/s116-positional-parameter-direction-conflict.sysml`, `semantic/k76-undirected-redefinition-of-directed-feature.kerml`",
       "codes": [
         "redefinition-direction-conformance"
       ],
@@ -3943,7 +3943,7 @@
       "checks": "A subsetted feature is accessible from the subsetting feature's featuring types",
       "implementation": "internal/check/passes/subsetting_featuring.go:checkSubsettingFeaturingTypes, internal/check/passes/constraint.go:checkPackageLevelRedefinition",
       "message": "—",
-      "negativeCase": "`semantic/k13-subsets-inaccessible-feature.kerml`, `semantic/s105-package-level-redefines-type-feature.sysml`, `semantic/k74-package-level-redefines-featured-feature.kerml`",
+      "negativeCase": "`semantic/k13-subsets-inaccessible-feature.kerml`, `semantic/k77-standalone-subsetting-inaccessible-feature.kerml`, `semantic/s105-package-level-redefines-type-feature.sysml`, `semantic/k74-package-level-redefines-featured-feature.kerml`",
       "codes": [
         "subsetting-featuring-types"
       ],
@@ -4404,16 +4404,15 @@
       },
       "checks": "An owned usage of a variation usage is a variant",
       "implementation": "internal/check/passes/w8d_variability.go:W8DVariabilityPass.Run",
-      "message": "The OCL (`isVariation implies ownedFeatureMembership->isEmpty()`) rejects an objective in a variation, but `w8d_variability.go` `checkMembers` exempts it, as the pilot does; see [gap register §27](spec-pilot-gap-register.md#27-variation-parameters-and-stakeholder-specialization)",
-      "negativeCase": "`semantic/s37-variation-usage-member-not-variant.sysml`",
+      "message": "Reported for every owned usage that is not a variant, an objective and an explicit parameter included, as the OCL (`isVariation implies ownedFeatureMembership->isEmpty()`) requires; the pilot exempts a parameter and an objective in a variation usage by its own `TODO`, see [gap register §27](spec-pilot-gap-register.md#27-variation-parameters-and-stakeholder-specialization)",
+      "negativeCase": "`semantic/s37-variation-usage-member-not-variant.sysml`, `semantic/variation-usage-objective-not-variant.sysml`",
       "codes": [
         "variation-member-not-variant"
       ],
       "passes": [
         "constraint"
       ],
-      "status": "approximate",
-      "rationale": "an objective in a variation is exempted as the pilot does, where the OCL rejects it"
+      "status": "faithful"
     },
     {
       "name": "validateUsageVariationSpecialization",

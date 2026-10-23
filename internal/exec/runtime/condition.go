@@ -1442,6 +1442,21 @@ func ConditionText(n ast.Node) string { return conditionText(n) }
 
 // conditionText renders a condition compactly, so a violation names the
 // condition that failed rather than only the element that states it.
+// qualifiedNameText writes a qualified name as the notation does, each segment
+// quoted when it needs quoting.
+func qualifiedNameText(qn *ast.QualifiedName) string {
+	if qn == nil {
+		return ""
+	}
+	names := make([]string, 0, len(qn.Parts))
+	for _, seg := range qn.Parts {
+		if seg.Text != "" {
+			names = append(names, seg.Text)
+		}
+	}
+	return source.QualifiedNameOf(names)
+}
+
 func conditionText(n ast.Node) string {
 	switch e := n.(type) {
 	case *ast.LiteralInteger:
@@ -1456,9 +1471,9 @@ func conditionText(n ast.Node) string {
 		}
 		return "false"
 	case *ast.FeatureReference:
-		return qualifiedNameToString(e.Name)
+		return qualifiedNameText(e.Name)
 	case *ast.FeatureChainExpr:
-		return conditionText(e.Operand) + "." + qualifiedNameToString(e.Member)
+		return conditionText(e.Operand) + "." + qualifiedNameText(e.Member)
 	case *ast.OperatorExpr:
 		switch len(e.Operands) {
 		case 1:
@@ -1471,7 +1486,7 @@ func conditionText(n ast.Node) string {
 		for _, arg := range e.Args {
 			args = append(args, conditionText(arg))
 		}
-		return qualifiedNameToString(e.Type) + "(" + strings.Join(args, ", ") + ")"
+		return qualifiedNameText(e.Type) + "(" + strings.Join(args, ", ") + ")"
 	case *ast.IndexExpr:
 		// The bracket form is a quantity, `1.0 [m]`; `#` indexes a sequence.
 		if e.Bracket {

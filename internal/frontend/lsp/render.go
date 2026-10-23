@@ -61,6 +61,12 @@ const RenderPortsCapability = "openSysmlRenderPorts"
 // the first the default; a server without it routes every edge as splines.
 const RenderLinesCapability = "openSysmlRenderLines"
 
+// RenderCompartmentsCapability is the experimental capability whose value lists
+// the foldings a render request's `compartments` folds a tree's owned members
+// into compartment rows with, the first the default; a server without it folds
+// only the layout-less members of a positioned tree.
+const RenderCompartmentsCapability = "openSysmlRenderCompartments"
+
 // RenderElementsCapability is the experimental capability whose value lists the
 // optional notation elements a render request's `show` names, in the order the
 // writer defines them, then "all", every one of them.
@@ -69,6 +75,11 @@ const RenderElementsCapability = "openSysmlRenderElements"
 // RenderDepthCapability is the experimental capability a server advertises when
 // a render request's depth bounds how many levels are drawn below each exposed element.
 const RenderDepthCapability = "openSysmlRenderDepth"
+
+// RenderIncludeCapability is the capability a server advertises when a render
+// request's `include` draws elements besides the view's own content, marking
+// each node drawn that way `included`.
+const RenderIncludeCapability = "openSysmlRenderInclude"
 
 // renderElementNames lists the optional notation elements, then "all".
 func renderElementNames() []string {
@@ -88,6 +99,15 @@ func renderOverlayNames() []string {
 	names := make([]string, 0, len(view.Overlays()))
 	for _, overlay := range view.Overlays() {
 		names = append(names, string(overlay))
+	}
+	return names
+}
+
+// renderCompartmentsNames lists the compartment foldings in the order the writer defines them.
+func renderCompartmentsNames() []string {
+	names := make([]string, 0, len(view.CompartmentsChoices()))
+	for _, compartments := range view.CompartmentsChoices() {
+		names = append(names, string(compartments))
 	}
 	return names
 }
@@ -147,10 +167,14 @@ type RenderParams struct {
 	Style        string                          `json:"style,omitempty"`
 	Ports        string                          `json:"ports,omitempty"`
 	Lines        string                          `json:"lines,omitempty"`
+	Compartments string                          `json:"compartments,omitempty"`
 	Show         []string                        `json:"show,omitempty"`
 	Depth        int                             `json:"depth,omitempty"`
-	Overlay      string                          `json:"overlay,omitempty"`
-	LinkTemplate string                          `json:"linkTemplate,omitempty"`
+	// Include names elements drawn besides what the view exposes, each by
+	// qualified name, as if the view exposed them; nothing in the model changes.
+	Include      []string `json:"include,omitempty"`
+	Overlay      string   `json:"overlay,omitempty"`
+	LinkTemplate string   `json:"linkTemplate,omitempty"`
 }
 
 // RenderResult is one rendering: the artifact a client draws, plus the nodes and
@@ -194,6 +218,7 @@ type RenderNode struct {
 	Type            string          `json:"type"`
 	Detail          string          `json:"detail"`
 	Parent          string          `json:"parent,omitempty"`
+	Compartment     string          `json:"compartment,omitempty"`
 	Fill            string          `json:"fill,omitempty"`
 	Border          string          `json:"border,omitempty"`
 	Style           *RenderStyle    `json:"style,omitempty"`
@@ -210,6 +235,8 @@ type RenderNode struct {
 	Height          *float64        `json:"height,omitempty"`
 	Collapsed       bool            `json:"collapsed,omitempty"`
 	Verdict         string          `json:"verdict,omitempty"`
+	// Included marks a node the request's `include` drew rather than the view.
+	Included bool `json:"included,omitempty"`
 }
 
 // RenderOwner is a namespace declaring a node: its qualified name, and whether
@@ -339,6 +366,16 @@ func (s *Server) renderHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
 			}
 			return reply(ctx, s.Views(&params), nil)
+		case MethodRelatedElements:
+			var params RelatedElementsParams
+			if err := json.Unmarshal(req.Params(), &params); err != nil {
+				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
+			}
+			res, err := s.RelatedElements(&params)
+			if err != nil {
+				return reply(ctx, nil, err)
+			}
+			return reply(ctx, res, nil)
 		case MethodDocuments:
 			return reply(ctx, s.Documents(), nil)
 		case MethodRenderDocument:
@@ -402,7 +439,7 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 			}
 			verdicts = rt.RequirementVerdicts()
 		}
-		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts, params.Depth)
+		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts, params.Depth, params.Include)
 		if err == nil && params.LinkTemplate != "" {
 			r.LinkSites(rendering, snapshot)
 		}
@@ -435,6 +472,10 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	compartments, err := renderCompartments(params.Compartments)
+	if err != nil {
+		return nil, err
+	}
 	shown, err := renderShown(params.Show)
 	if err != nil {
 		return nil, err
@@ -443,7 +484,7 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 		return nil, &view.DepthError{Value: fmt.Sprint(params.Depth)}
 	}
 	artifact, err := rendering.WriteWith(form, view.Options{
-		Palette: colors, Style: style, Ports: ports, Lines: lines, Show: shown,
+		Palette: colors, Style: style, Ports: ports, Lines: lines, Compartments: compartments, Show: shown,
 		Links: view.Links{Template: params.LinkTemplate, Sites: snapshot.Sites()},
 	})
 	if err != nil {
@@ -453,7 +494,7 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	data := rendering.DataWith(view.Options{Ports: ports, Show: shown})
+	data := rendering.DataWith(view.Options{Ports: ports, Compartments: compartments, Show: shown})
 	out := &RenderResult{
 		View:     data.View,
 		Kind:     string(data.Kind),
@@ -479,7 +520,7 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 			out.Canvas.Width, out.Canvas.Height = &w, &h
 		}
 	}
-	s.renderNodes(out, snapshot, data.Nodes, fills)
+	s.renderNodes(out, snapshot, data.Nodes, fills, rendering.Included)
 	s.renderEdges(out, snapshot, data.Edges)
 	for _, row := range data.Rows {
 		out.Rows = append(out.Rows, RenderRow{Cells: row.Cells, Origin: origin(row.Origin)})
@@ -513,7 +554,7 @@ func analysisNotice(name string, doc *model.Document, d diag.Diagnostic) string 
 // renderNodes converts the rendering's nodes into out, each coloured as fills
 // says; a node the document declares confines the palette to its notation and
 // is admitted once all are known.
-func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes []view.NodeData, fills map[string]view.Fill) {
+func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes []view.NodeData, fills map[string]view.Fill, included []view.Origin) {
 	name := snapshot.Rendered.Name
 	var declared []declaredNode
 	for _, node := range nodes {
@@ -525,10 +566,12 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			Type:            node.Type,
 			Detail:          node.Detail,
 			Parent:          node.Parent,
+			Compartment:     node.Compartment,
 			Fill:            fills[node.ID].Fill,
 			Border:          fills[node.ID].Border,
 			Style:           wireStyle(node.Style),
 			Verdict:         node.Verdict,
+			Included:        node.Parent == "" && slices.Contains(included, node.Origin),
 		}
 		for _, port := range node.Ports {
 			n.Ports = append(n.Ports, RenderPort{
@@ -652,6 +695,16 @@ func renderPorts(asked string) (view.Ports, error) {
 		return "", &view.UnknownPortsError{Name: asked}
 	}
 	return ports, nil
+}
+
+// renderCompartments is the compartment folding a request names, the default
+// when it names none, and an error listing the foldings when it names something else.
+func renderCompartments(asked string) (view.Compartments, error) {
+	compartments, ok := view.ParseCompartments(asked)
+	if !ok {
+		return "", &view.UnknownCompartmentsError{Name: asked}
+	}
+	return compartments, nil
 }
 
 // renderLines is the edge routing a request names, the default when it names

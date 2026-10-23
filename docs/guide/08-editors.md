@@ -112,6 +112,16 @@ REPL's `%render` command prints, as an SVG canvas of its own, and redraws as you
   nothing to draw says why (the view exposes nothing, its filter rejects every element it
   exposes, the document has an error) in the status line and in place of the drawing, and the
   same summary is written to the SysML v2 Output channel.
+- **Related elements.** *Show related elements…* on a node's right-click menu lists what relates
+  to it, grouped by relationship kind with a count for each — what it specializes and what
+  specializes it, the definitions typing it and the usages it types, its owner and owned
+  members, the elements connections, flows and bindings join it to, the actions its successions
+  reach — and the elements you check are drawn in the panel with the
+  edges between them and what is already drawn, laid out like any node the model does not place.
+  A node drawn this way has a dashed border; *Hide from diagram* leaves it out again (the entry is
+  greyed on a node the view itself draws, which only an edit to the view can remove). The list is
+  this panel's alone: nothing is written to the `.sysml` file, switching to another view starts
+  it afresh, and an element the diagram's kind draws nothing for is reported beneath the diagram.
 - **Resource use.** The panel requests a diagram only while it is visible, and only after a
   burst of editing has settled. The panel draws its own SVG, so nothing is fetched from the
   network.

@@ -113,6 +113,9 @@ type Graph struct {
 	subjectOrder  []Term
 	subjectSet    map[string]struct{}
 	subjectsReady bool
+	// positions locates the statements of a predicate in triples, per subject,
+	// for the predicates ReorderObjects has been asked about.
+	positions map[string]map[Term][]int
 
 	// settled vouches that every collection the graph annotates is stated by
 	// its typed triples, in the annotation's order: what ReconcileCollections
@@ -321,6 +324,9 @@ func (g *Graph) AddTriple(t Triple) {
 		seen[t] = true
 	}
 	g.triples = append(g.triples, t)
+	if bySubject := g.positions[t.Predicate.Value]; bySubject != nil {
+		bySubject[t.Subject] = append(bySubject[t.Subject], len(g.triples)-1)
+	}
 	if g.subjectsReady {
 		if _, exists := g.subjectSet[t.Subject.Value]; !exists {
 			g.subjectSet[t.Subject.Value] = struct{}{}
@@ -487,6 +493,7 @@ func (g *Graph) RewriteTriples(rewrite func(*Triple) bool) {
 	}
 	g.triples = unique
 	g.seen = nil
+	g.positions = nil
 	for _, index := range g.index {
 		for predicate, objects := range index.objects {
 			index.objects[predicate] = objects[:0]
@@ -527,6 +534,59 @@ func (g *Graph) detachSharedIndexes() {
 		g.index[subject] = cloneSubjectIndex(g.index[subject])
 	}
 	g.sharedIndex = nil
+}
+
+// ReorderObjects restates (subject, predicate)'s objects in the order given, each
+// triple keeping its place; anything but a permutation leaves the graph as it was.
+func (g *Graph) ReorderObjects(subject Term, predicate string, objects []Term) {
+	si := g.subjects()[subject]
+	if si == nil || len(si.objects[predicate]) != len(objects) {
+		return
+	}
+	found := si.objects[predicate]
+	current := make(map[Term]int, len(found))
+	for _, object := range found {
+		current[object]++
+	}
+	for _, object := range objects {
+		if current[object] == 0 {
+			return
+		}
+		current[object]--
+	}
+	positions := g.statementPositions(predicate)[subject]
+	g.settled = false
+	if g.sharedIndex[subject] {
+		si = cloneSubjectIndex(si)
+		g.index[subject] = si
+		delete(g.sharedIndex, subject)
+		if len(g.sharedIndex) == 0 {
+			g.sharedIndex = nil
+		}
+	}
+	for i, position := range positions {
+		g.triples[position].Object = objects[i]
+	}
+	copy(si.objects[predicate], objects)
+}
+
+// statementPositions locates predicate's statements in triples, per subject, in
+// order; built on first use, appended to by AddTriple, reset by RewriteTriples.
+func (g *Graph) statementPositions(predicate string) map[Term][]int {
+	if g.positions == nil {
+		g.positions = make(map[string]map[Term][]int)
+	}
+	bySubject := g.positions[predicate]
+	if bySubject == nil {
+		bySubject = make(map[Term][]int)
+		for i, t := range g.triples {
+			if t.Predicate.Value == predicate {
+				bySubject[t.Subject] = append(bySubject[t.Subject], i)
+			}
+		}
+		g.positions[predicate] = bySubject
+	}
+	return bySubject
 }
 
 // Len returns the number of triples.

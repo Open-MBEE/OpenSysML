@@ -26,7 +26,13 @@ type statedRelatedElementsStructure interface {
 	StatedRelatedElements(Element, string) ([]Element, bool)
 }
 
-type derivedNameStructure interface {
+// Property names of the Element metaclass as recorded in a Reason.
+const (
+	elementMetaclassPrefix = "Element::"
+	elementNameProperty    = elementMetaclassPrefix + "name"
+)
+
+type derivedNamer interface {
 	DerivedName(Element) (string, bool)
 }
 
@@ -819,7 +825,7 @@ func (e *Evaluator) structureMembershipProperty(element Element, class, name str
 		if handled && !ok {
 			e.recordUnsupportedReason(
 				element, "OwningMembership", "ownedMemberName",
-				Reason{Category: ReasonDependsOnUnsupported, Dependency: "Element::name"},
+				Reason{Category: ReasonDependsOnUnsupported, Dependency: elementNameProperty},
 			)
 		}
 		return value, handled, ok
@@ -2048,7 +2054,7 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 			return nullValue(), true, true
 		}
 		if property == "name" {
-			if structure, ok := e.options.Structure.(derivedNameStructure); ok {
+			if structure, ok := e.options.Structure.(derivedNamer); ok {
 				if name, present := structure.DerivedName(element); present && name != "" {
 					return stringValue(name), true, true
 				}
@@ -2075,12 +2081,12 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 					if e.structureNamingReferenceUnresolved(element) {
 						reason = Reason{
 							Category: ReasonUnresolvedReference,
-							Detail:   "Element::" + property + " naming reference target is unresolved",
+							Detail:   elementMetaclassPrefix + property + " naming reference target is unresolved",
 						}
 					} else if e.structureNamingRedefinitionUnresolved(element) {
 						reason = Reason{
 							Category: ReasonUnresolvedReference,
-							Detail:   "Element::" + property + " naming Redefinition::redefinedFeature target is unresolved",
+							Detail:   elementMetaclassPrefix + property + " naming Redefinition::redefinedFeature target is unresolved",
 						}
 					}
 					e.recordUnsupportedReason(element, "Element", property, reason)
@@ -2195,7 +2201,7 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 						element, "Element", property,
 						Reason{
 							Category: ReasonUnresolvedReference,
-							Detail:   "Element::" + property + " naming redefinition target is unresolved",
+							Detail:   elementMetaclassPrefix + property + " naming redefinition target is unresolved",
 						},
 					)
 					return Value{}, true, false
@@ -2226,7 +2232,7 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 			if !handled || !ok {
 				e.recordUnsupportedReason(element, "Element", property, Reason{
 					Category: ReasonMissingStructure,
-					Detail:   "Element::" + property + " cannot inspect owned Redefinition relationships",
+					Detail:   elementMetaclassPrefix + property + " cannot inspect owned Redefinition relationships",
 				})
 				return Value{}, true, false
 			}
@@ -2234,20 +2240,20 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 				if relationship.Kind != ElementValue {
 					e.recordUnsupportedReason(element, "Element", property, Reason{
 						Category: ReasonUnrepresentedEndpoint,
-						Detail:   "Element::" + property + " has a non-element Redefinition relationship",
+						Detail:   elementMetaclassPrefix + property + " has a non-element Redefinition relationship",
 					})
 					return Value{}, true, false
 				}
 				targets, ok := e.relationshipEndpoints(relationship.Element, "redefinedFeature")
 				if !ok {
 					category := ReasonUnrepresentedEndpoint
-					detail := "Element::" + property + " naming Redefinition::redefinedFeature target is unrepresented"
+					detail := elementMetaclassPrefix + property + " naming Redefinition::redefinedFeature target is unrepresented"
 					if e.hasUnresolvedRelatedElement(relationship.Element, "redefinedFeature") {
 						category = ReasonUnresolvedReference
-						detail = "Element::" + property + " naming Redefinition::redefinedFeature target is unresolved"
+						detail = elementMetaclassPrefix + property + " naming Redefinition::redefinedFeature target is unresolved"
 					} else if e.hasStatedRelatedElement(relationship.Element, "redefinedFeature") {
 						category = ReasonMissingStructure
-						detail = "Element::" + property + " naming Redefinition::redefinedFeature target has no facts in Structure"
+						detail = elementMetaclassPrefix + property + " naming Redefinition::redefinedFeature target has no facts in Structure"
 					}
 					e.recordUnsupportedReason(element, "Element", property, Reason{
 						Category: category,
@@ -2261,7 +2267,7 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 				if targets[0].Kind != ElementValue {
 					e.recordUnsupportedReason(element, "Element", property, Reason{
 						Category: ReasonUnrepresentedEndpoint,
-						Detail:   "Element::" + property + " Redefinition target is not an element",
+						Detail:   elementMetaclassPrefix + property + " Redefinition target is not an element",
 					})
 					return Value{}, true, false
 				}
@@ -2283,7 +2289,7 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 			if !handled || !ok {
 				e.recordUnsupportedReason(element, "Element", effectiveProperty, Reason{
 					Category: ReasonUnrepresentedEndpoint,
-					Detail:   "Element::" + effectiveProperty + " cannot inspect owned Redefinition relationships",
+					Detail:   elementMetaclassPrefix + effectiveProperty + " cannot inspect owned Redefinition relationships",
 				})
 				return Value{}, true, false
 			}
@@ -2317,7 +2323,7 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 						element, "Element", effectiveProperty,
 						Reason{
 							Category: ReasonUnrepresentedEndpoint,
-							Detail:   "Element::" + effectiveProperty + " cannot inspect owned Redefinition relationships",
+							Detail:   elementMetaclassPrefix + effectiveProperty + " cannot inspect owned Redefinition relationships",
 						},
 					)
 					return Value{}, true, false
@@ -2328,7 +2334,7 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 							element, "Element", effectiveProperty,
 							Reason{
 								Category: ReasonUnrepresentedEndpoint,
-								Detail:   "Element::" + effectiveProperty + " has a non-element Redefinition relationship",
+								Detail:   elementMetaclassPrefix + effectiveProperty + " has a non-element Redefinition relationship",
 							},
 						)
 						return Value{}, true, false
@@ -2336,13 +2342,13 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 					features, ok := e.relationshipEndpoints(relationship.Element, naming.endpoint)
 					if !ok {
 						category := ReasonUnrepresentedEndpoint
-						detail := "Element::" + effectiveProperty + " naming Redefinition::" + naming.endpoint + " target is unrepresented"
+						detail := elementMetaclassPrefix + effectiveProperty + " naming Redefinition::" + naming.endpoint + " target is unrepresented"
 						if e.hasUnresolvedRelatedElement(relationship.Element, naming.endpoint) {
 							category = ReasonUnresolvedReference
-							detail = "Element::" + effectiveProperty + " naming Redefinition::" + naming.endpoint + " target is unresolved"
+							detail = elementMetaclassPrefix + effectiveProperty + " naming Redefinition::" + naming.endpoint + " target is unresolved"
 						} else if e.hasStatedRelatedElement(relationship.Element, naming.endpoint) {
 							category = ReasonMissingStructure
-							detail = "Element::" + effectiveProperty + " naming Redefinition::" + naming.endpoint + " target has no facts in Structure"
+							detail = elementMetaclassPrefix + effectiveProperty + " naming Redefinition::" + naming.endpoint + " target has no facts in Structure"
 						}
 						e.recordUnsupportedReason(element, "Element", effectiveProperty, Reason{
 							Category: category,
@@ -2358,7 +2364,7 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 							element, "Element", effectiveProperty,
 							Reason{
 								Category: ReasonUnrepresentedEndpoint,
-								Detail:   "Element::" + effectiveProperty + " naming Redefinition::" + naming.endpoint + " is not an element",
+								Detail:   elementMetaclassPrefix + effectiveProperty + " naming Redefinition::" + naming.endpoint + " is not an element",
 							},
 						)
 						return Value{}, true, false
@@ -2369,7 +2375,7 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 					if handled && !ok {
 						reason := Reason{
 							Category:   ReasonDependsOnUnsupported,
-							Dependency: "Element::" + effectiveProperty,
+							Dependency: elementMetaclassPrefix + effectiveProperty,
 							Detail:     "naming redefinition target",
 						}
 						if targetReason, explained := e.Explain(
@@ -2405,7 +2411,7 @@ func (e *Evaluator) recordUnresolvedNamingSource(element Element, property strin
 		element, "Element", property,
 		Reason{
 			Category: ReasonUnresolvedReference,
-			Detail:   "Element::" + property + " naming redefinition target is unresolved",
+			Detail:   elementMetaclassPrefix + property + " naming redefinition target is unresolved",
 		},
 	)
 }
@@ -3198,7 +3204,7 @@ func (e *Evaluator) deriveStructureQualifiedNameBase(element Element, seen map[E
 	if !handled || !ok {
 		reason := Reason{
 			Category:   ReasonDependsOnUnsupported,
-			Dependency: "Element::name",
+			Dependency: elementNameProperty,
 		}
 		if explanation, explained := e.Explain(element, "Element", "name"); explained {
 			reason = explanation
@@ -3377,7 +3383,7 @@ func (e *Evaluator) structureQualifiedNameHasEarlierName(
 			}
 			return false, Reason{
 				Category:   ReasonDependsOnUnsupported,
-				Dependency: "Element::name",
+				Dependency: elementNameProperty,
 				Detail:     "Namespace::ownedMember for " + label,
 			}, false
 		}
@@ -5604,39 +5610,53 @@ func (e *Evaluator) structureFlowEndTypes(flow Element) ([]Element, bool) {
 	if !handled || !ok {
 		return nil, false
 	}
-	if len(typings.Values) > 0 {
-		var types []Element
-		hasStatedType := false
-		for _, typing := range typings.Values {
-			if typing.Kind != ElementValue {
-				return nil, false
-			}
-			targets, ok := e.relationshipEndpoints(typing.Element, "type")
-			if !ok && e.hasUnresolvedRelatedElement(typing.Element, "type") {
-				return nil, false
-			}
-			if len(targets) == 0 {
-				if e.hasUnresolvedRelatedElement(typing.Element, "type") {
-					return nil, false
-				}
-				continue
-			}
-			filtered, ok := e.structureFilterValues(targets, "Type")
-			if !ok || len(filtered) == 0 {
-				return nil, false
-			}
-			hasStatedType = true
-			for _, target := range filtered {
-				if target.Kind != ElementValue {
-					return nil, false
-				}
-				types = append(types, target.Element)
-			}
+	types, stated, ok := e.structureStatedFlowEndTypes(typings.Values)
+	if !ok {
+		return nil, false
+	}
+	if stated {
+		return uniqueStructureElements(types, e.options.Structure), true
+	}
+	return e.structureImpliedFlowEndTypes(flow)
+}
+
+// structureStatedFlowEndTypes collects the types a flow end's own typings name;
+// stated is false when none of them names a Type.
+func (e *Evaluator) structureStatedFlowEndTypes(typings []Value) ([]Element, bool, bool) {
+	var types []Element
+	stated := false
+	for _, typing := range typings {
+		if typing.Kind != ElementValue {
+			return nil, false, false
 		}
-		if hasStatedType {
-			return uniqueStructureElements(types, e.options.Structure), true
+		targets, ok := e.relationshipEndpoints(typing.Element, "type")
+		if !ok && e.hasUnresolvedRelatedElement(typing.Element, "type") {
+			return nil, false, false
+		}
+		if len(targets) == 0 {
+			if e.hasUnresolvedRelatedElement(typing.Element, "type") {
+				return nil, false, false
+			}
+			continue
+		}
+		filtered, ok := e.structureFilterValues(targets, "Type")
+		if !ok || len(filtered) == 0 {
+			return nil, false, false
+		}
+		stated = true
+		for _, target := range filtered {
+			if target.Kind != ElementValue {
+				return nil, false, false
+			}
+			types = append(types, target.Element)
 		}
 	}
+	return types, stated, true
+}
+
+// structureImpliedFlowEndTypes reads the types of the features the flow end's
+// metaclass implies as its bases.
+func (e *Evaluator) structureImpliedFlowEndTypes(flow Element) ([]Element, bool) {
 	if e.model == nil || e.resolver == nil || e.resolver.Index() == nil {
 		return nil, false
 	}
@@ -6639,7 +6659,7 @@ func (e *Evaluator) relationshipEndpoints(element Element, property string) ([]V
 			setEndpoint("owned")
 		}
 	case specializes("TypeFeaturing"):
-		if property == "source" || property == "featureOfType" {
+		if property == "source" || property == "featureOfType" || property == "owningFeatureOfType" {
 			setEndpoint("owning")
 		} else if property == "target" || property == "featuringType" {
 			setEndpoint("owned")
@@ -6736,12 +6756,6 @@ func (e *Evaluator) relationshipEndpoints(element Element, property string) ([]V
 		if property == "source" || property == "typeUnioned" {
 			setEndpoint("owning")
 		} else if property == "target" || property == "unioningType" {
-			setEndpoint("owned")
-		}
-	case specializes("TypeFeaturing"):
-		if property == "source" || property == "featureOfType" || property == "owningFeatureOfType" {
-			setEndpoint("owning")
-		} else if property == "target" || property == "featuringType" {
 			setEndpoint("owned")
 		}
 	case specializes("Connector"):

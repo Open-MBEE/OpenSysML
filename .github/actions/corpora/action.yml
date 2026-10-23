@@ -72,8 +72,7 @@ runs:
     - name: Extract the OMG specification examples
       shell: bash
       run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends poppler-utils
+        ./scripts/ci-apt-install.sh --no-install-recommends poppler-utils
         ./scripts/download-spec-examples.sh
 
     - name: Verify the OMG specification examples

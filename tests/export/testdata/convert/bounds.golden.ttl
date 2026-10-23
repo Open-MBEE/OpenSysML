@@ -109,14 +109,14 @@ elmt:Bounds__Fleet__exact
     sysml:declaredName "exact" ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:multiplicity expr:Bounds__Fleet__exact_pmultiplicity ;
-    sysml:ownedRelationship expr:Bounds__Fleet__exact_pmultiplicity_om, elmt:Bounds__Fleet__exact_ft0 ;
+    sysml:ownedRelationship elmt:Bounds__Fleet__exact_ft0, expr:Bounds__Fleet__exact_pmultiplicity_om ;
     sysml:ownedMembership expr:Bounds__Fleet__exact_pmultiplicity_om ;
     sysml:upperBound expr:Bounds__Fleet__exact_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Bounds__Fleet__exact_ft0 ;
     sysml:ownedSpecialization elmt:Bounds__Fleet__exact_ft0 ;
     sysx:sourceText "        part exact : Vehicle[3];\n" ;
-    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__exact_pmultiplicity_om\"},{\"@id\":\"Bounds__Fleet__exact_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__exact_ft0\"},{\"@id\":\"Bounds__Fleet__exact_pmultiplicity_om\"}]" .
 
 elmt:Bounds__Fleet__exact_om
     a sysml:FeatureMembership ;
@@ -188,7 +188,7 @@ elmt:Bounds__Fleet__range
     sysml:declaredName "range" ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:multiplicity expr:Bounds__Fleet__range_pmultiplicity ;
-    sysml:ownedRelationship expr:Bounds__Fleet__range_pmultiplicity_om, elmt:Bounds__Fleet__range_ft0 ;
+    sysml:ownedRelationship elmt:Bounds__Fleet__range_ft0, expr:Bounds__Fleet__range_pmultiplicity_om ;
     sysml:ownedMembership expr:Bounds__Fleet__range_pmultiplicity_om ;
     sysml:lowerBound expr:Bounds__Fleet__range_plowerBound ;
     sysml:upperBound expr:Bounds__Fleet__range_pupperBound ;
@@ -196,7 +196,7 @@ elmt:Bounds__Fleet__range
     sysml:ownedTyping elmt:Bounds__Fleet__range_ft0 ;
     sysml:ownedSpecialization elmt:Bounds__Fleet__range_ft0 ;
     sysx:sourceText "        part range : Vehicle[1..4];\n" ;
-    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__range_pmultiplicity_om\"},{\"@id\":\"Bounds__Fleet__range_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__range_ft0\"},{\"@id\":\"Bounds__Fleet__range_pmultiplicity_om\"}]" .
 
 elmt:Bounds__Fleet__range_om
     a sysml:FeatureMembership ;
@@ -291,7 +291,7 @@ elmt:Bounds__Fleet__many
     sysml:declaredName "many" ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:multiplicity expr:Bounds__Fleet__many_pmultiplicity ;
-    sysml:ownedRelationship expr:Bounds__Fleet__many_pmultiplicity_om, elmt:Bounds__Fleet__many_ft0 ;
+    sysml:ownedRelationship elmt:Bounds__Fleet__many_ft0, expr:Bounds__Fleet__many_pmultiplicity_om ;
     sysml:ownedMembership expr:Bounds__Fleet__many_pmultiplicity_om ;
     sysml:lowerBound expr:Bounds__Fleet__many_plowerBound ;
     sysml:upperBound expr:Bounds__Fleet__many_pupperBound ;
@@ -299,7 +299,7 @@ elmt:Bounds__Fleet__many
     sysml:ownedTyping elmt:Bounds__Fleet__many_ft0 ;
     sysml:ownedSpecialization elmt:Bounds__Fleet__many_ft0 ;
     sysx:sourceText "        part many : Vehicle[0..*];\n" ;
-    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__many_pmultiplicity_om\"},{\"@id\":\"Bounds__Fleet__many_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__many_ft0\"},{\"@id\":\"Bounds__Fleet__many_pmultiplicity_om\"}]" .
 
 elmt:Bounds__Fleet__many_om
     a sysml:FeatureMembership ;
@@ -395,14 +395,14 @@ elmt:Bounds__Fleet__loose
     sysml:isUnique "false"^^xsd:boolean ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:multiplicity expr:Bounds__Fleet__loose_pmultiplicity ;
-    sysml:ownedRelationship expr:Bounds__Fleet__loose_pmultiplicity_om, elmt:Bounds__Fleet__loose_ft0 ;
+    sysml:ownedRelationship elmt:Bounds__Fleet__loose_ft0, expr:Bounds__Fleet__loose_pmultiplicity_om ;
     sysml:ownedMembership expr:Bounds__Fleet__loose_pmultiplicity_om ;
     sysml:upperBound expr:Bounds__Fleet__loose_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Bounds__Fleet__loose_ft0 ;
     sysml:ownedSpecialization elmt:Bounds__Fleet__loose_ft0 ;
     sysx:sourceText "        part loose : Vehicle[*] ordered nonunique;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__loose_pmultiplicity_om\"},{\"@id\":\"Bounds__Fleet__loose_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__loose_ft0\"},{\"@id\":\"Bounds__Fleet__loose_pmultiplicity_om\"}]" .
 
 elmt:Bounds__Fleet__loose_om
     a sysml:FeatureMembership ;

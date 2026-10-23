@@ -67,7 +67,7 @@ func appendAPIJSONOwnedAbsencesWithScratch(
 	}
 	var mappingValues apiJSONObject
 	for _, member := range element {
-		if member.key == "sysx:mappingValues" {
+		if member.key == apiJSONMappingValuesKey {
 			mappingValues, _ = member.value.(apiJSONObject)
 			break
 		}

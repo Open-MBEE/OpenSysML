@@ -15,6 +15,7 @@ import (
 
 func TestAPIJSONDeclaredQualifiedNamesMatchOwningNamespace(t *testing.T) {
 	paths, exampleRoot := apiJSONQualifiedNamePaths(t)
+	conversions := corpusConversions(t)
 	var countsMu sync.Mutex
 	fixtures, examples, skippedExamples, kindQualifiedNames := 0, 0, 0, 0
 	var offenders []string
@@ -41,11 +42,12 @@ func TestAPIJSONDeclaredQualifiedNamesMatchOwningNamespace(t *testing.T) {
 		isExample := strings.HasPrefix(path, exampleRoot+string(filepath.Separator))
 		t.Run(filepath.ToSlash(path), func(t *testing.T) {
 			t.Parallel()
+			defer conversions.release(path)
 			source, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := cachedSysMLToRDF(path, source); err != nil {
+			if _, err := conversions.sysMLToRDF(path, source); err != nil {
 				if isExample {
 					countsMu.Lock()
 					skippedExamples++
@@ -55,7 +57,7 @@ func TestAPIJSONDeclaredQualifiedNamesMatchOwningNamespace(t *testing.T) {
 				}
 				t.Fatalf("convert fixture: %v", err)
 			}
-			document, err := cachedAPIJSON(path, source, "standard", "graph")
+			document, err := conversions.apiJSON(path, source, "standard", "graph")
 			if err != nil {
 				t.Fatalf("WriteAPIJSON: %v", err)
 			}

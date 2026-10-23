@@ -44,7 +44,7 @@ func (r *Rendering) D2With(options Options) (string, error) {
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}
-	r = r.showing(options.Show).settleUnplaced(options.Unplaced, FormD2)
+	r = r.showing(options.Show).settleUnplaced(options.Unplaced, options.Compartments, FormD2)
 	w := &d2Writer{
 		fills:   familyFills{palette: options.Palette, tree: r.Kind == KindTree},
 		labels:  labelsOf(r.Roots, false, nil, r.Shown),

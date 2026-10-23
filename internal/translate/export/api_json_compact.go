@@ -130,7 +130,7 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 			if elementIDsAreIDs && member.key == "elementId" {
 				continue
 			}
-			if member.key == "sysx:mappingValues" && opts.OmitDerived && metaclass != "" {
+			if member.key == apiJSONMappingValuesKey && opts.OmitDerived && metaclass != "" {
 				if values, ok := member.value.(apiJSONObject); ok {
 					filtered := make(apiJSONObject, 0, len(values))
 					for _, value := range values {
@@ -156,7 +156,7 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 				switch v := value.(type) {
 				case apiJSONReference:
 					handle(v.ID)
-					if member.key != "sysx:mappingValues" {
+					if member.key != apiJSONMappingValuesKey {
 						references[member.key] = true
 					}
 				case json.Number:

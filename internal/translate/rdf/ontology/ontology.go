@@ -45,7 +45,8 @@ type Property struct {
 	Range string
 	// Lower is the ecore lowerBound; an absent bound is zero.
 	Lower int
-	// Default is the ecore defaultValueLiteral, when HasDefault is true.
+	// Default is the ecore defaultValueLiteral, or "false" for a Boolean attribute
+	// stating none (EMF's primitive default), when HasDefault is true.
 	Default string
 	// HasDefault distinguishes an absent default from an explicit empty value.
 	HasDefault bool

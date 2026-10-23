@@ -388,6 +388,14 @@ omit (default) leaves them undrawn in every form, strip draws them, in rows
 below the dot drawing; applies to \-render, \-render\-all and document
 diagrams
 .TP
+.BR \-render\-compartments " \fIfolding\fP"
+How a tree rendering of \-render, \-render\-all or a document diagram folds a
+node's owned members into compartment rows of its box: positioned (default)
+folds only the members without a Layout of a tree some Layout positions, most
+folds every owned usage that no Layout, nested definition or package keeps a
+node (the pilot's COMPMOST), ports folds the port usages with the ports nested
+under them (COMPTREE)
+.TP
 .BR \-render\-style " \fIstyle\fP"
 Drawing style of the dot or mermaid form: pilot (default), the Pilot
 visualizer's black and white, or cameo, the look of Cameo Systems Modeler;
