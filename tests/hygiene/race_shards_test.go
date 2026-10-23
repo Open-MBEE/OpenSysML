@@ -25,6 +25,8 @@ var (
 	circleShardArrays  = regexp.MustCompile(`(?m)^\s*shards=\(([^)]+)\)$`)
 	circleParallelism  = regexp.MustCompile(`(?m)^  (go-race-test|go-coverage):\n(?:    .*\n)*?    parallelism: (\d+)$`)
 	circleCorpus       = regexp.MustCompile(`(?m)^\s*corpus='([^']+)'$`)
+	makefileExplore    = regexp.MustCompile(`(?m)^RACE_RUNTIME_EXPLORATION := (.+)$`)
+	circleExplore      = regexp.MustCompile(`(?m)^\s*exploration='([^']+)'$`)
 	workflowShards     = regexp.MustCompile(`go_shards=\[([^\]]+)\]`)
 	workflowProfiles   = regexp.MustCompile(`-ne (\d+) \]; then echo "error: expected (\d+) shard profiles`)
 	workflowQuoted     = regexp.MustCompile(`"([^"]+)"`)
@@ -173,6 +175,21 @@ func TestRuntimeCorpusPatternPartitionsTheRuntimeTests(t *testing.T) {
 	}
 	if matched != len(named) {
 		t.Errorf("RACE_RUNTIME_CORPUS matches %d tests, names %d", matched, len(named))
+	}
+
+	// The corpus shard is two processes (the race detector's memory is per process): the
+	// exploration suite, then the corpus pattern with the exploration skipped. The
+	// exploration pattern must name one real test that the corpus pattern also matches.
+	exploration := strings.ReplaceAll(firstSubmatch(t, makefileExplore, makefile, "Makefile RACE_RUNTIME_EXPLORATION"), "$$", "$")
+	if circle := firstSubmatch(t, circleExplore, readRepoFile(t, ".circleci/config.yml"), ".circleci/config.yml exploration="); circle != exploration {
+		t.Errorf(".circleci/config.yml exploration pattern %q, Makefile RACE_RUNTIME_EXPLORATION %q", circle, exploration)
+	}
+	name := strings.TrimSuffix(strings.TrimPrefix(exploration, "^"), "$")
+	if "^"+name+"$" != exploration || !slices.Contains(tests, name) {
+		t.Fatalf("RACE_RUNTIME_EXPLORATION %q is not an anchored name of one test of %s", exploration, raceRuntimeDir)
+	}
+	if !corpus.MatchString(name) {
+		t.Errorf("RACE_RUNTIME_EXPLORATION names %s, which RACE_RUNTIME_CORPUS does not match", name)
 	}
 }
 

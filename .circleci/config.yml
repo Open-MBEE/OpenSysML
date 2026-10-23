@@ -477,11 +477,8 @@ jobs:
 
       - install-fmpy
 
-      # One scripts/race-shard.sh shard per node: internal/exec/runtime alone peaks near
-      # 8.5 GB under -race and ran 31-57 minutes whole, so it is two nodes, split by test
-      # name as make test-shard splits it (the race detector's memory is per process, and
-      # the corpus-wide suites alone account for half of that peak). tests/wasm and the
-      # tools module, which ran after the runtime on its node, have the tools node.
+      # One scripts/race-shard.sh shard per node. internal/exec/runtime ran 31-57 minutes whole
+      # and nears 8.5 GB under -race, so it is two nodes, split by test name as make test-shard does.
       - run:
           name: Run Go race tests
           command: |
@@ -500,16 +497,21 @@ jobs:
             # The Makefile's RACE_RUNTIME_CORPUS; tests/hygiene keeps the two the same.
             corpus='^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$'
             case "$shard" in
-              runtime-corpus) go test -json -race -pgo=off -timeout 30m -run "$corpus" $pkgs | stream ;;
+              runtime-corpus)
+                # Two processes: the exploration alone nears 5 GB and the five suites together
+                # 9 GB under -race, over this class's 8 GB (the race detector's memory is per process).
+                exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
+                go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream
+                go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream
+                ;;
               runtime) go test -json -race -pgo=off -timeout 30m -skip "$corpus" $pkgs | stream ;;
               tools)
                 go test -json -race -pgo=off -timeout 30m $pkgs | stream
                 go test -C tools -json -race -pgo=off -timeout 30m ./... | stream
                 ;;
               *)
-                # tests/migrate alone runs 23-32 minutes under -race on this class and
-                # tests/export and tests/model about 30 each, so those shards get the
-                # Makefile's per-package timeout (see make test-shard).
+                # tests/migrate ran 23-32 minutes under -race on this class, tests/export and
+                # tests/model about 30 each: those shards get the Makefile's timeout (make test-shard).
                 timeout=30m; case "$shard" in migrate|export|graph) timeout=55m ;; esac
                 go test -json -race -pgo=off -timeout "$timeout" $pkgs | stream
                 ;;
@@ -537,9 +539,8 @@ jobs:
   # A second, race-free pass, because the profile the scan reads is written
   # with -coverpkg, which is too slow to instrument under -race. Serially the
   # instrumented suite overran the 60-minute job limit even on large, so it runs
-  # as the race test's package shards (the Makefile's COVERAGE_SHARDS: all but
-  # runtime-corpus, since without -race the runtime runs whole in about 19 minutes),
-  # and go-coverage-merge joins them.
+  # as the race test's package shards but runtime-corpus (the Makefile's COVERAGE_SHARDS;
+  # without -race the runtime runs whole in about 19 minutes), and go-coverage-merge joins them.
   # cmd/sysml's exploration budgets alone took 23-30 of the 30 minutes while sharing
   # the rest node under -coverpkg=./..., so the command has a node of its own.
   go-coverage:

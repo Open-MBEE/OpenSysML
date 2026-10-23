@@ -325,6 +325,7 @@ test: ## Run Go tests with race detection and coverage
 RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
 # The runtime-corpus shard: the suites that run every model of the conformance corpus,
 # about half the package's time under -race.
+RACE_RUNTIME_EXPLORATION := ^TestExploreWithIsExploreOverTheConformanceCorpus$$
 RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
@@ -333,7 +334,9 @@ test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|
 	@# 55m per package; its job's ceiling is 60. Whole, internal/exec/runtime took 31-57 minutes
 	@# under -race on the CI runners, so it runs as two shards of about half that each.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && case "$(SHARD)" in \
-	  runtime-corpus) go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  runtime-corpus) go test -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage-exploration.txt -covermode=atomic $$pkgs && \
+	    go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs && \
+	    tail -n +2 coverage-exploration.txt >> coverage.txt && python3 scripts/dedupe-coverage.py coverage.txt ;; \
 	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
 	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
 	esac
