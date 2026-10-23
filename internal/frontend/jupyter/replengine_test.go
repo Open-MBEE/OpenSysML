@@ -501,3 +501,23 @@ func TestLoadingAPythonNotebookIsACommandError(t *testing.T) {
 		t.Errorf("failure = %+v, want a CommandError naming the python notebook", failure)
 	}
 }
+
+// A cell the session rejects leaves nothing behind: the corrected expression
+// of the next cell evaluates as it did before the rejected one.
+func TestARejectedCellDoesNotHoldBackTheNextOne(t *testing.T) {
+	e := newEngine(t)
+	mustRun(t, e, "calc add { in x; in y; x + y }")
+	mustRun(t, e, "private import SI::*;")
+	answer := func(cell string) {
+		t.Helper()
+		out := mustRun(t, e, cell)
+		if len(out.results) != 1 || !strings.Contains(out.results[0][mimeText].(string), "10.02 [m]") {
+			t.Fatalf("Execute(%q) results = %v, want 10.02 [m]", cell, out.results)
+		}
+	}
+	answer("add(10 [m], 20 [mm])")
+	if got := mustFail(t, e, "add(10 [m], 20 [mm]);"); got.Name != "SubmissionError" {
+		t.Fatalf("the trailing semicolon failed as %s (%s), want SubmissionError", got.Name, got.Value)
+	}
+	answer("add(10 [m], 20 [mm])")
+}
