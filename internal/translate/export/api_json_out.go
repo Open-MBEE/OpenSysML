@@ -390,6 +390,8 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 			if keep {
 				element = append(element, apiJSONMember{key: key, value: value})
 			}
+		case apiJSONReservedPredicate(predicate):
+			continue
 		case strings.HasPrefix(predicate, rdf.OpenSysML):
 			key := "sysx:" + strings.TrimPrefix(predicate, rdf.OpenSysML)
 			objects := graph.ObjectsView(subject, predicate)
@@ -422,7 +424,7 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 		}
 	}
 	element = appendAPIJSONOwnedAbsencesWithScratch(graph, subject, element, types[0], scratch)
-	if apiJSONRootSubject(graph, subject) {
+	if apiJSONRootSubject(graph, subject) && !apiJSONExternalForm(graph, scratch) {
 		element = append(element, apiJSONMember{key: apiJSONStatedDefaultsKey, value: true})
 	}
 	graphOrder := apiJSONGraphPropertyOrder(propertyOrderGraph, subject)
@@ -478,6 +480,7 @@ func apiJSONNaturalPropertyOrder(graph *rdf.Graph, subject rdf.Term, element api
 
 type apiJSONWriteScratch struct {
 	absences            apiJSONObject
+	externalForm        *bool
 	memberProperties    map[string]bool
 	emitted             map[string]bool
 	graphProperties     map[string]bool

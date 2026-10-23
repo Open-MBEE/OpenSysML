@@ -72,6 +72,7 @@ func appendAPIJSONOwnedAbsencesWithScratch(
 			break
 		}
 	}
+	external := apiJSONExternalForm(graph, scratch)
 	plan := apiJSONOwnedAbsencePlanFor(metaclass)
 	for _, planned := range plan {
 		property := planned.property
@@ -84,7 +85,7 @@ func appendAPIJSONOwnedAbsencesWithScratch(
 		if property.Range == rdf.XSD+"boolean" {
 			// Every non-derived boolean is stated, true or false (the OMG API JSON shape).
 			stated, ok := apiJSONStatedBoolean(property, element)
-			if !ok || libraryStub {
+			if !ok || libraryStub || external {
 				continue
 			}
 			value = stated
@@ -104,6 +105,9 @@ func appendAPIJSONOwnedAbsencesWithScratch(
 			}
 		}
 		absences = append(absences, apiJSONMember{key: property.Name, value: value})
+	}
+	if explicit := apiJSONExplicitDefaults(typ, element); len(explicit) > 0 && !external {
+		absences = append(absences, apiJSONMember{key: apiJSONExplicitDefaultsKey, value: explicit})
 	}
 	insertAt := len(element)
 	for i, member := range element {

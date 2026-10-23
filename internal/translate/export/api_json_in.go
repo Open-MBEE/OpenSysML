@@ -442,6 +442,7 @@ type apiJSONElementData struct {
 	hasSpecQualifiedName bool
 	toolkitForm          bool
 	statedDefaults       bool
+	explicitDefaults     map[string]bool
 }
 
 var apiJSONInteger = regexp.MustCompile(`^-?[0-9]+$`)
@@ -600,7 +601,8 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 			if member.key == "qualifiedName" {
 				continue
 			}
-			if statedDefaults && apiJSONImpliedBoolean(typ, member, object.members) {
+			if statedDefaults && !object.explicitDefaults[member.key] &&
+				apiJSONImpliedBoolean(typ, member, object.members) {
 				continue
 			}
 			predicate, sysmlKey, err := cache.predicate(member.key)
@@ -1032,6 +1034,21 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 		if key == apiJSONStatedDefaultsKey {
 			if object.statedDefaults, ok = value.(bool); !ok {
 				return object, fmt.Errorf("%s is a boolean, not %v", key, value)
+			}
+			continue
+		}
+		if key == apiJSONExplicitDefaultsKey {
+			names, ok := value.([]any)
+			if !ok {
+				return object, fmt.Errorf("%s is an array of property names, not %v", key, value)
+			}
+			object.explicitDefaults = make(map[string]bool, len(names))
+			for _, name := range names {
+				text, ok := name.(string)
+				if !ok {
+					return object, fmt.Errorf("%s names a property with a string, not %v", key, name)
+				}
+				object.explicitDefaults[text] = true
 			}
 			continue
 		}

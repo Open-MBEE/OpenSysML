@@ -2116,7 +2116,15 @@ carry `"sysx:statedDefaults": true`, the writer's provenance marker. Reading a
 document that carries it, a non-derived boolean at the value the graph implies
 is the writer's completion and states no triple, so the graph read back is the
 graph written, triple for triple; `isComposite` and a `LiteralBoolean`'s `value`
-are always read, as the graph always states them. A document without the marker
+are always read, as the graph always states them. A graph that itself states a
+boolean at the implied value (`sysml:isAbstract false` written by hand) keeps
+it: the element lists such members in `"sysx:explicitDefaults": [...]`, and the
+reader takes them as the statements they are. Both keys are reserved for these
+markers — a `sysx:statedDefaults` or `sysx:explicitDefaults` predicate in the
+graph is never written as a fact. A graph that is already an external writer's
+element form (one stating `isImpliedIncluded`, which this mapping never does)
+is written as it is: nothing is completed and no marker is set, so the document
+reads back through the external path exactly as before. A document without the marker
 reads as before: every stated boolean is a triple, and a document that omits its
 false flags (an older export, a compact form) reads as it always did. The marker
 is also what tells this mapping's documents from an external writer's element form,

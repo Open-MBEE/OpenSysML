@@ -2,6 +2,7 @@ package export
 
 import (
 	"encoding/json"
+	"os"
 	"sort"
 	"strings"
 	"testing"
@@ -219,6 +220,63 @@ func TestAPIJSONUnmarkedDocumentReadsAsBefore(t *testing.T) {
 	}
 	if missing, added := tripleDiff(graph, back); len(missing)+len(added) > 0 {
 		t.Errorf("the compact unmarked document reads differently:\nmissing:\n%s\nadded:\n%s",
+			strings.Join(missing, "\n"), strings.Join(added, "\n"))
+	}
+}
+
+// A boolean the graph states at the value the writer would imply anyway is
+// listed in sysx:explicitDefaults and comes back as the statement it is.
+func TestAPIJSONExplicitDefaultsSurviveTheRoundTrip(t *testing.T) {
+	graph := booleansGraph(t)
+	explicit := rdf.ElementIRIForID("P__D")
+	graph.Add(explicit, rdf.SysMLTerm("isAbstract"), rdf.Bool(false))
+	document, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	element := booleansElements(t, document)["P__D"]
+	if listed, _ := element[apiJSONExplicitDefaultsKey].([]any); len(listed) != 1 || listed[0] != "isAbstract" {
+		t.Errorf("%s = %v, want [isAbstract]", apiJSONExplicitDefaultsKey, element[apiJSONExplicitDefaultsKey])
+	}
+	back, err := ReadAPIJSON(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if missing, added := tripleDiff(graph, back); len(missing)+len(added) > 0 {
+		t.Errorf("the explicit default did not survive:\nmissing:\n%s\nadded:\n%s",
+			strings.Join(missing, "\n"), strings.Join(added, "\n"))
+	}
+}
+
+// A graph that is already an external writer's element form (it states
+// isImpliedIncluded) is written as it is: nothing completed, no marker, and it
+// reads back unchanged.
+func TestAPIJSONExternalFormGraphIsWrittenAsItIs(t *testing.T) {
+	data, err := os.ReadFile("../../../tests/export/testdata/interchange/flow_ends.toolkit.full.json")
+	if err != nil {
+		t.Skip(err)
+	}
+	graph, err := ReadAPIJSON(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, element := range booleansElements(t, document) {
+		for _, key := range []string{apiJSONStatedDefaultsKey, apiJSONExplicitDefaultsKey} {
+			if _, ok := element[key]; ok {
+				t.Errorf("%s carries %s", id, key)
+			}
+		}
+	}
+	back, err := ReadAPIJSON(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if missing, added := tripleDiff(graph, back); len(missing)+len(added) > 0 {
+		t.Errorf("the external form changed through the writer:\nmissing:\n%s\nadded:\n%s",
 			strings.Join(missing, "\n"), strings.Join(added, "\n"))
 	}
 }
