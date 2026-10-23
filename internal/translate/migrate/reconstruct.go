@@ -6,11 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
-// reconstruction is what a view exposes in place of rows its diagram's tool
-// never stored: MagicDraw computes a Requirement Table's rows and a Refine
-// Requirement Matrix's cells from the diagram's owner each time it opens the
-// diagram, and serializes neither a symbol stream nor a used-element list for
-// it, so the migration lists the owner's subtree by the diagram's kind instead.
+// reconstruction lists, by the diagram's kind, the owner's subtree a view exposes in
+// place of rows the tool computed on opening and never stored (no stream, no used elements).
 type reconstruction struct {
 	rule *reconstructionRule
 	// listed are the owner's elements the rule lists, in document order.
@@ -27,8 +24,8 @@ type reconstructionRule struct {
 	noun string
 	// lists reports whether e, under the diagram's owner, is one of the rows.
 	lists func(m *migration, e *sysmlv1.Element) bool
-	// refs are the references a view exposing the row e writes, from scope:
-	// the element itself, or the connection written for it and its ends.
+	// refs are the references a view exposing the row e writes from scope: the
+	// element itself, or the connection written for it and its ends.
 	refs func(m *migration, e, scope *sysmlv1.Element) []string
 }
 
@@ -57,9 +54,8 @@ func elementRefs(m *migration, e, scope *sysmlv1.Element) []string {
 	return nil
 }
 
-// refinementRefs are the connection a «Refine» is written as and the usages it
-// joins, so the matrix's cell and both its ends are listed; the dependency
-// itself where no connection is written for it.
+// refinementRefs are the connection a «Refine» is written as and the usages it joins
+// (the matrix's cell and both ends), or the dependency itself where no connection is.
 func refinementRefs(m *migration, e, scope *sysmlv1.Element) []string {
 	if refs := m.connRefs(e, scope); len(refs) > 0 {
 		return refs
@@ -85,10 +81,8 @@ func reconstructionRuleFor(d *sysmlv1.Diagram) *reconstructionRule {
 	return nil
 }
 
-// planReconstructions lists, for every placed view of an unstored diagram of
-// a kind with a rule, the owner's elements the rule names, once tables are
-// planned: a table definition on the diagram carries the tool's scope, which
-// its Document's query lists, so no reconstruction is planned beside it.
+// planReconstructions lists the owner's elements each placed view of an unstored diagram
+// exposes by its kind's rule; a table definition carries the tool's scope, so none is planned beside it.
 func (m *migration) planReconstructions() {
 	for i := range m.model.Diagrams {
 		d := &m.model.Diagrams[i]
@@ -123,9 +117,8 @@ func (m *migration) planReconstructions() {
 	}
 }
 
-// refs are the expose references the view writes for the listed elements from
-// scope, each once, and the count of listed elements nothing written stands
-// for; resolved when the view is written, once every edge is named.
+// refs are the expose references written for the listed elements from scope, each once, and
+// the count nothing written stands for; resolved when the view is written, once edges are named.
 func (rc *reconstruction) refs(m *migration, scope *sysmlv1.Element) (refs []string, unwritten int) {
 	seen := map[string]bool{}
 	for _, e := range rc.listed {

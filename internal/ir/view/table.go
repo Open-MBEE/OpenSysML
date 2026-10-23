@@ -13,10 +13,8 @@ var tableColumns = []string{"Element", "Kind", "Type", "Declared in"}
 // TableColumns are the headings a tabular rendering carries when it names none.
 func TableColumns() []string { return append([]string(nil), tableColumns...) }
 
-// renderTable renders the exposed elements as rows of a table: one row per
-// exposed element, one per element declared in it that is not itself exposed
-// (an exposed one has its own row), and one per view nested in the rendered
-// view with its own exposed elements beneath it.
+// renderTable renders the exposed elements as rows: one per exposed element, one per element
+// declared in it that is not itself exposed, and one per nested view with its own exposed elements.
 func (r *Renderer) renderTable(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	out.Columns = tableColumns
 	rows := exposedSet(exposed)
@@ -51,9 +49,8 @@ func (r *Renderer) memberRows(sym *symbols.Symbol, owner string, exposed, seen m
 	r.memberRowsOf(sym, name, exposed, seen, depth, out)
 }
 
-// memberRowsOf writes the elements declared in sym, less those the view exposes
-// in their own right, stopping where the tree renderer stops: at a cycle, and
-// at the depth bound.
+// memberRowsOf writes the elements declared in sym, less those the view exposes in
+// their own right, stopping where the tree renderer stops: at a cycle and the depth bound.
 func (r *Renderer) memberRowsOf(sym *symbols.Symbol, name string, exposed, seen map[*symbols.Symbol]bool, depth int, out *Rendering) {
 	if seen[sym] || depth >= maxTreeDepth {
 		return
