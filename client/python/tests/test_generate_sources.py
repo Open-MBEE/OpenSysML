@@ -94,15 +94,19 @@ def test_expand_sources_keeps_a_missing_path_for_the_reader_to_report(tmp_path):
     assert expand_sources([missing]) == [missing]
 
 
-def test_expand_sources_reads_a_linked_directory_once(tmp_path):
-    (tmp_path / "real").mkdir()
-    (tmp_path / "real" / "a.sysml").write_text("package A;")
+@pytest.mark.parametrize("first", ["a", "z"])
+def test_expand_sources_reads_a_linked_directory_once_under_its_first_name(tmp_path, first):
+    """``a`` and the link ``z -> a`` are one directory, read under ``a``
+    whichever was created first."""
+    real, link = (tmp_path / "a", tmp_path / "z") if first == "a" else (tmp_path / "z", tmp_path / "a")
+    real.mkdir()
+    (real / "part.sysml").write_text("package Part;")
     try:
-        os.symlink(tmp_path / "real", tmp_path / "link", target_is_directory=True)
+        os.symlink(real, link, target_is_directory=True)
     except (OSError, NotImplementedError):
         pytest.skip("symlinks are not available here")
 
-    assert expand_sources([str(tmp_path)]) == [str(tmp_path / "link" / "a.sysml")]
+    assert expand_sources([str(tmp_path)]) == [str(tmp_path / "a" / "part.sysml")]
 
 
 def test_model_stamp_of_one_file_is_unchanged():

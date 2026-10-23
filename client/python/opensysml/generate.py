@@ -448,7 +448,7 @@ def _model_files(directory: str, visited: set, out: List[str]) -> None:
     if resolved in visited:
         return
     visited.add(resolved)
-    for entry in os.scandir(directory):
+    for entry in sorted(os.scandir(directory), key=lambda entry: entry.name):
         if entry.is_dir():
             if not entry.name.startswith("."):
                 _model_files(entry.path, visited, out)
