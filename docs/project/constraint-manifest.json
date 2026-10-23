@@ -4404,16 +4404,15 @@
       },
       "checks": "An owned usage of a variation usage is a variant",
       "implementation": "internal/check/passes/w8d_variability.go:W8DVariabilityPass.Run",
-      "message": "The OCL (`isVariation implies ownedFeatureMembership->isEmpty()`) rejects an objective in a variation, but `w8d_variability.go` `checkMembers` exempts it, as the pilot does; see [gap register §27](spec-pilot-gap-register.md#27-variation-parameters-and-stakeholder-specialization)",
-      "negativeCase": "`semantic/s37-variation-usage-member-not-variant.sysml`",
+      "message": "Reported for every owned usage that is not a variant, an objective and an explicit parameter included, as the OCL (`isVariation implies ownedFeatureMembership->isEmpty()`) requires; the pilot exempts a parameter and an objective in a variation usage by its own `TODO`, see [gap register §27](spec-pilot-gap-register.md#27-variation-parameters-and-stakeholder-specialization)",
+      "negativeCase": "`semantic/s37-variation-usage-member-not-variant.sysml`, `semantic/variation-usage-objective-not-variant.sysml`",
       "codes": [
         "variation-member-not-variant"
       ],
       "passes": [
         "constraint"
       ],
-      "status": "approximate",
-      "rationale": "an objective in a variation is exempted as the pilot does, where the OCL rejects it"
+      "status": "faithful"
     },
     {
       "name": "validateUsageVariationSpecialization",

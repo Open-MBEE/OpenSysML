@@ -175,7 +175,11 @@
 //     value type, enumeration-typed features and variation points.
 //   - Feature chains that ground in such a feature (`lander.verticalSpeed`).
 //   - Enumeration literals and variants, as constructors of a finite datatype
-//     sort declared per enumeration definition or variation point.
+//     sort declared per enumeration definition or variation point. A variation
+//     point whose every variant declares a value compares under `==` and `!=`
+//     by the value its selection stands for (KerML BaseFunctions::'==' is value
+//     equality for data values), so two variants declaring one value are equal;
+//     two variants named outright compare as the choice itself.
 //   - `P->forAll { in ref w; w == V }` and `P->exists { … }` over a variation
 //     point P holding at least one object, as the selection `P == V` (`P != V`
 //     for `w != V`): a configuration holds only the variant P selects (SysML

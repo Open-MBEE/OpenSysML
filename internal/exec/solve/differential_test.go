@@ -469,6 +469,7 @@ func varNameOfReference(ctx *runtime.Context, subject Subject, node ast.Node, sc
 		features:  effectiveFeatures(ctx, subject.Symbol),
 		vars:      map[string]*Var{},
 		sorts:     map[string]Sort{},
+		origins:   map[string]*symbols.Symbol{},
 		guarded:   map[string]bool{},
 		baseUnits: map[string]string{},
 	}

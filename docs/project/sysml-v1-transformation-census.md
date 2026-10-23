@@ -1022,6 +1022,7 @@ entry names the behaviour and the code and test that carry it out.
 | Deferred events (State::deferrableTrigger) kept and replayed through DeferredEvent / DeferredKeeper metadata; the OMG model has no mapping for deferrable triggers | `internal/translate/migrate/states.go:deferredHead` | `tests/migrate/behavior_more_test.go:TestStrictDeferredSignalsAreKeptAndReplayed` |
 | Extend and ExtensionPoint: written as a dependency on the extended use case (v2 has no extend); the OMG model has no mapping for them | `internal/translate/migrate/usecase.go:extend` | `tests/migrate/migrate_test.go:TestGoldenNotation` |
 | fUML / Alf library behaviors called by href computed through the v2 library | `internal/translate/migrate/activity.go:callBehavior` | `tests/migrate/library_test.go:TestLibraryCallsComputeThroughTheV2Library` |
+| UML ExceptionHandler, which the OMG mapping has no class for: each handler is diagnosed as having no v2 form (protected node, body, exception type or none) and its handlerBody is written as a reference action usage the migrated action never starts or performs | `internal/translate/migrate/activity.go:handled` | `tests/migrate/exception_handler_test.go:TestExceptionHandlerBodyIsNeverStarted` |
 <!-- census:end beyond -->
 
 ## Candidate errata

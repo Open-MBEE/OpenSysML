@@ -191,3 +191,14 @@ func TestVariantOutsideVariationReportedDespiteFaultyNestedMember(t *testing.T) 
 	w8dWantLines(t, src, "unresolved", 2)
 	w8dWantLines(t, src, "variant-outside-variation", 2)
 }
+
+func TestW8DVariationObjectiveIsNotAVariant(t *testing.T) {
+	const src = `package P {
+		requirement def R;
+		variation case def VK { objective o : R; variant case k1; }
+		variation case vk { objective o; variant case k1; }
+		variation verification vv { objective o2 : R; variant verification v1; }
+		case def K { objective o3; }
+	}`
+	w8dWantLines(t, src, "variation-member-not-variant", 3, 4, 5)
+}
