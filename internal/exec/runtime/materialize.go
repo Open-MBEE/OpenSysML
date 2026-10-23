@@ -123,9 +123,8 @@ func (w *materializeWalk) walk(inst *Instance, depth int, unperformed bool) {
 	}
 }
 
-// descend walks the objects a feature holds, and reports false once the budget
-// is spent. Each object held is charged as it is reached, so every one the
-// budget admits is walked and only those past it are cut.
+// descend walks the objects a feature holds and reports false once the budget is spent;
+// each object is charged as it is reached, so only those past the budget are cut.
 func (w *materializeWalk) descend(children []*Instance, depth int, held bool) bool {
 	for _, child := range children {
 		if w.budget <= 0 {
