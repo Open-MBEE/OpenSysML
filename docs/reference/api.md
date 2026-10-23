@@ -1247,11 +1247,21 @@ elements there are. It is advertised by `render_view`, and a service without
 that capability refuses the request with `UNIMPLEMENTED`.
 Its `depth` field draws that many levels of nested elements below each exposed
 element, overriding the view's own `depth`; `0` draws every level the view allows.
-Python exposes this as `model.render_view(view_name, ports="minimal", show=None, depth=0)`,
+Its `compartments` field folds a tree rendering's owned members into compartment rows of their
+owner as `sysml -render-compartments` does: `""` or `"positioned"` (the default) the layout-less
+members of a tree some `Layout` positions alone, `"most"` every owned usage no `Layout`, nested
+definition or package keeps a node, `"ports"` the port usages with the ports nested under them;
+another name is refused as `INVALID_ARGUMENT` naming the three. A row comes back as a node whose
+`compartment` names the compartment of its `parent` it is drawn in (`attributes`, `parts`, `ports`,
+…), empty for a node drawn as a box.
+Python exposes this as `model.render_view(view_name, ports="minimal", show=None, depth=0,
+compartments="positioned")`,
 returning a typed `RenderedView` whose `shown` lists the elements drawn; Rust as
-`Model::render_view_showing(name, ports, &["edge-labels"])`; Go as
-`RenderView(ctx, model, name, opensysml.WithShow("edge-labels"), opensysml.WithDepth(1))`
-with the result's `Shown`.
+`Model::render_view_showing(name, ports, &["edge-labels"])` and
+`Model::render_view_folded(name, ports, &[], 0, RenderViewCompartments::Most)`; Go as
+`RenderView(ctx, model, name, opensysml.WithShow("edge-labels"), opensysml.WithDepth(1),
+opensysml.WithCompartments("most"))`
+with the result's `Shown`; Node as `model.renderView(name, { compartments: "most" })`.
 
 `ExportGraphs` answers the lowered graph of an action or state machine — the
 subject's `ActionGraph`/`StateGraph` IR and that of every behavior it performs —

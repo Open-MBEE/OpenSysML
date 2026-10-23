@@ -21,7 +21,7 @@ use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, C
 use crate::document::{
     binding_holds_big_int, binding_holds_rational, binding_rationals_as_reals, bindings_to_wire,
     document_event_from_wire, rendered_view_of, result_of, DocumentForm, DocumentQueryResult,
-    DocumentValue, RenderViewPorts, RenderedView,
+    DocumentValue, RenderViewCompartments, RenderViewPorts, RenderedView,
 };
 use crate::domain::{Model, Value};
 use crate::encode::value_to_wire;
@@ -629,6 +629,28 @@ impl Connection {
         show: &[&str],
         depth: u32,
     ) -> Result<RenderedView, Error> {
+        self.render_view_folded(
+            model_hash,
+            view_name,
+            ports,
+            show,
+            depth,
+            RenderViewCompartments::Positioned,
+        )
+    }
+
+    /// Render a named view as `render_view_bounded` does, folding a tree's owned
+    /// members into compartment rows of their owner as `compartments` says; a row
+    /// is a node whose `compartment` names the compartment of its parent.
+    pub fn render_view_folded(
+        &self,
+        model_hash: &str,
+        view_name: &str,
+        ports: RenderViewPorts,
+        show: &[&str],
+        depth: u32,
+        compartments: RenderViewCompartments,
+    ) -> Result<RenderedView, Error> {
         self.require_all(&[crate::capabilities::CAPABILITY_RENDER_VIEW])?;
         let response = self.gated_rpc(
             "RenderView",
@@ -641,6 +663,7 @@ impl Connection {
                 },
                 show: show.iter().map(|s| (*s).to_owned()).collect(),
                 depth: i32::try_from(depth).unwrap_or(i32::MAX),
+                compartments: compartments.as_wire().to_owned(),
             },
             &[crate::capabilities::CAPABILITY_RENDER_VIEW],
         )?;

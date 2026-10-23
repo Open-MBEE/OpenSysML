@@ -38,7 +38,7 @@ func TestGoldenTreeCompartments(t *testing.T) {
 // unpositioned tree is left as it is.
 func TestTreeCompartmentsFold(t *testing.T) {
 	rendering := render(t, "tree-compartments.sysml", "AmplifierViews::positioned")
-	folded := foldCompartments(rendering)
+	folded := foldCompartments(rendering, "")
 	if folded == rendering {
 		t.Fatal("foldCompartments returned the rendering unchanged")
 	}
@@ -77,11 +77,11 @@ func TestTreeCompartmentsFold(t *testing.T) {
 		}
 	}
 	plain := render(t, "tree-compartments.sysml", "AmplifierViews::plain")
-	if foldCompartments(plain) != plain {
+	if foldCompartments(plain, "") != plain {
 		t.Error("an unpositioned tree was folded")
 	}
 	bare := render(t, "tree-compartments.sysml", "AmplifierViews::bare")
-	if foldCompartments(bare) != bare {
+	if foldCompartments(bare, "") != bare {
 		t.Error("a tree not showing compartments was folded")
 	}
 }

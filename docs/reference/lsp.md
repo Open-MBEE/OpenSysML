@@ -13,6 +13,7 @@ result:
     "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"],
     "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"],
     "openSysmlRenderLines": ["splines", "ortho", "polyline"],
+    "openSysmlRenderCompartments": ["positioned", "most", "ports"],
     "openSysmlRenderElements": ["parameter-symbols", "port-symbols", "compartments", "edge-labels",
       "keywords", "multiplicities", "typings", "qualifiers", "all"] } } }
 ```
@@ -29,7 +30,11 @@ the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styl
 draws the DOT or Mermaid form in, the first the default (`openSysmlRenderPorts` lists likewise the port
 displays its `ports` draws an interconnection or mixed rendering's parts with, a server without
 it drawing every port; `openSysmlRenderLines` the edge routings its `lines` draws the DOT or
-PlantUML form with, a server without it routing every edge as splines; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
+PlantUML form with, a server without it routing every edge as splines; `openSysmlRenderCompartments` the
+foldings its `compartments` folds a tree rendering's owned members into compartment rows of their owner
+with (`positioned`, the default, the layout-less members of a positioned tree alone; `most` every owned
+usage no `Layout`, nested definition or package keeps a node; `ports` the port usages with the ports
+nested under them), a server without it folding the positioned tree alone; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
 without it drawing none); a server without the former draws the Pilot look
 alone.
 
@@ -267,7 +272,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `kind` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `table`, `matrix`, `requirement`, `definition` or `package`. |
 | `stated` | How the kind was decided — the rendering the view names, the standard view definition it specializes, or that no view was declared. Empty when the view took the default. |
 | `artifact` | What to draw or show: a Mermaid diagram, a Graphviz DOT graph, a PlantUML diagram, a D2 diagram, the text form, or a Markdown table or relationship matrix. |
-| `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `kind` is the keyword the notation declares it with (`part def`, `state`), its `name` the qualified name of an element the view exposes or the simple name of one nested in it, its `type` the declared type of a typed usage (`Cog` for `part cog : Cog`, empty otherwise), and its `detail` the notes the artifact draws after the name (`initial`, `already shown`); a client never parses the type out of the detail. A node's `parent` is the node containing it, when one does. An edge's `kind` is `connection`, `transition`, `succession`, `flow`, `composition`, `association`, `include`, `anchor`, `typing`, `specialization` or `reference`. |
+| `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `kind` is the keyword the notation declares it with (`part def`, `state`), its `name` the qualified name of an element the view exposes or the simple name of one nested in it, its `type` the declared type of a typed usage (`Cog` for `part cog : Cog`, empty otherwise), and its `detail` the notes the artifact draws after the name (`initial`, `already shown`); a client never parses the type out of the detail. A node's `parent` is the node containing it, when one does, and under a `compartments` folding its `compartment` names the compartment of that parent it is drawn as a row of (`attributes`, `parts`, `ports`, ...). An edge's `kind` is `connection`, `transition`, `succession`, `flow`, `composition`, `association`, `include`, `anchor`, `typing`, `specialization` or `reference`. |
 | `ports`, `fromPort`, `toPort` | A node's optional `ports` array contains the port pins drawn on it, each with an `id`, `name`, optional `type` and optional `direction` (`in`, `out`, `inout`; omitted for an undirected port). A request's `ports` display controls which pins appear in interconnection and mixed renderings: `minimal` lists pins reached by an interconnection edge, while `full` lists every pin. An edge's optional `fromPort` and `toPort` are the IDs of its endpoint pins in those arrays. |
 | `rows`, `columns` | A table or matrix rendering's cells, in place of nodes and edges. Matrix rows are relationship sources, columns are targets, and each cell carries its ordered relationship keywords. |
 | `origin` | Where the element was declared, as a document URI, the `range` of the whole declaration and, when the declaration names one, the `selectionRange` of the identifier alone. A client highlights the element whose `range` holds the cursor and navigates to its `selectionRange`, as `textDocument/definition` does. `digest` fingerprints the text the ranges are of, the same for the same text whatever its version: a `setLayout` or `setRoute` of an element another document declares hands it back as its `digest`, with the URI as `declaredIn`, so the target is read in the text it was rendered from or answered `stale`. Every `origin` of one rendering is of the text the rendering was made from, read under one lock, whatever a document holds since. Absent for an element with no locatable declaration: a standard library symbol the index served from its cache, or a step a lowering sequenced without a declaration of its own, carries none rather than a bogus range. |

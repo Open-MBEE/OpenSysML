@@ -332,6 +332,9 @@ type JRenderViewRequest struct {
 	Ports     string   `json:"ports,omitempty"`
 	Show      []string `json:"show,omitempty"`
 	Depth     int      `json:"depth,omitempty"`
+	// Compartments is the folding of a tree's owned members into compartment rows:
+	// "" or "positioned" (the default), "most" or "ports".
+	Compartments string `json:"compartments,omitempty"`
 }
 
 // The RenderView reply, shaped as protojson writes the service's RenderViewResponse
@@ -368,6 +371,7 @@ type JRenderNode struct {
 	Text            string           `json:"text,omitempty"`
 	StandIn         bool             `json:"standIn,omitempty"`
 	Parent          string           `json:"parent,omitempty"`
+	Compartment     string           `json:"compartment,omitempty"`
 	Ports           []JRenderPort    `json:"ports,omitempty"`
 	Origin          *JSpan           `json:"origin,omitempty"`
 	Geometry        *JRenderGeometry `json:"geometry,omitempty"`
