@@ -1,1 +1,0 @@
-- API JSON export preserves graph property order for sidecar-backed values through the `sysx:mappingPropertyOrder` extension.

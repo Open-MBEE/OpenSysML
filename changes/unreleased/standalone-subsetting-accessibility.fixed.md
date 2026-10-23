@@ -1,1 +1,0 @@
-- `Must be an accessible feature (use dot notation for nesting)` is now reported on a `specialization subset f :> T::g;` statement as it is on the inline `feature f :> T::g;` form: both notations write the one Subsetting, and KerML 8.3.3.3.10 holds of it however it is spelled.

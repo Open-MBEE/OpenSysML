@@ -1,1 +1,0 @@
-- Connection definitions nested in view or requirement usages now refer to usage-typed ends through a feature chain from the package-level usage, so migrated models validate.
