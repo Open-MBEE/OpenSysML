@@ -450,3 +450,25 @@ func TestChangingTheLibraryRootsRebuildsTheIndex(t *testing.T) {
 		t.Errorf("diagnostics after the roots = %v", got)
 	}
 }
+
+func TestSaveOutOfReachCarriesTheLoadedFilesOwnDependencies(t *testing.T) {
+	s, dir := workspaceSession(t)
+	writeFile(t, filepath.Join(dir, "lib.sysml"), "package Lib { private import Dep::*; attribute a = d + 1; }\n")
+	writeFile(t, filepath.Join(dir, "dep.sysml"), "package Dep { attribute d = 2; }\n")
+	s.Submit("private import Lib::*;")
+	out := filepath.Join(t.TempDir(), "session.sysml")
+	got := saveTo(t, s, out)
+	if !strings.Contains(got, "package Lib") || !strings.Contains(got, "package Dep") {
+		t.Errorf("saved:\n%s", got)
+	}
+	fresh := NewSession()
+	if _, err := fresh.LoadPaths([]string{out}); err != nil {
+		t.Fatal(err)
+	}
+	if diags := fresh.DiagnosticLines(); len(diags) != 0 {
+		t.Errorf("%s did not load clean: %v", out, diags)
+	}
+	if ev, err := fresh.Evaluate("Lib::a"); err != nil || ev.Text != "3" {
+		t.Errorf("Lib::a from the save = %q, %v", ev.Text, err)
+	}
+}

@@ -846,17 +846,35 @@ func (s *Session) savedText(dest string) string {
 		return strings.Join(parts, "\n")
 	}
 	typed := strings.Join(parts, "\n")
-	named := nameSet(project.ReferencedRoots(parser.New(source.New(docName, []byte(typed))).ParseFile()))
 	reach := map[string]bool{}
 	for _, dep := range s.discovery().DependenciesOf([]project.Source{{Path: dest, Content: []byte(typed)}}, s.ws.IsLibraryRoot) {
 		reach[fileKeyOf(dep)] = true
 	}
-	for _, sn := range onDemand {
-		if intersects(sn.names, named) && !reach[sn.key] {
+	// What the typed text names, then what the carried files name in turn,
+	// so a carried file's own imports are carried with it.
+	named := nameSet(referencedRoots(typed))
+	included := map[string]bool{}
+	for changed := true; changed; {
+		changed = false
+		for _, sn := range onDemand {
+			if included[sn.key] || reach[sn.key] || !intersects(sn.names, named) {
+				continue
+			}
+			included[sn.key] = true
+			changed = true
 			parts = append(parts, sn.src)
+			for _, name := range referencedRoots(sn.src) {
+				named[name] = true
+			}
 		}
 	}
 	return strings.Join(parts, "\n")
+}
+
+// referencedRoots lists the root namespaces src imports or qualifies and does
+// not declare itself.
+func referencedRoots(src string) []string {
+	return project.ReferencedRoots(parser.New(source.New(docName, []byte(src))).ParseFile())
 }
 
 // maskedSpans locates the masked submissions in the buffer, so a finding of
