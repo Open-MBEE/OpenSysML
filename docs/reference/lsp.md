@@ -13,6 +13,7 @@ result:
     "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"],
     "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"],
     "openSysmlRenderLines": ["splines", "ortho", "polyline"],
+    "openSysmlRenderCompartments": ["positioned", "most", "ports"],
     "openSysmlRenderElements": ["parameter-symbols", "port-symbols", "compartments", "edge-labels",
       "keywords", "multiplicities", "typings", "qualifiers", "all"] } } }
 ```
@@ -29,7 +30,11 @@ the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styl
 draws the DOT or Mermaid form in, the first the default (`openSysmlRenderPorts` lists likewise the port
 displays its `ports` draws an interconnection or mixed rendering's parts with, a server without
 it drawing every port; `openSysmlRenderLines` the edge routings its `lines` draws the DOT or
-PlantUML form with, a server without it routing every edge as splines; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
+PlantUML form with, a server without it routing every edge as splines; `openSysmlRenderCompartments` the
+foldings its `compartments` folds a tree rendering's owned members into compartment rows of their owner
+with (`positioned`, the default, the layout-less members of a positioned tree alone; `most` every owned
+usage no `Layout`, nested definition or package keeps a node; `ports` the port usages with the ports
+nested under them), a server without it folding the positioned tree alone; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
 without it drawing none); a server without the former draws the Pilot look
 alone.
 
