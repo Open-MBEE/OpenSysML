@@ -365,7 +365,7 @@ func runPerformers(t *testing.T, run *steppedRun, idx *symbols.Index, stateSym *
 	t.Helper()
 	for _, performer := range performers {
 		self := performerObject(t, run.ctx, idx, performer.Object)
-		exec, err := run.ctx.CreateStateExecutorFor(stateSym, self)
+		exec, _, err := run.ctx.stateRunFor(stateSym, self, true)
 		if err != nil {
 			return err
 		}
