@@ -214,7 +214,44 @@ func TestStructureFeaturingTypesUsesExplicitTypeFeaturing(t *testing.T) {
 	if len(got) != 1 || got[0].Key() != explicitType.Key() {
 		t.Fatalf("explicit featuringType = %v; want %v", got, explicitType)
 	}
+}
 
+// KerML 1.1 TypeFeaturing::owningFeatureOfType is the featureOfType that owns the TypeFeaturing;
+// every name of the owning end answers that Feature, and the owned end its featuringType.
+func TestStructureTypeFeaturingEndpointsNameTheOwningFeature(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "type-featuring-endpoints.sysml", `package P {
+		part def ExplicitType;
+		part def Owner { part feature; }
+	}`)
+	pkg := testSymbol(t, root, "P")
+	feature := ElementOf(testSymbol(t, testSymbol(t, pkg.Scope, "Owner").Scope, "feature"))
+	explicitType := ElementOf(testSymbol(t, pkg.Scope, "ExplicitType"))
+	typeFeaturing := Element{Aspect: "type-featuring"}
+	structure := evaluator.options.Structure.(testStructure)
+	structure.metaclasses[feature.Key()] = "PartUsage"
+	structure.metaclasses[explicitType.Key()] = "PartDefinition"
+	structure.metaclasses[typeFeaturing.Key()] = "TypeFeaturing"
+	structure.ownedRelationships[feature.Key()] = []Element{typeFeaturing}
+	structure.owningRelationships[feature.Key()] = testOptionalElement{present: false}
+	structure.owningRelatedElements[typeFeaturing.Key()] = testOptionalElement{element: feature, present: true}
+	structure.relatedElements[testRelatedKey{element: typeFeaturing.Key(), property: "featuringType"}] = []Element{explicitType}
+	evaluator.options.Structure = structure
+	for _, property := range []string{"source", "featureOfType", "owningFeatureOfType"} {
+		got, ok := evaluator.relationshipEndpoints(typeFeaturing, property)
+		if !ok || len(got) != 1 || got[0].Kind != ElementValue || got[0].Element.Key() != feature.Key() {
+			t.Fatalf("TypeFeaturing %s endpoints = %#v, %t; want the owning Feature", property, got, ok)
+		}
+	}
+	for _, property := range []string{"target", "featuringType"} {
+		got, ok := evaluator.relationshipEndpoints(typeFeaturing, property)
+		if !ok || len(got) != 1 || got[0].Kind != ElementValue || got[0].Element.Key() != explicitType.Key() {
+			t.Fatalf("TypeFeaturing %s endpoints = %#v, %t; want the featuring Type", property, got, ok)
+		}
+	}
+	if got := testProperty(t, evaluator, typeFeaturing, "TypeFeaturing", "owningFeatureOfType"); got.Kind != ElementValue ||
+		got.Element.Key() != feature.Key() {
+		t.Fatalf("TypeFeaturing::owningFeatureOfType = %#v; want the owning Feature", got)
+	}
 }
 
 // KerML 1.1 Feature::featuringType includes the featuring Types of its typeFeaturings (lines 10211–10213).

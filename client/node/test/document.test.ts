@@ -219,6 +219,21 @@ test("renderView returns ports, edge endpoints, and origins", async () => {
   assert.ok(rendered.nodes.every((node) => node.origin !== undefined));
 });
 
+test("renderView folds members into compartment rows on request", async () => {
+  await using connection = await connect();
+  const model = await connection.load(VIEW_FIXTURE);
+  const boxes = await model.renderView("#tree:RenderViewDemo::Assembly");
+  assert.ok(boxes.nodes.every((node) => node.compartment === ""));
+  const folded = await model.renderView("#tree:RenderViewDemo::Assembly", { compartments: "most" });
+  const sender = folded.nodes.find((node) => node.name === "sender");
+  assert.equal(sender?.compartment, "parts");
+  assert.ok(folded.nodes.length < boxes.nodes.length);
+  await assert.rejects(
+    model.renderView("#tree:RenderViewDemo::Assembly", { compartments: "rows" as "most" }),
+    RangeError,
+  );
+});
+
 test("exportGraphs returns the canonical graphs form of a behavior", async () => {
   await using connection = await connect();
   const model = await connection.load(BEHAVIOR_FIXTURE);

@@ -203,6 +203,11 @@ func renderOptions(width int) (view.Options, error) {
 		return view.Options{}, err
 	}
 	options.Unplaced = unplaced
+	compartments, err := compartmentsOption()
+	if err != nil {
+		return view.Options{}, err
+	}
+	options.Compartments = compartments
 	style, err := styleOption()
 	if err != nil {
 		return view.Options{}, err
@@ -256,6 +261,20 @@ func unplacedOption() (view.Unplaced, error) {
 		return "", fmt.Errorf("-render-unplaced: %w", &view.UnknownUnplacedError{Name: renderUnplaced})
 	}
 	return unplaced, nil
+}
+
+// compartmentsOption is the folding -render-compartments names for a tree's
+// owned members, which must be one there is; none named is the default,
+// folding only the layout-less members of a positioned tree.
+func compartmentsOption() (view.Compartments, error) {
+	if renderCompartments == "" {
+		return "", nil
+	}
+	compartments, ok := view.ParseCompartments(renderCompartments)
+	if !ok {
+		return "", fmt.Errorf("-render-compartments: %w", &view.UnknownCompartmentsError{Name: renderCompartments})
+	}
+	return compartments, nil
 }
 
 // loadRenderingModel loads and reports a model whose stdout is reserved for

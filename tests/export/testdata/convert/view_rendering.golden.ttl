@@ -274,13 +274,13 @@ elmt:Views__WithBody__tree
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Views__WithBody__tree___400 ;
     sysml:ownedMembership elmt:Views__WithBody__tree___400_om ;
-    sysml:ownedRelationship elmt:Views__WithBody__tree___400_om, elmt:Views__WithBody__tree_rs ;
+    sysml:ownedRelationship elmt:Views__WithBody__tree_rs, elmt:Views__WithBody__tree___400_om ;
     sysml:ownedReferenceSubsetting elmt:Views__WithBody__tree_rs ;
     sysml:ownedSubsetting elmt:Views__WithBody__tree_rs ;
     sysml:ownedSpecialization elmt:Views__WithBody__tree_rs ;
     sysx:sourceText "        render tree {\n" ;
     sysx:sourceTail "        }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Views__WithBody__tree___400_om\"},{\"@id\":\"Views__WithBody__tree_rs\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Views__WithBody__tree_rs\"},{\"@id\":\"Views__WithBody__tree___400_om\"}]" .
 
 elmt:Views__WithBody__tree_om
     a sysml:ViewRenderingMembership ;

@@ -31,6 +31,7 @@ func TestMappingShapeAgreesWithForwardMapping(t *testing.T) {
 		t.Fatal(err)
 	}
 	sort.Strings(paths)
+	conversions := corpusConversions(t)
 
 	var compared, skipped, disagreements int
 	var countsMu sync.Mutex
@@ -46,11 +47,12 @@ func TestMappingShapeAgreesWithForwardMapping(t *testing.T) {
 		path := path
 		t.Run(filepath.ToSlash(path), func(t *testing.T) {
 			t.Parallel()
+			defer conversions.release(path)
 			source, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
-			graph, err := cachedSysMLToRDF(path, source)
+			graph, err := conversions.sysMLToRDF(path, source)
 			if err != nil {
 				if strings.HasPrefix(path, exampleRoot+string(filepath.Separator)) {
 					countsMu.Lock()
@@ -60,7 +62,7 @@ func TestMappingShapeAgreesWithForwardMapping(t *testing.T) {
 				}
 				t.Fatalf("convert fixture %s: %v", path, err)
 			}
-			if _, err := cachedAPIJSON(path, source, "standard", "graph"); err != nil {
+			if _, err := conversions.apiJSON(path, source, "standard", "graph"); err != nil {
 				var unsupported *export.UnsupportedError
 				if !errors.As(err, &unsupported) {
 					t.Fatalf("write API JSON: %v", err)

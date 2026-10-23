@@ -1,0 +1,10 @@
+materialize: PubSubSequence #1
+materialize: producer #2
+materialize: server #3
+materialize: consumer #4
+send publish_message from producer.publish_source_event
+send subscribe_message from consumer.subscribe_source_event
+accept subscribe_message at server.subscribe_target_event
+accept publish_message at server.publish_target_event
+send deliver_message from server.deliver_source_event
+accept deliver_message at consumer.deliver_target_event

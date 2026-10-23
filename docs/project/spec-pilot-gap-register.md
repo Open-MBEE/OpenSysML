@@ -1309,13 +1309,14 @@ Observations, `2026-08`, and this tree:
 | `in p` in a variation calc | `2:25: error: An owned usage of a variation must be a variant.` | the same |
 | `subject s : X` in a variation requirement | clean | `1:52: error: An owned usage of a variation must be a variant.` |
 | `return r` in a variation calc | clean | `1:33: error: An owned usage of a variation must be a variant.` |
-| `objective o` in a variation case | clean | clean |
+| `objective o` in a variation case | clean | `1:25: error: An owned usage of a variation must be a variant.` |
 | `stakeholder` in a requirement definition | clean | clean |
 | `stakeholder` in a part definition | `3:18: error: mismatched input 'stakeholder' expecting '}'` and `4:1: error: extraneous input '}' expecting EOF` | `3:18: error: 'stakeholder' declares a stakeholder of a requirement and is only allowed in a requirement body; move it into the requirement it belongs to` |
 
-**OpenSysML:** `internal/check/passes/w8d_variability.go`, `checkMembers`, exempts an objective,
-a metadata usage and, in an enumeration, an enumerated value, and reports a subject member and
-every other non-variant usage. A stakeholder outside a requirement body is a parser diagnostic
+**OpenSysML:** `internal/check/passes/w8d_variability.go`, `checkMembers`, exempts a metadata
+usage (an annotating member, not a feature membership) and, in an enumeration, an enumerated
+value, and reports a subject member, an objective and every other non-variant usage, in a
+variation usage as in a variation definition. A stakeholder outside a requirement body is a parser diagnostic
 (`internal/syntax/parser/defusage.go`).
 
 **Specification:** SysML §8.3.6.4 `Usage`, `validateUsageVariationOwnedFeatureMembership`: "If a
@@ -1329,10 +1330,11 @@ Requirements::RequirementCheck::stakeholders."
 **Assessment:** the parameters a variation gets without writing them, and the stakeholder
 restriction, make no observable difference: the inserted parameters draw nothing in either tool,
 and both grammars admit `stakeholder` only in a requirement body, where the pilot's condition
-always holds. The parameter exemption does differ for a parameter written in the model: the pilot
-exempts every `ParameterMembership`, so an explicit subject or return parameter is accepted,
-while OpenSysML exempts only objectives and rejects it. By the OCL both are rejected, and so is
-the objective both tools accept. Neither tool is fully faithful.
+always holds. The exemption does differ for a member written in the model: the pilot exempts every
+`ParameterMembership` and `ObjectiveMembership`, so an explicit subject or return parameter and an
+objective are accepted, while OpenSysML follows the OCL and rejects each of them — spec-leading,
+stricter than the pilot. (OpenSysML exempted the objective as the pilot does until the row was
+adjudicated against the OCL; `tools/referee/reject` records the objective case as ours-only.)
 
 **Question for the authors:** the pilot's own: should a variation be allowed parameters and an
 objective? If it should, `validateUsageVariationOwnedFeatureMembership` and

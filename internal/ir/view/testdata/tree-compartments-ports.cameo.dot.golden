@@ -1,0 +1,30 @@
+// view: CompartmentDemoViews::hub
+// kind: tree
+// stated: render asTreeDiagram
+// not represented: 5 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
+// layout: dot
+digraph "CompartmentDemoViews::hub" {
+  graph [fontname="Arial", fontcolor="#424242"];
+  node [shape=box, style=filled, fillcolor="#FFCC99:#FFFAD4", gradientangle=0, color="#99795C", fontname="Arial", fontsize=11, fontcolor="#424242", penwidth=1];
+  edge [color="#424242", fontname="Arial", fontsize=9, fontcolor="#424242", penwidth=1, arrowhead=open];
+  subgraph "cluster_frame" {
+    label=<<b>bdd</b> [Block] Hub [ hub ]>;
+    labeljust=l;
+    labelloc=t;
+    fontsize=11;
+    color="#5B5B59";
+    penwidth=1;
+    margin=8;
+    "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«part def»</font><br/><b>Hub</b></td></tr><hr/><tr><td><font point-size="9">ports</font></td></tr><tr><td align="left">input : DataPort<br/>input.clock : ClockPort<br/>output : DataPort<br/>output.sync : ClockPort<br/>output.clock : ClockPort</td></tr></table>>];
+    "n1" [label=<<font point-size="9">«attribute»</font><br/><b>channels</b>>];
+  "n0" -> "n1" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n12" [label=<<font point-size="9">«part»</font><br/><b>buffer</b>>];
+  "n0" -> "n12" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n13" [label=<<font point-size="9">«part»</font><br/><b>slot</b>>];
+    "n14" [label=<<font point-size="9">«part def»</font><br/><b>Pin</b>>];
+  "n13" -> "n14" [arrowhead=none, dir=back, arrowtail=diamond];
+  "n0" -> "n13" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n15" [label=<<font point-size="9">«part def»</font><br/><b>Buffer</b>>];
+  }
+  "n0" -> "n15" [headlabel="buffer", dir=back, arrowtail=diamond];
+}

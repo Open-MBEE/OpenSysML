@@ -1,5 +1,5 @@
 // Invalid: a `member` binding connector ahead of an end's cross feature is not the owned cross feature, so the mistyped feature after it must still have the end's type (KerML 8.3.3.3.4 Feature::ownedCrossFeature, validateFeatureCrossFeatureType; pilot validateFeatureCrossFeatureType).
-package K76CrossFeatureAfterMemberBindingTypeDiffers {
+package K78CrossFeatureAfterMemberBindingTypeDiffers {
     class A;
     class B;
     class C;

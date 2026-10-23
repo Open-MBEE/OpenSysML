@@ -533,7 +533,7 @@ func (e concernEvaluator) EvaluateConcern(concern, element *symbols.Symbol) (boo
 	assertion := &runtime.SatisfyAssertion{
 		Symbol:     concern,
 		Subject:    element,
-		SubjectRef: e.session.viewElementName(element),
+		SubjectRef: e.session.viewElementFQN(element),
 	}
 	if requirement := e.ctx.Semantics().FramedConcernTarget(concern); requirement != nil {
 		// Named only when it resolved, so a reference naming nothing is reported

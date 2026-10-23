@@ -499,7 +499,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, index int,
 	e.name(node, param.Name)
 	e.flags(node, []boolProperty{{"isReference", param.IsReference}})
 	if param.Type != nil {
-		e.graph.Add(node, e.sysml(relationshipProperty[ast.RelTyping]), e.reference(param.Type))
+		e.headRelationship(node, ast.RelTyping, e.reference(param.Type), param.Type)
 	}
 	e.relationships(node, owner, param.Relationships)
 	e.bodyMembership(subject, node, mFeatureMembership)

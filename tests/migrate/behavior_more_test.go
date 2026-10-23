@@ -1663,39 +1663,42 @@ const handshakeApplications = `
   <sysml:Block xmi:id="_s1" base_Class="_node"/>
   <sysml:Block xmi:id="_s2" base_Class="_net"/>`
 
-// A signal-only interaction becomes a scenario action def of sends in occurrence order with
-// duration waits; a malformed duration or a call of no operation is reported. The scenario runs.
-func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
+// An interaction is an occurrence def: a lifeline usage per lifeline holding its event
+// occurrences in order, and a message per v1 message between the events it leaves and
+// reaches, carrying the signal as its payload; a call naming no operation is still a
+// message, whose receiving event performs nothing; durations have no sequence form.
+func TestInteractionMigratesToAnOccurrenceDefOfMessages(t *testing.T) {
 	r := migrateDocument(t, handshakeInteraction, handshakeApplications)
 	for _, line := range []string{
-		"action handshake {",
-		"/* duration constraint on request not migrated — the duration constraint has no interval */",
-		"action request send new Request(n = 7) to b;",
-		"first start then request;",
-		"action wait accept after RandomFunctions::uniform(2.0, 4.0) [SI::s];",
-		"first request then wait;",
-		"action reply send new Reply() to a;",
-		"first wait then reply;",
-		"first reply then done;",
+		"occurrence def Handshake {",
+		"ref part a : Node {",
+		"event occurrence requestSent;",
+		"then event occurrence replyReceived;",
+		"ref part b : Node {",
+		"event occurrence requestReceived;",
+		"then event occurrence replySent;",
+		"message request of requestPayload : Request = new Request(n = 7) from a.requestSent to b.requestReceived;",
+		"message reply of Reply[1] from b.replySent to a.replyReceived;",
+		"/* not migrated: DurationConstraint (_hsDur2) — a DurationConstraint has no form in v2 sequence notation; the events it spans are ordered but not timed */",
+		"occurrence def RemoteCall {",
+		"message call from a.callSent to b.callReceived;",
+		"occurrence handshake : Handshake {",
+		"ref part :>> a = a;",
+		"ref part :>> b = b;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if strings.Contains(string(r.Notation), "action def RemoteCall {") {
-		t.Errorf("an interaction carrying a call was written as a scenario:\n%s", r.Notation)
-	}
-	wantNote(t, r, "_hs", migrate.Approximated, "written as a scenario of 2 steps, one per message in occurrence order")
-	wantNote(t, r, "_mReq", migrate.Mapped, "written as a send to b")
-	wantNote(t, r, "_la", migrate.Mapped, "the lifeline stands for a, which the steps address")
-	wantNote(t, r, "_hsDur", migrate.Approximated, "the time from request, written as the wait wait before reply")
-	wantNote(t, r, "_hsDur2", migrate.Unmapped, "the duration constraint has no interval")
-	wantNote(t, r, "_rpc", migrate.Unmapped, "the message 'call' names no operation")
-
-	s := session(t, r)
-	meta(t, s, "%instantiate Net")
-	meta(t, s, "%seed 1")
-	meta(t, s, "%action Net::handshake #1")
-	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
-		t.Errorf("the scenario did not run to completion:\n%s", out)
+	wantNoLine(t, r.Notation, "action handshake {")
+	wantNoLine(t, r.Notation, "accept after")
+	wantNote(t, r, "_hs", migrate.Mapped, "written as an occurrence def of 2 lifeline usages and 2 messages between their event occurrences in occurrence order; its lifelines are bound to the features of Net they stand for in the occurrence usage handshake")
+	wantNote(t, r, "_mReq", migrate.Mapped, "")
+	wantNote(t, r, "_la", migrate.Mapped, "written as the ref part usage a holding its 2 event occurrences, bound to a of Net where the def occurs")
+	wantNote(t, r, "_hsDur", migrate.Unmapped, "a DurationConstraint has no form in v2 sequence notation; the events it spans are ordered but not timed")
+	wantNote(t, r, "_hsDur2", migrate.Unmapped, "a DurationConstraint has no form in v2 sequence notation")
+	wantNote(t, r, "_rpc", migrate.Mapped, "written as an occurrence def of 2 lifeline usages and 1 message")
+	wantNote(t, r, "_mCall", migrate.Approximated, "the call names no operation, so its receiving event performs nothing")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
 	}
 }
 
@@ -1768,44 +1771,38 @@ const timedApplications = `
   <sysml:Block xmi:id="_ts1" base_Class="_tnode"/>
   <sysml:Block xmi:id="_ts2" base_Class="_tnet"/>`
 
-// A duration constraint spanning two messages with steps between them is a wait forked after the
-// first and joined before the second, so the steps between count toward it; one that spans into
-// another fragment is reported. The scenario completes at the constraint's bound, not after it.
-func TestSpanningDurationConstraintCountsTheStepsBetween(t *testing.T) {
+// A duration constraint has no form in v2 sequence notation: the events it spans are
+// ordered by the lifelines' successions but not timed, and the constraint is reported.
+func TestDurationConstraintsHaveNoSequenceForm(t *testing.T) {
 	r := migrateDocument(t, timedInteraction, timedApplications)
 	for _, line := range []string{
-		"action request send new Request() to b;",
-		"first start then request;",
-		"fork timing;",
-		"first request then timing;",
-		"action wait accept after 10.0 [SI::s];",
-		"first timing then wait;",
-		"action wait2 accept after 4.0 [SI::s];",
-		"first timing then wait2;",
-		"action probe send new Probe() to b;",
-		"first wait2 then probe;",
-		"join waitEnd;",
-		"first probe then waitEnd;",
-		"first wait then waitEnd;",
-		"action reply send new Reply() to a;",
-		"first waitEnd then reply;",
-		"first reply then done;",
-		"/* duration constraint on reply not migrated — the time it measures from request to reply is not written: steps of other fragments lie between them, so no wait forked after the one can be joined before the other */",
+		"occurrence def Timed {",
+		"ref part a : Node {",
+		"event occurrence requestSent;",
+		"then event occurrence probeSent;",
+		"then event occurrence replyReceived;",
+		"ref part b : Node {",
+		"event occurrence requestReceived;",
+		"then event occurrence probeReceived;",
+		"then event occurrence replySent;",
+		"message request of Request[1] from a.requestSent to b.requestReceived;",
+		"message probe of Probe[1] from a.probeSent to b.probeReceived;",
+		"message reply of Reply[1] from b.replySent to a.replyReceived;",
+		"/* not migrated: DurationConstraint (_tSpan) — a DurationConstraint has no form in v2 sequence notation; the events it spans are ordered but not timed */",
+		"/* opt [1 < 2] */",
+		"occurrence timed : Timed {",
+		"ref part :>> a = a;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_tSpan", migrate.Approximated, "the time from request, written as the wait wait forked after it and joined before reply; a fixed wait of 10.0 s")
-	wantNote(t, r, "_tOwn", migrate.Approximated, "the message's duration; a v2 send arrives at once, so the step waits for it first, written as the wait wait2 before probe")
-	wantNote(t, r, "_sSpan", migrate.Unmapped, "the time it measures from request to reply is not written: steps of other fragments lie between them")
-
-	s := session(t, r)
-	meta(t, s, "%instantiate Net")
-	meta(t, s, "%action Net::timed #1")
-	if out := meta(t, s, "%advance 9.9"); strings.Contains(out, "completed") {
-		t.Errorf("the scenario completed before the 10 s the reply must come after the request:\n%s", out)
-	}
-	if out := meta(t, s, "%advance 0.1"); !strings.Contains(out, "Advanced to 10.0") || !strings.Contains(out, "completed") {
-		t.Errorf("the scenario did not complete at 10 s, the constraint's bound:\n%s", out)
+	wantNoLine(t, r.Notation, "accept after")
+	wantNote(t, r, "_timed", migrate.Mapped, "written as an occurrence def of 2 lifeline usages and 3 messages between their event occurrences in occurrence order")
+	wantNote(t, r, "_tSpan", migrate.Unmapped, "a DurationConstraint has no form in v2 sequence notation; the events it spans are ordered but not timed")
+	wantNote(t, r, "_tOwn", migrate.Unmapped, "a DurationConstraint has no form in v2 sequence notation; the events it spans are ordered but not timed")
+	wantNote(t, r, "_sSpan", migrate.Unmapped, "a DurationConstraint has no form in v2 sequence notation; the events it spans are ordered but not timed")
+	wantNote(t, r, "_sOpt", migrate.Approximated, "the opt fragment has no form in v2 sequence notation: its operands' messages are written in occurrence order, the operator and guards as comments")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
 	}
 }
 
@@ -1989,54 +1986,44 @@ const nestedApplications = `
   <sysml:Block xmi:id="_nb2" base_Class="_nmotor"/>
   <sysml:Block xmi:id="_nb3" base_Class="_nrig"/>`
 
-// Each reply answers the latest call of its operation between its lifelines that no earlier reply
-// has answered, so nested calls pair with their replies stack-like. Alternative operands each
-// resolve from the calls open before their fragment, so every branch may answer the same call,
-// while a reply after a fragment that may already have answered its call answers none, and the
-// operands of a par, unordered between themselves, do not answer each other's calls.
+// A reply answers the latest unanswered call of its operation between its lifelines: its
+// message carries that call's result as its payload, read through the receiving event that
+// performs the call; a reply answering no call refuses its interaction.
 func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 	r := migrateDocument(t, nestedCalls, nestedApplications)
 	for _, line := range []string{
-		"perform action outer ::> motor.spin { in rpm[1] = 30.0; }",
-		"perform action inner ::> motor.spin { in rpm[1] = 40.0; }",
-		"assign ctrl.got := inner.result;",
-		"assign ctrl.'first' := outer.result;",
-		"action either {",
-		"if mode == 1 {",
-		"assign ctrl.got := spin.result;",
-		"else {",
-		"assign ctrl.'first' := spin.result;",
+		"occurrence def Nested {",
+		"perform action outer ::> Motor::spin { in rpm[1] = 30.0; }",
+		"perform action inner ::> Motor::spin { in rpm[1] = 40.0; }",
+		"message innerDone of result : ScalarValues::Real = m.innerReceived.inner.result from m.innerDoneSent to c.innerDoneReceived;",
+		"message outerDone of result : ScalarValues::Real = m.outerReceived.outer.result from m.outerDoneSent to c.outerDoneReceived;",
+		"occurrence def Either {",
+		"/* alt [mode == 1] */",
+		"message fast of result : ScalarValues::Real = m.spinReceived.spinCall.result from m.fastSent to c.fastReceived;",
+		"/* else */",
+		"message slow of result : ScalarValues::Real = m.spinReceived.spinCall.result from m.slowSent to c.slowReceived;",
+		"occurrence def Split {",
+		"/* par */",
+		"message spin from c.spinSent to m.spinReceived;",
+		"/* and */",
+		"/* end par */",
+		"message joined of result : ScalarValues::Real = m.spinReceived.spinCall.result from m.joinedSent to c.joinedReceived;",
 		"/* not migrated: Interaction 'Twice' — the message 'late' answers no call of Spin between its lifelines before it */",
 		"/* not migrated: Interaction 'Crossed' — the combined fragment (_xpar) the message 'beside' answers no call of Spin between its lifelines before it */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_nmRb", migrate.Mapped, "written as the assignment of the call inner's results to ctrl")
-	wantNote(t, r, "_nmRa", migrate.Mapped, "written as the assignment of the call outer's results to ctrl")
-	wantNote(t, r, "_emR1", migrate.Mapped, "written as the assignment of the call spin's results to ctrl")
-	wantNote(t, r, "_emR2", migrate.Mapped, "written as the assignment of the call spin's results to ctrl")
+	wantNoLine(t, r.Notation, "assign ctrl.got")
+	replied := "the reply carries the result result of the call as its payload; the caller's got is not assigned the result result: a sequence states transfers, not assignments"
+	wantNote(t, r, "_nmRb", migrate.Approximated, replied)
+	wantNote(t, r, "_nmRa", migrate.Approximated, "the reply carries the result result of the call as its payload; the caller's first is not assigned the result result")
+	wantNote(t, r, "_emR1", migrate.Approximated, replied)
+	wantNote(t, r, "_emR2", migrate.Approximated, "the caller's first is not assigned the result result")
+	wantNote(t, r, "_pmR", migrate.Approximated, replied)
 	wantNote(t, r, "_twice", migrate.Unmapped, "the message 'late' answers no call of Spin between its lifelines before it")
-	wantNote(t, r, "_pmR", migrate.Approximated, "the result result is not bound: the reply is not in the fragment of the call it answers")
 	wantNote(t, r, "_crossed", migrate.Unmapped, "the message 'beside' answers no call of Spin between its lifelines before it")
-
-	s := session(t, r)
-	meta(t, s, "%instantiate Rig")
-	meta(t, s, "%action Rig::nested #1")
-	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
-		t.Errorf("the scenario did not complete:\n%s", out)
-	}
-	if out := meta(t, s, "%eval in #1 : ctrl.got"); !strings.Contains(out, "= 40.0") {
-		t.Errorf("the inner reply did not store the inner call's result:\n%s", out)
-	}
-	if out := meta(t, s, "%eval in #1 : ctrl.'first'"); !strings.Contains(out, "= 30.0") {
-		t.Errorf("the outer reply did not store the outer call's result:\n%s", out)
-	}
-	meta(t, s, "%action Rig::either #1")
-	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
-		t.Errorf("the alternative scenario did not complete:\n%s", out)
-	}
-	if out := meta(t, s, "%eval in #1 : ctrl.'first'"); !strings.Contains(out, "= 20.0") {
-		t.Errorf("the else branch's reply did not store the call's result:\n%s", out)
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
 	}
 }
 
@@ -2160,27 +2147,18 @@ const inoutApplications = `
   <sysml:Block xmi:id="_ib2" base_Class="_icounter"/>
   <sysml:Block xmi:id="_ib3" base_Class="_ibench"/>`
 
-// A call's argument for an inout parameter is bound with the parameter's direction, so the
-// value the callee gives the parameter is written back to what the argument named.
+// A call's argument that reads the interaction's context cannot be bound in the occurrence
+// def, which has no access to it: the perform leaves the parameter unbound and the message
+// reports it, rather than reading the context's feature through the def.
 func TestCallArgumentsKeepTheParameterDirection(t *testing.T) {
 	r := migrateDocument(t, inoutCall, inoutApplications)
-	wantLine(t, r.Notation, "perform action bump ::> counter.bump { inout level[1] = Bench::level; }")
-	wantNoLine(t, r.Notation, "{ in level[1] = this.level; }")
+	wantLine(t, r.Notation, "perform action bumpCall ::> Counter::bump;")
+	wantLine(t, r.Notation, "message bump from p.bumpSent to c.bumpReceived;")
+	wantNoLine(t, r.Notation, "level[1] = this.level")
+	wantNoLine(t, r.Notation, "level[1] = Bench::level")
+	wantNote(t, r, "_imB", migrate.Approximated, "the argument level for level reads level of the interaction's context, which its occurrence def has no access to; the parameter stays unbound")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
-	}
-
-	s := session(t, r)
-	meta(t, s, "%instantiate Bench")
-	meta(t, s, "%action Bench::raise #1")
-	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
-		t.Errorf("the scenario did not complete:\n%s", out)
-	}
-	if out := meta(t, s, "%eval in #1 : counter.count"); !strings.Contains(out, "= 3") {
-		t.Errorf("the call did not pass the level in:\n%s", out)
-	}
-	if out := meta(t, s, "%eval in #1 : level"); !strings.Contains(out, "= 9") {
-		t.Errorf("the call did not write the level back:\n%s", out)
 	}
 }
 

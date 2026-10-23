@@ -1,10 +1,12 @@
 package export_test
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 // notationFromTheGraphAlone converts src to Turtle, strips the source text and
@@ -268,8 +270,8 @@ func TestExpressionBodiesAndChainsFromTheGraphAlone(t *testing.T) {
 		"notEmpty(xs) implies sub.xs->size() > 0 xor false")
 }
 
-// A usage redefining a namesake keeps that target through the graph alone even
-// though the writer puts `redefines causes` after `subsets participant`.
+// A usage redefining a namesake keeps that target through the graph alone, in
+// the order the head spelled `redefines causes` and `subsets participant`.
 func TestSelfNamedRedefinitionTargetSurvivesTheGraphAlone(t *testing.T) {
 	src := `package P {
 	abstract occurrence causes[*];
@@ -282,7 +284,7 @@ func TestSelfNamedRedefinitionTargetSurvivesTheGraphAlone(t *testing.T) {
 }
 `
 	back := notationFromTheGraphAlone(t, "p.sysml", src)
-	wantFragments(t, back, "occurrence causes[1..*] subsets participant redefines causes;")
+	wantFragments(t, back, "occurrence causes[1..*] redefines causes subsets participant;")
 }
 
 // An unnamed usage takes its name from the first feature it redefines, so a
@@ -310,4 +312,48 @@ func TestNameFromTheFirstOfSeveralRedefinitionsFromTheGraphAlone(t *testing.T) {
 	wantFragments(t, back,
 		"attribute redefines innerSpaceDimension, faces::innerSpaceDimension;",
 		"attribute dim = base.innerSpaceDimension;")
+}
+
+// Two Subsettings of one target (`specializes x subsets x`) keep the order they were
+// spelled in from the graph alone, under either id form, rather than the fixed kind order.
+func TestSameTargetSpecializesAndSubsetsKeepTheirSpelledOrder(t *testing.T) {
+	for _, id := range []export.IDForm{export.IDQualifiedName, export.IDUUID} {
+		for _, head := range []string{"specializes x subsets x", "subsets x specializes x"} {
+			src := []byte("package P {\n\tfeature x;\n\tfeature f " + head + ";\n}\n")
+			turtle, err := convert.ConvertWith("m.kerml", src, convert.FormatSysML, convert.FormatTurtle, convert.Options{ID: id})
+			if err != nil {
+				t.Fatalf("to turtle: %v", err)
+			}
+			back, err := convert.Convert("m.ttl", withoutLayout(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("back to notation from the graph alone: %v", err)
+			}
+			if want := "feature f " + head + ";"; !strings.Contains(string(back), want) {
+				t.Errorf("id form %v: want %q in the notation from the graph alone:\n%s", id, want, back)
+			}
+		}
+	}
+}
+
+// A graph that owns no membership for a head's multiplicity (an older writer's) gets
+// it written once, with the first typing clause, however other clauses split the typings.
+func TestUnplacedMultiplicityIsWrittenOnceAcrossSplitTypings(t *testing.T) {
+	src := "package P {\n\tpart def A;\n\tpart def B;\n\tpart x;\n\tpart p : A :> x : B [2];\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	stripped := withoutLayout(t, turtle)
+	legacy := bytes.ReplaceAll(stripped, []byte("elmt:P__p_ft1, expr:P__p_pmultiplicity_om ;"), []byte("elmt:P__p_ft1 ;"))
+	legacy = bytes.ReplaceAll(legacy, []byte(`{\"@id\":\"P__p_ft1\"},{\"@id\":\"P__p_pmultiplicity_om\"}]`), []byte(`{\"@id\":\"P__p_ft1\"}]`))
+	if bytes.Equal(legacy, stripped) {
+		t.Fatalf("the multiplicity's membership was not where expected in\n%s", stripped)
+	}
+	back, err := convert.Convert("m.ttl", legacy, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the graph alone: %v", err)
+	}
+	if want := "part p : A[2] subsets x : B;"; !strings.Contains(string(back), want) {
+		t.Errorf("want %q in the notation from the graph alone:\n%s", want, back)
+	}
 }

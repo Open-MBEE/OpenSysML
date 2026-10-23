@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
@@ -515,6 +516,40 @@ func (s *Session) RunActionWithInputs(name string, inputs []string, performer ..
 		return s.withTrace(standing(Verdict{Subject: name, Status: VerdictUnresolved, Lines: lines, Values: values}, plan))
 	}
 	return s.withTrace(standing(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values}, plan))
+}
+
+// RunOccurrence performs an occurrence def as the interaction its body states,
+// which is `%occurrence`: each message is transferred from the lifeline holding
+// the event it leaves to the one holding the event it reaches, in the order the
+// events admit. The values are the transfers performed, in order.
+func (s *Session) RunOccurrence(name string) Verdict {
+	defer s.enter()()
+	return s.runOccurrence(name)
+}
+
+// runOccurrence is RunOccurrence inside a command already holding the session,
+// as `%occurrence` is.
+func (s *Session) runOccurrence(name string) Verdict {
+	ctx, err := s.getOrCreateRuntime()
+	if err != nil {
+		return s.withTrace(unresolvedVerdict(name, fmt.Errorf("%w: %w", errRuntimeInit, err).Error()))
+	}
+	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage)
+	if err != nil {
+		return s.withTrace(unresolvedVerdict(name, err.Error()))
+	}
+	run, err := ctx.ExecuteOccurrence(sym)
+	if err != nil {
+		return s.withTrace(unresolvedVerdict(name, err.Error()))
+	}
+	values := make([]NamedValue, 0, len(run.Transfers))
+	lines := make([]string, 0, len(run.Transfers))
+	for i, tr := range run.Transfers {
+		text := fmt.Sprintf("%s -> %s", tr.FromEvent, tr.ToEvent)
+		values = append(values, NamedValue{Name: fmt.Sprintf("%d %s", i+1, tr.Name), Value: text})
+		lines = append(lines, fmt.Sprintf("message %s: %s", tr.Name, text))
+	}
+	return Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values}
 }
 
 // RunStateMachine starts a state machine outside the prompt, taking only its

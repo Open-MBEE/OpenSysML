@@ -514,9 +514,8 @@ func (ctx *Context) subsettedNames(sym, owner *symbols.Symbol) []string {
 	return names
 }
 
-// metadataSubsettingNames returns the names of the owner features sym subsets through the
-// semantic metadata annotating it (SysML v2 §7.27.4, `#cause` for `CauseAndEffect::causes`):
-// the base itself when owner carries it, else the feature of owner redefining the base.
+// metadataSubsettingNames returns the owner features sym subsets through its semantic metadata
+// (SysML v2 §7.27.4, `#cause` for `causes`): the base when owner carries it, else its redefinition.
 func (ctx *Context) metadataSubsettingNames(sym, owner *symbols.Symbol) []string {
 	var names []string
 	for _, base := range ctx.model.semantics.SemanticMetadataBases(sym) {
@@ -669,9 +668,8 @@ func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Valu
 	return values, nil
 }
 
-// endContributions appends to values the attached ends of a connector object whose end
-// feature subsets the named feature (`end #cause :> causes ::> a;`): an end's value is a
-// value of what the end subsets (KerML 1.0 §7.3.4.4), named or not.
+// endContributions appends the attached ends of a connector object whose end feature subsets the
+// named feature: an end's value is a value of what the end subsets (KerML 1.0 §7.3.4.4).
 func (ctx *Context) endContributions(inst *Instance, name string, values []Value, seen map[int64]bool) ([]Value, error) {
 	for _, end := range inst.Ends {
 		if end.Feature == nil || !slices.Contains(ctx.subsettedNamesOf(inst, end.Feature), name) {
