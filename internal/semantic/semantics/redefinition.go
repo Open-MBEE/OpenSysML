@@ -360,16 +360,14 @@ func (m *Model) ImplicitParameterRedefinitions(sym *symbols.Symbol) []*symbols.S
 	return m.implicitParameterTargets(sym, true)
 }
 
-// implicitParameterCounterparts returns the parameters at sym's position in the
-// general behaviors whatever their direction, which is what a direction
-// conformance check needs: a disagreeing direction is a violation there rather
-// than an absent redefinition.
+// implicitParameterCounterparts returns the parameters at sym's position in the general
+// behaviors whatever their direction (KerML 8.4.4.6): a disagreeing one is a violation there.
 func (m *Model) implicitParameterCounterparts(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.implicitParameterTargets(sym, false)
 }
 
-// implicitParameterTargets is the shared walk: matchDirection keeps only the
-// positions whose direction agrees with sym's.
+// implicitParameterTargets is the shared walk: matchDirection keeps only the positions
+// whose direction agrees with sym's and leaves a parameter redefining by clause to it.
 func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection bool) []*symbols.Symbol {
 	if sym == nil {
 		return nil
@@ -377,8 +375,11 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 	var direction ast.FeatureDirection
 	var isResult bool
 	if sym.Recorded() {
-		if sym.Facts == nil || sym.Facts.Direction == ast.DirNone || len(sym.Facts.Redefines) > 0 {
-			return nil // explicit redefinition governs
+		if sym.Facts == nil || sym.Facts.Direction == ast.DirNone {
+			return nil
+		}
+		if matchDirection && len(sym.Facts.Redefines) > 0 {
+			return nil
 		}
 		direction = sym.Facts.Direction
 		isResult = sym.Facts.Modifiers.Has(symbols.ModResult)
@@ -387,10 +388,8 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 		if !ok || usage.Direction == ast.DirNone {
 			return nil
 		}
-		for _, rel := range usage.Relationships {
-			if rel != nil && rel.Kind == ast.RelRedefines {
-				return nil // explicit redefinition governs
-			}
+		if matchDirection && declaresRedefinitionAST(usage) {
+			return nil
 		}
 		direction = usage.Direction
 		isResult = usage.IsResult

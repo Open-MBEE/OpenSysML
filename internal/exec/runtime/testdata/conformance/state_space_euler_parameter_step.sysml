@@ -14,9 +14,10 @@ package test {
 	attribute def DecayOutput :> Output;
 
 	action decay : ContinuousStateSpaceDynamics, FixedStepDynamics {
-		in dt : DurationValue = 0.1 [s];
 		attribute rate : Real = 0.5;
 		in :>> input : DecayInput = 0 [m] * VectorOf((0.0));
+		out :>> output;
+		in dt : DurationValue = 0.1 [s];
 		:>> stateSpace : DecayState = 1 [m] * VectorOf((1.0));
 		:>> timeStep = dt;
 		:>> stopTime = 2 [s];
