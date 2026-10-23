@@ -155,7 +155,9 @@ interaction too.
   expected of that object's performance:
   `{"object": "P::alpha", "finalState": "arrived", "stateVisits": ["start", "sending", "arrived"]}`.
   An object may be a path from the usage into what it holds (`"test::scenario.tug.sup"`),
-  the usage instantiated and the path walked as `-state` and `performer_symbol_id` walk it.
+  the usage instantiated and the path walked as `-state` and `performer_symbol_id` walk it;
+  an entry may state `error` in place of a result, the text that object's performance
+  must fail with (a machine a succession still holds).
   Omit for a machine performed by no object. Such a case may carry a golden
   trace too: it records each object's materialization followed by its own
   performance, in the order the performers are listed.

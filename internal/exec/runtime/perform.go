@@ -353,13 +353,14 @@ func (e *StateExecutor) eventQueued(id int64) bool {
 // than a second. The conformance harness and the referees drive machines this way.
 func (ctx *Context) performStateWithEvents(stateMachine *symbols.Symbol, self *Instance, events []QueuedEvent) (*StateExecutor, error) {
 	exec, reused, err := ctx.stateRunFor(stateMachine, self, true)
-	if err != nil {
-		return nil, err
-	}
 	release := func() {
-		if !reused {
+		if exec != nil && !reused {
 			exec.Release()
 		}
+	}
+	if err != nil {
+		release()
+		return nil, err
 	}
 	for _, event := range events {
 		if err := exec.Enqueue(event); err != nil {

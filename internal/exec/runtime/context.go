@@ -2228,7 +2228,7 @@ func (ctx *Context) stateRunFor(stateMachine *symbols.Symbol, self *Instance, to
 		return behavior.State, true, nil
 	}
 	if behavior != nil && behavior.deferred != nil {
-		if err := ctx.checkStateSuccessionOrder(stateMachine, self, behavior); err != nil {
+		if err := ctx.checkStateSuccessionOrder(stateMachine, behavior.Object, behavior); err != nil {
 			return nil, true, err
 		}
 		if err := ctx.releaseDeferredBehavior(behavior); err != nil {

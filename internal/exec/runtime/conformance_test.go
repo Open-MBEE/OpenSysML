@@ -1154,6 +1154,7 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 				Terminated:  performer.Terminated,
 				StateVisits: performer.StateVisits,
 				Outputs:     performer.Outputs,
+				Error:       performer.Error,
 			})
 		})
 	}
