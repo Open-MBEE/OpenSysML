@@ -129,6 +129,7 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 
 func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 	paths, exampleRoot := apiJSONQualifiedNamePaths(t)
+	conversions := corpusConversions(t)
 
 	fixtures, fixtureKeys := 0, 0
 	examples, exampleKeys, skippedExamples := 0, 0, 0
@@ -144,11 +145,12 @@ func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 		isExample := strings.HasPrefix(path, exampleRoot+string(filepath.Separator))
 		t.Run(filepath.ToSlash(path), func(t *testing.T) {
 			t.Parallel()
+			defer conversions.release(path)
 			source, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
-			original, err := cachedSysMLToRDF(path, source)
+			original, err := conversions.sysMLToRDF(path, source)
 			if err != nil {
 				if isExample {
 					countsMu.Lock()
@@ -159,7 +161,7 @@ func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 				}
 				t.Fatalf("convert fixture: %v", err)
 			}
-			document, err := cachedAPIJSON(path, source, "standard", "graph")
+			document, err := conversions.apiJSON(path, source, "standard", "graph")
 			if err != nil {
 				t.Fatalf("WriteAPIJSON: %v", err)
 			}
