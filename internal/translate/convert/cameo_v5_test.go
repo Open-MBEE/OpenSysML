@@ -15,6 +15,7 @@ func TestCameoV5BlockMigrationUsesStandardNamespace(t *testing.T) {
 	}{
 		{"http:///SysML/Blocks.ecore", true},
 		{"http:///Org/Blocks.ecore", false},
+		{"http:/SysML/Blocks.ecore", false},
 		{"https://evil.example/SysML/Blocks.ecore", false},
 	} {
 		data := fmt.Sprintf(`<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmlns:blocks="%s"><uml:Model xmi:id="m"><packagedElement xmi:type="uml:Class" xmi:id="c" name="Controller"/></uml:Model><blocks:Block xmi:id="b" base_Class="c"/></xmi:XMI>`, tc.ns)

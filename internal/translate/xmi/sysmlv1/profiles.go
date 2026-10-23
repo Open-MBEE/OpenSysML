@@ -20,7 +20,7 @@ func IsSysMLNamespace(ns string) bool {
 		return strings.HasPrefix(u.Path, "/spec/SysML/")
 	case host == "eclipse.org" || strings.HasSuffix(host, ".eclipse.org"):
 		return strings.HasPrefix(strings.ToLower(u.Path), "/papyrus/sysml/")
-	case u.Host == "" && u.Scheme == "http":
+	case u.Host == "" && strings.HasPrefix(ns, "http:///"):
 		return isUML2SysMLPackage(u)
 	}
 	return false

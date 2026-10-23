@@ -2,9 +2,8 @@ package sysmlv1
 
 import "testing"
 
-// Eclipse UML2 serializes a package of the SysML profile without a URI of its own
-// under the hostless nsURI http:///SysML/<path>.ecore; Cameo's "Eclipse UML2 (v5.x)
-// XMI" export declares the standard profile's packages this way.
+// Eclipse UML2 gives a SysML profile package without a URI of its own the hostless
+// nsURI http:///SysML/<path>.ecore; Cameo's Eclipse UML2 export declares them so.
 func TestUML2HostlessSysMLNamespaces(t *testing.T) {
 	for _, ns := range []string{
 		"http:///SysML/Activities.ecore",
@@ -43,6 +42,11 @@ func TestUML2HostlessSysMLNamespaces(t *testing.T) {
 		"http://localhost/SysML/Blocks.ecore",
 		"http://user@/SysML/Blocks.ecore",
 		"https:///SysML/Blocks.ecore",
+		// Distinct namespace names that parse to the same empty host and path.
+		"http:/SysML/Blocks.ecore",
+		"http:SysML/Blocks.ecore",
+		"HTTP:///SysML/Blocks.ecore",
+		"http:////SysML/Blocks.ecore",
 		"http:///Other/Blocks.ecore",
 		"http:///SysMLx/Blocks.ecore",
 		"http:///SysML.ecore",
