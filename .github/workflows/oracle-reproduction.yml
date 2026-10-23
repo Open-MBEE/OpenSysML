@@ -67,8 +67,7 @@ jobs:
           ./scripts/download-pilot-xpect.sh
           ./scripts/download-pssm-suite.sh
           ./scripts/download-sysml-v1tov2.sh
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends poppler-utils
+          ./scripts/ci-apt-install.sh --no-install-recommends poppler-utils
           ./scripts/download-spec-examples.sh
 
       # Each oracle's -check re-runs the comparison and diffs the fresh report
