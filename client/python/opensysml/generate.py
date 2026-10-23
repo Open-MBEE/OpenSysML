@@ -3,6 +3,14 @@
 Usage::
 
     python -m opensysml.generate model.sysml -o model_types.py
+    python -m opensysml.generate lib.sysml top.sysml -o model_types.py
+    python -m opensysml.generate model/ --package Top -o top_types.py
+
+A model of several files is named the way the ``sysml`` command names one: the
+files in order, or a directory, whose ``.sysml`` and ``.kerml`` files are read in
+path order. They are parsed as one model, so a reference across files types the
+way it does in the model. ``--package`` keeps the definitions of a package (and
+its nested packages); without it the whole model is generated.
 
 The generated module contains one class per SysML definition, deriving from
 :class:`opensysml.typed.TypedObject`, with one property per feature. Output is a
@@ -20,7 +28,7 @@ import keyword
 import os
 import sys
 from dataclasses import dataclass, field, replace
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 from opensysml.capabilities import CAPABILITY_TYPE_FACTS, MissingCapabilityError, require
 from opensysml.typefacts import Multiplicity, Specialization, SymbolFacts, TypeFacts
@@ -376,15 +384,104 @@ def _accessor(feature: Feature) -> str:
     return "_t.feature_value"
 
 
-def model_stamp(source_text: str) -> str:
+def model_stamp(source_text: str, *more: str) -> str:
     """Hash of the model source a generated module was produced from.
 
     Newlines are normalized so the same model checked out with CRLF endings
-    stamps identically; nothing else about the text is interpreted.
+    stamps identically; nothing else about the text is interpreted. A model of
+    several files is stamped with the hash of the files' hashes, in order, so
+    the stamp depends on where one file ends and the next begins.
     """
-    normalized = source_text.replace("\r\n", "\n").replace("\r", "\n")
-    digest = hashlib.new(MODEL_HASH_ALGORITHM, normalized.encode("utf-8"))
-    return digest.hexdigest()
+    encoded = [_normalized(text).encode("utf-8") for text in (source_text, *more)]
+    if len(encoded) == 1:
+        return hashlib.new(MODEL_HASH_ALGORITHM, encoded[0]).hexdigest()
+    combined = hashlib.new(MODEL_HASH_ALGORITHM)
+    for data in encoded:
+        combined.update(hashlib.new(MODEL_HASH_ALGORITHM, data).digest())
+    return combined.hexdigest()
+
+
+def _normalized(source_text: str) -> str:
+    return source_text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+MODEL_FILE_SUFFIXES = (".sysml", ".kerml")
+"""File kinds a directory contributes, as under the ``sysml`` command."""
+
+
+def expand_sources(paths: Iterable[str]) -> List[str]:
+    """The model files ``paths`` name, in order, as the ``sysml`` command reads them.
+
+    A file is taken as named; a directory contributes every ``.sysml`` and
+    ``.kerml`` file beneath it in path order, hidden directories skipped and a
+    directory reached twice through links read once. A path named twice is read
+    once. A path that does not exist is kept so the reader reports it.
+
+    Raises:
+        ValueError: If a directory contains no model file: it names nothing, so
+            it is a mistake rather than a model of nothing.
+    """
+    out: List[str] = []
+    seen: set = set()
+
+    def add(path: str) -> None:
+        key = os.path.abspath(path)
+        if key not in seen:
+            seen.add(key)
+            out.append(path)
+
+    for path in paths:
+        if os.path.isdir(path):
+            files: List[str] = []
+            _model_files(path, set(), files)
+            if not files:
+                raise ValueError(f"no .sysml or .kerml file under {path}")
+            for file in sorted(files):
+                add(file)
+        else:
+            add(path)
+    return out
+
+
+def _model_files(directory: str, visited: set, out: List[str]) -> None:
+    resolved = os.path.realpath(directory)
+    if resolved in visited:
+        return
+    visited.add(resolved)
+    for entry in sorted(os.scandir(directory), key=lambda entry: entry.name):
+        if entry.is_dir():
+            if not entry.name.startswith("."):
+                _model_files(entry.path, visited, out)
+        elif entry.is_file() and entry.name.endswith(MODEL_FILE_SUFFIXES):
+            out.append(entry.path)
+
+
+def select_packages(
+    definitions: Sequence[Definition], packages: Sequence[str]
+) -> List[Definition]:
+    """The definitions owned by one of ``packages`` or a package nested in it.
+
+    A package is named by its fully-qualified name (``Top`` or ``Top::Parts``).
+
+    Raises:
+        ValueError: If a named package owns no definition in the model.
+    """
+    if not packages:
+        return list(definitions)
+    selected: List[Definition] = []
+    matched: set = set()
+    for definition in definitions:
+        owners = [p for p in packages if definition.id.startswith(p + "::")]
+        if owners:
+            matched.update(owners)
+            selected.append(definition)
+    missing = [package for package in packages if package not in matched]
+    if missing:
+        raise ValueError(
+            "no definition in the model is owned by package "
+            + ", ".join(repr(package) for package in missing)
+        )
+    return selected
 
 
 def _hash_literal(stamp: Optional[str]) -> str:
@@ -581,15 +678,20 @@ def _render_property(feature: Feature, names: Dict[str, str]) -> List[str]:
     return lines
 
 
-def generate_source(model, source_text: str) -> str:
+def generate_source(
+    model, source_text: "Union[str, Sequence[str]]", packages: Sequence[str] = ()
+) -> str:
     """Render the typed module for a loaded :class:`~opensysml.model.Model`.
 
-    ``source_text`` is the model source the module is stamped with; it is
-    required so a module cannot silently claim the hash of nothing. A model of
-    several documents (:meth:`Connection.parse_sources`) is generated whole,
-    from every document's root.
+    ``source_text`` is the model source the module is stamped with — the text
+    of one file, or the texts of several in document order; it is required so a
+    module cannot silently claim the hash of nothing. A model of several
+    documents (:meth:`Connection.parse_sources`) is generated whole, from every
+    document's root, or restricted to ``packages`` (see :func:`select_packages`).
     """
-    return render_module(collect_definitions(*model.roots), model_stamp(source_text))
+    texts = [source_text] if isinstance(source_text, str) else list(source_text)
+    definitions = select_packages(collect_definitions(*model.roots), packages)
+    return render_module(definitions, model_stamp(*texts))
 
 
 # Named in the failure message below: which binary is at fault, and what to do.
@@ -617,10 +719,29 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     """Entry point for ``python -m opensysml.generate``."""
     parser = argparse.ArgumentParser(
         prog="python -m opensysml.generate",
-        description="Generate typed Python classes from a SysML model.",
+        description=(
+            "Generate typed Python classes from a SysML model. The model is one or "
+            "more .sysml/.kerml files, parsed as one model in the order given; a "
+            "directory contributes its model files in path order."
+        ),
     )
-    parser.add_argument("source", help="path to a .sysml file")
+    parser.add_argument(
+        "sources",
+        nargs="+",
+        metavar="SOURCE",
+        help="path to a .sysml/.kerml file, or a directory of them",
+    )
     parser.add_argument("-o", "--output", help="output .py path (default: stdout)")
+    parser.add_argument(
+        "--package",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help=(
+            "generate only the definitions of this package (qualified name, nested "
+            "packages included); may repeat; default: the whole model"
+        ),
+    )
     parser.add_argument("--host", default="localhost", help="sysml-grpc host")
     # No default: an unwritten port lets --host carry its own (default 50051).
     parser.add_argument("--port", type=int, help="sysml-grpc port (default: 50051)")
@@ -639,11 +760,18 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         return 2
 
     try:
-        with open(args.source, encoding="utf-8") as handle:
-            source_text = handle.read()
-    except OSError as exc:
-        print(f"error: cannot read {args.source}: {exc}", file=sys.stderr)
+        sources = expand_sources(args.sources)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
         return 2
+    source_texts = []
+    for path in sources:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                source_texts.append(handle.read())
+        except OSError as exc:
+            print(f"error: cannot read {path}: {exc}", file=sys.stderr)
+            return 2
 
     try:
         connection = opensysml.connect(args.host, args.port)
@@ -654,9 +782,12 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
 
     # A connection of this run's own, closed when the run ends.
     with connection:
-        model = connection.load(args.source)
-
         try:
+            # One file keeps the single-document load; several are one model.
+            if len(sources) == 1:
+                model = connection.load(sources[0])
+            else:
+                model = connection.parse_sources(sources)
             require_type_facts(connection)
         except MissingCapabilityError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -665,10 +796,15 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         errors = [diag for diag in model.diagnostics if diag.severity == "error"]
         if errors:
             for diag in errors:
-                print(f"error: {diag.message}", file=sys.stderr)
+                where = f"{diag.file}: " if len(sources) > 1 and diag.file else ""
+                print(f"error: {where}{diag.message}", file=sys.stderr)
             return 1
 
-        source = generate_source(model, source_text)
+        try:
+            source = generate_source(model, source_texts, args.package)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
 
     if args.check:
         existing = None
@@ -678,9 +814,15 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         if existing == source:
             return 0
         reason = "does not exist" if existing is None else "is out of date"
+        command = ["python -m opensysml.generate", *args.sources]
+        command.extend(f"--package {package}" for package in args.package)
+        if args.host != "localhost":
+            command.append(f"--host {args.host}")
+        if args.port is not None:
+            command.append(f"--port {args.port}")
         print(
             f"error: {args.output} {reason}; regenerate with: "
-            f"python -m opensysml.generate {args.source} -o {args.output}",
+            f"{' '.join(command)} -o {args.output}",
             file=sys.stderr,
         )
         return 1
