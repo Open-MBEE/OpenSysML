@@ -18,7 +18,11 @@ type APIJSONOptions struct {
 	Diagnostic func(string)
 }
 
-const apiJSONMappingPropertyOrderKey = "sysx:mappingPropertyOrder"
+const (
+	apiJSONMappingPropertyOrderKey = "sysx:mappingPropertyOrder"
+	apiJSONMappingQualifiedNameKey = "sysx:mappingQualifiedName"
+	apiJSONMappingValuesKey        = "sysx:mappingValues"
+)
 
 // APIJSONOmission describes an object-property value omitted because its target
 // could not be resolved.
@@ -95,17 +99,23 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	evaluation := newAPIJSONEvaluation(settled, subjectSlots)
 	mappingNames := newAPIJSONMappingNameIndex(evaluation.structure.graph, subjectSlots)
 	nameIndex := newAPIJSONNameIndexWithSubjectSlots(settled, subjectSlots)
-	comparisonCache := &apiJSONTermCache{}
-	scratch := &apiJSONWriteScratch{}
+	writer := &apiJSONElementWriter{
+		graph:              settled,
+		evaluation:         evaluation,
+		mappingNames:       mappingNames,
+		nameIndex:          nameIndex,
+		comparisonCache:    &apiJSONTermCache{},
+		propertyOrderGraph: wrapped,
+		options:            options,
+		scratch:            &apiJSONWriteScratch{},
+	}
 	for _, subject := range subjects {
 		// The element form holds the model's own elements only; a library element
 		// stays a bare reference, as an ownerless element there is a root (the OMG API JSON shape).
 		if LibraryReference(settled, subject) {
 			continue
 		}
-		element, err := apiJSONElementWithEvaluationOptionsAndOrder(
-			settled, subject, evaluation, mappingNames, nameIndex, comparisonCache, wrapped, options, scratch,
-		)
+		element, err := writer.element(subject)
 		if err != nil {
 			return nil, err
 		}
@@ -262,23 +272,34 @@ func apiJSONElementWithEvaluationOptions(
 	comparisonCache *apiJSONTermCache,
 	options APIJSONOptions,
 ) (apiJSONObject, error) {
-	return apiJSONElementWithEvaluationOptionsAndOrder(
-		graph, subject, evaluation, mappingNames, nameIndex, comparisonCache, graph, options, &apiJSONWriteScratch{},
-	)
+	writer := &apiJSONElementWriter{
+		graph:              graph,
+		evaluation:         evaluation,
+		mappingNames:       mappingNames,
+		nameIndex:          nameIndex,
+		comparisonCache:    comparisonCache,
+		propertyOrderGraph: graph,
+		options:            options,
+		scratch:            &apiJSONWriteScratch{},
+	}
+	return writer.element(subject)
 }
 
-func apiJSONElementWithEvaluationOptionsAndOrder(
-	graph *rdf.Graph,
-	subject rdf.Term,
-	evaluation *apiJSONEvaluation,
-	mappingNames *apiJSONMappingNameIndex,
-	nameIndex *apiJSONNameIndex,
-	comparisonCache *apiJSONTermCache,
-	propertyOrderGraph *rdf.Graph,
-	options APIJSONOptions,
-	scratch *apiJSONWriteScratch,
-) (apiJSONObject, error) {
-	types := graph.ObjectsView(subject, rdf.RDFType)
+// apiJSONElementWriter writes the element objects of one graph: the indexes
+// and caches every subject shares, and the graph whose property order is kept.
+type apiJSONElementWriter struct {
+	graph              *rdf.Graph
+	evaluation         *apiJSONEvaluation
+	mappingNames       *apiJSONMappingNameIndex
+	nameIndex          *apiJSONNameIndex
+	comparisonCache    *apiJSONTermCache
+	propertyOrderGraph *rdf.Graph
+	options            APIJSONOptions
+	scratch            *apiJSONWriteScratch
+}
+
+func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) {
+	types := w.graph.ObjectsView(subject, rdf.RDFType)
 	if len(types) != 1 {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the subject <%s>", subject.Value),
@@ -304,7 +325,7 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 	if strings.HasPrefix(types[0].Value, rdf.SysML) {
 		metaclass = strings.TrimPrefix(types[0].Value, rdf.SysML)
 	}
-	predicates := graph.PredicatesView(subject)
+	predicates := w.graph.PredicatesView(subject)
 	element := make(apiJSONObject, 0, len(predicates)+5)
 	element = append(element,
 		apiJSONMember{key: "@type", value: apiJSONType(types[0])},
@@ -313,9 +334,9 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 	var mappingValues apiJSONObject
 	mappingValuesPosition := -1
 	var specName any
-	if evaluation != nil && evaluation.evaluator != nil && evaluation.structure != nil {
-		if semanticElement, ok := evaluation.structure.element(subject); ok {
-			value, supported := evaluation.evaluator.PropertyReadOnly(semanticElement, "Element", "qualifiedName")
+	if w.evaluation != nil && w.evaluation.evaluator != nil && w.evaluation.structure != nil {
+		if semanticElement, ok := w.evaluation.structure.element(subject); ok {
+			value, supported := w.evaluation.evaluator.PropertyReadOnly(semanticElement, "Element", "qualifiedName")
 			if supported {
 				switch value.Kind {
 				case metamodel.NullValue:
@@ -327,7 +348,7 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 			}
 		}
 	}
-	mappingName, hasMappingName, err := apiJSONMappingQualifiedName(graph, subject, mappingNames, specName)
+	mappingName, hasMappingName, err := apiJSONMappingQualifiedName(w.graph, subject, w.mappingNames, specName)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +370,7 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 					element = append(element, apiJSONMember{key: key, value: specName})
 				}
 				if hasMappingName {
-					element = append(element, apiJSONMember{key: "sysx:mappingQualifiedName", value: mappingName})
+					element = append(element, apiJSONMember{key: apiJSONMappingQualifiedNameKey, value: mappingName})
 					mappingNameEmitted = true
 				}
 				continue
@@ -357,24 +378,24 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 			property, propertyKnown := ontology.PropertyOf(metaclass, key)
 			objectProperty := propertyKnown && property.Kind == ontology.ObjectProperty
 			value, err := apiJSONSysMLValue(
-				graph, subject, predicate, key, metaclass, property, propertyKnown, objectProperty, nameIndex,
-				comparisonCache,
+				w.graph, subject, predicate, key, metaclass, property, propertyKnown, objectProperty, w.nameIndex,
+				w.comparisonCache,
 			)
 			if err != nil {
 				return nil, err
 			}
 			value, keep := apiJSONResolveUnresolvedProperty(
-				graph, nameIndex, subject, metaclass, key, value, options,
+				w.graph, w.nameIndex, subject, metaclass, key, value, w.options,
 			)
 			comparison, err := apiJSONPropertyValuesEqual(
-				graph, nameIndex, subject, predicate, key, metaclass, value, keep, comparisonCache,
+				w.graph, w.nameIndex, subject, predicate, key, metaclass, value, keep, w.comparisonCache,
 			)
 			if err != nil {
 				return nil, err
 			}
 			if !comparison.equal {
 				mapped, err := apiJSONMappingValuesForProperty(
-					graph, nameIndex, subject, predicate, key, comparison.members, comparison.hasAnnotation,
+					w.graph, w.nameIndex, subject, predicate, key, comparison.members, comparison.hasAnnotation,
 				)
 				if err != nil {
 					return nil, fmt.Errorf("sysml:%s of <%s>: %w", key, subject.Value, err)
@@ -392,7 +413,7 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 			}
 		case strings.HasPrefix(predicate, rdf.OpenSysML):
 			key := "sysx:" + strings.TrimPrefix(predicate, rdf.OpenSysML)
-			objects := graph.ObjectsView(subject, predicate)
+			objects := w.graph.ObjectsView(subject, predicate)
 			value, err := apiJSONValues(subject, "", objects, false)
 			if err != nil {
 				return nil, err
@@ -409,10 +430,10 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 		element = append(element, apiJSONMember{key: "qualifiedName", value: specName})
 	}
 	if hasMappingName && !mappingNameEmitted {
-		element = append(element, apiJSONMember{key: "sysx:mappingQualifiedName", value: mappingName})
+		element = append(element, apiJSONMember{key: apiJSONMappingQualifiedNameKey, value: mappingName})
 	}
 	if len(mappingValues) > 0 {
-		member := apiJSONMember{key: "sysx:mappingValues", value: mappingValues}
+		member := apiJSONMember{key: apiJSONMappingValuesKey, value: mappingValues}
 		if mappingValuesPosition < 0 {
 			element = append(element, member)
 		} else {
@@ -421,14 +442,14 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 			element[mappingValuesPosition] = member
 		}
 	}
-	element = appendAPIJSONOwnedAbsencesWithScratch(graph, subject, element, types[0], scratch)
-	graphOrder := apiJSONGraphPropertyOrder(propertyOrderGraph, subject)
+	element = appendAPIJSONOwnedAbsencesWithScratch(w.graph, subject, element, types[0], w.scratch)
+	graphOrder := apiJSONGraphPropertyOrder(w.propertyOrderGraph, subject)
 	graphOrder = apiJSONGraphPropertyOrderWithFallback(
-		graphOrder, apiJSONGraphPropertyOrder(graph, subject),
+		graphOrder, apiJSONGraphPropertyOrder(w.graph, subject),
 	)
-	if len(graphOrder) > 0 && apiJSONHasPropertyOrderSidecar(element, graph, subject) {
+	if len(graphOrder) > 0 && apiJSONHasPropertyOrderSidecar(element, w.graph, subject) {
 		naturalOrder, sidecarOnly := apiJSONNaturalPropertyOrderWithScratch(
-			graph, subject, element, graphOrder, scratch,
+			w.graph, subject, element, graphOrder, w.scratch,
 		)
 		if apiJSONHasMisplacedSidecarProperty(graphOrder, naturalOrder, sidecarOnly) {
 			element = append(element, apiJSONMember{
@@ -443,7 +464,7 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 func apiJSONHasPropertyOrderSidecar(element apiJSONObject, graph *rdf.Graph, subject rdf.Term) bool {
 	for _, member := range element {
 		switch member.key {
-		case "qualifiedName", "sysx:mappingQualifiedName", "sysx:mappingValues":
+		case "qualifiedName", apiJSONMappingQualifiedNameKey, apiJSONMappingValuesKey:
 			return true
 		}
 	}
@@ -534,8 +555,8 @@ func apiJSONNaturalPropertyOrderWithScratch(
 	hasQualifiedName := false
 	for i, member := range element {
 		switch member.key {
-		case "@type", "@id", "sysx:mappingValues", apiJSONMappingPropertyOrderKey:
-		case "sysx:mappingQualifiedName":
+		case "@type", "@id", apiJSONMappingValuesKey, apiJSONMappingPropertyOrderKey:
+		case apiJSONMappingQualifiedNameKey:
 			if mappingQualifiedNameIndex < 0 {
 				mappingQualifiedNameIndex = i
 			}
@@ -549,9 +570,9 @@ func apiJSONNaturalPropertyOrderWithScratch(
 
 	for _, member := range element {
 		switch member.key {
-		case "@type", "@id", apiJSONMappingPropertyOrderKey, "sysx:mappingQualifiedName":
+		case "@type", "@id", apiJSONMappingPropertyOrderKey, apiJSONMappingQualifiedNameKey:
 			continue
-		case "sysx:mappingValues":
+		case apiJSONMappingValuesKey:
 			values, ok := member.value.(apiJSONObject)
 			if !ok {
 				continue

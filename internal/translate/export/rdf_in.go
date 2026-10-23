@@ -2645,24 +2645,18 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	typedPart := ""
 	namedMult := false
 	placed, leads := d.multiplicityPlacement(el)
+	// The multiplicity follows the name or the reference when it leads the
+	// clauses, and otherwise only when no owned relationship or typing places it.
+	inline := leads || (!placed && len(typed) == 0)
 	switch {
-	case leads && len(identWords) > 0 && multPart != "":
+	case inline && len(identWords) > 0 && multPart != "":
 		identWords[len(identWords)-1] += multPart
 		namedMult, multPart = true, ""
-	case leads && referenced && multPart != "":
+	case inline && referenced && multPart != "":
 		words[len(words)-1] += multPart
 		multPart = ""
-	case placed:
-		// The owned relationships place the multiplicity among the clauses.
+	case placed || len(typed) > 0:
 		typedPart, multPart = multPart, ""
-	case len(typed) > 0:
-		typedPart, multPart = multPart, ""
-	case len(identWords) > 0 && multPart != "":
-		identWords[len(identWords)-1] += multPart
-		namedMult, multPart = true, ""
-	case referenced && multPart != "":
-		words[len(words)-1] += multPart
-		multPart = ""
 	}
 	words = append(words, identWords...)
 	// The accept shorthand writes its parameter into the head, ahead of the
