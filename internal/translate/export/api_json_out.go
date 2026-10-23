@@ -411,6 +411,8 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 			if keep {
 				element = append(element, apiJSONMember{key: key, value: value})
 			}
+		case apiJSONReservedPredicate(predicate):
+			continue
 		case strings.HasPrefix(predicate, rdf.OpenSysML):
 			key := "sysx:" + strings.TrimPrefix(predicate, rdf.OpenSysML)
 			objects := w.graph.ObjectsView(subject, predicate)
@@ -443,6 +445,9 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 		}
 	}
 	element = appendAPIJSONOwnedAbsencesWithScratch(w.graph, subject, element, types[0], w.scratch)
+	if apiJSONRootSubject(w.graph, subject) && !apiJSONExternalForm(w.graph, w.scratch) {
+		element = append(element, apiJSONMember{key: apiJSONStatedDefaultsKey, value: true})
+	}
 	graphOrder := apiJSONGraphPropertyOrder(w.propertyOrderGraph, subject)
 	graphOrder = apiJSONGraphPropertyOrderWithFallback(
 		graphOrder, apiJSONGraphPropertyOrder(w.graph, subject),
@@ -496,6 +501,7 @@ func apiJSONNaturalPropertyOrder(graph *rdf.Graph, subject rdf.Term, element api
 
 type apiJSONWriteScratch struct {
 	absences            apiJSONObject
+	externalForm        *bool
 	memberProperties    map[string]bool
 	emitted             map[string]bool
 	graphProperties     map[string]bool

@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:5657b681faf41eb45c82092332c8989c8e2e0fa433cf78a27eb11342c5302514"
+        "sourceDigest": "sha256:dabc2b836bc3c104cec2948c45cfd7c248a4fc2a845e1360d99d17bdd3ee134d"
       }
     ],
     "inputs": [
@@ -120,16 +120,16 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 649821,
-      "presentDifferent": 26807,
-      "oursMissing": 1079787,
-      "pilotMissing": 66545,
-      "absentBoth": 2406377,
+      "presentEqual": 1112694,
+      "presentDifferent": 27102,
+      "oursMissing": 1065902,
+      "pilotMissing": 67686,
+      "absentBoth": 1957101,
       "indeterminate": 26031
     },
-    "rows": 11718,
+    "rows": 11730,
     "unkeyedReferences": 110971,
-    "extensionProperties": 157882,
+    "extensionProperties": 158714,
     "duplicateElements": {
       "ours": 525,
       "pilot": 78121
@@ -160,11 +160,11 @@
         "typeMismatch": 10
       },
       "properties": {
-        "presentEqual": 53381,
-        "presentDifferent": 1811,
-        "oursMissing": 88043,
+        "presentEqual": 90298,
+        "presentDifferent": 1839,
+        "oursMissing": 86637,
         "pilotMissing": 5126,
-        "absentBoth": 200267,
+        "absentBoth": 164728,
         "indeterminate": 1594
       },
       "duplicateElements": {
@@ -195,11 +195,11 @@
         "typeMismatch": 59
       },
       "properties": {
-        "presentEqual": 193152,
-        "presentDifferent": 7517,
-        "oursMissing": 318686,
+        "presentEqual": 330426,
+        "presentDifferent": 7635,
+        "oursMissing": 314323,
         "pilotMissing": 19458,
-        "absentBoth": 714824,
+        "absentBoth": 581795,
         "indeterminate": 6812
       },
       "duplicateElements": {
@@ -230,11 +230,11 @@
         "typeMismatch": 15
       },
       "properties": {
-        "presentEqual": 67082,
-        "presentDifferent": 3118,
-        "oursMissing": 110547,
+        "presentEqual": 114030,
+        "presentDifferent": 3138,
+        "oursMissing": 108866,
         "pilotMissing": 6811,
-        "absentBoth": 251999,
+        "absentBoth": 206712,
         "indeterminate": 2194
       },
       "duplicateElements": {
@@ -266,11 +266,11 @@
         "typeMismatch": 1034
       },
       "properties": {
-        "presentEqual": 44577,
+        "presentEqual": 73725,
         "presentDifferent": 2504,
-        "oursMissing": 63934,
-        "pilotMissing": 5065,
-        "absentBoth": 135877,
+        "oursMissing": 63927,
+        "pilotMissing": 5784,
+        "absentBoth": 106739,
         "indeterminate": 1421
       },
       "duplicateElements": {
@@ -301,11 +301,11 @@
         "typeMismatch": 397
       },
       "properties": {
-        "presentEqual": 47298,
-        "presentDifferent": 1484,
-        "oursMissing": 75012,
-        "pilotMissing": 5041,
-        "absentBoth": 163772,
+        "presentEqual": 76417,
+        "presentDifferent": 1553,
+        "oursMissing": 74026,
+        "pilotMissing": 5295,
+        "absentBoth": 135574,
         "indeterminate": 1985
       },
       "duplicateElements": {
@@ -337,11 +337,11 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 9277,
-        "presentDifferent": 401,
-        "oursMissing": 15672,
-        "pilotMissing": 997,
-        "absentBoth": 36926,
+        "presentEqual": 15960,
+        "presentDifferent": 408,
+        "oursMissing": 15433,
+        "pilotMissing": 1012,
+        "absentBoth": 30475,
         "indeterminate": 376
       },
       "duplicateElements": {
@@ -373,11 +373,11 @@
         "typeMismatch": 186
       },
       "properties": {
-        "presentEqual": 186183,
-        "presentDifferent": 7989,
-        "oursMissing": 318978,
-        "pilotMissing": 19327,
-        "absentBoth": 717805,
+        "presentEqual": 324586,
+        "presentDifferent": 8042,
+        "oursMissing": 314574,
+        "pilotMissing": 19480,
+        "absentBoth": 583753,
         "indeterminate": 9561
       },
       "duplicateElements": {
@@ -408,11 +408,11 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 362,
+        "presentEqual": 555,
         "presentDifferent": 1,
-        "oursMissing": 462,
+        "oursMissing": 454,
         "pilotMissing": 41,
-        "absentBoth": 1178,
+        "absentBoth": 993,
         "indeterminate": 13
       },
       "duplicateElements": {
@@ -443,11 +443,11 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 48509,
+        "presentEqual": 86697,
         "presentDifferent": 1982,
-        "oursMissing": 88453,
+        "oursMissing": 87662,
         "pilotMissing": 4679,
-        "absentBoth": 183729,
+        "absentBoth": 146332,
         "indeterminate": 2075
       },
       "duplicateElements": {
@@ -642,11 +642,11 @@
       0
     ],
     "AcceptActionUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AcceptActionUsage.isComposite": [
@@ -666,43 +666,43 @@
       0
     ],
     "AcceptActionUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AcceptActionUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AcceptActionUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AcceptActionUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AcceptActionUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AcceptActionUsage.isLibraryElement": [
@@ -714,19 +714,19 @@
       0
     ],
     "AcceptActionUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AcceptActionUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AcceptActionUsage.isReference": [
@@ -738,19 +738,19 @@
       0
     ],
     "AcceptActionUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AcceptActionUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AcceptActionUsage.isVariable": [
@@ -762,9 +762,9 @@
       0
     ],
     "AcceptActionUsage.isVariation": [
-      0,
-      0,
       47,
+      0,
+      0,
       0,
       0,
       0
@@ -1482,11 +1482,11 @@
       0
     ],
     "ActionDefinition.isAbstract": [
-      1,
+      177,
       0,
       0,
       0,
-      176,
+      0,
       0
     ],
     "ActionDefinition.isConjugated": [
@@ -1498,19 +1498,19 @@
       0
     ],
     "ActionDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       177,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ActionDefinition.isIndividual": [
-      3,
+      177,
       0,
       0,
       0,
-      174,
+      0,
       0
     ],
     "ActionDefinition.isLibraryElement": [
@@ -1522,17 +1522,17 @@
       0
     ],
     "ActionDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       177,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ActionDefinition.isVariation": [
-      1,
+      177,
       0,
-      176,
+      0,
       0,
       0,
       0
@@ -2202,11 +2202,11 @@
       0
     ],
     "ActionUsage.isAbstract": [
-      2,
+      517,
       0,
       0,
       0,
-      515,
+      0,
       0
     ],
     "ActionUsage.isComposite": [
@@ -2226,43 +2226,43 @@
       0
     ],
     "ActionUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       517,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ActionUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       517,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ActionUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       517,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ActionUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       517,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ActionUsage.isIndividual": [
-      3,
+      517,
       0,
       0,
       0,
-      514,
+      0,
       0
     ],
     "ActionUsage.isLibraryElement": [
@@ -2274,19 +2274,19 @@
       0
     ],
     "ActionUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       517,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ActionUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       517,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ActionUsage.isReference": [
@@ -2298,19 +2298,19 @@
       0
     ],
     "ActionUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       517,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ActionUsage.isUnique": [
-      1,
+      517,
       0,
       0,
       0,
-      516,
+      0,
       0
     ],
     "ActionUsage.isVariable": [
@@ -2330,9 +2330,9 @@
       0
     ],
     "ActionUsage.isVariation": [
-      2,
+      517,
       0,
-      515,
+      0,
       0,
       0,
       0
@@ -2994,19 +2994,19 @@
       0
     ],
     "ActorMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       71,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ActorMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       71,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ActorMembership.isLibraryElement": [
@@ -3346,11 +3346,11 @@
       0
     ],
     "AllocationDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationDefinition.isConjugated": [
@@ -3362,27 +3362,27 @@
       0
     ],
     "AllocationDefinition.isImplied": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationDefinition.isLibraryElement": [
@@ -3394,17 +3394,17 @@
       0
     ],
     "AllocationDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationDefinition.isVariation": [
-      0,
-      0,
       8,
+      0,
+      0,
       0,
       0,
       0
@@ -4122,11 +4122,11 @@
       0
     ],
     "AllocationUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationUsage.isComposite": [
@@ -4146,51 +4146,51 @@
       0
     ],
     "AllocationUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationUsage.isImplied": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationUsage.isLibraryElement": [
@@ -4202,19 +4202,19 @@
       0
     ],
     "AllocationUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationUsage.isReference": [
@@ -4226,19 +4226,19 @@
       0
     ],
     "AllocationUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AllocationUsage.isVariable": [
@@ -4250,9 +4250,9 @@
       0
     ],
     "AllocationUsage.isVariation": [
-      0,
-      0,
       10,
+      0,
+      0,
       0,
       0,
       0
@@ -5018,11 +5018,11 @@
       0
     ],
     "AnalysisCaseDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       30,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AnalysisCaseDefinition.isConjugated": [
@@ -5034,19 +5034,19 @@
       0
     ],
     "AnalysisCaseDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       30,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AnalysisCaseDefinition.isIndividual": [
-      1,
+      30,
       0,
       0,
       0,
-      29,
+      0,
       0
     ],
     "AnalysisCaseDefinition.isLibraryElement": [
@@ -5066,17 +5066,17 @@
       0
     ],
     "AnalysisCaseDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       30,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AnalysisCaseDefinition.isVariation": [
-      0,
-      0,
       30,
+      0,
+      0,
       0,
       0,
       0
@@ -5818,11 +5818,11 @@
       0
     ],
     "AnalysisCaseUsage.isAbstract": [
-      1,
+      41,
       0,
       0,
       0,
-      40,
+      0,
       0
     ],
     "AnalysisCaseUsage.isComposite": [
@@ -5842,43 +5842,43 @@
       0
     ],
     "AnalysisCaseUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AnalysisCaseUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AnalysisCaseUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AnalysisCaseUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AnalysisCaseUsage.isIndividual": [
-      1,
+      41,
       0,
       0,
       0,
-      40,
+      0,
       0
     ],
     "AnalysisCaseUsage.isLibraryElement": [
@@ -5898,19 +5898,19 @@
       0
     ],
     "AnalysisCaseUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AnalysisCaseUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AnalysisCaseUsage.isReference": [
@@ -5922,19 +5922,19 @@
       0
     ],
     "AnalysisCaseUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AnalysisCaseUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AnalysisCaseUsage.isVariable": [
@@ -5946,9 +5946,9 @@
       0
     ],
     "AnalysisCaseUsage.isVariation": [
-      1,
+      41,
       0,
-      40,
+      0,
       0,
       0,
       0
@@ -6602,19 +6602,19 @@
       0
     ],
     "Annotation.isImplied": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Annotation.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Annotation.isLibraryElement": [
@@ -6922,11 +6922,11 @@
       0
     ],
     "AssertConstraintUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssertConstraintUsage.isComposite": [
@@ -6946,43 +6946,43 @@
       0
     ],
     "AssertConstraintUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssertConstraintUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssertConstraintUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssertConstraintUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssertConstraintUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssertConstraintUsage.isLibraryElement": [
@@ -7002,27 +7002,27 @@
       0
     ],
     "AssertConstraintUsage.isNegated": [
-      4,
+      79,
       0,
       0,
       0,
-      75,
+      0,
       0
     ],
     "AssertConstraintUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssertConstraintUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssertConstraintUsage.isReference": [
@@ -7034,19 +7034,19 @@
       0
     ],
     "AssertConstraintUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssertConstraintUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssertConstraintUsage.isVariable": [
@@ -7058,9 +7058,9 @@
       0
     ],
     "AssertConstraintUsage.isVariation": [
-      0,
-      0,
       79,
+      0,
+      0,
       0,
       0,
       0
@@ -7842,11 +7842,11 @@
       0
     ],
     "AssignmentActionUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       111,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssignmentActionUsage.isComposite": [
@@ -7866,43 +7866,43 @@
       0
     ],
     "AssignmentActionUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       111,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssignmentActionUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       111,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssignmentActionUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       111,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssignmentActionUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       111,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssignmentActionUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       111,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssignmentActionUsage.isLibraryElement": [
@@ -7914,19 +7914,19 @@
       0
     ],
     "AssignmentActionUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       111,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssignmentActionUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       111,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssignmentActionUsage.isReference": [
@@ -7938,19 +7938,19 @@
       0
     ],
     "AssignmentActionUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       111,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssignmentActionUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       111,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssignmentActionUsage.isVariable": [
@@ -7962,9 +7962,9 @@
       0
     ],
     "AssignmentActionUsage.isVariation": [
-      0,
-      0,
       111,
+      0,
+      0,
       0,
       0,
       0
@@ -8682,11 +8682,11 @@
       0
     ],
     "Association.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Association.isAll": [
@@ -8706,19 +8706,19 @@
       0
     ],
     "Association.isImplied": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Association.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Association.isLibraryElement": [
@@ -8730,11 +8730,11 @@
       0
     ],
     "Association.isSufficient": [
+      57,
       0,
       0,
-      1,
       0,
-      56,
+      0,
       0
     ],
     "Association.member": [
@@ -9146,11 +9146,11 @@
       0
     ],
     "AssociationStructure.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssociationStructure.isConjugated": [
@@ -9162,19 +9162,19 @@
       0
     ],
     "AssociationStructure.isImplied": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssociationStructure.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssociationStructure.isLibraryElement": [
@@ -9186,11 +9186,11 @@
       0
     ],
     "AssociationStructure.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AssociationStructure.member": [
@@ -9594,11 +9594,11 @@
       0
     ],
     "AttributeDefinition.isAbstract": [
-      2,
+      208,
       0,
       0,
       0,
-      206,
+      0,
       0
     ],
     "AttributeDefinition.isConjugated": [
@@ -9610,11 +9610,11 @@
       0
     ],
     "AttributeDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       208,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AttributeDefinition.isLibraryElement": [
@@ -9626,17 +9626,17 @@
       0
     ],
     "AttributeDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       208,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AttributeDefinition.isVariation": [
-      2,
+      208,
       0,
-      206,
+      0,
       0,
       0,
       0
@@ -10266,11 +10266,11 @@
       0
     ],
     "AttributeUsage.isAbstract": [
-      8,
+      2500,
       0,
       0,
       0,
-      2492,
+      0,
       0
     ],
     "AttributeUsage.isComposite": [
@@ -10290,11 +10290,11 @@
       0
     ],
     "AttributeUsage.isConstant": [
-      2,
+      2500,
       0,
       0,
       0,
-      2498,
+      0,
       0
     ],
     "AttributeUsage.isDefault": [
@@ -10306,27 +10306,27 @@
       0
     ],
     "AttributeUsage.isDerived": [
-      2,
+      2500,
       0,
       0,
       0,
-      2498,
+      0,
       0
     ],
     "AttributeUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       2500,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AttributeUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       2500,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AttributeUsage.isInitial": [
@@ -10346,19 +10346,19 @@
       0
     ],
     "AttributeUsage.isOrdered": [
-      10,
+      2500,
       0,
       0,
       0,
-      2490,
+      0,
       0
     ],
     "AttributeUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       2500,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AttributeUsage.isReference": [
@@ -10378,19 +10378,19 @@
       0
     ],
     "AttributeUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       2500,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "AttributeUsage.isUnique": [
-      4,
+      2500,
       0,
       0,
       0,
-      2496,
+      0,
       0
     ],
     "AttributeUsage.isVariable": [
@@ -10410,9 +10410,9 @@
       0
     ],
     "AttributeUsage.isVariation": [
-      7,
+      2500,
       0,
-      2493,
+      0,
       0,
       0,
       0
@@ -11146,11 +11146,11 @@
       0
     ],
     "Behavior.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       65,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Behavior.isConjugated": [
@@ -11162,11 +11162,11 @@
       0
     ],
     "Behavior.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       65,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Behavior.isLibraryElement": [
@@ -11178,11 +11178,11 @@
       0
     ],
     "Behavior.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       65,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Behavior.member": [
@@ -11594,11 +11594,11 @@
       0
     ],
     "BindingConnector.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnector.isComposite": [
@@ -11618,43 +11618,43 @@
       0
     ],
     "BindingConnector.isConstant": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnector.isDerived": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnector.isEnd": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnector.isImplied": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnector.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnector.isLibraryElement": [
@@ -11666,35 +11666,35 @@
       0
     ],
     "BindingConnector.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnector.isPortion": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnector.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnector.isUnique": [
-      0,
-      0,
-      0,
-      0,
       8,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnector.isVariable": [
@@ -11703,6 +11703,14 @@
       0,
       0,
       8,
+      0
+    ],
+    "BindingConnector.isVariation": [
+      0,
+      0,
+      0,
+      8,
+      0,
       0
     ],
     "BindingConnector.member": [
@@ -12242,11 +12250,11 @@
       0
     ],
     "BindingConnectorAsUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnectorAsUsage.isComposite": [
@@ -12266,43 +12274,43 @@
       0
     ],
     "BindingConnectorAsUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnectorAsUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnectorAsUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnectorAsUsage.isImplied": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnectorAsUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnectorAsUsage.isLibraryElement": [
@@ -12314,19 +12322,19 @@
       0
     ],
     "BindingConnectorAsUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnectorAsUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnectorAsUsage.isReference": [
@@ -12338,19 +12346,19 @@
       0
     ],
     "BindingConnectorAsUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnectorAsUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BindingConnectorAsUsage.isVariable": [
@@ -12362,9 +12370,9 @@
       0
     ],
     "BindingConnectorAsUsage.isVariation": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0
@@ -13122,11 +13130,11 @@
       0
     ],
     "BooleanExpression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BooleanExpression.isComposite": [
@@ -13146,35 +13154,35 @@
       0
     ],
     "BooleanExpression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BooleanExpression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BooleanExpression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BooleanExpression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BooleanExpression.isLibraryElement": [
@@ -13194,43 +13202,43 @@
       0
     ],
     "BooleanExpression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BooleanExpression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BooleanExpression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BooleanExpression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BooleanExpression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "BooleanExpression.member": [
@@ -13698,11 +13706,11 @@
       0
     ],
     "CalculationDefinition.isAbstract": [
-      1,
+      173,
       0,
       0,
       0,
-      172,
+      0,
       0
     ],
     "CalculationDefinition.isConjugated": [
@@ -13714,19 +13722,19 @@
       0
     ],
     "CalculationDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       173,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       173,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationDefinition.isLibraryElement": [
@@ -13746,17 +13754,17 @@
       0
     ],
     "CalculationDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       173,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationDefinition.isVariation": [
-      0,
-      0,
       173,
+      0,
+      0,
       0,
       0,
       0
@@ -14434,11 +14442,11 @@
       0
     ],
     "CalculationUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       114,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationUsage.isComposite": [
@@ -14458,43 +14466,43 @@
       0
     ],
     "CalculationUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       114,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       114,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       114,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       114,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       114,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationUsage.isLibraryElement": [
@@ -14514,19 +14522,19 @@
       0
     ],
     "CalculationUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       114,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       114,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationUsage.isReference": [
@@ -14538,19 +14546,19 @@
       0
     ],
     "CalculationUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       114,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       114,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CalculationUsage.isVariable": [
@@ -14562,9 +14570,9 @@
       0
     ],
     "CalculationUsage.isVariation": [
-      0,
-      0,
       114,
+      0,
+      0,
       0,
       0,
       0
@@ -15314,11 +15322,11 @@
       0
     ],
     "CaseDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseDefinition.isConjugated": [
@@ -15330,19 +15338,19 @@
       0
     ],
     "CaseDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseDefinition.isLibraryElement": [
@@ -15362,17 +15370,17 @@
       0
     ],
     "CaseDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseDefinition.isVariation": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0
@@ -16082,11 +16090,11 @@
       0
     ],
     "CaseUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseUsage.isComposite": [
@@ -16106,43 +16114,43 @@
       0
     ],
     "CaseUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseUsage.isLibraryElement": [
@@ -16162,19 +16170,19 @@
       0
     ],
     "CaseUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseUsage.isReference": [
@@ -16186,19 +16194,19 @@
       0
     ],
     "CaseUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CaseUsage.isVariable": [
@@ -16210,9 +16218,9 @@
       0
     ],
     "CaseUsage.isVariation": [
-      0,
-      0,
       5,
+      0,
+      0,
       0,
       0,
       0
@@ -16898,11 +16906,11 @@
       0
     ],
     "Class.isAbstract": [
-      1,
+      135,
       0,
       0,
       0,
-      134,
+      0,
       0
     ],
     "Class.isAll": [
@@ -16922,11 +16930,11 @@
       0
     ],
     "Class.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       135,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Class.isLibraryElement": [
@@ -16938,11 +16946,11 @@
       0
     ],
     "Class.isSufficient": [
+      135,
       0,
       0,
-      4,
       0,
-      131,
+      0,
       0
     ],
     "Class.lowerBound": [
@@ -17338,11 +17346,11 @@
       0
     ],
     "Classifier.isAbstract": [
-      5,
+      104,
       0,
       0,
       0,
-      99,
+      0,
       0
     ],
     "Classifier.isConjugated": [
@@ -17354,11 +17362,11 @@
       0
     ],
     "Classifier.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       104,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Classifier.isLibraryElement": [
@@ -17370,11 +17378,11 @@
       0
     ],
     "Classifier.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       104,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Classifier.member": [
@@ -17802,11 +17810,11 @@
       0
     ],
     "CollectExpression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CollectExpression.isComposite": [
@@ -17826,35 +17834,35 @@
       0
     ],
     "CollectExpression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CollectExpression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CollectExpression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CollectExpression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CollectExpression.isLibraryElement": [
@@ -17874,43 +17882,43 @@
       0
     ],
     "CollectExpression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CollectExpression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CollectExpression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CollectExpression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CollectExpression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "CollectExpression.member": [
@@ -18242,11 +18250,11 @@
       0
     ],
     "Comment.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       32,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Comment.isLibraryElement": [
@@ -18506,11 +18514,11 @@
       0
     ],
     "ConcernDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernDefinition.isConjugated": [
@@ -18522,19 +18530,19 @@
       0
     ],
     "ConcernDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernDefinition.isLibraryElement": [
@@ -18554,17 +18562,17 @@
       0
     ],
     "ConcernDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernDefinition.isVariation": [
-      0,
-      0,
       10,
+      0,
+      0,
       0,
       0,
       0
@@ -19306,11 +19314,11 @@
       0
     ],
     "ConcernUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       21,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernUsage.isComposite": [
@@ -19330,43 +19338,43 @@
       0
     ],
     "ConcernUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       21,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       21,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       21,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       21,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       21,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernUsage.isLibraryElement": [
@@ -19386,19 +19394,19 @@
       0
     ],
     "ConcernUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       21,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       21,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernUsage.isReference": [
@@ -19410,19 +19418,19 @@
       0
     ],
     "ConcernUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       21,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       21,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConcernUsage.isVariable": [
@@ -19434,9 +19442,9 @@
       0
     ],
     "ConcernUsage.isVariation": [
-      0,
-      0,
       21,
+      0,
+      0,
       0,
       0,
       0
@@ -20234,11 +20242,11 @@
       0
     ],
     "ConjugatedPortDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       125,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConjugatedPortDefinition.isConjugated": [
@@ -20250,19 +20258,19 @@
       0
     ],
     "ConjugatedPortDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       125,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConjugatedPortDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       125,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConjugatedPortDefinition.isLibraryElement": [
@@ -20274,17 +20282,17 @@
       0
     ],
     "ConjugatedPortDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       125,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConjugatedPortDefinition.isVariation": [
-      0,
-      0,
       125,
+      0,
+      0,
       0,
       0,
       0
@@ -20810,19 +20818,19 @@
       0
     ],
     "ConjugatedPortTyping.isImplied": [
-      0,
-      0,
-      0,
-      0,
       64,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConjugatedPortTyping.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       64,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConjugatedPortTyping.isLibraryElement": [
@@ -21010,19 +21018,19 @@
       0
     ],
     "Conjugation.isImplied": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Conjugation.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Conjugation.isLibraryElement": [
@@ -21298,11 +21306,11 @@
       0
     ],
     "ConnectionDefinition.isAbstract": [
-      1,
+      43,
       0,
       0,
       0,
-      42,
+      0,
       0
     ],
     "ConnectionDefinition.isConjugated": [
@@ -21314,27 +21322,27 @@
       0
     ],
     "ConnectionDefinition.isImplied": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionDefinition.isLibraryElement": [
@@ -21346,17 +21354,17 @@
       0
     ],
     "ConnectionDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionDefinition.isVariation": [
-      0,
-      0,
       43,
+      0,
+      0,
       0,
       0,
       0
@@ -22074,11 +22082,11 @@
       0
     ],
     "ConnectionUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionUsage.isComposite": [
@@ -22098,51 +22106,51 @@
       0
     ],
     "ConnectionUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionUsage.isImplied": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionUsage.isLibraryElement": [
@@ -22154,19 +22162,19 @@
       0
     ],
     "ConnectionUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionUsage.isReference": [
@@ -22178,19 +22186,19 @@
       0
     ],
     "ConnectionUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConnectionUsage.isVariable": [
@@ -22202,9 +22210,9 @@
       0
     ],
     "ConnectionUsage.isVariation": [
-      0,
-      0,
       79,
+      0,
+      0,
       0,
       0,
       0
@@ -23042,11 +23050,11 @@
       0
     ],
     "Connector.isAbstract": [
-      1,
+      36,
       0,
       0,
       0,
-      35,
+      0,
       0
     ],
     "Connector.isComposite": [
@@ -23066,43 +23074,43 @@
       0
     ],
     "Connector.isConstant": [
-      0,
-      0,
-      0,
-      0,
       36,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Connector.isDerived": [
-      0,
-      0,
-      0,
-      0,
       36,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Connector.isEnd": [
-      0,
-      0,
-      0,
-      0,
       36,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Connector.isImplied": [
-      0,
-      0,
-      0,
-      0,
       36,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Connector.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       36,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Connector.isLibraryElement": [
@@ -23114,43 +23122,43 @@
       0
     ],
     "Connector.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       36,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Connector.isPortion": [
-      0,
-      0,
-      0,
-      0,
       36,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Connector.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       36,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Connector.isUnique": [
-      0,
-      0,
-      0,
-      0,
       36,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Connector.isVariable": [
+      36,
       0,
       0,
-      2,
       0,
-      34,
+      0,
       0
     ],
     "Connector.member": [
@@ -23650,11 +23658,11 @@
       0
     ],
     "ConstraintDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintDefinition.isConjugated": [
@@ -23666,19 +23674,19 @@
       0
     ],
     "ConstraintDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintDefinition.isLibraryElement": [
@@ -23698,17 +23706,17 @@
       0
     ],
     "ConstraintDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintDefinition.isVariation": [
-      0,
-      0,
       26,
+      0,
+      0,
       0,
       0,
       0
@@ -24378,11 +24386,11 @@
       0
     ],
     "ConstraintUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       204,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintUsage.isComposite": [
@@ -24402,43 +24410,43 @@
       0
     ],
     "ConstraintUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       204,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       204,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       204,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       204,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       204,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintUsage.isLibraryElement": [
@@ -24458,19 +24466,19 @@
       0
     ],
     "ConstraintUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       204,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       204,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintUsage.isReference": [
@@ -24482,19 +24490,19 @@
       0
     ],
     "ConstraintUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       204,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       204,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstraintUsage.isVariable": [
@@ -24506,9 +24514,9 @@
       0
     ],
     "ConstraintUsage.isVariation": [
-      0,
-      0,
       204,
+      0,
+      0,
       0,
       0,
       0
@@ -25330,11 +25338,11 @@
       0
     ],
     "ConstructorExpression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstructorExpression.isComposite": [
@@ -25354,35 +25362,35 @@
       0
     ],
     "ConstructorExpression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstructorExpression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstructorExpression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstructorExpression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstructorExpression.isLibraryElement": [
@@ -25402,43 +25410,43 @@
       0
     ],
     "ConstructorExpression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstructorExpression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstructorExpression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstructorExpression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstructorExpression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ConstructorExpression.member": [
@@ -25826,11 +25834,11 @@
       0
     ],
     "DataType.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DataType.isConjugated": [
@@ -25842,11 +25850,11 @@
       0
     ],
     "DataType.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DataType.isLibraryElement": [
@@ -25858,11 +25866,11 @@
       0
     ],
     "DataType.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DataType.member": [
@@ -26258,11 +26266,11 @@
       0
     ],
     "DecisionNode.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       51,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DecisionNode.isComposite": [
@@ -26282,43 +26290,43 @@
       0
     ],
     "DecisionNode.isConstant": [
-      0,
-      0,
-      0,
-      0,
       51,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DecisionNode.isDerived": [
-      0,
-      0,
-      0,
-      0,
       51,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DecisionNode.isEnd": [
-      0,
-      0,
-      0,
-      0,
       51,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DecisionNode.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       51,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DecisionNode.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       51,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DecisionNode.isLibraryElement": [
@@ -26330,19 +26338,19 @@
       0
     ],
     "DecisionNode.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       51,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DecisionNode.isPortion": [
-      0,
-      0,
-      0,
-      0,
       51,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DecisionNode.isReference": [
@@ -26354,19 +26362,19 @@
       0
     ],
     "DecisionNode.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       51,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DecisionNode.isUnique": [
-      0,
-      0,
-      0,
-      0,
       51,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "DecisionNode.isVariable": [
@@ -26378,9 +26386,9 @@
       0
     ],
     "DecisionNode.isVariation": [
-      0,
-      0,
       51,
+      0,
+      0,
       0,
       0,
       0
@@ -27066,11 +27074,11 @@
       0
     ],
     "Definition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Definition.isConjugated": [
@@ -27082,11 +27090,11 @@
       0
     ],
     "Definition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Definition.isLibraryElement": [
@@ -27098,11 +27106,11 @@
       0
     ],
     "Definition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Definition.isVariation": [
@@ -27602,19 +27610,19 @@
       0
     ],
     "Dependency.isImplied": [
-      0,
-      0,
-      0,
-      0,
       15,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Dependency.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       15,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Dependency.isLibraryElement": [
@@ -27794,19 +27802,19 @@
       0
     ],
     "Disjoining.isImplied": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Disjoining.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Disjoining.isLibraryElement": [
@@ -28010,11 +28018,11 @@
       0
     ],
     "Documentation.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       374,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Documentation.isLibraryElement": [
@@ -28162,19 +28170,19 @@
       0
     ],
     "ElementFilterMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ElementFilterMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ElementFilterMembership.isLibraryElement": [
@@ -28362,19 +28370,19 @@
       0
     ],
     "EndFeatureMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       504,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EndFeatureMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       504,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EndFeatureMembership.isLibraryElement": [
@@ -28698,11 +28706,11 @@
       0
     ],
     "EnumerationDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       25,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EnumerationDefinition.isLibraryElement": [
@@ -28714,11 +28722,11 @@
       0
     ],
     "EnumerationDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       25,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EnumerationDefinition.isVariation": [
@@ -29362,11 +29370,11 @@
       0
     ],
     "EnumerationUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       67,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EnumerationUsage.isComposite": [
@@ -29386,35 +29394,35 @@
       0
     ],
     "EnumerationUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       67,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EnumerationUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       67,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EnumerationUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       67,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EnumerationUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       67,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EnumerationUsage.isLibraryElement": [
@@ -29426,19 +29434,19 @@
       0
     ],
     "EnumerationUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       67,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EnumerationUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       67,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EnumerationUsage.isReference": [
@@ -29450,19 +29458,19 @@
       0
     ],
     "EnumerationUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       67,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EnumerationUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       67,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EnumerationUsage.isVariable": [
@@ -29482,9 +29490,9 @@
       0
     ],
     "EnumerationUsage.isVariation": [
-      0,
-      0,
       67,
+      0,
+      0,
       0,
       0,
       0
@@ -30170,11 +30178,11 @@
       0
     ],
     "EventOccurrenceUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       179,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EventOccurrenceUsage.isComposite": [
@@ -30194,43 +30202,43 @@
       0
     ],
     "EventOccurrenceUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       179,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EventOccurrenceUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       179,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EventOccurrenceUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       179,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EventOccurrenceUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       179,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EventOccurrenceUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       179,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EventOccurrenceUsage.isLibraryElement": [
@@ -30242,19 +30250,19 @@
       0
     ],
     "EventOccurrenceUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       179,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EventOccurrenceUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       179,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EventOccurrenceUsage.isReference": [
@@ -30266,19 +30274,19 @@
       0
     ],
     "EventOccurrenceUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       179,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EventOccurrenceUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       179,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "EventOccurrenceUsage.isVariable": [
@@ -30290,9 +30298,9 @@
       0
     ],
     "EventOccurrenceUsage.isVariation": [
-      0,
-      0,
       179,
+      0,
+      0,
       0,
       0,
       0
@@ -31106,11 +31114,11 @@
       0
     ],
     "ExhibitStateUsage.isAbstract": [
-      1,
+      50,
       0,
       0,
       0,
-      49,
+      0,
       0
     ],
     "ExhibitStateUsage.isComposite": [
@@ -31130,43 +31138,43 @@
       0
     ],
     "ExhibitStateUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       50,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ExhibitStateUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       50,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ExhibitStateUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       50,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ExhibitStateUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       50,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ExhibitStateUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       50,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ExhibitStateUsage.isLibraryElement": [
@@ -31178,27 +31186,27 @@
       0
     ],
     "ExhibitStateUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       50,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ExhibitStateUsage.isParallel": [
-      6,
+      50,
       0,
       0,
       0,
-      44,
+      0,
       0
     ],
     "ExhibitStateUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       50,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ExhibitStateUsage.isReference": [
@@ -31210,19 +31218,19 @@
       0
     ],
     "ExhibitStateUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       50,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ExhibitStateUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       50,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ExhibitStateUsage.isVariable": [
@@ -31234,9 +31242,9 @@
       0
     ],
     "ExhibitStateUsage.isVariation": [
-      0,
-      0,
       50,
+      0,
+      0,
       0,
       0,
       0
@@ -32010,11 +32018,11 @@
       0
     ],
     "Expression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       39,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Expression.isComposite": [
@@ -32034,35 +32042,35 @@
       0
     ],
     "Expression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       39,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Expression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       39,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Expression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       39,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Expression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       39,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Expression.isLibraryElement": [
@@ -32082,43 +32090,43 @@
       0
     ],
     "Expression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       39,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Expression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       39,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Expression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       39,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Expression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       39,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Expression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       39,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Expression.member": [
@@ -32626,11 +32634,11 @@
       0
     ],
     "Feature.isAbstract": [
-      8,
+      10148,
       0,
       0,
       0,
-      10140,
+      0,
       0
     ],
     "Feature.isComposite": [
@@ -32650,11 +32658,11 @@
       0
     ],
     "Feature.isConstant": [
-      10,
+      10148,
       0,
       0,
       0,
-      10138,
+      0,
       0
     ],
     "Feature.isDefault": [
@@ -32666,27 +32674,27 @@
       0
     ],
     "Feature.isDerived": [
-      2,
+      10148,
       0,
       0,
       0,
-      10146,
+      0,
       0
     ],
     "Feature.isEnd": [
-      146,
+      10148,
       0,
       0,
       0,
-      10002,
+      0,
       0
     ],
     "Feature.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       10148,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Feature.isInitial": [
@@ -32706,19 +32714,19 @@
       0
     ],
     "Feature.isOrdered": [
-      13,
+      10148,
       0,
       0,
       0,
-      10135,
+      0,
       0
     ],
     "Feature.isPortion": [
-      34,
+      10148,
       0,
       0,
       0,
-      10114,
+      0,
       0
     ],
     "Feature.isResult": [
@@ -32730,27 +32738,35 @@
       0
     ],
     "Feature.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       10148,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Feature.isUnique": [
-      6,
+      10148,
       0,
       0,
       0,
-      10142,
+      0,
       0
     ],
     "Feature.isVariable": [
-      0,
+      9047,
       0,
       75,
       0,
-      10073,
+      1026,
+      0
+    ],
+    "Feature.isVariation": [
+      0,
+      0,
+      0,
+      1101,
+      0,
       0
     ],
     "Feature.lowerBound": [
@@ -33298,11 +33314,11 @@
       0
     ],
     "FeatureChainExpression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       514,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureChainExpression.isComposite": [
@@ -33322,35 +33338,35 @@
       0
     ],
     "FeatureChainExpression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       514,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureChainExpression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       514,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureChainExpression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       514,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureChainExpression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       514,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureChainExpression.isLibraryElement": [
@@ -33370,43 +33386,43 @@
       0
     ],
     "FeatureChainExpression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       514,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureChainExpression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       514,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureChainExpression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       514,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureChainExpression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       514,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureChainExpression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       514,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureChainExpression.member": [
@@ -33754,19 +33770,19 @@
       0
     ],
     "FeatureChaining.isImplied": [
-      0,
-      0,
-      0,
-      0,
       619,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureChaining.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       619,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureChaining.isLibraryElement": [
@@ -33914,19 +33930,19 @@
       0
     ],
     "FeatureInverting.isImplied": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureInverting.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureInverting.isLibraryElement": [
@@ -34090,19 +34106,19 @@
       0
     ],
     "FeatureMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       10847,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       10847,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureMembership.isLibraryElement": [
@@ -34458,11 +34474,11 @@
       0
     ],
     "FeatureReferenceExpression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       2160,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureReferenceExpression.isComposite": [
@@ -34482,35 +34498,35 @@
       0
     ],
     "FeatureReferenceExpression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       2160,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureReferenceExpression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       2160,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureReferenceExpression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       2160,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureReferenceExpression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       2160,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureReferenceExpression.isLibraryElement": [
@@ -34530,43 +34546,43 @@
       0
     ],
     "FeatureReferenceExpression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       2160,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureReferenceExpression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       2160,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureReferenceExpression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       2160,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureReferenceExpression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       2160,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureReferenceExpression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       2160,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureReferenceExpression.member": [
@@ -34898,19 +34914,19 @@
       2255
     ],
     "FeatureTyping.isImplied": [
-      0,
-      0,
-      0,
-      0,
       5982,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureTyping.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       5982,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureTyping.isLibraryElement": [
@@ -35138,35 +35154,35 @@
       0
     ],
     "FeatureValue.isDefault": [
-      67,
+      7082,
       0,
       0,
       0,
-      7015,
+      0,
       0
     ],
     "FeatureValue.isImplied": [
-      0,
-      0,
-      0,
-      0,
       7082,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureValue.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       7082,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FeatureValue.isInitial": [
-      15,
+      7082,
       0,
       0,
       0,
-      7067,
+      0,
       0
     ],
     "FeatureValue.isLibraryElement": [
@@ -35506,11 +35522,11 @@
       0
     ],
     "Flow.isAbstract": [
-      1,
+      3,
       0,
       0,
       0,
-      2,
+      0,
       0
     ],
     "Flow.isComposite": [
@@ -35530,38 +35546,46 @@
       0
     ],
     "Flow.isConstant": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Flow.isDerived": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Flow.isEnd": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Flow.isImplied": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Flow.isImpliedIncluded": [
+      3,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "Flow.isIndividual": [
       0,
       0,
       0,
@@ -35578,35 +35602,35 @@
       0
     ],
     "Flow.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Flow.isPortion": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Flow.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Flow.isUnique": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Flow.isVariable": [
@@ -35615,6 +35639,14 @@
       0,
       0,
       3,
+      0
+    ],
+    "Flow.isVariation": [
+      0,
+      0,
+      0,
+      3,
+      0,
       0
     ],
     "Flow.member": [
@@ -36146,11 +36178,11 @@
       0
     ],
     "FlowDefinition.isAbstract": [
-      3,
+      7,
       0,
       0,
       0,
-      4,
+      0,
       0
     ],
     "FlowDefinition.isConjugated": [
@@ -36162,27 +36194,27 @@
       0
     ],
     "FlowDefinition.isImplied": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowDefinition.isLibraryElement": [
@@ -36194,17 +36226,17 @@
       0
     ],
     "FlowDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       7,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowDefinition.isVariation": [
-      0,
-      0,
       7,
+      0,
+      0,
       0,
       0,
       0
@@ -36898,11 +36930,11 @@
       0
     ],
     "FlowEnd.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       96,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowEnd.isComposite": [
@@ -36922,19 +36954,19 @@
       0
     ],
     "FlowEnd.isConstant": [
-      0,
-      0,
-      0,
-      0,
       96,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowEnd.isDerived": [
-      0,
-      0,
-      0,
-      0,
       96,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowEnd.isEnd": [
@@ -36946,11 +36978,11 @@
       0
     ],
     "FlowEnd.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       96,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowEnd.isLibraryElement": [
@@ -36962,43 +36994,43 @@
       0
     ],
     "FlowEnd.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       96,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowEnd.isPortion": [
-      0,
-      0,
-      0,
-      0,
       96,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowEnd.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       96,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowEnd.isUnique": [
-      0,
-      0,
-      0,
-      0,
       96,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowEnd.isVariable": [
-      0,
-      0,
-      0,
-      0,
       96,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowEnd.member": [
@@ -37506,11 +37538,11 @@
       0
     ],
     "FlowUsage.isAbstract": [
-      1,
-      0,
+      51,
       55,
       0,
-      50,
+      0,
+      0,
       0
     ],
     "FlowUsage.isComposite": [
@@ -37530,51 +37562,51 @@
       0
     ],
     "FlowUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       106,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       106,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       106,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowUsage.isImplied": [
-      0,
-      0,
-      0,
-      0,
       106,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       106,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       106,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowUsage.isLibraryElement": [
@@ -37586,19 +37618,19 @@
       0
     ],
     "FlowUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       106,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       106,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowUsage.isReference": [
@@ -37610,19 +37642,19 @@
       0
     ],
     "FlowUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       106,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       106,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FlowUsage.isVariable": [
@@ -37634,9 +37666,9 @@
       0
     ],
     "FlowUsage.isVariation": [
-      0,
-      0,
       106,
+      0,
+      0,
       0,
       0,
       0
@@ -38522,11 +38554,11 @@
       0
     ],
     "ForLoopActionUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForLoopActionUsage.isComposite": [
@@ -38546,43 +38578,43 @@
       0
     ],
     "ForLoopActionUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForLoopActionUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForLoopActionUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForLoopActionUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForLoopActionUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForLoopActionUsage.isLibraryElement": [
@@ -38594,19 +38626,19 @@
       0
     ],
     "ForLoopActionUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForLoopActionUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForLoopActionUsage.isReference": [
@@ -38618,19 +38650,19 @@
       0
     ],
     "ForLoopActionUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForLoopActionUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForLoopActionUsage.isVariable": [
@@ -38642,9 +38674,9 @@
       0
     ],
     "ForLoopActionUsage.isVariation": [
-      0,
-      0,
       5,
+      0,
+      0,
       0,
       0,
       0
@@ -39386,11 +39418,11 @@
       0
     ],
     "ForkNode.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       17,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForkNode.isComposite": [
@@ -39410,43 +39442,43 @@
       0
     ],
     "ForkNode.isConstant": [
-      0,
-      0,
-      0,
-      0,
       17,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForkNode.isDerived": [
-      0,
-      0,
-      0,
-      0,
       17,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForkNode.isEnd": [
-      0,
-      0,
-      0,
-      0,
       17,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForkNode.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       17,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForkNode.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       17,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForkNode.isLibraryElement": [
@@ -39458,19 +39490,19 @@
       0
     ],
     "ForkNode.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       17,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForkNode.isPortion": [
-      0,
-      0,
-      0,
-      0,
       17,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForkNode.isReference": [
@@ -39482,19 +39514,19 @@
       0
     ],
     "ForkNode.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       17,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForkNode.isUnique": [
-      0,
-      0,
-      0,
-      0,
       17,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ForkNode.isVariable": [
@@ -39506,9 +39538,9 @@
       0
     ],
     "ForkNode.isVariation": [
-      0,
-      0,
       17,
+      0,
+      0,
       0,
       0,
       0
@@ -40106,19 +40138,19 @@
       0
     ],
     "FramedConcernMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       14,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FramedConcernMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       14,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "FramedConcernMembership.isLibraryElement": [
@@ -40458,11 +40490,11 @@
       0
     ],
     "Function.isAbstract": [
-      1,
+      11,
       0,
       0,
       0,
-      10,
+      0,
       0
     ],
     "Function.isConjugated": [
@@ -40474,11 +40506,11 @@
       0
     ],
     "Function.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Function.isLibraryElement": [
@@ -40498,11 +40530,11 @@
       0
     ],
     "Function.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Function.member": [
@@ -40938,11 +40970,11 @@
       0
     ],
     "IfActionUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IfActionUsage.isComposite": [
@@ -40962,43 +40994,43 @@
       0
     ],
     "IfActionUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IfActionUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IfActionUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IfActionUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IfActionUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IfActionUsage.isLibraryElement": [
@@ -41010,19 +41042,19 @@
       0
     ],
     "IfActionUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IfActionUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IfActionUsage.isReference": [
@@ -41034,19 +41066,19 @@
       0
     ],
     "IfActionUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IfActionUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       4,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IfActionUsage.isVariable": [
@@ -41058,9 +41090,9 @@
       0
     ],
     "IfActionUsage.isVariation": [
-      0,
-      0,
       4,
+      0,
+      0,
       0,
       0,
       0
@@ -41834,11 +41866,11 @@
       0
     ],
     "IncludeUseCaseUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IncludeUseCaseUsage.isComposite": [
@@ -41858,43 +41890,43 @@
       0
     ],
     "IncludeUseCaseUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IncludeUseCaseUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IncludeUseCaseUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IncludeUseCaseUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IncludeUseCaseUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IncludeUseCaseUsage.isLibraryElement": [
@@ -41914,19 +41946,19 @@
       0
     ],
     "IncludeUseCaseUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IncludeUseCaseUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IncludeUseCaseUsage.isReference": [
@@ -41938,19 +41970,19 @@
       0
     ],
     "IncludeUseCaseUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IncludeUseCaseUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IncludeUseCaseUsage.isVariable": [
@@ -41962,9 +41994,9 @@
       0
     ],
     "IncludeUseCaseUsage.isVariation": [
-      0,
-      0,
       19,
+      0,
+      0,
       0,
       0,
       0
@@ -42802,11 +42834,11 @@
       0
     ],
     "IndexExpression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IndexExpression.isComposite": [
@@ -42826,35 +42858,35 @@
       0
     ],
     "IndexExpression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IndexExpression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IndexExpression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IndexExpression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IndexExpression.isLibraryElement": [
@@ -42874,43 +42906,43 @@
       0
     ],
     "IndexExpression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IndexExpression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IndexExpression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IndexExpression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IndexExpression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       47,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "IndexExpression.member": [
@@ -43306,11 +43338,11 @@
       0
     ],
     "Interaction.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Interaction.isConjugated": [
@@ -43322,19 +43354,19 @@
       0
     ],
     "Interaction.isImplied": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Interaction.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Interaction.isLibraryElement": [
@@ -43346,11 +43378,11 @@
       0
     ],
     "Interaction.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Interaction.member": [
@@ -43786,11 +43818,11 @@
       0
     ],
     "InterfaceDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       31,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceDefinition.isConjugated": [
@@ -43802,27 +43834,27 @@
       0
     ],
     "InterfaceDefinition.isImplied": [
-      0,
-      0,
-      0,
-      0,
       31,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       31,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       31,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceDefinition.isLibraryElement": [
@@ -43834,17 +43866,17 @@
       0
     ],
     "InterfaceDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       31,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceDefinition.isVariation": [
-      0,
-      0,
       31,
+      0,
+      0,
       0,
       0,
       0
@@ -44570,11 +44602,11 @@
       0
     ],
     "InterfaceUsage.isAbstract": [
-      1,
+      43,
       0,
       0,
       0,
-      42,
+      0,
       0
     ],
     "InterfaceUsage.isComposite": [
@@ -44594,51 +44626,51 @@
       0
     ],
     "InterfaceUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceUsage.isImplied": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceUsage.isLibraryElement": [
@@ -44650,19 +44682,19 @@
       0
     ],
     "InterfaceUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceUsage.isReference": [
@@ -44674,19 +44706,19 @@
       0
     ],
     "InterfaceUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       43,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InterfaceUsage.isVariable": [
@@ -44698,9 +44730,9 @@
       0
     ],
     "InterfaceUsage.isVariation": [
-      0,
-      0,
       43,
+      0,
+      0,
       0,
       0,
       0
@@ -45538,11 +45570,11 @@
       0
     ],
     "Invariant.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Invariant.isComposite": [
@@ -45562,30 +45594,38 @@
       0
     ],
     "Invariant.isConstant": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Invariant.isDerived": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Invariant.isEnd": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Invariant.isImpliedIncluded": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "Invariant.isIndividual": [
       0,
       0,
       0,
@@ -45618,35 +45658,35 @@
       0
     ],
     "Invariant.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Invariant.isPortion": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Invariant.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Invariant.isUnique": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Invariant.isVariable": [
@@ -45655,6 +45695,14 @@
       0,
       0,
       1,
+      0
+    ],
+    "Invariant.isVariation": [
+      0,
+      0,
+      0,
+      1,
+      0,
       0
     ],
     "Invariant.member": [
@@ -46138,11 +46186,11 @@
       0
     ],
     "InvocationExpression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       470,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InvocationExpression.isComposite": [
@@ -46162,35 +46210,35 @@
       0
     ],
     "InvocationExpression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       470,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InvocationExpression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       470,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InvocationExpression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       470,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InvocationExpression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       470,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InvocationExpression.isLibraryElement": [
@@ -46210,43 +46258,43 @@
       0
     ],
     "InvocationExpression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       470,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InvocationExpression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       470,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InvocationExpression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       470,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InvocationExpression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       470,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InvocationExpression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       470,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "InvocationExpression.member": [
@@ -46650,11 +46698,11 @@
       0
     ],
     "ItemDefinition.isAbstract": [
-      1,
+      167,
       0,
       0,
       0,
-      166,
+      0,
       0
     ],
     "ItemDefinition.isConjugated": [
@@ -46666,19 +46714,19 @@
       0
     ],
     "ItemDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       167,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ItemDefinition.isIndividual": [
-      6,
+      167,
       0,
       0,
       0,
-      161,
+      0,
       0
     ],
     "ItemDefinition.isLibraryElement": [
@@ -46690,17 +46738,17 @@
       0
     ],
     "ItemDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       167,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ItemDefinition.isVariation": [
-      0,
-      0,
       167,
+      0,
+      0,
       0,
       0,
       0
@@ -47362,11 +47410,11 @@
       0
     ],
     "ItemUsage.isAbstract": [
-      1,
+      366,
       0,
       0,
       0,
-      365,
+      0,
       0
     ],
     "ItemUsage.isComposite": [
@@ -47386,43 +47434,43 @@
       0
     ],
     "ItemUsage.isConstant": [
-      0,
-      0,
+      343,
       23,
       0,
-      343,
+      0,
+      0,
       0
     ],
     "ItemUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       366,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ItemUsage.isEnd": [
-      23,
+      366,
       0,
       0,
       0,
-      343,
+      0,
       0
     ],
     "ItemUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       366,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ItemUsage.isIndividual": [
-      2,
+      366,
       0,
       0,
       0,
-      364,
+      0,
       0
     ],
     "ItemUsage.isLibraryElement": [
@@ -47434,19 +47482,19 @@
       0
     ],
     "ItemUsage.isOrdered": [
-      3,
+      366,
       0,
       0,
       0,
-      363,
+      0,
       0
     ],
     "ItemUsage.isPortion": [
-      3,
+      366,
       0,
       0,
       0,
-      363,
+      0,
       0
     ],
     "ItemUsage.isReference": [
@@ -47458,19 +47506,19 @@
       0
     ],
     "ItemUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       366,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ItemUsage.isUnique": [
-      1,
+      366,
       0,
       0,
       0,
-      365,
+      0,
       0
     ],
     "ItemUsage.isVariable": [
@@ -47482,9 +47530,9 @@
       0
     ],
     "ItemUsage.isVariation": [
-      0,
-      0,
       366,
+      0,
+      0,
       0,
       0,
       0
@@ -48282,11 +48330,11 @@
       0
     ],
     "JoinNode.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "JoinNode.isComposite": [
@@ -48306,43 +48354,43 @@
       0
     ],
     "JoinNode.isConstant": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "JoinNode.isDerived": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "JoinNode.isEnd": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "JoinNode.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "JoinNode.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "JoinNode.isLibraryElement": [
@@ -48354,19 +48402,19 @@
       0
     ],
     "JoinNode.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "JoinNode.isPortion": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "JoinNode.isReference": [
@@ -48378,19 +48426,19 @@
       0
     ],
     "JoinNode.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "JoinNode.isUnique": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "JoinNode.isVariable": [
@@ -48402,9 +48450,9 @@
       0
     ],
     "JoinNode.isVariation": [
-      0,
-      0,
       16,
+      0,
+      0,
       0,
       0,
       0
@@ -49130,11 +49178,11 @@
       0
     ],
     "LiteralBoolean.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       378,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralBoolean.isComposite": [
@@ -49154,35 +49202,35 @@
       0
     ],
     "LiteralBoolean.isConstant": [
-      0,
-      0,
-      0,
-      0,
       378,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralBoolean.isDerived": [
-      0,
-      0,
-      0,
-      0,
       378,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralBoolean.isEnd": [
-      0,
-      0,
-      0,
-      0,
       378,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralBoolean.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       378,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralBoolean.isLibraryElement": [
@@ -49202,43 +49250,43 @@
       0
     ],
     "LiteralBoolean.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       378,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralBoolean.isPortion": [
-      0,
-      0,
-      0,
-      0,
       378,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralBoolean.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       378,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralBoolean.isUnique": [
-      0,
-      0,
-      0,
-      0,
       378,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralBoolean.isVariable": [
-      0,
-      0,
-      0,
-      0,
       378,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralBoolean.member": [
@@ -49666,11 +49714,11 @@
       0
     ],
     "LiteralInfinity.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       310,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInfinity.isComposite": [
@@ -49690,35 +49738,35 @@
       0
     ],
     "LiteralInfinity.isConstant": [
-      0,
-      0,
-      0,
-      0,
       310,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInfinity.isDerived": [
-      0,
-      0,
-      0,
-      0,
       310,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInfinity.isEnd": [
-      0,
-      0,
-      0,
-      0,
       310,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInfinity.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       310,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInfinity.isLibraryElement": [
@@ -49738,43 +49786,43 @@
       0
     ],
     "LiteralInfinity.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       310,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInfinity.isPortion": [
-      0,
-      0,
-      0,
-      0,
       310,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInfinity.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       310,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInfinity.isUnique": [
-      0,
-      0,
-      0,
-      0,
       310,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInfinity.isVariable": [
-      0,
-      0,
-      0,
-      0,
       310,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInfinity.member": [
@@ -50194,11 +50242,11 @@
       0
     ],
     "LiteralInteger.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       2003,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInteger.isComposite": [
@@ -50218,35 +50266,35 @@
       0
     ],
     "LiteralInteger.isConstant": [
-      0,
-      0,
-      0,
-      0,
       2003,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInteger.isDerived": [
-      0,
-      0,
-      0,
-      0,
       2003,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInteger.isEnd": [
-      0,
-      0,
-      0,
-      0,
       2003,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInteger.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       2003,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInteger.isLibraryElement": [
@@ -50266,43 +50314,43 @@
       0
     ],
     "LiteralInteger.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       2003,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInteger.isPortion": [
-      0,
-      0,
-      0,
-      0,
       2003,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInteger.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       2003,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInteger.isUnique": [
-      0,
-      0,
-      0,
-      0,
       2003,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInteger.isVariable": [
-      0,
-      0,
-      0,
-      0,
       2003,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralInteger.member": [
@@ -50730,11 +50778,11 @@
       0
     ],
     "LiteralRational.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       322,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralRational.isComposite": [
@@ -50754,35 +50802,35 @@
       0
     ],
     "LiteralRational.isConstant": [
-      0,
-      0,
-      0,
-      0,
       322,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralRational.isDerived": [
-      0,
-      0,
-      0,
-      0,
       322,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralRational.isEnd": [
-      0,
-      0,
-      0,
-      0,
       322,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralRational.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       322,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralRational.isLibraryElement": [
@@ -50802,43 +50850,43 @@
       0
     ],
     "LiteralRational.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       322,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralRational.isPortion": [
-      0,
-      0,
-      0,
-      0,
       322,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralRational.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       322,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralRational.isUnique": [
-      0,
-      0,
-      0,
-      0,
       322,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralRational.isVariable": [
-      0,
-      0,
-      0,
-      0,
       322,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralRational.member": [
@@ -51266,11 +51314,11 @@
       0
     ],
     "LiteralString.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       1093,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralString.isComposite": [
@@ -51290,35 +51338,35 @@
       0
     ],
     "LiteralString.isConstant": [
-      0,
-      0,
-      0,
-      0,
       1093,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralString.isDerived": [
-      0,
-      0,
-      0,
-      0,
       1093,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralString.isEnd": [
-      0,
-      0,
-      0,
-      0,
       1093,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralString.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       1093,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralString.isLibraryElement": [
@@ -51338,43 +51386,43 @@
       0
     ],
     "LiteralString.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       1093,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralString.isPortion": [
-      0,
-      0,
-      0,
-      0,
       1093,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralString.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       1093,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralString.isUnique": [
-      0,
-      0,
-      0,
-      0,
       1093,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralString.isVariable": [
-      0,
-      0,
-      0,
-      0,
       1093,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "LiteralString.member": [
@@ -51674,19 +51722,19 @@
       0
     ],
     "Membership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       3201,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Membership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       3201,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Membership.isLibraryElement": [
@@ -51898,19 +51946,19 @@
       0
     ],
     "MembershipExpose.isImplied": [
-      0,
-      0,
-      0,
-      0,
       73,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MembershipExpose.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       73,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MembershipExpose.isImportAll": [
@@ -51930,11 +51978,11 @@
       0
     ],
     "MembershipExpose.isRecursive": [
-      17,
+      73,
       0,
       0,
       0,
-      56,
+      0,
       0
     ],
     "MembershipExpose.ownedAnnotation": [
@@ -52098,27 +52146,27 @@
       265
     ],
     "MembershipImport.isImplied": [
-      0,
-      0,
-      0,
-      0,
       387,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MembershipImport.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       387,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MembershipImport.isImportAll": [
-      0,
-      0,
-      0,
-      0,
       387,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MembershipImport.isLibraryElement": [
@@ -52130,11 +52178,11 @@
       0
     ],
     "MembershipImport.isRecursive": [
-      49,
+      387,
       0,
       0,
       0,
-      338,
+      0,
       0
     ],
     "MembershipImport.ownedAnnotation": [
@@ -52418,11 +52466,11 @@
       0
     ],
     "MergeNode.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       24,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MergeNode.isComposite": [
@@ -52442,43 +52490,43 @@
       0
     ],
     "MergeNode.isConstant": [
-      0,
-      0,
-      0,
-      0,
       24,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MergeNode.isDerived": [
-      0,
-      0,
-      0,
-      0,
       24,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MergeNode.isEnd": [
-      0,
-      0,
-      0,
-      0,
       24,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MergeNode.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       24,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MergeNode.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       24,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MergeNode.isLibraryElement": [
@@ -52490,19 +52538,19 @@
       0
     ],
     "MergeNode.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       24,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MergeNode.isPortion": [
-      0,
-      0,
-      0,
-      0,
       24,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MergeNode.isReference": [
@@ -52514,19 +52562,19 @@
       0
     ],
     "MergeNode.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       24,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MergeNode.isUnique": [
-      0,
-      0,
-      0,
-      0,
       24,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MergeNode.isVariable": [
@@ -52538,9 +52586,9 @@
       0
     ],
     "MergeNode.isVariation": [
-      0,
-      0,
       24,
+      0,
+      0,
       0,
       0,
       0
@@ -53218,11 +53266,11 @@
       0
     ],
     "Metaclass.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Metaclass.isConjugated": [
@@ -53234,11 +53282,11 @@
       0
     ],
     "Metaclass.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Metaclass.isLibraryElement": [
@@ -53250,11 +53298,11 @@
       0
     ],
     "Metaclass.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Metaclass.member": [
@@ -53642,11 +53690,11 @@
       0
     ],
     "MetadataAccessExpression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataAccessExpression.isComposite": [
@@ -53666,35 +53714,35 @@
       0
     ],
     "MetadataAccessExpression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataAccessExpression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataAccessExpression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataAccessExpression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataAccessExpression.isLibraryElement": [
@@ -53714,43 +53762,43 @@
       0
     ],
     "MetadataAccessExpression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataAccessExpression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataAccessExpression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataAccessExpression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataAccessExpression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataAccessExpression.member": [
@@ -54138,11 +54186,11 @@
       0
     ],
     "MetadataDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       40,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataDefinition.isConjugated": [
@@ -54154,19 +54202,19 @@
       0
     ],
     "MetadataDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       40,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       40,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataDefinition.isLibraryElement": [
@@ -54178,17 +54226,17 @@
       0
     ],
     "MetadataDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       40,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataDefinition.isVariation": [
-      0,
-      0,
       40,
+      0,
+      0,
       0,
       0,
       0
@@ -54818,11 +54866,11 @@
       0
     ],
     "MetadataFeature.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataFeature.isComposite": [
@@ -54842,30 +54890,38 @@
       0
     ],
     "MetadataFeature.isConstant": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataFeature.isDerived": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataFeature.isEnd": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataFeature.isImpliedIncluded": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "MetadataFeature.isIndividual": [
       0,
       0,
       0,
@@ -54882,35 +54938,35 @@
       0
     ],
     "MetadataFeature.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataFeature.isPortion": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataFeature.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataFeature.isUnique": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataFeature.isVariable": [
@@ -54919,6 +54975,14 @@
       0,
       0,
       1,
+      0
+    ],
+    "MetadataFeature.isVariation": [
+      0,
+      0,
+      0,
+      1,
+      0,
       0
     ],
     "MetadataFeature.member": [
@@ -55378,11 +55442,11 @@
       0
     ],
     "MetadataUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       385,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataUsage.isComposite": [
@@ -55402,43 +55466,43 @@
       0
     ],
     "MetadataUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       385,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       385,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       385,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       385,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       385,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataUsage.isLibraryElement": [
@@ -55450,19 +55514,19 @@
       0
     ],
     "MetadataUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       385,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       385,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataUsage.isReference": [
@@ -55474,19 +55538,19 @@
       0
     ],
     "MetadataUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       385,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       385,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MetadataUsage.isVariable": [
@@ -55498,9 +55562,9 @@
       0
     ],
     "MetadataUsage.isVariation": [
-      0,
-      0,
       385,
+      0,
+      0,
       0,
       0,
       0
@@ -56202,11 +56266,11 @@
       0
     ],
     "Multiplicity.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Multiplicity.isComposite": [
@@ -56226,35 +56290,35 @@
       0
     ],
     "Multiplicity.isConstant": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Multiplicity.isDerived": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Multiplicity.isEnd": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Multiplicity.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Multiplicity.isLibraryElement": [
@@ -56266,43 +56330,43 @@
       0
     ],
     "Multiplicity.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Multiplicity.isPortion": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Multiplicity.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Multiplicity.isUnique": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Multiplicity.isVariable": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Multiplicity.member": [
@@ -56722,11 +56786,11 @@
       0
     ],
     "MultiplicityRange.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       1213,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MultiplicityRange.isComposite": [
@@ -56746,35 +56810,35 @@
       0
     ],
     "MultiplicityRange.isConstant": [
-      0,
-      0,
-      0,
-      0,
       1213,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MultiplicityRange.isDerived": [
-      0,
-      0,
-      0,
-      0,
       1213,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MultiplicityRange.isEnd": [
-      0,
-      0,
-      0,
-      0,
       1213,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MultiplicityRange.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       1213,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MultiplicityRange.isLibraryElement": [
@@ -56786,43 +56850,43 @@
       0
     ],
     "MultiplicityRange.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       1213,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MultiplicityRange.isPortion": [
-      0,
-      0,
-      0,
-      0,
       1213,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MultiplicityRange.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       1213,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MultiplicityRange.isUnique": [
-      0,
-      0,
-      0,
-      0,
       1213,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MultiplicityRange.isVariable": [
-      0,
-      0,
-      0,
-      0,
       1213,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "MultiplicityRange.lowerBound": [
@@ -57138,11 +57202,11 @@
       0
     ],
     "Namespace.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       851,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Namespace.isLibraryElement": [
@@ -57338,19 +57402,19 @@
       0
     ],
     "NamespaceExpose.isImplied": [
-      0,
-      0,
-      0,
-      0,
       29,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NamespaceExpose.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       29,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NamespaceExpose.isImportAll": [
@@ -57370,11 +57434,11 @@
       0
     ],
     "NamespaceExpose.isRecursive": [
-      1,
+      29,
       0,
       0,
       0,
-      28,
+      0,
       0
     ],
     "NamespaceExpose.ownedAnnotation": [
@@ -57538,27 +57602,27 @@
       342
     ],
     "NamespaceImport.isImplied": [
-      0,
-      0,
-      0,
-      0,
       668,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NamespaceImport.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       668,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NamespaceImport.isImportAll": [
-      1,
+      668,
       0,
       0,
       0,
-      667,
+      0,
       0
     ],
     "NamespaceImport.isLibraryElement": [
@@ -57570,11 +57634,11 @@
       0
     ],
     "NamespaceImport.isRecursive": [
-      3,
+      668,
       0,
       0,
       0,
-      665,
+      0,
       0
     ],
     "NamespaceImport.ownedAnnotation": [
@@ -57842,11 +57906,11 @@
       0
     ],
     "NullExpression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       14,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NullExpression.isComposite": [
@@ -57866,35 +57930,35 @@
       0
     ],
     "NullExpression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       14,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NullExpression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       14,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NullExpression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       14,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NullExpression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       14,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NullExpression.isLibraryElement": [
@@ -57914,43 +57978,43 @@
       0
     ],
     "NullExpression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       14,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NullExpression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       14,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NullExpression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       14,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NullExpression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       14,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NullExpression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       14,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "NullExpression.member": [
@@ -58242,19 +58306,19 @@
       0
     ],
     "ObjectiveMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       89,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ObjectiveMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       89,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ObjectiveMembership.isLibraryElement": [
@@ -58570,11 +58634,11 @@
       0
     ],
     "OccurrenceDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       55,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OccurrenceDefinition.isConjugated": [
@@ -58586,19 +58650,19 @@
       0
     ],
     "OccurrenceDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       55,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OccurrenceDefinition.isIndividual": [
-      36,
+      55,
       0,
       0,
       0,
-      19,
+      0,
       0
     ],
     "OccurrenceDefinition.isLibraryElement": [
@@ -58610,17 +58674,17 @@
       0
     ],
     "OccurrenceDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       55,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OccurrenceDefinition.isVariation": [
-      0,
-      0,
       55,
+      0,
+      0,
       0,
       0,
       0
@@ -59258,11 +59322,11 @@
       0
     ],
     "OccurrenceUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       144,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OccurrenceUsage.isComposite": [
@@ -59282,43 +59346,43 @@
       0
     ],
     "OccurrenceUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       144,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OccurrenceUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       144,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OccurrenceUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       144,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OccurrenceUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       144,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OccurrenceUsage.isIndividual": [
-      20,
+      144,
       0,
       0,
       0,
-      124,
+      0,
       0
     ],
     "OccurrenceUsage.isLibraryElement": [
@@ -59330,19 +59394,19 @@
       0
     ],
     "OccurrenceUsage.isOrdered": [
-      1,
+      144,
       0,
       0,
       0,
-      143,
+      0,
       0
     ],
     "OccurrenceUsage.isPortion": [
-      95,
+      144,
       0,
       0,
       0,
-      49,
+      0,
       0
     ],
     "OccurrenceUsage.isReference": [
@@ -59354,19 +59418,19 @@
       0
     ],
     "OccurrenceUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       144,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OccurrenceUsage.isUnique": [
-      3,
+      144,
       0,
       0,
       0,
-      141,
+      0,
       0
     ],
     "OccurrenceUsage.isVariable": [
@@ -59378,9 +59442,9 @@
       0
     ],
     "OccurrenceUsage.isVariation": [
-      0,
-      0,
       144,
+      0,
+      0,
       0,
       0,
       0
@@ -60178,11 +60242,11 @@
       0
     ],
     "OperatorExpression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       1331,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OperatorExpression.isComposite": [
@@ -60202,35 +60266,35 @@
       0
     ],
     "OperatorExpression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       1331,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OperatorExpression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       1331,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OperatorExpression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       1331,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OperatorExpression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       1331,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OperatorExpression.isLibraryElement": [
@@ -60250,43 +60314,43 @@
       0
     ],
     "OperatorExpression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       1331,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OperatorExpression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       1331,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OperatorExpression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       1331,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OperatorExpression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       1331,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OperatorExpression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       1331,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OperatorExpression.member": [
@@ -60610,19 +60674,19 @@
       0
     ],
     "OwningMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       9596,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OwningMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       9596,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "OwningMembership.isLibraryElement": [
@@ -60850,11 +60914,11 @@
       0
     ],
     "Package.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       1226,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Package.isLibraryElement": [
@@ -61018,19 +61082,19 @@
       0
     ],
     "ParameterMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       4410,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ParameterMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       4410,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ParameterMembership.isLibraryElement": [
@@ -61338,11 +61402,11 @@
       0
     ],
     "PartDefinition.isAbstract": [
-      26,
+      919,
       0,
       0,
       0,
-      893,
+      0,
       0
     ],
     "PartDefinition.isConjugated": [
@@ -61354,19 +61418,19 @@
       0
     ],
     "PartDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       919,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PartDefinition.isIndividual": [
-      14,
+      919,
       0,
       0,
       0,
-      905,
+      0,
       0
     ],
     "PartDefinition.isLibraryElement": [
@@ -61378,17 +61442,17 @@
       0
     ],
     "PartDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       919,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PartDefinition.isVariation": [
-      6,
+      919,
       0,
-      913,
+      0,
       0,
       0,
       0
@@ -62058,11 +62122,11 @@
       0
     ],
     "PartUsage.isAbstract": [
-      27,
+      1970,
       0,
       0,
       0,
-      1943,
+      0,
       0
     ],
     "PartUsage.isComposite": [
@@ -62082,11 +62146,11 @@
       0
     ],
     "PartUsage.isConstant": [
-      2,
-      0,
+      1949,
       21,
       0,
-      1947,
+      0,
+      0,
       0
     ],
     "PartUsage.isDefault": [
@@ -62098,35 +62162,35 @@
       0
     ],
     "PartUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       1970,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PartUsage.isEnd": [
-      21,
+      1970,
       0,
       0,
       0,
-      1949,
+      0,
       0
     ],
     "PartUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       1970,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PartUsage.isIndividual": [
-      7,
+      1970,
       0,
       0,
       0,
-      1963,
+      0,
       0
     ],
     "PartUsage.isLibraryElement": [
@@ -62138,19 +62202,19 @@
       0
     ],
     "PartUsage.isOrdered": [
-      10,
+      1970,
       0,
       0,
       0,
-      1960,
+      0,
       0
     ],
     "PartUsage.isPortion": [
-      8,
+      1970,
       0,
       0,
       0,
-      1962,
+      0,
       0
     ],
     "PartUsage.isReference": [
@@ -62170,19 +62234,19 @@
       0
     ],
     "PartUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       1970,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PartUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       1970,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PartUsage.isVariable": [
@@ -62202,9 +62266,9 @@
       0
     ],
     "PartUsage.isVariation": [
-      16,
+      1970,
       0,
-      1954,
+      0,
       0,
       0,
       0
@@ -62994,11 +63058,11 @@
       0
     ],
     "PayloadFeature.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PayloadFeature.isComposite": [
@@ -63018,35 +63082,35 @@
       0
     ],
     "PayloadFeature.isConstant": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PayloadFeature.isDerived": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PayloadFeature.isEnd": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PayloadFeature.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PayloadFeature.isLibraryElement": [
@@ -63058,43 +63122,43 @@
       0
     ],
     "PayloadFeature.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PayloadFeature.isPortion": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PayloadFeature.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PayloadFeature.isUnique": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PayloadFeature.isVariable": [
-      0,
-      0,
-      0,
-      0,
       57,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PayloadFeature.member": [
@@ -63578,11 +63642,11 @@
       0
     ],
     "PerformActionUsage.isAbstract": [
-      2,
+      236,
       0,
       0,
       0,
-      234,
+      0,
       0
     ],
     "PerformActionUsage.isComposite": [
@@ -63602,43 +63666,43 @@
       0
     ],
     "PerformActionUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       236,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PerformActionUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       236,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PerformActionUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       236,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PerformActionUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       236,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PerformActionUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       236,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PerformActionUsage.isLibraryElement": [
@@ -63650,19 +63714,19 @@
       0
     ],
     "PerformActionUsage.isOrdered": [
-      1,
+      236,
       0,
       0,
       0,
-      235,
+      0,
       0
     ],
     "PerformActionUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       236,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PerformActionUsage.isReference": [
@@ -63674,19 +63738,19 @@
       0
     ],
     "PerformActionUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       236,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PerformActionUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       236,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PerformActionUsage.isVariable": [
@@ -63706,9 +63770,9 @@
       0
     ],
     "PerformActionUsage.isVariation": [
-      1,
+      236,
       0,
-      235,
+      0,
       0,
       0,
       0
@@ -64386,19 +64450,19 @@
       0
     ],
     "PortConjugation.isImplied": [
-      0,
-      0,
-      0,
-      0,
       125,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PortConjugation.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       125,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PortConjugation.isLibraryElement": [
@@ -64650,11 +64714,11 @@
       0
     ],
     "PortDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       125,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PortDefinition.isConjugated": [
@@ -64666,19 +64730,19 @@
       0
     ],
     "PortDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       125,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PortDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       125,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PortDefinition.isLibraryElement": [
@@ -64690,17 +64754,17 @@
       0
     ],
     "PortDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       125,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PortDefinition.isVariation": [
-      0,
-      0,
       125,
+      0,
+      0,
       0,
       0,
       0
@@ -65338,11 +65402,11 @@
       0
     ],
     "PortUsage.isAbstract": [
-      1,
+      488,
       0,
       0,
       0,
-      487,
+      0,
       0
     ],
     "PortUsage.isComposite": [
@@ -65362,43 +65426,43 @@
       0
     ],
     "PortUsage.isConstant": [
-      0,
-      0,
+      392,
       96,
       0,
-      392,
+      0,
+      0,
       0
     ],
     "PortUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       488,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PortUsage.isEnd": [
-      96,
+      488,
       0,
       0,
       0,
-      392,
+      0,
       0
     ],
     "PortUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       488,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PortUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       488,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PortUsage.isLibraryElement": [
@@ -65410,19 +65474,19 @@
       0
     ],
     "PortUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       488,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PortUsage.isPortion": [
-      1,
+      488,
       0,
       0,
       0,
-      487,
+      0,
       0
     ],
     "PortUsage.isReference": [
@@ -65434,19 +65498,19 @@
       0
     ],
     "PortUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       488,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PortUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       488,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "PortUsage.isVariable": [
@@ -65466,9 +65530,9 @@
       0
     ],
     "PortUsage.isVariation": [
-      1,
+      488,
       0,
-      487,
+      0,
       0,
       0,
       0
@@ -66210,11 +66274,11 @@
       0
     ],
     "Predicate.isAbstract": [
-      2,
+      5,
       0,
       0,
       0,
-      3,
+      0,
       0
     ],
     "Predicate.isConjugated": [
@@ -66226,11 +66290,11 @@
       0
     ],
     "Predicate.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Predicate.isLibraryElement": [
@@ -66250,11 +66314,11 @@
       0
     ],
     "Predicate.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Predicate.member": [
@@ -66530,19 +66594,19 @@
       944
     ],
     "Redefinition.isImplied": [
-      0,
-      0,
-      0,
-      0,
       2685,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Redefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       2685,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Redefinition.isLibraryElement": [
@@ -66770,19 +66834,19 @@
       26
     ],
     "ReferenceSubsetting.isImplied": [
-      0,
-      0,
-      0,
-      0,
       557,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ReferenceSubsetting.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       557,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ReferenceSubsetting.isLibraryElement": [
@@ -67122,11 +67186,11 @@
       0
     ],
     "ReferenceUsage.isAbstract": [
-      3,
+      2314,
       0,
       0,
       0,
-      2311,
+      0,
       0
     ],
     "ReferenceUsage.isAccept": [
@@ -67154,11 +67218,11 @@
       0
     ],
     "ReferenceUsage.isConstant": [
-      1,
-      0,
+      2223,
       91,
       0,
-      2222,
+      0,
+      0,
       0
     ],
     "ReferenceUsage.isDefault": [
@@ -67170,27 +67234,27 @@
       0
     ],
     "ReferenceUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       2314,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ReferenceUsage.isEnd": [
-      91,
+      2314,
       0,
       0,
       0,
-      2223,
+      0,
       0
     ],
     "ReferenceUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       2314,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ReferenceUsage.isLibraryElement": [
@@ -67202,19 +67266,19 @@
       0
     ],
     "ReferenceUsage.isOrdered": [
-      7,
+      2314,
       0,
       0,
       0,
-      2307,
+      0,
       0
     ],
     "ReferenceUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       2314,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ReferenceUsage.isReference": [
@@ -67234,19 +67298,19 @@
       0
     ],
     "ReferenceUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       2314,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ReferenceUsage.isUnique": [
-      3,
+      2314,
       0,
       0,
       0,
-      2311,
+      0,
       0
     ],
     "ReferenceUsage.isVariable": [
@@ -67266,9 +67330,9 @@
       0
     ],
     "ReferenceUsage.isVariation": [
-      0,
-      0,
       2314,
+      0,
+      0,
       0,
       0,
       0
@@ -68010,11 +68074,11 @@
       0
     ],
     "RenderingDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingDefinition.isConjugated": [
@@ -68026,19 +68090,19 @@
       0
     ],
     "RenderingDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingDefinition.isLibraryElement": [
@@ -68050,17 +68114,17 @@
       0
     ],
     "RenderingDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingDefinition.isVariation": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       0,
       0
@@ -68690,11 +68754,11 @@
       0
     ],
     "RenderingUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       35,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingUsage.isComposite": [
@@ -68714,43 +68778,43 @@
       0
     ],
     "RenderingUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       35,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       35,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       35,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       35,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       35,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingUsage.isLibraryElement": [
@@ -68762,19 +68826,19 @@
       0
     ],
     "RenderingUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       35,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       35,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingUsage.isReference": [
@@ -68786,19 +68850,19 @@
       0
     ],
     "RenderingUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       35,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       35,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RenderingUsage.isVariable": [
@@ -68810,9 +68874,9 @@
       0
     ],
     "RenderingUsage.isVariation": [
-      0,
-      0,
       35,
+      0,
+      0,
       0,
       0,
       0
@@ -69474,19 +69538,19 @@
       0
     ],
     "RequirementConstraintMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       174,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementConstraintMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       174,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementConstraintMembership.isLibraryElement": [
@@ -69858,11 +69922,11 @@
       0
     ],
     "RequirementDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       109,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementDefinition.isConjugated": [
@@ -69874,19 +69938,19 @@
       0
     ],
     "RequirementDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       109,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       109,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementDefinition.isLibraryElement": [
@@ -69906,17 +69970,17 @@
       0
     ],
     "RequirementDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       109,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementDefinition.isVariation": [
-      0,
-      0,
       109,
+      0,
+      0,
       0,
       0,
       0
@@ -70658,11 +70722,11 @@
       0
     ],
     "RequirementUsage.isAbstract": [
-      2,
+      271,
       0,
       0,
       0,
-      269,
+      0,
       0
     ],
     "RequirementUsage.isComposite": [
@@ -70682,43 +70746,43 @@
       0
     ],
     "RequirementUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       271,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       271,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       271,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       271,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       271,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementUsage.isLibraryElement": [
@@ -70738,19 +70802,19 @@
       0
     ],
     "RequirementUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       271,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       271,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementUsage.isReference": [
@@ -70762,19 +70826,19 @@
       0
     ],
     "RequirementUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       271,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementUsage.isUnique": [
-      1,
+      271,
       0,
       0,
       0,
-      270,
+      0,
       0
     ],
     "RequirementUsage.isVariable": [
@@ -70794,9 +70858,9 @@
       0
     ],
     "RequirementUsage.isVariation": [
-      2,
+      271,
       0,
-      269,
+      0,
       0,
       0,
       0
@@ -71522,19 +71586,19 @@
       0
     ],
     "RequirementVerificationMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementVerificationMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "RequirementVerificationMembership.isLibraryElement": [
@@ -71802,19 +71866,19 @@
       0
     ],
     "ResultExpressionMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       409,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ResultExpressionMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       409,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ResultExpressionMembership.isLibraryElement": [
@@ -72018,19 +72082,19 @@
       0
     ],
     "ReturnParameterMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       4764,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ReturnParameterMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       4764,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ReturnParameterMembership.isLibraryElement": [
@@ -72434,11 +72498,11 @@
       0
     ],
     "SatisfyRequirementUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       80,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SatisfyRequirementUsage.isComposite": [
@@ -72458,43 +72522,43 @@
       0
     ],
     "SatisfyRequirementUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       80,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SatisfyRequirementUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       80,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SatisfyRequirementUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       80,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SatisfyRequirementUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       80,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SatisfyRequirementUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       80,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SatisfyRequirementUsage.isLibraryElement": [
@@ -72514,27 +72578,27 @@
       0
     ],
     "SatisfyRequirementUsage.isNegated": [
-      3,
+      80,
       0,
       0,
       0,
-      77,
+      0,
       0
     ],
     "SatisfyRequirementUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       80,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SatisfyRequirementUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       80,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SatisfyRequirementUsage.isReference": [
@@ -72546,19 +72610,19 @@
       0
     ],
     "SatisfyRequirementUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       80,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SatisfyRequirementUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       80,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SatisfyRequirementUsage.isVariable": [
@@ -72570,9 +72634,9 @@
       0
     ],
     "SatisfyRequirementUsage.isVariation": [
-      0,
-      0,
       80,
+      0,
+      0,
       0,
       0,
       0
@@ -73418,11 +73482,11 @@
       0
     ],
     "SelectExpression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SelectExpression.isComposite": [
@@ -73442,35 +73506,35 @@
       0
     ],
     "SelectExpression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SelectExpression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SelectExpression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SelectExpression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SelectExpression.isLibraryElement": [
@@ -73490,43 +73554,43 @@
       0
     ],
     "SelectExpression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SelectExpression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SelectExpression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SelectExpression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SelectExpression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       3,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SelectExpression.member": [
@@ -73978,11 +74042,11 @@
       0
     ],
     "SendActionUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SendActionUsage.isComposite": [
@@ -74002,43 +74066,43 @@
       0
     ],
     "SendActionUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SendActionUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SendActionUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SendActionUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SendActionUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SendActionUsage.isLibraryElement": [
@@ -74050,19 +74114,19 @@
       0
     ],
     "SendActionUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SendActionUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SendActionUsage.isReference": [
@@ -74074,19 +74138,19 @@
       0
     ],
     "SendActionUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SendActionUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SendActionUsage.isVariable": [
@@ -74098,9 +74162,9 @@
       0
     ],
     "SendActionUsage.isVariation": [
-      0,
-      0,
       26,
+      0,
+      0,
       0,
       0,
       0
@@ -74722,19 +74786,19 @@
       9
     ],
     "Specialization.isImplied": [
-      0,
-      0,
-      0,
-      0,
       15,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Specialization.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       15,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Specialization.isLibraryElement": [
@@ -74914,19 +74978,19 @@
       0
     ],
     "StakeholderMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       15,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StakeholderMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       15,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StakeholderMembership.isLibraryElement": [
@@ -75274,11 +75338,11 @@
       0
     ],
     "StateDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       46,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateDefinition.isConjugated": [
@@ -75290,19 +75354,19 @@
       0
     ],
     "StateDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       46,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       46,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateDefinition.isLibraryElement": [
@@ -75314,25 +75378,25 @@
       0
     ],
     "StateDefinition.isParallel": [
-      3,
+      46,
       0,
       0,
       0,
-      43,
+      0,
       0
     ],
     "StateDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       46,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateDefinition.isVariation": [
-      0,
-      0,
       46,
+      0,
+      0,
       0,
       0,
       0
@@ -75858,19 +75922,19 @@
       0
     ],
     "StateSubactionMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       137,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateSubactionMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       137,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateSubactionMembership.isLibraryElement": [
@@ -76266,11 +76330,11 @@
       0
     ],
     "StateUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       306,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateUsage.isComposite": [
@@ -76290,43 +76354,43 @@
       0
     ],
     "StateUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       306,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       306,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       306,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       306,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       306,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateUsage.isLibraryElement": [
@@ -76338,27 +76402,27 @@
       0
     ],
     "StateUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       306,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateUsage.isParallel": [
-      8,
+      306,
       0,
       0,
       0,
-      298,
+      0,
       0
     ],
     "StateUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       306,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateUsage.isReference": [
@@ -76370,19 +76434,19 @@
       0
     ],
     "StateUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       306,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "StateUsage.isUnique": [
-      1,
+      306,
       0,
       0,
       0,
-      305,
+      0,
       0
     ],
     "StateUsage.isVariable": [
@@ -76394,9 +76458,9 @@
       0
     ],
     "StateUsage.isVariation": [
-      0,
-      0,
       306,
+      0,
+      0,
       0,
       0,
       0
@@ -77162,11 +77226,11 @@
       0
     ],
     "Step.isAbstract": [
-      1,
+      78,
       0,
       0,
       0,
-      77,
+      0,
       0
     ],
     "Step.isComposite": [
@@ -77186,35 +77250,35 @@
       0
     ],
     "Step.isConstant": [
-      0,
-      0,
-      0,
-      0,
       78,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Step.isDerived": [
-      0,
-      0,
-      0,
-      0,
       78,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Step.isEnd": [
-      0,
-      0,
-      0,
-      0,
       78,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Step.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       78,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Step.isLibraryElement": [
@@ -77226,43 +77290,43 @@
       0
     ],
     "Step.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       78,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Step.isPortion": [
-      0,
-      0,
-      0,
-      0,
       78,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Step.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       78,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Step.isUnique": [
-      1,
+      78,
       0,
       0,
       0,
-      77,
+      0,
       0
     ],
     "Step.isVariable": [
-      0,
-      0,
-      0,
-      0,
       78,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Step.lowerBound": [
@@ -77698,11 +77762,11 @@
       0
     ],
     "Structure.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       70,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Structure.isConjugated": [
@@ -77714,11 +77778,11 @@
       0
     ],
     "Structure.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       70,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Structure.isLibraryElement": [
@@ -77730,11 +77794,11 @@
       0
     ],
     "Structure.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       70,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Structure.member": [
@@ -78002,19 +78066,19 @@
       249
     ],
     "Subclassification.isImplied": [
-      0,
-      0,
-      0,
-      0,
       612,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Subclassification.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       612,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Subclassification.isLibraryElement": [
@@ -78218,19 +78282,19 @@
       0
     ],
     "SubjectMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       375,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SubjectMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       375,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SubjectMembership.isLibraryElement": [
@@ -78466,19 +78530,19 @@
       441
     ],
     "Subsetting.isImplied": [
-      0,
-      0,
-      0,
-      0,
       792,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Subsetting.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       792,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Subsetting.isLibraryElement": [
@@ -78818,11 +78882,11 @@
       0
     ],
     "Succession.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Succession.isComposite": [
@@ -78842,43 +78906,43 @@
       0
     ],
     "Succession.isConstant": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Succession.isDerived": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Succession.isEnd": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Succession.isImplied": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Succession.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Succession.isLibraryElement": [
@@ -78890,35 +78954,35 @@
       0
     ],
     "Succession.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Succession.isPortion": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Succession.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Succession.isUnique": [
-      0,
-      0,
-      0,
-      0,
       26,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Succession.isVariable": [
@@ -78927,6 +78991,14 @@
       0,
       0,
       26,
+      0
+    ],
+    "Succession.isVariation": [
+      0,
+      0,
+      0,
+      26,
+      0,
       0
     ],
     "Succession.member": [
@@ -79498,11 +79570,11 @@
       0
     ],
     "SuccessionAsUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       12,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionAsUsage.isComposite": [
@@ -79522,43 +79594,51 @@
       0
     ],
     "SuccessionAsUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       12,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionAsUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       12,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionAsUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       12,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionAsUsage.isImplied": [
+      11,
       0,
       0,
       0,
-      0,
-      12,
+      1,
       0
     ],
     "SuccessionAsUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       12,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "SuccessionAsUsage.isIndividual": [
+      0,
+      0,
+      0,
+      0,
+      1,
       0
     ],
     "SuccessionAsUsage.isLibraryElement": [
@@ -79570,19 +79650,19 @@
       0
     ],
     "SuccessionAsUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       12,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionAsUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       12,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionAsUsage.isReference": [
@@ -79594,19 +79674,19 @@
       0
     ],
     "SuccessionAsUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       12,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionAsUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       12,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionAsUsage.isVariable": [
@@ -79618,9 +79698,9 @@
       0
     ],
     "SuccessionAsUsage.isVariation": [
-      0,
-      0,
       12,
+      0,
+      0,
       0,
       0,
       0
@@ -80434,11 +80514,11 @@
       0
     ],
     "SuccessionFlow.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlow.isComposite": [
@@ -80458,38 +80538,46 @@
       0
     ],
     "SuccessionFlow.isConstant": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlow.isDerived": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlow.isEnd": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlow.isImplied": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlow.isImpliedIncluded": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "SuccessionFlow.isIndividual": [
       0,
       0,
       0,
@@ -80506,35 +80594,35 @@
       0
     ],
     "SuccessionFlow.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlow.isPortion": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlow.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlow.isUnique": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlow.isVariable": [
@@ -80543,6 +80631,14 @@
       0,
       0,
       1,
+      0
+    ],
+    "SuccessionFlow.isVariation": [
+      0,
+      0,
+      0,
+      1,
+      0,
       0
     ],
     "SuccessionFlow.member": [
@@ -81170,11 +81266,11 @@
       0
     ],
     "SuccessionFlowUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlowUsage.isComposite": [
@@ -81194,51 +81290,51 @@
       0
     ],
     "SuccessionFlowUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlowUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlowUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlowUsage.isImplied": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlowUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlowUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlowUsage.isLibraryElement": [
@@ -81250,19 +81346,19 @@
       0
     ],
     "SuccessionFlowUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlowUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlowUsage.isReference": [
@@ -81274,19 +81370,19 @@
       0
     ],
     "SuccessionFlowUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlowUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       2,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "SuccessionFlowUsage.isVariable": [
@@ -81298,9 +81394,9 @@
       0
     ],
     "SuccessionFlowUsage.isVariation": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       0,
       0
@@ -82122,11 +82218,11 @@
       0
     ],
     "TerminateActionUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TerminateActionUsage.isComposite": [
@@ -82146,43 +82242,43 @@
       0
     ],
     "TerminateActionUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TerminateActionUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TerminateActionUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TerminateActionUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TerminateActionUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TerminateActionUsage.isLibraryElement": [
@@ -82194,19 +82290,19 @@
       0
     ],
     "TerminateActionUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TerminateActionUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TerminateActionUsage.isReference": [
@@ -82218,19 +82314,19 @@
       0
     ],
     "TerminateActionUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TerminateActionUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       11,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TerminateActionUsage.isVariable": [
@@ -82242,9 +82338,9 @@
       0
     ],
     "TerminateActionUsage.isVariation": [
-      0,
-      0,
       11,
+      0,
+      0,
       0,
       0,
       0
@@ -82874,11 +82970,11 @@
       0
     ],
     "TextualRepresentation.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TextualRepresentation.isLibraryElement": [
@@ -83026,19 +83122,19 @@
       0
     ],
     "TransitionFeatureMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TransitionFeatureMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       79,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TransitionFeatureMembership.isLibraryElement": [
@@ -83426,11 +83522,11 @@
       0
     ],
     "TransitionUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       60,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TransitionUsage.isComposite": [
@@ -83450,43 +83546,43 @@
       0
     ],
     "TransitionUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       60,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TransitionUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       60,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TransitionUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       60,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TransitionUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       60,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TransitionUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       60,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TransitionUsage.isLibraryElement": [
@@ -83498,19 +83594,19 @@
       0
     ],
     "TransitionUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       60,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TransitionUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       60,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TransitionUsage.isReference": [
@@ -83522,19 +83618,19 @@
       0
     ],
     "TransitionUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       60,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TransitionUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       60,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TransitionUsage.isVariable": [
@@ -83546,9 +83642,9 @@
       0
     ],
     "TransitionUsage.isVariation": [
-      0,
-      0,
       60,
+      0,
+      0,
       0,
       0,
       0
@@ -84322,11 +84418,11 @@
       0
     ],
     "TriggerInvocationExpression.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TriggerInvocationExpression.isComposite": [
@@ -84346,35 +84442,35 @@
       0
     ],
     "TriggerInvocationExpression.isConstant": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TriggerInvocationExpression.isDerived": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TriggerInvocationExpression.isEnd": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TriggerInvocationExpression.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TriggerInvocationExpression.isLibraryElement": [
@@ -84394,43 +84490,43 @@
       0
     ],
     "TriggerInvocationExpression.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TriggerInvocationExpression.isPortion": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TriggerInvocationExpression.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TriggerInvocationExpression.isUnique": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TriggerInvocationExpression.isVariable": [
-      0,
-      0,
-      0,
-      0,
       6,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TriggerInvocationExpression.kind": [
@@ -84842,11 +84938,11 @@
       0
     ],
     "Type.isAbstract": [
-      2,
+      41,
       0,
       0,
       0,
-      39,
+      0,
       0
     ],
     "Type.isAll": [
@@ -84866,11 +84962,11 @@
       0
     ],
     "Type.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Type.isLibraryElement": [
@@ -84882,11 +84978,11 @@
       0
     ],
     "Type.isSufficient": [
+      41,
       0,
       0,
-      2,
       0,
-      39,
+      0,
       0
     ],
     "Type.member": [
@@ -85178,19 +85274,19 @@
       0
     ],
     "TypeFeaturing.isImplied": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TypeFeaturing.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "TypeFeaturing.isLibraryElement": [
@@ -85490,11 +85586,11 @@
       0
     ],
     "Usage.isAbstract": [
-      1,
+      30,
       0,
       0,
       0,
-      29,
+      0,
       0
     ],
     "Usage.isComposite": [
@@ -85514,35 +85610,35 @@
       0
     ],
     "Usage.isConstant": [
-      0,
-      0,
+      21,
       9,
       0,
-      21,
+      0,
+      0,
       0
     ],
     "Usage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       30,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Usage.isEnd": [
-      9,
+      30,
       0,
       0,
       0,
-      21,
+      0,
       0
     ],
     "Usage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       30,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Usage.isLibraryElement": [
@@ -85554,19 +85650,19 @@
       0
     ],
     "Usage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       30,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Usage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       30,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Usage.isReference": [
@@ -85578,19 +85674,19 @@
       0
     ],
     "Usage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       30,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Usage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       30,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "Usage.isVariable": [
@@ -85602,9 +85698,9 @@
       0
     ],
     "Usage.isVariation": [
-      0,
-      0,
       30,
+      0,
+      0,
       0,
       0,
       0
@@ -86338,11 +86434,11 @@
       0
     ],
     "UseCaseDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseDefinition.isConjugated": [
@@ -86354,19 +86450,19 @@
       0
     ],
     "UseCaseDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseDefinition.isLibraryElement": [
@@ -86386,17 +86482,17 @@
       0
     ],
     "UseCaseDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       19,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseDefinition.isVariation": [
-      0,
-      0,
       19,
+      0,
+      0,
       0,
       0,
       0
@@ -87114,11 +87210,11 @@
       0
     ],
     "UseCaseUsage.isAbstract": [
-      1,
+      27,
       0,
       0,
       0,
-      26,
+      0,
       0
     ],
     "UseCaseUsage.isComposite": [
@@ -87138,43 +87234,43 @@
       0
     ],
     "UseCaseUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       27,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       27,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       27,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       27,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       27,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseUsage.isLibraryElement": [
@@ -87194,19 +87290,19 @@
       0
     ],
     "UseCaseUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       27,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       27,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseUsage.isReference": [
@@ -87218,19 +87314,19 @@
       0
     ],
     "UseCaseUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       27,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       27,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "UseCaseUsage.isVariable": [
@@ -87250,9 +87346,9 @@
       0
     ],
     "UseCaseUsage.isVariation": [
-      1,
+      27,
       0,
-      26,
+      0,
       0,
       0,
       0
@@ -87906,19 +88002,19 @@
       0
     ],
     "VariantMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       141,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VariantMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       141,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VariantMembership.isLibraryElement": [
@@ -88242,11 +88338,11 @@
       0
     ],
     "VerificationCaseDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseDefinition.isConjugated": [
@@ -88258,19 +88354,19 @@
       0
     ],
     "VerificationCaseDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseDefinition.isLibraryElement": [
@@ -88290,17 +88386,17 @@
       0
     ],
     "VerificationCaseDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       41,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseDefinition.isVariation": [
-      0,
-      0,
       41,
+      0,
+      0,
       0,
       0,
       0
@@ -89010,11 +89106,11 @@
       0
     ],
     "VerificationCaseUsage.isAbstract": [
-      1,
+      44,
       0,
       0,
       0,
-      43,
+      0,
       0
     ],
     "VerificationCaseUsage.isComposite": [
@@ -89034,43 +89130,43 @@
       0
     ],
     "VerificationCaseUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       44,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       44,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       44,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       44,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       44,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseUsage.isLibraryElement": [
@@ -89090,19 +89186,19 @@
       0
     ],
     "VerificationCaseUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       44,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       44,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseUsage.isReference": [
@@ -89114,19 +89210,19 @@
       0
     ],
     "VerificationCaseUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       44,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       44,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "VerificationCaseUsage.isVariable": [
@@ -89138,9 +89234,9 @@
       0
     ],
     "VerificationCaseUsage.isVariation": [
-      1,
+      44,
       0,
-      43,
+      0,
       0,
       0,
       0
@@ -89874,11 +89970,11 @@
       0
     ],
     "ViewDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewDefinition.isConjugated": [
@@ -89890,19 +89986,19 @@
       0
     ],
     "ViewDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewDefinition.isLibraryElement": [
@@ -89914,17 +90010,17 @@
       0
     ],
     "ViewDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       16,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewDefinition.isVariation": [
-      0,
-      0,
       16,
+      0,
+      0,
       0,
       0,
       0
@@ -90450,19 +90546,19 @@
       0
     ],
     "ViewRenderingMembership.isImplied": [
-      0,
-      0,
-      0,
-      0,
       33,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewRenderingMembership.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       33,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewRenderingMembership.isLibraryElement": [
@@ -90826,11 +90922,11 @@
       0
     ],
     "ViewUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       99,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewUsage.isComposite": [
@@ -90850,43 +90946,43 @@
       0
     ],
     "ViewUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       99,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       99,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       99,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       99,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       99,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewUsage.isLibraryElement": [
@@ -90898,19 +90994,19 @@
       0
     ],
     "ViewUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       99,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       99,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewUsage.isReference": [
@@ -90922,19 +91018,19 @@
       0
     ],
     "ViewUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       99,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       99,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewUsage.isVariable": [
@@ -90946,9 +91042,9 @@
       0
     ],
     "ViewUsage.isVariation": [
-      0,
-      0,
       99,
+      0,
+      0,
       0,
       0,
       0
@@ -91746,11 +91842,11 @@
       0
     ],
     "ViewpointDefinition.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointDefinition.isConjugated": [
@@ -91762,19 +91858,19 @@
       0
     ],
     "ViewpointDefinition.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointDefinition.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointDefinition.isLibraryElement": [
@@ -91794,17 +91890,17 @@
       0
     ],
     "ViewpointDefinition.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       10,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointDefinition.isVariation": [
-      0,
-      0,
       10,
+      0,
+      0,
       0,
       0,
       0
@@ -92546,11 +92642,11 @@
       0
     ],
     "ViewpointUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       9,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointUsage.isComposite": [
@@ -92570,43 +92666,43 @@
       0
     ],
     "ViewpointUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       9,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       9,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       9,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       9,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       9,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointUsage.isLibraryElement": [
@@ -92626,19 +92722,19 @@
       0
     ],
     "ViewpointUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       9,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       9,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointUsage.isReference": [
@@ -92650,19 +92746,19 @@
       0
     ],
     "ViewpointUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       9,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       9,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ViewpointUsage.isVariable": [
@@ -92674,9 +92770,9 @@
       0
     ],
     "ViewpointUsage.isVariation": [
-      0,
-      0,
       9,
+      0,
+      0,
       0,
       0,
       0
@@ -93506,11 +93602,11 @@
       0
     ],
     "WhileLoopActionUsage.isAbstract": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "WhileLoopActionUsage.isComposite": [
@@ -93530,43 +93626,43 @@
       0
     ],
     "WhileLoopActionUsage.isConstant": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "WhileLoopActionUsage.isDerived": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "WhileLoopActionUsage.isEnd": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "WhileLoopActionUsage.isImpliedIncluded": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "WhileLoopActionUsage.isIndividual": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "WhileLoopActionUsage.isLibraryElement": [
@@ -93578,19 +93674,19 @@
       0
     ],
     "WhileLoopActionUsage.isOrdered": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "WhileLoopActionUsage.isPortion": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "WhileLoopActionUsage.isReference": [
@@ -93602,19 +93698,19 @@
       0
     ],
     "WhileLoopActionUsage.isSufficient": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "WhileLoopActionUsage.isUnique": [
-      0,
-      0,
-      0,
-      0,
       5,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "WhileLoopActionUsage.isVariable": [
@@ -93626,9 +93722,9 @@
       0
     ],
     "WhileLoopActionUsage.isVariation": [
-      0,
-      0,
       5,
+      0,
+      0,
       0,
       0,
       0

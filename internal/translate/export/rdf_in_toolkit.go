@@ -261,9 +261,10 @@ func lastSegmentText(qname string) string {
 func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*rdf.Graph, error) {
 	meta := func(t rdf.Term) string { return rdf.LocalName(metaclasses[t]) }
 	chainIndex := chainOwnerIndex(graph, meta)
-	// A graph written in the API element form spells every default, so its
-	// stated defaults are dropped and its collapsed properties derived; a
-	// graph minted to this mapping states only what it means.
+	// This mapping never states Element::isImpliedIncluded in its graph (the
+	// reader drops the flag from its own documents), so a graph that does is an
+	// external writer's element form: its stated defaults are dropped and its
+	// collapsed properties derived; a graph minted to this mapping states only what it means.
 	elementForm := false
 	for _, subject := range graph.Subjects() {
 		if graph.HasProperty(subject, rdf.SysML+"isImpliedIncluded") {
@@ -1525,6 +1526,8 @@ func (d *defaultDropper) ownsDroppedMember(subject rdf.Term) bool {
 	return member.Value != "" && d.unresolvedTR[member.Value]
 }
 
+// impliedIncluded reports whether subject came from an external writer's
+// element form, the only graph that states Element::isImpliedIncluded.
 func (d *defaultDropper) impliedIncluded(subject rdf.Term) bool {
 	return d.graph.HasProperty(subject, rdf.SysML+"isImpliedIncluded")
 }

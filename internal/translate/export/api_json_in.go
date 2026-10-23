@@ -441,6 +441,8 @@ type apiJSONElementData struct {
 	specQualifiedName    string
 	hasSpecQualifiedName bool
 	toolkitForm          bool
+	statedDefaults       bool
+	explicitDefaults     map[string]bool
 }
 
 var apiJSONInteger = regexp.MustCompile(`^-?[0-9]+$`)
@@ -469,6 +471,7 @@ func apiJSONExpressionIDs(data []byte) (*apiJSONImportPlan, error) {
 	mappingNames := make(map[string]string)
 	specNames := make(map[string]string)
 	toolkitForm := false
+	statedDefaults := apiJSONStatedDefaults(objects)
 	for _, object := range objects {
 		if object.mappingQualifiedName != "" {
 			mappingNames[object.id] = object.mappingQualifiedName
@@ -476,7 +479,7 @@ func apiJSONExpressionIDs(data []byte) (*apiJSONImportPlan, error) {
 		if object.hasSpecQualifiedName {
 			specNames[object.id] = object.specQualifiedName
 		}
-		toolkitForm = toolkitForm || object.toolkitForm
+		toolkitForm = toolkitForm || (object.toolkitForm && !statedDefaults)
 	}
 	graph, syntheticRootIndexes, annotations, incomingMemberships, err := apiJSONMappingGraph(objects)
 	if err != nil {
@@ -536,6 +539,7 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 	builder := rdf.NewGraphBuilder(len(objects) * apiJSONEstimatedTriplesPerElement)
 	cache := newAPIJSONTermCache()
 	var annotations []apiJSONAnnotation
+	statedDefaults := apiJSONStatedDefaults(objects)
 	for i := range objects {
 		object := &objects[i]
 		subject := rdf.ReferenceIRI(rdf.Term{}, object.id)
@@ -595,6 +599,10 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 				continue
 			}
 			if member.key == "qualifiedName" {
+				continue
+			}
+			if statedDefaults && !object.explicitDefaults[member.key] &&
+				apiJSONImpliedBoolean(typ, member, object.members) {
 				continue
 			}
 			predicate, sysmlKey, err := cache.predicate(member.key)
@@ -1023,6 +1031,27 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 			}
 			continue
 		}
+		if key == apiJSONStatedDefaultsKey {
+			if object.statedDefaults, ok = value.(bool); !ok {
+				return object, fmt.Errorf("%s is a boolean, not %v", key, value)
+			}
+			continue
+		}
+		if key == apiJSONExplicitDefaultsKey {
+			names, ok := value.([]any)
+			if !ok {
+				return object, fmt.Errorf("%s is an array of property names, not %v", key, value)
+			}
+			object.explicitDefaults = make(map[string]bool, len(names))
+			for _, name := range names {
+				text, ok := name.(string)
+				if !ok {
+					return object, fmt.Errorf("%s names a property with a string, not %v", key, name)
+				}
+				object.explicitDefaults[text] = true
+			}
+			continue
+		}
 		switch {
 		case key == "@type":
 			text, ok := value.(string)
@@ -1050,6 +1079,8 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 					object.mappingQualifiedName = name
 				}
 			case "isImpliedIncluded":
+				// Only an external writer's element form states this flag: the
+				// mapping's graph never does, and its own documents carry the marker.
 				object.toolkitForm = true
 			}
 			if id, ok := memberReference(value); ok {
@@ -1531,3 +1562,14 @@ var apiJSONExpressionKeys = func() map[string]bool {
 	}
 	return keys
 }()
+
+// apiJSONStatedDefaults reports whether the document was written by this
+// mapping with every non-derived boolean stated (apiJSONStatedDefaultsKey).
+func apiJSONStatedDefaults(objects []apiJSONElementData) bool {
+	for _, object := range objects {
+		if object.statedDefaults {
+			return true
+		}
+	}
+	return false
+}
