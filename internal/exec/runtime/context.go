@@ -2174,12 +2174,35 @@ func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*ObjectBehavior,
 	}
 	switch exhibited := self.ExhibitedStatesOf(stateMachine); len(exhibited) {
 	case 0:
-		return nil, nil
+		return exhibitedAs(stateMachine, self), nil
 	case 1:
 		return exhibited[0], nil
 	default:
 		return nil, fmt.Errorf("%w: the object exhibits %s as %s", errAmbiguousMachine, SymbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
 	}
+}
+
+// exhibitedAs is the exhibited state whose performance self is the occurrence of,
+// nil when self is none: `tug.fdir` names the machine tug performs (SysML v2
+// §7.18.4, the exhibiting part is the exhibited state's performer), not a second performer.
+func exhibitedAs(stateMachine *symbols.Symbol, self *Instance) *ObjectBehavior {
+	owner := self.owner
+	if owner == nil {
+		return nil
+	}
+	fv, ok := owner.FeatureValues[self.ownerFeature]
+	if !ok || fv.Feature == nil {
+		return nil
+	}
+	for _, behavior := range owner.ExhibitedStatesOf(stateMachine) {
+		if behavior.member != fv.Feature.Symbol {
+			continue
+		}
+		if behavior.State == nil || behavior.State.occurrence == self {
+			return behavior
+		}
+	}
+	return nil
 }
 
 func (ctx *Context) checkStateSuccessionOrder(stateMachine *symbols.Symbol, self *Instance, behavior *ObjectBehavior) error {

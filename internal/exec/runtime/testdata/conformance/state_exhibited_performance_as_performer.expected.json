@@ -1,0 +1,19 @@
+{
+  "type": "state",
+  "evaluate": "test::Tug::sup",
+  "performers": [
+    {
+      "object": "test::scenario.tug.sup",
+      "events": [
+        {
+          "signal": "Ping"
+        }
+      ],
+      "finalState": "pinged",
+      "stateVisits": [
+        "armed",
+        "pinged"
+      ]
+    }
+  ]
+}

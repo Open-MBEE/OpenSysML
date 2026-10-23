@@ -364,10 +364,7 @@ func runObjectMachines(t *testing.T, ctx *Context, first *Instance, expected Exp
 func runPerformers(t *testing.T, run *steppedRun, idx *symbols.Index, stateSym *symbols.Symbol, performers []Performer) error {
 	t.Helper()
 	for _, performer := range performers {
-		self, err := run.ctx.Instantiate(oneSymbol(t, idx, performer.Object))
-		if err != nil {
-			return err
-		}
+		self := performerObject(t, run.ctx, idx, performer.Object)
 		exec, err := run.ctx.CreateStateExecutorFor(stateSym, self)
 		if err != nil {
 			return err

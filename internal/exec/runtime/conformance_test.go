@@ -1098,10 +1098,7 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 func runActionPerformers(t *testing.T, ctx *Context, idx *symbols.Index, actionSym *symbols.Symbol, performers []Performer) {
 	t.Helper()
 	for _, performer := range performers {
-		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
-		if err != nil {
-			t.Fatalf("instantiate %s: %v", performer.Object, err)
-		}
+		self := performerObject(t, ctx, idx, performer.Object)
 		t.Run(performer.Object, func(t *testing.T) {
 			outcome, err := ctx.ActionOutcomePerformedBy(actionSym, self, nil)
 			if performer.Error != "" {
@@ -1144,10 +1141,7 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 		return
 	}
 	for _, performer := range expected.Performers {
-		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
-		if err != nil {
-			t.Fatalf("instantiate %s: %v", performer.Object, err)
-		}
+		self := performerObject(t, ctx, idx, performer.Object)
 		if forceOwned {
 			if err := forceOwnedConnectors(ctx, self); err != nil {
 				t.Fatalf("OwnedConnectors(%s) failed before execution: %v", performer.Object, err)

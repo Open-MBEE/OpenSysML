@@ -349,20 +349,26 @@ func (e *StateExecutor) eventQueued(id int64) bool {
 // performStateWithEvents drives one performance of a state machine, by self or by no
 // object: it enters the initial state, queues the events, and runs through the
 // executor's own loop to completion or suspension, returning the executor for
-// its outcome. The conformance harness and the referees drive machines this way.
+// its outcome. An object exhibiting the machine runs the one it exhibits rather
+// than a second. The conformance harness and the referees drive machines this way.
 func (ctx *Context) performStateWithEvents(stateMachine *symbols.Symbol, self *Instance, events []QueuedEvent) (*StateExecutor, error) {
-	exec, err := ctx.CreateStateExecutorFor(stateMachine, self)
+	exec, reused, err := ctx.stateRunFor(stateMachine, self, true)
 	if err != nil {
 		return nil, err
 	}
+	release := func() {
+		if !reused {
+			exec.Release()
+		}
+	}
 	for _, event := range events {
 		if err := exec.Enqueue(event); err != nil {
-			exec.Release()
+			release()
 			return nil, err
 		}
 	}
 	if err := exec.RunToCompletion(); err != nil {
-		exec.Release()
+		release()
 		return nil, err
 	}
 	return exec, nil
