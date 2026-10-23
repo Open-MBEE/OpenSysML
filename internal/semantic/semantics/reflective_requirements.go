@@ -24,14 +24,7 @@ func (m *Model) requirementElements(sym *symbols.Symbol, feature string) ([]*sym
 		if !m.conformsToAny(sym, "RequirementDefinition", "RequirementUsage") {
 			return nil, false
 		}
-		// framedConcern reads featureMembership, so an inherited frame counts.
-		out := []*symbols.Symbol{}
-		for _, member := range m.membersIncludingAnonymous(sym) {
-			if kind, ok := member.UsageKind(); ok && kind == ast.UsageFramedConcern {
-				out = append(out, member)
-			}
-		}
-		return out, true
+		return m.framedConcerns(sym), true
 	case "verifiedRequirement":
 		if !m.conformsToAny(sym, "VerificationCaseDefinition", "VerificationCaseUsage") {
 			return nil, false
@@ -45,14 +38,7 @@ func (m *Model) requirementElements(sym *symbols.Symbol, feature string) ([]*sym
 		if feature == "stakeholderParameter" {
 			kind = ast.UsageStakeholder
 		}
-		owned, inherited := m.ActorsOf(sym)
-		out := []*symbols.Symbol{}
-		for _, actor := range append(owned, inherited...) {
-			if k, ok := actor.UsageKind(); ok && k == kind {
-				out = append(out, actor)
-			}
-		}
-		return out, true
+		return m.actorsOfKind(sym, kind), true
 	case "assertedConstraint", "satisfiedRequirement":
 		metaclass := "AssertConstraintUsage"
 		if feature == "satisfiedRequirement" {
@@ -69,6 +55,29 @@ func (m *Model) requirementElements(sym *symbols.Symbol, feature string) ([]*sym
 		return m.satisfyingFeatureOf(sym), true
 	}
 	return nil, false
+}
+
+// framedConcerns reads featureMembership, so an inherited frame counts.
+func (m *Model) framedConcerns(sym *symbols.Symbol) []*symbols.Symbol {
+	out := []*symbols.Symbol{}
+	for _, member := range m.membersIncludingAnonymous(sym) {
+		if kind, ok := member.UsageKind(); ok && kind == ast.UsageFramedConcern {
+			out = append(out, member)
+		}
+	}
+	return out
+}
+
+// actorsOfKind is the owned and inherited actor parameters of the given usage kind.
+func (m *Model) actorsOfKind(sym *symbols.Symbol, kind ast.UsageKind) []*symbols.Symbol {
+	owned, inherited := m.ActorsOf(sym)
+	out := []*symbols.Symbol{}
+	for _, actor := range append(owned, inherited...) {
+		if k, ok := actor.UsageKind(); ok && k == kind {
+			out = append(out, actor)
+		}
+	}
+	return out
 }
 
 // conformsToAny reports whether sym's metaclass conforms to one of the named ones.
