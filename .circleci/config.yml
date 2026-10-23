@@ -1124,8 +1124,7 @@ jobs:
             done
 
       # An OOM kill surfaces as a bare exit 3 in the scan's log; the cgroup
-      # counters name it (v2 first, v1 fallback), the samples and the GC log
-      # say which process grew and how much heap the analysis committed.
+      # counters name it (v2 first, v1 fallback) and the samples say which process grew.
       - run:
           name: Report the container's memory events
           when: always
@@ -1138,8 +1137,8 @@ jobs:
             if [ -s sonar-logs/memory-samples.log ]; then
               echo "peak cgroup usage sampled (bytes):"
               awk '/^== /{print $4}' sonar-logs/memory-samples.log | sort -n | tail -n 1
-              echo "peak RSS per process (KiB):"
-              awk '!/^== /{if ($1 > peak[$3]) peak[$3] = $1} END {for (c in peak) print peak[c], c}' sonar-logs/memory-samples.log | sort -rn | head -n 8
+              echo "peak RSS per process (KiB, pid, command):"
+              awk '!/^== /{if ($1 > peak[$2]) {peak[$2] = $1; name[$2] = $3}} END {for (pid in peak) print peak[pid], pid, name[pid]}' sonar-logs/memory-samples.log | sort -rn | head -n 8
             fi
             if [ -s sonar-logs/analysis-gc.log ]; then
               echo "largest committed analysis heap:"
