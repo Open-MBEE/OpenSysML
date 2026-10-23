@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
-// occurrenceModel is a migrated use case in the shape a modelling tool's default
-// sequence diagram migrates to: a lifeline subsetting a part, events performing
-// body-less actions of the lifeline's type, signal payloads and signatureless messages.
+// occurrenceModel is a migrated use case: a lifeline subsetting a part, events
+// performing body-less actions, signal payloads and signatureless messages.
 const occurrenceModel = `package Instrument {
     part Operator;
     part def Stage { action detectCharging; }
@@ -58,9 +57,8 @@ func withinCommandDeadline(t *testing.T, what string, run func() []string) []str
 	}
 }
 
-// TestOccurrenceCommandReturnsAtThePrompt pins that `%occurrence` performs the
-// interaction and prints its transfers from the prompt, where the session is
-// already held for the command, and that the prompt takes the next line after it.
+// TestOccurrenceCommandReturnsAtThePrompt pins that `%occurrence`, run where the
+// session is already held, prints its transfers and the prompt takes the next line.
 func TestOccurrenceCommandReturnsAtThePrompt(t *testing.T) {
 	s := occurrenceSession(t)
 	out := withinCommandDeadline(t, "%occurrence", func() []string {

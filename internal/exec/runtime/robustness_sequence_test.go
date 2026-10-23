@@ -132,9 +132,8 @@ func TestRuntimeRobustnessSequence(t *testing.T) {
 		}
 	})
 	t.Run("body-less performs at events complete", func(t *testing.T) {
-		// A migrated tool default: lifelines subsetting a part or typed by a part def
-		// whose operations have no body, signatureless and create messages. The run
-		// must return — every transfer taken — within a deadline, never block.
+		// A migrated sequence with body-less performs, create and signatureless
+		// messages must return with every transfer taken, never block.
 		done := make(chan error, 1)
 		go func() {
 			done <- occurrenceRunError(t, "Acquire", `package test {
