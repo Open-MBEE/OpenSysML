@@ -8,38 +8,8 @@ import (
 )
 
 // IsSysMLNamespace reports whether ns is an OMG SysML v1 profile namespace,
-// of any version, Papyrus' copy of it, or a standard Cameo UML2 v5 EPackage.
+// of any version, Papyrus' copy of it, or an Eclipse UML2 SysML EPackage.
 func IsSysMLNamespace(ns string) bool {
-	// Cameo's Eclipse UML2 v5 exporter gives the standard SysML EPackages
-	// these exact namespace identities. Do not accept arbitrary hostless URIs
-	// or user profiles merely because their path contains "SysML".
-	switch ns {
-	case "http:///SysML/Activities.ecore",
-		"http:///SysML/Allocations.ecore",
-		"http:///SysML/Blocks.ecore",
-		"http:///SysML/BuiltinOperations.ecore",
-		"http:///SysML/ConstraintBlocks.ecore",
-		"http:///SysML/DeprecatedElements.ecore",
-		"http:///SysML/Libraries.ecore",
-		"http:///SysML/Libraries/ControlValues.ecore",
-		"http:///SysML/Libraries/PrimitiveValueTypes.ecore",
-		"http:///SysML/Libraries/PrimitiveValueTypes/Deprecated.ecore",
-		"http:///SysML/Libraries/UnitAndQuantityKind.ecore",
-		"http:///SysML/Libraries/UnitAndQuantityKind/Deprecated.ecore",
-		"http:///SysML/ModelElements.ecore",
-		"http:///SysML/ModelElements/Deprecated.ecore",
-		"http:///SysML/NonNormativeExtensions.ecore",
-		"http:///SysML/NonNormativeExtensions/Activity.ecore",
-		"http:///SysML/NonNormativeExtensions/Actors.ecore",
-		"http:///SysML/NonNormativeExtensions/Block.ecore",
-		"http:///SysML/NonNormativeExtensions/Diagrams.ecore",
-		"http:///SysML/NonNormativeExtensions/Distributions.ecore",
-		"http:///SysML/NonNormativeExtensions/Parametric.ecore",
-		"http:///SysML/NonNormativeExtensions/Requirement.ecore",
-		"http:///SysML/PortsFlows.ecore",
-		"http:///SysML/Requirements.ecore":
-		return true
-	}
 	u, err := url.Parse(ns)
 	if err != nil {
 		return false
@@ -50,8 +20,19 @@ func IsSysMLNamespace(ns string) bool {
 		return strings.HasPrefix(u.Path, "/spec/SysML/")
 	case host == "eclipse.org" || strings.HasSuffix(host, ".eclipse.org"):
 		return strings.HasPrefix(strings.ToLower(u.Path), "/papyrus/sysml/")
+	case u.Host == "" && u.Scheme == "http":
+		return isUML2SysMLPackage(u)
 	}
 	return false
+}
+
+// isUML2SysMLPackage matches the hostless nsURI Eclipse UML2 gives a package of
+// the SysML profile without a URI of its own: http:///SysML/<path>.ecore, exactly.
+func isUML2SysMLPackage(u *url.URL) bool {
+	if u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+		return false
+	}
+	return strings.HasPrefix(u.Path, "/SysML/") && strings.HasSuffix(u.Path, ".ecore") && len(u.Path) > len("/SysML/.ecore")
 }
 
 // Exact namespaces of the tool profiles the reader gives a typed form. Cameo
