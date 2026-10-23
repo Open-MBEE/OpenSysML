@@ -208,3 +208,40 @@ func keptNames(node *Node) string {
 	}
 	return strings.Join(names, ",")
 }
+
+// TestTreeCompartmentsMostCountsDeclaredMembers: the `most` notice counts under the rows
+// what the folded usage declares itself (`heatsink`'s `fins`), not what it has from its type.
+func TestTreeCompartmentsMostCountsDeclaredMembers(t *testing.T) {
+	rendering := render(t, "tree-compartments.sysml", "AmplifierViews::positioned")
+	heatsink := treeNodeNamed(rendering.Roots, "heatsink")
+	if heatsink == nil || len(heatsink.Children) != 1 || heatsink.Children[0].Name != "fins" || heatsink.Children[0].FromType {
+		t.Fatalf("heatsink = %+v, want one child fins declared by heatsink itself", heatsink)
+	}
+	folded := foldCompartments(rendering, CompartmentsMost)
+	want := "9 member(s) drawn as compartment rows of their owner, and 1 node(s) under them left undrawn"
+	if len(folded.Notices) != 1 || folded.Notices[0] != want {
+		t.Errorf("notices = %q, want %q", folded.Notices, want)
+	}
+	if strings.Contains(compartmentText(treeNodeNamed(folded.Roots, "Amplifier::Stage")), "fins") {
+		t.Error("fins is a row of Stage, so it is not left undrawn")
+	}
+
+	controllers := render(t, "tree-compartments-most.sysml", "CompartmentDemoViews::controllers")
+	sensor := treeNodeNamed(controllers.Roots, "sensor")
+	if sensor == nil || len(sensor.Children) != 2 || !sensor.Children[0].FromType || !sensor.Children[1].FromType {
+		t.Fatalf("sensor = %+v, want two children it has from Sensor", sensor)
+	}
+}
+
+// treeNodeNamed is the first node among nodes or under them named name, nil when none is.
+func treeNodeNamed(nodes []*Node, name string) *Node {
+	for _, node := range nodes {
+		if node.Name == name {
+			return node
+		}
+		if found := treeNodeNamed(node.Children, name); found != nil {
+			return found
+		}
+	}
+	return nil
+}

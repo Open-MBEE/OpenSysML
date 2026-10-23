@@ -198,7 +198,7 @@ func foldCompartments(r *Rendering, mode Compartments) *Rendering {
 }
 
 // folder folds the members of a tree into compartment rows, counting the rows
-// drawn, the rows a Layout hides and the nodes under them left undrawn.
+// drawn, the rows a Layout hides and the nodes under the rows left undrawn.
 type folder struct {
 	*placement
 	mode                  Compartments
@@ -208,14 +208,16 @@ type folder struct {
 
 func (f *folder) folded(id string) bool { _, ok := f.owners[id]; return ok }
 
-// notice words what the folding did, by whether the members folded for want
-// of a position or because the mode names them; what nests under a row of an
-// automatic folding belongs to the row's type, so it is not noticed.
+// notice words what the folding did, by whether the members folded for want of a
+// position or because the mode names them, and counts the nodes left undrawn under the rows.
 func (f *folder) notice() string {
 	if f.mode.automatic() {
 		notice := fmt.Sprintf("%d member(s) drawn as compartment rows of their owner", f.drawn)
 		if f.hidden > 0 {
 			notice = fmt.Sprintf("%d member(s) folded into compartments of their owner: %d drawn as rows, %d in compartments its Layout hides left undrawn", f.drawn+f.hidden, f.drawn, f.hidden)
+		}
+		if f.nested > 0 {
+			notice += fmt.Sprintf(", and %d node(s) under them left undrawn", f.nested)
 		}
 		return notice
 	}
@@ -237,23 +239,41 @@ func (f *folder) foldNodes(nodes []*Node) {
 			var folded, listed []*Node
 			node.Children, folded = f.rowsOf(node)
 			for _, row := range folded {
-				before := len(f.owners)
 				f.record(row, node.ID)
-				under := len(f.owners) - before - 1
 				if hiddenRow(node, row) {
 					f.hidden++
-					f.nested += under
+					f.nested += f.undrawnUnder(row, nil)
 					continue
 				}
 				rows := f.rowsUnder(row)
 				f.drawn += len(rows)
-				f.nested += under - (len(rows) - 1)
+				drawn := make(map[string]bool, len(rows))
+				for _, sub := range rows[1:] {
+					drawn[sub.ID] = true
+				}
+				f.nested += f.undrawnUnder(row, drawn)
 				listed = append(listed, rows...)
 			}
 			node.Compartments = compartmentsOf(listed)
 		}
 		f.foldNodes(node.Children)
 	}
+}
+
+// undrawnUnder counts the nodes under a row that no row among drawn shows. An automatic
+// folding leaves out what the row has from its type: that is the type's own, not left undrawn.
+func (f *folder) undrawnUnder(row *Node, drawn map[string]bool) int {
+	n := 0
+	for _, child := range row.Children {
+		if f.mode.automatic() && child.FromType {
+			continue
+		}
+		if !drawn[child.ID] {
+			n++
+		}
+		n += f.undrawnUnder(child, drawn)
+	}
+	return n
 }
 
 // owns reports a node whose members may fold into its compartments: a placed
