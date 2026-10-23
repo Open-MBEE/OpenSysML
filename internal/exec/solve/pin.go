@@ -399,12 +399,14 @@ func fixedValue(
 }
 
 // derivedDeclaration is the expression the model declares feat's value by when
-// it is derived — written over another feature of the element itself, among
-// features — and inst holds no materialized value for it; nil for a literal
-// default, a value the object holds or a variation, which stay fixed as they
-// are. One reading through a chain (`inner.x + 1.0`) is not derived either: the
-// object a query about a condition alone reads no values of holds the operand,
-// so the value the evaluator derives from it is what the query fixes.
+// it is derived — written over other features of the element itself, among
+// features, and over literals — and inst holds no materialized value for it;
+// nil for a literal default, a value the object holds or a variation, which
+// stay fixed as they are. One reading anything else is not derived either: a
+// chain (`inner.x + 1.0`), a qualified or imported name (`test::scale * r`)
+// name values the query fixes none of, which an equation would leave to the
+// solver, so the value the evaluator derives from them is what the query fixes.
+// A unit (`[m]`) is a measurement reference, not a value read.
 func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, inst *runtime.Instance, features map[string]*symbols.Symbol) *Derived {
 	if feat.DefaultValue == nil || ctx.IsVariationFeature(feat) {
 		return nil
@@ -414,25 +416,31 @@ func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, in
 			return nil
 		}
 	}
-	reads, chained := false, false
-	ast.Inspect(feat.DefaultValue, func(n ast.Node) bool {
+	reads, outside := false, false
+	var visit func(n ast.Node) bool
+	visit = func(n ast.Node) bool {
 		switch ref := n.(type) {
+		case *ast.IndexExpr:
+			if ref.Bracket {
+				ast.Inspect(ref.Operand, visit)
+				return false
+			}
 		case *ast.FeatureChainExpr:
-			chained = true
+			outside = true
 			return false
 		case *ast.FeatureReference:
-			// A name of one segment reads the element's feature, as the
-			// translator resolves it; a qualified one names a scoped element.
-			if segments, ok := nameSegments(ref.Name); ok && len(segments) == 1 {
-				if sym, ok := features[segments[0]]; ok && sym != feat.Symbol {
-					reads = true
-				}
+			segments, ok := nameSegments(ref.Name)
+			if sym, own := features[segments[0]]; ok && len(segments) == 1 && own && sym != feat.Symbol {
+				reads = true
+			} else {
+				outside = true
 			}
 			return false
 		}
-		return !chained
-	})
-	if !reads || chained {
+		return !outside
+	}
+	ast.Inspect(feat.DefaultValue, visit)
+	if !reads || outside {
 		return nil
 	}
 	return &Derived{Expr: feat.DefaultValue, Scope: feat.DefaultScope()}

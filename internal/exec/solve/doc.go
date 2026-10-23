@@ -308,9 +308,10 @@
 //
 // The rule is scoped so that %check's answers over literal defaults do not
 // move: an expression over no feature of the element (`1.0 + 2.0`) is a value
-// as before, pinned where it evaluates; so is one reading through a chain
-// (`inner.x + 1.0`), since a query about a condition alone fixes no value of
-// the held object for the chain to be read against; a value the object has
+// as before, pinned where it evaluates; so is one reading anything but the
+// element's own features and literals — a chain (`inner.x + 1.0`), a qualified
+// or imported name (`test::scale * r`) — since the query fixes no value of what
+// it names and an equation would leave that to the solver; a value the object has
 // materialized (fv.Materialized — read already, or written) is held by the
 // object and pinned as held, so an object's recorded volume is what it
 // recorded, not what its dimensions now give; a value read through a chain

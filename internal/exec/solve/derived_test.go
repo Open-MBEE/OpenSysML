@@ -416,44 +416,66 @@ func TestDeclarationOverAChainIsNotDerived(t *testing.T) {
 	t.Fatalf("pins = %+v, want z among them", pins)
 }
 
-// TestDerivedDetectionResolvesReferencesAsTheTranslatorDoes: a declared value
-// is derived when a name of one segment reads the element's feature, as the
-// translator resolves it; a qualified name reads a scoped element, which
-// alone derives nothing, and a chain through an object is not derived.
-func TestDerivedDetectionResolvesReferencesAsTheTranslatorDoes(t *testing.T) {
+// TestDerivedDetectionReadsTheElementsOwnFeaturesOnly: a declared value is
+// derived when it reads the element's own features and literals, a unit being
+// no value read; one naming anything else — a qualified or imported name, a
+// chain — is fixed to the value the evaluator derives, since the query fixes
+// no value of what it names and an equation would leave it to the solver.
+func TestDerivedDetectionReadsTheElementsOwnFeaturesOnly(t *testing.T) {
 	ctx, idx := fixture(t, "derived_names.sysml", `package test {
 		private import ScalarValues::*;
+		private import ISQ::*;
+		private import SI::*;
 		attribute scale : Real = 2.0;
 		part def Inner { attribute x : Real = 1.0; }
 		part def Item {
 			attribute r : Real;
-			attribute scaled : Real = test::scale * r;
-			attribute constant : Real = test::scale * 3.0;
+			attribute len : LengthValue;
+			attribute qualified : Real = test::scale * r;
+			attribute imported : Real = scale * r;
+			attribute factor : Real = test::scale * 3.0;
+			attribute doubled : LengthValue = 2.0 [m] * len;
 			part inner : Inner;
 			attribute nested : Real = inner.x * r;
-			assert constraint c { scaled > 0.0 and constant > 0.0 }
+			assert constraint c { factor > 0.0 }
+			assert constraint d { qualified > 0.0 }
 		}
 	}`)
-	pins, _ := Fixed(ctx, symbolNamed(t, idx, "test::Item"), nil)
-	byName := map[string]Pin{}
+	pins, unfixed := Fixed(ctx, symbolNamed(t, idx, "test::Item"), nil)
 	for _, p := range pins {
-		byName[p.Name] = p
+		switch p.Name {
+		case "qualified", "imported", "nested":
+			t.Errorf("%s = %+v, want not derived and not fixed: it names a value the query does not fix", p.Name, p)
+		case "factor":
+			if p.Derived != nil || p.Value.Kind != runtime.ValConst {
+				t.Errorf("factor = %+v, want a value: it reads no feature of the element", p)
+			}
+		}
 	}
-	if scaled := derivedPin(t, pins, "scaled"); scaled.Value.Kind != runtime.ValInvalid {
-		t.Errorf("scaled = %+v, want derived with no value for want of r", scaled)
+	if doubled := derivedPin(t, pins, "doubled"); doubled.Value.Kind != runtime.ValInvalid {
+		t.Errorf("doubled = %+v, want derived over len, its unit no value read", doubled)
 	}
-	if constant := byName["constant"]; constant.Derived != nil || constant.Value.Kind != runtime.ValConst {
-		t.Errorf("constant = %+v, want a value: it reads no feature of the element", constant)
+	notRead := map[string]bool{}
+	for _, u := range unfixed {
+		if !errors.Is(u.Err, runtime.ErrNoValue) {
+			t.Errorf("%s unfixed by %v, want for want of r", u.Name, u.Err)
+		}
+		notRead[u.Name] = true
 	}
-	if nested, ok := byName["nested"]; ok && nested.Derived != nil {
-		t.Errorf("nested = %+v, want not derived: it reads through a chain", nested)
+	if !notRead["qualified"] || !notRead["imported"] || !notRead["nested"] {
+		t.Errorf("unfixed = %+v, want qualified, imported and nested, unreadable for want of r", unfixed)
 	}
 	c := symbolNamed(t, idx, "test::Item::c")
 	q, err := ConstraintWith(ctx, c, c.OwnerScope, pins)
-	if err != nil {
-		t.Fatalf("translate c: %v", err)
+	if err != nil || len(q.Derived) != 0 || len(q.Pinned) != 1 {
+		t.Fatalf("translate c = %+v, %v, want factor fixed and no equation", q, err)
 	}
-	if len(q.Derived) != 1 || q.Derived[0].Expression != "test::scale * r" || len(q.Pinned) != 1 {
-		t.Fatalf("Derived = %+v, Pinned = %+v, want scaled = test::scale * r and constant fixed", q.Derived, q.Pinned)
+	d := symbolNamed(t, idx, "test::Item::d")
+	q, err = ConstraintWith(ctx, d, d.OwnerScope, pins)
+	if err != nil {
+		t.Fatalf("translate d: %v", err)
+	}
+	if err := UnfixedRead(ctx, q, unfixed); err == nil || !errors.Is(err, runtime.ErrNoValue) || !strings.Contains(err.Error(), "qualified") {
+		t.Fatalf("UnfixedRead d = %v, want the unconditional read of qualified refused for want of r", err)
 	}
 }
