@@ -162,14 +162,14 @@ elmt:ShadowBody__Sensor__readings
     sysml:declaredName "readings" ;
     sysml:type elmt:ShadowBody__Speed ;
     sysml:multiplicity expr:ShadowBody__Sensor__readings_pmultiplicity ;
-    sysml:ownedRelationship expr:ShadowBody__Sensor__readings_pmultiplicity_om, elmt:ShadowBody__Sensor__readings_ft0 ;
+    sysml:ownedRelationship elmt:ShadowBody__Sensor__readings_ft0, expr:ShadowBody__Sensor__readings_pmultiplicity_om ;
     sysml:ownedMembership expr:ShadowBody__Sensor__readings_pmultiplicity_om ;
     sysml:upperBound expr:ShadowBody__Sensor__readings_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:ShadowBody__Sensor__readings_ft0 ;
     sysml:ownedSpecialization elmt:ShadowBody__Sensor__readings_ft0 ;
     sysx:sourceText "        attribute readings : Speed[*];\n" ;
-    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__readings_pmultiplicity_om\"},{\"@id\":\"ShadowBody__Sensor__readings_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__readings_ft0\"},{\"@id\":\"ShadowBody__Sensor__readings_pmultiplicity_om\"}]" .
 
 elmt:ShadowBody__Sensor__readings_om
     a sysml:FeatureMembership ;

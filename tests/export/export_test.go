@@ -3877,7 +3877,7 @@ func TestLinkedReferencesCarryTheRoundTripWithoutSourceText(t *testing.T) {
 		"ref spare references spare;",
 		"attribute s = w.size;",
 		"part redefines G2::x;",
-		"part : Inner::Wheel redefines w;",
+		"part redefines w : Inner::Wheel;",
 		"transition idle then Done::done;",
 		"part unresolved : Elsewhere::Missing;",
 		"public import Meta::*[@Safety];",
