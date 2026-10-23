@@ -1477,6 +1477,9 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	if advertised, _ := experimental[RenderLinesCapability].([]string); !slices.Equal(advertised, []string{"splines", "ortho", "polyline"}) {
 		t.Fatalf("%s = %#v, want splines, ortho then polyline", RenderLinesCapability, experimental[RenderLinesCapability])
 	}
+	if advertised, _ := experimental[RenderCompartmentsCapability].([]string); !slices.Equal(advertised, []string{"positioned", "most", "ports"}) {
+		t.Fatalf("%s = %#v, want positioned, most then ports", RenderCompartmentsCapability, experimental[RenderCompartmentsCapability])
+	}
 	if advertised, _ := experimental[RenderOverlaysCapability].([]string); !slices.Equal(advertised, []string{"verdicts"}) {
 		t.Fatalf("%s = %#v, want verdicts", RenderOverlaysCapability, experimental[RenderOverlaysCapability])
 	}

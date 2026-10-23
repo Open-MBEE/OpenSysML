@@ -29,6 +29,9 @@ func CompartmentsChoices() []Compartments {
 
 // ParseCompartments reads a folding by name.
 func ParseCompartments(name string) (Compartments, bool) {
+	if name == "" {
+		return CompartmentsPositioned, true
+	}
 	for _, choice := range CompartmentsChoices() {
 		if string(choice) == name {
 			return choice, true
