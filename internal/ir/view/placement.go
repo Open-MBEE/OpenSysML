@@ -1,6 +1,9 @@
 package view
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // placement is what a positioned rendering has a place for: positioned nodes,
 // their clusters, routed nodes and pictures; every graph-shaped form draws by it.
@@ -134,113 +137,289 @@ func (p *placement) omit(r *Rendering) *Rendering {
 	return &out
 }
 
-// foldCompartments is a positioned tree showing compartments with every
-// unplaced member of a placed node folded into a compartment row of it, the
-// edges and notes at those members dropped and noticed: what every form
-// draws of such a tree before it settles the nodes still unplaced. Any other
-// rendering is returned as it is.
-func foldCompartments(r *Rendering) *Rendering {
+// foldCompartments is a tree showing compartments with members folded into
+// compartment rows of the node above them: under CompartmentsPositioned the
+// unplaced members of a placed node, with the edges and notes at them dropped;
+// under an automatic folding the members the mode names, with the edges and
+// notes at them moved to the owner. Any other rendering is returned as it is.
+func foldCompartments(r *Rendering, mode Compartments) *Rendering {
 	if r.Kind != KindTree || !r.Shown.Has(ElementCompartments) {
 		return r
 	}
 	p := placeRendering(r)
-	if !p.partial() {
+	if !mode.automatic() && !p.partial() {
 		return r
 	}
+	f := &folder{placement: p, mode: mode, owners: map[string]string{}}
 	out := *r
 	out.Roots = cloneNodes(r.Roots)
-	rows := map[string]bool{}
-	folded := p.foldNodes(out.Roots, rows)
-	if folded.drawn+folded.hidden == 0 {
+	f.foldNodes(out.Roots)
+	if f.drawn+f.hidden == 0 {
 		return r
 	}
-	notice := fmt.Sprintf("%d node(s) without a position, drawn as compartment rows of the node above them", folded.drawn)
-	if folded.hidden > 0 {
-		notice = fmt.Sprintf("%d node(s) without a position: %d drawn as compartment rows of the node above them, %d in compartments its Layout hides left undrawn", folded.drawn+folded.hidden, folded.drawn, folded.hidden)
-	}
-	if folded.nested > 0 {
-		notice += fmt.Sprintf(", and %d node(s) under them left undrawn", folded.nested)
-	}
-	out.Edges = make([]Edge, 0, len(r.Edges))
-	for _, edge := range r.Edges {
-		if rows[edge.From] || rows[edge.To] {
-			continue
+	notice := f.notice()
+	if mode.automatic() {
+		var moved, dropped int
+		out.Edges, moved, dropped = f.reanchorEdges(r.Edges)
+		if moved > 0 {
+			notice += fmt.Sprintf(", and %d edge(s) at them moved to their owner", moved)
 		}
-		out.Edges = append(out.Edges, edge)
-	}
-	if dropped := len(r.Edges) - len(out.Edges); dropped > 0 {
-		notice += fmt.Sprintf(", and %d edge(s) at them", dropped)
-	}
-	out.Notes = make([]Note, 0, len(r.Notes))
-	for _, note := range r.Notes {
-		if rows[note.Anchor] || rows[note.EdgeFrom] || rows[note.EdgeTo] {
-			continue
+		if dropped > 0 {
+			notice += fmt.Sprintf(", and %d edge(s) within one owner dropped", dropped)
 		}
-		out.Notes = append(out.Notes, note)
-	}
-	if dropped := len(r.Notes) - len(out.Notes); dropped > 0 {
-		notice += fmt.Sprintf(", and %d note(s) at them", dropped)
+		out.Notes, moved = f.reanchorNotes(r.Notes)
+		if moved > 0 {
+			notice += fmt.Sprintf(", and %d note(s) at them moved to their owner", moved)
+		}
+	} else {
+		out.Edges = make([]Edge, 0, len(r.Edges))
+		for _, edge := range r.Edges {
+			if f.folded(edge.From) || f.folded(edge.To) {
+				continue
+			}
+			out.Edges = append(out.Edges, edge)
+		}
+		if dropped := len(r.Edges) - len(out.Edges); dropped > 0 {
+			notice += fmt.Sprintf(", and %d edge(s) at them", dropped)
+		}
+		out.Notes = make([]Note, 0, len(r.Notes))
+		for _, note := range r.Notes {
+			if f.folded(note.Anchor) || f.folded(note.EdgeFrom) || f.folded(note.EdgeTo) {
+				continue
+			}
+			out.Notes = append(out.Notes, note)
+		}
+		if dropped := len(r.Notes) - len(out.Notes); dropped > 0 {
+			notice += fmt.Sprintf(", and %d note(s) at them", dropped)
+		}
 	}
 	out.Notices = append(append([]string(nil), r.Notices...), notice)
 	return &out
 }
 
-// folding counts what folding drew as compartment rows, what it left undrawn
-// because the node's Layout hides the row's compartment, and the nodes under
-// the rows, which a row does not show.
-type folding struct {
+// folder folds the members of a tree into compartment rows, counting the rows
+// drawn, the rows a Layout hides and the nodes under them left undrawn.
+type folder struct {
+	*placement
+	mode                  Compartments
+	owners                map[string]string // folded node ID -> the ID of the node whose row it is
 	drawn, hidden, nested int
 }
 
-// foldNodes folds the unplaced members of each placed node under nodes into
-// its compartments, in place, less the rows of the compartments the node's
-// Layout hides, recording the IDs of the folded members and of every node
-// under them in rows.
-func (p *placement) foldNodes(nodes []*Node, rows map[string]bool) folding {
-	var f folding
+func (f *folder) folded(id string) bool { _, ok := f.owners[id]; return ok }
+
+// notice words what the folding did, by whether the members folded for want
+// of a position or because the mode names them.
+func (f *folder) notice() string {
+	if f.mode.automatic() {
+		notice := fmt.Sprintf("%d member(s) drawn as compartment rows of their owner", f.drawn)
+		if f.hidden > 0 {
+			notice = fmt.Sprintf("%d member(s) folded into compartments of their owner: %d drawn as rows, %d in compartments its Layout hides left undrawn", f.drawn+f.hidden, f.drawn, f.hidden)
+		}
+		if f.nested > 0 {
+			notice += fmt.Sprintf(", and %d node(s) under them left undrawn", f.nested)
+		}
+		return notice
+	}
+	notice := fmt.Sprintf("%d node(s) without a position, drawn as compartment rows of the node above them", f.drawn)
+	if f.hidden > 0 {
+		notice = fmt.Sprintf("%d node(s) without a position: %d drawn as compartment rows of the node above them, %d in compartments its Layout hides left undrawn", f.drawn+f.hidden, f.drawn, f.hidden)
+	}
+	if f.nested > 0 {
+		notice += fmt.Sprintf(", and %d node(s) under them left undrawn", f.nested)
+	}
+	return notice
+}
+
+// foldNodes folds the members of every owner among nodes and under them,
+// rewriting each owner's Children and Compartments in place.
+func (f *folder) foldNodes(nodes []*Node) {
 	for _, node := range nodes {
-		if p.placed[node.ID] {
+		if f.owns(node) {
 			var folded, listed []*Node
-			node.Children, folded = p.rowsOf(node)
+			node.Children, folded = f.rowsOf(node)
 			for _, row := range folded {
-				before := len(rows)
-				recordIDs(row, rows)
-				f.nested += len(rows) - before - 1
+				before := len(f.owners)
+				f.record(row, node.ID)
+				under := len(f.owners) - before - 1
 				if hiddenRow(node, row) {
 					f.hidden++
+					f.nested += under
 					continue
 				}
-				f.drawn++
-				listed = append(listed, row)
+				rows := f.rowsUnder(row)
+				f.drawn += len(rows)
+				f.nested += under - (len(rows) - 1)
+				listed = append(listed, rows...)
 			}
 			node.Compartments = compartmentsOf(listed)
 		}
-		sub := p.foldNodes(node.Children, rows)
-		f.drawn, f.hidden, f.nested = f.drawn+sub.drawn, f.hidden+sub.hidden, f.nested+sub.nested
-	}
-	return f
-}
-
-// recordIDs records the ID of node and of every node under it in ids.
-func recordIDs(node *Node, ids map[string]bool) {
-	ids[node.ID] = true
-	for _, child := range node.Children {
-		recordIDs(child, ids)
+		f.foldNodes(node.Children)
 	}
 }
 
-// rowsOf splits a placed tree node's members into the ones kept as nodes and
-// the ones drawn as compartment rows of it: an unplaced member with no placed
-// node anywhere under it, which a stand-in never is.
-func (p *placement) rowsOf(node *Node) (kept, rows []*Node) {
+// owns reports a node whose members may fold into its compartments: a placed
+// one under the positioned folding, any type under an automatic one.
+func (f *folder) owns(node *Node) bool {
+	if !f.mode.automatic() {
+		return f.placed[node.ID]
+	}
+	return !packageNode(node) && !f.folded(node.ID)
+}
+
+func (f *folder) record(node *Node, owner string) {
+	f.owners[node.ID] = owner
 	for _, child := range node.Children {
-		if child.StandIn || p.anyPlaced(child) {
-			kept = append(kept, child)
+		f.record(child, owner)
+	}
+}
+
+// rowsOf splits a node's children into those kept as nodes and those folded
+// into its compartment rows, by the folding's predicate.
+func (f *folder) rowsOf(node *Node) (kept, rows []*Node) {
+	for _, child := range node.Children {
+		if f.row(child) {
+			rows = append(rows, child)
 			continue
 		}
-		rows = append(rows, child)
+		kept = append(kept, child)
 	}
 	return kept, rows
+}
+
+// row is the fold predicate: a stand-in or a member with a place of its own
+// or under it stays a node under every folding; the positioned folding folds
+// every other member, the automatic ones a usage (COMPMOST) or a port
+// (COMPTREE) with no definition or package under it.
+func (f *folder) row(child *Node) bool {
+	if child.StandIn || f.anyPlaced(child) {
+		return false
+	}
+	switch f.mode {
+	case CompartmentsMost:
+		return usageNode(child) && !f.anyStructure(child)
+	case CompartmentsPorts:
+		return portNode(child) && !f.anyStructure(child)
+	}
+	return true
+}
+
+// anyStructure reports a definition or package node under node.
+func (f *folder) anyStructure(node *Node) bool {
+	for _, child := range node.Children {
+		if !usageNode(child) || f.anyStructure(child) {
+			return true
+		}
+	}
+	return false
+}
+
+// rowsUnder is a folded member's rows: itself, then under an automatic folding
+// every port nested under a port, named by its path from the row as the
+// pilot's compartment tree lists it.
+func (f *folder) rowsUnder(row *Node) []*Node {
+	rows := []*Node{row}
+	if !f.mode.automatic() {
+		return rows
+	}
+	typeRow(row)
+	if !portNode(row) {
+		return rows
+	}
+	var walk func(node *Node, path string)
+	walk = func(node *Node, path string) {
+		for _, child := range node.Children {
+			if !portNode(child) || child.StandIn {
+				continue
+			}
+			sub := *child
+			sub.Name, sub.Children, sub.NameSynthesized = path+"."+child.Name, nil, false
+			typeRow(&sub)
+			rows = append(rows, &sub)
+			walk(child, sub.Name)
+		}
+	}
+	walk(row, row.Name)
+	return rows
+}
+
+// typeRow restores the typing a row's declaration line reads with, which the
+// tree's boxes leave to their typing edges unless typings are shown.
+func typeRow(row *Node) {
+	if row.Type == "" && len(row.Typings) > 0 {
+		row.Type = strings.Join(row.Typings, ", ")
+	}
+}
+
+// reanchorEdges moves every edge end at a folded member to the member's owner,
+// dropping the edges that then join an owner to itself and the duplicates.
+func (f *folder) reanchorEdges(edges []Edge) (kept []Edge, moved, dropped int) {
+	kept = make([]Edge, 0, len(edges))
+	seen := map[string]bool{}
+	for _, edge := range edges {
+		fromOwner, fromRow := f.owners[edge.From]
+		toOwner, toRow := f.owners[edge.To]
+		if !fromRow && !toRow {
+			kept = append(kept, edge)
+			continue
+		}
+		if fromRow {
+			edge.From, edge.FromPort = fromOwner, ""
+		}
+		if toRow {
+			edge.To, edge.ToPort = toOwner, ""
+		}
+		key := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s", edge.From, edge.To, edge.Kind, edge.Label, edge.FromLabel, edge.ToLabel, edge.Name)
+		if edge.From == edge.To || seen[key] {
+			dropped++
+			continue
+		}
+		seen[key] = true
+		edge.Route = nil
+		kept = append(kept, edge)
+		moved++
+	}
+	return kept, moved, dropped
+}
+
+// reanchorNotes moves every note at a folded member to the member's owner.
+func (f *folder) reanchorNotes(notes []Note) (kept []Note, moved int) {
+	kept = make([]Note, 0, len(notes))
+	for _, note := range notes {
+		at := false
+		for _, id := range []*string{&note.Anchor, &note.EdgeFrom, &note.EdgeTo} {
+			if owner, ok := f.owners[*id]; ok {
+				*id, at = owner, true
+			}
+		}
+		if at {
+			moved++
+		}
+		kept = append(kept, note)
+	}
+	return kept, moved
+}
+
+// usageNode reports a node drawn for a usage: not a definition, package or view.
+func usageNode(node *Node) bool {
+	_, keyword := splitRowPrefix(node.Kind)
+	switch keyword {
+	case "", "package", "library package", "view", "viewpoint", "rendering":
+		return false
+	}
+	return keyword != "def" && !strings.HasSuffix(keyword, " def")
+}
+
+// portNode reports a node drawn for a port usage.
+func portNode(node *Node) bool {
+	_, keyword := splitRowPrefix(node.Kind)
+	return keyword == "port"
+}
+
+// packageNode reports a node drawn for a package, whose members are never rows.
+func packageNode(node *Node) bool {
+	_, keyword := splitRowPrefix(node.Kind)
+	return keyword == "package" || keyword == "library package"
 }
 
 // anyPlaced reports whether node or a node under it has a place.
@@ -297,9 +476,9 @@ func (p *placement) keep(nodes []*Node, hoisted *[]*Node) []*Node {
 // positioned rendering: the placed nodes alone by default — the stand-ins a
 // migration made up elided first, as DOT elides them — every node under
 // UnplacedStrip, each noticed. A rendering placing all or none is drawn whole.
-func (r *Rendering) settleUnplaced(unplaced Unplaced, form Form) *Rendering {
-	if unplaced != UnplacedStrip {
-		r = foldCompartments(withoutStandIns(r))
+func (r *Rendering) settleUnplaced(unplaced Unplaced, compartments Compartments, form Form) *Rendering {
+	if unplaced != UnplacedStrip || compartments.automatic() {
+		r = foldCompartments(withoutStandIns(r), compartments)
 	}
 	p := placeRendering(r)
 	if !p.partial() {
