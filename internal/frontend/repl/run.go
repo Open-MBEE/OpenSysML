@@ -284,9 +284,8 @@ func (s *Session) LocatedDiagnostics() []Diagnostic {
 	return locate(s.bufferParts(), s.diagnostics())
 }
 
-// Locate places a Result's diagnostics (diags, or some of them) in the
-// submissions they are about, as LocatedDiagnostics does: in the buffer they were
-// reported over, which a submission dropped once reported is no longer part of.
+// Locate places diags, a Result's diagnostics, in the submissions they are about
+// as LocatedDiagnostics does — in the buffer they were reported over, if res left it.
 func (s *Session) Locate(res Result, diags []diag.Diagnostic) []Diagnostic {
 	defer s.enter()()
 	parts := res.buffer
