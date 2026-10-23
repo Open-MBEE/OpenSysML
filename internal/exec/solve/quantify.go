@@ -69,7 +69,7 @@ func (t *translator) quantified(n *ast.InvocationExpr, scope *symbols.Scope) (*T
 	if cmp.Operator == ast.OpNeq {
 		op = OpNe
 	}
-	return Binary(op, Bool, left, right), nil
+	return t.equalityOf(n, scope, construct, op, left, right)
 }
 
 // quantifierName is "forAll" or "exists" when the invoked function resolves to

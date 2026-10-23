@@ -68,6 +68,9 @@ func (a *activity) timingOf(o *sysmlv1.Element) (*timing, string) {
 		if k := nodeKind(e); e.Parent != a.act || k != nodeAction && k != nodeControl && k != nodeBuffer && k != nodeFinal && k != nodeInitial && k != nodeFlowFinal {
 			return nil, "the observation's event " + describe(e) + " is not a node of the activity, so no elapsed clock can be read between its nodes"
 		}
+		if hs := a.handlers[e]; hs != nil {
+			return nil, "the observation's event " + describe(e) + " is the handler body of " + describe(hs[0]) + ", which the activity does not perform, so no clock can be read at it"
+		}
 	}
 	ends := strings.Fields(o.Attrs["firstEvent"])
 	for _, c := range o.Children {
