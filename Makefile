@@ -53,7 +53,7 @@ WASM_DIR := $(BIN_DIR)/wasm
 PYTHON_DIR := client/python
 JUPYTER_KERNEL_DIR := client/jupyter-kernel
 NODE_DIR := client/node
-# The TypeScript protobuf plugin, installed by `npm ci` from the client's lockfile.
+# The TypeScript protobuf plugin, installed from the client's lockfile.
 PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
 VSCODE_DIR := editors/vscode
 JUPYTERLAB_DIR := editors/jupyterlab
@@ -505,7 +505,7 @@ proto-ts: $(PROTOC_GEN_ES) ## Regenerate the TypeScript stubs the npm client in 
 	@echo "✓ Regenerated TypeScript stubs"
 
 $(PROTOC_GEN_ES): $(NODE_DIR)/package-lock.json
-	cd $(NODE_DIR) && npm ci --ignore-scripts
+	cd $(NODE_DIR) && npm install --ignore-scripts --no-audit --no-fund
 
 proto-rust: ## Generate Rust stubs and the descriptor for the Rust clients
 	$(BUF) generate api/proto --template api/proto/buf.gen.rust.yaml
@@ -705,9 +705,13 @@ docs-engine-assets: ## Build the in-browser WebAssembly assets into docs/assets
 
 # The landing page's diagram and router assets are built from the extension's
 # source rather than vendored; the diagram bundles the browser client from
-# client/node's source, so that package's dependencies are installed first.
+# client/node's source, so that package's dependencies are installed first —
+# with `npm install`, not `npm ci`: between a release's version bump and its tag
+# the client's platform packages are not on npm, and npm 11.6+ makes `npm ci`
+# refuse the lockfile that cannot lock them, while `npm install` skips an
+# optional dependency it cannot resolve and installs the rest from the lock.
 docs-landing-assets: ## Build the landing-page diagram assets into docs/assets
-	cd $(NODE_DIR) && npm ci
+	cd $(NODE_DIR) && npm install --ignore-scripts --no-audit --no-fund
 	cd $(VSCODE_DIR) && npm ci && npm run build:landing
 
 docs-serve: docs-install ## Serve docs with live reload (build docs-engine-assets and docs-landing-assets first)

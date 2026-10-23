@@ -169,13 +169,21 @@ branch that moves the integration state onto `main`:
    `0.9.0-rc.1` for `0.9.0rc1`; `TestMCPRunnerManifestAgreesWithTheClientVersion` in
    `tests/hygiene` fails while the two manifests disagree), and run `npm install --package-lock-only` in
    `client/node` and in `packaging/npm/sysml-mcp` so both lockfiles agree; the release workflow fails before
-   building anything when package.json disagrees, and `npm ci` refuses a
-   lockfile that still locks the platform packages at the previous version
+   building anything when package.json disagrees, and a lockfile that still
+   locks the platform packages at the previous version is refused
    (`TestNodeLockfileAgreesWithTheClientVersion` and
    `TestMCPRunnerLockfileAgreesWithTheManifest` in `tests/hygiene` catch
    that without a Node toolchain). Before the tag the new platform packages
-   are not on npm, so that run drops their entries from the lockfile; that is
-   fine for `npm ci`, and the pin step below locks them once they exist. `client/java/pom.xml` follows
+   are not on npm, so that run drops their entries from the lockfile. That is
+   why the Makefile and every CI job install `client/node` with
+   `npm install --ignore-scripts` rather than `npm ci`: npm 11.6 and later make
+   `npm ci` refuse a lockfile missing an optional dependency, whereas
+   `npm install` skips an optional dependency it cannot resolve, installs the
+   rest exactly as locked and leaves the lockfile as it is — each CI job asserts
+   that with `git diff --exit-code package-lock.json`, and
+   `TestClientInstallsSurviveUnpublishedPlatformPackages` in `tests/hygiene`
+   holds every consumer of the two packages to that command. The pin step
+   below locks the platform packages once they exist. `client/java/pom.xml` follows
    the same version too: set the parent pom's `<version>`, both modules'
    `<parent><version>`, and the client version in `editors/mdk/pom.xml`
    (`opensysml.client.version`) and `editors/syson/backend/pom.xml` to the same
@@ -205,18 +213,19 @@ branch that moves the integration state onto `main`:
 4. Tag `main` as [Tagging](#tagging) describes.
 
 5. Merge the `chore/pin-vx.y.z` pull request the tag's pipeline opens against
-   `develop` (see [Pinned release digests](#pinned-release-digests)). Its Node
-   client job fails until the lockfile names the platform packages the tag just
-   published — `npm install --package-lock-only` in `client/node` could not lock
-   them before they existed — so run that on the pin branch (and in
-   `packaging/npm/sysml-mcp`, whose lockfile pins the runner's platform packages
-   the same way) and commit both lockfiles first. Then merge
+   `develop` (see [Pinned release digests](#pinned-release-digests)). Its
+   lockfiles do not yet name the platform packages the tag just published —
+   `npm install --package-lock-only` in `client/node` could not lock them before
+   they existed, so every install skips them as unresolvable optional
+   dependencies instead of installing the release's binary — so run that on
+   the pin branch (and in `packaging/npm/sysml-mcp`, whose lockfile pins the
+   runner's platform packages the same way) and commit both lockfiles first. Then merge
    `main` back into `develop` — a plain merge, no rebase — so the folded
    changelog, and any hotfix that landed on `main` in the meantime, flow down.
    When the release was a `hotfix/` branch, `develop`'s lockfile still locks
    the platform packages of the previous release: run the same
-   `npm install --package-lock-only` on the back-merge branch, or its Node
-   client job fails on `npm ci`:
+   `npm install --package-lock-only` on the back-merge branch so they lock the
+   release's:
 
    ```bash
    git checkout develop && git pull
@@ -1491,7 +1500,7 @@ Everything below is already in place; it is recorded so it can be re-created.
 4. Refuses to run if any of the thirteen packages is already on the registry at
    this version (a publish cannot be repeated).
 5. Installs Z3, then builds and tests the client against the release's linux
-   binary (`npm ci`, build, typecheck, lint, tests), with
+   binary (`npm install` from the lockfile, build, typecheck, lint, tests), with
    `$OPENSYSML_EXPECT_PINNED_RELEASE` set to the tag so the suite asserts the
    stamped table pins it. The suite's verification tests ask the service
    solver-backed questions, and the service finds the solver on PATH; without

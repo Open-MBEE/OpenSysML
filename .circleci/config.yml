@@ -1537,11 +1537,16 @@ jobs:
       - attach_workspace:
           at: .
 
+      # `npm install`, not `npm ci`: between a release's version bump and its tag the
+      # platform packages are not on npm, and npm 11.6+ makes `npm ci` refuse the lock
+      # file that cannot lock them; `npm install` skips an optional dependency it cannot
+      # resolve and installs the rest from the lock, which must not change by it.
       - run:
           name: Install the client's dependencies
           command: |
             cd client/node
-            npm ci
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
 
       - run:
           name: Build the package
@@ -1739,7 +1744,8 @@ jobs:
           name: Install the browser client's dependencies
           command: |
             cd client/node
-            npm ci --ignore-scripts
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
 
       - run:
           name: Test the VS Code extension with coverage
@@ -3115,7 +3121,8 @@ jobs:
             # Makes the suite assert that the table just stamped pins this tag.
             export OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}"
             cd client/node
-            npm ci
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
             npm run build
             npm run typecheck
             npm run lint

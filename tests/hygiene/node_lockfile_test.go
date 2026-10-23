@@ -2,16 +2,21 @@ package hygiene
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"strings"
 	"testing"
 )
 
-// TestNodeLockfileAgreesWithTheClientVersion: client/node's lockfile must not lock an
-// @openmbee package at another version than package.json's (npm ci refuses it); absent is fine.
+// TestNodeLockfileAgreesWithTheClientVersion: client/node's lockfile must declare what
+// package.json declares and must not lock an @openmbee package at another version than
+// package.json's; an @openmbee package absent from the lock is a platform package the
+// release has not published yet, which `npm install` skips (see node_install_test.go).
 func TestNodeLockfileAgreesWithTheClientVersion(t *testing.T) {
 	var manifest struct {
 		Version              string            `json:"version"`
+		Dependencies         map[string]string `json:"dependencies"`
+		DevDependencies      map[string]string `json:"devDependencies"`
 		OptionalDependencies map[string]string `json:"optionalDependencies"`
 		PeerDependencies     map[string]string `json:"peerDependencies"`
 	}
@@ -19,11 +24,32 @@ func TestNodeLockfileAgreesWithTheClientVersion(t *testing.T) {
 	var lock struct {
 		Packages map[string]struct {
 			Version              string            `json:"version"`
+			Dependencies         map[string]string `json:"dependencies"`
+			DevDependencies      map[string]string `json:"devDependencies"`
 			OptionalDependencies map[string]string `json:"optionalDependencies"`
 			PeerDependencies     map[string]string `json:"peerDependencies"`
 		} `json:"packages"`
 	}
 	readJSON(t, "../../client/node/package-lock.json", &lock)
+
+	root := lock.Packages[""]
+	if root.Version != manifest.Version {
+		t.Errorf("package-lock.json's root is at %s, package.json at %s", root.Version, manifest.Version)
+	}
+	for _, specs := range []struct {
+		field          string
+		manifest, lock map[string]string
+	}{
+		{"dependencies", manifest.Dependencies, root.Dependencies},
+		{"devDependencies", manifest.DevDependencies, root.DevDependencies},
+		{"optionalDependencies", manifest.OptionalDependencies, root.OptionalDependencies},
+		{"peerDependencies", manifest.PeerDependencies, root.PeerDependencies},
+	} {
+		if !maps.Equal(specs.manifest, specs.lock) {
+			t.Errorf("package-lock.json's root %s %v differ from package.json's %v;\n"+
+				"run `npm install --package-lock-only --ignore-scripts` in client/node", specs.field, specs.lock, specs.manifest)
+		}
+	}
 
 	want := map[string]string{}
 	for name, version := range manifest.OptionalDependencies {
@@ -44,15 +70,7 @@ func TestNodeLockfileAgreesWithTheClientVersion(t *testing.T) {
 			t.Errorf("package.json pins %s at %s but the client is %s", name, version, manifest.Version)
 		}
 	}
-
-	root := lock.Packages[""]
 	for name, version := range want {
-		if got := root.OptionalDependencies[name]; got != "" && got != version {
-			t.Errorf("package-lock.json's root pins %s at %s, package.json at %s", name, got, version)
-		}
-		if got := root.PeerDependencies[name]; got != "" && got != version {
-			t.Errorf("package-lock.json's root pins peer %s at %s, package.json at %s", name, got, version)
-		}
 		entry, locked := lock.Packages["node_modules/"+name]
 		if locked && entry.Version != version {
 			t.Errorf("package-lock.json locks %s at %s, package.json at %s;\n"+

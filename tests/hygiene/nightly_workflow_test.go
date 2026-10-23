@@ -168,7 +168,7 @@ func TestNightlyPythonSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *testing
 	workflow, _ := loadNightlyWorkflow(t)
 	steps := nightlyJob(t, workflow, "publish").runSteps()
 
-	install := stepIndex(steps, "npm ci")
+	install := stepIndex(steps, "cd client/node", "npm install --ignore-scripts")
 	version := stepIndex(steps, `"$SNAPSHOT_SCRIPT"`, "--stamp")
 	binaries := stepIndex(steps, `"$BUILD_SCRIPT" dist`)
 	stamp := stepIndex(steps,
@@ -182,7 +182,7 @@ func TestNightlyPythonSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *testing
 	manifest := stepIndex(steps, `sha256sum "opensysml-${PYPI_VERSION}-py3-none-any.whl"`)
 	sign := stepIndex(steps, "cosign sign-blob SHA256SUMS.txt")
 	for name, index := range map[string]int{
-		"npm ci": install, "version stamp": version, "binary build": binaries,
+		"client install": install, "version stamp": version, "binary build": binaries,
 		"digest stamp": stamp, "python -m build": build, "distribution check": verify,
 		"manifest entry": manifest, "manifest signing": sign,
 	} {
@@ -198,7 +198,7 @@ func TestNightlyPythonSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *testing
 		before int
 		after  int
 	}{
-		{"npm ci runs after the manifest is stamped, which breaks the lock-file check", install, version},
+		{"the client is installed after the manifest is stamped, which breaks the lock-file check", install, version},
 		{"the versions are stamped after the binaries are built, so the binaries report another version", version, binaries},
 		{"the digests are stamped before the binaries exist", binaries, stamp},
 		{"the digests are stamped after python -m build, so the wheel ships without them", stamp, build},
