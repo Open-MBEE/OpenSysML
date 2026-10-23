@@ -259,12 +259,13 @@ func (f *folder) foldNodes(nodes []*Node) {
 }
 
 // owns reports a node whose members may fold into its compartments: a placed
-// one under the positioned folding, any type under an automatic one.
+// one under the positioned folding, any type under an automatic one. A view
+// node's children are what it exposes, not members, so they never fold.
 func (f *folder) owns(node *Node) bool {
 	if !f.mode.automatic() {
 		return f.placed[node.ID]
 	}
-	return !packageNode(node) && !f.folded(node.ID)
+	return !packageNode(node) && !viewNode(node) && !f.folded(node.ID)
 }
 
 func (f *folder) record(node *Node, owner string) {
@@ -382,7 +383,8 @@ func (f *folder) reanchorEdges(edges []Edge) (kept []Edge, moved, dropped int) {
 	return kept, moved, dropped
 }
 
-// reanchorNotes moves every note at a folded member to the member's owner.
+// reanchorNotes moves every note at a folded member to the member's owner; a
+// note on an edge that folding dropped inside one owner becomes a note on it.
 func (f *folder) reanchorNotes(notes []Note) (kept []Note, moved int) {
 	kept = make([]Note, 0, len(notes))
 	for _, note := range notes {
@@ -391,6 +393,9 @@ func (f *folder) reanchorNotes(notes []Note) (kept []Note, moved int) {
 			if owner, ok := f.owners[*id]; ok {
 				*id, at = owner, true
 			}
+		}
+		if at && note.EdgeFrom != "" && note.EdgeFrom == note.EdgeTo {
+			note.Anchor, note.EdgeFrom, note.EdgeTo = note.EdgeFrom, "", ""
 		}
 		if at {
 			moved++
@@ -414,6 +419,13 @@ func usageNode(node *Node) bool {
 func portNode(node *Node) bool {
 	_, keyword := splitRowPrefix(node.Kind)
 	return keyword == "port"
+}
+
+// viewNode reports a node drawn for a view or viewpoint, under which the tree
+// places what the view exposes rather than what it owns.
+func viewNode(node *Node) bool {
+	_, keyword := splitRowPrefix(node.Kind)
+	return keyword == "view" || keyword == "viewpoint" || keyword == "rendering"
 }
 
 // packageNode reports a node drawn for a package, whose members are never rows.

@@ -22,7 +22,7 @@ func TestRenderFoldsCompartmentsOnRequest(t *testing.T) {
 }
 `
 	s, docURI := renderServer(t, "folded.sysml", folded)
-	render := func(t *testing.T, compartments string) string {
+	result := func(t *testing.T, compartments string) RenderResult {
 		t.Helper()
 		raw, err := call(t, s, MethodRender, &RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -35,7 +35,11 @@ func TestRenderFoldsCompartmentsOnRequest(t *testing.T) {
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode render result: %v", err)
 		}
-		return out.Artifact
+		return out
+	}
+	render := func(t *testing.T, compartments string) string {
+		t.Helper()
+		return result(t, compartments).Artifact
 	}
 	plain := render(t, "")
 	if !strings.Contains(plain, "<b>sensor</b>") || strings.Contains(plain, "compartment rows") {
@@ -52,6 +56,20 @@ func TestRenderFoldsCompartmentsOnRequest(t *testing.T) {
 	}
 	if strings.Contains(most, "<b>sensor</b>") {
 		t.Errorf("most keeps sensor a node:\n%s", most)
+	}
+	rows := map[string]string{}
+	for _, node := range result(t, "most").Nodes {
+		if node.Compartment != "" {
+			rows[node.Name] = node.Compartment + " of " + node.Parent
+		}
+	}
+	if len(rows) != 5 || rows["sensor"] == "" || rows["hub.bearing"] == "" || !strings.HasPrefix(rows["label"], "attributes of ") {
+		t.Errorf("most nodes carry the rows %v, want each folded member as a row of its owner's compartment", rows)
+	}
+	for _, node := range result(t, "").Nodes {
+		if node.Compartment != "" {
+			t.Errorf("the default lists %s as a row of %q", node.Name, node.Compartment)
+		}
 	}
 	ports := render(t, "ports")
 	if !strings.Contains(ports, "hub : Hub<br/>hub.bearing : Hub") || !strings.Contains(ports, "<b>sensor</b>") {

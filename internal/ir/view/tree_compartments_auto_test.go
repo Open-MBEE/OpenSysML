@@ -116,6 +116,16 @@ func TestTreeCompartmentsFoldKeepsNodes(t *testing.T) {
 			t.Errorf("%s keeps %q as nodes with rows %q, want the stand-in kept and the port folded", mode, got, compartmentText(kept.Roots[0]))
 		}
 	}
+	exposed := &Node{ID: "n0", Kind: "view", Name: "wheels", Children: []*Node{
+		{ID: "n1", Kind: "part", Name: "vehicle", Children: []*Node{{ID: "n2", Kind: "part", Name: "wheel"}}},
+	}}
+	nested := &Rendering{Kind: KindTree, Shown: DefaultShown, Roots: []*Node{exposed}}
+	for _, mode := range []Compartments{CompartmentsMost, CompartmentsPorts} {
+		kept := foldCompartments(nested, mode)
+		if got := keptNames(kept.Roots[0]); got != "vehicle" || len(kept.Roots[0].Compartments) != 0 {
+			t.Errorf("%s keeps %q under the view with rows %q, want what the view exposes kept as nodes", mode, got, compartmentText(kept.Roots[0]))
+		}
+	}
 }
 
 // TestTreeCompartmentsReanchor checks that an edge at a folded member moves
@@ -132,15 +142,15 @@ func TestTreeCompartmentsReanchor(t *testing.T) {
 		{From: "n2", To: "n3", Kind: EdgeReference},
 		{From: "n1", To: "n2", Kind: EdgeConnection},
 		{From: "n0", To: "n3", Kind: EdgeComposition},
-	}, Notes: []Note{{Text: "a note", Anchor: "n1"}}}
+	}, Notes: []Note{{Text: "a note", Anchor: "n1"}, {Text: "an edge note", EdgeFrom: "n1", EdgeTo: "n2"}}}
 	folded := foldCompartments(r, CompartmentsPorts)
 	if len(folded.Edges) != 2 || folded.Edges[0].From != "n0" || folded.Edges[0].To != "n3" || folded.Edges[1].From != "n0" || folded.Edges[1].Kind != EdgeComposition {
 		t.Errorf("edges = %+v, want the reference moved to Hub once and the composition kept", folded.Edges)
 	}
-	if len(folded.Notes) != 1 || folded.Notes[0].Anchor != "n0" {
-		t.Errorf("notes = %+v, want the note moved to Hub", folded.Notes)
+	if len(folded.Notes) != 2 || folded.Notes[0].Anchor != "n0" || folded.Notes[1] != (Note{Text: "an edge note", Anchor: "n0"}) {
+		t.Errorf("notes = %+v, want both notes moved to Hub, the one on the dropped edge as a note on Hub", folded.Notes)
 	}
-	want := "2 member(s) drawn as compartment rows of their owner, and 1 edge(s) at them moved to their owner, and 2 edge(s) within one owner dropped, and 1 note(s) at them moved to their owner"
+	want := "2 member(s) drawn as compartment rows of their owner, and 1 edge(s) at them moved to their owner, and 2 edge(s) within one owner dropped, and 2 note(s) at them moved to their owner"
 	if len(folded.Notices) != 1 || folded.Notices[0] != want {
 		t.Errorf("notices = %q, want %q", folded.Notices, want)
 	}

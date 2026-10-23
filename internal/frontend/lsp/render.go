@@ -210,6 +210,7 @@ type RenderNode struct {
 	Type            string          `json:"type"`
 	Detail          string          `json:"detail"`
 	Parent          string          `json:"parent,omitempty"`
+	Compartment     string          `json:"compartment,omitempty"`
 	Fill            string          `json:"fill,omitempty"`
 	Border          string          `json:"border,omitempty"`
 	Style           *RenderStyle    `json:"style,omitempty"`
@@ -473,7 +474,7 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	data := rendering.DataWith(view.Options{Ports: ports, Show: shown})
+	data := rendering.DataWith(view.Options{Ports: ports, Compartments: compartments, Show: shown})
 	out := &RenderResult{
 		View:     data.View,
 		Kind:     string(data.Kind),
@@ -545,6 +546,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			Type:            node.Type,
 			Detail:          node.Detail,
 			Parent:          node.Parent,
+			Compartment:     node.Compartment,
 			Fill:            fills[node.ID].Fill,
 			Border:          fills[node.ID].Border,
 			Style:           wireStyle(node.Style),
