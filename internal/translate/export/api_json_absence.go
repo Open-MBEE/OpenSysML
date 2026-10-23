@@ -84,8 +84,10 @@ func appendAPIJSONOwnedAbsencesWithScratch(
 		var value any
 		if property.Range == rdf.XSD+"boolean" {
 			// Every non-derived boolean is stated, true or false (the OMG API JSON shape).
+			// A boolean whose redefinition here is derived (Usage::mayTimeVary
+			// over isVariable) is derived for this metaclass and not completed.
 			stated, ok := apiJSONStatedBoolean(property, element)
-			if !ok || libraryStub || external {
+			if !ok || planned.effective.Derived || libraryStub || external {
 				continue
 			}
 			value = stated

@@ -89,8 +89,9 @@ func TestAPIJSONStatesEveryNonDerivedBoolean(t *testing.T) {
 		if metaclass == "" {
 			continue
 		}
-		for _, property := range apiJSONOwnedAbsenceProperties(metaclass) {
-			if property.Derived || property.Range != rdf.XSD+"boolean" {
+		for _, planned := range apiJSONOwnedAbsencePlanFor(metaclass) {
+			property := planned.property
+			if property.Derived || planned.effective.Derived || property.Range != rdf.XSD+"boolean" {
 				continue
 			}
 			if _, ok := element[property.Name].(bool); !ok {
@@ -102,9 +103,9 @@ func TestAPIJSONStatesEveryNonDerivedBoolean(t *testing.T) {
 		}
 	}
 	for id, want := range map[string]map[string]any{
-		"P__D__a":           {"isComposite": true, "isUnique": true, "isVariable": false, "isAbstract": false, "isReference": nil},
+		"P__D__a":           {"isComposite": true, "isUnique": true, "isVariable": nil, "isAbstract": false, "isReference": nil},
 		"P__D__b":           {"isComposite": false, "isReference": true},
-		"P__D__v":           {"isVariable": true, "mayTimeVary": nil},
+		"P__D__v":           {"isVariable": nil, "mayTimeVary": nil},
 		"P__D__n":           {"isUnique": false},
 		"P__D":              {"isAbstract": false, "isVariation": false, "isSufficient": false, "isIndividual": false},
 		"P__D__a_om":        {"isImplied": false},

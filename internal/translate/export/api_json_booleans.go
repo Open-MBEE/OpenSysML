@@ -91,12 +91,17 @@ func apiJSONImpliedBoolean(typ rdf.Term, member apiJSONMember, members apiJSONOb
 	if !ok {
 		return false
 	}
-	property, ok := ontology.PropertyOf(apiJSONOwnedAbsenceMetaclassInGraph(nil, typ.Value), member.key)
-	if !ok {
-		return false
+	for _, planned := range apiJSONOwnedAbsencePlanFor(apiJSONOwnedAbsenceMetaclassInGraph(nil, typ.Value)) {
+		if planned.property.Name != member.key {
+			continue
+		}
+		if planned.effective.Derived {
+			return false
+		}
+		implied, stated := apiJSONStatedBoolean(planned.property, members)
+		return stated && implied == value
 	}
-	implied, stated := apiJSONStatedBoolean(property, members)
-	return stated && implied == value
+	return false
 }
 
 func apiJSONMemberValue(members apiJSONObject, key string) any {

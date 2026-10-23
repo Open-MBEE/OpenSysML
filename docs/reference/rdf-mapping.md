@@ -2110,7 +2110,9 @@ implies — the metaclass default from the ontology table (`isUnique` true, ever
 other flag false), or the flag another spelling of the graph carries:
 `isVariable` from `sysx:declaredPrefix "var"`, `isSufficient` from `sysml:isAll`.
 Derived booleans (`isReference`, `isLibraryElement`, `mayTimeVary`, …) are not
-completed; they are written as the graph states them. The root element objects of
+completed; they are written as the graph states them — nor is a boolean whose
+redefinition in the metaclass is derived (`isVariable` on a usage, redefined by
+the derived `Usage::mayTimeVary`; the pilot implementation computes it there). The root element objects of
 the document (the root `Namespace`, or the unowned roots when it is transparent)
 carry `"sysx:statedDefaults": true`, the writer's provenance marker. Reading a
 document that carries it, a non-derived boolean at the value the graph implies
