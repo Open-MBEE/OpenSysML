@@ -1,0 +1,48 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Demo
+    a sysml:Package ;
+    sysml:qualifiedName "Demo" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "1"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
+    sysml:elementId "Demo" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:declaredName "Demo" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Demo__Engine ;
+    sysml:ownedMembership elmt:Demo__Engine_om ;
+    sysml:ownedRelationship elmt:Demo__Engine_om ;
+    sysx:sourceText "package Demo { part def Engine; }" .
+
+elmt:Demo__Engine
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "Demo::Engine" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "16"^^xsd:integer ;
+    sysx:sourceEndLine "1"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
+    sysml:elementId "Demo__Engine" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Demo ;
+    sysml:owner elmt:Demo ;
+    sysml:owningRelationship elmt:Demo__Engine_om ;
+    sysml:owningMembership elmt:Demo__Engine_om ;
+    sysml:declaredName "Engine" ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:Demo__Engine_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Demo__Engine_om" ;
+    sysml:owner elmt:Demo ;
+    sysml:memberElement elmt:Demo__Engine ;
+    sysml:ownedMemberElement elmt:Demo__Engine ;
+    sysml:ownedRelatedElement elmt:Demo__Engine ;
+    sysml:owningRelatedElement elmt:Demo ;
+    sysml:membershipOwningNamespace elmt:Demo .

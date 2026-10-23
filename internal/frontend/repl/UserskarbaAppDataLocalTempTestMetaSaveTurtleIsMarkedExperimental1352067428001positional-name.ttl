@@ -1,0 +1,103 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:P
+    a sysml:Package ;
+    sysml:qualifiedName "P" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "1"^^xsd:integer ;
+    sysx:sourceEndColumn "53"^^xsd:integer ;
+    sysml:elementId "P" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:declaredName "P" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:P__A, elmt:P___27_402_27, elmt:P___402 ;
+    sysml:ownedMembership elmt:P__A_om, elmt:P___27_402_27_om, elmt:P___402_om ;
+    sysml:ownedRelationship elmt:P__A_om, elmt:P___27_402_27_om, elmt:P___402_om ;
+    sysx:sourceText "package P { part def A; part def '@2'; part def A; }" ;
+    json:ownedMember "[{\"@id\":\"P__A\"},{\"@id\":\"P___27_402_27\"},{\"@id\":\"P___402\"}]" ;
+    json:ownedMembership "[{\"@id\":\"P__A_om\"},{\"@id\":\"P___27_402_27_om\"},{\"@id\":\"P___402_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"P__A_om\"},{\"@id\":\"P___27_402_27_om\"},{\"@id\":\"P___402_om\"}]" .
+
+elmt:P__A
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "P::A" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "1"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
+    sysml:elementId "P__A" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:P ;
+    sysml:owner elmt:P ;
+    sysml:owningRelationship elmt:P__A_om ;
+    sysml:owningMembership elmt:P__A_om ;
+    sysml:declaredName "A" ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:P__A_om
+    a sysml:OwningMembership ;
+    sysml:elementId "P__A_om" ;
+    sysml:owner elmt:P ;
+    sysml:memberElement elmt:P__A ;
+    sysml:ownedMemberElement elmt:P__A ;
+    sysml:ownedRelatedElement elmt:P__A ;
+    sysml:owningRelatedElement elmt:P ;
+    sysml:membershipOwningNamespace elmt:P .
+
+elmt:P___27_402_27
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "P::'@2'" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "25"^^xsd:integer ;
+    sysx:sourceEndLine "1"^^xsd:integer ;
+    sysx:sourceEndColumn "39"^^xsd:integer ;
+    sysml:elementId "P___27_402_27" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:P ;
+    sysml:owner elmt:P ;
+    sysml:owningRelationship elmt:P___27_402_27_om ;
+    sysml:owningMembership elmt:P___27_402_27_om ;
+    sysml:declaredName "@2" ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:P___27_402_27_om
+    a sysml:OwningMembership ;
+    sysml:elementId "P___27_402_27_om" ;
+    sysml:owner elmt:P ;
+    sysml:memberElement elmt:P___27_402_27 ;
+    sysml:ownedMemberElement elmt:P___27_402_27 ;
+    sysml:ownedRelatedElement elmt:P___27_402_27 ;
+    sysml:owningRelatedElement elmt:P ;
+    sysml:membershipOwningNamespace elmt:P .
+
+elmt:P___402
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "P::@2" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "40"^^xsd:integer ;
+    sysx:sourceEndLine "1"^^xsd:integer ;
+    sysx:sourceEndColumn "51"^^xsd:integer ;
+    sysml:elementId "P___402" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:P ;
+    sysml:owner elmt:P ;
+    sysml:owningRelationship elmt:P___402_om ;
+    sysml:owningMembership elmt:P___402_om ;
+    sysml:declaredName "A" ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:P___402_om
+    a sysml:OwningMembership ;
+    sysml:elementId "P___402_om" ;
+    sysml:owner elmt:P ;
+    sysml:memberElement elmt:P___402 ;
+    sysml:ownedMemberElement elmt:P___402 ;
+    sysml:ownedRelatedElement elmt:P___402 ;
+    sysml:owningRelatedElement elmt:P ;
+    sysml:membershipOwningNamespace elmt:P .

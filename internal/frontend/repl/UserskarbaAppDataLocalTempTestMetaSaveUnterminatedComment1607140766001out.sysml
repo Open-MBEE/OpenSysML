@@ -1,0 +1,2 @@
+part def A;
+/* oops

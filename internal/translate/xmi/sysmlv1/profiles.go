@@ -10,6 +10,36 @@ import (
 // IsSysMLNamespace reports whether ns is an OMG SysML v1 profile namespace,
 // of any version, or Papyrus' copy of it.
 func IsSysMLNamespace(ns string) bool {
+	// Cameo's Eclipse UML2 v5 exporter gives the standard SysML EPackages
+	// these exact namespace identities. Do not accept arbitrary hostless URIs
+	// or user profiles merely because their path contains "SysML".
+	switch ns {
+	case "http:///SysML/Activities.ecore",
+		"http:///SysML/Allocations.ecore",
+		"http:///SysML/Blocks.ecore",
+		"http:///SysML/BuiltinOperations.ecore",
+		"http:///SysML/ConstraintBlocks.ecore",
+		"http:///SysML/DeprecatedElements.ecore",
+		"http:///SysML/Libraries.ecore",
+		"http:///SysML/Libraries/ControlValues.ecore",
+		"http:///SysML/Libraries/PrimitiveValueTypes.ecore",
+		"http:///SysML/Libraries/PrimitiveValueTypes/Deprecated.ecore",
+		"http:///SysML/Libraries/UnitAndQuantityKind.ecore",
+		"http:///SysML/Libraries/UnitAndQuantityKind/Deprecated.ecore",
+		"http:///SysML/ModelElements.ecore",
+		"http:///SysML/ModelElements/Deprecated.ecore",
+		"http:///SysML/NonNormativeExtensions.ecore",
+		"http:///SysML/NonNormativeExtensions/Activity.ecore",
+		"http:///SysML/NonNormativeExtensions/Actors.ecore",
+		"http:///SysML/NonNormativeExtensions/Block.ecore",
+		"http:///SysML/NonNormativeExtensions/Diagrams.ecore",
+		"http:///SysML/NonNormativeExtensions/Distributions.ecore",
+		"http:///SysML/NonNormativeExtensions/Parametric.ecore",
+		"http:///SysML/NonNormativeExtensions/Requirement.ecore",
+		"http:///SysML/PortsFlows.ecore",
+		"http:///SysML/Requirements.ecore":
+		return true
+	}
 	u, err := url.Parse(ns)
 	if err != nil {
 		return false

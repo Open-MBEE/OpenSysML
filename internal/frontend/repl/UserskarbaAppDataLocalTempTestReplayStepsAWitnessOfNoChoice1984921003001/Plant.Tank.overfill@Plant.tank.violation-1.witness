@@ -1,0 +1,9 @@
+no choice points
+
+materialize: tank #1
+step 1: token 1@a
+stmt assign level
+  eval literal 2 -> 2
+step 2: token 1@done
+
+property: Plant::Tank::low

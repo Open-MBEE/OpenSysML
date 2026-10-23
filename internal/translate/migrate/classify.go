@@ -287,6 +287,9 @@ var libraryRoots = map[string]bool{
 // isStandardNamespace matches, by host and path, the OMG SysML and UML profiles,
 // Eclipse UML2's UML standard profile and Papyrus' SysML profile; nothing else.
 func isStandardNamespace(ns string) bool {
+	if sysmlv1.IsSysMLNamespace(ns) {
+		return true
+	}
 	u, err := url.Parse(ns)
 	if err != nil {
 		return false
