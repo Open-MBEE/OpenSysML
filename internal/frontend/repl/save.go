@@ -49,7 +49,7 @@ func (s *Session) savePreview(path string) ([]byte, []string, bool) {
 func (s *Session) saveSource(path string) ([]byte, string, []string, bool) {
 	// The text as typed, not the analyzed buffer: work the parser could not read
 	// is masked out of that buffer and is exactly what this save exists for.
-	src := s.text()
+	src := s.savedText()
 	if strings.TrimSpace(src) == "" {
 		return nil, path, []string{"nothing to save: the session is empty"}, false
 	}

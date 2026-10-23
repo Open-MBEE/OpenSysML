@@ -79,6 +79,10 @@ type snippet struct {
 	// rejected marks a typed submission that declares nothing and does not parse:
 	// it is reported once, against the buffer it was typed into, then dropped.
 	rejected bool
+	// onDemand marks a file the session loaded for a name a submission left
+	// unresolved, which nobody asked for: %save leaves it out, since the file
+	// is already beside what is saved.
+	onDemand bool
 }
 
 // SourceConverter transforms a named source file before the REPL parses it.
@@ -112,6 +116,11 @@ type Session struct {
 	// libraryRoots are the directories installed projects are looked for
 	// under, besides the well-known ones beneath a loaded file's project.
 	libraryRoots []string
+	// workspaceRoot is the directory the root namespaces a typed submission
+	// leaves unresolved are looked for under, empty to look nowhere; workspace
+	// indexes its model files, built on first use.
+	workspaceRoot string
+	workspace     *project.WorkspaceIndex
 
 	// Runtime execution context
 	rtCtx *runtime.Context
@@ -817,6 +826,18 @@ func (s *Session) text() string {
 	return strings.Join(parts, "\n")
 }
 
+// savedText is the buffer as %save writes it: text() without the files loaded
+// on demand, which stay files of the workspace rather than of the save.
+func (s *Session) savedText() string {
+	var parts []string
+	for _, sn := range s.snippets {
+		if !sn.onDemand {
+			parts = append(parts, sn.src)
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
 // maskedSpans locates the masked submissions in the buffer, so a finding of
 // theirs is not read as having stopped the deeper checks from running.
 func (s *Session) maskedSpans() []source.Span {
@@ -1068,22 +1089,23 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	}
 	whole = s.rebuildOver(drops)
 	notices := append(dropNotices(drops), whole...)
-	// The diagnostics already carry their own "did you mean" hints.
-	diags := s.diagnostics()
-	members := s.sessionMembers()
-	res = Result{
-		Members:     members,
-		Declared:    declared,
-		Diagnostics: diags,
-		// The unmasked buffer: masking is byte for byte, so offsets still land
-		// where they did, and a diagnostic echoes the line it is about.
-		Source:  s.text(),
-		Offset:  offset,
-		Origins: s.origins(),
-		own:     own,
-		masked:  s.maskedSpans(),
-		foreign: s.foreignSpans(),
-		Notices: notices,
+	res = s.submissionResult(declared, offset, own, notices)
+	if !load {
+		// A root namespace the typed text leaves unresolved may be declared by
+		// a file under the workspace, which joins this submission as %load would.
+		if ws := s.resolveFromWorkspace(res, parses); ws.loaded || len(ws.notices) > 0 {
+			if ws.loaded {
+				s.recordDrops = append(s.recordDrops, ws.drops...)
+				s.idxVersion, s.names = 0, nil
+				more := s.rebuildOver(ws.drops)
+				whole = append(whole, more...)
+				notices = append(append(notices, dropNotices(ws.drops)...), more...)
+				own = s.ownSpans()
+				declared = append(declared, ws.declared...)
+			}
+			notices = append(notices, ws.notices...)
+			res = s.submissionResult(declared, offset, own, notices)
+		}
 	}
 	res.Blocked = s.blockedBy(res, load)
 	// A rejected submission was reported against the buffer it was typed into;
@@ -1098,6 +1120,27 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 		res.Notices = append(res.Notices, more...)
 	}
 	return res, byFile, whole
+}
+
+// submissionResult is the result of the submission under way over the session
+// as it stands: declared is what it declared, offset where its text starts in
+// the buffer, own the text a merge added, and notices what it did besides.
+func (s *Session) submissionResult(declared []string, offset int, own []source.Span, notices []string) Result {
+	return Result{
+		Members:  s.sessionMembers(),
+		Declared: declared,
+		// The diagnostics already carry their own "did you mean" hints.
+		Diagnostics: s.diagnostics(),
+		// The unmasked buffer: masking is byte for byte, so offsets still land
+		// where they did, and a diagnostic echoes the line it is about.
+		Source:  s.text(),
+		Offset:  offset,
+		Origins: s.origins(),
+		own:     own,
+		masked:  s.maskedSpans(),
+		foreign: s.foreignSpans(),
+		Notices: notices,
+	}
 }
 
 // dropRejected removes the snippets this submission rejected, returning the
@@ -1679,6 +1722,9 @@ func rebasedFixes(fixes []diag.Fix, delta int) []diag.Fix {
 // the check.
 func (s *Session) SetFileGuard(guard func(path string, exempt []string) error) {
 	s.fileGuard = guard
+	// The workspace index asks the guard before reading a file, so it is built
+	// again under the new one.
+	s.workspace = nil
 }
 
 // SetFileWriter installs the writer every file the session saves is written

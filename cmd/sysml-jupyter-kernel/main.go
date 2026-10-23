@@ -183,5 +183,14 @@ func newSession(info buildinfo.Info) (*repl.Session, error) {
 		fmt.Fprintf(os.Stderr, "%s record cache unavailable, holding every file loaded: %v\n", errPrefix, err)
 	}
 	sess.SetRecordCache(cache)
+	// Jupyter starts a kernel in the notebook's directory, so an import a cell
+	// leaves unresolved is looked for in the model files beside the notebook.
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("working directory: %w", err)
+	}
+	if err := sess.SetWorkspaceRoot(cwd); err != nil {
+		return nil, err
+	}
 	return sess, nil
 }

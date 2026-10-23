@@ -55,7 +55,7 @@ func (s *Session) loadPathsReport(paths []string, opts loadOptions) (LoadReport,
 	if err != nil {
 		return LoadReport{}, err
 	}
-	read, err := s.readWithDependencies(files, opts)
+	read, err := s.readWithDependencies(files, opts, s.ws.IsLibraryRoot)
 	if err != nil {
 		return LoadReport{}, err
 	}
@@ -170,14 +170,14 @@ type reading struct {
 }
 
 // readWithDependencies reads paths, then the model files beside and below them
-// that declare a root namespace they import and neither they nor the library
-// declare.
-func (s *Session) readWithDependencies(paths []string, opts loadOptions) (reading, error) {
+// that declare a root namespace they import and neither they nor known — the
+// library's root packages, and whatever else the caller holds — declare.
+func (s *Session) readWithDependencies(paths []string, opts loadOptions, known func(name string) bool) (reading, error) {
 	read, err := s.readSources(paths, opts)
 	if err != nil {
 		return reading{}, err
 	}
-	deps := s.discovery().DependenciesOf(read.deps, s.ws.IsLibraryRoot)
+	deps := s.discovery().DependenciesOf(read.deps, known)
 	if len(deps) == 0 {
 		return read, nil
 	}
