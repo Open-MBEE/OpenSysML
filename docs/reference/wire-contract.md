@@ -1339,7 +1339,9 @@ empty, a declaration's FQN, or a path from one such as `Mission::mission.vehicle
 same errors. When the object reached exhibits the machine (`exhibit state modes;` in the part
 definition of a vehicle, say), the call runs that exhibited machine rather than a second copy —
 with or without `advance` — so the object's own transitions, the messages its ports receive over the assembly's
-connectors and the features it assigns are the run's; an object exhibiting the machine under
+connectors and the features it assigns are the run's; a path reaching the exhibited usage itself
+(`Mission::mission.vehicle.modes`, as the CLI's `-state` names it) runs that same machine, since the
+object held under an `exhibit state` is the performance its owner runs; an object exhibiting the machine under
 two usages is refused as ambiguous, since the call cannot tell which it means. An object not
 exhibiting the machine performs a fresh one, as an empty performer does outside any object.
 Either way the machine's guards, effects and state behaviors read and write the object's feature

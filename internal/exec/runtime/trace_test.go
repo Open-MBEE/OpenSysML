@@ -423,11 +423,8 @@ func tracePerformers(t *testing.T, ctx *Context, idx *symbols.Index, trace *Trac
 	t.Helper()
 	ctx.SetTrace(trace)
 	for _, performer := range performers {
-		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
-		if err != nil {
-			t.Fatalf("instantiate %s: %v", performer.Object, err)
-		}
-		exec, err := ctx.CreateStateExecutorFor(stateSym, self)
+		self := performerObject(t, ctx, idx, performer.Object)
+		exec, _, err := ctx.stateRunFor(stateSym, self, true)
 		if err != nil {
 			t.Fatalf("create state executor for %s: %v", performer.Object, err)
 		}
@@ -444,10 +441,7 @@ func traceActionPerformers(t *testing.T, ctx *Context, idx *symbols.Index, trace
 	t.Helper()
 	ctx.SetTrace(trace)
 	for _, performer := range performers {
-		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
-		if err != nil {
-			t.Fatalf("instantiate %s: %v", performer.Object, err)
-		}
+		self := performerObject(t, ctx, idx, performer.Object)
 		if _, err := ctx.ActionOutcomePerformedBy(actionSym, self, nil); err != nil && performer.Error == "" {
 			t.Fatalf("action performance by %s: %v", performer.Object, err)
 		}
