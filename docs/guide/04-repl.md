@@ -338,7 +338,8 @@ owner's composition stands for it. A `Route` about the usage steers its composit
 specialization or typing has no member of its own and is routed by the drawing.
 
 A view that states `render asElementTable;` is rendered as aligned columns instead, listing the
-exposed elements, what they declare, and the views nested inside the rendered view.
+exposed elements, what they declare (an element the view exposes in its own right is a row of
+its own, not repeated under what declares it), and the views nested inside the rendered view.
 
 The bundled `OpenSysMLRenderings` library selects cases with `render asCaseDiagram;` and mixed content
 with `render asMixedDiagram;`; `CaseView` and `MixedView` provide the same choices by specialization.
