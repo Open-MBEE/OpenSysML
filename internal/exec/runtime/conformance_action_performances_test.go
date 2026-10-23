@@ -35,9 +35,8 @@ func performBefore(t *testing.T, ctx *Context, idx *symbols.Index, rootScope *sy
 	}
 }
 
-// runActionPerformers performs an action once per object performing it and
-// checks each performance against what that object expects: its outputs, the
-// feature values the body left on the object, or the error it must fail with.
+// runActionPerformers performs an action once per object performing it and checks each
+// performance against that object's expectation: outputs, feature values left on it, or its error.
 func runActionPerformers(t *testing.T, ctx *Context, idx *symbols.Index, actionSym *symbols.Symbol, performers []Performer) {
 	t.Helper()
 	for _, performer := range performers {
