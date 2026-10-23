@@ -208,9 +208,8 @@ type folder struct {
 
 func (f *folder) folded(id string) bool { _, ok := f.owners[id]; return ok }
 
-// notice words what the folding did, by whether the members folded for want
-// of a position or because the mode names them; what nests under a row of an
-// automatic folding belongs to the row's type, so it is not noticed.
+// notice words what the folding did, by whether the members folded for want of
+// a position or because the mode names them (what nests under a row is not).
 func (f *folder) notice() string {
 	if f.mode.automatic() {
 		notice := fmt.Sprintf("%d member(s) drawn as compartment rows of their owner", f.drawn)
