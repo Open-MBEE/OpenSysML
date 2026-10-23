@@ -19,6 +19,8 @@ corpus="$module/tests/corpus"
 smt="$module/internal/exec/smt"
 export="$module/tests/export"
 model="$module/tests/model"
+# internal/check/passes (~15 min under -race) rides with cmd/sysml: tests/export and
+# tests/model (17-20 and 28-30 min) already fill the export node's four vCPUs.
 passes="$module/internal/check/passes"
 # tests/migrate runs the SysML v1 migrator over whole models and is the next-longest
 # package under -race after the runtime, so it is a shard of its own.
@@ -54,13 +56,13 @@ case "$shard" in
     printf '%s\n' "$workspace_model" "$corpus" "$smt"
     ;;
   export)
-    printf '%s\n' "$export" "$model" "$passes"
+    printf '%s\n' "$export" "$model"
     ;;
   migrate)
     printf '%s\n' "$migrate"
     ;;
   cli)
-    printf '%s\n' "$cli"
+    printf '%s\n' "$cli" "$passes"
     ;;
   rest)
     while IFS= read -r package; do

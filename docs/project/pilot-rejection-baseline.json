@@ -27,17 +27,17 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 335,
-        "digest": "sha256:27877cbf7c0ea7b283eb2ddea921e231a72eb8d706d29016caed70c1d95c887f"
+        "files": 338,
+        "digest": "sha256:78466f63a7e3c374708eb6a088051eb222b04aaf9754719d1414400c6ffbc45a"
       }
     ],
-    "recorded": "2026-10-21"
+    "recorded": "2026-10-22"
   },
   "totals": {
-    "cases": 335,
-    "bothReject": 324,
+    "cases": 338,
+    "bothReject": 326,
     "pilotOnlyRejects": 0,
-    "oursOnlyRejects": 11,
+    "oursOnlyRejects": 12,
     "bothAccept": 0
   },
   "strictOnlyAgreements": [
@@ -65,10 +65,10 @@
     },
     {
       "source": "semantic",
-      "cases": 176,
-      "bothReject": 165,
+      "cases": 179,
+      "bothReject": 167,
       "pilotOnlyRejects": 0,
-      "oursOnlyRejects": 11,
+      "oursOnlyRejects": 12,
       "bothAccept": 0
     },
     {
@@ -2238,6 +2238,24 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/s112-concern-def-stakeholder-before-implicit-subject.sysml",
+      "source": "semantic",
+      "rule": "A stakeholder declared before any subject is the first input of a concern definition, displacing the subject it inherits (SysML 8.3.21.8 validateRequirementDefinitionSubjectParameterPosition; pilot validateRequirementDefinitionSubjectParameterPosition).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s113-framed-concern-stakeholder-before-inherited-subject.sysml",
+      "source": "semantic",
+      "rule": "A stakeholder a framed concern declares precedes the subject it inherits from its definition (SysML 8.3.21.9 validateRequirementUsageSubjectParameterPosition; pilot validateRequirementUsageSubjectParameterPosition).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s12-case-two-subjects.sysml",
       "source": "semantic",
       "rule": "A case usage may have at most one subject (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneSubject).",
@@ -2835,6 +2853,18 @@
       "pilotErrors": 5
     },
     {
+      "path": "semantic/variation-usage-objective-not-variant.sysml",
+      "source": "semantic",
+      "rule": "An owned usage of a variation usage must be a variant, an objective included (SysML 8.3.6.4 validateUsageVariationOwnedFeatureMembership; pilot validateUsageVariationMembership).",
+      "mode": "default",
+      "bucket": "ours-only-rejects",
+      "oursErrors": 1,
+      "pilotErrors": 0,
+      "ours": [
+        "line 5: An owned usage of a variation must be a variant."
+      ]
+    },
+    {
       "path": "xpect/p01-public-root-import.kerml",
       "source": "xpect",
       "rule": "a root-namespace import must be private (KerML 8.2.3.5.2 validateImportTopLevelVisibility; pilot Import_RootNamspace_invalid.kerml.xt).",
@@ -3286,10 +3316,10 @@
       }
     ],
     "totals": {
-      "cases": 335,
-      "bothReject": 324,
+      "cases": 338,
+      "bothReject": 326,
       "pilotOnlyRejects": 0,
-      "oursOnlyRejects": 11,
+      "oursOnlyRejects": 12,
       "bothAccept": 0
     },
     "note": "no declared correction lies under tools/referee/reject/testdata/negative, so the errata-applied corpus is byte-identical to the published one and both figures coincide"

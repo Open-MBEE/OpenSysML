@@ -171,7 +171,7 @@ func TestAPIJSONWriteReadWriteIsByteIdenticalForConvertFixtures(t *testing.T) {
 					if err != nil {
 						t.Fatalf("ReadAPIJSON: %v", err)
 					}
-					again, err := writeCachedAPIJSON(reread, form.name)
+					again, err := writeAPIJSONForm(reread, form.name)
 					if err != nil {
 						t.Fatalf("write after read: %v", err)
 					}

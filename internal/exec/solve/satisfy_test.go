@@ -69,8 +69,13 @@ func TestSatisfactionWithoutConditionsIsVacuous(t *testing.T) {
 	if _, err := Satisfaction(ctx, assertions[1]); !errors.Is(err, ErrNoConditions) {
 		t.Fatalf("translate the denial: %v, want ErrNoConditions", err)
 	}
-	if _, err := SatisfactionViolation(ctx, assertions[0], nil); !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("translate the violation: %v, want ErrNoConditions", err)
+	// The claim holds vacuously, so nothing violates it: the violation query is false.
+	v, err := SatisfactionViolation(ctx, assertions[0], nil)
+	if err != nil {
+		t.Fatalf("translate the violation: %v", err)
+	}
+	if len(v.Assertions) != 1 || writeTerm(v.Assertions[0].Term) != "(not true)" {
+		t.Fatalf("the violation of a vacuous satisfaction is not false:\n%s", Script(v))
 	}
 }
 

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag_inspect'></elementID>
+    <geometry>0, 0, 620, 360</geometry>
+  </mdElement>
+  <mdElement elementClass='InitialNode' xmi:id='_sym_init'>
+    <elementID xmi:idref='_eh_init'></elementID>
+    <geometry>85, 40, 15, 15</geometry>
+  </mdElement>
+  <mdElement elementClass='CallBehaviorAction' xmi:id='_sym_capture'>
+    <elementID xmi:idref='_eh_capture'></elementID>
+    <geometry>21, 100, 142, 33</geometry>
+  </mdElement>
+  <mdElement elementClass='OpaqueAction' xmi:id='_sym_store'>
+    <elementID xmi:idref='_eh_store'></elementID>
+    <geometry>21, 200, 142, 33</geometry>
+  </mdElement>
+  <mdElement elementClass='ActivityFinalNode' xmi:id='_sym_final'>
+    <elementID xmi:idref='_eh_final'></elementID>
+    <geometry>82, 300, 20, 20</geometry>
+  </mdElement>
+  <mdElement elementClass='StructuredActivityNode' xmi:id='_sym_fails'>
+    <elementID xmi:idref='_eh_fails'></elementID>
+    <geometry>240, 40, 180, 130</geometry>
+  </mdElement>
+  <mdElement elementClass='OpaqueAction' xmi:id='_sym_retry'>
+    <elementID xmi:idref='_eh_retry'></elementID>
+    <geometry>260, 70, 142, 33</geometry>
+  </mdElement>
+  <mdElement elementClass='OpaqueAction' xmi:id='_sym_log'>
+    <elementID xmi:idref='_eh_log'></elementID>
+    <geometry>260, 120, 142, 33</geometry>
+  </mdElement>
+  <mdElement elementClass='StructuredActivityNode' xmi:id='_sym_pos'>
+    <elementID xmi:idref='_eh_pos'></elementID>
+    <geometry>240, 200, 180, 130</geometry>
+  </mdElement>
+  <mdElement elementClass='OpaqueAction' xmi:id='_sym_adjust'>
+    <elementID xmi:idref='_eh_adjust'></elementID>
+    <geometry>260, 230, 142, 33</geometry>
+  </mdElement>
+  <mdElement elementClass='OpaqueAction' xmi:id='_sym_recapture'>
+    <elementID xmi:idref='_eh_recapture'></elementID>
+    <geometry>260, 280, 142, 33</geometry>
+  </mdElement>
+  <mdElement elementClass='RaiseExceptionAction' xmi:id='_sym_rethrow'>
+    <elementID xmi:idref='_eh_rethrow'></elementID>
+    <geometry>460, 100, 142, 33</geometry>
+  </mdElement>
+  <mdElement elementClass='ControlFlow' xmi:id='_sym_e1'>
+    <elementID xmi:idref='_eh_e1'></elementID>
+    <linkFirstEndID xmi:idref='_sym_init'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_capture'></linkSecondEndID>
+    <geometry>92, 55; 92, 100; </geometry>
+  </mdElement>
+  <mdElement elementClass='ControlFlow' xmi:id='_sym_e2'>
+    <elementID xmi:idref='_eh_e2'></elementID>
+    <linkFirstEndID xmi:idref='_sym_capture'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_store'></linkSecondEndID>
+    <geometry>92, 133; 92, 200; </geometry>
+  </mdElement>
+  <mdElement elementClass='ControlFlow' xmi:id='_sym_e3'>
+    <elementID xmi:idref='_eh_e3'></elementID>
+    <linkFirstEndID xmi:idref='_sym_store'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_final'></linkSecondEndID>
+    <geometry>92, 233; 92, 300; </geometry>
+  </mdElement>
+  <mdElement elementClass='ControlFlow' xmi:id='_sym_e4'>
+    <elementID xmi:idref='_eh_e4'></elementID>
+    <linkFirstEndID xmi:idref='_sym_retry'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_log'></linkSecondEndID>
+    <geometry>331, 103; 331, 120; </geometry>
+  </mdElement>
+  <mdElement elementClass='ControlFlow' xmi:id='_sym_e5'>
+    <elementID xmi:idref='_eh_e5'></elementID>
+    <linkFirstEndID xmi:idref='_sym_adjust'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_recapture'></linkSecondEndID>
+    <geometry>331, 263; 331, 280; </geometry>
+  </mdElement>
+  <mdElement elementClass='ExceptionHandler' xmi:id='_sym_h1'>
+    <elementID xmi:idref='_eh_h1'></elementID>
+    <linkFirstEndID xmi:idref='_sym_capture'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_fails'></linkSecondEndID>
+    <geometry>163, 110; 240, 100; </geometry>
+  </mdElement>
+  <mdElement elementClass='ExceptionHandler' xmi:id='_sym_h2'>
+    <elementID xmi:idref='_eh_h2'></elementID>
+    <linkFirstEndID xmi:idref='_sym_capture'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_pos'></linkSecondEndID>
+    <geometry>163, 125; 240, 260; </geometry>
+  </mdElement>
+  <mdElement elementClass='ExceptionHandler' xmi:id='_sym_h3'>
+    <elementID xmi:idref='_eh_h3'></elementID>
+    <linkFirstEndID xmi:idref='_sym_capture'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_rethrow'></linkSecondEndID>
+    <geometry>163, 105; 460, 110; </geometry>
+  </mdElement>
+</mdOwnedViews>

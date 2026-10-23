@@ -11,7 +11,7 @@ package AnonymousPortions {
         timeslice redefines portionOfLife {
             attribute redefines fuel = 50;
         }
-        snapshot subsets fuel redefines done {
+        snapshot redefines done subsets fuel {
             attribute redefines fuel = 0;
         }
         snapshot;

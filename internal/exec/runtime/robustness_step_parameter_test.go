@@ -33,15 +33,6 @@ const stepParameterFixture = `package test {
 	}
 }`
 
-func readStepParameterGo(t *testing.T, ctx *Context, self *Instance) Value {
-	t.Helper()
-	fv, err := self.GetFeatureValue(ctx, "go")
-	if err != nil {
-		t.Fatalf("read go of object #%d: %v", self.ID, err)
-	}
-	return soleElement(fv.HeldValue())
-}
-
 func TestRuntimeRobustnessStepParameter(t *testing.T) {
 	t.Run("nested_pin_reads_the_steps_parameter_at_model_level", func(t *testing.T) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stepParameterFixture))
@@ -66,7 +57,7 @@ func TestRuntimeRobustnessStepParameter(t *testing.T) {
 		if gauge := soleElement(fv.HeldValue()); gauge.Kind != ValInstance || gauge.Instance != theGauge.ID {
 			t.Errorf("run.decision.gauge = %s, want theGauge (#%d), the gauge run.system holds", FormatValue(gauge), theGauge.ID)
 		}
-		if got := readStepParameterGo(t, ctx, self); !valueEqual(got, boolValue(true)) {
+		if got := readGo(t, ctx, self); !valueEqual(got, boolValue(true)) {
 			t.Errorf("go = %v, want true", got)
 		}
 	})
@@ -77,7 +68,7 @@ func TestRuntimeRobustnessStepParameter(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Instantiate explicit: %v", err)
 		}
-		if got := readStepParameterGo(t, ctx, self); !valueEqual(got, boolValue(false)) {
+		if got := readGo(t, ctx, self); !valueEqual(got, boolValue(false)) {
 			t.Errorf("go = %v, want false", got)
 		}
 	})

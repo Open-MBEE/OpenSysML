@@ -210,7 +210,7 @@ elmt:AnonymousFeatures__v
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousFeatures__v__m, elmt:AnonymousFeatures__v__accessedFeature, elmt:AnonymousFeatures__v__engine, elmt:AnonymousFeatures__v___403 ;
     sysml:ownedMembership elmt:AnonymousFeatures__v__m_om, elmt:AnonymousFeatures__v__accessedFeature_om, elmt:AnonymousFeatures__v__engine_om, elmt:AnonymousFeatures__v___403_om ;
-    sysml:ownedRelationship elmt:AnonymousFeatures__v__m_om, elmt:AnonymousFeatures__v__accessedFeature_om, elmt:AnonymousFeatures__v__engine_om, elmt:AnonymousFeatures__v___403_om, elmt:AnonymousFeatures__v_ft0 ;
+    sysml:ownedRelationship elmt:AnonymousFeatures__v_ft0, elmt:AnonymousFeatures__v__m_om, elmt:AnonymousFeatures__v__accessedFeature_om, elmt:AnonymousFeatures__v__engine_om, elmt:AnonymousFeatures__v___403_om ;
     sysml:ownedFeature elmt:AnonymousFeatures__v__m, elmt:AnonymousFeatures__v__accessedFeature, elmt:AnonymousFeatures__v__engine, elmt:AnonymousFeatures__v___403 ;
     sysml:ownedFeatureMembership elmt:AnonymousFeatures__v__m_om, elmt:AnonymousFeatures__v__accessedFeature_om, elmt:AnonymousFeatures__v__engine_om, elmt:AnonymousFeatures__v___403_om ;
     sysml:ownedTyping elmt:AnonymousFeatures__v_ft0 ;
@@ -219,7 +219,7 @@ elmt:AnonymousFeatures__v
     sysx:sourceTail "\t}\n" ;
     json:ownedMember "[{\"@id\":\"AnonymousFeatures__v__m\"},{\"@id\":\"AnonymousFeatures__v__accessedFeature\"},{\"@id\":\"AnonymousFeatures__v__engine\"},{\"@id\":\"AnonymousFeatures__v___403\"}]" ;
     json:ownedMembership "[{\"@id\":\"AnonymousFeatures__v__m_om\"},{\"@id\":\"AnonymousFeatures__v__accessedFeature_om\"},{\"@id\":\"AnonymousFeatures__v__engine_om\"},{\"@id\":\"AnonymousFeatures__v___403_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"AnonymousFeatures__v__m_om\"},{\"@id\":\"AnonymousFeatures__v__accessedFeature_om\"},{\"@id\":\"AnonymousFeatures__v__engine_om\"},{\"@id\":\"AnonymousFeatures__v___403_om\"},{\"@id\":\"AnonymousFeatures__v_ft0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousFeatures__v_ft0\"},{\"@id\":\"AnonymousFeatures__v__m_om\"},{\"@id\":\"AnonymousFeatures__v__accessedFeature_om\"},{\"@id\":\"AnonymousFeatures__v__engine_om\"},{\"@id\":\"AnonymousFeatures__v___403_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"AnonymousFeatures__v__m\"},{\"@id\":\"AnonymousFeatures__v__accessedFeature\"},{\"@id\":\"AnonymousFeatures__v__engine\"},{\"@id\":\"AnonymousFeatures__v___403\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"AnonymousFeatures__v__m_om\"},{\"@id\":\"AnonymousFeatures__v__accessedFeature_om\"},{\"@id\":\"AnonymousFeatures__v__engine_om\"},{\"@id\":\"AnonymousFeatures__v___403_om\"}]" .
 
@@ -253,7 +253,7 @@ elmt:AnonymousFeatures__v__m
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousFeatures__v__m__g ;
     sysml:ownedMembership elmt:AnonymousFeatures__v__m__g_om ;
-    sysml:ownedRelationship elmt:AnonymousFeatures__v__m__g_om, elmt:AnonymousFeatures__v__m_rd0 ;
+    sysml:ownedRelationship elmt:AnonymousFeatures__v__m_rd0, elmt:AnonymousFeatures__v__m__g_om ;
     sysml:ownedFeature elmt:AnonymousFeatures__v__m__g ;
     sysml:ownedFeatureMembership elmt:AnonymousFeatures__v__m__g_om ;
     sysml:ownedRedefinition elmt:AnonymousFeatures__v__m_rd0 ;
@@ -261,7 +261,7 @@ elmt:AnonymousFeatures__v__m
     sysml:ownedSpecialization elmt:AnonymousFeatures__v__m_rd0 ;
     sysx:sourceText "\t\tfeature redefines m {\n" ;
     sysx:sourceTail "\t\t}\n" ;
-    json:ownedRelationship "[{\"@id\":\"AnonymousFeatures__v__m__g_om\"},{\"@id\":\"AnonymousFeatures__v__m_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"AnonymousFeatures__v__m_rd0\"},{\"@id\":\"AnonymousFeatures__v__m__g_om\"}]" .
 
 elmt:AnonymousFeatures__v__m_om
     a sysml:FeatureMembership ;
@@ -360,14 +360,14 @@ elmt:AnonymousFeatures__v__engine
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousFeatures__Part__engine ;
     sysml:value expr:AnonymousFeatures__v__engine_pvalue ;
-    sysml:ownedRelationship expr:AnonymousFeatures__v__engine_pvalue_om, elmt:AnonymousFeatures__v__engine_rd0 ;
+    sysml:ownedRelationship elmt:AnonymousFeatures__v__engine_rd0, expr:AnonymousFeatures__v__engine_pvalue_om ;
     sysml:ownedMembership expr:AnonymousFeatures__v__engine_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:AnonymousFeatures__v__engine_rd0 ;
     sysml:ownedSubsetting elmt:AnonymousFeatures__v__engine_rd0 ;
     sysml:ownedSpecialization elmt:AnonymousFeatures__v__engine_rd0 ;
     sysx:sourceText "\t\tcomposite :>> engine = e;\n" ;
-    json:ownedRelationship "[{\"@id\":\"AnonymousFeatures__v__engine_pvalue_om\"},{\"@id\":\"AnonymousFeatures__v__engine_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"AnonymousFeatures__v__engine_rd0\"},{\"@id\":\"AnonymousFeatures__v__engine_pvalue_om\"}]" .
 
 elmt:AnonymousFeatures__v__engine_om
     a sysml:FeatureMembership ;

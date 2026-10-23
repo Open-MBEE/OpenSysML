@@ -243,6 +243,7 @@ func firstDifferentByte(got, want []byte) int {
 
 func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 	paths, examplesRoot := apiJSONQualifiedNamePaths(t)
+	conversions := corpusConversions(t)
 	filesWithMappingValues := 0
 	convertedFiles := 0
 	fixtureFilesWithMappingValues := 0
@@ -274,11 +275,12 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 	for _, path := range paths {
 		t.Run(filepath.Clean(path), func(t *testing.T) {
 			t.Parallel()
+			defer conversions.release(path)
 			source, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
-			graph, err := cachedSysMLToRDF(path, source)
+			graph, err := conversions.sysMLToRDF(path, source)
 			if err != nil {
 				if strings.HasPrefix(filepath.Clean(path), examplesRoot+string(filepath.Separator)) {
 					t.Skipf("example does not convert: %v", err)
@@ -286,7 +288,7 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 				t.Fatal(err)
 			}
 			var unsupported *export.UnsupportedError
-			semantic, err := cachedAPIJSON(path, source, "standard", "semantic")
+			semantic, err := conversions.apiJSON(path, source, "standard", "semantic")
 			if errors.As(err, &unsupported) {
 				t.Skipf("semantic API JSON refuses this model: %v", err)
 			}
@@ -296,7 +298,7 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 			if bytes.Contains(semantic, []byte(`"@ref"`)) {
 				t.Error("semantic API JSON output contains @ref")
 			}
-			standard, err := cachedAPIJSON(path, source, "standard", "graph")
+			standard, err := conversions.apiJSON(path, source, "standard", "graph")
 			if errors.As(err, &unsupported) {
 				t.Skipf("standard API JSON refuses this graph: %v", err)
 			}
@@ -330,14 +332,14 @@ func TestAPIJSONWritersNeverEmitNameReferences(t *testing.T) {
 					metricsMu.Unlock()
 				}
 			}
-			compact, err := cachedAPIJSON(path, source, "compact", "graph")
+			compact, err := conversions.apiJSON(path, source, "compact", "graph")
 			if errors.As(err, &unsupported) {
 				t.Skipf("compact API JSON refuses this graph: %v", err)
 			}
 			if err != nil {
 				t.Fatal(err)
 			}
-			semanticCompact, err := cachedAPIJSON(path, source, "compact", "semantic")
+			semanticCompact, err := conversions.apiJSON(path, source, "compact", "semantic")
 			if err != nil {
 				t.Fatalf("compact semantic API JSON: %v", err)
 			}
