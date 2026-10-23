@@ -308,17 +308,28 @@
 //
 // The rule is scoped so that %check's answers over literal defaults do not
 // move: an expression over no feature of the element (`1.0 + 2.0`) is a value
-// as before, pinned where it evaluates; a value the object has materialized
-// (fv.Materialized — read already, or written) is held by the object and
-// pinned as held, so an object's recorded volume is what it recorded, not what
-// its dimensions now give; a value read through a chain from another object
-// (`crate.volume` from a holder) is the value that object derives, since the
-// equation is over the held object's features, not the subject's — one it
-// cannot derive is an Unfixed, guarded or refused as any failed read. An
-// equation the term language does not carry (a function outside the subset)
-// falls back: the value the evaluator derives is pinned where there is one, and
-// where there is none the read is guarded by Reached or refused, exactly as a
-// failed read is; a derived value no condition reads is Unread like any pin.
+// as before, pinned where it evaluates; so is one reading through a chain
+// (`inner.x + 1.0`), since a query about a condition alone fixes no value of
+// the held object for the chain to be read against; a value the object has
+// materialized (fv.Materialized — read already, or written) is held by the
+// object and pinned as held, so an object's recorded volume is what it
+// recorded, not what its dimensions now give; a value read through a chain
+// from another object (`crate.volume` from a holder) is the value that object
+// derives, since the equation is over the held object's features, not the
+// subject's — one it cannot derive is an Unfixed, guarded or refused as any
+// failed read. The equation stands in only for a value the evaluator could not
+// derive for want of a value (ErrNoValue) or derived without failing: one it
+// failed to derive from values it had (`1.0 / x` with x fixed to zero) is
+// unreadable, guarded by Reached or refused, as any failed read. It is read
+// where the evaluator reads the variable — translated under its Reached, where
+// a computed divisor refuses to hoist its guard exactly as one in a
+// short-circuited operand does, and asserted as Reached ⇒ equation — so a read
+// the evaluator skips never constrains the query. An equation the term language
+// does not carry (a function outside the subset, or a division under a
+// conditional read) falls back: the value the evaluator derives is pinned where
+// there is one, and where there is none the read is guarded by Reached or
+// refused, exactly as a failed read is; a derived value no condition reads is
+// Unread like any pin.
 //
 // Result.Model is one witness, not a canonical answer: a satisfiable query
 // usually has many models and the solver may return any of them. Values are

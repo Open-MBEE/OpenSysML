@@ -399,9 +399,12 @@ func fixedValue(
 }
 
 // derivedDeclaration is the expression the model declares feat's value by when
-// it is derived — written over another feature of the element, among features —
-// and inst holds no materialized value for it; nil for a literal default, a
-// value the object holds or a variation, which stay fixed as they are.
+// it is derived — written over another feature of the element itself, among
+// features — and inst holds no materialized value for it; nil for a literal
+// default, a value the object holds or a variation, which stay fixed as they
+// are. One reading through a chain (`inner.x + 1.0`) is not derived either: the
+// object a query about a condition alone reads no values of holds the operand,
+// so the value the evaluator derives from it is what the query fixes.
 func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, inst *runtime.Instance, features map[string]*symbols.Symbol) *Derived {
 	if feat.DefaultValue == nil || ctx.IsVariationFeature(feat) {
 		return nil
@@ -411,20 +414,24 @@ func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, in
 			return nil
 		}
 	}
-	reads := false
+	reads, chained := false, false
 	ast.Inspect(feat.DefaultValue, func(n ast.Node) bool {
 		switch n.(type) {
 		case *ast.FeatureReference, *ast.FeatureChainExpr:
-			if segments, ok := pathSegments(n); ok && len(segments) > 0 {
-				if sym, ok := features[segments[0]]; ok && sym != feat.Symbol {
-					reads = true
-				}
+			segments, ok := pathSegments(n)
+			if !ok || len(segments) == 0 {
+				return false
+			}
+			if len(segments) > 1 {
+				chained = true
+			} else if sym, ok := features[segments[0]]; ok && sym != feat.Symbol {
+				reads = true
 			}
 			return false
 		}
-		return !reads
+		return !chained
 	})
-	if !reads {
+	if !reads || chained {
 		return nil
 	}
 	return &Derived{Expr: feat.DefaultValue, Scope: feat.DefaultScope()}
@@ -502,17 +509,30 @@ func (t *translator) fixOne(p Pin, v *Var) error {
 
 // derive asserts the defining equation of a derived declared value, v == the
 // expression the model declares, so the solver chooses for v what the model
-// derives from the other values. An expression the term language does not carry
-// leaves the value the evaluator derived fixed, as before; one it could not
-// derive either is guarded or refused as a value that could not be read is.
+// derives from the other values. A value the evaluator failed to derive from
+// values it had (a division by zero) is unreadable, as any failed read is: the
+// equation stands in only for one it could not derive for want of a value. The
+// equation is read where the evaluator reads v — under v's Reached, a division
+// in it then refusing to hoist its guard, as one in a short-circuited operand
+// does — and an expression the term language does not carry leaves the value
+// the evaluator derived fixed, as before, else the read guarded or refused.
 func (t *translator) derive(p Pin, v *Var) error {
 	d := p.Derived
+	if d.Err != nil && !errors.Is(d.Err, runtime.ErrNoValue) {
+		return t.unreadable(v, p.Name, d.Err)
+	}
 	text := t.ctx.ExprText(d.Expr, d.Scope)
 	name := source.QualifiedNameText(v.Name)
 	t.condLabel = name + " = " + text
 	t.condFile = p.Feature.DocName
 	t.frame = frame{}
-	term, err := t.under(nil, func() (*Term, error) { return t.expr(d.Expr, d.Scope) })
+	term, err := t.under(v.Reached, func() (*Term, error) {
+		if v.Reached != nil {
+			t.branched++
+			defer func() { t.branched-- }()
+		}
+		return t.expr(d.Expr, d.Scope)
+	})
 	if err == nil {
 		term, err = t.definedAs(p, v, text, term)
 	}
@@ -527,8 +547,12 @@ func (t *translator) derive(p Pin, v *Var) error {
 		return t.unreadable(v, p.Name, d.Err)
 	}
 	span := d.Expr.Span()
+	equation := Binary(OpEq, Bool, VarTerm(v), term)
+	if v.Reached != nil {
+		equation = Binary(OpImplies, Bool, v.Reached, equation)
+	}
 	t.equations = append(t.equations, Assertion{
-		Term: Binary(OpEq, Bool, VarTerm(v), term),
+		Term: equation,
 		From: Provenance{
 			Kind:      "feature",
 			Element:   name,

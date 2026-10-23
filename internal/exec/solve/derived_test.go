@@ -284,3 +284,122 @@ func exactRat(t *testing.T, text string) *big.Rat {
 	}
 	return r
 }
+
+// TestDerivedEquationIsReadWhereTheEvaluatorReadsIt: a derived value a
+// condition reads only on some paths is defined where it is reached, and a
+// division in it refuses to hoist its guard there, as one in a short-circuited
+// operand does — so over a divisor fixed to zero the skipped read is guarded
+// rather than ruling the condition out; the read on every path is refused with
+// the evaluator's own failure, as a failed read is.
+func TestDerivedEquationIsReadWhereTheEvaluatorReadsIt(t *testing.T) {
+	solver := requireSolver(t)
+	ctx, idx := fixture(t, "derived_reach.sysml", `package test {
+		private import ScalarValues::*;
+		part def Item {
+			attribute x : Real = 0.0;
+			attribute free : Real;
+			attribute z : Real = 1.0 / x;
+			attribute w : Real = 1.0 / free;
+			assert constraint skipped { true or z > 0.0 }
+			assert constraint always { z > 0.0 }
+			assert constraint sometimes { free > 0.0 or w > 0.0 }
+			assert constraint divides { w > 0.0 }
+		}
+	}`)
+	item := symbolNamed(t, idx, "test::Item")
+	pins, unfixed := Fixed(ctx, item, nil)
+	if len(unfixed) != 0 {
+		t.Fatalf("unfixed = %+v, want none: a derived value carries its own failure", unfixed)
+	}
+	z := derivedPin(t, pins, "z")
+	if z.Value.Kind != runtime.ValInvalid || !errors.Is(z.Derived.Err, runtime.ErrDivisionByZero) {
+		t.Fatalf("z = %+v, want the evaluator's division by zero carried", z)
+	}
+
+	skipped := symbolNamed(t, idx, "test::Item::skipped")
+	q, err := ConstraintWith(ctx, skipped, skipped.OwnerScope, pins)
+	if err != nil {
+		t.Fatalf("translate skipped: %v", err)
+	}
+	if len(q.Derived) != 0 || len(q.Unreadable) != 1 || q.Unreadable[0].Name != "z" || !errors.Is(q.Unreadable[0].Err, runtime.ErrDivisionByZero) {
+		t.Fatalf("Derived = %+v, Unreadable = %+v, want the skipped read of z guarded", q.Derived, q.Unreadable)
+	}
+	solved(t, solver, q, StatusSat)
+
+	always := symbolNamed(t, idx, "test::Item::always")
+	if _, err := ConstraintWith(ctx, always, always.OwnerScope, pins); err == nil ||
+		!errors.Is(err, runtime.ErrDivisionByZero) || !strings.Contains(err.Error(), "reads z, whose value could not be read") {
+		t.Fatalf("translate always = %v, want the read on every path refused by the evaluator's failure", err)
+	}
+
+	// A division by a free operand is an equation where the read is on every
+	// path, its divisor guarded non-zero; where the read is conditional the
+	// guard cannot be hoisted, so the read is guarded by its path instead.
+	divides := symbolNamed(t, idx, "test::Item::divides")
+	q, err = ConstraintWith(ctx, divides, divides.OwnerScope, pins)
+	if err != nil {
+		t.Fatalf("translate divides: %v", err)
+	}
+	if len(q.Derived) != 1 || q.Derived[0].Expression != "1.0 / free" || len(q.Unreadable) != 0 {
+		t.Fatalf("Derived = %+v, Unreadable = %+v, want w = 1.0 / free", q.Derived, q.Unreadable)
+	}
+	var guarded bool
+	for _, a := range q.Assertions {
+		guarded = guarded || (a.From.Role == RoleDefined && strings.Contains(writeTerm(a.Term), "test::Item::free"))
+	}
+	if !guarded {
+		t.Fatalf("no non-zero guard on free; script:\n%s", Script(q))
+	}
+	values := modelValues(t, solved(t, solver, q, StatusSat))
+	if free := exactRat(t, values["test::Item::free"]); free.Sign() <= 0 {
+		t.Errorf("free = %s, want positive for w = 1.0 / free > 0.0", free)
+	}
+	sometimes := symbolNamed(t, idx, "test::Item::sometimes")
+	q, err = ConstraintWith(ctx, sometimes, sometimes.OwnerScope, pins)
+	if err != nil {
+		t.Fatalf("translate sometimes: %v", err)
+	}
+	if len(q.Derived) != 0 || len(q.Unreadable) != 1 || q.Unreadable[0].Name != "w" {
+		t.Fatalf("Derived = %+v, Unreadable = %+v, want the conditional read of w guarded", q.Derived, q.Unreadable)
+	}
+}
+
+// TestDeclarationOverAChainIsNotDerived: a declared value reading through a
+// chain (`inner.x + 1.0`) is fixed to the value the evaluator derives from the
+// held object, as before, since a query about a condition alone fixes no value
+// of the held object for the chain to be read against.
+func TestDeclarationOverAChainIsNotDerived(t *testing.T) {
+	ctx, idx := fixture(t, "derived_chain.sysml", `package test {
+		private import ScalarValues::*;
+		part def Inner { attribute x : Real = 2.0; }
+		part def Outer {
+			part inner : Inner;
+			attribute z : Real = inner.x + 1.0;
+			assert constraint c { z == 5.0 }
+		}
+		part outer : Outer;
+	}`)
+	outer := symbolNamed(t, idx, "test::Outer")
+	self, err := ctx.Instantiate(symbolNamed(t, idx, "test::outer"))
+	if err != nil {
+		t.Fatalf("instantiate outer: %v", err)
+	}
+	pins, unfixed := Fixed(ctx, outer, self)
+	if len(unfixed) != 0 {
+		t.Fatalf("unfixed = %+v, want none", unfixed)
+	}
+	for _, p := range pins {
+		if p.Name == "z" {
+			if p.Derived != nil || p.Value.Kind != runtime.ValConst || p.Source != PinHeld {
+				t.Fatalf("z = %+v, want the value derived from the held inner.x fixed", p)
+			}
+			c := symbolNamed(t, idx, "test::Outer::c")
+			q, err := ConstraintWith(ctx, c, c.OwnerScope, pins)
+			if err != nil || len(q.Derived) != 0 || len(q.Pinned) != 1 || q.Pinned[0].Value != "3" {
+				t.Fatalf("translate c = %+v, %v, want z fixed to 3", q, err)
+			}
+			return
+		}
+	}
+	t.Fatalf("pins = %+v, want z among them", pins)
+}
