@@ -33,7 +33,7 @@ const stepParameterFixture = `package test {
 	}
 }`
 
-func readGo(t *testing.T, ctx *Context, self *Instance) Value {
+func readStepParameterGo(t *testing.T, ctx *Context, self *Instance) Value {
 	t.Helper()
 	fv, err := self.GetFeatureValue(ctx, "go")
 	if err != nil {
@@ -66,7 +66,7 @@ func TestRuntimeRobustnessStepParameter(t *testing.T) {
 		if gauge := soleElement(fv.HeldValue()); gauge.Kind != ValInstance || gauge.Instance != theGauge.ID {
 			t.Errorf("run.decision.gauge = %s, want theGauge (#%d), the gauge run.system holds", FormatValue(gauge), theGauge.ID)
 		}
-		if got := readGo(t, ctx, self); !valueEqual(got, boolValue(true)) {
+		if got := readStepParameterGo(t, ctx, self); !valueEqual(got, boolValue(true)) {
 			t.Errorf("go = %v, want true", got)
 		}
 	})
@@ -77,7 +77,7 @@ func TestRuntimeRobustnessStepParameter(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Instantiate explicit: %v", err)
 		}
-		if got := readGo(t, ctx, self); !valueEqual(got, boolValue(false)) {
+		if got := readStepParameterGo(t, ctx, self); !valueEqual(got, boolValue(false)) {
 			t.Errorf("go = %v, want false", got)
 		}
 	})

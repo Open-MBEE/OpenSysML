@@ -8,7 +8,7 @@ import (
 )
 
 // IsSysMLNamespace reports whether ns is an OMG SysML v1 profile namespace,
-// of any version, or Papyrus' copy of it.
+// of any version, Papyrus' copy of it, or a standard Cameo UML2 v5 EPackage.
 func IsSysMLNamespace(ns string) bool {
 	// Cameo's Eclipse UML2 v5 exporter gives the standard SysML EPackages
 	// these exact namespace identities. Do not accept arbitrary hostless URIs

@@ -2,9 +2,10 @@ package convert_test
 
 import (
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
 func TestCameoV5BlockMigrationUsesStandardNamespace(t *testing.T) {

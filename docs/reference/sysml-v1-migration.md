@@ -55,6 +55,13 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
   the interchange export every SysML v1 tool offers, and a tool's export is read as far as it
   is this standard. The UML and SysML namespace versions are not pinned; any
   `http://www.omg.org/spec/UML/…` / `…/SysML/…` namespace is recognized.
+- **Cameo Eclipse UML2 v5 exports** using the standard SysML EPackage namespace
+  identities, such as `http:///SysML/Blocks.ecore`, `http:///SysML/Requirements.ecore`
+  and `http:///SysML/PortsFlows.ecore`. These exact standard identities classify
+  stereotype applications through the same mappings as OMG and Papyrus profiles;
+  for example, a standard `Block` applied to a UML class becomes a `part def`.
+  Recognition is an explicit list: a user profile named `SysML`, another host, or
+  a namespace URI with an added query or fragment is not thereby standard SysML.
 - **Zip archives holding the XMI**, a MagicDraw / Cameo `.mdzip` project among them: the
   archive's `uml_model.model` entries are read, or, in an archive without them, every `.xmi`,
   `.xml` and `.uml` entry that is an XMI document. Used projects (archives the model refers
@@ -96,7 +103,8 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
   is an operand of the element owning the extension, in document order, however the tool
   wraps it; one inside a serialized diagram is the diagram's content, not an operand.
 - Only stereotypes from the OMG SysML and UML standard profiles, in the OMG namespaces or
-  Papyrus' `…/papyrus/sysml/…` ones, classify elements — applied directly, or through a user
+  Papyrus' `…/papyrus/sysml/…` ones or the exact Cameo standard SysML EPackage
+  identities listed above, classify elements — applied directly, or through a user
   stereotype that specializes one (see [Profiles and stereotypes](#profiles-and-stereotypes)).
   Any other profile's «Block» or «Requirement» with no standard general — a user's own, a
   tool's customization layer over SysML, or another profile Papyrus hosts — carries no SysML
