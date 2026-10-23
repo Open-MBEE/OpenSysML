@@ -1770,11 +1770,6 @@ function contains(box: Box, at: RenderPoint): boolean {
   );
 }
 
-/**
- * movedNode is what dragging a node by (dx, dy) puts in the model: the node itself,
- * every descendant the model already places, and every stated route between nodes
- * of that subtree — all shifted together; or, `alone` (under an auto layout), the node only.
- */
 // movedRoute is the route a moved subtree carries with an edge: under `router` only the model's
 // stated route, drawn or not; under `model` the drawn route unless the router re-drew it.
 function movedRoute(routing: Routing, edge: PlacedEdge): RenderPoint[] {
@@ -1784,6 +1779,11 @@ function movedRoute(routing: Routing, edge: PlacedEdge): RenderPoint[] {
   return edge.rerouted ? [] : edge.route;
 }
 
+/**
+ * movedNode is what dragging a node by (dx, dy) puts in the model: the node itself,
+ * every descendant the model already places, and every stated route between nodes
+ * of that subtree — all shifted together; or, `alone` (under an auto layout), the node only.
+ */
 export function movedNode(
   layout: CanvasLayout,
   id: string,
