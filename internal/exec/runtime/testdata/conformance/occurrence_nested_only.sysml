@@ -22,7 +22,11 @@ package Sequences {
         message ping of Ping[1] from a.sent to b.got;
     }
 
+    occurrence def Middle {
+        occurrence inner : Inner;
+    }
+
     occurrence def Outer {
-        occurrence run : Inner;
+        occurrence run : Middle;
     }
 }

@@ -252,18 +252,21 @@ func (l *sequenceLowerer) lifeline(line *symbols.Symbol) bool {
 }
 
 // interactionUse reports whether an occurrence usage of the body uses a nested
-// interaction: it holds no events itself and a type it is typed by holds a
-// lifeline with events.
+// interaction: it holds no events itself and a type it is typed by states an
+// interaction — a lifeline with events, or a use of a nested interaction in turn.
 func (l *sequenceLowerer) interactionUse(sym *symbols.Symbol) bool {
-	if l.resolver == nil {
-		return false
-	}
+	return l.resolver != nil && l.usesInteraction(sym, map[*symbols.Scope]bool{})
+}
+
+// usesInteraction reports whether a type of the usage states an interaction, following
+// nested uses through their types; seen stops a type using itself.
+func (l *sequenceLowerer) usesInteraction(sym *symbols.Symbol, seen map[*symbols.Scope]bool) bool {
 	for _, general := range l.generals(sym) {
-		if holdsEvents(general.Scope) {
+		if l.holdsInteraction(general.Scope, seen) {
 			return true
 		}
 		for _, body := range resolve.GeneralBodies(general.Scope) {
-			if holdsEvents(body) {
+			if l.holdsInteraction(body, seen) {
 				return true
 			}
 		}
@@ -271,19 +274,23 @@ func (l *sequenceLowerer) interactionUse(sym *symbols.Symbol) bool {
 	return false
 }
 
-// holdsEvents reports whether a body holds a lifeline with an event occurrence.
-func holdsEvents(scope *symbols.Scope) bool {
-	if scope == nil {
+// holdsInteraction reports whether a body holds a lifeline with an event
+// occurrence or an occurrence usage of a nested interaction.
+func (l *sequenceLowerer) holdsInteraction(scope *symbols.Scope, seen map[*symbols.Scope]bool) bool {
+	if scope == nil || seen[scope] {
 		return false
 	}
+	seen[scope] = true
 	for _, member := range scope.Members() {
-		if !sequenceLifeline(member) {
-			continue
-		}
-		for _, nested := range member.Scope.Members() {
-			if usage, ok := nested.Decl.(*ast.Usage); ok && usage.IsEvent {
-				return true
+		if sequenceLifeline(member) {
+			for _, nested := range member.Scope.Members() {
+				if usage, ok := nested.Decl.(*ast.Usage); ok && usage.IsEvent {
+					return true
+				}
 			}
+		}
+		if member.Kind == symbols.SymbolOccurrenceUsage && l.usesInteraction(member, seen) {
+			return true
 		}
 	}
 	return false
