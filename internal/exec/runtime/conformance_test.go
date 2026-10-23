@@ -245,8 +245,7 @@ type ExpectedOutcome struct {
 	// exhibits or performs them, one entry per object whose performance the case
 	// states.
 	Objects []ObjectRun `json:"objects,omitempty"`
-	// Transfers are the messages an occurrence case realizes, by name, in the
-	// order the run performed them.
+	// Transfers names the messages an occurrence case realizes, in run order.
 	Transfers []string `json:"transfers,omitempty"`
 	// Materialization states what reading every feature value of the instance,
 	// and of the objects those hold, reports — the check `-instantiate` makes.
@@ -509,10 +508,7 @@ func runConformanceCaseWithOwned(t *testing.T, conformanceDir, caseName string, 
 	case "instance":
 		runInstanceConformance(t, ctx, idx, sysmlPath, expected, forceOwned)
 	case "occurrence":
-		if forceOwned {
-			t.Skip("no object owns connectors before execution")
-		}
-		runOccurrenceConformance(t, ctx, idx, sysmlPath, expected)
+		runOccurrenceConformance(t, ctx, idx, sysmlPath, expected, forceOwned)
 	default:
 		if forceOwned {
 			t.Skip("no object owns connectors before execution")
@@ -2179,16 +2175,6 @@ func featureNamed(ctx *Context, typeSym *symbols.Symbol, name string) *Effective
 		}
 	}
 	return nil
-}
-
-// findBehavioralSymbol searches for first symbol matching defKind or usageKind,
-// failing the test when there is none.
-func findBehavioralSymbol(t *testing.T, scope *symbols.Scope, defKind ast.DefinitionKind, usageKind ast.UsageKind) *symbols.Symbol {
-	sym := lookupBehavioralSymbol(scope, defKind, usageKind)
-	if sym == nil {
-		t.Fatalf("no behavioral symbol found (defKind=%v, usageKind=%v)", defKind, usageKind)
-	}
-	return sym
 }
 
 // namedOrFoundSymbol returns the symbol the case names by qualified path, which

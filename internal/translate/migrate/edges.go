@@ -626,6 +626,16 @@ func graphNames(definition string) (view, kind string) {
 	return "an ActionFlowView", "an action def"
 }
 
+// drawnAs names the diagram a view of a standard view definition is drawn as when
+// the Views library has no rendering for it: a SequenceView draws a sequence diagram.
+func drawnAs(definition string) string {
+	switch definition {
+	case "SequenceView":
+		return "a sequence diagram"
+	}
+	return "a diagram"
+}
+
 // drawsEdge reports whether the form draws a member declared by keyword as an
 // edge, so a route pinned to it shapes the drawing.
 func (f viewForm) drawsEdge(keyword string) bool {

@@ -515,8 +515,9 @@ func (s *scenario) lifeline(line *sysmlv1.Element) (*lifelineRef, string) {
 		ref.kw, ref.typing = s.lifelineTyping(ref.typ)
 	case "Property", "Port":
 		if rep.Parent == s.e {
-			// The lifeline is the property's own usage, under the property's name.
-			name = s.m.nameOf(rep)
+			// The lifeline is the property's own usage, under the property's name,
+			// made up as for any unnamed property where the source left it unnamed.
+			name = s.m.nameFor(rep)
 			s.ownLifeline(ref)
 			break
 		}
@@ -1364,6 +1365,7 @@ func (s *scenario) verdictNote() string {
 
 // writeLifeline writes a lifeline's usage with its event occurrences, each after the one before.
 func (s *scenario) writeLifeline(ref *lifelineRef) {
+	s.m.madeUp(ref.rep, writeName(ref.name))
 	head := ref.prefix + ref.kw + " " + writeName(ref.name) + ref.mult + ref.typing
 	if len(ref.events) == 0 {
 		s.m.w.line(head + ";")

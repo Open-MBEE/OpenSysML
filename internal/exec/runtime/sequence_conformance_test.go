@@ -12,7 +12,10 @@ import (
 // runOccurrenceConformance performs the occurrence a case names as an interaction
 // and checks the messages were realized in the order the case states, or that the
 // run failed as it states.
-func runOccurrenceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
+func runOccurrenceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome, forceOwned bool) {
+	if forceOwned {
+		t.Skip("no object owns connectors before execution")
+	}
 	t.Helper()
 	rootScope := idx.DocumentRoot(path)
 	sym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefOccurrence, ast.UsageOccurrence)

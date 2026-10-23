@@ -2,7 +2,7 @@
 <mdOwnedViews>
   <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
     <elementID xmi:idref='_diag_seq'></elementID>
-    <geometry>0, 0, 900, 400</geometry>
+    <geometry>0, 0, 1240, 520</geometry>
   </mdElement>
   <mdElement elementClass='Lifeline' xmi:id='_sym_operator'>
     <elementID xmi:idref='_lOperator'></elementID>
@@ -23,6 +23,14 @@
   <mdElement elementClass='Lifeline' xmi:id='_sym_log'>
     <elementID xmi:idref='_lLog'></elementID>
     <geometry>740, 20, 100, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Lifeline' xmi:id='_sym_display'>
+    <elementID xmi:idref='_lDisplay'></elementID>
+    <geometry>900, 20, 140, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Lifeline' xmi:id='_sym_operator2'>
+    <elementID xmi:idref='_lOperator2'></elementID>
+    <geometry>1100, 20, 120, 50</geometry>
   </mdElement>
   <mdElement elementClass='Message' xmi:id='_sym_move'>
     <elementID xmi:idref='_mMove'></elementID>
@@ -47,5 +55,17 @@
     <linkFirstEndID xmi:idref='_sym_image'></linkFirstEndID>
     <linkSecondEndID xmi:idref='_sym_log'></linkSecondEndID>
     <geometry>630, 300; 790, 300; </geometry>
+  </mdElement>
+  <mdElement elementClass='Message' xmi:id='_sym_show'>
+    <elementID xmi:idref='_mShow'></elementID>
+    <linkFirstEndID xmi:idref='_sym_image'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_display'></linkSecondEndID>
+    <geometry>630, 360; 970, 360; </geometry>
+  </mdElement>
+  <mdElement elementClass='Message' xmi:id='_sym_confirm'>
+    <elementID xmi:idref='_mConfirm'></elementID>
+    <linkFirstEndID xmi:idref='_sym_display'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_operator2'></linkSecondEndID>
+    <geometry>970, 420; 1160, 420; </geometry>
   </mdElement>
 </mdOwnedViews>

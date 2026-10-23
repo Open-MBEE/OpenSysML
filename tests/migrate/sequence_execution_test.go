@@ -139,7 +139,7 @@ func TestMigratedInteractionsExecuteInModelledOrder(t *testing.T) {
 	})
 	t.Run("use-case-owned interaction", func(t *testing.T) {
 		names, edges, _ := newMigratedRun(t, "usecase_sequence").perform(t, "Model::Acquire Images::Acquire Images")
-		want := []string{"move", "pumpDown", "new", "record"}
+		want := []string{"move", "pumpDown", "new", "record", "show", "confirm"}
 		if !slices.Equal(names, want) {
 			t.Errorf("transfers = %v, want %v", names, want)
 		}

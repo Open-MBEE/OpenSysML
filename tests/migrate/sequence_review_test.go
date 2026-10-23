@@ -195,9 +195,56 @@ func TestTestCaseSequenceDiagramIsASequenceView(t *testing.T) {
 	wantLine(t, r.Notation, "view 'Acquire Images' : StandardViewDefinitions::SequenceView {")
 	wantLine(t, r.Notation, "metadata DiagramLayout::Layout about operator { x = 20; y = 20; width = 120; height = 50; }")
 	wantLine(t, r.Notation, "metadata DiagramLayout::Route about move { points = (80, 120, 260, 120); }")
-	if l := r.Report.Layout; l == nil || l.PlacementsWritten != 5 || l.RoutesWritten != 4 {
-		t.Errorf("layout report = %+v, want 5 lifeline heads placed and 4 message lines routed", l)
+	if l := r.Report.Layout; l == nil || l.PlacementsWritten != 7 || l.RoutesWritten != 6 {
+		t.Errorf("layout report = %+v, want 7 lifeline heads placed and 6 message lines routed", l)
 	}
+	for _, d := range errors(t, "usecase_sequence.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+}
+
+// A use case owning two interactions of its own name, as Cameo names the default
+// one: the second is renamed once in its report row, not once per time it is
+// reported, and its unnamed lifelines are named after their types.
+func TestSameNamedInteractionsAreRenamedOnce(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/usecase_sequence.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const end = "</ownedBehavior>\n    </packagedElement>"
+	changed := bytes.Replace(data, []byte(end), []byte(`</ownedBehavior>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_seq2" name="Acquire Images">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_p2a" type="_operator"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_p2b" type="_stage"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_l2a" represents="_p2a"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_l2b" represents="_p2b"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_os2" covered="_l2a" message="_m2"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_or2" covered="_l2b" message="_m2"/>
+        <message xmi:type="uml:Message" xmi:id="_m2" name="go" messageSort="asynchCall" sendEvent="_os2" receiveEvent="_or2"/>
+      </ownedBehavior>
+    </packagedElement>`), 1)
+	if bytes.Equal(changed, data) {
+		t.Fatal("the fixture no longer ends as expected")
+	}
+	r, err := migrate.MigrateOptions("usecase_sequence.xmi", streamArchiveOf(t, "usecase_sequence", changed), migrate.Options{})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	for _, line := range []string{
+		"occurrence def 'Acquire Images 2' {",
+		"ref part operator :> Operator {",
+		"ref part 'sample Stage' : 'Sample Stage' {",
+		"message go from operator.goSent to 'sample Stage'.goReceived;",
+		"metadata MigrationMetadata::SynthesizedName about operator, 'sample Stage';",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	const renamed = "written as Acquire Images 2 since a sibling is also named Acquire Images"
+	wantNote(t, r, "_seq2", migrate.Approximated, renamed)
+	if es := entriesFor(r, "_seq2"); len(es) == 1 && strings.Count(es[0].Note, renamed) != 1 {
+		t.Errorf("the renaming is noted %d times in %q", strings.Count(es[0].Note, renamed), es[0].Note)
+	}
+	wantNote(t, r, "_l2a", migrate.Mapped, "written as the ref part usage operator holding its 1 event occurrence")
 	for _, d := range errors(t, "usecase_sequence.sysml", r.Notation) {
 		t.Errorf("%v", d)
 	}

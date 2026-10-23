@@ -670,14 +670,17 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 			v = Approximated
 		}
 	}
+	// renamed notes the name e is written under when a sibling's or the library's
+	// hides its own; it is noted once however often e is reported.
+	var renamed string
 	if n, ok := m.names[e]; ok && e.Name != "" && n != e.Name && m.realizes[e] == nil && !m.asUsage[e] {
 		if v == Mapped {
 			v = Approximated
 		}
 		if src, clash := m.libraryClash[e]; clash {
-			note = joinNotes(note, writtenAs+n+" since a root package named "+src+" would be hidden by the standard library's "+src)
+			renamed = writtenAs + n + " since a root package named " + src + " would be hidden by the standard library's " + src
 		} else {
-			note = joinNotes(note, writtenAs+n+" since a sibling is also named "+e.Name)
+			renamed = writtenAs + n + " since a sibling is also named " + e.Name
 		}
 	}
 	if i, ok := m.indexed[e.ID]; ok && e.ID != "" {
@@ -688,15 +691,17 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 		if en.Target == "" {
 			en.Target = target
 		}
-		if !strings.Contains(en.Note, note) {
-			en.Note = joinNotes(en.Note, note)
+		for _, n := range []string{note, renamed} {
+			if n != "" && !strings.Contains(en.Note, n) {
+				en.Note = joinNotes(en.Note, n)
+			}
 		}
 		m.verdicts[e] = en.Verdict
 		return
 	}
 	m.indexed[e.ID] = len(m.report.Entries)
 	m.report.Entries = append(m.report.Entries, Entry{
-		ID: e.ID, Kind: kindOf(e), Name: qualifiedName(e), Target: target, Verdict: v, Note: note,
+		ID: e.ID, Kind: kindOf(e), Name: qualifiedName(e), Target: target, Verdict: v, Note: joinNotes(note, renamed),
 	})
 	m.verdicts[e] = v
 }

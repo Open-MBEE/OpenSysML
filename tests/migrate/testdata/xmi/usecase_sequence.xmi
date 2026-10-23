@@ -28,6 +28,7 @@
       </ownedAttribute>
     </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_image" name="Image"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_display" name="Display System"/>
     <packagedElement xmi:type="uml:UseCase" xmi:id="_acquire" name="Acquire Images">
       <ownedBehavior xmi:type="uml:Interaction" xmi:id="_seq" name="Acquire Images">
         <ownedAttribute xmi:type="uml:Property" xmi:id="_pOperator" name="operator" type="_operator"/>
@@ -35,11 +36,15 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_pVacuum" name="vacuum" type="_vacuum"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_pImage" name="image" type="_image"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_pLog" name="log"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_pDisplay" type="_display"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_pOperator2" type="_operator"/>
         <lifeline xmi:type="uml:Lifeline" xmi:id="_lOperator" name="operator" represents="_pOperator"/>
         <lifeline xmi:type="uml:Lifeline" xmi:id="_lStage" name="stage" represents="_pStage"/>
         <lifeline xmi:type="uml:Lifeline" xmi:id="_lVacuum" name="vacuum" represents="_pVacuum"/>
         <lifeline xmi:type="uml:Lifeline" xmi:id="_lImage" name="image" represents="_pImage"/>
         <lifeline xmi:type="uml:Lifeline" xmi:id="_lLog" name="log" represents="_pLog"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_lDisplay" represents="_pDisplay"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_lOperator2" represents="_pOperator2"/>
         <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sMove" covered="_lOperator" message="_mMove"/>
         <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rMove" covered="_lStage" message="_mMove"/>
         <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sPump" covered="_lStage" message="_mPump"/>
@@ -48,6 +53,10 @@
         <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rNew" covered="_lImage" message="_mNew"/>
         <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sLog" covered="_lImage" message="_mLog"/>
         <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rLog" covered="_lLog" message="_mLog"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sShow" covered="_lImage" message="_mShow"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rShow" covered="_lDisplay" message="_mShow"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sConfirm" covered="_lDisplay" message="_mConfirm"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rConfirm" covered="_lOperator2" message="_mConfirm"/>
         <message xmi:type="uml:Message" xmi:id="_mMove" name="move" messageSort="synchCall" signature="_move" sendEvent="_sMove" receiveEvent="_rMove">
           <argument xmi:type="uml:LiteralReal" xmi:id="_mMoveTo" value="2.5"/>
         </message>
@@ -56,6 +65,8 @@
         </message>
         <message xmi:type="uml:Message" xmi:id="_mNew" name="new" messageSort="createMessage" sendEvent="_sNew" receiveEvent="_rNew"/>
         <message xmi:type="uml:Message" xmi:id="_mLog" name="record" messageSort="synchCall" sendEvent="_sLog" receiveEvent="_rLog"/>
+        <message xmi:type="uml:Message" xmi:id="_mShow" name="show" messageSort="asynchCall" sendEvent="_sShow" receiveEvent="_rShow"/>
+        <message xmi:type="uml:Message" xmi:id="_mConfirm" name="confirm" messageSort="asynchCall" sendEvent="_sConfirm" receiveEvent="_rConfirm"/>
         <xmi:Extension extender="Example UML Tool 1.0">
           <modelExtension>
             <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_seq" name="Acquire Images" ownerOfDiagram="_seq">
@@ -72,6 +83,16 @@
                       <usedElements>_mPump</usedElements>
                       <usedElements>_mNew</usedElements>
                       <usedElements>_mLog</usedElements>
+                      <usedElements>_lDisplay</usedElements>
+                      <usedElements>_lOperator2</usedElements>
+                      <usedElements>_mShow</usedElements>
+                      <usedElements>_mConfirm</usedElements>
+                      <usedElements>_sMove</usedElements>
+                      <usedElements>_rMove</usedElements>
+                      <usedElements>_sPump</usedElements>
+                      <usedElements>_rPump</usedElements>
+                      <usedElements>_move</usedElements>
+                      <usedElements>_pumpDown</usedElements>
                     </diagramContents>
                     <binaryObject streamContentID="BINARY-usecase_sequence"/>
                   </diagram:DiagramRepresentationObject>
@@ -86,4 +107,5 @@
   <sysml:Block xmi:id="_s1" base_Class="_stage"/>
   <sysml:Block xmi:id="_s2" base_Class="_vacuum"/>
   <sysml:Block xmi:id="_s3" base_Class="_image"/>
+  <sysml:Block xmi:id="_s4" base_Class="_display"/>
 </xmi:XMI>
