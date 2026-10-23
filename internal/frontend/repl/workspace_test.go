@@ -175,7 +175,7 @@ func TestTwoFilesDeclaringTheNameLoadNeither(t *testing.T) {
 	if got := unresolved(res); len(got) != 1 {
 		t.Errorf("diagnostics = %v, want the import still unresolved", got)
 	}
-	want := "note: Lib is declared by more than one file under " + dir + ": lib.sysml, " + filepath.Join("sub", "lib2.sysml") + "; %load the one meant"
+	want := "note: Lib is declared by more than one file under " + dir + ": lib.sysml, " + filepath.Join("sub", "lib2.sysml") + "; load the one meant with %load"
 	if got := strings.Join(res.Notices, "\n"); !strings.Contains(got, want) {
 		t.Errorf("notices = %q, want %q", got, want)
 	}

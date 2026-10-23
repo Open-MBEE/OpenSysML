@@ -249,7 +249,7 @@ like any other — `%list` shows it, its diagnostics name it and its line, redec
 in a cell replaces it, `%clear` drops it — except that `%save` leaves it out, since it is already
 beside what is saved. Only a name a cell leaves unresolved is looked for, and only the one file
 declaring it loads: when two files under the directory declare the same name neither does, the
-cell says which (`note: Lib is declared by more than one file under …; %load the one meant`),
+cell says which (`note: Lib is declared by more than one file under …; load the one meant with %load`),
 and `%load` of the one meant resolves it. See
 [Imports from files beside the prompt](04-repl.md#imports-from-files-beside-the-prompt) for the
 rule in full.

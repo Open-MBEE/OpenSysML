@@ -212,7 +212,7 @@ Only a name the typed text leaves unresolved is looked for, and only a file that
 its root loads — nothing else under the directory does; `%load dir/` stays the way to load
 everything. When two files under the root declare the same root name, neither loads, and the
 submission reports both (`note: Lib is declared by more than one file under …: a.sysml,
-b/lib.sysml; %load the one meant`); load the one meant by name. A candidate file the parser
+b/lib.sysml; load the one meant with %load`); load the one meant by name. A candidate file the parser
 cannot read loads with its diagnostics reported against the file, as `%load` reports them. A
 name no file declares is reported as `unresolved reference`, as before, and nothing loads.
 

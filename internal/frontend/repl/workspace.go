@@ -66,7 +66,7 @@ func (s *Session) doWorkspace() []string {
 		return []string{"no workspace root: an unresolved import is looked for nowhere; %load names the files to load"}
 	}
 	return []string{fmt.Sprintf("workspace root: %s", s.workspaceRoot),
-		"  a root namespace a submission leaves unresolved loads from the model file under it that declares the name"}
+		"  a root namespace a submission leaves unresolved is loaded from the model file under it that declares the name"}
 }
 
 // workspaceLoad is what resolving references against the workspace did: the
@@ -204,7 +204,7 @@ func (s *Session) loadWorkspaceFor(names []string) workspaceLoad {
 			for i, file := range files {
 				rel[i] = project.Relative(s.workspaceRoot, file)
 			}
-			out.notices = append(out.notices, fmt.Sprintf("note: %s is declared by more than one file under %s: %s; %%load the one meant", name, s.workspaceRoot, strings.Join(rel, ", ")))
+			out.notices = append(out.notices, fmt.Sprintf("note: %s is declared by more than one file under %s: %s; load the one meant with %%load", name, s.workspaceRoot, strings.Join(rel, ", ")))
 		}
 	}
 	if len(paths) == 0 {
