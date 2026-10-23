@@ -839,7 +839,7 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 		if len(fields) < 2 {
 			return metaOut([]string{"usage: %occurrence <name>"}, false, nil), true
 		}
-		return metaOut(s.withTrace(s.RunOccurrence(nameText(fields[1]))).Lines, false, nil), true
+		return metaOut(s.withTrace(s.runOccurrence(nameText(fields[1]))).Lines, false, nil), true
 	// State machine debugging
 	case "%state":
 		if len(fields) < 2 {

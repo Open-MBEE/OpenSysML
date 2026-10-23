@@ -524,6 +524,12 @@ func (s *Session) RunActionWithInputs(name string, inputs []string, performer ..
 // events admit. The values are the transfers performed, in order.
 func (s *Session) RunOccurrence(name string) Verdict {
 	defer s.enter()()
+	return s.runOccurrence(name)
+}
+
+// runOccurrence is RunOccurrence inside a command already holding the session,
+// as `%occurrence` is.
+func (s *Session) runOccurrence(name string) Verdict {
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
 		return s.withTrace(unresolvedVerdict(name, fmt.Errorf("%w: %w", errRuntimeInit, err).Error()))

@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -128,6 +129,51 @@ func TestRuntimeRobustnessSequence(t *testing.T) {
 		}`)
 		if !errors.Is(err, lower.ErrMessageEndUnowned) {
 			t.Fatalf("error = %v, want ErrMessageEndUnowned", err)
+		}
+	})
+	t.Run("body-less performs at events complete", func(t *testing.T) {
+		// A migrated tool default: lifelines subsetting a part or typed by a part def
+		// whose operations have no body, signatureless and create messages. The run
+		// must return — every transfer taken — within a deadline, never block.
+		done := make(chan error, 1)
+		go func() {
+			done <- occurrenceRunError(t, "Acquire", `package test {
+				part Operator;
+				part def Stage { action detectCharging; }
+				part def Image { action data; }
+				occurrence def Acquire {
+					ref part operator :> Operator {
+						event occurrence positionSent;
+						then event occurrence createSent;
+						then event occurrence chargingSent;
+					}
+					ref part stage : Stage {
+						event occurrence positionReceived;
+						then event occurrence chargingReceived {
+							perform action detectChargingCall ::> Stage::detectCharging;
+						}
+						then event occurrence dataSent;
+					}
+					ref part image : Image {
+						event occurrence createReceived;
+						then event occurrence dataReceived {
+							perform action dataCall ::> Image::data;
+						}
+					}
+					message position from operator.positionSent to stage.positionReceived;
+					message create from operator.createSent to image.createReceived;
+					message detectCharging from operator.chargingSent to stage.chargingReceived;
+					message data from stage.dataSent to image.dataReceived;
+				}
+			}`)
+		}()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("error = %v, want the run to complete", err)
+			}
+		case <-time.After(30 * time.Second):
+			t.Fatal("the run did not return within its deadline")
 		}
 	})
 	t.Run("interaction using itself", func(t *testing.T) {
