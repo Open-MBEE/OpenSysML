@@ -618,7 +618,9 @@ func (m *migration) writeViewBody(v *view, form viewForm) {
 		for _, line := range geo.lines {
 			m.w.line(line)
 		}
-		m.w.line("render " + prefix + form.rendering + ";")
+		if form.rendering != "" {
+			m.w.line("render " + prefix + form.rendering + ";")
+		}
 	})
 	for _, td := range v.tables {
 		m.writeTable(td)
@@ -636,10 +638,16 @@ func (m *migration) writeViewBody(v *view, form viewForm) {
 func (m *migration) viewDeclaration(v *view, form viewForm, x exposures) (decl, note string) {
 	d, host := v.d, v.host
 	kind := diagramKind(d)
-	note = article(strings.ToLower(kind)) + kind + " written as a view rendered " + form.rendering
+	note = article(strings.ToLower(kind)) + kind + " written as a view"
+	if form.rendering != "" {
+		note += " rendered " + form.rendering
+	}
 	decl = "view " + writeName(v.name)
 	if form.definition != "" {
 		note += " of " + form.definition
+		if form.rendering == "" {
+			note += ", drawn as " + drawnAs(form.definition) + " by its definition"
+		}
 		prefix := viewDefinitionsPrefix
 		if m.shadowsLibrary("StandardViewDefinitions", host) {
 			prefix = globalViewDefinitionsPrefix

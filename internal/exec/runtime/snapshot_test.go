@@ -192,6 +192,15 @@ func newSteppedRun(t *testing.T, conformanceDir, testName string, expected Expec
 			check = runSatisfyConformance
 		}
 		run.finish = func() error { check(t, ctx, idx, sysmlPath, expected); return nil }
+	case "occurrence":
+		// Realizing the occurrence's messages is the one step.
+		occurrenceSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefOccurrence, ast.UsageOccurrence)
+		run.step = func() (bool, error) {
+			_, err := ctx.ExecuteOccurrence(occurrenceSym)
+			return false, err
+		}
+		run.finish = func() error { return nil }
+		return run
 	case "instance":
 		// Materializing the object is the one step; the machines of its objects
 		// run to completion after it.

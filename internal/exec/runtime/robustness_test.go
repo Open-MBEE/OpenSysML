@@ -696,3 +696,13 @@ func invokeValue(ctx *Context, sym *symbols.Symbol, args []Value, scope *symbols
 	result, err := ctx.InvokeCalc(sym, args, scope)
 	return soleElement(result), err
 }
+
+// findBehavioralSymbol searches for first symbol matching defKind or usageKind,
+// failing the test when there is none.
+func findBehavioralSymbol(t *testing.T, scope *symbols.Scope, defKind ast.DefinitionKind, usageKind ast.UsageKind) *symbols.Symbol {
+	sym := lookupBehavioralSymbol(scope, defKind, usageKind)
+	if sym == nil {
+		t.Fatalf("no behavioral symbol found (defKind=%v, usageKind=%v)", defKind, usageKind)
+	}
+	return sym
+}
