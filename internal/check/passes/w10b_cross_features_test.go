@@ -592,9 +592,8 @@ func TestW10BNamedCrossFeatureTypeAheadOfKind(t *testing.T) {
 	}
 }
 
-// A binding connector declared `member` ahead of the real cross feature is not
-// the owned cross feature (KerML 1.1 Feature::ownedCrossFeature rejects
-// BindingConnector), so the mistyped feature after it is still reported.
+// A `member binding` ahead of the real cross feature is not the owned cross feature (KerML 1.1
+// Feature::ownedCrossFeature rejects BindingConnector), so the mistyped feature after it is still reported.
 func TestW10BCrossFeatureTypeAfterMemberBinding(t *testing.T) {
 	const src = `package P {
 		class A; class B; class C;

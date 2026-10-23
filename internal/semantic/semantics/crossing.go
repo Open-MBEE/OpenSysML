@@ -54,12 +54,8 @@ func (m *Model) CrossFeature(sym *symbols.Symbol) *symbols.Symbol {
 	return cross
 }
 
-// OwnedCrossFeature returns the feature the end sym declares inline ahead of itself, else the
-// first `member` feature of its body that is neither a binding connector nor a metadata feature:
-// its cross feature when it crosses nothing explicitly. KerML 1.1 Feature::ownedCrossFeature:
-// `ownedMember->selectByKind(Feature)->reject(oclIsKindOf(Multiplicity) or oclIsKindOf(MetadataFeature) or
-// oclIsKindOf(BindingConnector))->reject(owningMembership.oclIsKindOf(FeatureMembership) or
-// owningMembership.oclIsKindOf(FeatureValue))->first()`.
+// OwnedCrossFeature returns the end's inline cross feature, else the first `member` feature KerML 1.1
+// Feature::ownedCrossFeature keeps: `reject(oclIsKindOf(Multiplicity) or oclIsKindOf(MetadataFeature) or oclIsKindOf(BindingConnector))`.
 func (m *Model) OwnedCrossFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Scope == nil || !declaresEnd(sym) || ownerSymbol(sym) == nil {
 		return nil
