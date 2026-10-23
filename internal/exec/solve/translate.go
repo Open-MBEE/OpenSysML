@@ -42,7 +42,7 @@ type Subject struct {
 func subjectOf(sym *symbols.Symbol, kind string, violation bool) Subject {
 	return Subject{
 		Kind:      kind,
-		Name:      sym.Name,
+		Name:      source.NameText(sym.Name),
 		Symbol:    sym,
 		Negated:   runtime.NegatedDecl(sym),
 		Violation: violation,
@@ -200,7 +200,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 			bound = append(bound, subjects)
 		}
 	}
-	subject := Subject{Kind: sym.Notation(), Name: sym.Name, Symbol: sym}
+	subject := Subject{Kind: sym.Notation(), Name: source.NameText(sym.Name), Symbol: sym}
 	// What the objects its parts hold assert is part of what validating an
 	// object of sym checks, so the query states it too, each condition read
 	// from the object stating it.
@@ -209,7 +209,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 		return nil, err
 	}
 	if len(assertions) == 0 && len(groups) == 0 && len(refused) == 0 {
-		return nil, fmt.Errorf("%s %s: %w", sym.Notation(), sym.Name, ErrNothingAsserted)
+		return nil, fmt.Errorf("%s %s: %w", subject.Kind, subject.Name, ErrNothingAsserted)
 	}
 	translate := func(pins []Pin) (*Query, error) {
 		t := newTranslator(ctx, subject)

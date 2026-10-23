@@ -617,10 +617,8 @@ func clauseEndInputs(usage *ast.Usage) []connectorEndInput {
 	return ends
 }
 
-// bodyEndInputs are the `end` features a connector usage's body declares when every one of
-// them reference-subsets what it attaches to (`end #cause :> causes ::> a;`), the spelling of
-// a connector's ends SysML v2 §7.13.2 gives beside the `connect` clause; nil when any end
-// attaches to nothing, since a connector no end attaches is no connector object.
+// bodyEndInputs are the attached `end` features a connector usage's body declares (`end #cause
+// :> causes ::> a;`, SysML v2 §7.13.2); nil when any end attaches to nothing: no connector object.
 func bodyEndInputs(usage *ast.Usage) []connectorEndInput {
 	var ends []connectorEndInput
 	for _, member := range usage.Members {
@@ -724,10 +722,8 @@ func (m *Model) IsBinaryConnector(sym *symbols.Symbol) bool {
 	return m != nil && m.conformsByName(sym, binaryConnectorBaseFQN)
 }
 
-// ConnectorEndAttachments returns the ends of the connector usage sym in
-// declaration order, one entry per end of its `connect` clause, or per attached
-// `end` of its body when it has no clause. It returns nothing for a symbol that
-// is no connector usage.
+// ConnectorEndAttachments returns the ends of the connector usage sym in declaration order: those
+// of its `connect` clause, else the attached `end`s of its body; nothing for a non-connector usage.
 func (m *Model) ConnectorEndAttachments(sym *symbols.Symbol) []ConnectorEndAttachment {
 	if !m.IsConnectorUsage(sym) {
 		return nil

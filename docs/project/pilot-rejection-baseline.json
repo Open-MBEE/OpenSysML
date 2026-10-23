@@ -27,17 +27,17 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 338,
-        "digest": "sha256:8da1cf1cb93466f0703720b98c5b5f465fcc54b5136f2b59a7e78beb5ae17afa"
+        "files": 339,
+        "digest": "sha256:f954518f32150a0f74a3715d034678096174e08382e6812b2aa4bbeb535b594c"
       }
     ],
-    "recorded": "2026-10-22"
+    "recorded": "2026-10-23"
   },
   "totals": {
-    "cases": 338,
+    "cases": 339,
     "bothReject": 327,
     "pilotOnlyRejects": 0,
-    "oursOnlyRejects": 11,
+    "oursOnlyRejects": 12,
     "bothAccept": 0
   },
   "strictOnlyAgreements": [
@@ -65,10 +65,10 @@
     },
     {
       "source": "semantic",
-      "cases": 179,
+      "cases": 180,
       "bothReject": 168,
       "pilotOnlyRejects": 0,
-      "oursOnlyRejects": 11,
+      "oursOnlyRejects": 12,
       "bothAccept": 0
     },
     {
@@ -2862,6 +2862,18 @@
       "pilotErrors": 5
     },
     {
+      "path": "semantic/variation-usage-objective-not-variant.sysml",
+      "source": "semantic",
+      "rule": "An owned usage of a variation usage must be a variant, an objective included (SysML 8.3.6.4 validateUsageVariationOwnedFeatureMembership; pilot validateUsageVariationMembership).",
+      "mode": "default",
+      "bucket": "ours-only-rejects",
+      "oursErrors": 1,
+      "pilotErrors": 0,
+      "ours": [
+        "line 5: An owned usage of a variation must be a variant."
+      ]
+    },
+    {
       "path": "xpect/p01-public-root-import.kerml",
       "source": "xpect",
       "rule": "a root-namespace import must be private (KerML 8.2.3.5.2 validateImportTopLevelVisibility; pilot Import_RootNamspace_invalid.kerml.xt).",
@@ -3313,10 +3325,10 @@
       }
     ],
     "totals": {
-      "cases": 338,
+      "cases": 339,
       "bothReject": 327,
       "pilotOnlyRejects": 0,
-      "oursOnlyRejects": 11,
+      "oursOnlyRejects": 12,
       "bothAccept": 0
     },
     "note": "no declared correction lies under tools/referee/reject/testdata/negative, so the errata-applied corpus is byte-identical to the published one and both figures coincide"

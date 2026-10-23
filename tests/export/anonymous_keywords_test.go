@@ -94,7 +94,7 @@ func TestAnonymousKeywordsComeBackFromTheTypedFactsAlone(t *testing.T) {
 		want:    []string{"event occurrence", "event occurrence ack;", "event occurrence : Exchange;"},
 	}, {
 		fixture: "anonymous_portions.sysml",
-		want:    []string{"snapshot occurrence redefines start {", "timeslice occurrence redefines portionOfLife {", "snapshot occurrence subsets fuel redefines done {"},
+		want:    []string{"snapshot occurrence redefines start {", "timeslice occurrence redefines portionOfLife {", "snapshot occurrence redefines done subsets fuel {"},
 	}, {
 		fixture: "anonymous_assertions.sysml",
 		want:    []string{"assert constraint references massConstraint {", "assert not constraint references massConstraint;", "assert constraint {"},
