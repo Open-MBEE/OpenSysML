@@ -116,7 +116,9 @@ notebook) are skipped, as notebooks expect.
 
 As at the prompt, a failed cell does not roll the session back: what the session accepted
 before the error stays, and a declaration refused for a semantic error is still in the model
-with that error reported. `%clear` (or *Restart Kernel*) starts over.
+with that error reported. A cell that does not parse and declares nothing — an expression
+typed with a trailing `;`, say — is reported once and then dropped, so the cells after it
+evaluate as if it had not been run. `%clear` (or *Restart Kernel*) starts over.
 
 <kbd>Tab</kbd> completes the way the prompt's completer does: `%` commands, their arguments,
 and qualified names in the model. <kbd>Shift</kbd>+<kbd>Tab</kbd> on a name shows what
