@@ -1016,12 +1016,12 @@ elmt:Payloads__Ctx___404__cmd
     sysml:declaredName "cmd" ;
     sysml:type elmt:Payloads__Prio ;
     sysml:value expr:Payloads__Ctx___404__cmd_pvalue ;
-    sysml:ownedRelationship expr:Payloads__Ctx___404__cmd_pvalue_om, elmt:Payloads__Ctx___404__cmd_ft0 ;
+    sysml:ownedRelationship elmt:Payloads__Ctx___404__cmd_ft0, expr:Payloads__Ctx___404__cmd_pvalue_om ;
     sysml:ownedMembership expr:Payloads__Ctx___404__cmd_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Payloads__Ctx___404__cmd_ft0 ;
     sysml:ownedSpecialization elmt:Payloads__Ctx___404__cmd_ft0 ;
-    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_om\"},{\"@id\":\"Payloads__Ctx___404__cmd_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___404__cmd_ft0\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_om\"}]" .
 
 elmt:Payloads__Ctx___404__cmd_om
     a sysml:FeatureMembership ;

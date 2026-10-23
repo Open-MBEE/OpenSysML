@@ -4,12 +4,12 @@ package ClauseOrder {
         attribute num : Real;
     }
     part def Ratio specializes Quantity {
-        attribute : Real redefines num;
+        attribute redefines num : Real;
     }
     part def Ctx;
     part def Mission {
         part context : Ctx;
-        snapshot groundSystemAtIngress : Ctx subsets context {
+        snapshot groundSystemAtIngress subsets context : Ctx {
         }
     }
 }

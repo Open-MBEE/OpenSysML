@@ -331,7 +331,7 @@ elmt:Documented__wheel
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Documented__wheel___400, elmt:Documented__wheel__serial ;
     sysml:ownedMembership elmt:Documented__wheel___400_om, elmt:Documented__wheel__serial_om ;
-    sysml:ownedRelationship elmt:Documented__wheel___400_om, elmt:Documented__wheel__serial_om, elmt:Documented__wheel_ft0 ;
+    sysml:ownedRelationship elmt:Documented__wheel_ft0, elmt:Documented__wheel___400_om, elmt:Documented__wheel__serial_om ;
     sysml:ownedFeature elmt:Documented__wheel__serial ;
     sysml:ownedFeatureMembership elmt:Documented__wheel__serial_om ;
     sysml:ownedTyping elmt:Documented__wheel_ft0 ;
@@ -340,7 +340,7 @@ elmt:Documented__wheel
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"Documented__wheel___400\"},{\"@id\":\"Documented__wheel__serial\"}]" ;
     json:ownedMembership "[{\"@id\":\"Documented__wheel___400_om\"},{\"@id\":\"Documented__wheel__serial_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Documented__wheel___400_om\"},{\"@id\":\"Documented__wheel__serial_om\"},{\"@id\":\"Documented__wheel_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Documented__wheel_ft0\"},{\"@id\":\"Documented__wheel___400_om\"},{\"@id\":\"Documented__wheel__serial_om\"}]" .
 
 elmt:Documented__wheel_om
     a sysml:OwningMembership ;
