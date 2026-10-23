@@ -177,9 +177,8 @@ func TestRuntimeCorpusPatternPartitionsTheRuntimeTests(t *testing.T) {
 		t.Errorf("RACE_RUNTIME_CORPUS matches %d tests, names %d", matched, len(named))
 	}
 
-	// The corpus shard is two processes (the race detector's memory is per process): the
-	// exploration suite, then the corpus pattern with the exploration skipped. The
-	// exploration pattern must name one real test that the corpus pattern also matches.
+	// The corpus shard runs the exploration suite as its own process (race memory is per
+	// process); its pattern must name one real test that the corpus pattern also matches.
 	exploration := strings.ReplaceAll(firstSubmatch(t, makefileExplore, makefile, "Makefile RACE_RUNTIME_EXPLORATION"), "$$", "$")
 	if circle := firstSubmatch(t, circleExplore, readRepoFile(t, ".circleci/config.yml"), ".circleci/config.yml exploration="); circle != exploration {
 		t.Errorf(".circleci/config.yml exploration pattern %q, Makefile RACE_RUNTIME_EXPLORATION %q", circle, exploration)
