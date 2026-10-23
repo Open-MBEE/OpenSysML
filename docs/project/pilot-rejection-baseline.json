@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 338,
-        "digest": "sha256:78466f63a7e3c374708eb6a088051eb222b04aaf9754719d1414400c6ffbc45a"
+        "files": 339,
+        "digest": "sha256:f954518f32150a0f74a3715d034678096174e08382e6812b2aa4bbeb535b594c"
       }
     ],
-    "recorded": "2026-10-22"
+    "recorded": "2026-10-23"
   },
   "totals": {
-    "cases": 338,
-    "bothReject": 326,
+    "cases": 339,
+    "bothReject": 327,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 12,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 179,
-      "bothReject": 167,
+      "cases": 180,
+      "bothReject": 168,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 12,
       "bothAccept": 0
@@ -2256,6 +2256,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/s114-constructor-argument-overrides-bound-value.sysml",
+      "source": "semantic",
+      "rule": "a constructor argument binds a feature whose value is written with `=`, which every feature redefining it inherits; only a `default =` value may be overridden (KerML 8.3.4.10.2 validateFeatureValueOverriding; pilot validateFeatureValueOverriding).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/s12-case-two-subjects.sysml",
       "source": "semantic",
       "rule": "A case usage may have at most one subject (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneSubject).",
@@ -3316,8 +3325,8 @@
       }
     ],
     "totals": {
-      "cases": 338,
-      "bothReject": 326,
+      "cases": 339,
+      "bothReject": 327,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 12,
       "bothAccept": 0
