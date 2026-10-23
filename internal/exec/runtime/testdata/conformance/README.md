@@ -69,6 +69,12 @@ top-level one is. `instantiate` names an instance case's type the same way.
   performance must fail with:
   `{"object": "test::plant", "slots": {"runs": {"type": "Integer", "value": 1}}}`.
   Omit for an action performed by no object.
+- `before`: qualified paths of actions performed to completion on the case's
+  runtime before its own, in order, for a case whose contract is that a
+  performance is unaffected by the ones before it — the clock they advanced,
+  the values they wrote. A path naming the case's own action is a prior
+  performance of it, and must yield the `outputs` too. Applies to an action case
+  run to completion by no object.
 
 ### For Occurrences (`ExecuteOccurrence`)
 

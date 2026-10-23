@@ -187,6 +187,8 @@ type ExpectedOutcome struct {
 	// Evaluate names the element to execute or evaluate: a qualified path
 	// ("test::p::a") also reaches one nested in a part. empty searches the model.
 	Evaluate string `json:"evaluate,omitempty"`
+	// Before names actions performed to completion on the case's runtime before its own.
+	Before []string `json:"before,omitempty"`
 	// Trace opts a case into a golden trace it does not carry yet, so
 	// -update-traces writes one. A case already carrying a golden needs no opt-in.
 	Trace bool `json:"trace,omitempty"`
@@ -813,6 +815,7 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 			problems = append(problems, "exploreBudget: "+err.Error())
 		}
 	}
+	problems = append(problems, beforeSchemaProblems(expected)...)
 	if len(expected.Outcomes) == 0 {
 		if expected.Admissible != "" {
 			problems = append(problems, "admissible is stated without outcomes to admit")
@@ -1048,6 +1051,7 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 		runActionPerformers(t, ctx, idx, actionSym, expected.Performers)
 		return
 	}
+	performBefore(t, ctx, idx, rootScope, actionSym, expected)
 
 	// Execute action
 	outcome, err := ctx.ActionOutcomePerformedBy(actionSym, nil, nil)
@@ -1089,41 +1093,6 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 		// Token count validation requires instrumentation in executor
 		// For now, skip - can add later if needed
 		t.Logf("token count validation not yet implemented (expected %d)", *expected.TokenCount)
-	}
-}
-
-// runActionPerformers performs an action once per object performing it and
-// checks each performance against what that object expects: its outputs, the
-// feature values the body left on the object, or the error it must fail with.
-func runActionPerformers(t *testing.T, ctx *Context, idx *symbols.Index, actionSym *symbols.Symbol, performers []Performer) {
-	t.Helper()
-	for _, performer := range performers {
-		self := performerObject(t, ctx, idx, performer.Object)
-		t.Run(performer.Object, func(t *testing.T) {
-			outcome, err := ctx.ActionOutcomePerformedBy(actionSym, self, nil)
-			if performer.Error != "" {
-				requireError(t, "performance by "+performer.Object, err, performer.Error)
-				return
-			}
-			if err != nil {
-				t.Fatalf("performance by %s failed: %v", performer.Object, err)
-			}
-			validateTerminated(t, outcome.Terminated, performer.Terminated)
-			validateOutputs(t, ctx, performer.Outputs, outcome.Outputs)
-			for path, expectedVal := range performer.Slots {
-				fv, err := featureValueAtPath(t, ctx, self, path)
-				if err != nil {
-					t.Errorf("feature value %q of %s: %v", path, performer.Object, err)
-					continue
-				}
-				value, err := fv.ReadValue(path)
-				if err != nil {
-					t.Errorf("feature value %q of %s: %v", path, performer.Object, err)
-					continue
-				}
-				validateValue(t, ctx, path, expectedVal, value)
-			}
-		})
 	}
 }
 
