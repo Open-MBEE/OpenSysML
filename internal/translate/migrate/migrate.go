@@ -251,6 +251,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		layoutJoined:      map[string]bool{},
 		shownEdges:        map[*sysmlv1.Element]bool{},
 		edgeMembers:       map[*sysmlv1.Element]edgeMember{},
+		sequenceBindings:  map[*sysmlv1.Element][]lifelineBinding{},
+		sequenceParams:    map[*sysmlv1.Element]string{},
 		objectives:        map[*sysmlv1.Element]string{},
 		routeKinds:        routeKinds{},
 	}
@@ -584,7 +586,12 @@ type migration struct {
 	// edgeMembers the member each was written as, routeKinds the routes by kind and reason.
 	shownEdges  map[*sysmlv1.Element]bool
 	edgeMembers map[*sysmlv1.Element]edgeMember
-	routeKinds  routeKinds
+	// sequenceBindings gives each interaction the bindings of its lifeline usages to
+	// the features of its context, written in the context's occurrence usage of it.
+	sequenceBindings map[*sysmlv1.Element][]lifelineBinding
+	// sequenceParams names the attribute each interaction's in parameter is written as.
+	sequenceParams map[*sysmlv1.Element]string
+	routeKinds     routeKinds
 	// objectives names a test case's objective when a diagram shows a verify
 	// it holds, since a member of an anonymous objective cannot be exposed.
 	objectives map[*sysmlv1.Element]string
@@ -663,14 +670,17 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 			v = Approximated
 		}
 	}
+	// renamed notes the name e is written under when a sibling's or the library's
+	// hides its own; it is noted once however often e is reported.
+	var renamed string
 	if n, ok := m.names[e]; ok && e.Name != "" && n != e.Name && m.realizes[e] == nil && !m.asUsage[e] {
 		if v == Mapped {
 			v = Approximated
 		}
 		if src, clash := m.libraryClash[e]; clash {
-			note = joinNotes(note, writtenAs+n+" since a root package named "+src+" would be hidden by the standard library's "+src)
+			renamed = writtenAs + n + " since a root package named " + src + " would be hidden by the standard library's " + src
 		} else {
-			note = joinNotes(note, writtenAs+n+" since a sibling is also named "+e.Name)
+			renamed = writtenAs + n + " since a sibling is also named " + e.Name
 		}
 	}
 	if i, ok := m.indexed[e.ID]; ok && e.ID != "" {
@@ -681,15 +691,17 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 		if en.Target == "" {
 			en.Target = target
 		}
-		if !strings.Contains(en.Note, note) {
-			en.Note = joinNotes(en.Note, note)
+		for _, n := range []string{note, renamed} {
+			if n != "" && !strings.Contains(en.Note, n) {
+				en.Note = joinNotes(en.Note, n)
+			}
 		}
 		m.verdicts[e] = en.Verdict
 		return
 	}
 	m.indexed[e.ID] = len(m.report.Entries)
 	m.report.Entries = append(m.report.Entries, Entry{
-		ID: e.ID, Kind: kindOf(e), Name: qualifiedName(e), Target: target, Verdict: v, Note: note,
+		ID: e.ID, Kind: kindOf(e), Name: qualifiedName(e), Target: target, Verdict: v, Note: joinNotes(note, renamed),
 	})
 	m.verdicts[e] = v
 }
@@ -1507,7 +1519,7 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 		})
 		return
 	}
-	if behaviorCategory(cat) {
+	if behaviorCategory(cat) || e.Type == "Interaction" {
 		m.w.block(header, func() { m.behaviorBody(e, cat) })
 		if c := m.contexts[e]; c != nil {
 			// Written now: a context parameter can no longer be declared.
@@ -1521,6 +1533,7 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 	m.w.block(header, func() {
 		m.body(e)
 		m.classifierBehavior(e)
+		m.interactionOccurrences(e)
 		m.stereotypeAnnotations(e)
 	})
 }
@@ -2177,9 +2190,9 @@ func (m *migration) verificationBody(e *sysmlv1.Element) {
 	if e.Type == "Interaction" {
 		subject := m.subjectName(e)
 		if s, note := m.scenario(e, subject); note == "" {
-			m.w.line("subject " + writeName(subject) + " : " + m.ref(s.context, e) + ";")
+			m.w.line("subject " + writeName(subject) + m.typing(s.context) + m.ref(s.context, e) + ";")
 			m.parameters(e, e)
-			s.write()
+			s.writeSequence()
 		}
 	}
 	m.views(e)
@@ -2980,6 +2993,11 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	}
 	if m.isBuried(e) {
 		return false
+	}
+	if e.Type == "Lifeline" {
+		// A lifeline is its usage once the interaction's sequence is written.
+		v, ok := m.verdicts[e]
+		return ok && v != Unmapped
 	}
 	if written, decided := m.memberWritten(e); decided {
 		return written

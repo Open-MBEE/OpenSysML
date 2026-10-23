@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 126
+        "files": 130
       }
     ],
     "counts": {
@@ -88,7 +88,7 @@
       },
       "sysml:Trace": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "sysml:Viewpoint": {
         "pssm": 0,
@@ -100,7 +100,7 @@
       },
       "uml:Actor": {
         "pssm": 0,
-        "fixtures": 9
+        "fixtures": 10
       },
       "uml:AddStructuralFeatureValueAction": {
         "pssm": 525,
@@ -120,7 +120,7 @@
       },
       "uml:CallBehaviorAction": {
         "pssm": 1170,
-        "fixtures": 240
+        "fixtures": 241
       },
       "uml:CallEvent": {
         "pssm": 8,
@@ -140,7 +140,7 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 575
+        "fixtures": 589
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
@@ -153,6 +153,10 @@
       "uml:ClearVariableAction": {
         "pssm": 0,
         "fixtures": 1
+      },
+      "uml:CombinedFragment": {
+        "pssm": 0,
+        "fixtures": 4
       },
       "uml:Constraint": {
         "pssm": 59,
@@ -210,6 +214,10 @@
         "pssm": 0,
         "fixtures": 56
       },
+      "uml:InteractionOperand": {
+        "pssm": 0,
+        "fixtures": 6
+      },
       "uml:InterfaceRealization": {
         "pssm": 0,
         "fixtures": 8
@@ -220,7 +228,7 @@
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 125
+        "fixtures": 126
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -228,7 +236,7 @@
       },
       "uml:OpaqueAction": {
         "pssm": 0,
-        "fixtures": 162
+        "fixtures": 168
       },
       "uml:OpaqueBehavior": {
         "pssm": 0,
@@ -248,7 +256,7 @@
       },
       "uml:Property": {
         "pssm": 25,
-        "fixtures": 571
+        "fixtures": 582
       },
       "uml:Property[qualifier]": {
         "pssm": 0,
@@ -260,7 +268,7 @@
       },
       "uml:RaiseExceptionAction": {
         "pssm": 0,
-        "fixtures": 2
+        "fixtures": 3
       },
       "uml:ReadExtentAction": {
         "pssm": 0,
@@ -352,7 +360,7 @@
       },
       "uml:UseCase": {
         "pssm": 0,
-        "fixtures": 13
+        "fixtures": 16
       },
       "uml:ValueSpecificationAction": {
         "pssm": 1061,
@@ -17412,12 +17420,12 @@
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/interaction.go:fragment"
+        "internal/translate/migrate/interaction.go:scenario.other"
       ],
       "tests": [
         "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments"
       ],
-      "reason": "execution specifications carry no behavior the scenario runs and are skipped",
+      "reason": "an execution specification spans the events between its start and finish, which the lifeline's `then` successions already order, so it is reported and not written; the operation a call message names is performed at the receiving event",
       "scope": []
     },
     {
@@ -17435,12 +17443,12 @@
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/interaction.go:fragment"
+        "internal/translate/migrate/interaction.go:scenario.other"
       ],
       "tests": [
         "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments"
       ],
-      "reason": "execution specifications carry no behavior the scenario runs and are skipped",
+      "reason": "an execution specification spans the events between its start and finish, which the lifeline's `then` successions already order, so it is reported and not written; the operation a call message names is performed at the receiving event",
       "scope": []
     },
     {
@@ -17459,15 +17467,19 @@
         "memberFeature"
       ],
       "ocl": "sha256:bc31157fce84ffab846d8fd163536eea3ee37382a1e167f0089b27af2e26345b",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
-        "internal/translate/migrate/interaction.go:fragment"
+        "internal/translate/migrate/interaction.go:scenario.fragment",
+        "internal/translate/migrate/interaction.go:scenario.placeFragment"
       ],
       "tests": [
-        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments"
+        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments",
+        "tests/migrate/behavior_more_test.go:TestDurationConstraintsHaveNoSequenceForm"
       ],
-      "reason": "a combined fragment is written as the decision or loop of the scenario its operator means, rather than as a nested interaction",
-      "scope": []
+      "reason": "a combined fragment has no form in v2 sequence notation the renderer draws: its operands' messages are written in occurrence order under comments naming the operator and each operand's guard, and the fragment is reported as approximated; concurrent (par) operands are written one after the other",
+      "scope": [
+        "uml:CombinedFragment"
+      ]
     },
     {
       "name": "CombinedFragment_Mapping",
@@ -17484,15 +17496,19 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:4b1c0a5e204558ff053afbde3b58f53aaefc5769d08cc7d4117ef2818a596e8d",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
-        "internal/translate/migrate/interaction.go:fragment"
+        "internal/translate/migrate/interaction.go:scenario.fragment",
+        "internal/translate/migrate/interaction.go:scenario.placeFragment"
       ],
       "tests": [
-        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments"
+        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments",
+        "tests/migrate/behavior_more_test.go:TestDurationConstraintsHaveNoSequenceForm"
       ],
-      "reason": "a combined fragment is written as the decision or loop of the scenario its operator means, rather than as a nested interaction; candidate erratum: the mapping creates an Interaction, a definition, for a fragment that occurs once inside its owning interaction; an occurrence usage would be the matching kind",
-      "scope": []
+      "reason": "a combined fragment has no form in v2 sequence notation the renderer draws: its operands' messages are written in occurrence order under comments naming the operator and each operand's guard, and the fragment is reported as approximated; concurrent (par) operands are written one after the other; candidate erratum: the mapping creates an Interaction, a definition, for a fragment that occurs once inside its owning interaction; an occurrence usage would be the matching kind",
+      "scope": [
+        "uml:CombinedFragment"
+      ]
     },
     {
       "name": "ExecutionSpecificationMembership_Mapping",
@@ -17512,12 +17528,12 @@
       "ocl": "sha256:bc31157fce84ffab846d8fd163536eea3ee37382a1e167f0089b27af2e26345b",
       "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/interaction.go:fragment"
+        "internal/translate/migrate/interaction.go:scenario.other"
       ],
       "tests": [
         "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments"
       ],
-      "reason": "execution specifications carry no behavior the scenario runs and are skipped",
+      "reason": "an execution specification spans the events between its start and finish, which the lifeline's `then` successions already order, so it is reported and not written; the operation a call message names is performed at the receiving event",
       "scope": []
     },
     {
@@ -17536,15 +17552,19 @@
         "memberFeature"
       ],
       "ocl": "sha256:bc31157fce84ffab846d8fd163536eea3ee37382a1e167f0089b27af2e26345b",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
-        "internal/translate/migrate/interaction.go:fragment"
+        "internal/translate/migrate/interaction.go:scenario.fragmentOperands",
+        "internal/translate/migrate/interaction.go:scenario.placeFragment"
       ],
       "tests": [
-        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments"
+        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments",
+        "tests/migrate/behavior_more_test.go:TestNestedRepliesAnswerTheirOwnCalls"
       ],
-      "reason": "a combined fragment is written as the decision or loop of the scenario its operator means, rather than as a nested interaction",
-      "scope": []
+      "reason": "an interaction operand's messages are written in occurrence order under a comment naming the operator and its guard; a guard reading the interaction's context, which the occurrence def has no access to, is kept as its own text",
+      "scope": [
+        "uml:InteractionOperand"
+      ]
     },
     {
       "name": "InteractionOperand_Mapping",
@@ -17561,15 +17581,19 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:dec739eb0aff6d265e50993fddad25992e5274d818bf89a14c3ebb59607d7d97",
-      "status": "deliberate",
+      "status": "approximate",
       "implementation": [
-        "internal/translate/migrate/interaction.go:fragment"
+        "internal/translate/migrate/interaction.go:scenario.fragmentOperands",
+        "internal/translate/migrate/interaction.go:scenario.placeFragment"
       ],
       "tests": [
-        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments"
+        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments",
+        "tests/migrate/behavior_more_test.go:TestNestedRepliesAnswerTheirOwnCalls"
       ],
-      "reason": "a combined fragment is written as the decision or loop of the scenario its operator means, rather than as a nested interaction",
-      "scope": []
+      "reason": "an interaction operand's messages are written in occurrence order under a comment naming the operator and its guard; a guard reading the interaction's context, which the occurrence def has no access to, is kept as its own text",
+      "scope": [
+        "uml:InteractionOperand"
+      ]
     },
     {
       "name": "InteractionUseFeatureTyping_Mapping",
@@ -17588,12 +17612,13 @@
       "ocl": "sha256:70e0748b04d264bd059a7332fe37969b964ec41d4f95e7ab67eaa7f82efab3bf",
       "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/interaction.go:use"
+        "internal/translate/migrate/interaction.go:scenario.use",
+        "internal/translate/migrate/interaction.go:scenario.placeUse"
       ],
       "tests": [
         "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants"
       ],
-      "reason": "an interaction use performs the referenced interaction's scenario at its place among the messages, its arguments bound to the scenario's in parameters and a message through an actual gate carried by the performed scenario's message from the matching formal gate; the perform is typed by the referenced interaction's action",
+      "reason": "an interaction use is an occurrence usage typed by the referenced interaction's def at its place among the messages, ordered by successions from the covered lifelines' events before it and to their next ones, its arguments bound to the attributes the referenced interaction's in parameters are written as; a message through an actual gate reaches the usage; the occurrence usage is typed by the referenced interaction's def",
       "scope": []
     },
     {
@@ -17614,13 +17639,13 @@
       "ocl": "sha256:bc31157fce84ffab846d8fd163536eea3ee37382a1e167f0089b27af2e26345b",
       "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/interaction.go:use",
-        "internal/translate/migrate/interaction.go:performUse"
+        "internal/translate/migrate/interaction.go:scenario.use",
+        "internal/translate/migrate/interaction.go:scenario.placeUse"
       ],
       "tests": [
         "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants"
       ],
-      "reason": "an interaction use performs the referenced interaction's scenario at its place among the messages, its arguments bound to the scenario's in parameters and a message through an actual gate carried by the performed scenario's message from the matching formal gate; the perform is an owned step of the scenario",
+      "reason": "an interaction use is an occurrence usage typed by the referenced interaction's def at its place among the messages, ordered by successions from the covered lifelines' events before it and to their next ones, its arguments bound to the attributes the referenced interaction's in parameters are written as; a message through an actual gate reaches the usage; the occurrence usage is an owned member of the def",
       "scope": []
     },
     {
@@ -17640,14 +17665,15 @@
       "ocl": "sha256:f491f382b309566c8bc5451223c0b30cd2edd056f826fb4ddc97077e081ef754",
       "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/interaction.go:use",
-        "internal/translate/migrate/interaction.go:performUse",
-        "internal/translate/migrate/interaction.go:gated"
+        "internal/translate/migrate/interaction.go:scenario.use",
+        "internal/translate/migrate/interaction.go:scenario.placeUse",
+        "internal/translate/migrate/interaction.go:scenario.useArguments",
+        "internal/translate/migrate/interaction.go:scenario.gated"
       ],
       "tests": [
         "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants"
       ],
-      "reason": "an interaction use performs the referenced interaction's scenario at its place among the messages, its arguments bound to the scenario's in parameters and a message through an actual gate carried by the performed scenario's message from the matching formal gate; candidate erratum: the mapping creates a KerML Step; the SysML counterpart of performing another behavior is a PerformActionUsage, which is written",
+      "reason": "an interaction use is an occurrence usage typed by the referenced interaction's def at its place among the messages, ordered by successions from the covered lifelines' events before it and to their next ones, its arguments bound to the attributes the referenced interaction's in parameters are written as; a message through an actual gate reaches the usage; candidate erratum: the mapping creates a KerML Step; the SysML counterpart of using another interaction in a sequence is an OccurrenceUsage typed by its definition, which is written",
       "scope": []
     },
     {
@@ -17665,16 +17691,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:f2ad90bcc4a317637cfc5352a7566915e6218018ec52b5a5d137a3d3179c8a21",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/interaction.go:interactionBody",
-        "internal/translate/migrate/interaction.go:scenario"
+        "internal/translate/migrate/interaction.go:migration.interactionBody",
+        "internal/translate/migrate/interaction.go:scenario.writeSequence",
+        "internal/translate/migrate/interaction.go:migration.interactionOccurrences"
       ],
       "tests": [
         "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments",
-        "tests/migrate/behavior_more_test.go:TestInteractionMigratesToAScenarioOfSends"
+        "tests/migrate/behavior_more_test.go:TestInteractionMigratesToAnOccurrenceDefOfMessages",
+        "tests/migrate/sequence_diagram_test.go:TestGoldenUseCaseSequence"
       ],
-      "reason": "an interaction is lowered to an executable `action def` scenario of sends and accepts per lifeline (fragments as decisions and loops), rather than an occurrence-structure interaction, so a migrated sequence diagram runs",
+      "reason": "an interaction is written as an occurrence def (a verification def for a test case) whose lifelines are usages holding their event occurrences ordered by `then`, each message a `message` between the events it leaves and reaches, in occurrence order; the owner's occurrence usage of the def binds the lifelines to the features they stand for",
       "scope": []
     },
     {
@@ -17692,14 +17720,17 @@
         "type"
       ],
       "ocl": "sha256:210e31e3670595b87f558cce54538cceb698bc0eb7e9317a065dfa25fbcbf8ba",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/interaction.go:lifeline"
+        "internal/translate/migrate/interaction.go:scenario.lifeline",
+        "internal/translate/migrate/interaction.go:scenario.ownLifeline",
+        "internal/translate/migrate/interaction.go:scenario.writeLifeline"
       ],
       "tests": [
-        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments"
+        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments",
+        "tests/migrate/sequence_diagram_test.go:TestGoldenUseCaseSequence"
       ],
-      "reason": "a lifeline is the part the scenario sends from and to, bound to the represented property, not a separate part usage",
+      "reason": "a lifeline is a part (item, occurrence or port) usage of the occurrence def typed by the represented property's type, holding the lifeline's event occurrences; one standing for a feature of the owner is bound to it in the owner's occurrence usage of the def, one standing for the interaction's own property is that property's usage",
       "scope": []
     },
     {
@@ -17718,14 +17749,17 @@
         "memberFeature"
       ],
       "ocl": "sha256:bc31157fce84ffab846d8fd163536eea3ee37382a1e167f0089b27af2e26345b",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/interaction.go:lifeline"
+        "internal/translate/migrate/interaction.go:scenario.lifeline",
+        "internal/translate/migrate/interaction.go:scenario.ownLifeline",
+        "internal/translate/migrate/interaction.go:scenario.writeLifeline"
       ],
       "tests": [
-        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments"
+        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments",
+        "tests/migrate/sequence_diagram_test.go:TestGoldenUseCaseSequence"
       ],
-      "reason": "a lifeline is the part the scenario sends from and to, bound to the represented property, not a separate part usage",
+      "reason": "a lifeline is a part (item, occurrence or port) usage of the occurrence def typed by the represented property's type, holding the lifeline's event occurrences; one standing for a feature of the owner is bound to it in the owner's occurrence usage of the def, one standing for the interaction's own property is that property's usage",
       "scope": []
     },
     {
@@ -17743,14 +17777,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:4c68ca373b727dee449eec08173816f3bdeaa4c846c89e70e6c77ed03d84bd9d",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/interaction.go:lifeline"
+        "internal/translate/migrate/interaction.go:scenario.lifeline",
+        "internal/translate/migrate/interaction.go:scenario.ownLifeline",
+        "internal/translate/migrate/interaction.go:scenario.writeLifeline"
       ],
       "tests": [
-        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments"
+        "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments",
+        "tests/migrate/sequence_diagram_test.go:TestGoldenUseCaseSequence"
       ],
-      "reason": "a lifeline is the part the scenario sends from and to, bound to the represented property, not a separate part usage",
+      "reason": "a lifeline is a part (item, occurrence or port) usage of the occurrence def typed by the represented property's type, holding the lifeline's event occurrences; one standing for a feature of the owner is bound to it in the owner's occurrence usage of the def, one standing for the interaction's own property is that property's usage",
       "scope": []
     },
     {
@@ -17768,15 +17805,16 @@
         "memberFeature"
       ],
       "ocl": "sha256:bc31157fce84ffab846d8fd163536eea3ee37382a1e167f0089b27af2e26345b",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/interaction.go:message"
+        "internal/translate/migrate/interaction.go:scenario.message",
+        "internal/translate/migrate/interaction.go:scenario.placeMessage"
       ],
       "tests": [
         "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments",
         "tests/migrate/behavior_more_test.go:TestNestedRepliesAnswerTheirOwnCalls"
       ],
-      "reason": "a message is a send/accept pair in the scenario rather than a flow between event occurrences",
+      "reason": "a message is a `message` flow usage from the sending lifeline's event occurrence to the receiving one's: a signal message carries the signal as its payload with the arguments bound, a call message's receiving event performs the operation with the arguments bound and the reply carries the call's result as its payload; a create or delete message is an ordinary message to the object's event, and a message through a gate states no end there, each noted",
       "scope": []
     },
     {
@@ -17792,15 +17830,18 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "deliberate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/interaction.go:message"
+        "internal/translate/migrate/interaction.go:scenario.message",
+        "internal/translate/migrate/interaction.go:scenario.placeMessage",
+        "internal/translate/migrate/interaction.go:scenario.payload"
       ],
       "tests": [
         "tests/migrate/interaction_test.go:TestInteractionCallsRepliesAndFragments",
-        "tests/migrate/behavior_more_test.go:TestNestedRepliesAnswerTheirOwnCalls"
+        "tests/migrate/behavior_more_test.go:TestNestedRepliesAnswerTheirOwnCalls",
+        "tests/migrate/behavior_more_test.go:TestInteractionMigratesToAnOccurrenceDefOfMessages"
       ],
-      "reason": "a message is a send/accept pair in the scenario rather than a flow between event occurrences; candidate erratum: the mapping creates a KerML Flow; in a SysML v2 model a message is a FlowUsage (the `message` declaration), which is a Usage and can be owned by definitions and usages",
+      "reason": "a message is a `message` flow usage from the sending lifeline's event occurrence to the receiving one's: a signal message carries the signal as its payload with the arguments bound, a call message's receiving event performs the operation with the arguments bound and the reply carries the call's result as its payload; a create or delete message is an ordinary message to the object's event, and a message through a gate states no end there, each noted; candidate erratum: the mapping creates a KerML Flow; in a SysML v2 model a message is a FlowUsage (the `message` declaration), which is a Usage and can be owned by definitions and usages",
       "scope": []
     },
     {
@@ -17820,13 +17861,13 @@
       "ocl": "sha256:7c7585d8102bb246a72f753438460a266d8c99ce8da399fa26fa5585809aa67a",
       "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/interaction.go:invariant"
+        "internal/translate/migrate/interaction.go:scenario.invariant",
+        "internal/translate/migrate/interaction.go:scenario.placeAssert"
       ],
       "tests": [
-        "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants",
-        "internal/exec/runtime/robustness_sequenced_assertion_test.go:TestRuntimeRobustnessSequencedAssertion"
+        "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants"
       ],
-      "reason": "a state invariant is an `assert constraint` the scenario orders at its place among the messages, its names read on the covered lifeline's object, so the run checks it when it reaches it and fails with the violation; the assertion's condition is the invariant's specification",
+      "reason": "a state invariant is an event occurrence of the covered lifeline's usage asserting its condition (`assert constraint`), whose names are read on the lifeline's object; a condition reading the interaction's context, which the occurrence def has no access to, or prose is reported and not written; the assertion's condition is the invariant's specification",
       "scope": []
     },
     {
@@ -17847,13 +17888,13 @@
       "ocl": "sha256:bc31157fce84ffab846d8fd163536eea3ee37382a1e167f0089b27af2e26345b",
       "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/interaction.go:invariant"
+        "internal/translate/migrate/interaction.go:scenario.invariant",
+        "internal/translate/migrate/interaction.go:scenario.placeAssert"
       ],
       "tests": [
-        "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants",
-        "internal/exec/runtime/robustness_sequenced_assertion_test.go:TestRuntimeRobustnessSequencedAssertion"
+        "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants"
       ],
-      "reason": "a state invariant is an `assert constraint` the scenario orders at its place among the messages, its names read on the covered lifeline's object, so the run checks it when it reaches it and fails with the violation; the assertion is an owned step of the scenario",
+      "reason": "a state invariant is an event occurrence of the covered lifeline's usage asserting its condition (`assert constraint`), whose names are read on the lifeline's object; a condition reading the interaction's context, which the occurrence def has no access to, or prose is reported and not written; the assertion is owned by the lifeline's event occurrence",
       "scope": []
     },
     {
@@ -17873,15 +17914,14 @@
       "ocl": "sha256:7dd7aa85ebb22e0fde895972b2c4ec3804745cf2eddb1c313810cf6225e90842",
       "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/interaction.go:invariant",
-        "internal/ir/lower/action_graph.go:orderedAssertions",
-        "internal/exec/runtime/statements.go:assert"
+        "internal/translate/migrate/interaction.go:scenario.invariant",
+        "internal/translate/migrate/interaction.go:scenario.placeAssert"
       ],
       "tests": [
         "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants",
-        "internal/exec/runtime/robustness_sequenced_assertion_test.go:TestRuntimeRobustnessSequencedAssertion"
+        "tests/migrate/interaction_use_test.go:TestLifelineInvariantDoesNotReadTheContextsFeature"
       ],
-      "reason": "a state invariant is an `assert constraint` the scenario orders at its place among the messages, its names read on the covered lifeline's object, so the run checks it when it reaches it and fails with the violation; candidate erratum: the mapping creates a KerML Invariant; the SysML counterpart is an AssertConstraintUsage, which is written",
+      "reason": "a state invariant is an event occurrence of the covered lifeline's usage asserting its condition (`assert constraint`), whose names are read on the lifeline's object; a condition reading the interaction's context, which the occurrence def has no access to, or prose is reported and not written; candidate erratum: the mapping creates a KerML Invariant; the SysML counterpart is an AssertConstraintUsage, which is written",
       "scope": []
     },
     {
@@ -22520,6 +22560,15 @@
       ],
       "tests": [
         "tests/migrate/library_test.go:TestLibraryCallsComputeThroughTheV2Library"
+      ]
+    },
+    {
+      "behaviour": "UML ExceptionHandler, which the OMG mapping has no class for: each handler is diagnosed as having no v2 form (protected node, body, exception type or none) and its handlerBody is written as a reference action usage the migrated action never starts or performs",
+      "implementation": [
+        "internal/translate/migrate/activity.go:handled"
+      ],
+      "tests": [
+        "tests/migrate/exception_handler_test.go:TestExceptionHandlerBodyIsNeverStarted"
       ]
     }
   ]

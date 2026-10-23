@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
@@ -280,17 +281,49 @@ type Edit struct {
 // the line and column that file has it on.
 func (s *Session) LocatedDiagnostics() []Diagnostic {
 	defer s.enter()()
-	return s.locate(s.diagnostics())
+	return locate(s.bufferParts(), s.diagnostics())
 }
 
-// Locate places diagnostics reported over the session's buffer — a Result's —
-// in the submissions they are about, as LocatedDiagnostics does.
-func (s *Session) Locate(diags []diag.Diagnostic) []Diagnostic {
+// Locate places diags, a Result's diagnostics, in the submissions they are about
+// as LocatedDiagnostics does — in the buffer they were reported over, if res left it.
+func (s *Session) Locate(res Result, diags []diag.Diagnostic) []Diagnostic {
 	defer s.enter()()
-	return s.locate(diags)
+	parts := res.buffer
+	if parts == nil {
+		parts = s.bufferParts()
+	}
+	return locate(parts, diags)
 }
 
-func (s *Session) locate(diags []diag.Diagnostic) []Diagnostic {
+// bufferPart is one submission as the joined buffer holds it: its text, the
+// file it was loaded from (empty when typed) and the offset it starts at.
+type bufferPart struct {
+	origin, src string
+	start       int
+}
+
+// bufferParts lays the session's submissions out as its buffer joins them.
+func (s *Session) bufferParts() []bufferPart {
+	parts := make([]bufferPart, 0, len(s.snippets))
+	start := 0
+	for _, sn := range s.snippets {
+		parts = append(parts, bufferPart{origin: sn.origin, src: sn.src, start: start})
+		start += len(sn.src) + 1 // the newline joined() writes between snippets
+	}
+	return parts
+}
+
+// partAt returns the submission a buffer offset falls in, as snippetAt does.
+func partAt(parts []bufferPart, offset int) bufferPart {
+	for i, part := range parts {
+		if offset <= part.start+len(part.src) || i == len(parts)-1 {
+			return part
+		}
+	}
+	return bufferPart{}
+}
+
+func locate(parts []bufferPart, diags []diag.Diagnostic) []Diagnostic {
 	if len(diags) == 0 {
 		return nil
 	}
@@ -299,12 +332,13 @@ func (s *Session) locate(diags []diag.Diagnostic) []Diagnostic {
 		src   []byte
 		lines *source.LineIndex
 	}
-	indexes := make(map[int]indexed, len(s.snippets))
+	indexes := make(map[int]indexed, len(parts))
 	for _, d := range diags {
-		sn, start := s.snippetAt(d.Span.Offset)
+		part := partAt(parts, d.Span.Offset)
+		start := part.start
 		idx, ok := indexes[start]
 		if !ok {
-			idx.src = []byte(sn.src)
+			idx.src = []byte(part.src)
 			idx.lines = source.New(docName, idx.src).Lines()
 			indexes[start] = idx
 		}
@@ -313,7 +347,7 @@ func (s *Session) locate(diags []diag.Diagnostic) []Diagnostic {
 		out = append(out, Diagnostic{
 			Severity:    d.Severity.String(),
 			Message:     d.Message,
-			File:        sn.origin,
+			File:        part.origin,
 			Line:        p.Line,
 			Column:      p.Col,
 			UTF16Column: utf16Column(idx.src, d.Span.Offset-start, p.Col),
@@ -515,6 +549,40 @@ func (s *Session) RunActionWithInputs(name string, inputs []string, performer ..
 		return s.withTrace(standing(Verdict{Subject: name, Status: VerdictUnresolved, Lines: lines, Values: values}, plan))
 	}
 	return s.withTrace(standing(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values}, plan))
+}
+
+// RunOccurrence performs an occurrence def as the interaction its body states,
+// which is `%occurrence`: each message is transferred from the lifeline holding
+// the event it leaves to the one holding the event it reaches, in the order the
+// events admit. The values are the transfers performed, in order.
+func (s *Session) RunOccurrence(name string) Verdict {
+	defer s.enter()()
+	return s.runOccurrence(name)
+}
+
+// runOccurrence is RunOccurrence inside a command already holding the session,
+// as `%occurrence` is.
+func (s *Session) runOccurrence(name string) Verdict {
+	ctx, err := s.getOrCreateRuntime()
+	if err != nil {
+		return s.withTrace(unresolvedVerdict(name, fmt.Errorf("%w: %w", errRuntimeInit, err).Error()))
+	}
+	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage)
+	if err != nil {
+		return s.withTrace(unresolvedVerdict(name, err.Error()))
+	}
+	run, err := ctx.ExecuteOccurrence(sym)
+	if err != nil {
+		return s.withTrace(unresolvedVerdict(name, err.Error()))
+	}
+	values := make([]NamedValue, 0, len(run.Transfers))
+	lines := make([]string, 0, len(run.Transfers))
+	for i, tr := range run.Transfers {
+		text := fmt.Sprintf("%s -> %s", tr.FromEvent, tr.ToEvent)
+		values = append(values, NamedValue{Name: fmt.Sprintf("%d %s", i+1, tr.Name), Value: text})
+		lines = append(lines, fmt.Sprintf("message %s: %s", tr.Name, text))
+	}
+	return Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values}
 }
 
 // RunStateMachine starts a state machine outside the prompt, taking only its

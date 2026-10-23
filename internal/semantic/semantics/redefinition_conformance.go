@@ -45,6 +45,7 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 	}
 	var out []ConformanceViolation
 	written := map[*symbols.Symbol]bool{}
+	redefined := map[*symbols.Symbol]bool{}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil {
 			continue
@@ -59,6 +60,7 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 		written[target] = true
 		ref := ast.Node(rel.Target)
 		if rel.Kind == ast.RelRedefines {
+			redefined[target] = true
 			out = append(out, m.directionViolations(sym, traits, target, ref)...)
 		}
 		out = append(out, m.restrictionViolations(sym, traits, target, ref)...)
@@ -75,8 +77,12 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 	}
 	// A parameter redefines the parameter at its position implicitly (KerML 7.4.7.2),
 	// and that Redefinition is held to the direction and restriction rules like a written one.
+	// A written clause naming the counterpart was judged above: for direction only a
+	// redefinition is, since a subsetting one is not held to it.
 	for _, target := range m.implicitParameterCounterparts(sym) {
-		out = append(out, m.directionViolations(sym, traits, target, sym.Decl)...)
+		if !redefined[target] {
+			out = append(out, m.directionViolations(sym, traits, target, sym.Decl)...)
+		}
 		if !written[target] {
 			out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
 		}
@@ -105,16 +111,15 @@ func (m *Model) conformanceTarget(sym *symbols.Symbol, rel *ast.Relationship) *s
 	return found
 }
 
-// directionViolations reports a redefinition whose declared direction differs
-// from the redefined feature's. An undeclared direction takes the redefined
-// one's, and a redefined `inout` admits any direction.
+// directionViolations reports a redefinition whose direction does not conform (KerML 8.3.3.3.8):
+// a redefined `in`/`out` must be restated as such, `inout` by some direction, none by none only.
 func (m *Model) directionViolations(sym *symbols.Symbol, traits featureTraits,
 	target *symbols.Symbol, ref ast.Node) []ConformanceViolation {
-	if traits.Direction == ast.DirNone {
+	targetDir := m.directionThrough(owningTypeOf(sym), target)
+	if targetDir == ast.DirNone || targetDir == traits.Direction {
 		return nil
 	}
-	targetDir := m.directionThrough(owningTypeOf(sym), target)
-	if targetDir == ast.DirNone || targetDir == ast.DirInOut || targetDir == traits.Direction {
+	if targetDir == ast.DirInOut && traits.Direction != ast.DirNone {
 		return nil
 	}
 	return []ConformanceViolation{{

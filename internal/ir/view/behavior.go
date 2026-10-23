@@ -60,6 +60,32 @@ func notShown(r *Renderer, elem *symbols.Symbol, what, rendering string) string 
 	return fmt.Sprintf("%s %s is no %s; %s %s rendering does not show it", declKind(elem), r.notationName(elem), what, article(rendering), rendering)
 }
 
+// rootsByOwner groups the roots of kind rootKind by the nearest owner of one of
+// ownerKinds declaring them, keeping only owners with two or more such roots
+// and not drawn themselves, whose body the roots are then drawn apart from.
+func rootsByOwner(roots map[*symbols.Symbol]*Node, rootKind symbols.SymbolKind, ownerKinds ...symbols.SymbolKind) map[*symbols.Symbol]map[*symbols.Symbol]*Node {
+	out := map[*symbols.Symbol]map[*symbols.Symbol]*Node{}
+	for sym, node := range roots {
+		if sym.Kind != rootKind {
+			continue
+		}
+		owner := behaviorOwnerOf(sym, ownerKinds...)
+		if owner == nil || roots[owner] != nil {
+			continue
+		}
+		if out[owner] == nil {
+			out[owner] = map[*symbols.Symbol]*Node{}
+		}
+		out[owner][sym] = node
+	}
+	for owner, group := range out {
+		if len(group) < 2 {
+			delete(out, owner)
+		}
+	}
+	return out
+}
+
 // renderState builds one state machine or state node with shared IDs.
 func (r *Renderer) renderState(view *symbols.Symbol, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) *Node {
@@ -575,6 +601,7 @@ func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol
 	ids := &nodeIDs{}
 	drawn := map[symbols.ElementKey]*Node{}
 	var others []*symbols.Symbol
+	roots := map[*symbols.Symbol]*Node{}
 	for _, elem := range exposed {
 		if elem.Kind != symbols.SymbolActionDef && elem.Kind != symbols.SymbolActionUsage {
 			others = append(others, elem)
@@ -582,12 +609,53 @@ func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol
 		}
 		if node, ok := r.renderAction(view, elem, ids, out, recordDrawn(drawn)); ok {
 			out.Roots = append(out.Roots, node)
+			roots[elem] = node
 		}
 	}
+	r.rootSuccessionEdges(view, roots, out)
 	used := r.exposedRelationships(view, exposed, ids, drawn, out)
 	for _, elem := range others {
 		if !used[elem] {
 			out.Notices = append(out.Notices, notShown(r, elem, "action", "action"))
+		}
+	}
+}
+
+// rootSuccessionEdges draws the successions of one action between actions of
+// it exposed as roots of their own, read from the action's lowered graph and
+// labelled as actionEdges labels them within the action.
+func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.Symbol]*Node, out *Rendering) {
+	for owner, actions := range rootsByOwner(roots, symbols.SymbolActionUsage, symbols.SymbolActionDef, symbols.SymbolActionUsage) {
+		graph, err := lower.ToActionGraphWith(owner.Decl, declScope(owner), r.resolver)
+		if err != nil {
+			continue
+		}
+		// A node inherited from another document is looked up in that document:
+		// its span could equally be a declaration of the owner's own.
+		actionOf := func(node ast.Node) *Node {
+			doc := docOf(graph, node, owner.DocName)
+			root := r.documentRoot(doc)
+			if root == nil {
+				return nil
+			}
+			return actions[root.DeclaredAt(nodeOrigin(doc, node).Span)]
+		}
+		for _, src := range graph.Nodes {
+			for _, edge := range graph.Edges[src] {
+				from, to := actionOf(src), actionOf(edge.Target)
+				if from == nil || to == nil || from == to {
+					continue
+				}
+				decl := edge.Decl
+				if edge.Gate != nil {
+					decl = edge.Gate
+				}
+				edgeDoc := docOf(graph, decl, owner.DocName)
+				out.Edges = append(out.Edges, Edge{From: from.ID, To: to.ID, Kind: EdgeSuccession,
+					Label:  r.successionLabel(edge, edgeDoc, owner.DocName, r.declaredNameSynthesized(owner, decl)),
+					Origin: nodeOrigin(edgeDoc, decl), Route: r.declaredRouteOf(view, owner, decl, out),
+					Style: r.declaredEdgeDress(view, owner, decl, from.ID, to.ID, out)})
+			}
 		}
 	}
 }

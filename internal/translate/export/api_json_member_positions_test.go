@@ -83,9 +83,11 @@ func TestAPIJSONMappingNamesCountDirectOwnedDeclarations(t *testing.T) {
 				if err := json.Unmarshal(document, &elements); err != nil {
 					t.Fatalf("decode API JSON: %v", err)
 				}
+				// The marker stays: without it the document is an external
+				// writer's element form and reads through that path.
 				for _, element := range elements {
 					for key := range element {
-						if strings.HasPrefix(key, "sysx:") {
+						if strings.HasPrefix(key, "sysx:") && key != apiJSONStatedDefaultsKey {
 							delete(element, key)
 						}
 					}

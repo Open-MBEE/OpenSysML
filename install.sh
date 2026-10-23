@@ -361,7 +361,8 @@ fetch_manifest() {
 # manifest_digest <asset>: its digest in the manifest, empty when unlisted. A line
 # repeated verbatim counts once, so two lines of output mean two different digests.
 manifest_digest() {
-	awk -v name="$1" '{ n = $2; sub(/^\*/, "", n); if (n == name && !seen[$1]++) print $1 }' "$work/SHA256SUMS.txt"
+	name=$1
+	awk -v name="$name" '{ n = $2; sub(/^\*/, "", n); if (n == name && !seen[$1]++) print $1 }' "$work/SHA256SUMS.txt"
 }
 
 info "Installing OpenSysML ($release_name) for $platform"

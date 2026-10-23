@@ -48,8 +48,8 @@ func runRenderModeMisuse() string {
 		return "-render-run cannot be combined with -query"
 	case outputPath != "":
 		return "-render-run names each output path; do not combine it with -output"
-	case renderPalette != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderUnplaced != "":
-		return "-render-palette, -render-style, -render-ports, -render-lines and -render-unplaced apply to model renderings, not -render-run"
+	case renderPalette != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderUnplaced != "" || renderCompartments != "":
+		return "-render-palette, -render-style, -render-ports, -render-lines, -render-unplaced and -render-compartments apply to model renderings, not -render-run"
 	}
 	return ""
 }

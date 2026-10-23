@@ -57,3 +57,19 @@ test("nodeMenu offers no edits without a palette", () => {
   const commands = nodeMenu(declared, undefined).filter((item) => item.command).map((item) => item.command);
   assert.deepEqual(commands, [{ kind: "reveal", id: "n1" }]);
 });
+
+
+test("nodeMenu offers related elements on a named node when the server answers them, hiding only what the panel included", () => {
+  const plain = nodeMenu(imported, undefined, { related: true });
+  assert.ok(!plain.some((item) => item.label === "Show related elements…"), "a node with no fqn has nothing to look up by");
+  const own = nodeMenu(declared, undefined, { related: true });
+  assert.deepEqual(own.slice(1), [
+    { label: "Go to declaration", command: { kind: "reveal", id: "n1" } },
+    { label: "", separator: true },
+    { label: "Show related elements…", command: { kind: "related", id: "n1" } },
+    { label: "Hide from diagram", command: { kind: "hide", id: "n1" }, disabled: true },
+  ]);
+  const included = nodeMenu({ ...declared, included: true }, undefined, { related: true });
+  assert.deepEqual(included.at(-1), { label: "Hide from diagram", command: { kind: "hide", id: "n1" }, disabled: false });
+  assert.ok(!nodeMenu(declared, undefined).some((item) => item.label === "Hide from diagram"), "a server without the request offers neither entry");
+});

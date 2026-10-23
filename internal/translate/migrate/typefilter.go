@@ -190,7 +190,7 @@ var metaclassTypes = map[string]v2Types{
 	"Activity":         withoutSubtypes(v2Types{types: []string{typeActionDef, typeCalcDef}}, typeStateDef),
 	"OpaqueBehavior":   withoutSubtypes(v2Types{types: []string{typeActionDef, typeCalcDef}}, typeStateDef),
 	"FunctionBehavior": {types: []string{typeCalcDef}},
-	"Interaction":      withoutSubtypes(v2Types{types: []string{typeActionDef}}, typeStateDef, typeCalcDef),
+	"Interaction":      withoutSubtypes(v2Types{types: []string{typeOccurrenceDef}}, typeStateDef, typeCalcDef),
 	"StateMachine":     {types: []string{typeStateDef}},
 	"Operation": withoutSubtypes(v2Types{types: []string{typeActionDef}, operations: true,
 		note: "an operation is its block's action usage once migrated, listed by name, or the action def one a state runs keeps"},

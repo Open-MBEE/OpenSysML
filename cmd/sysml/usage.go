@@ -740,6 +740,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.IntVar(&renderDepth, "render-depth", 0, "How many levels of nested elements -render and -render-all draw below each exposed element of a tree or interconnection rendering, overriding the depth the view states; 0 (default) draws every level the view's own depth allows")
 	fs.StringVar(&renderOverlay, "render-overlay", "", "What -render or -render-all draws over a requirement rendering's structure: verdicts runs the verification cases verifying each requirement and colours and labels it by their verdicts; default none, a purely structural drawing")
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
+	fs.StringVar(&renderCompartments, "render-compartments", "", "How a tree rendering of -render, -render-all or a document diagram folds a node's owned members into compartment rows of its box: positioned (default) folds only the members without a Layout of a tree some Layout positions, most folds every owned usage that no Layout, nested definition or package keeps a node (the pilot's COMPMOST), ports folds the port usages with the ports nested under them (COMPTREE)")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
 	fs.StringVar(&listWhat, "list", "", "List the model's documents, views, diagrams (the graph-shaped views), pseudo-views or all of them, by the qualified names -render-document and -render read: documents, views, diagrams, pseudo-views or all")
@@ -881,6 +882,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("render-palette", "<palette>"),
 			usage.Opt("render-link", "<template>"),
 			usage.Opt("render-unplaced", "<placement>"),
+			usage.Opt("render-compartments", "<folding>"),
 			usage.Opt("render-style", "<style>"),
 			usage.Opt("render-ports", "<display>"),
 			usage.Opt("render-lines", "<routing>"),

@@ -14294,7 +14294,13 @@ type RenderViewRequest struct {
 	Show []string `protobuf:"bytes,4,rep,name=show,proto3" json:"show,omitempty"`
 	// How many levels of nested elements to draw below each exposed element,
 	// overriding the depth the view states; 0 draws every level.
-	Depth         int32 `protobuf:"varint,5,opt,name=depth,proto3" json:"depth,omitempty"`
+	Depth int32 `protobuf:"varint,5,opt,name=depth,proto3" json:"depth,omitempty"`
+	// How a tree rendering folds a node's owned members into compartment rows,
+	// as view.ParseCompartments reads it: "" or "positioned" (the default, only
+	// the layout-less members of a tree some Layout positions), "most" (every
+	// owned usage no Layout, nested definition or package keeps a node) or
+	// "ports" (the port usages with the ports nested under them).
+	Compartments  string `protobuf:"bytes,6,opt,name=compartments,proto3" json:"compartments,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -14362,6 +14368,13 @@ func (x *RenderViewRequest) GetDepth() int32 {
 		return x.Depth
 	}
 	return 0
+}
+
+func (x *RenderViewRequest) GetCompartments() string {
+	if x != nil {
+		return x.Compartments
+	}
+	return ""
 }
 
 // RenderViewResponse carries all machine-readable fields of the rendering.
@@ -14507,8 +14520,11 @@ type RenderNode struct {
 	Ports           []*RenderPort          `protobuf:"bytes,10,rep,name=ports,proto3" json:"ports,omitempty"`
 	Origin          *Span                  `protobuf:"bytes,11,opt,name=origin,proto3" json:"origin,omitempty"`
 	// Unset when no layout annotates the node; unplaced when the layout only folds or hides it.
-	Geometry      *RenderGeometry `protobuf:"bytes,12,opt,name=geometry,proto3" json:"geometry,omitempty"`
-	Style         *RenderStyle    `protobuf:"bytes,13,opt,name=style,proto3" json:"style,omitempty"`
+	Geometry *RenderGeometry `protobuf:"bytes,12,opt,name=geometry,proto3" json:"geometry,omitempty"`
+	Style    *RenderStyle    `protobuf:"bytes,13,opt,name=style,proto3" json:"style,omitempty"`
+	// The compartment of the parent node this node is drawn as a row of
+	// ("attributes", "parts", "ports", ...); unset for a node drawn as a box.
+	Compartment   string `protobuf:"bytes,14,opt,name=compartment,proto3" json:"compartment,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -14632,6 +14648,13 @@ func (x *RenderNode) GetStyle() *RenderStyle {
 		return x.Style
 	}
 	return nil
+}
+
+func (x *RenderNode) GetCompartment() string {
+	if x != nil {
+		return x.Compartment
+	}
+	return ""
 }
 
 // RenderPort is a feature drawn on a node's border.
@@ -17986,14 +18009,15 @@ const file_sysml_proto_rawDesc = "" +
 	"\x16RenderDocumentResponse\x12\x1a\n" +
 	"\bmarkdown\x18\x01 \x01(\tR\bmarkdown\x12\x12\n" +
 	"\x04html\x18\x02 \x01(\tR\x04html\x12\x1b\n" +
-	"\tfile_name\x18\x03 \x01(\tR\bfileName\"\x86\x01\n" +
+	"\tfile_name\x18\x03 \x01(\tR\bfileName\"\xaa\x01\n" +
 	"\x11RenderViewRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x12\n" +
 	"\x04view\x18\x02 \x01(\tR\x04view\x12\x14\n" +
 	"\x05ports\x18\x03 \x01(\tR\x05ports\x12\x12\n" +
 	"\x04show\x18\x04 \x03(\tR\x04show\x12\x14\n" +
-	"\x05depth\x18\x05 \x01(\x05R\x05depth\"\xec\x02\n" +
+	"\x05depth\x18\x05 \x01(\x05R\x05depth\x12\"\n" +
+	"\fcompartments\x18\x06 \x01(\tR\fcompartments\"\xec\x02\n" +
 	"\x12RenderViewResponse\x12\x12\n" +
 	"\x04view\x18\x01 \x01(\tR\x04view\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +
@@ -18006,7 +18030,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05notes\x18\t \x03(\v2\x11.sysml.RenderNoteR\x05notes\x12\x18\n" +
 	"\anotices\x18\n" +
 	" \x03(\tR\anotices\x12\x14\n" +
-	"\x05shown\x18\v \x03(\tR\x05shown\"\x8d\x03\n" +
+	"\x05shown\x18\v \x03(\tR\x05shown\"\xaf\x03\n" +
 	"\n" +
 	"RenderNode\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -18022,7 +18046,8 @@ const file_sysml_proto_rawDesc = "" +
 	" \x03(\v2\x11.sysml.RenderPortR\x05ports\x12#\n" +
 	"\x06origin\x18\v \x01(\v2\v.sysml.SpanR\x06origin\x121\n" +
 	"\bgeometry\x18\f \x01(\v2\x15.sysml.RenderGeometryR\bgeometry\x12(\n" +
-	"\x05style\x18\r \x01(\v2\x12.sysml.RenderStyleR\x05style\"b\n" +
+	"\x05style\x18\r \x01(\v2\x12.sysml.RenderStyleR\x05style\x12 \n" +
+	"\vcompartment\x18\x0e \x01(\tR\vcompartment\"b\n" +
 	"\n" +
 	"RenderPort\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +

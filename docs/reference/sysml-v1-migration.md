@@ -55,6 +55,16 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
   the interchange export every SysML v1 tool offers, and a tool's export is read as far as it
   is this standard. The UML and SysML namespace versions are not pinned; any
   `http://www.omg.org/spec/UML/…` / `…/SysML/…` namespace is recognized.
+- **Eclipse UML2 serializations of the SysML profile**, as Cameo's "Eclipse UML2 (v5.x)
+  XMI" export writes them: a package of the profile with no URI of its own gets the hostless
+  nsURI Eclipse UML2 derives from its qualified name — `http:///SysML/Blocks.ecore`,
+  `http:///SysML/Requirements.ecore`, `http:///SysML/PortsFlows.ecore`, and so on down to
+  `http:///SysML/Libraries/PrimitiveValueTypes.ecore`. Any `http:///SysML/….ecore` namespace
+  (empty host, the `SysML` root path, the `.ecore` suffix, no query or fragment) classifies
+  stereotype applications through the same mappings as the OMG and Papyrus profiles; a
+  standard `Block` applied to a UML class becomes a `part def`. A profile under another root
+  (`http:///Acme/Stereotypes.ecore`), another host, or a URI with a query or fragment is not
+  thereby standard SysML.
 - **Zip archives holding the XMI**, a MagicDraw / Cameo `.mdzip` project among them: the
   archive's `uml_model.model` entries are read, or, in an archive without them, every `.xmi`,
   `.xml` and `.uml` entry that is an XMI document. Used projects (archives the model refers
@@ -96,7 +106,8 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
   is an operand of the element owning the extension, in document order, however the tool
   wraps it; one inside a serialized diagram is the diagram's content, not an operand.
 - Only stereotypes from the OMG SysML and UML standard profiles, in the OMG namespaces or
-  Papyrus' `…/papyrus/sysml/…` ones, classify elements — applied directly, or through a user
+  Papyrus' `…/papyrus/sysml/…` ones or Eclipse UML2's hostless `http:///SysML/….ecore`
+  ones, classify elements — applied directly, or through a user
   stereotype that specializes one (see [Profiles and stereotypes](#profiles-and-stereotypes)).
   Any other profile's «Block» or «Requirement» with no standard general — a user's own, a
   tool's customization layer over SysML, or another profile Papyrus hosts — carries no SysML
@@ -307,23 +318,21 @@ ties each of its mapping classes to the code that carries it out (or records why
 | Absolute TimeEvent a trigger refers to | `accept at <instant>` on the transition or accept action, the instant an attribute of the `state def`/`action def` typed `Time::TimeInstantValue` when `when` is a number with a time unit or an expression that resolves, read on the simulation clock, which starts at 0 | approximated (the clock's origin is the run's, not the calendar's) |
 | Event (of any kind) no trigger refers to | — | skipped, counted as a model element nothing refers to |
 | SignalEvent whose signal is not written, TimeEvent whose `when` is not a number with a time unit | comment; the transition that refers to it drops the trigger | **unmapped** — the reason names the signal or the time |
-| Interaction | a scenario `action def` on the owning block: each message in occurrence order as a step — a signal send `send new Sig(args) to context.part`, a `synchCall`/`asynchCall` of an operation `perform action x ::> part.op { in p = arg; }` (`perform action x : Owner::Op ::> part.op { … }` for an operation kept as an `action def`) with the arguments bound to the `in` parameters by name or position, a `reply` an assignment of the call's `out` to the caller lifeline's attribute the reply's argument names | approximated (the lifelines' own behavior is not part of it; an `asynchCall` waits for the callee where v1 did not) |
-| Lifeline | the feature path from the owning block to the part, port or reference it `represents`, through the parts and their types (`drive.motor`), or the interaction's `in` parameter | mapped |
-| Lifeline with a `selector`, standing for an `out` parameter, a property no part of the owning block reaches or one reached along two paths, or for no ConnectableElement; Interaction owned by a Collaboration or by no block | comment: the whole interaction is refused | **unmapped** — the reason names the lifeline |
-| CombinedFragment `alt`, `opt` | `action x { if <guard> { … } else { … } }` when every guard parses as a v2 expression whose names resolve | mapped |
-| CombinedFragment `loop` | `for i in 1..n { … }` when `minint = maxint`, `while <guard> { … }` when the guard is unbounded; a guard with bounds is refused | mapped |
-| CombinedFragment `par` | `fork x;` … `join xEnd;` around the operands | mapped |
-| CombinedFragment `seq`, `strict` | the operands in order | mapped |
-| CombinedFragment with a guard that does not parse or resolve, an `alt` with an unguarded operand before its last, or of another operator (`critical`, `neg`, `assert`, `ignore`, `consider`, `break`) | comment: the whole interaction is refused | **unmapped** — the reason quotes the guard or names the operator |
-| Message `createMessage`, `deleteMessage`; a message without a signal or operation | comment where the step would go; the steps around it are written | **unmapped** — a part exists for as long as its owner does |
-| Message binding no argument to a parameter or signal attribute that must hold a value (no default, lower bound above zero), or one whose argument is not written | comment: the whole interaction is refused | **unmapped** — the reason names the parameter or attribute |
-| DurationConstraint on a message, or on the occurrences of two messages of a scenario | a wait before the message's step, `accept after lo [SI::s]` or `accept after RandomFunctions::uniform(lo, hi) [SI::s]` as for an action; between two messages, a wait before the later step when they are adjacent, else `fork`ed after the earlier step and `join`ed before the later one, so the steps between count toward the interval | approximated (a v2 send arrives at once; a tool's duration mode is a run setting) |
-| DurationConstraint between two messages of a scenario whose steps lie in different fragments (one in an `alt` operand, the other outside it) | comment before the later step | **unmapped** — a wait forked in one fragment cannot be joined in another |
-| InteractionUse | `perform action <use> ::> <scenario> { in p = arg; }` at its place among the steps: the referenced interaction's scenario, on the context itself when the interaction is the context's or one it inherits, else on the one object of its block a covered lifeline stands for; each argument bound by name or position to an `in` parameter of the interaction; a message entering an actual gate is carried by the performed scenario's message leaving the formal gate of that name | mapped (approximated when a return value is named, since a scenario binds no return parameter, or a gate message's own arguments differ from the inner message's) |
-| InteractionUse referring to no interaction, to one that is not migrated, or to the interaction itself directly or through others; an argument left unbound for a parameter that must hold a value; a message entering its gate that is not sent just before it, since the performed scenario carries that message where the use stands | comment: the whole interaction is refused | **unmapped** — the reason names the reference or the parameter |
-| StateInvariant in an interaction with messages | `assert constraint <name> { <expr> }` ordered among the steps by succession, `first spin then fast;`, its names read on the covered lifeline's object (`speed` → `drive.motor.speed`) and never on a context feature of the same name, else in the context; the run checks it when the flow reaches it and fails with the violation | mapped |
-| StateInvariant whose condition does not parse or resolve, or is not Boolean, or reads an attribute of the covered lifeline's object that has no v2 declaration | comment; the steps around it are written | **unmapped** — the reason quotes the condition |
-| Interaction with no message | comment naming what it records (state invariants under time constraints: a timing trace); DurationConstraint, TimeConstraint, observation on an interaction | **unmapped** — no scenario step performs it |
+| Interaction | an `occurrence def` nested in the owning block (the SysML v2 sequence form the OMG mapping names): a usage per lifeline typed by the represented property's type — `ref part m : Motor { event occurrence spinReceived; then event occurrence spunSent; }` — holding the lifeline's event occurrences ordered by `then`, and a `message` per v1 message in occurrence order between the events it leaves and reaches, `message spin from c.spinSent to m.spinReceived;`; the block's `occurrence spinup : Spinup { ref part :>> m = drive.motor; }` binds each lifeline to the feature it stands for. A signal message carries the signal as its payload, `message go of goPayload : Go = new Go(n = 3) from … to …;`; a `synchCall`/`asynchCall` of an operation is performed at the receiving event, `event occurrence spinReceived { perform action spinCall ::> Motor::spin { in rpm[1] = 30.0; } }`, its arguments bound to the operation's `in` and `inout` parameters by name or position; a `reply` is a message carrying the call's result as its payload, `message spun of result : Real = m.spinReceived.spinCall.result from m.spunSent to c.spunReceived;`. The interaction's `in` parameters are attributes of the def, keeping their default values, which its occurrence usages bind; a «TestCase» interaction's are the `in` parameters of its `verification def` | mapped (a call message and a reply are approximated: a sequence states transfers, not assignments, so the attribute a reply's argument names is not assigned; an argument reading the owning block's features is left unbound, since the nested def has no access to them) |
+| Lifeline | the usage above, typed by the represented property's type, `part`/`item`/`occurrence` by the type's kind (`port` for a port); one standing for a feature of the owning block (through its parts and their types, `drive.motor`) is bound to it in the block's occurrence usage of the def; one standing for the interaction's own property — a use case's black-box scenario — is that property's usage; an untyped property is a `part` | mapped |
+| Lifeline with a `selector`, standing for a property no part of the owning block reaches or one reached along two paths, or for no ConnectableElement; Interaction owned by a Collaboration or by no block | comment: the whole interaction is refused | **unmapped** — the reason names the lifeline |
+| CombinedFragment of any operator, InteractionOperand | the operands' messages in occurrence order between comments naming the operator and each operand's guard, `/* alt [mode == 1] */ … /* else */ … /* end alt */`; a guard reading the owning block's features is kept as its own text | approximated — v2 sequence notation has no combined-fragment form the renderer draws; `par` operands are written one after the other |
+| Message `createMessage`, `deleteMessage` | an ordinary message to the created or deleted object's event | approximated — v2 sequence notation has no creation or destruction message |
+| Message without a signal or operation | a message with no payload; the receiving event performs nothing | approximated |
+| Message binding no argument to a parameter or signal attribute that must hold a value (no default, lower bound above zero), or one whose argument is not written | the message with the parameter or attribute unbound | approximated — the reason names the parameter or attribute |
+| Message leaving or entering a formal gate | a message with no ends, `message kickSpin;` (the grammar states a source and target together), its receiving or sending event still written | approximated — v2 sequence notation has no gate |
+| DurationConstraint, TimeConstraint, Duration, GeneralOrdering | comment; the events the constraint spans are ordered by the lifelines' successions | **unmapped** — no form in v2 sequence notation times them |
+| ExecutionSpecification | — ; the events between its start and finish are ordered without it | skipped |
+| InteractionUse | an occurrence usage typed by the referenced interaction's def at its place among the messages, `occurrence warm : 'Spin Up' { attribute :>> rpm = 30.0; }`, each argument bound by name or position to the attribute the referenced interaction's `in` parameter is written as, ordered by successions from the covered lifelines' events before it and to their next ones, `succession first warm then m.at30;`; a message entering an actual gate reaches the usage, `message cmd from c.cmdSent to kick;` | mapped (approximated when a gate message's own arguments differ from the inner message's) |
+| InteractionUse referring to no interaction, to one that is not migrated, or to the interaction itself directly or through others; a message entering its gate that is not sent just before it | comment: the whole interaction is refused | **unmapped** — the reason names the reference |
+| StateInvariant | an event occurrence of the covered lifeline's usage asserting the condition, `event occurrence at30 { assert constraint { speed == 30.0 } }`, its names read on the lifeline's object | mapped |
+| StateInvariant whose condition does not parse or resolve, or is not Boolean, reads an attribute of the covered lifeline's object that has no v2 declaration, or reads the owning block's features | comment; the events around it are written | **unmapped** — the reason quotes the condition |
+| Interaction with no message | the occurrence def with its lifeline usages and no message | mapped |
 | OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve or a JavaScript expression of the [subset](#the-opaque-language-subset) (`Math.max(a, b)` → `RealFunctions::max(a, b)`) of the type of its one return or output parameter — a behavior with several has no one result and is written as an `action def`; an `action def` whose body is the translated `assign` sequence when the script is statements; otherwise `action def` keeping the body as a comment and the report naming the token refused | mapped / approximated |
 | Member a behavior owns that its body has no place for: a constraint, attribute, nested classifier, operation or nested behavior of an OpaqueBehavior, FunctionBehavior or Interaction, a port of an Activity or StateMachine | comment; a diagram showing it does not expose it | **unmapped** — the reason names the behavior kind and its body |
 | Operation | the owner's composite usage `action <op> { … }`, carrying the operation's parameters and its `method` behavior as body (an Activity as the flow, an OpaqueBehavior as expression or comment), the method's parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action <op>`; a «DirectedFeature» operation keeps its direction (`in`, `out`, `inout`) on the usage; no `action def <Op>` is synthesized, and the usage is not a `perform action`: every call chains to it, `perform action <call> ::> <target>.<op>` (see [Operations are the block's actions](#operations-are-the-blocks-actions)) | mapped |
@@ -338,6 +347,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | ControlFlow, ObjectFlow, Transition, Connector, Dependency, Extend, «Satisfy», «Verify» shown by a diagram and unnamed in v1 | the member is written with a name spelled from its written ends — `succession 'start to call' first start then call;`, `flow 'a.out to b.in' from a.out to b.in;`, `transition 'Wait accept Sig then Run' first Wait accept Sig then Run;`, `connection 'a.p to b.q' connect a.p to b.q;`, `binding 'a.p = b.q' bind a.p = b.q;`, `dependency 'A to B' from A to B;`, `satisfy requirement 'satisfy R' : R;`, `verify requirement 'verify R' : R;` inside a named `objective` — so the view can `expose` it; a name already taken in the body is numbered (`'a to b 2'`); an edge no diagram shows is written as before, anonymous (see [Edges a diagram shows](#edges-a-diagram-shows)) | mapped |
 | Diagram whose owner has no v2 body (a region, a property, an enumeration, an action node, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the action def (or the operation whose method it is) an action node belongs to, the package, or the document's top level — and the note says where | approximated |
 | Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates, and the note says what the diagram draws — nothing at all, free symbols only, or elements the tool's list omits — when the archive's stream tells; a diagram of pasted pictures alone is a view drawing them (see [Pictures pasted onto a diagram](#pictures-pasted-onto-a-diagram)) | approximated |
+| Requirement Table or Refine Requirement Matrix whose representation lists no element and names no symbol stream (Cameo stores none for these kinds) | the view exposes the `requirement`s, or the «Refine» connections and the usages they join, written under the diagram's owner; the note says the tool stored no rows (cells) and that the view is reconstructed from the owning scope, counting what it exposes | approximated |
 | Diagram named like a member of the body it is written in — a «View» class's `view` usage of the same name in the same package, a state, an action | renamed `Name 2`, `Name 3`… past the taken names | approximated |
 | Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists — nothing when there is none | approximated |
 | Diagram no written element can hold: every ancestor is library content or otherwise unwritten | comment | **unmapped** |
@@ -415,7 +425,26 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 | block definition, class, package, object, component, deployment, profile and other structure diagrams, and requirement diagrams | `Views::asTreeDiagram`; a requirement diagram's tree draws the requirements with their nested requirements and the satisfy, verify, derive and refine relationships it shows as dashed edges |
 | an activity diagram whose owner is written as an `action def`, a state machine (or statechart) diagram whose owner is written as a `state def`, showing a node or edge of its graph | `view : StandardViewDefinitions::ActionFlowView` / `StateTransitionView`, rendered `Views::asInterconnectionDiagram` |
 | a use case diagram | `Views::asInterconnectionDiagram` over the actors' `part` usages, the `use case` and `requirement` usages and the connections written for the actor associations, includes, extends and «Refine»s it shows; the renderer draws a use case's subject and `actor` parameters as pins on its node, not as nested nodes, so an actor is one node and its association one line ending at the use case |
-| other behavior diagrams (sequence, an activity diagram of a package or one showing nothing of its activity's graph), content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
+| a sequence diagram | `view : StandardViewDefinitions::SequenceView` exposing the interaction's `occurrence def`, with a `DiagramLayout::Layout` per lifeline head and a `DiagramLayout::Route` per message line from the diagram's symbols |
+| other behavior diagrams (an activity diagram of a package or one showing nothing of its activity's graph), content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
+
+A Cameo **Requirement Table** or **Refine Requirement Matrix** is stored without its content:
+the tool computes the table's rows and the matrix's cells from the diagram's owner each time it
+opens the diagram, and its `DiagramRepresentationObject` carries a `binaryObject` with no
+`streamContentID` (no symbol stream) and no `usedObjects`, while the scope is serialized nowhere
+in the model file either — unlike a Generic Table, whose rows are its `usedObjects`. The view of
+such a diagram is *reconstructed* from the owning scope by rule rather than migrated: a
+Requirement Table owned by `P` exposes every `requirement` written under `P` (nested and
+contained, one `expose` each, in document order); a Refine Requirement Matrix owned by `P`
+exposes every «Refine» written under `P` — the `connection 'A refines B'` and the two usages it
+joins, or the `dependency` when no connection is written for it. The report row says so: `the
+tool stored no rows for this table; reconstructed from the owning scope: 4 requirements exposed`
+(`… no cells for this matrix; … 2 refinements exposed with the usages they join`), or that no
+requirement is written under the owner, and the view is approximated. A diagram of either kind
+that does list `usedObjects` or has a symbol stream is migrated from what it lists, as any other;
+one that carries a «DiagramTable» or «DependencyMatrix» application is lowered from that
+application's `scope`, which is the tool's real source, as [Tables, matrices and relation
+maps](#tables-matrices-and-relation-maps) describes.
 
 A qualified name is written from the root Model's package — `Catalog::Parts::Wheel`, or just
 `Parts::Wheel` where no scope between the reference and the package declares a `Parts` of its own —
@@ -458,7 +487,7 @@ otherwise a name spelled from what it is written between, in the body it is writ
 | Dependency, Extend, «Refine» | `dependency 'A to B' from A to B;` (`allocation` for an «Allocate»; `connection 'A extends B' connect A to B;` for an Extend, `connection 'A refines B' connect A to B;` for a «Refine» between usages; a relationship its author named keeps that name, and the connection's `doc` is its kind, `doc /* A refines B */`); several clients or suppliers are several dependencies, one per pair, and the view exposes each |
 | «Satisfy» | `satisfy requirement 'satisfy R' :> R;` in the satisfying usage's owner, one per client in its own owner's body, and the view exposes each |
 | «Verify» | `verify requirement 'verify R' :> R;` in the test case's `objective`, which is named `objective` so the member can be qualified; one per pair, as for a «Satisfy» |
-| Include, Message | `connection 'A includes B' connect A to B;` for an Include (a named one keeps its name, the kind its `doc`); the interaction step `action x …` is an already named member |
+| Include, Message | `connection 'A includes B' connect A to B;` for an Include (a named one keeps its name, the kind its `doc`); the interaction's `message x …` is an already named member |
 
 The name is a spelling, not a value: it derives from the ends' written names, never from ids or
 hashes, so it is stable across runs and readable in the view (`expose 'Wait accept QueryCompleted
@@ -1222,7 +1251,7 @@ lower case as a usage is (`Run` → `run`; `Drive` stays when a part `drive` alr
 runs on the object and reaches its features by their bare names. What names the activity then
 names the usage: a call from another behavior of the block is `perform action x ::> run;` (`::>
 tcs.run` from a swimlane representing the part `tcs`, `::> obj.op` for an operation of the
-object a call's target pin holds), an interaction step `perform action x ::> part.op { in p =
+object a call's target pin holds), an interaction's receiving event `perform action x ::> Part::op { in p =
 arg; }`, a simulation configuration `perform action run ::> target.run;`; a call whose target is
 not an object reached from `this` — a parameter, an object the activity creates — or one from a
 state's `entry`, `do` or `exit`, whose `state def` reaches no feature of the block, is one no
@@ -1542,44 +1571,50 @@ targets another vertex or leaves a pseudostate is refused, and one without a tri
 comment, as a self transition would fire again on every re-entry. A transition into an exit point of a
 region, or a terminate pseudostate, is written to `done`.
 
-**Interactions.** An interaction owned by a block is a scenario: an `action def` of the block
-whose steps are the messages in the order their occurrences take on the lifelines. Each
-lifeline is resolved to a feature path from the block through its parts, ports and references
-and their types — `drive.motor` — or to an `in` parameter of the interaction (two parts of one
-type are two paths, `left.motor` and `right.motor`, so a lifeline standing for their shared
-`motor` is ambiguous), and a lifeline that resolves to nothing, to two paths, to an `out`
-parameter or through a `selector` refuses the whole interaction, since the scenario could not
-address its steps. A signal message is
-`send new Sig(n = 3) to context.drive.motor;`; a call message is a typed perform of the
-operation's usage on the object, `perform action spin : Motor::Spin ::> drive.motor.spin
-{ in rpm = 30.0; }`, its arguments bound to the operation's `in` and `inout` parameters by
-name or by position, each with the parameter's direction so an `inout` value is written back
-to what the argument named, and a call that leaves a required parameter (no default, lower bound above zero)
-unbound refuses the interaction; a reply answers the latest call of its operation between
-its lifelines that no earlier reply has answered, so nested calls pair with their replies
-stack-like, and assigns that call's `out` to the attribute of the caller's lifeline the reply
-names when the reply lies in the call's fragment or one nested in it. The operands of an `alt`,
-`opt` or `loop` are alternative paths, so each may answer a call made before the fragment, and a
-call answered on any of those paths (or made on only some of them) is open to no reply after the
-fragment; the operands of a `par` are unordered between themselves, so none answers a call
-another makes, while the calls they make are open after the join. Combined fragments become the
-corresponding action structure when their guards are v2
-expressions whose names resolve — `if`/`else` for `alt` and `opt`, `for`/`while` for `loop`,
-`fork`/`join` for `par` — and refuse the interaction, quoting the guard, when they are not.
-A duration constraint on a message is a wait before its step, as on an action; one between
-two messages measures the interval from the earlier step to the later one, so it is a wait
-before the later step when nothing lies between them and otherwise a wait forked after the
-earlier step and joined before the later — the steps between count toward the interval, and
-the bound is drawn once at the earlier step. Two steps in different fragments cannot share a
-fork and join, so such a constraint is reported instead.
-Create and delete messages are comments where the step would go, since a part exists for as
-long as its owner does; the steps around them are written. An interaction use performs the referenced scenario where it
-stands, `perform action warm ::> 'spin Up' { in rpm[1] = 30.0; }`, and a state invariant is
-an `assert constraint` the scenario orders among its steps, so the run checks it at the point
-the diagram places it. An interaction with no message is
-not a scenario: the report names what it records (state invariants under time constraints are
-a timing trace). An interaction that is a `TestCase` is a `verification def` whose subject is
-the block, the steps addressing the parts through it.
+**Interactions.** An interaction owned by a block is written as a SysML v2 sequence, the
+form the OMG v1→v2 mapping names: an `occurrence def` nested in the block whose members are
+one usage per lifeline and one `message` per v1 message. A lifeline standing for a feature
+of the block is resolved to the feature path through its parts, ports and references and
+their types — `drive.motor` — and declared as a usage typed by the feature's type, `ref part m
+: Motor { … }`, which the block's occurrence usage of the def binds to the feature,
+`occurrence spinup : Spinup { ref part :>> c = ctrl; ref part :>> m = drive.motor; }` (two
+parts of one type are two paths, `left.motor` and `right.motor`, so a lifeline standing for
+their shared `motor` is ambiguous and refuses the interaction); a lifeline standing for a
+property the interaction itself owns — the usual shape of a use case's black-box scenario — is
+that property's usage, typed as the property is. Each lifeline usage holds an `event
+occurrence` per message occurrence on it, ordered by `then`, and each message runs between
+the events it leaves and reaches in the order the occurrences take on the lifelines: a signal
+message carries the signal as its payload with the arguments bound, `message go of goPayload
+: Go = new Go(n = 3) from c.goSent to m.goReceived;`; a call message's receiving event
+performs the operation's usage with the arguments bound to its `in` and `inout` parameters
+by name or by position, `event occurrence spinReceived { perform action spinCall ::>
+Motor::spin { in rpm[1] = 30.0; } }`; a reply answers the latest call of its operation
+between its lifelines that no earlier reply has answered, so nested calls pair with their
+replies stack-like, and carries that call's result as its payload, `message spun of result :
+Real = m.spinReceived.spinCall.result from m.spunSent to c.spunReceived;` — a sequence states
+transfers, not assignments, so the attribute of the caller the reply's argument names is not
+assigned, which the report says. The nested def has no access to the block's features, so an
+argument, guard or invariant reading them is kept unbound or as text and reported. The
+interaction's `in` parameters are attributes of the def, which its occurrence usages bind.
+Combined fragments have no form in v2 sequence notation the renderer draws: their operands'
+messages are written in occurrence order between comments naming the operator and each
+operand's guard, `/* alt [mode == 1] */ … /* else */ … /* end alt */`, and the fragment is
+reported as approximated. Duration and time constraints time nothing in a sequence and are
+reported; the events they span stay ordered. Create and delete messages are ordinary messages
+to the object's event, as v2 sequence notation has no creation or destruction message, and a
+message through a gate states no ends, since the grammar states a source and target together.
+An interaction use is an occurrence usage of the referenced interaction's def where it
+stands, `occurrence warm : 'Spin Up' { attribute :>> rpm = 30.0; }`, ordered by successions
+from the covered lifelines' events before it and to their next ones; a state invariant is an
+event occurrence of the covered lifeline asserting its condition, `event occurrence at30 {
+assert constraint { speed == 30.0 } }`, its names read on the lifeline's object. An
+interaction that is a `TestCase` is a `verification def` whose subject is the block, its
+lifelines subsetting the subject's parts, `ref part m :> context.drive.motor { … }`. A SysML
+Sequence Diagram of the interaction is a `view : StandardViewDefinitions::SequenceView`
+exposing the def, carrying a `DiagramLayout::Layout` per lifeline head and a
+`DiagramLayout::Route` per message line from the tool's symbol stream, which the sequence
+renderer draws. The runtime does not execute `message`s between event occurrences: a migrated
+sequence is rendered and analysed, not run.
 
 **Receptions.** A block's reception is an `action def` of the block that accepts its signal,
 `action receive accept setLevel : Signals::SetLevel;`, and runs the method as a nested typed

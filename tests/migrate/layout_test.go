@@ -97,6 +97,12 @@ func streamArchive(t *testing.T, name string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return streamArchiveOf(t, name, data)
+}
+
+// streamArchiveOf zips the given XMI, standing in for a fixture's, with that fixture's streams.
+func streamArchiveOf(t *testing.T, name string, data []byte) []byte {
+	t.Helper()
 	type entry struct {
 		name string
 		data []byte

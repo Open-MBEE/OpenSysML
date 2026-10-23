@@ -182,7 +182,7 @@ func (s *Snapshot) Sites() view.Sites {
 func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.renderViewLocked(doc, fqn, "", nil, 0)
+	return w.renderViewLocked(doc, fqn, "", nil, 0, nil)
 }
 
 // RenderViewLinked renders a view and resolves its source sites under the
@@ -190,7 +190,7 @@ func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, err
 func (w *Workspace) RenderViewLinked(doc, fqn string) (*view.Rendering, *Snapshot, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	rendering, snapshot, err := w.renderViewLocked(doc, fqn, "", nil, 0)
+	rendering, snapshot, err := w.renderViewLocked(doc, fqn, "", nil, 0, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -233,7 +233,7 @@ func (w *Workspace) linkSitesLocked(rendering *view.Rendering, snapshot *Snapsho
 }
 
 // renderViewLocked is Reading.RenderOverlaidView under the lock.
-func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verdicts view.Verdicts, depth int) (*view.Rendering, *Snapshot, error) {
+func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verdicts view.Verdicts, depth int, include []string) (*view.Rendering, *Snapshot, error) {
 	d := w.docs[doc]
 	if d == nil {
 		return nil, nil, fmt.Errorf("%s: no such document", doc)
@@ -241,7 +241,7 @@ func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verd
 	var rendering *view.Rendering
 	var err error
 	w.queryLocked(doc, func(*resolve.Resolver, *semantics.Model) {
-		rendering, err = w.renderDocumentViewLocked(d, fqn, overlay, verdicts, depth)
+		rendering, err = w.renderDocumentViewLocked(d, fqn, overlay, verdicts, depth, include)
 	})
 	if err != nil {
 		return nil, nil, err
@@ -254,10 +254,46 @@ func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verd
 
 // renderDocumentViewLocked renders fqn of the held document d, as a query owned
 // by d; a depth above 0 overrides the depth the view states.
-func (w *Workspace) renderDocumentViewLocked(d *Document, fqn string, overlay view.Overlay, verdicts view.Verdicts, depth int) (*view.Rendering, error) {
+func (w *Workspace) renderDocumentViewLocked(d *Document, fqn string, overlay view.Overlay, verdicts view.Verdicts, depth int, include []string) (*view.Rendering, error) {
 	doc := d.Name
 	renderer := w.rendererLocked(doc)
 	renderer.SetDepth(depth)
+	included, unresolved := w.includedLocked(doc, include)
+	renderer.SetIncluded(included)
+	defer renderer.SetIncluded(nil)
+	rendering, err := w.renderViewWithLocked(d, fqn, overlay, verdicts, renderer)
+	if err != nil {
+		return nil, err
+	}
+	rendering.Notices = append(rendering.Notices, unresolved...)
+	return rendering, nil
+}
+
+// includedLocked resolves the elements a render request includes besides the
+// view's own content, each by qualified name as declaredIn and namedFrom read
+// one; a name resolving to nothing, or to several documents' declarations, is
+// reported as a notice rather than refusing the rendering.
+func (w *Workspace) includedLocked(doc string, include []string) ([]*symbols.Symbol, []string) {
+	var included []*symbols.Symbol
+	var notices []string
+	for _, name := range include {
+		sym, err := namedFrom(w.index, func(d string) bool { _, ok := w.docs[d]; return ok }, doc, name)
+		switch {
+		case err != nil:
+			notices = append(notices, fmt.Sprintf("included element %s is not drawn: %v", name, err))
+		case sym == nil:
+			notices = append(notices, fmt.Sprintf("included element %s is not drawn: no such element", name))
+		default:
+			included = append(included, sym)
+		}
+	}
+	return included, notices
+}
+
+// renderViewWithLocked renders the view fqn names, or the document's one view,
+// or a pseudo-view, with the renderer as set up.
+func (w *Workspace) renderViewWithLocked(d *Document, fqn string, overlay view.Overlay, verdicts view.Verdicts, renderer *view.Renderer) (*view.Rendering, error) {
+	doc := d.Name
 	if overlay == view.OverlayVerdicts {
 		renderer.SetVerdicts(verdicts)
 	}
@@ -288,6 +324,22 @@ func (w *Workspace) renderDocumentViewLocked(d *Document, fqn string, overlay vi
 		return nil, err
 	}
 	return rendering, nil
+}
+
+// relatedElementsLocked is Reading.RelatedElements under the lock.
+func (w *Workspace) relatedElementsLocked(doc, fqn string) (*symbols.Symbol, []view.RelatedGroup, error) {
+	if w.docs[doc] == nil {
+		return nil, nil, fmt.Errorf("%s: no such document", doc)
+	}
+	sym, err := namedFrom(w.index, func(d string) bool { _, ok := w.docs[d]; return ok }, doc, fqn)
+	if err != nil || sym == nil {
+		return nil, nil, err
+	}
+	var groups []view.RelatedGroup
+	w.queryLocked(doc, func(*resolve.Resolver, *semantics.Model) {
+		groups = w.rendererLocked(doc).Related(sym)
+	})
+	return sym, groups, nil
 }
 
 // renderPseudoLocked renders a pseudo-view: `#<kind>` renders the document's own

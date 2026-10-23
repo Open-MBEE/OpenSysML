@@ -83,6 +83,9 @@ type view struct {
 	// tables are the table definitions the diagram carries, written beside
 	// the view in definition order; empty for a diagram that defines none.
 	tables []*tableDoc
+	// rebuilt lists what the view exposes in place of rows the tool never
+	// stored; nil for a diagram whose content the tool serialized.
+	rebuilt *reconstruction
 }
 
 // planViews assigns every diagram the body its view is written in and reserves
@@ -131,6 +134,7 @@ func (m *migration) planViews() {
 	}
 	m.planPrivateLayoutAliasHoles()
 	m.planTables()
+	m.planReconstructions()
 	m.planDocuments()
 }
 
@@ -528,6 +532,8 @@ func (m *migration) emptyView(v *view, f viewForm) string {
 	switch {
 	case !d.Represented():
 		return "no diagram representation is serialized, so what it shows is unknown and its view exposes nothing"
+	case v.rebuilt != nil:
+		return v.rebuilt.note(m, d.Owner, v.host)
 	case len(d.Shown) == 0 && pictured > 0:
 		return "it shows no model element, only " + plural(pictured, pastedImage) + " a view rendered " + f.rendering + " does not draw, and its view exposes nothing"
 	case len(d.Shown) == 0:
@@ -636,7 +642,7 @@ func (m *migration) writeViewBody(v *view, form viewForm) {
 		}
 	}
 	geo := m.viewGeometry(v, x, form)
-	note = joinNotes(note, m.viewShownNote(d, x, geo, untyped))
+	note = joinNotes(note, m.viewShownNote(v, x, geo, untyped))
 	doc, docNotes := m.proseNoted(d.Documentation)
 	note = joinNotes(note, strings.Join(docNotes, "; "))
 	m.w.block(decl, func() {
@@ -654,14 +660,16 @@ func (m *migration) writeViewBody(v *view, form viewForm) {
 		for _, line := range geo.lines {
 			m.w.line(line)
 		}
-		m.w.line("render " + prefix + form.rendering + ";")
+		if form.rendering != "" {
+			m.w.line("render " + prefix + form.rendering + ";")
+		}
 	})
 	for _, td := range v.tables {
 		m.writeTable(td)
 	}
 	verdict := Mapped
 	drawsNothing := (shown == 0 || len(x.refs) == 0) && geo.pictures == 0
-	if v.note != "" || untyped || drawsNothing || x.unwritten+x.dangling > 0 || geo.underlaid+geo.undrawn+geo.lost > 0 || len(docNotes) > 0 {
+	if v.note != "" || untyped || drawsNothing || v.rebuilt != nil || x.unwritten+x.dangling > 0 || geo.underlaid+geo.undrawn+geo.lost > 0 || len(docNotes) > 0 {
 		verdict = Approximated
 	}
 	v.entry = m.diagramEntry(d, verdict, m.qualified(append(m.segments(host), v.name)), note)
@@ -672,10 +680,16 @@ func (m *migration) writeViewBody(v *view, form viewForm) {
 func (m *migration) viewDeclaration(v *view, form viewForm, x exposures) (decl, note string) {
 	d, host := v.d, v.host
 	kind := diagramKind(d)
-	note = article(strings.ToLower(kind)) + kind + " written as a view rendered " + form.rendering
+	note = article(strings.ToLower(kind)) + kind + " written as a view"
+	if form.rendering != "" {
+		note += " rendered " + form.rendering
+	}
 	decl = "view " + writeName(v.name)
 	if form.definition != "" {
 		note += " of " + form.definition
+		if form.rendering == "" {
+			note += ", drawn as " + drawnAs(form.definition) + " by its definition"
+		}
 		prefix := viewDefinitionsPrefix
 		if m.shadowsLibrary("StandardViewDefinitions", host) {
 			prefix = globalViewDefinitionsPrefix
@@ -696,13 +710,17 @@ func (m *migration) viewDeclaration(v *view, form viewForm, x exposures) (decl, 
 }
 
 // viewShownNote notes what of the diagram's shown elements the view exposes
-// and draws, and what it leaves out.
-func (m *migration) viewShownNote(d *sysmlv1.Diagram, x exposures, geo viewGeometry, untyped bool) string {
+// and draws, and what it leaves out; for rows the tool never stored, what the
+// view exposes in their place.
+func (m *migration) viewShownNote(v *view, x exposures, geo viewGeometry, untyped bool) string {
+	d := v.d
 	shown := len(d.Shown)
 	var note string
 	switch {
 	case !d.Represented():
 		note = "no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing"
+	case v.rebuilt != nil:
+		note = v.rebuilt.note(m, d.Owner, v.host)
 	case shown == 0 && geo.pictures > 0:
 		note = "the diagram shows no model element; the view draws the " + plural(geo.pictures, pastedImage) + " it carries and exposes nothing"
 	case shown == 0 && geo.undrawn > 0:
@@ -773,6 +791,12 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 			for _, also := range m.edgeRefs(shown.Element, host) {
 				add(also)
 			}
+		}
+	}
+	if v := m.viewOf[d]; v != nil && v.rebuilt != nil {
+		refs, _ := v.rebuilt.refs(m, host)
+		for _, ref := range refs {
+			add(ref)
 		}
 	}
 	return x

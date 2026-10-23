@@ -601,9 +601,48 @@ func (m *Model) IsConnectorUsage(sym *symbols.Symbol) bool {
 	}
 	switch usage.Kind {
 	case ast.UsageConnection, ast.UsageInterface, ast.UsageAllocation, ast.UsageConnector:
-		return len(usage.ConnectorEnds) > 0
+		return len(usage.ConnectorEnds) > 0 || len(bodyEndInputs(usage)) > 0
 	}
 	return false
+}
+
+// clauseEndInputs are the ends a connector usage's `connect` clause writes, in order.
+func clauseEndInputs(usage *ast.Usage) []connectorEndInput {
+	ends := make([]connectorEndInput, 0, len(usage.ConnectorEnds))
+	for _, end := range usage.ConnectorEnds {
+		if end != nil {
+			ends = append(ends, connectorEndInput{attachment: end.AttachedTarget(), selection: end.AttachedSelection(), end: end})
+		}
+	}
+	return ends
+}
+
+// bodyEndInputs are the attached `end` features a connector usage's body declares (`end #cause
+// :> causes ::> a;`, SysML v2 §7.13.2); nil when any end attaches to nothing: no connector object.
+func bodyEndInputs(usage *ast.Usage) []connectorEndInput {
+	var ends []connectorEndInput
+	for _, member := range usage.Members {
+		end, ok := unwrapUsage(member)
+		if !ok || !end.IsEnd {
+			continue
+		}
+		rel := end.ReferenceSubsetting()
+		if rel == nil {
+			return nil
+		}
+		feature, _ := ast.EndSelection(rel.Target)
+		ends = append(ends, connectorEndInput{attachment: feature, selection: rel.Target, end: end})
+	}
+	return ends
+}
+
+// connectorUsageEndInputs are the ends a connector usage attaches: its `connect` clause's, else
+// the attached ends of its body.
+func connectorUsageEndInputs(usage *ast.Usage) []connectorEndInput {
+	if len(usage.ConnectorEnds) > 0 {
+		return clauseEndInputs(usage)
+	}
+	return bodyEndInputs(usage)
 }
 
 // IsConnectorObjectUsage reports whether sym is materialized as a connector
@@ -649,13 +688,17 @@ type ConnectorEndAttachment struct {
 	// value with (`a.p#(1)`, an OpenSysML extension), nil for an end attaching the
 	// whole feature; Selection is then the whole `a.p#(1)` an evaluation reads.
 	Index, Selection ast.Node
-	// End is the syntax of the end itself, which carries its source location.
-	End *ast.ConnectorEnd
+	// End is the syntax of the end itself, which carries its source location: the
+	// `connect` clause's end, or the body's `end` usage.
+	End ast.Node
 	// EndFeature is the end feature Name comes from, when a declaration in the
 	// model declares it: the end's own symbol, or the end it redefines. It is nil
 	// for a name taken from the library, whose declarations are indexed without
 	// bodies.
 	EndFeature *symbols.Symbol
+	// Declared is the end's own declaration, named or not, when the model
+	// registers one: what it subsets and redefines is declared there.
+	Declared *symbols.Symbol
 }
 
 // binaryConnectorEndNames are the ends of every binary connector: a connector
@@ -679,21 +722,13 @@ func (m *Model) IsBinaryConnector(sym *symbols.Symbol) bool {
 	return m != nil && m.conformsByName(sym, binaryConnectorBaseFQN)
 }
 
-// ConnectorEndAttachments returns the ends of the connector usage sym in
-// declaration order, one entry per end of its `connect` clause. It returns
-// nothing for a symbol that is no connector usage.
+// ConnectorEndAttachments returns the ends of the connector usage sym in declaration order: those
+// of its `connect` clause, else the attached `end`s of its body; nothing for a non-connector usage.
 func (m *Model) ConnectorEndAttachments(sym *symbols.Symbol) []ConnectorEndAttachment {
 	if !m.IsConnectorUsage(sym) {
 		return nil
 	}
-	usage := sym.Decl.(*ast.Usage)
-	ends := make([]connectorEndInput, 0, len(usage.ConnectorEnds))
-	for _, end := range usage.ConnectorEnds {
-		if end != nil {
-			ends = append(ends, connectorEndInput{attachment: end.AttachedTarget(), selection: end.AttachedSelection(), end: end})
-		}
-	}
-	return m.connectorEndAttachments(sym, ends)
+	return m.connectorEndAttachments(sym, connectorUsageEndInputs(sym.Decl.(*ast.Usage)))
 }
 
 // ConnectorObjectEnds returns the ends of any connector object usage in
@@ -705,13 +740,10 @@ func (m *Model) ConnectorObjectEnds(sym *symbols.Symbol) []ConnectorEndAttachmen
 	usage := sym.Decl.(*ast.Usage)
 	var ends []connectorEndInput
 	switch {
-	case m.IsConnectorUsage(sym), usage.Kind == ast.UsageBinding:
-		ends = make([]connectorEndInput, 0, len(usage.ConnectorEnds))
-		for _, end := range usage.ConnectorEnds {
-			if end != nil {
-				ends = append(ends, connectorEndInput{attachment: end.AttachedTarget(), selection: end.AttachedSelection(), end: end})
-			}
-		}
+	case m.IsConnectorUsage(sym):
+		ends = connectorUsageEndInputs(usage)
+	case usage.Kind == ast.UsageBinding:
+		ends = clauseEndInputs(usage)
 	case usage.Kind == ast.UsageFlow:
 		ends = []connectorEndInput{
 			{attachment: ast.EndTarget(usage.FlowEnds.From), selection: usage.FlowEnds.From},
@@ -805,7 +837,7 @@ type connectorEndInput struct {
 	// selection is the end's target as written, attachment with its index when
 	// the end is indexed.
 	selection ast.Node
-	end       *ast.ConnectorEnd
+	end       ast.Node
 }
 
 func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEndInput) []ConnectorEndAttachment {
@@ -817,6 +849,9 @@ func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEnd
 			att.Index, att.Selection = index, end.selection
 		}
 		general := m.generalEndAt(sym, i)
+		if i < len(owned) {
+			att.Declared = owned[i]
+		}
 		switch {
 		// An end named by its own declaration names the attachment; one that
 		// only names what it attaches to takes the name of the end it redefines.

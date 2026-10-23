@@ -1078,3 +1078,31 @@ func TestVerifyQuestionsAGuardAfterTheReadCertifiesNoProof(t *testing.T) {
 		}
 	}
 }
+
+// TestVerifyQuestionsAssumptionOnlyRequirement: a requirement assuming but
+// requiring nothing holds vacuously — its assumptions are the antecedent of a
+// claim over no constraint — so the holds question proves it and the
+// satisfiable one is met, whatever the assumption says of the free feature.
+func TestVerifyQuestionsAssumptionOnlyRequirement(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	source := `package P {
+	private import ScalarValues::*;
+	part def Rig {
+		attribute level : Integer;
+		requirement onlyAssumed { assume constraint { level > 1 } }
+	}
+}`
+	hash := mustVerifyModel(t, srv, source, "verify-assumption-only")
+	for _, question := range []string{"holds", "satisfiable"} {
+		resp, err := srv.VerifyRequirement(context.Background(), &pb.VerifyRequirementRequest{
+			ModelHash: hash, SymbolId: "P::Rig::onlyAssumed", Question: question,
+		})
+		if err != nil {
+			t.Fatalf("VerifyRequirement %s: %v", question, err)
+		}
+		if !resp.Verdict.Holds || resp.Verdict.Error != "" {
+			t.Errorf("%s: status=%q holds=%v, want a vacuous pass: %q", question, resp.Verdict.Status, resp.Verdict.Holds, resp.Verdict.Error)
+		}
+	}
+}

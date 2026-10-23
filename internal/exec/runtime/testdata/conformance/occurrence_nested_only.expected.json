@@ -1,0 +1,7 @@
+{
+  "type": "occurrence",
+  "evaluate": "Sequences::Outer",
+  "transfers": [
+    "ping"
+  ]
+}

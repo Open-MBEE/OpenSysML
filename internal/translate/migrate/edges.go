@@ -584,16 +584,24 @@ func (m *migration) form(d *sysmlv1.Diagram) (viewForm, string) {
 		}
 	}
 	if strings.Contains(kind, "sequence diagram") {
-		return f, m.sequenceNote(d.Owner)
+		graph := viewForm{definition: "SequenceView"}
+		graph.subject = m.graphSubject(d.Owner, graph)
+		switch {
+		case graph.subject == nil:
+			return f, m.sequenceNote(d.Owner)
+		case !m.showsGraph(d, graph):
+			return f, "it shows no lifeline or message of " + m.hostName(m.bodyOf(graph.subject)) + ", whose sequence a SequenceView draws"
+		}
+		return graph, ""
 	}
 	return f, ""
 }
 
 // sequenceNote says why a sequence diagram is not drawn as a SequenceView, which draws
-// the message flows between the events of occurrence parts: a migrated interaction is a
-// scenario of send, accept and call steps, which declares none, or has no v2 form at all.
+// the messages between the events of an interaction's lifeline usages: the
+// interaction has no v2 form, or no interaction owns the diagram.
 func (m *migration) sequenceNote(owner *sysmlv1.Element) string {
-	const draws = "a SequenceView draws the message flows between the events of occurrence parts"
+	const draws = "a SequenceView draws the messages between the events of an interaction's lifeline usages"
 	for cur := owner; cur != nil; cur = cur.Parent {
 		if cur.Type != "Interaction" {
 			continue
@@ -601,7 +609,7 @@ func (m *migration) sequenceNote(owner *sysmlv1.Element) string {
 		if note := m.interactionNote(cur); note != "" {
 			return "its Interaction " + qualifiedName(cur) + " has no v2 form: " + note
 		}
-		return "its Interaction " + qualifiedName(cur) + " is written as a scenario of send, accept and call steps, and " + draws + ", which a scenario does not declare"
+		return "its Interaction " + qualifiedName(cur) + " has no v2 declaration, and " + draws
 	}
 	return draws + ", and no Interaction owns the diagram"
 }
@@ -609,10 +617,23 @@ func (m *migration) sequenceNote(owner *sysmlv1.Element) string {
 // graphNames names, article included, a standard view definition and the
 // definition kind whose graph it draws.
 func graphNames(definition string) (view, kind string) {
-	if definition == "StateTransitionView" {
+	switch definition {
+	case "StateTransitionView":
 		return "a StateTransitionView", "a state def"
+	case "SequenceView":
+		return "a SequenceView", "an occurrence def"
 	}
 	return "an ActionFlowView", "an action def"
+}
+
+// drawnAs names the diagram a view of a standard view definition is drawn as when
+// the Views library has no rendering for it: a SequenceView draws a sequence diagram.
+func drawnAs(definition string) string {
+	switch definition {
+	case "SequenceView":
+		return "a sequence diagram"
+	}
+	return "a diagram"
 }
 
 // drawsEdge reports whether the form draws a member declared by keyword as an
@@ -634,6 +655,8 @@ func (f viewForm) nativeEdge(keyword string) bool {
 		return keyword == "succession" || keyword == "flow"
 	case "StateTransitionView":
 		return keyword == "transition"
+	case "SequenceView":
+		return keyword == "message"
 	}
 	switch f.rendering {
 	case interconnectionRendering:
@@ -672,18 +695,22 @@ func (m *migration) showsGraph(d *sysmlv1.Diagram, f viewForm) bool {
 // nearest enclosing behavior, when it is written as the definition kind f presents.
 func (m *migration) graphSubject(owner *sysmlv1.Element, f viewForm) *sysmlv1.Element {
 	want := catActionDef
-	if f.definition == "StateTransitionView" {
+	switch f.definition {
+	case "StateTransitionView":
 		want = catStateDef
+	case "SequenceView":
+		want = catOccurrenceDef
 	}
 	for cur := owner; cur != nil; cur = cur.Parent {
-		if !isBehavior(cur) {
+		if !isBehavior(cur) || want == catOccurrenceDef && cur.Type != "Interaction" {
 			continue
 		}
 		decl := m.exposable(cur)
 		if decl == nil {
 			return nil
 		}
-		if cat, _ := m.classify(decl); cat == want {
+		cat, _ := m.classify(decl)
+		if cat == want || want == catOccurrenceDef && cat == catVerificationDef {
 			return cur
 		}
 		return nil
@@ -700,6 +727,8 @@ func (m *migration) drawsNode(el *sysmlv1.Element, f viewForm) bool {
 		return el.Role == "node" && k != nodePin && k != nodeParam
 	case "StateTransitionView":
 		return el.Role == "subvertex" || el.Type == "Region" && m.regionWrittenAsState(el)
+	case "SequenceView":
+		return el.Type == "Lifeline"
 	}
 	return false
 }

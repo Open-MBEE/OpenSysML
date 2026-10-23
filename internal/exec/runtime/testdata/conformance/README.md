@@ -69,6 +69,51 @@ top-level one is. `instantiate` names an instance case's type the same way.
   performance must fail with:
   `{"object": "test::plant", "slots": {"runs": {"type": "Integer", "value": 1}}}`.
   Omit for an action performed by no object.
+- `before`: qualified paths of actions performed to completion on the case's
+  runtime before its own, in order, for a case whose contract is that a
+  performance is unaffected by the ones before it — the clock they advanced,
+  the values they wrote. A path naming the case's own action is a prior
+  performance of it, and must yield the `outputs` too. Applies to an action case
+  run to completion by no object.
+
+### For Occurrences (`ExecuteOccurrence`)
+
+```json
+{
+  "type": "occurrence",
+  "evaluate": "Sequences::PubSubSequence",
+  "transfers": ["subscribe_message", "publish_message", "deliver_message"]
+}
+```
+
+An occurrence def or usage whose body states an interaction — usages (`part`,
+`item`, `port`, `occurrence`, `individual`) holding `event occurrence`s, ordered by
+`then`, and `message`s between those events — is performed as the transfers its
+messages are realized by (SysML v2.1 §7.16.1): the occurrence is materialized, and
+its nodes are visited in a topological order over the stated orders (declaration
+order breaking ties). At an event the messages reaching it are taken by the
+lifeline object holding it, the actions the event's body performs are performed
+on that object once per event, as many times as each perform's multiplicity
+states (an event reached by two messages performs them once), the
+constraints it asserts are checked on that object, and the messages leaving it are
+posted, typed by their payloads. A typed usage (`occurrence spinup : Spinup {
+ref part :>> c = ctrl; }`) inherits its def's lifelines, events and messages; an
+occurrence usage of a nested interaction (`occurrence shake : Handshake;`) is
+performed at its place in the order (declaration order among the events, where
+nothing orders them), its lifelines bound as the usage binds them, else to the
+outer lifelines of their names; an occurrence holding only such a use is an
+interaction too.
+
+- `evaluate`: the occurrence def or usage, by qualified name.
+- `transfers`: the messages realized, by name, in the order they were taken, a
+  nested interaction's among them.
+- `error`: text the run must fail with instead — an end naming no event of a
+  lifeline, orders forming a cycle, an asserted constraint that does not hold, an
+  interaction using itself.
+- The golden trace records each transfer as a `send` line at its source event and
+  an `accept` line at its target event, a `perform … at` line for each action an
+  event performs, an `assert at` line for each constraint it checks, and a
+  `perform occurrence` line where a nested interaction starts.
 
 ### For States (`ExecuteState`)
 
@@ -115,6 +160,10 @@ top-level one is. `instantiate` names an instance case's type the same way.
   object's usage plus the `events` / `finalState` / `stateVisits` / `outputs`
   expected of that object's performance:
   `{"object": "P::alpha", "finalState": "arrived", "stateVisits": ["start", "sending", "arrived"]}`.
+  An object may be a path from the usage into what it holds (`"test::scenario.tug.sup"`),
+  the usage instantiated and the path walked as `-state` and `performer_symbol_id` walk it;
+  an entry may state `error` in place of a result, the text that object's performance
+  must fail with (a machine a succession still holds).
   Omit for a machine performed by no object. Such a case may carry a golden
   trace too: it records each object's materialization followed by its own
   performance, in the order the performers are listed.

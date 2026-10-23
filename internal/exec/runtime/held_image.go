@@ -497,31 +497,8 @@ func (t *imaging) finish() {
 		created[id] = i
 	}
 	slices.SortFunc(img.objects, func(a, b imagedObject) int { return created[a.id] - created[b.id] })
-	for i := range img.objects {
-		inst := ctx.instances[img.objects[i].id]
-		for j := range img.objects[i].features {
-			fv := inst.FeatureValues[img.objects[i].features[j].names[0]]
-			img.objects[i].features[j].dependents = t.edges(fv.dependents)
-			img.objects[i].features[j].reads = t.edges(fv.reads)
-			img.objects[i].features[j].readsLives = slices.Contains(fv.reads, &ctx.lifetimes)
-		}
-	}
-	// The occurrence a usage is on a held object goes with that object.
-	for key, id := range ctx.usageOccurrences {
-		if img.held[key.instance] && img.held[id] {
-			img.usageOccurrences[key] = id
-		}
-	}
-	// A usage's occurrences are imaged whole: an image holding some of them holds none.
-	for sym, ids := range ctx.occurrences {
-		if !slices.ContainsFunc(ids, func(id int64) bool { return !img.held[id] }) {
-			img.occurrences[sym] = ids
-			if r := ctx.occurrenceTail(sym); r != nil &&
-				!slices.ContainsFunc(ctx.madeRequired(r), func(inst *Instance) bool { return !img.held[inst.ID] }) {
-				img.occurrenceTails[sym] = r
-			}
-		}
-	}
+	t.finishFeatureEdges()
+	t.finishOccurrences()
 	for key, id := range ctx.metadataObjects {
 		if img.held[id] {
 			img.metadataObjects[key] = id
@@ -544,6 +521,41 @@ func (t *imaging) finish() {
 	for _, msg := range ctx.messages {
 		if (msg.Object == 0 && t.carriesBus()) || img.held[msg.Object] {
 			img.messages = append(img.messages, msg)
+		}
+	}
+}
+
+// finishFeatureEdges maps each imaged feature's dependency and read edges onto the image.
+func (t *imaging) finishFeatureEdges() {
+	ctx, img := t.ctx, t.img
+	for i := range img.objects {
+		inst := ctx.instances[img.objects[i].id]
+		for j := range img.objects[i].features {
+			fv := inst.FeatureValues[img.objects[i].features[j].names[0]]
+			img.objects[i].features[j].dependents = t.edges(fv.dependents)
+			img.objects[i].features[j].reads = t.edges(fv.reads)
+			img.objects[i].features[j].readsLives = slices.Contains(fv.reads, &ctx.lifetimes)
+		}
+	}
+}
+
+// finishOccurrences carries the occurrences held whole by the image.
+func (t *imaging) finishOccurrences() {
+	ctx, img := t.ctx, t.img
+	// The occurrence a usage is on a held object goes with that object.
+	for key, id := range ctx.usageOccurrences {
+		if img.held[key.instance] && img.held[id] {
+			img.usageOccurrences[key] = id
+		}
+	}
+	// A usage's occurrences are imaged whole: an image holding some of them holds none.
+	for sym, ids := range ctx.occurrences {
+		if !slices.ContainsFunc(ids, func(id int64) bool { return !img.held[id] }) {
+			img.occurrences[sym] = ids
+			if r := ctx.occurrenceTail(sym); r != nil &&
+				!slices.ContainsFunc(ctx.madeRequired(r), func(inst *Instance) bool { return !img.held[inst.ID] }) {
+				img.occurrenceTails[sym] = r
+			}
 		}
 	}
 }
@@ -873,7 +885,7 @@ func (m *materializing) object(obj imagedObject) error {
 			if err != nil {
 				return fmt.Errorf("connector end %s: %w", end.Name, err)
 			}
-			inst.Ends[i] = ConnectorEnd{Name: end.Name, Value: v}
+			inst.Ends[i] = ConnectorEnd{Name: end.Name, Feature: end.Feature, Value: v}
 		}
 	}
 	return nil

@@ -2162,7 +2162,10 @@ at all: each step adds `getDifference(input, stateSpace)` to the state.
 
 The clock is the runtime's one clock, so a state machine exhibited beside the dynamics sees the
 same time: its `accept after`/`at` triggers fire in step order, and a state's entry action can
-read `dynamics.output` as the state the last step wrote. When a step and a timed trigger fall
+read `dynamics.output` as the state the last step wrote. `stopTime` and `time` are durations
+from the performance's own start, not instants of that clock, so a performance begun after
+another has advanced the clock — a second `-action`, an action after an `-analysis` — steps as
+far and ends at the same values as the first. When a step and a timed trigger fall
 due at one instant, which runs first is a `due order` choice point the scheduling policy decides
 (see [When a model has more than one valid run](#when-a-model-has-more-than-one-valid-run)),
 never an implicit order; `explore` and the checker enumerate both. A model that states no

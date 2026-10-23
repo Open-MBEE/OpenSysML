@@ -430,11 +430,13 @@ triples come); a set of classes with no such member is refused, naming the subje
   a port only within a port definition or usage. Reading back, a usage stated
   non-composite where its kind is composite is written `ref`; an older graph
   stating no `isComposite` reads as before.
-- Feature flags, written only when true, so an absent flag reads as false:
-  `isAbstract`, `isVariation`, `isVariant`, `isReference`, `isDerived`,
-  `isOrdered`, `isEnd`, `isConstant`, `isIndividual`, `isPortion`,
+- Feature flags, written only when true in the graph, so an absent flag reads
+  as false: `isAbstract`, `isVariation`, `isVariant`, `isReference`,
+  `isDerived`, `isOrdered`, `isEnd`, `isConstant`, `isIndividual`, `isPortion`,
   `isConjugated`, `isAll`, `isAccept`, `isResult`, and `isEvent` for an `event`
   modifier on a usage whose metaclass is not itself `sysml:EventOccurrenceUsage`.
+  The [API element form](#the-api-element-form) states every non-derived
+  boolean of the metaclass, `true` or `false`, as the OMG API JSON shape does.
   `sysml:EnumerationDefinition` has no `abstract` or `variation` prefix, so
   neither flag adds a keyword to its declaration.
   A flag the two grammars spell differently is written back in the grammar of
@@ -614,6 +616,7 @@ The `sysx:` properties:
 | `sysx:projectId`, `sysx:branch`, `sysx:org` | The `@IdentityMetadata::ProjectRef` provenance of a scope root, see [Element identity](#element-identity). |
 | `sysx:isRedefinitionImplicit` | A metadata body's bare `name = …` owns a Redefinition of the metadata definition's feature of that name (SysML.xtext `MetadataBodyUsage`): the name is no declared name but the redefinition's target, flagged implicit so the graph writes the bare form back rather than `:>> name` or a declared name. A body name resolving to no feature of the metadata type keeps its `sysml:declaredName` and owns none. |
 | `sysx:isKindImplicit` | The declaration wrote no kind keyword (`in x : Real;`), which takes its kind from its owner. Without it the canonical keyword would come back written out, declaring what the author did not. A kind named in a comment in the head (`in /* attribute */ x : Real;`) is trivia, not a keyword the declaration wrote. |
+| `sysx:headClause` | On a Subsetting or ReferenceSubsetting of a target the head also relates under the other clause kind that materializes as the same class (`feature f subsets x specializes x;` owns two Subsettings of `x`): the keyword this element stands for, `specializes`, `subsets` or `references`, so the reader keeps the clauses apart — and in their written order — where the collapsed properties alone cannot tell them apart. Absent elsewhere. |
 | the behavioral properties | `sysx:guard`, `sysx:expression`, `sysx:payload`, … — the parts of a behavioral node the vocabulary has no predicate for, listed under [Behavior](#behavior). |
 
 A `return` parameter written without a kind keyword is a `ReferenceUsage`
@@ -2083,6 +2086,11 @@ notation.
     "owningMembership": { "@id": "Vehicles__Wheel_om" },
     "declaredName": "Wheel",
     "sysx:hasBody": true,
+    "isAbstract": false,
+    "isSufficient": false,
+    "isImpliedIncluded": false,
+    "isIndividual": false,
+    "isVariation": false,
     "ownedMember": [
       { "@id": "Vehicles__Wheel__diameter" },
       { "@id": "Vehicles__Wheel__mass" }
@@ -2092,6 +2100,38 @@ notation.
   }
 ]
 ```
+
+**Booleans.** Every non-derived boolean attribute of the element's metaclass is
+stated, `true` or `false` (the OMG API JSON shape: the pilot implementation's
+writer serializes every non-derived structural feature whatever its value). The
+graph states a flag only when true (`isComposite` and a `LiteralBoolean`'s
+`value` aside), so the writer completes the absent ones with the value the graph
+implies — the metaclass default from the ontology table (`isUnique` true, every
+other flag false), or the flag another spelling of the graph carries:
+`isVariable` from `sysx:declaredPrefix "var"`, `isSufficient` from `sysml:isAll`.
+Derived booleans (`isReference`, `isLibraryElement`, `mayTimeVary`, …) are not
+completed; they are written as the graph states them — nor is a boolean whose
+redefinition in the metaclass is derived (`isVariable` on a usage, redefined by
+the derived `Usage::mayTimeVary`; the pilot implementation computes it there). The root element objects of
+the document (the root `Namespace`, or the unowned roots when it is transparent)
+carry `"sysx:statedDefaults": true`, the writer's provenance marker. Reading a
+document that carries it, a non-derived boolean at the value the graph implies
+is the writer's completion and states no triple, so the graph read back is the
+graph written, triple for triple; `isComposite` and a `LiteralBoolean`'s `value`
+are always read, as the graph always states them. A graph that itself states a
+boolean at the implied value (`sysml:isAbstract false` written by hand) keeps
+it: the element lists such members in `"sysx:explicitDefaults": [...]`, and the
+reader takes them as the statements they are. Both keys are reserved for these
+markers — a `sysx:statedDefaults` or `sysx:explicitDefaults` predicate in the
+graph is never written as a fact. A graph that is already an external writer's
+element form (one stating `isImpliedIncluded`, which this mapping never does)
+is written as it is: nothing is completed and no marker is set, so the document
+reads back through the external path exactly as before. A document without the marker
+reads as before: every stated boolean is a triple, and a document that omits its
+false flags (an older export, a compact form) reads as it always did. The marker
+is also what tells this mapping's documents from an external writer's element form,
+which states `Element::isImpliedIncluded` on its elements — a property this
+mapping's graph never states (see the toolkit's own JSON, below).
 
 How each part of the graph is spelled:
 
@@ -2117,7 +2157,8 @@ or `@type` is in a prefix other than the bare `sysml:` names and `sysx:`, an obj
 value is a reference `{"@id": …}` or a `{"@ref": <name>}` — sysml-toolkit's
 spelling of a target it could not resolve, which reads as the name literal the
 mapping writes for a name-valued reference — and an array holds no array and no
-`null`. A `null` value states no triple. An array on a `sysml:` property becomes
+`null`. A `null` value states no triple. A stated boolean that is only the
+writer's completion (below) states no triple either. An array on a `sysml:` property becomes
 the repeated triples and the collection annotation the Turtle path would have
 written, so the graph read from the JSON form is the graph the Turtle form parses
 to, triple for triple. An `@id` is resolved within the subject's project scope, or
@@ -2230,7 +2271,11 @@ any graph this mapping holds:
 - **Both forms decode identically.** `full-json` states every property of an
   element the compact form collapses onto its owner (`type` on a usage for
   the `FeatureTyping` element, `isImpliedIncluded`, the membership ends), so
-  the reader derives the collapsed spelling back: a `sysml:FeatureTyping`
+  the reader derives the collapsed spelling back. A document is read this
+  way when its elements state `isImpliedIncluded` and it carries no
+  `sysx:statedDefaults` marker: this mapping's graph never states
+  `Element::isImpliedIncluded` (the reader drops it from its own, marked
+  documents), so a graph that does is an external writer's element form. Then: a `sysml:FeatureTyping`
   stating nothing the collapsed `type` edge does not already say contributes
   its ends and is then elementless, an `isImpliedIncluded` element drops the
   stated defaults (`isEnd`, `isReference`, `mayTimeVary`, …) its owner's

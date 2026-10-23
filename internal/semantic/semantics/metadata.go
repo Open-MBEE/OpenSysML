@@ -25,6 +25,15 @@ const baseTypeFeature = "baseType"
 //
 // Any other combination contributes nothing, as does an annotation whose type is
 // undeclared: that is a diagnostic, and a guard-cut lookup is the resolver frames'.
+// SemanticMetadataBases returns the baseTypes the semantic metadata annotating
+// sym makes it specialize (SysML v2 §7.27.4): the usages a `#cause` usage subsets.
+func (m *Model) SemanticMetadataBases(sym *symbols.Symbol) []*symbols.Symbol {
+	if m == nil || sym == nil || sym.Decl == nil {
+		return nil
+	}
+	return m.semanticMetadataBases(sym)
+}
+
 func (m *Model) semanticMetadataBases(sym *symbols.Symbol) []*symbols.Symbol {
 	switch sym.Decl.(type) {
 	case *ast.Definition, *ast.Usage, *ast.SubjectMember, *ast.AssumeMember, *ast.RequireMember:
@@ -383,9 +392,10 @@ func redefinesBaseType(usage *ast.Usage) bool {
 }
 
 // metaCastOperand returns the qualified name of the type a baseType binding
-// denotes: the left operand of a `meta` cast, or the reference itself.
+// denotes: the left operand of a `meta` or `as` cast (`causes as SysML::Usage`,
+// as the Cause and Effect library spells it), or the reference itself.
 func metaCastOperand(value ast.Node) *ast.QualifiedName {
-	if op, ok := value.(*ast.OperatorExpr); ok && op.Operator == ast.OpMeta && len(op.Operands) > 0 {
+	if op, ok := value.(*ast.OperatorExpr); ok && (op.Operator == ast.OpMeta || op.Operator == ast.OpAs) && len(op.Operands) > 0 {
 		value = op.Operands[0]
 	}
 	if fr, ok := value.(*ast.FeatureReference); ok {

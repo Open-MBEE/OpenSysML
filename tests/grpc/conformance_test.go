@@ -82,14 +82,27 @@ type conformanceCase struct {
 	Draws     string   `json:"draws,omitempty"`
 	ClockStep float64  `json:"clock_step,omitempty"`
 
+	// RenderView: the view or pseudo-view, the compartment folding, and the
+	// nodes the rendering must draw in order, the compartment each row is drawn
+	// in by its name, and the labels of its edges in order.
+	View                 string            `json:"view,omitempty"`
+	Compartments         string            `json:"compartments,omitempty"`
+	ExpectedNodeNames    []string          `json:"expected_node_names,omitempty"`
+	ExpectedCompartments map[string]string `json:"expected_compartments,omitempty"`
+	ExpectedEdgeLabels   []string          `json:"expected_edge_labels,omitempty"`
+
 	// GetDiagnostics lint selection and the codes the answer must and must not carry.
 	DisableLint   []string `json:"disable_lint,omitempty"`
 	EnableLint    []string `json:"enable_lint,omitempty"`
 	ExpectedCodes []string `json:"expected_codes,omitempty"`
 	AbsentCodes   []string `json:"absent_codes,omitempty"`
 
-	// ExecuteState
-	Events []string `json:"events,omitempty"`
+	// ExecuteState: the events injected in order, whether to ask for the run's
+	// trace, and the usages the traced transitions' objects are held under, in
+	// first-appearance order (one entry per object that took a transition).
+	Events               []string `json:"events,omitempty"`
+	Trace                bool     `json:"trace,omitempty"`
+	ExpectedTraceObjects []string `json:"expected_trace_objects,omitempty"`
 
 	// RunRuns, RecordRun
 	Runs             int64    `json:"runs,omitempty"`
@@ -342,6 +355,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runExecuteActionCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "GetDiagnostics":
 		runGetDiagnosticsCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "RenderView":
+		runRenderViewCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ExecuteState":
 		runExecuteStateCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ApplyEdits":
@@ -925,6 +940,43 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 	}
 }
 
+// runRenderViewCase renders the case's view under its compartment folding and
+// checks the nodes drawn, the compartment each row is drawn in and the edges.
+func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	resp, err := srv.RenderView(ctx, &pb.RenderViewRequest{ModelHash: modelHash, View: tc.View, Compartments: tc.Compartments})
+	if tc.ExpectedError != "" {
+		if err == nil || !strings.Contains(err.Error(), tc.ExpectedError) {
+			t.Fatalf("RenderView error = %v, want %q", err, tc.ExpectedError)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	names := make([]string, 0, len(resp.Nodes))
+	compartments := map[string]string{}
+	for _, node := range resp.Nodes {
+		names = append(names, node.GetName())
+		if node.GetCompartment() != "" {
+			compartments[node.GetName()] = node.GetCompartment()
+		}
+	}
+	if !slices.Equal(names, tc.ExpectedNodeNames) {
+		t.Errorf("nodes = %v, want %v", names, tc.ExpectedNodeNames)
+	}
+	if !maps.Equal(compartments, tc.ExpectedCompartments) {
+		t.Errorf("compartment rows = %v, want %v", compartments, tc.ExpectedCompartments)
+	}
+	labels := make([]string, 0, len(resp.Edges))
+	for _, edge := range resp.Edges {
+		labels = append(labels, edge.GetLabel())
+	}
+	if !slices.Equal(labels, tc.ExpectedEdgeLabels) {
+		t.Errorf("edge labels = %v, want %v", labels, tc.ExpectedEdgeLabels)
+	}
+}
+
 // runGetDiagnosticsCase asks for the model's diagnostics under the case's lint
 // selection and checks the codes present and absent.
 func runGetDiagnosticsCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
@@ -960,12 +1012,23 @@ func runExecuteStateCase(t *testing.T, srv *grpc.Service, ctx context.Context, m
 		ModelHash:            modelHash,
 		StateMachineSymbolId: tc.SymbolID,
 		Events:               tc.Events,
+		PerformerSymbolId:    tc.PerformerSymbolID,
+		Trace:                tc.Trace,
+		Advance:              tc.Advance,
 	})
 	if err != nil {
 		t.Fatalf("ExecuteState: %v", err)
 	}
 	if checkExpectedError(t, tc, resp.Error) {
 		return
+	}
+	if tc.ExpectedFinalTime != nil && resp.FinalTime != *tc.ExpectedFinalTime {
+		t.Errorf("final_time = %g, want %g", resp.FinalTime, *tc.ExpectedFinalTime)
+	}
+	if tc.ExpectedTraceObjects != nil {
+		if got := transitionObjects(resp.Trace); !slices.Equal(got, tc.ExpectedTraceObjects) {
+			t.Errorf("trace transition objects = %v, want %v", got, tc.ExpectedTraceObjects)
+		}
 	}
 	if tc.ExpectedStatesVisited != nil {
 		if len(resp.StatesVisited) != len(tc.ExpectedStatesVisited) {
@@ -985,6 +1048,21 @@ func runExecuteStateCase(t *testing.T, srv *grpc.Service, ctx context.Context, m
 		}
 		checkValue(t, "final_context "+name, want, got)
 	}
+}
+
+// transitionObjects lists the usages the objects taking the traced transitions
+// are held under, in first-appearance order, one entry per object.
+func transitionObjects(trace []*pb.DocumentEvent) []string {
+	var objects []string
+	for _, event := range trace {
+		if event.Kind != "transition" || event.Object == nil || event.Object.Element == nil {
+			continue
+		}
+		if element := event.Object.Element.GetElementId(); !slices.Contains(objects, element) {
+			objects = append(objects, element)
+		}
+	}
+	return objects
 }
 
 // checkExpectedError validates the in-band error field and reports whether the
