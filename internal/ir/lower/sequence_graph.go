@@ -73,7 +73,8 @@ type Transfer struct {
 }
 
 var (
-	// ErrNoSequence is an occurrence whose body holds no lifeline with an event occurrence.
+	// ErrNoSequence is an occurrence whose body holds neither a lifeline with an
+	// event occurrence nor a use of a nested interaction.
 	ErrNoSequence = errors.New("no lifeline of the occurrence holds an event occurrence")
 	// ErrMessageEndUnowned is a message end naming no event occurrence of a lifeline.
 	ErrMessageEndUnowned = errors.New("message end names no event occurrence of a lifeline")
@@ -91,27 +92,25 @@ func ToSequenceGraph(sym *symbols.Symbol, resolver *resolve.Resolver) (*Sequence
 	if len(g.Bodies) == 0 {
 		return nil, fmt.Errorf("%w: %s declares no body", ErrNoSequence, occurrenceText(sym.Decl))
 	}
+	// Lifelines and nested uses take their positions in declaration order, so
+	// the order's tie-break is the order the body writes them in.
 	named := map[string]bool{}
 	for _, body := range g.Bodies {
 		for _, member := range body.Members() {
-			if !sequenceLifeline(member) || named[member.Name] {
+			if named[member.Name] {
 				continue
 			}
-			if l.lifeline(member) {
+			switch {
+			case sequenceLifeline(member) && l.lifeline(member):
 				named[member.Name] = true
+			case member.Kind == symbols.SymbolOccurrenceUsage && l.interactionUse(member):
+				named[member.Name] = true
+				l.use(member)
 			}
 		}
 	}
 	if len(g.Events) == 0 {
 		return nil, fmt.Errorf("%w: %s", ErrNoSequence, occurrenceText(sym.Decl))
-	}
-	for _, body := range g.Bodies {
-		for _, member := range body.Members() {
-			if member.Kind == symbols.SymbolOccurrenceUsage && !named[member.Name] && l.interactionUse(member) {
-				named[member.Name] = true
-				l.use(member)
-			}
-		}
 	}
 	// A succession or a message may be anonymous, which Members leaves out.
 	for _, body := range g.Bodies {

@@ -87,13 +87,16 @@ messages are realized by (SysML v2.1 §7.16.1): the occurrence is materialized, 
 its nodes are visited in a topological order over the stated orders (declaration
 order breaking ties). At an event the messages reaching it are taken by the
 lifeline object holding it, the actions the event's body performs are performed
-once on that object (an event reached by two messages performs them once), the
+on that object once per event, as many times as each perform's multiplicity
+states (an event reached by two messages performs them once), the
 constraints it asserts are checked on that object, and the messages leaving it are
 posted, typed by their payloads. A typed usage (`occurrence spinup : Spinup {
 ref part :>> c = ctrl; }`) inherits its def's lifelines, events and messages; an
 occurrence usage of a nested interaction (`occurrence shake : Handshake;`) is
-performed at its place in the order, its lifelines bound as the usage binds them,
-else to the outer lifelines of their names.
+performed at its place in the order (declaration order among the events, where
+nothing orders them), its lifelines bound as the usage binds them, else to the
+outer lifelines of their names; an occurrence holding only such a use is an
+interaction too.
 
 - `evaluate`: the occurrence def or usage, by qualified name.
 - `transfers`: the messages realized, by name, in the order they were taken, a

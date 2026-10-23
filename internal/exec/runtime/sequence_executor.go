@@ -176,14 +176,28 @@ func (ctx *Context) performUse(inst *Instance, use *symbols.Symbol, run *Occurre
 
 // performAtEvent performs an action the event states, on the lifeline object: the
 // event is on the lifeline's timeline, so the action reads and writes that
-// object's features. On an object of the lifeline usage, the event occurrence it
-// holds holds the performance (`m.spinReceived.spinCall.result` reads its
-// result); an object standing for the lifeline without being its usage's own (an
-// outer interaction's object a use covers) holds nothing of the event. The `in`
-// bindings are evaluated on the interaction as arguments.
+// object's features. It is performed as many times as the perform's multiplicity
+// states (`perform action tick[2]`). On an object of the lifeline usage, the event
+// occurrence it holds holds the performances (`m.spinReceived.spinCall.result`
+// reads the result); an object standing for the lifeline without being its
+// usage's own (an outer interaction's object a use covers) holds nothing of the
+// event. The `in` bindings are evaluated on the interaction as arguments.
 func (ctx *Context) performAtEvent(inst *Instance, ev *lower.SequenceEvent, perform *symbols.Symbol, obj *Instance) (*ActionExecutor, error) {
 	fail := func(err error) (*ActionExecutor, error) {
 		return nil, fmt.Errorf("%s performs %s: %w", ev.Text(), SymbolText(perform), err)
+	}
+	var decl classifierBehaviorDecl
+	for _, candidate := range ctx.classifierBehaviorsOf(ev.Symbol) {
+		if candidate.member == perform {
+			decl = candidate
+		}
+	}
+	if decl.member == nil {
+		return fail(errUnsupportedClassifierBehavior)
+	}
+	count, err := ctx.classifierPerformanceCount(decl)
+	if err != nil {
+		return fail(err)
 	}
 	var exec *ActionExecutor
 	if objectOf(obj, ev.Lifeline) {
@@ -191,34 +205,29 @@ func (ctx *Context) performAtEvent(inst *Instance, ev *lower.SequenceEvent, perf
 		if err != nil {
 			return nil, err
 		}
-		var decl classifierBehaviorDecl
-		for _, candidate := range ctx.classifierBehaviorsOf(ev.Symbol) {
-			if candidate.member == perform {
-				decl = candidate
-			}
-		}
-		if decl.member == nil {
-			return fail(errUnsupportedClassifierBehavior)
-		}
 		ctx.attachBehavior(event, decl.member)
-		behavior, err := ctx.attachClassifierBehaviorWith(event, obj, decl, 0, func() (map[string]Value, error) {
-			return ctx.classifierBehaviorArguments(inst, decl)
-		})
-		ctx.behaviorAttached(event, decl.member)
-		if err != nil {
-			return fail(err)
-		}
-		exec = behavior.Action
-		if err := ctx.runPerformance(exec, ctx.runDepth == 0); err != nil {
-			return fail(err)
+		defer ctx.behaviorAttached(event, decl.member)
+		for i := int64(0); i < count; i++ {
+			behavior, err := ctx.attachClassifierBehaviorWith(event, obj, decl, i, func() (map[string]Value, error) {
+				return ctx.classifierBehaviorArguments(inst, decl)
+			})
+			if err != nil {
+				return fail(err)
+			}
+			exec = behavior.Action
+			if err := ctx.runPerformance(exec, ctx.runDepth == 0); err != nil {
+				return fail(err)
+			}
 		}
 	} else {
 		inputs, err := ctx.performInputs(perform, inst)
 		if err != nil {
 			return fail(err)
 		}
-		if exec, err = ctx.performAction(perform, obj, inputs); err != nil {
-			return fail(err)
+		for i := int64(0); i < count; i++ {
+			if exec, err = ctx.performAction(perform, obj, inputs); err != nil {
+				return fail(err)
+			}
 		}
 	}
 	if ctx.trace != nil {
