@@ -1034,9 +1034,13 @@ func reaches(op Op, left *Term) *Term {
 }
 
 // under translates with the evaluation condition narrowed by cond, nil narrowing
-// nothing, and restores the enclosing one after.
+// nothing — nor a literal true, an operand the evaluator always passes — and
+// restores the enclosing one after.
 func (t *translator) under(cond *Term, translate func() (*Term, error)) (*Term, error) {
 	outer := t.path
+	if cond != nil && cond.Op == OpBool && cond.Bool {
+		cond = nil
+	}
 	t.path = and(outer, cond)
 	defer func() { t.path = outer }()
 	return translate()

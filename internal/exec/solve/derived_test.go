@@ -304,6 +304,7 @@ func TestDerivedEquationIsReadWhereTheEvaluatorReadsIt(t *testing.T) {
 			assert constraint always { z > 0.0 }
 			assert constraint sometimes { free > 0.0 or w > 0.0 }
 			assert constraint divides { w > 0.0 }
+			assert constraint tautology { true and w > 0.0 }
 		}
 	}`)
 	item := symbolNamed(t, idx, "test::Item")
@@ -362,6 +363,17 @@ func TestDerivedEquationIsReadWhereTheEvaluatorReadsIt(t *testing.T) {
 	if len(q.Derived) != 0 || len(q.Unreadable) != 1 || q.Unreadable[0].Name != "w" {
 		t.Fatalf("Derived = %+v, Unreadable = %+v, want the conditional read of w guarded", q.Derived, q.Unreadable)
 	}
+	// An operand the evaluator always passes (`true and …`) narrows nothing, so
+	// the read behind it is on every path and the equation is stated.
+	tautology := symbolNamed(t, idx, "test::Item::tautology")
+	q, err = ConstraintWith(ctx, tautology, tautology.OwnerScope, pins)
+	if err != nil {
+		t.Fatalf("translate tautology: %v", err)
+	}
+	if len(q.Derived) != 1 || len(q.Unreadable) != 0 || varNamed(t, q, "test::Item::w").Reached != nil {
+		t.Fatalf("Derived = %+v, Unreadable = %+v, want w = 1.0 / free read on every path", q.Derived, q.Unreadable)
+	}
+	solved(t, solver, q, StatusSat)
 }
 
 // TestDeclarationOverAChainIsNotDerived: a declared value reading through a
