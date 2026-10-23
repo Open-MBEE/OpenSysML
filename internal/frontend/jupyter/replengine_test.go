@@ -117,8 +117,7 @@ func TestFailuresAreNamedByWhatFailed(t *testing.T) {
 		"1 +":                                "SubmissionError",
 	}
 	for code, want := range cases {
-		// Each in its own session: as at the prompt, a snippet that did not parse
-		// stays in the buffer and holds back the deeper checks of what follows.
+		// Each in its own session, so a failure is judged on its own.
 		e := newEngine(t)
 		if got := mustFail(t, e, code); got.Name != want {
 			t.Errorf("Execute(%q) failed as %s (%s), want %s", code, got.Name, got.Value, want)

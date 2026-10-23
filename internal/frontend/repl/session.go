@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -75,6 +76,9 @@ type snippet struct {
 	// found, mapped as the workspace maps a document's.
 	open  bool
 	diags []diag.Diagnostic
+	// rejected marks a typed submission that declares nothing and does not parse:
+	// it is reported once, against the buffer it was typed into, then dropped.
+	rejected bool
 }
 
 // SourceConverter transforms a named source file before the REPL parses it.
@@ -611,13 +615,14 @@ func (s *Session) acceptParsed(origin, key, of, src string, pre parsed, kind sou
 	// diagnostics keep the line numbers of the submission. A merge folded the
 	// comments into the text it rewrote, where own marks what was added.
 	s.snippets = append(s.snippets, snippet{
-		src:    comments + text,
-		names:  names,
-		origin: origin,
-		kind:   kind,
-		gen:    s.version,
-		prefix: len(comments),
-		own:    mergedOwn,
+		src:      comments + text,
+		names:    names,
+		origin:   origin,
+		kind:     kind,
+		gen:      s.version,
+		prefix:   len(comments),
+		own:      mergedOwn,
+		rejected: len(names) == 0 && len(p.Diagnostics) > 0,
 	})
 	return declared, drops
 }
@@ -941,7 +946,8 @@ func intersects(names []string, set map[string]bool) bool {
 // is still accumulated, so its diagnostics are reported against the live session
 // context; one that leaves a brace, comment or quoted name open is masked out of
 // the buffer instead, since it would otherwise absorb the next submission. A
-// later redeclaration of the same name replaces the prior snippet (see accept).
+// later redeclaration of the same name replaces the prior snippet (see accept);
+// one that declares no name to redeclare is dropped once its errors are reported.
 func (s *Session) Submit(src string) Result {
 	defer s.enter()()
 	return s.submitAll([]string{src})
@@ -1080,7 +1086,23 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 		Notices: notices,
 	}
 	res.Blocked = s.blockedBy(res, load)
+	// A rejected submission was reported against the buffer it was typed into;
+	// nothing declared it, so nothing replaces it, and it leaves the buffer now.
+	if s.dropRejected() {
+		more := s.rebuildOver(nil)
+		whole = append(whole, more...)
+		res.Notices = append(res.Notices, more...)
+	}
 	return res, byFile, whole
+}
+
+// dropRejected removes the snippets this submission rejected, reporting whether
+// the buffer changed.
+func (s *Session) dropRejected() bool {
+	kept := slices.DeleteFunc(s.snippets, func(sn snippet) bool { return sn.rejected })
+	changed := len(kept) != len(s.snippets)
+	s.snippets = kept
+	return changed
 }
 
 // dropReadWhole drops every snippet of a file the submission read whole, a

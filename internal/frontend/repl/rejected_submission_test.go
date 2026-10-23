@@ -1,6 +1,8 @@
 package repl
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -47,6 +49,12 @@ func TestRejectedNamelessSubmissionLeavesNoTrace(t *testing.T) {
 
 	if list := strings.Join(s.List(), "\n"); strings.Contains(list, rejectedLine) {
 		t.Errorf("%%list still shows the rejected submission:\n%s", list)
+	}
+	path := filepath.Join(t.TempDir(), "out.sysml")
+	saved := run(t, s, "%save "+path)
+	rejects(t, saved, "warning:", "syntax error(s)")
+	if data, err := os.ReadFile(path); err != nil || strings.Contains(string(data), rejectedLine) {
+		t.Errorf("%%save wrote the rejected submission (%v):\n%s", err, data)
 	}
 	lines, err := s.EvalBare("add(10 [m], 20 [mm])")
 	if err != nil {
