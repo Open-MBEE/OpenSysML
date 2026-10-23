@@ -415,3 +415,45 @@ func TestDeclarationOverAChainIsNotDerived(t *testing.T) {
 	}
 	t.Fatalf("pins = %+v, want z among them", pins)
 }
+
+// TestDerivedDetectionResolvesReferencesAsTheTranslatorDoes: a declared value
+// is derived when a name of one segment reads the element's feature, as the
+// translator resolves it; a qualified name reads a scoped element, which
+// alone derives nothing, and a chain through an object is not derived.
+func TestDerivedDetectionResolvesReferencesAsTheTranslatorDoes(t *testing.T) {
+	ctx, idx := fixture(t, "derived_names.sysml", `package test {
+		private import ScalarValues::*;
+		attribute scale : Real = 2.0;
+		part def Inner { attribute x : Real = 1.0; }
+		part def Item {
+			attribute r : Real;
+			attribute scaled : Real = test::scale * r;
+			attribute constant : Real = test::scale * 3.0;
+			part inner : Inner;
+			attribute nested : Real = inner.x * r;
+			assert constraint c { scaled > 0.0 and constant > 0.0 }
+		}
+	}`)
+	pins, _ := Fixed(ctx, symbolNamed(t, idx, "test::Item"), nil)
+	byName := map[string]Pin{}
+	for _, p := range pins {
+		byName[p.Name] = p
+	}
+	if scaled := derivedPin(t, pins, "scaled"); scaled.Value.Kind != runtime.ValInvalid {
+		t.Errorf("scaled = %+v, want derived with no value for want of r", scaled)
+	}
+	if constant := byName["constant"]; constant.Derived != nil || constant.Value.Kind != runtime.ValConst {
+		t.Errorf("constant = %+v, want a value: it reads no feature of the element", constant)
+	}
+	if nested, ok := byName["nested"]; ok && nested.Derived != nil {
+		t.Errorf("nested = %+v, want not derived: it reads through a chain", nested)
+	}
+	c := symbolNamed(t, idx, "test::Item::c")
+	q, err := ConstraintWith(ctx, c, c.OwnerScope, pins)
+	if err != nil {
+		t.Fatalf("translate c: %v", err)
+	}
+	if len(q.Derived) != 1 || q.Derived[0].Expression != "test::scale * r" || len(q.Pinned) != 1 {
+		t.Fatalf("Derived = %+v, Pinned = %+v, want scaled = test::scale * r and constant fixed", q.Derived, q.Pinned)
+	}
+}

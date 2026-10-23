@@ -416,16 +416,17 @@ func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, in
 	}
 	reads, chained := false, false
 	ast.Inspect(feat.DefaultValue, func(n ast.Node) bool {
-		switch n.(type) {
-		case *ast.FeatureReference, *ast.FeatureChainExpr:
-			segments, ok := pathSegments(n)
-			if !ok || len(segments) == 0 {
-				return false
-			}
-			if len(segments) > 1 {
-				chained = true
-			} else if sym, ok := features[segments[0]]; ok && sym != feat.Symbol {
-				reads = true
+		switch ref := n.(type) {
+		case *ast.FeatureChainExpr:
+			chained = true
+			return false
+		case *ast.FeatureReference:
+			// A name of one segment reads the element's feature, as the
+			// translator resolves it; a qualified one names a scoped element.
+			if segments, ok := nameSegments(ref.Name); ok && len(segments) == 1 {
+				if sym, ok := features[segments[0]]; ok && sym != feat.Symbol {
+					reads = true
+				}
 			}
 			return false
 		}
