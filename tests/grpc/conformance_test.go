@@ -97,8 +97,12 @@ type conformanceCase struct {
 	ExpectedCodes []string `json:"expected_codes,omitempty"`
 	AbsentCodes   []string `json:"absent_codes,omitempty"`
 
-	// ExecuteState
-	Events []string `json:"events,omitempty"`
+	// ExecuteState: the events injected in order, whether to ask for the run's
+	// trace, and the usages the traced transitions' objects are held under, in
+	// first-appearance order (one entry per object that took a transition).
+	Events               []string `json:"events,omitempty"`
+	Trace                bool     `json:"trace,omitempty"`
+	ExpectedTraceObjects []string `json:"expected_trace_objects,omitempty"`
 
 	// RunRuns, RecordRun
 	Runs             int64    `json:"runs,omitempty"`
@@ -1008,12 +1012,23 @@ func runExecuteStateCase(t *testing.T, srv *grpc.Service, ctx context.Context, m
 		ModelHash:            modelHash,
 		StateMachineSymbolId: tc.SymbolID,
 		Events:               tc.Events,
+		PerformerSymbolId:    tc.PerformerSymbolID,
+		Trace:                tc.Trace,
+		Advance:              tc.Advance,
 	})
 	if err != nil {
 		t.Fatalf("ExecuteState: %v", err)
 	}
 	if checkExpectedError(t, tc, resp.Error) {
 		return
+	}
+	if tc.ExpectedFinalTime != nil && resp.FinalTime != *tc.ExpectedFinalTime {
+		t.Errorf("final_time = %g, want %g", resp.FinalTime, *tc.ExpectedFinalTime)
+	}
+	if tc.ExpectedTraceObjects != nil {
+		if got := transitionObjects(resp.Trace); !slices.Equal(got, tc.ExpectedTraceObjects) {
+			t.Errorf("trace transition objects = %v, want %v", got, tc.ExpectedTraceObjects)
+		}
 	}
 	if tc.ExpectedStatesVisited != nil {
 		if len(resp.StatesVisited) != len(tc.ExpectedStatesVisited) {
@@ -1033,6 +1048,21 @@ func runExecuteStateCase(t *testing.T, srv *grpc.Service, ctx context.Context, m
 		}
 		checkValue(t, "final_context "+name, want, got)
 	}
+}
+
+// transitionObjects lists the usages the objects taking the traced transitions
+// are held under, in first-appearance order, one entry per object.
+func transitionObjects(trace []*pb.DocumentEvent) []string {
+	var objects []string
+	for _, event := range trace {
+		if event.Kind != "transition" || event.Object == nil || event.Object.Element == nil {
+			continue
+		}
+		if element := event.Object.Element.GetElementId(); !slices.Contains(objects, element) {
+			objects = append(objects, element)
+		}
+	}
+	return objects
 }
 
 // checkExpectedError validates the in-band error field and reports whether the

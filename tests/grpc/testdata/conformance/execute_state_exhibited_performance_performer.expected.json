@@ -1,0 +1,15 @@
+{
+  "rpc": "ExecuteState",
+  "symbol_id": "test::Supervisor",
+  "performer_symbol_id": "test::scenario.tug.sup",
+  "trace": true,
+  "advance": 20,
+  "expected_states_visited": [
+    "armed",
+    "expired"
+  ],
+  "expected_trace_objects": [
+    "test::Scenario::tug"
+  ],
+  "expected_final_time": 20
+}
