@@ -13,6 +13,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
+// apiJSONGraphAspectPrefix starts the aspect that names a subject by its position in the graph.
+const apiJSONGraphAspectPrefix = "graph:"
+
 type apiJSONGraphStructure struct {
 	graph                       *rdf.Graph
 	subjectSlots                map[string]int
@@ -132,7 +135,7 @@ func newAPIJSONGraphStructureWithSubjectSlots(graph *rdf.Graph, subjectSlots map
 	for position, subject := range subjects {
 		class, ok := s.metaclass(subject)
 		if ok {
-			aspect := "graph:" + strconv.Itoa(position)
+			aspect := apiJSONGraphAspectPrefix + strconv.Itoa(position)
 			element := metamodel.Element{Aspect: aspect}
 			if ontology.IsAncestorOrSelf(class, "Membership") {
 				element = metamodel.MembershipElement(metamodel.Membership{Aspect: aspect})
@@ -204,10 +207,10 @@ func (s *apiJSONGraphStructure) subject(element metamodel.Element) (rdf.Term, bo
 	if element.IsMembership {
 		aspect = element.Membership.Aspect
 	}
-	if !strings.HasPrefix(aspect, "graph:") {
+	if !strings.HasPrefix(aspect, apiJSONGraphAspectPrefix) {
 		return rdf.Term{}, false
 	}
-	position, err := strconv.Atoi(strings.TrimPrefix(aspect, "graph:"))
+	position, err := strconv.Atoi(strings.TrimPrefix(aspect, apiJSONGraphAspectPrefix))
 	if err != nil || position < 0 || position >= len(s.elements) || s.elements[position].Key() != element.Key() {
 		return rdf.Term{}, false
 	}
