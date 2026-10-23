@@ -228,10 +228,17 @@ func Fixed(ctx *runtime.Context, sym *symbols.Symbol, inst *runtime.Instance) ([
 			continue
 		}
 		value, source, object, err := fixedValue(ctx, &feature, inst)
+		if err == nil {
+			// A declared value open for a feature nothing gives a value to does not
+			// evaluate, as a failed read does; a feature holding nothing itself stays free.
+			if unset := unsetOutside(value.Undetermined(), []*symbols.Symbol{feature.Symbol}); unset != nil {
+				err = unsetRead(feature.Name, unset)
+			}
+		}
 		switch {
 		case err != nil:
 			unfixed = append(unfixed, Unfixed{Feature: feature.Symbol, Name: feature.Name, Reason: err.Error(), Err: err})
-		case value.Kind == runtime.ValInvalid, ctx.HoldsNoValue(value):
+		case value.Kind == runtime.ValInvalid, value.Kind == runtime.ValUndetermined, ctx.HoldsNoValue(value):
 			// No value is fixed, which is what leaves the feature free.
 		default:
 			pins = append(pins, Pin{
@@ -748,8 +755,7 @@ func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instan
 			if i := strings.LastIndex(spelled, "::"); i >= 0 {
 				spelled = spelled[i+2:]
 			}
-			noValue := &runtime.NoValueError{Feature: unset.Name, Symbol: unset}
-			err := &runtime.FeatureValueError{Err: fmt.Errorf("feature value %s: %w", spelled, noValue)}
+			err := unsetRead(spelled, unset)
 			unfixed = append(unfixed, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: err.Error(), Err: err})
 			continue
 		}
@@ -824,6 +830,27 @@ func UnfixedRead(ctx *runtime.Context, q *Query, unfixed []Unfixed) error {
 	assertions = append(assertions, guards...)
 	q.Assertions = append(assertions, q.Assertions[at:]...)
 	return nil
+}
+
+// ReadUnfixed is the subset of unfixed that some variable of q reads, in order:
+// the features whose failed read bears on q, as UnfixedRead guards or refuses
+// them. One no condition of q reads bears on no answer, as a fixed value no
+// condition reads does not.
+func ReadUnfixed(q *Query, unfixed []Unfixed) []Unfixed {
+	if q == nil || len(unfixed) == 0 {
+		return nil
+	}
+	t := &translator{vars: make(map[string]*Var, len(q.Vars))}
+	for _, v := range q.Vars {
+		t.vars[v.Name] = v
+	}
+	var out []Unfixed
+	for _, u := range unfixed {
+		if t.pinnedVar(Pin{Feature: u.Feature, Name: u.Name, Var: u.Var}) != nil {
+			out = append(out, u)
+		}
+	}
+	return out
 }
 
 // contextRole reports whether a role bounds the assignments a query is about
@@ -926,6 +953,13 @@ func soleHeld(v runtime.Value) (runtime.Value, bool) {
 		return runtime.Value{}, false
 	}
 	return elements[0], true
+}
+
+// unsetRead is the error reading a declared value fails with when a feature it
+// reads holds nothing: the one the evaluator raises materialising the value.
+func unsetRead(spelled string, unset *symbols.Symbol) error {
+	noValue := &runtime.NoValueError{Feature: unset.Name, Symbol: unset}
+	return &runtime.FeatureValueError{Err: fmt.Errorf("feature value %s: %w", spelled, noValue)}
 }
 
 // unsetOutside is the first feature with no value u is open for that is none of the

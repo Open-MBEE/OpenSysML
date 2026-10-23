@@ -109,7 +109,7 @@ func synthesisReport(name string, q *solve.Query, solved analysis.Evaluation, un
 		lines := []string{fmt.Sprintf("✓ %s has values satisfying it (%s)", subject, solveDetail(result))}
 		lines = append(lines, fixedLines(q)...)
 		lines = append(lines, synthesisedLines(q, result)...)
-		lines = append(lines, unfixedLines(unfixed)...)
+		lines = append(lines, unfixedLines(q, unfixed)...)
 		lines = append(lines, unreadLines(q)...)
 		lines = append(lines, "  One witness: a solver may answer with any of the assignments that satisfy it.")
 		return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver, Lines: lines}
@@ -150,14 +150,14 @@ func noValuesLines(subject string, q *solve.Query, result *solve.Result, unfixed
 	if !q.Fixes() {
 		lines := []string{fmt.Sprintf("✗ %s has no satisfying values: its conditions conflict on their own (%s)",
 			subject, solveDetail(result))}
-		lines = append(lines, unfixedLines(unfixed)...)
+		lines = append(lines, unfixedLines(q, unfixed)...)
 		return lines
 	}
 	lines := []string{fmt.Sprintf("✗ %s has no values consistent with the %s already fixed (%s)",
 		subject, plural(len(q.Pinned), "value", "values"), solveDetail(result))}
 	lines = append(lines, fixedLines(q)...)
 	lines = append(lines, conflictingFixed(q, result.Core)...)
-	return append(lines, unfixedLines(unfixed)...)
+	return append(lines, unfixedLines(q, unfixed)...)
 }
 
 // conflictingFixed names the fixed values taking part in the conflict behind an unsat
@@ -243,9 +243,11 @@ func synthesisedLines(q *solve.Query, result *solve.Result) []string {
 	return append([]string{"  Synthesised:"}, indent(assignmentLines(chosen))...)
 }
 
-// unfixedLines says which declared values could not be read, so a reader knows
-// the query left them free rather than took them as fixed.
-func unfixedLines(unfixed []solve.Unfixed) []string {
+// unfixedLines says which declared values the query reads could not be read, so
+// a reader knows it left them free rather than took them as fixed. One no
+// condition reads is passed over, as a fixed value no condition reads is.
+func unfixedLines(q *solve.Query, unfixed []solve.Unfixed) []string {
+	unfixed = solve.ReadUnfixed(q, unfixed)
 	if len(unfixed) == 0 {
 		return nil
 	}
