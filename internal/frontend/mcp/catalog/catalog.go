@@ -125,7 +125,7 @@ var Tools = []Entry{
 		Summary: "Render a document definition as Markdown or HTML."},
 	{Name: "record_run", Group: GroupRuntime, RPCs: []string{"RecordRun"}, Flags: []string{"record-run", "record-into"},
 		Summary: "Run an analysis case and record the runs into the model as AnalysisRecords declarations."},
-	{Name: "render_model_view", Group: GroupRuntime, RPCs: []string{"RenderView"}, Flags: []string{"render", "render-ports", "render-show", "render-depth"},
+	{Name: "render_model_view", Group: GroupRuntime, RPCs: []string{"RenderView"}, Flags: []string{"render", "render-ports", "render-show", "render-depth", "render-compartments"},
 		Summary: "Render a view as its nodes, edges and compartments."},
 	{Name: "check_behavior", Group: GroupRuntime, RPCs: []string{"CheckBehavior"}, Flags: []string{"check-property", "check-diverge", "check-input", "check-assume", "check-witness", "check-depth", "check-states", "check-unroll", "check-timeout"},
 		Summary: "Search every schedule of an action or state machine for violated properties, deadlocks, failures and divergent values."},

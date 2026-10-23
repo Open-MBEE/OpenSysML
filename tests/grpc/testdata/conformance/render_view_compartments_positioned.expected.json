@@ -1,0 +1,19 @@
+{
+  "rpc": "RenderView",
+  "view": "CompartmentDemo::structure",
+  "compartments": "",
+  "expected_node_names": [
+    "CompartmentDemo::Sensor",
+    "label",
+    "reading",
+    "CompartmentDemo::Controller",
+    "enabled",
+    "sensor",
+    "label",
+    "reading"
+  ],
+  "expected_compartments": {},
+  "expected_edge_labels": [
+    "sensor"
+  ]
+}

@@ -401,9 +401,13 @@ func TestVizShowsADiagram(t *testing.T) {
 			t.Errorf("%s: %s present = %t, want %t (Graphviz drawn)", c.code, mimeSVG, ok, dotDrawn())
 		}
 	}
-	out := mustRun(t, e, "%viz --style comptree P::Car")
-	if mermaid, _ := out.displays[0][mimeMermaid].(string); !strings.Contains(mermaid, "%% not represented: style COMPTREE (show nested ports in a compartment) is not drawn") {
+	out := mustRun(t, e, "%viz --style showinherited P::Car")
+	if mermaid, _ := out.displays[0][mimeMermaid].(string); !strings.Contains(mermaid, "%% not represented: style SHOWINHERITED (show inherited members) is not drawn") {
 		t.Errorf("a pilot style not drawn was not noted in the diagram:\n%s", mermaid)
+	}
+	out = mustRun(t, e, "%viz --style compmost P::Car")
+	if mermaid, _ := out.displays[0][mimeMermaid].(string); !strings.Contains(mermaid, "fl : Wheel") || strings.Contains(mermaid, "not represented: style") {
+		t.Errorf("the pilot's COMPMOST style did not fold Car's parts into compartment rows:\n%s", mermaid)
 	}
 	out = mustRun(t, e, "%viz --style ortholine P::Car")
 	if dot, _ := out.displays[0][mimeDot].(string); !strings.Contains(dot, "splines=ortho") {

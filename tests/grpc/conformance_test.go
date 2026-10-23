@@ -82,6 +82,15 @@ type conformanceCase struct {
 	Draws     string   `json:"draws,omitempty"`
 	ClockStep float64  `json:"clock_step,omitempty"`
 
+	// RenderView: the view or pseudo-view, the compartment folding, and the
+	// nodes the rendering must draw in order, the compartment each row is drawn
+	// in by its name, and the labels of its edges in order.
+	View                 string            `json:"view,omitempty"`
+	Compartments         string            `json:"compartments,omitempty"`
+	ExpectedNodeNames    []string          `json:"expected_node_names,omitempty"`
+	ExpectedCompartments map[string]string `json:"expected_compartments,omitempty"`
+	ExpectedEdgeLabels   []string          `json:"expected_edge_labels,omitempty"`
+
 	// GetDiagnostics lint selection and the codes the answer must and must not carry.
 	DisableLint   []string `json:"disable_lint,omitempty"`
 	EnableLint    []string `json:"enable_lint,omitempty"`
@@ -342,6 +351,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runExecuteActionCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "GetDiagnostics":
 		runGetDiagnosticsCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "RenderView":
+		runRenderViewCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ExecuteState":
 		runExecuteStateCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ApplyEdits":
@@ -922,6 +933,43 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 			continue
 		}
 		checkValue(t, "output "+name, want, got)
+	}
+}
+
+// runRenderViewCase renders the case's view under its compartment folding and
+// checks the nodes drawn, the compartment each row is drawn in and the edges.
+func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	resp, err := srv.RenderView(ctx, &pb.RenderViewRequest{ModelHash: modelHash, View: tc.View, Compartments: tc.Compartments})
+	if tc.ExpectedError != "" {
+		if err == nil || !strings.Contains(err.Error(), tc.ExpectedError) {
+			t.Fatalf("RenderView error = %v, want %q", err, tc.ExpectedError)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	names := make([]string, 0, len(resp.Nodes))
+	compartments := map[string]string{}
+	for _, node := range resp.Nodes {
+		names = append(names, node.GetName())
+		if node.GetCompartment() != "" {
+			compartments[node.GetName()] = node.GetCompartment()
+		}
+	}
+	if !slices.Equal(names, tc.ExpectedNodeNames) {
+		t.Errorf("nodes = %v, want %v", names, tc.ExpectedNodeNames)
+	}
+	if !maps.Equal(compartments, tc.ExpectedCompartments) {
+		t.Errorf("compartment rows = %v, want %v", compartments, tc.ExpectedCompartments)
+	}
+	labels := make([]string, 0, len(resp.Edges))
+	for _, edge := range resp.Edges {
+		labels = append(labels, edge.GetLabel())
+	}
+	if !slices.Equal(labels, tc.ExpectedEdgeLabels) {
+		t.Errorf("edge labels = %v, want %v", labels, tc.ExpectedEdgeLabels)
 	}
 }
 

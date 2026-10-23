@@ -55,6 +55,16 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
   the interchange export every SysML v1 tool offers, and a tool's export is read as far as it
   is this standard. The UML and SysML namespace versions are not pinned; any
   `http://www.omg.org/spec/UML/…` / `…/SysML/…` namespace is recognized.
+- **Eclipse UML2 serializations of the SysML profile**, as Cameo's "Eclipse UML2 (v5.x)
+  XMI" export writes them: a package of the profile with no URI of its own gets the hostless
+  nsURI Eclipse UML2 derives from its qualified name — `http:///SysML/Blocks.ecore`,
+  `http:///SysML/Requirements.ecore`, `http:///SysML/PortsFlows.ecore`, and so on down to
+  `http:///SysML/Libraries/PrimitiveValueTypes.ecore`. Any `http:///SysML/….ecore` namespace
+  (empty host, the `SysML` root path, the `.ecore` suffix, no query or fragment) classifies
+  stereotype applications through the same mappings as the OMG and Papyrus profiles; a
+  standard `Block` applied to a UML class becomes a `part def`. A profile under another root
+  (`http:///Acme/Stereotypes.ecore`), another host, or a URI with a query or fragment is not
+  thereby standard SysML.
 - **Zip archives holding the XMI**, a MagicDraw / Cameo `.mdzip` project among them: the
   archive's `uml_model.model` entries are read, or, in an archive without them, every `.xmi`,
   `.xml` and `.uml` entry that is an XMI document. Used projects (archives the model refers
@@ -96,7 +106,8 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
   is an operand of the element owning the extension, in document order, however the tool
   wraps it; one inside a serialized diagram is the diagram's content, not an operand.
 - Only stereotypes from the OMG SysML and UML standard profiles, in the OMG namespaces or
-  Papyrus' `…/papyrus/sysml/…` ones, classify elements — applied directly, or through a user
+  Papyrus' `…/papyrus/sysml/…` ones or Eclipse UML2's hostless `http:///SysML/….ecore`
+  ones, classify elements — applied directly, or through a user
   stereotype that specializes one (see [Profiles and stereotypes](#profiles-and-stereotypes)).
   Any other profile's «Block» or «Requirement» with no standard general — a user's own, a
   tool's customization layer over SysML, or another profile Papyrus hosts — carries no SysML

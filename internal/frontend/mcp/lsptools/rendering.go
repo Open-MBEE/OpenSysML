@@ -21,6 +21,7 @@ type RenderViewInput struct {
 	Style        string   `json:"style,omitempty" jsonschema:"the drawing style of dot/mermaid: pilot (the default, the Pilot visualizer's look) or cameo (Cameo Systems Modeler's)"`
 	Ports        string   `json:"ports,omitempty" jsonschema:"ports drawn on an interconnection or mixed rendering: minimal (the default, only connected ports) or full (every port, labelled name : Type)"`
 	Lines        string   `json:"lines,omitempty" jsonschema:"how dot and plantuml route edges: splines (the default), ortho or polyline"`
+	Compartments string   `json:"compartments,omitempty" jsonschema:"how a tree rendering folds a node's owned members into compartment rows of its box: positioned (the default, only the layout-less members of a tree some Layout positions), most (every owned usage no Layout, nested definition or package keeps a node) or ports (the port usages with the ports nested under them)"`
 	Show         []string `json:"show,omitempty" jsonschema:"optional notation elements drawn besides the ones the view's rendering shows: parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, or all; port symbols, compartments and keywords are drawn by default"`
 	Depth        int      `json:"depth,omitempty" jsonschema:"how many levels of nested elements a tree or interconnection rendering draws below each exposed element, overriding the view's depth attribute; omitted or 0 keeps the view's own depth"`
 	Overlay      string   `json:"overlay,omitempty" jsonschema:"verdicts, on a requirement rendering: runs the verification cases and colors each requirement by its verdict; omitted runs nothing"`
@@ -54,7 +55,7 @@ func registerRendering(s *mcp.Server, h *Host) {
 		}
 		res, err := h.Server.Render(&lsp.RenderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: ref.uri()},
-			View:         in.View, Form: in.Form, Palette: in.Palette, Style: in.Style, Ports: in.Ports, Lines: in.Lines, Show: in.Show, Depth: in.Depth, Overlay: in.Overlay, LinkTemplate: in.LinkTemplate,
+			View:         in.View, Form: in.Form, Palette: in.Palette, Style: in.Style, Ports: in.Ports, Lines: in.Lines, Compartments: in.Compartments, Show: in.Show, Depth: in.Depth, Overlay: in.Overlay, LinkTemplate: in.LinkTemplate,
 		})
 		if err != nil {
 			return nil, nil, err

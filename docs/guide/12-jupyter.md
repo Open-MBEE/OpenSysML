@@ -151,8 +151,10 @@ with nothing to connect a tree; names calling for different diagrams draw a mixe
 names draw in one diagram. Names resolve as `%render`'s do: qualified, or simple and in scope.
 
 Each `--style` is a direction (`TB`, `LR`, `RL`, `BT`), a drawing style (`pilot`, `cameo`), a
-palette (`okabe-ito`, `viridis`, …) or a port display (`minimal`, `full`). The pilot's other
-styles (`ORTHOLINE`, `POLYLINE`, `COMPTREE`, `SHOWINHERITED`, …) are accepted and noted in the
+palette (`okabe-ito`, `viridis`, …) or a port display (`minimal`, `full`); `ORTHOLINE` and
+`POLYLINE` route the edges, and `COMPMOST` and `COMPTREE` fold a tree's owned members — every owned
+usage, or the ports alone — into compartment rows of their owner instead of boxes of their own. The
+pilot's other styles (`SHOWINHERITED`, `SHOWLIB`, …) are accepted and noted in the
 diagram as not drawn, so a pilot notebook runs and nothing is dropped silently; `PUMLCODE` asks for
 the PlantUML source, as it does in the pilot. An unknown view or style is refused with the list.
 
