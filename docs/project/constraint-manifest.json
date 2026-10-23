@@ -1924,7 +1924,7 @@
       "checks": "A feature value does not override a binding feature value inherited from a redefined feature (`Cannot override a binding feature value`)",
       "implementation": "internal/check/passes/feature_value_overriding.go:constraintChecker.checkFeatureValueOverriding (run by ConstraintPass.Run)",
       "message": "`cannot override the binding value of P::a: a value written with `` = `` is fixed for every feature redefining it; write it as `` default = `` on P::a to allow overriding, or remove this value`",
-      "negativeCase": "`semantic/s46-feature-value-overriding.sysml`",
+      "negativeCase": "`semantic/s46-feature-value-overriding.sysml`, `semantic/s114-constructor-argument-overrides-bound-value.sysml`",
       "codes": [
         "feature-value-overriding"
       ],
@@ -3255,7 +3255,7 @@
       "checks": "A redefining feature has a direction compatible with the redefined feature",
       "implementation": "internal/check/passes/w8b_redefinition_conformance.go:RedefinitionDirectionPass.Run",
       "message": "—",
-      "negativeCase": "`xpect/p31-redefinition-incompatible-direction.sysml`",
+      "negativeCase": "`xpect/p31-redefinition-incompatible-direction.sysml`, `semantic/s115-undirected-redefinition-of-in-parameter.sysml`, `semantic/s116-positional-parameter-direction-conflict.sysml`, `semantic/k76-undirected-redefinition-of-directed-feature.kerml`",
       "codes": [
         "redefinition-direction-conformance"
       ],
@@ -3943,7 +3943,7 @@
       "checks": "A subsetted feature is accessible from the subsetting feature's featuring types",
       "implementation": "internal/check/passes/subsetting_featuring.go:checkSubsettingFeaturingTypes, internal/check/passes/constraint.go:checkPackageLevelRedefinition",
       "message": "—",
-      "negativeCase": "`semantic/k13-subsets-inaccessible-feature.kerml`, `semantic/s105-package-level-redefines-type-feature.sysml`, `semantic/k74-package-level-redefines-featured-feature.kerml`",
+      "negativeCase": "`semantic/k13-subsets-inaccessible-feature.kerml`, `semantic/k77-standalone-subsetting-inaccessible-feature.kerml`, `semantic/s105-package-level-redefines-type-feature.sysml`, `semantic/k74-package-level-redefines-featured-feature.kerml`",
       "codes": [
         "subsetting-featuring-types"
       ],

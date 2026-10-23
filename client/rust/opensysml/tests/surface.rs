@@ -8,8 +8,8 @@ use std::env;
 use opensysml::{
     AnalysisOptions, Connection, Constraint, ConvertOptions, ConvertSource, DocumentForm,
     DocumentValue, ElementRef, Error, FailureReason, IdForm, MemberOptions, MigrateOptions,
-    MigrateSource, Model, Query, RenderViewPorts, RunOptions, SourceDocument, SourcesOptions,
-    SweepOptions, SweepRange, Value, VerifyOptions,
+    MigrateSource, Model, Query, RenderViewCompartments, RenderViewPorts, RunOptions,
+    SourceDocument, SourcesOptions, SweepOptions, SweepRange, Value, VerifyOptions,
 };
 
 const DEMO: &str = r#"
@@ -456,6 +456,35 @@ fn a_rendered_view_keeps_ports_edges_and_origins() {
         .iter()
         .flat_map(|node| &node.ports)
         .any(|port| port.name == "spare"));
+}
+
+#[test]
+fn rendered_views_fold_members_into_compartment_rows_on_request() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(
+        &connection,
+        include_str!("../../../../conformance/fixtures/views.sysml"),
+    );
+    let boxes = model.render_view("#tree:RenderViewDemo::Assembly").unwrap();
+    assert!(boxes.nodes.iter().all(|node| node.compartment.is_empty()));
+    let folded = model
+        .render_view_folded(
+            "#tree:RenderViewDemo::Assembly",
+            RenderViewPorts::Minimal,
+            &[],
+            0,
+            RenderViewCompartments::Most,
+        )
+        .unwrap();
+    let sender = folded
+        .nodes
+        .iter()
+        .find(|node| node.name == "sender")
+        .expect("sender is drawn");
+    assert_eq!(sender.compartment, "parts");
+    assert!(folded.nodes.len() < boxes.nodes.len());
 }
 
 #[test]

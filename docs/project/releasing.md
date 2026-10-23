@@ -962,23 +962,42 @@ the import is reported as the configuration error it is. Other jobs read only
 the current tree and keep the faster default.
 
 The job runs on a `large` container — 8 GB, the largest class in the plan —
-whose memory is split between three processes. `SONAR_SCANNER_JAVA_OPTS:
--Xmx5500m` sizes the forked analysis JVM the sonar-scanner-cli 8 launcher
-starts: Sonar's Go sensor parses one directory at a time and holds that
-directory's parser output in memory, so a large package
+whose memory is split between three processes, and the three hard caps must
+sum to less than the container with room for what has no cap.
+`SONAR_SCANNER_JAVA_OPTS: -Xmx4800m` sizes the forked analysis JVM the
+sonar-scanner-cli 8 launcher starts: Sonar's Go sensor parses one directory at
+a time and holds that directory's parser output in memory, so a large package
 (`internal/exec/runtime`) exhausted the scanner's default heap with
 `java.lang.OutOfMemoryError` before it was raised. `SONAR_SCANNER_OPTS:
 -Xmx256m` sizes the launcher itself and carries `-D` properties such as the
 project version, and `sonar.javascript.node.maxspace=1024` caps the Node
 process the JS/TS sensor spawns, whose default 2.2 GB the ~60 TypeScript
-files do not need.
+files do not need; Sonar reports that process as 1216 MB (the heap plus
+Node's own overhead). The budget is therefore 4800 (analysis heap) + 1216
+(Node) + 256 (launcher heap) = 6272 MB of caps, leaving about 1.9 GB for the
+two JVMs' native memory (metaspace for SonarCloud's plugin set, code cache,
+GC structures, thread stacks, direct buffers), the Go sensor's parser
+subprocess and the page cache of the full clone that blame reads.
+
+The previous 5500 MB heap left no such room: every scan peaked at the cgroup
+limit, and whether the OOM killer fired depended on how far G1 had grown the
+heap by the time the Node process existed. The kills landed in the phases
+that run after the JS/TS sensor has started Node and that only branch mode
+runs in full — the JS security sensor over all 112 files and the blame of
+all ~2000 files (a pull-request analysis blames only the changed files), so a
+green pull-request scan does not prove the `develop` job. The scan step also
+samples the cgroup usage and the largest processes every 5 s into
+`sonar-logs/memory-samples.log`, and the analysis JVM writes a GC log to
+`sonar-logs/analysis-gc.log` whose `(NNNNM)` figures are the committed heap
+after each collection; the memory-events step prints the peaks from both, so
+any future resizing starts from what the scan measured rather than from the
+caps.
 
 A scan that dies with `EXECUTION FAILURE` and exit 3, with no Java exception
-in its log, is the container's OOM-killer, not the analysis — an analysis
-heap near the container size plus an uncapped Node heap has done this at the
-moment the JS/TS sensor starts its Node process. A `when: always` step right
-after the scan prints the cgroup memory counters, where an OOM kill shows as
-`oom_kill 1` rather than being guessed at.
+in its log, is the container's OOM-killer, not the analysis. A `when: always`
+step right after the scan prints the cgroup memory counters, where an OOM
+kill shows as `oom_kill 1` rather than being guessed at, followed by the
+sampled peaks.
 
 The scan step itself reproduces what the `sonarsource/sonarcloud` orb did —
 download the pinned sonar-scanner-cli 8.0.1.6346 into a cache keyed on the

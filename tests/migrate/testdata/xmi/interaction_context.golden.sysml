@@ -6,20 +6,27 @@ package Model {
     part def Rig {
         part ctrl : Ctrl;
         part other : Ctrl;
-        action def Pair {
-            in ref context : Rig[1];
-            action ping send new Ping() to context.other;
-            first start then ping;
-            first ping then done;
+        occurrence def Pair {
+            ref part a : Ctrl {
+                event occurrence pingSent;
+            }
+            ref part b : Ctrl {
+                event occurrence pingReceived;
+            }
+            message ping of Ping[1] from a.pingSent to b.pingReceived;
         }
+        occurrence pair : Pair {
+            ref part :>> a = ctrl;
+            ref part :>> b = other;
+        }
+        metadata MigrationMetadata::SynthesizedName about pair;
     }
     part def Plant {
         part rig : Rig;
         state def Duty {
-            in ref context : Plant[1];
             entry; then on;
             state on {
-                do action : Rig::Pair { in ref :>> context = Duty::context.rig; }
+                /* do action Rig::Pair is written as an occurrence def, which no state runs */
             }
             transition first on then done;
         }

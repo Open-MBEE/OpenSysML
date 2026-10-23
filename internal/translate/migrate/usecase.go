@@ -561,6 +561,7 @@ func (m *migration) useCaseBody(e *sysmlv1.Element) {
 	m.actorParameters(e)
 	m.members(e)
 	m.classifierBehavior(e)
+	m.interactionOccurrences(e)
 	m.stereotypeMarkers(e)
 	m.scope = saved
 }

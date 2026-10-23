@@ -138,6 +138,7 @@ func documentOptions(outputDir string) docrender.HTMLOptions {
 		MathScript:          mathScriptURL(),
 		DiagramForm:         view.Form(diagramForm),
 		Unplaced:            view.Unplaced(renderUnplaced),
+		Compartments:        view.Compartments(renderCompartments),
 		Style:               view.DrawingStyle(renderStyle),
 		Show:                shownOrNone(),
 		LinkTemplate:        renderLink,
@@ -151,7 +152,7 @@ func documentOptions(outputDir string) docrender.HTMLOptions {
 // outputDir, "" for standard output.
 func markdownOptions(outputDir string) docrender.MarkdownOptions {
 	return docrender.MarkdownOptions{
-		DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle), Show: shownOrNone(), LinkTemplate: renderLink,
+		DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Compartments: view.Compartments(renderCompartments), Style: view.DrawingStyle(renderStyle), Show: shownOrNone(), LinkTemplate: renderLink,
 		Drawer: replext.Drawer(), WithoutGraphviz: replext.Drawer() == nil,
 		OutputDir: outputDir, NumberFigures: docNumberFigures,
 	}
@@ -174,7 +175,8 @@ func shownOrNone() view.Shown {
 }
 
 // checkDiagramForm rejects a -diagram-form value naming no diagram form, a
-// -render-unplaced value naming no placement, a -render-style value naming
+// -render-unplaced value naming no placement, a -render-compartments value
+// naming no folding, a -render-style value naming
 // no drawing style and a -render-show value naming no notation element.
 func checkDiagramForm() error {
 	if renderLink != "" {
@@ -183,6 +185,9 @@ func checkDiagramForm() error {
 		}
 	}
 	if _, err := unplacedOption(); err != nil {
+		return err
+	}
+	if _, err := compartmentsOption(); err != nil {
 		return err
 	}
 	if _, err := styleOption(); err != nil {

@@ -125,12 +125,34 @@ func TestVizMapsTheStylesItDraws(t *testing.T) {
 
 func TestVizNotesThePilotStylesItDoesNotDraw(t *testing.T) {
 	s := vizSession(t)
-	got := run(t, s, "%viz --style comptree --style LR --style ShowInherited --style COMPTREE P::Car")
-	wants(t, got, "tree rendering", "not represented:", "style COMPTREE (show nested ports in a compartment) is not drawn", "style SHOWINHERITED (show inherited members) is not drawn")
-	if strings.Count(got, "COMPTREE") != 1 {
+	got := run(t, s, "%viz --style showlib --style LR --style ShowInherited --style SHOWLIB P::Car")
+	wants(t, got, "tree rendering", "not represented:", "style SHOWLIB (show elements of the standard libraries) is not drawn", "style SHOWINHERITED (show inherited members) is not drawn")
+	if strings.Count(got, "SHOWLIB") != 1 {
 		t.Errorf("a style given twice is noted once:\n%s", got)
 	}
-	wants(t, run(t, s, "%viz --style compmost dot P::Car"), "// not represented: style COMPMOST")
+}
+
+// The pilot's COMPMOST and COMPTREE styles fold a tree's owned members into
+// compartment rows of their owner: COMPMOST every usage, COMPTREE the ports,
+// and both together COMPMOST, which folds what COMPTREE folds and more.
+func TestVizDrawsTheCompartmentStyles(t *testing.T) {
+	s := vizSession(t)
+	got := run(t, s, "%viz --style compmost dot P::Car")
+	if strings.Contains(got, "not represented: style") {
+		t.Errorf("COMPMOST is drawn, not noted:\n%s", got)
+	}
+	wants(t, got, "parts</font>", "fl : Wheel<br/>fr : Wheel", "drawn as compartment rows of their owner")
+	if strings.Count(got, "[label=") != 1 {
+		t.Errorf("COMPMOST folds Car's parts into one node:\n%s", got)
+	}
+	got = run(t, s, "%viz --style COMPTREE --style comptree P::Car")
+	if strings.Contains(got, "not represented") || !strings.Contains(got, "  part fl") {
+		t.Errorf("COMPTREE folds only ports, leaving Car's parts as nodes with nothing noted:\n%s", got)
+	}
+	for _, styles := range []string{"--style COMPTREE --style COMPMOST", "--style compmost --style comptree"} {
+		wants(t, run(t, s, "%viz "+styles+" P::Car"), "parts", "fl : P::Wheel", "fr : P::Wheel")
+	}
+	wants(t, run(t, s, "%viz --style=COMPMOST --style ORTHOLINE plantuml P::Car"), "fl : Wheel", "skinparam linetype ortho")
 }
 
 // The pilot's ORTHOLINE and POLYLINE styles route the DOT and PlantUML edges

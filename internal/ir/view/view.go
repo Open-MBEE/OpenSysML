@@ -166,6 +166,34 @@ type Renderer struct {
 	// verdicts overlays verification verdicts on a requirement rendering; nil
 	// draws it structurally.
 	verdicts Verdicts
+	// included are elements drawn besides the exposed ones (SetIncluded).
+	included []*symbols.Symbol
+}
+
+// SetIncluded names elements every rendering draws besides what its view
+// exposes, as if the view exposed them too; nil draws the view's own content.
+func (r *Renderer) SetIncluded(included []*symbols.Symbol) { r.included = included }
+
+// withIncluded appends the included elements the exposed ones do not already
+// name, recording where each was declared in out.Included.
+func (r *Renderer) withIncluded(exposed []*symbols.Symbol, out *Rendering) []*symbols.Symbol {
+	if len(r.included) == 0 {
+		return exposed
+	}
+	seen := map[symbols.ElementKey]bool{}
+	for _, sym := range exposed {
+		seen[symbols.KeyOf(sym)] = true
+	}
+	for _, sym := range r.included {
+		key := symbols.KeyOf(sym)
+		if sym == nil || seen[key] {
+			continue
+		}
+		seen[key] = true
+		exposed = append(exposed, sym)
+		out.Included = append(out.Included, symbolOrigin(sym))
+	}
+	return exposed
 }
 
 // NewRenderer returns a renderer over the model and resolver of a loaded
@@ -488,6 +516,9 @@ type Rendering struct {
 	// connection to something the view does not expose, a behavior that does not
 	// lower.
 	Notices []string
+	// Included is where each element drawn by SetIncluded rather than by the
+	// view was declared, in the order the renderer was given them.
+	Included []Origin
 	// depthCut counts the elements a depth bound kept the walk from drawing.
 	depthCut int
 
@@ -573,6 +604,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		return nil, err
 	}
 	out := &Rendering{View: r.notationName(view), Kind: kind, Stated: stated, Shown: r.shownOf(view), drawn: drawn}
+	exposed = r.withIncluded(exposed, out)
 	switch kind {
 	case KindTree:
 		r.renderTree(view, exposed, out)
@@ -591,7 +623,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	case KindMatrix:
 		r.renderMatrix(exposed, r.matrixShownKinds(view), false, out)
 	case KindSequence:
-		r.renderSequence(exposed, out)
+		r.renderSequence(view, exposed, out)
 	case KindRequirement, KindDefinition, KindPackage:
 		r.renderGeneral(view, exposed, out)
 	default:
@@ -621,6 +653,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 // *UnsupportedKindError.
 func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated string) (*Rendering, error) {
 	out := &Rendering{Kind: kind, Stated: stated}
+	exposed = r.withIncluded(exposed, out)
 	switch kind {
 	case KindTree:
 		r.renderTree(nil, exposed, out)
@@ -639,7 +672,7 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 	case KindMatrix:
 		r.renderMatrix(exposed, allMatrixKinds(), true, out)
 	case KindSequence:
-		r.renderSequence(exposed, out)
+		r.renderSequence(nil, exposed, out)
 	case KindRequirement, KindDefinition, KindPackage:
 		r.renderGeneral(nil, exposed, out)
 	default:

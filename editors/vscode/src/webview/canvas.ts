@@ -163,10 +163,11 @@ function markers(): SVGDefsElement {
 }
 
 // drawNode appends a node's group to parent: its shape, its label, then its children
-// so they draw over it. The group is marked movable when a Layout can name the node.
+// so they draw over it. The group is marked movable when a Layout can name the node,
+// and included when the panel rather than the view drew the node.
 function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): void {
   const group = element("g", {
-    class: `opensysml-node${movable(layout, entry) ? " movable" : ""}`,
+    class: `opensysml-node${movable(layout, entry) ? " movable" : ""}${entry.node.included ? " included" : ""}`,
     "data-opensysml-id": entry.node.id,
     "data-kind": entry.node.kind,
   });

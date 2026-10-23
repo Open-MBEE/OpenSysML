@@ -349,7 +349,9 @@ For a model with no declared view, `%render #case` and `%render #mixed` draw the
 elements in one rendering, choosing the kind from what the names resolve to (a state def draws a
 state rendering, a part with connections an interconnection, a package a tree, a mixed set a mixed
 rendering) unless `--view <VIEW>` names one, and takes the pilot's `--style` words — `LR` and `TB`
-set the direction, and a style no form here draws is noted as not represented rather than dropped.
+set the direction, `COMPMOST` folds a tree node's owned usages into compartment rows of its box
+and `COMPTREE` its ports alone (the pilot's compartment styles, `compartments=most` and `ports` on
+`%render`), and a style no form here draws is noted as not represented rather than dropped.
 `%viz --view STATE P::Lamp mermaid` writes what `%render #state:P::Lamp mermaid` writes.
 
 `%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, `dot` as Graphviz

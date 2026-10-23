@@ -1,8 +1,8 @@
 package migrate
 
 import (
-	"fmt"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -24,8 +24,11 @@ type scenario struct {
 	self    string
 	// order gives each fragment its position among the interaction's fragments.
 	order map[*sysmlv1.Element]int
-	lines map[*sysmlv1.Element]lifelineRef
+	lines map[*sysmlv1.Element]*lifelineRef
 	used  map[string]bool
+	// params are the attribute (or in parameter) lines the interaction's own in parameters are written as.
+	params     []string
+	paramNotes map[*sysmlv1.Element]string
 	// placed holds each message some occurrence has already stepped.
 	placed map[*sysmlv1.Element]bool
 	steps  []*scenarioStep
@@ -35,48 +38,38 @@ type scenario struct {
 	// state invariants no assertion is written for, with the reason in unwritten.
 	others    []*sysmlv1.Element
 	unwritten map[*sysmlv1.Element]string
-	// waited holds the duration constraints written as waits before a step.
-	waited map[*sysmlv1.Element]bool
-	// names gives each stepped message its step's name; last is the latest one.
-	names map[*sysmlv1.Element]string
-	last  string
-	// chain places each message step in the succession chain it is written in; chains counts them.
-	chain  map[*sysmlv1.Element]chainPos
-	chains int
-	// pending holds the waits forked after a message, to be joined before the later message they span to.
-	pending map[*sysmlv1.Element]pendingWait
 	// uses gives each interaction use its step.
 	uses map[*sysmlv1.Element]*scenarioStep
-	// outer gives each operand's body the body of the fragment it is nested in.
-	outer map[*[]*scenarioStep]*[]*scenarioStep
-	// nest names the actions the steps being written are nested in; hidden
-	// counts the if and loop bodies among them, which no qualified name reaches.
-	nest   []string
-	hidden int
+	// def reports whether the sequence is written as an occurrence def of its own, which
+	// declares no parameter and reaches no feature of the interaction's context.
+	def bool
+	// body collects the messages, occurrence usages and fragment comments in order;
+	// messages counts the messages among them.
+	body     []string
+	messages int
 }
 
-// chainPos is a step's position in a chain: the steps of one action body, seq operands inlined.
-type chainPos struct {
-	chain, pos int
-	step       *scenarioStep
-}
-
-// pendingWait is a wait forked after the step from, for a constraint a later step joins it before.
-type pendingWait struct {
-	wait, base, from, note string
-}
-
-// lifelineRef is the object a lifeline stands for: the feature path that reads
-// it from the scenario's self, and the classifier of the object at its end.
+// lifelineRef is a lifeline resolved to the usage written for it: the object it
+// stands for, how the usage is declared, and the event occurrences it holds.
 type lifelineRef struct {
-	line *sysmlv1.Element
-	// path names the object from the scenario's self; chain is the same path as a
-	// feature chain a perform subsets, which names no `this`.
-	path  string
-	chain string
-	typ   *sysmlv1.Element
+	// after is the occurrence usage of an interaction use the lifeline's next event follows.
+	after string
+	line  *sysmlv1.Element
+	// rep is the element the lifeline represents.
+	rep *sysmlv1.Element
+	// name is the usage's name; kw, prefix, mult and typing spell its declaration.
+	name, kw, prefix, mult, typing string
+	// bound is the feature path of the context the usage is bound to in the
+	// context's occurrence usage of the def; "" when the usage stands alone.
+	bound string
+	// path names the object from the scenario's self; "" for an object of the interaction's own.
+	path string
+	typ  *sysmlv1.Element
 	// from spells the object as an expression of the interaction reads it.
 	from string
+	// events are the usage's event occurrences in order; used holds their names.
+	events []*sequenceEvent
+	used   map[string]bool
 }
 
 type stepKind int
@@ -114,19 +107,20 @@ type scenarioStep struct {
 	// args are the bindings a send or call writes, note what the bindings leave out.
 	args []string
 	note string
-	// call is the call step a reply answers; assigns the bindings of its results.
+	// call is the call step a reply answers; perform is the path of the performance
+	// a call's receiving event owns, whose result the reply carries.
 	call    *scenarioStep
-	body    *[]*scenarioStep
-	assigns []string
-	// operands are a combined fragment's, guard the v2 expression of each one;
-	// an else or unguarded operand has "". count repeats a loop a fixed number of times.
+	perform string
+	// sort is the v1 message sort.
+	sort string
+	body *[]*scenarioStep
+	// operands are a combined fragment's, guard the comment label of each one's
+	// guard; an else or unguarded operand has "".
 	operands []*scenarioOperand
-	count    string
-	// use is an interaction use's referenced interaction, performed as target
-	// with the members body.
+	// use is an interaction use's referenced interaction, whose def the occurrence
+	// usage is typed by as target.
 	use    *sysmlv1.Element
 	target string
-	lines  []string
 	// cond is the condition a state invariant's assertion checks.
 	cond string
 }
@@ -138,9 +132,6 @@ type scenarioOperand struct {
 	steps []*scenarioStep
 }
 
-// messagelessNote says why an interaction without messages has no steps; one of
-// state invariants under time constraints is a recorded timing trace, not a behavior.
-
 // The note fragments the writer repeats.
 const (
 	theMessage  = "the message "
@@ -151,31 +142,15 @@ const (
 	notMigrated = " not migrated — "
 )
 
-func messagelessNote(e *sysmlv1.Element) string {
-	invariants := 0
-	for _, f := range e.Owned("fragment") {
-		if f.Type == "StateInvariant" {
-			invariants++
-		}
-	}
-	if invariants == 0 {
-		return "the interaction has no message"
-	}
-	note := fmt.Sprintf("the interaction has no message: it records %d state invariant(s)", invariants)
-	if n := len(e.Owned("ownedRule")); n > 0 {
-		note += fmt.Sprintf(" under %d time constraint(s), a timing trace", n)
-	}
-	return note + ", which no scenario step performs"
-}
-
 // interactionNote says why an interaction has no v2 form; "" when it becomes a scenario.
 func (m *migration) interactionNote(e *sysmlv1.Element) string {
 	_, note := m.scenario(e, "this")
 	return note
 }
 
-// scenario resolves interaction e to the steps its v2 form performs, reading the
-// context's features through self; a note says why it has none.
+// scenario resolves interaction e to the steps its v2 sequence orders, reading the
+// context's features through self (`this` for an occurrence def of its own, which
+// reads none); a note says why it has no v2 form.
 func (m *migration) scenario(e *sysmlv1.Element, self string) (*scenario, string) {
 	if m.deciding[e] {
 		return nil, "the interaction refers to itself through an interaction use"
@@ -189,25 +164,19 @@ func (m *migration) scenario(e *sysmlv1.Element, self string) (*scenario, string
 	if !m.written(context) {
 		return nil, "the interaction belongs to " + describe(context) + ", which has no v2 declaration to hold it"
 	}
-	if len(e.Owned("message")) == 0 {
-		return nil, messagelessNote(e)
-	}
 	saved := m.self
 	m.self = self
 	defer func() { m.self = saved }()
 	s := &scenario{
 		m: m, e: e, context: context, self: self,
-		order:     map[*sysmlv1.Element]int{},
-		lines:     map[*sysmlv1.Element]lifelineRef{},
-		used:      map[string]bool{"start": true, "done": true},
-		placed:    map[*sysmlv1.Element]bool{},
-		waited:    map[*sysmlv1.Element]bool{},
-		names:     map[*sysmlv1.Element]string{},
-		chain:     map[*sysmlv1.Element]chainPos{},
-		pending:   map[*sysmlv1.Element]pendingWait{},
-		outer:     map[*[]*scenarioStep]*[]*scenarioStep{},
-		unwritten: map[*sysmlv1.Element]string{},
-		uses:      map[*sysmlv1.Element]*scenarioStep{},
+		order:      map[*sysmlv1.Element]int{},
+		lines:      map[*sysmlv1.Element]*lifelineRef{},
+		used:       map[string]bool{},
+		placed:     map[*sysmlv1.Element]bool{},
+		unwritten:  map[*sysmlv1.Element]string{},
+		uses:       map[*sysmlv1.Element]*scenarioStep{},
+		def:        self == "this",
+		paramNotes: map[*sysmlv1.Element]string{},
 	}
 	for i, f := range e.Owned("fragment") {
 		s.order[f] = i
@@ -217,6 +186,7 @@ func (m *migration) scenario(e *sysmlv1.Element, self string) (*scenario, string
 			return nil, "the lifeline " + describe(line) + " " + note
 		}
 	}
+	s.declareParameters()
 	steps, note := s.resolve(e.Owned("fragment"), e.Owned("message"), &s.steps)
 	if note == "" {
 		note = gatesAdjoin(steps)
@@ -330,8 +300,8 @@ func inlineSeq(steps []*scenarioStep) []*scenarioStep {
 	return out
 }
 
-// use resolves an interaction use: the referenced interaction's scenario,
-// performed on the object it acts on with the use's arguments bound to its parameters.
+// use resolves an interaction use: an occurrence usage typed by the referenced
+// interaction's def, which the messages through its gates reach.
 func (s *scenario) use(f *sysmlv1.Element, body *[]*scenarioStep) (*scenarioStep, string) {
 	ref := s.m.model.Ref(f, "refersTo")
 	switch {
@@ -346,38 +316,7 @@ func (s *scenario) use(f *sysmlv1.Element, body *[]*scenarioStep) (*scenarioStep
 	if !s.m.written(ref) {
 		return nil, refersToWord + describe(ref) + noV2Declaration
 	}
-	step := &scenarioStep{kind: stepUse, frag: f, use: ref, body: body}
-	if s.m.asUsage[ref] {
-		obj, why := s.performer(f, ref)
-		if why != "" {
-			return nil, why
-		}
-		usage := s.m.nameOf(ref)
-		if obj == "" {
-			// A step named as the usage it performs would hide it.
-			s.used[usage] = true
-		}
-		step.target = " ::> " + joinDot(obj, writeName(usage))
-	} else {
-		step.target = " : " + s.m.ref(ref, s.e)
-		ins, cnote := s.m.contextIns(s.m.contextOf(ref), s.e)
-		if ins != "" {
-			step.lines = s.m.contextBody(ref, ins)
-		}
-		step.note = cnote
-	}
-	var ins []*sysmlv1.Element
-	for _, p := range ref.Owned("ownedParameter") {
-		if dir, _ := parameterDirection(p); dir == "in" || dir == "inout" {
-			ins = append(ins, p)
-		}
-	}
-	args, note, why := s.bindArguments(f, ins, "parameter", ref)
-	if why != "" {
-		return nil, why
-	}
-	step.lines = append(step.lines, args...)
-	step.note = joinNotes(step.note, note)
+	step := &scenarioStep{kind: stepUse, frag: f, use: ref, body: body, target: " : " + s.m.ref(ref, s.e)}
 	base := lowerFirst(s.m.nameFor(ref))
 	if n := s.m.nameOf(f); n != "" {
 		base = n
@@ -389,40 +328,12 @@ func (s *scenario) use(f *sysmlv1.Element, body *[]*scenarioStep) (*scenarioStep
 	return step, ""
 }
 
-// performer spells the object an interaction use performs ref on: the scenario's
-// own object when ref belongs to its context, else the one lifeline the use
-// covers, or the one part of the context, that is an object of ref's context.
-func (s *scenario) performer(f, ref *sysmlv1.Element) (string, string) {
-	owner := classifierOf(ref)
-	self := s.m.thisName(s.e)
-	if self == "this" {
-		self = ""
-	}
-	if owner == s.context || s.m.inherits(s.context, owner) {
-		return self, ""
-	}
-	var found []lifelineRef
-	for _, line := range s.m.model.Refs(f, "covered") {
-		if r, ok := s.lines[line]; ok && r.typ != nil && (r.typ == owner || s.m.inherits(r.typ, owner)) {
-			found = append(found, r)
-		}
-	}
-	if len(found) == 1 {
-		return found[0].chain, ""
-	}
-	obj, _, why := s.m.objectOf(owner, s.context, "this")
-	if obj == "" {
-		return "", refersToWord + describe(ref) + " of " + qualifiedName(owner) + ", performed on an object of it: no one lifeline it covers stands for one, and " + qualifiedName(s.context) + " " + why
-	}
-	return joinDot(self, strings.TrimPrefix(strings.TrimPrefix(obj, "this"), ".")), ""
-}
-
-// returnValue reports the result an interaction use names a recipient for:
-// a scenario binds no return parameter, so there is no value to assign.
+// returnValue reports the result an interaction use names a recipient for: an
+// occurrence usage binds no return parameter, so there is no value to assign.
 func (s *scenario) returnValue(step *scenarioStep) {
 	f := step.frag
 	if r := s.m.model.Ref(f, "returnValueRecipient"); r != nil {
-		step.note = joinNotes(step.note, "the return value is not assigned to "+describe(r)+": the scenario of "+describe(step.use)+" binds no return parameter")
+		step.note = joinNotes(step.note, "the return value is not assigned to "+describe(r)+": the occurrence usage of "+describe(step.use)+" binds no return parameter")
 	} else if v := firstOwned(f, "returnValue"); v != nil {
 		step.note = joinNotes(step.note, "the return value "+describeValue(v)+" is not checked: the scenario of "+describe(step.use)+" binds no return parameter")
 	}
@@ -446,6 +357,7 @@ func (s *scenario) gated(step *scenarioStep, gate *sysmlv1.Element) (*scenarioSt
 	step.kind = stepGate
 	step.frag = use
 	step.op = inner
+	step.base, step.name = s.stepName(step.msg, "into"+upperFirst(s.m.nameFor(use)))
 	if len(step.msg.Owned("argument")) > 0 {
 		step.note = "the arguments it carries into the gate are those the message " + describe(inner) + " of " + describe(ref) + " states"
 	}
@@ -479,21 +391,25 @@ func (s *scenario) invariant(f *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 	if spec == nil {
 		return nil, "the state invariant's constraint has no specification"
 	}
-	var lines []lifelineRef
+	var lines []*lifelineRef
 	for _, line := range s.m.model.Refs(f, "covered") {
 		if r, ok := s.lines[line]; ok {
 			lines = append(lines, r)
 		}
 	}
+	if len(lines) != 1 {
+		return nil, "the state invariant covers " + strconv.Itoa(len(lines)) + " lifelines of the interaction; an event occurrence of one lifeline asserts it"
+	}
 	cond, note, ok := "", "", false
-	if len(lines) == 1 && lines[0].typ != nil && spec.Type == "OpaqueExpression" {
+	if lines[0].typ != nil && spec.Type == "OpaqueExpression" {
 		text, lang := opaqueBody(spec)
-		on, read, lost := s.m.onObject(strings.TrimSpace(text), lines[0].from, lines[0].typ)
+		_, read, lost := s.m.onObject(strings.TrimSpace(text), lines[0].from, lines[0].typ)
 		switch {
 		case lost != "":
 			return nil, stateInvariantCondition + describeValue(spec) + "] reads " + lost + " of the lifeline's object " + lines[0].path + noV2Declaration
 		case read:
-			cond, ok, note = s.m.behaviorExpr(on, lang, s.e)
+			// The assertion sits in the lifeline usage's body, where the object's features are in scope.
+			cond, ok, note = s.m.behaviorExpr(strings.TrimSpace(text), lang, lines[0].typ)
 			if !ok {
 				return nil, stateInvariantCondition + describeValue(spec) + "] is not written: " + note
 			}
@@ -506,6 +422,9 @@ func (s *scenario) invariant(f *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 			return nil, stateInvariantCondition + describeValue(spec) + "] is not written: " + refusal
 		}
 		note = refusal
+		if s.def && readsNames(cond) {
+			return nil, stateInvariantCondition + describeValue(spec) + "] reads the interaction's context, which its occurrence def has no access to; only the covered lifeline's object " + lines[0].name + " is readable"
+		}
 	}
 	if kind, _ := exprLiteral(cond); kind != "" && kind != "boolean" {
 		return nil, "the state invariant's condition " + cond + " is not a Boolean"
@@ -517,10 +436,13 @@ func (s *scenario) invariant(f *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 	if base == "" {
 		base = "invariant"
 	}
-	step := &scenarioStep{kind: stepAssert, frag: f, body: body, cond: cond, note: note}
-	step.base = freshIn(s.used, base)
-	step.name = writeName(step.base)
-	return step, ""
+	return &scenarioStep{kind: stepAssert, frag: f, body: body, cond: cond, note: note, sender: lines[0], base: base}, ""
+}
+
+// readsNames reports whether an expression reads any feature by name.
+func readsNames(expr string) bool {
+	refs, ok := exprRefs(expr)
+	return !ok || len(refs) > 0
 }
 
 // onObject qualifies each name of text that is a written attribute of typ with
@@ -559,60 +481,117 @@ func (m *migration) onObject(text, path string, typ *sysmlv1.Element) (on string
 	return text, true, ""
 }
 
-// lifeline resolves the object a lifeline stands for: a part, port or reference
-// reached through the context's part tree, or an in parameter of the interaction.
-func (s *scenario) lifeline(line *sysmlv1.Element) (lifelineRef, string) {
+// lifeline resolves a lifeline to the usage written for it: a part the context
+// reaches, bound to it; a property or parameter of the interaction's own, declared
+// here; named after the lifeline, else after what it represents.
+func (s *scenario) lifeline(line *sysmlv1.Element) (*lifelineRef, string) {
 	if ref, ok := s.lines[line]; ok {
 		return ref, ""
 	}
 	rep := s.m.model.Ref(line, "represents")
 	if rep == nil {
-		return lifelineRef{}, "stands for nothing" + suffixNote(s.m.dangling(line, "represents"))
+		return nil, "stands for nothing" + suffixNote(s.m.dangling(line, "represents"))
 	}
 	if sel := firstOwned(line, "selector"); sel != nil {
-		return lifelineRef{}, "selects one of several " + s.m.nameOf(rep) + " by " + describeValue(sel) + ", which no feature path addresses"
+		return nil, "selects one of several " + s.m.nameOf(rep) + " by " + describeValue(sel) + ", which no usage stands for"
 	}
-	var ref lifelineRef
+	ref := &lifelineRef{line: line, rep: rep, typ: s.m.model.Ref(rep, "type"), used: map[string]bool{}}
+	name := s.m.nameOf(line)
+	if name == "" {
+		name = s.m.nameOf(rep)
+	}
+	if name == "" {
+		name = s.m.nameFor(line)
+	}
 	switch rep.Type {
 	case "Parameter":
 		if rep.Parent != s.e {
-			return lifelineRef{}, "stands for the parameter " + describe(rep) + " of " + qualifiedName(rep.Parent) + ", which the scenario has no access to"
+			return nil, "stands for the parameter " + describe(rep) + " of " + qualifiedName(rep.Parent) + ", which the interaction has no access to"
 		}
 		if dir, _ := parameterDirection(rep); dir == "out" {
-			return lifelineRef{}, "stands for the " + dir + " parameter " + describe(rep) + ", which holds no object when the scenario starts"
+			return nil, "stands for the " + dir + " parameter " + describe(rep) + ", which holds no object when the interaction starts"
 		}
-		name := writeName(s.m.nameFor(rep))
-		ref = lifelineRef{line: line, path: name, chain: name, typ: s.m.model.Ref(rep, "type"), from: name}
+		ref.prefix = "ref "
+		ref.kw, ref.typing = s.lifelineTyping(ref.typ)
 	case "Property", "Port":
+		if rep.Parent == s.e {
+			// The lifeline is the property's own usage, under the property's name,
+			// made up as for any unnamed property where the source left it unnamed.
+			name = s.m.nameFor(rep)
+			s.ownLifeline(ref)
+			break
+		}
 		if !s.m.written(rep) {
-			return lifelineRef{}, standsFor + describe(rep) + " of " + qualifiedName(rep.Parent) + noV2Declaration
+			return nil, standsFor + describe(rep) + " of " + qualifiedName(rep.Parent) + noV2Declaration
 		}
 		paths := s.m.partPaths(s.context, rep)
 		switch len(paths) {
 		case 0:
-			return lifelineRef{}, standsFor + describe(rep) + " of " + qualifiedName(rep.Parent) + ", which no part of " + qualifiedName(s.context) + " reaches"
+			return nil, standsFor + describe(rep) + " of " + qualifiedName(rep.Parent) + ", which no part of " + qualifiedName(s.context) + " reaches"
 		case 1:
 		default:
-			return lifelineRef{}, standsFor + describe(rep) + ", which " + qualifiedName(s.context) + " reaches as both " + paths[0] + " and " + paths[1]
+			return nil, standsFor + describe(rep) + ", which " + qualifiedName(s.context) + " reaches as both " + paths[0] + " and " + paths[1]
 		}
-		self := s.self
-		if self == "this" {
-			// Inside the def the object is its context parameter, not this.
-			self = s.m.thisName(s.e)
-			if self == "this" {
-				// Inside a usage the object has no name: its parts spell bare.
-				self = ""
-			}
-		}
-		ref = lifelineRef{line: line, path: joinDot(self, paths[0]), chain: paths[0], typ: s.m.model.Ref(rep, "type"), from: paths[0]}
-		if self != "this" {
-			ref.chain = ref.path
+		ref.prefix = "ref "
+		ref.kw, ref.typing = s.lifelineTyping(ref.typ)
+		if s.def {
+			// The def reaches no feature of the context; its occurrence usage in the context binds the lifeline.
+			ref.bound = paths[0]
+			ref.path = paths[0]
+		} else {
+			ref.path = joinDot(s.self, paths[0])
+			ref.typing = " :> " + ref.path
 		}
 	default:
-		return lifelineRef{}, standsFor + describe(rep) + ", a " + rep.Type + " rather than a part or parameter"
+		return nil, standsFor + describe(rep) + ", a " + rep.Type + " rather than a part or parameter"
 	}
+	ref.name = freshIn(s.used, name)
+	ref.from = writeName(ref.name)
 	s.lines[line] = ref
 	return ref, ""
+}
+
+// ownLifeline declares a lifeline standing for a property of the interaction's own
+// as that property would be declared: by its type, aggregation and multiplicity.
+func (s *scenario) ownLifeline(ref *lifelineRef) {
+	ref.kw, ref.prefix, _ = s.m.featureKeyword(ref.rep, catOccurrenceDef)
+	if ref.rep.Type == "Port" {
+		ref.kw, ref.prefix = "port", ""
+	}
+	if typ, _ := s.m.typeRef(ref.typ, s.e); typ != "" {
+		ref.typing = s.m.typing(ref.typ) + typ
+	}
+	switch ref.kw {
+	case "part", "item", "occurrence", "port":
+	default:
+		// A lifeline is an occurrence: an untyped property is a part, one typed by a value an occurrence of no type.
+		ref.kw = "occurrence"
+		if ref.typ == nil {
+			ref.kw = "part"
+		}
+		ref.typing = ""
+	}
+	ref.mult, _ = s.m.multiplicity(ref.rep)
+}
+
+// lifelineTyping spells the usage keyword and typing of a lifeline by the type of
+// the object it stands for: a part, item or occurrence usage typed by the type's
+// def; an occurrence usage, untyped, when the type has no such def.
+func (s *scenario) lifelineTyping(t *sysmlv1.Element) (kw, typing string) {
+	if t == nil {
+		return "part", ""
+	}
+	kw, _ = s.m.typeKeyword(t)
+	switch kw {
+	case "part", "item", "occurrence", "port":
+	default:
+		return "occurrence", ""
+	}
+	typ, _ := s.m.typeRef(t, s.e)
+	if typ == "" {
+		return kw, ""
+	}
+	return kw, s.m.typing(t) + typ
 }
 
 // partPaths lists the feature paths from classifier c to property p through the
@@ -667,7 +646,7 @@ func (s *scenario) message(msg *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 	if sort == "" {
 		sort = "synchCall"
 	}
-	step := &scenarioStep{msg: msg, body: body}
+	step := &scenarioStep{msg: msg, body: body, sort: sort}
 	var note string
 	if step.sender, note = s.end(msg, "sendEvent"); note != "" {
 		return nil, "is sent from " + note
@@ -682,7 +661,7 @@ func (s *scenario) message(msg *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 	case "asynchSignal":
 		return s.send(step)
 	case "synchCall", "asynchCall":
-		return s.call(step, sort)
+		return s.call(step)
 	case "reply":
 		return s.reply(step)
 	case "createMessage":
@@ -695,6 +674,7 @@ func (s *scenario) message(msg *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 	if step.receiver == nil {
 		return nil, noLifeline
 	}
+	step.base, step.name = s.stepName(msg, strings.TrimSuffix(sort, "Message")+upperFirst(step.receiver.name))
 	return step, ""
 }
 
@@ -717,7 +697,7 @@ func (s *scenario) end(msg *sysmlv1.Element, role string) (*lifelineRef, string)
 	if note != "" {
 		return nil, "the lifeline " + describe(line) + ", which " + note
 	}
-	return &ref, ""
+	return ref, ""
 }
 
 // send resolves a signal message: the signal it names is sent to the receiver's object.
@@ -734,27 +714,27 @@ func (s *scenario) send(step *scenarioStep) (*scenarioStep, string) {
 	}
 	step.kind = stepSend
 	step.signal = sig
-	var why string
-	step.args, step.note, why = s.bindArguments(step.msg, s.m.signalAttributes(sig), "attribute", sig)
-	if why != "" {
-		return nil, why
-	}
+	step.args, step.note = s.bindArguments(step.msg, s.m.signalAttributes(sig), "attribute", sig, nil)
 	step.base, step.name = s.stepName(step.msg, "send"+upperFirst(s.m.nameFor(sig)))
 	return step, ""
 }
 
 // call resolves an operation call: the receiver's type must have the operation,
-// and every in parameter without a default must be bound by an argument.
-func (s *scenario) call(step *scenarioStep, sort string) (*scenarioStep, string) {
+// which its receiving event performs with the arguments bound to its in parameters.
+func (s *scenario) call(step *scenarioStep) (*scenarioStep, string) {
 	op := s.m.model.Ref(step.msg, "signature")
+	if step.receiver == nil {
+		return nil, noLifeline
+	}
 	if op == nil {
-		return nil, "names no operation" + suffixNote(s.m.dangling(step.msg, "signature"))
+		// A call of no operation is still a message between its events; it performs nothing.
+		step.kind = stepCall
+		step.note = "the call names no operation" + suffixNote(s.m.dangling(step.msg, "signature")) + ", so its receiving event performs nothing"
+		step.base, step.name = s.stepName(step.msg, "call")
+		return step, ""
 	}
 	if op.Type != "Operation" || !s.m.written(op) {
 		return nil, "names " + describe(op) + ", which is not a migrated operation"
-	}
-	if step.receiver == nil {
-		return nil, noLifeline
 	}
 	switch {
 	case step.receiver.typ == nil:
@@ -768,24 +748,16 @@ func (s *scenario) call(step *scenarioStep, sort string) (*scenarioStep, string)
 			ins = append(ins, p)
 		}
 	}
-	var note, why string
-	step.args, note, why = s.bindArguments(step.msg, ins, "parameter", op)
-	if why != "" {
-		return nil, why
-	}
+	step.args, step.note = s.bindArguments(step.msg, ins, "parameter", op, step.receiver)
 	step.kind = stepCall
 	step.op = op
-	step.note = note
-	if sort == "asynchCall" {
-		step.note = joinNotes(step.note, "the asynchronous call is performed to completion before the next step: an action performs what it calls")
-	}
 	step.base, step.name = s.stepName(step.msg, "call"+upperFirst(s.m.nameFor(op)))
 	s.calls = append(s.calls, step)
 	return step, ""
 }
 
-// reply resolves a reply: it answers the latest unanswered call of its operation between
-// the same lifelines, and binds the call's results to the caller's attributes it names.
+// reply resolves a reply: it answers the latest unanswered call of its operation
+// between the same lifelines, and carries the call's result as its payload.
 func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 	op := s.m.model.Ref(step.msg, "signature")
 	if op == nil {
@@ -815,47 +787,27 @@ func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 	replyArgs := step.msg.Owned("argument")
 	for i, p := range s.pairArguments(replyArgs, outs) {
 		arg := replyArgs[i]
-		switch {
-		case p == nil:
+		if p == nil {
 			step.note = joinNotes(step.note, theValue+describeValue(arg)+" has no out parameter of "+op.Name+" to stand for")
-			continue
-		case !s.within(step.body, call.body):
-			step.note = joinNotes(step.note, "the result "+s.m.nameOf(p)+" is not bound: the reply is not in the fragment of the call it answers")
 			continue
 		}
 		target, value := assignmentOf(arg)
-		if target == "" {
-			step.note = joinNotes(step.note, theValue+describeValue(arg)+" of "+s.m.nameOf(p)+" is the operation's own result, which the call computes")
-			continue
+		if target != "" {
+			step.note = joinNotes(step.note, "the caller's "+target+" is not assigned the result "+s.m.nameOf(p)+": a sequence states transfers, not assignments")
 		}
-		attr := s.attributeNamed(step.receiver, target)
-		if attr == nil {
-			step.note = joinNotes(step.note, "the result "+s.m.nameOf(p)+" is not bound: "+step.receiver.path+" has no attribute "+target)
-			continue
-		}
-		if value != "" {
+		switch {
+		case value != "":
 			step.note = joinNotes(step.note, theValue+value+" the reply states for "+s.m.nameOf(p)+" is the operation's own result, which the call computes")
+		case target == "":
+			step.note = joinNotes(step.note, theValue+describeValue(arg)+" of "+s.m.nameOf(p)+" is the operation's own result, which the call computes")
 		}
-		step.assigns = append(step.assigns, "assign "+step.receiver.path+"."+writeName(s.m.nameOf(attr))+" := "+call.name+"."+writeName(s.m.nameOf(p))+";")
 	}
-	if len(step.assigns) > 0 {
-		step.base, step.name = s.stepName(step.msg, "reply"+upperFirst(s.m.nameFor(op)))
-	}
+	step.base, step.name = s.stepName(step.msg, "reply"+upperFirst(s.m.nameFor(op)))
 	return step, ""
 }
 
 func sameLine(a, b *lifelineRef) bool {
 	return a != nil && b != nil && a.line == b.line
-}
-
-// within reports whether body is outer or a fragment operand nested in it, where outer's steps are in scope.
-func (s *scenario) within(body, outer *[]*scenarioStep) bool {
-	for ; body != nil; body = s.outer[body] {
-		if body == outer {
-			return true
-		}
-	}
-	return false
 }
 
 // assignmentOf reads a reply argument written as `attribute = value` (an
@@ -934,9 +886,11 @@ func (s *scenario) pairArguments(args, targets []*sysmlv1.Element) []*sysmlv1.El
 }
 
 // bindArguments writes a message's arguments as bindings of the targets, an owner's
-// parameters (each with its direction) or attributes, by name or position; a target that
-// must hold a value (no default, lower bound above 0) and that no argument binds is a refusal, why.
-func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Element, kind string, owner *sysmlv1.Element) (args []string, note, why string) {
+// parameters (each with its direction) or attributes, by name or position; an argument
+// that is not written, or that reads what the occurrence def cannot, leaves its target
+// unbound with a note, as does a target that must hold a value and that none binds.
+// line is the lifeline whose body the bindings are written in; nil for the def's body.
+func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Element, kind string, owner *sysmlv1.Element, line *lifelineRef) (args []string, note string) {
 	bound := map[*sysmlv1.Element]bool{}
 	msgArgs := msg.Owned("argument")
 	for i, t := range s.pairArguments(msgArgs, targets) {
@@ -951,15 +905,23 @@ func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Elemen
 		}
 		expr, ok, vnote := s.m.typedBehaviorValue(arg, t, s.e)
 		if !ok {
-			if requiresValue(t) {
-				return nil, "", "leaves the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value, unbound: the argument " + describeValue(arg) + " is not written: " + vnote
-			}
-			note = joinNotes(note, theArgument+describeValue(arg)+" for "+s.m.nameOf(t)+" is dropped: "+vnote)
+			note = joinNotes(note, theArgument+describeValue(arg)+" for "+s.m.nameOf(t)+" is not written, which stays unbound: "+vnote)
 			continue
+		}
+		if s.def {
+			if lost := s.inaccessible(expr, line); lost != "" {
+				note = joinNotes(note, theArgument+describeValue(arg)+" for "+s.m.nameOf(t)+" reads "+lost+" of the interaction's context, which its occurrence def has no access to; the "+kind+" stays unbound")
+				continue
+			}
 		}
 		bound[t] = true
 		if kind == "parameter" {
-			args = append(args, s.m.parameterBinding(t, s.m.nameOf(t), s.m.callBodyExpr(expr, s.e)))
+			if s.def {
+				expr = s.qualifyParameters(expr, targets)
+			} else {
+				expr = s.m.callBodyExpr(expr, s.e)
+			}
+			args = append(args, s.m.parameterBinding(t, s.m.nameOf(t), expr))
 		} else {
 			args = append(args, writeName(s.m.nameOf(t))+" = "+expr)
 		}
@@ -967,10 +929,106 @@ func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Elemen
 	}
 	for _, t := range targets {
 		if !bound[t] && requiresValue(t) {
-			return nil, "", "binds no argument to the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value"
+			note = joinNotes(note, "no argument binds the "+kind+" "+s.m.nameOf(t)+" of "+owner.Name+", which must hold a value; it stays unbound")
 		}
 	}
-	return args, note, ""
+	return args, note
+}
+
+// qualifyParameters spells an interaction parameter a perform's argument reads
+// through the occurrence def where the performed action has a parameter of the
+// same name, which the bare name would resolve to inside the perform's body
+// (`in rpm[1] = 'Spin Up'::rpm`, not the self-binding `in rpm[1] = rpm`).
+func (s *scenario) qualifyParameters(expr string, targets []*sysmlv1.Element) string {
+	refs, ok := exprRefs(expr)
+	if !ok {
+		return expr
+	}
+	shadowing := map[string]bool{}
+	for _, t := range targets {
+		shadowing[s.m.nameOf(t)] = true
+	}
+	var starts []int
+	for _, r := range refs {
+		if r.global || r.local != "" || len(r.steps) == 0 || r.steps[0].chain {
+			continue
+		}
+		if first := r.steps[0].name; shadowing[first] && s.parameterNamed(first) {
+			starts = append(starts, r.start)
+		}
+	}
+	if len(starts) == 0 {
+		return expr
+	}
+	prefix := s.m.ref(s.e, s.e) + "::"
+	sort.Sort(sort.Reverse(sort.IntSlice(starts)))
+	for _, at := range starts {
+		expr = expr[:at] + prefix + expr[at:]
+	}
+	return expr
+}
+
+// inaccessible names the first feature expr reads that the occurrence def cannot
+// reach: a feature of the interaction's context that is neither a lifeline usage, a
+// parameter nor, within line's body, a feature of its object; a namespace or type
+// read by qualified name is reachable from anywhere.
+func (s *scenario) inaccessible(expr string, line *lifelineRef) string {
+	refs, ok := exprRefs(expr)
+	if !ok {
+		return ""
+	}
+	var visible map[string]*sysmlv1.Element
+	for _, r := range refs {
+		if r.global || r.local != "" || len(r.steps) == 0 || r.steps[0].chain {
+			continue
+		}
+		first := r.steps[0].name
+		if s.lifelineNamed(first) != nil || line != nil && s.attributeNamed(line, first) != nil || s.parameterNamed(first) {
+			continue
+		}
+		if visible == nil {
+			visible, _ = s.m.visibleFrom(s.e)
+		}
+		e, n := visible[first], 1
+		for e != nil && n < len(r.steps) && !r.steps[n].chain && !isFeature(e) {
+			e, _ = s.m.memberNamed(e, r.steps[n].name, chainKind(false))
+			n++
+		}
+		if e != nil && isFeature(e) {
+			return r.text(n)
+		}
+	}
+	return ""
+}
+
+// isFeature reports whether e is a feature of a classifier or behavior, which an
+// expression reads from an instance, unlike a namespace or type it names by qualified name.
+func isFeature(e *sysmlv1.Element) bool {
+	switch e.Type {
+	case "Property", "Port", "ExtensionEnd", "Parameter":
+		return true
+	}
+	return false
+}
+
+// parameterNamed reports whether the interaction's own parameters are written as an attribute of the name.
+func (s *scenario) parameterNamed(name string) bool {
+	for _, p := range sequenceParameters(s.e) {
+		if s.m.sequenceParams[p] == name {
+			return true
+		}
+	}
+	return false
+}
+
+// lifelineNamed finds the lifeline usage of the given name.
+func (s *scenario) lifelineNamed(name string) *lifelineRef {
+	for _, ref := range s.lines {
+		if ref.name == name {
+			return ref
+		}
+	}
+	return nil
 }
 
 // stepName names a step after its message, or after what it does when the message is anonymous.
@@ -983,8 +1041,8 @@ func (s *scenario) stepName(msg *sysmlv1.Element, fallback string) (base, writte
 	return base, writeName(base)
 }
 
-// fragment resolves a combined fragment: alt and opt to if, loop to while or for,
-// par to fork and join, seq and strict to their operands in order.
+// fragment resolves a combined fragment to its operands' steps in order, each
+// operand labelled by the operator and its guard.
 func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenarioStep, string) {
 	kind := f.Attrs["interactionOperator"]
 	if kind == "" {
@@ -1007,7 +1065,8 @@ func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenari
 	case "seq", "strict":
 		step.kind = stepSeq
 	default:
-		return nil, "is a " + kind + " fragment, which has no v2 form"
+		// critical, neg, assert, ignore, consider, break: one operand written in order under comments.
+		step.kind = stepSeq
 	}
 	if step.kind != stepAlt && step.kind != stepSeq && step.kind != stepPar && len(operands) > 1 {
 		return nil, "is a " + kind + " fragment with " + strconv.Itoa(len(operands)) + " operands; it takes one"
@@ -1020,8 +1079,7 @@ func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenari
 		return nil, ferr
 	}
 	s.joinCalls(step, in, outs)
-	step.base = freshIn(s.used, kind)
-	step.name = writeName(step.base)
+	step.base = kind
 	return step, ""
 }
 
@@ -1029,16 +1087,13 @@ func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenari
 // leaves open; isolated operands all start from the calls open before the fragment.
 func (s *scenario) fragmentOperands(step *scenarioStep, kind string, operands []*sysmlv1.Element, in []*scenarioStep, body *[]*scenarioStep) (outs [][]*scenarioStep, err string) {
 	isolated := step.kind != stepSeq
-	for i, o := range operands {
+	for _, o := range operands {
 		operand := &scenarioOperand{e: o}
 		var steps []*scenarioStep
 		operand.steps = steps
-		s.outer[&operand.steps] = body
 		guard := firstOwned(o, "guard")
 		var note string
-		if err := s.operandGuard(step, kind, operand, guard, i, len(operands)); err != "" {
-			return nil, err
-		}
+		s.operandGuard(step, operand, guard)
 		if isolated {
 			s.calls = slices.Clone(in)
 		}
@@ -1053,37 +1108,35 @@ func (s *scenario) fragmentOperands(step *scenarioStep, kind string, operands []
 	return outs, ""
 }
 
-// operandGuard resolves an operand's guard by the fragment's kind, or why it cannot.
-func (s *scenario) operandGuard(step *scenarioStep, kind string, operand *scenarioOperand, guard *sysmlv1.Element, i, n int) string {
-	var note string
-	switch step.kind {
-	case stepAlt:
-		operand.guard, operand.gnote, note = s.guard(guard)
-		if note != "" {
-			return "has an operand whose guard is not written: " + note
-		}
-		if operand.guard == "" && i != n-1 {
-			return "has an operand without a guard before its last, so the operands after it would never run"
-		}
-	case stepOpt:
-		operand.guard, operand.gnote, note = s.guard(guard)
-		if note != "" {
-			return "has a guard that is not written: " + note
-		}
-		if operand.guard == "" {
-			return "has no guard, so whether its operand runs is unspecified"
-		}
-	case stepLoop:
-		operand.guard, step.count, operand.gnote, note = s.loopBounds(guard)
-		if note != "" {
-			return note
-		}
-	case stepPar, stepSeq:
-		if guard != nil && !trueGuard(guard) {
-			return "has a guard on an operand of a " + kind + " fragment, which runs its operands regardless"
+// operandGuard labels an operand by its guard: the v2 expression in brackets, or
+// the guard's own text when it has no v2 expression, with a note; a loop's bounds too.
+func (s *scenario) operandGuard(step *scenarioStep, operand *scenarioOperand, guard *sysmlv1.Element) {
+	if step.kind == stepLoop {
+		operand.guard, operand.gnote = s.loopLabel(guard)
+		return
+	}
+	operand.guard, operand.gnote = s.guardLabel(guard)
+}
+
+// guardLabel is the bracketed label of a guard; "" for none, true or else.
+func (s *scenario) guardLabel(g *sysmlv1.Element) (label, note string) {
+	if g == nil || trueGuard(g) {
+		return "", ""
+	}
+	spec := firstOwned(g, "specification")
+	if isElseGuard(spec) {
+		return "", ""
+	}
+	expr, note, refusal := s.guard(g)
+	if refusal != "" {
+		return "[" + describeValue(spec) + "]", "the guard has no v2 expression and is kept as its own text: " + refusal
+	}
+	if s.def {
+		if lost := s.inaccessible(expr, nil); lost != "" {
+			return "[" + describeValue(spec) + "]", "the guard reads " + lost + " of the interaction's context, which its occurrence def has no access to, and is kept as its own text"
 		}
 	}
-	return ""
+	return "[" + expr + "]", note
 }
 
 // joinCalls closes the calls every operand path answers; a par's operands
@@ -1151,9 +1204,8 @@ func trueGuard(g *sysmlv1.Element) bool {
 	return spec == nil || spec.Type == "LiteralBoolean" && (spec.Attrs["value"] == "true" || spec.Attrs["value"] == "")
 }
 
-// loopBounds reads a loop's guard and bounds: a guard alone repeats while it
-// holds; equal literal bounds without a guard repeat that many times.
-func (s *scenario) loopBounds(g *sysmlv1.Element) (guard, count, note, refusal string) {
+// loopLabel labels a loop's operand by its bounds and guard: `(min, max) [guard]`.
+func (s *scenario) loopLabel(g *sysmlv1.Element) (label, note string) {
 	var lo, hi string
 	if g != nil {
 		if v := firstOwned(g, "minint"); v != nil {
@@ -1163,21 +1215,11 @@ func (s *scenario) loopBounds(g *sysmlv1.Element) (guard, count, note, refusal s
 			hi = describeValue(v)
 		}
 	}
-	guard, note, refusal = s.guard(g)
-	if refusal != "" {
-		return "", "", "", "has a guard that is not written: " + refusal
+	label, note = s.guardLabel(g)
+	if lo != "" || hi != "" {
+		label = strings.TrimSpace("(" + orAny(lo) + ", " + orAny(hi) + ") " + label)
 	}
-	switch {
-	case guard != "" && (lo == "" || lo == "0") && (hi == "" || hi == "*"):
-		return guard, "", note, ""
-	case guard != "":
-		return "", "", "", "repeats between " + lo + " and " + hi + " times while [" + guard + "] holds, which a while loop cannot count"
-	case lo != "" && lo == hi && isNatural(lo):
-		return "", lo, "", ""
-	case lo == "" && hi == "":
-		return "", "", "", "has neither a guard nor bounds, so how often it repeats is unspecified"
-	}
-	return "", "", "", "repeats between " + orAny(lo) + " and " + orAny(hi) + " times, which no fixed loop writes"
+	return label, note
 }
 
 func orAny(s string) string {
@@ -1196,67 +1238,118 @@ func suffixNote(s string) string {
 
 // interactionBody writes an interaction as a scenario: an action whose steps are
 // its messages and combined fragments in occurrence order.
+
+// interactionBody writes an interaction as the body of its occurrence def: a usage
+// per lifeline holding its event occurrences in order, and a message per v1 message.
 func (m *migration) interactionBody(e *sysmlv1.Element) {
-	m.unwrittenMembers(e, "lifeline", "message", "fragment", "generalOrdering", "ownedRule", "observation", "formalGate")
+	m.unwrittenMembers(e, "lifeline", "message", "fragment", "generalOrdering", "ownedRule", "observation", "formalGate", "ownedAttribute")
 	s, note := m.scenario(e, "this")
 	if note != "" {
 		// classifyBehavior does not let this happen; keep the body honest anyway.
 		m.w.lines(commentLines("interaction not migrated — " + note))
 		return
 	}
-	s.write()
+	s.writeSequence()
 }
 
-// write writes the scenario's steps and reports every element they stand for.
-func (s *scenario) write() {
+// sequenceEvent is one event occurrence of a lifeline usage, with the body it owns.
+type sequenceEvent struct {
+	name string
+	body []string
+}
+
+// lifelineBinding binds a lifeline usage of an interaction's occurrence def to the
+// feature of the owner it stands for, in the owner's occurrence usage of the def.
+type lifelineBinding struct {
+	kw, name, path string
+}
+
+// writeSequence writes the scenario as a sequence: the lifeline usages, each with
+// its event occurrences ordered by then, and the messages between the events in
+// occurrence order; every element they stand for is reported.
+func (s *scenario) writeSequence() {
 	saved := s.m.self
 	s.m.self = s.self
 	defer func() { s.m.self = saved }()
+	s.place(s.steps)
+	s.m.w.lines(s.params)
+	var bindings []lifelineBinding
 	for _, line := range s.e.Owned("lifeline") {
 		ref := s.lines[line]
-		s.m.add(line, Mapped, ref.path, "the lifeline stands for "+ref.path+", which the steps address")
+		s.writeLifeline(ref)
+		s.m.names[line] = ref.name
+		note := "written as the " + strings.TrimSpace(ref.prefix+ref.kw) + " usage " + ref.name + " holding its " + plural(len(ref.events), "event occurrence")
+		switch {
+		case ref.bound != "":
+			bindings = append(bindings, lifelineBinding{kw: ref.kw, name: ref.name, path: ref.bound})
+			note += ", bound to " + ref.bound + " of " + qualifiedName(s.context) + " where the def occurs"
+		case ref.rep.Parent == s.e:
+			note += ", the interaction's own " + describe(ref.rep)
+		case ref.path != "":
+			note += ", subsetting " + ref.path
+		}
+		s.m.add(line, Mapped, s.m.v2Name(s.e)+"::"+ref.name, note)
 	}
-	s.writeSteps(s.steps)
+	s.m.w.lines(s.body)
+	if s.def {
+		s.m.sequenceBindings[s.e] = bindings
+		s.ownMembers()
+	}
 	for _, g := range s.e.Owned("formalGate") {
-		s.m.add(g, Mapped, "", "the gate is the scenario's edge: a message leaving it comes from whatever performs the scenario")
+		s.m.add(g, Mapped, "", "the gate is the interaction's edge: a message leaving or entering it states no end there, as v2 sequence notation has no gate")
 	}
 	for _, f := range s.others {
 		s.other(f)
 	}
 	for _, o := range s.e.Owned("generalOrdering") {
-		s.m.add(o, Skipped, "", "the general ordering is not written: the steps run in fragment order")
+		s.m.add(o, Skipped, "", "the general ordering is not written: each lifeline's events are ordered by then successions in fragment order")
 	}
 	for _, r := range s.e.Owned("ownedRule") {
-		if s.waited[r] {
-			continue
-		}
-		if r.Type == "DurationConstraint" {
-			s.m.unmapped(r, "the duration constraint is on no message the scenario steps, so no step waits for it")
-			continue
-		}
-		s.m.unmapped(r, "a "+r.Type+" on an interaction has no form in a scenario")
+		s.m.unmapped(r, "a "+r.Type+" has no form in v2 sequence notation; the events it spans are ordered but not timed")
 	}
 	for _, o := range s.e.Owned("observation") {
-		if s.waited[o] {
-			continue
-		}
 		s.m.unmapped(o, "a "+o.Type+" has no v2 form")
 	}
-	n, others := countSteps(s.steps)
-	steps := "steps"
-	if n+others == 1 {
-		steps = "step"
+	lifelines := plural(len(s.e.Owned("lifeline")), "lifeline usage")
+	note := "written as an occurrence def of " + lifelines + " and " + plural(s.messages, "message") +
+		" between their event occurrences in occurrence order"
+	if !s.def {
+		note = "written as a verification def of " + lifelines + " and " + plural(s.messages, "message") +
+			" between their event occurrences in occurrence order, the lifelines bound to the subject's parts"
 	}
-	per := "message"
-	if others > 0 {
-		per = "message, interaction use or state invariant"
-	}
-	note := "written as a scenario of " + strconv.Itoa(n+others) + " " + steps +
-		", one per " + per + " in occurrence order; the lifelines' own behavior is not part of it"
 	if has(s.e, "TestCase") {
 		note = joinNotes(note, s.verdictNote())
 	}
-	s.m.add(s.e, Approximated, s.m.v2Name(s.e), note)
+	s.m.add(s.e, Mapped, s.m.v2Name(s.e), note)
+}
+
+// ownMembers reports the interaction's own parameters and properties: a property a
+// lifeline stands for is that lifeline's usage; an occurrence def declares no parameter.
+func (s *scenario) ownMembers() {
+	represented := map[*sysmlv1.Element]*lifelineRef{}
+	for _, ref := range s.lines {
+		if ref.rep.Parent == s.e {
+			represented[ref.rep] = ref
+		}
+	}
+	for _, p := range s.e.Owned("ownedParameter") {
+		if ref, ok := represented[p]; ok {
+			s.m.add(p, Approximated, s.m.v2Name(s.e)+"::"+ref.name, "the parameter is the object the lifeline "+describe(ref.line)+" stands for, written as the usage "+ref.name+"; an occurrence def declares no parameter")
+			continue
+		}
+		if name, ok := s.m.sequenceParams[p]; ok {
+			s.m.add(p, Approximated, s.m.v2Name(s.e)+"::"+name, joinNotes("written as the attribute "+name+" of the occurrence def, which declares no parameter; the occurrence usages of the def bind it", s.paramNotes[p]))
+			continue
+		}
+		s.m.unmapped(p, "an occurrence def declares no parameter, and no lifeline stands for its "+p.Attrs["direction"]+" parameter")
+	}
+	for _, p := range s.e.Owned("ownedAttribute") {
+		if ref, ok := represented[p]; ok {
+			s.m.add(p, Mapped, s.m.v2Name(s.e)+"::"+ref.name, "written as the usage "+ref.name+", the lifeline "+describe(ref.line)+" that stands for it")
+			continue
+		}
+		s.m.unmapped(p, "owned by an Interaction, whose v2 body is its lifelines and messages, not a place for a "+kindOf(p)+" no lifeline stands for")
+	}
 }
 
 // verdictNote says how the verification case written from a test case reaches a
@@ -1264,491 +1357,422 @@ func (s *scenario) write() {
 func (s *scenario) verdictNote() string {
 	for _, p := range s.e.Owned("ownedParameter") {
 		if p.Attrs["direction"] == "return" {
-			return "its verdict is the return parameter " + s.m.nameFor(p) + ", which no step binds"
+			return "its verdict is the return parameter " + s.m.nameFor(p) + ", which no message binds"
 		}
 	}
-	return "the test case has no return parameter, so the verification case states no verdict and is inconclusive once its steps complete"
+	return "the test case has no return parameter, so the verification case states no verdict and is inconclusive once its events complete"
 }
 
-// countSteps counts the messages a body of steps and its fragments write, and
-// apart from them the interaction uses and state invariants.
-func countSteps(steps []*scenarioStep) (messages, others int) {
-	for _, s := range steps {
-		switch {
-		case s.kind == stepUse || s.kind == stepAssert:
-			others++
-		case s.msg != nil:
-			messages++
-		}
-		for _, o := range s.operands {
-			m, n := countSteps(o.steps)
-			messages, others = messages+m, others+n
-		}
-	}
-	return messages, others
-}
-
-// writeSteps writes a body of steps chained from start to done.
-func (s *scenario) writeSteps(steps []*scenarioStep) {
-	s.chains++
-	s.indexChain(steps, s.chains, new(int))
-	prev := "start"
-	for _, step := range steps {
-		if next := s.step(step, prev); next != "" {
-			prev = next
-		}
-	}
-	s.m.w.line(firstKw + prev + " then done;")
-}
-
-// indexChain positions the steps of a chain, the operands of its seq fragments inlined.
-func (s *scenario) indexChain(steps []*scenarioStep, chain int, pos *int) {
-	for _, step := range steps {
-		if step.kind == stepSeq {
-			for _, o := range step.operands {
-				s.indexChain(o.steps, chain, pos)
-			}
-			continue
-		}
-		if step.msg != nil {
-			s.chain[step.msg] = chainPos{chain: chain, pos: *pos, step: step}
-		}
-		*pos++
-	}
-}
-
-// stepWaits reports whether a step writes a node the duration constraints on its message wait before.
-func stepWaits(step *scenarioStep) bool {
-	return step.kind == stepSend || step.kind == stepCall || step.kind == stepReply && len(step.assigns) > 0
-}
-
-// step writes one step after prev and returns the node the next step follows;
-// "" when the step writes no node.
-func (s *scenario) step(step *scenarioStep, prev string) string {
-	m := s.m
-	if stepWaits(step) {
-		prev = s.waits(step, prev)
-	}
-	switch step.kind {
-	case stepSend:
-		m.w.line(actionKw + step.name + " send new " + m.ref(step.signal, s.e) + "(" + strings.Join(step.args, ", ") + ") to " + step.receiver.path + ";")
-		s.messageDone(step, "written as a send to "+step.receiver.path)
-	case stepCall:
-		decl := "perform action " + step.name
-		if !m.asUsage[step.op] {
-			decl += " : " + m.ref(step.op, s.e)
-		}
-		decl += " ::> " + step.receiver.chain + "." + writeName(m.operationUsage(step.op))
-		if len(step.args) == 0 {
-			m.w.line(decl + ";")
-		} else {
-			m.w.line(decl + " { " + strings.Join(step.args, "; ") + "; }")
-		}
-		s.messageDone(step, "written as a call of "+m.nameOf(step.op)+" on "+step.receiver.path)
-	case stepReply:
-		if len(step.assigns) == 0 {
-			m.wroteNoMember(step.msg)
-			s.messageDone(step, "the reply is the completion of the call "+step.call.name+", which the next step follows")
-			return ""
-		}
-		m.w.block(actionKw+step.name, func() {
-			for _, a := range step.assigns {
-				m.w.line(a)
-			}
-		})
-		s.messageDone(step, "written as the assignment of the call "+step.call.name+"'s results to "+step.receiver.path)
-	case stepCreate, stepDelete:
-		what := "creates"
-		if step.kind == stepDelete {
-			what = "deletes"
-		}
-		m.w.lines(commentLines("not migrated: Message " + describe(step.msg) + " — the message " + what + " the object " + step.receiver.path + ", which exists for as long as its owner does"))
-		m.add(step.msg, Unmapped, "", theMessage+what+" "+step.receiver.path+", a part that exists for as long as its owner does; the steps after it address it as it is")
-		s.occurrencesDone(step, "")
-		return ""
-	case stepAlt, stepOpt:
-		m.w.block(actionKw+step.name, func() { s.nested(step.base, func() { s.branches(step, 0) }) })
-		s.fragmentDone(step, "if")
-	case stepLoop:
-		o := step.operands[0]
-		head := "while " + o.guard
-		if step.count != "" {
-			head = "for " + freshIn(s.used, "i") + " in 1.." + step.count
-		}
-		m.w.block(actionKw+step.name, func() {
-			s.nested(step.base, func() { m.w.block(head, func() { s.hiding(func() { s.operand(step, o, 0) }) }) })
-		})
-		s.fragmentDone(step, strings.Fields(head)[0])
-	case stepPar:
-		join := writeName(freshIn(s.used, step.base+"End"))
-		m.w.line("fork " + step.name + ";")
-		m.w.line(firstKw + prev + thenKw + step.name + ";")
-		for i, o := range step.operands {
-			name := s.operand(step, o, i)
-			m.w.line(firstKw + step.name + thenKw + name + ";")
-			m.w.line(firstKw + name + thenKw + join + ";")
-		}
-		m.w.line("join " + join + ";")
-		s.fragmentDone(step, "fork")
-		return join
-	case stepUse:
-		return s.performUse(step, prev)
-	case stepGate:
-		use := s.uses[step.frag]
-		s.m.add(step.msg, verdictFor(step.note), use.name, joinNotes("the message enters "+use.name+" through its gate, where the performed scenario's message "+describe(step.op)+" carries it", step.note))
-		if ev := s.m.model.Ref(step.msg, "sendEvent"); ev != nil {
-			s.m.add(ev, Mapped, use.name, "the occurrence orders the step "+use.name)
-		}
-		return ""
-	case stepAssert:
-		m.w.line("assert constraint " + step.name + " { " + step.cond + " }")
-		m.add(step.frag, verdictFor(step.note), step.name, joinNotes("written as the assertion "+step.name+", which the scenario checks when it reaches it", step.note))
-		if c := firstOwned(step.frag, "invariant"); c != nil {
-			m.add(c, verdictFor(step.note), step.name, "the constraint is the condition of the assertion "+step.name)
-		}
-	case stepSeq:
-		prevInner := prev
-		for _, o := range step.operands {
-			for _, inner := range o.steps {
-				if next := s.step(inner, prevInner); next != "" {
-					prevInner = next
-				}
-			}
-			m.add(o.e, Mapped, "", "the operand's steps run in order")
-		}
-		m.add(step.frag, Mapped, "", "the "+step.frag.Attrs["interactionOperator"]+" fragment's operands run in order")
-		if prevInner == prev {
-			return ""
-		}
-		return prevInner
-	}
-	m.w.line(firstKw + prev + thenKw + step.name + ";")
-	if step.msg != nil {
-		return s.startWaits(step)
-	}
-	return step.name
-}
-
-// performUse writes an interaction use as the perform of its interaction's scenario after prev.
-func (s *scenario) performUse(step *scenarioStep, prev string) string {
-	m := s.m
-	decl := "perform action " + step.name + step.target
-	if len(step.lines) == 0 {
-		m.w.line(decl + ";")
-	} else {
-		m.w.line(decl + " { " + strings.Join(step.lines, "; ") + "; }")
-	}
-	m.w.line(firstKw + prev + thenKw + step.name + ";")
-	m.add(step.frag, verdictFor(step.note), step.name, joinNotes("written as the perform "+step.name+" of the scenario of "+describe(step.use), step.note))
-	for _, g := range step.frag.Owned("actualGate") {
-		m.add(g, Mapped, step.name, "the gate passes its message into the performed scenario "+step.name)
-	}
-	return step.name
-}
-
-// waits chains the duration constraints on a message step as waits after prev and returns the
-// node the step follows: a constraint from an earlier message is waited for before the later one,
-// as a wait after the earlier one when they are adjacent, else by joining the wait forked after it.
-func (s *scenario) waits(step *scenarioStep, prev string) string {
-	for _, dc := range s.constraintsOn(step.msg) {
-		if s.waited[dc] {
-			continue
-		}
-		if p, ok := s.pending[dc]; ok {
-			s.waited[dc] = true
-			join := writeName(freshIn(s.used, p.base+"End"))
-			s.m.w.line("join " + join + ";")
-			s.m.w.line(firstKw + prev + thenKw + join + ";")
-			s.m.w.line(firstKw + p.wait + thenKw + join + ";")
-			prev = join
-			s.m.add(dc, Approximated, p.wait, joinNotes("the time from "+p.from+", written as the wait "+p.wait+" forked after it and joined before "+step.name, p.note))
-			s.observationsDone(dc, p.wait, step.name)
-			continue
-		}
-		from, ok := s.waitFrom(dc, step)
-		if !ok {
-			continue
-		}
-		s.waited[dc] = true
-		if from == "" {
-			note := "the time it measures from " + s.names[s.otherEnd(dc, step.msg)] + " to " + step.name + " is not written: steps of other fragments lie between them, so no wait forked after the one can be joined before the other"
-			s.m.w.lines(commentLines("duration constraint on " + step.name + notMigrated + note))
-			s.m.add(dc, Unmapped, "", note)
-			continue
-		}
-		expr, note, ok := s.waitExpr(dc)
-		if !ok {
-			s.m.w.lines(commentLines("duration constraint on " + step.name + notMigrated + note))
-			s.m.add(dc, Unmapped, "", note)
-			continue
-		}
-		name := writeName(freshIn(s.used, "wait"))
-		s.m.w.line(actionKw + name + " accept after " + inSeconds(expr) + ";")
-		s.m.w.line(firstKw + prev + thenKw + name + ";")
-		prev = name
-		s.m.add(dc, Approximated, name, joinNotes(from+", written as the wait "+name+" before "+step.name, note))
-		s.observationsDone(dc, name, step.name)
-	}
-	s.names[step.msg] = step.name
-	s.last = step.name
-	return prev
-}
-
-// startWaits forks, after a message step, the wait for each constraint from it to a later message
-// of its chain with steps between them, and returns the node the next step follows.
-func (s *scenario) startWaits(step *scenarioStep) string {
-	fork := ""
-	for _, dc := range s.constraintsOn(step.msg) {
-		if s.waited[dc] {
-			continue
-		}
-		if _, pending := s.pending[dc]; pending {
-			continue
-		}
-		other := s.otherEnd(dc, step.msg)
-		if other == nil || !s.spansChain(step, other) {
-			continue
-		}
-		expr, note, ok := s.waitExpr(dc)
-		if !ok {
-			s.waited[dc] = true
-			s.m.w.lines(commentLines("duration constraint from " + step.name + notMigrated + note))
-			s.m.add(dc, Unmapped, "", note)
-			continue
-		}
-		if fork == "" {
-			fork = writeName(freshIn(s.used, "timing"))
-			s.m.w.line("fork " + fork + ";")
-			s.m.w.line(firstKw + step.name + thenKw + fork + ";")
-		}
-		base := freshIn(s.used, "wait")
-		wait := writeName(base)
-		s.m.w.line(actionKw + wait + " accept after " + inSeconds(expr) + ";")
-		s.m.w.line(firstKw + fork + thenKw + wait + ";")
-		s.pending[dc] = pendingWait{wait: wait, base: base, from: step.name, note: note}
-	}
-	if fork == "" {
-		return step.name
-	}
-	return fork
-}
-
-// spansChain reports whether other is a later message of step's chain with steps between them,
-// so that a wait forked after step is joined before other.
-func (s *scenario) spansChain(step *scenarioStep, other *sysmlv1.Element) bool {
-	a, b := s.chain[step.msg], s.chain[other]
-	return b.step != nil && b.chain == a.chain && b.pos > a.pos+1 && stepWaits(b.step)
-}
-
-// constraintsOn lists the duration constraints on a message or on either of
-// its occurrences, each once.
-func (s *scenario) constraintsOn(msg *sysmlv1.Element) []*sysmlv1.Element {
-	var out []*sysmlv1.Element
-	seen := map[*sysmlv1.Element]bool{}
-	for _, e := range s.messageEnds(msg) {
-		for _, dc := range s.m.bounded[e] {
-			if !seen[dc] {
-				seen[dc] = true
-				out = append(out, dc)
-			}
-		}
-	}
-	return out
-}
-
-// messageEnds lists a message and the occurrences that send and receive it.
-func (s *scenario) messageEnds(msg *sysmlv1.Element) []*sysmlv1.Element {
-	ends := []*sysmlv1.Element{msg}
-	for _, role := range []string{"sendEvent", "receiveEvent"} {
-		if ev := s.m.model.Ref(msg, role); ev != nil {
-			ends = append(ends, ev)
-		}
-	}
-	return ends
-}
-
-// messageOf is the message an element constrains: itself, or the one an
-// occurrence sends or receives.
-func (s *scenario) messageOf(e *sysmlv1.Element) *sysmlv1.Element {
-	if e.Type == "Message" {
-		return e
-	}
-	return s.m.model.Ref(e, "message")
-}
-
-// otherEnd is the message a duration constraint on msg measures from or to, nil
-// when it constrains msg alone.
-func (s *scenario) otherEnd(dc, msg *sysmlv1.Element) *sysmlv1.Element {
-	for _, c := range s.m.model.Refs(dc, "constrainedElement") {
-		if m := s.messageOf(c); m != nil && m != msg {
-			return m
-		}
-	}
-	return nil
-}
-
-// waitFrom says what a duration constraint on a step's message measures, and whether the
-// step is the one to wait before: the message's own duration, or the time since the other
-// message it constrains once that has been stepped; "" when steps lie between the two.
-func (s *scenario) waitFrom(dc *sysmlv1.Element, step *scenarioStep) (string, bool) {
-	other := s.otherEnd(dc, step.msg)
-	if other == nil {
-		return "the message's duration; a v2 send arrives at once, so the step waits for it first", true
-	}
-	name, done := s.names[other]
-	if !done {
-		return "", false
-	}
-	if s.last != name {
-		return "", true
-	}
-	return "the time from " + name, true
-}
-
-// waitExpr writes the wait a duration constraint's interval stands for: a fixed
-// delay for a point interval, a uniform draw over it otherwise.
-func (s *scenario) waitExpr(dc *sysmlv1.Element) (expr, note string, ok bool) {
-	spec := firstOwned(dc, "specification")
-	if spec == nil || spec.Type != "DurationInterval" && spec.Type != "Interval" {
-		return "", "the duration constraint has no interval", false
-	}
-	m := s.m
-	lo, lok, lnote := m.durationExpr(m.model.Ref(spec, "min"), s.e)
-	hi, hok, hnote := m.durationExpr(m.model.Ref(spec, "max"), s.e)
-	if bound, bnote, ok := m.singleValue(spec, lo, lok, hok); ok {
-		return bound, joinNotes(bnote, "so the wait is a fixed "+bound+" s"), true
-	}
-	if !lok || !hok {
-		return "", m.openInterval(spec, lo, lok, lnote, hi, hok, hnote), false
-	}
-	note = joinNotes(lnote, hnote)
-	lf, lerr := strconv.ParseFloat(lo, 64)
-	hf, herr := strconv.ParseFloat(hi, 64)
-	switch {
-	case lerr == nil && herr == nil && lf > hf:
-		return "", "the interval's min " + lo + " exceeds its max " + hi, false
-	case lo == hi:
-		return lo, joinNotes(note, "a fixed wait of "+lo+" s"), true
-	case m.strict && (lerr != nil || herr != nil):
-		return "", noStrictDraw(lo, hi), false
-	case m.strict:
-		mid := computedLiteral((lf + hf) / 2)
-		return mid, joinNotes(note, "a fixed wait of "+mid+" s, the midpoint of ["+lo+", "+hi+"]"+strictMidpointWhy), true
-	}
-	return "RandomFunctions::uniform(" + lo + ", " + hi + ")",
-		joinNotes(note, "a wait drawn uniformly over ["+lo+", "+hi+"] s; a tool's fixed min or max mode is a run setting, not the model's"), true
-}
-
-// observationsDone reports the duration observations a written constraint's
-// bounds refer to as realized by the wait.
-func (s *scenario) observationsDone(dc *sysmlv1.Element, wait, step string) {
-	spec := firstOwned(dc, "specification")
-	for _, role := range []string{"min", "max"} {
-		v := s.m.model.Ref(spec, role)
-		for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
-			for _, o := range s.m.model.Refs(v, "observation") {
-				s.waited[o] = true
-				s.m.add(o, Approximated, wait, "the duration it observes is written as the wait "+wait+" before "+step)
-			}
-			v = firstOwned(v, "expr")
-		}
-	}
-}
-
-// branches writes the operands of an alt or opt from i on as an if with an else.
-func (s *scenario) branches(step *scenarioStep, i int) {
-	o := step.operands[i]
-	if o.guard == "" {
-		s.operand(step, o, i)
+// writeLifeline writes a lifeline's usage with its event occurrences, each after the one before.
+func (s *scenario) writeLifeline(ref *lifelineRef) {
+	s.m.madeUp(ref.rep, writeName(ref.name))
+	head := ref.prefix + ref.kw + " " + writeName(ref.name) + ref.mult + ref.typing
+	if len(ref.events) == 0 {
+		s.m.w.line(head + ";")
 		return
 	}
-	s.m.w.block("if "+o.guard, func() { s.hiding(func() { s.operand(step, o, i) }) })
-	if i+1 < len(step.operands) {
-		s.m.w.block("else", func() { s.hiding(func() { s.branches(step, i+1) }) })
+	s.m.w.block(head, func() {
+		for i, ev := range ref.events {
+			line := "event occurrence " + writeName(ev.name)
+			if i > 0 {
+				line = "then " + line
+			}
+			if len(ev.body) == 0 {
+				s.m.w.line(line + ";")
+				continue
+			}
+			s.m.w.block(line, func() {
+				s.m.w.lines(ev.body)
+			})
+		}
+	})
+}
+
+// event adds an event occurrence to a lifeline usage for the occurrence ev (named
+// after it, or fallback when it is anonymous) and names it as a message end.
+func (s *scenario) event(ref *lifelineRef, ev *sysmlv1.Element, fallback string) *sequenceEvent {
+	name := ""
+	if ev != nil {
+		name = s.m.nameOf(ev)
+	}
+	if name == "" {
+		name = fallback
+	}
+	e := &sequenceEvent{name: freshIn(ref.used, name)}
+	ref.events = append(ref.events, e)
+	if ref.after != "" {
+		s.body = append(s.body, "succession first "+ref.after+" then "+endRef(ref, e)+";")
+		ref.after = ""
+	}
+	return e
+}
+
+// endRef spells an event of a lifeline as a message end.
+func endRef(ref *lifelineRef, ev *sequenceEvent) string {
+	return writeName(ref.name) + "." + writeName(ev.name)
+}
+
+// place lays the steps out in order: an event on each lifeline a message touches
+// and the message between them, a combined fragment's operands under comments.
+func (s *scenario) place(steps []*scenarioStep) {
+	for _, step := range steps {
+		switch step.kind {
+		case stepSend, stepCall, stepReply, stepCreate, stepDelete, stepGate:
+			s.placeMessage(step)
+		case stepUse:
+			s.placeUse(step)
+		case stepAssert:
+			s.placeAssert(step)
+		default:
+			s.placeFragment(step)
+		}
 	}
 }
 
-// nested writes body as the members of the action named name, nested in the
-// actions being written.
-func (s *scenario) nested(name string, body func()) {
-	s.nest = append(s.nest, name)
-	body()
-	s.nest = s.nest[:len(s.nest)-1]
+// placeFragment writes a combined fragment's operands in order, each under a comment
+// naming the operator and its guard: v2 sequence notation has no fragment of its own.
+func (s *scenario) placeFragment(step *scenarioStep) {
+	kind := step.base
+	for i, o := range step.operands {
+		label := kind
+		switch {
+		case i > 0 && step.kind == stepAlt:
+			label = "else"
+		case i > 0 && step.kind == stepPar:
+			label = "and"
+		case i > 0:
+			label = "then"
+		}
+		if o.guard != "" {
+			label += " " + o.guard
+		}
+		s.body = append(s.body, commentLines(label)...)
+		s.place(o.steps)
+		s.m.add(o.e, Approximated, "", joinNotes("the operand's messages are written in occurrence order under the comment "+label, o.gnote))
+	}
+	s.body = append(s.body, commentLines("end "+kind)...)
+	note := "the " + kind + " fragment has no form in v2 sequence notation: its operands' messages are written in occurrence order, the operator and guards as comments"
+	if step.kind == stepPar {
+		note += "; the concurrent operands are written one after the other"
+	}
+	s.m.add(step.frag, Approximated, "", note)
 }
 
-// hiding writes body inside an if or loop body, where no qualified name reaches.
-func (s *scenario) hiding(body func()) {
-	s.hidden++
-	body()
-	s.hidden--
-}
-
-// operand writes the i-th operand of a fragment as a nested action and returns its name.
-func (s *scenario) operand(step *scenarioStep, o *scenarioOperand, i int) string {
-	base := freshIn(s.used, step.base+"Op"+strconv.Itoa(i+1))
-	name := writeName(base)
-	if len(o.steps) == 0 {
-		s.m.w.line(actionKw + name + ";")
+// placeUse writes an interaction use as an occurrence usage of the referenced
+// interaction's def; the messages entering its gates reach the usage.
+func (s *scenario) placeUse(step *scenarioStep) {
+	bindings, note := s.useArguments(step)
+	note = joinNotes(note, step.note)
+	line := "occurrence " + step.name + step.target
+	if len(bindings) > 0 {
+		line += " { " + strings.Join(bindings, " ") + " }"
 	} else {
-		s.m.w.block(actionKw+name, func() { s.nested(base, func() { s.writeSteps(o.steps) }) })
+		line += ";"
 	}
-	note := "written as the action " + name
-	if o.guard != "" {
-		note = joinNotes(note, "its guard is the condition ["+o.guard+"]")
+	var ordered []string
+	for _, covered := range s.m.model.Refs(step.frag, "covered") {
+		ref := s.lines[covered]
+		if ref == nil {
+			continue
+		}
+		if n := len(ref.events); n > 0 {
+			at := endRef(ref, ref.events[n-1])
+			s.body = append(s.body, "succession first "+at+" then "+step.name+";")
+			ordered = append(ordered, at)
+		}
+		ref.after = step.name
 	}
-	s.m.add(o.e, verdictFor(o.gnote), name, joinNotes(note, o.gnote))
-	if g := firstOwned(o.e, "guard"); g != nil {
-		s.m.add(g, verdictFor(o.gnote), "", joinNotes("the guard is the operand's condition", o.gnote))
+	report := "written as the occurrence usage " + step.name + " of " + describe(step.use)
+	if len(ordered) > 0 {
+		report = joinNotes(report, "ordered after "+strings.Join(ordered, ", ")+" and before the covered lifelines' next events by successions")
 	}
-	return name
+	s.body = append(s.body, line)
+	s.m.add(step.frag, verdictFor(note), step.name, joinNotes(report, note))
 }
 
-// fragmentDone reports a combined fragment written as the v2 construct named form.
-func (s *scenario) fragmentDone(step *scenarioStep, form string) {
-	article := "a"
-	if form == "if" {
-		article = "an"
+// useArguments binds an interaction use's arguments to the attributes the referenced
+// interaction's parameters are written as, by name or position, in the occurrence usage.
+func (s *scenario) useArguments(step *scenarioStep) (bindings []string, note string) {
+	args := step.frag.Owned("argument")
+	if len(args) == 0 {
+		return nil, ""
 	}
-	s.m.add(step.frag, Mapped, step.name, "written as the action "+step.name+", "+article+" "+form+" over the operands")
+	targets := sequenceParameters(step.use)
+	bound := map[*sysmlv1.Element]bool{}
+	for i, t := range s.pairArguments(args, targets) {
+		arg := args[i]
+		switch {
+		case t == nil:
+			note = joinNotes(note, theArgument+describeValue(arg)+" has no parameter of "+step.use.Name+" to bind to and is dropped")
+			continue
+		case bound[t]:
+			note = joinNotes(note, theArgument+describeValue(arg)+" binds "+s.m.nameOf(t)+" a second time and is dropped")
+			continue
+		}
+		name, ok := s.m.sequenceParams[t]
+		if !ok {
+			note = joinNotes(note, theArgument+describeValue(arg)+" for "+s.m.nameOf(t)+" is dropped: the parameter has no v2 declaration")
+			continue
+		}
+		expr, ok, vnote := s.m.typedBehaviorValue(arg, t, s.e)
+		if !ok {
+			note = joinNotes(note, theArgument+describeValue(arg)+" for "+s.m.nameOf(t)+" is not written, which stays unbound: "+vnote)
+			continue
+		}
+		if s.def {
+			if lost := s.inaccessible(expr, nil); lost != "" {
+				note = joinNotes(note, theArgument+describeValue(arg)+" for "+s.m.nameOf(t)+" reads "+lost+" of the interaction's context, which its occurrence def has no access to; the parameter stays unbound")
+				continue
+			}
+		}
+		bound[t] = true
+		bindings = append(bindings, "attribute :>> "+writeName(name)+" = "+expr+";")
+	}
+	return bindings, note
 }
 
-// messageDone reports a message step and the occurrences that order it.
-func (s *scenario) messageDone(step *scenarioStep, note string) {
+// sequenceParameters are an interaction's parameters that take a value in: those
+// its occurrence def declares as attributes.
+func sequenceParameters(e *sysmlv1.Element) []*sysmlv1.Element {
+	var in []*sysmlv1.Element
+	for _, p := range e.Owned("ownedParameter") {
+		switch p.Attrs["direction"] {
+		case "", "in", "inout":
+			in = append(in, p)
+		}
+	}
+	return in
+}
+
+// declareParameters names the attributes the interaction's in parameters are written
+// as, before the lifelines take their names; a parameter a lifeline stands for is that usage.
+func (s *scenario) declareParameters() {
+	for _, p := range sequenceParameters(s.e) {
+		represented := false
+		for _, ref := range s.lines {
+			if ref.rep == p {
+				represented = true
+			}
+		}
+		if represented {
+			continue
+		}
+		if !s.def {
+			// verificationBody writes a test case's parameters; the bindings name them.
+			s.m.sequenceParams[p] = s.m.nameFor(p)
+			continue
+		}
+		name := freshIn(s.used, s.m.nameOf(p))
+		s.m.sequenceParams[p] = name
+		line := "attribute " + writeName(name)
+		if mult, _ := s.m.multiplicity(p); mult != "" {
+			line += mult
+		}
+		if typ, _ := s.m.typeRef(s.m.model.Ref(p, "type"), s.e); typ != "" {
+			line += s.m.typing(s.m.model.Ref(p, "type")) + typ
+		}
+		if dv := firstOwned(p, "defaultValue"); dv != nil {
+			expr, ok, vnote := s.m.typedBehaviorValue(dv, p, s.e)
+			if lost := s.inaccessible(expr, nil); ok && lost != "" {
+				ok, vnote = false, "reads "+lost+" of the interaction's context, which its occurrence def has no access to"
+			}
+			if ok {
+				line += " default = " + expr
+			} else {
+				vnote = "default value not migrated: " + describeValue(dv) + " — " + vnote
+				s.params = append(s.params, commentLines(vnote)...)
+			}
+			s.paramNotes[p] = vnote
+		}
+		s.params = append(s.params, line+";")
+	}
+}
+
+// placeAssert writes a state invariant as an event occurrence of the covered
+// lifeline that asserts its condition.
+func (s *scenario) placeAssert(step *scenarioStep) {
+	ev := s.event(step.sender, step.frag, step.base)
+	ev.body = append(ev.body, "assert constraint { "+step.cond+" }")
+	at := endRef(step.sender, ev)
+	s.m.add(step.frag, verdictFor(step.note), at, joinNotes("written as the event occurrence "+at+", which asserts the condition where the invariant holds", step.note))
+	if c := firstOwned(step.frag, "invariant"); c != nil {
+		s.m.add(c, Mapped, at, "the constraint is the condition asserted at the event occurrence "+at)
+	}
+}
+
+// placeMessage writes a message between the events of its lifelines: a signal is
+// the payload, a call is performed at the receiving event, a reply carries the
+// result, and a create or delete message is an ordinary message to the object.
+func (s *scenario) placeMessage(step *scenarioStep) {
+	var from, to string
+	var sent, received *sequenceEvent
+	if step.sender != nil {
+		sent = s.event(step.sender, s.m.model.Ref(step.msg, "sendEvent"), step.base+"Sent")
+		from = endRef(step.sender, sent)
+	}
+	if step.kind == stepGate {
+		if u := s.uses[step.frag]; u != nil {
+			to = u.name
+		}
+	} else if step.receiver != nil {
+		received = s.event(step.receiver, s.m.model.Ref(step.msg, "receiveEvent"), step.base+"Received")
+		to = endRef(step.receiver, received)
+	}
+	payload, note := s.payload(step, received)
+	line := "message " + step.name
+	if payload != "" {
+		line += " of " + payload
+	}
 	switch {
-	case step.base == "":
-	case s.hidden > 0:
-		s.m.wroteEdge(step.msg, s.e, "action", "")
-	default:
-		s.m.wroteNestedEdge(step.msg, s.e, "action", append([]string(nil), s.nest...), step.base)
+	case from != "" && to != "":
+		line += " from " + from + " to " + to
+	case from != "":
+		note = joinNotes(note, "the message goes to the interaction's gate "+s.gateName(step.msg, "receiveEvent")+", its environment: v2 sequence notation has no gate, so the message states no target")
+	case to != "":
+		note = joinNotes(note, "the message comes from the interaction's gate "+s.gateName(step.msg, "sendEvent")+", its environment: v2 sequence notation has no gate, so the message states no source")
 	}
-	s.m.add(step.msg, verdictFor(step.note), step.name, joinNotes(note, step.note))
-	s.occurrencesDone(step, step.name)
+	s.body = append(s.body, line+";")
+	s.messages++
+	s.m.wroteEdge(step.msg, s.e, "message", step.base)
+	s.m.add(step.msg, verdictFor(joinNotes(note, step.note)), step.name, joinNotes(note, step.note))
+	s.occurrencesDone(step, from, to)
 }
 
-func (s *scenario) occurrencesDone(step *scenarioStep, name string) {
-	for _, role := range []string{"sendEvent", "receiveEvent"} {
+// gateName names the formal gate at a message's end.
+func (s *scenario) gateName(msg *sysmlv1.Element, role string) string {
+	if g := s.m.model.Ref(msg, role); g != nil {
+		return describe(g)
+	}
+	return "(unnamed)"
+}
+
+// payload spells what a message carries, and notes what of the v1 message it
+// does not: a signal and its arguments, a call's result on the reply.
+func (s *scenario) payload(step *scenarioStep, received *sequenceEvent) (payload, note string) {
+	switch step.kind {
+	case stepSend:
+		sig := s.m.ref(step.signal, s.e)
+		if len(step.args) == 0 {
+			return sig + "[1]", ""
+		}
+		name := lowerFirst(s.m.nameFor(step.signal))
+		if name == step.base {
+			name += "Payload"
+		}
+		return writeName(name) + " : " + sig + " = new " + sig + "(" + strings.Join(step.args, ", ") + ")", ""
+	case stepCall:
+		if received == nil || step.op == nil {
+			return "", ""
+		}
+		usage := writeName(s.m.operationUsage(step.op))
+		name := step.base
+		if name == usage {
+			name = freshIn(step.receiver.used, step.base+"Call")
+		}
+		decl := performActionKeyword + writeName(name)
+		if s.m.asUsage[step.op] {
+			// Qualified through the operation's def: a message of the operation's name is a sibling of the lifeline.
+			decl += " ::> " + s.m.ref(step.op.Parent, s.e) + "::" + usage
+		} else {
+			decl += " : " + s.m.ref(step.op, s.e)
+		}
+		if len(step.args) > 0 {
+			decl += " { " + strings.Join(step.args, "; ") + "; }"
+		} else {
+			decl += ";"
+		}
+		received.body = append(received.body, decl)
+		step.perform = endRef(step.receiver, received) + "." + writeName(name)
+		note = "the call is the message; its receiving event performs " + s.m.nameOf(step.op) + " on " + step.receiver.name
+		if step.sort == "asynchCall" {
+			note += ", to completion within the event"
+		}
+		return "", note
+	case stepReply:
+		return s.replyPayload(step)
+	case stepCreate:
+		return "", "the message creates " + step.receiver.name + ": v2 sequence notation has no creation message, so it is an ordinary message to the object's first event"
+	case stepDelete:
+		return "", "the message deletes " + step.receiver.name + ": v2 sequence notation has no deletion message, so it is an ordinary message to the object's event"
+	}
+	return "", ""
+}
+
+// replyPayload carries the answered call's one result as the reply's payload.
+func (s *scenario) replyPayload(step *scenarioStep) (payload, note string) {
+	call := step.call
+	var outs []*sysmlv1.Element
+	for _, p := range s.m.actionParameters(step.op) {
+		if dir, _ := parameterDirection(p); dir != "in" {
+			outs = append(outs, p)
+		}
+	}
+	switch {
+	case len(outs) == 0:
+		return "", ""
+	case call.perform == "":
+		return "", "the call it answers performs nothing, so the reply carries no result"
+	case len(outs) > 1:
+		return "", "the reply carries no result: " + s.m.nameOf(step.op) + " has " + strconv.Itoa(len(outs)) + " results, and a message carries one payload"
+	}
+	p := outs[0]
+	typ, tnote := s.m.typeRef(s.m.model.Ref(p, "type"), s.e)
+	if typ == "" {
+		return "", joinNotes("the reply carries no result: the result "+s.m.nameOf(p)+" has no written type to carry it as", tnote)
+	}
+	name := writeName(s.m.nameOf(p))
+	return name + " : " + typ + " = " + call.perform + "." + name, joinNotes("the reply carries the result "+s.m.nameOf(p)+" of the call as its payload", tnote)
+}
+
+// occurrencesDone reports the occurrences at a message's ends as the events written for them.
+func (s *scenario) occurrencesDone(step *scenarioStep, from, to string) {
+	for _, end := range []struct{ role, at string }{{"sendEvent", from}, {"receiveEvent", to}} {
+		role, at := end.role, end.at
 		ev := s.m.model.Ref(step.msg, role)
-		if ev == nil {
+		if ev == nil || ev.Type == "Gate" {
 			continue
 		}
-		if name == "" {
-			s.m.add(ev, Unmapped, "", "the occurrence belongs to the message "+describe(step.msg)+", which is not written")
+		if at == "" {
+			s.m.add(ev, Unmapped, "", "the occurrence belongs to the message "+describe(step.msg)+", whose end it is has no v2 form")
 			continue
 		}
-		s.m.add(ev, Mapped, name, "the occurrence orders the step "+name)
+		verb := "leaves"
+		if role == "receiveEvent" {
+			verb = "reaches"
+		}
+		s.m.add(ev, Mapped, at, "written as the event occurrence "+at+", which the message "+step.name+" "+verb)
 	}
 }
 
-// other reports a fragment that orders nothing the steps do not already order.
+// other reports a fragment that orders nothing the events do not already order.
 func (s *scenario) other(f *sysmlv1.Element) {
 	switch f.Type {
 	case "BehaviorExecutionSpecification", "ActionExecutionSpecification", "ExecutionOccurrenceSpecification":
-		s.m.add(f, Skipped, "", "the execution spans the steps between its occurrences, which run in order without it")
+		s.m.add(f, Skipped, "", "the execution spans the events between its start and finish, which the then successions order without it")
 	case "StateInvariant":
 		s.m.add(f, Unmapped, "", s.unwritten[f])
 	case "DestructionOccurrenceSpecification":
-		s.m.add(f, Unmapped, "", "the destruction ends an object that exists for as long as its owner does")
+		s.m.add(f, Unmapped, "", "the destruction has no form in v2 sequence notation; the object exists for as long as its owner does")
 	default:
-		s.m.add(f, Skipped, "", "the occurrence orders nothing beyond the steps' order")
+		s.m.add(f, Skipped, "", "the occurrence orders nothing beyond the events' order")
+	}
+}
+
+// interactionOccurrences writes, for each interaction of c whose lifelines stand
+// for features of c, the occurrence usage of its def that binds them to those features.
+func (m *migration) interactionOccurrences(c *sysmlv1.Element) {
+	for _, b := range c.Owned("ownedBehavior") {
+		bindings := m.sequenceBindings[b]
+		if b.Type != "Interaction" || len(bindings) == 0 {
+			continue
+		}
+		name := m.freshName(c, lowerFirst(m.nameFor(b)))
+		m.w.madeUp(writeName(name))
+		m.w.block("occurrence "+writeName(name)+" : "+m.ref(b, c), func() {
+			for _, bd := range bindings {
+				m.w.line("ref " + bd.kw + " :>> " + writeName(bd.name) + " = " + bd.path + ";")
+			}
+		})
+		m.add(b, Mapped, "", "its lifelines are bound to the features of "+qualifiedName(c)+" they stand for in the occurrence usage "+name)
 	}
 }

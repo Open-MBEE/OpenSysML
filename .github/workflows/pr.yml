@@ -164,9 +164,9 @@ jobs:
       # The solver is an external process, never linked in: the solver-dependent
       # tests need one on PATH to run rather than skip.
       - name: Install Z3
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y z3
+          scripts/ci-apt-install.sh z3
           z3 --version
 
       # The second verified backend, for the portability gate below: cvc5 has no
@@ -278,9 +278,9 @@ jobs:
 
       - name: Install Z3
         if: needs.changes.outputs.tier == 'full'
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y z3
+          scripts/ci-apt-install.sh z3
           z3 --version
 
       - name: Install cvc5
@@ -875,9 +875,9 @@ jobs:
       # mermaid-cli launches needs its shared libraries, Graphviz's neato
       # layout plugin needs GTS; the tests read PDFs back with poppler-utils.
       - name: Install the toolchain's system libraries
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+          scripts/ci-apt-install.sh --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
             libnss3 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libasound2t64 fonts-dejavu-core libgts-0.7-5 \
             poppler-utils
 
@@ -1059,8 +1059,9 @@ jobs:
       # The shipped pages are generated from each command's description, so a
       # flag added without regenerating them would ship a stale page.
       - name: Verify the committed manual pages are current
+        timeout-minutes: 10
         run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends mandoc
+          scripts/ci-apt-install.sh --no-install-recommends mandoc
           make man-check
 
       # Internal work-item labels have no public referent, so they may not
@@ -1167,9 +1168,9 @@ jobs:
       # The verification tests ask the service solver-backed questions; the
       # solver is an external process the service finds on PATH.
       - name: Install Z3
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y z3
+          scripts/ci-apt-install.sh z3
           z3 --version
 
       - name: Run the tests
@@ -1257,9 +1258,9 @@ jobs:
       # The verification-questions tests ask the service solver-backed questions;
       # the solver is an external process the service finds on PATH.
       - name: Install Z3
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y z3
+          scripts/ci-apt-install.sh z3
           z3 --version
 
       - name: Install Python client
@@ -1497,10 +1498,41 @@ jobs:
       - name: Install the sysml-grpc binary
         run: chmod +x bin/sysml-grpc
 
+      # Octave is 195 MB of archives, which a trickling mirror has held for over ten
+      # minutes; a run that got them keeps them for the next one on the same image.
+      - name: Note the runner image
+        id: image
+        run: echo "version=$ImageVersion" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the archives Octave was installed from
+        id: apt-archives
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: apt-octave-${{ runner.os }}-${{ steps.image.outputs.version }}-
+          restore-keys: |
+            apt-octave-${{ runner.os }}-${{ steps.image.outputs.version }}-
+            apt-octave-${{ runner.os }}-
+
       - name: Install GNU Octave
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y octave
+        # 31 s to 7 min on recent green runs, depending on the mirror.
+        timeout-minutes: 15
+        env:
+          CI_APT_DEADLINE_SECONDS: 780
+          CI_APT_ARCHIVES: ${{ runner.temp }}/apt-archives
+        run: scripts/ci-apt-install.sh octave
+
+      # The key names the archive set, so a changed set is saved and an unchanged one is not.
+      - name: Name the archive set
+        id: archives
+        run: echo "digest=$(find "$RUNNER_TEMP/apt-archives" -name '*.deb' -printf '%f\n' | sort | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the archives for the next run
+        if: steps.apt-archives.outputs.cache-matched-key != format('apt-octave-{0}-{1}-{2}', runner.os, steps.image.outputs.version, steps.archives.outputs.digest)
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: apt-octave-${{ runner.os }}-${{ steps.image.outputs.version }}-${{ steps.archives.outputs.digest }}
 
       - name: Start sysml-grpc
         run: |

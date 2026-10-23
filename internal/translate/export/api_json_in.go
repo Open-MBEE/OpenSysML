@@ -118,7 +118,7 @@ func apiJSONGraphWithQualifiedNames(
 		}
 		qualifiedNameIndex := -1
 		for i, member := range object.members {
-			if member.key == "sysx:mappingQualifiedName" {
+			if member.key == apiJSONMappingQualifiedNameKey {
 				qualifiedNameIndex = i
 				break
 			}
@@ -129,7 +129,7 @@ func apiJSONGraphWithQualifiedNames(
 		if qualifiedNameIndex < 0 && object.typ == "ReferenceUsage" &&
 			graph.HasProperty(subject, rdf.SysML+"elementId") {
 			for i, member := range object.members {
-				if member.key == "sysx:mappingValues" || member.key == "sysx:mappingQualifiedName" ||
+				if member.key == apiJSONMappingValuesKey || member.key == apiJSONMappingQualifiedNameKey ||
 					strings.HasPrefix(member.key, "@") {
 					continue
 				}
@@ -555,7 +555,7 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 		emittedMappingValues := make(map[string]bool, len(object.mappingValues))
 		memberProperties := make(map[string]bool, len(object.members))
 		for _, member := range object.members {
-			if member.key != "sysx:mappingQualifiedName" && member.key != "sysx:mappingValues" {
+			if member.key != apiJSONMappingQualifiedNameKey && member.key != apiJSONMappingValuesKey {
 				memberProperties[member.key] = true
 			}
 		}
@@ -576,10 +576,10 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 			return nil
 		}
 		for _, member := range object.members {
-			if member.key == "sysx:mappingQualifiedName" {
+			if member.key == apiJSONMappingQualifiedNameKey {
 				continue
 			}
-			if member.key == "sysx:mappingValues" {
+			if member.key == apiJSONMappingValuesKey {
 				for _, property := range object.mappingValuesOrder {
 					if memberProperties[property] || emittedMappingValues[property] {
 						continue
@@ -1012,7 +1012,7 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 			return object, fmt.Errorf("element object states %q twice", key)
 		}
 		seen[key] = true
-		if key == "sysx:mappingValues" {
+		if key == apiJSONMappingValuesKey {
 			object.mappingValues, object.mappingValuesOrder, err = apiJSONMappingValuesOf(dec)
 			if err != nil {
 				return object, err
@@ -1074,7 +1074,7 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 					object.specQualifiedName = mappingQualifiedNameFromSpec(name)
 					object.hasSpecQualifiedName = true
 				}
-			case "sysx:mappingQualifiedName":
+			case apiJSONMappingQualifiedNameKey:
 				if name, ok := value.(string); ok && name != "" {
 					object.mappingQualifiedName = name
 				}
