@@ -516,7 +516,7 @@ var constraintCodes = []Entry{
 	{
 		Code: "variation-member-not-variant", Tier: TierConstraint, Severity: "error",
 		Summary: "a variation owning a usage that is no variant",
-		Meaning: "Every owned usage of a variation definition or usage is a variant (an enumeration definition's every member an enumerated value). " +
+		Meaning: "Every owned usage of a variation definition or usage is a variant, an objective or an explicit parameter included (an enumeration definition's every member an enumerated value). " +
 			"Write `variant` before the usage, or declare it in a definition the variation specializes.",
 		Spec: "SysML v2 validateDefinitionVariationMembership and validateUsageVariationMembership",
 	},
