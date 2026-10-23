@@ -1032,3 +1032,23 @@ func TestASaveInsideTheRootKeepsTheFileModeAndContent(t *testing.T) {
 		t.Errorf("the root holds %d entries; want the file and no temporary left behind", len(entries))
 	}
 }
+
+// A submission dropped once its syntax error is reported is still the one that
+// error is located in, not the file loaded before it.
+func TestARejectedSubmissionIsLocatedInItself(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "veh.sysml"), []byte("package Veh {\n\tpart def Car;\n}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cs := connect(t, root)
+	must(t, cs, "session_load", args("paths", []string{"veh.sysml"}), nil)
+
+	var submitted SubmitResult
+	must(t, cs, "session_submit", args("text", "add(1, 2);"), &submitted)
+	if submitted.Accepted || len(submitted.Diagnostics) == 0 {
+		t.Fatalf("submit = %+v, want the syntax error reported", submitted)
+	}
+	if d := submitted.Diagnostics[0]; d.File != "" || d.Line != 1 || d.Column != 1 {
+		t.Errorf("the error was located at %s:%d:%d, want the submitted text at line 1, column 1", d.File, d.Line, d.Column)
+	}
+}

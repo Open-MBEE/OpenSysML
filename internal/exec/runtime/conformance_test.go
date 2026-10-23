@@ -1110,10 +1110,7 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 		return
 	}
 	for _, performer := range expected.Performers {
-		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
-		if err != nil {
-			t.Fatalf("instantiate %s: %v", performer.Object, err)
-		}
+		self := performerObject(t, ctx, idx, performer.Object)
 		if forceOwned {
 			if err := forceOwnedConnectors(ctx, self); err != nil {
 				t.Fatalf("OwnedConnectors(%s) failed before execution: %v", performer.Object, err)
@@ -1126,6 +1123,7 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 				Terminated:  performer.Terminated,
 				StateVisits: performer.StateVisits,
 				Outputs:     performer.Outputs,
+				Error:       performer.Error,
 			})
 		})
 	}
@@ -1234,26 +1232,32 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 // results the case states for it, every other event queued and run.
 func callingPerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol, self *Instance, events []ExpectedEvent) (*StateExecutor, error) {
 	t.Helper()
-	exec, err := ctx.CreateStateExecutorFor(stateSym, self)
+	exec, reused, err := ctx.stateRunFor(stateSym, self, true)
+	release := func() {
+		if exec != nil && !reused {
+			exec.Release()
+		}
+	}
 	if err != nil {
+		release()
 		return nil, err
 	}
 	for i, event := range events {
 		queued := queuedEvents(t, events[i:i+1])[0]
 		if event.Results == nil {
 			if err := exec.Enqueue(queued); err != nil {
-				exec.Release()
+				release()
 				return nil, err
 			}
 			if err := exec.RunToCompletion(); err != nil {
-				exec.Release()
+				release()
 				return nil, err
 			}
 			continue
 		}
 		results, err := exec.Call(queued.Call, queued.Args)
 		if err != nil {
-			exec.Release()
+			release()
 			return nil, fmt.Errorf("call %d %s: %w", i, queued.Call, err)
 		}
 		validateOutputs(t, ctx, event.Results, results)

@@ -8,8 +8,6 @@ run: exhibited state machine monitor of #1
     eval null -> null
   eval operator != -> false
 eval operator and -> false
-enter: outer
-enter: waiting
     eval feature pulse -> ()
     eval null -> null
   eval operator != -> false
@@ -29,19 +27,6 @@ step 2: token 1@fall
     eval literal false -> false
 step 3: token 1@done
 step 4: no active tokens
-run: exhibited state machine monitor of #1
-      eval feature pulse -> instance#3
-      eval null -> null
-    eval operator != -> true
-        eval feature pulse -> instance#3
-        eval literal 1 -> 1
-      eval index -> instance#3
-    eval chain ready -> false
-  eval operator and -> false
-exit: waiting
-exit: outer
-enter: done
-transition: waiting -> done (event: change)
 enter: armed
 transition: waiting -> armed (event: accept Go)
     eval feature pulse -> instance#3

@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 343,
-        "digest": "sha256:aed6958fdaab31e10343c74e56be7ef36aeaf7df87fe3c570ebcd23a559944b2"
+        "files": 344,
+        "digest": "sha256:c7eae59945c405138d8daa88cd90303f6209c7102fdb293af47f2079fdf4b111"
       }
     ],
     "recorded": "2026-10-23"
   },
   "totals": {
-    "cases": 343,
-    "bothReject": 331,
+    "cases": 344,
+    "bothReject": 332,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 12,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 184,
-      "bothReject": 172,
+      "cases": 185,
+      "bothReject": 173,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 12,
       "bothAccept": 0
@@ -2040,6 +2040,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/k78-cross-feature-after-member-binding-type-differs.kerml",
+      "source": "semantic",
+      "rule": "a `member` binding connector ahead of an end's cross feature is not the owned cross feature, so the mistyped feature after it must still have the end's type (KerML 8.3.3.3.4 Feature::ownedCrossFeature, validateFeatureCrossFeatureType; pilot validateFeatureCrossFeatureType).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s01-action-typed-by-part-def.sysml",
       "source": "semantic",
       "rule": "An action must be typed by action definitions (SysML 7.16 Actions; pilot validateActionUsageType).",
@@ -3361,8 +3370,8 @@
       }
     ],
     "totals": {
-      "cases": 343,
-      "bothReject": 331,
+      "cases": 344,
+      "bothReject": 332,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 12,
       "bothAccept": 0
