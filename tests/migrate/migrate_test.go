@@ -371,6 +371,7 @@ var constructFixtures = []string{
 	"tool_profiles",
 	"tool_block_stereotypes",
 	"block_specialization_profile",
+	"uml2_hostless_profile",
 	"property_markers",
 	"nested_requirement_refs",
 	"diagrams",

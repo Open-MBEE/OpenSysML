@@ -27,17 +27,17 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 335,
-        "digest": "sha256:27877cbf7c0ea7b283eb2ddea921e231a72eb8d706d29016caed70c1d95c887f"
+        "files": 343,
+        "digest": "sha256:aed6958fdaab31e10343c74e56be7ef36aeaf7df87fe3c570ebcd23a559944b2"
       }
     ],
-    "recorded": "2026-10-21"
+    "recorded": "2026-10-23"
   },
   "totals": {
-    "cases": 335,
-    "bothReject": 324,
+    "cases": 343,
+    "bothReject": 331,
     "pilotOnlyRejects": 0,
-    "oursOnlyRejects": 11,
+    "oursOnlyRejects": 12,
     "bothAccept": 0
   },
   "strictOnlyAgreements": [
@@ -65,10 +65,10 @@
     },
     {
       "source": "semantic",
-      "cases": 176,
-      "bothReject": 165,
+      "cases": 184,
+      "bothReject": 172,
       "pilotOnlyRejects": 0,
-      "oursOnlyRejects": 11,
+      "oursOnlyRejects": 12,
       "bothAccept": 0
     },
     {
@@ -2022,6 +2022,24 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/k76-undirected-redefinition-of-directed-feature.kerml",
+      "source": "semantic",
+      "rule": "a redefinition declaring no direction does not conform to a redefined `in`, `out` or `inout` feature (KerML 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
+      "path": "semantic/k77-standalone-subsetting-inaccessible-feature.kerml",
+      "source": "semantic",
+      "rule": "a subsetted feature must be accessible from the subsetting feature, whether the Subsetting is written inline or as a `specialization subset` member of its own (KerML 8.3.3.3.10 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s01-action-typed-by-part-def.sysml",
       "source": "semantic",
       "rule": "An action must be typed by action definitions (SysML 7.16 Actions; pilot validateActionUsageType).",
@@ -2232,6 +2250,51 @@
       "path": "semantic/s111-nonend-redefines-end-in-connection-usage.sysml",
       "source": "semantic",
       "rule": "a usage redefining an end feature within a connection usage must be an end (KerML 8.3.3.3 validateRedefinitionEndConformance; pilot validateRedefinitionEndConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s112-concern-def-stakeholder-before-implicit-subject.sysml",
+      "source": "semantic",
+      "rule": "A stakeholder declared before any subject is the first input of a concern definition, displacing the subject it inherits (SysML 8.3.21.8 validateRequirementDefinitionSubjectParameterPosition; pilot validateRequirementDefinitionSubjectParameterPosition).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s113-framed-concern-stakeholder-before-inherited-subject.sysml",
+      "source": "semantic",
+      "rule": "A stakeholder a framed concern declares precedes the subject it inherits from its definition (SysML 8.3.21.9 validateRequirementUsageSubjectParameterPosition; pilot validateRequirementUsageSubjectParameterPosition).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s114-constructor-argument-overrides-bound-value.sysml",
+      "source": "semantic",
+      "rule": "a constructor argument binds a feature whose value is written with `=`, which every feature redefining it inherits; only a `default =` value may be overridden (KerML 8.3.4.10.2 validateFeatureValueOverriding; pilot validateFeatureValueOverriding).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
+      "path": "semantic/s115-undirected-redefinition-of-in-parameter.sysml",
+      "source": "semantic",
+      "rule": "a redefinition of an `in` parameter that declares no direction does not conform to it (KerML 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s116-positional-parameter-direction-conflict.sysml",
+      "source": "semantic",
+      "rule": "the first parameter of a step redefines its behavior's first parameter by position, so an `out` written first under `in input; out output;` conflicts with `input` (KerML 8.4.4.6 checkFeatureParameterRedefinition, 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -2835,6 +2898,18 @@
       "pilotErrors": 5
     },
     {
+      "path": "semantic/variation-usage-objective-not-variant.sysml",
+      "source": "semantic",
+      "rule": "An owned usage of a variation usage must be a variant, an objective included (SysML 8.3.6.4 validateUsageVariationOwnedFeatureMembership; pilot validateUsageVariationMembership).",
+      "mode": "default",
+      "bucket": "ours-only-rejects",
+      "oursErrors": 1,
+      "pilotErrors": 0,
+      "ours": [
+        "line 5: An owned usage of a variation must be a variant."
+      ]
+    },
+    {
       "path": "xpect/p01-public-root-import.kerml",
       "source": "xpect",
       "rule": "a root-namespace import must be private (KerML 8.2.3.5.2 validateImportTopLevelVisibility; pilot Import_RootNamspace_invalid.kerml.xt).",
@@ -3286,10 +3361,10 @@
       }
     ],
     "totals": {
-      "cases": 335,
-      "bothReject": 324,
+      "cases": 343,
+      "bothReject": 331,
       "pilotOnlyRejects": 0,
-      "oursOnlyRejects": 11,
+      "oursOnlyRejects": 12,
       "bothAccept": 0
     },
     "note": "no declared correction lies under tools/referee/reject/testdata/negative, so the errata-applied corpus is byte-identical to the published one and both figures coincide"

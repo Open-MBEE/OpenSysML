@@ -148,6 +148,7 @@ const conformanceModel = `package Demo {
     concern def Modularity { subject s : Vehicle; require constraint { s.mass > 1.0 } }
     concern def Documented { subject s : Vehicle; }
     viewpoint def StructurePerspective {
+        subject s : Vehicle;
         stakeholder engineer;
         frame concern budget : MassBudget;
         frame concern modularity : Modularity;
@@ -174,7 +175,8 @@ func conformanceSession(t *testing.T) *Session {
 }
 
 // %view reports the conformance of a view to the viewpoint it satisfies: a
-// concern that holds, one that does not, one that states no condition, and
+// concern that holds, one that does not, one that states no condition (which
+// conforms vacuously), and
 // where the satisfy came from. The view frames nothing itself: every concern
 // the viewpoint frames is evaluated against what the view exposes.
 func TestViewReportsViewpointConformance(t *testing.T) {
@@ -190,8 +192,7 @@ func TestViewReportsViewpointConformance(t *testing.T) {
 		"Demo::vehicle: ",
 		"s.mass < 1000.0",
 		"concern modularity: conforms",
-		"concern documented: unevaluable",
-		"states no condition to evaluate",
+		"concern documented: conforms",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("%%view output is missing %q:\n%s", want, text)

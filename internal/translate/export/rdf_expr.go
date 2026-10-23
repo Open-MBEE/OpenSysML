@@ -499,7 +499,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, index int,
 	e.name(node, param.Name)
 	e.flags(node, []boolProperty{{"isReference", param.IsReference}})
 	if param.Type != nil {
-		e.graph.Add(node, e.sysml(relationshipProperty[ast.RelTyping]), e.reference(param.Type))
+		e.headRelationship(node, ast.RelTyping, e.reference(param.Type), param.Type)
 	}
 	e.relationships(node, owner, param.Relationships)
 	e.bodyMembership(subject, node, mFeatureMembership)
@@ -830,6 +830,10 @@ func isExpressionRoot(metaclass string) bool {
 // node or a body declaration): unowned, in the expression namespace or an unnamed expression class.
 func (d *decoder) isExpressionNode(subject rdf.Term) bool {
 	if !subject.IsIRI() {
+		return false
+	}
+	if mappingExpressionBodyMemberSubject(d.graph, subject) {
+		d.expressionNodes[subject.Value] = false
 		return false
 	}
 	if known, ok := d.expressionNodes[subject.Value]; ok {

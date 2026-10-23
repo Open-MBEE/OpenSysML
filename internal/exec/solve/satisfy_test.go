@@ -40,9 +40,10 @@ func TestSatisfaction(t *testing.T) {
 	compareGolden(t, "satisfy_touchdown.smt2", Script(q))
 }
 
-// TestSatisfactionWithoutRequirement: an assertion referencing nothing that
-// states conditions has none to translate.
-func TestSatisfactionWithoutRequirement(t *testing.T) {
+// TestSatisfactionWithoutConditionsIsVacuous: a requirement stating no condition
+// is true of every assignment, so the satisfaction's query asserts nothing and
+// is satisfiable, while its denial has nothing to deny.
+func TestSatisfactionWithoutConditionsIsVacuous(t *testing.T) {
 	ctx, idx := fixture(t, "<test>", `
 		package test {
 			requirement def Documented { doc /* prose only */ }
@@ -50,15 +51,31 @@ func TestSatisfactionWithoutRequirement(t *testing.T) {
 			part lander;
 			part context {
 				assert satisfy documented by lander;
+				assert not satisfy documented by lander;
 			}
 		}
 	`)
 	assertions := ctx.SatisfyAssertionsIn(idx.DocumentRoot("<test>"))
-	if len(assertions) != 1 {
-		t.Fatalf("found %d satisfaction assertions, want 1", len(assertions))
+	if len(assertions) != 2 {
+		t.Fatalf("found %d satisfaction assertions, want 2", len(assertions))
 	}
-	if _, err := Satisfaction(ctx, assertions[0]); !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("translate: %v, want ErrNoConditions", err)
+	q, err := Satisfaction(ctx, assertions[0])
+	if err != nil {
+		t.Fatalf("translate: %v", err)
+	}
+	if q.Kind != "satisfaction" || len(q.Assertions) != 0 || len(q.Vars) != 0 {
+		t.Fatalf("a vacuous satisfaction asserts something:\n%s", Script(q))
+	}
+	if _, err := Satisfaction(ctx, assertions[1]); !errors.Is(err, ErrNoConditions) {
+		t.Fatalf("translate the denial: %v, want ErrNoConditions", err)
+	}
+	// The claim holds vacuously, so nothing violates it: the violation query is false.
+	v, err := SatisfactionViolation(ctx, assertions[0], nil)
+	if err != nil {
+		t.Fatalf("translate the violation: %v", err)
+	}
+	if len(v.Assertions) != 1 || writeTerm(v.Assertions[0].Term) != "(not true)" {
+		t.Fatalf("the violation of a vacuous satisfaction is not false:\n%s", Script(v))
 	}
 }
 

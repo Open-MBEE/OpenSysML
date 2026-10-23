@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "trace": true,
+  "instantiate": "test::Tug",
+  "objects": [
+    {
+      "slots": {
+        "n.heard": {"type": "Integer", "value": 1}
+      }
+    }
+  ]
+}

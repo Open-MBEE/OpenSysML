@@ -2,6 +2,7 @@ package export_test
 
 import (
 	"encoding/json"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 func modelDocuments(t *testing.T, named ...string) []export.ModelDocument {
@@ -370,9 +372,14 @@ func TestModelWritesOnlyItsUnreferencedDocuments(t *testing.T) {
 	)
 	whole := apiElements(t, docs)
 	parts := map[string]string{}
+	partsByDocument := map[string]map[string]string{}
+	documentByElement := map[string]string{}
 	for _, doc := range docs {
 		name := doc.File.Name()
-		for id, element := range apiElements(t, referencing(docs, name)) {
+		documentElements := apiElements(t, referencing(docs, name))
+		partsByDocument[name] = documentElements
+		for id, element := range documentElements {
+			documentByElement[id] = name
 			if prior, taken := parts[id]; taken {
 				t.Errorf("%s writes %s, which another document also wrote:\n%s", name, id, prior)
 			}
@@ -380,8 +387,14 @@ func TestModelWritesOnlyItsUnreferencedDocuments(t *testing.T) {
 		}
 	}
 	for id, element := range whole {
-		if parts[id] != element {
-			t.Errorf("%s: the whole model writes\n%s\nthe document declaring it writes\n%s", id, element, parts[id])
+		wholeMapping, wholeDefault := apiJSONMappingNamesForElement(t, whole, id)
+		documentMapping, documentDefault := apiJSONMappingNamesForElement(
+			t, partsByDocument[documentByElement[id]], id,
+		)
+		if !sameAPIJSONElementWithUnavailableQualifiedName(element, parts[id]) ||
+			wholeMapping != documentMapping {
+			t.Errorf("%s: the whole model writes\n%s\nthe document declaring it writes\n%s\nmapping names: whole=%q document=%q; defaults: whole=%q document=%q",
+				id, element, parts[id], wholeMapping, documentMapping, wholeDefault, documentDefault)
 		}
 	}
 	for id := range parts {
@@ -389,6 +402,68 @@ func TestModelWritesOnlyItsUnreferencedDocuments(t *testing.T) {
 			t.Errorf("%s is written by one document but not by the whole model", id)
 		}
 	}
+}
+
+func sameAPIJSONElementWithUnavailableQualifiedName(whole, document string) bool {
+	var wholeElement, documentElement map[string]any
+	if json.Unmarshal([]byte(whole), &wholeElement) != nil ||
+		json.Unmarshal([]byte(document), &documentElement) != nil {
+		return false
+	}
+	wholeName, wholeHasName := wholeElement["qualifiedName"]
+	documentName, documentHasName := documentElement["qualifiedName"]
+	if wholeHasName {
+		if documentHasName {
+			if !reflect.DeepEqual(wholeName, documentName) {
+				return false
+			}
+		} else {
+			// A per-document graph may omit a qualifiedName it cannot compute.
+			delete(wholeElement, "qualifiedName")
+		}
+	} else if documentHasName {
+		return false
+	}
+	delete(wholeElement, "sysx:mappingQualifiedName")
+	delete(documentElement, "sysx:mappingQualifiedName")
+	return reflect.DeepEqual(wholeElement, documentElement)
+}
+
+func apiJSONMappingNamesForElement(t *testing.T, elements map[string]string, id string) (string, string) {
+	t.Helper()
+	graphFor := func(stripNames bool) *rdf.Graph {
+		var objects []map[string]any
+		for _, encoded := range elements {
+			var object map[string]any
+			if err := json.Unmarshal([]byte(encoded), &object); err != nil {
+				t.Fatal(err)
+			}
+			if stripNames {
+				delete(object, "qualifiedName")
+				delete(object, "sysx:mappingQualifiedName")
+			}
+			objects = append(objects, object)
+		}
+		document, err := json.Marshal(objects)
+		if err != nil {
+			t.Fatal(err)
+		}
+		graph, err := export.ReadAPIJSON(document)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return graph
+	}
+	qualifiedName := func(graph *rdf.Graph) string {
+		for _, subject := range graph.Subjects() {
+			if subjectID, ok := rdf.SubjectID(subject); ok && subjectID == id {
+				name, _ := graph.Lexical(subject, rdf.SysML+"qualifiedName")
+				return name
+			}
+		}
+		return ""
+	}
+	return qualifiedName(graphFor(false)), qualifiedName(graphFor(true))
 }
 
 // A referenced document is not written, but a reference into it links the

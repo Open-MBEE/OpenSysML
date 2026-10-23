@@ -58,6 +58,10 @@ type Condition struct {
 	// their types, outermost first: each one's parameter values mask the
 	// enclosing ones', which mask the checked element's. empty reads the latter alone.
 	Constraints []*symbols.Symbol
+
+	// Circular is the requirement a `require r` names while r's own conditions
+	// are being collected: a reference back into the check, stating nothing evaluable.
+	Circular *symbols.Symbol
 }
 
 // BodySteps is the statements one constraint body performs before its
@@ -144,7 +148,7 @@ type conditionEnv struct {
 // A member states its condition either directly (`require x < y;`, `assert x < y;`)
 // or through the body of an anonymous nested constraint (`require constraint { x < y }`).
 func (ctx *Context) conditionsOf(sym *symbols.Symbol, members []scopedMember) []Condition {
-	return ctx.appendMemberConditions(nil, sym, members, true, nil)
+	return ctx.appendMemberConditions(nil, sym, members, true, map[*symbols.Symbol]bool{sym: true})
 }
 
 // appendMemberConditions appends the conditions sym's members state, leaving out
@@ -498,7 +502,7 @@ func (ctx *Context) appendReferencedConditions(out []Condition, decl ast.Node, r
 		return ctx.appendOwnedConditions(out, decl, body, scope, required, seen)
 	}
 	if seen[sym] {
-		return out
+		return append(out, Condition{Scope: scope, Required: required, Circular: sym})
 	}
 	if seen == nil {
 		seen = map[*symbols.Symbol]bool{}
@@ -583,6 +587,9 @@ type conditionCheck struct {
 	// negated inverts the verdict: the element asserts that its required
 	// conditions do not all hold (`assert not …`, Invariant::isNegated).
 	negated bool
+
+	// about is the requirement whose claim a satisfaction judges; nil reads sym.
+	about *symbols.Symbol
 }
 
 // name returns how the checked element is named in messages.
@@ -597,12 +604,20 @@ func (c conditionCheck) name() string {
 // one holds, or — for a negated element — whether one of them fails. check.self
 // is the subject already, as checkSubject resolved it.
 func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) (bool, error) {
-	if len(conds) == 0 {
-		return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
-	}
 	if conflict := conflictingResultExpression(conds); conflict != nil {
 		return false, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
 			check.kind, check.name(), check.what, conflictText(conflict), errConflictingResultExpressions)
+	}
+	// A requirement over no required constraint is true whatever its assumptions
+	// read, so they are not evaluated; a constraint stating nothing has no verdict.
+	if check.isRequirementCheck() && !requiresAny(conds) {
+		if check.negated {
+			return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: vacuousClaim(check.claimed())}
+		}
+		return true, nil
+	}
+	if len(conds) == 0 {
+		return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
 	}
 	features := ctx.conditionFeatures(check.sym)
 	self := check.self
@@ -616,6 +631,9 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 	required := false
 	for _, cond := range conds {
 		required = required || cond.Required
+		if err := ctx.circularCondition(check, cond); err != nil {
+			return false, err
+		}
 		if cond.Steps != nil && !cond.Negated {
 			// The body's steps ran once; each condition it left is judged on its
 			// own Required, as the conditions of a body stating no steps are.
@@ -642,14 +660,102 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 		}
 	}
 	if check.negated {
-		// An assumption is trusted rather than checked, so a negated element
-		// stating only assumptions denies nothing.
+		// A constraint's assumption is trusted rather than checked, so a negated
+		// constraint stating only assumptions denies nothing.
 		if !required {
 			return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
 		}
 		return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: negatedText(conds)}
 	}
 	return true, nil
+}
+
+// circularCondition is the error for a condition that, reached in order, names
+// the requirement being checked; nil for one that does not.
+func (ctx *Context) circularCondition(check conditionCheck, cond Condition) error {
+	cycle := circularReference([]Condition{cond})
+	if cycle == nil {
+		return nil
+	}
+	return fmt.Errorf("%s %s: %w: require %s names the requirement being checked",
+		check.kind, check.name(), ErrNoConditions, cycle.Name)
+}
+
+// requiresAny reports whether any of conds is required rather than assumed.
+func requiresAny(conds []Condition) bool {
+	for _, cond := range conds {
+		if cond.Required {
+			return true
+		}
+	}
+	return false
+}
+
+// isRequirementCheck reports whether the checked element is a requirement
+// (a requirement, concern, viewpoint or objective usage, or a satisfaction of
+// one), whose verdict is Requirements::RequirementConstraintCheck::result.
+func (c conditionCheck) isRequirementCheck() bool {
+	switch c.kind {
+	case "requirement", "satisfaction", "objective":
+		return true
+	}
+	return false
+}
+
+// vacuity is why a requirement check over no required condition is true:
+// `allTrue(assumptions()) implies allTrue(constraints())` over no constraint is
+// true (SysML v2 9.2.11 Requirements; KerML 9.2.3 ControlFunctions::allTrue over
+// an empty sequence). "" for a check that is not vacuous.
+func vacuity(check conditionCheck, conds []Condition) string {
+	if !check.isRequirementCheck() || requiresAny(conds) {
+		return ""
+	}
+	return "vacuous: " + vacuousClaim(check.claimed())
+}
+
+// claimed is the requirement whose claim the check judges.
+func (c conditionCheck) claimed() *symbols.Symbol {
+	if c.about != nil {
+		return c.about
+	}
+	return c.sym
+}
+
+// vacuousClaim says what a requirement over no required condition claims.
+func vacuousClaim(sym *symbols.Symbol) string {
+	return fmt.Sprintf("%s %s states no required constraint, so it holds vacuously", requirementKeyword(sym), sym.Name)
+}
+
+// requirementKeyword is the keyword a requirement was declared with
+// (`requirement`, `concern`, `viewpoint`, `objective`), `requirement` when it has none.
+func requirementKeyword(sym *symbols.Symbol) string {
+	if sym != nil {
+		switch d := sym.Decl.(type) {
+		case *ast.Usage:
+			if d.Keyword != "" {
+				return d.Keyword
+			}
+		case *ast.Definition:
+			if d.Keyword != "" {
+				return d.Keyword
+			}
+		}
+	}
+	return "requirement"
+}
+
+// circularReference is the requirement a condition of conds names back into the
+// check, nil when none does.
+func circularReference(conds []Condition) *symbols.Symbol {
+	for _, cond := range conds {
+		if cond.Circular != nil {
+			return cond.Circular
+		}
+		if nested := circularReference(cond.Group); nested != nil {
+			return nested
+		}
+	}
+	return nil
 }
 
 // evaluateStepsConditions is the loop of evaluateConditions for one body that
@@ -672,6 +778,9 @@ func (ctx *Context) evaluateStepsConditions(activation int64, check conditionChe
 			check.kind, check.name(), check.what, ErrNoConditions)
 	}
 	for _, sub := range cond.Group {
+		if err := ctx.circularCondition(check, sub); err != nil {
+			return false, err
+		}
 		holds, err := ctx.conditionHoldsAt(activation, sub, scoped, self, check.frames, bindings, &stepFrame)
 		if err != nil {
 			return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
@@ -1311,6 +1420,9 @@ func conditionLabel(cond Condition) string {
 	if cond.Conflict != nil {
 		return "conflicting result expression"
 	}
+	if cond.Circular != nil {
+		return "require " + cond.Circular.Name
+	}
 	text := conditionText(cond.Expr)
 	if cond.Group != nil {
 		parts := make([]string, 0, len(cond.Group))
@@ -1330,6 +1442,21 @@ func ConditionText(n ast.Node) string { return conditionText(n) }
 
 // conditionText renders a condition compactly, so a violation names the
 // condition that failed rather than only the element that states it.
+// qualifiedNameText writes a qualified name as the notation does, each segment
+// quoted when it needs quoting.
+func qualifiedNameText(qn *ast.QualifiedName) string {
+	if qn == nil {
+		return ""
+	}
+	names := make([]string, 0, len(qn.Parts))
+	for _, seg := range qn.Parts {
+		if seg.Text != "" {
+			names = append(names, seg.Text)
+		}
+	}
+	return source.QualifiedNameOf(names)
+}
+
 func conditionText(n ast.Node) string {
 	switch e := n.(type) {
 	case *ast.LiteralInteger:
@@ -1344,9 +1471,9 @@ func conditionText(n ast.Node) string {
 		}
 		return "false"
 	case *ast.FeatureReference:
-		return qualifiedNameToString(e.Name)
+		return qualifiedNameText(e.Name)
 	case *ast.FeatureChainExpr:
-		return conditionText(e.Operand) + "." + qualifiedNameToString(e.Member)
+		return conditionText(e.Operand) + "." + qualifiedNameText(e.Member)
 	case *ast.OperatorExpr:
 		switch len(e.Operands) {
 		case 1:
@@ -1359,7 +1486,7 @@ func conditionText(n ast.Node) string {
 		for _, arg := range e.Args {
 			args = append(args, conditionText(arg))
 		}
-		return qualifiedNameToString(e.Type) + "(" + strings.Join(args, ", ") + ")"
+		return qualifiedNameText(e.Type) + "(" + strings.Join(args, ", ") + ")"
 	case *ast.IndexExpr:
 		// The bracket form is a quantity, `1.0 [m]`; `#` indexes a sequence.
 		if e.Bracket {

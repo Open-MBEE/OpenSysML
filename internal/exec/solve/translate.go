@@ -42,7 +42,7 @@ type Subject struct {
 func subjectOf(sym *symbols.Symbol, kind string, violation bool) Subject {
 	return Subject{
 		Kind:      kind,
-		Name:      sym.Name,
+		Name:      source.NameText(sym.Name),
 		Symbol:    sym,
 		Negated:   runtime.NegatedDecl(sym),
 		Violation: violation,
@@ -121,7 +121,25 @@ func SatisfactionWith(ctx *runtime.Context, assertion *runtime.SatisfyAssertion,
 		Symbol:  assertion.Symbol,
 		Negated: assertion.Negated,
 	}
-	return TranslateWith(ctx, subject, ctx.ConditionsOf(assertion.Symbol, assertion.Symbol.OwnerScope), pins)
+	conds, err := satisfiedConditions(ctx, assertion)
+	if err != nil {
+		return nil, err
+	}
+	return TranslateWith(ctx, subject, conds, pins)
+}
+
+// satisfiedConditions are the conditions a satisfaction asserts, refused as the
+// evaluator refuses them: a reference naming no requirement, or an assertion that
+// neither names nor declares one and states nothing, has no requirement to satisfy.
+func satisfiedConditions(ctx *runtime.Context, assertion *runtime.SatisfyAssertion) ([]runtime.Condition, error) {
+	if assertion.Requirement == nil && assertion.RequirementRef != "" {
+		return nil, fmt.Errorf("%s: %w: %s", assertion.Text(), runtime.ErrNoRequirement, assertion.RequirementRef)
+	}
+	conds := ctx.ConditionsOf(assertion.Symbol, assertion.Symbol.OwnerScope)
+	if len(conds) == 0 && assertion.Requirement == nil && assertion.AssertedRequirement() == nil {
+		return nil, fmt.Errorf("%s: %w", assertion.Text(), runtime.ErrNoRequirement)
+	}
+	return conds, nil
 }
 
 // SatisfactionViolation translates an `assert satisfy` as a violation query:
@@ -139,7 +157,11 @@ func SatisfactionViolation(ctx *runtime.Context, assertion *runtime.SatisfyAsser
 		Negated:   assertion.Negated,
 		Violation: true,
 	}
-	return TranslateWith(ctx, subject, ctx.ConditionsOf(assertion.Symbol, assertion.Symbol.OwnerScope), pins)
+	conds, err := satisfiedConditions(ctx, assertion)
+	if err != nil {
+		return nil, err
+	}
+	return TranslateWith(ctx, subject, conds, pins)
 }
 
 // Asserted translates every assertion a part or definition states about its
@@ -173,12 +195,12 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 		if err != nil {
 			return nil, err
 		}
-		if cond, states := assertedCondition(group, negated); states {
+		if cond, states := assertedCondition(group, negated, a.Kind != runtime.AssertionConstraint); states {
 			conds = append(conds, cond)
 			bound = append(bound, subjects)
 		}
 	}
-	subject := Subject{Kind: sym.Notation(), Name: sym.Name, Symbol: sym}
+	subject := Subject{Kind: sym.Notation(), Name: source.NameText(sym.Name), Symbol: sym}
 	// What the objects its parts hold assert is part of what validating an
 	// object of sym checks, so the query states it too, each condition read
 	// from the object stating it.
@@ -187,7 +209,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 		return nil, err
 	}
 	if len(assertions) == 0 && len(groups) == 0 && len(refused) == 0 {
-		return nil, fmt.Errorf("%s %s: %w", sym.Notation(), sym.Name, ErrNothingAsserted)
+		return nil, fmt.Errorf("%s %s: %w", subject.Kind, subject.Name, ErrNothingAsserted)
 	}
 	translate := func(pins []Pin) (*Query, error) {
 		t := newTranslator(ctx, subject)
@@ -242,8 +264,10 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 // assertedCondition is one assertion as a conjunct of the query, false for one
 // requiring nothing. A requirement's required conditions apply only where its
 // assumptions hold (SysML v2 §7.21.2), so an assertion stating both is the
-// implication A ⇒ R, written ¬(A ∧ ¬R); `assert not` denies it as a whole.
-func assertedCondition(group []runtime.Condition, negated bool) (runtime.Condition, bool) {
+// implication A ⇒ R, written ¬(A ∧ ¬R); `assert not` denies it as a whole. A
+// requirement requiring nothing claims true, so its denial is the denial of the
+// empty conjunction; a constraint requiring nothing has no claim to deny.
+func assertedCondition(group []runtime.Condition, negated, requirement bool) (runtime.Condition, bool) {
 	var assumed, required []runtime.Condition
 	for _, cond := range group {
 		if cond.Required {
@@ -253,6 +277,9 @@ func assertedCondition(group []runtime.Condition, negated bool) (runtime.Conditi
 		}
 	}
 	if len(required) == 0 {
+		if negated && requirement {
+			return runtime.Condition{Group: []runtime.Condition{}, Negated: true, Required: true}, true
+		}
 		return runtime.Condition{}, false
 	}
 	if len(assumed) == 0 {
@@ -273,7 +300,10 @@ func assertedConditions(ctx *runtime.Context, a runtime.Asserted) ([]runtime.Con
 	if err != nil {
 		return nil, false, nil, err
 	}
-	conds := ctx.ConditionsOf(sa.Symbol, sa.Symbol.OwnerScope)
+	conds, err := satisfiedConditions(ctx, sa)
+	if err != nil {
+		return nil, false, nil, err
+	}
 	if len(conds) == 0 {
 		return nil, sa.Negated, nil, nil
 	}
@@ -396,7 +426,7 @@ func TranslateWith(ctx *runtime.Context, subject Subject, conds []runtime.Condit
 	if ctx == nil {
 		return nil, fmt.Errorf("solve: no runtime context")
 	}
-	if len(conds) == 0 {
+	if len(conds) == 0 && !vacuousSubject(subject) {
 		return nil, fmt.Errorf("%s %s: %w", subject.Kind, subject.Name, ErrNoConditions)
 	}
 	t := newTranslator(ctx, subject)
@@ -407,6 +437,22 @@ func TranslateWith(ctx *runtime.Context, subject Subject, conds []runtime.Condit
 		return nil, err
 	}
 	return t.query(), nil
+}
+
+// vacuousSubject reports whether a subject over no required condition still has
+// a claim to translate: a requirement's result over no constraint is true
+// (Requirements::RequirementConstraintCheck), so its plain query asserts nothing
+// and every assignment meets it, and a violation of it asserts false; a denial
+// of it has nothing to deny, and a constraint states no result at all.
+func vacuousSubject(subject Subject) bool {
+	if subject.Negated {
+		return false
+	}
+	switch subject.Kind {
+	case "requirement", "satisfaction", "objective":
+		return true
+	}
+	return false
 }
 
 // translator holds the state of one translation: the variables and sorts the
@@ -421,8 +467,10 @@ type translator struct {
 	// a redefinition masks what it redefines, so both read one value.
 	features map[string]*symbols.Symbol
 
-	vars    map[string]*Var
-	sorts   map[string]Sort
+	vars  map[string]*Var
+	sorts map[string]Sort
+	// origins are the declarations the datatype sorts were declared for, by sort name.
+	origins map[string]*symbols.Symbol
 	domains []Assertion
 	guards  []Assertion
 	asserts []Assertion
@@ -496,6 +544,7 @@ func newTranslator(ctx *runtime.Context, subject Subject) *translator {
 		features:  effectiveFeatures(ctx, subject.Symbol),
 		vars:      map[string]*Var{},
 		sorts:     map[string]Sort{},
+		origins:   map[string]*symbols.Symbol{},
 		guarded:   map[string]bool{},
 		baseUnits: map[string]string{},
 	}
@@ -525,6 +574,9 @@ func effectiveFeatures(ctx *runtime.Context, sym *symbols.Symbol) map[string]*sy
 func (t *translator) translate(conds []runtime.Condition) error {
 	var required []*Term
 	var labels []string
+	// Assumptions are the antecedent of a requirement's claim, never asserted alone:
+	// over no required condition it holds vacuously, a malformed condition refused first.
+	vacuous := vacuousSubject(t.subject) && !requiresAny(conds) && !conflicting(conds)
 	// The evaluator stops at the first required condition that does not hold,
 	// so a later condition is evaluated only where every earlier one held.
 	var before []*Term
@@ -535,6 +587,9 @@ func (t *translator) translate(conds []runtime.Condition) error {
 		t.frame = frame{}
 		if i < len(t.frames) {
 			t.frame = t.frames[i]
+		}
+		if vacuous {
+			continue
 		}
 		owner, span := conditionOrigin(cond)
 		t.condLabel = cond.Label()
@@ -585,14 +640,19 @@ func (t *translator) translate(conds []runtime.Condition) error {
 // violated asserts the denial of the element's claim as a whole, which for a
 // negated element is the denial of its denial: all of its required conditions.
 // Assumed conditions stay assumptions — hypotheses of the claim, not of the
-// violation — and a violation stating no required condition has no claim to
-// violate.
+// violation. A requirement stating no required condition holds vacuously, so its
+// violation is false; a constraint stating none has no claim to violate.
 func (t *translator) violated(required []*Term, labels []string) error {
-	if len(required) == 0 {
+	if len(required) == 0 && !vacuousSubject(t.subject) {
 		return fmt.Errorf("%s %s: %w to violate", t.subject.Kind, t.subject.Name, ErrNoConditions)
 	}
 	claim := required
 	claimLabels := labels
+	if len(required) == 0 {
+		// A claim over no required condition holds vacuously, so nothing violates it.
+		claim = []*Term{BoolTerm(true)}
+		claimLabels = []string{"true"}
+	}
 	if t.subject.Negated {
 		claim = []*Term{Not(And(required...))}
 		claimLabels = []string{"not (" + strings.Join(labels, " and ") + ")"}
@@ -679,6 +739,9 @@ func (t *translator) condition(cond runtime.Condition) (*Term, error) {
 	if cond.Conflict != nil {
 		return nil, t.refuse(cond.Conflict.Node, "conflicting result expression", "only one owned or inherited result expression is allowed")
 	}
+	if cond.Circular != nil {
+		return nil, t.refuse(nil, "require "+cond.Circular.Name, "it names the requirement being translated")
+	}
 	if cond.Negated {
 		t.branched++
 		defer func() { t.branched-- }()
@@ -743,6 +806,8 @@ func (t *translator) expr(node ast.Node, scope *symbols.Scope) (*Term, error) {
 		return t.quantity(n, scope)
 	case *ast.OperatorExpr:
 		return t.operator(n, scope)
+	case *ast.InvocationExpr:
+		return t.quantified(n, scope)
 	case *ast.SequenceExpr:
 		if len(n.Elements) == 1 {
 			return t.expr(n.Elements[0], scope)
@@ -1005,17 +1070,7 @@ func (t *translator) equality(n *ast.OperatorExpr, scope *symbols.Scope, op Op) 
 	if err != nil {
 		return nil, err
 	}
-	left, right = promote(left, right)
-	if !left.Sort.Equal(right.Sort) {
-		return nil, t.refuse(n, msgOperatorPrefix+n.Operator.String()+"`",
-			fmt.Sprintf("its operands yield %s and %s", left.Sort.Name, right.Sort.Name))
-	}
-	if left.Sort.Numeric() {
-		if err := t.sameDimension(n, scope); err != nil {
-			return nil, err
-		}
-	}
-	return Binary(op, Bool, left, right), nil
+	return t.equalityOf(n, scope, msgOperatorPrefix+n.Operator.String()+"`", op, left, right)
 }
 
 // comparison translates an ordering comparison between two numbers.
@@ -1416,4 +1471,24 @@ func (t *translator) refuse(node ast.Node, construct, reason string) error {
 		Span:      span,
 		Location:  t.ctx.SourceLocation(t.condFile, span),
 	}
+}
+
+// requiresAny reports whether any of conds is required rather than assumed.
+func requiresAny(conds []runtime.Condition) bool {
+	for _, cond := range conds {
+		if cond.Required {
+			return true
+		}
+	}
+	return false
+}
+
+// conflicting reports whether any of conds carries a conflicting result expression.
+func conflicting(conds []runtime.Condition) bool {
+	for _, cond := range conds {
+		if cond.Conflict != nil {
+			return true
+		}
+	}
+	return false
 }

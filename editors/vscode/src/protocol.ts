@@ -39,6 +39,15 @@ export const RENDER_ELEMENTS_CAPABILITY = "openSysmlRenderElements";
 /** The capability the server advertises when a render request's `depth` bounds how many levels are drawn below each exposed element. */
 export const RENDER_DEPTH_CAPABILITY = "openSysmlRenderDepth";
 
+/** The capability the server advertises when a render request's `include` draws elements besides the view's own content, each node drawn that way marked `included`. */
+export const RENDER_INCLUDE_CAPABILITY = "openSysmlRenderInclude";
+
+/** Answers what relates to an element and how, grouped by relationship kind; mirrors internal/frontend/lsp/related.go. */
+export const RELATED_ELEMENTS_METHOD = "opensysml/relatedElements";
+
+/** The capability the server advertises when it serves the related-elements request; its value lists the relationship kinds in listing order. */
+export const RELATED_ELEMENTS_CAPABILITY = "openSysmlRelatedElements";
+
 /** The URI scheme the server locates standard-library declarations in. */
 export const STDLIB_SCHEME = "sysml-stdlib";
 
@@ -90,6 +99,8 @@ export interface RenderNode {
   fqn?: string;
   /** The requested document declares the node, so every edit reaches it; absent, only a layout does. */
   declaredHere?: boolean;
+  /** True when the request's `include` drew the node rather than the view; a node the view's own content draws is never marked. */
+  included?: boolean;
   /** The keyword the declaration was written with (`part def`, `port`); with `fqn`. A move asks its new owner to admit it. */
   notation?: string;
   /** The namespaces declaring the node, nearest first, drawn or not; absent with `fqn`, and for a top-level declaration. */
@@ -187,6 +198,8 @@ export interface RenderParams {
   show?: string[];
   /** How many levels of nested elements are drawn below each exposed element, overriding the view's own depth, on a server advertising `openSysmlRenderDepth`; absent or 0 draws every level. */
   depth?: number;
+  /** Qualified names of elements drawn besides what the view exposes, as if it exposed them, on a server advertising `openSysmlRenderInclude`; nothing is written to the model. */
+  include?: string[];
   /** The link template each diagram element is written with. */
   linkTemplate?: string;
 }
@@ -389,6 +402,35 @@ export interface PickerEntry {
   reason?: string;
 }
 
+export interface RelatedElementsParams {
+  textDocument: { uri: string };
+  /** The qualified name of the element, as a rendering's node carries it in `fqn`. */
+  element: string;
+}
+
+/** An element a rendering can include, named as `include` takes it. */
+export interface RelatedElement {
+  fqn: string;
+  name: string;
+  /** The keyword the notation declares it with. */
+  kind: string;
+  declaredHere?: boolean;
+  origin?: RenderOrigin;
+}
+
+/** The elements one kind of relationship relates an element to. */
+export interface RelatedGroup {
+  kind: string;
+  label: string;
+  elements: RelatedElement[];
+}
+
+/** What relates to an element, one group per relationship kind relating anything, in the server's listing order. */
+export interface RelatedElementsResult {
+  element: RelatedElement;
+  groups: RelatedGroup[];
+}
+
 /** A message the extension sends the webview; `drawn` counts the panel's drawings and names this one. */
 export type ToWebview =
   | {
@@ -401,6 +443,10 @@ export type ToWebview =
     hint?: string;
     /** The relationship kinds the workspace hides by default; the panel's own filter, once set, takes precedence. */
     hideRelations?: string[];
+    /** `related` says whether the server answers what relates to a node, so its menu offers to show related elements. */
+    related?: boolean;
+    /** What the panel draws besides the view, kept in the webview's state so a reload restores it. */
+    include?: string[];
   }
   | { type: "views"; views: PickerEntry[]; selected: string }
   /** The look to redraw the diagram on screen in, ahead of the rendering coloured for it. */
@@ -432,7 +478,8 @@ export interface EdgePlacement {
 
 /** A message the webview sends the extension; `drawn` is the drawing a message's ids name. */
 export type FromWebview =
-  | { type: "ready" }
+  /** `include` is what the webview's saved state says the panel drew besides the view, restored after a reload. */
+  | { type: "ready"; include?: string[] }
   | { type: "reveal"; id: string; drawn: number }
   /** A located table row opens its element; `row` indexes the drawing's rows. */
   | { type: "revealRow"; row: number; drawn: number }
@@ -440,6 +487,10 @@ export type FromWebview =
   /** The user chose a look in the panel's toolbar; the extension keeps it as the setting. */
   | { type: "style"; style: DiagramStyle }
   | { type: "edit"; action: EditAction; drawn: number }
+  /** The user asked for a node's related elements; the extension lists them and includes the ones chosen. */
+  | { type: "related"; id: string; drawn: number }
+  /** The user asked to leave an included node out of the drawing again. */
+  | { type: "hide"; id: string; drawn: number }
   /** One completed gesture: everything it moved, applied as one edit. */
   | { type: "place"; nodes: NodePlacement[]; edges: EdgePlacement[]; drawn: number }
   /** A node dropped on another: moved into it as a declaration, and placed where it was released. */

@@ -223,9 +223,9 @@ declaration order. Each `satisfy` gets a verdict of `conforms`, `violated` or `u
 followed by a verdict for each concern the viewpoint frames; a concern whose condition fails
 names the exposed element it failed for and the reason. A `satisfy` inherited from a
 specialized view is marked `(from <view>)`. The view restates no framing: every concern the
-viewpoint frames is checked against what the view exposes. A concern that states no condition,
-or names one that does not resolve, is reported as `unevaluable` with the reason, not as a
-pass. These verdicts are this implementation's own decisions, because SysML v2 leaves
+viewpoint frames is checked against what the view exposes. A concern that states no condition
+`conforms` vacuously — a requirement check over no constraint is true — while one that names a
+concern that does not resolve is reported as `unevaluable` with the reason. These verdicts are this implementation's own decisions, because SysML v2 leaves
 verification verdict semantics non-normative. (The extension
 libraries these documents name are maintained upstream at
 [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library)
@@ -349,7 +349,9 @@ For a model with no declared view, `%render #case` and `%render #mixed` draw the
 elements in one rendering, choosing the kind from what the names resolve to (a state def draws a
 state rendering, a part with connections an interconnection, a package a tree, a mixed set a mixed
 rendering) unless `--view <VIEW>` names one, and takes the pilot's `--style` words — `LR` and `TB`
-set the direction, and a style no form here draws is noted as not represented rather than dropped.
+set the direction, `COMPMOST` folds a tree node's owned usages into compartment rows of its box
+and `COMPTREE` its ports alone (the pilot's compartment styles, `compartments=most` and `ports` on
+`%render`), and a style no form here draws is noted as not represented rather than dropped.
 `%viz --view STATE P::Lamp mermaid` writes what `%render #state:P::Lamp mermaid` writes.
 
 `%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, `dot` as Graphviz

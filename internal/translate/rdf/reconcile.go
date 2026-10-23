@@ -49,6 +49,11 @@ type collection struct {
 // A graph without annotations, or whose typed triples already state every
 // annotated collection in annotation order, is returned as it is.
 func ReconcileCollections(graph *Graph) (*Graph, error) {
+	return ReconcileCollectionsWithPolicy(graph, nil)
+}
+
+func ReconcileCollectionsWithPolicy(graph *Graph, nonuniqueProperty func(Term, string) bool) (*Graph, error) {
+	metadataNonunique := nonuniqueProperty
 	// The writer that annotated the collections vouches for them.
 	if graph.CollectionsSettled() {
 		return graph, nil
@@ -70,7 +75,9 @@ func ReconcileCollections(graph *Graph) (*Graph, error) {
 	settled := map[pair]collection{}
 	unchanged := true
 	for _, triple := range annotations {
-		c, err := reconcileCollection(graph, ids, triple.Subject, strings.TrimPrefix(triple.Predicate.Value, AnnotationJSON))
+		c, err := reconcileCollection(
+			graph, ids, triple.Subject, strings.TrimPrefix(triple.Predicate.Value, AnnotationJSON), metadataNonunique,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -113,7 +120,13 @@ func ReconcileCollections(graph *Graph) (*Graph, error) {
 
 // reconcileCollection settles one annotated property: one JSON-array literal,
 // agreeing with the typed triples where the graph states those too.
-func reconcileCollection(graph *Graph, ids map[string][]Term, subject Term, key string) (collection, error) {
+func reconcileCollection(
+	graph *Graph,
+	ids map[string][]Term,
+	subject Term,
+	key string,
+	nonuniqueProperty func(Term, string) bool,
+) (collection, error) {
 	c := collection{subject: subject, key: key}
 	refuse := func(note string) (collection, error) {
 		return c, &AnnotationError{Subject: subject.Value, Key: key, Note: note}
@@ -131,11 +144,12 @@ func reconcileCollection(graph *Graph, ids map[string][]Term, subject Term, key 
 	}
 	annotation := make([]string, len(members))
 	seen := map[string]int{}
+	nonunique := nonuniqueProperty != nil && nonuniqueProperty(subject, key)
 	for i, member := range members {
 		if annotation[i], err = member.JSON(); err != nil {
 			return refuse(err.Error())
 		}
-		if first, dup := seen[annotation[i]]; dup {
+		if first, dup := seen[annotation[i]]; dup && !nonunique {
 			return refuse(fmt.Sprintf("the member %s appears at index %d and again at %d; a graph holds each triple once, so a repeated member cannot be kept", annotation[i], first, i))
 		}
 		seen[annotation[i]] = i
@@ -158,7 +172,7 @@ func reconcileCollection(graph *Graph, ids map[string][]Term, subject Term, key 
 			return refuse(fmt.Sprintf("the typed sysml:%s value %s has no JSON spelling: %v", key, term, err))
 		}
 	}
-	if !sameMembers(spelled, annotation) {
+	if !sameMembers(spelled, annotation, nonunique) {
 		return c, &CollectionConflictError{Subject: subject.Value, Key: key, Triples: spelled, Annotation: annotation}
 	}
 	// Both agree; the annotation carries the order.
@@ -166,7 +180,7 @@ func reconcileCollection(graph *Graph, ids map[string][]Term, subject Term, key 
 	c.inOrder = true
 	for _, want := range annotation {
 		for i, have := range spelled {
-			if !used[i] && have == want {
+			if (!used[i] || nonunique) && have == want {
 				used[i] = true
 				c.inOrder = c.inOrder && i == len(c.members)
 				c.members = append(c.members, bare[i])
@@ -178,7 +192,26 @@ func reconcileCollection(graph *Graph, ids map[string][]Term, subject Term, key 
 }
 
 // sameMembers compares two spellings as multisets; typed triples carry no order.
-func sameMembers(a, b []string) bool {
+func sameMembers(a, b []string, nonunique bool) bool {
+	if nonunique {
+		seenA := make(map[string]bool, len(a))
+		seenB := make(map[string]bool, len(b))
+		for _, value := range a {
+			seenA[value] = true
+		}
+		for _, value := range b {
+			seenB[value] = true
+		}
+		if len(seenA) != len(seenB) {
+			return false
+		}
+		for value := range seenA {
+			if !seenB[value] {
+				return false
+			}
+		}
+		return true
+	}
 	if len(a) != len(b) {
 		return false
 	}

@@ -75,8 +75,8 @@ func valuationCellText(cell Cell) string {
 			quantity, _ := value.Quantity()
 			parts = append(parts, quantity.String())
 		case value.Kind() == ValueReal:
-			real, _ := value.Real()
-			parts = append(parts, semantics.FormatReal(real))
+			realValue, _ := value.Real()
+			parts = append(parts, semantics.FormatReal(realValue))
 		case value.Kind() == ValueInteger:
 			integer, _ := value.Integer()
 			parts = append(parts, strconv.FormatInt(integer, 10))

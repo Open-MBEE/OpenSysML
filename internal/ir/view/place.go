@@ -118,6 +118,8 @@ func (r *Renderer) draws(kind Kind, sym *symbols.Symbol) (node, edge bool) {
 		return generalNodeKind(r, sym), false
 	case KindPackage:
 		return sym.Kind == symbols.SymbolPackage, false
+	case KindSequence:
+		return lifelineLike(sym) && !behaviorLike(sym), isFlowUsage(sym)
 	case KindCase:
 		if caseFamily(sym) {
 			return !isReferencedIncludedCase(sym), isIncludedCase(sym) || hasCaseOwner(sym)

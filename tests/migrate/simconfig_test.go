@@ -345,23 +345,33 @@ func TestSimulationConfigPerformsATestCaseClassifierBehavior(t *testing.T) {
 	for _, line := range []string{
 		"verification def 'Bench Test' {",
 		"subject context : Bench;",
+		"ref part c :> context.ctrl {",
+		"ref part m :> context.motor {",
+		"perform action spinCall ::> Motor::spin { in rpm[1] = 12.0; }",
+		"message spin from c.spinSent to m.spinReceived;",
+		"message spun of result : ScalarValues::Real = m.spinReceived.spinCall.result from m.spunSent to c.spunReceived;",
 		"part target : Bench;",
 		"verification run : Bench::'Bench Test' { subject context = target; }",
+		"verification def Idling {",
+		"ref part m :> context.motor;",
 		"part target : 'Idle Bench';",
+		"verification run : 'Idle Bench'::Idling { subject context = target; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "perform action run")
 	wantNote(t, r, "_g0", migrate.Mapped, "")
-	wantNote(t, r, "_g1", migrate.Approximated, "the classifier behavior of Idle Bench is a test case whose scenario is not migrated, so no action is performed; the configuration only holds 'Idle Bench': the interaction has no message")
+	wantNote(t, r, "_g1", migrate.Mapped, "")
+	wantNote(t, r, "_tc", migrate.Mapped, "written as a verification def of 2 lifeline usages and 2 messages between their event occurrences in occurrence order, the lifelines bound to the subject's parts; the test case has no return parameter, so the verification case states no verdict")
+	wantNote(t, r, "_mRet", migrate.Approximated, "the caller's got is not assigned the result result: a sequence states transfers, not assignments")
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
 		t.Errorf("the migrated configurations do not analyse clean: %v\n%s", errs, r.Notation)
 	}
 	if cfg := r.Results.Configurations[0]; cfg.Behavior != "run" || cfg.Target != "target" {
 		t.Errorf("the sidecar of Group 0 = behavior %q on target %q, want run on target", cfg.Behavior, cfg.Target)
 	}
-	if cfg := r.Results.Configurations[1]; cfg.Behavior != "" {
-		t.Errorf("the sidecar of Group 1 performs %q, want nothing", cfg.Behavior)
+	if cfg := r.Results.Configurations[1]; cfg.Behavior != "run" || cfg.Target != "target" {
+		t.Errorf("the sidecar of Group 1 = behavior %q on target %q, want run on target", cfg.Behavior, cfg.Target)
 	}
 
 	s := session(t, r)
@@ -370,12 +380,13 @@ func TestSimulationConfigPerformsATestCaseClassifierBehavior(t *testing.T) {
 		t.Fatalf("CompareResults = %d verdict(s), want 1", len(verdicts))
 	}
 	lines := strings.Join(verdicts[0].Lines, "\n")
-	if !verdicts[0].Holds() {
-		t.Fatalf("the comparison = %s:\n%s", verdicts[0].Status, lines)
+	if verdicts[0].Holds() {
+		t.Fatalf("the comparison holds, yet the sequence form assigns no got and states no verdict:\n%s", lines)
 	}
 	for _, want := range []string{
-		"got        | tool                   | 1    | 12.0  | 12.0  | 12.0  | 12.0  | 12.0",
-		"           | OpenSysML (target.got) | 1    | 12.0  | 12.0  | 12.0  | 12.0  | 12.0",
+		"got        | tool                   | 1    | 12.0 | 12.0 | 12.0 | 12.0 | 12.0",
+		"no completed run produced target.got, which answers got",
+		"verification Model::Group 0::run has no return expression",
 	} {
 		if !strings.Contains(lines, want) {
 			t.Errorf("the comparison lacks %q:\n%s", want, lines)

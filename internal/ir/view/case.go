@@ -367,5 +367,6 @@ func isReferencedIncludedCase(sym *symbols.Symbol) bool {
 
 // caseNodeKind reports whether a notation kind names a case-family member.
 func caseNodeKind(kind string) bool {
+	kind = ast.NotationKeyword(kind)
 	return strings.Contains(kind, "case") || strings.HasPrefix(kind, "analysis ") || strings.HasPrefix(kind, "verification ")
 }

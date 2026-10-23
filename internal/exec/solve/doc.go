@@ -175,7 +175,17 @@
 //     value type, enumeration-typed features and variation points.
 //   - Feature chains that ground in such a feature (`lander.verticalSpeed`).
 //   - Enumeration literals and variants, as constructors of a finite datatype
-//     sort declared per enumeration definition or variation point.
+//     sort declared per enumeration definition or variation point. A variation
+//     point whose every variant declares a value compares under `==` and `!=`
+//     by the value its selection stands for (KerML BaseFunctions::'==' is value
+//     equality for data values), so two variants declaring one value are equal;
+//     two variants named outright compare as the choice itself.
+//   - `P->forAll { in ref w; w == V }` and `P->exists { … }` over a variation
+//     point P holding at least one object, as the selection `P == V` (`P != V`
+//     for `w != V`): a configuration holds only the variant P selects (SysML
+//     v2.1 §8.3.6, §7.6.7), so every value of P is that variant. A point that
+//     may hold no object, or a body comparing the iterate with anything but a
+//     value of P's sort, refuses with that reason.
 //
 // A variable stands for the value a feature may take, constrained only by its
 // sort: declared values are not asserted, so a query asks what the conditions
@@ -402,8 +412,9 @@
 // fails the whole query, so no partial script exists:
 //
 //   - Collections and quantifiers: sequences, sets, `->select`, `->collect`,
-//     `->forAll`, `->exists`, `->size`, indexing `#(i)`, ranges `a..b`, and
-//     collection-valued features. Bounded expansion is not implemented.
+//     `->size`, indexing `#(i)`, ranges `a..b`, collection-valued features, and
+//     `->forAll`/`->exists` in any form but the variation-point selection above.
+//     Bounded expansion is not implemented.
 //   - Invocations of any kind, calc usages included: a calc body may be
 //     iterative or read state, and constant folding it is the evaluator's job.
 //   - Euclidean `div`/`mod` themselves, as SMT-LIB defines them: only the

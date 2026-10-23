@@ -117,29 +117,36 @@ func (w *materializeWalk) walk(inst *Instance, depth int, unperformed bool) {
 		}
 		w.bounded = w.bounded || cut
 		held := unperformed || w.ctx.unperformedUsage(inst, feat)
-		// Each object held is charged as it is reached, so every one the budget admits
-		// is walked and only those past it are cut.
-		for _, child := range instancesOf(w.ctx, values) {
-			if w.budget <= 0 {
-				w.bounded = true
-				return
-			}
-			w.budget--
-			// An object read whole is done; one read under unperformed is read whole
-			// when a feature of the structure holds it later.
-			if w.visited[child.ID] || (held && w.restricted[child.ID]) {
-				continue
-			}
-			if held {
-				w.restricted[child.ID] = true
-			} else {
-				w.visited[child.ID] = true
-			}
-			w.onPath[child.Type] = true
-			w.walk(child, depth+1, held)
-			delete(w.onPath, child.Type)
+		if !w.descend(instancesOf(w.ctx, values), depth+1, held) {
+			return
 		}
 	}
+}
+
+// descend walks the objects a feature holds and reports false once the budget is spent;
+// each object is charged as it is reached, so only those past the budget are cut.
+func (w *materializeWalk) descend(children []*Instance, depth int, held bool) bool {
+	for _, child := range children {
+		if w.budget <= 0 {
+			w.bounded = true
+			return false
+		}
+		w.budget--
+		// An object read whole is done; one read under unperformed is read whole
+		// when a feature of the structure holds it later.
+		if w.visited[child.ID] || (held && w.restricted[child.ID]) {
+			continue
+		}
+		if held {
+			w.restricted[child.ID] = true
+		} else {
+			w.visited[child.ID] = true
+		}
+		w.onPath[child.Type] = true
+		w.walk(child, depth, held)
+		delete(w.onPath, child.Type)
+	}
+	return true
 }
 
 // unperformedUsage reports an action or state usage of inst that no behavior of the

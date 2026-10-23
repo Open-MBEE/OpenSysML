@@ -1,0 +1,6 @@
+{
+  "rpc": "RenderView",
+  "view": "CompartmentDemo::structure",
+  "compartments": "rows",
+  "expected_error": "unknown compartment folding \"rows\"; the foldings are positioned, most, ports"
+}

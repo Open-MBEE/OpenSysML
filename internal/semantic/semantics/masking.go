@@ -205,6 +205,11 @@ func (m *Model) NamingFeatureOf(sym *symbols.Symbol) *symbols.Symbol {
 	return m.namingFeature(sym)
 }
 
+// NamingFeature returns the feature that gives sym its effective name.
+func (m *Model) NamingFeature(sym *symbols.Symbol) *symbols.Symbol {
+	return m.namingFeature(sym)
+}
+
 func (m *Model) namingFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil {
 		return nil

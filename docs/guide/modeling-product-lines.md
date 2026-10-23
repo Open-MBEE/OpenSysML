@@ -350,7 +350,7 @@ Named with the family alone, `%configure` returns one consistent selection:
 
 ```text
 sysml> %configure 'Variation Usages'::vehicleFamily
-✓ Part vehicleFamily permits a selection of variants (z3, 16ms)
+✓ Abstract part vehicleFamily permits a selection of variants (z3, 16ms)
   'Variation Usages'::vehicleFamily::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'
   'Variation Usages'::vehicleFamily::transmission = 'Variation Usages'::vehicleFamily::transmission::manualTransmission
   One witness: use %configure 'Variation Usages'::vehicleFamily all for every consistent selection.
@@ -364,12 +364,12 @@ transmission is refused:
 
 ```text
 sysml> %configure 'Variation Usages'::vehicleFamily engine='4cylEngine' transmission=automaticTransmission
-✗ the chosen variants are not consistent with Part vehicleFamily (z3, 14ms)
+✗ the chosen variants are not consistent with Abstract part vehicleFamily (z3, 14ms)
   Already fixed:
-    'Variation Usages'::vehicleFamily::engine = Variation Definitions::EngineChoices::4cylEngine  (chosen)
-    'Variation Usages'::vehicleFamily::transmission = Variation Usages::vehicleFamily::transmission::automaticTransmission  (chosen)
-  In the conflict: 'Variation Usages'::vehicleFamily::engine = Variation Definitions::EngineChoices::4cylEngine, 'Variation Usages'::vehicleFamily::transmission = Variation Usages::vehicleFamily::transmission::automaticTransmission
-  Against: required condition { engine == engine::4cylEngine and transmission == transmission::manualTransmission xor engine == engine::6cylEngine and transmission == transmission::automaticTransmission } of vehicleFamily at examples/sysml-v2-training/36. Variability/Variation Usages.sysml:18:4
+    'Variation Usages'::vehicleFamily::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'  (chosen)
+    'Variation Usages'::vehicleFamily::transmission = 'Variation Usages'::vehicleFamily::transmission::automaticTransmission  (chosen)
+  In the conflict: 'Variation Usages'::vehicleFamily::engine = 'Variation Definitions'::EngineChoices::'4cylEngine', 'Variation Usages'::vehicleFamily::transmission = 'Variation Usages'::vehicleFamily::transmission::automaticTransmission
+  Against: required condition { engine == engine::'4cylEngine' and transmission == transmission::manualTransmission xor engine == engine::'6cylEngine' and transmission == transmission::automaticTransmission } of vehicleFamily at examples/sysml-v2-training/36. Variability/Variation Usages.sysml:18:4
   standing: unsatisfiable (proved over inputs: 1 query by solve)
 ```
 
@@ -379,7 +379,7 @@ catalogue, derived from the superset model rather than maintained beside it:
 
 ```text
 sysml> %configure 'Variation Usages'::vehicleFamily all
-✓ Part vehicleFamily permits 2 selections of variants, which are all of them (z3, 15ms)
+✓ Abstract part vehicleFamily permits 2 selections of variants, which are all of them (z3, 15ms)
   1.
     'Variation Usages'::vehicleFamily::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'
     'Variation Usages'::vehicleFamily::transmission = 'Variation Usages'::vehicleFamily::transmission::manualTransmission
@@ -399,8 +399,8 @@ selection is consistent with them. For `vehicle4Cyl` there is one; for
 sysml> %configure 'Variation Configuration'::vehicle4Cyl
 ✓ Part vehicle4Cyl permits a selection of variants (z3, 14ms)
   Already fixed:
-    'Variation Configuration'::vehicle4Cyl::engine = Variation Definitions::EngineChoices::4cylEngine  (declared)
-    'Variation Configuration'::vehicle4Cyl::transmission = Variation Usages::vehicleFamily::transmission::manualTransmission  (declared)
+    'Variation Configuration'::vehicle4Cyl::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'  (declared)
+    'Variation Configuration'::vehicle4Cyl::transmission = 'Variation Usages'::vehicleFamily::transmission::manualTransmission  (declared)
   'Variation Configuration'::vehicle4Cyl::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'
   'Variation Configuration'::vehicle4Cyl::transmission = 'Variation Usages'::vehicleFamily::transmission::manualTransmission
   One witness: use %configure 'Variation Configuration'::vehicle4Cyl all for every consistent selection.
@@ -429,23 +429,28 @@ requirement together, and owns a `rearAxleAssembly` whose own
 sysml> %configure '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig all
 ✓ Part anyVehicleConfig permits 2 selections of variants, which are all of them (z3, 15ms)
   1.
-    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice::'4cylEngine'
-    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice::normalPerformanceRequirement
-    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice::manualTransmission
-  2.
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice::'6cylEngine'
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice::highPerformanceRequirement
+    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::'rearAxleAssembly.rearWheelChoice' = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::rearAxleAssembly::rearWheelChoice::wideRimWheel
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice::automaticTransmission
-  Not in the query: what rearAxleAssembly asserts about its own objects, as invocation is not translatable for solving: it is outside the subset; %instantiate and %validate an object to check it
+  2.
+    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice::'4cylEngine'
+    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice::normalPerformanceRequirement
+    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::'rearAxleAssembly.rearWheelChoice' = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::rearAxleAssembly::rearWheelChoice::narrowRimWheel
+    '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::transmissionChoice::manualTransmission
   standing: satisfiable (witnessed: 1 query by solve)
 ```
 
-The two selections are complete for every assertion the solver can state.
-The rear-axle constraint quantifies with `->forAll`, which is outside the
-solver's subset, so that part is refused by name with the reason and the way
-to check it — instantiate a configuration and `%validate` it, which evaluates
-every nested assertion on the objects actually created. Nothing is left out
-silently: a nested part is either in the query or named here.
+The two selections are the whole configuration: the rear-axle constraint
+quantifies with `->forAll` over `rearWheelChoice`, and a configuration holds
+only the variant a variation point selects (SysML v2.1 §8.3.6, §7.6.7), so
+`rearWheelChoice->forAll { in ref w; w == rearWheelChoice::narrowRimWheel }`
+is the selection `rearWheelChoice == rearWheelChoice::narrowRimWheel`, read
+through the holding part as `'rearAxleAssembly.rearWheelChoice'`. The solver
+states that only for a point holding at least one object; one whose
+multiplicity admits none is refused by name with that reason, as is a
+quantifier body comparing the iterate with anything but a variant. Nothing is
+left out silently: a nested part is either in the query or named with why not.
 
 `VehicleVariabilityModel.sysml` shows the nested case the solver does state.
 Its `'6cylEngine'` variant alone declares the `autoPort` variation and the
@@ -457,7 +462,7 @@ selections, the four-cylinder one listing no port or bore, and asking for
 
 ```text
 sysml> %configure VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily all
-✓ Part vehicleFamily permits 3 selections of variants, which are all of them (z3, 17ms)
+✓ Abstract part vehicleFamily permits 3 selections of variants, which are all of them (z3, 16ms)
   1.
     VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::engine = VehicleVariabilityModel::'150% Model'::PartsTree::EngineChoices::'4cylEngine'
     VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::transmission = VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::transmission::manualTransmission

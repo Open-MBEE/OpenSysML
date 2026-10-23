@@ -1,0 +1,57 @@
+@startuml
+' CompartmentDemoViews::hub — tree rendering (render asTreeDiagram)
+' not represented: 5 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«part def»//</size>\n**Hub**\nports\ninput : DataPort\ninput.clock : ClockPort\noutput : DataPort\noutput.sync : ClockPort\noutput.clock : ClockPort" as n0 <<part def>>
+class "<size:10>//«attribute»//</size>\n**channels**" as n1 <<attribute>> <<usage>>
+n0 -- n1
+class "<size:10>//«part»//</size>\n**buffer**" as n12 <<part>> <<usage>>
+n0 -- n12
+class "<size:10>//«part»//</size>\n**slot**" as n13 <<part>> <<usage>>
+class "<size:10>//«part def»//</size>\n**Pin**" as n14 <<part def>>
+n13 -- n14
+n0 -- n13
+class "<size:10>//«part def»//</size>\n**Buffer**" as n15 <<part def>>
+n0 *-- "buffer" n15
+@enduml
