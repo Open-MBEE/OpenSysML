@@ -2590,8 +2590,8 @@ func (s *Session) heldRoots() []*runtime.Instance {
 // the session holds no object of that definition: it decided nothing yet.
 func (s *Session) satisfyNeedsObject(a *runtime.SatisfyAssertion, typ *symbols.Symbol) Verdict {
 	name := s.objectLabelOf(typ)
-	return Verdict{Subject: satisfyText(a), Status: VerdictUnresolved, Lines: []string{
-		fmt.Sprintf("? %s needs an object of %s: none is instantiated", satisfyText(a), name),
+	return Verdict{Subject: a.Text(), Status: VerdictUnresolved, Lines: []string{
+		fmt.Sprintf("? %s needs an object of %s: none is instantiated", a.Text(), name),
 	}}
 }
 
@@ -2637,7 +2637,7 @@ func (s *Session) satisfyVerdict(ctx *runtime.Context, a *runtime.SatisfyAsserti
 
 // satisfyVerdictOn is satisfyVerdict about a given object, reported under owner.
 func (s *Session) satisfyVerdictOn(ctx *runtime.Context, a *runtime.SatisfyAssertion, subject *runtime.Instance, owner string) Verdict {
-	result, plan, err := s.check(satisfyText(a), ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
+	result, plan, err := s.check(a.Text(), ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
 		return ctx.CheckSatisfactionOn(a, subject)
 	})
 	subject, owner = s.reportedSubject(result, subject, owner)
@@ -2651,16 +2651,16 @@ func (s *Session) satisfyVerdictOn(ctx *runtime.Context, a *runtime.SatisfyAsser
 // satisfactionVerdict reports what checking a satisfaction assertion decided.
 func satisfactionVerdict(a *runtime.SatisfyAssertion, result runtime.CheckResult, err error, subject *runtime.Instance, owner string) Verdict {
 	if unevaluable(err) {
-		return unevaluableVerdict(satisfyText(a), satisfyText(a), err, subject, owner)
+		return unevaluableVerdict(a.Text(), a.Text(), err, subject, owner)
 	}
 	if err != nil || !result.Holds {
-		return Verdict{Subject: satisfyText(a), Status: VerdictFails, Lines: []string{
-			fmt.Sprintf("✗ %s fails%s", satisfyText(a), onInstance(subject, owner)),
+		return Verdict{Subject: a.Text(), Status: VerdictFails, Lines: []string{
+			fmt.Sprintf("✗ %s fails%s", a.Text(), onInstance(subject, owner)),
 			"  " + verdictDetail("Required condition", err),
 		}}
 	}
-	return Verdict{Subject: satisfyText(a), Status: VerdictHolds, Lines: []string{
-		fmt.Sprintf("✓ %s holds%s", satisfyText(a), onInstance(subject, owner)),
+	return Verdict{Subject: a.Text(), Status: VerdictHolds, Lines: []string{
+		fmt.Sprintf("✓ %s holds%s", a.Text(), onInstance(subject, owner)),
 	}}
 }
 
