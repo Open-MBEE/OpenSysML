@@ -80,7 +80,7 @@ Pilot `2026-08` (`0.62.0`), both validators, fresh cache:
 | 511 | 150 | 1094 | 3395 | 1038 | 6 | 50 | 2351 |
 
 Of the pilot-only diagnostics, 1359 are the pilot's EMF `unmapped` records ("The feature 'type' of
-... is required"), 587 its `kind-mismatch` typing constraints ("A usage must be typed by
+... is required"), 586 its `kind-mismatch` typing constraints ("A usage must be typed by
 definitions.") and 50 multiplicity constraints: all three follow an unresolved cross-example name on
 the same lines, where we report the unresolved reference once and stop. Those 1996 are the same
 finding counted differently, not disagreements about the examples. The remaining pilot-only
