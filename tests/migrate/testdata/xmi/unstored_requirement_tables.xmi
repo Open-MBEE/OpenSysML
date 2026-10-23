@@ -37,6 +37,12 @@
       <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_refine_pump" client="_uc_pump" supplier="_req_flow"/>
       <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_refine_seal" client="_uc_seal" supplier="_req_seal"/>
       <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_trace_mass" client="_uc_seal" supplier="_req_mass"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_valve" name="Valve">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_pressure" name="pressure">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Real"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_refine_pressure" client="_prop_pressure" supplier="_req_seal"/>
       <xmi:Extension extender="Example UML Tool 1.0">
         <modelExtension>
           <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_refine_matrix" name="Refine Requirement Matrix" ownerOfDiagram="_pkg_uc">
@@ -70,6 +76,8 @@
   <sysml:Requirement xmi:id="_st_req_seal" base_Class="_req_seal" Id="R-2" Text="Every valve seals when closed."/>
   <sysml:Requirement xmi:id="_st_req_mass" base_Class="_req_mass" Id="R-3" Text="The pump mass stays under the limit."/>
   <sysml:Block xmi:id="_st_blk_pump" base_Class="_blk_pump"/>
+  <sysml:Block xmi:id="_st_blk_valve" base_Class="_blk_valve"/>
+  <sysml:Refine xmi:id="_st_refine_pressure" base_Abstraction="_dep_refine_pressure"/>
   <sysml:Refine xmi:id="_st_refine_pump" base_Abstraction="_dep_refine_pump"/>
   <sysml:Refine xmi:id="_st_refine_seal" base_Abstraction="_dep_refine_seal"/>
   <sysml:Trace xmi:id="_st_trace_mass" base_Abstraction="_dep_trace_mass"/>

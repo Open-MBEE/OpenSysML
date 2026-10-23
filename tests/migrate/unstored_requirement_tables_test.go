@@ -32,7 +32,9 @@ func TestUnstoredRequirementTableListsTheOwnersRequirements(t *testing.T) {
 
 // A Refine Requirement Matrix the tool stored no cells for exposes the
 // connections written for the «Refine»s under its owner and the usages they
-// join; a «Trace» under the same owner is no refinement and is not exposed.
+// join, and the dependency a «Refine» from a property is written as, named as
+// a shown one is; a «Trace» under the same owner is no refinement and is not
+// exposed.
 func TestUnstoredRefineMatrixListsTheOwnersRefinements(t *testing.T) {
 	r := migrateFixtureFile(t, "unstored_requirement_tables")
 	notation := string(r.Notation)
@@ -44,13 +46,17 @@ func TestUnstoredRefineMatrixListsTheOwnersRefinements(t *testing.T) {
 		"expose 'Seal Valve refines Seal Requirement';",
 		"expose 'Seal Valve';",
 		"expose Requirements::'Seal Requirement';",
+		"expose 'pressure refines Seal Requirement';",
 		"render Views::asElementTable;")
+	wantInOrder(t, "refine dependency", notation,
+		"dependency 'pressure refines Seal Requirement' from 'Use Cases'::Valve::pressure to Requirements::'Seal Requirement' {",
+		"@ModelingMetadata::Refinement;")
 	view := notationSectionOf(notation, "view 'Refine Requirement Matrix' {")
 	if strings.Contains(view, "traces") || strings.Contains(view, "Mass Requirement") {
 		t.Errorf("the refine matrix exposes the trace or its end:\n%s", view)
 	}
 	wantNote(t, r, "_diag_refine_matrix", migrate.Approximated,
-		"the tool stored no cells for this matrix; reconstructed from the owning scope: 2 refinements exposed with the usages they join")
+		"the tool stored no cells for this matrix; reconstructed from the owning scope: 3 refinements exposed with the usages they join")
 }
 
 // An unstored Requirement Table owned by a package writing no requirement is

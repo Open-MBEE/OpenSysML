@@ -497,7 +497,7 @@ func (m *migration) emptyView(v *view, f viewForm) string {
 	case !d.Represented():
 		return "no diagram representation is serialized, so what it shows is unknown and its view exposes nothing"
 	case v.rebuilt != nil:
-		return v.rebuilt.note(d.Owner)
+		return v.rebuilt.note(m, d.Owner, v.host)
 	case len(d.Shown) == 0 && pictured > 0:
 		return "it shows no model element, only " + plural(pictured, pastedImage) + " a view rendered " + f.rendering + " does not draw, and its view exposes nothing"
 	case len(d.Shown) == 0:
@@ -676,7 +676,7 @@ func (m *migration) viewShownNote(v *view, x exposures, geo viewGeometry, untype
 	case !d.Represented():
 		note = "no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing"
 	case v.rebuilt != nil:
-		note = v.rebuilt.note(d.Owner)
+		note = v.rebuilt.note(m, d.Owner, v.host)
 	case shown == 0 && geo.pictures > 0:
 		note = "the diagram shows no model element; the view draws the " + plural(geo.pictures, pastedImage) + " it carries and exposes nothing"
 	case shown == 0 && geo.undrawn > 0:
@@ -750,7 +750,8 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 		}
 	}
 	if v := m.viewOf[d]; v != nil && v.rebuilt != nil {
-		for _, ref := range v.rebuilt.refs {
+		refs, _ := v.rebuilt.refs(m, host)
+		for _, ref := range refs {
 			add(ref)
 		}
 	}

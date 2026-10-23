@@ -15,10 +15,6 @@ type reconstruction struct {
 	rule *reconstructionRule
 	// listed are the owner's elements the rule lists, in document order.
 	listed []*sysmlv1.Element
-	// refs are the expose references written for them, each once.
-	refs []string
-	// unwritten counts listed elements nothing written stands for.
-	unwritten int
 }
 
 // reconstructionRule says what a diagram kind's rows are computed from.
@@ -105,23 +101,16 @@ func (m *migration) planReconstructions() {
 			continue
 		}
 		rc := &reconstruction{rule: rule}
-		seen := map[string]bool{}
 		where := "view '" + v.name + "' in " + qualifiedName(d.Owner) + " lists it for the " + rule.stored + " the tool stored none of"
 		walkOwned(d.Owner, func(e *sysmlv1.Element) {
 			if !rule.lists(m, e) {
 				return
 			}
 			rc.listed = append(rc.listed, e)
-			refs := rule.refs(m, e, v.host)
-			if len(refs) == 0 {
-				rc.unwritten++
+			if nameableEdge(e) && len(m.connsOf(e)) == 0 {
+				// A dependency the view lists is named by its writer, as a shown one is.
+				m.shownEdges[e] = true
 				return
-			}
-			for _, ref := range refs {
-				if !seen[ref] {
-					seen[ref] = true
-					rc.refs = append(rc.refs, ref)
-				}
 			}
 			if x := m.exposable(e); x != nil {
 				m.segments(x)
@@ -134,6 +123,27 @@ func (m *migration) planReconstructions() {
 	}
 }
 
+// refs are the expose references the view writes for the listed elements from
+// scope, each once, and the count of listed elements nothing written stands
+// for; resolved when the view is written, once every edge is named.
+func (rc *reconstruction) refs(m *migration, scope *sysmlv1.Element) (refs []string, unwritten int) {
+	seen := map[string]bool{}
+	for _, e := range rc.listed {
+		found := rc.rule.refs(m, e, scope)
+		if len(found) == 0 {
+			unwritten++
+			continue
+		}
+		for _, ref := range found {
+			if !seen[ref] {
+				seen[ref] = true
+				refs = append(refs, ref)
+			}
+		}
+	}
+	return refs, unwritten
+}
+
 // walkOwned visits every element under root in document order, root excluded.
 func walkOwned(root *sysmlv1.Element, visit func(*sysmlv1.Element)) {
 	for _, c := range root.Children {
@@ -144,10 +154,11 @@ func walkOwned(root *sysmlv1.Element, visit func(*sysmlv1.Element)) {
 
 // note is the report's account of the reconstruction: that the tool stored
 // nothing, and what the view exposes from the owning scope instead.
-func (rc *reconstruction) note(owner *sysmlv1.Element) string {
+func (rc *reconstruction) note(m *migration, owner, scope *sysmlv1.Element) string {
 	rule := rc.rule
+	refs, unwritten := rc.refs(m, scope)
 	note := "the tool stored no " + rule.stored + "; reconstructed from the owning scope: "
-	exposed := len(rc.listed) - rc.unwritten
+	exposed := len(rc.listed) - unwritten
 	switch {
 	case len(rc.listed) == 0:
 		note += "no " + rule.noun + " is written under " + qualifiedName(owner) + ", so the view exposes nothing"
@@ -155,11 +166,11 @@ func (rc *reconstruction) note(owner *sysmlv1.Element) string {
 		note += "none of the " + plural(len(rc.listed), rule.noun) + " under " + qualifiedName(owner) + " is written, so the view exposes nothing"
 	default:
 		note += plural(exposed, rule.noun) + " exposed"
-		if len(rc.refs) > exposed {
+		if len(refs) > exposed {
 			note += " with the usages they join"
 		}
-		if rc.unwritten > 0 {
-			note += "; " + plural(rc.unwritten, rule.noun) + " not written and not exposed"
+		if unwritten > 0 {
+			note += "; " + plural(unwritten, rule.noun) + " not written and not exposed"
 		}
 	}
 	return note

@@ -31,6 +31,12 @@ package Model {
                 stereotype = "Trace";
             }
         }
+        part def Valve {
+            attribute pressure : ScalarValues::Real;
+        }
+        dependency 'pressure refines Seal Requirement' from 'Use Cases'::Valve::pressure to Requirements::'Seal Requirement' {
+            @ModelingMetadata::Refinement;
+        }
         view 'Refine Requirement Matrix' {
             expose 'Pump Fluid refines Flow Requirement';
             expose 'Pump Fluid';
@@ -38,12 +44,13 @@ package Model {
             expose 'Seal Valve refines Seal Requirement';
             expose 'Seal Valve';
             expose Requirements::'Seal Requirement';
+            expose 'pressure refines Seal Requirement';
             render Views::asElementTable;
         }
         view 'Use Case Requirements' {
             render Views::asElementTable;
         }
-        metadata MigrationMetadata::SynthesizedName about 'Seal Valve traces Mass Requirement';
+        metadata MigrationMetadata::SynthesizedName about 'Seal Valve traces Mass Requirement', 'pressure refines Seal Requirement';
     }
     connection 'Pump Fluid refines Flow Requirement' connect 'Use Cases'::'Pump Fluid' to Requirements::'Flow Requirement';
     connection 'Seal Valve refines Seal Requirement' connect 'Use Cases'::'Seal Valve' to Requirements::'Seal Requirement';
