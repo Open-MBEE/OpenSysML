@@ -196,6 +196,7 @@ func (t *translator) datatype(origin *symbols.Symbol, values []*symbols.Symbol, 
 		sort.Values = append(sort.Values, t.fqn(value))
 	}
 	t.sorts[name] = sort
+	t.origins[name] = origin
 	return sort
 }
 

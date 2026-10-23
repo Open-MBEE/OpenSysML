@@ -467,8 +467,10 @@ type translator struct {
 	// a redefinition masks what it redefines, so both read one value.
 	features map[string]*symbols.Symbol
 
-	vars    map[string]*Var
-	sorts   map[string]Sort
+	vars  map[string]*Var
+	sorts map[string]Sort
+	// origins are the declarations the datatype sorts were declared for, by sort name.
+	origins map[string]*symbols.Symbol
 	domains []Assertion
 	guards  []Assertion
 	asserts []Assertion
@@ -542,6 +544,7 @@ func newTranslator(ctx *runtime.Context, subject Subject) *translator {
 		features:  effectiveFeatures(ctx, subject.Symbol),
 		vars:      map[string]*Var{},
 		sorts:     map[string]Sort{},
+		origins:   map[string]*symbols.Symbol{},
 		guarded:   map[string]bool{},
 		baseUnits: map[string]string{},
 	}
@@ -1067,17 +1070,7 @@ func (t *translator) equality(n *ast.OperatorExpr, scope *symbols.Scope, op Op) 
 	if err != nil {
 		return nil, err
 	}
-	left, right = promote(left, right)
-	if !left.Sort.Equal(right.Sort) {
-		return nil, t.refuse(n, msgOperatorPrefix+n.Operator.String()+"`",
-			fmt.Sprintf("its operands yield %s and %s", left.Sort.Name, right.Sort.Name))
-	}
-	if left.Sort.Numeric() {
-		if err := t.sameDimension(n, scope); err != nil {
-			return nil, err
-		}
-	}
-	return Binary(op, Bool, left, right), nil
+	return t.equalityOf(n, scope, msgOperatorPrefix+n.Operator.String()+"`", op, left, right)
 }
 
 // comparison translates an ordering comparison between two numbers.
