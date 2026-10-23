@@ -281,17 +281,50 @@ type Edit struct {
 // the line and column that file has it on.
 func (s *Session) LocatedDiagnostics() []Diagnostic {
 	defer s.enter()()
-	return s.locate(s.diagnostics())
+	return locate(s.bufferParts(), s.diagnostics())
 }
 
-// Locate places diagnostics reported over the session's buffer — a Result's —
-// in the submissions they are about, as LocatedDiagnostics does.
-func (s *Session) Locate(diags []diag.Diagnostic) []Diagnostic {
+// Locate places a Result's diagnostics (diags, or some of them) in the
+// submissions they are about, as LocatedDiagnostics does: in the buffer they were
+// reported over, which a submission dropped once reported is no longer part of.
+func (s *Session) Locate(res Result, diags []diag.Diagnostic) []Diagnostic {
 	defer s.enter()()
-	return s.locate(diags)
+	parts := res.buffer
+	if parts == nil {
+		parts = s.bufferParts()
+	}
+	return locate(parts, diags)
 }
 
-func (s *Session) locate(diags []diag.Diagnostic) []Diagnostic {
+// bufferPart is one submission as the joined buffer holds it: its text, the
+// file it was loaded from (empty when typed) and the offset it starts at.
+type bufferPart struct {
+	origin, src string
+	start       int
+}
+
+// bufferParts lays the session's submissions out as its buffer joins them.
+func (s *Session) bufferParts() []bufferPart {
+	parts := make([]bufferPart, 0, len(s.snippets))
+	start := 0
+	for _, sn := range s.snippets {
+		parts = append(parts, bufferPart{origin: sn.origin, src: sn.src, start: start})
+		start += len(sn.src) + 1 // the newline joined() writes between snippets
+	}
+	return parts
+}
+
+// partAt returns the submission a buffer offset falls in, as snippetAt does.
+func partAt(parts []bufferPart, offset int) bufferPart {
+	for i, part := range parts {
+		if offset <= part.start+len(part.src) || i == len(parts)-1 {
+			return part
+		}
+	}
+	return bufferPart{}
+}
+
+func locate(parts []bufferPart, diags []diag.Diagnostic) []Diagnostic {
 	if len(diags) == 0 {
 		return nil
 	}
@@ -300,12 +333,13 @@ func (s *Session) locate(diags []diag.Diagnostic) []Diagnostic {
 		src   []byte
 		lines *source.LineIndex
 	}
-	indexes := make(map[int]indexed, len(s.snippets))
+	indexes := make(map[int]indexed, len(parts))
 	for _, d := range diags {
-		sn, start := s.snippetAt(d.Span.Offset)
+		part := partAt(parts, d.Span.Offset)
+		start := part.start
 		idx, ok := indexes[start]
 		if !ok {
-			idx.src = []byte(sn.src)
+			idx.src = []byte(part.src)
 			idx.lines = source.New(docName, idx.src).Lines()
 			indexes[start] = idx
 		}
@@ -314,7 +348,7 @@ func (s *Session) locate(diags []diag.Diagnostic) []Diagnostic {
 		out = append(out, Diagnostic{
 			Severity:    d.Severity.String(),
 			Message:     d.Message,
-			File:        sn.origin,
+			File:        part.origin,
 			Line:        p.Line,
 			Column:      p.Col,
 			UTF16Column: utf16Column(idx.src, d.Span.Offset-start, p.Col),

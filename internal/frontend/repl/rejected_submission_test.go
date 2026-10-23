@@ -34,9 +34,8 @@ func hasDiagnostic(res Result, fragment string) bool {
 	return false
 }
 
-// A submission that declares nothing and does not parse is reported once,
-// against the buffer it was typed into, and then leaves no trace: it is not
-// listed, not saved, and does not fail what is evaluated or submitted after it.
+// A submission that declares nothing and does not parse is reported once, against
+// the buffer it was typed into, then leaves no trace in a listing, a save or an evaluation.
 func TestRejectedNamelessSubmissionLeavesNoTrace(t *testing.T) {
 	s := sessionWithCalc(t)
 	res := s.Submit(rejectedLine)
@@ -156,5 +155,25 @@ func TestLoopRecoversFromARejectedExpression(t *testing.T) {
 	rejects(t, got, "parse failed")
 	if n := strings.Count(got, rejectedLine); n != 1 {
 		t.Errorf("want the rejected line echoed once by its diagnostic and never by %%list, got %d:\n%s", n, got)
+	}
+}
+
+// The buffer rebuilt without a rejected submission is indexed afresh even while
+// the session holds an object, so a name the dropped text imported is gone too.
+func TestRejectedImportCeasesToResolveWithAHeldObject(t *testing.T) {
+	s := NewSession()
+	writeHolder(t, s, writtenHolderModel)
+	rejected := "private import SI::*;\nadd(1, 2);"
+	if res := s.Submit(rejected); !hasSyntaxError(res) || !res.Rejected() {
+		t.Fatalf("Submit(%q) = %+v, want the syntax error reported", rejected, res.Diagnostics)
+	}
+	if s.heldObjects() != 1 {
+		t.Fatalf("the session holds %d objects, want the one it held before", s.heldObjects())
+	}
+	if lines, err := s.EvalExpr("1 [m]"); err == nil {
+		t.Errorf("%%eval 1 [m] = %q, want the unit unresolved: the import was dropped with the submission", lines)
+	}
+	if got := metaOK(t, s, "%list"); strings.Contains(got, "SI::*") {
+		t.Errorf("%%list = %q, still shows the dropped import", got)
 	}
 }

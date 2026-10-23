@@ -1088,7 +1088,11 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	res.Blocked = s.blockedBy(res, load)
 	// A rejected submission was reported against the buffer it was typed into;
 	// nothing declared it, so nothing replaces it, and it leaves the buffer now.
-	if s.dropRejected() {
+	if before := s.dropRejected(); before != nil {
+		res.buffer = before
+		// The index still holds that buffer: it is rebuilt before the objects
+		// the session holds are rebound, so they resolve against the cleaned one.
+		s.idxVersion = 0
 		more := s.rebuildOver(nil)
 		whole = append(whole, more...)
 		res.Notices = append(res.Notices, more...)
@@ -1096,13 +1100,16 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	return res, byFile, whole
 }
 
-// dropRejected removes the snippets this submission rejected, reporting whether
-// the buffer changed.
-func (s *Session) dropRejected() bool {
-	kept := slices.DeleteFunc(s.snippets, func(sn snippet) bool { return sn.rejected })
-	changed := len(kept) != len(s.snippets)
-	s.snippets = kept
-	return changed
+// dropRejected removes the snippets this submission rejected, returning the
+// buffer their diagnostics were reported over; nil when there was none to drop.
+func (s *Session) dropRejected() []bufferPart {
+	rejected := func(sn snippet) bool { return sn.rejected }
+	if !slices.ContainsFunc(s.snippets, rejected) {
+		return nil
+	}
+	before := s.bufferParts()
+	s.snippets = slices.DeleteFunc(s.snippets, rejected)
+	return before
 }
 
 // dropReadWhole drops every snippet of a file the submission read whole, a
