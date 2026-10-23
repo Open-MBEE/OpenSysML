@@ -826,12 +826,33 @@ func (s *Session) text() string {
 	return strings.Join(parts, "\n")
 }
 
-// savedText is the buffer as %save writes it: text() without the files loaded
-// on demand, which stay files of the workspace rather than of the save.
-func (s *Session) savedText() string {
-	var parts []string
+// savedText is the buffer as %save writes it to dest: text() without the files
+// loaded on demand, which stay files of the workspace rather than of the save —
+// except one the typed text names that a load of the saved file could not find
+// beside or below it, whose declarations the save carries so it loads on its own.
+func (s *Session) savedText(dest string) string {
+	var (
+		parts    []string
+		onDemand []snippet
+	)
 	for _, sn := range s.snippets {
-		if !sn.onDemand {
+		if sn.onDemand {
+			onDemand = append(onDemand, sn)
+			continue
+		}
+		parts = append(parts, sn.src)
+	}
+	if len(onDemand) == 0 {
+		return strings.Join(parts, "\n")
+	}
+	typed := strings.Join(parts, "\n")
+	named := nameSet(project.ReferencedRoots(parser.New(source.New(docName, []byte(typed))).ParseFile()))
+	reach := map[string]bool{}
+	for _, dep := range s.discovery().DependenciesOf([]project.Source{{Path: dest, Content: []byte(typed)}}, s.ws.IsLibraryRoot) {
+		reach[fileKeyOf(dep)] = true
+	}
+	for _, sn := range onDemand {
+		if intersects(sn.names, named) && !reach[sn.key] {
 			parts = append(parts, sn.src)
 		}
 	}
@@ -1100,7 +1121,13 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 				more := s.rebuildOver(ws.drops)
 				whole = append(whole, more...)
 				notices = append(append(notices, dropNotices(ws.drops)...), more...)
+				// A loaded file may have replaced an earlier snippet, moving the
+				// submission's text within the buffer.
 				own = s.ownSpans()
+				offset = s.genOffset(s.joined())
+				if at, ok := firstText(own); ok {
+					offset = at
+				}
 				declared = append(declared, ws.declared...)
 			}
 			notices = append(notices, ws.notices...)

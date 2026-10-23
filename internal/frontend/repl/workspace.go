@@ -161,9 +161,10 @@ func (s *Session) undeclaredRoots(roots []string, confirm func(name string) bool
 }
 
 // referenceBegins reports whether one of the unresolved references begins with
-// name, written bare or quoted.
+// name, written bare or quoted, from the global namespace or not.
 func referenceBegins(subjects []string, name string) bool {
 	for _, subject := range subjects {
+		subject = strings.TrimPrefix(subject, "$::")
 		for _, written := range []string{name, suggest.Notation(name)} {
 			if subject == written || strings.HasPrefix(subject, written+"::") {
 				return true

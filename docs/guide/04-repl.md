@@ -205,8 +205,10 @@ network. Hidden directories are not searched.
 
 A file loaded this way is a loaded file like any other: `%list` shows it, its diagnostics name it
 and its line, typing `package Lib { … }` at the prompt replaces it, and `%clear` drops it. One
-difference: `%save` leaves it out, since the file is already beside what is saved, so a session
-saved into the same directory does not declare `Lib` twice.
+difference: `%save` leaves it out when the saved file will find it — beside or below the saved
+file, where a load of that file follows its imports — so a session saved into the workspace does
+not declare `Lib` twice; a save somewhere else, where the import could not be followed, writes the
+declarations the typed text imports along with it, so the saved file still loads on its own.
 
 Only a name the typed text leaves unresolved is looked for, and only a file that declares it at
 its root loads — nothing else under the directory does; `%load dir/` stays the way to load

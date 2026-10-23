@@ -179,31 +179,40 @@ func referencedRoots(members []ast.Node, enclosing []map[string]bool, report fun
 					report(name)
 				}
 			}
+			// The filter expression names what it filters by from outside too.
+			if imp.FilterExpr != nil {
+				qualifiedRoots(imp.FilterExpr, nil, enclosing, report)
+			}
 			referencedRoots(imp.Body, enclosing, report)
 			continue
 		}
 		inner := membersOf(decl)
-		innerSet := map[ast.Node]bool{}
-		for _, n := range inner {
-			innerSet[n] = true
-		}
-		// The declaration's own text, members aside: a type, value or
-		// expression naming something outside it.
-		ast.Inspect(decl, func(n ast.Node) bool {
-			if innerSet[n] {
-				return false
-			}
-			if qn, ok := n.(*ast.QualifiedName); ok && len(qn.Parts) > 1 && !qn.Parts[1].Chained {
-				if name := qn.Parts[0].Text; qn.Global || !visible(name, enclosing) {
-					report(name)
-				}
-			}
-			return true
-		})
+		qualifiedRoots(decl, inner, enclosing, report)
 		if len(inner) > 0 {
 			referencedRoots(inner, enclosing, report)
 		}
 	}
+}
+
+// qualifiedRoots reports the first segment of every qualified name in node's
+// own text — a type, value or expression naming something outside it — that
+// enclosing does not declare, not descending into the members excluded.
+func qualifiedRoots(node ast.Node, members []ast.Node, enclosing []map[string]bool, report func(name string)) {
+	excluded := make(map[ast.Node]bool, len(members))
+	for _, n := range members {
+		excluded[n] = true
+	}
+	ast.Inspect(node, func(n ast.Node) bool {
+		if excluded[n] {
+			return false
+		}
+		if qn, ok := n.(*ast.QualifiedName); ok && len(qn.Parts) > 1 && !qn.Parts[1].Chained {
+			if name := qn.Parts[0].Text; qn.Global || !visible(name, enclosing) {
+				report(name)
+			}
+		}
+		return true
+	})
 }
 
 // Relative spells path as a reader beside root would: relative to it when it

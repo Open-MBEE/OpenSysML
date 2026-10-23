@@ -19,11 +19,12 @@ package Mine {
     part def Car { attribute m : ISQ::MassValue; part w : Wheels::Wheel; ref r = Mine::Car; attribute n = car.mass; }
     part car : Car;
     part other : Other::Thing;
+    private import Parts::*[@Rules::Approved];
 }
 `
 	root := parser.New(source.New("t.sysml", []byte(src))).ParseFile()
 	got := ReferencedRoots(root)
-	want := []string{"Lib", "ISQ", "Global", "Wheels", "Other"}
+	want := []string{"Lib", "ISQ", "Global", "Wheels", "Other", "Parts", "Rules"}
 	if !slices.Equal(got, want) {
 		t.Errorf("ReferencedRoots = %v, want %v", got, want)
 	}

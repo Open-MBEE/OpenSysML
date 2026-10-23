@@ -141,6 +141,9 @@ func (s *Session) expandPaths(paths []string) ([]string, error) {
 func (s *Session) SetLibraryRoots(roots []string) {
 	defer s.enter()()
 	s.libraryRoots = append([]string(nil), roots...)
+	// The workspace index searches the installed projects too, so it is built
+	// again over the new roots.
+	s.workspace = nil
 }
 
 // LibraryRoots reports the directories installed projects are looked for under.

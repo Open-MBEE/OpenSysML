@@ -71,22 +71,65 @@ func TestListShowsTheFileLoadedOnDemand(t *testing.T) {
 	}
 }
 
-func TestSaveLeavesOutTheFileLoadedOnDemand(t *testing.T) {
-	s, dir := workspaceSession(t)
-	s.Submit("private import Lib::*;")
-	s.Submit("package Mine { attribute b = a + 1; }")
-	out := filepath.Join(dir, "out", "session.sysml")
-	if err := os.MkdirAll(filepath.Dir(out), 0o750); err != nil {
+// saveTo saves the session to path and returns what was written.
+func saveTo(t *testing.T, s *Session, path string) string {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.RunMeta("%save " + out); err != nil {
+	if _, _, err := s.RunMeta("%save " + path); err != nil {
 		t.Fatal(err)
 	}
-	saved, err := os.ReadFile(out)
+	saved, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := string(saved); !strings.Contains(got, "import Lib::*") || !strings.Contains(got, "package Mine") || strings.Contains(got, "package Lib") {
+	return string(saved)
+}
+
+func TestSaveBesideTheFileLoadedOnDemandLeavesItOut(t *testing.T) {
+	s, dir := workspaceSession(t)
+	s.Submit("private import Lib::*;")
+	s.Submit("package Mine { attribute b = a + 1; }")
+	got := saveTo(t, s, filepath.Join(dir, "session.sysml"))
+	if !strings.Contains(got, "import Lib::*") || !strings.Contains(got, "package Mine") || strings.Contains(got, "package Lib") {
+		t.Errorf("saved:\n%s", got)
+	}
+	// The saved file loads on its own: its import finds lib.sysml beside it.
+	fresh := NewSession()
+	if _, err := fresh.LoadPaths([]string{filepath.Join(dir, "session.sysml")}); err != nil {
+		t.Fatal(err)
+	}
+	if diags := fresh.DiagnosticLines(); len(diags) != 0 {
+		t.Errorf("the saved file did not load clean: %v", diags)
+	}
+}
+
+func TestSaveWhereTheFileLoadedOnDemandIsOutOfReachWritesItsDeclarations(t *testing.T) {
+	s, dir := workspaceSession(t)
+	s.Submit("private import Lib::*;")
+	for _, out := range []string{filepath.Join(dir, "out", "session.sysml"), filepath.Join(t.TempDir(), "session.sysml")} {
+		got := saveTo(t, s, out)
+		if !strings.Contains(got, "import Lib::*") || !strings.Contains(got, "package Lib") {
+			t.Errorf("saved to %s:\n%s", out, got)
+		}
+		fresh := NewSession()
+		if _, err := fresh.LoadPaths([]string{out}); err != nil {
+			t.Fatal(err)
+		}
+		if diags := fresh.DiagnosticLines(); len(diags) != 0 {
+			t.Errorf("%s did not load clean: %v", out, diags)
+		}
+	}
+}
+
+func TestSaveLeavesOutAFileLoadedOnDemandThatTheTypedTextNoLongerNames(t *testing.T) {
+	s, _ := workspaceSession(t)
+	if _, err := s.Evaluate("Lib::a"); err != nil {
+		t.Fatal(err)
+	}
+	s.Submit("package Mine { attribute b = 1; }")
+	if got := saveTo(t, s, filepath.Join(t.TempDir(), "session.sysml")); strings.Contains(got, "package Lib") || !strings.Contains(got, "package Mine") {
 		t.Errorf("saved:\n%s", got)
 	}
 }
@@ -358,5 +401,52 @@ func TestTheProjectsTheRootUsesAreSearchedToo(t *testing.T) {
 	}
 	if got := unresolved(s.Submit("private import Unused::*;")); len(got) != 1 {
 		t.Errorf("a project the root does not use was searched: %v", got)
+	}
+}
+
+func TestAGlobalImportLoadsTheFileToo(t *testing.T) {
+	s, _ := workspaceSession(t)
+	if got := unresolved(s.Submit("private import $::Lib::*;")); len(got) != 0 {
+		t.Errorf("the global import stayed unresolved: %v", got)
+	}
+	if ev, err := s.Evaluate("$::Lib::a"); err != nil || ev.Text != "3" {
+		t.Errorf("$::Lib::a = %q, %v", ev.Text, err)
+	}
+}
+
+func TestAFileReplacingAnEarlierSnippetKeepsTheSubmissionLocated(t *testing.T) {
+	s, dir := workspaceSession(t)
+	writeFile(t, filepath.Join(dir, "lib.sysml"), "package Other { attribute o = 2; }\npackage Lib {\n    attribute a = ;\n}\n")
+	s.Submit("package Other {\n    attribute o = 1;\n    attribute p = 2;\n    attribute q = 3;\n    attribute r = 4;\n}")
+	res := s.Submit("private import Lib::*;")
+	if got := strings.Join(res.Notices, "\n"); !strings.Contains(got, "replaced package Other") {
+		t.Errorf("notices = %q", got)
+	}
+	own := res.OwnDiagnostics(VerbosityNormal)
+	if len(own) != 1 || !strings.Contains(own[0].Message, "expected an expression") {
+		t.Errorf("own diagnostics = %v, want the file's syntax error", own)
+	}
+	if got := strings.Join(renderResult(res, VerbosityNormal), "\n"); !strings.Contains(got, "lib.sysml:3:") {
+		t.Errorf("rendered = %q", got)
+	}
+}
+
+func TestChangingTheLibraryRootsRebuildsTheIndex(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "ws")
+	writeFile(t, filepath.Join(root, "main.sysml"), "package Main;\n")
+	writeFile(t, filepath.Join(dir, "installed", "gears", ".project.json"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	writeFile(t, filepath.Join(dir, "installed", "gears", "gears.sysml"), "package Gears { attribute teeth = 12; }\n")
+	s := NewSession()
+	s.SetLibraryRoots(nil)
+	if err := s.SetWorkspaceRoot(root); err != nil {
+		t.Fatal(err)
+	}
+	if got := unresolved(s.Submit("private import Gears::*;")); len(got) != 1 {
+		t.Fatalf("diagnostics before the roots = %v", got)
+	}
+	s.SetLibraryRoots([]string{filepath.Join(dir, "installed")})
+	if got := unresolved(s.Submit("private import Gears::*;")); len(got) != 0 {
+		t.Errorf("diagnostics after the roots = %v", got)
 	}
 }

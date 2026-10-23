@@ -246,8 +246,9 @@ note: loaded lib.sysml, which declares Lib
 imports are followed to its neighbours as a `%load`'s are, and when the notebook's directory
 holds a `.project.json`, the projects it uses are searched too. The file is then a loaded file
 like any other — `%list` shows it, its diagnostics name it and its line, redeclaring the package
-in a cell replaces it, `%clear` drops it — except that `%save` leaves it out, since it is already
-beside what is saved. Only a name a cell leaves unresolved is looked for, and only the one file
+in a cell replaces it, `%clear` drops it — except that `%save` leaves it out when the saved file will find it
+beside or below itself, and writes its declarations along when saving somewhere they would not be
+found. Only a name a cell leaves unresolved is looked for, and only the one file
 declaring it loads: when two files under the directory declare the same name neither does, the
 cell says which (`note: Lib is declared by more than one file under …; load the one meant with %load`),
 and `%load` of the one meant resolves it. See
