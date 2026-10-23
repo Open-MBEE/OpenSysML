@@ -70,6 +70,31 @@ top-level one is. `instantiate` names an instance case's type the same way.
   `{"object": "test::plant", "slots": {"runs": {"type": "Integer", "value": 1}}}`.
   Omit for an action performed by no object.
 
+### For Occurrences (`ExecuteOccurrence`)
+
+```json
+{
+  "type": "occurrence",
+  "evaluate": "Sequences::PubSubSequence",
+  "transfers": ["subscribe_message", "publish_message", "deliver_message"]
+}
+```
+
+An occurrence def whose body states an interaction — usages holding `event
+occurrence`s, ordered by `then`, and `message`s between those events — is
+performed as the transfers its messages are realized by (SysML v2.1 §7.16.1):
+the occurrence is materialized, and each message is posted, typed by its
+payload, from the lifeline object holding the event it leaves to the one holding
+the event it reaches, in a topological order over the stated orders (declaration
+order breaking ties), and the action the receiving event performs is performed on
+that object.
+
+- `transfers`: the messages realized, by name, in the order they were taken.
+- `error`: text the run must fail with instead — an end naming no event of a
+  lifeline, or orders forming a cycle.
+- The golden trace records each transfer as a `send` line at its source event and
+  an `accept` line at its target event.
+
 ### For States (`ExecuteState`)
 
 ```json

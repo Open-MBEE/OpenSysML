@@ -245,6 +245,9 @@ type ExpectedOutcome struct {
 	// exhibits or performs them, one entry per object whose performance the case
 	// states.
 	Objects []ObjectRun `json:"objects,omitempty"`
+	// Transfers are the messages an occurrence case realizes, by name, in the
+	// order the run performed them.
+	Transfers []string `json:"transfers,omitempty"`
 	// Materialization states what reading every feature value of the instance,
 	// and of the objects those hold, reports — the check `-instantiate` makes.
 	Materialization *ExpectedMaterialization `json:"materialization,omitempty"`
@@ -505,6 +508,11 @@ func runConformanceCaseWithOwned(t *testing.T, conformanceDir, caseName string, 
 		runVerificationConformance(t, ctx, idx, sysmlPath, expected)
 	case "instance":
 		runInstanceConformance(t, ctx, idx, sysmlPath, expected, forceOwned)
+	case "occurrence":
+		if forceOwned {
+			t.Skip("no object owns connectors before execution")
+		}
+		runOccurrenceConformance(t, ctx, idx, sysmlPath, expected)
 	default:
 		if forceOwned {
 			t.Skip("no object owns connectors before execution")
