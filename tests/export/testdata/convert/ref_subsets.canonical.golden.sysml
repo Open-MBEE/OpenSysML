@@ -7,6 +7,6 @@ package ReferenceSubsets {
         ref spare subsets vehicle_c1;
         ref 'spare wheel' subsets vehicle_c1;
         ref fleet[0..*] subsets vehicle_c1;
-        ref presidentOfCountry : Person[0..1] subsets vehicle_c1;
+        ref presidentOfCountry[0..1] : Person subsets vehicle_c1;
     }
 }

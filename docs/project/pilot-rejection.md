@@ -118,7 +118,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 331
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 342
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -166,7 +166,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-337 case(s): 326 both reject, 0 only the pilot rejects, 11 only we reject, 0 both accept
+343 case(s): 331 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
   of which 3 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -174,10 +174,10 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 12 | 12 | 0 | 0 | 0 |
 | grammar | 112 | 112 | 0 | 0 | 0 |
-| semantic | 178 | 167 | 0 | 11 | 0 |
+| semantic | 184 | 172 | 0 | 12 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
-Eight of the eleven ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
+Eight of the twelve ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
 the pinned pilot does not implement; `s81` is a non-Boolean guard on an action body's
 guarded succession, which the pinned pilot's `validateTransitionFeatureMembershipGuardExpression`
 leaves silent once the standard library types the guard (see the gap table below); and
@@ -185,7 +185,10 @@ leaves silent once the standard library types the guard (see the gap table below
 inheriting KerML end features from `Links::BinaryLink` and `Transfers::Transfer`, against SysML v2.1
 Beta 2 §8.3.13.3 `connectionEnd : Usage` and §8.3.16.2 `flowEnd : Usage` — a check the pilot's master
 branch adds (ST6RI-974) after the 2026-08 pin, which accepts both (it warns on the flow case's
-inherited `payload` name only). None is a
+inherited `payload` name only); and `variation-usage-objective-not-variant` is an objective owned by a
+variation case usage, which SysML v2.1 Beta 2 §8.3.6.4 `validateUsageVariationOwnedFeatureMembership`
+(`isVariation implies ownedFeatureMembership->isEmpty()`) rejects and the pinned `SysMLValidator.checkUsage`
+exempts by its own `TODO` (see [gap register §27](spec-pilot-gap-register.md#27-variation-parameters-and-stakeholder-specialization)). None is a
 permissiveness gap on our side; each is adjudicated as a pilot gap in the differential. The corpus grew from 79 cases to 119, to
 120 with `g60` (an `alias` named by a keyword), to 225 with the `semantic/` source (97 cases)
 and the 7 `grammar/` and 1 `extensions/` cases the SysML constraint census added beside it, to
@@ -247,7 +250,7 @@ only features that have none, so both validators reject each end under
 each a syntax error under the pinned grammar, as our parser now reports them) and `x12` (`then
 <target>;` in a view body, a succession member no non-action body admits) brought it to 328; `s108`
 (a usage subsetting a constant usage) to 329; and the two definition-end usage cases
-(`connection-def-end-not-usage`, `flow-def-end-not-usage`), both ours-only, to 331; the end-feature owner cases `k75`, `s110` and `s111` (a non-end feature redefining an inherited end from inside a KerML connector, a SysML connection definition and a connection usage — the owners KerML 1.1 §8.3.3.3.8 `validateRedefinitionEndConformance` names — `Redefining feature must be an end feature` at the redefinition on both sides) brought it to 334; the variant-kind case (`variant-kind-inconsistent-with-variation`, an action variant of a part variation definition and an action and an attribute variant of a part variation usage, which the variant's implied specialization of its variation types — SysML v2 §7.6.7, `checkUsageVariationDefinitionSpecialization`, `checkUsageVariationUsageSpecialization` — `An action must be typed by action definitions.` on both sides) brought it to 335.
+(`connection-def-end-not-usage`, `flow-def-end-not-usage`), both ours-only, to 331; the end-feature owner cases `k75`, `s110` and `s111` (a non-end feature redefining an inherited end from inside a KerML connector, a SysML connection definition and a connection usage — the owners KerML 1.1 §8.3.3.3.8 `validateRedefinitionEndConformance` names — `Redefining feature must be an end feature` at the redefinition on both sides) brought it to 334; the variant-kind case (`variant-kind-inconsistent-with-variation`, an action variant of a part variation definition and an action and an attribute variant of a part variation usage, which the variant's implied specialization of its variation types — SysML v2 §7.6.7, `checkUsageVariationDefinitionSpecialization`, `checkUsageVariationUsageSpecialization` — `An action must be typed by action definitions.` on both sides) brought it to 335; the subject-position cases `s112` and `s113` (a stakeholder declared before any subject in a concern definition, displacing the subject it inherits, and a stakeholder a framed concern declares ahead of the subject it inherits from its definition — SysML v2 §8.3.21.8 `validateRequirementDefinitionSubjectParameterPosition` and §8.3.21.9 `validateRequirementUsageSubjectParameterPosition`, both-reject) to 337; and the objective owned by a variation case usage (`variation-usage-objective-not-variant`, ours-only: SysML v2 §8.3.6.4 `validateUsageVariationOwnedFeatureMembership` rejects it and the pinned pilot exempts it by its own `TODO`) to 338; the constructor-argument case `s114` (`new A(x = 2)` and `new A(3)` under `attribute x : Integer = 1`, each argument a feature of the result redefining `x` with a value of its own — KerML 1.1 §8.3.4.10.2 `validateFeatureValueOverriding`, `Cannot override a binding feature value` at the argument values on both sides) brought it to 339; the standalone-subsetting case `k77` (`specialization subset fu :> A::a;` naming a feature of another struct — KerML 1.1 §8.3.3.3.10 `validateSubsettingFeaturingTypes`, `Must be an accessible feature (use dot notation for nesting)` at the subsetted name on both sides) brought it to 340; the direction-conformance cases `s115`, `s116` and `k76` (a usage-body `:>> durationS = 3.0` under `in durationS`, a step whose first parameter `out :>> output` redefines `in input` by position, and KerML `feature :>> x; feature :>> y;` under `in x; inout y;` — KerML 1.1 §8.3.3.3.8 `validateRedefinitionDirectionConformance`, `Redefining feature must have a compatible direction` on both sides) brought it to 343.
 The KerML constraints in that
 source reopened 14 gaps — all of them semantic rules the pilot enforces and we did not; the
 named-argument validation that landed alongside closed one of them (`k33`), the constructor
@@ -292,7 +295,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 337 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 343 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 
@@ -706,7 +709,7 @@ for the gaps, and names where in OpenSysML the rule would have to fire.
 | `validateUsageIsReferential` | none: adapter post-processing forces `isComposite = false` | no violating model | — | — | — |
 | `validateUsageType` | `semantic/s36-usage-typed-by-feature.sysml` | both-reject | A usage must be typed by definitions. | A usage must be typed by definitions. | — |
 | `validateUsageVariationIsAbstract` | none: adapter post-processing forces `isAbstract = true` | no violating model | — | — | — |
-| `validateUsageVariationMembership` | `semantic/s37-variation-usage-member-not-variant.sysml` | both-reject | An owned usage of a variation must be a variant. | An owned usage of a variation must be a variant. | — |
+| `validateUsageVariationMembership` | `semantic/s37-variation-usage-member-not-variant.sysml` (and `semantic/variation-usage-objective-not-variant.sysml`, an objective in a variation usage: ours-only, the pilot exempts it — see gap register §27) | both-reject | An owned usage of a variation must be a variant. | An owned usage of a variation must be a variant. | — |
 | `validateUseCaseUsageReference` | none: constant declared, no check reads it | not enforced by the pilot | — | — | — |
 | `validateUseCaseUsageType` | `semantic/s38-use-case-typed-by-case-def.sysml` | both-reject | A use case must be typed by one use case definition. | A use case must be typed by one use case definition. | — |
 | `validateVariationMembershipOwningNamespace` | existing: `xpect/p08-variant-outside-variation.sysml` | both-reject | A variant must be an owned member of a variation. | A variant must be an owned member of a variation. | — |

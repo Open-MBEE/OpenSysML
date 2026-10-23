@@ -174,6 +174,15 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 		}
 		traceObjectRuns(t, ctx, inst, expected)
 		traceOutput = trace.String()
+	case "occurrence":
+		// Realizing the occurrence's messages records each transfer as a send from
+		// the lifeline object it leaves and an accept on the one it reaches.
+		ctx.SetTrace(trace)
+		occurrenceSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefOccurrence, ast.UsageOccurrence)
+		if _, err := ctx.ExecuteOccurrence(occurrenceSym); err != nil {
+			t.Fatalf("execute occurrence: %v", err)
+		}
+		traceOutput = trace.String()
 	case "constraint":
 		ctx.SetTrace(trace)
 		constraintSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefConstraint, ast.UsageConstraint)

@@ -6639,7 +6639,7 @@ func (e *Evaluator) relationshipEndpoints(element Element, property string) ([]V
 			setEndpoint("owned")
 		}
 	case specializes("TypeFeaturing"):
-		if property == "source" || property == "featureOfType" {
+		if property == "source" || property == "featureOfType" || property == "owningFeatureOfType" {
 			setEndpoint("owning")
 		} else if property == "target" || property == "featuringType" {
 			setEndpoint("owned")
@@ -6736,12 +6736,6 @@ func (e *Evaluator) relationshipEndpoints(element Element, property string) ([]V
 		if property == "source" || property == "typeUnioned" {
 			setEndpoint("owning")
 		} else if property == "target" || property == "unioningType" {
-			setEndpoint("owned")
-		}
-	case specializes("TypeFeaturing"):
-		if property == "source" || property == "featureOfType" || property == "owningFeatureOfType" {
-			setEndpoint("owning")
-		} else if property == "target" || property == "featuringType" {
 			setEndpoint("owned")
 		}
 	case specializes("Connector"):

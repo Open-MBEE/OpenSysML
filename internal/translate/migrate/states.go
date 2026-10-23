@@ -2378,7 +2378,7 @@ func (m *migration) referencedBehavior(kw, head string, b, owner *sysmlv1.Elemen
 		return false
 	}
 	if cat, _ := m.classify(b); cat != catActionDef {
-		m.aside(kw + " " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which no state runs")
+		m.aside(kw + " " + qualifiedName(b) + " is written as " + article(cat.keyword()) + cat.keyword() + ", which no state runs")
 		m.downgrade(b, describe(owner)+" names it as its "+kw+", which a "+cat.keyword()+" cannot be")
 		m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+"it is written as a "+cat.keyword())
 		return false

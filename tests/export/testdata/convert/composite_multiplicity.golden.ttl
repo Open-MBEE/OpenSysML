@@ -132,7 +132,7 @@ elmt:CompositeMultiplicity__Vehicle__w
     sysx:declaredKeyword "feature" ;
     sysml:type elmt:CompositeMultiplicity__Wheel ;
     sysml:multiplicity expr:CompositeMultiplicity__Vehicle__w_pmultiplicity ;
-    sysml:ownedRelationship expr:CompositeMultiplicity__Vehicle__w_pmultiplicity_om, elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om, elmt:CompositeMultiplicity__Vehicle__w_ft0 ;
+    sysml:ownedRelationship elmt:CompositeMultiplicity__Vehicle__w_ft0, expr:CompositeMultiplicity__Vehicle__w_pmultiplicity_om, elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om ;
     sysml:ownedMembership expr:CompositeMultiplicity__Vehicle__w_pmultiplicity_om, elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om ;
     sysml:upperBound expr:CompositeMultiplicity__Vehicle__w_pupperBound ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -143,7 +143,7 @@ elmt:CompositeMultiplicity__Vehicle__w
     sysml:ownedSpecialization elmt:CompositeMultiplicity__Vehicle__w_ft0 ;
     sysx:sourceText "        composite feature w : Wheel[4] {\n" ;
     sysx:sourceTail "        }\n" ;
-    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Vehicle__w_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w_ft0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Vehicle__w_ft0\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"CompositeMultiplicity__Vehicle__w_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_om\"}]" .
 
 elmt:CompositeMultiplicity__Vehicle__w_om
@@ -217,7 +217,7 @@ elmt:CompositeMultiplicity__Vehicle__w__lugbolt
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:type elmt:CompositeMultiplicity__Lugbolt ;
     sysml:multiplicity expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity ;
-    sysml:ownedRelationship expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om, elmt:CompositeMultiplicity__Vehicle__w__lugbolt_ft0 ;
+    sysml:ownedRelationship elmt:CompositeMultiplicity__Vehicle__w__lugbolt_ft0, expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om ;
     sysml:ownedMembership expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om ;
     sysml:lowerBound expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound ;
     sysml:upperBound expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound ;
@@ -225,7 +225,7 @@ elmt:CompositeMultiplicity__Vehicle__w__lugbolt
     sysml:ownedTyping elmt:CompositeMultiplicity__Vehicle__w__lugbolt_ft0 ;
     sysml:ownedSpecialization elmt:CompositeMultiplicity__Vehicle__w__lugbolt_ft0 ;
     sysx:sourceText "            composite lugbolt : Lugbolt[4..6];\n" ;
-    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_ft0\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om\"}]" .
 
 elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om
     a sysml:FeatureMembership ;
@@ -321,7 +321,7 @@ elmt:CompositeMultiplicity__Car
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:CompositeMultiplicity__Car__frontWheel, elmt:CompositeMultiplicity__Car__rearWheel ;
     sysml:ownedMembership elmt:CompositeMultiplicity__Car__frontWheel_om, elmt:CompositeMultiplicity__Car__rearWheel_om ;
-    sysml:ownedRelationship elmt:CompositeMultiplicity__Car__frontWheel_om, elmt:CompositeMultiplicity__Car__rearWheel_om, elmt:CompositeMultiplicity__Car_sp0 ;
+    sysml:ownedRelationship elmt:CompositeMultiplicity__Car_sp0, elmt:CompositeMultiplicity__Car__frontWheel_om, elmt:CompositeMultiplicity__Car__rearWheel_om ;
     sysml:ownedFeature elmt:CompositeMultiplicity__Car__frontWheel, elmt:CompositeMultiplicity__Car__rearWheel ;
     sysml:ownedFeatureMembership elmt:CompositeMultiplicity__Car__frontWheel_om, elmt:CompositeMultiplicity__Car__rearWheel_om ;
     sysml:ownedSpecialization elmt:CompositeMultiplicity__Car_sp0 ;
@@ -329,7 +329,7 @@ elmt:CompositeMultiplicity__Car
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel\"}]" ;
     json:ownedMembership "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_om\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_om\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel_om\"},{\"@id\":\"CompositeMultiplicity__Car_sp0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Car_sp0\"},{\"@id\":\"CompositeMultiplicity__Car__frontWheel_om\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_om\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel_om\"}]" .
 
@@ -361,7 +361,7 @@ elmt:CompositeMultiplicity__Car__frontWheel
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:redefines elmt:CompositeMultiplicity__Vehicle__w ;
     sysml:multiplicity expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity ;
-    sysml:ownedRelationship expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity_om, elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om, elmt:CompositeMultiplicity__Car__frontWheel_rd0 ;
+    sysml:ownedRelationship expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity_om, elmt:CompositeMultiplicity__Car__frontWheel_rd0, elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om ;
     sysml:ownedMembership expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity_om, elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om ;
     sysml:upperBound expr:CompositeMultiplicity__Car__frontWheel_pupperBound ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -373,7 +373,7 @@ elmt:CompositeMultiplicity__Car__frontWheel
     sysml:ownedSpecialization elmt:CompositeMultiplicity__Car__frontWheel_rd0 ;
     sysx:sourceText "        composite frontWheel[2] redefines w {\n" ;
     sysx:sourceTail "        }\n" ;
-    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Car__frontWheel__lugbolt_om\"},{\"@id\":\"CompositeMultiplicity__Car__frontWheel_rd0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Car__frontWheel_rd0\"},{\"@id\":\"CompositeMultiplicity__Car__frontWheel__lugbolt_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Car__frontWheel__lugbolt_om\"}]" .
 
 elmt:CompositeMultiplicity__Car__frontWheel_om

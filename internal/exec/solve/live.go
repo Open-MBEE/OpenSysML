@@ -35,7 +35,7 @@ func (q *Query) ChooseLive(chosen map[*Var]string) error {
 			Term: v.Live,
 			From: Provenance{
 				Kind:      "feature",
-				Element:   v.Name,
+				Element:   source.QualifiedNameText(v.Name),
 				Condition: shortName(v) + " is a variation point only when " + liveText(v.Live) + ", " + PinChosen.phrase(),
 				Role:      RolePinned,
 				Declared:  v.Symbol,

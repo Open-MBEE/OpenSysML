@@ -623,7 +623,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	case KindMatrix:
 		r.renderMatrix(exposed, r.matrixShownKinds(view), false, out)
 	case KindSequence:
-		r.renderSequence(exposed, out)
+		r.renderSequence(view, exposed, out)
 	case KindRequirement, KindDefinition, KindPackage:
 		r.renderGeneral(view, exposed, out)
 	default:
@@ -672,7 +672,7 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 	case KindMatrix:
 		r.renderMatrix(exposed, allMatrixKinds(), true, out)
 	case KindSequence:
-		r.renderSequence(exposed, out)
+		r.renderSequence(nil, exposed, out)
 	case KindRequirement, KindDefinition, KindPackage:
 		r.renderGeneral(nil, exposed, out)
 	default:

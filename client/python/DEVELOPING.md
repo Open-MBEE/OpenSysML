@@ -32,12 +32,14 @@ Lifecycle tests inspect child processes through the development-only
 
 ## Generated files
 
-Regenerate the committed generated-class golden file with a running
+Regenerate the committed generated-class golden files with a running
 `sysml-grpc` service:
 
 ```bash
 python -m opensysml.generate internal/frontend/repl/testdata/vehicle_package.sysml \
     -o client/python/tests/golden/vehicle_types.py
+python -m opensysml.generate client/python/tests/fixtures/multifile \
+    -o client/python/tests/golden/fleet_types.py
 ```
 
 Regenerate protobuf bindings from the repository root:

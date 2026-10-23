@@ -49,7 +49,8 @@ func vizStyles() []string {
 		out = append(out, string(ports))
 	}
 	out = append(out, vizPilotDefaultStyle, vizPlantUMLCodeStyle)
-	out = append(out, vizLinesStyleNames()...)
+	out = append(out, sortedStyleNames(vizLinesStyles)...)
+	out = append(out, sortedStyleNames(vizCompartmentsStyles)...)
 	for _, style := range view.PilotStyles() {
 		out = append(out, string(style))
 	}
@@ -63,10 +64,17 @@ var vizLinesStyles = map[string]view.Lines{
 	"POLYLINE":  view.LinesPolyline,
 }
 
-// vizLinesStyleNames lists the pilot's line styles in alphabetical order.
-func vizLinesStyleNames() []string {
-	names := make([]string, 0, len(vizLinesStyles))
-	for name := range vizLinesStyles {
+// vizCompartmentsStyles are the pilot's compartment styles, each the folding of
+// owned members into compartment rows every form draws it as.
+var vizCompartmentsStyles = map[string]view.Compartments{
+	"COMPMOST": view.CompartmentsMost,
+	"COMPTREE": view.CompartmentsPorts,
+}
+
+// sortedStyleNames lists a style map's pilot spellings in alphabetical order.
+func sortedStyleNames[T ~string](styles map[string]T) []string {
+	names := make([]string, 0, len(styles))
+	for name := range styles {
 		names = append(names, name)
 	}
 	slices.Sort(names)
@@ -212,6 +220,13 @@ func (req *vizRequest) applyStyle(name string) []string {
 			return vizUsageOf(fmt.Sprintf("style %s asks for %s lines, but %s lines were asked for", strings.ToUpper(name), lines, req.opts.Lines))
 		}
 		req.opts.Lines = lines
+		return nil
+	}
+	if compartments, ok := vizCompartmentsStyles[strings.ToUpper(name)]; ok {
+		// COMPMOST folds every port COMPTREE folds and more, so both together are COMPMOST.
+		if req.opts.Compartments == "" || compartments == view.CompartmentsMost {
+			req.opts.Compartments = compartments
+		}
 		return nil
 	}
 	if style, ok := view.ParsePilotStyle(name); ok {

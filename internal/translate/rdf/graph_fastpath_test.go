@@ -299,3 +299,99 @@ func TestReconcileRewritesOnlyWhatIsOutOfOrder(t *testing.T) {
 		t.Errorf("reconciling changed its input")
 	}
 }
+
+// ReorderObjects restates a property's objects in the order given, each
+// triple keeping its place, and leaves the graph as it was for any list that
+// is not a permutation of them.
+func TestReorderObjectsPermutesInPlace(t *testing.T) {
+	p := IRI(Element + "P")
+	owned := SysMLTerm("ownedRelationship")
+	a, b, c := IRI(Element+"P_a"), IRI(Element+"P_b"), IRI(Element+"P_c")
+	g := NewGraph()
+	g.Add(p, owned, a)
+	g.Add(p, SysMLTerm("declaredName"), String("P"))
+	g.Add(p, owned, b)
+	g.Add(p, owned, c)
+	g.ReorderObjects(p, SysML+"ownedRelationship", []Term{c, a, b})
+	if got := g.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{c, a, b}) {
+		t.Fatalf("Objects after ReorderObjects = %v", got)
+	}
+	if got := g.Triples()[1].Object; got != String("P") {
+		t.Errorf("the other triple moved: %v", got)
+	}
+	if !g.Has(Triple{Subject: p, Predicate: owned, Object: a}) || g.Len() != 4 {
+		t.Errorf("the graph lost or gained a triple: %d", g.Len())
+	}
+	for _, bad := range [][]Term{{a, b}, {a, b, b}, {a, b, IRI(Element + "P_d")}} {
+		g.ReorderObjects(p, SysML+"ownedRelationship", bad)
+		if got := g.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{c, a, b}) {
+			t.Errorf("ReorderObjects(%v) changed the graph: %v", bad, got)
+		}
+	}
+}
+
+// A reorder withdraws the settled claim, sees a statement added after an
+// earlier reorder, and follows the triples through a rewrite.
+func TestReorderObjectsTracksLaterStatements(t *testing.T) {
+	p, q := IRI(Element+"P"), IRI(Element+"Q")
+	owned := SysMLTerm("ownedRelationship")
+	a, b, c := IRI(Element+"P_a"), IRI(Element+"P_b"), IRI(Element+"P_c")
+	g := NewGraph()
+	g.Add(p, owned, a)
+	g.Add(q, owned, c)
+	g.Add(p, owned, b)
+	g.MarkCollectionsSettled()
+	g.ReorderObjects(p, SysML+"ownedRelationship", []Term{b, a})
+	if g.CollectionsSettled() {
+		t.Error("the graph still vouches for its collections after a reorder")
+	}
+	g.Add(p, owned, c)
+	g.ReorderObjects(p, SysML+"ownedRelationship", []Term{c, b, a})
+	if got := g.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{c, b, a}) {
+		t.Fatalf("Objects after adding and reordering = %v", got)
+	}
+	want := []Triple{{p, owned, c}, {q, owned, c}, {p, owned, b}, {p, owned, a}}
+	if got := g.Triples(); !slices.Equal(got, want) {
+		t.Errorf("triples = %v, want %v", got, want)
+	}
+	g.RewriteTriples(func(tr *Triple) bool { return tr.Subject != q })
+	g.ReorderObjects(p, SysML+"ownedRelationship", []Term{a, c, b})
+	want = []Triple{{p, owned, a}, {p, owned, c}, {p, owned, b}}
+	if got := g.Triples(); !slices.Equal(got, want) {
+		t.Errorf("triples after rewrite and reorder = %v, want %v", got, want)
+	}
+	if got := g.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{a, c, b}) {
+		t.Errorf("Objects after rewrite and reorder = %v", got)
+	}
+}
+
+// Reordering a subject whose index an overlay graph shares with its base
+// detaches that entry: the base keeps its order and its index.
+func TestReorderObjectsLeavesASharedBaseAlone(t *testing.T) {
+	p, q := IRI(Element+"P"), IRI(Element+"Q")
+	owned := SysMLTerm("ownedRelationship")
+	a, b := IRI(Element+"P_a"), IRI(Element+"P_b")
+	base := NewGraph()
+	base.Add(p, owned, a)
+	base.Add(p, owned, b)
+	base.Add(q, owned, a)
+	added := []Triple{{q, SysMLTerm("declaredName"), String("Q")}}
+	triples := append(slices.Clone(base.Triples()), added...)
+	graph := NewGraphOfWithIndexOverlay(triples, base.Prefixes, base, added)
+	graph.ReorderObjects(p, SysML+"ownedRelationship", []Term{b, a})
+	if got := graph.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{b, a}) {
+		t.Fatalf("overlay Objects = %v", got)
+	}
+	if got := graph.Triples()[:2]; !slices.Equal(got, []Triple{{p, owned, b}, {p, owned, a}}) {
+		t.Errorf("overlay triples = %v", got)
+	}
+	if got := base.Objects(p, SysML+"ownedRelationship"); !slices.Equal(got, []Term{a, b}) {
+		t.Errorf("base Objects changed: %v", got)
+	}
+	if got := base.Triples()[:2]; !slices.Equal(got, []Triple{{p, owned, a}, {p, owned, b}}) {
+		t.Errorf("base triples changed: %v", got)
+	}
+	if graph.index[p] == base.index[p] {
+		t.Error("the overlay still shares the reordered subject's index with its base")
+	}
+}

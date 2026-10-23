@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// A connection usage whose ends are declared in its body (`end :> causes ::> a;`)
-// is a connector object like one with a `connect` clause: an end attaching to
-// nothing is a typed error and makes no object, and a cycle through the ends is refused.
+// A connection usage whose ends are declared in its body (`end :> causes ::> a;`) is a connector
+// object: an end attaching to nothing is a typed error and makes no object; an end cycle is refused.
 func TestRuntimeRobustnessBodyEndConnectors(t *testing.T) {
 	t.Run("body_end_names_no_feature", func(t *testing.T) {
 		inst, ctx := instantiatePart(t, "Sys", `

@@ -4,6 +4,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // reference translates a name or a feature chain: an enumeration literal or a
@@ -195,6 +196,7 @@ func (t *translator) datatype(origin *symbols.Symbol, values []*symbols.Symbol, 
 		sort.Values = append(sort.Values, t.fqn(value))
 	}
 	t.sorts[name] = sort
+	t.origins[name] = origin
 	return sort
 }
 
@@ -355,7 +357,7 @@ func (t *translator) declare(name string, sort Sort, sym *symbols.Symbol, dimens
 			Term: Binary(OpGe, Bool, VarTerm(v), IntTerm(0)),
 			From: Provenance{
 				Kind:      "declaration",
-				Element:   name,
+				Element:   source.QualifiedNameText(name),
 				Condition: "a Natural is not negative",
 				Role:      RoleDomain,
 				Declared:  sym,

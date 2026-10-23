@@ -1976,7 +1976,7 @@ Specification: SysML v2 validateVariationMembershipOwningNamespace
 
 **error** · Constraints · a variation owning a usage that is no variant
 
-Every owned usage of a variation definition or usage is a variant (an enumeration definition's every member an enumerated value). Write `variant` before the usage, or declare it in a definition the variation specializes.
+Every owned usage of a variation definition or usage is a variant, an objective or an explicit parameter included (an enumeration definition's every member an enumerated value). Write `variant` before the usage, or declare it in a definition the variation specializes.
 
 Specification: SysML v2 validateDefinitionVariationMembership and validateUsageVariationMembership
 

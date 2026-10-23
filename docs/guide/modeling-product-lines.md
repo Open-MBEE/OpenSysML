@@ -366,10 +366,10 @@ transmission is refused:
 sysml> %configure 'Variation Usages'::vehicleFamily engine='4cylEngine' transmission=automaticTransmission
 ✗ the chosen variants are not consistent with Abstract part vehicleFamily (z3, 14ms)
   Already fixed:
-    'Variation Usages'::vehicleFamily::engine = Variation Definitions::EngineChoices::4cylEngine  (chosen)
-    'Variation Usages'::vehicleFamily::transmission = Variation Usages::vehicleFamily::transmission::automaticTransmission  (chosen)
-  In the conflict: 'Variation Usages'::vehicleFamily::engine = Variation Definitions::EngineChoices::4cylEngine, 'Variation Usages'::vehicleFamily::transmission = Variation Usages::vehicleFamily::transmission::automaticTransmission
-  Against: required condition { engine == engine::4cylEngine and transmission == transmission::manualTransmission xor engine == engine::6cylEngine and transmission == transmission::automaticTransmission } of vehicleFamily at examples/sysml-v2-training/36. Variability/Variation Usages.sysml:18:4
+    'Variation Usages'::vehicleFamily::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'  (chosen)
+    'Variation Usages'::vehicleFamily::transmission = 'Variation Usages'::vehicleFamily::transmission::automaticTransmission  (chosen)
+  In the conflict: 'Variation Usages'::vehicleFamily::engine = 'Variation Definitions'::EngineChoices::'4cylEngine', 'Variation Usages'::vehicleFamily::transmission = 'Variation Usages'::vehicleFamily::transmission::automaticTransmission
+  Against: required condition { engine == engine::'4cylEngine' and transmission == transmission::manualTransmission xor engine == engine::'6cylEngine' and transmission == transmission::automaticTransmission } of vehicleFamily at examples/sysml-v2-training/36. Variability/Variation Usages.sysml:18:4
   standing: unsatisfiable (proved over inputs: 1 query by solve)
 ```
 
@@ -399,8 +399,8 @@ selection is consistent with them. For `vehicle4Cyl` there is one; for
 sysml> %configure 'Variation Configuration'::vehicle4Cyl
 ✓ Part vehicle4Cyl permits a selection of variants (z3, 14ms)
   Already fixed:
-    'Variation Configuration'::vehicle4Cyl::engine = Variation Definitions::EngineChoices::4cylEngine  (declared)
-    'Variation Configuration'::vehicle4Cyl::transmission = Variation Usages::vehicleFamily::transmission::manualTransmission  (declared)
+    'Variation Configuration'::vehicle4Cyl::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'  (declared)
+    'Variation Configuration'::vehicle4Cyl::transmission = 'Variation Usages'::vehicleFamily::transmission::manualTransmission  (declared)
   'Variation Configuration'::vehicle4Cyl::engine = 'Variation Definitions'::EngineChoices::'4cylEngine'
   'Variation Configuration'::vehicle4Cyl::transmission = 'Variation Usages'::vehicleFamily::transmission::manualTransmission
   One witness: use %configure 'Variation Configuration'::vehicle4Cyl all for every consistent selection.
@@ -427,7 +427,7 @@ requirement together, and owns a `rearAxleAssembly` whose own
 
 ```text
 sysml> %configure '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig all
-✓ Part anyVehicleConfig permits 2 selections of variants, which are all of them (z3, 20ms)
+✓ Part anyVehicleConfig permits 2 selections of variants, which are all of them (z3, 15ms)
   1.
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineChoice::'6cylEngine'
     '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice = '7b-Variant Configurations'::VariabilityModel::anyVehicleConfig::engineRqtChoice::highPerformanceRequirement
@@ -462,7 +462,7 @@ selections, the four-cylinder one listing no port or bore, and asking for
 
 ```text
 sysml> %configure VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily all
-✓ Abstract part vehicleFamily permits 3 selections of variants, which are all of them (z3, 17ms)
+✓ Abstract part vehicleFamily permits 3 selections of variants, which are all of them (z3, 16ms)
   1.
     VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::engine = VehicleVariabilityModel::'150% Model'::PartsTree::EngineChoices::'4cylEngine'
     VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::transmission = VehicleVariabilityModel::'150% Model'::PartsTree::vehicleFamily::transmission::manualTransmission
@@ -529,7 +529,7 @@ variation part def EngineChoices
       attribute diameter
   part cylinder
     attribute diameter
-abstract part vehicleFamily
+part vehicleFamily
   part engine
     part cylinder
       attribute diameter
@@ -545,9 +545,7 @@ relationships:
 The text form writes the keywords; the diagram forms (`mermaid`, `dot`,
 `plantuml`, `d2`) write them as stereotype rows, `«variation part def»` and
 `«variant»`, on the box, and the [editor diagram panel](08-editors.md) renders
-the same views. `vehicleFamily` is drawn `abstract part` because it was declared
-so (SysML v2.1 §7.6.3, Table 4); a variation is never drawn `abstract`, its
-`variation` keyword already says it (§7.6.7). A tree is not written as `svg` directly — that form is for
+the same views. A tree is not written as `svg` directly — that form is for
 run renderings — so a slide takes the Mermaid or DOT source through its own
 converter. `cylinder` appears under `EngineChoices` and under
 each variant because every engine has cylinders and each variant redefines
@@ -559,7 +557,7 @@ is the parts alone:
 sysml> %render 'Variation Views'::familyInterconnection
 'Variation Views'::familyInterconnection - interconnection rendering (render asInterconnectionDiagram)
 
-abstract part vehicleFamily
+part vehicleFamily
   part engine
     part cylinder
       attribute diameter

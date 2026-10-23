@@ -1,0 +1,6 @@
+{
+  "type": "occurrence",
+  "evaluate": "Sequences::PubSubSequence",
+  "transfers": ["subscribe_message", "publish_message", "deliver_message"],
+  "trace": true
+}

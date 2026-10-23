@@ -61,6 +61,12 @@ const RenderPortsCapability = "openSysmlRenderPorts"
 // the first the default; a server without it routes every edge as splines.
 const RenderLinesCapability = "openSysmlRenderLines"
 
+// RenderCompartmentsCapability is the experimental capability whose value lists
+// the foldings a render request's `compartments` folds a tree's owned members
+// into compartment rows with, the first the default; a server without it folds
+// only the layout-less members of a positioned tree.
+const RenderCompartmentsCapability = "openSysmlRenderCompartments"
+
 // RenderElementsCapability is the experimental capability whose value lists the
 // optional notation elements a render request's `show` names, in the order the
 // writer defines them, then "all", every one of them.
@@ -93,6 +99,15 @@ func renderOverlayNames() []string {
 	names := make([]string, 0, len(view.Overlays()))
 	for _, overlay := range view.Overlays() {
 		names = append(names, string(overlay))
+	}
+	return names
+}
+
+// renderCompartmentsNames lists the compartment foldings in the order the writer defines them.
+func renderCompartmentsNames() []string {
+	names := make([]string, 0, len(view.CompartmentsChoices()))
+	for _, compartments := range view.CompartmentsChoices() {
+		names = append(names, string(compartments))
 	}
 	return names
 }
@@ -152,6 +167,7 @@ type RenderParams struct {
 	Style        string                          `json:"style,omitempty"`
 	Ports        string                          `json:"ports,omitempty"`
 	Lines        string                          `json:"lines,omitempty"`
+	Compartments string                          `json:"compartments,omitempty"`
 	Show         []string                        `json:"show,omitempty"`
 	Depth        int                             `json:"depth,omitempty"`
 	// Include names elements drawn besides what the view exposes, each by
@@ -202,6 +218,7 @@ type RenderNode struct {
 	Type            string          `json:"type"`
 	Detail          string          `json:"detail"`
 	Parent          string          `json:"parent,omitempty"`
+	Compartment     string          `json:"compartment,omitempty"`
 	Fill            string          `json:"fill,omitempty"`
 	Border          string          `json:"border,omitempty"`
 	Style           *RenderStyle    `json:"style,omitempty"`
@@ -455,6 +472,10 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	compartments, err := renderCompartments(params.Compartments)
+	if err != nil {
+		return nil, err
+	}
 	shown, err := renderShown(params.Show)
 	if err != nil {
 		return nil, err
@@ -463,7 +484,7 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 		return nil, &view.DepthError{Value: fmt.Sprint(params.Depth)}
 	}
 	artifact, err := rendering.WriteWith(form, view.Options{
-		Palette: colors, Style: style, Ports: ports, Lines: lines, Show: shown,
+		Palette: colors, Style: style, Ports: ports, Lines: lines, Compartments: compartments, Show: shown,
 		Links: view.Links{Template: params.LinkTemplate, Sites: snapshot.Sites()},
 	})
 	if err != nil {
@@ -473,7 +494,7 @@ func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	data := rendering.DataWith(view.Options{Ports: ports, Show: shown})
+	data := rendering.DataWith(view.Options{Ports: ports, Compartments: compartments, Show: shown})
 	out := &RenderResult{
 		View:     data.View,
 		Kind:     string(data.Kind),
@@ -545,6 +566,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			Type:            node.Type,
 			Detail:          node.Detail,
 			Parent:          node.Parent,
+			Compartment:     node.Compartment,
 			Fill:            fills[node.ID].Fill,
 			Border:          fills[node.ID].Border,
 			Style:           wireStyle(node.Style),
@@ -673,6 +695,16 @@ func renderPorts(asked string) (view.Ports, error) {
 		return "", &view.UnknownPortsError{Name: asked}
 	}
 	return ports, nil
+}
+
+// renderCompartments is the compartment folding a request names, the default
+// when it names none, and an error listing the foldings when it names something else.
+func renderCompartments(asked string) (view.Compartments, error) {
+	compartments, ok := view.ParseCompartments(asked)
+	if !ok {
+		return "", &view.UnknownCompartmentsError{Name: asked}
+	}
+	return compartments, nil
 }
 
 // renderLines is the edge routing a request names, the default when it names

@@ -369,8 +369,8 @@ func (t *translator) fix(pins []Pin) error {
 			Term: Binary(OpEq, Bool, VarTerm(v), term),
 			From: Provenance{
 				Kind:      "feature",
-				Element:   v.Name,
-				Condition: v.Name + " == " + text + ", " + p.Source.phrase(),
+				Element:   source.QualifiedNameText(v.Name),
+				Condition: source.QualifiedNameText(v.Name) + " == " + ValueText(v, text) + ", " + p.Source.phrase(),
 				Role:      RolePinned,
 				Declared:  p.Feature,
 				File:      v.File,
@@ -617,6 +617,15 @@ func (t *translator) pinRefusal(p Pin, v *Var, text, reason string) error {
 		err.File, err.Span, err.Location = v.File, v.Span, v.Location
 	}
 	return err
+}
+
+// ValueText writes a value stated for v as the notation does: a datatype's value is
+// a qualified name, quoted where it needs quoting; any other is already written so.
+func ValueText(v *Var, value string) string {
+	if v != nil && v.Sort.Kind == SortDatatype {
+		return source.QualifiedNameText(value)
+	}
+	return value
 }
 
 // pinText renders a fixed value as the notation writes it.
