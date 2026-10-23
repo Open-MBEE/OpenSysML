@@ -127,13 +127,22 @@ func (s *httpServer) stop(t *testing.T) int {
 	return s.cmd.ProcessState.ExitCode()
 }
 
-// connectHTTP opens a client session over the Streamable HTTP transport.
-func connectHTTP(ctx context.Context, t *testing.T, url string, client *http.Client) *sdk.ClientSession {
+// protocolBudget bounds one exchange with a server that is built and serving:
+// the minutes an instrumented build takes on a loaded CI node are not its to spend.
+func protocolBudget(t *testing.T) context.Context {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	t.Cleanup(cancel)
+	return ctx
+}
+
+// connectHTTP opens a client session with s over the Streamable HTTP transport.
+func connectHTTP(ctx context.Context, t *testing.T, s *httpServer, client *http.Client) *sdk.ClientSession {
 	t.Helper()
 	c := sdk.NewClient(&sdk.Implementation{Name: "test", Version: "0"}, nil)
-	cs, err := c.Connect(ctx, &sdk.StreamableClientTransport{Endpoint: url, HTTPClient: client}, nil)
+	cs, err := c.Connect(ctx, &sdk.StreamableClientTransport{Endpoint: s.url, HTTPClient: client}, nil)
 	if err != nil {
-		t.Fatalf("Connect %s: %v", url, err)
+		t.Fatalf("Connect %s: %v\nthe server logged:\n%s", s.url, err, s.stderr)
 	}
 	t.Cleanup(func() { _ = cs.Close() })
 	return cs
@@ -163,14 +172,13 @@ func callHTTP(ctx context.Context, t *testing.T, cs *sdk.ClientSession, name str
 }
 
 func TestTheBinaryServesTheProtocolOverHTTP(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
 	s := startHTTPServer(t, "http")
+	ctx := protocolBudget(t)
 	if log := s.stderr.String(); !strings.Contains(log, "path=/mcp") || !strings.Contains(log, "security=cleartext") || strings.Contains(log, "no authentication") {
 		t.Errorf("a loopback cleartext server should log its path and security and no warning:\n%s", log)
 	}
 
-	cs := connectHTTP(ctx, t, s.url, nil)
+	cs := connectHTTP(ctx, t, s, nil)
 	if info := cs.InitializeResult().ServerInfo; info.Name != "sysml-mcp" {
 		t.Errorf("server info = %+v", info)
 	}
@@ -216,7 +224,7 @@ func TestTheBinaryServesTheProtocolOverHTTP(t *testing.T) {
 
 	// A second client, connected at the same time, sees the session the first
 	// opened under the name it gave it: the manager is one per process.
-	other := connectHTTP(ctx, t, s.url, nil)
+	other := connectHTTP(ctx, t, s, nil)
 	var list struct {
 		Sessions []string `json:"sessions"`
 	}
@@ -284,14 +292,13 @@ func (o originTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func TestTheHTTPTransportRefusesUnknownOrigins(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
 	s := startHTTPServer(t, "http", "-allow-origin", "https://agents.example.org")
+	ctx := protocolBudget(t)
 
 	// A loopback origin and the allowed one are served; any other is refused
 	// before the protocol is reached.
 	for _, origin := range []string{"http://localhost:3000", "http://127.0.0.1", "https://agents.example.org", "https://AGENTS.example.org"} {
-		cs := connectHTTP(ctx, t, s.url, &http.Client{Transport: originTransport{origin}})
+		cs := connectHTTP(ctx, t, s, &http.Client{Transport: originTransport{origin}})
 		if _, err := cs.ListTools(ctx, nil); err != nil {
 			t.Errorf("origin %s: ListTools: %v", origin, err)
 		}
@@ -368,16 +375,15 @@ func writeTestCertificate(t *testing.T, dir string) (certFile, keyFile string, r
 }
 
 func TestTheHTTPTransportServesTLS(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
 	certFile, keyFile, roots := writeTestCertificate(t, t.TempDir())
 	s := startHTTPServer(t, "https", "-tls-cert", certFile, "-tls-key", keyFile)
+	ctx := protocolBudget(t)
 	if log := s.stderr.String(); !strings.Contains(log, "security=TLS") {
 		t.Errorf("the server did not log that it serves TLS:\n%s", log)
 	}
 
 	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}}
-	cs := connectHTTP(ctx, t, s.url, client)
+	cs := connectHTTP(ctx, t, s, client)
 	if info := cs.InitializeResult().ServerInfo; info.Name != "sysml-mcp" {
 		t.Errorf("server info = %+v", info)
 	}
@@ -422,13 +428,12 @@ func TestTheHTTPTransportRefusesOffLoopbackWithoutAToken(t *testing.T) {
 // TestTheHTTPTransportRequiresTheToken checks every interface is served with a
 // file's token to clients that send it, with the RFC 6750 challenge and metadata.
 func TestTheHTTPTransportRequiresTheToken(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
 	tokenFile := filepath.Join(t.TempDir(), "mcp.token")
 	if err := os.WriteFile(tokenFile, []byte("s3cret-token\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	s := startHTTPServer(t, "http", "-http", "0.0.0.0:0", "-token-file", tokenFile)
+	ctx := protocolBudget(t)
 	if log := s.stderr.String(); !strings.Contains(log, "auth=bearer") || strings.Contains(log, "s3cret") {
 		t.Errorf("log:\n%s", log)
 	}
@@ -439,7 +444,7 @@ func TestTheHTTPTransportRequiresTheToken(t *testing.T) {
 	}
 	s.url = "http://" + net.JoinHostPort("127.0.0.1", port) + mcp.HTTPPath
 
-	cs := connectHTTP(ctx, t, s.url, &http.Client{Transport: headerTransport{"Authorization", "Bearer s3cret-token"}})
+	cs := connectHTTP(ctx, t, s, &http.Client{Transport: headerTransport{"Authorization", "Bearer s3cret-token"}})
 	var server struct {
 		Version string `json:"version"`
 	}
@@ -500,16 +505,15 @@ func TestTheHTTPTransportRequiresTheToken(t *testing.T) {
 // TestTheHTTPTransportReadsTheTokenFromTheEnvironment checks the environment
 // variable stands in for the flags, on loopback too.
 func TestTheHTTPTransportReadsTheTokenFromTheEnvironment(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
 	t.Setenv(mcp.TokenEnv, "from-env")
 	s := startHTTPServer(t, "http")
+	ctx := protocolBudget(t)
 	c := sdk.NewClient(&sdk.Implementation{Name: "test", Version: "0"}, nil)
 	if cs, err := c.Connect(ctx, &sdk.StreamableClientTransport{Endpoint: s.url}, nil); err == nil {
 		_ = cs.Close()
 		t.Error("a client with no token was served on loopback with the variable set")
 	}
-	cs := connectHTTP(ctx, t, s.url, &http.Client{Transport: headerTransport{"Authorization", "Bearer from-env"}})
+	cs := connectHTTP(ctx, t, s, &http.Client{Transport: headerTransport{"Authorization", "Bearer from-env"}})
 	if _, err := cs.ListTools(ctx, nil); err != nil {
 		t.Errorf("ListTools with the token: %v", err)
 	}
