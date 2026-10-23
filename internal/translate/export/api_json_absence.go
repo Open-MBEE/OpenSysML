@@ -77,21 +77,31 @@ func appendAPIJSONOwnedAbsencesWithScratch(
 		property := planned.property
 		if apiJSONHasMember(element, property.Name) ||
 			apiJSONHasMember(mappingValues, property.Name) ||
-			property.Derived || planned.effective.Derived {
-			continue
-		}
-		if libraryStub && apiJSONOwnedAbsenceLibraryStructureProperty(property) {
-			continue
-		}
-		if len(planned.group) > 1 && apiJSONOwnedAbsenceRedefinitionGroupHasValue(element, planned.group) {
-			continue
-		}
-		if !property.Many && property.Lower != 0 {
+			property.Derived {
 			continue
 		}
 		var value any
-		if property.Many {
-			value = apiJSONEmptyCollection
+		if property.Range == rdf.XSD+"boolean" {
+			// Every non-derived boolean is stated, true or false (the OMG API JSON shape).
+			stated, ok := apiJSONStatedBoolean(property, element)
+			if !ok || libraryStub {
+				continue
+			}
+			value = stated
+		} else {
+			if planned.effective.Derived ||
+				(libraryStub && apiJSONOwnedAbsenceLibraryStructureProperty(property)) {
+				continue
+			}
+			if len(planned.group) > 1 && apiJSONOwnedAbsenceRedefinitionGroupHasValue(element, planned.group) {
+				continue
+			}
+			if !property.Many && property.Lower != 0 {
+				continue
+			}
+			if property.Many {
+				value = apiJSONEmptyCollection
+			}
 		}
 		absences = append(absences, apiJSONMember{key: property.Name, value: value})
 	}
@@ -135,12 +145,12 @@ func apiJSONOwnedAbsenceMetaclassInGraph(graph *rdf.Graph, metaclass string) str
 	if resolved := apiJSONOwnedAbsenceMetaclass(metaclass); resolved != "" {
 		return resolved
 	}
-	if graph == nil {
-		return ""
-	}
 	const subClassOf = "http://www.w3.org/2000/01/rdf-schema#subClassOf"
 	seen := map[string]bool{}
-	queue := []string{metaclass}
+	var queue []string
+	if graph != nil {
+		queue = append(queue, metaclass)
+	}
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]

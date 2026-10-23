@@ -422,6 +422,9 @@ func apiJSONElementWithEvaluationOptionsAndOrder(
 		}
 	}
 	element = appendAPIJSONOwnedAbsencesWithScratch(graph, subject, element, types[0], scratch)
+	if apiJSONRootSubject(graph, subject) {
+		element = append(element, apiJSONMember{key: apiJSONStatedDefaultsKey, value: true})
+	}
 	graphOrder := apiJSONGraphPropertyOrder(propertyOrderGraph, subject)
 	graphOrder = apiJSONGraphPropertyOrderWithFallback(
 		graphOrder, apiJSONGraphPropertyOrder(graph, subject),

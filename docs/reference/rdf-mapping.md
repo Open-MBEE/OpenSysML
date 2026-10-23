@@ -430,11 +430,13 @@ triples come); a set of classes with no such member is refused, naming the subje
   a port only within a port definition or usage. Reading back, a usage stated
   non-composite where its kind is composite is written `ref`; an older graph
   stating no `isComposite` reads as before.
-- Feature flags, written only when true, so an absent flag reads as false:
-  `isAbstract`, `isVariation`, `isVariant`, `isReference`, `isDerived`,
-  `isOrdered`, `isEnd`, `isConstant`, `isIndividual`, `isPortion`,
+- Feature flags, written only when true in the graph, so an absent flag reads
+  as false: `isAbstract`, `isVariation`, `isVariant`, `isReference`,
+  `isDerived`, `isOrdered`, `isEnd`, `isConstant`, `isIndividual`, `isPortion`,
   `isConjugated`, `isAll`, `isAccept`, `isResult`, and `isEvent` for an `event`
   modifier on a usage whose metaclass is not itself `sysml:EventOccurrenceUsage`.
+  The [API element form](#the-api-element-form) states every non-derived
+  boolean of the metaclass, `true` or `false`, as the OMG API JSON shape does.
   `sysml:EnumerationDefinition` has no `abstract` or `variation` prefix, so
   neither flag adds a keyword to its declaration.
   A flag the two grammars spell differently is written back in the grammar of
@@ -2084,6 +2086,11 @@ notation.
     "owningMembership": { "@id": "Vehicles__Wheel_om" },
     "declaredName": "Wheel",
     "sysx:hasBody": true,
+    "isAbstract": false,
+    "isSufficient": false,
+    "isImpliedIncluded": false,
+    "isIndividual": false,
+    "isVariation": false,
     "ownedMember": [
       { "@id": "Vehicles__Wheel__diameter" },
       { "@id": "Vehicles__Wheel__mass" }
@@ -2093,6 +2100,28 @@ notation.
   }
 ]
 ```
+
+**Booleans.** Every non-derived boolean attribute of the element's metaclass is
+stated, `true` or `false` (the OMG API JSON shape: the pilot implementation's
+writer serializes every non-derived structural feature whatever its value). The
+graph states a flag only when true (`isComposite` and a `LiteralBoolean`'s
+`value` aside), so the writer completes the absent ones with the value the graph
+implies — the metaclass default from the ontology table (`isUnique` true, every
+other flag false), or the flag another spelling of the graph carries:
+`isVariable` from `sysx:declaredPrefix "var"`, `isSufficient` from `sysml:isAll`.
+Derived booleans (`isReference`, `isLibraryElement`, `mayTimeVary`, …) are not
+completed; they are written as the graph states them. The root element objects of
+the document (the root `Namespace`, or the unowned roots when it is transparent)
+carry `"sysx:statedDefaults": true`, the writer's provenance marker. Reading a
+document that carries it, a non-derived boolean at the value the graph implies
+is the writer's completion and states no triple, so the graph read back is the
+graph written, triple for triple; `isComposite` and a `LiteralBoolean`'s `value`
+are always read, as the graph always states them. A document without the marker
+reads as before: every stated boolean is a triple, and a document that omits its
+false flags (an older export, a compact form) reads as it always did. The marker
+is also what tells this mapping's documents from an external writer's element form,
+which states `Element::isImpliedIncluded` on its elements — a property this
+mapping's graph never states (see the toolkit's own JSON, below).
 
 How each part of the graph is spelled:
 
@@ -2118,7 +2147,8 @@ or `@type` is in a prefix other than the bare `sysml:` names and `sysx:`, an obj
 value is a reference `{"@id": …}` or a `{"@ref": <name>}` — sysml-toolkit's
 spelling of a target it could not resolve, which reads as the name literal the
 mapping writes for a name-valued reference — and an array holds no array and no
-`null`. A `null` value states no triple. An array on a `sysml:` property becomes
+`null`. A `null` value states no triple. A stated boolean that is only the
+writer's completion (below) states no triple either. An array on a `sysml:` property becomes
 the repeated triples and the collection annotation the Turtle path would have
 written, so the graph read from the JSON form is the graph the Turtle form parses
 to, triple for triple. An `@id` is resolved within the subject's project scope, or
@@ -2231,7 +2261,11 @@ any graph this mapping holds:
 - **Both forms decode identically.** `full-json` states every property of an
   element the compact form collapses onto its owner (`type` on a usage for
   the `FeatureTyping` element, `isImpliedIncluded`, the membership ends), so
-  the reader derives the collapsed spelling back: a `sysml:FeatureTyping`
+  the reader derives the collapsed spelling back. A document is read this
+  way when its elements state `isImpliedIncluded` and it carries no
+  `sysx:statedDefaults` marker: this mapping's graph never states
+  `Element::isImpliedIncluded` (the reader drops it from its own, marked
+  documents), so a graph that does is an external writer's element form. Then: a `sysml:FeatureTyping`
   stating nothing the collapsed `type` edge does not already say contributes
   its ends and is then elementless, an `isImpliedIncluded` element drops the
   stated defaults (`isEnd`, `isReference`, `mayTimeVary`, …) its owner's
