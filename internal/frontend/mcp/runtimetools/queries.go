@@ -29,7 +29,7 @@ type RunDocumentQueryInput struct {
 type RenderDocumentInput struct {
 	ModelInput
 	DocumentID string `json:"documentId" jsonschema:"qualified name of the document, a part def specializing DocumentQueries::Document"`
-	Form       string `json:"form,omitempty" jsonschema:"markdown (the default) or html"`
+	Form       string `json:"form,omitempty" jsonschema:"markdown (the default), html or asciidoc"`
 }
 
 // RenderViewInput renders a view.
@@ -99,7 +99,7 @@ func (g *group) registerQueries(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "render_model_document",
-		Description: "Render a named document of a model given by modelHash, paths or sources (the workspace group's render_document renders by name over the root) — a part def specializing DocumentQueries::Document — to Markdown or HTML (the " +
+		Description: "Render a named document of a model given by modelHash, paths or sources (the workspace group's render_document renders by name over the root) — a part def specializing DocumentQueries::Document — to Markdown, HTML or AsciiDoc (the " +
 			"RenderDocument RPC, the CLI's -render-document), byte for byte what the CLI writes. The text is the rendered document; " +
 			"the result is the RenderDocumentResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Render document"),
@@ -115,6 +115,9 @@ func (g *group) registerQueries(s *mcp.Server) {
 		text := resp.GetMarkdown()
 		if text == "" {
 			text = resp.GetHtml()
+		}
+		if text == "" {
+			text = resp.GetAsciidoc()
 		}
 		return answer(resp, m, text)
 	})

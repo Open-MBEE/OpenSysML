@@ -1,0 +1,10 @@
+= Mass Appendix
+
+xref:Observatory-SystemReport.adoc[the report]
+
+== Detail Tables
+
+[[tables-masses]]
+=== Subsystem Masses
+
+Mass detail by subsystem.

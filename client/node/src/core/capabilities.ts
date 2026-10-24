@@ -62,6 +62,8 @@ export const CAPABILITY_DOCUMENT_QUERY = "document_query";
 export const CAPABILITY_RENDER_DOCUMENT = "render_document";
 /** `form` on `RenderDocumentRequest` asking for HTML rather than Markdown. */
 export const CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html";
+/** `form` on `RenderDocumentRequest` asking for AsciiDoc, answered in `asciidoc`. */
+export const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC = "render_document_asciidoc";
 /** The `RenderView` RPC, returning typed diagram data. */
 export const CAPABILITY_RENDER_VIEW = "render_view";
 /** The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON. */

@@ -424,10 +424,10 @@ export class Model {
     return this.connection.runDocumentQuery(this.hash, queryId, bindings);
   }
 
-  /** Renders a named document of this model to Markdown or HTML. */
+  /** Renders a named document of this model to Markdown, HTML or AsciiDoc. */
   renderDocument(
     documentId: string,
-    options: { form?: "markdown" | "html" } = {},
+    options: { form?: "markdown" | "html" | "asciidoc" } = {},
   ): Promise<string> {
     return this.connection.renderDocument(this.hash, documentId, options);
   }

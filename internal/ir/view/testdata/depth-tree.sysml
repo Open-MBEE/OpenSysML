@@ -34,7 +34,7 @@ package DepthViews {
 	}
 
 	view def TwoLevels :> DepthLimited {
-		:>> depth = 2;
+		:>> depth default = 2;
 	}
 
 	view depth2 : TwoLevels {
