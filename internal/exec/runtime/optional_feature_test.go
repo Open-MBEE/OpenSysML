@@ -143,9 +143,9 @@ func TestAbstractFeatureInheritsMultiplicityFromWhatItSubsets(t *testing.T) {
 	}
 }
 
-// A valueless declaration read at model level, bare or qualified, is undetermined
-// of its declared multiplicity.
-func TestValuelessDeclarationIsUndeterminedHoweverSpelled(t *testing.T) {
+// A valueless declaration whose lower bound is 0, read at model level bare or
+// qualified, is the empty sequence: the model declares no value for it.
+func TestValuelessOptionalDeclarationIsEmptyHoweverSpelled(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
 		private import ScalarValues::*;
 		part def P { attribute tags : String[0..*]; attribute mass : Real; }
@@ -158,7 +158,7 @@ func TestValuelessDeclarationIsUndeterminedHoweverSpelled(t *testing.T) {
 	}
 	for _, src := range []string{"names", "test::names", "P::tags", "test::P::tags"} {
 		val, err := evalIn(t, ctx, pkg.Scope, src)
-		wantUndetermined(t, src, val, err, "[0..*]")
+		wantFormatted(t, src, val, err, "[]")
 	}
 	for _, src := range []string{"weight", "test::weight", "P::mass", "test::P::mass"} {
 		val, err := evalIn(t, ctx, pkg.Scope, src)
@@ -166,9 +166,10 @@ func TestValuelessDeclarationIsUndeterminedHoweverSpelled(t *testing.T) {
 	}
 }
 
-// A declaration bound to a multiplicity by what it redefines or subsets is undetermined
-// of that multiplicity at model level, and reading it materializes no object.
-func TestInheritedDeclarationIsUndeterminedOfInheritedMultiplicity(t *testing.T) {
+// A declaration bound to a multiplicity by what it redefines or subsets reads by that
+// multiplicity at model level — empty below an inherited `[0..*]`, undetermined below an
+// inherited `[1..*]` nothing meets — and reading it materializes no object.
+func TestInheritedDeclarationReadsByInheritedMultiplicity(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
 		part def Wheel;
 		part def Car {
@@ -190,7 +191,7 @@ func TestInheritedDeclarationIsUndeterminedOfInheritedMultiplicity(t *testing.T)
 	before := len(ctx.instances)
 	for _, src := range []string{"spares", "test::spares", "Car::spares", "test::Car::spares", "Van::wheels"} {
 		val, err := evalIn(t, ctx, pkg.Scope, src)
-		wantUndetermined(t, src, val, err, "[0..*]")
+		wantFormatted(t, src, val, err, "[]")
 	}
 	if val, err := evalIn(t, ctx, pkg.Scope, "spares istype Wheel"); err != nil || val.Kind != ValConst || !val.Const.Bool {
 		t.Errorf("spares istype Wheel = %s, %v; want true of whatever it holds", FormatValue(val), err)
@@ -393,7 +394,7 @@ func symbolNames(ctx *Context, syms []*symbols.Symbol) []string {
 
 // An unbound subject evaluated by name is undetermined of its multiplicity like any
 // valueless declaration; a bound subject is what it is bound to.
-func TestUnboundSubjectDeclarationIsUndetermined(t *testing.T) {
+func TestUnboundSubjectDeclarationReadsByItsMultiplicity(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
 		item def Item;
 		item a : Item;
@@ -408,7 +409,7 @@ func TestUnboundSubjectDeclarationIsUndetermined(t *testing.T) {
 			scope = oneSymbol(t, idx, "test::Unbound").Scope
 		}
 		val, err := evalIn(t, ctx, scope, src)
-		wantUndetermined(t, src, val, err, "[0..*]")
+		wantFormatted(t, src, val, err, "[]")
 	}
 	val, err := evalIn(t, ctx, pkg, "Required::it")
 	wantUndetermined(t, "Required::it", val, err, "[1]")
@@ -456,9 +457,9 @@ func TestRequiredUnsetFeatureReadsAsUninitialized(t *testing.T) {
 }
 
 // An optional part or item declaration names no object of its own: read directly,
-// bare or qualified, it is undetermined and materializes nothing; through an
-// instantiated owner it is the empty sequence.
-func TestOptionalOccurrenceDeclarationIsUndeterminedUntilInstantiated(t *testing.T) {
+// bare or qualified, it is the empty sequence and materializes nothing, as it is
+// through an instantiated owner.
+func TestOptionalOccurrenceDeclarationIsEmptyHoweverRead(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
 		private import ScalarValues::*;
 		part def Wheel { attribute radius : Real = 0.3; }
@@ -479,7 +480,7 @@ func TestOptionalOccurrenceDeclarationIsUndeterminedUntilInstantiated(t *testing
 	before := len(ctx.instances)
 	for _, src := range []string{"spare", "test::spare", "label", "test::label", "Car::spare", "test::Car::label", "spare.radius"} {
 		val, err := evalIn(t, ctx, pkg.Scope, src)
-		wantUndetermined(t, src, val, err, "[0..1]")
+		wantFormatted(t, src, val, err, "[]")
 	}
 	if val, err := evalIn(t, ctx, pkg.Scope, "spare istype Wheel"); err != nil || val.Kind != ValConst || !val.Const.Bool {
 		t.Errorf("spare istype Wheel = %s, %v; want true of whatever it holds", FormatValue(val), err)
