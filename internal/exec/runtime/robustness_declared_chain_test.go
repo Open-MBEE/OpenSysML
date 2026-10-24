@@ -19,6 +19,7 @@ func TestRuntimeRobustnessDeclaredChain(t *testing.T) {
 	t.Run("broken_member_value_reports_its_error", testDeclaredChainBrokenValue)
 	t.Run("open_member_count_stays_undetermined", testDeclaredChainOpenCount)
 	t.Run("optional_member_count_is_closed_over_the_model", testDeclaredChainOptionalCount)
+	t.Run("namespace_usages_subsetting_each_other_report_the_cycle", testDeclaredChainNamespaceSubsetCycle)
 }
 
 // declaredChainFixture is a package-level requirement usage whose members bind
@@ -45,6 +46,10 @@ const declaredChainFixture = `package test {
 	part l1 : W[0..*];
 	part l2 : W[0..*] :> l1;
 	part leaf : W :> l2;
+	part c1 : W[0..*] :> c2;
+	part c2 : W[0..*] :> c1;
+	part d1 : W[1..*] :> d2;
+	part d2 : W[1..*] :> d1;
 	requirement req : Limits;
 }`
 
@@ -126,5 +131,15 @@ func testDeclaredChainOptionalCount(t *testing.T) {
 	}
 	if got := FormatValue(val); got != "4.0" {
 		t.Fatalf("req.one.limit = %s, want 4.0", got)
+	}
+}
+
+func testDeclaredChainNamespaceSubsetCycle(t *testing.T) {
+	ctx, scope := declaredChainContext(t)
+	for _, src := range []string{"c1", "c2", "d1", "d2"} {
+		_, err := ctx.EvalWithScope(parseExpr(t, src), scope)
+		if !errors.Is(err, ErrCyclicFeatureValue) {
+			t.Fatalf("%s: err = %v; want ErrCyclicFeatureValue", src, err)
+		}
 	}
 }

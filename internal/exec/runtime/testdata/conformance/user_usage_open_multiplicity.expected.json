@@ -35,6 +35,10 @@
     "test::portOut": {"type": "Sequence", "elements": []},
     "test::nL1": {"type": "Integer", "value": 1},
     "test::nK1": {"type": "Integer", "value": 1},
+    "test::nO1": {"type": "Integer", "value": 0},
+    "test::nO2": {"type": "Integer", "value": 0},
+    "test::nV1": {"type": "Integer", "value": 1},
+    "test::v1HasPw": {"type": "Boolean", "value": true},
     "test::actIn": {"type": "Undetermined", "value": "[0..1]"},
     "test::actOut": {"type": "Undetermined", "value": "[0..1]"}
   }

@@ -89,6 +89,17 @@ package test {
 	part kleaf : Wheel :> k2;
 	attribute nL1 = size(l1);
 	attribute nK1 = size(k1);
+	// A valueless `[0..1]` subsetter contributes nothing, in whichever order the two are read;
+	// a subsetter's feature value contributes the very object it binds.
+	part o1 : Wheel[0..*];
+	part o2 : Wheel[0..1] :> o1;
+	attribute nO1 = size(o1);
+	attribute nO2 = size(o2);
+	part pw : Wheel;
+	part v1 : Wheel[0..*];
+	part v2 : Wheel[0..1] :> v1 = pw;
+	attribute nV1 = size(v1);
+	attribute v1HasPw = includes(v1, pw);
 	attribute actIn = car.act.i;
 	attribute actOut = car.act.o;
 
