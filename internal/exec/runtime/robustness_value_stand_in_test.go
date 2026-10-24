@@ -184,6 +184,56 @@ func TestRuntimeRobustnessValueStandIn(t *testing.T) {
 		}
 	})
 
+	t.Run("copied_stand_in_is_kept_while_another_feature_names_it", func(t *testing.T) {
+		const copied = `package test {
+			private import ScalarValues::*;
+			part def P { attribute b : Boolean[1]; attribute copy : Boolean default = false; }
+			part p : P;
+		}`
+		ctx, p := standInObject(t, copied, "test::p")
+		standIn := standInOf(t, ctx, p, "b")
+		if err := p.SetFeatureValue(ctx, "copy", Value{Kind: ValInstance, Instance: standIn}); err != nil {
+			t.Fatalf("write copy: %v", err)
+		}
+		if err := p.SetFeatureValue(ctx, "b", boolValue(true)); err != nil {
+			t.Fatalf("write b: %v", err)
+		}
+		if _, live := ctx.Instance(standIn); !live {
+			t.Fatalf("stand-in #%d was dropped while copy names it", standIn)
+		}
+		if got := heldFeatureValue(t, ctx, p, "copy"); got.HeldValue().Kind != ValInstance || got.HeldValue().Instance != standIn || !got.Written {
+			t.Fatalf("copy = %s written=%v after the write to b, want the stand-in #%d it was assigned", FormatValue(got.HeldValue()), got.Written, standIn)
+		}
+	})
+
+	t.Run("direct_run_data_follows_a_nested_write", func(t *testing.T) {
+		const direct = `package test {
+			private import ScalarValues::*;
+			action def Obs { in ref a : A; first start; then action w assign a.b := true; then done; }
+			action def A {
+				out b : Boolean[1];
+				first start; then action obs : Obs { in ref :>> a = this; } then done;
+			}
+		}`
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<stand-in>", parseAndBuild(t, direct))
+		matches := idx.LookupQualified("test::A")
+		if len(matches) != 1 {
+			t.Fatalf("test::A: %d matching symbols, want 1", len(matches))
+		}
+		outputs, err := ctx.ExecuteAction(matches[0])
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if got := outputs["b"]; !got.isBool() || !got.Const.Bool {
+			t.Fatalf("b = %s after the nested write, want true", FormatValue(got))
+		}
+		for _, id := range ctx.InstanceIDs() {
+			if ctx.HoldsNoValue(Value{Kind: ValInstance, Instance: id}) {
+				t.Errorf("object #%d stands in for a value nothing holds", id)
+			}
+		}
+	})
+
 	t.Run("bound_stand_in_is_dropped_when_the_binding_resolves", func(t *testing.T) {
 		const bound = `package test {
 			private import ScalarValues::*;

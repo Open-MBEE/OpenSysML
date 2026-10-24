@@ -151,6 +151,9 @@ type Context struct {
 	// stateExecutors are the live state machines this context can notify of a
 	// completed feature write, in creation order.
 	stateExecutors []*StateExecutor
+	// actionExecutors are the live action runs that materialized an occurrence,
+	// whose data mirrors a write landing on it; finished runs are pruned on use.
+	actionExecutors []*ActionExecutor
 
 	// featureWriteDepth coalesces nested stores into one completed write.
 	featureWriteDepth  int

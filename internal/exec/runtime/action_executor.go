@@ -1537,6 +1537,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	inst.explicit = true
 	e.occurrence = inst
 	e.performances.occurrence = inst
+	e.ctx.actionExecutors = append(e.ctx.actionExecutors, e)
 	for _, attr := range e.features {
 		if attr.Shadowed {
 			continue // the performance's alone: the occurrence's slots are keyed by name

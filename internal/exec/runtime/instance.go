@@ -983,10 +983,22 @@ func (ctx *Context) releaseStandIn(fv *FeatureValue, elem Value) {
 		return
 	}
 	named := map[int64]bool{id: true}
-	if namesAbandoned(fv, named) || ctx.runDataNames(owner, named) {
+	if ctx.featureValuesName(named) || ctx.runDataNames(owner, named) {
 		return
 	}
 	ctx.dropStandIn(standIn)
+}
+
+// featureValuesName reports whether any materialized feature value still names one of the objects.
+func (ctx *Context) featureValuesName(named map[int64]bool) bool {
+	for _, inst := range ctx.instances {
+		for _, fv := range inst.FeatureValues {
+			if fv.Materialized && namesAbandoned(fv, named) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // dropStandIn unregisters a stand-in, lifetime included; a journal rolled back puts it back.
@@ -1019,8 +1031,8 @@ func (ctx *Context) adoptOccurrenceWrite(inst *Instance, fv *FeatureValue) {
 			mirrored = true
 		}
 	}
-	for _, behavior := range ctx.objectBehaviors {
-		if exec := behavior.Action; exec != nil && exec.occurrence == inst {
+	for _, exec := range ctx.liveActionExecutors() {
+		if exec.occurrence == inst {
 			exec.mirrorOccurrenceWrite(fv)
 		}
 	}
@@ -1036,12 +1048,24 @@ func (ctx *Context) runDataNames(inst *Instance, named map[int64]bool) bool {
 			return true
 		}
 	}
-	for _, behavior := range ctx.objectBehaviors {
-		if exec := behavior.Action; exec != nil && exec.occurrence == inst && exec.root != nil && valuesName(exec.root.data, named) {
+	for _, exec := range ctx.liveActionExecutors() {
+		if exec.occurrence == inst && exec.root != nil && valuesName(exec.root.data, named) {
 			return true
 		}
 	}
 	return false
+}
+
+// liveActionExecutors answers the action runs over an occurrence still under way, forgetting the rest.
+func (ctx *Context) liveActionExecutors() []*ActionExecutor {
+	live := ctx.actionExecutors[:0]
+	for _, exec := range ctx.actionExecutors {
+		if !exec.finished() {
+			live = append(live, exec)
+		}
+	}
+	ctx.actionExecutors = live
+	return live
 }
 
 // valuesName reports whether any of vars names one of the objects.
