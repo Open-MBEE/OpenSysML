@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // TestRuntimeRobustnessUsageMembers: a calc or constraint usage's own members read
@@ -16,6 +18,7 @@ func TestRuntimeRobustnessUsageMembers(t *testing.T) {
 	t.Run("unbound constraint input is undetermined", testUsageMembersUnboundConstraintInput)
 	t.Run("unsupplied input is undetermined whatever its lower bound", testUsageMembersStatedLowerBound)
 	t.Run("default reading an unsupplied input is open with it", testUsageMembersDependentDefault)
+	t.Run("open-input read survives a scope switch", testUsageMembersOpenInputsScope)
 	t.Run("state body members are features of the state", testUsageMembersStateBody)
 	t.Run("parameter of an uninvoked action is undetermined on an instance", testUsageMembersUninvokedParameter)
 	t.Run("bodiless entry action of an exhibited state is a known gap", testUsageMembersExhibitedState)
@@ -212,6 +215,25 @@ func testUsageMembersDependentDefault(t *testing.T) {
 	}
 	if _, err := evalIn(t, ctx, root, "Probe::p.f()"); !errors.Is(err, errUnboundParameter) {
 		t.Fatalf("Probe::p.f() = %v, want errUnboundParameter: an invocation binds its parameters", err)
+	}
+}
+
+// A member read of a condition stays an open-input read in every context derived from
+// it: a default declared in another scope (an inherited one) must not fall back to the
+// object's same-named feature when it reads an input nothing binds.
+func testUsageMembersOpenInputsScope(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, usageMembersDependentDefaultModel)
+	ec := NewEvalContextIn(ctx, idx.DocumentRoot("<test>"), nil)
+	ec.openInputs = true
+	other := new(symbols.Scope)
+	if !ec.evalIn(other).openInputs {
+		t.Fatalf("evalIn dropped the open-input read")
+	}
+	if !ec.over(other, nil).openInputs {
+		t.Fatalf("over dropped the open-input read")
+	}
+	if ec.evalIn(ec.scope) != ec {
+		t.Fatalf("evalIn of the same scope is a new context")
 	}
 }
 

@@ -106,6 +106,7 @@ func (ec *EvalContext) evalIn(scope *symbols.Scope) *EvalContext {
 		occurrence: ec.occurrence, thisOccurrence: ec.thisOccurrence,
 		features: ec.features, resolving: ec.resolving, calcRun: ec.calcRun,
 		activation: ec.activation, inBehaviorBody: ec.inBehaviorBody, valuing: ec.valuing,
+		openInputs: ec.openInputs,
 	}
 }
 
@@ -203,6 +204,7 @@ func (ec *EvalContext) over(scope *symbols.Scope, frames []frame) *EvalContext {
 		occurrence: ec.occurrence, thisOccurrence: ec.thisOccurrence,
 		features: ec.features, resolving: ec.resolving, calcRun: ec.calcRun,
 		activation: ec.activation, inBehaviorBody: ec.inBehaviorBody, valuing: ec.valuing,
+		openInputs: ec.openInputs,
 	}
 }
 
