@@ -172,6 +172,14 @@ type Model struct {
 	// the machines it exhibits and the actions it performs.
 	classifierBehaviors map[*symbols.Symbol][]classifierBehaviorDecl
 
+	// actionGraphs memoizes, per action, the flow a performance of it executes
+	// (lower.ToActionGraphWith, started by lower.StartFlow) and the shape of that
+	// performance; actionInterfaces the interface a tool performance binds
+	// (lower.ToActionInterface). A lowered graph is only read once built, so every
+	// run on the worker performs the same one. Both fill lazily, like names.
+	actionGraphs     map[*symbols.Symbol]*loweredAction
+	actionInterfaces map[*symbols.Symbol]*loweredAction
+
 	behaviorOrdersReady bool
 	behaviorOrders      []lower.BehaviorOrder
 	behaviorOrdersByEnd map[*symbols.Symbol][]lower.BehaviorOrder
@@ -443,4 +451,57 @@ func (m *Model) expressionFootprint(scope *symbols.Scope, expr ast.Node) lower.F
 	}
 	m.footprints[key] = fp
 	return fp
+}
+
+// loweredAction is an action lowered once per Model: its graph, and the shape of
+// a performance of it once the first performance built one (shape.features set).
+type loweredAction struct {
+	graph *lower.ActionGraph
+	shape performanceShape
+}
+
+// actionGraph is the lowered flow of sym's body, started, lowered once per Model:
+// the graph is a function of the model alone and nothing writes it once built.
+func (m *Model) actionGraph(sym *symbols.Symbol) (*lower.ActionGraph, error) {
+	if lowered, ok := m.actionGraphs[sym]; ok {
+		return lowered.graph, nil
+	}
+	graph, err := lower.ToActionGraphWith(sym.Decl, DeclScope(sym), m.resolver)
+	if err != nil {
+		return nil, err
+	}
+	lower.StartFlow(graph)
+	if m.actionGraphs == nil {
+		m.actionGraphs = map[*symbols.Symbol]*loweredAction{}
+	}
+	m.actionGraphs[sym] = &loweredAction{graph: graph}
+	return graph, nil
+}
+
+// actionInterface is the interface a tool performance of sym binds, lowered once per Model.
+func (m *Model) actionInterface(sym *symbols.Symbol) (*lower.ActionGraph, error) {
+	if lowered, ok := m.actionInterfaces[sym]; ok {
+		return lowered.graph, nil
+	}
+	graph, err := lower.ToActionInterface(sym.Decl, DeclScope(sym))
+	if err != nil {
+		return nil, err
+	}
+	if m.actionInterfaces == nil {
+		m.actionInterfaces = map[*symbols.Symbol]*loweredAction{}
+	}
+	m.actionInterfaces[sym] = &loweredAction{graph: graph}
+	return graph, nil
+}
+
+// loweredAs is the Model's lowering of action whose graph is graph, nil when the
+// graph was lowered elsewhere (a state's do-flow block is).
+func (m *Model) loweredAs(action *symbols.Symbol, graph *lower.ActionGraph) *loweredAction {
+	if lowered := m.actionGraphs[action]; lowered != nil && lowered.graph == graph {
+		return lowered
+	}
+	if lowered := m.actionInterfaces[action]; lowered != nil && lowered.graph == graph {
+		return lowered
+	}
+	return nil
 }
