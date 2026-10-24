@@ -1480,9 +1480,9 @@ func (e *ActionExecutor) streamInitialOutput(name string, value Value) error {
 
 // declaresAttribute reports whether the action declares an attribute of this
 // name, which its performance holds rather than the object performing it.
-// adoptOccurrenceWrite has the run's data hold what a write landed on the
-// occurrence feature it mirrors, under every name the data holds it by.
-func (e *ActionExecutor) adoptOccurrenceWrite(fv *FeatureValue) {
+// mirrorOccurrenceWrite carries a write to one of the occurrence's declared
+// features into the run's data, under every name the data holds it by.
+func (e *ActionExecutor) mirrorOccurrenceWrite(fv *FeatureValue) {
 	if e.occurrence == nil || e.root == nil {
 		return
 	}

@@ -169,12 +169,6 @@ func (ctx *Context) kernelDeclaredValue(inst *Instance, feat *EffectiveFeature) 
 	return val, true, nil
 }
 
-// The Kernel collections whose holders redefine the context feature `this` of what they hold.
-const (
-	ownedPerformancesFQN = "Objects::Object::ownedPerformances"
-	subperformancesFQN   = "Performances::Performance::subperformances"
-)
-
 // performanceContextOf is the object the context feature `this` of a performance denotes
 // when the feature holding it redefines the default: the holder for one held under
 // `ownedPerformances` (Objects.kerml `this default that`), the holder's own context for one

@@ -951,8 +951,8 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 		fv.BindingDerived, fv.Assumed, fv.intrinsic = false, false, false
 		ctx.unshareTraces()
 		ctx.afterWrite(fv, before)
-		ctx.adoptBodyCellValue(fv)
 		ctx.adoptOccurrenceWrite(inst, fv)
+		ctx.adoptBodyCellValue(fv)
 		ctx.releaseStandIns(fv, held)
 		return nil
 	})
@@ -1008,20 +1008,24 @@ func (ctx *Context) dropStandIn(standIn *Instance) {
 }
 
 // adoptOccurrenceWrite has every run over inst whose data mirrors fv hold what the
-// write landed on it: a run's data and its occurrence agree.
+// write landed on it, before anything the write replaced is released.
 func (ctx *Context) adoptOccurrenceWrite(inst *Instance, fv *FeatureValue) {
-	if ctx.mirroringBodyCell != 0 {
+	if ctx.mirroringBodyCell != 0 || ctx.probes > 0 {
 		return
 	}
+	mirrored := false
 	for _, exec := range ctx.stateExecutors {
-		if exec.occurrence == inst {
-			exec.adoptOccurrenceWrite(fv)
+		if exec.occurrence == inst && exec.mirrorOccurrenceWrite(fv) {
+			mirrored = true
 		}
 	}
 	for _, behavior := range ctx.objectBehaviors {
 		if exec := behavior.Action; exec != nil && exec.occurrence == inst {
-			exec.adoptOccurrenceWrite(fv)
+			exec.mirrorOccurrenceWrite(fv)
 		}
+	}
+	if mirrored {
+		ctx.noteStateDataWrite()
 	}
 }
 
