@@ -33,6 +33,7 @@ package Elsewhere {
 }
 
 package Compartment {
+	private import ScalarValues::*;
 	part def Owner {
 		attribute a : Real;
 		attribute b : Real;

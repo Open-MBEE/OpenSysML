@@ -1,0 +1,181 @@
+= Telescope Mass Report
+
+Mass rollup for the telescope assembly. Masses are in kg | not &#35;grams, &#42;not&#42; &#95;lbs&#95;, &#96;raw&#96;, &lt;b&gt;&amp;plain&lt;/b&gt;.
+
+Reading order: _em&#42;ph&#42;asis_ *bold&#95;move* `mass &gt;= &#96;limit&#96;` link:https://example.com/spec(v2).md[the &#91;spec&#93;] <<breakdown,Subsystem Masses | by &#42;name&#42;>> <<zones,the zone groups>>
+
+[[zones]]
+.Subsystems grouped by zone
+[options="header"]
+|===
+| zone | name | mass
+
+3+| *zone: support \| &#42;frame&#42;*
+| support \| &#42;frame&#42; | baffle\|shroud &#42;tricky&#42; | 1.5
+| support \| &#42;frame&#42; | mount | 15
+
+3+| *zone: payload*
+| payload | optics | 8.5
+| payload | segmentControl | 20
+|===
+
+[[breakdown]]
+== Subsystem Masses | by &#42;name&#42;
+
+.All subsystems by mass
+[options="header"]
+|===
+| name | mass
+| baffle\|shroud &#42;tricky&#42; | 1.5
+| mount | 15
+| optics | 8.5
+| segmentControl | 20
+|===
+
+.Mass margins (allocated - estimated)
+[options="header"]
+|===
+| name | label | margin
+| baffle\|shroud &#42;tricky&#42; | subsystem: baffle\|shroud &#42;tricky&#42; | -1.5
+| mount | subsystem: mount | 0
+| optics | subsystem: optics | 1.5
+| segmentControl | subsystem: segmentControl | 5.5
+|===
+
+.Subsystem notes
+[options="header"]
+|===
+| shortName | name | documentation
+|  | baffle\|shroud &#42;tricky&#42; | 
+| M3\|&#42; | mount | 
+| M1 | optics | The primary mirror assembly., Collects light \| not &#42;heat&#42; +
+from the target.
+|  | segmentControl | Actuators that phase the mirror segments.
+|===
+
+M3|&#42;::
+M1:: The primary mirror assembly. Collects light | not &#42;heat&#42; from the target.
+
+Actuators that phase the mirror segments.
+
+=== Heavy Subsystems
+
+mount segmentControl
+
+. mount
+. segmentControl
+
+*mount* link:https://example.com/parts#mount[mount] *segmentControl* link:https://example.com/parts#segmentControl[segmentControl]
+
+* `mount`
+* `segmentControl`
+
+=== Missing Subsystems
+
+[options="header"]
+|===
+| name | mass
+|===
+
+== Diagrams
+
+.Imaging chain interconnection
+[mermaid]
+....
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
+flowchart LR
+  subgraph n0 ["`*«part»* **imagingChain**`"]
+    direction LR
+    subgraph n1 ["`*«part»* **camera**`"]
+      direction LR
+      n1.0["output"]
+    end
+    subgraph n2 ["`*«part»* **recorder**`"]
+      direction LR
+      n2.0["input"]
+    end
+  end
+  n1.0 === n2.0
+  linkStyle 0 stroke-width:3px
+....
+
+.Observatory states, left to right
+[mermaid]
+....
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    stateBkg: "#FFFFFF"
+    stateBorder: "#181818"
+    stateLabelColor: "#000000"
+    compositeBackground: "#FFFFFF"
+    compositeBorder: "#181818"
+    compositeTitleBackground: "#FFFFFF"
+    compositeTitleBorder: "#181818"
+    transitionColor: "#181818"
+    transitionLabelColor: "#000000"
+    labelBackgroundColor: "#FFFFFF"
+    specialStateColor: "#181818"
+---
+%% state rendering (the diagram states kind "state")
+stateDiagram-v2
+  direction LR
+  state "«state» operatingStates" as n0 {
+    state "«state»<br>idle<br>initial" as n1
+    state "«state»<br>observing" as n2
+    [*] --> n1
+  }
+  n1 --> n2
+  n2 --> n1
+....
+
+== Declared Types
+
+The declared type of the telescope, by relationship traversal.
+
+.Type of telescope
+[options="header"]
+|===
+| element
+| Assembly &#42;frame&#42;
+|===
+
+* Assembly &#42;frame&#42;

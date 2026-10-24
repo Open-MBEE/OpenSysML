@@ -174,7 +174,7 @@ var Tools = []Entry{
 	{Name: "session_eval", Group: GroupSession, Summary: "Evaluate an expression in a session and answer its value."},
 	{Name: "session_list", Group: GroupSession, Summary: "List the open REPL sessions."},
 	{Name: "session_load", Group: GroupSession, Summary: "Load model files under the workspace root into a session and answer the diagnostics."},
-	{Name: "session_open", Group: GroupSession, Summary: "Open a REPL session over a workspace and answer its id."},
+	{Name: "session_open", Group: GroupSession, Summary: "Open a REPL session, optionally over a root directory whose files load on demand, and answer its id."},
 	{Name: "session_print", Group: GroupSession, Summary: "Print a session's declarations back as SysML notation."},
 	{Name: "session_run", Group: GroupSession, Summary: "Run an action, state machine, calculation or analysis case in a session and answer the verdict."},
 	{Name: "session_save", Group: GroupSession, Summary: "Preview a session's model as a file under the workspace root, or write it with apply."},

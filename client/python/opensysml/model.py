@@ -384,16 +384,18 @@ class Model:
 
         Args:
             document_id (str): Qualified name of the document
-            form (str): ``"markdown"`` (the default) or ``"html"``, the
-                standalone page the CLI's ``-doc-form html`` writes
+            form (str): ``"markdown"`` (the default), ``"html"``, the
+                standalone page the CLI's ``-doc-form html`` writes, or
+                ``"asciidoc"``, the document ``-doc-form asciidoc`` writes
 
         Returns:
             str: The rendered document in the form asked for
 
         Raises:
-            ValueError: If ``form`` is neither ``"markdown"`` nor ``"html"``
+            ValueError: If ``form`` is none of ``"markdown"``, ``"html"`` and
+                ``"asciidoc"``
             MissingCapabilityError: If the service cannot render documents, or
-                cannot render HTML when that form is asked for
+                cannot render HTML or AsciiDoc when that form is asked for
             InvalidRequestError: If the symbol named is not a document
             SymbolNotFoundError: If this model does not declare the document
             ModelNotFoundError: If the service no longer holds this model

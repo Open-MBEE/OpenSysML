@@ -372,3 +372,23 @@ func (r *Resolver) UnresolvedMember(scope *symbols.Scope, qn *ast.QualifiedName,
 
 // unresolvedReferencePrefix is how a reference that resolves to nothing reads.
 const unresolvedReferencePrefix = "unresolved reference: "
+
+// UnresolvedSubject is the reference an unresolved-reference message is about,
+// as written, with whatever hint follows it cut off; ok is false for a message
+// about anything else.
+func UnresolvedSubject(message string) (subject string, ok bool) {
+	rest, ok := strings.CutPrefix(message, unresolvedReferencePrefix)
+	if !ok {
+		return "", false
+	}
+	quoted := false
+	for i, r := range rest {
+		switch {
+		case r == '\'':
+			quoted = !quoted
+		case !quoted && (r == ' ' || r == '('):
+			return rest[:i], true
+		}
+	}
+	return rest, true
+}
