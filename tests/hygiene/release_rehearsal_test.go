@@ -7,10 +7,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// TestRehearsalSuiteJobsRunUnderTheStandInTag: a rehearsal's Go suite jobs tag their checkout
-// as the release, and must export the stand-in CIRCLE_TAG with it, as a tag pipeline has
-// both; a local tag alone reads as a release that is already out and whose digests the
-// tree must pin, which only the tag's own pipeline can write.
+// TestRehearsalSuiteJobsRunUnderTheStandInTag: the suite jobs that tag their checkout as the
+// release must export the stand-in CIRCLE_TAG with it; a local tag alone reads as a release already out.
 func TestRehearsalSuiteJobsRunUnderTheStandInTag(t *testing.T) {
 	raw, err := os.ReadFile("../../.circleci/config.yml")
 	if err != nil {
