@@ -83,6 +83,22 @@ type Pin struct {
 
 	// Object is the object holding the value, 0 for a value no object holds.
 	Object int64
+
+	// Derived is the expression the model declares the value by, over other
+	// features of the same element, for a value the object has not materialized;
+	// nil for a literal default or a held value. A derived value is defined by
+	// its equation in the query rather than fixed, Value standing in only where
+	// the equation cannot be stated.
+	Derived *Derived
+}
+
+// Derived is a declared value written as an expression over other features of
+// the element: the expression, the scope it is read in, and the error reading
+// it where the evaluator could not materialize it.
+type Derived struct {
+	Expr  ast.Node
+	Scope *symbols.Scope
+	Err   error
 }
 
 // PinnedValue is a pin the query asserts: the variable it fixed, the value as
@@ -103,6 +119,19 @@ type PinnedValue struct {
 
 	// Index is the assertion's position in Query.Assertions.
 	Index int
+}
+
+// DerivedValue is a defining equation the query asserts: the variable it defines
+// and the expression the model declares for it, as written.
+type DerivedValue struct {
+	// Var is the variable the equation defines.
+	Var *Var
+
+	// Expression is the declared expression, as the model writes it.
+	Expression string
+
+	// Declared is the feature declaration stating the expression.
+	Declared *symbols.Symbol
 }
 
 // Unread is a fixed value no variable of the query reads. It is reported rather
@@ -217,21 +246,42 @@ func Fixed(ctx *runtime.Context, sym *symbols.Symbol, inst *runtime.Instance) ([
 	}
 	var pins []Pin
 	var unfixed []Unfixed
+	features := effectiveFeatures(ctx, sym)
+	model := ctx.Semantics()
 	for _, feat := range ctx.FeaturesOf(sym) {
 		feature := feat
 		if feature.Name == "" || feature.Symbol == nil {
 			continue
 		}
 		// A feature typed by a definition holds an object, which no variable of a
-		// query stands for; a variation holds the variant selected for it.
-		if ctx.CompositeTypeOf(&feature) != nil && !ctx.IsVariationFeature(&feature) {
+		// query stands for; a variation holds the variant selected for it, and
+		// one typed by a datatype (`height : LengthValue`) holds a value.
+		if ctx.CompositeTypeOf(&feature) != nil && !ctx.IsVariationFeature(&feature) && !model.IsDataType(feature.Type) {
 			continue
 		}
+		// Whether the object holds the value is read before reading it, which
+		// materializes a declared value the object had not yet.
+		derived := derivedDeclaration(ctx, &feature, inst, features)
 		value, source, object, err := fixedValue(ctx, &feature, inst)
+		if err == nil {
+			// A declared value open for a feature nothing gives a value to does not
+			// evaluate, as a failed read does; a feature holding nothing itself stays free.
+			if unset := unsetOutside(value.Undetermined(), []*symbols.Symbol{feature.Symbol}); unset != nil {
+				err = unsetRead(feature.Name, unset)
+			}
+		}
+		if derived != nil {
+			derived.Err = err
+			if err != nil || value.Kind == runtime.ValInvalid || value.Kind == runtime.ValUndetermined || ctx.HoldsNoValue(value) {
+				value = runtime.Value{}
+			}
+			pins = append(pins, Pin{Feature: feature.Symbol, Name: feature.Name, Value: value, Source: PinDeclared, Derived: derived})
+			continue
+		}
 		switch {
 		case err != nil:
 			unfixed = append(unfixed, Unfixed{Feature: feature.Symbol, Name: feature.Name, Reason: err.Error(), Err: err})
-		case value.Kind == runtime.ValInvalid, ctx.HoldsNoValue(value):
+		case value.Kind == runtime.ValInvalid, value.Kind == runtime.ValUndetermined, ctx.HoldsNoValue(value):
 			// No value is fixed, which is what leaves the feature free.
 		default:
 			pins = append(pins, Pin{
@@ -348,11 +398,86 @@ func fixedValue(
 	return value, PinDeclared, 0, nil
 }
 
+// derivedDeclaration is the expression the model declares feat's value by when
+// it is derived — written over other features of the element itself, among
+// features, and over literals — and inst holds no materialized value for it;
+// nil for a literal default, a value the object holds or a variation, which
+// stay fixed as they are. One reading anything else is not derived either: a
+// chain (`inner.x + 1.0`), a qualified or imported name (`test::scale * r`)
+// name values the query fixes none of, which an equation would leave to the
+// solver, so the value the evaluator derives from them is what the query fixes.
+// A unit (`[m]`) is a measurement reference, not a value read.
+func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, inst *runtime.Instance, features map[string]*symbols.Symbol) *Derived {
+	if feat.DefaultValue == nil || ctx.IsVariationFeature(feat) {
+		return nil
+	}
+	if inst != nil {
+		if fv, ok := inst.FeatureValues[feat.Name]; ok && fv != nil && fv.Materialized {
+			return nil
+		}
+	}
+	reads, outside := false, false
+	var visit func(n ast.Node) bool
+	visit = func(n ast.Node) bool {
+		switch ref := n.(type) {
+		case *ast.IndexExpr:
+			if ref.Bracket {
+				ast.Inspect(ref.Operand, visit)
+				return false
+			}
+		case *ast.FeatureChainExpr:
+			outside = true
+			return false
+		case *ast.FeatureReference:
+			segments, ok := nameSegments(ref.Name)
+			if sym, own := features[segments[0]]; ok && len(segments) == 1 && own && sym != feat.Symbol {
+				reads = true
+			} else {
+				outside = true
+			}
+			return false
+		}
+		return !outside
+	}
+	ast.Inspect(feat.DefaultValue, visit)
+	if !reads || outside {
+		return nil
+	}
+	return &Derived{Expr: feat.DefaultValue, Scope: feat.DefaultScope()}
+}
+
 // fix asserts the fixed values the query's variables read, and records the ones
 // no variable reads. One value that cannot be fixed fails the whole query, as one
 // untranslatable condition does.
 func (t *translator) fix(pins []Pin) error {
+	// A defining equation reads the features it is written over, which may be
+	// variables no condition read yet, so the equations are stated first, each
+	// once the variable it defines exists, and the fixed values after.
+	var derived, plain []Pin
 	for _, p := range pins {
+		if p.Derived != nil {
+			derived = append(derived, p)
+		} else {
+			plain = append(plain, p)
+		}
+	}
+	for progress := true; progress && len(derived) > 0; {
+		progress = false
+		var pending []Pin
+		for _, p := range derived {
+			v := t.pinnedVar(p)
+			if v == nil {
+				pending = append(pending, p)
+				continue
+			}
+			if err := t.derive(p, v); err != nil {
+				return err
+			}
+			progress = true
+		}
+		derived = pending
+	}
+	for _, p := range append(derived, plain...) {
 		v := t.pinnedVar(p)
 		if v == nil {
 			t.unread = append(t.unread, Unread{
@@ -361,25 +486,129 @@ func (t *translator) fix(pins []Pin) error {
 			})
 			continue
 		}
-		term, text, err := t.pinTerm(p, v)
-		if err != nil {
+		if err := t.fixOne(p, v); err != nil {
 			return err
 		}
-		t.pins = append(t.pins, Assertion{
-			Term: Binary(OpEq, Bool, VarTerm(v), term),
-			From: Provenance{
-				Kind:      "feature",
-				Element:   v.Name,
-				Condition: v.Name + " == " + text + ", " + p.Source.phrase(),
-				Role:      RolePinned,
-				Declared:  p.Feature,
-				File:      v.File,
-				Span:      v.Span,
-				Location:  v.Location,
-			},
-		})
-		t.pinned = append(t.pinned, PinnedValue{Var: v, Value: text, Source: p.Source, Object: p.Object})
 	}
+	return nil
+}
+
+// fixOne asserts v == the value p fixes, and records the fixed value for a report.
+func (t *translator) fixOne(p Pin, v *Var) error {
+	term, text, err := t.pinTerm(p, v)
+	if err != nil {
+		return err
+	}
+	t.pins = append(t.pins, Assertion{
+		Term: Binary(OpEq, Bool, VarTerm(v), term),
+		From: Provenance{
+			Kind:      "feature",
+			Element:   source.QualifiedNameText(v.Name),
+			Condition: source.QualifiedNameText(v.Name) + " == " + ValueText(v, text) + ", " + p.Source.phrase(),
+			Role:      RolePinned,
+			Declared:  p.Feature,
+			File:      v.File,
+			Span:      v.Span,
+			Location:  v.Location,
+		},
+	})
+	t.pinned = append(t.pinned, PinnedValue{Var: v, Value: text, Source: p.Source, Object: p.Object})
+	return nil
+}
+
+// derive asserts the defining equation of a derived declared value, v == the
+// expression the model declares, so the solver chooses for v what the model
+// derives from the other values. A value the evaluator failed to derive from
+// values it had (a division by zero) is unreadable, as any failed read is: the
+// equation stands in only for one it could not derive for want of a value. The
+// equation is read where the evaluator reads v — under v's Reached, a division
+// in it then refusing to hoist its guard, as one in a short-circuited operand
+// does — and an expression the term language does not carry leaves the value
+// the evaluator derived fixed, as before, else the read guarded or refused.
+func (t *translator) derive(p Pin, v *Var) error {
+	d := p.Derived
+	if d.Err != nil && !errors.Is(d.Err, runtime.ErrNoValue) {
+		return t.unreadable(v, p.Name, d.Err)
+	}
+	text := t.ctx.ExprText(d.Expr, d.Scope)
+	name := source.QualifiedNameText(v.Name)
+	t.condLabel = name + " = " + text
+	t.condFile = p.Feature.DocName
+	t.frame = frame{}
+	term, err := t.under(v.Reached, func() (*Term, error) {
+		if v.Reached != nil {
+			t.branched++
+			defer func() { t.branched-- }()
+		}
+		return t.expr(d.Expr, d.Scope)
+	})
+	if err == nil {
+		term, err = t.definedAs(p, v, text, term)
+	}
+	if err != nil {
+		if p.Value.Kind != runtime.ValInvalid {
+			p.Derived = nil
+			return t.fixOne(p, v)
+		}
+		if d.Err == nil {
+			return nil
+		}
+		return t.unreadable(v, p.Name, d.Err)
+	}
+	span := d.Expr.Span()
+	equation := Binary(OpEq, Bool, VarTerm(v), term)
+	if v.Reached != nil {
+		equation = Binary(OpImplies, Bool, v.Reached, equation)
+	}
+	t.equations = append(t.equations, Assertion{
+		Term: equation,
+		From: Provenance{
+			Kind:      "feature",
+			Element:   name,
+			Condition: name + " == " + text + ", " + p.Source.phrase(),
+			Role:      RoleDerived,
+			Declared:  p.Feature,
+			File:      p.Feature.DocName,
+			Span:      span,
+			Location:  t.ctx.SourceLocation(p.Feature.DocName, span),
+		},
+	})
+	t.derived = append(t.derived, DerivedValue{Var: v, Expression: text, Declared: p.Feature})
+	return nil
+}
+
+// definedAs is term as a value of v's sort: an integer widened to the real sort
+// v ranges over, else a term of v's sort as it is; a term of another sort is
+// refused, as a value of another sort pinned to v is.
+func (t *translator) definedAs(p Pin, v *Var, text string, term *Term) (*Term, error) {
+	switch {
+	case term.Sort.Kind == v.Sort.Kind && (term.Sort.Kind != SortDatatype || term.Sort.Name == v.Sort.Name):
+		return term, nil
+	case v.Sort.Kind == SortReal && term.Sort.Kind == SortInt:
+		return ToReal(term), nil
+	}
+	return nil, t.pinRefusal(p, v, text, msgValuesAre+v.Sort.Name+", and "+text+" yields "+term.Sort.Name)
+}
+
+// unreadable guards the read of v, whose value could not be read, by the
+// condition under which the evaluator reaches it, so that no model reaches the
+// read; a read on every path is refused, as no assignment avoids it.
+func (t *translator) unreadable(v *Var, name string, err error) error {
+	if v.Reached == nil {
+		return fmt.Errorf("%s %s reads %s, whose value could not be read: %w", t.subject.Kind, t.subject.Name, name, err)
+	}
+	guard := Not(v.Reached)
+	t.unreadables = append(t.unreadables, UnreadableRead{Var: v, Name: name, Err: err, Reached: v.Reached, Guard: guard, Preceding: v.Preceding})
+	t.guards = append(t.guards, Assertion{Term: guard, From: Provenance{
+		Kind:      t.subject.Kind,
+		Element:   t.subject.Name,
+		Condition: fmt.Sprintf("%s is not read, as its value could not be read: %v", name, err),
+		Role:      RoleDefined,
+		Declared:  v.Symbol,
+		File:      v.File,
+		Span:      v.Span,
+		Location:  v.Location,
+	}})
 	return nil
 }
 
@@ -619,6 +848,15 @@ func (t *translator) pinRefusal(p Pin, v *Var, text, reason string) error {
 	return err
 }
 
+// ValueText writes a value stated for v as the notation does: a datatype's value is
+// a qualified name, quoted where it needs quoting; any other is already written so.
+func ValueText(v *Var, value string) string {
+	if v != nil && v.Sort.Kind == SortDatatype {
+		return source.QualifiedNameText(value)
+	}
+	return value
+}
+
 // pinText renders a fixed value as the notation writes it.
 func pinText(t *translator, val runtime.Value) string {
 	if lit := val.EnumerationLiteral(); lit != nil {
@@ -739,8 +977,7 @@ func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instan
 			if i := strings.LastIndex(spelled, "::"); i >= 0 {
 				spelled = spelled[i+2:]
 			}
-			noValue := &runtime.NoValueError{Feature: unset.Name, Symbol: unset}
-			err := &runtime.FeatureValueError{Err: fmt.Errorf("feature value %s: %w", spelled, noValue)}
+			err := unsetRead(spelled, unset)
 			unfixed = append(unfixed, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: err.Error(), Err: err})
 			continue
 		}
@@ -766,7 +1003,7 @@ func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instan
 // without reading the feature. A failed default is never left free: an assignment
 // reaching it has no value for it, and Query.Reached asks whether one exists.
 func UnfixedRead(ctx *runtime.Context, q *Query, unfixed []Unfixed) error {
-	t := &translator{ctx: ctx, model: ctx.Semantics(), vars: make(map[string]*Var, len(q.Vars))}
+	t := &translator{ctx: ctx, model: ctx.Semantics(), subject: Subject{Kind: q.Kind, Name: q.Element}, vars: make(map[string]*Var, len(q.Vars))}
 	for _, v := range q.Vars {
 		t.vars[v.Name] = v
 	}
@@ -774,7 +1011,6 @@ func UnfixedRead(ctx *runtime.Context, q *Query, unfixed []Unfixed) error {
 	for _, u := range q.Unreadable {
 		guarded[u.Var] = true
 	}
-	var guards []Assertion
 	for _, u := range unfixed {
 		if u.Err == nil {
 			continue
@@ -783,23 +1019,13 @@ func UnfixedRead(ctx *runtime.Context, q *Query, unfixed []Unfixed) error {
 		if v == nil || guarded[v] {
 			continue
 		}
-		if v.Reached == nil {
-			return fmt.Errorf("%s %s reads %s, whose value could not be read: %w", q.Kind, q.Element, u.Name, u.Err)
+		if err := t.unreadable(v, u.Name, u.Err); err != nil {
+			return err
 		}
 		guarded[v] = true
-		guard := Not(v.Reached)
-		q.Unreadable = append(q.Unreadable, UnreadableRead{Var: v, Name: u.Name, Err: u.Err, Reached: v.Reached, Guard: guard, Preceding: v.Preceding})
-		guards = append(guards, Assertion{Term: guard, From: Provenance{
-			Kind:      q.Kind,
-			Element:   q.Element,
-			Condition: fmt.Sprintf("%s is not read, as its value could not be read: %v", u.Name, u.Err),
-			Role:      RoleDefined,
-			Declared:  v.Symbol,
-			File:      v.File,
-			Span:      v.Span,
-			Location:  v.Location,
-		}})
 	}
+	guards := t.guards
+	q.Unreadable = append(q.Unreadable, t.unreadables...)
 	if len(guards) == 0 {
 		return nil
 	}
@@ -817,11 +1043,32 @@ func UnfixedRead(ctx *runtime.Context, q *Query, unfixed []Unfixed) error {
 	return nil
 }
 
+// ReadUnfixed is the subset of unfixed that some variable of q reads, in order:
+// the features whose failed read bears on q, as UnfixedRead guards or refuses
+// them. One no condition of q reads bears on no answer, as a fixed value no
+// condition reads does not.
+func ReadUnfixed(q *Query, unfixed []Unfixed) []Unfixed {
+	if q == nil || len(unfixed) == 0 {
+		return nil
+	}
+	t := &translator{vars: make(map[string]*Var, len(q.Vars))}
+	for _, v := range q.Vars {
+		t.vars[v.Name] = v
+	}
+	var out []Unfixed
+	for _, u := range unfixed {
+		if t.pinnedVar(Pin{Feature: u.Feature, Name: u.Name, Var: u.Var}) != nil {
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
 // contextRole reports whether a role bounds the assignments a query is about
 // rather than stating a condition the element claims.
 func contextRole(role Role) bool {
 	switch role {
-	case RoleDomain, RolePinned, RoleDefined:
+	case RoleDomain, RolePinned, RoleDerived, RoleDefined:
 		return true
 	}
 	return false
@@ -917,6 +1164,13 @@ func soleHeld(v runtime.Value) (runtime.Value, bool) {
 		return runtime.Value{}, false
 	}
 	return elements[0], true
+}
+
+// unsetRead is the error reading a declared value fails with when a feature it
+// reads holds nothing: the one the evaluator raises materialising the value.
+func unsetRead(spelled string, unset *symbols.Symbol) error {
+	noValue := &runtime.NoValueError{Feature: unset.Name, Symbol: unset}
+	return &runtime.FeatureValueError{Err: fmt.Errorf("feature value %s: %w", spelled, noValue)}
 }
 
 // unsetOutside is the first feature with no value u is open for that is none of the

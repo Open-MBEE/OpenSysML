@@ -84,3 +84,37 @@ func TestW7GQualifiedSatisfyTargetMustBeAccessible(t *testing.T) {
 		t.Fatalf("a qualified nested satisfy target is inaccessible, got %v", diags)
 	}
 }
+
+// `specialization subset f :> g;` is the Subsetting written as a member of its
+// own, so an inaccessible subsetted feature is reported there as on `:>`.
+func TestW7GStandaloneSubsettingOfInaccessibleFeatureIsAnError(t *testing.T) {
+	const src = `library package E {
+		private import ScalarValues::*;
+		struct A { feature a : Real; }
+		feature fu : A;
+		specialization subset fu :> A::a;
+		feature fv : Real :> A::a;
+	}`
+	diags := only(constraintDiagsKerML(t, src), "subsetting-featuring-types")
+	if len(diags) != 2 {
+		t.Fatalf("expected the standalone and the inline subsetting to be reported, got %v", diags)
+	}
+	for i, want := range []string{"A::a", "A::a"} {
+		if got := spanText(src, diags[i]); got != want {
+			t.Errorf("diagnostic %d at %q, want the subsetted name", i, got)
+		}
+	}
+}
+
+func TestW7GStandaloneSubsettingThroughTheFeaturingContextIsSilent(t *testing.T) {
+	const src = `package E {
+		struct P { feature n; }
+		feature p : P { feature k; specialization subset k :> n; }
+		feature base;
+		feature q;
+		specialization subset q :> base;
+	}`
+	if diags := only(constraintDiagsKerML(t, src), "subsetting-featuring-types"); len(diags) != 0 {
+		t.Fatalf("a reachable or package-level subsetted feature is accessible, got %v", diags)
+	}
+}

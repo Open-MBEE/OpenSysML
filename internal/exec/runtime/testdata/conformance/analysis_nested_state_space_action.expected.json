@@ -1,0 +1,8 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::drop",
+  "outputs": {
+    "finalHeight": {"type": "Sequence", "elements": [{"type": "Real", "value": 55.855000000000004}]}
+  }
+}

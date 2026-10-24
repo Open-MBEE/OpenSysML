@@ -23,13 +23,13 @@ package An {
     calc def Sum {
         in a : Real;
         in b : Real;
-        return : Real = a + b;
+        return : Real[1] = a + b;
     }
 
     analysis def CostAnalysis {
         subject s : Ship;
         in limit : Real = 20.0;
-        out total : Real = Sum(s.cost, s.other);
+        out total : Real[1] = Sum(s.cost, s.other);
         objective affordable {
             require constraint { total <= limit }
         }
@@ -45,7 +45,7 @@ package An {
     }
 
     analysis plain {
-        out x : Real = 1.0 + 2.0;
+        out x : Real[1] = 1.0 + 2.0;
     }
 }
 '''
@@ -184,7 +184,7 @@ class TestTradeStudyIntegration:
         result = self.model.run_analysis("Trade::lightest")
         assert result.satisfied
         assert [v.element for v in result.verdicts] == ["tradeStudyObjective"]
-        selected = result.outputs["selectedAlternative"]
+        selected = result.outputs["selectedAlternative"][0]
         assert selected.type_symbol_id == "Trade::b"
         assert [e.arguments[0].type_symbol_id for e in result.evaluations] == [
             "Trade::a", "Trade::b", "Trade::c",
@@ -215,11 +215,11 @@ class TestTradeStudyIntegration:
         assert not table
 
         ok = table.rows[0]
-        assert ok.outputs["selectedAlternative"].type_symbol_id == "Trade::a"
+        assert ok.outputs["selectedAlternative"][0].type_symbol_id == "Trade::a"
         assert [e.result for e in ok.evaluations] == [10.0, 10.0]
         assert [e.selected for e in ok.evaluations] == [True, False]
         assert [e.tied for e in ok.evaluations] == [False, True]
-        assert ok.selected[0].arguments[0].id == ok.outputs["selectedAlternative"].id
+        assert ok.selected[0].arguments[0].id == ok.outputs["selectedAlternative"][0].id
 
         failed = table.rows[1]
         assert "division by zero" in failed.error

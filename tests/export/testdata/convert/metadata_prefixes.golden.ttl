@@ -700,7 +700,7 @@ elmt:Prefixed__context
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__context__stopped, elmt:Prefixed__context__moving, elmt:Prefixed__context__go ;
     sysml:ownedMembership elmt:Prefixed__context__stopped_om, elmt:Prefixed__context__moving_om, elmt:Prefixed__context__go_om ;
-    sysml:ownedRelationship elmt:Prefixed__context__stopped_om, elmt:Prefixed__context__moving_om, elmt:Prefixed__context__go_om, elmt:Prefixed__context_ft0 ;
+    sysml:ownedRelationship elmt:Prefixed__context_ft0, elmt:Prefixed__context__stopped_om, elmt:Prefixed__context__moving_om, elmt:Prefixed__context__go_om ;
     sysml:ownedFeature elmt:Prefixed__context__stopped, elmt:Prefixed__context__moving, elmt:Prefixed__context__go ;
     sysml:ownedFeatureMembership elmt:Prefixed__context__stopped_om, elmt:Prefixed__context__moving_om, elmt:Prefixed__context__go_om ;
     sysml:ownedTyping elmt:Prefixed__context_ft0 ;
@@ -709,7 +709,7 @@ elmt:Prefixed__context
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"Prefixed__context__stopped\"},{\"@id\":\"Prefixed__context__moving\"},{\"@id\":\"Prefixed__context__go\"}]" ;
     json:ownedMembership "[{\"@id\":\"Prefixed__context__stopped_om\"},{\"@id\":\"Prefixed__context__moving_om\"},{\"@id\":\"Prefixed__context__go_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Prefixed__context__stopped_om\"},{\"@id\":\"Prefixed__context__moving_om\"},{\"@id\":\"Prefixed__context__go_om\"},{\"@id\":\"Prefixed__context_ft0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Prefixed__context_ft0\"},{\"@id\":\"Prefixed__context__stopped_om\"},{\"@id\":\"Prefixed__context__moving_om\"},{\"@id\":\"Prefixed__context__go_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Prefixed__context__stopped\"},{\"@id\":\"Prefixed__context__moving\"},{\"@id\":\"Prefixed__context__go\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Prefixed__context__stopped_om\"},{\"@id\":\"Prefixed__context__moving_om\"},{\"@id\":\"Prefixed__context__go_om\"}]" .
 
@@ -983,10 +983,10 @@ elmt:Prefixed__Braking__brakes
     sysml:owningMembership elmt:Prefixed__Braking__brakes_om ;
     sysml:declaredName "brakes" ;
     sysml:direction "in" ;
-    sysml:type elmt:Prefixed__Car ;
     sysml:ownedMember elmt:Prefixed__Braking__brakes___400 ;
     sysml:ownedMembership elmt:Prefixed__Braking__brakes___400_om ;
     sysml:ownedRelationship elmt:Prefixed__Braking__brakes___400_om, elmt:Prefixed__Braking__brakes_ft0 ;
+    sysml:type elmt:Prefixed__Car ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Prefixed__Braking__brakes_ft0 ;
     sysml:ownedSpecialization elmt:Prefixed__Braking__brakes_ft0 ;

@@ -2185,7 +2185,7 @@ class TestEditRoundTripAgainstRealService:
             )
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
-            assert again.calc("P::D", arguments=[3]).value == 6
+            assert again.calc("P::D", arguments=[3]).value == [6]
 
     def test_add_parameter_to_action_definition(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:
@@ -2781,11 +2781,26 @@ class TestEditRoundTripAgainstRealService:
                     )
                 )
 
-            documentation = [e for e in construct(built) if e[0] == "Documentation"]
-            assert [qn for _, qn, _ in documentation] == [
-                "ToasterDemo::ApplyHeat::duration::@0",
-                "ToasterDemo::Bread::@0",
-                "ToasterDemo::ToastBread::@0",
+            elements = json.loads(str(built.to_api_json()))
+            by_id = {element["@id"]: element for element in elements}
+
+            def resolve(reference):
+                reference_id = reference.get("@id") if isinstance(reference, dict) else reference
+                return by_id.get(reference_id)
+
+            documentation_owners = []
+            for element in elements:
+                if element.get("@type") != "Documentation":
+                    continue
+                relationship = resolve(element.get("owningRelationship"))
+                owner = resolve(
+                    relationship.get("owningRelatedElement") or relationship.get("owner")
+                )
+                documentation_owners.append(owner["qualifiedName"])
+            assert sorted(documentation_owners) == [
+                "ToasterDemo::ApplyHeat::duration",
+                "ToasterDemo::Bread",
+                "ToasterDemo::ToastBread",
             ]
             assert construct(built) == construct(expected)
 

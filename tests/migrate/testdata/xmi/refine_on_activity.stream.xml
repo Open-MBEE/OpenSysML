@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag_fill'></elementID>
+    <geometry>0, 0, 420, 300</geometry>
+  </mdElement>
+  <mdElement elementClass='InitialNode' xmi:id='_sym_init'>
+    <elementID xmi:idref='_fl_init'></elementID>
+    <geometry>90, 20, 20, 20</geometry>
+  </mdElement>
+  <mdElement elementClass='OpaqueAction' xmi:id='_sym_open'>
+    <elementID xmi:idref='_fl_open'></elementID>
+    <geometry>50, 70, 100, 40</geometry>
+  </mdElement>
+  <mdElement elementClass='OpaqueAction' xmi:id='_sym_pump'>
+    <elementID xmi:idref='_fl_pump'></elementID>
+    <geometry>50, 150, 100, 40</geometry>
+  </mdElement>
+  <mdElement elementClass='ActivityFinalNode' xmi:id='_sym_final'>
+    <elementID xmi:idref='_fl_final'></elementID>
+    <geometry>90, 240, 20, 20</geometry>
+  </mdElement>
+  <mdElement elementClass='UseCase' xmi:id='_sym_uc'>
+    <elementID xmi:idref='_uc_fill'></elementID>
+    <geometry>250, 20, 140, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_req'>
+    <elementID xmi:idref='_req_rate'></elementID>
+    <geometry>250, 150, 140, 60</geometry>
+  </mdElement>
+  <mdElement elementClass='ControlFlow' xmi:id='_sym_e1'>
+    <elementID xmi:idref='_fl_e1'></elementID>
+    <linkFirstEndID xmi:idref='_sym_init'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_open'></linkSecondEndID>
+    <geometry>100, 40; 100, 70; </geometry>
+  </mdElement>
+  <mdElement elementClass='ControlFlow' xmi:id='_sym_e2'>
+    <elementID xmi:idref='_fl_e2'></elementID>
+    <linkFirstEndID xmi:idref='_sym_open'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_pump'></linkSecondEndID>
+    <geometry>100, 110; 100, 150; </geometry>
+  </mdElement>
+  <mdElement elementClass='ControlFlow' xmi:id='_sym_e3'>
+    <elementID xmi:idref='_fl_e3'></elementID>
+    <linkFirstEndID xmi:idref='_sym_pump'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_final'></linkSecondEndID>
+    <geometry>100, 190; 100, 240; </geometry>
+  </mdElement>
+  <mdElement elementClass='Abstraction' xmi:id='_sym_refine'>
+    <elementID xmi:idref='_dep_refine'></elementID>
+    <linkFirstEndID xmi:idref='_sym_uc'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_req'></linkSecondEndID>
+    <geometry>320, 70; 320, 150; </geometry>
+  </mdElement>
+  <mdElement elementClass='Abstraction' xmi:id='_sym_refine_pump'>
+    <elementID xmi:idref='_dep_refine_pump'></elementID>
+    <linkFirstEndID xmi:idref='_sym_req'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_pump'></linkSecondEndID>
+    <geometry>250, 170; 150, 170; </geometry>
+  </mdElement>
+</mdOwnedViews>

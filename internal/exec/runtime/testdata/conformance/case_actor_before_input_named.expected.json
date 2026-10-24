@@ -1,0 +1,10 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::ScaledMass",
+  "subject": "test::thing",
+  "bindings": {
+    "factor": {"type": "Real", "value": 3.0}
+  },
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 12.0}]}
+}

@@ -13,7 +13,7 @@ package test {
 	}
 
 	constraint exposedAreClassified {
-		Lib::Belt @ Safety and not (Lib::Radio @ Safety)
+		Lib::Belt @@ Safety and not (Lib::Radio @@ Safety)
 			and safetyView @@ SysML::ViewUsage and not (safetyView @@ SysML::PartDefinition)
 	}
 }

@@ -98,14 +98,14 @@ materialize: light #2
         eval invoke tradeStudyObjective -> true
       exit calc ControlFunctions::selectOne -> instance#2
     eval invoke selectOne -> instance#2
-exit analysis test::lightest -> instance#2
+exit analysis test::lightest -> (instance#2)
     eval feature evaluationFunction -> calc(test::lightest::evaluationFunction)
-    eval feature selectedAlternative -> instance#2
+    eval feature selectedAlternative -> (instance#2)
     enter calc test::lightest::evaluationFunction
-      bind e = instance#2 [argument]
+      bind e = (instance#2) [argument]
       stmt return
-          eval feature e -> instance#2
-        eval chain mass -> 10.0
+          eval feature e -> (instance#2)
+        eval chain mass -> (10.0)
     exit calc test::lightest::evaluationFunction -> 10.0
   eval invoke eval -> 10.0
       enter calc ControlFunctions::minimize

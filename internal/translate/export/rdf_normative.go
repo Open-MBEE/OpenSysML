@@ -9,7 +9,9 @@ package export
 // choosing between them.
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
@@ -81,13 +83,9 @@ func (e *encoder) materializeNormative() {
 		// A node in the expression namespace is addressed by position, so an
 		// expression node's collapsed head properties stay collapsed; a feature
 		// an expression body declares owns its relationships as any feature does.
-		if strings.HasPrefix(subject.Value, rdf.Expression) {
-			e.materializeReferentMemberships(subject)
-			if !e.bodyDeclarationNode(subject) {
-				continue
-			}
+		if strings.HasPrefix(subject.Value, rdf.Expression) && !e.bodyDeclarationNode(subject) {
+			continue
 		}
-		e.materializeReferentMemberships(subject)
 		e.materializeRelationships(subject)
 	}
 }
@@ -111,29 +109,162 @@ type normativeRelationship struct {
 	ownedProps []string
 }
 
+// declarationHead records one declaration head as the notation spelled it:
+// its clauses with their source offsets, and how many owned relationships the
+// element stated ahead of the head (its prefix metadata). The relationship
+// elements the head's clauses materialize are owned in that order, ahead of
+// the FeatureValue and the body, as ownedRelationship is ordered (KerML
+// 8.3.2.1.2) and the notation adds an owned relationship as it parses each
+// clause (KerML 8.2.1, SysML 8.2: `ownedRelationship += …`).
+type declarationHead struct {
+	anchor int
+	items  []headItem
+}
+
+// headItem is one head clause: a specialization clause by its kind and the
+// object of its collapsed property, or the multiplicity by its OwningMembership.
+type headItem struct {
+	kind         ast.RelationshipKind
+	element      rdf.Term
+	offset       int
+	multiplicity bool
+}
+
+// materializedKinds are the collapsed head properties materializeRelationships
+// emits relationship elements for, in the order a head no notation spelled
+// states them.
+var materializedKinds = []ast.RelationshipKind{
+	ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
+}
+
 // materializeRelationships emits one relationship element per target of each
-// collapsed head property subject states, in the property's stated order.
+// collapsed head property subject states, in the order the notation spelled
+// the clauses, and seats them with the multiplicity's membership where the
+// head stands in ownedRelationship.
 func (e *encoder) materializeRelationships(subject rdf.Term) {
 	// A membership is no feature: its collapsed head properties stay collapsed,
 	// as an expression node's do.
 	if ontology.IsAncestorOrSelf(e.metaclassOf(subject), "Membership") {
 		return
 	}
-	for _, kind := range []ast.RelationshipKind{
-		ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
-	} {
-		targets := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
-		for i, target := range targets {
-			spec, ok := e.relationshipSpec(subject, kind, len(targets), i)
-			if !ok {
-				continue
-			}
-			if kind == ast.RelTyping && e.graph.BoolValue(subject, rdf.OpenSysML+xConjugatedTyping) {
-				e.emitConjugatedPortTyping(subject, target, spec)
-				continue
-			}
-			e.emitRelationship(subject, target, spec)
+	type pending struct {
+		kind   ast.RelationshipKind
+		target rdf.Term
+		count  int
+		index  int
+	}
+	var targets []pending
+	position := map[headItem]int{}
+	for _, kind := range materializedKinds {
+		objects := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
+		for i, target := range objects {
+			position[headItem{kind: kind, element: target}] = len(targets)
+			targets = append(targets, pending{kind, target, len(objects), i})
 		}
+	}
+	emitted := make([]bool, len(targets))
+	var block []rdf.Term
+	emit := func(at int) {
+		if emitted[at] {
+			return
+		}
+		emitted[at] = true
+		p := targets[at]
+		spec, ok := e.relationshipSpec(subject, p.kind, p.count, p.index)
+		if !ok {
+			return
+		}
+		if p.kind == ast.RelTyping && e.graph.BoolValue(subject, rdf.OpenSysML+xConjugatedTyping) {
+			block = append(block, e.emitConjugatedPortTyping(subject, p.target, spec))
+			return
+		}
+		relation := e.emitRelationship(subject, p.target, spec)
+		if e.headClauseAmbiguous(subject, p.kind, p.target) {
+			e.graph.Add(relation, e.sysx(xHeadClause), rdf.String(relationshipSyntax[p.kind]))
+		}
+		block = append(block, relation)
+	}
+	head := e.heads[subject]
+	if head != nil {
+		for _, item := range head.spelled() {
+			if item.multiplicity {
+				block = append(block, item.element)
+				continue
+			}
+			if at, ok := position[headItem{kind: item.kind, element: item.element}]; ok {
+				emit(at)
+			}
+		}
+	}
+	for at := range targets {
+		emit(at)
+	}
+	if head != nil {
+		e.seatHead(subject, head.anchor, block)
+	}
+}
+
+// headClauseAmbiguous reports whether subject states target under another
+// clause kind that materializes as the same relationship class as kind.
+func (e *encoder) headClauseAmbiguous(subject rdf.Term, kind ast.RelationshipKind, target rdf.Term) bool {
+	for _, other := range headClauseSiblings[kind] {
+		if slices.Contains(e.graph.Objects(subject, rdf.SysML+relationshipProperty[other]), target) {
+			return true
+		}
+	}
+	return false
+}
+
+// headClauseSiblings are the clause kinds a feature materializes as one
+// relationship class: specializes and subsets as Subsetting, references and an
+// end form's subsets as ReferenceSubsetting.
+var headClauseSiblings = map[ast.RelationshipKind][]ast.RelationshipKind{
+	ast.RelSpecializes: {ast.RelSubsets},
+	ast.RelSubsets:     {ast.RelSpecializes, ast.RelReferences},
+	ast.RelReferences:  {ast.RelSubsets},
+}
+
+// spelled is the head's clauses in the order the notation spelled them; a
+// clause nothing spelled follows them in the order it was stated.
+func (h *declarationHead) spelled() []headItem {
+	items := slices.Clone(h.items)
+	slices.SortStableFunc(items, func(a, b headItem) int {
+		switch {
+		case a.offset < 0 || b.offset < 0:
+			return cmp.Compare(b.offset, a.offset)
+		default:
+			return cmp.Compare(a.offset, b.offset)
+		}
+	})
+	return items
+}
+
+// seatHead restates subject's ownedRelationship with the head's block of
+// elements at anchor: what was owned ahead of the head stays ahead, and the
+// FeatureValue, the body and whatever else follows keeps its order after it.
+func (e *encoder) seatHead(subject rdf.Term, anchor int, block []rdf.Term) {
+	objects := e.graph.Objects(subject, rdf.SysML+pOwnedRelationship)
+	if anchor > len(objects) {
+		anchor = len(objects)
+	}
+	seated := make(map[rdf.Term]bool, len(block))
+	for _, element := range block {
+		seated[element] = true
+	}
+	order := make([]rdf.Term, 0, len(objects))
+	order = append(order, objects[:anchor]...)
+	for _, element := range block {
+		if slices.Contains(objects, element) {
+			order = append(order, element)
+		}
+	}
+	for _, element := range objects[anchor:] {
+		if !seated[element] {
+			order = append(order, element)
+		}
+	}
+	if !slices.Equal(order, objects) {
+		e.graph.ReorderObjects(subject, rdf.SysML+pOwnedRelationship, order)
 	}
 }
 
@@ -215,23 +346,24 @@ func (e *encoder) referenceSubsettingSpec(count, i int) normativeRelationship {
 // emitConjugatedPortTyping materializes `: ~P` as a ConjugatedPortTyping whose
 // type is P's ConjugatedPortDefinition and whose portDefinition is P itself
 // (SysML v2 1.0 § 8.3.12 Ports); an external P is named `~P` by the literal.
-func (e *encoder) emitConjugatedPortTyping(subject, target rdf.Term, spec normativeRelationship) {
+func (e *encoder) emitConjugatedPortTyping(subject, target rdf.Term, spec normativeRelationship) rdf.Term {
 	spec.metaclass = mConjugatedPortTyping
 	spec.targetEnds = append([]string{pConjugatedPortDefinition}, spec.targetEnds...)
 	conjugated := rdf.String("~" + target.Value)
 	if target.IsIRI() {
 		conjugated = e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
 	}
-	e.emitRelationship(subject, conjugated, spec)
-	relation := e.ids.minted(rdf.RelationshipIRI(subject, spec.suffix), subject, spec.suffix)
+	relation := e.emitRelationship(subject, conjugated, spec)
 	e.graph.Add(relation, e.sysml(pPortDefinition), target)
+	return relation
 }
 
 // emitRelationship mints the relationship element between subject and target
 // and wires its ends, its identity and its owner's owned-* properties.
-func (e *encoder) emitRelationship(subject, target rdf.Term, spec normativeRelationship) {
-	e.emitRelationshipAt(subject, target, spec,
-		e.ids.minted(rdf.RelationshipIRI(subject, spec.suffix), subject, spec.suffix))
+func (e *encoder) emitRelationship(subject, target rdf.Term, spec normativeRelationship) rdf.Term {
+	relation := e.ids.minted(rdf.RelationshipIRI(subject, spec.suffix), subject, spec.suffix)
+	e.emitRelationshipAt(subject, target, spec, relation)
+	return relation
 }
 
 // emitRelationshipAt is emitRelationship with the relationship element's IRI
@@ -298,49 +430,6 @@ func (e *encoder) featureChainings(chain rdf.Term, links []rdf.Term) {
 			e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position))
 		e.graph.Add(chain, e.sysml(pChainingFeature), link)
 	}
-}
-
-// materializeReferentMemberships emits the plain Membership through which an
-// expression node is related to the element it reaches: a FeatureReference-
-// Expression's referent and a FeatureChainExpression's target feature.
-func (e *encoder) materializeReferentMemberships(subject rdf.Term) {
-	var property, slot string
-	switch e.metaclassOf(subject) {
-	case mFeatureReference:
-		property, slot = pReferent, "referent"
-	case mFeatureChain:
-		property, slot = pTargetFeature, "targetFeature"
-	default:
-		return
-	}
-	target, ok := e.graph.Object(subject, rdf.SysML+property)
-	if !ok {
-		return
-	}
-	// A body expression the node owns is already its member through the
-	// FeatureMembership that owns it, as in the pilot's XMI.
-	if owner, owned := e.graph.Object(target, rdf.SysML+pOwner); owned && owner == subject {
-		return
-	}
-	var membership rdf.Term
-	if strings.HasPrefix(subject.Value, rdf.Expression) {
-		e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
-		membership = e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
-	} else {
-		membership = e.ids.minted(rdf.RelationshipIRI(subject, "_"+slot), subject, "_"+slot)
-		if prior, taken := e.claim(membership.Value, "the "+slot+" membership of "+membership.Value); taken && e.idErr == nil {
-			e.idErr = &UnsupportedError{
-				What: fmt.Sprintf("the %s membership <%s>", slot, membership.Value),
-				Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
-			}
-		}
-	}
-	e.typed(membership, mMembership)
-	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
-	e.graph.Add(membership, e.sysml(pMemberElement), target)
-	e.graph.Add(membership, e.sysml(pOwner), subject)
-	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
-	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 }
 
 // conjugatedPortDefinition emits the conjugate of a port definition: the

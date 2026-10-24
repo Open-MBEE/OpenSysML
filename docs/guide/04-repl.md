@@ -223,9 +223,9 @@ declaration order. Each `satisfy` gets a verdict of `conforms`, `violated` or `u
 followed by a verdict for each concern the viewpoint frames; a concern whose condition fails
 names the exposed element it failed for and the reason. A `satisfy` inherited from a
 specialized view is marked `(from <view>)`. The view restates no framing: every concern the
-viewpoint frames is checked against what the view exposes. A concern that states no condition,
-or names one that does not resolve, is reported as `unevaluable` with the reason, not as a
-pass. These verdicts are this implementation's own decisions, because SysML v2 leaves
+viewpoint frames is checked against what the view exposes. A concern that states no condition
+`conforms` vacuously — a requirement check over no constraint is true — while one that names a
+concern that does not resolve is reported as `unevaluable` with the reason. These verdicts are this implementation's own decisions, because SysML v2 leaves
 verification verdict semantics non-normative. (The extension
 libraries these documents name are maintained upstream at
 [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library)
@@ -338,7 +338,8 @@ owner's composition stands for it. A `Route` about the usage steers its composit
 specialization or typing has no member of its own and is routed by the drawing.
 
 A view that states `render asElementTable;` is rendered as aligned columns instead, listing the
-exposed elements, what they declare, and the views nested inside the rendered view.
+exposed elements, what they declare (an element the view exposes in its own right is a row of
+its own, not repeated under what declares it), and the views nested inside the rendered view.
 
 The bundled `OpenSysMLRenderings` library selects cases with `render asCaseDiagram;` and mixed content
 with `render asMixedDiagram;`; `CaseView` and `MixedView` provide the same choices by specialization.
@@ -349,7 +350,9 @@ For a model with no declared view, `%render #case` and `%render #mixed` draw the
 elements in one rendering, choosing the kind from what the names resolve to (a state def draws a
 state rendering, a part with connections an interconnection, a package a tree, a mixed set a mixed
 rendering) unless `--view <VIEW>` names one, and takes the pilot's `--style` words — `LR` and `TB`
-set the direction, and a style no form here draws is noted as not represented rather than dropped.
+set the direction, `COMPMOST` folds a tree node's owned usages into compartment rows of its box
+and `COMPTREE` its ports alone (the pilot's compartment styles, `compartments=most` and `ports` on
+`%render`), and a style no form here draws is noted as not represented rather than dropped.
 `%viz --view STATE P::Lamp mermaid` writes what `%render #state:P::Lamp mermaid` writes.
 
 `%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, `dot` as Graphviz
@@ -521,7 +524,7 @@ completes them: `#` offers the ids there are, `car.` the objects `car` holds.
 | which conditions conflict when it cannot (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%explain` | [reference](../reference/repl-commands.md) |
 | what a diagnostic code means and how to resolve it | `%explain-code` | [3](03-command-line.md#checking-as-a-gate) |
 | what values satisfy it, keeping what is already fixed (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%solve` | [reference](../reference/repl-commands.md) |
-| which variants its conditions permit (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%configure` | [reference](../reference/repl-commands.md) |
+| which variants its conditions permit — of one assertion, or of a variation family or configuration over every assertion about it (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional); walkthrough in [Modeling product lines and variability](modeling-product-lines.md#solving-the-family)) | `%configure` | [reference](../reference/repl-commands.md) |
 | which values are best for an analysis case's objectives (experimental, needs [z3](01-install.md#installing-a-solver-optional)) | `%optimize` | [reference](../reference/repl-commands.md) |
 | what a behavior does, step by step | `%action`, `%state`, `%step`, `%tokens`, `%advance` | [6](06-behavior.md) |
 | whether a result depends on the order the run happened to take, and how to replay another | `%schedule`, `%trace` | [6](06-behavior.md#when-a-model-has-more-than-one-valid-run) |

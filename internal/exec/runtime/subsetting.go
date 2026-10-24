@@ -476,12 +476,11 @@ func (ctx *Context) collectRedefinedFeatures(sym, owner *symbols.Symbol) []*symb
 	for queue := []*symbols.Symbol{sym}; len(queue) > 0; {
 		cur := queue[0]
 		queue = queue[1:]
-		// An end of a connector redefines the end at its position of each
-		// connector its owner specializes, and a subject or objective redefines
-		// the one its owner inherits, without naming it: the two names read one
-		// feature value as an explicit redefinition's do.
+		// A connector end, a behavior or step parameter, and a subject or objective redefine by
+		// position or role without naming it (KerML 1.0 §7.3.4.5): the two names read one feature value.
 		redefines := append(ctx.relatedFeatures(cur, owner, ast.RelRedefines),
 			ctx.model.semantics.ImplicitEndRedefinitions(cur)...)
+		redefines = append(redefines, ctx.model.semantics.ImplicitParameterRedefinitions(cur)...)
 		redefines = append(redefines, ctx.model.semantics.ImplicitRoleRedefinitions(cur)...)
 		for _, redefined := range redefines {
 			if seen[redefined] {
@@ -505,11 +504,35 @@ func (ctx *Context) subsettedNames(sym, owner *symbols.Symbol) []string {
 	names := ctx.relatedFeatureNames(sym, owner, ast.RelSubsets)
 	for _, redefined := range ctx.redefinedFeatures(sym, owner) {
 		names = append(names, ctx.relatedFeatureNames(redefined, owner, ast.RelSubsets)...)
+		names = append(names, ctx.metadataSubsettingNames(redefined, owner)...)
 	}
 	// A nested usage also subsets the feature of its owner its kind nests under
 	// (SysML v2 §8.3): a part in an item one of its `subparts`.
 	names = append(names, ctx.implicitSubsettingNames(sym, owner)...)
+	names = append(names, ctx.metadataSubsettingNames(sym, owner)...)
 	ctx.model.subsetted[key] = names
+	return names
+}
+
+// metadataSubsettingNames returns the owner features sym subsets through its semantic metadata
+// (SysML v2 §7.27.4, `#cause` for `causes`): the base when owner carries it, else its redefinition.
+func (ctx *Context) metadataSubsettingNames(sym, owner *symbols.Symbol) []string {
+	var names []string
+	for _, base := range ctx.model.semantics.SemanticMetadataBases(sym) {
+		if base == nil || base == sym || !base.IsFeature() {
+			continue
+		}
+		if ctx.isFeatureOf(owner, base, sym) {
+			names = append(names, base.Name)
+			continue
+		}
+		for _, member := range ctx.model.semantics.MembersOf(owner) {
+			if member != sym && member.Name != "" && ctx.redefinesTransitively(member, base) {
+				names = append(names, member.Name)
+				break
+			}
+		}
+	}
 	return names
 }
 
@@ -636,10 +659,37 @@ func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Valu
 	if err != nil {
 		return nil, err
 	}
+	if values, err = ctx.endContributions(inst, name, values, seen); err != nil {
+		return nil, err
+	}
 	if err := ctx.chargeElements(int64(len(values))); err != nil {
 		return nil, err
 	}
 	return values, nil
+}
+
+// endContributions appends the attached ends of a connector object whose end feature subsets the
+// named feature: an end's value is a value of what the end subsets (KerML 1.0 §7.3.4.4).
+func (ctx *Context) endContributions(inst *Instance, name string, values []Value, seen map[int64]bool) ([]Value, error) {
+	for _, end := range inst.Ends {
+		if end.Feature == nil || !slices.Contains(ctx.subsettedNamesOf(inst, end.Feature), name) {
+			continue
+		}
+		held, err := ctx.HeldElements(end.Value)
+		if err != nil {
+			return nil, fmt.Errorf("end %s of %s: %w", endName(end), name, err)
+		}
+		values, seen = appendUniqueInstances(values, held, seen)
+	}
+	return values, nil
+}
+
+// endName names an end in a report: its own name, else the feature it attaches.
+func endName(end ConnectorEnd) string {
+	if end.Name != "" {
+		return end.Name
+	}
+	return FormatValue(end.Value)
 }
 
 // openSubsettingContributions is subsettingContributions for a model-level read: an open
@@ -664,6 +714,9 @@ func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (va
 		return nil
 	})
 	if err != nil {
+		return nil, 0, err
+	}
+	if values, err = ctx.endContributions(inst, name, values, seen); err != nil {
 		return nil, 0, err
 	}
 	if err := ctx.chargeElements(int64(len(values))); err != nil {

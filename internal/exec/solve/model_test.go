@@ -71,6 +71,42 @@ func TestUnrenderedAssignments(t *testing.T) {
 	}
 }
 
+// A variant or literal whose qualified name needs a |quoted| symbol (a space, a
+// hyphen, a quoted name, a non-ASCII letter) is read back whole from a model or witness.
+func TestDecodeValueReadsEveryNameASortDeclares(t *testing.T) {
+	values := []string{
+		"Cfg Space::fam::engine::e4",
+		"7b-Variant Configurations::VariabilityModel::anyVehicleConfig::engineChoice::'4cylEngine'",
+		"Fahrzeug::Größe::große",
+		"Vehicle::engine's::v8",
+		"P::plain",
+		"P::with|bar",
+	}
+	sort := Sort{Kind: SortDatatype, Name: "Cfg Space::fam::engine", Values: values, Origin: "Cfg Space::fam::engine", Variation: true}
+	v := &Var{Name: "Cfg Space::fam::engine", Sort: sort}
+	for _, value := range values {
+		a := assign(v, parse(t, smtSymbol(value)))
+		if !a.Rendered || a.Value != value {
+			t.Errorf("the model's %s rendered as %q (rendered %v), want %q", smtSymbol(value), a.Value, a.Rendered, value)
+		}
+		decoded, err := DecodeValue(a)
+		if err != nil || decoded.Kind != SortDatatype || decoded.Text != value {
+			t.Errorf("DecodeValue(%q) = %+v, %v; want %q", a.Raw, decoded, err, value)
+			continue
+		}
+		again, err := decoded.Assign(v)
+		if err != nil {
+			t.Fatalf("Assign(%q): %v", value, err)
+		}
+		if again.Raw != a.Raw {
+			t.Errorf("a witness writes %q as %q, the solver wrote %q", value, again.Raw, a.Raw)
+		}
+		if back, err := DecodeValue(again); err != nil || back.Text != value {
+			t.Errorf("DecodeValue of the witness's %q = %+v, %v; want %q", again.Raw, back, err, value)
+		}
+	}
+}
+
 // smtName is the inverse of the escaping a script's symbols are written with, so
 // a model names the feature the query declared.
 func TestSMTNameInvertsSMTSymbol(t *testing.T) {

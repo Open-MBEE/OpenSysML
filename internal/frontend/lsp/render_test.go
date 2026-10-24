@@ -463,6 +463,34 @@ func TestRenderNodesCarryTheTypeApartFromTheDetail(t *testing.T) {
 	}
 }
 
+// TestRenderNodesCarryTheAbstractKeyword pins the diagram payload's kind as the
+// notation writes it: `abstract part def`, `abstract part`, `variation part def`.
+func TestRenderNodesCarryTheAbstractKeyword(t *testing.T) {
+	src := "package Kit {\n\tabstract part def Widget {\n\t\tabstract part cog : Cog;\n\t\tpart gear;\n\t}\n\tpart def Cog;\n\tvariation part def Cogs :> Cog;\n}\n"
+	s, docURI := renderServer(t, "kit.sysml", src)
+	out := renderShowing(t, s, docURI, "#tree", "", []string{"typings"})
+	want := map[string]string{
+		"Kit::Widget": "abstract part def",
+		"cog":         "abstract part",
+		"gear":        "part",
+		"Kit::Cog":    "part def",
+		"Kit::Cogs":   "variation part def",
+	}
+	for _, node := range out.Nodes {
+		kind, ok := want[node.Name]
+		if !ok {
+			continue
+		}
+		delete(want, node.Name)
+		if node.Kind != kind || node.Notation != kind {
+			t.Errorf("node %s = kind %q notation %q, want %q", node.Name, node.Kind, node.Notation, kind)
+		}
+	}
+	for name := range want {
+		t.Errorf("the #tree rendering has no node named %s: %+v", name, out.Nodes)
+	}
+}
+
 // A behavior rendering serves the type of a typed action or state usage the same
 // way, apart from the notes the detail holds.
 func TestRenderBehaviorNodesCarryTheTypeApartFromTheDetail(t *testing.T) {
@@ -1448,6 +1476,9 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	}
 	if advertised, _ := experimental[RenderLinesCapability].([]string); !slices.Equal(advertised, []string{"splines", "ortho", "polyline"}) {
 		t.Fatalf("%s = %#v, want splines, ortho then polyline", RenderLinesCapability, experimental[RenderLinesCapability])
+	}
+	if advertised, _ := experimental[RenderCompartmentsCapability].([]string); !slices.Equal(advertised, []string{"positioned", "most", "ports"}) {
+		t.Fatalf("%s = %#v, want positioned, most then ports", RenderCompartmentsCapability, experimental[RenderCompartmentsCapability])
 	}
 	if advertised, _ := experimental[RenderOverlaysCapability].([]string); !slices.Equal(advertised, []string{"verdicts"}) {
 		t.Fatalf("%s = %#v, want verdicts", RenderOverlaysCapability, experimental[RenderOverlaysCapability])

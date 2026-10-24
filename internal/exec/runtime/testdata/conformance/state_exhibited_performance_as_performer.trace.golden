@@ -1,0 +1,14 @@
+materialize: scenario #1
+materialize: Tug #2
+start: exhibited state machine sup of #2
+materialize: sup #3
+enter: armed (entry action)
+stmt action body
+  stmt assign armings
+      eval feature armings -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+run: exhibited state machine sup of #2
+exit: armed
+enter: pinged
+transition: armed -> pinged (event: accept Ping)

@@ -2021,6 +2021,7 @@ func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 		"lvl === Level::high": true, "(3 as Level) === Level::high": true, "Level::high !== 3": true,
 	} {
 		val, err := evalIn(t, ctx, pkg.Scope, src)
+		val = soleElement(val)
 		if err != nil || val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
 			t.Fatalf("%s = %s, %v; want a Boolean", src, FormatValue(val), err)
 		}

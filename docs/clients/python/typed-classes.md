@@ -13,6 +13,25 @@ python -m opensysml.generate model.sysml -o model_types.py
 opensysml-generate model.sysml -o model_types.py
 ```
 
+A model of several files is named the way `sysml` names one: the files in
+order, or a directory, whose `.sysml` and `.kerml` files are read in path order
+(nested directories included, hidden ones skipped). They are parsed as one
+model — the same `ParseSources` call as `Connection.parse_sources` — so a
+reference from one file to a definition in another is typed as that class
+rather than falling back to `object`. `--package` keeps the definitions of one
+package and the packages nested in it, and may repeat; without it the whole
+model is generated.
+
+```bash
+python -m opensysml.generate lib.sysml top.sysml -o model_types.py
+python -m opensysml.generate model/ --package Mission::Avionics -o avionics_types.py
+```
+
+A file named twice is read once, and a file that cannot be read is refused
+before the service is contacted. A definition the selected package refers to
+but does not own has no generated class, so a feature typed by it is mapped to
+`object` and says so in its docstring — select that package too to type it.
+
 ```python
 import opensysml
 from model_types import Vehicle
@@ -42,22 +61,27 @@ SYSML_GENERATOR_VERSION = "1"
 SYSML_MODEL_HASH = "sha256:…"
 ```
 
+A module generated from several files is stamped with the hash of the files'
+hashes, in order, so moving a declaration across a file boundary changes it.
 `--check` regenerates in memory and writes nothing:
 
 ```bash
 python -m opensysml.generate model.sysml -o model_types.py --check
+python -m opensysml.generate model/ --package Mission -o mission_types.py --check
 ```
 
-It exits nonzero and names the regeneration command when the module is
-missing or stale, making it suitable for CI. Generation requires a service
+It exits nonzero and names the regeneration command — sources and `--package`
+included — when the module is missing or stale, making it suitable for CI. Generation requires a service
 that advertises the `type_facts` capability; otherwise the generator refuses
 to emit classes whose feature annotations would all be indistinguishable
 `object` values.
 
 The output is deterministic and is one runtime `.py` file, rather than a
 separate implementation and stub that can drift. Definitions are emitted in
-fully-qualified order with base classes first. The committed golden example
-is `client/python/tests/golden/vehicle_types.py`.
+fully-qualified order with base classes first. The committed golden examples
+are `client/python/tests/golden/vehicle_types.py` (one file) and
+`client/python/tests/golden/fleet_types.py` (the three files under
+`client/python/tests/fixtures/multifile`, one of them KerML).
 
 ## Type mapping
 

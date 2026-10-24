@@ -84,13 +84,11 @@ commands:
                   echo "export CIRCLE_TAG=${tag}" >> "$BASH_ENV"
                   echo "REHEARSAL: standing in for tag ${tag} (no tag exists; nothing will be published)"
 
-  # A tag pipeline checks out the tag, and the Go toolchain records a tag at
-  # HEAD as the main module's version in every binary it builds, so a test
-  # binary with no linker stamp reports the release version rather than dev.
-  # A rehearsal checks out a branch; this puts the tag it stands in for at
-  # HEAD, locally, so the suite builds exactly what the tag build will.
+  # Gives the suite what a tag pipeline has: CIRCLE_TAG, and the tag at HEAD (the Go
+  # toolchain records it as the module version); a local tag alone reads as a release already out.
   rehearsal-checkout-tag:
     steps:
+      - rehearsal-tag
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
@@ -189,6 +187,24 @@ commands:
           paths:
             - examples/pilot-corpora
 
+      # The specification examples, extracted from the two PDFs at the same pin;
+      # the PDFs are cached and the extraction reruns from them.
+      - restore_cache:
+          keys:
+            - spec-docs-v1-{{ checksum "scripts/download-spec-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+
+      - run:
+          name: Extract the OMG specification examples
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends poppler-utils
+            ./scripts/download-spec-examples.sh
+
+      - save_cache:
+          key: spec-docs-v1-{{ checksum "scripts/download-spec-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+          paths:
+            - build/spec-docs/pdf
+
       # The PSSM test suite, one pinned file, gated the same way by tools/referee/pssm.
       - restore_cache:
           keys:
@@ -270,6 +286,18 @@ commands:
               echo "pilot corpus $root: $count model files"
               if [ "$count" -eq 0 ]; then
                 echo "error: pilot corpus $root is empty; the corpora gate would not run" >&2
+                exit 1
+              fi
+            done
+
+      - run:
+          name: Verify the OMG specification examples
+          command: |
+            for root in sysml kerml; do
+              count=$(find "examples/spec-examples/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
+              echo "specification examples $root: $count model files"
+              if [ "$count" -eq 0 ]; then
+                echo "error: specification examples $root is empty; the spec-examples gate would not run" >&2
                 exit 1
               fi
             done
@@ -430,11 +458,12 @@ jobs:
             git diff --exit-code api/proto
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
-  # it gets the larger class and five executors, one named package shard each.
+  # it gets the larger class and ten executors, one scripts/race-shard.sh shard each,
+  # sized so that no node runs much over 25 minutes (the slowest ran 45 with six).
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 5
+    parallelism: 10
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -446,16 +475,13 @@ jobs:
 
       - install-fmpy
 
-      # One scripts/race-shard.sh shard per node: internal/exec/runtime alone peaks near
-      # 8.5 GB under -race, so it shares its 8 GB node only sequentially (tests/wasm, tools).
-      # The race detector's memory is per process and the corpus-wide exploration alone
-      # accounts for half of that peak, so the package runs as two processes: the
-      # exploration, then everything else (4 GB each).
+      # One scripts/race-shard.sh shard per node. internal/exec/runtime ran 31-57 minutes whole
+      # and nears 8.5 GB under -race, so it is two nodes, split by test name as make test-shard does.
       - run:
           name: Run Go race tests
           command: |
             set -o pipefail
-            shards=(runtime model export rest migrate)
+            shards=(runtime runtime-corpus model export graph codegen tools rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
               exit 1
@@ -463,25 +489,38 @@ jobs:
             shard=${shards[$CIRCLE_NODE_INDEX]}
             pkgs=$(scripts/race-shard.sh "$shard")
             echo "shard $shard:"; echo "$pkgs"
-            if [ "$shard" = runtime ]; then
-              exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
-              go test -v -race -pgo=off -timeout 30m -run "$exploration" $pkgs
-              go test -v -race -pgo=off -timeout 30m -skip "$exploration" $pkgs
-              go test -v -race -pgo=off -timeout 30m ./tests/wasm
-              go test -C tools -v -race -pgo=off -timeout 30m ./...
-            else
-              # tests/migrate alone runs 23-32 minutes under -race on this class and
-              # tests/model (in the export shard) 25-30, so those shards get the
-              # Makefile's per-package timeout (see make test-shard).
-              timeout=30m; case "$shard" in migrate|export) timeout=55m ;; esac
-              go test -v -race -pgo=off -timeout "$timeout" $pkgs
-            fi
+            # -v over several packages is held back until each finishes, which the
+            # no_output_timeout below reads as a hang; -json streams, the script re-emits -v.
+            stream() { python3 scripts/go-test-stream.py; }
+            # The Makefile's RACE_RUNTIME_CORPUS; tests/hygiene keeps the two the same.
+            corpus='^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$'
+            case "$shard" in
+              runtime-corpus)
+                # Two processes: the exploration alone nears 5 GB and the five suites together
+                # 9 GB under -race, over this class's 8 GB (the race detector's memory is per process).
+                exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
+                go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream
+                go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream
+                ;;
+              runtime) go test -json -race -pgo=off -timeout 30m -skip "$corpus" $pkgs | stream ;;
+              tools)
+                go test -json -race -pgo=off -timeout 30m $pkgs | stream
+                go test -C tools -json -race -pgo=off -timeout 30m ./... | stream
+                ;;
+              *)
+                # tests/migrate ran 23-32 minutes under -race on this class, tests/export and
+                # tests/model about 30 each: those shards get the Makefile's timeout (make test-shard).
+                timeout=30m; case "$shard" in migrate|export|graph) timeout=55m ;; esac
+                go test -json -race -pgo=off -timeout "$timeout" $pkgs | stream
+                ;;
+            esac
           no_output_timeout: 30m
           environment:
             # Turns "corpus absent" into a failure rather than a skip, as the
             # GitHub Actions PR workflow already does.
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
             OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
@@ -498,11 +537,14 @@ jobs:
   # A second, race-free pass, because the profile the scan reads is written
   # with -coverpkg, which is too slow to instrument under -race. Serially the
   # instrumented suite overran the 60-minute job limit even on large, so it runs
-  # as the race test's five package shards, and go-coverage-merge joins them.
+  # as the race test's package shards but runtime-corpus (the Makefile's COVERAGE_SHARDS;
+  # without -race the runtime runs whole in about 19 minutes), and go-coverage-merge joins them.
+  # cmd/sysml's exploration budgets alone took 23-30 of the 30 minutes while sharing
+  # the rest node under -coverpkg=./..., so the command has a node of its own.
   go-coverage:
     executor: go-executor
     resource_class: large
-    parallelism: 5
+    parallelism: 9
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -517,16 +559,26 @@ jobs:
       - run:
           name: Write this shard's coverage profile
           command: |
-            shards=(runtime model export rest migrate)
+            shards=(runtime model export graph codegen tools rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
-              echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
+              echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the Makefile's COVERAGE_SHARDS has ${#shards[@]} shards" >&2
               exit 1
             fi
-            make coverage-shard SHARD="${shards[$CIRCLE_NODE_INDEX]}"
+            shard="${shards[$CIRCLE_NODE_INDEX]}"
+            if [ "$shard" = tools ]; then
+              # The tools' tests run on this node (make coverage-shard), and the
+              # LLM bench's run the models through bin/sysml: without the binary
+              # they skip and tools/bench/llm measures as uncovered. Required,
+              # so a missing binary fails here rather than skips.
+              make build-sysml
+              export OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN=1
+            fi
+            make coverage-shard SHARD="$shard"
           no_output_timeout: 30m
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
             OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
@@ -617,6 +669,20 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
 
+      # The specification-examples gate alone, for the same reason.
+      - run:
+          name: Run spec examples gate
+          command: |
+            set -o pipefail
+            go test -count=1 -v ./tests/corpus -run 'TestSpecExamples' | tee spec-examples-gate.log
+            grep -E 'specification examples clean' spec-examples-gate.log
+            if grep -qE '^\s*--- SKIP' spec-examples-gate.log; then
+              echo "error: the spec examples gate skipped" >&2
+              exit 1
+            fi
+          environment:
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
+
       # The normative-identity gate alone, for the same reason.
       - run:
           name: Run pilot library identity gate
@@ -646,6 +712,7 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
 
       # The same ratchet over the API's JSON element form, beside the RDF one.
       - run:
@@ -661,6 +728,7 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
 
       # The PSSM suite gates alone, then the referee's bucket-count check
       # (never pass/fail; see docs/project/pssm-referee.md).
@@ -895,14 +963,17 @@ jobs:
       - image: cimg/go:1.25
     # The Go sensor holds a whole directory's parse in memory; internal/exec/runtime
     # (168 files) overflows the default heap. The 8 GB container, the largest
-    # class in the plan, carries: 5.5 GB analysis heap + Node capped at 1 GB
-    # (sonar-project.properties) + a small launcher JVM.
+    # class in the plan, carries: 4.8 GB analysis heap + Node capped at 1 GB
+    # (sonar-project.properties) + a small launcher JVM; the budget is derived
+    # in docs/project/releasing.md § The SonarCloud scan.
     resource_class: large
     environment:
       # sonar-scanner-cli 8 forks the analysis into a second JVM whose arguments
       # come from SONAR_SCANNER_JAVA_OPTS; SONAR_SCANNER_OPTS sizes the launcher
-      # and carries -D properties appended by later steps.
-      SONAR_SCANNER_JAVA_OPTS: -Xmx5500m
+      # and carries -D properties appended by later steps. The GC log records
+      # the committed heap after every collection, so the next budget change
+      # starts from a measurement.
+      SONAR_SCANNER_JAVA_OPTS: -Xmx4800m -Xlog:gc:file=sonar-logs/analysis-gc.log
       SONAR_SCANNER_OPTS: -Xmx256m
     steps:
       # Forked PRs get no context, so the token is absent there: end green
@@ -935,8 +1006,13 @@ jobs:
           name: Show the reports and Java binaries the scan reads
           command: |
             ls -l coverage.txt coverage-python.xml coverage-scripts.xml coverage-node.lcov \
+              coverage-vscode.lcov coverage-jupyterlab.lcov coverage-mcp-npm.lcov \
               client/java/opensysml-client/target/site/jacoco/jacoco.xml \
-              client/java/opensysml-conformance/target/site/jacoco/jacoco.xml
+              client/java/opensysml-conformance/target/site/jacoco/jacoco.xml \
+              editors/syson/backend/target/site/jacoco/jacoco.xml \
+              editors/mdk/tools/target/site/jacoco/jacoco.xml \
+              editors/mdk/plugin/target/site/jacoco/jacoco.xml \
+              editors/mdk/mdk-bridge/target/site/jacoco/jacoco.xml
             head -n 3 coverage.txt
             for module in opensysml-client opensysml-conformance; do
               for dir in classes test-classes dependency; do
@@ -1028,6 +1104,17 @@ jobs:
             fi
             scanner="$SCANNER_DIRECTORY/sonar-scanner-$VERSION-linux-x64/bin/sonar-scanner"
             transient='Failed to query JRE metadata|failed with HTTP 5[0-9][0-9]|Connection reset|Connect timed out|Read timed out|SocketTimeoutException|UnknownHostException'
+            # Sample the container's usage and the largest processes every 5 s
+            # so a kill can be attributed to a process and a phase.
+            (
+              while true; do
+                echo "== $(date -u +%H:%M:%S) cgroup $(cat /sys/fs/cgroup/memory.current 2>/dev/null || cat /sys/fs/cgroup/memory/memory.usage_in_bytes 2>/dev/null)"
+                ps -eo rss=,pid=,comm= --sort=-rss | head -n 6
+                sleep 5
+              done
+            ) > sonar-logs/memory-samples.log 2>&1 &
+            sampler=$!
+            trap 'kill "$sampler" 2>/dev/null || true' EXIT
             for attempt in 1 2; do
               set +e
               "$scanner" 2>&1 | tee "sonar-logs/sonar-scan-$attempt.log"
@@ -1043,7 +1130,7 @@ jobs:
             done
 
       # An OOM kill surfaces as a bare exit 3 in the scan's log; the cgroup
-      # counters name it (v2 first, v1 fallback).
+      # counters name it (v2 first, v1 fallback) and the samples say which process grew.
       - run:
           name: Report the container's memory events
           when: always
@@ -1053,6 +1140,16 @@ jobs:
             cat /sys/fs/cgroup/memory.events 2>/dev/null || true
             cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes 2>/dev/null || true
             cat /sys/fs/cgroup/memory/memory.oom_control 2>/dev/null || true
+            if [ -s sonar-logs/memory-samples.log ]; then
+              echo "peak cgroup usage sampled (bytes):"
+              awk '/^== /{print $4}' sonar-logs/memory-samples.log | sort -n | tail -n 1
+              echo "peak RSS per process (KiB, pid, command):"
+              awk '!/^== /{if ($1 > peak[$2]) {peak[$2] = $1; name[$2] = $3}} END {for (pid in peak) print peak[pid], pid, name[pid]}' sonar-logs/memory-samples.log | sort -rn | head -n 8
+            fi
+            if [ -s sonar-logs/analysis-gc.log ]; then
+              echo "largest committed analysis heap:"
+              grep -o '([0-9]*[MG])' sonar-logs/analysis-gc.log | sort -t'(' -k2 -n | tail -n 1
+            fi
 
       - save_cache:
           key: v1-sonar-scanner-8.0.1.6346
@@ -1446,11 +1543,14 @@ jobs:
       - attach_workspace:
           at: .
 
+      # `npm install`, not `npm ci`: a release branch pins platform packages npm 11.6+'s `npm ci`
+      # refuses to miss from the lock until the tag publishes them; the lock must not change by it.
       - run:
           name: Install the client's dependencies
           command: |
             cd client/node
-            npm ci
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
 
       - run:
           name: Build the package
@@ -1544,6 +1644,131 @@ jobs:
             make proto-ts BUF=buf
             git add -N client/node/src/generated
             git diff --exit-code client/node/src/generated
+
+  # The SysON backend's gate (editors/syson): its tests, with the JaCoCo report
+  # the scan reads; without it every line of the backend counts as uncovered.
+  # SysON runs on Java 21 and the module compiles at release 17, so the test
+  # JVM is 21. The service binary comes from the workspace, as for the clients.
+  syson-test:
+    docker:
+      - image: cimg/openjdk:21.0
+    resource_class: medium
+    steps:
+      - checkout
+
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Make the service binary executable
+          command: chmod +x bin/sysml-grpc
+
+      - restore_cache:
+          keys:
+            - maven-syson-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/syson/pom.xml" }}-{{ checksum "editors/syson/backend/pom.xml" }}
+            - maven-syson-v1-
+
+      # The backend builds against this revision's client, so it is installed
+      # on every run; the cache only spares the download of the rest.
+      - run:
+          name: Install the client dependency
+          command: mvn -B -q -f client/java/pom.xml install -DskipTests -Dmaven.javadoc.skip=true
+
+      - run:
+          name: Test and install the SysON backend
+          command: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
+
+      - save_cache:
+          key: maven-syson-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/syson/pom.xml" }}-{{ checksum "editors/syson/backend/pom.xml" }}
+          paths:
+            - ~/.m2/repository
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - editors/syson/backend/target/site/jacoco/jacoco.xml
+
+      - store_test_results:
+          path: editors/syson/backend/target/surefire-reports
+
+  # The MDK for Cameo plugin's gate (editors/mdk): the tests of its three
+  # tested modules, with the JaCoCo report of each for the scan. The stub
+  # modules have no tests and are not instrumented.
+  mdk-test:
+    executor: java-executor
+    steps:
+      - checkout
+
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Make the service binary executable
+          command: chmod +x bin/sysml-grpc
+
+      - restore_cache:
+          keys:
+            - maven-mdk-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/mdk/pom.xml" }}-{{ checksum "editors/mdk/plugin/pom.xml" }}
+            - maven-mdk-v1-
+
+      - run:
+          name: Install the Java client the plugin builds against
+          command: mvn -B -q -f client/java/pom.xml -pl :opensysml -am install -DskipTests
+
+      - run:
+          name: Build and test the plugin
+          command: mvn -B -f editors/mdk/pom.xml verify -Dopensysml.requireService=true
+
+      - save_cache:
+          key: maven-mdk-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/mdk/pom.xml" }}-{{ checksum "editors/mdk/plugin/pom.xml" }}
+          paths:
+            - ~/.m2/repository
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - editors/mdk/tools/target/site/jacoco/jacoco.xml
+            - editors/mdk/plugin/target/site/jacoco/jacoco.xml
+            - editors/mdk/mdk-bridge/target/site/jacoco/jacoco.xml
+
+      - store_test_results:
+          path: editors/mdk/plugin/target/surefire-reports
+
+  # The editors' and the npm package's Node tests (editors/vscode,
+  # editors/jupyterlab, packaging/npm/sysml-mcp), each under c8 for the lcov
+  # report the scan reads; without them every line of theirs counts as
+  # uncovered. The VS Code tests bundle the browser client from source, so its
+  # dependencies are installed first. Nothing here needs the service binary.
+  editors-node-test:
+    executor: node-executor
+    steps:
+      - checkout
+
+      - run:
+          name: Install the browser client's dependencies
+          command: |
+            cd client/node
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
+
+      - run:
+          name: Test the VS Code extension with coverage
+          command: make vscode-coverage
+
+      - run:
+          name: Test the JupyterLab extension with coverage
+          command: make jupyterlab-coverage
+
+      - run:
+          name: Test the sysml-mcp npm package with coverage
+          command: make mcp-npm-coverage
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - coverage-vscode.lcov
+            - coverage-jupyterlab.lcov
+            - coverage-mcp-npm.lcov
 
   # Builds the opensysml wheel and sdist on a core `v<version>` tag, which must name
   # the declared version; build-release and publish-pypi ship exactly these bytes.
@@ -2854,8 +3079,11 @@ jobs:
           command: |
             # The package names come from the two manifests, not a literal
             # list: the client, its platform binaries and optional WASM peer,
-            # then @openmbee/sysml-mcp and its platform binaries. Anything
-            # but thirteen means a manifest drifted.
+            # then @openmbee/sysml-mcp, its platform binaries and its alias
+            # @openmbee/opensysml-mcp, which the generator derives from the
+            # same manifest. Anything but fourteen means a manifest drifted.
+            # The alias's 0.11.0 was published by hand from the v0.11.0 tree,
+            # so it reads as present here like any published version.
             names=$(node -e "
               const pkg = require('./client/node/package.json');
               const platforms = Object.keys(pkg.optionalDependencies || {})
@@ -2865,11 +3093,12 @@ jobs:
               const mcp = require('./packaging/npm/sysml-mcp/package.json');
               const mcpPlatforms = Object.keys(mcp.optionalDependencies || {})
                 .filter(n => n.startsWith(mcp.name + '-'));
-              console.log([pkg.name, ...platforms, ...wasm, mcp.name, ...mcpPlatforms].join('\n'));
+              const alias = '@openmbee/opensysml-mcp';
+              console.log([pkg.name, ...platforms, ...wasm, mcp.name, ...mcpPlatforms, alias].join('\n'));
             ")
             count=$(echo "$names" | wc -l)
-            if [ "$count" -ne 13 ]; then
-              echo "Error: expected 13 packages to publish (client + 5 platform + WASM + sysml-mcp + 5 platform),"
+            if [ "$count" -ne 14 ]; then
+              echo "Error: expected 14 packages to publish (client + 5 platform + WASM + sysml-mcp + 5 platform + opensysml-mcp),"
               echo "the manifests yield $count:"
               echo "$names"
               exit 1
@@ -2900,7 +3129,8 @@ jobs:
             # Makes the suite assert that the table just stamped pins this tag.
             export OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}"
             cd client/node
-            npm ci
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
             npm run build
             npm run typecheck
             npm run lint
@@ -2911,7 +3141,8 @@ jobs:
           command: |
             # These are build-release's bytes; the generator checks each one
             # against its .sha256 sidecar before packaging it. The sysml-mcp
-            # packages are the ones @openmbee/sysml-mcp pins.
+            # packages are the ones @openmbee/sysml-mcp pins; the generator
+            # also writes the alias @openmbee/opensysml-mcp beside them.
             cd client/node
             npm run platform-packages -- --binaries ../../dist/grpc --mcp ../../dist/mcp --wasm ../../dist/wasm
 
@@ -3006,6 +3237,41 @@ jobs:
             SYSML_MCP_PACKAGES="$(pwd)/client/node/packages" scripts/npm-mcp-test.sh
 
       - run:
+          name: Pack @openmbee/opensysml-mcp and prove it is the runner under its other name
+          command: |
+            # The alias the generator derived from packaging/npm/sysml-mcp: the
+            # tarball packed here is the one published below. It must be this
+            # tag's version, pin the same five platform packages at it, declare
+            # both commands and no registry name; npm-mcp-test.sh above already
+            # installed it beside this platform's package and ran both commands.
+            (cd client/node/packages/opensysml-mcp && npm pack --pack-destination ../../../../dist/npm)
+            alias_tarball="dist/npm/openmbee-opensysml-mcp-${NPM_VERSION}.tgz"
+            if [ ! -f "$alias_tarball" ]; then
+              echo "Error: client/node/packages/opensysml-mcp did not pack as ${alias_tarball}:"
+              ls -l dist/npm
+              exit 1
+            fi
+            echo "export NPM_MCP_ALIAS_TARBALL=$(pwd)/${alias_tarball}" >> "$BASH_ENV"
+            tar -xOf "$alias_tarball" package/package.json > dist/npm/alias-package.json
+            node - "$NPM_VERSION" dist/npm/alias-package.json packaging/npm/sysml-mcp/package.json \<<'JS'
+            const fs = require("node:fs");
+            const [version, manifest, source] = process.argv.slice(2);
+            const pkg = JSON.parse(fs.readFileSync(manifest, "utf8"));
+            const runner = JSON.parse(fs.readFileSync(source, "utf8"));
+            const pins = Object.entries(pkg.optionalDependencies || {});
+            const wrong = pins.filter(([, pinned]) => pinned !== version).map(([name, pinned]) => `${name}@${pinned}`);
+            const samePins = Object.keys(pkg.optionalDependencies || {}).sort().join() === Object.keys(runner.optionalDependencies || {}).sort().join();
+            const shim = runner.bin["sysml-mcp"];
+            const commands = pkg.bin && pkg.bin["sysml-mcp"] === shim && pkg.bin["opensysml-mcp"] === shim && Object.keys(pkg.bin).length === 2;
+            if (pkg.name !== "@openmbee/opensysml-mcp" || pkg.version !== version || pins.length !== 5 || wrong.length > 0 || !samePins || !commands || pkg.dependencies !== undefined || pkg.mcpName !== undefined) {
+              console.error(`Error: ${pkg.name}@${pkg.version} pins ${pins.length} platform packages, wrong: ${wrong.join(", ") || "none"}, same as ${runner.name}: ${samePins}, commands: ${JSON.stringify(pkg.bin)}, mcpName: ${pkg.mcpName}; expected ${runner.name}'s five at ${version}, sysml-mcp and opensysml-mcp, no dependencies and no mcpName`);
+              process.exit(1);
+            }
+            console.log(`${pkg.name}@${pkg.version} pins ${runner.name}'s five platform packages at ${version} and declares sysml-mcp and opensysml-mcp`);
+            JS
+            rm dist/npm/alias-package.json
+
+      - run:
           name: Authenticate to npm
           command: |
             echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
@@ -3026,18 +3292,20 @@ jobs:
                   done
 
             - run:
-                name: Publish @openmbee/opensysml and @openmbee/sysml-mcp
+                name: Publish @openmbee/opensysml, @openmbee/sysml-mcp and @openmbee/opensysml-mcp
                 command: |
-                  # The tarballs verified above, not a fresh pack of the directories.
+                  # The tarballs verified above, not a fresh pack of the directories;
+                  # the alias last, after the runner it is the other name of.
                   npm publish "$NPM_TARBALL" --access public --tag "$NPM_DIST_TAG"
                   npm publish "$NPM_MCP_TARBALL" --access public --tag "$NPM_DIST_TAG"
+                  npm publish "$NPM_MCP_ALIAS_TARBALL" --access public --tag "$NPM_DIST_TAG"
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
             - run:
                 name: "REHEARSAL: pack every package"
                 command: |
-                  # The client and @openmbee/sysml-mcp were packed and verified above.
+                  # The client, @openmbee/sysml-mcp and @openmbee/opensysml-mcp were packed and verified above.
                   npm pack client/node/packages/sysml-wasm --dry-run
                   for directory in client/node/packages/sysml-grpc-* client/node/packages/sysml-mcp-*; do
                     npm pack "$directory" --dry-run
@@ -3243,11 +3511,14 @@ jobs:
             # must hold too; opensysml-conformance is not published. The jar is
             # rebuilt from the tree whose stamped resource was verified above.
             # Never run this step with -X/debug output; the settings interpolation would print the token.
+            # no_output_timeout: after "Waiting until Deployment … is published" the plugin polls
+            # Central silently for up to waitMaxTime (1800 s, client/java/pom.xml); 35m outlives that, the 10m default did not (v0.11.0).
             - run:
                 name: Sign, upload and publish
                 command: |
                   MAVEN_GPG_PASSPHRASE="$GPG_PASSPHRASE" mvn -B -f client/java/pom.xml \
                     -Prelease deploy -pl :opensysml -am -DskipTests
+                no_output_timeout: 35m
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
@@ -3890,6 +4161,18 @@ workflows:
           name: Node client tests
           requires: *scan-inputs
           filters: *integration-branches
+      - syson-test:
+          name: SysON backend tests
+          requires: *scan-inputs
+          filters: *integration-branches
+      - mdk-test:
+          name: MDK plugin tests
+          requires: *scan-inputs
+          filters: *integration-branches
+      - editors-node-test:
+          name: Editor and npm package tests
+          requires: *scan-inputs
+          filters: *integration-branches
       - scan:
           name: SonarCloud scan
           # Matched exactly, like PyPI below; this context holds SONAR_TOKEN.
@@ -3905,6 +4188,9 @@ workflows:
             - Python client tests
             - Java client tests
             - Node client tests
+            - SysON backend tests
+            - MDK plugin tests
+            - Editor and npm package tests
           filters: *integration-branches
 
   # Build and release on tags. The suite runs here too: a tag can point at any

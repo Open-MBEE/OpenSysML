@@ -129,6 +129,7 @@ repeated runs are byte-identical.
 | `pilot-examples` | `examples/pilot-corpora/sysml-examples` (`sysml/src/examples`) | `scripts/download-pilot-corpora.sh` |
 | `pilot-validation` | `examples/pilot-corpora/sysml-validation` (`sysml/src/validation`) | `scripts/download-pilot-corpora.sh` |
 | `kerml-examples` | `examples/pilot-corpora/kerml-examples` (`kerml/src/examples`) | `scripts/download-pilot-corpora.sh` |
+| `spec-examples` | `examples/spec-examples` (clause 7 and 8.4 examples extracted from `doc/*.pdf`) | `scripts/download-spec-examples.sh` |
 | `testdata` | `testdata` | vendored |
 | `examples` | `examples`, less the downloaded corpora | vendored |
 | `probes` | `tools/referee/diff/testdata` | vendored |
@@ -244,7 +245,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 399 files)
+## Results (pilot `2026-08`, 916 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -252,10 +253,11 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 88 | 261 | 0 | 0 | 0 | 261 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
-| `tests/testdata` | 30 | 17 | 66 | 85 | 48 | 5 | 13 | 32 |
+| `examples/spec-examples` | 511 | 150 | 1094 | 3395 | 1038 | 6 | 50 | 2351 |
+| `tests/testdata` | 36 | 23 | 72 | 91 | 54 | 5 | 13 | 32 |
 | `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **399** | **359** | **369** | **146** | **48** | **5** | **316** | **93** |
+| **Total** | **916** | **515** | **1469** | **3547** | **1092** | **11** | **366** | **2444** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -303,8 +305,14 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 `unmapped`, 26 `unresolved-reference`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`,
 3 `unresolved-reference`; `kerml-examples` 13 `unmapped`, 3 `unresolved-reference`; `testdata` 10 `unmapped`,
 1 `unresolved-reference`, 2 `multiplicity`; `examples` 5
-`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`. Only-pilot: `testdata` 13 `kind-mismatch`, 14 `unmapped`,
-3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`.
+`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
+38 `unresolved-reference`, 3 `kind-mismatch`, 2 `unmapped`. Only-pilot: `testdata` 13 `kind-mismatch`, 14 `unmapped`,
+3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
+586 `kind-mismatch`, 196 `syntax`, 156 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
+
+The `spec-examples` figures are dominated by fragments: the specification's examples leave
+cross-example names undeclared, and the pilot's typing and EMF cascade follows each one; every
+file is adjudicated in [spec-examples.md](spec-examples.md).
 
 ### View concern framing round
 
@@ -969,9 +977,9 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **93** |
-| pilot diagnostics | 123 | **146** |
-| severity-only | 9 | **5** |
+| only pilot | 82 | **2444** |
+| pilot diagnostics | 123 | **3547** |
+| severity-only | 9 | **11** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -1194,11 +1202,11 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **359 / 316 / 369** |
-| only pilot | **93** |
-| pilot diagnostics | **146** |
-| severity-only | **5** |
-| unmapped, our side | **284** |
+| overall: fully agreeing / only ours / our diagnostics | **515 / 366 / 1469** |
+| only pilot | **2444** |
+| pilot diagnostics | **3547** |
+| severity-only | **11** |
+| unmapped, our side | **287** |
 | kerml-examples: only ours | **16** |
 | pilot-examples: only ours | **261** |
 | examples: only pilot | **61** |

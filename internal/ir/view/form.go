@@ -214,6 +214,10 @@ type Options struct {
 	// Unplaced is what a graph-shaped form does with the nodes a positioned
 	// drawing leaves unplaced; empty leaves them undrawn, as UnplacedOmit does.
 	Unplaced Unplaced
+	// Compartments is which members of a tree fold into compartment rows of
+	// their owner; empty folds the unplaced members of a positioned tree alone,
+	// as CompartmentsPositioned does.
+	Compartments Compartments
 	// Width is the width the text form is written to fit; WidthUnbounded
 	// writes every column as wide as its widest cell.
 	Width int
@@ -249,6 +253,9 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 		return "", err
 	}
 	if err := options.Lines.check(); err != nil {
+		return "", err
+	}
+	if err := options.Compartments.check(); err != nil {
 		return "", err
 	}
 	switch form {

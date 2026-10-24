@@ -303,6 +303,9 @@ func TestTransitionStructureAloneReadsBack(t *testing.T) {
 			}
 			e := map[string]any{"isImpliedIncluded": false}
 			for key, value := range original {
+				if key == "sysx:statedDefaults" {
+					continue
+				}
 				if list, ok := value.([]any); ok && dropChainings {
 					var keep []any
 					for _, item := range list {

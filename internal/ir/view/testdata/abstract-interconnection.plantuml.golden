@@ -1,0 +1,50 @@
+@startuml
+' AbstractViews::familyLinks — interconnection rendering (render asInterconnectionDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+rectangle "<size:10>//«abstract part»//</size>\n**vehicleFamily**" as n0 <<abstract part>> <<usage>> {
+  rectangle "<size:10>//«abstract port»//</size>\n**fuel**" as n1 <<abstract port>> <<usage>>
+  rectangle "<size:10>//«abstract part»//</size>\n**engine**" as n2 <<abstract part>> <<usage>>
+  rectangle "<size:10>//«part»//</size>\n**chassis**" as n3 <<part>> <<usage>>
+  rectangle "<size:10>//«attribute»//</size>\n**mass**" as n4 <<attribute>> <<usage>>
+}
+n2 -[thickness=3]- n3
+@enduml

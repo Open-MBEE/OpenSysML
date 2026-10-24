@@ -87,6 +87,7 @@ func TestNestedInvocationArgumentsStayDistinct(t *testing.T) {
 		expr := parseExpr(t, tc.src)
 		for i := 0; i < 2; i++ {
 			got, err := ec.Eval(expr)
+			got = soleElement(got)
 			if err != nil || got.Kind != ValConst || got.Const.Int != tc.want {
 				t.Fatalf("eval %d of %s = %+v, %v; want %d", i, tc.src, got, err, tc.want)
 			}
@@ -104,6 +105,7 @@ func TestNestedInvocationArgumentsStayDistinct(t *testing.T) {
 		t.Fatalf("a failing argument left %d arguments on the stack", len(ctx.argStack))
 	}
 	got, err := ec.Eval(parseExpr(t, "sub(7, 2)"))
+	got = soleElement(got)
 	if err != nil || got.Const.Int != 5 {
 		t.Fatalf("sub(7, 2) after a failed invocation = %+v, %v; want 5", got, err)
 	}
@@ -130,6 +132,7 @@ func TestRepeatedInvocationEvaluationAnswersAlike(t *testing.T) {
 		expr := parseExpr(t, tc.src)
 		for i := 0; i < 3; i++ {
 			got, err := ec.Eval(expr)
+			got = soleElement(got)
 			if err != nil || got.Kind != ValConst || got.Const.Int != tc.want {
 				t.Fatalf("eval %d of %s = %+v, %v; want %d", i, tc.src, got, err, tc.want)
 			}

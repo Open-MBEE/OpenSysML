@@ -46,7 +46,7 @@ func (s *Server) identityActions(name string, doc *model.Document, want source.S
 			Edit:  workspaceEdit(uri, positionsOf(doc), annotate(doc.Content, []annotation{projectRef(root)})),
 		})
 	}
-	if info.Annotated || info.Normative() {
+	if info.Annotated || info.Fixed() {
 		return out, nil
 	}
 	id, err := reposync.MintUUID()
