@@ -371,10 +371,19 @@ func nestedDeclared(ctx *runtime.Context, q *Query, self *runtime.Instance) ([]P
 		holding := v.Steps[:len(v.Steps)-1]
 		found, notRead := Fixed(ctx, holding[len(holding)-1], nestedObjectAt(ctx, self, holding))
 		for _, p := range found {
-			if p.Feature == v.Symbol || p.Name == v.Symbol.Name {
-				out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: p.Value, Source: p.Source, Object: p.Object})
+			if p.Feature != v.Symbol && p.Name != v.Symbol.Name {
+				continue
+			}
+			// A derived value is read through the object as the value it derives,
+			// its equation being over that object's features, not the subject's.
+			if p.Derived != nil && p.Value.Kind == runtime.ValInvalid {
+				if p.Derived.Err != nil {
+					unfixed = append(unfixed, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: p.Derived.Err.Error(), Err: p.Derived.Err})
+				}
 				break
 			}
+			out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: p.Value, Source: p.Source, Object: p.Object})
+			break
 		}
 		for _, u := range notRead {
 			if u.Feature == v.Symbol || u.Name == v.Symbol.Name {
@@ -480,6 +489,12 @@ type translator struct {
 	pins   []Assertion
 	pinned []PinnedValue
 	unread []Unread
+	// equations are the defining equations of derived declared values, and
+	// derived records them; unreadables records the reads guarded for want of a
+	// value, whose guards are among guards.
+	equations   []Assertion
+	derived     []DerivedValue
+	unreadables []UnreadableRead
 
 	// guarded remembers the divisors already asserted non-zero, by their term, so
 	// a divisor read twice is guarded once.
@@ -692,10 +707,13 @@ func (t *translator) query() *Query {
 	domains := append([]Assertion(nil), t.domains...)
 	sortAssertions(domains)
 	q.Assertions = append(domains, t.pinnedAssertions(len(domains))...)
+	q.Assertions = append(q.Assertions, t.equations...)
 	q.Assertions = append(q.Assertions, t.guards...)
 	q.Assertions = append(q.Assertions, t.asserts...)
 	q.Pinned = t.pinned
 	q.Unread = t.unread
+	q.Derived = t.derived
+	q.Unreadable = t.unreadables
 	for _, obj := range t.objectives {
 		if obj.Unit == "" {
 			obj.Unit = t.baseUnits[obj.Dimension]
@@ -1016,9 +1034,13 @@ func reaches(op Op, left *Term) *Term {
 }
 
 // under translates with the evaluation condition narrowed by cond, nil narrowing
-// nothing, and restores the enclosing one after.
+// nothing — nor a literal true, an operand the evaluator always passes — and
+// restores the enclosing one after.
 func (t *translator) under(cond *Term, translate func() (*Term, error)) (*Term, error) {
 	outer := t.path
+	if cond != nil && cond.Op == OpBool && cond.Bool {
+		cond = nil
+	}
 	t.path = and(outer, cond)
 	defer func() { t.path = outer }()
 	return translate()
