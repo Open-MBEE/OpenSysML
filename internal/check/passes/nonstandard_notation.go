@@ -63,6 +63,7 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 	w.bodies = append(w.bodies, bodyFrame{members: root.Members, namespaceish: true})
 	w.walk(root.Members)
 	w.bodies = w.bodies[:0]
+	w.typedByInExpressions(root)
 	// A comment where no member may start is the parser's own warning, which
 	// strict conformance escalates; the escalated finding replaces the warning.
 	if ctx.Options.Conformance.IsStrict() {
@@ -208,9 +209,14 @@ func (w *notationWalker) walk(members []ast.Node) {
 				w.conditionTerminator(n)
 			}
 			w.walk(n.Body)
+		case *ast.SubjectMember:
+			w.kermlRelationships(n.Relationships)
+			w.walkActionBody(ast.NodeBodyMembers(n))
 		case *ast.AssumeMember:
+			w.kermlRelationships(n.Relationships)
 			w.walk(n.Body)
 		case *ast.RequireMember:
+			w.kermlRelationships(n.Relationships)
 			w.walk(n.Body)
 		case *ast.StateNode:
 			w.stateNode(n)
@@ -239,6 +245,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 				w.walkActionBody(branch.Body)
 			}
 		case *ast.WhileLoopActionNode:
+			w.kermlRelationships(n.VariableRelationships)
 			w.walkActionBody(n.Body)
 		default:
 			w.walkActionBody(ast.NodeBodyMembers(n))
@@ -726,10 +733,36 @@ func (w *notationWalker) typedByPrefixes(prefixes []*ast.PrefixMetadata) {
 	}
 }
 
+// typedByInExpressions reports the typings spelled `typed by` that the walk
+// does not reach because they sit inside an expression: a body expression's
+// parameters (`{ in x typed by T; … }`).
+func (w *notationWalker) typedByInExpressions(root *ast.RootNamespace) {
+	if !w.sysml {
+		return
+	}
+	ast.Inspect(root, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.BodyExpr:
+			for i := range n.Params {
+				w.typedByRelationships(n.Params[i].Relationships)
+			}
+		}
+		return true
+	})
+}
+
+func (w *notationWalker) typedByRelationships(rels []*ast.Relationship) {
+	for _, rel := range rels {
+		if rel != nil && rel.Kind == ast.RelTyping && rel.TypedBy.Len > 0 {
+			w.typedBy(rel.TypedBy)
+		}
+	}
+}
+
 // typedBy reports a typing spelled `typed by` in a SysML file: SysML.xtext:395
 // DefinedByKeyword admits `:` and `defined by` only, where KerML.xtext:600
 // TypedBy admits `:` and `typed by`. The typing itself is read as written, so
-// the fix is the SysML spelling of the same keyword.
+// the fix rewrites the keyword alone and keeps any note between the two words.
 func (w *notationWalker) typedBy(span source.Span) {
 	w.diags = append(w.diags, diag.Diagnostic{
 		Severity: w.severity,
@@ -740,7 +773,7 @@ func (w *notationWalker) typedBy(span source.Span) {
 		Source: "syntax",
 		Fixes: []diag.Fix{{
 			Title:     "Write `defined by`",
-			Edits:     []diag.Edit{diag.Replace(span, "defined by")},
+			Edits:     []diag.Edit{diag.Replace(source.Span{Offset: span.Offset, Len: len("typed")}, "defined")},
 			Preferred: true,
 		}},
 	})

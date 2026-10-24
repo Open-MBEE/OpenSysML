@@ -637,6 +637,11 @@ func TestTypedByInSysMLIsKerMLNotation(t *testing.T) {
 		"package P { part def D; part p typed by D, D; }",
 		"package P { metadata def M; part def D { @ m typed by M; } }",
 		"package P { metadata def M; @ m typed by M; }",
+		"package P { part def D; requirement def R { subject s typed by D; } }",
+		"package P { constraint def C; requirement def R { assume constraint c typed by C; } }",
+		"package P { constraint def C; requirement def R { require constraint c typed by C; } }",
+		"package P { attribute def A; action def B { for i typed by A in (1, 2) { } } }",
+		"package P { attribute def A; calc def F { return r = { in x typed by A; x }; } }",
 	} {
 		wantNotation(t, "a.sysml", src, CodeKerMLNotation,
 			"`typed by` is KerML notation: the SysML v2 grammar spells a typing `:` or `defined by`")
@@ -656,8 +661,27 @@ func TestTypedByInSysMLIsKerMLNotation(t *testing.T) {
 	if len(got[0].Fixes) != 1 || len(got[0].Fixes[0].Edits) != 1 {
 		t.Fatalf("fixes = %+v, want one fix with one edit", got[0].Fixes)
 	}
-	if edit := got[0].Fixes[0].Edits[0]; edit.Span != got[0].Span || edit.NewText != "defined by" {
-		t.Errorf("fix edit = %+v, want `defined by` over the warning span", edit)
+	if edit := got[0].Fixes[0].Edits[0]; src[edit.Span.Offset:edit.Span.End()] != "typed" || edit.NewText != "defined" {
+		t.Errorf("fix edit = %+v, want `defined` over the `typed` keyword", edit)
+	}
+}
+
+// A note between the two keywords is outside the fix's edit, so applying the
+// fix keeps it.
+func TestTypedByFixKeepsANoteBetweenTheKeywords(t *testing.T) {
+	src := "package P { part def D; part p typed // keep this note\n by D; }"
+	root, pd, idx := analyzeInputs(t, "a.sysml", src)
+	if len(pd) != 0 {
+		t.Fatalf("parse errors %+v", pd)
+	}
+	got := (NonstandardNotationPass{}).Run(NewContext("a.sysml", idx, pd), "a.sysml", root)
+	if len(got) != 1 || len(got[0].Fixes) != 1 || len(got[0].Fixes[0].Edits) != 1 {
+		t.Fatalf("got %+v, want one diagnostic with one single-edit fix", got)
+	}
+	edit := got[0].Fixes[0].Edits[0]
+	fixed := src[:edit.Span.Offset] + edit.NewText + src[edit.Span.End():]
+	if want := "package P { part def D; part p defined // keep this note\n by D; }"; fixed != want {
+		t.Errorf("fixed source = %q, want %q", fixed, want)
 	}
 }
 

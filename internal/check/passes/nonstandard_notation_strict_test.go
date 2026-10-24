@@ -97,6 +97,19 @@ func TestTypedByFollowsTheMode(t *testing.T) {
 	if got := notationDiags(t, "a.kerml", "package P { class D; feature p typed by D; }", diag.ConformanceStrict); len(got) != 0 {
 		t.Errorf("a KerML file uses KerML notation: got %+v, want silence", got)
 	}
+	// The typings the walk reaches outside a definition or usage reject the same way.
+	for _, src := range []string{
+		"package P { part def D; requirement def R { subject s typed by D; } }",
+		"package P { constraint def C; requirement def R { assume constraint c typed by C; } }",
+		"package P { constraint def C; requirement def R { require constraint c typed by C; } }",
+		"package P { attribute def A; action def B { for i typed by A in (1, 2) { } } }",
+		"package P { attribute def A; calc def F { return r = { in x typed by A; x }; } }",
+	} {
+		got := notationDiags(t, "a.sysml", src, diag.ConformanceStrict)
+		if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeKerMLNotation {
+			t.Errorf("strict %s: got %+v, want one kerml-notation error", src, got)
+		}
+	}
 }
 
 // Standard notation must stay silent under strict mode: a false rejection of
