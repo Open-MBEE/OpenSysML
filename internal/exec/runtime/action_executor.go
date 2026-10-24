@@ -266,6 +266,9 @@ func newActionExecutorOn(
 	exec.through = ctx.performedPinBindings(performed, graph, self)
 	exec.owner = exec
 	exec.flow = exec
+	if occurrence != nil {
+		ctx.registerActionExecutor(exec)
+	}
 	exec.driven.exec = exec
 	ctx.clock.attach(exec)
 	ctx.run.notePerformer(exec)
@@ -1480,6 +1483,27 @@ func (e *ActionExecutor) streamInitialOutput(name string, value Value) error {
 
 // declaresAttribute reports whether the action declares an attribute of this
 // name, which its performance holds rather than the object performing it.
+// mirrorOccurrenceWrite carries a write to one of the occurrence's declared
+// features into the run's data, under every name the data holds it by.
+func (e *ActionExecutor) mirrorOccurrenceWrite(fv *FeatureValue) {
+	if e.occurrence == nil || e.root == nil {
+		return
+	}
+	for _, attr := range e.features {
+		if attr.Shadowed || e.occurrence.FeatureValues[attr.Name] != fv {
+			continue
+		}
+		key := e.root.key(attr.Name)
+		if _, held := e.root.data[key]; !held {
+			continue
+		}
+		if cell := e.root.cells.existingCell(key); cell != nil && e.ctx.derivingValue(&cell.fv) {
+			continue
+		}
+		e.ctx.writeBodyValue(e.root.cells, e.root.data, key, fv.HeldValue())
+	}
+}
+
 func (e *ActionExecutor) declaresAttribute(name string) bool {
 	for _, attr := range e.features {
 		if attr.Name == name {
@@ -1516,6 +1540,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	inst.explicit = true
 	e.occurrence = inst
 	e.performances.occurrence = inst
+	e.ctx.registerActionExecutor(e)
 	for _, attr := range e.features {
 		if attr.Shadowed {
 			continue // the performance's alone: the occurrence's slots are keyed by name
@@ -1703,6 +1728,7 @@ func (e *ActionExecutor) completeRoot() error {
 	}
 	e.state = StateCompleted
 	e.endRootPerformance()
+	e.ctx.unregisterActionExecutor(e)
 	return nil
 }
 

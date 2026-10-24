@@ -1336,9 +1336,9 @@ is refused whole, never read as the one event that does resolve), and observatio
 outside any activity, are comments whose report line says which.
 
 **The object an activity acts on.** A block's own activity acts on the block's object. In
-SysML v2 `this` inside a behavior definition is that definition's own occurrence, so a
-definition owned by a block cannot name the block's features at all — it reads them through a
-reference parameter the migration appends after its declared ones, `in ref context : Host;`,
+SysML v2 `this` inside a behavior definition is typed `Occurrence` (`Occurrence::this : Occurrence[1]`,
+bound to the performer only when the definition is performed), so a block's features are no
+members of it and a definition owned by a block cannot name them through it — it reads them through a reference parameter the migration appends after its declared ones, `in ref context : Host;`,
 spelling them `context.tx`, `context.level`, `context` where a bare `this` value stood. The
 same holds of every block-owned definition whose body needs its owner — an activity reading
 the block's features, sending through its ports, passing the object on — and of an activity no

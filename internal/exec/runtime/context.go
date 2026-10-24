@@ -159,6 +159,9 @@ type Context struct {
 	// stateExecutors are the live state machines this context can notify of a
 	// completed feature write, in creation order.
 	stateExecutors []*StateExecutor
+	// actionExecutors are the live action runs over an occurrence, whose data
+	// mirrors a write landing on it; a run leaves when it ends or is released.
+	actionExecutors []*ActionExecutor
 
 	// featureWriteDepth coalesces nested stores into one completed write.
 	featureWriteDepth  int
@@ -272,6 +275,9 @@ type Context struct {
 	// deriving are the `=` values being derived, innermost last; every feature
 	// value read while one is records it as a dependent (see dependents.go).
 	deriving []derivation
+	// mirroringBodyCell counts the body-cell mirrors writing an occurrence feature, whose
+	// write the cell they mirror need not adopt.
+	mirroringBodyCell int
 	// tracing observes the derivations under way, innermost last, for the reads
 	// that decide whether each is one every occurrence of its shape shares.
 	tracing []derivationTrace

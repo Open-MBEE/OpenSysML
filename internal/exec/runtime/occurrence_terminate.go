@@ -139,6 +139,7 @@ func (e *ActionExecutor) endTerminated() {
 	e.root.ended, e.root.live = true, 0
 	e.state = StateTerminated
 	e.ctx.endPerformanceLife(e.occurrence)
+	e.ctx.unregisterActionExecutor(e)
 }
 
 // endedByOccurrence settles the unwinding of a terminate of an occurrence at this

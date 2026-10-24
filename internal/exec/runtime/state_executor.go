@@ -712,23 +712,27 @@ func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error
 
 // mirrorOccurrenceWrite carries a write to one of the occurrence's declared
 // features, made by any performance holding the occurrence, into the machine's
-// data, which mirrors the occurrence; it reports whether fv was such a feature.
+// data under every name the data holds it by; it reports whether any changed.
 func (e *StateExecutor) mirrorOccurrenceWrite(fv *FeatureValue) bool {
 	if e.occurrence == nil || !fv.Materialized {
 		return false
 	}
+	mirrored := false
 	for _, attr := range e.graph.Attributes {
 		if attr.Shadowed || e.occurrence.FeatureValues[attr.Name] != fv {
 			continue
 		}
 		value := fv.HeldValue()
 		if held, ok := e.stateData[attr.Name]; ok && heldSame(held, value) && !e.endsLiveBinding(attr.Name, fv) {
-			return false
+			continue
+		}
+		if cell := e.stateCells.existingCell(attr.Name); cell != nil && e.ctx.derivingValue(&cell.fv) {
+			continue
 		}
 		e.ctx.writeBodyValue(e.stateCells, e.stateData, attr.Name, value)
-		return true
+		mirrored = true
 	}
-	return false
+	return mirrored
 }
 
 // endsLiveBinding reports whether a write to the occurrence's fv is an assignment
