@@ -423,6 +423,9 @@ func (shape *calcShape) usageSpelling(output string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s c : %s {", shape.Kind, shape.Name)
 	for _, param := range shape.Params {
+		if param.IsActor {
+			continue
+		}
 		fmt.Fprintf(&b, " in %s = ...;", param.Name)
 	}
 	fmt.Fprintf(&b, " } then read c.%s", output)
@@ -738,7 +741,13 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 			if start.occurrence.inst != nil {
 				return start.occurrence.inst, nil
 			}
-			inst, err := ctx.occurrenceOf(start.key.sym)
+			var inst *Instance
+			var err error
+			if reader.self != nil {
+				inst, err = ctx.usageOccurrenceOf(start.key, reader.self)
+			} else {
+				inst, err = ctx.occurrenceOf(start.key.sym)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -1456,9 +1465,16 @@ func (run *calcRun) openValue(name string, count semantics.Range, feature *symbo
 // unbound; the subject binds through its own rule and is never among them.
 func (shape *calcShape) unsuppliedParameters(args calcArgs) map[string]bool {
 	var out map[string]bool
+	positional := 0
 	for i := range shape.Params {
 		param := &shape.Params[i]
-		if param.Default != nil || param.IsSubject || i < len(args.positional) {
+		// An actor takes no positional slot, so the cursor passes it by.
+		supplied := false
+		if !param.IsActor {
+			supplied = positional < len(args.positional)
+			positional++
+		}
+		if param.Default != nil || param.IsSubject || supplied {
 			continue
 		}
 		if _, named := args.named[param.Name]; named {
@@ -1500,6 +1516,27 @@ func (ctx *Context) unboundSubjectRead(sym *symbols.Symbol, name string, err err
 	feat := ctx.effectiveFeature(name, param.Sym, sym)
 	reason := fmt.Sprintf("%s binds no value to its subject %s", shape.Label, name)
 	return undeterminedFeatureValue(reason, feat.Multiplicity, param.Sym), true
+}
+
+// usageOccurrenceOf returns the occurrence the usage is on the object it is a feature
+// of, materializing it once per object: two owners read two objectives, two parts.
+func (ctx *Context) usageOccurrenceOf(key calcUsageKey, owner *Instance) (*Instance, error) {
+	if id, ok := ctx.usageOccurrences[key]; ok {
+		if inst, live := ctx.instances[id]; live {
+			return inst, nil
+		}
+	}
+	mark := len(ctx.created)
+	inst, err := ctx.materialize(key.sym, 0, owner, key.sym.Name)
+	if err != nil {
+		ctx.abandonInstancesSince(mark)
+		return nil, err
+	}
+	ctx.usageOccurrences[key] = inst.ID
+	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
+		return nil, err
+	}
+	return inst, nil
 }
 
 // occurrenceMember reads a feature the run holds no binding for — the objective, a

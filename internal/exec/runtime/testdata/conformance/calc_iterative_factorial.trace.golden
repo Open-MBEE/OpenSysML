@@ -83,4 +83,4 @@ enter calc test::factorial
       eval operator <= -> false
   stmt return
     eval feature acc -> 720
-exit calc test::factorial -> 720
+exit calc test::factorial -> (720)

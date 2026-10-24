@@ -175,11 +175,26 @@
 //     value type, enumeration-typed features and variation points.
 //   - Feature chains that ground in such a feature (`lander.verticalSpeed`).
 //   - Enumeration literals and variants, as constructors of a finite datatype
-//     sort declared per enumeration definition or variation point.
+//     sort declared per enumeration definition or variation point. A variation
+//     point whose every variant declares a value compares under `==` and `!=`
+//     by the value its selection stands for (KerML BaseFunctions::'==' is value
+//     equality for data values), so two variants declaring one value are equal;
+//     two variants named outright compare as the choice itself.
+//   - `P->forAll { in ref w; w == V }` and `P->exists { … }` over a variation
+//     point P holding at least one object, as the selection `P == V` (`P != V`
+//     for `w != V`): a configuration holds only the variant P selects (SysML
+//     v2.1 §8.3.6, §7.6.7), so every value of P is that variant. A point that
+//     may hold no object, or a body comparing the iterate with anything but a
+//     value of P's sort, refuses with that reason.
 //
 // A variable stands for the value a feature may take, constrained only by its
 // sort: declared values are not asserted, so a query asks what the conditions
-// permit rather than what one object holds.
+// permit rather than what one object holds. The one exception is a derived
+// declared value, an expression written over other features of the same
+// element (`attribute volume : VolumeValue = height * width * length;`): it is
+// asserted as the defining equation of its variable, since the model states not
+// a value but how the value follows from the others (see "Derived declared
+// values" under Value synthesis). A literal default stays unasserted.
 //
 // # Reads the evaluator never reaches
 //
@@ -273,6 +288,49 @@
 // match its feature, is a PinError wrapping ErrNotPinnable, never a silent drop.
 // Features read by the conditions but not readable as a value are reported as
 // Unread rather than being fixed to something.
+//
+// # Derived declared values
+//
+// A declared value that is an expression over other features of the element
+// (`attribute volume : VolumeValue = height * width * length;`, with `height`,
+// `width` and `length` features of the same definition) is a Pin carrying the
+// expression (Pin.Derived) rather than a value: Fixed reads the declaration
+// before reading the object, since reading a lazily held value materializes
+// it. The translator asserts the equation `volume == height * width * length`
+// in role RoleDerived, translated in the declaration's scope through the same
+// expression translation the conditions use (so a quantity is scaled to base
+// units, and a product of two variables marks the query nonlinear), with the
+// declaration's file:line:col as provenance so an unsat core can name it; the
+// query lists it in Query.Derived. The equations are stated before the fixed
+// values, since an equation reads features no condition may have read yet.
+// The variable stays in Free(): the solver still chooses its value, by the
+// equation, and a witness reports it alongside the operands it follows from.
+//
+// The rule is scoped so that %check's answers over literal defaults do not
+// move: an expression over no feature of the element (`1.0 + 2.0`) is a value
+// as before, pinned where it evaluates; so is one reading anything but the
+// element's own features and literals — a chain (`inner.x + 1.0`), a qualified
+// or imported name (`test::scale * r`) — since the query fixes no value of what
+// it names and an equation would leave that to the solver; a value the object has
+// materialized (fv.Materialized — read already, or written) is held by the
+// object and pinned as held, so an object's recorded volume is what it
+// recorded, not what its dimensions now give; a value read through a chain
+// from another object (`crate.volume` from a holder) is the value that object
+// derives, since the equation is over the held object's features, not the
+// subject's — one it cannot derive is an Unfixed, guarded or refused as any
+// failed read. The equation stands in only for a value the evaluator could not
+// derive for want of a value (ErrNoValue) or derived without failing: one it
+// failed to derive from values it had (`1.0 / x` with x fixed to zero) is
+// unreadable, guarded by Reached or refused, as any failed read. It is read
+// where the evaluator reads the variable — translated under its Reached, where
+// a computed divisor refuses to hoist its guard exactly as one in a
+// short-circuited operand does, and asserted as Reached ⇒ equation — so a read
+// the evaluator skips never constrains the query. An equation the term language
+// does not carry (a function outside the subset, or a division under a
+// conditional read) falls back: the value the evaluator derives is pinned where
+// there is one, and where there is none the read is guarded by Reached or
+// refused, exactly as a failed read is; a derived value no condition reads is
+// Unread like any pin.
 //
 // Result.Model is one witness, not a canonical answer: a satisfiable query
 // usually has many models and the solver may return any of them. Values are
@@ -402,8 +460,9 @@
 // fails the whole query, so no partial script exists:
 //
 //   - Collections and quantifiers: sequences, sets, `->select`, `->collect`,
-//     `->forAll`, `->exists`, `->size`, indexing `#(i)`, ranges `a..b`, and
-//     collection-valued features. Bounded expansion is not implemented.
+//     `->size`, indexing `#(i)`, ranges `a..b`, collection-valued features, and
+//     `->forAll`/`->exists` in any form but the variation-point selection above.
+//     Bounded expansion is not implemented.
 //   - Invocations of any kind, calc usages included: a calc body may be
 //     iterative or read state, and constant folding it is the evaluator's job.
 //   - Euclidean `div`/`mod` themselves, as SMT-LIB defines them: only the

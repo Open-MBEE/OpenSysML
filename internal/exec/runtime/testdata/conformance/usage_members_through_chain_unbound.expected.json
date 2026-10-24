@@ -13,7 +13,7 @@
     },
     "scaledResult": {
       "type": "Undetermined",
-      "value": "[1]"
+      "value": "[0..*]"
     },
     "underLimit": {
       "type": "Undetermined",
@@ -49,7 +49,7 @@
     },
     "scaledOneResult": {
       "type": "Undetermined",
-      "value": "[1]"
+      "value": "[0..*]"
     },
     "underOneLimit": {
       "type": "Undetermined",
@@ -69,7 +69,7 @@
     },
     "ratedResult": {
       "type": "Undetermined",
-      "value": "[1]"
+      "value": "[0..*]"
     },
     "scoredN": {
       "type": "Undetermined",
@@ -81,15 +81,15 @@
     },
     "scoredResult": {
       "type": "Undetermined",
-      "value": "[1]"
+      "value": "[0..*]"
     },
     "checkedVerdict": {
       "type": "Undetermined",
-      "value": "[1]"
+      "value": "[0..*]"
     },
     "pkgScoredResult": {
       "type": "Undetermined",
-      "value": "[1]"
+      "value": "[0..*]"
     },
     "actIn": {
       "type": "Undetermined",

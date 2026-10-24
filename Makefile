@@ -1,4 +1,4 @@
-.PHONY: all build docker extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
+.PHONY: all build docker extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -53,10 +53,11 @@ WASM_DIR := $(BIN_DIR)/wasm
 PYTHON_DIR := client/python
 JUPYTER_KERNEL_DIR := client/jupyter-kernel
 NODE_DIR := client/node
-# The TypeScript protobuf plugin, installed by `npm ci` from the client's lockfile.
+# The TypeScript protobuf plugin, installed from the client's lockfile.
 PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
 VSCODE_DIR := editors/vscode
 JUPYTERLAB_DIR := editors/jupyterlab
+MCP_NPM_DIR := packaging/npm/sysml-mcp
 PYTHON ?= python3
 # api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
@@ -76,7 +77,9 @@ TOOLS_DIR := tools
 COVERAGE_PACKAGES ?= ./...
 COVERAGE_TOOLS ?= ./...
 COVERAGE_PROFILE ?= coverage.txt
-COVERAGE_SHARDS := runtime model export rest migrate
+# The coverage job's nodes: the race shards except runtime-corpus, since without -race
+# internal/exec/runtime runs whole in about 19 minutes under -coverpkg (see .circleci/config.yml).
+COVERAGE_SHARDS := runtime model export graph codegen tools rest migrate cli
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
@@ -226,8 +229,12 @@ build-wasm-re: ## Build bin/wasm/{js,wasip1}/re/sysml.wasm, the RE build, with -
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/js/wasm_exec.js
 	@echo "✓ Built $(WASM_DIR)/{js,wasip1}/re/sysml.wasm ($(VERSION))"
 
+# Cold, the gate compiles and vets the whole tree for both targets: 7-11 minutes on a hosted CI
+# runner, past go test's default 10m. 25m is about twice that, so a slow run fails on an assertion.
+WASM_GATE_TIMEOUT ?= 25m
+
 wasm-check: ## Run the WebAssembly build-and-run gate (needs Node; fails rather than skipping)
-	OPENSYSML_REQUIRE_WASM=1 go test -count=1 -v ./tests/wasm
+	OPENSYSML_REQUIRE_WASM=1 go test -count=1 -v -timeout $(WASM_GATE_TIMEOUT) ./tests/wasm
 
 static-check: ## Check the built Linux binaries are statically linked (BINARIES=path...)
 	scripts/check-static-binaries.sh $(or $(BINARIES),$(addprefix $(BIN_DIR)/,$(COMMANDS)))
@@ -318,27 +325,32 @@ test: ## Run Go tests with race detection and coverage
 RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
 # The runtime-corpus shard: the suites that run every model of the conformance corpus,
 # about half the package's time under -race.
+RACE_RUNTIME_EXPLORATION := ^TestExploreWithIsExploreOverTheConformanceCorpus$$
 RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
-test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|rest|migrate)
+test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|graph|codegen|tools|rest|migrate|cli)
 	@echo "Running Go race tests, shard $(SHARD)..."
 	@# 55m per package; its job's ceiling is 60. Whole, internal/exec/runtime took 31-57 minutes
 	@# under -race on the CI runners, so it runs as two shards of about half that each.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && case "$(SHARD)" in \
-	  runtime-corpus) go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  runtime-corpus) go test -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage-exploration.txt -covermode=atomic $$pkgs && \
+	    go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs && \
+	    tail -n +2 coverage-exploration.txt >> coverage.txt && python3 scripts/dedupe-coverage.py coverage.txt ;; \
 	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
 	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
 	esac
-	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./...; fi
+	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
+	@# tools shard (tests/wasm is its WebAssembly gate job there), with rest on GitHub Actions.
+	case "$(SHARD)" in rest|tools) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./... ;; esac
 
-test-quick: ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export" | "rest migrate")
+test-quick: ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export graph" | "rest migrate cli codegen")
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
 	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race, no coverage.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime model export rest migrate"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime model export graph codegen tools rest migrate cli"; exit 1; }
 	pkgs=$$(for shard in $(SHARDS); do scripts/race-shard.sh $$shard || exit 1; done) && \
 	go test -skip '$(RACE_SHARD_SKIP)' -v -timeout 45m $$pkgs
-	case " $(SHARDS) " in *" rest "*) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -timeout 45m ./... ;; esac
+	case " $(SHARDS) " in *" rest "*|*" tools "*) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -timeout 45m ./... ;; esac
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
@@ -365,14 +377,14 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	python3 scripts/dedupe-coverage.py $(COVERAGE_PROFILE)
 	@go tool cover -func=$(COVERAGE_PROFILE) | tail -n 1
 
-coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|rest|migrate)
-	@# The race shards' packages; tests/wasm and the tools, which no race shard runs, go with runtime.
+coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|graph|codegen|tools|rest|migrate|cli)
+	@# The race shards' packages; the tools module goes with tools (tests/wasm), as in test-shard.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && \
 	$(MAKE) --no-print-directory coverage COVERAGE_PROFILE=coverage-$(SHARD).txt \
-		COVERAGE_PACKAGES="$$(echo $$pkgs) $(if $(filter runtime,$(SHARD)),./tests/wasm)" \
-		COVERAGE_TOOLS="$(if $(filter runtime,$(SHARD)),./...)"
+		COVERAGE_PACKAGES="$$(echo $$pkgs)" \
+		COVERAGE_TOOLS="$(if $(filter tools,$(SHARD)),./...)"
 
-coverage-merge: ## Merge the shard profiles coverage-runtime/model/export/rest/migrate.txt into coverage.txt
+coverage-merge: ## Merge the shard profiles coverage-<shard>.txt of every COVERAGE_SHARDS shard into coverage.txt
 	{ echo "mode: atomic"; for shard in $(COVERAGE_SHARDS); do tail -n +2 coverage-$$shard.txt || exit 1; done; } > coverage.txt
 	python3 scripts/dedupe-coverage.py coverage.txt
 	@go tool cover -func=coverage.txt | tail -n 1
@@ -384,8 +396,8 @@ lint: ## Run static analysis (staticcheck + gosec), as CI does
 	@echo "Running gosec..."
 	@# Generated protobuf code is excluded: its unsafe.Pointer use (G103) comes
 	@# from protoc-gen-go and is not ours to change.
-	go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated ./...
-	go run -C $(TOOLS_DIR) github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated ./...
+	module_go_version=$$(go list -m -f '{{.GoVersion}}') && GOSECGOVERSION=$$module_go_version go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated ./...
+	module_go_version=$$(go list -C $(TOOLS_DIR) -m -f '{{.GoVersion}}') && GOSECGOVERSION=$$module_go_version go run -C $(TOOLS_DIR) github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated ./...
 	@echo "✓ Lint passed"
 
 test-short: ## Run Go tests without race detection
@@ -500,7 +512,7 @@ proto-ts: $(PROTOC_GEN_ES) ## Regenerate the TypeScript stubs the npm client in 
 	@echo "✓ Regenerated TypeScript stubs"
 
 $(PROTOC_GEN_ES): $(NODE_DIR)/package-lock.json
-	cd $(NODE_DIR) && npm ci --ignore-scripts
+	cd $(NODE_DIR) && npm install --ignore-scripts --no-audit --no-fund
 
 proto-rust: ## Generate Rust stubs and the descriptor for the Rust clients
 	$(BUF) generate api/proto --template api/proto/buf.gen.rust.yaml
@@ -560,6 +572,7 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_suite_figures-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_install_scripts-test.py
 	$(SCRIPTS_COVERAGE) scripts/dedupe-coverage-test.py
+	$(SCRIPTS_COVERAGE) scripts/go-test-stream-test.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-links.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-ids.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-figures.py
@@ -576,6 +589,24 @@ node-coverage: ## Run Node client tests and write coverage-node.lcov
 	cd $(NODE_DIR) && npm run test:coverage
 	sed -e 's|^SF:|SF:$(NODE_DIR)/|' $(NODE_DIR)/coverage/lcov.info > coverage-node.lcov
 	@echo "✓ Wrote coverage-node.lcov"
+
+vscode-coverage: ## Run the VS Code extension's tests and write coverage-vscode.lcov
+	@echo "Running the VS Code extension tests with coverage..."
+	cd $(VSCODE_DIR) && npm ci && npm run test:coverage
+	sed -e 's|^SF:|SF:$(VSCODE_DIR)/|' $(VSCODE_DIR)/coverage/lcov.info > coverage-vscode.lcov
+	@echo "✓ Wrote coverage-vscode.lcov"
+
+jupyterlab-coverage: ## Run the JupyterLab extension's tests and write coverage-jupyterlab.lcov
+	@echo "Running the JupyterLab extension tests with coverage..."
+	cd $(JUPYTERLAB_DIR) && npm ci && npm run test:coverage
+	sed -e 's|^SF:|SF:$(JUPYTERLAB_DIR)/|' $(JUPYTERLAB_DIR)/coverage/lcov.info > coverage-jupyterlab.lcov
+	@echo "✓ Wrote coverage-jupyterlab.lcov"
+
+mcp-npm-coverage: ## Run the sysml-mcp npm package's tests and write coverage-mcp-npm.lcov
+	@echo "Running the sysml-mcp npm package tests with coverage..."
+	cd $(MCP_NPM_DIR) && npm run test:coverage
+	sed -e 's|^SF:|SF:$(MCP_NPM_DIR)/|' $(MCP_NPM_DIR)/coverage/lcov.info > coverage-mcp-npm.lcov
+	@echo "✓ Wrote coverage-mcp-npm.lcov"
 
 vscode-grammar: ## Regenerate the VS Code TextMate grammars and the JupyterLab CodeMirror syntax table from the keyword lists
 	@echo "Generating TextMate grammars and the CodeMirror syntax table..."
@@ -679,11 +710,10 @@ docs-engine-assets: ## Build the in-browser WebAssembly assets into docs/assets
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" docs/assets/
 	@echo "✓ Built docs/assets/sysml-wasm.wasm.gz, sysml-repl.wasm.gz, repl-examples/ + wasm_exec.js"
 
-# The landing page's diagram and router assets are built from the extension's
-# source rather than vendored; the diagram bundles the browser client from
-# client/node's source, so that package's dependencies are installed first.
+# The landing page's diagram bundles the browser client from client/node's source, so that
+# package is installed first; `npm install`, not `npm ci`, see node_install_test.go in tests/hygiene.
 docs-landing-assets: ## Build the landing-page diagram assets into docs/assets
-	cd $(NODE_DIR) && npm ci
+	cd $(NODE_DIR) && npm install --ignore-scripts --no-audit --no-fund
 	cd $(VSCODE_DIR) && npm ci && npm run build:landing
 
 docs-serve: docs-install ## Serve docs with live reload (build docs-engine-assets and docs-landing-assets first)

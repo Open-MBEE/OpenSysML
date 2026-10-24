@@ -28,7 +28,7 @@ public final class PluginDescriptorWriter {
     StringBuilder xml = new StringBuilder("""
         <?xml version="1.0" encoding="UTF-8"?>
         <plugin id="org.openmbee.opensysml.mdk"
-                name="OpenSysML MDK"
+                name="OpenSysML MDK for Cameo"
                 version="%s"
                 provider-name="Open-MBEE"
                 ownClassloader="true"

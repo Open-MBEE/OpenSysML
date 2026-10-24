@@ -55,7 +55,10 @@ type NodeData struct {
 	Ports []Port
 	// Parent is the ID of the node this one is nested in, "" for a root.
 	Parent string
-	Origin Origin
+	// Compartment names the compartment of Parent this node is a row of, ""
+	// for a node drawn as a box of its own.
+	Compartment string
+	Origin      Origin
 	// Geometry is where the node is drawn, nil when no Layout positions it.
 	Geometry *Geometry
 	// Style is how the node is drawn, nil when no Style colours it.
@@ -104,6 +107,9 @@ func (r *Rendering) Data() Data {
 // they add shown.
 func (r *Rendering) DataWith(options Options) Data {
 	r = r.showing(options.Show)
+	if options.Compartments.automatic() {
+		r = foldCompartments(r, options.Compartments)
+	}
 	ports := r.portView(options.Ports)
 	return r.data(&ports)
 }
@@ -161,6 +167,14 @@ func appendNodeData(out []NodeData, node *Node, parent string, ports *portView) 
 		Text: node.Text, StandIn: node.StandIn, Ports: nodePorts, Parent: parent, Origin: node.Origin, Geometry: node.Geometry, Style: node.Style,
 		Verdict: node.Verdict,
 	})
+	for _, compartment := range node.Compartments {
+		for _, row := range compartment.Rows {
+			out = append(out, NodeData{
+				ID: row.ID, Kind: row.Kind, Name: row.Name, NameSynthesized: row.NameSynthesized, Type: row.Type, Detail: row.Detail,
+				Text: row.Text, Parent: node.ID, Compartment: compartment.Name, Origin: row.Origin, Verdict: row.Verdict,
+			})
+		}
+	}
 	for _, child := range node.Children {
 		out = appendNodeData(out, child, node.ID, ports)
 	}

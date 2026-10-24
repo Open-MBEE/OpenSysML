@@ -1960,10 +1960,13 @@ class Connection:
             raise ModelError(response.error)
         return [Diagnostic(d) for d in response.diagnostics]
 
-    def render_view(self, model_hash, view_name, ports="minimal", show=None, depth=0):
-        """Render a named view with minimal or full ports, the optional notation elements named and, above 0, a depth bound."""
+    def render_view(self, model_hash, view_name, ports="minimal", show=None, depth=0,
+                    compartments="positioned"):
+        """Render a named view with minimal or full ports, the optional notation elements named, above 0 a depth bound and the compartment folding named."""
         if ports not in ("minimal", "full"):
             raise ValueError("ports must be 'minimal' or 'full'")
+        if compartments not in ("positioned", "most", "ports"):
+            raise ValueError("compartments must be 'positioned', 'most' or 'ports'")
         if not isinstance(depth, int) or isinstance(depth, bool) or depth < 0:
             raise ValueError("depth must be a non-negative integer")
         require(self.server_info(), CAPABILITY_RENDER_VIEW, upgrade_remedy(CAPABILITY_RENDER_VIEW))
@@ -1973,6 +1976,7 @@ class Connection:
             ports="" if ports == "minimal" else ports,
             show=list(show or ()),
             depth=depth,
+            compartments="" if compartments == "positioned" else compartments,
         )
         with translate_rpc_errors(
             not_found=lambda message, code: ViewNotFoundError(

@@ -1,5 +1,7 @@
 package ast
 
+import "strings"
+
 // Notation names a declaration the way the notation writes it — "part def",
 // "datatype", "assert constraint" — and is empty for a node the notation has no
 // keyword of its own for.
@@ -8,14 +10,19 @@ func Notation(node Node) string {
 	case *Definition:
 		kw := writtenKeyword(decl.Keyword, decl.Kind.String())
 		// A KerML classifier is written without the `def` a SysML definition takes.
-		if !decl.HasDefKeyword {
-			return kw
+		if decl.HasDefKeyword {
+			kw += " def"
 		}
-		return kw + " def"
+		return modifierPrefixed(kw, decl.IsAbstract, decl.IsVariation)
 	case *Usage:
 		kw := writtenKeyword(decl.Keyword, decl.Kind.String())
 		if decl.PrefixKeyword != "" {
-			return decl.PrefixKeyword + " " + kw
+			kw = decl.PrefixKeyword + " " + kw
+		}
+		// `variant part x` keeps its kind keyword; the shorthand `variant x` is written `variant` alone.
+		kw = modifierPrefixed(kw, decl.IsAbstract, decl.IsVariation)
+		if decl.IsVariant && decl.Keyword != "variant" && decl.PrefixKeyword != "variant" {
+			kw = "variant " + kw
 		}
 		return kw
 	case *RelationshipMember:
@@ -53,6 +60,31 @@ func Notation(node Node) string {
 		return "rep"
 	}
 	return ""
+}
+
+// modifierPrefixed writes the modifier before the kind keyword: `variation`, which
+// says abstract too so `abstract` is never written on one (§7.6.7); else `abstract`.
+func modifierPrefixed(kw string, isAbstract, isVariation bool) string {
+	switch {
+	case isVariation:
+		return "variation " + kw
+	case isAbstract:
+		return "abstract " + kw
+	}
+	return kw
+}
+
+// NotationKeyword is the kind keyword a notation names after its modifiers:
+// `part def` of `abstract part def`, `ref part` of `variant ref part`, `variant` alone of `variant`.
+func NotationKeyword(notation string) string {
+	kw, rest, _ := strings.Cut(notation, " ")
+	for rest != "" && (kw == "abstract" || kw == "variation" || kw == "variant") {
+		kw, rest, _ = strings.Cut(rest, " ")
+	}
+	if rest == "" {
+		return kw
+	}
+	return kw + " " + rest
 }
 
 // writtenKeyword prefers the keyword a declaration was written with, since

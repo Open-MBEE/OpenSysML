@@ -440,6 +440,22 @@ def test_render_view_sends_minimal_and_full_ports(fake_service):
     assert full.ports == "full"
 
 
+def test_render_view_sends_the_compartment_folding(fake_service):
+    response = sysml_pb2.RenderViewResponse(view="Demo::View")
+    port, service = fake_service(
+        capabilities=(CAPABILITY_RENDER_VIEW,), response=response,
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        model.render_view("Demo::View")
+        model.render_view("Demo::View", compartments="positioned")
+        model.render_view("Demo::View", compartments="most")
+        model.render_view("Demo::View", compartments="ports")
+        with pytest.raises(ValueError, match="compartments"):
+            model.render_view("Demo::View", compartments="rows")
+    assert [request.compartments for request in service.requests] == ["", "", "most", "ports"]
+
+
 def test_the_request_names_the_model_query_and_bindings(fake_service):
     """The request carries the model's own hash, the query, and the bindings."""
     port, service = fake_service()

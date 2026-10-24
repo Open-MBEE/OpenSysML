@@ -3,7 +3,7 @@
   "instantiate": "test::Bench",
   "libraries": true,
   "slots": {
-    "exhibitedEntry": {"error": "uninitialized feature value: e"},
+    "exhibitedEntry": {"type": "Instance"},
     "declaredEntryK": {"type": "Integer", "value": 1}
   }
 }

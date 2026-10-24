@@ -26,7 +26,7 @@ func lifetimeFixture(t *testing.T, src string) (instantiate func(name string) *I
 	}
 	invoke = func(calc string, args ...Value) (Value, error) {
 		sym, scope := calcByName(t, idx.DocumentRoot("<test>"), "test", calc)
-		return ctx.InvokeCalc(sym, args, scope)
+		return invokeValue(ctx, sym, args, scope)
 	}
 	return instantiate, invoke, ctx
 }
@@ -381,6 +381,7 @@ const createBehavingModel = `
 func TestCreateBeginsBeforeWhatItReachesWith(t *testing.T) {
 	_, invoke, ctx := lifetimeFixture(t, createBehavingModel)
 	got, err := invoke("CreateProbe")
+	got = soleElement(got)
 	if err != nil {
 		t.Fatalf("create(probe): %v", err)
 	}
@@ -476,6 +477,7 @@ func TestCreateOnlyWhatTheCallReaches(t *testing.T) {
 	}
 	whole, _ := ctx.OccurrenceLife(bench.ID)
 	got, err := invoke("CreateSpare", objectValue(bench))
+	got = soleElement(got)
 	if err != nil {
 		t.Fatalf("create(bench.spare): %v", err)
 	}

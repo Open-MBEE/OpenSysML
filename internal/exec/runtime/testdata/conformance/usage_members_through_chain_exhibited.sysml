@@ -1,8 +1,7 @@
-// A bodiless, untyped entry action of an exhibited state is held as nested action
-// usages of a part are held today — undetermined at model level, an uninitialized
-// feature on a constructed object — while an entry action declaring a feature of
-// its own is the action object the state holds. Pinned so that holding nested
-// action and state usages as unstarted performance objects moves this case.
+// The entry action of an exhibited state is the action object the state holds,
+// whether it is bodiless and untyped or declares a feature of its own, on the
+// model's part and on a constructed one alike: a nested action usage is a
+// performance its owner holds (SysML v2 §7.16.2, §7.18.2).
 package test {
 	private import ScalarValues::*;
 

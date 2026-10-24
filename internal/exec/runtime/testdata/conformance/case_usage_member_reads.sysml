@@ -25,7 +25,7 @@ package test {
 		in vals : Integer[0..*];
 		actor many : Operator[0..*];
 		attribute depth : Integer = n + 1;
-		part gear : Operator;
+		part gear : Operator { attribute w : Integer = n * 2; }
 		objective { verify requirement pos : Positive { subject :>> n; } }
 		return verdict : VerdictKind = PassIf(n > 0 and n <= limit);
 	}
@@ -43,23 +43,32 @@ package test {
 		return : Integer = x * 2;
 	}
 
+	verification def Crewed {
+		subject n : Integer;
+		actor pilot : Operator;
+		attribute pilotId : Integer = pilot.id;
+		return verdict : VerdictKind = PassIf(n > 0 and pilot.id > 0);
+	}
+
 	use case def Ride {
 		subject n : Integer;
 		actor who : Operator;
 	}
 
 	part def Holder {
-		attribute value : Integer = 3;
+		attribute value : Integer default = 3;
 		verification check : CheckPositive { subject n = value; actor who = op; }
 		analysis scaled : Scale { subject n = value; actor who = op; }
 		calc twice : Twice { in x = value; }
 	}
 	part holder : Holder;
+	part other : Holder { :>> value = 5; }
 
 	verification checkThree : CheckPositive { subject n = 3; actor who = op; }
-	verification checkMany : CheckPositive { subject n = 3; actor many = (op, op2); in open = 1; }
+	verification checkMany : CheckPositive { subject n = 3; actor many = (op, op2); in :>> open = 1; }
 	calc twoTimes : Twice { in x = 2; }
 	verification checkNothing : CheckPositive;
+	verification crewed : Crewed { subject n = 3; actor crew = op2; }
 	analysis scaledFour : Scale { subject n = 4; }
 	use case ride : Ride { subject n = 3; actor who = op; }
 
@@ -70,6 +79,14 @@ package test {
 	attribute ownerScaledSubject = holder.scaled.n;
 	attribute ownerScaledResult = holder.scaled.r;
 	attribute ownerObjective = holder.scaled.fits.result;
+	attribute ownerGearWidth = holder.check.gear.w;
+	attribute otherSubject = other.check.n;
+	attribute otherGearWidth = other.check.gear.w;
+	attribute otherScaledResult = other.scaled.r;
+	attribute gearsDistinct = holder.check.gear != other.check.gear;
+	attribute renamedActorId = crewed.crew.id;
+	attribute renamedActorBody = crewed.pilotId;
+	attribute renamedActorVerdict = crewed.verdict;
 	attribute packageSubject = checkThree.n;
 	attribute packageActorId = checkThree.who.id;
 	attribute packageVerdict = checkThree.verdict;

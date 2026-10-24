@@ -1,0 +1,8 @@
+{
+  "type": "occurrence",
+  "evaluate": "Sequences::PortExchange",
+  "transfers": [
+    "ping",
+    "pong"
+  ]
+}

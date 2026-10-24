@@ -41,6 +41,8 @@ type Model struct {
 	resolver  *resolve.Resolver
 
 	features map[*symbols.Symbol][]EffectiveFeature
+	// effectiveTypes memoizes effectiveTypes by feature symbol.
+	effectiveTypes map[*symbols.Symbol][]*symbols.Symbol
 	// declaresChains memoizes, by type, whether it or a member source of it
 	// declares a nested redefinition chain (see pendingNestedRedefinitions).
 	declaresChains map[*symbols.Symbol]bool
@@ -97,6 +99,14 @@ type Model struct {
 	// exclusion: a run reads the same names on every step. A plain map, under
 	// the Model's one-goroutine contract like the other memos.
 	names map[nameKey]nameHit
+	// footprints memoizes what an expression reads, by scope and expression: a
+	// loop re-reads its condition and a branch its guard on every pass.
+	footprints map[footprintKey]lower.Footprint
+	// orders memoizes lower.BodyStatementOrder by the body or block the statements
+	// are, and stamped a statement's footprint stamped for one performed node
+	// (actionStmtHost.statementFootprint): every execution of a body reads both.
+	orders  map[orderKey]*lower.StatementOrder
+	stamped map[stampedFootprint]lower.Footprint
 
 	// predicateShapes memoizes the invocation interfaces of constraints and
 	// requirements applied as predicates.
@@ -367,4 +377,70 @@ func (m *Model) resolvedName(scope *symbols.Scope, name string, excluding ast.No
 	}
 	m.names[key] = nameHit{sym: sym, ok: ok}
 	return sym, ok
+}
+
+type footprintKey struct {
+	scope *symbols.Scope
+	expr  ast.Node
+}
+
+// orderKey names a statement list by the node whose body or block it is, its first
+// statement's syntax and its length: one list per model has those. A list whose
+// first statement has no syntax (keyed returns false) is not memoized.
+type orderKey struct {
+	node, first ast.Node
+	n           int
+}
+
+func statementListKey(node ast.Node, stmts []lower.Statement) (key orderKey, keyed bool) {
+	key = orderKey{node: node, first: lower.StatementNode(stmts[0]), n: len(stmts)}
+	return key, key.first != nil
+}
+
+// stampedFootprint keys a statement's footprint stamped for one performed node.
+type stampedFootprint struct {
+	list orderKey
+	i    int
+	node ast.Node
+}
+
+// statementOrder is lower.BodyStatementOrder of stmts, statements of node's body in
+// graph or of a block within it, computed once per model; graph may be nil for a
+// body lowered without one, whose statements resolve in scope.
+func (m *Model) statementOrder(graph *lower.ActionGraph, scope *symbols.Scope, node ast.Node, stmts []lower.Statement) *lower.StatementOrder {
+	key, keyed := statementListKey(node, stmts)
+	if order, known := m.orders[key]; known && keyed {
+		return order
+	}
+	var order *lower.StatementOrder
+	if graph != nil {
+		order = graph.StatementOrders[node]
+	}
+	if order == nil {
+		if graph == nil && scope != nil {
+			graph = &lower.ActionGraph{Scope: scope}
+		}
+		order = lower.BodyStatementOrder(graph, node, stmts)
+	}
+	if keyed {
+		if m.orders == nil {
+			m.orders = map[orderKey]*lower.StatementOrder{}
+		}
+		m.orders[key] = order
+	}
+	return order
+}
+
+// expressionFootprint is lower.ExpressionFootprint, computed once per expression.
+func (m *Model) expressionFootprint(scope *symbols.Scope, expr ast.Node) lower.Footprint {
+	key := footprintKey{scope: scope, expr: expr}
+	if fp, ok := m.footprints[key]; ok {
+		return fp
+	}
+	fp := lower.ExpressionFootprint(scope, expr)
+	if m.footprints == nil {
+		m.footprints = map[footprintKey]lower.Footprint{}
+	}
+	m.footprints[key] = fp
+	return fp
 }

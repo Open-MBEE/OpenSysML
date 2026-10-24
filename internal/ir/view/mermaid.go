@@ -42,7 +42,7 @@ func (r *Rendering) MermaidWith(options Options) string {
 	if r.Run && r.Kind == KindTimeline {
 		return r.runTimelineMermaid(options)
 	}
-	r = r.showing(options.Show).settleUnplaced(options.Unplaced, FormMermaid)
+	r = r.showing(options.Show).settleUnplaced(options.Unplaced, options.Compartments, FormMermaid)
 	direction := options.Direction
 	var b strings.Builder
 	labels := labelsOf(r.Roots, false, nil, r.Shown)
@@ -1944,7 +1944,7 @@ func mermaidArrow(kind Kind, edge EdgeKind) string {
 	switch edge {
 	case EdgeConnection, EdgeBinding:
 		return "==="
-	case EdgeFlow, EdgeTyping, EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+	case EdgeFlow, EdgeTyping, EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
 		return "-.->"
 	case EdgeComposition, EdgeReference, EdgeContainment:
 		return "---"

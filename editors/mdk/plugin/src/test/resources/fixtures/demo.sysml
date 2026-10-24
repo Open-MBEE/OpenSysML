@@ -16,7 +16,7 @@ package Demo {
 
   part def Wheel;
 
-  calc def twice { in x : ScalarValues::Integer; return : ScalarValues::Integer = x * 2; }
+  calc def twice { in x : ScalarValues::Integer; return : ScalarValues::Integer[1] = x * 2; }
 
   state def Lifecycle {
     entry; then off;

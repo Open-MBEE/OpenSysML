@@ -5,8 +5,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // SatisfyAssertion is one satisfaction assertion an element states:
@@ -92,9 +94,9 @@ func (a *SatisfyAssertion) StatingType() *symbols.Symbol {
 	return nil
 }
 
-// Text renders the assertion as it was written, so an anonymous one can be
-// named in a verdict. A `satisfy requirement r by p` form declares the
-// requirement rather than referencing one, so it is named by the usage itself.
+// Text writes the assertion as the notation does, each name quoted when it needs
+// quoting, so an anonymous one can be named in a verdict. A `satisfy requirement r by p`
+// form declares the requirement rather than referencing one, so it is named by the usage itself.
 func (a *SatisfyAssertion) Text() string {
 	var b strings.Builder
 	if a.Negated {
@@ -103,17 +105,35 @@ func (a *SatisfyAssertion) Text() string {
 	b.WriteString("satisfy ")
 	switch {
 	case a.RequirementRef != "":
-		b.WriteString(a.RequirementRef)
+		b.WriteString(source.QualifiedNameText(a.RequirementRef))
 	case a.Symbol != nil && a.Symbol.Name != "":
-		b.WriteString(a.Symbol.Name)
+		b.WriteString(source.NameText(a.Symbol.Name))
 	default:
 		b.WriteString("?")
 	}
 	if a.SubjectRef != "" {
 		b.WriteString(" by ")
-		b.WriteString(a.SubjectRef)
+		if a.SubjectChain != nil {
+			b.WriteString(writtenChainText(a.SubjectChain))
+		} else {
+			b.WriteString(source.QualifiedNameText(a.SubjectRef))
+		}
 	}
 	return b.String()
+}
+
+// writtenChainText writes a feature chain as the notation does: each member quoted on
+// its own, joined by the dots between members.
+func writtenChainText(node ast.Node) string {
+	switch n := node.(type) {
+	case *ast.FeatureChainExpr:
+		return writtenChainText(n.Operand) + "." + qualifiedNameText(n.Member)
+	case *ast.FeatureReference:
+		return qualifiedNameText(n.Name)
+	case *ast.QualifiedName:
+		return qualifiedNameText(n)
+	}
+	return ""
 }
 
 // SatisfyAssertionsIn returns the satisfaction assertions stated in scope and,
@@ -276,7 +296,7 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 	if a.Requirement == nil && a.RequirementRef != "" {
 		return CheckResult{Subject: subject}, fmt.Errorf("%s: %w: %s", a.Text(), ErrNoRequirement, a.RequirementRef)
 	}
-	if a.Requirement == nil && !ctx.declaresConditions(a.Symbol) {
+	if a.Requirement == nil && a.AssertedRequirement() == nil && !ctx.statesAnyCondition(a.Symbol) {
 		return CheckResult{Subject: subject}, fmt.Errorf("%s: %w", a.Text(), ErrNoRequirement)
 	}
 
@@ -348,7 +368,7 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	}
 
 	conds := ctx.conditionsOf(target, members)
-	holds, err := ctx.evaluateConditions(conditionCheck{
+	check := conditionCheck{
 		sym:  target,
 		kind: "satisfaction",
 		what: "require condition",
@@ -359,8 +379,14 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 		element:  a.Text(),
 		bindings: mapFrame(bindings),
 		negated:  a.Negated,
-	}, conds)
-	return ctx.satisfactionResult(holds, subject, reached), err
+		about:    a.AssertedRequirement(),
+	}
+	holds, err := ctx.evaluateConditions(check, conds)
+	result := ctx.satisfactionResult(holds, subject, reached)
+	if err == nil && holds {
+		result.Vacuous = vacuity(check, conds)
+	}
+	return result, err
 }
 
 // satisfactionBindings are the members of target's requirement chain and the values
@@ -480,6 +506,30 @@ func (ctx *Context) declaresConditions(sym *symbols.Symbol) bool {
 		}
 	}
 	return false
+}
+
+// statesAnyCondition reports whether sym declares a condition itself or inherits
+// one from a type it specializes (`satisfy requirement r : R by x;` states R's).
+func (ctx *Context) statesAnyCondition(sym *symbols.Symbol) bool {
+	if ctx.declaresConditions(sym) {
+		return true
+	}
+	for _, sup := range ctx.model.semantics.AllSupertypes(sym) {
+		if sup != nil && ctx.declaresConditions(sup) {
+			return true
+		}
+	}
+	return false
+}
+
+// satisfiedBy is the `by` operand of a satisfy usage, the expression binding its
+// subject (SysML v2 §7.21.4); nil for any other element or a satisfy naming none.
+func satisfiedBy(sym *symbols.Symbol) ast.Node {
+	ends, ok := semantics.SatisfyEndsOf(sym)
+	if !ok {
+		return nil
+	}
+	return ends.Satisfier
 }
 
 // symbolLabel names a symbol in a message, falling back to its declaration kind

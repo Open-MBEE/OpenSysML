@@ -204,19 +204,15 @@ const usageMembersExhibitedModel = `package Probe {
 	part p : P;
 }`
 
-// A bodiless, untyped entry action of an exhibited state is held as nested action
-// usages are held today: undetermined at model level, an uninitialized feature on a
-// constructed object. Pinned so that holding it as an unstarted performance object
-// moves this test rather than silently changing the read.
+// A bodiless, untyped entry action of an exhibited state is the action object the
+// state holds, at model level and on a constructed object alike (SysML v2 §7.18.2).
 func testUsageMembersExhibitedState(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, usageMembersExhibitedModel)
 	root := idx.DocumentRoot("<test>")
-	val, err := evalIn(t, ctx, root, "Probe::p.sm.e")
-	if err != nil || val.Kind != ValUndetermined {
-		t.Fatalf("Probe::p.sm.e = %s, %v; want undetermined", FormatValue(val), err)
-	}
-	_, err = evalIn(t, ctx, root, "new Probe::P().sm.e")
-	if !errors.Is(err, errUninitializedFeatureValue) {
-		t.Fatalf("new Probe::P().sm.e = %v, want errUninitializedFeatureValue", err)
+	for _, src := range []string{"Probe::p.sm.e", "new Probe::P().sm.e"} {
+		val, err := evalIn(t, ctx, root, src)
+		if err != nil || val.Kind != ValInstance {
+			t.Fatalf("%s = %s, %v; want the held entry action", src, FormatValue(val), err)
+		}
 	}
 }

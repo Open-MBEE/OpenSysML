@@ -13,15 +13,14 @@ import (
 type PilotStyle string
 
 // pilotStyles are the pilot's style names no form draws, each with the pilot's
-// description of what it does. ORTHOLINE and POLYLINE are not here: they are
-// the Lines routings the DOT and PlantUML forms draw.
+// description of what it does. ORTHOLINE and POLYLINE are not here, being the
+// Lines routings the DOT and PlantUML forms draw, nor COMPMOST and COMPTREE,
+// the Compartments foldings every form draws.
 var pilotStyles = map[PilotStyle]string{
 	"STDCOLOR":             "standard style with colors",
 	"PLANTUML":             "PlantUML style",
 	"SHOWLIB":              "show elements of the standard libraries",
 	"SHOWINHERITED":        "show inherited members",
-	"COMPMOST":             "show as many memberships in a compartment as possible",
-	"COMPTREE":             "show nested ports in a compartment",
 	"SHOWIMPORTED":         "show imported elements",
 	"HIDEMETADATA":         "hide metadata",
 	"SHOWMETACLASS":        "show metaclasses of metaobjects",

@@ -59,7 +59,7 @@ func outcomeValue(t *testing.T, o Outcome, feature string) string {
 	if !ok {
 		t.Fatalf("outcome %s has no %s", o, feature)
 	}
-	return FormatValue(v)
+	return FormatValue(soleElement(v))
 }
 
 func testBodyInterleavingsExplored(t *testing.T) {

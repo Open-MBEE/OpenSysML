@@ -180,7 +180,7 @@ func (e *StateExecutor) resumeFiring(f *firing) func() {
 	}
 	return func() {
 		unbind()
-		untake()
+		untake.restore()
 	}
 }
 

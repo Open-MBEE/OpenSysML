@@ -69,14 +69,15 @@ func (ctx *Context) returnParameterValue(inst *Instance, sym *symbols.Symbol, fe
 }
 
 // statesConditions reports whether sym is a definition or usage whose result is
-// the conjunction of the conditions it states: a requirement, viewpoint or
-// concern (SysML v2 §7.21, Requirements.sysml `RequirementCheck::result`).
+// the conjunction of the conditions it states: a requirement, viewpoint, concern
+// or a case's objective (SysML v2 §7.21, §7.22.2, Requirements.sysml `RequirementCheck::result`).
 func statesConditions(sym *symbols.Symbol) bool {
 	switch decl := sym.Decl.(type) {
 	case *ast.Definition:
 		return decl.Kind == ast.DefRequirement || decl.Kind == ast.DefViewpoint || decl.Kind == ast.DefConcern
 	case *ast.Usage:
-		return decl.Kind == ast.UsageRequirement || decl.Kind == ast.UsageViewpoint || decl.Kind == ast.UsageConcern
+		return decl.Kind == ast.UsageRequirement || decl.Kind == ast.UsageViewpoint || decl.Kind == ast.UsageConcern ||
+			decl.Kind == ast.UsageObjective || (decl.Kind == ast.UsageSatisfy && !decl.IsVerifiedRequirement())
 	}
 	return false
 }
@@ -96,6 +97,31 @@ func (ctx *Context) ownResultParameter(typ, sym *symbols.Symbol) string {
 	return ""
 }
 
+// conditionSelf is the object a requirement usage's conditions read: the object owner
+// holds under the usage's name when it holds one (its own features, KerML §7.4.11), else owner.
+func (ctx *Context) conditionSelf(sym *symbols.Symbol, owner *Instance) *Instance {
+	if owner == nil || sym == nil || sym.Name == "" || declaringType(sym) == nil {
+		return owner
+	}
+	if _, has := owner.FeatureValues[sym.Name]; !has {
+		return owner
+	}
+	// Reaching the held object is structure a shared verdict's shape fixes, not a
+	// value it reads: the fetch is kept out of the check's trace.
+	tracing := ctx.tracing
+	ctx.tracing = nil
+	defer func() { ctx.tracing = tracing }()
+	fv, err := owner.GetFeatureValue(ctx, sym.Name)
+	if err != nil || fv == nil {
+		return owner
+	}
+	value := fv.HeldValue()
+	if inst, ok := ctx.instances[value.Instance]; ok && value.Kind == ValInstance {
+		return inst
+	}
+	return owner
+}
+
 // conditionResultValue evaluates the result the library declares for a requirement
 // check, `allTrue(assumptions()) implies allTrue(constraints())`, against inst's
 // own features, each side as a satisfaction assertion evaluates its conditions:
@@ -104,7 +130,13 @@ func (ctx *Context) ownResultParameter(typ, sym *symbols.Symbol) string {
 func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
 	defer ctx.beginRun()()
 	members := ctx.chainMembers(typ, typ.OwnerScope)
-	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, inst, nil, frame{})
+	// A nested usage's bindings name the owner's features (`subject s :>> s = sub;`) and are
+	// read against it, as the check on that object reads them; its conditions read its own object.
+	bindingSelf := inst
+	if owner, _ := inst.Owner(); owner != nil {
+		bindingSelf = owner
+	}
+	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, bindingSelf, nil, frame{})
 	if err != nil {
 		return ctx.conditionResultOf(err, sym, feat)
 	}
@@ -134,10 +166,18 @@ func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sy
 		}
 		result = impliesValue(assumptions, constraints)
 	}
-	if NegatedDecl(typ) && result.Kind == ValConst {
+	// A negated satisfy asserts the requirement's result false (Constraints.sysml
+	// `negatedConstraintChecks :> falseEvaluations`); the result read stays the requirement's.
+	if NegatedDecl(typ) && !isSatisfyUsage(typ) && result.Kind == ValConst {
 		result = boolValue(!result.Const.Bool)
 	}
 	return result, nil
+}
+
+// isSatisfyUsage reports a `satisfy` usage, a `verify` one included.
+func isSatisfyUsage(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageSatisfy
 }
 
 // requiredCondition is cond evaluated for its own truth, the body's nested

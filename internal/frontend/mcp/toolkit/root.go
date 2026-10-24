@@ -31,11 +31,11 @@ func NewRoot(dir string) (Root, error) {
 	if err != nil {
 		return Root{}, fmt.Errorf("resolving the workspace root %s: %w", dir, err)
 	}
-	real, err := filepath.EvalSymlinks(abs)
+	resolved, err := filepath.EvalSymlinks(abs)
 	if err != nil {
 		return Root{}, fmt.Errorf("resolving the workspace root %s: %w", dir, err)
 	}
-	return Root{Dir: abs, Real: real}, nil
+	return Root{Dir: abs, Real: resolved}, nil
 }
 
 // Resolved is a path Root.Resolve accepted.
@@ -103,24 +103,24 @@ func (r Root) Resolve(path string, opts ...Option) (Resolved, error) {
 		path = filepath.Join(r.Dir, path)
 	}
 	path = filepath.Clean(path)
-	real, err := realPath(path)
+	resolved, err := realPath(path)
 	if err != nil {
 		return Resolved{}, fmt.Errorf("resolving %s: %w", path, err)
 	}
-	if o.role != NameIgnored && !sameFormat(path, real, o.role) {
-		return Resolved{}, fmt.Errorf("%s is a link to %s, whose extension names another format; name the file itself or a link with its extension", path, real)
+	if o.role != NameIgnored && !sameFormat(path, resolved, o.role) {
+		return Resolved{}, fmt.Errorf("%s is a link to %s, whose extension names another format; name the file itself or a link with its extension", path, resolved)
 	}
-	res := Resolved{Path: path, Real: real}
+	res := Resolved{Path: path, Real: resolved}
 	for _, dir := range o.exempt {
-		if realDir, err := filepath.EvalSymlinks(dir); err == nil && Under(realDir, real) {
+		if realDir, err := filepath.EvalSymlinks(dir); err == nil && Under(realDir, resolved) {
 			return res, nil
 		}
 	}
 	if !Under(r.Dir, path) {
 		return Resolved{}, fmt.Errorf("%s is outside the workspace root %s", path, r.Dir)
 	}
-	if !Under(r.Real, real) {
-		return Resolved{}, fmt.Errorf("%s leads through a symlink to %s, outside the workspace root %s", path, real, r.Dir)
+	if !Under(r.Real, resolved) {
+		return Resolved{}, fmt.Errorf("%s leads through a symlink to %s, outside the workspace root %s", path, resolved, r.Dir)
 	}
 	return res, nil
 }
@@ -147,9 +147,9 @@ func realPath(path string) (string, error) {
 func realPathHops(path string, hops int) (string, error) {
 	rest := ""
 	for p := path; ; {
-		real, err := filepath.EvalSymlinks(p)
+		resolved, err := filepath.EvalSymlinks(p)
 		if err == nil {
-			return filepath.Join(real, rest), nil
+			return filepath.Join(resolved, rest), nil
 		}
 		parent := filepath.Dir(p)
 		if !(errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR)) || parent == p {

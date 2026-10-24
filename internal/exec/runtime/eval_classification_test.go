@@ -105,7 +105,7 @@ func TestEvalClassificationInACalcBody(t *testing.T) {
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
 	ctx := NewContext(typedModel(model, resolver), 10000)
-	got, err := ctx.InvokeCalc(resolveSymbol(t, root, "classify"),
+	got, err := invokeValue(ctx, resolveSymbol(t, root, "classify"),
 		[]Value{{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: true}}}, root)
 	if err != nil {
 		t.Fatalf("InvokeCalc: %v", err)

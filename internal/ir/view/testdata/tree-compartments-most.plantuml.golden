@@ -1,0 +1,49 @@
+@startuml
+' CompartmentDemoViews::controllers — tree rendering (render asTreeDiagram)
+' not represented: 4 member(s) drawn as compartment rows of their owner
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«part def»//</size>\n**Sensor**\nattributes\nlabel : String\nreading : Real" as n0 <<part def>>
+class "<size:10>//«part def»//</size>\n**Controller**\nattributes\nenabled : Boolean\nparts\nsensor : Sensor" as n3 <<part def>>
+n3 *-- "sensor" n0
+@enduml

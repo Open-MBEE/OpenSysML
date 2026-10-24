@@ -43,7 +43,7 @@ func AnalysisWith(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scop
 	if len(objectives) == 0 && !conflicts {
 		return nil, &NoObjectiveError{Element: sym.Name}
 	}
-	subject := Subject{Kind: "analysis", Name: sym.Name, Symbol: sym}
+	subject := Subject{Kind: "analysis", Name: source.NameText(sym.Name), Symbol: sym}
 	// A nested analysis is performed as part of the case, so what it asserts
 	// holds for the case: every stage's conditions, and every objective's own,
 	// bound the one feasible region the objectives are improved within; a case

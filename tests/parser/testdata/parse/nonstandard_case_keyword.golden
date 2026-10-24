@@ -1,0 +1,31 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="CaseKeywords" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="analysis case" abstract=false variation=false name="AD"))
+      (Membership visibility="default"
+        (Definition kind="verification case" abstract=false variation=false name="VD"))
+      (Membership visibility="default"
+        (Usage kind="analysis case" name="ad" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=AD
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="verification case" name="vd" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=VD
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Definition kind="analysis case" abstract=false variation=false name="AD2"))
+      (Membership visibility="default"
+        (Definition kind="verification case" abstract=false variation=false name="VD2"))
+      (Membership visibility="default"
+        (Usage kind="analysis case" name="ad2" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="analysis"
+          (Relationship kind="typing" target=AD2
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="verification case" name="vd2" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="verification"
+          (Relationship kind="typing" target=VD2
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Definition kind="use case" abstract=false variation=false name="U"))
+      (Membership visibility="default"
+        (Definition kind="case" abstract=false variation=false name="C")))))

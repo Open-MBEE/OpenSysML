@@ -8,8 +8,6 @@ run: exhibited state machine monitor of #1
     eval null -> null
   eval operator != -> false
 eval operator and -> false
-enter: outer
-enter: waiting
     eval feature pulse -> ()
     eval null -> null
   eval operator != -> false
@@ -43,16 +41,3 @@ exit: armed
 exit: outer
 enter: done
 transition: armed -> done (event: change)
-run: exhibited state machine monitor of #1
-    eval feature pulse -> instance#3
-    eval null -> null
-  eval operator != -> true
-      eval feature pulse -> instance#3
-      eval literal 1 -> 1
-    eval index -> instance#3
-  eval chain ready -> false
-eval operator and -> false
-exit: waiting
-exit: outer
-enter: done
-transition: waiting -> done (event: change)

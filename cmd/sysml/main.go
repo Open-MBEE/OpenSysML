@@ -100,76 +100,77 @@ func writableFile(dir, name string) (string, bool) {
 
 // CLI flags
 var (
-	evalExprs        stringSlice
-	showHelp         bool
-	showMan          bool
-	showVersion      bool
-	debugMode        bool
-	quietMode        bool
-	traceMode        bool
-	renderRuns       stringSlice
-	schedule         schedulePolicy
-	listEngines      bool
-	metaclassGraph   bool
-	explainCodes     codeNames
-	probeEngines     bool
-	engine           engineSelection
-	jobsFlag         jobsSetting
-	convertFormat    string
-	stdlibModel      bool
-	migrateFormat    string
-	bundleDir        string
-	unbundleFile     string
-	queryText        string
-	outputPath       string
-	fromFormat       string
-	idForm           string
-	migrationReport  string
-	migrationResults string
-	layoutPath       string
-	imageBaseURL     string
-	renderView       string
-	graphsSubject    string
-	renderAllDir     string
-	renderForm       string
-	renderPalette    string
-	renderLink       string
-	renderUnplaced   string
-	renderStyle      string
-	renderPorts      string
-	renderLines      string
-	renderShow       string
-	renderDepth      int
-	renderOverlay    string
-	renderDoc        string
-	listWhat         string
-	listKinds        string
-	listForm         string
-	renderDocsDir    string
-	docForm          string
-	diagramForm      string
-	pdfEngine        string
-	pdfTitlePage     bool
-	pdfTOC           bool
-	pdfNumbering     bool
-	docNumberFigures bool
-	htmlCSS          stringSlice
-	htmlNoCSS        bool
-	htmlShowCSS      bool
-	htmlFragment     bool
-	htmlMermaid      string
-	htmlMath         string
-	htmlTheme        string
-	strictMode       bool
-	portableMode     bool
-	disabledLints    lintList
-	enabledLints     lintList
-	libraryRoots     pathList
-	noRecordCache    bool
-	modelChecks      checks
-	compileCalc      string
-	compileTarget    string
-	compileSource    bool
+	evalExprs          stringSlice
+	showHelp           bool
+	showMan            bool
+	showVersion        bool
+	debugMode          bool
+	quietMode          bool
+	traceMode          bool
+	renderRuns         stringSlice
+	schedule           schedulePolicy
+	listEngines        bool
+	metaclassGraph     bool
+	explainCodes       codeNames
+	probeEngines       bool
+	engine             engineSelection
+	jobsFlag           jobsSetting
+	convertFormat      string
+	stdlibModel        bool
+	migrateFormat      string
+	bundleDir          string
+	unbundleFile       string
+	queryText          string
+	outputPath         string
+	fromFormat         string
+	idForm             string
+	migrationReport    string
+	migrationResults   string
+	layoutPath         string
+	imageBaseURL       string
+	renderView         string
+	graphsSubject      string
+	renderAllDir       string
+	renderForm         string
+	renderPalette      string
+	renderLink         string
+	renderUnplaced     string
+	renderCompartments string
+	renderStyle        string
+	renderPorts        string
+	renderLines        string
+	renderShow         string
+	renderDepth        int
+	renderOverlay      string
+	renderDoc          string
+	listWhat           string
+	listKinds          string
+	listForm           string
+	renderDocsDir      string
+	docForm            string
+	diagramForm        string
+	pdfEngine          string
+	pdfTitlePage       bool
+	pdfTOC             bool
+	pdfNumbering       bool
+	docNumberFigures   bool
+	htmlCSS            stringSlice
+	htmlNoCSS          bool
+	htmlShowCSS        bool
+	htmlFragment       bool
+	htmlMermaid        string
+	htmlMath           string
+	htmlTheme          string
+	strictMode         bool
+	portableMode       bool
+	disabledLints      lintList
+	enabledLints       lintList
+	libraryRoots       pathList
+	noRecordCache      bool
+	modelChecks        checks
+	compileCalc        string
+	compileTarget      string
+	compileSource      bool
 
 	syncDiffWith       string
 	syncApplyTo        string
@@ -284,6 +285,15 @@ func resolveJobs() (int, error) {
 		return jobsFlag.value, nil
 	}
 	return analysis.JobsFromEnv()
+}
+
+// modelRunRequested reports whether the run asked for work over a model (a rendering,
+// conversion, migration, sync, query, graph, evaluation, check or listing).
+func modelRunRequested() bool {
+	return renderDoc != "" || renderDocsDir != "" || renderView != "" || renderAllDir != "" ||
+		convertFormat != "" || migrateFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
+		queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || modelChecks.requested() ||
+		flagGiven("list") || flagGiven("list-kind") || flagGiven("list-form")
 }
 
 // flagGiven reports whether the run named this flag, which an empty value
@@ -457,6 +467,10 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -render-lines is how the dot or plantuml form of -render or -render-all routes its edges; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
+	if renderCompartments != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-compartments folds a tree's owned members into compartment rows; name what to render with -render, -render-all, -render-document or -render-documents")
+		return 2
+	}
 	if renderUnplaced != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -render-unplaced places the unplaced nodes of a positioned DOT drawing; name what to render with -render, -render-all, -render-document or -render-documents")
 		return 2
@@ -485,10 +499,7 @@ func runCLI() int {
 		case len(args) > 0:
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet, which no model shapes; ask for it without model files")
 			return 2
-		case renderDoc != "" || renderDocsDir != "" || renderView != "" || renderAllDir != "" ||
-			convertFormat != "" || migrateFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
-			queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || modelChecks.requested() ||
-			flagGiven("list") || flagGiven("list-kind") || flagGiven("list-form") || metaclassGraph:
+		case modelRunRequested() || metaclassGraph:
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet and nothing else; ask for it in its own run")
 			return 2
 		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven():
@@ -512,10 +523,7 @@ func runCLI() int {
 		case len(args) > 0:
 			fmt.Fprintln(os.Stderr, "sysml: -metaclass-graph writes the metaclass hierarchy of the pinned metamodel, which no model shapes; ask for it without model files")
 			return 2
-		case renderDoc != "" || renderDocsDir != "" || renderView != "" || renderAllDir != "" ||
-			convertFormat != "" || migrateFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
-			queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || modelChecks.requested() ||
-			flagGiven("list") || flagGiven("list-kind") || flagGiven("list-form") || htmlShowCSS:
+		case modelRunRequested() || htmlShowCSS:
 			fmt.Fprintln(os.Stderr, "sysml: -metaclass-graph writes the metaclass hierarchy and nothing else; ask for it in its own run")
 			return 2
 		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven() ||
@@ -708,7 +716,7 @@ func runCLI() int {
 		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || graphsSubject != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -graphs or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderShow != "" || renderDepth != 0 || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderCompartments != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderShow != "" || renderDepth != 0 || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():

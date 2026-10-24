@@ -42,3 +42,24 @@ func TestBaseTypeReboundIgnoresTwinSymbols(t *testing.T) {
 		t.Errorf("baseTypeRebound(truck, {vehicle, truck}) = true, want truck kept")
 	}
 }
+
+// An annotation naming an undeclared metadata type contributes no specialization
+// and leaves the supertypes settled, not provisional (SysML v2 §7.27.3).
+func TestUnresolvedMetadataTypeLeavesSupertypesSettled(t *testing.T) {
+	cases := map[string]string{
+		"t.kerml": `package P { behavior Save { @Command; } }`,
+		"t.sysml": `package P { #Command action def Save; }`,
+	}
+	for name, src := range cases {
+		m, root := buildModelNamed(t, name, src)
+		save := sym(t, sym(t, root, "P").Scope, "Save")
+		supers := m.DirectSupertypes(save)
+		if m.SupertypesProvisional(save) {
+			t.Errorf("%s: supertypes of Save are provisional, want settled (%d supertypes)", name, len(supers))
+		}
+		m.AllSupertypes(save)
+		if m.SupertypesProvisional(save) {
+			t.Errorf("%s: supertypes of Save are provisional after the closure, want settled", name)
+		}
+	}
+}

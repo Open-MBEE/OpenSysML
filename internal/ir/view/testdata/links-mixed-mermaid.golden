@@ -83,10 +83,10 @@ initial`")
     end
     n9(["`*«use case def»*
 **Inspection**`"])
-    n10["`*«actor»*
-**operator**`"]
-    n11["`*«subject»*
+    n10["`*«subject»*
 **plant**`"]
+    n11["`*«actor»*
+**operator**`"]
     n12@{ shape: notch-rect, label: "objective<br>Inspect the plant and report its operating state." }
     n13("`*«perform action»*
 **run**
@@ -109,14 +109,14 @@ initial`")
   n4 --> n3
   n6 --> n7
   n7 --> n8
-  n10 --- n9
-  n9 ---|"«subject»"| n11
+  n9 ---|"«subject»"| n10
+  n11 --- n9
   n9 -.- n12
   n16 --> n15
   n26.0 === n27.0
   n3 -.-> n1
-  n10 -.-> n31
-  n11 -.-> n25_anchor
+  n10 -.-> n25_anchor
+  n11 -.-> n31
   n13 -.->|"«perform»"| n5_anchor
   n14_anchor -.->|"«exhibit»"| n2_anchor
   n21_anchor -->|"«specializes»"| n20

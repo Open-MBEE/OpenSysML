@@ -23,12 +23,12 @@ datatype Boolean
 datatype Complex
 datatype Integer
 datatype Natural
-datatype Number
-datatype NumericalValue
+abstract datatype Number
+abstract datatype NumericalValue
 datatype Positive
 datatype Rational
 datatype Real
-datatype ScalarValue
+abstract datatype ScalarValue
 datatype String
 
 relationships:

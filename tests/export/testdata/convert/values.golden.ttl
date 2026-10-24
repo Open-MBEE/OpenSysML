@@ -230,13 +230,13 @@ elmt:Values__Sized__size
     sysml:declaredName "size" ;
     sysml:type "Real" ;
     sysml:value expr:Values__Sized__size_pvalue ;
-    sysml:ownedRelationship expr:Values__Sized__size_pvalue_om, elmt:Values__Sized__size_ft0 ;
+    sysml:ownedRelationship elmt:Values__Sized__size_ft0, expr:Values__Sized__size_pvalue_om ;
     sysml:ownedMembership expr:Values__Sized__size_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Values__Sized__size_ft0 ;
     sysml:ownedSpecialization elmt:Values__Sized__size_ft0 ;
     sysx:sourceText "        attribute size : Real = 4.5;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Values__Sized__size_pvalue_om\"},{\"@id\":\"Values__Sized__size_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Values__Sized__size_ft0\"},{\"@id\":\"Values__Sized__size_pvalue_om\"}]" .
 
 elmt:Values__Sized__size_om
     a sysml:FeatureMembership ;
@@ -289,13 +289,13 @@ elmt:Values__Sized__label
     sysml:declaredName "label" ;
     sysml:type "String" ;
     sysml:value expr:Values__Sized__label_pvalue ;
-    sysml:ownedRelationship expr:Values__Sized__label_pvalue_om, elmt:Values__Sized__label_ft0 ;
+    sysml:ownedRelationship elmt:Values__Sized__label_ft0, expr:Values__Sized__label_pvalue_om ;
     sysml:ownedMembership expr:Values__Sized__label_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Values__Sized__label_ft0 ;
     sysml:ownedSpecialization elmt:Values__Sized__label_ft0 ;
     sysx:sourceText "        attribute label : String = \"front\";\n" ;
-    json:ownedRelationship "[{\"@id\":\"Values__Sized__label_pvalue_om\"},{\"@id\":\"Values__Sized__label_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Values__Sized__label_ft0\"},{\"@id\":\"Values__Sized__label_pvalue_om\"}]" .
 
 elmt:Values__Sized__label_om
     a sysml:FeatureMembership ;
@@ -348,13 +348,13 @@ elmt:Values__Sized__total
     sysml:declaredName "total" ;
     sysml:type "Real" ;
     sysml:value expr:Values__Sized__total_pvalue ;
-    sysml:ownedRelationship expr:Values__Sized__total_pvalue_om, elmt:Values__Sized__total_ft0 ;
+    sysml:ownedRelationship elmt:Values__Sized__total_ft0, expr:Values__Sized__total_pvalue_om ;
     sysml:ownedMembership expr:Values__Sized__total_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Values__Sized__total_ft0 ;
     sysml:ownedSpecialization elmt:Values__Sized__total_ft0 ;
     sysx:sourceText "        attribute total : Real = 1.0 + 2.0;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Values__Sized__total_pvalue_om\"},{\"@id\":\"Values__Sized__total_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Values__Sized__total_ft0\"},{\"@id\":\"Values__Sized__total_pvalue_om\"}]" .
 
 elmt:Values__Sized__total_om
     a sysml:FeatureMembership ;

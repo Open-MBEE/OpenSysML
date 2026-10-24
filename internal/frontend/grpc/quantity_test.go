@@ -519,10 +519,10 @@ package Imperial {
 		if resp.Error != "" {
 			t.Fatalf("EvaluateCalc %s reported %q", calc, resp.Error)
 		}
-		if resp.Result.GetQuantity() == nil {
+		if soleElement(t, calc, resp.Result).GetQuantity() == nil {
 			t.Fatalf("EvaluateCalc %s = %v, want a quantity", calc, resp.Result)
 		}
-		return resp.Result.GetQuantity()
+		return soleElement(t, calc, resp.Result).GetQuantity()
 	}
 
 	speed := mustEvaluateQuantity(t, srv, hash, "3.0 [SI::m] / 1.0 [SI::s]")
@@ -727,7 +727,7 @@ package Imperial {
 	if err != nil || resp.Error != "" {
 		t.Fatalf("EvaluateCalc Q::Area over nameless hundredths: %v %q", err, resp.GetError())
 	}
-	if realVal, ok := resp.Result.GetKind().(*pb.Value_RealValue); !ok || realVal.RealValue != 0.0004 {
+	if realVal, ok := soleElement(t, "Q::Area", resp.Result).GetKind().(*pb.Value_RealValue); !ok || realVal.RealValue != 0.0004 {
 		t.Errorf("a nameless hundredth squared = %v, want the number 0.0004", resp.Result)
 	}
 }
@@ -773,10 +773,10 @@ package Imperial {
 		if resp.Error != "" {
 			t.Fatalf("EvaluateCalc %s reported %q", calc, resp.Error)
 		}
-		if resp.Result.GetQuantity() == nil {
+		if soleElement(t, calc, resp.Result).GetQuantity() == nil {
 			t.Fatalf("EvaluateCalc %s = %v, want a quantity", calc, resp.Result)
 		}
-		return resp.Result.GetQuantity()
+		return soleElement(t, calc, resp.Result).GetQuantity()
 	}
 	quantity := func(magnitude float64, unit string, term *pb.UnitTerm) *pb.Quantity {
 		return &pb.Quantity{Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: magnitude}, Unit: unit, UnitTerm: term}

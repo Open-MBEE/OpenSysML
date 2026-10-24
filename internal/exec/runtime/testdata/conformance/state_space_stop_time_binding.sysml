@@ -11,8 +11,9 @@ package test {
 
 	action decay : ContinuousStateSpaceDynamics, FixedStepDynamics {
 		attribute rate : Real = 0.5;
-		in stop : DurationValue = 2 [s];
 		in :>> input : DecayInput = 0 [m] * VectorOf((0.0));
+		out :>> output;
+		in stop : DurationValue = 2 [s];
 		:>> stateSpace : DecayState = 1 [m] * VectorOf((1.0));
 		:>> timeStep = 0.1 [s];
 		:>> stopTime = stop;

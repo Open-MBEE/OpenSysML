@@ -1,0 +1,19 @@
+{
+  "type": "calc",
+  "evaluate": "test::Twice",
+  "inputs": [
+    {
+      "type": "Real",
+      "value": 2.5
+    }
+  ],
+  "result": {
+    "type": "Sequence",
+    "elements": [
+      {
+        "type": "Real",
+        "value": 5.0
+      }
+    ]
+  }
+}

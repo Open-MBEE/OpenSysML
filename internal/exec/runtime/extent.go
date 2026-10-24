@@ -79,13 +79,9 @@ func (ec *EvalContext) literalValues(literals []*symbols.Symbol) (Value, error) 
 // variantValues is what a variation's variants stand for: the value each declares, or an
 // object of it, materialized once for the object evaluating, as a selection is.
 func (ec *EvalContext) variantValues(variation *symbols.Symbol, variants []*symbols.Symbol) (Value, error) {
-	owner := int64(0)
-	if ec.self != nil {
-		owner = ec.self.ID
-	}
 	values := make([]Value, 0, len(variants))
 	for _, variant := range variants {
-		val, err := ec.ctx.variantValue(variation, variant, owner)
+		val, err := ec.ctx.variantValue(variation, variant, ec.readingObject())
 		if err != nil {
 			return Value{}, err
 		}

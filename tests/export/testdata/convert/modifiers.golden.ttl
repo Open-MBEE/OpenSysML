@@ -155,6 +155,7 @@ elmt:Modifiers__Choice
     sysml:owningRelationship elmt:Modifiers__Choice_om ;
     sysml:owningMembership elmt:Modifiers__Choice_om ;
     sysml:declaredName "Choice" ;
+    sysml:isAbstract "true"^^xsd:boolean ;
     sysml:isVariation "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    variation part def Choice;\n" .

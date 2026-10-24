@@ -31,7 +31,7 @@ func TestSeededRunArgumentsDrawSuccessively(t *testing.T) {
 	draws := []string{"uniform(0.0, 1.0)", "uniform(0.0, 1.0)"}
 	var first, again Verdict
 	must(t, cs, "session_run", args("kind", "calc", "name", "Two::Pair", "arguments", draws), &first)
-	if first.Status != "holds" || len(first.Values) != 1 || first.Values[0].Value != ev.Text {
+	if first.Status != "holds" || len(first.Values) != 1 || first.Values[0].Value != "["+ev.Text+"]" {
 		t.Errorf("seeded run = %+v, want result %s (0.0 means both arguments drew the seed's first value)", first, ev.Text)
 	}
 	must(t, cs, "session_run", args("kind", "calc", "name", "Two::Pair", "arguments", draws), &again)

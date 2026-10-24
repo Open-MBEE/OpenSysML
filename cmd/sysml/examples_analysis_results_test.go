@@ -58,8 +58,8 @@ func TestAnalysisResultsExample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("analysis: %v\n%s", err, output)
 	}
-	if !strings.Contains(string(output), "fuelLeft = 130.0") {
-		t.Errorf("scoutBudget no longer prints the recorded fuelLeft = 130.0:\n%s", output)
+	if !strings.Contains(string(output), "fuelLeft = [130.0]") {
+		t.Errorf("scoutBudget no longer prints the recorded fuelLeft = [130.0]:\n%s", output)
 	}
 
 	// A run written back with -record-run lands in the same Records package

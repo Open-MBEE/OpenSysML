@@ -1,0 +1,18 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::ScaledMass",
+  "subject": "test::thing",
+  "inputs": [
+    {"type": "Real", "value": 3.0},
+    {"type": "Real", "value": 0.5}
+  ],
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 12.5}]},
+  "reads": {
+    "test::positional": {"type": "Boolean", "value": true},
+    "test::positionalDefaulted": {"type": "Boolean", "value": true},
+    "test::positionalViolated": {"type": "Boolean", "value": false},
+    "test::named": {"type": "Boolean", "value": true},
+    "test::namedDefaulted": {"type": "Boolean", "value": true}
+  }
+}

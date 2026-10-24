@@ -936,3 +936,30 @@ func TestRootNamespaceFiltersGateOnlyTheirOwnDocument(t *testing.T) {
 		t.Errorf("the other document's route to Belt carries %v, want no condition", routes)
 	}
 }
+
+// LookupUnique answers a fully-qualified name, or a name exactly one element's
+// fully-qualified name ends in; two elements ending in it name nothing.
+func TestLookupUniqueBySuffix(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "tags.sysml", `package Tags {
+	package A { metadata def Tag; metadata def Only; }
+	package B { metadata def Tag; }
+}`)
+	idx.ExpandWildcardImports()
+
+	if got := idx.LookupUnique("Tags::A::Only"); got == nil || got.Name != "Only" {
+		t.Errorf("LookupUnique(Tags::A::Only) = %v, want the def", got)
+	}
+	if got := idx.LookupUnique("Only"); got == nil || FQNOf(got) != "Tags::A::Only" {
+		t.Errorf("LookupUnique(Only) = %v, want Tags::A::Only", got)
+	}
+	if got := idx.LookupUnique("B::Tag"); got == nil || FQNOf(got) != "Tags::B::Tag" {
+		t.Errorf("LookupUnique(B::Tag) = %v, want Tags::B::Tag", got)
+	}
+	if got := idx.LookupUnique("Tag"); got != nil {
+		t.Errorf("LookupUnique(Tag) = %s, want nil for an ambiguous name", FQNOf(got))
+	}
+	if got := idx.LookupUnique("Nowhere"); got != nil {
+		t.Errorf("LookupUnique(Nowhere) = %s, want nil", FQNOf(got))
+	}
+}

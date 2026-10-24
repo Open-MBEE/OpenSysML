@@ -123,9 +123,9 @@ func TestDefaultKindsAreRenderable(t *testing.T) {
 }
 
 func TestPilotStylesParseInAnyCaseAndNoteWhatTheyDo(t *testing.T) {
-	for _, name := range []string{"comptree", "COMPTREE", "CompTree"} {
+	for _, name := range []string{"showinherited", "SHOWINHERITED", "ShowInherited"} {
 		style, ok := ParsePilotStyle(name)
-		if !ok || style != "COMPTREE" {
+		if !ok || style != "SHOWINHERITED" {
 			t.Errorf("ParsePilotStyle(%q) = %q, %t", name, style, ok)
 		}
 	}
@@ -142,7 +142,15 @@ func TestPilotStylesParseInAnyCaseAndNoteWhatTheyDo(t *testing.T) {
 			t.Errorf("%s.Notice() = %q", style, notice)
 		}
 	}
-	if got := PilotStyle("COMPTREE").Notice(); got != "style COMPTREE (show nested ports in a compartment) is not drawn" {
+	if got := PilotStyle("SHOWINHERITED").Notice(); got != "style SHOWINHERITED (show inherited members) is not drawn" {
+		t.Errorf("Notice = %q", got)
+	}
+	for _, drawn := range []string{"COMPMOST", "COMPTREE", "ORTHOLINE", "POLYLINE"} {
+		if _, ok := ParsePilotStyle(drawn); ok {
+			t.Errorf("%s is drawn, not a pilot style noted as undrawn", drawn)
+		}
+	}
+	if got := PilotStyle("SHOWLIB").Notice(); got != "style SHOWLIB (show elements of the standard libraries) is not drawn" {
 		t.Errorf("Notice = %q", got)
 	}
 }

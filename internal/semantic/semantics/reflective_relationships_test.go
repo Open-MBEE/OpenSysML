@@ -471,7 +471,7 @@ func TestImplicitRelationshipNegatives(t *testing.T) {
 		assertRelUnsupported(t, model, rel, "redefinedFeature")
 		assertRelUnsupported(t, model, rel, "referencingFeature")
 		assertRelUnsupported(t, model, d, "ownedSubsetting")
-		assertRelUnsupported(t, model, b, "ownedRelationship")
+		assertRelFeature(t, model, b, "ownedRelationship", rel)
 		assertRelUnsupported(t, model, b, "ownedSubclassification")
 	}
 }
