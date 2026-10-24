@@ -2,11 +2,8 @@ package queryexec
 
 import "testing"
 
-// TestQueryRobustnessDerivation exercises derivation ends whose role statement
-// and participant are hard to tell apart: a participant carrying the opposite
-// role's metadata, an end that references the library's role feature itself,
-// and a participant tagged with both roles. Each answers the ends' stated
-// roles or an empty cell, never a panic or a hang.
+// TestQueryRobustnessDerivation exercises ends whose role statement and participant are hard
+// to tell apart; each answers the ends' stated roles or an empty cell, never a panic or a hang.
 const relatedQuery = `
 	calc def Related :> Query {
 		in source : Element[1..*] ordered;

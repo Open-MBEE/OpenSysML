@@ -116,9 +116,8 @@ package Observatory {
 		end untyped;
 	}
 
-	// Participants carrying the role metadata themselves: the tag marks the
-	// requirement as an original or derived requirement, not as a role an end
-	// subsets, so each stays the end's participant.
+	// Role metadata on a requirement marks it as original or derived; it is still
+	// the participant an end names, not a role statement.
 	requirement throughputCapacity { @original; }
 	requirement linkRate { @derive; }
 	requirement bufferDepth { @derive; }

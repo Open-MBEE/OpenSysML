@@ -57,9 +57,8 @@ func TestExecuteRelatedDerivationBodyEndRoles(t *testing.T) {
 func TestExecuteRelatedDerivationTaggedParticipants(t *testing.T) {
 	fixture := loadExecutionFixtureFile(t, "testdata/tmt_derivation.sysml")
 
-	// A requirement tagged `@original` or `@derive` conforms to the library's
-	// role feature, yet an end naming it refers to a participant, whether the
-	// end states its role by metadata or by subsetting the role feature.
+	// A tagged requirement stays the participant of an end that names it, whether
+	// the end states its role by metadata or by subsetting the library role feature.
 	assertRelated(t, fixture, "throughputCapacity", "derivation", "outgoing", 1,
 		[]string{"linkRate", "bufferDepth"})
 	assertRelated(t, fixture, "linkRate", "derivation", "incoming", 1,
