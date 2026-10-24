@@ -1099,6 +1099,9 @@ jobs:
       - name: Check the release provenance writer
         run: python3 scripts/release-provenance-test.py
 
+      - name: Check the release announcer
+        run: python3 scripts/release-announce-test.py
+
       # The compliance census is counted when the site is built, never committed.
       - name: Check the compliance census hook
         run: python3 scripts/mkdocs_census-test.py
