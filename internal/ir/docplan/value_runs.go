@@ -45,7 +45,7 @@ func (c *compiler) markupValue(owner, rep *symbols.Symbol, body string, run mark
 		return Run{}, invalid(fmt.Sprintf("%s, %s", symbols.FQNOf(target), elementKindWords(target)))
 	}
 	root, path := c.valuePath(rep.OwnerScope, value, target)
-	return Run{kind: RunValue, text: run.Text, refSym: target, valueRoot: root, valuePath: path, origin: origin}, nil
+	return Run{kind: RunValue, text: run.Text, refSym: target, valueRoot: root, valuePath: path, bound: true, origin: origin}, nil
 }
 
 // carriesValue reports whether sym is a feature whose value is a datum rather

@@ -810,7 +810,7 @@ func (e *evaluator) valueRun(node docplan.Content, run docplan.Run) (TextRun, er
 	if label := run.Text(); label != "" {
 		text = label + " " + text
 	}
-	return TextRun{kind: RunPlain, text: text, origin: run.Origin()}, nil
+	return TextRun{kind: RunPlain, text: text, bound: run.Bound(), origin: run.Origin()}, nil
 }
 
 // evaluateDefinitions runs a definitions block's query once and turns each
