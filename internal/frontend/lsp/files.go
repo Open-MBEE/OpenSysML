@@ -654,6 +654,7 @@ func (s *Server) refreshOpenDiagnostics(ctx context.Context, except string) {
 			s.publishOpenDiagnostics(ctx, name)
 		}
 	}
+	s.publishFindings(ctx)
 }
 
 // queueOpenDiagnostics is refreshOpenDiagnostics once an editor burst settles;
