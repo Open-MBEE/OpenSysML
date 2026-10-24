@@ -111,8 +111,8 @@ func (e *performances) frameObject(frame *actionFrame) (*Instance, error) {
 }
 
 // kernelMemberHolding is the feature value owner holds the objects of the library
-// member fqn under — a collection the object's type inherits (`loops`, `body`) —
-// made empty when the object holds none yet; nil where the type has no such member.
+// member fqn under — a collection the object's type inherits (`loops`, `body`) — made
+// empty, bound by the run, when the object holds none yet; nil where the type has no such member.
 func (ctx *Context) kernelMemberHolding(owner *Instance, fqn string) (*FeatureValue, error) {
 	lib := ctx.librarySymbol(fqn)
 	if lib == nil {
@@ -127,7 +127,7 @@ func (ctx *Context) kernelMemberHolding(owner *Instance, fqn string) (*FeatureVa
 		return fv, nil
 	}
 	feat := ctx.effectiveFeature(name, sym, owner.Type)
-	fv := &FeatureValue{Feature: &feat, Values: ctx.collectionOf(&feat, nil), Materialized: true}
+	fv := &FeatureValue{Feature: &feat, Values: ctx.collectionOf(&feat, nil), Materialized: true, Written: true}
 	owner.FeatureValues[name] = fv
 	ctx.noteProbeUndo(func() { delete(owner.FeatureValues, name) })
 	return fv, nil
@@ -169,7 +169,7 @@ func (ctx *Context) appendHeld(fv *FeatureValue, elem Value) error {
 	ctx.noteProbeWrite(fv)
 	endWrite := ctx.beginFeatureWrite(fv)
 	before := ctx.beforeWrite(fv)
-	fv.Value, fv.Values, fv.Materialized = Value{}, next, true
+	fv.Value, fv.Values, fv.Materialized, fv.Written = Value{}, next, true, true
 	ctx.afterWrite(fv, before)
 	endWrite()
 	return nil
