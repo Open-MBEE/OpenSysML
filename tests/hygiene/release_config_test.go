@@ -730,12 +730,8 @@ func TestJavaJarIsStampedWithItsReleaseDigests(t *testing.T) {
 	requireAll(t, "Publish opensysml to Maven Central", requiresOf(t, release, "Publish opensysml to Maven Central"), "Publish GitHub release")
 }
 
-// TestMavenPublishStepOutlivesThePluginWait holds the publish-maven deploy step's
-// no_output_timeout above the central-publishing-maven-plugin's wait bound. With
-// waitUntil=published the plugin polls Central silently (its status lines are
-// debug-level) for up to waitMaxTime seconds plus one poll before failing the
-// build itself; a shorter CircleCI timeout kills the step first and reds a
-// release whose version then lands on Central, as v0.11.0's did at the 10m default.
+// TestMavenPublishStepOutlivesThePluginWait holds the publish-maven deploy step's no_output_timeout
+// above the plugin's silent waitUntil=published poll (waitMaxTime plus one waitPollingInterval).
 func TestMavenPublishStepOutlivesThePluginWait(t *testing.T) {
 	pom, err := os.ReadFile("../../client/java/pom.xml")
 	if err != nil {
