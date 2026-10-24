@@ -10,12 +10,11 @@ post), wraps them in a short Slack message and POSTs it to the incoming webhook
 in SLACK_WEBHOOK_URL. The optional --snippet file carries extra body text
 ("Get it: pip install opensysml …"), appended verbatim so the announcement a
 release deserves can be hand-written without touching this script.
+The webhook posts to the channel chosen when it was added, under the Slack
+app's own name and icon.
 
 Environment:
     SLACK_WEBHOOK_URL   incoming-webhook URL for the announcement channel
-    SLACK_CHANNEL       channel override (only for webhooks that allow it);
-                        unset means the webhook's configured channel
-    SLACK_USERNAME      bot name override, default "OpenSysML releases"
     GITHUB_TOKEN/GH_TOKEN/CIRCLE_TOKEN   token for the release API read
     GH_REPO             owner/name, default from CIRCLE_PROJECT_USERNAME and
                         CIRCLE_PROJECT_REPONAME, else Open-MBEE/OpenSysML
@@ -56,7 +55,7 @@ def _github_release(repo: str, tag: str, token: str) -> dict[str, Any]:
 
 
 def build_payload(release_name: str, release_url: str, tag: str,
-                  snippet: str, channel: str, username: str) -> dict[str, Any]:
+                  snippet: str) -> dict[str, Any]:
     """The Slack message for one release."""
     title = release_name.strip() or tag
     lines = [
@@ -66,14 +65,7 @@ def build_payload(release_name: str, release_url: str, tag: str,
     if snippet.strip():
         lines.append("")
         lines.append(snippet.rstrip())
-    payload: dict[str, Any] = {
-        "username": username,
-        "icon_emoji": ":rocket:",
-        "text": "\n".join(lines),
-    }
-    if channel:
-        payload["channel"] = channel
-    return payload
+    return {"text": "\n".join(lines)}
 
 
 def main() -> None:
@@ -111,8 +103,6 @@ def main() -> None:
         release_url=release_url,
         tag=args.tag,
         snippet=snippet,
-        channel=_env("SLACK_CHANNEL"),
-        username=_env("SLACK_USERNAME") or "OpenSysML releases",
     )
 
     if args.dry_run:

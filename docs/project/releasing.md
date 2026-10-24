@@ -401,11 +401,13 @@ packages and publishes `opensysml` (see
 `announce-release-slack` runs after `publish-github-release`, independent of
 the registry publishers. It posts the release title and link to the incoming
 webhook URL in `SLACK_WEBHOOK_URL` from the CircleCI context named exactly
-`Slack`; the webhook's configured channel is used. Create a Slack app, enable
-Incoming Webhooks for the maintainers' channel, and put its URL in that
-context. Restrict the context like the others. A rehearsal prints the payload
-instead of posting. A missing context fails only this job, and nothing
-downstream depends on it. Re-running the job posts again.
+`Slack`. Add the Slack app to the maintainers' channel with *Add New Webhook
+to Workspace*. The post uses the app's display name and icon. The app needs
+only the `incoming-webhook` scope; no bot token or `chat:write` scope is
+needed. Put the webhook URL in the context and restrict it like the others.
+A rehearsal prints the payload instead of posting. A missing context fails
+only this job, and nothing downstream depends on it. Re-running the job posts
+again.
 
 The GitHub Slack app's `releases` subscription is not used: `.github/workflows/nightly.yml`
 publishes two prereleases each night (`nightly-<yyyymmdd>-<commit>` and

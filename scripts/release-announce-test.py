@@ -58,22 +58,15 @@ def run_main(args: list[str]) -> None:
 
 
 class PayloadTest(unittest.TestCase):
-    def test_falls_back_to_tag_and_adds_url_snippet_and_optional_channel(self):
+    def test_falls_back_to_tag_and_adds_url_and_snippet(self):
         url = "https://github.com/Open-MBEE/OpenSysML/releases/tag/v1.2.3"
-        payload = announce.build_payload(
-            "  ", url, "v1.2.3", "Install the release", "", "OpenSysML"
-        )
-
         self.assertEqual(
-            payload["text"],
-            f":tada: *v1.2.3* is out!\nRelease notes and downloads: {url}"
-            "\n\nInstall the release",
+            announce.build_payload("  ", url, "v1.2.3", "Install the release"),
+            {
+                "text": f":tada: *v1.2.3* is out!\nRelease notes and downloads: {url}"
+                        "\n\nInstall the release",
+            },
         )
-        self.assertNotIn("channel", payload)
-
-        payload = announce.build_payload("  ", url, "v1.2.3", "Install the release",
-                                         "#maintainers", "OpenSysML")
-        self.assertEqual(payload["channel"], "#maintainers")
 
 
 class MainTest(unittest.TestCase):
@@ -103,8 +96,7 @@ class MainTest(unittest.TestCase):
     def test_posts_json_with_content_type_to_webhook(self):
         with webhook_server(b"ok") as (url, requests):
             with unittest.mock.patch.dict(
-                "os.environ", {"SLACK_WEBHOOK_URL": url, "SLACK_CHANNEL": "#maintainers"},
-                clear=True,
+                "os.environ", {"SLACK_WEBHOOK_URL": url}, clear=True
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     run_main(
@@ -123,11 +115,8 @@ class MainTest(unittest.TestCase):
         self.assertEqual(
             json.loads(requests[0]["body"]),
             {
-                "username": "OpenSysML releases",
-                "icon_emoji": ":rocket:",
                 "text": ":tada: *OpenSysML 1.2.3* is out!\n"
                         "Release notes and downloads: https://example.test/release",
-                "channel": "#maintainers",
             },
         )
 
