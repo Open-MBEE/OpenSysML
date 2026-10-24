@@ -147,7 +147,7 @@ as a dependency.
 **Available binaries:**
 - `sysml` — Interactive REPL
 - `sysml-lsp` — Language Server Protocol server
-- `sysml-mcp` — Model Context Protocol server for coding agents. `npx -y @openmbee/sysml-mcp`
+- `sysml-mcp` — Model Context Protocol server for coding agents. `npx -y @openmbee/sysml-mcp` (or `npx -y @openmbee/opensysml-mcp`, the same package under the name the other npm packages share)
   runs it from npm with nothing preinstalled (the package pins the release binary for the
   platform); it is also in its own `sysml-mcp-<os>-<arch>.tar.gz` (`.zip` on Windows) with its
   manual page and the LICENSE, which `--tools sysml-mcp` installs, and

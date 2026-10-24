@@ -428,7 +428,8 @@ part and calls `verify_requirement` instead of reasoning about the arithmetic.
 
 The server speaks the protocol over stdin and stdout, so it is never run at a prompt; the host
 starts it. With nothing installed but Node, the command is `npx -y @openmbee/sysml-mcp`, which
-installs the release binary for the platform from npm on first use:
+installs the release binary for the platform from npm on first use (`npx -y @openmbee/opensysml-mcp`
+is the same package under the name the other OpenSysML npm packages share):
 
 ```bash
 claude mcp add --transport stdio sysml -- npx -y @openmbee/sysml-mcp -root .
