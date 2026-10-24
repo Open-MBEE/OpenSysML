@@ -27,7 +27,8 @@ flowchart TD
   subgraph n0 ["`*«action def»* **Flow**`"]
     direction TD
     n1("`*«action»*
-**a**`")
+**a**
+own flow`")
     n4("`*«action»*
 **b**`")
   end

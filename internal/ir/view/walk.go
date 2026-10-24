@@ -136,10 +136,12 @@ func ParseDepth(value string) (int, error) {
 	return depth, nil
 }
 
-// foldCollapsed folds the collapsed nodes under root as the tree and
-// interconnection walks fold theirs: what a collapsed node nests is not drawn,
-// its ports stay, and an edge at a node no longer drawn goes with it.
-func foldCollapsed(root *Node, out *Rendering) {
+// foldCollapsed folds the collapsed nodes the behaviour renderings registered
+// for folding, as the tree and interconnection walks fold theirs: what a
+// collapsed node nests is not drawn, and an edge or note at a node no longer
+// drawn goes with it. It runs once every edge of the rendering is built, so an
+// edge drawn later into a folded body cannot outlive the body.
+func foldCollapsed(out *Rendering) {
 	pruned := map[string]bool{}
 	var prune func(*Node)
 	prune = func(node *Node) {
@@ -161,15 +163,25 @@ func foldCollapsed(root *Node, out *Rendering) {
 			walk(child)
 		}
 	}
-	walk(root)
+	for _, root := range out.folds {
+		walk(root)
+	}
+	out.folds = nil
 	if len(pruned) == 0 {
 		return
 	}
-	kept := out.Edges[:0]
+	edges := out.Edges[:0]
 	for _, edge := range out.Edges {
 		if !pruned[edge.From] && !pruned[edge.To] {
-			kept = append(kept, edge)
+			edges = append(edges, edge)
 		}
 	}
-	out.Edges = kept
+	out.Edges = edges
+	notes := out.Notes[:0]
+	for _, note := range out.Notes {
+		if !pruned[note.Anchor] && !pruned[note.EdgeFrom] && !pruned[note.EdgeTo] {
+			notes = append(notes, note)
+		}
+	}
+	out.Notes = notes
 }

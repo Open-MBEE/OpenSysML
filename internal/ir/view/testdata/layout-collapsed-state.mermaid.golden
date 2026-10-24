@@ -34,6 +34,9 @@ stateDiagram-v2
   state "«state def» Machine" as n0 {
     state "«state»<br>idle<br>initial" as n1
     state "«state»<br>running" as n2
+      note right of n2
+        runs until hot
+      end note
     [*] --> n1
   }
   n1 --> n2
