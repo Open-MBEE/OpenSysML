@@ -134,7 +134,7 @@ func TestReturnParameterReadsAgreeWithChecksOnNestedUsages(t *testing.T) {
 	root := idx.DocumentRoot("<test>")
 	inst := mustInstantiate(t, ctx, oneSymbol(t, idx, "test::P1"))
 
-	for _, usage := range []string{"rq", "rqNamed", "rqBare", "rqPart", "rqFail", "rqNarrow", "rqDefault"} {
+	for _, usage := range []string{"rq", "rqNamed", "rqBare", "rqPart", "rqFail", "rqNarrow", "rqDefault", "rqOwnV"} {
 		sym := requirementUsage(t, idx, "test::P1::"+usage)
 		result, err := ctx.CheckRequirementOn(sym, inst.Type.Scope, inst)
 		if err != nil && !violationErr(err) {
@@ -149,17 +149,28 @@ func TestReturnParameterReadsAgreeWithChecksOnNestedUsages(t *testing.T) {
 			t.Errorf("test::p1.%s.result = %s, want the requirement check's %v", usage, FormatValue(modelRead), result.Holds)
 		}
 	}
+	// A condition reading the usage's own unvalued feature, or a subject written `=` to an
+	// empty feature, is undecided for the check and never a verdict for the read.
+	for _, usage := range []string{"rqOwn", "rqEmpty"} {
+		sym := requirementUsage(t, idx, "test::P1::"+usage)
+		if _, err := ctx.CheckRequirementOn(sym, inst.Type.Scope, inst); err == nil {
+			t.Errorf("CheckRequirementOn(%s) decided a requirement reading no value", usage)
+		}
+		if read, err := evalOn(t, ctx, inst, usage+".result"); err == nil && read.Kind != ValUndetermined {
+			t.Errorf("%s.result on an object = %s, want undetermined or refused", usage, FormatValue(read))
+		}
+	}
 
 	assertions := ctx.SatisfyAssertionsIn(oneSymbol(t, idx, "test::P1").Scope)
-	if len(assertions) != 2 {
-		t.Fatalf("found %d satisfaction assertions in P1, want 2", len(assertions))
-	}
-	pa, err := inst.GetFeatureValue(ctx, "pa")
-	if err != nil {
-		t.Fatal(err)
+	if len(assertions) != 3 {
+		t.Fatalf("found %d satisfaction assertions in P1, want 3", len(assertions))
 	}
 	for _, a := range assertions {
-		result, err := ctx.CheckSatisfactionOn(a, ctx.instances[pa.HeldValue().Instance])
+		by, err := inst.GetFeatureValue(ctx, ast.AsQualifiedName(satisfiedBy(a.Symbol)).Parts[0].Text)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := ctx.CheckSatisfactionOn(a, ctx.instances[by.HeldValue().Instance])
 		if err != nil && !violationErr(err) {
 			t.Fatalf("CheckSatisfactionOn(%s): %v", a.Text(), err)
 		}

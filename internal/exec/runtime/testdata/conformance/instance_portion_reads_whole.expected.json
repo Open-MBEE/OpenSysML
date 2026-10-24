@@ -1,0 +1,28 @@
+{
+  "type": "instance",
+  "instantiate": "test::panel",
+  "libraries": true,
+  "slots": {
+    "width": {"type": "Integer", "value": 3},
+    "product": {"type": "Integer", "value": 6}
+  },
+  "constraints": {
+    "ownProduct": true,
+    "snapshotWidth": true,
+    "snapshotHeight": true,
+    "snapshotDepth": true,
+    "snapshotProduct": true,
+    "plainProduct": true,
+    "plainDepth": true,
+    "timesliceProduct": true,
+    "otherWidth": true,
+    "restatedWidth": true,
+    "restatedProduct": true,
+    "restatedDepth": true,
+    "viaFollowsPortionOwn": true,
+    "viaFollowsWholeOwn": true,
+    "snapshotComponents": true,
+    "snapshotComponentId": true
+  },
+  "materialization": {}
+}

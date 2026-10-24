@@ -111,8 +111,12 @@ func (ctx *Context) buildFeatures(typeSym *symbols.Symbol) []EffectiveFeature {
 // effectiveFeature is the member memberSym of typeSym as name, with the value it
 // states or inherits from what it redefines.
 func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Symbol) EffectiveFeature {
-	defaultVal := ctx.extractDefaultValue(memberSym)
-	defaultDecl := memberSym
+	// A satisfy usage's `by` is its subject's most specific value (SysML v2 §7.21.4),
+	// over a value or default the subject it binds declares or inherits.
+	defaultVal, defaultDecl := ctx.satisfiedByValue(memberSym, typeSym)
+	if defaultVal == nil {
+		defaultVal, defaultDecl = ctx.extractDefaultValue(memberSym), memberSym
+	}
 	if defaultVal == nil {
 		defaultVal, defaultDecl = ctx.redefinedDefault(memberSym, typeSym)
 	}
@@ -185,7 +189,7 @@ func (ctx *Context) statedTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
 	if types := ctx.declaredTypes(featureSym); len(types) > 0 {
 		return types
 	}
-	for _, sup := range ctx.model.semantics.AllSupertypes(featureSym) {
+	for _, sup := range ctx.model.semantics.AllDeclaredSupertypes(featureSym) {
 		if types := ctx.declaredTypes(sup); len(types) > 0 {
 			return types
 		}
@@ -195,7 +199,20 @@ func (ctx *Context) statedTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
 
 // effectiveTypes returns the most specific of the stated types conjoined with the types
 // of each subsetted, redefined or referenced feature (a positional parameter redefinition only when none is stated).
+// Computed once per feature; callers must not modify the returned slice.
 func (ctx *Context) effectiveTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
+	if types, ok := ctx.model.effectiveTypes[featureSym]; ok {
+		return types
+	}
+	types := ctx.computeEffectiveTypes(featureSym)
+	if ctx.model.effectiveTypes == nil {
+		ctx.model.effectiveTypes = map[*symbols.Symbol][]*symbols.Symbol{}
+	}
+	ctx.model.effectiveTypes[featureSym] = types
+	return types
+}
+
+func (ctx *Context) computeEffectiveTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
 	sem := ctx.model.semantics
 	stated := ctx.statedTypes(featureSym)
 	if len(stated) == 0 {
@@ -210,7 +227,7 @@ func (ctx *Context) effectiveTypes(featureSym *symbols.Symbol) []*symbols.Symbol
 		}
 	}
 	implicit := sem.ImplicitParameterRedefinitions(featureSym)
-	for _, sup := range sem.DirectSupertypes(featureSym) {
+	for _, sup := range sem.DeclaredSupertypes(featureSym) {
 		if sup.IsFeature() && !slices.Contains(implicit, sup) {
 			add(sem.FeatureTypeSet(sup))
 		}
@@ -228,7 +245,7 @@ func (ctx *Context) effectiveTypes(featureSym *symbols.Symbol) []*symbols.Symbol
 // conjoinedTypes returns the effective types that typ, the type the feature's objects
 // are made as, does not stand for: `Panel :> frames : Framed` holds both (§7.3.4.3).
 func (ctx *Context) conjoinedTypes(featureSym, typ *symbols.Symbol) []*symbols.Symbol {
-	return slices.DeleteFunc(ctx.effectiveTypes(featureSym), func(other *symbols.Symbol) bool {
+	return slices.DeleteFunc(slices.Clone(ctx.effectiveTypes(featureSym)), func(other *symbols.Symbol) bool {
 		return other == typ || ctx.model.semantics.Conforms(typ, other)
 	})
 }
@@ -453,14 +470,22 @@ func (ctx *Context) redefinedDefault(sym, owner *symbols.Symbol) (ast.Node, *sym
 	return nil, nil
 }
 
-// roleRedefiningDefault is the value typeSym binds to sym under no name of its own — a
-// bare `subject = x;` (SysML v2 §7.21.2) or a satisfy usage's `by x` (§7.21.4) — and its declaration.
-func (ctx *Context) roleRedefiningDefault(sym, typeSym *symbols.Symbol) (ast.Node, *symbols.Symbol) {
+// satisfiedByValue is the `by` operand of the satisfy usage typeSym when sym is its subject.
+func (ctx *Context) satisfiedByValue(sym, typeSym *symbols.Symbol) (ast.Node, *symbols.Symbol) {
 	if typeSym == nil || typeSym.Decl == nil {
 		return nil, nil
 	}
 	if by := satisfiedBy(typeSym); by != nil && ctx.model.semantics.SubjectParameterOf(typeSym) == sym {
 		return by, typeSym
+	}
+	return nil, nil
+}
+
+// roleRedefiningDefault is the value typeSym binds to sym under no name of its own, a
+// bare `subject = x;` (SysML v2 §7.21.2, §8.3.21.11), and its declaration.
+func (ctx *Context) roleRedefiningDefault(sym, typeSym *symbols.Symbol) (ast.Node, *symbols.Symbol) {
+	if typeSym == nil || typeSym.Decl == nil {
+		return nil, nil
 	}
 	scope := bodyScope(typeSym, typeSym.OwnerScope)
 	for _, node := range unwrappedDeclMembers(typeSym.Decl) {

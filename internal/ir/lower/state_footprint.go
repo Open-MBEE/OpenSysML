@@ -59,6 +59,9 @@ func (g *StateGraph) lowerFootprints() {
 				}
 			}
 		}
+		for _, behavior := range g.TerminateBehaviors {
+			g.behaviorFootprints[behavior.Node] = behaviorFootprint(g, behavior)
+		}
 		g.transitionFootprints = make(map[*Transition]Footprint)
 		g.branchFootprints = make(map[*Transition]Footprint)
 		for source, transitions := range g.Transitions {
@@ -117,10 +120,18 @@ func branchFootprint(graph *StateGraph, seg *Transition) Footprint {
 	for _, effect := range seg.Effect {
 		b.statements(effect.Body)
 	}
-	if target, ok := seg.Target.(*ast.StateNode); ok {
+	switch target := seg.Target.(type) {
+	case *ast.StateNode:
 		b.enters(target)
 		b.entersBelow(target)
-	} else {
+	case *ast.Usage:
+		if completion, named := b.performs(target); named {
+			b.enters(completion)
+			b.entersBelow(completion)
+		} else {
+			b.footprint.Dynamic = true
+		}
+	default:
 		b.footprint.Dynamic = true
 	}
 	return b.footprint
@@ -309,9 +320,33 @@ func (b *stateFootprintBuilder) segment(source *ast.StateNode, seg *Transition) 
 		b.move(source, target)
 	case *ast.PseudostateNode:
 		b.pseudostate(source, seg, target)
+	case *ast.Usage:
+		b.terminate(source, target)
 	default:
 		b.footprint.Dynamic = true
 	}
+}
+
+// terminate adds a named node's body, its termination and the move to its body's
+// completion vertex; a node ending the performance itself reaches beyond it.
+func (b *stateFootprintBuilder) terminate(source *ast.StateNode, node *ast.Usage) {
+	completion, named := b.performs(node)
+	if !named {
+		b.footprint.Dynamic = true
+		return
+	}
+	b.move(source, completion)
+}
+
+// performs adds the body and termination of a terminate node naming the occurrence
+// it ends and returns the completion vertex it moves to; false for an unnamed one.
+func (b *stateFootprintBuilder) performs(node *ast.Usage) (*ast.StateNode, bool) {
+	behavior, named := b.graph.TerminateBehaviors[node]
+	if !named {
+		return nil, false
+	}
+	b.merge(b.graph.behaviorFootprints[behavior.Node])
+	return b.graph.TerminateCompletion[node], true
 }
 
 // pseudostate adds what a route through the pseudostate may do: every branch of

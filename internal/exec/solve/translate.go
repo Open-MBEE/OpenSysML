@@ -42,7 +42,7 @@ type Subject struct {
 func subjectOf(sym *symbols.Symbol, kind string, violation bool) Subject {
 	return Subject{
 		Kind:      kind,
-		Name:      sym.Name,
+		Name:      source.NameText(sym.Name),
 		Symbol:    sym,
 		Negated:   runtime.NegatedDecl(sym),
 		Violation: violation,
@@ -121,7 +121,25 @@ func SatisfactionWith(ctx *runtime.Context, assertion *runtime.SatisfyAssertion,
 		Symbol:  assertion.Symbol,
 		Negated: assertion.Negated,
 	}
-	return TranslateWith(ctx, subject, ctx.ConditionsOf(assertion.Symbol, assertion.Symbol.OwnerScope), pins)
+	conds, err := satisfiedConditions(ctx, assertion)
+	if err != nil {
+		return nil, err
+	}
+	return TranslateWith(ctx, subject, conds, pins)
+}
+
+// satisfiedConditions are the conditions a satisfaction asserts, refused as the
+// evaluator refuses them: a reference naming no requirement, or an assertion that
+// neither names nor declares one and states nothing, has no requirement to satisfy.
+func satisfiedConditions(ctx *runtime.Context, assertion *runtime.SatisfyAssertion) ([]runtime.Condition, error) {
+	if assertion.Requirement == nil && assertion.RequirementRef != "" {
+		return nil, fmt.Errorf("%s: %w: %s", assertion.Text(), runtime.ErrNoRequirement, assertion.RequirementRef)
+	}
+	conds := ctx.ConditionsOf(assertion.Symbol, assertion.Symbol.OwnerScope)
+	if len(conds) == 0 && assertion.Requirement == nil && assertion.AssertedRequirement() == nil {
+		return nil, fmt.Errorf("%s: %w", assertion.Text(), runtime.ErrNoRequirement)
+	}
+	return conds, nil
 }
 
 // SatisfactionViolation translates an `assert satisfy` as a violation query:
@@ -139,7 +157,272 @@ func SatisfactionViolation(ctx *runtime.Context, assertion *runtime.SatisfyAsser
 		Negated:   assertion.Negated,
 		Violation: true,
 	}
-	return TranslateWith(ctx, subject, ctx.ConditionsOf(assertion.Symbol, assertion.Symbol.OwnerScope), pins)
+	conds, err := satisfiedConditions(ctx, assertion)
+	if err != nil {
+		return nil, err
+	}
+	return TranslateWith(ctx, subject, conds, pins)
+}
+
+// Asserted translates every assertion a part or definition states about its
+// objects — asserted constraints, carried requirements and satisfactions, owned
+// and inherited — as one conjunction: the collection validating one of its
+// objects checks, so what the solver permits is what validation would accept.
+func Asserted(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope) (*Query, error) {
+	return AssertedWith(ctx, sym, scope, nil)
+}
+
+// AssertedWith translates what a part or definition asserts with values already
+// fixed. With no pins it is Asserted.
+func AssertedWith(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope, pins []Pin) (*Query, error) {
+	return AssertedOn(ctx, sym, scope, pins, nil)
+}
+
+// AssertedOn is AssertedWith about one object of sym, whose held values the
+// features read through its nested objects are fixed to.
+func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope, pins []Pin, self *runtime.Instance) (*Query, error) {
+	if err := runtime.RequireObject(sym); err != nil {
+		return nil, err
+	}
+	if ctx == nil {
+		return nil, fmt.Errorf("solve: no runtime context")
+	}
+	assertions := ctx.AssertionsOf(sym, scope)
+	var conds []runtime.Condition
+	var bound []map[*symbols.Symbol][]*symbols.Symbol
+	for _, a := range assertions {
+		group, negated, subjects, err := assertedConditions(ctx, a)
+		if err != nil {
+			return nil, err
+		}
+		if cond, states := assertedCondition(group, negated, a.Kind != runtime.AssertionConstraint); states {
+			conds = append(conds, cond)
+			bound = append(bound, subjects)
+		}
+	}
+	subject := Subject{Kind: sym.Notation(), Name: source.NameText(sym.Name), Symbol: sym}
+	// What the objects its parts hold assert is part of what validating an
+	// object of sym checks, so the query states it too, each condition read
+	// from the object stating it.
+	groups, refused, err := heldGroups(ctx, sym, effectiveFeatures(ctx, sym))
+	if err != nil {
+		return nil, err
+	}
+	if len(assertions) == 0 && len(groups) == 0 && len(refused) == 0 {
+		return nil, fmt.Errorf("%s %s: %w", subject.Kind, subject.Name, ErrNothingAsserted)
+	}
+	translate := func(pins []Pin) (*Query, error) {
+		t := newTranslator(ctx, subject)
+		t.bound = bound
+		if err := t.translate(conds); err != nil {
+			return nil, err
+		}
+		uncovered := append([]Refused(nil), refused...)
+		for _, group := range groups {
+			reason, err := t.refusalOf(group)
+			if err != nil {
+				return nil, err
+			}
+			if reason != "" {
+				uncovered = append(uncovered, Refused{Feature: group.feature, Path: pathName(group.path), Reason: reason})
+				continue
+			}
+			t.bound, t.frames = group.bound, group.frames
+			if err := t.translate(group.conds); err != nil {
+				return nil, err
+			}
+		}
+		if len(t.asserts) == 0 {
+			return nil, fmt.Errorf("%s %s: every assertion about its objects %w, so every selection of its variants is permitted", subject.Kind, subject.Name, ErrNoConditions)
+		}
+		if err := t.fix(pins); err != nil {
+			return nil, err
+		}
+		q := t.query()
+		q.Uncovered = uncovered
+		return q, nil
+	}
+	q, err := translate(pins)
+	if err != nil {
+		return nil, err
+	}
+	// A feature read through one object of sym (`lander.verticalSpeed`) holds the
+	// value that object's declaration states, as the evaluator reads it; one whose
+	// read fails is guarded or refused as a direct read is, never left to the solver.
+	nested, unfixed := nestedDeclared(ctx, q, self)
+	if len(nested) > 0 {
+		if q, err = translate(append(pins, nested...)); err != nil {
+			return nil, err
+		}
+	}
+	if err := UnfixedRead(ctx, q, unfixed); err != nil {
+		return nil, err
+	}
+	return q, nil
+}
+
+// assertedCondition is one assertion as a conjunct of the query, false for one
+// requiring nothing. A requirement's required conditions apply only where its
+// assumptions hold (SysML v2 §7.21.2), so an assertion stating both is the
+// implication A ⇒ R, written ¬(A ∧ ¬R); `assert not` denies it as a whole. A
+// requirement requiring nothing claims true, so its denial is the denial of the
+// empty conjunction; a constraint requiring nothing has no claim to deny.
+func assertedCondition(group []runtime.Condition, negated, requirement bool) (runtime.Condition, bool) {
+	var assumed, required []runtime.Condition
+	for _, cond := range group {
+		if cond.Required {
+			required = append(required, cond)
+		} else {
+			assumed = append(assumed, cond)
+		}
+	}
+	if len(required) == 0 {
+		if negated && requirement {
+			return runtime.Condition{Group: []runtime.Condition{}, Negated: true, Required: true}, true
+		}
+		return runtime.Condition{}, false
+	}
+	if len(assumed) == 0 {
+		return runtime.Condition{Group: required, Negated: negated, Required: true}, true
+	}
+	denied := runtime.Condition{Group: required, Negated: true, Required: true}
+	return runtime.Condition{Group: append(assumed, denied), Negated: !negated, Required: true}, true
+}
+
+// assertedConditions are the conditions one assertion states, read as the
+// evaluator reads them. A satisfaction's are its requirement's, each subject the
+// requirement declares reading the feature `by` names (SysML v2 §7.21).
+func assertedConditions(ctx *runtime.Context, a runtime.Asserted) ([]runtime.Condition, bool, map[*symbols.Symbol][]*symbols.Symbol, error) {
+	if a.Kind != runtime.AssertionSatisfaction {
+		return ctx.ConditionsOf(a.Symbol, a.Scope), runtime.NegatedDecl(a.Symbol), nil, nil
+	}
+	sa, err := ctx.SatisfyAssertionOf(a.Symbol)
+	if err != nil {
+		return nil, false, nil, err
+	}
+	conds, err := satisfiedConditions(ctx, sa)
+	if err != nil {
+		return nil, false, nil, err
+	}
+	if len(conds) == 0 {
+		return nil, sa.Negated, nil, nil
+	}
+	by, err := satisfiedBy(ctx, sa)
+	if err != nil {
+		return nil, false, nil, err
+	}
+	target := sa.Requirement
+	if target == nil {
+		target = sa.Symbol
+	}
+	subjects := map[*symbols.Symbol][]*symbols.Symbol{}
+	for _, member := range ctx.SubjectMembersOf(target) {
+		subjects[member] = by
+	}
+	return conds, sa.Negated, subjects, nil
+}
+
+// satisfiedBy is the feature chain `by` names, root first, which the requirement's
+// subject stands for in the query; empty when there is no `by`, the subject then
+// being the stating element's own object.
+func satisfiedBy(ctx *runtime.Context, sa *runtime.SatisfyAssertion) ([]*symbols.Symbol, error) {
+	if sa.SubjectRef == "" {
+		return []*symbols.Symbol{}, nil
+	}
+	unread := fmt.Errorf("satisfaction %s: `by %s` names nothing the query can read", sa.Text(), sa.SubjectRef)
+	if sa.Subject == nil {
+		return nil, unread
+	}
+	if sa.SubjectRoot == nil {
+		return []*symbols.Symbol{sa.Subject}, nil
+	}
+	chain := []*symbols.Symbol{sa.SubjectRoot}
+	sym := sa.SubjectRoot
+	model := ctx.Semantics()
+	for _, name := range sa.SubjectPath {
+		next, ok := model.LookupMember(sym, name)
+		if !ok {
+			next, ok = model.VariantOf(sym, name)
+		}
+		if !ok {
+			return nil, unread
+		}
+		sym = next
+		chain = append(chain, sym)
+	}
+	return chain, nil
+}
+
+// nestedDeclared fixes each variable reading a feature through one object of the
+// element to the value self's nested object holds, else the one that object's
+// declaration states, when there is one; a read that fails is an Unfixed naming
+// the variable.
+func nestedDeclared(ctx *runtime.Context, q *Query, self *runtime.Instance) ([]Pin, []Unfixed) {
+	pinned := make(map[string]bool, len(q.Pinned))
+	for _, p := range q.Pinned {
+		pinned[p.Var.Name] = true
+	}
+	var out []Pin
+	var unfixed []Unfixed
+	for _, v := range q.Vars {
+		if len(v.Steps) < 2 || v.Steps[len(v.Steps)-1] != v.Symbol || pinned[v.Name] {
+			continue
+		}
+		holding := v.Steps[:len(v.Steps)-1]
+		found, notRead := Fixed(ctx, holding[len(holding)-1], nestedObjectAt(ctx, self, holding))
+		for _, p := range found {
+			if p.Feature != v.Symbol && p.Name != v.Symbol.Name {
+				continue
+			}
+			// A derived value is read through the object as the value it derives,
+			// its equation being over that object's features, not the subject's.
+			if p.Derived != nil && p.Value.Kind == runtime.ValInvalid {
+				if p.Derived.Err != nil {
+					unfixed = append(unfixed, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: p.Derived.Err.Error(), Err: p.Derived.Err})
+				}
+				break
+			}
+			out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: p.Value, Source: p.Source, Object: p.Object})
+			break
+		}
+		for _, u := range notRead {
+			if u.Feature == v.Symbol || u.Name == v.Symbol.Name {
+				unfixed = append(unfixed, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: u.Reason, Err: u.Err})
+				break
+			}
+		}
+	}
+	return out, unfixed
+}
+
+// nestedObjectAt is the object self holds down a chain of features, nil when
+// self is nil or a step of the chain holds none yet.
+func nestedObjectAt(ctx *runtime.Context, self *runtime.Instance, chain []*symbols.Symbol) *runtime.Instance {
+	for _, step := range chain {
+		self = nestedObject(ctx, self, step.Name)
+		if self == nil {
+			return nil
+		}
+	}
+	return self
+}
+
+// nestedObject is the object self holds for feature name, nil when self is nil or
+// holds none yet.
+func nestedObject(ctx *runtime.Context, self *runtime.Instance, name string) *runtime.Instance {
+	if self == nil {
+		return nil
+	}
+	fv, ok := self.FeatureValues[name]
+	if !ok || fv == nil || !fv.Materialized {
+		return nil
+	}
+	held := fv.HeldValue()
+	if held.Kind != runtime.ValInstance {
+		return nil
+	}
+	child, _ := ctx.Instance(held.Instance)
+	return child
 }
 
 // TranslateWith builds a query whose pinned features are asserted equal to the
@@ -152,7 +435,7 @@ func TranslateWith(ctx *runtime.Context, subject Subject, conds []runtime.Condit
 	if ctx == nil {
 		return nil, fmt.Errorf("solve: no runtime context")
 	}
-	if len(conds) == 0 {
+	if len(conds) == 0 && !vacuousSubject(subject) {
 		return nil, fmt.Errorf("%s %s: %w", subject.Kind, subject.Name, ErrNoConditions)
 	}
 	t := newTranslator(ctx, subject)
@@ -163,6 +446,22 @@ func TranslateWith(ctx *runtime.Context, subject Subject, conds []runtime.Condit
 		return nil, err
 	}
 	return t.query(), nil
+}
+
+// vacuousSubject reports whether a subject over no required condition still has
+// a claim to translate: a requirement's result over no constraint is true
+// (Requirements::RequirementConstraintCheck), so its plain query asserts nothing
+// and every assignment meets it, and a violation of it asserts false; a denial
+// of it has nothing to deny, and a constraint states no result at all.
+func vacuousSubject(subject Subject) bool {
+	if subject.Negated {
+		return false
+	}
+	switch subject.Kind {
+	case "requirement", "satisfaction", "objective":
+		return true
+	}
+	return false
 }
 
 // translator holds the state of one translation: the variables and sorts the
@@ -177,8 +476,10 @@ type translator struct {
 	// a redefinition masks what it redefines, so both read one value.
 	features map[string]*symbols.Symbol
 
-	vars    map[string]*Var
-	sorts   map[string]Sort
+	vars  map[string]*Var
+	sorts map[string]Sort
+	// origins are the declarations the datatype sorts were declared for, by sort name.
+	origins map[string]*symbols.Symbol
 	domains []Assertion
 	guards  []Assertion
 	asserts []Assertion
@@ -188,6 +489,12 @@ type translator struct {
 	pins   []Assertion
 	pinned []PinnedValue
 	unread []Unread
+	// equations are the defining equations of derived declared values, and
+	// derived records them; unreadables records the reads guarded for want of a
+	// value, whose guards are among guards.
+	equations   []Assertion
+	derived     []DerivedValue
+	unreadables []UnreadableRead
 
 	// guarded remembers the divisors already asserted non-zero, by their term, so
 	// a divisor read twice is guarded once.
@@ -221,6 +528,21 @@ type translator struct {
 	// translated, nil for the case itself: its members shadow the case's.
 	stage *symbols.Symbol
 
+	// subjects maps a requirement's subject member to the feature chain `by`
+	// names in the satisfaction being translated: the subject reads that object;
+	// an empty chain is the stating element's own object. bound holds one such
+	// map per top-level condition, so each satisfaction reads its own subject.
+	subjects map[*symbols.Symbol][]*symbols.Symbol
+	bound    []map[*symbols.Symbol][]*symbols.Symbol
+
+	// frame is where the condition being translated is read from — the held
+	// object stating it and the selections it applies under — and frames holds
+	// one per top-level condition; the zero frame is the element itself.
+	frame  frame
+	frames []frame
+	// touched are the variables the condition being translated has read.
+	touched map[*Var]bool
+
 	nonlinear bool
 	intDiv    bool
 
@@ -237,6 +559,7 @@ func newTranslator(ctx *runtime.Context, subject Subject) *translator {
 		features:  effectiveFeatures(ctx, subject.Symbol),
 		vars:      map[string]*Var{},
 		sorts:     map[string]Sort{},
+		origins:   map[string]*symbols.Symbol{},
 		guarded:   map[string]bool{},
 		baseUnits: map[string]string{},
 	}
@@ -266,17 +589,33 @@ func effectiveFeatures(ctx *runtime.Context, sym *symbols.Symbol) map[string]*sy
 func (t *translator) translate(conds []runtime.Condition) error {
 	var required []*Term
 	var labels []string
+	// Assumptions are the antecedent of a requirement's claim, never asserted alone:
+	// over no required condition it holds vacuously, a malformed condition refused first.
+	vacuous := vacuousSubject(t.subject) && !requiresAny(conds) && !conflicting(conds)
 	// The evaluator stops at the first required condition that does not hold,
 	// so a later condition is evaluated only where every earlier one held.
 	var before []*Term
-	for _, cond := range conds {
+	for i, cond := range conds {
+		if i < len(t.bound) {
+			t.subjects = t.bound[i]
+		}
+		t.frame = frame{}
+		if i < len(t.frames) {
+			t.frame = t.frames[i]
+		}
+		if vacuous {
+			continue
+		}
 		owner, span := conditionOrigin(cond)
 		t.condLabel = cond.Label()
+		if sel := t.selectionLabel(); sel != "" {
+			t.condLabel = sel + " implies " + t.condLabel
+		}
 		t.condFile = ""
 		if owner != nil {
 			t.condFile = owner.DocName
 		}
-		term, err := t.under(conjunction(before), func() (*Term, error) { return t.condition(cond) })
+		term, err := t.under(conjunction(before), func() (*Term, error) { return t.framed(cond) })
 		if err != nil {
 			return err
 		}
@@ -316,14 +655,19 @@ func (t *translator) translate(conds []runtime.Condition) error {
 // violated asserts the denial of the element's claim as a whole, which for a
 // negated element is the denial of its denial: all of its required conditions.
 // Assumed conditions stay assumptions — hypotheses of the claim, not of the
-// violation — and a violation stating no required condition has no claim to
-// violate.
+// violation. A requirement stating no required condition holds vacuously, so its
+// violation is false; a constraint stating none has no claim to violate.
 func (t *translator) violated(required []*Term, labels []string) error {
-	if len(required) == 0 {
+	if len(required) == 0 && !vacuousSubject(t.subject) {
 		return fmt.Errorf("%s %s: %w to violate", t.subject.Kind, t.subject.Name, ErrNoConditions)
 	}
 	claim := required
 	claimLabels := labels
+	if len(required) == 0 {
+		// A claim over no required condition holds vacuously, so nothing violates it.
+		claim = []*Term{BoolTerm(true)}
+		claimLabels = []string{"true"}
+	}
 	if t.subject.Negated {
 		claim = []*Term{Not(And(required...))}
 		claimLabels = []string{"not (" + strings.Join(labels, " and ") + ")"}
@@ -363,10 +707,13 @@ func (t *translator) query() *Query {
 	domains := append([]Assertion(nil), t.domains...)
 	sortAssertions(domains)
 	q.Assertions = append(domains, t.pinnedAssertions(len(domains))...)
+	q.Assertions = append(q.Assertions, t.equations...)
 	q.Assertions = append(q.Assertions, t.guards...)
 	q.Assertions = append(q.Assertions, t.asserts...)
 	q.Pinned = t.pinned
 	q.Unread = t.unread
+	q.Derived = t.derived
+	q.Unreadable = t.unreadables
 	for _, obj := range t.objectives {
 		if obj.Unit == "" {
 			obj.Unit = t.baseUnits[obj.Dimension]
@@ -409,6 +756,9 @@ func (t *translator) condition(cond runtime.Condition) (*Term, error) {
 	}
 	if cond.Conflict != nil {
 		return nil, t.refuse(cond.Conflict.Node, "conflicting result expression", "only one owned or inherited result expression is allowed")
+	}
+	if cond.Circular != nil {
+		return nil, t.refuse(nil, "require "+cond.Circular.Name, "it names the requirement being translated")
 	}
 	if cond.Negated {
 		t.branched++
@@ -474,6 +824,8 @@ func (t *translator) expr(node ast.Node, scope *symbols.Scope) (*Term, error) {
 		return t.quantity(n, scope)
 	case *ast.OperatorExpr:
 		return t.operator(n, scope)
+	case *ast.InvocationExpr:
+		return t.quantified(n, scope)
 	case *ast.SequenceExpr:
 		if len(n.Elements) == 1 {
 			return t.expr(n.Elements[0], scope)
@@ -682,9 +1034,13 @@ func reaches(op Op, left *Term) *Term {
 }
 
 // under translates with the evaluation condition narrowed by cond, nil narrowing
-// nothing, and restores the enclosing one after.
+// nothing — nor a literal true, an operand the evaluator always passes — and
+// restores the enclosing one after.
 func (t *translator) under(cond *Term, translate func() (*Term, error)) (*Term, error) {
 	outer := t.path
+	if cond != nil && cond.Op == OpBool && cond.Bool {
+		cond = nil
+	}
 	t.path = and(outer, cond)
 	defer func() { t.path = outer }()
 	return translate()
@@ -705,6 +1061,9 @@ func conjunction(terms []*Term) *Term {
 // so far are the ones the evaluator has checked by the first conditional
 // reference, in its left-to-right, condition-by-condition order.
 func (t *translator) read(v *Var) {
+	if t.touched != nil {
+		t.touched[v] = true
+	}
 	if t.always[v] {
 		return
 	}
@@ -733,17 +1092,7 @@ func (t *translator) equality(n *ast.OperatorExpr, scope *symbols.Scope, op Op) 
 	if err != nil {
 		return nil, err
 	}
-	left, right = promote(left, right)
-	if !left.Sort.Equal(right.Sort) {
-		return nil, t.refuse(n, msgOperatorPrefix+n.Operator.String()+"`",
-			fmt.Sprintf("its operands yield %s and %s", left.Sort.Name, right.Sort.Name))
-	}
-	if left.Sort.Numeric() {
-		if err := t.sameDimension(n, scope); err != nil {
-			return nil, err
-		}
-	}
-	return Binary(op, Bool, left, right), nil
+	return t.equalityOf(n, scope, msgOperatorPrefix+n.Operator.String()+"`", op, left, right)
 }
 
 // comparison translates an ordering comparison between two numbers.
@@ -1144,4 +1493,24 @@ func (t *translator) refuse(node ast.Node, construct, reason string) error {
 		Span:      span,
 		Location:  t.ctx.SourceLocation(t.condFile, span),
 	}
+}
+
+// requiresAny reports whether any of conds is required rather than assumed.
+func requiresAny(conds []runtime.Condition) bool {
+	for _, cond := range conds {
+		if cond.Required {
+			return true
+		}
+	}
+	return false
+}
+
+// conflicting reports whether any of conds carries a conflicting result expression.
+func conflicting(conds []runtime.Condition) bool {
+	for _, cond := range conds {
+		if cond.Conflict != nil {
+			return true
+		}
+	}
+	return false
 }

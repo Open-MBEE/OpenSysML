@@ -6,4 +6,4 @@ enter calc test::greeting
       eval operator + -> "Hello, Ada"
       eval literal "!" -> "!"
     eval operator + -> "Hello, Ada!"
-exit calc test::greeting -> "Hello, Ada!"
+exit calc test::greeting -> ("Hello, Ada!")

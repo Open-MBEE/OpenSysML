@@ -1,6 +1,6 @@
-# OpenSysML MDK against OpenMBEE MDK: the capability matrix
+# OpenSysML MDK for Cameo against OpenMBEE MDK: the capability matrix
 
-OpenSysML MDK (`editors/mdk/`) is positioned as the successor to OpenMBEE's Model Development
+OpenSysML MDK for Cameo (`editors/mdk/`) is positioned as the successor to OpenMBEE's Model Development
 Kit ([Open-MBEE/mdk](https://github.com/Open-MBEE/mdk)) for Cameo Systems Modeler users moving to
 SysML v2. This record lists what MDK does, what OpenSysML has today for each capability — in the
 plugin, in the engine, or nowhere yet — and the order in which the gaps are being closed. It is

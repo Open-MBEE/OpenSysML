@@ -387,12 +387,20 @@ func TestBodyAdmitsMember(t *testing.T) {
 		{decl("package K;"), "actor", false},
 		{nil, "part", true},
 		{nil, "subject", false},
+		{decl("part def P;"), "variation part", true},
+		{decl("part def P;"), "variation subject", false},
+		{decl("part def P;"), "variant actor", false},
+		{decl("requirement def R;"), "variant actor", true},
+		{decl("part def P;"), "variant", true},
+		{decl("part def P;"), "abstract part", true},
+		{decl("part def P;"), "abstract subject", false},
+		{decl("requirement def R;"), "variant abstract actor", true},
 	} {
 		if got := BodyAdmitsMember(tc.owner, tc.kw); got != tc.want {
 			t.Errorf("BodyAdmitsMember(%T, %q) = %v, want %v", tc.owner, tc.kw, got, tc.want)
 		}
 	}
-	for kw, want := range map[string]string{"subject": "requirement or case", "objective": "case", "part": ""} {
+	for kw, want := range map[string]string{"subject": "requirement or case", "objective": "case", "part": "", "variation subject": "requirement or case"} {
 		if got := MemberOwner(kw); got != want {
 			t.Errorf("MemberOwner(%q) = %q, want %q", kw, got, want)
 		}

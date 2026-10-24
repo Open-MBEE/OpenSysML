@@ -6,5 +6,5 @@
     {"type": "Real", "value": 1.0},
     {"type": "Real", "value": 1.0}
   ],
-  "result": {"type": "Real", "value": 9.141592653589793}
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 9.141592653589793}]}
 }

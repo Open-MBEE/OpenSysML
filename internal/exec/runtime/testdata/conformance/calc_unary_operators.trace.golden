@@ -3,4 +3,4 @@ enter calc test::testNegation
   stmt return
       eval feature x -> 5
     eval operator - -> -5
-exit calc test::testNegation -> -5
+exit calc test::testNegation -> (-5)

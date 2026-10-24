@@ -390,7 +390,7 @@ func TestSubsetterObjectHasTheSubsettedType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mistyped.GetFeatureValue(engines): %v", err)
 	}
-	if got := len(elementsOf(fv.HeldValue())); got != 1 {
+	if len(elementsOf(fv.HeldValue())) != 1 {
 		t.Fatalf("mistyped.engines = %s, want the one wheel", FormatValue(fv.HeldValue()))
 	}
 	wheel, err := inst.GetFeatureValue(ctx, "wheel")

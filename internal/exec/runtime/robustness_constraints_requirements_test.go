@@ -56,8 +56,9 @@ func testSatisfyUnresolvedRequirement(t *testing.T) {
 	}
 }
 
-// testSatisfyRequirementWithoutConditions: satisfying a requirement that states
-// no condition is not a verdict, since no check ran.
+// testSatisfyRequirementWithoutConditions: a requirement that states no condition
+// is a requirement check over no constraint, which is true, so satisfying it holds
+// and denying it is a violation — a verdict, never an evaluation failure.
 func testSatisfyRequirementWithoutConditions(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `
 		package test {
@@ -68,28 +69,35 @@ func testSatisfyRequirementWithoutConditions(t *testing.T) {
 			part lander;
 			part context {
 				assert satisfy documented by lander;
+				assert not satisfy documented by lander;
 			}
 		}
 	`))
 	assertions := ctx.SatisfyAssertionsIn(idx.DocumentRoot("<test>"))
-	if len(assertions) != 1 {
-		t.Fatalf("found %d satisfaction assertions, want 1", len(assertions))
+	if len(assertions) != 2 {
+		t.Fatalf("found %d satisfaction assertions, want 2", len(assertions))
 	}
 
-	satisfied, err := ctx.EvaluateSatisfaction(assertions[0])
-	if err == nil {
-		t.Fatalf("expected an error, got satisfied = %v", satisfied)
+	result, err := ctx.CheckSatisfactionOn(assertions[0], nil)
+	if err != nil || !result.Holds {
+		t.Fatalf("satisfy: holds = %v, err = %v, want a vacuous pass", result.Holds, err)
 	}
-	if !errors.Is(err, ErrNoConditions) {
-		t.Errorf("expected ErrNoConditions, got: %v", err)
+	if want := "vacuous: requirement documented states no required constraint"; !strings.Contains(result.Vacuous, want) {
+		t.Errorf("vacuity %q, want %q", result.Vacuous, want)
 	}
-	if satisfied {
-		t.Error("a requirement with no condition must not report a verdict")
+
+	satisfied, err := ctx.EvaluateSatisfaction(assertions[1])
+	if satisfied || !errors.Is(err, ErrViolated) {
+		t.Fatalf("not satisfy: satisfied = %v, err = %v, want ErrViolated", satisfied, err)
+	}
+	if !strings.Contains(err.Error(), "states no required constraint, so it holds vacuously") {
+		t.Errorf("the violation does not say why the requirement holds: %v", err)
 	}
 }
 
 // testSatisfyTypedDeclarationWithoutConditions: a satisfaction typed by a requirement
-// definition that states no condition reports that, not a missing requirement.
+// definition that states no condition holds vacuously, as a satisfaction of a
+// requirement stating none does; it is not a missing requirement.
 func testSatisfyTypedDeclarationWithoutConditions(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `
 		package test {
@@ -108,14 +116,15 @@ func testSatisfyTypedDeclarationWithoutConditions(t *testing.T) {
 	}
 
 	satisfied, err := ctx.EvaluateSatisfaction(assertions[0])
-	if err == nil {
-		t.Fatalf("expected an error, got satisfied = %v", satisfied)
-	}
-	if !errors.Is(err, ErrNoConditions) {
-		t.Errorf("expected ErrNoConditions, got: %v", err)
-	}
 	if errors.Is(err, ErrNoRequirement) {
-		t.Error("a satisfaction typed by a requirement definition has a requirement")
+		t.Fatal("a satisfaction typed by a requirement definition has a requirement")
+	}
+	if err != nil || !satisfied {
+		t.Fatalf("satisfied = %v, err = %v, want a vacuous hold", satisfied, err)
+	}
+	result, err := ctx.CheckSatisfactionOn(assertions[0], nil)
+	if err != nil || !result.Holds || result.Vacuous == "" {
+		t.Fatalf("check: holds = %v, vacuous = %q, err = %v, want a vacuous hold", result.Holds, result.Vacuous, err)
 	}
 }
 

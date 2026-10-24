@@ -25,6 +25,7 @@ env:
   # Same for the three pinned OMG pilot corpora, which are downloaded below and
   # gated by tests/corpus/pilot_corpora_test.go.
   OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+  OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
   # Same for the pinned OMG PSSM test suite, gated by tools/referee/pssm and tools/cmd/pssm-referee.
   OPENSYSML_REQUIRE_PSSM_SUITE: "1"
   # Same for the pinned OMG SysML v1 to v2 transformation model, gated by tools/census/transformation.
@@ -87,10 +88,10 @@ jobs:
         run: |
           if [ "$DRAFT" != true ] || [ "$CI_FULL_LABEL" = true ]; then
             echo "tier=full"
-            echo 'go_shards=["runtime","runtime-corpus","model","export","rest","migrate"]'
+            echo 'go_shards=["runtime","runtime-corpus","model","export","graph","codegen","rest","migrate","cli"]'
           else
             echo "tier=quick"
-            echo 'go_shards=["runtime","model export","rest migrate"]'
+            echo 'go_shards=["runtime","model export graph","rest migrate cli codegen"]'
           fi | tee -a "$GITHUB_OUTPUT"
 
       - name: Decide which areas to run
@@ -111,7 +112,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     # The shards split the suite's slowest packages across runners so each gets its own job cap (see scripts/race-shard.sh);
-    # internal/exec/runtime is two shards split by test name (see make test-shard) and tests/migrate, the next-longest, is one of its own.
+    # internal/exec/runtime is two shards split by test name (see make test-shard) and tests/migrate, tests/export, tests/model
+    # and tests/codegen, the next-longest, are one of their own each; the tools shard (tests/wasm) is CircleCI's, the WebAssembly gate's here.
     # The quick tier runs the same packages without -race, grouped three ways (see make test-quick).
     strategy:
       fail-fast: false
@@ -163,9 +165,9 @@ jobs:
       # The solver is an external process, never linked in: the solver-dependent
       # tests need one on PATH to run rather than skip.
       - name: Install Z3
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y z3
+          scripts/ci-apt-install.sh z3
           z3 --version
 
       # The second verified backend, for the portability gate below: cvc5 has no
@@ -187,12 +189,20 @@ jobs:
         with:
           reference-fmus: 'true'
 
+      # The tools' tests run with the rest shard, and the LLM bench's run the
+      # models through bin/sysml: without the binary they skip. Required below,
+      # so a missing binary fails rather than skips.
+      - name: Build bin/sysml for the tools' tests
+        if: contains(matrix.shard, 'rest')
+        run: make build-sysml
+
       # Per-package timeout: under -race the whole runtime package ran 31-57 minutes
       # on these runners, hence its two shards. Matches `make test-shard`.
       - name: Run Go tests
         env:
           TIER: ${{ needs.changes.outputs.tier }}
           SHARD: ${{ matrix.shard }}
+          OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN: ${{ contains(matrix.shard, 'rest') && '1' || '' }}
         run: |
           if [ "$TIER" = full ]; then make test-shard SHARD="$SHARD"; else make test-quick SHARDS="$SHARD"; fi
 
@@ -229,7 +239,7 @@ jobs:
           set -euo pipefail
           profiles=(shards/coverage-*/coverage.txt)
           # One per go-tests shard.
-          if [ "${#profiles[@]}" -ne 6 ]; then echo "error: expected 6 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
+          if [ "${#profiles[@]}" -ne 9 ]; then echo "error: expected 9 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
           for f in "${profiles[@]}"; do
             [ "$(head -n 1 "$f")" = "mode: atomic" ] || { echo "error: $f is not an atomic-mode profile" >&2; exit 1; }
           done
@@ -269,9 +279,9 @@ jobs:
 
       - name: Install Z3
         if: needs.changes.outputs.tier == 'full'
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y z3
+          scripts/ci-apt-install.sh z3
           z3 --version
 
       - name: Install cvc5
@@ -377,6 +387,18 @@ jobs:
           grep -E 'pilot corpus files clean' pilot-corpora-gate.log
           if grep -qE '^\s*--- SKIP' pilot-corpora-gate.log; then
             echo "error: the pilot corpora gate skipped" >&2
+            exit 1
+          fi
+
+      # The specification-examples gate on its own, for the same reason.
+      - name: Run spec examples gate
+        if: needs.changes.outputs.tier == 'full'
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./tests/corpus -run 'TestSpecExamples' | tee spec-examples-gate.log
+          grep -E 'specification examples clean' spec-examples-gate.log
+          if grep -qE '^\s*--- SKIP' spec-examples-gate.log; then
+            echo "error: the spec examples gate skipped" >&2
             exit 1
           fi
 
@@ -547,6 +569,8 @@ jobs:
             }
           done
 
+  # The gate's test budget is the Makefile's (WASM_GATE_TIMEOUT); the job's limit sits
+  # above it so a timeout is go test's, which names the running test.
   wasm-gate:
     name: WebAssembly gate
     needs: changes
@@ -554,16 +578,30 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # Not setup-go's shared cache, which another Go job saves first without the wasm objects:
+      # the gate's own entry, saved by wasm-cache.yml on each develop push, is restored by prefix.
       - name: Set up Go
+        id: go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+
+      - name: Restore the WebAssembly build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -576,7 +614,7 @@ jobs:
         run: |
           set -o pipefail
           node --version
-          go test -count=1 -v ./tests/wasm | tee wasm-gate.log
+          make wasm-check 2>&1 | tee wasm-gate.log
           if grep -qE '^\s*--- SKIP' wasm-gate.log; then
             echo "error: the WebAssembly gate skipped" >&2
             exit 1
@@ -838,9 +876,9 @@ jobs:
       # mermaid-cli launches needs its shared libraries, Graphviz's neato
       # layout plugin needs GTS; the tests read PDFs back with poppler-utils.
       - name: Install the toolchain's system libraries
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+          scripts/ci-apt-install.sh --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
             libnss3 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libasound2t64 fonts-dejavu-core libgts-0.7-5 \
             poppler-utils
 
@@ -880,10 +918,13 @@ jobs:
             editors/vscode/package-lock.json
             client/node/package-lock.json
 
-      # The landing bundle and its tests import the browser client from client/node's source.
+      # The landing bundle and its tests import the browser client from client/node's source. `npm install`, not `npm ci`
+      # (npm/cli#9846), with the lock-diff as the locked install: SonarCloud's S8543 here is a false positive, see releasing.md.
       - name: Install the browser client's dependencies
         working-directory: client/node
-        run: npm ci --ignore-scripts
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          git diff --exit-code package-lock.json
 
       # Type-check, bundle and package. The generated TextMate grammars are
       # gated by go test ./editors/... in the job above.
@@ -945,7 +986,7 @@ jobs:
           if-no-files-found: error
 
   mdk-plugin:
-    name: OpenSysML MDK plugin
+    name: OpenSysML MDK for Cameo plugin
     needs: [changes, build]
     if: needs.changes.outputs.mdk == 'true'
     runs-on: ubuntu-latest
@@ -1022,8 +1063,9 @@ jobs:
       # The shipped pages are generated from each command's description, so a
       # flag added without regenerating them would ship a stale page.
       - name: Verify the committed manual pages are current
+        timeout-minutes: 10
         run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends mandoc
+          scripts/ci-apt-install.sh --no-install-recommends mandoc
           make man-check
 
       # Internal work-item labels have no public referent, so they may not
@@ -1116,9 +1158,11 @@ jobs:
 
       - name: Install the client's dependencies
         working-directory: client/node
-        # --ignore-scripts: no dependency of this client needs an install hook,
-        # and one added upstream would run here with the workflow's token.
-        run: npm ci --ignore-scripts
+        # --ignore-scripts: no dependency of this client needs an install hook, and one added upstream would run here
+        # with the workflow's token. `npm install`, not `npm ci` (see releasing.md): SonarCloud's S8543 here is a false positive.
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          git diff --exit-code package-lock.json
 
       - name: Build, typecheck and lint
         working-directory: client/node
@@ -1130,9 +1174,9 @@ jobs:
       # The verification tests ask the service solver-backed questions; the
       # solver is an external process the service finds on PATH.
       - name: Install Z3
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y z3
+          scripts/ci-apt-install.sh z3
           z3 --version
 
       - name: Run the tests
@@ -1220,9 +1264,9 @@ jobs:
       # The verification-questions tests ask the service solver-backed questions;
       # the solver is an external process the service finds on PATH.
       - name: Install Z3
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y z3
+          scripts/ci-apt-install.sh z3
           z3 --version
 
       - name: Install Python client
@@ -1460,10 +1504,41 @@ jobs:
       - name: Install the sysml-grpc binary
         run: chmod +x bin/sysml-grpc
 
+      # Octave is 195 MB of archives, which a trickling mirror has held for over ten
+      # minutes; a run that got them keeps them for the next one on the same image.
+      - name: Note the runner image
+        id: image
+        run: echo "version=$ImageVersion" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the archives Octave was installed from
+        id: apt-archives
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: apt-octave-${{ runner.os }}-${{ steps.image.outputs.version }}-
+          restore-keys: |
+            apt-octave-${{ runner.os }}-${{ steps.image.outputs.version }}-
+            apt-octave-${{ runner.os }}-
+
       - name: Install GNU Octave
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y octave
+        # 31 s to 7 min on recent green runs, depending on the mirror.
+        timeout-minutes: 15
+        env:
+          CI_APT_DEADLINE_SECONDS: 780
+          CI_APT_ARCHIVES: ${{ runner.temp }}/apt-archives
+        run: scripts/ci-apt-install.sh octave
+
+      # The key names the archive set, so a changed set is saved and an unchanged one is not.
+      - name: Name the archive set
+        id: archives
+        run: echo "digest=$(find "$RUNNER_TEMP/apt-archives" -name '*.deb' -printf '%f\n' | sort | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the archives for the next run
+        if: steps.apt-archives.outputs.cache-matched-key != format('apt-octave-{0}-{1}-{2}', runner.os, steps.image.outputs.version, steps.archives.outputs.digest)
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: apt-octave-${{ runner.os }}-${{ steps.image.outputs.version }}-${{ steps.archives.outputs.digest }}
 
       - name: Start sysml-grpc
         run: |

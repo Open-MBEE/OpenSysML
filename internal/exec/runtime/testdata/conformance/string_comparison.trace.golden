@@ -13,4 +13,4 @@ enter calc test::precedes
         eval feature earlier -> "apple"
       eval operator <= -> true
     eval operator and -> true
-exit calc test::precedes -> true
+exit calc test::precedes -> (true)

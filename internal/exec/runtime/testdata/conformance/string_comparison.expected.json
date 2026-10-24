@@ -5,5 +5,5 @@
     {"type": "String", "value": "apple"},
     {"type": "String", "value": "banana"}
   ],
-  "result": {"type": "Boolean", "value": true}
+  "result": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]}
 }

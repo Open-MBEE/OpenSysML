@@ -296,7 +296,7 @@ func (ctx *Context) newFeatureValue(inst *Instance, feat *EffectiveFeature) *Fea
 func (ctx *Context) initFeatureValue(inst *Instance, fv *FeatureValue, feat *EffectiveFeature) {
 	*fv = FeatureValue{Feature: feat}
 	if ctx.valueBinds(feat) && feat.Scalar() && !ctx.model.semantics.IsVariationFeature(feat.Symbol) &&
-		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) {
+		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) && !ctx.portionReadsWhole(inst, feat) {
 		if semVal, ok := ctx.model.semantics.EvalWithin(feat.DefaultValue, ctx.maxIntegerBits); ok {
 			val := Value{Kind: ValConst, Const: semVal}
 			if ctx.checkDefault(inst, fv, feat.Name, &val, admitDeclared) == nil {
@@ -815,6 +815,8 @@ func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (
 		val = ctx.collectionOf(feat, elements)
 	} else if feat.Scalar() {
 		val = soleElement(val)
+	} else if err := ctx.chargeShaped(val); err != nil {
+		return Value{}, err
 	}
 	if how == admitDeclared {
 		if err := ctx.classifyHeld(feat.heldBy(), val); err != nil {
@@ -1033,6 +1035,11 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// bound: it classifies its variants abstractly, so it is no object of itself.
 	if ctx.model.semantics.IsVariationFeature(fv.Feature.Symbol) {
 		return inst.materializeVariation(ctx, fv, name)
+	}
+
+	// A portion holds the whole's value of a feature its own body does not value (portion.go).
+	if held, err := inst.materializeFromWhole(ctx, fv, name); err != nil || held {
+		return fv, err
 	}
 
 	// A bound value supplies the feature's own features, so a body restating one
@@ -1399,7 +1406,7 @@ func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 			return true
 		}
 	}
-	for _, sup := range ctx.model.semantics.DirectSupertypes(feat.Symbol) {
+	for _, sup := range ctx.model.semantics.DeclaredSupertypes(feat.Symbol) {
 		if usageSymbol(sup) && declaresFeatures(sup) {
 			return true
 		}
@@ -1407,15 +1414,28 @@ func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 	return false
 }
 
-// untypedOccurrenceUsage reports an occurrence or port usage declaring no type, which its
-// kind's implicit base still classifies (SysML v2 §7.9.2: an untyped `item` is an Items::Item,
-// an untyped `port` a Ports::Port).
+// untypedOccurrenceUsage reports an occurrence, port, action or state usage declaring no
+// type, which its kind's implicit base still classifies (SysML v2 §7.9.2: an untyped `item`
+// is an Items::Item, an untyped `port` a Ports::Port; §7.16.2, §7.17.2: an untyped `action`
+// an Actions::Action, an untyped `state` a States::StateAction).
 func untypedOccurrenceUsage(feat *EffectiveFeature) bool {
-	if feat.Type != nil || !(isOccurrenceUsage(feat.Symbol) || untypedPortUsage(feat.Symbol)) {
+	if feat.Type != nil || !(isOccurrenceUsage(feat.Symbol) || untypedPortUsage(feat.Symbol) || untypedPerformanceUsage(feat.Symbol)) {
 		return false
 	}
 	usage := feat.Symbol.Decl.(*ast.Usage)
 	return !usage.IsReference
+}
+
+// untypedPerformanceUsage reports an action or state usage declaring no type and no value,
+// a performance its owner holds as it holds a typed one (Parts.sysml `ownedActions`,
+// `ownedStates`; Actions.sysml `subactions`): one object for a usage declaring no
+// multiplicity, as many as a fixed bound states, none made up for an open bound.
+func untypedPerformanceUsage(sym *symbols.Symbol) bool {
+	if sym == nil || (sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage) {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Value == nil
 }
 
 // untypedPortUsage reports a port usage, whose object a binding connector can join to another's.

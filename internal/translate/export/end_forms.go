@@ -458,6 +458,11 @@ func (d *decoder) payloadText(el *element) (string, error) {
 		}
 	}
 	mult += flags
+	if _, leads := d.multiplicityPlacement(payload); leads {
+		// `of p[*] ordered : Fuel`: the multiplicity part was written ahead of the typing.
+		words[len(words)-1] += mult
+		mult = ""
+	}
 	relationships, err := d.relationshipWords(payload, mult)
 	if err != nil {
 		return "", err

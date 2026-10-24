@@ -53,10 +53,10 @@ func TestSweepThroughCLI(t *testing.T) {
 		"sweep Sw::Twice — 4 run(s)",
 		"n | result | time",
 		"-+-+-",
-		"1 | 2      | <time>",
-		"2 | 4      | <time>",
-		"3 | 6      | <time>",
-		"4 | 8      | <time>",
+		"1 | [2]    | <time>",
+		"2 | [4]    | <time>",
+		"3 | [6]    | <time>",
+		"4 | [8]    | <time>",
 	}, "\n")
 	if table := sweepTable(got.output()); !strings.Contains(table, want) {
 		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
@@ -77,10 +77,10 @@ func TestSweepBindsInTheParameterTypeThroughCLI(t *testing.T) {
 	want := strings.Join([]string{
 		"a   | result | time",
 		"-+-+-",
-		"1.0 | 0.5    | <time>",
-		"2.0 | 1.0    | <time>",
-		"3.0 | 1.5    | <time>",
-		"4.0 | 2.0    | <time>",
+		"1.0 | [0.5]  | <time>",
+		"2.0 | [1.0]  | <time>",
+		"3.0 | [1.5]  | <time>",
+		"4.0 | [2.0]  | <time>",
 	}, "\n")
 	if table := sweepTable(got.output()); !strings.Contains(table, want) {
 		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
@@ -93,9 +93,9 @@ func TestSweepBindsInTheParameterTypeThroughCLI(t *testing.T) {
 	want = strings.Join([]string{
 		"n | result | time",
 		"-+-+-",
-		"1 | 2      | <time>",
-		"2 | 4      | <time>",
-		"3 | 6      | <time>",
+		"1 | [2]    | <time>",
+		"2 | [4]    | <time>",
+		"3 | [6]    | <time>",
 	}, "\n")
 	if table := sweepTable(got.output()); !strings.Contains(table, want) {
 		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
@@ -139,10 +139,10 @@ func TestSweepProductThroughCLI(t *testing.T) {
 	want := strings.Join([]string{
 		"a   | b   | result | time",
 		"-+-+-+-",
-		"1.0 | 2.0 | 0.5    | <time>",
-		"1.0 | 4.0 | 0.25   | <time>",
-		"2.0 | 2.0 | 1.0    | <time>",
-		"2.0 | 4.0 | 0.5    | <time>",
+		"1.0 | 2.0 | [0.5]  | <time>",
+		"1.0 | 4.0 | [0.25] | <time>",
+		"2.0 | 2.0 | [1.0]  | <time>",
+		"2.0 | 4.0 | [0.5]  | <time>",
 	}, "\n")
 	if table := sweepTable(got.output()); !strings.Contains(table, want) {
 		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
@@ -161,11 +161,11 @@ func TestSweepAnalysisThroughCLI(t *testing.T) {
 		t.Errorf("exit status = %d, want 1 for the run whose objective failed\n%s", got.status, got.output())
 	}
 	want := strings.Join([]string{
-		"tax | total | verdict            | time",
+		"tax | total  | verdict            | time",
 		"-+-+-+-",
-		"0.0 | 5.0   | obj: satisfied     | <time>",
-		"0.5 | 7.5   | obj: satisfied     | <time>",
-		"1.0 | 10.0  | obj: not satisfied | <time>",
+		"0.0 | [5.0]  | obj: satisfied     | <time>",
+		"0.5 | [7.5]  | obj: satisfied     | <time>",
+		"1.0 | [10.0] | obj: not satisfied | <time>",
 	}, "\n")
 	if table := sweepTable(got.output()); !strings.Contains(table, want) {
 		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
@@ -205,11 +205,11 @@ func TestSweepVerificationThroughCLI(t *testing.T) {
 		t.Errorf("exit status = %d, want 1 for the run whose objective failed\n%s", got.status, got.output())
 	}
 	want := strings.Join([]string{
-		"limit | result            | verdict            | time",
+		"limit | result              | verdict            | time",
 		"-+-+-+-",
-		"1.0   | VerdictKind::fail | obj: not satisfied | <time>",
-		"1.5   | VerdictKind::pass | obj: satisfied     | <time>",
-		"2.0   | VerdictKind::pass | obj: satisfied     | <time>",
+		"1.0   | [VerdictKind::fail] | obj: not satisfied | <time>",
+		"1.5   | [VerdictKind::pass] | obj: satisfied     | <time>",
+		"2.0   | [VerdictKind::pass] | obj: satisfied     | <time>",
 	}, "\n")
 	if table := sweepTable(got.output()); !strings.Contains(table, want) {
 		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
@@ -238,10 +238,10 @@ func TestSamplesThroughCLI(t *testing.T) {
 		"samples Sw::Twice — 4 run(s), seed 42",
 		"n   | result | time",
 		"-+-+-",
-		"454 | 908    | <time>",
-		"972 | 1944   | <time>",
-		"719 | 1438   | <time>",
-		"345 | 690    | <time>",
+		"454 | [908]  | <time>",
+		"972 | [1944] | <time>",
+		"719 | [1438] | <time>",
+		"345 | [690]  | <time>",
 	}, "\n")
 	if !strings.Contains(first, want) {
 		t.Errorf("report is\n%s\nwant it to carry\n%s", first, want)
@@ -293,13 +293,13 @@ func TestSweepJSONThroughCLI(t *testing.T) {
 	if len(rows[0].Inputs) != 1 || rows[0].Inputs[0].Name != "b" || rows[0].Inputs[0].Value != "-1.0" {
 		t.Errorf("first row binds %+v, want b = -1.0, the Real the parameter takes", rows[0].Inputs)
 	}
-	if len(rows[0].Outputs) != 1 || rows[0].Outputs[0].Value != "-4.0" {
+	if len(rows[0].Outputs) != 1 || rows[0].Outputs[0].Value != "[-4.0]" {
 		t.Errorf("first row returned %+v, want -4.0", rows[0].Outputs)
 	}
 	if !strings.Contains(rows[1].Error, "division by zero") || len(rows[1].Outputs) != 0 {
 		t.Errorf("second row = %+v, want the typed failure and no output", rows[1])
 	}
-	if rows[2].Error != "" || rows[2].Outputs[0].Value != "4.0" {
+	if rows[2].Error != "" || rows[2].Outputs[0].Value != "[4.0]" {
 		t.Errorf("third row = %+v, want the run after the failed one", rows[2])
 	}
 	for i, row := range rows {
@@ -401,9 +401,9 @@ func TestSweepUnrestrictedParameterThroughCLI(t *testing.T) {
 	want := strings.Join([]string{
 		"launch mass | result | time",
 		"-+-+-",
-		"1           | 2      | <time>",
-		"2           | 4      | <time>",
-		"3           | 6      | <time>",
+		"1           | [2]    | <time>",
+		"2           | [4]    | <time>",
+		"3           | [6]    | <time>",
 	}, "\n")
 	if table := sweepTable(got.output()); !strings.Contains(table, want) {
 		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
@@ -453,9 +453,9 @@ func TestSweepOverAnInstantiatedObjectRunningABehaviourThroughCLI(t *testing.T) 
 	want := strings.Join([]string{
 		"tax | total | time",
 		"-+-+-",
-		"0.0 | 5.0 | <time>",
-		"0.25 | 6.25 | <time>",
-		"0.5 | 7.5 | <time>",
+		"0.0 | [5.0] | <time>",
+		"0.25 | [6.25] | <time>",
+		"0.5 | [7.5] | <time>",
 	}, "\n")
 	for _, object := range []string{"Held::beacon", "Held::tug"} {
 		t.Run(object, func(t *testing.T) {

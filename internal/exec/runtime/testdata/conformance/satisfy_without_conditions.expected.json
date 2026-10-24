@@ -1,5 +1,5 @@
 {
   "type": "satisfy",
   "evaluate": "test::analysisContext",
-  "error": "no condition to evaluate"
+  "satisfied": true
 }

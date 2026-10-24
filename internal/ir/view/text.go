@@ -25,6 +25,9 @@ func (r *Rendering) TextWidth(width int) string { return r.textWith(Options{Widt
 // draws.
 func (r *Rendering) textWith(options Options) string {
 	r = r.showing(options.Show)
+	if options.Compartments.automatic() {
+		r = foldCompartments(r, options.Compartments)
+	}
 	width := options.Width
 	pictureNotices := refusedPictureNotices(r.Pictures, r.pictureRefusals())
 	var b strings.Builder
@@ -190,6 +193,24 @@ func endLabel(labels map[string]string, node, port string) string {
 // under it,
 // each a line of its own, and recorded as `node.port`; elsewhere they are left
 // to the edges' labels, which an action's flows name their pins in.
+// rowLine is a compartment row's line of the text form: its kind, name, type
+// and value, as the graph forms' compartment rows read.
+func rowLine(row *Node) string {
+	line := row.Kind
+	if name := shown(row); name != "" {
+		line += " " + name
+	} else if row.Text != "" {
+		line += " " + row.Text
+	}
+	if row.Type != "" {
+		line += " : " + row.Type
+	}
+	if row.Value != "" {
+		line += " = " + row.Value
+	}
+	return line
+}
+
 func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string, names map[*Node]string, ports portView, shown Shown) {
 	name, ok := names[node]
 	if !ok {
@@ -216,6 +237,13 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		line += " collapsed"
 	}
 	b.WriteString(line + "\n")
+	for _, compartment := range node.Compartments {
+		b.WriteString(strings.Repeat("  ", depth+1) + compartment.Name + "\n")
+		for _, row := range compartment.Rows {
+			labels[row.ID] = nodeLabel(row, row.Name)
+			b.WriteString(strings.Repeat("  ", depth+2) + rowLine(row) + "\n")
+		}
+	}
 	if ports.interconnection || ports.action {
 		for _, port := range ports.of(node) {
 			labels[port.ID] = labels[node.ID] + "." + port.Name
@@ -458,7 +486,7 @@ func edgeArrow(kind Kind, edge EdgeKind) string {
 		return "o--"
 	case EdgeContainment:
 		return "+--"
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
 		return "..>"
 	case EdgeAssociation:
 		return "--"

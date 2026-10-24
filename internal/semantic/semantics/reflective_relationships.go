@@ -110,7 +110,7 @@ func implicitRelationshipKind(k ast.RelationshipKind) bool {
 		ast.RelReferences, ast.RelIncludes, ast.RelCrosses:
 		return true
 	}
-	return false
+	return writtenRelationshipMetaclassNames[k] != ""
 }
 
 // implicitMetaclassName is the reflective metaclass name of the relationship
@@ -118,6 +118,14 @@ func implicitRelationshipKind(k ast.RelationshipKind) bool {
 // owner's classification select (KerML 8.3.3, SysML 8.3.12).
 func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 	rel := sym.Implicit
+	switch rel.Form {
+	case symbols.ImplicitMembership:
+		return m.membershipMetaclassName(rel.Owner, rel.Member)
+	case symbols.ImplicitOwnedAnnotation, symbols.ImplicitAnnotatingRelationship:
+		return "Annotation"
+	case symbols.ImplicitImport:
+		return m.importMetaclassName(sym)
+	}
 	switch rel.Kind {
 	case ast.RelSpecializes:
 		if rel.Conjugated {
@@ -144,7 +152,19 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 	case ast.RelCrosses:
 		return "CrossSubsetting"
 	}
-	return ""
+	return writtenRelationshipMetaclassNames[rel.Kind]
+}
+
+// writtenRelationshipMetaclassNames are the metaclasses of the relationship
+// clauses outside the specialization family that a type or feature writes
+// (KerML 8.3.3.1, 8.3.3.3).
+var writtenRelationshipMetaclassNames = map[ast.RelationshipKind]string{
+	ast.RelDisjoint:    "Disjoining",
+	ast.RelUnions:      "Unioning",
+	ast.RelIntersects:  "Intersecting",
+	ast.RelDifferences: "Differencing",
+	ast.RelFeaturedBy:  "TypeFeaturing",
+	ast.RelInverseOf:   "FeatureInverting",
 }
 
 // implicitRelationshipMetaclass is the library metaclass element classifying
@@ -194,6 +214,30 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 		sourceSide = meta == "CrossSubsetting"
 	case "conjugatedType":
 		sourceSide = meta == "Conjugation"
+	case "typeDisjoined":
+		sourceSide = meta == "Disjoining"
+	case "typeUnioned":
+		sourceSide = meta == "Unioning"
+	case "typeIntersected":
+		sourceSide = meta == "Intersecting"
+	case "typeDifferenced":
+		sourceSide = meta == "Differencing"
+	case "featureOfType", "owningFeatureOfType":
+		sourceSide = meta == "TypeFeaturing"
+	case "featureInverted":
+		sourceSide = meta == "FeatureInverting"
+	case "disjoiningType":
+		targetSide = meta == "Disjoining"
+	case "unioningType":
+		targetSide = meta == "Unioning"
+	case "intersectingType":
+		targetSide = meta == "Intersecting"
+	case "differencingType":
+		targetSide = meta == "Differencing"
+	case "featuringType":
+		targetSide = meta == "TypeFeaturing"
+	case "invertingFeature":
+		targetSide = meta == "FeatureInverting"
 	case "superclassifier":
 		targetSide = meta == "Subclassification"
 	case "type":
@@ -291,6 +335,14 @@ func (m *Model) relationshipMemberEnds(sym *symbols.Symbol) (src, tgt *symbols.S
 // features a written edge answers. A feature the object's metaclass does not
 // own, or one whose target side does not resolve, is underived.
 func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
+	switch sym.Implicit.Form {
+	case symbols.ImplicitMembership:
+		return m.membershipElements(sym, feature)
+	case symbols.ImplicitOwnedAnnotation, symbols.ImplicitAnnotatingRelationship:
+		return m.annotationElements(sym, feature)
+	case symbols.ImplicitImport:
+		return m.importElements(sym, feature)
+	}
 	meta := m.implicitMetaclassName(sym)
 	src, tgt, tgtOK := m.implicitRelationshipEnds(sym)
 	source := []*symbols.Symbol{src}
@@ -317,9 +369,13 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 			return []*symbols.Symbol{chain}, true
 		}
 		return empty, true
-	case "ownedElement", "ownedRelationship",
-		"owningRelationship", "owningMembership", "owningNamespace", "documentation":
+	case "ownedElement", "ownedRelationship", "ownedAnnotation", "owningRelationship", "owningMembership",
+		"owningNamespace", "documentation", "textualRepresentation":
 		return empty, true
+	case "owningType":
+		if meta == "Disjoining" || meta == "TypeFeaturing" {
+			return nil, false
+		}
 	}
 	// Per-metaclass ends: the source end answers the owning element, the
 	// target end what the edge resolves to.
@@ -416,6 +472,16 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 // a non-element metaclass feature of it; underived for any feature its
 // metaclass does not own.
 func (m *Model) implicitRelationshipValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, bool) {
+	switch sym.Implicit.Form {
+	case symbols.ImplicitMembership:
+		if value, ok := m.membershipValue(sym, feature); ok {
+			return value, true
+		}
+	case symbols.ImplicitImport:
+		if value, ok := m.importValue(sym, feature); ok {
+			return value, true
+		}
+	}
 	switch feature {
 	case "name", "declaredName", "shortName", "declaredShortName", "qualifiedName":
 		return emptyValue(), true

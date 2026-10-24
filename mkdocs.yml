@@ -1,7 +1,7 @@
 # The site is the docs/ tree unmodified: every page stays a Markdown file read on
 # GitHub, and MkDocs is only the renderer. The landing page is the exception: it
 # frames docs/README.md with a hero that only makes sense on a web page.
-site_name: OpenSysML REDK
+site_name: OpenSysML MDK
 site_description: The OpenSysML Runtime Environment and Development Kit — a SysML v2 and KerML implementation in Go with a language server, REPL, execution runtime, and Go, Python, Node, Java, Rust, Julia and MATLAB clients
 site_url: https://runtime.opensysml.org/
 repo_url: https://github.com/Open-MBEE/OpenSysML
@@ -166,6 +166,7 @@ exclude_docs: |
   project/*.json
   project/omg-issues.md
   project/performance-release-0.10.1-vs-0.10.0.md
+  project/performance-release-0.11.0-vs-0.10.1.md
   project/archive/**
   project/satellite-network-stress-test.md
   project/large-model-scaling-design.md
@@ -176,6 +177,7 @@ exclude_docs: |
   project/demo.md
   project/training-examples.md
   project/pilot-corpora.md
+  project/spec-examples.md
   project/rdf-corpus-roundtrip.md
   project/pssm-migration.md
   project/pilot-xpect.md
@@ -244,6 +246,7 @@ nav:
       - guide/11-migrating-from-sysml-v1.md
       - guide/12-jupyter.md
       - guide/modeling-fleets.md
+      - guide/modeling-product-lines.md
   - Document generation:
       - manual/README.md
       - Introduction and concepts: manual/introduction.md

@@ -505,8 +505,9 @@ func TestCallsBindTheMethodsExtraParameters(t *testing.T) {
 		"flow ninety.result to short.amount;",
 		"flow seven.result to full.amount;",
 		"flow seven.result to full.extra;",
-		"/* not migrated: Interaction 'Brief' — the message 'tilt' binds no argument to the parameter extra of Tilt, which must hold a value */",
-		"perform action tilt ::> tilter.tilt { in amount[1] = 90.0; in extra[0..1] = 7.0; }",
+		"perform action tiltCall ::> Tilter::tilt { in amount[1] = 90.0; }",
+		"perform action tiltCall ::> Tilter::tilt { in amount[1] = 90.0; in extra[0..1] = 7.0; }",
+		"message tilt from o.tiltSent to t.tiltReceived;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -514,8 +515,9 @@ func TestCallsBindTheMethodsExtraParameters(t *testing.T) {
 	wantNote(t, r, "_short", migrate.Approximated, "the call passes no argument for the parameter extra of Tilter::Tilt; v1 runs the callee without the value, so the parameter is declared admitting none")
 	wantNote(t, r, "_tExtra", migrate.Approximated, "it is declared admitting no value: the call 'short' in Tilter::Aim passes no argument for it, and v1 runs the callee without one")
 	wantNote(t, r, "_full", migrate.Mapped, "")
-	wantNote(t, r, "_brief", migrate.Unmapped, "the message 'tilt' binds no argument to the parameter extra of Tilt, which must hold a value")
-	wantNote(t, r, "_wm", migrate.Mapped, "")
+	wantNote(t, r, "_brief", migrate.Mapped, "written as an occurrence def of 2 lifeline usages and 1 message")
+	wantNote(t, r, "_bm", migrate.Approximated, "no argument binds the parameter extra of Tilt, which must hold a value; it stays unbound")
+	wantNote(t, r, "_wm", migrate.Approximated, "the call is the message; its receiving event performs tilt on t")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Tilter")
@@ -525,13 +527,5 @@ func TestCallsBindTheMethodsExtraParameters(t *testing.T) {
 	}
 	if out := meta(t, s, "%features #1"); !strings.Contains(out, "reach = 7.0") {
 		t.Errorf("the full call did not reach the method's body through its extra parameter:\n%s", out)
-	}
-	meta(t, s, "%instantiate Rig")
-	meta(t, s, "%action Rig::whole #2")
-	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
-		t.Errorf("the interaction did not complete:\n%s", out)
-	}
-	if out := meta(t, s, "%features #2"); !strings.Contains(out, "reach = 7.0") {
-		t.Errorf("the message did not reach the method's body through its extra parameter:\n%s", out)
 	}
 }

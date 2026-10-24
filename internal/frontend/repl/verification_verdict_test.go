@@ -109,10 +109,10 @@ func join(parts []string) string {
 func TestVerificationObjectiveDecidesAgainstTheCaseSubject(t *testing.T) {
 	s := loadFixture(t, "testdata/verification_objective_subject.sysml")
 	scout := run(t, s, "%analysis Landing::checkScout")
-	wants(t, scout, "result = VerdictKind::pass", "objective obj: satisfied",
+	wants(t, scout, "result = [VerdictKind::pass]", "objective obj: satisfied",
 		"✓ Verification Landing::checkScout verdict: pass")
 	heavy := run(t, s, "%analysis Landing::checkHeavy")
-	wants(t, heavy, "result = VerdictKind::fail",
+	wants(t, heavy, "result = [VerdictKind::fail]",
 		"objective obj: not satisfied: lander.touchdownSpeed <= limit",
 		"✗ Verification Landing::checkHeavy verdict: fail")
 	for _, out := range []string{scout, heavy} {

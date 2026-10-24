@@ -63,22 +63,6 @@ func nameSegments(text string) ([]string, bool) {
 	return segments, len(segments) > 0
 }
 
-// qualifiedText spells a qualified name as the index registers it, "" for one
-// with an empty segment.
-func qualifiedText(qn *ast.QualifiedName) string {
-	if qn == nil || len(qn.Parts) == 0 {
-		return ""
-	}
-	segments := make([]string, 0, len(qn.Parts))
-	for _, part := range qn.Parts {
-		if part.Text == "" {
-			return ""
-		}
-		segments = append(segments, part.Text)
-	}
-	return strings.Join(segments, "::")
-}
-
 // notationName is a qualified name spelled as the notation writes it, so a name
 // the prompt prints can be typed back into a command. It is the one rule every
 // surface quotes with, `%render` included.

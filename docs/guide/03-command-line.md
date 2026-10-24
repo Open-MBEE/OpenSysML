@@ -436,7 +436,7 @@ action, so `-action` runs its body too (`-analysis` does not take one):
 $ sysml -calc "MyModel::Margin(20.0, 100.0)" checks.sysml
 ✓ package MyModel
 ✓ MyModel::Margin(20.0, 100.0)
-  = 80.0
+  = [80.0]
   standing: value (observed: 1 run under reverse)
 
 $ sysml -action MyModel::calibrate checks.sysml
@@ -462,6 +462,12 @@ $ sysml -state MyModel::Monitor -advance 15 checks.sysml
   Remaining events: 0
   standing: value (observed: 1 run under reverse)
 ```
+
+A calculation's result and an action's parameters print in brackets because a feature holds a
+number of values bounded by its multiplicity (KerML 8.4.4.12.1), which these surfaces report as a
+sequence: `[80.0]` is the one-element sequence a result of multiplicity `1` holds, and a result of
+multiplicity `0..*` prints every element the same way. `-e` on a plain attribute still prints the
+scalar it holds. Up to 0.10.x these surfaces unwrapped a one-element result to its scalar.
 
 An analysis case is a calculation performed as an action, so `-analysis` runs it the way
 `-calc` invokes a calc and `-requirement` checks a requirement: it names the case, optionally
@@ -494,7 +500,7 @@ package An {
 $ sysml -analysis An::shipCost analysis.sysml
 ✓ package An
 ✓ An::shipCost
-  total = 12.0
+  total = [12.0]
   objective affordable: satisfied
   standing: value (observed: 1 run under reverse)
 
@@ -505,11 +511,11 @@ $ sysml -instantiate An::barge -analysis "An::CostAnalysis An::barge" \
   ID: 1
   Use %features An::barge to inspect
 ✗ An::CostAnalysis on object #1 of "An::barge"
-  total = 37.0
+  total = [37.0]
   objective affordable: not satisfied: total <= limit
   standing: value (observed: 1 run under reverse)
 ✓ An::CostAnalysis(limit = 50.0) on object #1 of "An::barge"
-  total = 37.0
+  total = [37.0]
   objective affordable: satisfied
   standing: value (observed: 1 run under reverse)
 exit=1
@@ -798,7 +804,7 @@ jobs:
       security-events: write   # upload-sarif
     steps:
       - uses: actions/checkout@v4
-      - uses: Open-MBEE/OpenSysML@v0.10.1   # the release tag is the sysml installed
+      - uses: Open-MBEE/OpenSysML@v0.11.0   # the release tag is the sysml installed
         with:
           path: models
           format: sarif

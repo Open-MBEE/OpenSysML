@@ -10,16 +10,16 @@ exit calc test::spanOfFive
       eval feature n -> 5
       eval literal 1 -> 1
     eval operator + -> 6
-    output test::Span::s.high = 6
-  eval chain high -> 6
+    output test::Span::s.high = (6)
+  eval chain high -> (6)
     reuse calc test::Span::s
       eval feature n -> 5
       eval literal 1 -> 1
     eval operator - -> 4
-    output test::Span::s.low = 4
-  eval chain low -> 4
+    output test::Span::s.low = (4)
+  eval chain low -> (4)
 eval operator - -> 2
-output test::spanOfFive.width = 2
+output test::spanOfFive.width = (2)
   reuse calc test::Span::s
-eval chain high -> 6
-output test::spanOfFive.top = 6
+eval chain high -> (6)
+output test::spanOfFive.top = (6)

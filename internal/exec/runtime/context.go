@@ -82,6 +82,9 @@ type Context struct {
 	// occurrences holds the objects each usage carrying no value of its own denotes, in
 	// declaration order: one for a usage of one occurrence, its lower bound for a collection.
 	occurrences map[*symbols.Symbol][]int64
+	// usageOccurrences holds the occurrence a calc or case usage is on each object it
+	// is a feature of, keyed by the usage and that object.
+	usageOccurrences map[calcUsageKey]int64
 	// occurrenceTails holds, per usage whose lower bound is held lazily, the members past the recorded occurrences.
 	occurrenceTails map[*symbols.Symbol]*requiredMembers
 	// required holds the lazily held populations (required.go) by first identity, so an
@@ -422,6 +425,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		maxIntegerBits: DefaultMaxIntegerBits,
 
 		occurrences:       make(map[*symbols.Symbol][]int64),
+		usageOccurrences:  make(map[calcUsageKey]int64),
 		occurrenceTails:   make(map[*symbols.Symbol]*requiredMembers),
 		namespaceBindings: make(map[*symbols.Symbol]Value),
 		bindingReads:      make(map[*symbols.Symbol]*bindingReads),
@@ -1322,6 +1326,10 @@ type CheckResult struct {
 	Subject     *Instance
 	SubjectRoot *Instance
 	SubjectPath []string
+
+	// Vacuous says why a holding requirement check judged no condition: it
+	// states no required constraint. Empty for a verdict about conditions.
+	Vacuous string
 }
 
 // checkResultOf reports a verdict about the object a check resolved to.
@@ -1371,6 +1379,7 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 	commit, rollback := ctx.beginJournal()
 	// A satisfy usage's `by` is its subject's binding (SysML v2 §7.21.4), read like
 	// a body's `subject = x;` unless an object is supplied from outside.
+	suppliedBy := false
 	if by := satisfiedBy(sym); by != nil && subject == nil {
 		value, err := evalIn(sym.OwnerScope).Eval(by)
 		if err != nil {
@@ -1380,6 +1389,7 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 		for _, name := range ctx.subjectParameterNames(sym) {
 			bindings[name] = value
 		}
+		suppliedBy = true
 	}
 	for _, member := range members {
 		var what string
@@ -1410,9 +1420,13 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 			}
 			continue
 		}
-		if expr == nil {
-			// A redeclaration valuing nothing reads the value the feature it
-			// redefines binds, under its own names too.
+		// A redeclaration valuing nothing reads the value the feature it redefines binds,
+		// under its own names too; so does the subject the `by` operand supersedes (§7.21.4).
+		superseded := false
+		if isSubject && suppliedBy {
+			_, superseded = boundUnder(bindings, names)
+		}
+		if expr == nil || superseded {
 			if value, ok := boundUnder(bindings, names); ok {
 				if err := hold(member, what+" binding", value); err != nil {
 					rollback()
@@ -1429,8 +1443,9 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 		bound := false
 		if isSubject {
 			value, bound, err = ctx.qualifiedMemberOf(self, member.scope, expr)
-			// A subject defaulted to a member holding nothing determined stays unbound.
-			if bound && err == nil && (value.Kind == ValUndetermined || certainlyEmpty(value)) {
+			// A subject defaulted to a member holding nothing determined stays unbound;
+			// a value written with `=` is held, and refused when it is empty.
+			if bound && err == nil && valueIsDefault(member.node) && (value.Kind == ValUndetermined || certainlyEmpty(value)) {
 				continue
 			}
 		}
@@ -1536,6 +1551,17 @@ func (ctx *Context) subjectParameterNames(sym *symbols.Symbol) []string {
 		}
 	}
 	return names
+}
+
+// valueIsDefault reports whether a member's value expression is written as `default`.
+func valueIsDefault(node ast.Node) bool {
+	switch m := node.(type) {
+	case *ast.SubjectMember:
+		return m.ValueIsDefault
+	case *ast.Usage:
+		return m.ValueIsDefault
+	}
+	return false
 }
 
 // boundUnder returns the value bindings hold under any of names.
@@ -1673,18 +1699,23 @@ func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 
 	// Second pass: evaluate the assumed and required conditions.
 	conds := ctx.conditionsOf(sym, members)
-	holds, err := ctx.evaluateConditions(conditionCheck{
+	check := conditionCheck{
 		sym:      sym,
 		kind:     "requirement",
 		what:     "require condition",
-		self:     subject.instance,
+		self:     ctx.conditionSelf(sym, subject.instance),
 		bindings: mapFrame(reqBindings),
 		negated:  NegatedDecl(sym),
-	}, conds)
+	}
+	holds, err := ctx.evaluateConditions(check, conds)
 	if err != nil {
 		err = unboundSubjectError(err, "requirement", sym.Name, ctx.unboundSubjectNames(sym, members, subject.instance))
 	}
-	return ctx.checkResultOf(holds, subject), err
+	result := ctx.checkResultOf(holds, subject)
+	if err == nil && holds {
+		result.Vacuous = vacuity(check, conds)
+	}
+	return result, err
 }
 
 // unboundSubjectNames are the subjects the members declare that nothing supplies
@@ -2143,12 +2174,35 @@ func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*ObjectBehavior,
 	}
 	switch exhibited := self.ExhibitedStatesOf(stateMachine); len(exhibited) {
 	case 0:
-		return nil, nil
+		return exhibitedAs(stateMachine, self), nil
 	case 1:
 		return exhibited[0], nil
 	default:
 		return nil, fmt.Errorf("%w: the object exhibits %s as %s", errAmbiguousMachine, SymbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
 	}
+}
+
+// exhibitedAs is the exhibited state whose performance self is the occurrence of,
+// nil when self is none: `tug.fdir` names the machine tug performs (SysML v2
+// §7.18.4, the exhibiting part is the exhibited state's performer), not a second performer.
+func exhibitedAs(stateMachine *symbols.Symbol, self *Instance) *ObjectBehavior {
+	owner := self.owner
+	if owner == nil {
+		return nil
+	}
+	fv, ok := owner.FeatureValues[self.ownerFeature]
+	if !ok || fv.Feature == nil {
+		return nil
+	}
+	for _, behavior := range owner.ExhibitedStatesOf(stateMachine) {
+		if behavior.member != fv.Feature.Symbol {
+			continue
+		}
+		if behavior.State == nil || behavior.State.occurrence == self {
+			return behavior
+		}
+	}
+	return nil
 }
 
 func (ctx *Context) checkStateSuccessionOrder(stateMachine *symbols.Symbol, self *Instance, behavior *ObjectBehavior) error {
@@ -2174,7 +2228,7 @@ func (ctx *Context) stateRunFor(stateMachine *symbols.Symbol, self *Instance, to
 		return behavior.State, true, nil
 	}
 	if behavior != nil && behavior.deferred != nil {
-		if err := ctx.checkStateSuccessionOrder(stateMachine, self, behavior); err != nil {
+		if err := ctx.checkStateSuccessionOrder(stateMachine, behavior.Object, behavior); err != nil {
 			return nil, true, err
 		}
 		if err := ctx.releaseDeferredBehavior(behavior); err != nil {

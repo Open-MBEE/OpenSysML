@@ -1,0 +1,1 @@
+- A SysML v1 Requirement Diagram is now migrated as a view rendered `Views::asTreeDiagram`, drawing the requirements, their nested requirements and the satisfy, derive, refine and verify relationships shown, where it fell to `Views::asTextualNotation`.

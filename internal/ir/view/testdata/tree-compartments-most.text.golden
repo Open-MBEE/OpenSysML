@@ -1,0 +1,17 @@
+CompartmentDemoViews::controllers - tree rendering (render asTreeDiagram)
+
+part def Sensor
+  attributes
+    attribute label : ScalarValues::String
+    attribute reading : ScalarValues::Real
+part def Controller
+  attributes
+    attribute enabled : ScalarValues::Boolean
+  parts
+    part sensor : CompartmentDemo::Sensor
+
+relationships:
+  Controller *-- Sensor: sensor
+
+not represented:
+  - 4 member(s) drawn as compartment rows of their owner

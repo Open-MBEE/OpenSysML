@@ -21,7 +21,7 @@ type SolveInput struct {
 // ConfigureInput names a variation point to configure.
 type ConfigureInput struct {
 	SessionName
-	Name       string   `json:"name" jsonschema:"qualified name of the element whose variations are configured"`
+	Name       string   `json:"name" jsonschema:"qualified name of the constraint, requirement, satisfaction, part or definition whose variations are configured"`
 	Selections []string `json:"selections,omitempty" jsonschema:"variants to fix, written variation=variant; the selection is checked and a conflict named. Not with all"`
 	All        bool     `json:"all,omitempty" jsonschema:"enumerate every consistent selection instead of one. Not with selections"`
 	Limit      int      `json:"limit,omitempty" jsonschema:"with all: at most this many selections"`
@@ -58,7 +58,7 @@ func registerSolve(s *mcp.Server, m *Manager) {
 		(*repl.Session).OptimizeSolve)
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "configure",
-		Description: "Ask an SMT solver which variants an element's conditions permit (%configure, experimental): a consistent selection, the check of the selections given, or every consistent selection up to a limit. Read-only: no variant is bound.",
+		Description: "Ask an SMT solver which variants an element's conditions permit (%configure, experimental): a consistent selection, the check of the selections given, or every consistent selection up to a limit. A part or definition is configured over every assertion about its objects. Read-only: no variant is bound.",
 		Annotations: toolkit.ReadOnly("Configure variants"),
 	}, handler(m, func(_ context.Context, sess *repl.Session, in ConfigureInput) (SolveResult, error) {
 		if strings.TrimSpace(in.Name) == "" {

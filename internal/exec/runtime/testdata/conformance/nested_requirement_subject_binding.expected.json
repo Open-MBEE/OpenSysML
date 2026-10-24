@@ -3,7 +3,7 @@
   "type": "calcUsage",
   "evaluate": "test::probe",
   "outputs": {
-    "one": {"type": "Integer", "value": 1}
+    "one": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
   },
   "reads": {
     "test::rqS": {"type": "Integer", "value": 3},
@@ -36,6 +36,16 @@
     "test::u1ObjSubj": {"type": "Undetermined"},
     "test::u1ObjResult": {"type": "Boolean", "value": true},
     "test::hUqObjResult": {"type": "Boolean", "value": true},
-    "test::hCqObjResult": {"type": "Boolean", "value": true}
+    "test::hCqObjResult": {"type": "Boolean", "value": true},
+    "test::rqOwnV": {"type": "Undetermined", "value": "[1]"},
+    "test::rqOwnResult": {"type": "Undetermined", "value": "[1]"},
+    "test::rqOwnVV": {"type": "Integer", "value": 5},
+    "test::rqOwnVResult": {"type": "Boolean", "value": true},
+    "test::rqEmptyS": {"error": "multiplicity violation: 0 value(s) bound to a feature with multiplicity lower bound 1"},
+    "test::rqEmptyResult": {"error": "rqEmpty: subject binding: multiplicity violation: 0 value(s) bound to a feature with multiplicity lower bound 1"},
+    "test::satByV": {"type": "Integer", "value": -1},
+    "test::satByResult": {"type": "Boolean", "value": false},
+    "test::satByPkgV": {"type": "Integer", "value": -1},
+    "test::satByPkgResult": {"type": "Boolean", "value": false}
   }
 }

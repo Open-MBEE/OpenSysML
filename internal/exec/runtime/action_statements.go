@@ -158,7 +158,7 @@ func (h *actionStmtHost) statementOrder(stmts []lower.Statement) *lower.Statemen
 	if len(stmts) < 2 {
 		return nil
 	}
-	order := h.exec.statementOrder(h.graph, h.node, stmts)
+	order := h.exec.statementOrder(h.graph, nil, h.node, stmts)
 	if h.exec.ctx.scheduling().ordersStatements() || order.HasReversePrecedence() || order.HasSkipped() {
 		return order
 	}
@@ -166,9 +166,18 @@ func (h *actionStmtHost) statementOrder(stmts []lower.Statement) *lower.Statemen
 }
 
 func (h *actionStmtHost) statementFootprint(stmts []lower.Statement, i int) lower.Footprint {
-	fp := h.exec.statementOrder(h.graph, h.node, stmts).Footprint(i)
+	order := h.exec.statementOrder(h.graph, nil, h.node, stmts)
+	fp := order.Footprint(i)
 	if h.perf == nil || h.perf.node == nil {
 		return fp
+	}
+	// The stamped footprint depends only on the statement and the performed
+	// node, so each performance of a node computes it once, not per execution.
+	list, keyed := statementListKey(h.node, stmts)
+	key := stampedFootprint{list: list, i: i, node: h.perf.node}
+	model := h.exec.ctx.model
+	if stamped, done := model.stamped[key]; done && keyed {
+		return stamped
 	}
 	// The node's own features are this performance's places, as its pins are;
 	// another node's pin the body reads stays that node's.
@@ -177,15 +186,26 @@ func (h *actionStmtHost) statementFootprint(stmts []lower.Statement, i int) lowe
 		own[f.Node] = true
 	}
 	fp.Reads, fp.Writes = placesOf(fp.Reads, h.perf.node, own), placesOf(fp.Writes, h.perf.node, own)
+	if !keyed {
+		return fp
+	}
+	if model.stamped == nil {
+		model.stamped = make(map[stampedFootprint]lower.Footprint)
+	}
+	model.stamped[key] = fp
 	return fp
 }
 
 // placesOf is the places with those declared by node's own features, the
-// declarations in own, stamped as node's.
+// declarations in own, stamped as node's; the places themselves when none is.
 func placesOf(places []lower.Place, node ast.Node, own map[ast.Node]bool) []lower.Place {
+	stamps := func(p lower.Place) bool { return p.Node == nil && p.Sym != nil && own[p.Sym.Decl] }
+	if !slices.ContainsFunc(places, stamps) {
+		return places
+	}
 	out := slices.Clone(places)
 	for i := range out {
-		if out[i].Node == nil && out[i].Sym != nil && own[out[i].Sym.Decl] {
+		if stamps(out[i]) {
 			out[i].Node = node
 		}
 	}
@@ -487,7 +507,7 @@ func (e *performances) performNodeBody(f *performFrame, graph *lower.ActionGraph
 		return e.performCase(perf)
 	}
 	if f.phase == performInvoking {
-		if inv, ok := nestedInvocationInGraph(graph, node); ok {
+		if inv, ok := nodeInvocation(graph, perf, node); ok {
 			if err := e.performInvocation(perf, inv); err != nil {
 				return err
 			}

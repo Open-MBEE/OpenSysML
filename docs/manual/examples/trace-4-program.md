@@ -79,10 +79,10 @@ Every requirement of the program in one matrix, grouped by the team that owns it
 
 | kind | name | path | verdict |
 | --- | --- | --- | --- |
-| requirement | cellDegradation | PowerDesign::powerSubsystem | undecided |
+| requirement | cellDegradation | PowerDesign::powerSubsystem | holds |
 | satisfaction |  | PowerDesign::powerSubsystem.array | holds |
 | verification | arrayIlluminationTest | PowerDesign::powerSubsystem.array | holds |
-| satisfaction |  | PowerDesign::powerSubsystem.array | undecided |
+| satisfaction |  | PowerDesign::powerSubsystem.array | holds |
 | satisfaction |  | PowerDesign::powerSubsystem.battery | holds |
 | verification | batteryCycleTest | PowerDesign::powerSubsystem.battery | holds |
 | verification | eclipseCycleAnalysis | PowerDesign::powerSubsystem.battery | holds |
@@ -90,7 +90,7 @@ Every requirement of the program in one matrix, grouped by the team that owns it
 | verification | linkBudgetAnalysis | CommsDesign::commsSubsystem.transmitter | violated |
 | satisfaction |  | CommsDesign::commsSubsystem.transmitter | holds |
 | verification | dataRateTest | CommsDesign::commsSubsystem.transmitter | holds |
-| satisfaction |  | CommsDesign::commsSubsystem.transmitter | undecided |
+| satisfaction |  | CommsDesign::commsSubsystem.transmitter | holds |
 
 *Checks that came out false*
 

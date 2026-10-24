@@ -109,6 +109,7 @@ const unmatchedExamples = 3
 // comparison accumulates the outcome of matching one or more roots.
 type comparison struct {
 	unmatched map[string]*Unmatched
+	matches   map[string]*RootMatches
 	elements  ElementTotals
 	buckets   Buckets
 	rows      map[string]*Row
@@ -122,7 +123,7 @@ type comparison struct {
 }
 
 func newComparison() *comparison {
-	return &comparison{rows: make(map[string]*Row), examples: make(map[string]*Example), unmatched: make(map[string]*Unmatched)}
+	return &comparison{rows: make(map[string]*Row), examples: make(map[string]*Example), unmatched: make(map[string]*Unmatched), matches: make(map[string]*RootMatches)}
 }
 
 // compareRoot matches one root's elements by key and buckets every property of
@@ -135,6 +136,8 @@ func (c *comparison) compareRoot(root string, ours, pilot []*element) (ElementTo
 		byKey[e.Key] = e
 	}
 	matched := make(map[string]bool, len(pilot))
+	inventory := newRootMatches()
+	c.matches[root] = inventory
 	sort.Slice(pilot, func(i, j int) bool { return pilot[i].Key < pilot[j].Key })
 	for _, p := range pilot {
 		o := byKey[p.Key]
@@ -144,9 +147,11 @@ func (c *comparison) compareRoot(root string, ours, pilot []*element) (ElementTo
 				elements.PilotOnlyImplied++
 			}
 			c.noteUnmatched("pilot", root, p)
+			inventory.PilotOnly[p.Key] = p.Type
 			continue
 		}
 		matched[p.Key] = true
+		inventory.Matched[p.Key] = p.Type
 		elements.Matched++
 		if o.Type != p.Type {
 			elements.TypeMismatch++
@@ -169,6 +174,7 @@ func (c *comparison) compareRoot(root string, ours, pilot []*element) (ElementTo
 		if !matched[o.Key] {
 			elements.OursOnly++
 			c.noteUnmatched("ours", root, o)
+			inventory.OursOnly[o.Key] = o.Type
 		}
 	}
 	c.elements.addAll(elements)
