@@ -172,11 +172,8 @@ type Model struct {
 	// the machines it exhibits and the actions it performs.
 	classifierBehaviors map[*symbols.Symbol][]classifierBehaviorDecl
 
-	// actionGraphs memoizes, per action, the flow a performance of it executes
-	// (lower.ToActionGraphWith, started by lower.StartFlow) and the shape of that
-	// performance; actionInterfaces the interface a tool performance binds
-	// (lower.ToActionInterface). A lowered graph is only read once built, so every
-	// run on the worker performs the same one. Both fill lazily, like names.
+	// actionGraphs memoizes, per action, its lowered flow and performance shape;
+	// actionInterfaces the interface a tool performance binds. Lazy, like names.
 	actionGraphs     map[*symbols.Symbol]*loweredAction
 	actionInterfaces map[*symbols.Symbol]*loweredAction
 
@@ -460,8 +457,8 @@ type loweredAction struct {
 	shape performanceShape
 }
 
-// actionGraph is the lowered flow of sym's body, started, lowered once per Model:
-// the graph is a function of the model alone and nothing writes it once built.
+// actionGraph is the lowered flow of sym's body, started, lowered once per Model: a
+// function of the model alone, completed only by Subflow.Unfold's own lazy memo.
 func (m *Model) actionGraph(sym *symbols.Symbol) (*lower.ActionGraph, error) {
 	if lowered, ok := m.actionGraphs[sym]; ok {
 		return lowered.graph, nil

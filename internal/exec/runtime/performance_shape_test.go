@@ -33,21 +33,31 @@ func shapeTestModel(t *testing.T) (*Model, *symbols.Symbol) {
 	return typedModel(semantics.NewModel(resolver), resolver), syms[0]
 }
 
-// TestPerformanceShapeIsSharedAcrossRuns pins that two runs of one action on one
-// worker's Model perform the same lowered graph and read one memoized shape, while
-// each holds values of its own.
+// TestPerformanceShapeIsSharedAcrossRuns pins that two runs on one worker's Model
+// perform the same lowered graph and read one shape, while each holds its own values.
 func TestPerformanceShapeIsSharedAcrossRuns(t *testing.T) {
 	model, proc := shapeTestModel(t)
 	var roots []*actionFrame
 	var graphs []*lower.ActionGraph
+	var results []map[string]Value
 	for run := 0; run < 2; run++ {
 		ctx := NewContext(model, 1_000_000)
-		exec, err := newActionExecutor(ctx, proc, nil)
+		exec, err := ctx.CreateActionExecutorWithInputs(proc, nil, map[string]Value{"a": constInt(int64(run)), "b": constInt(10)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for exec.State() != StateCompleted {
+			if err := exec.Step(); err != nil {
+				t.Fatalf("run %d: %v", run, err)
+			}
+		}
+		out, err := exec.ResultsWithError()
 		if err != nil {
 			t.Fatal(err)
 		}
 		roots = append(roots, exec.root)
 		graphs = append(graphs, exec.graph)
+		results = append(results, out)
 	}
 	if graphs[0] != graphs[1] {
 		t.Fatal("two runs lowered the action twice")
@@ -67,12 +77,11 @@ func TestPerformanceShapeIsSharedAcrossRuns(t *testing.T) {
 			t.Errorf("run %d's root holds %d features and %d declarations, the shape %d and %d",
 				i, len(root.features), len(root.declared), len(shape.features), len(shape.declared))
 		}
-		if len(root.data) != 0 {
-			t.Errorf("run %d's root frame holds %d values before it began", i, len(root.data))
-		}
 	}
-	if &roots[0].data == &roots[1].data || len(roots[0].unvalued) != len(shape.unvalued) {
-		t.Fatal("the runs do not hold their own values")
+	for i, want := range []int64{13, 14} {
+		if got := soleElement(results[i]["c"]); got.Kind != ValConst || got.Const.Int != want {
+			t.Errorf("run %d: c = %s, want %d", i, DescribeValue(got), want)
+		}
 	}
 }
 
@@ -108,9 +117,8 @@ func TestPerformanceShapeIsCopiedBeforeAWrite(t *testing.T) {
 	}
 }
 
-// TestPerformanceShapeOfAGraphTheModelDidNotLowerIsNotMemoized pins that a graph
-// built outside the Model — a state's do-flow block is one — gets a shape of its
-// own without entering the memo, which would otherwise grow with every run.
+// TestPerformanceShapeOfAGraphTheModelDidNotLowerIsNotMemoized pins that a graph built
+// outside the Model (a state's do-flow block) gets its shape without entering the memo.
 func TestPerformanceShapeOfAGraphTheModelDidNotLowerIsNotMemoized(t *testing.T) {
 	model, proc := shapeTestModel(t)
 	ctx := NewContext(model, 1_000_000)
@@ -134,3 +142,4 @@ func TestPerformanceShapeOfAGraphTheModelDidNotLowerIsNotMemoized(t *testing.T) 
 		t.Fatalf("model memoizes %d graphs and %d interfaces, want the lowered graph alone", len(model.actionGraphs), len(model.actionInterfaces))
 	}
 }
+

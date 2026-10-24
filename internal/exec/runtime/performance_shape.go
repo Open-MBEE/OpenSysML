@@ -6,11 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// performanceShape is what every performance of one lowered graph as one action
-// holds alike: the attributes it declares and inherits, and its root frame's
-// feature directions, aliases, held declarations and unvalued names. A Model
-// memoizes one per action it lowered; the frames of a run read it and copy before
-// a write (actionFrame.ownShape), so no run sees another's.
+// performanceShape is what every performance of an action holds alike: its attributes
+// and its root frame's directions, aliases, held declarations and unvalued names.
 type performanceShape struct {
 	attributes []lower.Attribute
 	features   map[string]ast.FeatureDirection

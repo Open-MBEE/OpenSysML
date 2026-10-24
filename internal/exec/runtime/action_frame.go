@@ -313,9 +313,8 @@ func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 	}
 }
 
-// declareRootFeatures gives root the attributes the graph declares and the
-// features the action holds, aliasing what each redefines; attributes are the
-// performance's (performanceFeatures), whose hidden inherited ones mark it shadowed.
+// declareRootFeatures gives root the graph's attributes and the action's features,
+// aliasing what each redefines; a hidden inherited one in attributes marks it shadowed.
 func (e *ActionExecutor) declareRootFeatures(root *actionFrame, attributes []lower.Attribute) {
 	root.ownShape()
 	if root.declared == nil {
