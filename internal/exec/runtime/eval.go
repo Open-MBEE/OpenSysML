@@ -489,6 +489,9 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 				return val, err
 			}
 		}
+		if val, ok, err := ctx.emptyOptionalDeclaration(sym); ok || err != nil {
+			return val, err
+		}
 		// Read as a name of it is read: a feature nothing values is undetermined.
 		return newEvalContext(ctx, sym.OwnerScope).withoutValue(sym, ctx.QualifiedName(sym), nil)
 	}
@@ -995,8 +998,8 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		if decl.BindingExpr != nil {
 			return ec.declaredValue(currentSym, decl.BindingExpr)
 		}
-		if val, ok := ec.emptyDeclaredFeature(currentSym); ok {
-			return val, nil
+		if val, ok, err := ec.ctx.emptyOptionalDeclaration(currentSym); ok || err != nil {
+			return val, err
 		}
 	}
 	return ec.resolvedWithoutValue(currentSym, qn)
@@ -1321,21 +1324,51 @@ func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, er
 		// may have bound it to another usage's value, or a subsetting may
 		// have filled it — reads through the binding answer those.
 		ec.ctx.noteDeclarationRead(sym)
-		return ec.ctx.namespaceBoundValue(sym)
+		if val, bound, err := ec.ctx.namespaceBoundValue(sym); bound || err != nil {
+			return val, bound, err
+		}
+		return ec.ctx.emptyOptionalDeclaration(sym)
 	}
 	ec.ctx.noteDeclarationRead(sym)
 	val, err := ec.ctx.denotedValue(sym)
 	return val, true, err
 }
 
-// emptyDeclaredFeature reads a valueless feature declaration whose lower bound is
-// zero as the empty sequence an object holding nothing reads. At model level no
-// object holds it, so it stays undetermined. A variation is a choice, not an empty feature.
+// emptyDeclaredFeature reads a valueless feature of lower bound 0 on an object as the
+// empty sequence; at model level emptyOptionalDeclaration decides. A variation is a choice.
 func (ec *EvalContext) emptyDeclaredFeature(sym *symbols.Symbol) (Value, bool) {
 	if ec.modelLevel() || !ec.ctx.optionalValueless(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) {
 		return Value{}, false
 	}
 	return sequenceOf(nil), true
+}
+
+// emptyOptionalDeclaration reads a namespace usage of lower bound 0 nothing binds as what
+// subsets it, else empty: the model declares it holds none. A behavior's parameter stays open.
+func (ctx *Context) emptyOptionalDeclaration(sym *symbols.Symbol) (Value, bool, error) {
+	if !ctx.optionalValueless(sym) || ctx.model.semantics.IsVariationFeature(sym) || semantics.IsBehaviorParameter(sym) {
+		return Value{}, false, nil
+	}
+	if objs, subsetted, err := ctx.namespacedSubsetObjects(sym); err != nil {
+		return Value{}, true, err
+	} else if subsetted {
+		elements := make([]Value, 0, len(objs))
+		for _, inst := range objs {
+			obj, err := ctx.objectValue(inst)
+			if err != nil {
+				return Value{}, true, err
+			}
+			elements = append(elements, obj)
+		}
+		if len(elements) == 1 {
+			return elements[0], true, nil
+		}
+		return sequenceOf(elements), true, nil
+	}
+	if typed, ok := ctx.emptyOfSymbol(sym); ok {
+		return typed, true, nil
+	}
+	return sequenceOf(nil), true, nil
 }
 
 // namesSelf reports whether the name resolves, where the expression was written,
@@ -1358,56 +1391,67 @@ func (ec *EvalContext) namesOccurrenceThis(name string) bool {
 	return ok && ec.ctx.model.resolver.IsOccurrenceThis(sym)
 }
 
-// thisValue is the object owning the performance being evaluated. A body no
-// object owns has none: `this` there is the performance itself.
+// thisValue is the context occurrence `this` denotes in the body being evaluated:
+// contextOccurrence of the run's occurrence or of the object evaluated on, as a member read answers.
 func (ec *EvalContext) thisValue() (Value, error) {
+	occurrence := ec.occurrence
+	if occurrence == nil && ec.thisOccurrence != nil {
+		materialized, err := ec.thisOccurrence()
+		if err != nil {
+			return Value{}, fmt.Errorf("%w: %v", errThisNotAnObject, err)
+		}
+		occurrence = materialized
+		ec.occurrence = materialized
+	}
+	switch {
+	case occurrence != nil && occurrence.owner != nil:
+		return Value{Kind: ValInstance, Instance: ec.ctx.contextOccurrence(occurrence).ID}, nil
+	case ec.self != nil:
+		return Value{Kind: ValInstance, Instance: ec.ctx.contextOccurrence(ec.self).ID}, nil
+	case occurrence != nil:
+		return Value{Kind: ValInstance, Instance: occurrence.ID}, nil
+	}
 	object := ec.ctx.model.resolver.ThisContext(ec.scope)
 	if object == nil {
 		return Value{}, fmt.Errorf("%w: this names the performance itself, which no object owns",
 			errThisNotAnObject)
 	}
-	// `this` inside a behavior definition denotes that definition's own
-	// occurrence — the performance instance the run was materialized as — not
-	// the performer itself, and a run outside any object still has one.
-	if isBehaviorDefKind(object.Kind) {
-		if ec.occurrence == nil && ec.thisOccurrence != nil {
-			occurrence, err := ec.thisOccurrence()
-			if err != nil {
-				return Value{}, fmt.Errorf("%w: %v", errThisNotAnObject, err)
-			}
-			ec.occurrence = occurrence
+	// A check about no object reads the type's declared defaults: `this`
+	// there is an exemplar of the type, made for the check.
+	if inst, checking, err := ec.ctx.exemplarOf(object); checking {
+		if err != nil {
+			return Value{}, fmt.Errorf("%w: no exemplar of %s: %v", errThisNotAnObject, SymbolText(object), err)
 		}
-		if ec.occurrence == nil {
-			return Value{}, fmt.Errorf("%w: no occurrence of %s materialized here",
-				errThisNotAnObject, SymbolText(object))
-		}
-		return Value{Kind: ValInstance, Instance: ec.occurrence.ID}, nil
+		return Value{Kind: ValInstance, Instance: inst.ID}, nil
 	}
-	if ec.self == nil {
-		// A check about no object reads the type's declared defaults: `this`
-		// there is an exemplar of the type, made for the check.
-		if inst, checking, err := ec.ctx.exemplarOf(object); checking {
-			if err != nil {
-				return Value{}, fmt.Errorf("%w: no exemplar of %s: %v", errThisNotAnObject, SymbolText(object), err)
-			}
-			return Value{Kind: ValInstance, Instance: inst.ID}, nil
-		}
-		return Value{}, fmt.Errorf("%w: no object of %s performs this body",
-			errThisNotAnObject, SymbolText(object))
+	return Value{}, fmt.Errorf("%w: no object of %s performs this body",
+		errThisNotAnObject, SymbolText(object))
+}
+
+// contextOccurrence is what `this` denotes on inst: through owned performances to the first holder
+// that is not one (Objects.kerml ownedPerformances::this, Performances.kerml subperformances::this).
+func (ctx *Context) contextOccurrence(inst *Instance) *Instance {
+	for inst.owner != nil && isPerformanceKind(inst.Type.Kind) {
+		inst = inst.owner
 	}
-	// A value declared in a nested usage — the redefined feature of an exhibited
-	// or performed occurrence — evaluates `this` against that occurrence's own
-	// object, where the name's context is the owner holding it: walk to it.
-	for inst := ec.self; inst != nil; inst = inst.owner {
-		if inst.Type == object || ec.ctx.modelConforms(inst.Type, object) {
-			return Value{Kind: ValInstance, Instance: inst.ID}, nil
-		}
+	return inst
+}
+
+// isPerformanceKind reports whether kind declares a performance: a behavior
+// definition or a behavior usage, whose instances are performances.
+func isPerformanceKind(kind symbols.SymbolKind) bool {
+	switch kind {
+	case symbols.SymbolActionUsage, symbols.SymbolStateUsage, symbols.SymbolCalcUsage,
+		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
+		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage,
+		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
+		return true
 	}
-	return Value{Kind: ValInstance, Instance: ec.self.ID}, nil
+	return isBehaviorDefKind(kind)
 }
 
 // isBehaviorDefKind reports whether kind is a behavior definition — an action,
-// state, calc or case def — whose `this` is the def's own occurrence.
+// state, calc or case def — a run of which has an occurrence of its own.
 func isBehaviorDefKind(kind symbols.SymbolKind) bool {
 	switch kind {
 	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolCalcDef,

@@ -234,9 +234,9 @@ the 4 of `body_local_conformance.cases`, the 10 of `exact_rationals.cases` and t
 `unbounded_arithmetic.cases`:
 
 ```
-agree: 224 · kind-only: 1 · order-only: 0 · disagree: 26 · differs-by-design: 5
-pilot-unevaluated: 157 · pilot-silent: 24 · pilot-error: 5 · ours-error: 10 · ours-undetermined: 32
-both-error: 16 · nondeterministic: 0
+agree: 228 · kind-only: 1 · order-only: 0 · disagree: 37 · differs-by-design: 5
+pilot-unevaluated: 157 · pilot-silent: 24 · pilot-error: 4 · ours-error: 10 · ours-undetermined: 17
+both-error: 17 · nondeterministic: 0
 ```
 
 The ten `exact_rationals.cases` are the binary64 probes of
@@ -383,19 +383,22 @@ leaves every expression over it unevaluated — where we answer `<undetermined>`
 which counts the one unevaluated `PartUsage slots` — a count of the operand expression, not of
 the feature's values.
 
-Twelve are `ours-undetermined`, and the pilot's lines for them are not answers but artifacts
+Seven are `ours-undetermined`, and the pilot's lines for them are not answers but artifacts
 of the same non-evaluation: wherever the unevaluated `AttributeUsage u` reaches an operator that
 does evaluate, the pilot compares the usage *element* — `u == 5` is `false`, `not (u == 5)`
 `true`, `(u > 3) and true` `false` (the unevaluated `u > 3` is not the literal `true`), `(u == 1)
 or false` `false`, `(u == 1) implies false` `true`, `includes((1, 2), u + 1)` `false` and
-`excludes((1, 2), u + 1)` `true`; and where a `[1..*]` or `[0..2]` usage is counted it counts the
-one unevaluated `PartUsage` — `size(rack.gear)` `1`, `size(rack.loose)` `1`, `size((rack.gear,
-rack.loose))` `2`, `isEmpty(rack.loose)` `false`, `notEmpty(rack.loose)` `true`. The pilot
-materializes nothing, so these are evidence that no definite answer exists, not a source for the
-numbers: `gear[1..*]` has at least one value and `loose[0..2]` may be empty, and the model fixes
-nothing further, so each is `<undetermined>` here (adjudicated in
-[spec-compliance.md](spec-compliance.md), *Expression evaluation*, and
-[docs/reference/repl-commands.md](../reference/repl-commands.md)).
+`excludes((1, 2), u + 1)` `true`. Where a `[1..*]` or `[0..2]` usage is counted it counts the
+one unevaluated `PartUsage`, whatever the model declares — `size(rack.gear)` `1`, `size(rack.loose)`
+`1`, `size((rack.gear, rack.loose))` `2`, `isEmpty(rack.loose)` `false`, `notEmpty(rack.loose)`
+`true` — where we read each collection closed over the model: `gear[1..*]` holds the two usages
+subsetting it (`fixed`, `tagged`), so `size(rack.gear)` is `2`, and `loose[0..2]`, which nothing
+subsets or values, holds nothing, so `size(rack.loose)` is `0`, `isEmpty(rack.loose)` `true` and
+`notEmpty(rack.loose)` `false` — four `disagree` — while `size((rack.gear, rack.loose))` is `2` on
+both sides and agrees, the pilot by counting two usage elements. The pilot materializes nothing
+and evaluates no usage, so its counts are evidence that it cannot referee a collection's values,
+not a source for them (adjudicated in [spec-compliance.md](spec-compliance.md), *Expression
+evaluation*, and [docs/reference/repl-commands.md](../reference/repl-commands.md)).
 
 The next eight probe what an open collection still decides. `many[10001..*]` has a lower bound
 too large to materialize into objects, which is never attempted at model level: `size(rack.many)`
@@ -404,8 +407,9 @@ is `ours-undetermined` (the pilot's `1` is again the count of the unevaluated `P
 `includes(rack.gear, rack.fixed)` answers `true` here and is the second `disagree`, the pilot
 answering `false` by comparing the two unevaluated `PartUsage` elements, which are distinct
 elements whatever values they hold — an artifact of non-evaluation like `size(rack.slots)`, not a
-verdict; `includes(rack.gear, rack.lone)` is `ours-undetermined`, `lone` being neither certainly
-held nor excluded. The quantifiers decide from the elements a collection certainly holds and the
+verdict; `includes(rack.gear, rack.lone)` is `false` here, `gear` holding `fixed` and `tagged` and
+nothing else the model declares, and agrees with the pilot's `false`, which compares the usage
+elements. The quantifiers decide from the elements a collection certainly holds and the
 pilot agrees on all three decided forms: `(1, u)->exists{in x; x == 1}` is `true` on the witness
 `1`, `(1, u)->forAll{in x; x > 2}` is `false` on the counterexample `1`, `anyTrue((true, u == 1))`
 is `true`; `(1, u)->exists{in x; x == 2}` is `ours-undetermined`, since `u` may be `2`.
@@ -424,7 +428,8 @@ The last eight probe the counts an open value still fixes. A mapping counts what
 yields per element the collection may hold beyond those it certainly does, so a body of fixed
 count keeps the collection's own bounds: `size((1, u)->collect{in x; x + 1})` is `2` and agrees
 (the pilot mapping both elements, the second to an unevaluated `u + 1`), while `size(rack.loose->collect{in x;
-x})` is `ours-undetermined`, `[0..2]` like `loose` itself. `vacant[0]` declares a feature that
+x})` is `0` here, `loose` holding nothing, against the pilot's `1` over the unevaluated usage
+(`disagree`). `vacant[0]` declares a feature that
 holds nothing, a count the model fixes: `rack.vacant` reads as the empty sequence
 (`pilot-unevaluated`, the pilot returning the `PartUsage`), and `size(rack.vacant)` `0` and
 `isEmpty(rack.vacant)` `true` are two more `disagree`, the pilot's `1` and `false` counting the
@@ -441,8 +446,8 @@ agree (the pilot's `1` is once more the count of the unevaluated usage, its `tru
 non-emptiness of that one element). A test that does not depend on the element decides a
 quantifier over a collection certainly holding one: `rack.gear->exists{in x; true}` is `true`
 and `rack.gear->forAll{in x; false}` is `false`, and both agree; `rack.loose->exists{in x;
-true}` is `ours-undetermined`, `loose` possibly holding nothing, where the pilot's `true`
-quantifies over the unevaluated `PartUsage`. A zero divisor fails a division whatever the open
+true}` is `false` here, `loose` holding nothing, where the pilot's `true` quantifies over the
+unevaluated `PartUsage` (`disagree`). A zero divisor fails a division whatever the open
 operand holds: `u / 0` and `u % 0` are the `division by zero` error here and
 `pilot-unevaluated` (`OperatorExpression /`, `%`), as is `u / 2`, which stays `<undetermined>`.
 
@@ -492,18 +497,19 @@ declares: `false and s` and `b and false` are `false` on both sides.
 Thirteen probe a feature chain through a collection the model leaves open, which
 reads the members of the values it certainly holds. `rack.fixed.tag` is `"d"`, the default
 `D` declares, and `rack.tagged.tag` `"x"`, the redefinition, both agreeing. `rack.gear.tag`
-is `<undetermined>` of `[2..*]` here, holding those two and the `tag` of whatever else `gear`
-holds; the pilot answers the one default `"d"`, reading the declaration's default through the
+is `("d", "x")` here, `gear` holding the two usages subsetting it and nothing else the model
+declares; the pilot answers the one default `"d"`, reading the declaration's default through the
 one unevaluated `PartUsage gear` as if it were `gear`'s single value, so its every answer over
 the chain is that of the sequence `("d")`: `includes(rack.gear.tag, "d")` `true` and
-`excludes(rack.gear.tag, "d")` `false` agree, decided here by the default `fixed` certainly
-contributes; `includes(rack.gear.tag, "x")` is `true` here on `tagged` and `rack.gear.tag->exists{in
+`excludes(rack.gear.tag, "d")` `false` agree, decided here by the default `fixed` contributes;
+`includes(rack.gear.tag, "x")` is `true` here on `tagged` and `rack.gear.tag->exists{in
 x; x == "x"}` `true` on the same witness, two more `disagree` against the pilot's `false` — it
-never sees the subsetter, as `includes(rack.gear, rack.fixed)` showed; and
-`includes(rack.gear.tag, "zz")` and `size(rack.gear.tag)` are `ours-undetermined` against the
-pilot's `false` and `1`, `gear` possibly holding a `D` tagged `"zz"`. `rack.gear.tag->forAll{in
-x; x == "d"}` is `false` on the counterexample `tagged` and agrees. `rack.gear.mass` and
-`rack.loose.tag`, members no value fixes, are `<undetermined>` (`pilot-unevaluated`), and
+never sees the subsetter, as `includes(rack.gear, rack.fixed)` showed; `includes(rack.gear.tag,
+"zz")` is `false` on both sides and agrees, no declared `D` being tagged `"zz"`; `rack.gear.tag`
+itself and `size(rack.gear.tag)` `2` are two more `disagree` against the pilot's `"d"` and `1`.
+`rack.gear.tag->forAll{in x; x == "d"}` is `false` on the counterexample `tagged` and agrees.
+`rack.gear.mass`, a member no value fixes, is `<undetermined>`, and `rack.loose.tag` is the
+empty chain through an empty `loose` (both `pilot-unevaluated`), and
 `rack.gear.nope` is the unresolved member on both sides (`both-error`).
 
 The next five probe the named conditional `ControlFunctions::'if'`, which checks that an open
@@ -561,9 +567,11 @@ we report the index outside `1..3`.
 The 2 `vast_bounds.cases` probe `includingAt` over a usage whose upper bound is the largest
 count the runtime represents, `vast : Real[0..9223372036854775807]`, at that bound and at `1`.
 The pilot rejects the bound itself and then resolves no name in the model (`Couldn't resolve
-reference to Element 'V'`), so both are `pilot-error` and self-assessed, kept to a model of
-their own so the rejection reaches no other case; here both insertions are `<undetermined>`,
-the insertion index checked against the bound plus one without overflowing it.
+reference to Element 'V'`), so both are self-assessed, kept to a model of their own so the
+rejection reaches no other case. `vast`, which nothing values, is empty, so inserting at `1`
+yields `(1.0)` (`pilot-error`) and inserting at the largest bound is the index error `insertion
+index 9223372036854775807 is outside 1..1` (`both-error`), the index checked against the count
+held plus one without overflowing the bound.
 
 **Boolean folding on the second operand.** The conditional `and`, `or` and `implies` live in
 `ControlFunctions.kerml` of the Kernel Function Library (`BaseFunctions` declares none of them;
@@ -584,19 +592,22 @@ from the declaration alone and would move `and-second-false`, `or-second-true` a
 decides — `and true`, `or false`, `implies false` — stay `<undetermined>`.
 
 **Open cardinality at model level.** A `FeatureReferenceExpression` evaluates to the values of
-the feature on a target (KerML 1.1 §7.4.9), and a multiplicity bounds how many values a feature
-has on each instance of its featuring type (§7.3.4.1, §7.4.12); at model level there is no
-target, so a valueless `gear[1..*]` or `loose[0..2]` states bounds and no count. Three other
-readings have each been the behaviour at some point and are not taken: (1) the read is an
-error (`ErrNoValue`) — that is the instance-level contract for a *required* value that is
-missing, and a model that declares `loose[0..2]` is missing nothing; (2) the minimum is
-materialized, so `size(rack.gear)` is `1` and `rack.gear#(7)` is out of range — that is what
-`%instantiate` does to build an object, a definite population the model does not assert; (3) a
-valueless `[0..n]` usage reads as the empty sequence — the same minimum-population rule spelled
-for the lower bound `0`, which makes `isEmpty(rack.loose)` `true` where the model allows two
-values. Reading (2) and (3) remain the documented object-level contract; only the model-level
-read changed. The pilot supports the adjudication by declining to answer any of these rather
-than by supplying the numbers.
+the feature on a target (KerML 1.1 §7.4.9), a multiplicity bounds how many values a feature has
+on each instance of its featuring type (§7.3.4.1, §7.4.12), and the model declares every value a
+feature has (§7.4.11 feature values, §7.3.4.4 subsetting). A valueless usage therefore reads
+closed over the model, at model level as on an instantiated object: `loose[0..2]` holds nothing,
+so `size(rack.loose)` is `0` and `isEmpty(rack.loose)` `true`, exactly as the library's
+`voids[0..*]` is empty; a lower bound nothing declared meets (`gear[1..*]` with nothing
+subsetting it) states bounds and no count, and the read is `<undetermined>` of those bounds,
+carrying what subsetting usages certainly contribute. Two other readings have each been the
+behaviour at some point and are not taken: (1) the read is an error (`ErrNoValue`) — that is the
+instance-level contract for a *required* value that is missing, and a model that declares
+`loose[0..2]` is missing nothing; (2) the minimum is materialized, so `size(rack.gear)` is `1`
+and `rack.gear#(7)` is out of range — that is what `%instantiate` does to build an object, a
+definite population the model does not assert. Reading (2) remains the documented object-level
+contract for an unmet lower bound. The pilot supports the adjudication by declining to answer
+any of these rather than by supplying the numbers: it counts every unevaluated usage element as
+one value, `size(rack.loose)` and `size(p1.suboccurrences)` alike.
 
 The twelve `tensor_quantities.cases` probe `TensorCalculations` over a 2×2 stress tensor built
 by `TensorCalculations::'['` on a model-declared `TensorMeasurementReference`, added with the
@@ -795,21 +806,20 @@ zero. Read it as unrefereeable, and see the `ComplexFunctions` row of
 [spec-compliance.md](spec-compliance.md) for the adjudication.
 
 The subsetting-membership cases added with the fix they were meant to referee are
-unrefereeable in the same way, and now bucket `ours-undetermined`. `w6d:subsetting-defaulted-count`
+unrefereeable in the same way, and bucket `disagree`. `w6d:subsetting-defaulted-count`
 asks `size(subsystem)` of a `part subsystem : Sub[*] default null;` that `part a : Sub :> subsystem;`
 and `part b : Sub :> subsystem;` subset: the pilot answers `0`, the folded default, not a count of
 members — `w6d:subsetting-two-count` drops the default and the pilot answers `1` for the same two
 parts, and `w6d:subsetting-none-count` answers `1` for a collection nothing subsets. A count that is
 `1` for two members and for none is the static evaluator reading the feature as one value, so it
-decides nothing about which objects a subsetted collection holds. We answer `<undetermined>` for
-all three, and for `w6d:subsetting-rollup` (`total default sum(subsystem.mass)`): `n` and `total`
-are bound members of the package-level `sysDefaulted`, `sysTwo`, `sysNone` and `sys`, and a
-`[*]` collection the model leaves open holds its subsetters certainly and possibly more, so the
-read through the bound member is the read the direct chain `size(sysTwo.subsystem)` and
-`sum(sys.subsystem.mass)` already made (the open-cardinality row of
-[spec-compliance.md](spec-compliance.md)). The pilot's `1.0` for `subsetting-rollup` is the same
-fold — `Sub::mass` defaults to `1.0` and it reads `subsystem` as the one part — and agreed with the
-materialized lower bound we no longer make up for an object only the model stands behind. The two
+decides nothing about which objects a subsetted collection holds. We answer `2`, `2` and `0`: `n`
+is a bound member of the package-level `sysDefaulted`, `sysTwo` and `sysNone`, and a `[*]`
+collection holds the usages subsetting it, closed over the model (KerML 1.0 §7.3.4.4, §7.4.12), so
+the read through the bound member is the read the direct chain `size(sysTwo.subsystem)` makes (the
+open-cardinality row of [spec-compliance.md](spec-compliance.md)). `w6d:subsetting-rollup` (`total
+default sum(subsystem.mass)` on `sys`, whose one subsetting part has `Sub::mass` defaulting to
+`1.0`) is `1.0` on both sides and agrees — ours the sum over the one declared part, the pilot's the
+same fold reading `subsystem` as one unevaluated part. The two
 empty-aggregate cases of the same round land in
 `pilot-unevaluated`: `sum(qsNone)` over an empty `MassValue[*]` is `InvocationExpression sum` and
 `3.0 [SI::kg] + sum(qsNone)` is `OperatorExpression +` where we answer `0 [kg]` and `3.0 [SI::kg]`,
