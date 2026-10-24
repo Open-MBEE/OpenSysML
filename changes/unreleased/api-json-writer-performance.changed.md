@@ -1,1 +1,0 @@
-- API JSON export allocates less and avoids copying the model graph.

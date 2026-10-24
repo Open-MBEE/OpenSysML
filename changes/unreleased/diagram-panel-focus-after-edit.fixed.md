@@ -1,2 +1,0 @@
-- The VS Code diagram panel marks a focused node's neighbourhood from the rendering it has just drawn: after an edit moved a relationship, the new canvas was marked with the old rendering's neighbours until the layout settled again.
-- The panel's Relations list counts the edges the canvas has — those at drawn nodes, a kind the filter hides included — and no longer lists or counts an edge at a node folded under a collapsed owner, which the canvas never draws.

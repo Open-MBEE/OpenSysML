@@ -1,1 +1,0 @@
-- Mark wide and dense tables by header-cell count and select them by class in the PDF stylesheets, preventing large documents from timing out during WeasyPrint layout.

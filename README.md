@@ -98,7 +98,7 @@ brew install Open-MBEE/tap/opensysml
 go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest
 go install github.com/Open-MBEE/OpenSysML/cmd/sysml-lsp@latest
 ```
-`sysml -version` then reports the release it was built from (`sysml v0.10.1`), or the commit when
+`sysml -version` then reports the release it was built from (`sysml v0.11.0`), or the commit when
 installed from a checkout.
 
 **Or build from source:**
