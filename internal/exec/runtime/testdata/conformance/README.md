@@ -445,6 +445,18 @@ JSON number past 2^53 is read through a float64 that may round its digits.
 - `evaluate`: qualified name of the element to evaluate, for a case declaring
   more than one — a usage and the definition it is typed by. Omit to search the
   model for the first requirement (or constraint) it declares.
+- `instantiate`: qualified name of an object to materialize before evaluating,
+  for a case about the verification runs the objects it holds give.
+- `error`: text the evaluation must fail with, for a case whose contract is a
+  diagnostic — a requirement whose subject nothing binds. Set it instead of a
+  verdict.
+- `verifications`: the runs of the verification cases whose objective verifies
+  the requirement, as `-requirement` reports them about no object: those of
+  every document of the case, a case a type owns running once on each object
+  of that type the runtime holds — each object a multiplicity repeats on its
+  own. The runs are listed in report order and all are checked; each is
+  stated as a validation verdict's `verifications` entry is (below), `object`
+  being the path from the instantiated object.
 
 ### For Satisfaction Assertions (`EvaluateSatisfaction`)
 

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
@@ -21,6 +22,7 @@ func TestRuntimeRobustnessVerification(t *testing.T) {
 	t.Run("verification_objective_subject_of_another_type", testVerificationObjectiveSubjectOfAnotherType)
 	t.Run("verification_objective_subject_left_unbound", testVerificationObjectiveSubjectLeftUnbound)
 	t.Run("verification_objective_subject_rebound", testVerificationObjectiveSubjectRebound)
+	t.Run("verification_runs_once_per_repeated_object", testVerificationRunsOncePerRepeatedObject)
 }
 
 // testVerificationBodyThatCannotRun: a body whose subject nothing binds is the
@@ -206,5 +208,52 @@ func testVerificationObjectiveSubjectRebound(t *testing.T) {
 		if !strings.Contains(msg, "cannot override the binding value of VerificationCases::VerificationCase::obj::subj") {
 			t.Errorf("refusal %q does not name the library's binding", msg)
 		}
+	}
+}
+
+// testVerificationRunsOncePerRepeatedObject: a case a definition owns is a feature of every
+// object of the definition, so the bolts four repeated wheels hold are four runs on four
+// objects, while a check naming the bolt's constraint still resolves the four to one subject.
+func testVerificationRunsOncePerRepeatedObject(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::Real;
+			requirement def Tightness { subject b : Bolt; require constraint { b.torque < 10.0 } }
+			requirement tight : Tightness;
+			part def Bolt {
+				attribute torque : Real default = 99.0;
+				constraint tightEnough { torque < 10.0 }
+				verification torqueTest {
+					objective { verify tight; }
+					return verdict = VerificationCases::PassIf(tight(this));
+				}
+			}
+			part def Wheel { part bolt : Bolt; }
+			part def Car { part wheels : Wheel[4]; }
+			part car : Car;
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	scope := idx.DocumentRoot("<test>")
+	if _, err := ctx.Instantiate(lookupOne(t, idx, "test::car")); err != nil {
+		t.Fatalf("instantiate car: %v", err)
+	}
+	results := ctx.VerificationResultsOn([]*symbols.Scope{scope}, lookupOne(t, idx, "test::tight"), nil)
+	subjects := map[int64]bool{}
+	for _, r := range results {
+		if r.Verdict.Subject == nil {
+			t.Fatalf("a run of %s names no object", r.Verdict.Case)
+		}
+		subjects[r.Verdict.Subject.ID] = true
+		if r.Verdict.Kind != VerdictFail {
+			t.Errorf("verdict on object #%d = %s (%s), want fail", r.Verdict.Subject.ID, r.Verdict.Kind, r.Verdict.Detail)
+		}
+	}
+	if len(results) != 4 || len(subjects) != 4 {
+		t.Fatalf("%d run(s) on %d object(s), want one on each of the four bolts", len(results), len(subjects))
+	}
+	tightEnough := lookupOne(t, idx, "test::Bolt::tightEnough")
+	if _, err := ctx.EvaluateConstraint(tightEnough, tightEnough.OwnerScope); !errors.Is(err, ErrViolated) {
+		t.Errorf("EvaluateConstraint on the repeated bolts: %v, want the one subject's violation", err)
 	}
 }

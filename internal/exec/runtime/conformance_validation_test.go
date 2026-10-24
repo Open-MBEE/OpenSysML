@@ -108,11 +108,17 @@ func validateValidation(t *testing.T, ctx *Context, scopes []*symbols.Scope, ins
 // requirement, as a report does beside the verdict, and checks each run against the outcome in order.
 func checkVerdictVerifications(t *testing.T, ctx *Context, scopes []*symbols.Scope, root *Instance, n int, v ObjectVerdict, want []ExpectedVerificationRun) {
 	t.Helper()
-	label := fmt.Sprintf("validation verdict %d", n)
 	var results []VerificationResult
 	if v.Requirement != nil {
 		results = ctx.VerificationResultsOn(scopes, v.Requirement, v.Subject)
 	}
+	checkVerificationRuns(t, ctx, root, fmt.Sprintf("validation verdict %d", n), results, want)
+}
+
+// checkVerificationRuns checks the verification runs a report makes against the outcome in
+// order, naming each run's object by its path from root (none when root is nil).
+func checkVerificationRuns(t *testing.T, ctx *Context, root *Instance, label string, results []VerificationResult, want []ExpectedVerificationRun) {
+	t.Helper()
 	paths := heldObjectPaths(ctx, root)
 	var got []string
 	for _, r := range results {
@@ -158,6 +164,9 @@ func caseDocumentRoots(idx *symbols.Index, path string, expected ExpectedOutcome
 // validation verdict names it.
 func heldObjectPaths(ctx *Context, root *Instance) map[int64][]string {
 	paths := map[int64][]string{}
+	if root == nil {
+		return paths
+	}
 	for _, obj := range ctx.walkHeldObjects(root, maxMaterializeBudget).objects {
 		paths[obj.inst.ID] = obj.path
 	}
