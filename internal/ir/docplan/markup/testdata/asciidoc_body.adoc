@@ -1,0 +1,28 @@
+Plain _em_ *strong* `co\de` link:https://x.io/a[lbl] https://y.io
+sysml:ref[Optics::mirror] sysml:ref[Optics::mount, the mount] <<summary,the summary>> <<notes>> stem:[m \propto D^2] (C) end.
+
+* one
+* two _soft_
+
+NOTE: Mind the *gap*.
+
+. first
+. second
+
+.Masses
+[cols="3,1"]
+|===
+|Part |Mass
+
+|Mirror |12 kg
+|Mount |4 kg
+|===
+
+.Scaling
+[stem]
+++++
+m \propto D^2
+++++
+
+.Optics
+image::figures/optics.png[The optics]

@@ -262,6 +262,84 @@ not at the `rep` as a whole. A `rep` in a language no parser serves
 (`rep language "asciidoc"`) is refused too (`unsupported-markup-language`),
 so no body is ever silently dropped.
 
+## AsciiDoc prose
+
+The same two placements take an AsciiDoc body — `rep language "asciidoc"` —
+for authors who prefer its one-markup-string-per-paragraph style, its tables
+and its macros:
+
+```sysml
+part def MassReport :> Document {
+	:>> title = "Telescope Mass Report";
+
+	rep language "asciidoc" /* This report is _generated_ by `sysml -render-document`
+	 * (link:https://opensysml.org/[OpenSysML]); see <<breakdown>> for the
+	 * masses, and the mount at sysml:ref[telescope.mount]. Mass scales as
+	 * stem:[m \propto D^{2.5}].
+	 *
+	 * NOTE: Margins are computed against the allocation.
+	 *
+	 * .Allocations
+	 * [cols="3,1"]
+	 * |===
+	 * |Subsystem |Allocation
+	 *
+	 * |Optics |120 kg
+	 * |Structure |80 kg
+	 * |===
+	 */
+
+	part breakdown : Section {
+		:>> title = "Subsystem Masses";
+		part reading : Paragraph {
+			rep language "asciidoc" /* A *named* paragraph keeps its name as a `Ref` target. */
+		}
+	}
+}
+```
+
+The body is parsed by [Asciidoctor.js](https://asciidoctor.org/), run as an
+external converter the way the PDF toolchain's tools are: the
+`scripts/asciidoc/asciidoctor-json.js` script reads the body on stdin and
+writes its block and inline tree as JSON, and the planner maps that tree onto
+the content blocks of this chapter. `./scripts/download-doc-pdf-toolchain.sh`
+installs the pinned Asciidoctor.js beside the script under
+`build/doc-pdf/asciidoctor/`; point `OPENSYSML_ASCIIDOCTOR` at the installed
+`asciidoctor-json.js` (an `asciidoctor-json` on `PATH` is found without it).
+A document with an AsciiDoc body and no converter fails to plan with a typed
+error naming the script and the variable, and a converter that fails is
+reported with its message — the body is never rendered as literal text.
+
+| AsciiDoc | Content |
+| --- | --- |
+| paragraph | `Paragraph` with runs |
+| `_text_`, `*text*`, `` `text` `` | emphasis, strong and code runs |
+| `link:https://…[label]`, `https://…`, `https://…[label]` | `Link` run |
+| `sysml:ref[<target>]`, `sysml:ref[<target>, label]` | `Ref` run — the target as `[label](sysml:<target>)` takes it |
+| `<<name>>`, `<<name,label>>` | `Ref` run to the content block, usage or element `name` resolves to |
+| `stem:[…]` | math run (LaTeX) |
+| `NOTE: text` and the other admonitions | `Paragraph` led by a strong `Note:` (`Tip:`, `Important:`, `Warning:`, `Caution:`) run |
+| `* item` / `. item` lists of single paragraphs | `List` with bullet or number style |
+| `|===` table of plain-text cells under a header row, `.Title`, `[cols="…"]` | static `Table`: the header row heads the columns, `cols` sizes them as `columnWidths` does, the title is the caption |
+| `[stem]` block with `.Title` | `Formula` with the title as caption |
+| `image::file[alt]` with `.Title` | `Image` with the title as caption |
+| typographic replacements (`(C)`, `--`, `...`) and entities | the characters they stand for |
+
+A table cell is one plain-text value, as a projected cell is: styled text, a
+link, a reference, a macro or math inside a cell is refused. Constructs no
+content block renders are refused with a typed planning error naming the
+construct and its body line, as for Markdown: a document header (`= Title`)
+and section titles (sections are `part : Section` members), listing,
+literal, example, sidebar, quote, verse, open and passthrough blocks,
+description and callout lists, nested lists and blocks attached to a list
+item, thematic and page breaks, tables without a header row or with a footer,
+AsciiMath, inline images, footnotes, keyboard, button and menu macros, index
+terms, superscript, subscript and highlighted text, nested quoted text,
+styled link text, styled block titles, and a block title on a block that has
+no caption. The `sysml:value[<chain>]` macro is recognised and refused by
+name: a value read from the model belongs in a query-backed paragraph's
+column run, where its scope and type are checked.
+
 ## Styled query text (column runs)
 
 A query-backed paragraph or list may nest **column runs** — `SpanColumn` and
