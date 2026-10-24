@@ -102,3 +102,45 @@ func TestPublishFindingsReachesADocumentNotOpenAndWithdraws(t *testing.T) {
 		t.Fatalf("after the copy is gone the last publication is %v, want an empty set on %s", last, second)
 	}
 }
+
+// A closed document shadowed by two different trees gets both warnings in one
+// publication: a later publication for the same URI would replace the first.
+func TestPublishFindingsSendsAClosedDocumentsFindingsTogether(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		filepath.Join(dir, "a", "Alpha.sysml"): "library package Alpha { part def A; }",
+		filepath.Join(dir, "b", "Beta.sysml"):  "library package Beta { part def B; }",
+		filepath.Join(dir, "c", "Both.sysml"):  "library package Alpha { part def A; }\nlibrary package Beta { part def B; }",
+	}
+	var paths []string
+	for path, text := range files {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, path)
+	}
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	fc := &fakeClient{}
+	s.client = fc
+	s.loadFilesFromDisk(paths)
+	s.refreshOpenDiagnostics(context.Background(), "")
+
+	both := uri.File(filepath.Join(dir, "c", "Both.sysml"))
+	var publications int
+	for _, p := range fc.all() {
+		if p.URI != both {
+			continue
+		}
+		publications++
+		if n := len(libraryDeclaredTwice([]*protocol.PublishDiagnosticsParams{p})[both]); n != 2 {
+			t.Errorf("publication on Both.sysml carries %d duplicate-library warnings, want 2: %v", n, p.Diagnostics)
+		}
+	}
+	if publications != 1 {
+		t.Errorf("Both.sysml was published %d times, want once", publications)
+	}
+}

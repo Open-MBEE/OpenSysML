@@ -120,3 +120,34 @@ func TestDuplicateLibrariesGroupsATreeDeclaredTwice(t *testing.T) {
 		t.Errorf("packages = %v, want %v", f.Packages, want)
 	}
 }
+
+// Two user library files loaded again from their interface records — which carry
+// no declaration — are still a duplication: the record keeps the `library` mark.
+func TestDuplicateLibrariesSurvivesAnInterfaceRecordReload(t *testing.T) {
+	src := []byte("library package Foo { part def A; }")
+	ws := model.NewWorkspace()
+	for _, name := range []string{"/ws/a.sysml", "/ws/b.sysml"} {
+		// A record is written from a workspace holding the document alone.
+		loaded := model.NewWorkspace()
+		loaded.Open(name, src, 1)
+		loaded.Diagnostics(name)
+		rec, err := loaded.InterfaceRecord(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ws.OpenRecorded(rec, src); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := ws.WorkspaceFindings()
+	if len(got) != 1 || got[0].Document != "/ws/b.sysml" || got[0].Used != "/ws/a.sysml" {
+		t.Fatalf("findings over the records = %+v, want one on /ws/b.sysml with /ws/a.sysml used", got)
+	}
+	plain := model.NewWorkspace()
+	for _, name := range []string{"/ws/p.sysml", "/ws/q.sysml"} {
+		plain.Open(name, []byte("package P { part def A; }"), 1)
+	}
+	if got := plain.WorkspaceFindings(); len(got) != 0 {
+		t.Fatalf("a plain package opened twice: %d findings, want none", len(got))
+	}
+}

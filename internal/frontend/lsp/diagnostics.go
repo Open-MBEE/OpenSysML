@@ -84,14 +84,16 @@ func protocolDiagnostics(content []byte, diags []diag.Diagnostic) []protocol.Dia
 // editor has not open — a file the folder scan indexed, a library file — so a
 // library package two documents declare is in the problems list whichever is
 // open, and withdraws the ones published last time that no longer hold. A
-// finding in an open document goes out with that document's diagnostics.
+// publication replaces a URI's whole set, so a document's findings go out
+// together. A finding in an open document goes out with that document's diagnostics.
 func (s *Server) publishFindings(ctx context.Context) {
 	if s.client == nil {
 		return
 	}
 	s.pubMu.Lock()
 	defer s.pubMu.Unlock()
-	current := map[uri.URI]bool{}
+	sets := map[uri.URI][]protocol.Diagnostic{}
+	var order []uri.URI
 	for _, f := range s.ws.WorkspaceFindings() {
 		if s.ws.IsOpen(f.Document) {
 			continue
@@ -106,16 +108,22 @@ func (s *Server) publishFindings(ctx context.Context) {
 		} else if doc := s.ws.Document(f.Document); doc != nil {
 			content = doc.Content
 		}
-		current[target] = true
-		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-			URI:         target,
-			Diagnostics: protocolDiagnostics(content, []diag.Diagnostic{f.Diagnostic}),
-		})
+		if _, seen := sets[target]; !seen {
+			order = append(order, target)
+		}
+		sets[target] = append(sets[target], protocolDiagnostics(content, []diag.Diagnostic{f.Diagnostic})...)
+	}
+	for _, target := range order {
+		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{URI: target, Diagnostics: sets[target]})
 	}
 	for target := range s.findingURIs {
-		if !current[target] {
+		if _, still := sets[target]; !still {
 			_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{URI: target, Diagnostics: []protocol.Diagnostic{}})
 		}
+	}
+	current := make(map[uri.URI]bool, len(sets))
+	for target := range sets {
+		current[target] = true
 	}
 	s.findingURIs = current
 }

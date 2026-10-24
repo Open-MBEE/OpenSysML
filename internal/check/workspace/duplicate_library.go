@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
@@ -63,7 +62,7 @@ func DuplicateLibraries(idx *symbols.Index) []Finding {
 		}
 		library := idx.IsLibraryDocument(doc)
 		root.ForEachMember(func(sym *symbols.Symbol) bool {
-			if sym.Name == "" || sym.Kind != symbols.SymbolPackage || !(library || isLibraryPackage(sym)) {
+			if sym.Name == "" || sym.Kind != symbols.SymbolPackage || !(library || symbols.IsLibraryPackage(sym)) {
 				return true
 			}
 			if _, seen := byName[sym.Name]; !seen {
@@ -93,14 +92,6 @@ func DuplicateLibraries(idx *symbols.Index) []Finding {
 		}
 	}
 	return group(idx, dups)
-}
-
-// isLibraryPackage reports whether the symbol's declaration is written
-// `library package`; a symbol rebuilt from an interface record has no declaration
-// to read, and counts only through its document's library mark.
-func isLibraryPackage(sym *symbols.Symbol) bool {
-	pkg, ok := sym.Decl.(*ast.Package)
-	return ok && (pkg.IsLibrary || pkg.IsStandard)
 }
 
 // usedDeclaration is the declaration of name a qualified reference resolves to:

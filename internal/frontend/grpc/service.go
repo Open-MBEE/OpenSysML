@@ -1043,6 +1043,8 @@ func (s *Service) GetDiagnostics(ctx context.Context, req *pb.DiagnosticsRequest
 	for _, doc := range cached.Documents {
 		pbDiags = append(pbDiags, s.diagnosticsToProto(doc, doc.lintSelected(disabled, enabled))...)
 	}
+	// The workspace findings are no lints, so the selection leaves them as they are.
+	pbDiags = append(pbDiags, s.findingDiagnostics(cached)...)
 	return &pb.DiagnosticsResponse{Diagnostics: pbDiags}, nil
 }
 
