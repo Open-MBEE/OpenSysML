@@ -7,7 +7,7 @@
 # 3 diagram records: 2 joined, 1 matching no diagram; 0 views laid out from their own symbol stream, 0 without layout
 # placements: 5 of 7 written (1 not exposed, 1 resolving to no element); routes: 1 of 4 written (2 not pinned, 1 resolving to no element); malformed: 1
 # styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
-# routes of Connector: 1 not drawn
+# routes of Connector: 1 not exposed
 # routes of Connector: 1 written
 # routes of ControlFlow: 1 not drawn
 # routes of Dependency: 1 dangling
@@ -19,7 +19,7 @@ Layout	Vehicle Structure	_diag_bdd	(_blk_wheel: no <right> bound)
 
 ## approximated (2)
 OpaqueAction	Behavior::Drive::step	_act_step	-> 'step'	(the JavaScript body is translated to v2; going is declared nowhere, so it is declared a local attribute of the action: a script's assignment to an undeclared name creates it)
-Diagram	Structure::Vehicle Structure	_diag_bdd	-> Model::Structure::'Vehicle Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 8 shown ids resolve to no element; laid out from layout.layout.xml: 3 of 5 shown elements positioned (1 not exposed, 1 resolving to no element), 0 of 3 connectors routed (2 not drawn, 1 resolving to no element))
+Diagram	Structure::Vehicle Structure	_diag_bdd	-> Model::Structure::'Vehicle Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 8 shown ids resolve to no element; laid out from layout.layout.xml: 3 of 5 shown elements positioned (1 not exposed, 1 resolving to no element), 0 of 3 connectors routed (1 not drawn, 1 not exposed, 1 resolving to no element))
 
 ## mapped (13)
 Package	Behavior	_pkg_behavior	-> Model::Behavior

@@ -519,7 +519,7 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 	case EdgeComposition, EdgeReference, EdgeContainment:
 		// D2 draws a source arrowhead only where the connection has a head there.
 		arrow, class = "<-", edge.Kind.String()
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
 		class = "dependency"
 	}
 	w.writeArrow(indent, d2EdgeSpec{from: w.end(edge.From, edge.FromPort), to: w.end(edge.To, edge.ToPort), arrow: arrow, label: edge.Label, class: class, style: edge.Style, origin: edge.Origin}, d2EndLabels(edge)...)

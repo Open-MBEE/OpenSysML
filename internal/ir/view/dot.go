@@ -2050,7 +2050,7 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		}
 	case EdgeContainment:
 		attrs = append(attrs, dotDirBack, "arrowtail=odot")
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
 		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
 	case EdgeAssociation:
 		attrs = append(attrs, dirNone)

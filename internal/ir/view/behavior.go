@@ -24,11 +24,40 @@ const maxBehaviorDepth = 8
 // positioning their declarations in view, nil for a rendering outside any view.
 func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
+	drawn := map[symbols.ElementKey]*Node{}
+	var others []*symbols.Symbol
 	for _, elem := range exposed {
-		if node := r.renderState(view, elem, ids, out, nil); node != nil {
+		if elem.Kind != symbols.SymbolStateDef && elem.Kind != symbols.SymbolStateUsage {
+			others = append(others, elem)
+			continue
+		}
+		if node := r.renderState(view, elem, ids, out, recordDrawn(drawn)); node != nil {
 			out.Roots = append(out.Roots, node)
 		}
 	}
+	used := r.exposedRelationships(view, exposed, ids, drawn, out)
+	for _, elem := range others {
+		if !used[elem] {
+			out.Notices = append(out.Notices, notShown(r, elem, "state machine", "state"))
+		}
+	}
+}
+
+// recordDrawn records, in drawn, the first node drawn for each element.
+func recordDrawn(drawn map[symbols.ElementKey]*Node) func(*symbols.Symbol, *Node) {
+	return func(sym *symbols.Symbol, node *Node) {
+		if sym == nil || node == nil {
+			return
+		}
+		if _, ok := drawn[symbols.KeyOf(sym)]; !ok {
+			drawn[symbols.KeyOf(sym)] = node
+		}
+	}
+}
+
+// notShown is the notice for an exposed element a rendering of a kind does not draw.
+func notShown(r *Renderer, elem *symbols.Symbol, what, rendering string) string {
+	return fmt.Sprintf("%s %s is no %s; %s %s rendering does not show it", declKind(elem), r.notationName(elem), what, article(rendering), rendering)
 }
 
 // rootsByOwner groups the roots of kind rootKind by the nearest owner of one of
@@ -61,8 +90,7 @@ func rootsByOwner(roots map[*symbols.Symbol]*Node, rootKind symbols.SymbolKind, 
 func (r *Renderer) renderState(view *symbols.Symbol, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) *Node {
 	if elem.Kind != symbols.SymbolStateDef && elem.Kind != symbols.SymbolStateUsage {
-		out.Notices = append(out.Notices, fmt.Sprintf("%s %s is no state machine; a state rendering does not show it",
-			declKind(elem), r.notationName(elem)))
+		out.Notices = append(out.Notices, notShown(r, elem, "state machine", "state"))
 		return nil
 	}
 	graph, err := lower.ToStateGraphWithEndpoints(elem.Decl, declScope(elem), lower.NewLibraryStateTypes(r.resolver))
@@ -571,14 +599,26 @@ func escaped(text string, i int) bool {
 // outside any view.
 func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
+	drawn := map[symbols.ElementKey]*Node{}
+	var others []*symbols.Symbol
 	roots := map[*symbols.Symbol]*Node{}
 	for _, elem := range exposed {
-		if node, ok := r.renderAction(view, elem, ids, out, nil); ok {
+		if elem.Kind != symbols.SymbolActionDef && elem.Kind != symbols.SymbolActionUsage {
+			others = append(others, elem)
+			continue
+		}
+		if node, ok := r.renderAction(view, elem, ids, out, recordDrawn(drawn)); ok {
 			out.Roots = append(out.Roots, node)
 			roots[elem] = node
 		}
 	}
 	r.rootSuccessionEdges(view, roots, out)
+	used := r.exposedRelationships(view, exposed, ids, drawn, out)
+	for _, elem := range others {
+		if !used[elem] {
+			out.Notices = append(out.Notices, notShown(r, elem, "action", "action"))
+		}
+	}
 }
 
 // rootSuccessionEdges draws the successions of one action between actions of
@@ -624,8 +664,7 @@ func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.
 func (r *Renderer) renderAction(view *symbols.Symbol, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) (*Node, bool) {
 	if elem.Kind != symbols.SymbolActionDef && elem.Kind != symbols.SymbolActionUsage {
-		out.Notices = append(out.Notices, fmt.Sprintf("%s %s is no action; an action rendering does not show it",
-			declKind(elem), r.notationName(elem)))
+		out.Notices = append(out.Notices, notShown(r, elem, "action", "action"))
 		return nil, false
 	}
 	subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem), typ: r.headType(elem),
