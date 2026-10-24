@@ -169,12 +169,6 @@ func (ctx *Context) kernelDeclaredValue(inst *Instance, feat *EffectiveFeature) 
 	return val, true, nil
 }
 
-// The Kernel collections whose holders redefine the context feature `this` of what they hold.
-const (
-	ownedPerformancesFQN = "Objects::Object::ownedPerformances"
-	subperformancesFQN   = "Performances::Performance::subperformances"
-)
-
 // performanceContextOf is the object the context feature `this` of a performance denotes
 // when the feature holding it redefines the default: the holder for one held under
 // `ownedPerformances` (Objects.kerml `this default that`), the holder's own context for one
@@ -184,29 +178,7 @@ func (ctx *Context) performanceContextOf(inst *Instance, sym *symbols.Symbol) *I
 	if ctx.model.resolver == nil || !ctx.model.resolver.IsOccurrenceThis(sym) {
 		return nil
 	}
-	return ctx.performanceContext(inst, map[*Instance]bool{})
-}
-
-func (ctx *Context) performanceContext(inst *Instance, seen map[*Instance]bool) *Instance {
-	owner, held := inst.Owner()
-	if owner == nil || seen[inst] {
-		return nil
-	}
-	seen[inst] = true
-	holding, ok := owner.FeatureValues[held]
-	if !ok || holding.Feature == nil || holding.Feature.Symbol == nil {
-		return nil
-	}
-	if sub := ctx.librarySymbol(subperformancesFQN); sub != nil && ctx.subsetsTransitively(holding.Feature.Symbol, owner.Type, sub) {
-		if context := ctx.performanceContext(owner, seen); context != nil {
-			return context
-		}
-		return owner
-	}
-	if owned := ctx.librarySymbol(ownedPerformancesFQN); owned != nil && ctx.subsetsTransitively(holding.Feature.Symbol, owner.Type, owned) {
-		return owner
-	}
-	return nil
+	return ctx.contextOccurrence(inst)
 }
 
 // kernelInverseValue answers a member declared `inverse of` a collection X from

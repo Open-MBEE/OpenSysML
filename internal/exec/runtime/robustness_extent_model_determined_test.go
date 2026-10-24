@@ -495,15 +495,15 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		if err != nil {
 			t.Fatalf("u: %v", err)
 		}
-		if FormatValue(got) == "5" {
-			t.Fatalf("u = %s, want undetermined: an unbound optional attribute still reads as before", FormatValue(got))
+		if FormatValue(got) != "[]" {
+			t.Fatalf("u = %s, want the empty sequence: an unbound optional attribute holds nothing", FormatValue(got))
 		}
 		undeclared, err := ctx.EvalDeclaredValue(lookupOne(t, idx, "test::u"))
 		if err != nil {
 			t.Fatalf("EvalDeclaredValue u: %v", err)
 		}
-		if FormatValue(undeclared) != "<undetermined>" {
-			t.Fatalf("EvalDeclaredValue u = %s, want undetermined, as before", FormatValue(undeclared))
+		if FormatValue(undeclared) != "[]" {
+			t.Fatalf("EvalDeclaredValue u = %s, want the empty sequence", FormatValue(undeclared))
 		}
 	})
 

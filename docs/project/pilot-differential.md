@@ -245,7 +245,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 917 files)
+## Results (pilot `2026-08`, 920 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -254,10 +254,10 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
 | `examples/spec-examples` | 511 | 150 | 1094 | 3395 | 1038 | 6 | 50 | 2351 |
-| `tests/testdata` | 37 | 23 | 77 | 99 | 59 | 5 | 13 | 35 |
+| `tests/testdata` | 40 | 25 | 78 | 101 | 60 | 5 | 13 | 36 |
 | `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **917** | **515** | **1474** | **3555** | **1097** | **11** | **366** | **2447** |
+| **Total** | **920** | **517** | **1475** | **3557** | **1098** | **11** | **366** | **2448** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -306,7 +306,7 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 3 `unresolved-reference`; `kerml-examples` 13 `unmapped`, 3 `unresolved-reference`; `testdata` 10 `unmapped`,
 1 `unresolved-reference`, 2 `multiplicity`; `examples` 5
 `unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
-38 `unresolved-reference`, 3 `kind-mismatch`, 2 `unmapped`. Only-pilot: `testdata` 13 `kind-mismatch`, 17 `unmapped`,
+38 `unresolved-reference`, 3 `kind-mismatch`, 2 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
 3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
 586 `kind-mismatch`, 196 `syntax`, 156 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
 
@@ -977,8 +977,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **2447** |
-| pilot diagnostics | 123 | **3555** |
+| only pilot | 82 | **2448** |
+| pilot diagnostics | 123 | **3557** |
 | severity-only | 9 | **11** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1202,9 +1202,9 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **515 / 366 / 1474** |
-| only pilot | **2447** |
-| pilot diagnostics | **3555** |
+| overall: fully agreeing / only ours / our diagnostics | **517 / 366 / 1475** |
+| only pilot | **2448** |
+| pilot diagnostics | **3557** |
 | severity-only | **11** |
 | unmapped, our side | **288** |
 | kerml-examples: only ours | **16** |

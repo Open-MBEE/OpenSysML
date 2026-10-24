@@ -56,11 +56,9 @@ export interface PlacedNode {
   shape: Shape;
   /** The model, or a gesture in progress, states where the node goes. */
   pinned: boolean;
-  /** The node is drawn without its children. */
+  /** The model folds the node: the rendering keeps only its boundary ports and pins beneath it. */
   collapsed: boolean;
   ports: PlacedPort[];
-  /** An owner is collapsed, so the node is not drawn, nor any edge at it. */
-  hidden: boolean;
   children: PlacedNode[];
   parent?: PlacedNode;
   /** In a sequence, the y the node's lifeline runs down to from its box. */
@@ -77,7 +75,7 @@ export interface PlacedEdge {
   route: RenderPoint[];
   /** Where the label sits, on the polyline's midpoint. */
   label: RenderPoint;
-  /** An end is under a collapsed owner, or the kind is hidden, so the edge is not drawn. */
+  /** The kind is one the panel hides, so the edge is not drawn. */
   hidden: boolean;
   /** The route was found around the other boxes at layout time; the model states none, so a move does not write it. */
   rerouted: boolean;
@@ -130,7 +128,7 @@ export interface Overrides {
   routing?: Routing;
   /** Lay out from the auto layout alone, the model's Layout and Route placements ignored; a node the auto layout did not place keeps a grid slot. */
   unplaced?: boolean;
-  /** Edge kinds the panel hides: their edges are laid out but not drawn, routed around or counted in the extents, as an edge at a hidden node is. */
+  /** Edge kinds the panel hides: their edges are laid out but not drawn, routed around or counted in the extents. */
   hiddenKinds?: ReadonlySet<string>;
 }
 
@@ -193,7 +191,6 @@ export function layoutCanvas(
       shape: shapeOf(node.kind),
       pinned: false,
       collapsed: false,
-      hidden: false,
       children: [],
       ports: [],
     };
@@ -244,9 +241,6 @@ export function layoutCanvas(
     extent.bottom = Math.max(extent.bottom, y);
   };
   for (const entry of placed.values()) {
-    if (entry.hidden) {
-      continue;
-    }
     const nodeBounds = nodeExtent(entry);
     reach(nodeBounds.x, nodeBounds.y);
     reach(nodeBounds.x + nodeBounds.width, nodeBounds.y + nodeBounds.height);
@@ -439,12 +433,9 @@ function placeAcross(
 ): number {
   const { stated, pinned } = geometry(entry);
   entry.pinned = pinned;
-  entry.collapsed = stated?.collapsed === true;
-  if (entry.collapsed) {
-    hide(entry.children);
-  }
+  entry.collapsed = (stated?.collapsed ?? entry.node.collapsed) === true;
   entry.box.x = stated?.x ?? slot;
-  const shown = shownChildren(entry, stated);
+  const shown = entry.children;
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
   spread(lanes(shown, columns, true), entry.box.x + CONTAINER_PAD, (child, x) =>
     placeAcross(child, x, geometry),
@@ -473,7 +464,7 @@ function placeDown(
 ): number {
   const { stated } = geometry(entry);
   entry.box.y = stated?.y ?? slot;
-  const shown = shownChildren(entry, stated);
+  const shown = entry.children;
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
   const header = symbolSize(entry.shape) ?? labelSize(entry.lines);
   spread(
@@ -494,22 +485,6 @@ function placeDown(
   }
   entry.box.height = height;
   return height;
-}
-
-// shownChildren is the children drawn inside a node: none when it is collapsed.
-function shownChildren(
-  entry: PlacedNode,
-  stated: LayoutGeometry | undefined,
-): PlacedNode[] {
-  return stated?.collapsed ? [] : entry.children;
-}
-
-// hide marks a collapsed node's subtree as not drawn.
-function hide(entries: PlacedNode[]): void {
-  for (const entry of entries) {
-    entry.hidden = true;
-    hide(entry.children);
-  }
 }
 
 /**
@@ -768,7 +743,7 @@ export function freePlacement(
   const expandedAt = (point: RenderPoint): Box =>
     inflate(extentAt(node, point), CLEARANCE);
   const otherExtents = others
-    .filter((other) => other.node.id !== node.node.id && !other.hidden)
+    .filter((other) => other.node.id !== node.node.id)
     .map((other) => inflate(extentAt(other, other.box), CLEARANCE));
   const isFree = (point: RenderPoint): boolean => {
     const extent = expandedAt(point);
@@ -858,7 +833,7 @@ export function alignedPlacement(
   bounds: Box,
   portExitLeg: number | ((node: PlacedNode, port: PlacedPort) => number),
   others: PlacedNode[] = [...layout.nodes.values()].filter(
-    (entry) => entry.node.id !== node.node.id && !entry.hidden,
+    (entry) => entry.node.id !== node.node.id,
   ),
 ): RenderPoint {
   const nodeId = node.node.id;
@@ -879,7 +854,7 @@ export function alignedPlacement(
       continue;
     }
     const otherNode = layout.nodes.get(fromIsNode ? edge.to : edge.from);
-    if (!otherNode || otherNode.hidden) {
+    if (!otherNode) {
       continue;
     }
     const ownPortId = fromIsNode ? edge.fromPort : edge.toPort;
@@ -1218,9 +1193,6 @@ function placePorts(
   auto?: AutoLayout,
 ): void {
   for (const entry of placed.values()) {
-    if (entry.hidden) {
-      continue;
-    }
     const defaults = new Map<Side, PlacedPort[]>();
     entry.ports = (entry.node.ports ?? []).map((port) => {
       const laid = auto?.ports.get(port.id);
@@ -1257,7 +1229,7 @@ function defaultPortSide(
     return "south";
   }
   const other = placed.get(edge.from === entry.node.id ? edge.to : edge.from);
-  if (!other || other.hidden) {
+  if (!other) {
     return "south";
   }
   const here = center(entry.box);
@@ -1277,7 +1249,7 @@ function includePortExtent(layout: CanvasLayout): CanvasLayout {
   let bottom = layout.origin.y + layout.height;
   let hasPorts = false;
   for (const entry of layout.nodes.values()) {
-    if (entry.hidden || entry.ports.length === 0) {
+    if (entry.ports.length === 0) {
       continue;
     }
     hasPorts = true;
@@ -1395,14 +1367,9 @@ function statedRoute(
 
 // routeEdge is an edge's polyline: from the border of its source, through the
 // route's waypoints, to the border of its target; a self-loop swings out to the right.
-// folded is whether an end of the edge is under a collapsed owner: the edge is then not drawn, whatever kinds the panel shows.
-function folded(placed: ReadonlyMap<string, PlacedNode>, edge: RenderEdge): boolean {
-  return placed.get(edge.from)?.hidden === true || placed.get(edge.to)?.hidden === true;
-}
-
-/** listedEdges is the rendering's edges at drawn nodes, those of a hidden kind included: what the canvas draws or its relation filter could, which the Relations list counts. */
+/** listedEdges is the rendering's edges, those of a hidden kind included: what the canvas draws or its relation filter could, which the Relations list counts. */
 export function listedEdges(layout: CanvasLayout): RenderEdge[] {
-  return layout.edges.filter((edge) => !folded(layout.nodes, edge.edge)).map((edge) => edge.edge);
+  return layout.edges.map((edge) => edge.edge);
 }
 
 // The auto layout's route applies only where neither end is placed, since an end
@@ -1420,7 +1387,7 @@ function routeEdge(
   const stated = unplaced && !routes?.has(index) ? undefined : statedRoute(edge, index, routes, routing);
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
-  const hidden = folded(placed, edge) || hiddenKinds?.has(edge.kind) === true;
+  const hidden = hiddenKinds?.has(edge.kind) === true;
   const routed = autoRoute(stated, index, auto, source, target);
   if (routed !== undefined) {
     // ELK's anchors already lie on the boxes' borders, so its polyline is drawn
@@ -1493,7 +1460,7 @@ function autoRoute(
 
 // avoidable is an edge the panel routes around the boxes: nothing states its route
 // (or the router overrides what does), the auto layout has none for it, and both
-// ends are drawn, distinct and not hidden.
+// ends are drawn and distinct.
 function avoidable(
   edge: RenderEdge,
   index: number,
@@ -1512,8 +1479,6 @@ function avoidable(
     edge.from !== edge.to &&
     source !== undefined &&
     target !== undefined &&
-    !source.hidden &&
-    !target.hidden &&
     autoRoute(stated, index, auto, source, target) === undefined
   );
 }
@@ -1572,10 +1537,7 @@ function rerouteAroundBoxes(
   const leaves = new Map<string, Box>();
   const containers = new Map<string, Box>();
   const visit = (entry: PlacedNode): void => {
-    if (entry.hidden) {
-      return;
-    }
-    const shown = entry.children.filter((child) => !child.hidden);
+    const shown = entry.children;
     (shown.length === 0 ? leaves : containers).set(entry.node.id, entry.box);
     for (const child of shown) {
       visit(child);
@@ -1737,7 +1699,7 @@ function routable(layout: CanvasLayout, edge: PlacedEdge): boolean {
 }
 
 // nodeUnder is the node drawn on top at a point: the innermost, latest-drawn box holding it,
-// passing over hidden nodes and the subtree of `except`, which a drag holds over the others.
+// passing over the subtree of `except`, which a drag holds over the others.
 export function nodeUnder(
   layout: CanvasLayout,
   at: RenderPoint,
@@ -1745,7 +1707,7 @@ export function nodeUnder(
 ): PlacedNode | undefined {
   let found: PlacedNode | undefined;
   const visit = (entry: PlacedNode): void => {
-    if (entry.hidden || entry.node.id === except) {
+    if (entry.node.id === except) {
       return;
     }
     if (contains(entry.box, at)) {

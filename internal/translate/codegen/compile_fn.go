@@ -534,8 +534,9 @@ func (fc *funcCompiler) compileSample(n *ast.InvocationExpr) (Sample, error) {
 // materialization after it, and the SampledFunction's once all are collected.
 var sampleSteps = SampleSteps{Enter: 4, Before: 4, After: 1, Done: 1}
 
-// projectionSteps are the steps Domain or Range spends reading `fn.samples.domainValue`.
-const projectionSteps = 3
+// projectionSteps are the steps Domain or Range spends reading `fn.samples.domainValue`:
+// the chain, read as one from `fn`, and `fn` itself.
+const projectionSteps = 2
 
 // temp is a fresh hidden local of type t.
 func (fc *funcCompiler) temp(t Type) Param {

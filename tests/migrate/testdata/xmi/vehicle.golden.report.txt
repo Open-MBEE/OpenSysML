@@ -93,7 +93,7 @@ Connector	Vehicle Design::Vehicle::fuel line	_conn_fuel	-> Model::'Vehicle Desig
 Property	Vehicle Design::Vehicle::isElectric	_prop_isElectric	-> Model::'Vehicle Design'::Vehicle::isElectric
 Property	Vehicle Design::Vehicle::mass	_prop_mass	-> Model::'Vehicle Design'::Vehicle::mass
 Property	Vehicle Design::Vehicle::massLimit	_prop_limit	-> Model::'Vehicle Design'::Vehicle::massLimit
-Constraint	Vehicle Design::Vehicle::positive mass	_rule_positive	-> Model::'Vehicle Design'::Vehicle::'positive mass'	(the English body is translated to v2; acts on its owner Vehicle Design::Vehicle, which it takes as its parameter context, since its this is the def's own occurrence; the constraint def Positive mass holds the specification as its result, asserted by the usage typed by it)
+Constraint	Vehicle Design::Vehicle::positive mass	_rule_positive	-> Model::'Vehicle Design'::Vehicle::'positive mass'	(the English body is translated to v2; acts on its owner Vehicle Design::Vehicle, which it takes as its parameter context, since its this names no feature of the owner; the constraint def Positive mass holds the specification as its result, asserted by the usage typed by it)
 Operation	Vehicle Design::Vehicle::start	_op_start	-> Model::'Vehicle Design'::Vehicle::start	(written as an action usage of Vehicle Design::Vehicle, which a call on an object performs, so its body runs on the object and reaches its features)
 Parameter	Vehicle Design::Vehicle::start::key	_par_start	-> Model::'Vehicle Design'::Vehicle::start::key
 Property	Vehicle Design::Vehicle::vehicle name	_prop_name	-> Model::'Vehicle Design'::Vehicle::'vehicle name'

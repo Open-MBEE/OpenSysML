@@ -2015,16 +2015,16 @@ func identityPair(t *testing.T, ctx *Context, inst *Instance, pair []string) (in
 	return objectAtPath(t, ctx, inst, pair[0]), objectAtPath(t, ctx, inst, pair[1])
 }
 
-// objectAtPath walks a dotted path of feature names from inst and returns the
-// object it reaches. A numeric segment indexes into the collection the feature
-// before it holds, counted from 1 ("units.2").
+// objectAtPath walks a dotted path of member names from inst (Kernel members such
+// as `this` included, as featureValueAtPath reads them) and returns the object it
+// reaches. A numeric segment indexes into the collection before it ("units.2").
 func objectAtPath(t *testing.T, ctx *Context, inst *Instance, path string) int64 {
 	t.Helper()
 	cur := inst
 	segments := strings.Split(path, ".")
 	for i := 0; i < len(segments); i++ {
 		name := segments[i]
-		fv, err := cur.GetFeatureValue(ctx, name)
+		fv, err := cur.MemberValue(ctx, name)
 		if err != nil {
 			t.Fatalf("%s: feature value %q: %v", path, name, err)
 		}

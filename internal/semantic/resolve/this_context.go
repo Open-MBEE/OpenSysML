@@ -30,13 +30,24 @@ func (r *Resolver) IsOccurrenceThis(sym *symbols.Symbol) bool {
 
 // ThisContext returns the object `this` denotes where scope was written: the
 // innermost enclosing object, since an owned performance and its subperformances
-// take their owner's `this` ([KerML] Objects::ownedPerformances, [SysML]
-// Parts::Part::this, Actions::Action::subactions). A behavior usage is not its
-// own context — it keeps walking — but a behavior definition is the occurrence
-// it defines, so `this` inside one denotes that definition itself and the walk
-// stops there. Nil in a standalone behavior, where `this` is the performance
-// itself.
+// take their owner's `this` ([KerML] Objects::ownedPerformances,
+// Performances::subperformances; [SysML] Parts::Part::ownedActions::this,
+// Actions::Action::subactions). The walk continues through behavior usages and
+// definitions alike. Nil in a standalone behavior, where `this` is the
+// performance itself.
 func (r *Resolver) ThisContext(scope *symbols.Scope) *symbols.Symbol {
+	return thisContext(scope, true)
+}
+
+// thisChainContext is the object a chain `this.<member>` written in scope is
+// resolved against: the enclosing object of a usage body. A definition's `this`
+// keeps its declared type (Occurrences::Occurrence::this : Occurrence[1] default self),
+// so a chain written in a definition resolves against that type, not the lexical owner.
+func (r *Resolver) thisChainContext(scope *symbols.Scope) *symbols.Symbol {
+	return thisContext(scope, false)
+}
+
+func thisContext(scope *symbols.Scope, throughDefs bool) *symbols.Symbol {
 	for s := scope; s != nil; s = s.Parent() {
 		owner := s.Owner()
 		if owner == nil {
@@ -45,9 +56,9 @@ func (r *Resolver) ThisContext(scope *symbols.Scope) *symbols.Symbol {
 		switch {
 		case isObjectKind(owner.Kind):
 			return owner
-		case isBehaviorDefKind(owner.Kind):
-			return owner
 		case isBehaviorUsageKind(owner.Kind):
+			continue
+		case isBehaviorDefKind(owner.Kind) && throughDefs:
 			continue
 		default:
 			return nil
