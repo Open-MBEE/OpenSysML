@@ -568,6 +568,7 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(PYTHON) -m coverage erase --rcfile=scripts/coverage-scripts.ini
 	$(SCRIPTS_COVERAGE) scripts/changelog-test.py
 	$(SCRIPTS_COVERAGE) scripts/changelog.py check
+	$(SCRIPTS_COVERAGE) scripts/release-announce-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_suite_figures-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_install_scripts-test.py
