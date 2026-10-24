@@ -415,9 +415,9 @@ type footprintBuilder struct {
 	declared          map[ast.Node]ast.Node
 	localDeclarations bool
 	footprint         Footprint
-	// expanding holds the calc usages whose bindings are being read, so a cyclic binding stops.
-	expanding map[*ast.Usage]bool
-	// sem answers what a feature redefines, explicitly or by position, over resolver.
+	// expanding is the stack of usages whose bindings are being read, so a cyclic binding stops.
+	expanding []*ast.Usage
+	// sem answers what a feature redefines, explicitly or by position.
 	sem *semantics.Model
 }
 
@@ -526,36 +526,20 @@ func (b *footprintBuilder) boundValue(sym *symbols.Symbol, direct bool) {
 	default:
 		return
 	}
-	if b.expanding[usage] {
+	if usage.Value != nil && !valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault) {
 		return
 	}
-	if b.expanding == nil {
-		b.expanding = make(map[*ast.Usage]bool)
+	if !b.enter(usage) {
+		return
 	}
-	b.expanding[usage] = true
-	defer delete(b.expanding, usage)
+	defer b.leave()
 	if usage.Value == nil {
 		// A redefining feature valued by nothing of its own is bound as the one it
 		// redefines is (`attribute :>> y;` over `attribute y = x + 1`), explicitly or
 		// as a parameter at the same position.
-		if sem := b.semantics(); sem != nil {
-			redefined := sem.RedefinedFeatures(sym)
-			if len(redefined) == 0 {
-				redefined = sem.ImplicitParameterRedefinitions(sym)
-			}
-			for _, p := range redefined {
-				b.boundValue(p, direct)
-			}
-			return
+		for _, p := range b.redefinitions(sym, usage) {
+			b.boundValue(p, direct)
 		}
-		for _, rel := range usage.Relationships {
-			if rel != nil && rel.Kind == ast.RelRedefines {
-				b.boundValue(b.redefined(sym, rel.Target), direct)
-			}
-		}
-		return
-	}
-	if !valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault) {
 		return
 	}
 	scope := sym.Scope
@@ -568,19 +552,44 @@ func (b *footprintBuilder) boundValue(sym *symbols.Symbol, direct bool) {
 	b.reads(scope, usage.Value)
 }
 
-// semantics is the model over the builder's resolver, nil without one.
+// semantics is the model the builder was given, else its graph's, nil without one.
 func (b *footprintBuilder) semantics() *semantics.Model {
-	resolver := b.resolver
-	if resolver == nil && b.graph != nil {
-		resolver = b.graph.resolver
-	}
-	if resolver == nil {
-		return nil
-	}
-	if b.sem == nil {
-		b.sem = semantics.NewModel(resolver)
+	if b.sem == nil && b.graph != nil {
+		b.sem = b.graph.Semantics()
 	}
 	return b.sem
+}
+
+// enter pushes usage onto the expanding stack, false when it is already there.
+func (b *footprintBuilder) enter(usage *ast.Usage) bool {
+	if slices.Contains(b.expanding, usage) {
+		return false
+	}
+	b.expanding = append(b.expanding, usage)
+	return true
+}
+
+// leave pops the usage entered last.
+func (b *footprintBuilder) leave() { b.expanding = b.expanding[:len(b.expanding)-1] }
+
+// redefinitions are the features sym redefines, explicitly or as a parameter at
+// the same position, by the semantic model when there is one.
+func (b *footprintBuilder) redefinitions(sym *symbols.Symbol, usage *ast.Usage) []*symbols.Symbol {
+	if sem := b.semantics(); sem != nil {
+		if redefined := sem.RedefinedFeatures(sym); len(redefined) > 0 {
+			return redefined
+		}
+		return sem.ImplicitParameterRedefinitions(sym)
+	}
+	var redefined []*symbols.Symbol
+	for _, rel := range usage.Relationships {
+		if rel != nil && rel.Kind == ast.RelRedefines {
+			if p := b.redefined(sym, rel.Target); p != nil {
+				redefined = append(redefined, p)
+			}
+		}
+	}
+	return redefined
 }
 
 // redefined is the feature a redefinition of sym names by target, declared in a
@@ -612,14 +621,10 @@ func (b *footprintBuilder) calcUsage(sym *symbols.Symbol, usage *ast.Usage) {
 		return
 	}
 	b.footprint.Dynamic = true
-	if b.expanding[usage] {
+	if !b.enter(usage) {
 		return
 	}
-	if b.expanding == nil {
-		b.expanding = make(map[*ast.Usage]bool)
-	}
-	b.expanding[usage] = true
-	defer delete(b.expanding, usage)
+	defer b.leave()
 	scope := sym.Scope
 	if scope == nil {
 		scope = b.scope
@@ -1394,8 +1399,8 @@ func isConvergence(node ast.Node) bool {
 
 // ExpressionFootprint is what evaluating expr in scope reads: the places a guard
 // or condition depends on, dynamic where the declarations do not decide them.
-func ExpressionFootprint(resolver *resolve.Resolver, scope *symbols.Scope, expr ast.Node) Footprint {
-	b := &footprintBuilder{resolver: resolver, scope: scope}
+func ExpressionFootprint(resolver *resolve.Resolver, sem *semantics.Model, scope *symbols.Scope, expr ast.Node) Footprint {
+	b := &footprintBuilder{resolver: resolver, sem: sem, scope: scope}
 	b.reads(scope, expr)
 	return b.footprint
 }

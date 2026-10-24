@@ -437,7 +437,7 @@ func (m *Model) expressionFootprint(scope *symbols.Scope, expr ast.Node) lower.F
 	if fp, ok := m.footprints[key]; ok {
 		return fp
 	}
-	fp := lower.ExpressionFootprint(m.resolver, scope, expr)
+	fp := lower.ExpressionFootprint(m.resolver, m.semantics, scope, expr)
 	if m.footprints == nil {
 		m.footprints = map[footprintKey]lower.Footprint{}
 	}

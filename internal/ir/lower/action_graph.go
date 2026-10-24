@@ -132,6 +132,7 @@ type ActionGraph struct {
 	// resolver is the name-resolution tier's, by which lowering tells the metadata
 	// it gives a meaning to (Probability) from any other; nil reads none.
 	resolver *resolve.Resolver
+	sem      *semantics.Model
 
 	// lowering holds the declarations whose action content is being lowered on
 	// this path.
@@ -868,6 +869,15 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 
 // Resolver is the resolver the graph was lowered with, nil for none.
 func (g *ActionGraph) Resolver() *resolve.Resolver { return g.resolver }
+
+// Semantics is the semantic model over the graph's resolver, built once and
+// shared by every footprint of the graph; nil without a resolver.
+func (g *ActionGraph) Semantics() *semantics.Model {
+	if g.sem == nil && g.resolver != nil {
+		g.sem = semantics.NewModel(g.resolver)
+	}
+	return g.sem
+}
 
 // ToActionGraphWith is ToActionGraph reading the metadata the resolver identifies:
 // a succession's `@Probability { p = ...; }` becomes its edge's weight.
