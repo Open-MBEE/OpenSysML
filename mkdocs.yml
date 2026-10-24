@@ -263,6 +263,7 @@ nav:
       - Running external programs from a model: manual/running-external-programs.md
       - Limitations and troubleshooting: manual/troubleshooting.md
       - Worked example output: manual/examples/observatory.md
+      - Markdown prose example output: manual/examples/prose.md
       - Requirements example output: manual/examples/requirements.md
       - Traceability example output: manual/examples/traceability.md
       - Traceability tier 1 output: manual/examples/trace-1-basic.md

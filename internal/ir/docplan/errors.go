@@ -11,62 +11,66 @@ import (
 type ErrorKind string
 
 const (
-	ErrorInvalidContext          ErrorKind = "invalid-context"
-	ErrorLibraryUnavailable      ErrorKind = "library-unavailable"
-	ErrorNotDocumentDefinition   ErrorKind = "not-document-definition"
-	ErrorMissingTitle            ErrorKind = "missing-title"
-	ErrorInvalidAttribute        ErrorKind = "invalid-attribute"
-	ErrorInvalidContent          ErrorKind = "invalid-content"
-	ErrorNestedDocument          ErrorKind = "nested-document"
-	ErrorMissingText             ErrorKind = "missing-text"
-	ErrorConflictingText         ErrorKind = "conflicting-text"
-	ErrorMissingQuery            ErrorKind = "missing-query"
-	ErrorConflictingQuery        ErrorKind = "conflicting-query"
-	ErrorUnknownQuery            ErrorKind = "unknown-query"
-	ErrorQueryPlanning           ErrorKind = "query-planning"
-	ErrorInvalidStyle            ErrorKind = "invalid-style"
-	ErrorUnknownParameter        ErrorKind = "unknown-parameter"
-	ErrorDuplicateBinding        ErrorKind = "duplicate-binding"
-	ErrorMissingBinding          ErrorKind = "missing-binding"
-	ErrorUnsupportedBinding      ErrorKind = "unsupported-binding"
-	ErrorBindingType             ErrorKind = "binding-type"
-	ErrorBindingMultiplicity     ErrorKind = "binding-multiplicity"
-	ErrorMissingViewSource       ErrorKind = "missing-view-source"
-	ErrorInvalidViewSource       ErrorKind = "invalid-view-source"
-	ErrorUnknownViewSource       ErrorKind = "unknown-view-source"
-	ErrorMissingDiagramKind      ErrorKind = "missing-diagram-kind"
-	ErrorConflictingKind         ErrorKind = "conflicting-diagram-kind"
-	ErrorUnsupportedKind         ErrorKind = "unsupported-diagram-kind"
-	ErrorInvalidDirection        ErrorKind = "invalid-direction"
-	ErrorUnsupportedDirection    ErrorKind = "unsupported-direction"
-	ErrorInvalidPalette          ErrorKind = "invalid-palette"
-	ErrorUnsupportedPalette      ErrorKind = "unsupported-palette"
-	ErrorInvalidPorts            ErrorKind = "invalid-ports"
-	ErrorUnsupportedPorts        ErrorKind = "unsupported-ports"
-	ErrorInvalidShow             ErrorKind = "invalid-show"
-	ErrorInvalidOverlay          ErrorKind = "invalid-overlay"
-	ErrorUnsupportedOverlay      ErrorKind = "unsupported-overlay"
-	ErrorConflictingRuns         ErrorKind = "conflicting-runs"
-	ErrorAmbiguousRun            ErrorKind = "ambiguous-run"
-	ErrorMissingRunText          ErrorKind = "missing-run-text"
-	ErrorInvalidRunStyle         ErrorKind = "invalid-run-style"
-	ErrorMissingLinkTarget       ErrorKind = "missing-link-target"
-	ErrorMissingRefTarget        ErrorKind = "missing-ref-target"
-	ErrorUnknownRefTarget        ErrorKind = "unknown-ref-target"
-	ErrorInvalidRefTarget        ErrorKind = "invalid-ref-target"
-	ErrorAmbiguousRefTarget      ErrorKind = "ambiguous-ref-target"
-	ErrorUnknownGroupColumn      ErrorKind = "unknown-group-column"
-	ErrorInvalidColumnWidths     ErrorKind = "invalid-column-widths"
-	ErrorInvalidColumnLabels     ErrorKind = "invalid-column-labels"
-	ErrorColumnRunWithoutQuery   ErrorKind = "column-run-without-query"
-	ErrorConflictingColumnRuns   ErrorKind = "conflicting-column-runs"
-	ErrorMissingRunColumn        ErrorKind = "missing-run-column"
-	ErrorConflictingRunStyle     ErrorKind = "conflicting-run-style"
-	ErrorUnknownRunColumn        ErrorKind = "unknown-run-column"
-	ErrorMissingDefinitionColumn ErrorKind = "missing-definition-column"
-	ErrorUnknownDefinitionColumn ErrorKind = "unknown-definition-column"
-	ErrorMissingFormulaSource    ErrorKind = "missing-formula-source"
-	ErrorMissingImageLocation    ErrorKind = "missing-image-location"
+	ErrorInvalidContext             ErrorKind = "invalid-context"
+	ErrorLibraryUnavailable         ErrorKind = "library-unavailable"
+	ErrorNotDocumentDefinition      ErrorKind = "not-document-definition"
+	ErrorMissingTitle               ErrorKind = "missing-title"
+	ErrorInvalidAttribute           ErrorKind = "invalid-attribute"
+	ErrorInvalidContent             ErrorKind = "invalid-content"
+	ErrorNestedDocument             ErrorKind = "nested-document"
+	ErrorMissingText                ErrorKind = "missing-text"
+	ErrorConflictingText            ErrorKind = "conflicting-text"
+	ErrorMissingQuery               ErrorKind = "missing-query"
+	ErrorConflictingQuery           ErrorKind = "conflicting-query"
+	ErrorUnknownQuery               ErrorKind = "unknown-query"
+	ErrorQueryPlanning              ErrorKind = "query-planning"
+	ErrorInvalidStyle               ErrorKind = "invalid-style"
+	ErrorUnknownParameter           ErrorKind = "unknown-parameter"
+	ErrorDuplicateBinding           ErrorKind = "duplicate-binding"
+	ErrorMissingBinding             ErrorKind = "missing-binding"
+	ErrorUnsupportedBinding         ErrorKind = "unsupported-binding"
+	ErrorBindingType                ErrorKind = "binding-type"
+	ErrorBindingMultiplicity        ErrorKind = "binding-multiplicity"
+	ErrorMissingViewSource          ErrorKind = "missing-view-source"
+	ErrorInvalidViewSource          ErrorKind = "invalid-view-source"
+	ErrorUnknownViewSource          ErrorKind = "unknown-view-source"
+	ErrorMissingDiagramKind         ErrorKind = "missing-diagram-kind"
+	ErrorConflictingKind            ErrorKind = "conflicting-diagram-kind"
+	ErrorUnsupportedKind            ErrorKind = "unsupported-diagram-kind"
+	ErrorInvalidDirection           ErrorKind = "invalid-direction"
+	ErrorUnsupportedDirection       ErrorKind = "unsupported-direction"
+	ErrorInvalidPalette             ErrorKind = "invalid-palette"
+	ErrorUnsupportedPalette         ErrorKind = "unsupported-palette"
+	ErrorInvalidPorts               ErrorKind = "invalid-ports"
+	ErrorUnsupportedPorts           ErrorKind = "unsupported-ports"
+	ErrorInvalidShow                ErrorKind = "invalid-show"
+	ErrorInvalidOverlay             ErrorKind = "invalid-overlay"
+	ErrorUnsupportedOverlay         ErrorKind = "unsupported-overlay"
+	ErrorConflictingRuns            ErrorKind = "conflicting-runs"
+	ErrorAmbiguousRun               ErrorKind = "ambiguous-run"
+	ErrorMissingRunText             ErrorKind = "missing-run-text"
+	ErrorInvalidRunStyle            ErrorKind = "invalid-run-style"
+	ErrorMissingLinkTarget          ErrorKind = "missing-link-target"
+	ErrorMissingRefTarget           ErrorKind = "missing-ref-target"
+	ErrorUnknownRefTarget           ErrorKind = "unknown-ref-target"
+	ErrorInvalidRefTarget           ErrorKind = "invalid-ref-target"
+	ErrorAmbiguousRefTarget         ErrorKind = "ambiguous-ref-target"
+	ErrorUnknownGroupColumn         ErrorKind = "unknown-group-column"
+	ErrorInvalidColumnWidths        ErrorKind = "invalid-column-widths"
+	ErrorInvalidColumnLabels        ErrorKind = "invalid-column-labels"
+	ErrorColumnRunWithoutQuery      ErrorKind = "column-run-without-query"
+	ErrorConflictingColumnRuns      ErrorKind = "conflicting-column-runs"
+	ErrorMissingRunColumn           ErrorKind = "missing-run-column"
+	ErrorConflictingRunStyle        ErrorKind = "conflicting-run-style"
+	ErrorUnknownRunColumn           ErrorKind = "unknown-run-column"
+	ErrorMissingDefinitionColumn    ErrorKind = "missing-definition-column"
+	ErrorUnknownDefinitionColumn    ErrorKind = "unknown-definition-column"
+	ErrorMissingFormulaSource       ErrorKind = "missing-formula-source"
+	ErrorMissingImageLocation       ErrorKind = "missing-image-location"
+	ErrorUnsupportedMarkupLanguage  ErrorKind = "unsupported-markup-language"
+	ErrorUnsupportedMarkupConstruct ErrorKind = "unsupported-markup-construct"
+	ErrorMisplacedMarkupBody        ErrorKind = "misplaced-markup-body"
+	ErrorMarkupBodyNotParagraph     ErrorKind = "markup-body-not-paragraph"
 )
 
 // Error is a typed document-planning failure with its source location.
@@ -79,10 +83,21 @@ type Error struct {
 	Expected  string
 	Actual    string
 	Origin    symbols.Origin
-	Err       error
+	// Line is the 1-based line within a markup body the failure is at, or 0.
+	Line int
+	Err  error
 }
 
 func (e *Error) Error() string {
+	message := e.message()
+	if e.Line > 0 {
+		message += fmt.Sprintf(" (body line %d)", e.Line)
+	}
+	return message
+}
+
+// message is the failure stated without its body line.
+func (e *Error) message() string {
 	switch e.Kind {
 	case ErrorInvalidContext:
 		return "document planning requires an index, resolver, and semantic model"
@@ -237,6 +252,14 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("document %s formula %s states no LaTeX source", e.Document, e.Content)
 	case ErrorMissingImageLocation:
 		return fmt.Sprintf("document %s image %s states no location", e.Document, e.Content)
+	case ErrorUnsupportedMarkupLanguage:
+		return fmt.Sprintf("document %s content %s carries a textual representation in %q, which no document markup language matches (supported: %s)", e.Document, e.Content, e.Actual, e.Expected)
+	case ErrorUnsupportedMarkupConstruct:
+		return fmt.Sprintf("document %s content %s carries a %s body whose %s no content block renders", e.Document, e.Content, e.Parameter, e.Actual)
+	case ErrorMisplacedMarkupBody:
+		return fmt.Sprintf("document %s content %s carries a %s body, which only a document, section or paragraph may", e.Document, e.Content, e.Parameter)
+	case ErrorMarkupBodyNotParagraph:
+		return fmt.Sprintf("document %s paragraph %s carries a %s body that yields %s rather than exactly one paragraph", e.Document, e.Content, e.Parameter, e.Actual)
 	default:
 		return fmt.Sprintf("document planning failed for %s", e.Document)
 	}
@@ -304,5 +327,9 @@ func ErrorKinds() []ErrorKind {
 		ErrorUnknownDefinitionColumn,
 		ErrorMissingFormulaSource,
 		ErrorMissingImageLocation,
+		ErrorUnsupportedMarkupLanguage,
+		ErrorUnsupportedMarkupConstruct,
+		ErrorMisplacedMarkupBody,
+		ErrorMarkupBodyNotParagraph,
 	}
 }
