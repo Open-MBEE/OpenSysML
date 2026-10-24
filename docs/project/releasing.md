@@ -400,7 +400,7 @@ packages and publishes `opensysml` (see
 
 `announce-release-slack` runs after `publish-github-release`, independent of
 the registry publishers. It posts the release title and link to the incoming
-webhook URL in `SLACK_WEBHOOK_URL` from the CircleCI context named exactly
+webhook URL in `OPENSYSML_WEBHOOK_URL` from the CircleCI context named exactly
 `Slack`. Add the Slack app to the maintainers' channel with *Add New Webhook
 to Workspace*. The post uses the app's display name and icon. The app needs
 only the `incoming-webhook` scope; no bot token or `chat:write` scope is

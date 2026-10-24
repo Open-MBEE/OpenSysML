@@ -7,14 +7,14 @@ The release workflow's announce-release-slack job runs this after the GitHub
 release exists. It reads the release's title and URL from the GitHub API (the
 release body stays human-written and can be edited up to the moment of the
 post), wraps them in a short Slack message and POSTs it to the incoming webhook
-in SLACK_WEBHOOK_URL. The optional --snippet file carries extra body text
+in OPENSYSML_WEBHOOK_URL. The optional --snippet file carries extra body text
 ("Get it: pip install opensysml …"), appended verbatim so the announcement a
 release deserves can be hand-written without touching this script.
 The webhook posts to the channel chosen when it was added, under the Slack
 app's own name and icon.
 
 Environment:
-    SLACK_WEBHOOK_URL   incoming-webhook URL for the announcement channel
+    OPENSYSML_WEBHOOK_URL   incoming-webhook URL for the announcement channel
     GITHUB_TOKEN/GH_TOKEN/CIRCLE_TOKEN   token for the release API read
     GH_REPO             owner/name, default from CIRCLE_PROJECT_USERNAME and
                         CIRCLE_PROJECT_REPONAME, else Open-MBEE/OpenSysML
@@ -109,9 +109,9 @@ def main() -> None:
         print(json.dumps(payload, indent=2))
         return
 
-    webhook = _env("SLACK_WEBHOOK_URL")
+    webhook = _env("OPENSYSML_WEBHOOK_URL")
     if not webhook:
-        sys.exit("Error: SLACK_WEBHOOK_URL is not set; add the incoming-webhook "
+        sys.exit("Error: OPENSYSML_WEBHOOK_URL is not set; add the incoming-webhook "
                  "URL to the 'Slack' context (Organization Settings -> Contexts).")
     request = urllib.request.Request(
         webhook,

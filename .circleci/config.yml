@@ -3978,7 +3978,7 @@ jobs:
 
   # Posts the release's Slack announcement once the GitHub release exists.
   # The incoming-webhook URL comes from the 'Slack' context as
-  # SLACK_WEBHOOK_URL; which channel it posts to is the webhook's setting.
+  # OPENSYSML_WEBHOOK_URL; which channel it posts to is the webhook's setting.
   announce-release-slack:
     executor: python-executor
     steps:
@@ -3989,11 +3989,11 @@ jobs:
             - run:
                 name: "REHEARSAL: build the announcement payload without posting"
                 command: |
-                  if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
-                    echo "SLACK_WEBHOOK_URL is empty; the 'Slack' context would have to"
+                  if [ -z "${OPENSYSML_WEBHOOK_URL:-}" ]; then
+                    echo "OPENSYSML_WEBHOOK_URL is empty; the 'Slack' context would have to"
                     echo "carry it for the tag run to announce anything."
                   else
-                    echo "ok: SLACK_WEBHOOK_URL is set"
+                    echo "ok: OPENSYSML_WEBHOOK_URL is set"
                   fi
                   TAG="$(git tag --points-at HEAD | grep -m1 '^v' || true)"
                   python3 scripts/release-announce.py --tag "${TAG:-v0.0.0}" \

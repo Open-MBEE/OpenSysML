@@ -96,7 +96,7 @@ class MainTest(unittest.TestCase):
     def test_posts_json_with_content_type_to_webhook(self):
         with webhook_server(b"ok") as (url, requests):
             with unittest.mock.patch.dict(
-                "os.environ", {"SLACK_WEBHOOK_URL": url}, clear=True
+                "os.environ", {"OPENSYSML_WEBHOOK_URL": url}, clear=True
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     run_main(
@@ -123,7 +123,7 @@ class MainTest(unittest.TestCase):
     def test_refuses_a_non_ok_webhook_response(self):
         with webhook_server(b"nope") as (url, _):
             with unittest.mock.patch.dict(
-                "os.environ", {"SLACK_WEBHOOK_URL": url}, clear=True
+                "os.environ", {"OPENSYSML_WEBHOOK_URL": url}, clear=True
             ):
                 with self.assertRaisesRegex(SystemExit, "nope"):
                     run_main(
@@ -142,7 +142,7 @@ class MainTest(unittest.TestCase):
             with unittest.mock.patch(
                 "urllib.request.urlopen", side_effect=AssertionError("network used")
             ):
-                with self.assertRaisesRegex(SystemExit, "Slack"):
+                with self.assertRaisesRegex(SystemExit, "OPENSYSML_WEBHOOK_URL"):
                     run_main(
                         [
                             "--tag",
