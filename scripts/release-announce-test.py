@@ -68,6 +68,18 @@ class PayloadTest(unittest.TestCase):
             },
         )
 
+    def test_escapes_title_controls_and_preserves_snippet_mrkdwn(self):
+        url = "https://github.com/Open-MBEE/OpenSysML/releases/tag/v1.2.3"
+        snippet = "<https://example.org|docs>"
+        text = announce.build_payload(
+            "v1.2.3 <!channel> & <@U123>", url, "v1.2.3", snippet
+        )["text"]
+        self.assertIn(
+            "v1.2.3 &lt;!channel&gt; &amp; &lt;@U123&gt;", text
+        )
+        self.assertNotIn("<!channel>", text)
+        self.assertTrue(text.endswith(f"\n\n{snippet}"))
+
 
 class MainTest(unittest.TestCase):
     def test_dry_run_prints_json_without_network_access(self):

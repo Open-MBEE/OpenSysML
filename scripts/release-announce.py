@@ -41,6 +41,10 @@ def _env(*names: str) -> str:
     return ""
 
 
+def _slack_escape(text: str) -> str:
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _github_release(repo: str, tag: str, token: str) -> dict[str, Any]:
     url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
     request = urllib.request.Request(url)
@@ -57,7 +61,7 @@ def _github_release(repo: str, tag: str, token: str) -> dict[str, Any]:
 def build_payload(release_name: str, release_url: str, tag: str,
                   snippet: str) -> dict[str, Any]:
     """The Slack message for one release."""
-    title = release_name.strip() or tag
+    title = _slack_escape(release_name.strip() or tag)
     lines = [
         f":tada: *{title}* is out!",
         f"Release notes and downloads: {release_url}",
