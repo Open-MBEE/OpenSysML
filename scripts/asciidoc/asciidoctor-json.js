@@ -188,8 +188,8 @@ function block(node) {
         style: String(node.getAttribute('name')).toUpperCase(),
         label: String(node.getAttribute('textlabel') || node.getAttribute('name')),
       });
-      // A delimited admonition holds blocks; a one-line one holds inline text.
-      if (node.hasBlocks()) admonition.blocks = node.getBlocks().map(block);
+      // A delimited admonition holds blocks (none, when empty); a one-line one holds inline text.
+      if (node.getContentModel() === 'compound') admonition.blocks = node.getBlocks().map(block);
       else admonition.runs = runsOf(node.getContent(), 'plain');
       return admonition;
     }
@@ -199,7 +199,7 @@ function block(node) {
       return Object.assign(base, {
         kind: 'list',
         ordered: true,
-        start: Number(node.getAttribute('start')) || 1,
+        start: listStart(node.getAttribute('start')),
         items: node.getItems().map(listItem),
       });
     case 'table':
@@ -211,6 +211,14 @@ function block(node) {
     default:
       return base;
   }
+}
+
+// listStart reads an ordered list's `start` attribute: 1 when absent or not a
+// number (Asciidoctor then numbers from 1), the number written otherwise.
+function listStart(attribute) {
+  if (attribute === undefined) return 1;
+  const start = Number(attribute);
+  return Number.isInteger(start) ? start : 1;
 }
 
 function listItem(item) {

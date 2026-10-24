@@ -158,6 +158,8 @@ func TestAsciiDocRefusals(t *testing.T) {
 		{"titled paragraph", ".T\npara\n", `{"blocks":[{"kind":"paragraph","line":2,"title":"T","runs":[]}]}`, "title on a paragraph", 1},
 		{"styled title", ".*T*\n|===\n|h\n\n|a\n|===\n", `{"blocks":[{"kind":"table","line":2,"title":"","styledTitle":true,"cols":[],"header":[[{"runs":[]}]],"rows":[],"footer":[]}]}`, "styled block title", 1},
 		{"xref without target", "<<>>\n", `{"blocks":[{"kind":"paragraph","line":1,"runs":[{"kind":"xref","target":"","text":""}]}]}`, "cross reference without a target", 1},
+		{"list start zero", "[start=0]\n. zero\n", `{"blocks":[{"kind":"list","line":2,"ordered":true,"start":0,"items":[{"line":2,"runs":[]}]}]}`, "ordered list starting at 0", 1},
+		{"empty admonition", "[NOTE]\n====\n====\n", `{"blocks":[{"kind":"admonition","line":2,"style":"NOTE","label":"Note","blocks":[]}]}`, "empty admonition", 1},
 		{"list start", "[start=3]\n. third\n. fourth\n", `{"blocks":[{"kind":"list","line":2,"ordered":true,"start":3,"items":[{"line":2,"runs":[]},{"line":3,"runs":[]}]}]}`, "ordered list starting at 3", 1},
 		{"list in an admonition", "[NOTE]\n====\n* a\n====\n", `{"blocks":[{"kind":"admonition","line":2,"style":"NOTE","label":"Note","blocks":[{"kind":"list","line":3,"items":[{"line":3,"runs":[]}]}]}]}`, "list in an admonition", 3},
 		{"admonition of several blocks", "[NOTE]\n====\na\n\nb\n====\n", `{"blocks":[{"kind":"admonition","line":2,"style":"NOTE","label":"Note","blocks":[{"kind":"paragraph","line":3,"runs":[]},{"kind":"paragraph","line":5,"runs":[]}]}]}`, "admonition of several blocks", 1},
@@ -223,6 +225,34 @@ func TestAsciiDocLocatesRunsAfterSubstitutions(t *testing.T) {
 	}
 	if got := body[runs[2].Span.Start:runs[2].Span.Stop]; got != "and missing again" {
 		t.Errorf("trailing text spans %q", got)
+	}
+}
+
+// Rows written on one line share one span covering that line; whitespace
+// between two macros spans the whitespace, not the paragraph.
+func TestAsciiDocSharedLineSpans(t *testing.T) {
+	body := "|===\n|h1 |h2\n\n|a |b |c |d\n|e |f\n|===\n\nsysml:ref[a] sysml:ref[b]\n"
+	answer := `{"blocks":[{"kind":"table","line":1,"cols":[],"header":[[{"line":2,"runs":[{"kind":"text","style":"plain","text":"h1"}]},{"line":2,"runs":[{"kind":"text","style":"plain","text":"h2"}]}]],` +
+		`"rows":[[{"line":4,"runs":[{"kind":"text","style":"plain","text":"a"}]},{"line":4,"runs":[{"kind":"text","style":"plain","text":"b"}]}],` +
+		`[{"line":4,"runs":[{"kind":"text","style":"plain","text":"c"}]},{"line":4,"runs":[{"kind":"text","style":"plain","text":"d"}]}],` +
+		`[{"line":5,"runs":[{"kind":"text","style":"plain","text":"e"}]},{"line":5,"runs":[{"kind":"text","style":"plain","text":"f"}]}]],"footer":[]},` +
+		`{"kind":"paragraph","line":8,"runs":[{"kind":"ref","target":"a","text":""},{"kind":"text","style":"plain","text":" "},{"kind":"ref","target":"b","text":""}]}]}`
+	blocks, err := decodeAsciiDoc(body, []byte(answer))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	rows := blocks[0].Rows
+	for i, want := range []string{"|a |b |c |d", "|a |b |c |d", "|e |f"} {
+		if got := body[rows[i].Span.Start:rows[i].Span.Stop]; got != want {
+			t.Errorf("row %d spans %q, want %q", i, got, want)
+		}
+	}
+	space := blocks[1].Runs[1]
+	if want := strings.Index(body, "] sysml") + 1; space.Span.Start != want || space.Span.Stop != want+1 {
+		t.Errorf("whitespace run spans %d..%d, want %d..%d", space.Span.Start, space.Span.Stop, want, want+1)
+	}
+	if b := blocks[1].Runs[2]; body[b.Span.Start:b.Span.Stop] != "b" || b.Span.Start < space.Span.Stop {
+		t.Errorf("second ref spans %q at %d", body[b.Span.Start:b.Span.Stop], b.Span.Start)
 	}
 }
 

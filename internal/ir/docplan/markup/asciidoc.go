@@ -255,8 +255,11 @@ func (m *asciiDocMapper) block(node asciiDocBlock, stop int) (Block, error) {
 // admonitionRuns reads an admonition's prose: the inline text of a one-line
 // admonition, or the one paragraph a delimited admonition holds.
 func (m *asciiDocMapper) admonitionRuns(node asciiDocBlock, span Span, stop int) ([]Run, error) {
-	if len(node.Blocks) == 0 {
+	if node.Blocks == nil {
 		return m.runs(node.Runs, span, StylePlain)
+	}
+	if len(node.Blocks) == 0 {
+		return nil, m.refuse("empty admonition", span)
 	}
 	if len(node.Blocks) > 1 {
 		return nil, m.refuse("admonition of several blocks", span)
@@ -272,7 +275,7 @@ func (m *asciiDocMapper) admonitionRuns(node asciiDocBlock, span Span, stop int)
 }
 
 func (m *asciiDocMapper) list(node asciiDocBlock, span Span, stop int) (Block, error) {
-	if node.Ordered && node.Start > 1 {
+	if node.Ordered && node.Start != 1 {
 		return Block{}, m.refuse(fmt.Sprintf("ordered list starting at %d", node.Start), span)
 	}
 	block := Block{Kind: BlockList, Ordered: node.Ordered, Span: span}
@@ -334,22 +337,33 @@ func (m *asciiDocMapper) table(node asciiDocBlock, span Span) (Block, error) {
 	return block, nil
 }
 
-// rowSpan covers row i of a table from the line its first cell starts on to
-// the line before the next row's, or the closing delimiter; the table's span
-// when the converter reported no line for it.
+// rowSpan covers row i's lines up to the first later row on a further line or
+// the closing delimiter — rows sharing a line share the span; no line, the table's.
 func (m *asciiDocMapper) rowSpan(rows [][]asciiDocCell, i int, table Span) Span {
-	if len(rows[i]) == 0 || rows[i][0].Line < 1 {
+	line := rowLine(rows[i])
+	if line < 1 {
 		return table
 	}
-	start := m.lineStart(rows[i][0].Line)
+	start := m.lineStart(line)
 	stop := m.lineStart(lineOf(m.body, table.Stop-1))
-	if i+1 < len(rows) && len(rows[i+1]) > 0 && rows[i+1][0].Line > 0 {
-		stop = m.lineStart(rows[i+1][0].Line)
+	for j := i + 1; j < len(rows); j++ {
+		if next := rowLine(rows[j]); next > line {
+			stop = m.lineStart(next)
+			break
+		}
 	}
 	if start < table.Start || stop > table.Stop || stop < start {
 		return table
 	}
 	return Span{Start: start, Stop: start + len(strings.TrimRight(m.body[start:stop], " \t\r\n"))}
+}
+
+// rowLine is the line a row's first cell starts on; 0 when unknown.
+func rowLine(row []asciiDocCell) int {
+	if len(row) == 0 {
+		return 0
+	}
+	return row[0].Line
 }
 
 // cellText reads a cell that is plain text alone; a table cell is one value.
@@ -441,12 +455,15 @@ func (m *asciiDocMapper) locate(run asciiDocRun, span Span, cursor *int) Span {
 	return Span{Start: start, Stop: *cursor}
 }
 
-// locateText places a text run over its words, each found after the one
-// before; a word a substitution rewrote (`(C)`, `--`, an entity) is skipped,
-// so that the cursor still passes the run and later runs are not found in it.
+// locateText places a text run over its words found in order after the cursor,
+// skipping words a substitution rewrote; whitespace alone is found as written.
 func (m *asciiDocMapper) locateText(text string, span Span, cursor *int) Span {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		words = []string{text}
+	}
 	start, stop := -1, -1
-	for _, word := range strings.Fields(text) {
+	for _, word := range words {
 		if *cursor >= span.Stop {
 			break
 		}
