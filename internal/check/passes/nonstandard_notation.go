@@ -733,10 +733,8 @@ func (w *notationWalker) typedByPrefixes(prefixes []*ast.PrefixMetadata) {
 	}
 }
 
-// typedByInExpressions reports the typings spelled `typed by` that the walk
-// does not reach because they sit inside an expression: a body expression's
-// parameters (`{ in x typed by T; … }`). A KerML-only declaration is reported
-// once by kermlDeclaration, so its subtree is skipped as the walk skips it.
+// typedByInExpressions reports `typed by` on a body expression's parameters, which
+// the walk does not reach; a reported KerML-only declaration's subtree is skipped.
 func (w *notationWalker) typedByInExpressions(root *ast.RootNamespace) {
 	if !w.sysml {
 		return
@@ -764,10 +762,8 @@ func (w *notationWalker) typedByRelationships(rels []*ast.Relationship) {
 	}
 }
 
-// typedBy reports a typing spelled `typed by` in a SysML file: SysML.xtext:395
-// DefinedByKeyword admits `:` and `defined by` only, where KerML.xtext:600
-// TypedBy admits `:` and `typed by`. The typing itself is read as written, so
-// the fix rewrites the keyword alone and keeps any note between the two words.
+// typedBy reports a typing spelled `typed by` in a SysML file (SysML.xtext:395 admits
+// `:` and `defined by`; KerML.xtext:600 `typed by`); the fix rewrites the keyword alone.
 func (w *notationWalker) typedBy(span source.Span) {
 	w.diags = append(w.diags, diag.Diagnostic{
 		Severity: w.severity,
