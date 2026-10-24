@@ -135,3 +135,41 @@ func ParseDepth(value string) (int, error) {
 	}
 	return depth, nil
 }
+
+// foldCollapsed folds the collapsed nodes under root as the tree and
+// interconnection walks fold theirs: what a collapsed node nests is not drawn,
+// its ports stay, and an edge at a node no longer drawn goes with it.
+func foldCollapsed(root *Node, out *Rendering) {
+	pruned := map[string]bool{}
+	var prune func(*Node)
+	prune = func(node *Node) {
+		pruned[node.ID] = true
+		for _, child := range node.Children {
+			prune(child)
+		}
+	}
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if collapsed(node) {
+			for _, child := range node.Children {
+				prune(child)
+			}
+			node.Children = nil
+			return
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	walk(root)
+	if len(pruned) == 0 {
+		return
+	}
+	kept := out.Edges[:0]
+	for _, edge := range out.Edges {
+		if !pruned[edge.From] && !pruned[edge.To] {
+			kept = append(kept, edge)
+		}
+	}
+	out.Edges = kept
+}

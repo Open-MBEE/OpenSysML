@@ -142,6 +142,8 @@ func TestGoldenRenderings(t *testing.T) {
 		{"layout-collapsed-tree", "layout-collapsed.sysml", "FoldedViews::folded", KindTree},
 		{"layout-collapsed-interconnection", "layout-collapsed.sysml", "FoldedViews::links", KindInterconnection},
 		{"layout-no-parts", "layout-collapsed.sysml", "FoldedViews::noParts", KindTree},
+		{"layout-collapsed-state", "layout-collapsed-behavior.sysml", "FoldedBehaviors::states", KindState},
+		{"layout-collapsed-action", "layout-collapsed-behavior.sysml", "FoldedBehaviors::flow", KindAction},
 		{"table", "table.sysml", "TableViews::partsTable", KindTable},
 		{"grid-table", "table.sysml", "TableViews::fleetTable", KindTable},
 		{"sequence", "sequence.sysml", "SequenceViews::pubSubView", KindSequence},
