@@ -12,9 +12,8 @@ import (
 // The validation part of the execution-conformance harness: what an instance
 // fixture's `validation` key pins, and the check of a report against it.
 
-// ExpectedValidation is the report of validating an instance as a whole: each
-// verdict in order, whether the object is shown valid, whether the walk was
-// bounded, and the unreadable feature values.
+// ExpectedValidation is the report of validating an instance as a whole: each verdict in
+// order, whether the object is shown valid, whether the walk was bounded, the unreadable values.
 type ExpectedValidation struct {
 	Verdicts []ExpectedObjectVerdict `json:"verdicts"`
 	Valid    *bool                   `json:"valid,omitempty"`
@@ -35,10 +34,8 @@ type ExpectedObjectVerdict struct {
 	Verifications []ExpectedVerificationRun `json:"verifications,omitempty"`
 }
 
-// ExpectedVerificationRun is one run of a verification case beside a validation verdict:
-// the case by qualified name, the path of the object it ran as a feature of (empty for the
-// root), the verdict kind and detail its body produced, the verdict of each objective and
-// assertion of the same run by name, and the verdict of each subcase by qualified name.
+// ExpectedVerificationRun is one run of a verification case beside a validation verdict: the case,
+// the path of the object it ran on (empty for the root), its verdict, and the run's objective/subcase verdicts.
 type ExpectedVerificationRun struct {
 	Case          string            `json:"case"`
 	Object        string            `json:"object,omitempty"`
@@ -107,9 +104,8 @@ func validateValidation(t *testing.T, ctx *Context, scopes []*symbols.Scope, ins
 	}
 }
 
-// checkVerdictVerifications runs the verification cases verifying the requirement
-// a validation verdict is about, as a report does beside the verdict, and validates
-// each run against the ones the outcome states, in order.
+// checkVerdictVerifications runs the verification cases verifying a validation verdict's
+// requirement, as a report does beside the verdict, and checks each run against the outcome in order.
 func checkVerdictVerifications(t *testing.T, ctx *Context, scopes []*symbols.Scope, root *Instance, n int, v ObjectVerdict, want []ExpectedVerificationRun) {
 	t.Helper()
 	label := fmt.Sprintf("validation verdict %d", n)

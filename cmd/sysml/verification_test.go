@@ -323,6 +323,9 @@ func TestValidateAgreesWithConformanceFixtures(t *testing.T) {
 			if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
 				t.Fatalf("report: %v\n%s", err, got.output())
 			}
+			if got.status != report.Exit {
+				t.Errorf("process exit %d, report exit %d", got.status, report.Exit)
+			}
 			if fixture.Validation.Valid != nil && (report.Exit == 0) != *fixture.Validation.Valid {
 				t.Errorf("exit %d, fixture valid = %v", report.Exit, *fixture.Validation.Valid)
 			}
