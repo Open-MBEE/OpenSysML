@@ -9,7 +9,9 @@ release body stays human-written and can be edited up to the moment of the
 post), wraps them in a short Slack message and POSTs it to the incoming webhook
 in OPENSYSML_WEBHOOK_URL. The optional --snippet file carries extra body text
 ("Get it: pip install opensysml …"), appended verbatim so the announcement a
-release deserves can be hand-written without touching this script.
+release deserves can be hand-written without touching this script. The file
+must live under the directory the script is run from; a path that resolves
+outside it (through `..` or a symlink) is refused.
 The webhook posts to the channel chosen when it was added, under the Slack
 app's own name and icon.
 
@@ -43,6 +45,17 @@ def _env(*names: str) -> str:
 
 def _slack_escape(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _snippet_path(parser: argparse.ArgumentParser, path: str) -> str:
+    """Canonicalize the --snippet path and refuse one that resolves (through `..`
+    or a symlink) outside the directory the script was invoked from."""
+    resolved = os.path.realpath(path)
+    base = os.path.realpath(os.getcwd())
+    if not resolved.startswith(base + os.sep):
+        parser.error(f"--snippet {path!r} resolves to {resolved}, "
+                     f"outside the working directory {base}")
+    return resolved
 
 
 def _github_release(repo: str, tag: str, token: str) -> dict[str, Any]:
@@ -93,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
 
     snippet = ""
     if args.snippet:
-        with open(args.snippet, encoding="utf-8") as handle:
+        with open(_snippet_path(parser, args.snippet), encoding="utf-8") as handle:
             snippet = handle.read()
 
     if args.release_name or args.release_url:
