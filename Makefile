@@ -367,11 +367,11 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=$(COVERAGE_PROFILE) -covermode=atomic $(COVERAGE_PACKAGES)
 	go tool covdata textfmt -i=$(GO_COUNTER_DIR) -o $(GO_COUNTER_DIR)/profile.txt
 	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> $(COVERAGE_PROFILE)
-	@# The tools' tests exercise product packages too; their profile credits those.
+	@# The tools' tests exercise product packages too; their profile credits those. It is
+	@# written under GO_COUNTER_DIR, where no shard's COVERAGE_PROFILE (coverage-tools.txt) can be.
 	if [ -n "$(COVERAGE_TOOLS)" ]; then \
-		go test -C $(TOOLS_DIR) -count=1 -pgo=off -timeout 30m -coverpkg=github.com/Open-MBEE/OpenSysML/... -coverprofile=../coverage-tools.txt -covermode=atomic $(COVERAGE_TOOLS) && \
-		tail -n +2 coverage-tools.txt >> $(COVERAGE_PROFILE) && \
-		rm coverage-tools.txt; \
+		go test -C $(TOOLS_DIR) -count=1 -pgo=off -timeout 30m -coverpkg=github.com/Open-MBEE/OpenSysML/... -coverprofile=$(GO_COUNTER_DIR)/tools.txt -covermode=atomic $(COVERAGE_TOOLS) && \
+		tail -n +2 $(GO_COUNTER_DIR)/tools.txt >> $(COVERAGE_PROFILE); \
 	fi
 	@# -coverpkg repeats every block once per test binary; see the script's header.
 	python3 scripts/dedupe-coverage.py $(COVERAGE_PROFILE)
