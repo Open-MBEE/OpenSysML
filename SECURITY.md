@@ -1,8 +1,8 @@
 # Security policy
 
-OpenSysML is being developed toward the assurance bar of human-rated (NASA Class A) flight
-software. The response times and the disclosure process below are set to that bar, not to the
-project's current release stage, and they are the commitments reporters can hold us to.
+The response times and the disclosure process below are the commitments reporters can hold
+us to. They are set to the bar OpenSysML will be held to as a tool used on safety-critical
+projects, not to the project's current release stage.
 
 ## Reporting a vulnerability
 
