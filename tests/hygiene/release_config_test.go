@@ -37,6 +37,9 @@ type circleConfig struct {
 		Executor string      `yaml:"executor"`
 		Steps    []yaml.Node `yaml:"steps"`
 	} `yaml:"jobs"`
+	Commands map[string]struct {
+		Steps []yaml.Node `yaml:"steps"`
+	} `yaml:"commands"`
 	// A workflows entry is a workflow, apart from the `version` key.
 	Workflows map[string]yaml.Node `yaml:"workflows"`
 }
@@ -102,6 +105,10 @@ func runSteps(t *testing.T, steps []yaml.Node) []runStep {
 		key, value := step.Content[0].Value, step.Content[1]
 		switch key {
 		case "run":
+			if value.Kind == yaml.ScalarNode {
+				runs = append(runs, runStep{Command: value.Value})
+				continue
+			}
 			var run runStep
 			if err := value.Decode(&run); err != nil {
 				t.Fatalf("decode run step: %v", err)
