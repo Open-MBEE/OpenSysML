@@ -5,11 +5,14 @@
 // The directories hold release assets with .sha256 sidecars: --binaries the
 // sysml-grpc binaries @openmbee/opensysml runs, --mcp the sysml-mcp binaries
 // @openmbee/sysml-mcp (packaging/npm/sysml-mcp) runs, --wasm the WASM assets.
+// With --mcp the runner's alias package, @openmbee/opensysml-mcp, is generated
+// from packaging/npm/sysml-mcp beside the platform packages (see buildMCPAlias).
 
 import { createHash } from "node:crypto";
 import {
   chmodSync,
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -23,6 +26,13 @@ const here = dirname(fileURLToPath(import.meta.url));
 const clientRoot = resolve(here, "..");
 const repoRoot = resolve(clientRoot, "..", "..");
 const mcpRoot = join(repoRoot, "packaging", "npm", "sysml-mcp");
+
+/**
+ * The second npm name the runner is published under, matching the other
+ * OpenSysML packages (@openmbee/opensysml, @openmbee/opensysml-wasm); it
+ * pins the same @openmbee/sysml-mcp-<os>-<cpu> platform packages.
+ */
+const MCP_ALIAS = "@openmbee/opensysml-mcp";
 
 /** The platforms a release builds, mapped to npm's os/cpu names. */
 const PLATFORMS = [
@@ -162,6 +172,52 @@ function buildBinaryPackages(args, binaries, family) {
   return built;
 }
 
+/**
+ * Generates @openmbee/opensysml-mcp from packaging/npm/sysml-mcp: the same
+ * bin/, lib/ and README, the manifest renamed, with `opensysml-mcp` as a second
+ * command beside `sysml-mcp` and its platform packages pinned at the version
+ * being built. The registry listing stays with @openmbee/sysml-mcp, so the
+ * alias declares no mcpName. There is one source tree: nothing here is edited by hand.
+ */
+function buildMCPAlias(args) {
+  const source = args.mcpPkg;
+  const directory = join(args.out, "opensysml-mcp");
+  mkdirSync(directory, { recursive: true });
+  for (const part of ["bin", "lib"]) {
+    cpSync(join(mcpRoot, part), join(directory, part), { recursive: true });
+  }
+  const shim = source.bin?.["sysml-mcp"];
+  if (shim === undefined) {
+    fail(`${source.name} declares no sysml-mcp command for ${MCP_ALIAS} to share`);
+  }
+  const platforms = Object.keys(source.optionalDependencies ?? {});
+  if (platforms.length === 0) {
+    fail(`${source.name} pins no platform package for ${MCP_ALIAS} to pin`);
+  }
+  // Everything but the name, the description's install line, the commands, the
+  // pins and the registry name is the runner's own manifest.
+  const manifest = { ...source };
+  delete manifest.mcpName;
+  delete manifest.scripts;
+  manifest.name = MCP_ALIAS;
+  manifest.version = args.version;
+  manifest.description = source.description.replaceAll(`npx -y ${source.name}`, `npx -y ${MCP_ALIAS}`);
+  manifest.bin = { "sysml-mcp": shim, "opensysml-mcp": shim };
+  manifest.optionalDependencies = Object.fromEntries(platforms.map((name) => [name, args.version]));
+  writeManifest(directory, manifest);
+
+  // The runner's README under the alias's name; the platform package names
+  // (@openmbee/sysml-mcp-<os>-<cpu>) and links to the runner's own page stay.
+  const readme = readFileSync(join(mcpRoot, "README.md"), "utf8")
+    .replaceAll(new RegExp(`${source.name.replaceAll("/", "\\/")}(?![-\\w])`, "g"), MCP_ALIAS)
+    .replace(
+      "\n\n```sh\n",
+      `\n\nThis is [\`${source.name}\`](https://www.npmjs.com/package/${source.name}) under the name the other OpenSysML npm packages share: the same command, published from the same release at the same version, with \`opensysml-mcp\` as a second name for it.\n\n\`\`\`sh\n`,
+    );
+  writeFileSync(join(directory, "README.md"), readme);
+  return { name: MCP_ALIAS, directory, alias: source.name };
+}
+
 function buildWasmPackage(args) {
   const assets = ["sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js"];
   const digests = Object.fromEntries(
@@ -250,6 +306,7 @@ function main() {
         ],
       }),
     );
+    built.push(buildMCPAlias(args));
   }
 
   if (args.wasm !== undefined) {
@@ -261,7 +318,7 @@ function main() {
     `${JSON.stringify({ version: args.version, packages: built }, null, 2)}\n`,
   );
   for (const entry of built) {
-    process.stdout.write(`${entry.name}@${args.version}  ${entry.digest}\n`);
+    process.stdout.write(`${entry.name}@${args.version}  ${entry.digest ?? `alias of ${entry.alias}`}\n`);
   }
   process.stdout.write(`\n${built.length} packages in ${args.out}; nothing was published.\n`);
 }

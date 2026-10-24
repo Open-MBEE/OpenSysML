@@ -455,7 +455,8 @@ jobs:
 
       # The platform packages carry the binaries built above, checked against their
       # sidecars by the generator; the stamped manifests of the client and of
-      # @openmbee/sysml-mcp pin them at the snapshot version. All thirteen are
+      # @openmbee/sysml-mcp pin them at the snapshot version, and the generator
+      # derives @openmbee/opensysml-mcp from the stamped runner. All fourteen are
       # packed as the tarballs the npm job publishes.
       - name: Build and pack the Node client packages
         env:
@@ -470,14 +471,15 @@ jobs:
             exit 1
           fi
           mkdir -p ../../dist/npm
-          npm pack --pack-destination ../../dist/npm ./packages/sysml-wasm ./packages/sysml-grpc-* ./packages/sysml-mcp-* . ../../packaging/npm/sysml-mcp
-          # The packed npm runner, beside this platform's package, must serve the protocol.
+          npm pack --pack-destination ../../dist/npm ./packages/sysml-wasm ./packages/sysml-grpc-* ./packages/sysml-mcp-* . ../../packaging/npm/sysml-mcp ./packages/opensysml-mcp
+          # The packed npm runner, beside this platform's package, must serve the
+          # protocol, and so must its alias through both of its commands.
           SYSML_MCP_PACKAGES="$(pwd)/packages" ../../scripts/npm-mcp-test.sh
           cd ../../dist/npm
           ls -l
           tarballs=(./*.tgz)
-          if [ "${#tarballs[@]}" -ne 13 ]; then
-            echo "::error::Expected 13 npm tarballs (client + 5 platform + WASM + sysml-mcp + 5 platform), packed ${#tarballs[@]}."
+          if [ "${#tarballs[@]}" -ne 14 ]; then
+            echo "::error::Expected 14 npm tarballs (client + 5 platform + WASM + sysml-mcp + 5 platform + opensysml-mcp), packed ${#tarballs[@]}."
             exit 1
           fi
           # @openmbee/sysml-mcp pins exactly the five platform packages packed beside it.
@@ -495,6 +497,25 @@ jobs:
           console.log(`${pkg.name}@${pkg.version} pins its five platform packages at ${version}`);
           EOF
           rm mcp-package.json
+          # @openmbee/opensysml-mcp pins the same five, at the same version, and declares both commands.
+          tar -xOf "openmbee-opensysml-mcp-${NPM_VERSION}.tgz" package/package.json > alias-package.json
+          node - "$NPM_VERSION" <<'EOF'
+          const fs = require("node:fs");
+          const [version] = process.argv.slice(2);
+          const pkg = JSON.parse(fs.readFileSync("alias-package.json", "utf8"));
+          const runner = JSON.parse(fs.readFileSync("../../packaging/npm/sysml-mcp/package.json", "utf8"));
+          const pins = Object.entries(pkg.optionalDependencies || {});
+          const wrong = pins.filter(([, pinned]) => pinned !== version).map(([name, pinned]) => `${name}@${pinned}`);
+          const samePins = Object.keys(pkg.optionalDependencies || {}).sort().join() === Object.keys(runner.optionalDependencies || {}).sort().join();
+          const shim = runner.bin["sysml-mcp"];
+          const commands = pkg.bin && pkg.bin["sysml-mcp"] === shim && pkg.bin["opensysml-mcp"] === shim;
+          if (pkg.name !== "@openmbee/opensysml-mcp" || pkg.version !== version || pins.length !== 5 || wrong.length > 0 || !samePins || !commands || pkg.mcpName !== undefined) {
+            console.error(`Error: ${pkg.name}@${pkg.version} pins ${pins.length} platform packages, wrong: ${wrong.join(", ") || "none"}, same as ${runner.name}: ${samePins}, commands: ${JSON.stringify(pkg.bin)}; expected ${runner.name}'s five at ${version}, sysml-mcp and opensysml-mcp, and no mcpName`);
+            process.exit(1);
+          }
+          console.log(`${pkg.name}@${pkg.version} pins ${runner.name}'s five platform packages at ${version} and declares sysml-mcp and opensysml-mcp`);
+          EOF
+          rm alias-package.json
           # The client tarball pins exactly what was packed beside it.
           tar -xOf "openmbee-opensysml-${NPM_VERSION}.tgz" package/package.json > client-package.json
           node - "$NPM_VERSION" <<'EOF'
@@ -895,11 +916,12 @@ jobs:
           name: npm-dist
           path: dist/npm/
 
-      # The platform and WASM packages go first, because the client and
-      # @openmbee/sysml-mcp pin them at this exact version. A version already on
-      # the registry is skipped, never replaced, so a second build of a day leaves
-      # the first published.
-      - name: Publish the thirteen packages under the nightly dist-tag
+      # The platform and WASM packages go first, because the client,
+      # @openmbee/sysml-mcp and its alias @openmbee/opensysml-mcp pin them at this
+      # exact version; the alias goes last, after the runner it is the other name
+      # of. A version already on the registry is skipped, never replaced, so a
+      # second build of a day leaves the first published.
+      - name: Publish the fourteen packages under the nightly dist-tag
         env:
           NPM_VERSION: ${{ needs.publish.outputs.npm }}
         run: |
@@ -915,9 +937,10 @@ jobs:
             openmbee-sysml-mcp-linux-x64-"$NPM_VERSION".tgz
             openmbee-sysml-mcp-win32-x64-"$NPM_VERSION".tgz
             openmbee-sysml-mcp-"$NPM_VERSION".tgz
+            openmbee-opensysml-mcp-"$NPM_VERSION".tgz
           )
-          if [ "${#tarballs[@]}" -ne 13 ]; then
-            echo "::error::Expected 13 tarballs at $NPM_VERSION, found ${#tarballs[@]}: ${tarballs[*]}"
+          if [ "${#tarballs[@]}" -ne 14 ]; then
+            echo "::error::Expected 14 tarballs at $NPM_VERSION, found ${#tarballs[@]}: ${tarballs[*]}"
             exit 1
           fi
           for tarball in "${tarballs[@]}"; do
@@ -933,7 +956,7 @@ jobs:
         env:
           NPM_VERSION: ${{ needs.publish.outputs.npm }}
         run: |
-          for package in @openmbee/opensysml @openmbee/sysml-mcp; do
+          for package in @openmbee/opensysml @openmbee/sysml-mcp @openmbee/opensysml-mcp; do
             npm dist-tag ls "$package"
             latest=$(npm view "$package" dist-tags.latest)
             if [ "$latest" = "$NPM_VERSION" ]; then

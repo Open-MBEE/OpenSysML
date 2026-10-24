@@ -26,7 +26,11 @@ has no dependencies; its `sysml-mcp` command picks the platform package
 exactly its own version, and runs the release binary that package carries — the same bytes as
 the release archive, verified against the release's `.sha256` sidecars when the package was
 built — with the arguments and stdio it was given. Its version is the OpenSysML release:
-`npx -y @openmbee/sysml-mcp@0.10.1` runs the `v0.10.1` server.
+`npx -y @openmbee/sysml-mcp@0.10.1` runs the `v0.10.1` server. The same package is also
+published as [`@openmbee/opensysml-mcp`](https://www.npmjs.com/package/@openmbee/opensysml-mcp),
+the name the other OpenSysML npm packages share (`@openmbee/opensysml`, `@openmbee/opensysml-wasm`):
+`npx -y @openmbee/opensysml-mcp` runs the same release binary from the same platform packages,
+and its `opensysml-mcp` command is a second name for `sysml-mcp`.
 
 ```bash
 claude mcp add --transport stdio sysml -- npx -y @openmbee/sysml-mcp -root .

@@ -844,7 +844,8 @@ func TestSharedTableIsPinnedAfterTheRelease(t *testing.T) {
 // contract: build-release writes the sidecars its platform packages are built
 // against, publish-npm builds those packages from dist/mcp, packs the shim and
 // proves the packed shim serves the protocol before anything is published, and
-// publishes the platform packages before the shim that pins them.
+// publishes the platform packages before the shim that pins them, and the shim
+// before its alias @openmbee/opensysml-mcp, which the generator derives from it.
 func TestNpmRunnerIsPublishedWithTheClient(t *testing.T) {
 	config := loadCircleConfig(t)
 	release, ok := config.Jobs["build-release-binaries"]
@@ -860,24 +861,29 @@ func TestNpmRunnerIsPublishedWithTheClient(t *testing.T) {
 		t.Fatal("no publish-npm job")
 	}
 	steps := runSteps(t, npm.Steps)
-	refuse := stepIndex(steps, "packaging/npm/sysml-mcp/package.json", "npm view", "-ne 13")
+	refuse := stepIndex(steps, "packaging/npm/sysml-mcp/package.json", "npm view", "-ne 14", "const alias = '"+mcpAliasPackage+"'")
 	build := stepIndex(steps, "npm run platform-packages", "--mcp ../../dist/mcp")
 	prove := stepIndex(steps, "openmbee-sysml-mcp-${NPM_VERSION}.tgz", "NPM_MCP_TARBALL", "scripts/npm-mcp-test.sh")
+	proveAlias := stepIndex(steps, "client/node/packages/opensysml-mcp", "openmbee-opensysml-mcp-${NPM_VERSION}.tgz", "NPM_MCP_ALIAS_TARBALL", `pkg.mcpName !== undefined`, `pkg.bin["opensysml-mcp"] === shim`)
 	whoami := stepIndex(steps, "npm whoami")
 	platforms := stepIndex(steps, "npm publish", "client/node/packages/sysml-mcp-*")
 	shim := stepIndex(steps, "npm publish", `"$NPM_MCP_TARBALL"`)
 	rehearsal := stepIndex(steps, "npm pack", "--dry-run", "client/node/packages/sysml-mcp-*")
 	switch {
 	case refuse < 0:
-		t.Error("publish-npm does not refuse a published version of @openmbee/sysml-mcp and its five platform packages (13 packages in all)")
+		t.Error("publish-npm does not refuse a published version of @openmbee/sysml-mcp, its five platform packages and @openmbee/opensysml-mcp (14 packages in all)")
 	case build < 0:
 		t.Error("publish-npm does not build the sysml-mcp platform packages from dist/mcp")
 	case prove < 0:
 		t.Error("publish-npm does not pack @openmbee/sysml-mcp and prove the packed shim serves the protocol")
 	case prove < build:
 		t.Errorf("the shim is packed and proved (step %d) before its platform packages are built (step %d)", prove, build)
-	case whoami < prove:
-		t.Errorf("npm whoami (step %d) runs before the shim is proved (step %d); everything that can fail runs first", whoami, prove)
+	case proveAlias < 0:
+		t.Error("publish-npm does not pack @openmbee/opensysml-mcp from the generator's tree and check its version, pins, both commands and the absent mcpName")
+	case proveAlias < prove:
+		t.Errorf("the alias is packed (step %d) before the shim it is derived from is proved (step %d)", proveAlias, prove)
+	case whoami < proveAlias:
+		t.Errorf("npm whoami (step %d) runs before the alias is proved (step %d); everything that can fail runs first", whoami, proveAlias)
 	case platforms < 0:
 		t.Error("publish-npm does not publish the sysml-mcp platform packages")
 	case shim < 0:
@@ -889,5 +895,15 @@ func TestNpmRunnerIsPublishedWithTheClient(t *testing.T) {
 	}
 	if platforms >= 0 && shim >= 0 && stepIndex(steps[platforms:shim+1], `"$NPM_TARBALL"`) < 0 {
 		t.Error("@openmbee/opensysml is not published between the platform packages and @openmbee/sysml-mcp")
+	}
+	if shim >= 0 {
+		command := steps[shim].Command
+		runner, alias := strings.Index(command, `"$NPM_MCP_TARBALL"`), strings.Index(command, `"$NPM_MCP_ALIAS_TARBALL"`)
+		switch {
+		case alias < 0:
+			t.Error("publish-npm does not publish the verified @openmbee/opensysml-mcp tarball")
+		case alias < runner:
+			t.Error("@openmbee/opensysml-mcp is published before @openmbee/sysml-mcp, the runner it is the other name of")
+		}
 	}
 }
