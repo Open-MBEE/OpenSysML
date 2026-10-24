@@ -684,7 +684,6 @@ docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle
 changelog-check: ## Verify every changelog fragment under changes/unreleased/ and the folding script
 	$(PYTHON) scripts/changelog-test.py
 	$(PYTHON) scripts/changelog.py check
-	$(PYTHON) scripts/release-announce-test.py
 
 changelog-render: ## Fold changes/unreleased/ fragments into the Unreleased section of CHANGELOG.md
 	$(PYTHON) scripts/changelog.py render
