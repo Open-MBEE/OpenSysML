@@ -29,8 +29,9 @@ re-probed on every row that could move and is reported in
 [the cut point](#the-cut-point): one executor row moved, and its fix is
 the third column there.
 
-0.11.0 is a minor release: 288 merges to `develop` since the 0.10.1
-tag (256 to the measured head, 32 more to the cut point), among them the hiding of colliding imports (#1062), objects typed
+0.11.0 is a minor release: 336 merges to `develop` since the 0.10.1
+tag (256 to the measured head, 32 more to the first cut point, 48 more
+to [the final cut](#the-final-cut)), among them the hiding of colliding imports (#1062), objects typed
 by every type they inherit through subsetting (#1276), the subsetting of
 a usage's base features (#1319), transitive order dependence in the
 executor (#1136), constancy conformance (#1298), the redefinition
@@ -40,7 +41,9 @@ closure in the executor's root frame (#1057), the API JSON element form
 (#1312). **The expectation going in was not parity**, and the
 measurement does not find it: parsing, lexing, indexing, formatting, the
 migrator, the library index, the lowering of graphs and the whole binary
-are at parity to the allocation or within the machine's noise; the
+are at parity to the allocation or within the machine's noise (the
+migrator's benchmark, that is; its command line over one Cameo archive
+is slower on the release, as [the final cut](#the-final-cut) states); the
 executor is back at 0.10.1 to the allocation after the fixes the earlier
 candidate motivated (#1347, #1351, #1353, #1355, #1356); name resolution
 over wildcard imports, analysis and the instantiation and constraint
