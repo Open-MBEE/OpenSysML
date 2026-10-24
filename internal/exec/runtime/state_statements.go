@@ -514,6 +514,11 @@ func (h *stateStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stm
 	return h.perfs.performBlockFlow(h.perfs.root, engine, block)
 }
 
+// beginLoop begins a loop a body statement reaches as a performance of the behavior's.
+func (h *stateStmtHost) beginLoop(stmt lower.Loop) (*Instance, error) {
+	return h.perfs.beginLoopPerformance(h.perfs.root, stmt)
+}
+
 // runFlow runs the token flow an inline body states with its successions and
 // control nodes, as the behavior's own performance: the body's attributes are
 // the performance's, initialized as a standalone action's are.
