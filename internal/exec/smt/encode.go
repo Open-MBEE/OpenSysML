@@ -253,6 +253,10 @@ func (e *Encoding) collectAttribute(attr lower.Attribute, declared map[string]bo
 	if attr.Shadowed && attr.Symbol != nil {
 		written = attr.Symbol.Name
 	}
+	if fp := lower.ExpressionFootprint(scope, attr.Value); attr.Binding && (len(fp.Reads) > 0 || fp.Dynamic) {
+		return &UnsupportedError{Node: nodeLabel(graph.Initial), Construct: "attribute " + attr.Name,
+			Reason: "a feature valued by an expression over other features is computed as it is read; the states carry only values written"}
+	}
 	free, released := e.frees(attr)
 	if free {
 		if _, err := e.translator.Variable(written, scope, "attribute "+attr.Name); err != nil {
