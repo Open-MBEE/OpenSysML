@@ -268,19 +268,19 @@ func TestCompileMarkdownBodyErrors(t *testing.T) {
 			name:     "heading",
 			body:     "rep language \"markdown\" /* Fine.\n *\n * # Heading\n */",
 			kind:     ErrorUnsupportedMarkupConstruct,
-			contains: "markdown body with an level 1 heading, which no content block renders (body line 3)",
+			contains: "markdown body whose level 1 heading no content block renders (body line 3)",
 		},
 		{
 			name:     "image",
 			body:     "rep language \"markdown\" /* ![alt](pic.png) */",
 			kind:     ErrorUnsupportedMarkupConstruct,
-			contains: "an image, which no content block renders (body line 1)",
+			contains: "whose image no content block renders (body line 1)",
 		},
 		{
 			name:     "nested_list",
 			body:     "rep language \"markdown\" /* - a\n *   - b\n */",
 			kind:     ErrorUnsupportedMarkupConstruct,
-			contains: "nested list, which no content block renders (body line 2)",
+			contains: "whose nested list no content block renders (body line 2)",
 		},
 		{
 			name: "paragraph_rep_and_text",

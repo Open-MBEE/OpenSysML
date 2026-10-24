@@ -255,7 +255,7 @@ func (e *Error) message() string {
 	case ErrorUnsupportedMarkupLanguage:
 		return fmt.Sprintf("document %s content %s carries a textual representation in %q, which no document markup language matches (supported: %s)", e.Document, e.Content, e.Actual, e.Expected)
 	case ErrorUnsupportedMarkupConstruct:
-		return fmt.Sprintf("document %s content %s carries a %s body with an %s, which no content block renders", e.Document, e.Content, e.Parameter, e.Actual)
+		return fmt.Sprintf("document %s content %s carries a %s body whose %s no content block renders", e.Document, e.Content, e.Parameter, e.Actual)
 	case ErrorMisplacedMarkupBody:
 		return fmt.Sprintf("document %s content %s carries a %s body, which only a document, section or paragraph may", e.Document, e.Content, e.Parameter)
 	case ErrorMarkupBodyNotParagraph:
