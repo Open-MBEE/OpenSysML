@@ -184,15 +184,25 @@ function block(node) {
   switch (node.getContext()) {
     case 'paragraph':
       return Object.assign(base, { runs: runsOf(node.getContent(), 'plain') });
-    case 'admonition':
-      return Object.assign(base, {
+    case 'admonition': {
+      const admonition = Object.assign(base, {
         style: String(node.getAttribute('name')).toUpperCase(),
         label: String(node.getAttribute('textlabel') || node.getAttribute('name')),
-        runs: runsOf(node.getContent(), 'plain'),
       });
+      // A delimited admonition holds blocks (none, when empty); a one-line one holds inline text.
+      if (node.getContentModel() === 'compound') admonition.blocks = node.getBlocks().map(block);
+      else admonition.runs = runsOf(node.getContent(), 'plain');
+      return admonition;
+    }
     case 'ulist':
+      return Object.assign(base, { kind: 'list', ordered: false, items: node.getItems().map(listItem) });
     case 'olist':
-      return Object.assign(base, { kind: 'list', ordered: node.getContext() === 'olist', items: node.getItems().map(listItem) });
+      return Object.assign(base, {
+        kind: 'list',
+        ordered: true,
+        start: listStart(node.getAttribute('start')),
+        items: node.getItems().map(listItem),
+      });
     case 'table':
       return Object.assign(base, table(node));
     case 'stem':
@@ -202,6 +212,14 @@ function block(node) {
     default:
       return base;
   }
+}
+
+// listStart reads an ordered list's `start` attribute: 1 when absent or not a
+// number (Asciidoctor then numbers from 1), the number written otherwise.
+function listStart(attribute) {
+  if (attribute === undefined) return 1;
+  const start = Number(attribute);
+  return Number.isInteger(start) ? start : 1;
 }
 
 function listItem(item) {
@@ -226,10 +244,10 @@ function table(node) {
 
 function cell(c) {
   const style = c.getStyle();
-  if (style === 'asciidoc') return { runs: [{ kind: 'unsupported', construct: 'AsciiDoc table cell' }] };
+  if (style === 'asciidoc') return { line: lineOf(c), runs: [{ kind: 'unsupported', construct: 'AsciiDoc table cell' }] };
   const span = { colspan: c.getAttribute('colspan') || 1, rowspan: c.getAttribute('rowspan') || 1 };
-  if (span.colspan > 1 || span.rowspan > 1) return { runs: [{ kind: 'unsupported', construct: 'spanning table cell' }] };
-  return { runs: runsOf(c.getText(), style && style !== 'default' ? style : 'plain') };
+  if (span.colspan > 1 || span.rowspan > 1) return { line: lineOf(c), runs: [{ kind: 'unsupported', construct: 'spanning table cell' }] };
+  return { line: lineOf(c), runs: runsOf(c.getText(), style && style !== 'default' ? style : 'plain') };
 }
 
 function main() {
