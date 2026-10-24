@@ -1,9 +1,13 @@
 # Performance: release 0.11.0 against release 0.10.1
 
 The release-gate measurement of the 0.11.0 candidate — the head of
-`develop` at `5cd37f288fef171d62737d6045f4caff772b6014` (2026-10-22), the
-cut point of `release/0.11.0` — measured against the `v0.10.1` tag
-on `main` (`1c45b6e1749fc8adc9b82d4af22fbe180b56a0e2`, 2026-10-15). It
+`develop` at `5cd37f288fef171d62737d6045f4caff772b6014` (2026-10-22) —
+measured against the `v0.10.1` tag on `main`
+(`1c45b6e1749fc8adc9b82d4af22fbe180b56a0e2`, 2026-10-15). `release/0.11.0`
+is cut from `9b18517dc8e1d525864e257425a81228877281e9` (2026-10-23), 48
+first-parent merges later; [the final cut](#the-final-cut) measures that
+head against 0.10.1 and against the intermediate head
+`12564c7bcf868bcb4b5a81d02c8ece64f05cc693`. The record
 follows the method of the
 [0.10.1 against 0.10.0](performance-release-0.10.1-vs-0.10.0.md) record
 and of the [0.10.0 against 0.9.2](archive/performance-release-0.10.0-vs-0.9.2.md)
@@ -25,8 +29,9 @@ re-probed on every row that could move and is reported in
 [the cut point](#the-cut-point): one executor row moved, and its fix is
 the third column there.
 
-0.11.0 is a minor release: 288 merges to `develop` since the 0.10.1
-tag (256 to the measured head, 32 more to the cut point), among them the hiding of colliding imports (#1062), objects typed
+0.11.0 is a minor release: 336 merges to `develop` since the 0.10.1
+tag (256 to the measured head, 32 more to the first cut point, 48 more
+to [the final cut](#the-final-cut)), among them the hiding of colliding imports (#1062), objects typed
 by every type they inherit through subsetting (#1276), the subsetting of
 a usage's base features (#1319), transitive order dependence in the
 executor (#1136), constancy conformance (#1298), the redefinition
@@ -36,7 +41,9 @@ closure in the executor's root frame (#1057), the API JSON element form
 (#1312). **The expectation going in was not parity**, and the
 measurement does not find it: parsing, lexing, indexing, formatting, the
 migrator, the library index, the lowering of graphs and the whole binary
-are at parity to the allocation or within the machine's noise; the
+are at parity to the allocation or within the machine's noise (the
+migrator's benchmark, that is; its command line over one Cameo archive
+is slower on the release, as [the final cut](#the-final-cut) states); the
 executor is back at 0.10.1 to the allocation after the fixes the earlier
 candidate motivated (#1347, #1351, #1353, #1355, #1356); name resolution
 over wildcard imports, analysis and the instantiation and constraint
@@ -514,9 +521,9 @@ regression in time.
 
 ## The cut point
 
-`release/0.11.0` is cut from `develop` at
-`5cd37f288fef171d62737d6045f4caff772b6014` (2026-10-22), 32 first-parent
-merges after the head the tables above measure
+`5cd37f288fef171d62737d6045f4caff772b6014` (2026-10-22), the head
+`release/0.11.0` was first to be cut from, is 32 first-parent merges
+after the head the tables above measure
 (`5db0f74158f1ecd43509d90141e5055cb0c3e539`). Among the 32 are this
 record (#1371) and its two fixes (#1368, #1369); a calculation's result
 held in its effective multiplicity (#1308); the solver's variation family
@@ -538,8 +545,10 @@ the loaded machine (allocations exact; times only as a check that no row
 moved beyond the loaded spread).
 
 **One row moved: `AssignmentLoopStep`, 7 329 → 10 532 allocs/op (+44%),
-831 KiB → 1 156 KiB.** Every other row is within 1.5% of the measured
-head, and no row is slower at p < 0.05. Columns: 0.10.1 | measured head
+831 KiB → 1 156 KiB.** Every other row of `5cd37f288` is within 1.5% of
+the measured head, and none is slower at p < 0.05; the release is cut
+from a later head, whose rows are in [the final cut](#the-final-cut).
+Columns: 0.10.1 | measured head
 with #1368 and #1369 | cut point; the fourth figure, where present, is
 the cut point with #1396.
 
@@ -610,6 +619,133 @@ on each generated model was its cold run (0.5–1.9 s against 0.11–0.30 s
 warm); 0.10.1's binary had run before. Those cold runs are the ones the
 odd count excludes.
 
+## The final cut
+
+`release/0.11.0` is cut from `develop` at
+`9b18517dc8e1d525864e257425a81228877281e9` (2026-10-23), 48 first-parent
+merges after [the cut point](#the-cut-point) above: 32 to
+`12564c7bcf868bcb4b5a81d02c8ece64f05cc693`, the head the release was
+cut from first, and 16 more. Both heads were measured the way the
+candidate was: every benchmark package on 0.10.1 and the head under test
+in six interleaved rounds — `12564c7bc` beside `5cd37f288`, then
+`9b18517dc` beside `12564c7bc` — with nothing else on the machine, the
+32-satellite stress rows and the `tests/perf` rows re-run six more
+rounds, the whole binary nine interleaved runs per model, and every
+allocation movement bisected to its merge, one probe per first-parent
+merge (a row's allocation count is exact, so one run decides a merge).
+`GOMAXPROCS=8`, Go 1.25.
+
+### `5cd37f288` → `12564c7bc`
+
+Allocations, six rounds (p = 0.002 unless stated); time is stated only
+where the main rounds, the re-pass and a direct interleave agree.
+
+| benchmark | allocs/op | merge |
+| --------- | --------- | ----- |
+| stress `ConvertAPIJSON/satellites=32` | 29.81M → 31.85M (+6.8%; 5.55 → 6.40 GiB, output +10%) | #1232 (+6.5%), #1333 (+0.3%) |
+| stress `ConvertAPIJSON/satellites=128` | 117.0M → 126.7M (+8.2%) | #1232, #1333 |
+| perf `ImportValues/flat` 100, 500, 2000, 2000×5 | 152.7k → 156.2k, 722.4k → 738.7k, 2.862M → 2.926M (+2.3%), 4.321M → 4.386M (+1.5%) | #1399 |
+| perf `ImportValues/nested` 100, 500, 2000, 2000×5 | 197.4k → 203.9k, 939.1k → 970.5k, 3.723M → 3.847M (+3.3%), 5.132M → 5.256M (+2.4%) | #1399 |
+| stress `Load` 32, 128, 512 | 2.327M → 2.350M, 8.979M → 9.068M, 35.59M → 35.94M (+1.0%) | #1399 |
+| stress `LoadFiles`, `EditImported` (+1.1%), `ValidateSplit` (+0.8–0.9%); REPL `LoadModel` (+1.1%) | | #1399 |
+| stress `Satisfy` 32, 128, 512 | 40.04k → 40.62k, 159.4k → 161.7k, 636.9k → 646.1k (+1.4%) | #1394 |
+| stress `FleetSatisfy/satellites=32` | 11.00k → 11.07k (+0.6%) | #1394 |
+| runtime `AssignmentLoopStep` | 10.532k → 8.531k (−19%) | #1396 (the fix the section above names) |
+| perf `AnalyzeRequirementGroup` 8, 16, 32, 64 | 4.032k → 3.582k, 6.054k → 5.213k, 9.835k → 8.206k, 17.25k → 14.05k (−11% to −19%; time −20% to −46%) | improvement in the window |
+| perf `GRPCVerifyConstraint` | 14.66k → 14.39k (−1.8%) | |
+
+Every other row of every package is at parity to the allocation, and no
+other row moved on time at p < 0.05 in both passes.
+
+The one time movement is `ConvertAPIJSON/satellites=32`: 12.8 → 17.5 s
+on the re-pass (+37%, p = 0.026; 10.8 → 15.8 s in the main rounds). A
+direct interleave of that one row, five rounds over `5cd37f288`, #1232's
+merge and `12564c7bc`, puts the step at #1232 (medians 10.4 s, 14.5 s,
+16.7 s; the last two within each other's spread). Its CPU profile says
+what the time is: `WriteAPIJSON` 4.7 → 9.6 s of the 16 s, of which the
+metamodel evaluator deriving each element's properties is 1.8 s and the
+mapping's qualified-name index, built once per export, 1.4 s; the
+notation-to-RDF half got faster (7.9 → 6.7 s). That is the derived
+properties the API JSON now carries (#1232), with 10% more output,
+carried as that feature's cost. #1399's rows are its conformance check
+now also walking a parameter that redefines by clause; #1394's are the
+qualified-name text a pinned value's provenance now carries. None is
+a leak.
+
+### `12564c7bc` → `9b18517dc`
+
+| benchmark | allocs/op | merge |
+| --------- | --------- | ----- |
+| export `WriteAPIJSON/ISQAtomicNuclear/standard` | 1.399M → 1.452M (+3.8%) | #1420 |
+| export `WriteAPIJSON/ISQAtomicNuclear/compact` | 1.451M → 1.504M (+3.7%) | #1420 |
+| stress `ConvertAPIJSON/satellites=32`, `=128` | 31.85M → 32.65M, 126.7M → 129.8M (+2.5%) | #1420 |
+
+Every other row is identical to the allocation and no row moved on time
+at p < 0.05. #1420 writes the API JSON's boolean properties explicitly;
+its parent (#1436) has the `12564c7bc` counts and its merge the
+`9b18517dc` counts. #1408, the last merge, is the migrator's
+reconstruction of requirement tables and matrices; the migrator's
+benchmark (`WriterSiblingBlocks`) is 20.02k allocs/op on 0.10.1,
+`12564c7bc`, #1408's parent and `9b18517dc` alike (time −4% against
+0.10.1), and its command-line timings below are unchanged by it.
+
+### Against 0.10.1
+
+The attributions of the tables above hold on `9b18517dc` to the
+allocation (`AssignmentLoopStep` 7 328 → 8 531, `ReferencesCold`
+44.6k → 124.7k, `AnalyseResolved` 5 597 → 7 607, `GRPCVerifyConstraint`
+9 786 → 14 395, `Satisfy/satellites=32` 33.42k → 40.62k,
+`FleetSatisfy/satellites=32` 8 852 → 11 072, `FeaturesOf` 4.130M → 2.271M),
+with the two sections above on top. `ConvertAPIJSON` is the row that
+compounds: 25.26M → 32.65M allocs/op at 32 satellites (+29%; #1253,
+#1232, #1333, #1420) and 99.04M → 129.8M at 128 (+31%); 6.5 → 11.2 s and
+29.0 → 51.5 s (+71%, +78%, p = 0.002).
+
+Whole-binary, nine interleaved runs per model on the same machine,
+median of the eight warm runs, every run exiting 0:
+
+| model | 0.10.1 | `9b18517dc` |
+| ----- | ------ | ----------- |
+| 3 254 declarations | 0.10 s / 101 MiB | 0.11 s / 104 MiB |
+| 6 198 declarations | 0.16 s / 114 MiB | 0.16 s / 117 MiB |
+| 12 086 declarations | 0.29 s / 157 MiB | 0.29 s / 160 MiB |
+| `examples/action-executor-demo.sysml` | 0.02 s / 71 MiB | 0.02 s / 73 MiB |
+| `examples/disposal-robot-demo/robot.sysml` | 0.04 s / 78 MiB | 0.04 s / 80 MiB |
+| Apollo 11 (28 files) | 0.30 s / 161 MiB | 0.30 s / 169 MiB |
+| `sysml -e 1` (start, session floor) | 0.02 s / 70 MiB | 0.02 s / 72 MiB |
+| `bin/sysml` / `bin/sysml-lsp` size | 47.60 / 26.00 MiB | 51.04 / 27.59 MiB |
+
+Parity on time at every size to the 10 ms timer; the resident set 3–8 MiB
+higher; the binaries 1.5 MiB larger than the cut point's.
+
+The migrator's command line (`sysml -migrate sysml -o <file> <input>`),
+the same way, over the OMG PSSM test suite (19 MB XMI), the OMG SysML
+v1-to-v2 mapping model (4.6 MB XMI) and two MagicDraw/Cameo archives:
+
+| input | 0.10.1 | `12564c7bc` | `9b18517dc` |
+| ----- | ------ | ----------- | ----------- |
+| `PSSM_TestSuite.xmi` | 1.42 s / 360 MiB | 1.46 s / 371 MiB | 1.46 s / 372 MiB |
+| `SysMLv1Tov2.xmi` | 0.30 s / 178 MiB | 0.28 s / 173 MiB | 0.28 s / 162 MiB |
+| `DocGen.mdzip` (2.1 MB) | 0.94 s / 183 MiB | 1.55 s / 192 MiB | 1.56 s / 196 MiB |
+| `CSyncTest.mdzip` (0.2 MB) | 0.03 s / 71 MiB | 0.03 s / 73 MiB | 0.03 s / 74 MiB |
+
+`9b18517dc` writes the same bytes as `12564c7bc` for every input
+(`DocGen.mdzip`: 1 305 278 bytes, 3 498 elements migrated), so #1408
+moves nothing here. The `DocGen.mdzip` column moved earlier, in two
+steps that this record states as observations: 0.10.1 → `5cd37f288`,
+0.94 → 1.23 s with 26% more output (3 341 → 3 498 elements migrated,
+2 093/1 138/110 → 2 056/1 255/187 mapped/approximated/unmapped — the
+migrator maps more of the archive, as it does of the PSSM suite,
+49 102 → 49 174 elements, 33 013 → 33 179 mapped); and `5cd37f288` →
+`12564c7bc`, 1.23 → 1.55 s with byte-identical output, which bisects to
+#1417 (its parent, #1419, is at 1.23 s). Neither is a benchmark row and
+neither was profiled.
+
+**Nothing in the final cut changes the summary above: the release is not
+blocked on time; what moved since the measured candidate is the cost of
+four changes that declare it (#1232 with #1333, #1399, #1394, #1420),
+and `AssignmentLoopStep` and `AnalyzeRequirementGroup` improved.**
+
 ## Re-runs
 
 Two quiet passes were made for this candidate, each with nothing else on
@@ -669,8 +805,20 @@ as a regression attributed to a change.
 - **The intermediate heads.** `d8b60ed62`, `a662c2bce` and `c5eb6cc30`
   are measured only as far as the earlier record and the probes above
   state; none is a release candidate.
-- **The cut point beyond its probe.** `5cd37f288` is measured on the
+- **`5cd37f288` beyond its probe.** That head is measured on the
   packages and rows [the cut point](#the-cut-point) names and on the
   whole binary; `internal/frontend/{repl,grpc}`, `internal/translate/migrate`,
   `internal/workspace/{libs,model}` and `tests/codegen` were not re-run
-  on it, and #1396's six rounds cover the executor rows it moves.
+  on it, and #1396's six rounds cover the executor rows it moves. The
+  release's own head is measured on every package in
+  [the final cut](#the-final-cut).
+- **The final cut's time rows at the record's confidence.** The final
+  cut's six rounds ran with nothing else on the machine, but the
+  machine's own spread (±25–120% on the slow rows) is the loaded pass's;
+  its allocations are exact, and its time is stated only where the
+  main rounds, the quiet re-pass of the stress and `tests/perf` rows and
+  a direct interleave agree.
+- **The migrator's command-line timings before the final cut.** They were
+  not part of the earlier measurements, so the two movements the final
+  cut's table shows between 0.10.1 and `12564c7bc` are attributed by
+  bisection but not profiled.
