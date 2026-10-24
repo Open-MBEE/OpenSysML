@@ -259,18 +259,19 @@ func TestAsciiDocParsesThroughTheConverter(t *testing.T) {
 // is what the pinned Asciidoctor.js converter writes today; it skips without
 // the converter unless the toolchain is declared mandatory.
 func TestAsciiDocInstalledConverterMatchesTheFixture(t *testing.T) {
-	if _, err := locateAsciiDoc(); err != nil {
-		if required := os.Getenv(toolchainRequiredEnv); required != "" {
-			t.Fatalf("%s=%s but %v", toolchainRequiredEnv, required, err)
-		}
-		t.Skipf("AsciiDoc converter not installed: %v", err)
-	}
 	bodies, err := filepath.Glob(filepath.Join(markuptest.RecordingsDir, "*.adoc"))
 	if err != nil || len(bodies) == 0 {
 		t.Fatalf("no recorded bodies: %v", err)
 	}
 	for _, name := range bodies {
 		output, err := runAsciiDoc(readFixture(t, name))
+		var tool *ToolError
+		if errors.As(err, &tool) && tool.Missing {
+			if required := os.Getenv(toolchainRequiredEnv); required != "" {
+				t.Fatalf("%s=%s but %v", toolchainRequiredEnv, required, err)
+			}
+			t.Skipf("AsciiDoc converter not installed: %v", err)
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
