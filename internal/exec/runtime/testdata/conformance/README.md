@@ -564,6 +564,35 @@ JSON number past 2^53 is read through a float64 that may round its digits.
   with no verdict at all, which decided nothing. An unasserted named constraint
   is not swept.
 
+  A verdict about a requirement — a `requirement` or `satisfaction` one — may
+  also pin, in `verifications`, the runs of the verification cases whose
+  objective verifies that requirement, which `-validate` reports beside the
+  verdict: those of every document of the case, a case a type owns running once
+  on each object of that type the verdict's subject is or holds. The runs are
+  listed in report order and all are checked, so an empty list pins that there
+  is none; a verdict without the key leaves them unchecked.
+
+  ```json
+  {"kind": "satisfaction", "assertion": "satisfy costReq", "status": "violated",
+   "error": "evaluated to false",
+   "verifications": [
+     {"case": "DefinitionPkg::Definition::costTest", "verdict": "fail",
+      "verdicts": {"costObjective": "satisfied"}}
+   ]}
+  ```
+
+  `case` is the case's qualified name and `object` the path from the root to
+  the object it ran as a feature of, as for the verdict (omitted for the root,
+  or for a case no object performs). `verdict`, `verdictDetail`, `verdicts` and
+  `subcases` are as for a verification case: the kind the body produced, text
+  its error or inconclusive verdict must carry, the objective and assertion
+  verdicts of the same run (all of them, by name) and the verdict of each
+  subcase. A case whose subject nothing binds and no owner supplies is an
+  `error` verdict whose detail names the subject, and reports no objective
+  verdict. The satisfaction verdict and the body's verdict are independent
+  reads — the one evaluates the requirement's constraint about the object, the
+  other runs the case — so a fixture may pin them disagreeing.
+
 ## Diagnostics
 
 ```json
