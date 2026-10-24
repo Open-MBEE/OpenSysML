@@ -317,12 +317,11 @@ func TestEngineCheckBindsWitnessObjectsAcrossRuns(t *testing.T) {
 			"t=0.0: action fill of object #2 first of action fill of object #1, action fill of object #2\nstep 3: "+c.took+" first of 2@a, 3@b\n") {
 			t.Errorf("witness %d, spare.level = %s:\n%s", c.n, c.level, content)
 		}
-		// The run makes the spare after the tank's performance and that performance's start
-		// snapshot, read with its feature values: the spare is object #4 here.
+		// The run makes the spare's performance after the tank's: the spare is object #3 here.
 		replayed := check(t, binary, model, slices.Concat([]string{"-schedule", "replay:" + name(c.n), "-trace"}, invocation)...)
-		wantReport(t, replayed, 0, "materialize: spare #4", "ran action fill of object #4 first; independent)",
+		wantReport(t, replayed, 0, "materialize: spare #3", "ran action fill of object #3 first; independent)",
 			"standing: value (observed: 1 run under replay:"+name(c.n)+")")
-		_, spareRan, _ := strings.Cut(replayed.output(), "ran action fill of object #4 first; independent)")
+		_, spareRan, _ := strings.Cut(replayed.output(), "ran action fill of object #3 first; independent)")
 		if !strings.Contains(spareRan, "choice step 3: tokens 2@a, 3@b (unordered; took "+c.took+" first; order-dependent: level)") ||
 			strings.Count(replayed.output(), "Action completed") != 2 {
 			t.Errorf("witness %d does not replay to spare.level = %s:\n%s", c.n, c.level, replayed.output())
