@@ -1,0 +1,50 @@
+# SysML v1 to v2 migration report: exception_handlers.xmi
+# exported by Example UML Tool
+# migrated 33 element(s): 22 mapped, 4 approximated, 7 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from the diagrams' own symbol streams: 11 elements positioned, 5 connectors routed, 0 styled, 0 notes
+
+## layout
+# source: the diagrams' own symbol streams
+# 1 views laid out from their own symbol stream, 0 without layout
+# placements: 11 of 11 written (0 not exposed, 0 resolving to no element); routes: 5 of 8 written (3 not pinned, 0 resolving to no element); malformed: 0
+# styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
+# routes of ControlFlow: 5 written
+# routes of ExceptionHandler: 3 no v2 member
+
+## unmapped (7)
+ObjectFlow	Imaging::Camera::Inspect::<ObjectFlow>	_eh_e6	(the edge leads to 'Position Not Correct', the handler body of (_eh_h2), which v1 starts only on an exception; the flow's target 'img' has no v2 name)
+InputPin	Imaging::Camera::Inspect::Image Capture Fails::fault	_eh_faultIn	(the exception input of (_eh_h1): v2 has no exception to hold)
+ExceptionHandler	Imaging::Camera::Inspect::capture::<ExceptionHandler>	_eh_h3	(SysML v2 has no exception handler: UML runs the handler body 'rethrow' only when its protected node 'capture' raises a matching exception of type 'CaptureFault'; the body is written as a reference action usage the activity does not perform)
+ExceptionHandler	Imaging::Camera::Inspect::capture::<ExceptionHandler>	_eh_h1	(SysML v2 has no exception handler: UML runs the handler body 'Image Capture Fails' only when its protected node 'capture' raises a matching exception of type 'CaptureFault'; the body is written as a reference action usage the activity does not perform)
+ExceptionHandler	Imaging::Camera::Inspect::capture::<ExceptionHandler>	_eh_h2	(SysML v2 has no exception handler: UML runs the handler body 'Position Not Correct' only when its protected node 'capture' raises a matching exception; no exception type: catches nothing in UML)
+DurationObservation	Imaging::Camera::Inspect::recovery	_eh_obs	(the observation's event 'Image Capture Fails' is the handler body of (_eh_h1), which the activity does not perform, so no clock can be read at it)
+InputPin	Imaging::Camera::Inspect::rethrow::fault	_eh_fault2	(the exception input of (_eh_h3): v2 has no exception to hold)
+
+## approximated (4)
+StructuredActivityNode	Imaging::Camera::Inspect::Image Capture Fails	_eh_fails	-> 'Image Capture Fails'	(the handler body of (_eh_h1): written as a reference action usage, which the activity does not perform, since v1 runs it only on an exception; no succession leads to it)
+Diagram	Imaging::Camera::Inspect::Inspect	_diag_inspect	-> Model::Imaging::Camera::Inspect::Inspect	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Model::Imaging::Camera::Inspect, whose graph the rendering draws with the 16 shown nodes and edges of it; 3 of 19 shown elements are not written and not exposed; laid out from the diagram's own symbol stream: 11 of 11 shown elements positioned, 5 of 8 connectors routed (3 no v2 member))
+StructuredActivityNode	Imaging::Camera::Inspect::Position Not Correct	_eh_pos	-> 'Position Not Correct'	(the handler body of (_eh_h2): written as a reference action usage, which the activity does not perform, since v1 runs it only on an exception; no succession leads to it)
+RaiseExceptionAction	Imaging::Camera::Inspect::rethrow	_eh_rethrow	-> rethrow	(the handler body of (_eh_h3): written as a reference action usage, which the activity does not perform, since v1 runs it only on an exception; no succession leads to it; v2 has no exceptions, and the action is the handler body of (_eh_h3), which the activity never performs, so raising ends nothing)
+
+## mapped (22)
+Package	Imaging	_pkg_imaging	-> Model::Imaging
+Class	Imaging::Camera	_blk_camera	-> Model::Imaging::Camera
+Activity	Imaging::Camera::Capture	_act_capture	-> Model::Imaging::Camera::Capture
+ActivityFinalNode	Imaging::Camera::Capture::<ActivityFinalNode>	_cp_final	-> final
+ControlFlow	Imaging::Camera::Capture::<ControlFlow>	_cp_e2
+InitialNode	Imaging::Camera::Capture::<InitialNode>	_cp_init	-> start
+OpaqueAction	Imaging::Camera::Capture::expose	_cp_expose	-> 'expose'	(its body is empty, so it is written as an action that does nothing)
+Activity	Imaging::Camera::Inspect	_act_inspect	-> Model::Imaging::Camera::Inspect	(acts on its owner Imaging::Camera, which it takes as its parameter context, since its this is the def's own occurrence)
+ActivityFinalNode	Imaging::Camera::Inspect::<ActivityFinalNode>	_eh_final	-> final
+ControlFlow	Imaging::Camera::Inspect::<ControlFlow>	_eh_e2	-> Model::Imaging::Camera::Inspect::'capture to store'
+ControlFlow	Imaging::Camera::Inspect::<ControlFlow>	_eh_e3	-> Model::Imaging::Camera::Inspect::'store to final'
+InitialNode	Imaging::Camera::Inspect::<InitialNode>	_eh_init	-> start
+ControlFlow	Imaging::Camera::Inspect::Image Capture Fails::<ControlFlow>	_eh_e4	-> Model::Imaging::Camera::Inspect::'Image Capture Fails'::'retry to log failure'
+OpaqueAction	Imaging::Camera::Inspect::Image Capture Fails::log failure	_eh_log	-> 'log failure'	(its body is empty, so it is written as an action that does nothing)
+OpaqueAction	Imaging::Camera::Inspect::Image Capture Fails::retry	_eh_retry	-> retry	(no edge leads to the node, so it starts with the activity; its body is empty, so it is written as an action that does nothing)
+ControlFlow	Imaging::Camera::Inspect::Position Not Correct::<ControlFlow>	_eh_e5	-> Model::Imaging::Camera::Inspect::'Position Not Correct'::'adjust to recapture'
+OpaqueAction	Imaging::Camera::Inspect::Position Not Correct::adjust	_eh_adjust	-> adjust	(no edge leads to the node, so it starts with the activity; its body is empty, so it is written as an action that does nothing)
+OpaqueAction	Imaging::Camera::Inspect::Position Not Correct::recapture	_eh_recapture	-> recapture	(its body is empty, so it is written as an action that does nothing)
+CallBehaviorAction	Imaging::Camera::Inspect::capture	_eh_capture	-> capture
+OpaqueAction	Imaging::Camera::Inspect::store	_eh_store	-> store	(its body is empty, so it is written as an action that does nothing)
+Signal	Imaging::CaptureFault	_sig_fault	-> Model::Imaging::CaptureFault
+Model	Model	_m	-> Model	(written as package Model)

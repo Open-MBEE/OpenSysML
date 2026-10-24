@@ -27,6 +27,8 @@ client/julia/**/Manifest.toml
 
 # Downloaded OMG corpora (run scripts/download-pilot-corpora.sh)
 /examples/pilot-corpora/
+# Extracted OMG specification examples (run scripts/download-spec-examples.sh)
+/examples/spec-examples/
 
 # Downloaded Modelica Reference-FMUs (run scripts/download-reference-fmus.sh)
 /examples/reference-fmus/
@@ -50,6 +52,12 @@ coverage-scripts.xml
 .coverage-scripts
 coverage-node.lcov
 /client/node/coverage/
+coverage-vscode.lcov
+/editors/vscode/coverage/
+coverage-jupyterlab.lcov
+/editors/jupyterlab/coverage/
+coverage-mcp-npm.lcov
+/packaging/npm/sysml-mcp/coverage/
 .coverage
 
 # Generated stubs for the upcoming clients (make proto-ts / proto-rust)

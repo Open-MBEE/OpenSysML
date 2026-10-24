@@ -8,21 +8,21 @@ package MixedReview {
             action def Brake;
         }
 
-        use case def A {
+        use case A {
             include B;
         }
-        use case def B {
+        use case B {
             include C;
         }
-        use case def C;
+        use case C;
     }
 
     package CaseOwners {
         part def Person;
         part def Vehicle {
             use case def Drive {
-                actor driver : Person;
                 subject v : Vehicle;
+                actor driver : Person;
                 use case nested;
             }
         }

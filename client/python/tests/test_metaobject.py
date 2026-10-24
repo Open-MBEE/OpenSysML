@@ -184,11 +184,11 @@ package Demo {
     attribute everything [*] = seatBelt.metadata;
     attribute notADefinition [*] = seatBelt meta SysML::PartDefinition;
 
-    calc def NameOf { in m : Metaobjects::Metaobject; return : String = m.declaredName; }
+    calc def NameOf { in m : Metaobjects::Metaobject; return : String[1] = m.declaredName; }
     calc nameOf : NameOf;
     calc def SameAs {
         in m : Metaobjects::Metaobject;
-        return : Boolean = m === (seatBelt meta KerML::Type)#(1);
+        return : Boolean[1] = m === (seatBelt meta KerML::Type)#(1);
     }
     calc sameAs : SameAs;
 }

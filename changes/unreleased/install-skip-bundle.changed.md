@@ -1,1 +1,0 @@
-- **`install.sh` and `install.ps1` fetch the `opensysml-<platform>` bundle only when a tool it carries is asked for.** `--tools sysml-grpc` or `--tools sysml-jupyter-kernel` alone now downloads and verifies only that tool's own asset, the `from:` line of the summary lists just the assets that will be fetched, and `tar` (or `unzip`) is required only when the bundle is.

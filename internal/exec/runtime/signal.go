@@ -1209,7 +1209,7 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 		ctx.abandonCreationSince(mark, attached)
 		return err
 	}
-	msg.dependence = ctx.standingOf(lower.ExpressionFootprint(scope, s.Message), true)
+	msg.dependence = ctx.standingOf(ctx.model.expressionFootprint(scope, s.Message), true)
 	receivers, err := ec.valuedReceivers(s)
 	if err != nil {
 		ctx.abandonCreationSince(mark, attached)
@@ -1557,6 +1557,8 @@ func (e *EvalContext) buildMessage(scope *symbols.Scope, send lower.Send) (Messa
 	if err != nil {
 		return Message{}, fmt.Errorf("eval send message: %w", err)
 	}
+	// A one-element sequence (a calc's bare result) is sent as the message it holds.
+	value = soleElement(value)
 	signalType := valueTypeName(value)
 	var signal *symbols.Symbol
 	if signalType == "" && value.Kind == ValInstance {

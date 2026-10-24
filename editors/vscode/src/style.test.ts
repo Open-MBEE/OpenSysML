@@ -3,14 +3,22 @@ import { test } from "node:test";
 
 import {
   cameoLook,
+  DEFAULT_OPEN_IN,
+  DEFAULT_ROUTING,
   DEFAULT_STYLE,
   DRAWING_STYLES,
   drawingStyleOf,
   isStyle,
+  OPEN_INS,
+  openInOf,
   paletteOf,
   PALETTES,
   pilotLook,
+  ROUTINGS,
+  routingOf,
   SHOW_SETTING,
+  hiddenRelationsOf,
+  RELATION_KINDS,
   shownOf,
   STYLE_LABELS,
   STYLES,
@@ -60,4 +68,32 @@ test("only the cameo style asks the server for a drawing style and draws Cameo's
   assert.equal(drawingStyleOf("cameo"), "cameo");
   assert.equal(paletteOf("cameo"), undefined);
   assert.deepEqual(STYLES.filter(cameoLook), ["cameo"]);
+});
+
+test("the routing setting is the model's routes or the router's, and the model's for anything else", () => {
+  assert.deepEqual([...ROUTINGS], ["model", "router"]);
+  assert.equal(DEFAULT_ROUTING, "model");
+  assert.equal(routingOf("router"), "router");
+  assert.equal(routingOf("model"), "model");
+  for (const value of [undefined, null, "", "elk", "Router", 1]) {
+    assert.equal(routingOf(value), "model");
+  }
+});
+
+test("the openIn setting is beside the source or a new window, and beside for anything else", () => {
+  assert.deepEqual([...OPEN_INS], ["beside", "newWindow"]);
+  assert.equal(DEFAULT_OPEN_IN, "beside");
+  assert.equal(openInOf("newWindow"), "newWindow");
+  for (const value of [undefined, "", "floating", "newwindow", true]) {
+    assert.equal(openInOf(value), "beside");
+  }
+});
+
+test("hiddenRelationsOf reads the kinds listed, each once, and nothing from anything else", () => {
+  assert.deepEqual(hiddenRelationsOf(["typing", "flow", "typing"]), ["typing", "flow"]);
+  assert.deepEqual(hiddenRelationsOf("typing"), []);
+  assert.deepEqual(hiddenRelationsOf([3, "", "binding"]), ["binding"]);
+  // Every kind the view model names is offered by the setting.
+  assert.equal(new Set(RELATION_KINDS).size, RELATION_KINDS.length);
+  assert.ok(RELATION_KINDS.includes("specialization") && RELATION_KINDS.includes("anchor"));
 });

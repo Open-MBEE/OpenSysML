@@ -18,8 +18,8 @@ package AssertNotNamedConstraint {
 		constraint massLimitation : MassLimit;
 
 		assert not massLimitation {
-			:>> mass = vehicle3.mass;
-			:>> massLimit = vehicle4.mass;
+			in :>> mass = vehicle3.mass;
+			in :>> massLimit = vehicle4.mass;
 		}
 	}
 }

@@ -116,7 +116,9 @@ notebook) are skipped, as notebooks expect.
 
 As at the prompt, a failed cell does not roll the session back: what the session accepted
 before the error stays, and a declaration refused for a semantic error is still in the model
-with that error reported. `%clear` (or *Restart Kernel*) starts over.
+with that error reported. A cell that does not parse and declares nothing — an expression
+typed with a trailing `;`, say — is reported once and then dropped, so the cells after it
+evaluate as if it had not been run. `%clear` (or *Restart Kernel*) starts over.
 
 <kbd>Tab</kbd> completes the way the prompt's completer does: `%` commands, their arguments,
 and qualified names in the model. <kbd>Shift</kbd>+<kbd>Tab</kbd> on a name shows what
@@ -149,8 +151,10 @@ with nothing to connect a tree; names calling for different diagrams draw a mixe
 names draw in one diagram. Names resolve as `%render`'s do: qualified, or simple and in scope.
 
 Each `--style` is a direction (`TB`, `LR`, `RL`, `BT`), a drawing style (`pilot`, `cameo`), a
-palette (`okabe-ito`, `viridis`, …) or a port display (`minimal`, `full`). The pilot's other
-styles (`ORTHOLINE`, `POLYLINE`, `COMPTREE`, `SHOWINHERITED`, …) are accepted and noted in the
+palette (`okabe-ito`, `viridis`, …) or a port display (`minimal`, `full`); `ORTHOLINE` and
+`POLYLINE` route the edges, and `COMPMOST` and `COMPTREE` fold a tree's owned members — every owned
+usage, or the ports alone — into compartment rows of their owner instead of boxes of their own. The
+pilot's other styles (`SHOWINHERITED`, `SHOWLIB`, …) are accepted and noted in the
 diagram as not drawn, so a pilot notebook runs and nothing is dropped silently; `PUMLCODE` asks for
 the PlantUML source, as it does in the pilot. An unknown view or style is refused with the list.
 

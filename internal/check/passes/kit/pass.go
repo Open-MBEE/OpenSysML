@@ -161,6 +161,20 @@ func (c *Context) DownstreamSpan(span source.Span) bool {
 	return false
 }
 
+// DownstreamAnchoredIn reports whether a blocking failure begins inside span (within it, or
+// anchored on the declaration it heads); a fault on an enclosing declaration begins before it.
+func (c *Context) DownstreamAnchoredIn(span source.Span) bool {
+	if c == nil {
+		return false
+	}
+	for _, f := range c.failures {
+		if f.Offset >= span.Offset && f.Offset < span.End() {
+			return true
+		}
+	}
+	return false
+}
+
 // Resolver returns the shared resolver for this context, creating it on first
 // use so multiple passes reuse one memoized instance.
 func (c *Context) Resolver() *resolve.Resolver {

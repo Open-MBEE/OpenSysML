@@ -263,6 +263,7 @@ func newActionExecutorOn(
 	exec.performances.thisOccurrence = exec.materializeOccurrence
 	exec.features = exec.performanceFeatures()
 	exec.root = exec.newRootFrame()
+	exec.through = ctx.performedPinBindings(performed, graph, self)
 	exec.owner = exec
 	exec.flow = exec
 	exec.driven.exec = exec
@@ -1685,6 +1686,16 @@ func (e *ActionExecutor) hasFlow() bool {
 		e.dynamicsKind != lower.NotStateSpace)
 }
 
+// performedByFlow reports whether a performance of sym runs the flow its body
+// states, rather than the tool or state-space dynamics initialize dispatches to.
+func (ctx *Context) performedByFlow(sym *symbols.Symbol) (bool, error) {
+	_, tool, err := ctx.toolPerformance(sym, sym)
+	if err != nil || tool != nil {
+		return false, err
+	}
+	return ctx.stateSpaceKindOf(sym) == lower.NotStateSpace, nil
+}
+
 // completeRoot freezes the root bindings and ends its performance.
 func (e *ActionExecutor) completeRoot() error {
 	if err := e.ctx.freezeBodyCells(e.root.cells); err != nil {
@@ -1893,7 +1904,7 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	}
 	id := e.tokens[tokenIdx].ID
 	defer e.beginTokenStep(id)()
-	defer e.ctx.underControl(e.tokens[tokenIdx].controlSerials())()
+	defer e.ctx.releaseControl(e.ctx.underControl(e.tokens[tokenIdx].controlSerials()))
 	if err := e.stepTokenAt(tokenIdx); err != nil {
 		return e.endTerminatedFor(id, err)
 	}
@@ -2222,7 +2233,8 @@ func guardResult(ec *EvalContext, guard ast.Node) (Value, error) {
 	if guard == nil {
 		return boolValue(true), nil
 	}
-	return ec.Eval(guard)
+	result, err := ec.Eval(guard)
+	return soleElement(result), err
 }
 
 // probeGuard reads the guard of the succession at position i out of a decision
@@ -2724,7 +2736,7 @@ func (e *ActionExecutor) guardsStanding(graph *lower.ActionGraph, successors []l
 		if successors[i].Guard == nil {
 			continue
 		}
-		by = unionSerials(by, e.ctx.standingOf(lower.ExpressionFootprint(graph.DeclScope(successors[i].Decl), successors[i].Guard), true))
+		by = unionSerials(by, e.ctx.standingOf(e.ctx.model.expressionFootprint(graph.DeclScope(successors[i].Decl), successors[i].Guard), true))
 	}
 	return by
 }
@@ -2851,7 +2863,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	work := &usageWork{exec: e, token: token.ID, perf: perf, graph: graph, usage: usage}
 	if isCaseStep(usage) {
 		work.isCase = true
-	} else if inv, ok := nestedInvocationInGraph(graph, usage); ok {
+	} else if inv, ok := nodeInvocation(graph, perf, usage); ok {
 		work.inv, work.performs = inv, true
 	}
 	return e.runBody(tokenIdx, work)
@@ -3014,6 +3026,7 @@ func (e *ActionExecutor) triggerHolds(token *Token, accept lower.Accept) (bool, 
 			if err != nil {
 				return false, fmt.Errorf("eval accept condition: %w", err)
 			}
+			result = soleElement(result)
 			if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
 				return false, fmt.Errorf("%w: accept when: condition must evaluate to boolean, got %v", ErrTypeMismatch, result.Kind)
 			}

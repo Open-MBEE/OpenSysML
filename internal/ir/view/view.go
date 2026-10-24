@@ -166,6 +166,34 @@ type Renderer struct {
 	// verdicts overlays verification verdicts on a requirement rendering; nil
 	// draws it structurally.
 	verdicts Verdicts
+	// included are elements drawn besides the exposed ones (SetIncluded).
+	included []*symbols.Symbol
+}
+
+// SetIncluded names elements every rendering draws besides what its view
+// exposes, as if the view exposed them too; nil draws the view's own content.
+func (r *Renderer) SetIncluded(included []*symbols.Symbol) { r.included = included }
+
+// withIncluded appends the included elements the exposed ones do not already
+// name, recording where each was declared in out.Included.
+func (r *Renderer) withIncluded(exposed []*symbols.Symbol, out *Rendering) []*symbols.Symbol {
+	if len(r.included) == 0 {
+		return exposed
+	}
+	seen := map[symbols.ElementKey]bool{}
+	for _, sym := range exposed {
+		seen[symbols.KeyOf(sym)] = true
+	}
+	for _, sym := range r.included {
+		key := symbols.KeyOf(sym)
+		if sym == nil || seen[key] {
+			continue
+		}
+		seen[key] = true
+		exposed = append(exposed, sym)
+		out.Included = append(out.Included, symbolOrigin(sym))
+	}
+	return exposed
 }
 
 // NewRenderer returns a renderer over the model and resolver of a loaded
@@ -220,6 +248,8 @@ const (
 	EdgeInclude
 	// EdgeAnchor attaches an objective to a case.
 	EdgeAnchor
+	// EdgeDependency is a dependency of no particular kind, from the client.
+	EdgeDependency
 )
 
 // String names an edge kind the way the notation speaks of it.
@@ -263,6 +293,8 @@ func (k EdgeKind) String() string {
 		return "include"
 	case EdgeAnchor:
 		return "anchor"
+	case EdgeDependency:
+		return "dependency"
 	}
 	return "edge"
 }
@@ -295,6 +327,9 @@ type Node struct {
 	// Typings are the qualified names of the elements Type resolves to, in its
 	// order; a member of one is drawn as the type's own. Empty when none resolves.
 	Typings []string
+	// FromType marks a member the node has from its type rather than declares itself; it
+	// is drawn under the node as the type's own, so a folding that hides it hides nothing of the node's.
+	FromType bool
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
@@ -488,6 +523,9 @@ type Rendering struct {
 	// connection to something the view does not expose, a behavior that does not
 	// lower.
 	Notices []string
+	// Included is where each element drawn by SetIncluded rather than by the
+	// view was declared, in the order the renderer was given them.
+	Included []Origin
 	// depthCut counts the elements a depth bound kept the walk from drawing.
 	depthCut int
 
@@ -573,6 +611,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		return nil, err
 	}
 	out := &Rendering{View: r.notationName(view), Kind: kind, Stated: stated, Shown: r.shownOf(view), drawn: drawn}
+	exposed = r.withIncluded(exposed, out)
 	switch kind {
 	case KindTree:
 		r.renderTree(view, exposed, out)
@@ -591,7 +630,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	case KindMatrix:
 		r.renderMatrix(exposed, r.matrixShownKinds(view), false, out)
 	case KindSequence:
-		r.renderSequence(exposed, out)
+		r.renderSequence(view, exposed, out)
 	case KindRequirement, KindDefinition, KindPackage:
 		r.renderGeneral(view, exposed, out)
 	default:
@@ -621,6 +660,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 // *UnsupportedKindError.
 func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated string) (*Rendering, error) {
 	out := &Rendering{Kind: kind, Stated: stated}
+	exposed = r.withIncluded(exposed, out)
 	switch kind {
 	case KindTree:
 		r.renderTree(nil, exposed, out)
@@ -639,7 +679,7 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 	case KindMatrix:
 		r.renderMatrix(exposed, allMatrixKinds(), true, out)
 	case KindSequence:
-		r.renderSequence(exposed, out)
+		r.renderSequence(nil, exposed, out)
 	case KindRequirement, KindDefinition, KindPackage:
 		r.renderGeneral(nil, exposed, out)
 	default:

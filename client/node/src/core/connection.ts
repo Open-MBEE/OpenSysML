@@ -717,8 +717,17 @@ export class Connection {
   async renderView(
     modelHash: string,
     viewName: string,
-    options: { ports?: "minimal" | "full"; show?: readonly string[]; depth?: number } = {},
+    options: {
+      ports?: "minimal" | "full";
+      show?: readonly string[];
+      depth?: number;
+      compartments?: "positioned" | "most" | "ports";
+    } = {},
   ): Promise<RenderedView> {
+    const compartments: string = options.compartments ?? "positioned";
+    if (compartments !== "positioned" && compartments !== "most" && compartments !== "ports") {
+      throw new RangeError("compartments must be 'positioned', 'most' or 'ports'");
+    }
     const ports: string = options.ports ?? "minimal";
     if (ports !== "minimal" && ports !== "full") {
       throw new RangeError("ports must be 'minimal' or 'full'");
@@ -740,6 +749,7 @@ export class Connection {
           ports: ports === "minimal" ? "" : ports,
           show,
           depth,
+          compartments: compartments === "positioned" ? "" : compartments,
         }),
         this.callOptions(),
       ),

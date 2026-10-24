@@ -55,11 +55,15 @@ func undeterminedReason(t *testing.T, val Value, err error, what string) string 
 func testOccurrenceShotsBeforeStart(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, occurrenceWaitSrc)
 	h := mustInstantiate(t, ctx, oneSymbol(t, idx, "Probe::Held"))
-	// b is held back by the succession from a, which never ends: it has no
-	// performance to read yet, which is a typed refusal rather than a value.
-	for _, expr := range []string{"b", "b.start", "b.snapshots"} {
-		if _, err := evalOn(t, ctx, h, expr); !errors.Is(err, errUninitializedFeatureValue) {
-			t.Errorf("%s before b starts = %v, want errUninitializedFeatureValue", expr, err)
+	// b is held back by the succession from a, which never ends: it is a
+	// performance that has not started, so its shots have not happened.
+	if val, err := evalOn(t, ctx, h, "b"); err != nil || val.Kind != ValInstance {
+		t.Fatalf("b before b starts = %s, %v, want the held performance", FormatValue(val), err)
+	}
+	for _, expr := range []string{"b.start", "b.snapshots"} {
+		val, err := evalOn(t, ctx, h, expr)
+		if reason := undeterminedReason(t, val, err, expr); !strings.Contains(reason, "has not started") {
+			t.Errorf("%s: reason %q does not say b has not started", expr, reason)
 		}
 	}
 	for _, expr := range []string{"a.done", "Time::DurationOf(a)"} {

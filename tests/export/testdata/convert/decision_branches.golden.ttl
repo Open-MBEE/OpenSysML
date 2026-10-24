@@ -349,9 +349,9 @@ expr:Branches__Charge___404_pguard_pa0
     sysx:sourceText "level" ;
     sysml:elementId "Branches__Charge___404_pguard_pa0" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Branches__Charge___404_pguard_pa0_preferent, expr:Branches__Charge___404_pguard_pa0_pout_om ;
+    sysml:ownedMembership expr:Branches__Charge___404_pguard_pa0_preferent, expr:Branches__Charge___404_pguard_pa0_pout_om ;
     sysml:referent elmt:Branches__Charge__level ;
-    sysml:ownedRelationship expr:Branches__Charge___404_pguard_pa0_pout_om, expr:Branches__Charge___404_pguard_pa0_preferent ;
-    sysml:ownedMembership expr:Branches__Charge___404_pguard_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Branches__Charge___404_pguard_pa0_pout_om ;
     sysml:ownedFeature expr:Branches__Charge___404_pguard_pa0_pout ;
     sysml:parameter expr:Branches__Charge___404_pguard_pa0_pout ;
@@ -359,7 +359,15 @@ expr:Branches__Charge___404_pguard_pa0
     sysml:owner expr:Branches__Charge___404_pguard_pin0 ;
     sysml:owningRelationship expr:Branches__Charge___404_pguard_pa0_om ;
     sysml:owningMembership expr:Branches__Charge___404_pguard_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Branches__Charge___404_pguard_pa0_pout_om\"},{\"@id\":\"Branches__Charge___404_pguard_pa0_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___404_pguard_pa0_preferent\"},{\"@id\":\"Branches__Charge___404_pguard_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___404_pguard_pa0_preferent\"},{\"@id\":\"Branches__Charge___404_pguard_pa0_pout_om\"}]" .
+
+expr:Branches__Charge___404_pguard_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Branches__Charge___404_pguard_pa0_preferent" ;
+    sysml:memberElement elmt:Branches__Charge__level ;
+    sysml:owner expr:Branches__Charge___404_pguard_pa0 ;
+    sysml:owningRelatedElement expr:Branches__Charge___404_pguard_pa0 .
 
 expr:Branches__Charge___404_pguard_pa0_pout
     a sysml:Feature ;
@@ -659,9 +667,9 @@ expr:Branches__Charge___405_pguard_pa0
     sysx:sourceText "level" ;
     sysml:elementId "Branches__Charge___405_pguard_pa0" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Branches__Charge___405_pguard_pa0_preferent, expr:Branches__Charge___405_pguard_pa0_pout_om ;
+    sysml:ownedMembership expr:Branches__Charge___405_pguard_pa0_preferent, expr:Branches__Charge___405_pguard_pa0_pout_om ;
     sysml:referent elmt:Branches__Charge__level ;
-    sysml:ownedRelationship expr:Branches__Charge___405_pguard_pa0_pout_om, expr:Branches__Charge___405_pguard_pa0_preferent ;
-    sysml:ownedMembership expr:Branches__Charge___405_pguard_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Branches__Charge___405_pguard_pa0_pout_om ;
     sysml:ownedFeature expr:Branches__Charge___405_pguard_pa0_pout ;
     sysml:parameter expr:Branches__Charge___405_pguard_pa0_pout ;
@@ -669,7 +677,15 @@ expr:Branches__Charge___405_pguard_pa0
     sysml:owner expr:Branches__Charge___405_pguard_pin0 ;
     sysml:owningRelationship expr:Branches__Charge___405_pguard_pa0_om ;
     sysml:owningMembership expr:Branches__Charge___405_pguard_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Branches__Charge___405_pguard_pa0_pout_om\"},{\"@id\":\"Branches__Charge___405_pguard_pa0_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___405_pguard_pa0_preferent\"},{\"@id\":\"Branches__Charge___405_pguard_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___405_pguard_pa0_preferent\"},{\"@id\":\"Branches__Charge___405_pguard_pa0_pout_om\"}]" .
+
+expr:Branches__Charge___405_pguard_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Branches__Charge___405_pguard_pa0_preferent" ;
+    sysml:memberElement elmt:Branches__Charge__level ;
+    sysml:owner expr:Branches__Charge___405_pguard_pa0 ;
+    sysml:owningRelatedElement expr:Branches__Charge___405_pguard_pa0 .
 
 expr:Branches__Charge___405_pguard_pa0_pout
     a sysml:Feature ;
@@ -1058,9 +1074,9 @@ expr:Branches__Charge___409_pguard_pa0
     sysx:sourceText "level" ;
     sysml:elementId "Branches__Charge___409_pguard_pa0" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Branches__Charge___409_pguard_pa0_preferent, expr:Branches__Charge___409_pguard_pa0_pout_om ;
+    sysml:ownedMembership expr:Branches__Charge___409_pguard_pa0_preferent, expr:Branches__Charge___409_pguard_pa0_pout_om ;
     sysml:referent elmt:Branches__Charge__level ;
-    sysml:ownedRelationship expr:Branches__Charge___409_pguard_pa0_pout_om, expr:Branches__Charge___409_pguard_pa0_preferent ;
-    sysml:ownedMembership expr:Branches__Charge___409_pguard_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Branches__Charge___409_pguard_pa0_pout_om ;
     sysml:ownedFeature expr:Branches__Charge___409_pguard_pa0_pout ;
     sysml:parameter expr:Branches__Charge___409_pguard_pa0_pout ;
@@ -1068,7 +1084,15 @@ expr:Branches__Charge___409_pguard_pa0
     sysml:owner expr:Branches__Charge___409_pguard_pin0 ;
     sysml:owningRelationship expr:Branches__Charge___409_pguard_pa0_om ;
     sysml:owningMembership expr:Branches__Charge___409_pguard_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Branches__Charge___409_pguard_pa0_pout_om\"},{\"@id\":\"Branches__Charge___409_pguard_pa0_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Branches__Charge___409_pguard_pa0_preferent\"},{\"@id\":\"Branches__Charge___409_pguard_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Branches__Charge___409_pguard_pa0_preferent\"},{\"@id\":\"Branches__Charge___409_pguard_pa0_pout_om\"}]" .
+
+expr:Branches__Charge___409_pguard_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Branches__Charge___409_pguard_pa0_preferent" ;
+    sysml:memberElement elmt:Branches__Charge__level ;
+    sysml:owner expr:Branches__Charge___409_pguard_pa0 ;
+    sysml:owningRelatedElement expr:Branches__Charge___409_pguard_pa0 .
 
 expr:Branches__Charge___409_pguard_pa0_pout
     a sysml:Feature ;
@@ -1439,27 +1463,6 @@ elmt:Branches__Charge__level_ft0
     sysml:owner elmt:Branches__Charge__level ;
     sysml:relatedElement elmt:Branches__Charge__level, elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     json:relatedElement "[{\"@id\":\"Branches__Charge__level\"},{\"@id\":\"f2350199-2ab1-5258-8514-58812ef25dc6\"}]" .
-
-expr:Branches__Charge___404_pguard_pa0_preferent
-    a sysml:Membership ;
-    sysml:elementId "Branches__Charge___404_pguard_pa0_preferent" ;
-    sysml:memberElement elmt:Branches__Charge__level ;
-    sysml:owner expr:Branches__Charge___404_pguard_pa0 ;
-    sysml:owningRelatedElement expr:Branches__Charge___404_pguard_pa0 .
-
-expr:Branches__Charge___405_pguard_pa0_preferent
-    a sysml:Membership ;
-    sysml:elementId "Branches__Charge___405_pguard_pa0_preferent" ;
-    sysml:memberElement elmt:Branches__Charge__level ;
-    sysml:owner expr:Branches__Charge___405_pguard_pa0 ;
-    sysml:owningRelatedElement expr:Branches__Charge___405_pguard_pa0 .
-
-expr:Branches__Charge___409_pguard_pa0_preferent
-    a sysml:Membership ;
-    sysml:elementId "Branches__Charge___409_pguard_pa0_preferent" ;
-    sysml:memberElement elmt:Branches__Charge__level ;
-    sysml:owner expr:Branches__Charge___409_pguard_pa0 ;
-    sysml:owningRelatedElement expr:Branches__Charge___409_pguard_pa0 .
 
 elmt:f2350199-2ab1-5258-8514-58812ef25dc6
     a sysml:DataType ;

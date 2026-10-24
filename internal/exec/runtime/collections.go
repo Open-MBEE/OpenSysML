@@ -472,6 +472,7 @@ func (ec *EvalContext) denotedBody(val Value) (Value, error) {
 
 // checkBody verifies a denoted value is a body declaring arity parameters.
 func checkBody(op string, val Value, arity int) (Value, error) {
+	val = soleElement(val)
 	if fn := val.function(); fn != nil && fn.shape != nil {
 		// A function the argument names (`->reduce '+'`) is applied as the body is.
 		if low, high := fn.arity(); arity < low || arity > high {
@@ -502,6 +503,7 @@ func (ec *EvalContext) evalClosure(val Value) (Value, error) {
 // applyBody evaluates a body with its parameters bound to args, as a frame of
 // its own over the environment the body closes over.
 func (ec *EvalContext) applyBody(val Value, args ...Value) (Value, error) {
+	val = soleElement(val)
 	if val.Kind == ValFunction {
 		// A library function runs no expression of its own, so each application is
 		// one step, as a body's evaluation is; a calc body charges its own.
@@ -652,6 +654,10 @@ func builtinBaseIndex(ec *EvalContext, args []Value) (Value, error) {
 	case 1:
 		return ec.ctx.sequenceIndex(op, []Value{args[0], indexes[0]})
 	}
+	// Several indexes address an Array; one held as a one-element sequence is that Array.
+	if held := soleElement(args[0]); isStructuredValue(&held) {
+		return arrayIndex(op, held, args[1])
+	}
 	return Value{}, fmt.Errorf("%w: %s: %d indexes address an Array, got %s",
 		ErrTypeMismatch, op, len(indexes), DescribeValue(args[0]))
 }
@@ -670,6 +676,7 @@ func builtinArrayIndex(ec *EvalContext, args []Value) (Value, error) {
 // dimension — by its indexes in row-major order. The library body answers null
 // for an array of rank 0, which no index addresses.
 func arrayIndex(op string, arr Value, indexesVal Value) (Value, error) {
+	arr = soleElement(arr)
 	indexes, err := indexList(op, elementsOf(indexesVal))
 	if err != nil {
 		return Value{}, err

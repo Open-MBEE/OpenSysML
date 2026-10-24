@@ -83,7 +83,7 @@ func TestRunAnalysisReportsCaseEvaluations(t *testing.T) {
 	if len(resp.Outputs) != 1 || resp.Outputs[0].Name != "selectedAlternative" {
 		t.Fatalf("outputs = %v, want selectedAlternative alone", resp.Outputs)
 	}
-	selectedID := resp.Outputs[0].Value.GetInstanceId()
+	selectedID := soleElement(t, "selectedAlternative", resp.Outputs[0].Value).GetInstanceId()
 	if selectedID == 0 {
 		t.Fatalf("selectedAlternative = %v, want an instance", resp.Outputs[0].Value)
 	}
@@ -216,7 +216,7 @@ func TestRunSweepReportsCaseEvaluations(t *testing.T) {
 				t.Errorf("row %d: alternative %d is not among the reported instances", i, id)
 			}
 		}
-		if selected := row.Evaluations[wantSelected[i]]; selected.Arguments[0].GetInstanceId() != row.Outputs[0].Value.GetInstanceId() {
+		if selected := row.Evaluations[wantSelected[i]]; selected.Arguments[0].GetInstanceId() != soleElement(t, "selectedAlternative", row.Outputs[0].Value).GetInstanceId() {
 			t.Errorf("row %d selected evaluation is of %v, selectedAlternative is %v", i, selected.Arguments[0], row.Outputs[0].Value)
 		}
 	}

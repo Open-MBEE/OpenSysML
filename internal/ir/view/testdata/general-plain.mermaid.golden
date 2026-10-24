@@ -79,9 +79,9 @@ flowchart TD
 **Integer**`"]
   n22["`*«datatype»*
 **Natural**`"]
-  n23["`*«datatype»*
+  n23["`*«abstract datatype»*
 **Number**`"]
-  n24["`*«datatype»*
+  n24["`*«abstract datatype»*
 **NumericalValue**`"]
   n25["`*«datatype»*
 **Positive**`"]
@@ -89,7 +89,7 @@ flowchart TD
 **Rational**`"]
   n27["`*«datatype»*
 **Real**`"]
-  n28["`*«datatype»*
+  n28["`*«abstract datatype»*
 **ScalarValue**`"]
   n29["`*«datatype»*
 **String**`"]

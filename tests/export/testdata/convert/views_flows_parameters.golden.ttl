@@ -491,14 +491,14 @@ elmt:FlowsAndViews__tanks
     sysml:isUnique "false"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Tank ;
     sysml:multiplicity expr:FlowsAndViews__tanks_pmultiplicity ;
-    sysml:ownedRelationship expr:FlowsAndViews__tanks_pmultiplicity_om, elmt:FlowsAndViews__tanks_ft0 ;
+    sysml:ownedRelationship elmt:FlowsAndViews__tanks_ft0, expr:FlowsAndViews__tanks_pmultiplicity_om ;
     sysml:ownedMembership expr:FlowsAndViews__tanks_pmultiplicity_om ;
     sysml:upperBound expr:FlowsAndViews__tanks_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:FlowsAndViews__tanks_ft0 ;
     sysml:ownedSpecialization elmt:FlowsAndViews__tanks_ft0 ;
     sysx:sourceText "    part tanks : Tank[*] nonunique;\n" ;
-    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__tanks_pmultiplicity_om\"},{\"@id\":\"FlowsAndViews__tanks_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__tanks_ft0\"},{\"@id\":\"FlowsAndViews__tanks_pmultiplicity_om\"}]" .
 
 elmt:FlowsAndViews__tanks_om
     a sysml:OwningMembership ;
@@ -642,7 +642,7 @@ elmt:FlowsAndViews__vehicle__spares
     sysml:type elmt:FlowsAndViews__Tank ;
     sysml:subsets elmt:FlowsAndViews__tanks ;
     sysml:multiplicity expr:FlowsAndViews__vehicle__spares_pmultiplicity ;
-    sysml:ownedRelationship expr:FlowsAndViews__vehicle__spares_pmultiplicity_om, elmt:FlowsAndViews__vehicle__spares_ft0, elmt:FlowsAndViews__vehicle__spares_ss0 ;
+    sysml:ownedRelationship elmt:FlowsAndViews__vehicle__spares_ft0, expr:FlowsAndViews__vehicle__spares_pmultiplicity_om, elmt:FlowsAndViews__vehicle__spares_ss0 ;
     sysml:ownedMembership expr:FlowsAndViews__vehicle__spares_pmultiplicity_om ;
     sysml:lowerBound expr:FlowsAndViews__vehicle__spares_plowerBound ;
     sysml:upperBound expr:FlowsAndViews__vehicle__spares_pupperBound ;
@@ -651,7 +651,7 @@ elmt:FlowsAndViews__vehicle__spares
     sysml:ownedSpecialization elmt:FlowsAndViews__vehicle__spares_ft0, elmt:FlowsAndViews__vehicle__spares_ss0 ;
     sysml:ownedSubsetting elmt:FlowsAndViews__vehicle__spares_ss0 ;
     sysx:sourceText "        part spares : Tank[0..2] nonunique :> tanks;\n" ;
-    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__vehicle__spares_pmultiplicity_om\"},{\"@id\":\"FlowsAndViews__vehicle__spares_ft0\"},{\"@id\":\"FlowsAndViews__vehicle__spares_ss0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__vehicle__spares_ft0\"},{\"@id\":\"FlowsAndViews__vehicle__spares_pmultiplicity_om\"},{\"@id\":\"FlowsAndViews__vehicle__spares_ss0\"}]" ;
     json:ownedSpecialization "[{\"@id\":\"FlowsAndViews__vehicle__spares_ft0\"},{\"@id\":\"FlowsAndViews__vehicle__spares_ss0\"}]" .
 
 elmt:FlowsAndViews__vehicle__spares_om
@@ -1189,12 +1189,12 @@ elmt:FlowsAndViews__vehicleView
     sysml:declaredName "vehicleView" ;
     sysml:type elmt:FlowsAndViews__StructureView ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedRelationship elmt:FlowsAndViews__vehicleView___400, elmt:FlowsAndViews__vehicleView_ft0 ;
+    sysml:ownedRelationship elmt:FlowsAndViews__vehicleView_ft0, elmt:FlowsAndViews__vehicleView___400 ;
     sysml:ownedImport elmt:FlowsAndViews__vehicleView___400 ;
     sysml:ownedTyping elmt:FlowsAndViews__vehicleView_ft0 ;
     sysml:ownedSpecialization elmt:FlowsAndViews__vehicleView_ft0 ;
     sysx:sourceText "    view vehicleView : StructureView {\n        expose vehicle::**;\n    }\n" ;
-    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__vehicleView___400\"},{\"@id\":\"FlowsAndViews__vehicleView_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__vehicleView_ft0\"},{\"@id\":\"FlowsAndViews__vehicleView___400\"}]" .
 
 elmt:FlowsAndViews__vehicleView_om
     a sysml:OwningMembership ;

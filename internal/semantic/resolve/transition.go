@@ -370,6 +370,22 @@ func ActionGeneralization(scope *symbols.Scope, typing bool) (bodies []*symbols.
 	if body == nil {
 		return nil, false
 	}
+	return generalization(body, typing)
+}
+
+// GeneralBodies returns the bodies of the types the declaration owning body
+// specializes, subsets, redefines or is typed by, nearest first and each once:
+// where a member the declaration inherits was declared.
+func GeneralBodies(body *symbols.Scope) []*symbols.Scope {
+	if body == nil {
+		return nil
+	}
+	bodies, _ := generalization(body, true)
+	return bodies
+}
+
+// generalization walks the generals of body, nearest first and each once.
+func generalization(body *symbols.Scope, typing bool) (bodies []*symbols.Scope, cyclic bool) {
 	seen := make(map[*symbols.Scope]bool)
 	onStack := map[*symbols.Scope]bool{body: true}
 	var collect func(body *symbols.Scope)

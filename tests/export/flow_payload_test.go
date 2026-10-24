@@ -341,7 +341,7 @@ func TestPayloadIdentityAndMembership(t *testing.T) {
 
 // The multiplicity part of a declared payload may come before its typing, its
 // `ordered` included: `of p[*] ordered : Fuel` declares p, as `of p : Fuel[*]
-// ordered` does, and comes back in that second spelling.
+// ordered` does, and comes back in the spelling it was written in.
 func TestPayloadMultiplicityPartBeforeTheTyping(t *testing.T) {
 	const model = `package Q {
     item def Fuel;
@@ -358,7 +358,7 @@ func TestPayloadMultiplicityPartBeforeTheTyping(t *testing.T) {
 	if !strings.Contains(string(turtle), "elmt:Q__Ctx___402__p\n    a sysml:PayloadFeature ;") {
 		t.Errorf("p is not declared as the payload:\n%s", turtle)
 	}
-	if !strings.Contains(string(back), "flow of p : Fuel[*] ordered from x.i to y.j;") {
+	if !strings.Contains(string(back), "flow of p[*] ordered : Fuel from x.i to y.j;") {
 		t.Errorf("the payload did not come back declared:\n%s", back)
 	}
 }

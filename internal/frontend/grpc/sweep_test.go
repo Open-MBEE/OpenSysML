@@ -105,6 +105,12 @@ func valueText(val *pb.Value) string {
 		return strconv.FormatInt(val.GetIntValue(), 10)
 	case *pb.Value_RealValue:
 		return semantics.FormatReal(val.GetRealValue())
+	case *pb.Value_Sequence:
+		parts := make([]string, 0, len(val.GetSequence().Elements))
+		for _, elem := range val.GetSequence().Elements {
+			parts = append(parts, valueText(elem))
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
 	}
 	return val.String()
 }
@@ -124,10 +130,10 @@ func TestRunSweepIntegerRangeStepsByOne(t *testing.T) {
 	}
 	got := rowText(resp)
 	want := strings.Join([]string{
-		"n=1 result -> 2",
-		"n=2 result -> 4",
-		"n=3 result -> 6",
-		"n=4 result -> 8",
+		"n=1 result -> [2]",
+		"n=2 result -> [4]",
+		"n=3 result -> [6]",
+		"n=4 result -> [8]",
 	}, "\n")
 	if got != want {
 		t.Errorf("rows are\n%s\nwant\n%s", got, want)
@@ -159,10 +165,10 @@ func TestRunSweepBindsInTheParameterType(t *testing.T) {
 		t.Fatalf("RunSweep reported %q", resp.Error)
 	}
 	want := strings.Join([]string{
-		"a=1.0 result -> 0.5",
-		"a=2.0 result -> 1.0",
-		"a=3.0 result -> 1.5",
-		"a=4.0 result -> 2.0",
+		"a=1.0 result -> [0.5]",
+		"a=2.0 result -> [1.0]",
+		"a=3.0 result -> [1.5]",
+		"a=4.0 result -> [2.0]",
 	}, "\n")
 	if got := rowText(resp); got != want {
 		t.Errorf("rows are\n%s\nwant\n%s", got, want)
@@ -180,7 +186,7 @@ func TestRunSweepBindsInTheParameterType(t *testing.T) {
 	if resp.Error != "" {
 		t.Fatalf("RunSweep reported %q", resp.Error)
 	}
-	if got, want := rowText(resp), "n=1 result -> 2\nn=2 result -> 4\nn=3 result -> 6"; got != want {
+	if got, want := rowText(resp), "n=1 result -> [2]\nn=2 result -> [4]\nn=3 result -> [6]"; got != want {
 		t.Errorf("rows are\n%s\nwant\n%s", got, want)
 	}
 	for _, row := range resp.Rows {
@@ -218,10 +224,10 @@ func TestRunSweepCartesianProduct(t *testing.T) {
 	})
 	got := rowText(resp)
 	want := strings.Join([]string{
-		"a=1 b=10 result -> 11",
-		"a=1 b=11 result -> 12",
-		"a=2 b=10 result -> 12",
-		"a=2 b=11 result -> 13",
+		"a=1 b=10 result -> [11]",
+		"a=1 b=11 result -> [12]",
+		"a=2 b=10 result -> [12]",
+		"a=2 b=11 result -> [13]",
 	}, "\n")
 	if got != want {
 		t.Errorf("rows are\n%s\nwant\n%s", got, want)
@@ -243,7 +249,7 @@ func TestRunSweepStatedStep(t *testing.T) {
 			Parameter: "n", Start: intProto(0), End: intProto(6), Step: intProto(3),
 		}},
 	})
-	if got, want := rowText(resp), "n=0 result -> 0\nn=3 result -> 6\nn=6 result -> 12"; got != want {
+	if got, want := rowText(resp), "n=0 result -> [0]\nn=3 result -> [6]\nn=6 result -> [12]"; got != want {
 		t.Errorf("rows are\n%s\nwant\n%s", got, want)
 	}
 }
@@ -721,7 +727,7 @@ func TestRunSweepRowsNameTheirOwnObjects(t *testing.T) {
 				for _, out := range row.Outputs {
 					switch out.Name {
 					case "total":
-						if got := out.GetValue().GetRealValue(); got != want {
+						if got := soleElement(t, "total", out.GetValue()).GetRealValue(); got != want {
 							t.Errorf("row %d total = %v, want %v", i, got, want)
 						}
 					case "who", "scale", "crew":
@@ -800,7 +806,7 @@ func TestRunSweepOverASubjectRunningABehaviour(t *testing.T) {
 	srv := mustNewService(t, 10)
 	t.Cleanup(srv.Close)
 	hash := mustVerifyModel(t, srv, heldBehaviourModelSource, "held-behaviour")
-	want := "tax=0.0 total -> 5.0\ntax=0.25 total -> 6.25\ntax=0.5 total -> 7.5"
+	want := "tax=0.0 total -> [5.0]\ntax=0.25 total -> [6.25]\ntax=0.5 total -> [7.5]"
 	for _, subject := range []string{"Held::beacon", "Held::tug"} {
 		t.Run(subject, func(t *testing.T) {
 			for _, jobs := range []int{1, 8} {
@@ -828,7 +834,7 @@ func TestRunSweepOverSubjectsRunningABehaviourConcurrently(t *testing.T) {
 	t.Cleanup(srv.Close)
 	srv.jobs = 8
 	hash := mustVerifyModel(t, srv, heldBehaviourModelSource, "held-behaviour")
-	want := "tax=0.0 total -> 5.0\ntax=0.25 total -> 6.25\ntax=0.5 total -> 7.5"
+	want := "tax=0.0 total -> [5.0]\ntax=0.25 total -> [6.25]\ntax=0.5 total -> [7.5]"
 	var wg sync.WaitGroup
 	answers := make(chan string, 2)
 	for _, subject := range []string{"Held::beacon", "Held::tug"} {

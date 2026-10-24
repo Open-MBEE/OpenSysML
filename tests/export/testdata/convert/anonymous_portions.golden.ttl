@@ -171,14 +171,14 @@ elmt:AnonymousPortions__car
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousPortions__car__start, elmt:AnonymousPortions__car__portionOfLife, elmt:AnonymousPortions__car__done, elmt:AnonymousPortions__car___403, elmt:AnonymousPortions__car___404 ;
     sysml:ownedMembership elmt:AnonymousPortions__car__start_om, elmt:AnonymousPortions__car__portionOfLife_om, elmt:AnonymousPortions__car__done_om, elmt:AnonymousPortions__car___403_om, elmt:AnonymousPortions__car___404_om ;
-    sysml:ownedRelationship elmt:AnonymousPortions__car__start_om, elmt:AnonymousPortions__car__portionOfLife_om, elmt:AnonymousPortions__car__done_om, elmt:AnonymousPortions__car___403_om, elmt:AnonymousPortions__car___404_om, elmt:AnonymousPortions__car_ft0 ;
+    sysml:ownedRelationship elmt:AnonymousPortions__car_ft0, elmt:AnonymousPortions__car__start_om, elmt:AnonymousPortions__car__portionOfLife_om, elmt:AnonymousPortions__car__done_om, elmt:AnonymousPortions__car___403_om, elmt:AnonymousPortions__car___404_om ;
     sysml:ownedTyping elmt:AnonymousPortions__car_ft0 ;
     sysml:ownedSpecialization elmt:AnonymousPortions__car_ft0 ;
     sysx:sourceText "\tindividual car : Car {\n" ;
     sysx:sourceTail "\t}\n" ;
     json:ownedMember "[{\"@id\":\"AnonymousPortions__car__start\"},{\"@id\":\"AnonymousPortions__car__portionOfLife\"},{\"@id\":\"AnonymousPortions__car__done\"},{\"@id\":\"AnonymousPortions__car___403\"},{\"@id\":\"AnonymousPortions__car___404\"}]" ;
     json:ownedMembership "[{\"@id\":\"AnonymousPortions__car__start_om\"},{\"@id\":\"AnonymousPortions__car__portionOfLife_om\"},{\"@id\":\"AnonymousPortions__car__done_om\"},{\"@id\":\"AnonymousPortions__car___403_om\"},{\"@id\":\"AnonymousPortions__car___404_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__start_om\"},{\"@id\":\"AnonymousPortions__car__portionOfLife_om\"},{\"@id\":\"AnonymousPortions__car__done_om\"},{\"@id\":\"AnonymousPortions__car___403_om\"},{\"@id\":\"AnonymousPortions__car___404_om\"},{\"@id\":\"AnonymousPortions__car_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car_ft0\"},{\"@id\":\"AnonymousPortions__car__start_om\"},{\"@id\":\"AnonymousPortions__car__portionOfLife_om\"},{\"@id\":\"AnonymousPortions__car__done_om\"},{\"@id\":\"AnonymousPortions__car___403_om\"},{\"@id\":\"AnonymousPortions__car___404_om\"}]" .
 
 elmt:AnonymousPortions__car_om
     a sysml:OwningMembership ;
@@ -212,7 +212,7 @@ elmt:AnonymousPortions__car__start
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousPortions__car__start__fuel ;
     sysml:ownedMembership elmt:AnonymousPortions__car__start__fuel_om ;
-    sysml:ownedRelationship elmt:AnonymousPortions__car__start__fuel_om, elmt:AnonymousPortions__car__start_rd0 ;
+    sysml:ownedRelationship elmt:AnonymousPortions__car__start_rd0, elmt:AnonymousPortions__car__start__fuel_om ;
     sysml:ownedFeature elmt:AnonymousPortions__car__start__fuel ;
     sysml:ownedFeatureMembership elmt:AnonymousPortions__car__start__fuel_om ;
     sysml:ownedRedefinition elmt:AnonymousPortions__car__start_rd0 ;
@@ -220,7 +220,7 @@ elmt:AnonymousPortions__car__start
     sysml:ownedSpecialization elmt:AnonymousPortions__car__start_rd0 ;
     sysx:sourceText "\t\tsnapshot :>> start {\n" ;
     sysx:sourceTail "\t\t}\n" ;
-    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__start__fuel_om\"},{\"@id\":\"AnonymousPortions__car__start_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__start_rd0\"},{\"@id\":\"AnonymousPortions__car__start__fuel_om\"}]" .
 
 elmt:AnonymousPortions__car__start_om
     a sysml:OwningMembership ;
@@ -249,14 +249,14 @@ elmt:AnonymousPortions__car__start__fuel
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car__start__fuel_pvalue ;
-    sysml:ownedRelationship expr:AnonymousPortions__car__start__fuel_pvalue_om, elmt:AnonymousPortions__car__start__fuel_rd0 ;
+    sysml:ownedRelationship elmt:AnonymousPortions__car__start__fuel_rd0, expr:AnonymousPortions__car__start__fuel_pvalue_om ;
     sysml:ownedMembership expr:AnonymousPortions__car__start__fuel_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:AnonymousPortions__car__start__fuel_rd0 ;
     sysml:ownedSubsetting elmt:AnonymousPortions__car__start__fuel_rd0 ;
     sysml:ownedSpecialization elmt:AnonymousPortions__car__start__fuel_rd0 ;
     sysx:sourceText "\t\t\tattribute :>> fuel = 100;\n" ;
-    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__start__fuel_pvalue_om\"},{\"@id\":\"AnonymousPortions__car__start__fuel_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__start__fuel_rd0\"},{\"@id\":\"AnonymousPortions__car__start__fuel_pvalue_om\"}]" .
 
 elmt:AnonymousPortions__car__start__fuel_om
     a sysml:FeatureMembership ;
@@ -314,7 +314,7 @@ elmt:AnonymousPortions__car__portionOfLife
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousPortions__car__portionOfLife__fuel ;
     sysml:ownedMembership elmt:AnonymousPortions__car__portionOfLife__fuel_om ;
-    sysml:ownedRelationship elmt:AnonymousPortions__car__portionOfLife__fuel_om, elmt:AnonymousPortions__car__portionOfLife_rd0 ;
+    sysml:ownedRelationship elmt:AnonymousPortions__car__portionOfLife_rd0, elmt:AnonymousPortions__car__portionOfLife__fuel_om ;
     sysml:ownedFeature elmt:AnonymousPortions__car__portionOfLife__fuel ;
     sysml:ownedFeatureMembership elmt:AnonymousPortions__car__portionOfLife__fuel_om ;
     sysml:ownedRedefinition elmt:AnonymousPortions__car__portionOfLife_rd0 ;
@@ -322,7 +322,7 @@ elmt:AnonymousPortions__car__portionOfLife
     sysml:ownedSpecialization elmt:AnonymousPortions__car__portionOfLife_rd0 ;
     sysx:sourceText "\t\ttimeslice :>> portionOfLife {\n" ;
     sysx:sourceTail "\t\t}\n" ;
-    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__portionOfLife__fuel_om\"},{\"@id\":\"AnonymousPortions__car__portionOfLife_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__portionOfLife_rd0\"},{\"@id\":\"AnonymousPortions__car__portionOfLife__fuel_om\"}]" .
 
 elmt:AnonymousPortions__car__portionOfLife_om
     a sysml:OwningMembership ;
@@ -351,14 +351,14 @@ elmt:AnonymousPortions__car__portionOfLife__fuel
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car__portionOfLife__fuel_pvalue ;
-    sysml:ownedRelationship expr:AnonymousPortions__car__portionOfLife__fuel_pvalue_om, elmt:AnonymousPortions__car__portionOfLife__fuel_rd0 ;
+    sysml:ownedRelationship elmt:AnonymousPortions__car__portionOfLife__fuel_rd0, expr:AnonymousPortions__car__portionOfLife__fuel_pvalue_om ;
     sysml:ownedMembership expr:AnonymousPortions__car__portionOfLife__fuel_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:AnonymousPortions__car__portionOfLife__fuel_rd0 ;
     sysml:ownedSubsetting elmt:AnonymousPortions__car__portionOfLife__fuel_rd0 ;
     sysml:ownedSpecialization elmt:AnonymousPortions__car__portionOfLife__fuel_rd0 ;
     sysx:sourceText "\t\t\tattribute :>> fuel = 50;\n" ;
-    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__portionOfLife__fuel_pvalue_om\"},{\"@id\":\"AnonymousPortions__car__portionOfLife__fuel_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__portionOfLife__fuel_rd0\"},{\"@id\":\"AnonymousPortions__car__portionOfLife__fuel_pvalue_om\"}]" .
 
 elmt:AnonymousPortions__car__portionOfLife__fuel_om
     a sysml:FeatureMembership ;
@@ -417,17 +417,17 @@ elmt:AnonymousPortions__car__done
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousPortions__car__done__fuel ;
     sysml:ownedMembership elmt:AnonymousPortions__car__done__fuel_om ;
-    sysml:ownedRelationship elmt:AnonymousPortions__car__done__fuel_om, elmt:AnonymousPortions__car__done_ss0, elmt:AnonymousPortions__car__done_rd0 ;
+    sysml:ownedRelationship elmt:AnonymousPortions__car__done_rd0, elmt:AnonymousPortions__car__done_ss0, elmt:AnonymousPortions__car__done__fuel_om ;
     sysml:ownedFeature elmt:AnonymousPortions__car__done__fuel ;
     sysml:ownedFeatureMembership elmt:AnonymousPortions__car__done__fuel_om ;
-    sysml:ownedSubsetting elmt:AnonymousPortions__car__done_ss0, elmt:AnonymousPortions__car__done_rd0 ;
-    sysml:ownedSpecialization elmt:AnonymousPortions__car__done_ss0, elmt:AnonymousPortions__car__done_rd0 ;
     sysml:ownedRedefinition elmt:AnonymousPortions__car__done_rd0 ;
+    sysml:ownedSubsetting elmt:AnonymousPortions__car__done_rd0, elmt:AnonymousPortions__car__done_ss0 ;
+    sysml:ownedSpecialization elmt:AnonymousPortions__car__done_rd0, elmt:AnonymousPortions__car__done_ss0 ;
     sysx:sourceText "\t\tsnapshot :>> done :> fuel {\n" ;
     sysx:sourceTail "\t\t}\n" ;
-    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__done__fuel_om\"},{\"@id\":\"AnonymousPortions__car__done_ss0\"},{\"@id\":\"AnonymousPortions__car__done_rd0\"}]" ;
-    json:ownedSubsetting "[{\"@id\":\"AnonymousPortions__car__done_ss0\"},{\"@id\":\"AnonymousPortions__car__done_rd0\"}]" ;
-    json:ownedSpecialization "[{\"@id\":\"AnonymousPortions__car__done_ss0\"},{\"@id\":\"AnonymousPortions__car__done_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__done_rd0\"},{\"@id\":\"AnonymousPortions__car__done_ss0\"},{\"@id\":\"AnonymousPortions__car__done__fuel_om\"}]" ;
+    json:ownedSubsetting "[{\"@id\":\"AnonymousPortions__car__done_rd0\"},{\"@id\":\"AnonymousPortions__car__done_ss0\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"AnonymousPortions__car__done_rd0\"},{\"@id\":\"AnonymousPortions__car__done_ss0\"}]" .
 
 elmt:AnonymousPortions__car__done_om
     a sysml:OwningMembership ;
@@ -456,14 +456,14 @@ elmt:AnonymousPortions__car__done__fuel
     sysml:isComposite "false"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car__done__fuel_pvalue ;
-    sysml:ownedRelationship expr:AnonymousPortions__car__done__fuel_pvalue_om, elmt:AnonymousPortions__car__done__fuel_rd0 ;
+    sysml:ownedRelationship elmt:AnonymousPortions__car__done__fuel_rd0, expr:AnonymousPortions__car__done__fuel_pvalue_om ;
     sysml:ownedMembership expr:AnonymousPortions__car__done__fuel_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRedefinition elmt:AnonymousPortions__car__done__fuel_rd0 ;
     sysml:ownedSubsetting elmt:AnonymousPortions__car__done__fuel_rd0 ;
     sysml:ownedSpecialization elmt:AnonymousPortions__car__done__fuel_rd0 ;
     sysx:sourceText "\t\t\tattribute :>> fuel = 0;\n" ;
-    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__done__fuel_pvalue_om\"},{\"@id\":\"AnonymousPortions__car__done__fuel_rd0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car__done__fuel_rd0\"},{\"@id\":\"AnonymousPortions__car__done__fuel_pvalue_om\"}]" .
 
 elmt:AnonymousPortions__car__done__fuel_om
     a sysml:FeatureMembership ;
@@ -674,21 +674,6 @@ elmt:AnonymousPortions__car__portionOfLife__fuel_rd0
     sysml:relatedElement elmt:AnonymousPortions__car__portionOfLife__fuel, elmt:AnonymousPortions__Vehicle__fuel ;
     json:relatedElement "[{\"@id\":\"AnonymousPortions__car__portionOfLife__fuel\"},{\"@id\":\"AnonymousPortions__Vehicle__fuel\"}]" .
 
-elmt:AnonymousPortions__car__done_ss0
-    a sysml:Subsetting ;
-    sysml:elementId "AnonymousPortions__car__done_ss0" ;
-    sysml:subsettingFeature elmt:AnonymousPortions__car__done ;
-    sysml:owningFeature elmt:AnonymousPortions__car__done ;
-    sysml:specific elmt:AnonymousPortions__car__done ;
-    sysml:source elmt:AnonymousPortions__car__done ;
-    sysml:owningRelatedElement elmt:AnonymousPortions__car__done ;
-    sysml:subsettedFeature elmt:AnonymousPortions__Vehicle__fuel ;
-    sysml:general elmt:AnonymousPortions__Vehicle__fuel ;
-    sysml:target elmt:AnonymousPortions__Vehicle__fuel ;
-    sysml:owner elmt:AnonymousPortions__car__done ;
-    sysml:relatedElement elmt:AnonymousPortions__car__done, elmt:AnonymousPortions__Vehicle__fuel ;
-    json:relatedElement "[{\"@id\":\"AnonymousPortions__car__done\"},{\"@id\":\"AnonymousPortions__Vehicle__fuel\"}]" .
-
 elmt:AnonymousPortions__car__done_rd0
     a sysml:Redefinition ;
     sysml:elementId "AnonymousPortions__car__done_rd0" ;
@@ -705,6 +690,21 @@ elmt:AnonymousPortions__car__done_rd0
     sysml:owner elmt:AnonymousPortions__car__done ;
     sysml:relatedElement elmt:AnonymousPortions__car__done, elmt:dd677401-a352-5fe3-846a-dad08d3eab06 ;
     json:relatedElement "[{\"@id\":\"AnonymousPortions__car__done\"},{\"@id\":\"dd677401-a352-5fe3-846a-dad08d3eab06\"}]" .
+
+elmt:AnonymousPortions__car__done_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "AnonymousPortions__car__done_ss0" ;
+    sysml:subsettingFeature elmt:AnonymousPortions__car__done ;
+    sysml:owningFeature elmt:AnonymousPortions__car__done ;
+    sysml:specific elmt:AnonymousPortions__car__done ;
+    sysml:source elmt:AnonymousPortions__car__done ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car__done ;
+    sysml:subsettedFeature elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:general elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:target elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:owner elmt:AnonymousPortions__car__done ;
+    sysml:relatedElement elmt:AnonymousPortions__car__done, elmt:AnonymousPortions__Vehicle__fuel ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car__done\"},{\"@id\":\"AnonymousPortions__Vehicle__fuel\"}]" .
 
 elmt:AnonymousPortions__car__done__fuel_rd0
     a sysml:Redefinition ;

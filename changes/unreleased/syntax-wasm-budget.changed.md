@@ -1,1 +1,0 @@
-- The `sysml-syntax` js/wasm build no longer links `regexp`: the build-info version matchers are hand-written, which saves about 124 KB gzipped (8%). Its gzip budget moves from 1,540,000 to 1,500,000 bytes, about 10% over the measured size, while adding the resolver or the standard library still trips it; `regexp` joins the dependencies the syntax command is checked not to link.

@@ -3,11 +3,11 @@
   "type": "calcUsage",
   "evaluate": "test::rhsAt",
   "outputs": {
-    "dvx": {"type": "Real", "value": -3.964911602730538},
-    "dvh": {"type": "Real", "value": -1.0913451196359283}
+    "dvx": {"type": "Sequence", "elements": [{"type": "Real", "value": -3.964911602730538}]},
+    "dvh": {"type": "Sequence", "elements": [{"type": "Real", "value": -1.0913451196359283}]}
   },
   "reads": {
-    "test::descentDvx": {"type": "Real", "value": 0.0},
-    "test::descentDvh": {"type": "Real", "value": 0.3799999999999999}
+    "test::descentDvx": {"type": "Sequence", "elements": [{"type": "Real", "value": 0.0}]},
+    "test::descentDvh": {"type": "Sequence", "elements": [{"type": "Real", "value": 0.3799999999999999}]}
   }
 }

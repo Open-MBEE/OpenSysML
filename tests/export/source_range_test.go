@@ -70,36 +70,104 @@ func TestSourceRangeStopsBeforeTrailingComments(t *testing.T) {
     part d { doc /* body */ }
 }
 `
-	got := sourceRanges(t, src)
-	for name, want := range map[string][4]float64{
-		"C::a":     {2, 5, 2, 12},
-		"C::b":     {2, 24, 2, 31},
-		"C::d":     {3, 5, 3, 30},
-		"C::d::@0": {3, 14, 3, 28},
+	elements := sourceRangeDocument(t, src)
+	root := elements[0]
+	pkg := sourceRangeOwnedNamed(t, elements, root, "Package", "C")
+	a := sourceRangeOwnedNamed(t, elements, pkg, "PartUsage", "a")
+	b := sourceRangeOwnedNamed(t, elements, pkg, "PartUsage", "b")
+	d := sourceRangeOwnedNamed(t, elements, pkg, "PartUsage", "d")
+	body := sourceRangeOwnedUnnamedAt(t, elements, d, "Documentation", 0)
+	for _, tc := range []struct {
+		name    string
+		element map[string]json.RawMessage
+		want    [4]float64
+	}{
+		{"C::a", a, [4]float64{2, 5, 2, 12}},
+		{"C::b", b, [4]float64{2, 24, 2, 31}},
+		{"C::d", d, [4]float64{3, 5, 3, 30}},
+		{"C::d::@0", body, [4]float64{3, 14, 3, 28}},
 	} {
-		if got[name] != want {
-			t.Errorf("%s: range %v, want %v", name, got[name], want)
+		if got := sourceRange(t, tc.element); got != tc.want {
+			t.Errorf("%s: range %v, want %v", tc.name, got, tc.want)
 		}
 	}
 }
 
-// sourceRanges converts src to the API's JSON form and reads each element's
-// range by qualified name.
-func sourceRanges(t *testing.T, src string) map[string][4]float64 {
+func sourceRangeDocument(t *testing.T, src string) []map[string]json.RawMessage {
 	t.Helper()
 	out, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var elements []map[string]any
-	if err := json.Unmarshal(out, &elements); err != nil {
-		t.Fatal(err)
+	return rootElements(t, out)
+}
+
+func sourceRangeOwnedElements(t *testing.T, elements []map[string]json.RawMessage, owner map[string]json.RawMessage) []map[string]json.RawMessage {
+	t.Helper()
+	var out []map[string]json.RawMessage
+	for _, relationshipID := range rootRefs(t, owner["ownedRelationship"]) {
+		relationship := apiJSONElement(t, elements, relationshipID)
+		var targetIDs []string
+		if related, ok := relationship["ownedRelatedElement"]; ok && string(related) != "null" {
+			var refs []json.RawMessage
+			if err := json.Unmarshal(related, &refs); err == nil {
+				for _, ref := range refs {
+					targetIDs = append(targetIDs, rootRef(t, ref))
+				}
+			}
+		}
+		if len(targetIDs) == 0 {
+			if member, ok := relationship["memberElement"]; ok && string(member) != "null" {
+				targetIDs = append(targetIDs, rootRef(t, member))
+			}
+		}
+		for _, targetID := range targetIDs {
+			out = append(out, apiJSONElement(t, elements, targetID))
+		}
 	}
-	got := map[string][4]float64{}
-	for _, e := range elements {
-		name, _ := e["qualifiedName"].(string)
-		if line, ok := e["sysx:sourceLine"].(float64); ok {
-			got[name] = [4]float64{line, e["sysx:sourceColumn"].(float64), e["sysx:sourceEndLine"].(float64), e["sysx:sourceEndColumn"].(float64)}
+	return out
+}
+
+func sourceRangeOwnedNamed(t *testing.T, elements []map[string]json.RawMessage, owner map[string]json.RawMessage, typ, name string) map[string]json.RawMessage {
+	t.Helper()
+	for _, child := range sourceRangeOwnedElements(t, elements, owner) {
+		if rootString(t, child["@type"]) != typ {
+			continue
+		}
+		declaredName, ok := child["declaredName"]
+		if !ok || string(declaredName) == "null" || rootString(t, declaredName) != name {
+			continue
+		}
+		return child
+	}
+	t.Fatalf("no owned %s named %q under %s", typ, name, owner["@id"])
+	return nil
+}
+
+func sourceRangeOwnedUnnamedAt(t *testing.T, elements []map[string]json.RawMessage, owner map[string]json.RawMessage, typ string, index int) map[string]json.RawMessage {
+	t.Helper()
+	var unnamed []map[string]json.RawMessage
+	for _, child := range sourceRangeOwnedElements(t, elements, owner) {
+		if rootString(t, child["@type"]) != typ {
+			continue
+		}
+		if name, ok := child["declaredName"]; ok && string(name) != "null" {
+			continue
+		}
+		unnamed = append(unnamed, child)
+	}
+	if index < 0 || index >= len(unnamed) {
+		t.Fatalf("owned unnamed %s at index %d not found under %s (found %d)", typ, index, owner["@id"], len(unnamed))
+	}
+	return unnamed[index]
+}
+
+func sourceRange(t *testing.T, element map[string]json.RawMessage) [4]float64 {
+	t.Helper()
+	var got [4]float64
+	for i, key := range []string{"sysx:sourceLine", "sysx:sourceColumn", "sysx:sourceEndLine", "sysx:sourceEndColumn"} {
+		if err := json.Unmarshal(element[key], &got[i]); err != nil {
+			t.Fatalf("%s = %s: %v", key, element[key], err)
 		}
 	}
 	return got
@@ -120,15 +188,25 @@ func TestSourceRangeIncludesBodyAfterNote(t *testing.T) {
     }
 }
 `
-	got := sourceRanges(t, src)
-	for name, want := range map[string][4]float64{
-		"C::@0":        {2, 5, 3, 15},
-		"C::p":         {4, 5, 9, 6},
-		"C::p::@0":     {5, 9, 6, 20},
-		"C::p::inline": {7, 9, 8, 19},
+	elements := sourceRangeDocument(t, src)
+	root := elements[0]
+	pkg := sourceRangeOwnedNamed(t, elements, root, "Package", "C")
+	documentation := sourceRangeOwnedUnnamedAt(t, elements, pkg, "Documentation", 0)
+	p := sourceRangeOwnedNamed(t, elements, pkg, "PartUsage", "p")
+	comment := sourceRangeOwnedUnnamedAt(t, elements, p, "Comment", 0)
+	inline := sourceRangeOwnedNamed(t, elements, p, "TextualRepresentation", "inline")
+	for _, tc := range []struct {
+		name    string
+		element map[string]json.RawMessage
+		want    [4]float64
+	}{
+		{"C::@0", documentation, [4]float64{2, 5, 3, 15}},
+		{"C::p", p, [4]float64{4, 5, 9, 6}},
+		{"C::p::@0", comment, [4]float64{5, 9, 6, 20}},
+		{"C::p::inline", inline, [4]float64{7, 9, 8, 19}},
 	} {
-		if got[name] != want {
-			t.Errorf("%s: range %v, want %v", name, got[name], want)
+		if got := sourceRange(t, tc.element); got != tc.want {
+			t.Errorf("%s: range %v, want %v", tc.name, got, tc.want)
 		}
 	}
 }
@@ -145,8 +223,13 @@ func TestTransitionTriggerCarriesItsSourceRange(t *testing.T) {
     }
 }
 `
-	got := sourceRanges(t, src)
-	if trigger, want := got["T::S::t::@trigger"], [4]float64{6, 30, 6, 44}; trigger != want {
-		t.Errorf("the trigger's accept action: range %v, want %v", trigger, want)
+	elements := sourceRangeDocument(t, src)
+	root := elements[0]
+	pkg := sourceRangeOwnedNamed(t, elements, root, "Package", "T")
+	state := sourceRangeOwnedNamed(t, elements, pkg, "StateDefinition", "S")
+	transition := sourceRangeOwnedNamed(t, elements, state, "TransitionUsage", "t")
+	trigger := sourceRangeOwnedUnnamedAt(t, elements, transition, "AcceptActionUsage", 0)
+	if got, want := sourceRange(t, trigger), [4]float64{6, 30, 6, 44}; got != want {
+		t.Errorf("the trigger's accept action: range %v, want %v", got, want)
 	}
 }

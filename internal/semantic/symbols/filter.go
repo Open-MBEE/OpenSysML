@@ -99,6 +99,10 @@ type FilterPredicate struct {
 	// annotation a feature is read from.
 	TypeFQN string
 
+	// Type is the element TypeFQN resolved to when the condition was compiled,
+	// so namesakes of it are told apart; nil when only the name is known.
+	Type *Symbol
+
 	// Feature is the annotation feature FilterFeature reads.
 	Feature string
 

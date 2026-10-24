@@ -24,8 +24,8 @@ package MixedExamples
     action 'step'
     final done
   use case def Inspection
-  actor operator
   subject plant
+  actor operator
   objective (Inspect the plant and report its operating state.)
   perform action run (declares no nodes)
   exhibit state mode
@@ -39,14 +39,14 @@ relationships:
   start of Modes -> ready
   start -> 'step'
   'step' -> done
-  operator -- Inspection
   Inspection -- plant: «subject»
+  operator -- Inspection
   Inspection .. objective n12
   start of mode -> ready
   pump.outlet -- tank.inlet
   ready ..> Ready
-  operator ..> Person
   plant ..> Plant
+  operator ..> Person
   run ..> Operate: «perform»
   mode ..> Modes: «exhibit»
   Pump --|> BaseUnit: «specializes»

@@ -319,22 +319,68 @@ func TestSystemsLibraryElementIsMintedUnderSysML(t *testing.T) {
 	}
 }
 
-func TestUserElementIsDerivedAndOpenSysMLLibraryIsNotNormative(t *testing.T) {
+func TestUserElementIsDerived(t *testing.T) {
 	table, idx := buildTable(t, `package Vehicles { part def Vehicle; }`)
 	info := infoOf(t, table, idx, "Vehicles::Vehicle")
-	if info.Source != identity.SourceDerived || info.Normative() || info.OwningMembershipID() != "" {
+	if info.Source != identity.SourceDerived || info.Normative() || info.Fixed() || info.OwningMembershipID() != "" {
 		t.Fatalf("Vehicles::Vehicle: source=%v, want derived", info.Source)
 	}
+}
+
+// libraryInfo is the identity of a bundled library element idx holds, read as
+// a model referencing it would.
+func libraryInfo(t *testing.T, idx *symbols.Index, fqn string) *identity.Info {
+	t.Helper()
 	res := resolve.New(idx)
 	model := semantics.NewModel(res)
 	res.SetModel(model)
-	syms := idx.LookupQualified("IdentityMetadata::ElementId")
+	syms := idx.LookupQualified(fqn)
 	if len(syms) == 0 {
-		t.Fatal("IdentityMetadata::ElementId: no symbol")
+		t.Fatalf("%s: no symbol", fqn)
 	}
-	ext, ok := identity.Of(model, res, syms[0])
-	if !ok || ext.Source != identity.SourceDerived {
-		t.Fatalf("IdentityMetadata::ElementId: source=%v, want derived (an OpenSysML extension is not normative)", ext.Source)
+	info, ok := identity.Of(model, res, syms[0])
+	if !ok {
+		t.Fatalf("%s: no identity", fqn)
+	}
+	return info
+}
+
+// An element of one of OpenSysML's own libraries is not normative — no
+// specification fixes its id — but it carries a fixed id all the same, derived
+// as a normative one is under the extension libraries' URL, so a reference to
+// it links by id rather than by name, the same on every run.
+func TestOpenSysMLLibraryElementCarriesAFixedExtensionID(t *testing.T) {
+	const fqn = "IdentityMetadata::ElementId"
+	_, idx := buildTable(t, `package Vehicles { part def Vehicle; }`)
+	ext := libraryInfo(t, idx, fqn)
+	want := identity.ElementID(identity.OpenSysML, fqn)
+	if want == "" || ext.Source != identity.SourceExtension || ext.Normative() || !ext.Fixed() ||
+		ext.Language != identity.OpenSysML || ext.EffectiveID != want ||
+		ext.OwningMembershipID() != identity.OwningMembershipID(identity.OpenSysML, fqn) {
+		t.Fatalf("%s: %+v, want extension id %s", fqn, ext, want)
+	}
+	if ext.Source.String() != "extension" || ext.Language.String() != "OpenSysML" {
+		t.Fatalf("%s: spelled %s, %s", fqn, ext.Source, ext.Language)
+	}
+	// The scheme: the library package hashes under the extension libraries'
+	// URL, its elements under the package; never under the OMG specification URLs.
+	if identity.ElementID(identity.OpenSysML, "IdentityMetadata") != identity.NamespaceOf(identity.ExtensionPrefix+"IdentityMetadata") {
+		t.Fatal("IdentityMetadata: the package id is not uuid5(URL, ExtensionPrefix+name)")
+	}
+	if want == identity.ElementID(identity.SysML, fqn) || want == identity.ElementID(identity.KerML, fqn) {
+		t.Fatalf("%s: the extension id %s is a specification-URL id", fqn, want)
+	}
+	// Deterministic: an independent analysis derives the same id.
+	_, again := buildTable(t, `package Other { part def Thing; }`)
+	if other := libraryInfo(t, again, fqn); other.EffectiveID != want {
+		t.Fatalf("%s: %s on one analysis, %s on another", fqn, want, other.EffectiveID)
+	}
+	catalog := identity.LibraryCatalog(idx)
+	if el, ok := catalog.ElementNamed(fqn); !ok || el.ID != want || el.Language != identity.OpenSysML {
+		t.Fatalf("%s: catalogued as %+v, want %s", fqn, el, want)
+	}
+	if el, ok := catalog.Element(want); !ok || el.FQN != fqn {
+		t.Fatalf("%s: the catalog does not resolve %s", fqn, want)
 	}
 }
 

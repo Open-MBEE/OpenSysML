@@ -90,7 +90,7 @@ performers: empty  [static-only pilot=decl]
 portionOf: [loopy]  [static-only pilot=decl]
 portionOfLife: loopy  [static-only pilot=decl]
 portions: undetermined <undetermined>  [undetermined pilot=decl]
-predecessors: [object of Running::loop::Root, object of Clocks::universalClock]  [static-only pilot=decl]
+predecessors: [object of Running::loop::Root, object of Clocks::universalClock]  [populated pilot=decl]
 runToCompletionScope: loopy  [static-only pilot=decl]
 sameLifeOccurrences: [loopy]  [static-only pilot=decl]
 self: loopy  [static-only pilot=decl]
@@ -232,7 +232,7 @@ performers: empty  [static-only pilot=decl]
 portionOf: [loopy]  [static-only pilot=decl]
 portionOfLife: loopy  [static-only pilot=decl]
 portions: undetermined <undetermined>  [undetermined pilot=decl]
-predecessors: [object of Running::loop::Root, object of Clocks::universalClock]  [static-only pilot=decl]
+predecessors: [object of Running::loop::Root, object of Clocks::universalClock]  [populated pilot=decl]
 runToCompletionScope: loopy  [static-only pilot=decl]
 sameLifeOccurrences: [loopy]  [static-only pilot=decl]
 self: loopy  [static-only pilot=decl]
@@ -374,7 +374,7 @@ performers: empty  [static-only pilot=decl]
 portionOf: [loopy]  [static-only pilot=decl]
 portionOfLife: loopy  [static-only pilot=decl]
 portions: [loopy, object of Running::loop::Root::loopy, object of Running::loop::Root::loopy]  [populated pilot=decl]
-predecessors: [object of Running::loop::Root, object of Clocks::universalClock]  [static-only pilot=decl]
+predecessors: [object of Running::loop::Root, object of Clocks::universalClock]  [populated pilot=decl]
 runToCompletionScope: loopy  [static-only pilot=decl]
 sameLifeOccurrences: [loopy]  [static-only pilot=decl]
 self: loopy  [static-only pilot=decl]
@@ -428,7 +428,7 @@ self.predecessors->SequenceFunctions::includes(loopy): constant false  [populate
 loopy.timeEnclosedOccurrences->SequenceFunctions::includes(self): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 40
+populated: 43
 refused: 21
-static-only: 249
+static-only: 246
 undetermined: 101

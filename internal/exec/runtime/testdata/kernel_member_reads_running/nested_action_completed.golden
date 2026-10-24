@@ -65,7 +65,7 @@ withoutOccurrences: empty  [static-only pilot=decl]
 differencesOf: empty  [static-only pilot=decl]
 dispatchScope: act  [static-only pilot=decl]
 done: object of Running::nested_action_completed::Root::act  [populated pilot=decl]
-enclosedPerformances: empty  [static-only pilot=decl]
+enclosedPerformances: [object of Running::nested_action_completed::Root::act::s1, object of Running::nested_action_completed::Root::act::s2]  [static-only pilot=decl]
 immediatePredecessors: empty  [static-only pilot=decl]
 immediateSuccessors: empty  [static-only pilot=decl]
 incomingTransferSort: undetermined <undetermined>  [undetermined pilot=decl]
@@ -108,8 +108,8 @@ spaceSlices: [act]  [static-only pilot=decl]
 spaceTimeCoincidentOccurrences: [act]  [static-only pilot=decl]
 spaceTimeEnclosedOccurrences: [act, object of Running::nested_action_completed::Root::act, object of Running::nested_action_completed::Root::act]  [populated pilot=decl]
 spaceTimeEnclosedPoints: undetermined <undetermined>  [undetermined pilot=decl]
-suboccurrences: empty  [static-only pilot=decl]
-subperformances: empty  [static-only pilot=decl]
+suboccurrences: [object of Running::nested_action_completed::Root::act::s1, object of Running::nested_action_completed::Root::act::s2]  [static-only pilot=decl]
+subperformances: [object of Running::nested_action_completed::Root::act::s1, object of Running::nested_action_completed::Root::act::s2]  [static-only pilot=decl]
 successors: empty  [populated pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
@@ -117,17 +117,17 @@ that: undetermined <undetermined>  [undetermined pilot=decl]
 this: act  [static-only pilot=decl]
 thisPerformance: act  [static-only pilot=decl]
 timeCoincidentOccurrences: [act]  [static-only pilot=decl]
-timeEnclosedOccurrences: [act, object of Running::nested_action_completed::Root::act, object of Running::nested_action_completed::Root::act]  [populated pilot=decl]
+timeEnclosedOccurrences: [act, object of Running::nested_action_completed::Root::act::s1, object of Running::nested_action_completed::Root::act::s2, object of Running::nested_action_completed::Root::act, object of Running::nested_action_completed::Root::act]  [populated pilot=decl]
 timeSliceOf: [act]  [static-only pilot=decl]
 timeSlices: [act, object of Running::nested_action_completed::Root::act, object of Running::nested_action_completed::Root::act]  [populated pilot=decl]
 unionsOf: empty  [static-only pilot=decl]
 withoutOccurrences: empty  [static-only pilot=decl]
 ### expressions on root
 n: constant 2  [populated pilot=decl]
-act.s1: refused: uninitialized feature value: s1  [refused pilot=decl]
-act.s2: refused: uninitialized feature value: s2  [refused pilot=decl]
-act.s1.startShot: refused: uninitialized feature value: s1  [refused pilot=decl]
-act.s2.predecessors: refused: uninitialized feature value: s2  [refused pilot=decl]
+act.s1: object of Running::nested_action_completed::Root::act::s1  [populated pilot=decl]
+act.s2: object of Running::nested_action_completed::Root::act::s2  [populated pilot=decl]
+act.s1.startShot: refused: object has no such feature: s1 has no member startShot: Actions::Action::start redefines it  [refused pilot=decl]
+act.s2.predecessors: [object of Running::nested_action_completed::Root, object of Clocks::universalClock]  [populated pilot=decl]
 act.start: object of Running::nested_action_completed::Root::act  [populated pilot=decl]
 act.done: object of Running::nested_action_completed::Root::act  [populated pilot=decl]
 Time::TimeOf(act): quantity 0.0 [s]  [populated pilot=decl]
@@ -146,7 +146,7 @@ self.predecessors->SequenceFunctions::includes(act): constant false  [populated 
 act.timeEnclosedOccurrences->SequenceFunctions::includes(self): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 23
-refused: 9
+populated: 26
+refused: 6
 static-only: 82
 undetermined: 25

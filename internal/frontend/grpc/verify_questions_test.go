@@ -648,6 +648,12 @@ const failedDefaultsModelSource = `package P {
 		assert constraint c { z > 0.0 }
 	}
 	part dep : Dep;
+	part def Opaque {
+		attribute y : Real;
+		attribute z : Real = y ** 2.0;
+		assert constraint c { z > 0.0 }
+	}
+	part opaque : Opaque;
 	part def Craft { attribute mass : Real; }
 	requirement def MassLimit {
 		subject vehicle : Craft;
@@ -669,10 +675,27 @@ func TestVerifyQuestionsAFailedDefaultIsUndecided(t *testing.T) {
 		{"P::nonneg", "", "level", "division by zero"},
 		{"P::Tank::c", "P::Tank", "lvl", "division by zero"},
 		{"P::Tank::c", "P::tank", "lvl", "division by zero"},
-		{"P::Dep::c", "P::Dep", "z", "no value"},
-		{"P::Dep::c", "P::dep", "z", "no value"},
+		{"P::Opaque::c", "P::Opaque", "z", "no value"},
+		{"P::Opaque::c", "P::opaque", "z", "no value"},
 	}
+	// A derived value whose operand has no value is defined by its equation
+	// over the free operand, not undecided: z = y + 1.0 is decided over y.
+	derived := map[string]string{questionHolds: statusViolated, questionSatisfiable: statusSatisfiable}
 	for _, question := range []string{questionHolds, questionSatisfiable} {
+		for _, subject := range []string{"P::Dep", "P::dep"} {
+			v := verifyQuestion(t, srv, hash, "P::Dep::c", question, subject, "").Verdict
+			if v.Status != derived[question] || v.Error != "" {
+				t.Errorf("P::Dep::c on %s with %s: status=%q error=%q, want %s by the equation z = y + 1.0",
+					subject, question, v.Status, v.Error, derived[question])
+			}
+			var sawY bool
+			for _, w := range v.Witness {
+				sawY = sawY || w.Feature == "P::Dep::y"
+			}
+			if !sawY {
+				t.Errorf("P::Dep::c on %s with %s: witness %+v does not choose y", subject, question, v.Witness)
+			}
+		}
 		for _, tc := range constraints {
 			resp := verifyQuestion(t, srv, hash, tc.symbol, question, tc.subject, "")
 			v := resp.Verdict
@@ -1075,6 +1098,34 @@ func TestVerifyQuestionsAGuardAfterTheReadCertifiesNoProof(t *testing.T) {
 		want := "requirement " + strings.TrimPrefix(symbol, "P::") + " reads bad under some assignment of its free features, whose value could not be read: division by zero"
 		if v.Status != statusUndecided || v.Holds || v.Error != want || len(v.Witness) != 0 {
 			t.Errorf("%s satisfiable: status=%q holds=%v error=%q witness=%+v, want undecided %q", symbol, v.Status, v.Holds, v.Error, v.Witness, want)
+		}
+	}
+}
+
+// TestVerifyQuestionsAssumptionOnlyRequirement: a requirement assuming but
+// requiring nothing holds vacuously — its assumptions are the antecedent of a
+// claim over no constraint — so the holds question proves it and the
+// satisfiable one is met, whatever the assumption says of the free feature.
+func TestVerifyQuestionsAssumptionOnlyRequirement(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	source := `package P {
+	private import ScalarValues::*;
+	part def Rig {
+		attribute level : Integer;
+		requirement onlyAssumed { assume constraint { level > 1 } }
+	}
+}`
+	hash := mustVerifyModel(t, srv, source, "verify-assumption-only")
+	for _, question := range []string{"holds", "satisfiable"} {
+		resp, err := srv.VerifyRequirement(context.Background(), &pb.VerifyRequirementRequest{
+			ModelHash: hash, SymbolId: "P::Rig::onlyAssumed", Question: question,
+		})
+		if err != nil {
+			t.Fatalf("VerifyRequirement %s: %v", question, err)
+		}
+		if !resp.Verdict.Holds || resp.Verdict.Error != "" {
+			t.Errorf("%s: status=%q holds=%v, want a vacuous pass: %q", question, resp.Verdict.Status, resp.Verdict.Holds, resp.Verdict.Error)
 		}
 	}
 }

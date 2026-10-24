@@ -1,6 +1,6 @@
 {
   "name": "@openmbee/opensysml-syson",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "private": false,
   "type": "module",
   "main": "dist/opensysml-syson.cjs.js",

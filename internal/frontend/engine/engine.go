@@ -329,6 +329,10 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 	if req.Depth < 0 {
 		return nil, statusError(codeInvalidArgument, (&view.DepthError{Value: fmt.Sprint(req.Depth)}).Error())
 	}
+	compartments, ok := view.ParseCompartments(req.Compartments)
+	if !ok {
+		return nil, statusError(codeInvalidArgument, (&view.UnknownCompartmentsError{Name: req.Compartments}).Error())
+	}
 
 	renderer := view.NewRenderer(cached.typedModel(), cached.resolver, cached.sourceText())
 	renderer.SetDepth(req.Depth)
@@ -342,7 +346,7 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 		}
 		return nil, statusError(codeInvalidArgument, err.Error())
 	}
-	return marshalRenderView(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown}))
+	return marshalRenderView(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown, Compartments: compartments}))
 }
 
 // renderOrigins resolves the declaration spans a rendering refers to, in the
@@ -395,7 +399,7 @@ func marshalRenderView(model *cachedModel, data view.Data) ([]byte, error) {
 		item := JRenderNode{
 			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn,
-			Parent: node.Parent, Origin: origins.span(node.Origin), Style: jRenderStyle(node.Style),
+			Parent: node.Parent, Compartment: node.Compartment, Origin: origins.span(node.Origin), Style: jRenderStyle(node.Style),
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, JRenderPort{

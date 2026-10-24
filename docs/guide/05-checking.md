@@ -325,17 +325,17 @@ sysml> package Orbit {
 
 sysml> %calc Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])
 ✓ Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])
-  = 3049.86815 [SI::'m/s']
+  = [3049.86815 [SI::'m/s']]
   standing: value (observed: 1 run under reverse)
 
 sysml> %calc Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])
 ✓ Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])
-  = 7793.229127559948 [SI::'m/s']
+  = [7793.229127559948 [SI::'m/s']]
   standing: value (observed: 1 run under reverse)
 
 sysml> %calc Orbit::perMass(10 [SI::N], 2 [SI::kg])
 ✓ Orbit::perMass(10 [SI::N], 2 [SI::kg])
-  = 5.0 [SI::'m⋅s⁻²']
+  = [5.0 [SI::'m⋅s⁻²']]
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -512,7 +512,7 @@ sysml> calc distance {
 
 sysml> %calc distance 3 4
 ✓ distance(3, 4)
-  = 25
+  = [25]
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -582,7 +582,7 @@ sysml> package Gains {
 
 sysml> %calc Gains::Apply(Gains::square, 3.0)
 ✓ Gains::Apply(Gains::square, 3.0)
-  = 9.0
+  = [9.0]
   standing: value (observed: 1 run under reverse)
 
 sysml> %eval Gains::square
@@ -718,6 +718,82 @@ and is not shown valid either. A constraint declared without `assert` is a defin
 name, not an assertion about the object, and is not swept. The command line makes the same check with
 [`-validate=<object>`](../reference/cli.md#command-reference), and a script with the
 `ValidateInstance` RPC ([Python client example](../clients/python/verification.md#validating-an-object-as-a-whole)).
+
+**Derived values under the solver:**
+
+`%check`, `%solve`, `%explain` and `%configure` ask an external SMT solver what the conditions
+*permit* (see [installing a solver](01-install.md#installing-a-solver-optional)), so a declared
+value is not asserted there — except a *derived* one, written as an expression over other
+features of the same element, which is asserted as the defining equation of its variable: the
+model states not a value but how the value follows from the others.
+
+```sysml
+sysml> package Box {
+  ...>   private import ScalarValues::*;
+  ...>   private import ISQ::*;
+  ...>   private import SI::*;
+  ...>   part def Crate {
+  ...>     attribute height : LengthValue;
+  ...>     attribute width : LengthValue;
+  ...>     attribute length : LengthValue;
+  ...>     attribute volume : VolumeValue = height * width * length;
+  ...>     assert constraint bounds {
+  ...>       height >= 0.1 [m] and height <= 1.0 [m] and
+  ...>       width >= 1.0 [m] and width <= 1.1 [m] and
+  ...>       length >= 1.0 [m] and length <= 1.1 [m]
+  ...>     }
+  ...>     assert constraint fits { volume >= 1.0 [m**3] and volume <= 2.0 [m**3] }
+  ...>   }
+  ...>   part crateUnset : Crate;
+  ...>   part crateBad : Crate {
+  ...>     attribute :>> height = 0.1 [m];
+  ...>     attribute :>> width = 1.0 [m];
+  ...>     attribute :>> length = 1.0 [m];
+  ...>   }
+  ...> }
+✓ package Box
+
+sysml> %instantiate Box::crateUnset
+sysml> %check Box::crateUnset
+✓ Part crateUnset is satisfiable (z3, 24ms)
+  Box::Crate::height = 0.875 [metre]
+  Box::Crate::length = 1.09375 [metre]
+  Box::Crate::volume = 1.016845703125 [metre^3]
+  Box::Crate::width = 1.0625 [metre]
+  Defined by the model:
+    Box::Crate::volume = height * width * length
+  standing: satisfiable (witnessed: 1 query by solve)
+```
+
+Nothing gives `height`, `width` or `length` a value, so `volume` cannot be evaluated; the solver
+chooses the three within `bounds` and `volume` as their product, which is what makes `fits`
+answerable at all (the product ranges over 0.1–1.21 m³, so `fits` needs a height of at least
+about 0.83 m). Over an object that holds the dimensions, they are fixed as held and the equation
+says what volume they give:
+
+```sysml
+sysml> %instantiate Box::crateBad
+sysml> %solve Box::Crate::fits
+✗ Constraint fits has no values consistent with the values already fixed (z3, 12ms)
+  Already fixed:
+    Box::Crate::height = 0.1 [m]  (held by object 1)
+    Box::Crate::length = 1.0 [m]  (held by object 1)
+    Box::Crate::width = 1.0 [m]  (held by object 1)
+  Defined by the model:
+    Box::Crate::volume = height * width * length
+  In the conflict: Box::Crate::height = 0.1 [m], Box::Crate::length = 1.0 [m], Box::Crate::width = 1.0 [m]
+  Against: defining equation Box::Crate::volume == height * width * length, declared by the model of volume at box.sysml:9:38
+  Against: required condition volume >= 1.0 [m**3] and volume <= 2.0 [m**3] of fits at box.sysml:15:30
+  standing: unsatisfiable (proved over inputs: 1 query by solve)
+```
+
+A literal default (`attribute height = 0.1 [m]`) stays a fixed value, as before, so `%check`'s
+answers over one do not move; a derived value the object has already materialized is fixed as
+held; and one read through another object (`crate.volume` from a part that holds a `Crate`) is
+the value that object derives, since the equation is over the held object's features. Where
+nothing can state the equation — the expression is outside the solver's subset and a feature it
+reads holds nothing — the value is left free and listed under `Left free, since their declared
+value could not be read:` with the reason.
 
 For more examples, see
 [examples/repl-behavioral-demo.sysml](../../examples/repl-behavioral-demo.sysml), and the

@@ -3,7 +3,9 @@
 # (packaging/npm/sysml-mcp) and the platform package for this machine as the
 # release job does, installs both tarballs into a throwaway project, and speaks
 # MCP to the installed `sysml-mcp` command over stdio (`initialize`, then
-# `tools/list`). Nothing is published and no registry is contacted.
+# `tools/list`). Then the same for the alias the generator derives from the shim,
+# @openmbee/opensysml-mcp, through its `opensysml-mcp` and `sysml-mcp` commands.
+# Nothing is published and no registry is contacted.
 #
 #   scripts/npm-mcp-test.sh [<sysml-mcp binary>]
 #
@@ -93,3 +95,25 @@ if [[ "$output" != *"$expected"* ]]; then
 	exit 1
 fi
 echo "npm-mcp-test: @openmbee/sysml-mcp@$version served initialize and tools/list on $host_os-$host_cpu ($host_arch)"
+
+# The alias package the generator wrote beside the platform packages: the same
+# shim under the other name, with `opensysml-mcp` as a second command. Packed
+# and installed as published, beside the same platform package.
+alias_dir="$packages/opensysml-mcp"
+[[ -d "$alias_dir" ]] || { echo "npm-mcp-test: $alias_dir was not generated" >&2; exit 1; }
+alias_name=$(node -p "require('$alias_dir/package.json').name")
+alias_version=$(node -p "require('$alias_dir/package.json').version")
+[[ "$alias_name" == "@openmbee/opensysml-mcp" ]] || { echo "npm-mcp-test: $alias_dir is $alias_name, not @openmbee/opensysml-mcp" >&2; exit 1; }
+[[ "$alias_version" == "$version" ]] || { echo "npm-mcp-test: $alias_name is $alias_version, the shim $version" >&2; exit 1; }
+npm pack --silent --pack-destination "$tarballs" "$alias_dir"
+alias_project="$work/alias-project"
+mkdir -p "$alias_project"
+(cd "$alias_project" && npm init -y > /dev/null && npm install --silent --no-audit --no-fund \
+	"$tarballs/openmbee-opensysml-mcp-$version.tgz" "$tarballs/openmbee-sysml-mcp-$host_os-$host_cpu-$version.tgz")
+for command in opensysml-mcp sysml-mcp; do
+	installed="$alias_project/node_modules/.bin/$command"
+	[[ -x "$installed" ]] || { echo "npm-mcp-test: npm did not link the $command command of $alias_name" >&2; exit 1; }
+	"$installed" -version
+done
+node "$root/scripts/mcp-stdio-probe.mjs" -- "$alias_project/node_modules/.bin/opensysml-mcp" -root "$workspace"
+echo "npm-mcp-test: $alias_name@$version served initialize and tools/list as opensysml-mcp on $host_os-$host_cpu ($host_arch)"

@@ -137,8 +137,10 @@ func TestConvertCompactIsSmaller(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(compact)*2 > len(standard.Content) {
-		t.Errorf("compact is %d bytes against the standard %d: not under half", len(compact), len(standard.Content))
+	// The booleans every element states are the same bytes in both forms, so on a
+	// model this small the table and the unindented text take it under two thirds.
+	if len(compact)*3 > len(standard.Content)*2 {
+		t.Errorf("compact is %d bytes against the standard %d: not under two thirds", len(compact), len(standard.Content))
 	}
 }
 
@@ -183,6 +185,35 @@ func TestConvertCompactOmitsDerived(t *testing.T) {
 	for _, key := range []string{"declaredName", "ownedRelationship", "@type"} {
 		if leanKeys[key] != allKeys[key] {
 			t.Errorf("omit_derived changes %s: %d against %d", key, leanKeys[key], allKeys[key])
+		}
+	}
+	ownershipProperties := []string{"owningMembership", "membershipOwningNamespace", "ownedMemberElement"}
+	for _, key := range ownershipProperties {
+		if allKeys[key] == 0 || leanKeys[key] != allKeys[key] {
+			t.Errorf("omit_derived writes %s %d times, want the standard count %d", key, leanKeys[key], allKeys[key])
+		}
+	}
+	for _, element := range lean.expand(t) {
+		for _, key := range ownershipProperties {
+			value, ok := element[key]
+			if !ok {
+				continue
+			}
+			checkReference := func(value any) {
+				reference, ok := value.(map[string]any)
+				id, hasID := reference["@id"].(string)
+				if !ok || len(reference) != 1 || !hasID || id == "" {
+					t.Errorf("%s = %v, want a real @id reference", key, value)
+				}
+			}
+			switch values := value.(type) {
+			case []any:
+				for _, member := range values {
+					checkReference(member)
+				}
+			default:
+				checkReference(values)
+			}
 		}
 	}
 	if len(lean.Elements) != len(all.Elements) || !slices.Equal(lean.IDs[:lean.ElementCount], all.IDs[:all.ElementCount]) {

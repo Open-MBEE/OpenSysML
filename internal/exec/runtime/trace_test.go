@@ -174,6 +174,15 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 		}
 		traceObjectRuns(t, ctx, inst, expected)
 		traceOutput = trace.String()
+	case "occurrence":
+		// Realizing the occurrence's messages records each transfer as a send from
+		// the lifeline object it leaves and an accept on the one it reaches.
+		ctx.SetTrace(trace)
+		occurrenceSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefOccurrence, ast.UsageOccurrence)
+		if _, err := ctx.ExecuteOccurrence(occurrenceSym); err != nil {
+			t.Fatalf("execute occurrence: %v", err)
+		}
+		traceOutput = trace.String()
 	case "constraint":
 		ctx.SetTrace(trace)
 		constraintSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefConstraint, ast.UsageConstraint)
@@ -188,17 +197,7 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 		if len(expected.Performers) > 0 {
 			traceActionPerformers(t, ctx, idx, trace, actionSym, expected.Performers)
 		} else {
-			exec, err := ctx.CreateActionExecutor(actionSym)
-			if err != nil {
-				t.Fatalf("create action executor: %v", err)
-			}
-			exec.SetTrace(trace)
-
-			// Drive the traced executor itself: ctx.ExecuteAction would build a
-			// second, untraced one and leave the recorder empty.
-			if err := exec.RunToCompletion(); err != nil {
-				t.Fatalf("action execution: %v", err)
-			}
+			traceAction(t, ctx, idx, rootScope, trace, actionSym, expected)
 		}
 		traceOutput = trace.String()
 	}
@@ -414,11 +413,8 @@ func tracePerformers(t *testing.T, ctx *Context, idx *symbols.Index, trace *Trac
 	t.Helper()
 	ctx.SetTrace(trace)
 	for _, performer := range performers {
-		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
-		if err != nil {
-			t.Fatalf("instantiate %s: %v", performer.Object, err)
-		}
-		exec, err := ctx.CreateStateExecutorFor(stateSym, self)
+		self := performerObject(t, ctx, idx, performer.Object)
+		exec, _, err := ctx.stateRunFor(stateSym, self, true)
 		if err != nil {
 			t.Fatalf("create state executor for %s: %v", performer.Object, err)
 		}
@@ -429,16 +425,31 @@ func tracePerformers(t *testing.T, ctx *Context, idx *symbols.Index, trace *Trac
 	}
 }
 
+// traceAction traces one performance of the case's action after the untraced
+// performances its before list asks for, so a golden records the repeated one.
+func traceAction(t *testing.T, ctx *Context, idx *symbols.Index, rootScope *symbols.Scope, trace *TraceRecorder, actionSym *symbols.Symbol, expected ExpectedOutcome) {
+	t.Helper()
+	performBefore(t, ctx, idx, rootScope, actionSym, expected)
+	exec, err := ctx.CreateActionExecutor(actionSym)
+	if err != nil {
+		t.Fatalf("create action executor: %v", err)
+	}
+	exec.SetTrace(trace)
+
+	// Drive the traced executor itself: ctx.ExecuteAction would build a
+	// second, untraced one and leave the recorder empty.
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("action execution: %v", err)
+	}
+}
+
 // traceActionPerformers performs the action once per listed object, as the
 // conformance harness does, so the trace records each owner-bound run.
 func traceActionPerformers(t *testing.T, ctx *Context, idx *symbols.Index, trace *TraceRecorder, actionSym *symbols.Symbol, performers []Performer) {
 	t.Helper()
 	ctx.SetTrace(trace)
 	for _, performer := range performers {
-		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
-		if err != nil {
-			t.Fatalf("instantiate %s: %v", performer.Object, err)
-		}
+		self := performerObject(t, ctx, idx, performer.Object)
 		if _, err := ctx.ActionOutcomePerformedBy(actionSym, self, nil); err != nil && performer.Error == "" {
 			t.Fatalf("action performance by %s: %v", performer.Object, err)
 		}

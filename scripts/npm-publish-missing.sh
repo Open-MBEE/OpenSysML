@@ -11,7 +11,8 @@ tag=$1
 shift
 
 manifest() {
-	if [[ -d "$1" ]]; then cat "$1/package.json"; else tar -xOf "$1" package/package.json; fi
+	local package=$1
+	if [[ -d "$package" ]]; then cat "$package/package.json"; else tar -xOf "$package" package/package.json; fi
 }
 
 for package in "$@"; do

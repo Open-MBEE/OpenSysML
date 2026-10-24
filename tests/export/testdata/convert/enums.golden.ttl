@@ -37,6 +37,7 @@ elmt:Colors__Color
     sysml:owningRelationship elmt:Colors__Color_om ;
     sysml:owningMembership elmt:Colors__Color_om ;
     sysml:declaredName "Color" ;
+    sysml:isAbstract "true"^^xsd:boolean ;
     sysml:isVariation "true"^^xsd:boolean ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Colors__Color__red, elmt:Colors__Color__green, elmt:Colors__Color__blue ;
