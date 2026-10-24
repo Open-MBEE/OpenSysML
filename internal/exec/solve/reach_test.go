@@ -20,6 +20,7 @@ const shortCircuitSource = `package test {
 		attribute other : Real;
 		attribute input : Real;
 		attribute dependent : Real = input + 1.0;
+		attribute opaque : Real = input ** 2.0;
 		assert constraint leftTrue { true or bad > 0.0 }
 		assert constraint rightTrue { bad > 0.0 or true }
 		assert constraint orFree { free > 0.0 or bad > 0.0 }
@@ -35,6 +36,7 @@ const shortCircuitSource = `package test {
 		assert constraint bothSides { (free > 0.0 or bad > 0.0) and bad > 0.0 }
 		assert constraint nested { free > 0.0 or (other > 0.0 and bad > 0.0) }
 		assert constraint orDependent { free > 0.0 or dependent > 0.0 }
+		assert constraint orOpaque { free > 0.0 or opaque > 0.0 }
 	}
 	part item : Item;
 	requirement def Ordered {
@@ -244,15 +246,31 @@ func TestUnfixedReadGuardsAConditionalRead(t *testing.T) {
 		t.Errorf("UnfixedRead xorFree = %v, want the read of both operands refused", err)
 	}
 
+	// A derived value whose operand has no value is not a failed read but a
+	// defining equation over the free operand, so there is nothing to guard.
 	dependent := guardedItemQueries(t, ctx, idx, "orDependent")
 	if err := UnfixedRead(ctx, dependent.question, dependent.unfixed); err != nil {
-		t.Fatalf("UnfixedRead orDependent = %v, want the unreached missing dependency guarded", err)
+		t.Fatalf("UnfixedRead orDependent = %v, want nothing to guard", err)
 	}
-	if len(dependent.question.Unreadable) != 1 || !errors.Is(dependent.question.Unreadable[0].Err, runtime.ErrNoValue) {
-		t.Errorf("Unreadable = %+v, want dependent by a missing value", dependent.question.Unreadable)
+	if len(dependent.question.Unreadable) != 0 || dependent.question.ReachedError() != nil {
+		t.Errorf("Unreadable = %+v, want none: dependent is defined by its equation", dependent.question.Unreadable)
 	}
-	if err := dependent.question.ReachedError(); !errors.Is(err, runtime.ErrNoValue) || !strings.Contains(err.Error(), "dependent") {
-		t.Errorf("ReachedError() = %v, want ErrNoValue naming dependent", err)
+	if len(dependent.question.Derived) != 1 || dependent.question.Derived[0].Var.Name != "test::Item::dependent" ||
+		dependent.question.Derived[0].Expression != "input + 1.0" {
+		t.Errorf("Derived = %+v, want dependent = input + 1.0", dependent.question.Derived)
+	}
+	// One whose equation the term language does not carry, and that the
+	// evaluator could not derive either, is guarded as a failed read is.
+	opaque := guardedItemQueries(t, ctx, idx, "orOpaque")
+	if err := UnfixedRead(ctx, opaque.question, opaque.unfixed); err != nil {
+		t.Fatalf("UnfixedRead orOpaque = %v, want the unreached missing dependency guarded", err)
+	}
+	if len(opaque.question.Unreadable) != 1 || opaque.question.Unreadable[0].Name != "opaque" ||
+		!errors.Is(opaque.question.Unreadable[0].Err, runtime.ErrNoValue) {
+		t.Errorf("Unreadable = %+v, want opaque by a missing value", opaque.question.Unreadable)
+	}
+	if err := opaque.question.ReachedError(); !errors.Is(err, runtime.ErrNoValue) || !strings.Contains(err.Error(), "opaque") {
+		t.Errorf("ReachedError() = %v, want ErrNoValue naming opaque", err)
 	}
 }
 

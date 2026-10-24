@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"slices"
 	"sync"
 	"testing"
-	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -53,10 +51,8 @@ func TestTheBinaryServesTheProtocolOverStdio(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "m.sysml"), []byte("package M { part def P; }\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
 	cmd := exec.Command(serverBinary(t), "-stdio", "-root", root)
+	ctx := protocolBudget(t)
 	cmd.Stderr = os.Stderr
 	client := sdk.NewClient(&sdk.Implementation{Name: "test", Version: "0"}, nil)
 	cs, err := client.Connect(ctx, &sdk.CommandTransport{Command: cmd}, nil)

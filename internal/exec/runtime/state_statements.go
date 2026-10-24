@@ -456,22 +456,21 @@ func (h *stateStmtHost) materializeOccurrence() (*Instance, error) {
 // statementOrder is how stmts may be ordered where the schedule picks it: an inline
 // body's statements are subactions of the behavior's performance no succession orders.
 func (h *stateStmtHost) statementFootprint(stmts []lower.Statement, i int) lower.Footprint {
-	graph := h.flow.graph
-	if graph == nil {
-		graph = &lower.ActionGraph{Scope: h.behavior.Scope}
-	}
-	return h.perfs.statementOrder(graph, h.behavior.Node, stmts).Footprint(i)
+	return h.perfs.statementOrder(h.flow.graph, h.behavior.Scope, h.behavior.Node, stmts).Footprint(i)
 }
 
 func (h *stateStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
-	if len(stmts) < 2 || !h.exec.ctx.scheduling().ordersStatements() {
+	if len(stmts) < 2 || !h.exec.ctx.scheduling().ordersStatements() || h.ordered(stmts) {
 		return nil
 	}
-	graph := h.flow.graph
-	if graph == nil {
-		graph = &lower.ActionGraph{Scope: h.behavior.Scope}
-	}
-	return h.perfs.statementOrder(graph, h.behavior.Node, stmts)
+	return h.perfs.statementOrder(h.flow.graph, h.behavior.Scope, h.behavior.Node, stmts)
+}
+
+// ordered reports whether stmts is the behavior's own body and that body runs in
+// the order written (StateBehavior.Ordered); a block within it is ordered as any.
+func (h *stateStmtHost) ordered(stmts []lower.Statement) bool {
+	body := h.behavior.Body
+	return h.behavior.Ordered && len(stmts) == len(body) && len(body) > 0 && &stmts[0] == &body[0]
 }
 
 func (h *stateStmtHost) orderStep() int { return 0 }

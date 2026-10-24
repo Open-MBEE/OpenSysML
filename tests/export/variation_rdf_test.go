@@ -386,3 +386,41 @@ func TestQuotedVariantNamesStayOneName(t *testing.T) {
 		}
 	}
 }
+
+// A variation is always abstract (SysML v2 §7.6.7, validateDefinitionVariationIsAbstract,
+// validateUsageVariationIsAbstract), so the graph states sysml:isAbstract for a variation
+// definition, a variation usage and an enumeration definition, and the notation read back
+// from it carries `variation` alone, never `abstract`.
+func TestVariationIsAbstractInRDF(t *testing.T) {
+	const src = enumVariationModel + `package U {
+    part def E;
+    part def Car {
+        variation part engine : E {
+            variant part gas : E;
+        }
+        part wheel : E;
+    }
+}
+`
+	g := turtleOf(t, "variation-abstract", src)
+	for _, variation := range []string{"V::Level", "V::Engine", "U::Car::engine"} {
+		wantLexical(t, g, rdf.ElementIRI(variation).Value, rdf.SysML+"isAbstract", "true")
+	}
+	for _, plain := range []string{"V::Car", "V::Engine::gas", "U::Car::wheel"} {
+		if _, ok := g.Lexical(rdf.ElementIRI(plain), rdf.SysML+"isAbstract"); ok {
+			t.Errorf("%s states isAbstract", plain)
+		}
+	}
+	text, err := export.ToSysML(g)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	if strings.Contains(string(text), "abstract") {
+		t.Errorf("a variation reads back with `abstract`:\n%s", text)
+	}
+	for _, want := range []string{"variation part def Engine", "variation part engine : E"} {
+		if !strings.Contains(string(text), want) {
+			t.Errorf("notation lacks %q:\n%s", want, text)
+		}
+	}
+}

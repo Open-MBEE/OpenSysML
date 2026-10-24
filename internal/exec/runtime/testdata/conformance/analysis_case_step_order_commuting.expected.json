@@ -3,5 +3,5 @@
   "type": "analysis",
   "evaluate": "test::Commute",
   "schedule": "reverse",
-  "result": {"type": "Integer", "value": 3}
+  "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]}
 }

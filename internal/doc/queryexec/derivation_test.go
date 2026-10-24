@@ -54,6 +54,20 @@ func TestExecuteRelatedDerivationBodyEndRoles(t *testing.T) {
 		[]string{"opticsAlignment"})
 }
 
+func TestExecuteRelatedDerivationTaggedParticipants(t *testing.T) {
+	fixture := loadExecutionFixtureFile(t, "testdata/tmt_derivation.sysml")
+
+	// A tagged requirement stays the participant of an end that names it, whether
+	// the end states its role by metadata or by subsetting the library role feature.
+	assertRelated(t, fixture, "throughputCapacity", "derivation", "outgoing", 1,
+		[]string{"linkRate", "bufferDepth"})
+	assertRelated(t, fixture, "linkRate", "derivation", "incoming", 1,
+		[]string{"throughputCapacity"})
+	assertRelated(t, fixture, "bufferDepth", "derivation", "incoming", 1,
+		[]string{"throughputCapacity"})
+	assertRelated(t, fixture, "throughputCapacity", "derivation", "incoming", 1, nil)
+}
+
 func TestExecuteRelatedDerivationDefinitions(t *testing.T) {
 	fixture := loadExecutionFixtureFile(t, "testdata/tmt_derivation.sysml")
 

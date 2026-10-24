@@ -65,6 +65,8 @@ export interface RenderNode {
   text: string;
   standIn: boolean;
   parent: string;
+  /** The compartment of the parent this node is a row of ("attributes", "parts", ...); empty for a box. */
+  compartment: string;
   ports: readonly RenderPort[];
   origin?: RenderSpan;
   geometry?: RenderGeometry;
@@ -185,6 +187,7 @@ function nodeOf(node: PbRenderNode): RenderNode {
     detail: node.detail,
     text: node.text,
     standIn: node.standIn,
+    compartment: node.compartment,
     parent: node.parent,
     ports: node.ports.map(portOf),
     ...(origin === undefined ? {} : { origin }),

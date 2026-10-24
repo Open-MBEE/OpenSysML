@@ -13,6 +13,7 @@ result:
     "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"],
     "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"],
     "openSysmlRenderLines": ["splines", "ortho", "polyline"],
+    "openSysmlRenderCompartments": ["positioned", "most", "ports"],
     "openSysmlRenderElements": ["parameter-symbols", "port-symbols", "compartments", "edge-labels",
       "keywords", "multiplicities", "typings", "qualifiers", "all"] } } }
 ```
@@ -29,7 +30,11 @@ the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styl
 draws the DOT or Mermaid form in, the first the default (`openSysmlRenderPorts` lists likewise the port
 displays its `ports` draws an interconnection or mixed rendering's parts with, a server without
 it drawing every port; `openSysmlRenderLines` the edge routings its `lines` draws the DOT or
-PlantUML form with, a server without it routing every edge as splines; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
+PlantUML form with, a server without it routing every edge as splines; `openSysmlRenderCompartments` the
+foldings its `compartments` folds a tree rendering's owned members into compartment rows of their owner
+with (`positioned`, the default, the layout-less members of a positioned tree alone; `most` every owned
+usage no `Layout`, nested definition or package keeps a node; `ports` the port usages with the ports
+nested under them), a server without it folding the positioned tree alone; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
 without it drawing none); a server without the former draws the Pilot look
 alone.
 
@@ -176,6 +181,7 @@ Renders one view of a document.
 | `ports` | Optional. How much of a part's ports an interconnection or mixed rendering draws: `minimal` (the default), the ports an interconnection edge ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
 | `show` | Optional. The notation elements the SysML v2 notation makes optional that the rendering draws besides the ones its view's rendering shows, each a name the `openSysmlRenderElements` capability lists: `parameter-symbols` (a case's actor, subject and stakeholder parameters and an action's parameter pins on the node's boundary; without them a connection ends at the node itself), `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, or `all`. Port symbols, compartments and keywords are drawn by default; the result's `shown` lists what was drawn. |
 | `depth` | Optional. How many levels of nested elements a tree or interconnection rendering draws below each exposed element, overriding the `depth` attribute the view states, on a server advertising the `openSysmlRenderDepth` capability; absent or `0` leaves the view's own depth in force. An element at the bound keeps its compartment rows and ports and carries the detail `nested deeper than N levels; not shown`; the elements directly below the bound are counted once in `notices`. A negative value is refused. |
+| `include` | Optional. Qualified names of elements drawn besides what the view exposes, as if the view exposed them too, with the edges between them and the view's own nodes, on a server advertising the `openSysmlRenderInclude` capability; each name is one a node carries in `fqn`, resolved in the requested document first and then among the documents the session holds. Nothing is written to the model: a panel adds and removes included elements on its own. Each node drawn this way is marked `included`; naming what the view already draws changes nothing; a name resolving to no element, or to several documents' declarations, is reported in `notices` and the rest of the rendering stands. An element the rendering's kind draws nothing for is reported as every exposed element of that kind is. |
 | `overlay` | Optional. `verdicts` runs the verification cases verifying each requirement of a `requirement` rendering and labels and colours the requirement by their verdicts, each node carrying the worst as `verdict` (`pass`, `inconclusive`, `fail`, `error`). Omitted, nothing runs. Refused on another kind, and when unknown. |
 | `linkTemplate` | Optional. Template for source links on diagram elements, with `{file}`, `{line}`, `{col}`, `{qname}` and `{id}` placeholders. `{file}` is the path as loaded. Only on-disk workspace documents are linked; bundled libraries and non-file documents have no source link. |
 
@@ -267,13 +273,14 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `kind` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `table`, `matrix`, `requirement`, `definition` or `package`. |
 | `stated` | How the kind was decided — the rendering the view names, the standard view definition it specializes, or that no view was declared. Empty when the view took the default. |
 | `artifact` | What to draw or show: a Mermaid diagram, a Graphviz DOT graph, a PlantUML diagram, a D2 diagram, the text form, or a Markdown table or relationship matrix. |
-| `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `kind` is the keyword the notation declares it with (`part def`, `state`), its `name` the qualified name of an element the view exposes or the simple name of one nested in it, its `type` the declared type of a typed usage (`Cog` for `part cog : Cog`, empty otherwise), and its `detail` the notes the artifact draws after the name (`initial`, `already shown`); a client never parses the type out of the detail. A node's `parent` is the node containing it, when one does. An edge's `kind` is `connection`, `transition`, `succession`, `flow`, `composition`, `association`, `include`, `anchor`, `typing`, `specialization` or `reference`. |
+| `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `kind` is the keyword the notation declares it with (`part def`, `state`), its `name` the qualified name of an element the view exposes or the simple name of one nested in it, its `type` the declared type of a typed usage (`Cog` for `part cog : Cog`, empty otherwise), and its `detail` the notes the artifact draws after the name (`initial`, `already shown`); a client never parses the type out of the detail. A node's `parent` is the node containing it, when one does, and under a `compartments` folding its `compartment` names the compartment of that parent it is drawn as a row of (`attributes`, `parts`, `ports`, ...). An edge's `kind` is `connection`, `transition`, `succession`, `flow`, `composition`, `association`, `include`, `anchor`, `typing`, `specialization` or `reference`. |
 | `ports`, `fromPort`, `toPort` | A node's optional `ports` array contains the port pins drawn on it, each with an `id`, `name`, optional `type` and optional `direction` (`in`, `out`, `inout`; omitted for an undirected port). A request's `ports` display controls which pins appear in interconnection and mixed renderings: `minimal` lists pins reached by an interconnection edge, while `full` lists every pin. An edge's optional `fromPort` and `toPort` are the IDs of its endpoint pins in those arrays. |
 | `rows`, `columns` | A table or matrix rendering's cells, in place of nodes and edges. Matrix rows are relationship sources, columns are targets, and each cell carries its ordered relationship keywords. |
 | `origin` | Where the element was declared, as a document URI, the `range` of the whole declaration and, when the declaration names one, the `selectionRange` of the identifier alone. A client highlights the element whose `range` holds the cursor and navigates to its `selectionRange`, as `textDocument/definition` does. `digest` fingerprints the text the ranges are of, the same for the same text whatever its version: a `setLayout` or `setRoute` of an element another document declares hands it back as its `digest`, with the URI as `declaredIn`, so the target is read in the text it was rendered from or answered `stale`. Every `origin` of one rendering is of the text the rendering was made from, read under one lock, whatever a document holds since. Absent for an element with no locatable declaration: a standard library symbol the index served from its cache, or a step a lowering sequenced without a declaration of its own, carries none rather than a bogus range. |
 | `notices` | What the rendering could not represent, as the text form reports it; includes reasoned notices for refused diagram pictures. A result with no node, no edge and no row always carries at least one notice saying why, the same line the text form ends with: the view exposes nothing; every element it exposes is rejected by its filter, naming the filter as written (`every element the view exposes is rejected by its filter @ActionUsage; the rendering is empty`); what it exposes does not resolve (`the view exposes the members of Nowhere, which does not resolve; …`), or is nothing; nothing it exposes is shown by a rendering of this kind; or the view shows pictures alone. When the document has an error, the first error comes first, in the CLI's words (`<file> did not analyse cleanly; nothing was rendered: <line>:<col>: <message>`), since an element the parser could not read is one no view exposes. A client never shows such a result as an empty drawing. |
 | `fqn` | On a node: the qualified name `opensysml/applyModelEdit` targets the node's declaration by, each name quoted on its own as the notation spells it, so `'x::y'` (one name) and `x::y` (`y` in `x`) are two targets. A node another document of the workspace declares — a part a view of this document exposes, a state a usage inherits from a definition elsewhere — carries it as any node does when the client advertised `openSysmlCrossDocumentLayout`, and `origin.uri` says which document; a layout on it writes there. To a client that did not, such a node carries its `origin` alone. Absent for a node whose declaration is in no document of the workspace — a library element, a step a lowering sequenced — or is reached only through an unnamed one, so a client offers no edit on it. On an edge: the qualified name of the declaring connection, transition, succession, flow, include, or relationship, absent likewise. |
 | `declaredHere` | On a node with an `fqn`: `true` when the requested document declares the node. Only such a node takes `rename`, `delete`, `move`, or a member or connection written into it; a node another workspace document declares carries its `fqn` for `setLayout` and `setRoute` alone, and a client offers it nothing else. A server that does not advertise `openSysmlCrossDocumentLayout` never sends it, and names no other document's nodes either, so a client reads its every `fqn` as the requested document's own. |
+| `included` | On a node: `true` when the request's `include` drew it rather than the view, so a client can mark it and offer to leave it out again. A node the view's own content draws is never marked, even when `include` names it. |
 | `notation` | On a node with an `fqn`: the keyword the declaration was written with (`part def`, `port`, `state`), which is the `memberKind` a `move` asks the new owner to admit. |
 | `declaration` | On a node or edge a workspace document declares but no qualified name reaches — an unnamed transition, a connection inside an unnamed part — the `range` of that declaration, in place of `fqn`; the range is one of the document `origin.uri` names, this one or, for a client advertising `openSysmlCrossDocumentLayout`, another of the workspace. `opensysml/applyModelEdit`'s `setLayout` and `setRoute` take it, with `declaredIn` when it is another document's, as the target of an inline annotation, since a view body has no name to state one about; no other operation reaches such an element. |
 | `owners` | On a node with an `fqn`: the namespaces declaring it, nearest first, each as its `fqn` and whether it is a `feature`, whether or not the view draws them. A client writes a connection into the nearest owner two nodes share, or into the document when they share none, and spells each end from there — through a feature by `.`, into any other namespace by `::` (`tank.fuelOut`, `Car::tank.fuelOut`). Absent for a top-level declaration. |
@@ -351,6 +358,52 @@ which view the cursor is in and open that one without asking. The trailing
 whitespace between two declarations belongs to neither range. Both fields are
 optional: a server that does not locate views omits them, and a client then
 falls back to asking.
+
+## `opensysml/relatedElements` (request)
+
+Answers what relates to one element and how, grouped by relationship kind, so a
+diagram panel can offer a drawn node's related elements for a rendering's
+`include` without editing the view. Served on a server advertising the
+`openSysmlRelatedElements` capability, whose value lists the relationship kinds
+a result groups by, in listing order.
+
+```json
+{ "textDocument": { "uri": "file:///tmp/kit.sysml" }, "element": "Kit::Car" }
+```
+
+```json
+{
+  "element": { "fqn": "Kit::Car", "name": "Car", "kind": "part def", "declaredHere": true, "origin": { "uri": "file:///tmp/kit.sysml", "range": { "start": { "line": 3, "character": 1 }, "end": { "line": 3, "character": 24 } }, "digest": "…" } },
+  "groups": [
+    { "kind": "generalizations", "label": "Generalizations (specializes, subsets, redefines)", "elements": [ { "fqn": "Kit::Vehicle", "name": "Vehicle", "kind": "part def", "declaredHere": true, "origin": { "…": "…" } } ] },
+    { "kind": "typedUsages", "label": "Typed usages (types)", "elements": [ { "fqn": "Kit::car", "name": "car", "kind": "part", "declaredHere": true, "origin": { "…": "…" } } ] },
+    { "kind": "owner", "label": "Owner", "elements": [ { "fqn": "Kit", "name": "Kit", "kind": "package", "declaredHere": true, "origin": { "…": "…" } } ] }
+  ]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `textDocument.uri` | The document the element is named from: one the session holds. |
+| `element` | The qualified name of the element, as a rendering's node carries it in `fqn`; resolved in the document first and then among the documents the session holds. An element no held document declares is refused, as is a name several documents declare. |
+
+The result's `element` describes the element asked about and `groups` the
+elements related to it, one group per relationship kind relating anything, in
+the order the capability lists the kinds: `generalizations` (what the element
+specializes, subsets or redefines), `specializations` (what specializes,
+subsets or redefines it), `types` (the definitions typing it), `typedUsages`
+(the usages it types), `owner`, `ownedMembers`, `connections`, `flows` and
+`bindings` (the elements connectors, flows and bindings join it to — the part
+an end is written from, `car` of `car.port`) and `successions` (the actions its
+owner's successions join it to; a state has no transitions group, being drawn
+only within its machine). They are the relationships a
+rendering draws edges for, read from the same model information, so including
+a listed element draws the edge. Each group has a `label` for a client listing
+it, and each element its `fqn` (what `include` takes), `name`, `kind` (the
+keyword the notation declares it with), `declaredHere` and `origin` as a
+rendering's nodes carry them. An element is listed once per group, never the
+element itself, and never an unnamed element or a standard library element: a
+rendering draws neither when a view exposes them.
 
 ## `opensysml/documents` (request)
 

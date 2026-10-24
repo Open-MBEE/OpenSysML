@@ -60,6 +60,33 @@ runs:
           fi
         done
 
+    # The specification examples, extracted from the two PDFs at the same pin:
+    # the PDFs are cached, the extraction reruns from them (it is the tree's
+    # own tool), and the result is verified rather than trusted.
+    - name: Cache the OMG specification documents
+      uses: actions/cache@v4
+      with:
+        path: build/spec-docs/pdf
+        key: spec-docs-${{ hashFiles('scripts/download-spec-examples.sh', 'scripts/pilot-pin.sh') }}
+
+    - name: Extract the OMG specification examples
+      shell: bash
+      run: |
+        ./scripts/ci-apt-install.sh --no-install-recommends poppler-utils
+        ./scripts/download-spec-examples.sh
+
+    - name: Verify the OMG specification examples
+      shell: bash
+      run: |
+        for root in sysml kerml; do
+          count=$(find "examples/spec-examples/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
+          echo "specification examples $root: $count model files"
+          if [ "$count" -eq 0 ]; then
+            echo "error: specification examples $root is empty; the spec-examples gate would not run" >&2
+            exit 1
+          fi
+        done
+
     # The PSSM suite is one pinned file; keyed on its download script and pin.
     - name: Cache the OMG PSSM test suite
       uses: actions/cache@v4

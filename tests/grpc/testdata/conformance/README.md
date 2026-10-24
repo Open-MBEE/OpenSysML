@@ -14,7 +14,9 @@ in this directory, so adding a case is a data-only change.
 
 | Field | Applies to | Meaning |
 |---|---|---|
-| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `RunRuns`, `SelfCheck` or `RecordRun` |
+| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `RunRuns`, `SelfCheck`, `RecordRun` or `RenderView` |
+| `view`, `compartments` | RenderView | the view or `#<kind>:<name>` pseudo-view to render and the compartment folding (`positioned`, `most` or `ports`; empty is `positioned`) |
+| `expected_node_names`, `expected_compartments`, `expected_edge_labels` | RenderView | the nodes drawn in order, the compartment each row is drawn in by the row's name, and the edge labels in order; `expected_error` a refusal instead |
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `ImportData` or `CompareResults` |
 | `imports`, `import_dry_run` | ImportData | the imports (`name`, `content`, optional `import_format` and `import_map`), in order, and whether to report without changing the model |
 | `expected_assignments` | ImportData | the assignments' descriptions over every import, in order; `expected_content` is the edited model, `expected_error` a refusal that leaves it unchanged |
@@ -45,7 +47,9 @@ empty else blocks are not authorable.
 | `disable_lint`, `enable_lint` | GetDiagnostics | lint codes left out of, and opt-in lint codes kept in, the diagnostics, as `sysml -disable-lint`/`-enable-lint` select them |
 | `expected_codes`, `absent_codes` | GetDiagnostics | diagnostic codes the answer must carry, and must not |
 | `events` | ExecuteState | event names injected, in order |
-| `performer_symbol_id` | CheckBehavior, ExecuteAction | FQN of the part/usage whose object performs the action; an ExecuteAction on it joins the performance that object already holds or runs, so `inputs` must be the bindings its declaration states (an `instance_id` input names an object of the instantiated performer) |
+| `trace`, `expected_trace_objects` | ExecuteState | ask for the run's trace, and the usages the objects taking its transitions are held under, in first-appearance order, one per object (a machine run on the exhibited usage's own path traces its owner's one run) |
+| `advance`, `expected_final_time` | ExecuteState | the simulated time to run for after the events, and the clock the run ended at |
+| `performer_symbol_id` | CheckBehavior, ExecuteAction, ExecuteState | FQN of the part/usage whose object performs the behavior, or a path from one into what it holds; an ExecuteAction on it joins the performance that object already holds or runs, so `inputs` must be the bindings its declaration states (an `instance_id` input names an object of the instantiated performer) |
 | `check_property` | CheckBehavior | constraints or requirements evaluated at every stable state |
 | `check_diverge` | CheckBehavior | features whose final value the schedule may decide |
 | `expected_verdict` | CheckBehavior | `holds`, `fails` or `undecided` |
@@ -59,6 +63,8 @@ empty else blocks are not authorable.
 | `expected_result` | Evaluate, EvaluateCalc | expected `Value` |
 | `expected_attribute_names` | GetSymbol | full ordered attribute name list, own then inherited |
 | `expected_attributes` | GetSymbol | attribute name → `{type, value_kind, value, unit}`; no `value_kind` requires no value |
+| `expected_metadata` | GetSymbol | metadata key → value the symbol must carry (`variation`, `variant`, `abstract`, `type`, …) |
+| `absent_metadata` | GetSymbol | metadata keys the symbol must not carry |
 | `expected_feature_values` | Instantiate | feature name → `{materialized, value_kind, value, error}` |
 | `expected_instance_count` | Instantiate | number of reachable instances in the response graph |
 | `expected_outputs` | ExecuteAction, EvaluateCalc | output name → expected `Value`; for EvaluateCalc it is the outputs a calc usage computes when invoked without arguments |

@@ -18,6 +18,7 @@ const formatVersion = 33
 type factRecord struct {
 	FQN       string
 	Supers    []symbols.ElementRef // the semantic direct supertypes (see supersOf)
+	Implied   []symbols.ElementRef // the entries of Supers the kind implies (see impliedOf)
 	Unit      *unitFacts           // for measurement units: their reduction to base units
 	Dimension *dimensionFacts      // for measurement units: the dimension they measure in
 	Abstract  bool                 // the declaration is abstract (KerML 7.3.2.2)
@@ -85,10 +86,16 @@ func collectScope(scope *symbols.Scope, prefix string, rec *IndexRecord, model *
 			fqn = prefix + "::" + sym.Name
 		}
 		supers, resolved := supersOf(sym, idx, model)
+		implied, ok := impliedOf(sym, idx, model)
+		if !ok {
+			// Implied generals no reference reaches leave the edges to be derived on load.
+			supers, resolved = nil, false
+		}
 		complete = complete && resolved
 		facts := factRecord{
 			FQN:       fqn,
 			Supers:    supers,
+			Implied:   implied,
 			Unit:      unitFactsOf(sym, model, idx),
 			Dimension: dimensionFactsOf(sym, model, idx),
 			Abstract:  symbols.IsAbstract(sym),
@@ -109,7 +116,7 @@ func collectScope(scope *symbols.Scope, prefix string, rec *IndexRecord, model *
 // isEmpty reports whether a record memoizes nothing, in which case persisting it
 // would only cost the space: every fact of it derives from the declaration.
 func (f factRecord) isEmpty() bool {
-	return len(f.Supers) == 0 && f.Unit == nil && f.Dimension == nil &&
+	return len(f.Supers) == 0 && len(f.Implied) == 0 && f.Unit == nil && f.Dimension == nil &&
 		!f.Abstract && f.Portion == ast.PortionNone
 }
 
@@ -209,17 +216,32 @@ func supersOf(sym *symbols.Symbol, idx *symbols.Index, model *semantics.Model) (
 	return out, complete
 }
 
+// impliedOf returns references to the generals sym has by its kind rather than
+// by declaration, false when one of them no reference reaches.
+func impliedOf(sym *symbols.Symbol, idx *symbols.Index, model *semantics.Model) ([]symbols.ElementRef, bool) {
+	var out []symbols.ElementRef
+	for _, general := range model.ImplicitGenerals(sym) {
+		ref, ok := idx.RefTo(general)
+		if !ok {
+			return nil, false
+		}
+		out = append(out, ref)
+	}
+	return out, true
+}
+
 // libraryFacts projects a persisted record onto the facts installed on an index,
 // keyed by fully-qualified name.
 func libraryFacts(rec *IndexRecord) map[string]*symbols.LibraryFacts {
 	out := make(map[string]*symbols.LibraryFacts, len(rec.Facts))
 	for _, f := range rec.Facts {
 		out[f.FQN] = &symbols.LibraryFacts{
-			Supers:    f.Supers,
-			Unit:      unitFactsEntry(f.Unit),
-			Dimension: dimensionFactsEntry(f.Dimension),
-			Abstract:  f.Abstract,
-			Portion:   f.Portion,
+			Supers:        f.Supers,
+			ImpliedSupers: f.Implied,
+			Unit:          unitFactsEntry(f.Unit),
+			Dimension:     dimensionFactsEntry(f.Dimension),
+			Abstract:      f.Abstract,
+			Portion:       f.Portion,
 		}
 	}
 	return out

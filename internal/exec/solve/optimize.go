@@ -151,6 +151,9 @@ func (s *session) optimize(q *Query) (*Result, error) {
 	// The model must be read before any further check-sat, as a solver keeps
 	// only the model of its latest one.
 	model, err := s.values(q.Vars)
+	if err == nil {
+		err = s.liveness(model)
+	}
 	if err != nil {
 		return nil, err
 	}

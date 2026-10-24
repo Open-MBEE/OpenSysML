@@ -99,7 +99,14 @@ class Symbol:
     
     @property
     def metadata(self) -> dict:
-        """Return copy of symbol metadata dictionary."""
+        """Return copy of symbol metadata dictionary.
+
+        Keys present only when they hold: ``visibility``, ``type``,
+        ``multiplicity``, ``direction``, ``specializes``, ``abstract``,
+        ``variation`` (a variation definition or usage, or an enumeration
+        definition; always ``abstract`` too) and ``variant`` (a variant usage
+        or an enumerated value), each flag ``"true"``.
+        """
         return dict(self._pb.metadata)
     
     @property

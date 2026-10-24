@@ -3,7 +3,7 @@
   "type": "analysis",
   "evaluate": "test::marginOfScout",
   "outputs": {
-    "margin": {"type": "Real", "value": 0.25}
+    "margin": {"type": "Sequence", "elements": [{"type": "Real", "value": 0.25}]}
   },
   "verdicts": {
     "obj": "undecided"

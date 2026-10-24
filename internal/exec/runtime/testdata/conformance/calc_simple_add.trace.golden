@@ -5,4 +5,4 @@ enter calc test::add
       eval feature x -> 3
       eval feature y -> 5
     eval operator + -> 8
-exit calc test::add -> 8
+exit calc test::add -> (8)

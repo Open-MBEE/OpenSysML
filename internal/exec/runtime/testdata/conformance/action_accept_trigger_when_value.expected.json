@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"libraries": true,
+	"outputs": {
+		"temp": {"type": "Integer", "value": 40},
+		"alerted": {"type": "Integer", "value": 1}
+	}
+}

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- Fill: an activity owned by a use case, drawn on an activity diagram that
+         also shows the use case, a requirement, and two «Refine» abstractions:
+         one from the use case to the requirement, one from an action to it; the
+         tool drew the second from the requirement's symbol back to the action's. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_ops" name="Ops">
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_fill" name="Fill Tank">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_fill" name="Fill">
+          <node xmi:type="uml:InitialNode" xmi:id="_fl_init"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_fl_open" name="open valve"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_fl_pump" name="pump"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_fl_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_fl_e1" source="_fl_init" target="_fl_open"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_fl_e2" source="_fl_open" target="_fl_pump"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_fl_e3" source="_fl_pump" target="_fl_final"/>
+        </ownedBehavior>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_rate" name="Fill Rate"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_refine" client="_uc_fill" supplier="_req_rate"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_refine_pump" client="_fl_pump" supplier="_req_rate"/>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_fill" name="Fill" ownerOfDiagram="_act_fill">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_fl_init</usedElements>
+                  <usedElements>_fl_open</usedElements>
+                  <usedElements>_fl_pump</usedElements>
+                  <usedElements>_fl_final</usedElements>
+                  <usedElements>_fl_e1</usedElements>
+                  <usedElements>_fl_e2</usedElements>
+                  <usedElements>_fl_e3</usedElements>
+                  <usedElements>_uc_fill</usedElements>
+                  <usedElements>_req_rate</usedElements>
+                  <usedElements>_dep_refine</usedElements>
+                  <usedElements>_dep_refine_pump</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-refine_on_activity"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Requirement xmi:id="_st_req_rate" base_Class="_req_rate" Id="R1" Text="The tank shall fill within 30 s."/>
+  <sysml:Refine xmi:id="_st_refine" base_Abstraction="_dep_refine"/>
+  <sysml:Refine xmi:id="_st_refine_pump" base_Abstraction="_dep_refine_pump"/>
+</xmi:XMI>

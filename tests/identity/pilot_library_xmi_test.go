@@ -113,6 +113,14 @@ func TestPilotLibraryXMI(t *testing.T) {
 	derived := map[string]bool{}
 	seenErrataOnly := 0
 	for _, el := range ours {
+		if el.Language == identity.OpenSysML {
+			// An extension's fixed id is this implementation's, not the norm's: the
+			// pilot's XMI must know nothing under it.
+			if _, collides := lib.byID[el.ID]; collides {
+				wrong = append(wrong, fmt.Sprintf("%s: the extension id %s is a pilot library element's", el.FQN, el.ID))
+			}
+			continue
+		}
 		derived[el.ID] = true
 		node, ok := lib.byID[el.ID]
 		errataOnly, listed := errataOnlyElements[el.FQN]

@@ -1,0 +1,19 @@
+{
+  "libraries": true,
+  "type": "instance",
+  "instantiate": "test::P1",
+  "slots": {
+    "rq.s": {"type": "Integer", "value": 3},
+    "rq.result": {"type": "Boolean", "value": true},
+    "rqBare.s": {"type": "Integer", "value": 3},
+    "rqBare.result": {"type": "Boolean", "value": true},
+    "rqPart.s.v": {"type": "Integer", "value": 5},
+    "rqPart.result": {"type": "Boolean", "value": true},
+    "rqFail.s": {"type": "Integer", "value": -2},
+    "rqFail.result": {"type": "Boolean", "value": false},
+    "sat.s.v": {"type": "Integer", "value": 5},
+    "sat.result": {"type": "Boolean", "value": true},
+    "nsat.result": {"type": "Boolean", "value": true},
+    "uq.obj.result": {"type": "Boolean", "value": true}
+  }
+}

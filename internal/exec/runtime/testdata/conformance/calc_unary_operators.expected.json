@@ -3,5 +3,5 @@
     "inputs": [
         {"type": "Integer", "value": 5}
     ],
-    "result": {"type": "Integer", "value": -5}
+    "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": -5}]}
 }

@@ -63,7 +63,7 @@ export function resolveBinary({ os, cpu, version, from = import.meta.url }) {
   try {
     manifestPath = require.resolve(`${name}/package.json`);
   } catch (error) {
-    if (error && error.code === "MODULE_NOT_FOUND") {
+    if (error?.code === "MODULE_NOT_FOUND") {
       throw new ShimError(
         `${PACKAGE_NAME}: the platform package ${name}@${version} is not installed. ` +
           "It is an optional dependency, so an install with --no-optional or --omit=optional " +

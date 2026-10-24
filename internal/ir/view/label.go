@@ -1,6 +1,7 @@
 package view
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"slices"
 	"strings"
 
@@ -318,7 +319,7 @@ func (l labeller) details(node *Node) []string {
 	switch {
 	case node.Detail == "" || !l.shown.Has(ElementCompartments):
 		return nil
-	case l.skin.cameo && node.Kind == "state":
+	case l.skin.cameo && ast.NotationKeyword(node.Kind) == "state":
 		return cameoStateDetails(node.Detail)
 	case l.skin.cameo:
 		return []string{bareNames(node.Detail)}

@@ -1,0 +1,1190 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:HeadOrder
+    a sysml:Package ;
+    sysml:qualifiedName "HeadOrder" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "HeadOrder" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "HeadOrder" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:HeadOrder___400, elmt:HeadOrder__Tag_om, elmt:HeadOrder__Mass_om, elmt:HeadOrder__Base_om, elmt:HeadOrder__Derived_om ;
+    sysml:ownedImport elmt:HeadOrder___400 ;
+    sysml:ownedMember elmt:HeadOrder__Tag, elmt:HeadOrder__Mass, elmt:HeadOrder__Base, elmt:HeadOrder__Derived ;
+    sysml:ownedMembership elmt:HeadOrder__Tag_om, elmt:HeadOrder__Mass_om, elmt:HeadOrder__Base_om, elmt:HeadOrder__Derived_om ;
+    sysx:sourceText "package HeadOrder {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder___400\"},{\"@id\":\"HeadOrder__Tag_om\"},{\"@id\":\"HeadOrder__Mass_om\"},{\"@id\":\"HeadOrder__Base_om\"},{\"@id\":\"HeadOrder__Derived_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"HeadOrder__Tag\"},{\"@id\":\"HeadOrder__Mass\"},{\"@id\":\"HeadOrder__Base\"},{\"@id\":\"HeadOrder__Derived\"}]" ;
+    json:ownedMembership "[{\"@id\":\"HeadOrder__Tag_om\"},{\"@id\":\"HeadOrder__Mass_om\"},{\"@id\":\"HeadOrder__Base_om\"},{\"@id\":\"HeadOrder__Derived_om\"}]" .
+
+elmt:HeadOrder___400
+    a sysml:NamespaceImport ;
+    sysml:qualifiedName "HeadOrder::@0" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
+    sysml:elementId "HeadOrder___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder ;
+    sysml:owner elmt:HeadOrder ;
+    sysml:owningRelatedElement elmt:HeadOrder ;
+    sysml:importOwningNamespace elmt:HeadOrder ;
+    sysml:visibility "private" ;
+    sysml:importedNamespace <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    private import ScalarValues::*;\n" .
+
+elmt:HeadOrder__Tag
+    a sysml:MetadataDefinition ;
+    sysml:qualifiedName "HeadOrder::Tag" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Tag" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder ;
+    sysml:owner elmt:HeadOrder ;
+    sysml:owningRelationship elmt:HeadOrder__Tag_om ;
+    sysml:owningMembership elmt:HeadOrder__Tag_om ;
+    sysml:declaredName "Tag" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    metadata def Tag;\n" .
+
+elmt:HeadOrder__Tag_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Tag_om" ;
+    sysml:owner elmt:HeadOrder ;
+    sysml:memberElement elmt:HeadOrder__Tag ;
+    sysml:ownedMemberElement elmt:HeadOrder__Tag ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Tag ;
+    sysml:owningRelatedElement elmt:HeadOrder ;
+    sysml:membershipOwningNamespace elmt:HeadOrder .
+
+elmt:HeadOrder__Mass
+    a sysml:AttributeDefinition ;
+    sysml:qualifiedName "HeadOrder::Mass" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Mass" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder ;
+    sysml:owner elmt:HeadOrder ;
+    sysml:owningRelationship elmt:HeadOrder__Mass_om ;
+    sysml:owningMembership elmt:HeadOrder__Mass_om ;
+    sysml:declaredName "Mass" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    attribute def Mass;\n" .
+
+elmt:HeadOrder__Mass_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Mass_om" ;
+    sysml:owner elmt:HeadOrder ;
+    sysml:memberElement elmt:HeadOrder__Mass ;
+    sysml:ownedMemberElement elmt:HeadOrder__Mass ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Mass ;
+    sysml:owningRelatedElement elmt:HeadOrder ;
+    sysml:membershipOwningNamespace elmt:HeadOrder .
+
+elmt:HeadOrder__Base
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "HeadOrder::Base" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Base" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder ;
+    sysml:owner elmt:HeadOrder ;
+    sysml:owningRelationship elmt:HeadOrder__Base_om ;
+    sysml:owningMembership elmt:HeadOrder__Base_om ;
+    sysml:declaredName "Base" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:HeadOrder__Base__m, elmt:HeadOrder__Base__n, elmt:HeadOrder__Base__p ;
+    sysml:ownedMembership elmt:HeadOrder__Base__m_om, elmt:HeadOrder__Base__n_om, elmt:HeadOrder__Base__p_om ;
+    sysml:ownedRelationship elmt:HeadOrder__Base__m_om, elmt:HeadOrder__Base__n_om, elmt:HeadOrder__Base__p_om ;
+    sysml:ownedFeature elmt:HeadOrder__Base__m, elmt:HeadOrder__Base__n, elmt:HeadOrder__Base__p ;
+    sysml:ownedFeatureMembership elmt:HeadOrder__Base__m_om, elmt:HeadOrder__Base__n_om, elmt:HeadOrder__Base__p_om ;
+    sysx:sourceText "    part def Base {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"HeadOrder__Base__m\"},{\"@id\":\"HeadOrder__Base__n\"},{\"@id\":\"HeadOrder__Base__p\"}]" ;
+    json:ownedMembership "[{\"@id\":\"HeadOrder__Base__m_om\"},{\"@id\":\"HeadOrder__Base__n_om\"},{\"@id\":\"HeadOrder__Base__p_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Base__m_om\"},{\"@id\":\"HeadOrder__Base__n_om\"},{\"@id\":\"HeadOrder__Base__p_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"HeadOrder__Base__m\"},{\"@id\":\"HeadOrder__Base__n\"},{\"@id\":\"HeadOrder__Base__p\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"HeadOrder__Base__m_om\"},{\"@id\":\"HeadOrder__Base__n_om\"},{\"@id\":\"HeadOrder__Base__p_om\"}]" .
+
+elmt:HeadOrder__Base_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Base_om" ;
+    sysml:owner elmt:HeadOrder ;
+    sysml:memberElement elmt:HeadOrder__Base ;
+    sysml:ownedMemberElement elmt:HeadOrder__Base ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Base ;
+    sysml:owningRelatedElement elmt:HeadOrder ;
+    sysml:membershipOwningNamespace elmt:HeadOrder .
+
+elmt:HeadOrder__Base__m
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "HeadOrder::Base::m" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Base__m" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Base ;
+    sysml:owner elmt:HeadOrder__Base ;
+    sysml:owningRelationship elmt:HeadOrder__Base__m_om ;
+    sysml:owningMembership elmt:HeadOrder__Base__m_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "m" ;
+    sysml:type elmt:HeadOrder__Mass ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:HeadOrder__Base__m_ft0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Base__m_ft0 ;
+    sysml:ownedRelationship elmt:HeadOrder__Base__m_ft0 ;
+    sysx:sourceText "        attribute m : Mass;\n" .
+
+elmt:HeadOrder__Base__m_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "HeadOrder__Base__m_om" ;
+    sysml:owner elmt:HeadOrder__Base ;
+    sysml:memberElement elmt:HeadOrder__Base__m ;
+    sysml:ownedMemberElement elmt:HeadOrder__Base__m ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Base__m ;
+    sysml:owningRelatedElement elmt:HeadOrder__Base ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Base ;
+    sysml:ownedMemberFeature elmt:HeadOrder__Base__m ;
+    sysml:owningType elmt:HeadOrder__Base .
+
+elmt:HeadOrder__Base__n
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "HeadOrder::Base::n" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Base__n" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Base ;
+    sysml:owner elmt:HeadOrder__Base ;
+    sysml:owningRelationship elmt:HeadOrder__Base__n_om ;
+    sysml:owningMembership elmt:HeadOrder__Base__n_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "n" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:HeadOrder__Base__n_ft0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Base__n_ft0 ;
+    sysml:ownedRelationship elmt:HeadOrder__Base__n_ft0 ;
+    sysx:sourceText "        attribute n : Real;\n" .
+
+elmt:HeadOrder__Base__n_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "HeadOrder__Base__n_om" ;
+    sysml:owner elmt:HeadOrder__Base ;
+    sysml:memberElement elmt:HeadOrder__Base__n ;
+    sysml:ownedMemberElement elmt:HeadOrder__Base__n ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Base__n ;
+    sysml:owningRelatedElement elmt:HeadOrder__Base ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Base ;
+    sysml:ownedMemberFeature elmt:HeadOrder__Base__n ;
+    sysml:owningType elmt:HeadOrder__Base .
+
+elmt:HeadOrder__Base__p
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "HeadOrder::Base::p" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Base__p" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Base ;
+    sysml:owner elmt:HeadOrder__Base ;
+    sysml:owningRelationship elmt:HeadOrder__Base__p_om ;
+    sysml:owningMembership elmt:HeadOrder__Base__p_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "p" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:HeadOrder__Base__p_ft0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Base__p_ft0 ;
+    sysml:ownedRelationship elmt:HeadOrder__Base__p_ft0 ;
+    sysx:sourceText "        attribute p : Real;\n" .
+
+elmt:HeadOrder__Base__p_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "HeadOrder__Base__p_om" ;
+    sysml:owner elmt:HeadOrder__Base ;
+    sysml:memberElement elmt:HeadOrder__Base__p ;
+    sysml:ownedMemberElement elmt:HeadOrder__Base__p ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Base__p ;
+    sysml:owningRelatedElement elmt:HeadOrder__Base ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Base ;
+    sysml:ownedMemberFeature elmt:HeadOrder__Base__p ;
+    sysml:owningType elmt:HeadOrder__Base .
+
+elmt:HeadOrder__Derived
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "HeadOrder::Derived" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Derived" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder ;
+    sysml:owner elmt:HeadOrder ;
+    sysml:owningRelationship elmt:HeadOrder__Derived_om ;
+    sysml:owningMembership elmt:HeadOrder__Derived_om ;
+    sysml:declaredName "Derived" ;
+    sysml:specializes elmt:HeadOrder__Base ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:HeadOrder__Derived__m, elmt:HeadOrder__Derived__n, elmt:HeadOrder__Derived__q, elmt:HeadOrder__Derived__r, elmt:HeadOrder__Derived__p, elmt:HeadOrder__Derived__s, elmt:HeadOrder__Derived__t, elmt:HeadOrder__Derived__u ;
+    sysml:ownedMembership elmt:HeadOrder__Derived__m_om, elmt:HeadOrder__Derived__n_om, elmt:HeadOrder__Derived__q_om, elmt:HeadOrder__Derived__r_om, elmt:HeadOrder__Derived__p_om, elmt:HeadOrder__Derived__s_om, elmt:HeadOrder__Derived__t_om, elmt:HeadOrder__Derived__u_om ;
+    sysml:ownedRelationship elmt:HeadOrder__Derived_sc0, elmt:HeadOrder__Derived__m_om, elmt:HeadOrder__Derived__n_om, elmt:HeadOrder__Derived__q_om, elmt:HeadOrder__Derived__r_om, elmt:HeadOrder__Derived__p_om, elmt:HeadOrder__Derived__s_om, elmt:HeadOrder__Derived__t_om, elmt:HeadOrder__Derived__u_om ;
+    sysml:ownedFeature elmt:HeadOrder__Derived__m, elmt:HeadOrder__Derived__n, elmt:HeadOrder__Derived__q, elmt:HeadOrder__Derived__r, elmt:HeadOrder__Derived__p, elmt:HeadOrder__Derived__s, elmt:HeadOrder__Derived__t, elmt:HeadOrder__Derived__u ;
+    sysml:ownedFeatureMembership elmt:HeadOrder__Derived__m_om, elmt:HeadOrder__Derived__n_om, elmt:HeadOrder__Derived__q_om, elmt:HeadOrder__Derived__r_om, elmt:HeadOrder__Derived__p_om, elmt:HeadOrder__Derived__s_om, elmt:HeadOrder__Derived__t_om, elmt:HeadOrder__Derived__u_om ;
+    sysml:ownedSubclassification elmt:HeadOrder__Derived_sc0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Derived_sc0 ;
+    sysx:sourceText "    part def Derived :> Base {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"HeadOrder__Derived__m\"},{\"@id\":\"HeadOrder__Derived__n\"},{\"@id\":\"HeadOrder__Derived__q\"},{\"@id\":\"HeadOrder__Derived__r\"},{\"@id\":\"HeadOrder__Derived__p\"},{\"@id\":\"HeadOrder__Derived__s\"},{\"@id\":\"HeadOrder__Derived__t\"},{\"@id\":\"HeadOrder__Derived__u\"}]" ;
+    json:ownedMembership "[{\"@id\":\"HeadOrder__Derived__m_om\"},{\"@id\":\"HeadOrder__Derived__n_om\"},{\"@id\":\"HeadOrder__Derived__q_om\"},{\"@id\":\"HeadOrder__Derived__r_om\"},{\"@id\":\"HeadOrder__Derived__p_om\"},{\"@id\":\"HeadOrder__Derived__s_om\"},{\"@id\":\"HeadOrder__Derived__t_om\"},{\"@id\":\"HeadOrder__Derived__u_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived_sc0\"},{\"@id\":\"HeadOrder__Derived__m_om\"},{\"@id\":\"HeadOrder__Derived__n_om\"},{\"@id\":\"HeadOrder__Derived__q_om\"},{\"@id\":\"HeadOrder__Derived__r_om\"},{\"@id\":\"HeadOrder__Derived__p_om\"},{\"@id\":\"HeadOrder__Derived__s_om\"},{\"@id\":\"HeadOrder__Derived__t_om\"},{\"@id\":\"HeadOrder__Derived__u_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"HeadOrder__Derived__m\"},{\"@id\":\"HeadOrder__Derived__n\"},{\"@id\":\"HeadOrder__Derived__q\"},{\"@id\":\"HeadOrder__Derived__r\"},{\"@id\":\"HeadOrder__Derived__p\"},{\"@id\":\"HeadOrder__Derived__s\"},{\"@id\":\"HeadOrder__Derived__t\"},{\"@id\":\"HeadOrder__Derived__u\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"HeadOrder__Derived__m_om\"},{\"@id\":\"HeadOrder__Derived__n_om\"},{\"@id\":\"HeadOrder__Derived__q_om\"},{\"@id\":\"HeadOrder__Derived__r_om\"},{\"@id\":\"HeadOrder__Derived__p_om\"},{\"@id\":\"HeadOrder__Derived__s_om\"},{\"@id\":\"HeadOrder__Derived__t_om\"},{\"@id\":\"HeadOrder__Derived__u_om\"}]" .
+
+elmt:HeadOrder__Derived_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Derived_om" ;
+    sysml:owner elmt:HeadOrder ;
+    sysml:memberElement elmt:HeadOrder__Derived ;
+    sysml:ownedMemberElement elmt:HeadOrder__Derived ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Derived ;
+    sysml:owningRelatedElement elmt:HeadOrder ;
+    sysml:membershipOwningNamespace elmt:HeadOrder .
+
+elmt:HeadOrder__Derived__m
+    a sysml:AttributeUsage ;
+    sysml:name "m" ;
+    sysml:qualifiedName "HeadOrder::Derived::m" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Derived__m" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Derived ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:owningRelationship elmt:HeadOrder__Derived__m_om ;
+    sysml:owningMembership elmt:HeadOrder__Derived__m_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:redefines elmt:HeadOrder__Base__m ;
+    sysml:value expr:HeadOrder__Derived__m_pvalue ;
+    sysml:ownedRelationship elmt:HeadOrder__Derived__m_rd0, expr:HeadOrder__Derived__m_pvalue_om ;
+    sysml:ownedMembership expr:HeadOrder__Derived__m_pvalue_om ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedRedefinition elmt:HeadOrder__Derived__m_rd0 ;
+    sysml:ownedSubsetting elmt:HeadOrder__Derived__m_rd0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Derived__m_rd0 ;
+    sysx:sourceText "        attribute redefines m = 1;\n" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived__m_rd0\"},{\"@id\":\"HeadOrder__Derived__m_pvalue_om\"}]" .
+
+elmt:HeadOrder__Derived__m_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "HeadOrder__Derived__m_om" ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:memberElement elmt:HeadOrder__Derived__m ;
+    sysml:ownedMemberElement elmt:HeadOrder__Derived__m ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Derived__m ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:ownedMemberFeature elmt:HeadOrder__Derived__m ;
+    sysml:owningType elmt:HeadOrder__Derived .
+
+expr:HeadOrder__Derived__m_pvalue
+    a sysml:LiteralInteger ;
+    sysx:sourceText "1" ;
+    sysml:elementId "HeadOrder__Derived__m_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner elmt:HeadOrder__Derived__m ;
+    sysml:owningRelationship expr:HeadOrder__Derived__m_pvalue_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__m_pvalue_om .
+
+expr:HeadOrder__Derived__m_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "HeadOrder__Derived__m_pvalue_om" ;
+    sysml:owner elmt:HeadOrder__Derived__m ;
+    sysml:memberElement expr:HeadOrder__Derived__m_pvalue ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__m_pvalue ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__m_pvalue ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__m ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__m ;
+    sysml:featureWithValue elmt:HeadOrder__Derived__m ;
+    sysml:value expr:HeadOrder__Derived__m_pvalue .
+
+elmt:HeadOrder__Derived__n
+    a sysml:AttributeUsage ;
+    sysml:name "n" ;
+    sysml:qualifiedName "HeadOrder::Derived::n" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Derived__n" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Derived ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:owningRelationship elmt:HeadOrder__Derived__n_om ;
+    sysml:owningMembership elmt:HeadOrder__Derived__n_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:redefines elmt:HeadOrder__Base__n ;
+    sysml:value expr:HeadOrder__Derived__n_pvalue ;
+    sysml:ownedRelationship elmt:HeadOrder__Derived__n_rd0, elmt:HeadOrder__Derived__n_ft0, expr:HeadOrder__Derived__n_pvalue_om ;
+    sysml:ownedMembership expr:HeadOrder__Derived__n_pvalue_om ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedRedefinition elmt:HeadOrder__Derived__n_rd0 ;
+    sysml:ownedSubsetting elmt:HeadOrder__Derived__n_rd0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Derived__n_rd0, elmt:HeadOrder__Derived__n_ft0 ;
+    sysml:ownedTyping elmt:HeadOrder__Derived__n_ft0 ;
+    sysx:sourceText "        attribute :>> n : Real = 2;\n" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived__n_rd0\"},{\"@id\":\"HeadOrder__Derived__n_ft0\"},{\"@id\":\"HeadOrder__Derived__n_pvalue_om\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"HeadOrder__Derived__n_rd0\"},{\"@id\":\"HeadOrder__Derived__n_ft0\"}]" .
+
+elmt:HeadOrder__Derived__n_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "HeadOrder__Derived__n_om" ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:memberElement elmt:HeadOrder__Derived__n ;
+    sysml:ownedMemberElement elmt:HeadOrder__Derived__n ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Derived__n ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:ownedMemberFeature elmt:HeadOrder__Derived__n ;
+    sysml:owningType elmt:HeadOrder__Derived .
+
+expr:HeadOrder__Derived__n_pvalue
+    a sysml:LiteralInteger ;
+    sysx:sourceText "2" ;
+    sysml:elementId "HeadOrder__Derived__n_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:value "2"^^xsd:integer ;
+    sysml:owner elmt:HeadOrder__Derived__n ;
+    sysml:owningRelationship expr:HeadOrder__Derived__n_pvalue_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__n_pvalue_om .
+
+expr:HeadOrder__Derived__n_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "HeadOrder__Derived__n_pvalue_om" ;
+    sysml:owner elmt:HeadOrder__Derived__n ;
+    sysml:memberElement expr:HeadOrder__Derived__n_pvalue ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__n_pvalue ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__n_pvalue ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__n ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__n ;
+    sysml:featureWithValue elmt:HeadOrder__Derived__n ;
+    sysml:value expr:HeadOrder__Derived__n_pvalue .
+
+elmt:HeadOrder__Derived__q
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "HeadOrder::Derived::q" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "38"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Derived__q" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Derived ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:owningRelationship elmt:HeadOrder__Derived__q_om ;
+    sysml:owningMembership elmt:HeadOrder__Derived__q_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "q" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:subsets elmt:HeadOrder__Derived__p ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:HeadOrder__Derived__q_ft0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Derived__q_ft0, elmt:HeadOrder__Derived__q_ss0 ;
+    sysml:ownedRelationship elmt:HeadOrder__Derived__q_ft0, elmt:HeadOrder__Derived__q_ss0 ;
+    sysml:ownedSubsetting elmt:HeadOrder__Derived__q_ss0 ;
+    sysx:sourceText "        attribute q : Real subsets p;\n" ;
+    json:ownedSpecialization "[{\"@id\":\"HeadOrder__Derived__q_ft0\"},{\"@id\":\"HeadOrder__Derived__q_ss0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived__q_ft0\"},{\"@id\":\"HeadOrder__Derived__q_ss0\"}]" .
+
+elmt:HeadOrder__Derived__q_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "HeadOrder__Derived__q_om" ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:memberElement elmt:HeadOrder__Derived__q ;
+    sysml:ownedMemberElement elmt:HeadOrder__Derived__q ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Derived__q ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:ownedMemberFeature elmt:HeadOrder__Derived__q ;
+    sysml:owningType elmt:HeadOrder__Derived .
+
+elmt:HeadOrder__Derived__r
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "HeadOrder::Derived::r" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Derived__r" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Derived ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:owningRelationship elmt:HeadOrder__Derived__r_om ;
+    sysml:owningMembership elmt:HeadOrder__Derived__r_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "r" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:value expr:HeadOrder__Derived__r_pvalue ;
+    sysml:ownedRelationship elmt:HeadOrder__Derived__r_ft0, expr:HeadOrder__Derived__r_pvalue_om ;
+    sysml:ownedMembership expr:HeadOrder__Derived__r_pvalue_om ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:HeadOrder__Derived__r_ft0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Derived__r_ft0 ;
+    sysx:sourceText "        attribute r : Real = 3;\n" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived__r_ft0\"},{\"@id\":\"HeadOrder__Derived__r_pvalue_om\"}]" .
+
+elmt:HeadOrder__Derived__r_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "HeadOrder__Derived__r_om" ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:memberElement elmt:HeadOrder__Derived__r ;
+    sysml:ownedMemberElement elmt:HeadOrder__Derived__r ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Derived__r ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:ownedMemberFeature elmt:HeadOrder__Derived__r ;
+    sysml:owningType elmt:HeadOrder__Derived .
+
+expr:HeadOrder__Derived__r_pvalue
+    a sysml:LiteralInteger ;
+    sysx:sourceText "3" ;
+    sysml:elementId "HeadOrder__Derived__r_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:value "3"^^xsd:integer ;
+    sysml:owner elmt:HeadOrder__Derived__r ;
+    sysml:owningRelationship expr:HeadOrder__Derived__r_pvalue_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__r_pvalue_om .
+
+expr:HeadOrder__Derived__r_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "HeadOrder__Derived__r_pvalue_om" ;
+    sysml:owner elmt:HeadOrder__Derived__r ;
+    sysml:memberElement expr:HeadOrder__Derived__r_pvalue ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__r_pvalue ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__r_pvalue ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__r ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__r ;
+    sysml:featureWithValue elmt:HeadOrder__Derived__r ;
+    sysml:value expr:HeadOrder__Derived__r_pvalue .
+
+elmt:HeadOrder__Derived__p
+    a sysml:AttributeUsage ;
+    sysml:name "p" ;
+    sysml:qualifiedName "HeadOrder::Derived::p" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "37"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Derived__p" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Derived ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:owningRelationship elmt:HeadOrder__Derived__p_om ;
+    sysml:owningMembership elmt:HeadOrder__Derived__p_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:redefines elmt:HeadOrder__Base__p ;
+    sysml:isDefault "true"^^xsd:boolean ;
+    sysml:value expr:HeadOrder__Derived__p_pvalue ;
+    sysml:ownedRelationship elmt:HeadOrder__Derived__p_rd0, expr:HeadOrder__Derived__p_pvalue_om ;
+    sysml:ownedMembership expr:HeadOrder__Derived__p_pvalue_om ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedRedefinition elmt:HeadOrder__Derived__p_rd0 ;
+    sysml:ownedSubsetting elmt:HeadOrder__Derived__p_rd0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Derived__p_rd0 ;
+    sysx:sourceText "        attribute :>> p default = 4;\n" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived__p_rd0\"},{\"@id\":\"HeadOrder__Derived__p_pvalue_om\"}]" .
+
+elmt:HeadOrder__Derived__p_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "HeadOrder__Derived__p_om" ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:memberElement elmt:HeadOrder__Derived__p ;
+    sysml:ownedMemberElement elmt:HeadOrder__Derived__p ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Derived__p ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:ownedMemberFeature elmt:HeadOrder__Derived__p ;
+    sysml:owningType elmt:HeadOrder__Derived .
+
+expr:HeadOrder__Derived__p_pvalue
+    a sysml:LiteralInteger ;
+    sysx:sourceText "4" ;
+    sysml:elementId "HeadOrder__Derived__p_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:value "4"^^xsd:integer ;
+    sysml:owner elmt:HeadOrder__Derived__p ;
+    sysml:owningRelationship expr:HeadOrder__Derived__p_pvalue_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__p_pvalue_om .
+
+expr:HeadOrder__Derived__p_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "HeadOrder__Derived__p_pvalue_om" ;
+    sysml:owner elmt:HeadOrder__Derived__p ;
+    sysml:memberElement expr:HeadOrder__Derived__p_pvalue ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__p_pvalue ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__p_pvalue ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__p ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__p ;
+    sysml:featureWithValue elmt:HeadOrder__Derived__p ;
+    sysml:value expr:HeadOrder__Derived__p_pvalue ;
+    sysml:isDefault "true"^^xsd:boolean .
+
+elmt:HeadOrder__Derived__s
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "HeadOrder::Derived::s" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "37"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Derived__s" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Derived ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:owningRelationship elmt:HeadOrder__Derived__s_om ;
+    sysml:owningMembership elmt:HeadOrder__Derived__s_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "s" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:subsets elmt:HeadOrder__Derived__p ;
+    sysml:multiplicity expr:HeadOrder__Derived__s_pmultiplicity ;
+    sysml:ownedRelationship elmt:HeadOrder__Derived__s_ft0, expr:HeadOrder__Derived__s_pmultiplicity_om, elmt:HeadOrder__Derived__s_ss0 ;
+    sysml:ownedMembership expr:HeadOrder__Derived__s_pmultiplicity_om ;
+    sysml:upperBound expr:HeadOrder__Derived__s_pupperBound ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:HeadOrder__Derived__s_ft0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Derived__s_ft0, elmt:HeadOrder__Derived__s_ss0 ;
+    sysml:ownedSubsetting elmt:HeadOrder__Derived__s_ss0 ;
+    sysx:sourceText "        attribute s : Real [2] :> p;\n" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived__s_ft0\"},{\"@id\":\"HeadOrder__Derived__s_pmultiplicity_om\"},{\"@id\":\"HeadOrder__Derived__s_ss0\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"HeadOrder__Derived__s_ft0\"},{\"@id\":\"HeadOrder__Derived__s_ss0\"}]" .
+
+elmt:HeadOrder__Derived__s_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "HeadOrder__Derived__s_om" ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:memberElement elmt:HeadOrder__Derived__s ;
+    sysml:ownedMemberElement elmt:HeadOrder__Derived__s ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Derived__s ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:ownedMemberFeature elmt:HeadOrder__Derived__s ;
+    sysml:owningType elmt:HeadOrder__Derived .
+
+expr:HeadOrder__Derived__s_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "HeadOrder__Derived__s_pmultiplicity" ;
+    sysml:owner elmt:HeadOrder__Derived__s ;
+    sysml:owningRelationship expr:HeadOrder__Derived__s_pmultiplicity_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__s_pmultiplicity_om ;
+    sysml:upperBound expr:HeadOrder__Derived__s_pupperBound ;
+    sysml:ownedRelationship expr:HeadOrder__Derived__s_pupperBound_om ;
+    sysml:ownedMembership expr:HeadOrder__Derived__s_pupperBound_om .
+
+expr:HeadOrder__Derived__s_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Derived__s_pmultiplicity_om" ;
+    sysml:owner elmt:HeadOrder__Derived__s ;
+    sysml:memberElement expr:HeadOrder__Derived__s_pmultiplicity ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__s_pmultiplicity ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__s_pmultiplicity ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__s ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__s .
+
+expr:HeadOrder__Derived__s_pupperBound
+    a sysml:LiteralInteger ;
+    sysx:sourceText "2" ;
+    sysml:elementId "HeadOrder__Derived__s_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:value "2"^^xsd:integer ;
+    sysml:owner expr:HeadOrder__Derived__s_pmultiplicity ;
+    sysml:owningRelationship expr:HeadOrder__Derived__s_pupperBound_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__s_pupperBound_om .
+
+expr:HeadOrder__Derived__s_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Derived__s_pupperBound_om" ;
+    sysml:owner expr:HeadOrder__Derived__s_pmultiplicity ;
+    sysml:memberElement expr:HeadOrder__Derived__s_pupperBound ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__s_pupperBound ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__s_pupperBound ;
+    sysml:owningRelatedElement expr:HeadOrder__Derived__s_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:HeadOrder__Derived__s_pmultiplicity .
+
+elmt:HeadOrder__Derived__t
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "HeadOrder::Derived::t" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "40"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Derived__t" ;
+    sysx:memberIndex "6"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Derived ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:owningRelationship elmt:HeadOrder__Derived__t_om ;
+    sysml:owningMembership elmt:HeadOrder__Derived__t_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "t" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:subsets elmt:HeadOrder__Derived__p ;
+    sysml:multiplicity expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:ownedRelationship elmt:HeadOrder__Derived__t_ss0, expr:HeadOrder__Derived__t_pmultiplicity_om, elmt:HeadOrder__Derived__t_ft0 ;
+    sysml:ownedMembership expr:HeadOrder__Derived__t_pmultiplicity_om ;
+    sysml:lowerBound expr:HeadOrder__Derived__t_plowerBound ;
+    sysml:upperBound expr:HeadOrder__Derived__t_pupperBound ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedSubsetting elmt:HeadOrder__Derived__t_ss0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Derived__t_ss0, elmt:HeadOrder__Derived__t_ft0 ;
+    sysml:ownedTyping elmt:HeadOrder__Derived__t_ft0 ;
+    sysx:sourceText "        attribute t :> p [1..3] : Real;\n" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived__t_ss0\"},{\"@id\":\"HeadOrder__Derived__t_pmultiplicity_om\"},{\"@id\":\"HeadOrder__Derived__t_ft0\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"HeadOrder__Derived__t_ss0\"},{\"@id\":\"HeadOrder__Derived__t_ft0\"}]" .
+
+elmt:HeadOrder__Derived__t_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "HeadOrder__Derived__t_om" ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:memberElement elmt:HeadOrder__Derived__t ;
+    sysml:ownedMemberElement elmt:HeadOrder__Derived__t ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Derived__t ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:ownedMemberFeature elmt:HeadOrder__Derived__t ;
+    sysml:owningType elmt:HeadOrder__Derived .
+
+expr:HeadOrder__Derived__t_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "HeadOrder__Derived__t_pmultiplicity" ;
+    sysml:owner elmt:HeadOrder__Derived__t ;
+    sysml:owningRelationship expr:HeadOrder__Derived__t_pmultiplicity_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__t_pmultiplicity_om ;
+    sysml:lowerBound expr:HeadOrder__Derived__t_plowerBound ;
+    sysml:ownedRelationship expr:HeadOrder__Derived__t_plowerBound_om, expr:HeadOrder__Derived__t_pupperBound_om ;
+    sysml:ownedMembership expr:HeadOrder__Derived__t_plowerBound_om, expr:HeadOrder__Derived__t_pupperBound_om ;
+    sysml:upperBound expr:HeadOrder__Derived__t_pupperBound ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived__t_plowerBound_om\"},{\"@id\":\"HeadOrder__Derived__t_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"HeadOrder__Derived__t_plowerBound_om\"},{\"@id\":\"HeadOrder__Derived__t_pupperBound_om\"}]" .
+
+expr:HeadOrder__Derived__t_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Derived__t_pmultiplicity_om" ;
+    sysml:owner elmt:HeadOrder__Derived__t ;
+    sysml:memberElement expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__t ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__t .
+
+expr:HeadOrder__Derived__t_plowerBound
+    a sysml:LiteralInteger ;
+    sysx:sourceText "1" ;
+    sysml:elementId "HeadOrder__Derived__t_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:owningRelationship expr:HeadOrder__Derived__t_plowerBound_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__t_plowerBound_om .
+
+expr:HeadOrder__Derived__t_plowerBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Derived__t_plowerBound_om" ;
+    sysml:owner expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:memberElement expr:HeadOrder__Derived__t_plowerBound ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__t_plowerBound ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__t_plowerBound ;
+    sysml:owningRelatedElement expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:HeadOrder__Derived__t_pmultiplicity .
+
+expr:HeadOrder__Derived__t_pupperBound
+    a sysml:LiteralInteger ;
+    sysx:sourceText "3" ;
+    sysml:elementId "HeadOrder__Derived__t_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:value "3"^^xsd:integer ;
+    sysml:owner expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:owningRelationship expr:HeadOrder__Derived__t_pupperBound_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__t_pupperBound_om .
+
+expr:HeadOrder__Derived__t_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Derived__t_pupperBound_om" ;
+    sysml:owner expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:memberElement expr:HeadOrder__Derived__t_pupperBound ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__t_pupperBound ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__t_pupperBound ;
+    sysml:owningRelatedElement expr:HeadOrder__Derived__t_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:HeadOrder__Derived__t_pmultiplicity .
+
+elmt:HeadOrder__Derived__u
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "HeadOrder::Derived::u" ;
+    sysx:sourceLine "18"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "20"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Derived__u" ;
+    sysx:memberIndex "7"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Derived ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:owningRelationship elmt:HeadOrder__Derived__u_om ;
+    sysml:owningMembership elmt:HeadOrder__Derived__u_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "u" ;
+    sysml:ownedMember elmt:HeadOrder__Derived__u___401, elmt:HeadOrder__Derived__u___400 ;
+    sysml:ownedMembership elmt:HeadOrder__Derived__u___401_om, expr:HeadOrder__Derived__u_pmultiplicity_om, expr:HeadOrder__Derived__u_pvalue_om, elmt:HeadOrder__Derived__u___400_om ;
+    sysml:ownedRelationship elmt:HeadOrder__Derived__u___401_om, elmt:HeadOrder__Derived__u_ft0, expr:HeadOrder__Derived__u_pmultiplicity_om, expr:HeadOrder__Derived__u_pvalue_om, elmt:HeadOrder__Derived__u___400_om ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:multiplicity expr:HeadOrder__Derived__u_pmultiplicity ;
+    sysml:upperBound expr:HeadOrder__Derived__u_pupperBound ;
+    sysml:value expr:HeadOrder__Derived__u_pvalue ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedTyping elmt:HeadOrder__Derived__u_ft0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Derived__u_ft0 ;
+    sysx:sourceText "        #Tag attribute u : Real [1] = 5 {\n" ;
+    sysx:sourceTail "        }\n" ;
+    json:ownedMember "[{\"@id\":\"HeadOrder__Derived__u___401\"},{\"@id\":\"HeadOrder__Derived__u___400\"}]" ;
+    json:ownedMembership "[{\"@id\":\"HeadOrder__Derived__u___401_om\"},{\"@id\":\"HeadOrder__Derived__u_pmultiplicity_om\"},{\"@id\":\"HeadOrder__Derived__u_pvalue_om\"},{\"@id\":\"HeadOrder__Derived__u___400_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"HeadOrder__Derived__u___401_om\"},{\"@id\":\"HeadOrder__Derived__u_ft0\"},{\"@id\":\"HeadOrder__Derived__u_pmultiplicity_om\"},{\"@id\":\"HeadOrder__Derived__u_pvalue_om\"},{\"@id\":\"HeadOrder__Derived__u___400_om\"}]" .
+
+elmt:HeadOrder__Derived__u_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "HeadOrder__Derived__u_om" ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:memberElement elmt:HeadOrder__Derived__u ;
+    sysml:ownedMemberElement elmt:HeadOrder__Derived__u ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Derived__u ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived ;
+    sysml:ownedMemberFeature elmt:HeadOrder__Derived__u ;
+    sysml:owningType elmt:HeadOrder__Derived .
+
+elmt:HeadOrder__Derived__u___401
+    a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:qualifiedName "HeadOrder::Derived::u::@1" ;
+    sysx:sourceLine "18"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Derived__u___401" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Derived__u ;
+    sysml:owner elmt:HeadOrder__Derived__u ;
+    sysml:owningRelationship elmt:HeadOrder__Derived__u___401_om ;
+    sysml:owningMembership elmt:HeadOrder__Derived__u___401_om ;
+    sysx:declaredKeyword "#" ;
+    sysml:type elmt:HeadOrder__Tag ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:HeadOrder__Derived__u___401_ft0 ;
+    sysml:ownedSpecialization elmt:HeadOrder__Derived__u___401_ft0 ;
+    sysml:ownedRelationship elmt:HeadOrder__Derived__u___401_ft0 .
+
+elmt:HeadOrder__Derived__u___401_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Derived__u___401_om" ;
+    sysml:owner elmt:HeadOrder__Derived__u ;
+    sysml:memberElement elmt:HeadOrder__Derived__u___401 ;
+    sysml:ownedMemberElement elmt:HeadOrder__Derived__u___401 ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Derived__u___401 ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__u ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__u .
+
+expr:HeadOrder__Derived__u_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "HeadOrder__Derived__u_pmultiplicity" ;
+    sysml:owner elmt:HeadOrder__Derived__u ;
+    sysml:owningRelationship expr:HeadOrder__Derived__u_pmultiplicity_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__u_pmultiplicity_om ;
+    sysml:upperBound expr:HeadOrder__Derived__u_pupperBound ;
+    sysml:ownedRelationship expr:HeadOrder__Derived__u_pupperBound_om ;
+    sysml:ownedMembership expr:HeadOrder__Derived__u_pupperBound_om .
+
+expr:HeadOrder__Derived__u_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Derived__u_pmultiplicity_om" ;
+    sysml:owner elmt:HeadOrder__Derived__u ;
+    sysml:memberElement expr:HeadOrder__Derived__u_pmultiplicity ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__u_pmultiplicity ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__u_pmultiplicity ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__u ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__u .
+
+expr:HeadOrder__Derived__u_pupperBound
+    a sysml:LiteralInteger ;
+    sysx:sourceText "1" ;
+    sysml:elementId "HeadOrder__Derived__u_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner expr:HeadOrder__Derived__u_pmultiplicity ;
+    sysml:owningRelationship expr:HeadOrder__Derived__u_pupperBound_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__u_pupperBound_om .
+
+expr:HeadOrder__Derived__u_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Derived__u_pupperBound_om" ;
+    sysml:owner expr:HeadOrder__Derived__u_pmultiplicity ;
+    sysml:memberElement expr:HeadOrder__Derived__u_pupperBound ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__u_pupperBound ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__u_pupperBound ;
+    sysml:owningRelatedElement expr:HeadOrder__Derived__u_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:HeadOrder__Derived__u_pmultiplicity .
+
+expr:HeadOrder__Derived__u_pvalue
+    a sysml:LiteralInteger ;
+    sysx:sourceText "5" ;
+    sysml:elementId "HeadOrder__Derived__u_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:value "5"^^xsd:integer ;
+    sysml:owner elmt:HeadOrder__Derived__u ;
+    sysml:owningRelationship expr:HeadOrder__Derived__u_pvalue_om ;
+    sysml:owningMembership expr:HeadOrder__Derived__u_pvalue_om .
+
+expr:HeadOrder__Derived__u_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "HeadOrder__Derived__u_pvalue_om" ;
+    sysml:owner elmt:HeadOrder__Derived__u ;
+    sysml:memberElement expr:HeadOrder__Derived__u_pvalue ;
+    sysml:ownedMemberElement expr:HeadOrder__Derived__u_pvalue ;
+    sysml:ownedRelatedElement expr:HeadOrder__Derived__u_pvalue ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__u ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__u ;
+    sysml:featureWithValue elmt:HeadOrder__Derived__u ;
+    sysml:value expr:HeadOrder__Derived__u_pvalue .
+
+elmt:HeadOrder__Derived__u___400
+    a sysml:Documentation ;
+    sysml:qualifiedName "HeadOrder::Derived::u::@0" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "19"^^xsd:integer ;
+    sysx:sourceEndColumn "51"^^xsd:integer ;
+    sysml:elementId "HeadOrder__Derived__u___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:HeadOrder__Derived__u ;
+    sysml:owner elmt:HeadOrder__Derived__u ;
+    sysml:owningRelationship elmt:HeadOrder__Derived__u___400_om ;
+    sysml:owningMembership elmt:HeadOrder__Derived__u___400_om ;
+    sysml:body "a body member after the head " ;
+    sysx:sourceText "            doc /* a body member after the head */\n" .
+
+elmt:HeadOrder__Derived__u___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "HeadOrder__Derived__u___400_om" ;
+    sysml:owner elmt:HeadOrder__Derived__u ;
+    sysml:memberElement elmt:HeadOrder__Derived__u___400 ;
+    sysml:ownedMemberElement elmt:HeadOrder__Derived__u___400 ;
+    sysml:ownedRelatedElement elmt:HeadOrder__Derived__u___400 ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__u ;
+    sysml:membershipOwningNamespace elmt:HeadOrder__Derived__u .
+
+elmt:HeadOrder__Base__m_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "HeadOrder__Base__m_ft0" ;
+    sysml:typedFeature elmt:HeadOrder__Base__m ;
+    sysml:owningFeature elmt:HeadOrder__Base__m ;
+    sysml:specific elmt:HeadOrder__Base__m ;
+    sysml:source elmt:HeadOrder__Base__m ;
+    sysml:owningRelatedElement elmt:HeadOrder__Base__m ;
+    sysml:type elmt:HeadOrder__Mass ;
+    sysml:general elmt:HeadOrder__Mass ;
+    sysml:target elmt:HeadOrder__Mass ;
+    sysml:owner elmt:HeadOrder__Base__m ;
+    sysml:relatedElement elmt:HeadOrder__Base__m, elmt:HeadOrder__Mass ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Base__m\"},{\"@id\":\"HeadOrder__Mass\"}]" .
+
+elmt:HeadOrder__Base__n_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "HeadOrder__Base__n_ft0" ;
+    sysml:typedFeature elmt:HeadOrder__Base__n ;
+    sysml:owningFeature elmt:HeadOrder__Base__n ;
+    sysml:specific elmt:HeadOrder__Base__n ;
+    sysml:source elmt:HeadOrder__Base__n ;
+    sysml:owningRelatedElement elmt:HeadOrder__Base__n ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:general <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:target <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:owner elmt:HeadOrder__Base__n ;
+    sysml:relatedElement elmt:HeadOrder__Base__n, <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Base__n\"},{\"@id\":\"14c0aa22-5489-59b5-b438-ded26e83ba31\"}]" .
+
+elmt:HeadOrder__Base__p_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "HeadOrder__Base__p_ft0" ;
+    sysml:typedFeature elmt:HeadOrder__Base__p ;
+    sysml:owningFeature elmt:HeadOrder__Base__p ;
+    sysml:specific elmt:HeadOrder__Base__p ;
+    sysml:source elmt:HeadOrder__Base__p ;
+    sysml:owningRelatedElement elmt:HeadOrder__Base__p ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:general <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:target <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:owner elmt:HeadOrder__Base__p ;
+    sysml:relatedElement elmt:HeadOrder__Base__p, <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Base__p\"},{\"@id\":\"14c0aa22-5489-59b5-b438-ded26e83ba31\"}]" .
+
+elmt:HeadOrder__Derived_sc0
+    a sysml:Subclassification ;
+    sysml:elementId "HeadOrder__Derived_sc0" ;
+    sysml:subclassifier elmt:HeadOrder__Derived ;
+    sysml:owningClassifier elmt:HeadOrder__Derived ;
+    sysml:specific elmt:HeadOrder__Derived ;
+    sysml:source elmt:HeadOrder__Derived ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived ;
+    sysml:superclassifier elmt:HeadOrder__Base ;
+    sysml:general elmt:HeadOrder__Base ;
+    sysml:target elmt:HeadOrder__Base ;
+    sysml:owner elmt:HeadOrder__Derived ;
+    sysml:relatedElement elmt:HeadOrder__Derived, elmt:HeadOrder__Base ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived\"},{\"@id\":\"HeadOrder__Base\"}]" .
+
+elmt:HeadOrder__Derived__m_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "HeadOrder__Derived__m_rd0" ;
+    sysml:redefiningFeature elmt:HeadOrder__Derived__m ;
+    sysml:subsettingFeature elmt:HeadOrder__Derived__m ;
+    sysml:owningFeature elmt:HeadOrder__Derived__m ;
+    sysml:specific elmt:HeadOrder__Derived__m ;
+    sysml:source elmt:HeadOrder__Derived__m ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__m ;
+    sysml:redefinedFeature elmt:HeadOrder__Base__m ;
+    sysml:subsettedFeature elmt:HeadOrder__Base__m ;
+    sysml:general elmt:HeadOrder__Base__m ;
+    sysml:target elmt:HeadOrder__Base__m ;
+    sysml:owner elmt:HeadOrder__Derived__m ;
+    sysml:relatedElement elmt:HeadOrder__Derived__m, elmt:HeadOrder__Base__m ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__m\"},{\"@id\":\"HeadOrder__Base__m\"}]" .
+
+elmt:HeadOrder__Derived__n_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "HeadOrder__Derived__n_rd0" ;
+    sysml:redefiningFeature elmt:HeadOrder__Derived__n ;
+    sysml:subsettingFeature elmt:HeadOrder__Derived__n ;
+    sysml:owningFeature elmt:HeadOrder__Derived__n ;
+    sysml:specific elmt:HeadOrder__Derived__n ;
+    sysml:source elmt:HeadOrder__Derived__n ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__n ;
+    sysml:redefinedFeature elmt:HeadOrder__Base__n ;
+    sysml:subsettedFeature elmt:HeadOrder__Base__n ;
+    sysml:general elmt:HeadOrder__Base__n ;
+    sysml:target elmt:HeadOrder__Base__n ;
+    sysml:owner elmt:HeadOrder__Derived__n ;
+    sysml:relatedElement elmt:HeadOrder__Derived__n, elmt:HeadOrder__Base__n ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__n\"},{\"@id\":\"HeadOrder__Base__n\"}]" .
+
+elmt:HeadOrder__Derived__n_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "HeadOrder__Derived__n_ft0" ;
+    sysml:typedFeature elmt:HeadOrder__Derived__n ;
+    sysml:owningFeature elmt:HeadOrder__Derived__n ;
+    sysml:specific elmt:HeadOrder__Derived__n ;
+    sysml:source elmt:HeadOrder__Derived__n ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__n ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:general <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:target <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:owner elmt:HeadOrder__Derived__n ;
+    sysml:relatedElement elmt:HeadOrder__Derived__n, <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__n\"},{\"@id\":\"14c0aa22-5489-59b5-b438-ded26e83ba31\"}]" .
+
+elmt:HeadOrder__Derived__q_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "HeadOrder__Derived__q_ft0" ;
+    sysml:typedFeature elmt:HeadOrder__Derived__q ;
+    sysml:owningFeature elmt:HeadOrder__Derived__q ;
+    sysml:specific elmt:HeadOrder__Derived__q ;
+    sysml:source elmt:HeadOrder__Derived__q ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__q ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:general <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:target <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:owner elmt:HeadOrder__Derived__q ;
+    sysml:relatedElement elmt:HeadOrder__Derived__q, <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__q\"},{\"@id\":\"14c0aa22-5489-59b5-b438-ded26e83ba31\"}]" .
+
+elmt:HeadOrder__Derived__q_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "HeadOrder__Derived__q_ss0" ;
+    sysml:subsettingFeature elmt:HeadOrder__Derived__q ;
+    sysml:owningFeature elmt:HeadOrder__Derived__q ;
+    sysml:specific elmt:HeadOrder__Derived__q ;
+    sysml:source elmt:HeadOrder__Derived__q ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__q ;
+    sysml:subsettedFeature elmt:HeadOrder__Derived__p ;
+    sysml:general elmt:HeadOrder__Derived__p ;
+    sysml:target elmt:HeadOrder__Derived__p ;
+    sysml:owner elmt:HeadOrder__Derived__q ;
+    sysml:relatedElement elmt:HeadOrder__Derived__q, elmt:HeadOrder__Derived__p ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__q\"},{\"@id\":\"HeadOrder__Derived__p\"}]" .
+
+elmt:HeadOrder__Derived__r_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "HeadOrder__Derived__r_ft0" ;
+    sysml:typedFeature elmt:HeadOrder__Derived__r ;
+    sysml:owningFeature elmt:HeadOrder__Derived__r ;
+    sysml:specific elmt:HeadOrder__Derived__r ;
+    sysml:source elmt:HeadOrder__Derived__r ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__r ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:general <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:target <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:owner elmt:HeadOrder__Derived__r ;
+    sysml:relatedElement elmt:HeadOrder__Derived__r, <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__r\"},{\"@id\":\"14c0aa22-5489-59b5-b438-ded26e83ba31\"}]" .
+
+elmt:HeadOrder__Derived__p_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "HeadOrder__Derived__p_rd0" ;
+    sysml:redefiningFeature elmt:HeadOrder__Derived__p ;
+    sysml:subsettingFeature elmt:HeadOrder__Derived__p ;
+    sysml:owningFeature elmt:HeadOrder__Derived__p ;
+    sysml:specific elmt:HeadOrder__Derived__p ;
+    sysml:source elmt:HeadOrder__Derived__p ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__p ;
+    sysml:redefinedFeature elmt:HeadOrder__Base__p ;
+    sysml:subsettedFeature elmt:HeadOrder__Base__p ;
+    sysml:general elmt:HeadOrder__Base__p ;
+    sysml:target elmt:HeadOrder__Base__p ;
+    sysml:owner elmt:HeadOrder__Derived__p ;
+    sysml:relatedElement elmt:HeadOrder__Derived__p, elmt:HeadOrder__Base__p ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__p\"},{\"@id\":\"HeadOrder__Base__p\"}]" .
+
+elmt:HeadOrder__Derived__s_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "HeadOrder__Derived__s_ft0" ;
+    sysml:typedFeature elmt:HeadOrder__Derived__s ;
+    sysml:owningFeature elmt:HeadOrder__Derived__s ;
+    sysml:specific elmt:HeadOrder__Derived__s ;
+    sysml:source elmt:HeadOrder__Derived__s ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__s ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:general <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:target <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:owner elmt:HeadOrder__Derived__s ;
+    sysml:relatedElement elmt:HeadOrder__Derived__s, <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__s\"},{\"@id\":\"14c0aa22-5489-59b5-b438-ded26e83ba31\"}]" .
+
+elmt:HeadOrder__Derived__s_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "HeadOrder__Derived__s_ss0" ;
+    sysml:subsettingFeature elmt:HeadOrder__Derived__s ;
+    sysml:owningFeature elmt:HeadOrder__Derived__s ;
+    sysml:specific elmt:HeadOrder__Derived__s ;
+    sysml:source elmt:HeadOrder__Derived__s ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__s ;
+    sysml:subsettedFeature elmt:HeadOrder__Derived__p ;
+    sysml:general elmt:HeadOrder__Derived__p ;
+    sysml:target elmt:HeadOrder__Derived__p ;
+    sysml:owner elmt:HeadOrder__Derived__s ;
+    sysml:relatedElement elmt:HeadOrder__Derived__s, elmt:HeadOrder__Derived__p ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__s\"},{\"@id\":\"HeadOrder__Derived__p\"}]" .
+
+elmt:HeadOrder__Derived__t_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "HeadOrder__Derived__t_ss0" ;
+    sysml:subsettingFeature elmt:HeadOrder__Derived__t ;
+    sysml:owningFeature elmt:HeadOrder__Derived__t ;
+    sysml:specific elmt:HeadOrder__Derived__t ;
+    sysml:source elmt:HeadOrder__Derived__t ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__t ;
+    sysml:subsettedFeature elmt:HeadOrder__Derived__p ;
+    sysml:general elmt:HeadOrder__Derived__p ;
+    sysml:target elmt:HeadOrder__Derived__p ;
+    sysml:owner elmt:HeadOrder__Derived__t ;
+    sysml:relatedElement elmt:HeadOrder__Derived__t, elmt:HeadOrder__Derived__p ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__t\"},{\"@id\":\"HeadOrder__Derived__p\"}]" .
+
+elmt:HeadOrder__Derived__t_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "HeadOrder__Derived__t_ft0" ;
+    sysml:typedFeature elmt:HeadOrder__Derived__t ;
+    sysml:owningFeature elmt:HeadOrder__Derived__t ;
+    sysml:specific elmt:HeadOrder__Derived__t ;
+    sysml:source elmt:HeadOrder__Derived__t ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__t ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:general <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:target <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:owner elmt:HeadOrder__Derived__t ;
+    sysml:relatedElement elmt:HeadOrder__Derived__t, <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__t\"},{\"@id\":\"14c0aa22-5489-59b5-b438-ded26e83ba31\"}]" .
+
+elmt:HeadOrder__Derived__u_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "HeadOrder__Derived__u_ft0" ;
+    sysml:typedFeature elmt:HeadOrder__Derived__u ;
+    sysml:owningFeature elmt:HeadOrder__Derived__u ;
+    sysml:specific elmt:HeadOrder__Derived__u ;
+    sysml:source elmt:HeadOrder__Derived__u ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__u ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:general <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:target <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:owner elmt:HeadOrder__Derived__u ;
+    sysml:relatedElement elmt:HeadOrder__Derived__u, <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__u\"},{\"@id\":\"14c0aa22-5489-59b5-b438-ded26e83ba31\"}]" .
+
+elmt:HeadOrder__Derived__u___401_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "HeadOrder__Derived__u___401_ft0" ;
+    sysml:typedFeature elmt:HeadOrder__Derived__u___401 ;
+    sysml:owningFeature elmt:HeadOrder__Derived__u___401 ;
+    sysml:specific elmt:HeadOrder__Derived__u___401 ;
+    sysml:source elmt:HeadOrder__Derived__u___401 ;
+    sysml:owningRelatedElement elmt:HeadOrder__Derived__u___401 ;
+    sysml:type elmt:HeadOrder__Tag ;
+    sysml:general elmt:HeadOrder__Tag ;
+    sysml:target elmt:HeadOrder__Tag ;
+    sysml:owner elmt:HeadOrder__Derived__u___401 ;
+    sysml:relatedElement elmt:HeadOrder__Derived__u___401, elmt:HeadOrder__Tag ;
+    json:relatedElement "[{\"@id\":\"HeadOrder__Derived__u___401\"},{\"@id\":\"HeadOrder__Tag\"}]" .
+
+<urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31>
+    a sysml:DataType ;
+    sysml:elementId "14c0aa22-5489-59b5-b438-ded26e83ba31" ;
+    sysml:qualifiedName "ScalarValues::Real" ;
+    sysml:declaredName "Real" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d>
+    a sysml:LibraryPackage ;
+    sysml:elementId "40bb440c-5036-58e1-8675-5afccb8b8f1d" ;
+    sysml:qualifiedName "ScalarValues" ;
+    sysml:declaredName "ScalarValues" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

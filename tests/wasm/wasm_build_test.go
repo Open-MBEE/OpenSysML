@@ -6,11 +6,15 @@ package wasm
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 // wasmTarget is one GOOS of GOARCH wasm.
@@ -44,49 +48,114 @@ const ldflags = "-s -w -X main.Version=" + versionStamp +
 // GOARCH override whatever the test process carries. It runs at the repository root:
 // ./... there is the whole module, where from this package's directory it would be
 // only this subtree.
-func goFor(t *testing.T, target wasmTarget, args ...string) ([]byte, error) {
-	t.Helper()
+func goFor(target wasmTarget, args ...string) ([]byte, error) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
-		t.Fatalf("resolving the repository root: %v", err)
+		return nil, fmt.Errorf("resolving the repository root: %w", err)
 	}
 	cmd := exec.Command("go", args...)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(), "GOOS="+target.goos, "GOARCH=wasm")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return out, err
-	}
-	return out, nil
+	return cmd.CombinedOutput()
 }
 
-// link builds cmd/<name> for the target, stamped, and checks the artifact is a
-// WebAssembly module: the four bytes every runtime dispatches on. The binary is
-// returned for the run gate to execute.
+// artifactKey names one linked command: a target, a command and its build tags.
+type artifactKey struct {
+	goos, name, tags string
+}
+
+// artifact is one linked command and the outcome of linking it.
+type artifact struct {
+	once   sync.Once
+	path   string
+	output []byte
+	err    error
+}
+
+// artifacts are the linked commands of this run: the first test to ask links one and
+// every later test shares the binary, so no command is linked twice.
+var artifacts = struct {
+	mu   sync.Mutex
+	dir  string
+	done map[artifactKey]*artifact
+}{done: map[artifactKey]*artifact{}}
+
+// TestMain holds the shared binaries for the run and removes them after it.
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "wasm-gate-")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "creating the directory for the linked commands: %v\n", err)
+		os.Exit(1)
+	}
+	artifacts.dir = dir
+	code := m.Run()
+	_ = os.RemoveAll(dir)
+	os.Exit(code)
+}
+
+// link builds cmd/<name> for the target under the build tags (none when empty),
+// stamped, once per run, and checks the artifact is a WebAssembly module: the four
+// bytes every runtime dispatches on. The binary is returned for the run gate to
+// execute; a test asking after a failed link fails with the same report.
 //
 // It is a plain `go build`, not tests/testutil/gobuild: that helper adds -cover so a
 // process it starts credits the coverage profile, and a WebAssembly process has
 // nowhere to write Go's counters to — instrumenting these would buy nothing and make
 // the link slower.
-func link(t *testing.T, target wasmTarget, name, dir string) string {
+func link(t *testing.T, target wasmTarget, name, tags string) string {
 	t.Helper()
-	out := filepath.Join(dir, name+".wasm")
-	if output, err := goFor(t, target, "build", "-ldflags", ldflags, "-o", out, "./cmd/"+name); err != nil {
-		t.Fatalf("building cmd/%s for GOOS=%s: %v\n%s", name, target.goos, err, output)
+	key := artifactKey{goos: target.goos, name: name, tags: tags}
+	artifacts.mu.Lock()
+	a, ok := artifacts.done[key]
+	if !ok {
+		a = &artifact{}
+		artifacts.done[key] = a
 	}
-	f, err := os.Open(out)
+	artifacts.mu.Unlock()
+	what := "cmd/" + name
+	file := name
+	if tags != "" {
+		what += " -tags " + tags
+		file += "-" + strings.ReplaceAll(tags, ",", "-")
+	}
+	a.once.Do(func() {
+		a.path = filepath.Join(artifacts.dir, target.goos, file+".wasm")
+		if a.err = os.MkdirAll(filepath.Dir(a.path), 0o755); a.err != nil {
+			return
+		}
+		args := []string{"build"}
+		if tags != "" {
+			args = append(args, "-tags", tags)
+		}
+		args = append(args, "-ldflags", ldflags, "-o", a.path, "./cmd/"+name)
+		started := time.Now()
+		a.output, a.err = goFor(target, args...)
+		if a.err == nil {
+			a.err = wasmModule(a.path)
+		}
+		t.Logf("linked %s for GOOS=%s in %s", what, target.goos, time.Since(started).Round(time.Millisecond))
+	})
+	if a.err != nil {
+		t.Fatalf("building %s for GOOS=%s: %v\n%s", what, target.goos, a.err, a.output)
+	}
+	return a.path
+}
+
+// wasmModule reports whether the file starts with the WebAssembly magic.
+func wasmModule(path string) error {
+	f, err := os.Open(path)
 	if err != nil {
-		t.Fatalf("opening %s: %v", out, err)
+		return fmt.Errorf("opening %s: %w", path, err)
 	}
 	defer func() { _ = f.Close() }()
 	magic := make([]byte, 4)
 	if _, err := io.ReadFull(f, magic); err != nil {
-		t.Fatalf("reading the header of %s: %v", out, err)
+		return fmt.Errorf("reading the header of %s: %w", path, err)
 	}
 	if !bytes.Equal(magic, []byte{0x00, 'a', 's', 'm'}) {
-		t.Fatalf("%s starts with %v, want the WebAssembly magic 00 61 73 6d", out, magic)
+		return fmt.Errorf("%s starts with %v, want the WebAssembly magic 00 61 73 6d", path, magic)
 	}
-	return out
+	return nil
 }
 
 // TestWasmBuilds is the half of the gate no runtime is needed for: the whole tree
@@ -98,19 +167,24 @@ func TestWasmBuilds(t *testing.T) {
 	for _, target := range wasmTargets {
 		t.Run(target.name, func(t *testing.T) {
 			t.Run("tree compiles", func(t *testing.T) {
-				if out, err := goFor(t, target, "build", "./..."); err != nil {
+				if out, err := goFor(target, "build", "./..."); err != nil {
 					t.Fatalf("GOOS=%s go build ./...: %v\n%s", target.goos, err, out)
 				}
 			})
 			t.Run("tree vets", func(t *testing.T) {
-				if out, err := goFor(t, target, "vet", "./..."); err != nil {
+				if out, err := goFor(target, "vet", "./..."); err != nil {
 					t.Fatalf("GOOS=%s go vet ./...: %v\n%s", target.goos, err, out)
 				}
 			})
 			for _, name := range commands {
-				name := name
 				t.Run("links "+name, func(t *testing.T) {
-					link(t, target, name, t.TempDir())
+					link(t, target, name, "")
+				})
+			}
+			if target.goos == "js" {
+				// The CLI page's in-browser REPL ships this build (make build-wasm-re).
+				t.Run("links sysml -tags sysml_re", func(t *testing.T) {
+					link(t, target, "sysml", "sysml_re")
 				})
 			}
 		})

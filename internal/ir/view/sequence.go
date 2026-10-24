@@ -29,7 +29,7 @@ func runParticipantLabel(node *Node) string {
 // lifeline list is flat — a sequence diagram nests nothing — so a message
 // attaching to an event nested in a lifeline is drawn on that lifeline. Anything
 // a sequence rendering cannot show is reported rather than dropped.
-func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
+func (r *Renderer) renderSequence(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	lifelines := map[*symbols.Symbol]*Node{}
 	stated := &interactions{}
@@ -52,7 +52,9 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 					name = localName(participant)
 				}
 				node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name, NameSynthesized: r.model.NameSynthesized(participant),
-					Type: r.headType(participant), Typings: r.headTypings(participant), Origin: symbolOrigin(participant)}
+					Type: r.headType(participant), Typings: r.headTypings(participant), Origin: symbolOrigin(participant),
+					Geometry: r.geometryOf(view, participant, out)}
+				r.dress(view, participant, node, out)
 				out.Roots = append(out.Roots, node)
 				lifelines[participant] = node
 			}
@@ -69,7 +71,7 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 			"%s states no direction; a sequence rendering shows directed messages only",
 			r.noticeSubject(connector)))
 	}
-	out.Edges = r.orderMessages(r.messages(stated.flows, lifelines, out), stated.orders, out)
+	out.Edges = r.orderMessages(r.messages(view, stated.flows, lifelines, out), stated.orders, out)
 }
 
 // lifelinesOf are the lifelines an exposed element contributes: the occurrences
@@ -269,7 +271,7 @@ func declaredMembers(decl ast.Node) []ast.Node {
 // declarations. An end naming nothing the rendering shows is reported and the
 // message dropped; both ends resolving to one lifeline is a self-message, which
 // a sequence diagram draws.
-func (r *Renderer) messages(flows []*symbols.Symbol, lifelines map[*symbols.Symbol]*Node, out *Rendering) []message {
+func (r *Renderer) messages(view *symbols.Symbol, flows []*symbols.Symbol, lifelines map[*symbols.Symbol]*Node, out *Rendering) []message {
 	var messages []message
 	for _, flow := range flows {
 		usage, _ := flow.Decl.(*ast.Usage)
@@ -298,7 +300,8 @@ func (r *Renderer) messages(flows []*symbols.Symbol, lifelines map[*symbols.Symb
 		messages = append(messages, message{
 			flow: flow, from: ends[0], to: ends[1], fromTimed: timed[0], toTimed: timed[1],
 			edge: Edge{From: nodes[0].ID, To: nodes[1].ID, Label: r.messageLabel(flow), Kind: EdgeFlow,
-				Origin: symbolOrigin(flow)},
+				Origin: symbolOrigin(flow), Route: r.routeOf(view, flow, out),
+				Style: r.edgeDress(view, flow, nodes[0].ID, nodes[1].ID, out)},
 		})
 	}
 	sort.SliceStable(messages, func(i, j int) bool { return declaredBefore(messages[i].flow, messages[j].flow) })

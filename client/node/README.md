@@ -187,7 +187,8 @@ direct unsupported RPC fails with `UNIMPLEMENTED`.
 The adapter uses JSON encoding; requesting protobuf encoding is refused.
 The module answers `RenderView` as the service's protojson `RenderViewResponse` and
 advertises `render_view`, so `connection.renderView()` returns the same `RenderedView`
-over either; `renderedViewFromJson()` decodes such a response saved as JSON (a snapshot a
+over either (`renderView(name, { compartments: "most" })` folds a tree's owned members into
+compartment rows, each a node whose `compartment` names the compartment of its `parent`); `renderedViewFromJson()` decodes such a response saved as JSON (a snapshot a
 page paints before its module has loaded). A traced `ExecuteState` answers the service's
 `DocumentEvent` records and the module advertises `state_trace`, so
 `connection.executeState(…, { trace: true })` returns the same typed trace over either.

@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 )
 
 // serverName is the name the configuration blocks give the server; hosts
@@ -51,19 +54,39 @@ type host struct {
 	name string
 	// file is where the host reads the block, relative to the project unless noted.
 	file string
-	// render writes the block declaring command as the server.
-	render func(w io.Writer, command serverCommand) error
+	// render writes the block declaring the server at ep.
+	render func(w io.Writer, ep endpoint) error
+}
+
+// endpoint is how a host reaches the server: a command it starts and speaks
+// stdio with, or the URL of one already serving over Streamable HTTP, with
+// the bearer token it must send when the server requires one.
+type endpoint struct {
+	command serverCommand
+	url     string
+	token   string
+}
+
+// authorization is the header a host sends a server that requires the token.
+func (ep endpoint) authorization() string { return "Bearer " + ep.token }
+
+// headersObject is the headers block of a URL form, nil without a token.
+func (ep endpoint) headersObject() orderedObject {
+	if ep.token == "" {
+		return nil
+	}
+	return orderedObject{{"Authorization", ep.authorization()}}
 }
 
 // hosts lists the hosts -print-config knows, in the order the list is shown.
 var hosts = []host{
 	{"opencode", "opencode.json", renderOpenCode},
-	{"claude-code", ".mcp.json", renderMCPServers("stdio")},
-	{"cursor", ".cursor/mcp.json", renderMCPServers("")},
+	{"claude-code", ".mcp.json", renderMCPServers("stdio", "http", "url")},
+	{"cursor", ".cursor/mcp.json", renderMCPServers("", "", "url")},
 	{"codex", "~/.codex/config.toml", renderCodex},
 	{"vscode", ".vscode/mcp.json", renderVSCode},
-	{"gemini", ".gemini/settings.json", renderMCPServers("")},
-	{"devin", "Settings > MCP Marketplace > Add custom", renderMCPServers("")},
+	{"gemini", ".gemini/settings.json", renderMCPServers("", "", "httpUrl")},
+	{"devin", "Customize > MCPs > Add custom MCP", renderMCPServers("", "http", "url")},
 }
 
 // hostNames is the names of hosts, for the help and for error messages.
@@ -103,13 +126,12 @@ func printHostList(w io.Writer) {
 	for _, h := range hosts {
 		fmt.Fprintf(w, "  %-12s %s\n", h.name, h.file)
 	}
-	fmt.Fprintf(w, "Usage: %s -print-config HOST [-print-config-command CMD | -print-config-npx]\n", mcpCommand)
+	fmt.Fprintf(w, "Usage: %s -print-config HOST [-print-config-command CMD | -print-config-npx | -http ADDR [-tls-cert FILE -tls-key FILE] [-token-file FILE | -token TOKEN] [-public-url URL]]\n", mcpCommand)
 }
 
-// printHostConfig writes the block declaring the server to host name. The
-// block names command as the executable; with npx instead, it names the npm
-// form; with neither, this binary's resolved path.
-func printHostConfig(w io.Writer, name, command string, npx bool) error {
+// printHostConfig writes the block declaring the server to host name: at
+// ep.url, or started by ep.command, the npm form, or this binary's path.
+func printHostConfig(w io.Writer, name string, ep endpoint, npx bool) error {
 	var h *host
 	for i := range hosts {
 		if hosts[i].name == name {
@@ -120,18 +142,33 @@ func printHostConfig(w io.Writer, name, command string, npx bool) error {
 		return fmt.Errorf("unknown host %q; the hosts are %s", name, strings.Join(hostNames(), ", "))
 	}
 	switch {
-	case npx && command != "":
-		return fmt.Errorf("-print-config-npx names npx -y %s as the command, so it excludes -print-config-command %q", npmPackage, command)
+	case ep.url != "":
+	case npx && ep.command.exe != "":
+		return fmt.Errorf("-print-config-npx names npx -y %s as the command, so it excludes -print-config-command %q", npmPackage, ep.command.exe)
 	case npx:
-		return h.render(w, npxCommand)
-	case command != "":
-		return h.render(w, binaryCommand(command))
+		ep.command = npxCommand
+	case ep.command.exe == "":
+		exe, err := executablePath()
+		if err != nil {
+			return fmt.Errorf("resolving the path of this binary: %w (name the command with -print-config-command)", err)
+		}
+		ep.command = binaryCommand(exe)
 	}
-	exe, err := executablePath()
-	if err != nil {
-		return fmt.Errorf("resolving the path of this binary: %w (name the command with -print-config-command)", err)
+	return h.render(w, ep)
+}
+
+// serverURL is where clients reach a server bound to addr: https with TLS, and
+// localhost where addr binds every interface or loopback alone.
+func serverURL(addr string, tls bool) string {
+	host, port, _ := net.SplitHostPort(addr)
+	if ip := net.ParseIP(host); ip != nil && ip.IsUnspecified() {
+		host = "localhost"
 	}
-	return h.render(w, binaryCommand(exe))
+	scheme := "http"
+	if tls {
+		scheme = "https"
+	}
+	return scheme + "://" + net.JoinHostPort(host, port) + mcp.HTTPPath
 }
 
 // executablePath is the absolute path of the running binary, symlinks resolved,
@@ -195,63 +232,92 @@ func (o orderedObject) MarshalJSON() ([]byte, error) {
 }
 
 // renderOpenCode writes the "mcp" block of opencode.json: a local server named
-// by its command array, enabled.
-func renderOpenCode(w io.Writer, command serverCommand) error {
+// by its command array, or a remote one by its URL and headers, enabled.
+func renderOpenCode(w io.Writer, ep endpoint) error {
+	server := orderedObject{{"type", "local"}, {"command", ep.command.argv()}}
+	if ep.url != "" {
+		server = orderedObject{{"type", "remote"}, {"url", ep.url}}
+		if headers := ep.headersObject(); headers != nil {
+			server = append(server, orderedField{"headers", headers})
+		}
+	}
 	return writeJSON(w, orderedObject{
 		{"$schema", "https://opencode.ai/config.json"},
 		{"mcp", orderedObject{
-			{serverName, orderedObject{
-				{"type", "local"},
-				{"command", command.argv()},
-				{"enabled", true},
-			}},
+			{serverName, append(server, orderedField{"enabled", true})},
 		}},
 	})
 }
 
 // renderMCPServers writes the "mcpServers" block Claude Code, Cursor, Gemini
-// CLI and Devin read, with a transport type when the host wants one spelled.
-func renderMCPServers(transport string) func(io.Writer, serverCommand) error {
-	return func(w io.Writer, command serverCommand) error {
+// CLI and Devin read: a stdio server typed stdioType, or a URL under urlKey typed httpType.
+func renderMCPServers(stdioType, httpType, urlKey string) func(io.Writer, endpoint) error {
+	return func(w io.Writer, ep endpoint) error {
 		return writeJSON(w, orderedObject{
 			{"mcpServers", orderedObject{
-				{serverName, serverObject(transport, command)},
+				{serverName, serverObject(ep, stdioType, httpType, urlKey)},
 			}},
 		})
 	}
 }
 
 // renderVSCode writes the "servers" block of .vscode/mcp.json.
-func renderVSCode(w io.Writer, command serverCommand) error {
+func renderVSCode(w io.Writer, ep endpoint) error {
 	return writeJSON(w, orderedObject{
 		{"servers", orderedObject{
-			{serverName, serverObject("stdio", command)},
+			{serverName, serverObject(ep, "stdio", "http", "url")},
 		}},
 	})
 }
 
-// serverObject is the common stdio server declaration: a command and its
-// argument list, preceded by the transport type when one is wanted.
-func serverObject(transport string, command serverCommand) orderedObject {
+// serverObject is the common server declaration: a command and its arguments,
+// or a URL under urlKey with the headers the server requires, each preceded
+// by its type when the host wants one spelled.
+func serverObject(ep endpoint, stdioType, httpType, urlKey string) orderedObject {
 	var o orderedObject
-	if transport != "" {
-		o = append(o, orderedField{"type", transport})
+	if ep.url != "" {
+		if httpType != "" {
+			o = append(o, orderedField{"type", httpType})
+		}
+		o = append(o, orderedField{urlKey, ep.url})
+		if headers := ep.headersObject(); headers != nil {
+			o = append(o, orderedField{"headers", headers})
+		}
+		return o
+	}
+	if stdioType != "" {
+		o = append(o, orderedField{"type", stdioType})
 	}
 	return append(o,
-		orderedField{"command", command.exe},
-		orderedField{"args", command.arguments()},
+		orderedField{"command", ep.command.exe},
+		orderedField{"args", ep.command.arguments()},
 	)
 }
 
-// renderCodex writes the [mcp_servers.sysml] table of Codex's config.toml. A
-// JSON string is a valid TOML basic string and a JSON array of them a valid
-// TOML array, so the command and its arguments are written as those.
-func renderCodex(w io.Writer, command serverCommand) error {
-	quoted, err := json.Marshal(command.exe)
+// renderCodex writes the [mcp_servers.sysml] table of Codex's config.toml as
+// TOML basic strings, arrays and inline tables, which JSON strings, arrays
+// of them and flat objects are.
+func renderCodex(w io.Writer, ep endpoint) error {
+	if ep.url != "" {
+		quoted, err := json.Marshal(ep.url)
+		if err != nil {
+			return err
+		}
+		if _, err = fmt.Fprintf(w, "[mcp_servers.%s]\nurl = %s\n", serverName, quoted); err != nil || ep.token == "" {
+			return err
+		}
+		header, err := json.Marshal(ep.authorization())
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(w, "http_headers = { Authorization = %s }\n", header)
+		return err
+	}
+	quoted, err := json.Marshal(ep.command.exe)
 	if err != nil {
 		return err
 	}
-	args, err := json.Marshal(command.arguments())
+	args, err := json.Marshal(ep.command.arguments())
 	if err != nil {
 		return err
 	}

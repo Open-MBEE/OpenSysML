@@ -187,6 +187,9 @@ type HTMLOptions struct {
 	// Unplaced is where a diagram some Layout positions puts the nodes none
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
+	// Compartments is how a tree rendering folds a node's owned members into
+	// compartment rows of its box; view.CompartmentsPositioned when empty.
+	Compartments view.Compartments
 
 	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
 	// when empty; the other forms draw one look.
@@ -325,7 +328,7 @@ func (s Stylesheet) Check() error {
 
 // diagramOptions is the part of the options the diagrams are written by.
 func (o HTMLOptions) diagramOptions() DiagramOptions {
-	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style, Show: o.Show, LinkTemplate: o.LinkTemplate}
+	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Compartments: o.Compartments, Style: o.Style, Show: o.Show, LinkTemplate: o.LinkTemplate}
 }
 
 // htmlWriter accumulates one rendered document, its diagrams in the forms

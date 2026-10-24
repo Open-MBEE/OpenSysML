@@ -1,0 +1,9 @@
+# CompartmentDemoViews::controllers — tree rendering (render asTreeDiagram)
+# not represented: 4 member(s) drawn as compartment rows of their owner
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«part def»\nSensor\nattributes\nlabel : String\nreading : Real" { class: definition }
+n3: "«part def»\nController\nattributes\nenabled : Boolean\nparts\nsensor : Sensor" { class: definition }
+n3 <- n0: { class: composition; target-arrowhead: { label: "sensor" } }

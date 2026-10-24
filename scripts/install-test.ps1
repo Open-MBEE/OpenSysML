@@ -17,7 +17,9 @@ param(
     [Parameter(Mandatory)][string]$Tampered,
     [Parameter(Mandatory)][string]$Unlisted,
     [Parameter(Mandatory)][string]$NoKernel,
-    [Parameter(Mandatory)][string]$NoGrpc
+    [Parameter(Mandatory)][string]$NoGrpc,
+    [Parameter(Mandatory)][string]$Repeated,
+    [Parameter(Mandatory)][string]$Conflicting
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -322,6 +324,15 @@ if (Test-Ok 'dry run of all tools of a release without the kernel' -Version $NoK
 
 if (Test-Failure 'tampered bundle' "opensysml-$HostPlatform.tar.gz does not match SHA256SUMS.txt" -Version $Tampered) {
     if (Test-Path -LiteralPath $script:dir) { Write-Failure "a tampered release left files under $script:dir" }
+}
+# One digest listed twice is one digest; two digests for one asset is no manifest to trust.
+if (Test-Ok "manifest repeating the bundle's line" -Version $Repeated -Tools all) {
+    Assert-Installed sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel, sysml-mcp
+    Assert-Said "opensysml-$HostPlatform.tar.gz verified"
+}
+if (Test-Failure 'manifest listing the bundle with two digests' "lists opensysml-$HostPlatform.tar.gz with more than one digest" -Version $Conflicting) {
+    Assert-Unsaid 'does not match'
+    if (Test-Path -LiteralPath $script:dir) { Write-Failure "a conflicting manifest left files under $script:dir" }
 }
 Test-Failure 'asset the manifest omits' "does not list sysml-grpc-$HostPlatform" -Version $Unlisted -Tools sysml-grpc | Out-Null
 if (Test-Failure 'kernel the manifest omits' "does not list sysml-jupyter-kernel-$HostPlatform" -Version $Unlisted -Tools sysml-jupyter-kernel) {

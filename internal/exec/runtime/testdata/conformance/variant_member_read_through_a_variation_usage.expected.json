@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "instantiate": "test::holder",
+  "libraries": true,
+  "slots": {
+    "viaTypedUsage": {"type": "Real", "value": 2.0},
+    "viaChosenUsage": {"type": "Real", "value": 2.0},
+    "viaVariationUsage": {"type": "Real", "value": 100.0},
+    "viaVariationUsageChain": {"type": "Real", "value": 100.0},
+    "viaSelection": {"type": "Real", "value": 1.0}
+  }
+}

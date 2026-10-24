@@ -41,6 +41,13 @@ func TestSearchCommand(t *testing.T) {
 			wants:   []string{"Wheel  part def"},
 		},
 		{
+			name:    "an abstract declaration is listed with its written keyword",
+			declare: "package B { abstract part def Hull; abstract part hull : Hull; variation part def Hulls :> Hull; }",
+			line:    "%search Hull",
+			wants:   []string{"B::Hull  abstract part def", "B::hull  abstract part", "B::Hulls  variation part def"},
+			rejects: []string{"abstract variation"},
+		},
+		{
 			name:    "a chained binding end declares no symbol",
 			declare: "package B { part R { part inner { attribute hhh; } } part ccc; binding bind R.inner.hhh = ccc; }",
 			line:    "%search hhh",

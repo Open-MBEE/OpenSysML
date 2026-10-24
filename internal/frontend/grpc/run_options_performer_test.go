@@ -74,7 +74,7 @@ func TestExecuteActionAdvanceRunsThePerformersPerformance(t *testing.T) {
 			if got := resp.PerformerAttributes["this.steps"].GetIntValue(); got != 1 {
 				t.Errorf("%s %s: this.steps = %d, want 1: the robot's own performance ran, once", action, label, got)
 			}
-			if got := resp.Outputs["run.n"].GetIntValue(); got != 1 {
+			if resp.Outputs["run.n"].GetIntValue() != 1 {
 				t.Errorf("%s %s: outputs = %v, want the performed usage's run.n = 1", action, label, resp.Outputs)
 			}
 		}

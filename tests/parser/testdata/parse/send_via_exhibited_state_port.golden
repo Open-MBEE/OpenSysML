@@ -1,0 +1,63 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Loops" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="item" abstract=false variation=false name="Ping"))
+      (Membership visibility="default"
+        (Definition kind="item" abstract=false variation=false name="Pong"))
+      (Membership visibility="default"
+        (Definition kind="port" abstract=false variation=false name="CommandPort"
+          (Membership visibility="default"
+            (Usage kind="item" name="request" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Ping
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="item" name="reply" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Pong
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Responder"
+          (Membership visibility="default"
+            (Usage kind="port" name="command" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=CommandPort
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="port" name="response" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=CommandPort conjugated=true
+                (*ast.QualifiedName))))
+          (SubstateMember name="idle")
+          (SubstateMember name="replied")
+          (TransitionMember source="idle" target="replied" via="command"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Ping
+                (*ast.QualifiedName)))
+            (SendStatement via=true
+              (ConstructorExpr type="Pong")
+              (FeatureReference name="response")))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Tug"
+          (Membership visibility="default"
+            (Usage kind="port" name="command" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=CommandPort
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="port" name="response" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=CommandPort conjugated=true
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="state" name="m" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="exhibit state"
+              (Relationship kind="typing" target=Responder
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="binding" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="bind"
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="response"
+                  (FeatureReference name="m")))
+              (ConnectorEnd target="response"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="interface" name="wire" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="response"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="command"
+                (*ast.QualifiedName)))))))))

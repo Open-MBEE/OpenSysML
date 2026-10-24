@@ -486,7 +486,7 @@ func lowerEffectiveAccept(graph *ActionGraph, node *ast.Usage, members []effecti
 			ViaPort:      port,
 			ViaSelf:      viaSelf,
 			SubsetsEvent: subsettingTarget(m),
-			Trigger:      m.Value,
+			Trigger:      payloadTrigger(m.Value, scope, graph.resolver),
 			Scope:        scope,
 			Keeper:       IsDeferredKeeper(graph.resolver, scope, node),
 			Payload:      acceptPayloadSymbol(graph, node, m),

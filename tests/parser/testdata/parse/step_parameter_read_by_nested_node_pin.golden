@@ -1,0 +1,62 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Decide"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="limit" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="go" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="<="
+                (FeatureReference name="limit")
+                (LiteralReal value="10.0"))))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Sequence"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="sysLimit" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="action" name="decision" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Decide
+                (*ast.QualifiedName))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="limit" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (FeatureReference name="sysLimit")))))
+          (FinalNode)
+          (SuccessionEdge source="decision" target="@done")))
+      (Membership visibility="default"
+        (Usage kind="part" name="site" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="action" name="low" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+              (Relationship kind="typing" target=Sequence
+                (*ast.QualifiedName))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="sysLimit" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (LiteralReal value="6.8")))))
+          (Membership visibility="default"
+            (Usage kind="action" name="high" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+              (Relationship kind="typing" target=Sequence
+                (*ast.QualifiedName))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="sysLimit" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (LiteralReal value="12.5")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="lowGo" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (FeatureChainExpr member="go"
+                (FeatureChainExpr member="decision"
+                  (FeatureReference name="low")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="highGo" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (FeatureChainExpr member="go"
+                (FeatureChainExpr member="decision"
+                  (FeatureReference name="high"))))))))))

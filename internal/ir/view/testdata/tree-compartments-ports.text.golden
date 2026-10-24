@@ -1,0 +1,20 @@
+CompartmentDemoViews::hub - tree rendering (render asTreeDiagram)
+
+part def Hub
+  ports
+    port input : PortDemo::DataPort
+    port input.clock : PortDemo::ClockPort
+    port output : PortDemo::DataPort
+    port output.sync : PortDemo::ClockPort
+    port output.clock : PortDemo::ClockPort
+  attribute channels
+  part buffer
+  part slot
+    part def Pin
+part def Buffer
+
+relationships:
+  Hub *-- Buffer: buffer
+
+not represented:
+  - 5 member(s) drawn as compartment rows of their owner

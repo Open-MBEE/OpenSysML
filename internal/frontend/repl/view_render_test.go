@@ -97,7 +97,7 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 	wants(t, run(t, s, "%render"), renderUsage)
 	wants(t, run(t, s, "%render Demo::summary png"), `unknown form "png"`, renderUsage)
 	wants(t, run(t, s, "%render Demo::summary svg"), "a tree rendering is not written as svg", "text, mermaid, dot, plantuml or d2")
-	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports] [lines] [verdicts]", "[show=<elements>] [depth=<levels>] [link=<template>]]", "Graphviz DOT", "PlantUML")
+	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports] [lines] [verdicts]", "[compartments=<folding>] [show=<elements>] [depth=<levels>]", "[link=<template>]]", "Graphviz DOT", "PlantUML")
 }
 
 // The PlantUML form is asked for by name, is the same rendering in PlantUML
@@ -362,6 +362,7 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
         succession first start then finish;
     }
     use case def Mission {
+        subject network : Network;
         actor operator : Person;
     }
     view missionView {
@@ -855,4 +856,35 @@ func TestRenderReadsAnOptionWithoutAForm(t *testing.T) {
 	if !strings.Contains(strings.Join(unknown, "\n"), `unknown form "png"`) {
 		t.Errorf("a word that is neither a form nor an option answered %q", unknown)
 	}
+}
+
+// %render takes compartments=<folding> for a tree: positioned, the default,
+// folds only the layout-less members of a positioned tree; most folds every
+// owned usage and ports the port usages into compartment rows of their owner.
+func TestRenderTakesACompartmentFolding(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, filepath.Join(dir, "folded.sysml"), `package Folded {
+    part def Wheel;
+    port def Hub { port bearing : Hub; }
+    attribute def Speed;
+    part def Car { attribute speed : Speed; part fl : Wheel; port hub : Hub; }
+    view overview { expose Folded::Car; expose Folded::Wheel; }
+}
+`)
+	s := NewSession()
+	if _, err := s.LoadFilesSummary([]string{path}); err != nil {
+		t.Fatal(err)
+	}
+	got := run(t, s, "%render Folded::overview dot compartments=most")
+	wants(t, got, "speed : Speed", "fl : Wheel", "hub : Hub<br/>hub.bearing : Hub", "drawn as compartment rows of their owner")
+	if strings.Count(got, "[label=") != 2 {
+		t.Errorf("most folds Car's members into its node, leaving Car and Wheel:\n%s", got)
+	}
+	got = run(t, s, "%render Folded::overview compartments=ports")
+	wants(t, got, "  part fl", "  attribute speed", "port hub : Folded::Hub", "port hub.bearing : Folded::Hub")
+	if got := run(t, s, "%render Folded::overview text"); strings.Contains(got, "hub.bearing") || !strings.Contains(got, "port hub") {
+		t.Errorf("without a folding every member is a node:\n%s", got)
+	}
+	wants(t, run(t, s, "%render Folded::overview dot compartments=rows"), "compartments= names the folding of a tree's owned members into compartment rows, positioned, most, ports")
+	wants(t, run(t, s, "%render Folded::overview dot compartments=most compartments=ports"), renderUsage)
 }

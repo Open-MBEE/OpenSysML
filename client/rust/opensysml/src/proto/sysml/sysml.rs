@@ -3677,6 +3677,13 @@ pub struct RenderViewRequest {
     /// overriding the depth the view states; 0 draws every level.
     #[prost(int32, tag="5")]
     pub depth: i32,
+    /// How a tree rendering folds a node's owned members into compartment rows,
+    /// as view.ParseCompartments reads it: "" or "positioned" (the default, only
+    /// the layout-less members of a tree some Layout positions), "most" (every
+    /// owned usage no Layout, nested definition or package keeps a node) or
+    /// "ports" (the port usages with the ports nested under them).
+    #[prost(string, tag="6")]
+    pub compartments: ::prost::alloc::string::String,
 }
 /// RenderViewResponse carries all machine-readable fields of the rendering.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3737,6 +3744,10 @@ pub struct RenderNode {
     pub geometry: ::core::option::Option<RenderGeometry>,
     #[prost(message, optional, tag="13")]
     pub style: ::core::option::Option<RenderStyle>,
+    /// The compartment of the parent node this node is drawn as a row of
+    /// ("attributes", "parts", "ports", ...); unset for a node drawn as a box.
+    #[prost(string, tag="14")]
+    pub compartment: ::prost::alloc::string::String,
 }
 /// RenderPort is a feature drawn on a node's border.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
