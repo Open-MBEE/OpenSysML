@@ -1,0 +1,23 @@
+= Cross-References
+
+== Overview
+
+The mount is aligned in <<procedures-alignment,Alignment>> and listed in <<procedures-alignment-parts,Table 1>> and shown in <<procedures-alignment-photo,Figure 1>> (mount), a Mount. <<procedures,The procedures>> follow.
+
+[[procedures]]
+== Procedures
+
+[[procedures-alignment]]
+=== Alignment
+
+[[procedures-alignment-parts]]
+.Table 1. Parts aligned
+[options="header"]
+|===
+| name
+| mount
+|===
+
+[[procedures-alignment-photo]]
+.Figure 1. The mount, aligned
+image::images/mark.png[The mount&#44; aligned]
