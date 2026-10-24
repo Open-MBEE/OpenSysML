@@ -962,9 +962,13 @@ func (ctx *Context) bindCalcParameters(
 		var value Value
 		var source string
 		if open[param.Name] {
-			// A usage read as a feature passes no arguments: a parameter nothing values
-			// stays open whatever its lower bound, so there is no value to check here.
-			value, source = nullValue(), "unsupplied"
+			// A usage read as a feature passes no arguments: a parameter nothing values stays
+			// open whatever its lower bound, and a default reading it is open with it.
+			var count semantics.Range
+			if param.Sym != nil {
+				count = ctx.effectiveFeature(param.Name, param.Sym, shape.Sym).Multiplicity
+			}
+			value, source = undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", shape.Label, param.Name), count, param.Sym), "unsupplied"
 		} else {
 			var err error
 			value, source, err = binder.evalIn(defaultScope).bindCalcParameter(shape, param, args, position, nested)

@@ -15,6 +15,7 @@ func TestRuntimeRobustnessUsageMembers(t *testing.T) {
 	t.Run("constraint member nothing declares", testUsageMembersConstraintUndeclared)
 	t.Run("unbound constraint input is undetermined", testUsageMembersUnboundConstraintInput)
 	t.Run("unsupplied input is undetermined whatever its lower bound", testUsageMembersStatedLowerBound)
+	t.Run("default reading an unsupplied input is open with it", testUsageMembersDependentDefault)
 	t.Run("state body members are features of the state", testUsageMembersStateBody)
 	t.Run("parameter of an uninvoked action is undetermined on an instance", testUsageMembersUninvokedParameter)
 	t.Run("bodiless entry action of an exhibited state is a known gap", testUsageMembersExhibitedState)
@@ -162,6 +163,40 @@ func testUsageMembersStatedLowerBound(t *testing.T) {
 		if val, err := eval(src); err != nil || val.Kind != ValUndetermined {
 			t.Fatalf("%s = %s, %v; want undetermined: the input may hold any number of values", src, FormatValue(val), err)
 		}
+	}
+}
+
+const usageMembersDependentDefaultModel = `package Probe {
+	part def P {
+		calc f { in x : ScalarValues::Integer[1]; in y : ScalarValues::Integer = x + 1; return : ScalarValues::Integer = y; }
+		constraint c { in x : ScalarValues::Integer[1]; in y : ScalarValues::Integer = x + 1; y > 0 }
+	}
+	part p : P;
+	analysis def A { subject s : ScalarValues::Integer; in n : ScalarValues::Integer[1]; in m : ScalarValues::Integer = n * 2; return : ScalarValues::Integer = m; }
+	analysis a : A { subject s = 1; }
+}`
+
+// A default reading an input nothing supplies is open with it: a usage read as a
+// feature binds that input undetermined, so the default, the result and the check read
+// undetermined rather than failing on a null; an invocation still wants the argument.
+func testUsageMembersDependentDefault(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, usageMembersDependentDefaultModel)
+	root := idx.DocumentRoot("<test>")
+	for _, src := range []string{
+		"Probe::p.f.x", "Probe::p.f.y", "Probe::p.f.result", "new Probe::P().f.y", "new Probe::P().f.result",
+		"Probe::p.c.x", "Probe::p.c.y", "Probe::p.c", "new Probe::P().c.y", "new Probe::P().c",
+		"Probe::a.n", "Probe::a.m", "Probe::a.result",
+	} {
+		val, err := evalIn(t, ctx, root, src)
+		if err != nil || val.Kind != ValUndetermined {
+			t.Fatalf("%s = %s, %v; want undetermined: nothing supplies the input the default reads", src, FormatValue(val), err)
+		}
+	}
+	if val, err := evalIn(t, ctx, root, "Probe::p.f(2)"); err != nil || FormatValue(val) != "[3]" {
+		t.Fatalf("Probe::p.f(2) = %s, %v; want [3]", FormatValue(val), err)
+	}
+	if _, err := evalIn(t, ctx, root, "Probe::p.f()"); !errors.Is(err, errUnboundParameter) {
+		t.Fatalf("Probe::p.f() = %v, want errUnboundParameter: an invocation binds its parameters", err)
 	}
 }
 

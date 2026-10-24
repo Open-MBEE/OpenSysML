@@ -43,6 +43,22 @@
       "type": "Undetermined",
       "value": "[1]"
     },
+    "chainedV": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "chainedResult": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "oversSlack": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "oversVerdict": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
     "scaledOneS": {
       "type": "Undetermined",
       "value": "[1]"

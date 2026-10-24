@@ -31,6 +31,10 @@ package test {
 			attribute s : Real = 5.0;
 			return : Real = w * k;
 		}
+		// A default reading an input nothing supplies is open with it: the run binds the
+		// input undetermined, so `v` and the result read undetermined too, never a null.
+		calc chained { in w : Real[1]; in v : Real = w + 1.0; return : Real = v; }
+		constraint overs { in limit : Real[1]; in slack : Real = limit - 1.0; slack > 0.0 }
 		constraint underOne {
 			in limit : Real[1];
 			limit > 1.0
@@ -83,6 +87,10 @@ package test {
 		attribute scaledOneW = rig.scaledOne.w;
 		attribute scaledOneS = rig.scaledOne.s;
 		attribute scaledOneResult = rig.scaledOne.result;
+		attribute chainedV = rig.chained.v;
+		attribute chainedResult = rig.chained.result;
+		attribute oversSlack = rig.overs.slack;
+		attribute oversVerdict = rig.overs;
 		attribute underOneLimit = rig.underOne.limit;
 		attribute underOneVerdict = rig.underOne;
 		attribute underOneResult = rig.underOne.result;

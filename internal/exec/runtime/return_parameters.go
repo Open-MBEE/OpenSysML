@@ -334,6 +334,7 @@ func (ec *EvalContext) constraintMemberValue(inst *Instance, sym *symbols.Symbol
 	}
 	env := NewEvalContextIn(ec.ctx, scope, inst)
 	env.features = features
+	env.openInputs = true
 	if val, ok, err := env.valuedFeatureValue(name); ok {
 		if err != nil {
 			return Value{}, true, fmt.Errorf("constraint %s: %s: %w", sym.Name, name, err)
@@ -345,6 +346,21 @@ func (ec *EvalContext) constraintMemberValue(inst *Instance, sym *symbols.Symbol
 		count = ec.ctx.effectiveFeature(name, bound.held, sym).Multiplicity
 	}
 	return undeterminedFeatureValue(fmt.Sprintf("constraint %s binds no value to %s", sym.Name, name), count, bound.held), true, nil
+}
+
+// openConditionInput is the undetermined read, in a member read of a condition, of a
+// declared `in` it binds nothing to: a default reading it is open with it (KerML §7.3.2.2).
+func (ec *EvalContext) openConditionInput(name string) (Value, bool) {
+	bound, declared := ec.features[name]
+	if !ec.openInputs || !declared || bound.expr != nil || bound.held == nil || ec.resolving[name] {
+		return Value{}, false
+	}
+	held := bound.held
+	if !semantics.IsBehaviorParameter(held) || ec.ctx.model.semantics.DeclaredDirection(held) != ast.DirIn {
+		return Value{}, false
+	}
+	reason := fmt.Sprintf("%s binds no value to %s", ec.ctx.QualifiedName(held.Owner()), name)
+	return undeterminedFeatureValue(reason, ec.ctx.model.semantics.EffectiveParameterRange(held), held), true
 }
 
 // constraintMemberSegment is the member a chain through a constraint usage reads

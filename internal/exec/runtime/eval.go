@@ -37,6 +37,9 @@ type EvalContext struct {
 	// resolving holds the features whose own value is being evaluated, so a value
 	// written in terms of a same-named outer one does not resolve to itself.
 	resolving map[string]bool
+	// openInputs marks a member read of a condition, where a declared `in` nothing binds
+	// reads undetermined rather than falling back to the object's same-named feature.
+	openInputs bool
 
 	// calcRun is the calc evaluation whose output feature is being computed, so an
 	// output binding written in terms of the calc's other outputs reads them from
@@ -769,6 +772,11 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		// `in mass = mass` reads the outer mass rather than itself.
 		if val, ok, err := ec.valuedFeatureValue(name); ok {
 			return val, err
+		}
+		// Then a declared input the condition binds nothing to, which is open rather
+		// than the object's same-named feature.
+		if val, ok := ec.openConditionInput(name); ok {
+			return val, nil
 		}
 		// Then the bound instance: a feature value holds the value this object actually
 		// carries, which overrides the declared default the scope would yield.
