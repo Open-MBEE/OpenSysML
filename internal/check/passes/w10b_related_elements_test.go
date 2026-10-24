@@ -72,3 +72,23 @@ func TestW10BAllocationDefinitionsInheritTwoEnds(t *testing.T) {
 		}
 	}
 }
+
+// A flow definition's related elements are the types of every end it owns or
+// inherits (KerML `relatedType = associationEnd.type`, `associationEnd` redefining
+// `endFeature`): inheriting `Flows::Message`'s two usage ends relates two elements,
+// while a bare concrete flow definition specializes only `Flows::MessageAction`
+// and so relates nothing (SysML 7.16.2: a non-abstract flow definition is binary).
+func TestW10BFlowDefInheritedUsageEndsRelate(t *testing.T) {
+	const src = `package P {
+		flow def FromMessage :> Flows::Message;
+		abstract flow def Abstract;
+		flow def Plain;
+	}`
+	diags := only(constraintDiags(t, src), "related-elements")
+	if len(diags) != 1 {
+		t.Fatalf("got %d related-elements diagnostics, want 1 (the bare definition): %v", len(diags), diags)
+	}
+	if got := src[diags[0].Span.Offset:min(diags[0].Span.Offset+len("flow def Plain"), len(src))]; got != "flow def Plain" {
+		t.Errorf("reported at %q, want the bare definition", got)
+	}
+}
