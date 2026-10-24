@@ -1471,7 +1471,7 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	if n.Member == nil || len(n.Member.Parts) == 0 {
 		return Value{}, fmt.Errorf("empty member chain")
 	}
-	base, parts := chainBase(n)
+	base, parts := ast.FeatureChainBase(n)
 
 	// A state's activity, `fill.isActive`, is read from the active configuration
 	// of the machine holding the state, not from a feature value.
@@ -1505,6 +1505,18 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return ec.evalCalcUsageMembers(sym, parts)
 	}
 
+	// A constraint usage of the object being evaluated is the predicate it enacts,
+	// read through the object (`fits.limit` as `self.fits.limit`).
+	if name := simpleEndName(base); name != "" && ec.self != nil {
+		if _, enacted := ec.enactedConstraint(ec.self, name); enacted {
+			if names, err := ec.namesValue(name); err != nil {
+				return Value{}, err
+			} else if !names {
+				return ec.chainMemberValue(Value{Kind: ValInstance, Instance: ec.self.ID}, append([]ast.NameSegment{{Text: name}}, parts...), "")
+			}
+		}
+	}
+
 	// A variant named through the variation usage it belongs to is that variant,
 	// `engine.electric.power`, not a member of what the usage selects.
 	if sym, ok := ec.chainBaseSymbol(base); ok {
@@ -1534,8 +1546,9 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return ec.chainMemberValue(val, parts, sym.Name)
 	}
 
-	// Evaluate the operand (left side of the chain)
-	operand, err := ec.Eval(n.Operand)
+	// One chain is one read from its first operand through every member in turn
+	// (KerML 1.0 §7.4.9.3), not a read off the value of a shorter chain.
+	operand, err := ec.Eval(base)
 	if err != nil {
 		var noValue *NoValueError
 		if errors.As(err, &noValue) {
@@ -1571,7 +1584,7 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		}
 	}
 
-	return ec.chainMemberValue(operand, n.Member.Parts, "")
+	return ec.chainMemberValue(operand, parts, "")
 }
 
 // chainMembersDeclared reports the first chain member nothing declares, so
@@ -1610,20 +1623,6 @@ func (ctx *Context) declaredMember(sym *symbols.Symbol, name string) (*symbols.S
 		}
 	}
 	return ctx.model.semantics.LookupMember(sym, name)
-}
-
-// chainBase flattens a nested feature chain: `lander.mass.mDry` is one chain of
-// members from `lander`, not a chain through the value of `lander.mass`.
-func chainBase(n *ast.FeatureChainExpr) (ast.Node, []ast.NameSegment) {
-	operand, parts := n.Operand, n.Member.Parts
-	for {
-		inner, ok := operand.(*ast.FeatureChainExpr)
-		if !ok || inner.Member == nil || len(inner.Member.Parts) == 0 {
-			return operand, parts
-		}
-		parts = append(append([]ast.NameSegment{}, inner.Member.Parts...), parts...)
-		operand = inner.Operand
-	}
 }
 
 // chainMemberValue reads the members named by parts from the object value names,
@@ -1790,7 +1789,20 @@ func (ec *EvalContext) chainUnheldMember(inst *Instance, name string, rest []ast
 
 // chainFeatureValue continues a chain through the named feature value of inst.
 func (ec *EvalContext) chainFeatureValue(inst *Instance, name string, rest []ast.NameSegment, from string) (Value, error) {
-	if val, ok, err := ec.constraintUsageRead(inst, name); ok {
+	if sym, ok := ec.enactedConstraint(inst, name); ok {
+		// The constraint's own members read through it as any usage's do; the
+		// usage itself, or its `result`, is the predicate evaluated on the object.
+		if member, tail := constraintMemberSegment(rest); member != "" {
+			val, found, err := ec.constraintMemberValue(inst, sym, member)
+			if !found {
+				return Value{}, fmt.Errorf("%w: constraint %s has no member %s", ErrNoSuchFeature, name, member)
+			}
+			if err != nil {
+				return Value{}, err
+			}
+			return ec.chainMemberValue(val, tail, member)
+		}
+		val, err := ec.constraintUsageRead(inst, sym)
 		if err != nil {
 			return Value{}, err
 		}

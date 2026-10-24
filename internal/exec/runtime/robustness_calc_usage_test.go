@@ -56,7 +56,8 @@ func testCalcNonBooleanCondition(t *testing.T) {
 
 // testCalcUsageUnboundInput: a usage that leaves an input of its calc with
 // neither a value nor a default computes nothing, since a usage passes no
-// arguments to stand in for one.
+// arguments to stand in for one: its outputs read undetermined, naming the
+// input, whatever lower bound the input declares.
 func testCalcUsageUnboundInput(t *testing.T) {
 	src := `
 		package test {
@@ -68,9 +69,17 @@ func testCalcUsageUnboundInput(t *testing.T) {
 			calc c : Two;
 		}
 	`
-	err := calcUsageOutputInSource(t, src, "c", "a", 10000)
-	if !errors.Is(err, errUnboundParameter) {
-		t.Errorf("expected errUnboundParameter, got: %v", err)
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	ctx.maxSteps = 10000
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "c", ast.DefCalc)
+	if sym == nil {
+		t.Fatal("calc usage c not found")
+	}
+	for _, output := range []string{"a", "b"} {
+		value, err := ctx.calcUsageOutput(sym, output, sym.OwnerScope, nil)
+		if err != nil || value.Kind != ValUndetermined || !strings.Contains(value.Undetermined().reason, `parameter "n"`) {
+			t.Errorf("output %s of c = %s, %v; want undetermined naming the input nothing supplies", output, FormatTraceValue(value), err)
+		}
 	}
 }
 

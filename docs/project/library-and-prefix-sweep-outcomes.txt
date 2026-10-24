@@ -899,14 +899,14 @@ read	new Probe::A1().decisions	systems	Actions::Action::decisions	empty
 read	new Probe::A1().done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
 read	new Probe::A1().forLoops	systems	Actions::Action::forLoops	empty
 read	new Probe::A1().forks	systems	Actions::Action::forks	empty
-read	new Probe::A1().i	model	Probe::A1::i	empty
+read	new Probe::A1().i	model	Probe::A1::i	undetermined <undetermined>
 read	new Probe::A1().ifSubactions	systems	Actions::Action::ifSubactions	empty
 read	new Probe::A1().incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
 read	new Probe::A1().joins	systems	Actions::Action::joins	empty
 read	new Probe::A1().loops	systems	Actions::Action::loops	empty
 read	new Probe::A1().merges	systems	Actions::Action::merges	empty
 read	new Probe::A1().nested	model	Probe::A1::nested	object:Probe::A2
-read	new Probe::A1().o	model	Probe::A1::o	empty
+read	new Probe::A1().o	model	Probe::A1::o	undetermined <undetermined>
 read	new Probe::A1().self	systemsFRAME	Actions::Action::self	object:Probe::A1
 read	new Probe::A1().sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	new Probe::A1().start	systemsFRAME	Actions::Action::start	undetermined <undetermined>
@@ -959,8 +959,8 @@ read	new Probe::R1().subrequirements	systems	Requirements::RequirementCheck::sub
 read	new Probe::R1().who	model	Probe::R1::who	object:Probe::P2
 object	new Probe::C1()	object:Probe::C1
 read	new Probe::C1().self	systemsFRAME	Constraints::ConstraintCheck::self	object:Probe::C1
-read	new Probe::C1().x	model	Probe::C1::x	empty
-read	new Probe::C1().y	model	Probe::C1::y	empty
+read	new Probe::C1().x	model	Probe::C1::x	undetermined <undetermined>
+read	new Probe::C1().y	model	Probe::C1::y	undetermined <undetermined>
 object	new Probe::K1()	object:Probe::K1
 read	new Probe::K1().acceptSubactions	systems	Actions::Action::acceptSubactions	empty
 read	new Probe::K1().assignments	systems	Actions::Action::assignments	empty
@@ -983,7 +983,7 @@ read	new Probe::K1().subcalculations	systems	Calculations::Calculation::subcalcu
 read	new Probe::K1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::K1().transitions	systems	Actions::Action::transitions	empty
 read	new Probe::K1().whileLoops	systems	Actions::Action::whileLoops	empty
-read	new Probe::K1().x	model	Probe::K1::x	empty
+read	new Probe::K1().x	model	Probe::K1::x	undetermined <undetermined>
 object	new Probe::Ca1()	object:Probe::Ca1
 read	new Probe::Ca1().acceptSubactions	systems	Actions::Action::acceptSubactions	empty
 read	new Probe::Ca1().actors	systems	Cases::Case::actors	empty
@@ -1700,7 +1700,7 @@ prefix	abstract [0..*] + subsetter	connection Cn1	abstract connection x : Cn1[0.
 prefix	variation	attribute Integer	variation attribute x : Integer { variant attribute va : Integer; variant attribute vb : Integer; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	attribute At1	variation attribute x : At1 { variant attribute va : At1; variant attribute vb : At1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	enum E1	variation enum x : E1 { variant enum va : E1; variant enum vb : E1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
-prefix	variation	calc K1	variation calc x : K1 { variant calc va : K1; variant calc vb : K1; }	Probe::d.x => collection(1) [constant 4] ;; Probe::d.x.va => error unknown output: calc Probe::D::x declares no output va (it declares: none)
+prefix	variation	calc K1	variation calc x : K1 { variant calc va : K1; variant calc vb : K1; }	Probe::d.x => collection(1) [constant 4] ;; Probe::d.x.va => error unknown output: calc Probe::D::x declares no member va (it declares: result)
 prefix	variation	part P2	variation part x : P2 { variant part va : P2; variant part vb : P2; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	item I1	variation item x : I1 { variant item va : I1; variant item vb : I1; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
 prefix	variation	port Pt	variation port x : Pt { variant port va : Pt; variant port vb : Pt; }	Probe::d.x => error variation has no variant selected: d.x ;; Probe::d.x.va => variant va
