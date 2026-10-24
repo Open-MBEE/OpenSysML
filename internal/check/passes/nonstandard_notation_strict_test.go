@@ -1,6 +1,7 @@
 package passes
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -109,6 +110,12 @@ func TestTypedByFollowsTheMode(t *testing.T) {
 		if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeKerMLNotation {
 			t.Errorf("strict %s: got %+v, want one kerml-notation error", src, got)
 		}
+	}
+	// A KerML-only declaration is reported once; the body parameter inside it is not a second finding.
+	const nested = "package P { class C { feature f = { in x typed by C; x }; } }"
+	got = notationDiags(t, "a.sysml", nested, diag.ConformanceStrict)
+	if len(got) != 1 || got[0].Code != CodeKerMLNotation || !strings.Contains(got[0].Message, "`class`") {
+		t.Errorf("strict %s: got %+v, want the class finding alone", nested, got)
 	}
 }
 

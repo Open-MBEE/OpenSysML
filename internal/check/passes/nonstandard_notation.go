@@ -735,13 +735,18 @@ func (w *notationWalker) typedByPrefixes(prefixes []*ast.PrefixMetadata) {
 
 // typedByInExpressions reports the typings spelled `typed by` that the walk
 // does not reach because they sit inside an expression: a body expression's
-// parameters (`{ in x typed by T; … }`).
+// parameters (`{ in x typed by T; … }`). A KerML-only declaration is reported
+// once by kermlDeclaration, so its subtree is skipped as the walk skips it.
 func (w *notationWalker) typedByInExpressions(root *ast.RootNamespace) {
 	if !w.sysml {
 		return
 	}
 	ast.Inspect(root, func(n ast.Node) bool {
 		switch n := n.(type) {
+		case *ast.Definition:
+			return !isKerMLOnlyDeclarationKeyword(n.Keyword)
+		case *ast.Usage:
+			return !isKerMLOnlyDeclarationKeyword(n.Keyword)
 		case *ast.BodyExpr:
 			for i := range n.Params {
 				w.typedByRelationships(n.Params[i].Relationships)
