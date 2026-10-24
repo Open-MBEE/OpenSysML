@@ -1537,11 +1537,14 @@ jobs:
       - attach_workspace:
           at: .
 
+      # `npm install`, not `npm ci`: a release branch pins platform packages npm 11.6+'s `npm ci`
+      # refuses to miss from the lock until the tag publishes them; the lock must not change by it.
       - run:
           name: Install the client's dependencies
           command: |
             cd client/node
-            npm ci
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
 
       - run:
           name: Build the package
@@ -1739,7 +1742,8 @@ jobs:
           name: Install the browser client's dependencies
           command: |
             cd client/node
-            npm ci --ignore-scripts
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
 
       - run:
           name: Test the VS Code extension with coverage
@@ -3115,7 +3119,8 @@ jobs:
             # Makes the suite assert that the table just stamped pins this tag.
             export OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}"
             cd client/node
-            npm ci
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
             npm run build
             npm run typecheck
             npm run lint
