@@ -249,7 +249,7 @@ func (ctx *Context) deriveBodyCell(cells *bodyCells, name string, cell *bodyCell
 		cell.fv.Value, cell.fv.Values, cell.fv.Materialized = value, Value{}, true
 		cell.fv.intrinsic = false
 		cells.vars[name] = value
-		ctx.deriveMarks(cell.binding)
+		ctx.deriveMarks(cell.binding.place, cell.binding.scope, cell.binding.value)
 		return value, nil
 	})
 	return value, err

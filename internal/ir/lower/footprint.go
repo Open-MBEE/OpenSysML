@@ -512,7 +512,7 @@ func (b *footprintBuilder) boundValue(sym *symbols.Symbol) {
 		return
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || !valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault) {
+	if !ok {
 		return
 	}
 	switch usage.Kind {
@@ -529,6 +529,19 @@ func (b *footprintBuilder) boundValue(sym *symbols.Symbol) {
 	}
 	b.expanding[usage] = true
 	defer delete(b.expanding, usage)
+	if usage.Value == nil {
+		// A redefining feature valued by nothing of its own is bound as the one it
+		// redefines is (`attribute :>> y;` over `attribute y = x + 1`).
+		for _, rel := range usage.Relationships {
+			if rel != nil && rel.Kind == ast.RelRedefines {
+				b.boundValue(b.redefined(sym, rel.Target))
+			}
+		}
+		return
+	}
+	if !valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault) {
+		return
+	}
 	scope := sym.Scope
 	if scope == nil {
 		scope = sym.OwnerScope
@@ -537,6 +550,28 @@ func (b *footprintBuilder) boundValue(sym *symbols.Symbol) {
 		scope = b.scope
 	}
 	b.reads(scope, usage.Value)
+}
+
+// redefined is the feature a redefinition of sym names by target, declared in a
+// general of sym's owner; nil when the declarations do not reach it.
+func (b *footprintBuilder) redefined(sym *symbols.Symbol, target ast.Node) *symbols.Symbol {
+	if chain, ok := target.(*ast.FeatureChainExpr); ok {
+		target = chain.Member
+	}
+	qname := ast.AsQualifiedName(target)
+	if qname == nil || len(qname.Parts) == 0 {
+		return nil
+	}
+	segments := make([]string, len(qname.Parts))
+	for i, part := range qname.Parts {
+		segments[i] = part.Text
+	}
+	for _, general := range resolve.GeneralBodies(sym.OwnerScope) {
+		if redefined, ok := resolve.FeatureSymbolInScope(general, segments); ok && redefined != nil && redefined != sym {
+			return redefined
+		}
+	}
+	return nil
 }
 
 // calcUsage adds what reading a calc usage evaluates: the values its members

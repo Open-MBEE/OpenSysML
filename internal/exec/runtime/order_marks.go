@@ -264,12 +264,12 @@ func (ctx *Context) readStanding(deps []int64, fp lower.Footprint, dynamicAll bo
 // computed from them would. Deriving is a read, not a move, so it stands on no
 // control; a derivation reading nothing order-dependent clears the mark, as a
 // clean write does.
-func (ctx *Context) deriveMarks(binding *bodyBinding) {
-	if binding.place.Name == "" {
+func (ctx *Context) deriveMarks(place lower.Place, scope *symbols.Scope, value ast.Node) {
+	if place.Name == "" || value == nil {
 		return
 	}
-	fp := ctx.model.expressionFootprint(binding.scope, binding.value)
-	ctx.writeMarks([]lower.Place{binding.place}, ctx.readStanding(nil, fp, true))
+	fp := ctx.model.expressionFootprint(scope, value)
+	ctx.writeMarks([]lower.Place{place}, ctx.readStanding(nil, fp, true))
 }
 
 // placeOf is the place as the run holds it: a parameter of the action performed,
