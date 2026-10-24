@@ -177,6 +177,11 @@ func (ctx *Context) checkTargetHeld(scope *symbols.Scope, what func() string, ta
 		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
 	if !countJudged {
+		// A multiplicity left unstated judges no count, but a usage the implicit [1..1]
+		// governs (SysML v2 §7.6.3) still holds one held value as that value.
+		if ctx.model.semantics.ImplicitMultiplicityApplies(target.feature) {
+			*value = soleElement(*value)
+		}
 		return nil
 	}
 	if shaped {
@@ -208,13 +213,52 @@ func (ctx *Context) shapeForTarget(target *writeTarget, value *Value) error {
 		return nil
 	}
 	if (value.Kind == ValSequence || value.Kind == ValSet) && target.holdsSet == (value.Kind == ValSet) {
-		return nil
+		return ctx.chargeShaped(*value)
 	}
 	elements := elementsOf(*value)
+	if value.Kind != ValSequence && value.Kind != ValSet && semantics.IsOutputParameter(target.feature) {
+		// A result takes the one-element shape it leaves its body in; the element is
+		// charged once a feature holds the shape, as a value written to one is.
+		*value = ctx.collectionOf(&EffectiveFeature{HoldsSet: target.holdsSet}, elements)
+		markShaped(*value)
+		return nil
+	}
 	if err := ctx.chargeElements(int64(len(elements))); err != nil {
 		return err
 	}
 	*value = ctx.collectionOf(&EffectiveFeature{HoldsSet: target.holdsSet}, elements)
+	return nil
+}
+
+// markShaped notes that the collection is the shape one value is held in, its
+// element not yet charged.
+func markShaped(value Value) {
+	switch value.Kind {
+	case ValSequence:
+		value.Sequence().shaped = true
+	case ValSet:
+		value.Set().shaped = true
+	}
+}
+
+// chargeShaped charges the element of a shape a feature now holds, once.
+func (ctx *Context) chargeShaped(value Value) error {
+	var shaped *bool
+	switch value.Kind {
+	case ValSequence:
+		shaped = &value.Sequence().shaped
+	case ValSet:
+		shaped = &value.Set().shaped
+	default:
+		return nil
+	}
+	if !*shaped {
+		return nil
+	}
+	if err := ctx.chargeElements(int64(len(elementsOf(value)))); err != nil {
+		return err
+	}
+	*shaped = false
 	return nil
 }
 

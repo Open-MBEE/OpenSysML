@@ -63,6 +63,7 @@ func TestCalcUsageReadThroughPartChain(t *testing.T) {
 		{"throughNestedPart", 3.0},
 	} {
 		got, err := evalNamedAttribute(t, partChainModel, tt.name)
+		got = soleElement(got)
 		if err != nil {
 			t.Errorf("%s: %v", tt.name, err)
 			continue

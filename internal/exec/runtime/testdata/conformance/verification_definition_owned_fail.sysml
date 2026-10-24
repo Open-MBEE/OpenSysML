@@ -20,7 +20,7 @@ package test {
 
 		verification costTest {
 			objective costObjective { verify costReq; }
-			return verdict = VerificationCases::PassIf(cost <= 100.0);
+			return verdict = VerificationCases::PassIf(costReq(this));
 		}
 	}
 

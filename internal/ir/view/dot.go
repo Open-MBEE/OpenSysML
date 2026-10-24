@@ -76,13 +76,16 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	if err := options.Lines.check(); err != nil {
 		return "", err
 	}
+	if err := options.Compartments.check(); err != nil {
+		return "", err
+	}
 	r = r.showing(options.Show)
 	direction := options.Direction
 	if direction == "" && r.Kind == KindCase {
 		direction = DirectionLeftRight
 	}
-	if options.Unplaced != UnplacedStrip {
-		r = foldCompartments(withoutStandIns(r))
+	if options.Unplaced != UnplacedStrip || options.Compartments.automatic() {
+		r = foldCompartments(withoutStandIns(r), options.Compartments)
 	}
 	w := newDOTWriter(r, options)
 	edges := w.settleEdges(r, options.Unplaced)
@@ -2047,7 +2050,7 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		}
 	case EdgeContainment:
 		attrs = append(attrs, dotDirBack, "arrowtail=odot")
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
 		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
 	case EdgeAssociation:
 		attrs = append(attrs, dirNone)

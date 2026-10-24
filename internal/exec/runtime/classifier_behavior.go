@@ -419,6 +419,11 @@ func (ctx *Context) forgetAbandoned(abandoned map[int64]bool, gone []*Instance) 
 			delete(ctx.occurrences, sym)
 		}
 	}
+	for key, id := range ctx.usageOccurrences {
+		if _, live := ctx.instances[id]; !live || abandoned[key.instance] {
+			delete(ctx.usageOccurrences, key)
+		}
+	}
 	for annotation, id := range ctx.metadataObjects {
 		if _, live := ctx.instances[id]; !live {
 			delete(ctx.metadataObjects, annotation)
@@ -740,9 +745,25 @@ func (ctx *Context) runsBehaviors(typeSym *symbols.Symbol, visiting map[*symbols
 	return runs
 }
 
+// isEventOccurrence reports whether the object is an `event occurrence` usage's.
+func isEventOccurrence(inst *Instance) bool {
+	for _, typ := range inst.types() {
+		if usage, ok := typ.Decl.(*ast.Usage); ok && usage.IsEvent {
+			return true
+		}
+	}
+	return false
+}
+
 // startBehaviorsOf attaches the object's behaviors and, at the outermost start,
 // runs everything attached.
 func (ctx *Context) startBehaviorsOf(inst *Instance) error {
+	// An event occurrence is a point in a lifeline's time: the actions its body
+	// performs are performed when the event occurs in a run of its interaction
+	// (ExecuteOccurrence), not when the object holding the lifeline is materialized.
+	if isEventOccurrence(inst) {
+		return nil
+	}
 	defer ctx.holdDrivenWork()()
 	ctx.noteRefusedBehaviorOrders(inst)
 	for _, typ := range inst.types() {
@@ -1179,8 +1200,8 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 }
 
 // hasPendingWork reports whether running the behavior again would advance it: a
-// machine woken by an event due now or a signal in flight, or an action whose
-// awaited message a sibling has since sent. An event scheduled for a later time
+// machine woken by an event due now, a signal in flight or a change condition a
+// write raised, or an action whose awaited message a sibling has since sent. An event scheduled for a later time
 // is not work materialization waits for, and an execution that reached its end
 // takes no step whatever is left addressed to it.
 func (b *ObjectBehavior) hasPendingWork() bool {
@@ -1192,7 +1213,7 @@ func (b *ObjectBehavior) hasPendingWork() bool {
 	}
 	switch {
 	case b.State != nil:
-		return !b.State.State().Ended() && (b.State.hasDueEvent() || b.State.HasPendingSignal())
+		return !b.State.State().Ended() && (b.State.hasDueEvent() || b.State.HasPendingSignal() || b.State.hasPendingChange())
 	case b.Action != nil:
 		return !b.Action.State().Ended() && b.Action.HasPendingSignal()
 	default:
@@ -1257,13 +1278,24 @@ func (ctx *Context) classifierPerformanceCount(decl classifierBehaviorDecl) (int
 // its type binds, seeded with the values the binding declaration supplies, and
 // initializes it so its start is reported where every other behavior's is.
 func (ctx *Context) attachOneClassifierBehavior(inst *Instance, decl classifierBehaviorDecl, occurrenceIndex int64) (*ObjectBehavior, error) {
+	return ctx.attachClassifierBehaviorWith(inst, inst, decl, occurrenceIndex, func() (map[string]Value, error) {
+		return ctx.classifierBehaviorArguments(inst, decl)
+	})
+}
+
+// attachClassifierBehaviorWith is attachOneClassifierBehavior with the arguments
+// supplied by arguments, evaluated once the binding is made, and performed by
+// self, for a performance the object inst holds but another performs: an event
+// occurrence holds the action its body states, which the lifeline object holding
+// the event performs, its arguments bound on the interaction being run.
+func (ctx *Context) attachClassifierBehaviorWith(inst, self *Instance, decl classifierBehaviorDecl, occurrenceIndex int64, arguments func() (map[string]Value, error)) (*ObjectBehavior, error) {
 	behavior, occurrence, err := ctx.bindClassifierBehavior(inst, decl, occurrenceIndex)
 	if err != nil {
 		return nil, err
 	}
 	sym := behavior.Symbol
 
-	arguments, err := ctx.classifierBehaviorArguments(inst, decl)
+	args, err := arguments()
 	if err != nil {
 		return nil, err
 	}
@@ -1274,7 +1306,7 @@ func (ctx *Context) attachOneClassifierBehavior(inst *Instance, decl classifierB
 		if err != nil {
 			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
-		for name, value := range arguments {
+		for name, value := range args {
 			exec.ctx.writeBodyValue(exec.stateCells, exec.stateData, name, value)
 		}
 		if err := exec.initialize(); err != nil {
@@ -1287,12 +1319,12 @@ func (ctx *Context) attachOneClassifierBehavior(inst *Instance, decl classifierB
 		if decl.behavior.StatesBody && decl.behavior.NamesBehavior {
 			graph = lower.ToActionNodeFlow(decl.member.Decl, DeclScope(decl.member), ctx.Resolver())
 		}
-		exec, err := newActionExecutorOfGraph(ctx, decl.member, sym, inst, occurrence, graph)
+		exec, err := newActionExecutorOfGraph(ctx, decl.member, sym, self, occurrence, graph)
 		if err != nil {
 			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
-		if len(arguments) > 0 {
-			exec.SetInputs(arguments)
+		if len(args) > 0 {
+			exec.SetInputs(args)
 		}
 		// An action stating no flow performs no step; the object still performs it,
 		// completed at once, rather than failing to be created.

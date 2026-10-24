@@ -97,6 +97,12 @@ func streamArchive(t *testing.T, name string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return streamArchiveOf(t, name, data)
+}
+
+// streamArchiveOf zips the given XMI, standing in for a fixture's, with that fixture's streams.
+func streamArchiveOf(t *testing.T, name string, data []byte) []byte {
+	t.Helper()
 	type entry struct {
 		name string
 		data []byte
@@ -246,7 +252,7 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	if l == nil {
 		t.Fatal("no layout summary")
 	}
-	if l.Routes != 24 || l.RoutesWritten != 13 || l.RoutesUnexposed != 10 || l.RoutesDangling != 1 {
+	if l.Routes != 24 || l.RoutesWritten != 17 || l.RoutesUnexposed != 6 || l.RoutesDangling != 1 {
 		t.Errorf("routes: %+v", l)
 	}
 	// An edge of the graph the activity's rendering does not draw is exposed, not swallowed.
@@ -291,16 +297,17 @@ func TestGoldenEdgeLayout(t *testing.T) {
 		{Kind: "Connector", Reason: "written", Count: 3},
 		{Kind: "ControlFlow", Reason: "unnamed", Count: 1},
 		{Kind: "ControlFlow", Reason: "written", Count: 2},
-		{Kind: "Dependency", Reason: "not drawn", Count: 2},
+		{Kind: "Dependency", Reason: "written", Count: 2},
 		{Kind: "Generalization", Reason: "written", Count: 1},
 		{Kind: "Include", Reason: "written", Count: 1},
 		{Kind: "ObjectFlow", Reason: "not drawn", Count: 1},
 		{Kind: "ObjectFlow", Reason: "written", Count: 1},
-		{Kind: "Satisfy", Reason: "not drawn", Count: 2},
+		{Kind: "Satisfy", Reason: "not exposed", Count: 1},
+		{Kind: "Satisfy", Reason: "written", Count: 1},
 		{Kind: "Transition", Reason: "dangling", Count: 1},
 		{Kind: "Transition", Reason: "no v2 member", Count: 1},
 		{Kind: "Transition", Reason: "written", Count: 3},
-		{Kind: "Verify", Reason: "not drawn", Count: 1},
+		{Kind: "Verify", Reason: "written", Count: 1},
 	}
 	if !reflect.DeepEqual(l.RoutesByKind, wantKinds) {
 		t.Errorf("routes by kind:\n got %+v\nwant %+v", l.RoutesByKind, wantKinds)
@@ -555,7 +562,7 @@ func TestLayoutSummary(t *testing.T) {
 	// The tree diagram draws no connection, so its connector's route is not
 	// pinned; the control flow the interconnection diagram shows is not either.
 	wantKinds := []migrate.RouteKind{
-		{Kind: "Connector", Reason: "not drawn", Count: 1},
+		{Kind: "Connector", Reason: "not exposed", Count: 1},
 		{Kind: "Connector", Reason: "written", Count: 1},
 		{Kind: "ControlFlow", Reason: "not drawn", Count: 1},
 		{Kind: "Dependency", Reason: "dangling", Count: 1},

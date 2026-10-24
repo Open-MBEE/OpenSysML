@@ -1706,8 +1706,8 @@ package test {
 $ sysml -analysis test::steps steps.sysml
 ✓ package test
 ✓ test::steps
-  total = 66.0
-  result = 60.0
+  total = [66.0]
+  result = [60.0]
 ```
 
 The body's `action` steps run through the same executor `%action` debugs: `then` sequences them,
@@ -1924,11 +1924,11 @@ what that run computed and how long it took:
 %instantiate An::ship
 %sweep An::CostAnalysis An::ship limit=10.0..30.0:10.0
 sweep An::CostAnalysis — 3 run(s)
-limit | total | verdict                   | time
-------+-------+---------------------------+--------
-10.0  | 12.0  | affordable: not satisfied | 0.510ms
-20.0  | 12.0  | affordable: satisfied     | 0.022ms
-30.0  | 12.0  | affordable: satisfied     | 0.012ms
+limit | total  | verdict                   | time
+------+--------+---------------------------+--------
+10.0  | [12.0] | affordable: not satisfied | 0.510ms
+20.0  | [12.0] | affordable: satisfied     | 0.022ms
+30.0  | [12.0] | affordable: satisfied     | 0.012ms
 
 %samples 3 42 An::CostAnalysis An::ship limit=10.0..30.0
 samples An::CostAnalysis — 3 run(s), seed 42
@@ -2026,7 +2026,7 @@ whether its alternative is the one the case returned:
 $ sysml -analysis Trade::lightest trade.sysml
 ✓ package Trade
 ✓ Trade::lightest
-  selectedAlternative = Trade::b (object #2)
+  selectedAlternative = [Trade::b (object #2)]
   objective tradeStudyObjective: satisfied
   evaluationFunction(Trade::a (object #1)) = 30.0
   evaluationFunction(Trade::b (object #2)) = 10.0 [selected]
@@ -2057,11 +2057,11 @@ whose run failed keeps the evaluations it made before failing:
 ```
 %sweep Trade::weighted powerWeight=0.0..1.0:0.5
 sweep Trade::weighted — 3 run(s)
-powerWeight | selectedAlternative        | verdict                        | evaluations                                                                                                            | time
-------------+---------------------------+--------------------------------+------------------------------------------------------------------------------------------------------------------------+--------
-0.0         | Trade::light (object #2)  | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = -30.0; evaluationFunction(Trade::light (object #2)) = -10.0 [selected] | 3.053ms
-0.5         | Trade::strong (object #1) | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 120.0 [selected]; evaluationFunction(Trade::light (object #2)) = 15.0  | 0.215ms
-1.0         | Trade::strong (object #1) | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 270.0 [selected]; evaluationFunction(Trade::light (object #2)) = 40.0  | 0.153ms
+powerWeight | selectedAlternative         | verdict                        | evaluations                                                                                                            | time
+------------+----------------------------+--------------------------------+------------------------------------------------------------------------------------------------------------------------+--------
+0.0         | [Trade::light (object #2)]  | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = -30.0; evaluationFunction(Trade::light (object #2)) = -10.0 [selected] | 3.053ms
+0.5         | [Trade::strong (object #1)] | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 120.0 [selected]; evaluationFunction(Trade::light (object #2)) = 15.0  | 0.215ms
+1.0         | [Trade::strong (object #1)] | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 270.0 [selected]; evaluationFunction(Trade::light (object #2)) = 40.0  | 0.153ms
 ```
 
 The run and `%optimize` answer different questions. The run is the model's own answer: it
@@ -2162,7 +2162,10 @@ at all: each step adds `getDifference(input, stateSpace)` to the state.
 
 The clock is the runtime's one clock, so a state machine exhibited beside the dynamics sees the
 same time: its `accept after`/`at` triggers fire in step order, and a state's entry action can
-read `dynamics.output` as the state the last step wrote. When a step and a timed trigger fall
+read `dynamics.output` as the state the last step wrote. `stopTime` and `time` are durations
+from the performance's own start, not instants of that clock, so a performance begun after
+another has advanced the clock — a second `-action`, an action after an `-analysis` — steps as
+far and ends at the same values as the first. When a step and a timed trigger fall
 due at one instant, which runs first is a `due order` choice point the scheduling policy decides
 (see [When a model has more than one valid run](#when-a-model-has-more-than-one-valid-run)),
 never an implicit order; `explore` and the checker enumerate both. A model that states no

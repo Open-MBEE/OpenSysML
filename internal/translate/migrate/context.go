@@ -62,7 +62,8 @@ const (
 )
 
 func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
-	if b == nil || m.asUsage[b] {
+	if b == nil || m.asUsage[b] || b.Type == "Interaction" {
+		// An interaction's occurrence def declares no parameter; its lifelines are bound in the context's occurrence usage of it.
 		return nil
 	}
 	if c, settled := m.contexts[b]; settled {

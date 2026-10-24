@@ -498,7 +498,7 @@ func TestEvaluateCalcAppliesPositionalArguments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvaluateCalc: %v", err)
 	}
-	if got, ok := calculation.Result.(opensysml.Int); !ok || got != 5 {
+	if got, ok := sole(t, "add", calculation.Result).(opensysml.Int); !ok || got != 5 {
 		t.Errorf("result = %#v, want Int(5)", calculation.Result)
 	}
 }
@@ -733,6 +733,58 @@ func TestRenderViewAgainstService(t *testing.T) {
 	}
 	if _, err := client.RenderView(context.Background(), model, "RenderViewDemo::connections", opensysml.WithShow("no-such-element")); err == nil {
 		t.Error("RenderView showing an unknown element returned no error")
+	}
+}
+
+func TestRenderViewCompartmentsAgainstService(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, `package Folded {
+    private import Views::*;
+    attribute def Label;
+    port def Hub { port bearing : Hub; }
+    part def Sensor { attribute label : Label; }
+    part def Controller { part sensor : Sensor; port hub : Hub; }
+    view structure { expose Sensor; expose Controller; render asTreeDiagram; }
+}
+`)
+	rowsOf := func(rendered *opensysml.RenderedView) map[string]string {
+		rows := map[string]string{}
+		for _, node := range rendered.Nodes {
+			if node.Compartment != "" {
+				rows[node.Name] = node.Compartment
+			}
+		}
+		return rows
+	}
+	plain, err := client.RenderView(context.Background(), model, "Folded::structure")
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	if rows := rowsOf(plain); len(rows) != 0 || len(plain.Nodes) != 7 {
+		t.Errorf("without a folding %d nodes with rows %v; want 7 boxes", len(plain.Nodes), rows)
+	}
+	most, err := client.RenderView(context.Background(), model, "Folded::structure", opensysml.WithCompartments("most"))
+	if err != nil {
+		t.Fatalf("RenderView with most: %v", err)
+	}
+	if rows := rowsOf(most); rows["label"] != "attributes" || rows["sensor"] != "parts" || rows["hub"] != "ports" || rows["hub.bearing"] != "ports" || len(most.Nodes) != 6 {
+		t.Errorf("most: %d nodes with rows %v; want two boxes and four rows", len(most.Nodes), rows)
+	}
+	if len(most.Edges) != 1 || most.Edges[0].Label != "sensor" {
+		t.Errorf("most edges = %+v, want the composition sensor alone", most.Edges)
+	}
+	if !strings.Contains(strings.Join(most.Notices, "\n"), "drawn as compartment rows of their owner") {
+		t.Errorf("notices = %v, want the folding noticed", most.Notices)
+	}
+	ports, err := client.RenderView(context.Background(), model, "Folded::structure", opensysml.WithCompartments("ports"))
+	if err != nil {
+		t.Fatalf("RenderView with ports: %v", err)
+	}
+	if rows := rowsOf(ports); rows["hub"] != "ports" || rows["sensor"] != "" {
+		t.Errorf("ports rows = %v, want the ports alone folded", rows)
+	}
+	if _, err := client.RenderView(context.Background(), model, "Folded::structure", opensysml.WithCompartments("rows")); err == nil {
+		t.Error("RenderView with an unknown folding returned no error")
 	}
 }
 

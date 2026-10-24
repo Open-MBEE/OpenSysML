@@ -3,7 +3,7 @@
   "type": "analysis",
   "evaluate": "test::overweight",
   "outputs": {
-    "result": {"type": "Real", "value": 5000.0}
+    "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 5000.0}]}
   },
   "verdicts": {
     "obj": "not satisfied",

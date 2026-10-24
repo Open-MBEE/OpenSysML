@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- A requirement diagram: a requirement with two nested requirements, one
+         derived from the other, and a block satisfying one of them. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_reqs" name="Requirements">
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_mission" name="Mission">
+        <nestedClassifier xmi:type="uml:Class" xmi:id="_req_mass" name="Payload Mass"/>
+        <nestedClassifier xmi:type="uml:Class" xmi:id="_req_power" name="Payload Power"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_bus" name="Bus"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_derive" client="_req_power" supplier="_req_mass"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_satisfy" client="_blk_bus" supplier="_req_mass"/>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_reqs" name="Mission Requirements" ownerOfDiagram="_pkg_reqs">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Requirement Diagram" umlType="Requirement Diagram">
+                <diagramContents>
+                  <usedElements>_req_mission</usedElements>
+                  <usedElements>_req_mass</usedElements>
+                  <usedElements>_req_power</usedElements>
+                  <usedElements>_blk_bus</usedElements>
+                  <usedElements>_dep_derive</usedElements>
+                  <usedElements>_dep_satisfy</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-requirement_diagram"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Requirement xmi:id="_st_req_mission" base_Class="_req_mission" Id="R1" Text="The mission shall deliver the payload."/>
+  <sysml:Requirement xmi:id="_st_req_mass" base_Class="_req_mass" Id="R1.1" Text="The payload shall weigh at most 50 kg."/>
+  <sysml:Requirement xmi:id="_st_req_power" base_Class="_req_power" Id="R1.2" Text="The payload shall draw at most 100 W."/>
+  <sysml:Block xmi:id="_st_blk_bus" base_Class="_blk_bus"/>
+  <sysml:DeriveReqt xmi:id="_st_derive" base_Abstraction="_dep_derive"/>
+  <sysml:Satisfy xmi:id="_st_satisfy" base_Abstraction="_dep_satisfy"/>
+</xmi:XMI>

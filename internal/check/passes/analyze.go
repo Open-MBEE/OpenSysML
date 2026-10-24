@@ -36,6 +36,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(ElementFilterPass{})
 	reg.Register(ConstraintPass{})
 	reg.Register(VariantOwnerPass{})
+	reg.Register(VariantKindPass{})
 	reg.Register(document.QueryPass{})
 	reg.Register(document.PlanPass{})
 	reg.Register(TypeRelationshipsPass{})

@@ -7,19 +7,22 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// LibraryLanguage is the half of the standard library a bundled tier belongs to:
-// Kernel is KerML, Systems and Domain are SysML; extensions and workspace are neither.
+// LibraryLanguage is the library a bundled tier's ids are fixed under: Kernel
+// is KerML, Systems and Domain are SysML, this implementation's extensions are
+// OpenSysML; an unplaced library tier and the workspace are none.
 func LibraryLanguage(tier symbols.LibraryTier) (Language, bool) {
 	switch tier {
 	case symbols.TierKernelSemantic, symbols.TierKernelDataType, symbols.TierKernelFunction:
 		return KerML, true
 	case symbols.TierSystems, symbols.TierDomain:
 		return SysML, true
+	case symbols.TierOpenSysML:
+		return OpenSysML, true
 	}
 	return 0, false
 }
 
-// qualifier decides which library symbols the norm gives a qualified name, and so an id.
+// qualifier decides which library symbols their library gives a qualified name, and so an id.
 type qualifier struct {
 	idx  libraryView
 	memo map[*symbols.Symbol]bool
@@ -29,7 +32,7 @@ func newQualifier(idx libraryView) *qualifier {
 	return &qualifier{idx: idx, memo: make(map[*symbols.Symbol]bool)}
 }
 
-// language is the language whose norm fixes sym's id, if any.
+// language is the library whose scheme fixes sym's id, if any.
 func (q *qualifier) language(sym *symbols.Symbol) (Language, bool) {
 	lang, ok := LibraryLanguage(q.idx.LibraryTier(sym))
 	if !ok || !q.qualified(sym) {
@@ -68,8 +71,9 @@ func firstSoNamed(sym *symbols.Symbol) bool {
 	return false
 }
 
-// LibraryElement is one named element of the standard library and the ids the
-// norm fixes for it and for the membership that owns it.
+// LibraryElement is one named element of a bundled library and the ids fixed
+// for it and for the membership that owns it: the norm's for the standard
+// library, this implementation's for its extension libraries.
 type LibraryElement struct {
 	Symbol             *symbols.Symbol
 	FQN                string
@@ -85,6 +89,7 @@ type LibraryElement struct {
 type Catalog struct {
 	elements    map[string]*LibraryElement
 	memberships map[string]*LibraryElement
+	symbols     map[*symbols.Symbol]*LibraryElement
 	names       map[string]*LibraryElement
 	roots       map[string]*LibraryElement
 	kinds       map[string]source.Kind
@@ -100,6 +105,12 @@ func (c *Catalog) Element(id string) (*LibraryElement, bool) {
 // ElementNamed is the library element whose qualified name is fqn.
 func (c *Catalog) ElementNamed(fqn string) (*LibraryElement, bool) {
 	el, ok := c.names[fqn]
+	return el, ok
+}
+
+// ElementForSymbol is the catalogued library element declared by sym.
+func (c *Catalog) ElementForSymbol(sym *symbols.Symbol) (*LibraryElement, bool) {
+	el, ok := c.symbols[sym]
 	return el, ok
 }
 
@@ -125,6 +136,8 @@ func (c *Catalog) Elements() []*LibraryElement { return c.order }
 
 // catalogs memoizes the catalog of each frozen library index.
 var catalogs sync.Map // *symbols.Index → *Catalog
+var openSysMLCatalogs sync.Map
+var combinedCatalogs sync.Map
 
 // LibraryCatalog is the catalog of the library idx holds, shared by every
 // overlay that shows its base's library documents as the base does.
@@ -132,10 +145,7 @@ func LibraryCatalog(idx *symbols.Index) *Catalog {
 	if idx == nil {
 		return newCatalog()
 	}
-	key := idx
-	if base := idx.Base(); base != nil && showsLibraryOf(idx, base, "") {
-		key = base
-	}
+	key := libraryCatalogIndex(idx)
 	if !key.Frozen() {
 		return buildCatalog(key)
 	}
@@ -144,6 +154,75 @@ func LibraryCatalog(idx *symbols.Index) *Catalog {
 	}
 	c, _ := catalogs.LoadOrStore(key, buildCatalog(key))
 	return c.(*Catalog)
+}
+
+// OpenSysMLLibraryCatalog catalogs the bundled OpenSysML extension elements
+// separately from elements whose IDs are verified by the normative library XMI.
+func OpenSysMLLibraryCatalog(idx *symbols.Index) *Catalog {
+	if idx == nil {
+		return newCatalog()
+	}
+	key := libraryCatalogIndex(idx)
+	if !key.Frozen() {
+		return buildOpenSysMLCatalog(key)
+	}
+	if c, ok := openSysMLCatalogs.Load(key); ok {
+		return c.(*Catalog)
+	}
+	c, _ := openSysMLCatalogs.LoadOrStore(key, buildOpenSysMLCatalog(key))
+	return c.(*Catalog)
+}
+
+// LibraryCatalogWithOpenSysML combines normative and OpenSysML extension IDs
+// for graph and API-JSON serialization without changing the normative catalog.
+func LibraryCatalogWithOpenSysML(idx *symbols.Index) *Catalog {
+	if idx == nil {
+		return newCatalog()
+	}
+	key := libraryCatalogIndex(idx)
+	if !key.Frozen() {
+		return mergeCatalogs(LibraryCatalog(key), OpenSysMLLibraryCatalog(key))
+	}
+	if c, ok := combinedCatalogs.Load(key); ok {
+		return c.(*Catalog)
+	}
+	c, _ := combinedCatalogs.LoadOrStore(
+		key, mergeCatalogs(LibraryCatalog(key), OpenSysMLLibraryCatalog(key)),
+	)
+	return c.(*Catalog)
+}
+
+func libraryCatalogIndex(idx *symbols.Index) *symbols.Index {
+	if base := idx.Base(); base != nil && showsLibraryOf(idx, base, "") {
+		return base
+	}
+	return idx
+}
+
+func mergeCatalogs(catalogs ...*Catalog) *Catalog {
+	merged := newCatalog()
+	for _, catalog := range catalogs {
+		for _, element := range catalog.order {
+			merged.elements[element.ID] = element
+			merged.memberships[element.OwningMembershipID] = element
+			merged.symbols[element.Symbol] = element
+			merged.names[element.FQN] = element
+			merged.order = append(merged.order, element)
+		}
+		for name, root := range catalog.roots {
+			if previous, ok := merged.roots[name]; ok {
+				if previous != root {
+					merged.roots[name] = nil
+				}
+			} else {
+				merged.roots[name] = root
+			}
+		}
+		for name, kind := range catalog.kinds {
+			merged.kinds[name] = kind
+		}
+	}
+	return merged
 }
 
 // libraryApart is the catalog of the library idx holds apart from the named
@@ -234,16 +313,41 @@ func newCatalog() *Catalog {
 	return &Catalog{
 		elements:    map[string]*LibraryElement{},
 		memberships: map[string]*LibraryElement{},
+		symbols:     map[*symbols.Symbol]*LibraryElement{},
 		names:       map[string]*LibraryElement{},
 		roots:       map[string]*LibraryElement{},
 		kinds:       map[string]source.Kind{},
 	}
 }
 
-// buildCatalog fixes the id of every element the norm names in idx's library documents.
+// buildCatalog fixes the id of every named element of idx's library documents.
 func buildCatalog(idx libraryView) *Catalog {
-	c := newCatalog()
 	q := newQualifier(idx)
+	return buildCatalogWithLanguage(idx, q.language)
+}
+
+func buildOpenSysMLCatalog(idx libraryView) *Catalog {
+	q := newQualifier(idx)
+	return buildCatalogWithLanguage(idx, func(sym *symbols.Symbol) (Language, bool) {
+		if idx.LibraryTier(sym) != symbols.TierOpenSysML || !q.qualified(sym) {
+			return 0, false
+		}
+		switch idx.DocumentKind(sym.DocName) {
+		case source.KindKerML:
+			return KerML, true
+		case source.KindSysML:
+			return SysML, true
+		default:
+			return 0, false
+		}
+	})
+}
+
+func buildCatalogWithLanguage(
+	idx libraryView,
+	language func(*symbols.Symbol) (Language, bool),
+) *Catalog {
+	c := newCatalog()
 	var roots []*symbols.Scope
 	for _, name := range idx.Documents() {
 		if !idx.IsLibraryDocument(name) {
@@ -255,7 +359,7 @@ func buildCatalog(idx libraryView) *Catalog {
 		}
 	}
 	for _, sym := range collectSymbols(roots) {
-		lang, ok := q.language(sym)
+		lang, ok := language(sym)
 		if !ok {
 			continue
 		}
@@ -272,6 +376,7 @@ func buildCatalog(idx libraryView) *Catalog {
 		}
 		c.elements[el.ID] = el
 		c.memberships[el.OwningMembershipID] = el
+		c.symbols[sym] = el
 		c.names[el.FQN] = el
 		c.order = append(c.order, el)
 	}

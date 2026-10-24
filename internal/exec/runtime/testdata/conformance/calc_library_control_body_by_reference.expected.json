@@ -3,10 +3,10 @@
   "type": "calcUsage",
   "evaluate": "test::p",
   "outputs": {
-    "positiveOffset": {"type": "Integer", "value": 5},
-    "negativeOffset": {"type": "Integer", "value": 4},
-    "doubled": {"type": "Integer", "value": 42},
-    "within": {"type": "Boolean", "value": true},
-    "beyond": {"type": "Boolean", "value": false}
+    "positiveOffset": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+    "negativeOffset": {"type": "Sequence", "elements": [{"type": "Integer", "value": 4}]},
+    "doubled": {"type": "Sequence", "elements": [{"type": "Integer", "value": 42}]},
+    "within": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "beyond": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]}
   }
 }

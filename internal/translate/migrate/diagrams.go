@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,7 +29,7 @@ var renderings = []struct {
 }{
 	{[]string{"table", "matrix"}, tableRendering},
 	{[]string{"internal block", "parametric", "composite structure", "interconnection"}, interconnectionRendering},
-	{[]string{"block definition", "class", "package", "object", "component", "deployment", "profile", "structure"}, treeRendering},
+	{[]string{"block definition", "class", "package", "object", "component", "deployment", "profile", "structure", "requirement"}, treeRendering},
 }
 
 const (
@@ -82,6 +83,9 @@ type view struct {
 	// tables are the table definitions the diagram carries, written beside
 	// the view in definition order; empty for a diagram that defines none.
 	tables []*tableDoc
+	// rebuilt lists what the view exposes in place of rows the tool never
+	// stored; nil for a diagram whose content the tool serialized.
+	rebuilt *reconstruction
 }
 
 // planViews assigns every diagram the body its view is written in and reserves
@@ -130,6 +134,7 @@ func (m *migration) planViews() {
 	}
 	m.planPrivateLayoutAliasHoles()
 	m.planTables()
+	m.planReconstructions()
 	m.planDocuments()
 }
 
@@ -455,6 +460,41 @@ func (m *migration) draws(x exposures, f viewForm, host, el *sysmlv1.Element, re
 	return x.exposed(ref) || m.graphPins(f, el)
 }
 
+// endsDrawn reports whether the view draws both ends of a dependency-like edge
+// member its form is not made of, which the notation draws only between two
+// shown nodes; true for the form's own edges, whose ends its rendering resolves.
+func (m *migration) endsDrawn(x exposures, f viewForm, host, el *sysmlv1.Element) bool {
+	em, ok := m.edgeMembers[el]
+	if !ok || f.nativeEdge(em.keyword) || !dependencyKeyword(em.keyword) {
+		return true
+	}
+	from, to := m.edgeEnds(el)
+	if len(from) == 0 || len(to) == 0 {
+		return true
+	}
+	drawn := func(ends []*sysmlv1.Element) bool {
+		return slices.ContainsFunc(ends, func(end *sysmlv1.Element) bool { return m.draws(x, f, host, end, m.exposure(end, host)) })
+	}
+	return drawn(from) && drawn(to)
+}
+
+// edgeEnds are the elements a dependency-like edge joins, by side: a
+// dependency's clients and suppliers (a pair of a dependency with several is
+// drawn when one of each side is shown), the roles of a connector's two ends.
+func (m *migration) edgeEnds(el *sysmlv1.Element) (from, to []*sysmlv1.Element) {
+	if el.Type != "Connector" {
+		return m.model.Refs(el, "client"), m.model.Refs(el, "supplier")
+	}
+	ends := el.Owned("end")
+	if len(ends) != 2 {
+		return nil, nil
+	}
+	if a, b := m.model.Ref(ends[0], "role"), m.model.Ref(ends[1], "role"); a != nil && b != nil {
+		return []*sysmlv1.Element{a}, []*sysmlv1.Element{b}
+	}
+	return nil, nil
+}
+
 // drawsAsEdge reports whether the rendering of form f draws el as an edge, which no
 // Layout positions: Cameo places an internal transition as text in its state's box.
 func (m *migration) drawsAsEdge(f viewForm, el *sysmlv1.Element) bool {
@@ -492,6 +532,8 @@ func (m *migration) emptyView(v *view, f viewForm) string {
 	switch {
 	case !d.Represented():
 		return "no diagram representation is serialized, so what it shows is unknown and its view exposes nothing"
+	case v.rebuilt != nil:
+		return v.rebuilt.note(m, d.Owner, v.host)
 	case len(d.Shown) == 0 && pictured > 0:
 		return "it shows no model element, only " + plural(pictured, pastedImage) + " a view rendered " + f.rendering + " does not draw, and its view exposes nothing"
 	case len(d.Shown) == 0:
@@ -600,7 +642,7 @@ func (m *migration) writeViewBody(v *view, form viewForm) {
 		}
 	}
 	geo := m.viewGeometry(v, x, form)
-	note = joinNotes(note, m.viewShownNote(d, x, geo, untyped))
+	note = joinNotes(note, m.viewShownNote(v, x, geo, untyped))
 	doc, docNotes := m.proseNoted(d.Documentation)
 	note = joinNotes(note, strings.Join(docNotes, "; "))
 	m.w.block(decl, func() {
@@ -618,14 +660,16 @@ func (m *migration) writeViewBody(v *view, form viewForm) {
 		for _, line := range geo.lines {
 			m.w.line(line)
 		}
-		m.w.line("render " + prefix + form.rendering + ";")
+		if form.rendering != "" {
+			m.w.line("render " + prefix + form.rendering + ";")
+		}
 	})
 	for _, td := range v.tables {
 		m.writeTable(td)
 	}
 	verdict := Mapped
 	drawsNothing := (shown == 0 || len(x.refs) == 0) && geo.pictures == 0
-	if v.note != "" || untyped || drawsNothing || x.unwritten+x.dangling > 0 || geo.underlaid+geo.undrawn+geo.lost > 0 || len(docNotes) > 0 {
+	if v.note != "" || untyped || drawsNothing || v.rebuilt != nil || x.unwritten+x.dangling > 0 || geo.underlaid+geo.undrawn+geo.lost > 0 || len(docNotes) > 0 {
 		verdict = Approximated
 	}
 	v.entry = m.diagramEntry(d, verdict, m.qualified(append(m.segments(host), v.name)), note)
@@ -636,10 +680,16 @@ func (m *migration) writeViewBody(v *view, form viewForm) {
 func (m *migration) viewDeclaration(v *view, form viewForm, x exposures) (decl, note string) {
 	d, host := v.d, v.host
 	kind := diagramKind(d)
-	note = article(strings.ToLower(kind)) + kind + " written as a view rendered " + form.rendering
+	note = article(strings.ToLower(kind)) + kind + " written as a view"
+	if form.rendering != "" {
+		note += " rendered " + form.rendering
+	}
 	decl = "view " + writeName(v.name)
 	if form.definition != "" {
 		note += " of " + form.definition
+		if form.rendering == "" {
+			note += ", drawn as " + drawnAs(form.definition) + " by its definition"
+		}
 		prefix := viewDefinitionsPrefix
 		if m.shadowsLibrary("StandardViewDefinitions", host) {
 			prefix = globalViewDefinitionsPrefix
@@ -660,13 +710,17 @@ func (m *migration) viewDeclaration(v *view, form viewForm, x exposures) (decl, 
 }
 
 // viewShownNote notes what of the diagram's shown elements the view exposes
-// and draws, and what it leaves out.
-func (m *migration) viewShownNote(d *sysmlv1.Diagram, x exposures, geo viewGeometry, untyped bool) string {
+// and draws, and what it leaves out; for rows the tool never stored, what the
+// view exposes in their place.
+func (m *migration) viewShownNote(v *view, x exposures, geo viewGeometry, untyped bool) string {
+	d := v.d
 	shown := len(d.Shown)
 	var note string
 	switch {
 	case !d.Represented():
 		note = "no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing"
+	case v.rebuilt != nil:
+		note = v.rebuilt.note(m, d.Owner, v.host)
 	case shown == 0 && geo.pictures > 0:
 		note = "the diagram shows no model element; the view draws the " + plural(geo.pictures, pastedImage) + " it carries and exposes nothing"
 	case shown == 0 && geo.undrawn > 0:
@@ -737,6 +791,12 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 			for _, also := range m.edgeRefs(shown.Element, host) {
 				add(also)
 			}
+		}
+	}
+	if v := m.viewOf[d]; v != nil && v.rebuilt != nil {
+		refs, _ := v.rebuilt.refs(m, host)
+		for _, ref := range refs {
+			add(ref)
 		}
 	}
 	return x
@@ -1389,7 +1449,7 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 		var points [][]float64
 		general, why := "", ""
 		if refs, general, why = m.routeTarget(el, v.host, p.form); why == "" {
-			if !m.draws(p.x, p.form, v.host, el, refs[0]) || general != "" && !p.x.exposed(general) {
+			if !m.draws(p.x, p.form, v.host, el, refs[0]) || general != "" && !p.x.exposed(general) || !m.endsDrawn(p.x, p.form, v.host, el) {
 				why = routeNotExposed
 			}
 			refs, points = m.routeLines(el, p.form, refs, m.linePoints(el, c, boxes))
@@ -1450,6 +1510,9 @@ func (m *migration) linePoints(el *sysmlv1.Element, c mtip.Connector, boxes map[
 		return m.connectorLinePoints(el, c)
 	}
 	first, second := m.lineEnds(el)
+	if first == nil && second == nil {
+		return m.pairLinePoints(el, c, boxes)
+	}
 	if first == nil || second == nil || first == second {
 		return c.Points
 	}
@@ -1483,12 +1546,31 @@ func lineReversed(c mtip.Connector, first, second string, boxes map[string]mtip.
 	return false, false
 }
 
+// pairLinePoints is a many-ended dependency's line run, oriented client to supplier
+// by the pair the stream drew it between; as drawn when it names no such pair.
+func (m *migration) pairLinePoints(el *sysmlv1.Element, c mtip.Connector, boxes map[string]mtip.Placement) []float64 {
+	for _, client := range m.model.Refs(el, "client") {
+		for _, supplier := range m.model.Refs(el, "supplier") {
+			if reversed, known := lineReversed(c, client.ID, supplier.ID, boxes); known {
+				if reversed {
+					return reversePoints(c.Points)
+				}
+				return c.Points
+			}
+		}
+	}
+	return c.Points
+}
+
 // lineEnds are the elements at the ends of the line el is drawn as, in the order its
-// member names them: a flow's or transition's source then target, a connection def's end
-// types, or a backed attribute's owner then its type.
+// member names them: a flow's or transition's source then target, a binary dependency's
+// client then supplier, a connection def's end types, or a backed attribute's owner then its type.
 func (m *migration) lineEnds(el *sysmlv1.Element) (first, second *sysmlv1.Element) {
 	if el.Role == "edge" || el.Type == "Transition" {
 		return m.model.Ref(el, "source"), m.model.Ref(el, "target")
+	}
+	if clients, suppliers := m.model.Refs(el, "client"), m.model.Refs(el, "supplier"); len(clients) == 1 && len(suppliers) == 1 {
+		return clients[0], suppliers[0]
 	}
 	if prop := m.backedProperty(el); prop != nil {
 		return prop.Parent, m.model.Ref(prop, "type")

@@ -8,8 +8,8 @@ use std::env;
 use opensysml::{
     AnalysisOptions, Connection, Constraint, ConvertOptions, ConvertSource, DocumentForm,
     DocumentValue, ElementRef, Error, FailureReason, IdForm, MemberOptions, MigrateOptions,
-    MigrateSource, Model, Query, RenderViewPorts, RunOptions, SourceDocument, SourcesOptions,
-    SweepOptions, SweepRange, Value, VerifyOptions,
+    MigrateSource, Model, Query, RenderViewCompartments, RenderViewPorts, RunOptions,
+    SourceDocument, SourcesOptions, SweepOptions, SweepRange, Value, VerifyOptions,
 };
 
 const DEMO: &str = r#"
@@ -24,8 +24,8 @@ package Demo {
     }
     part vehicle : Vehicle;
 
-    calc def Add { in a : Integer; in b : Integer; return : Integer = a + b; }
-    calc def Sum { in a : Real; in b : Real; return : Real = a + b; }
+    calc def Add { in a : Integer; in b : Integer; return : Integer[1] = a + b; }
+    calc def Sum { in a : Real; in b : Real; return : Real[1] = a + b; }
 
     part def Ship {
         attribute cost : Real default = 30.0;
@@ -132,6 +132,7 @@ fn demo() -> Option<Model> {
 fn real(value: Option<&Value>) -> f64 {
     match value {
         Some(Value::Real(v)) => *v,
+        Some(Value::Sequence(elements)) if elements.len() == 1 => real(elements.first()),
         other => panic!("expected a real, got {other:?}"),
     }
 }
@@ -458,6 +459,35 @@ fn a_rendered_view_keeps_ports_edges_and_origins() {
 }
 
 #[test]
+fn rendered_views_fold_members_into_compartment_rows_on_request() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(
+        &connection,
+        include_str!("../../../../conformance/fixtures/views.sysml"),
+    );
+    let boxes = model.render_view("#tree:RenderViewDemo::Assembly").unwrap();
+    assert!(boxes.nodes.iter().all(|node| node.compartment.is_empty()));
+    let folded = model
+        .render_view_folded(
+            "#tree:RenderViewDemo::Assembly",
+            RenderViewPorts::Minimal,
+            &[],
+            0,
+            RenderViewCompartments::Most,
+        )
+        .unwrap();
+    let sender = folded
+        .nodes
+        .iter()
+        .find(|node| node.name == "sender")
+        .expect("sender is drawn");
+    assert_eq!(sender.compartment, "parts");
+    assert!(folded.nodes.len() < boxes.nodes.len());
+}
+
+#[test]
 fn exported_graphs_are_the_canonical_form_of_a_behavior() {
     let Some(connection) = service_or_skip() else {
         return;
@@ -673,11 +703,11 @@ const RUNS_MODEL: &str = r#"package MC {
         subject analysed : Probe;
         perform action run ::> analysed.settle;
         attribute :>> observed : Real = analysed.t;
-        return Mean : Real = mean;
+        return Mean : Real[1] = mean;
     }
     part def P { attribute m : Real = 2.0; }
     part p : P;
-    analysis def Cost { subject s : P; return total : Real = s.m * 3.0; }
+    analysis def Cost { subject s : P; return total : Real[1] = s.m * 3.0; }
 }"#;
 
 #[test]

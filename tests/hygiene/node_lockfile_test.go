@@ -2,16 +2,19 @@ package hygiene
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"strings"
 	"testing"
 )
 
-// TestNodeLockfileAgreesWithTheClientVersion: client/node's lockfile must not lock an
-// @openmbee package at another version than package.json's (npm ci refuses it); absent is fine.
+// TestNodeLockfileAgreesWithTheClientVersion: client/node's lockfile declares what package.json declares and
+// locks no @openmbee package at another version; one absent is a platform package the tag has not published.
 func TestNodeLockfileAgreesWithTheClientVersion(t *testing.T) {
 	var manifest struct {
 		Version              string            `json:"version"`
+		Dependencies         map[string]string `json:"dependencies"`
+		DevDependencies      map[string]string `json:"devDependencies"`
 		OptionalDependencies map[string]string `json:"optionalDependencies"`
 		PeerDependencies     map[string]string `json:"peerDependencies"`
 	}
@@ -19,11 +22,32 @@ func TestNodeLockfileAgreesWithTheClientVersion(t *testing.T) {
 	var lock struct {
 		Packages map[string]struct {
 			Version              string            `json:"version"`
+			Dependencies         map[string]string `json:"dependencies"`
+			DevDependencies      map[string]string `json:"devDependencies"`
 			OptionalDependencies map[string]string `json:"optionalDependencies"`
 			PeerDependencies     map[string]string `json:"peerDependencies"`
 		} `json:"packages"`
 	}
 	readJSON(t, "../../client/node/package-lock.json", &lock)
+
+	root := lock.Packages[""]
+	if root.Version != manifest.Version {
+		t.Errorf("package-lock.json's root is at %s, package.json at %s", root.Version, manifest.Version)
+	}
+	for _, specs := range []struct {
+		field          string
+		manifest, lock map[string]string
+	}{
+		{"dependencies", manifest.Dependencies, root.Dependencies},
+		{"devDependencies", manifest.DevDependencies, root.DevDependencies},
+		{"optionalDependencies", manifest.OptionalDependencies, root.OptionalDependencies},
+		{"peerDependencies", manifest.PeerDependencies, root.PeerDependencies},
+	} {
+		if !maps.Equal(specs.manifest, specs.lock) {
+			t.Errorf("package-lock.json's root %s %v differ from package.json's %v;\n"+
+				"run `npm install --package-lock-only --ignore-scripts` in client/node", specs.field, specs.lock, specs.manifest)
+		}
+	}
 
 	want := map[string]string{}
 	for name, version := range manifest.OptionalDependencies {
@@ -44,15 +68,7 @@ func TestNodeLockfileAgreesWithTheClientVersion(t *testing.T) {
 			t.Errorf("package.json pins %s at %s but the client is %s", name, version, manifest.Version)
 		}
 	}
-
-	root := lock.Packages[""]
 	for name, version := range want {
-		if got := root.OptionalDependencies[name]; got != "" && got != version {
-			t.Errorf("package-lock.json's root pins %s at %s, package.json at %s", name, got, version)
-		}
-		if got := root.PeerDependencies[name]; got != "" && got != version {
-			t.Errorf("package-lock.json's root pins peer %s at %s, package.json at %s", name, got, version)
-		}
 		entry, locked := lock.Packages["node_modules/"+name]
 		if locked && entry.Version != version {
 			t.Errorf("package-lock.json locks %s at %s, package.json at %s;\n"+
@@ -119,6 +135,78 @@ func TestMCPRunnerManifestAgreesWithTheClientVersion(t *testing.T) {
 			t.Errorf("@openmbee/sysml-mcp does not pin %s", name)
 		case pinned != client.Version:
 			t.Errorf("@openmbee/sysml-mcp pins %s at %s, not its own version %s", name, pinned, client.Version)
+		}
+	}
+}
+
+// TestMCPRunnerLockfileAgreesWithTheManifest: npm ci refuses a lockfile that disagrees with
+// package.json, so the runner's lockfile must carry its version and platform pins.
+func TestMCPRunnerLockfileAgreesWithTheManifest(t *testing.T) {
+	var manifest struct {
+		Name                 string            `json:"name"`
+		Version              string            `json:"version"`
+		OptionalDependencies map[string]string `json:"optionalDependencies"`
+	}
+	readJSON(t, "../../packaging/npm/sysml-mcp/package.json", &manifest)
+	var lock struct {
+		Name            string `json:"name"`
+		Version         string `json:"version"`
+		LockfileVersion int    `json:"lockfileVersion"`
+		Packages        map[string]struct {
+			Name                 string            `json:"name"`
+			Version              string            `json:"version"`
+			Optional             bool              `json:"optional"`
+			OptionalDependencies map[string]string `json:"optionalDependencies"`
+			Dependencies         map[string]string `json:"dependencies"`
+		} `json:"packages"`
+	}
+	readJSON(t, "../../packaging/npm/sysml-mcp/package-lock.json", &lock)
+
+	if lock.Name != manifest.Name {
+		t.Errorf("package-lock.json names %q, package.json %q", lock.Name, manifest.Name)
+	}
+	if lock.Version != manifest.Version {
+		t.Errorf("package-lock.json is at %s, package.json at %s;\n"+
+			"run `npm install --package-lock-only --ignore-scripts` in packaging/npm/sysml-mcp", lock.Version, manifest.Version)
+	}
+	if lock.LockfileVersion < 3 {
+		t.Errorf("package-lock.json is lockfileVersion %d; the other lockfiles in this repository are version 3", lock.LockfileVersion)
+	}
+	root, ok := lock.Packages[""]
+	if !ok {
+		t.Fatal("package-lock.json has no root package entry")
+	}
+	if root.Version != manifest.Version {
+		t.Errorf("package-lock.json's root is at %s, package.json at %s", root.Version, manifest.Version)
+	}
+	if len(root.Dependencies) > 0 {
+		t.Errorf("package-lock.json's root has dependencies %v; the runner installs nothing but its platform package", root.Dependencies)
+	}
+	if len(root.OptionalDependencies) != len(manifest.OptionalDependencies) {
+		t.Errorf("package-lock.json's root pins %d platform packages, package.json %d", len(root.OptionalDependencies), len(manifest.OptionalDependencies))
+	}
+	for name, version := range manifest.OptionalDependencies {
+		if got := root.OptionalDependencies[name]; got != version {
+			t.Errorf("package-lock.json's root pins %s at %q, package.json at %s", name, got, version)
+		}
+		entry, locked := lock.Packages["node_modules/"+name]
+		switch {
+		case !locked:
+		case entry.Version != version:
+			t.Errorf("package-lock.json locks %s at %s, package.json at %s;\n"+
+				"run `npm install --package-lock-only --ignore-scripts` in packaging/npm/sysml-mcp once the %s packages are on npm",
+				name, entry.Version, version, version)
+		case !entry.Optional:
+			t.Errorf("package-lock.json locks %s as a required dependency; the platform packages are optional so npm installs only this machine's", name)
+		}
+	}
+	for path := range lock.Packages {
+		if path == "" {
+			continue
+		}
+		name := strings.TrimPrefix(path, "node_modules/")
+		if _, declared := manifest.OptionalDependencies[name]; !declared {
+			t.Errorf("package-lock.json locks %s, which package.json does not declare", path)
 		}
 	}
 }

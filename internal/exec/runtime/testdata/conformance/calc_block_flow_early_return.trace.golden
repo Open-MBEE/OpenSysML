@@ -25,4 +25,4 @@ enter calc test::firstAbove
           eval operator > -> true
           stmt return
             eval feature seen -> 2
-exit calc test::firstAbove -> 2
+exit calc test::firstAbove -> (2)

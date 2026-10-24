@@ -21,8 +21,8 @@ func TestComplexValuesDisplayAsOneNumber(t *testing.T) {
 		t.Fatalf("model has errors: %v", errs)
 	}
 
-	wants(t, run(t, s, "%calc C::Unit"), "= 0.0 + 1.0i")
-	wants(t, run(t, s, "%eval C::Rotate(C::Unit())"), "= -1.0 + 0.0i")
+	wants(t, run(t, s, "%calc C::Unit"), "= [0.0 + 1.0i]")
+	wants(t, run(t, s, "%eval C::Rotate(C::Unit())"), "= [-1.0 + 0.0i]")
 	wants(t, run(t, s, "%eval ComplexFunctions::rect(1.0, 2.0) == ComplexFunctions::rect(1.0, 2.0)"), "= true")
 
 	run(t, s, "%instantiate C::P")

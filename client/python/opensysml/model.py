@@ -408,7 +408,8 @@ class Model:
         """
         return self.connection.render_document(self._hash, document_id, form=form)
 
-    def render_view(self, view_name, ports="minimal", show=None, depth=0) -> RenderedView:
+    def render_view(self, view_name, ports="minimal", show=None, depth=0,
+                    compartments="positioned") -> RenderedView:
         """Render one named view as typed diagram data.
 
         Args:
@@ -423,19 +424,28 @@ class Model:
             depth (int): How many levels of nested elements to draw below each
                 exposed element, overriding the view's own ``depth``; ``0`` (the
                 default) draws every level the view allows
+            compartments (str): How a tree rendering folds a node's owned
+                members into compartment rows of its box: ``"positioned"`` (the
+                default) folds only the layout-less members of a tree some
+                Layout positions, ``"most"`` every owned usage no Layout, nested
+                definition or package keeps a node, ``"ports"`` the port usages
+                with the ports nested under them; a row is a node whose
+                ``compartment`` names the compartment of its ``parent``
 
         Returns:
             RenderedView: Ordered nodes, edges, table data and optional layout
 
         Raises:
-            ValueError: If ``ports`` is neither ``"minimal"`` nor ``"full"``
+            ValueError: If ``ports`` is neither ``"minimal"`` nor ``"full"``, or
+                ``compartments`` none of its three foldings
             MissingCapabilityError: If the service cannot render views
             InvalidRequestError: If the view is malformed or does not render
             ViewNotFoundError: If the view or pseudo-view target is missing;
                 also a SymbolNotFoundError and KeyError
             ModelNotFoundError: If the service no longer holds this model
         """
-        return self.connection.render_view(self._hash, view_name, ports=ports, show=show, depth=depth)
+        return self.connection.render_view(self._hash, view_name, ports=ports, show=show, depth=depth,
+                                           compartments=compartments)
 
 
     def check_action(self, action_symbol_id, inputs=None, performer=None, properties=(), diverge=(),

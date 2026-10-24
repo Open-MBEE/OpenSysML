@@ -1,8 +1,8 @@
 {
   "libraries": true,
   "type": "calc",
-  "result": {
-    "type": "Integer",
-    "value": 111
-  }
+  "result": {"type": "Sequence", "elements": [{
+      "type": "Integer",
+      "value": 111
+    }]}
 }

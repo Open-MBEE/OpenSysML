@@ -5,7 +5,7 @@
       "name": "stdlib",
       "dir": "internal/workspace/libs/stdlib",
       "files": 110,
-      "lines": 31192
+      "lines": 31227
     },
     {
       "name": "training",
@@ -32,22 +32,28 @@
       "lines": 2851
     },
     {
+      "name": "spec-examples",
+      "dir": "examples/spec-examples",
+      "files": 511,
+      "lines": 6344
+    },
+    {
       "name": "testdata",
       "dir": "tests/testdata",
-      "files": 22,
-      "lines": 398
+      "files": 30,
+      "lines": 497
     },
     {
       "name": "parser-fixtures",
       "dir": "tests/parser/testdata/parse",
-      "files": 259,
-      "lines": 6159
+      "files": 268,
+      "lines": 6375
     },
     {
       "name": "examples",
       "dir": "examples",
       "files": 52,
-      "lines": 9642
+      "lines": 9653
     }
   ],
   "totals": {
@@ -56,7 +62,7 @@
     "noEvidence": 0,
     "indistinguishable": 244,
     "forms": 809,
-    "unseenForms": 4
+    "unseenForms": 3
   },
   "grammars": [
     {
@@ -78,22 +84,29 @@
           "returns": "SysML::Namespace",
           "bucket": "evidence",
           "requiredLiterals": [
-            ";",
-            "namespace"
+            "namespace",
+            "{",
+            "}"
           ],
-          "file": "tests/testdata/parse/namespaces.sysml",
+          "file": "examples/spec-examples/kerml/7.2.4.2/2.kerml",
           "evidence": [
             {
-              "literal": ";",
-              "root": "testdata",
-              "file": "tests/testdata/parse/namespaces.sysml",
-              "line": 2
+              "literal": "namespace",
+              "root": "spec-examples",
+              "file": "examples/spec-examples/kerml/7.2.4.2/2.kerml",
+              "line": 4
             },
             {
-              "literal": "namespace",
-              "root": "testdata",
-              "file": "tests/testdata/parse/namespaces.sysml",
-              "line": 5
+              "literal": "{",
+              "root": "spec-examples",
+              "file": "examples/spec-examples/kerml/7.2.4.2/2.kerml",
+              "line": 3
+            },
+            {
+              "literal": "}",
+              "root": "spec-examples",
+              "file": "examples/spec-examples/kerml/7.2.4.2/2.kerml",
+              "line": 8
             }
           ],
           "branches": [
@@ -259,58 +272,9 @@
         "noEvidence": 0,
         "indistinguishable": 69,
         "forms": 71,
-        "unseenForms": 1
+        "unseenForms": 0
       },
-      "productions": [
-        {
-          "grammar": "KerMLExpressions.xtext",
-          "name": "MultiplicativeOperator",
-          "kind": "rule",
-          "line": 266,
-          "bucket": "evidence",
-          "literals": [
-            "%",
-            "*",
-            "/"
-          ],
-          "requiredLiterals": [
-            "*"
-          ],
-          "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
-          "evidence": [
-            {
-              "literal": "*",
-              "root": "stdlib",
-              "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
-              "line": 8
-            }
-          ],
-          "branches": [
-            {
-              "literals": [
-                "*"
-              ],
-              "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
-              "line": 8
-            },
-            {
-              "literals": [
-                "/"
-              ],
-              "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
-              "line": 109
-            },
-            {
-              "literals": [
-                "%"
-              ],
-              "missingLiterals": [
-                "%"
-              ]
-            }
-          ]
-        }
-      ]
+      "productions": null
     },
     {
       "name": "SysML.xtext",

@@ -43,7 +43,7 @@ func chainNode(target ast.Node) *ast.FeatureChainExpr {
 // rel, when its owner is a record that carries one at rel's ordinal.
 func recordedRelationship(rel *symbols.Symbol) (symbols.RelationshipFacts, bool) {
 	owner := rel.Implicit.Owner
-	if !owner.Recorded() || rel.Implicit.Ordinal >= len(owner.Facts.Relationships) {
+	if !rel.ImplicitWrittenRelationship() || !owner.Recorded() || rel.Implicit.Ordinal >= len(owner.Facts.Relationships) {
 		return symbols.RelationshipFacts{}, false
 	}
 	return owner.Facts.Relationships[rel.Implicit.Ordinal], true
@@ -56,7 +56,7 @@ func recordedRelationship(rel *symbols.Symbol) (symbols.RelationshipFacts, bool)
 // owned by the element the relationship is written on; nil for a relationship
 // targeting a name or a chain that does not resolve.
 func (m *Model) chainTargetFeature(rel *symbols.Symbol) *symbols.Symbol {
-	if m == nil || rel == nil || rel.Implicit == nil {
+	if m == nil || rel == nil || !rel.ImplicitWrittenRelationship() {
 		return nil
 	}
 	var (

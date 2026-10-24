@@ -40,7 +40,7 @@ func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, o
 		out.Roots = append(out.Roots, r.treeNode(view, elem, ids, map[*symbols.Symbol]bool{}, 0, true, out))
 	}
 	out.Roots = append(out.Roots, r.nestedViewNodes(view, ids, map[*symbols.Symbol]bool{view: true}, out)...)
-	r.treeEdges(out)
+	r.exposedRelationships(view, exposed, ids, r.treeEdges(out), out)
 }
 
 // exposedDescendants is the key of each exposed element a surviving root's
@@ -178,7 +178,9 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expans
 			}
 			continue
 		}
-		node.Children = append(node.Children, r.treeNode(view, member, ids, path, depth+1, false, out))
+		child := r.treeNode(view, member, ids, path, depth+1, false, out)
+		child.FromType = member.Owner() != sym
+		node.Children = append(node.Children, child)
 	}
 	if cut > 0 {
 		node.Detail = detailWith(node.Detail, cutNote(bound))

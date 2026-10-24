@@ -30,7 +30,7 @@ const complexSource = `package C {
 		succession first start then inner;
 		succession first inner then done;
 	}
-	calc def Echo { in z : Complex; return : Complex = z; }
+	calc def Echo { in z : Complex; return : Complex[1] = z; }
 	calc echo : Echo;
 }`
 

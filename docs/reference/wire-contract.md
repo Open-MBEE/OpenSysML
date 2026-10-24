@@ -131,6 +131,31 @@ HTTP/1.1 400 Bad Request
 {"code":"invalid_argument","message":"documents 0 and 1 are both named \"a.sysml\": each document of a model needs its own name"}
 ```
 
+### `GetSymbol` and the `SymbolInfo` metadata keys
+
+`GetSymbol` answers one `SymbolInfo` for a fully qualified name. Beside its typed fields
+(`typeInfo`, `multiplicity`, `specializations`, `attributes`), `metadata` is a string map of
+facts about the declaration, each present only when it holds:
+
+| Key | Value | When |
+|-----|-------|------|
+| `visibility` | `default` (none written), `public`, `private` or `protected` | always |
+| `type` | the first typing target as written (`Engine`) | a typed usage |
+| `multiplicity` | the declared range as written (`1`, `0..*`) | a usage declaring one |
+| `direction` | `in`, `out` or `inout` | a directed usage |
+| `specializes` | the first specialization target as written | a definition specializing one |
+| `abstract` | `true` | an `abstract` definition or usage, and every variation (a variation is always abstract, SysML v2.1 §7.6.7) |
+| `variation` | `true` | a `variation` definition or usage, and every enumeration definition (SysML v2.1 §8.3: an enumeration is a variation of its values) |
+| `variant` | `true` | a `variant` usage, and every enumerated value of an enumeration definition |
+
+```console
+$ … /GetSymbol -d '{"modelHash":"…","symbolId":"PLE::EngineChoices"}'
+{"symbol":{"id":"PLE::EngineChoices","name":"EngineChoices","kind":"partDef","metadata":{"abstract":"true","specializes":"Engine","variation":"true","visibility":"default"},"childIds":["PLE::EngineChoices::fourCyl"],…}}
+```
+
+A client telling a variation point from an ordinary part, or a variant from an ordinary member,
+reads `variation` and `variant`; `kind` alone does not say (`partDef` for both).
+
 ### What a model hash is
 
 A model hash is the lowercase hex SHA-256 (64 characters) of the request that produced it: the
@@ -1314,7 +1339,9 @@ empty, a declaration's FQN, or a path from one such as `Mission::mission.vehicle
 same errors. When the object reached exhibits the machine (`exhibit state modes;` in the part
 definition of a vehicle, say), the call runs that exhibited machine rather than a second copy —
 with or without `advance` — so the object's own transitions, the messages its ports receive over the assembly's
-connectors and the features it assigns are the run's; an object exhibiting the machine under
+connectors and the features it assigns are the run's; a path reaching the exhibited usage itself
+(`Mission::mission.vehicle.modes`, as the CLI's `-state` names it) runs that same machine, since the
+object held under an `exhibit state` is the performance its owner runs; an object exhibiting the machine under
 two usages is refused as ambiguous, since the call cannot tell which it means. An object not
 exhibiting the machine performs a fresh one, as an empty performer does outside any object.
 Either way the machine's guards, effects and state behaviors read and write the object's feature

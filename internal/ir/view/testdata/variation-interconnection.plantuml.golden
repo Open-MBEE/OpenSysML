@@ -1,0 +1,51 @@
+@startuml
+' VariationViews::familyLinks — interconnection rendering (render asInterconnectionDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+rectangle "<size:10>//«part»//</size>\n**vehicleFamily**" as n0 <<part>> <<usage>> {
+  rectangle "<size:10>//«part»//</size>\n**engine**" as n1 <<part>> <<usage>>
+  rectangle "<size:10>//«variation part»//</size>\n**transmission**" as n2 <<variation part>> <<usage>> {
+    rectangle "<size:10>//«variant»//</size>\n**manual**" as n3 <<variant>> <<usage>>
+    rectangle "<size:10>//«variant part»//</size>\n**automatic**" as n4 <<variant part>> <<usage>>
+  }
+}
+n1 -[thickness=3]- n2
+@enduml

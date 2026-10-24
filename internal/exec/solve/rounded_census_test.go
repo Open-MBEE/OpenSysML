@@ -107,7 +107,7 @@ func exampleFiles(t *testing.T) []string {
 				return err
 			}
 			if info.IsDir() {
-				if strings.Contains(path, "pilot-corpora") || strings.Contains(path, "sysml-v2-training") {
+				if strings.Contains(path, "pilot-corpora") || strings.Contains(path, "sysml-v2-training") || strings.Contains(path, "spec-examples") {
 					return filepath.SkipDir
 				}
 				return nil

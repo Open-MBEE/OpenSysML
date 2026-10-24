@@ -5,7 +5,7 @@
           eval literal 130 -> 130
           eval feature speed -> 120
         eval operator - -> 10
-    exit calc test::margin -> 10
-  eval invoke test::margin -> 10
+    exit calc test::margin -> (10)
+  eval invoke test::margin -> (10)
   eval literal 0 -> 0
 eval operator > -> true

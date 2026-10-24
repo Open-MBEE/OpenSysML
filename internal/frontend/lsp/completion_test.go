@@ -550,3 +550,20 @@ func TestCompletionOnDotOffersTheDerivedShortName(t *testing.T) {
 		}
 	}
 }
+
+// TestCompletionDetailWritesTheAbstractKeyword pins the completion detail as
+// the notation writes an abstract or variation declaration.
+func TestCompletionDetailWritesTheAbstractKeyword(t *testing.T) {
+	src := "package P {\n\tabstract part def Vehicle;\n\tvariation part def Models :> Vehicle;\n\tabstract part fleet : Vehicle;\n\tpart v : Vehicle;\n}\n"
+	items := completionAt(t, src, "part v : Vehicle;")
+	for label, want := range map[string]string{"Vehicle": "abstract part def", "Models": "variation part def", "fleet": "abstract part : Vehicle"} {
+		it, ok := items[label]
+		if !ok {
+			t.Errorf("completion missing %q", label)
+			continue
+		}
+		if it.Detail != want {
+			t.Errorf("%q detail = %q, want %q", label, it.Detail, want)
+		}
+	}
+}

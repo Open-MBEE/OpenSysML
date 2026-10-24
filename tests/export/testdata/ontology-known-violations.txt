@@ -14,6 +14,7 @@
 # longer collapse (D3.3 materializes the membership); the rest still do. The
 # property name is right; the subject should have been the intervening element.
 domain-mismatch AttributeUsage value             # FeatureValue_value: the feature value is written on the usage instead of a FeatureValue membership
+domain-mismatch AttributeUsage isDefault         # FeatureValue_isDefault: the `default` of a feature value is written on the usage beside the value, the same collapse
 domain-mismatch ReferenceUsage value             # FeatureValue_value: same collapse on a kindless usage's value
 domain-mismatch AssignmentActionUsage value      # FeatureValue_value: same collapse on an assignment's target value
 domain-mismatch PayloadFeature value             # FeatureValue_value: same collapse on a flow payload's value (`message of cmd : P = m.cmd`)

@@ -55,10 +55,9 @@ func (vc *w8dVariabilityChecker) check(sym *symbols.Symbol) {
 	vc.checkSpecializations(sym)
 }
 
-// checkMembers reports every owned usage of a variation that is not a variant;
-// an objective, a metadata usage (an annotation), and an enumerated value are exempt.
+// checkMembers reports every owned usage of a variation that is not a variant; a metadata
+// usage (an annotation, not a feature membership) and an enumerated value are exempt.
 func (vc *w8dVariabilityChecker) checkMembers(sym *symbols.Symbol) {
-	_, isUsage := sym.Decl.(*ast.Usage)
 	isEnum := sym.Kind == symbols.SymbolEnumerationDef
 	for _, member := range ast.DeclMembers(sym.Decl) {
 		node := unwrapType(member)
@@ -68,9 +67,6 @@ func (vc *w8dVariabilityChecker) checkMembers(sym *symbols.Symbol) {
 		}
 		u, ok := node.(*ast.Usage)
 		if !ok || u.IsVariant || u.Kind == ast.UsageMetadata {
-			continue
-		}
-		if isUsage && u.Kind == ast.UsageObjective {
 			continue
 		}
 		if isEnum && u.Kind == ast.UsageEnumeration {

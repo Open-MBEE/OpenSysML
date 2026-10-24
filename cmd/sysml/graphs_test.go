@@ -132,3 +132,32 @@ func TestGraphsRefusals(t *testing.T) {
 		})
 	}
 }
+
+// A parallel state definition's region owners have no parent state; the run
+// writes the form and exits clean rather than crashing on the missing parent.
+func TestGraphsExportsAParallelDefinition(t *testing.T) {
+	binary := buildCLI(t)
+	fixture, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "analysis", "modelform", "testdata", "parallel_machine.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, subject := range []string{"Orthogonal::Machine", "Orthogonal::Tug::modes"} {
+		got := runStreams(t, binary, string(fixture), "-graphs", subject)
+		if got.status != exitHolds {
+			t.Fatalf("%s: exit status = %d, want %d\n%s", subject, got.status, exitHolds, got.output())
+		}
+		var graphs modelform.Graphs
+		if err := json.Unmarshal([]byte(got.stdout), &graphs); err != nil {
+			t.Fatalf("%s: stdout is not graphs JSON: %v\n%s", subject, err, got.stdout)
+		}
+		if len(graphs.States) != 1 || len(graphs.States[0].Regions) != 2 {
+			t.Fatalf("%s: %d state machines, want one with two regions:\n%s", subject, len(graphs.States), got.stdout)
+		}
+		for _, v := range graphs.States[0].Vertices {
+			if v.Name == "" {
+				t.Errorf("%s: vertex %d (%s) has no name", subject, v.ID, v.Kind)
+			}
+		}
+	}
+}

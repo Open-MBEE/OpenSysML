@@ -591,3 +591,34 @@ func TestW10BNamedCrossFeatureTypeAheadOfKind(t *testing.T) {
 		})
 	}
 }
+
+// A `member binding` ahead of the real cross feature is not the owned cross feature (KerML 1.1
+// Feature::ownedCrossFeature rejects BindingConnector), so the mistyped feature after it is still reported.
+func TestW10BCrossFeatureTypeAfterMemberBinding(t *testing.T) {
+	const src = `package P {
+		class A; class B; class C;
+		assoc Q {
+			end feature a : A[1] { feature x : A[1]; feature y : A[1]; member binding bx of x = y; member feature c : C[0..*]; }
+			end feature b : B[1];
+		}
+	}`
+	diags := constraintDiagsKerML(t, src)
+	expectCrossDiag(t, src, diags, codeCrossFeatureType, msgCrossFeatureType, "member feature c : C[0..*];")
+}
+
+// With the cross feature after the binding correctly typed, nothing fires: the
+// binding is neither the cross feature nor compared against the end's type.
+func TestW10BCrossFeatureAfterMemberBindingClean(t *testing.T) {
+	const src = `package P {
+		class A; class B;
+		assoc Q {
+			end feature a : A[1] { feature x : A[1]; feature y : A[1]; member binding bx of x = y; member feature c : A[0..*]; }
+			end feature b : B[1];
+		}
+		assoc R {
+			end feature a : A[1] { member feature c : A[0..*]; member binding bx of c = c; }
+			end feature b : B[1];
+		}
+	}`
+	expectNoCrossDiags(t, constraintDiagsKerML(t, src))
+}

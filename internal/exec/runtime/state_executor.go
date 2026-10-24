@@ -730,6 +730,38 @@ func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error
 	return fv.HeldValue(), nil
 }
 
+// mirrorOccurrenceWrite carries a write to one of the occurrence's declared
+// features, made by any performance holding the occurrence, into the machine's
+// data, which mirrors the occurrence; it reports whether fv was such a feature.
+func (e *StateExecutor) mirrorOccurrenceWrite(fv *FeatureValue) bool {
+	if e.occurrence == nil || !fv.Materialized {
+		return false
+	}
+	for _, attr := range e.graph.Attributes {
+		if attr.Shadowed || e.occurrence.FeatureValues[attr.Name] != fv {
+			continue
+		}
+		value := fv.HeldValue()
+		if held, ok := e.stateData[attr.Name]; ok && heldSame(held, value) && !e.endsLiveBinding(attr.Name, fv) {
+			return false
+		}
+		e.ctx.writeBodyValue(e.stateCells, e.stateData, attr.Name, value)
+		return true
+	}
+	return false
+}
+
+// endsLiveBinding reports whether a write to the occurrence's fv is an assignment
+// over a machine attribute whose cell still derives its binding, which the
+// assignment ends even when it carries the value the binding derived.
+func (e *StateExecutor) endsLiveBinding(name string, fv *FeatureValue) bool {
+	if !fv.Written {
+		return false
+	}
+	cell := e.stateCells.existingCell(name)
+	return cell != nil && cell.binding != nil && !cell.fv.Written
+}
+
 // mirrorBindingOccurrence exposes a tracked state feature through its occurrence.
 func (e *StateExecutor) mirrorBindingOccurrence(name string, value Value, cell *bodyCell) (Value, error) {
 	if e.occurrence == nil || !e.declaresAttribute(name) {
@@ -1837,7 +1869,7 @@ func lessPath(a, b []int) bool {
 // moves the machine's single active hierarchy. notes are recorded only if it fires;
 // r is the transition's route as resolveRoute settled it.
 func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition, notes []RunNote, r route) (bool, error) {
-	defer e.taking(trans, notes)()
+	defer e.taking(trans, notes).restore()
 	if region := e.activeRegionOf(source); region != nil {
 		return e.fireTransitionInRegion(region, trans, r)
 	}
@@ -1845,21 +1877,33 @@ func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition,
 }
 
 // taking puts the executor in the middle of taking trans, selected with notes,
-// and returns the function putting it back where it was.
-func (e *StateExecutor) taking(trans *lower.Transition, notes []RunNote) func() {
-	savedTrans, savedNotes := e.firingTrans, e.firingNotes
+// and returns what puts it back where it was.
+func (e *StateExecutor) taking(trans *lower.Transition, notes []RunNote) taken {
+	t := taken{exec: e, trans: e.firingTrans, notes: e.firingNotes}
 	e.firingTrans, e.firingNotes = trans, notes
-	by := e.ctx.standingOf(lower.ExpressionFootprint(trans.BodyScope, trans.Guard), true)
+	by := e.ctx.standingOf(e.ctx.model.expressionFootprint(trans.BodyScope, trans.Guard), true)
 	for _, n := range notes {
 		if c, ok := n.(ChoicePoint); ok && !c.Independent && c.serial != 0 {
 			by = unionSerials(by, []int64{c.serial})
 		}
 	}
-	restore := e.ctx.underControl(by)
-	return func() {
-		restore()
-		e.firingTrans, e.firingNotes = savedTrans, savedNotes
-	}
+	t.control = e.ctx.underControl(by)
+	return t
+}
+
+// taken is where an executor was before taking a transition: the transition
+// and notes it was firing, and the control it ran under.
+type taken struct {
+	exec    *StateExecutor
+	trans   *lower.Transition
+	notes   []RunNote
+	control int
+}
+
+// restore puts the executor back where it was before taking the transition.
+func (t taken) restore() {
+	t.exec.ctx.releaseControl(t.control)
+	t.exec.firingTrans, t.exec.firingNotes = t.trans, t.notes
 }
 
 // resolveAndFire takes a transition outside a dispatch, a timer come due, resolving
@@ -1878,7 +1922,7 @@ func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Trans
 	if source != nil {
 		return e.fireFrom(source, trans, notes, r)
 	}
-	defer e.taking(trans, notes)()
+	defer e.taking(trans, notes).restore()
 	return e.fireTransition(trans, r)
 }
 
@@ -3524,7 +3568,7 @@ func (e *StateExecutor) fireJoinIncoming(join *ast.PseudostateNode, plan *lower.
 // arguments its own trigger takes from the occurrence bound; it is recorded as taken.
 func (e *StateExecutor) fireJoinSegment(trans *lower.Transition, plan *lower.JoinPlan) error {
 	source := trans.Source.(*ast.StateNode)
-	defer e.taking(trans, e.firingNotes)()
+	defer e.taking(trans, e.firingNotes).restore()
 	if e.firingEvent != nil && trans.Trigger != nil {
 		unbind, err := e.bindTriggerArguments(trans, e.firingEvent)
 		if err != nil {
@@ -5282,7 +5326,25 @@ func (e *StateExecutor) transitionReached(trans *lower.Transition, msg Message) 
 	if err != nil {
 		return false, err
 	}
+	if occurrence := e.occurrenceViaPort(holder, port, trans.ViaSelf); occurrence != nil {
+		holder = occurrence
+	}
 	return e.ctx.messageReaches(msg, e.stateMachine.Name, port, holder)
+}
+
+// occurrenceViaPort is the performance occurrence when a via not written from `this`
+// names a port the state definition owns and the performer holds none by that name.
+func (e *StateExecutor) occurrenceViaPort(holder *Instance, port string, viaSelf bool) *Instance {
+	if viaSelf || holder != e.self || e.occurrence == nil || e.occurrence == e.self || strings.Contains(port, ".") {
+		return nil
+	}
+	if fv, ok := e.self.FeatureValues[port]; ok && isPortFeature(fv.Feature) {
+		return nil
+	}
+	if fv, ok := e.occurrence.FeatureValues[port]; !ok || !isPortFeature(fv.Feature) {
+		return nil
+	}
+	return e.occurrence
 }
 
 // triggerSignalMatches reports whether the message carries the signal an
@@ -6513,7 +6575,27 @@ func (e *StateExecutor) HasDueEvent() bool {
 // an event is queued, a signal this machine accepts is in flight, or a state's
 // do behavior has actions left to run.
 func (e *StateExecutor) HasPendingWork() bool {
-	return e.completionDue || len(e.held) > 0 || e.eventQueue.Len() > 0 || len(e.doActions) > 0 || e.hasPendingSignal()
+	return e.completionDue || len(e.held) > 0 || e.eventQueue.Len() > 0 || len(e.doActions) > 0 ||
+		e.hasPendingSignal() || e.hasPendingChange()
+}
+
+// hasPendingChange reports whether a change condition out of the active
+// configuration rose on a write since the machine last polled, which its next
+// run takes (see observeChangedValue and observeChangeConditions).
+func (e *StateExecutor) hasPendingChange() bool {
+	if len(e.changePending) == 0 || !e.driven.settled() {
+		return false // mid-call, the machine's own run polls when its step ends
+	}
+	for _, leaf := range e.activeLeaves() {
+		for _, source := range e.getParentChain(leaf) {
+			for _, trans := range e.graph.Transitions[source] {
+				if e.changePending[trans] {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // RunDoRound advances every active state's do behavior by one action, without

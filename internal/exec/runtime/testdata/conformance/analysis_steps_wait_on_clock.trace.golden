@@ -32,7 +32,7 @@ leave action node: analysis test::voyage
   stmt return
       eval feature boat -> instance#1
     eval chain log -> 2.0
-exit analysis test::voyage -> 2.0
+exit analysis test::voyage -> (2.0)
   eval feature boat -> instance#1
 eval chain arrived -> 60.0
-output test::voyage.arrival = 60.0
+output test::voyage.arrival = (60.0)

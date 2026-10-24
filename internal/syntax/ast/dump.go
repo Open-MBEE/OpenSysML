@@ -587,6 +587,9 @@ func dumpDeclaration(b *strings.Builder, n Node, depth int) bool {
 		if v.Keyword != "" {
 			fmt.Fprintf(b, ` keyword=%q`, v.Keyword)
 		}
+		if v.Terminator.Len > 0 {
+			b.WriteString(` terminated=true`)
+		}
 		if v.Expression == nil {
 			// Nested-constraint form: assert constraint [name] { expr }
 			if v.Name != "" {
@@ -952,6 +955,9 @@ func usageChildren(v *Usage) []Node {
 	}
 	if v.CrossFeature != nil {
 		kids = append(kids, v.CrossFeature)
+	}
+	if v.Terminates != nil {
+		kids = append(kids, v.Terminates)
 	}
 	if v.Value != nil {
 		kids = append(kids, v.Value)

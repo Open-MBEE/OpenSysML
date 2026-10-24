@@ -19,7 +19,7 @@
 #   MCP_REGISTRY_URL           registry to publish to (default the production registry;
 #                              https://staging.registry.modelcontextprotocol.io is the
 #                              registry's staging instance, whose data may be reset)
-#   MCP_REGISTRY_NPM_TIMEOUT   seconds to wait for the npm version (default 3600)
+#   MCP_REGISTRY_NPM_TIMEOUT   seconds to wait for the npm version (default 10800)
 #   MCP_REGISTRY_ALLOW_PRERELEASE  publish a pre-release tag too (set for staging rehearsals)
 set -euo pipefail
 
@@ -27,7 +27,7 @@ SERVER_JSON="packaging/mcp/server.json"
 DOMAIN="opensysml.org"
 DOCS="docs/project/releasing.md § MCP Registry"
 REGISTRY_URL="${MCP_REGISTRY_URL:-https://registry.modelcontextprotocol.io}"
-NPM_TIMEOUT="${MCP_REGISTRY_NPM_TIMEOUT:-3600}"
+NPM_TIMEOUT="${MCP_REGISTRY_NPM_TIMEOUT:-10800}"
 BUILD_DIR="build/mcp-registry"
 
 fail() {
@@ -77,7 +77,7 @@ if ! $check; then
   packument="$BUILD_DIR/npm-$version.json"
   mkdir -p "$BUILD_DIR"
   deadline=$((SECONDS + NPM_TIMEOUT))
-  until curl -fsSL -o "$packument" "https://registry.npmjs.org/$encoded/$version" 2>/dev/null; do
+  until curl --proto '=https' --tlsv1.2 -fsSL -o "$packument" "https://registry.npmjs.org/$encoded/$version" 2>/dev/null; do
     if [[ "$SECONDS" -ge "$deadline" ]]; then
       fail "$identifier@$version is not on registry.npmjs.org after ${NPM_TIMEOUT}s; CircleCI's publish-npm job publishes it on tag $tag. Check that job, then re-run this workflow."
     fi
