@@ -136,11 +136,8 @@ func ParseDepth(value string) (int, error) {
 	return depth, nil
 }
 
-// foldCollapsed folds the collapsed nodes the behaviour renderings registered
-// for folding, as the tree and interconnection walks fold theirs: what a
-// collapsed node nests is not drawn, and an edge or note at a node no longer
-// drawn goes with it. It runs once every edge of the rendering is built, so an
-// edge drawn later into a folded body cannot outlive the body.
+// foldCollapsed folds the collapsed behaviour nodes registered in out.folds once every edge is
+// drawn: what they nest is not drawn, and an edge or Note at a node no longer drawn goes with it.
 func foldCollapsed(out *Rendering) {
 	pruned := map[string]bool{}
 	var prune func(*Node)
