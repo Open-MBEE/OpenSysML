@@ -164,8 +164,12 @@ func TestAsciiDocFileName(t *testing.T) {
 
 // A DOT diagram's layout header selects the Graphviz engine of its block.
 func TestAsciiDocDiagramBlockReadsTheLayoutHeader(t *testing.T) {
-	if got := asciiDocDiagramBlock(view.FormDot, "// layout: neato -n2\ndigraph g {}"); got != "graphviz, layout=neato" {
+	positioned := "// view: PlantViews::placedView\n// kind: interconnection\n// canvas: unit=px w=400 h=300\n// layout: neato -n2\ndigraph g {}"
+	if got := asciiDocDiagramBlock(view.FormDot, positioned); got != "graphviz, layout=neato" {
 		t.Errorf("positioned DOT block = %q", got)
+	}
+	if got := asciiDocDiagramBlock(view.FormDot, "// kind: tree\ndigraph g {\n  // layout: neato\n}"); got != "graphviz" {
+		t.Errorf("DOT block with the header inside the graph = %q", got)
 	}
 	if got := asciiDocDiagramBlock(view.FormDot, "digraph g {}"); got != "graphviz" {
 		t.Errorf("plain DOT block = %q", got)

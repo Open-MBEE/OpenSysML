@@ -362,11 +362,8 @@ func asciiDocDiagramBlock(form view.Form, source string) string {
 	if form != view.FormDot {
 		return string(form)
 	}
-	first, _, _ := strings.Cut(source, "\n")
-	if rest, ok := strings.CutPrefix(strings.TrimSpace(first), "// layout:"); ok {
-		if fields := strings.Fields(rest); len(fields) > 0 {
-			return "graphviz, layout=" + fields[0]
-		}
+	if engine, _ := view.DOTLayout(source); engine != "" {
+		return "graphviz, layout=" + engine
 	}
 	return "graphviz"
 }
