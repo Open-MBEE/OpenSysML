@@ -146,21 +146,33 @@ func (ctx *Context) holdKernelMember(owner *Instance, fqn string, typ *symbols.S
 	if err != nil {
 		return nil, fmt.Errorf("hold %s of object #%d: %w", name, owner.ID, err)
 	}
-	var elements []Value
+	return inst, ctx.appendHeld(fv, Value{Kind: ValInstance, Instance: inst.ID})
+}
+
+// appendHeld writes elem after what fv holds, as one write. A sequence grows into its
+// spare storage, so a run appending one element at a time spends linear time and memory.
+func (ctx *Context) appendHeld(fv *FeatureValue, elem Value) error {
+	var held Value
 	if fv.Materialized {
-		if elements, err = ctx.HeldElements(fv.HeldValue()); err != nil {
-			return nil, err
+		held = fv.HeldValue()
+	}
+	var next Value
+	if seq := held.Sequence(); seq != nil && seq.required == nil && !fv.Feature.HoldsSet {
+		next = NewSequenceValue(seq.appended(elem))
+	} else {
+		elements, err := ctx.HeldElements(held)
+		if err != nil {
+			return err
 		}
+		next = ctx.collectionOf(fv.Feature, append(elements, elem))
 	}
 	ctx.noteProbeWrite(fv)
 	endWrite := ctx.beginFeatureWrite(fv)
 	before := ctx.beforeWrite(fv)
-	fv.Value = Value{}
-	fv.Values = ctx.collectionOf(fv.Feature, append(elements, Value{Kind: ValInstance, Instance: inst.ID}))
-	fv.Materialized = true
+	fv.Value, fv.Values, fv.Materialized = Value{}, next, true
 	ctx.afterWrite(fv, before)
 	endWrite()
-	return inst, nil
+	return nil
 }
 
 // beginLoopPerformance begins the loop stmt as a performance of the host's, where
