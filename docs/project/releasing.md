@@ -961,7 +961,7 @@ supplies `SONAR_TOKEN` (the same context `Open-MBEE/flexo-mms-layer1-service`
 uses, so no new credential is provisioned). It reads
 `sonar-project.properties` at the repository root and four coverage reports
 persisted to the workspace — `coverage.txt` from `go-coverage-merge`, which joins
-`go-coverage`'s four package shards,
+`go-coverage`'s nine package shards,
 `coverage-python.xml` from `python-test`, `coverage-node.lcov` from
 `node-test`, and JaCoCo's `jacoco.xml` per Java module — and it un-shallows the
 clone because SonarCloud needs full history for blame and new-code detection.
