@@ -13,12 +13,12 @@
     "loopyLoopCount": {"type": "Integer", "value": 1},
     "loopy.loops": {"type": "Sequence", "elements": [{"type": "Instance"}]},
     "loopIsTheSubperformance": {"type": "Boolean", "value": true},
-    "loopContextIsLoopy": {"type": "Boolean", "value": true},
+    "loopContextIsThePerformer": {"type": "Boolean", "value": true},
     "bodyCount": {"type": "Integer", "value": 3},
     "loopHasNoSubperformances": {"type": "Boolean", "value": true},
     "bodiesAreDistinct": {"type": "Boolean", "value": true},
     "bodySubperformanceCount": {"type": "Integer", "value": 1},
-    "incContextIsItsBody": {"type": "Boolean", "value": true},
+    "incContextIsThePerformer": {"type": "Boolean", "value": true},
     "incsAreDistinct": {"type": "Boolean", "value": true},
     "plainSuboccurrenceCount": {"type": "Integer", "value": 2},
     "zeroLoopCount": {"type": "Integer", "value": 1},
@@ -33,6 +33,6 @@
     "inheritedCount": {"type": "Integer", "value": 2},
     "inheritedBodyCount": {"type": "Integer", "value": 2},
     "inheritedBodySubperformanceCount": {"type": "Integer", "value": 1},
-    "inheritedIncContextIsItsBody": {"type": "Boolean", "value": true}
+    "inheritedIncContextIsThePerformer": {"type": "Boolean", "value": true}
   }
 }

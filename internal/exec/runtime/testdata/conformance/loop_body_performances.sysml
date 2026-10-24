@@ -65,12 +65,12 @@ package test {
         attribute loopyTimeEnclosedCount : Integer = size(loopy.timeEnclosedOccurrences);
         attribute loopyLoopCount : Integer = size(loopy.loops);
         attribute loopIsTheSubperformance : Boolean = loopy.subperformances#(1) == loopy.loops#(1);
-        attribute loopContextIsLoopy : Boolean = loopy.loops#(1).this == loopy;
+        attribute loopContextIsThePerformer : Boolean = loopy.loops#(1).this == this;
         attribute bodyCount : Integer = size(loopy.loops#(1).body);
         attribute loopHasNoSubperformances : Boolean = isEmpty(loopy.loops#(1).subperformances);
         attribute bodiesAreDistinct : Boolean = loopy.loops#(1).body#(1) != loopy.loops#(1).body#(2);
         attribute bodySubperformanceCount : Integer = size(loopy.loops#(1).body#(1).subperformances);
-        attribute incContextIsItsBody : Boolean = loopy.loops#(1).body#(3).subperformances#(1).this == loopy.loops#(1).body#(3);
+        attribute incContextIsThePerformer : Boolean = loopy.loops#(1).body#(3).subperformances#(1).this == this;
         attribute incsAreDistinct : Boolean = loopy.loops#(1).body#(1).subperformances#(1) != loopy.loops#(1).body#(2).subperformances#(1);
         attribute plainSuboccurrenceCount : Integer = size(plain.suboccurrences);
 
@@ -89,7 +89,7 @@ package test {
         attribute inheritedCount : Integer = inherited.i;
         attribute inheritedBodyCount : Integer = size(inherited.loops#(1).body);
         attribute inheritedBodySubperformanceCount : Integer = size(inherited.loops#(1).body#(1).subperformances);
-        attribute inheritedIncContextIsItsBody : Boolean = inherited.loops#(1).body#(2).subperformances#(1).this == inherited.loops#(1).body#(2);
+        attribute inheritedIncContextIsThePerformer : Boolean = inherited.loops#(1).body#(2).subperformances#(1).this == this;
     }
     part k : K;
 }
