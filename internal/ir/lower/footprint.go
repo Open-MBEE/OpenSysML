@@ -539,7 +539,11 @@ func (b *footprintBuilder) boundValue(sym *symbols.Symbol, direct bool) {
 		// redefines is (`attribute :>> y;` over `attribute y = x + 1`), explicitly or
 		// as a parameter at the same position.
 		if sem := b.semantics(); sem != nil {
-			for _, p := range sem.ParameterRedefinitionChain(sym)[1:] {
+			redefined := sem.RedefinedFeatures(sym)
+			if len(redefined) == 0 {
+				redefined = sem.ImplicitParameterRedefinitions(sym)
+			}
+			for _, p := range redefined {
 				b.boundValue(p, direct)
 			}
 			return
