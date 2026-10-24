@@ -583,6 +583,14 @@ func (ctx *Context) denotedObjects(sym *symbols.Symbol) ([]*Instance, error) {
 		}
 		return []*Instance{inst}, nil
 	case ctx.namesObjects(sym):
+		// The run denotes the lower bound of a count it can materialize; a bound the
+		// model does not evaluate leaves nothing to denote beyond what binds the usage.
+		if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); !mult.Upper.Known && !ctx.namespaceValued(sym) {
+			if !ctx.optionalValueless(sym) {
+				return nil, ctx.undenotedUsage(sym)
+			}
+			return nil, nil
+		}
 		members, err := ctx.everyOccurrence(sym)
 		if err != nil {
 			return nil, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
@@ -602,7 +610,7 @@ func (ctx *Context) denotedObjects(sym *symbols.Symbol) ([]*Instance, error) {
 }
 
 // denotedValue is what a usage carrying no value reads as: its object, the collection of its
-// objects, or undetermined of its count where that admits more than the lower bound it holds.
+// objects, or undetermined of its count where the model leaves its lower bound unmet.
 func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 	// A reader of another document's scope tree holds its own symbol for the
 	// usage; its occurrences are recorded under the declaring tree's.
@@ -614,6 +622,12 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 		}
 		return ctx.objectValue(inst)
 	}
+	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
+	if val, decided, err := ctx.openDenotedValue(sym, mult); err != nil {
+		return Value{}, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
+	} else if decided {
+		return val, nil
+	}
 	members, err := ctx.occurrencesOf(sym)
 	if err != nil {
 		return Value{}, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
@@ -623,7 +637,7 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 	if tail != nil {
 		held += tail.count
 	}
-	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); held < fewestOf(mult) || (!ctx.libraryDeclared(sym) && mult.AdmitsMore(held) && !symbols.IsAbstract(sym)) {
+	if held < fewestOf(mult) {
 		spelled := ctx.QualifiedName(sym)
 		return undeterminedFeatureValue(openCountReason(spelled, mult), mult, sym), nil
 	}
@@ -718,16 +732,16 @@ func (ctx *Context) namesOneObject(sym *symbols.Symbol) bool {
 }
 
 // namesObjects reports whether a usage denotes several objects of its own: an occurrence
-// usage a namespace declares of a collection multiplicity whose bounds the model fixes.
+// usage a namespace declares of a collection multiplicity whose lower bound the model fixes.
 func (ctx *Context) namesObjects(sym *symbols.Symbol) bool {
 	if sym == nil || sym.OwnerScope == nil || !namespaceScope(sym.OwnerScope) || !isOccurrenceUsage(sym) {
 		return false
 	}
-	if ctx.occursOnce(sym) || ctx.optionalValueless(sym) || ctx.model.semantics.IsVariationFeature(sym) {
+	if ctx.occursOnce(sym) || ctx.model.semantics.IsVariationFeature(sym) {
 		return false
 	}
 	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
-	return mult.Lower.Known && mult.Upper.Known
+	return mult.Lower.Known && !mult.Lower.Infinite
 }
 
 // registersOccurrence reports whether an object materialized for a usage is the one a
@@ -1198,7 +1212,7 @@ func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name 
 			return nil, err
 		}
 		held := int64(len(contributed))
-		if max(atLeast, fewestOf(mult)) > held || (!ctx.libraryDeclared(fv.Feature.Symbol) && mult.MayAdmitMore(held)) {
+		if !mult.Lower.Known || !mult.Upper.Known || max(atLeast, fewestOf(mult)) > held || semantics.IsBehaviorParameter(fv.Feature.Symbol) {
 			open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
 			return fv, nil
 		}
@@ -1292,7 +1306,7 @@ func (inst *Instance) materializeCompositeCollection(ctx *Context, fv *FeatureVa
 		fv.Values = ctx.collectionOf(fv.Feature, elements)
 	}
 	fv.Materialized = true
-	fv.Assumed = mult.AdmitsMore(int64(len(contributed)) + count)
+	fv.Assumed = semantics.IsBehaviorParameter(fv.Feature.Symbol) || count > 0 && mult.AdmitsMore(int64(len(contributed))+count)
 	fv.intrinsic = ctx.subsettersDeclared(inst, name)
 	if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
 		return fail(err)
@@ -1377,7 +1391,7 @@ func (inst *Instance) holdContributed(ctx *Context, fv *FeatureValue, name strin
 		fv.Values = val
 	}
 	fv.Materialized, fv.intrinsic = true, ctx.subsettersDeclared(inst, name)
-	fv.Assumed = !symbols.IsAbstract(fv.Feature.Symbol) && fv.Feature.Multiplicity.AdmitsMore(int64(len(contributed)))
+	fv.Assumed = semantics.IsBehaviorParameter(fv.Feature.Symbol)
 	return fv, nil
 }
 

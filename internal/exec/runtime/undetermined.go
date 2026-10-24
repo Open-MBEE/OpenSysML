@@ -618,10 +618,16 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 	if _, exact := feature.Multiplicity.Exactly(); exact {
 		return Value{}, false
 	}
-	// A library collection the model values with nothing holds nothing: a lower
-	// bound of 0 is met by none, a higher one by nothing.
-	if fewestOf(feature.Multiplicity) == 0 && ec.ctx.libraryDeclared(feature.Symbol) {
-		if feature.Scalar() {
+	// A behavior's parameter nothing has invoked is an unbound input whatever its
+	// multiplicity: the invocation supplies it (SysML v2 §7.17.2, KerML 1.0 §7.4.7).
+	if semantics.IsBehaviorParameter(feature.Symbol) {
+		return unsetFeatureValue(spelled, feature.Multiplicity, feature.Symbol), true
+	}
+	// A collection the model values with nothing holds nothing: a lower bound of 0
+	// is met by none, a higher one by nothing.
+	if feature.Multiplicity.Lower.Known && fewestOf(feature.Multiplicity) == 0 {
+		// A library scalar reads null, as its instance (`new P1().middleTimeSlice`) does.
+		if feature.Scalar() && ec.ctx.libraryDeclared(feature.Symbol) {
 			return nullValue(), true
 		}
 		if typed, ok := ec.ctx.emptyOfSymbol(feature.Symbol); ok {
