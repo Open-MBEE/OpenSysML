@@ -703,13 +703,8 @@ docs-engine-assets: ## Build the in-browser WebAssembly assets into docs/assets
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" docs/assets/
 	@echo "✓ Built docs/assets/sysml-wasm.wasm.gz, sysml-repl.wasm.gz, repl-examples/ + wasm_exec.js"
 
-# The landing page's diagram and router assets are built from the extension's
-# source rather than vendored; the diagram bundles the browser client from
-# client/node's source, so that package's dependencies are installed first —
-# with `npm install`, not `npm ci`: between a release's version bump and its tag
-# the client's platform packages are not on npm, and npm 11.6+ makes `npm ci`
-# refuse the lockfile that cannot lock them, while `npm install` skips an
-# optional dependency it cannot resolve and installs the rest from the lock.
+# The landing page's diagram bundles the browser client from client/node's source, so that
+# package is installed first; `npm install`, not `npm ci`, see node_install_test.go in tests/hygiene.
 docs-landing-assets: ## Build the landing-page diagram assets into docs/assets
 	cd $(NODE_DIR) && npm install --ignore-scripts --no-audit --no-fund
 	cd $(VSCODE_DIR) && npm ci && npm run build:landing

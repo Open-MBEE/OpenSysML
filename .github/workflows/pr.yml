@@ -917,10 +917,8 @@ jobs:
             editors/vscode/package-lock.json
             client/node/package-lock.json
 
-      # The landing bundle and its tests import the browser client from client/node's source.
-      # `npm install` rather than `npm ci`: npm 11.6+ makes `npm ci` refuse a lock file
-      # missing an optional dependency, the state a release branch is in until its tag
-      # publishes the platform packages; the lock must still be what the install resolves.
+      # The landing bundle and its tests import the browser client from client/node's source; `npm install`,
+      # not `npm ci`: npm 11.6+'s `npm ci` refuses a lock missing an optional dependency, a release branch's state.
       - name: Install the browser client's dependencies
         working-directory: client/node
         run: |
@@ -1159,11 +1157,8 @@ jobs:
 
       - name: Install the client's dependencies
         working-directory: client/node
-        # --ignore-scripts: no dependency of this client needs an install hook,
-        # and one added upstream would run here with the workflow's token.
-        # `npm install` rather than `npm ci`: npm 11.6+ makes `npm ci` refuse a lock file
-        # missing an optional dependency, the state a release branch is in until its tag
-        # publishes the platform packages; the lock must still be what the install resolves.
+        # --ignore-scripts: no dependency of this client needs an install hook, and one added upstream would
+        # run here with the workflow's token. `npm install`, not `npm ci`: see node_install_test.go in tests/hygiene.
         run: |
           npm install --ignore-scripts --no-audit --no-fund
           git diff --exit-code package-lock.json

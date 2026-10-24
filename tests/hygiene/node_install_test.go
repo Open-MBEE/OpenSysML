@@ -9,10 +9,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The packages whose manifests pin platform packages at their own version: between a
-// release's version bump and its tag those packages are not on npm, and npm 11.6+ makes
-// `npm ci` refuse a lockfile that cannot lock them. Their consumers install with
-// `npm install`, which skips an optional dependency it cannot resolve.
+// The packages pinning platform packages at their own version, which a release branch's lock cannot
+// lock before the tag publishes them; npm 11.6+'s `npm ci` refuses that, `npm install` skips them.
 var unpublishablePackageDirs = []string{"client/node", "packaging/npm/sysml-mcp"}
 
 const lockedInstall = "npm install --ignore-scripts --no-audit --no-fund"
@@ -26,10 +24,8 @@ func mentionsUnpublishablePackage(text string) bool {
 	return strings.Contains(text, "$(NODE_DIR)") || strings.Contains(text, "$(MCP_NPM_DIR)")
 }
 
-// TestClientInstallsSurviveUnpublishedPlatformPackages holds every consumer of client/node and
-// packaging/npm/sysml-mcp in the Makefile, the CircleCI config and the GitHub workflows to
-// `npm install` from the lockfile, and every CI step among them to proving the lockfile is
-// what the install resolved, which is the guarantee `npm ci` gave.
+// TestClientInstallsSurviveUnpublishedPlatformPackages: every Makefile, CircleCI and workflow consumer of
+// the two packages installs with `npm install`, and every CI step proves the lock unchanged, as `npm ci` did.
 func TestClientInstallsSurviveUnpublishedPlatformPackages(t *testing.T) {
 	installs, recipes := 0, 0
 

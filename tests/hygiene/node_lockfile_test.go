@@ -8,10 +8,8 @@ import (
 	"testing"
 )
 
-// TestNodeLockfileAgreesWithTheClientVersion: client/node's lockfile must declare what
-// package.json declares and must not lock an @openmbee package at another version than
-// package.json's; an @openmbee package absent from the lock is a platform package the
-// release has not published yet, which `npm install` skips (see node_install_test.go).
+// TestNodeLockfileAgreesWithTheClientVersion: client/node's lockfile declares what package.json declares and
+// locks no @openmbee package at another version; one absent is a platform package the tag has not published.
 func TestNodeLockfileAgreesWithTheClientVersion(t *testing.T) {
 	var manifest struct {
 		Version              string            `json:"version"`
