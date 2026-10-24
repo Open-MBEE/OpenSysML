@@ -88,9 +88,13 @@ commands:
   # HEAD as the main module's version in every binary it builds, so a test
   # binary with no linker stamp reports the release version rather than dev.
   # A rehearsal checks out a branch; this puts the tag it stands in for at
-  # HEAD, locally, so the suite builds exactly what the tag build will.
+  # HEAD, locally, so the suite builds exactly what the tag build will, and
+  # exports it as CIRCLE_TAG first, as a tag pipeline has it: the suite's
+  # tag-only checks read both, and a local tag without the variable reads as
+  # a release that is already out.
   rehearsal-checkout-tag:
     steps:
+      - rehearsal-tag
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
