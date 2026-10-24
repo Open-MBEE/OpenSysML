@@ -1433,9 +1433,8 @@ func (start *calcUsageStart) openInput() string {
 	return ""
 }
 
-// opensRun reports whether leaving this parameter unsupplied stops the usage computing:
-// a calc computes nothing without any input; a case runs without a subject or actor (they
-// read undetermined) and without an input whose range admits none.
+// opensRun reports whether leaving this parameter unsupplied stops the usage computing: a
+// case still runs without a subject, an actor or an input whose range admits none.
 func (shape *calcShape) opensRun(param *calcParameter, m *semantics.Model) bool {
 	if shape.isCase() && (param.IsSubject || param.IsActor || param.optional(m)) {
 		return false

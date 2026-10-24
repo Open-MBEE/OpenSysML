@@ -962,9 +962,8 @@ func (ctx *Context) bindCalcParameters(
 		var value Value
 		var source string
 		if open[param.Name] && shape.opensRun(param, ctx.model.semantics) {
-			// A usage read as a feature passes no arguments: an input whose absence stops the
-			// run binds undetermined, so a default reading it is open with it; one whose range
-			// admits none binds empty, as an omitted argument does.
+			// A feature read passes no arguments: an input whose absence stops the run binds
+			// undetermined (a default reading it is open with it); an optional one binds empty.
 			var count semantics.Range
 			if param.Sym != nil {
 				count = ctx.effectiveFeature(param.Name, param.Sym, shape.Sym).Multiplicity
