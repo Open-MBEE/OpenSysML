@@ -1,0 +1,17 @@
+{
+  "type": "instance",
+  "instantiate": "test::Join",
+  "libraries": true,
+  "slots": {
+    "ran": {"type": "Integer", "value": 111},
+    "bImmediate": {"type": "Integer", "value": 2},
+    "bAfterA": {"type": "Boolean", "value": true},
+    "bAfterC": {"type": "Boolean", "value": true},
+    "aImmediate": {"type": "Integer", "value": 1},
+    "cImmediate": {"type": "Integer", "value": 1},
+    "bBeforeA": {"type": "Boolean", "value": false},
+    "aPrecedesB": {"type": "Boolean", "value": true},
+    "cPrecedesB": {"type": "Boolean", "value": true},
+    "aEndPrecedesB": {"type": "Boolean", "value": true}
+  }
+}

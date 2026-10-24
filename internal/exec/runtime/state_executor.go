@@ -4905,6 +4905,11 @@ func (e *StateExecutor) deliverPendingSignal() (bool, error) {
 	if !ok {
 		return e.hasDueEvent(), nil
 	}
+	if accepting, err := e.materializeOccurrence(); err != nil {
+		return false, err
+	} else if err := e.ctx.recordTransfer(msg, accepting, e.self); err != nil {
+		return false, err
+	}
 	e.enqueueSignal(msg)
 	return true, nil
 }
@@ -5315,7 +5320,7 @@ func (e *StateExecutor) transitionReached(trans *lower.Transition, msg Message) 
 // occurrenceViaPort is the performance occurrence when a via not written from `this`
 // names a port the state definition owns and the performer holds none by that name.
 func (e *StateExecutor) occurrenceViaPort(holder *Instance, port string, viaSelf bool) *Instance {
-	if viaSelf || holder != e.self || e.occurrence == nil || e.occurrence == e.self || strings.Contains(port, ".") {
+	if viaSelf || e.self == nil || holder != e.self || e.occurrence == nil || e.occurrence == e.self || strings.Contains(port, ".") {
 		return nil
 	}
 	if fv, ok := e.self.FeatureValues[port]; ok && isPortFeature(fv.Feature) {

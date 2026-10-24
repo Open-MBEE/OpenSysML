@@ -422,6 +422,19 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 // occurrenceOf returns the object a usage denotes, materializing it once: a part
 // declared in a package names one occurrence, so reading its features twice
 // reads the same object.
+// beganWithRun dates the object a package-level usage denotes from the run's
+// first activation: it exists throughout the run, not from its first read.
+func (ctx *Context) beganWithRun(inst *Instance) {
+	l := ctx.lives[inst.ID]
+	if l.began <= 1 {
+		return
+	}
+	// reached stays where the read materialized it, so `create` can still start it there.
+	l.began, l.beganAt = 1, 0
+	ctx.lives[inst.ID] = l
+	ctx.livesChanged()
+}
+
 func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 	if objs, bound, err := ctx.namespaceBoundObjects(sym); err != nil {
 		return nil, err
@@ -446,6 +459,9 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 		return nil, err
 	}
 	ctx.occurrences[sym] = []int64{inst.ID}
+	if owner := sym.Owner(); owner == nil || owner.Kind == symbols.SymbolPackage {
+		ctx.beganWithRun(inst)
+	}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
 		return nil, err
 	}
@@ -862,6 +878,9 @@ func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopul
 		}
 		// Naming no feature value of the object is no materialization of one.
 		return nil, fmt.Errorf("%w: feature %q not found in instance %d (type %s)", ErrNoSuchFeature, name, inst.ID, inst.Type.Name)
+	}
+	if fv, err := inst.shotFeatureValue(ctx, name); fv != nil || err != nil {
+		return fv, err
 	}
 	fv, err := inst.materializeFeatureValue(ctx, name, open)
 	if err != nil {

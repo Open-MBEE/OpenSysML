@@ -61,6 +61,13 @@ type Message struct {
 	// definition the accept's own name denotes in the scope the accept is written
 	// in, so that its payload binds as a sent occurrence's does.
 	TypedByAccept bool
+	// Sender, SenderPerformance and SenderPort are the object, performance and port
+	// it was sent from (0 for none); SentAt the clock's time; Transfer its Transfer object.
+	Sender            int64
+	SenderPerformance int64
+	SenderPort        int64
+	SentAt            float64
+	Transfer          int64
 	// Payload binds features of the message's type by name, as the send's arguments did.
 	Payload map[string]Value
 	// Value is the one value a send of an expression carries (`send 7`, `send d`),
@@ -108,12 +115,22 @@ type Call struct {
 // A message posted with a destination but no Delivery — one injected from
 // outside the model — is held to the destination it names.
 func (ctx *Context) PostMessage(msg Message) {
-	ctx.postFrom(msg, nil, nil)
+	ctx.enqueue(msg, nil, nil)
 }
 
-// postFrom puts a message on the bus as PostMessage does, recording the object
-// and behavior that sent it in the trace; nil is a message from outside the run.
-func (ctx *Context) postFrom(msg Message, from *Instance, behavior *symbols.Symbol) {
+// postFrom puts a message the object from sent on the bus as PostMessage does,
+// beginning the Transfer the send starts; from is nil for one from outside the run.
+func (ctx *Context) postFrom(msg Message, from *Instance, behavior *symbols.Symbol) error {
+	msg.Sender, msg.SentAt = objectID(from), ctx.clock.Now()
+	if err := ctx.beginTransfer(&msg); err != nil {
+		return err
+	}
+	ctx.enqueue(msg, from, behavior)
+	return nil
+}
+
+// enqueue puts msg on the bus, recording the sender and behavior in the trace.
+func (ctx *Context) enqueue(msg Message, from *Instance, behavior *symbols.Symbol) {
 	if msg.Delivery == deliverAnyone {
 		msg.Delivery = deliveryOf(msg)
 	}
@@ -457,8 +474,16 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 	if receiverObjects != nil && len(copies) == 0 {
 		return &unreachableSendReceiverError{Port: send.Target, Receiver: exprText(send.ReceiverExpr)}
 	}
+	var performance int64
+	if ec != nil {
+		performance = objectID(ec.occurrence)
+	}
+	port, _ := ctx.portInstanceID(holder, routed.Target)
 	for _, c := range copies {
-		ctx.postFrom(c.msg, c.from, behavior)
+		c.msg.SenderPerformance, c.msg.SenderPort = performance, port
+		if err := ctx.postFrom(c.msg, c.from, behavior); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -774,7 +799,9 @@ func (ctx *Context) postAt(msg Message, addrs []messageAddress, self *Instance, 
 		copies = append(copies, copied)
 	}
 	for _, copied := range copies {
-		ctx.postFrom(copied, self, behavior)
+		if err := ctx.postFrom(copied, self, behavior); err != nil {
+			return err
+		}
 	}
 	return nil
 }

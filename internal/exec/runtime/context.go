@@ -38,6 +38,12 @@ type Context struct {
 	created    []int64
 	// lives holds, per registered object, when it began and ended (lifetimes.go).
 	lives map[int64]life
+	// shots holds, per object, the start and end snapshots handed out for it (occurrence_shots.go).
+	shots map[int64]occurrenceShots
+	// fired holds, per performance, the performances whose end let a succession start it (occurrence_successions.go).
+	fired map[int64][]int64
+	// transfers holds the Transfer performances the run completed, oldest first (occurrence_transfers.go).
+	transfers []transferRecord
 	// lifetimes stands for the lives as a `=` value reads them, to derive again when they change.
 	lifetimes FeatureValue
 
@@ -408,6 +414,8 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		maxSteps:  maxSteps,
 		instances: make(map[int64]*Instance),
 		lives:     make(map[int64]life),
+		shots:     make(map[int64]occurrenceShots),
+		fired:     make(map[int64][]int64),
 
 		compileCalcs: calcCompileFromEnv(),
 

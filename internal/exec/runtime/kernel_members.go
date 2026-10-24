@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -137,18 +138,73 @@ func (ctx *Context) trackedKernelValue(inst *Instance, sym *symbols.Symbol, feat
 		val, err := ctx.objectValue(inst)
 		return val, false, true, err
 	}
-	if feat.Scalar() || !ctx.subsetsTransitively(self, inst.Type, sym) {
+	if feat.Scalar() {
+		if val, ok, err := ctx.shotValue(inst, sym, feat); ok {
+			return val, false, true, err
+		}
+		val, ok, err := ctx.transferEndValue(inst, sym)
+		return val, false, ok, err
+	}
+	if val, ok := ctx.timeOrderOpen(inst, sym, feat); ok {
+		return val, false, true, nil
+	}
+	var held []Value
+	if ctx.subsetsTransitively(self, inst.Type, sym) {
+		val, err := ctx.objectValue(inst)
+		if err != nil {
+			return Value{}, false, true, err
+		}
+		held = append(held, val)
+	}
+	var shots []Value
+	if ctx.shotsCollection(sym) {
+		if shots, err = ctx.happenedShots(inst); err != nil {
+			return Value{}, false, true, err
+		}
+		if len(held) == 0 && len(shots) == 0 {
+			return undeterminedFeatureValue(fmt.Sprintf("%s has not started: no snapshot of it has happened", SymbolText(inst.Type)), feat.Multiplicity, sym), false, true, nil
+		}
+	} else if fired, ok, err := ctx.recordedValues(inst, sym); ok {
+		if err != nil {
+			return Value{}, false, true, err
+		}
+		held = append(held, fired...)
+		if len(held) == 0 {
+			return ctx.collectionOf(feat, nil), false, true, nil
+		}
+	} else if len(held) == 0 {
 		return Value{}, false, false, nil
 	}
-	val, err = ctx.objectValue(inst)
+	values, stopped, err := ctx.shapeContributions(inst, sym, feat, held, open)
 	if err != nil {
 		return Value{}, false, true, err
 	}
-	values, stopped, err := ctx.shapeContributions(inst, sym, feat, []Value{val}, open)
-	if err != nil {
-		return Value{}, false, true, err
+	// The snapshots follow the object and what its shape features hold.
+	for _, shot := range shots {
+		if !slices.ContainsFunc(values, func(v Value) bool { return v.Kind == ValInstance && v.Instance == shot.Instance }) {
+			values = append(values, shot)
+		}
+	}
+	if ctx.shotsCollection(sym) {
+		// Its startShot and endShot [1] exist and have not happened (Occurrences.kerml `snapshots`).
+		switch l := ctx.lives[inst.ID]; {
+		case l.began == 0:
+			return openKernelCollection(feat, sym, values, fmt.Sprintf("%s has not started: its startShot has not happened", SymbolText(inst.Type))), stopped, true, nil
+		case len(shots) > 0 && l.alive():
+			return openKernelCollection(feat, sym, values, fmt.Sprintf("%s has not ended: its endShot has not happened", SymbolText(inst.Type))), stopped, true, nil
+		}
 	}
 	return ctx.collectionOf(feat, values), stopped, true, nil
+}
+
+// openKernelCollection is a collection member the run has not closed: undetermined,
+// certainly holding known and at least one value more.
+func openKernelCollection(feat *EffectiveFeature, sym *symbols.Symbol, known []Value, reason string) Value {
+	count := feat.Multiplicity
+	if fewest := int64(len(known)) + 1; fewest > fewestOf(count) {
+		count.Lower = semantics.Bound{Value: fewest, Known: true}
+	}
+	return Value{Kind: ValUndetermined, ref: &Undetermined{reason: reason, count: count, known: known, positions: known, feature: sym}}
 }
 
 // kernelDeclaredValue evaluates the value the library declares for the member —
@@ -227,6 +283,10 @@ func (ctx *Context) kernelInverseValue(inst *Instance, sym *symbols.Symbol, feat
 		}
 		if hasSelf && ctx.subsetsTransitively(self, inst.Type, target) {
 			values = append(values, Value{Kind: ValInstance, Instance: inst.ID})
+		}
+		if occurrence, isShot := ctx.shotOccurrence(inst.ID); isShot && ctx.shotsCollection(target) {
+			// A shot is a snapshot, time slice and portion of the occurrence it was handed out for.
+			values = append(values, Value{Kind: ValInstance, Instance: occurrence})
 		}
 		if !compositeFeature(target) {
 			continue

@@ -25,7 +25,7 @@ outsideOfOccurrences: empty
 ownedPerformances: collection of 2
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
+portions: undetermined <undetermined>
 predecessors: empty
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
@@ -33,7 +33,7 @@ self: object (the receiver)
 snapshotOf: empty
 snapshots: undetermined <undetermined>
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: undetermined <undetermined>
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -41,21 +41,21 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: undetermined <undetermined>
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
+start: object of Probe::p1
 structuredSpaceBoundary: null
 subobjects: collection of 3
 suboccurrences: collection of 5
-successors: empty
+successors: undetermined <undetermined>
 superoccurrence: null
 surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 4
+timeEnclosedOccurrences: undetermined <undetermined>
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: undetermined <undetermined>
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -86,7 +86,7 @@ outsideOfOccurrences: empty
 ownedPerformances: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
+portions: undetermined <undetermined>
 predecessors: empty
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
@@ -94,7 +94,7 @@ self: object (the receiver)
 snapshotOf: empty
 snapshots: undetermined <undetermined>
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: undetermined <undetermined>
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -102,21 +102,21 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: undetermined <undetermined>
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
+start: object of Probe::P1::pa
 structuredSpaceBoundary: null
 subobjects: empty
 suboccurrences: empty
-successors: empty
+successors: undetermined <undetermined>
 superoccurrence: object (the owner)
 surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: undetermined <undetermined>
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: undetermined <undetermined>
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -147,7 +147,7 @@ outsideOfOccurrences: empty
 ownedPerformances: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
+portions: undetermined <undetermined>
 predecessors: empty
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
@@ -155,7 +155,7 @@ self: object (the receiver)
 snapshotOf: empty
 snapshots: undetermined <undetermined>
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: undetermined <undetermined>
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -163,21 +163,21 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: undetermined <undetermined>
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
+start: object of Probe::P1::ia
 structuredSpaceBoundary: null
 subobjects: empty
 suboccurrences: empty
-successors: empty
+successors: undetermined <undetermined>
 superoccurrence: object (the owner)
 surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: undetermined <undetermined>
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: undetermined <undetermined>
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -209,7 +209,7 @@ outsideOfOccurrences: empty
 ownedPerformances: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
+portions: undetermined <undetermined>
 predecessors: empty
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
@@ -218,7 +218,7 @@ snapshotOf: empty
 snapshots: undetermined <undetermined>
 spaceBoundary: null
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: undetermined <undetermined>
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -226,21 +226,21 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: undetermined <undetermined>
 spaceTimeEnclosedPoints: undetermined <undetermined>
 startShot: undetermined <undetermined>
 structuredSpaceBoundary: null
 subobjects: empty
 suboccurrences: empty
-successors: empty
+successors: undetermined <undetermined>
 superoccurrence: null
 surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: undetermined <undetermined>
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: undetermined <undetermined>
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -272,8 +272,8 @@ outsideOfOccurrences: empty
 performers: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
-predecessors: empty
+portions: undetermined <undetermined>
+predecessors: collection of 8
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
 self: object (the receiver)
@@ -281,7 +281,7 @@ snapshotOf: empty
 snapshots: undetermined <undetermined>
 spaceBoundary: null
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: undetermined <undetermined>
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -289,21 +289,21 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: undetermined <undetermined>
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
+start: object of Probe::P1::act
 suboccurrences: empty
 subperformances: empty
-successors: empty
+successors: undetermined <undetermined>
 superoccurrence: null
 surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 thisPerformance: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: undetermined <undetermined>
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: undetermined <undetermined>
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -342,8 +342,8 @@ outsideOfOccurrences: empty
 performers: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
-predecessors: empty
+portions: undetermined <undetermined>
+predecessors: collection of 9
 runToCompletionScope: undetermined <undetermined>
 sameLifeOccurrences: collection of 1
 self: object (the receiver)
@@ -351,7 +351,7 @@ snapshotOf: empty
 snapshots: undetermined <undetermined>
 spaceBoundary: null
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: undetermined <undetermined>
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -359,21 +359,21 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: undetermined <undetermined>
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
+start: object of Probe::P1::st
 suboccurrences: empty
 subperformances: empty
-successors: empty
+successors: undetermined <undetermined>
 superoccurrence: null
 surroundedByOccurrences: empty
 that: undetermined <undetermined>
 this: object (the receiver)
 thisPerformance: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 1
+timeEnclosedOccurrences: undetermined <undetermined>
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: undetermined <undetermined>
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -405,8 +405,8 @@ outsideOfOccurrences: empty
 performers: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
-portions: collection of 1
-predecessors: empty
+portions: undetermined <undetermined>
+predecessors: collection of 11
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
 self: object (the receiver)
@@ -414,7 +414,7 @@ snapshotOf: empty
 snapshots: undetermined <undetermined>
 spaceBoundary: null
 spaceBoundaryOf: empty
-spaceEnclosedOccurrences: collection of 1
+spaceEnclosedOccurrences: undetermined <undetermined>
 spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
@@ -422,20 +422,20 @@ spaceShots: undetermined <undetermined>
 spaceSliceOf: collection of 1
 spaceSlices: collection of 1
 spaceTimeCoincidentOccurrences: collection of 1
-spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: undetermined <undetermined>
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
+start: object of Probe::A
 suboccurrences: collection of 2
 subperformances: collection of 2
-successors: empty
+successors: undetermined <undetermined>
 superoccurrence: null
 surroundedByOccurrences: empty
 this: object (the receiver)
 thisPerformance: object (the receiver)
 timeCoincidentOccurrences: collection of 1
-timeEnclosedOccurrences: collection of 3
+timeEnclosedOccurrences: undetermined <undetermined>
 timeSliceOf: collection of 1
-timeSlices: collection of 1
+timeSlices: undetermined <undetermined>
 unionsOf: empty
 withoutOccurrences: empty
 
@@ -468,7 +468,7 @@ performers: empty
 portionOf: undetermined <undetermined>
 portionOfLife: undetermined <undetermined>
 portions: undetermined <undetermined>
-predecessors: empty
+predecessors: undetermined <undetermined>
 runToCompletionScope: undetermined <undetermined>
 sameLifeOccurrences: undetermined <undetermined>
 self: undetermined <undetermined>
@@ -489,7 +489,7 @@ spaceTimeEnclosedPoints: undetermined <undetermined>
 start: undetermined <undetermined>
 suboccurrences: undetermined <undetermined>
 subperformances: undetermined <undetermined>
-successors: empty
+successors: undetermined <undetermined>
 superoccurrence: null
 surroundedByOccurrences: empty
 this: undetermined <undetermined>

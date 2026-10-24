@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 var (
@@ -23,10 +25,12 @@ var (
 // life is the lifetime of one occurrence in the runtime's execution order, kept
 // beside the instances so the Kernel Semantic Library's frame stays off them.
 type life struct {
-	reached   int64 // the activation the runtime materialized the object at
-	began     int64 // the activation the occurrence began at
-	ended     int64 // the activation the occurrence ended at, 0 while it lives
-	destroyed bool  // ended by `destroy`, after which its features are not read
+	reached   int64   // the activation the runtime materialized the object at
+	began     int64   // the activation the occurrence began at
+	ended     int64   // the activation the occurrence ended at, 0 while it lives
+	destroyed bool    // ended by `destroy`, after which its features are not read
+	beganAt   float64 // the shared clock's time when the occurrence began
+	endedAt   float64 // the shared clock's time when the occurrence ended
 }
 
 // alive reports whether the occurrence has begun and not ended.
@@ -144,14 +148,46 @@ func (ctx *Context) OccurrenceLife(id int64) (OccurrenceLife, bool) {
 // with it, however late it is first read; anything else begins now.
 func (ctx *Context) beginLife(inst *Instance) {
 	now := ctx.newActivation()
-	l := life{reached: now, began: now}
+	if ctx.unbegunPerformance(inst) {
+		ctx.lives[inst.ID] = life{reached: now}
+		ctx.livesChanged()
+		return
+	}
+	l := life{reached: now, began: now, beganAt: ctx.clock.Now()}
 	if inst.owner != nil {
 		if owner, ok := ctx.lives[inst.owner.ID]; ok && owner.began != 0 {
-			l.began, l.ended, l.destroyed = owner.began, owner.ended, owner.destroyed
+			l.began, l.ended, l.destroyed, l.beganAt, l.endedAt = owner.began, owner.ended, owner.destroyed, owner.beganAt, owner.endedAt
 		}
 	}
 	ctx.lives[inst.ID] = l
 	ctx.livesChanged()
+}
+
+// unbegunPerformance reports inst materialized as the performance of a behavior of
+// its owner that has not begun: it is reached now and begins when the behavior does.
+func (ctx *Context) unbegunPerformance(inst *Instance) bool {
+	owner := inst.owner
+	if owner == nil {
+		return false
+	}
+	fv, ok := owner.FeatureValues[inst.ownerFeature]
+	if !ok || fv.Feature == nil || fv.Feature.Symbol == nil {
+		return false
+	}
+	sym := fv.Feature.Symbol
+	if sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage {
+		return false
+	}
+	for _, b := range owner.behaviors {
+		if b.member == nil {
+			continue
+		}
+		if b.member == sym || b.member.Decl == sym.Decl || declaresAny(b.bindings, sym) ||
+			declaresAny(ctx.redefinedFeatures(b.member, owner.Type), sym) {
+			return !ctx.behaviorPerformanceBegun(b)
+		}
+	}
+	return false
 }
 
 // createDuring starts inst during the call entered at mark: only an object the
@@ -171,12 +207,12 @@ func (ctx *Context) createDuring(op string, inst *Instance, mark int64) error {
 		return fmt.Errorf("%w: function %s: object #%d (%s) began at %d, before the call",
 			errOccurrenceLifetime, writtenName(op), inst.ID, SymbolText(inst.Type), prior.began)
 	}
-	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.reached}
+	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.reached, beganAt: ctx.clock.Now()}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
 	ctx.livesChanged()
 	for _, portion := range ctx.portionsOf(inst)[1:] {
 		if held := ctx.lives[portion.ID]; held.began < prior.reached {
-			ctx.lives[portion.ID] = life{reached: held.reached, began: prior.reached, ended: held.ended, destroyed: held.destroyed}
+			ctx.lives[portion.ID] = life{reached: held.reached, began: prior.reached, ended: held.ended, destroyed: held.destroyed, beganAt: ctx.clock.Now(), endedAt: held.endedAt}
 			ctx.noteProbeUndo(func() { ctx.lives[portion.ID] = held })
 		}
 	}
@@ -203,7 +239,7 @@ func (ctx *Context) destroy(inst *Instance) error {
 			continue
 		}
 		ended[portion.ID] = true
-		ctx.lives[portion.ID] = life{reached: prior.reached, began: prior.began, ended: at, destroyed: true}
+		ctx.lives[portion.ID] = life{reached: prior.reached, began: prior.began, ended: at, destroyed: true, beganAt: prior.beganAt, endedAt: ctx.clock.Now()}
 		ctx.noteProbeUndo(func() { ctx.lives[portion.ID] = prior })
 		if ctx.trace != nil {
 			ctx.trace.recordOccurrenceDestroyed(SymbolText(portion.Type), portion.ID)
@@ -318,7 +354,7 @@ func (ctx *Context) beginPerformanceLife(inst *Instance, activation int64) {
 	if !ok || prior.ended != 0 {
 		return
 	}
-	ctx.lives[inst.ID] = life{reached: prior.reached, began: activation}
+	ctx.lives[inst.ID] = life{reached: prior.reached, began: activation, beganAt: ctx.clock.Now()}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
 	ctx.livesChanged()
 	ctx.workChanged()
@@ -334,7 +370,7 @@ func (ctx *Context) endPerformanceLife(inst *Instance) {
 	if !ok || prior.ended != 0 {
 		return
 	}
-	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.began, ended: ctx.newActivation()}
+	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.began, ended: ctx.newActivation(), beganAt: prior.beganAt, endedAt: ctx.clock.Now()}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
 	ctx.livesChanged()
 	ctx.workChanged()
@@ -348,7 +384,7 @@ func (ctx *Context) carryLife(prev *Context, inst *Instance) {
 	}
 	if l, ok := prev.lives[inst.ID]; ok && l.destroyed {
 		here := ctx.lives[inst.ID]
-		ctx.lives[inst.ID] = life{reached: here.reached, began: here.began, ended: ctx.newActivation(), destroyed: true}
+		ctx.lives[inst.ID] = life{reached: here.reached, began: here.began, ended: ctx.newActivation(), destroyed: true, beganAt: here.beganAt, endedAt: ctx.clock.Now()}
 		ctx.livesChanged()
 	}
 }
