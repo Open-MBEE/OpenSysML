@@ -211,10 +211,8 @@ func testVerificationObjectiveSubjectRebound(t *testing.T) {
 	}
 }
 
-// testVerificationRunsOncePerRepeatedObject: a case a definition owns is a feature of every
-// object of the definition, so the bolts four repeated wheels hold are four runs on four
-// objects, while a check naming the bolt's constraint still resolves the four to one subject;
-// instantiating the car again runs the case on the latest car's bolts, the one root a usage has.
+// testVerificationRunsOncePerRepeatedObject: four repeated wheels' bolts are four runs while a check
+// resolves them to one subject; instantiating the car again runs on the latest car's bolts only.
 func testVerificationRunsOncePerRepeatedObject(t *testing.T) {
 	src := `
 		package test {
