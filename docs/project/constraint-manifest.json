@@ -2084,10 +2084,10 @@
         "document": "sysml",
         "clause": "8.3.16.3"
       },
-      "checks": "A flow is typed by flow definitions",
+      "checks": "A flow is typed by flow definitions, in the `flow` and `message` spellings alike: a message declaration is an abstract flow usage (§8.4.12.2), so `message m : Note` with `Note` an item definition is reported as `flow f : Note` is; `message m of Note` names the payload type, not a typing, and is silent",
       "implementation": "internal/check/passes/typecheck.go:compatibleTyping (messages in internal/check/passes/w10b_usage_typing.go:pilotTypingMessage)",
       "message": "—",
-      "negativeCase": "`semantic/s19-flow-typed-by-connection-def.sysml`",
+      "negativeCase": "`semantic/s19-flow-typed-by-connection-def.sysml`, `semantic/s19b-message-typed-by-item-def.sysml`",
       "codes": [
         "usage-typing"
       ],

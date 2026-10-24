@@ -118,7 +118,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 344
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 345
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -166,7 +166,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-344 case(s): 332 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
+345 case(s): 333 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
   of which 4 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -174,7 +174,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 12 | 12 | 0 | 0 | 0 |
 | grammar | 112 | 112 | 0 | 0 | 0 |
-| semantic | 185 | 173 | 0 | 12 | 0 |
+| semantic | 186 | 174 | 0 | 12 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the twelve ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -295,7 +295,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 344 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 345 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 
@@ -652,7 +652,7 @@ for the gaps, and names where in OpenSysML the rule would have to fire.
 | `validateExposeIsImportAll` | none: `ExposeImpl` constructs every expose with `isImportAll = true` | no violating model | — | — | — |
 | `validateExposeOwningNamespace` | `grammar/g67-expose-outside-view-body.sysml` | both-reject | mismatched input 'expose' expecting '}' / extraneous input '}' expecting EOF | expose is only allowed in a view usage body (SysML v2 8.3.26.2) | — |
 | `validateFlowDefinitionConnectionEnds` | `semantic/s18-flow-def-three-ends.sysml` | both-reject | A flow connection definition can have at most two ends. | A flow connection definition can have at most two ends. | — |
-| `validateFlowUsageType` | `semantic/s19-flow-typed-by-connection-def.sysml` | both-reject | A flow connection must be typed by flow connection definitions. | A flow connection must be typed by flow connection definitions. | — |
+| `validateFlowUsageType` | `semantic/s19-flow-typed-by-connection-def.sysml`, `semantic/s19b-message-typed-by-item-def.sysml` | both-reject | A flow connection must be typed by flow connection definitions. | A flow connection must be typed by flow connection definitions. | the `message` spelling is an abstract flow usage (SysML 8.4.12.2) and draws the same error from both; `message m of Note` names the payload type and is silent in both |
 | `validateForLoopActionUsageLoopVariable` | none: `ForLoopNode` always parses the loop variable | no violating model | — | — | — |
 | `validateForLoopActionUsageParameters` | none: `ForLoopNode` always parses both parameters | no violating model | — | — | — |
 | `validateFramedConcernMembershipConstraintKind` | none: `frame` fixes `kind = requirement` in the grammar | no violating model | — | — | — |
