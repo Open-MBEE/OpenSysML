@@ -167,9 +167,18 @@ function markers(): SVGDefsElement {
 // is marked movable when a Layout can name the node, and included when the panel rather
 // than the view drew the node. A node clipped by its owner's stated size is not drawn.
 function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): void {
-  if (entry.clipped) {
-    return;
+  if (!entry.clipped) {
+    parent.append(nodeGroup(entry, layout));
   }
+  if (!entry.collapsed) {
+    for (const child of entry.children) {
+      drawNode(parent, child, layout);
+    }
+  }
+}
+
+// nodeGroup is a node's own drawing: its shape and label, or the pin it is drawn as.
+function nodeGroup(entry: PlacedNode, layout: CanvasLayout): SVGGElement {
   const group = element("g", {
     class: `opensysml-node${movable(layout, entry) ? " movable" : ""}${entry.node.included ? " included" : ""}`,
     "data-opensysml-id": entry.node.id,
@@ -177,8 +186,7 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
   });
   if (entry.snapped && entry.parent) {
     group.append(...pinGraphic(entry.parent.box, entry.snapped, entry.parent));
-    parent.append(group);
-    return;
+    return group;
   }
   const { box } = entry;
   if (entry.lifeline !== undefined) {
@@ -209,12 +217,7 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
     mark.textContent = "+";
     group.append(mark);
   }
-  parent.append(group);
-  if (!entry.collapsed) {
-    for (const child of entry.children) {
-      drawNode(parent, child, layout);
-    }
-  }
+  return group;
 }
 
 function drawPort(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode): SVGGElement {

@@ -571,10 +571,14 @@ function clip(entry: PlacedNode, shown: PlacedNode[]): void {
   }
 }
 
+// markClipped leaves a node undrawn with the members under it that have no place of their
+// own; a member the model places is drawn where it says, its owner's box or not.
 function markClipped(entry: PlacedNode): void {
   entry.clipped = true;
   for (const child of entry.children) {
-    markClipped(child);
+    if (!child.pinned) {
+      markClipped(child);
+    }
   }
 }
 
@@ -1591,9 +1595,13 @@ function routeEdge(
   };
 }
 
-// pinFace is where an edge meets a port node pinned on its owner's border: the pin's outer face.
+// pinFace is where an edge meets a port node pinned on its owner's border: the pin's outer
+// face, while the pin sits there; a pin a gesture lifts off the border is met on its own box.
 function pinFace(entry: PlacedNode | undefined): RenderPoint | undefined {
-  return entry?.snapped && entry.parent ? portFace(entry.parent.box, entry.snapped) : undefined;
+  if (!entry?.snapped || !entry.parent || !sameBox(portBox(entry.parent.box, entry.snapped), entry.box)) {
+    return undefined;
+  }
+  return portFace(entry.parent.box, entry.snapped);
 }
 
 function sameBox(a: Box | undefined, b: Box): boolean {
@@ -1701,15 +1709,17 @@ function rerouteAroundBoxes(
   // obstacles, so two edges in different passes are not nudged apart.
   const leaves = new Map<string, Box>();
   const containers = new Map<string, Box>();
+  // A pin on the border is part of its owner's shape, not a box of its own; a clipped
+  // node has no box, but a placed member under it is drawn and does.
   const visit = (entry: PlacedNode): void => {
-    if (undrawn(entry)) {
-      return;
-    }
-    // A pin on the border is part of its owner's shape, not a box of its own.
     const shown = entry.children.filter((child) => !undrawn(child) && !child.snapped);
-    (shown.length === 0 ? leaves : containers).set(entry.node.id, entry.box);
-    for (const child of shown) {
-      visit(child);
+    if (!undrawn(entry)) {
+      (shown.length === 0 ? leaves : containers).set(entry.node.id, entry.box);
+    }
+    for (const child of entry.children) {
+      if (!child.snapped) {
+        visit(child);
+      }
     }
   };
   for (const root of roots) {
@@ -1888,10 +1898,10 @@ export function nodeUnder(
 ): PlacedNode | undefined {
   let found: PlacedNode | undefined;
   const visit = (entry: PlacedNode): void => {
-    if (undrawn(entry) || entry.node.id === except) {
+    if (entry.node.id === except) {
       return;
     }
-    if (contains(entry.box, at)) {
+    if (!undrawn(entry) && contains(entry.box, at)) {
       found = entry;
     }
     for (const child of entry.children) {
@@ -2001,6 +2011,13 @@ export function liftedEdges(
     }
   };
   visit(entry);
+  // A lifted pin's face is read off its owner's box, so the copies own each other.
+  for (const id of subtree) {
+    const copy = placed.get(id)!;
+    if (copy.parent && subtree.has(copy.parent.node.id)) {
+      copy.parent = placed.get(copy.parent.node.id);
+    }
+  }
   const out: PlacedEdge[] = [];
   for (const edge of layout.edges) {
     const from = subtree.has(edge.edge.from);

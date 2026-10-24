@@ -3818,3 +3818,38 @@ test("layoutCanvas keeps a port the model places in its stated box, and one with
   assert.ok(nested.box.y >= b.box.y && nested.box.y + nested.box.height <= b.box.y + b.box.height);
   pinnedOn(layout.nodes.get("sub")!, nested);
 });
+
+test("layoutCanvas draws a placed member of a clipped child where the model puts it, with its edges", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "a", { x: 10, y: 10, width: 120, height: 60 }),
+        node("inner", "inner", { parent: "a" }),
+        node("sensor", "sensor", { parent: "inner", x: 400, y: 100 }),
+        node("c", "c", { x: 400, y: 300 }),
+      ],
+      [{ from: "sensor", to: "c", label: "", kind: "connection", fqn: "M::sc" }],
+    ),
+  );
+  const inner = layout.nodes.get("inner")!;
+  const sensor = layout.nodes.get("sensor")!;
+  assert.equal(inner.clipped, true);
+  assert.equal(sensor.clipped, false);
+  assert.deepEqual([sensor.box.x, sensor.box.y], [400, 100]);
+  assert.equal(layout.edges[0].hidden, false);
+  assert.equal(nodeUnder(layout, { x: 401, y: 101 })?.node.id, "sensor");
+  assert.ok(layout.width >= 400 + sensor.box.width + MARGIN);
+  assert.deepEqual(layout.notices, ["1 node(s) with no room in the stated size of the box above them, left undrawn"]);
+});
+
+test("liftedEdges anchors a connector at a lifted owner's pin, and on a pin lifted off its border", () => {
+  const layout = layoutCanvas(sizedOwner("interconnection"));
+  const a = layout.nodes.get("a")!;
+  const p1 = layout.nodes.get("p1")!;
+  const [lifted] = liftedEdges(layout, "a", 100, 30);
+  const movedA = { ...a.box, x: a.box.x + 100, y: a.box.y + 30 };
+  assert.deepEqual(lifted.points[0], portFace(movedA, p1.snapped!));
+  const [pinLifted] = liftedEdges(layout, "p1", 50, 0);
+  const start = pinLifted.points[0];
+  assert.ok(start.x >= p1.box.x + 50 && start.x <= p1.box.x + 50 + PORT_SIZE, `anchored on the lifted pin, not at ${JSON.stringify(start)}`);
+});
