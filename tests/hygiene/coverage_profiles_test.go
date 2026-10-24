@@ -14,8 +14,7 @@ var (
 )
 
 // TestCoverageIntermediatesCannotBeAShardProfile: make coverage-shard collects into
-// coverage-<shard>.txt, so every intermediate the coverage recipe writes must live under
-// GO_COUNTER_DIR and bear no shard's name (the tools shard once overwrote and then appended its own profile without end).
+// coverage-<shard>.txt, so the recipe's intermediates live under GO_COUNTER_DIR and bear no shard's name.
 func TestCoverageIntermediatesCannotBeAShardProfile(t *testing.T) {
 	makefile := readRepoFile(t, "Makefile")
 	recipe := makefileCoverageRecipe.FindString(makefile)
